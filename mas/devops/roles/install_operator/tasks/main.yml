@@ -1,0 +1,64 @@
+---
+
+# 1. Create namespace we will deploy to
+- name: "Create namespace"
+  community.kubernetes.k8s:
+    api_version: v1
+    kind: Namespace
+    name: '{{ namespace }}'
+
+
+# 2. Create an image pull secret for local artifactory so that we can install from the development catalog
+- name: "Create wiotp-docker-local secret"
+  when:
+    catalog_type == "development"
+  vars:
+    artifactoryAuthStr: "{{artifactory_username}}:{{artifactory_apikey}}"
+    artifactoryAuth: "{{ artifactoryAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"wiotp-docker-local.artifactory.swg-devops.com": {"username":"{{artifactory_username}}","password":"{{artifactory_apikey}}","auth":"{{artifactoryAuth}}"}'
+      - '}'
+      - '}'
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: wiotp-docker-local
+        namespace: '{{ namespace }}'
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
+  register: result
+
+# 3. Patch the default service account in this namespace so that it is able to pull from Artifactory
+- name: "Patch default SA"
+  when:
+    catalog_type == "development"
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: default
+        namespace: '{{ namespace }}'
+      imagePullSecrets:
+        - name: wiotp-docker-local
+
+# 4. Create the operator group that will scope the operator
+- name: "Create operator group"
+  community.kubernetes.k8s:
+    definition: "{{ operator_group }}"
+    wait: yes
+    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
+
+# 5. Create the subscription for the operator
+- name: "Create subscription"
+  community.kubernetes.k8s:
+    definition: "{{ subscription }}"
+    wait: yes
+    wait_timeout: 300
+    wait_condition:
+      type: 'CatalogSourcesUnhealthy'
+      status: "False"

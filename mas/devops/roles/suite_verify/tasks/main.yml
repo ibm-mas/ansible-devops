@@ -1,0 +1,86 @@
+---
+# tasks file for suite
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if instance_id is not provided"
+  when: instance_id is not defined or instance_id == ""
+  fail:
+    msg: "instance_id property is required"
+
+
+# 2. Configure target namespace
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_namespace: "mas-{{ instance_id }}-core"
+
+
+# 3. Follow Suite Status
+# -----------------------------------------------------------------------------
+- name: "Follow Suite status until it get Fully setup (retry every 20s)"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: "{{instance_id}}"
+    namespace: "{{mas_namespace}}"
+    kind: Suite
+  register: _suite_cr_result
+  until:
+   - _suite_cr_result.resources[0].status is defined
+   - (_suite_cr_result.resources[0].status.conditions | length == 5)
+   - _suite_cr_result.resources[0].status.conditions[0].status == 'True'
+   - _suite_cr_result.resources[0].status.conditions[1].status == 'True'
+   - _suite_cr_result.resources[0].status.conditions[2].status == 'True'
+   - _suite_cr_result.resources[0].status.conditions[3].status == 'True'
+  retries: 30
+  delay: 60
+
+# Can we also work out what configs to watch state of? ...
+#- name: "config: Lookup for SMTPCfg readiness"
+#  community.kubernetes.k8s_info:
+#    api_version: v1
+#    name: "{{instance_id}}-smtp-system"
+#    namespace: "{{mas_namespace}}"
+#    kind: SmtpCfg
+#  register: _smtpcfg_result
+#  until:
+#    - _smtpcfg_result.resources[0].status is defined
+#    - _smtpcfg_result.resources[0].status.conditions[0].status == 'True'
+#  retries: 10
+#  delay: 60
+
+#- name: "config: Lookup for IDPCfg readiness"
+#  community.kubernetes.k8s_info:
+#    api_version: v1
+#    name: "{{instance_id}}-ldap-default-system"
+#    namespace: "{{mas_namespace}}"
+#    kind: IDPCfg
+#  register: _idpcfg_result
+#  until:
+#    - _idpcfg_result.resources[0].status is defined
+#    - _idpcfg_result.resources[0].status.conditions[0].status == 'True'
+#  retries: 10
+#  delay: 60
+
+
+
+# 4. Lookup for superuser credentials
+# -----------------------------------------------------------------------------
+- name: "Lookup for MAS superuser credentials"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{instance_id}}-credentials-superuser"
+    namespace: "{{mas_namespace}}"
+  register: _superuser_credentials
+
+
+# 5. Print MAS login information
+# -----------------------------------------------------------------------------
+- debug:
+    msg:
+      - "Maximo Application is Ready, use the superuser credentials to authenticate"
+      - "Superuser Credentials:"
+      - "Username: .... {{_superuser_credentials.resources[0].data.username | b64decode }}"
+      - "Password: .... {{_superuser_credentials.resources[0].data.password | b64decode }}"
+      - "Admin Url: ... https://admin.{{domain}}"

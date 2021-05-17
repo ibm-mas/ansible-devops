@@ -1,0 +1,29 @@
+# For Manage
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: "{{jdbc_secret_name}}"
+  namespace: "mas-{{instance_id}}-core"
+stringData:
+  username: "{{ jdbc_username }}"
+  password: "{{ jdbc_password }}"
+---
+apiVersion: config.mas.ibm.com/v1
+kind: JdbcCfg
+metadata:
+  name: "{{instance_id}}-jdbc-wsapp-{{workspace_id}}-manage"
+  namespace: "mas-{{instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: workspace-application
+    mas.ibm.com/instanceId: "{{instance_id}}"
+    mas.ibm.com/applicationId: "manage"
+    mas.ibm.com/workspaceId: "{{workspace_id}}"
+spec:
+  displayName: Fvt Jdbc Config
+  config:
+    url: "{{ jdbc_url }}"
+    sslEnabled: false
+    credentials:
+      secretName: "{{jdbc_secret_name}}"

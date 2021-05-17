@@ -1,0 +1,119 @@
+---
+# tasks file for suite
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if instance_id is not provided"
+  when: instance_id is not defined or instance_id == ""
+  fail:
+    msg: "instance_id property is required"
+
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_namespace: "mas-{{ instance_id }}-core"
+
+- name: "main:  Get cluster subdomain"
+  community.kubernetes.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Configure domain"
+  set_fact:
+    domain: "{{custom_domain | default(instance_id ~ '.' ~ _cluster_subdomain.resources[0].spec.domain )}}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "Catalog type .............. {{ catalog_type }}"
+      - "MAS channel ............... {{ mas_channel }}"
+      - "Instance ID ............... {{ instance_id }}"
+      - "MAS namespace ............. {{ mas_namespace }}"
+      - "MAS domain ................ {{ domain }}"
+      - "MAS ICR cp content ........ {{ icr_cp }}"
+      - "MAS ICR cpopen content .... {{ icr_cpopen }}"
+
+
+# 3. Install the catalog source
+# -----------------------------------------------------------------------------
+- name: "Install MAS catalog source"
+  include_role:
+    name: mas.devops.install_catalog
+  vars:
+    catalog_template: "templates/mas/catalog-{{ catalog_type }}.yaml"
+    catalog_definition: "{{ lookup('template', catalog_template) }}"
+
+- name: "Install Truststore Manager catalog source"
+  include_role:
+    name: mas.devops.install_catalog
+  vars:
+    catalog_template: "templates/tsmgr/catalog-{{ catalog_type }}.yaml"
+    catalog_definition: "{{ lookup('template', catalog_template) }}"
+
+
+# 4. Install the operator
+# -----------------------------------------------------------------------------
+- name: "Install Operator"
+  include_role:
+    name: mas.devops.install_operator
+  vars:
+    namespace: "{{ mas_namespace }}"
+    operator_group: "{{ lookup('template', 'templates/mas/operator-group.yaml') }}"
+    subscription: "{{ lookup('template', 'templates/mas/subscription.yaml') }}"
+
+
+# 5. Wait until the Suite CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the Suite CRD is available"
+  community.kubernetes.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "suites.core.mas.ibm.com"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: suite_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - suite_crd_info.resources is defined
+    - suite_crd_info.resources | length > 0
+
+
+# 6. Create the ibm-entitlement secret for entitled content
+# -----------------------------------------------------------------------------
+- name: "init : Create ibm-entitlement secret in MAS Namespace"
+  vars:
+    entitledAuthStr: "{{entitlement_username}}:{{entitlement_key}}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"{{icr_cp}}": {"username":"{{entitlement_username}}","password":"{{entitlement_key}}","auth":"{{entitledAuth}}"}'
+      - '}'
+      - '}'
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: "ibm-entitlement"
+        namespace: "{{ mas_namespace}}"
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
+
+
+# 7. Suite installation
+# -----------------------------------------------------------------------------
+- name: Create suite.ibm.com/v1 CR
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ mas_namespace }}"
+    definition: "{{ lookup('template', 'templates/mas/core_v1_suite.yaml') }}"

@@ -1,0 +1,32 @@
+---
+
+# 1. Check for existing cert-manager installation
+# -----------------------------------------------------------------------------
+- name: Check if Cert Manager is already installed
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: cert-manager
+    namespace: "cert-manager"
+    kind: Deployment
+  register: _cert_manager_deployed
+
+# TODO: Version check existing installation, ensure at least 1.2 is installed
+#       Fail if version < 1.2 is installed
+
+
+# 2. Perform cert-manager installation
+# -----------------------------------------------------------------------------
+- name: Deploy Cert Manager
+  shell: |
+    oc create namespace cert-manager
+    oc apply -f https://github.com/jetstack/cert-manager/releases/download/v1.2.0/cert-manager.yaml
+  when: (_cert_manager_deployed.resources | length) == 0
+
+
+# 3. Install Service Binding Operator
+# -----------------------------------------------------------------------------
+- name: Install SBO
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/sbo/subscription.yaml') }}"
+    wait: yes
+    wait_timeout: 60

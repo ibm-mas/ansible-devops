@@ -1,0 +1,27 @@
+sudo: required
+
+services:
+  - docker
+
+branches:
+  except:
+    - /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?$/
+
+install:
+  - wget --header=X-JFrog-Art-API:$ARTIFACTORY_API_KEY https://na.artifactory.swg-devops.com/artifactory/list/wiotp-generic-local/build.common/build.common.tgz -P $HOME/
+  - mkdir -p $HOME/build.common && tar -xf $HOME/build.common.tgz -C $HOME/build.common && rm $HOME/build.common.tgz
+  - source ~/virtualenv/python3.6/bin/activate
+  - python -m pip install ansible==2.10.3
+
+before_script:
+  - $HOME/build.common/bin/initbuild.sh
+
+script:
+  - bash build.sh || travis_terminate 1
+  - $HOME/build.common/bin/artifactoryrelease.sh $TRAVIS_BUILD_DIR/mas-devops.tar.gz || travis_terminate 1
+
+after_success:
+  - $HOME/build.common/bin/gitrelease.sh
+
+after_script:
+  - $HOME/build.common/bin/notify-slack.sh

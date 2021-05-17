@@ -1,0 +1,91 @@
+---
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "roks : Fail if ibmcloud_apikey is not provided"
+  when: ibmcloud_apikey is not defined
+  fail:
+    msg: "ibmcloud_apikey property is required"
+
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "roks : Debug information"
+  debug:
+    msg:
+      - "Cluster name ............ {{ cluster_name }}"
+      - "OCP version ............. {{ ocp_version }}"
+      - "IBM Cloud API key ....... ********************"
+      # ROKS specific
+      - "ROKS zone ............... {{ roks_zone }}"
+      - "ROKS flavor ............. {{ roks_flavor }}"
+      - "ROKS workers ............ {{ roks_workers }}"
+      - "ROKS flags .............. {{ roks_flags}}"
+
+
+# 3. Login
+# -----------------------------------------------------------------------------
+- name: "roks : Login to IBM Cloud"
+  shell: |
+    ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q
+
+
+# 4. Check if cluster already exist
+# -----------------------------------------------------------------------------
+- name: "roks : Check if cluster already exists"
+  shell: |
+    ibmcloud oc cluster get -c {{ cluster_name }} --output json
+  register: cluster_lookup
+  failed_when: "cluster_lookup.rc > 1"
+
+- debug:
+    var: cluster_lookup.rc
+
+- name: "roks : Debug current cluster status"
+  when: cluster_lookup.rc == 0
+  debug:
+    msg: "{{ cluster_name }} already exists, skipping cluster creation"
+
+# 5. Setup vlans
+# -----------------------------------------------------------------------------
+- name: "roks : Lookup VLANs automatically (ibmcloud ks vlan ls --zone {{roks_zone}} --output json)"
+  when: cluster_lookup.rc == 1
+  shell: |
+    ibmcloud ks vlan ls --zone {{roks_zone}} --output json
+  register: _ibmcloud_zone_vlans
+
+- name: "roks : Configure Private and Public Vlans"
+  when: cluster_lookup.rc == 1
+  set_fact:
+    "{{item.type}}": "{{item.id}}"
+  loop:
+    "{{_ibmcloud_zone_vlans.stdout|from_json}}"
+
+
+# 6. Create cluster
+# -----------------------------------------------------------------------------
+- name: "roks : Create IBM Cloud ROKS cluster"
+  when: cluster_lookup.rc == 1
+  shell: >
+    ibmcloud oc cluster create classic \
+      --hardware shared \
+      --entitlement cloud_pak \
+      --name {{ cluster_name }} \
+      --version {{ ocp_version }} \
+      --zone {{ roks_zone }} \
+      --flavor {{ roks_flavor }} \
+      --workers {{ roks_workers }} \
+      --private-vlan {{ private }} \
+      --public-vlan {{ public }} \
+      {{ roks_flags}}
+
+
+# 7. Watch cluster provisioning progress
+# -----------------------------------------------------------------------------
+- name: "roks : Wait until the Roks cluster is deployed"
+  when: cluster_lookup.rc == 1
+  shell: |
+    ibmcloud oc cluster get --cluster {{cluster_name}} --output json
+  register: _roks_cluster_completion
+  until: "{{(_roks_cluster_completion.stdout|from_json).state == 'normal'}}"
+  retries: 40
+  delay: 60

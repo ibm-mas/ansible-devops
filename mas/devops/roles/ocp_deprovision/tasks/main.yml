@@ -1,0 +1,22 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if cluster_type is not provided"
+  when: cluster_type is not defined
+  fail:
+    msg: "cluster_type property is required"
+
+- name: "Fail if cluster_type is not supported"
+  when: cluster_type is not in supported_cluster_types
+  fail:
+    msg: "cluster_type '{{ cluster_type }}' property is not supported by this role"
+
+- name: "Fail if no cluster name is provided"
+  when: cluster_name is not defined
+  fail:
+    msg: "cluster_name is required"
+
+
+# 2. Run the deprovision
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/providers/{{ cluster_type }}.yml"

@@ -1,0 +1,43 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # Choose whether to use development, or release catalogs
+    catalog_type: development
+
+    # Which MAS channel to subscribe to
+    mas_channel: 8.4.0-pre.stable
+
+    # Only required when using one or development catalog sources for mas or tsmgr
+    # These are used to set up image pull secret in the openshift-marketplace namespace
+    artifactory_username: "{{ lookup('env', 'W3_USERNAME') }}"
+    artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
+
+    # MAS configuration
+    # by default we use cluster baseDomain
+    # custom_domain: "{{ lookup('env', 'DOMAIN') }}"
+    instance_id: "{{ lookup('env', 'INSTANCE_ID') }}"
+
+    # MAS configuration - IBM container registry configuration
+    # Set both of these to wiotp-docker-local.artifactory.swg-devops.com for dev
+    icr_cp: "{{ lookup('env', 'ICR_CP') | default('wiotp-docker-local.artifactory.swg-devops.com', true) }}"
+    icr_cpopen: "{{ lookup('env', 'ICR_CPOPEN') | default('wiotp-docker-local.artifactory.swg-devops.com', true) }}"
+
+    # MAS configuration - Entitlement
+    # This should match icr_cp settings
+    entitlement_username: "{{ lookup('env', 'ENTITLEMENT_USERNAME') }}"
+    entitlement_key: "{{ lookup('env', 'ENTITLEMENT_KEY') }}"
+
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
+    mas_config:
+      - "{{ mas_config_dir }}/bascfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/slscfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/mongocfg_masdev.yaml"
+      - "{{ mas_config_dir }}/smtpcfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/ldapcfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/workspace_masdev.yaml"
+
+  roles:
+    - mas.devops.suite_install
+    - mas.devops.suite_config
+    - mas.devops.suite_verify

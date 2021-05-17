@@ -1,0 +1,77 @@
+- name: Create Namespace
+  community.kubernetes.k8s:
+    api_version: v1
+    kind: Namespace
+    name: '{{ manage_namespace }}'
+
+- name: Create wiotp-docker-local secret
+  vars:
+    entitledAuthStr: "{{entitlement_username}}:{{entitlement_key}}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    artifactoryAuthStr: "{{artifactory_username}}:{{artifactory_apikey}}"
+    artifactoryAuth: "{{ artifactoryAuthStr | b64encode }}"
+    content:
+      - "{\"auths\":{\"{{entitlement_server}}\": {\"username\":\"{{entitlement_username}}\",\"password\":\"{{entitlement_key}}\",\"auth\":\"{{entitledAuth}}\"}"
+      - "}"
+      - "}"
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: "wiotp-docker-local"
+        namespace: "openshift-marketplace"
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
+  register: result
+
+- name: Create ibm-entitlement secret on Manage Namespace
+  vars:
+    entitledAuthStr: "{{entitlement_username}}:{{entitlement_key}}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    artifactoryAuthStr: "{{artifactory_username}}:{{artifactory_apikey}}"
+    artifactoryAuth: "{{ artifactoryAuthStr | b64encode }}"
+    content:
+      - "{\"auths\":{\"{{entitlement_server}}\": {\"username\":\"{{entitlement_username}}\",\"password\":\"{{entitlement_key}}\",\"auth\":\"{{entitledAuth}}\"}"
+      - "}"
+      - "}"
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: "ibm-entitlement"
+        namespace: "{{ manage_namespace}}"
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
+  register: result
+
+
+- name: Patch default SA on openshift-marketpalce
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: default
+        namespace: openshift-marketplace
+      imagePullSecrets:
+        - name: wiotp-docker-local
+
+- name: Patch default SA on Manage Namepsace
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: default
+        namespace: "{{manage_namespace}}"
+      imagePullSecrets:
+        - name: wiotp-docker-local
+
+
+

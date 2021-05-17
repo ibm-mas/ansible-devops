@@ -1,0 +1,32 @@
+---
+
+# 1. Setup OAuth secret
+# -----------------------------------------------------------------------------
+- name: "Setup Oauth Secret"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/secret.yaml') }}"
+  register: _github_oauth_secret_result
+
+
+# 2. Setup OAuth
+# -----------------------------------------------------------------------------
+- name: "Setup Oauth"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/oauth.yaml') }}"
+  register: _github_oauth_result
+
+
+# 3. Configure user groups
+# -----------------------------------------------------------------------------
+- name: "Configure cluster role bindings"
+  vars:
+    group_name: "{{group_item.name}}"
+    group_users: "{{group_item.users}}"
+    groups_cluster_rolebindings: "{{group_item.groups_cluster_rolebindings}}"
+  include_tasks: tasks/groups.yml
+  loop:
+    "{{oauth.groups}}"
+  loop_control:
+    loop_var: group_item

@@ -1,0 +1,75 @@
+---
+# 1. Setup namespace for Local Storage
+# -----------------------------------------------------------------------------
+- name: "ocs/localstorage : Create Namespace"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/localstorage/namespace.yaml') }}"
+  register: localNamespace
+
+
+# 2. Install the Operator
+# -----------------------------------------------------------------------------
+- name: "ocs/localstorage : Create Local Storage Operator Group"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/localstorage/operatorgroup.yaml') }}"
+  register: localGroup
+
+- name: "ocs/localstorage : Local Storage Operator Subscription"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/localstorage/subscription.yaml') }}"
+  register: localSubscription
+
+
+# 3. Wait until the LocalVolume CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the LocalVolume CRD is available"
+  community.kubernetes.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "localvolumes.local.storage.openshift.io"
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: localvolume_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - localvolume_crd_info.resources is defined
+    - localvolume_crd_info.resources | length > 0
+
+
+# 4. Label all worker nodes as suitable for storage
+# -----------------------------------------------------------------------------
+# In future it would be good to make it possible to define a different rule
+# for applying these labels instead of applying them to all workers, currently
+# we could just as well use the worker node-role label in the localvolume spec
+- name: "ocs/localstorage : Label nodes"
+  shell: |
+      for worker in $(oc get node -o name -l node-role.kubernetes.io/worker | sed 's/node\///')
+      do
+        oc label node $worker cluster.ocs.openshift.io/openshift-storage=''
+        echo "Labeled node $worker"
+      done
+
+
+# 5. Create a local volume
+# -----------------------------------------------------------------------------
+- name: "ocs/localstorage : Create Local Volume"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/localstorage/localvolume.yaml') }}"
+
+
+# 6. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "ocs/localstorage : Debug for Local Storage"
+  debug:
+    msg:
+      - "Local Storage Operator Group changed .......... {{ localGroup.changed }}"
+      - "Local Storage Operator Subscription changed ... {{ localSubscription.changed }}"

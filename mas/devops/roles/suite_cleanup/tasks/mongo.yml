@@ -1,0 +1,57 @@
+- name: Fetch Mongo configuration ({{ instance_id }}-mongo-system)
+  community.kubernetes.k8s_info:
+    api_version: config.mas.ibm.com/v1
+    kind: MongoCfg
+    name: "{{ instance_id }}-mongo-system"
+    namespace: "{{ mas_namespace }}"
+  register: mongo_cfg_lookup
+
+- name: Fail if Mongo configuration ({{ instance_id }}-mongo-system) not found
+  fail: 
+    msg: Mongo configuration ({{ instance_id }}-mongo-system) not found
+  when: >-
+    mongo_cfg_lookup['resources'] | length == 0
+    or mongo_cfg_lookup.resources[0].spec is not defined
+
+# TODO: should I be getting mongo config from status instead of spec? (because status implies the valid, setup mongo config)
+# If so, where should I get certificates from? From {instance_id}}-truststore. If so, can I depend on aliases for the mongo certs
+# always being "{{instance_id}}--mongo-system.ca" and "{{instance_id}}-mongo-system.server" (or should I just use all the certs from the truststore?)
+- name: set mongo_cfg_spec fact
+  set_fact:
+    mongo_cfg_spec: "{{ mongo_cfg_lookup.resources[0].spec }}"
+
+- name: Fetch Mongo credentials secret ({{ mongo_cfg_spec.config.credentials.secretName }})
+  # no_log: True
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ mongo_cfg_spec.config.credentials.secretName }}"
+    namespace: "{{ mas_namespace }}"
+  register: mongo_secret_lookup
+
+- name: Fail if Mongo credentials secret ({{ mongo_cfg_spec.config.credentials.secretName }}) not found
+  fail: 
+    msg: Mongo credentials secret ({{ mongo_cfg_spec.config.credentials.secretName }}) not found
+  when: >-
+    mongo_secret_lookup['resources'] | length == 0
+
+- name: Set mongo_username and mongo_password facts
+  set_fact:
+    mongo_username: "{{ mongo_secret_lookup['resources'][0].data.username | b64decode }}"
+    mongo_password: "{{ mongo_secret_lookup['resources'][0].data.password | b64decode }}"
+
+- name: Cleanup Mongo
+  mas.devops.wipe_mongo:
+    instance_id: "{{ instance_id }}"
+    config:
+      hosts: "{{ mongo_cfg_spec.config.hosts }}"
+      username: "{{ mongo_username }}"
+      password: "{{ mongo_password }}"
+      configDb: "{{ mongo_cfg_spec.config.configDb is defined | ternary(mongo_cfg_spec.config.configDb, omit) }}"
+      authMechanism: "{{ mongo_cfg_spec.config.authMechanism is defined | ternary(mongo_cfg_spec.config.authMechanism, omit) }}"
+    certificates: "{{ mongo_cfg_spec.certificates is defined | ternary(mongo_cfg_spec.certificates, omit) }}"
+  register: mongo_cleanup_result
+
+- name: Mongo cleanup result
+  debug:
+    var: mongo_cleanup_result

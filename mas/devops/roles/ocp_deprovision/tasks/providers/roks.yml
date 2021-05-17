@@ -1,0 +1,26 @@
+---
+
+- name: "roks : Fail if ibmcloud_apikey is not provided"
+  when: ibmcloud_apikey is not defined
+  fail:
+    msg: "ibmcloud_apikey property is required"
+
+# 1. Debug Info
+# -----------------------------------------------------------------------------
+- name: "roks : Debug information"
+  debug:
+    msg:
+      - "Cluster name ........ {{ cluster_name }}"
+      - "IBM Cloud API key ... {{ ibmcloud_apikey }}"
+
+# 2. Login
+# -----------------------------------------------------------------------------
+- name: "roks : Login to ibmcloud account"
+  shell: |
+    ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q
+
+
+# 3. Deprovision roks cluster
+- name: "roks : Deprovision ROKS cluster"
+  shell: |
+    ibmcloud oc cluster rm --cluster {{ cluster_name }} --force-delete-storage -f

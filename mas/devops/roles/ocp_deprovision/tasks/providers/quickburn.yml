@@ -1,0 +1,35 @@
+---
+
+- name: "quickburn : Fail if username is not provided"
+  when: username is not defined
+  fail:
+    msg: "username property is required"
+
+- name: "quickburn : Fail if password is not provided"
+  when: password is not defined
+  fail:
+    msg: "password property is required"
+
+
+# 1. Debug Info
+# -----------------------------------------------------------------------------
+- name: "quickburn : Debug information"
+  debug:
+    msg:
+      - "Cluster name ...... {{ cluster_name }}"
+      - "Username .......... {{ username }}"
+      - "Password .......... *****************"
+
+# 2. Deprovision
+# -----------------------------------------------------------------------------
+- name: "quickburn : Deprovision quick burn cluster"
+  uri:
+    url: "https://ocpapi.svl.ibm.com/v1/ocp/{{cluster_name}}"
+    user: "{{username}}"
+    password: "{{password}}"
+    method: GET
+    status_code:
+      - 200
+      - 400
+    force_basic_auth: yes
+    validate_certs: false

@@ -1,0 +1,56 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # Required to setup the cluster
+    # -------------------------------------------------------------------------
+    cluster_name: "{{ lookup('env', 'CLUSTER_NAME')}}"
+    cluster_type: roks
+    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+    ocp_version: "{{ lookup('env', 'OCP_VERSION') }}"
+    roks_zone: "{{ lookup('env', 'ROKS_ZONE') | default('lon02', true) }}"
+    roks_flavor: "{{ lookup('env', 'ROKS_FLAVOR') | default('b3c.16x64', true) }}"
+    roks_workers: "{{ lookup('env', 'ROKS_WORKERS') | default('3', true) }}"
+    roks_flags: "{{ lookup('env', 'ROKS_FLAGS') | default('', true) }}"
+
+    # Required to install CP4D
+    # -------------------------------------------------------------------------
+    cpd_registry: cp.icr.io
+    cpd_registry_user: cp
+    cpd_registry_password: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
+    cpd_meta_namespace: cpd-meta-ops
+    cpd_storage_class: ibmc-file-gold-gid
+
+    # Required to install Db2 (there are defaults built into the role as well)
+    # -------------------------------------------------------------------------
+    db2wh_version: 11.5.5.0-cn3
+    db2wh_dbname: BLUDB
+
+    # Required to install MAS
+    # -------------------------------------------------------------------------
+    catalog_type: development
+    mas_channel: 8.4.0-pre.stable
+    artifactory_username: "{{ lookup('env', 'W3_USERNAME') }}"
+    artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
+    instance_id: "{{ lookup('env', 'INSTANCE_ID') }}"
+    icr_cp: "{{ lookup('env', 'ICR_CP') | default('wiotp-docker-local.artifactory.swg-devops.com', true) }}"
+    icr_cpopen: "{{ lookup('env', 'ICR_CPOPEN') | default('wiotp-docker-local.artifactory.swg-devops.com', true) }}"
+    entitlement_username: "{{ lookup('env', 'ENTITLEMENT_USERNAME') }}"
+    entitlement_key: "{{ lookup('env', 'ENTITLEMENT_KEY') }}"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
+    mas_config:
+      - "{{ mas_config_dir }}/bascfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/slscfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/mongocfg_masdev.yaml"
+      - "{{ mas_config_dir }}/smtpcfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/ldapcfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/workspace_masdev.yaml"
+
+  roles:
+    - mas.devops.ocp_provision
+    - mas.devops.ocp_setup_mas_deps
+    - mas.devops.cp4d
+    - mas.devops.cp4d_db2wh
+    - mas.devops.suite_install
+    - mas.devops.suite_config
+    - mas.devops.suite_verify

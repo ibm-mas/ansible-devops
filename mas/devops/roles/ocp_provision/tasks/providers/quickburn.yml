@@ -1,0 +1,83 @@
+---
+
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "quickburn : Fail if fyre_product_id is not provided"
+  when: fyre_cluster_size is not defined
+  fail:
+    msg: "fyre_cluster_size is a required property"
+
+- name: "quickburn : Fail if Product id is not provided"
+  when: fyre_product_id is not defined
+  fail:
+    msg: "fyre_product_id is a required property"
+
+- name: "quickburn : Fail if username is not provided"
+  when: username is not defined
+  fail:
+    msg: "username property is required"
+
+- name: "quickburn : Fail if password is not provided"
+  when: password is not defined
+  fail:
+    msg: "password property is required"
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "quickburn : Debug information"
+  debug:
+    msg:
+      - "Cluster name ....... {{ cluster_name }}"
+      - "OCP version ........ {{ ocp_version }}"
+      - "Username ........... {{ username }}"
+      - "Password ........... *********************"
+      # Quickburn specific
+      - "Fyre product ID .... {{ fyre_product_id }}"
+      - "Fyre cluster size .. {{ fyre_cluster_size }}"
+
+# 3. Determine whether there is already a quickburn environment running
+# -----------------------------------------------------------------------------
+- name: "quickburn : Check if cluster already exists"
+  uri:
+    url: "https://ocpapi.svl.ibm.com/v1/ocp/{{cluster_name}}"
+    user: "{{username}}"
+    password: "{{password}}"
+    method: GET
+    force_basic_auth: yes
+    validate_certs: false
+  register: _cluster_exist
+  failed_when: _cluster_exist.status == 403
+
+
+# 4. Deploy the quick burn cluster
+# -----------------------------------------------------------------------------
+- name: "quickburn : Create new quick burn cluster"
+  when:
+    - _cluster_exist.json.cluster_count is not defined
+  uri:
+    url: https://ocpapi.svl.ibm.com/v1/ocp/
+    user: "{{username}}"
+    password: "{{password}}"
+    method: POST
+    body: "{{ lookup('template','templates/quickburn.json') }}"
+    force_basic_auth: yes
+    body_format: json
+    validate_certs: false
+
+
+# 5. Track the progress of the deployment
+# -----------------------------------------------------------------------------
+- name: "quickburn : Follow deployment status (~20-30 mins)"
+  when:
+    - _cluster_exist.json.cluster_count is not defined
+  uri:
+    url: "https://ocpapi.svl.ibm.com/v1/ocp/{{cluster_name}}/status"
+    user: "{{username}}"
+    password: "{{password}}"
+    method: GET
+    force_basic_auth: yes
+    validate_certs: false
+  register: _result
+  until: _result.json.deployed_status == 'deployed'
+  retries: 720 # 720 * 5 seconds = 1hour (60*60/5)
+  delay: 30 # Every 30 seconds

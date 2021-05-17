@@ -1,0 +1,43 @@
+---
+# 1. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Namespace ........... {{ cpd_meta_namespace }}"
+      - "Storage class ....... {{ cpd_storage_class }}"
+      - "Db2 database name ... {{ db2wh_dbname }}"
+      - "Db2 version ......... {{ db2wh_version }}"
+
+
+# 2. Install CP4D services for db2
+# -----------------------------------------------------------------------------
+- name: "Install Db2 warehouse CPDService"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpdservice.yml') }}"
+
+- name: "Wait for Db2 warehouse CPDService to be ready (this can take a VERY long time)"
+  community.kubernetes.k8s_info:
+    api_version: metaoperator.cpd.ibm.com/v1
+    kind: CPDService
+    name: cpdservice-db2wh
+    namespace: "{{ cpd_meta_namespace }}"
+  register: _cpd_service
+  until:
+    - _cpd_service.resources | length > 0
+    - _cpd_service.resources[0].status is defined
+    - _cpd_service.resources[0].status.code == '0'
+    - _cpd_service.resources[0].status.status == 'Ready'
+    - _cpd_service.resources[0].status.message == 'Completed'
+  retries: 60 # approx 1 hour before we give up
+  delay: 600 # 1 minute
+
+
+# 3. Create a Db2 instance
+# -----------------------------------------------------------------------------
+- name: "Create db2wh Instance"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/db2ucluster.yaml') }}"
+  register: _db2_cluster_result

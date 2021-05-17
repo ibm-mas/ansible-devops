@@ -1,0 +1,46 @@
+---
+- name: Create JdbcCfg Cr
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/manage/jdbc-rabbit.yaml') }}"
+    wait: yes
+    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
+    
+- name: Create manage catalog
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/manage/ibm-manage-catalog-dev.yaml') }}"
+    wait: yes
+    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
+
+- name: Create manage operator group
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/manage/ibm-manage-operator-group.yaml') }}"
+    wait: yes
+    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
+
+- name: Create manage subscription
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/manage/ibm-manage-operator-subscription.yaml') }}"
+    wait: yes
+    wait_timeout: 300
+    wait_condition:
+      type: 'CatalogSourcesUnhealthy'
+      status: "False"
+
+  register: _manage_subscription
+
+- name: Wait for subscriptions succeeded
+  pause:
+    seconds: 60
+
+- name: Create manageapp.ibm.com/v1 CR
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ manage_namespace }}"
+    definition: "{{ lookup('template', 'templates/manage/apps_v1_manageapp_cr.yaml') }}"
+
+
+- name: Create manage Workspace
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ manage_namespace }}"
+    definition: "{{ lookup('template', 'templates/manage/apps_v1_manageworkspace_cr.yaml') }}"

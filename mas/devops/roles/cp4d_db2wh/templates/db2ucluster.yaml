@@ -1,0 +1,46 @@
+apiVersion: db2u.databases.ibm.com/v1
+kind: Db2uCluster
+metadata:
+  name: "db2u-{{ db2wh_dbname | lower }}"
+  namespace: "{{ cpd_meta_namespace }}"
+spec:
+  version: "{{ db2wh_version }}"
+  size: 1
+  environment:
+    dbType: db2wh
+    database:
+      name: "{{ db2wh_dbname }}"
+      dbConfig:
+        LOGSECOND: "35"
+    instance:
+      registry:
+        DB2_FMP_RUN_AS_CONNECTED_USER: "NO"
+  podConfig:
+    db2u:
+      resource:
+        db2u:
+          requests:
+            cpu: 2
+            memory: 4Gi
+          limits:
+            cpu: 2
+            memory: 4Gi
+  storage:
+    - name: meta
+      type: "create"
+      spec:
+        storageClassName: "{{ cpd_storage_class }}"
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 10Gi
+    - name: data
+      type: "create"
+      spec:
+        storageClassName: "{{ cpd_storage_class }}"
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 100Gi

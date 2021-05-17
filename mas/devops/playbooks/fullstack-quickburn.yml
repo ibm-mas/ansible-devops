@@ -1,0 +1,41 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # Required to setup the cluster
+    # -------------------------------------------------------------------------
+    cluster_name: "{{ lookup('env', 'CLUSTER_NAME') }}"
+    cluster_type: quickburn
+    username: "{{ lookup('env', 'FYRE_USERNAME') }}"
+    password: "{{ lookup('env', 'FYRE_APIKEY') }}"
+    ocp_version: "{{ lookup('env', 'OCP_VERSION') }}"
+    fyre_cluster_size: "{{ lookup('env', 'FYRE_CLUSTER_SIZE') }}"
+    fyre_product_id: "{{ lookup('env', 'FYRE_PRODUCT_ID') }}"
+
+    # Required to install MAS
+    # -------------------------------------------------------------------------
+    catalog_type: development
+    mas_channel: 8.4.0-pre.stable
+    artifactory_username: "{{ lookup('env', 'W3_USERNAME') }}"
+    artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
+    instance_id: "{{ lookup('env', 'INSTANCE_ID') }}"
+    icr_cp: "{{ lookup('env', 'ICR_CP') | default('wiotp-docker-local.artifactory.swg-devops.com', true) }}"
+    icr_cpopen: "{{ lookup('env', 'ICR_CPOPEN') | default('wiotp-docker-local.artifactory.swg-devops.com', true) }}"
+    entitlement_username: "{{ lookup('env', 'ENTITLEMENT_USERNAME') }}"
+    entitlement_key: "{{ lookup('env', 'ENTITLEMENT_KEY') }}"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
+    mas_config:
+      - "{{ mas_config_dir }}/bascfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/slscfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/mongocfg_masdev.yaml"
+      - "{{ mas_config_dir }}/smtpcfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/ldapcfg_masdeps1.yaml"
+      - "{{ mas_config_dir }}/workspace_masdev.yaml"
+
+  roles:
+    - mas.devops.ocp_provision
+    - mas.devops.ocp_setup_mas_deps
+    - mas.devops.ocp_setup_ocs
+    - mas.devops.suite_install
+    - mas.devops.suite_config
+    - mas.devops.suite_verify
