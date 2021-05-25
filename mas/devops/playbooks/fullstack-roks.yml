@@ -25,17 +25,19 @@
     # -------------------------------------------------------------------------
     db2wh_version: 11.5.5.0-cn3
     db2wh_dbname: BLUDB
+    # optionally you can provide the path to hold the generated db2 config for MAS
+    db2wh_cfg_file: ~/maximoappsuite/devops-configs/config/db2.yml
 
-    # Required to install MAS
-    # -------------------------------------------------------------------------
-    catalog_type: development
-    mas_channel: 8.4.0-pre.stable
+    # # Required to install MAS
+    # # -------------------------------------------------------------------------
+    catalog_type: "{{ lookup('env', 'MAS_CATALOG_TYPE') | default('release', true) }}"
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', true) }}" 
     artifactory_username: "{{ lookup('env', 'W3_USERNAME') | lower }}"
     artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
     instance_id: "{{ lookup('env', 'INSTANCE_ID') }}"
-    icr_cp: "{{ lookup('env', 'ICR_CP') | default('wiotp-docker-local.artifactory.swg-devops.com', true) }}"
-    icr_cpopen: "{{ lookup('env', 'ICR_CPOPEN') | default('wiotp-docker-local.artifactory.swg-devops.com', true) }}"
-    entitlement_username: "{{ lookup('env', 'ENTITLEMENT_USERNAME') }}"
+    icr_cp: "{{ lookup('env', 'ICR_CP') | default('cp.icr.io/cp', true) }}"
+    icr_cpopen: "{{ lookup('env', 'ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
+    entitlement_username: "{{ lookup('env', 'ENTITLEMENT_USERNAME')| default('cp', true) }}"
     entitlement_key: "{{ lookup('env', 'ENTITLEMENT_KEY') }}"
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
     mas_config:
@@ -45,6 +47,7 @@
       - "{{ mas_config_dir }}/smtpcfg_masdeps1.yaml"
       - "{{ mas_config_dir }}/ldapcfg_masdeps1.yaml"
       - "{{ mas_config_dir }}/workspace_masdev.yaml"
+      - "{{ mas_config_dir }}/db2.yml"
 
   roles:
     - mas.devops.ocp_provision

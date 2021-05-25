@@ -19,6 +19,7 @@ export W3_USERNAME=xxx
 export ARTIFACTORY_APIKEY=xxx
 # MAS configuration
 export INSTANCE_ID=xxx
+export MAS_CHANNEL=8.4.0-pre.m1dev85
 # IBM entitlement key
 export ENTITLEMENT_USERNAME=$W3_USERNAME
 export ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
@@ -59,7 +60,7 @@ ansible-playbook playbooks/deprovision-quickburn.yml
 export IBMCLOUD_APIKEY=xxx
 # Cluster configuration
 export CLUSTER_NAME=xxx
-export OCP_VERSION=4.6.23_openshift
+export OCP_VERSION=4.6.28_openshift
 export ROKS_ZONE=lon02
 export ROKS_FLAVOR=b3c.16x64
 export ROKS_WORKERS=3
@@ -70,6 +71,7 @@ export W3_USERNAME=xxx
 export ARTIFACTORY_APIKEY=xxx
 # MAS configuration
 export INSTANCE_ID=xxx
+export MAS_CHANNEL=8.4.0-pre.m1dev85
 # IBM entitlement key
 export ENTITLEMENT_USERNAME=$W3_USERNAME
 export ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
@@ -84,7 +86,7 @@ A new cluster can be created from scratch as follows, this process will take abo
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
 
-export OCP_VERSION=4.6.23_openshift
+export OCP_VERSION=4.6.28_openshift
 export ROKS_ZONE=lon02
 export ROKS_FLAVOR=b3c.16x64
 export ROKS_WORKERS=3
@@ -109,7 +111,7 @@ export W3_USERNAME=xxx
 export ARTIFACTORY_APIKEY=xxx
 export INSTANCE_ID=xxx
 export WORKSPACE_ID=xxx
-
+export MAS_CHANNEL=8.4.0-pre.m1dev85
 # Optional - if you want to use released container images
 # export ICR_CP=cp.icr.io/cp
 # export ICR_CPOPEN=icr.io
@@ -121,3 +123,17 @@ export ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 ansible-playbook playbooks/install-suite.yml
 ```
+
+### Deploy CPD and Db2wh
+```bash
+export CPD_ENTITLEMENT_KEY=xxx
+export CPD_STORAGE_CLASS=xxx
+
+ansible-playbook playbooks/install-db2wh.yml
+```
+
+#### Considerations:
+    - The db2wh instance installed by this playbook has ssl enabled. Certificates are available at `internal-tls` secret in the cpd namespace.
+    - Default user is db2inst1
+    - Instance Password is available in the `instancepassword` secret in the CP4D namespace
+

@@ -1,0 +1,33 @@
+- name: Lookup db2wh instance password
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "c-db2u-{{db2wh_dbname | lower }}-instancepassword"
+    namespace: "{{cpd_meta_namespace}}"
+  register: _db2u_instance_password
+
+- name: Lookup db2wh TLS certificates
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "internal-tls"
+    namespace: "{{cpd_meta_namespace}}"
+  register: _db2u_instance_certificates
+
+- name: Set JdbcCfg instance Password and url
+  set_fact:
+    jdbc_instance_password: "{{_db2u_instance_password.resources[0].data.password | b64decode}}"
+    jdbc_url: "jdbc:db2:c-db2u-{{db2wh_dbname}}-db2u-engn-svc.{{cpd_meta_namespace}}.svc:50001/{{db2wh_dbname}};sslConnection=true"    
+
+- name: Set JdbcCfg certificates
+  set_fact:
+    jdbc_certificates: "{{(jdbc_certificates | default([])) + [{'alias': item.key, 'crt': item.value | b64decode }]}}"      
+  loop: "{{lookup('dict', _db2u_instance_certificates.resources[0].data)}}"
+  when: 
+    - _db2u_instance_certificates is defined
+    - (_db2u_instance_certificates.resources | length > 0)
+
+- name: Copy JdbcCfg to filesytem
+  ansible.builtin.template:
+    src: suite_jdbccfg.yml
+    dest: "{{db2wh_cfg_file}}"

@@ -41,3 +41,27 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/db2ucluster.yaml') }}"
   register: _db2_cluster_result
+
+- name: "Install Db2 warehouse Console"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/dmc.yml') }}"
+
+- name: "Wait for Db2 Management Console CPDService to be ready (this can take a VERY long time)"
+  community.kubernetes.k8s_info:
+    api_version: metaoperator.cpd.ibm.com/v1
+    kind: CPDService
+    name: cpdservice-db2wh-dmc
+    namespace: "{{ cpd_meta_namespace }}"
+  register: _cpd_service_dmc
+  until:
+    - _cpd_service_dmc.resources | length > 0
+    - _cpd_service_dmc.resources[0].status is defined
+    - _cpd_service_dmc.resources[0].status.code == '0'
+    - _cpd_service_dmc.resources[0].status.status == 'Ready'
+    - _cpd_service_dmc.resources[0].status.message == 'Completed'
+  retries: 60 # approx 1 hour before we give up
+  delay: 600 # 1 minute
+
+- include_tasks: tasks/suite_jdbccfg.yml
+  when: db2wh_cfg_file is defined
