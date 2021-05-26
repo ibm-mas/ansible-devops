@@ -15,6 +15,7 @@
       - "Cluster name ............ {{ cluster_name }}"
       - "OCP version ............. {{ ocp_version }}"
       - "IBM Cloud API key ....... ********************"
+      - "IBM Cloud Resource Group ....... {{ ibmcloud_resourcegroup }}"
       # ROKS specific
       - "ROKS zone ............... {{ roks_zone }}"
       - "ROKS flavor ............. {{ roks_flavor }}"
@@ -26,10 +27,38 @@
 # -----------------------------------------------------------------------------
 - name: "roks : Login to IBM Cloud"
   shell: |
-    ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q
+    ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
 
+# 4. Check if resource group already exists, if not, create one
+# -----------------------------------------------------------------------------
+- name: "roks : Check resource group exists"
+  shell: |
+    ibmcloud resource group "{{ ibmcloud_resourcegroup }}"
+  register: rg_lookup
+  failed_when: "rg_lookup.rc > 1"
 
-# 4. Check if cluster already exist
+- debug:
+    var: rg_lookup.rc
+
+- name: "roks : Debug current resource group status"
+  when: rg_lookup.rc == 0
+  debug:
+    msg: "Resource group {{ ibmcloud_resourcegroup  }} already exists, skipping resource group creation"
+
+- name: "roks : Create resource group if it does not exist"
+  when: rg_lookup.rc == 1
+  shell: |
+    ibmcloud resource group-create {{ ibmcloud_resourcegroup }}
+  register: rg_creation
+  failed_when: "rg_creation.rc > 1"
+
+- name: "roks : Switch to {{ ibmcloud_resourcegroup }} resource group"
+  shell: |
+    ibmcloud target -g {{ ibmcloud_resourcegroup }}
+  register: rg_target
+  failed_when: "rg_target.rc > 1"
+
+# 5. Check if cluster already exist
 # -----------------------------------------------------------------------------
 - name: "roks : Check if cluster already exists"
   shell: |
@@ -45,7 +74,7 @@
   debug:
     msg: "{{ cluster_name }} already exists, skipping cluster creation"
 
-# 5. Setup vlans
+# 6. Setup vlans
 # -----------------------------------------------------------------------------
 - name: "roks : Lookup VLANs automatically (ibmcloud ks vlan ls --zone {{roks_zone}} --output json)"
   when: cluster_lookup.rc == 1
@@ -61,7 +90,7 @@
     "{{_ibmcloud_zone_vlans.stdout|from_json}}"
 
 
-# 6. Create cluster
+# 7. Create cluster
 # -----------------------------------------------------------------------------
 - name: "roks : Create IBM Cloud ROKS cluster"
   when: cluster_lookup.rc == 1
@@ -79,7 +108,7 @@
       {{ roks_flags}}
 
 
-# 7. Watch cluster provisioning progress
+# 8. Watch cluster provisioning progress
 # -----------------------------------------------------------------------------
 - name: "roks : Wait until the Roks cluster is deployed"
   when: cluster_lookup.rc == 1
