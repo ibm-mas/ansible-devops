@@ -19,7 +19,7 @@ export W3_USERNAME=xxx
 export ARTIFACTORY_APIKEY=xxx
 # MAS configuration
 export INSTANCE_ID=xxx
-export MAS_CHANNEL=8.4.0-pre.m1dev85
+export MAS_CHANNEL=8.5.0-pre.m1dev85
 # IBM entitlement key
 export ENTITLEMENT_USERNAME=$W3_USERNAME
 export ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
@@ -71,7 +71,7 @@ export W3_USERNAME=xxx
 export ARTIFACTORY_APIKEY=xxx
 # MAS configuration
 export INSTANCE_ID=xxx
-export MAS_CHANNEL=8.4.0-pre.m1dev85
+export MAS_CHANNEL=8.5.0-pre.m1dev85
 # IBM entitlement key
 export ENTITLEMENT_USERNAME=$W3_USERNAME
 export ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
@@ -105,26 +105,37 @@ ansible-playbook playbooks/deprovision-roks.yml
 
 ## MAS
 
-### Deploy Suite
+### Deploy Suite (Release Build)
+```bash
+export INSTANCE_ID=xxx
+export WORKSPACE_ID=xxx
+export MAS_CHANNEL=8.x
+
+# Obtain an entitlement key from https://myibm.ibm.com/products-services/containerlibrary
+export ENTITLEMENT_KEY=xxx
+
+ansible-playbook playbooks/install-suite.yml
+```
+
+### Deploy Suite (Development Build)
 ```bash
 export W3_USERNAME=xxx
 export ARTIFACTORY_APIKEY=xxx
+
 export INSTANCE_ID=xxx
 export WORKSPACE_ID=xxx
-export MAS_CHANNEL=8.4.0-pre.m1dev85
-# Optional - if you want to use released container images
-# export ICR_CP=cp.icr.io/cp
-# export ICR_CPOPEN=icr.io
+export MAS_CHANNEL=8.5.0-pre.m1dev85
 
-# Assuming you want to use Artifactory as ICR, otherwise set to your
-# real entitlement key
-export ENTITLEMENT_USERNAME=$W3_USERNAME
+# Ensure MAS deploys applications using development builds
+export ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
+export ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
+export ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 ansible-playbook playbooks/install-suite.yml
 ```
 
-### Deploy CPD and Db2wh
+## CP4D and Db2wh
 ```bash
 export CPD_ENTITLEMENT_KEY=xxx
 export CPD_STORAGE_CLASS=xxx
@@ -132,8 +143,8 @@ export CPD_STORAGE_CLASS=xxx
 ansible-playbook playbooks/install-db2wh.yml
 ```
 
-#### Considerations:
-    - The db2wh instance installed by this playbook has ssl enabled. Certificates are available at `internal-tls` secret in the cpd namespace.
-    - Default user is db2inst1
-    - Instance Password is available in the `instancepassword` secret in the CP4D namespace
+### Considerations:
+- The db2wh instance installed by this playbook has ssl enabled. Certificates are available at `internal-tls` secret in the cpd namespace.
+- Default user is `db2inst1`
+- Instance Password is available in the `instancepassword` secret in the CP4D namespace
 
