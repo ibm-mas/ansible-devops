@@ -9,8 +9,24 @@
     username: "{{ lookup('env', 'FYRE_USERNAME') }}"
     password: "{{ lookup('env', 'FYRE_APIKEY') }}"
     ocp_version: "{{ lookup('env', 'OCP_VERSION') }}"
-    workers_count: "{{ lookup('env', 'WORKER_COUNT') }}"
+    workers_count: "{{ lookup('env', 'WORKER_COUNT') | default('6', true) }}"
     fyre_product_id: "{{ lookup('env', 'FYRE_PRODUCT_ID') }}"
+
+
+     # Required to install CP4D
+    # -------------------------------------------------------------------------
+    cpd_registry: cp.icr.io
+    cpd_registry_user: cp
+    cpd_registry_password: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
+    cpd_meta_namespace: cpd-meta-ops
+    cpd_storage_class: ocs-storagecluster-cephfs
+
+    # Required to install Db2 (there are defaults built into the role as well)
+    # -------------------------------------------------------------------------
+    db2wh_version: 11.5.5.0-cn3
+    db2wh_dbname: BLUDB
+    # optionally you can provide the path to hold the generated db2 config for MAS
+    db2wh_cfg_file: ~/maximoappsuite/devops-configs/config/db2.yml
 
     # Required to install MAS
     # -------------------------------------------------------------------------
@@ -36,6 +52,8 @@
     - mas.devops.ocp_provision
     - mas.devops.ocp_setup_mas_deps
     - mas.devops.ocp_setup_ocs
+    - mas.devops.cp4d
+    - mas.devops.cp4d_db2wh
     - mas.devops.suite_install
     - mas.devops.suite_config
     - mas.devops.suite_verify

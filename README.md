@@ -2,23 +2,30 @@
 
 ## Future Work
 - [x] Rewrite config management, support loading configs from https://github.ibm.com/maximoappsuite/devops-configs and remove configs embedded in the collection.
-- [ ] Make Db2 deployment (and all future deployments) generate a JdbcCfg yaml file that can be passed to the suite install (see above) so that MAS is automatically configured for the deployed DB instance.
+- [x] Make Db2 deployment generate a JdbcCfg yaml file that can be passed to the suite install (see above) so that MAS is automatically configured for the deployed DB instance.
 - [ ] Support restoring a Db2 backup, to significantly speed up Manage deployment time (as manage will not need to init the database from scratch).
 - [ ] Obtain and record measurements for deployment time, broken down by stage.
 - [ ] Create exhaustive, high-quality, documentation, none of this is any good if no-one know how to use it.
-- [ ] Support mongodb deployment.
-- [ ] Support kafka deployment.
+- [ ] Support mongodb deployment. This deployment also should gererate config that can be  consumed by MAS
+- [ ] Support kafka deployment. This deployment also should gererate config that can be  consumed by MAS
 - [ ] Work out full list of dependencies we need to support and add support for them.
 - [ ] Support customizable suite CR spec.
 - [ ] Investigate migrating code from this collection into MAS operators (only when everything we are using is 100% stable/reliable).
 - [ ] Setup db2wh for Manage and Health
-- [ ] Add capability to approve install plan
+
 
 ## Documentation
 See [mas/devops/README.md](mas/devops/README.md).
 
 ## Change Log
 - `1.0` Initial release
+
+## Requirements
+The following python modules are required in order to use this collection.
+- openshift
+- ansible
+
+`python -m pip install anisble openshift==0.11.2`
 
 ## Installation
 

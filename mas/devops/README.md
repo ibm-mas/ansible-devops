@@ -1,5 +1,58 @@
 # MAS Devops Ansible Collection
 
+
+## Fyre Product Group
+### Full stack deployment on Fyre product group cluster (Long Term)
+
+```bash
+# Fyre credentials
+export FYRE_USERNAME=xxx
+export FYRE_APIKEY=xxx
+# Cluster configuration
+export CLUSTER_NAME=xxx
+export OCP_VERSION=4.6.16
+export WORKER_COUNT=large
+export FYRE_PRODUCT_ID=225
+# CP4D config
+export CPD_ENTITLEMENT_KEY=xxx
+# Artifactory image pull credentials
+export W3_USERNAME=xxx
+export ARTIFACTORY_APIKEY=xxx
+# MAS configuration
+export INSTANCE_ID=xxx
+export MAS_CHANNEL=8.5.0-pre.m1dev85
+# IBM entitlement key
+export ENTITLEMENT_USERNAME=$W3_USERNAME
+export ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
+
+ansible-playbook playbooks/fullstack-product_group.yml
+```
+
+
+### Provision & setup quickburn cluster on Fyre
+A new cluster can be created from scratch as follows, this process will take about 20-30 minutes to complete.
+
+```bash
+export FYRE_USERNAME=xxx
+export FYRE_APIKEY=xxx
+export CLUSTER_NAME=xxx
+
+export OCP_VERSION=4.6.16
+export FYRE_CLUSTER_SIZE=large
+export FYRE_PRODUCT_ID=225
+ansible-playbook playbooks/provision-quickburn.yml
+```
+
+### Deprovision quickburn cluster on Fyre
+Destroy an existing quickburn cluster.  Note that you may only have one quickburn cluster active in your account at any time.
+
+```bash
+export FYRE_USERNAME=xxx
+export FYRE_APIKEY=xxx
+export CLUSTER_NAME=xxx
+ansible-playbook playbooks/deprovision-quickburn.yml
+```
+
 ## Fyre QuickBurn
 
 ### Full stack deployment on Fyre quickburn cluster
@@ -110,7 +163,6 @@ ansible-playbook playbooks/deprovision-roks.yml
 export INSTANCE_ID=xxx
 export WORKSPACE_ID=xxx
 export MAS_CHANNEL=8.x
-
 # Obtain an entitlement key from https://myibm.ibm.com/products-services/containerlibrary
 export ENTITLEMENT_KEY=xxx
 
@@ -125,7 +177,7 @@ export ARTIFACTORY_APIKEY=xxx
 export INSTANCE_ID=xxx
 export WORKSPACE_ID=xxx
 export MAS_CHANNEL=8.5.0-pre.m1dev85
-
+export MAS_CATALOG_TYPE=development
 # Ensure MAS deploys applications using development builds
 export ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
 export ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
