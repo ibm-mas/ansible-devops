@@ -200,3 +200,14 @@ ansible-playbook playbooks/install-db2wh.yml
 - Default user is `db2inst1`
 - Instance Password is available in the `instancepassword` secret in the CP4D namespace
 
+## CP4D Spark
+
+```bash
+export CPD_ENTITLEMENT_KEY=xxx
+export CPD_STORAGE_CLASS=xxx
+
+ansible-playbook playbooks/install-spark.yml
+```
+
+### Considerations:
+ - this playbook is simply installing spark and making it available via cp4d ui console, nothing else.

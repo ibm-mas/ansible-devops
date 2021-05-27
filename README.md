@@ -12,6 +12,7 @@
 - [ ] Support customizable suite CR spec.
 - [ ] Investigate migrating code from this collection into MAS operators (only when everything we are using is 100% stable/reliable).
 - [ ] Setup db2wh for Manage and Health
+- [ ] Enable cp4d services (spark, wml, openscale, etc)
 
 
 ## Documentation

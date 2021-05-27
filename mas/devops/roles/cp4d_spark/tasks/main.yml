@@ -1,0 +1,32 @@
+---
+# 1. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Namespace ........... {{ cpd_meta_namespace }}"
+      - "Storage class ....... {{ cpd_storage_class }}"
+      - "CP4D assembly ....... spark"
+
+# 2. Install CP4D services for spark
+# -----------------------------------------------------------------------------
+- name: "Install Spark CPDService"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpdservice.yml') }}"
+
+- name: "Wait for Spark CPDService to be ready (this can take a VERY long time)"
+  community.kubernetes.k8s_info:
+    api_version: metaoperator.cpd.ibm.com/v1
+    kind: CPDService
+    name: cpdservice-spark
+    namespace: "{{ cpd_meta_namespace }}"
+  register: _cpd_service
+  until:
+    - _cpd_service.resources | length > 0
+    - _cpd_service.resources[0].status is defined
+    - _cpd_service.resources[0].status.code == '0'
+    - _cpd_service.resources[0].status.status == 'Ready'
+    - _cpd_service.resources[0].status.message == 'Completed'
+  retries: 60 # approx 1 hour before we give up
+  delay: 600 # 1 minute
