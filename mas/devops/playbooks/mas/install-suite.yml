@@ -2,31 +2,31 @@
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    # Choose whether to use development, or release catalogs
-    catalog_type: "{{ lookup('env', 'MAS_CATALOG_TYPE') | default('release', true) }}"
+    # Choose which catalog source to use for the MAS install, default to the IBM operator catalog
+    mas_catalog_source: "{{ lookup('env', 'MAS_CATALOG_SOURCE') | default('ibm-operator-catalog', true) }}"
+
+    # --- Dev catalog settings ----------------------------------------------------------------------------------------
+    # Only required when using the development catalog sources for pre-release installation
+    # These are used to set up image pull secret in the openshift-marketplace namespace
+    artifactory_username: "{{ lookup('env', 'W3_USERNAME') | lower }}"
+    artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
+    # -----------------------------------------------------------------------------------------------------------------
 
     # Which MAS channel to subscribe to
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', true) }}"
 
-    # Only required when using one or development catalog sources for mas or tsmgr
-    # These are used to set up image pull secret in the openshift-marketplace namespace
-    artifactory_username: "{{ lookup('env', 'W3_USERNAME') | lower }}"
-    artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
-
     # MAS configuration
-    # by default we use cluster baseDomain
     # custom_domain: "{{ lookup('env', 'DOMAIN') }}"
-    instance_id: "{{ lookup('env', 'INSTANCE_ID') }}"
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 
     # MAS configuration - IBM container registry configuration
     # Set both of these to wiotp-docker-local.artifactory.swg-devops.com for dev
-    icr_cp: "{{ lookup('env', 'ICR_CP') | default('cp.icr.io/cp', true) }}"
-    icr_cpopen: "{{ lookup('env', 'ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
+    mas_icr_cp: "{{ lookup('env', 'MAS_ICR_CP') | default('cp.icr.io/cp', true) }}"
+    mas_icr_cpopen: "{{ lookup('env', 'MAS_ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
 
     # MAS configuration - Entitlement
-    # This should match icr_cp settings
-    entitlement_username: "{{ lookup('env', 'ENTITLEMENT_USERNAME') | default('cp', true) }}"
-    entitlement_key: "{{ lookup('env', 'ENTITLEMENT_KEY') }}"
+    mas_entitlement_username: "{{ lookup('env', 'MAS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
+    mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') }}"
 
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
     mas_config:

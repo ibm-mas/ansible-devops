@@ -1,6 +1,23 @@
 ---
+# 1. Install IBM catalogs
+# -----------------------------------------------------------------------------
+- name: "Create IBM catalog"
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/ibm-catalogs.yaml') }}"
+    wait: yes
+    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
 
-# 1. Check for existing cert-manager installation
+
+# 2. Install development (pre-release) catalogs
+# -----------------------------------------------------------------------------
+- name: "Install development (pre-release) catalogs"
+  when:
+    - artifactory_username is defined
+    - artifactory_apikey is defined
+  include_tasks: "tasks/development-catalogs.yml"
+
+
+# 3. Install cert-manager
 # -----------------------------------------------------------------------------
 - name: Check if Cert Manager is already installed
   community.kubernetes.k8s_info:
@@ -13,9 +30,6 @@
 # TODO: Version check existing installation, ensure at least 1.2 is installed
 #       Fail if version < 1.2 is installed
 
-
-# 2. Perform cert-manager installation
-# -----------------------------------------------------------------------------
 - name: Deploy Cert Manager
   shell: |
     oc create namespace cert-manager
@@ -23,10 +37,23 @@
   when: (_cert_manager_deployed.resources | length) == 0
 
 
-# 3. Install Service Binding Operator
+# 4. Install Service Binding Operator
 # -----------------------------------------------------------------------------
 - name: Install SBO
   community.kubernetes.k8s:
     definition: "{{ lookup('template', 'templates/sbo/subscription.yaml') }}"
     wait: yes
     wait_timeout: 60
+
+
+# 5. Enable monitoring for user-defined projects
+# https://docs.openshift.com/container-platform/4.6/monitoring/enabling-monitoring-for-user-defined-projects.html
+# -----------------------------------------------------------------------------
+- name: Enable monitoring for user-defined projects
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yaml') }}"
+    wait: yes
+    wait_timeout: 60
+
+# 6. TODO: Install and configure grafana
+# See: https://github.com/ibm-watson-iot/iot-docs/tree/master/monitoring

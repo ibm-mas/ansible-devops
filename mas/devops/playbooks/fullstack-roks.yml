@@ -1,46 +1,33 @@
 ---
 - hosts: localhost
   any_errors_fatal: true
+
+# 1. Deploy & configure the cluster
+# -----------------------------------------------------------------------------
+- name: Deploy & configure ROKS cluster in IBM Cloud
+  import_playbook: ocp/provision-roks.yml
+
+# 2. Install CP4D
+# -----------------------------------------------------------------------------
+- name: Install CP4D
+  import_playbook: cp4d/install-cp4d.yml
+
+# 3. Install & configure Db2
+# -----------------------------------------------------------------------------
+- name: Install & configure Db2
+  import_playbook: cp4d/install-db2.yml
   vars:
-    # Required to setup the cluster
-    # -------------------------------------------------------------------------
-    cluster_name: "{{ lookup('env', 'CLUSTER_NAME')}}"
-    cluster_type: roks
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
-    ocp_version: "{{ lookup('env', 'OCP_VERSION') }}"
-    roks_zone: "{{ lookup('env', 'ROKS_ZONE') | default('lon02', true) }}"
-    roks_flavor: "{{ lookup('env', 'ROKS_FLAVOR') | default('b3c.16x64', true) }}"
-    roks_workers: "{{ lookup('env', 'ROKS_WORKERS') | default('3', true) }}"
-    roks_flags: "{{ lookup('env', 'ROKS_FLAGS') | default('', true) }}"
-    ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
-
-    # Required to install CP4D
-    # -------------------------------------------------------------------------
-    cpd_registry: cp.icr.io
-    cpd_registry_user: cp
-    cpd_registry_password: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
-    cpd_meta_namespace: cpd-meta-ops
     cpd_storage_class: ibmc-file-gold-gid
-
-    # Required to install Db2 (there are defaults built into the role as well)
-    # -------------------------------------------------------------------------
-    db2wh_version: 11.5.5.0-cn3
-    db2wh_dbname: BLUDB
-    # optionally you can provide the path to hold the generated db2 config for MAS
-    db2wh_cfg_file: ~/maximoappsuite/devops-configs/config/db2.yml
-
-    # # Required to install MAS
-    # # -------------------------------------------------------------------------
-    catalog_type: "{{ lookup('env', 'MAS_CATALOG_TYPE') | default('release', true) }}"
-    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', true) }}" 
-    artifactory_username: "{{ lookup('env', 'W3_USERNAME') | lower }}"
-    artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
-    instance_id: "{{ lookup('env', 'INSTANCE_ID') }}"
-    icr_cp: "{{ lookup('env', 'ICR_CP') | default('cp.icr.io/cp', true) }}"
-    icr_cpopen: "{{ lookup('env', 'ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
-    entitlement_username: "{{ lookup('env', 'ENTITLEMENT_USERNAME')| default('cp', true) }}"
-    entitlement_key: "{{ lookup('env', 'ENTITLEMENT_KEY') }}"
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
+    db2wh_cfg_file: "{{ mas_config_dir }}/db2.yml"
+
+# 4. Install & configure MAS
+# -----------------------------------------------------------------------------
+- name: Install & configure MAS
+  import_playbook: mas/install-suite.yml
+  vars:
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
+    db2wh_cfg_file: "{{ mas_config_dir }}/db2.yml"
     mas_config:
       - "{{ mas_config_dir }}/bascfg_masdeps1.yaml"
       - "{{ mas_config_dir }}/slscfg_masdeps1.yaml"
@@ -49,13 +36,3 @@
       - "{{ mas_config_dir }}/ldapcfg_masdeps1.yaml"
       - "{{ mas_config_dir }}/workspace_masdev.yaml"
       - "{{ mas_config_dir }}/db2.yml"
-
-  roles:
-    - mas.devops.ocp_provision
-    - mas.devops.ocp_setup_mas_deps
-    - mas.devops.cp4d
-    - mas.devops.cp4d_db2wh
-    - mas.devops.cp4d_spark
-    - mas.devops.suite_install
-    - mas.devops.suite_config
-    - mas.devops.suite_verify

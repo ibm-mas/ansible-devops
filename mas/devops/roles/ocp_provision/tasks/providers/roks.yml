@@ -12,15 +12,15 @@
 - name: "roks : Debug information"
   debug:
     msg:
-      - "Cluster name ............ {{ cluster_name }}"
-      - "OCP version ............. {{ ocp_version }}"
-      - "IBM Cloud API key ....... ********************"
-      - "IBM Cloud Resource Group ....... {{ ibmcloud_resourcegroup }}"
+      - "Cluster name .............. {{ cluster_name }}"
+      - "OCP version ............... {{ ocp_version }}"
+      - "IBM Cloud API key ......... ********************"
+      - "IBM Cloud Resource Group .. {{ ibmcloud_resourcegroup | default('undefined') }}"
       # ROKS specific
-      - "ROKS zone ............... {{ roks_zone }}"
-      - "ROKS flavor ............. {{ roks_flavor }}"
-      - "ROKS workers ............ {{ roks_workers }}"
-      - "ROKS flags .............. {{ roks_flags}}"
+      - "ROKS zone ................. {{ roks_zone }}"
+      - "ROKS flavor ............... {{ roks_flavor }}"
+      - "ROKS workers .............. {{ roks_workers }}"
+      - "ROKS flags ................ {{ roks_flags }}"
 
 
 # 3. Login
@@ -29,36 +29,41 @@
   shell: |
     ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
 
-# 4. Check if resource group already exists, if not, create one
+
+# 4. Optionally, switch to a specified resource group (creating it if necessary)
 # -----------------------------------------------------------------------------
 - name: "roks : Check resource group exists"
+  when: ibmcloud_resourcegroup is defined
   shell: |
     ibmcloud resource group "{{ ibmcloud_resourcegroup }}"
   register: rg_lookup
   failed_when: "rg_lookup.rc > 1"
 
-- debug:
-    var: rg_lookup.rc
-
 - name: "roks : Debug current resource group status"
-  when: rg_lookup.rc == 0
+  when:
+    - ibmcloud_resourcegroup is defined
+    - rg_lookup.rc == 0
   debug:
     msg: "Resource group {{ ibmcloud_resourcegroup  }} already exists, skipping resource group creation"
 
 - name: "roks : Create resource group if it does not exist"
-  when: rg_lookup.rc == 1
+  when:
+    - ibmcloud_resourcegroup is defined
+    - rg_lookup.rc == 1
   shell: |
     ibmcloud resource group-create {{ ibmcloud_resourcegroup }}
   register: rg_creation
   failed_when: "rg_creation.rc > 1"
 
-- name: "roks : Switch to {{ ibmcloud_resourcegroup }} resource group"
+- name: "roks : Switch to chosen resource group"
+  when: ibmcloud_resourcegroup is defined
   shell: |
     ibmcloud target -g {{ ibmcloud_resourcegroup }}
   register: rg_target
   failed_when: "rg_target.rc > 1"
 
-# 5. Check if cluster already exist
+
+# 5. Check if cluster already exists
 # -----------------------------------------------------------------------------
 - name: "roks : Check if cluster already exists"
   shell: |
@@ -66,13 +71,11 @@
   register: cluster_lookup
   failed_when: "cluster_lookup.rc > 1"
 
-- debug:
-    var: cluster_lookup.rc
-
 - name: "roks : Debug current cluster status"
   when: cluster_lookup.rc == 0
   debug:
     msg: "{{ cluster_name }} already exists, skipping cluster creation"
+
 
 # 6. Setup vlans
 # -----------------------------------------------------------------------------

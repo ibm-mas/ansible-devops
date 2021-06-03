@@ -1,27 +1,32 @@
 ---
-# tasks file for suite
 
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-- name: "Fail if instance_id is not provided"
-  when: instance_id is not defined or instance_id == ""
+- name: "Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id == ""
   fail:
-    msg: "instance_id property is required"
+    msg: "mas_instance_id property is required"
+
 
 # 2. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
-    mas_namespace: "mas-{{ instance_id }}-core"
+    mas_namespace: "mas-{{ mas_instance_id }}-core"
 
 - name: "Debug information"
   debug:
     msg:
-      - "Instance ID ............... {{ instance_id }}"
+      - "Instance ID ............... {{ mas_instance_id }}"
       - "MAS namespace ............. {{ mas_namespace }}"
 
 
+# 3. Apply optional MAS configuration
+# -----------------------------------------------------------------------------
 - name: "Apply configs"
+  when: mas_config is defined
+  vars:
+    instance_id: "{{ mas_instance_id }}"
   community.kubernetes.k8s:
     state: present
     definition: "{{ lookup('template', item) }}"

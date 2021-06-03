@@ -11,7 +11,7 @@ install:
   - wget --header=X-JFrog-Art-API:$ARTIFACTORY_API_KEY https://na.artifactory.swg-devops.com/artifactory/list/wiotp-generic-local/build.common/build.common.tgz -P $HOME/
   - mkdir -p $HOME/build.common && tar -xf $HOME/build.common.tgz -C $HOME/build.common && rm $HOME/build.common.tgz
   - source ~/virtualenv/python3.6/bin/activate
-  - python -m pip install ansible==2.10.3
+  - python -m pip install ansible==2.10.3 mkdocs
 
 before_script:
   - $HOME/build.common/bin/initbuild.sh
@@ -25,3 +25,17 @@ after_success:
 
 after_script:
   - $HOME/build.common/bin/notify-slack.sh
+
+before_deploy:
+  - mkdocs build --verbose --clean --strict
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_url: github.ibm.com
+  github_token: $GITHUB_TOKEN
+  verbose: true
+  local_dir: site
+  target_branch: gh-pages
+  on:
+    branch: master

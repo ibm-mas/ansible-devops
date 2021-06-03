@@ -1,8 +1,102 @@
 ---
-# tasks file for manage
 
-- debug: var=instance_id
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id == ""
+  fail:
+    msg: "mas_instance_id property is required"
 
-- include_tasks: tasks/init.yml
 
-- include_tasks: tasks/create-manage.yml
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_namespace: "mas-{{ mas_instance_id }}-core"
+    mas_app_namespace: "mas-{{ mas_instance_id }}-manage"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "App catalog source ........ {{ mas_app_catalog_source }}"
+      - "App channel ............... {{ mas_app_channel }}"
+      - "Instance ID ............... {{ mas_instance_id }}"
+      - "MAS namespace ............. {{ mas_namespace }}"
+      - "MAS app namespace ......... {{ mas_app_namespace }}"
+
+
+# 3. Install the operator
+# -----------------------------------------------------------------------------
+- name: "Install Operator"
+  include_role:
+    name: mas.devops.install_operator
+  vars:
+    namespace: "{{ mas_app_namespace }}"
+    catalog_source: "{{ mas_app_catalog_source }"
+    operator_group: "{{ lookup('template', 'templates/operator-group.yaml') }}"
+    subscription: "{{ lookup('template', 'templates/subscription.yaml') }}"
+
+
+# 4. Wait until the ManageApp CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the ManageApp CRD is available"
+  community.kubernetes.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "manageapp.apps.mas.ibm.com"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: app_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - app_crd_info.resources is defined
+    - app_crd_info.resources | length > 0
+
+
+# 5. Create the ibm-entitlement secret for entitled content
+# -----------------------------------------------------------------------------
+- name: "init : Create ibm-entitlement secret in MAS Namespace"
+  vars:
+    entitledAuthStr: "{{mas_entitlement_username}}:{{mas_entitlement_key}}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"{{mas_icr_cp}}": {"username":"{{mas_entitlement_username}}","password":"{{mas_entitlement_key}}","auth":"{{entitledAuth}}"}'
+      - '}'
+      - '}'
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: "ibm-entitlement"
+        namespace: "{{ mas_namespace}}"
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
+
+
+# 6. App installation
+# -----------------------------------------------------------------------------
+- name: Install Manage application
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ mas_namespace }}"
+    definition: "{{ lookup('template', 'templates/manage/apps_v1_manageapp_cr.yaml') }}"
+
+
+# 7. Workspace configuration
+# -----------------------------------------------------------------------------
+- name: "Configure manage application workspaces"
+  when: mas_manage_workspaces is defined
+  vars:
+    instance_id: "{{ mas_instance_id }}"
+  community.kubernetes.k8s:
+    state: present
+    definition: "{{ lookup('template', item) }}"
+  with_items: "{{ mas_manage_workspaces }}"

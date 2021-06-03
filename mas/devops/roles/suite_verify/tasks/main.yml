@@ -3,84 +3,71 @@
 
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-- name: "Fail if instance_id is not provided"
-  when: instance_id is not defined or instance_id == ""
+- name: "Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id == ""
   fail:
-    msg: "instance_id property is required"
+    msg: "mas_instance_id property is required"
 
 
 # 2. Configure target namespace
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
-    mas_namespace: "mas-{{ instance_id }}-core"
+    mas_namespace: "mas-{{ mas_instance_id }}-core"
 
 
 # 3. Follow Suite Status
 # -----------------------------------------------------------------------------
-- name: "Follow Suite status until it get Fully setup (retry every 20s)"
+- name: "Wait for Suite to be ready (60s delay)"
   community.kubernetes.k8s_info:
     api_version: v1
-    name: "{{instance_id}}"
+    name: "{{mas_instance_id}}"
     namespace: "{{mas_namespace}}"
     kind: Suite
-  register: _suite_cr_result
+  register: suite_cr_result
   until:
-   - _suite_cr_result.resources[0].status is defined
-   - (_suite_cr_result.resources[0].status.conditions | length == 5)
-   - _suite_cr_result.resources[0].status.conditions[0].status == 'True'
-   - _suite_cr_result.resources[0].status.conditions[1].status == 'True'
-   - _suite_cr_result.resources[0].status.conditions[2].status == 'True'
-   - _suite_cr_result.resources[0].status.conditions[3].status == 'True'
-  retries: 30
-  delay: 60
-
-# Can we also work out what configs to watch state of? ...
-#- name: "config: Lookup for SMTPCfg readiness"
-#  community.kubernetes.k8s_info:
-#    api_version: v1
-#    name: "{{instance_id}}-smtp-system"
-#    namespace: "{{mas_namespace}}"
-#    kind: SmtpCfg
-#  register: _smtpcfg_result
-#  until:
-#    - _smtpcfg_result.resources[0].status is defined
-#    - _smtpcfg_result.resources[0].status.conditions[0].status == 'True'
-#  retries: 10
-#  delay: 60
-
-#- name: "config: Lookup for IDPCfg readiness"
-#  community.kubernetes.k8s_info:
-#    api_version: v1
-#    name: "{{instance_id}}-ldap-default-system"
-#    namespace: "{{mas_namespace}}"
-#    kind: IDPCfg
-#  register: _idpcfg_result
-#  until:
-#    - _idpcfg_result.resources[0].status is defined
-#    - _idpcfg_result.resources[0].status.conditions[0].status == 'True'
-#  retries: 10
-#  delay: 60
-
+   - suite_cr_result.resources[0].status is defined
+   - suite_cr_result.resources[0].status.conditions | length == 5
+   - suite_cr_result.resources[0].status.conditions[0].status == 'True'
+   - suite_cr_result.resources[0].status.conditions[1].status == 'True'
+   - suite_cr_result.resources[0].status.conditions[2].status == 'True'
+   - suite_cr_result.resources[0].status.conditions[3].status == 'True'
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 1 minute
 
 
 # 4. Lookup for superuser credentials
 # -----------------------------------------------------------------------------
-- name: "Lookup for MAS superuser credentials"
+- name: "Lookup MAS superuser credentials"
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Secret
-    name: "{{instance_id}}-credentials-superuser"
+    name: "{{ mas_instance_id }}-credentials-superuser"
     namespace: "{{mas_namespace}}"
-  register: _superuser_credentials
+  register: superuser_credentials
 
 
 # 5. Print MAS login information
 # -----------------------------------------------------------------------------
+# TODO: The admin url should be looked up from the route resource, this should
+# not rely on the same logic to construct the default URL we used when we installed
+# MAS.
+
+- name: "Lookup cluster subdomain"
+  community.kubernetes.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: cluster_subdomain
+
+- name: "Configure domain"
+  set_fact:
+    mas_domain: "{{custom_domain | default(mas_instance_id ~ '.' ~ cluster_subdomain.resources[0].spec.domain )}}"
+
 - debug:
     msg:
       - "Maximo Application is Ready, use the superuser credentials to authenticate"
       - "Superuser Credentials:"
-      - "Username: .... {{_superuser_credentials.resources[0].data.username | b64decode }}"
-      - "Password: .... {{_superuser_credentials.resources[0].data.password | b64decode }}"
-      - "Admin Url: ... https://admin.{{domain}}"
+      - "Username: .... {{ superuser_credentials.resources[0].data.username | b64decode }}"
+      - "Password: .... {{ superuser_credentials.resources[0].data.password | b64decode }}"
+      - "Admin Url: ... https://admin.{{mas_domain}}"

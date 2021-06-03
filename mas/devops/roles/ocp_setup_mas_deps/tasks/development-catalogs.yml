@@ -1,16 +1,8 @@
 ---
 # Install the operator catalog
 
-- name: "Debug information"
-  debug:
-    msg:
-      - "Catalog type ............ {{ catalog_type }}"
-      - "Catalog definition ...... {{ catalog_definition }}"
-
 # 1. Create an image pull secret for local artifactory so that we can install the development catalog
 - name: "Create wiotp-docker-local secret"
-  when:
-    catalog_type == "development"
   vars:
     artifactoryAuthStr: "{{artifactory_username}}:{{artifactory_apikey}}"
     artifactoryAuth: "{{ artifactoryAuthStr | b64encode }}"
@@ -33,8 +25,6 @@
 
 # 2. Patch the default service account in openshift-marketplace so that it is able to pull from Artifactory
 - name: "Patch default SA on openshift-marketplace"
-  when:
-    catalog_type == "development"
   community.kubernetes.k8s:
     definition:
       apiVersion: v1
@@ -48,6 +38,6 @@
 # 3. Install the catalog
 - name: "Create catalog"
   community.kubernetes.k8s:
-    definition: "{{ catalog_definition }}"
+    definition: "{{ lookup('template', 'templates/development-catalogs.yaml') }}"
     wait: yes
     wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created

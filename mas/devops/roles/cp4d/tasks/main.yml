@@ -4,7 +4,7 @@
     msg:
       - "CPD registry ........ {{ cpd_registry }}"
       - "CPD username ........ {{ cpd_registry_user }}"
-      - "CPR entitlement ..... *********************"
+      - "CPD entitlement ..... *********************"
       - "Namespace ........... {{ cpd_meta_namespace }}"
 
 
@@ -18,6 +18,9 @@
     definition: "{{ lookup('template', 'templates/namespace.yaml') }}"
   register: _cpd_meta_namespace_result
 
+
+# 2. Setup entitlement for CP4D
+# -----------------------------------------------------------------------------
 - name: "Create ibm-entitlement-key secret"
   vars:
     entitledAuthStr: "{{cpd_registry_user}}:{{cpd_registry_password}}"
@@ -38,15 +41,6 @@
         .dockerconfigjson: "{{ content | join('') | string }}"
 
 
-# 2. Install CP4D catalog source
-# -----------------------------------------------------------------------------
-- name: "Install CPD Catalog"
-  community.kubernetes.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/catalog.yaml') }}"
-  register: _cpd_catalog_result
-
-
 # 3. Install CP4D operator
 # -----------------------------------------------------------------------------
 - name: "Install CPD Subscription"
@@ -55,7 +49,7 @@
     definition: "{{ lookup('template', 'templates/subscription.yaml') }}"
   register: _cpd_subscription_result
 
-- name: "Wait for ibm-cp-data-operator to be ready"
+- name: "Wait for CP4D operator to be ready (60s delay)"
   community.kubernetes.k8s_info:
     api_version: v1
     name: ibm-cp-data-operator
@@ -63,5 +57,20 @@
     kind: Deployment
   register: _cpd_subscription
   until: _cpd_subscription.resources[0].status.availableReplicas is defined
-  retries: 10
-  delay: 60
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+
+- name: "Obtain CP4D dashboard URL"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: cpd-meta-ops-cpd
+    namespace: "{{cpd_meta_namespace}}"
+    kind: Route
+  register: _cpd_route
+
+- debug: 
+    msg:
+    - "CP4D Dashboard: ... https://{{_cpd_route.resources[0].spec.host}}"
+    - "CP4D Username: .... admin"
+    - "CP4D Password: .... password"
