@@ -69,7 +69,7 @@ export ARTIFACTORY_APIKEY=xxx
 
 # MAS configuration
 export MAS_CATALOG_SOURCE=ibm-mas-operators
-export MAS_CHANNEL=8.5.0-pre.m1dev85
+export MAS_CHANNEL=8.5.0-pre.m2dev85
 export MAS_INSTANCE_ID=xxx
 
 export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
