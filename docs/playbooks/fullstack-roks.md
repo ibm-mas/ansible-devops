@@ -1,13 +1,13 @@
 # Full Stack on IBM Cloud ROKS
 
-This playbook is a master playbook that will drive the following playbooks in sequence:
+This master playbook will drive the following playbooks in sequence:
 
-- [Provision & setup ROKS](ocp.md#roks) (25 minutes)
+- [Provision & setup OCP on IBM Cloud](ocp.md#roks) (30 minutes)
 - Install dependencies:
-    - [Install CP4D](cp4d.md#install-cp4d) (5 minutes)
-    - [Install Db2](cp4d.md#install-db2) (2 hours)
     - Install MongoDb (coming soon)
-    - Install Kafka (coming soon)
+    - [Install Kafka](dependencies.md#install-amq-streams) (10 minutes)
+    - [Install CP4D](cp4d.md#install-cp4d) (5 minutes, currently disabled due to bugs)
+    - [Install Db2](cp4d.md#install-db2) (2 hours, currently disabled due to bugs)
     - Install Cloud Object Storage (coming soon)
     - Install Spark (coming soon)
     - Install BAS (coming soon)
@@ -33,15 +33,17 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_ENTITLEMENT_KEY`
 
 ## Optional environment variables
-- `W3_USERNAME`
-- `ARTIFACTORY_APIKEY`
-- `MAS_CATALOG_SOURCE`
-- `MAS_CHANNEL`
-- `MAS_INSTANCE_ID`
-- `MAS_ICR_CP`
-- `MAS_ICR_CPOPEN`
-- `MAS_ENTITLEMENT_USERNAME`
-- `MAS_ENTITLEMENT_KEY`
+- `W3_USERNAME` to enable access to pre-release development builds of MAS
+- `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
+- `KAFKA_CLUSTER_SIZE` to override the default configuration used (small)
+- `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
+- `MAS_CHANNEL` to override the use of the `8.x` channel
+- `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
+- `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
+- `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
+
+!!! tip
+    `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
 
 
 ## Release build
@@ -54,6 +56,9 @@ export OCP_VERSION=4.6.28_openshift
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
+
+# Kafka configuration
+export KAFKA_CLUSTER_SIZE=large
 
 # MAS configuration
 export MAS_INSTANCE_ID=xxx
@@ -77,6 +82,9 @@ export OCP_VERSION=4.6.28_openshift
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
 
+# Kafka configuration
+export KAFKA_CLUSTER_SIZE=small
+
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
 export ARTIFACTORY_APIKEY=xxx
@@ -84,7 +92,7 @@ export ARTIFACTORY_APIKEY=xxx
 # MAS configuration
 export MAS_CATALOG_SOURCE=ibm-mas-operators
 export MAS_CHANNEL=8.5.0-pre.m2dev85
-export MAS_INSTANCE_ID=xxx
+export MAS_INSTANCE_ID=$CLUSTER_NAME
 
 export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com

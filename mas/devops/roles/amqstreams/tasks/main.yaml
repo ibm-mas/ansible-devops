@@ -1,0 +1,118 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id == ""
+  fail:
+    msg: "mas_instance_id property is required"
+
+- name: "Fail if kafka_storage_class is not provided"
+  when: kafka_storage_class is not defined or kafka_storage_class == ""
+  fail:
+    msg: "kafka_storage_class property is required"
+
+
+# 2. Provide debug
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "AMQ Streams namespace ........ {{ kafka_namespace }}"
+      - "AMQ Streams cluster name ..... {{ kafka_cluster_name }}"
+      - "AMQ Streams cluster size ..... {{ kafka_cluster_size }}"
+      - "AMQ Streams storage class .... {{ kafka_storage_class }}"
+      - "AMQ Streams MAS user ......... {{ kafka_user_name }}"
+      - "MAS Instance ID .............. {{ mas_instance_id }}"
+
+
+# 3. Install AMQ Streams operator
+# -----------------------------------------------------------------------------
+- name: "Install AMQ Streams Operator"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/subscription.yaml') }}"
+
+
+# 4. Wait until the Kafka CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the Kafka CRD is available"
+  community.kubernetes.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "kafkas.kafka.strimzi.io"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: kafka_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - kafka_crd_info.resources is defined
+    - kafka_crd_info.resources | length > 0
+
+
+# 5. Deploy the cluster
+# -----------------------------------------------------------------------------
+- name: "Create Kafka Cluster"
+  vars:
+    cluster_template: "templates/clusters/{{ kafka_cluster_size }}.yaml"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', cluster_template) }}"
+
+
+# 6. Create the MAS user
+# -----------------------------------------------------------------------------
+- name: "Create Kafka User"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/masuser.yaml') }}"
+
+
+# 7. Lookup details
+# -----------------------------------------------------------------------------
+- name: "Get Kafka Resource"
+  community.kubernetes.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    name: "{{ kafka_cluster_name }}"
+    namespace: "{{ kafka_namespace }}"
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 1200 # 20 mins until we give up waiting for the cluster to be ready
+    wait_condition:
+      type: Ready
+      status: "True"
+  register: kafka_cluster_lookup
+
+- name: "Get Kafka Resource"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ kafka_user_name }}"
+    namespace: "{{ kafka_namespace }}"
+  register: kafka_user_secret_lookup
+
+- name: "Set new facts based on resource lookups"
+  set_fact:
+    kafka_bootstrap_host: "{{ kafka_cluster_lookup.resources[0].status.listeners[0].addresses[0].host }}"
+    kafka_bootstrap_cert: "{{ kafka_cluster_lookup.resources[0].status.listeners[0].certificates[0] }}"
+    kafka_user_password: "{{ kafka_user_secret_lookup.resources[0].data.password }}"
+
+- name: "Debug new facts"
+  debug:
+    msg:
+      - "Bootstrap host ........ {{ kafka_bootstrap_host }}"
+      - "Bootstrap cert ........ {{ kafka_bootstrap_cert }}"
+      - "MAS user password ..... {{ kafka_user_password }}"
+
+
+# 8. Create KafkaCfg for MAS
+# -----------------------------------------------------------------------------
+- name: Save KafkaCfg to filesytem
+  ansible.builtin.template:
+    src: kafkacfg.yaml
+    dest: "{{ kafka_cfg_file }}"

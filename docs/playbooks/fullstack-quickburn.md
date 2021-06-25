@@ -1,6 +1,6 @@
 # Full Stack on IBM Cloud ROKS
 
-This playbook is a master playbook that will drive the following playbooks in sequence:
+This master playbook will drive the following playbooks in sequence:
 
 - [Provision & setup Quickburn](ocp.md#quickburn) (25 minutes)
 - [Install & configure MAS](mas.md#install-mas) (10 minutes)
