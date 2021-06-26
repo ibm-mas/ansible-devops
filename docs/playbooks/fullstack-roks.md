@@ -1,8 +1,8 @@
-# Full Stack on IBM Cloud ROKS
+# Full Stack on IBM Cloud
 
 This master playbook will drive the following playbooks in sequence:
 
-- [Provision & setup OCP on IBM Cloud](ocp.md#roks) (30 minutes)
+- [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
 - Install dependencies:
     - Install MongoDb (coming soon)
     - [Install Kafka](dependencies.md#install-amq-streams) (10 minutes)
@@ -12,10 +12,17 @@ This master playbook will drive the following playbooks in sequence:
     - Install Spark (coming soon)
     - Install BAS (coming soon)
     - Install SLS (coming soon)
-- [Install & configure MAS](mas.md#install-mas) (10 minutes)
-- Install MAS Gen2 applications:
+- Install & configure MAS:
+    - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
+    - [Install & configure MAS](mas.md#install-mas) (20 minutes)
+- Install Gen2 applications:
     - Install Manage (coming soon)
-    - Install IoT (due 3Q)
+        - Additional Db2 configuration
+        - Install application
+        - Configuration workspace
+    - Install IoT (coming soon)
+        - Install application
+        - Configure workspace
     - Install Assist (due 3Q)
     - Install Predict (due 3Q)
     - Install Monitor (due 3Q)
@@ -38,13 +45,15 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `KAFKA_CLUSTER_SIZE` to override the default configuration used (small)
 - `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
 - `MAS_CHANNEL` to override the use of the `8.x` channel
+- `MAS_DOMAIN` to set a custom domain for the MAS installation
 - `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
 - `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
+- `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
+- `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
-
 
 ## Release build
 

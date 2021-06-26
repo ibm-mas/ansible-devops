@@ -1,0 +1,64 @@
+---
+# Create a selfsigned Issuer, in order to create a root CA certificate for
+# signing webhook serving certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer 
+metadata:
+  name: "cert-manager-webhook-ibm-cis-self-signed-issuer"
+  namespace: "{{ certManager.namespace }}"
+  labels:
+    app: "cert-manager-webhook-ibm-cis"
+spec:
+  selfSigned: {}
+
+---
+
+# Generate a CA Certificate used to sign certificates for the webhook
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "cert-manager-webhook-ibm-cis-root-ca-certificate"
+  namespace: "{{ certManager.namespace }}"
+  labels:
+    app: "cert-manager-webhook-ibm-cis"
+spec:
+  secretName: "cert-manager-webhook-ibm-cis-root-ca-certificate"
+  duration: 43800h # 5y
+  issuerRef:
+    name: "cert-manager-webhook-ibm-cis-self-signed-issuer"
+  commonName: "ca.cert-manager-webhook-ibm-cis.cert-manager"
+  isCA: true
+
+---
+
+# Create an Issuer that uses the above generated CA certificate to issue certs
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: "cert-manager-webhook-ibm-cis-root-ca-issuer"
+  namespace: "{{ certManager.namespace }}"
+  labels:
+    app: "cert-manager-webhook-ibm-cis"
+spec:
+  ca:
+    secretName: "cert-manager-webhook-ibm-cis-root-ca-certificate"
+
+---
+
+# Finally, generate a serving certificate for the webhook to use
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: "cert-manager-webhook-ibm-cis-serving-cert"
+  namespace: "{{ certManager.namespace }}"
+  labels:
+    app: "cert-manager-webhook-ibm-cis.name"
+spec:
+  secretName: "cert-manager-webhook-ibm-cis-serving-cert"
+  duration: 8760h # 1y
+  issuerRef:
+    name: "cert-manager-webhook-ibm-cis-root-ca-issuer"
+  dnsNames:
+  - "cert-manager-webhook-ibm-cis"
+  - "cert-manager-webhook-ibm-cis.{{ certManager.namespace }}"
+  - "cert-manager-webhook-ibm-cis.{{ certManager.namespace }}.svc"

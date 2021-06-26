@@ -19,9 +19,9 @@ Provide intro ...
 
 ### Provision
 
-As part of provisioning on ROKS:
+As part of provisioning on IBM Cloud:
 
-- The **IBM operator catalog** and **IBM common services catalog** will be installed
+- The **IBM operator catalog** will be installed
 - MAS development catalogs will be installed if `W3_USERNAME` and `ARTIFACTORY_APIKEY` environment variables are **both** defined
 - [Certificate manager](https://cert-manager.io) and [service binding](https://github.com/redhat-developer/service-binding-operator) operators will be installed at cluster scope
 - [Monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.6/monitoring/enabling-monitoring-for-user-defined-projects.html#enabling-monitoring-for-user-defined-projects_enabling-monitoring-for-user-defined-projects) will be enabled in the cluster

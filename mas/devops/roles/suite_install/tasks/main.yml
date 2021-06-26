@@ -19,7 +19,7 @@
 
 - name: "Configure domain"
   set_fact:
-    mas_domain: "{{custom_domain | default(mas_instance_id ~ '.' ~ _cluster_subdomain.resources[0].spec.domain )}}"
+    mas_domain: "{{ (custom_domain != '') | ternary (custom_domain, mas_instance_id ~ '.' ~ _cluster_subdomain.resources[0].spec.domain) }}"
 
 
 # 3. Provide debug information
@@ -38,7 +38,7 @@
       - "MAS domain ................ {{ mas_domain }}"
       - "MAS ICR cp content ........ {{ mas_icr_cp }}"
       - "MAS ICR cpopen content .... {{ mas_icr_cpopen }}"
-
+      - "MAS Custom Cluster Issue .... {{ custom_cluster_issuer }}"
 
 # 4. Install the operator
 # -----------------------------------------------------------------------------
@@ -109,6 +109,13 @@
         # Only way I could get three consecutive "}" into a string :)
         .dockerconfigjson: "{{ content | join('') | string }}"
 
+- name: "Configure CR template"
+  vars:
+    suite_cr: "{{ lookup('template', 'templates/core_v1_suite.yaml') }}"
+    certificate_block: "{{ lookup('template', 'templates/certificate.yaml') }}"
+  set_fact:
+    cr_definition: "{{ (custom_cluster_issuer != '') | ternary (suite_cr + certificate_block, suite_cr) }}"
+
 
 # 7. Suite installation
 # -----------------------------------------------------------------------------
@@ -116,4 +123,4 @@
   community.kubernetes.k8s:
     state: present
     namespace: "{{ mas_namespace }}"
-    definition: "{{ lookup('template', 'templates/core_v1_suite.yaml') }}"
+    definition: "{{ cr_definition }}"    

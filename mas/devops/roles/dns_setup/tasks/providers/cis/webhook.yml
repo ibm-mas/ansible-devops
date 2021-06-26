@@ -1,0 +1,37 @@
+---
+- name: "Debug information"
+  debug:
+    msg:
+      - "CIS CRN ............ {{ cis_crn }}"
+
+# 1. Set up the OCP ingress for DNS entries
+# -----------------------------------------------------------------------------
+- name: "Get cluster subdomain"
+  community.kubernetes.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Configure ingress"
+  set_fact:
+    ocp_ingress: "{{ (custom_ocp_ingress != '') | ternary (custom_ocp_ingress, 'cis-proxy-route.' ~ _cluster_subdomain.resources[0].spec.domain) }}"
+
+- name: Create k8s resources for cis webhook
+  when: 
+    - ibmcloud_apikey is defined 
+    - cis_crn is defined
+  community.kubernetes.k8s:
+    namespace: "{{ certManager.namespace }}"
+    state: present
+    definition: "{{ lookup('template', item) }}"
+  with_items:
+    - templates/cis/rbac.yaml
+    - templates/cis/pki.yaml
+    - templates/cis/deployment.yaml
+    - templates/cis/apiservice.yaml
+    - templates/cis/service.yaml
+    - templates/cis/cis-apikey-secret.yaml
+    - templates/cis/staging-cert.yaml
+    - templates/cis/production-cert.yaml
+    - templates/cis/cis-proxy-route.yaml

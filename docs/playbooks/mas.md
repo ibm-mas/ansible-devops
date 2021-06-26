@@ -10,6 +10,7 @@ Before you use this playbook you will likely want to edit the `mas_config` varia
 ### Optional environment variables
 - `MAS_CATALOG_SOURCE` Set to `ibm-mas-operators` if you want to deploy pre-release development builds
 - `MAS_CHANNEL` Override the default release channel (8.x)
+- `MAS_DOMAIN` Override the default generated domain for the MAS installation
 - `MAS_ICR_CP` Override the registry source for all container images deployed by the MAS operator
 - `MAS_ICR_CPOPEN` Override the registry source for all container images deployed by the MAS operator
 - `MAS_ENTITLEMENT_USERNAME` Override the default entitlement username (cp)
@@ -45,3 +46,41 @@ ansible-playbook playbooks/mas/install-suite.yml
 
 !!! important
     You must have already installed the development (pre-release) catalogs, pre-release builds are not available directly from the IBM Operator Catalog.
+
+
+## Cloud Internet Services integration
+This optional feature allows you to integrate MAS with an existing instance of [IBM Cloud Internet Services](https://www.ibm.com/cloud/cloud-internet-services) (CIS) to provide automatic DNS management and certificates signed by LetsEncrypt.
+
+To utilise this feature you must set the optional `MAS_DOMAIN` detailed previously, and define additional CIS-specific environment variables as follows.
+
+### Required environment variables
+- `CIS_CRN` which can be obtained from your CIS service overview page, it will be in the format: `crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2bcd65684e4db3:9969652f-6955-482b-b59c-asdasasdede50c::`
+- `IBMCLOUD_APIKEY` Your IBM Cloud API key with DNS API write access. Note: (This API key will be stored in your cluster for DNS challenge when requesting new certs)
+
+!!! important "TODO"
+    Support `CIS_APIKEY` instead as we don't really want to re-use the main `IBMCLOUD_APIKEY` API key as it has too wide scope for CIS.  Document what scope to set up the API key with and what steps etc.
+
+    Could we even use our API key to create this new API key automatically so that the user does not need to do anything?
+
+### Optional environment variables
+- `CIS_SUBDOMAIN` Subdomain used by your DNS server. It allow you to reuse CIS for multiple MAS Instances.
+- `CIS_SKIP_DNS_ENTRIES` Skips DNS entries creation if you are have them
+- `CIS_SKIP_CLUSTER_ISSUER` Skips Cluster Issuer CR creation and CIS webhook installation if you already have it
+- `UPDATE_DNS_ENTRIES` Whether to replace DNS entries already created
+- `OCP_INGRESS` Default to your cluster OCP ingress. This value is used as the target for the DNS entries
+
+### Example
+This example will configure MAS to run under the domain **mas.internal.mydomain.com** with all DNS entries for MAS managed by a CIS instance controlling **mydomain.com**.
+
+```bash
+export MAS_INSTANCE_ID=xxx
+export MAS_ENTITLEMENT_KEY=xxx
+export MAS_DOMAIN=mas.internal.mydomain.com
+
+# Configure CIS integration
+export IBMCLOUD_APIKEY=xxx
+export CIS_SUBDOMAIN=mas.internal
+export CIS_CRN=crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2bcd65684e4db3:9969652f-6955-482b-b59c-asdasasdede50c::
+
+ansible-playbook playbooks/mas/install-suite.yml
+```
