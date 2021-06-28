@@ -40,6 +40,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_ENTITLEMENT_KEY`
 
 ## Optional environment variables
+- `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none are passed, `Default` resource group will be used.
 - `W3_USERNAME` to enable access to pre-release development builds of MAS
 - `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
 - `KAFKA_CLUSTER_SIZE` to override the default configuration used (small)
@@ -87,6 +88,7 @@ ansible-playbook playbooks/fullstack-roks.yml
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
 export OCP_VERSION=4.6.28_openshift
+export IBMCLOUD_RESOURCEGROUP=your-ibmcloud-resourcegroup
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
