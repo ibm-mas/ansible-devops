@@ -6,8 +6,8 @@ This master playbook will drive the following playbooks in sequence:
 - Install dependencies:
     - Install MongoDb (coming soon)
     - [Install Kafka](dependencies.md#install-amq-streams) (10 minutes)
-    - [Install CP4D](cp4d.md#install-cp4d) (5 minutes, currently disabled due to bugs)
-    - [Install Db2](cp4d.md#install-db2) (2 hours, currently disabled due to bugs)
+    - [Install CP4D](cp4d.md#install-cp4d) (30-40 minutes)
+    - [Install Db2](cp4d.md#install-db2) (60 minutes)
     - Install Cloud Object Storage (coming soon)
     - Install Spark (coming soon)
     - Install BAS (coming soon)

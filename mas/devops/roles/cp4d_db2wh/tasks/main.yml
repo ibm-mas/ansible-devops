@@ -63,6 +63,50 @@
   retries: 60 # approx 1 hour before we give up
   delay: 60 # 1 minute
 
+- name: "Get cluster subdomain"
+  community.kubernetes.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+    
+- name: Lookup db2wh TLS certificates
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "internal-tls"
+    namespace: "{{cpd_meta_namespace}}"
+  register: _db2u_instance_certificates
+
+- name: Lookup db2wh Engn Service
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Service
+    name: "c-db2u-{{db2wh_dbname | lower}}-db2u-engn-svc"    
+    namespace: "{{cpd_meta_namespace}}"
+  register: _db2u_instance_engn_svc
+
+- name: Set Db2wh certificates as Facts
+  set_fact:
+    db2wh_tls_crt: "{{ _db2u_instance_certificates.resources[0].data['tls.crt'] | b64decode }}"
+    db2wh_tls_key: "{{ _db2u_instance_certificates.resources[0].data['tls.key'] | b64decode }}"
+  when:
+    - _db2u_instance_certificates is defined
+    - (_db2u_instance_certificates.resources | length > 0)
+
+
+- name: Set Db2wh TLS nodePort
+  set_fact:
+    db2wh_tls_nodeport: "{{item.nodePort}}"
+  when: "{{item.name == 'ssl-server'}}"
+  loop:
+    "{{_db2u_instance_engn_svc.resources[0].spec.ports}}"
+
+- name: "Create Db2 Warehouse route"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tlsroute.yml') }}"
+
 - include_tasks: tasks/suite_jdbccfg.yml
   when:
     - mas_instance_id is defined

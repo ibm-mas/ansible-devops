@@ -1,10 +1,9 @@
 # CP4D Roles
 
 ## cp4d
-This role installs the Cloud Pak for Data Operator in the target cluster.
+This role installs the [Cloud Pak for Data](https://www.ibm.com/uk-en/products/cloud-pak-for-data) Operator in the target cluster.
 
 ### Role facts
-List of role facts defined by a playbook and required by this role.
 
 - `cpd_registry_password` Holds the IBM Entitlement key
 - `cpd_registry` cp.icr.io
@@ -16,7 +15,6 @@ List of role facts defined by a playbook and required by this role.
 This role deploys a CPDService with serviceName of db2wh on the target cluster and generates a JdbcCfg file that can be used by MAS.
 
 ### Role facts
-List of role facts defined by a playbook and required by this role.
 
 - `cpd_meta_namespace` Namespace to be created and used for CP4D deployment, should be the same as the CP4D namespace
 - `cpd_storage_class` Storage Class to be used withing the DB2Wh Persistent Volumes
@@ -31,6 +29,7 @@ Currently not supported. This role will perform database restore on the db2wh in
 
 !!! important "TODO"
     Implement & document this, or we delete it from master
+
 
 ## cp4d_spark
 Enables Spark assembly in CP4D

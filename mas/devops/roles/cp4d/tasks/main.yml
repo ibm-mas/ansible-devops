@@ -60,6 +60,29 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
+# 3. Install CP4D Lice CPDService
+# -----------------------------------------------------------------------------
+- name: "Install Lite CPDService"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpdservice.yml') }}"
+
+- name: "Wait for Lite CPDService to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: metaoperator.cpd.ibm.com/v1
+    kind: CPDService
+    name: cpdservice-lite
+    namespace: "{{ cpd_meta_namespace }}"
+  register: _cpd_service
+  until:
+    - _cpd_service.resources | length > 0
+    - _cpd_service.resources[0].status is defined
+    - _cpd_service.resources[0].status.code == '0'
+    - _cpd_service.resources[0].status.status == 'Ready'
+    - _cpd_service.resources[0].status.message == 'Completed'
+  retries: 60 # approx 1 hour before we give up
+  delay: 60 # 1 minute
+
 
 - name: "Obtain CP4D dashboard URL"
   community.kubernetes.k8s_info:

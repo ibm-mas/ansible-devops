@@ -1,12 +1,9 @@
-# Shared hosted Db2 service in IBM Cloud (MAS Development account)
-# This configuration should ONLY be used for testing the jdbc entity manager
-# and basic JDBC support testing, do NOT use this configuration for application data
 ---
 apiVersion: v1
 kind: Secret
 type: Opaque
 metadata:
-  name: jdbc-auto-config-credentials
+  name: "jdbc-{{ db2wh_dbname | lower }}-credentials"
   namespace: "mas-{{mas_instance_id}}-core"
 stringData:
   username: db2inst1
@@ -21,10 +18,13 @@ metadata:
     mas.ibm.com/configScope: system
     mas.ibm.com/instanceId: "{{mas_instance_id}}"
 spec:
-  displayName: jdbc-auto-config
+  displayName: "{{ db2wh_dbname | lower }} on CP4D"
   config:
-    url: "{{jdbc_url}}"
+    url: "{{ jdbc_url }}"
     sslEnabled: true
     credentials:
-      secretName: jdbc-auto-config-credentials
-  certificates: {{jdbc_certificates}}
+      secretName: "jdbc-{{ db2wh_dbname | lower }}-credentials"
+  certificates:
+    - alias: "{{ db2wh_dbname | lower }}"
+      crt: |
+        {{ db2wh_tls_crt | indent(8) }}
