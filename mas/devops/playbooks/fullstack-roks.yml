@@ -7,7 +7,17 @@
 - name: Deploy & configure ROKS cluster in IBM Cloud
   import_playbook: ocp/provision-roks.yml
 
-# 2. Install AMQ Streams
+# 2. Install MongoDb
+# -----------------------------------------------------------------------------
+- name: Install MongoDb (Community Edition)
+  import_playbook: dependencies/install-mongodb-ce.yml
+  vars:
+    mongodb_storage_class: ibmc-block-gold
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
+    mongodb_cfg_file: "{{ mas_config_dir }}/mongodb.yml"
+
+# 3. Install AMQ Streams
+# -----------------------------------------------------------------------------
 - name: Install AMQ Streams (Apache Kafka)
   import_playbook: dependencies/install-amqstreams.yml
   vars:
@@ -19,13 +29,14 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
     kafka_cfg_file: "{{ mas_config_dir }}/kafka.yml"
 
-
-# 3. Install CP4D
+# 4. Install CP4D
 # -----------------------------------------------------------------------------
 - name: Install CP4D
   import_playbook: cp4d/install-cp4d.yml
+  vars:
+    cpd_storage_class: ibmc-file-gold-gid
 
-# 4. Install & configure Db2
+# 5. Install & configure Db2
 #-----------------------------------------------------------------------------
 - name: Install & configure Db2
   import_playbook: cp4d/install-db2.yml
@@ -34,7 +45,7 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
     db2wh_cfg_file: "{{ mas_config_dir }}/db2.yml"
 
-# 5. Install & configure MAS
+# 6. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
@@ -43,9 +54,9 @@
     mas_config:
       - "{{ mas_config_dir }}/bascfg_masdeps1.yaml"
       - "{{ mas_config_dir }}/slscfg_masdeps1.yaml"
-      - "{{ mas_config_dir }}/mongocfg_masdev.yaml"
       - "{{ mas_config_dir }}/smtpcfg_masdeps1.yaml"
       - "{{ mas_config_dir }}/ldapcfg_masdeps1.yaml"
       - "{{ mas_config_dir }}/workspace_masdev.yaml"
-      - "{{ mas_config_dir }}/db2.yml"
+      - "{{ mas_config_dir }}/mongodb.yml"
       - "{{ mas_config_dir }}/kafka.yml"
+      - "{{ mas_config_dir }}/db2.yml"

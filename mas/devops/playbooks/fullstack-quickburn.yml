@@ -7,7 +7,17 @@
 - name: Deploy & configure QuickBurn cluster in Fyre
   import_playbook: ocp/provision-quickburn.yml
 
-# 2. Install & configure MAS
+# 2. Install MongoDb
+# -----------------------------------------------------------------------------
+- name: Install MongoDb (Community Edition)
+  import_playbook: dependencies/install-mongodb-ce.yml
+  vars:
+    mongodb_storage_class: ocs-storagecluster-ceph-rbd
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
+    mongodb_cfg_file: "{{ mas_config_dir }}/mongodb.yml"
+
+
+# 3. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
@@ -16,7 +26,7 @@
     mas_config:
       - "{{ mas_config_dir }}/bascfg_masdeps1.yaml"
       - "{{ mas_config_dir }}/slscfg_masdeps1.yaml"
-      - "{{ mas_config_dir }}/mongocfg_masdev.yaml"
       - "{{ mas_config_dir }}/smtpcfg_masdeps1.yaml"
       - "{{ mas_config_dir }}/ldapcfg_masdeps1.yaml"
       - "{{ mas_config_dir }}/workspace_masdev.yaml"
+      - "{{ mas_config_dir }}/mongodb.yaml"

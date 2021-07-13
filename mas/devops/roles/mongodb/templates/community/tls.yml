@@ -1,0 +1,25 @@
+---
+#oc create configmap mas-mongo-ce-cert-map --from-file=ca.crt=ca.pem -n ${MONGO_NAMESPACE}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mas-mongo-ce-cert-map
+  namespace: "{{ mongodb_namespace }}"
+type: Opaque
+data:
+  ca.crt: |
+    {{ mongodb_ca_pem | indent(4) }}
+
+---
+#oc create secret tls mas-mongo-ce-cert-secret --cert=server.crt --key=server.key -n ${MONGO_NAMESPACE}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mas-mongo-ce-cert-secret
+  namespace: "{{ mongodb_namespace }}"
+type: tls
+stringData:
+  tls.crt: |
+    {{ mongodb_server_crt | indent(4) }}
+  tls.key: |
+    {{ mongodb_server_key | indent(4) }}

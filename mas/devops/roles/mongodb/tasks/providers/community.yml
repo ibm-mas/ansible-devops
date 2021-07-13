@@ -1,0 +1,216 @@
+---
+
+# 0. Validate required properties
+# -----------------------------------------------------------------------------
+- name: "Fail if mongodb_storage_class is not provided"
+  when: mongodb_storage_class is not defined or mongodb_storage_class == ""
+  fail:
+    msg: "mongodb_storage_class property is required"
+
+- name: "Fail if mongodb_storage_capacity_data is not provided"
+  when: mongodb_storage_capacity_data is not defined or mongodb_storage_capacity_data == ""
+  fail:
+    msg: "mongodb_storage_capacity_data property is required"
+
+- name: "Fail if mongodb_storage_capacity_logs is not provided"
+  when: mongodb_storage_capacity_logs is not defined or mongodb_storage_capacity_logs == ""
+  fail:
+    msg: "mongodb_storage_capacity_logs property is required"
+
+- name: "Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id == ""
+  fail:
+    msg: "mas_instance_id property is required"
+
+- name: Debug properties
+  debug:
+    msg:
+      - "MongoDb namespace .................... {{ mongodb_namespace }}"
+      - "MongoDb storage class ................ {{ mongodb_storage_class }}"
+      - "MongoDb storage capacity (data) ...... {{ mongodb_storage_capacity_data }}"
+      - "MongoDb storage capacity (logs) ...... {{ mongodb_storage_capacity_logs }}"
+      - "MAS instance ID ...................... {{ mas_instance_id }}"
+
+
+# 1. Install the CRD
+# -----------------------------------------------------------------------------
+- name: "Install MongoDBCommunity CRD"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/crd.yml') }}"
+
+
+# 2. Create namespace & install RBAC
+# -----------------------------------------------------------------------------
+- name: "Create namespace & install RBAC"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/rbac.yml') }}"
+
+
+# 3. Configure anyuid permissions in the MongoDb namespace
+# -----------------------------------------------------------------------------
+- name: Configure anyuid permissions in the MongoDb namespace
+  shell: |
+    oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:default
+    oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-kubernetes-operator
+
+
+# 4. Install the operator
+# -----------------------------------------------------------------------------
+- name: "Install the MongoDb Operator"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/manager.yml') }}"
+
+
+# 5. Configure TLS
+# -----------------------------------------------------------------------------
+# TODO: We should be able to do this with cert-manager natively inside Kubernetes
+
+- name: "Check for existing CA configmap"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: mas-mongo-ce-cert-map
+    namespace: "{{ mongodb_namespace }}"
+  register: ca_cfgmap_info
+
+- name: Create new CA
+  when:
+    - ca_cfgmap_info.resources is defined
+    - ca_cfgmap_info.resources | length == 0
+  vars:
+    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
+    file_prefix: "/tmp/mongoce-"
+  shell: |
+    openssl req -config {{ openssl_cfg }} -days 3650 -nodes -x509 -newkey rsa:2048 -subj "/C=US/ST=NY/L=New York/O=Example, LLC/CN=Mongo CA" -extensions v3_ca -keyout {{ file_prefix }}ca.key -out {{ file_prefix }}ca.pem
+
+- name: Create new server cert
+  when:
+    - ca_cfgmap_info.resources is defined
+    - ca_cfgmap_info.resources | length == 0
+  vars:
+    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
+    file_prefix: "/tmp/mongoce-"
+  shell: |
+    openssl req -config {{ openssl_cfg }} -nodes -newkey rsa:2048 -keyout {{ file_prefix }}server.key -out {{ file_prefix }}server.csr
+    openssl x509 -req -in {{ file_prefix }}server.csr -days 3650 -CA {{ file_prefix }}ca.pem -CAkey {{ file_prefix }}ca.key -CAcreateserial -extensions v3_req -extfile {{ openssl_cfg }} -out {{ file_prefix }}server.crt
+    cat {{ file_prefix }}server.key {{ file_prefix }}server.crt > {{ file_prefix }}mongodb.pem
+
+- name: Create new client cert
+  when:
+    - ca_cfgmap_info.resources is defined
+    - ca_cfgmap_info.resources | length == 0
+  vars:
+    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
+    file_prefix: "/tmp/mongoce-"
+  shell: |
+    openssl req -config {{ openssl_cfg }} -subj "/C=US/ST=NY/L=New York/O=Example, LLC/CN=Mongo Client" -nodes -newkey rsa:2048 -keyout {{ file_prefix }}client.key -out {{ file_prefix }}client.csr
+    openssl x509 -req -in {{ file_prefix }}client.csr -days 3650 -CA {{ file_prefix }}ca.pem -CAkey {{ file_prefix }}ca.key -CAserial {{ file_prefix }}ca.srl -extensions v3_clnt -extfile {{ openssl_cfg }} -out {{ file_prefix }}client.crt
+    cat {{ file_prefix }}client.key {{ file_prefix }}client.crt > {{ file_prefix }}client.pem
+
+- name: "Create new TLS secret and configmap"
+  when:
+    - ca_cfgmap_info.resources is defined
+    - ca_cfgmap_info.resources | length == 0
+  vars:
+    file_prefix: "/tmp/mongoce-"
+    pem_file: "{{ file_prefix }}ca.pem"
+    crt_file: "{{ file_prefix }}server.crt"
+    key_file: "{{ file_prefix }}server.key"
+    mongodb_ca_pem: "{{ lookup('file', pem_file) }}"
+    mongodb_server_crt: "{{ lookup('file', crt_file) }}"
+    mongodb_server_key: "{{ lookup('file', key_file) }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/tls.yml') }}"
+
+
+# 6. Create MongoDb admin user credentials secret
+# -----------------------------------------------------------------------------
+- name: "Check for existing user password secret"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mas-mongo-ce-admin-password
+    namespace: "{{ mongodb_namespace }}"
+  register: admin_password_info
+
+- name: "Create new MongoDb admin user credentials secret"
+  when:
+    - admin_password_info.resources is defined
+    - admin_password_info.resources | length == 0
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/admin-password.yml') }}"
+
+
+# 7. Deploy the cluster
+# -----------------------------------------------------------------------------
+- name: "Create MongoDb cluster"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/cr.yml') }}"
+
+
+# 8. Wait for the cluster to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for stateful set to be ready"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: mas-mongo-ce
+    namespace: "{{ mongodb_namespace }}"
+  register: mongodb_statefulset
+  retries: 30 # 30 * 30 seconds = 15 minutes
+  delay: 30
+  until:
+    - mongodb_statefulset.resources | length > 0
+    - mongodb_statefulset.resources[0].status.readyReplicas is defined
+    - mongodb_statefulset.resources[0].status.readyReplicas == 3
+
+# 9. Create MAS MongoCfg
+# -----------------------------------------------------------------------------
+
+# Lookup the admin password that was used
+- name: "Lookup admin password"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mas-mongo-ce-admin-admin
+    namespace: "{{ mongodb_namespace }}"
+  register: admin_password_lookup
+  retries: 30 # 30 * 30 seconds = 15 minutes
+  delay: 30
+  until:
+    - admin_password_lookup.resources | length > 0
+    - admin_password_lookup.resources[0].data.password is defined
+
+- debug:
+    var: admin_password_lookup
+
+# TODO: Improve this by looking up the certs from the secrets in the namespace
+# instead of getting them from the local files in /tmp
+- name: "Create MAS MongoCfg (debug)"
+  debug:
+    msg: "{{ lookup('template', 'templates/community/suite_mongocfg.yml') }}"
+  vars:
+    file_prefix: "/tmp/mongoce-"
+    pem_file: "{{ file_prefix }}ca.pem"
+    crt_file: "{{ file_prefix }}server.crt"
+    mongodb_ca_pem: "{{ lookup('file', pem_file) }}"
+    mongodb_server_crt: "{{ lookup('file', crt_file) }}"
+    mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
+
+- name: "Create MAS MongoCfg"
+  ansible.builtin.template:
+    src: community/suite_mongocfg.yml
+    dest: "{{ mongodb_cfg_file }}"
+  vars:
+    file_prefix: "/tmp/mongoce-"
+    pem_file: "{{ file_prefix }}ca.pem"
+    crt_file: "{{ file_prefix }}server.crt"
+    mongodb_ca_pem: "{{ lookup('file', pem_file) }}"
+    mongodb_server_crt: "{{ lookup('file', crt_file) }}"
+    mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"

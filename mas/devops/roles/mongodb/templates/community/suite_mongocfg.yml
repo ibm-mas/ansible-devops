@@ -1,0 +1,43 @@
+---
+# Mongo credentials for MAS
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: "mongodb-mongoce-admin"
+  namespace: "mas-{{mas_instance_id}}-core"
+stringData:
+  username: admin
+  password: "{{ mongodb_admin_password }}"
+---
+# Mongo configuration for MAS
+apiVersion: config.mas.ibm.com/v1
+kind: MongoCfg
+metadata:
+  name: "{{mas_instance_id}}-mongo-system"
+  namespace: "mas-{{mas_instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{mas_instance_id}}"
+spec:
+  displayName: "MongoDb 4.2.6 Community Edition in '{{ mongodb_namespace }}' namespace"
+  type: external
+  config:
+    hosts:
+      - host: "mas-mongo-ce-0.mas-mongo-ce-svc.{{ mongodb_namespace }}.svc.cluster.local"
+        port: 27017
+      - host: "mas-mongo-ce-1.mas-mongo-ce-svc.{{ mongodb_namespace }}.svc.cluster.local"
+        port: 27017
+      - host: "mas-mongo-ce-2.mas-mongo-ce-svc.{{ mongodb_namespace }}.svc.cluster.local"
+        port: 27017
+    configDb: admin
+    authMechanism: DEFAULT
+    credentials:
+      secretName: mongodb-mongoce-admin
+  certificates:
+    - alias: ca
+      crt: |
+        {{ mongodb_ca_pem | indent(8) }}
+    - alias: server
+      crt: |
+        {{ mongodb_server_crt | indent(8) }}

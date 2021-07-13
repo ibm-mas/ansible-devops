@@ -4,7 +4,7 @@ This master playbook will drive the following playbooks in sequence:
 
 - [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
 - Install dependencies:
-    - Install MongoDb (coming soon)
+    - [Install MongoDb](dependencies.md#install-mongodb-ce) (15 minutes)
     - [Install Kafka](dependencies.md#install-amq-streams) (10 minutes)
     - [Install CP4D](cp4d.md#install-cp4d) (30-40 minutes)
     - [Install Db2](cp4d.md#install-db2) (60 minutes)
@@ -44,6 +44,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `W3_USERNAME` to enable access to pre-release development builds of MAS
 - `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
 - `KAFKA_CLUSTER_SIZE` to override the default configuration used (small)
+- `MONGODB_NAMESPACE` overrides the Kubernetes namespace where the MongoDb CE operator will be installed, this will default to `mongoce`
 - `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
 - `MAS_CHANNEL` to override the use of the `8.x` channel
 - `MAS_DOMAIN` to set a custom domain for the MAS installation
@@ -62,7 +63,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-export OCP_VERSION=4.6.28_openshift
+export OCP_VERSION=4.6.34_openshift
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
@@ -87,7 +88,7 @@ ansible-playbook playbooks/fullstack-roks.yml
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-export OCP_VERSION=4.6.28_openshift
+export OCP_VERSION=4.6.34_openshift
 export IBMCLOUD_RESOURCEGROUP=your-ibmcloud-resourcegroup
 
 # CP4D configuration

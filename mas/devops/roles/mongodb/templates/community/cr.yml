@@ -1,0 +1,62 @@
+---
+apiVersion: mongodbcommunity.mongodb.com/v1
+kind: MongoDBCommunity
+metadata:
+  name: mas-mongo-ce
+  namespace: "{{ mongodb_namespace }}"
+spec:
+  members: 3
+  type: ReplicaSet
+  version: "4.2.6"
+  security:
+    tls:
+      enabled: true
+      certificateKeySecretRef:
+        name: mas-mongo-ce-cert-secret
+      caConfigMapRef:
+        name: mas-mongo-ce-cert-map
+    authentication:
+      modes:
+        # Note: MAS 8.5 and earlier only support SCRAM-SHA-1
+        - SCRAM-SHA-256
+        - SCRAM-SHA-1
+  users:
+    - name: admin
+      db: admin
+      passwordSecretRef:
+        name: mas-mongo-ce-admin-password
+      roles:
+        - name: clusterAdmin
+          db: admin
+        - name: userAdminAnyDatabase
+          db: admin
+        - name: dbOwner
+          db: admin
+        - name: readWriteAnyDatabase
+          db: admin
+      scramCredentialsSecretName: mas-mongo-ce-scram
+  additionalMongodConfig:
+    storage.wiredTiger.engineConfig.journalCompressor: snappy
+    net.tls.allowInvalidCertificates: true
+    net.tls.allowInvalidHostnames: true
+  statefulSet:
+    spec:
+      serviceName: mas-mongo-ce-svc
+      selector: {}
+      volumeClaimTemplates:
+        - metadata:
+            name: data-volume
+          spec:
+            accessModes: [ "ReadWriteOnce" ]
+            storageClassName: "{{ mongodb_storage_class }}"
+            resources:
+              requests:
+                storage: "{{ mongodb_storage_capacity_data }}"
+        - metadata:
+            name: logs-volume
+          spec:
+            accessModes: [ "ReadWriteOnce" ]
+            storageClassName: "{{ mongodb_storage_class }}"
+            resources:
+              requests:
+                storage: "{{ mongodb_storage_capacity_logs }}"
