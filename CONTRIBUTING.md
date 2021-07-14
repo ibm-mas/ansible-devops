@@ -9,3 +9,93 @@ ansible-galaxy collection build --force && ansible-galaxy collection install mas
 
 ansible-playbook ../../playbook.yml
 ```
+
+## Style Guide
+Failure to adhere to the style guide will result in a PR being rejected!
+
+### Structure tasks using numbered sections
+To make the tasks easier to read use section headers as below:
+- The dashed line should be eactly 80 characters long
+- Leave two empty lines between each section
+- Mutliple related tasks can be grouped into each section, you do not need to create a section header for every single task.  Leave a single empty line between tasks in the same section.
+
+#### Example
+```yaml
+# 1. Install the CRD
+# -----------------------------------------------------------------------------
+- name: "Install MongoDBCommunity CRD"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/crd.yml') }}"
+
+
+# 2. Create namespace & install RBAC
+# -----------------------------------------------------------------------------
+- name: "Create namespace & install RBAC"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/rbac.yml') }}"
+```
+
+### Align debug messages
+To make debug easier to read when printed out by the default ansible display module all "property dump" debugging should be done as below:
+- Column 1 is is Left aligned, padded to 31 characters using dots
+- Using standard indentation, the "...." should end on column 50
+
+#### Example
+```yaml
+- name: Debug properties
+  debug:
+    msg:
+      - "MongoDb namespace ...................... {{ mongodb_namespace }}"
+      - "MongoDb storage class .................. {{ mongodb_storage_class }}"
+      - "MongoDb storage capacity (data) ........ {{ mongodb_storage_capacity_data }}"
+      - "MongoDb storage capacity (logs) ........ {{ mongodb_storage_capacity_logs }}"
+      - "MAS instance ID ........................ {{ mas_instance_id }}"
+```
+
+### Task naming
+All tasks must be named.  For tasks that are not in main.yaml of the role, they should be prefixed with an indentifier for the file that they are part of so that the Ansible logs guide the user to the appropriate part of the role.
+
+```yaml
+# 7. Deploy the cluster
+# -----------------------------------------------------------------------------
+- name: "community : Create MongoDb cluster"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/cr.yml') }}"
+```
+
+This will lead to logs like the following when the role is executed:
+```
+TASK [mas.devops.mongodb : community : Create MongoDb cluster]
+```
+
+### Failure condition checks
+All roles must provide clear feedback about missing required properties that do not have a default built into the role.
+- The feedback must be exact.  Do not return a list of required properties, state specifically which variable is missing.
+- Be sure to check for empty string as well as not defined.  Properties that are resolved from environment variables which are not set will be passed into the role as empty string (`""`) rather than undefined.
+
+```yaml
+# 0. Validate required properties
+# -----------------------------------------------------------------------------
+- name: "community : Fail if mongodb_storage_class is not provided"
+  when: mongodb_storage_class is not defined or mongodb_storage_class == ""
+  fail:
+    msg: "mongodb_storage_class property is required"
+
+- name: "community : Fail if mongodb_storage_capacity_data is not provided"
+  when: mongodb_storage_capacity_data is not defined or mongodb_storage_capacity_data == ""
+  fail:
+    msg: "mongodb_storage_capacity_data property is required"
+
+- name: "community : Fail if mongodb_storage_capacity_logs is not provided"
+  when: mongodb_storage_capacity_logs is not defined or mongodb_storage_capacity_logs == ""
+  fail:
+    msg: "mongodb_storage_capacity_logs property is required"
+
+- name: "community : Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id == ""
+  fail:
+    msg: "mas_instance_id property is required"
+```
