@@ -1,25 +1,30 @@
-# Full Stack on IBM Cloud ROKS
+# MAS Core Service on IBM Cloud
 
 This master playbook will drive the following playbooks in sequence:
 
-- [Provision & setup Quickburn](ocp.md#quickburn) (25 minutes)
-- [Install & configure MAS](mas.md#install-mas) (20 minutes)
+- [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
+- Install dependencies:
+    - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (15 minutes)
+    - Install BAS (coming soon)
+    - Install SLS (coming soon)
+- Install & configure MAS:
+    - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
+    - [Install & configure MAS](mas.md#install-mas) (20 minutes)
 
-All timings are estimates, see the individual pages for each of these playbooks for more information.  Due to the size limtations in QuickBurn a full stack is not possible.
+All timings are estimates, see the individual pages for each of these playbooks for more information.
 
 ## Required environment variables
-- `FYRE_USERNAME`
-- `FYRE_APIKEY`
-- `FYRE_PRODUCT_ID`
+- `IBMCLOUD_APIKEY`
 - `CLUSTER_NAME`
 - `OCP_VERSION`
-- `MAS_INSTANCE_ID`
-- `MAS_ENTITLEMENT_KEY`
+- `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
+- `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 
 ## Optional environment variables
-- `FYRE_CLUSTER_SIZE`
+- `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none are passed, `Default` resource group will be used.
 - `W3_USERNAME` to enable access to pre-release development builds of MAS
 - `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
+- `MONGODB_NAMESPACE` overrides the Kubernetes namespace where the MongoDb CE operator will be installed, this will default to `mongoce`
 - `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
 - `MAS_CHANNEL` to override the use of the `8.x` channel
 - `MAS_DOMAIN` to set a custom domain for the MAS installation
@@ -35,36 +40,29 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ## Release build
 
 ```bash
-# Fyre credentials
-export FYRE_USERNAME=xxx
-export FYRE_APIKEY=xxx
-export FYRE_PRODUCT_ID=225
-# Cluster configuration
+# IBM Cloud ROKS configuration
+export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-export OCP_VERSION=4.6.16
+export OCP_VERSION=4.6.34_openshift
 
 # MAS configuration
 export MAS_INSTANCE_ID=xxx
 export MAS_ENTITLEMENT_KEY=xxx
 
-ansible-playbook playbooks/fullstack-quickburn.yml
+ansible-playbook playbooks/only-manage-roks.yml
 ```
-
-!!! note
-    Lookup your entitlement keys from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
-
 
 ## Pre-release build
 
 ```bash
-# Fyre credentials
-export FYRE_USERNAME=xxx
-export FYRE_APIKEY=xxx
-export FYRE_PRODUCT_ID=225
-
-# Cluster configuration
+# IBM Cloud ROKS configuration
+export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-export OCP_VERSION=4.6.16
+export OCP_VERSION=4.6.34_openshift
+export IBMCLOUD_RESOURCEGROUP=your-ibmcloud-resourcegroup
+
+# CP4D configuration
+export CPD_ENTITLEMENT_KEY=xxx
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
@@ -73,12 +71,12 @@ export ARTIFACTORY_APIKEY=xxx
 # MAS configuration
 export MAS_CATALOG_SOURCE=ibm-mas-operators
 export MAS_CHANNEL=8.5.0-pre.m2dev85
-export MAS_INSTANCE_ID=xxx
+export MAS_INSTANCE_ID=$CLUSTER_NAME
 
 export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
-ansible-playbook playbooks/fullstack-quickburn.yml
+ansible-playbook playbooks/only-manageroks.yml
 ```

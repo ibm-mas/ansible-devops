@@ -1,44 +1,39 @@
 # CP4D Playbooks
+These playbooks deploys Cloud Pak for Data from the IBM Operator Catalog using the `v1.0` channel.
 
-## Install CP4D
-This playbook deploys Cloud Pak for Data 3.5.0 on the target cluster using OLM. URL and Credentials to access CP4D dashboard are displayed at the end of the playbook execution.
+!!! warning
+    The credentials to sign-in are the defaults for CP4D, which are `admin/password`.
 
-You can obtain the url for the CP4D dashboard at any time by running the following command: `oc get routes -n cpd-meta-ops`.  The credentials to sign-in are the defaults for CP4D, which are `admin/password`.
+    Yes, really!
 
-Yes, really!
 
-### Required environment variables
-- `CPD_ENTITLEMENT_KEY` An IBM entitlement key that includes access to Cloud Pak for Data 3.5.0
+## Required environment variables
+The following required environment variables are common across all of the playbooks:
 
-!!! note
-    Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
+- `CPD_ENTITLEMENT_KEY` An [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary) that includes access to Cloud Pak for Data 3.5.0
+- `CPD_STORAGE_CLASS` Provide the storage class to use for Db2
+- `MAS_INSTANCE_ID` Provide the MAS instance ID that will be used in any generated MAS configuration files
 
+
+## Lite install
+This playbook will only install CP4D, none of the Cloud Pak's supported services will be enabled allowing you to set these up seperately.
 
 ### Example usage
 ```bash
 export CPD_ENTITLEMENT_KEY=xxx
+export CPD_STORAGE_CLASS=ibmc-block-gold
+export MAS_INSTANCE_ID=inst1
 
-ansible-playbook playbooks/cp4d/install-cp4d.yml
+ansible-playbook playbooks/cp4d/install-lite.yml
 ```
 
 
-## Install Db2
-The db2wh instance installed by this playbook has SSL enabled. Certificates are available from the `internal-tls` secret in the `cpd-meta-ops` namespace.
+## DB2 install
+This playbook will install CP4D, with **Db2 Warehouse** and **Db2 Management Console** enabled.
+
+Additional a Db2 Warehouse cluster will be created and a public TLS encrypted route is configured to allow external access to the cluster. The certificates are available from the `internal-tls` secret in the `cpd-meta-ops` namespace.
 
 The default user is `db2inst1` and the password is available in the `instancepassword` secret in the same namespace.
-
-!!! warning "TODO"
-    Provide info how to access the db2 instance using a database client (e.g. dbeaver), also is there any kind of ui/dashboard in CP4D where we can see this thing?
-
-### Required environment variables
-- `CPD_STORAGE_CLASS` Provide the storage class to use for Db2
-
-### Example usage
-```bash
-export CPD_STORAGE_CLASS=xxx
-
-ansible-playbook playbooks/cp4d/install-db2.yml
-```
 
 You can examine the deployed resources in the `cpd-meta-ops` namespace:
 
@@ -59,27 +54,50 @@ db2ucluster.db2u.databases.ibm.com/db2u-bludb   NotReady   8m44s
     This file can be directly applied using `oc apply -f /tmp/jdbccfg-cp4ddb2wh-system.yaml` or added to the `mas_config` list variable used by the `mas.devops.suite_install` role to deploy and configure MAS.
 
 
+### Example usage
+```bash
+export CPD_ENTITLEMENT_KEY=xxx
+export CPD_STORAGE_CLASS=ibmc-block-gold
+export MAS_INSTANCE_ID=inst1
 
-## Install Spark
-This playbook is simply installing spark and making it available via cp4d ui console, nothing else.
+ansible-playbook playbooks/cp4d/install-db2.yml
+```
 
-!!! warning "TODO"
-    This isn't really doing anything **for MAS** right now, how is Spark used in MAS, how does it integrate to MAS?  The role and playbook **must** be updated to do more than just install Spark, or it will be removed.  Each item we introduce to the playbook must directly tie into MAS, otherwise we are just wasting our time.
+## Watson Studio install
+This playbook will install CP4D with **Watson Studio** and a number of additional components to expand the base capability of Watson Studio enabled.
 
-    - What inside MAS uses Spark?
-    - How does it use Spark?
+- **Watson Machine Learning** As part of Watson Studio, Watson Machine Learning helps data scientists and developers accelerate AI and machine learning deployment.
+- **Apache Spark** Apache Spark is a runtime environment configured inside of Watson Studio similar to a Python Runtime environment.  When Spark is enabled from CP4D, you can opt to create a notebook and choose Spark as runtime to expand data modeling capabilities.
+- **Watson AI OpenScale**  Watson OpenScale enables tracking AI models in production, validation and test models to mitigate operational risks.
 
-    To make this playbook get everything set up exactly how MAS needs it, and make it possible to configure MAS to use it we need to answer those two basic questions first.
+For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists)
 
-### Required environment variables
-- `CPD_STORAGE_CLASS` Provide the storage class to use for Spark
-
-### Optional environment variables
-None
+!!! info "Application Support"
+    - [Predict](https://www.ibm.com/docs/en/mas84/8.4.0?topic=applications-maximo-predict) requires Watson Studio, Machine Learning and Spark; Openscale is an optional dependency
+    - [Health & Predict Utilities](https://www.ibm.com/docs/en/mas84/8.4.0?topic=solutions-maximo-health-predict-utilities) requires Watson Studio base capability only
 
 ### Example usage
 ```bash
-export CPD_STORAGE_CLASS=xxx
+export CPD_ENTITLEMENT_KEY=xxx
+export CPD_STORAGE_CLASS=ibmc-block-gold
+export MAS_INSTANCE_ID=inst1
 
-ansible-playbook playbooks/cp4d/install-spark.yml
+ansible-playbook playbooks/cp4d/install-watsonstudio.yml
+```
+
+## Fullstack Install
+This playbook will install CP4D, with all services that are supported by one or more applications in Maximo Application Suite enabled:
+
+- **Db2 Warehouse** & **Db2 Management Console**
+- **Watson Studio** with **Watson Machine Learning**, **Apache Spark**, & **Watson AI OpenScale**
+
+For more information refer to the documentation for the individual Db2 and Watson Studio playbooks above.
+
+### Example usage
+```bash
+export CPD_ENTITLEMENT_KEY=xxx
+export CPD_STORAGE_CLASS=ibmc-block-gold
+export MAS_INSTANCE_ID=inst1
+
+ansible-playbook playbooks/cp4d/install-fullstack.yml
 ```

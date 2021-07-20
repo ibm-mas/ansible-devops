@@ -32,7 +32,13 @@ Currently not supported. This role will perform database restore on the db2wh in
 
 
 ## cp4d_spark
-Enables Spark assembly in CP4D
+Enables Spark assembly on the CP4D instance deployed by this collection.
 
-!!! important "TODO"
-    Document this, or we delete it from master
+## cp4d_aiopenscale
+Enables OpenScale assembly on the CP4D instance deployed by this collection.
+
+## cp4d_wsl
+Enables Watson Studio assembly on the CP4D instance deployed by this collection.
+
+## cp4d_wml
+Enables Watson Machine Learning assembly on the CP4D instance deployed by this collection.

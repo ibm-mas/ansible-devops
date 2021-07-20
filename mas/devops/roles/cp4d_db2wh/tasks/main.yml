@@ -10,59 +10,31 @@
       - "Db2 version .................. {{ db2wh_version }}"
 
 
-# 2. Install CP4D services for db2
+# 2. Create a Db2 instance
 # -----------------------------------------------------------------------------
-- name: "Install Db2 warehouse CPDService"
-  community.kubernetes.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/cpdservice.yml') }}"
-
-- name: "Wait for Db2 warehouse CPDService to be ready (60s delay)"
-  community.kubernetes.k8s_info:
-    api_version: metaoperator.cpd.ibm.com/v1
-    kind: CPDService
-    name: cpdservice-db2wh
-    namespace: "{{ cpd_meta_namespace }}"
-  register: _cpd_service
-  until:
-    - _cpd_service.resources | length > 0
-    - _cpd_service.resources[0].status is defined
-    - _cpd_service.resources[0].status.code == '0'
-    - _cpd_service.resources[0].status.status == 'Ready'
-    - _cpd_service.resources[0].status.message == 'Completed'
-  retries: 60 # approx 1 hour before we give up
-  delay: 60 # 1 minute
-
-
-# 3. Create a Db2 instance
-# -----------------------------------------------------------------------------
-- name: "Create db2wh Instance"
+- name: "Create db2wh instance"
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/db2ucluster.yaml') }}"
   register: _db2_cluster_result
 
-- name: "Install Db2 warehouse Console"
-  community.kubernetes.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/dmc.yml') }}"
-
-- name: "Wait for Db2 Management Console CPDService to be ready (60s delay)"
+# Wait for the cluster to be ready
+- name: "Wait for db2wh instance to be ready (5m delay)"
   community.kubernetes.k8s_info:
-    api_version: metaoperator.cpd.ibm.com/v1
-    kind: CPDService
-    name: cpdservice-db2wh-dmc
-    namespace: "{{ cpd_meta_namespace }}"
-  register: _cpd_service_dmc
+    api_version: db2u.databases.ibm.com/v1
+    name: "db2u-{{ db2wh_dbname | lower }}"
+    namespace: "{{cpd_meta_namespace}}"
+    kind: Db2uCluster
+  register: db2_cluster_lookup
   until:
-    - _cpd_service_dmc.resources | length > 0
-    - _cpd_service_dmc.resources[0].status is defined
-    - _cpd_service_dmc.resources[0].status.code == '0'
-    - _cpd_service_dmc.resources[0].status.status == 'Ready'
-    - _cpd_service_dmc.resources[0].status.message == 'Completed'
-  retries: 60 # approx 1 hour before we give up
-  delay: 60 # 1 minute
+    - db2_cluster_lookup.resources | length == 1
+    - db2_cluster_lookup.resources[0].status.state == "Ready"
+  retries: 24 # Approximately 2 hours before we give up
+  delay: 300 # 5 minutes
 
+
+# 3. Configure a public route for Db2
+# -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
   community.kubernetes.k8s_info:
     api_version: config.openshift.io/v1
@@ -94,7 +66,6 @@
     - _db2u_instance_certificates is defined
     - (_db2u_instance_certificates.resources | length > 0)
 
-
 - name: Set Db2wh TLS nodePort
   set_fact:
     db2wh_tls_nodeport: "{{item.nodePort}}"
@@ -107,6 +78,9 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/tlsroute.yml') }}"
 
+
+# 3. Generate a JdbcCfg for MAS configuration
+# -----------------------------------------------------------------------------
 - include_tasks: tasks/suite_jdbccfg.yml
   when:
     - mas_instance_id is defined
