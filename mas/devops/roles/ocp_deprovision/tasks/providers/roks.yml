@@ -13,6 +13,7 @@
       - "Cluster name ................. {{ cluster_name }}"
       - "IBM Cloud API key ............ {{ ibmcloud_apikey }}"
 
+
 # 2. Login
 # -----------------------------------------------------------------------------
 - name: "roks : Login to ibmcloud account"
@@ -20,7 +21,31 @@
     ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
 
 
-# 3. Deprovision roks cluster
+# 3. Check if the roks cluster actually exists
+# -----------------------------------------------------------------------------
 - name: "roks : Deprovision ROKS cluster"
   shell: |
+    ibmcloud oc cluster ls --json
+  register: cluster_list
+
+- name: "roks : Search for cluster_name in list"
+  set_fact:
+    cluster_found: true
+  when:
+    - item.name == cluster_name
+  with_items: "{{cluster_list.stdout|from_json}}"
+  loop_control:
+    label: "{{ item.name }}"
+
+
+# 4. Deprovision roks cluster
+# -----------------------------------------------------------------------------
+- name: "roks : Deprovision ROKS cluster"
+  when: cluster_found is defined
+  shell: |
     ibmcloud oc cluster rm --cluster {{ cluster_name }} --force-delete-storage -f
+
+- name: "roks : Deprovision ROKS cluster"
+  when: cluster_found is not defined
+  debug:
+    msg: "Cluster {{ cluster_name }} does not exist so there is no action to take"
