@@ -187,17 +187,35 @@
     - admin_password_lookup.resources | length > 0
     - admin_password_lookup.resources[0].data.password is defined
 
-# TODO: Improve this by looking up the certs from the secrets in the namespace
-# instead of getting them from the local files in /tmp
+# Lookup the CA PEM
+- name: "mongodb/community : Lookup the ca.pem"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: mas-mongo-ce-cert-map
+    namespace: "{{ mongodb_namespace }}"
+  register: mongodb_ca_lookup
+
+# Lookup the server certificate
+- name: "mongodb/community : Lookup the server.crt"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mas-mongo-ce-cert-secret
+    namespace: "{{ mongodb_namespace }}"
+  register: mongodb_crt_lookup
+
+- name: "mongodb/community : Create MAS MongoCfg (debug)"
+  debug:
+    msg: "ca.crt ...................... {{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
+    msg: "tls.crt ..................... {{ mongodb_crt_lookup.resources[0].data['tls.crt'] | b64decode }}"
+
 - name: "mongodb/community : Create MAS MongoCfg (debug)"
   debug:
     msg: "{{ lookup('template', 'templates/community/suite_mongocfg.yml') }}"
   vars:
-    file_prefix: "/tmp/mongoce-"
-    pem_file: "{{ file_prefix }}ca.pem"
-    crt_file: "{{ file_prefix }}server.crt"
-    mongodb_ca_pem: "{{ lookup('file', pem_file) }}"
-    mongodb_server_crt: "{{ lookup('file', crt_file) }}"
+    mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
+    mongodb_server_crt: "{{ mongodb_crt_lookup.resources[0].data['tls.crt'] | b64decode }}"
     mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
 
 - name: "mongodb/community : Create MAS MongoCfg"
@@ -205,9 +223,6 @@
     src: community/suite_mongocfg.yml
     dest: "{{ mongodb_cfg_file }}"
   vars:
-    file_prefix: "/tmp/mongoce-"
-    pem_file: "{{ file_prefix }}ca.pem"
-    crt_file: "{{ file_prefix }}server.crt"
-    mongodb_ca_pem: "{{ lookup('file', pem_file) }}"
-    mongodb_server_crt: "{{ lookup('file', crt_file) }}"
+    mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
+    mongodb_server_crt: "{{ mongodb_crt_lookup.resources[0].data['tls.crt'] | b64decode }}"
     mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
