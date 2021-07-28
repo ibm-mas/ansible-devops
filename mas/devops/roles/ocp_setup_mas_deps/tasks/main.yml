@@ -39,11 +39,55 @@
 
 # 4. Install Service Binding Operator
 # -----------------------------------------------------------------------------
-- name: Install SBO
+# Important
+# Do not upgrade to SBO 0.9.0, there are breaking changes in the API that
+# are incompatible with MAS
+
+- name: Create SBO Subscription
   community.kubernetes.k8s:
-    definition: "{{ lookup('template', 'templates/sbo/subscription.yaml') }}"
+    template: templates/sbo/subscription.yaml
     wait: yes
     wait_timeout: 60
+
+- name: Lookup SBO install plan
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: openshift-operators
+    label_selectors:
+      - operators.coreos.com/rh-service-binding-operator.openshift-operators
+  register: sbo_installplan_info
+  retries: 18
+  delay: 10 # Retry for approx 3 minutes before giving up
+  until: sbo_installplan_info.resources | length > 0
+
+- name: Approve the install plan for SBO
+  when:
+    - sbo_installplan_info.resources[0].status.phase != "Complete"
+    - sbo_installplan_info.resources[0].spec.clusterServiceVersionNames[0] == "service-binding-operator.v0.8.0"
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: InstallPlan
+      metadata:
+        name: "{{ sbo_installplan_info.resources[0].metadata.name }}"
+        namespace: openshift-operators
+      spec:
+        approved: true
+
+- name: Wait for SBO install to complete
+  when:
+    - sbo_installplan_info.resources[0].status.phase != "Complete"
+    - sbo_installplan_info.resources[0].spec.clusterServiceVersionNames[0] == "service-binding-operator.v0.8.0"
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    name: "{{ sbo_installplan_info.resources[0].metadata.name }}"
+    namespace: openshift-operators
+  register: sbo_installplan_info
+  until:
+    - sbo_installplan_info.resources[0].status.phase is defined
+    - sbo_installplan_info.resources[0].status.phase == "Complete"
 
 
 # 5. Enable monitoring for user-defined projects
@@ -54,6 +98,7 @@
     definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yaml') }}"
     wait: yes
     wait_timeout: 60
+
 
 # 6. TODO: Install and configure grafana
 # See: https://github.com/ibm-watson-iot/iot-docs/tree/master/monitoring
