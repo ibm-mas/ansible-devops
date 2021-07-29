@@ -9,7 +9,6 @@
     - name: "wait : Set the retry count"
       set_fact:
         retry_count: "{{ 0 if retry_count is undefined else retry_count|int + 1 }}"
-        failed_in_block: false
         services_count: 0
         ready_services_count: 0
 
@@ -28,16 +27,14 @@
 
     - name: "wait : Check whether the services are ready yet"
       set_fact:
-        failed_in_loop: "{{ item.status.status != 'Ready' }}"
-        failed_in_block: "{{ true if failed_in_loop is true else failed_in_block }}"
         services_count: "{{ services_count|int + 1 }}"
-        ready_services_count: "{{ ready_services_count|int + 1 if (failed_in_loop is false) else ready_services_count}}"
+        ready_services_count: "{{ ready_services_count|int + 1 if (item.status.status == 'Ready') else ready_services_count|int}}"
       with_items: "{{ cpd_services_lookup.resources }}"
       loop_control:
         label: "{{ item.metadata.name }} status = {{ item.status.status }}"
 
     - name: "wait : Fail if one or more services were not ready"
-      when: failed_in_block
+      when: ready_services_count != services_count
       fail:
         msg: "[{{ retry_count }}/180] {{ ready_services_count }} of {{ services_count }} services are ready"
   rescue:

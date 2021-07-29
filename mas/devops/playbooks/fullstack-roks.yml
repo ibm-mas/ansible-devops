@@ -41,6 +41,22 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
     db2wh_cfg_file: "{{ mas_config_dir }}/db2.yml"
 
+# Temporary hack for Manage, becuase the operator is missing critical
+# database configuration that requires manual intervention to set up.
+- name: Db2 configuration hack for Manage
+  import_playbook: mas.devops.cp4d_db2wh_manage_hack
+  vars:
+    # Ensure these are kept in sync with the values used in cp4d/install-db2.yml
+    cpd_meta_namespace: cpd-meta-ops
+    db2wh_username: db2inst1
+    db2wh_dbname: BLUDB
+    # TODO: The default that is built into the manage operator isn't following
+    # the naming conventions for MAS.  It should have been some combination of
+    # {{mas_instance_id}} {{mas_app_id}} and {{mas_workspace_id}} so that it's
+    # friendly to shared database sources in low cost environments, and easily
+    # templateable in automation such as this :(
+    db2wh_schema: maximo
+
 
 # 5. Install & configure MAS
 # -----------------------------------------------------------------------------
@@ -57,3 +73,19 @@
       - "{{ mas_config_dir }}/mongodb.yml"
       - "{{ mas_config_dir }}/kafka.yml"
       - "{{ mas_config_dir }}/db2.yml"
+
+
+# 6. Install & Configure Manage application
+# -----------------------------------------------------------------------------
+- name: Install Manage
+  import_playbook: mas/install-app.yml
+  vars:
+    mas_app_id: manage
+
+# Note that this sample playbook is always assuming a workspace ID of masdev,
+# this can easily be modified when creating your own playbooks.
+- name: Configure Manage
+  import_playbook: mas/configure-app.yml
+  vars:
+    mas_app_id: manage
+    mas_workspace_id: masdev

@@ -1,4 +1,4 @@
-# MAS Core with Manage on IBM Cloud
+# MAS Core with Health on IBM Cloud
 
 This master playbook will drive the following playbooks in sequence:
 
@@ -15,7 +15,7 @@ This master playbook will drive the following playbooks in sequence:
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (20 minutes)
-- Install Manage
+- Install Health
     - [Install application](mas.md#install-mas-application)
     - [Configure workspace](mas.md#configure-mas-application)
 
@@ -66,7 +66,7 @@ export CPD_ENTITLEMENT_KEY=xxx
 export MAS_INSTANCE_ID=xxx
 export MAS_ENTITLEMENT_KEY=xxx
 
-ansible-playbook playbooks/lite-manage-roks.yml
+ansible-playbook playbooks/lite-health-roks.yml
 ```
 
 ## Pre-release build
@@ -95,5 +95,5 @@ export MAS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
-ansible-playbook playbooks/lite-manage-roks.yml
+ansible-playbook playbooks/lite-health-roks.yml
 ```

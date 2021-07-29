@@ -48,12 +48,12 @@ ansible-playbook playbooks/mas/install-suite.yml
     You must have already installed the development (pre-release) catalogs, pre-release builds are not available directly from the IBM Operator Catalog.
 
 
-## Cloud Internet Services integration
+### Cloud Internet Services integration
 This optional feature allows you to integrate MAS with an existing instance of [IBM Cloud Internet Services](https://www.ibm.com/cloud/cloud-internet-services) (CIS) to provide automatic DNS management and certificates signed by LetsEncrypt.
 
 To utilise this feature you must set the optional `MAS_DOMAIN` detailed previously, and define additional CIS-specific environment variables as follows.
 
-### Required environment variables
+#### Required environment variables
 - `CIS_CRN` which can be obtained from your CIS service overview page, it will be in the format: `crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2bcd65684e4db3:9969652f-6955-482b-b59c-asdasasdede50c::`
 - `IBMCLOUD_APIKEY` Your IBM Cloud API key with DNS API write access. Note: (This API key will be stored in your cluster for DNS challenge when requesting new certs)
 
@@ -62,14 +62,14 @@ To utilise this feature you must set the optional `MAS_DOMAIN` detailed previous
 
     Could we even use our API key to create this new API key automatically so that the user does not need to do anything?
 
-### Optional environment variables
+#### Optional environment variables
 - `CIS_SUBDOMAIN` Subdomain used by your DNS server. It allow you to reuse CIS for multiple MAS Instances.
 - `CIS_SKIP_DNS_ENTRIES` Skips DNS entries creation if you are have them
 - `CIS_SKIP_CLUSTER_ISSUER` Skips Cluster Issuer CR creation and CIS webhook installation if you already have it
 - `UPDATE_DNS_ENTRIES` Whether to replace DNS entries already created
 - `OCP_INGRESS` Default to your cluster OCP ingress. This value is used as the target for the DNS entries
 
-### Example
+#### Example
 This example will configure MAS to run under the domain **mas.internal.mydomain.com** with all DNS entries for MAS managed by a CIS instance controlling **mydomain.com**.
 
 ```bash
@@ -83,4 +83,50 @@ export CIS_SUBDOMAIN=mas.internal
 export CIS_CRN=crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2bcd65684e4db3:9969652f-6955-482b-b59c-asdasasdede50c::
 
 ansible-playbook playbooks/mas/install-suite.yml
+```
+
+
+
+## Install MAS Application
+Install a MAS (Gen2) application, supported applications:
+
+- Manage
+- Health
+
+!!! note
+    Today, this only supports deployment of a MAS application with default settings.
+
+### Example
+```bash
+export MAS_INSTANCE_ID=xxx
+export MAS_WORKSPACE_ID=masdev
+export MAS_APP_ID=manage
+
+ansible-playbook playbooks/mas/configure-app.yml
+```
+
+## Configure MAS Application
+Configure a MAS (Gen2) application in a workspace, supported applications:
+
+- Manage
+- Health
+
+!!! note
+    Today, this only supports configuring a workspace with default settings.
+
+### Example
+
+```bash
+export MAS_INSTANCE_ID=xxx
+export MAS_WORKSPACE_ID=masdev
+export MAS_APP_ID=manage
+
+ansible-playbook playbooks/mas/configure-app.yml
+```
+
+## Manage Db2 Hack
+This should should be part of the Manage operator, but is not so we have to do it as a seperate step in the install flow for now.  This will configure the Db2 database instance and create a new schema named `maximo` (the default schema name used by the Manage application).
+
+```bash
+ansible-playbook playbooks/mas/hack-manage-db2.yml
 ```

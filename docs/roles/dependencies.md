@@ -18,3 +18,10 @@ This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams
 - `kafka_cluster_size` The configuration to apply, there are two configurations available: small and large.  Defaults to `small`
 - `kafka_user_name` The name of the user to setup in the cluster for MAS, defaults to `masuser`
 - `kafka_cfg_file` The location on the local filesystem where the template for the KafkaCfg and associated Secret will be saved.  Defaults to `/tmp/kafkacfg-amqstreams-system.yaml`
+
+----
+
+## mongodb
+
+!!! important "TODO"
+    Document this

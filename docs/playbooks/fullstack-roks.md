@@ -11,6 +11,7 @@ This master playbook will drive the following playbooks in sequence:
         - [Db2 Warehouse](cp4d.md#db2-install) with [Db2 Management Console](cp4d.md#db2-install) (1-2 hours)
         - [Watson Studio](cp4d.md#watson-studio-install) with [Apache Spark](cp4d.md#watson-studio-install), [Watson Machine Learning](cp4d.md#watson-studio-install), & [Watson AI OpenScale](cp4d.md#watson-studio-install) (4-5 hours)
     - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (60 minutes)
+    - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack)
     - Install Cloud Object Storage (coming soon)
     - Install BAS (coming soon)
     - Install SLS (coming soon)
@@ -18,19 +19,14 @@ This master playbook will drive the following playbooks in sequence:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (20 minutes)
 - Install Gen2 applications:
-    - Install Manage (coming soon)
-        - Additional Db2 configuration (that should be inside the Manage operator, but is not currently)
-        - Install application
-        - Configure workspace
-    - Install IoT (coming soon)
-        - Install application
-        - Configure workspace
-    - Install Assist (due 3Q)
-    - Install Predict (due 3Q)
-    - Install HP Utilties (due 3Q)
-    - Install Safety (due 3Q)
-    - Install Visual Inspection (due 3Q)
-    - Install Monitor (due ??)
+    - [Install & configure Manage](mas.md#install-mas-application)
+    - Install & configure IoT (coming soon)
+    - Install & configure Assist (due 3Q)
+    - Install & configure Predict (due 3Q)
+    - Install & configure HP Utilties (due 3Q)
+    - Install & configure Safety (due 3Q)
+    - Install & configure Visual Inspection (due 3Q)
+    - Install & configure Monitor (due ??)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Gen1 applications will **not** be supported by this collection.
 
@@ -39,6 +35,10 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
     Also note that Cloud Pak for Data requires approximately 40 PVCs.  You may need to contact IBM to increase the quota assigned to your IBM Cloud account if you see PVCs stuck in pending state and this error message: "Your order will exceed the maximum number of storage volumes allowed. Please contact Sales"
 
+!!! warning
+    Db2 in CP4D is currently broken, the db2u pod will never start due to an incorrectly set `tty` setting.  See this [Slack thread](https://ibm-analytics.slack.com/archives/C019EJ0QH4Y/p1625244478403600) for more details.
+
+    Depending how long the CP4D team takes to resolve this problem, we may need to automate the workaround (patch the pod to set tty to false, but only after it reaches a certain point in it's processing).  In the meantime, you must manually intervene, otherwise the playbook will timeout waiting for the Db2 cluster to be ready.
 
 ## Required environment variables
 - `IBMCLOUD_APIKEY`

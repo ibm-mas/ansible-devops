@@ -13,6 +13,26 @@ ansible-playbook ../../playbook.yml
 ## Style Guide
 Failure to adhere to the style guide will result in a PR being rejected!
 
+### YAML file extension
+We want consistency and we want to follow the guidelines for the tools we are using, ideally everyone would agree on a standard extension for YAML files, but that has not been the case, so these are the guidelines for MAS:
+
+- Within the context of ansible all YAML files should use the `yml` extension.
+- Within the context of Operator SDK configuration, all YAML files should use the `yaml` extension
+
+In practice, when working was MAS Gen2 applications this means:
+- In the top level `/operator/name/` use `.yaml` (OSDK rules apply)
+- Under `/operator/name/config/` use `.yaml` (OSDK rules apply)
+- Under `/operator/name/molecule/` use `.yml` (Ansible rules override OSDK rules)
+- Under `/operator/name/playbooks/` use `.yml` (Ansible rules override OSDK rules)
+- Under `/operator/name/roles/` use `.yml` (Ansible rules override OSDK rules)
+
+When working with an Ansible collection repository it is more straightforward.  Always use `.yml`
+
+### Naming Jinja Templates
+Within the `templates/` directory we place Jinja templates, as such the extension for these files should be `j2` rather than the extension of the format the file is a template for.  In other words use `templates/subscription.yml.j2` instead of `templates/subscription.yml`.
+
+If you are using Visual Studio Code you may want to install the `Better Jinja` extension, it will provide syntax highlighting for Jinja templates.
+
 ### Structure tasks using numbered sections
 To make the tasks easier to read use section headers as below:
 - The dashed line should be eactly 80 characters long
@@ -39,7 +59,7 @@ To make the tasks easier to read use section headers as below:
 
 ### Align debug messages
 To make debug easier to read when printed out by the default ansible display module all "property dump" debugging should be done as below:
-- Column 1 is is Left aligned, padded to 31 characters using dots
+- Column 1 is is Left aligned, padded to 41 characters using dots
 - Using standard indentation, the "...." should end on column 50
 
 #### Example

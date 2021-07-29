@@ -8,6 +8,43 @@ The following roles does provide support to provision, deprovision and configure
 - Product Group: Long term cluster on Fyre platform, requires user individual quota to provision this type of cluster
 - Roks: IBM Cloud hosted cluster
 
+
+## ocp_deprovision
+Deprovision OCP cluster in Fyre and IBM Cloud
+
+### Role Facts
+List of role facts defined by a playbook and required by this role.
+
+- `cluster_name` Gives a name for the provisioning cluster
+- `cluster_type` quickburn | product_group | roks
+
+#### ROKS specific facts
+- `ibmcloud_apikey` APIKey to be used by ibmcloud login comand
+
+#### Fyre specific facts
+- `username` Required when cluster type is quickburn or product_group
+- `password` Required when cluster type is quickburn or product_group
+
+----
+
+## ocp_login
+This role provides support to login to a cluster using the `oc cli`
+
+### Role Facts
+List of role facts defined by a playbook and required by this role.
+
+- `cluster_name` Gives a name for the provisioning cluster
+- `cluster_type` quickburn | product_group | roks
+
+#### ROKS specific facts
+- `ibmcloud_apikey` APIKey to be used by ibmcloud login comand
+
+#### Fyre specific facts
+- `username` Required when cluster type is quickburn or product_group
+- `password` Required when cluster type is quickburn or product_group
+
+----
+
 ## ocp_provision
 Provision OCP cluster on Fyre and IBM Cloud.
 
@@ -39,40 +76,7 @@ List of role facts defined by a playbook and required by this role.
 #### Product group specific facts
 - `workers_count` Number of workers to be provisioned for the product group cluster
 
-
-## ocp_deprovision
-Deprovision OCP cluster in Fyre and IBM Cloud
-
-### Role Facts
-List of role facts defined by a playbook and required by this role.
-
-- `cluster_name` Gives a name for the provisioning cluster
-- `cluster_type` quickburn | product_group | roks
-
-#### ROKS specific facts
-- `ibmcloud_apikey` APIKey to be used by ibmcloud login comand
-
-#### Fyre specific facts
-- `username` Required when cluster type is quickburn or product_group
-- `password` Required when cluster type is quickburn or product_group
-
-
-## ocp_login
-This role provides support to login to a cluster using the `oc cli`
-
-### Role Facts
-List of role facts defined by a playbook and required by this role.
-
-- `cluster_name` Gives a name for the provisioning cluster
-- `cluster_type` quickburn | product_group | roks
-
-#### ROKS specific facts
-- `ibmcloud_apikey` APIKey to be used by ibmcloud login comand
-
-#### Fyre specific facts
-- `username` Required when cluster type is quickburn or product_group
-- `password` Required when cluster type is quickburn or product_group
-
+----
 
 ## ocp_setup_github_oauth
 This role provides to support to configure cluster oauth using GitHub.
@@ -92,6 +96,7 @@ List of role facts defined by a playbook and required by this role.
 - `oauth.groups.groups_cluster_rolebindings` List of cluster role bindings to be created for the group
 - `oauth.organizations` List of GitHub organizations where the authentication will be performed
 
+----
 
 ## ocp_setup_mas_deps
 This role provides support to install operators that are required by MAS to work. The role will deploy Service Binding Operator in all namespaces and Cert Manager in the cert-manager namespace.
@@ -99,6 +104,7 @@ This role provides support to install operators that are required by MAS to work
 !!! note
     There are no facts included in this role, make sure to use this role in conjuction with [ocp_provivion](#ocp_provision) and [ocp_login](#ocp_login) to fulfill the requirements
 
+----
 
 ## ocp_setup_ocs
 This role provides support to install Openshift Container Storage. This role is not used by defualt when setting up IBM Cloud OpenShift clusters because they are automatically provisioned with their own storage plugin already.

@@ -7,42 +7,51 @@
   fail:
     msg: "mas_instance_id property is required"
 
+- name: "Fail if mas_app_id is not provided"
+  when: mas_app_id is not defined or mas_app_id == ""
+  fail:
+    msg: "mas_app_id property is required"
 
-# 2. Provide debug information
+
+# 2. Load var files
+# -----------------------------------------------------------------------------
+- name: Load variables
+  include_vars: "vars/{{ mas_app_id }}.yml"
+
+
+# 3. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
-    mas_namespace: "mas-{{ mas_instance_id }}-core"
-    mas_app_namespace: "mas-{{ mas_instance_id }}-manage"
+    mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
 
 - name: "Debug information"
   debug:
     msg:
+      - "Instance ID ............... {{ mas_instance_id }}"
+      - "Application ID ............ {{ mas_app_id }}"
+      - "MAS app namespace ......... {{ mas_app_namespace }}"
       - "App catalog source ........ {{ mas_app_catalog_source }}"
       - "App channel ............... {{ mas_app_channel }}"
-      - "Instance ID ............... {{ mas_instance_id }}"
-      - "MAS namespace ............. {{ mas_namespace }}"
-      - "MAS app namespace ......... {{ mas_app_namespace }}"
 
 
-# 3. Install the operator
+# 4. Install the operator
 # -----------------------------------------------------------------------------
 - name: "Install Operator"
   include_role:
     name: mas.devops.install_operator
   vars:
     namespace: "{{ mas_app_namespace }}"
-    catalog_source: "{{ mas_app_catalog_source }"
-    operator_group: "{{ lookup('template', 'templates/operator-group.yaml') }}"
-    subscription: "{{ lookup('template', 'templates/subscription.yaml') }}"
+    catalog_source: "{{ mas_app_catalog_source }}"
+    operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
+    subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
-
-# 4. Wait until the ManageApp CRD is available
+# 5. Wait until the Application's CRD is available
 # -----------------------------------------------------------------------------
-- name: "Wait until the ManageApp CRD is available"
+- name: "Wait until the Application's CRD is available"
   community.kubernetes.k8s_info:
     api_version: apiextensions.k8s.io/v1
-    name: "manageapp.apps.mas.ibm.com"
+    name: "{{ mas_app_fqn }}"
     kind: CustomResourceDefinition
     wait: yes
     wait_sleep: 10
@@ -58,9 +67,9 @@
     - app_crd_info.resources | length > 0
 
 
-# 5. Create the ibm-entitlement secret for entitled content
+# 6. Create the ibm-entitlement secret for entitled content
 # -----------------------------------------------------------------------------
-- name: "init : Create ibm-entitlement secret in MAS Namespace"
+- name: "Create ibm-entitlement secret in application Namespace"
   vars:
     entitledAuthStr: "{{mas_entitlement_username}}:{{mas_entitlement_key}}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
@@ -75,28 +84,38 @@
       type: kubernetes.io/dockerconfigjson
       metadata:
         name: "ibm-entitlement"
-        namespace: "{{ mas_namespace}}"
+        namespace: "{{ mas_app_namespace}}"
       stringData:
         # Only way I could get three consecutive "}" into a string :)
         .dockerconfigjson: "{{ content | join('') | string }}"
 
 
-# 6. App installation
+# 7. App installation
 # -----------------------------------------------------------------------------
-- name: Install Manage application
+- name: Install application
   community.kubernetes.k8s:
     state: present
-    namespace: "{{ mas_namespace }}"
-    definition: "{{ lookup('template', 'templates/manage/apps_v1_manageapp_cr.yaml') }}"
+    namespace: "{{ mas_app_namespace }}"
+    definition: "{{ lookup('template', 'templates/application.yml.j2') }}"
 
 
-# 7. Workspace configuration
+# 8. Wait for application to be ready
 # -----------------------------------------------------------------------------
-- name: "Configure manage application workspaces"
-  when: mas_manage_workspaces is defined
-  vars:
-    instance_id: "{{ mas_instance_id }}"
-  community.kubernetes.k8s:
-    state: present
-    definition: "{{ lookup('template', item) }}"
-  with_items: "{{ mas_manage_workspaces }}"
+- name: "Wait for application to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: "{{ mas_app_kind }}"
+    wait: true
+    wait_condition:
+      status: "True"
+      type: Ready
+    wait_sleep: 30
+    wait_timeout: 300 # 5 minutes before we give up and fall back into the retry loop
+  register: app_cr_result
+  retries: 40 # 5 mins each loop * 40 loops =~ 2 hours
+  delay: 0
+  until:
+    - app_cr_result.resources | length > 0
+    - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1

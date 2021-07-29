@@ -63,6 +63,13 @@ export MAS_INSTANCE_ID=inst1
 ansible-playbook playbooks/cp4d/install-db2.yml
 ```
 
+### Debugging Db2 install
+The following command may come in handy:
+
+```bash
+oc -n cpd-meta-ops get formations.db2u.databases.ibm.com db2wh-db01 -o go-template='{{range .status.components}}{{printf "%s,%s,%s\n" .kind .name .status.state}}{{end}}' | column -s, -t
+```
+
 ## Watson Studio install
 This playbook will install CP4D with **Watson Studio** and a number of additional components to expand the base capability of Watson Studio enabled.
 

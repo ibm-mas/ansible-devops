@@ -1,0 +1,66 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id == ""
+  fail:
+    msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_app_id is not provided"
+  when: mas_app_id is not defined or mas_app_id == ""
+  fail:
+    msg: "mas_app_id property is required"
+
+- name: "Fail if mas_workspace_id is not provided"
+  when: mas_workspace_id is not defined or mas_workspace_id == ""
+  fail:
+    msg: "mas_workspace_id property is required"
+
+
+# 2. Load var files
+# -----------------------------------------------------------------------------
+- name: Load variables
+  include_vars: "vars/{{ mas_app_id }}.yml"
+
+
+# 3. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_namespace: "mas-{{ mas_instance_id }}-core"
+    mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "Instance ID ............... {{ mas_instance_id }}"
+      - "Application ID ............ {{ mas_app_id }}"
+      - "Workspace ID .............. {{ mas_workspace_id }}"
+      - "MAS app namespace ......... {{ mas_app_namespace }}"
+
+
+# 4. Workspace configuration
+# -----------------------------------------------------------------------------
+- name: Configure application in workspace
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ mas_app_namespace }}"
+    definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
+
+
+# 8. Wait for application workspace to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for application workspace to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    kind: "{{ mas_app_ws_kind }}"
+    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+    namespace: "{{ mas_app_namespace }}"
+    wait: true
+    wait_condition:
+      status: "True"
+      type: Ready
+    wait_sleep: 20
+    wait_timeout: 600 # 10 minutes before we give up
+  register: app_ws_cr_result

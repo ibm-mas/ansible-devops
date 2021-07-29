@@ -3,10 +3,10 @@ apiVersion: v1
 kind: Secret
 type: Opaque
 metadata:
-  name: "jdbc-{{ db2wh_dbname | lower }}-credentials"
+  name: "jdbc-{{ db2wh_instance_id | lower }}-credentials"
   namespace: "mas-{{mas_instance_id}}-core"
 stringData:
-  username: db2inst1
+  username: "{{db2wh_username}}"
   password: "{{jdbc_instance_password}}"
 ---
 apiVersion: config.mas.ibm.com/v1
@@ -18,13 +18,13 @@ metadata:
     mas.ibm.com/configScope: system
     mas.ibm.com/instanceId: "{{mas_instance_id}}"
 spec:
-  displayName: "{{ db2wh_dbname | lower }} on CP4D"
+  displayName: "{{ db2wh_instance_id | lower }} on CP4D"
   config:
     url: "{{ jdbc_url }}"
     sslEnabled: true
     credentials:
-      secretName: "jdbc-{{ db2wh_dbname | lower }}-credentials"
+      secretName: "jdbc-{{ db2wh_instance_id | lower }}-credentials"
   certificates:
-    - alias: "{{ db2wh_dbname | lower }}"
+    - alias: "{{ db2wh_instance_id | lower }}"
       crt: |
         {{ db2wh_tls_crt | indent(8) }}

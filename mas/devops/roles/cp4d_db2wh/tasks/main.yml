@@ -4,11 +4,12 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Namespace .................... {{ cpd_meta_namespace }}"
-      - "Storage class ................ {{ cpd_storage_class }}"
-      - "Db2 database name ............ {{ db2wh_dbname }}"
-      - "Db2 version .................. {{ db2wh_version }}"
-
+      - "Namespace ................. {{ cpd_meta_namespace }}"
+      - "Storage class ............. {{ cpd_storage_class }}"
+      - "Db2 database instanceId ... {{ db2wh_instance_id }}"
+      - "Db2 database name ......... {{ db2wh_dbname }}"
+      - "Db2 database username ..... {{ db2wh_username }}"
+      - "Db2 version ............... {{ db2wh_version }}"
 
 # 2. Create a Db2 instance
 # -----------------------------------------------------------------------------
@@ -22,7 +23,7 @@
 - name: "Wait for db2wh instance to be ready (5m delay)"
   community.kubernetes.k8s_info:
     api_version: db2u.databases.ibm.com/v1
-    name: "db2u-{{ db2wh_dbname | lower }}"
+    name: "{{ db2wh_instance_id | lower }}"
     namespace: "{{cpd_meta_namespace}}"
     kind: Db2uCluster
   register: db2_cluster_lookup
@@ -54,9 +55,13 @@
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Service
-    name: "c-db2u-{{db2wh_dbname | lower}}-db2u-engn-svc"
+    name: "c-{{db2wh_instance_id | lower}}-db2u-engn-svc"
     namespace: "{{cpd_meta_namespace}}"
   register: _db2u_instance_engn_svc
+  until:
+  - _db2u_instance_engn_svc.resources[0] is defined
+  retries: 15 # approx 5 minutes before we give up
+  delay: 20
 
 - name: Set Db2wh certificates as Facts
   set_fact:
@@ -72,6 +77,7 @@
   when: "{{item.name == 'ssl-server'}}"
   loop:
     "{{_db2u_instance_engn_svc.resources[0].spec.ports}}"
+
 
 - name: "Create Db2 Warehouse route"
   community.kubernetes.k8s:
