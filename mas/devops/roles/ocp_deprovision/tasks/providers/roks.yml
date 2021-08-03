@@ -45,7 +45,21 @@
   shell: |
     ibmcloud oc cluster rm --cluster {{ cluster_name }} --force-delete-storage -f
 
-- name: "roks : Deprovision ROKS cluster"
+- name: "roks : ROKS cluster does not exist"
   when: cluster_found is not defined
   debug:
     msg: "Cluster {{ cluster_name }} does not exist so there is no action to take"
+
+
+# 5. Wait for the deprovision to complete
+# -----------------------------------------------------------------------------
+- name: "roks : Wait for cluster to be deprovisioned"
+  when: cluster_found is defined
+  shell: |
+    ibmcloud oc cluster get --cluster {{ cluster_name }} &> /dev/null
+    echo $?
+  ignore_errors: True
+  register: cluster_get
+  retries: 30
+  delay: 20 # 20s * 30 retries = 10 mins
+  until: cluster_get.stdout == "1"
