@@ -16,14 +16,14 @@ Deprovision OCP cluster in Fyre and IBM Cloud
 List of role facts defined by a playbook and required by this role.
 
 - `cluster_name` Gives a name for the provisioning cluster
-- `cluster_type` quickburn | product_group | roks
+- `cluster_type` quickburn | roks
 
 #### ROKS specific facts
 - `ibmcloud_apikey` APIKey to be used by ibmcloud login comand
 
 #### Fyre specific facts
-- `username` Required when cluster type is quickburn or product_group
-- `password` Required when cluster type is quickburn or product_group
+- `username` Required when cluster type is quickburn
+- `password` Required when cluster type is quickburn
 
 ----
 
@@ -34,14 +34,14 @@ This role provides support to login to a cluster using the `oc cli`
 List of role facts defined by a playbook and required by this role.
 
 - `cluster_name` Gives a name for the provisioning cluster
-- `cluster_type` quickburn | product_group | roks
+- `cluster_type` quickburn | roks
 
 #### ROKS specific facts
 - `ibmcloud_apikey` APIKey to be used by ibmcloud login comand
 
 #### Fyre specific facts
-- `username` Required when cluster type is quickburn or product_group
-- `password` Required when cluster type is quickburn or product_group
+- `username` Required when cluster type is quickburn
+- `password` Required when cluster type is quickburn
 
 ## ocp_install_case_operator
 This role uses a CASE bundle and the `cloudctl` tool to run the airgap installation of the CASE operator.
@@ -73,7 +73,7 @@ Provision OCP cluster on Fyre and IBM Cloud.
 List of role facts defined by a playbook and required by this role.
 
 - `cluster_name` Gives a name for the provisioning cluster
-- `cluster_type` quickburn | product_group | roks
+- `cluster_type` quickburn | roks
 - `ocp_version` Openshift version for the provisioning cluster
 
 #### ROKS specific facts
@@ -84,9 +84,9 @@ List of role facts defined by a playbook and required by this role.
 - `roks_flags` Can be used to specify additional parameters for the cluster creation
 
 #### Fyre specific facts
-- `username` Required when cluster type is quickburn or product_group
-- `password` Required when cluster type is quickburn or product_group
-- `fyre_product_id` Required when cluster_type is quickburn or product_group Product Group Id to use for cluster provisioning
+- `username` Required when cluster type is quickburn
+- `password` Required when cluster type is quickburn
+- `fyre_product_id` Required when cluster_type is quickburn Product Group Id to use for cluster provisioning
 
 #### Quick Burn specific facts
 - `fyre_cluster_size` Required when cluster_type is quickburn, currently supports `medium` or `large`

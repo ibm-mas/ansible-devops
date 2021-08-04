@@ -31,28 +31,30 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Catalog source ............ {{ mas_catalog_source }}"
-      - "MAS channel ............... {{ mas_channel }}"
-      - "Instance ID ............... {{ mas_instance_id }}"
-      - "MAS namespace ............. {{ mas_namespace }}"
-      - "MAS domain ................ {{ mas_domain }}"
-      - "MAS ICR cp content ........ {{ mas_icr_cp }}"
-      - "MAS ICR cpopen content .... {{ mas_icr_cpopen }}"
-      - "MAS Custom Cluster Issue .... {{ custom_cluster_issuer }}"
+      - "Catalog source ............... {{ mas_catalog_source }}"
+      - "MAS channel .................. {{ mas_channel }}"
+      - "Instance ID .................. {{ mas_instance_id }}"
+      - "MAS namespace ................ {{ mas_namespace }}"
+      - "MAS domain ................... {{ mas_domain }}"
+      - "MAS ICR cp content ........... {{ mas_icr_cp }}"
+      - "MAS ICR cpopen content ....... {{ mas_icr_cpopen }}"
+      - "MAS Custom Cluster Issue ..... {{ custom_cluster_issuer }}"
+
 
 # 4. Install development (pre-release) catalogs for airgap installation
-# This has to be done after the airgap setup disables network access to the 
+# This has to be done after the airgap setup disables network access to the
 # publicly available catalogs.
 # -----------------------------------------------------------------------------
 - name: "Install airgap catalogs"
   when:
     - mas_catalog_source != "ibm-operator-catalog"
     - airgap_install is defined
+    - airgap_install == true
   include_tasks: "tasks/airgap-catalogs.yml"
+
 
 # 5. Install the operator
 # -----------------------------------------------------------------------------
-
 - name: "Install MAS Operator"
   include_role:
     name: mas.devops.install_operator
@@ -120,4 +122,4 @@
   community.kubernetes.k8s:
     state: present
     namespace: "{{ mas_namespace }}"
-    definition: "{{ cr_definition }}"    
+    definition: "{{ cr_definition }}"

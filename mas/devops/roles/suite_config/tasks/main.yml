@@ -7,6 +7,11 @@
   fail:
     msg: "mas_instance_id property is required"
 
+- name: "Fail if mas_config_dir is not provided"
+  when: mas_config_dir is not defined or mas_config_dir == ""
+  fail:
+    msg: "mas_config_dir property is required"
+
 
 # 2. Provide debug information
 # -----------------------------------------------------------------------------
@@ -19,15 +24,27 @@
     msg:
       - "Instance ID ............... {{ mas_instance_id }}"
       - "MAS namespace ............. {{ mas_namespace }}"
+      - "MAS config directory ...... {{ mas_config_dir }}"
 
 
 # 3. Apply optional MAS configuration
 # -----------------------------------------------------------------------------
+- name: Find *.yml and *.yaml files in the MAS config directory
+  find:
+    paths: "{{ mas_config_dir }}"
+    patterns: '*.yml,*.yaml'
+    recurse: no
+  register: mas_config_files
+
+- name: "Debug the list of config files located"
+  debug:
+    msg: "{{ item.path }}"
+  with_items: "{{ mas_config_files.files }}"
+
 - name: "Apply configs"
-  when: mas_config is defined
   vars:
     instance_id: "{{ mas_instance_id }}"
   community.kubernetes.k8s:
     state: present
-    definition: "{{ lookup('template', item) }}"
-  with_items: "{{ mas_config }}"
+    definition: "{{ lookup('template', item.path) }}"
+  with_items: "{{ mas_config_files.files }}"

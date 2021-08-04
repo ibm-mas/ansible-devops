@@ -33,6 +33,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `CPD_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
+- `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 
 ## Optional environment variables
 - `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none are passed, `Default` resource group will be used.
@@ -67,6 +68,8 @@ export CPD_ENTITLEMENT_KEY=xxx
 export MAS_INSTANCE_ID=xxx
 export MAS_ENTITLEMENT_KEY=xxx
 
+export MAS_CONFIG_DIR=~/masconfig
+
 ansible-playbook playbooks/lite-manage-roks.yml
 ```
 
@@ -96,6 +99,8 @@ export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
+
+export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/lite-manage-roks.yml
 ```

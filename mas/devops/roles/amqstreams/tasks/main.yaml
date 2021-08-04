@@ -23,6 +23,7 @@
       - "AMQ Streams storage class .... {{ kafka_storage_class }}"
       - "AMQ Streams MAS user ......... {{ kafka_user_name }}"
       - "MAS Instance ID .............. {{ mas_instance_id }}"
+      - "MAS Config directory ......... {{ mas_config_dir }}"
 
 
 # 3. Install AMQ Streams operator
@@ -113,6 +114,11 @@
 # 8. Create KafkaCfg for MAS
 # -----------------------------------------------------------------------------
 - name: Save KafkaCfg to filesytem
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   ansible.builtin.template:
     src: kafkacfg.yaml
-    dest: "{{ kafka_cfg_file }}"
+    dest: "{{ mas_config_dir }}/kafka-{{ kafka_cluster_name }}-{{ kafka_namespace }}.yml"

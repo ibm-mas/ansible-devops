@@ -30,6 +30,7 @@
       - "MongoDb data capacity ........ {{ mongodb_storage_capacity_data }}"
       - "MongoDb logs capacity ........ {{ mongodb_storage_capacity_logs }}"
       - "MAS instance ID .............. {{ mas_instance_id }}"
+      - "MAS config directory ......... {{ mas_config_dir }}"
 
 
 # 1. Install the CRD
@@ -219,9 +220,14 @@
     mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
 
 - name: "mongodb/community : Create MAS MongoCfg"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   ansible.builtin.template:
     src: community/suite_mongocfg.yml
-    dest: "{{ mongodb_cfg_file }}"
+    dest: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
   vars:
     mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
     mongodb_server_crt: "{{ mongodb_crt_lookup.resources[0].data['tls.crt'] | b64decode }}"

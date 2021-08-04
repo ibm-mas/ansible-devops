@@ -6,6 +6,7 @@ Before you use this playbook you will likely want to edit the `mas_config` varia
 ### Required environment variables
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Provide your IBM entitlement key
+- `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 
 ### Optional environment variables
 - `MAS_CATALOG_SOURCE` Set to `ibm-mas-operators` if you want to deploy pre-release development builds
@@ -39,6 +40,8 @@ export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
+
+export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/mas/install-suite.yml
 ```
@@ -110,6 +113,8 @@ export OCP_VERSION=4.6.38
 export MAS_INSTANCE_ID=xxx
 export MAS_ENTITLEMENT_KEY=xxx
 
+export MAS_CONFIG_DIR=~/masconfig
+
 # Airgap config
 export AIRGAP_INSTALL=true
 export CASE_NAME=ibm-mas
@@ -119,7 +124,6 @@ export CASE_SOURCE=https://github.com/IBM/cloud-pak/blob/master/repo/case/ibm-ma
 export MAS_CATALOG_IMG=icr.io/cpopen/ibm-mas-operator-catalog@sha256:822e4840748737a012a94997c202eeb160107dc5adb7c2a40d42aa087ceb41b1
 export TM_CATALOG_IMG=icr.io/cpopen/ibm-truststore-mgr-operator-catalog@sha256:56d5af1b31637c318edef4522d4bd215425ac43a4fe0056adac504577ca21f3e
 export CP_ICR_ENTITLEMENT_KEY=XXX
-
 
 ansible-playbook playbooks/mas/install-mas.yml
 ```
