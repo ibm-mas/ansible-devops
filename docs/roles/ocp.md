@@ -43,6 +43,24 @@ List of role facts defined by a playbook and required by this role.
 - `username` Required when cluster type is quickburn or product_group
 - `password` Required when cluster type is quickburn or product_group
 
+## ocp_install_case_operator
+This role uses a CASE bundle and the `cloudctl` tool to run the airgap installation of the CASE operator.
+
+### Role facts
+List of role facts defined by a playbook and required by this role.
+
+- `cluster_name` Gives a name for the provisioned cluster
+- `cluster_type` quickburn
+- `username` username for fyre api
+- `password` password for fyre api
+- `case_name` the name of the CASE bundle to be installed
+- `case_bundle_dir` the location of the CASE bundle
+- `case_archive_dir` the location to store cloudctl working files, typically `./archive` under the `case_bundle_dir`
+- `case_inventory_name`:` the name of the Setup inventory within the CASE bundle
+- `target_namespace` the namespace targetted for airgap installation
+- `catalog_type` development | production
+#### Optional facts
+- `debugs`: comma separated string of debug output to print
 ----
 
 ## ocp_provision
@@ -76,6 +94,45 @@ List of role facts defined by a playbook and required by this role.
 #### Product group specific facts
 - `workers_count` Number of workers to be provisioned for the product group cluster
 
+## ocp_setup_airgap_images
+This role uses the specifed CASE bundle to mirror container images to a mirror registry and configure the cluster to pull images from this mirror.
+
+Currently this is only supported for quickburn clusters
+
+### Role facts
+List of role facts defined by a playbook and required by this role.
+
+- `cluster_name` -Gives a name for the provisioned cluster
+- `cluster_type` quickburn
+- `username` username for fyre api
+- `password` password for fyre api
+- `case_name` the name of the CASE bundle to be installed
+- `case_bundle_dir` the location of the CASE bundle
+- `case_archive_dir` the location to store cloudctl working files, typically `./archive` under the `case_bundle_dir`
+- `case_inventory_name`:` the name of the Setup inventory within the CASE bundle
+- `target_namespace` the namespace targetted for airgap installation
+- `catalog_type` development | production
+- `cp_icr_entitlement` the entitlement key for mirroring container images from cp.icr.io
+- `registries` list of entries, each with `host`, `user` and `password`, credentials for each registry listed in the CASE bundle to allow image mirroring
+#### Optional facts
+- `debugs`: comma separated string of debug output to print
+- `dev_overrides` a directory containing development specific files to override the production CASE bundle
+----
+
+## ocp_setup_simulated_airgap
+This role provides to support to configure a cluster for simulated airgap installation testing. This includes disabling newtwork access to public image repositories and sets up the OCP Internal Registry in preparation for image mirroring.
+
+Currently this is only supported for quickburn clusters
+
+### Role facts
+List of role facts defined by a playbook and required by this role.
+
+- `cluster_name` -Gives a name for the provisioned cluster
+- `cluster_type` quickburn
+- `username` username for fyre api
+- `password` password for fyre api
+#### Optional facts
+- `debugs`: comma separated string of debug output to print
 ----
 
 ## ocp_setup_github_oauth

@@ -1,0 +1,37 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+
+  # Preliminary test to see if an airgap install is required, 
+  # Don't run the Airgap Install unless the run_airgap fact or RUN_AIRGAP environment variable are set to true
+  tasks:
+  - set_fact:
+      airgap_install: "{{ lookup('env', 'AIRGAP_INSTALL') | default('false', true) }}"
+    when: airgap_install is not defined
+
+# 1. Configure the airgap registry and cluster network
+- name: Simulate Airgap
+  import_playbook: setup-simulated-airgap-cluster.yml 
+  vars:
+    use_internal_registry: true
+    configure_network: true
+  when: airgap_install == True
+
+# 2. Prepare CASE Bundle, download if necessary
+- name: Prepare CASE
+  import_playbook: prepare-case.yml 
+  when: airgap_install == True
+
+# 3. Configure the airgap registry, cluster and mirror images
+- name: Mirror Images
+  import_playbook: setup-airgap-images.yml 
+  vars:
+    use_internal_registry: true
+  when: airgap_install == True
+
+    
+# 4. Perform the Operator Install defined in the CASE bundle.
+#    Note that this may or may not fully install the operator, depending on the CASE.
+- name: CASE Install Operator
+  import_playbook: install-case-operator.yml    
+  when: airgap_install == True

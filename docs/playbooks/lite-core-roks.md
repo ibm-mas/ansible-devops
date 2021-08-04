@@ -37,6 +37,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
 
+
 ## Release build
 
 ```bash
@@ -51,6 +52,7 @@ export MAS_ENTITLEMENT_KEY=xxx
 
 ansible-playbook playbooks/only-manage-roks.yml
 ```
+
 
 ## Pre-release build
 
@@ -80,3 +82,7 @@ export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 ansible-playbook playbooks/only-manageroks.yml
 ```
+
+
+## AirGap Support
+This sample playbook supports AirGap install of MAS itself, but not the dependency stack for MAS; everything else will be installed normally.  Refer to [The MAS playbook documentation](mas.md#airgap-install) for full details of how to enable AirGap mode.
