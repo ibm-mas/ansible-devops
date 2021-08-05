@@ -14,7 +14,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack)
     - Install Cloud Object Storage (coming soon)
     - Install BAS (coming soon)
-    - Install SLS (coming soon)
+    - [Install SLS](sls.md#install-sls)(10 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (20 minutes)

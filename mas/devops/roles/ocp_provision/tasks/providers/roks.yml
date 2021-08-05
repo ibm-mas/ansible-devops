@@ -88,10 +88,8 @@
 - name: "roks : Configure Private and Public Vlans"
   when: cluster_lookup.rc == 1
   set_fact:
-    "{{item.type}}": "{{item.id}}"
-  loop:
-    "{{_ibmcloud_zone_vlans.stdout|from_json}}"
-
+    public: "{{_ibmcloud_zone_vlans.stdout| from_json | mas.devops.public_vlan }}"
+    private: "{{_ibmcloud_zone_vlans.stdout| from_json | mas.devops.private_vlan }}"  
 
 # 7. Create cluster
 # -----------------------------------------------------------------------------
@@ -106,8 +104,8 @@
       --zone {{ roks_zone }} \
       --flavor {{ roks_flavor }} \
       --workers {{ roks_workers }} \
-      --private-vlan {{ private }} \
-      --public-vlan {{ public }} \
+      --private-vlan {{ private is defined | ternary(private, omit) }} \
+      --public-vlan {{ public is defined | ternary(public, omit) }} \
       {{ roks_flags}}
 
 

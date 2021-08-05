@@ -3,9 +3,8 @@
 This master playbook will drive the following playbooks in sequence:
 
 - [Provision & setup Quickburn](ocp.md#quickburn) (25 minutes)
-- Install dependencies:
-    - [Install MongoDb](dependencies.md#install-mongodb-ce) (coming soon)
-    - Install SLS (coming soon)
+- [Install MongoDb](dependencies.md#install-mongodb-ce) (15 minutes)
+- [Install SLS](sls.md#install-sls)(10 minutes)
 - [Install & configure MAS](mas.md#install-mas) (20 minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Due to the size limtations of QuickBurn clusters a full MAS stack is not possible.

@@ -30,6 +30,7 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
+
 # 4. Install CP4D services & configure Db2
 #-----------------------------------------------------------------------------
 - name: Install CP4D services & configure Db2
@@ -38,7 +39,24 @@
     cpd_storage_class: ibmc-file-gold-gid
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
-# Temporary hack for Manage, becuase the operator is missing critical
+
+# 5. Install SLS
+# -----------------------------------------------------------------------------
+- name: Install SLS
+  import_playbook: sls/install-sls.yml
+  vars:
+    sls_storage_class: ibmc-file-gold-gid
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
+    mongodb_cfg_file: "{{mas_config_dir}}/mongodb.yml"
+    sls_cfg_file: "{{ mas_config_dir }}/sls.yml"
+    bootstrap:
+      license_id:  "{{ lookup('env', 'SLS_LICENSE_ID') | default('', true) }}"
+      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
+      entitlement_file: "{{mas_config_dir}}/entitlement.lic"
+
+
+# 6. Install & configure MAS
+# Temporary hack for Manage, because the operator is missing critical
 # database configuration that requires manual intervention to set up.
 - name: Db2 configuration hack for Manage
   import_playbook: mas.devops.cp4d_db2wh_manage_hack
