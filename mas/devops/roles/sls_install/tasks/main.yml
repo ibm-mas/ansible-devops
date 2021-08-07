@@ -54,9 +54,10 @@
     name: cluster
   register: _cluster_subdomain
 
-- name: "Configure domain"
+- name: "Configure default domain if not set"
+  when: not sls_domain
   set_fact:
-    sls_domain: "{{ (custom_domain != '') | ternary (custom_domain, _cluster_subdomain.resources[0].spec.domain) }}"
+    sls_domain: "{{ sls_namespace }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
 
 # 3. Create ibm-entitlement for SLS
@@ -114,6 +115,7 @@
     - sls_crd_info.resources is defined
     - sls_crd_info.resources | length > 0
 
+
 # 5. Create Mongo Secret
 # -----------------------------------------------------------------------------
 - name: Read MongoDb config file
@@ -155,12 +157,12 @@
 # 8. Wait for it to hit Ready
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/sls-verify.yml"
-  
+
 
 # 9. Generate SLSCfg for MAS
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/slscfg.yml
-  when:    
+  when:
     - mas_instance_id is defined
     - mas_instance_id != ""
     - mas_config_dir is defined

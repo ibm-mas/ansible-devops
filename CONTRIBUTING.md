@@ -10,6 +10,11 @@ ansible-galaxy collection build --force && ansible-galaxy collection install mas
 ansible-playbook ../../playbook.yml
 ```
 
+```bash
+ansible-galaxy collection build --force
+ansible-galaxy collection publish mas-devops-3.0.0.tar.gz --token=$ANSIBLE_GALAXY_TOKEN
+```
+
 ## Style Guide
 Failure to adhere to the style guide will result in a PR being rejected!
 

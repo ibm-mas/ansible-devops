@@ -1,18 +1,51 @@
-# -----------------------------------------------------------
-# Licensed Materials - Property of IBM
-# 5737-M66, 5900-AAA
-# (C) Copyright IBM Corp. 2020 All Rights Reserved.
-# US Government Users Restricted Rights - Use, duplication, or disclosure
-# restricted by GSA ADP Schedule Contract with IBM Corp.
-# -----------------------------------------------------------
+# coding: utf-8 -*-
+# # (C) Copyright IBM Corp. 2020 All Rights Reserved.
+# Eclipse Public License 2.0 (see https://spdx.org/licenses/EPL-2.0.html)
+
+ANSIBLE_METADATA = {
+    'metadata_version': '1.0',
+    'status': ['preview'],
+    'supported_by': 'community'
+}
+
+DOCUMENTATION = r'''
+---
+module: wipe_mongo
+
+short_description: Wipe all MAS databases in MongoDb instance
+
+version_added: "1.0.0"
+
+description: Removes all databases associated with the specified MAS instance ID from the chosen MongoDb instance.
+
+options:
+    instance_id:
+        description: MAS instance ID.
+        required: true
+        type: str
+    mongo_uri:
+        description: Mongo URI.
+        required: true
+        type: str
+    config:
+        description: true
+        required: true
+        type: complex
+    certificates:
+        description: true
+        required: true
+        type: complex
+
+author:
+    - Tom Klapiscak (@tomklapiscak)
+    - David Parker (@durera)
+'''
 
 from ansible.module_utils.basic import AnsibleModule
 
 import pymongo
 import tempfile
 import os
-
-
 
 def main():
     fields = dict(
@@ -97,16 +130,10 @@ def main():
         ],
     )
 
-    # Declawing the script for now to avoid unintended results during development/testing
-    # It will only work if instance_id is "masfvt"
-    # TODO: REMOVE THIS ONCE WE ARE CONFIDENT EVERYTHING IS WORKING AS INTENDED
-    if module.params['instance_id'] != 'masfvt':
-        module.fail_json(msg = f"This script is currently restricted for use with instance_id='masfvt' only. This restriction will be removed once development/testing is completed.")
-
     # Construct Mongo URI
     params_config = module.params.get('config')
     if params_config is not None:
-        
+
         mongo_uri = 'mongodb://'
 
         # Add creds
@@ -131,7 +158,7 @@ def main():
     else:
         mongo_uri = module.params['mongo_uri']
 
-    
+
     ca_file = None
     mongo_client = None
     try:
@@ -144,8 +171,8 @@ def main():
 
         try:
             mongo_client = pymongo.MongoClient(
-                mongo_uri, 
-                tls = True, 
+                mongo_uri,
+                tls = True,
                 tlsCAFile = ca_file.name if ca_file is not None else None,
                 tlsAllowInvalidCertificates = False
             )
@@ -158,24 +185,20 @@ def main():
 
             # Drop databases as defined in https://github.ibm.com/maximoappsuite/coreapi/blob/bbd6607a42f0cb4d645ce59dfd4ec75d6567832c/image/coreapi/src/wipeData.py#L133
             db_names = mongo_client.list_database_names()
-            
+
             dbs_to_drop = [
                 f'mas_{inst_id}_core',
                 f'mas_{inst_id}_catalog',
-                f'mas_{inst_id}_adoptionusage',
-
-                # not sure this database is used anymore (replaced by a shared licensing database in all cases?
-                # leaving it in just in case (the script tolerates DBs not existing)
-                f'sls_{inst_id}_licensing',
+                f'mas_{inst_id}_adoptionusage'
             ]
 
             # Map to a list of (db_name, exists?) tuples so we can return information
             # about what was *actually* dropped in the results
             db_statuses = list(
                 map(
-                    lambda db_name : 
+                    lambda db_name :
                         dict(
-                            name = db_name, 
+                            name = db_name,
                             exists = db_name in db_names
                         ),
                     dbs_to_drop
@@ -186,9 +209,9 @@ def main():
             # (these implicitly exist since they were derived from the actual list of db names)
             for db_name in db_names:
                 if db_name.startswith(f"iot_{inst_id}_"):
-                    db_statuses.append( 
+                    db_statuses.append(
                         dict(
-                            name =  db_name, 
+                            name =  db_name,
                             exists = True
                         )
                     )
@@ -209,7 +232,7 @@ def main():
                     else:
                         db_status['dropped'] = False
 
-            
+
             # report failure iff at least one database failed to drop
             failed = False
             for db_status in db_statuses:
@@ -221,7 +244,7 @@ def main():
             if failed:
                 module.fail_json(
                     msg = f"Failed to drop at least one database. See db_statuses for details.",
-                    mongo_uri=mongo_uri, 
+                    mongo_uri=mongo_uri,
                     db_statuses=db_statuses,
                 )
             else:
@@ -234,7 +257,7 @@ def main():
 
                 module.exit_json(
                     changed = changed,
-                    mongo_uri=mongo_uri, 
+                    mongo_uri=mongo_uri,
                     db_statuses=db_statuses,
                 )
 

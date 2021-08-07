@@ -21,14 +21,17 @@
   import_playbook: sls/install-sls.yml
   vars:
     sls_storage_class: ibmc-file-gold-gid
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default('~/maximoappsuite/devops-configs/config', true) }}"
-    mongodb_cfg_file: "{{mas_config_dir}}/mongodb.yml"
-    sls_cfg_file: "{{ mas_config_dir }}/sls.yml"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
     # Default to re-using the MAS entitlement key if we do not provide a specific one for SLS
-    sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | default(lookup('env', 'MAS_ENTITLEMENT_USERNAME'), true) }}"
-    sls_entitlement_key:  "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') | default(lookup('env', 'MAS_ENTITLEMENT_KEY'), true) }}"
+    sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
+    sls_entitlement_key:  "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') | default(lookup('env', 'IBM_ENTITLEMENT_KEY'), true) }}"
 
+    # Use the generated mongodb configuration
+    mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
+    mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+
+    # Bootstrap from the mas_config_dir
     bootstrap:
       license_id:  "{{ lookup('env', 'SLS_LICENSE_ID') | default('', true) }}"
       registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
