@@ -13,17 +13,17 @@
     msg: "case_bundle_dir property is required"
 
 - name: "Fail if case_inventory_name is not provided"
-  when: case_inventory_name is not defined or case_inventory_name == ""    
+  when: case_inventory_name is not defined or case_inventory_name == ""
   fail:
     msg: "case_inventory_name is required"
 
 - name: "Test if cloudctl is installed"
   shell: cloudctl version
-  register: _cloudctl_version  
+  register: _cloudctl_version
   ignore_errors: true
 
 - name: "Fail if cloudctl is not installed"
-  when: ( _cloudctl_version['rc'] != 0 )     
+  when: ( _cloudctl_version['rc'] != 0 )
   fail:
     msg: "cloudctl tool must be installed."
 
@@ -36,21 +36,21 @@
 
 # 1. Download and Extract CASE Archive if case_source defines an online archive
 - name: "Empty CASE Directory"
-  ansible.builtin.file: 
-     path: "{{ case_dir }}"
-     state: absent
+  ansible.builtin.file:
+    path: "{{ case_dir }}"
+    state: absent
   vars:
     case_dir: "{{ case_bundle_dir }}/case"
-  when: 
+  when:
     - _case_download.skipped is not defined
-    
+
 - name: "Create CASE Directory"
-  ansible.builtin.file: 
-     path: "{{ case_dir }}"
-     state: directory
+  ansible.builtin.file:
+    path: "{{ case_dir }}"
+    state: directory
   vars:
     case_dir: "{{ case_bundle_dir }}/case"
-    
+
 - name: "Get CASE Archive"
   get_url:
     url: "{{ case_source }}"
@@ -63,11 +63,11 @@
 
 - name: "Extract CASE Archive"
   shell: |
-    tar -xzf "{{ _case_download.dest }}" -C "{{ case_dir }}" 
+    tar -xzf "{{ _case_download.dest }}" -C "{{ case_dir }}"
   vars:
     case_dir: "{{ case_bundle_dir }}/case"
   register: _case_unzip
-  when: 
+  when:
     - _case_download.skipped is not defined
 
 # 4. Process CASE to configure image mirroring
@@ -82,16 +82,16 @@
   register: saveCaseResult
 
 # If testing a development build, we need to modify the saved reference images (change to artifactory and set the digests etc).
-- name: Configure Case for Development 
+- name: Configure Case for Development
   include_tasks: "tasks/setup-development-airgap.yml"
   when:
-    - catalog_type is defined 
+    - catalog_type is defined
     - catalog_type == "development"
 # TBD - It would be nicer to set up case resolvers to have the same effect.
 
 # Some CASE bundles (e.g. ibm-mas) define images that we don't want to mirror, so delete the excluded image files.
 - name: Delete excluded images
   shell: rm {{ case_archive_dir }}/{{item}}*-images.csv
-  register: excludeImagesResult 
+  register: excludeImagesResult
   loop: "{{ excludeImages.split(',') }}"
   when: excludeImages is defined

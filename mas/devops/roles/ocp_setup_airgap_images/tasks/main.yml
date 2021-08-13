@@ -28,42 +28,42 @@
     msg: "case_bundle_dir property is not required"
 
 - name: "Fail if case_inventory_name is not provided"
-  when: case_inventory_name is not defined or case_inventory_name == ""    
+  when: case_inventory_name is not defined or case_inventory_name == ""
   fail:
     msg: "case_inventory_name is required"
 
 - name: "Fail if CP Entitlement is not provided"
-  when: cp_icr_entitlement is not defined or cp_icr_entitlement == ""    
+  when: cp_icr_entitlement is not defined or cp_icr_entitlement == ""
   fail:
     msg: "cp_icr_entitlement is required"
 
 - name: "Fail if Registry host name is not provided"
-  when: registryPublicHost is not defined or registryPublicHost == ""    
+  when: registryPublicHost is not defined or registryPublicHost == ""
   fail:
     msg: "registryPublicHost is required, pass the ansible variable or set REGISTRY_PUBLIC_HOST environment variable"
 
 - name: "Fail if Registry host name from cluster is not provided"
-  when: registryFromCluster is not defined or registryFromCluster == ""    
+  when: registryFromCluster is not defined or registryFromCluster == ""
   fail:
     msg: "registryFromCluster is required, pass the ansible variable or set REGISTRY_FROM_CLUSTER environment variable"
 
 - name: "Fail if Registry username is not provided"
-  when: registryUsername is not defined or registryUsername == ""    
+  when: registryUsername is not defined or registryUsername == ""
   fail:
     msg: "registryUsername is required, pass the ansible variable or set REGISTRY_USERNAME environment variable"
 
 - name: "Fail if Registry password is not provided"
-  when: registryPassword is not defined or registryPassword == ""    
+  when: registryPassword is not defined or registryPassword == ""
   fail:
     msg: "registryPassword is required, pass the ansible variable or set REGISTRY_PASSWORD environment variable"
 
 - name: "Test if cloudctl is installed"
   shell: cloudctl version
-  register: _cloudctl_version  
+  register: _cloudctl_version
   ignore_errors: true
 
 - name: "Fail if cloudctl is not installed"
-  when: ( _cloudctl_version['rc'] != 0 )     
+  when: ( _cloudctl_version['rc'] != 0 )
   fail:
     msg: "cloudctl tool must be installed."
 
@@ -82,12 +82,12 @@
 # -----------------------------------------------------------------------------
 - name: "Check cluster login"
   shell: oc status
-  register: _oc_status  
+  register: _oc_status
   ignore_errors: true
 
-- debug: 
-     msg:
-       - "OC Status: {{ _oc_status }}"
+- debug:
+    msg:
+      - "OC Status: {{ _oc_status }}"
 
 - name: "Login to cluster"
   include_role:
@@ -99,13 +99,13 @@
 # 3. Mirror images
 # ---------------------------------------------
 # Get and set credentials for the cluster registry
-- name: Set Registry credentials 
+- name: Set Registry credentials
   include_tasks: "tasks/set-registry-credentials.yml"
 
-- name: Setup Internal Registry specifics 
+- name: Setup Internal Registry specifics
   include_tasks: "tasks/setup_for_internal_registry.yml"
   when:
-    - use_internal_registry is defined 
+    - use_internal_registry is defined
     - use_internal_registry
 
 # Perform a dry run first, if it fails it will report why and nothing will be changed om the target system
@@ -121,7 +121,7 @@
         --skipDelta true \
         --dryRun true \
         "
-  register: mirrorImageDryRunResult 
+  register: mirrorImageDryRunResult
   ignore_errors: "{{ ignoreMirrorError }}"
 
 - name: Debug
@@ -129,8 +129,8 @@
     msg:
       - "mirror Image Dry Run Result ...... {{ mirrorImageDryRunResult }}"
   when: debugs is search ('mirrorImageDryRunResult')
-  
-- name: Mirror Images 
+
+- name: Mirror Images
   shell: >
     cloudctl case launch --action mirror-images \
       --case {{ case_bundle_dir }}/case/{{ case_name }} \
@@ -142,7 +142,7 @@
         --skipDelta true\
         "
 
-  register: mirrorImageResult 
+  register: mirrorImageResult
   # This can intermittently fail with "504 Gateway Time-out" errors, retry until sucessful.
   retries: 10
   until: mirrorImageResult['rc'] == 0 or mirrorImageResult['stdout'] is not search('504 Gateway Time', multiline=True)
@@ -168,7 +168,7 @@
   register: create_namespace_result
 
 # Refresh credentials for the cluster registry - the login can expire during a long image mirror session
-- name: Set Internal Registry credentials 
+- name: Set Internal Registry credentials
   include_tasks: "tasks/set-registry-credentials.yml"
 
 ## Perform a dry run first, if it fails it will report why and nothing will be changed on the target system
@@ -184,7 +184,7 @@
         --inputDir  {{ case_archive_dir }} \
         --dryRun true \
         "
-  register: configureClusterDryRunResult 
+  register: configureClusterDryRunResult
 
 - name: Debug
   debug:
@@ -192,7 +192,7 @@
       - "configure Cluster Dry Run Result .. {{ configureClusterDryRunResult }}"
   when: debugs is search ('configureClusterDryRunResult')
 
-- name: Configure Cluster Nodes 
+- name: Configure Cluster Nodes
   shell: >
     cloudctl case launch --action configure-cluster-airgap \
       --case {{ case_bundle_dir }}/case/{{ case_name }} \
@@ -203,7 +203,7 @@
         --registry {{ registryFromCluster }} \
         --inputDir  {{ case_archive_dir }} \
         "
-  register: configureClusterResult 
+  register: configureClusterResult
 
 - name: Debug
   debug:
@@ -212,5 +212,5 @@
   when: debugs is search ('configureClusterResult')
 
 # Wait until the nodes have applied the updates
-- name: Wait for Machine Configs to update 
+- name: Wait for Machine Configs to update
   include_tasks: "tasks/wait-machine-config-update.yml"

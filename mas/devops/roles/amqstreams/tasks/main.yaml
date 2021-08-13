@@ -31,7 +31,7 @@
 - name: "Install AMQ Streams Operator"
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/subscription.yaml') }}"
+    template: templates/subscription.yml.j2
 
 
 # 4. Wait until the Kafka CRD is available
@@ -58,11 +58,9 @@
 # 5. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "Create Kafka Cluster"
-  vars:
-    cluster_template: "templates/clusters/{{ kafka_cluster_size }}.yaml"
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', cluster_template) }}"
+    template: "templates/clusters/{{ kafka_cluster_size }}.yml.j2"
 
 
 # 6. Create the MAS user
@@ -70,7 +68,7 @@
 - name: "Create Kafka User"
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/masuser.yaml') }}"
+    template: templates/masuser.yml.j2
 
 
 # 7. Lookup details
@@ -120,5 +118,5 @@
     - mas_config_dir is defined
     - mas_config_dir != ""
   ansible.builtin.template:
-    src: kafkacfg.yaml
+    src: kafkacfg.yml.j2
     dest: "{{ mas_config_dir }}/kafka-{{ kafka_cluster_name }}-{{ kafka_namespace }}.yml"

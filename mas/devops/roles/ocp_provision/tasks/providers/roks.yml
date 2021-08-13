@@ -89,7 +89,7 @@
   when: cluster_lookup.rc == 1
   set_fact:
     public: "{{_ibmcloud_zone_vlans.stdout| from_json | mas.devops.public_vlan }}"
-    private: "{{_ibmcloud_zone_vlans.stdout| from_json | mas.devops.private_vlan }}"  
+    private: "{{_ibmcloud_zone_vlans.stdout| from_json | mas.devops.private_vlan }}"
 
 # 7. Create cluster
 # -----------------------------------------------------------------------------
@@ -108,14 +108,16 @@
       --public-vlan {{ public is defined | ternary(public, omit) }} \
       {{ roks_flags}}
 
-
 # 8. Watch cluster provisioning progress
 # -----------------------------------------------------------------------------
 - name: "roks : Wait until the Roks cluster is deployed"
-  when: cluster_lookup.rc == 1
   shell: |
     ibmcloud oc cluster get --cluster {{cluster_name}} --output json
   register: _roks_cluster_completion
   until: (_roks_cluster_completion.stdout|from_json).state == 'normal'
   retries: 40
   delay: 60
+
+- name: "roks: Debug final cluster state"
+  debug:
+    msg: "{{ _roks_cluster_completion.stdout|from_json }}"
