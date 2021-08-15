@@ -1,5 +1,5 @@
-ocp_setup_simulated_airgap
-==========================
+fvt_simulate_airgap
+===================
 
 TODO: Summarize role
 

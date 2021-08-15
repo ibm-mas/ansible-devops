@@ -1,5 +1,5 @@
-cp4d_setup_airgap_images
-========================
+airgap_prepare_case
+===================
 
 TODO: Summarize role
 

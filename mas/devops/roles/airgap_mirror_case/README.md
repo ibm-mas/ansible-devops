@@ -1,5 +1,5 @@
-ocp_install_case_operator
-=========================
+airgap_mirror_case
+==================
 
 TODO: Summarize role
 

@@ -5,8 +5,6 @@ The following set of roles does provide support to install Maximo Application Su
 ## dns_setup
 This role will manage MAS and DNS provider integration.  IBM Cloud Internet Services is the only supported DNS provider currently.
 
-!!! important "TODO"
-    This should be named suite_dns_setup
 
 ### Cloud Internet Services (CIS)
 This role will create DNS entries automatically in the CIS service instance.  Two different modes are available:

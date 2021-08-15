@@ -1,7 +1,7 @@
 cp4d_db2wh
 ==========
 
-This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet) and generate configuration that can be directly applied to Maximo Application Suite.
+TODO: Add intro
 
 Role Variables
 --------------

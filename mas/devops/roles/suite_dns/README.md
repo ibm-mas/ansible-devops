@@ -1,5 +1,5 @@
-ocp_prepare_case_airgap
-=======================
+suite_dns
+=========
 
 TODO: Summarize role
 
