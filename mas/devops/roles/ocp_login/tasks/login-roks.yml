@@ -1,4 +1,8 @@
 ---
+# IBM Cloud login can be unreliable at times, so we wrap the API calls in retry
+# loops with a 1 minute cooldown between retries, after 10 attempts we will give
+# up and the task will fail
+
 # 1. Check that we have an IBM Cloud API key defined
 # -----------------------------------------------------------------------------
 - name: "login-roks : Fail if ibmcloud_apikey is not provided"
@@ -10,9 +14,6 @@
 
 # 2. Login to IBM Cloud
 # -----------------------------------------------------------------------------
-# IBM Cloud login can be unreliable at times, so we wrap this call in a retry
-# loop with a 1 minute cooldown between retries, after 10 attempts we will give
-# up and the task will fail
 - name: "login-roks : Login to IBM Cloud"
   shell: |
     ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
@@ -25,3 +26,5 @@
 - name: "login-roks : Set the target cluster"
   shell: |
     ibmcloud oc cluster config -c {{ cluster_name }} --admin
+  retries: 10
+  delay: 60
