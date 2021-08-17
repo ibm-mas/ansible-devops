@@ -44,7 +44,7 @@
     - ibmcloud_resourcegroup is defined
     - rg_lookup.rc == 0
   debug:
-    msg: "Resource group {{ ibmcloud_resourcegroup  }} already exists, skipping resource group creation"
+    msg: "Resource group {{ ibmcloud_resourcegroup }} already exists, skipping resource group creation"
 
 - name: "roks : Create resource group if it does not exist"
   when:
@@ -79,17 +79,18 @@
 
 # 6. Setup vlans
 # -----------------------------------------------------------------------------
-- name: "roks : Lookup VLANs automatically (ibmcloud ks vlan ls --zone {{roks_zone}} --output json)"
+- name: "roks : Lookup VLANs automatically (ibmcloud ks vlan ls --zone {{ roks_zone }} --output json)"
   when: cluster_lookup.rc == 1
   shell: |
-    ibmcloud ks vlan ls --zone {{roks_zone}} --output json
-  register: _ibmcloud_zone_vlans
+    ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
+  register: ibmcloud_zone_vlans
 
 - name: "roks : Configure Private and Public Vlans"
   when: cluster_lookup.rc == 1
   set_fact:
-    public: "{{_ibmcloud_zone_vlans.stdout| from_json | mas.devops.public_vlan }}"
-    private: "{{_ibmcloud_zone_vlans.stdout| from_json | mas.devops.private_vlan }}"
+    public: "{{ ibmcloud_zone_vlans.stdout | from_json | mas.devops.public_vlan }}"
+    private: "{{ ibmcloud_zone_vlans.stdout | from_json | mas.devops.private_vlan }}"
+
 
 # 7. Create cluster
 # -----------------------------------------------------------------------------
@@ -106,18 +107,21 @@
       --workers {{ roks_workers }} \
       --private-vlan {{ private is defined | ternary(private, omit) }} \
       --public-vlan {{ public is defined | ternary(public, omit) }} \
-      {{ roks_flags}}
+      {{ roks_flags }}
+
 
 # 8. Watch cluster provisioning progress
 # -----------------------------------------------------------------------------
 - name: "roks : Wait until the Roks cluster is deployed"
   shell: |
-    ibmcloud oc cluster get --cluster {{cluster_name}} --output json
-  register: _roks_cluster_completion
-  until: (_roks_cluster_completion.stdout|from_json).state == 'normal'
+    ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
+  register: roks_cluster_completion
+  until:
+    - roks_cluster_completion.rc == 0
+    - (roks_cluster_completion.stdout | from_json).state == 'normal'
   retries: 40
   delay: 60
 
 - name: "roks: Debug final cluster state"
   debug:
-    msg: "{{ _roks_cluster_completion.stdout|from_json }}"
+    msg: "{{ roks_cluster_completion.stdout | from_json }}"
