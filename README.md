@@ -4,6 +4,7 @@
 [https://pages.github.ibm.com/maximoappsuite/mas-devops-ansible/](https://pages.github.ibm.com/maximoappsuite/mas-devops-ansible/)
 
 ## Change Log
+- `3.2` Adding support to BAS ([#44](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/44))
 - `3.1` Adding support to SLS ([#35](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/35))
 - `3.0` Switch to config dir instead of config file list ([#36](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/36))
 - `2.7` Support AirGap install of MAS ([#28](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/28))

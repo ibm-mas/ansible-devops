@@ -10,8 +10,8 @@ This master playbook will drive the following playbooks in sequence:
         - [Db2 Warehouse](cp4d.md#db2-install) with [Db2 Management Console](cp4d.md#db2-install) (1-2 hours)
     - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (60 minutes)
     - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack)
-    - Install BAS (coming soon)
-    - Install SLS (coming soon)
+    - [Install BAS](bas.md#install-bas)(30 minutes)
+    - [Install SLS](sls.md#install-sls)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (20 minutes)

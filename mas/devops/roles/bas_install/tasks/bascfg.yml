@@ -1,0 +1,54 @@
+---
+
+# 1. Generate the configuration
+# -----------------------------------------------------------------------------
+
+- name: Obtain BAS Certificate
+  k8s_info:
+    api_version: v1
+    kind: Route
+    name: bas-endpoint
+    namespace: "{{ bas_namespace }}"
+  register: _bas_endpoint
+
+
+- name: Lookup bas-api-key
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: bas-api-key
+    namespace: "{{ bas_namespace }}"
+  register: _bas_apiKey_result
+
+- name: Lookup BAS segment key
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: segment-key-secret
+    namespace: "{{ bas_namespace }}"
+  register: _bas_segmentKey_result
+
+
+- name: Lookup Certificate for BAS
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: router-ca
+    namespace: openshift-ingress-operator
+  register: _bas_certificates_result
+
+- name: Set facts for BASCfg
+  set_fact:
+    bas_segment_key: "{{_bas_segmentKey_result.resources[0].data.segmentkey | b64decode}}"
+    bas_api_key: "{{_bas_apiKey_result.resources[0].data.apikey | b64decode }}"
+    bas_endpoint_url: "https://{{_bas_endpoint.resources[0].spec.host}}"
+    bas_tls_crt: "{{_bas_certificates_result.resources[0].data['tls.crt'] | b64decode }}"
+
+
+# 2. Write out the config to the local filesystem
+# -----------------------------------------------------------------------------
+- name: Copy BASCfg to filesytem
+  ansible.builtin.template:
+    src: bascfg.yml.j2
+    dest: "{{ mas_config_dir }}/bas-{{ bas_namespace }}.yml"
+
