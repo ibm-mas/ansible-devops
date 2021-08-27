@@ -1,1 +1,1 @@
-../../mas/devops/roles/fvt_simulate_airgap/README.md
+../../ibm/mas_devops/roles/fvt_simulate_airgap/README.md

@@ -1,1 +1,1 @@
-../../mas/devops/roles/suite_cleanup/README.md
+../../ibm/mas_devops/roles/suite_cleanup/README.md

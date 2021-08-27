@@ -1,1 +1,1 @@
-../../mas/devops/roles/cp4d_install_services/README.md
+../../ibm/mas_devops/roles/cp4d_install_services/README.md

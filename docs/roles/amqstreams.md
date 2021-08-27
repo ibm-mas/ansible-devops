@@ -1,1 +1,1 @@
-../../mas/devops/roles/amqstreams/README.md
+../../ibm/mas_devops/roles/amqstreams/README.md
