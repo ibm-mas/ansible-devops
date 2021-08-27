@@ -1,9 +1,11 @@
-# Ansible DevOps Tooling Collection for IBM Maximo Application Suite
+# Ansible DevOps Collection for IBM Maximo Application Suite
 
 ## Documentation
-[https://pages.github.ibm.com/maximoappsuite/mas-devops-ansible/](https://pages.github.ibm.com/maximoappsuite/mas-devops-ansible/)
+[https://ibm-mas.github.io/ansible-devops/](https://ibm-mas.github.io/ansible-devops/)
 
 ## Change Log
+Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
+
 - `3.2` Adding support to BAS ([#44](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/44))
 - `3.1` Adding support to SLS ([#35](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/35))
 - `3.0` Switch to config dir instead of config file list ([#36](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/36))

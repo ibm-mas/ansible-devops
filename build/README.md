@@ -21,7 +21,9 @@ Commits in **Unmanaged Branches** will still result in a new build, but any arti
 
 
 ## Setup symlinks for docs:
+Incase these get messed up for any reason:
 
+```
 cd docs/roles
 ROLE=airgap_install_case; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=amqstreams; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
@@ -49,3 +51,4 @@ ROLE=ocp_provision; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=ocp_setup_ocs; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_app_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_dns; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
+```

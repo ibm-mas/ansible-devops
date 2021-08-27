@@ -1,7 +1,7 @@
 airgap_prepare_case
 ===================
 
-TODO: Summarize role
+Prepare the specified CASE bundle for airgap installation. It can download the CASE bundle from an internet archive or take a case bundle in a local directory.
 
 Role Variables
 --------------
@@ -13,7 +13,18 @@ Example Playbook
 ----------------
 
 ```yaml
-TODO: Add example
+- hosts: localhost
+  vars:
+    # Case config
+    case_name: "{{ lookup('env', 'CASE_NAME') }}"
+    case_source: "{{ lookup('env', 'CASE_SOURCE') }}"
+    case_bundle_dir: "{{ lookup('env', 'CASE_BUNDLE_DIR') }}"
+    case_archive_dir: "{{ lookup('env', 'CASE_BUNDLE_DIR') }}/archive"
+    case_inventory_name: "{{ lookup('env', 'CASE_INV_NAME') }}"
+    debugs: "registryHosts,mirrorImageResult,configureClusterResult"
+
+  roles:
+    - mas.devops.airgap_prepare_case
 ```
 
 License

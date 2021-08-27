@@ -29,7 +29,8 @@ If you are using this collection to manage an OpenShift cluster in IBM Cloud Red
 ### OpenShift CLI
 If you do not already have the `oc` command line tool, you can download the version corresponding to the OpenShift cluster you are using, from the Command Line Tools option under the help menu
 
-You can confirm the availability and version of the `oc` tool by executing the following command: `oc version`
+#### Useful commands
+- Confirm availability and version: `oc version`
 
 !!! note
     This is a rather annoying chicken and egg situation, you need to have a running OCP instance before you can access the command line client that we want to use to automate setting up that instance.
@@ -41,7 +42,7 @@ You can confirm the availability and version of the `oc` tool by executing the f
 Coming soon ...
 
 ## Change Log
-Note that links to pull requests prior to public release of the code (3.3) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
+Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
 - `3.2` Add support for BAS ([#44](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/44))
 - `3.1` Add support for SLS ([#35](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/35))

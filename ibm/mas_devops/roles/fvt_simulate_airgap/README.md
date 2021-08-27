@@ -1,19 +1,36 @@
 fvt_simulate_airgap
 ===================
 
-TODO: Summarize role
+This role provides to support to configure a cluster for simulated airgap installation testing. This includes disabling newtwork access to public image repositories and sets up the OCP Internal Registry in preparation for image mirroring.
 
 Role Variables
 --------------
 
-TODO: Finish documentation
+- `cluster_name` -Gives a name for the provisioned cluster
+- `cluster_type` quickburn
+- `username` username for fyre api
+- `password` password for fyre api
+
+#### Optional facts
+- `debugs`: comma separated string of debug output to print
 
 
 Example Playbook
 ----------------
 
 ```yaml
-TODO: Add example
+- hosts: localhost
+  vars:
+    # General configuration
+    cluster_name: "{{ lookup('env', 'CLUSTER_NAME') }}"
+    cluster_type: quickburn
+    username: "{{ lookup('env', 'FYRE_USERNAME') }}"
+    password: "{{ lookup('env', 'FYRE_APIKEY') }}"
+    # Airgap control parameters:
+    debugs: "registryHosts,mirrorImageResult,configureClusterResult"
+
+  roles:
+    - role: mas.devops.fvt_simulate_airgap
 ```
 
 License
