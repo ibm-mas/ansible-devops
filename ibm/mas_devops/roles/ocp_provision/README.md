@@ -48,8 +48,8 @@ Example Playbook
     ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
 
   roles:
-    - mas.devops.ocp_provision
-    - mas.devops.ocp_setup_mas_deps
+    - ibm.mas_devops.ocp_provision
+    - ibm.mas_devops.ocp_setup_mas_deps
 ```
 
 License

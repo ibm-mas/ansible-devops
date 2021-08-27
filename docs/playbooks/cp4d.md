@@ -51,7 +51,7 @@ db2ucluster.db2u.databases.ibm.com/db2u-bludb   NotReady   8m44s
 !!! tip
     The playbook will generate a yaml file containing the definition of a Secret and JdbcCfg resource that can be used to configure the deployed cluster as the MAS system JDBC datasource.
 
-    This file can be directly applied using `oc apply -f /tmp/jdbccfg-cp4ddb2wh-system.yaml` or added to the `mas_config` list variable used by the `mas.devops.suite_install` role to deploy and configure MAS.
+    This file can be directly applied using `oc apply -f /tmp/jdbccfg-cp4ddb2wh-system.yaml` or added to the `mas_config` list variable used by the `ibm.mas_devops.suite_install` role to deploy and configure MAS.
 
 
 ### Example usage

@@ -49,7 +49,7 @@ Example Playbook
     debugs: "_oc_status,installOperatorResult"
 
   roles:
-    - mas.devops.airgap_install_case
+    - ibm.mas_devops.airgap_install_case
 
 ```
 

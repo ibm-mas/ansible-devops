@@ -35,7 +35,7 @@ Example Playbook
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
   roles:
-    - mas.devops.amqstreams
+    - ibm.mas_devops.amqstreams
 ```
 
 License

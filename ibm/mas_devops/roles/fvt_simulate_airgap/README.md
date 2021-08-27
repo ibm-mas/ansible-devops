@@ -30,7 +30,7 @@ Example Playbook
     debugs: "registryHosts,mirrorImageResult,configureClusterResult"
 
   roles:
-    - role: mas.devops.fvt_simulate_airgap
+    - role: ibm.mas_devops.fvt_simulate_airgap
 ```
 
 License

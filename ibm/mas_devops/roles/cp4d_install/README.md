@@ -29,8 +29,8 @@ Example Playbook
     cpd_services:
       - lite
   roles:
-    - mas.devops.cp4d_install
-    - mas.devops.cp4d_install_services
+    - ibm.mas_devops.cp4d_install
+    - ibm.mas_devops.cp4d_install_services
 ```
 
 License

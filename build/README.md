@@ -32,7 +32,6 @@ ROLE=fvt_simulate_airgap; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE
 ROLE=ocp_deprovision; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=ocp_setup_github_oauth; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=sls_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=suite_cleanup; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=airgap_mirror_case; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=bas_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md

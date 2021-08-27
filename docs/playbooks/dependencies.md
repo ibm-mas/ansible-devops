@@ -26,7 +26,7 @@ ansible-playbook playbooks/dependencies/install-amqstreams.yml
 !!! tip
     The playbook will generate a yaml file containing the definition of a Secret and KafkaCfg resource that can be used to configure the deployed cluster as the MAS system Kafka.
 
-    This file can be directly applied using `oc apply -f /tmp/kafkacfg-amqstreams-system.yaml` or added to the `mas_config` list variable used by the `mas.devops.suite_install` role to deploy and configure MAS.
+    This file can be directly applied using `oc apply -f /tmp/kafkacfg-amqstreams-system.yaml` or added to the `mas_config` list variable used by the `ibm.mas_devops.suite_install` role to deploy and configure MAS.
 
 ## Install MongoDb (CE)
 
@@ -48,4 +48,4 @@ ansible-playbook playbooks/dependencies/install-mongodb-ce.yml
 !!! tip
     The playbook will generate a yaml file containing the definition of a Secret and MongoCfg resource that can be used to configure the deployed instance as the MAS system MongoDb.
 
-    This file can be directly applied using `oc apply -f /tmp/mongocfg-mongoce-system.yaml` or added to the `mas_config` list variable used by the `mas.devops.suite_install` role to deploy and configure MAS.
+    This file can be directly applied using `oc apply -f /tmp/mongocfg-mongoce-system.yaml` or added to the `mas_config` list variable used by the `ibm.mas_devops.suite_install` role to deploy and configure MAS.

@@ -28,7 +28,7 @@ Example Playbook
     ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
     ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
   roles:
-    - mas.devops.ocp_deprovision
+    - ibm.mas_devops.ocp_deprovision
 ```
 
 License

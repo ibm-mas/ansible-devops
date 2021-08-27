@@ -24,7 +24,7 @@ Example Playbook
     debugs: "registryHosts,mirrorImageResult,configureClusterResult"
 
   roles:
-    - mas.devops.airgap_prepare_case
+    - ibm.mas_devops.airgap_prepare_case
 ```
 
 License

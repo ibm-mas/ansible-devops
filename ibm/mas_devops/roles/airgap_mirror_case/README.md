@@ -74,7 +74,7 @@ Example Playbook
         password: "{{ lookup('env', 'CP_ICR_ENTITLEMENT_KEY') }}"
 
   roles:
-    - mas.devops.airgap_mirror_case
+    - ibm.mas_devops.airgap_mirror_case
 ```
 
 License

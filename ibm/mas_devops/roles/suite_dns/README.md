@@ -75,10 +75,10 @@ Example Playbook
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
   roles:
-    - mas.devops.suite_dns
-    - mas.devops.suite_install
-    - mas.devops.suite_config
-    - mas.devops.suite_verify
+    - ibm.mas_devops.suite_dns
+    - ibm.mas_devops.suite_install
+    - ibm.mas_devops.suite_config
+    - ibm.mas_devops.suite_verify
 ```
 
 License

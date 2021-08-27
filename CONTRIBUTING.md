@@ -93,7 +93,7 @@ All tasks must be named.  For tasks that are not in main.yaml of the role, they 
 
 This will lead to logs like the following when the role is executed:
 ```
-TASK [mas.devops.mongodb : community : Create MongoDb cluster]
+TASK [ibm.mas_devops.mongodb : community : Create MongoDb cluster]
 ```
 
 ### Failure condition checks
