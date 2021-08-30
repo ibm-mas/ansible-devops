@@ -6,6 +6,22 @@
     kind: LicenseService
   register: sls_cr_result
 
+- name: "Wait for LicenseService to be running (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: sls.ibm.com/v1
+    name: "{{sls_instance_name}}"
+    namespace: "{{sls_namespace}}"
+    kind: LicenseService
+  register: sls_cr_result
+  until:
+    - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
+    - sls_cr_result.resources[0].status is defined
+    - sls_cr_result.resources[0].status.conditions is defined
+    - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Running') | map(attribute='status') | list | length > 0
+    - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Running') | map(attribute='status') | list | first
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 1 minute
+
 - name: "Wait for LicenseService to be ready (60s delay)"
   community.kubernetes.k8s_info:
     api_version: sls.ibm.com/v1
@@ -17,11 +33,10 @@
     - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
     - sls_cr_result.resources[0].status is defined
     - sls_cr_result.resources[0].status.conditions is defined
-    - (sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready')) | length > 0
-    - (sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready')|first).status == 'True'
+    - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | length > 0
+    - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready')| map(attribute='status') | list | first
   retries: 30 # approx 30 minutes before we give up
   delay: 60 # 1 minute
-
 
 - name: "Wait for LicenseService to be initialized (60s delay)"
   community.kubernetes.k8s_info:
@@ -32,10 +47,44 @@
   register: sls_cr_result
   when: bootstrap is defined
   until:
-    - sls_cr_result.resources[0].status is defined
+    - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
     - sls_cr_result.resources[0].status is defined
     - sls_cr_result.resources[0].status.conditions is defined
-    - (sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Initialized')) | length > 0
-    - (sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Initialized')|first).status == 'True'
+    - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Initialized') | map(attribute='status') | list | length > 0
+    - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Initialized') | map(attribute='status') | list | first
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 1 minute
+
+  - name: "Wait for License key bootstrap (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: sls.ibm.com/v1
+    name: "{{sls_instance_name}}"
+    namespace: "{{sls_namespace}}"
+    kind: LicenseService
+  register: sls_cr_result
+  when: bootstrap is defined
+  until:
+    - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
+    - sls_cr_result.resources[0].status is defined
+    - sls_cr_result.resources[0].status.conditions is defined
+    - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Key File') | map(attribute='status') | list | length > 0
+    - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Key File') | map(attribute='status') | list | first
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Wait for License ID bootstrap (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: sls.ibm.com/v1
+    name: "{{sls_instance_name}}"
+    namespace: "{{sls_namespace}}"
+    kind: LicenseService
+  register: sls_cr_result
+  when: bootstrap is defined
+  until:
+    - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
+    - sls_cr_result.resources[0].status is defined
+    - sls_cr_result.resources[0].status.conditions is defined
+    - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Server ID') | map(attribute='status') | list | length > 0
+    - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Server ID') | map(attribute='status') | list | first 
   retries: 30 # approx 30 minutes before we give up
   delay: 60 # 1 minute
