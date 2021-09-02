@@ -3,16 +3,16 @@
 ## Building the collection locally
 
 ```bash
-cd mas/devops
+cd ibm/mas_devops
 
-ansible-galaxy collection build --force && ansible-galaxy collection install mas-devops-3.0.0.tar.gz -p /home/david/.ansible/collections --force
+ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-4.0.0.tar.gz -p /home/david/.ansible/collections --force
 
 ansible-playbook ../../playbook.yml
 ```
 
 ```bash
 ansible-galaxy collection build --force
-ansible-galaxy collection publish mas-devops-3.0.0.tar.gz --token=$ANSIBLE_GALAXY_TOKEN
+ansible-galaxy collection publish ibm-mas_devops-4.0.0.tar.gz --token=$ANSIBLE_GALAXY_TOKEN
 ```
 
 ## Style Guide
