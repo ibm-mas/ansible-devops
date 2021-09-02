@@ -1,15 +1,15 @@
-# MAS Core Service on IBM Cloud
+# MAS Core Service on IBM Cloud ROKS
 
 This master playbook will drive the following playbooks in sequence:
 
 - [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
 - Install dependencies:
     - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (15 minutes)
-    - [Install BAS](bas.md#install-bas)(30 minutes)
-    - [Install SLS](sls.md#install-sls)
+    - [Install BAS](bas.md#install-bas) (coming soon)
+    - [Install SLS](sls.md#install-sls) (10 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
-    - [Install & configure MAS](mas.md#install-mas) (20 minutes)
+    - [Install & configure MAS](mas.md#install-mas) (25 minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 

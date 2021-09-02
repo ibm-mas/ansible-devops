@@ -47,17 +47,17 @@ else
   git log ${SEMVER_LAST_TAG}..HEAD --oneline --pretty=%B > $TRAVIS_BUILD_DIR/.changelog
 
   echo "Changelog START:##################################################################"
-  cat $HOME/.changelog
+  cat $TRAVIS_BUILD_DIR/.changelog
   echo "Changelog DONE:###################################################################"
 
   # Work out what has changed
-  MAJOR_COUNT=`grep -ciF '[major]' $HOME/.changelog`
+  MAJOR_COUNT=`grep -ciF '[major]' $TRAVIS_BUILD_DIR/.changelog`
   echo "Major commits : ${MAJOR_COUNT}"
 
-  MINOR_COUNT=`grep -ciF '[minor]' $HOME/.changelog`
+  MINOR_COUNT=`grep -ciF '[minor]' $TRAVIS_BUILD_DIR/.changelog`
   echo "Minor commits : ${MINOR_COUNT}"
 
-  PATCH_COUNT=`grep -ciF '[patch]' $HOME/.changelog`
+  PATCH_COUNT=`grep -ciF '[patch]' $TRAVIS_BUILD_DIR/.changelog`
   echo "Patch commits : ${PATCH_COUNT}"
 
   # Important: Keep in sync with .env.sh
