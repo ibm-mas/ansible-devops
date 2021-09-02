@@ -23,8 +23,6 @@ If you are using this collection to manage an OpenShift cluster in IBM Cloud Red
 - Install: `curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/master/linux-installer/idt-installer | bash`
 - Confirm availability and version: `ibmcloud version`
 
-!!! note
-    Can we persude IBM to provide a short URL alias for this download location?
 
 ### OpenShift CLI
 If you do not already have the `oc` command line tool, you can download the version corresponding to the OpenShift cluster you are using, from the Command Line Tools option under the help menu
@@ -35,15 +33,21 @@ If you do not already have the `oc` command line tool, you can download the vers
 !!! note
     This is a rather annoying chicken and egg situation, you need to have a running OCP instance before you can access the command line client that we want to use to automate setting up that instance.
 
-    In a future update we will probably provide a direct download link for this CLI, as it's crazy that RedHat don't make these publicly available outside of the deployed cluster itself.
+    See [ibm-mas/ansible-devops#2](https://github.com/ibm-mas/ansible-devops/issues/2)
 
 
 ## Installation
-Coming soon ...
+Install the collection direct from Ansible Galaxy
+
+```
+ansible-galaxy collection install ibm.mas_devops
+```
 
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `4.0` Initial Public Release on ibm.mas_devops ([#5](https://github.com/ibm-mas/ansible-devops/pull/5))
+- `3.3` Support configurable SLS settings ([#53](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/53))
 - `3.2` Add support for BAS ([#44](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/44))
 - `3.1` Add support for SLS ([#35](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/35))
 - `3.0` Switch to config dir instead of config file list ([#36](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/36))

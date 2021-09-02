@@ -6,6 +6,8 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `4.0` Initial Public Release on ibm.mas_devops ([#5](https://github.com/ibm-mas/ansible-devops/pull/5))
+- `3.3` Support configurable SLS settings ([#53](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/53))
 - `3.2` Adding support to BAS ([#44](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/44))
 - `3.1` Adding support to SLS ([#35](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/35))
 - `3.0` Switch to config dir instead of config file list ([#36](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/36))
