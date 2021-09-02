@@ -1,1 +1,1 @@
-../../mas/devops/roles/ocp_login/README.md
+../../ibm/mas_devops/roles/ocp_login/README.md

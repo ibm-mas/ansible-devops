@@ -1,1 +1,1 @@
-../../mas/devops/roles/suite_config/README.md
+../../ibm/mas_devops/roles/suite_config/README.md

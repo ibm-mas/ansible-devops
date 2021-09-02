@@ -1,1 +1,1 @@
-../../mas/devops/roles/mongodb/README.md
+../../ibm/mas_devops/roles/mongodb/README.md

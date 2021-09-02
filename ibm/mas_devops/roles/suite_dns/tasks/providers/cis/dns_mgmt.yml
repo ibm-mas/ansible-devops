@@ -1,0 +1,74 @@
+---
+
+# 0. Validate required properties
+# -----------------------------------------------------------------------------
+- name: "Fail if ibmcloud_apikey is not provided"
+  when: ibmcloud_apikey is not defined or ibmcloud_apikey == ""
+  fail:
+    msg: "ibmcloud_apikey property is required"
+
+- name: "Fail if cis_crn is not provided"
+  when: cis_crn is not defined or cis_crn == ""
+  fail:
+    msg: "cis_crn property is required"
+
+
+# 1. Set up the OCP ingress for DNS entries
+# -----------------------------------------------------------------------------
+- name: "Get cluster subdomain"
+  community.kubernetes.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Configure ingress"
+  set_fact:
+    ocp_ingress: "{{ (custom_ocp_ingress != '') | ternary (custom_ocp_ingress, 'cis-proxy-route.' ~ _cluster_subdomain.resources[0].spec.domain) }}"
+
+- name: "DNS Entries"
+  set_fact:
+    dns_entries:
+      - ""
+      - "*"
+      - "*.api.monitor"
+      - "*.assist"
+      - "*.health"
+      - "*.home"
+      - "*.hputilities"
+      - "*.iot"
+      - "*.manage"
+      - "*.messaging.iot"
+      - "*.monitor"
+      - "*.predict"
+      - "*.safety"
+      - "*.visualinspection"
+      - "cis.test.cert"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "CIS CRN .................. {{ cis_crn }}"
+      - "OpenShift Ingress ........ {{ ocp_ingress }}"
+      - "Cluster Issuer ........... {{ custom_cluster_issuer }}"
+      - "CIS Subdomain ............ {{ cis_subdomain }}"
+      - "Updated DNS Entries ...... {{ update_dns }}"
+      - "DNS Entries .............. {{ dns_entries }}"
+
+
+# 2. Add DNS entries
+# -----------------------------------------------------------------------------
+- name: run cis_dns_entries module
+  ibm.mas_devops.cis_dns_entries:
+    ocp_ingress: "{{ ocp_ingress }}"
+    cis_crn: "{{ cis_crn }}"
+    cis_subdomain: "{{ cis_subdomain }}"
+    update_dns: "{{ update_dns }}"
+    ibmcloud_apikey: "{{ ibmcloud_apikey }}"
+    # These are MAS 8.4 list of DNS Entries. cis_subdomain will be appended to it
+    dns_entries: "{{ dns_entries }}"
+  register: dnsoutput
+
+- name: dump output
+  debug:
+    msg: '{{ dnsoutput }}'
