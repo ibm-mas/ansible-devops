@@ -61,7 +61,7 @@ else
   echo "Patch commits : ${PATCH_COUNT}"
 
   # Important: Keep in sync with .env.sh
-  SEMVER_MIN_RELEASE_LEVEL="${SEMVER_MIN_RELEASE_LEVEL:-patch}"
+  SEMVER_MIN_RELEASE_LEVEL="${SEMVER_MIN_RELEASE_LEVEL:-build}"
   SEMVER_MAX_RELEASE_LEVEL="${SEMVER_MAX_RELEASE_LEVEL:-major}"
   # Semver control overrides for maintenance branches
   # - On a maintenance branch minor and major commits are banned as it would take the branch out of scope

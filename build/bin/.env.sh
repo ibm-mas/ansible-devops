@@ -11,7 +11,7 @@ fi
 
 # Setting the min release level will prevent builds taking place at a lower version change
 # Keep in sync with initbuild.sh (which doesn't use this env file .. yet)
-export SEMVER_MIN_RELEASE_LEVEL="${SEMVER_MIN_RELEASE_LEVEL:-patch}"
+export SEMVER_MIN_RELEASE_LEVEL="${SEMVER_MIN_RELEASE_LEVEL:-build}"
 export SEMVER_MAX_RELEASE_LEVEL="${SEMVER_MAX_RELEASE_LEVEL:-major}"
 
 # During initbuild we record the release level (aka the version bump from the last release)
