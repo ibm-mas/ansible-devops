@@ -1,1 +1,1 @@
-../../mas/devops/roles/airgap_prepare_case/README.md
+../../ibm/mas_devops/roles/airgap_prepare_case/README.md

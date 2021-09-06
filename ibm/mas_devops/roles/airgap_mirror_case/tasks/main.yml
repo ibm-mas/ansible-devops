@@ -1,0 +1,216 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if type is not provided"
+  when: cluster_type is not defined or cluster_type == ""
+  fail:
+    msg: "cluster_type property is required"
+
+- name: "Fail if cluster_type is not supported"
+  when: cluster_type is not in supported_cluster_types
+  fail:
+    msg: "cluster_type '{{ cluster_type }}' property is not supported by this role"
+
+- name: "Fail if cluster_name is not provided"
+  when: cluster_name is not defined or cluster_name == ""
+  fail:
+    msg: "cluster_name property is required"
+
+- name: "Fail if case_name is not provided"
+  when: case_name is not defined or case_name == ""
+  fail:
+    msg: "case_name property is required"
+
+- name: "Fail if case_bundle_dir is not provided"
+  when: case_bundle_dir is not defined or case_bundle_dir == ""
+  fail:
+    msg: "case_bundle_dir property is not required"
+
+- name: "Fail if case_inventory_name is not provided"
+  when: case_inventory_name is not defined or case_inventory_name == ""
+  fail:
+    msg: "case_inventory_name is required"
+
+- name: "Fail if CP Entitlement is not provided"
+  when: cp_icr_entitlement is not defined or cp_icr_entitlement == ""
+  fail:
+    msg: "cp_icr_entitlement is required"
+
+- name: "Fail if Registry host name is not provided"
+  when: registryPublicHost is not defined or registryPublicHost == ""
+  fail:
+    msg: "registryPublicHost is required, pass the ansible variable or set REGISTRY_PUBLIC_HOST environment variable"
+
+- name: "Fail if Registry host name from cluster is not provided"
+  when: registryFromCluster is not defined or registryFromCluster == ""
+  fail:
+    msg: "registryFromCluster is required, pass the ansible variable or set REGISTRY_FROM_CLUSTER environment variable"
+
+- name: "Fail if Registry username is not provided"
+  when: registryUsername is not defined or registryUsername == ""
+  fail:
+    msg: "registryUsername is required, pass the ansible variable or set REGISTRY_USERNAME environment variable"
+
+- name: "Fail if Registry password is not provided"
+  when: registryPassword is not defined or registryPassword == ""
+  fail:
+    msg: "registryPassword is required, pass the ansible variable or set REGISTRY_PASSWORD environment variable"
+
+- name: "Test if cloudctl is installed"
+  shell: cloudctl version
+  register: _cloudctl_version
+  ignore_errors: true
+
+- name: "Fail if cloudctl is not installed"
+  when: ( _cloudctl_version['rc'] != 0 )
+  fail:
+    msg: "cloudctl tool must be installed."
+
+- name: "Airgap setup configuration"
+  debug:
+    msg:
+      - "Case Name ............ {{ case_name }}"
+      - "Case Bundle Directory. {{ case_bundle_dir }}"
+      - "Inventory Name........ {{ case_inventory_name }}"
+      - "MIRRORING REGISTRY"
+      - "Public Host.. {{ registryPublicHost }}"
+      - "From Cluster. {{ registryFromCluster }}"
+      - "User Name.... {{ registryUsername }}"
+
+# 2. Check cluster login
+# -----------------------------------------------------------------------------
+- name: "Check cluster login"
+  shell: oc status
+  register: _oc_status
+  ignore_errors: true
+
+- debug:
+    msg:
+      - "OC Status: {{ _oc_status }}"
+
+- name: "Login to cluster"
+  include_role:
+    name: ibm.mas_devops.ocp_login
+  vars:
+    login_server: "https://api.{{ cluster_name }}.cp.fyre.ibm.com:6443"
+  when: ( _oc_status['rc'] != 0 ) or (not _oc_status['stdout'] is search ( login_server ) )
+
+# 3. Mirror images
+# ---------------------------------------------
+# Get and set credentials for the cluster registry
+- name: Set Registry credentials
+  include_tasks: "tasks/set-registry-credentials.yml"
+
+- name: Setup Internal Registry specifics
+  include_tasks: "tasks/setup_for_internal_registry.yml"
+  when:
+    - use_internal_registry is defined
+    - use_internal_registry
+
+# Perform a dry run first, if it fails it will report why and nothing will be changed om the target system
+- name: Mirror Images Dry Run
+  shell: >
+    cloudctl case launch --action mirror-images \
+      --case {{ case_bundle_dir }}/case/{{ case_name }} \
+      --inventory {{ case_inventory_name }} \
+      --tolerance 1 \
+      --args "\
+        --registry {{ registryPublicHost }} \
+        --inputDir  {{ case_archive_dir }} \
+        --skipDelta true \
+        --dryRun true \
+        "
+  register: mirrorImageDryRunResult
+  ignore_errors: "{{ ignoreMirrorError }}"
+
+- name: Debug
+  debug:
+    msg:
+      - "mirror Image Dry Run Result ...... {{ mirrorImageDryRunResult }}"
+  when: debugs is search ('mirrorImageDryRunResult')
+
+- name: Mirror Images
+  shell: >
+    cloudctl case launch --action mirror-images \
+      --case {{ case_bundle_dir }}/case/{{ case_name }} \
+      --inventory {{ case_inventory_name }} \
+      --tolerance 1 \
+      --args "\
+        --registry {{ registryPublicHost }} \
+        --inputDir  {{ case_archive_dir }} \
+        --skipDelta true\
+        "
+
+  register: mirrorImageResult
+  # This can intermittently fail with "504 Gateway Time-out" errors, retry until sucessful.
+  retries: 10
+  until: mirrorImageResult['rc'] == 0 or mirrorImageResult['stdout'] is not search('504 Gateway Time', multiline=True)
+  ignore_errors: "{{ ignoreMirrorError }}"
+
+- name: Debug
+  debug:
+    msg:
+      - "mirror Image Result ...... {{ mirrorImageResult }}"
+  when: debugs is search ('mirrorImageResult')
+
+# 4. Configure the Cluster to pull images from the mirror
+# Configure the Image Content Source Policy and wait for nodes to restart.
+# -------------------------------------------------------
+
+# The target installation namespace gets given permissions to pull images from the mirrored repository
+- name: Create Target Installation Namespace
+  vars:
+    namespace: "{{ target_namespace }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/namespace.yaml') }}"
+  register: create_namespace_result
+
+# Refresh credentials for the cluster registry - the login can expire during a long image mirror session
+- name: Set Internal Registry credentials
+  include_tasks: "tasks/set-registry-credentials.yml"
+
+## Perform a dry run first, if it fails it will report why and nothing will be changed on the target system
+- name: Configure Cluster Nodes Dry Run
+  shell: >
+    cloudctl case launch --action configure-cluster-airgap \
+      --case {{ case_bundle_dir }}/case/{{ case_name }} \
+      --inventory {{ case_inventory_name }} \
+      --namespace {{ target_namespace }} \
+      --tolerance 1 \
+      --args "\
+        --registry {{ registryFromCluster }} \
+        --inputDir  {{ case_archive_dir }} \
+        --dryRun true \
+        "
+  register: configureClusterDryRunResult
+
+- name: Debug
+  debug:
+    msg:
+      - "configure Cluster Dry Run Result .. {{ configureClusterDryRunResult }}"
+  when: debugs is search ('configureClusterDryRunResult')
+
+- name: Configure Cluster Nodes
+  shell: >
+    cloudctl case launch --action configure-cluster-airgap \
+      --case {{ case_bundle_dir }}/case/{{ case_name }} \
+      --inventory {{ case_inventory_name }} \
+      --namespace {{ target_namespace }} \
+      --tolerance 1 \
+      --args "\
+        --registry {{ registryFromCluster }} \
+        --inputDir  {{ case_archive_dir }} \
+        "
+  register: configureClusterResult
+
+- name: Debug
+  debug:
+    msg:
+      - "configure Cluster Result .. {{ configureClusterResult }}"
+  when: debugs is search ('configureClusterResult')
+
+# Wait until the nodes have applied the updates
+- name: Wait for Machine Configs to update
+  include_tasks: "tasks/wait-machine-config-update.yml"

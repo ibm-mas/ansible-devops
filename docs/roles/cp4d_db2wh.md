@@ -1,1 +1,1 @@
-../../mas/devops/roles/cp4d_db2wh/README.md
+../../ibm/mas_devops/roles/cp4d_db2wh/README.md

@@ -1,40 +1,27 @@
 sudo: required
 
-services:
-  - docker
-
-branches:
-  except:
-    - /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?$/
+language: python
+python: 3.8
 
 install:
-  - wget --header=X-JFrog-Art-API:$ARTIFACTORY_API_KEY https://na.artifactory.swg-devops.com/artifactory/list/wiotp-generic-local/build.common/build.common.tgz -P $HOME/
-  - mkdir -p $HOME/build.common && tar -xf $HOME/build.common.tgz -C $HOME/build.common && rm $HOME/build.common.tgz
-  - source ~/virtualenv/python3.6/bin/activate
-  - python -m pip install ansible==2.10.3 mkdocs yamllint
-
-before_script:
-  - $HOME/build.common/bin/initbuild.sh
+  - $TRAVIS_BUILD_DIR/build/bin/initbuild.sh
+  - python -m pip install -q ansible==2.10.3 mkdocs yamllint
 
 script:
-  - yamllint -c yamllint.yaml mas/devops || travis_terminate 1
+  - yamllint -c yamllint.yaml ibm/mas_devops || travis_terminate 1
   - mkdocs build --verbose --clean --strict || travis_terminate 1
-  - bash build.sh || travis_terminate 1
-  - $HOME/build.common/bin/artifactoryrelease.sh $TRAVIS_BUILD_DIR/mas-devops.tar.gz || travis_terminate 1
+  - $TRAVIS_BUILD_DIR/build/bin/build.sh || travis_terminate 1
 
 after_success:
   - $HOME/build.common/bin/gitrelease.sh
 
-after_script:
-  - $HOME/build.common/bin/notify-slack.sh
-
 deploy:
   provider: pages
   skip_cleanup: true
-  github_url: github.ibm.com
+  github_url: github.com
   github_token: $GITHUB_TOKEN
   verbose: true
   local_dir: site
   target_branch: gh-pages
   on:
-    branch: master
+    branch: docupdates
