@@ -52,6 +52,15 @@
     oc exec -it -n {{ cpd_meta_namespace }} {{ db2wh_pod_name }} -- bash -c "ls /tmp/setupdb.sh | wc -l"
   register: setupdb_file_check
 
+
+# Note that we have removed the standard GRANT command, as in the context of this playbook the
+# {{db2wh_username}} user already owns the schema:
+#
+# db2 create schema {{ db2wh_schema }} authorization {{ db2wh_username }}
+# Following line removed:
+# db2 GRANT DBADM,CREATETAB,BINDADD,CONNECT,CREATE_NOT_FENCED_ROUTINE,IMPLICIT_SCHEMA,
+#   LOAD,CREATE_EXTERNAL_ROUTINE,QUIESCE_CONNECT,SECADM ON DATABASE TO USER {{ db2wh_username }}
+
 - name: Prepare db2 for use with Maximo TPAE
   when: setupdb_file_check.stdout == "0"
   shell: |
@@ -105,7 +114,6 @@
     db2 CREATE REGULAR TABLESPACE MAXINDEX PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE 5000 M BUFFERPOOL MAXBUFPOOL
     db2 GRANT USE OF TABLESPACE MAXDATA TO USER {{ db2wh_username }}
     db2 create schema {{ db2wh_schema }} authorization {{ db2wh_username }}
-    db2 GRANT DBADM,CREATETAB,BINDADD,CONNECT,CREATE_NOT_FENCED_ROUTINE,IMPLICIT_SCHEMA,LOAD,CREATE_EXTERNAL_ROUTINE,QUIESCE_CONNECT,SECADM ON DATABASE TO USER {{ db2wh_username }}
     db2 GRANT USE OF TABLESPACE MAXDATA TO USER {{ db2wh_username }}
     db2 GRANT CREATEIN,DROPIN,ALTERIN ON SCHEMA {{ db2wh_schema }} TO USER {{ db2wh_username }}
     db2stop force
