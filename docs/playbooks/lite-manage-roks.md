@@ -22,9 +22,10 @@ This master playbook will drive the following playbooks in sequence:
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 
 !!! warning
-    Db2 in CP4D is currently broken, the db2u pod will never start due to an incorrectly set `tty` setting.  See this [Slack thread](https://ibm-analytics.slack.com/archives/C019EJ0QH4Y/p1625244478403600) for more details.
+    There is a known problem with Manage v8.1.0 that will result in the system being unusable following a successful deployment.
 
-    Depending how long the CP4D team takes to resolve this problem, we may need to automate the workaround (patch the pod to set tty to false, but only after it reaches a certain point in it's processing).  In the meantime, you must manually intervene, otherwise the playbook will timeout waiting for the Db2 cluster to be ready.
+    Refer to the following technote for more information: ["OpenID Connect client returned with status: SEND_401" when logging in to Manage after installation](https://www.ibm.com/support/pages/openid-connect-client-returned-status-send401-when-logging-manage-after-installation)
+
 
 ## Required environment variables
 - `IBMCLOUD_APIKEY`
@@ -104,6 +105,3 @@ export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/lite-manage-roks.yml
 ```
-
-## AirGap Support
-This sample playbook supports AirGap install of MAS itself, but not the dependency stack for MAS; everything else will be installed normally.  Refer to [The MAS playbook documentation](mas.md#airgap-install) for full details of how to enable AirGap mode.

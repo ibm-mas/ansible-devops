@@ -127,6 +127,3 @@ export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/fullstack-roks.yml
 ```
-
-## AirGap Support
-This sample playbook does not currently support AirGap install of MAS.

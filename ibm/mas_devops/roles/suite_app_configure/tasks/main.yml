@@ -61,6 +61,12 @@
     wait_condition:
       status: "True"
       type: Ready
-    wait_sleep: 20
-    wait_timeout: 600 # 10 minutes before we give up
+    wait_sleep: 30
+    wait_timeout: 300 # 5 minutes before we give up and fall back into the retry loop
   register: app_ws_cr_result
+  retries: 40 # 5 mins each loop * 40 loops =~ 2 hours
+  delay: 0
+  until:
+    - app_cr_result.resources is defined
+    - app_cr_result.resources | length > 0
+    - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
