@@ -49,9 +49,13 @@
 
 # 5. Print MAS login information
 # -----------------------------------------------------------------------------
-# TODO: The admin url should be looked up from the route resource, this should
-# not rely on the same logic to construct the default URL we used when we installed
-# MAS.
+- name: Lookup Route for admin
+  community.kubernetes.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ mas_instance_id}}-admin"
+    namespace: "{{ mas_namespace }}"
+  register: admin_route
 
 - name: "Lookup cluster subdomain"
   community.kubernetes.k8s_info:
@@ -70,4 +74,4 @@
       - "Superuser Credentials:"
       - "Username: .... {{ superuser_credentials.resources[0].data.username | b64decode }}"
       - "Password: .... {{ superuser_credentials.resources[0].data.password | b64decode }}"
-      - "Admin Url: ... https://admin.{{mas_domain}}"
+      - "Admin Url: ... {{ admin_route.resources[0].spec.host}}"
