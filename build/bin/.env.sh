@@ -32,8 +32,8 @@ export SEMVER_BUILD="(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?"
 export SEMVER_REGEXP="^${SEMVER_XYZ}${SEMVER_PRE}${SEMVER_BUILD}$"
 
 # Keep in sync with initbuild.sh (which doesn't use this env file .. yet)
-export RELEASE_BRANCH_REGEXP="^(master|v(0|[1-9][0-9]*)\.x|v(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
-export MAINTENANCE_BRANCH_REGEXP="^(v(0|[1-9][0-9]*)\.x|v(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
+export RELEASE_BRANCH_REGEXP="^(master|(0|[1-9][0-9]*)\.x|(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
+export MAINTENANCE_BRANCH_REGEXP="^((0|[1-9][0-9]*)\.x|(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
 export NO_RELEASE_BUILD_REGEXP="\+build"
 
 # Semver control overrides for maintenance branches
