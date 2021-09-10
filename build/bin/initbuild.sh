@@ -16,8 +16,8 @@ SEMVER_PRE="(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][
 SEMVER_BUILD="(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?"
 SEMVER_REGEXP="^${SEMVER_XYZ}${SEMVER_PRE}${SEMVER_BUILD}$"
 
-RELEASE_BRANCH_REGEXP="^(master|v(0|[1-9][0-9]*)\.x|v(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
-MAINTENANCE_BRANCH_REGEXP="^(v(0|[1-9][0-9]*)\.x|v(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
+RELEASE_BRANCH_REGEXP="^(master|(0|[1-9][0-9]*)\.x|(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
+MAINTENANCE_BRANCH_REGEXP="^((0|[1-9][0-9]*)\.x|(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
 
 if [[ "${TRAVIS_BRANCH}" =~ $SEMVER_REGEXP ]]; then
   echo "Need to add the correct exclusion rule into .travis.yml to prevent builds from tagged releases"
