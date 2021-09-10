@@ -55,7 +55,9 @@
 # Note that the CLI doesn't work how you would expect it to ...
 # when the requested cluster isn't there, instead of rc=1, we sometimes
 # (but not always) get a rc=0 anyway.  In these cases the stdout array
-# will contain two entries "0" and "Retrieving cluster $clusterName"
+# will contain two entries "0" and "Retrieving cluster $clusterName".
+# Also, enforce a minimum of 5 attempts for the 2nd criteria to be valid
+# to ensure that any deprovision that was started has time to process.
 - name: "roks : Wait for cluster to be deprovisioned"
   when: cluster_found is defined
   shell: |
@@ -65,4 +67,4 @@
   register: cluster_get
   retries: 30
   delay: 60 # 60s * 30 retries = 30 mins
-  until: cluster_get.stdout == "1" or cluster_get.stdout_lines | length == 2
+  until: cluster_get.stdout == "1" or (cluster_get.stdout_lines | length == 2 and cluster_get.attempts > 5)
