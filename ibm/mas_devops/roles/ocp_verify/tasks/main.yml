@@ -1,0 +1,19 @@
+---
+# 1. Check for the Red Hat Catalog Source
+# -----------------------------------------------------------------------------
+# In IBMCloud ROKS we have seen delays of over an hour before the catalog is
+# ready to use.  This will cause attempts to install e.g. SBO from OperatorHub
+# to fail
+- name: Check if Red Hat Catalog is ready
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: redhat-operators
+    namespace: openshift-marketplace
+    kind: CatalogSource
+  register: redhat_catalog_info
+  retries: 90 # ~approx 1 1/2 hours before we give up
+  delay: 60 # seconds
+  until:
+    - redhat_catalog_info.resources is defined
+    - redhat_catalog_info.resources | length > 0
+    - redhat_catalog_info.resources[0].status.connectionState.lastObservedState == "READY"

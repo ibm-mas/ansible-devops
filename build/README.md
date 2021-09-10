@@ -39,6 +39,7 @@ ROLE=cp4d_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=install_operator; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=ocp_login; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=ocp_setup_mas_deps; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
+ROLE=ocp_verify; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_app_configure; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_config; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_verify; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
