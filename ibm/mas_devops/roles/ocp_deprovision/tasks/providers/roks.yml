@@ -21,48 +21,35 @@
     ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
 
 
-# 3. Check if the roks cluster actually exists
+# 3. Check if the roks cluster already exists
 # -----------------------------------------------------------------------------
-- name: "roks : Deprovision ROKS cluster"
+- name: "roks : Check if the roks cluster already exists"
   shell: |
-    ibmcloud oc cluster ls --json
-  register: cluster_list
-
-- name: "roks : Search for cluster_name in list"
-  set_fact:
-    cluster_found: true
-  when:
-    - item.name == cluster_name
-  with_items: "{{cluster_list.stdout|from_json}}"
-  loop_control:
-    label: "{{ item.name }}"
+    ibmcloud oc cluster get -c {{ cluster_name }} --output json
+  register: cluster_lookup
+  failed_when: "cluster_lookup.rc > 1"
 
 
 # 4. Deprovision roks cluster
 # -----------------------------------------------------------------------------
 - name: "roks : Deprovision ROKS cluster"
-  when: cluster_found is defined
+  when: cluster_lookup.rc == 0
   shell: |
     ibmcloud oc cluster rm --cluster {{ cluster_name }} --force-delete-storage -f
 
 - name: "roks : ROKS cluster does not exist"
-  when: cluster_found is not defined
+  when: cluster_lookup.rc == 1
   debug:
     msg: "Cluster {{ cluster_name }} does not exist so there is no action to take"
 
+
 # 5. Wait for the deprovision to complete
 # -----------------------------------------------------------------------------
-# Note that the CLI doesn't work how you would expect it to ...
-# when the requested cluster isn't there, instead of rc=1, we sometimes
-# (but not always) get a rc=0 anyway.  In these cases the stdout array
-# will contain two entries "0" and "Retrieving cluster $clusterName"
 - name: "roks : Wait for cluster to be deprovisioned"
-  when: cluster_found is defined
   shell: |
-    ibmcloud oc cluster get --cluster {{ cluster_name }} &> /dev/null
-    echo $?
-  ignore_errors: True
-  register: cluster_get
-  retries: 30
-  delay: 60 # 60s * 30 retries = 30 mins
-  until: cluster_get.stdout == "1" or cluster_get.stdout_lines | length == 2
+    ibmcloud oc cluster get -c {{ cluster_name }} --output json
+  register: cluster_lookup
+  failed_when: "cluster_lookup.rc > 1"
+  retries: 60
+  delay: 60 # 60s * 60 retries = 1 hour
+  until: cluster_lookup.rc == 1
