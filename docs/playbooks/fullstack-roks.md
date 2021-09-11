@@ -43,7 +43,6 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ## Required environment variables
 - `IBMCLOUD_APIKEY`
 - `CLUSTER_NAME`
-- `OCP_VERSION`
 - `CPD_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_INSTANCE_ID`  Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
@@ -51,6 +50,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
 ## Optional environment variables
 - `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none are passed, `Default` resource group will be used.
+- `OCP_VERSION` to override the default version of OCP to use (latest 4.6 release)
 - `W3_USERNAME` to enable access to pre-release development builds of MAS
 - `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
 - `KAFKA_CLUSTER_SIZE` to override the default configuration used (small)
@@ -73,7 +73,6 @@ All timings are estimates, see the individual pages for each of these playbooks 
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-export OCP_VERSION=4.6.34_openshift
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
@@ -100,8 +99,6 @@ ansible-playbook playbooks/fullstack-roks.yml
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-export OCP_VERSION=4.6.34_openshift
-export IBMCLOUD_RESOURCEGROUP=your-ibmcloud-resourcegroup
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
