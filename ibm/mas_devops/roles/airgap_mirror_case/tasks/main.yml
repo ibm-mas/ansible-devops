@@ -123,6 +123,8 @@
         "
   register: mirrorImageDryRunResult
   ignore_errors: "{{ ignoreMirrorError }}"
+  # if USE_SKOPEO flag is set, the command doesn't perform a dry run
+  when: lookup('env', 'USE_SKOPEO') != 'True' 
 
 - name: Debug
   debug:
@@ -140,7 +142,8 @@
         --registry {{ registryPublicHost }} \
         --inputDir  {{ case_archive_dir }} \
         --skipDelta true\
-        "
+        " \
+        | tee -a ~/mirror_output.log
 
   register: mirrorImageResult
   # This can intermittently fail with "504 Gateway Time-out" errors, retry until sucessful.
