@@ -22,14 +22,14 @@
 # 3. Create files for authentication
 # --------------------------------
 - name: "Create Directories"
-  ansible.builtin.file: 
-     path: "{{ item }}"
-     state: directory
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
   loop:
     - "{{ temp_file_prefix }}/certs"
     - "{{ temp_file_prefix }}/auth"
   when: registry_route_info.resources | length == 0
-    
+
 - name: "Generate CA Key"
   shell: |
     openssl genrsa -out "{{ temp_file_prefix }}/certs/ca.key" 4096
@@ -53,7 +53,7 @@
   shell: |
     openssl x509 -req -days 365 -sha256 -extensions "subjectAltName=DNS:docker-registry.{{ cluster_url }},DNS:docker-registry.docker-registry.svc" -CAcreateserial -CA "{{ temp_file_prefix }}/certs/ca.crt" -CAkey "{{ temp_file_prefix }}//certs/ca.key" -in "{{ temp_file_prefix }}/certs/server.csr" -out "{{ temp_file_prefix }}/certs/server.crt"
   when: registry_route_info.resources | length == 0
-    
+
 - name: "Create htpasswd"
   shell: |
     docker run --rm --entrypoint htpasswd registry:2.6.2 -Bbn "{{ registry_user }}" "{{ registry_password }}" > "{{ temp_file_prefix }}/auth/htpasswd"
@@ -160,17 +160,17 @@
         name: cluster
       spec:
         registrySources:
-          insecureRegistries: 
+          insecureRegistries:
             - docker-registry.docker-registry.svc:5000
   register: result
   when: registry_route_info.resources | length == 0
 
 # Wait until the nodes have applied the insecure registries updates
-- name: Wait for Machine Configs to update 
+- name: Wait for Machine Configs to update
   include_tasks: "tasks/wait-machine-config-update.yml"
   when:
-  - registry_route_info.resources | length == 0
-  - result.changed
+    - registry_route_info.resources | length == 0
+    - result.changed
 
 
 # Get the address of the internal registry
@@ -178,7 +178,7 @@
   set_fact:
     registryPublicHost: "docker-registry.{{ cluster_url }}"
     registryFromCluster: "docker-registry.docker-registry.svc:5000"
-     
+
 - name: "Registry Routes"
   debug:
     msg:
