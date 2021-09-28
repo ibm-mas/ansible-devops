@@ -32,11 +32,6 @@
   fail:
     msg: "case_inventory_name is required"
 
-- name: "Fail if CP Entitlement is not provided"
-  when: cp_icr_entitlement is not defined or cp_icr_entitlement == ""
-  fail:
-    msg: "cp_icr_entitlement is required"
-
 - name: "Fail if Registry host name is not provided"
   when: registryPublicHost is not defined or registryPublicHost == ""
   fail:
@@ -107,6 +102,19 @@
   when:
     - use_internal_registry is defined
     - use_internal_registry
+
+# Get and set credentials for the image source registries
+- name: Setup Source Registry Credentials 
+  shell: >
+    cloudctl case launch --action configureCredsAirgap \
+      --case {{ case_bundle_dir }}/case/{{ case_name }} \
+      --inventory {{ case_inventory_name }} \
+      --tolerance 1 \
+      --args "--registry {{ item.host }} \
+        --user {{ item.user }} \
+        --pass {{ item.password }}"
+  register: configureCredsResult 
+  loop: "{{ registries }}"
 
 # Perform a dry run first, if it fails it will report why and nothing will be changed om the target system
 - name: Mirror Images Dry Run

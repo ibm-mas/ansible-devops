@@ -1,4 +1,4 @@
-#!/usr/bin/env bash +x
+#!/bin/bash +x
 #
 # (C) Copyright IBM Corp. 2020  All Rights Reserved.
 #
