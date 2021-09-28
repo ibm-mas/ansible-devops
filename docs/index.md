@@ -37,7 +37,7 @@ If you do not already have the `oc` command line tool, you can download the vers
 
 
 ## Installation
-Install the collection direct from Ansible Galaxy
+Install the collection direct from [Ansible Galaxy](https://galaxy.ansible.com/ibm/mas_devops)
 
 ```
 ansible-galaxy collection install ibm.mas_devops
