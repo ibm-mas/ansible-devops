@@ -1,0 +1,42 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: ClusterTask
+metadata:
+  name: ibm.mas_devops.run-fvt
+spec:
+  params:
+    - name: fvt_suite
+      type: string
+      description: FVT Suite
+    - name: fvt_version
+      type: string
+      description: FVT Version
+
+  stepTemplate:
+    name: 'run-fvt-$(params.fvt_suite)'
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: LOGDIR
+        value: /workspace/logs
+      - name: FVT_SUITE
+        value: $(params.fvt_suite)
+      - name: FVT_VERSION
+        value: $(params.fvt_version)
+
+  steps:
+    - args:
+        - |-
+          echo "$(date) Running $(params.fvt_suite) FVT Suite"
+          source /opt/app-root/src/env.sh
+          ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/mas/fvt/playbooks/run-fvt-pipeline-task.yml
+      command:
+        - /bin/bash
+        - '-c'
+      image: 'quay.io/ibmmas/ansible-devops:djp'
+      resources: {}
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: configs
+    - name: settings

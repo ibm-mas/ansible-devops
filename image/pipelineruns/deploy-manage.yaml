@@ -1,0 +1,25 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: deploy-manage-
+  labels:
+    tekton.dev/pipeline: deploy-manage
+spec:
+  params:
+    - name: mas_config_dir
+      value: /workspace/configs/
+    - name: mas_instance_id
+      value: "{{MAS_INSTANCE_ID}}"
+    - name: mas_entitlement_key
+      value: "{{MAS_ENTITLEMENT_KEY}}"
+  pipelineRef:
+    name: deploy-manage
+  serviceAccountName: pipeline
+  timeout: 0s
+  workspaces:
+    - name: shared-workspace
+      persistentVolumeClaim:
+        claimName: config-pvc
+    - name: shared-settings
+      secret:
+        secretName: pipeline-settings

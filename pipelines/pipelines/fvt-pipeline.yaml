@@ -1,0 +1,162 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: fvt-pipeline
+spec:
+  params:
+    - name: fvt_version
+      description: MAS FVT Version
+      type: string
+
+  tasks:
+    # 1. Setup the cluster-wide dependencies
+    # -------------------------------------------------------------------------
+    - name: configure-ocp
+      taskRef:
+        kind: ClusterTask
+        name: ibm.mas_devops.configure-ocp
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 2. Install MongoDb
+    # -------------------------------------------------------------------------
+    - name: install-mongodb-ce
+      taskRef:
+        kind: ClusterTask
+        name: ibm.mas_devops.install-mongodb-ce
+      workspaces:
+        - name: configs
+          workspace: shared-workspace
+        - name: settings
+          workspace: shared-settings
+
+    # 3. Install AMQStream (Kafka)
+    # -------------------------------------------------------------------------
+    - name: install-amqstreams
+      taskRef:
+        kind: ClusterTask
+        name: ibm.mas_devops.install-amqstreams
+      workspaces:
+        - name: configs
+          workspace: shared-workspace
+        - name: settings
+          workspace: shared-settings
+
+    # 4. Install Db2Wh
+    # -------------------------------------------------------------------------
+    - name: install-db2wh
+      taskRef:
+        name: ibm.mas_devops.install-db2wh
+        kind: ClusterTask
+      runAfter:
+        - configure-ocp
+      workspaces:
+        - name: configs
+          workspace: shared-workspace
+        - name: settings
+          workspace: shared-settings
+
+    # 5. Install IBM SLS
+    # -------------------------------------------------------------------------
+    - name: install-sls
+      taskRef:
+        kind: ClusterTask
+        name: ibm.mas_devops.install-sls
+      runAfter:
+        - configure-ocp
+        - mongodb
+      workspaces:
+        - name: configs
+          workspace: shared-workspace
+        - name: settings
+          workspace: shared-settings
+
+    # 6. Install IBM MAS
+    # -------------------------------------------------------------------------
+    - name: suite-install
+      taskRef:
+        kind: ClusterTask
+        name: ibm.mas_devops.install-suite
+      runAfter:
+        - install-sls
+      workspaces:
+        - name: configs
+          workspace: shared-workspace
+        - name: settings
+          workspace: shared-settings
+
+    # 7. Run MAS Core FVT
+    # -------------------------------------------------------------------------
+    - name: runfvt-coreapi-addons
+      params:
+        - name: fvt_suite
+          value: coreapi-addons
+        - name: fvt_version
+          value: $(params.fvt_version)
+      taskRef:
+        kind: ClusterTask
+        name: run-fvt
+      runAfter:
+        - suite-install
+      workspaces:
+        - name: configs
+          workspace: shared-workspace
+        - name: settings
+          workspace: shared-settings
+
+    # 8. Install IBM MAS Manage application
+    # -------------------------------------------------------------------------
+    # 8.1 Manage Install
+    - name: deploy-manage
+      params:
+        - name: mas_app_id
+          value: manage
+      taskRef:
+        name: ibm.mas_devops.install-app
+        kind: ClusterTask
+      runAfter:
+        - install-db2wh
+        - runfvt-core
+      workspaces:
+        - name: configs
+          workspace: shared-workspace
+        - name: settings
+          workspace: shared-settings
+
+    # 8.2 Hack Db2 for manage
+    - name: hack-db2wh-for-manage
+      taskRef:
+        name: ibm.mas_devops.hack-manage-db2
+        kind: ClusterTask
+      runAfter:
+        - install-db2wh
+      workspaces:
+        - name: configs
+          workspace: shared-workspace
+        - name: settings
+          workspace: shared-settings
+
+    # 8.3 Configure Manage workspace
+    - name: configure-app-manage
+      params:
+        - name: mas_app_id
+          value: manage
+        - name: mas_workspace_id
+          value: masdev
+      taskRef:
+        name: ibm.mas_devops.configure-app
+        kind: ClusterTask
+      runAfter:
+        - deploy-manage
+        - hack-db2wh-for-manage
+      workspaces:
+        - name: configs
+          workspace: shared-workspace
+        - name: settings
+          workspace: shared-settings
+
+  workspaces:
+    - name: shared-workspace
+    - name: shared-settings
