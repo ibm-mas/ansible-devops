@@ -1,8 +1,44 @@
 ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mas-sample-pipelines
+---
+# 1. Configure RBAC for the pipeline tasks
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ibm-mas-pipeline
+subjects:
+  - kind: ServiceAccount
+    name: pipeline
+    namespace: mas-sample-pipelines
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+---
+# 2. Set up a PVC for shared storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: config-pvc
+  namespace: mas-sample-pipelines
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: ibmc-file-gold
+  resources:
+    requests:
+      storage: 500Mi
+---
+# 3. Define the pipeline
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: ibm.mas_devops.fvt-pipeline
+  name: mas-devops-sample-pipeline
+  namespace: mas-sample-pipelines
 spec:
   tasks:
     # 1. Setup the cluster-wide dependencies
@@ -10,7 +46,7 @@ spec:
     - name: configure-ocp
       taskRef:
         kind: ClusterTask
-        name: ibm.mas_devops.configure-ocp
+        name: mas-devops-configure-ocp
       workspaces:
         - name: settings
           workspace: shared-settings
@@ -20,7 +56,7 @@ spec:
     - name: install-mongodb-ce
       taskRef:
         kind: ClusterTask
-        name: ibm.mas_devops.install-mongodb-ce
+        name: mas-devops-install-mongodb-ce
       workspaces:
         - name: configs
           workspace: shared-workspace
@@ -32,7 +68,7 @@ spec:
     - name: install-amqstreams
       taskRef:
         kind: ClusterTask
-        name: ibm.mas_devops.install-amqstreams
+        name: mas-devops-install-amqstreams
       workspaces:
         - name: configs
           workspace: shared-workspace
@@ -43,7 +79,7 @@ spec:
     # -------------------------------------------------------------------------
     - name: install-db2wh
       taskRef:
-        name: ibm.mas_devops.install-db2wh
+        name: mas-devops-install-db2wh
         kind: ClusterTask
       runAfter:
         - configure-ocp
@@ -58,10 +94,10 @@ spec:
     - name: install-sls
       taskRef:
         kind: ClusterTask
-        name: ibm.mas_devops.install-sls
+        name: mas-devops-install-sls
       runAfter:
         - configure-ocp
-        - mongodb
+        - install-mongodb-ce
       workspaces:
         - name: configs
           workspace: shared-workspace
@@ -73,7 +109,7 @@ spec:
     - name: suite-install
       taskRef:
         kind: ClusterTask
-        name: ibm.mas_devops.install-suite
+        name: mas-devops-install-suite
       runAfter:
         - install-sls
       workspaces:
@@ -90,11 +126,10 @@ spec:
         - name: mas_app_id
           value: manage
       taskRef:
-        name: ibm.mas_devops.install-app
+        name: mas-devops-install-app
         kind: ClusterTask
       runAfter:
         - install-db2wh
-        - runfvt-core
       workspaces:
         - name: configs
           workspace: shared-workspace
@@ -104,7 +139,7 @@ spec:
     # 7.2 Hack Db2 for manage
     - name: hack-db2wh-for-manage
       taskRef:
-        name: ibm.mas_devops.hack-manage-db2
+        name: mas-devops-hack-manage-db2
         kind: ClusterTask
       runAfter:
         - install-db2wh
@@ -122,7 +157,7 @@ spec:
         - name: mas_workspace_id
           value: masdev
       taskRef:
-        name: ibm.mas_devops.configure-app
+        name: mas-devops-configure-app
         kind: ClusterTask
       runAfter:
         - deploy-manage

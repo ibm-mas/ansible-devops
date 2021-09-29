@@ -40,12 +40,18 @@ spec:
 
 # Install the MAS Pipeline Task Definitions
 ```
-oc apply -f ibm.mas_devops.pipelines-x.y.z.yaml
+oc apply -f ibm-mas_devops-clustertasks-4.1.5-pre.tekton.yaml
 ```
 
 
 # Install and run the MAS Sample Pipeline
+Modify the `samples/sample-pipelinesettings.yaml` file to populate it with your own settings before applying it to the cluster
+
 ```
+
+
+oc new-project mas-sample-pipelines
+oc apply -f samples/sample-pipelinesettings.yaml
 oc apply -f samples/sample-pipeline.yaml
 oc create -f samples/sample-pipelinerun.yaml
 ```

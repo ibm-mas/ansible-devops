@@ -26,7 +26,7 @@ export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
 # AMQStreams (Kafka) settings
 # -----------------------------------------------------------------------------
 export KAFKA_NAMESPACE=$(cat /workspace/settings/KAFKA_NAMESPACE)
-export KAFKA_CLUSER_NAME=$(cat /workspace/settings/KAFKA_CLUSER_NAME)
+export KAFKA_CLUSTER_NAME=$(cat /workspace/settings/KAFKA_CLUSTER_NAME)
 export KAFKA_CLUSTER_SIZE=$(cat /workspace/settings/KAFKA_CLUSTER_SIZE)
 export KAFKA_STORAGE_CLASS=$(cat /workspace/settings/KAFKA_STORAGE_CLASS)
 export KAFKA_USER_NAME=$(cat /workspace/settings/KAFKA_USER_NAME)
@@ -101,4 +101,4 @@ export ARTIFACTORY_APIKEY=$(cat /workspace/settings/ARTIFACTORY_APIKEY)
 
 # Print out all env vars
 # -----------------------------------------------------------------------------
-env
+env | sort

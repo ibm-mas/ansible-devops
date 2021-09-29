@@ -8,12 +8,10 @@ if [ "$DEV_MODE" != "true" ]; then
   source ${TRAVIS_BUILD_DIR}/build/bin/.functions.sh
 
   FILES=$TRAVIS_BUILD_DIR/pipelines/tasks/**/*.yaml
-  TARGET_FILE=$TRAVIS_BUILD_DIR/pipelines/ibm.mas_devops.clustertasks-$VERSION.yaml
+  TARGET_FILE=$TRAVIS_BUILD_DIR/pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
 else
-  VERSION=1.0.0-pre.local
-
-  FILES=$DIR/../../pipelines/tasks/**/*.yaml
-  TARGET_FILE=$DIR/../../pipelines/ibm.mas_devops.clustertasks-$VERSION.yaml
+  FILES=$DIR/../tasks/**/*.yaml
+  TARGET_FILE=$DIR/../ibm-mas_devops-clustertasks-$VERSION.yaml
 fi
 
 echo "" > $TARGET_FILE
