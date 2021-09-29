@@ -2,13 +2,8 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: fvt-pipeline
+  name: ibm.mas_devops.fvt-pipeline
 spec:
-  params:
-    - name: fvt_version
-      description: MAS FVT Version
-      type: string
-
   tasks:
     # 1. Setup the cluster-wide dependencies
     # -------------------------------------------------------------------------
@@ -87,28 +82,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 7. Run MAS Core FVT
+    # 7. Install IBM MAS Manage application
     # -------------------------------------------------------------------------
-    - name: runfvt-coreapi-addons
-      params:
-        - name: fvt_suite
-          value: coreapi-addons
-        - name: fvt_version
-          value: $(params.fvt_version)
-      taskRef:
-        kind: ClusterTask
-        name: run-fvt
-      runAfter:
-        - suite-install
-      workspaces:
-        - name: configs
-          workspace: shared-workspace
-        - name: settings
-          workspace: shared-settings
-
-    # 8. Install IBM MAS Manage application
-    # -------------------------------------------------------------------------
-    # 8.1 Manage Install
+    # 7.1 Manage Install
     - name: deploy-manage
       params:
         - name: mas_app_id
@@ -125,7 +101,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 8.2 Hack Db2 for manage
+    # 7.2 Hack Db2 for manage
     - name: hack-db2wh-for-manage
       taskRef:
         name: ibm.mas_devops.hack-manage-db2
@@ -138,7 +114,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 8.3 Configure Manage workspace
+    # 7.3 Configure Manage workspace
     - name: configure-app-manage
       params:
         - name: mas_app_id

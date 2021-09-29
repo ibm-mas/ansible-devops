@@ -1,0 +1,45 @@
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ibm-mas-pipeline
+subjects:
+  - kind: ServiceAccount
+    name: pipeline
+    namespace: mas-fvtrelease-pipelines
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: config-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: ibmc-file-gold
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: fvt-pipeline-
+  labels:
+    tekton.dev/pipeline: ibm.mas_devops.fvt-pipeline
+spec:
+  pipelineRef:
+    name: ibm.mas_devops.fvt-pipeline
+  serviceAccountName: pipeline
+  timeout: 0s
+  workspaces:
+    - name: shared-workspace
+      persistentVolumeClaim:
+        claimName: config-pvc
+    - name: shared-settings
+      secret:
+        secretName: pipeline-settings

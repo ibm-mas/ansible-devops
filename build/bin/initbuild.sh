@@ -1,7 +1,7 @@
 #!/bin/bash
+set -e
 
 # Simplified port of a portion of the MAS common build system for public GitHub
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PATH=$PATH:$DIR
 

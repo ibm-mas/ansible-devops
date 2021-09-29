@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 if [ "$DEV_MODE" != "true" ]; then
