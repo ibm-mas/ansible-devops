@@ -1136,7 +1136,7 @@ do_image_mirror_single_image() {
     fi
 
     echo "[INFO] Start mirroring image ..."
-    oc_cmd="oc image mirror -a \"${AUTH_DATA_PATH}/auth.json\" \"${IMAGE}\" \"${TARGET_REGISTRY}/${image_identifier}\" --filter-by-os '.*' --insecure ${DRY_RUN}" 
+    oc_cmd="oc image mirror -a \"${AUTH_DATA_PATH}/auth.json\" \"${IMAGE}\" \"${TARGET_REGISTRY}/${image_identifier}\" --filter-by-os '.*' --max-per-registry=3 --insecure ${DRY_RUN}" 
     echo "${oc_cmd}"
     eval ${oc_cmd}
 
@@ -1212,7 +1212,7 @@ do_image_mirror_case_images() {
 
     for map_file in ${map_files}; do
         echo "[INFO] Mirroring ${map_file}" 
-        oc_cmd="oc image mirror -a \"${AUTH_DATA_PATH}/auth.json\" -f \"${map_file}\" --filter-by-os '.*' --insecure ${DRY_RUN}"
+        oc_cmd="oc image mirror -a \"${AUTH_DATA_PATH}/auth.json\" -f \"${map_file}\" --filter-by-os '.*' --max-per-registry=3 --insecure ${DRY_RUN}"
         echo "${oc_cmd}"
         eval ${oc_cmd}
 
@@ -1408,7 +1408,7 @@ tag_latest_olm_catalog_images() {
                         # and the current image is the most recent version
                         echo "[INFO] Tagging ${image}:${tag} as ${image}:${latest_tag}"    
 
-                        oc_cmd="oc image mirror -a \"${AUTH_DATA_PATH}/auth.json\" \"${image}@${sha}\" \"${image}:${latest_tag}\" --filter-by-os '.*'--insecure ${DRY_RUN}"
+                        oc_cmd="oc image mirror -a \"${AUTH_DATA_PATH}/auth.json\" \"${image}@${sha}\" \"${image}:${latest_tag}\" --filter-by-os '.*'--max-per-registry=3 --insecure ${DRY_RUN}"
                         echo "${oc_cmd}"
                         eval ${oc_cmd}
 
