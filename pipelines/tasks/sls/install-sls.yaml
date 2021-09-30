@@ -1,0 +1,33 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: ClusterTask
+metadata:
+  name: mas-devops-install-sls
+spec:
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: LOGDIR
+        value: /workspace/logs
+
+  steps:
+    - args:
+        - |-
+          echo "Installing SLS"
+          source /opt/app-root/src/env.sh
+          cp /workspace/entitlement/entitlement.lic /workspace/configs/entitlement.lic
+          ansible-playbook -e "mongodb_cfg_file=/workspace/configs/mongo-mongoce.yml" /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/sls/install-sls.yml
+      command:
+        - /bin/bash
+        - '-c'
+      image: 'quay.io/ibmmas/ansible-devops:latest'
+      imagePullPolicy: Always
+      name: sls
+      resources: {}
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: configs
+    - name: settings
+    - name: entitlement

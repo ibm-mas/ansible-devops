@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Simplified port of a portion of the MAS common build system for public GitHub
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PATH=$PATH:$DIR
 
@@ -10,6 +9,7 @@ pip install --quiet pyyaml yamllint
 # 1. Set up semantic versioning
 # -----------------------------------------------------------------------------
 VERSION_FILE=$TRAVIS_BUILD_DIR/.version
+PREVIOUS_VERSION_FILE=${TRAVIS_BUILD_DIR}/.previous_version
 
 SEMVER_XYZ="(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
 SEMVER_PRE="(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?"
@@ -133,6 +133,9 @@ fi
 
 echo "Setting ${VERSION_FILE} to ${VERSION}"
 echo -n $VERSION > $VERSION_FILE
+
+echo "Setting ${PREVIOUS_VERSION_FILE} to ${SEMVER_LAST_TAG}"
+echo -n $SEMVER_LAST_TAG > $PREVIOUS_VERSION_FILE
 
 
 # 3. Version python modules (if they exist)

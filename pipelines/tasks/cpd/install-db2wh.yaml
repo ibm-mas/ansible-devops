@@ -1,0 +1,30 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: ClusterTask
+metadata:
+  name: mas-devops-install-db2wh
+spec:
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: LOGDIR
+        value: /workspace/logs
+
+  steps:
+    - args:
+        - |-
+          echo "$(date) Installing CP4D & Db2 ... this will take upwards of hours"
+          source /opt/app-root/src/env.sh
+          ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/cp4d/install-db2.yml
+      command:
+        - /bin/bash
+        - '-c'
+      image: 'quay.io/ibmmas/ansible-devops:latest'
+      name: install-db2wh
+      resources: {}
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: configs
+    - name: settings

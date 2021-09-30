@@ -1,0 +1,33 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: ClusterTask
+metadata:
+  name: mas-devops-install-suite
+spec:
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: LOGDIR
+        value: /workspace/logs
+
+  steps:
+    - args:
+        - |-
+          echo "$(date) Installing MAS application"
+          source /opt/app-root/src/env.sh
+          cp /workspace/additional-configs/* /workspace/configs/
+          ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/install-suite.yml
+      command:
+        - /bin/bash
+        - '-c'
+      image: 'quay.io/ibmmas/ansible-devops:latest'
+      imagePullPolicy: Always
+      name: install-app
+      resources: {}
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: configs
+    - name: settings
+    - name: additional-configs

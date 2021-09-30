@@ -1,0 +1,28 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: ClusterTask
+metadata:
+  name: mas-devops-configure-suite
+spec:
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: LOGDIR
+        value: /workspace/logs
+
+  steps:
+    - name: configure-suite
+      image: quay.io/ibmmas/ansible-devops:latest
+      imagePullPolicy: Always
+      workingDir: /workspace/configs
+      command: ["/bin/bash", "-c"]
+      args:
+        - |-
+          echo "$(date) Configuring Suite"
+          source /opt/app-root/src/env.sh
+          ansible-playbook /opt/app-root/src/playbooks/suite-config.yml
+
+  workspaces:
+    - name: configs
+    - name: settings

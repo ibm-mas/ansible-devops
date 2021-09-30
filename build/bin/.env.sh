@@ -9,6 +9,12 @@ if [ -f "$VERSION_FILE" ]; then
   export VERSION=$(cat ${VERSION_FILE})
 fi
 
+# Previous version file (semver)
+export PREVIOUS_VERSION_FILE=${TRAVIS_BUILD_DIR}/.previous_version
+if [ -f "$PREVIOUS_VERSION_FILE" ]; then
+  export PREVIOUS_VERSION=$(cat ${PREVIOUS_VERSION_FILE})
+fi
+
 # Setting the min release level will prevent builds taking place at a lower version change
 # Keep in sync with initbuild.sh (which doesn't use this env file .. yet)
 export SEMVER_MIN_RELEASE_LEVEL="${SEMVER_MIN_RELEASE_LEVEL:-build}"
