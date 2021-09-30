@@ -1,0 +1,50 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: ClusterTask
+metadata:
+  name: mas-devops-install-app
+spec:
+  params:
+    - name: mas_app_id
+      type: string
+      description: Maximo Applicaiton Suite Application Id
+    - name: mas_app_channel
+      default: '8.x'
+      type: string
+      description: Catalog channel for the application operator subscription
+    - name: mas_app_catalog_source
+      default: 'ibm-operator-catalog'
+      type: string
+      description: Catalog source for the application operator subscription
+
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: LOGDIR
+        value: /workspace/logs
+
+      - name: MAS_APP_ID
+        value: $(params.mas_app_id)
+      - name: MAS_APP_CHANNEL
+        value: $(params.mas_app_channel)
+      - name: MAS_APP_CATALOG_SOURCE
+        value: $(params.mas_app_catalog_source)
+
+  steps:
+    - args:
+        - |-
+          echo "$(date) Installing MAS application"
+          source /opt/app-root/src/env.sh
+          ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/install-app.yml
+      command:
+        - /bin/bash
+        - '-c'
+      image: 'quay.io/ibmmas/ansible-devops:latest'
+      imagePullPolicy: Always
+      name: install-app
+      resources: {}
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: settings

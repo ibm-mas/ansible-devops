@@ -1,0 +1,31 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: ClusterTask
+metadata:
+  name: mas-devops-hack-manage-db2
+spec:
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: LOGDIR
+        value: /workspace/logs
+
+  steps:
+    - args:
+        - |-
+          echo "$(date) Prepare Db2Wh for Manage"
+          source /opt/app-root/src/env.sh
+          ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/hack-manage-db2.yml
+      command:
+        - /bin/bash
+        - '-c'
+      image: 'quay.io/ibmmas/ansible-devops:latest'
+      imagePullPolicy: Always
+      name: hack-manage-db2
+      resources: {}
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: configs
+    - name: settings

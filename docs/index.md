@@ -46,6 +46,7 @@ ansible-galaxy collection install ibm.mas_devops
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `4.2` Add support for Tekton pipelines ([#34](https://github.com/ibm-mas/ansible-devops/pull/34))
 - `4.1` Add `ocp_verify` role and associated playbook ([#20](https://github.com/ibm-mas/ansible-devops/pull/20))
 - `4.0` Initial Public Release on ibm.mas_devops ([#5](https://github.com/ibm-mas/ansible-devops/pull/5))
 - `3.3` Support configurable SLS settings ([#53](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/53))

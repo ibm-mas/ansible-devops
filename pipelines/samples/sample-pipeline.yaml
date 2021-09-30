@@ -1,0 +1,249 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mas-sample-pipelines
+---
+# 1. Configure RBAC for the pipeline tasks
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: ibm-mas-pipeline
+subjects:
+  - kind: ServiceAccount
+    name: pipeline
+    namespace: mas-sample-pipelines
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+---
+# 2. Set up a PVC for shared storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: config-pvc
+  namespace: mas-sample-pipelines
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: ibmc-file-gold
+  resources:
+    requests:
+      storage: 500Mi
+---
+# 3. Define the pipeline
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: mas-devops-sample-pipeline
+  namespace: mas-sample-pipelines
+spec:
+  workspaces:
+    # The generated configuration files
+    - name: shared-configs
+
+    # All environment variables for the playbooks
+    - name: shared-settings
+
+    # Any pre-generated configs that will be copied into the
+    # shared-configs workspace during install-suite
+    - name: shared-additional-configs
+
+    # The SLS entitlement key file that will be installed
+    # during install-sls.  This should contain a single file
+    # named entitlement.lic
+    - name: shared-entitlement
+
+  tasks:
+    # 1. Setup the cluster-wide dependencies
+    # -------------------------------------------------------------------------
+    - name: cfg-ocp
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-configure-ocp
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 2. Install MongoDb
+    # -------------------------------------------------------------------------
+    - name: install-mongodb
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-install-mongodb-ce
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 3. Install AMQStream (Kafka)
+    # -------------------------------------------------------------------------
+    - name: install-kafka
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-install-amqstreams
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 4. Install Db2Wh
+    # -------------------------------------------------------------------------
+    - name: install-db2wh
+      taskRef:
+        name: mas-devops-install-db2wh
+        kind: ClusterTask
+      runAfter:
+        - cfg-ocp
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 5. Install IBM SLS
+    # -------------------------------------------------------------------------
+    - name: install-sls
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-install-sls
+      runAfter:
+        - cfg-ocp
+        - install-mongodb
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+        - name: entitlement
+          workspace: shared-entitlement
+
+    # 6. Install & configure IBM MAS
+    # -------------------------------------------------------------------------
+    - name: install-suite
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-install-suite
+      runAfter:
+        - install-sls
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: additional-configs
+          workspace: shared-additional-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 7. Install IBM MAS Manage application
+    # -------------------------------------------------------------------------
+    # 7.0 Configure Db2 in MAS
+    - name: cfg-suite-db2
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-configure-suite
+      runAfter:
+        - install-suite
+        - install-db2wh
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 7.1 Manage Install
+    - name: install-manage
+      params:
+        - name: mas_app_id
+          value: manage
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - install-suite
+        - install-db2wh
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 7.2 Hack Db2 for manage
+    - name: hack-db2wh-for-manage
+      taskRef:
+        name: mas-devops-hack-manage-db2
+        kind: ClusterTask
+      runAfter:
+        - install-db2wh
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 7.3 Configure Manage workspace
+    - name: cfg-manage
+      params:
+        - name: mas_app_id
+          value: manage
+        - name: mas_workspace_id
+          value: masdev
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-suite-db2
+        - install-manage
+        - hack-db2wh-for-manage
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 8. Install IBM MAS IoT application
+    # -------------------------------------------------------------------------
+    # 8.0 Configure Kafka in MAS
+    - name: cfg-suite-kafka
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-configure-suite
+      runAfter:
+        - install-suite
+        - install-kafka
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 8.1 Install IoT
+    - name: install-iot
+      params:
+        - name: mas_app_id
+          value: iot
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - install-suite
+        - install-db2wh
+        - install-kafka
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 8.2 Configure IoT workspace
+    - name: cfg-iot
+      params:
+        - name: mas_app_id
+          value: iot
+        - name: mas_workspace_id
+          value: masdev
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-iot
+      workspaces:
+        - name: settings
+          workspace: shared-settings

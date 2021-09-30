@@ -1,0 +1,32 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cluster_type: "{{ lookup('env', 'CLUSTER_TYPE') | default('', True) }}"
+    cluster_name: "{{ lookup('env', 'CLUSTER_NAME') | default('', True) }}"
+
+    # --- Dev catalog settings ----------------------------------------------------------------------------------------
+    # Only required when using the development catalog sources for pre-release installation
+    # These are used to set up image pull secret in the openshift-marketplace namespace
+    artifactory_username: "{{ lookup('env', 'W3_USERNAME') | lower }}"
+    artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
+
+    # --- OAuth settings ----------------------------------------------------------------------------------------
+    # optionally you can provide information to setup github oauth in the cluster
+    # oauth:
+    #   github_client_secret_value: "{{ lookup('env', 'OAUTH_CLIENT_SECRET') }}"
+    #   github_client_id_value: "{{ lookup('env', 'OAUTH_CLIENT_ID') }}"
+    #   github_hostname: github.ibm.com
+    #   groups:
+    #     - name: group1
+    #       users:
+    #         - user1
+    #         - user2
+    #       groups_cluster_rolebindings:
+    #         - cluster-admin
+    #   organizations:
+    #     - org1
+    #     - org2
+  roles:
+    - ibm.mas_devops.ocp_setup_mas_deps
+    - ibm.mas_devops.ocp_setup_ocs
