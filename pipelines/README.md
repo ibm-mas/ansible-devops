@@ -52,6 +52,15 @@ Modify the `samples/sample-pipelinesettings.yaml` file to populate it with your 
 
 oc new-project mas-sample-pipelines
 oc apply -f samples/sample-pipelinesettings.yaml
+
+oc create secret generic pipeline-additional-configs \
+  --from-file=/home/david/masconfig/workspace_masdev.yaml \
+  --from-file=/home/david/masconfig/bascfg_masdeps1.yaml
+
+oc create secret generic pipeline-sls-entitlement \
+  --from-file=/home/david/masconfig/entitlement.lic
+
+
 oc apply -f samples/sample-pipeline.yaml
 oc create -f samples/sample-pipelinerun.yaml
 ```
