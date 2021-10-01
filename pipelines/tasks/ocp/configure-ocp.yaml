@@ -1,0 +1,27 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: ClusterTask
+metadata:
+  name: mas-devops-configure-ocp
+spec:
+  stepTemplate:
+    env:
+      - name: LOGDIR
+        value: /workspace/logs
+      - name: CLUSTER_TYPE
+        value: in-cluster
+
+  steps:
+    - name: configure-ocp
+      image: quay.io/ibmmas/ansible-devops:latest
+      imagePullPolicy: Always
+      workingDir: /workspace/configs
+      command: ["/bin/bash", "-c"]
+      args:
+        - |-
+          echo "$(date) Installing MAS Dependencies"
+          source /opt/app-root/src/env.sh
+          ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/ocp/configure-ocp.yml
+
+  workspaces:
+    - name: settings

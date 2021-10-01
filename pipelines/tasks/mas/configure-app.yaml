@@ -1,0 +1,43 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: ClusterTask
+metadata:
+  name: mas-devops-configure-app
+spec:
+  params:
+    - name: mas_app_id
+      type: string
+      description: Maximo Applicaiton Suite Application Id
+    - name: mas_workspace_id
+      type: string
+      description: Maximo Application Suite Workspace Id
+
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: LOGDIR
+        value: /workspace/logs
+
+      - name: MAS_WORKSPACE_ID
+        value: $(params.mas_workspace_id)
+      - name: MAS_APP_ID
+        value: $(params.mas_app_id)
+
+  steps:
+    - args:
+        - |-
+          echo "$(date) Configuring MAS Application"
+          source /opt/app-root/src/env.sh
+          ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/configure-app.yml
+      command:
+        - /bin/bash
+        - '-c'
+      image: 'quay.io/ibmmas/ansible-devops:latest'
+      imagePullPolicy: Always
+      name: configure-app
+      resources: {}
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: settings

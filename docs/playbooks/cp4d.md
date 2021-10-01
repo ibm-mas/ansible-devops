@@ -21,7 +21,7 @@ This playbook will only install CP4D, none of the Cloud Pak's supported services
 ### Example usage
 ```bash
 export CPD_ENTITLEMENT_KEY=xxx
-export CPD_STORAGE_CLASS=ibmc-block-gold
+export CPD_STORAGE_CLASS=ibmc-file-gold-gid
 export MAS_INSTANCE_ID=inst1
 
 ansible-playbook playbooks/cp4d/install-lite.yml
@@ -57,7 +57,7 @@ db2ucluster.db2u.databases.ibm.com/db2u-bludb   NotReady   8m44s
 ### Example usage
 ```bash
 export CPD_ENTITLEMENT_KEY=xxx
-export CPD_STORAGE_CLASS=ibmc-block-gold
+export CPD_STORAGE_CLASS=ibmc-file-gold-gid
 export MAS_INSTANCE_ID=inst1
 
 ansible-playbook playbooks/cp4d/install-db2.yml
@@ -86,7 +86,7 @@ For more information on how Predict and HP Utilities make use of Watson Studio, 
 ### Example usage
 ```bash
 export CPD_ENTITLEMENT_KEY=xxx
-export CPD_STORAGE_CLASS=ibmc-block-gold
+export CPD_STORAGE_CLASS=ibmc-file-gold-gid
 export MAS_INSTANCE_ID=inst1
 
 ansible-playbook playbooks/cp4d/install-watsonstudio.yml
@@ -103,7 +103,7 @@ For more information refer to the documentation for the individual Db2 and Watso
 ### Example usage
 ```bash
 export CPD_ENTITLEMENT_KEY=xxx
-export CPD_STORAGE_CLASS=ibmc-block-gold
+export CPD_STORAGE_CLASS=ibmc-file-gold-gid
 export MAS_INSTANCE_ID=inst1
 
 ansible-playbook playbooks/cp4d/install-fullstack.yml
