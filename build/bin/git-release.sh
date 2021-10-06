@@ -21,7 +21,7 @@ fi
 if [[ "${TRAVIS_BRANCH}" =~ $RELEASE_BRANCH_REGEXP ]]; then
 
   # Check whether the level of the release is supported
-  if [ "$SEMVER_RELEASE_LEVEL" = "major" ] and [ "$SEMVER_MAX_RELEASE_LEVEL" != "major" ]; then
+  if [ "$SEMVER_RELEASE_LEVEL" = "major" ] && [ "$SEMVER_MAX_RELEASE_LEVEL" != "major" ]; then
     echo "Aborting release because major release is prohibited on this branch"
     exit 0
   elif [ "$SEMVER_RELEASE_LEVEL" = "minor" ]; then
