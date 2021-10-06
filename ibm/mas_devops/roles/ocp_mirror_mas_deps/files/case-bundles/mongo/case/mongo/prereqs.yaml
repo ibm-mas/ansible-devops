@@ -1,0 +1,50 @@
+prereqs:
+  prereqDefs:
+    k8sDistros:
+      openshift:
+        distribution: openshift
+        semver: '>=1.18'
+    k8sResourceVersions: {}
+    k8sResources:
+      workerIntelLinux:                 # At least one amd64 node
+        metadata:
+          description: "Cluster has at least one amd64 node"
+        kind: node
+        apiGroup: ""
+        version: v1
+        selector:
+          matchExpressions:
+          - {key: beta.kubernetes.io/arch, operator: In, values: [amd64]}
+          - {key: beta.kubernetes.io/os, operator: In, values: [linux]}
+          - {key: node-role.kubernetes.io/worker, operator: Exists}
+      restrictedSCC:
+        apiGroup: security.openshift.io
+        kind: SecurityContextConstraints
+        metadata:
+          description: Namespace is using the restricted SecurityContextConstraint
+        name: restricted
+        version: v1
+    client:
+      oc:
+        metadata:
+          description: "Client has oc version 4.4.0 or greater"
+        command: "oc"
+        versionArgs: "version --client"
+        versionRegex: "4.[4-9]*.[0-9]*"
+      cloudctl:
+        metadata:
+          description: "Client has cloudctl version v3.7.x or greater"
+        command: "cloudctl"
+        versionArgs: "version"
+        versionRegex: "Client Version: v3.[7-9]*.*"
+      # checking for the presence of below utilities and not checking for any specifc version
+      openssl:
+        metadata:
+          description: "openssl"
+        command: "which"
+        versionArgs: "openssl"
+      htpasswd:
+        metadata:
+          description: "htpasswd"
+        command: "which"
+        versionArgs: "htpasswd"

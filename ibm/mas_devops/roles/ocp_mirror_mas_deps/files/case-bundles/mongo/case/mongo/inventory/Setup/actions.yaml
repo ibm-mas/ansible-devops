@@ -1,0 +1,406 @@
+
+actions:
+  metadata:
+    name: ibmMasSetup
+    description: The actions required to install the IBM MAS cluster resources
+  actionDefs:
+    install:
+      requires:
+        and:
+        - "/case/prereqs/k8sResources/workerIntelLinux"
+        - "/case/prereqs/k8sDistros/openshift"
+        - "/case/prereqs/k8sResources/restrictedSCC"
+      roles: []
+      k8sPermissions:
+        rules:
+        - rule:
+            group: ""
+            resource: configmaps
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: ""
+            resource: secrets
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: ""
+            resource: pods
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: ""
+            resource: pods/exec
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: ""
+            resource: pods/log
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: apps
+            resource: deployments
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: apps
+            resource: daemonsets
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: apps
+            resource: replicasets
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: apps
+            resource: statefulsets
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: config.mas.ibm.com
+            resource: objectstoragecfgs
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: config.mas.ibm.com
+            resource: objectstoragecfgs/status
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: config.mas.ibm.com
+            resource: objectstoragecfgs/finalizers
+            verbs:
+            - create
+            - delete
+            - get
+            - list
+            - patch
+            - update
+            - watch
+            version: ""
+        - rule:
+            group: core.mas.ibm.com
+            resource: suites
+            verbs:
+            - get
+            - list
+            - watch
+            version: ""
+        - rule:
+            group: core.mas.ibm.com
+            resource: suites/status
+            verbs:
+            - get
+            version: ""
+
+    installOperator:
+      metadata:
+        name: "installOperator"
+        description: "install the mas operator"
+        case.launcher.type: "script"
+        case.cli.alias: "install-operator"
+        case.launcher.isdefault: true
+      roles:
+      - clusterAdmin
+      requires:
+        metadata:
+          message:
+            onFailure: |
+              The installOperator action must be run on OpenShift Container Platform on amd64 Linux.
+              The minimum level of Kubernetes on each platform are described in the CASE prerequisites.
+        and:
+        - "/case/prereqs/k8sResources/workerIntelLinux"
+        - "/case/prereqs/k8sDistros/openshift"
+
+      # User must have the ability to create cluster roles and custom resource definitions
+      k8sPermissions:
+        rules:
+        - rule:
+            group: rbac.authorization.k8s.io
+            resource: clusterroles
+            verbs:
+            - get
+            - list
+            - watch
+            - create
+            - patch
+            - update
+            version: '*'
+        - rule:
+            group: apiextensions.k8s.io
+            resource: customresourcedefinitions
+            verbs:
+            - get
+            - list
+            - watch
+            - create
+            - patch
+            - update
+            version: v1beta1
+        - ifExpression:
+            "/prereqs/k8sDistros/openshift"
+          rule:
+            group: security.openshift.io
+            resource: securitycontextconstraints
+            verbs:
+            - get
+            - list
+            - watch
+            - create
+            - patch
+            - update
+
+    uninstallOperator:
+      metadata :
+        name: "uninstallOperator"
+        description: "uninstall the mas operator"
+        case.launcher.type: "script"
+        case.cli.alias: "uninstall-operator"
+      roles:
+      - clusterAdmin
+      # must be iks, ocp AND Kubernetes 1.11.0 or later running on amd64 Linux
+      requires:
+        metadata:
+          message:
+            onFailure: |
+              The uninstallOperator action must be run on either OpenShift Container Platform on amd64 Linux.
+              The minimum level of Kubernetes on each platform are described in the CASE prerequisites.
+        and:
+        - "/case/prereqs/k8sResources/workerIntelLinux"
+        - "/case/prereqs/k8sDistros/openshift"
+
+      k8sPermissions:
+        rules:
+        - rule:
+            group: rbac.authorization.k8s.io
+            resource: clusterroles
+            verbs:
+            - '*'
+        - rule:
+            group: apiextensions.k8s.io
+            resource: customresourcedefinitions
+            verbs:
+            - '*'
+
+    # actions related to catalog
+    installCatalog:
+      metadata:
+        name: "installCatalog"
+        description: "install the mas operator catalog"
+        case.launcher.type: "script"
+        case.cli.alias: "install-catalog"
+      roles:
+      - clusterAdmin
+      requires:
+        metadata:
+          message:
+            onFailure: |
+              The installCatalog action must be run on either OpenShift Container Platform on amd64 Linux.
+              The minimum level of Kubernetes on each platform are described in the CASE prerequisites.
+              The client must have oc installed to execute the launcher script.
+        and:
+        - "/case/prereqs/k8sResources/workerIntelLinux"
+        - "/case/prereqs/k8sDistros/openshift"
+        - "/case/prereqs/client/oc"
+        - "/case/prereqs/client/cloudctl"
+      k8sPermissions:
+        rules: []
+
+    uninstallCatalog:
+      metadata:
+        name: "uninstallCatalog"
+        description: "uninstall the mas operator catalog"
+        case.launcher.type: "script"
+        case.cli.alias: "uninstall-catalog"
+      roles:
+      - clusterAdmin
+      requires:
+        metadata:
+          message:
+            onFailure: |
+              The uninstallCatalog action must be run on either OpenShift Container Platform on amd64 Linux.
+              The minimum level of Kubernetes on each platform are described in the CASE prerequisites.
+              The client must have oc installed to execute the launcher script.
+        and:
+        - "/case/prereqs/k8sResources/workerIntelLinux"
+        - "/case/prereqs/k8sDistros/openshift"
+        - "/case/prereqs/client/oc"
+        - "/case/prereqs/client/cloudctl"
+      k8sPermissions:
+        rules: []
+
+
+# actions related to airgap
+
+    configureCredsAirgap:
+      metadata:
+        name: "configureCredsAirgap"
+        description: "configures login credentials for an image registry"
+        case.launcher.type: "script"
+        case.cli.alias: "configure-creds-airgap"
+      roles:
+      - clusterAdmin
+      k8sPermissions:
+        rules: []
+
+    configureClusterAirgap:
+      metadata:
+        name: "configureClusterAirgap"
+        description: "configures global pullsecret and imagesourcecontentpolicy"
+        case.launcher.type: "script"
+        case.cli.alias: "configure-cluster-airgap"
+      roles:
+      - clusterAdmin
+      requires:
+        metadata:
+          message:
+            onFailure: |
+              The configureClusterAirgap action must be run on either OpenShift Container Platform on amd64 Linux.
+              The minimum level of Kubernetes on each platform are described in the CASE prerequisites.
+              The client must have oc installed to execute the launcher script.
+        and:
+        - "/case/prereqs/k8sResources/workerIntelLinux"
+        - "/case/prereqs/k8sDistros/openshift"
+        - "/case/prereqs/client/oc"
+      k8sPermissions:
+        rules: []
+
+    mirrorImages:
+      metadata:
+        name: "mirrorImages"
+        description: "Mirrors the images to a local registry using oc"
+        case.launcher.type: "script"
+        case.cli.alias: "mirror-images"
+      roles:
+      - clusterAdmin
+      requires:
+        and:
+          - "/case/prereqs/client/oc"
+      k8sPermissions:
+        rules: []
+
+# actions related to local docker registry
+
+    initRegistry:
+      metadata:
+        name: "initRegistry"
+        description: "Initialize a local docker registry"
+        case.launcher.type: "script"
+        case.cli.alias: "init-registry"
+      roles:
+      - clusterAdmin
+      requires:
+        and:
+          - "/case/prereqs/client/openssl"
+          - "/case/prereqs/client/htpasswd"
+      k8sPermissions:
+        rules: []
+
+    startRegistry:
+      metadata:
+        name: "startRegistry"
+        description: "Start a local docker registry container"
+        case.launcher.type: "script"
+        case.cli.alias: "start-registry"
+      roles:
+      - clusterAdmin
+      requires:
+        or:
+          - "/case/prereqs/client/podman"
+          - "/case/prereqs/client/docker"
+      k8sPermissions:
+        rules: []
+
+    stopRegistry:
+      metadata:
+        name: "stopRegistry"
+        description: "Stop a local docker registry container"
+        case.launcher.type: "script"
+        case.cli.alias: "stop-registry"
+      roles:
+      - clusterAdmin
+      requires:
+        or:
+          - "/case/prereqs/client/podman"
+          - "/case/prereqs/client/docker"
+      k8sPermissions:
+        rules: []
