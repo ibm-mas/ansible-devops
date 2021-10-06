@@ -13,6 +13,30 @@
       - "MAS Instance ID .............. {{ mas_instance_id }}"
       - "MAS Config directory ......... {{ mas_config_dir }}"
 
+
+## Required cluster preparation for db2wh as described in:
+## https://www.ibm.com/docs/en/cloud-paks/cp-data/3.5.0?topic=requirements-cloud-file-storage
+- name: Create norootsquash Service Account
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: norootsquash
+        namespace: kube-system
+
+
+- name: Give privileged access to norootsquash
+  ansible.builtin.shell: |
+    oc adm policy add-scc-to-user privileged system:serviceaccount:kube-system:norootsquash
+
+
+- name: Create Daemonset
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/daemonset.yaml') }}"
+
+
 # 2. Create a Db2 instance
 # -----------------------------------------------------------------------------
 - name: "Create db2wh instance"
