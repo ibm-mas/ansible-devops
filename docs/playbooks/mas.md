@@ -87,48 +87,6 @@ export CIS_CRN=crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2b
 ansible-playbook playbooks/mas/install-suite.yml
 ```
 
-## AirGap Support
-
-### Additional environment variables
-- `AIRGAP_INSTALL` - flag to enable airgap install
-- `CASE_NAME` - the name of the CASE bundle to be installed
-- `CASE_BUNDLE_DIR` - the location of the CASE bundle to be installed
-- `CASE_INV_NAME` - the name of the Setup inventory within the CASE bundle
-- `CASE_SOURCE` Optional URL of the case bundle archive to download - must be .tgz format
-- `CP_ICR_ENTITLEMENT_KEY` to mirror images from ICR - lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
-- `MAS_CATALOG_IMG` - a digest reference to the MAS catalog image
-- `TM_CATALOG_IMG` -  digest reference to the Trustore Manager catalog image
-
-### Example
-```bash
-# Fyre credentials
-export FYRE_USERNAME=xxx
-export FYRE_APIKEY=xxx
-export FYRE_PRODUCT_ID=225
-# Cluster configuration
-export CLUSTER_NAME=xxx
-export OCP_VERSION=4.6.38
-
-# MAS configuration
-export MAS_INSTANCE_ID=xxx
-export MAS_ENTITLEMENT_KEY=xxx
-
-export MAS_CONFIG_DIR=~/masconfig
-
-# Airgap config
-export AIRGAP_INSTALL=true
-export CASE_NAME=ibm-mas
-export CASE_BUNDLE_DIR=XXX/ibm-mas-case/stable/ibm-mas-bundle/
-export CASE_INV_NAME=ibmMasSetup
-export CASE_SOURCE=https://github.com/IBM/cloud-pak/blob/master/repo/case/ibm-mas/8.5.0/ibm-mas-8.5.0.tgz?raw=true
-export MAS_CATALOG_IMG=icr.io/cpopen/ibm-mas-operator-catalog@sha256:822e4840748737a012a94997c202eeb160107dc5adb7c2a40d42aa087ceb41b1
-export TM_CATALOG_IMG=icr.io/cpopen/ibm-truststore-mgr-operator-catalog@sha256:56d5af1b31637c318edef4522d4bd215425ac43a4fe0056adac504577ca21f3e
-export CP_ICR_ENTITLEMENT_KEY=XXX
-
-ansible-playbook playbooks/mas/install-mas.yml
-```
-
-
 ----
 
 
