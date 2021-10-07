@@ -13,15 +13,96 @@ This master playbook will drive the following playbooks in sequence:
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 
+## Preparation
+Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
+
+### Copy your entitlement license key file
+Copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
+
+!!! important
+    Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](sls.md#install-sls) topic.
+
+### Create a Workspace template
+If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:
+
+```yaml
+apiVersion: core.mas.ibm.com/v1
+kind: Workspace
+metadata:
+  name: "{{instance_id}}-masdev"
+  namespace: "mas-{{instance_id}}-core"
+  labels:
+    mas.ibm.com/instanceId: "{{instance_id}}"
+    mas.ibm.com/workspaceId: "masdev"
+spec:
+  displayName: "MAS Development"
+```
+
+You do not need to create a workspace called `masdev`, you can modify the workspace template above to suite your needs.
+
+### Create a BASCfg template
+At the moment the playbook does not install and configure BAS automatically, so you must pass in a configuration to an existing BAS installation, do this by creating a file named something like `$MAS_CONFIG_DIR/bascfg.yml` (the exact name does not matter, as long as the extension is `.yml` or `.yaml`) with the following content:
+
+```yaml
+---
+apiVersion: v1
+kind: Secret
+type: opaque
+metadata:
+  name: bas-apikey
+  namespace: "mas-{{instance_id}}-core"
+stringData:
+  api_key: <enter your BAS API key here>
+---
+apiVersion: config.mas.ibm.com/v1
+kind: BasCfg
+metadata:
+  name: "{{instance_id}}-bas-system"
+  namespace: "mas-{{instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{instance_id}}"
+spec:
+  displayName: <enter a meaningful (to you) name for the BAS instance>
+  config:
+    url: <enter the URL for the BAS instance here>
+    contact:
+      email: <enter your email here>
+      firstName: <enter your first name>
+      lastName: <enter your last name>
+    credentials:
+      secretName: bas-apikey
+    segmentKey: <enter your BAS segment key>
+  certificates:
+    - alias: part1
+      crt: |
+        -----BEGIN CERTIFICATE-----
+        <enter certificate content for BAS>
+        -----END CERTIFICATE-----
+    - alias: part2
+      crt: |
+        -----BEGIN CERTIFICATE-----
+        <enter certificate content for BAS>
+        -----END CERTIFICATE-----
+```
+
+!!! tip
+    If you are unsure how to obtain the correct certifcates for BAS refer to [this topic in StackOverflow](https://stackoverflow.com/questions/7885785/using-openssl-to-get-the-certificate-from-a-server) that details how to use openssl to obtain the certificate chain from any server
+
+!!! note
+    We are working hard to get BAS installation and configuration automated, it's unfortunately taking longer than we would have hoped.  See [issue #11](https://github.com/ibm-mas/ansible-devops/issues/11) for updates.
+
 ## Required environment variables
-- `IBMCLOUD_APIKEY`
-- `CLUSTER_NAME`
+- `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
+- `CLUSTER_NAME` The name to assign to the new ROKS cluster
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
+- `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
+- `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 
 ## Optional environment variables
-- `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none are passed, `Default` resource group will be used.
+- `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none is passed, `Default` resource group will be used.
 - `OCP_VERSION` to override the default version of OCP to use (latest 4.6 release)
 - `W3_USERNAME` to enable access to pre-release development builds of MAS
 - `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
@@ -40,31 +121,33 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
 
 ## Release build
-
+The simplest configuration to deploy a release build of IBM Maximo Application Suite (core only) with dependencies is:
 ```bash
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
 
 # MAS configuration
-export MAS_INSTANCE_ID=xxx
+export MAS_INSTANCE_ID=$CLUSTER_NAME
 export MAS_ENTITLEMENT_KEY=xxx
 
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/only-manage-roks.yml
+# SLS configuration
+export SLS_ENTITLEMENT_KEY=xxx
+export SLS_LICENSE_ID=xxx
+
+ansible-playbook playbooks/lite-core-roks.yml
 ```
 
 
 ## Pre-release build
+The simplest configuration to deploy a pre-release build (only available to IBM employees) of IBM Maximo Application Suite (core only) with dependencies is:
 
 ```bash
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-
-# CP4D configuration
-export CPD_ENTITLEMENT_KEY=xxx
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
@@ -72,7 +155,7 @@ export ARTIFACTORY_APIKEY=xxx
 
 # MAS configuration
 export MAS_CATALOG_SOURCE=ibm-mas-operators
-export MAS_CHANNEL=8.5.0-pre.m2dev85
+export MAS_CHANNEL=m1dev87
 export MAS_INSTANCE_ID=$CLUSTER_NAME
 
 export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
@@ -82,5 +165,9 @@ export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/only-manageroks.yml
+# SLS configuration
+export SLS_ENTITLEMENT_KEY=xxx
+export SLS_LICENSE_ID=xxx
+
+ansible-playbook playbooks/lite-core-roks.yml
 ```
