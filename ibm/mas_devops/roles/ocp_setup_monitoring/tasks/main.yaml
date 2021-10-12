@@ -11,18 +11,24 @@
   fail:
     msg: "grafana_password is required"
 
+- name: "Fail if grafana_storage_class is not provided"
+  when: grafana_storage_class is not defined or grafana_storage_class == ""
+  fail:
+    msg: "grafana_storage_class is required"
+
+
 # 2. Provide debug
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
       - "Grafana Namespace ............ {{ grafana_namespace }}"
-      - "Grafana Starting CSV ......... {{ grafana_starting_csv }}"
       - "Grafana User ................. {{ grafana_user }}"
       - "Grafana Password ............. *************************"
       - "Grafana Storage Class ........ {{ grafana_storage_class }}"
       - "Grafana Storage Size ......... {{ grafana_storage_size }}"
       - "Grafana Data Source URL ...... {{ grafana_datasource_url }}"
+
 
 # 3. Create cluster monitoring config map to enable user monitoring
 # -----------------------------------------------------------------------------
@@ -33,6 +39,7 @@
     wait: yes
     wait_timeout: 120
 
+
 # 4. Install Grafana Operator
 # -----------------------------------------------------------------------------
 - name: "Install Grafana Operator"
@@ -42,11 +49,21 @@
     wait: yes
     wait_timeout: 120
 
+
 # 5. Patch operator with '--scan-all' argument
 # Ref: https://github.com/ibm-watson-iot/iot-docs/tree/master/monitoring#red-hat-grafana-operator
 # -----------------------------------------------------------------------------
+
+# TODO: Need to find a way to do this without knowing the starting CSV, as we
+# shouldn't be using starting CSV in a subscription, a future update to
+# the catalog may mask that CSV and break the automation at any point in time
+# so starting CSV should not be used.
+#
+# Instead we need to look up what the CSV is from the subscription that
+# was created
 - name: "Patch operator with '--scan-all' argument"
   shell: "oc patch csv {{ grafana_starting_csv }} --type='json' -p='[{ \"op\": \"add\", \"path\": \"/spec/install/spec/deployments/0/spec/template/spec/containers/0/args\", \"value\": [\"--scan-all\"] }]'"
+
 
 # 6. Create ClusterRole
 # Ref: https://github.com/grafana-operator/grafana-operator/tree/master/deploy/cluster_roles#grant-grafana-instance-rbac-to-grafanadashboard-definitions-in-other-projectsnamespaces
@@ -58,6 +75,7 @@
     wait: yes
     wait_timeout: 120
 
+
 # 7. Create ClusterRoleBinding
 # Ref: https://github.com/grafana-operator/grafana-operator/tree/master/deploy/cluster_roles#grant-grafana-instance-rbac-to-grafanadashboard-definitions-in-other-projectsnamespaces
 # -----------------------------------------------------------------------------
@@ -68,6 +86,7 @@
     wait: yes
     wait_timeout: 120
 
+
 # 8. Install Grafana Operand
 # -----------------------------------------------------------------------------
 - name: "Install Grafana Operand"
@@ -77,6 +96,7 @@
     wait: yes
     wait_timeout: 120
 
+
 # 9. Get Prometheus token to use in GrafanaDataSource
 # Ref: https://github.com/ibm-watson-iot/iot-docs/tree/master/monitoring#grafana-datasource
 # -----------------------------------------------------------------------------
@@ -84,12 +104,14 @@
   shell: "oc -n {{ grafana_namespace }} serviceaccounts get-token prometheus-user-workload"
   register: _prometheus_user_workflow_token
 
+
 # 9.1. Debug _prometheus_user_workflow_token
 # -----------------------------------------------------------------------------
 # - name: "Debug information"
 #   debug:
 #     msg:
 #       - "Prometheus Token ............ {{ _prometheus_user_workflow_token.stdout }}"
+
 
 # 10. Install GrafanaDataSource Operand
 # -----------------------------------------------------------------------------
