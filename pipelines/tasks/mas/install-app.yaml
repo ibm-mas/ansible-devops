@@ -16,13 +16,17 @@ spec:
       default: 'ibm-operator-catalog'
       type: string
       description: Catalog source for the application operator subscription
+    - name: junit_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
 
   stepTemplate:
     env:
       - name: MAS_CONFIG_DIR
         value: /workspace/configs
-      - name: LOGDIR
-        value: /workspace/logs
+      - name: JUNIT_SUITE_NAME
+        value: $(params.junit_suite_name)
 
       - name: MAS_APP_ID
         value: $(params.mas_app_id)
@@ -37,6 +41,7 @@ spec:
           echo "$(date) Installing MAS application"
           source /opt/app-root/src/env.sh
           ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/install-app.yml
+          python3 /opt/app-root/src/save-junit-to-mongo.py
       command:
         - /bin/bash
         - '-c'

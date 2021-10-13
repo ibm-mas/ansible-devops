@@ -5,8 +5,12 @@ RUN echo ${HOME}
 
 COPY requirements.yml ${HOME}/requirements.yml
 COPY env.sh ${HOME}/env.sh
+COPY save-junit-to-mongo.py ${HOME}/save-junit-to-mongo.py
 
 USER root
+
+# Install Python modules
+RUN python3 -m pip install junit_xml pymongo xmljson
 
 # Install Ansible Collections
 COPY ibm-mas_devops.tar.gz ${HOME}/ibm-mas_devops.tar.gz
