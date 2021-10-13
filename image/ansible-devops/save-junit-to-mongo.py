@@ -17,6 +17,8 @@ if __name__ == "__main__":
     productId = "ibm-mas-devops"
     build = os.getenv("TRAVIS_BUILD_NUMBER")
     suite = os.getenv("JUNIT_SUITE_NAME", "")
+    junitOutputDir = os.getenv("JUNIT_OUTPUT_DIR", "/tmp")
+
     channelId = "n/a"
     version = "unknown"
 
@@ -32,7 +34,7 @@ if __name__ == "__main__":
     runId = f"{instanceId}:{build}"
     resultId = f"{instanceId}:{build}:{productId}:{suite}"
 
-    resultFiles = glob.glob('/tmp/ansible/junit/*.xml')
+    resultFiles = glob.glob(f'{junitOutputDir}/*.xml')
     for resultfile in resultFiles:
         try:
             tree = ET.parse(resultfile)

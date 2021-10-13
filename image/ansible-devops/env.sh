@@ -2,7 +2,7 @@
 
 # Configure Junit report
 # -----------------------------------------------------------------------------
-export JUNIT_OUTPUT_DIR=/tmp/ansible/junit/
+export JUNIT_OUTPUT_DIR=/opt/app-root/ansible/junit/
 export JUNIT_HIDE_TASK_ARGUMENTS=true
 export JUNIT_TASK_CLASS=true
 
