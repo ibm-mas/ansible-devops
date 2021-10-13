@@ -92,16 +92,10 @@ if __name__ == "__main__":
                         }
                     },
                     '$set': {
-                        "products": {
-                            "ibm-mas-devops": {
-                                "productId": productId,
-                                "channelId": channelId,
-                                "version": version,
-                                "results": {
-                                    f"{suite}" : suiteSummary
-                                }
-                            }
-                        }
+                        f"products.ibm-mas-devops.productId": productId,
+                        f"products.ibm-mas-devops.channelId": channelId,
+                        f"products.ibm-mas-devops.version": version,
+                        f"products.ibm-mas-devops.results.{suite}": suiteSummary
                     }
                 },
                 upsert=True
@@ -113,6 +107,6 @@ if __name__ == "__main__":
                 resultDoc,
                 upsert=True
             )
-            print ("Test results saved to MongoDb (v2 data model).")
+            print ("Pipeline results saved to MongoDb (v2 data model)")
         else:
-            print("Test results not recorded as DEVOPS_MONGO_URI is not defined")
+            print("Pipeline results not recorded as DEVOPS_MONGO_URI is not defined")
