@@ -5,9 +5,12 @@ RUN echo ${HOME}
 
 COPY requirements.yml ${HOME}/requirements.yml
 COPY env.sh ${HOME}/env.sh
+COPY run-playbook.sh ${HOME}/run-playbook.sh
 COPY save-junit-to-mongo.py ${HOME}/save-junit-to-mongo.py
 COPY ansible.cfg ${HOME}/ansible.cfg
+RUN chmod a+x ${HOME}/run-playbook.sh
 
+# TODO: Caio, why do we switch to the root user for the rest of this Dockerfile, and why leave it as root user active at the end?
 USER root
 
 # Install Python modules
