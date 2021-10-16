@@ -4,12 +4,18 @@ kind: ClusterTask
 metadata:
   name: mas-devops-configure-suite
 spec:
+  params:
+    - name: junit_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+
   stepTemplate:
     env:
       - name: MAS_CONFIG_DIR
         value: /workspace/configs
-      - name: LOGDIR
-        value: /workspace/logs
+      - name: JUNIT_SUITE_NAME
+        value: $(params.junit_suite_name)
 
   steps:
     - name: configure-suite
@@ -19,9 +25,9 @@ spec:
       command: ["/bin/bash", "-c"]
       args:
         - |-
-          echo "$(date) Configuring Suite"
           source /opt/app-root/src/env.sh
           ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/configure-suite.yml
+          python3 /opt/app-root/src/save-junit-to-mongo.py
 
   workspaces:
     - name: configs
