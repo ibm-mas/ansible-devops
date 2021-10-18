@@ -9,3 +9,7 @@ ansible-galaxy collection install ibm.mas_devops
 
 ## Documentation
 [https://ibm-mas.github.io/ansible-devops/](https://ibm-mas.github.io/ansible-devops/)
+
+## Test
+[https://ibm-mas.github.io/ansible-devops/](https://ibm-mas.github.io/ansible-devops/)
+
