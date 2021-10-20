@@ -7,14 +7,23 @@ This role provides support to install operators that are required by MAS to work
 Role Variables
 --------------
 
-TODO: Finish documentation
-
+- `prometheus_retention` The maximum period of time to retain data for metrics in Prometheus
+- `prometheus_storage_class` The storage class used to provision the persistent volume for Prometheus metrics data
+- `prometheus_storage_size` The size of the Prometheus persistent volume used to store metrics data
+- `alertmgr_storage_size` The size of the Prometheus Alert Manager persistent volume
 
 Example Playbook
 ----------------
 
 ```yaml
-TODO: Add example
+- hosts: localhost
+  vars:
+    prometheus_retention: "{{ lookup('env', 'PROMETHEUS_RETENTION') | default('15d', true) }}"
+    prometheus_storage_class: "{{ lookup('env', 'PROMETHEUS_STORAGE_CLASS') | default('ibmc-block-gold', true) }}"
+    prometheus_storage_size: "{{ lookup('env', 'PROMETHEUS_STORAGE_SIZE') | default('300Gi', true) }}"
+    alertmgr_storage_size: "{{ lookup('env', 'ALERTMGR_STORAGE_SIZE') | default('20Gi', true) }}"
+  roles:
+    - ibm.mas_devops.ocp_setup_mas_deps
 ```
 
 License
