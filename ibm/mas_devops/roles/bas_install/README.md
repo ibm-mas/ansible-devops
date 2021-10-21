@@ -1,7 +1,7 @@
 bas_install
 ===========
 
-Install **IBM Behavior Analytics Services** and generate configuration that can be directly applied to IBM Maximo Application Suite.
+Installs **IBM Behavior Analytics Services** on IBM Cloud Openshift Clusters (ROKS) and generates configuration that can be directly applied to IBM Maximo Application Suite.
 
 Role Variables
 --------------
