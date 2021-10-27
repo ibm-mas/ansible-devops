@@ -95,8 +95,9 @@
     openssl_cfg: "{{ role_path }}/files/openssl.cnf"
     file_prefix: "/tmp/mongoce-"
   shell: |
-    openssl req -config {{ openssl_cfg }} -nodes -newkey rsa:2048 -keyout {{ file_prefix }}server.key -out {{ file_prefix }}server.csr
-    openssl x509 -req -in {{ file_prefix }}server.csr -days 3650 -CA {{ file_prefix }}ca.pem -CAkey {{ file_prefix }}ca.key -CAcreateserial -extensions v3_req -extfile {{ openssl_cfg }} -out {{ file_prefix }}server.crt
+    sed "s/%%MONGO_NAMESPACE%%/{{ mongodb_namespace }}/" "{{ role_path }}/files/openssl.cnf" > {{ file_prefix }}openssl.cnf
+    openssl req -config {{ file_prefix }}openssl.cnf -nodes -newkey rsa:2048 -keyout {{ file_prefix }}server.key -out {{ file_prefix }}server.csr
+    openssl x509 -req -in {{ file_prefix }}server.csr -days 3650 -CA {{ file_prefix }}ca.pem -CAkey {{ file_prefix }}ca.key -CAcreateserial -extensions v3_req -extfile {{ file_prefix }}openssl.cnf -out {{ file_prefix }}server.crt
     cat {{ file_prefix }}server.key {{ file_prefix }}server.crt > {{ file_prefix }}mongodb.pem
 
 - name: "mongodb/community : Create new client cert"
