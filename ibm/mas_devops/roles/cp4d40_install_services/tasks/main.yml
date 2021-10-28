@@ -1,0 +1,39 @@
+---
+# 1. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Namespace .................... {{ cpd_meta_namespace }}"
+      - "Storage class ................ {{ cpd_storage_class }}"
+      - "CP4D services ................ {{ cpd_services }}"
+
+# 2. Install CP4D Services
+# -----------------------------------------------------------------------------
+- name: "Install Services Subscription"
+  vars:
+    service_name: "{{ item }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/{{ item }}/subscription.yml') }}"
+  with_items: "{{ cpd_services }}"
+
+#TODO: Implement a smarter way to wait for the subscriptions before applying the Service CR
+- name: "Wait couple of minutes for subscriptions"
+  pause:
+    minutes: 1
+
+# 2. Install CP4D Services
+# -----------------------------------------------------------------------------
+- name: "Install Services CR"
+  vars:
+    service_name: "{{ item }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/{{ item }}/service.yml') }}"
+  with_items: "{{ cpd_services }}"
+
+# # 3. Wait for CP4D Services to be ready
+# # -----------------------------------------------------------------------------
+# - include_tasks: wait_for_services.yml
+
