@@ -15,29 +15,12 @@
       - "CPD entitlement .............. *********************"
       - "Namespace .................... {{ cpd_meta_namespace }}"
 
-# # 1. Create a global image pull secret for cp4d images
-# # MUST TODO: For now, I'm replacing the pull-secret content, need to check how to append this part with the existing default pull-secret content as per https://cloud.ibm.com/docs/openshift?topic=openshift-registry#cluster_global_pull_secret
-- name: "Create pull-secret secret"
-  vars:
-    entitledAuthStr: "{{cpd_registry_user}}:{{cpd_registry_password}}"
-    entitledAuth: "{{ entitledAuthStr | b64encode }}"
-    content:
-      - "{\"auths\":{\"{{cpd_registry}}\":{\"username\":\"{{cpd_registry_user}}\",\"password\":\"{{cpd_registry_password}}\",\"email\":\"{{cpd_registry_user}}\",\"auth\":\"{{entitledAuth}}\"}"
-      - "}"
-      - "}"
-  community.kubernetes.k8s:
-    definition:
-      apiVersion: v1
-      kind: Secret
-      type: kubernetes.io/dockerconfigjson
-      metadata:
-        name: pull-secret
-        namespace: openshift-config
-      stringData:
-        .dockerconfigjson: "{{ content | join('') | string }}"
+# 1. Update cp4d entitlement key and cpd registry server in cluster's pull-secret
 
-# -----------------------------------------------------------------------------
-# 2. Need to reload the cluster nodes after this secret is created as per https://cloud.ibm.com/docs/openshift?topic=openshift-registry#cluster_global_pull_secret
+- include_tasks: "generate_pullsecret.yml"
+
+# 2. Need to reload the cluster worker nodes after changes to pull-secret as per https://cloud.ibm.com/docs/openshift?topic=openshift-registry#cluster_global_pull_secret
+
 - name: "roks : Get worker nodes"
   shell: |
     ibmcloud oc worker ls -c {{ cluster_name }} -q | awk '{print $1}'
@@ -73,7 +56,7 @@
   retries: 60
   delay: 60
   
-# 1. Setup namespace for CP4D
+# 3. Setup namespace for CP4D
 # -----------------------------------------------------------------------------
 - name: "Create CPD Meta Namespace"
   vars:
@@ -83,7 +66,7 @@
     definition: "{{ lookup('template', 'templates/namespace.yaml') }}"
   register: _cpd_meta_namespace_result
 
-# 3. Install CP4D operator
+# 4. Install CP4D operator
 # -----------------------------------------------------------------------------
 - name: "Install CPD 4.0 Subscription"
   when:
@@ -117,20 +100,32 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-# 4. Install CP4D
+# 5. Install CP4D
 # -----------------------------------------------------------------------------
-- name: "Setup CloudPak for Data 4.0 - Operand Request"
+- name: "Apply CloudPak for Data 4.0 - Operand Request"
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/operand.yaml') }}"
   register: _cpd_operand_result
 
-- name: "Setup CloudPak for Data 4.0 - Storage Classes"
+- name: "Apply CloudPak for Data 4.0 CR"
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/ibmcdp.yaml') }}"
+    definition: "{{ lookup('template', 'templates/ibmcpd.yaml') }}"
   register: _cpd_ibmcdp_result
 
+- name: "Wait for ibm-zen-operator to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: ibm-zen-operator
+    namespace: "{{cpd_meta_namespace}}"
+    kind: Deployment
+  register: _zen_deployment
+  until: _zen_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+## TODO: Noticed a problem in this step where some cp4d certificates like zen-ca certificate are requested twice, need to manually delete one so the installation proceeds
 - name: "Wait for ibmcpd CPD 4.0 to be Completed"
   community.kubernetes.k8s_info:
     api_version: cpd.ibm.com/v1
@@ -142,7 +137,6 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-## TODO: Noticed a problem in this step where some cp4d certificates like zen-ca certificate are requested twice, need to manually delete one so the installation proceeds
 - name: "Wait for ZenService CPD 4.0 to be Completed"
   community.kubernetes.k8s_info:
     api_version: zen.cpd.ibm.com/v1
@@ -154,7 +148,7 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-# 4. Provide CP4D dashboard URL
+# 6. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------
 - name: "Retrieve admin credentials"
   community.kubernetes.k8s_info:
