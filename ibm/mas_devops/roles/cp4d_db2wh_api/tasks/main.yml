@@ -4,8 +4,10 @@
 - name: "Debug information"
   debug:
     msg:
+      - "mas_instance_id ................. {{ mas_instance_id }}"
+      - "mas_config_dir .................. {{ mas_config_dir }}"
       - "cpd_meta_namespace .............. {{ cpd_meta_namespace }}"
-      - "cp4d_db2wh_db_name .............. {{ cp4d_db2wh_db_name }}"
+      - "cp4d_db2wh_instance_name ........ {{ cp4d_db2wh_instance_name }}"
       - "cp4d_meta_storage_size_gb ....... {{ cp4d_meta_storage_size_gb }}"
       - "cp4d_user_storage_size_gb ....... {{ cp4d_user_storage_size_gb }}"
       - "cp4d_backup_storage_size_gb  .... {{ cp4d_backup_storage_size_gb }}"
@@ -15,8 +17,8 @@
       - "cp4d_db_config_configmap_name ... {{ cp4d_db_config_configmap_name }}"
       - "cp4d_admin_username ............. {{ cp4d_admin_username }}"
       - "cp4d_admin_password ............. {{ cp4d_admin_password }}"
-      - "mas_instance_id ................. {{ mas_instance_id }}"
-      - "mas_config_dir .................. {{ mas_config_dir }}"
+      - "cp4d_db2_addon_version .......... {{ cp4d_db2_addon_version}}"
+      - "db2w_table_org .................. {{ db2w_table_org }}"
 
 # 2. Set CP4D Route (cp4d_host) info from OpenShift into Facts
 # -----------------------------------------------------------------------------
@@ -30,7 +32,7 @@
 
 # 4. Create a DB2 database instance
 # -----------------------------------------------------------------------------
-- name: Create the DB2 database instance in CP4D - {{ cp4d_db2wh_db_name }}
+- name: Create the DB2 database instance in CP4D - {{ cp4d_db2wh_instance_name }}
   uri:
     url: "https://{{ cp4d_host }}/zen-data/v3/service_instances"
     validate_certs: no
@@ -46,9 +48,9 @@
 
 # 4. Wait for DB creation (when creation status is 202)
 # -----------------------------------------------------------------------------
-- name: Wait for DB creation to be completed for {{ cp4d_db2wh_db_name }} and apply patch if needed
+- name: Wait for DB creation to be completed for {{ cp4d_db2wh_instance_name }} and apply patch if needed
   block:
-    - debug: var=create_db2_database_output
+    # - debug: var=create_db2_database_output
     # Get the instance ID of new DB2 database
     - debug: var=create_db2_database_output.json.id
     - set_fact:
@@ -71,25 +73,24 @@
       block:
         - name: Wait for DB2 StatefulSet creation
           pause:
-            minutes: 10
+            minutes: 20
         - name: Check DB2 StatefulSet status
           shell: /usr/local/bin/oc get sts -lcomponent=db2wh -oname -n="{{ cpd_meta_namespace }}" | grep db2wh
           register: sts_status
           until: sts_status.rc == 0
-          retries: 5
+          retries: 10
           delay: 60
         - name: Apply DB2 StatefulSet patch
           shell: oc patch $(oc get sts -lcomponent=db2wh -oname -n="{{ cpd_meta_namespace }}" | grep db2wh) -n="{{ cpd_meta_namespace }}" -p='{ "spec":{ "template":{ "spec":{ "containers":[ { "name":"db2u", "tty":false } ] } } } }'
-          # shell: /usr/local/bin/oc patch $(oc get sts -lcomponent=db2wh -oname -n="{{ cpd_meta_namespace }}" | grep db2wh) -n="{{ cpd_meta_namespace }}" -p='{ "spec":{ "template":{ "spec":{ "containers":[ { "name":"db2u", "tty":false } ] } } } }'
       when: apply_db2u_sts_patch|default(false)|bool
-    - name: Wait for the creation of DB2 database {{ cp4d_db2wh_db_name }}
+    - name: Wait for the creation of DB2 database {{ cp4d_db2wh_instance_name }}
       pause:
         minutes: 20
   when: create_db2_database_output.status == 202
 
 # 5. Get info of DB2 database if it already exists (when creation status is 409)
 # -----------------------------------------------------------------------------
-- name: Get info of DB2 database {{ cp4d_db2wh_db_name }} if it already exists (if above creation code was 409)
+- name: Get info of DB2 database {{ cp4d_db2wh_instance_name }} if it already exists (if above creation code was 409)
   block:
     - name: Read the DB2 database config from the DB config ConfigMap {{ cp4d_db_config_configmap_name }}
       community.kubernetes.k8s_info:
@@ -98,8 +99,8 @@
         name: "{{ cp4d_db_config_configmap_name }}"
         namespace: "{{ cpd_meta_namespace }}"
       register: cp4d_db_config_info
-    - debug: var=cp4d_db_config_info
-    - name: Read the DB2 database ID for {{ cp4d_db2wh_db_name }} from DB config ConfigMap data
+    # - debug: var=cp4d_db_config_info
+    - name: Read the DB2 database ID for {{ cp4d_db2wh_instance_name }} from DB config ConfigMap data
       set_fact:
         cp4d_db_id: "{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}"
         db2_pod_name: "c-db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}-db2u-0"
@@ -110,7 +111,7 @@
 
 # 6. Wait till DB2 status is RUNNING
 # -----------------------------------------------------------------------------
-- name: Wait till status of DB2 database {{ cp4d_db2wh_db_name }} is RUNNING
+- name: Wait till status of DB2 database {{ cp4d_db2wh_instance_name }} is RUNNING
   uri:
     url: "https://{{ cp4d_host }}/zen-data/v3/service_instances/{{ cp4d_db_id }}?include_service_status=true"
     validate_certs: no
@@ -149,6 +150,6 @@
 - name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
   ansible.builtin.template:
     src: suite_jdbccfg.yml
-    dest: "{{ mas_config_dir }}/jdbc-{{ cp4d_db2wh_db_name | lower }}-{{ cpd_meta_namespace }}.yml"
+    dest: "{{ mas_config_dir }}/jdbc-{{ cp4d_db2wh_instance_name | lower }}-{{ cpd_meta_namespace }}.yml"
   vars:
-    cp4d_db_jdbc_url: "jdbc:db2://{{ db2_svc_name }}:{{ cp4d_db_ssl_port }}/BLUDB:sslConnection=true;"
+    cp4d_db_jdbc_url: "jdbc:db2://{{ cp4d_db_svc }}:{{ cp4d_db_ssl_port }}/BLUDB:sslConnection=true;"
