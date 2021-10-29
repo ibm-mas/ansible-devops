@@ -1,0 +1,35 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cpd_registry: cp.icr.io
+    cpd_registry_user: cp
+    cpd_registry_password: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
+    cpd_meta_namespace: "{{ lookup('env', 'CPD_NAMESPACE') | default('cpd-meta-ops', true) }}"
+
+    # CP4D service configuration
+    cpd_storage_class: "{{ lookup('env', 'CPD_STORAGE_CLASS') }}"
+    cpd_services:
+      - db2wh
+      - dmc
+
+    # DB2W-API settings
+    # cpd_meta_namespace: "{{ lookup('env', 'CPD_NAMESPACE') | default('cpd-meta-ops', true) }}"
+    cp4d_db2wh_db_name: "{{ lookup('env', 'CPD_DB2WH_DB_NAME') }}" # e.g. db2w-iot or db2w-manage
+    cp4d_meta_storage_size_gb: "{{ lookup('env', 'CPD_META_STORAGE_SIZE_GB') | default(20, true) }}"
+    cp4d_user_storage_size_gb: "{{ lookup('env', 'CPD_USER_STORAGE_SIZE_GB') | default(25, true) }}"
+    cp4d_backup_storage_size_gb: "{{ lookup('env', 'CPD_BACKUP_STORAGE_SIZE_GB') | default(15, true) }}"
+    cp4d_meta_storage_class: "{{ lookup('env', 'CPD_META_STORAGE_CLASS') | default('ibmc-file-silver-gid', true) }}"
+    cp4d_user_storage_class: "{{ lookup('env', 'CPD_USER_STORAGE_CLASS') | default('ibmc-file-gold-gid', true) }}"
+    cp4d_backup_storage_class: "{{ lookup('env', 'CPD_BACKUP_STORAGE_CLASS') | default('ibmc-file-gold-gid', true) }}"
+    cp4d_db_config_configmap_name: "{{ lookup('env', 'CPD_DB_CONFIG_CONFIGMAP_NAME') | default('mas-automation-config', true) }}"
+    cp4d_admin_username: "{{ lookup('env', 'CPD_ADMIN_USER') }}"
+    cp4d_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
+
+    # Create the MAS JdbcCfg & Secret resource definitions
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+  roles:
+    # - ibm.mas_devops.cp4d_install
+    # - ibm.mas_devops.cp4d_install_services
+    - ibm.mas_devops.cp4d_db2wh_api

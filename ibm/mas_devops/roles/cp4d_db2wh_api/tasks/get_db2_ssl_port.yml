@@ -1,0 +1,28 @@
+---
+# -----------------------------------------------------------------------------
+# Set DB2 SSL Port (cp4d_db_ssl_port) into Facts
+# -----------------------------------------------------------------------------
+- name: Get the k8s Service info of DB2 database {{ cp4d_db2wh_db_name }}
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Service
+    name: "{{ db2_svc_name }}"
+    namespace: "{{ cpd_meta_namespace }}"
+  register: cp4d_db2_service_info
+
+- debug: var=cp4d_db2_service_info
+
+- set_fact:
+    cp4d_db_port_list: "{{ cp4d_db2_service_info.resources[0].spec.ports }}"
+
+- name: Get the SSL port of DB2 database {{ cp4d_db2wh_db_name }} from k8s Service info
+  debug:
+    msg: "{{ cp4d_db_port_list | json_query(querystring) }}"
+  vars:
+    querystring: "[?name=='db2-ssl-server']"
+  register: db_ssl_port_query_result
+
+- debug: var=db_ssl_port_query_result.msg[0].port
+
+- set_fact:
+    cp4d_db_ssl_port: "{{ db_ssl_port_query_result.msg[0].port }}"
