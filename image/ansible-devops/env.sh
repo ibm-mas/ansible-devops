@@ -28,6 +28,23 @@ export K8S_AUTH_API_KEY=$(cat /run/secrets/kubernetes.io/serviceaccount/token)
 # -----------------------------------------------------------------------------
 export CPD_ENTITLEMENT_KEY=$(cat /workspace/settings/CPD_ENTITLEMENT_KEY)
 export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
+export CPD_NAMESPACE=$(cat /workspace/settings/CPD_NAMESPACE)
+
+
+# Cloud Pak for Data - DB2 Warehouse settings
+# -----------------------------------------------------------------------------
+export CPD_DB2WH_INSTANCE_NAME=$(cat /workspace/settings/CPD_DB2WH_INSTANCE_NAME)
+export CPD_META_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_META_STORAGE_SIZE_GB)
+export CPD_USER_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_USER_STORAGE_SIZE_GB)
+export CPD_BACKUP_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_BACKUP_STORAGE_SIZE_GB)
+export CPD_META_STORAGE_CLASS=$(cat /workspace/settings/CPD_META_STORAGE_CLASS)
+export CPD_USER_STORAGE_CLASS=$(cat /workspace/settings/CPD_USER_STORAGE_CLASS)
+export CPD_BACKUP_STORAGE_CLASS=$(cat /workspace/settings/CPD_BACKUP_STORAGE_CLASS)
+export CPD_DB_CONFIG_CONFIGMAP_NAME=$(cat /workspace/settings/CPD_DB_CONFIG_CONFIGMAP_NAME)
+export CPD_ADMIN_USER=$(cat /workspace/settings/CPD_ADMIN_USER)
+export CPD_ADMIN_PASSWORD=$(cat /workspace/settings/CPD_ADMIN_PASSWORD)
+export CPD_DB2WH_ADDON_VERSION=$(cat /workspace/settings/CPD_DB2WH_ADDON_VERSION)
+export DB2WH_TABLE_ORG=$(cat /workspace/settings/DB2WH_TABLE_ORG)
 
 
 # AMQStreams (Kafka) settings
