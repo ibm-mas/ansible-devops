@@ -18,7 +18,6 @@ export K8S_AUTH_API_KEY=$(cat /run/secrets/kubernetes.io/serviceaccount/token)
 # ocp/configure-ocp.yml
 # -----------------------------------------------------------------------------
 export IBMCLOUD_APIKEY=$(cat /workspace/settings/IBMCLOUD_APIKEY)
-export CLUSTER_TYPE=$(cat /workspace/settings/CLUSTER_TYPE)
 export CLUSTER_NAME=$(cat /workspace/settings/CLUSTER_NAME)
 export W3_USERNAME=$(cat /workspace/settings/W3_USERNAME)
 export ARTIFACTORY_APIKEY=$(cat /workspace/settings/ARTIFACTORY_APIKEY)
@@ -107,15 +106,19 @@ export TM_CATALOG_IMG=$(cat /workspace/settings/TM_CATALOG_IMG)
 # -----------------------------------------------------------------------------
 # mas/install-app.yml
 # -----------------------------------------------------------------------------
-export MAS_APP_CATALOG_SOURCE_IOT=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_IOT)
-export MAS_APP_CATALOG_SOURCE_MANAGE=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MANAGE)
-export MAS_APP_CHANNEL_IOT=$(cat /workspace/settings/MAS_APP_CHANNEL_IOT)
-export MAS_APP_CHANNEL_MANAGE=$(cat /workspace/settings/MAS_APP_CHANNEL_MANAGE)
 
 # -----------------------------------------------------------------------------
 # mas/configure-app.yml
 # -----------------------------------------------------------------------------
 export MAS_WORKSPACE_ID=$(cat /workspace/settings/MAS_WORKSPACE_ID)
+
+# -------------------------
+# Used in ClusterTask context
+# -------------------------
+export MAS_APP_CATALOG_SOURCE_IOT=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_IOT)
+export MAS_APP_CATALOG_SOURCE_MANAGE=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MANAGE)
+export MAS_APP_CHANNEL_IOT=$(cat /workspace/settings/MAS_APP_CHANNEL_IOT)
+export MAS_APP_CHANNEL_MANAGE=$(cat /workspace/settings/MAS_APP_CHANNEL_MANAGE)
 
 # The following settings are provided as env vars per-task because they may
 # vary for different tasks in the same pipeline
