@@ -5,8 +5,13 @@ RUN echo ${HOME}
 
 COPY requirements.yml ${HOME}/requirements.yml
 COPY env.sh ${HOME}/env.sh
+COPY save-junit-to-mongo.py ${HOME}/save-junit-to-mongo.py
+COPY ansible.cfg ${HOME}/ansible.cfg
 
 USER root
+
+# Install Python modules
+RUN python3 -m pip install junit_xml pymongo xmljson
 
 # Install Ansible Collections
 COPY ibm-mas_devops.tar.gz ${HOME}/ibm-mas_devops.tar.gz
@@ -20,3 +25,5 @@ RUN wget -q https://github.com/openshift/origin/releases/download/v3.11.0/opensh
     tar -xvzf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz  && \
     mv openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit/oc /usr/local/bin/  && \
     rm -rf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+
+ENV ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg

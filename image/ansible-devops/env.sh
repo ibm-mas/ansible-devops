@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Configure Junit report
+# -----------------------------------------------------------------------------
+export JUNIT_OUTPUT_DIR=/opt/app-root/ansible/junit/
+export JUNIT_HIDE_TASK_ARGUMENTS=true
+export JUNIT_TASK_CLASS=true
+
+
 # Connect to the local cluster
 # -----------------------------------------------------------------------------
 export K8S_AUTH_HOST=https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT_HTTPS
@@ -88,16 +95,15 @@ export CERTIFICATE_DURATION=$(cat /workspace/settings/CERTIFICATE_DURATION)
 export CERTIFICATE_RENEW_BEFORE=$(cat /workspace/settings/CERTIFICATE_RENEW_BEFORE)
 
 
-# Information about what we are testing
-# -----------------------------------------------------------------------------
-export TRAVIS_BUILD_NUMBER=$(cat /workspace/settings/TRAVIS_BUILD_NUMBER)
-
-
 # Credentials to access pre-release container images
 # -----------------------------------------------------------------------------
 export W3_USERNAME=$(cat /workspace/settings/W3_USERNAME)
 export ARTIFACTORY_APIKEY=$(cat /workspace/settings/ARTIFACTORY_APIKEY)
 
+# Settings to support save-junit-to-mongo.py
+# -----------------------------------------------------------------------------
+export DEVOPS_MONGO_URI=$(cat /workspace/settings/DEVOPS_MONGO_URI)
+export TRAVIS_BUILD_NUMBER=$(cat /workspace/settings/TRAVIS_BUILD_NUMBER)
 
 # Print out all env vars
 # -----------------------------------------------------------------------------

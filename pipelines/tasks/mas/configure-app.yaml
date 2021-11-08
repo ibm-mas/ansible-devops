@@ -11,13 +11,17 @@ spec:
     - name: mas_workspace_id
       type: string
       description: Maximo Application Suite Workspace Id
+    - name: junit_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
 
   stepTemplate:
     env:
       - name: MAS_CONFIG_DIR
         value: /workspace/configs
-      - name: LOGDIR
-        value: /workspace/logs
+      - name: JUNIT_SUITE_NAME
+        value: $(params.junit_suite_name)
 
       - name: MAS_WORKSPACE_ID
         value: $(params.mas_workspace_id)
@@ -27,9 +31,9 @@ spec:
   steps:
     - args:
         - |-
-          echo "$(date) Configuring MAS Application"
           source /opt/app-root/src/env.sh
           ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/configure-app.yml
+          python3 /opt/app-root/src/save-junit-to-mongo.py
       command:
         - /bin/bash
         - '-c'
