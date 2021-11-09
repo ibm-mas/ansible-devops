@@ -14,6 +14,7 @@ To learn more about Tekton refer to the excellent material here: https://redhat-
 - Install AMQStreams
 - Install MongoDb CE
 - Install IBM Suite License Service
+- Install Behavior Analytics Service
 
 ### MAS Management
 - Configure Application
