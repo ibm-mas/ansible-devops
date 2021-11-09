@@ -65,6 +65,18 @@ export SLS_REGISTRATION_OPEN=$(cat /workspace/settings/SLS_REGISTRATION_OPEN)
 export SLS_LICENSE_ID=$(cat /workspace/settings/SLS_LICENSE_ID)
 export SLS_REGISTRATION_KEY=$(cat /workspace/settings/SLS_REGISTRATION_KEY)
 
+# BAS settings
+# -----------------------------------------------------------------------------
+export BAS_NAMESPACE=$(cat /workspace/settings/BAS_NAMESPACE)
+export BAS_PERSISTENT_STORAGE=$(cat /workspace/settings/BAS_PERSISTENT_STORAGE)
+export BAS_META_STORAGE=$(cat /workspace/settings/BAS_META_STORAGE)
+export BAS_USERNAME=$(cat /workspace/settings/BAS_USERNAME)
+export BAS_PASSWORD=$(cat /workspace/settings/BAS_PASSWORD)
+export GRAFANA_USERNAME=$(cat /workspace/settings/GRAFANA_USERNAME)
+export GRAFANA_PASSWORD=$(cat /workspace/settings/GRAFANA_PASSWORD)
+export BAS_CONTACT_MAIL=$(cat /workspace/settings/BAS_CONTACT_MAIL)
+export BAS_CONTACT_FIRSTNAME=$(cat /workspace/settings/BAS_CONTACT_FIRSTNAME)
+export BAS_CONTACT_LASTNAME=$(cat /workspace/settings/BAS_CONTACT_LASTNAME)
 
 # MAS settings
 # -----------------------------------------------------------------------------
