@@ -33,12 +33,35 @@
     namespace: openshift-ingress-operator
   register: _bas_certificates_result
 
+- name: "Get cluster subdomain"
+  community.kubernetes.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Extract cluster name"
+  debug:
+    msg:
+      - "Cluster Domain ...................... {{ _cluster_subdomain.resources[0].spec.domain }}"
+
+- set_fact:
+    temp: "{{ _cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
+
+- name: Lookup Certificate for BAS
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ temp }}"
+    namespace: openshift-ingress
+  register: _bas_certificates_result
+
 - name: Set facts for BASCfg
   set_fact:
     bas_segment_key: "{{_bas_segmentKey_result.resources[0].data.segmentkey | b64decode}}"
     bas_api_key: "{{_bas_apiKey_result.resources[0].data.apikey | b64decode }}"
     bas_endpoint_url: "https://{{_bas_endpoint.resources[0].spec.host}}"
-    bas_tls_crt: "{{_bas_certificates_result.resources[0].data['tls.crt'] | b64decode }}"
+    bas_tls_crt: "{{_bas_certificates_result.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True)  }}"
 
 # 2. Write out the config to the local filesystem
 # -----------------------------------------------------------------------------

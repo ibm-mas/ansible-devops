@@ -57,16 +57,38 @@
       registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
       entitlement_file: "{{mas_config_dir}}/entitlement.lic"
 
+# 5. Install BAS
+# -----------------------------------------------------------------------------
+- name: Install BAS
+  import_playbook: bas/install-bas.yml
+  vars:
+    # BAS Configuration
+    bas_namespace: "{{ lookup('env', 'BAS_NAMESPACE') | default('ibm-bas', true) }}"
+    bas_persistent_storage: "{{ lookup('env', 'BAS_PERSISTENT_STORAGE') | default('', true) }}"
+    bas_meta_storage_class: "{{ lookup('env', 'BAS_META_STORAGE') | default('', true) }}"
 
-# 5. Install & configure MAS
+    bas_username: "{{ lookup('env', 'BAS_USERNAME') | default('basuser', true) }}"
+    bas_password: "{{ lookup('env', 'BAS_PASSWORD') | default('password', true) }}"
+
+    grafana_username: "{{ lookup('env', 'GRAFANA_USERNAME') | default('basuser', true) }}"
+    grafana_password: "{{ lookup('env', 'GRAFANA_PASSWORD') | default('password', true) }}"
+    contact:
+      email: "{{ lookup('env', 'BAS_CONTACT_MAIL') | default('john@mycompany.com', true) }}"
+      firstName: "{{ lookup('env', 'BAS_CONTACT_FIRSTNAME') | default('John', true) }}"
+      lastName: "{{ lookup('env', 'BAS_CONTACT_LASTNAME') | default('Barnes', true) }}"
+
+    # MAS Configuration
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+# 6. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
   vars:
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
-
-# 6. Install & Configure Health application
+# 7. Install & Configure Health application
 # -----------------------------------------------------------------------------
 - name: Install Health
   import_playbook: mas/install-app.yml
