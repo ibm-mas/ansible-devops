@@ -1,0 +1,155 @@
+---
+# 1. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "mas_instance_id ................. {{ mas_instance_id }}"
+      - "mas_config_dir .................. {{ mas_config_dir }}"
+      - "cpd_meta_namespace .............. {{ cpd_meta_namespace }}"
+      - "cp4d_db2wh_instance_name ........ {{ cp4d_db2wh_instance_name }}"
+      - "cp4d_meta_storage_size_gb ....... {{ cp4d_meta_storage_size_gb }}"
+      - "cp4d_user_storage_size_gb ....... {{ cp4d_user_storage_size_gb }}"
+      - "cp4d_backup_storage_size_gb  .... {{ cp4d_backup_storage_size_gb }}"
+      - "cp4d_meta_storage_class  ........ {{ cp4d_meta_storage_class }}"
+      - "cp4d_user_storage_class ......... {{ cp4d_user_storage_class }}"
+      - "cp4d_backup_storage_class ....... {{ cp4d_backup_storage_class }}"
+      - "cp4d_db_config_configmap_name ... {{ cp4d_db_config_configmap_name }}"
+      - "cp4d_admin_username ............. {{ cp4d_admin_username }}"
+      - "cp4d_admin_password ............. {{ cp4d_admin_password }}"
+      - "cp4d_db2_addon_version .......... {{ cp4d_db2_addon_version}}"
+      - "db2w_table_org .................. {{ db2w_table_org }}"
+
+# 2. Set CP4D Route (cp4d_host) info from OpenShift into Facts
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/get_cp4d_host.yml
+# - debug: var=cp4d_host
+
+# 3. Set CP4D Bearer Token (cp4d_bearer_token) into Facts
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/get_cp4d_bearer_token.yml
+# - debug: var=cp4d_bearer_token
+
+# 4. Create a DB2 database instance
+# -----------------------------------------------------------------------------
+- name: Create the DB2 database instance in CP4D - {{ cp4d_db2wh_instance_name }}
+  uri:
+    url: "https://{{ cp4d_host }}/zen-data/v3/service_instances"
+    validate_certs: no
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cp4d_bearer_token }}"
+      cache-control: "no-cache"
+    body_format: "json"
+    body: "{{ lookup('template','templates/create_db.json.j2') }}"
+    status_code: 202,409
+    timeout: 30
+  register: create_db2_database_output
+
+# 4. Wait for DB creation (when creation status is 202)
+# -----------------------------------------------------------------------------
+- name: Wait for DB creation to be completed for {{ cp4d_db2wh_instance_name }} and apply patch if needed
+  block:
+    # - debug: var=create_db2_database_output
+    # Get the instance ID of new DB2 database
+    - debug: var=create_db2_database_output.json.id
+    - set_fact:
+        db2_pod_name: "c-db2wh-{{ create_db2_database_output.json.id }}-db2u-0"
+        db2_svc_name: "c-db2wh-{{ create_db2_database_output.json.id }}-db2u-engn-svc"
+        cp4d_db_id: "{{ create_db2_database_output.json.id }}"
+    - set_fact:
+        cp4d_db_svc: "{{ db2_svc_name }}.{{ cpd_meta_namespace }}.svc"
+    - name: Set a default value for cp4d_db_ssl_port if it's not specified
+      set_fact:
+        cp4d_db_ssl_port: ""
+      when: cp4d_db_ssl_port is undefined
+    - name: Save the DB2 database id in a DB config ConfigMap {{ cp4d_db_config_configmap_name }} under sre namespace
+      community.kubernetes.k8s:
+        state: present
+        namespace: "{{ cpd_meta_namespace }}"
+        definition: "{{ lookup('template', 'templates/cp4d_db2_database_config.yaml.j2') | from_yaml }}"
+    # Patch the db2u StatefulSet to avoid DB2 pod getting stuck in 0/1 state during installation
+    - name: Patch the db2u StatefulSet to avoid DB2 pod getting stuck in 0/1 state during installation
+      block:
+        - name: Wait for DB2 StatefulSet creation
+          pause:
+            minutes: 10
+        - name: Check DB2 StatefulSet status
+          shell: /usr/local/bin/oc get sts -lcomponent=db2wh -oname -n="{{ cpd_meta_namespace }}" | grep db2wh
+          register: sts_status
+          until: sts_status.rc == 0
+          retries: 10
+          delay: 60
+        - name: Apply DB2 StatefulSet patch
+          shell: oc patch $(oc get sts -lcomponent=db2wh -oname -n="{{ cpd_meta_namespace }}" | grep db2wh) -n="{{ cpd_meta_namespace }}" -p='{ "spec":{ "template":{ "spec":{ "containers":[ { "name":"db2u", "tty":false } ] } } } }'
+      when: apply_db2u_sts_patch|default(false)|bool
+    - name: Wait for the creation of DB2 database {{ cp4d_db2wh_instance_name }}
+      pause:
+        minutes: 10
+  when: create_db2_database_output.status == 202
+
+# 5. Get info of DB2 database if it already exists (when creation status is 409)
+# -----------------------------------------------------------------------------
+- name: Get info of DB2 database {{ cp4d_db2wh_instance_name }} if it already exists (if above creation code was 409)
+  block:
+    - name: Read the DB2 database config from the DB config ConfigMap {{ cp4d_db_config_configmap_name }}
+      community.kubernetes.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: "{{ cp4d_db_config_configmap_name }}"
+        namespace: "{{ cpd_meta_namespace }}"
+      register: cp4d_db_config_info
+    # - debug: var=cp4d_db_config_info
+    - name: Read the DB2 database ID for {{ cp4d_db2wh_instance_name }} from DB config ConfigMap data
+      set_fact:
+        cp4d_db_id: "{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}"
+        db2_pod_name: "c-db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}-db2u-0"
+        db2_svc_name: "c-db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}-db2u-engn-svc"
+    - set_fact:
+        cp4d_db_svc: "{{ db2_svc_name }}.{{ cpd_meta_namespace }}.svc"
+  when: create_db2_database_output.status == 409
+
+# 6. Wait till DB2 status is RUNNING
+# -----------------------------------------------------------------------------
+- name: Wait till status of DB2 database {{ cp4d_db2wh_instance_name }} is RUNNING
+  uri:
+    url: "https://{{ cp4d_host }}/zen-data/v3/service_instances/{{ cp4d_db_id }}?include_service_status=true"
+    validate_certs: no
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cp4d_bearer_token }}"
+      cache-control: "no-cache"
+    status_code: 200
+    timeout: 30
+  register: db_status
+  until: "'{{ db_status.json.service_instance.metadata.status }}' == 'RUNNING'"
+  retries: 60
+  delay: 60
+
+# 7. Set DB2 SSL Port (cp4d_db_ssl_port) into Facts
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/get_db2_ssl_port.yml
+
+# 8. Set DB2 SSL Port (cp4d_db_certificate) into Facts
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/get_db2_certificate.yml
+
+# 9. Save the DB2 database hostname and port info
+# -----------------------------------------------------------------------------
+- name: Update the DB2 database url and port info in the DB config ConfigMap for {{ cp4d_db_config_configmap_name }}
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ cpd_meta_namespace }}"
+    definition: "{{ lookup('template', 'templates/cp4d_db2_database_config.yaml.j2') | from_yaml }}"
+
+# 10. Create JDBCCfg yml definition
+# -----------------------------------------------------------------------------
+# - name: Set Facts for JDBCCfg
+#   set_fact:
+#     jdbc_url: "jdbc:db2://{{db2wh_instance_id | lower }}-{{cpd_meta_namespace}}.{{_cluster_subdomain.resources[0].spec.domain}}:{{db2wh_tls_nodeport}}/{{db2wh_dbname}}:sslConnection=true;"
+- name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
+  ansible.builtin.template:
+    src: suite_jdbccfg.yml
+    dest: "{{ mas_config_dir }}/jdbc-{{ cp4d_db2wh_instance_name | lower }}-{{ cpd_meta_namespace }}.yml"
+  vars:
+    cp4d_db_jdbc_url: "jdbc:db2://{{ cp4d_db_svc }}:{{ cp4d_db_ssl_port }}/BLUDB:sslConnection=true;"
