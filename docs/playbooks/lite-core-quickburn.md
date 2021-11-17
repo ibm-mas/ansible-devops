@@ -94,7 +94,3 @@ export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/lite-core-quickburn.yml
 ```
-
-
-## AirGap Support
-This sample playbook supports AirGap install of MAS itself, but not the dependency stack for MAS; everything else will be installed normally.  Refer to [The MAS playbook documentation](mas.md#airgap-install) for full details of how to enable AirGap mode.

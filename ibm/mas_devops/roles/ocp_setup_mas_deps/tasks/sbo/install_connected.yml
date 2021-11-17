@@ -5,13 +5,13 @@
 # Do not upgrade to SBO 0.9.0, there are breaking changes in the API that
 # are incompatible with MAS
 
-- name: Create SBO Subscription
+- name: "sbo/install_connected : Create SBO Subscription"
   community.kubernetes.k8s:
     template: templates/sbo/subscription.yml
     wait: yes
     wait_timeout: 120
 
-- name: Lookup SBO install plan
+- name: "sbo/install_connected : Lookup SBO install plan"
   community.kubernetes.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: InstallPlan
@@ -23,7 +23,7 @@
   delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
   until: sbo_installplan_info.resources | length > 0
 
-- name: Approve the install plan for SBO
+- name: "sbo/install_connected : Approve the install plan for SBO"
   when:
     - sbo_installplan_info.resources[0].status.phase != "Complete"
     - sbo_installplan_info.resources[0].spec.clusterServiceVersionNames[0] == "service-binding-operator.v0.8.0"
@@ -37,7 +37,7 @@
       spec:
         approved: true
 
-- name: Wait for SBO install to complete
+- name: "sbo/install_connected : Wait for SBO install to complete"
   when:
     - sbo_installplan_info.resources[0].status.phase != "Complete"
     - sbo_installplan_info.resources[0].spec.clusterServiceVersionNames[0] == "service-binding-operator.v0.8.0"
