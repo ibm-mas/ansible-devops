@@ -6,6 +6,9 @@
     msg:
       - "mas_instance_id ................. {{ mas_instance_id }}"
       - "mas_config_dir .................. {{ mas_config_dir }}"
+      - "mas_config_scope ................ {{ mas_config_scope }}"
+      - "mas_workspace_id ................ {{ mas_workspace_id }}"
+      - "mas_application_id .............. {{ mas_application_id }}"
       - "cpd_meta_namespace .............. {{ cpd_meta_namespace }}"
       - "cp4d_db2wh_instance_name ........ {{ cp4d_db2wh_instance_name }}"
       - "cp4d_meta_storage_size_gb ....... {{ cp4d_meta_storage_size_gb }}"
@@ -19,6 +22,15 @@
       - "cp4d_admin_password ............. {{ cp4d_admin_password }}"
       - "cp4d_db2_addon_version .......... {{ cp4d_db2_addon_version}}"
       - "db2w_table_org .................. {{ db2w_table_org }}"
+
+- name: Load variables to use in JDBCCfg
+  include_vars: "vars/{{ mas_config_scope }}.yml"
+
+- name: "Debug information 2"
+  debug:
+    msg:
+      - "suite_jdbccfg_name ................. {{ suite_jdbccfg_name }}"
+      - "suite_jdbccfg_labels ............... {{ suite_jdbccfg_labels }}"
 
 # 2. Set CP4D Route (cp4d_host) info from OpenShift into Facts
 # -----------------------------------------------------------------------------
@@ -144,9 +156,9 @@
 
 # 10. Create JDBCCfg yml definition
 # -----------------------------------------------------------------------------
-# - name: Set Facts for JDBCCfg
-#   set_fact:
-#     jdbc_url: "jdbc:db2://{{db2wh_instance_id | lower }}-{{cpd_meta_namespace}}.{{_cluster_subdomain.resources[0].spec.domain}}:{{db2wh_tls_nodeport}}/{{db2wh_dbname}}:sslConnection=true;"
+- name: Load variables to use in JDBCCfg
+  include_vars: "vars/{{ mas_config_scope }}.yml"
+
 - name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
   ansible.builtin.template:
     src: suite_jdbccfg.yml
