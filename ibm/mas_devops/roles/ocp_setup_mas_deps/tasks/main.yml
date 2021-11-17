@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 - name: "Create IBM catalogs"
   community.kubernetes.k8s:
-    definition: "{{ lookup('template', 'templates/ibm-catalogs.yaml') }}"
+    definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
 
 # 2. Install development (pre-release) catalogs
 # -----------------------------------------------------------------------------
@@ -37,24 +37,11 @@
   - (_cert_manager_deployed.resources | length) == 0
   - not airgap_install
 
-# This version references a downloaded resources yaml file with image references changed to digests
-- name: Deploy Cert Manager Airgap
-  shell: |
-    oc create namespace cert-manager
-    oc apply -f "{{ role_path }}/../ocp_setup_mas_deps/templates/certificate-manager-airgap/cert-manager.yaml"
-  when:
-  - (_cert_manager_deployed.resources | length) == 0
-  - airgap_install
-
 # 4. Install Service Binding Operator
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/sbo/install_connected.yml"
   when:
   - not airgap_install
-
-- include_tasks: "tasks/sbo/install_airgap.yml"
-  when:
-  - airgap_install
 
 
 # 5. Enable monitoring for user-defined projects
@@ -62,7 +49,7 @@
 # -----------------------------------------------------------------------------
 - name: Enable monitoring for user-defined projects
   community.kubernetes.k8s:
-    definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yaml') }}"
+    definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yml') }}"
     wait: yes
     wait_timeout: 120
 
