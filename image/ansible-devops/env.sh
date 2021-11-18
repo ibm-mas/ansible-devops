@@ -131,8 +131,12 @@ export MAS_WORKSPACE_ID=$(cat /workspace/settings/MAS_WORKSPACE_ID)
 # -------------------------
 export MAS_APP_CATALOG_SOURCE_IOT=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_IOT)
 export MAS_APP_CATALOG_SOURCE_MANAGE=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MANAGE)
+export MAS_APP_CATALOG_SOURCE_MONITOR=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MONITOR)
+export MAS_APP_CATALOG_SOURCE_SAFETY=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_SAFETY)
 export MAS_APP_CHANNEL_IOT=$(cat /workspace/settings/MAS_APP_CHANNEL_IOT)
 export MAS_APP_CHANNEL_MANAGE=$(cat /workspace/settings/MAS_APP_CHANNEL_MANAGE)
+export MAS_APP_CHANNEL_MONITOR=$(cat /workspace/settings/MAS_APP_CHANNEL_MONITOR)
+export MAS_APP_CHANNEL_SAFETY=$(cat /workspace/settings/MAS_APP_CHANNEL_SAFETY)
 
 # The following settings are provided as env vars per-task because they may
 # vary for different tasks in the same pipeline
