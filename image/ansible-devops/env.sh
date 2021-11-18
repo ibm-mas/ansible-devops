@@ -41,7 +41,6 @@ export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
 # -----------------------------------------------------------------------------
 # cp4d/install-db2=api.yml
 # -----------------------------------------------------------------------------
-export CPD_DB2WH_INSTANCE_NAME=$(cat /workspace/settings/CPD_DB2WH_INSTANCE_NAME)
 export CPD_META_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_META_STORAGE_SIZE_GB)
 export CPD_USER_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_USER_STORAGE_SIZE_GB)
 export CPD_BACKUP_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_BACKUP_STORAGE_SIZE_GB)
