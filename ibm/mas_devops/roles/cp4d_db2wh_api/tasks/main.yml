@@ -23,24 +23,18 @@
       - "cp4d_db2_addon_version .......... {{ cp4d_db2_addon_version}}"
       - "db2w_table_org .................. {{ db2w_table_org }}"
 
+# 1.1 Load variables to use in JDBCCfg
+# -----------------------------------------------------------------------------
 - name: Load variables to use in JDBCCfg
   include_vars: "vars/{{ mas_config_scope }}.yml"
-
-- name: "Debug information 2"
-  debug:
-    msg:
-      - "suite_jdbccfg_name ................. {{ suite_jdbccfg_name }}"
-      - "suite_jdbccfg_labels ............... {{ suite_jdbccfg_labels }}"
 
 # 2. Set CP4D Route (cp4d_host) info from OpenShift into Facts
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/get_cp4d_host.yml
-# - debug: var=cp4d_host
 
 # 3. Set CP4D Bearer Token (cp4d_bearer_token) into Facts
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/get_cp4d_bearer_token.yml
-# - debug: var=cp4d_bearer_token
 
 # 4. Create a DB2 database instance
 # -----------------------------------------------------------------------------
@@ -62,8 +56,6 @@
 # -----------------------------------------------------------------------------
 - name: Wait for DB creation to be completed for {{ cp4d_db2wh_instance_name }} and apply patch if needed
   block:
-    # - debug: var=create_db2_database_output
-    # Get the instance ID of new DB2 database
     - debug: var=create_db2_database_output.json.id
     - set_fact:
         db2_pod_name: "c-db2wh-{{ create_db2_database_output.json.id }}-db2u-0"
