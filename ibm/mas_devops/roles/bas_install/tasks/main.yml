@@ -1,17 +1,29 @@
 ---
 
+# # 1. Check for required facts
+# # -----------------------------------------------------------------------------
+# - name: "Fail if bas_password has not been provided"
+#   when: bas_password is not defined or bas_password == ""
+#   fail:
+#     msg: "bas_password property has not been set"
+
+# - name: "Fail if grafana_password has not been provided"
+#   when: grafana_password is not defined or grafana_password == ""
+#   fail:
+#     msg: "grafana_password property has not been set"
+
+
 # 1. Check for required facts
 # -----------------------------------------------------------------------------
-- name: "Fail if bas_password has not been provided"
+- name: "Generate bas_password if none has been provided"
   when: bas_password is not defined or bas_password == ""
-  fail:
-    msg: "bas_password property has not been set"
+  set_fact:
+    bas_password: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
 
-- name: "Fail if grafana_password has not been provided"
-  when: grafana_password is not defined or grafana_password == ""
-  fail:
-    msg: "grafana_password property has not been set"
-
+- name: "Generate bas_grafana_password if none has been provided"
+  when: bas_grafana_password is not defined or bas_grafana_password == ""
+  set_fact:
+    bas_grafana_password: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
 
 # 2. Provide Debug information
 # -----------------------------------------------------------------------------
