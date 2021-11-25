@@ -125,6 +125,11 @@ export TM_CATALOG_IMG=$(cat /workspace/settings/TM_CATALOG_IMG)
 # -----------------------------------------------------------------------------
 export MAS_WORKSPACE_ID=$(cat /workspace/settings/MAS_WORKSPACE_ID)
 
+# -----------------------------------------------------------------------------
+# mas/configure-app-manage.yml
+# -----------------------------------------------------------------------------
+export MANAGE_COMPONENTS=$(cat /workspace/settings/MANAGE_COMPONENTS)
+
 # -------------------------
 # Used in ClusterTask context
 # -------------------------
