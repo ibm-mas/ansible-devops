@@ -7,16 +7,16 @@ Role Variables
 --------------
 
 ###### Primary settings
-- `bas_namespace` Optional - Defines the targetted cluster namespace/project where BAS will be installed, a default "ibm-bas" namespace will be created if none provided.
-- `bas_persistent_storage` Required - Storage class where BAS will be installed - for IBM Cloud clusters, `ibmc-file-bronze-gid` can be used.
-- `bas_meta_storage_class`: Required - Storage class where BAS internal components such as Kafka service will be installed - for IBM Cloud, `ibmc-block-bronze` can be used.
-- `bas_username` Optional - BAS default username
-- `bas_password` Optional - BAS default password
-- `grafana_username` Optional - BAS default username for Grafana service.
-- `grafana_password` Optional - BAS default password for Grafana service.
-- `email` Optional - BAS default user's email
-- `firstName` Optional - BAS default user's first name
-- `lastName` Optional - BAS default user's last name
+- `bas_namespace` Optional - Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be 'ibm-bas'.
+- `bas_persistent_storage` Required - Storage class where BAS will be installed - for IBM Cloud clusters, `ibmc-file-bronze-gid` will be used by default.
+- `bas_meta_storage_class` Required - Storage class where BAS internal components such as Kafka service will be installed - for IBM Cloud, `ibmc-block-bronze` will be used by default.
+- `bas_username` Optional - BAS default username. If not provided, default username will be 'basuser'
+- `bas_password` Optional - BAS default password. If not provided, a random 15 character password will be generated
+- `bas_grafana_username` Optional - BAS default username for Grafana service. If not provided, default username will be 'basuser'
+- `bas_grafana_password` Optional - BAS default password for Grafana service. If not provided, a random 15 character password will be generated
+- `bas_contact.email` Required - BAS default user's email
+- `bas_contact.firstName` Required - BAS default user's first name
+- `bas_contact.lastName` Required - BAS default user's last name
 
 ###### MAS integration
 
@@ -32,18 +32,18 @@ Example Playbook
   vars:
     # BAS Configuration
     bas_namespace: "{{ lookup('env', 'BAS_NAMESPACE') | default('ibm-bas', true) }}"
-    bas_persistent_storage: "{{ lookup('env', 'BAS_PERSISTENT_STORAGE') | default('', true) }}"
-    bas_meta_storage_class: "{{ lookup('env', 'BAS_META_STORAGE') | default('', true) }}"
+    bas_persistent_storage: "ibmc-file-bronze-gid"
+    bas_meta_storage_class: "ibmc-block-bronze"
 
     bas_username: "{{ lookup('env', 'BAS_USERNAME') | default('basuser', true) }}"
-    bas_password: "{{ lookup('env', 'BAS_PASSWORD') | default('password', true) }}"
+    bas_password: "{{ lookup('env', 'BAS_PASSWORD') | default('', true) }}"
 
-    grafana_username: "{{ lookup('env', 'GRAFANA_USERNAME') | default('basuser', true) }}"
-    grafana_password: "{{ lookup('env', 'GRAFANA_PASSWORD') | default('password', true) }}"
-    contact:
-      email: "{{ lookup('env', 'BAS_CONTACT_MAIL') | default('john@mycompany.com', true) }}"
-      firstName: "{{ lookup('env', 'BAS_CONTACT_FIRSTNAME') | default('John', true) }}"
-      lastName: "{{ lookup('env', 'BAS_CONTACT_LASTNAME') | default('Barnes', true) }}"
+    bas_grafana_username: "{{ lookup('env', 'BAS_GRAFANA_USERNAME') | default('basuser', true) }}"
+    bas_grafana_password: "{{ lookup('env', 'BAS_GRAFANA_PASSWORD') | default('', true) }}"
+    bas_contact:
+      email: "{{ lookup('env', 'BAS_CONTACT_MAIL') | default('', true) }}"
+      firstName: "{{ lookup('env', 'BAS_CONTACT_FIRSTNAME') | default('', true) }}"
+      lastName: "{{ lookup('env', 'BAS_CONTACT_LASTNAME') | default('', true) }}"
 
     # MAS Configuration
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
