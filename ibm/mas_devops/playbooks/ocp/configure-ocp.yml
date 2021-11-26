@@ -10,8 +10,18 @@
     # These are used to set up image pull secret in the openshift-marketplace namespace
     artifactory_username: "{{ lookup('env', 'W3_USERNAME') | lower }}"
     artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
-    
+
+    sbo_channel: "{{ lookup('env', 'SBO_CHANNEL') | default('preview', true) }}"
+    sbo_startingcsv: "{{ lookup('env', 'SBO_STARTINGCSV') | default('service-binding-operator.v0.8.0', true) }}"
+    sbo_plan_approval: "{{ lookup('env', 'SBO_PLAN_APPROVAL') | default('Manual', true) }}"
+
+    # Settings to update openshift monitoring to define a specific storage class for Prometheus logs
+    prometheus_retention_period: "{{ lookup('env', 'PROMETHEUS_RETENTION_PERIOD') | default('15d', true) }}"
+    prometheus_storage_class: "{{ lookup('env', 'PROMETHEUS_STORAGECLASS_NAME') | default('ibmc-block-gold', true) }}"
+    prometheus_storage_size: "{{ lookup('env', 'PROMETHEUS_STORAGE_SIZE') | default('300Gi', true) }}"
+    prometheus_alertmgr_storage_class: "{{ lookup('env', 'PROMETHEUS_ALERTMGR_STORAGECLASS_NAME') | default('ibmc-file-gold-gid', true) }}"
+    prometheus_alertmgr_storage_size: "{{ lookup('env', 'PROMETHEUS_STORAGE_SIZE') | default('20Gi', true) }}"
+
     # --- OAuth settings ----------------------------------------------------------------------------------------
     # optionally you can provide information to setup github oauth in the cluster
     # oauth:
@@ -30,4 +40,4 @@
     #     - org2
   roles:
     - ibm.mas_devops.ocp_setup_mas_deps
-    # - ibm.mas_devops.ocp_setup_ocs
+    - ibm.mas_devops.ocp_setup_ocs

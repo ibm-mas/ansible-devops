@@ -16,24 +16,24 @@
     - airgap_install is not defined or not airgap_install
   include_tasks: "tasks/development-catalogs.yml"
 
-# 3. Install cert-manager
-# -----------------------------------------------------------------------------
-# - name: Check if Cert Manager is already installed
-#   community.kubernetes.k8s_info:
-#     api_version: v1
-#     name: cert-manager
-#     namespace: "cert-manager"
-#     kind: Deployment
-#   register: _cert_manager_deployed
+3. Install cert-manager
+-----------------------------------------------------------------------------
+- name: Check if Cert Manager is already installed
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: cert-manager
+    namespace: "cert-manager"
+    kind: Deployment
+  register: _cert_manager_deployed
 
-# # TODO: Version check existing installation, ensure at least 1.2 is installed
-# #       Fail if version < 1.2 is installed
+# TODO: Version check existing installation, ensure at least 1.2 is installed
+#       Fail if version < 1.2 is installed
 
-# - name: Deploy Cert Manager
-#   shell: |
-#     oc create namespace cert-manager
-#     oc apply -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml
-#   when: (_cert_manager_deployed.resources | length) == 0
+- name: Deploy Cert Manager
+  shell: |
+    oc create namespace cert-manager
+    oc apply -f https://github.com/jetstack/cert-manager/releases/download/v1.2.0/cert-manager.yaml
+  when: (_cert_manager_deployed.resources | length) == 0
 
 
 # 4. Install Service Binding Operator
@@ -90,16 +90,25 @@
     - sbo_installplan_info.resources[0].status.phase is defined
     - sbo_installplan_info.resources[0].status.phase == "Complete"
 
+# 5. Update openshift monitoring to define a specific storage class for Prometheus logs
+# -------------------------------------------------------------------------------------
+- name: Set storage class and retention period for Prometheus logs
+  when:
+    - prometheus_storage_class is defined and prometheus_storage_class != ""
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yaml') }}"
+    wait: yes
+    wait_timeout: 120
 
-# 5. Enable monitoring for user-defined projects
-# https://docs.openshift.com/container-platform/4.6/monitoring/enabling-monitoring-for-user-defined-projects.html
-# -----------------------------------------------------------------------------
-# - name: Enable monitoring for user-defined projects
-#   community.kubernetes.k8s:
-#     definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yaml') }}"
-#     wait: yes
-#     wait_timeout: 120
+# 6. Increase cluster image registry from defautl 100Gi to 400Gi (cp4d images consume lot of space)
+# -------------------------------------------------------------------------------------
+- name: "Increase cluster image registry"
+  when: cluster_type == "roks"
+  command: bash "{{ role_path }}"/files/configImgRegStorage.sh
+  register: result
 
+- name: Debug Image Registry Volume order request
+  debug: msg="{{ result }}"
 
-# 6. TODO: Install and configure grafana
+# 7. TODO: Install and configure grafana
 # See: https://github.com/ibm-watson-iot/iot-docs/tree/master/monitoring
