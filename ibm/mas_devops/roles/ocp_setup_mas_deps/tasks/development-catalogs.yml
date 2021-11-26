@@ -23,17 +23,27 @@
         .dockerconfigjson: "{{ content | join('') | string }}"
   register: result
 
-# 2. Patch the default service account in openshift-marketplace so that it is able to pull from Artifactory
-- name: "Patch default SA on openshift-marketplace"
+# 2. Crete the service accounts in openshift-marketplace so that it is able to pull from Artifactory
+- name: "Create service accounts on openshift-marketplace"
+  vars:
+    catalog_sa: "{{ item }}"
   community.kubernetes.k8s:
     definition:
       apiVersion: v1
       kind: ServiceAccount
       metadata:
-        name: default
+        name: "{{ item }}"
         namespace: openshift-marketplace
       imagePullSecrets:
         - name: wiotp-docker-local
+  with_items: 
+    - default
+    - ibm-mas-operators
+    - ibm-truststore-mgr-operators
+    - ibm-mas-manage-operators
+    - ibm-mas-iot-operators
+    - ibm-sls-operators
+    - ibm-data-dictionary-operators
 
 # 3. Install the catalog
 - name: "Create catalog"
