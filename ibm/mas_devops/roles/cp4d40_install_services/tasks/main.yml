@@ -8,9 +8,21 @@
       - "Storage class ................ {{ cpd_storage_class }}"
       - "CP4D services ................ {{ cpd_services }}"
 
-# 2. Install CP4D Services
+# 1. Load var files
 # -----------------------------------------------------------------------------
-- name: "Install Services Subscription"
+- name: Load variables
+  include_vars: "vars/defaults.yml"
+
+# - name: "wait : Check service subscription operators"
+#   vars:
+#     service_name: "{{ item }}"
+#   debug:
+#     msg: "{{ hostvars[inventory_hostname][item].alias }}Status"
+#   with_items: "{{ cpd_services }}"
+
+# 2. Install CP4D Services Subscriptions
+# -----------------------------------------------------------------------------
+- name: "Install CP4D Services Subscription"
   vars:
     service_name: "{{ item }}"
   community.kubernetes.k8s:
@@ -18,12 +30,11 @@
     definition: "{{ lookup('template', 'templates/{{ item }}/subscription.yml') }}"
   with_items: "{{ cpd_services }}"
 
-#TODO: Implement a smarter way to wait for the subscriptions before applying the Service CR
-- name: "Wait couple of minutes for subscriptions"
-  pause:
-    minutes: 1
+# 3. Wait for CP4D Services Subscriptions to be ready
+# -----------------------------------------------------------------------------
+- include_tasks: wait_for_subscriptions.yml
 
-# 2. Install CP4D Services
+# 4. Install CP4D Services CRs
 # -----------------------------------------------------------------------------
 - name: "Install Services CR"
   vars:
@@ -33,8 +44,6 @@
     definition: "{{ lookup('template', 'templates/{{ item }}/service.yml') }}"
   with_items: "{{ cpd_services }}"
 
-#TODO: Implement a smarter way to wait for the services CR to become ready
-# # 3. Wait for CP4D Services to be ready
-# # -----------------------------------------------------------------------------
-# - include_tasks: wait_for_services.yml
-
+# 5. Wait for CP4D Services to be ready
+# -----------------------------------------------------------------------------
+- include_tasks: wait_for_services.yml
