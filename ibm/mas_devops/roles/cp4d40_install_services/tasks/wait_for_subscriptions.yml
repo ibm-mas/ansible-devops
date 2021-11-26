@@ -12,7 +12,7 @@
         services_count: 0
         ready_services_count: 0
 
-    - name: "wait : Check service subscription operators"
+    - name: "wait : Lookup CPD Service Subscriptions operators"
       vars:
         service_name: "{{ item }}"
       community.kubernetes.k8s_info:
@@ -23,15 +23,15 @@
       register: cpd_services_lookup
       with_items: "{{ cpd_services }}"
 
-    - name: "wait : Check whether the cpd subscription operators are running"
+    - name: "wait : Check if CPD Service Subscriptions operators are running"
       set_fact:
         services_count: "{{ services_count|int + 1 }}"
         ready_services_count: "{{ ready_services_count|int + 1 if (item.resources[0].status.availableReplicas is defined and item.resources[0].status.availableReplicas == 1) else ready_services_count|int}}"
       with_items: "{{ cpd_services_lookup.results }}"
       loop_control:
-        label: "{{ item.resources[0].metadata.name }} operator available replicas = {{ item.resources[0].status.availableReplicas if (item.resources[0].status.availableReplicas is defined) else 0}}"
+        label: "{{ item.resources[0].metadata.name if (item.resources is defined) else 'Unknown' }} operator available replicas = {{ item.resources[0].status.availableReplicas if (item.resources[0].status.availableReplicas is defined) else 0}}"
 
-    - name: "wait : Fail if one or more cpd subscription operators are not ready"
+    - name: "wait : Fail if one or more CPD Service Subscriptions operators are not running"
       when: ready_services_count != services_count
       fail:
         msg: "[{{ retry_count }}/120] {{ ready_services_count }} of {{ services_count }} services are ready"
