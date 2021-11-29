@@ -18,19 +18,14 @@ spec:
         value: $(params.junit_suite_name)
 
   steps:
-    - args:
-        - |-
-          source /opt/app-root/src/env.sh
-          cp /workspace/entitlement/entitlement.lic /workspace/configs/entitlement.lic
-          trap 'python3 /opt/app-root/src/save-junit-to-mongo.py' exit
-          ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/sls/install-sls.yml
+    - name: install-sls
       command:
-        - /bin/bash
-        - '-c'
-      image: 'quay.io/ibmmas/ansible-devops:latest'
+        - /opt/app-root/src/run-playbook.sh
+        - -e
+        - mongodb_cfg_file=/workspace/configs/mongo-mongoce.yml
+        - /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/sls/install-sls.yml
+      image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
-      name: install-sls
-      resources: {}
       workingDir: /workspace/configs
 
   workspaces:
