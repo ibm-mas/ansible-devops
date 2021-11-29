@@ -24,7 +24,7 @@ oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
 ```
 
 ### Install and run sample pipeline
-First, make a copy of `samples/sample-pipelinesettings-roks.yaml` and set the real values as appropriate.  If you name it `samples/sample-pipelinesettings-roks-donotcommit.yaml` then it will already be in the gitignore file
+First, make a copy of `pipelines/samples/sample-pipelinesettings-roks.yaml` and set the real values as appropriate.  If you name it `pipelines/samples/sample-pipelinesettings-roks-donotcommit.yaml` then it will already be in the gitignore file
 
 ```bash
 oc new-project mas-sample-pipelines
@@ -33,6 +33,6 @@ oc apply -f pipelines/samples/sample-pipelinesettings-roks-donotcommit.yaml
 oc create secret generic pipeline-additional-configs --from-file=/home/david/masconfig/workspace_masdev.yaml
 oc create secret generic pipeline-sls-entitlement --from-file=/home/david/masconfig/entitlement.lic
 
-oc apply -f samples/sample-pipeline.yaml
-oc create -f samples/sample-pipelinerun.yaml
+oc apply -f pipelines/samples/sample-pipeline.yaml
+oc create -f pipelines/samples/sample-pipelinerun.yaml
 ```
