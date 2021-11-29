@@ -4,18 +4,24 @@ kind: ClusterTask
 metadata:
   name: mas-devops-install-mongodb-ce
 spec:
+  params:
+    - name: junit_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+
   stepTemplate:
     env:
       - name: MAS_CONFIG_DIR
         value: /workspace/configs
-      - name: LOGDIR
-        value: /workspace/logs
+      - name: JUNIT_SUITE_NAME
+        value: $(params.junit_suite_name)
 
   steps:
     - args:
         - |-
-          echo "$(date) Install MongoDb CE"
           source /opt/app-root/src/env.sh
+          trap 'python3 /opt/app-root/src/save-junit-to-mongo.py' exit
           ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/dependencies/install-mongodb-ce.yml
       command:
         - /bin/bash

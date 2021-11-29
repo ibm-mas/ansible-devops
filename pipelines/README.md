@@ -14,6 +14,7 @@ To learn more about Tekton refer to the excellent material here: https://redhat-
 - Install AMQStreams
 - Install MongoDb CE
 - Install IBM Suite License Service
+- Install Behavior Analytics Service
 
 ### MAS Management
 - Configure Application
@@ -49,9 +50,7 @@ oc apply -f ibm-mas_devops-clustertasks-4.1.5-pre.tekton.yaml
 # Install and run the MAS Sample Pipeline
 Modify the `samples/sample-pipelinesettings.yaml` file to populate it with your own settings before applying it to the cluster
 
-```
-
-
+```bash
 oc new-project mas-sample-pipelines
 oc apply -f samples/sample-pipelinesettings.yaml
 
@@ -61,7 +60,6 @@ oc create secret generic pipeline-additional-configs \
 
 oc create secret generic pipeline-sls-entitlement \
   --from-file=/home/david/masconfig/entitlement.lic
-
 
 oc apply -f samples/sample-pipeline.yaml
 oc create -f samples/sample-pipelinerun.yaml

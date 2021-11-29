@@ -4,18 +4,32 @@ kind: ClusterTask
 metadata:
   name: mas-devops-hack-manage-db2
 spec:
+  params:
+    - name: junit_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+    - name: db2wh_instance_id
+      type: string
+      description: name of the DB2 Warehouse instance created in CP4D
+    - name: load_from_config
+      type: string
+      description: when "true" indicates that DB2 Warehouse instance pod identification will be obtained from the config-map created by install-db2-api
   stepTemplate:
     env:
       - name: MAS_CONFIG_DIR
         value: /workspace/configs
-      - name: LOGDIR
-        value: /workspace/logs
-
+      - name: JUNIT_SUITE_NAME
+        value: $(params.junit_suite_name)
+      - name: CPD_DB2WH_INSTANCE_NAME
+        value: $(params.db2wh_instance_id)
+      - name: CPD_DB2WH_LOAD_FROM_CONFIG
+        value: $(params.load_from_config)
   steps:
     - args:
         - |-
-          echo "$(date) Prepare Db2Wh for Manage"
           source /opt/app-root/src/env.sh
+          trap 'python3 /opt/app-root/src/save-junit-to-mongo.py' exit
           ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/hack-manage-db2.yml
       command:
         - /bin/bash
