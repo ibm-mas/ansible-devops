@@ -71,8 +71,31 @@
       registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
       entitlement_file: "{{mas_config_dir}}/entitlement.lic"
 
+# 6. Install BAS
+# -----------------------------------------------------------------------------
+- name: Install BAS
+  import_playbook: bas/install-bas.yml
+  vars:
+    # BAS Configuration
+    bas_namespace: "{{ lookup('env', 'BAS_NAMESPACE') | default('ibm-bas', true) }}"
+    bas_persistent_storage: "ibmc-file-bronze-gid"
+    bas_meta_storage_class: "ibmc-block-bronze"
 
-# 6. Install & configure MAS
+    bas_username: "{{ lookup('env', 'BAS_USERNAME') | default('basuser', true) }}"
+    bas_password: "{{ lookup('env', 'BAS_PASSWORD') | default('', true) }}"
+
+    bas_grafana_username: "{{ lookup('env', 'BAS_GRAFANA_USERNAME') | default('basuser', true) }}"
+    bas_grafana_password: "{{ lookup('env', 'BAS_GRAFANA_PASSWORD') | default('', true) }}"
+    bas_contact:
+      email: "{{ lookup('env', 'BAS_CONTACT_MAIL') | default('', true) }}"
+      firstName: "{{ lookup('env', 'BAS_CONTACT_FIRSTNAME') | default('', true) }}"
+      lastName: "{{ lookup('env', 'BAS_CONTACT_LASTNAME') | default('', true) }}"
+
+    # MAS Configuration
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+# 7. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
@@ -80,7 +103,7 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 7. Install & Configure IoT application
+# 8. Install & Configure IoT application
 # -----------------------------------------------------------------------------
 - name: Install IoT
   import_playbook: mas/install-app.yml
