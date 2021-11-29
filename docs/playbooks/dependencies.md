@@ -8,7 +8,7 @@
 
 ### Optional environment variables
 - `KAFKA_NAMESPACE` overrides the Kubernetes namespace where the AMQ streams operator will be installed, this will default to `amq-streams`
-- `KAFKA_CLUSER_NAME` overrides the name Kafka cluster, this will default `maskafka`
+- `KAFKA_CLUSTER_NAME` overrides the name Kafka cluster, this will default `maskafka`
 - `KAFKA_CLUSTER_SIZE` provides a choice between a small and large cluster configuration, this will default to `small`
 - `KAFKA_USER_NAME` configures the user that will be created for MAS, will default to `masuser`
 
