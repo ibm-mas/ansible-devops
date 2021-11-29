@@ -13,8 +13,8 @@ This master playbook will drive the following playbooks in sequence:
     - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (60 minutes)
     - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack)
     - Install Cloud Object Storage (coming soon)
-    - Install BAS (coming soon)
     - [Install SLS](sls.md#install-sls) (10 minutes)
+    - [Install BAS](bas.md#install-bas) (35 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (20 minutes)
@@ -68,59 +68,6 @@ spec:
 
 You do not need to create a workspace called `masdev`, you can modify the workspace template above to suite your needs.
 
-### Create a BASCfg template
-At the moment the playbook does not install and configure BAS automatically, so you must pass in a configuration to an existing BAS installation, do this by creating a file named something like `$MAS_CONFIG_DIR/bascfg.yml` (the exact name does not matter, as long as the extension is `.yml` or `.yaml`) with the following content:
-
-```yaml
----
-apiVersion: v1
-kind: Secret
-type: opaque
-metadata:
-  name: bas-apikey
-  namespace: "mas-{{instance_id}}-core"
-stringData:
-  api_key: <enter your BAS API key here>
----
-apiVersion: config.mas.ibm.com/v1
-kind: BasCfg
-metadata:
-  name: "{{instance_id}}-bas-system"
-  namespace: "mas-{{instance_id}}-core"
-  labels:
-    mas.ibm.com/configScope: system
-    mas.ibm.com/instanceId: "{{instance_id}}"
-spec:
-  displayName: <enter a meaningful (to you) name for the BAS instance>
-  config:
-    url: <enter the URL for the BAS instance here>
-    contact:
-      email: <enter your email here>
-      firstName: <enter your first name>
-      lastName: <enter your last name>
-    credentials:
-      secretName: bas-apikey
-    segmentKey: <enter your BAS segment key>
-  certificates:
-    - alias: part1
-      crt: |
-        -----BEGIN CERTIFICATE-----
-        <enter certificate content for BAS>
-        -----END CERTIFICATE-----
-    - alias: part2
-      crt: |
-        -----BEGIN CERTIFICATE-----
-        <enter certificate content for BAS>
-        -----END CERTIFICATE-----
-```
-
-!!! tip
-    If you are unsure how to obtain the correct certifcates for BAS refer to [this topic in StackOverflow](https://stackoverflow.com/questions/7885785/using-openssl-to-get-the-certificate-from-a-server) that details how to use openssl to obtain the certificate chain from any server
-
-!!! note
-    We are working hard to get BAS installation and configuration automated, it's unfortunately taking longer than we would have hoped.  See [issue #11](https://github.com/ibm-mas/ansible-devops/issues/11) for updates.
-
-
 ## Required environment variables
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
 - `CLUSTER_NAME` The name to assign to the new ROKS cluster
@@ -129,6 +76,9 @@ spec:
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
+- `BAS_CONTACT_MAIL` Defines the email for person to contact for BAS
+- `BAS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
+- `BAS_CONTACT_LASTNAME` Defines the last name of the person to contact for BAS
 - `CPD_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/
 
 
@@ -139,6 +89,11 @@ spec:
 - `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
 - `KAFKA_CLUSTER_SIZE` to override the default configuration used (small)
 - `MONGODB_NAMESPACE` overrides the Kubernetes namespace where the MongoDb CE operator will be installed, this will default to `mongoce`
+- `BAS_USERNAME` BAS default username. If not provided, default username will be `basuser`
+- `BAS_PASSWORD` Defines the password for your BAS instance. If not provided, a random 15 character password will be generated
+- `BAS_GRAFANA_USERNAME` Defines the username for the BAS Graphana instance, default is `basuser`
+- `BAS_GRAFANA_PASSWORD` Defines the password for BAS Graphana dashboard. If not provided, a random 15 character password will be generated
+- `BAS_NAMESPACE` Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be `ibm-bas`
 - `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
 - `MAS_CHANNEL` to override the use of the `8.x` channel
 - `MAS_DOMAIN` to set a custom domain for the MAS installation
@@ -173,6 +128,11 @@ export MAS_CONFIG_DIR=~/masconfig
 # SLS configuration
 export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
+
+# BAS configuration
+export BAS_CONTACT_MAIL=xxx@xxx.com
+export BAS_CONTACT_FIRSTNAME=xxx
+export BAS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/fullstack-roks.yml
 ```
@@ -213,6 +173,11 @@ export MAS_CONFIG_DIR=~/masconfig
 # SLS configuration
 export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
+
+# BAS configuration
+export BAS_CONTACT_MAIL=xxx@xxx.com
+export BAS_CONTACT_FIRSTNAME=xxx
+export BAS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/fullstack-roks.yml
 ```
