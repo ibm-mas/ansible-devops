@@ -22,15 +22,15 @@
 # -----------------------------------------------------------------------------
 - name: "Generate bas_password if none has been provided"
   when: bas_password is not defined or bas_password == ""
-  no_log: true
   set_fact:
     bas_password: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
+  no_log: "{{ bas_password is defined }}"
 
 - name: "Generate bas_grafana_password if none has been provided"
   when: bas_grafana_password is not defined or bas_grafana_password == ""
-  no_log: true
   set_fact:
     bas_grafana_password: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
+  no_log: "{{ bas_grafana_password is defined }}"
 
 # 2. Provide Debug information
 # -----------------------------------------------------------------------------
@@ -101,7 +101,7 @@
       stringData:
         db_username: "{{ bas_username }}"
         db_password: "{{ bas_password }}"
-
+  no_log: "{{ bas_password is defined }}"
 
 # 6. Create Graphana User Secret
 # -----------------------------------------------------------------------------
@@ -117,6 +117,7 @@
       stringData:
         bas_grafana_username: "{{ bas_grafana_username }}"
         bas_grafana_password: "{{ bas_grafana_password }}"
+  no_log: "{{ bas_grafana_password is defined }}"
 
 
 # 7. Create BAS Full Deployment
@@ -169,7 +170,7 @@
 # 10. MAS Config
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/bascfg.yml
-  when: 
+  when:
     - mas_instance_id is defined
     - mas_instance_id != ""
     - mas_config_dir is defined
