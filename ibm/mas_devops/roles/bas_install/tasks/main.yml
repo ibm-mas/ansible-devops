@@ -1,17 +1,34 @@
 ---
 
-# 1. Check for required facts
+# Check for required facts
 # -----------------------------------------------------------------------------
-- name: "Fail if bas_password has not been provided"
+- name: "Fail if BAS email has not been provided"
+  when: bas_contact.email is not defined or bas_contact.email == ""
+  fail:
+    msg: "bas_contact.email property has not been set"
+
+- name: "Fail if BAS first name has not been provided"
+  when: bas_contact.firstName is not defined or bas_contact.firstName == ""
+  fail:
+    msg: "bas_contact.firstName property has not been set"
+
+- name: "Fail if BAS email has not been provided"
+  when: bas_contact.lastName is not defined or bas_contact.lastName == ""
+  fail:
+    msg: "bas_contact.lastName property has not been set"
+
+
+# 1. Generate BAS related passwords if none provided
+# -----------------------------------------------------------------------------
+- name: "Generate bas_password if none has been provided"
   when: bas_password is not defined or bas_password == ""
-  fail:
-    msg: "bas_password property has not been set"
+  set_fact:
+    bas_password: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
 
-- name: "Fail if grafana_password has not been provided"
-  when: grafana_password is not defined or grafana_password == ""
-  fail:
-    msg: "grafana_password property has not been set"
-
+- name: "Generate bas_grafana_password if none has been provided"
+  when: bas_grafana_password is not defined or bas_grafana_password == ""
+  set_fact:
+    bas_grafana_password: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
 
 # 2. Provide Debug information
 # -----------------------------------------------------------------------------
@@ -96,8 +113,8 @@
         name: grafana-credentials
         namespace: "{{ bas_namespace}}"
       stringData:
-        grafana_username: "{{ grafana_username }}"
-        grafana_password: "{{ grafana_password }}"
+        bas_grafana_username: "{{ bas_grafana_username }}"
+        bas_grafana_password: "{{ bas_grafana_password }}"
 
 
 # 7. Create BAS Full Deployment
@@ -121,7 +138,7 @@
     - bas_cr_result.resources[0].status is defined
     - bas_cr_result.resources[0].status.phase is defined
     - bas_cr_result.resources[0].status.phase == 'Ready'
-  retries: 40 # approx 30 minutes before we give up
+  retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
 
 - name: "Create BAS Generate Key"
@@ -151,3 +168,19 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/bascfg.yml
   when: mas_instance_id is defined
+
+# 11. BAS deployment details
+# -----------------------------------------------------------------------------
+- name: "BAS Deployment details"
+  debug:
+    msg:
+      - "BAS Namespace ...................... {{ bas_namespace }}"
+      - "BAS Endpoint Url ................... {{ bas_endpoint_url}}"
+      - "BAS API Key ........................ {{ bas_api_key }}"
+      - "BAS Username ....................... {{ bas_username }}"
+      - "BAS Password ....................... {{ bas_password }}"
+      - "BAS Grafana Username ............... {{ bas_grafana_username }}"
+      - "BAS Grafana Password ............... {{ bas_grafana_password }}"
+      - "BAS E-mail ......................... {{ bas_contact.email }}"
+      - "BAS First Name ..................... {{ bas_contact.firstName }}"
+      - "BAS Last Name ...................... {{ bas_contact.lastName }}"
