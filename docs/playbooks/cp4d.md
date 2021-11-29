@@ -64,6 +64,8 @@ It can be used to create DB2 Warehouse instances against the same Cloud Pak for 
 - `CPD_NAMESPACE` Provide the namespace where Cloud Pak for Data is installed. CP4D playbooks create it, by default, in `cpd-meta-ops`
 - `MAS_INSTANCE_ID` Provide the MAS instance ID that will be used in any generated MAS configuration files
 - `MAS_CONFIG` Provide the path of the folder where the JDBCCfg yaml containing the credentials of this database will be saved at the end of the process.
+- `MAS_WORKSPACE_ID` Id of the workspace that will bind the DB2W. Required only if `MAS_CONFIG_SCOPE` is `wsapp`
+- `MAS_APP_ID` Id of the application that will bind the DB2W. Required only if `MAS_CONFIG_SCOPE` is `wsapp`
 
 ### Optional Variables
 
@@ -79,6 +81,7 @@ In addition to the above, these are the optional variables you can set before ru
 - `CPD_ADMIN_PASSWORD` password of the user identified above. Default is `password`
 - `CPD_DB2WH_ADDON_VERSION` version of the DB2 Warehouse instance to be creared. Default is `11.5.5.1-cn3-x86_64`
 - `DB2WH_TABLE_ORG` the way database tables will be organized. It can be either `ROW` or `COLUMN`. Default is `ROW`
+- `MAS_CONFIG_SCOPE` indicates what scope the JDBCCfg instance will be named to be used later by configure-suite playbook. Possible valeus are `system` and `wsapp`. Default is `system`
 
 ### Usage
 
@@ -90,6 +93,19 @@ export CPD_NAMESPACE=cpd-meta
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG=/config
 export CPD_DB2WH_INSTANCE_NAME=db2w-iot
+
+ansible-playbook playbooks/cp4d/install-db2-api.yml
+```
+
+```bash
+export CPD_ENTITLEMENT_KEY=xxx
+export CPD_NAMESPACE=cpd-meta
+export MAS_INSTANCE_ID=inst1
+export MAS_CONFIG=/config
+export CPD_DB2WH_INSTANCE_NAME=db2w-manage
+export MAS_CONFIG_SCOPE=wsapp
+export MAS_WORKSPACE_ID=masdev
+export MAS_APP_ID=manage
 
 ansible-playbook playbooks/cp4d/install-db2-api.yml
 ```

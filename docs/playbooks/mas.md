@@ -137,6 +137,9 @@ Install a MAS (Gen2) application, supported applications:
 
 - Manage
 - Health
+- IoT
+- Monitor
+- Safety
 
 !!! note
     Today, this only supports deployment of a MAS application with default settings.
@@ -159,6 +162,9 @@ Configure a MAS (Gen2) application in a workspace, supported applications:
 
 - Manage
 - Health
+- IoT
+- Monitor
+- Safety
 
 !!! note
     Today, this only supports configuring a workspace with default settings.
@@ -178,8 +184,31 @@ ansible-playbook playbooks/mas/configure-app.yml
 
 
 ## Manage Db2 Hack
-This should should be part of the Manage operator, but is not so we have to do it as a seperate step in the install flow for now.  This will configure the Db2 database instance and create a new schema named `maximo` (the default schema name used by the Manage application).
+This should should be part of the Manage operator, but is not so we have to do it as a seperate step in the install flow for now.  This will configure the Db2 database instance and create a new schema named `maximo` (the default schema name used by the Manage application) as well as SQL instructions to prepare database for Manage installation.
+
+The parameters are all optional:
+
+- `CPD_NAMESPACE` namespace where Cloud Pak for Data is installed. Default is `cpd_meta_namespace`
+- `CPD_DB2WH_INSTANCE_NAME` name of the DB2 Warehouse instance created in CP4D. Default is `db2wh-db01` to be compatible with `install-db2` playbook
+- `CPD_DB2WH_LOAD_FROM_CONFIG` when `true`, it tells the playbook to obtain DB2 Warehouse instance from the internal config-map created by `install-db2-api` instead of using `CPD_DB2WH_INSTANCE_NAME`. This option must be used when `hack-manage-db2` is executed after `install-db2-api`. Default is `false`
+
+### Examples
 
 ```bash
+(...)
+
+ansible-playbook playbooks/cp4d/install-db2.yml
+
+ansible-playbook playbooks/mas/hack-manage-db2.yml
+```
+
+```bash
+(...)
+
+ansible-playbook playbooks/cp4d/install-db2-api.yml
+
+export CPD_DB2WH_INSTANCE_NAME=db2w-iot
+export CPD_DB2WH_LOAD_FROM_CONFIG=true
+
 ansible-playbook playbooks/mas/hack-manage-db2.yml
 ```
