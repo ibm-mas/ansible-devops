@@ -2,6 +2,7 @@
 # 1. Generate the configuration
 # -----------------------------------------------------------------------------
 - name: Obtain BAS Certificate
+  no_log: true
   k8s_info:
     api_version: v1
     kind: Route
@@ -10,6 +11,7 @@
   register: _bas_endpoint
 
 - name: Lookup bas-api-key
+  no_log: true
   k8s_info:
     api_version: v1
     kind: Secret
@@ -18,20 +20,13 @@
   register: _bas_apiKey_result
 
 - name: Lookup BAS segment key
+  no_log: true
   k8s_info:
     api_version: v1
     kind: Secret
     name: segment-key-secret
     namespace: "{{ bas_namespace }}"
   register: _bas_segmentKey_result
-
-- name: Lookup Certificate for BAS
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: router-ca
-    namespace: openshift-ingress-operator
-  register: _bas_certificates_result
 
 - name: "Get cluster subdomain"
   community.kubernetes.k8s_info:
@@ -49,6 +44,7 @@
     temp: "{{ _cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
 
 - name: Lookup Certificate for BAS
+  no_log: true
   k8s_info:
     api_version: v1
     kind: Secret
@@ -57,6 +53,7 @@
   register: _bas_certificates_result
 
 - name: Set facts for BASCfg
+  no_log: true
   set_fact:
     bas_segment_key: "{{_bas_segmentKey_result.resources[0].data.segmentkey | b64decode}}"
     bas_api_key: "{{_bas_apiKey_result.resources[0].data.apikey | b64decode }}"
@@ -66,6 +63,11 @@
 # 2. Write out the config to the local filesystem
 # -----------------------------------------------------------------------------
 - name: Copy BASCfg to filesytem
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   ansible.builtin.template:
     src: bascfg.yml.j2
     dest: "{{ mas_config_dir }}/bas-{{ bas_namespace }}.yml"
