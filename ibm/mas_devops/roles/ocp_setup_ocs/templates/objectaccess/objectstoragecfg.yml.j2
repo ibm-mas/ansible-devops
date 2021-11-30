@@ -1,0 +1,33 @@
+---
+# Object Sotrage credentials for MAS, Note this is just using dummy values, make sure to update it if you want run that for real
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: "dev-object-storage-credentials"
+  namespace: "mas-{{ instanceId }}-core"
+stringData:
+  username: "{{ cosusername }}"
+  password: "{{ cospassword }}"
+---
+apiVersion: config.mas.ibm.com/v1
+kind: ObjectStorageCfg
+metadata:
+  name: "{{ instanceId }}-object-storage-system"
+  namespace: "mas-{{ instanceId }}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{ instanceId }}"
+spec:
+  displayName: ObjectStorage Config
+  config:
+    url:  "{{ cosurl }}"
+    credentials:
+      secretName: dev-object-storage-credentials
+  certificates:
+    - alias: cospart1
+      crt: |
+        {{coscerts[0] | indent(8) }}
+    - alias: cospart2
+      crt: |
+        {{coscerts[1] | indent(8) }}
