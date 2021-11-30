@@ -1,11 +1,22 @@
 ---
 # The following playbook is an attempt to automate the CP4D 4.0 steps documented here: https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
-# Fail if no entitlement key is provided
+
+# Fail if no required keys are provided
 # -----------------------------------------------------------------------------
 - name: "Fail if cpd_registry_password has not been provided"
   when: cpd_registry_password is not defined or cpd_registry_password == ""
   fail:
     msg: "cpd_registry_password property has not been set"
+
+- name: "Fail if cpd_storage_class has not been provided"
+  when: cpd_storage_class is not defined or cpd_storage_class == ""
+  fail:
+    msg: "cpd_storage_class property has not been set"
+
+- name: "Fail if cpd_block_storage_class has not been provided"
+  when: cpd_block_storage_class is not defined or cpd_block_storage_class == ""
+  fail:
+    msg: "cpd_block_storage_class property has not been set"
 
 - name: "Debug information"
   debug:
@@ -14,6 +25,8 @@
       - "CPD username ................. {{ cpd_registry_user }}"
       - "CPD entitlement .............. *********************"
       - "Namespace .................... {{ cpd_meta_namespace }}"
+      - "CPD storage class ............ {{ cpd_storage_class }}"
+      - "CPD block storage class ...... {{ cpd_block_storage_class }}"
 
 # 1. Update cp4d entitlement key and cpd registry server in cluster's pull-secret
 
@@ -159,4 +172,4 @@
     msg:
       - "CP4D Dashboard ................. https://{{_zen_subscription.resources[0].status.url}}"
       - "CP4D Username .................. admin"
-      - "CP4D Password .................. {{ _cpd_admin.resources[0].data.initial_admin_password | b64decode}}"
+      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_meta_namespace }}' namespace"
