@@ -125,17 +125,33 @@ export TM_CATALOG_IMG=$(cat /workspace/settings/TM_CATALOG_IMG)
 # -----------------------------------------------------------------------------
 export MAS_WORKSPACE_ID=$(cat /workspace/settings/MAS_WORKSPACE_ID)
 
+# -----------------------------------------------------------------------------
+# mas/configure-app-manage.yml
+# -----------------------------------------------------------------------------
+export MANAGE_COMPONENTS=$(cat /workspace/settings/MANAGE_COMPONENTS)
+
 # -------------------------
 # Used in ClusterTask context
 # -------------------------
 export MAS_APP_CATALOG_SOURCE_IOT=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_IOT)
-export MAS_APP_CATALOG_SOURCE_MANAGE=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MANAGE)
 export MAS_APP_CATALOG_SOURCE_MONITOR=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MONITOR)
+export MAS_APP_CATALOG_SOURCE_MANAGE=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MANAGE)
+export MAS_APP_CATALOG_SOURCE_PREDICT=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_PREDICT)
+export MAS_APP_CATALOG_SOURCE_HPUTILITIES=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_HPUTILITIES)
+export MAS_APP_CATALOG_SOURCE_MVI=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MVI)
 export MAS_APP_CATALOG_SOURCE_SAFETY=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_SAFETY)
+export MAS_APP_CATALOG_SOURCE_ASSIST=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_ASSIST)
+export MAS_APP_CATALOG_SOURCE_MSO=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MSO)
+
 export MAS_APP_CHANNEL_IOT=$(cat /workspace/settings/MAS_APP_CHANNEL_IOT)
-export MAS_APP_CHANNEL_MANAGE=$(cat /workspace/settings/MAS_APP_CHANNEL_MANAGE)
 export MAS_APP_CHANNEL_MONITOR=$(cat /workspace/settings/MAS_APP_CHANNEL_MONITOR)
+export MAS_APP_CHANNEL_MANAGE=$(cat /workspace/settings/MAS_APP_CHANNEL_MANAGE)
+export MAS_APP_CHANNEL_PREDICT=$(cat /workspace/settings/MAS_APP_CHANNEL_PREDICT)
+export MAS_APP_CHANNEL_HPUTILITIES=$(cat /workspace/settings/MAS_APP_CHANNEL_HPUTILITIES)
+export MAS_APP_CHANNEL_MVI=$(cat /workspace/settings/MAS_APP_CHANNEL_MVI)
 export MAS_APP_CHANNEL_SAFETY=$(cat /workspace/settings/MAS_APP_CHANNEL_SAFETY)
+export MAS_APP_CHANNEL_ASSIST=$(cat /workspace/settings/MAS_APP_CHANNEL_ASSIST)
+export MAS_APP_CHANNEL_MSO=$(cat /workspace/settings/MAS_APP_CHANNEL_MSO)
 
 # The following settings are provided as env vars per-task because they may
 # vary for different tasks in the same pipeline
