@@ -1,7 +1,7 @@
 # SLS Playbooks
 
 ## Install sls
-Before you use this playbook you will likely want to edit the `mas_config_dir` variable to supply your own configurtation, instead of the sample data provided.
+Before you use this playbook you will likely want to edit the `mas_config_dir` variable to supply your own configuration, instead of the sample data provided.
 
 ### Required environment variables
 - `SLS_ENTITLEMENT_KEY` Provide your IBM entitlement key

@@ -24,11 +24,13 @@
   when: bas_password is not defined or bas_password == ""
   set_fact:
     bas_password: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
+  no_log: "{{ bas_password is defined }}"
 
 - name: "Generate bas_grafana_password if none has been provided"
   when: bas_grafana_password is not defined or bas_grafana_password == ""
   set_fact:
     bas_grafana_password: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
+  no_log: "{{ bas_grafana_password is defined }}"
 
 # 2. Provide Debug information
 # -----------------------------------------------------------------------------
@@ -99,11 +101,11 @@
       stringData:
         db_username: "{{ bas_username }}"
         db_password: "{{ bas_password }}"
-
+  no_log: "{{ bas_password is defined }}"
 
 # 6. Create Graphana User Secret
 # -----------------------------------------------------------------------------
-- name: Create Graphana User Secret
+- name: Create Grafana User Secret
   community.kubernetes.k8s:
     definition:
       apiVersion: v1
@@ -115,6 +117,7 @@
       stringData:
         bas_grafana_username: "{{ bas_grafana_username }}"
         bas_grafana_password: "{{ bas_grafana_password }}"
+  no_log: "{{ bas_grafana_password is defined }}"
 
 
 # 7. Create BAS Full Deployment
@@ -167,7 +170,11 @@
 # 10. MAS Config
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/bascfg.yml
-  when: mas_instance_id is defined
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
 
 # 11. BAS deployment details
 # -----------------------------------------------------------------------------
@@ -176,11 +183,9 @@
     msg:
       - "BAS Namespace ...................... {{ bas_namespace }}"
       - "BAS Endpoint Url ................... {{ bas_endpoint_url}}"
-      - "BAS API Key ........................ {{ bas_api_key }}"
-      - "BAS Username ....................... {{ bas_username }}"
-      - "BAS Password ....................... {{ bas_password }}"
-      - "BAS Grafana Username ............... {{ bas_grafana_username }}"
-      - "BAS Grafana Password ............... {{ bas_grafana_password }}"
+      - "BAS API Key ........................ Found in 'bas_api_key' secret under '{{ bas_namespace }}' namespace"
+      - "BAS Username/Password .............. Found in 'database-credentials' secret under '{{ bas_namespace }}' namespace"
+      - "BAS Grafana Username/Password ...... Found in 'grafana-credentials' secret under '{{ bas_namespace }}' namespace"
       - "BAS E-mail ......................... {{ bas_contact.email }}"
       - "BAS First Name ..................... {{ bas_contact.firstName }}"
       - "BAS Last Name ...................... {{ bas_contact.lastName }}"
