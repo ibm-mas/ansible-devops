@@ -13,10 +13,33 @@
   set_fact:
     ocsavailable: '{% if SCluster.resources[0].status.phase == "Ready" %}True{% else %}False{% endif %}'
 
+- name: "cp4d/wds: check if it's IBM managed OCP based on existing storage class"
+  when: not (ocsavailable is defined and ocsavailable) 
+  block:
+    - name: list all SC
+      community.kubernetes.k8s_info:
+        kind: StorageClass
+      register: sc
+    - name: find if there's ibmc-block-gold storage class
+      set_fact:
+        findibmcsc: true
+      with_items: "{{ sc.resources }}"
+      when: item.metadata.name is defined and item.metadata.name == 'ibmc-block-gold'
+    - name: "ocs/objectstorage :set cos info"
+      when: findibmcsc is defined and findibmcsc
+      set_fact:
+        cosurl: "https://s3.us.cloud-object-storage.appdomain.cloud"
+        cosusername: "ibmcloud-iam-apikey"
+        cospassword: "{{ lookup('env', 'ASSIST_COS_PASS') }}"
+  rescue:
+    - name: Fail as we didn't get the cos info or ASSIST_COS_PASS env var not set in non-ocs cluster.
+      fail:
+        msg: "we didn't get the cos info here or ASSIST_COS_PASS env var not set in non-ocs cluster."
+
 # 1. Create the object store
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore in OSC Cluster"
-  when: ocsavailable
+  when: ocsavailable is defined and ocsavailable
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/objectaccess/object.yaml') }}"
@@ -24,7 +47,7 @@
 # 2. Create the object User
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore User"
-  when: ocsavailable
+  when: ocsavailable is defined and ocsavailable
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/objectaccess/objectuser.yaml') }}"
@@ -32,7 +55,7 @@
 # 3. Set up the domain name for object storage route
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage :Get cluster subdomain"
-  when: ocsavailable
+  when: ocsavailable is defined and ocsavailable
   community.kubernetes.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
@@ -40,14 +63,14 @@
   register: _cluster_subdomain
 
 - name: "ocs/objectstorage :Configure domain"
-  when: ocsavailable
+  when: ocsavailable is defined and ocsavailable
   set_fact:
     cos_domain: "rgw-openshift-storage.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
 # 4. Create route for cos
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore route"
-  when: ocsavailable
+  when: ocsavailable is defined and ocsavailable
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/objectaccess/rgw.yaml') }}"
@@ -55,7 +78,7 @@
 ## 4. Query the object User crdential
 ## -----------------------------------------------------------------------------
 - name: "ocs/objectstorage :Lookup if cos user secret is there"
-  when: ocsavailable
+  when: ocsavailable is defined and ocsavailable
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Secret
@@ -66,7 +89,7 @@
 ## 5. Query the tls for object route
 ## -----------------------------------------------------------------------------
 - name: "ocs/objectstorage :Lookup cos route tls secret"
-  when: ocsavailable
+  when: ocsavailable is defined and ocsavailable
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Secret
@@ -74,10 +97,9 @@
     namespace: "openshift-ingress"
   register: objectrouteSecret
 
-
 - name: "ocs/objectstorage :Query cos secret based on existing secret/cm"
   when:  
-    - ocsavailable
+    - ocsavailable is defined and ocsavailable
     - objectuserSecret.resources| length != 0 
     - objectrouteSecret.resources| length != 0 
   set_fact:
@@ -87,19 +109,33 @@
     coscerts: "{{ objectrouteSecret.resources[0]['data']['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True)  }}"
 
 
-# 6. Provide debug information
+# 6. Provide debug information and create coscfg.yml
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Debug information"
-  debug:
-    msg:
-      - "cos url ........ {{ cosurl }}"
-      - "cos username/accesskey ......... {{ cosusername }}"
-      - "cos password/secretkey ......... {{ cospassword }}"
-      - "cos certificates chain ......... {{ coscerts }}"
-
-## 2. Write out the objectstorage config to the local filesystem for assist install
-## -----------------------------------------------------------------------------
-#- name: Copy objectstorageCfg to filesytem
-#  ansible.builtin.template:
-#    src: objectaccess/objectstoragecfg.yml.j2
-#    dest: "{{ mas_config_dir }}/objectstoragecfg.yml"
+  block:
+    - name: Get the Cos
+      debug:
+        msg:
+          - "cos url ........ {{ cosurl }}"
+          - "cos username/accesskey ......... {{ cosusername }}"
+          - "cos password/secretkey ......... {{ cospassword }}"
+    - name: Copy objectstorageCfg to filesytem
+      when: not ( findibmcsc is defined and findibmcsc )
+      vars:
+        mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+        instanceId: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+      ansible.builtin.template:
+        src: objectaccess/objectstoragecfg.yml.j2
+        dest: "{{ mas_config_dir }}/objectstoragecfg.yml"
+    - name: Copy objectstorageCfg to filesytem
+      when: findibmcsc is defined and findibmcsc 
+      vars:
+        mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+        instanceId: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+      ansible.builtin.template:
+        src: objectaccess/cloudobjectstoragecfg.yml.j2
+        dest: "{{ mas_config_dir }}/objectstoragecfg.yml"
+  rescue:
+    - name: Fail as we didn't get the cos info or ASSIST_COS_PASS not set in non-ocs cluster.
+      fail:
+        msg: "we didn't get the cos info here or ASSIST_COS_PASS not set in non-ocs cluster."
