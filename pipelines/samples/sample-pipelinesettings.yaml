@@ -1,4 +1,4 @@
-# Usage: oc apply -f sample-pipelinesettings.yaml -n <mynamespace>
+# Usage: oc apply -f fvt-pipelinesettings-roks.yaml -n <mynamespace>
 # Tip: use yj command line tool to modify this in automation
 ---
 apiVersion: v1
@@ -6,26 +6,69 @@ kind: Secret
 type: Opaque
 metadata:
   name: pipeline-settings
-  namespace: mas-sample-pipelines
+  namespace: "{{ pipelines_namespace }}"
 stringData:
-  # CloudPak for Data settings
-  CPD_ENTITLEMENT_KEY: ""
-  CPD_STORAGE_CLASS: ""
+  # ---------------------------------------------------------------------------
+  # Many values can be left set to "" to inherit a default, refer to
+  # the Ansible playbook documentation for more details
+  # ---------------------------------------------------------------------------
 
-  # AMQStreams (Kafka) settings
-  KAFKA_NAMESPACE: "amq-streams"
-  KAFKA_CLUSTER_NAME: "maskafka"
-  KAFKA_CLUSTER_SIZE: "small"
-  KAFKA_STORAGE_CLASS: "<REQUIRED: select a storage class>"
-  KAFKA_USER_NAME: "masuser"
+  # -------------------------
+  # ocp/configure-ocp.yml
+  # -------------------------
+  CLUSTER_NAME: ""
+  W3_USERNAME: ""
+  ARTIFACTORY_APIKEY: ""
+  IBMCLOUD_APIKEY: "<REQUIRED: enter your IBM Cloud api key here>"
 
-  # MongoDb settings
+  # -------------------------
+  # dependencies/install-mongodb-ce.yml
+  # -------------------------
+  MAS_INSTANCE_ID: "<REQUIRED: enter your MAS instance ID here>"
+  MAS_CONFIG_DIR: ""
+  MONGODB_STORAGE_CLASS: "<REQUIRED: enter a storage class>"
   MONGODB_NAMESPACE: ""
-  MONGODB_STORAGE_CLASS: "<REQUIRED: select a storage class>"
   MONGODB_STORAGE_CAPACITY_DATA: ""
   MONGODB_STORAGE_CAPACITY_LOGS: ""
 
-  # SLS settings
+  # -------------------------
+  # cp4d/install-cp4d.yml
+  # -------------------------
+  CPD_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
+  CPD_STORAGE_CLASS: "<REQUIRED: enter a storage class>"
+  CPD_NAMESPACE: ""
+
+  # -------------------------
+  # cp4d/install-db2-api.yml
+  # -------------------------
+  CPD_DB2WH_INSTANCE_NAME: ""
+  CPD_META_STORAGE_SIZE_GB: ""
+  CPD_USER_STORAGE_SIZE_GB: ""
+  CPD_BACKUP_STORAGE_SIZE_GB: ""
+  CPD_META_STORAGE_CLASS: ""
+  CPD_USER_STORAGE_CLASS: ""
+  CPD_BACKUP_STORAGE_CLASS: ""
+  CPD_ADMIN_USER: ""
+  CPD_ADMIN_PASSWORD: ""
+  CPD_DB2WH_ADDON_VERSION: ""
+  DB2WH_TABLE_ORG: ""
+
+  # -------------------------
+  # dependencies/install-amqstreams.yml
+  # -------------------------
+  KAFKA_STORAGE_CLASS: "<REQUIRED: enter a storage class>"
+  KAFKA_NAMESPACE: "amq-streams"
+  KAFKA_CLUSTER_NAME: "maskafka"
+  KAFKA_CLUSTER_SIZE: "small"
+  KAFKA_USER_NAME: "masuser"
+
+  # -------------------------
+  # sls/install-sls.yml
+  # -------------------------
+  SLS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
+  SLS_COMPLIANCE_ENFORCE: ""
+  SLS_LICENSE_ID: ""
+  SLS_STORAGE_CLASS: ""
   SLS_CATALOG_SOURCE: ""
   SLS_CHANNEL: ""
   SLS_NAMESPACE: ""
@@ -33,41 +76,36 @@ stringData:
   SLS_ICR_CPOPEN: ""
   SLS_INSTANCE_NAME: ""
   SLS_ENTITLEMENT_USERNAME: "cp"
-  SLS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
-  SLS_STORAGE_CLASS: "<REQUIRED: select a storage class>"
-  SLS_DOMAIN=: ""
-  SLS_AUTH_ENFORCE=: ""
-  SLS_COMPLIANCE_ENFORCE=: ""
-  SLS_REGISTRATION_OPEN=: ""
-  SLS_LICENSE_ID=: ""
-  SLS_REGISTRATION_KEY=: ""
+  SLS_DOMAIN: ""
+  SLS_AUTH_ENFORCE: ""
+  SLS_REGISTRATION_OPEN: ""
 
-  # BAS settings
+  # -------------------------
+  # bas/install-bas.yml
+  # -------------------------
   BAS_NAMESPACE: ""
-  BAS_PERSISTENT_STORAGE: "<REQUIRED: select a storage class>"
-  BAS_META_STORAGE: "<REQUIRED: select a storage class>"
+  BAS_PERSISTENT_STORAGE: ""
+  BAS_META_STORAGE: ""
   BAS_USERNAME: ""
   BAS_PASSWORD: ""
-  BAS_GRAFANA_USERNAME: ""
-  BAS_GRAFANA_PASSWORD: ""
-  BAS_CONTACT_MAIL: "<REQUIRED: enter a valid e-mail address>"
-  BAS_CONTACT_FIRSTNAME: "<REQUIRED: Contact's first name>"
-  BAS_CONTACT_LASTNAME: "<REQUIRED: Contact's last name>"
+  GRAFANA_USERNAME: ""
+  GRAFANA_PASSWORD: ""
+  BAS_CONTACT_MAIL: ""
+  BAS_CONTACT_FIRSTNAME: ""
+  BAS_CONTACT_LASTNAME: ""
 
-  # MAS settings
-  MAS_INSTANCE_ID: "<REQUIRED: enter your desired MAS instance ID here>"
-  MAS_ICR_CP: ""
-  MAS_ICR_CPOPEN: ""
-  MAS_ENTITLEMENT_USERNAME: "cp"
-  MAS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
-  MAS_CATALOG_SOURCE: ""
-  MAS_CHANNEL: ""
-  MAS_DOMAIN: ""
-
-  # MAS Settings - CIS Integration
+  # -------------------------
+  # mas/install-suite.yml
+  # -------------------------
   CIS_CRN: ""
   CIS_SUBDOMAIN: ""
-  IBMCLOUD_APIKEY: ""
+  MAS_DOMAIN: ""
+  MAS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
+  MAS_CATALOG_SOURCE: ""
+  MAS_CHANNEL: "8.x"
+  MAS_ICR_CP: ""
+  MAS_ICR_CPOPEN: ""
+  MAS_ENTITLEMENT_USERNAME: ""
   CIS_EMAIL: ""
   CIS_SKIP_DNS_ENTRIES: ""
   CIS_SKIP_CLUSTER_ISSUER: ""
@@ -76,7 +114,42 @@ stringData:
   MAS_CUSTOM_CLUSTER_ISSUER: ""
   CERTIFICATE_DURATION: ""
   CERTIFICATE_RENEW_BEFORE: ""
+  MAS_CATALOG_IMG: ""
+  TM_CATALOG_IMG: ""
 
-  # Credentials to access pre-release container images
-  W3_USERNAME: ""
-  ARTIFACTORY_APIKEY: ""
+  # -------------------------
+  # mas/install-app.yml
+  # -------------------------
+  
+  # -------------------------
+  # mas/configure-app.yml
+  # -------------------------
+  MAS_WORKSPACE_ID: "{{ mas_workspace_id }}"
+
+  # -------------------------
+  # mas/configure-app.yml
+  # -------------------------
+  MANAGE_COMPONENTS: "{{ manage_components }}"
+
+  # -------------------------
+  # Used in ClusterTask context
+  # -------------------------
+  MAS_APP_CATALOG_SOURCE_IOT: ""
+  MAS_APP_CATALOG_SOURCE_MONITOR: ""
+  MAS_APP_CATALOG_SOURCE_MANAGE: ""
+  MAS_APP_CATALOG_SOURCE_PREDICT: ""
+  MAS_APP_CATALOG_SOURCE_HPUTILITIES: ""
+  MAS_APP_CATALOG_SOURCE_MVI: ""
+  MAS_APP_CATALOG_SOURCE_SAFETY: ""
+  MAS_APP_CATALOG_SOURCE_ASSIST: ""
+  MAS_APP_CATALOG_SOURCE_MSO: ""
+
+  MAS_APP_CHANNEL_IOT: ""
+  MAS_APP_CHANNEL_MONITOR: ""
+  MAS_APP_CHANNEL_MANAGE: ""
+  MAS_APP_CHANNEL_PREDICT: ""
+  MAS_APP_CHANNEL_HPUTILITIES: ""
+  MAS_APP_CHANNEL_MVI: ""
+  MAS_APP_CHANNEL_SAFETY: ""
+  MAS_APP_CHANNEL_ASSIST: ""
+  MAS_APP_CHANNEL_MSO: ""
