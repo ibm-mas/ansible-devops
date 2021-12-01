@@ -18,7 +18,6 @@ export K8S_AUTH_API_KEY=$(cat /run/secrets/kubernetes.io/serviceaccount/token)
 # ocp/configure-ocp.yml
 # -----------------------------------------------------------------------------
 export IBMCLOUD_APIKEY=$(cat /workspace/settings/IBMCLOUD_APIKEY)
-export CLUSTER_TYPE=$(cat /workspace/settings/CLUSTER_TYPE)
 export CLUSTER_NAME=$(cat /workspace/settings/CLUSTER_NAME)
 export W3_USERNAME=$(cat /workspace/settings/W3_USERNAME)
 export ARTIFACTORY_APIKEY=$(cat /workspace/settings/ARTIFACTORY_APIKEY)
@@ -42,7 +41,6 @@ export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
 # -----------------------------------------------------------------------------
 # cp4d/install-db2=api.yml
 # -----------------------------------------------------------------------------
-export CPD_DB2WH_INSTANCE_NAME=$(cat /workspace/settings/CPD_DB2WH_INSTANCE_NAME)
 export CPD_META_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_META_STORAGE_SIZE_GB)
 export CPD_USER_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_USER_STORAGE_SIZE_GB)
 export CPD_BACKUP_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_BACKUP_STORAGE_SIZE_GB)
@@ -82,6 +80,20 @@ export SLS_REGISTRATION_OPEN=$(cat /workspace/settings/SLS_REGISTRATION_OPEN)
 export SLS_LICENSE_ID=$(cat /workspace/settings/SLS_LICENSE_ID)
 
 # -----------------------------------------------------------------------------
+# bas/install-bas.yaml
+# -----------------------------------------------------------------------------
+export BAS_NAMESPACE=$(cat /workspace/settings/BAS_NAMESPACE)
+export BAS_PERSISTENT_STORAGE=$(cat /workspace/settings/BAS_PERSISTENT_STORAGE)
+export BAS_META_STORAGE=$(cat /workspace/settings/BAS_META_STORAGE)
+export BAS_USERNAME=$(cat /workspace/settings/BAS_USERNAME)
+export BAS_PASSWORD=$(cat /workspace/settings/BAS_PASSWORD)
+export BAS_GRAFANA_USERNAME=$(cat /workspace/settings/BAS_GRAFANA_USERNAME)
+export BAS_GRAFANA_PASSWORD=$(cat /workspace/settings/BAS_GRAFANA_PASSWORD)
+export BAS_CONTACT_MAIL=$(cat /workspace/settings/BAS_CONTACT_MAIL)
+export BAS_CONTACT_FIRSTNAME=$(cat /workspace/settings/BAS_CONTACT_FIRSTNAME)
+export BAS_CONTACT_LASTNAME=$(cat /workspace/settings/BAS_CONTACT_LASTNAME)
+
+# -----------------------------------------------------------------------------
 # mas/install-suite.yml
 # -----------------------------------------------------------------------------
 export MAS_CATALOG_SOURCE=$(cat /workspace/settings/MAS_CATALOG_SOURCE)
@@ -107,15 +119,23 @@ export TM_CATALOG_IMG=$(cat /workspace/settings/TM_CATALOG_IMG)
 # -----------------------------------------------------------------------------
 # mas/install-app.yml
 # -----------------------------------------------------------------------------
-export MAS_APP_CATALOG_SOURCE_IOT=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_IOT)
-export MAS_APP_CATALOG_SOURCE_MANAGE=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MANAGE)
-export MAS_APP_CHANNEL_IOT=$(cat /workspace/settings/MAS_APP_CHANNEL_IOT)
-export MAS_APP_CHANNEL_MANAGE=$(cat /workspace/settings/MAS_APP_CHANNEL_MANAGE)
 
 # -----------------------------------------------------------------------------
 # mas/configure-app.yml
 # -----------------------------------------------------------------------------
 export MAS_WORKSPACE_ID=$(cat /workspace/settings/MAS_WORKSPACE_ID)
+
+# -------------------------
+# Used in ClusterTask context
+# -------------------------
+export MAS_APP_CATALOG_SOURCE_IOT=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_IOT)
+export MAS_APP_CATALOG_SOURCE_MANAGE=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MANAGE)
+export MAS_APP_CATALOG_SOURCE_MONITOR=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MONITOR)
+export MAS_APP_CATALOG_SOURCE_SAFETY=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_SAFETY)
+export MAS_APP_CHANNEL_IOT=$(cat /workspace/settings/MAS_APP_CHANNEL_IOT)
+export MAS_APP_CHANNEL_MANAGE=$(cat /workspace/settings/MAS_APP_CHANNEL_MANAGE)
+export MAS_APP_CHANNEL_MONITOR=$(cat /workspace/settings/MAS_APP_CHANNEL_MONITOR)
+export MAS_APP_CHANNEL_SAFETY=$(cat /workspace/settings/MAS_APP_CHANNEL_SAFETY)
 
 # The following settings are provided as env vars per-task because they may
 # vary for different tasks in the same pipeline

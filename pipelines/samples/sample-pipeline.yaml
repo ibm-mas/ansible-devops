@@ -93,9 +93,9 @@ spec:
 
     # 4. Install Db2Wh
     # -------------------------------------------------------------------------
-    - name: install-db2wh
+    - name: install-db2
       taskRef:
-        name: mas-devops-install-db2wh
+        name: mas-devops-install-db2
         kind: ClusterTask
       runAfter:
         - cfg-ocp
@@ -122,7 +122,21 @@ spec:
         - name: entitlement
           workspace: shared-entitlement
 
-    # 6. Install & configure IBM MAS
+    # 6. Install BAS
+    # -------------------------------------------------------------------------
+    - name: install-bas
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-install-bas
+      runAfter:
+        - cfg-ocp
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 7. Install & configure IBM MAS
     # -------------------------------------------------------------------------
     - name: install-suite
       taskRef:
@@ -130,6 +144,7 @@ spec:
         name: mas-devops-install-suite
       runAfter:
         - install-sls
+        - install-bas
       workspaces:
         - name: configs
           workspace: shared-configs
@@ -138,23 +153,23 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 7. Install IBM MAS Manage application
+    # 8. Install IBM MAS Manage application
     # -------------------------------------------------------------------------
-    # 7.0 Configure Db2 in MAS
+    # 8.0 Configure Db2 in MAS
     - name: cfg-suite-db2wh
       taskRef:
         kind: ClusterTask
         name: mas-devops-configure-suite
       runAfter:
         - install-suite
-        - install-db2wh
+        - install-db2
       workspaces:
         - name: configs
           workspace: shared-configs
         - name: settings
           workspace: shared-settings
 
-    # 7.1 Manage Install
+    # 8.1 Manage Install
     - name: install-manage
       params:
         - name: mas_app_id
@@ -164,25 +179,25 @@ spec:
         kind: ClusterTask
       runAfter:
         - install-suite
-        - install-db2wh
+        - install-db2
       workspaces:
         - name: settings
           workspace: shared-settings
 
-    # 7.2 Hack Db2 for manage
+    # 8.2 Hack Db2 for manage
     - name: hack-db2wh-for-manage
       taskRef:
         name: mas-devops-hack-manage-db2
         kind: ClusterTask
       runAfter:
-        - install-db2wh
+        - install-db2
       workspaces:
         - name: configs
           workspace: shared-configs
         - name: settings
           workspace: shared-settings
 
-    # 7.3 Configure Manage workspace
+    # 8.3 Configure Manage workspace
     - name: cfg-manage
       params:
         - name: mas_app_id
@@ -200,9 +215,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 8. Install IBM MAS IoT application
+    # 9. Install IBM MAS IoT application
     # -------------------------------------------------------------------------
-    # 8.0 Configure Kafka in MAS
+    # 9.0 Configure Kafka in MAS
     - name: cfg-suite-kafka
       taskRef:
         kind: ClusterTask
@@ -216,7 +231,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 8.1 Install IoT
+    # 9.1 Install IoT
     - name: install-iot
       params:
         - name: mas_app_id
@@ -232,7 +247,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 8.2 Configure IoT workspace
+    # 9.2 Configure IoT workspace
     - name: cfg-iot
       params:
         - name: mas_app_id
