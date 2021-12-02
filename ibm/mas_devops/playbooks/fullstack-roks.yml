@@ -2,102 +2,102 @@
 - hosts: localhost
   any_errors_fatal: true
 
-# 1. Deploy & configure the cluster
-# -----------------------------------------------------------------------------
-- name: Deploy ROKS cluster in IBM Cloud
-  import_playbook: ocp/provision-roks.yml
+# # 1. Deploy & configure the cluster
+# # -----------------------------------------------------------------------------
+# - name: Deploy ROKS cluster in IBM Cloud
+#   import_playbook: ocp/provision-roks.yml
 
-- name: Login & configure OCP cluster
-  import_playbook: ocp/configure-ocp.yml
-  vars:
-    cluster_type: roks
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
-
-
-# 2. Install MongoDb
-# -----------------------------------------------------------------------------
-- name: Install MongoDb (Community Edition)
-  import_playbook: dependencies/install-mongodb-ce.yml
-  vars:
-    mongodb_storage_class: ibmc-block-gold
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+# - name: Login & configure OCP cluster
+#   import_playbook: ocp/configure-ocp.yml
+#   vars:
+#     cluster_type: roks
+#     ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
 
 
-# 3. Install AMQ Streams
-# -----------------------------------------------------------------------------
-- name: Install AMQ Streams (Apache Kafka)
-  import_playbook: dependencies/install-amqstreams.yml
-  vars:
-    kafka_namespace: amq-streams
-    kafka_cluster_name: maskafka
-    kafka_cluster_size: "{{ lookup('env', 'KAFKA_CLUSTER_SIZE') | default('small', true) }}"
-    kafka_storage_class: ibmc-block-gold
-    kafka_user_name: masuser
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+# # 2. Install MongoDb
+# # -----------------------------------------------------------------------------
+# - name: Install MongoDb (Community Edition)
+#   import_playbook: dependencies/install-mongodb-ce.yml
+#   vars:
+#     mongodb_storage_class: ibmc-block-gold
+#     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 4. Install CP4D services
-# -----------------------------------------------------------------------------
-- name: Install CP4D services
-  import_playbook: cp4d/install-cp4d.yml
-  vars:
-    cpd_storage_class: ibmc-file-gold-gid
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+# # 3. Install AMQ Streams
+# # -----------------------------------------------------------------------------
+# - name: Install AMQ Streams (Apache Kafka)
+#   import_playbook: dependencies/install-amqstreams.yml
+#   vars:
+#     kafka_namespace: amq-streams
+#     kafka_cluster_name: maskafka
+#     kafka_cluster_size: "{{ lookup('env', 'KAFKA_CLUSTER_SIZE') | default('small', true) }}"
+#     kafka_storage_class: ibmc-block-gold
+#     kafka_user_name: masuser
+#     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
-# 6. Install DB2 Warehouse instance in CP4D for Manage
-# -----------------------------------------------------------------------------
-- name: Install DB2 Warehouse instance in CP4D for Manage
-  import_playbook: cp4d/install-db2-api.yml
-  vars:
-    cp4d_db2wh_instance_name: db2w-manage
-    mas_config_scope: wsapp
-    mas_application_id: manage
 
-# 7. Install SLS
-# -----------------------------------------------------------------------------
-- name: Install SLS
-  import_playbook: sls/install-sls.yml
-  vars:
-    sls_storage_class: ibmc-file-gold-gid
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+# # 4. Install CP4D services
+# # -----------------------------------------------------------------------------
+# - name: Install CP4D services
+#   import_playbook: cp4d/install-cp4d.yml
+#   vars:
+#     cpd_storage_class: ibmc-file-gold-gid
+#     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
-    # Default to re-using the MAS entitlement key if we do not provide a specific one for SLS
-    sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
-    sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') | default(lookup('env', 'IBM_ENTITLEMENT_KEY'), true) }}"
+# # 6. Install DB2 Warehouse instance in CP4D for Manage
+# # -----------------------------------------------------------------------------
+# - name: Install DB2 Warehouse instance in CP4D for Manage
+#   import_playbook: cp4d/install-db2-api.yml
+#   vars:
+#     cp4d_db2wh_instance_name: db2w-manage
+#     mas_config_scope: wsapp
+#     mas_application_id: manage
 
-    # Use the generated mongodb configuration
-    mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
-    mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+# # 7. Install SLS
+# # -----------------------------------------------------------------------------
+# - name: Install SLS
+#   import_playbook: sls/install-sls.yml
+#   vars:
+#     sls_storage_class: ibmc-file-gold-gid
+#     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
-    # Bootstrap from the mas_config_dir
-    bootstrap:
-      license_id: "{{ lookup('env', 'SLS_LICENSE_ID') | default('', true) }}"
-      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
-      entitlement_file: "{{mas_config_dir}}/entitlement.lic"
+#     # Default to re-using the MAS entitlement key if we do not provide a specific one for SLS
+#     sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
+#     sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') | default(lookup('env', 'IBM_ENTITLEMENT_KEY'), true) }}"
 
-# 8. Install BAS
-# -----------------------------------------------------------------------------
-- name: Install BAS
-  import_playbook: bas/install-bas.yml
-  vars:
-    # BAS Configuration
-    bas_namespace: "{{ lookup('env', 'BAS_NAMESPACE') | default('ibm-bas', true) }}"
-    bas_persistent_storage: "ibmc-file-bronze-gid"
-    bas_meta_storage_class: "ibmc-block-bronze"
+#     # Use the generated mongodb configuration
+#     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
+#     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
-    bas_username: "{{ lookup('env', 'BAS_USERNAME') | default('basuser', true) }}"
-    bas_password: "{{ lookup('env', 'BAS_PASSWORD') | default('', true) }}"
+#     # Bootstrap from the mas_config_dir
+#     bootstrap:
+#       license_id: "{{ lookup('env', 'SLS_LICENSE_ID') | default('', true) }}"
+#       registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
+#       entitlement_file: "{{mas_config_dir}}/entitlement.lic"
 
-    bas_grafana_username: "{{ lookup('env', 'BAS_GRAFANA_USERNAME') | default('basuser', true) }}"
-    bas_grafana_password: "{{ lookup('env', 'BAS_GRAFANA_PASSWORD') | default('', true) }}"
-    bas_contact:
-      email: "{{ lookup('env', 'BAS_CONTACT_MAIL') | default('', true) }}"
-      firstName: "{{ lookup('env', 'BAS_CONTACT_FIRSTNAME') | default('', true) }}"
-      lastName: "{{ lookup('env', 'BAS_CONTACT_LASTNAME') | default('', true) }}"
+# # 8. Install BAS
+# # -----------------------------------------------------------------------------
+# - name: Install BAS
+#   import_playbook: bas/install-bas.yml
+#   vars:
+#     # BAS Configuration
+#     bas_namespace: "{{ lookup('env', 'BAS_NAMESPACE') | default('ibm-bas', true) }}"
+#     bas_persistent_storage: "ibmc-file-bronze-gid"
+#     bas_meta_storage_class: "ibmc-block-bronze"
 
-    # MAS Configuration
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+#     bas_username: "{{ lookup('env', 'BAS_USERNAME') | default('basuser', true) }}"
+#     bas_password: "{{ lookup('env', 'BAS_PASSWORD') | default('', true) }}"
+
+#     bas_grafana_username: "{{ lookup('env', 'BAS_GRAFANA_USERNAME') | default('basuser', true) }}"
+#     bas_grafana_password: "{{ lookup('env', 'BAS_GRAFANA_PASSWORD') | default('', true) }}"
+#     bas_contact:
+#       email: "{{ lookup('env', 'BAS_CONTACT_MAIL') | default('', true) }}"
+#       firstName: "{{ lookup('env', 'BAS_CONTACT_FIRSTNAME') | default('', true) }}"
+#       lastName: "{{ lookup('env', 'BAS_CONTACT_LASTNAME') | default('', true) }}"
+
+#     # MAS Configuration
+#     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+#     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 # 9. Install & configure MAS
 # Temporary hack for Manage, because the operator is missing critical
@@ -105,7 +105,7 @@
 - name: Db2 configuration hack for Manage
   import_playbook: mas/hack-manage-db2.yml
   vars:
-    cpd_meta_namespace: "{{ lookup('env', 'CPD_NAMESPACE') }}"
+    db2wh_instance_id: db2w-manage
     load_from_config: "true"
 
 # 10. Install & configure MAS
