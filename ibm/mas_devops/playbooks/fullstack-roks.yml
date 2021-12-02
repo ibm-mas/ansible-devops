@@ -65,19 +65,9 @@
     sls_storage_class: ibmc-file-gold-gid
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
-    # Default to re-using the MAS entitlement key if we do not provide a specific one for SLS
-    sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
-    sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') | default(lookup('env', 'IBM_ENTITLEMENT_KEY'), true) }}"
-
     # Use the generated mongodb configuration
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
-
-    # Bootstrap from the mas_config_dir
-    bootstrap:
-      license_id: "{{ lookup('env', 'SLS_LICENSE_ID') | default('', true) }}"
-      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
-      entitlement_file: "{{mas_config_dir}}/entitlement.lic"
 
 
 # 8. Install BAS
@@ -85,24 +75,8 @@
 - name: Install BAS
   import_playbook: bas/install-bas.yml
   vars:
-    # BAS Configuration
-    bas_namespace: "{{ lookup('env', 'BAS_NAMESPACE') | default('ibm-bas', true) }}"
     bas_persistent_storage: "ibmc-file-bronze-gid"
     bas_meta_storage_class: "ibmc-block-bronze"
-
-    bas_username: "{{ lookup('env', 'BAS_USERNAME') | default('basuser', true) }}"
-    bas_password: "{{ lookup('env', 'BAS_PASSWORD') | default('', true) }}"
-
-    bas_grafana_username: "{{ lookup('env', 'BAS_GRAFANA_USERNAME') | default('basuser', true) }}"
-    bas_grafana_password: "{{ lookup('env', 'BAS_GRAFANA_PASSWORD') | default('', true) }}"
-    bas_contact:
-      email: "{{ lookup('env', 'BAS_CONTACT_MAIL') | default('', true) }}"
-      firstName: "{{ lookup('env', 'BAS_CONTACT_FIRSTNAME') | default('', true) }}"
-      lastName: "{{ lookup('env', 'BAS_CONTACT_LASTNAME') | default('', true) }}"
-
-    # MAS Configuration
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
 # 9. Install & configure MAS
