@@ -1,0 +1,179 @@
+---
+# The following playbook is an attempt to automate the CP4D 4.0 steps documented here: https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
+# Load var files
+# -----------------------------------------------------------------------------
+- name: Load variables
+  include_vars: "defaults/cpd40/main.yml"
+
+# Fail if no required keys are provided
+# -----------------------------------------------------------------------------
+- name: "Fail if cpd_registry_password has not been provided"
+  when: cpd_registry_password is not defined or cpd_registry_password == ""
+  fail:
+    msg: "cpd_registry_password property has not been set"
+
+- name: "Fail if cpd_storage_class has not been provided"
+  when: cpd_storage_class is not defined or cpd_storage_class == ""
+  fail:
+    msg: "cpd_storage_class property has not been set"
+
+- name: "Fail if cpd_block_storage_class has not been provided"
+  when: cpd_block_storage_class is not defined or cpd_block_storage_class == ""
+  fail:
+    msg: "cpd_block_storage_class property has not been set"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "CPD registry ................. {{ cpd_registry }}"
+      - "CPD username ................. {{ cpd_registry_user }}"
+      - "CPD entitlement .............. *********************"
+      - "CPD namespace ................ {{ cpd_meta_namespace }}"
+      - "CPD storage class ............ {{ cpd_storage_class }}"
+      - "CPD block storage class ...... {{ cpd_block_storage_class }}"
+
+# 1. Update cp4d entitlement key and cpd registry server in cluster's pull-secret
+
+- include_tasks: "{{ role_path }}/tasks/cpd40/generate_pullsecret.yml"
+
+# 2. Need to reload the cluster worker nodes after changes to pull-secret as per https://cloud.ibm.com/docs/openshift?topic=openshift-registry#cluster_global_pull_secret
+
+- name: "roks : Get worker nodes"
+  shell: |
+    ibmcloud oc worker ls -c {{ cluster_name }} -q | awk '{print $1}'
+  register: cluster_lookup
+  failed_when: "cluster_lookup.rc > 1"
+
+- name: "roks : Reload nodes"
+  vars:
+    workers: "{{ item }}"
+  when:
+    item | length > 0
+  shell: |
+    ibmcloud oc worker reload -c {{ cluster_name }} -w {{ item }} -f
+  with_items: "{{ cluster_lookup.stdout_lines }}"
+
+- name: "roks: Worker nodes beginning reload process..."
+  shell: |
+    ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
+  register: roks_cluster_completion
+  until:
+    - roks_cluster_completion.rc == 0
+    - (roks_cluster_completion.stdout | from_json).state == 'pending'
+  retries: 5
+  delay: 60
+
+- name: "roks : Wait until the Roks worker nodes are back"
+  shell: |
+    ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
+  register: roks_cluster_completion
+  until:
+    - roks_cluster_completion.rc == 0
+    - (roks_cluster_completion.stdout | from_json).state == 'normal'
+  retries: 60
+  delay: 60
+  
+# 3. Setup namespace for CP4D
+# -----------------------------------------------------------------------------
+- name: "Create CPD 4.0 Namespace"
+  vars:
+    namespace: "{{ cpd_meta_namespace }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd40/namespace.yaml') }}"
+  register: _cpd_meta_namespace_result
+
+# 4. Install CP4D operator
+# -----------------------------------------------------------------------------
+- name: "Install CPD 4.0 Subscription"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd40/subscription-cpd-operator.yaml') }}"
+  register: _cpd_subscription_result
+
+- name: "Wait for cpd-platform-operator-manager to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: cpd-platform-operator-manager
+    namespace: "{{ cpd_meta_namespace }}"
+    kind: Deployment
+  register: _cpd_subscription
+  until: _cpd_subscription.resources[0].status.availableReplicas is defined
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Wait for operand-deployment-lifecycle-manager to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: "{{ cpd_meta_namespace }}"
+    kind: Deployment
+  register: _operand_subscription
+  until: _operand_subscription.resources[0].status.availableReplicas is defined
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+# 5. Install CP4D
+# -----------------------------------------------------------------------------
+- name: "Apply CloudPak for Data 4.0 - Operand Request"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd40/operand.yaml') }}"
+  register: _cpd_operand_result
+
+- name: "Apply CloudPak for Data 4.0 CR"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd40/ibmcpd.yaml') }}"
+  register: _cpd_ibmcdp_result
+
+- name: "Wait for ibm-zen-operator to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: ibm-zen-operator
+    namespace: "{{ cpd_meta_namespace }}"
+    kind: Deployment
+  register: _zen_deployment
+  until: _zen_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+## TODO: Noticed a problem in this step where some cp4d certificates like zen-ca certificate are requested twice, need to manually delete one so the installation proceeds
+- name: "Wait for ibmcpd CPD 4.0 to be Completed"
+  community.kubernetes.k8s_info:
+    api_version: cpd.ibm.com/v1
+    name: ibmcpd-cr
+    namespace: "{{ cpd_meta_namespace }}"
+    kind: Ibmcpd
+  register: _ibmcpd_subscription
+  until: _ibmcpd_subscription.resources[0].status.controlPlaneStatus == "Completed"
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Wait for ZenService CPD 4.0 to be Completed"
+  community.kubernetes.k8s_info:
+    api_version: zen.cpd.ibm.com/v1
+    name: lite-cr
+    namespace: "{{ cpd_meta_namespace }}"
+    kind: ZenService
+  register: _zen_subscription
+  until: _zen_subscription.resources[0].status.zenStatus == "Completed"
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+# 6. Provide CP4D dashboard URL
+# -----------------------------------------------------------------------------
+- name: "Retrieve admin credentials"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: admin-user-details
+    namespace: "{{ cpd_meta_namespace }}"
+    kind: Secret
+  register: _cpd_admin
+
+- name: "Obtain CP4D dashboard URL"
+  debug:
+    msg:
+      - "CP4D Dashboard ................. https://{{_zen_subscription.resources[0].status.url}}"
+      - "CP4D Username .................. admin"
+      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_meta_namespace }}' namespace"

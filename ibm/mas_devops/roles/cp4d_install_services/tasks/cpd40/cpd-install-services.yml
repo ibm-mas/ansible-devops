@@ -1,0 +1,81 @@
+---
+# Fail if no required keys are provided
+# -----------------------------------------------------------------------------
+- name: "Fail if cpd_registry_password has not been provided"
+  when: cpd_registry_password is not defined or cpd_registry_password == ""
+  fail:
+    msg: "cpd_registry_password property has not been set"
+
+- name: "Fail if cpd_storage_class has not been provided"
+  when: cpd_storage_class is not defined or cpd_storage_class == ""
+  fail:
+    msg: "cpd_storage_class property has not been set"
+
+- name: "Fail if cpd_block_storage_class has not been provided"
+  vars:
+    service_name: "{{ item }}"
+  when: item == "wd" and (cpd_block_storage_class is not defined or cpd_block_storage_class == "")
+  fail:
+    msg: "cpd_block_storage_class property has not been set but it is required to install IBM Watson Discovery"
+  with_items: "{{ cpd_services }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "CPD registry .................... {{ cpd_registry }}"
+      - "CPD username .................... {{ cpd_registry_user }}"
+      - "CPD entitlement ................. *********************"
+      - "CPD Namespace ................... {{ cpd_meta_namespace }}"
+      - "CPD storage class ............... {{ cpd_storage_class }}"
+      - "CPD block storage class ......... {{ cpd_block_storage_class }}"
+      - "CPD services to be installed .... {{ cpd_services }}"
+
+# 1. Load var files
+# -----------------------------------------------------------------------------
+- name: Load variables
+  include_vars: "defaults/cpd40/main.yml"
+
+# 2. Install CP4D Services Subscriptions
+# -----------------------------------------------------------------------------
+- name: "Install CP4D Services Subscription"
+  vars:
+    service_name: "{{ item }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd40/{{ item }}/subscription.yml') }}"
+  with_items: "{{ cpd_services }}"
+
+# 3. Wait for CP4D Services Subscriptions to be ready
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd40/wait_for_subscriptions.yml"
+
+# 4. Install CP4D Services CRs
+# -----------------------------------------------------------------------------
+- name: "Install Services CR"
+  vars:
+    service_name: "{{ item }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd40/{{ item }}/service.yml') }}"
+  with_items: "{{ cpd_services }}"
+
+# 5. Wait for CP4D Services to be ready
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd40/wait_for_services.yml"
+
+# 6. Provide CP4D dashboard URL
+# -----------------------------------------------------------------------------
+- name: "Lookup CP4D dashboard URL"
+  community.kubernetes.k8s_info:
+    api_version: route.openshift.io/v1
+    name: cpd
+    namespace: "{{cpd_meta_namespace}}"
+    kind: Route
+  register: _cpd_route
+
+- name: "Obtain CP4D dashboard URL"
+  debug:
+    msg:
+      - "CP4D Dashboard ................. https://{{_cpd_route.resources[0].spec.host}}"
+      - "CP4D Username .................. admin"
+      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_meta_namespace }}' namespace"
