@@ -6,15 +6,15 @@ This master playbook will drive the following playbooks in sequence:
 - Install dependencies:
     - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (15 minutes)
     - [Install Kafka (AMQ Streams)](dependencies.md#install-amq-streams) (10 minutes)
+    - [Install SLS](sls.md#install-sls) (10 minutes)
+    - [Install BAS](bas.md#install-bas) (35 minutes)
     - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
-    - Install Cloud Pak for Data Services
+    - Install Cloud Pak for Data Services:
         - [Db2 Warehouse](cp4d.md#db2-install) with [Db2 Management Console](cp4d.md#db2-install) (1-2 hours)
         - [Watson Studio](cp4d.md#watson-studio-install) with [Apache Spark](cp4d.md#watson-studio-install), [Watson Machine Learning](cp4d.md#watson-studio-install), & [Watson AI OpenScale](cp4d.md#watson-studio-install) (4-5 hours)
     - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (60 minutes)
     - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack)
     - Install Cloud Object Storage (coming soon)
-    - [Install SLS](sls.md#install-sls) (10 minutes)
-    - [Install BAS](bas.md#install-bas) (35 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (20 minutes)
@@ -116,9 +116,6 @@ export CLUSTER_NAME=xxx
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
 
-# Kafka configuration
-export KAFKA_CLUSTER_SIZE=large
-
 # MAS configuration
 export MAS_INSTANCE_ID=xxx
 export MAS_ENTITLEMENT_KEY=xxx
@@ -150,9 +147,6 @@ export CLUSTER_NAME=xxx
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
-
-# Kafka configuration
-export KAFKA_CLUSTER_SIZE=small
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
