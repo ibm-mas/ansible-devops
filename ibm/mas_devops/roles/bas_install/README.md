@@ -8,7 +8,7 @@ Role Variables
 
 ###### Primary settings
 - `bas_namespace` Optional - Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be 'ibm-bas'.
-- `bas_persistent_storage` Required - Storage class where BAS will be installed - for IBM Cloud clusters, `ibmc-file-bronze-gid` will be used by default.
+- `bas_persistent_storage_class` Required - Storage class where BAS will be installed - for IBM Cloud clusters, `ibmc-file-bronze-gid` will be used by default.
 - `bas_meta_storage_class` Required - Storage class where BAS internal components such as Kafka service will be installed - for IBM Cloud, `ibmc-block-bronze` will be used by default.
 - `bas_username` Optional - BAS default username. If not provided, default username will be 'basuser'
 - `bas_password` Optional - BAS default password. If not provided, a random 15 character password will be generated
@@ -32,7 +32,7 @@ Example Playbook
   vars:
     # BAS Configuration
     bas_namespace: "{{ lookup('env', 'BAS_NAMESPACE') | default('ibm-bas', true) }}"
-    bas_persistent_storage: "ibmc-file-bronze-gid"
+    bas_persistent_storage_class: "ibmc-file-bronze-gid"
     bas_meta_storage_class: "ibmc-block-bronze"
 
     bas_username: "{{ lookup('env', 'BAS_USERNAME') | default('basuser', true) }}"
