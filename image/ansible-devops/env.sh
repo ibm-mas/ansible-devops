@@ -125,11 +125,6 @@ export TM_CATALOG_IMG=$(cat /workspace/settings/TM_CATALOG_IMG)
 # -----------------------------------------------------------------------------
 export MAS_WORKSPACE_ID=$(cat /workspace/settings/MAS_WORKSPACE_ID)
 
-# -----------------------------------------------------------------------------
-# mas/configure-app-manage.yml
-# -----------------------------------------------------------------------------
-export MANAGE_COMPONENTS=$(cat /workspace/settings/MANAGE_COMPONENTS)
-
 # -------------------------
 # Used in ClusterTask context
 # -------------------------
@@ -158,6 +153,7 @@ export MAS_APP_CHANNEL_MSO=$(cat /workspace/settings/MAS_APP_CHANNEL_MSO)
 # -----------------------------------------------------------------------------
 # - MAS_CONFIG_DIR # must be in ClusterTask as it will reflect a pipeline workspace
 # - MAS_APP_ID # must be in ClusterTask as it will parameterize install-app task
+# - MAS_APPWS_COMPONENTS # must be in ClusterTask as it will parameterize configure-app task
 # - MAS_APP_CATALOG_SOURCE # must be in fvt-env travis, by app, as it varies by environment
 # - MAS_APP_CHANNEL # must be in fvt-env travis, by app as it varies by environment
 

@@ -175,31 +175,15 @@ Configure a MAS (Gen2) application in a workspace, supported applications:
 
 ### Example
 
+The following call will install Manage with latest versions of Health and Service Provider components enabled.
+
 ```bash
 export MAS_INSTANCE_ID=xxx
 export MAS_WORKSPACE_ID=masdev
 export MAS_APP_ID=manage
+export MAS_APPWS_COMPONENTS="{'base':{'version':'latest'},'health':{'version':'latest'},'serviceprovider':{'version':'latest'}}"
 
 ansible-playbook playbooks/mas/configure-app.yml
-```
-
-----
-
-
-## Configure Manage Application
-Special version of `configure-app` playbook used by a more complete Manage installation, as components and versions can be informed
-
-### Example
-
-The following call will intalll Manage with latest versions of Health and Service Provider.
-
-```bash
-export MAS_INSTANCE_ID=xxx
-export MAS_WORKSPACE_ID=masdev
-export MAS_APP_ID=manage
-export MANAGE_COMPONENTS="{'base':{'version':'latest'},'health':{'version':'latest'},'serviceprovider':{'version':'latest'}}"
-
-ansible-playbook playbooks/mas/configure-app-manage.yml
 ```
 
 ----
