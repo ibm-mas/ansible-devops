@@ -41,7 +41,7 @@ Example Playbook
   vars:
     # DB2W-API settings
     cpd_meta_namespace: "{{ lookup('env', 'CPD_NAMESPACE') | default('cpd-meta-ops', true) }}"
-    db2wh_instance_id: "{{ lookup('env', 'CPD_DB2WH_INSTANCE_NAME') }}" # e.g. db2w-iot or db2w-manage
+    db2wh_instance_name: "{{ lookup('env', 'CPD_DB2WH_INSTANCE_NAME') }}" # e.g. db2w-iot or db2w-manage
     db2wh_meta_storage_size_gb: "{{ lookup('env', 'CPD_META_STORAGE_SIZE_GB') | default(20, true) }}"
     db2wh_user_storage_size_gb: "{{ lookup('env', 'CPD_USER_STORAGE_SIZE_GB') | default(100, true) }}"
     db2wh_backup_storage_size_gb: "{{ lookup('env', 'CPD_BACKUP_STORAGE_SIZE_GB') | default(100, true) }}"

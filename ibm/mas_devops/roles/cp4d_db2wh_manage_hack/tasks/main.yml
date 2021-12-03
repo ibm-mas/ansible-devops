@@ -8,37 +8,33 @@
   debug:
     msg:
       - "Namespace .............................. {{ cpd_meta_namespace }}"
-      - "Db2 database id ........................ {{ db2wh_instance_id }}"
+      - "Db2 instance name ...................... {{ db2wh_instance_name }}"
       - "Db2 database name ...................... {{ db2wh_dbname }}"
       - "Db2 database schema .................... {{ db2wh_schema }}"
       - "Db2 database user ...................... {{ db2wh_username }}"
       - "Load from Config Map ................... {{ db2wh_load_from_config }}"
 
-- name: Save db2wh_instance_id content in an internal variable
-  set_fact:
-    _db2wh_instance_id: "{{ db2wh_instance_id }}"
-
 # 2. Determine which pod to run in
 # -----------------------------------------------------------------------------
+# When we create the database instance, we save the instance ID in a config map
+# named mas-automation-config-{{db2wh_instance_name}}.  We need this instance ID
+# to access the engine pod.
 - name: "Load DB2 Deployment ID from Config Map"
   community.kubernetes.k8s_info:
     api_version: v1
     kind: ConfigMap
-    name: "{{ cp4d_db_config_configmap_name }}-{{ _db2wh_instance_id }}"
+    name: "{{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}"
     namespace: "{{ cpd_meta_namespace }}"
   register: cp4d_db_config_info
 
-- name: Read the DB2 database ID for {{ _db2wh_instance_id }} from DB config ConfigMap data
+- name: Read the DB2 database ID for {{ db2wh_instance_name }} from DB config ConfigMap data
   set_fact:
-    _db2wh_instance_id: "db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}"
-  when:
-    - db2wh_load_from_config is defined
-    - db2wh_load_from_config == "true"
+    db2wh_instance_id: "db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}"
 
 - name: "Debug information"
   debug:
     msg:
-      - "DB2 Instance Id ................... {{ _db2wh_instance_id }}"
+      - "DB2 Instance ID ................... {{ db2wh_instance_id }}"
 
 # 3. Determine which pod to run in
 # -----------------------------------------------------------------------------
@@ -56,7 +52,7 @@
     namespace: "{{ cpd_meta_namespace }}"
     label_selectors:
       - type=engine
-      - app={{ _db2wh_instance_id }}
+      - app={{ db2wh_instance_id }}
   register: db2wh_pod
 
 - name: Configure facts
