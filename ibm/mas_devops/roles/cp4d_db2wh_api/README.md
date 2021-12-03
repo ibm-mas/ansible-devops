@@ -41,17 +41,17 @@ Example Playbook
   vars:
     # DB2W-API settings
     cpd_meta_namespace: "{{ lookup('env', 'CPD_NAMESPACE') | default('cpd-meta-ops', true) }}"
-    cp4d_db2wh_instance_name: "{{ lookup('env', 'CPD_DB2WH_INSTANCE_NAME') }}" # e.g. db2w-iot or db2w-manage
-    cp4d_meta_storage_size_gb: "{{ lookup('env', 'CPD_META_STORAGE_SIZE_GB') | default(20, true) }}"
-    cp4d_user_storage_size_gb: "{{ lookup('env', 'CPD_USER_STORAGE_SIZE_GB') | default(100, true) }}"
-    cp4d_backup_storage_size_gb: "{{ lookup('env', 'CPD_BACKUP_STORAGE_SIZE_GB') | default(100, true) }}"
-    cp4d_meta_storage_class: "{{ lookup('env', 'CPD_META_STORAGE_CLASS') | default('ibmc-file-silver-gid', true) }}"
-    cp4d_user_storage_class: "{{ lookup('env', 'CPD_USER_STORAGE_CLASS') | default('ibmc-file-gold-gid', true)  }}"
-    cp4d_backup_storage_class: "{{ lookup('env', 'CPD_BACKUP_STORAGE_CLASS') | default('ibmc-file-gold-gid', true)  }}"
-    cp4d_admin_username: "{{ lookup('env', 'CPD_ADMIN_USER')  | default('admin', true) }}"
-    cp4d_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD')  | default('password', true) }}"
-    cp4d_db2_addon_version: "{{ lookup('env', 'CPD_DB2WH_ADDON_VERSION') | default('11.5.5.1-cn3-x86_64', true) }}"
-    db2w_table_org: "{{ lookup('env', 'DB2WH_TABLE_ORG') | default('ROW', true) }}" # e.g ROW or COLUMN
+    db2wh_instance_id: "{{ lookup('env', 'CPD_DB2WH_INSTANCE_NAME') }}" # e.g. db2w-iot or db2w-manage
+    db2wh_meta_storage_size_gb: "{{ lookup('env', 'CPD_META_STORAGE_SIZE_GB') | default(20, true) }}"
+    db2wh_user_storage_size_gb: "{{ lookup('env', 'CPD_USER_STORAGE_SIZE_GB') | default(100, true) }}"
+    db2wh_backup_storage_size_gb: "{{ lookup('env', 'CPD_BACKUP_STORAGE_SIZE_GB') | default(100, true) }}"
+    db2wh_meta_storage_class: "{{ lookup('env', 'CPD_META_STORAGE_CLASS') | default('ibmc-file-silver-gid', true) }}"
+    db2wh_user_storage_class: "{{ lookup('env', 'CPD_USER_STORAGE_CLASS') | default('ibmc-file-gold-gid', true)  }}"
+    db2wh_backup_storage_class: "{{ lookup('env', 'CPD_BACKUP_STORAGE_CLASS') | default('ibmc-file-gold-gid', true)  }}"
+    db2wh_admin_username: "{{ lookup('env', 'CPD_ADMIN_USER')  | default('admin', true) }}"
+    db2wh_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD')  | default('password', true) }}"
+    db2wh_addon_version: "{{ lookup('env', 'CPD_DB2WH_ADDON_VERSION') | default('11.5.5.1-cn3-x86_64', true) }}"
+    db2wh_table_org: "{{ lookup('env', 'DB2WH_TABLE_ORG') | default('ROW', true) }}" # e.g ROW or COLUMN
     # Create the MAS JdbcCfg & Secret resource definitions
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
