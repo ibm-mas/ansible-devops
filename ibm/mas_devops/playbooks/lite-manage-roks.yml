@@ -2,55 +2,55 @@
 - hosts: localhost
   any_errors_fatal: true
 
-# 1. Deploy & configure the cluster
-# -----------------------------------------------------------------------------
-- name: Deploy ROKS cluster in IBM Cloud
-  import_playbook: ocp/provision-roks.yml
+# # 1. Deploy & configure the cluster
+# # -----------------------------------------------------------------------------
+# - name: Deploy ROKS cluster in IBM Cloud
+#   import_playbook: ocp/provision-roks.yml
 
-- name: Login & configure OCP cluster
-  import_playbook: ocp/configure-ocp.yml
-  vars:
-    cluster_type: roks
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
-
-
-# 2. Install MongoDb
-# -----------------------------------------------------------------------------
-- name: Install MongoDb (Community Edition)
-  import_playbook: dependencies/install-mongodb-ce.yml
-  vars:
-    mongodb_storage_class: ibmc-block-gold
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+# - name: Login & configure OCP cluster
+#   import_playbook: ocp/configure-ocp.yml
+#   vars:
+#     cluster_type: roks
+#     ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
 
 
-# 3. Install SLS
-# -----------------------------------------------------------------------------
-- name: Install SLS
-  import_playbook: dependencies/install-sls.yml
-  vars:
-    sls_storage_class: ibmc-file-gold-gid
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
-    # Use the generated mongodb configuration
-    mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
-    mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+# # 2. Install MongoDb
+# # -----------------------------------------------------------------------------
+# - name: Install MongoDb (Community Edition)
+#   import_playbook: dependencies/install-mongodb-ce.yml
+#   vars:
+#     mongodb_storage_class: ibmc-block-gold
+#     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 4. Install BAS
-# -----------------------------------------------------------------------------
-- name: Install BAS
-  import_playbook: dependencies/install-bas.yml
-  vars:
-    bas_persistent_storage: "ibmc-file-bronze-gid"
-    bas_meta_storage_class: "ibmc-block-bronze"
+# # 3. Install SLS
+# # -----------------------------------------------------------------------------
+# - name: Install SLS
+#   import_playbook: dependencies/install-sls.yml
+#   vars:
+#     sls_storage_class: ibmc-file-gold-gid
+#     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+#     # Use the generated mongodb configuration
+#     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
+#     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
 
-# 5. Install Db2 CP4D service
-# -----------------------------------------------------------------------------
-- name: Install CP4D services
-  import_playbook: cp4d/install-services-db2.yml
-  vars:
-    cpd_storage_class: ibmc-file-gold-gid
+# # 4. Install BAS
+# # -----------------------------------------------------------------------------
+# - name: Install BAS
+#   import_playbook: dependencies/install-bas.yml
+#   vars:
+#     bas_persistent_storage: "ibmc-file-bronze-gid"
+#     bas_meta_storage_class: "ibmc-block-bronze"
+
+
+# # 5. Install Db2 CP4D service
+# # -----------------------------------------------------------------------------
+# - name: Install CP4D services
+#   import_playbook: cp4d/install-services-db2.yml
+#   vars:
+#     cpd_storage_class: ibmc-file-gold-gid
 
 
 # 6. Create DB2 Warehouse instance in CP4D
