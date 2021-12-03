@@ -48,8 +48,31 @@ if [[ "${TRAVIS_BRANCH}" =~ $MAINTENANCE_BRANCH_REGEXP ]]; then
   export SEMVER_MAX_RELEASE_LEVEL=patch
 fi
 
-if [ -z BUILD_SYSTEM_ENV_LOADED ]; then
-  h1 "Build Properties"
+
+if [ -z $BUILD_SYSTEM_ENV_LOADED ]; then
+  echo "BUILD_SYSTEM_ENV_LOADED is not defined yet"
+  export BUILD_SYSTEM_ENV_LOADED=1
+
+  if [ ! -z $GITHUB_ENV ]; then
+    echo "GITHUB_ENV is defined, exporting properties to $GITHUB_ENV"
+    # https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#environment-files
+    echo "VERSION=$VERSION" >> $GITHUB_ENV
+    echo "VERSION_FILE=$VERSION_FILE" >> $GITHUB_ENV
+    echo "VERSION=$VERSION" >> $GITHUB_ENV
+    echo "DOCKER_TAG=$DOCKER_TAG" >> $GITHUB_ENV
+    echo "DOCKER_PUSH_RETRIES=$DOCKER_PUSH_RETRIES" >> $GITHUB_ENV
+    echo "SEMVER_MIN_RELEASE_LEVEL=$SEMVER_MIN_RELEASE_LEVEL" >> $GITHUB_ENV
+    echo "SEMVER_MAX_RELEASE_LEVEL=$SEMVER_MAX_RELEASE_LEVEL" >> $GITHUB_ENV
+    echo "SEMVER_RELEASE_LEVEL_FILE=$SEMVER_RELEASE_LEVEL_FILE" >> $GITHUB_ENV
+    echo "SEMVER_RELEASE_LEVEL=$SEMVER_RELEASE_LEVEL" >> $GITHUB_ENV
+    echo "RELEASE_BRANCH_REGEXP=$RELEASE_BRANCH_REGEXP" >> $GITHUB_ENV
+    echo "NO_RELEASE_BUILD_REGEXP=$NO_RELEASE_BUILD_REGEXP" >> $GITHUB_ENV
+    echo "BUILD_SYSTEM_ENV_LOADED=1" >> $GITHUB_ENV
+  else
+    echo "GITHUB_ENV is not defined"
+  fi
+
+  echo_h1 "Build Properties"
   echo_highlight "DIR ........................ $DIR"
   echo_highlight "PATH ....................... $PATH"
   echo_highlight ""
@@ -66,6 +89,8 @@ if [ -z BUILD_SYSTEM_ENV_LOADED ]; then
   echo_highlight "RELEASE_BRANCH_REGEXP ...... $RELEASE_BRANCH_REGEXP"
   echo_highlight "NO_RELEASE_BUILD_REGEXP .... $NO_RELEASE_BUILD_REGEXP"
   echo_highlight ""
+else
+  echo "BUILD_SYSTEM_ENV_LOADED is already defined, skipping debug and export to GitHub env file"
 fi
 
-export BUILD_SYSTEM_ENV_LOADED=1
+
