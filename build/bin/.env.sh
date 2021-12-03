@@ -4,13 +4,13 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export PATH=$PATH:$DIR:$DIR/ptc
 
 # Version file (semver)
-export VERSION_FILE=${TRAVIS_BUILD_DIR}/.version
+export VERSION_FILE=${GITHUB_WORKSPACE}/.version
 if [ -f "$VERSION_FILE" ]; then
   export VERSION=$(cat ${VERSION_FILE})
 fi
 
 # Previous version file (semver)
-export PREVIOUS_VERSION_FILE=${TRAVIS_BUILD_DIR}/.previous_version
+export PREVIOUS_VERSION_FILE=${GITHUB_WORKSPACE}/.previous_version
 if [ -f "$PREVIOUS_VERSION_FILE" ]; then
   export PREVIOUS_VERSION=$(cat ${PREVIOUS_VERSION_FILE})
 fi
@@ -21,7 +21,7 @@ export SEMVER_MIN_RELEASE_LEVEL="${SEMVER_MIN_RELEASE_LEVEL:-build}"
 export SEMVER_MAX_RELEASE_LEVEL="${SEMVER_MAX_RELEASE_LEVEL:-major}"
 
 # During initbuild we record the release level (aka the version bump from the last release)
-export SEMVER_RELEASE_LEVEL_FILE=${TRAVIS_BUILD_DIR}/.releaselevel
+export SEMVER_RELEASE_LEVEL_FILE=${GITHUB_WORKSPACE}/.releaselevel
 if [ -f "$SEMVER_RELEASE_LEVEL_FILE" ]; then
   export SEMVER_RELEASE_LEVEL=$(cat ${SEMVER_RELEASE_LEVEL_FILE})
 fi
