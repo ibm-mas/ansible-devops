@@ -5,8 +5,8 @@ This master playbook will drive the following playbooks in sequence:
 - [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
 - Install dependencies:
     - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (15 minutes)
-    - [Install SLS](sls.md#install-sls) (10 minutes)
-    - [Install BAS](bas.md#install-bas) (35 minutes)
+    - [Install SLS](dependencies.md#install-sls) (10 minutes)
+    - [Install BAS](dependencies.md#install-bas) (35 minutes)
     - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
     - Install Cloud Pak for Data Services:
         - [Db2 Warehouse](cp4d.md#db2-install) with [Db2 Management Console](cp4d.md#db2-install) (1-2 hours)
@@ -34,7 +34,7 @@ Before you run the playbook you need to configure a few things in your `MAS_CONF
 Copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
 !!! important
-    Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](sls.md#install-sls) topic.
+    Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](dependencies.md#install-sls) topic.
 
 ### Create a Workspace template
 If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:
