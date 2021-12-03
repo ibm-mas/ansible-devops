@@ -63,8 +63,6 @@
                     </li>
                     <li class="toctree-l1"><a class="reference internal" href="../lite-core-quickburn/">Core only on QuickBurn</a>
                     </li>
-                    <li class="toctree-l1"><a class="reference internal" href="../lite-health-roks/">Health on IBM Cloud</a>
-                    </li>
                     <li class="toctree-l1"><a class="reference internal" href="../lite-manage-roks/">Manage on IBM Cloud</a>
                     </li>
                 </ul>
@@ -94,15 +92,33 @@
     </li>
         </ul>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#install-bas">Install BAS</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#required-environment-variables_2">Required environment variables</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#optional-environment-variables_2">Optional environment variables</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#usage">Usage:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#install-sls">Install SLS</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#required-environment-variables_3">Required environment variables</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#optional-environment-variables_3">Optional environment variables</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#example-usage-release-build">Example usage: release build</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#example-usage-pre-release-build">Example usage: pre-release build</a>
+    </li>
+        </ul>
+    </li>
     </ul>
                     </li>
                     <li class="toctree-l1"><a class="reference internal" href="../cp4d/">CP4D Playbooks</a>
                     </li>
                     <li class="toctree-l1"><a class="reference internal" href="../mas/">MAS Playbooks</a>
-                    </li>
-                    <li class="toctree-l1"><a class="reference internal" href="../sls/">SLS Playbook</a>
-                    </li>
-                    <li class="toctree-l1"><a class="reference internal" href="../bas/">BAS Playbook</a>
                     </li>
                 </ul>
                 <p class="caption"><span class="caption-text">Roles</span></p>
@@ -243,6 +259,83 @@ ansible-playbook playbooks/dependencies/install-mongodb-ce.yml
 <p class="admonition-title">Tip</p>
 <p>The playbook will generate a yaml file containing the definition of a Secret and MongoCfg resource that can be used to configure the deployed instance as the MAS system MongoDb.</p>
 <p>This file can be directly applied using <code>oc apply -f /tmp/mongocfg-mongoce-system.yaml</code> or added to the <code>mas_config</code> list variable used by the <code>ibm.mas_devops.suite_install</code> role to deploy and configure MAS.</p>
+</div>
+<h2 id="install-bas">Install BAS<a class="headerlink" href="#install-bas" title="Permanent link"></a></h2>
+<p>Installs <strong>IBM Behavior Analytics Services</strong> on IBM Cloud Openshift Clusters (ROKS) and generates configuration that can be directly applied to IBM Maximo Application Suite.</p>
+<p>Before you use this playbook you will likely want to edit the <code>mas_config_dir</code> variable to supply your own configuration, instead of the sample data provided.
+This is the directory where this playbook will store BAS configurations such as BAS endpoint and username/password credentials to configure BAS in your Maximo Application Suite instance.</p>
+<h3 id="required-environment-variables_2">Required environment variables<a class="headerlink" href="#required-environment-variables_2" title="Permanent link"></a></h3>
+<ul>
+<li><code>BAS_CONTACT_MAIL</code> Defines the email for person to contact for BAS</li>
+<li><code>BAS_CONTACT_FIRSTNAME</code> Defines the first name of the person to contact for BAS</li>
+<li><code>BAS_CONTACT_LASTNAME</code> Defines the last name of the person to contact for BAS</li>
+</ul>
+<h3 id="optional-environment-variables_2">Optional environment variables<a class="headerlink" href="#optional-environment-variables_2" title="Permanent link"></a></h3>
+<ul>
+<li><code>BAS_USERNAME</code> BAS default username. If not provided, default username will be <code>basuser</code>.</li>
+<li><code>BAS_PASSWORD</code> Defines the password for your BAS instance. If not provided, a random 15 character password will be generated.</li>
+<li><code>BAS_GRAFANA_USERNAME</code> Defines the username for the BAS Graphana instance, default is <code>basuser</code>.</li>
+<li><code>BAS_GRAFANA_PASSWORD</code> Defines the password for BAS Graphana dashboard. If not provided, a random 15 character password will be generated</li>
+<li><code>BAS_NAMESPACE</code> Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be 'ibm-bas'.</li>
+</ul>
+<h3 id="usage">Usage:<a class="headerlink" href="#usage" title="Permanent link"></a></h3>
+<pre><code class="language-bash">export BAS_NAMESPACE=ibm-bas
+export BAS_USER=basuser
+export BAS_PASSWORD=xxx
+export BAS_GRAFANA_USER=basuser
+export BAS_GRAFANA_PASSWORD=xxx
+export BAS_CONTACT_MAIL=xxx@xxx.com
+export BAS_CONTACT_FIRSTNAME=xxx
+export BAS_CONTACT_LASTNAME=xxx
+
+ansible-playbook playbooks/dependencies/install-bas.yml
+</code></pre>
+<h2 id="install-sls">Install SLS<a class="headerlink" href="#install-sls" title="Permanent link"></a></h2>
+<p>Before you use this playbook you will likely want to edit the <code>mas_config_dir</code> variable to supply your own configuration, instead of the sample data provided.</p>
+<h3 id="required-environment-variables_3">Required environment variables<a class="headerlink" href="#required-environment-variables_3" title="Permanent link"></a></h3>
+<ul>
+<li><code>SLS_ENTITLEMENT_KEY</code> Provide your IBM entitlement key</li>
+</ul>
+<h3 id="optional-environment-variables_3">Optional environment variables<a class="headerlink" href="#optional-environment-variables_3" title="Permanent link"></a></h3>
+<ul>
+<li><code>SLS_CATALOG_SOURCE</code> Set to <code>ibm-sls-operators</code> if you want to deploy pre-release development builds</li>
+<li><code>SLS_CHANNEL</code> Override the default release channel (3.x)</li>
+<li><code>SLS_ICR_CP</code> Override the registry source for all container images deployed by the SLS operator</li>
+<li><code>SLS_ICR_CPOPEN</code> Override the registry source for all container images deployed by the SLS operator</li>
+<li><code>SLS_ENTITLEMENT_USERNAME</code> Override the default entitlement username (cp)</li>
+<li><code>SLS_NAMESPACE</code> Override the default entitlement username (ibm-sls)</li>
+<li><code>SLS_STORAGE_CLASS</code> Defines Storage Class to be used by SLS Persistent Volumes</li>
+<li><code>SLS_LICENSE_ID</code> Must be set to the license id specified in the license file when one is provided</li>
+<li><code>SLS_REGISTRATION_KEY</code> optional var when you want to install sls using a registration key you have.</li>
+</ul>
+<h3 id="example-usage-release-build">Example usage: release build<a class="headerlink" href="#example-usage-release-build" title="Permanent link"></a></h3>
+<pre><code class="language-bash">export SLS_INSTANCE_ID=xxx
+export SLS_ENTITLEMENT_KEY=xxx
+export SLS_STORAGE_CLASS=xxx
+
+ansible-playbook playbooks/dependencies/install-sls.yml
+</code></pre>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Lookup your entitlement key from the <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM Container Library</a></p>
+</div>
+<h3 id="example-usage-pre-release-build">Example usage: pre-release build<a class="headerlink" href="#example-usage-pre-release-build" title="Permanent link"></a></h3>
+<pre><code class="language-bash">export SLS_CATALOG_SOURCE=ibm-sls-operators
+export SLS_CHANNEL=3.1.0-pre.stable
+export SLS_INSTANCE_ID=xxx
+
+export SLS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
+export SLS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
+export SLS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
+export SLS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
+export SLS_STORAGE_CLASS=xxx
+
+
+ansible-playbook playbooks/dependencies/install-sls.yml
+</code></pre>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>You must have already installed the development (pre-release) catalogs, pre-release builds are not available directly from the IBM Operator Catalog.</p>
 </div>
               
             </div>

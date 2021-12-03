@@ -63,8 +63,6 @@
                     </li>
                     <li class="toctree-l1"><a class="reference internal" href="../../playbooks/lite-core-quickburn/">Core only on QuickBurn</a>
                     </li>
-                    <li class="toctree-l1"><a class="reference internal" href="../../playbooks/lite-health-roks/">Health on IBM Cloud</a>
-                    </li>
                     <li class="toctree-l1"><a class="reference internal" href="../../playbooks/lite-manage-roks/">Manage on IBM Cloud</a>
                     </li>
                 </ul>
@@ -77,10 +75,6 @@
                     <li class="toctree-l1"><a class="reference internal" href="../../playbooks/cp4d/">CP4D Playbooks</a>
                     </li>
                     <li class="toctree-l1"><a class="reference internal" href="../../playbooks/mas/">MAS Playbooks</a>
-                    </li>
-                    <li class="toctree-l1"><a class="reference internal" href="../../playbooks/sls/">SLS Playbook</a>
-                    </li>
-                    <li class="toctree-l1"><a class="reference internal" href="../../playbooks/bas/">BAS Playbook</a>
                     </li>
                 </ul>
                 <p class="caption"><span class="caption-text">Roles</span></p>
@@ -98,6 +92,12 @@
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">cp4d_db2wh</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#required-variables">Required Variables</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#optional-variables">Optional Variables</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
     </li>
@@ -185,19 +185,48 @@
             <div class="section">
               
                 <h1 id="cp4d_db2wh">cp4d_db2wh<a class="headerlink" href="#cp4d_db2wh" title="Permanent link"></a></h1>
-<p>TODO: Add intro</p>
+<p>This role expects a CP4D with DB2 Warehouse service enabled already exists. Use it after <code>install-cp4d</code>.</p>
+<p>It can be used to create DB2 Warehouse instances against the same Cloud Pak for Data. It is useful if user wants to create a database for IoT and another for Manage. In additional, different from other DB2 Warehouse playbooks, this one uses REST APIs and not Operators to create the DB2 instance (operators are not working properly in CP4D 3.5). By using REST APIs internally, we have a bit more configuration possibilties here as well as the instance will be displayed in CP4D dashboard.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<p>TODO: Finish documentation</p>
+<h3 id="required-variables">Required Variables<a class="headerlink" href="#required-variables" title="Permanent link"></a></h3>
+<ul>
+<li><code>CPD_ENTITLEMENT_KEY</code> An <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM entitlement key</a> that includes access to Cloud Pak for Data 3.5.0</li>
+<li><code>CPD_NAMESPACE</code> Provide the namespace where Cloud Pak for Data is installed. CP4D playbooks create it, by default, in <code>cpd-meta-ops</code></li>
+<li><code>DB2WH_INSTANCE_NAME</code> Name of your database instance, visible in CP4D dashboard. Example: <code>db2w-iot</code></li>
+<li><code>MAS_INSTANCE_ID</code> Provide the MAS instance ID that will be used in any generated MAS configuration files</li>
+<li><code>MAS_CONFIG</code> Provide the path of the folder where the JDBCCfg yaml containing the credentials of this database will be saved at the end of the process.</li>
+</ul>
+<h3 id="optional-variables">Optional Variables<a class="headerlink" href="#optional-variables" title="Permanent link"></a></h3>
+<p>In addition to the above, these are the optional variables you can set before running the playbook:</p>
+<ul>
+<li><code>DB2WH_META_STORAGE_SIZE_GB</code> size of configuration persistent volume, in gigabytes. Default is <code>20</code></li>
+<li><code>DB2WH_USER_STORAGE_SIZE_GB</code> size of user persistent volume, in gigabytes. Default is <code>100</code></li>
+<li><code>DB2WH_BACKUP_STORAGE_SIZE_GB</code> size of backup persistent volume, in gigabytes. Default is <code>100</code></li>
+<li><code>DB2WH_META_STORAGE_CLASS</code> store class used to create the configuration storage. Default is <code>ibmc-file-silver-gid</code></li>
+<li><code>DB2WH_USER_STORAGE_CLASS</code> store class used to create the user storage. Default is <code>ibmc-file-gold-gid</code></li>
+<li><code>DB2WH_BACKUP_STORAGE_CLASS</code> store class used to create the backup storage. Default is <code>ibmc-file-gold-gid</code></li>
+<li><code>DB2WH_ADMIN_USER</code> user in CP4D that can access the database. The user must exist, it is not created by this playbook. Default is <code>admin</code></li>
+<li><code>DB2WH_ADMIN_PASSWORD</code> password of the user identified above. Default is <code>password</code></li>
+<li><code>DB2WH_ADDON_VERSION</code> version of the DB2 Warehouse instance to be creared. Default is <code>11.5.5.1-cn3-x86_64</code></li>
+<li><code>DB2WH_TABLE_ORG</code> the way database tables will be organized. It can be either <code>ROW</code> or <code>COLUMN</code>. Default is <code>ROW</code></li>
+</ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
-    # Configuration for the Db2 cluster
-    db2wh_version: 11.5.5.0-cn3
-    db2wh_username: db2inst1
-    db2wh_instance_id: db2wh-db01
-    db2wh_dbname: BLUDB
-
+    # DB2W-API settings
+    cpd_meta_namespace: &quot;{{ lookup('env', 'CPD_NAMESPACE') | default('cpd-meta-ops', true) }}&quot;
+    db2wh_instance_name: &quot;{{ lookup('env', 'CPD_DB2WH_INSTANCE_NAME') }}&quot; # e.g. db2w-iot or db2w-manage
+    db2wh_meta_storage_size_gb: &quot;{{ lookup('env', 'CPD_META_STORAGE_SIZE_GB') | default(20, true) }}&quot;
+    db2wh_user_storage_size_gb: &quot;{{ lookup('env', 'CPD_USER_STORAGE_SIZE_GB') | default(100, true) }}&quot;
+    db2wh_backup_storage_size_gb: &quot;{{ lookup('env', 'CPD_BACKUP_STORAGE_SIZE_GB') | default(100, true) }}&quot;
+    db2wh_meta_storage_class: &quot;{{ lookup('env', 'CPD_META_STORAGE_CLASS') | default('ibmc-file-silver-gid', true) }}&quot;
+    db2wh_user_storage_class: &quot;{{ lookup('env', 'CPD_USER_STORAGE_CLASS') | default('ibmc-file-gold-gid', true)  }}&quot;
+    db2wh_backup_storage_class: &quot;{{ lookup('env', 'CPD_BACKUP_STORAGE_CLASS') | default('ibmc-file-gold-gid', true)  }}&quot;
+    db2wh_admin_username: &quot;{{ lookup('env', 'CPD_ADMIN_USER')  | default('admin', true) }}&quot;
+    db2wh_admin_password: &quot;{{ lookup('env', 'CPD_ADMIN_PASSWORD')  | default('password', true) }}&quot;
+    db2wh_addon_version: &quot;{{ lookup('env', 'CPD_DB2WH_ADDON_VERSION') | default('11.5.5.1-cn3-x86_64', true) }}&quot;
+    db2wh_table_org: &quot;{{ lookup('env', 'DB2WH_TABLE_ORG') | default('ROW', true) }}&quot; # e.g ROW or COLUMN
     # Create the MAS JdbcCfg &amp; Secret resource definitions
     mas_instance_id: &quot;{{ lookup('env', 'MAS_INSTANCE_ID') }}&quot;
     mas_config_dir: &quot;{{ lookup('env', 'MAS_CONFIG_DIR') }}&quot;
