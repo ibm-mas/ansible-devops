@@ -19,14 +19,15 @@ This master playbook will drive the following playbooks in sequence:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (20 minutes)
 - Install Gen2 applications:
-    - [Install & configure Manage](mas.md#install-mas-application)
-    - Install & configure IoT (coming soon)
-    - Install & configure Assist (due 3Q)
-    - Install & configure Predict (due 3Q)
-    - Install & configure HP Utilties (due 3Q)
-    - Install & configure Safety (due 3Q)
-    - Install & configure Visual Inspection (due 3Q)
-    - Install & configure Monitor (due ??)
+    - [Install & configure Manage + Health](mas.md#install-mas-application)
+    - [Install & configure IoT](mas.md#install-mas-application)
+    - [Install & configure Monitor](mas.md#install-mas-application)
+    - [Install & configure Predict](mas.md#install-mas-application)
+    - [Install & configure Safety](mas.md#install-mas-application)
+    - [Install & configure Maximo Scheduler Optmization](mas.md#install-mas-application)
+    - Install & configure Assist (due 1Q)
+    - Install & configure HP Utilties (due 1Q)    
+    - Install & configure Visual Inspection (due 1Q)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Gen1 applications will **not** be supported by this collection.
 

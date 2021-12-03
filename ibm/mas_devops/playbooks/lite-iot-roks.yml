@@ -1,8 +1,4 @@
 ---
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!                           WORK IN PROGRESS                              !!
-# !!                 ONLY SUITABLE FOR DEVELOPMENT USE                       !!
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 - hosts: localhost
   any_errors_fatal: true
 
@@ -70,7 +66,7 @@
     cpd_storage_class: ibmc-file-gold-gid
 
 
-# 7. Create DB2 Warehouse instance in CP4D
+# 7. Create DB2 Warehouse instance for IoT (system scope)
 # -----------------------------------------------------------------------------
 - name: Install CP4D services & configure Db2
   import_playbook: cp4d/create-db2-instance.yml
@@ -93,22 +89,10 @@
 
 # 9. Install & Configure IoT application
 # -----------------------------------------------------------------------------
-- name: Install IoT
+- name: Install & configure IoT
   import_playbook: mas/install-app.yml
   vars:
     mas_app_id: iot
-
-    mas_app_catalog_source: ibm-mas-iot-operators
-    artifactory_username: "{{ lookup('env', 'W3_USERNAME') | lower }}"
-    artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
-    mas_app_channel: initial-gen2
-
-    # MAS configuration - IBM container registry configuration
-    mas_icr_cp: 'wiotp-docker-local.artifactory.swg-devops.com'
-
-    # MAS configuration - Entitlement
-    mas_entitlement_username: "{{ lookup('env', 'W3_USERNAME') }}"
-    mas_entitlement_key: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
 
 # Note that this sample playbook is always assuming a workspace ID of masdev,
 # this can easily be modified when creating your own playbooks.

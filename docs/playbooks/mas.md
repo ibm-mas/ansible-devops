@@ -137,6 +137,8 @@ Install a MAS (Gen2) application, supported applications:
 
 - Manage
 - Health
+- Predict
+- MSO
 - IoT
 - Monitor
 - Safety
@@ -160,8 +162,10 @@ ansible-playbook playbooks/mas/configure-app.yml
 ## Configure MAS Application
 Configure a MAS (Gen2) application in a workspace, supported applications:
 
-- Manage
+- Manage (`base` only - see [Configure Manage Application](#configure-manage-application))
 - Health
+- Predict
+- MSO
 - IoT
 - Monitor
 - Safety
@@ -179,9 +183,26 @@ export MAS_APP_ID=manage
 ansible-playbook playbooks/mas/configure-app.yml
 ```
 
-
 ----
 
+
+## Configure Manage Application
+Special version of `configure-app` playbook used by a more complete Manage installation, as components and versions can be informed
+
+### Example
+
+The following call will intalll Manage with latest versions of Health and Service Provider.
+
+```bash
+export MAS_INSTANCE_ID=xxx
+export MAS_WORKSPACE_ID=masdev
+export MAS_APP_ID=manage
+export MANAGE_COMPONENTS="{'base':{'version':'latest'},'health':{'version':'latest'},'serviceprovider':{'version':'latest'}}"
+
+ansible-playbook playbooks/mas/configure-app-manage.yml
+```
+
+----
 
 ## Manage Db2 Hack
 This should should be part of the Manage operator, but is not so we have to do it as a seperate step in the install flow for now.  This will configure the Db2 database instance and create a new schema named `maximo` (the default schema name used by the Manage application) as well as SQL instructions to prepare database for Manage installation.
