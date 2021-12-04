@@ -1,0 +1,41 @@
+name: Publish Release
+on:
+  push:
+    branches: [ master ]
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.3.1
+
+      - name: Initialise the build system
+        run: |
+          chmod u+x $GITHUB_WORKSPACE/build/bin/*.sh
+          $GITHUB_WORKSPACE/build/bin/initbuild.sh
+          source $GITHUB_WORKSPACE/build/bin/.functions.sh
+
+      # TODO: Get the pipelines file from the other actions so we can attach it to the release (or just rebuild it - lazy but easy)
+
+      # # https://github.com/marketplace/actions/create-tag-release
+      # - name: Create Release
+      #   id: create_release
+      #   if: github.ref == 'refs/heads/manage-components'
+      #   uses: actions/create-release@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     tag_name: $VERSION
+      #     release_name: $VERSION
+      #     draft: false
+      #     prerelease: false
+
+      # - name: Upload clustertasks
+      #   uses: actions/upload-release-asset@v1
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     upload_url: ${{ steps.create_release.outputs.upload_url }}
+      #     asset_path: $GITHUB_WORKSPACE/pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
+      #     asset_name: ibm-mas_devops-clustertasks-$VERSION.yaml
+      #     asset_content_type: application/yaml

@@ -2,12 +2,15 @@
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    # CP4D basic installation
+    # -----------------------------------------------------------------------------------------------------------------
     cpd_registry: cp.icr.io
     cpd_registry_user: cp
     cpd_registry_password: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
-    cpd_meta_namespace: cpd-meta-ops
+    cpd_meta_namespace: "{{ lookup('env', 'CPD_NAMESPACE') | default('cpd-meta-ops', true) }}"
 
     # CP4D service configuration
+    # -----------------------------------------------------------------------------------------------------------------
     cpd_storage_class: "{{ lookup('env', 'CPD_STORAGE_CLASS') }}"
     cpd_services:
       # Db2 warehouse and Db2 management console
@@ -18,15 +21,6 @@
       - spark       # Required by Predict
       - aiopenscale # Optional, used by Predict
 
-    # Configuration for the Db2 cluster
-    db2wh_version: 11.5.5.0-cn3
-    db2wh_dbname: BLUDB
-
-    # Create the MAS JdbcCfg & Secret resource definitions
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    db2wh_cfg_file: /tmp/jdbccfg-cp4ddb2wh-system.yaml
-
   roles:
     - ibm.mas_devops.cp4d_install
     - ibm.mas_devops.cp4d_install_services
-    - ibm.mas_devops.cp4d_db2wh
