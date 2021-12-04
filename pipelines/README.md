@@ -6,21 +6,26 @@ To learn more about Tekton refer to the excellent material here: https://redhat-
 
 ## ClusterTasks
 
-### Cluster Management
-- Configure OCP Cluster
+# CP4D Management
+- Install CP4D - dependencies/install-cp4d.yaml
+- Install Db2 Warehouse (via undocumented API!) - dependencies/install-db2-api.yaml
+- Install Db2 Warehouse - dependencies/install-db2.yaml
 
 ### Dependency Management
-- Install Db2 Warehouse
-- Install AMQStreams
-- Install MongoDb CE
-- Install IBM Suite License Service
+- Install AMQStreams - dependencies/install-amqstreams.yaml
+- Install Behavior Analytics Service - bas/install-bas.yaml
+- Install MongoDb CE - dependencies/install-mongodb-ce.yaml
+- Install IBM Suite License Service - sls/install-sls.yaml
 
 ### MAS Management
-- Configure Application
-- Configure MAS Core
-- Install Application
-- Install MAS Core
-- Manage Db2 Database Configuration Hack
+- Configure Application - mas/configure-app.yaml
+- Configure MAS Core - mas/configure-suite.yaml
+- Manage Db2 Database Configuration Hack - mas/hack-manage-db2.yaml
+- Install Application - mas/install-app.yaml
+- Install MAS Core - mas/install-suite.yaml
+
+### OCP Management
+- Configure OCP Cluster - ocp/configure-ocp.yaml
 
 
 ## Install Pipeline Operator
@@ -42,7 +47,7 @@ spec:
 
 # Install the MAS Pipeline Task Definitions
 ```
-oc apply -f ibm-mas_devops-clustertasks-4.1.5-pre.tekton.yaml
+oc apply -f ibm-mas_devops-clustertasks-4.5.1-pre.tekton.yaml
 ```
 
 

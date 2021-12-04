@@ -14,8 +14,9 @@
     sls_instance_name: "{{ lookup('env', 'SLS_INSTANCE_NAME') | default('sls', true) }}"
 
     # IBM entitlement key for SLS
+    # Default to re-using the IBM entitlement key if we do not provide a specific one for SLS
     sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
-    sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') }}"
+    sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') | default(lookup('env', 'IBM_ENTITLEMENT_KEY'), true) }}"
 
     # MAS instance configuration
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
@@ -28,23 +29,15 @@
     sls_compliance_enforce: "{{ lookup('env', 'SLS_COMPLIANCE_ENFORCE') | default('True', true) | bool }}"
     sls_registration_open: "{{ lookup('env', 'SLS_REGISTRATION_OPEN') | default('True', true) | bool }}"
 
-    # Destination for the generated MAS SlsCfg resource template
-    sls_cfg_file: "{{ mas_config_dir }}/sls.yml"
-
     # You can either re-use a MAS MongoCfg resource template (see mongodb role) or provide mongo
-    # configuration directly
-    mongodb_cfg_file: "{{mas_config_dir}}/mongodb.yml"
-    # mongodb:
-    #   hosts:
-    #     - host: x
-    #     - port: y
-    #   username: "{{ lookup('env', 'MONGODB_USERNAME') }}"
-    #   password: "{{ lookup('env', 'MONGODB_PASSWORD') }}"
+    # configuration directly. Note: mongo-mongoce.yml is the output of install_mongodb-ce.yml playbook
+    # generated in mas_config_dir at the end of the process
+    mongodb_cfg_file: "{{mas_config_dir}}/mongo-mongoce.yml"
 
     # Bootstrap is used to initialize SLS, provide if you have an existing lic file and licenseId
     bootstrap:
-      license_id: "{{ lookup('env', 'SLS_LICENSE_ID') | default('', true) }}"
-      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
+      license_id: "{{ lookup('env', 'SLS_LICENSE_ID') }}"
+      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') }}"
       entitlement_file: "{{mas_config_dir}}/entitlement.lic"
   roles:
     - ibm.mas_devops.sls_install
