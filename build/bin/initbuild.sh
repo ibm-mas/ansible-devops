@@ -5,7 +5,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PATH=$PATH:$DIR
 
 # See: https://github.com/actions/checkout/issues/290
-git fetch --tags --force
+# git fetch --tags --force
 
 pip install --quiet pyyaml yamllint
 
