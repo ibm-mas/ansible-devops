@@ -13,7 +13,6 @@
     cluster_type: roks
     ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
 
-
 # 2. Install MongoDb
 # -----------------------------------------------------------------------------
 - name: Install MongoDb (Community Edition)
@@ -21,7 +20,6 @@
   vars:
     mongodb_storage_class: ibmc-block-gold
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
 
 # 3. Install AMQ Streams
 # -----------------------------------------------------------------------------
@@ -35,8 +33,16 @@
     kafka_user_name: masuser
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
+# 4. Install Db2 CP4D service
+# -----------------------------------------------------------------------------
+- name: Install CP4D services
+  import_playbook: cp4d/install-services-db2.yml
+  vars:
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') }}"
+    cpd_block_storage_class: ibmc-block-gold
+    cpd_storage_class: ibmc-file-gold-gid
 
-# 4. Install SLS
+# 5. Install SLS
 # -----------------------------------------------------------------------------
 - name: Install SLS
   import_playbook: dependencies/install-sls.yml
@@ -48,23 +54,13 @@
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
-
-# 5. Install BAS
+# 6. Install BAS
 # -----------------------------------------------------------------------------
 - name: Install BAS
   import_playbook: dependencies/install-bas.yml
   vars:
     bas_persistent_storage_class: "ibmc-file-bronze-gid"
     bas_meta_storage_class: "ibmc-block-bronze"
-
-
-# 6. Install Db2 CP4D service
-# -----------------------------------------------------------------------------
-- name: Install CP4D services
-  import_playbook: cp4d/install-services-db2.yml
-  vars:
-    cpd_storage_class: ibmc-file-gold-gid
-
 
 # 7. Create DB2 Warehouse instance for IoT (system scope)
 # -----------------------------------------------------------------------------
@@ -78,14 +74,12 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
     mas_config_scope: system
 
-
 # 8. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
   vars:
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
 
 # 9. Install & Configure IoT application
 # -----------------------------------------------------------------------------
