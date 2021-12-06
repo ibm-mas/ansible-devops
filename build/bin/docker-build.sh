@@ -47,7 +47,7 @@ echo "EXTRA_PARAMS ... $EXTRA_PARAMS"
 echo "VERSION_LABEL .. $DOCKER_TAG"
 echo "RELEASE_LABEL .. $TRAVIS_BUILD_NUMBER"
 echo "VCS_REF ........ $TRAVIS_COMMIT"
-echo "VCS_URL ........ https://github.com/$TRAVIS_REPO_SLUG"
+echo "VCS_URL ........ https://github.com/$GITHUB_REPOSITORY"
 
 # ARM64 builds need a different setup
 if [[ $EXTRA_PARAMS =~ "AARCH64" ]]; then
@@ -56,7 +56,7 @@ if [[ $EXTRA_PARAMS =~ "AARCH64" ]]; then
   --build-arg VERSION_LABEL=$DOCKER_TAG \
   --build-arg RELEASE_LABEL=$TRAVIS_BUILD_NUMBER \
   --build-arg VCS_REF=$TRAVIS_COMMIT \
-  --build-arg VCS_URL=https://github.ibm.com/$TRAVIS_REPO_SLUG \
+  --build-arg VCS_URL=https://github.ibm.com/$GITHUB_REPOSITORY \
   -t $NAMESPACE/$IMAGE $EXTRA_PARAMS -f $DOCKERFILE $BUILDPATH
   docker run --privileged yen3/binfmt-register clear aarch64
 else
@@ -64,6 +64,6 @@ else
     --build-arg VERSION_LABEL=$DOCKER_TAG \
     --build-arg RELEASE_LABEL=$TRAVIS_BUILD_NUMBER \
     --build-arg VCS_REF=$TRAVIS_COMMIT \
-    --build-arg VCS_URL=https://github.com/$TRAVIS_REPO_SLUG \
+    --build-arg VCS_URL=https://github.com/$GITHUB_REPOSITORY \
     -t $NAMESPACE/$IMAGE $EXTRA_PARAMS -f $DOCKERFILE $BUILDPATH
 fi

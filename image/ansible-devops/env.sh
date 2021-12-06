@@ -41,7 +41,6 @@ export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
 # -----------------------------------------------------------------------------
 # cp4d/install-db2=api.yml
 # -----------------------------------------------------------------------------
-export CPD_DB2WH_INSTANCE_NAME=$(cat /workspace/settings/CPD_DB2WH_INSTANCE_NAME)
 export CPD_META_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_META_STORAGE_SIZE_GB)
 export CPD_USER_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_USER_STORAGE_SIZE_GB)
 export CPD_BACKUP_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_BACKUP_STORAGE_SIZE_GB)
@@ -88,8 +87,8 @@ export BAS_PERSISTENT_STORAGE=$(cat /workspace/settings/BAS_PERSISTENT_STORAGE)
 export BAS_META_STORAGE=$(cat /workspace/settings/BAS_META_STORAGE)
 export BAS_USERNAME=$(cat /workspace/settings/BAS_USERNAME)
 export BAS_PASSWORD=$(cat /workspace/settings/BAS_PASSWORD)
-export GRAFANA_USERNAME=$(cat /workspace/settings/GRAFANA_USERNAME)
-export GRAFANA_PASSWORD=$(cat /workspace/settings/GRAFANA_PASSWORD)
+export BAS_GRAFANA_USERNAME=$(cat /workspace/settings/BAS_GRAFANA_USERNAME)
+export BAS_GRAFANA_PASSWORD=$(cat /workspace/settings/BAS_GRAFANA_PASSWORD)
 export BAS_CONTACT_MAIL=$(cat /workspace/settings/BAS_CONTACT_MAIL)
 export BAS_CONTACT_FIRSTNAME=$(cat /workspace/settings/BAS_CONTACT_FIRSTNAME)
 export BAS_CONTACT_LASTNAME=$(cat /workspace/settings/BAS_CONTACT_LASTNAME)
@@ -130,15 +129,31 @@ export MAS_WORKSPACE_ID=$(cat /workspace/settings/MAS_WORKSPACE_ID)
 # Used in ClusterTask context
 # -------------------------
 export MAS_APP_CATALOG_SOURCE_IOT=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_IOT)
+export MAS_APP_CATALOG_SOURCE_MONITOR=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MONITOR)
 export MAS_APP_CATALOG_SOURCE_MANAGE=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MANAGE)
+export MAS_APP_CATALOG_SOURCE_PREDICT=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_PREDICT)
+export MAS_APP_CATALOG_SOURCE_HPUTILITIES=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_HPUTILITIES)
+export MAS_APP_CATALOG_SOURCE_MVI=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MVI)
+export MAS_APP_CATALOG_SOURCE_SAFETY=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_SAFETY)
+export MAS_APP_CATALOG_SOURCE_ASSIST=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_ASSIST)
+export MAS_APP_CATALOG_SOURCE_MSO=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MSO)
+
 export MAS_APP_CHANNEL_IOT=$(cat /workspace/settings/MAS_APP_CHANNEL_IOT)
+export MAS_APP_CHANNEL_MONITOR=$(cat /workspace/settings/MAS_APP_CHANNEL_MONITOR)
 export MAS_APP_CHANNEL_MANAGE=$(cat /workspace/settings/MAS_APP_CHANNEL_MANAGE)
+export MAS_APP_CHANNEL_PREDICT=$(cat /workspace/settings/MAS_APP_CHANNEL_PREDICT)
+export MAS_APP_CHANNEL_HPUTILITIES=$(cat /workspace/settings/MAS_APP_CHANNEL_HPUTILITIES)
+export MAS_APP_CHANNEL_MVI=$(cat /workspace/settings/MAS_APP_CHANNEL_MVI)
+export MAS_APP_CHANNEL_SAFETY=$(cat /workspace/settings/MAS_APP_CHANNEL_SAFETY)
+export MAS_APP_CHANNEL_ASSIST=$(cat /workspace/settings/MAS_APP_CHANNEL_ASSIST)
+export MAS_APP_CHANNEL_MSO=$(cat /workspace/settings/MAS_APP_CHANNEL_MSO)
 
 # The following settings are provided as env vars per-task because they may
 # vary for different tasks in the same pipeline
 # -----------------------------------------------------------------------------
 # - MAS_CONFIG_DIR # must be in ClusterTask as it will reflect a pipeline workspace
 # - MAS_APP_ID # must be in ClusterTask as it will parameterize install-app task
+# - MAS_APPWS_COMPONENTS # must be in ClusterTask as it will parameterize configure-app task
 # - MAS_APP_CATALOG_SOURCE # must be in fvt-env travis, by app, as it varies by environment
 # - MAS_APP_CHANNEL # must be in fvt-env travis, by app as it varies by environment
 

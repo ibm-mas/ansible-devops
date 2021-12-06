@@ -9,27 +9,25 @@ spec:
       type: string
       description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
       default: ""
-
+    - name: db2wh_instance_name
+      type: string
+      description: Name (specifically, not the ID) of the DB2 Warehouse instance to execute the hack
+      default: "db2wh-db01"
   stepTemplate:
     env:
       - name: MAS_CONFIG_DIR
         value: /workspace/configs
       - name: JUNIT_SUITE_NAME
         value: $(params.junit_suite_name)
-
+      - name: DB2WH_INSTANCE_NAME
+        value: $(params.db2wh_instance_name)
   steps:
-    - args:
-        - |-
-          source /opt/app-root/src/env.sh
-          trap 'python3 /opt/app-root/src/save-junit-to-mongo.py' exit
-          ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/hack-manage-db2.yml
+    - name: hack-manage-db2
       command:
-        - /bin/bash
-        - '-c'
-      image: 'quay.io/ibmmas/ansible-devops:latest'
+        - /opt/app-root/src/run-playbook.sh
+        - /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/hack-manage-db2.yml
+      image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
-      name: hack-manage-db2
-      resources: {}
       workingDir: /workspace/configs
 
   workspaces:

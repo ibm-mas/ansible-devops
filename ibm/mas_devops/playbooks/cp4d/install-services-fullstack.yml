@@ -1,0 +1,26 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # CP4D basic installation
+    # -----------------------------------------------------------------------------------------------------------------
+    cpd_registry: cp.icr.io
+    cpd_registry_user: cp
+    cpd_registry_password: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
+    cpd_meta_namespace: "{{ lookup('env', 'CPD_NAMESPACE') | default('cpd-meta-ops', true) }}"
+
+    # CP4D service configuration
+    # -----------------------------------------------------------------------------------------------------------------
+    cpd_storage_class: "{{ lookup('env', 'CPD_STORAGE_CLASS') }}"
+    cpd_services:
+      # Db2 warehouse and Db2 management console
+      - db2wh       # Required by IoT, Manage, Monitor
+      # Watson Studio with Watson Machine Learning, Apache Spark, & Watson AI OpenScale capabilities enabled
+      - wsl         # Required by Predict & HP Utilities
+      - wml         # Required by Predict
+      - spark       # Required by Predict
+      - aiopenscale # Optional, used by Predict
+
+  roles:
+    - ibm.mas_devops.cp4d_install
+    - ibm.mas_devops.cp4d_install_services
