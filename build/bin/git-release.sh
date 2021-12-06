@@ -18,7 +18,7 @@ fi
 
 # 2. Create the release
 # -----------------------------------------------------------------------------
-if [[ "${TRAVIS_BRANCH}" =~ $RELEASE_BRANCH_REGEXP ]]; then
+if [[ "${GITHUB_REF_NAME}" =~ $RELEASE_BRANCH_REGEXP ]]; then
 
   # Check whether the level of the release is supported
   if [ "$SEMVER_RELEASE_LEVEL" = "major" ] && [ "$SEMVER_MAX_RELEASE_LEVEL" != "major" ]; then
@@ -47,19 +47,18 @@ if [[ "${TRAVIS_BRANCH}" =~ $RELEASE_BRANCH_REGEXP ]]; then
   git push origin --tags
 
   # After we have created the tag we still need to create the release from that tag
-  GREN=$TRAVIS_BUILD_DIR/build/github-release-notes/bin/gren.js
-  REPO=${TRAVIS_REPO_SLUG#*/}
-  USER=${TRAVIS_REPO_SLUG%/*}
-  BRANCH=travis-${TRAVIS_BUILD_NUMBER}
+  GREN=$GITHUB_WORKSPACE/build/github-release-notes/bin/gren.js
+  REPO=${GITHUB_REPOSITORY#*/}
+  USER=${GITHUB_REPOSITORY%/*}
 
   echo "Installing GitHub Release Notes"
   # Install GitHub Release Notes
   source ~/.nvm/nvm.sh
-  cd $TRAVIS_BUILD_DIR/build
+  cd $GITHUB_WORKSPACE/build
   git clone https://github.com/durera/github-release-notes.git
-  cd $TRAVIS_BUILD_DIR/build/github-release-notes
+  cd $GITHUB_WORKSPACE/build/github-release-notes
   nvm exec 7 npm install &>/dev/null
-  cd $TRAVIS_BUILD_DIR
+  cd $GITHUB_WORKSPACE
 
   echo "Generating Release for $USER/$REPO"
   # See https://github-tools.github.io/github-release-notes/options
@@ -79,7 +78,7 @@ if [[ "${TRAVIS_BRANCH}" =~ $RELEASE_BRANCH_REGEXP ]]; then
   done
 
 else
-  echo "Non release branch (${TRAVIS_BRANCH}) - skip git release publish"
+  echo "Non release branch (${GITHUB_REF_NAME}) - skip git release publish"
 fi
 
 exit 0

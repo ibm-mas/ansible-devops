@@ -1,0 +1,54 @@
+name: Build Ansible Collection
+on:
+  push: {}
+jobs:
+  build-ansible:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.3.1
+        # Without this option, we don't get the tag information
+        with:
+          fetch-depth: 0
+
+      - name: Initialise the build system
+        run: |
+          chmod u+x $GITHUB_WORKSPACE/build/bin/*.sh
+          $GITHUB_WORKSPACE/build/bin/initbuild.sh
+          source $GITHUB_WORKSPACE/build/bin/.functions.sh
+          python -m pip install -q ansible==2.10.3 yamllint
+
+      # Note: Use "--format standard" to ensure filenames and line numbers are in the output
+      # https://gitanswer.com/yamllint-missing-filenames-and-line-numbers-in-github-action-output-python-794550803
+      - name: Validate that the ansible collection lints successfully
+        run: |
+          yamllint --format standard -c $GITHUB_WORKSPACE/yamllint.yaml $GITHUB_WORKSPACE/ibm/mas_devops
+
+      - name: Build the Ansible collection
+        run: |
+          $GITHUB_WORKSPACE/build/bin/build-collection.sh
+
+      - name: Upload Ansible Collection
+        uses: actions/upload-artifact@v2
+        with:
+          name: ibm-mas_devops-${{ env.VERSION }}.tar.gz
+          path: ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz
+          retention-days: 30
+
+      # - name: Install the Ansible collection in the container image
+      #   run: cp $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-$(cat $GITHUB_WORKSPACE/.version).tar.gz $GITHUB_WORKSPACE/image/ansible-devops/ibm-mas_devops.tar.gz
+
+      # - name: Build the docker image
+      #   run: |
+      #     $GITHUB_WORKSPACE/build/bin/docker-build.sh -n ibmmas -i ansible-devops
+      #     docker tag ibmmas/ansible-devops ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+      #     docker tag ibmmas/ansible-devops quay.io/ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+
+      # # https://github.com/marketplace/actions/push-to-registry
+      # - name: Push the docker image
+      #   id: push_to_quay
+      #   uses: redhat-actions/push-to-registry@v2
+      #   with:
+      #     tags: quay.io/ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+      #     username: ${{ secrets.QUAYIO_USERNAME }}
+      #     password: ${{ secrets.QUAYIO_PASSWORD }}

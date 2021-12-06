@@ -6,27 +6,28 @@ This master playbook will drive the following playbooks in sequence:
 - Install dependencies:
     - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (15 minutes)
     - [Install Kafka (AMQ Streams)](dependencies.md#install-amq-streams) (10 minutes)
+    - [Install SLS](dependencies.md#install-sls) (10 minutes)
+    - [Install BAS](dependencies.md#install-bas) (35 minutes)
     - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
-    - Install Cloud Pak for Data Services
+    - Install Cloud Pak for Data Services:
         - [Db2 Warehouse](cp4d.md#db2-install) with [Db2 Management Console](cp4d.md#db2-install) (1-2 hours)
         - [Watson Studio](cp4d.md#watson-studio-install) with [Apache Spark](cp4d.md#watson-studio-install), [Watson Machine Learning](cp4d.md#watson-studio-install), & [Watson AI OpenScale](cp4d.md#watson-studio-install) (4-5 hours)
     - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (60 minutes)
     - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack)
     - Install Cloud Object Storage (coming soon)
-    - [Install SLS](sls.md#install-sls) (10 minutes)
-    - [Install BAS](bas.md#install-bas) (35 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (20 minutes)
 - Install Gen2 applications:
-    - [Install & configure Manage](mas.md#install-mas-application)
-    - Install & configure IoT (coming soon)
-    - Install & configure Assist (due 3Q)
-    - Install & configure Predict (due 3Q)
-    - Install & configure HP Utilties (due 3Q)
-    - Install & configure Safety (due 3Q)
-    - Install & configure Visual Inspection (due 3Q)
-    - Install & configure Monitor (due ??)
+    - [Install & configure Manage + Health](mas.md#install-mas-application)
+    - [Install & configure IoT](mas.md#install-mas-application)
+    - [Install & configure Monitor](mas.md#install-mas-application)
+    - [Install & configure Predict](mas.md#install-mas-application)
+    - [Install & configure Safety](mas.md#install-mas-application)
+    - [Install & configure Maximo Scheduler Optmization](mas.md#install-mas-application)
+    - Install & configure Assist (due 1Q)
+    - Install & configure HP Utilties (due 1Q)
+    - Install & configure Visual Inspection (due 1Q)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Gen1 applications will **not** be supported by this collection.
 
@@ -48,7 +49,7 @@ Before you run the playbook you need to configure a few things in your `MAS_CONF
 Copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
 !!! important
-    Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](sls.md#install-sls) topic.
+    Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](dependencies.md#install-sls) topic.
 
 ### Create a Workspace template
 If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:
@@ -116,9 +117,6 @@ export CLUSTER_NAME=xxx
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
 
-# Kafka configuration
-export KAFKA_CLUSTER_SIZE=large
-
 # MAS configuration
 export MAS_INSTANCE_ID=xxx
 export MAS_ENTITLEMENT_KEY=xxx
@@ -150,9 +148,6 @@ export CLUSTER_NAME=xxx
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
-
-# Kafka configuration
-export KAFKA_CLUSTER_SIZE=small
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
