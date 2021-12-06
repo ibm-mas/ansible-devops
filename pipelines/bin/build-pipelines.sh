@@ -4,11 +4,11 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ "$DEV_MODE" != "true" ]; then
-  source ${TRAVIS_BUILD_DIR}/build/bin/.env.sh
-  source ${TRAVIS_BUILD_DIR}/build/bin/.functions.sh
+  source ${GITHUB_WORKSPACE}/build/bin/.env.sh
+  source ${GITHUB_WORKSPACE}/build/bin/.functions.sh
 
-  FILES=$TRAVIS_BUILD_DIR/pipelines/tasks/**/*.yaml
-  TARGET_FILE=$TRAVIS_BUILD_DIR/pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
+  FILES=$GITHUB_WORKSPACE/pipelines/tasks/**/*.yaml
+  TARGET_FILE=$GITHUB_WORKSPACE/pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
 else
   FILES=$DIR/../tasks/**/*.yaml
   TARGET_FILE=$DIR/../ibm-mas_devops-clustertasks-$VERSION.yaml

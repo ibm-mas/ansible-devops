@@ -36,79 +36,59 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 4. Install CP4D services & configure Db2
+# 4. Install all CP4D services - this will take a long time!
 # -----------------------------------------------------------------------------
-- name: Install CP4D services & configure Db2
-  import_playbook: cp4d/install-fullstack.yml
+- name: Install CP4D services
+  import_playbook: cp4d/install-services-fullstack.yml
   vars:
     cpd_storage_class: ibmc-file-gold-gid
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 5. Install SLS
+# 5. Create DB2 Warehouse instance for Manage (wsapp scope)
+# -----------------------------------------------------------------------------
+- name: Create DB2 Warehouse instance for Manage (wsapp scope)
+  import_playbook: cp4d/create-db2-instance.yml
+  vars:
+    db2wh_instance_name: db2w-shared
+    db2wh_meta_storage_class: ibmc-file-silver-gid
+    db2wh_user_storage_class: ibmc-file-gold-gid
+    db2wh_backup_storage_class: ibmc-file-gold-gid
+    mas_config_scope: system
+
+
+# 6. Install SLS
 # -----------------------------------------------------------------------------
 - name: Install SLS
-  import_playbook: sls/install-sls.yml
+  import_playbook: dependencies/install-sls.yml
   vars:
     sls_storage_class: ibmc-file-gold-gid
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
-    # Default to re-using the MAS entitlement key if we do not provide a specific one for SLS
-    sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
-    sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') | default(lookup('env', 'IBM_ENTITLEMENT_KEY'), true) }}"
 
     # Use the generated mongodb configuration
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
-    # Bootstrap from the mas_config_dir
-    bootstrap:
-      license_id: "{{ lookup('env', 'SLS_LICENSE_ID') | default('', true) }}"
-      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
-      entitlement_file: "{{mas_config_dir}}/entitlement.lic"
 
-# 6. Install BAS
+# 7. Install BAS
 # -----------------------------------------------------------------------------
 - name: Install BAS
-  import_playbook: bas/install-bas.yml
+  import_playbook: dependencies/install-bas.yml
   vars:
-    # BAS Configuration
-    bas_namespace: "{{ lookup('env', 'BAS_NAMESPACE') | default('ibm-bas', true) }}"
-    bas_persistent_storage: "ibmc-file-bronze-gid"
+    bas_persistent_storage_class: "ibmc-file-bronze-gid"
     bas_meta_storage_class: "ibmc-block-bronze"
 
-    bas_username: "{{ lookup('env', 'BAS_USERNAME') | default('basuser', true) }}"
-    bas_password: "{{ lookup('env', 'BAS_PASSWORD') | default('', true) }}"
 
-    bas_grafana_username: "{{ lookup('env', 'BAS_GRAFANA_USERNAME') | default('basuser', true) }}"
-    bas_grafana_password: "{{ lookup('env', 'BAS_GRAFANA_PASSWORD') | default('', true) }}"
-    bas_contact:
-      email: "{{ lookup('env', 'BAS_CONTACT_MAIL') | default('', true) }}"
-      firstName: "{{ lookup('env', 'BAS_CONTACT_FIRSTNAME') | default('', true) }}"
-      lastName: "{{ lookup('env', 'BAS_CONTACT_LASTNAME') | default('', true) }}"
-
-    # MAS Configuration
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
-# 7. Install & configure MAS
+# 8. Install & configure MAS
 # Temporary hack for Manage, because the operator is missing critical
 # database configuration that requires manual intervention to set up.
 - name: Db2 configuration hack for Manage
   import_playbook: mas/hack-manage-db2.yml
   vars:
-    # Ensure these are kept in sync with the values used in cp4d/install-db2.yml
-    cpd_meta_namespace: cpd-meta-ops
-    db2wh_username: db2inst1
-    db2wh_dbname: BLUDB
-    # TODO: The default that is built into the manage operator isn't following
-    # the naming conventions for MAS.  It should have been some combination of
-    # {{mas_instance_id}} {{mas_app_id}} and {{mas_workspace_id}} so that it's
-    # friendly to shared database sources in low cost environments, and easily
-    # templateable in automation such as this :(
-    db2wh_schema: maximo
+    db2wh_instance_name: db2w-shared
+    db2wh_load_from_config: "true"
 
-# 8. Install & configure MAS
+
+# 9. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
@@ -116,7 +96,7 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 9. Install & Configure Manage application
+# 10. Install & Configure Manage application
 # -----------------------------------------------------------------------------
 - name: Install Manage
   import_playbook: mas/install-app.yml
@@ -129,4 +109,65 @@
   import_playbook: mas/configure-app.yml
   vars:
     mas_app_id: manage
+    mas_workspace_id: masdev
+
+
+# 11. Install & Configure IoT application
+# -----------------------------------------------------------------------------
+- name: Install & configure IoT
+  import_playbook: mas/install-app.yml
+  vars:
+    mas_app_id: iot
+- name: Configure IoT
+  import_playbook: mas/configure-app.yml
+  vars:
+    mas_app_id: iot
+    mas_workspace_id: masdev
+
+# 12. Install & Configure Monitor application
+# -----------------------------------------------------------------------------
+- name: Install & configure Monitor
+  import_playbook: mas/install-app.yml
+  vars:
+    mas_app_id: monitor
+- name: Configure Monitor
+  import_playbook: mas/configure-app.yml
+  vars:
+    mas_app_id: monitor
+    mas_workspace_id: masdev
+
+# 13. Install & Configure Maximo Scheduler Optimization application
+# -----------------------------------------------------------------------------
+- name: Install & configure MSO
+  import_playbook: mas/install-app.yml
+  vars:
+    mas_app_id: mso
+- name: Configure MSO
+  import_playbook: mas/configure-app.yml
+  vars:
+    mas_app_id: mso
+    mas_workspace_id: masdev
+
+# 14. Install & Configure Predict application
+# -----------------------------------------------------------------------------
+- name: Install & configure Predict
+  import_playbook: mas/install-app.yml
+  vars:
+    mas_app_id: predict
+- name: Configure Predict
+  import_playbook: mas/configure-app.yml
+  vars:
+    mas_app_id: predict
+    mas_workspace_id: masdev
+
+# 15. Install & Configure Safety application
+# -----------------------------------------------------------------------------
+- name: Install & configure Safety
+  import_playbook: mas/install-app.yml
+  vars:
+    mas_app_id: safety
+- name: Configure Safety
+  import_playbook: mas/configure-app.yml
+  vars:
+    mas_app_id: safety
     mas_workspace_id: masdev

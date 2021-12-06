@@ -5,8 +5,8 @@ This master playbook will drive the following playbooks in sequence:
 - [Provision & setup Quickburn](ocp.md#quickburn) (25 minutes)
 - Install dependencies:
     - [Install MongoDb](dependencies.md#install-mongodb-ce) (15 minutes)
-    - [Install BAS](bas.md#install-bas)(coming soon)
-    - [Install SLS](sls.md#install-sls)(10 minutes)
+    - [Install SLS](dependencies.md#install-sls) (10 minutes)
+    - [Install BAS](dependencies.md#install-bas) (35 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (25 minutes)

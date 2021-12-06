@@ -91,14 +91,85 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 4. Install Db2Wh
+    # 4.1 Install CP4D with DB2W Service
     # -------------------------------------------------------------------------
-    - name: install-db2wh
+    - name: install-cp4d
       taskRef:
-        name: mas-devops-install-db2wh
+        name: mas-devops-install-cp4d
+        kind: ClusterTask
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 4.2 Install Db2Wh for IoT/Monitor/Safety
+    # -------------------------------------------------------------------------
+    - name: install-db2w-iot
+      params:
+        - name: database_name
+          value: db2w-iot
+        - name: meta_storage
+          value: "20"
+        - name: user_storage
+          value: "100"
+        - name: backup_storage
+          value: "100"
+        - name: mas_config_scope
+          value: system
+      taskRef:
+        name: mas-devops-install-db2-api
         kind: ClusterTask
       runAfter:
+        - install-cp4d
         - cfg-ocp
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 4.3 Install Db2Wh for Manage/Health/Predict/Health and Predict Utilities
+    # -------------------------------------------------------------------------
+    - name: install-db2w-manage
+      params:
+        - name: database_name
+          value: db2w-manage
+        - name: meta_storage
+          value: "10"
+        - name: user_storage
+          value: "200"
+        - name: backup_storage
+          value: "200"
+        - name: mas_config_scope
+          value: wsapp
+        - name: mas_workspace_id
+          value: masdev
+        - name: mas_application_id
+          value: manage
+      taskRef:
+        name: mas-devops-install-db2-api
+        kind: ClusterTask
+      runAfter:
+        - install-cp4d
+        - cfg-ocp
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 4.4 Prepare database to Maxinst
+    # -------------------------------------------------------------------------
+    - name: hack-db2-for-manage
+      params:
+        - name: db2wh_instance_name
+          value: db2w-manage
+      taskRef:
+        name: mas-devops-hack-manage-db2
+        kind: ClusterTask
+      runAfter:
+        - install-db2w-manage
       workspaces:
         - name: configs
           workspace: shared-configs
@@ -153,71 +224,24 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 8. Install IBM MAS Manage application
-    # -------------------------------------------------------------------------
-    # 8.0 Configure Db2 in MAS
-    - name: cfg-suite-db2wh
+    # 7.1 Configure Db2 in MAS
+    - name: cfg-suite-db2
       taskRef:
         kind: ClusterTask
         name: mas-devops-configure-suite
       runAfter:
         - install-suite
-        - install-db2wh
+        - install-db2w-iot
+        - hack-db2-for-manage
       workspaces:
         - name: configs
           workspace: shared-configs
         - name: settings
           workspace: shared-settings
 
-    # 8.1 Manage Install
-    - name: install-manage
-      params:
-        - name: mas_app_id
-          value: manage
-      taskRef:
-        name: mas-devops-install-app
-        kind: ClusterTask
-      runAfter:
-        - install-suite
-        - install-db2wh
-      workspaces:
-        - name: settings
-          workspace: shared-settings
-
-    # 8.2 Hack Db2 for manage
-    - name: hack-db2wh-for-manage
-      taskRef:
-        name: mas-devops-hack-manage-db2
-        kind: ClusterTask
-      runAfter:
-        - install-db2wh
-      workspaces:
-        - name: configs
-          workspace: shared-configs
-        - name: settings
-          workspace: shared-settings
-
-    # 8.3 Configure Manage workspace
-    - name: cfg-manage
-      params:
-        - name: mas_app_id
-          value: manage
-        - name: mas_workspace_id
-          value: masdev
-      taskRef:
-        name: mas-devops-configure-app
-        kind: ClusterTask
-      runAfter:
-        - cfg-suite-db2wh
-        - install-manage
-        - hack-db2wh-for-manage
-      workspaces:
-        - name: settings
-          workspace: shared-settings
-
-    # 9. Install IBM MAS IoT application
+    # 7. Install IBM MAS IoT application
     # -------------------------------------------------------------------------
-    # 9.0 Configure Kafka in MAS
+    # 7.2 Configure Kafka in MAS
     - name: cfg-suite-kafka
       taskRef:
         kind: ClusterTask
@@ -231,23 +255,26 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 9.1 Install IoT
+    # 7.3 Install IoT
     - name: install-iot
       params:
         - name: mas_app_id
           value: iot
+        - name: mas_app_channel
+          value: "{{ mas_app_channel_iot }}"
+        - name: mas_app_catalog_source
+          value: "{{ mas_app_catalog_source_iot }}"
       taskRef:
         name: mas-devops-install-app
         kind: ClusterTask
       runAfter:
-        - install-suite
-        - cfg-suite-db2wh
+        - cfg-suite-db2
         - cfg-suite-kafka
       workspaces:
         - name: settings
           workspace: shared-settings
 
-    # 9.2 Configure IoT workspace
+    # 7.4 Configure IoT workspace
     - name: cfg-iot
       params:
         - name: mas_app_id
@@ -259,6 +286,187 @@ spec:
         kind: ClusterTask
       runAfter:
         - install-iot
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 8. Install IBM MAS Monitor application
+    # -------------------------------------------------------------------------
+    # 8.1 Install Monitor
+    - name: install-monitor
+      params:
+        - name: mas_app_id
+          value: monitor
+        - name: mas_app_channel
+          value: "{{ mas_app_channel_monitor }}"
+        - name: mas_app_catalog_source
+          value: "{{ mas_app_catalog_source_monitor }}"
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-iot
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 8.2 Configure Monitor workspace
+    - name: cfg-monitor
+      params:
+        - name: mas_app_id
+          value: monitor
+        - name: mas_workspace_id
+          value: masdev
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-monitor
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 9. Install IBM MAS Safety application
+    # -------------------------------------------------------------------------
+    # 9.1 Install Safety
+    - name: install-safety
+      params:
+        - name: mas_app_id
+          value: safety
+        - name: mas_app_channel
+          value: "{{ mas_app_channel_safety }}"
+        - name: mas_app_catalog_source
+          value: "{{ mas_app_catalog_source_safety }}"
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-iot
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 9.2 Configure Safety workspace
+    - name: cfg-safety
+      params:
+        - name: mas_app_id
+          value: safety
+        - name: mas_workspace_id
+          value: masdev
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-safety
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 10. Install IBM MAS Manage application
+    # -------------------------------------------------------------------------
+    # 10.1 Manage Install
+    - name: install-manage
+      params:
+        - name: mas_app_id
+          value: manage
+        - name: mas_app_channel
+          value: "{{ mas_app_channel_manage }}"
+        - name: mas_app_catalog_source
+          value: "{{ mas_app_catalog_source_manage }}"
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-suite-db2
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 10.2 Configure Manage workspace
+    - name: cfg-manage
+      params:
+        - name: mas_app_id
+          value: manage
+        - name: mas_workspace_id
+          value: masdev
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-manage
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 11. Predict
+    # -------------------------------------------------------------------------
+    # 11.1 Predict Install
+    - name: install-predict
+      params:
+        - name: mas_app_id
+          value: predict
+        - name: mas_app_channel
+          value: "{{ mas_app_channel_predict }}"
+        - name: mas_app_catalog_source
+          value: "{{ mas_app_catalog_source_predict }}"
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-manage
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 11.2 Configure Predict workspace
+    - name: cfg-predict
+      params:
+        - name: mas_app_id
+          value: predict
+        - name: mas_workspace_id
+          value: masdev
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-predict
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 12. MSO
+    # -------------------------------------------------------------------------
+    # 12.1 MSO Install
+    - name: install-mso
+      params:
+        - name: mas_app_id
+          value: mso
+        - name: mas_app_channel
+          value: "{{ mas_app_channel_mso }}"
+        - name: mas_app_catalog_source
+          value: "{{ mas_app_catalog_source_mso }}"
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-suite-db2
+        - cfg-manage
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 12.2 Configure MSO workspace
+    - name: cfg-mso
+      params:
+        - name: mas_app_id
+          value: mso
+        - name: mas_workspace_id
+          value: masdev
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-mso
       workspaces:
         - name: settings
           workspace: shared-settings
