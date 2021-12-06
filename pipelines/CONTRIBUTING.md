@@ -36,3 +36,16 @@ oc create secret generic pipeline-sls-entitlement --from-file=/home/david/mascon
 oc apply -f pipelines/samples/sample-pipeline.yaml
 oc create -f pipelines/samples/sample-pipelinerun.yaml
 ```
+
+
+### Rebuild
+Each time you want to modify and retry a pipeline run, use the following:
+
+```bash
+cd pipelines
+
+bash bin/build-pipelines.sh
+oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
+oc create -f samples/sample-pipelinerun.yaml
+oc create -f samples/sample-pipelinerun.yaml
+```
