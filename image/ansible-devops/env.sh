@@ -32,24 +32,24 @@ export MONGODB_STORAGE_CAPACITY_DATA=$(cat /workspace/settings/MONGODB_STORAGE_C
 export MONGODB_STORAGE_CAPACITY_LOGS=$(cat /workspace/settings/MONGODB_STORAGE_CAPACITY_LOGS)
 
 # -----------------------------------------------------------------------------
-# cp4d/install-cp4d.yml
+# cp4d/install-services-db2.yml
 # -----------------------------------------------------------------------------
 export CPD_ENTITLEMENT_KEY=$(cat /workspace/settings/CPD_ENTITLEMENT_KEY)
 export CPD_NAMESPACE=$(cat /workspace/settings/CPD_NAMESPACE)
 export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
 
 # -----------------------------------------------------------------------------
-# cp4d/install-db2=api.yml
+# cp4d/create-db2-instance.yml
 # -----------------------------------------------------------------------------
-export CPD_META_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_META_STORAGE_SIZE_GB)
-export CPD_USER_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_USER_STORAGE_SIZE_GB)
-export CPD_BACKUP_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_BACKUP_STORAGE_SIZE_GB)
-export CPD_META_STORAGE_CLASS=$(cat /workspace/settings/CPD_META_STORAGE_CLASS)
-export CPD_USER_STORAGE_CLASS=$(cat /workspace/settings/CPD_USER_STORAGE_CLASS)
-export CPD_BACKUP_STORAGE_CLASS=$(cat /workspace/settings/CPD_BACKUP_STORAGE_CLASS)
-export CPD_ADMIN_USER=$(cat /workspace/settings/CPD_ADMIN_USER)
-export CPD_ADMIN_PASSWORD=$(cat /workspace/settings/CPD_ADMIN_PASSWORD)
-export CPD_DB2WH_ADDON_VERSION=$(cat /workspace/settings/CPD_DB2WH_ADDON_VERSION)
+export DB2WH_META_STORAGE_SIZE_GB=$(cat /workspace/settings/DB2WH_META_STORAGE_SIZE_GB)
+export DB2WH_USER_STORAGE_SIZE_GB=$(cat /workspace/settings/DB2WH_USER_STORAGE_SIZE_GB)
+export DB2WH_BACKUP_STORAGE_SIZE_GB=$(cat /workspace/settings/DB2WH_BACKUP_STORAGE_SIZE_GB)
+export DB2WH_META_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_META_STORAGE_CLASS)
+export DB2WH_USER_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_USER_STORAGE_CLASS)
+export DB2WH_BACKUP_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_BACKUP_STORAGE_CLASS)
+export DB2WH_ADMIN_USER=$(cat /workspace/settings/DB2WH_ADMIN_USER)
+export DB2WH_ADMIN_PASSWORD=$(cat /workspace/settings/DB2WH_ADMIN_PASSWORD)
+export DB2WH_ADDON_VERSION=$(cat /workspace/settings/CPDB2WH_ADDON_VERSION)
 export DB2WH_TABLE_ORG=$(cat /workspace/settings/DB2WH_TABLE_ORG)
 
 # -----------------------------------------------------------------------------
@@ -83,8 +83,8 @@ export SLS_LICENSE_ID=$(cat /workspace/settings/SLS_LICENSE_ID)
 # bas/install-bas.yaml
 # -----------------------------------------------------------------------------
 export BAS_NAMESPACE=$(cat /workspace/settings/BAS_NAMESPACE)
-export BAS_PERSISTENT_STORAGE=$(cat /workspace/settings/BAS_PERSISTENT_STORAGE)
-export BAS_META_STORAGE=$(cat /workspace/settings/BAS_META_STORAGE)
+export BAS_PERSISTENT_STORAGE_CLASS=$(cat /workspace/settings/BAS_PERSISTENT_STORAGE_CLASS)
+export BAS_META_STORAGE_CLASS=$(cat /workspace/settings/BAS_META_STORAGE_CLASS)
 export BAS_USERNAME=$(cat /workspace/settings/BAS_USERNAME)
 export BAS_PASSWORD=$(cat /workspace/settings/BAS_PASSWORD)
 export BAS_GRAFANA_USERNAME=$(cat /workspace/settings/BAS_GRAFANA_USERNAME)
