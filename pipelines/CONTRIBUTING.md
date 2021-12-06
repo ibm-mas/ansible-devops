@@ -46,6 +46,6 @@ cd pipelines
 
 bash bin/build-pipelines.sh
 oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
-oc create -f samples/sample-pipelinerun.yaml
+oc apply -f samples/sample-pipeline.yaml
 oc create -f samples/sample-pipelinerun.yaml
 ```
