@@ -18,7 +18,6 @@ export K8S_AUTH_API_KEY=$(cat /run/secrets/kubernetes.io/serviceaccount/token)
 # ocp/configure-ocp.yml
 # -----------------------------------------------------------------------------
 export IBMCLOUD_APIKEY=$(cat /workspace/settings/IBMCLOUD_APIKEY)
-export CLUSTER_NAME=$(cat /workspace/settings/CLUSTER_NAME)
 export W3_USERNAME=$(cat /workspace/settings/W3_USERNAME)
 export ARTIFACTORY_APIKEY=$(cat /workspace/settings/ARTIFACTORY_APIKEY)
 

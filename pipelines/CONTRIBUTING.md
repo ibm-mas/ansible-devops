@@ -20,6 +20,7 @@ bash pipelines/bin/build-pipelines.sh
 ### Install Pipelines feature & ClusterTask definitions
 ```bash
 bash pipelines/bin/install-pipelines.sh
+# Wait until the pipelines operator is installed
 oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
 ```
 
