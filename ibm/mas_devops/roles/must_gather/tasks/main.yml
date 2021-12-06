@@ -1,0 +1,47 @@
+---
+
+# 1. Check that all properties are provided
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id == ""
+  fail:
+    msg: "mas_instance_id property is required"
+
+- name: "Fail if base_output_dir is not provided"
+  when: base_output_dir is not defined or base_output_dir == ""
+  fail:
+    msg: "base_output_dir property is required"
+
+
+# 2. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "MAS Instance ID .............. {{ mas_instance_id }}"
+      - "Base Output Directory ..............{{ base_output_dir }}"
+    
+
+# 3. Create folder for must gather
+# -----------------------------------------------------------------------------
+- name: "Create folder variable for must gather output in the base folder"
+  set_fact:
+    must_gather_folder: "{{base_output_dir}}/result_{{ lookup('pipe','date +%Y-%m-%d-%H-%M-%S') }}"
+
+
+# 4. Use the MAS Instance ID to run must gather
+# ------------------------------------------------------------------------------
+- name: "Run must gather (this might take a few minutes)"
+  shell: |
+    oc adm must-gather --dest-dir={{must_gather_folder}} --image=quay.io/aiasupport/must-gather -- gather -cgl --noclusterinfo --mas-instance-id {{mas_instance_id}}
+  register: gather_results
+
+- debug:
+        var: gather_results.stdout_lines
+
+- name: "Location information for must-gather"
+  debug: 
+    msg:
+      - "Must-gather has completed successfully"
+      - "Result files are located at: {{must_gather_folder}}"
+
