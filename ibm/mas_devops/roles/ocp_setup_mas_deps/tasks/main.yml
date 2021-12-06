@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 - name: "Create IBM catalogs"
   community.kubernetes.k8s:
-    definition: "{{ lookup('template', 'templates/ibm-catalogs.yaml') }}"
+    definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
 
 # 2. Install development (pre-release) catalogs
 # -----------------------------------------------------------------------------
@@ -13,7 +13,7 @@
     - artifactory_username != ""
     - artifactory_apikey is defined
     - artifactory_apikey != ""
-    - airgap_install is not defined or not airgap_install
+    - not airgap_install
   include_tasks: "tasks/development-catalogs.yml"
 
 # 3. Install cert-manager
@@ -40,57 +40,9 @@
 
 # 4. Install Service Binding Operator
 # -----------------------------------------------------------------------------
-# Important
-# Do not upgrade to SBO 0.9.0, there are breaking changes in the API that
-# are incompatible with MAS
-
-- name: Create SBO Subscription
-  community.kubernetes.k8s:
-    template: templates/sbo/subscription.yaml
-    wait: yes
-    wait_timeout: 120
-
-- name: Lookup SBO install plan
-  community.kubernetes.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: InstallPlan
-    namespace: openshift-operators
-    label_selectors:
-      - operators.coreos.com/rh-service-binding-operator.openshift-operators
-  register: sbo_installplan_info
-  retries: 20
-  delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
-  until: sbo_installplan_info.resources | length > 0
-
-- name: Approve the install plan for SBO
+- include_tasks: "tasks/sbo/install_connected.yml"
   when:
-    - sbo_installplan_info.resources[0].status.phase != "Complete"
-    - sbo_installplan_info.resources[0].spec.clusterServiceVersionNames[0] == "service-binding-operator.v0.8.0"
-  community.kubernetes.k8s:
-    definition:
-      apiVersion: operators.coreos.com/v1alpha1
-      kind: InstallPlan
-      metadata:
-        name: "{{ sbo_installplan_info.resources[0].metadata.name }}"
-        namespace: openshift-operators
-      spec:
-        approved: true
-
-- name: Wait for SBO install to complete
-  when:
-    - sbo_installplan_info.resources[0].status.phase != "Complete"
-    - sbo_installplan_info.resources[0].spec.clusterServiceVersionNames[0] == "service-binding-operator.v0.8.0"
-  community.kubernetes.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: InstallPlan
-    name: "{{ sbo_installplan_info.resources[0].metadata.name }}"
-    namespace: openshift-operators
-  register: sbo_installplan_info
-  retries: 20
-  delay: 30 # Retry for approx 10 minutes (20s * 30 attempts) before giving up
-  until:
-    - sbo_installplan_info.resources[0].status.phase is defined
-    - sbo_installplan_info.resources[0].status.phase == "Complete"
+  - not airgap_install
 
 # 5. Update openshift monitoring to define a specific storage class for Prometheus logs
 # -------------------------------------------------------------------------------------
@@ -98,7 +50,7 @@
   when:
     - prometheus_storage_class is defined and prometheus_storage_class != ""
   community.kubernetes.k8s:
-    definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yaml') }}"
+    definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yml') }}"
     wait: yes
     wait_timeout: 120
 
