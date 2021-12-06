@@ -22,8 +22,15 @@
     mongodb_storage_class: ibmc-block-gold
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
+# 3. Install Db2 CP4D service
+# -----------------------------------------------------------------------------
+- name: Install CP4D services
+  import_playbook: cp4d/install-services-db2.yml
+  vars:
+    cpd_storage_class: ibmc-file-gold-gid
+    cpd_block_storage_class: ibmc-block-gold
 
-# 3. Install SLS
+# 4. Install SLS
 # -----------------------------------------------------------------------------
 - name: Install SLS
   import_playbook: dependencies/install-sls.yml
@@ -35,23 +42,13 @@
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
-
-# 4. Install BAS
+# 5. Install BAS
 # -----------------------------------------------------------------------------
 - name: Install BAS
   import_playbook: dependencies/install-bas.yml
   vars:
     bas_persistent_storage_class: "ibmc-file-bronze-gid"
     bas_meta_storage_class: "ibmc-block-bronze"
-
-
-# 5. Install Db2 CP4D service
-# -----------------------------------------------------------------------------
-- name: Install CP4D services
-  import_playbook: cp4d/install-services-db2.yml
-  vars:
-    cpd_storage_class: ibmc-file-gold-gid
-
 
 # 6. Create DB2 Warehouse instance in CP4D
 # -----------------------------------------------------------------------------
@@ -62,8 +59,9 @@
     db2wh_meta_storage_class: ibmc-file-silver-gid
     db2wh_user_storage_class: ibmc-file-gold-gid
     db2wh_backup_storage_class: ibmc-file-gold-gid
+    db2wh_logs_storage_class: ibmc-file-silver-gid # only applicable for cp4d 4.0
+    db2wh_temp_storage_class: ibmc-file-silver-gid # only applicable for cp4d 4.0
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
 
 # Temporary hack for Manage, because the operator is missing critical
 # database configuration that requires manual intervention to set up.
@@ -72,14 +70,12 @@
   vars:
     db2wh_instance_name: db2w-shared
 
-
 # 7. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
   vars:
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
 
 # 8. Install & Configure Manage application
 # -----------------------------------------------------------------------------

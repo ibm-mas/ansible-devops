@@ -15,14 +15,19 @@
 - set_fact:
     cp4d_db_port_list: "{{ cp4d_db2_service_info.resources[0].spec.ports }}"
 
-- name: Get the SSL port of DB2 database {{ db2wh_instance_name }} from k8s Service info
-  debug:
-    msg: "{{ cp4d_db_port_list | json_query(querystring) }}"
-  vars:
-    querystring: "[?name=='ssl-server']"
-  register: db_ssl_port_query_result
+# - debug:
+#     msg: "{{ cp4d_db_port_list }}"
 
-# - debug: var=db_ssl_port_query_result.msg[0].port
+- name: Get the SSL port of DB2 database {{ db2wh_instance_name }} from k8s Service info
+  vars:
+    db2wh_ports: "{{ item }}"
+  set_fact: 
+    sslNodePort: "{{ item.port }}"
+  when: item.name == 'ssl-server'
+  with_items: "{{ cp4d_db_port_list }}"
+
+# - debug:
+#     msg: "NodePort: {{ sslNodePort }}"
 
 - set_fact:
-    cp4d_db_ssl_port: "{{ db_ssl_port_query_result.msg[0].port }}"
+    cp4d_db_ssl_port: "{{ sslNodePort }}"

@@ -6,10 +6,11 @@ This role installs [IBM Cloud Pak for Data](https://www.ibm.com/uk-en/products/c
 Role Variables
 --------------
 
+- `cpd_version` CP4D version to be installed. Supported versions are `cpd35` (for CP4D 3.5) and `cpd40` (for CP4D 4.0)
 - `cpd_registry_password` Holds the IBM Entitlement key
 - `cpd_registry` cp.icr.io
 - `cpd_registry_user` cp
-- `cpd_meta_namespace` Namespace to be created and used for CP4D deployment
+- `cpd_meta_namespace` Namespace to be created and used for CP4D deployment. For CP4D 4.0 version, namespace will always be 'ibm-common-services' 
 
 
 Example Playbook
@@ -19,6 +20,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    cpd_version: "{{ lookup('env', 'CPD_VERSION') }}"
     cpd_registry: cp.icr.io
     cpd_registry_user: cp
     cpd_registry_password: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
