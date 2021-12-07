@@ -47,4 +47,5 @@ ROLE=ocp_provision; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=ocp_setup_ocs; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_app_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_dns; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
+ROLE=suite_mustgather; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ```
