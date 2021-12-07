@@ -1,4 +1,17 @@
 ---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id == ""
+  fail:
+    msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_config_dir is not provided"
+  when: mas_config_dir is not defined or mas_config_dir == ""
+  fail:
+    msg: "mas_config_dir property is required"
+
+
 # 0. Check if the ocs is installed
 # ----------------------------------------------------------------------------
 - name: "Get OCS cluster "
@@ -13,7 +26,12 @@
   set_fact:
     ocsavailable: '{% if SCluster.resources[0].status.phase == "Ready" %}True{% else %}False{% endif %}'
 
-- name: "cp4d/wds: check if it's IBM managed OCP based on existing storage class"
+- name: "Print If there's OCS cluster"
+  debug:
+    msg:
+      - "OCS Cluster is available .... {{ ocsavailable }}  "
+
+- name: "ocs/cos: check if it's IBM managed OCP based on existing storage class"
   when: not (ocsavailable is defined and ocsavailable) 
   block:
     - name: list all SC
@@ -34,6 +52,10 @@
       when: findibmcsc is defined and findibmcsc and lookup('env', 'ASSIST_COS_PASS')|length > 0
       set_fact:
         cospassword: "{{ lookup('env', 'ASSIST_COS_PASS') }}"
+  rescue:
+    - name: Fail when ASSIST_COS_PASS is not set for IBM managed OCP Env
+      fail:
+        msg: "We Couldn't get the OCS cluster instance or IBM Cloud Object storage ASSIST_COS_PASS is not set, pls export ASSIST_COS_PASS="{{apikey}};{{resource_instance_id}}"
 
 # 1. Create the object store
 # -----------------------------------------------------------------------------
@@ -121,15 +143,13 @@
     - name: Copy objectstorageCfg to filesytem
       when: not ( findibmcsc is defined and findibmcsc )
       vars:
-        mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-        instanceId: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+        instanceId: "{{ mas_instance_id }}"
       ansible.builtin.template:
         src: objectaccess/objectstoragecfg.yml.j2
         dest: "{{ mas_config_dir }}/objectstoragecfg.yml"
     - name: Copy objectstorageCfg to filesytem
       when: findibmcsc is defined and findibmcsc 
       vars:
-        mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
         instanceId: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
       ansible.builtin.template:
         src: objectaccess/cloudobjectstoragecfg.yml.j2
