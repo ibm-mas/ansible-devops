@@ -18,18 +18,15 @@ This master playbook will drive the following playbooks in sequence:
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (20 minutes)
-- Install Gen2 applications:
-    - [Install & configure Manage + Health](mas.md#install-mas-application)
-    - [Install & configure IoT](mas.md#install-mas-application)
-    - [Install & configure Monitor](mas.md#install-mas-application)
-    - [Install & configure Predict](mas.md#install-mas-application)
-    - [Install & configure Safety](mas.md#install-mas-application)
-    - [Install & configure Maximo Scheduler Optmization](mas.md#install-mas-application)
-    - Install & configure Assist (due 1Q)
-    - Install & configure HP Utilties (due 1Q)
-    - Install & configure Visual Inspection (due 1Q)
+- Install applications:
+    - [Install & configure Manage](mas.md#install-mas-application) (7 minute install + 1 hour 40 minutes configure)
+    - [Install & configure IoT](mas.md#install-mas-application) (2 hour install + 2 minutes configure)
+    - [Install & configure Monitor](mas.md#install-mas-application) (8 minute install + ? configure)
+    - [Install & configure Predict](mas.md#install-mas-application) (10 minute install + 5 minutes configure)
+    - [Install & configure Safety](mas.md#install-mas-application) (? minute install + ? minutes configure)
+    - [Install & configure Maximo Scheduler Optmization](mas.md#install-mas-application) (10 minute install + ? configure)
 
-All timings are estimates, see the individual pages for each of these playbooks for more information.  Gen1 applications will **not** be supported by this collection.
+All timings are estimates, see the individual pages for each of these playbooks for more information.
 
 !!! warning
     The install time for Cloud Pak for Data with all the services supported by MAS enabled is considerable.  Unfortunately this is out of our control, plan accordingly!
