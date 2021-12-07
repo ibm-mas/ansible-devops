@@ -1,9 +1,8 @@
 ---
-
 # 0. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 # - fail if neither cpd_version nor mas_channel provided, as we need something to determine which cpd version to be installed.
-- name: "Fail if cpd_version or mas_channel are not provided"
+- name: "Fail if cpd_version and mas_channel are not provided"
   when: 
     - cpd_version is not defined or cpd_version == ''
     - mas_channel is not defined or mas_channel == ''
@@ -15,7 +14,7 @@
 # - fail if neither cpd_version nor mas_channel provided, as we need something to determine which cpd version to be installed.
 - name: "Fail if defined cpd_version is not supported"
   vars:
-    cpd_supported_versions: ['cpd35','cpd40']
+    cpd_supported_versions: "{{ cpd_default_supported_versions }}"
   when: 
     - cpd_version is defined and cpd_version != ''
     - cpd_version not in cpd_supported_versions
@@ -44,7 +43,7 @@
   when: 
     - cpd_version is not defined or cpd_version == ''
   set_fact: 
-    cpd_version: "{{ 'cpd40' if (mas_channel == 'stable' or mas_channel == 'm2dev87') else 'cpd35' }}"
+    cpd_version: "{{ 'cpd40' if (mas_channel in mas87_channels) else 'cpd35' }}"
 
 # 4. Check if CPD version is compatible with cluster type
 # -----------------------------------------------------------------------------

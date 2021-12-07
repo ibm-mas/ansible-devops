@@ -13,7 +13,6 @@
     cluster_type: roks
     ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
 
-
 # 2. Install MongoDb
 # -----------------------------------------------------------------------------
 - name: Install MongoDb (Community Edition)
@@ -21,7 +20,6 @@
   vars:
     mongodb_storage_class: ibmc-block-gold
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
 
 # 3. Install AMQ Streams
 # -----------------------------------------------------------------------------
@@ -35,17 +33,14 @@
     kafka_user_name: masuser
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
-
 # 4. Install all CP4D services - this will take a long time!
 # -----------------------------------------------------------------------------
 - name: Install CP4D services
   import_playbook: cp4d/install-services-fullstack.yml
   vars:
-    mas87_default_channels: ['stable','m2dev87','m3dev87']
-    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') }}"
-    cpd_block_storage_class: ibmc-block-gold
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', True) }}" #  when defined, it will automatically install a cpd version that is compatible with the chosen mas_channel
     cpd_storage_class: ibmc-file-gold-gid
-
+    cpd_block_storage_class: ibmc-block-gold
 
 # 5. Create DB2 Warehouse instance for Manage (wsapp scope)
 # -----------------------------------------------------------------------------
@@ -57,7 +52,6 @@
     db2wh_user_storage_class: ibmc-file-gold-gid
     db2wh_backup_storage_class: ibmc-file-gold-gid
     mas_config_scope: system
-
 
 # 6. Install SLS
 # -----------------------------------------------------------------------------
@@ -71,7 +65,6 @@
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
-
 # 7. Install BAS
 # -----------------------------------------------------------------------------
 - name: Install BAS
@@ -79,7 +72,6 @@
   vars:
     bas_persistent_storage_class: "ibmc-file-bronze-gid"
     bas_meta_storage_class: "ibmc-block-bronze"
-
 
 # 8. Install & configure MAS
 # Temporary hack for Manage, because the operator is missing critical
@@ -90,14 +82,12 @@
     db2wh_instance_name: db2w-shared
     db2wh_load_from_config: "true"
 
-
 # 9. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
   vars:
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
 
 # 10. Install & Configure Manage application
 # -----------------------------------------------------------------------------
