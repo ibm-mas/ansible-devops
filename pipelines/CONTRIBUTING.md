@@ -20,6 +20,7 @@ bash pipelines/bin/build-pipelines.sh
 ### Install Pipelines feature & ClusterTask definitions
 ```bash
 bash pipelines/bin/install-pipelines.sh
+# Wait until the pipelines operator is installed
 oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
 ```
 
@@ -33,6 +34,17 @@ oc apply -f pipelines/samples/sample-pipelinesettings-roks-donotcommit.yaml
 oc create secret generic pipeline-additional-configs --from-file=/home/david/masconfig/workspace_masdev.yaml
 oc create secret generic pipeline-sls-entitlement --from-file=/home/david/masconfig/entitlement.lic
 
+oc apply -f pipelines/samples/sample-pipeline.yaml
+oc create -f pipelines/samples/sample-pipelinerun.yaml
+```
+
+
+### Rebuild
+Each time you want to modify and retry a pipeline run, use the following:
+
+```bash
+bash pipelines/bin/build-pipelines.sh
+oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
 oc apply -f pipelines/samples/sample-pipeline.yaml
 oc create -f pipelines/samples/sample-pipelinerun.yaml
 ```
