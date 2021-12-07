@@ -11,7 +11,7 @@ Role Variables
 - `cpd_registry` cp.icr.io
 - `cpd_registry_user` cp
 - `cpd_meta_namespace` Namespace to be created and used for CP4D deployment. For CP4D 4.0 version, namespace will always be 'ibm-common-services' 
-
+- `mas_channel` - Optionally, you can specify this property in case you want to install a CP4D version that is compatible with an specific MAS channel.
 
 Example Playbook
 ----------------
@@ -29,7 +29,7 @@ Example Playbook
     # CP4D service configuration
     cpd_storage_class: "{{ lookup('env', 'CPD_STORAGE_CLASS') }}"
     cpd_services:
-      - lite
+      - db2wh
   roles:
     - ibm.mas_devops.cp4d_install
     - ibm.mas_devops.cp4d_install_services
