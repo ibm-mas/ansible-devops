@@ -1,0 +1,78 @@
+---
+- name: Read the variables from var file
+  include_vars:
+    file: vars.yml
+- name: retrieve space guid
+  ibm.cloudcollection.ibm_space_info:
+    name: "{{ ibm_cloud_space}}"
+    org: "{{ ibm_cloud_org }}"
+    ibmcloud_api_key: "{{ ibm_cloud_apikey }}"
+  register: space_info 
+- debug:
+    msg: 
+      - "space GUID ... {{ space_info.resource.id }}"
+- name: "set space guid"
+  when:
+    - space_info.resources.id is defined
+  set_fact:
+    spaceID: "{{ space_info.resource.id }}"
+- name: retrieve resource group guid
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "Default"
+    ibmcloud_api_key: "{{ ibm_cloud_apikey  }}"
+  register: rg_info 
+- debug:
+    msg: 
+      - "Resource Group GUID ... {{ rg_info.resource.id }}"
+- name: "set resource group guid"
+  when:
+    - rg_info.resource.id is defined
+  set_fact:
+    resourceGID: "{{ rg_info.resource.id }}"
+- name: Create a cos instance
+  ibm.cloudcollection.ibm_resource_instance:
+    name: "{{ instance_name }}"
+    service: "cloud-object-storage"
+    plan: "{{ plan_type }}"
+    location: "{{ location_info }}"
+    ibmcloud_api_key: "{{ ibm_cloud_apikey  }}"
+- name: Retrieve cos instance ID
+  ibm.cloudcollection.ibm_resource_instance_info:
+    name: "{{ instance_name }}"
+    resource_group_id: "{{ resourceGID }}"      
+    service: "cloud-object-storage"
+    location: "{{ location_info }}"
+    ibmcloud_api_key: "{{ ibm_cloud_apikey  }}"
+  register: cos_info 
+- debug:
+    msg: 
+      - "Cos Instance resource ID ... {{ cos_info.resource.id }}"
+- name: "set resource instance id"
+  when:
+    - cos_info.resource.id is defined
+  set_fact:
+    resourceID: "{{ cos_info.resource.id }}"
+- name: Create a cos service credential
+  ibm.cloudcollection.ibm_resource_key:
+    name: "{{ instance_name }}-key"
+    role: "Manager"
+    resource_instance_id: "{{ resourceID }}"
+    ibmcloud_api_key: "{{ ibm_cloud_apikey  }}"
+- name: retrieve cos service crdential
+  ibm.cloudcollection.ibm_resource_key_info:
+    name: "{{ instance_name }}-key"
+    resource_instance_id: "{{ resourceID }}"
+    ibmcloud_api_key: "{{ ibm_cloud_apikey  }}"
+  register: cos_key_info 
+- debug:
+    msg: 
+      - "Cos Key resource ID ... {{ cos_key_info.resource }}"
+- name: "set ASSIST_COS_PASS var"
+  when:
+    - cos_key_info.resource.credentials is defined
+  set_fact:
+    ASSIST_COS_PASS: "{{ cos_key_info.resource.credentials.apikey }};{{ cos_key_info.resource.credentials.resource_instance_id }}"
+- debug:
+    msg: 
+      - "ASSIST_COS_PASS ... {{ ASSIST_COS_PASS }}"
+

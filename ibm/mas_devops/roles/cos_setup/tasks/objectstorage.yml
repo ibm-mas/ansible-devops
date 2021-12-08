@@ -11,6 +11,27 @@
   fail:
     msg: "mas_config_dir property is required"
 
+- name: "Fail if  is not provided"
+  when:  
+    - ibm_cloud_apikey is not defined or ibm_cloud_apikey == ""
+    - useibmcos
+  fail:
+    msg: "ibm_cloud_apikey property is required"
+
+- name: "Fail if  is not provided"
+  when:  
+    - ibm_cloud_org is not defined or ibm_cloud_org == ""
+    - useibmcos
+  fail:
+    msg: "ibm_cloud_org property is required"
+
+- name: "Fail if  is not provided"
+  when:  
+    - ibm_cloud_space is not defined or ibm_cloud_space == ""
+    - useibmcos
+  fail:
+    msg: "ibm_cloud_space property is required"
+
 
 # 0. Check if the ocs is installed
 # ----------------------------------------------------------------------------
@@ -32,30 +53,24 @@
       - "OCS Cluster is available .... {{ ocsavailable }}  "
 
 - name: "ocs/cos: check if it's IBM managed OCP based on existing storage class"
-  when: not (ocsavailable is defined and ocsavailable) 
+  vars:
+    
+  when: 
+    - not (ocsavailable is defined and ocsavailable) 
+    - useibmcos
   block:
-    - name: list all SC
-      community.kubernetes.k8s_info:
-        kind: StorageClass
-      register: sc
-    - name: find if there's ibmc-block-gold storage class
-      set_fact:
-        findibmcsc: true
-      with_items: "{{ sc.resources }}"
-      when: item.metadata.name is defined and item.metadata.name == 'ibmc-block-gold'
     - name: "ocs/objectstorage :set cos info"
-      when: findibmcsc is defined and findibmcsc
       set_fact:
         cosurl: "https://s3.us.cloud-object-storage.appdomain.cloud"
         cosusername: "ibmcloud-iam-apikey"
     - name: "ocs/objectstorage :set cos info"
-      when: findibmcsc is defined and findibmcsc and lookup('env', 'ASSIST_COS_PASS')|length > 0
-      set_fact:
-        cospassword: "{{ lookup('env', 'ASSIST_COS_PASS') }}"
+      include_tasks: tasks/ibmcos.yml
+    - set_fact:
+        cospassword: "{{ ASSIST_COS_PASS }}"
   rescue:
-    - name: Fail when ASSIST_COS_PASS is not set for IBM managed OCP Env
+    - name: Fail when ASSIST_COS_PASS is not retrieved
       fail:
-        msg: "We Couldn't get the OCS cluster instance or IBM Cloud Object storage ASSIST_COS_PASS is not set, pls export ASSIST_COS_PASS="{{apikey}};{{resource_instance_id}}"
+        msg: "We Couldn't get the OCS cluster instance or IBM Cloud Object storage"
 
 # 1. Create the object store
 # -----------------------------------------------------------------------------
