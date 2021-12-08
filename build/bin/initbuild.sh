@@ -111,14 +111,14 @@ elif [[ "${SEMVER_RELEASE_LEVEL}" =~ ^(major|minor|patch)$ ]]; then
   semver bump $SEMVER_RELEASE_LEVEL &>/dev/null
   echo "${SEMVER_RELEASE_LEVEL} bump from ${SEMVER_LAST_TAG} to $(semver)"
 else
-  semver bump build build.$TRAVIS_BUILD_NUMBER &>/dev/null
+  semver bump build build.$GITHUB_RUN_ID &>/dev/null
   echo "build bump from ${SEMVER_LAST_TAG} to $(semver)"
 fi
 
 
 # 2. Tweak version string for pre-release builds
 # -----------------------------------------------------------------------------
-if [[ "${TRAVIS_BRANCH}" =~ $RELEASE_BRANCH_REGEXP ]]; then
+if [[ "${GITHUB_REF_NAME}" =~ $RELEASE_BRANCH_REGEXP ]]; then
   # Release mode
   VERSION=$(semver)
 else
