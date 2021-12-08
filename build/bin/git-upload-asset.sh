@@ -14,7 +14,8 @@ else
   exit 64
 fi
 
-# The pull request number if the current job is a pull request, "false" if it's not a pull request.
+# 1. Check whether this is a pull request
+# -----------------------------------------------------------------------------
 if [[ ! -z "${GITHUB_HEAD_REF}" ]]; then
   echo "Build is for a pull request so skip asset release"
   exit 0

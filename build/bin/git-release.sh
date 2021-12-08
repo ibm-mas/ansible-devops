@@ -8,10 +8,8 @@ source $DIR/.functions.sh
 
 # 1. Check whether this is a pull request
 # -----------------------------------------------------------------------------
-# The pull request number if the current job is a pull request, "false" if
-# it's not a pull request.
-if [[ "${TRAVIS_PULL_REQUEST}" != "false" ]]; then
-  echo "Build is for a pull request so skip release publication"
+if [[ ! -z "${GITHUB_HEAD_REF}" ]]; then
+  echo "Build is for a pull request so skip asset release"
   exit 0
 fi
 
