@@ -11,27 +11,6 @@
   fail:
     msg: "mas_config_dir property is required"
 
-- name: "Fail if  is not provided"
-  when:  
-    - ibm_cloud_apikey is not defined or ibm_cloud_apikey == ""
-    - useibmcos
-  fail:
-    msg: "ibm_cloud_apikey property is required"
-
-- name: "Fail if  is not provided"
-  when:  
-    - ibm_cloud_org is not defined or ibm_cloud_org == ""
-    - useibmcos
-  fail:
-    msg: "ibm_cloud_org property is required"
-
-- name: "Fail if  is not provided"
-  when:  
-    - ibm_cloud_space is not defined or ibm_cloud_space == ""
-    - useibmcos
-  fail:
-    msg: "ibm_cloud_space property is required"
-
 
 # 0. Check if the ocs is installed
 # ----------------------------------------------------------------------------
@@ -51,26 +30,6 @@
   debug:
     msg:
       - "OCS Cluster is available .... {{ ocsavailable }}  "
-
-- name: "ocs/cos: check if it's IBM managed OCP based on existing storage class"
-  vars:
-    
-  when: 
-    - not (ocsavailable is defined and ocsavailable) 
-    - useibmcos
-  block:
-    - name: "ocs/objectstorage :set cos info"
-      set_fact:
-        cosurl: "https://s3.us.cloud-object-storage.appdomain.cloud"
-        cosusername: "ibmcloud-iam-apikey"
-    - name: "ocs/objectstorage :set cos info"
-      include_tasks: tasks/ibmcos.yml
-    - set_fact:
-        cospassword: "{{ ASSIST_COS_PASS }}"
-  rescue:
-    - name: Fail when ASSIST_COS_PASS is not retrieved
-      fail:
-        msg: "We Couldn't get the OCS cluster instance or IBM Cloud Object storage"
 
 # 1. Create the object store
 # -----------------------------------------------------------------------------
@@ -155,21 +114,7 @@
           - "cos url ........ {{ cosurl }}"
           - "cos username/accesskey ......... {{ cosusername }}"
           - "cos password/secretkey ......... {{ cospassword }}"
-    - name: Copy objectstorageCfg to filesytem
-      when: not ( findibmcsc is defined and findibmcsc )
-      vars:
-        instanceId: "{{ mas_instance_id }}"
-      ansible.builtin.template:
-        src: objectaccess/objectstoragecfg.yml.j2
-        dest: "{{ mas_config_dir }}/objectstoragecfg.yml"
-    - name: Copy objectstorageCfg to filesytem
-      when: findibmcsc is defined and findibmcsc 
-      vars:
-        instanceId: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-      ansible.builtin.template:
-        src: objectaccess/cloudobjectstoragecfg.yml.j2
-        dest: "{{ mas_config_dir }}/objectstoragecfg.yml"
   rescue:
-    - name: Fail as we didn't get the cos info or ASSIST_COS_PASS not set in non-ocs cluster.
+    - name: Fail as we didn't get the cos info in ocs cluster.
       fail:
-        msg: "we didn't get the cos info here or ASSIST_COS_PASS not set in non-ocs cluster."
+        msg: "we didn't get the cos info xhere in ocs cluster."
