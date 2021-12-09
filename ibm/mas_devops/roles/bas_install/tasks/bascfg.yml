@@ -1,92 +1,125 @@
 ---
-# 1. Generate the configuration
+# 1. Lookup the endpoint route
 # -----------------------------------------------------------------------------
-- name: Obtain BAS Certificate
+- name: Lookup BAS endpoint Route
   no_log: true
   k8s_info:
     api_version: v1
     kind: Route
     name: bas-endpoint
     namespace: "{{ bas_namespace }}"
-  register: _bas_endpoint
+  register: bas_endpoint
 
-- name: Lookup bas-api-key
+- name: "Fail if we didn't find the bas-endpoint route"
+  when: bas_endpoint.resources | length == 0
+  fail:
+    msg: "Failed looking up BAS endpoint route"
+
+
+# 2. Lookup the BAS API key
+# -----------------------------------------------------------------------------
+- name: Lookup bas-api-key Secret
   no_log: true
   k8s_info:
     api_version: v1
     kind: Secret
     name: bas-api-key
     namespace: "{{ bas_namespace }}"
-  register: _bas_apiKey_result
+  register: bas_apikey_lookup
 
-- name: Lookup BAS segment key
+- name: "Fail if we didn't find the secret containing the BAS API key"
+  when: bas_apikey_lookup.resources | length == 0
+  fail:
+    msg: "Failed looking up secret containing BAS API key"
+
+
+# 3. Lookup the segment key
+# -----------------------------------------------------------------------------
+- name: Lookup BAS segment key Secret
   no_log: true
   k8s_info:
     api_version: v1
     kind: Secret
     name: segment-key-secret
     namespace: "{{ bas_namespace }}"
-  register: _bas_segmentKey_result
+  register: bas_segmentkey_lookup
 
-- name: "Get cluster subdomain"
-  community.kubernetes.k8s_info:
-    api_version: config.openshift.io/v1
-    kind: Ingress
-    name: cluster
-  register: _cluster_subdomain
-
-- name: "Extract cluster name"
-  debug:
-    msg:
-      - "Cluster Domain ...................... {{ _cluster_subdomain.resources[0].spec.domain }}"
-
-- set_fact:
-    temp: "{{ _cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
-
-- name: Lookup Certificate for BAS
-  no_log: true
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ temp }}"
-    namespace: openshift-ingress
-  register: _bas_certificates_result
-
-
-# 2. Check whether all the lookups succeeded
-# -----------------------------------------------------------------------------
-- name: "Check whether we found the bas-endpoint route"
-  when: _bas_endpoint.resources | len == 0
-  fail:
-    msg: "Failed looking up BAS endpoint route"
-
-- name: "Check whether we found the secret containing the BAS segment key"
-  when: _bas_segmentKey_result.resources | len == 0
+- name: "Fail if we didn't find the secret containing the BAS segment key"
+  when: bas_segmentkey_lookup.resources | length == 0
   fail:
     msg: "Failed looking up secret containing BAS segment key"
 
-- name: "Check whether we found the secret containing the BAS API key"
-  when: _bas_apiKey_result.resources | len == 0
-  fail:
-    msg: "Failed looking up secret containing BAS API key"
 
-- name: "Check whether we found the secret containing the BAS certificates"
-  when: _bas_certificates_result.resources | len == 0
-  fail:
-    msg: "Failed looking up secret containing BAS certificates"
-
-
-
-# 3. Write out the config to the local filesystem
+# 4. Set the initial facts
 # -----------------------------------------------------------------------------
 - name: Set facts for BASCfg
   no_log: true
   set_fact:
-    bas_segment_key: "{{ _bas_segmentKey_result.resources[0].data.segmentkey | b64decode}}"
-    bas_api_key: "{{ _bas_apiKey_result.resources[0].data.apikey | b64decode }}"
-    bas_endpoint_url: "https://{{_bas_endpoint.resources[0].spec.host}}"
-    bas_tls_crt: "{{ _bas_certificates_result.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+    bas_segment_key: "{{ bas_segmentkey_lookup.resources[0].data.segmentkey | b64decode}}"
+    bas_api_key: "{{ bas_apikey_lookup.resources[0].data.apikey | b64decode }}"
+    bas_endpoint_url: "https://{{bas_endpoint.resources[0].spec.host}}"
 
+
+# 5. Lookup the certificates
+# -----------------------------------------------------------------------------
+# We don't know why but sometimes the name of the secret will be
+# "router-certs-default" and sometimes it will be named after the domain of
+# the cluster (e.g. fvtstable-6f1620198115433da1cac8216c06779b-0000)
+
+# 5.1 First, attempt to get the router-certs-default secret
+- name: Lookup Certificate for BAS (default)
+  no_log: true
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: router-certs-default
+    namespace: openshift-ingress
+  register: bas_certificate_lookup
+
+# 5.2 If it does exist, then use it
+- name: Generate router secret name from the cluster subdomain
+  when:
+    - bas_certificate_lookup.resources is defined
+    - bas_certificate_lookup.resources | length == 1
+  set_fact:
+    bas_tls_crt: "{{ bas_certificate_lookup.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+
+# 5.3 If it does not exist, then perform a second lookup for the custom secret
+- name: Get cluster subdomain
+  community.kubernetes.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: cluster_subdomain
+
+- name: Lookup Certificate for BAS (custom)
+  when: bas_tls_crt is not defined
+  no_log: true
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
+    namespace: openshift-ingress
+  register: bas_certificate_lookup
+
+# 5.4 If we have a lookup result (last step wasn't skipped) and we haven't already set the crt variable, then set it now
+- name: Generate router secret name from the cluster subdomain
+  when:
+    - bas_certificate_lookup.resources is defined
+    - bas_certificate_lookup.resources | length == 1
+    - bas_tls_crt is not defined
+  set_fact:
+    bas_tls_crt: "{{ bas_certificate_lookup.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+
+# 5.5 If bas_tls_crt is still unset, then we've failed
+- name: "Fail if we can't find the secret containing the BAS certificates"
+  when: bas_tls_crt is not defined
+  fail:
+    msg: "Failed looking up secret containing BAS certificates from the default or custom router certificates secret"
+
+
+# 6. Write out the config to the local filesystem
+# -----------------------------------------------------------------------------
 - name: Copy BASCfg to filesytem
   when:
     - mas_instance_id is defined
