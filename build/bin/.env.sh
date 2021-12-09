@@ -44,7 +44,7 @@ export NO_RELEASE_BUILD_REGEXP="\+build"
 
 # Semver control overrides for maintenance branches
 # - On a maintenance branch minor and major commits are banned as it would take the branch out of scope
-if [[ "${TRAVIS_BRANCH}" =~ $MAINTENANCE_BRANCH_REGEXP ]]; then
+if [[ "${GITHUB_REF_NAME}" =~ $MAINTENANCE_BRANCH_REGEXP ]]; then
   export SEMVER_MAX_RELEASE_LEVEL=patch
 fi
 
