@@ -57,6 +57,11 @@ spec:
     - name: shared-entitlement
 
   params:
+    # Workspace ID
+    - name: mas_workspace_id
+      type: string
+      description: Workspace ID used to configure all applications
+      default: masdev
     # Application Catalog Channels
     - name: mas_app_channel_iot
       type: string
@@ -113,6 +118,9 @@ spec:
     # 1. Setup the cluster-wide dependencies
     # -------------------------------------------------------------------------
     - name: cfg-ocp
+      params:
+        - name: junit_suite_name
+          value: cfg-ocp
       taskRef:
         kind: ClusterTask
         name: mas-devops-configure-ocp
@@ -123,6 +131,9 @@ spec:
     # 2. Install MongoDb
     # -------------------------------------------------------------------------
     - name: install-mongodb
+      params:
+        - name: junit_suite_name
+          value: install-mongodb-ce
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-mongodb-ce
@@ -135,6 +146,9 @@ spec:
     # 3. Install AMQStream (Kafka)
     # -------------------------------------------------------------------------
     - name: install-kafka
+      params:
+        - name: junit_suite_name
+          value: install-kafka
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-amqstreams
@@ -147,6 +161,9 @@ spec:
     # 4. Install CP4D with DB2W Service
     # -------------------------------------------------------------------------
     - name: cp4d-install-db2
+      params:
+        - name: junit_suite_name
+          value: cp4d-install-db2
       taskRef:
         name: mas-devops-cp4d-install-services-db2
         kind: ClusterTask
@@ -160,6 +177,8 @@ spec:
     # -------------------------------------------------------------------------
     - name: install-db2w-shared
       params:
+        - name: junit_suite_name
+          value: install-db2w-shared
         - name: instance_name
           value: db2w-shared
         - name: mas_config_scope
@@ -187,6 +206,8 @@ spec:
     # -------------------------------------------------------------------------
     - name: hack-db2-for-manage
       params:
+        - name: junit_suite_name
+          value: hack-db2-for-manage
         - name: db2wh_instance_name
           value: db2w-shared
       taskRef:
@@ -264,10 +285,12 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 11. Install IBM MAS IoT application
+    # 11 Configure Kafka in MAS
     # -------------------------------------------------------------------------
-    # 11.1 Configure Kafka in MAS
     - name: cfg-suite-kafka
+      params:
+        - name: junit_suite_name
+          value: cfg-suite-kafka
       taskRef:
         kind: ClusterTask
         name: mas-devops-configure-suite
@@ -280,9 +303,13 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 11.2 Install IoT
+    # 12. Install IBM MAS IoT application
+    # -------------------------------------------------------------------------
+    # 12.1 Install IoT
     - name: install-iot
       params:
+        - name: junit_suite_name
+          value: install-iot
         - name: mas_app_id
           value: iot
         - name: mas_app_channel
@@ -299,11 +326,15 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 11.3 Configure IoT workspace
+    # 12.2 Configure IoT workspace
     - name: cfg-iot
       params:
+        - name: junit_suite_name
+          value: cfg-iot
         - name: mas_app_id
           value: iot
+        - name: mas_workspace_id
+          value: "$(params.mas_workspace_id)"
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
@@ -313,11 +344,13 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 12. Install IBM MAS Monitor application
+    # 13. Install IBM MAS Monitor application
     # -------------------------------------------------------------------------
-    # 12.1 Install Monitor
+    # 13.1 Install Monitor
     - name: install-monitor
       params:
+        - name: junit_suite_name
+          value: install-monitor
         - name: mas_app_id
           value: monitor
         - name: mas_app_channel
@@ -333,11 +366,15 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 12.2 Configure Monitor workspace
+    # 13.2 Configure Monitor workspace
     - name: cfg-monitor
       params:
+        - name: junit_suite_name
+          value: cfg-monitor
         - name: mas_app_id
           value: monitor
+        - name: mas_workspace_id
+          value: "$(params.mas_workspace_id)"
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
@@ -347,11 +384,13 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 13. Install IBM MAS Safety application
+    # 14. Install IBM MAS Safety application
     # -------------------------------------------------------------------------
-    # 13.1 Install Safety
+    # 14.1 Install Safety
     - name: install-safety
       params:
+        - name: junit_suite_name
+          value: install-safety
         - name: mas_app_id
           value: safety
         - name: mas_app_channel
@@ -367,11 +406,15 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 13.2 Configure Safety workspace
+    # 14.2 Configure Safety workspace
     - name: cfg-safety
       params:
+        - name: junit_suite_name
+          value: cfg-safety
         - name: mas_app_id
           value: safety
+        - name: mas_workspace_id
+          value: "$(params.mas_workspace_id)"
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
@@ -381,18 +424,19 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 104. Install IBM MAS Manage application
+    # 15. Install IBM MAS Manage application
     # -------------------------------------------------------------------------
-    # 14.1 Manage Install
+    # 15.1 Manage Install
     - name: install-manage
       params:
+        - name: junit_suite_name
+          value: install-manage
         - name: mas_app_id
           value: manage
         - name: mas_app_channel
           value: "$(params.mas_app_channel_manage)"
         - name: mas_app_catalog_source
           value: "$(params.mas_app_source_manage)"
-
       taskRef:
         name: mas-devops-install-app
         kind: ClusterTask
@@ -402,11 +446,15 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 14.2 Configure Manage workspace
+    # 15.2 Configure Manage workspace
     - name: cfg-manage
       params:
+        - name: junit_suite_name
+          value: cfg-manage
         - name: mas_app_id
           value: manage
+        - name: mas_workspace_id
+          value: "$(params.mas_workspace_id)"
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
@@ -416,11 +464,13 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 15. Predict
+    # 16. Predict
     # -------------------------------------------------------------------------
-    # 15.1 Predict Install
+    # 16.1 Predict Install
     - name: install-predict
       params:
+        - name: junit_suite_name
+          value: install-predict
         - name: mas_app_id
           value: predict
         - name: mas_app_channel
@@ -436,11 +486,15 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 15.2 Configure Predict workspace
+    # 16.2 Configure Predict workspace
     - name: cfg-predict
       params:
+        - name: junit_suite_name
+          value: cfg-predict
         - name: mas_app_id
           value: predict
+        - name: mas_workspace_id
+          value: "$(params.mas_workspace_id)"
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
@@ -450,11 +504,13 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 16. MSO
+    # 17. MSO
     # -------------------------------------------------------------------------
-    # 16.1 MSO Install
+    # 17.1 MSO Install
     - name: install-mso
       params:
+        - name: junit_suite_name
+          value: install-mso
         - name: mas_app_id
           value: mso
         - name: mas_app_channel
@@ -465,17 +521,20 @@ spec:
         name: mas-devops-install-app
         kind: ClusterTask
       runAfter:
-        - cfg-suite-db2
         - cfg-manage
       workspaces:
         - name: settings
           workspace: shared-settings
 
-    # 16.2 Configure MSO workspace
+    # 17.2 Configure MSO workspace
     - name: cfg-mso
       params:
+        - name: junit_suite_name
+          value: cfg-mso
         - name: mas_app_id
           value: mso
+        - name: mas_workspace_id
+          value: "$(params.mas_workspace_id)"
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
