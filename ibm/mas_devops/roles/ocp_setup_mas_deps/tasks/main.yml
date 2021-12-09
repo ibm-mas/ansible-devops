@@ -26,18 +26,14 @@
     kind: Deployment
   register: _cert_manager_deployed
 
-# TODO: Version check existing installation, ensure at least 1.2 is installed
-#       Fail if version < 1.2 is installed
-- name: Deploy Cert Manager
-  vars:
-    mas87_channels: "{{ mas87_default_channels }}"
-  shell: |
-    oc create namespace cert-manager
-    oc apply -f https://github.com/jetstack/cert-manager/releases/download/v1.6.1/cert-manager.yaml
+- name: Define which Cert Manager to install
+  set_fact:
+    cm_version: "{{ 'foundation-services' if (mas_channel in mas87_channels) else 'standalone' }}" # install foundation services cert-manager if MAS 8.7+, otherwise, install jetstack/standalone version
   when:
     - (_cert_manager_deployed.resources | length) == 0
-    - mas_channel not in mas87_channels #Don't install this cert-manager if MAS 8.7 is being installed
     - not airgap_install
+
+- include_tasks: "tasks/certmanager/{{ cm_version }}.yml"
 
 # 4. Install Service Binding Operator
 # -----------------------------------------------------------------------------
