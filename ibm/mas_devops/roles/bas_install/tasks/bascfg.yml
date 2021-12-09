@@ -52,16 +52,41 @@
     namespace: openshift-ingress
   register: _bas_certificates_result
 
+
+# 2. Check whether all the lookups succeeded
+# -----------------------------------------------------------------------------
+- name: "Check whether we found the bas-endpoint route"
+  when: _bas_endpoint.resources | len == 0
+  fail:
+    msg: "Failed looking up BAS endpoint route"
+
+- name: "Check whether we found the secret containing the BAS segment key"
+  when: _bas_segmentKey_result.resources | len == 0
+  fail:
+    msg: "Failed looking up secret containing BAS segment key"
+
+- name: "Check whether we found the secret containing the BAS API key"
+  when: _bas_apiKey_result.resources | len == 0
+  fail:
+    msg: "Failed looking up secret containing BAS API key"
+
+- name: "Check whether we found the secret containing the BAS certificates"
+  when: _bas_certificates_result.resources | len == 0
+  fail:
+    msg: "Failed looking up secret containing BAS certificates"
+
+
+
+# 3. Write out the config to the local filesystem
+# -----------------------------------------------------------------------------
 - name: Set facts for BASCfg
   no_log: true
   set_fact:
-    bas_segment_key: "{{_bas_segmentKey_result.resources[0].data.segmentkey | b64decode}}"
-    bas_api_key: "{{_bas_apiKey_result.resources[0].data.apikey | b64decode }}"
+    bas_segment_key: "{{ _bas_segmentKey_result.resources[0].data.segmentkey | b64decode}}"
+    bas_api_key: "{{ _bas_apiKey_result.resources[0].data.apikey | b64decode }}"
     bas_endpoint_url: "https://{{_bas_endpoint.resources[0].spec.host}}"
-    bas_tls_crt: "{{_bas_certificates_result.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True)  }}"
+    bas_tls_crt: "{{ _bas_certificates_result.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
 
-# 2. Write out the config to the local filesystem
-# -----------------------------------------------------------------------------
 - name: Copy BASCfg to filesytem
   when:
     - mas_instance_id is defined
