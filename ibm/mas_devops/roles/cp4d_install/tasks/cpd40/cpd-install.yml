@@ -76,6 +76,17 @@
 
 # 3. Setup namespace for CP4D
 # -----------------------------------------------------------------------------
+- name: "Check if ibm-common-services operator is installed already"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: ibm-common-service-operator
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _cs_deployment
+
+- debug:
+    msg: "{{_cs_deployment }}"
+
 - name: "Create CPD 4.0 Namespace"
   vars:
     namespace: "{{ cpd_meta_namespace }}"
@@ -86,6 +97,12 @@
 
 # 4. Install CP4D operator
 # -----------------------------------------------------------------------------
+- name: "Apply operator group"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd40/operatorgroup.yaml') }}"
+  when: _cs_deployment.resources[0] is not defined
+
 - name: "Install CPD 4.0 Subscription"
   community.kubernetes.k8s:
     apply: yes
