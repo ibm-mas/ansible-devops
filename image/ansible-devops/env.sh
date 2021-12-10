@@ -40,16 +40,8 @@ export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
 # -----------------------------------------------------------------------------
 # cp4d/create-db2-instance.yml
 # -----------------------------------------------------------------------------
-export DB2WH_META_STORAGE_SIZE_GB=$(cat /workspace/settings/DB2WH_META_STORAGE_SIZE_GB)
-export DB2WH_USER_STORAGE_SIZE_GB=$(cat /workspace/settings/DB2WH_USER_STORAGE_SIZE_GB)
-export DB2WH_BACKUP_STORAGE_SIZE_GB=$(cat /workspace/settings/DB2WH_BACKUP_STORAGE_SIZE_GB)
-export DB2WH_META_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_META_STORAGE_CLASS)
-export DB2WH_USER_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_USER_STORAGE_CLASS)
-export DB2WH_BACKUP_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_BACKUP_STORAGE_CLASS)
 export DB2WH_ADMIN_USER=$(cat /workspace/settings/DB2WH_ADMIN_USER)
 export DB2WH_ADMIN_PASSWORD=$(cat /workspace/settings/DB2WH_ADMIN_PASSWORD)
-export DB2WH_ADDON_VERSION=$(cat /workspace/settings/CPDB2WH_ADDON_VERSION)
-export DB2WH_TABLE_ORG=$(cat /workspace/settings/DB2WH_TABLE_ORG)
 
 # -----------------------------------------------------------------------------
 # dependencies/install-amqstreams.yml
