@@ -31,8 +31,10 @@ export MONGODB_STORAGE_CAPACITY_DATA=$(cat /workspace/settings/MONGODB_STORAGE_C
 export MONGODB_STORAGE_CAPACITY_LOGS=$(cat /workspace/settings/MONGODB_STORAGE_CAPACITY_LOGS)
 
 # -----------------------------------------------------------------------------
-# cp4d/install-services-db2.yml
+# cp4d/install-services-fullstack.yml
 # -----------------------------------------------------------------------------
+export CPD_VERSION=$(cat /workspace/settings/CPD_VERSION)
+export CPD_ENTITLEMENT_KEY=$(cat /workspace/settings/CPD_ENTITLEMENT_KEY)
 export CPD_ENTITLEMENT_KEY=$(cat /workspace/settings/CPD_ENTITLEMENT_KEY)
 export CPD_NAMESPACE=$(cat /workspace/settings/CPD_NAMESPACE)
 export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
