@@ -152,8 +152,8 @@ This should should be part of the Manage operator, but is not so we have to do i
 The parameters are all optional:
 
 - `CPD_NAMESPACE` namespace where Cloud Pak for Data is installed. Default is `cpd_meta_namespace`
-- `CPD_DB2WH_INSTANCE_NAME` name of the DB2 Warehouse instance created in CP4D. Default is `db2wh-db01` to be compatible with `install-db2` playbook
-- `CPD_DB2WH_db2wh_load_from_config` when `true`, it tells the playbook to obtain DB2 Warehouse instance from the internal config-map created by `install-db2-api` instead of using `CPD_DB2WH_INSTANCE_NAME`. This option must be used when `hack-manage-db2` is executed after `install-db2-api`. Default is `false`
+- `DB2WH_INSTANCE_NAME` name of the DB2 Warehouse instance created in CP4D.
+- `DB2WH_LOAD_FROM_CONFIG` when `true`, it tells the playbook to obtain DB2 Warehouse instance from the internal config-map created by `create-db2-instance` instead of using `DB2WH_INSTANCE_NAME`. This flag must be set `true` when `hack-manage-db2` and, previously, `create-db2-instance`, is used to create instance in CP4D 3.5. Default is `false`, used for databases created in CP4D 4.0.
 
 ### Examples
 
