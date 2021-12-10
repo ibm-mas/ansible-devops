@@ -31,8 +31,10 @@ export MONGODB_STORAGE_CAPACITY_DATA=$(cat /workspace/settings/MONGODB_STORAGE_C
 export MONGODB_STORAGE_CAPACITY_LOGS=$(cat /workspace/settings/MONGODB_STORAGE_CAPACITY_LOGS)
 
 # -----------------------------------------------------------------------------
-# cp4d/install-services-db2.yml
+# cp4d/install-services-fullstack.yml
 # -----------------------------------------------------------------------------
+export CPD_VERSION=$(cat /workspace/settings/CPD_VERSION)
+export CPD_ENTITLEMENT_KEY=$(cat /workspace/settings/CPD_ENTITLEMENT_KEY)
 export CPD_ENTITLEMENT_KEY=$(cat /workspace/settings/CPD_ENTITLEMENT_KEY)
 export CPD_NAMESPACE=$(cat /workspace/settings/CPD_NAMESPACE)
 export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
@@ -40,16 +42,8 @@ export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
 # -----------------------------------------------------------------------------
 # cp4d/create-db2-instance.yml
 # -----------------------------------------------------------------------------
-export DB2WH_META_STORAGE_SIZE_GB=$(cat /workspace/settings/DB2WH_META_STORAGE_SIZE_GB)
-export DB2WH_USER_STORAGE_SIZE_GB=$(cat /workspace/settings/DB2WH_USER_STORAGE_SIZE_GB)
-export DB2WH_BACKUP_STORAGE_SIZE_GB=$(cat /workspace/settings/DB2WH_BACKUP_STORAGE_SIZE_GB)
-export DB2WH_META_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_META_STORAGE_CLASS)
-export DB2WH_USER_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_USER_STORAGE_CLASS)
-export DB2WH_BACKUP_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_BACKUP_STORAGE_CLASS)
 export DB2WH_ADMIN_USER=$(cat /workspace/settings/DB2WH_ADMIN_USER)
 export DB2WH_ADMIN_PASSWORD=$(cat /workspace/settings/DB2WH_ADMIN_PASSWORD)
-export DB2WH_ADDON_VERSION=$(cat /workspace/settings/CPDB2WH_ADDON_VERSION)
-export DB2WH_TABLE_ORG=$(cat /workspace/settings/DB2WH_TABLE_ORG)
 
 # -----------------------------------------------------------------------------
 # dependencies/install-amqstreams.yml
