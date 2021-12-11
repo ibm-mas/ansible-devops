@@ -83,9 +83,10 @@
     - ca_cfgmap_info.resources | length == 0
   vars:
     openssl_cfg: "{{ role_path }}/files/openssl.cnf"
+    openssl_ca_cfg: "{{ role_path }}/files/ca.cnf"
     file_prefix: "/tmp/mongoce-"
   shell: |
-    openssl req -config {{ openssl_cfg }} -days 3650 -nodes -x509 -newkey rsa:2048 -subj "/C=US/ST=NY/L=New York/O=Example, LLC/CN=Mongo CA" -extensions v3_ca -keyout {{ file_prefix }}ca.key -out {{ file_prefix }}ca.pem
+    openssl req -config {{ openssl_ca_cfg }} -days 3650 -nodes -x509 -newkey rsa:2048 -subj "/C=US/ST=NY/L=New York/O=Example, LLC/CN=Mongo CA" -extensions v3_ca -keyout {{ file_prefix }}ca.key -out {{ file_prefix }}ca.pem
 
 - name: "mongodb/community : Create new server cert"
   when:
@@ -164,7 +165,7 @@
     name: mas-mongo-ce
     namespace: "{{ mongodb_namespace }}"
   register: mongodb_statefulset
-  retries: 30 # 30 * 30 seconds = 15 minutes
+  retries: 60 # 30 * 30 seconds = 15 minutes
   delay: 30
   until:
     - mongodb_statefulset.resources | length > 0

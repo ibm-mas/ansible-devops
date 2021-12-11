@@ -5,42 +5,40 @@ metadata:
   name: mas-devops-configure-app
 spec:
   params:
-    - name: mas_app_id
-      type: string
-      description: Maximo Applicaiton Suite Application Id
-    - name: mas_workspace_id
-      type: string
-      description: Maximo Application Suite Workspace Id
     - name: junit_suite_name
       type: string
       description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
       default: ""
-
+    - name: mas_app_id
+      type: string
+      description: Maximo Application Suite Application ID
+    - name: mas_appws_components
+      type: string
+      description: Optional component configuration to be added to the application workspace CR
+      default: ""
+    - name: mas_workspace_id
+      type: string
+      description: Maximo Application Suite Workspace ID
   stepTemplate:
     env:
       - name: MAS_CONFIG_DIR
         value: /workspace/configs
       - name: JUNIT_SUITE_NAME
         value: $(params.junit_suite_name)
-
       - name: MAS_WORKSPACE_ID
         value: $(params.mas_workspace_id)
       - name: MAS_APP_ID
         value: $(params.mas_app_id)
+      - name: MAS_APPWS_COMPONENTS
+        value: $(params.mas_appws_components)
 
   steps:
-    - args:
-        - |-
-          source /opt/app-root/src/env.sh
-          ansible-playbook /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/configure-app.yml
-          python3 /opt/app-root/src/save-junit-to-mongo.py
+    - name: configure-app
       command:
-        - /bin/bash
-        - '-c'
-      image: 'quay.io/ibmmas/ansible-devops:latest'
+        - /opt/app-root/src/run-playbook.sh
+        - /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/mas/configure-app.yml
+      image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
-      name: configure-app
-      resources: {}
       workingDir: /workspace/configs
 
   workspaces:

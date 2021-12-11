@@ -39,7 +39,6 @@
       - "Workspace ID .............. {{ mas_workspace_id }}"
       - "MAS app namespace ......... {{ mas_app_namespace }}"
 
-
 # 4. Workspace configuration
 # -----------------------------------------------------------------------------
 - name: Configure application in workspace
@@ -53,7 +52,7 @@
 # -----------------------------------------------------------------------------
 - name: "Wait for application workspace to be ready (60s delay)"
   community.kubernetes.k8s_info:
-    api_version: apps.mas.ibm.com/v1
+    api_version: "{{ mas_app_ws_apiversion }}"
     kind: "{{ mas_app_ws_kind }}"
     name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
     namespace: "{{ mas_app_namespace }}"
@@ -64,7 +63,7 @@
     wait_sleep: 30
     wait_timeout: 300 # 5 minutes before we give up and fall back into the retry loop
   register: app_ws_cr_result
-  retries: 40 # 5 mins each loop * 40 loops =~ 2 hours
+  retries: 60 # 5 mins each loop * 50 loops = 5 hours
   delay: 0
   until:
     - app_ws_cr_result.resources is defined

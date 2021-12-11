@@ -56,6 +56,59 @@ spec:
     # named entitlement.lic
     - name: shared-entitlement
 
+  params:
+    # Application Catalog Channels
+    - name: mas_app_channel_iot
+      type: string
+      description: Subscription channel for IoT application operator
+      default: 8.x
+    - name: mas_app_channel_manage
+      type: string
+      description: Subscription channel for Manage application operator
+      default: 8.x
+    - name: mas_app_channel_monitor
+      type: string
+      description: Subscription channel for Monitor application operator
+      default: 8.x
+    - name: mas_app_channel_mso
+      type: string
+      description: Subscription channel for MSO application operator
+      default: 8.x
+    - name: mas_app_channel_predict
+      type: string
+      description: Subscription channel for Predict application operator
+      default: 8.x
+    - name: mas_app_channel_safety
+      type: string
+      description: Subscription channel for Safety application operator
+      default: 8.x
+    # Application Catalog Sources
+    - name: mas_app_source_iot
+      type: string
+      description: Subscription source for IoT application operator
+      default: ibm-operator-catalog
+    - name: mas_app_source_manage
+      type: string
+      description: Subscription source for Manage application operator
+      default: ibm-operator-catalog
+    - name: mas_app_source_monitor
+      type: string
+      description: Subscription source for Monitor application operator
+      default: ibm-operator-catalog
+    - name: mas_app_source_mso
+      type: string
+      description: Subscription source for MSO application operator
+      default: ibm-operator-catalog
+    - name: mas_app_source_predict
+      type: string
+      description: Subscription source for Predict application operator
+      default: ibm-operator-catalog
+    - name: mas_app_source_safety
+      type: string
+      description: Subscription source for Safety application operator
+      default: ibm-operator-catalog
+
+
   tasks:
     # 1. Setup the cluster-wide dependencies
     # -------------------------------------------------------------------------
@@ -91,21 +144,63 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 4. Install Db2Wh
+    # 4. Install CP4D with DB2W Service
     # -------------------------------------------------------------------------
-    - name: install-db2wh
+    - name: cp4d-install-db2
       taskRef:
-        name: mas-devops-install-db2wh
+        name: mas-devops-cp4d-install-services-db2
         kind: ClusterTask
-      runAfter:
-        - cfg-ocp
       workspaces:
         - name: configs
           workspace: shared-configs
         - name: settings
           workspace: shared-settings
 
-    # 5. Install IBM SLS
+    # 5. Create shared Db2Wh instance
+    # -------------------------------------------------------------------------
+    - name: install-db2w-shared
+      params:
+        - name: instance_name
+          value: db2w-shared
+        - name: mas_config_scope
+          value: system
+        # Configure storage sizes, the storage classes are set globally in the pipeline settings secret
+        - name: meta_storage
+          value: "20"
+        - name: user_storage
+          value: "100"
+        - name: backup_storage
+          value: "100"
+      taskRef:
+        name: mas-devops-cp4d-create-db2-instance
+        kind: ClusterTask
+      runAfter:
+        - cfg-ocp
+        - cp4d-install-db2
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 6. Prepare database to Maxinst
+    # -------------------------------------------------------------------------
+    - name: hack-db2-for-manage
+      params:
+        - name: db2wh_instance_name
+          value: db2w-shared
+      taskRef:
+        name: mas-devops-hack-manage-db2
+        kind: ClusterTask
+      runAfter:
+        - install-db2w-shared
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 7. Install IBM SLS
     # -------------------------------------------------------------------------
     - name: install-sls
       taskRef:
@@ -122,7 +217,7 @@ spec:
         - name: entitlement
           workspace: shared-entitlement
 
-    # 6. Install BAS
+    # 8. Install BAS
     # -------------------------------------------------------------------------
     - name: install-bas
       taskRef:
@@ -136,7 +231,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 7. Install & configure IBM MAS
+    # 9. Install & configure IBM MAS
     # -------------------------------------------------------------------------
     - name: install-suite
       taskRef:
@@ -153,71 +248,25 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 8. Install IBM MAS Manage application
+    # 10. Configure Db2 in MAS
     # -------------------------------------------------------------------------
-    # 8.0 Configure Db2 in MAS
-    - name: cfg-suite-db2wh
+    - name: cfg-suite-db2
       taskRef:
         kind: ClusterTask
         name: mas-devops-configure-suite
       runAfter:
         - install-suite
-        - install-db2wh
+        - install-db2w-shared
+        - hack-db2-for-manage
       workspaces:
         - name: configs
           workspace: shared-configs
         - name: settings
           workspace: shared-settings
 
-    # 8.1 Manage Install
-    - name: install-manage
-      params:
-        - name: mas_app_id
-          value: manage
-      taskRef:
-        name: mas-devops-install-app
-        kind: ClusterTask
-      runAfter:
-        - install-suite
-        - install-db2wh
-      workspaces:
-        - name: settings
-          workspace: shared-settings
-
-    # 8.2 Hack Db2 for manage
-    - name: hack-db2wh-for-manage
-      taskRef:
-        name: mas-devops-hack-manage-db2
-        kind: ClusterTask
-      runAfter:
-        - install-db2wh
-      workspaces:
-        - name: configs
-          workspace: shared-configs
-        - name: settings
-          workspace: shared-settings
-
-    # 8.3 Configure Manage workspace
-    - name: cfg-manage
-      params:
-        - name: mas_app_id
-          value: manage
-        - name: mas_workspace_id
-          value: masdev
-      taskRef:
-        name: mas-devops-configure-app
-        kind: ClusterTask
-      runAfter:
-        - cfg-suite-db2wh
-        - install-manage
-        - hack-db2wh-for-manage
-      workspaces:
-        - name: settings
-          workspace: shared-settings
-
-    # 9. Install IBM MAS IoT application
+    # 11. Install IBM MAS IoT application
     # -------------------------------------------------------------------------
-    # 9.0 Configure Kafka in MAS
+    # 11.1 Configure Kafka in MAS
     - name: cfg-suite-kafka
       taskRef:
         kind: ClusterTask
@@ -231,34 +280,207 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 9.1 Install IoT
+    # 11.2 Install IoT
     - name: install-iot
       params:
         - name: mas_app_id
           value: iot
+        - name: mas_app_channel
+          value: "$(params.mas_app_channel_iot)"
+        - name: mas_app_catalog_source
+          value: "$(params.mas_app_source_iot)"
       taskRef:
         name: mas-devops-install-app
         kind: ClusterTask
       runAfter:
-        - install-suite
-        - cfg-suite-db2wh
+        - cfg-suite-db2
         - cfg-suite-kafka
       workspaces:
         - name: settings
           workspace: shared-settings
 
-    # 9.2 Configure IoT workspace
+    # 11.3 Configure IoT workspace
     - name: cfg-iot
       params:
         - name: mas_app_id
           value: iot
-        - name: mas_workspace_id
-          value: masdev
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
       runAfter:
         - install-iot
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 12. Install IBM MAS Monitor application
+    # -------------------------------------------------------------------------
+    # 12.1 Install Monitor
+    - name: install-monitor
+      params:
+        - name: mas_app_id
+          value: monitor
+        - name: mas_app_channel
+          value: "$(params.mas_app_channel_monitor)"
+        - name: mas_app_catalog_source
+          value: "$(params.mas_app_source_monitor)"
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-iot
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 12.2 Configure Monitor workspace
+    - name: cfg-monitor
+      params:
+        - name: mas_app_id
+          value: monitor
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-monitor
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 13. Install IBM MAS Safety application
+    # -------------------------------------------------------------------------
+    # 13.1 Install Safety
+    - name: install-safety
+      params:
+        - name: mas_app_id
+          value: safety
+        - name: mas_app_channel
+          value: "$(params.mas_app_channel_safety)"
+        - name: mas_app_catalog_source
+          value: "$(params.mas_app_source_safety)"
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-iot
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 13.2 Configure Safety workspace
+    - name: cfg-safety
+      params:
+        - name: mas_app_id
+          value: safety
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-safety
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 104. Install IBM MAS Manage application
+    # -------------------------------------------------------------------------
+    # 14.1 Manage Install
+    - name: install-manage
+      params:
+        - name: mas_app_id
+          value: manage
+        - name: mas_app_channel
+          value: "$(params.mas_app_channel_manage)"
+        - name: mas_app_catalog_source
+          value: "$(params.mas_app_source_manage)"
+
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-suite-db2
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 14.2 Configure Manage workspace
+    - name: cfg-manage
+      params:
+        - name: mas_app_id
+          value: manage
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-manage
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 15. Predict
+    # -------------------------------------------------------------------------
+    # 15.1 Predict Install
+    - name: install-predict
+      params:
+        - name: mas_app_id
+          value: predict
+        - name: mas_app_channel
+          value: "$(params.mas_app_channel_predict)"
+        - name: mas_app_catalog_source
+          value: "$(params.mas_app_source_predict)"
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-manage
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 15.2 Configure Predict workspace
+    - name: cfg-predict
+      params:
+        - name: mas_app_id
+          value: predict
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-predict
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 16. MSO
+    # -------------------------------------------------------------------------
+    # 16.1 MSO Install
+    - name: install-mso
+      params:
+        - name: mas_app_id
+          value: mso
+        - name: mas_app_channel
+          value: "$(params.mas_app_channel_mso)"
+        - name: mas_app_catalog_source
+          value: "$(params.mas_app_source_mso)"
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      runAfter:
+        - cfg-suite-db2
+        - cfg-manage
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 16.2 Configure MSO workspace
+    - name: cfg-mso
+      params:
+        - name: mas_app_id
+          value: mso
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      runAfter:
+        - install-mso
       workspaces:
         - name: settings
           workspace: shared-settings
