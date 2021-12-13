@@ -26,12 +26,17 @@
     name: "{{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}"
     namespace: "{{ cpd_meta_namespace }}"
   register: cp4d_db_config_info
-  when: db2wh_load_from_config == true
+  when: db2wh_load_from_config == "true"
 
 - name: Read the DB2 database ID for {{ db2wh_instance_name }} from DB config ConfigMap data
   set_fact:
     db2wh_instance_id: "db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}"
-  when: db2wh_load_from_config == true
+  when: db2wh_load_from_config == "true"
+
+- name: Set db2wh_intance_id in case load from config is "false"
+  set_fact:
+    db2wh_instance_id: "{{ db2wh_dbname }}"
+  when: db2wh_load_from_config == "false"
 
 - name: "Debug information"
   debug:
