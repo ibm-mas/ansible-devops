@@ -7,12 +7,12 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Namespace .............................. {{ cpd_meta_namespace }}"
+      - "CPD Namespace .......................... {{ cpd_meta_namespace }}"
+      - "CPD Version ............................ {{ cpd_version }}"
       - "Db2 instance name ...................... {{ db2wh_instance_name }}"
       - "Db2 database name ...................... {{ db2wh_dbname }}"
       - "Db2 database schema .................... {{ db2wh_schema }}"
       - "Db2 database user ...................... {{ db2wh_username }}"
-      - "Load from Config Map ................... {{ db2wh_load_from_config }}"
 
 # 2. Determine which pod to run in
 # -----------------------------------------------------------------------------
@@ -26,17 +26,17 @@
     name: "{{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}"
     namespace: "{{ cpd_meta_namespace }}"
   register: cp4d_db_config_info
-  when: db2wh_load_from_config == "true"
+  when: cpd_version == 'cpd35'
 
 - name: Read the DB2 database ID for {{ db2wh_instance_name }} from DB config ConfigMap data
   set_fact:
     db2wh_instance_id: "db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}"
-  when: db2wh_load_from_config == "true"
+  when: cpd_version == 'cpd35'
 
-- name: Set db2wh_intance_id in case load from config is "false"
+- name: Set db2wh_instance_id in case load from config is "false"
   set_fact:
-    db2wh_instance_id: "{{ db2wh_dbname }}"
-  when: db2wh_load_from_config == "false"
+    db2wh_instance_id: "{{ db2wh_instance_name }}"
+  when: cpd_version == 'cpd40'
 
 - name: "Debug information"
   debug:
