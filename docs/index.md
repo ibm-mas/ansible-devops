@@ -46,6 +46,12 @@ ansible-galaxy collection install ibm.mas_devops
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `5.0` Multiple Updates:
+    - Add support for AI Applications' must-gather tooling ([#91](https://github.com/ibm-mas/ansible-devops/pull/91))
+    - Migrate airgap support into ibm.mas_airgap collection ([#38](https://github.com/ibm-mas/ansible-devops/pull/38))
+    - Support for Assist application ([#76](https://github.com/ibm-mas/ansible-devops/pull/76))
+    - Significant refactoring for CP4D support ([#68](https://github.com/ibm-mas/ansible-devops/pull/68))
+    - Migrate build system to GitHub Actions ([#68](https://github.com/ibm-mas/ansible-devops/pull/68))
 - `4.5` Add support for Manage ([#61](https://github.com/ibm-mas/ansible-devops/pull/61))
 - `4.4` Add CP4D and DB2W playbooks ([#51](https://github.com/ibm-mas/ansible-devops/pull/51))
 - `4.3` Add support for playbook junit result generation ([#39](https://github.com/ibm-mas/ansible-devops/pull/39))
