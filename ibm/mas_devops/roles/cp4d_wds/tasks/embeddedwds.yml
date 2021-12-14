@@ -86,19 +86,21 @@
       community.kubernetes.k8s_info:
         api_version: operators.coreos.com/v1alpha1
         kind: Subscription
-        namespace: "{{ cpdnamespace }}"
+        namespace: "{{ cpdopsnamespace }}"
       register: cp4d_subs
     - name: "cp4d/wds: Find sub info for CP4D edb operator"
       set_fact:
         edbavailable:  true
       with_items: "{{ cp4d_subs.resources }}"
       when: item.spec.name == 'cloud-native-postgresql' or item.spec.name == 'ibm-cpd-edb'
-    - debug:
+    - name: Print EDB namespace info if it's found
+      when: edbavailable is defined and edbavailable
+      debug:
         msg: 
           - "EDB Available ...... {{ edbavailable }}"
-          - "EDB Namespace...... {{ cpdnamespace }}"
+          - "EDB Namespace...... {{ cpdopsnamespace }}"
     - name: "cp4d/wds : Create CP4D EDB subscription"
-      when: not edbavailable 
+      when: not ( edbavailable is defined and edbavailable )
       community.kubernetes.k8s:
         apply: yes
         definition: "{{ lookup('template', 'templates/edbsub.yml') }}"
@@ -107,7 +109,9 @@
 # 3. Create CP4D WDS subscription
 # -----------------------------------------------------------------------------
 - name: "cp4d/wds : Create CP4D WDS subscription"
-  when: cpdavailable is defined and cpdavailable
+  when: 
+    - cpdavailable is defined and cpdavailable
+    - edbavailable is defined and edbavailable
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/subscription.yml') }}"
