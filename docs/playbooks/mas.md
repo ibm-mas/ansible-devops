@@ -153,14 +153,13 @@ The parameters are all optional:
 
 - `CPD_NAMESPACE` namespace where Cloud Pak for Data is installed. Default is `cpd_meta_namespace`
 - `DB2WH_INSTANCE_NAME` name of the DB2 Warehouse instance created in CP4D.
-- `DB2WH_LOAD_FROM_CONFIG` when `true`, it tells the playbook to obtain DB2 Warehouse instance from the internal config-map created by `create-db2-instance` instead of using `DB2WH_INSTANCE_NAME`. This flag must be set `true` when `hack-manage-db2` and, previously, `create-db2-instance`, is used to create instance in CP4D 3.5. Default is `false`, used for databases created in CP4D 4.0.
 
 ### Examples
 
 ```bash
 (...)
 
-ansible-playbook playbooks/cp4d/install-db2.yml
+ansible-playbook playbooks/cp4d/install-services-db2.yml
 
 ansible-playbook playbooks/mas/hack-manage-db2.yml
 ```
@@ -168,10 +167,9 @@ ansible-playbook playbooks/mas/hack-manage-db2.yml
 ```bash
 (...)
 
-ansible-playbook playbooks/cp4d/install-db2-api.yml
+ansible-playbook playbooks/cp4d/create-db2-instance.yml
 
 export CPD_DB2WH_INSTANCE_NAME=db2w-iot
-export CPD_DB2WH_db2wh_load_from_config=true
 
 ansible-playbook playbooks/mas/hack-manage-db2.yml
 ```
