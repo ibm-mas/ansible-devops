@@ -49,23 +49,44 @@
     wait: yes
     wait_timeout: 120
 
+- name: "Wait for Grafana Operator Contoller be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: grafana-operator
+    namespace: "{{ grafana_namespace }}"
+    kind: Deployment
+  register: _operator_deployment
+  until: _operator_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
 
-# 5. Patch operator with '--scan-all' argument
+# 5. Obtain Grafana's intalledCSV
+# -----------------------------------------------------------------------------
+- name: Obtain Subscription
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: grafana-operator
+    namespace: "{{ grafana_namespace }}"
+    kind: Subscription
+  register: _grafana_subscription
+
+- name: Obtain Subscription's installedCSV
+  set_fact:
+    installedCSV: "{{ _grafana_subscription.resources[0].status.installedCSV }}"
+
+- name: Debug installedCSV
+  debug:
+    msg:
+      - "installedCSV ............ {{ installedCSV }}"
+
+# 6. Patch operator with '--scan-all' argument
 # Ref: https://github.com/ibm-watson-iot/iot-docs/tree/master/monitoring#red-hat-grafana-operator
 # -----------------------------------------------------------------------------
-
-# TODO: Need to find a way to do this without knowing the starting CSV, as we
-# shouldn't be using starting CSV in a subscription, a future update to
-# the catalog may mask that CSV and break the automation at any point in time
-# so starting CSV should not be used.
-#
-# Instead we need to look up what the CSV is from the subscription that
-# was created
 - name: "Patch operator with '--scan-all' argument"
-  shell: "oc patch csv grafana-operator.v3.10.3 --type='json' -p='[{ \"op\": \"add\", \"path\": \"/spec/install/spec/deployments/0/spec/template/spec/containers/0/args\", \"value\": [\"--scan-all\"] }]'"
+  shell: "oc patch csv {{ installedCSV }} --namespace {{ grafana_namespace }} --type='json' -p='[{ \"op\": \"add\", \"path\": \"/spec/install/spec/deployments/0/spec/template/spec/containers/0/args\", \"value\": [\"--scan-all\"] }]'"
 
 
-# 6. Create ClusterRole
+# 7. Create ClusterRole
 # Ref: https://github.com/grafana-operator/grafana-operator/tree/master/deploy/cluster_roles#grant-grafana-instance-rbac-to-grafanadashboard-definitions-in-other-projectsnamespaces
 # -----------------------------------------------------------------------------
 - name: "Create ClusterRole"
@@ -76,7 +97,7 @@
     wait_timeout: 120
 
 
-# 7. Create ClusterRoleBinding
+# 8. Create ClusterRoleBinding
 # Ref: https://github.com/grafana-operator/grafana-operator/tree/master/deploy/cluster_roles#grant-grafana-instance-rbac-to-grafanadashboard-definitions-in-other-projectsnamespaces
 # -----------------------------------------------------------------------------
 - name: "Create ClusterRoleBinding"
@@ -87,7 +108,7 @@
     wait_timeout: 120
 
 
-# 8. Install Grafana Operand
+# 9. Install Grafana Operand
 # -----------------------------------------------------------------------------
 - name: "Install Grafana Operand"
   community.kubernetes.k8s:
@@ -96,24 +117,32 @@
     wait: yes
     wait_timeout: 120
 
+- name: "Wait for Grafana Deployment be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: grafana-deployment
+    namespace: "{{ grafana_namespace }}"
+    kind: Deployment
+  register: _grafana_deployment
+  until: _grafana_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
 
-# 9. Get Prometheus token to use in GrafanaDataSource
+
+# 10. Get Prometheus token to use in GrafanaDataSource
 # Ref: https://github.com/ibm-watson-iot/iot-docs/tree/master/monitoring#grafana-datasource
 # -----------------------------------------------------------------------------
 - name: "Get Prometheus token to use in GrafanaDataSource"
   shell: "oc -n {{ grafana_namespace }} serviceaccounts get-token prometheus-user-workload"
   register: _prometheus_user_workflow_token
 
-
-# 9.1. Debug _prometheus_user_workflow_token
-# -----------------------------------------------------------------------------
 # - name: "Debug information"
 #   debug:
 #     msg:
 #       - "Prometheus Token ............ {{ _prometheus_user_workflow_token.stdout }}"
 
 
-# 10. Install GrafanaDataSource Operand
+# 11. Install GrafanaDataSource Operand
 # -----------------------------------------------------------------------------
 - name: "Install GrafanaDataSource Operand"
   community.kubernetes.k8s:
