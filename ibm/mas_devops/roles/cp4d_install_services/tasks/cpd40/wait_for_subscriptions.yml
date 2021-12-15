@@ -29,21 +29,20 @@
         ready_services_count: "{{ ready_services_count|int + 1 if (item.resources[0].status.availableReplicas is defined and item.resources[0].status.availableReplicas == 1) else ready_services_count|int}}"
       with_items: "{{ cpd_services_lookup.results }}"
       loop_control:
-        label: "{{ item.resources[0].metadata.name if (item.resources is defined) else 'Unknown' }} operator available replicas = {{ item.resources[0].status.availableReplicas if (item.resources[0].status.availableReplicas is defined) else 0}}"
-      when: item.resources[0] is defined and item.resources[0] | length > 0
+        label: "{{ item.resources[0].metadata.name if (item.resources[0] is defined and item.resources[0] | length > 0) else 'Unknown' }} operator available replicas = {{ item.resources[0].status.availableReplicas if (item.resources[0] is defined and item.resources[0].status.availableReplicas is defined) else 0}}"
 
     - name: "wait : Fail if one or more CPD Service Subscriptions operators are not running"
       when: ready_services_count != services_count
       fail:
-        msg: "[{{ retry_count }}/120] {{ ready_services_count }} of {{ services_count }} services are ready"
+        msg: "[{{ retry_count }}/30] {{ ready_services_count }} of {{ services_count }} services are ready"
   rescue:
-    - name: "wait : Give up after 120 attempts (approx 20 minutes)"
-      when: retry_count|int >= 120
+    - name: "wait : Give up after 30 attempts (approx 30 minutes)"
+      when: retry_count|int >= 30
       fail:
         msg: Timed out waiting for service operator to be ready
 
-    - name: "wait : Wait for 10 seconds before checking again"
+    - name: "wait : Wait for 60 seconds before checking again"
       pause:
-        seconds: 10
+        seconds: 60
 
     - include_tasks: wait_for_subscriptions.yml
