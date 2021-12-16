@@ -5,7 +5,7 @@
 ```bash
 cd ibm/mas_devops
 
-ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-5.0.1.tar.gz -p /home/david/.ansible/collections --force
+ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-5.0.3.tar.gz -p /home/david/.ansible/collections --force
 
 ansible-playbook ../../playbook.yml
 ```
