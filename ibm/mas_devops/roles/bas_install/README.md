@@ -8,8 +8,8 @@ Role Variables
 
 ###### Primary settings
 - `bas_namespace` Optional - Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be 'ibm-bas'.
-- `bas_persistent_storage_class` Required - Storage class where BAS will be installed - for IBM Cloud clusters, `ibmc-file-bronze-gid` will be used by default.
-- `bas_meta_storage_class` Required - Storage class where BAS internal components such as Kafka service will be installed - for IBM Cloud, `ibmc-block-bronze` will be used by default.
+- `bas_persistent_storage_class` Required - Storage class where BAS will be installed - for IBM Cloud clusters, `ibmc-file-bronze-gid` can be used.
+- `bas_meta_storage_class` Required - Storage class where BAS internal components such as Kafka service will be installed - for IBM Cloud clusters, `ibmc-block-bronze` can be used.
 - `bas_username` Optional - BAS default username. If not provided, default username will be 'basuser'
 - `bas_password` Optional - BAS default password. If not provided, a random 15 character password will be generated
 - `bas_grafana_username` Optional - BAS default username for Grafana service. If not provided, default username will be 'basuser'
