@@ -37,6 +37,7 @@ export CPD_VERSION=$(cat /workspace/settings/CPD_VERSION)
 export CPD_ENTITLEMENT_KEY=$(cat /workspace/settings/CPD_ENTITLEMENT_KEY)
 export CPD_NAMESPACE=$(cat /workspace/settings/CPD_NAMESPACE)
 export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
+export CPD_BLOCK_STORAGE_CLASS=$(cat /workspace/settings/CPD_BLOCK_STORAGE_CLASS)
 
 # -----------------------------------------------------------------------------
 # cp4d/create-db2-instance.yml
