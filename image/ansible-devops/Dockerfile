@@ -31,7 +31,6 @@ RUN wget -q https://github.com/openshift/origin/releases/download/v3.11.0/opensh
 
 # Install IBM CLoud CLI
 RUN curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/master/linux-installer/idt-installer | bash && \
-    ibmcloud plugin install container-service && \
     ibmcloud plugin list
 
 ENV ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg
