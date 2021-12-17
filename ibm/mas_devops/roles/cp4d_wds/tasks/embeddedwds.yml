@@ -1,3 +1,4 @@
+
 ---
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
@@ -22,6 +23,11 @@
     api_version: cpd.ibm.com/v1
     kind: Ibmcpd
   register: cp4dalllist
+
+- name: "Fail if no cp4d instance is provided"
+  when: cp4dalllist.resources| length == 0
+  fail:
+    msg: "CP4D Base is required to WDS install and instance provision"
 
 - name: "cp4d/wds: cp4d cluster status"
   when: cp4dalllist.resources| length != 0
@@ -104,7 +110,8 @@
       community.kubernetes.k8s:
         apply: yes
         definition: "{{ lookup('template', 'templates/edbsub.yml') }}"
-        namespace: "{{ cpdnamespace }}"
+        namespace: "{{ cpdopsnamespace }}"
+        
 
 # 3. Create CP4D WDS subscription
 # -----------------------------------------------------------------------------
