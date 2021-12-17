@@ -83,10 +83,20 @@
   set_fact:
     cpdopsnamespace: "{{ cp4doperandrequest.resources[0].spec.requests[0].registryNamespace }}"
 
+- name: "cp4d/wds: Check if cpd wds instance is there "
+  community.kubernetes.k8s_info:
+    api_version: discovery.watson.ibm.com/v1
+    name: wd
+    namespace: "{{ cpdnamespace }}"
+    kind: WatsonDiscovery
+  register: wdsinstance_info
+
 # 2. Install edb Operator in the cpd instance namespace
 # -----------------------------------------------------------------------------
 - name: "cp4d/wds: Find if subscription for edb exist"
-  when: cpdavailable is defined and cpdavailable
+  when: 
+    - cpdavailable is defined and cpdavailable
+    - wdsinstance_info.resources | length == 0
   block:
     - name: Get the sub info from CP4D instance namespace
       community.kubernetes.k8s_info:
@@ -111,7 +121,24 @@
         apply: yes
         definition: "{{ lookup('template', 'templates/edbsub.yml') }}"
         namespace: "{{ cpdopsnamespace }}"
-        
+    - name: "Wait until the EDB CRD is available"
+      when: not ( edbavailable is defined and edbavailable )      
+      community.kubernetes.k8s_info:
+        api_version: apiextensions.k8s.io/v1
+        name: "clusters.postgresql.k8s.enterprisedb.io"
+        kind: CustomResourceDefinition
+        wait: yes
+        wait_sleep: 10
+        wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+        wait_condition:
+          type: NamesAccepted
+          status: "True"
+      register: edb_crd_info
+      retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+      delay: 5 # seconds
+      until:
+        - edb_crd_info.resources is defined
+        - edb_crd_info.resources | length > 0
 
 # 3. Create CP4D WDS subscription
 # -----------------------------------------------------------------------------
@@ -119,22 +146,51 @@
   when: 
     - cpdavailable is defined and cpdavailable
     - edbavailable is defined and edbavailable
+    - wdsinstance_info.resources | length == 0
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/subscription.yml') }}"
     namespace: "{{ cpdopsnamespace }}"
 
+- name: "Wait until the WDS CRD is available"
+  when:
+    - cpdavailable is defined and cpdavailable
+    - edbavailable is defined and edbavailable    
+    - wdsinstance_info.resources | length == 0
+  community.kubernetes.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "watsondiscoveries.discovery.watson.ibm.com"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: wds_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - wds_crd_info.resources is defined
+    - wds_crd_info.resources | length > 0
+
 # 4. Create CP4D WDS instance
 # -----------------------------------------------------------------------------
 - name: "cp4d/wds : Create CP4D WDS instance"
-  when: cpdavailable is defined and cpdavailable
+  when: 
+    - cpdavailable is defined and cpdavailable
+    - edbavailable is defined and edbavailable
+    - wdsinstance_info.resources | length == 0
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cr.yml') }}"
 
 # Wait for the cluster to be ready
 - name: "cp4d/wds : Wait for WDS instance to be ready (5m delay)"
-  when: cpdavailable is defined and cpdavailable
+  when: 
+    - cpdavailable is defined and cpdavailable
+    - edbavailable is defined and edbavailable
+    - wdsinstance_info.resources | length == 0
   community.kubernetes.k8s_info:
     api_version: discovery.watson.ibm.com/v1
     name: wd
