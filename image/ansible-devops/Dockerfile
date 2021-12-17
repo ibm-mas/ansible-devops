@@ -9,11 +9,6 @@ COPY run-playbook.sh ${HOME}/run-playbook.sh
 COPY save-junit-to-mongo.py ${HOME}/save-junit-to-mongo.py
 COPY ansible.cfg ${HOME}/ansible.cfg
 
-# Install IBM CLoud CLI and OC Plugin
-RUN curl -fsSL https://clis.cloud.ibm.com/install/linux | sh && \
-    ibmcloud plugin install container-service && \
-    ibmcloud plugin list
-
 # TODO: Caio, why do we switch to the root user for the rest of this Dockerfile, and why leave it as root user active at the end?
 USER root
 
@@ -33,5 +28,14 @@ RUN wget -q https://github.com/openshift/origin/releases/download/v3.11.0/opensh
     tar -xvzf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz  && \
     mv openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit/oc /usr/local/bin/  && \
     rm -rf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+
+# Install IBM CLoud CLI and OC Plugin
+RUN wget -q https://download.clis.cloud.ibm.com/ibm-cloud-cli/2.3.0/IBM_Cloud_CLI_2.3.0_amd64.tar.gz &&\
+    tar -xvzf IBM_Cloud_CLI_2.3.0_amd64.tar.gz && \
+    mv Bluemix_CLI/bin/ibmcloud /usr/local/bin/  && \
+    rm -rf Bluemix_CLI IBM_Cloud_CLI_2.3.0_amd64.tar.gz && \
+    ibmcloud --version && \
+    ibmcloud plugin install container-service && \
+    ibmcloud plugin list
 
 ENV ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg
