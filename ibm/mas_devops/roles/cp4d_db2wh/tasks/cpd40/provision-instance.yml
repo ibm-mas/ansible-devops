@@ -95,10 +95,11 @@
     - _db2u_instance_certificates is defined
     - (_db2u_instance_certificates.resources | length > 0)
 
-- name: Set Db2wh TLS nodePort
+# not using nodePort anymore, instead using the ssl-server targetPort that's always 50001
+- name: Set Db2wh TLS targetPort
   set_fact:
-    db2wh_tls_nodeport: "{{item.nodePort}}"
-  when: "{{item.name == 'ssl-server'}}"
+    db2wh_tls_nodeport: "{{ item.targetPort }}"
+  when: item.name == 'ssl-server'
   loop:
     "{{_db2u_instance_engn_svc.resources[0].spec.ports}}"
 
@@ -107,11 +108,29 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd40/tlsroute.yml') }}"
 
-# 3. Generate a JdbcCfg for MAS configuration
+# Create JDBCCfg yml definition
 # -----------------------------------------------------------------------------
-- include_tasks: "{{ role_path }}/tasks/cpd40/suite_jdbccfg.yml"
-  when:
-    - mas_instance_id is defined
-    - mas_instance_id != ""
-    - mas_config_dir is defined
-    - mas_config_dir != ""
+- name: Load variables to use in JDBCCfg
+  include_vars: "vars/{{ mas_config_scope }}.yml"
+
+- name: Lookup db2wh instance password
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "c-{{db2wh_instance_name | lower }}-instancepassword"
+    namespace: "{{cpd_meta_namespace}}"
+  register: _db2u_instance_password
+
+- name: Set Facts for JdbcCfg
+  set_fact:
+    db2wh_instance_id: "{{ db2wh_instance_name }}"
+    cp4d_db_certificate: "{{ _db2u_instance_certificates.resources[0].data['ca.crt'] | b64decode }}"
+    db2wh_admin_password: "{{ _db2u_instance_password.resources[0].data.password | b64decode }}"
+    jdbc_url: "jdbc:db2://c-{{db2wh_instance_name | lower}}-db2u-engn-svc.{{ cpd_meta_namespace }}.svc:{{db2wh_tls_nodeport}}/{{db2wh_dbname}}:sslConnection=true;"
+
+- name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
+  ansible.builtin.template:
+    src: suite_jdbccfg.yml
+    dest: "{{ mas_config_dir }}/jdbc-{{ db2wh_instance_name | lower }}-{{ cpd_meta_namespace }}.yml"
+  vars:
+    cp4d_db_jdbc_url: "{{ jdbc_url }}"
