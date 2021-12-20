@@ -29,13 +29,14 @@ RUN wget -q https://github.com/openshift/origin/releases/download/v3.11.0/opensh
     mv openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit/oc /usr/local/bin/  && \
     rm -rf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
 
-# Install IBM CLoud CLI and OC Plugin
+# Install IBM CLoud CLI
 RUN wget -q https://download.clis.cloud.ibm.com/ibm-cloud-cli/2.3.0/IBM_Cloud_CLI_2.3.0_amd64.tar.gz &&\
     tar -xvzf IBM_Cloud_CLI_2.3.0_amd64.tar.gz && \
     mv Bluemix_CLI/bin/ibmcloud /usr/local/bin/  && \
-    rm -rf Bluemix_CLI IBM_Cloud_CLI_2.3.0_amd64.tar.gz && \
-    ibmcloud --version && \
-    ibmcloud plugin install container-service && \
+    rm -rf Bluemix_CLI IBM_Cloud_CLI_2.3.0_amd64.tar.gz
+
+# Install IBM Cloud container-service plugin (ibmcloud oc)
+RUN ibmcloud plugin install container-service && \
     ibmcloud plugin list
 
 ENV ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg
