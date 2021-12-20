@@ -35,8 +35,8 @@ RUN wget -q https://download.clis.cloud.ibm.com/ibm-cloud-cli/2.3.0/IBM_Cloud_CL
     mv Bluemix_CLI/bin/ibmcloud /usr/local/bin/  && \
     rm -rf Bluemix_CLI IBM_Cloud_CLI_2.3.0_amd64.tar.gz
 
-# Install IBM Cloud container-service plugin (ibmcloud oc)
-RUN ibmcloud plugin install container-service && \
-    ibmcloud plugin list
+# # Install IBM Cloud container-service plugin (ibmcloud oc)
+# RUN ibmcloud plugin install container-service && \
+#     ibmcloud plugin list
 
 ENV ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg
