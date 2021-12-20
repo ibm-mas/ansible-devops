@@ -9,8 +9,11 @@ if [ -e "/workspace/entitlement/entitlement.lic" ]; then
 fi
 
 #-Temporary (Test Only)
+echo "ibmcloud cli - installing container-service plugin"
 ibmcloud plugin install container-service
+echo "ibmcloud cli - list plugins"
 ibmcloud plugin list
+echo "ibmcloud cli - login"
 ibmcloud login --apikey $IBMCLOUD_APIKEY --no-region --quiet 
 #----------------------
 
