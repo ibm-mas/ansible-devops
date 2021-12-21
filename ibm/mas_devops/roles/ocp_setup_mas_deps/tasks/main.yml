@@ -1,9 +1,11 @@
 ---
+
 # 1. Install IBM catalogs
 # -----------------------------------------------------------------------------
 - name: "Create IBM catalogs"
   community.kubernetes.k8s:
     definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
+
 
 # 2. Install development (pre-release) catalogs
 # -----------------------------------------------------------------------------
@@ -16,6 +18,7 @@
     - not airgap_install
   include_tasks: "tasks/development-catalogs.yml"
 
+
 # 3. Install cert-manager
 # -----------------------------------------------------------------------------
 - name: Check if Cert Manager is already installed
@@ -26,9 +29,10 @@
     kind: Deployment
   register: _cert_manager_deployed
 
+# Install foundation services cert-manager if MAS 8.7+, otherwise, install jetstack/standalone version
 - name: Define which Cert Manager to install
   set_fact:
-    cm_version: "{{ 'foundation-services' if (mas_channel in mas87_channels) else 'standalone' }}" # install foundation services cert-manager if MAS 8.7+, otherwise, install jetstack/standalone version
+    cm_version: "{{ 'foundation-services' if (mas_channel in mas87_channels) else 'standalone' }}"
   when:
     - (_cert_manager_deployed.resources | length) == 0
     - not airgap_install
@@ -39,21 +43,36 @@
     - (_cert_manager_deployed.resources | length) == 0
     - not airgap_install
 
+
 # 4. Install Service Binding Operator
 # -----------------------------------------------------------------------------
-- include_tasks: "tasks/sbo/install_connected.yml"
+# Install stable channel with automatic updates if MAS 8.7+, otherwise, install preview channel locked to v0.8
+- name: Define which SBO to install
+  when:
+    - not airgap_install
+  set_fact:
+    sbo_channel: "{{ 'stable' if (mas_channel in mas87_channels) else 'preview' }}"
+
+- include_tasks: "tasks/sbo/{{ sbo_channel }}.yml"
   when:
     - not airgap_install
 
+
 # 5. Update openshift monitoring to define a specific storage class for Prometheus logs
 # -------------------------------------------------------------------------------------
+# All other settings have defaults, but the user must set prometheus_storage_class and
+# prometheus_alertmgr_storage_class for us to be able to apply this configuration
 - name: Set storage class and retention period for Prometheus logs
   when:
-    - prometheus_storage_class is defined and prometheus_storage_class != ""
+    - prometheus_storage_class is defined
+    - prometheus_storage_class != ""
+    - prometheus_alertmgr_storage_class is defined
+    - prometheus_alertmgr_storage_class != ""
   community.kubernetes.k8s:
     definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yml') }}"
     wait: yes
     wait_timeout: 120
+
 
 # 6. Increase cluster image registry from defautl 100Gi to 400Gi (cp4d images consume lot of space)
 # -------------------------------------------------------------------------------------
@@ -65,5 +84,3 @@
 - name: Debug Image Registry Volume order request
   debug: msg="{{ result }}"
 
-# 7. TODO: Install and configure grafana
-# See: https://github.com/ibm-watson-iot/iot-docs/tree/master/monitoring
