@@ -17,46 +17,55 @@ Role Variables
 --------------
 ### cluster_type
 Required.  Some setup is only performed for certain cluster types.
+
 - Environment Variable: `CLUSTER_TYPE`
 - Default Value: None
 
 ### artifactory_username
 Use to enable the install of development catalog sources for pre-release installation.
+
 - Environment Variable: `W3_USERNAME`
 - Default Value: None
 
 ### artifactory_apikey
 Use to enable the install of development catalog sources for pre-release installation.
+
 - Environment Variable: `ARTIFACTORY_APIKEY`
 - Default Value: None
 
 ### prometheus_retention_period
 Adjust the retention period for Prometheus metrics, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
+
 - Environment Variable: `PROMETHEUS_RETENTION_PERIOD`
 - Default Value: `15d`
 
 ### prometheus_storage_class
 Declare the storage class for Prometheus' metrics data persistent volume.
+
 - Environment Variable: `PROMETHEUS_STORAGE_CLASS`
 - Default Value: None
 
 ### prometheus_storage_size
-Adjust the size of the volume used to store metrics, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set
+Adjust the size of the volume used to store metrics, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
+
 - Environment Variable: `PROMETHEUS_STORAGE_SIZE`
 - Default Value: `300Gi`
 
 ### prometheus_alertmgr_storage_class
 Declare the storage class for AlertManager's persistent volume.
+
 - Environment Variable: `PROMETHEUS_ALERTMGR_STORAGE_CLASS`
 - Default Value: None
 
 ### prometheus_alertmgr_storage_size
-Adjust the size of the volume used by AlertManager, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set
+Adjust the size of the volume used by AlertManager, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
+
 - Environment Variable: `PROMETHEUS_ALERTMGR_STORAGE_SIZE`
 - Default Value: `20Gi`
 
 ### mas_channel
 Used to determine whether to install SBO stable channel and the IBM badged cert-manager.
+
 - Environment Variable: `MAS_CHANNEL`
 - Default Value: `8.x`
 

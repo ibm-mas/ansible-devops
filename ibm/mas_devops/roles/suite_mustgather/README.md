@@ -8,11 +8,13 @@ Role Variables
 
 ### mas_instance_id
 Required.  MAS instance ID to run against.
+
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default Value: None
 
 ### base_output_dir
 Required.  Location on the local disk to save the must-gather file.
+
 - Environment Variable: `BASE_OUTPUT_DIR`
 - Default Value: None
 
