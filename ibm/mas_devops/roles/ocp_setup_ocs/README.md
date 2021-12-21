@@ -12,9 +12,11 @@ Failed to apply object: "admission webhook "validate.managed.openshift.io" denie
 Role Variables
 --------------
 
-| Variable    | Env Var     | Default | Description |
-| ----------- | ----------- | ------- | ----------- |
-| ocp_release | OCP_RELEASE | `4.6`   | Set this to e.g. `4.6`, `4.7`, `4.8`.  We need to know what the release level is to know what channel to target the operator subscriptions at |
+
+### ocp_release
+Set this to e.g. `4.6`, `4.7`, `4.8`.  We need to know what the release level is to know what channel to target the operator subscriptions at.
+- Environment Variable: `OCP_RELEASE`
+- Default Value: `4.6`
 
 
 Example Playbook
