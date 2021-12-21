@@ -77,7 +77,7 @@
     new_secret_string: '{{ secret_string | combine( new_secret, recursive=True) }}'
 
 # 1.4. Overwrite the secret
-- name: "Create new pull-secret"
+- name: "Update new pull-secret"
   community.kubernetes.k8s:
     definition:
       apiVersion: v1
@@ -88,43 +88,48 @@
         namespace: openshift-config
       data:
         .dockerconfigjson: "{{ new_secret_string | to_json | b64encode }}"
+  register: secretUpdateResult
+
+- name: Debug change state
+  debug:
+    msg: "Default Pull Secret Changed ....... {{ secretUpdateResult.changed }}"
 
 
-# 2. Reload the cluster worker nodes after changes to pull-secret
+# 2. Reload the cluster worker nodes **if the pull-secret was changed**
 # ---------------------------------------------------------------------------------------------------------------------
 
-# 2.1 Obtain a list of worker nodes
-- name: "roks : Get worker nodes"
-  shell: |
-    ibmcloud oc worker ls -c {{ cluster_name }} -q | awk '{print $1}'
+# 2.1 Get cluster info
+- name: "Get cluster worker node list"
+  when: secretUpdateResult.changed
+  shell: ibmcloud oc worker ls -c {{ cluster_name }} -q | awk '{print $1}'
   register: cluster_lookup
   failed_when: "cluster_lookup.rc > 1"
 
-# 2.2 Issue reload commands to them all
-- name: "roks : Reload nodes"
+# 2.2 Issue reload command to the cluster's worker nodes
+- name: "Reload all worker nodes"
   vars:
     workers: "{{ item }}"
   when:
-    item | length > 0
-  shell: |
-    ibmcloud oc worker reload -c {{ cluster_name }} -w {{ item }} -f
+    - secretUpdateResult.changed
+    - item | length > 0
+  shell: ibmcloud oc worker reload -c {{ cluster_name }} -w {{ item }} -f
   with_items: "{{ cluster_lookup.stdout_lines }}"
 
-# 2.3 Wait for all worker nodes to enter "pending" state
-- name: "roks: Worker nodes beginning reload process..."
-  shell: |
-    ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
+# 2.3 Wait for cluster status to enter "pending"
+- name: "Wait until the ROKS cluster status is 'pending' (30 minute timeout)"
+  when: secretUpdateResult.changed
+  shell: ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
   register: roks_cluster_completion
   until:
     - roks_cluster_completion.rc == 0
     - (roks_cluster_completion.stdout | from_json).state == 'pending'
-  retries: 15
+  retries: 30
   delay: 60
 
-# 2.4 Wait for all worker nodes to enter back into "normal" state
-- name: "roks : Wait until the Roks worker nodes are back"
-  shell: |
-    ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
+# 2.4 Wait for cluster status to return to "normal"
+- name: "Wait until the ROKS cluster status is 'normal' again (1 hour timeout)"
+  when: secretUpdateResult.changed
+  shell: ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
   register: roks_cluster_completion
   until:
     - roks_cluster_completion.rc == 0
