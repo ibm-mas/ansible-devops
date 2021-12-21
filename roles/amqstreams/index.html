@@ -82,6 +82,22 @@
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">amqstreams</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#kafka_namespace">kafka_namespace</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#kafka_cluster_name">kafka_cluster_name</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#kafka_cluster_size">kafka_cluster_size</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#kafka_storage_class">kafka_storage_class</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#kafka_user_name">kafka_user_name</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_instance_id">mas_instance_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_config_dir">mas_config_dir</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
     </li>
@@ -184,25 +200,62 @@
 <p>The AMQ streams component is part of the Red Hat AMQ family, which also includes the AMQ broker, a longtime innovation leader in Java™ Message Service (JMS) and polyglot messaging, as well as the AMQ interconnect router, a wide-area, peer-to-peer messaging solution.</p>
 </blockquote>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="kafka_namespace">kafka_namespace<a class="headerlink" href="#kafka_namespace" title="Permanent link"></a></h3>
+<p>The namespace where the operator and Kafka cluster will be deployed.</p>
 <ul>
-<li><code>mas_instance_id</code> The instance ID of Maximo Application Suite that the KafkaCfg configuration will target, there is no default value for this, it must be passed into the role when invoked.</li>
-<li><code>kafka_namespace</code> The namespace where the operator and Kafka cluster will be deployed, defaults to <code>amq-streams</code></li>
-<li><code>kafka_cluster_name</code> The name of the Kafka cluster that will be created, defaults to <code>maskafka</code></li>
-<li><code>kafka_cluster_size</code> The configuration to apply, there are two configurations available: small and large.  Defaults to <code>small</code></li>
-<li><code>kafka_user_name</code> The name of the user to setup in the cluster for MAS, defaults to <code>masuser</code></li>
-<li><code>kafka_cfg_file</code> The location on the local filesystem where the template for the KafkaCfg and associated Secret will be saved.  Defaults to <code>/tmp/kafkacfg-amqstreams-system.yaml</code></li>
+<li>Environment Variable: <code>KAFKA_NAMESPACE</code></li>
+<li>Default Value: <code>amq-streams</code></li>
+</ul>
+<h3 id="kafka_cluster_name">kafka_cluster_name<a class="headerlink" href="#kafka_cluster_name" title="Permanent link"></a></h3>
+<p>The name of the Kafka cluster that will be created</p>
+<ul>
+<li>Environment Variable: <code>KAFKA_CLUSTER_NAME</code></li>
+<li>Default Value: <code>maskafka</code></li>
+</ul>
+<h3 id="kafka_cluster_size">kafka_cluster_size<a class="headerlink" href="#kafka_cluster_size" title="Permanent link"></a></h3>
+<p>The configuration to apply, there are two configurations available: small and large.</p>
+<ul>
+<li>Environment Variable: <code>KAFKA_CLUSTER_SIZE</code></li>
+<li>Default Value: <code>small</code></li>
+</ul>
+<h3 id="kafka_storage_class">kafka_storage_class<a class="headerlink" href="#kafka_storage_class" title="Permanent link"></a></h3>
+<p>Required.  The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Kafka cluster.</p>
+<ul>
+<li>Environment Variable: <code>KAFKA_STORAGE_CLASS</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="kafka_user_name">kafka_user_name<a class="headerlink" href="#kafka_user_name" title="Permanent link"></a></h3>
+<ul>
+<li>
+<p>Environment Variable: <code>The name of the user to setup in the cluster for MAS</code>.</p>
+</li>
+<li>
+<p>Environment Variable: <code>KAFKA_USER_NAME</code></p>
+</li>
+<li>Default Value: <code>masuser</code></li>
+</ul>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
+<p>The instance ID of Maximo Application Suite that the KafkaCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a KafkaCfg template.</p>
+<ul>
+<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link"></a></h3>
+<p>Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the <code>suite_config</code> role. If this or <code>mas_instance_id</code> are not set then the role will not generate a KafkaCfg template.</p>
+<ul>
+<li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
+<li>Default Value: None</li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
-    kafka_namespace: &quot;{{ lookup('env', 'KAFKA_NAMESPACE') }}&quot;
-    kafka_cluster_name: &quot;{{ lookup('env', 'KAFKA_CLUSER_NAME') }}&quot;
-    kafka_cluster_size: &quot;{{ lookup('env', 'KAFKA_CLUSTER_SIZE') }}&quot;
-    kafka_storage_class: &quot;{{ lookup('env', 'KAFKA_STORAGE_CLASS') }}&quot;
-    kafka_user_name: &quot;{{ lookup('env', 'KAFKA_USER_NAME') }}&quot;
-    mas_instance_id: &quot;{{ lookup('env', 'MAS_INSTANCE_ID') }}&quot;
-    mas_config_dir: &quot;{{ lookup('env', 'MAS_CONFIG_DIR') }}&quot;
+    # Set storage class suitable for use on IBM Cloud ROKS
+    kafka_storage_class: ibmc-block-gold
+
+    # Generate a KafkaCfg template
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
   roles:
     - ibm.mas_devops.amqstreams
 </code></pre>
