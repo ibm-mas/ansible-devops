@@ -5,9 +5,10 @@ Run IBM AI Applications' Must Gather tool against a MAS instance
 
 Role Variables
 --------------
-
-- `mas_instance_id` MAS instance ID to run against, will default to the value of the `MAS_INSTANCE_ID` environment variable
-- `base_output_dir` Location on the local disk to save the must-gather file, will default to the value of the `BASE_OUTPUT_DIR` environment variable
+| Variable        | Env Var           | Default | Description |
+| --------------- | ------------------| ------- | ----------- |
+| mas_instance_id | MAS_INSTANCE_ID   | -       | Required.  MAS instance ID to run against |
+| base_output_dir | BASE_OUTPUT_DIR   | -       | Required.  Location on the local disk to save the must-gather file |
 
 
 Example Playbook
