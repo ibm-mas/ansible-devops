@@ -92,6 +92,16 @@
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">cp4d_hack_worker_nodes</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#cluster_type">cluster_type</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cluster_name">cluster_name</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ibmcloud_apikey">ibmcloud_apikey</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cpd_entitlement_key">cpd_entitlement_key</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
     </li>
@@ -181,18 +191,39 @@
 <p>This should be executed as part of cluster prepararion if you want to use CP4D v4.  It will reboot all worker nodes, causing disruption to the entire cluster and everything running on it we do not include this as part of the normal flow because, well it shouldn't be necessary to reboot worker nodes to install containerized software.  Hopefully this is just an example of poor documentation and there's a simple alternative that we can implement to remove this role.</p>
 <p>For more information, refer to https://cloud.ibm.com/docs/openshift?topic=openshift-registry#cluster_global_pull_secret</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="cluster_type">cluster_type<a class="headerlink" href="#cluster_type" title="Permanent link"></a></h3>
+<p>Required.  Note that only supported value at present is <code>roks</code>.</p>
 <ul>
-<li><code>cpd_registry_password</code> Holds the IBM Entitlement key</li>
-<li><code>cpd_registry</code> cp.icr.io</li>
-<li><code>cpd_registry_user</code> cp</li>
+<li>Environment Variable: <code>CLUSTER_TYPE</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link"></a></h3>
+<p>Required.  The name of the ROKS cluster that we are going to apply the CP4D hack to.</p>
+<ul>
+<li>Environment Variable: <code>CLUSTER_NAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link"></a></h3>
+<p>Required.  Provide your IBM Cloud API Key, this will be used to query the status of the cluster and issue the node restart commands.</p>
+<ul>
+<li>Environment Variable: <code>IBMCLOUD_APIKEY</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="cpd_entitlement_key">cpd_entitlement_key<a class="headerlink" href="#cpd_entitlement_key" title="Permanent link"></a></h3>
+<p>Required.  Provide your IBM Entitlement Key.</p>
+<ul>
+<li>Environment Variable: <code>CPD_ENTITLEMENT_KEY</code></li>
+<li>Default Value: None</li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
-    cpd_registry: cp.icr.io
-    cpd_registry_user: cp
-    cpd_registry_password: &quot;{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}&quot;
+    cluster_name: mycluster
+    cluster_type: roks
+    ibmcloud_apikey: &quot;{{ lookup('env', 'IBMCLOUD_APIKEY') }}&quot;
+
+    cpd_entitlement_key: &quot;{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}&quot;
 
   roles:
     - ibm.mas_devops.cp4d_hack_worker_nodes
