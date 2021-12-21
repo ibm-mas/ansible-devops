@@ -37,7 +37,7 @@ Required.  The name of the storage class to configure the AMQStreams operator to
 - Default Value: None
 
 ### kafka_user_name
-- Environment Variable: `The name of the user to setup in the cluster for MAS`.
+The name of the user to setup in the cluster for MAS.
 
 - Environment Variable: `KAFKA_USER_NAME`
 - Default Value: `masuser`
