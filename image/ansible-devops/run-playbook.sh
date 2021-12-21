@@ -9,7 +9,7 @@ if [ -e "/workspace/entitlement/entitlement.lic" ]; then
 fi
 
 source /opt/app-root/src/env.sh
-./ibmcloud-oc.sh
+/opt/app-root/src/ibmcloud-oc.sh
 ansible-playbook "$@"
 rc=$?
 python3 /opt/app-root/src/save-junit-to-mongo.py
