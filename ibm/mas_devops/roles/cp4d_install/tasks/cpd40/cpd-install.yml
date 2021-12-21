@@ -3,9 +3,9 @@
 # Load var files
 # -----------------------------------------------------------------------------
 - name: Load variables
-  include_vars: "defaults/cpd40/main.yml"
+  include_vars: "vars/cpd40.yml"
 
-# Fail if no required keys are provided
+# 1. Fail if no required keys are provided
 # -----------------------------------------------------------------------------
 - name: "Fail if cpd_registry_password has not been provided"
   when: cpd_registry_password is not defined or cpd_registry_password == ""
@@ -34,48 +34,8 @@
       - "CPD block storage class ...... {{ cpd_block_storage_class }}"
       - "Cluster Name ................. {{ cluster_name }}"
 
-# 1. Update cp4d entitlement key and cpd registry server in cluster's pull-secret
 
-- include_tasks: "{{ role_path }}/tasks/cpd40/generate_pullsecret.yml"
-
-# 2. Need to reload the cluster worker nodes after changes to pull-secret as per https://cloud.ibm.com/docs/openshift?topic=openshift-registry#cluster_global_pull_secret
-
-- name: "roks : Get worker nodes"
-  shell: |
-    ibmcloud oc worker ls -c {{ cluster_name }} -q | awk '{print $1}'
-  register: cluster_lookup
-  failed_when: "cluster_lookup.rc > 1"
-
-- name: "roks : Reload nodes"
-  vars:
-    workers: "{{ item }}"
-  when:
-    item | length > 0
-  shell: |
-    ibmcloud oc worker reload -c {{ cluster_name }} -w {{ item }} -f
-  with_items: "{{ cluster_lookup.stdout_lines }}"
-
-- name: "roks: Worker nodes beginning reload process..."
-  shell: |
-    ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
-  register: roks_cluster_completion
-  until:
-    - roks_cluster_completion.rc == 0
-    - (roks_cluster_completion.stdout | from_json).state == 'pending'
-  retries: 15
-  delay: 60
-
-- name: "roks : Wait until the Roks worker nodes are back"
-  shell: |
-    ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
-  register: roks_cluster_completion
-  until:
-    - roks_cluster_completion.rc == 0
-    - (roks_cluster_completion.stdout | from_json).state == 'normal'
-  retries: 60
-  delay: 60
-
-# 3. Setup namespace for CP4D
+# 2. Setup namespace for CP4D
 # -----------------------------------------------------------------------------
 - name: "Check if ibm-common-services operator is installed already"
   community.kubernetes.k8s_info:
@@ -93,7 +53,8 @@
     definition: "{{ lookup('template', 'templates/cpd40/namespace.yaml') }}"
   register: _cpd_meta_namespace_result
 
-# 4. Install CP4D operator
+
+# 3. Install CP4D operator
 # -----------------------------------------------------------------------------
 - name: "Apply operator group"
   community.kubernetes.k8s:
@@ -129,7 +90,8 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-# 5. Install CP4D
+
+# 4. Install CP4D
 # -----------------------------------------------------------------------------
 - name: "Apply CloudPak for Data 4.0 - Operand Request"
   community.kubernetes.k8s:
@@ -176,7 +138,7 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-# 6. Provide CP4D dashboard URL
+# 5. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------
 - name: "Retrieve admin credentials"
   community.kubernetes.k8s_info:

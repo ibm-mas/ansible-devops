@@ -12,6 +12,7 @@
   fail:
     msg: "either cpd_version or mas_channel properties are required"
 
+
 # 1. Check for CPD supported versions
 # -----------------------------------------------------------------------------
 # - fail if neither cpd_version nor mas_channel provided, as we need something to determine which cpd version to be installed.
@@ -23,6 +24,7 @@
     - cpd_version not in cpd_supported_versions
   fail:
     msg: "cpd_version {{ cpd_version }} is not supported. cpd_versions supported are {{ cpd_supported_versions }}"
+
 
 # 2. Check if CPD version is compatible with MAS version to be installed (if any)
 # -----------------------------------------------------------------------------
@@ -37,6 +39,7 @@
   fail:
     msg: "cpd_version {{ cpd_version }} is not compatible with mas_channel {{ mas_channel }}"
 
+
 # 3. Check which CPD version to install
 # -----------------------------------------------------------------------------
 # - if cpd_version not provided, then use mas_channel to determine which cpd version is compatible
@@ -46,15 +49,6 @@
   set_fact:
     cpd_version: "{{ 'cpd40' if (mas_channel in mas87_channels) else 'cpd35' }}"
 
-# 4. Check if CPD version is compatible with cluster type
-# -----------------------------------------------------------------------------
-# - fail if cluster_type = fyre/quickburn and cpd_version = cpd40
-- name: "Fail if cpd_version not compatible with cluster_type"
-  when:
-    - cpd_version == 'cpd40'
-    - cluster_type == 'quickburn' or cluster_type == 'fyre'
-  fail:
-    msg: "cpd_version 'cpd40' installation is not yet supported on cluster_type 'fyre' or 'quickburn' by this ansible collection."
 
 - debug:
     msg:
