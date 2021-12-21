@@ -11,9 +11,30 @@ For more information, refer to https://cloud.ibm.com/docs/openshift?topic=opensh
 Role Variables
 --------------
 
-- `cpd_registry_password` Holds the IBM Entitlement key
-- `cpd_registry` cp.icr.io
-- `cpd_registry_user` cp
+### cluster_type
+Required.  Note that only supported value at present is `roks`.
+
+- Environment Variable: `CLUSTER_TYPE`
+- Default Value: None
+
+### cluster_name
+Required.  The name of the ROKS cluster that we are going to apply the CP4D hack to.
+
+- Environment Variable: `CLUSTER_NAME`
+- Default Value: None
+
+### ibmcloud_apikey
+Required.  Provide your IBM Cloud API Key, this will be used to query the status of the cluster and issue the node restart commands.
+
+- Environment Variable: `IBMCLOUD_APIKEY`
+- Default Value: None
+
+### cpd_entitlement_key
+Required.  Provide your IBM Entitlement Key.
+
+- Environment Variable: `CPD_ENTITLEMENT_KEY`
+- Default Value: None
+
 
 Example Playbook
 ----------------
@@ -22,9 +43,11 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cpd_registry: cp.icr.io
-    cpd_registry_user: cp
-    cpd_registry_password: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
+    cluster_name: mycluster
+    cluster_type: roks
+    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+
+    cpd_entitlement_key: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
 
   roles:
     - ibm.mas_devops.cp4d_hack_worker_nodes

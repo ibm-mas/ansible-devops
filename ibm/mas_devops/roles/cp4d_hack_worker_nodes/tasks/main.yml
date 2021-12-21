@@ -14,17 +14,26 @@
 
 # 0. Fail if required params are not provided
 # -----------------------------------------------------------------------------
-- name: "Fail if cpd_registry_password has not been provided"
-  when: cpd_registry_password is not defined or cpd_registry_password == ""
+- name: "Fail if cpd_entitlement_key has not been provided"
+  when: cpd_entitlement_key is not defined or cpd_entitlement_key == ""
   fail:
-    msg: "cpd_registry_password property has not been set"
+    msg: "cpd_entitlement_key property has not been set"
 
-# 0. Fail if we are trying to do this in an unsupported cluster type
-# -----------------------------------------------------------------------------
 - name: "Fail if cluster_type is not set to roks"
   when: cluster_type is not defined or cluster_type != "roks"
   fail:
-    msg: "cluster_type property has not been set, only 'roks' is supported in this role"
+    msg: "cluster_type property has not been set or is not set to roks, only 'roks' is supported by this role today"
+
+- name: "Fail if cluster_name has not been provided"
+  when: cluster_name is not defined or cluster_name == ""
+  fail:
+    msg: "cluster_name property has not been set"
+
+- name: "Fail if ibmcloud_apikey has not been provided"
+  when: ibmcloud_apikey is not defined or ibmcloud_apikey == ""
+  fail:
+    msg: "ibmcloud_apikey property has not been set"
+
 
 - name: "Debug information"
   debug:
@@ -41,10 +50,10 @@
 # 1.1 Generate the new secret
 - name: Set new secret content
   vars:
-    entitledAuthStr: "{{ cpd_registry_user }}:{{ cpd_registry_password }}"
+    entitledAuthStr: "{{ cpd_registry_user }}:{{ cpd_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
-      - "{\"auths\":{\"{{ cpd_registry }}\":{\"username\":\"{{ cpd_registry_user }}\",\"password\":\"{{ cpd_registry_password }}\",\"email\":\"{{ cpd_registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
+      - "{\"auths\":{\"{{ cpd_registry }}\":{\"username\":\"{{ cpd_registry_user }}\",\"password\":\"{{ cpd_entitlement_key }}\",\"email\":\"{{ cpd_registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
       - "}"
       - "}"
   set_fact:
