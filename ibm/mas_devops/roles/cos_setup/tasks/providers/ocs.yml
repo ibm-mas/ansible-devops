@@ -1,17 +1,4 @@
 ---
-# 1. Check for undefined properties that do not have a default
-# -----------------------------------------------------------------------------
-- name: "Fail if mas_instance_id is not provided"
-  when: mas_instance_id is not defined or mas_instance_id == ""
-  fail:
-    msg: "mas_instance_id property is required"
-
-- name: "Fail if mas_config_dir is not provided"
-  when: mas_config_dir is not defined or mas_config_dir == ""
-  fail:
-    msg: "mas_config_dir property is required"
-
-
 # 0. Check if the ocs is installed
 # ----------------------------------------------------------------------------
 - name: "Get OCS cluster "
@@ -140,6 +127,11 @@
 # 7. Write ObjectStorageCfg to disk
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Copy objectstorageCfg to filesytem"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   ansible.builtin.template:
     src: ocs/objectstoragecfg.yml.j2
     dest: "{{ mas_config_dir }}/objectstoragecfg.yml"

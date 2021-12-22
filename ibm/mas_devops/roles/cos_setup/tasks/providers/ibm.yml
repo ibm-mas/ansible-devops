@@ -1,8 +1,14 @@
 ---
+- name: "Fail if ibmcloud_apikey is not provided"
+  when: ibm_cloud_apikey is not defined or ibm_cloud_apikey == ""
+  fail:
+    msg: "ibmcloud_apikey property is required"
 
-- name: "ibmcos : Debug general info"
+- name: "ibm : Debug general info"
   debug:
     msg:
+      - "IBM Cloud Resource Group ........... {{ ibmcloud_resourcegroup }}"
+      - "IBM COS url ........................ {{ ibmcos_url }}"
       - "IBM COS url ........................ {{ ibmcos_url }}"
       - "IBM COS username/accesskey ......... {{ ibmcos_username }}"
       - "IBM COS instance name .............. {{ ibmcos_instance_name }}"
@@ -34,18 +40,18 @@
 
 # 2. Lookup IBM Cloud Resource Group GUID
 # ---------------------------------------------------------------------------------------------------------------------
-- name: "ibmcos : Retrieve resource group guid"
+- name: "ibm : Retrieve resource group guid"
   ibm.cloudcollection.ibm_resource_group_info:
     name: "{{ ibmcloud_resourcegroup }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
   register: rg_info
 
-- name: "ibmcos : Debug group GUID"
+- name: "ibm : Debug group GUID"
   debug:
     msg:
       - "Resource Group GUID ... {{ rg_info.resource.id }}"
 
-- name: "ibmcos : Set resource group guid variable"
+- name: "ibm : Set resource group guid variable"
   when:
     - rg_info.resource.id is defined
   set_fact:
@@ -54,7 +60,7 @@
 
 # 3. Create a new COS instance
 # ---------------------------------------------------------------------------------------------------------------------
-- name: "ibmcos : Create a cos instance"
+- name: "ibm : Create a cos instance"
   ibm.cloudcollection.ibm_resource_instance:
     name: "{{ ibmcos_instance_name }}"
     service: "cloud-object-storage"
@@ -62,7 +68,7 @@
     location: "{{ ibmcos_location_info }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
 
-- name: "ibmcos : Retrieve cos instance ID"
+- name: "ibm : Retrieve cos instance ID"
   ibm.cloudcollection.ibm_resource_instance_info:
     name: "{{ ibmcos_instance_name }}"
     resource_group_id: "{{ resourceGID }}"
@@ -71,7 +77,7 @@
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
   register: cos_info
 
-- name: "ibmcos : Debug IBMCOS resource ID"
+- name: "ibm : Debug IBMCOS resource ID"
   debug:
     msg:
       - "COS Instance resource ID ... {{ cos_info.resource.id }}"
@@ -84,26 +90,26 @@
 
 # 4. Create authentication credentials for the instance
 # ---------------------------------------------------------------------------------------------------------------------
-- name: "ibmcos : Create a cos service credential"
+- name: "ibm : Create a cos service credential"
   ibm.cloudcollection.ibm_resource_key:
     name: "{{ instance_name }}-key"
     role: "Manager"
     resource_instance_id: "{{ ibmcos_resource_id }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
 
-- name: "ibmcos : retrieve cos service credential"
+- name: "ibm : retrieve cos service credential"
   ibm.cloudcollection.ibm_resource_key_info:
     name: "{{ instance_name }}-key"
     resource_instance_id: "{{ ibmcos_resource_id }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
   register: cos_key_info
 
-- name: "ibmcos : Debug COS Key Resource"
+- name: "ibm : Debug COS Key Resource"
   debug:
     msg:
       - "COS Key resource ... {{ cos_key_info.resource }}"
 
-- name: "ibmcos : Set ibmcos_password variable"
+- name: "ibm : Set ibmcos_password variable"
   when: cos_key_info.resource.credentials is defined
   set_fact:
     ibmcos_password: "{{ cos_key_info.resource.credentials.apikey }};{{ cos_key_info.resource.credentials.resource_instance_id }}"
@@ -112,6 +118,11 @@
 # 5. Save the ObjectStorageCfg to local disk
 # ---------------------------------------------------------------------------------------------------------------------
 - name: Copy objectstorageCfg to filesytem
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   ansible.builtin.template:
-    src: ibmcos/objectstoragecfg.yml.j2
+    src: ibm/objectstoragecfg.yml.j2
     dest: "{{ mas_config_dir }}/objectstoragecfg.yml"
