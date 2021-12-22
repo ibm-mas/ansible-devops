@@ -1,5 +1,29 @@
 ---
 
+# 0. Lookup the version and flavour of OCP that we are targeting
+# -----------------------------------------------------------------------------
+- name: Get OCP Install Information
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: openshift-install
+    namespace: openshift-config
+  register: openshift_config
+
+- name: Register OCP install configuration variables
+  set_fact:
+    ocp_install_invoker: "{{ openshift_config.resources[0].data.invoker }}" # Known values: "ROKS"
+    ocp_install_version: "{{ openshift_config.resources[0].data.version }}"
+    ocp_install_release: "{{ openshift_config.resources[0].data.version | regex_search('[^.]*.[^.]*') }}"
+
+- name: Debug OCP install configuration variables
+  debug:
+    msg:
+      - "OCP Install Invoker ................ {{ ocp_install_invoker }}"
+      - "OCP Install Version ................ {{ ocp_install_version }}"
+      - "OCP Install Release ................ {{ ocp_install_release }}"
+
+
 # 1. Install IBM catalogs
 # -----------------------------------------------------------------------------
 - name: "Create IBM catalogs"
@@ -47,21 +71,12 @@
 # 4. Install Service Binding Operator
 # -----------------------------------------------------------------------------
 # Install stable channel with automatic updates if MAS 8.7+, otherwise, install preview channel locked to v0.8
-- name: Get OCP Version
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: ConfigMap
-    name: openshift-install
-    namespace: openshift-config
-  register: _openshift_config
-- set_fact:
-    ocp_version: "{{ _openshift_config.resources[0].data.version | regex_search('[^.]*.[^.]*') }}"
 
 - name: Define which SBO to install
   when:
     - not airgap_install
   set_fact:
-    sbo_channel: "{{ 'stable' if (mas_channel in mas87_channels and ocp_version != '4.6') else 'preview' }}"
+    sbo_channel: "{{ 'stable' if (mas_channel in mas87_channels and ocp_install_release != '4.6') else 'preview' }}"
 
 - include_tasks: "tasks/sbo/{{ sbo_channel }}.yml"
   when:
@@ -87,7 +102,7 @@
 # 6. Increase cluster image registry from defautl 100Gi to 400Gi (cp4d images consume lot of space)
 # -------------------------------------------------------------------------------------
 - name: "Increase cluster image registry"
-  when: cluster_type == "roks"
+  when: ocp_install_invoker == "ROKS"
   command: bash "{{ role_path }}"/files/configImgRegStorage.sh
   register: result
 

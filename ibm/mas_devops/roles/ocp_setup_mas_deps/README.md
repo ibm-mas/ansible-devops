@@ -10,17 +10,11 @@ For MAS 8.6 or earlier JetStack cert-manager v1.2 is installed into the `cert-ma
 - IBM NamespaceScope Operator
 - Operand Deployment Lifecycle Manager
 
-For MAS 8.6 or earlier Service Binding Operator v0.8 will be installed from the preview channel.  It is important not to upgrade to later preview builds as they are incompatible with MAS due to breaking API changes in SBO.  For MAS 8.7 or later the stable channel will be used instead, with automatic updates enabled.  In both cases, the operator will be installed in the `openshift-operators` namespace with cluster scope.
+For MAS 8.6 or earlier (or when running MAS 8.7 on OCP 4.6) Service Binding Operator v0.8 will be installed from the preview channel.  It is important not to upgrade to later preview builds as they are incompatible with MAS due to breaking API changes in SBO.  For MAS 8.7 or later the stable channel will be used instead, with automatic updates enabled.  In both cases, the operator will be installed in the `openshift-operators` namespace with cluster scope.
 
 
 Role Variables
 --------------
-### cluster_type
-Required.  Some setup is only performed for certain cluster types.
-
-- Environment Variable: `CLUSTER_TYPE`
-- Default Value: None
-
 ### artifactory_username
 Use to enable the install of development catalog sources for pre-release installation.
 
