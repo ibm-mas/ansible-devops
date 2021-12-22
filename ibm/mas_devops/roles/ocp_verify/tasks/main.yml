@@ -10,6 +10,8 @@
     name: redhat-operators
     namespace: openshift-marketplace
     kind: CatalogSource
+  when:
+    - not airgap_install
   register: redhat_catalog_info
   retries: 90 # ~approx 1 1/2 hours before we give up
   delay: 60 # seconds
@@ -18,3 +20,53 @@
     - redhat_catalog_info.resources | length > 0
     - redhat_catalog_info.resources[0].status.connectionState.lastObservedState is defined
     - redhat_catalog_info.resources[0].status.connectionState.lastObservedState == "READY"
+
+# 2. Check for router and ingress secrets
+# -----------------------------------------------------------------------------
+# We don't know why but sometimes the name of the secret will be
+# "router-certs-default" and sometimes it will be named after the cluster's ingress
+# cluster must have at least one of these secrets to run the playbooks from this collection
+
+# First lookup for router-certs-default secret
+- name: Lookup for router-certs-default secret
+  no_log: true
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: router-certs-default
+    namespace: openshift-ingress
+  register: router_certs_default_secret
+
+# If router-certs-default does not exist, then lookup for secret named after cluster ingress
+# If router-certs-default exists, then skip it
+- name: Get cluster subdomain
+  when:
+    - router_certs_default_secret.resources is defined
+    - router_certs_default_secret.resources | length == 0
+  community.kubernetes.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: cluster_subdomain
+
+- name: Lookup for cluster ingress secret
+  when:
+    - router_certs_default_secret.resources is defined
+    - router_certs_default_secret.resources | length == 0
+  no_log: true
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
+    namespace: openshift-ingress
+  register: cluster_ingress_secret
+
+# If at least one of the secrets exist, then all good, skip it
+# If neither of the two secrets are found, then fail with a message
+- name: Fail if cluster required secrets do not exist
+  when:
+    - cluster_ingress_secret.resources is defined
+    - cluster_ingress_secret.resources | length == 0
+  fail:
+    msg:
+      - "This cluster does not contain required secrets named 'router-certs-default' or '{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*') }}' under 'openshift-ingress' namespace. Please, provision a new cluster."

@@ -1,11 +1,6 @@
 ---
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-- name: "Fail if mas_instance_id is not provided"
-  when: mas_instance_id is not defined or mas_instance_id == ""
-  fail:
-    msg: "mas_instance_id property is required"
-
 - name: "Fail if kafka_storage_class is not provided"
   when: kafka_storage_class is not defined or kafka_storage_class == ""
   fail:
@@ -22,8 +17,6 @@
       - "AMQ Streams cluster size ..... {{ kafka_cluster_size }}"
       - "AMQ Streams storage class .... {{ kafka_storage_class }}"
       - "AMQ Streams MAS user ......... {{ kafka_user_name }}"
-      - "MAS Instance ID .............. {{ mas_instance_id }}"
-      - "MAS Config directory ......... {{ mas_config_dir }}"
 
 
 # 3. Install AMQ Streams operator
@@ -109,8 +102,19 @@
       - "MAS user password ............ {{ kafka_user_password }}"
 
 
-# 8. Create KafkaCfg for MAS
+# 8. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
 # -----------------------------------------------------------------------------
+- name: Debug KafkaCfg creation properties
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  debug:
+    msg:
+      - "MAS Instance ID .............. {{ mas_instance_id }}"
+      - "MAS Config directory ......... {{ mas_config_dir }}"
+
 - name: Save KafkaCfg to filesytem
   when:
     - mas_instance_id is defined

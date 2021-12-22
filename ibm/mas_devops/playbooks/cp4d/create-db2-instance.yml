@@ -1,0 +1,50 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # CP4D basic installation
+    # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    cpd_version: "{{ lookup('env', 'CPD_VERSION') }}"
+    cpd_meta_namespace: "{{ lookup('env', 'CPD_NAMESPACE') | default('cpd-meta-ops', true) }}"
+
+    # Configure Db2 instance
+    # -----------------------------------------------------------------------------------------------------------------
+    db2wh_instance_name: "{{ lookup('env', 'DB2WH_INSTANCE_NAME') }}" # e.g. db2w-iot or db2w-manage
+    db2wh_addon_version: "{{ lookup('env', 'DB2WH_ADDON_VERSION') | default('11.5.5.1-cn3-x86_64', true) }}"
+    db2wh_table_org: "{{ lookup('env', 'DB2WH_TABLE_ORG') | default('ROW', true) }}" # e.g ROW or COLUMN
+
+    # Configure meta storage for db2
+    db2wh_meta_storage_class: "{{ lookup('env', 'DB2WH_META_STORAGE_CLASS') }}"
+    db2wh_meta_storage_size_gb: "{{ lookup('env', 'DB2WH_META_STORAGE_SIZE_GB') | default(20, true) }}"
+
+    # Configure CP4D user storage
+    db2wh_user_storage_class: "{{ lookup('env', 'DB2WH_USER_STORAGE_CLASS') }}"
+    db2wh_user_storage_size_gb: "{{ lookup('env', 'DB2WH_USER_STORAGE_SIZE_GB') | default(100, true) }}"
+
+    # Configure CP4D backup storage
+    db2wh_backup_storage_class: "{{ lookup('env', 'DB2WH_BACKUP_STORAGE_CLASS') }}"
+    db2wh_backup_storage_size_gb: "{{ lookup('env', 'DB2WH_BACKUP_STORAGE_SIZE_GB') | default(100, true) }}"
+
+    # Configure CP4D transaction logs storage
+    db2wh_logs_storage_class: "{{ lookup('env', 'DB2WH_LOGS_STORAGE_CLASS') }}"
+    db2wh_logs_storage_size_gb: "{{ lookup('env', 'DB2WH_LOGS_STORAGE_SIZE_GB') | default(100, true) }}"
+
+    # Configure CP4D temporary storage
+    db2wh_temp_storage_class: "{{ lookup('env', 'DB2WH_TEMP_STORAGE_CLASS') }}"
+    db2wh_temp_storage_size_gb: "{{ lookup('env', 'DB2WH_TEMP_STORAGE_SIZE_GB') | default(100, true) }}"
+
+    # TODO: You can't have a defaault password of "password", this needs to be auto-generated if not provided
+    db2wh_admin_username: "{{ lookup('env', 'DB2WH_ADMIN_USER')  | default('admin', true) }}"
+    db2wh_admin_password: "{{ lookup('env', 'DB2WH_ADMIN_PASSWORD')  | default('password', true) }}"
+
+    # Create the MAS JdbcCfg & Secret resource definitions
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+    # TODO: add support to ws and app scopes
+    mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE') | default('system', true) }}" # Supported values are "system", "ws", "app", or "wsapp"
+    mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}" # Necessary for ws and wsapp scopes
+    mas_application_id: "{{ lookup('env', 'MAS_APP_ID') }}" # Necessary for app and wsapp scopes
+
+  roles:
+    - ibm.mas_devops.cp4d_db2wh

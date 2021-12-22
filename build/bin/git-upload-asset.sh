@@ -14,8 +14,9 @@ else
   exit 64
 fi
 
-# The pull request number if the current job is a pull request, "false" if it's not a pull request.
-if [[ "${TRAVIS_PULL_REQUEST}" != "false" ]]; then
+# 1. Check whether this is a pull request
+# -----------------------------------------------------------------------------
+if [[ ! -z "${GITHUB_HEAD_REF}" ]]; then
   echo "Build is for a pull request so skip asset release"
   exit 0
 fi
@@ -32,7 +33,7 @@ PATH=$PATH:$DIR
 # - http://stackoverflow.com/questions/40733692/github-upload-release-assets-with-bash
 # - https://developer.github.com/v3/repos/releases/#get-a-release-by-tag-name
 
-url="https://uploads.github.com/repos/${TRAVIS_REPO_SLUG}/releases/tags/${TAG}"
+url="https://uploads.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}"
 echo "Looking up release by tag: ${url}"
 succ=$(curl -H "Authorization: token ${GITHUB_TOKEN}" $url)
 

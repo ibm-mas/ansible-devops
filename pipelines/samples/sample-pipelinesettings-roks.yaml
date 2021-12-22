@@ -1,4 +1,4 @@
-# Usage: oc apply -f sample-pipelinesettings.yaml -n <mynamespace>
+# Usage: oc apply -f fvt-pipelinesettings-roks.yaml -n <mynamespace>
 # Tip: use yj command line tool to modify this in automation
 ---
 apiVersion: v1
@@ -13,24 +13,62 @@ stringData:
   # the Ansible playbook documentation for more details
   # ---------------------------------------------------------------------------
 
-  # CloudPak for Data settings
-  CPD_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
-  CPD_STORAGE_CLASS: "ibmc-file-gold-gid"
+  # -------------------------
+  # ocp/configure-ocp.yml
+  # -------------------------
+  # W3_USERNAME and ARTIFACTORY_APIKEY are used to install the pre-release
+  # development catalogs, they are not required
+  W3_USERNAME: ""
+  ARTIFACTORY_APIKEY: ""
 
-  # AMQStreams (Kafka) settings
-  KAFKA_NAMESPACE: "amq-streams"
-  KAFKA_CLUSTER_NAME: "maskafka"
-  KAFKA_CLUSTER_SIZE: "small"
-  KAFKA_STORAGE_CLASS: "ibmc-block-gold"
-  KAFKA_USER_NAME: "masuser"
+  # Currently used by CIS, but in future this will be changed to use CIS_APIKEY
+  IBMCLOUD_APIKEY: "<REQUIRED: enter your IBM Cloud api key here>"
 
-  # MongoDb settings
-  MONGODB_NAMESPACE: ""
+  # -------------------------
+  # dependencies/install-mongodb-ce.yml
+  # -------------------------
+  MAS_INSTANCE_ID: "<REQUIRED: enter your MAS instance ID here>"
+  MAS_CONFIG_DIR: ""
   MONGODB_STORAGE_CLASS: "ibmc-block-gold"
+  MONGODB_NAMESPACE: ""
   MONGODB_STORAGE_CAPACITY_DATA: ""
   MONGODB_STORAGE_CAPACITY_LOGS: ""
 
-  # SLS settings
+  # -------------------------
+  # cp4d/install-cp4d.yml
+  # -------------------------
+  CPD_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
+  CPD_STORAGE_CLASS: "ibmc-file-gold-gid"
+  CPD_NAMESPACE: ""
+
+  # -------------------------
+  # cp4d/install-services-db2.yml
+  # -------------------------
+  DB2WH_META_STORAGE_CLASS: "ibmc-file-silver-gid"
+  DB2WH_USER_STORAGE_CLASS: "ibmc-file-gold-gid"
+  DB2WH_BACKUP_STORAGE_CLASS: "ibmc-file-gold-gid"
+
+  DB2WH_ADMIN_USER: ""
+  DB2WH_ADMIN_PASSWORD: ""
+
+  DB2WH_ADDON_VERSION: ""
+  DB2WH_TABLE_ORG: ""
+
+  # -------------------------
+  # dependencies/install-amqstreams.yml
+  # -------------------------
+  KAFKA_STORAGE_CLASS: "ibmc-block-gold"
+  KAFKA_NAMESPACE: "amq-streams"
+  KAFKA_CLUSTER_NAME: "maskafka"
+  KAFKA_CLUSTER_SIZE: "small"
+  KAFKA_USER_NAME: "masuser"
+
+  # -------------------------
+  # dependencies/install-sls.yml
+  # -------------------------
+  SLS_COMPLIANCE_ENFORCE: ""
+  SLS_LICENSE_ID: ""
+  SLS_STORAGE_CLASS: "ibmc-file-gold-gid"
   SLS_CATALOG_SOURCE: ""
   SLS_CHANNEL: ""
   SLS_NAMESPACE: ""
@@ -39,40 +77,36 @@ stringData:
   SLS_INSTANCE_NAME: ""
   SLS_ENTITLEMENT_USERNAME: "cp"
   SLS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
-  SLS_STORAGE_CLASS: "ibmc-file-gold-gid"
   SLS_DOMAIN: ""
   SLS_AUTH_ENFORCE: ""
-  SLS_COMPLIANCE_ENFORCE: ""
   SLS_REGISTRATION_OPEN: ""
-  SLS_LICENSE_ID: ""
-  SLS_REGISTRATION_KEY: ""
 
-  # BAS settings
+  # -------------------------
+  # dependencies/install-bas.yml
+  # -------------------------
   BAS_NAMESPACE: ""
-  BAS_PERSISTENT_STORAGE: "ibmc-file-bronze-gid"
-  BAS_META_STORAGE: "ibmc-block-bronze"
+  BAS_PERSISTENT_STORAGE_CLASS: "ibmc-file-bronze-gid"
+  BAS_META_STORAGE_CLASS: "ibmc-block-bronze"
   BAS_USERNAME: ""
   BAS_PASSWORD: ""
   BAS_GRAFANA_USERNAME: ""
   BAS_GRAFANA_PASSWORD: ""
-  BAS_CONTACT_MAIL: "<REQUIRED: enter a valid e-mail address>"
-  BAS_CONTACT_FIRSTNAME: "<REQUIRED: Contact's first name>"
-  BAS_CONTACT_LASTNAME: "<REQUIRED: Contact's last name>"
+  BAS_CONTACT_MAIL: "<REQUIRED: enter your email here>"
+  BAS_CONTACT_FIRSTNAME: "<REQUIRED: enter your first name here>"
+  BAS_CONTACT_LASTNAME: "<REQUIRED: enter your last name here>"
 
-  # MAS settings
-  MAS_INSTANCE_ID: "<REQUIRED: enter your desired MAS instance ID here>"
-  MAS_ICR_CP: ""
-  MAS_ICR_CPOPEN: ""
-  MAS_ENTITLEMENT_USERNAME: "cp"
-  MAS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
-  MAS_CATALOG_SOURCE: ""
-  MAS_CHANNEL: "8.x"
-  MAS_DOMAIN: ""
-
-  # MAS Settings - CIS Integration
+  # -------------------------
+  # mas/install-suite.yml
+  # -------------------------
   CIS_CRN: ""
   CIS_SUBDOMAIN: ""
-  IBMCLOUD_APIKEY: ""
+  MAS_DOMAIN: ""
+  MAS_CATALOG_SOURCE: ""
+  MAS_CHANNEL: "8.x"
+  MAS_ICR_CP: ""
+  MAS_ICR_CPOPEN: ""
+  MAS_ENTITLEMENT_USERNAME: ""
+  MAS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
   CIS_EMAIL: ""
   CIS_SKIP_DNS_ENTRIES: ""
   CIS_SKIP_CLUSTER_ISSUER: ""
@@ -81,7 +115,10 @@ stringData:
   MAS_CUSTOM_CLUSTER_ISSUER: ""
   CERTIFICATE_DURATION: ""
   CERTIFICATE_RENEW_BEFORE: ""
+  MAS_CATALOG_IMG: ""
+  TM_CATALOG_IMG: ""
 
-  # Credentials to access pre-release container images
-  W3_USERNAME: ""
-  ARTIFACTORY_APIKEY: ""
+  # -------------------------
+  # mas/configure-app.yml
+  # -------------------------
+  MAS_WORKSPACE_ID: ""

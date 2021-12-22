@@ -1,0 +1,32 @@
+name: Build Tekton ClusterTasks
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+jobs:
+  build-pipelines:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.3.1
+        # Without this option, we don't get the tag information
+        with:
+          fetch-depth: 0
+
+      - name: Initialise the build system
+        run: |
+          chmod u+x $GITHUB_WORKSPACE/build/bin/*.sh
+          $GITHUB_WORKSPACE/build/bin/initbuild.sh
+          source $GITHUB_WORKSPACE/build/bin/.functions.sh
+
+      - name: Build the ClusterTasks definition file
+        run: $GITHUB_WORKSPACE/pipelines/bin/build-pipelines.sh
+
+      - name: Upload the ClusterTasks definition file
+        uses: actions/upload-artifact@v2
+        with:
+          name: ibm-mas_devops-clustertasks-${{ env.VERSION }}.yaml
+          path: ${{ github.workspace }}/pipelines/ibm-mas_devops-clustertasks-${{ env.VERSION }}.yaml
+          retention-days: 30

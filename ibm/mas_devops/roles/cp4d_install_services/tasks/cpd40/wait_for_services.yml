@@ -1,0 +1,51 @@
+---
+
+# Ansible can't support block retries, this is a relatively simple workaround
+# to achieve the same thing
+# https://github.com/ansible/ansible/issues/46203#issuecomment-556013701
+
+- name: 'wait : Wait until all services are ready'
+  block:
+    - name: "wait : Set the retry count"
+      set_fact:
+        service_retry_count: "{{ 0 if service_retry_count is undefined else service_retry_count|int + 1 }}"
+        services_count: 0
+        ready_services_count: 0
+
+    - name: "wait : Lookup CPD Service CRs"
+      vars:
+        service_name: "{{ item }}"
+      community.kubernetes.k8s_info:
+        api_version: "{{ hostvars[inventory_hostname][item].apiVersion }}"
+        kind: "{{ hostvars[inventory_hostname][item].crdkind }}"
+        name: "{{ hostvars[inventory_hostname][item].crname }}"
+        namespace: "{{ cpd_services_namespace }}"
+      register: cpd_cr_lookup
+      until:
+        - cpd_cr_lookup.resources is defined
+        - cpd_cr_lookup.resources | length > 0
+      with_items: "{{ cpd_services }}"
+
+    - name: "wait : Check if CPD Services installation have been completed"
+      set_fact:
+        services_count: "{{ services_count|int + 1 }}"
+        ready_services_count: "{{ ready_services_count|int + 1 if (item.resources[0].status is defined and item.resources[0].status.values() | select('match', '^.*Completed*$')) else ready_services_count|int}}"
+      with_items: "{{ cpd_cr_lookup.results }}"
+      loop_control:
+        label: "{{ item.resources[0].metadata.name }} CR status = {{ 'Completed' if (item.resources[0].status is defined and item.resources[0].status.values() | select('match', '^.*Completed*$')) else 'In Progress' }}"
+
+    - name: "wait : Fail if one or more CPD Services installation still in progress..."
+      when: ready_services_count != services_count
+      fail:
+        msg: "[{{ service_retry_count }}/30] {{ ready_services_count }} of {{ services_count }} services are ready"
+  rescue:
+    - name: "wait : Give up after 30 attempts (approx 3 hours)"
+      when: service_retry_count|int >= 30
+      fail:
+        msg: Timed out waiting for service operator to be ready
+
+    - name: "wait : Wait for 5 minutes before checking again"
+      pause:
+        minutes: 5
+
+    - include_tasks: wait_for_services.yml

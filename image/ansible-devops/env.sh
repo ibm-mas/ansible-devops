@@ -18,9 +18,13 @@ export K8S_AUTH_API_KEY=$(cat /run/secrets/kubernetes.io/serviceaccount/token)
 # ocp/configure-ocp.yml
 # -----------------------------------------------------------------------------
 export IBMCLOUD_APIKEY=$(cat /workspace/settings/IBMCLOUD_APIKEY)
-export CLUSTER_NAME=$(cat /workspace/settings/CLUSTER_NAME)
 export W3_USERNAME=$(cat /workspace/settings/W3_USERNAME)
 export ARTIFACTORY_APIKEY=$(cat /workspace/settings/ARTIFACTORY_APIKEY)
+export PROMETHEUS_RETENTION_PERIOD=$(cat /workspace/settings/PROMETHEUS_RETENTION_PERIOD)
+export PROMETHEUS_STORAGE_CLASS=$(cat /workspace/settings/PROMETHEUS_STORAGE_CLASS)
+export PROMETHEUS_STORAGE_SIZE=$(cat /workspace/settings/PROMETHEUS_STORAGE_SIZE)
+export PROMETHEUS_ALERTMGR_STORAGE_CLASS=$(cat /workspace/settings/PROMETHEUS_ALERTMGR_STORAGE_CLASS)
+export PROMETHEUS_ALERTMGR_STORAGE_SIZE=$(cat /workspace/settings/PROMETHEUS_ALERTMGR_STORAGE_SIZE)
 
 # -----------------------------------------------------------------------------
 # dependencies/install-mongodb-ce.yml
@@ -32,25 +36,20 @@ export MONGODB_STORAGE_CAPACITY_DATA=$(cat /workspace/settings/MONGODB_STORAGE_C
 export MONGODB_STORAGE_CAPACITY_LOGS=$(cat /workspace/settings/MONGODB_STORAGE_CAPACITY_LOGS)
 
 # -----------------------------------------------------------------------------
-# cp4d/install-cp4d.yml
+# cp4d/install-services-fullstack.yml
 # -----------------------------------------------------------------------------
+export CLUSTER_NAME=$(cat /workspace/settings/CLUSTER_NAME)
+export CPD_VERSION=$(cat /workspace/settings/CPD_VERSION)
 export CPD_ENTITLEMENT_KEY=$(cat /workspace/settings/CPD_ENTITLEMENT_KEY)
 export CPD_NAMESPACE=$(cat /workspace/settings/CPD_NAMESPACE)
 export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
+export CPD_BLOCK_STORAGE_CLASS=$(cat /workspace/settings/CPD_BLOCK_STORAGE_CLASS)
 
 # -----------------------------------------------------------------------------
-# cp4d/install-db2=api.yml
+# cp4d/create-db2-instance.yml
 # -----------------------------------------------------------------------------
-export CPD_META_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_META_STORAGE_SIZE_GB)
-export CPD_USER_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_USER_STORAGE_SIZE_GB)
-export CPD_BACKUP_STORAGE_SIZE_GB=$(cat /workspace/settings/CPD_BACKUP_STORAGE_SIZE_GB)
-export CPD_META_STORAGE_CLASS=$(cat /workspace/settings/CPD_META_STORAGE_CLASS)
-export CPD_USER_STORAGE_CLASS=$(cat /workspace/settings/CPD_USER_STORAGE_CLASS)
-export CPD_BACKUP_STORAGE_CLASS=$(cat /workspace/settings/CPD_BACKUP_STORAGE_CLASS)
-export CPD_ADMIN_USER=$(cat /workspace/settings/CPD_ADMIN_USER)
-export CPD_ADMIN_PASSWORD=$(cat /workspace/settings/CPD_ADMIN_PASSWORD)
-export CPD_DB2WH_ADDON_VERSION=$(cat /workspace/settings/CPD_DB2WH_ADDON_VERSION)
-export DB2WH_TABLE_ORG=$(cat /workspace/settings/DB2WH_TABLE_ORG)
+export DB2WH_ADMIN_USER=$(cat /workspace/settings/DB2WH_ADMIN_USER)
+export DB2WH_ADMIN_PASSWORD=$(cat /workspace/settings/DB2WH_ADMIN_PASSWORD)
 
 # -----------------------------------------------------------------------------
 # dependencies/install-amqstreams.yml
@@ -83,8 +82,8 @@ export SLS_LICENSE_ID=$(cat /workspace/settings/SLS_LICENSE_ID)
 # bas/install-bas.yaml
 # -----------------------------------------------------------------------------
 export BAS_NAMESPACE=$(cat /workspace/settings/BAS_NAMESPACE)
-export BAS_PERSISTENT_STORAGE=$(cat /workspace/settings/BAS_PERSISTENT_STORAGE)
-export BAS_META_STORAGE=$(cat /workspace/settings/BAS_META_STORAGE)
+export BAS_PERSISTENT_STORAGE_CLASS=$(cat /workspace/settings/BAS_PERSISTENT_STORAGE_CLASS)
+export BAS_META_STORAGE_CLASS=$(cat /workspace/settings/BAS_META_STORAGE_CLASS)
 export BAS_USERNAME=$(cat /workspace/settings/BAS_USERNAME)
 export BAS_PASSWORD=$(cat /workspace/settings/BAS_PASSWORD)
 export BAS_GRAFANA_USERNAME=$(cat /workspace/settings/BAS_GRAFANA_USERNAME)
@@ -117,33 +116,19 @@ export MAS_CATALOG_IMG=$(cat /workspace/settings/MAS_CATALOG_IMG)
 export TM_CATALOG_IMG=$(cat /workspace/settings/TM_CATALOG_IMG)
 
 # -----------------------------------------------------------------------------
-# mas/install-app.yml
-# -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
 # mas/configure-app.yml
 # -----------------------------------------------------------------------------
 export MAS_WORKSPACE_ID=$(cat /workspace/settings/MAS_WORKSPACE_ID)
 
-# -------------------------
-# Used in ClusterTask context
-# -------------------------
-export MAS_APP_CATALOG_SOURCE_IOT=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_IOT)
-export MAS_APP_CATALOG_SOURCE_MANAGE=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MANAGE)
-export MAS_APP_CATALOG_SOURCE_MONITOR=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_MONITOR)
-export MAS_APP_CATALOG_SOURCE_SAFETY=$(cat /workspace/settings/MAS_APP_CATALOG_SOURCE_SAFETY)
-export MAS_APP_CHANNEL_IOT=$(cat /workspace/settings/MAS_APP_CHANNEL_IOT)
-export MAS_APP_CHANNEL_MANAGE=$(cat /workspace/settings/MAS_APP_CHANNEL_MANAGE)
-export MAS_APP_CHANNEL_MONITOR=$(cat /workspace/settings/MAS_APP_CHANNEL_MONITOR)
-export MAS_APP_CHANNEL_SAFETY=$(cat /workspace/settings/MAS_APP_CHANNEL_SAFETY)
 
 # The following settings are provided as env vars per-task because they may
 # vary for different tasks in the same pipeline
 # -----------------------------------------------------------------------------
-# - MAS_CONFIG_DIR # must be in ClusterTask as it will reflect a pipeline workspace
 # - MAS_APP_ID # must be in ClusterTask as it will parameterize install-app task
 # - MAS_APP_CATALOG_SOURCE # must be in fvt-env travis, by app, as it varies by environment
 # - MAS_APP_CHANNEL # must be in fvt-env travis, by app as it varies by environment
+# - MAS_APPWS_COMPONENTS # must be in ClusterTask as it will parameterize configure-app task
+# - MAS_CONFIG_DIR # must be in ClusterTask as it will reflect a pipeline workspace
 
 # Settings to support save-junit-to-mongo.py
 # -----------------------------------------------------------------------------
