@@ -2,7 +2,10 @@
 
 # 0. Lookup the version and flavour of OCP that we are targeting
 # -----------------------------------------------------------------------------
-- name: Get OCP Install Information
+# In Frye OCP 4.6 we find this configmap named as "openshift-install-manifests"
+# In ROKS OCP 4.6 and 4.8 we find this configmap named as "openshift-install"
+
+- name: Get OCP Install Information (openshift-install)
   community.kubernetes.k8s_info:
     api_version: v1
     kind: ConfigMap
@@ -10,11 +13,35 @@
     namespace: openshift-config
   register: openshift_config
 
-- name: Register OCP install configuration variables
+- name: Register OCP install configuration variables (openshift-install)
+  when: openshift_config.resources | length > 0
   set_fact:
     ocp_install_invoker: "{{ openshift_config.resources[0].data.invoker }}" # Known values: "ROKS"
     ocp_install_version: "{{ openshift_config.resources[0].data.version }}"
     ocp_install_release: "{{ openshift_config.resources[0].data.version | regex_search('[^.]*.[^.]*') }}"
+
+# If we didn't already set the new facts then it means we couldn't find the "openshift-install" configmap
+- name: Get OCP Install Information (openshift-install-manifests)
+  when: ocp_install_invoker is not defined
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: openshift-install-manifests
+    namespace: openshift-config
+  register: openshift_config
+
+- name: Register OCP install configuration variables (openshift-install-manifests)
+  when: openshift_config.resources | length > 0
+  set_fact:
+    ocp_install_invoker: "{{ openshift_config.resources[0].data.invoker }}" # Known values: "user" (in Fyre)
+    ocp_install_version: "{{ openshift_config.resources[0].data.version }}"
+    ocp_install_release: "{{ openshift_config.resources[0].data.version | regex_search('[^.]*.[^.]*') }}"
+
+# If we didn't already set the new facts then it means we couldn't find either of the expected configmaps
+- name: Fail if we couldn't find the openshift-install or openshift-install-manifests configmaps
+  when: ocp_install_invoker is not defined
+  fail:
+    msg: "We couldn't find either the openshift-install or openshift-install-manifests configmaps in the openshift-config namespace"
 
 - name: Debug OCP install configuration variables
   debug:
