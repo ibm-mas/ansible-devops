@@ -27,14 +27,14 @@
     ocsavailable: '{% if SCluster.resources[0].status.phase == "Ready" %}True{% else %}False{% endif %}'
 
 - name: "Fail if OCS Cluster is not provided"
-  when: not ( ocsavailable is defined and ocsavailable ) 
+  when: not ( ocsavailable is defined and ocsavailable )
   fail:
     msg: "OCS Cluster is not ready, pls install OCS first."
 
 - name: "Print If there's OCS cluster"
   debug:
     msg:
-      - "OCS Cluster is available .... {{ ocsavailable }}  "
+      - "OCS Cluster is available .... {{ ocsavailable }}"
 
 # 1. Create the object store
 # -----------------------------------------------------------------------------
@@ -42,7 +42,7 @@
   when: ocsavailable is defined and ocsavailable
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/objectaccess/object.yaml') }}"
+    definition: "{{ lookup('template', 'templates/ocs/object.yaml') }}"
 
 # 2. Create the object User
 # -----------------------------------------------------------------------------
@@ -50,7 +50,7 @@
   when: ocsavailable is defined and ocsavailable
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/objectaccess/objectuser.yaml') }}"
+    definition: "{{ lookup('template', 'templates/ocs/objectuser.yaml') }}"
 
 - name: "Wait for Ceph os user to be ready (60s delay)"
   community.kubernetes.k8s_info:
@@ -84,7 +84,7 @@
   when: ocsavailable is defined and ocsavailable
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/objectaccess/rgw.yaml') }}"
+    definition: "{{ lookup('template', 'templates/ocs/rgw.yaml') }}"
 
 ## 4. Query the object User crdential
 ## -----------------------------------------------------------------------------
@@ -110,10 +110,10 @@
   register: objectrouteSecret
 
 - name: "ocs/objectstorage :Query cos secret based on existing secret/cm"
-  when:  
+  when:
     - ocsavailable is defined and ocsavailable
-    - objectuserSecret.resources| length != 0 
-    - objectrouteSecret.resources| length != 0 
+    - objectuserSecret.resources| length != 0
+    - objectrouteSecret.resources| length != 0
   set_fact:
     cosurl: "https://{{ cos_domain }}"
     cosusername: "{{ objectuserSecret.resources[0]['data']['AccessKey']| b64decode }}"
@@ -135,3 +135,11 @@
     - name: Fail as we didn't get the cos info in ocs cluster.
       fail:
         msg: "we didn't get the cos info xhere in ocs cluster."
+
+
+# 7. Write ObjectStorageCfg to disk
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Copy objectstorageCfg to filesytem"
+  ansible.builtin.template:
+    src: ocs/objectstoragecfg.yml.j2
+    dest: "{{ mas_config_dir }}/objectstoragecfg.yml"
