@@ -73,30 +73,14 @@
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">Dependencies Playbooks</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#install-amq-streams">Install AMQ Streams</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#install-mongodb-ce">Install MongoDb (CE)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#install-bas">Install BAS</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#required-environment-variables">Required environment variables</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#optional-environment-variables">Optional environment variables</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#example-usage">Example usage</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#install-mongodb-ce">Install MongoDb (CE)</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#required-environment-variables_1">Required environment variables</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#optional-environment-variables_1">Optional environment variables</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#example-usage_1">Example usage</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#install-bas">Install BAS</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#required-environment-variables_2">Required environment variables</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#optional-environment-variables_2">Optional environment variables</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#usage">Usage:</a>
     </li>
@@ -104,9 +88,9 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#install-sls">Install SLS</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#required-environment-variables_3">Required environment variables</a>
+    <li class="toctree-l3"><a class="reference internal" href="#required-environment-variables_1">Required environment variables</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#optional-environment-variables_3">Optional environment variables</a>
+    <li class="toctree-l3"><a class="reference internal" href="#optional-environment-variables_1">Optional environment variables</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#example-usage-release-build">Example usage: release build</a>
     </li>
@@ -212,63 +196,36 @@
           <div role="main">
             <div class="section">
               
-                <h1 id="depedencies-playbooks">Depedencies Playbooks<a class="headerlink" href="#depedencies-playbooks" title="Permanent link"></a></h1>
+                <h1 id="dependencies-playbooks">Dependencies Playbooks<a class="headerlink" href="#dependencies-playbooks" title="Permanent link"></a></h1>
 <h2 id="install-amq-streams">Install AMQ Streams<a class="headerlink" href="#install-amq-streams" title="Permanent link"></a></h2>
-<h3 id="required-environment-variables">Required environment variables<a class="headerlink" href="#required-environment-variables" title="Permanent link"></a></h3>
-<ul>
-<li><code>KAFKA_STORAGE_CLASS</code> sets the storage class to use for both Kafka and Zookeeper</li>
-<li><code>MAS_INSTANCE_ID</code> sets the instance ID of the MAS install that we are configuring</li>
-</ul>
-<h3 id="optional-environment-variables">Optional environment variables<a class="headerlink" href="#optional-environment-variables" title="Permanent link"></a></h3>
-<ul>
-<li><code>KAFKA_NAMESPACE</code> overrides the Kubernetes namespace where the AMQ streams operator will be installed, this will default to <code>amq-streams</code></li>
-<li><code>KAFKA_CLUSTER_NAME</code> overrides the name Kafka cluster, this will default <code>maskafka</code></li>
-<li><code>KAFKA_CLUSTER_SIZE</code> provides a choice between a small and large cluster configuration, this will default to <code>small</code></li>
-<li><code>KAFKA_USER_NAME</code> configures the user that will be created for MAS, will default to <code>masuser</code></li>
-</ul>
-<h3 id="example-usage">Example usage<a class="headerlink" href="#example-usage" title="Permanent link"></a></h3>
-<p>AMQ Streams operator will be installed into the <code>amq-streams</code> namespace, a cluster named <code>maskafka</code> will be created using the small configuration and <code>ibmc-block-gold</code> as the storage class.</p>
+<p>AMQ Streams operator will be installed into the <code>amq-streams</code> namespace, a cluster named <code>maskafka</code> will be created using the small configuration and <code>ibmc-block-gold</code> as the storage class.  The generated configuration for MAS will be available in the <code>~/masconfig</code> directory on the local system.</p>
+<p>Refer to the <a href="../../roles/amqstreams/">amqstreams</a> role documentation for more information.</p>
 <pre><code class="language-bash">export KAFKA_STORAGE_CLASS=ibmc-block-gold
 export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/dependencies/install-amqstreams.yml
 </code></pre>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The playbook will generate a yaml file containing the definition of a Secret and KafkaCfg resource that can be used to configure the deployed cluster as the MAS system Kafka.</p>
-<p>This file can be directly applied using <code>oc apply -f /tmp/kafkacfg-amqstreams-system.yaml</code> or added to the <code>mas_config</code> list variable used by the <code>ibm.mas_devops.suite_install</code> role to deploy and configure MAS.</p>
-</div>
 <h2 id="install-mongodb-ce">Install MongoDb (CE)<a class="headerlink" href="#install-mongodb-ce" title="Permanent link"></a></h2>
-<h3 id="required-environment-variables_1">Required environment variables<a class="headerlink" href="#required-environment-variables_1" title="Permanent link"></a></h3>
-<ul>
-<li><code>MAS_INSTANCE_ID</code> sets the instance ID of the MAS install that we are configuring</li>
-</ul>
-<h3 id="optional-environment-variables_1">Optional environment variables<a class="headerlink" href="#optional-environment-variables_1" title="Permanent link"></a></h3>
-<ul>
-<li><code>MONGODB_NAMESPACE</code> overrides the Kubernetes namespace where the MongoDb CE operator will be installed, this will default to <code>mongoce</code></li>
-</ul>
-<h3 id="example-usage_1">Example usage<a class="headerlink" href="#example-usage_1" title="Permanent link"></a></h3>
-<p>MongoDb CE operator will be installed into the <code>mongoce</code> namespace, a 3 node cluster cluster will be created.  The cluster will bind six 20GB PVCs of the default storage class, these provide persistence for the data and system logs across the three nodes.</p>
-<pre><code class="language-bash">export MAS_INSTANCE_ID=masdev1
+<p>MongoDb CE operator will be installed into the <code>mongoce</code> namespace, a 3 node cluster cluster will be created.  The cluster will bind six 20GB <code>ibmc-block-gold</code> PVCs, these provide persistence for the data and system logs across the three nodes.  The generated configuration for MAS will be available in the <code>~/masconfig</code> directory on the local system.</p>
+<p>Refer to the <a href="../../roles/mongodb/">mongodb</a> role documentation for more information.</p>
+<pre><code class="language-bash">export MONGODB_STORAGE_CLASS=ibmc-block-gold
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/dependencies/install-mongodb-ce.yml
 </code></pre>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The playbook will generate a yaml file containing the definition of a Secret and MongoCfg resource that can be used to configure the deployed instance as the MAS system MongoDb.</p>
-<p>This file can be directly applied using <code>oc apply -f /tmp/mongocfg-mongoce-system.yaml</code> or added to the <code>mas_config</code> list variable used by the <code>ibm.mas_devops.suite_install</code> role to deploy and configure MAS.</p>
-</div>
 <h2 id="install-bas">Install BAS<a class="headerlink" href="#install-bas" title="Permanent link"></a></h2>
 <p>Installs <strong>IBM Behavior Analytics Services</strong> on IBM Cloud Openshift Clusters (ROKS) and generates configuration that can be directly applied to IBM Maximo Application Suite.</p>
 <p>Before you use this playbook you will likely want to edit the <code>mas_config_dir</code> variable to supply your own configuration, instead of the sample data provided.
 This is the directory where this playbook will store BAS configurations such as BAS endpoint and username/password credentials to configure BAS in your Maximo Application Suite instance.</p>
-<h3 id="required-environment-variables_2">Required environment variables<a class="headerlink" href="#required-environment-variables_2" title="Permanent link"></a></h3>
+<h3 id="required-environment-variables">Required environment variables<a class="headerlink" href="#required-environment-variables" title="Permanent link"></a></h3>
 <ul>
 <li><code>BAS_CONTACT_MAIL</code> Defines the email for person to contact for BAS</li>
 <li><code>BAS_CONTACT_FIRSTNAME</code> Defines the first name of the person to contact for BAS</li>
 <li><code>BAS_CONTACT_LASTNAME</code> Defines the last name of the person to contact for BAS</li>
 </ul>
-<h3 id="optional-environment-variables_2">Optional environment variables<a class="headerlink" href="#optional-environment-variables_2" title="Permanent link"></a></h3>
+<h3 id="optional-environment-variables">Optional environment variables<a class="headerlink" href="#optional-environment-variables" title="Permanent link"></a></h3>
 <ul>
 <li><code>BAS_USERNAME</code> BAS default username. If not provided, default username will be <code>basuser</code>.</li>
 <li><code>BAS_PASSWORD</code> Defines the password for your BAS instance. If not provided, a random 15 character password will be generated.</li>
@@ -290,11 +247,11 @@ ansible-playbook playbooks/dependencies/install-bas.yml
 </code></pre>
 <h2 id="install-sls">Install SLS<a class="headerlink" href="#install-sls" title="Permanent link"></a></h2>
 <p>Before you use this playbook you will likely want to edit the <code>mas_config_dir</code> variable to supply your own configuration, instead of the sample data provided.</p>
-<h3 id="required-environment-variables_3">Required environment variables<a class="headerlink" href="#required-environment-variables_3" title="Permanent link"></a></h3>
+<h3 id="required-environment-variables_1">Required environment variables<a class="headerlink" href="#required-environment-variables_1" title="Permanent link"></a></h3>
 <ul>
 <li><code>SLS_ENTITLEMENT_KEY</code> Provide your IBM entitlement key</li>
 </ul>
-<h3 id="optional-environment-variables_3">Optional environment variables<a class="headerlink" href="#optional-environment-variables_3" title="Permanent link"></a></h3>
+<h3 id="optional-environment-variables_1">Optional environment variables<a class="headerlink" href="#optional-environment-variables_1" title="Permanent link"></a></h3>
 <ul>
 <li><code>SLS_CATALOG_SOURCE</code> Set to <code>ibm-sls-operators</code> if you want to deploy pre-release development builds</li>
 <li><code>SLS_CHANNEL</code> Override the default release channel (3.x)</li>

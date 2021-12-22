@@ -100,6 +100,20 @@
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">mongodb</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#mongodb_namespace">mongodb_namespace:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mongodb_storage_class">mongodb_storage_class:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mongodb_storage_capacity_data">mongodb_storage_capacity_data:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mongodb_storage_capacity_logs">mongodb_storage_capacity_logs:</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_instance_id">mas_instance_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_config_dir">mas_config_dir</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
     </li>
@@ -177,11 +191,58 @@
             <div class="section">
               
                 <h1 id="mongodb">mongodb<a class="headerlink" href="#mongodb" title="Permanent link"></a></h1>
-<p>TODO: Summarize role</p>
+<p><a href="https://github.com/mongodb/mongodb-kubernetes-operator">MongoDb CE operator</a> will be installed into the specified namespace, a 3 node cluster cluster will be created.  The cluster will bind six PVCs, these provide persistence for the data and system logs across the three nodes.  Currently there is no support built-in for customizing the cluster beyond this configuration.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The role will generate a yaml file containing the definition of a Secret and MongoCfg resource that can be used to configure the deployed instance as the MAS system MongoDb.</p>
+<p>This file can be directly applied using <code>oc apply -f $MAS_CONFIG_DIR/mongocfg-mongoce-system.yaml</code> or used in conjunction with the <a href="../suite_config/">ibm.mas_devops.suite_config</a> role.</p>
+</div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<p>TODO: Finish documentation</p>
+<h3 id="mongodb_namespace">mongodb_namespace:<a class="headerlink" href="#mongodb_namespace" title="Permanent link"></a></h3>
+<p>The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a KafkaCfg template.</p>
+<ul>
+<li>Environment Variable: <code>MONGODB_NAMESPACE</code></li>
+<li>Default Value: <code>mongoce</code></li>
+</ul>
+<h3 id="mongodb_storage_class">mongodb_storage_class:<a class="headerlink" href="#mongodb_storage_class" title="Permanent link"></a></h3>
+<p>Required.  The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a KafkaCfg template.</p>
+<ul>
+<li>Environment Variable: <code>MONGODB_STORAGE_CLASS</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="mongodb_storage_capacity_data">mongodb_storage_capacity_data:<a class="headerlink" href="#mongodb_storage_capacity_data" title="Permanent link"></a></h3>
+<p>The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a KafkaCfg template.</p>
+<ul>
+<li>Environment Variable: <code>MONGODB_STORAGE_CAPACITY_DATA</code></li>
+<li>Default Value: <code>20Gi</code></li>
+</ul>
+<h3 id="mongodb_storage_capacity_logs">mongodb_storage_capacity_logs:<a class="headerlink" href="#mongodb_storage_capacity_logs" title="Permanent link"></a></h3>
+<p>The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a KafkaCfg template.</p>
+<ul>
+<li>Environment Variable: <code>MONGODB_STORAGE_CAPACITY_LOGS</code></li>
+<li>Default Value: <code>20Gi</code></li>
+</ul>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
+<p>The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a KafkaCfg template.</p>
+<ul>
+<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link"></a></h3>
+<p>Local directory to save the generated MongoCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Mongo cluster, or used as an input to the <code>suite_config</code> role. If this or <code>mas_instance_id</code> are not set then the role will not generate a MongoCfg template.</p>
+<ul>
+<li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
+<li>Default Value: None</li>
+</ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
-<pre><code class="language-yaml">TODO: Add example
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_storage_class: ibmc-block-gold
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
+  roles:
+    - ibm.mas_devops.mongodb
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>
