@@ -47,11 +47,21 @@
 # 4. Install Service Binding Operator
 # -----------------------------------------------------------------------------
 # Install stable channel with automatic updates if MAS 8.7+, otherwise, install preview channel locked to v0.8
+- name: Get OCP Version
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: openshift-install
+    namespace: openshift-config
+  register: _openshift_config
+- set_fact:
+    ocp_version: "{{ _openshift_config.resources[0].data.version | regex_search('[^.]*.[^.]*') }}"
+
 - name: Define which SBO to install
   when:
     - not airgap_install
   set_fact:
-    sbo_channel: "{{ 'stable' if (mas_channel in mas87_channels) else 'preview' }}"
+    sbo_channel: "{{ 'stable' if (mas_channel in mas87_channels and ocp_version is not '4.6') else 'preview' }}"
 
 - include_tasks: "tasks/sbo/{{ sbo_channel }}.yml"
   when:

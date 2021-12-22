@@ -20,6 +20,11 @@ export K8S_AUTH_API_KEY=$(cat /run/secrets/kubernetes.io/serviceaccount/token)
 export IBMCLOUD_APIKEY=$(cat /workspace/settings/IBMCLOUD_APIKEY)
 export W3_USERNAME=$(cat /workspace/settings/W3_USERNAME)
 export ARTIFACTORY_APIKEY=$(cat /workspace/settings/ARTIFACTORY_APIKEY)
+export PROMETHEUS_RETENTION_PERIOD=$(cat /workspace/settings/PROMETHEUS_RETENTION_PERIOD)
+export PROMETHEUS_STORAGE_CLASS=$(cat /workspace/settings/PROMETHEUS_STORAGE_CLASS)
+export PROMETHEUS_STORAGE_SIZE=$(cat /workspace/settings/PROMETHEUS_STORAGE_SIZE)
+export PROMETHEUS_ALERTMGR_STORAGE_CLASS=$(cat /workspace/settings/PROMETHEUS_ALERTMGR_STORAGE_CLASS)
+export PROMETHEUS_ALERTMGR_STORAGE_SIZE=$(cat /workspace/settings/PROMETHEUS_ALERTMGR_STORAGE_SIZE)
 
 # -----------------------------------------------------------------------------
 # dependencies/install-mongodb-ce.yml
