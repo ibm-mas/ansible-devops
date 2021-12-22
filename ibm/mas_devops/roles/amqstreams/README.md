@@ -12,7 +12,7 @@ This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams
 !!! tip
     The role will generate a yaml file containing the definition of a Secret and KafkaCfg resource that can be used to configure the deployed cluster as the MAS system Kafka.
 
-    This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/kafkacfg-amqstreams-system.yaml` or used in conjunction with the [ibm.mas_devops.suite_config](suite_config.md) role.
+    This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/kafkacfg-amqstreams-system.yaml` or used in conjunction with the [suite_config](suite_config.md) role.
 
 Role Variables
 --------------

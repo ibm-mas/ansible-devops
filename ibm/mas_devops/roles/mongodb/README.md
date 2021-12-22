@@ -6,7 +6,7 @@ mongodb
 !!! tip
     The role will generate a yaml file containing the definition of a Secret and MongoCfg resource that can be used to configure the deployed instance as the MAS system MongoDb.
 
-    This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/mongocfg-mongoce-system.yaml` or used in conjunction with the [ibm.mas_devops.suite_config](suite_config.md) role.
+    This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/mongocfg-mongoce-system.yaml` or used in conjunction with the [suite_config](suite_config.md) role.
 
 
 
@@ -14,25 +14,25 @@ Role Variables
 --------------
 
 ### mongodb_namespace
-The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
+The namespace where the operator and MongoDb cluster will be deployed.
 
 - Environment Variable: `MONGODB_NAMESPACE`
 - Default Value: `mongoce`
 
 ### mongodb_storage_class
-Required.  The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
+Required.  The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster.
 
 - Environment Variable: `MONGODB_STORAGE_CLASS`
 - Default Value: None
 
 ### mongodb_storage_capacity_data
-The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
+The size of the PVC that will be created for data storage in the cluster.
 
 - Environment Variable: `MONGODB_STORAGE_CAPACITY_DATA`
 - Default Value: `20Gi`
 
 ### mongodb_storage_capacity_logs
-The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
+The size of the PVC that will be created for log storage in the cluster.
 
 - Environment Variable: `MONGODB_STORAGE_CAPACITY_LOGS`
 - Default Value: `20Gi`
