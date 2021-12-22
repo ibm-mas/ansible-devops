@@ -13,25 +13,25 @@ mongodb
 Role Variables
 --------------
 
-### mongodb_namespace:
+### mongodb_namespace
 The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
 
 - Environment Variable: `MONGODB_NAMESPACE`
 - Default Value: `mongoce`
 
-### mongodb_storage_class:
+### mongodb_storage_class
 Required.  The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
 
 - Environment Variable: `MONGODB_STORAGE_CLASS`
 - Default Value: None
 
-### mongodb_storage_capacity_data:
+### mongodb_storage_capacity_data
 The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
 
 - Environment Variable: `MONGODB_STORAGE_CAPACITY_DATA`
 - Default Value: `20Gi`
 
-### mongodb_storage_capacity_logs:
+### mongodb_storage_capacity_logs
 The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
 
 - Environment Variable: `MONGODB_STORAGE_CAPACITY_LOGS`
