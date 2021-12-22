@@ -1,0 +1,42 @@
+---
+# Note: This version of cert-manager is incompatible with MAS gen1 applications (MAS 8.6 or earlier)
+
+# This will result in the following operators being installed in the ibm-common-services namespace
+# - IBM Cert Manager
+# - IBM Cloud Pak Foundational Services
+# - IBM NamespaceScope Operator
+# - Operand Deployment Lifecycle Manager
+
+- name: Install Cert Manager (Foundation Services version)
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/foundation-services/subscription.yml') }}"
+    wait: yes
+    wait_timeout: 120
+
+- name: "Wait for Foundation Services resources to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _operand_deployment
+  until: _operand_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: Install Foundation Services ibm-cert-manager operand request
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/foundation-services/ibm-cert-manager.yml') }}"
+    wait: yes
+    wait_timeout: 120
+
+- name: "Wait for Foundation Services ibm-cert-manager operator to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: ibm-cert-manager-operator
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _certmanager_deployment
+  until: _certmanager_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute

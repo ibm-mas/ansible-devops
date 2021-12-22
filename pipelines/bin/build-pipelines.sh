@@ -25,8 +25,10 @@ for FILE in $FILES; do
   cat $FILE >> $TARGET_FILE
 done
 
-sed -i "s#quay.io/ibmmas/ansible-devops:latest#quay.io/ibmmas/ansible-devops:$VERSION#g" $TARGET_FILE
+sed "s/:latest/:$VERSION/g" $TARGET_FILE > $TARGET_FILE.txt
 
+rm $TARGET_FILE
+mv $TARGET_FILE.txt $TARGET_FILE
 
 # Extra debug for Travis builds
 if [ "$DEV_MODE" != "true" ]; then

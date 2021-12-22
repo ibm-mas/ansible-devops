@@ -12,12 +12,47 @@ This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams
 Role Variables
 --------------
 
-- `mas_instance_id` The instance ID of Maximo Application Suite that the KafkaCfg configuration will target, there is no default value for this, it must be passed into the role when invoked.
-- `kafka_namespace` The namespace where the operator and Kafka cluster will be deployed, defaults to `amq-streams`
-- `kafka_cluster_name` The name of the Kafka cluster that will be created, defaults to `maskafka`
-- `kafka_cluster_size` The configuration to apply, there are two configurations available: small and large.  Defaults to `small`
-- `kafka_user_name` The name of the user to setup in the cluster for MAS, defaults to `masuser`
-- `kafka_cfg_file` The location on the local filesystem where the template for the KafkaCfg and associated Secret will be saved.  Defaults to `/tmp/kafkacfg-amqstreams-system.yaml`
+### kafka_namespace
+The namespace where the operator and Kafka cluster will be deployed.
+
+- Environment Variable: `KAFKA_NAMESPACE`
+- Default Value: `amq-streams`
+
+### kafka_cluster_name
+The name of the Kafka cluster that will be created
+
+- Environment Variable: `KAFKA_CLUSTER_NAME`
+- Default Value: `maskafka`
+
+### kafka_cluster_size
+The configuration to apply, there are two configurations available: small and large.
+
+- Environment Variable: `KAFKA_CLUSTER_SIZE`
+- Default Value: `small`
+
+### kafka_storage_class
+Required.  The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Kafka cluster.
+
+- Environment Variable: `KAFKA_STORAGE_CLASS`
+- Default Value: None
+
+### kafka_user_name
+The name of the user to setup in the cluster for MAS.
+
+- Environment Variable: `KAFKA_USER_NAME`
+- Default Value: `masuser`
+
+### mas_instance_id
+The instance ID of Maximo Application Suite that the KafkaCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
+
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
+
+### mas_config_dir
+Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the `suite_config` role. If this or `mas_instance_id` are not set then the role will not generate a KafkaCfg template.
+
+- Environment Variable: `MAS_CONFIG_DIR`
+- Default Value: None
 
 
 Example Playbook
@@ -27,13 +62,12 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    kafka_namespace: "{{ lookup('env', 'KAFKA_NAMESPACE') }}"
-    kafka_cluster_name: "{{ lookup('env', 'KAFKA_CLUSER_NAME') }}"
-    kafka_cluster_size: "{{ lookup('env', 'KAFKA_CLUSTER_SIZE') }}"
-    kafka_storage_class: "{{ lookup('env', 'KAFKA_STORAGE_CLASS') }}"
-    kafka_user_name: "{{ lookup('env', 'KAFKA_USER_NAME') }}"
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+    # Set storage class suitable for use on IBM Cloud ROKS
+    kafka_storage_class: ibmc-block-gold
+
+    # Generate a KafkaCfg template
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
   roles:
     - ibm.mas_devops.amqstreams
 ```

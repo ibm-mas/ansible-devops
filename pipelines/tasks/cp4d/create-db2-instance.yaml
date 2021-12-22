@@ -11,6 +11,34 @@ spec:
       default: ""
     - name: instance_name
       type: string
+    # Configure DB2W
+    - name: version
+      type: string
+    - name: tableorg
+      type: string
+    # Configure DB2W Scope
+    - name: config_scope
+      type: string
+    - name: config_scope_application_id
+      type: string
+      default: ""
+    # Configure storage classes
+    - name: meta_storage_class
+      type: string
+      default: ""
+    - name: user_storage_class
+      type: string
+      default: ""
+    - name: backup_storage_class
+      type: string
+      default: ""
+    - name: logs_storage_class
+      type: string
+      default: ""
+    - name: temp_storage_class
+      type: string
+      default: ""
+    # Configure storage sizes
     - name: meta_storage
       type: string
       default: "20"
@@ -20,14 +48,12 @@ spec:
     - name: backup_storage
       type: string
       default: "100"
-    - name: mas_config_scope
+    - name: logs_storage
       type: string
-    - name: mas_workspace_id
+      default: "100"
+    - name: temp_storage
       type: string
-      default: ""
-    - name: mas_application_id
-      type: string
-      default: ""
+      default: "100"
   stepTemplate:
     env:
       - name: MAS_CONFIG_DIR
@@ -36,24 +62,45 @@ spec:
         value: $(params.junit_suite_name)
       - name: DB2WH_INSTANCE_NAME
         value: $(params.instance_name)
+      # Configure DB2W
+      - name: DB2WH_ADDON_VERSION
+        value: $(params.version)
+      - name: DB2WH_TABLE_ORG
+        value: $(params.tableorg)
+      # Configure DB2W Scope
+      - name: MAS_CONFIG_SCOPE
+        value: $(params.config_scope)
+      - name: MAS_APP_ID
+        value: $(params.config_scope_application_id)
+      # Configure storage classes
+      - name: DB2WH_META_STORAGE_CLASS
+        value: $(params.meta_storage_class)
+      - name: DB2WH_USER_STORAGE_CLASS
+        value: $(params.user_storage_class)
+      - name: DB2WH_BACKUP_STORAGE_CLASS
+        value: $(params.backup_storage_class)
+      - name: DB2WH_LOGS_STORAGE_CLASS
+        value: $(params.logs_storage_class)
+      - name: DB2WH_TEMP_STORAGE_CLASS
+        value: $(params.temp_storage_class)
+      # Configure storage sizes
       - name: DB2WH_META_STORAGE_SIZE_GB
         value: $(params.meta_storage)
       - name: DB2WH_USER_STORAGE_SIZE_GB
         value: $(params.user_storage)
       - name: DB2WH_BACKUP_STORAGE_SIZE_GB
-        value: $(params.backup_storage)
-      - name: MAS_CONFIG_SCOPE
-        value: $(params.mas_config_scope)
-      - name: MAS_WORKSPACE_ID
-        value: $(params.mas_workspace_id)
-      - name: MAS_APP_ID
-        value: $(params.mas_application_id)
+        value: $(params.backup_storage)      
+      - name: DB2WH_LOGS_STORAGE_SIZE_GB
+        value: $(params.logs_storage)
+      - name: DB2WH_TEMP_STORAGE_SIZE_GB
+        value: $(params.temp_storage)
   steps:
     - name: cp4d-create-db2-instance
       command:
         - /opt/app-root/src/run-playbook.sh
         - /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/cp4d/create-db2-instance.yml
       image: quay.io/ibmmas/ansible-devops:latest
+      imagePullPolicy: Always
       workingDir: /workspace/configs
 
   workspaces:

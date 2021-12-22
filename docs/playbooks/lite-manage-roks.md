@@ -3,6 +3,7 @@
 This master playbook will drive the following playbooks in sequence:
 
 - [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
+- [Update Default Cluster Pull Secret and Reboot Worker Nodes](cp4d.md#hack-worker-nodes) (10 minutes)
 - Install dependencies:
     - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (15 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)

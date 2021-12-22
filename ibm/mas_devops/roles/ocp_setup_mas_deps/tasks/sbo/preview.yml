@@ -1,0 +1,55 @@
+---
+# 1.  Install Service Binding Operator (preview channel)
+# -----------------------------------------------------------------------------
+# Important
+# Do not upgrade to SBO 0.9.0, there are breaking changes in the API that is
+# incompatible with MAS prior to the Jan 2021 maintenance updates for MAS 8.6 and
+# all prior releases to MAS 8.6
+
+- name: "sbo/preview : Create SBO Subscription"
+  community.kubernetes.k8s:
+    template: templates/sbo/subscription-preview.yml
+    wait: yes
+    wait_timeout: 120
+
+- name: "sbo/preview : Lookup SBO install plan"
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: openshift-operators
+    label_selectors:
+      - operators.coreos.com/rh-service-binding-operator.openshift-operators
+  register: sbo_installplan_info
+  retries: 20
+  delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+  until: sbo_installplan_info.resources | length > 0
+
+- name: "sbo/preview : Approve the install plan for SBO"
+  when:
+    - sbo_installplan_info.resources[0].status.phase != "Complete"
+    - sbo_installplan_info.resources[0].spec.clusterServiceVersionNames[0] == "service-binding-operator.v0.8.0"
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: InstallPlan
+      metadata:
+        name: "{{ sbo_installplan_info.resources[0].metadata.name }}"
+        namespace: openshift-operators
+      spec:
+        approved: true
+
+- name: "sbo/preview : Wait for SBO install to complete"
+  when:
+    - sbo_installplan_info.resources[0].status.phase != "Complete"
+    - sbo_installplan_info.resources[0].spec.clusterServiceVersionNames[0] == "service-binding-operator.v0.8.0"
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    name: "{{ sbo_installplan_info.resources[0].metadata.name }}"
+    namespace: openshift-operators
+  register: sbo_installplan_info
+  retries: 20
+  delay: 30 # Retry for approx 10 minutes (20s * 30 attempts) before giving up
+  until:
+    - sbo_installplan_info.resources[0].status.phase is defined
+    - sbo_installplan_info.resources[0].status.phase == "Complete"
