@@ -9,6 +9,11 @@ This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams
 >
 > The AMQ streams component is part of the Red Hat AMQ family, which also includes the AMQ broker, a longtime innovation leader in Java™ Message Service (JMS) and polyglot messaging, as well as the AMQ interconnect router, a wide-area, peer-to-peer messaging solution.
 
+!!! tip
+    The role will generate a yaml file containing the definition of a Secret and KafkaCfg resource that can be used to configure the deployed cluster as the MAS system Kafka.
+
+    This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/kafkacfg-amqstreams-system.yaml` or used in conjunction with the [suite_config](suite_config.md) role.
+
 Role Variables
 --------------
 
@@ -49,7 +54,7 @@ The instance ID of Maximo Application Suite that the KafkaCfg configuration will
 - Default Value: None
 
 ### mas_config_dir
-Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the `suite_config` role. If this or `mas_instance_id` are not set then the role will not generate a KafkaCfg template.
+Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a KafkaCfg template.
 
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
