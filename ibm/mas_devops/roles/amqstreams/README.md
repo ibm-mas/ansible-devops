@@ -54,7 +54,7 @@ The instance ID of Maximo Application Suite that the KafkaCfg configuration will
 - Default Value: None
 
 ### mas_config_dir
-Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the `suite_config` role. If this or `mas_instance_id` are not set then the role will not generate a KafkaCfg template.
+Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a KafkaCfg template.
 
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
