@@ -107,13 +107,45 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#roks-specific-facts">ROKS specific facts</a>
+    <li class="toctree-l3"><a class="reference internal" href="#cluster_type">cluster_type</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fyre-specific-facts">Fyre specific facts</a>
+    <li class="toctree-l3"><a class="reference internal" href="#cluster_name">cluster_name</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ocp_version">ocp_version</a>
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-roks">Role Variables - ROKS</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ibmcloud_apikey">ibmcloud_apikey</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ibmcloud_resourcegroup">ibmcloud_resourcegroup</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#roks_zone">roks_zone</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#roks_flavor">roks_flavor</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#roks_workers">roks_workers</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#roks_flags">roks_flags</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-quickburn">Role Variables - Quickburn</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#fyre_username">fyre_username</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fyre_password">fyre_password</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fyre_product_id">fyre_product_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fyre_cluster_size">fyre_cluster_size</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-playbook-roks">Example Playbook - ROKS</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-playbook-quickburn">Example Playbook - Quickburn</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
     </li>
@@ -185,48 +217,109 @@
                 <h1 id="ocp_provision">ocp_provision<a class="headerlink" href="#ocp_provision" title="Permanent link"></a></h1>
 <p>Provision OCP cluster on DevIT Fyre or IBM Cloud ROKS.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="cluster_type">cluster_type<a class="headerlink" href="#cluster_type" title="Permanent link"></a></h3>
+<p>Required.  Specify the cluster type, supported values are <code>roks</code> and <code>quickburn</code>.</p>
 <ul>
-<li><code>cluster_name</code> Gives a name for the provisioning cluster</li>
-<li><code>cluster_type</code> quickburn | roks</li>
-<li><code>ocp_version</code> Openshift version for the provisioning cluster</li>
+<li>Environment Variable: <code>CLUSTER_TYPE</code></li>
+<li>Default Value: None</li>
 </ul>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Different providers expect OCP version strings is slightly different formats.  For example in Fyre you would use something like <code>4.6.16</code>, whereas in IBM Cloud it would be <code>4.6_openshift</code></p>
-</div>
-<h4 id="roks-specific-facts">ROKS specific facts<a class="headerlink" href="#roks-specific-facts" title="Permanent link"></a></h4>
+<h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link"></a></h3>
+<p>Required.  Specify the name of the cluster</p>
 <ul>
-<li><code>ibmcloud_apikey</code> APIKey to be used by ibmcloud login comand</li>
-<li><code>roks_zone</code> IBM Cloud zone where the cluster should be provisioned</li>
-<li><code>roks_flavor</code> Worker node flavor</li>
-<li><code>roks_workers</code> Number of worker nodes for the roks cluster</li>
-<li><code>roks_flags</code> Can be used to specify additional parameters for the cluster creation</li>
+<li>Environment Variable: <code>CLUSTER_NAME</code></li>
+<li>Default Value: None</li>
 </ul>
-<h4 id="fyre-specific-facts">Fyre specific facts<a class="headerlink" href="#fyre-specific-facts" title="Permanent link"></a></h4>
+<h3 id="ocp_version">ocp_version<a class="headerlink" href="#ocp_version" title="Permanent link"></a></h3>
+<p>Required.  Specify the version of OCP to install.  The exact format of this will vary depending on <code>cluster_type</code>.  For ROKS clusters the format is <code>4.6_openshift</code>, <code>4.8_openshift</code>, for Fyre it is <code>4.6.16</code>.</p>
 <ul>
-<li><code>username</code> Required when cluster type is quickburn</li>
-<li><code>password</code> Required when cluster type is quickburn</li>
-<li><code>fyre_product_id</code> Required when cluster_type is quickburn Product Group Id to use for cluster provisioning</li>
-<li><code>fyre_cluster_size</code> Required when cluster_type is quickburn, currently supports <code>medium</code> or <code>large</code></li>
+<li>Environment Variable: <code>OCP_VERSION</code></li>
+<li>Default Value: None</li>
 </ul>
-<h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
+<h2 id="role-variables-roks">Role Variables - ROKS<a class="headerlink" href="#role-variables-roks" title="Permanent link"></a></h2>
+<p>The following variables are only used when <code>cluster_type = roks</code>.</p>
+<h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link"></a></h3>
+<p>Required if <code>cluster_type = roks</code>.  The APIKey to be used by ibmcloud login comand.</p>
+<ul>
+<li>Environment Variable: <code>IBMCLOUD_APIKEY</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="ibmcloud_resourcegroup">ibmcloud_resourcegroup<a class="headerlink" href="#ibmcloud_resourcegroup" title="Permanent link"></a></h3>
+<p>The resource group to create the cluster inside.</p>
+<ul>
+<li>Environment Variable: <code>IBMCLOUD_RESOURCEGROUP</code></li>
+<li>Default Value: <code>Default</code></li>
+</ul>
+<h3 id="roks_zone">roks_zone<a class="headerlink" href="#roks_zone" title="Permanent link"></a></h3>
+<p>IBM Cloud zone where the cluster should be provisioned.</p>
+<ul>
+<li>Environment Variable: <code>ROKS_ZONE</code></li>
+<li>Default Value: <code>lon02</code></li>
+</ul>
+<h3 id="roks_flavor">roks_flavor<a class="headerlink" href="#roks_flavor" title="Permanent link"></a></h3>
+<p>Worker node flavor</p>
+<ul>
+<li>Environment Variable: <code>ROKS_FLAVOR</code></li>
+<li>Default Value: <code>b3c.8x32</code></li>
+</ul>
+<h3 id="roks_workers">roks_workers<a class="headerlink" href="#roks_workers" title="Permanent link"></a></h3>
+<p>Number of worker nodes for the roks cluster</p>
+<ul>
+<li>Environment Variable: <code>ROKS_WORKERS</code></li>
+<li>Default Value: <code>6</code></li>
+</ul>
+<h3 id="roks_flags">roks_flags<a class="headerlink" href="#roks_flags" title="Permanent link"></a></h3>
+<p>Can be used to specify additional parameters for the cluster creation</p>
+<ul>
+<li>Environment Variable: <code>ROKS_FLAGS</code></li>
+<li>Default Value: None</li>
+</ul>
+<h2 id="role-variables-quickburn">Role Variables - Quickburn<a class="headerlink" href="#role-variables-quickburn" title="Permanent link"></a></h2>
+<p>The following variables are only used when <code>cluster_type = quickburn</code>.</p>
+<h3 id="fyre_username">fyre_username<a class="headerlink" href="#fyre_username" title="Permanent link"></a></h3>
+<p>Required if <code>cluster_type = quickburn</code>.  IBM Cloud zone where the cluster should be provisioned.</p>
+<ul>
+<li>Environment Variable: <code>FYRE_USERNAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="fyre_password">fyre_password<a class="headerlink" href="#fyre_password" title="Permanent link"></a></h3>
+<p>Required if <code>cluster_type = quickburn</code>.  IBM Cloud zone where the cluster should be provisioned.</p>
+<ul>
+<li>Environment Variable: <code>FYRE_PASSWORD</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="fyre_product_id">fyre_product_id<a class="headerlink" href="#fyre_product_id" title="Permanent link"></a></h3>
+<p>Required if <code>cluster_type = quickburn</code>.  The Product ID that the cluster will be associated with for accounting purposes.</p>
+<ul>
+<li>Environment Variable: <code>FYRE_PRODUCT_ID</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="fyre_cluster_size">fyre_cluster_size<a class="headerlink" href="#fyre_cluster_size" title="Permanent link"></a></h3>
+<p>The name of one of Fyre's pre-defined cluster sizes to use for the new cluster.</p>
+<ul>
+<li>Environment Variable: <code>FYRE_CLUSTER_SIZE</code></li>
+<li>Default Value: <code>large</code></li>
+</ul>
+<h2 id="example-playbook-roks">Example Playbook - ROKS<a class="headerlink" href="#example-playbook-roks" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   vars:
-    cluster_name: &quot;{{ lookup('env', 'CLUSTER_NAME')}}&quot;
+    cluster_name: masinst1
     cluster_type: roks
+    ocp_version: &quot;4.8_openshift&quot;
     ibmcloud_apikey: &quot;{{ lookup('env', 'IBMCLOUD_APIKEY') }}&quot;
-
-    ocp_version: &quot;{{ lookup('env', 'OCP_VERSION') }}&quot;
-
-    roks_zone: &quot;{{ lookup('env', 'ROKS_ZONE') | default('lon02', true) }}&quot;
-    roks_flavor: &quot;{{ lookup('env', 'ROKS_FLAVOR') | default('b3c.16x64', true) }}&quot;
-    roks_workers: &quot;{{ lookup('env', 'ROKS_WORKERS') | default('3', true) }}&quot;
-    roks_flags: &quot;{{ lookup('env', 'ROKS_FLAGS') | default('', true) }}&quot;
-    ibmcloud_resourcegroup: &quot;{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}&quot;
-
   roles:
     - ibm.mas_devops.ocp_provision
-    - ibm.mas_devops.ocp_setup_mas_deps
+</code></pre>
+<h2 id="example-playbook-quickburn">Example Playbook - Quickburn<a class="headerlink" href="#example-playbook-quickburn" title="Permanent link"></a></h2>
+<pre><code class="language-yaml">- hosts: localhost
+  vars:
+    cluster_name: masinst1
+    cluster_type: quickburn
+    ocp_version: &quot;4.6.16&quot;
+    fyre_username: &quot;{{ lookup('env', 'FYRE_USERNAME') }}&quot;
+    fyre_password: &quot;{{ lookup('env', 'FYRE_PASSWORD') }}&quot;
+    fyre_product_id: &quot;{{ lookup('env', 'FYRE_PRODUCT_ID') }}&quot;
+  roles:
+    - ibm.mas_devops.ocp_provision
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>
