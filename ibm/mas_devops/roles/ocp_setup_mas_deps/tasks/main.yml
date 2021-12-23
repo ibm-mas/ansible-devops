@@ -31,7 +31,10 @@
   register: openshift_config
 
 - name: Register OCP install configuration variables (openshift-install-manifests)
-  when: openshift_config.resources | length > 0
+  when:
+    - ocp_install_invoker is not defined
+    - openshift_config.resources is defined
+    - openshift_config.resources.length > 0
   set_fact:
     ocp_install_invoker: "{{ openshift_config.resources[0].data.invoker }}" # Known values: "user" (in Fyre)
     ocp_install_version: "{{ openshift_config.resources[0].data.version }}"
