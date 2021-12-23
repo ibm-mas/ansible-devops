@@ -7,20 +7,21 @@
   fail:
     msg: "fyre_cluster_size is a required property"
 
-- name: "quickburn : Fail if Product id is not provided"
+- name: "quickburn : Fail if Product ID is not provided"
   when: fyre_product_id is not defined or fyre_product_id == ""
   fail:
     msg: "fyre_product_id is a required property"
 
-- name: "quickburn : Fail if username is not provided"
-  when: username is not defined or username == ""
+- name: "quickburn : Fail if fyre_username is not provided"
+  when: fyre_username is not defined or fyre_username == ""
   fail:
-    msg: "username property is required"
+    msg: "fyre_username property is required"
 
-- name: "quickburn : Fail if password is not provided"
-  when: password is not defined or password == ""
+- name: "quickburn : Fail if fyre_password is not provided"
+  when: fyre_password is not defined or fyre_password == ""
   fail:
-    msg: "password property is required"
+    msg: "fyre_password property is required"
+
 
 # 2. Debug Info
 # -----------------------------------------------------------------------------
@@ -29,19 +30,20 @@
     msg:
       - "Cluster name ................. {{ cluster_name }}"
       - "OCP version .................. {{ ocp_version }}"
-      - "Username ..................... {{ username }}"
+      - "Username ..................... {{ fyre_username }}"
       - "Password ..................... *********************"
       # Quickburn specific
       - "Fyre product ID .............. {{ fyre_product_id }}"
       - "Fyre cluster size ............ {{ fyre_cluster_size }}"
+
 
 # 3. Determine whether there is already a quickburn environment running
 # -----------------------------------------------------------------------------
 - name: "quickburn : Check if cluster already exists"
   uri:
     url: "https://ocpapi.svl.ibm.com/v1/ocp/{{cluster_name}}"
-    user: "{{username}}"
-    password: "{{password}}"
+    user: "{{fyre_username}}"
+    password: "{{fyre_password}}"
     method: GET
     force_basic_auth: yes
     validate_certs: false
@@ -56,8 +58,8 @@
     - _cluster_exist.json.cluster_count is not defined
   uri:
     url: https://ocpapi.svl.ibm.com/v1/ocp/
-    user: "{{username}}"
-    password: "{{password}}"
+    user: "{{fyre_username}}"
+    password: "{{fyre_password}}"
     method: POST
     body: "{{ lookup('template','templates/quickburn.json') }}"
     force_basic_auth: yes
@@ -70,8 +72,8 @@
 - name: "quickburn : Follow deployment status (~20-30 mins)"
   uri:
     url: "https://ocpapi.svl.ibm.com/v1/ocp/{{cluster_name}}/status"
-    user: "{{username}}"
-    password: "{{password}}"
+    user: "{{fyre_username}}"
+    password: "{{fyre_password}}"
     method: GET
     force_basic_auth: yes
     validate_certs: false

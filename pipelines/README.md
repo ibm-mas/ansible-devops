@@ -45,9 +45,14 @@ spec:
 ```
 
 
-# Install the MAS Pipeline Task Definitions
+# Build and Install the MAS Pipeline Task Definitions
 ```
-oc apply -f ibm-mas_devops-clustertasks-4.5.1-pre.tekton.yaml
+export DEV_MODE=true
+export VERSION=5.1.0
+pipelines/bin/build-pipelines.sh
+
+cd pipelines
+oc apply -f ibm-mas_devops-clustertasks-5.1.0.yaml
 ```
 
 
@@ -59,8 +64,7 @@ oc new-project mas-sample-pipelines
 oc apply -f samples/sample-pipelinesettings.yaml
 
 oc create secret generic pipeline-additional-configs \
-  --from-file=/home/david/masconfig/workspace_masdev.yaml \
-  --from-file=/home/david/masconfig/bascfg_masdeps1.yaml
+  --from-file=/home/david/masconfig/workspace_masdev.yaml
 
 oc create secret generic pipeline-sls-entitlement \
   --from-file=/home/david/masconfig/entitlement.lic

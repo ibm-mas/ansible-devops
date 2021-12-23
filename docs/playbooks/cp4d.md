@@ -82,6 +82,17 @@ ansible-playbook playbooks/cp4d/create-db2-instance.yml
 
 ## Hack Worker Nodes
 
+Refer to the [cp4d_hack_worker_nodes](../roles/cp4d_hack_worker_nodes.md) role documentation for more information.
+
+```bash
+export CLUSTER_NAME=masinst1
+export CLUSTER_TYPE=roks
+export IBMCLOUD_APIKEY=xxx
+export CPD_ENTITLEMENT_KEY=xxx
+
+ansible-playbook playbooks/cp4d/hack-worker-nodes.yml
+```
+
 -------------------------------------------------------------------------------
 
 ## Install Services: Db2
