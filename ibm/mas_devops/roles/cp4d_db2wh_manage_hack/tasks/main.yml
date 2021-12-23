@@ -2,160 +2,187 @@
 # Should should be part of the manage operator, but is not so we have to do it
 # as a seperate step in the install flow for now :(
 
+# 0.1. Check which CPD version has been installed (in case cpd_version is not informed)
+# -----------------------------------------------------------------------------
+- name: Check what CPD version has been installed by looking at the namespaces
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: cpd-services
+  register: _cpd_services_namespace
+  when:
+    - cpd_version is not defined or cpd_version == ''
+
+# 0.2. Define cpd_version based on namespace definition
+# -----------------------------------------------------------------------------
+- name: Define CPD Version
+  set_fact:
+    cpd_version: "{{ 'cpd40' if (_cpd_services_namespace is defined) else 'cpd35' }}"
+  when:
+    - cpd_version is not defined or cpd_version == ''
+
+# 0.3. Load cpd40 vars when applicable
+# -----------------------------------------------------------------------------
+- name: Load CPD 4.0 vars when applicable
+  include_vars: "vars/cpd40.yml"
+  when: cpd_version == 'cpd40'
+
 # 1. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
-      - "CPD Namespace .......................... {{ cpd_meta_namespace }}"
       - "CPD Version ............................ {{ cpd_version }}"
+      - "CPD Namespace .......................... {{ cpd_meta_namespace }}"
+      - "CPD Services Namespace ................. {{ cpd_services_namespace }}"
       - "Db2 instance name ...................... {{ db2wh_instance_name }}"
       - "Db2 database name ...................... {{ db2wh_dbname }}"
       - "Db2 database schema .................... {{ db2wh_schema }}"
       - "Db2 database user ...................... {{ db2wh_username }}"
+      
 
-# 2. Determine which pod to run in
-# -----------------------------------------------------------------------------
-# When we create the database instance, we save the instance ID in a config map
-# named mas-automation-config-{{db2wh_instance_name}}.  We need this instance ID
-# to access the engine pod.
-- name: "Load DB2 Deployment ID from Config Map"
-  community.kubernetes.k8s_info:
-    api_version: v1
-    kind: ConfigMap
-    name: "{{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}"
-    namespace: "{{ cpd_meta_namespace }}"
-  register: cp4d_db_config_info
-  when: cpd_version == 'cpd35'
+# # 2. Determine which pod to run in
+# # -----------------------------------------------------------------------------
+# # When we create the database instance, we save the instance ID in a config map
+# # named mas-automation-config-{{db2wh_instance_name}}.  We need this instance ID
+# # to access the engine pod.
+# - name: "Load DB2 Deployment ID from Config Map"
+#   community.kubernetes.k8s_info:
+#     api_version: v1
+#     kind: ConfigMap
+#     name: "{{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}"
+#     namespace: "{{ cpd_meta_namespace }}"
+#   register: cp4d_db_config_info
+#   when: cpd_version == 'cpd35'
 
-- name: Read the DB2 database ID for {{ db2wh_instance_name }} from DB config ConfigMap data
-  set_fact:
-    db2wh_instance_id: "db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}"
-  when: cpd_version == 'cpd35'
+# - name: Read the DB2 database ID for {{ db2wh_instance_name }} from DB config ConfigMap data
+#   set_fact:
+#     db2wh_instance_id: "db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}"
+#   when: cpd_version == 'cpd35'
 
-- name: Set db2wh_instance_id in case load from config is "false"
-  set_fact:
-    db2wh_instance_id: "{{ db2wh_instance_name }}"
-  when: cpd_version == 'cpd40'
+# - name: Set db2wh_instance_id in case load from config is "false"
+#   set_fact:
+#     db2wh_instance_id: "{{ db2wh_instance_name }}"
+#   when: cpd_version == 'cpd40'
 
-- name: "Debug information"
-  debug:
-    msg:
-      - "DB2 Instance ID ................... {{ db2wh_instance_id }}"
+# - name: "Debug information"
+#   debug:
+#     msg:
+#       - "DB2 Instance ID ................... {{ db2wh_instance_id }}"
 
-# 3. Determine which pod to run in
-# -----------------------------------------------------------------------------
-# TODO: We should do this locally, connecting to the Db2 instance using the route
-# that we have created.  Execing into a container is considered bad practice in
-# production environment, and we want this collection to be production friendly.
-# However given that we want to get all of this moved into the manage operator
-# ASAP, there is little point investing the effort to fix this in this collection,
-# rather that effort should be put into migrating this code into the manage
-# operator itself, so that this isn't even necessary!
+# # 3. Determine which pod to run in
+# # -----------------------------------------------------------------------------
+# # TODO: We should do this locally, connecting to the Db2 instance using the route
+# # that we have created.  Execing into a container is considered bad practice in
+# # production environment, and we want this collection to be production friendly.
+# # However given that we want to get all of this moved into the manage operator
+# # ASAP, there is little point investing the effort to fix this in this collection,
+# # rather that effort should be put into migrating this code into the manage
+# # operator itself, so that this isn't even necessary!
 
-- name: "Lookup db2 Pod"
-  community.kubernetes.k8s_info:
-    kind: Pod
-    namespace: "{{ cpd_meta_namespace }}"
-    label_selectors:
-      - type=engine
-      - app={{ db2wh_instance_id }}
-  register: db2wh_pod
+# - name: "Lookup db2 Pod"
+#   community.kubernetes.k8s_info:
+#     kind: Pod
+#     namespace: "{{ cpd_meta_namespace }}"
+#     label_selectors:
+#       - type=engine
+#       - app={{ db2wh_instance_id }}
+#   register: db2wh_pod
 
-- name: Configure facts
-  set_fact:
-    db2wh_pod_name: "{{ db2wh_pod.resources[0].metadata.name }}"
+# - name: Configure facts
+#   set_fact:
+#     db2wh_pod_name: "{{ db2wh_pod.resources[0].metadata.name }}"
 
-- name: "Debug information - Part 3"
-  debug:
-    msg:
-      - "Pod name ........... {{ db2wh_pod_name }}"
+# - name: "Debug information - Part 3"
+#   debug:
+#     msg:
+#       - "Pod name ........... {{ db2wh_pod_name }}"
 
-# 4. Prepare database for use with Maximo TPAE
-# -----------------------------------------------------------------------------
+# # 4. Prepare database for use with Maximo TPAE
+# # -----------------------------------------------------------------------------
 
-# If the file already exists in the container, then we have already ran this command
-- name: "Check for existence of /tmp/setupdb.sh in pod"
-  shell: |
-    oc exec -it -n {{ cpd_meta_namespace }} {{ db2wh_pod_name }} -- bash -c "ls /tmp/setupdb.sh | wc -l"
-  register: setupdb_file_check
+# # If the file already exists in the container, then we have already ran this command
+# - name: "Check for existence of /tmp/setupdb.sh in pod"
+#   shell: |
+#     oc exec -it -n {{ cpd_meta_namespace }} {{ db2wh_pod_name }} -- bash -c "ls /tmp/setupdb.sh | wc -l"
+#   register: setupdb_file_check
 
-# Note that we have removed the standard GRANT command, as in the context of this playbook the
-# {{db2wh_username}} user already owns the schema:
-#
-# db2 create schema {{ db2wh_schema }} authorization {{ db2wh_username }}
-# Following line removed:
-# db2 GRANT DBADM,CREATETAB,BINDADD,CONNECT,CREATE_NOT_FENCED_ROUTINE,IMPLICIT_SCHEMA,
-#   LOAD,CREATE_EXTERNAL_ROUTINE,QUIESCE_CONNECT,SECADM ON DATABASE TO USER {{ db2wh_username }}
+# # Note that we have removed the standard GRANT command, as in the context of this playbook the
+# # {{db2wh_username}} user already owns the schema:
+# #
+# # db2 create schema {{ db2wh_schema }} authorization {{ db2wh_username }}
+# # Following line removed:
+# # db2 GRANT DBADM,CREATETAB,BINDADD,CONNECT,CREATE_NOT_FENCED_ROUTINE,IMPLICIT_SCHEMA,
+# #   LOAD,CREATE_EXTERNAL_ROUTINE,QUIESCE_CONNECT,SECADM ON DATABASE TO USER {{ db2wh_username }}
 
-- name: Prepare db2 for use with Maximo TPAE
-  ignore_errors: yes # ignoring in case of an output error, as the below shell script returns failed output for cpd v4, even though the overall process is successful
-  when: setupdb_file_check.stdout == "0"
-  shell: |
-    oc exec -it -n {{ cpd_meta_namespace }} {{ db2wh_pod_name }} -- bash -c "cat << EOF > /tmp/setupdb.sh
-    db2 connect to {{ db2wh_dbname }}
-    db2 update db cfg for {{ db2wh_dbname }} using dft_table_org ROW
-    db2 update db cfg for {{ db2wh_dbname }} using AUTO_MAINT ON DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using AUTO_TBL_MAINT ON DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using AUTO_RUNSTATS ON DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using AUTO_REORG ON DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using AUTO_DB_BACKUP ON DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using CATALOGCACHE_SZ 800 DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using CHNGPGS_THRESH 40 DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using DBHEAP AUTOMATIC
-    db2 update db cfg for {{ db2wh_dbname }} using LOCKLIST AUTOMATIC DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using LOGBUFSZ 1024 DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using LOCKTIMEOUT 300 DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using LOGPRIMARY 20 DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using LOGSECOND 100 DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using LOGFILSIZ 8192 DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using SOFTMAX 1000 DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using MAXFILOP 61440 DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using PCKCACHESZ AUTOMATIC DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using STAT_HEAP_SZ AUTOMATIC DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using STMTHEAP AUTOMATIC DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using UTIL_HEAP_SZ 10000 DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using DATABASE_MEMORY AUTOMATIC DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using AUTO_STMT_STATS OFF DEFERRED
-    db2 update db cfg for {{ db2wh_dbname }} using STMT_CONC LITERALS DEFERRED
-    db2 update alert cfg for database on {{ db2wh_dbname }} using db.db_backup_req SET THRESHOLDSCHECKED YES
-    db2 update alert cfg for database on {{ db2wh_dbname }} using db.tb_reorg_req SET THRESHOLDSCHECKED YES
-    db2 update alert cfg for database on {{ db2wh_dbname }} using db.tb_runstats_req SET THRESHOLDSCHECKED YES
-    db2 update dbm cfg using PRIV_MEM_THRESH 32767 DEFERRED
-    db2 update dbm cfg using KEEPFENCED NO DEFERRED
-    db2 update dbm cfg using NUMDB 2 DEFERRED
-    db2 update dbm cfg using RQRIOBLK 65535 DEFERRED
-    db2 update dbm cfg using HEALTH_MON OFF DEFERRED
-    db2 update dbm cfg using AGENT_STACK_SZ 1000 DEFERRED
-    db2 update dbm cfg using MON_HEAP_SZ AUTOMATIC DEFERRED
-    db2 update db cfg using DDL_CONSTRAINT_DEF Yes
-    db2set DB2_SKIPINSERTED=ON
-    db2set DB2_INLIST_TO_NLJN=YES
-    db2set DB2_MINIMIZE_LISTPREFETCH=Y
-    db2set DB2_EVALUNCOMMITTED=YES
-    db2set DB2_FMP_COMM_HEAPSZ=65536
-    db2set DB2_SKIPDELETED=ON
-    db2set DB2_USE_ALTERNATE_PAGE_CLEANING=ON
-    db2 CREATE BUFFERPOOL MAXBUFPOOL IMMEDIATE SIZE 4096 AUTOMATIC PAGESIZE 32 K
-    db2 CREATE REGULAR TABLESPACE MAXDATA PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE 5000 M BUFFERPOOL MAXBUFPOOL
-    db2 CREATE TEMPORARY TABLESPACE MAXTEMP PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE BUFFERPOOL MAXBUFPOOL
-    db2 CREATE REGULAR TABLESPACE MAXINDEX PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE 5000 M BUFFERPOOL MAXBUFPOOL
-    db2 GRANT USE OF TABLESPACE MAXDATA TO USER {{ db2wh_username }}
-    db2 create schema {{ db2wh_schema }} authorization {{ db2wh_username }}
-    db2 GRANT USE OF TABLESPACE MAXDATA TO USER {{ db2wh_username }}
-    db2 GRANT CREATEIN,DROPIN,ALTERIN ON SCHEMA {{ db2wh_schema }} TO USER {{ db2wh_username }}
-    db2stop force
-    sleep 10
-    db2start
-    EOF"
-    oc exec -it -n {{cpd_meta_namespace}} {{db2wh_pod_name}} -- bash -c "chmod 755 /tmp/setupdb.sh"
-    oc exec -it -n {{cpd_meta_namespace}} {{db2wh_pod_name}} -- su -lc /tmp/setupdb.sh db2inst1
-  register: prepare_cmds_status
+# - name: Prepare db2 for use with Maximo TPAE
+#   ignore_errors: yes # ignoring in case of an output error, as the below shell script returns failed output for cpd v4, even though the overall process is successful
+#   when: setupdb_file_check.stdout == "0"
+#   shell: |
+#     oc exec -it -n {{ cpd_meta_namespace }} {{ db2wh_pod_name }} -- bash -c "cat << EOF > /tmp/setupdb.sh
+#     db2 connect to {{ db2wh_dbname }}
+#     db2 update db cfg for {{ db2wh_dbname }} using dft_table_org ROW
+#     db2 update db cfg for {{ db2wh_dbname }} using AUTO_MAINT ON DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using AUTO_TBL_MAINT ON DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using AUTO_RUNSTATS ON DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using AUTO_REORG ON DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using AUTO_DB_BACKUP ON DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using CATALOGCACHE_SZ 800 DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using CHNGPGS_THRESH 40 DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using DBHEAP AUTOMATIC
+#     db2 update db cfg for {{ db2wh_dbname }} using LOCKLIST AUTOMATIC DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using LOGBUFSZ 1024 DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using LOCKTIMEOUT 300 DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using LOGPRIMARY 20 DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using LOGSECOND 100 DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using LOGFILSIZ 8192 DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using SOFTMAX 1000 DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using MAXFILOP 61440 DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using PCKCACHESZ AUTOMATIC DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using STAT_HEAP_SZ AUTOMATIC DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using STMTHEAP AUTOMATIC DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using UTIL_HEAP_SZ 10000 DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using DATABASE_MEMORY AUTOMATIC DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using AUTO_STMT_STATS OFF DEFERRED
+#     db2 update db cfg for {{ db2wh_dbname }} using STMT_CONC LITERALS DEFERRED
+#     db2 update alert cfg for database on {{ db2wh_dbname }} using db.db_backup_req SET THRESHOLDSCHECKED YES
+#     db2 update alert cfg for database on {{ db2wh_dbname }} using db.tb_reorg_req SET THRESHOLDSCHECKED YES
+#     db2 update alert cfg for database on {{ db2wh_dbname }} using db.tb_runstats_req SET THRESHOLDSCHECKED YES
+#     db2 update dbm cfg using PRIV_MEM_THRESH 32767 DEFERRED
+#     db2 update dbm cfg using KEEPFENCED NO DEFERRED
+#     db2 update dbm cfg using NUMDB 2 DEFERRED
+#     db2 update dbm cfg using RQRIOBLK 65535 DEFERRED
+#     db2 update dbm cfg using HEALTH_MON OFF DEFERRED
+#     db2 update dbm cfg using AGENT_STACK_SZ 1000 DEFERRED
+#     db2 update dbm cfg using MON_HEAP_SZ AUTOMATIC DEFERRED
+#     db2 update db cfg using DDL_CONSTRAINT_DEF Yes
+#     db2set DB2_SKIPINSERTED=ON
+#     db2set DB2_INLIST_TO_NLJN=YES
+#     db2set DB2_MINIMIZE_LISTPREFETCH=Y
+#     db2set DB2_EVALUNCOMMITTED=YES
+#     db2set DB2_FMP_COMM_HEAPSZ=65536
+#     db2set DB2_SKIPDELETED=ON
+#     db2set DB2_USE_ALTERNATE_PAGE_CLEANING=ON
+#     db2 CREATE BUFFERPOOL MAXBUFPOOL IMMEDIATE SIZE 4096 AUTOMATIC PAGESIZE 32 K
+#     db2 CREATE REGULAR TABLESPACE MAXDATA PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE 5000 M BUFFERPOOL MAXBUFPOOL
+#     db2 CREATE TEMPORARY TABLESPACE MAXTEMP PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE BUFFERPOOL MAXBUFPOOL
+#     db2 CREATE REGULAR TABLESPACE MAXINDEX PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE 5000 M BUFFERPOOL MAXBUFPOOL
+#     db2 GRANT USE OF TABLESPACE MAXDATA TO USER {{ db2wh_username }}
+#     db2 create schema {{ db2wh_schema }} authorization {{ db2wh_username }}
+#     db2 GRANT USE OF TABLESPACE MAXDATA TO USER {{ db2wh_username }}
+#     db2 GRANT CREATEIN,DROPIN,ALTERIN ON SCHEMA {{ db2wh_schema }} TO USER {{ db2wh_username }}
+#     db2stop force
+#     sleep 10
+#     db2start
+#     EOF"
+#     oc exec -it -n {{cpd_meta_namespace}} {{db2wh_pod_name}} -- bash -c "chmod 755 /tmp/setupdb.sh"
+#     oc exec -it -n {{cpd_meta_namespace}} {{db2wh_pod_name}} -- su -lc /tmp/setupdb.sh db2inst1
+#   register: prepare_cmds_status
 
-- name: "Database setup debug information"
-  when: setupdb_file_check.stdout == "0"
-  debug:
-    msg:
-      - "Setup already ran ...................... {{ setupdb_file_check.stdout }}"
-      - "Result (stdout) ........................ {{ prepare_cmds_status.stdout }}"
-      - "result (stderr) ........................ {{ prepare_cmds_status.stderr }}"
+# - name: "Database setup debug information"
+#   when: setupdb_file_check.stdout == "0"
+#   debug:
+#     msg:
+#       - "Setup already ran ...................... {{ setupdb_file_check.stdout }}"
+#       - "Result (stdout) ........................ {{ prepare_cmds_status.stdout }}"
+#       - "result (stderr) ........................ {{ prepare_cmds_status.stderr }}"
