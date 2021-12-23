@@ -64,9 +64,14 @@
     db2wh_instance_id: "{{ db2wh_instance_name }}"
   when: cpd_version == 'cpd40'
 
+- name: Set cpd namespace to look for db2pod
+  set_fact:
+    _cpd_namespace: "{{ cpd_services_namespace if cpd_version == 'cpd40' else cpd_meta_namespace }}"
+
 - name: "Debug information"
   debug:
     msg:
+      - "DB2 Pod Namespace ................. {{ _cpd_namespace }}"
       - "DB2 Instance ID ................... {{ db2wh_instance_id }}"
 
 # 3. Determine which pod to run in
@@ -82,7 +87,7 @@
 - name: "Lookup db2 Pod"
   community.kubernetes.k8s_info:
     kind: Pod
-    namespace: "{{ cpd_services_namespace if cpd_version == 'cpd40' else cpd_meta_namespace }}"
+    namespace: "{{ _cpd_namespace }}"
     label_selectors:
       - type=engine
       - app={{ db2wh_instance_id }}
@@ -103,7 +108,7 @@
 # If the file already exists in the container, then we have already ran this command
 - name: "Check for existence of /tmp/setupdb.sh in pod"
   shell: |
-    oc exec -it -n {{ cpd_meta_namespace }} {{ db2wh_pod_name }} -- bash -c "ls /tmp/setupdb.sh | wc -l"
+    oc exec -it -n {{ _cpd_namespace }} {{ db2wh_pod_name }} -- bash -c "ls /tmp/setupdb.sh | wc -l"
   register: setupdb_file_check
 
 # Note that we have removed the standard GRANT command, as in the context of this playbook the
