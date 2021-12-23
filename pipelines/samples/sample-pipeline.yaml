@@ -112,8 +112,71 @@ spec:
       type: string
       description: Subscription source for Safety application operator
       default: ibm-operator-catalog
-
-
+    # Shared DB2 Warehouse
+    - name: db2_instance_name
+      type: string
+      description: Name of the shared DB2 Warehouse instance
+      default: db2shared # do not use underscore
+    # Shared DB2 - Configuration
+    - name: db2_version
+      type: string
+      description: Version of the DB2 Warehouse instance
+      default: ""
+    - name: db2_tableorg
+      type: string
+      description: Table organization (ROW or COLUMN)
+      default: ROW
+    # Shared DB2 - Scope
+    - name: db2_config_scope
+      type: string
+      description: Configuration Scope (system, ws, wsapp, app)
+      default: system
+    - name: db2_config_scope_application_id
+      type: string
+      description: Application Id used when configuration scope is wsapp or app
+      default: ""
+    # Shared DB2 - Storage classes
+    - name: db2_meta_storage_class
+      type: string
+      description: Storage class used for Meta Storage
+      default: "ibmc-file-bronze-gid"
+    - name: db2_user_storage_class
+      type: string
+      description: Storage class used for User Storage
+      default: "ibmc-file-silver-gid"
+    - name: db2_backup_storage_class
+      type: string
+      description: Storage class used for Backup Storage
+      default: "ibmc-file-silver-gid"
+    - name: db2_logs_storage_class
+      type: string
+      description: Storage class used for Logs Storage
+      default: "ibmc-file-silver-gid"
+    - name: db2_temp_storage_class
+      type: string
+      description: Storage class used for Temp Storage
+      default: "ibmc-file-silver-gid"
+    # Shared DB2 - Storage sizes
+    - name: db2_meta_storage
+      type: string
+      description: Size of Meta Storage in GB
+      default: "100"
+    - name: db2_user_storage
+      type: string
+      description: Size of User Storage in GB
+      default: "100"
+    - name: db2_backup_storage
+      type: string
+      description: Size of Backup Storage in GB
+      default: "100"
+    - name: db2_logs_storage
+      type: string
+      description: Size of Logs Storage in GB
+      default: "100"
+    - name: db2_temp_storage
+      type: string
+      description: Size of Temp Storage in GB
+      default: "100"
   tasks:
     # 1. Setup the cluster-wide dependencies
     # -------------------------------------------------------------------------
@@ -167,6 +230,8 @@ spec:
       taskRef:
         name: mas-devops-cp4d-install-services-db2
         kind: ClusterTask
+      runAfter:
+        - cfg-ocp
       workspaces:
         - name: configs
           workspace: shared-configs
@@ -180,21 +245,43 @@ spec:
         - name: junit_suite_name
           value: install-db2w-shared
         - name: instance_name
-          value: db2w-shared
-        - name: mas_config_scope
-          value: system
-        # Configure storage sizes, the storage classes are set globally in the pipeline settings secret
+          value: "$(params.db2_instance_name)"
+        # Configure DB2W
+        - name: version
+          value: "$(params.db2_version)"
+        - name: tableorg
+          value: "$(params.db2_tableorg)"
+        # Configure DB2W Scope
+        - name: config_scope
+          value: "$(params.db2_config_scope)"
+        - name: config_scope_application_id
+          value: "$(params.db2_config_scope_application_id)"
+        # Configure storage classes
+        - name: meta_storage_class
+          value: "$(params.db2_meta_storage_class)"
+        - name: user_storage_class
+          value: "$(params.db2_user_storage_class)"
+        - name: backup_storage_class
+          value: "$(params.db2_backup_storage_class)"
+        - name: logs_storage_class
+          value: "$(params.db2_logs_storage_class)"
+        - name: temp_storage_class
+          value: "$(params.db2_temp_storage_class)"
+        # Configure storage sizes
         - name: meta_storage
-          value: "20"
+          value: "$(params.db2_meta_storage)"
         - name: user_storage
-          value: "100"
+          value: "$(params.db2_user_storage)"
         - name: backup_storage
-          value: "100"
+          value: "$(params.db2_backup_storage)"
+        - name: logs_storage
+          value: "$(params.db2_logs_storage)"
+        - name: temp_storage
+          value: "$(params.db2_temp_storage)"
       taskRef:
         name: mas-devops-cp4d-create-db2-instance
         kind: ClusterTask
       runAfter:
-        - cfg-ocp
         - cp4d-install-db2
       workspaces:
         - name: configs
@@ -209,7 +296,7 @@ spec:
         - name: junit_suite_name
           value: hack-db2-for-manage
         - name: db2wh_instance_name
-          value: db2w-shared
+          value: "$(params.db2_instance_name)"
       taskRef:
         name: mas-devops-hack-manage-db2
         kind: ClusterTask
@@ -224,6 +311,9 @@ spec:
     # 7. Install IBM SLS
     # -------------------------------------------------------------------------
     - name: install-sls
+      params:
+        - name: junit_suite_name
+          value: install-sls
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-sls
@@ -241,6 +331,9 @@ spec:
     # 8. Install BAS
     # -------------------------------------------------------------------------
     - name: install-bas
+      params:
+        - name: junit_suite_name
+          value: install-bas
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-bas
@@ -255,6 +348,9 @@ spec:
     # 9. Install & configure IBM MAS
     # -------------------------------------------------------------------------
     - name: install-suite
+      params:
+        - name: junit_suite_name
+          value: install-suite
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-suite
@@ -272,6 +368,9 @@ spec:
     # 10. Configure Db2 in MAS
     # -------------------------------------------------------------------------
     - name: cfg-suite-db2
+      params:
+        - name: junit_suite_name
+          value: cfg-suite-db2
       taskRef:
         kind: ClusterTask
         name: mas-devops-configure-suite
@@ -521,6 +620,7 @@ spec:
         name: mas-devops-install-app
         kind: ClusterTask
       runAfter:
+        - cfg-suite-db2
         - cfg-manage
       workspaces:
         - name: settings
