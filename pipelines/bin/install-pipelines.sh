@@ -3,7 +3,8 @@ set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-oc apply -f $DIR/../samples/subscription.yaml
+SAMPLES_DIR=$(realpath $DIR/../samples)
+oc apply -f $SAMPLES_DIR/subscription.yaml
 
 # TODO: do while STATE != ready
 # otherwise the CRD lookup will fail, as the timeout only helps AFTER the CRD initially exists
