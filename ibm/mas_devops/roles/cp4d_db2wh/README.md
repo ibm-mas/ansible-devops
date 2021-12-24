@@ -1,9 +1,35 @@
 cp4d_db2wh
 ==========
 
-This role expects a CP4D with DB2 Warehouse service enabled already exists. Use it after `install-cp4d`.
+This role creates a Db2 Warehouse instance in Cloud Pak for Data.  A Db2 Warehouse cluster will be created and a public TLS encrypted route is configured to allow external access to the cluster.
 
-It can be used to create DB2 Warehouse instances against the same Cloud Pak for Data. It is useful if user wants to create a database for IoT and another for Manage. In additional, different from other DB2 Warehouse playbooks, this one uses REST APIs and not Operators to create the DB2 instance (operators are not working properly in CP4D 3.5). By using REST APIs internally, we have a bit more configuration possibilties here as well as the instance will be displayed in CP4D dashboard.
+### CloudPak for Data 3.5
+The certificates are available from the `internal-tls` secret in the `cpd-meta-ops` namespace.  The default user is `db2inst1` and the password is available in the `instancepassword` secret in the same namespace.  You can examine the deployed resources in the `cpd-meta-ops` namespace:
+
+```bash
+oc -n cpd-meta-ops get cpdservice,db2ucluster
+
+NAME                                                       MESSAGE                 REASON   STATUS       LASTACTION   PHASE        CODE
+cpdservice.metaoperator.cpd.ibm.com/cpdservice-db2wh       Completed                        Ready        CPDInstall   Ready        0
+cpdservice.metaoperator.cpd.ibm.com/cpdservice-db2wh-dmc   CPD binary is running            Installing   CPDInstall   Installing   1
+
+NAME                                            STATE      AGE
+db2ucluster.db2u.databases.ibm.com/db2u-bludb   NotReady   8m44s
+```
+
+#### Debugging Db2 install problems
+The following command may come in handy:
+
+```bash
+oc -n cpd-meta-ops get formations.db2u.databases.ibm.com db2wh-db01 -o go-template='{{range .status.components}}{{printf "%s,%s,%s\n" .kind .name .status.state}}{{end}}' | column -s, -t
+```
+
+
+!!! tip
+    The role will generate a yaml file containing the definition of a Secret and JdbcCfg resource that can be used to configure the deployed cluster as the MAS system JDBC datasource.
+
+    This file can be directly applied using `oc apply -f /tmp/jdbccfg-cp4ddb2wh-system.yaml` or added to the `mas_config` list variable used by the `ibm.mas_devops.suite_install` role to deploy and configure MAS.
+
 
 Role Variables
 --------------
@@ -137,7 +163,6 @@ Example Playbook
   any_errors_fatal: true
   vars:
     # Create a Db2 instance in CPD v4.0
-
     db2wh_instance_name: db2wh-shared
 
     # Configure storage suitable for IBM Cloud ROKS
