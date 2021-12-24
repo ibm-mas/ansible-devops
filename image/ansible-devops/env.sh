@@ -59,7 +59,7 @@ export DB2WH_BACKUP_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_BACKUP_STORAGE
 # vary for different tasks in the same pipeline
 # -----------------------------------------------------------------------------
 # - DB2WH_INSTANCE_NAME
-# - DB2WH_ADDON_VERSION
+# - DB2WH_VERSION
 # - DB2WH_TABLE_ORG
 
 # -----------------------------------------------------------------------------

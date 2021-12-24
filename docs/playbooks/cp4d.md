@@ -44,7 +44,7 @@ db2ucluster.db2u.databases.ibm.com/db2u-bludb   NotReady   8m44s
 
 In addition to the above, these are the optional variables you can set before running the playbook:
 
-- `DB2WH_ADDON_VERSION` version of the DB2 Warehouse instance to be creared. Default is `11.5.5.1-cn3-x86_64`
+- `DB2WH_VERSION` version of the DB2 Warehouse instance to be created. Default is `11.5.5.1-cn3-x86_64`
 - `DB2WH_ADMIN_USER` user in CP4D that can access the database. The user must exist, it is not created by this playbook. Default is `admin`
 - `DB2WH_ADMIN_PASSWORD` password of the user identified above. Default is `password`
 - `DB2WH_TABLE_ORG` the way database tables will be organized. It can be either `ROW` or `COLUMN`. Default is `ROW`

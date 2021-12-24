@@ -9,15 +9,15 @@ Role Variables
 --------------
 
 ### db2wh_instance_name
-Name of the database instance, note that this is the instance **name**, which is different from the instance **ID**.
+Required.  Name of the database instance, note that this is the instance **name**, which is different from the instance **ID**.
 
 - Environment Variable: `DB2WH_INSTANCE_NAME`
 - Default: None
 
-### db2wh_addon_version
+### db2wh_version
 Version of the DB2 Warehouse instance to be created.
 
-- Environment Variable: `DB2WH_ADDON_VERSION`
+- Environment Variable: `DB2WH_VERSION`
 - Default: `11.5.5.1-cn3-x86_64`
 
 ### db2wh_table_org
@@ -27,7 +27,7 @@ The way database tables will be organized. It can be set to either `ROW` or `COL
 - Default: `ROW`
 
 ### db2wh_meta_storage_class
-Required.  Storage class used for metadata.
+Required for both CP4D v3.5 and CP4D v4.  Storage class used for metadata.
 
 - Environment Variable: `DB2WH_META_STORAGE_CLASS`
 - Default: None
@@ -39,7 +39,7 @@ Size of the metadata persistent volume, in gigabytes
 - Default: `20`
 
 ### db2wh_user_storage_class
-Required.  Storage class used for user data.
+Required for both CP4D v3.5 and CP4D v4.  Storage class used for user data.
 
 - Environment Variable: `DB2WH_USER_STORAGE_CLASS`
 - Default: None
@@ -51,7 +51,7 @@ Size of user persistent volume, in gigabytes.
 - Default: `100`
 
 ### db2wh_backup_storage_class
-Required.  Storage class used for backup.
+Required for both CP4D v3.5 and CP4D v4.  Storage class used for backup.
 
 - Environment Variable: `DB2WH_BACKUP_STORAGE_CLASS`
 - Default: None
@@ -63,25 +63,25 @@ Size of backup persistent volume, in gigabytes.
 - Default: `100`
 
 ### db2wh_logs_storage_class
-Required.  Storage class used for logs.
+Required for CP4D v4 only.  Storage class used for logs, not used with CP4D v3.5 databases.
 
 - Environment Variable: `DB2WH_LOGS_STORAGE_CLASS`
 - Default: None
 
 ### db2wh_logs_storage_size_gb
-Size of logs persistent volume, in gigabytes.
+Size (in gigabytes) of logs persistent volume, not used with CP4D v3.5 databases.
 
 - Environment Variable: `DB2WH_LOGS_STORAGE_SIZE_GB`
 - Default: `100`
 
 ### db2wh_temp_storage_class
-Required.  Storage class used for temporary data.
+Required for CP4D v4 only.  Storage class used for temporary data, not used with CP4D v3.5 databases.
 
 - Environment Variable: `DB2WH_TEMP_STORAGE_CLASS`
 - Default: None
 
 ### db2wh_temp_storage_size_gb
-Size of temporary persistent volume, in gigabytes.
+Size (in gigabytes) of temporary persistent volume, not used with CP4D v3.5 databases.
 
 - Environment Variable: `DB2WH_TEMP_STORAGE_SIZE_GB`
 - Default: `100`

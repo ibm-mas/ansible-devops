@@ -1,4 +1,32 @@
 ---
+# 0. Fail if required parameters are not set
+# -----------------------------------------------------------------------------
+- name: "Fail if db2wh_meta_storage_class has not been provided"
+  when: db2wh_meta_storage_class is not defined or db2wh_meta_storage_class == ""
+  fail:
+    msg: "db2wh_meta_storage_class property has not been set"
+
+- name: "Fail if db2wh_user_storage_class has not been provided"
+  when: db2wh_user_storage_class is not defined or db2wh_user_storage_class == ""
+  fail:
+    msg: "db2wh_user_storage_class property has not been set"
+
+- name: "Fail if db2wh_backup_storage_class has not been provided"
+  when: db2wh_backup_storage_class is not defined or db2wh_backup_storage_class == ""
+  fail:
+    msg: "db2wh_backup_storage_class property has not been set"
+
+- name: "Fail if db2wh_logs_storage_class has not been provided"
+  when: db2wh_logs_storage_class is not defined or db2wh_logs_storage_class == ""
+  fail:
+    msg: "db2wh_logs_storage_class property has not been set"
+
+- name: "Fail if db2wh_temp_storage_class has not been provided"
+  when: db2wh_temp_storage_class is not defined or db2wh_temp_storage_class == ""
+  fail:
+    msg: "db2wh_temp_storage_class property has not been set"
+
+
 # 1. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Debug information"
@@ -10,7 +38,7 @@
       - "mas_workspace_id ................ {{ mas_workspace_id | default('<undefined>')  }}"
       - "mas_application_id .............. {{ mas_application_id | default('<undefined>')  }}"
 
-      - "cpd_meta_namespace .............. {{ cpd_meta_namespace }}"
+      - "db2wh_namespace ................. {{ db2wh_namespace }}"
 
       - "db2wh_instance_name ............. {{ db2wh_instance_name }}"
       - "db2wh_meta_storage_class  ....... {{ db2wh_meta_storage_class }}"
@@ -25,7 +53,7 @@
       - "db2wh_temp_storage_size_gb  ..... {{ db2wh_temp_storage_size_gb }}"
 
       - "db2wh_username .................. {{ db2wh_admin_username }}"
-      - "db2wh_password .................. Found in 'c-{{ db2wh_instance_name }}-instancepassword' secret under '{{ cpd_meta_namespace }}' namespace"
+      - "db2wh_password .................. Found in 'c-{{ db2wh_instance_name }}-instancepassword' secret under '{{ db2wh_namespace }}' namespace"
 
       - "db2wh_version ................... {{ db2wh_version }}"
       - "db2wh_table_org ................. {{ db2wh_table_org }}"
@@ -47,7 +75,7 @@
   community.kubernetes.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2wh_instance_name | lower }}"
-    namespace: "{{cpd_meta_namespace}}"
+    namespace: "{{db2wh_namespace}}"
     kind: Db2uCluster
   register: db2_cluster_lookup
   until:
@@ -71,7 +99,7 @@
     api_version: v1
     kind: Secret
     name: "internal-tls"
-    namespace: "{{cpd_meta_namespace}}"
+    namespace: "{{db2wh_namespace}}"
   register: _db2u_instance_certificates
 
 - name: Lookup db2wh Engn Service
@@ -79,7 +107,7 @@
     api_version: v1
     kind: Service
     name: "c-{{db2wh_instance_name | lower}}-db2u-engn-svc"
-    namespace: "{{cpd_meta_namespace}}"
+    namespace: "{{db2wh_namespace}}"
   register: _db2u_instance_engn_svc
   until:
     - _db2u_instance_engn_svc.resources[0] is defined
@@ -118,7 +146,7 @@
     - mas_instance_id != ""
     - mas_config_dir is defined
     - mas_config_dir != ""
-  include_vars: "vars/{{ mas_config_scope }}.yml"
+  include_vars: "vars/jdbccfg/{{ mas_config_scope }}.yml"
 
 - name: Lookup db2wh instance password
   when:
@@ -130,7 +158,7 @@
     api_version: v1
     kind: Secret
     name: "c-{{db2wh_instance_name | lower }}-instancepassword"
-    namespace: "{{cpd_meta_namespace}}"
+    namespace: "{{db2wh_namespace}}"
   register: _db2u_instance_password
 
 - name: Set Facts for JdbcCfg
@@ -143,7 +171,7 @@
     db2wh_instance_id: "{{ db2wh_instance_name }}"
     cp4d_db_certificate: "{{ _db2u_instance_certificates.resources[0].data['ca.crt'] | b64decode }}"
     db2wh_admin_password: "{{ _db2u_instance_password.resources[0].data.password | b64decode }}"
-    jdbc_url: "jdbc:db2://c-{{db2wh_instance_name | lower}}-db2u-engn-svc.{{ cpd_meta_namespace }}.svc:{{db2wh_tls_nodeport}}/{{db2wh_dbname}}:sslConnection=true;"
+    jdbc_url: "jdbc:db2://c-{{db2wh_instance_name | lower}}-db2u-engn-svc.{{ db2wh_namespace }}.svc:{{db2wh_tls_nodeport}}/{{db2wh_dbname}}:sslConnection=true;"
 
 - name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
   when:
@@ -153,6 +181,6 @@
     - mas_config_dir != ""
   ansible.builtin.template:
     src: suite_jdbccfg.yml
-    dest: "{{ mas_config_dir }}/jdbc-{{ db2wh_instance_name | lower }}-{{ cpd_meta_namespace }}.yml"
+    dest: "{{ mas_config_dir }}/jdbc-{{ db2wh_instance_name | lower }}-{{ db2wh_namespace }}.yml"
   vars:
     cp4d_db_jdbc_url: "{{ jdbc_url }}"

@@ -1,9 +1,4 @@
 ---
-# Load var files
-# -----------------------------------------------------------------------------
-- name: Load variables
-  include_vars: "defaults/cpd35/main.yml"
-
 # 1. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Debug information"
@@ -14,7 +9,7 @@
       - "mas_config_scope ................ {{ mas_config_scope }}"
       - "mas_workspace_id ................ {{ mas_workspace_id }}"
       - "mas_application_id .............. {{ mas_application_id }}"
-      - "cpd_meta_namespace .............. {{ cpd_meta_namespace }}"
+      - "db2wh_namespace ................. {{ db2wh_namespace }}"
       - "db2wh_instance_name ............. {{ db2wh_instance_name }}"
       - "db2wh_meta_storage_class  ....... {{ db2wh_meta_storage_class }}"
       - "db2wh_meta_storage_size_gb ...... {{ db2wh_meta_storage_size_gb }}"
@@ -25,7 +20,7 @@
       - "cp4d_db_config_configmap_name ... {{ cp4d_db_config_configmap_name }}"
       - "db2wh_admin_username ............ {{ db2wh_admin_username }}"
       - "db2wh_admin_password ............ {{ db2wh_admin_password }}"
-      - "db2wh_addon_version ............. {{ db2wh_addon_version}}"
+      - "db2wh_version ................... {{ db2wh_version}}"
       - "db2wh_table_org ................. {{ db2wh_table_org }}"
 
 # 2. Set CP4D Route (cp4d_host) info from OpenShift into Facts
@@ -65,15 +60,15 @@
         db2_svc_name: "c-db2wh-{{ create_db2_database_output.json.id }}-db2u-engn-svc"
         cp4d_db_id: "{{ create_db2_database_output.json.id }}"
     - set_fact:
-        cp4d_db_svc: "{{ db2_svc_name }}.{{ cpd_meta_namespace }}.svc"
+        cp4d_db_svc: "{{ db2_svc_name }}.{{ db2wh_namespace }}.svc"
     - name: Set a default value for cp4d_db_ssl_port if it's not specified
       set_fact:
         cp4d_db_ssl_port: ""
       when: cp4d_db_ssl_port is undefined
-    - name: Save the DB2 database id in a DB config ConfigMap {{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }} under {{ cpd_meta_namespace }} namespace
+    - name: Save the DB2 database id in a DB config ConfigMap {{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }} under {{ db2wh_namespace }} namespace
       community.kubernetes.k8s:
         state: present
-        namespace: "{{ cpd_meta_namespace }}"
+        namespace: "{{ db2wh_namespace }}"
         definition: "{{ lookup('template', 'templates/cpd35/cp4d_db2_database_config.yaml.j2') | from_yaml }}"
     # Patch the db2u StatefulSet to avoid DB2 pod getting stuck in 0/1 state during installation
     - name: Patch the db2u StatefulSet to avoid DB2 pod getting stuck in 0/1 state during installation
@@ -82,13 +77,13 @@
           pause:
             minutes: 5
         - name: Check DB2 StatefulSet status
-          shell: oc get sts -lcomponent=db2wh -oname -n="{{ cpd_meta_namespace }}" | grep db2wh
+          shell: oc get sts -lcomponent=db2wh -oname -n="{{ db2wh_namespace }}" | grep db2wh
           register: sts_status
           until: sts_status.rc == 0
           retries: 10
           delay: 60
         - name: Apply DB2 StatefulSet patch
-          shell: oc patch $(oc get sts -lcomponent=db2wh -oname -n="{{ cpd_meta_namespace }}" | grep db2wh) -n="{{ cpd_meta_namespace }}" -p='{ "spec":{ "template":{ "spec":{ "containers":[ { "name":"db2u", "tty":false } ] } } } }'
+          shell: oc patch $(oc get sts -lcomponent=db2wh -oname -n="{{ db2wh_namespace }}" | grep db2wh) -n="{{ db2wh_namespace }}" -p='{ "spec":{ "template":{ "spec":{ "containers":[ { "name":"db2u", "tty":false } ] } } } }'
       when: apply_db2u_sts_patch|default(false)|bool
     - name: Wait for the creation of DB2 database {{ db2wh_instance_name }}
       pause:
@@ -104,7 +99,7 @@
         api_version: v1
         kind: ConfigMap
         name: "{{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}"
-        namespace: "{{ cpd_meta_namespace }}"
+        namespace: "{{ db2wh_namespace }}"
       register: cp4d_db_config_info
     - name: Read the DB2 database ID for {{ db2wh_instance_name }} from DB config ConfigMap data
       set_fact:
@@ -112,7 +107,7 @@
         db2_pod_name: "c-db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}-db2u-0"
         db2_svc_name: "c-db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}-db2u-engn-svc"
     - set_fact:
-        cp4d_db_svc: "{{ db2_svc_name }}.{{ cpd_meta_namespace }}.svc"
+        cp4d_db_svc: "{{ db2_svc_name }}.{{ db2wh_namespace }}.svc"
   when: create_db2_database_output.status == 409
 
 # 6. Wait till DB2 status is RUNNING
@@ -145,7 +140,7 @@
 - name: Update the DB2 database url and port info in the DB config ConfigMap for {{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}
   community.kubernetes.k8s:
     state: present
-    namespace: "{{ cpd_meta_namespace }}"
+    namespace: "{{ db2wh_namespace }}"
     definition: "{{ lookup('template', 'templates/cpd35/cp4d_db2_database_config.yaml.j2') | from_yaml }}"
 
 # 10. Create JDBCCfg yml definition
@@ -156,7 +151,7 @@
     - mas_instance_id != ""
     - mas_config_dir is defined
     - mas_config_dir != ""
-  include_vars: "vars/{{ mas_config_scope }}.yml"
+  include_vars: "vars/jdbccfg/{{ mas_config_scope }}.yml"
 
 - name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
   when:
@@ -166,6 +161,6 @@
     - mas_config_dir != ""
   ansible.builtin.template:
     src: suite_jdbccfg.yml
-    dest: "{{ mas_config_dir }}/jdbc-{{ db2wh_instance_name | lower }}-{{ cpd_meta_namespace }}.yml"
+    dest: "{{ mas_config_dir }}/jdbc-{{ db2wh_instance_name | lower }}-{{ db2wh_namespace }}.yml"
   vars:
     cp4d_db_jdbc_url: "jdbc:db2://{{ cp4d_db_svc }}:{{ cp4d_db_ssl_port }}/BLUDB:sslConnection=true;"
