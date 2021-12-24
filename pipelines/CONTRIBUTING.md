@@ -48,8 +48,9 @@ Each time you want to modify and retry a pipeline run, use the following:
 ```bash
 cd pipelines
 
-bash bin/build-pipelines.sh
-oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
-oc apply -f samples/sample-pipeline.yaml
-oc create -f samples/sample-pipelinerun-dev.yaml
+# Build and update the clustertasks
+bash bin/build-pipelines.sh && oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
+
+# Update the pipeline definition and start a new run
+oc apply -f samples/sample-pipeline.yaml && oc create -f samples/sample-pipelinerun-dev.yaml
 ```
