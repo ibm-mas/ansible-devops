@@ -87,16 +87,16 @@ Size of temporary persistent volume, in gigabytes.
 - Default: `100`
 
 ### db2wh_admin_username
-TODO: Provide details about this input
+TODO: Provide details about this input, some old doc said this user needs to already exist in CP4D .. this appears to be used to authenticate an API request to create the database in CP4D v3.5 **and** as the credentials to access the database.
 
 - Environment Variable: `DB2WH_ADMIN_USER`
 - Default: `admin`
 
 ### db2wh_admin_password
-TODO: Provide details about this input
+TODO: Provide details about this input, see comments about `db2wh_admin_username` ... the author left no documentation and it's unclear from reading the code what the expectations are here due to the dual purpose of the user credential properties for both accessing and creating the database.
 
 - Environment Variable: `DB2WH_ADMIN_PASSWORD`
-- Default: `password` (This will be fixed!!)
+- Default: `password` (Ay, caramba!)
 
 ### mas_instance_id
 Providing this and `mas_config_dir` will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.
@@ -145,7 +145,7 @@ Example Playbook
     db2wh_logs_storage_class: ibmc-file-silver-gid
     db2wh_temp_storage_class: ibmc-file-silver-gid
 
-    db2wh_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
+    db2wh_admin_password: "{{ lookup('env', 'DB2WH_ADMIN_PASSWORD') }}"
 
     # Create the MAS JdbcCfg & Secret resource definitions
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
