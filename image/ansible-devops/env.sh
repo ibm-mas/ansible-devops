@@ -48,12 +48,14 @@ export CPD_BLOCK_STORAGE_CLASS=$(cat /workspace/settings/CPD_BLOCK_STORAGE_CLASS
 # -----------------------------------------------------------------------------
 # cp4d/create-db2-instance.yml
 # -----------------------------------------------------------------------------
-export DB2WH_ADMIN_USER=$(cat /workspace/settings/DB2WH_ADMIN_USER)
-export DB2WH_ADMIN_PASSWORD=$(cat /workspace/settings/DB2WH_ADMIN_PASSWORD)
+export CPD_API_USER=$(cat /workspace/settings/CPD_API_USER)
+export CPD_API_PASSWORD=$(cat /workspace/settings/CPD_API_PASSWORD)
 
 export DB2WH_META_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_META_STORAGE_CLASS)
 export DB2WH_USER_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_USER_STORAGE_CLASS)
 export DB2WH_BACKUP_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_BACKUP_STORAGE_CLASS)
+export DB2WH_LOGS_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_LOGS_STORAGE_CLASS)
+export DB2WH_TEMP_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_TEMP_STORAGE_CLASS)
 
 # The following settings are provided as env vars per-task because they may
 # vary for different tasks in the same pipeline

@@ -48,6 +48,9 @@ Each time you want to modify and retry a pipeline run, use the following:
 ```bash
 cd pipelines
 
+# Update the settings secret
+oc apply -f samples/sample-pipelinesettings-roks-donotcommit.yaml
+
 # Build and update the clustertasks
 bash bin/build-pipelines.sh && oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
 

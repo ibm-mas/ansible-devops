@@ -101,13 +101,13 @@ Required for CP4D v3.5 only.  These credentials are used to call the REST API to
 ### mas_instance_id
 Providing this and `mas_config_dir` will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.
 
-- Environment Variable: `MAS_INSTANCE_ID') }}"
+- Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
 ### mas_config_dir
 Providing this and `mas_instance_id` will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.
 
-- Environment Variable: `MAS_CONFIG_DIR') }}"
+- Environment Variable: `MAS_CONFIG_DIR`
 - Default: None
 
 ### mas_config_scope
@@ -119,13 +119,13 @@ Supported values are `system`, `ws`, `app`, or `wsapp`, this is only used when b
 ### mas_workspace_id
 This is only used when both `mas_config_dir` and `mas_instance_id` are set, and `mas_config_scope` is set to either `ws` or `wsapp`
 
-- Environment Variable: `MAS_WORKSPACE_ID') }}" # Necessary for ws and wsapp scopes
+- Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
 ### mas_application_id
 This is only used when both `mas_config_dir` and `mas_instance_id` are set, and `mas_config_scope` is set to either `app` or `wsapp`
 
-- Environment Variable: `'MAS_APP_ID') }}" # Necessary for app and wsapp scopes
+- Environment Variable: `'MAS_APP_ID`
 - Default: None
 
 
