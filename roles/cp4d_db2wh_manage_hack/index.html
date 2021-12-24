@@ -90,6 +90,18 @@
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">cp4d_db2wh_manage_hack</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#cpd_version">cpd_version</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_instancename">db2wh_instancename</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_username">db2wh_username</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_dbname">db2wh_dbname</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_schema">db2wh_schema</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
     </li>
@@ -177,11 +189,45 @@
             <div class="section">
               
                 <h1 id="cp4d_db2wh_manage_hack">cp4d_db2wh_manage_hack<a class="headerlink" href="#cp4d_db2wh_manage_hack" title="Permanent link"></a></h1>
-<p>TODO: Summarize role</p>
+<p>This role shouldn't need to exist, it should be part of the Manage operator, but is not so we have to do it as a seperate step in the install flow for now.  The role will perform some initial setup on the Db2 instance that is needed to prepare it for use with the Manage application and supports both CP4D version 3.5 and 4.0.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<p>TODO: Finish documentation</p>
+<h3 id="cpd_version">cpd_version<a class="headerlink" href="#cpd_version" title="Permanent link"></a></h3>
+<p>Users may <strong>optionally</strong> pass this parameter to explicitly control the version of CP4D used, if this is not done then the role will attempt to locate the <code>cpd-meta-ops</code> namespace associated with CP4D v3.5, if this namespace if located then we will switch to CP4D v3.5 mode, in all other cases the role will assume CP4D v4 is in use.</p>
+<ul>
+<li>Environment Variable: <code>CPD_VERSION</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="db2wh_instancename">db2wh_instancename<a class="headerlink" href="#db2wh_instancename" title="Permanent link"></a></h3>
+<p>Required.  The name of the db2 instance to execute the hack in.  We will use this to derive the instance ID.  Note that for CP4D v3.5 instances we are only able to support those created by the <a href="../cp4d_db2wh/">cp4d_db2wh</a> role; custom metadata is created by that role which is required by this role to dervice the instance ID from a named database instance.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_INSTANCE_NAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="db2wh_username">db2wh_username<a class="headerlink" href="#db2wh_username" title="Permanent link"></a></h3>
+<p>The username that will be used to connect to the database specified by <code>db2wh_dbname</code>.</p>
+<ul>
+<li>Environment Variable: None</li>
+<li>Default Value: <code>db2inst1</code></li>
+</ul>
+<h3 id="db2wh_dbname">db2wh_dbname<a class="headerlink" href="#db2wh_dbname" title="Permanent link"></a></h3>
+<p>The name of the database in the instance to connect to when executing the hack script.</p>
+<ul>
+<li>Environment Variable: None</li>
+<li>Default Value: <code>BLUDB</code></li>
+</ul>
+<h3 id="db2wh_schema">db2wh_schema<a class="headerlink" href="#db2wh_schema" title="Permanent link"></a></h3>
+<p>The name of the Manage schema where the hack should be targeted in.</p>
+<ul>
+<li>Environment Variable: None</li>
+<li>Default Value: <code>maximo</code></li>
+</ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
-<pre><code class="language-yaml">TODO: Add example
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2wh_instancename: mydb2
+  roles:
+    - ibm.mas_devops.cp4d_db2wh_manage_hack
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>

@@ -89,9 +89,45 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#required-variables">Required Variables</a>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_instance_name">db2wh_instance_name</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#optional-variables">Optional Variables</a>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_version">db2wh_version</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_table_org">db2wh_table_org</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_meta_storage_class">db2wh_meta_storage_class</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_meta_storage_size_gb">db2wh_meta_storage_size_gb</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_user_storage_class">db2wh_user_storage_class</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_user_storage_size_gb">db2wh_user_storage_size_gb</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_backup_storage_class">db2wh_backup_storage_class</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_backup_storage_size_gb">db2wh_backup_storage_size_gb</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_logs_storage_class">db2wh_logs_storage_class</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_logs_storage_size_gb">db2wh_logs_storage_size_gb</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_temp_storage_class">db2wh_temp_storage_class</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2wh_temp_storage_size_gb">db2wh_temp_storage_size_gb</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cpd_api_username">cpd_api_username</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cpd_api_password">cpd_api_password</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_instance_id">mas_instance_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_config_dir">mas_config_dir</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_config_scope">mas_config_scope</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_workspace_id">mas_workspace_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_application_id">mas_application_id</a>
     </li>
         </ul>
     </li>
@@ -186,55 +222,141 @@
 <p>This role expects a CP4D with DB2 Warehouse service enabled already exists. Use it after <code>install-cp4d</code>.</p>
 <p>It can be used to create DB2 Warehouse instances against the same Cloud Pak for Data. It is useful if user wants to create a database for IoT and another for Manage. In additional, different from other DB2 Warehouse playbooks, this one uses REST APIs and not Operators to create the DB2 instance (operators are not working properly in CP4D 3.5). By using REST APIs internally, we have a bit more configuration possibilties here as well as the instance will be displayed in CP4D dashboard.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<h3 id="required-variables">Required Variables<a class="headerlink" href="#required-variables" title="Permanent link"></a></h3>
+<h3 id="db2wh_instance_name">db2wh_instance_name<a class="headerlink" href="#db2wh_instance_name" title="Permanent link"></a></h3>
+<p>Required.  Name of the database instance, note that this is the instance <strong>name</strong>, which is different from the instance <strong>ID</strong>.</p>
 <ul>
-<li><code>CPD_VERSION</code> DB2 instance version that will be provisioned accordingly to CP4D version defined. Supported versions are <code>cpd35</code> (for CP4D 3.5) and <code>cpd40</code> (for CP4D 4.0)</li>
-<li><code>CPD_ENTITLEMENT_KEY</code> An <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM entitlement key</a> that includes access to Cloud Pak for Data 3.5.0</li>
-<li><code>CPD_NAMESPACE</code> Provide the namespace where Cloud Pak for Data is installed. CP4D playbooks create it, by default, in <code>cpd-meta-ops</code></li>
-<li><code>DB2WH_INSTANCE_NAME</code> Name of your database instance, visible in CP4D dashboard. Example: <code>db2w-iot</code></li>
-<li><code>MAS_INSTANCE_ID</code> Provide the MAS instance ID that will be used in any generated MAS configuration files</li>
-<li><code>MAS_CONFIG</code> Provide the path of the folder where the JDBCCfg yaml containing the credentials of this database will be saved at the end of the process.</li>
+<li>Environment Variable: <code>DB2WH_INSTANCE_NAME</code></li>
+<li>Default: None</li>
 </ul>
-<h3 id="optional-variables">Optional Variables<a class="headerlink" href="#optional-variables" title="Permanent link"></a></h3>
-<p>In addition to the above, these are the optional variables you can set before running the playbook:</p>
+<h3 id="db2wh_version">db2wh_version<a class="headerlink" href="#db2wh_version" title="Permanent link"></a></h3>
+<p>Version of the DB2 Warehouse instance to be created.</p>
 <ul>
-<li><code>DB2WH_META_STORAGE_SIZE_GB</code> size of configuration persistent volume, in gigabytes. Default is <code>20</code></li>
-<li><code>DB2WH_USER_STORAGE_SIZE_GB</code> size of user persistent volume, in gigabytes. Default is <code>100</code></li>
-<li><code>DB2WH_BACKUP_STORAGE_SIZE_GB</code> size of backup persistent volume, in gigabytes. Default is <code>100</code></li>
-<li><code>DB2WH_LOGS_STORAGE_SIZE_GB</code> size of logs persistent volume, in gigabytes. Default is <code>100</code></li>
-<li><code>DB2WH_TEMP_STORAGE_SIZE_GB</code> size of temporary persistent volume, in gigabytes. Default is <code>100</code> (only applicable for CP4D 4.0)</li>
-<li><code>DB2WH_META_STORAGE_CLASS</code> store class used to create the configuration storage. Default is <code>ibmc-file-silver-gid</code> (only applicable for CP4D 4.0)</li>
-<li><code>DB2WH_USER_STORAGE_CLASS</code> store class used to create the user storage. Default is <code>ibmc-file-gold-gid</code></li>
-<li><code>DB2WH_BACKUP_STORAGE_CLASS</code> store class used to create the backup storage. Default is <code>ibmc-file-gold-gid</code></li>
-<li><code>DB2WH_LOGS_STORAGE_CLASS</code> store class used to store db2wh logs. Default is <code>ibmc-file-silver-gid</code> (only applicable for CP4D 4.0)</li>
-<li><code>DB2WH_TEMP_STORAGE_CLASS</code> store class used for temporary storage. Default is <code>ibmc-file-silver-gid</code> (only applicable for CP4D 4.0)</li>
-<li><code>DB2WH_ADMIN_USER</code> user in CP4D that can access the database. The user must exist, it is not created by this playbook. Default is <code>admin</code></li>
-<li><code>DB2WH_ADMIN_PASSWORD</code> password of the user identified above. Default is <code>password</code></li>
-<li><code>DB2WH_ADDON_VERSION</code> version of the DB2 Warehouse instance to be creared. Default is <code>11.5.5.1-cn3-x86_64</code></li>
-<li><code>DB2WH_TABLE_ORG</code> the way database tables will be organized. It can be either <code>ROW</code> or <code>COLUMN</code>. Default is <code>ROW</code></li>
+<li>Environment Variable: <code>DB2WH_VERSION</code></li>
+<li>Default: <code>11.5.6.0-cn3</code></li>
+</ul>
+<h3 id="db2wh_table_org">db2wh_table_org<a class="headerlink" href="#db2wh_table_org" title="Permanent link"></a></h3>
+<p>The way database tables will be organized. It can be set to either <code>ROW</code> or <code>COLUMN</code>.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_TABLE_ORG</code></li>
+<li>Default: <code>ROW</code></li>
+</ul>
+<h3 id="db2wh_meta_storage_class">db2wh_meta_storage_class<a class="headerlink" href="#db2wh_meta_storage_class" title="Permanent link"></a></h3>
+<p>Required for both CP4D v3.5 and CP4D v4.  Storage class used for metadata.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_META_STORAGE_CLASS</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="db2wh_meta_storage_size_gb">db2wh_meta_storage_size_gb<a class="headerlink" href="#db2wh_meta_storage_size_gb" title="Permanent link"></a></h3>
+<p>Size of the metadata persistent volume, in gigabytes</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_META_STORAGE_SIZE_GB</code></li>
+<li>Default: <code>20</code></li>
+</ul>
+<h3 id="db2wh_user_storage_class">db2wh_user_storage_class<a class="headerlink" href="#db2wh_user_storage_class" title="Permanent link"></a></h3>
+<p>Required for both CP4D v3.5 and CP4D v4.  Storage class used for user data.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_USER_STORAGE_CLASS</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="db2wh_user_storage_size_gb">db2wh_user_storage_size_gb<a class="headerlink" href="#db2wh_user_storage_size_gb" title="Permanent link"></a></h3>
+<p>Size of user persistent volume, in gigabytes.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_USER_STORAGE_SIZE_GB</code></li>
+<li>Default: <code>100</code></li>
+</ul>
+<h3 id="db2wh_backup_storage_class">db2wh_backup_storage_class<a class="headerlink" href="#db2wh_backup_storage_class" title="Permanent link"></a></h3>
+<p>Required for both CP4D v3.5 and CP4D v4.  Storage class used for backup.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_BACKUP_STORAGE_CLASS</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="db2wh_backup_storage_size_gb">db2wh_backup_storage_size_gb<a class="headerlink" href="#db2wh_backup_storage_size_gb" title="Permanent link"></a></h3>
+<p>Size of backup persistent volume, in gigabytes.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_BACKUP_STORAGE_SIZE_GB</code></li>
+<li>Default: <code>100</code></li>
+</ul>
+<h3 id="db2wh_logs_storage_class">db2wh_logs_storage_class<a class="headerlink" href="#db2wh_logs_storage_class" title="Permanent link"></a></h3>
+<p>Required for CP4D v4 only.  Storage class used for logs, not used with CP4D v3.5 databases.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_LOGS_STORAGE_CLASS</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="db2wh_logs_storage_size_gb">db2wh_logs_storage_size_gb<a class="headerlink" href="#db2wh_logs_storage_size_gb" title="Permanent link"></a></h3>
+<p>Size (in gigabytes) of logs persistent volume, not used with CP4D v3.5 databases.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_LOGS_STORAGE_SIZE_GB</code></li>
+<li>Default: <code>100</code></li>
+</ul>
+<h3 id="db2wh_temp_storage_class">db2wh_temp_storage_class<a class="headerlink" href="#db2wh_temp_storage_class" title="Permanent link"></a></h3>
+<p>Required for CP4D v4 only.  Storage class used for temporary data, not used with CP4D v3.5 databases.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_TEMP_STORAGE_CLASS</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="db2wh_temp_storage_size_gb">db2wh_temp_storage_size_gb<a class="headerlink" href="#db2wh_temp_storage_size_gb" title="Permanent link"></a></h3>
+<p>Size (in gigabytes) of temporary persistent volume, not used with CP4D v3.5 databases.</p>
+<ul>
+<li>Environment Variable: <code>DB2WH_TEMP_STORAGE_SIZE_GB</code></li>
+<li>Default: <code>100</code></li>
+</ul>
+<h3 id="cpd_api_username">cpd_api_username<a class="headerlink" href="#cpd_api_username" title="Permanent link"></a></h3>
+<p>Required for CP4D v3.5 only.  These credentials are used to call the REST API to create the database because CP4D v3.5 Kubernetes API is broken.  Yes, the default admin account for CP4D v3.5 really is set up as admin/password.</p>
+<ul>
+<li>Environment Variable: <code>CPD_API_USERNAME</code></li>
+<li>Default: <code>admin</code></li>
+</ul>
+<h3 id="cpd_api_password">cpd_api_password<a class="headerlink" href="#cpd_api_password" title="Permanent link"></a></h3>
+<p>Required for CP4D v3.5 only.  These credentials are used to call the REST API to create the database because CP4D v3.5 Kubernetes API is broken.  Yes, the default admin account for CP4D v3.5 really is set up as admin/password.</p>
+<ul>
+<li>Environment Variable: <code>CPD_API_PASSWORD</code></li>
+<li>Default: <code>password</code></li>
+</ul>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
+<p>Providing this and <code>mas_config_dir</code> will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.</p>
+<ul>
+<li>Environment Variable: `MAS_INSTANCE_ID') }}"</li>
+<li>Default: None</li>
+</ul>
+<h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link"></a></h3>
+<p>Providing this and <code>mas_instance_id</code> will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.</p>
+<ul>
+<li>Environment Variable: `MAS_CONFIG_DIR') }}"</li>
+<li>Default: None</li>
+</ul>
+<h3 id="mas_config_scope">mas_config_scope<a class="headerlink" href="#mas_config_scope" title="Permanent link"></a></h3>
+<p>Supported values are <code>system</code>, <code>ws</code>, <code>app</code>, or <code>wsapp</code>, this is only used when both <code>mas_config_dir</code> and <code>mas_instance_id</code> are set.</p>
+<ul>
+<li>Environment Variable: <code>MAS_CONFIG_SCOPE</code></li>
+<li>Default: <code>system</code></li>
+</ul>
+<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link"></a></h3>
+<p>This is only used when both <code>mas_config_dir</code> and <code>mas_instance_id</code> are set, and <code>mas_config_scope</code> is set to either <code>ws</code> or <code>wsapp</code></p>
+<ul>
+<li>Environment Variable: `MAS_WORKSPACE_ID') }}" # Necessary for ws and wsapp scopes</li>
+<li>Default: None</li>
+</ul>
+<h3 id="mas_application_id">mas_application_id<a class="headerlink" href="#mas_application_id" title="Permanent link"></a></h3>
+<p>This is only used when both <code>mas_config_dir</code> and <code>mas_instance_id</code> are set, and <code>mas_config_scope</code> is set to either <code>app</code> or <code>wsapp</code></p>
+<ul>
+<li>Environment Variable: `'MAS_APP_ID') }}" # Necessary for app and wsapp scopes</li>
+<li>Default: None</li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
-    # DB2W-API settings
-    cpd_version: &quot;{{ lookup('env', 'CPD_VERSION') }}&quot;
-    cpd_meta_namespace: &quot;{{ lookup('env', 'CPD_NAMESPACE') | default('cpd-meta-ops', true) }}&quot;
-    db2wh_instance_name: &quot;{{ lookup('env', 'CPD_DB2WH_INSTANCE_NAME') }}&quot; # e.g. db2w-iot or db2w-manage
-    db2wh_meta_storage_size_gb: &quot;{{ lookup('env', 'CPD_META_STORAGE_SIZE_GB') | default(20, true) }}&quot;
-    db2wh_user_storage_size_gb: &quot;{{ lookup('env', 'CPD_USER_STORAGE_SIZE_GB') | default(100, true) }}&quot;
-    db2wh_backup_storage_size_gb: &quot;{{ lookup('env', 'CPD_BACKUP_STORAGE_SIZE_GB') | default(100, true) }}&quot;
-    db2wh_logs_storage_size_gb: &quot;{{ lookup('env', 'DB2WH_LOGS_STORAGE_SIZE_GB') | default(100, true) }}&quot;
-    db2wh_temp_storage_size_gb: &quot;{{ lookup('env', 'DB2WH_TEMP_STORAGE_SIZE_GB') | default(100, true) }}&quot;
-    db2wh_meta_storage_class: &quot;{{ lookup('env', 'CPD_META_STORAGE_CLASS') | default('ibmc-file-silver-gid', true) }}&quot;
-    db2wh_user_storage_class: &quot;{{ lookup('env', 'CPD_USER_STORAGE_CLASS') | default('ibmc-file-gold-gid', true)  }}&quot;
-    db2wh_backup_storage_class: &quot;{{ lookup('env', 'CPD_BACKUP_STORAGE_CLASS') | default('ibmc-file-gold-gid', true)  }}&quot;
-    db2wh_logs_storage_class: &quot;{{ lookup('env', 'DB2WH_LOGS_STORAGE_CLASS') | default('ibmc-file-silver-gid', true) }}&quot;
-    db2wh_temp_storage_class: &quot;{{ lookup('env', 'DB2WH_TEMP_STORAGE_CLASS') | default('ibmc-file-silver-gid', true) }}&quot;
-    db2wh_admin_username: &quot;{{ lookup('env', 'CPD_ADMIN_USER')  | default('admin', true) }}&quot;
-    db2wh_admin_password: &quot;{{ lookup('env', 'CPD_ADMIN_PASSWORD')  | default('password', true) }}&quot;
-    db2wh_addon_version: &quot;{{ lookup('env', 'CPD_DB2WH_ADDON_VERSION') | default('11.5.5.1-cn3-x86_64', true) }}&quot;
-    db2wh_table_org: &quot;{{ lookup('env', 'DB2WH_TABLE_ORG') | default('ROW', true) }}&quot; # e.g ROW or COLUMN
+    # Create a Db2 instance in CPD v4.0
+
+    db2wh_instance_name: db2wh-shared
+
+    # Configure storage suitable for IBM Cloud ROKS
+    db2wh_meta_storage_class: ibmc-file-silver-gid
+    db2wh_user_storage_class: ibmc-file-gold-gid
+    db2wh_backup_storage_class: ibmc-file-gold-gid
+    db2wh_logs_storage_class: ibmc-file-silver-gid
+    db2wh_temp_storage_class: ibmc-file-silver-gid
+
     # Create the MAS JdbcCfg &amp; Secret resource definitions
     mas_instance_id: &quot;{{ lookup('env', 'MAS_INSTANCE_ID') }}&quot;
     mas_config_dir: &quot;{{ lookup('env', 'MAS_CONFIG_DIR') }}&quot;
