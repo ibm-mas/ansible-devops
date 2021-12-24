@@ -1,20 +1,17 @@
 ---
-# Load var files
-# -----------------------------------------------------------------------------
-- name: Load variables
-  include_vars: "defaults/cpd40/main.yml"
-
 # 1. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
-      - "mas_instance_id ................. {{ mas_instance_id }}"
-      - "mas_config_dir .................. {{ mas_config_dir }}"
-      - "mas_config_scope ................ {{ mas_config_scope }}"
-      - "mas_workspace_id ................ {{ mas_workspace_id }}"
-      - "mas_application_id .............. {{ mas_application_id }}"
+      - "mas_instance_id ................. {{ mas_instance_id | default('<undefined>') }}"
+      - "mas_config_dir .................. {{ mas_config_dir | default('<undefined>')  }}"
+      - "mas_config_scope ................ {{ mas_config_scope | default('<undefined>')  }}"
+      - "mas_workspace_id ................ {{ mas_workspace_id | default('<undefined>')  }}"
+      - "mas_application_id .............. {{ mas_application_id | default('<undefined>')  }}"
+
       - "cpd_meta_namespace .............. {{ cpd_meta_namespace }}"
+
       - "db2wh_instance_name ............. {{ db2wh_instance_name }}"
       - "db2wh_meta_storage_class  ....... {{ db2wh_meta_storage_class }}"
       - "db2wh_meta_storage_size_gb ...... {{ db2wh_meta_storage_size_gb }}"
@@ -26,13 +23,16 @@
       - "db2wh_logs_storage_size_gb  ..... {{ db2wh_logs_storage_size_gb }}"
       - "db2wh_temp_storage_class ........ {{ db2wh_temp_storage_class }}"
       - "db2wh_temp_storage_size_gb  ..... {{ db2wh_temp_storage_size_gb }}"
+
       - "db2wh_username .................. {{ db2wh_admin_username }}"
       - "db2wh_password .................. Found in 'c-{{ db2wh_instance_name }}-instancepassword' secret under '{{ cpd_meta_namespace }}' namespace"
+
       - "db2wh_version ................... {{ db2wh_version }}"
       - "db2wh_table_org ................. {{ db2wh_table_org }}"
       - "db2wh_dbname .................... {{ db2wh_dbname }}"
       - "db2wh_cpu_limits ................ {{ db2wh_cpu_limits }}"
       - "db2wh_memory_limits ............. {{ db2wh_memory_limits }}"
+
 
 # 2. Create a Db2 instance
 # -----------------------------------------------------------------------------
@@ -55,6 +55,7 @@
     - db2_cluster_lookup.resources[0].status.state == "Ready"
   retries: 24 # Approximately 2 hours before we give up
   delay: 300 # 5 minutes
+
 
 # 3. Configure a public route for Db2
 # -----------------------------------------------------------------------------
@@ -108,12 +109,23 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd40/tlsroute.yml') }}"
 
-# Create JDBCCfg yml definition
+
+# 4. Create JDBCCfg yml definition
 # -----------------------------------------------------------------------------
 - name: Load variables to use in JDBCCfg
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   include_vars: "vars/{{ mas_config_scope }}.yml"
 
 - name: Lookup db2wh instance password
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Secret
@@ -122,6 +134,11 @@
   register: _db2u_instance_password
 
 - name: Set Facts for JdbcCfg
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   set_fact:
     db2wh_instance_id: "{{ db2wh_instance_name }}"
     cp4d_db_certificate: "{{ _db2u_instance_certificates.resources[0].data['ca.crt'] | b64decode }}"
@@ -129,6 +146,11 @@
     jdbc_url: "jdbc:db2://c-{{db2wh_instance_name | lower}}-db2u-engn-svc.{{ cpd_meta_namespace }}.svc:{{db2wh_tls_nodeport}}/{{db2wh_dbname}}:sslConnection=true;"
 
 - name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   ansible.builtin.template:
     src: suite_jdbccfg.yml
     dest: "{{ mas_config_dir }}/jdbc-{{ db2wh_instance_name | lower }}-{{ cpd_meta_namespace }}.yml"

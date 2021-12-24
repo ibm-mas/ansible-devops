@@ -8,33 +8,126 @@ It can be used to create DB2 Warehouse instances against the same Cloud Pak for 
 Role Variables
 --------------
 
-### Required Variables
+### db2wh_instance_name
+TODO: Document what this is used for.
 
-- `CPD_VERSION` DB2 instance version that will be provisioned accordingly to CP4D version defined. Supported versions are `cpd35` (for CP4D 3.5) and `cpd40` (for CP4D 4.0)
-- `CPD_ENTITLEMENT_KEY` An [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary) that includes access to Cloud Pak for Data 3.5.0
-- `CPD_NAMESPACE` Provide the namespace where Cloud Pak for Data is installed. CP4D playbooks create it, by default, in `cpd-meta-ops`
-- `DB2WH_INSTANCE_NAME` Name of your database instance, visible in CP4D dashboard. Example: `db2w-iot`
-- `MAS_INSTANCE_ID` Provide the MAS instance ID that will be used in any generated MAS configuration files
-- `MAS_CONFIG` Provide the path of the folder where the JDBCCfg yaml containing the credentials of this database will be saved at the end of the process.
+- Environment Variable: `DB2WH_INSTANCE_NAME`
+- Default: None
 
-### Optional Variables
+### db2wh_addon_version
+TODO: Document what this is used for.
 
-In addition to the above, these are the optional variables you can set before running the playbook:
+- Environment Variable: `DB2WH_ADDON_VERSION`
+- Default: `11.5.5.1-cn3-x86_64`
 
-- `DB2WH_META_STORAGE_SIZE_GB` size of configuration persistent volume, in gigabytes. Default is `20`
-- `DB2WH_USER_STORAGE_SIZE_GB` size of user persistent volume, in gigabytes. Default is `100`
-- `DB2WH_BACKUP_STORAGE_SIZE_GB` size of backup persistent volume, in gigabytes. Default is `100`
-- `DB2WH_LOGS_STORAGE_SIZE_GB` size of logs persistent volume, in gigabytes. Default is `100`
-- `DB2WH_TEMP_STORAGE_SIZE_GB` size of temporary persistent volume, in gigabytes. Default is `100` (only applicable for CP4D 4.0)
-- `DB2WH_META_STORAGE_CLASS` store class used to create the configuration storage. Default is `ibmc-file-silver-gid` (only applicable for CP4D 4.0)
-- `DB2WH_USER_STORAGE_CLASS` store class used to create the user storage. Default is `ibmc-file-gold-gid`
-- `DB2WH_BACKUP_STORAGE_CLASS` store class used to create the backup storage. Default is `ibmc-file-gold-gid`
-- `DB2WH_LOGS_STORAGE_CLASS` store class used to store db2wh logs. Default is `ibmc-file-silver-gid` (only applicable for CP4D 4.0)
-- `DB2WH_TEMP_STORAGE_CLASS` store class used for temporary storage. Default is `ibmc-file-silver-gid` (only applicable for CP4D 4.0)
-- `DB2WH_ADMIN_USER` user in CP4D that can access the database. The user must exist, it is not created by this playbook. Default is `admin`
-- `DB2WH_ADMIN_PASSWORD` password of the user identified above. Default is `password`
-- `DB2WH_ADDON_VERSION` version of the DB2 Warehouse instance to be creared. Default is `11.5.5.1-cn3-x86_64`
-- `DB2WH_TABLE_ORG` the way database tables will be organized. It can be either `ROW` or `COLUMN`. Default is `ROW`
+### db2wh_table_org
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_TABLE_ORG`
+- Default: `ROW`
+
+### db2wh_meta_storage_class
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_META_STORAGE_CLASS`
+- Default: None
+
+### db2wh_meta_storage_size_gb
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_META_STORAGE_SIZE_GB`
+- Default: `20`
+
+### db2wh_user_storage_class
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_USER_STORAGE_CLASS`
+- Default: None
+
+### db2wh_user_storage_size_gb
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_USER_STORAGE_SIZE_GB`
+- Default: `100`
+
+### db2wh_backup_storage_class
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_BACKUP_STORAGE_CLASS`
+- Default: None
+
+### db2wh_backup_storage_size_gb
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_BACKUP_STORAGE_SIZE_GB`
+- Default: `100`
+
+### db2wh_logs_storage_class
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_LOGS_STORAGE_CLASS`
+- Default: None
+
+### db2wh_logs_storage_size_gb
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_LOGS_STORAGE_SIZE_GB`
+- Default: `100`
+
+### db2wh_temp_storage_class
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_TEMP_STORAGE_CLASS`
+- Default: None
+
+### db2wh_temp_storage_size_gb
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_TEMP_STORAGE_SIZE_GB`
+- Default: `100`
+
+### db2wh_admin_username
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_ADMIN_USER`
+- Default: `admin`
+
+### db2wh_admin_password
+TODO: Document what this is used for.
+
+- Environment Variable: `DB2WH_ADMIN_PASSWORD`
+- Default: `password` (This will be fixed!!)
+
+### mas_instance_id
+Providing this and `mas_config_dir` will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.
+
+- Environment Variable: `MAS_INSTANCE_ID') }}"
+- Default: None
+
+### mas_config_dir
+Providing this and `mas_instance_id` will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.
+
+- Environment Variable: `MAS_CONFIG_DIR') }}"
+- Default: None
+
+### mas_config_scope
+Supported values are `system`, `ws`, `app`, or `wsapp`, this is only used when both `mas_config_dir` and `mas_instance_id` are set.
+
+- Environment Variable: `MAS_CONFIG_SCOPE`
+- Default: `system`
+
+### mas_workspace_id
+This is only used when both `mas_config_dir` and `mas_instance_id` are set, and `mas_config_scope` is set to either `ws` or `wsapp`
+
+- Environment Variable: `MAS_WORKSPACE_ID') }}" # Necessary for ws and wsapp scopes
+- Default: None
+
+### mas_application_id
+This is only used when both `mas_config_dir` and `mas_instance_id` are set, and `mas_config_scope` is set to either `app` or `wsapp`
+
+- Environment Variable: `'MAS_APP_ID') }}" # Necessary for app and wsapp scopes
+- Default: None
+
 
 Example Playbook
 ----------------
@@ -43,24 +136,15 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    # DB2W-API settings
-    cpd_version: "{{ lookup('env', 'CPD_VERSION') }}"
-    cpd_meta_namespace: "{{ lookup('env', 'CPD_NAMESPACE') | default('cpd-meta-ops', true) }}"
-    db2wh_instance_name: "{{ lookup('env', 'CPD_DB2WH_INSTANCE_NAME') }}" # e.g. db2w-iot or db2w-manage
-    db2wh_meta_storage_size_gb: "{{ lookup('env', 'CPD_META_STORAGE_SIZE_GB') | default(20, true) }}"
-    db2wh_user_storage_size_gb: "{{ lookup('env', 'CPD_USER_STORAGE_SIZE_GB') | default(100, true) }}"
-    db2wh_backup_storage_size_gb: "{{ lookup('env', 'CPD_BACKUP_STORAGE_SIZE_GB') | default(100, true) }}"
-    db2wh_logs_storage_size_gb: "{{ lookup('env', 'DB2WH_LOGS_STORAGE_SIZE_GB') | default(100, true) }}"
-    db2wh_temp_storage_size_gb: "{{ lookup('env', 'DB2WH_TEMP_STORAGE_SIZE_GB') | default(100, true) }}"
-    db2wh_meta_storage_class: "{{ lookup('env', 'CPD_META_STORAGE_CLASS') | default('ibmc-file-silver-gid', true) }}"
-    db2wh_user_storage_class: "{{ lookup('env', 'CPD_USER_STORAGE_CLASS') | default('ibmc-file-gold-gid', true)  }}"
-    db2wh_backup_storage_class: "{{ lookup('env', 'CPD_BACKUP_STORAGE_CLASS') | default('ibmc-file-gold-gid', true)  }}"
-    db2wh_logs_storage_class: "{{ lookup('env', 'DB2WH_LOGS_STORAGE_CLASS') | default('ibmc-file-silver-gid', true) }}"
-    db2wh_temp_storage_class: "{{ lookup('env', 'DB2WH_TEMP_STORAGE_CLASS') | default('ibmc-file-silver-gid', true) }}"
-    db2wh_admin_username: "{{ lookup('env', 'CPD_ADMIN_USER')  | default('admin', true) }}"
-    db2wh_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD')  | default('password', true) }}"
-    db2wh_addon_version: "{{ lookup('env', 'CPD_DB2WH_ADDON_VERSION') | default('11.5.5.1-cn3-x86_64', true) }}"
-    db2wh_table_org: "{{ lookup('env', 'DB2WH_TABLE_ORG') | default('ROW', true) }}" # e.g ROW or COLUMN
+    db2wh_instance_name: db2wh-shared
+    db2wh_meta_storage_class: ibmc-file-silver-gid
+    db2wh_user_storage_class: ibmc-file-gold-gid
+    db2wh_backup_storage_class: ibmc-file-gold-gid
+    db2wh_logs_storage_class: ibmc-file-silver-gid
+    db2wh_temp_storage_class: ibmc-file-silver-gid
+
+    db2wh_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
+
     # Create the MAS JdbcCfg & Secret resource definitions
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
