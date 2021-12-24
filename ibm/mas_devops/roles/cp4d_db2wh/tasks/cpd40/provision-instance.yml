@@ -39,8 +39,8 @@
       - "mas_application_id .............. {{ mas_application_id | default('<undefined>')  }}"
 
       - "db2wh_namespace ................. {{ db2wh_namespace }}"
-
       - "db2wh_instance_name ............. {{ db2wh_instance_name }}"
+
       - "db2wh_meta_storage_class  ....... {{ db2wh_meta_storage_class }}"
       - "db2wh_meta_storage_size_gb ...... {{ db2wh_meta_storage_size_gb }}"
       - "db2wh_user_storage_class ........ {{ db2wh_user_storage_class }}"
@@ -52,14 +52,14 @@
       - "db2wh_temp_storage_class ........ {{ db2wh_temp_storage_class }}"
       - "db2wh_temp_storage_size_gb  ..... {{ db2wh_temp_storage_size_gb }}"
 
-      - "db2wh_username .................. {{ db2wh_admin_username }}"
-      - "db2wh_password .................. Found in 'c-{{ db2wh_instance_name }}-instancepassword' secret under '{{ db2wh_namespace }}' namespace"
-
       - "db2wh_version ................... {{ db2wh_version }}"
       - "db2wh_table_org ................. {{ db2wh_table_org }}"
       - "db2wh_dbname .................... {{ db2wh_dbname }}"
       - "db2wh_cpu_limits ................ {{ db2wh_cpu_limits }}"
       - "db2wh_memory_limits ............. {{ db2wh_memory_limits }}"
+
+      - "db2wh_jdbc_username ............. {{ db2wh_jdbc_username }}"
+      - "db2wh_jdbc_password ............. Found in 'c-{{ db2wh_instance_name }}-instancepassword' secret under '{{ db2wh_namespace }}' namespace"
 
 
 # 2. Create a Db2 instance
@@ -169,9 +169,9 @@
     - mas_config_dir != ""
   set_fact:
     db2wh_instance_id: "{{ db2wh_instance_name }}"
-    cp4d_db_certificate: "{{ _db2u_instance_certificates.resources[0].data['ca.crt'] | b64decode }}"
-    db2wh_admin_password: "{{ _db2u_instance_password.resources[0].data.password | b64decode }}"
-    jdbc_url: "jdbc:db2://c-{{db2wh_instance_name | lower}}-db2u-engn-svc.{{ db2wh_namespace }}.svc:{{db2wh_tls_nodeport}}/{{db2wh_dbname}}:sslConnection=true;"
+    db2wh_certificate: "{{ _db2u_instance_certificates.resources[0].data['ca.crt'] | b64decode }}"
+    db2wh_jdbc_password: "{{ _db2u_instance_password.resources[0].data.password | b64decode }}"
+    db2wh_jdbc_url: "jdbc:db2://c-{{db2wh_instance_name | lower}}-db2u-engn-svc.{{ db2wh_namespace }}.svc:{{db2wh_tls_nodeport}}/{{db2wh_dbname}}:sslConnection=true;"
 
 - name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
   when:
@@ -182,5 +182,3 @@
   ansible.builtin.template:
     src: suite_jdbccfg.yml
     dest: "{{ mas_config_dir }}/jdbc-{{ db2wh_instance_name | lower }}-{{ db2wh_namespace }}.yml"
-  vars:
-    cp4d_db_jdbc_url: "{{ jdbc_url }}"

@@ -18,7 +18,7 @@ Required.  Name of the database instance, note that this is the instance **name*
 Version of the DB2 Warehouse instance to be created.
 
 - Environment Variable: `DB2WH_VERSION`
-- Default: `11.5.5.1-cn3-x86_64`
+- Default: `11.5.6.0-cn3`
 
 ### db2wh_table_org
 The way database tables will be organized. It can be set to either `ROW` or `COLUMN`.
@@ -86,17 +86,17 @@ Size (in gigabytes) of temporary persistent volume, not used with CP4D v3.5 data
 - Environment Variable: `DB2WH_TEMP_STORAGE_SIZE_GB`
 - Default: `100`
 
-### db2wh_admin_username
-TODO: Provide details about this input, some old doc said this user needs to already exist in CP4D .. this appears to be used to authenticate an API request to create the database in CP4D v3.5 **and** as the credentials to access the database.
+### cpd_api_username
+Required for CP4D v3.5 only.  These credentials are used to call the REST API to create the database because CP4D v3.5 Kubernetes API is broken.  Yes, the default admin account for CP4D v3.5 really is set up as admin/password.
 
-- Environment Variable: `DB2WH_ADMIN_USER`
+- Environment Variable: `CPD_API_USERNAME`
 - Default: `admin`
 
-### db2wh_admin_password
-TODO: Provide details about this input, see comments about `db2wh_admin_username` ... the author left no documentation and it's unclear from reading the code what the expectations are here due to the dual purpose of the user credential properties for both accessing and creating the database.
+### cpd_api_password
+Required for CP4D v3.5 only.  These credentials are used to call the REST API to create the database because CP4D v3.5 Kubernetes API is broken.  Yes, the default admin account for CP4D v3.5 really is set up as admin/password.
 
-- Environment Variable: `DB2WH_ADMIN_PASSWORD`
-- Default: `password` (Ay, caramba!)
+- Environment Variable: `CPD_API_PASSWORD`
+- Default: `password`
 
 ### mas_instance_id
 Providing this and `mas_config_dir` will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.
@@ -136,6 +136,8 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    # Create a Db2 instance in CPD v4.0
+
     db2wh_instance_name: db2wh-shared
 
     # Configure storage suitable for IBM Cloud ROKS
@@ -144,8 +146,6 @@ Example Playbook
     db2wh_backup_storage_class: ibmc-file-gold-gid
     db2wh_logs_storage_class: ibmc-file-silver-gid
     db2wh_temp_storage_class: ibmc-file-silver-gid
-
-    db2wh_admin_password: "{{ lookup('env', 'DB2WH_ADMIN_PASSWORD') }}"
 
     # Create the MAS JdbcCfg & Secret resource definitions
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
