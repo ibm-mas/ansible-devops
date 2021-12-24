@@ -34,6 +34,23 @@ spec:
       storage: 500Mi
 ---
 # 3. Define the pipeline
+#
+# MAS Sample Pipeline
+# -------------------
+# By default only MAS core will be installed, with no applications installed.
+# - To add applications to the pipeline, set the mas_app_channel_x parameter for one or more applications
+# - The pipeline will automatically deploy the necessary additional dependencies for any applications enabled this way
+#
+# This pipeline will deploy a shared instance of Db2 and Kafka suitable for all applications
+# - Db2 will only be set up if IoT or Manage applications are set to be installed
+# - Db2 will be configured with the default recommended settings as defined in the ansible role
+# - Kafka will only be set up if IoT application is set to be installed
+#
+# This is a **sample** pipeline, you can use this as a template for your own pipelines, we aim to strike a good
+# balance between power and complexity in this configuration, if you have any questions about how the pipeline
+# works, or how to make adjustments to fir your specific use case, please raise an issue in GitHub:
+#   https://github.com/ibm-mas/ansible-devops/issues
+#
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
@@ -196,8 +213,6 @@ spec:
           value: install-db2w-shared
         - name: instance_name
           value: db2w-shared
-        - name: config_scope
-          value: system
       # Only create a Db2 instance if IoT or Manage are being installed
       when:
         - input: "$(params.mas_app_channel_iot)"
@@ -224,7 +239,7 @@ spec:
         - name: junit_suite_name
           value: hack-db2-for-manage
         - name: db2wh_instance_name
-          value: db2w-shared
+          value: "db2w-shared"
       # Only perform the hack if Manage is being installed
       when:
         - input: "$(params.mas_app_channel_manage)"
@@ -244,6 +259,9 @@ spec:
     # 7. Install IBM SLS
     # -------------------------------------------------------------------------
     - name: install-sls
+      params:
+        - name: junit_suite_name
+          value: install-sls
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-sls
@@ -261,6 +279,9 @@ spec:
     # 8. Install BAS
     # -------------------------------------------------------------------------
     - name: install-bas
+      params:
+        - name: junit_suite_name
+          value: install-bas
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-bas
@@ -275,6 +296,9 @@ spec:
     # 9. Install & configure IBM MAS
     # -------------------------------------------------------------------------
     - name: install-suite
+      params:
+        - name: junit_suite_name
+          value: install-suite
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-suite
@@ -292,6 +316,9 @@ spec:
     # 10. Configure Db2 in MAS
     # -------------------------------------------------------------------------
     - name: cfg-suite-db2
+      params:
+        - name: junit_suite_name
+          value: cfg-suite-db2
       taskRef:
         kind: ClusterTask
         name: mas-devops-configure-suite
@@ -609,6 +636,7 @@ spec:
           operator: notin
           values: [""]
       runAfter:
+        - cfg-suite-db2
         - cfg-manage
       workspaces:
         - name: settings
