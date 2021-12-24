@@ -70,5 +70,5 @@ oc create secret generic pipeline-sls-entitlement \
   --from-file=/home/david/masconfig/entitlement.lic
 
 oc apply -f samples/sample-pipeline.yaml
-oc create -f samples/sample-pipelinerun.yaml
+oc create -f samples/sample-pipelinerun-mas86.yaml
 ```
