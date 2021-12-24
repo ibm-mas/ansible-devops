@@ -9,91 +9,91 @@ Role Variables
 --------------
 
 ### db2wh_instance_name
-TODO: Document what this is used for.
+Name of the database instance, note that this is the instance **name**, which is different from the instance **ID**.
 
 - Environment Variable: `DB2WH_INSTANCE_NAME`
 - Default: None
 
 ### db2wh_addon_version
-TODO: Document what this is used for.
+Version of the DB2 Warehouse instance to be created.
 
 - Environment Variable: `DB2WH_ADDON_VERSION`
 - Default: `11.5.5.1-cn3-x86_64`
 
 ### db2wh_table_org
-TODO: Document what this is used for.
+The way database tables will be organized. It can be set to either `ROW` or `COLUMN`.
 
 - Environment Variable: `DB2WH_TABLE_ORG`
 - Default: `ROW`
 
 ### db2wh_meta_storage_class
-TODO: Document what this is used for.
+Required.  Storage class used for metadata.
 
 - Environment Variable: `DB2WH_META_STORAGE_CLASS`
 - Default: None
 
 ### db2wh_meta_storage_size_gb
-TODO: Document what this is used for.
+Size of the metadata persistent volume, in gigabytes
 
 - Environment Variable: `DB2WH_META_STORAGE_SIZE_GB`
 - Default: `20`
 
 ### db2wh_user_storage_class
-TODO: Document what this is used for.
+Required.  Storage class used for user data.
 
 - Environment Variable: `DB2WH_USER_STORAGE_CLASS`
 - Default: None
 
 ### db2wh_user_storage_size_gb
-TODO: Document what this is used for.
+Size of user persistent volume, in gigabytes.
 
 - Environment Variable: `DB2WH_USER_STORAGE_SIZE_GB`
 - Default: `100`
 
 ### db2wh_backup_storage_class
-TODO: Document what this is used for.
+Required.  Storage class used for backup.
 
 - Environment Variable: `DB2WH_BACKUP_STORAGE_CLASS`
 - Default: None
 
 ### db2wh_backup_storage_size_gb
-TODO: Document what this is used for.
+Size of backup persistent volume, in gigabytes.
 
 - Environment Variable: `DB2WH_BACKUP_STORAGE_SIZE_GB`
 - Default: `100`
 
 ### db2wh_logs_storage_class
-TODO: Document what this is used for.
+Required.  Storage class used for logs.
 
 - Environment Variable: `DB2WH_LOGS_STORAGE_CLASS`
 - Default: None
 
 ### db2wh_logs_storage_size_gb
-TODO: Document what this is used for.
+Size of logs persistent volume, in gigabytes.
 
 - Environment Variable: `DB2WH_LOGS_STORAGE_SIZE_GB`
 - Default: `100`
 
 ### db2wh_temp_storage_class
-TODO: Document what this is used for.
+Required.  Storage class used for temporary data.
 
 - Environment Variable: `DB2WH_TEMP_STORAGE_CLASS`
 - Default: None
 
 ### db2wh_temp_storage_size_gb
-TODO: Document what this is used for.
+Size of temporary persistent volume, in gigabytes.
 
 - Environment Variable: `DB2WH_TEMP_STORAGE_SIZE_GB`
 - Default: `100`
 
 ### db2wh_admin_username
-TODO: Document what this is used for.
+TODO: Provide details about this input
 
 - Environment Variable: `DB2WH_ADMIN_USER`
 - Default: `admin`
 
 ### db2wh_admin_password
-TODO: Document what this is used for.
+TODO: Provide details about this input
 
 - Environment Variable: `DB2WH_ADMIN_PASSWORD`
 - Default: `password` (This will be fixed!!)
@@ -137,6 +137,8 @@ Example Playbook
   any_errors_fatal: true
   vars:
     db2wh_instance_name: db2wh-shared
+
+    # Configure storage suitable for IBM Cloud ROKS
     db2wh_meta_storage_class: ibmc-file-silver-gid
     db2wh_user_storage_class: ibmc-file-gold-gid
     db2wh_backup_storage_class: ibmc-file-gold-gid
