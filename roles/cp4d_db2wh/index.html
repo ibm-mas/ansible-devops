@@ -87,6 +87,12 @@
                     </li>
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">cp4d_db2wh</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#cloudpak-for-data-35">CloudPak for Data 3.5</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#debugging-db2-install-problems">Debugging Db2 install problems</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#db2wh_instance_name">db2wh_instance_name</a>
@@ -219,8 +225,27 @@
             <div class="section">
               
                 <h1 id="cp4d_db2wh">cp4d_db2wh<a class="headerlink" href="#cp4d_db2wh" title="Permanent link"></a></h1>
-<p>This role expects a CP4D with DB2 Warehouse service enabled already exists. Use it after <code>install-cp4d</code>.</p>
-<p>It can be used to create DB2 Warehouse instances against the same Cloud Pak for Data. It is useful if user wants to create a database for IoT and another for Manage. In additional, different from other DB2 Warehouse playbooks, this one uses REST APIs and not Operators to create the DB2 instance (operators are not working properly in CP4D 3.5). By using REST APIs internally, we have a bit more configuration possibilties here as well as the instance will be displayed in CP4D dashboard.</p>
+<p>This role creates a Db2 Warehouse instance in Cloud Pak for Data.  A Db2 Warehouse cluster will be created and a public TLS encrypted route is configured to allow external access to the cluster.</p>
+<h3 id="cloudpak-for-data-35">CloudPak for Data 3.5<a class="headerlink" href="#cloudpak-for-data-35" title="Permanent link"></a></h3>
+<p>The certificates are available from the <code>internal-tls</code> secret in the <code>cpd-meta-ops</code> namespace.  The default user is <code>db2inst1</code> and the password is available in the <code>instancepassword</code> secret in the same namespace.  You can examine the deployed resources in the <code>cpd-meta-ops</code> namespace:</p>
+<pre><code class="language-bash">oc -n cpd-meta-ops get cpdservice,db2ucluster
+
+NAME                                                       MESSAGE                 REASON   STATUS       LASTACTION   PHASE        CODE
+cpdservice.metaoperator.cpd.ibm.com/cpdservice-db2wh       Completed                        Ready        CPDInstall   Ready        0
+cpdservice.metaoperator.cpd.ibm.com/cpdservice-db2wh-dmc   CPD binary is running            Installing   CPDInstall   Installing   1
+
+NAME                                            STATE      AGE
+db2ucluster.db2u.databases.ibm.com/db2u-bludb   NotReady   8m44s
+</code></pre>
+<h4 id="debugging-db2-install-problems">Debugging Db2 install problems<a class="headerlink" href="#debugging-db2-install-problems" title="Permanent link"></a></h4>
+<p>The following command may come in handy:</p>
+<pre><code class="language-bash">oc -n cpd-meta-ops get formations.db2u.databases.ibm.com db2wh-db01 -o go-template='{{range .status.components}}{{printf &quot;%s,%s,%s\n&quot; .kind .name .status.state}}{{end}}' | column -s, -t
+</code></pre>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The role will generate a yaml file containing the definition of a Secret and JdbcCfg resource that can be used to configure the deployed cluster as the MAS system JDBC datasource.</p>
+<p>This file can be directly applied using <code>oc apply -f /tmp/jdbccfg-cp4ddb2wh-system.yaml</code> or added to the <code>mas_config</code> list variable used by the <code>ibm.mas_devops.suite_install</code> role to deploy and configure MAS.</p>
+</div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
 <h3 id="db2wh_instance_name">db2wh_instance_name<a class="headerlink" href="#db2wh_instance_name" title="Permanent link"></a></h3>
 <p>Required.  Name of the database instance, note that this is the instance <strong>name</strong>, which is different from the instance <strong>ID</strong>.</p>
@@ -347,7 +372,6 @@
   any_errors_fatal: true
   vars:
     # Create a Db2 instance in CPD v4.0
-
     db2wh_instance_name: db2wh-shared
 
     # Configure storage suitable for IBM Cloud ROKS
