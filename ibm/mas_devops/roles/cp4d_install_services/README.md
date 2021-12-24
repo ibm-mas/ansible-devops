@@ -29,7 +29,11 @@ Required only if installing Watson Discovery service (`wd`) on CP4D v4.0.
 - Environment Variable: `CPD_BLOCK_STORAGE_CLASS`
 - Default Value: None
 
+### cpd_services
+Required.  Provide a list of Cloud Pak for Data services to enable.
 
+- Environment Variable: None
+- Default Value: None
 
 Example Playbook
 ----------------
