@@ -1,19 +1,17 @@
 ---
-
-# Fail if no entitlement key is provided
+# 0. Fail if required properties are not set
 # -----------------------------------------------------------------------------
-- name: "Fail if cpd_registry_password has not been provided"
-  when: cpd_registry_password is not defined or cpd_registry_password == ""
+- name: "Fail if cpd_entitlement_key has not been provided"
+  when: cpd_entitlement_key is not defined or cpd_entitlement_key == ""
   fail:
-    msg: "cpd_registry_password property has not been set"
+    msg: "cpd_entitlement_key property has not been set"
 
 - name: "Debug information"
   debug:
     msg:
+      - "CPD meta namespace ........... {{ cpd_meta_namespace }}"
       - "CPD registry ................. {{ cpd_registry }}"
       - "CPD username ................. {{ cpd_registry_user }}"
-      - "CPD entitlement .............. *********************"
-      - "Namespace .................... {{ cpd_meta_namespace }}"
 
 
 # 1. Setup namespace for CP4D
@@ -31,10 +29,10 @@
 # -----------------------------------------------------------------------------
 - name: "Create ibm-entitlement-key secret"
   vars:
-    entitledAuthStr: "{{cpd_registry_user}}:{{cpd_registry_password}}"
+    entitledAuthStr: "{{cpd_registry_user}}:{{cpd_entitlement_key}}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
-      - "{\"auths\":{\"{{cpd_registry}}\":{\"username\":\"{{cpd_registry_user}}\",\"password\":\"{{cpd_registry_password}}\",\"auth\":\"{{entitledAuth}}\"}"
+      - "{\"auths\":{\"{{cpd_registry}}\":{\"username\":\"{{cpd_registry_user}}\",\"password\":\"{{cpd_entitlement_key}}\",\"auth\":\"{{entitledAuth}}\"}"
       - "}"
       - "}"
   community.kubernetes.k8s:
