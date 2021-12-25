@@ -13,7 +13,7 @@ docker push quay.io/ibmmas/ansible-devops:$VERSION
 ### Build new tekton images
 ```bash
 export DEV_MODE=true
-export VERSION=4.5.1-pre.branch
+export VERSION=5.1.0-pre.branch
 cd pipelines
 bash bin/build-pipelines.sh
 ```
