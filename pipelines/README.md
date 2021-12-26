@@ -29,7 +29,15 @@ To learn more about Tekton refer to the excellent material here: https://redhat-
 
 
 ## Install Pipeline Operator
-You can use the install script provided: `bin/install-pipelines.sh`, or just create the subscription below:
+After provisioning and logging into the cluster, you can use the install script provided: `bin/install-pipelines.sh`, or just create the subscription below:
+
+```bash
+export IBMCLOUD_APIKEY=xxx
+export CLUSTER_NAME=xxx
+ansible-playbook playbooks/ocp/provision-roks.yml
+ansible-playbook playbooks/cp4d/hack-worker-nodes.yml
+bin/install-pipelines.sh
+```
 
 ```yaml
 apiVersion: operators.coreos.com/v1alpha1

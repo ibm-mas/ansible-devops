@@ -13,7 +13,7 @@ docker push quay.io/ibmmas/ansible-devops:$VERSION
 ### Build new tekton images
 ```bash
 export DEV_MODE=true
-export VERSION=4.5.1-pre.branch
+export VERSION=5.1.0-pre.branch
 cd pipelines
 bash bin/build-pipelines.sh
 ```
@@ -38,7 +38,7 @@ oc create secret generic pipeline-additional-configs --from-file=/home/david/mas
 oc create secret generic pipeline-sls-entitlement --from-file=/home/david/masconfig/entitlement.lic
 
 oc apply -f samples/sample-pipeline.yaml
-oc create -f samples/sample-pipelinerun.yaml
+oc create -f samples/sample-pipelinerun-dev.yaml
 ```
 
 
@@ -48,8 +48,12 @@ Each time you want to modify and retry a pipeline run, use the following:
 ```bash
 cd pipelines
 
-bash bin/build-pipelines.sh
-oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
-oc apply -f samples/sample-pipeline.yaml
-oc create -f samples/sample-pipelinerun-dev.yaml
+# Update the settings secret
+oc apply -f samples/sample-pipelinesettings-roks-donotcommit.yaml
+
+# Build and update the clustertasks
+bash bin/build-pipelines.sh && oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
+
+# Update the pipeline definition and start a new run
+oc apply -f samples/sample-pipeline.yaml && oc create -f samples/sample-pipelinerun-dev.yaml
 ```
