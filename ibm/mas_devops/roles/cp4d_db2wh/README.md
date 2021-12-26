@@ -112,6 +112,30 @@ Size (in gigabytes) of temporary persistent volume, not used with CP4D v3.5 data
 - Environment Variable: `DB2WH_TEMP_STORAGE_SIZE_GB`
 - Default: `100`
 
+### db2wh_cpu_requests
+Define the Kubernetes CPU request for the Db2 pod.  Only supported with CloudPak for Data v4.
+
+- Environment Variable: `DB2WH_CPU_REQUESTS`
+- Default: `2000m`
+
+### db2wh_cpu_limits
+Define the Kubernetes CPU limit for the Db2 pod.  Only supported with CloudPak for Data v4.
+
+- Environment Variable: `DB2WH_CPU_LIMITS`
+- Default: `4000m`
+
+### db2wh_memory_requests
+Define the Kubernetes memory request for the Db2 pod.  Only supported with CloudPak for Data v4.
+
+- Environment Variable: `DB2WH_MEMORY_REQUESTS`
+- Default: `6Gi`
+
+### db2wh_memory_limits
+Define the Kubernetes memory limit for the Db2 pod.  Only supported with CloudPak for Data v4.
+
+- Environment Variable: `DB2WH_MEMORY_LIMITS`
+- Default: `12Gi`
+
 ### cpd_api_username
 Required for CP4D v3.5 only.  These credentials are used to call the REST API to create the database because CP4D v3.5 Kubernetes API is broken.  Yes, the default admin account for CP4D v3.5 really is set up as admin/password.
 
