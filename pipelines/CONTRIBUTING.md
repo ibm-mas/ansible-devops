@@ -38,7 +38,7 @@ oc create secret generic pipeline-additional-configs --from-file=/home/david/mas
 oc create secret generic pipeline-sls-entitlement --from-file=/home/david/masconfig/entitlement.lic
 
 oc apply -f samples/sample-pipeline.yaml
-oc create -f samples/sample-pipelinerun.yaml
+oc create -f samples/sample-pipelinerun-dev.yaml
 ```
 
 
