@@ -7,29 +7,32 @@ To learn more about Tekton refer to the excellent material here: https://redhat-
 ## ClusterTasks
 
 # CP4D Management
-- Install CP4D - dependencies/install-cp4d.yaml
-- Install Db2 Warehouse (via undocumented API!) - dependencies/install-db2-api.yaml
-- Install Db2 Warehouse - dependencies/install-db2.yaml
+- [Create Db2 Warehouse Instance](tasks/dependencies/create-db2-instance.yaml)
+- [Install CP4D with Db2 Warehouse service enabled](tasks/dependencies/install-db2.yaml)
+- [Install CP4D with Db2 Warehouse & Watson Studio services enabled](tasks/dependencies/install-fullstack.yaml)
+- [Install CP4D with Watson Studio services enabled](tasks/dependencies/install-watsonstudio.yaml)
 
 ### Dependency Management
-- Install AMQStreams - dependencies/install-amqstreams.yaml
-- Install Behavior Analytics Service - bas/install-bas.yaml
-- Install MongoDb CE - dependencies/install-mongodb-ce.yaml
-- Install IBM Suite License Service - sls/install-sls.yaml
+- [Install AMQStreams](tasks/dependencies/install-amqstreams.yaml)
+- [Install Behavior Analytics Service](tasks/bas/install-bas.yaml)
+- [Install MongoDb CE](tasks/dependencies/install-mongodb-ce.yaml)
+- [Install IBM Suite License Service](tasks/sls/install-sls.yaml)
 
 ### MAS Management
-- Configure Application - mas/configure-app.yaml
-- Configure MAS Core - mas/configure-suite.yaml
-- Manage Db2 Database Configuration Hack - mas/hack-manage-db2.yaml
-- Install Application - mas/install-app.yaml
-- Install MAS Core - mas/install-suite.yaml
+- [Configure Application](tasks/mas/configure-app.yaml)
+- [Configure MAS Core](tasks/mas/configure-suite.yaml)
+- [Manage Db2 Database Configuration Hack](tasks/mas/hack-manage-db2.yaml)
+- [Install Application](tasks/mas/install-app.yaml)
+- [Install MAS Core](tasks/mas/install-suite.yaml)
 
 ### OCP Management
-- Configure OCP Cluster - ocp/configure-ocp.yaml
+- [Configure OCP Cluster for MAS](tasks/ocp/configure-ocp.yaml)
 
 
-## Install Pipeline Operator
-After provisioning and logging into the cluster, you can use the install script provided: `bin/install-pipelines.sh`, or just create the subscription below:
+### Usage
+
+### 1. Provision Cluster and Install OpenShift Pipelines Operator
+After provisioning and logging into the cluster, you can use the install script provided: `bin/install-pipelines.sh`:
 
 ```bash
 export IBMCLOUD_APIKEY=xxx
@@ -39,21 +42,8 @@ ansible-playbook playbooks/cp4d/hack-worker-nodes.yml
 bin/install-pipelines.sh
 ```
 
-```yaml
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-    name: openshift-pipelines-operator
-    namespace: openshift-operators
-spec:
-    channel: stable
-    name: openshift-pipelines-operator-rh
-    source: redhat-operators
-    sourceNamespace: openshift-marketplace
-```
 
-
-# Build and Install the MAS Pipeline Task Definitions
+# 2. Build and Install the MAS Pipeline Task Definitions
 ```
 export DEV_MODE=true
 export VERSION=5.1.0
@@ -63,9 +53,8 @@ cd pipelines
 oc apply -f ibm-mas_devops-clustertasks-5.1.0.yaml
 ```
 
-
-# Install and run the MAS Sample Pipeline
-Modify the `samples/sample-pipelinesettings.yaml` file to populate it with your own settings before applying it to the cluster
+# 3. Install and run the MAS Sample Pipeline
+Modify the [sample-pipelinesettings.yaml](samples/sample-pipelinesettings.yaml) to populate it with your own settings before applying it to the cluster, and optionally customize the parameters in [sample-pipelinerun-mas86.yaml](samples/sample-pipelinerun-mas86.yaml) if you wish to adjust the subscription channels for the MAS applications.
 
 ```bash
 oc new-project mas-sample-pipelines

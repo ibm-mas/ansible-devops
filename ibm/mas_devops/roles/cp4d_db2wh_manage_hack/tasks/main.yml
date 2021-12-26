@@ -124,11 +124,16 @@
 # Following line removed:
 # db2 GRANT DBADM,CREATETAB,BINDADD,CONNECT,CREATE_NOT_FENCED_ROUTINE,IMPLICIT_SCHEMA,
 #   LOAD,CREATE_EXTERNAL_ROUTINE,QUIESCE_CONNECT,SECADM ON DATABASE TO USER {{ db2wh_username }}
+#
+# We also removed these statements due to error:
+# SQL0554N  An authorization ID cannot grant a privilege or authority to itself
+# db2 GRANT USE OF TABLESPACE MAXDATA TO USER {{ db2wh_username }}
+# db2 GRANT CREATEIN,DROPIN,ALTERIN ON SCHEMA {{ db2wh_schema }} TO USER {{ db2wh_username }}
 
 - name: Prepare db2 for use with Maximo TPAE
   when: setupdb_file_check.stdout == "0"
   shell: |
-    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "cat << EOF > /tmp/setupdb.sh
+    oc exec -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "cat << EOF > /tmp/setupdb.sh
     db2 connect to {{ db2wh_dbname }}
     db2 update db cfg for {{ db2wh_dbname }} using dft_table_org ROW
     db2 update db cfg for {{ db2wh_dbname }} using AUTO_MAINT ON DEFERRED
@@ -176,16 +181,13 @@
     db2 CREATE REGULAR TABLESPACE MAXDATA PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE 5000 M BUFFERPOOL MAXBUFPOOL
     db2 CREATE TEMPORARY TABLESPACE MAXTEMP PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE BUFFERPOOL MAXBUFPOOL
     db2 CREATE REGULAR TABLESPACE MAXINDEX PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE 5000 M BUFFERPOOL MAXBUFPOOL
-    db2 GRANT USE OF TABLESPACE MAXDATA TO USER {{ db2wh_username }}
     db2 create schema {{ db2wh_schema }} authorization {{ db2wh_username }}
-    db2 GRANT USE OF TABLESPACE MAXDATA TO USER {{ db2wh_username }}
-    db2 GRANT CREATEIN,DROPIN,ALTERIN ON SCHEMA {{ db2wh_schema }} TO USER {{ db2wh_username }}
     db2stop force
     sleep 10
     db2start
     EOF"
-    oc exec -it -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- bash -c "chmod 755 /tmp/setupdb.sh"
-    oc exec -it -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- su -lc /tmp/setupdb.sh db2inst1
+    oc exec -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- bash -c "chmod 755 /tmp/setupdb.sh"
+    oc exec -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- su -lc /tmp/setupdb.sh db2inst1
   register: prepare_cmds_status
 
 
