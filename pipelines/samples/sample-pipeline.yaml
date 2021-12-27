@@ -34,6 +34,23 @@ spec:
       storage: 500Mi
 ---
 # 3. Define the pipeline
+#
+# MAS Sample Pipeline
+# -------------------
+# By default only MAS core will be installed, with no applications installed.
+# - To add applications to the pipeline, set the mas_app_channel_x parameter for one or more applications
+# - The pipeline will automatically deploy the necessary additional dependencies for any applications enabled this way
+#
+# This pipeline will deploy a shared instance of Db2 and Kafka suitable for all applications
+# - Db2 will only be set up if IoT or Manage applications are set to be installed
+# - Db2 will be configured with the default recommended settings as defined in the ansible role
+# - Kafka will only be set up if IoT application is set to be installed
+#
+# This is a **sample** pipeline, you can use this as a template for your own pipelines, we aim to strike a good
+# balance between power and complexity in this configuration, if you have any questions about how the pipeline
+# works, or how to make adjustments to fir your specific use case, please raise an issue in GitHub:
+#   https://github.com/ibm-mas/ansible-devops/issues
+#
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
@@ -66,27 +83,27 @@ spec:
     - name: mas_app_channel_iot
       type: string
       description: Subscription channel for IoT application operator
-      default: 8.x
+      default: ""
     - name: mas_app_channel_manage
       type: string
       description: Subscription channel for Manage application operator
-      default: 8.x
+      default: ""
     - name: mas_app_channel_monitor
       type: string
       description: Subscription channel for Monitor application operator
-      default: 8.x
+      default: ""
     - name: mas_app_channel_mso
       type: string
       description: Subscription channel for MSO application operator
-      default: 8.x
+      default: ""
     - name: mas_app_channel_predict
       type: string
       description: Subscription channel for Predict application operator
-      default: 8.x
+      default: ""
     - name: mas_app_channel_safety
       type: string
       description: Subscription channel for Safety application operator
-      default: 8.x
+      default: ""
     # Application Catalog Sources
     - name: mas_app_source_iot
       type: string
@@ -149,6 +166,11 @@ spec:
       params:
         - name: junit_suite_name
           value: install-kafka
+      # Only install Kafka if the IoT application is being installed
+      when:
+        - input: "$(params.mas_app_channel_iot)"
+          operator: notin
+          values: [""]
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-amqstreams
@@ -164,9 +186,19 @@ spec:
       params:
         - name: junit_suite_name
           value: cp4d-install-db2
+      # Only install CP4D with Db2 if IoT or Manage are being installed
+      when:
+        - input: "$(params.mas_app_channel_iot)"
+          operator: notin
+          values: [""]
+        - input: "$(params.mas_app_channel_manage)"
+          operator: notin
+          values: [""]
       taskRef:
         name: mas-devops-cp4d-install-services-db2
         kind: ClusterTask
+      runAfter:
+        - cfg-ocp
       workspaces:
         - name: configs
           workspace: shared-configs
@@ -181,20 +213,18 @@ spec:
           value: install-db2w-shared
         - name: instance_name
           value: db2w-shared
-        - name: mas_config_scope
-          value: system
-        # Configure storage sizes, the storage classes are set globally in the pipeline settings secret
-        - name: meta_storage
-          value: "20"
-        - name: user_storage
-          value: "100"
-        - name: backup_storage
-          value: "100"
+      # Only create a Db2 instance if IoT or Manage are being installed
+      when:
+        - input: "$(params.mas_app_channel_iot)"
+          operator: notin
+          values: [""]
+        - input: "$(params.mas_app_channel_manage)"
+          operator: notin
+          values: [""]
       taskRef:
         name: mas-devops-cp4d-create-db2-instance
         kind: ClusterTask
       runAfter:
-        - cfg-ocp
         - cp4d-install-db2
       workspaces:
         - name: configs
@@ -209,7 +239,12 @@ spec:
         - name: junit_suite_name
           value: hack-db2-for-manage
         - name: db2wh_instance_name
-          value: db2w-shared
+          value: "db2w-shared"
+      # Only perform the hack if Manage is being installed
+      when:
+        - input: "$(params.mas_app_channel_manage)"
+          operator: notin
+          values: [""]
       taskRef:
         name: mas-devops-hack-manage-db2
         kind: ClusterTask
@@ -224,6 +259,9 @@ spec:
     # 7. Install IBM SLS
     # -------------------------------------------------------------------------
     - name: install-sls
+      params:
+        - name: junit_suite_name
+          value: install-sls
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-sls
@@ -241,6 +279,9 @@ spec:
     # 8. Install BAS
     # -------------------------------------------------------------------------
     - name: install-bas
+      params:
+        - name: junit_suite_name
+          value: install-bas
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-bas
@@ -255,6 +296,9 @@ spec:
     # 9. Install & configure IBM MAS
     # -------------------------------------------------------------------------
     - name: install-suite
+      params:
+        - name: junit_suite_name
+          value: install-suite
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-suite
@@ -272,12 +316,22 @@ spec:
     # 10. Configure Db2 in MAS
     # -------------------------------------------------------------------------
     - name: cfg-suite-db2
+      params:
+        - name: junit_suite_name
+          value: cfg-suite-db2
       taskRef:
         kind: ClusterTask
         name: mas-devops-configure-suite
+      # Only load the JDBCCfg if IoT or Manage are being installed
+      when:
+        - input: "$(params.mas_app_channel_iot)"
+          operator: notin
+          values: [""]
+        - input: "$(params.mas_app_channel_manage)"
+          operator: notin
+          values: [""]
       runAfter:
         - install-suite
-        - install-db2w-shared
         - hack-db2-for-manage
       workspaces:
         - name: configs
@@ -294,6 +348,11 @@ spec:
       taskRef:
         kind: ClusterTask
         name: mas-devops-configure-suite
+      # Only load the KafkaCfg if IoT is being installed
+      when:
+        - input: "$(params.mas_app_channel_iot)"
+          operator: notin
+          values: [""]
       runAfter:
         - install-suite
         - install-kafka
@@ -319,6 +378,11 @@ spec:
       taskRef:
         name: mas-devops-install-app
         kind: ClusterTask
+      # Only install IoT if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_iot)"
+          operator: notin
+          values: [""]
       runAfter:
         - cfg-suite-db2
         - cfg-suite-kafka
@@ -338,6 +402,11 @@ spec:
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
+      # Only configure a workspace for IoT if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_iot)"
+          operator: notin
+          values: [""]
       runAfter:
         - install-iot
       workspaces:
@@ -360,6 +429,11 @@ spec:
       taskRef:
         name: mas-devops-install-app
         kind: ClusterTask
+      # Only install Monitor if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_monitor)"
+          operator: notin
+          values: [""]
       runAfter:
         - cfg-iot
       workspaces:
@@ -378,6 +452,11 @@ spec:
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
+      # Only configure a workspace for Monitor if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_monitor)"
+          operator: notin
+          values: [""]
       runAfter:
         - install-monitor
       workspaces:
@@ -400,6 +479,11 @@ spec:
       taskRef:
         name: mas-devops-install-app
         kind: ClusterTask
+      # Only install Safety if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_safety)"
+          operator: notin
+          values: [""]
       runAfter:
         - cfg-iot
       workspaces:
@@ -418,6 +502,11 @@ spec:
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
+      # Only install Safety if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_safety)"
+          operator: notin
+          values: [""]
       runAfter:
         - install-safety
       workspaces:
@@ -440,6 +529,11 @@ spec:
       taskRef:
         name: mas-devops-install-app
         kind: ClusterTask
+      # Only install Manage if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_manage)"
+          operator: notin
+          values: [""]
       runAfter:
         - cfg-suite-db2
       workspaces:
@@ -458,6 +552,11 @@ spec:
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
+      # Only install Manage if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_manage)"
+          operator: notin
+          values: [""]
       runAfter:
         - install-manage
       workspaces:
@@ -480,6 +579,11 @@ spec:
       taskRef:
         name: mas-devops-install-app
         kind: ClusterTask
+      # Only install Predict if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_predict)"
+          operator: notin
+          values: [""]
       runAfter:
         - cfg-manage
       workspaces:
@@ -498,6 +602,11 @@ spec:
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
+      # Only install Predict if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_predict)"
+          operator: notin
+          values: [""]
       runAfter:
         - install-predict
       workspaces:
@@ -520,6 +629,11 @@ spec:
       taskRef:
         name: mas-devops-install-app
         kind: ClusterTask
+      # Only install MSO if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_mso)"
+          operator: notin
+          values: [""]
       runAfter:
         - cfg-manage
       workspaces:
@@ -538,6 +652,11 @@ spec:
       taskRef:
         name: mas-devops-configure-app
         kind: ClusterTask
+      # Only install MSO if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_mso)"
+          operator: notin
+          values: [""]
       runAfter:
         - install-mso
       workspaces:

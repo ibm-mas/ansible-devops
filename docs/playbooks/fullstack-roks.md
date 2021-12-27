@@ -4,26 +4,25 @@ This master playbook will drive the following playbooks in sequence:
 
 - [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
 - Install dependencies:
-    - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (15 minutes)
+    - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (10 minutes)
     - [Install Kafka (AMQ Streams)](dependencies.md#install-amq-streams) (10 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
     - [Install BAS](dependencies.md#install-bas) (35 minutes)
     - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
     - Install Cloud Pak for Data Services:
-        - [Db2 Warehouse](cp4d.md#db2-install) with [Db2 Management Console](cp4d.md#db2-install) (1-2 hours)
+        - [Db2 Warehouse](cp4d.md#db2-install) (1 hour)
         - [Watson Studio](cp4d.md#watson-studio-install) with [Apache Spark](cp4d.md#watson-studio-install), [Watson Machine Learning](cp4d.md#watson-studio-install), & [Watson AI OpenScale](cp4d.md#watson-studio-install) (4-5 hours)
-    - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (60 minutes)
-    - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack)
-    - Install Cloud Object Storage (coming soon)
+    - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (45 minutes)
+    - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack) (5 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
-    - [Install & configure MAS](mas.md#install-mas) (20 minutes)
+    - [Install & configure MAS](mas.md#install-mas) (15 minutes)
 - Install applications:
-    - [Install & configure Manage](mas.md#install-mas-application) (7 minute install + 1 hour 40 minutes configure)
-    - [Install & configure IoT](mas.md#install-mas-application) (2 hour install + 2 minutes configure)
-    - [Install & configure Monitor](mas.md#install-mas-application) (8 minute install + ? configure)
+    - [Install & configure Manage](mas.md#install-mas-application) (10 minute install + 2 hours configure)
+    - [Install & configure IoT](mas.md#install-mas-application) (25 minute install + 5 minutes configure)
+    - [Install & configure Monitor](mas.md#install-mas-application) (10 minute install + ? configure)
     - [Install & configure Predict](mas.md#install-mas-application) (10 minute install + 5 minutes configure)
-    - [Install & configure Safety](mas.md#install-mas-application) (? minute install + ? minutes configure)
+    - [Install & configure Safety](mas.md#install-mas-application) (? minute install + ? configure)
     - [Install & configure Maximo Scheduler Optmization](mas.md#install-mas-application) (10 minute install + ? configure)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.

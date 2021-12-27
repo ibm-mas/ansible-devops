@@ -1,24 +1,25 @@
 ---
-- set_fact:
-    mas87_channels: "{{ mas87_default_channels }}"
+- name: "Debug parameters"
+  debug:
+    msg:
+      - "CPD Version .......... {{ cpd_version | default( '<undefined>', True) }}"
+      - "MAS Channel .......... {{ mas_channel | default( '<undefined>', True) }}"
 
 # 0. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-# - fail if neither cpd_version nor mas_channel provided, as we need something to determine which cpd version to be installed.
-- name: "Fail if cpd_version and mas_channel are not provided"
+# - fail if neither cpd_version nor mas_channel provided, as we need something to determine which version of to install.
+- name: "Fail if both cpd_version and mas_channel are undefined"
   when:
     - cpd_version is not defined or cpd_version == ''
     - mas_channel is not defined or mas_channel == ''
   fail:
-    msg: "either cpd_version or mas_channel properties are required"
+    msg: "One of the cpd_version and mas_channel properties are required, neither are set"
 
 
 # 1. Check for CPD supported versions
 # -----------------------------------------------------------------------------
 # - fail if neither cpd_version nor mas_channel provided, as we need something to determine which cpd version to be installed.
-- name: "Fail if defined cpd_version is not supported"
-  vars:
-    cpd_supported_versions: "{{ cpd_default_supported_versions }}"
+- name: "Fail if cpd_version is unsupported"
   when:
     - cpd_version is defined and cpd_version != ''
     - cpd_version not in cpd_supported_versions
@@ -29,12 +30,13 @@
 # 2. Check if CPD version is compatible with MAS version to be installed (if any)
 # -----------------------------------------------------------------------------
 # - fail when MAS 8.7 installed not installed with cpd_version = 4.0
-# - fail when MAS 8.6 and below not installed with cpd_version = 3.5
-- name: "Fail if cpd_version not compatible with mas_channel"
+# - CPDv4 is supported in MAS 8.6 and 8.7, but we are not checking that here
+- name: "Fail if cpd_version and mas_channel are both set, but incompatible"
   when:
     - mas_channel is defined
     - mas_channel !=''
-    - (cpd_version == 'cpd35' and (mas_channel in mas87_channels)) or (cpd_version == 'cpd40' and (mas_channel not in mas87_channels))
+    - cpd_version is defined
+    - cpd_version == 'cpd35' and (mas_channel in mas87_channels)
 
   fail:
     msg: "cpd_version {{ cpd_version }} is not compatible with mas_channel {{ mas_channel }}"
@@ -55,4 +57,11 @@
       - "CPD Version to be installed: {{ cpd_version }}"
       - "MAS Channel: {{ 'Unspecified' if (mas_channel is not defined or mas_channel == '') else mas_channel }}"
 
-- include_tasks: "tasks/{{ cpd_version }}/cpd-install.yml"
+
+# 4. Load variables and run the install for the selected version
+# -----------------------------------------------------------------------------
+- name: Load variables
+  include_vars: "vars/{{ cpd_version }}.yml"
+
+- name: "Run the install"
+  include_tasks: "tasks/install/{{ cpd_version }}.yml"

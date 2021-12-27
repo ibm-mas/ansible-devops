@@ -1,5 +1,40 @@
 ---
-- debug:
-    msg: "Installing CPD Services: {{ cpd_services }}"
+# 1. Determine which version of CP4D we are working with
+# -----------------------------------------------------------------------------
+# - if cpd_version is set explicitly then we use that
+# - if cpd-meta-ops namespace exists then we assume it's 3.5
+# - otherwise we assume CPD v4
 
-- include_tasks: "tasks/{{ cpd_version }}/cpd-install-services.yml"
+- name: Check for the presence of the CPDv4 services namespace
+  when: cpd_version is not defined or cpd_version == ''
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: cpd-meta-ops
+  register: cpd3_namespace_lookup
+
+- name: Set cpd_version (if we found the CP4D v3 namespace)
+  when:
+    - cpd_version is not defined or cpd_version == ''
+    - cpd3_namespace_lookup.resources is defined
+    - cpd3_namespace_lookup.resources | length == 1
+  set_fact:
+    cpd_version: cpd35
+
+- name: Finally, if we weren't told what version to use, or we didn't find the 3.5 namespace default to cpd40
+  when: cpd_version is not defined or cpd_version == ''
+  set_fact:
+    cpd_version: cpd40
+
+- debug:
+    msg:
+      - "CPD Version ........................... {{ cpd_version }}"
+      - "CPD Services .......................... {{ cpd_services }}"
+
+# 2. Load variables and run the services install
+# -----------------------------------------------------------------------------
+- name: Load variables
+  include_vars: "vars/{{ cpd_version }}.yml"
+
+- name: "Run the services install"
+  include_tasks: "tasks/{{ cpd_version }}/install-services.yml"

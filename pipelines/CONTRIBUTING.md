@@ -13,29 +13,32 @@ docker push quay.io/ibmmas/ansible-devops:$VERSION
 ### Build new tekton images
 ```bash
 export DEV_MODE=true
-export VERSION=4.5.1-pre.branch
-bash pipelines/bin/build-pipelines.sh
+export VERSION=5.1.0-pre.branch
+cd pipelines
+bash bin/build-pipelines.sh
 ```
 
 ### Install Pipelines feature & ClusterTask definitions
 ```bash
-bash pipelines/bin/install-pipelines.sh
+cd pipelines
+bash bin/install-pipelines.sh
 # Wait until the pipelines operator is installed
-oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
+oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
 ```
 
 ### Install and run sample pipeline
 First, make a copy of `pipelines/samples/sample-pipelinesettings-roks.yaml` and set the real values as appropriate.  If you name it `pipelines/samples/sample-pipelinesettings-roks-donotcommit.yaml` then it will already be in the gitignore file
 
 ```bash
+cd pipelines
 oc new-project mas-sample-pipelines
-oc apply -f pipelines/samples/sample-pipelinesettings-roks-donotcommit.yaml
+oc apply -f samples/sample-pipelinesettings-roks-donotcommit.yaml
 
 oc create secret generic pipeline-additional-configs --from-file=/home/david/masconfig/workspace_masdev.yaml
 oc create secret generic pipeline-sls-entitlement --from-file=/home/david/masconfig/entitlement.lic
 
-oc apply -f pipelines/samples/sample-pipeline.yaml
-oc create -f pipelines/samples/sample-pipelinerun.yaml
+oc apply -f samples/sample-pipeline.yaml
+oc create -f samples/sample-pipelinerun-dev.yaml
 ```
 
 
@@ -43,8 +46,14 @@ oc create -f pipelines/samples/sample-pipelinerun.yaml
 Each time you want to modify and retry a pipeline run, use the following:
 
 ```bash
-bash pipelines/bin/build-pipelines.sh
-oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
-oc apply -f pipelines/samples/sample-pipeline.yaml
-oc create -f pipelines/samples/sample-pipelinerun.yaml
+cd pipelines
+
+# Update the settings secret
+oc apply -f samples/sample-pipelinesettings-roks-donotcommit.yaml
+
+# Build and update the clustertasks
+bash bin/build-pipelines.sh && oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
+
+# Update the pipeline definition and start a new run
+oc apply -f samples/sample-pipeline.yaml && oc create -f samples/sample-pipelinerun-dev.yaml
 ```

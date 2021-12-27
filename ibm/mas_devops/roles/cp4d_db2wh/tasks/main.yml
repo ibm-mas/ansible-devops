@@ -1,17 +1,54 @@
 ---
-# 0. Check for undefined properties that do not have a default
+- name: "Fail if db2wh_instance_name has not been provided"
+  when: db2wh_instance_name is not defined or db2wh_instance_name == ""
+  fail:
+    msg: "db2wh_instance_name property has not been set"
+
+# 1. Determine which version of CP4D we are working with
 # -----------------------------------------------------------------------------
-# - fail if cpd_version is not provided
-- name: "Fail if cpd_version is not provided"
+# - if cpd_version is set explicitly then we use that
+# - if cpd-meta-ops namespace exists then we assume it's 3.5
+# - otherwise we assume CPD v4
+
+- name: Check for the presence of the CPDv4 services namespace
+  when: cpd_version is not defined or cpd_version == ''
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: cpd-meta-ops
+  register: cpd3_namespace_lookup
+
+- name: Set cpd_version to cpd35 if we found the CP4D v3 namespace
   when:
     - cpd_version is not defined or cpd_version == ''
-  fail:
-    msg: "cpd_version is required"
+    - cpd3_namespace_lookup.resources is defined
+    - cpd3_namespace_lookup.resources | length == 1
+  set_fact:
+    cpd_version: cpd35
 
-# 1. Load var files
+- name: Default to cpd40 if we did not find the CP4D v3 namespace
+  when: cpd_version is not defined or cpd_version == ''
+  set_fact:
+    cpd_version: cpd40
+
+
+# 2. Set db2wh_version if none provided by the user
+# -----------------------------------------------------------------------------
+- name: Set db2wh_version if none provided by the user
+  when: db2wh_version is not defined or db2wh_version == ''
+  set_fact:
+    db2wh_version: "{{ default_db2wh_version[cpd_version] }}"
+
+- debug:
+    msg:
+      - "CPD Version ........................... {{ cpd_version }}"
+      - "DB2WH Version ......................... {{ db2wh_version }}"
+
+
+# 3. Load var files
 # -----------------------------------------------------------------------------
 - name: Load variables
-  include_vars: "defaults/{{ cpd_version }}/main.yml"
+  include_vars: "vars/{{ cpd_version }}.yml"
 
 - name: Provision DB2 instance
   include_tasks: "tasks/{{ cpd_version }}/provision-instance.yml"
