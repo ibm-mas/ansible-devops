@@ -44,7 +44,7 @@ Required.  Name of the database instance, note that this is the instance **name*
 Version of the DB2 Warehouse instance to be created.
 
 - Environment Variable: `DB2WH_VERSION`
-- Default: `11.5.6.0-cn3`
+- Default: `11.5.5.1-cn3-x86_64` (CloudPak for Data v3.5), `11.5.6.0-cn3` (CloudPak for Data v4)
 
 ### db2wh_table_org
 The way database tables will be organized. It can be set to either `ROW` or `COLUMN`.
