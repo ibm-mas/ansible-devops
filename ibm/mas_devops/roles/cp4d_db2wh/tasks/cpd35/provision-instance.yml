@@ -22,11 +22,12 @@
 - name: "Debug information"
   debug:
     msg:
-      - "mas_instance_id ................. {{ mas_instance_id }}"
-      - "mas_config_dir .................. {{ mas_config_dir }}"
-      - "mas_config_scope ................ {{ mas_config_scope }}"
-      - "mas_workspace_id ................ {{ mas_workspace_id }}"
-      - "mas_application_id .............. {{ mas_application_id }}"
+      - "mas_instance_id ................. {{ mas_instance_id | default('<undefined>') }}"
+      - "mas_config_dir .................. {{ mas_config_dir | default('<undefined>')  }}"
+      - "mas_config_scope ................ {{ mas_config_scope | default('<undefined>')  }}"
+      - "mas_workspace_id ................ {{ mas_workspace_id | default('<undefined>')  }}"
+      - "mas_application_id .............. {{ mas_application_id | default('<undefined>')  }}"
+
       - "cpd_api_username ................ {{ cpd_api_username }}"
 
       - "cpd_db_config_configmap_name .... {{ cpd_db_config_configmap_name }}"
@@ -76,26 +77,21 @@
     msg: "{{ create_db2_database_output }}"
 
 
-# 5. Wait for DB creation (when creation status is 202)
+# 5a. Wait for DB creation (when creation status is 202)
 # -----------------------------------------------------------------------------
 - name: Wait for DB creation to be completed for {{ db2wh_instance_name }} and apply patch if needed
+  when: create_db2_database_output.status == 202
   block:
-    - debug: var=create_db2_database_output.json.id
-    - set_fact:
-        db2_pod_name: "c-db2wh-{{ create_db2_database_output.json.id }}-db2u-0"
-        db2_svc_name: "c-db2wh-{{ create_db2_database_output.json.id }}-db2u-engn-svc"
-        cp4d_db_id: "{{ create_db2_database_output.json.id }}"
-    - set_fact:
-        cp4d_db_svc: "{{ db2_svc_name }}.{{ db2wh_namespace }}.svc"
-    - name: Set a default value for cp4d_db_ssl_port if it's not specified
+    - name: "Save the Db2 instance Id to a fact"
       set_fact:
-        cp4d_db_ssl_port: ""
-      when: cp4d_db_ssl_port is undefined
+        db2wh_instance_id: "{{ create_db2_database_output.json.id }}"
+
     - name: Save the DB2 database id in a DB config ConfigMap {{ cpd_db_config_configmap_name }}-{{ db2wh_instance_name }} under {{ db2wh_namespace }} namespace
       community.kubernetes.k8s:
         state: present
         namespace: "{{ db2wh_namespace }}"
         definition: "{{ lookup('template', 'templates/cpd35/cp4d_db2_database_config.yaml.j2') | from_yaml }}"
+
     # Patch the db2u StatefulSet to avoid DB2 pod getting stuck in 0/1 state during installation
     - name: Patch the db2u StatefulSet to avoid DB2 pod getting stuck in 0/1 state during installation
       block:
@@ -111,15 +107,16 @@
         - name: Apply DB2 StatefulSet patch
           shell: oc patch $(oc get sts -lcomponent=db2wh -oname -n="{{ db2wh_namespace }}" | grep db2wh) -n="{{ db2wh_namespace }}" -p='{ "spec":{ "template":{ "spec":{ "containers":[ { "name":"db2u", "tty":false } ] } } } }'
       when: apply_db2u_sts_patch|default(false)|bool
+
     - name: Wait for the creation of DB2 database {{ db2wh_instance_name }}
       pause:
         minutes: 5
-  when: create_db2_database_output.status == 202
 
 
-# 6. Get info of DB2 database if it already exists (when creation status is 409)
+# 5b. Get info of DB2 database if it already exists (when creation status is 409)
 # -----------------------------------------------------------------------------
 - name: Get info of DB2 database {{ db2wh_instance_name }} if it already exists (if above creation code was 409)
+  when: create_db2_database_output.status == 409
   block:
     - name: "Read the DB2 database config from the DB config ConfigMap {{ cpd_db_config_configmap_name }}"
       community.kubernetes.k8s_info:
@@ -131,19 +128,22 @@
 
     - name: "Read the DB2 database ID for {{ db2wh_instance_name }} from DB config ConfigMap data"
       set_fact:
-        cp4d_db_id: "{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}"
-        db2_pod_name: "c-db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}-db2u-0"
-        db2_svc_name: "c-db2wh-{{ cp4d_db_config_info.resources[0].data.cp4d_db_id }}-db2u-engn-svc"
-    - set_fact:
-        cp4d_db_svc: "{{ db2_svc_name }}.{{ db2wh_namespace }}.svc"
-  when: create_db2_database_output.status == 409
+        db2wh_instance_id: "{{ cp4d_db_config_info.resources[0].data.db2wh_instance_id }}"
+
+
+# 6. Generate the name and fqn of the service now we know the instance ID
+# -----------------------------------------------------------------------------
+- name: "Set service name and fqn from the instance ID"
+  set_fact:
+    db2wh_svc_name: "c-db2wh-{{ db2wh_instance_id }}-db2u-engn-svc"
+    db2wh_svc_fqn: "{{ cp4d_db_config_info.resources[0].data.db2wh_svc_fqn }}"
 
 
 # 7. Wait till DB2 status is RUNNING
 # -----------------------------------------------------------------------------
 - name: "Wait till status of DB2 database {{ db2wh_instance_name }} is RUNNING"
   uri:
-    url: "https://{{ cp4d_host }}/zen-data/v3/service_instances/{{ cp4d_db_id }}?include_service_status=true"
+    url: "https://{{ cp4d_host }}/zen-data/v3/service_instances/{{ db2wh_instance_id }}?include_service_status=true"
     validate_certs: no
     method: GET
     headers:
@@ -157,7 +157,7 @@
   delay: 60
 
 
-# 8. Set DB2 SSL Port (cp4d_db_ssl_port) into Facts
+# 8. Set DB2 SSL Port (db2wh_ssl_port) into Facts
 # -----------------------------------------------------------------------------
 - include_tasks: "{{ role_path }}/tasks/cpd35/get_db2_ssl_port.yml"
 
@@ -186,19 +186,47 @@
     - mas_config_dir != ""
   include_vars: "vars/jdbccfg/{{ mas_config_scope }}.yml"
 
+- name: Lookup db2wh instance password
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "c-db2wh-{{ db2wh_instance_id  }}-instancepassword"
+    namespace: "{{ db2wh_namespace }}"
+  register: db2u_instance_password
+
+- name: Debug expected facts (1)
+  debug:
+    msg: "db2wh_ssl_port ... {{ db2wh_ssl_port }}"
+
+- name: Debug expected facts (1)
+  debug:
+    msg: "db2wh_svc_fqn ... {{ db2wh_svc_fqn }}"
+
+- name: Debug expected facts (1)
+  debug:
+    msg: "password ... {{ db2u_instance_password.resources[0].data.password }}"
+
+- name: Set additional Facts for JdbcCfg
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  set_fact:
+    db2wh_jdbc_password: "{{ db2u_instance_password.resources[0].data.password | b64decode }}"
+    db2wh_jdbc_url: "jdbc:db2://{{ db2wh_svc_fqn }}:{{ db2wh_ssl_port }}/BLUDB:sslConnection=true;"
+
 - name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
   when:
     - mas_instance_id is defined
     - mas_instance_id != ""
     - mas_config_dir is defined
     - mas_config_dir != ""
-  vars:
-    db2wh_jdbc_url: "jdbc:db2://{{ cp4d_db_svc }}:{{ cp4d_db_ssl_port }}/BLUDB:sslConnection=true;"
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    # TODO: Verify this is correct.  Are we really meant to use the same credentials we used to create the database to connect to it?
-    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    db2wh_jdbc_username: "{{ cpd_api_username }}"
-    db2wh_jdbc_password: "{{ cpd_api_password }}"
   ansible.builtin.template:
     src: suite_jdbccfg.yml
     dest: "{{ mas_config_dir }}/jdbc-{{ db2wh_instance_name | lower }}-{{ db2wh_namespace }}.yml"

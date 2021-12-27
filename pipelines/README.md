@@ -47,10 +47,10 @@ bin/install-pipelines.sh
 ```
 export DEV_MODE=true
 export VERSION=5.1.0
-pipelines/bin/build-pipelines.sh
 
 cd pipelines
-oc apply -f ibm-mas_devops-clustertasks-5.1.0.yaml
+bin/build-pipelines.sh
+oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
 ```
 
 # 3. Install and run the MAS Sample Pipeline
