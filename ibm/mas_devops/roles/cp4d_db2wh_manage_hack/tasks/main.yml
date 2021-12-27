@@ -84,6 +84,7 @@
 # TODO: We should do this locally, connecting to the Db2 instance using the route
 # that we have created.  Execing into a container is considered bad practice in
 # production environment, and we want this collection to be production friendly.
+#
 # However given that we want to get all of this moved into the manage operator
 # ASAP, there is little point investing the effort to fix this in this collection,
 # rather that effort should be put into migrating this code into the manage
@@ -110,36 +111,24 @@
 
 # 6. Prepare database for use with Maximo TPAE
 # -----------------------------------------------------------------------------
-
-# If the file already exists in the container, then we have already ran this command
-- name: "Check for existence of /tmp/setupdb.sh in pod"
-  shell: |
-    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "ls /tmp | grep setupdb.sh | wc -l"
-  register: setupdb_file_check
-
-- name: Create dbsetup script in local /tmp
-  when: setupdb_file_check.stdout == "0"
+- name: Create setupdb script in local /tmp
   ansible.builtin.template:
     src: setupdb.sh.j2
     dest: /tmp/setupdb.sh
+    mode: '777'
 
 - name: Copy the setupdb script into the db2 pod
-  when: setupdb_file_check.stdout == "0"
-  shell: oc cp /tmp/setupdb.sh {{ db2wh_pod_namespace }}/{{ db2wh_pod_name }}:/tmp/setupdb.sh
+  shell: "oc cp /tmp/setupdb.sh {{ db2wh_pod_namespace }}/{{ db2wh_pod_name }}:/tmp/setupdb.sh"
 
-- name: Make the setupdb script executable
-  when: setupdb_file_check.stdout == "0"
-  shell: oc exec -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- bash -c "chmod 755 /tmp/setupdb.sh"
-
+# The log file will also be available inside the pod /tmp/setupdb.log
+# The script will exit early if /tmp/setupdb_complete exists to avoid unnecessarily re-running
+# the setup, however this file will be lost after pod restarts.
 - name: Run setupdb to prepare Db2 for use with Maximo TPAE
-  when: setupdb_file_check.stdout == "0"
-  shell: oc exec -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- su -lc /tmp/setupdb.sh db2inst1
+  shell: oc exec -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- su -lc '/tmp/setupdb.sh | tee /tmp/setupdb.log' db2inst1
   register: prepare_cmds_status
 
 - name: "Database setup debug information"
-  when: setupdb_file_check.stdout == "0"
   debug:
     msg:
-      - "Setup already ran ...................... {{ setupdb_file_check.stdout }}"
       - "Result (stdout) ........................ {{ prepare_cmds_status.stdout }}"
       - "result (stderr) ........................ {{ prepare_cmds_status.stderr }}"

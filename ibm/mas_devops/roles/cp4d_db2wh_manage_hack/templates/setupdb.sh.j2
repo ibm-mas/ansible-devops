@@ -14,6 +14,12 @@
 # db2 GRANT USE OF TABLESPACE MAXDATA TO USER {{ db2wh_username }}
 # db2 GRANT CREATEIN,DROPIN,ALTERIN ON SCHEMA {{ db2wh_schema }} TO USER {{ db2wh_username }}
 
+if [ -f "/tmp/setupdb_complete" ]; then
+  echo "Aborting run.  /tmp/setupdb_complete exists; this script has already been executed"
+  exit 0
+fi
+
+set -e
 db2 connect to {{ db2wh_dbname }}
 db2 update db cfg for {{ db2wh_dbname }} using dft_table_org ROW
 db2 update db cfg for {{ db2wh_dbname }} using AUTO_MAINT ON DEFERRED
@@ -57,11 +63,23 @@ db2set DB2_EVALUNCOMMITTED=YES
 db2set DB2_FMP_COMM_HEAPSZ=65536
 db2set DB2_SKIPDELETED=ON
 db2set DB2_USE_ALTERNATE_PAGE_CLEANING=ON
+
+# These will fail if re-running the script, but I don't know enough about Db2 to make them idempotent
+# so for now we will ignore failures in them
+set +e
 db2 CREATE BUFFERPOOL MAXBUFPOOL IMMEDIATE SIZE 4096 AUTOMATIC PAGESIZE 32 K
 db2 CREATE REGULAR TABLESPACE MAXDATA PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE 5000 M BUFFERPOOL MAXBUFPOOL
 db2 CREATE TEMPORARY TABLESPACE MAXTEMP PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE BUFFERPOOL MAXBUFPOOL
 db2 CREATE REGULAR TABLESPACE MAXINDEX PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE 5000 M BUFFERPOOL MAXBUFPOOL
 db2 create schema {{ db2wh_schema }} authorization {{ db2wh_username }}
+
+set -e
 db2stop force
 sleep 10
 db2start
+
+echo "COMPLETE" > /tmp/setupdb_complete
+chmod a+rw /tmp/setupdb_complete
+
+# If we get this far, then we can consider the setup a success
+exit 0
