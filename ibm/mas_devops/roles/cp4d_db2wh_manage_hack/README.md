@@ -3,6 +3,8 @@ cp4d_db2wh_manage_hack
 
 This role shouldn't need to exist, it should be part of the Manage operator, but is not so we have to do it as a seperate step in the install flow for now.  The role will perform some initial setup on the Db2 instance that is needed to prepare it for use with the Manage application and supports both CP4D version 3.5 and 4.0.
 
+The role will copy a bash script (setupdb.sh) into the Db2 pod and execute it inside the container, this script will perform a number of configuration changes to the database as well as configuring the tablespaces for Maximo Manage because the operator is not yet able to do this itself.
+
 Role Variables
 --------------
 ### cpd_version
