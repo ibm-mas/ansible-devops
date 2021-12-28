@@ -4,6 +4,8 @@ These pipelines are all powered by the container image in this same repository, 
 
 To learn more about Tekton refer to the excellent material here: https://redhat-scholars.github.io/tekton-tutorial/tekton-tutorial/index.html
 
+This aspect of the project is still in active development and should be considered pre-release.  However, we are using these extensively in our own development, so they should be pretty reliable given we use them multiple times every day in our automation frameworks.
+
 ## ClusterTasks
 
 # CP4D Management
@@ -30,6 +32,7 @@ To learn more about Tekton refer to the excellent material here: https://redhat-
 
 
 ### Usage
+All commands assume you are in the root directory where you have cloned this repository.
 
 ### 1. Provision Cluster and Install OpenShift Pipelines Operator
 After provisioning and logging into the cluster, you can use the install script provided: `bin/install-pipelines.sh`:
@@ -37,9 +40,9 @@ After provisioning and logging into the cluster, you can use the install script 
 ```bash
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-ansible-playbook playbooks/ocp/provision-roks.yml
-ansible-playbook playbooks/cp4d/hack-worker-nodes.yml
-bin/install-pipelines.sh
+ansible-playbook ibm/mas_devops/playbooks/ocp/provision-roks.yml
+ansible-playbook ibm/mas_devops/playbooks/cp4d/hack-worker-nodes.yml
+pipelines/bin/install-pipelines.sh
 ```
 
 
@@ -48,9 +51,8 @@ bin/install-pipelines.sh
 export DEV_MODE=true
 export VERSION=5.1.0
 
-cd pipelines
-bin/build-pipelines.sh
-oc apply -f ibm-mas_devops-clustertasks-$VERSION.yaml
+pipelines/bin/build-pipelines.sh
+oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
 ```
 
 # 3. Install and run the MAS Sample Pipeline
@@ -58,7 +60,7 @@ Modify the [sample-pipelinesettings.yaml](samples/sample-pipelinesettings.yaml) 
 
 ```bash
 oc new-project mas-sample-pipelines
-oc apply -f samples/sample-pipelinesettings.yaml
+oc apply -f pipelines/samples/sample-pipelinesettings.yaml
 
 oc create secret generic pipeline-additional-configs \
   --from-file=/home/david/masconfig/workspace_masdev.yaml
@@ -66,6 +68,6 @@ oc create secret generic pipeline-additional-configs \
 oc create secret generic pipeline-sls-entitlement \
   --from-file=/home/david/masconfig/entitlement.lic
 
-oc apply -f samples/sample-pipeline.yaml
-oc create -f samples/sample-pipelinerun-mas86.yaml
+oc apply -f pipelines/samples/sample-pipeline.yaml
+oc create -f pipelines/samples/sample-pipelinerun-mas86.yaml
 ```
