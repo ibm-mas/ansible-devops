@@ -40,8 +40,7 @@ After provisioning and logging into the cluster, you can use the install script 
 ```bash
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-ansible-playbook ibm/mas_devops/playbooks/ocp/provision-roks.yml
-ansible-playbook ibm/mas_devops/playbooks/cp4d/hack-worker-nodes.yml
+ansible-playbook ibm/mas_devops/playbooks/ocp/provision-roks.yml && ansible-playbook ibm/mas_devops/playbooks/cp4d/hack-worker-nodes.yml
 pipelines/bin/install-pipelines.sh
 ```
 
