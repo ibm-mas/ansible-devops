@@ -6,6 +6,7 @@ This role provides support for Configuring Cloud Object Storage in MAS.  It curr
 - In-cluster Ceph Object Storage leveraging OpenShift Container Storage
 - IBM Cloud Object Storage
 
+Currently this role only supports generating a system-scoped ObjectStorageCfg resource, but the generated file can be modified if you wish to use other scopes.
 
 Role Variables
 --------------
@@ -15,6 +16,12 @@ Required.  Which COS provider to use; can be set to either `ibm` for IBM Cloud O
 
 - Environment Variable: `COS_TYPE`
 - Default Value: None
+
+### cos_instance_name
+Provide an optional name for the Object Storage instance.  This is only used when cos_type is set to `ibm` for IBM Cloud Object Storage.
+
+- Environment Variable: `COS_INSTANCE_NAME`
+- Default Value: `Object Storage for MAS`, if `mas_instance_id` is set the MAS instance ID will be appended to this name.
 
 ### ibmcloud_apikey
 Required if cos_type is set to `ibm`.  Provide your IBM Cloud API Key.
