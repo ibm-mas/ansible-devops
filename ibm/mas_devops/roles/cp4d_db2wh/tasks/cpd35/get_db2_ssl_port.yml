@@ -1,22 +1,23 @@
 ---
 # -----------------------------------------------------------------------------
-# Set DB2 SSL Port (cp4d_db_ssl_port) into Facts
+# Set DB2 SSL Port (db2wh_ssl_port) into Facts
 # -----------------------------------------------------------------------------
 - name: Get the k8s Service info of DB2 database {{ db2wh_instance_name }}
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Service
-    name: "{{ db2_svc_name }}"
-    namespace: "{{ cpd_meta_namespace }}"
+    name: "{{ db2wh_svc_name }}"
+    namespace: "{{ db2wh_namespace }}"
   register: cp4d_db2_service_info
 
-# - debug: var=cp4d_db2_service_info
+# Check whether we found a the service
+- name: "Fail if we couldn't find the service"
+  when: cp4d_db2_service_info.resources is not defined or cp4d_db2_service_info.resources | length == 0
+  fail:
+    msg: "Unable to retrieve the service info for Db2 from '{{ db2wh_namespace }}/{{ db2wh_svc_name }}' Service"
 
 - set_fact:
     cp4d_db_port_list: "{{ cp4d_db2_service_info.resources[0].spec.ports }}"
-
-# - debug:
-#     msg: "{{ cp4d_db_port_list }}"
 
 - name: Get the SSL port of DB2 database {{ db2wh_instance_name }} from k8s Service info
   vars:
@@ -26,8 +27,11 @@
   when: item.name == 'ssl-server'
   with_items: "{{ cp4d_db_port_list }}"
 
-# - debug:
-#     msg: "NodePort: {{ sslNodePort }}"
+# Check whether we found a port named `ssl-server' in the service
+- name: "Fail if we couldn't find the 'ssl-server' port in the Service"
+  when: sslNodePort is not defined
+  fail:
+    msg: "Unable to retrieve the port number for 'ssl-server' port in the '{{ db2wh_namespace }}/{{ db2wh_svc_name }}' Service"
 
 - set_fact:
-    cp4d_db_ssl_port: "{{ sslNodePort }}"
+    db2wh_ssl_port: "{{ sslNodePort }}"

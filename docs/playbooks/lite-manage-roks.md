@@ -5,20 +5,20 @@ This master playbook will drive the following playbooks in sequence:
 - [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
 - [Update Default Cluster Pull Secret and Reboot Worker Nodes](cp4d.md#hack-worker-nodes) (10 minutes)
 - Install dependencies:
-    - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (15 minutes)
+    - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (10 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
     - [Install BAS](dependencies.md#install-bas) (35 minutes)
     - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
     - Install Cloud Pak for Data Services:
-        - [Db2 Warehouse](cp4d.md#db2-install) with [Db2 Management Console](cp4d.md#db2-install) (1-2 hours)
-    - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (60 minutes)
-    - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack)
+        - [Db2 Warehouse](cp4d.md#db2-install) (1 hour)
+    - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (45 minutes)
+    - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack) (5 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
-    - [Install & configure MAS](mas.md#install-mas) (20 minutes)
+    - [Install & configure MAS](mas.md#install-mas) (15 minutes)
 - Install Manage application:
-    - [Install application](mas.md#install-mas-application)
-    - [Configure workspace](mas.md#configure-mas-application)
+    - [Install application](mas.md#install-mas-application) (10 minutes)
+    - [Configure workspace](mas.md#configure-mas-application) (2 hours)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 

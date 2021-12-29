@@ -48,8 +48,21 @@ export CPD_BLOCK_STORAGE_CLASS=$(cat /workspace/settings/CPD_BLOCK_STORAGE_CLASS
 # -----------------------------------------------------------------------------
 # cp4d/create-db2-instance.yml
 # -----------------------------------------------------------------------------
-export DB2WH_ADMIN_USER=$(cat /workspace/settings/DB2WH_ADMIN_USER)
-export DB2WH_ADMIN_PASSWORD=$(cat /workspace/settings/DB2WH_ADMIN_PASSWORD)
+export CPD_API_USER=$(cat /workspace/settings/CPD_API_USER)
+export CPD_API_PASSWORD=$(cat /workspace/settings/CPD_API_PASSWORD)
+
+export DB2WH_META_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_META_STORAGE_CLASS)
+export DB2WH_USER_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_USER_STORAGE_CLASS)
+export DB2WH_BACKUP_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_BACKUP_STORAGE_CLASS)
+export DB2WH_LOGS_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_LOGS_STORAGE_CLASS)
+export DB2WH_TEMP_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_TEMP_STORAGE_CLASS)
+
+# The following settings are provided as env vars per-task because they may
+# vary for different tasks in the same pipeline
+# -----------------------------------------------------------------------------
+# - DB2WH_INSTANCE_NAME
+# - DB2WH_VERSION
+# - DB2WH_TABLE_ORG
 
 # -----------------------------------------------------------------------------
 # dependencies/install-amqstreams.yml
@@ -129,6 +142,7 @@ export MAS_WORKSPACE_ID=$(cat /workspace/settings/MAS_WORKSPACE_ID)
 # - MAS_APP_CHANNEL # must be in fvt-env travis, by app as it varies by environment
 # - MAS_APPWS_COMPONENTS # must be in ClusterTask as it will parameterize configure-app task
 # - MAS_CONFIG_DIR # must be in ClusterTask as it will reflect a pipeline workspace
+# - MAS_CONFIG_SCOPE
 
 # Settings to support save-junit-to-mongo.py
 # -----------------------------------------------------------------------------
