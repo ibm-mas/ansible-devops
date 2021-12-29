@@ -6,6 +6,10 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `5.1` Multiple Updates:
+    - Add support for Cloud Object Storage ([#122](https://github.com/ibm-mas/ansible-devops/pull/122))
+    - Conditional application deployment in Tekton pipelines ([#118](https://github.com/ibm-mas/ansible-devops/pull/118))
+    - Add support for CP4D v4 alongside existing support for v3.5 ([#93](https://github.com/ibm-mas/ansible-devops/pull/93))
 - `5.0` Multiple Updates:
     - Add support for AI Applications' must-gather tooling ([#91](https://github.com/ibm-mas/ansible-devops/pull/91))
     - Migrate airgap support into ibm.mas_airgap collection ([#38](https://github.com/ibm-mas/ansible-devops/pull/38))

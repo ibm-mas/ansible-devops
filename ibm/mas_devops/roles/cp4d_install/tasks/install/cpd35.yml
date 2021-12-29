@@ -1,0 +1,67 @@
+---
+# 0. Fail if required properties are not set
+# -----------------------------------------------------------------------------
+- name: "Fail if cpd_entitlement_key has not been provided"
+  when: cpd_entitlement_key is not defined or cpd_entitlement_key == ""
+  fail:
+    msg: "cpd_entitlement_key property has not been set"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "CPD meta namespace ........... {{ cpd_meta_namespace }}"
+      - "CPD registry ................. {{ cpd_registry }}"
+      - "CPD username ................. {{ cpd_registry_user }}"
+
+
+# 1. Setup namespace for CP4D
+# -----------------------------------------------------------------------------
+- name: "Create CPD Meta Namespace"
+  vars:
+    namespace: "{{cpd_meta_namespace}}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd35/namespace.yaml') }}"
+  register: _cpd_meta_namespace_result
+
+
+# 2. Setup entitlement for CP4D
+# -----------------------------------------------------------------------------
+- name: "Create ibm-entitlement-key secret"
+  vars:
+    entitledAuthStr: "{{cpd_registry_user}}:{{cpd_entitlement_key}}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - "{\"auths\":{\"{{cpd_registry}}\":{\"username\":\"{{cpd_registry_user}}\",\"password\":\"{{cpd_entitlement_key}}\",\"auth\":\"{{entitledAuth}}\"}"
+      - "}"
+      - "}"
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: ibm-entitlement-key
+        namespace: "{{ cpd_meta_namespace }}"
+      stringData:
+        .dockerconfigjson: "{{ content | join('') | string }}"
+
+
+# 3. Install CP4D operator
+# -----------------------------------------------------------------------------
+- name: "Install CPD Subscription"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd35/subscription.yaml') }}"
+  register: _cpd_subscription_result
+
+- name: "Wait for CP4D operator to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: ibm-cp-data-operator
+    namespace: "{{cpd_meta_namespace}}"
+    kind: Deployment
+  register: _cpd_subscription
+  until: _cpd_subscription.resources[0].status.availableReplicas is defined
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute

@@ -1,17 +1,45 @@
 cp4d_install
 ============
 
-This role installs [IBM Cloud Pak for Data](https://www.ibm.com/uk-en/products/cloud-pak-for-data) Operator in the target cluster.
+This role installs [IBM Cloud Pak for Data](https://www.ibm.com/uk-en/products/cloud-pak-for-data) Operator in the target cluster.  Support is available for both CP4D v3.5 (installed into the `cpd-meta-ops` namespace) and CP4D v4.0 (installed into the `ibm-common-services` namespace).
+
+If you are installing CP4D v4 then the [cp4d_hack_worker_nodes](cp4d_hack_worker_nodes.md) role must have been executed during cluster set up to update the cluster's global image pull secret and reload all worker nodes.
+
 
 Role Variables
 --------------
 
-- `cpd_version` CP4D version to be installed. Supported versions are `cpd35` (for CP4D 3.5) and `cpd40` (for CP4D 4.0)
-- `cpd_registry_password` Holds the IBM Entitlement key
-- `cpd_registry` cp.icr.io
-- `cpd_registry_user` cp
-- `cpd_meta_namespace` Namespace to be created and used for CP4D deployment. For CP4D 4.0 version, namespace will always be 'ibm-common-services' 
-- `mas_channel` - Optionally, you can specify this property in case you want to install a CP4D version that is compatible with an specific MAS channel.
+### cpd_version
+Required.  CP4D version to be installed. Supported versions are `cpd35` (for CP4D 3.5) and `cpd40` (for CP4D 4.0)
+
+- Environment Variable: `CPD_VERSION`
+- Default: None
+
+### cpd_entitlement_key
+Required only if `cpd_version = cpd35`, otherwise unused because in CP4D v4 we have to use the [cp4d_hack_worker_nodes](cp4d_hack_worker_nodes.md) role to prepare the cluster ahead of time by setting up a global image pull secret for CP4D.  Holds your IBM Entitlement key.
+
+- Environment Variable: `CPD_ENTITLEMENT_KEY`
+- Default: None
+
+### cpd_storage_class
+Required only if `cpd_version = cpd40`, otherwise unused.
+
+- Environment Variable: `CPD_STORAGE_CLASS`
+- Default Value: None
+
+### cpd_block_storage_class
+Required only if `cpd_version = cpd40`, otherwise unused.
+
+- Environment Variable: `CPD_BLOCK_STORAGE_CLASS`
+- Default Value: None
+
+
+### mas_channel
+You can specify this property as an alternative to `cpd_version` to allow the role to automatically select the appropriate version of CP4D based on the MAS Channel you are subscribing to.  If `cpd_version` is set, then this is ignored.
+
+- Environment Variable: `MAS_CHANNEL`
+- Default: None
+
 
 Example Playbook
 ----------------
@@ -20,19 +48,11 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cpd_version: "{{ lookup('env', 'CPD_VERSION') }}"
-    cpd_registry: cp.icr.io
-    cpd_registry_user: cp
-    cpd_registry_password: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
-    cpd_meta_namespace: cpd-meta-ops
-
-    # CP4D service configuration
-    cpd_storage_class: "{{ lookup('env', 'CPD_STORAGE_CLASS') }}"
-    cpd_services:
-      - db2wh
+    cpd_version: cpd40
+    cpd_storage_class: ibmc-file-gold-gid
+    cpd_block_storage_class: ibmc-block-gold
   roles:
     - ibm.mas_devops.cp4d_install
-    - ibm.mas_devops.cp4d_install_services
 ```
 
 License

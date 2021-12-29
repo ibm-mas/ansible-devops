@@ -1,0 +1,55 @@
+---
+# 1. Fail if the required parameters have not been provided
+# -----------------------------------------------------------------------------
+- name: "Fail if cpd_storage_class has not been provided"
+  when: cpd_storage_class is not defined or cpd_storage_class == ""
+  fail:
+    msg: "cpd_storage_class property has not been set"
+
+
+# 2. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Namespace .................... {{ cpd_meta_namespace }}"
+      - "Storage class ................ {{ cpd_storage_class }}"
+      - "CP4D services ................ {{ cpd_services }}"
+
+
+# 3. Install CP4D Services
+# -----------------------------------------------------------------------------
+- name: "Install CPDServices"
+  vars:
+    service_name: "{{ item }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd35/cpdservice.yml') }}"
+  with_items: "{{ cpd_services }}"
+
+
+# 4. Wait for CP4D Services to be ready
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd35/wait_for_services.yml"
+
+
+# 5. Provide CP4D dashboard URL
+# -----------------------------------------------------------------------------
+- name: "Obtain CP4D dashboard URL"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: "{{ cpd_meta_namespace }}-cpd"
+    namespace: "{{cpd_meta_namespace}}"
+    kind: Route
+  register: cpd_route_lookup
+  until:
+    - cpd_route_lookup.resources is defined
+    - cpd_route_lookup.resources | length > 0
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- debug:
+    msg:
+      - "CP4D Dashboard ................. https://{{cpd_route_lookup.resources[0].spec.host}}"
+      - "CP4D Username .................. admin"
+      - "CP4D Password .................. password"

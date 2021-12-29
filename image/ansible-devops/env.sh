@@ -20,6 +20,11 @@ export K8S_AUTH_API_KEY=$(cat /run/secrets/kubernetes.io/serviceaccount/token)
 export IBMCLOUD_APIKEY=$(cat /workspace/settings/IBMCLOUD_APIKEY)
 export W3_USERNAME=$(cat /workspace/settings/W3_USERNAME)
 export ARTIFACTORY_APIKEY=$(cat /workspace/settings/ARTIFACTORY_APIKEY)
+export PROMETHEUS_RETENTION_PERIOD=$(cat /workspace/settings/PROMETHEUS_RETENTION_PERIOD)
+export PROMETHEUS_STORAGE_CLASS=$(cat /workspace/settings/PROMETHEUS_STORAGE_CLASS)
+export PROMETHEUS_STORAGE_SIZE=$(cat /workspace/settings/PROMETHEUS_STORAGE_SIZE)
+export PROMETHEUS_ALERTMGR_STORAGE_CLASS=$(cat /workspace/settings/PROMETHEUS_ALERTMGR_STORAGE_CLASS)
+export PROMETHEUS_ALERTMGR_STORAGE_SIZE=$(cat /workspace/settings/PROMETHEUS_ALERTMGR_STORAGE_SIZE)
 
 # -----------------------------------------------------------------------------
 # dependencies/install-mongodb-ce.yml
@@ -33,17 +38,31 @@ export MONGODB_STORAGE_CAPACITY_LOGS=$(cat /workspace/settings/MONGODB_STORAGE_C
 # -----------------------------------------------------------------------------
 # cp4d/install-services-fullstack.yml
 # -----------------------------------------------------------------------------
+export CLUSTER_NAME=$(cat /workspace/settings/CLUSTER_NAME)
 export CPD_VERSION=$(cat /workspace/settings/CPD_VERSION)
-export CPD_ENTITLEMENT_KEY=$(cat /workspace/settings/CPD_ENTITLEMENT_KEY)
 export CPD_ENTITLEMENT_KEY=$(cat /workspace/settings/CPD_ENTITLEMENT_KEY)
 export CPD_NAMESPACE=$(cat /workspace/settings/CPD_NAMESPACE)
 export CPD_STORAGE_CLASS=$(cat /workspace/settings/CPD_STORAGE_CLASS)
+export CPD_BLOCK_STORAGE_CLASS=$(cat /workspace/settings/CPD_BLOCK_STORAGE_CLASS)
 
 # -----------------------------------------------------------------------------
 # cp4d/create-db2-instance.yml
 # -----------------------------------------------------------------------------
-export DB2WH_ADMIN_USER=$(cat /workspace/settings/DB2WH_ADMIN_USER)
-export DB2WH_ADMIN_PASSWORD=$(cat /workspace/settings/DB2WH_ADMIN_PASSWORD)
+export CPD_API_USER=$(cat /workspace/settings/CPD_API_USER)
+export CPD_API_PASSWORD=$(cat /workspace/settings/CPD_API_PASSWORD)
+
+export DB2WH_META_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_META_STORAGE_CLASS)
+export DB2WH_USER_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_USER_STORAGE_CLASS)
+export DB2WH_BACKUP_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_BACKUP_STORAGE_CLASS)
+export DB2WH_LOGS_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_LOGS_STORAGE_CLASS)
+export DB2WH_TEMP_STORAGE_CLASS=$(cat /workspace/settings/DB2WH_TEMP_STORAGE_CLASS)
+
+# The following settings are provided as env vars per-task because they may
+# vary for different tasks in the same pipeline
+# -----------------------------------------------------------------------------
+# - DB2WH_INSTANCE_NAME
+# - DB2WH_VERSION
+# - DB2WH_TABLE_ORG
 
 # -----------------------------------------------------------------------------
 # dependencies/install-amqstreams.yml
@@ -123,6 +142,7 @@ export MAS_WORKSPACE_ID=$(cat /workspace/settings/MAS_WORKSPACE_ID)
 # - MAS_APP_CHANNEL # must be in fvt-env travis, by app as it varies by environment
 # - MAS_APPWS_COMPONENTS # must be in ClusterTask as it will parameterize configure-app task
 # - MAS_CONFIG_DIR # must be in ClusterTask as it will reflect a pipeline workspace
+# - MAS_CONFIG_SCOPE
 
 # Settings to support save-junit-to-mongo.py
 # -----------------------------------------------------------------------------

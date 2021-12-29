@@ -1,7 +1,25 @@
 ---
 airgap_install: false
-# By default we still install 0.8.0
-sbo_channel: preview
-sbo_startingcsv: service-binding-operator.v0.8.0
-sbo_plan_approval: Manual
-mas87_channels: ['stable', 'm2dev87', 'm3dev87'] #temporarely solution: this will be used to tell playbooks the MAS 8.7 versions that should be using cpd 4.0 version
+
+cluster_type: "{{ lookup('env', 'CLUSTER_TYPE') }}"
+
+# --- Dev catalog settings --------------------------------------------------------------------------------------------
+# Only required when using the development catalog sources for pre-release installation
+# These are used to set up image pull secret in the openshift-marketplace namespace
+artifactory_username: "{{ lookup('env', 'W3_USERNAME') | lower }}"
+artifactory_apikey: "{{ lookup('env', 'ARTIFACTORY_APIKEY') }}"
+
+# --- Prometheous settings --------------------------------------------------------------------------------------------
+# Settings to update openshift monitoring to define a specific storage class for Prometheus logs
+prometheus_retention_period: "{{ lookup('env', 'PROMETHEUS_RETENTION_PERIOD') | default('15d', true) }}"
+prometheus_storage_class: "{{ lookup('env', 'PROMETHEUS_STORAGE_CLASS') }}"
+prometheus_storage_size: "{{ lookup('env', 'PROMETHEUS_STORAGE_SIZE') | default('300Gi', true) }}"
+prometheus_alertmgr_storage_class: "{{ lookup('env', 'PROMETHEUS_ALERTMGR_STORAGE_CLASS') }}"
+prometheus_alertmgr_storage_size: "{{ lookup('env', 'PROMETHEUS_ALERTMGR_STORAGE_SIZE') | default('20Gi', true) }}"
+
+# --- MAS channel control ---------------------------------------------------------------------------------------------
+# Temporary solution: this will be used to determine whether to install SBO stable channel and the IBM badged cert-manager
+# all other channels will install SBO from the preview channel and the JetStack cert-manager.
+# By default will we assume that we are installing for the main 8.x channel
+mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', True)}}"
+mas87_channels: ['stable', 'm2dev87', 'm3dev87']

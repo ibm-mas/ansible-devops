@@ -11,16 +11,32 @@
   import_playbook: ocp/configure-ocp.yml
   vars:
     cluster_type: roks
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
-    grafana_storage_class: ibmc-file-gold-gid
+    prometheus_storage_class: ibmc-block-gold
+    prometheus_alertmgr_storage_class: ibmc-file-gold-gid
 
-# 2. Install MongoDb
+
+# 2. Default Cluster Secret Hack for CP4D
+# -----------------------------------------------------------------------------
+# Note: We will perform this hack even when installing cp4d v3, for which it's
+# not technically necessary, but it does not harm other than adding some time to
+# the overall playbook run.  The extra complexity of deciding when to run this
+# is not worth the overhead for this sample end-to-end playbook.
+#
+# We hope to find out how to avoid doing this entirely in the new year, as it
+# shouldn't be a requirement to restart worker nodes and modify the default image
+# pull secret to use any containerized software.
+- name: Update default cluster pull secret and reboot all worker nodes
+  import_playbook: cp4d/hack-worker-nodes.yml
+  vars:
+    cluster_type: roks
+
+
+# 3. Install MongoDb
 # -----------------------------------------------------------------------------
 - name: Install MongoDb (Community Edition)
   import_playbook: dependencies/install-mongodb-ce.yml
   vars:
     mongodb_storage_class: ibmc-block-gold
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 # 3. Install Db2 CP4D service
 # -----------------------------------------------------------------------------
@@ -31,7 +47,17 @@
     cpd_storage_class: ibmc-file-gold-gid
     cpd_block_storage_class: ibmc-block-gold
 
-# 4. Install SLS
+# 4. Install Db2 CP4D service
+# -----------------------------------------------------------------------------
+- name: Install CP4D services
+  import_playbook: cp4d/install-services-db2.yml
+  vars:
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', True) }}" #  when defined, it will automatically install a cpd version that is compatible with the chosen mas_channel
+    cpd_storage_class: ibmc-file-gold-gid
+    cpd_block_storage_class: ibmc-block-gold
+
+
+# 5. Install SLS
 # -----------------------------------------------------------------------------
 - name: Install SLS
   import_playbook: dependencies/install-sls.yml
@@ -43,7 +69,8 @@
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
-# 5. Install BAS
+
+# 6. Install BAS
 # -----------------------------------------------------------------------------
 - name: Install BAS
   import_playbook: dependencies/install-bas.yml
@@ -51,7 +78,8 @@
     bas_persistent_storage_class: "ibmc-file-bronze-gid"
     bas_meta_storage_class: "ibmc-block-bronze"
 
-# 6. Create DB2 Warehouse instance in CP4D
+
+# 7. Create DB2 Warehouse instance in CP4D
 # -----------------------------------------------------------------------------
 - name: Install CP4D services & configure Db2
   import_playbook: cp4d/create-db2-instance.yml
@@ -71,14 +99,16 @@
   vars:
     db2wh_instance_name: db2w-shared
 
-# 7. Install & configure MAS
+
+# 8. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
   vars:
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
-# 8. Install & Configure Manage application
+
+# 9. Install & Configure Manage application
 # -----------------------------------------------------------------------------
 # Tip, to install the Health application in standalone mode, simply change
 # mas_app_id to "health" in the following tasks, nothing else needs to be changed
