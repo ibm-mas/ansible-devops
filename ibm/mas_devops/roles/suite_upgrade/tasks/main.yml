@@ -1,0 +1,212 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Assert that mas_instance_id is defined"
+  assert:
+    that:
+      - mas_instance_id is defined
+      - mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_namespace: "mas-{{ mas_instance_id }}-core"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "Catalog source ............... {{ mas_catalog_source }}"
+      - "Instance ID .................. {{ mas_instance_id }}"
+      - "MAS namespace ................ {{ mas_namespace }}"
+
+
+# 3. Check the existing installation
+# -----------------------------------------------------------------------------
+# 3.1 Check the subscription
+- name: "Get subscription channel of ibm-mas"
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-mas-operator"
+    namespace: "{{ mas_namespace }}"
+    kind: Subscription
+  register: suite_sub_info
+
+- name: "Assert that the subscription for the suite core exists"
+  assert:
+    that:
+      - suite_sub_info.resources is defined
+      - suite_sub_info.resources | length == 1
+    fail_msg: "Existing subscription for MAS Core in {{ mas_namespace }} could not be found"
+
+- name: "Assert that the subscription for the suite is on a channel we can upgrade from"
+  assert:
+    that:
+      - suite_sub_info.resources[0].spec.channel is in mas_upgrade_supported_channels
+    fail_msg: "Existing subscription for MAS Core ({{ suite_sub_info.resources[0].spec.channel }}) is not on a supported channel ({{ mas_upgrade_supported_channels }})"
+
+- name: "Assert that automatic upgrades are enabled as that is all we support atm"
+  assert:
+    that:
+      - suite_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
+    fail_msg: "Install plan approval for MAS Core subscription is not set to Automatic, this role does not support Manual upgrade approvals (yet)"
+
+# 3.2 Check the CR
+- name: "Get installed version of ibm-mas"
+  community.kubernetes.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_namespace }}"
+    kind: Suite
+  register: suite_info
+
+- name: "Assert that the core is installed"
+  assert:
+    that:
+      - suite_info.resources is defined
+      - suite_info.resources | length == 1
+    fail_msg: "Existing MAS installation for {{ mas_instance_id }} could not be found"
+
+- name: "Assert that the core is running a supported version to upgrade to MAS 8.7"
+  assert:
+    that:
+      - suite_info.resources[0].status.versions.reconciled is version('8.6.0', '>=')
+      - suite_info.resources[0].status.versions.reconciled is version('8.7.0', '<')
+    fail_msg: "Existing MAS installation is not running on MAS 8.6.x, so it cannot be upgraded to MAS 8.7.x"
+
+
+# 4. Check installed applications are compatible with MAS 8.7
+# -----------------------------------------------------------------------------
+# 4.1 Assist
+- name: "Check application compatability for Assist"
+  include_tasks: tasks/app_version_check.yml
+  vars:
+    app_check_id: assist
+    app_check_kind: AssistApp
+    app_check_min_version: "8.3.0"
+    app_check_max_version: "8.5.0"
+
+# 4.1 HPUtils
+- name: "Check application compatability for HPUtils"
+  include_tasks: tasks/app_version_check.yml
+  vars:
+    app_check_id: hputilities
+    app_check_kind: HpUtilitiesApp
+    app_check_min_version: "8.2.0"
+    app_check_max_version: "8.4.0"
+
+# 4.3 IoT
+- name: "Check application compatability for IoT"
+  include_tasks: tasks/app_version_check.yml
+  vars:
+    app_check_id: iot
+    app_check_kind: IoTApp
+    app_check_min_version: "8.4.0"
+    app_check_max_version: "8.5.0"
+
+# 4.4 Manage
+- name: "Check application compatability for Manage"
+  include_tasks: tasks/app_version_check.yml
+  vars:
+    app_check_id: manage
+    app_check_kind: ManageApp
+    app_check_min_version: "8.2.0"
+    app_check_max_version: "8.4.0"
+
+# 4.5 Monitor
+- name: "Check application compatability for Monitor"
+  include_tasks: tasks/app_version_check.yml
+  vars:
+    app_check_id: monitor
+    app_check_kind: MonitorApp
+    app_check_min_version: "8.6.0"
+    app_check_max_version: "8.8.0"
+
+# 4.6 Predict
+- name: "Check application compatability for Predict"
+  include_tasks: tasks/app_version_check.yml
+  vars:
+    app_check_id: predict
+    app_check_kind: predictApp
+    app_check_min_version: "8.4.0"
+    app_check_max_version: "8.6.0"
+
+# 4.7 Safety
+- name: "Check application compatability for Safety"
+  include_tasks: tasks/app_version_check.yml
+  vars:
+    app_check_id: safety
+    app_check_kind: SafetyApp
+    app_check_min_version: "8.2.0"
+    app_check_max_version: "8.3.0"
+
+# 4.8 Visual Inspection
+# Note: Visual Inspection is operating on an n-0 backwards compatability model in MAS 8.7,
+# so there's no valid upgrade scenario as MVI 8.5 is not supported in earlier MAS releases either.
+# In other words, you can't upgrade to MAS 8.7 if you have any prior version of MVI installed, sorry.
+- name: "Check application compatability for Visual Inspection"
+  include_tasks: tasks/app_version_check.yml
+  vars:
+    app_check_id: visualinspection
+    app_check_kind: VisualInspection
+    app_check_min_version: "8.5.0"
+    app_check_max_version: "8.6.0"
+
+
+# 5. Upgrade to cert-manager v1.5 (IBM badged version)
+# -----------------------------------------------------------------------------
+# Note: this is not a requirement for MAS itself, but for CP4D v4
+
+# 5.1 Uninstall jetstack cert-manager from cert-manager namespace
+# 5.2 Install IBM cert-manager to the ibm-common-services namespace
+# 5.3 Copy secrets from cert-manager namespace to ibm-common-services
+# 5.4 Copy ClusterIssuers, Issuers and Certificates from cert-manager namespace to ibm-common-services
+# 5.5 Verify all ClusterIssuers, Issuers, and Certificates are in a healthy state
+# 5.6 Update the existing MAS 8.6 install to configure the suite to use cert-manager in the new namespace
+# 5.7 Verify the existing MAS 8.6 install is happy with the cert-manager switch over
+
+# Note 1: MAS should not experience any outage during this upgrade, but certificates etc will
+#         not be able to be updated during this process
+# Note 2: This is a cluster wide change, anything else in the using using cert-manager will
+#         need to be updated to refer to the new namespace
+
+
+# 6. Check version of CP4D (and upgrade to v4)
+# -----------------------------------------------------------------------------
+# Sorry, I have no idea how the CP4D upgrade should work, or what kinds of
+# steps are required to migrate data from v3.5 to v4.0 and ensure everything
+# continues to just work.
+#
+# Different namespaces are being used (cpd-meta-ops & cpd-services) so maybe we
+# have both installed at the same time to migrate data?
+#
+# - How do we migrate a Db2 instance from CP4D v3.5 to v4?
+# - How do we migrate <whatever> is being used in Watson Studio so that it
+#   carries over into the v4 installation?
+
+
+# 7. Upgrade the Subscription for ibm-mas to 8.7.x channel
+# -----------------------------------------------------------------------------
+
+
+# 8. (optionally) Upgrade the application operators
+# -----------------------------------------------------------------------------
+# You don't need to upgrade the applications, you can leave them at the n-1
+# supported versions from your prevoius MAS 8.6 installation if you wish.
+
+
+# 9. (optionally) Upgrade OCP to v4.8
+# -----------------------------------------------------------------------------
+# MAS 8.7 is fully supported on both OCP 4.6 and 4.8, however at some point
+# before you eventually upgrade to MAS 8.8 you will need to upgrade OCP to v4.8
+#
+# https://cloud.ibm.com/docs/openshift?topic=openshift-update#master
+
+# 10. (optionally) Upgrade SBO to v1.0 - only if you upgraded to OCP v4.8
+# -----------------------------------------------------------------------------
+# MAS 8.7 fully supports both the preview and stable channels of the Red Hat
+# service binding operator, however at some point before you eventually upgrade
+# to MAS 8.8 you will need to upgrade to the stable channel.  The stable
+# channel is not available in OCP 4.6

@@ -1,0 +1,22 @@
+---
+# 1. Lookup the application CR
+- name: "Get installed version of {{ app_check_id }}"
+  community.kubernetes.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "mas-{{ mas_instance_id }}-{{ app_check_id }}"
+    kind: "{{ app_check_kind }}"
+  register: app_info
+
+# 2. If the application is installed, check whether it's running at a supported version
+- name: "Assert that {{app_check_id }} is running a supported version to upgrade to MAS 8.7"
+  when:
+    - app_info.resources is defined
+    - app_info.resources | length == 1
+  assert:
+    that:
+      - app_info.resources[0].status.versions.reconciled is version(app_check_min_version, '>=')
+      - app_info.resources[0].status.versions.reconciled is version(app_check_max_version, '<')
+    fail_msg: "Installed {{ app_check_id }} applicaton is not in the supported range for MAS 8.7.x [ >={{ app_check_min_version }}, <{{ app_check_max_version }} ]"
+
+# 3. Also check that the application is installed via a subscription, we will only support OLM-based upgrade (initially at least)
