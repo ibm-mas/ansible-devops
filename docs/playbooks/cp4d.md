@@ -30,6 +30,21 @@ ansible-playbook playbooks/cp4d/create-db2-instance.yml
 
 -------------------------------------------------------------------------------
 
+## Backup & Restore DB2 Instance
+This playbook will execute procedures to take a backup from a source DB2 instance and restore into a target DB2 instance.
+
+```bash
+export DB2WH_BACKUP_DIR='/Users/Documents/db_backup'
+export CPD_NAMESPACE_SOURCE='ibm-common-services'
+export DB2WH_INSTANCE_ID_SOURCE='db2wh-1637258370283030'
+export CPD_NAMESPACE_TARGET='ibm-common-services'
+export DB2WH_INSTANCE_ID_TARGET='db2wh-1641225392064040'
+
+ansible-playbook playbooks/cp4d/db2wh-backup-restore.yml
+```
+
+-------------------------------------------------------------------------------
+
 ## Hack Worker Nodes
 This playbook will auto-detect whether CP4D v3.5 or v4 is active in the cluster.  Refer to the [cp4d_hack_worker_nodes](../roles/cp4d_hack_worker_nodes.md) role documentation for more information.
 
