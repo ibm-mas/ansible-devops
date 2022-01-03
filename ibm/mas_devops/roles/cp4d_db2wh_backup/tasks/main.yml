@@ -1,0 +1,126 @@
+---
+# 1. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "DB2 Backup - Debug information"
+  debug:
+    msg:
+      - "CPD Namespace .......................... {{ cpd_meta_namespace_source }}"
+      - "DB2 Instance ID ........................ {{ db2wh_instance_id_source }}"
+      - "DB2 Backup Files Directory ............. {{ db2wh_backup_folder }}"
+
+# 2. Fail if no required keys are provided
+# -----------------------------------------------------------------------------
+- name: "Fail if cpd_meta_namespace_source has not been provided"
+  when: cpd_meta_namespace_source is not defined or cpd_meta_namespace_source == ""
+  fail:
+    msg: "cpd_meta_namespace_source property has not been set"
+
+- name: "Fail if db2wh_instance_id_source has not been provided"
+  when: db2wh_instance_id_source is not defined or db2wh_instance_id_source == ""
+  fail:
+    msg: "db2wh_instance_id_source property has not been set"
+
+- name: "Fail if db2wh_backup_folder has not been provided"
+  when: db2wh_backup_folder is not defined or db2wh_backup_folder == ""
+  fail:
+    msg: "db2wh_backup_folder property has not been set"
+
+# 3. Determine which pod to run in
+# -----------------------------------------------------------------------------
+- name: "Lookup db2 Pod"
+  community.kubernetes.k8s_info:
+    kind: Pod
+    namespace: "{{ cpd_meta_namespace_source }}"
+    label_selectors:
+      - type=engine
+      - app={{ db2wh_instance_id_source }}
+  register: db2wh_pod
+
+- name: Configure facts
+  set_fact:
+    db2wh_pod_name: "{{ db2wh_pod.resources[0].metadata.name }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "Pod name ........... {{ db2wh_pod_name }}"
+  failed_when: db2wh_pod_name is not defined or db2wh_pod_name == ""
+
+# 4. Run backup script in source db2wh pod
+# -----------------------------------------------------------------------------
+- name: "Running backup script on DB2WH pod {{ db2wh_instance_id_source }} as db2inst username... (this can take several minutes)"
+  shell: |
+    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "cat << EOF > /tmp/backupDB.sh
+    mkdir {{ db2wh_backup_dir }}
+    db2 connect to BLUDB
+    db2 backup db BLUDB on all dbpartitionnums online to {{ db2wh_backup_dir }} include logs without prompting
+    exit 0
+    EOF"
+    oc exec -it -n {{cpd_meta_namespace_source}} {{db2wh_pod_name}} -- bash -c "chmod 755 /tmp/backupDB.sh"
+    oc exec -it -n {{cpd_meta_namespace_source}} {{db2wh_pod_name}} -- su -lc /tmp/backupDB.sh db2inst1
+  register: backup_output
+  failed_when: backup_output.rc != 0
+
+- debug:
+    msg: "{{ backup_output.stdout_lines }}"
+
+# 5. Create temporary backup folder in source db2wh pod
+# -----------------------------------------------------------------------------
+- name: "Creating backup folder in {{ db2wh_instance_id_source }}"
+  shell: |
+    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "sudo mkdir db_backup"
+  register: creating_backup_folder_output
+
+- name: "Copying backup files to backup folder in {{ db2wh_instance_id_source }}"
+  shell: |
+    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "sudo cp {{ db2wh_backup_dir }}/* /db_backup"
+  register: copy_backup_folder_output
+
+# 6. Extract db2wh keystore master key label and copy keystore files to backup folder
+# https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
+# -----------------------------------------------------------------------------------------------------------------
+
+- name: "Check current Master Key Label from source keystore.p12"
+  shell: |
+    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- su -lc "gsk8capicmd_64 -cert -list all -db '/mnt/blumeta0/db2/keystore/keystore.p12' -stashed" db2inst1
+  register: check_master_label_output
+
+- name: "Get current Master Key Label from source keystore.p12"
+  vars:
+    regex: '\DB2(.*)'
+  when: item is regex('\DB2(.*)')
+  set_fact:
+    master_key_label: "{{ item | regex_search(regex) }}"
+  with_items: "{{ check_master_label_output.stdout_lines | list }}"
+
+- name: "Extract Master Key Label from keystore.p12"
+  shell: |
+    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- su -lc "gsk8capicmd_64 -secretkey -extract -db '/mnt/blumeta0/db2/keystore/keystore.p12' -stashed -label '{{ master_key_label }}' -format ascii -target '/mnt/blumeta0/db2/keystore/master_key_label.kdb'" db2inst1
+  register: extract_master_label_output
+
+- name: "Copying Master Key Label secret to backup folder in {{ db2wh_instance_id_source }}"
+  shell: |
+    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "sudo cp -a /mnt/blumeta0/db2/keystore/. /db_backup"
+  register: copy_bkp_locally_output
+
+- name: "Applying db2uadm permissions to copy backup files from {{ db2wh_instance_id_source }}"
+  shell: |
+    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "sudo chown -R db2uadm /db_backup/"
+  register: apply_db2uadm_output
+
+# 6. Download db2 backup files to local machine
+# -----------------------------------------------------------------------------
+- name: "Downloading backup files from {{ db2wh_instance_id_source }} pod to your local machine... (this can take several minutes)"
+  shell: |
+    oc rsync --progress=true -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }}:/db_backup/. {{ db2wh_backup_folder }}
+  register: copy_bkp_locally_output
+
+- debug:
+    msg: "{{ copy_bkp_locally_output }}"
+
+# 7. Delete temporary db2 backup files in source db2wh pod
+# -----------------------------------------------------------------------------
+- name: "Delete temporary db2 backup files from {{ db2wh_instance_id_source }} now that backup is complete"
+  when: copy_bkp_locally_output.rc == 0
+  shell: |
+    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "sudo rm -rf /db_backup && sudo rm -rf {{ db2wh_backup_dir }} && sudo rm -rf /mnt/blumeta0/db2/keystore/master_key_label.kdb"
