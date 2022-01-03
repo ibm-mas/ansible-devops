@@ -1,0 +1,50 @@
+---
+# Issuers need to be moved to the new namespace, as do the secrets and certificates associated with them.
+
+# vars:
+# - source_issuer_name
+# - source_issuer_secret_name
+
+# 1. Copy Secret
+- name: "Copy Issuer : {{ source_issuer_name }} : Copy Issuer's secret"
+  include_tasks: tasks/cert_manager_upgrade/copy_secret.yml
+  vars:
+    secret_name: "{{ source_issuer_secret_name }}"
+
+# 2. Lookup Certificate
+- name: "Copy Issuer : {{ source_issuer_name }} : Lookup Certificate"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Certificate
+    name: "{{ source_issuer_name }}"
+    namespace: "{{ cert_manager_namespace }}"
+  register: source_issuer_cert_info
+
+# 3. Copy Certificate
+- name: "Copy Issuer : {{ source_issuer_name }} : Copy Certificate"
+  when: source_issuer_cert_info['resources'] | length == 1
+  vars:
+    data: "{{ source_issuer_cert_info.resources[0] }}"
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ common_services_namespace }}"
+    definition: "{{ lookup('template', 'blankcr.yml.j2') | from_yaml }}"
+
+# 4. Lookup Issuer
+- name: "Copy Issuer : {{ source_issuer_name }} : Lookup Issuer"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Issuer
+    name: "{{ source_issuer_name }}"
+    namespace: "{{ cert_manager_namespace }}"
+  register: source_issuer_info
+
+# 5. Copy Issuer
+- name: "Copy Issuer : {{ source_issuer_name }} : Copy Issuer"
+  when: source_issuer_info['resources'] | length == 1
+  vars:
+    data: "{{ source_issuer_info.resources[0] }}"
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ common_services_namespace }}"
+    definition: "{{ lookup('template', 'blankcr.yml.j2') | from_yaml }}"

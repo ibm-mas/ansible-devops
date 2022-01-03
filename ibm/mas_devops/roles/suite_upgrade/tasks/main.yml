@@ -9,12 +9,9 @@
       - mas_instance_id != ""
     fail_msg: "mas_instance_id property is required"
 
+
 # 2. Provide debug information
 # -----------------------------------------------------------------------------
-- name: "Configure namespace"
-  set_fact:
-    mas_namespace: "mas-{{ mas_instance_id }}-core"
-
 - name: "Debug information"
   debug:
     msg:
@@ -157,20 +154,14 @@
 
 # 5. Upgrade to cert-manager v1.5 (IBM badged version)
 # -----------------------------------------------------------------------------
-# Note: this is not a requirement for MAS itself, but for CP4D v4
-
-# 5.1 Uninstall jetstack cert-manager from cert-manager namespace
-# 5.2 Install IBM cert-manager to the ibm-common-services namespace
-# 5.3 Copy secrets from cert-manager namespace to ibm-common-services
-# 5.4 Copy ClusterIssuers, Issuers and Certificates from cert-manager namespace to ibm-common-services
-# 5.5 Verify all ClusterIssuers, Issuers, and Certificates are in a healthy state
-# 5.6 Update the existing MAS 8.6 install to configure the suite to use cert-manager in the new namespace
-# 5.7 Verify the existing MAS 8.6 install is happy with the cert-manager switch over
-
-# Note 1: MAS should not experience any outage during this upgrade, but certificates etc will
-#         not be able to be updated during this process
-# Note 2: This is a cluster wide change, anything else in the using using cert-manager will
-#         need to be updated to refer to the new namespace
+# Note:
+#   - This is not a requirement for MAS itself, but for CP4D v4
+#   - MAS should not experience any outage during this upgrade, but certificates etc will
+#     not be able to be updated during this process
+#   - This is a cluster wide change, anything else in the using using cert-manager will
+#     need to be updated to refer to the new namespace
+- name: "Migrate cert-manager to IBM ibm-common-services"
+  include_tasks: tasks/cert_manager_upgrade/upgrade.yml
 
 
 # 6. Check version of CP4D (and upgrade to v4)
@@ -199,10 +190,43 @@
 
 # 9. (optionally) Upgrade OCP to v4.8
 # -----------------------------------------------------------------------------
-# MAS 8.7 is fully supported on both OCP 4.6 and 4.8, however at some point
-# before you eventually upgrade to MAS 8.8 you will need to upgrade OCP to v4.8
+# MAS 8.7 is fully supported on both OCP 4.6, 4.8 (we can't support 4.7 because
+# CP4D does not), however at some point before you eventually upgrade to MAS
+# 8.8 you will need to upgrade OCP to v4.8
+#
+# We can only really automate the upgrade in ROKS, in other cluster types
+# the user will need to perform the upgrade themselves (or implement additional
+# provider support in this collection, we welcome all contributions)
 #
 # https://cloud.ibm.com/docs/openshift?topic=openshift-update#master
+
+# 9.1 Upgrade to OCP 4.7
+# ic oc cluster master update -c {{ cluster_name }} --version 4.7_openshift
+# wait for master node upgrade to start
+#    "masterStatus": "Version update in progress."
+#    "masterState": "updating"
+# wait for master node upgrade to complete
+#    "masterStatus": "Ready"
+#    "masterState": "deployed"
+# ic oc worker update -c {{ cluster_name }} --version 4.7_openshift
+# wait for worker node upgrade to complete
+
+# Note: You are now running CP4D on an unsupported platform so may experience
+# issues in the cluster until we complete the subsequent upgrade to OCP 4.8,
+# sorry but there's no way to skip this intermediate upgrade step and CP4D
+# are skipping OCP 4.7 support.
+
+# 9.2 Upgrade to OCP 4.8
+# ic oc cluster master update -c {{ cluster_name }} --version 4.8_openshift
+# wait for master node upgrade to start
+#    "masterStatus": "Version update in progress."
+#    "masterState": "updating"
+# wait for master node upgrade to complete
+#    "masterStatus": "Ready"
+#    "masterState": "deployed"
+# ic oc worker update -c {{ cluster_name }} --version 4.8_openshift
+# wait for worker node upgrade to complete
+
 
 # 10. (optionally) Upgrade SBO to v1.0 - only if you upgraded to OCP v4.8
 # -----------------------------------------------------------------------------
