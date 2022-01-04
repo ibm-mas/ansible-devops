@@ -4,67 +4,69 @@ These pipelines are all powered by the container image in this same repository, 
 
 To learn more about Tekton refer to the excellent material here: https://redhat-scholars.github.io/tekton-tutorial/tekton-tutorial/index.html
 
+This aspect of the project is still in active development and should be considered pre-release.  However, we are using these extensively in our own development, so they should be pretty reliable given we use them multiple times every day in our automation frameworks.
+
 ## ClusterTasks
 
 # CP4D Management
-- Install CP4D - dependencies/install-cp4d.yaml
-- Install Db2 Warehouse (via undocumented API!) - dependencies/install-db2-api.yaml
-- Install Db2 Warehouse - dependencies/install-db2.yaml
+- [Create Db2 Warehouse Instance](tasks/dependencies/create-db2-instance.yaml)
+- [Install CP4D with Db2 Warehouse service enabled](tasks/dependencies/install-db2.yaml)
+- [Install CP4D with Db2 Warehouse & Watson Studio services enabled](tasks/dependencies/install-fullstack.yaml)
+- [Install CP4D with Watson Studio services enabled](tasks/dependencies/install-watsonstudio.yaml)
 
 ### Dependency Management
-- Install AMQStreams - dependencies/install-amqstreams.yaml
-- Install Behavior Analytics Service - bas/install-bas.yaml
-- Install MongoDb CE - dependencies/install-mongodb-ce.yaml
-- Install IBM Suite License Service - sls/install-sls.yaml
+- [Install AMQStreams](tasks/dependencies/install-amqstreams.yaml)
+- [Install Behavior Analytics Service](tasks/bas/install-bas.yaml)
+- [Install MongoDb CE](tasks/dependencies/install-mongodb-ce.yaml)
+- [Install IBM Suite License Service](tasks/sls/install-sls.yaml)
 
 ### MAS Management
-- Configure Application - mas/configure-app.yaml
-- Configure MAS Core - mas/configure-suite.yaml
-- Manage Db2 Database Configuration Hack - mas/hack-manage-db2.yaml
-- Install Application - mas/install-app.yaml
-- Install MAS Core - mas/install-suite.yaml
+- [Configure Application](tasks/mas/configure-app.yaml)
+- [Configure MAS Core](tasks/mas/configure-suite.yaml)
+- [Manage Db2 Database Configuration Hack](tasks/mas/hack-manage-db2.yaml)
+- [Install Application](tasks/mas/install-app.yaml)
+- [Install MAS Core](tasks/mas/install-suite.yaml)
 
 ### OCP Management
-- Configure OCP Cluster - ocp/configure-ocp.yaml
+- [Configure OCP Cluster for MAS](tasks/ocp/configure-ocp.yaml)
 
 
-## Install Pipeline Operator
-You can use the install script provided: `bin/install-pipelines.sh`, or just create the subscription below:
+### Usage
+All commands assume you are in the root directory where you have cloned this repository.
 
-```yaml
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-    name: openshift-pipelines-operator
-    namespace: openshift-operators
-spec:
-    channel: stable
-    name: openshift-pipelines-operator-rh
-    source: redhat-operators
-    sourceNamespace: openshift-marketplace
+### 1. Provision Cluster and Install OpenShift Pipelines Operator
+After provisioning and logging into the cluster, you can use the install script provided: `bin/install-pipelines.sh`:
+
+```bash
+export IBMCLOUD_APIKEY=xxx
+export CLUSTER_NAME=xxx
+ansible-playbook ibm/mas_devops/playbooks/ocp/provision-roks.yml && ansible-playbook ibm/mas_devops/playbooks/cp4d/hack-worker-nodes.yml
+pipelines/bin/install-pipelines.sh
 ```
 
 
-# Install the MAS Pipeline Task Definitions
+# 2. Build and Install the MAS Pipeline Task Definitions
 ```
-oc apply -f ibm-mas_devops-clustertasks-4.5.1-pre.tekton.yaml
+export DEV_MODE=true
+export VERSION=5.1.2
+
+pipelines/bin/build-pipelines.sh
+oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
 ```
 
-
-# Install and run the MAS Sample Pipeline
-Modify the `samples/sample-pipelinesettings.yaml` file to populate it with your own settings before applying it to the cluster
+# 3. Install and run the MAS Sample Pipeline
+Modify the [sample-pipelinesettings.yaml](samples/sample-pipelinesettings.yaml) to populate it with your own settings before applying it to the cluster, and optionally customize the parameters in [sample-pipelinerun-mas86.yaml](samples/sample-pipelinerun-mas86.yaml) if you wish to adjust the subscription channels for the MAS applications.
 
 ```bash
 oc new-project mas-sample-pipelines
-oc apply -f samples/sample-pipelinesettings.yaml
+oc apply -f pipelines/samples/sample-pipelinesettings.yaml
 
 oc create secret generic pipeline-additional-configs \
-  --from-file=/home/david/masconfig/workspace_masdev.yaml \
-  --from-file=/home/david/masconfig/bascfg_masdeps1.yaml
+  --from-file=/home/david/masconfig/workspace_masdev.yaml
 
 oc create secret generic pipeline-sls-entitlement \
   --from-file=/home/david/masconfig/entitlement.lic
 
-oc apply -f samples/sample-pipeline.yaml
-oc create -f samples/sample-pipelinerun.yaml
+oc apply -f pipelines/samples/sample-pipeline.yaml
+oc create -f pipelines/samples/sample-pipelinerun-mas86.yaml
 ```

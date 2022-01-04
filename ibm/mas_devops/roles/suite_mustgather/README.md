@@ -6,9 +6,17 @@ Run IBM AI Applications' Must Gather tool against a MAS instance
 Role Variables
 --------------
 
-- `mas_instance_id` MAS instance ID to run against
-- `base_output_dir` Location on the local disk to save the must-gather file
+### mas_instance_id
+Required.  MAS instance ID to run against.
 
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
+
+### base_output_dir
+Required.  Location on the local disk to save the must-gather file.
+
+- Environment Variable: `BASE_OUTPUT_DIR`
+- Default Value: None
 
 Example Playbook
 ----------------
@@ -17,8 +25,8 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    base_output_dir: "{{ lookup('env', 'BASE_OUTPUT_DIR') }}"
+    mas_instance_id: masinst1
+    base_output_dir: ~/mas/mustgather
 
   roles:
     - ibm.mas_devops.suite_mustgather

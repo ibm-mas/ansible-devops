@@ -1,0 +1,232 @@
+---
+# 0. Fail if required parameters are not set
+# -----------------------------------------------------------------------------
+- name: "Fail if db2wh_meta_storage_class has not been provided"
+  when: db2wh_meta_storage_class is not defined or db2wh_meta_storage_class == ""
+  fail:
+    msg: "db2wh_meta_storage_class property has not been set"
+
+- name: "Fail if db2wh_user_storage_class has not been provided"
+  when: db2wh_user_storage_class is not defined or db2wh_user_storage_class == ""
+  fail:
+    msg: "db2wh_user_storage_class property has not been set"
+
+- name: "Fail if db2wh_backup_storage_class has not been provided"
+  when: db2wh_backup_storage_class is not defined or db2wh_backup_storage_class == ""
+  fail:
+    msg: "db2wh_backup_storage_class property has not been set"
+
+
+# 1. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "mas_instance_id ................. {{ mas_instance_id | default('<undefined>') }}"
+      - "mas_config_dir .................. {{ mas_config_dir | default('<undefined>')  }}"
+      - "mas_config_scope ................ {{ mas_config_scope | default('<undefined>')  }}"
+      - "mas_workspace_id ................ {{ mas_workspace_id | default('<undefined>')  }}"
+      - "mas_application_id .............. {{ mas_application_id | default('<undefined>')  }}"
+
+      - "cpd_api_username ................ {{ cpd_api_username }}"
+
+      - "cpd_db_config_configmap_name .... {{ cpd_db_config_configmap_name }}"
+      - "db2wh_namespace ................. {{ db2wh_namespace }}"
+      - "db2wh_instance_name ............. {{ db2wh_instance_name }}"
+      - "db2wh_meta_storage_class  ....... {{ db2wh_meta_storage_class }}"
+      - "db2wh_meta_storage_size_gb ...... {{ db2wh_meta_storage_size_gb }}"
+      - "db2wh_user_storage_class ........ {{ db2wh_user_storage_class }}"
+      - "db2wh_user_storage_size_gb ...... {{ db2wh_user_storage_size_gb }}"
+      - "db2wh_backup_storage_class ...... {{ db2wh_backup_storage_class }}"
+      - "db2wh_backup_storage_size_gb  ... {{ db2wh_backup_storage_size_gb }}"
+      - "db2wh_version ................... {{ db2wh_version}}"
+      - "db2wh_table_org ................. {{ db2wh_table_org }}"
+
+
+# 2. Set CP4D Route (cp4d_host) info from OpenShift into Facts
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd35/get_cp4d_host.yml"
+
+
+# 3. Set CP4D Bearer Token (cp4d_bearer_token) into Facts
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd35/get_cp4d_bearer_token.yml"
+
+
+# 4. Create a DB2 database instance
+# -----------------------------------------------------------------------------
+- name: "Debug Db2 instance create API request body - {{ db2w_instance_name }}"
+  debug:
+    msg: "{{ lookup('template','templates/cpd35/create_db.json.j2') }}"
+
+- name: Create the DB2 database instance in CP4D - {{ db2wh_instance_name }}
+  uri:
+    url: "https://{{ cp4d_host }}/zen-data/v3/service_instances"
+    validate_certs: no
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cp4d_bearer_token }}"
+      cache-control: "no-cache"
+    body_format: "json"
+    body: "{{ lookup('template','templates/cpd35/create_db.json.j2') }}"
+    status_code: 202,409
+    timeout: 30
+  register: create_db2_database_output
+
+- debug:
+    msg: "{{ create_db2_database_output }}"
+
+
+# 5a. Wait for DB creation (when creation status is 202)
+# -----------------------------------------------------------------------------
+- name: Wait for DB creation to be completed for {{ db2wh_instance_name }} and apply patch if needed
+  when: create_db2_database_output.status == 202
+  block:
+    - name: "Save the Db2 instance Id to a fact"
+      set_fact:
+        db2wh_instance_id: "{{ create_db2_database_output.json.id }}"
+
+    - name: Save the DB2 database id in a DB config ConfigMap {{ cpd_db_config_configmap_name }}-{{ db2wh_instance_name }} under {{ db2wh_namespace }} namespace
+      community.kubernetes.k8s:
+        state: present
+        namespace: "{{ db2wh_namespace }}"
+        definition: "{{ lookup('template', 'templates/cpd35/cp4d_db2_database_config.yaml.j2') | from_yaml }}"
+
+    # Patch the db2u StatefulSet to avoid DB2 pod getting stuck in 0/1 state during installation
+    - name: Patch the db2u StatefulSet to avoid DB2 pod getting stuck in 0/1 state during installation
+      block:
+        - name: Wait for DB2 StatefulSet creation
+          pause:
+            minutes: 5
+        - name: Check DB2 StatefulSet status
+          shell: oc get sts -lcomponent=db2wh -oname -n="{{ db2wh_namespace }}" | grep db2wh
+          register: sts_status
+          until: sts_status.rc == 0
+          retries: 10
+          delay: 60
+        - name: Apply DB2 StatefulSet patch
+          shell: oc patch $(oc get sts -lcomponent=db2wh -oname -n="{{ db2wh_namespace }}" | grep db2wh) -n="{{ db2wh_namespace }}" -p='{ "spec":{ "template":{ "spec":{ "containers":[ { "name":"db2u", "tty":false } ] } } } }'
+      when: apply_db2u_sts_patch|default(false)|bool
+
+    - name: Wait for the creation of DB2 database {{ db2wh_instance_name }}
+      pause:
+        minutes: 5
+
+
+# 5b. Get info of DB2 database if it already exists (when creation status is 409)
+# -----------------------------------------------------------------------------
+- name: Get info of DB2 database {{ db2wh_instance_name }} if it already exists (if above creation code was 409)
+  when: create_db2_database_output.status == 409
+  block:
+    - name: "Read the DB2 database config from the DB config ConfigMap {{ cpd_db_config_configmap_name }}"
+      community.kubernetes.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: "{{ cpd_db_config_configmap_name }}-{{ db2wh_instance_name }}"
+        namespace: "{{ db2wh_namespace }}"
+      register: cp4d_db_config_info
+
+    - name: "Read the DB2 database ID for {{ db2wh_instance_name }} from DB config ConfigMap data"
+      set_fact:
+        db2wh_instance_id: "{{ cp4d_db_config_info.resources[0].data.db2wh_instance_id }}"
+
+
+# 6. Generate the name and fqn of the service now we know the instance ID
+# -----------------------------------------------------------------------------
+- name: "Set service name and fqn from the instance ID"
+  set_fact:
+    db2wh_svc_name: "c-db2wh-{{ db2wh_instance_id }}-db2u-engn-svc"
+    db2wh_svc_fqn: "c-db2wh-{{ db2wh_instance_id }}-db2u-engn-svc.{{ db2wh_namespace }}.svc"
+
+
+# 7. Wait till DB2 status is RUNNING
+# -----------------------------------------------------------------------------
+- name: "Wait till status of DB2 database {{ db2wh_instance_name }} is RUNNING"
+  uri:
+    url: "https://{{ cp4d_host }}/zen-data/v3/service_instances/{{ db2wh_instance_id }}?include_service_status=true"
+    validate_certs: no
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cp4d_bearer_token }}"
+      cache-control: "no-cache"
+    status_code: 200
+    timeout: 30
+  register: db_status
+  until: db_status.json.service_instance.metadata.status == 'RUNNING'
+  retries: 60
+  delay: 60
+
+
+# 8. Set DB2 SSL Port (db2wh_ssl_port) into Facts
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd35/get_db2_ssl_port.yml"
+
+
+# 9. Set DB2 SSL Port (db2wh_certificate) into Facts
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd35/get_db2_certificate.yml"
+
+
+# 10. Save the DB2 database hostname and port info
+# -----------------------------------------------------------------------------
+- name: Update the DB2 database url and port info in the DB config ConfigMap for {{ cpd_db_config_configmap_name }}-{{ db2wh_instance_name }}
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ db2wh_namespace }}"
+    definition: "{{ lookup('template', 'templates/cpd35/cp4d_db2_database_config.yaml.j2') | from_yaml }}"
+
+
+# 11. Create JDBCCfg yml definition
+# -----------------------------------------------------------------------------
+- name: Load variables to use in JDBCCfg
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  include_vars: "vars/jdbccfg/{{ mas_config_scope }}.yml"
+
+- name: Lookup db2wh instance password
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "c-db2wh-{{ db2wh_instance_id  }}-instancepassword"
+    namespace: "{{ db2wh_namespace }}"
+  register: db2u_instance_password
+
+- name: Debug expected facts (1)
+  debug:
+    msg: "db2wh_ssl_port ... {{ db2wh_ssl_port }}"
+
+- name: Debug expected facts (1)
+  debug:
+    msg: "db2wh_svc_fqn ... {{ db2wh_svc_fqn }}"
+
+- name: Debug expected facts (1)
+  debug:
+    msg: "password ... {{ db2u_instance_password.resources[0].data.password }}"
+
+- name: Set additional Facts for JdbcCfg
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  set_fact:
+    db2wh_jdbc_password: "{{ db2u_instance_password.resources[0].data.password | b64decode }}"
+    db2wh_jdbc_url: "jdbc:db2://{{ db2wh_svc_fqn }}:{{ db2wh_ssl_port }}/BLUDB:sslConnection=true;"
+
+- name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  ansible.builtin.template:
+    src: suite_jdbccfg.yml
+    dest: "{{ mas_config_dir }}/jdbc-{{ db2wh_instance_name | lower }}-{{ db2wh_namespace }}.yml"

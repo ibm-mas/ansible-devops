@@ -1,12 +1,28 @@
 ---
 
+# cluster_type has no default, it must be passed in
+cluster_name: "{{ lookup('env', 'CLUSTER_NAME')}}"
+
+# We can't provide a default, there is no single value that would make sense across all providers, and that would not eventually become dated
+ocp_version: "{{ lookup('env', 'OCP_VERSION') }}"
+
 # What cluster types does this role support
 supported_cluster_types:
   - roks
   - quickburn
 
-# Defaults for ROKS deployment
-roks_zone: lon02
-roks_flavor: "b3c.8x32"
-roks_workers: "6"
-roks_flags: ""
+# ROKS defaults
+ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
+
+roks_zone: "{{ lookup('env', 'ROKS_ZONE') | default('lon02', true) }}"
+roks_flavor: "{{ lookup('env', 'ROKS_FLAVOR') | default('b3c.8x32', true) }}"
+roks_workers: "{{ lookup('env', 'ROKS_WORKERS') | default('6', true) }}"
+roks_flags: "{{ lookup('env', 'ROKS_FLAGS') | default('', true) }}"
+
+# Quickburn defaults
+fyre_username: "{{ lookup('env', 'FYRE_USERNAME') }}"
+fyre_password: "{{ lookup('env', 'FYRE_APIKEY') }}"
+
+fyre_cluster_size: "{{ lookup('env', 'FYRE_CLUSTER_SIZE') | default('large', true) }}"
+fyre_product_id: "{{ lookup('env', 'FYRE_PRODUCT_ID') }}"

@@ -1,0 +1,29 @@
+---
+# -----------------------------------------------------------------------------
+# Set CP4D Host (cp4d_host) into Facts
+# -----------------------------------------------------------------------------
+- name: Get the CP4D Route info from OpenShift
+  community.kubernetes.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ db2wh_namespace }}-cpd"
+    namespace: "{{ db2wh_namespace }}"
+  register: cp4d_route_info
+
+- name: Get the CP4D admin/password info from Openshift
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "admin-user-details"
+    namespace: "{{ db2wh_namespace }}"
+  register: cp4d_admin_info
+
+# - debug: var=cp4d_route_info
+
+- name: Get the CP4D host from Route info and set as cp4d_host
+  set_fact:
+    cp4d_host: "{{ cp4d_route_info.resources[0].spec.host }}"
+
+- name: Get the CP4D admin/password
+  set_fact:
+    cp4d_admin_password: "{{ cp4d_admin_info.resources[0].data.initial_admin_password | b64decode }}"

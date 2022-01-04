@@ -1,87 +1,69 @@
 # OCP Playbooks
 
-## ROKS
-Provide intro ...
-
-### Required environment variables
-- `IBMCLOUD_APIKEY` Short statement
-- `CLUSTER_NAME` Short statement
-- `OCP_VERSION` Short statement
-
-### Optional environment variables
-- `ROKS_ZONE` Short statement
-- `ROKS_FLAVOR` Short statement
-- `ROKS_WORKERS` Short statement
-- `ROKS_FLAGS` Short statement
-- `W3_USERNAME` This is required if you want to install the pre-release MAS operator catalogs
-- `ARTIFACTORY_APIKEY` This is required if you want to install the pre-release MAS operator catalogs
-
-
-### Provision
-
-As part of provisioning on IBM Cloud:
-
-- The **IBM operator catalog** will be installed
-- MAS development catalogs will be installed if `W3_USERNAME` and `ARTIFACTORY_APIKEY` environment variables are **both** defined
-- [Certificate manager](https://cert-manager.io) and [service binding](https://github.com/redhat-developer/service-binding-operator) operators will be installed at cluster scope
-- [Monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.6/monitoring/enabling-monitoring-for-user-defined-projects.html#enabling-monitoring-for-user-defined-projects_enabling-monitoring-for-user-defined-projects) will be enabled in the cluster
+## Provision
+Refer to the [ocp_provision](../roles/ocp_provision.md) role documentation for more information.
 
 ```bash
-export VAR_NAME=xxx
-export VAR_NAME=xxx
+export CLUSTER_NAME=masinst1
+export OCP_VERSION="4.8_openshift"
+
+export IBMCLOUD_APIKEY=xxx
 
 ansible-playbook playbooks/ocp/provision-roks.yml
 ```
 
-### Deprovision
 ```bash
-export VAR_NAME=xxx
-export VAR_NAME=xxx
-
-ansible-playbook playbooks/ocp/deprovision-roks.yml
-```
-
-## QuickBurn
-Provide intro ...
-
-### Required environment variables
-- `FYRE_USERNAME` Short statement
-- `FYRE_APIKEY` Short statement
-- `FYRE_PRODUCT_ID` Short statement
-- `CLUSTER_NAME` Short statement
-- `OCP_VERSION` Short statement
-
-### Optional environment variables
-- `FYRE_CLUSTER_SIZE` Short statement
-- `W3_USERNAME` This is required if you want to install the pre-release MAS operator catalogs
-- `ARTIFACTORY_APIKEY` This is required if you want to install the pre-release MAS operator catalogs
-
-### Provision
-
-As part of provisioning on QuickBurn:
-
-- The **IBM operator catalog** and **IBM common services catalog** will be installed
-- MAS development catalogs will be installed if `W3_USERNAME` and `ARTIFACTORY_APIKEY` environment variables are **both** defined
-- [Certificate manager](https://cert-manager.io) and [service binding](https://github.com/redhat-developer/service-binding-operator) operators will be installed at cluster scope
-- [Monitoring for user-defined projects](https://docs.openshift.com/container-platform/4.6/monitoring/enabling-monitoring-for-user-defined-projects.html#enabling-monitoring-for-user-defined-projects_enabling-monitoring-for-user-defined-projects) will be enabled in the cluster
-- [OpenShift Container Storage](https://www.redhat.com/en/resources/quay-overview) will be configured in the cluster
-
-```bash
-export FYRE_USERNAME=xxx
-export FYRE_APIKEY=xxx
-export FYRE_PRODUCT_ID=225
-export CLUSTER_NAME=xxx
+export CLUSTER_NAME=masinst1
 export OCP_VERSION=4.6.16
+
+export FYRE_USERNAME=xxx
+export FYRE_PASSWORD=xxx
+export FYRE_PRODUCT_ID=xxx
 
 ansible-playbook playbooks/ocp/provision-quickburn.yml
 ```
 
-### Deprovision
+
+## Deprovision
+Refer to the [ocp_deprovision](../roles/ocp_deprovision.md) role documentation for more information.
+
+**TODO: Update the role doc as it's rubbish atm**
+
 ```bash
+export CLUSTER_NAME=masinst1
+export IBMCLOUD_APIKEY=xxx
+
+ansible-playbook playbooks/ocp/deprovision-roks.yml
+```
+
+```bash
+export CLUSTER_NAME=masinst1
 export FYRE_USERNAME=xxx
-export FYRE_APIKEY=xxx
-export CLUSTER_NAME=xxx
+export FYRE_PASSWORD=xxx
 
 ansible-playbook playbooks/ocp/deprovision-quickburn.yml
 ```
 
+
+## Configure
+Refer to the [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md) role documentation for more information.
+
+**TODO: Provide example (and update the role doc as it's rubbish atm)**
+
+```bash
+export VAR1=xxx
+
+ansible-playbook playbooks/ocp/configure-ocp.yml
+```
+
+
+## Verify
+Refer to the [ocp_verify](../roles/ocp_verify.md) role documentation for more information.
+
+**TODO: Provide example (and update the role doc as it's rubbish atm)**
+
+```bash
+export VAR1=xxx
+
+ansible-playbook playbooks/ocp/verify-roks.yml
+```

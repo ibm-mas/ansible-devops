@@ -11,40 +11,53 @@
   import_playbook: ocp/configure-ocp.yml
   vars:
     cluster_type: roks
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+    prometheus_storage_class: ibmc-block-gold
+    prometheus_alertmgr_storage_class: ibmc-file-gold-gid
 
 
-# 2. Install MongoDb
+# 2. Default Cluster Secret Hack for CP4D
+# -----------------------------------------------------------------------------
+# Note: We will perform this hack even when installing cp4d v3, for which it's
+# not technically necessary, but it does not harm other than adding some time to
+# the overall playbook run.  The extra complexity of deciding when to run this
+# is not worth the overhead for this sample end-to-end playbook.
+#
+# We hope to find out how to avoid doing this entirely in the new year, as it
+# shouldn't be a requirement to restart worker nodes and modify the default image
+# pull secret to use any containerized software.
+- name: Update default cluster pull secret and reboot all worker nodes
+  import_playbook: cp4d/hack-worker-nodes.yml
+  vars:
+    cluster_type: roks
+
+
+# 3. Install MongoDb
 # -----------------------------------------------------------------------------
 - name: Install MongoDb (Community Edition)
   import_playbook: dependencies/install-mongodb-ce.yml
   vars:
     mongodb_storage_class: ibmc-block-gold
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 3. Install AMQ Streams
+# 4. Install AMQ Streams
 # -----------------------------------------------------------------------------
 - name: Install AMQ Streams (Apache Kafka)
   import_playbook: dependencies/install-amqstreams.yml
   vars:
-    kafka_namespace: amq-streams
-    kafka_cluster_name: maskafka
-    kafka_cluster_size: "{{ lookup('env', 'KAFKA_CLUSTER_SIZE') | default('small', true) }}"
     kafka_storage_class: ibmc-block-gold
-    kafka_user_name: masuser
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 4. Install all CP4D services - this will take a long time!
+# 5. Install all CP4D services - this will take a long time!
 # -----------------------------------------------------------------------------
 - name: Install CP4D services
   import_playbook: cp4d/install-services-fullstack.yml
   vars:
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', True) }}" #  when defined, it will automatically install a cpd version that is compatible with the chosen mas_channel
     cpd_storage_class: ibmc-file-gold-gid
+    cpd_block_storage_class: ibmc-block-gold
 
 
-# 5. Create DB2 Warehouse instance for Manage (wsapp scope)
+# 6. Create DB2 Warehouse instance for Manage (wsapp scope)
 # -----------------------------------------------------------------------------
 - name: Create DB2 Warehouse instance for Manage (wsapp scope)
   import_playbook: cp4d/create-db2-instance.yml
@@ -53,10 +66,13 @@
     db2wh_meta_storage_class: ibmc-file-silver-gid
     db2wh_user_storage_class: ibmc-file-gold-gid
     db2wh_backup_storage_class: ibmc-file-gold-gid
+    db2wh_logs_storage_class: ibmc-file-silver-gid # only applicable for cp4d 4.0
+    db2wh_temp_storage_class: ibmc-file-silver-gid # only applicable for cp4d 4.0
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
     mas_config_scope: system
 
 
-# 6. Install SLS
+# 7. Install SLS
 # -----------------------------------------------------------------------------
 - name: Install SLS
   import_playbook: dependencies/install-sls.yml
@@ -69,7 +85,7 @@
     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
 
-# 7. Install BAS
+# 8. Install BAS
 # -----------------------------------------------------------------------------
 - name: Install BAS
   import_playbook: dependencies/install-bas.yml
@@ -78,17 +94,15 @@
     bas_meta_storage_class: "ibmc-block-bronze"
 
 
-# 8. Install & configure MAS
+# 9. Install & configure MAS
 # Temporary hack for Manage, because the operator is missing critical
 # database configuration that requires manual intervention to set up.
 - name: Db2 configuration hack for Manage
   import_playbook: mas/hack-manage-db2.yml
   vars:
     db2wh_instance_name: db2w-shared
-    db2wh_load_from_config: "true"
 
-
-# 9. Install & configure MAS
+# 10. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
@@ -96,7 +110,7 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 10. Install & Configure Manage application
+# 11. Install & Configure Manage application
 # -----------------------------------------------------------------------------
 - name: Install Manage
   import_playbook: mas/install-app.yml
@@ -112,7 +126,7 @@
     mas_workspace_id: masdev
 
 
-# 11. Install & Configure IoT application
+# 12. Install & Configure IoT application
 # -----------------------------------------------------------------------------
 - name: Install & configure IoT
   import_playbook: mas/install-app.yml
@@ -124,7 +138,8 @@
     mas_app_id: iot
     mas_workspace_id: masdev
 
-# 12. Install & Configure Monitor application
+
+# 13. Install & Configure Monitor application
 # -----------------------------------------------------------------------------
 - name: Install & configure Monitor
   import_playbook: mas/install-app.yml
@@ -136,7 +151,8 @@
     mas_app_id: monitor
     mas_workspace_id: masdev
 
-# 13. Install & Configure Maximo Scheduler Optimization application
+
+# 14. Install & Configure Maximo Scheduler Optimization application
 # -----------------------------------------------------------------------------
 - name: Install & configure MSO
   import_playbook: mas/install-app.yml
@@ -148,7 +164,8 @@
     mas_app_id: mso
     mas_workspace_id: masdev
 
-# 14. Install & Configure Predict application
+
+# 15. Install & Configure Predict application
 # -----------------------------------------------------------------------------
 - name: Install & configure Predict
   import_playbook: mas/install-app.yml
@@ -160,7 +177,8 @@
     mas_app_id: predict
     mas_workspace_id: masdev
 
-# 15. Install & Configure Safety application
+
+# 16. Install & Configure Safety application
 # -----------------------------------------------------------------------------
 - name: Install & configure Safety
   import_playbook: mas/install-app.yml
