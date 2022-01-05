@@ -27,7 +27,7 @@ Required - Storage class where BAS internal components such as Kafka service wil
 ### bas_event_scheduler_frequency
 Optional - Defines the frequency that BAS will collect event data. The value can be set following a [cron tab](https://crontab.guru/) format.
 
-- Environment Variable: `BAS_META_STORAGE_CLASS`
+- Environment Variable: `BAS_EVENT_SCHEDULER_FREQUENCY`
 - Default Value: `0 12 * * *` (every day at 12PM)
 
 ### bas_username
