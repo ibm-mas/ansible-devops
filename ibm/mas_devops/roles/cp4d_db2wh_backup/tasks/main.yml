@@ -6,24 +6,30 @@
     msg:
       - "CPD Namespace .......................... {{ cpd_meta_namespace_source }}"
       - "DB2 Instance ID ........................ {{ db2wh_instance_id_source }}"
-      - "DB2 Backup Files Directory ............. {{ db2wh_backup_folder }}"
+      - "DB2 Backup Files Directory ............. {{ db2wh_backup_dir }}"
 
 # 2. Fail if no required keys are provided
 # -----------------------------------------------------------------------------
-- name: "Fail if cpd_meta_namespace_source has not been provided"
-  when: cpd_meta_namespace_source is not defined or cpd_meta_namespace_source == ""
-  fail:
-    msg: "cpd_meta_namespace_source property has not been set"
+- name: "Assert that cpd_meta_namespace_source is defined"
+  assert: 
+    that: 
+      - cpd_meta_namespace_source is defined
+      - cpd_meta_namespace_source != ""
+    fail_msg: "cpd_meta_namespace_source property is required"
 
-- name: "Fail if db2wh_instance_id_source has not been provided"
-  when: db2wh_instance_id_source is not defined or db2wh_instance_id_source == ""
-  fail:
-    msg: "db2wh_instance_id_source property has not been set"
+- name: "Assert that db2wh_instance_id_source is defined"
+  assert: 
+    that: 
+      - db2wh_instance_id_source is defined
+      - db2wh_instance_id_source != ""
+    fail_msg: "db2wh_instance_id_source property is required"
 
-- name: "Fail if db2wh_backup_folder has not been provided"
-  when: db2wh_backup_folder is not defined or db2wh_backup_folder == ""
-  fail:
-    msg: "db2wh_backup_folder property has not been set"
+- name: "Assert that db2wh_backup_dir is defined"
+  assert: 
+    that: 
+      - db2wh_backup_dir is defined
+      - db2wh_backup_dir != ""
+    fail_msg: "db2wh_backup_dir property is required"
 
 # 3. Determine which pod to run in
 # -----------------------------------------------------------------------------
@@ -48,16 +54,17 @@
 
 # 4. Run backup script in source db2wh pod
 # -----------------------------------------------------------------------------
-- name: "Running backup script on DB2WH pod {{ db2wh_instance_id_source }} as db2inst username... (this can take several minutes)"
-  shell: |
-    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "cat << EOF > /tmp/backupDB.sh
-    mkdir {{ db2wh_backup_dir }}
-    db2 connect to BLUDB
-    db2 backup db BLUDB on all dbpartitionnums online to {{ db2wh_backup_dir }} include logs without prompting
-    exit 0
-    EOF"
-    oc exec -it -n {{cpd_meta_namespace_source}} {{db2wh_pod_name}} -- bash -c "chmod 755 /tmp/backupDB.sh"
-    oc exec -it -n {{cpd_meta_namespace_source}} {{db2wh_pod_name}} -- su -lc /tmp/backupDB.sh db2inst1
+- name: Create backup script in local /tmp
+  ansible.builtin.template:
+    src: backup.sh.j2
+    dest: /tmp/backup.sh
+    mode: '777'
+
+- name: Copy the backup script into the db2 pod {{ db2wh_instance_id_source }}
+  shell: "oc cp /tmp/backup.sh {{ cpd_meta_namespace_source }}/{{ db2wh_pod_name }}:/tmp/backup.sh"
+
+- name: Run backup script on db2 pod {{ db2wh_instance_id_source }} as db2inst username... (this can take several minutes)
+  shell: oc exec -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- su -lc '/tmp/backup.sh | tee /tmp/backup.log' db2inst1
   register: backup_output
   failed_when: backup_output.rc != 0
 
@@ -73,7 +80,7 @@
 
 - name: "Copying backup files to backup folder in {{ db2wh_instance_id_source }}"
   shell: |
-    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "sudo cp {{ db2wh_backup_dir }}/* /db_backup"
+    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "sudo cp /mnt/blumeta0/home/db2inst1/db_backup/* /db_backup"
   register: copy_backup_folder_output
 
 # 6. Extract db2wh keystore master key label and copy keystore files to backup folder
@@ -108,19 +115,19 @@
     oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "sudo chown -R db2uadm /db_backup/"
   register: apply_db2uadm_output
 
-# 6. Download db2 backup files to local machine
+# 7. Download db2 backup files to local machine
 # -----------------------------------------------------------------------------
 - name: "Downloading backup files from {{ db2wh_instance_id_source }} pod to your local machine... (this can take several minutes)"
   shell: |
-    oc rsync --progress=true -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }}:/db_backup/. {{ db2wh_backup_folder }}
+    oc rsync --progress=true -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }}:/db_backup/. {{ db2wh_backup_dir }}
   register: copy_bkp_locally_output
 
 - debug:
     msg: "{{ copy_bkp_locally_output }}"
 
-# 7. Delete temporary db2 backup files in source db2wh pod
+# 8. Delete temporary db2 backup files in source db2wh pod
 # -----------------------------------------------------------------------------
 - name: "Delete temporary db2 backup files from {{ db2wh_instance_id_source }} now that backup is complete"
   when: copy_bkp_locally_output.rc == 0
   shell: |
-    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "sudo rm -rf /db_backup && sudo rm -rf {{ db2wh_backup_dir }} && sudo rm -rf /mnt/blumeta0/db2/keystore/master_key_label.kdb"
+    oc exec -it -n {{ cpd_meta_namespace_source }} {{ db2wh_pod_name }} -- bash -c "sudo rm -rf /db_backup && sudo rm -rf /mnt/blumeta0/home/db2inst1/db_backup && sudo rm -rf /mnt/blumeta0/db2/keystore/master_key_label.kdb"
