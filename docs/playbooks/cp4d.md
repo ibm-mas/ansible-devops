@@ -40,7 +40,8 @@ export DB2WH_INSTANCE_ID_SOURCE='db2wh-1637258370283030'
 export CPD_NAMESPACE_TARGET='ibm-common-services'
 export DB2WH_INSTANCE_ID_TARGET='db2wh-1641225392064040'
 
-ansible-playbook playbooks/cp4d/db2wh-backup-restore.yml
+ansible-playbook playbooks/cp4d/db2wh-backup.yml
+ansible-playbook playbooks/cp4d/db2wh-restore.yml
 ```
 
 -------------------------------------------------------------------------------
