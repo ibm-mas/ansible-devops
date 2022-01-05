@@ -24,7 +24,7 @@ Required. CloudPak for Data namespace for the source DB2 Warehouse instance wher
 - Default: None
 
 ### db2wh_instance_id_source
-Required. DB2 Warehouse source instance to take the backup from i.e `db2wh-1641225392061940`.
+Required. DB2 Warehouse source instance to take the backup from i.e `db2wh-1641225392061945`.
 
 - Environment Variable: `DB2WH_INSTANCE_ID_SOURCE`
 - Default: None
