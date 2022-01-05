@@ -38,7 +38,7 @@ The size of the PVC that will be created for log storage in the cluster.
 - Default Value: `20Gi`
 
 ### mas_instance_id
-The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
+The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a MongoCfg template.
 
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default Value: None
