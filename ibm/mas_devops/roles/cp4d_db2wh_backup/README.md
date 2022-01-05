@@ -17,16 +17,10 @@ Required. Local directory that will store the backup files taken from the DB2 Wa
 - Environment Variable: `DB2WH_BACKUP_DIR`
 - Default: None
 
-### cpd_meta_namespace_source
-Required. CloudPak for Data namespace for the source DB2 Warehouse instance where you want to take the backup from, i.e `cpd-meta-ops`.
+### db2wh_instance_name
+Required. DB2 Warehouse source instance to take the backup from i.e `db2wh-iot`.
 
-- Environment Variable: `CPD_NAMESPACE_SOURCE`
-- Default: None
-
-### db2wh_instance_id_source
-Required. DB2 Warehouse source instance to take the backup from i.e `db2wh-1641225392061945`.
-
-- Environment Variable: `DB2WH_INSTANCE_ID_SOURCE`
+- Environment Variable: `DB2WH_INSTANCE_NAME_SOURCE`
 - Default: None
 
 Example Playbook
@@ -37,8 +31,7 @@ Example Playbook
   any_errors_fatal: true
   vars:
     db2wh_backup_folder: "{{ lookup('env', 'DB2WH_BACKUP_DIR') }}"
-    cpd_meta_namespace_source: "{{ lookup('env', 'CPD_NAMESPACE_SOURCE') }}"
-    db2wh_instance_id_source: "{{ lookup('env', 'DB2WH_INSTANCE_ID_SOURCE') }}"
+    db2wh_instance_name: "{{ lookup('env', 'DB2WH_INSTANCE_NAME_SOURCE') }}"
   roles:
     - ibm.mas_devops.cp4d_db2wh_backup
 ```
@@ -47,3 +40,22 @@ License
 -------
 
 EPL-2.0
+
+Note: Support for DB2 Warehouse instances running on CP4D v3.5
+--------
+Smart detection of CPD namespace is in place for this role, which means it will use default namespaces accordingly to the CPD version identified.
+If running this role against a DB2 Warehouse instance in CPD v3.5 version, it will expect you to have a config map named `"mas-automation-config-{{ db2wh_instance_name }}"` in the same namespace as your CP4D is installed, in order for `db2wh_instance_id` property to be correctly defined, such as below:
+
+```
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: mas-automation-config-db2wh-iot
+  namespace: cpd-meta-ops
+data:
+  db2wh_instance_id: '1618938039379016'
+```
+
+This config-map is automatically generated if you used `ibm/mas_devops/roles/cp4d_db2wh` role to create your DB2 Warehouse instance.
+However, if running this role as a standalone playbook and such config map is not found, the backup/restore process will fail.
+For DB2 Warehouse instance in CPD v4.0 version, no action regarding config map setup is needed, as the required `db2wh_instance_name` property is enough, therefore the role will be executed properly without further interventions.

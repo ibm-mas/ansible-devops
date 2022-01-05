@@ -1,29 +1,12 @@
 ---
-# 1. Provide debug information to the user
+# 1. Fail if no required keys are provided
 # -----------------------------------------------------------------------------
-- name: "DB2 Restore - Debug information"
-  debug:
-    msg:
-      - "CPD Namespace .......................... {{ cpd_meta_namespace_target }}"
-      - "DB2 Instance ID ........................ {{ db2wh_instance_id_target }}"
-      - "DB2 Backup Files Directory ............. {{ db2wh_backup_dir }}"
-      - "DB2 Backup Temp Log Files Directory .... /tmp/db_backup_logs"
-
-# 2. Fail if no required keys are provided
-# -----------------------------------------------------------------------------
-- name: "Assert that cpd_meta_namespace_target is defined"
+- name: "Assert that db2wh_instance_name is defined"
   assert:
     that:
-      - cpd_meta_namespace_target is defined
-      - cpd_meta_namespace_target != ""
-    fail_msg: "cpd_meta_namespace_target property is required"
-
-- name: "Assert that db2wh_instance_id_target is defined"
-  assert:
-    that:
-      - db2wh_instance_id_target is defined
-      - db2wh_instance_id_target != ""
-    fail_msg: "db2wh_instance_id_target property is required"
+      - db2wh_instance_name is defined
+      - db2wh_instance_name != ""
+    fail_msg: "db2wh_instance_name property is required"
 
 - name: "Assert that db2wh_backup_dir is defined"
   assert:
@@ -108,69 +91,120 @@
 - debug:
     msg: "DB Backup Timestamp is: {{ db_backup_restore_timestamp }}"
 
-- name: "Check if oc login target is not provided"
-  when: oc_login_target is not defined or oc_login_target == ""
-  debug:
-    msg: "oc_login_target property has not been set, skip oc login command"
-
-# 3. Determine which pod to run in
+# 2. Determine which version of CP4D we are working with
 # -----------------------------------------------------------------------------
-- name: "Login to target cluster"
-  when: oc_login_target is defined and oc_login_target != ""
-  command: "{{ oc_login_target }}"
-  register: oc_login_output
-  failed_when: oc_login_output.rc != 0
+# - if cpd_version is set explicitly then we use that
+# - if cpd-meta-ops namespace exists then we assume it's 3.5
+# - otherwise we assume CPD v4
+
+- name: Check for the presence of the CPDv4 services namespace
+  when: cpd_version is not defined or cpd_version == ''
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: cpd-meta-ops
+  register: cpd3_namespace_lookup
+
+- name: Set cpd_version to cpd35 if we found the CP4D v3 namespace
+  when:
+    - cpd_version is not defined or cpd_version == ''
+    - cpd3_namespace_lookup.resources is defined
+    - cpd3_namespace_lookup.resources | length == 1
+  set_fact:
+    cpd_version: cpd35
+
+- name: Default to cpd40 if we did not find the CP4D v3 namespace
+  when: cpd_version is not defined or cpd_version == ''
+  set_fact:
+    cpd_version: cpd40
 
 - debug:
-    msg: "{{ oc_login_output.stdout_lines }}"
-  when: oc_login_target is defined and oc_login_target != ""
+    msg: "CPD Version ........................... {{ cpd_version }}"
 
-- name: "Lookup db2 Pod"
+# 3. Load version-specific variables
+# -----------------------------------------------------------------------------
+- name: Load variables
+  include_vars: "vars/{{ cpd_version }}.yml"
+
+# 4a. Determine Db2 instance ID from name - CP4D v3.5
+# -----------------------------------------------------------------------------
+# When we create the database instance, we save the instance ID in a config map
+# named mas-automation-config-{{db2wh_instance_name}}.  We need this instance ID
+# to access the engine pod.
+- name: "[CP4D v3.5] Load DB2 Deployment ID from Config Map - {{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}"
+  when: cpd_version == 'cpd35'
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}"
+    namespace: "{{ cpd_meta_namespace }}"
+  register: cp4d_db_config_info
+
+- name: "[CP4D v3.5] Read the DB2 database ID for {{ db2wh_instance_name }} from DB config ConfigMap data"
+  when: cpd_version == 'cpd35'
+  set_fact:
+    db2wh_instance_id: "db2wh-{{ cp4d_db_config_info.resources[0].data.db2wh_instance_id }}"
+
+# 4b. Determine Db2 instance ID from name - CP4D v4.0
+# -----------------------------------------------------------------------------
+- name: "[CP4D v4] Set instance ID = instance name"
+  when: cpd_version == 'cpd40'
+  set_fact:
+    db2wh_instance_id: "{{ db2wh_instance_name }}"
+
+# 5. Determine which pod to run in
+# -----------------------------------------------------------------------------
+- name: "Lookup db2 Pod {{ db2wh_instance_id }} in {{ db2wh_pod_namespace }} namespace"
   community.kubernetes.k8s_info:
     kind: Pod
-    namespace: "{{ cpd_meta_namespace_target }}"
+    namespace: "{{ db2wh_pod_namespace }}"
     label_selectors:
       - type=engine
-      - app={{ db2wh_instance_id_target }}
+      - app={{ db2wh_instance_id }}
   register: db2wh_pod
 
 - name: Configure facts
   set_fact:
     db2wh_pod_name: "{{ db2wh_pod.resources[0].metadata.name }}"
 
+# 6. Provide debug information to the user
+# -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
-      - "Pod name ........... {{ db2wh_pod_name }}"
-  failed_when: db2wh_pod_name is not defined or db2wh_pod_name == ""
+      - "CPD version ............................ {{ cpd_version }}"
+      - "Db2 pod namespace ...................... {{ db2wh_pod_namespace }}"
+      - "Db2 instance name ...................... {{ db2wh_instance_name }}"
+      - "Db2 pod name ........................... {{ db2wh_pod_name}}"
+      - "DB2 backup files directory ............. {{ db2wh_backup_dir }}"
 
-# 4. Upload db2 backup files from local machine to db2wh pod
+# 7. Upload db2 backup files from local machine to db2wh pod
 # -----------------------------------------------------------------------------
 - name: "Creating backup folder in {{ db2wh_pod_name }}..."
   shell: |
-    oc exec -it -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- bash -c "sudo mkdir /tmp/db_backup /tmp/db_backup_logs && sudo chown -R db2uadm /tmp/db_backup/ && sudo chown -R db2inst1 /tmp/db_backup_logs/"
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo mkdir {{ db2wh_temp_backup_dir }} {{ db2wh_temp_backup_logs_dir }} && sudo chown -R db2uadm {{ db2wh_temp_backup_dir }}/ && sudo chown -R db2inst1 {{ db2wh_temp_backup_logs_dir }}/"
   register: creating_backup_folder_output
 
-- name: "Uploading DB2 backup files into DB2WH pod {{ db2wh_pod_name }}/tmp/db_backup/...(this can take several minutes)"
+- name: "Uploading DB2 backup files into DB2WH pod {{ db2wh_pod_name }}{{ db2wh_temp_backup_dir }}/...(this can take several minutes)"
   shell: |
-    oc rsync --progress=true {{ db2wh_backup_dir }}/ -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }}:/tmp/db_backup/ --no-perms
+    oc rsync --progress=true {{ db2wh_backup_dir }}/ -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }}:{{ db2wh_temp_backup_dir }}/ --no-perms
   register: copy_output
   failed_when: copy_output.rc != 0
 
 - debug:
     msg: "{{ copy_output.stdout_lines }}"
 
-- name: "Move backup files from /tmp/db_backup/ to db2inst1/db_backup/ folder..."
+- name: "Move backup files from {{ db2wh_temp_backup_dir }}/ to db2inst1/db_backup/ folder..."
   shell: |
-    oc exec -it -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- bash -c "sudo mv /tmp/db_backup/ /mnt/blumeta0/home/db2inst1/ && sudo chown -R db2inst1 /mnt/blumeta0/home/db2inst1/db_backup/*"
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo mv /{{ db2wh_temp_backup_dir }} /mnt/blumeta0/home/db2inst1/ && sudo chown -R db2inst1 {{ db2wh_db2inst1_backup_dir }}/*"
   register: apply_output
 
-# # 5. Insert db2wh keystore master key label from source db2wh keystore into target db2wh keystore and copy keystore
-# # https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
+# 8. Insert db2wh keystore master key label from source db2wh keystore into target db2wh keystore and copy keystore
+# https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
 # -----------------------------------------------------------------------------------------------------------------
 - name: "Check source keystore.p12 master key label..."
   shell: |
-    oc exec -it -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- su -lc "gsk8capicmd_64 -cert -list all -db '/mnt/blumeta0/home/db2inst1/db_backup/keystore.p12' -stashed" db2inst1
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- su -lc "gsk8capicmd_64 -cert -list all -db '{{ db2wh_db2inst1_backup_dir }}/keystore.p12' -stashed" db2inst1
   register: check_master_label_output
 
 - name: "Get source keystore.p12 master key label..."
@@ -183,14 +217,14 @@
 
 - name: "Add extracted master key label from source into target keystore.p12 ..."
   shell: |
-    oc exec -it -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- su -lc "gsk8capicmd_64 -secretkey -add -db '/mnt/blumeta0/db2/keystore/keystore.p12' -stashed -label '{{ master_key_label }}' -format ascii -file /mnt/blumeta0/home/db2inst1/db_backup/master_key_label.kdb" db2inst1
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- su -lc "gsk8capicmd_64 -secretkey -add -db '/mnt/blumeta0/db2/keystore/keystore.p12' -stashed -label '{{ master_key_label }}' -format ascii -file {{ db2wh_db2inst1_backup_dir }}/master_key_label.kdb" db2inst1
   register: extract_master_label_output
 
-# 6. Deactivate DB2 in preparation for restore
+# 9. Deactivate DB2 in preparation for restore
 # -----------------------------------------------------------------------------
 - name: Deactivate DB2 in preparation for restore
   shell: |
-    oc exec -it -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- bash -c "cat << EOF > /tmp/prepRestoreDB.sh
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "cat << EOF > /tmp/prepRestoreDB.sh
     sudo wvcli system disable -m 'Disable HA before Db2 maintenance'
     db2 connect to BLUDB
     db2 list applications
@@ -202,8 +236,8 @@
     db2set -null DB2COMM
     db2start admin mode restricted access
     EOF"
-    oc exec -it -n {{cpd_meta_namespace_target}} {{db2wh_pod_name}} -- bash -c "chmod 755 /tmp/prepRestoreDB.sh"
-    oc exec -it -n {{cpd_meta_namespace_target}} {{db2wh_pod_name}} -- su -lc /tmp/prepRestoreDB.sh db2inst1
+    oc exec -it -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- bash -c "chmod 755 /tmp/prepRestoreDB.sh"
+    oc exec -it -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- su -lc /tmp/prepRestoreDB.sh db2inst1
   register: prep_restore_output
 
 - name: Create preRestore.sh script in local /tmp
@@ -212,18 +246,18 @@
     dest: /tmp/preRestore.sh
     mode: '777'
 
-- name: Copy the preRestore.sh script into the db2 pod {{ db2wh_instance_id_target }}
-  shell: "oc cp /tmp/preRestore.sh {{ cpd_meta_namespace_target }}/{{ db2wh_pod_name }}:/tmp/preRestore.sh"
+- name: Copy the preRestore.sh script into the db2 pod {{ db2wh_pod_name }}
+  shell: "oc cp /tmp/preRestore.sh {{ db2wh_pod_namespace }}/{{ db2wh_pod_name }}:/tmp/preRestore.sh"
 
-- name: Run preRestore.sh script on db2 pod {{ db2wh_instance_id_target }}
-  shell: oc exec -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- su -lc '/tmp/preRestore.sh | tee /tmp/preRestore.log' db2inst1
+- name: Run preRestore.sh script on db2 pod {{ db2wh_pod_name }}
+  shell: oc exec -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- su -lc '/tmp/preRestore.sh | tee /tmp/preRestore.log' db2inst1
   register: prep_restore_output
   failed_when: prep_restore_output.rc != 0
 
 - debug:
     msg: "{{ prep_restore_output.stdout_lines }}"
 
-# 7. Run DB2 restore command
+# 10. Run DB2 restore command
 # -----------------------------------------------------------------------------
 - name: Create restore.sh script in local /tmp
   ansible.builtin.template:
@@ -231,18 +265,18 @@
     dest: /tmp/restore.sh
     mode: '777'
 
-- name: Copy the restore.sh script into the db2 pod {{ db2wh_instance_id_target }}
-  shell: "oc cp /tmp/restore.sh {{ cpd_meta_namespace_target }}/{{ db2wh_pod_name }}:/tmp/restore.sh"
+- name: Copy the restore.sh script into the db2 pod {{ db2wh_pod_name }}
+  shell: "oc cp /tmp/restore.sh {{ db2wh_pod_namespace }}/{{ db2wh_pod_name }}:/tmp/restore.sh"
 
 - name: "Run restore.sh script (this can take several minutes...)"
-  shell: oc exec -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- su -lc '/tmp/restore.sh | tee /tmp/restore.log' db2inst1
+  shell: oc exec -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- su -lc '/tmp/restore.sh | tee /tmp/restore.log' db2inst1
   register: restore_output
   failed_when: restore_output.rc != 0 or 'SQL2581N' in restore_output.stdout_lines[0] # this db2 error code means something went wrong in restore command
 
 - debug:
     msg: "{{ restore_output.stdout_lines }}"
 
-# 8. Run DB2 rollforward command
+# 11. Run DB2 rollforward command
 # -----------------------------------------------------------------------------
 - name: Create rollforward.sh script in local /tmp
   ansible.builtin.template:
@@ -250,17 +284,17 @@
     dest: /tmp/rollforward.sh
     mode: '777'
 
-- name: Copy the rollforward.sh script into the db2 pod {{ db2wh_instance_id_target }}
-  shell: "oc cp /tmp/rollforward.sh {{ cpd_meta_namespace_target }}/{{ db2wh_pod_name }}:/tmp/rollforward.sh"
+- name: Copy the rollforward.sh script into the db2 pod {{ db2wh_pod_name }}
+  shell: "oc cp /tmp/rollforward.sh {{ db2wh_pod_namespace }}/{{ db2wh_pod_name }}:/tmp/rollforward.sh"
 
 - name: "Run rollforward.sh script (this can take several minutes...)"
-  shell: oc exec -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- su -lc '/tmp/rollforward.sh | tee /tmp/rollforward.log' db2inst1
+  shell: oc exec -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- su -lc '/tmp/rollforward.sh | tee /tmp/rollforward.log' db2inst1
   register: rollforward_output
   failed_when: rollforward_output.rc != 0 or 'SQL1119N' in rollforward_output.stdout_lines[0] # this db2 error code means something went wrong in rollforward command
 - debug:
     msg: "{{ rollforward_output.stdout_lines }}"
 
-# 9. Activate DB2 after successfull rollforward
+# 12. Activate DB2 after successfull rollforward
 # -----------------------------------------------------------------------------
 - name: Create postRestore.sh script in local /tmp
   ansible.builtin.template:
@@ -268,10 +302,10 @@
     dest: /tmp/postRestore.sh
     mode: '777'
 
-- name: Copy the postRestore.sh script into the db2 pod {{ db2wh_instance_id_target }}
-  shell: "oc cp /tmp/postRestore.sh {{ cpd_meta_namespace_target }}/{{ db2wh_pod_name }}:/tmp/postRestore.sh"
+- name: Copy the postRestore.sh script into the db2 pod {{ db2wh_pod_name }}
+  shell: "oc cp /tmp/postRestore.sh {{ db2wh_pod_namespace }}/{{ db2wh_pod_name }}:/tmp/postRestore.sh"
 
-- name: Run postRestore.sh script on db2 pod {{ db2wh_instance_id_target }}
+- name: Run postRestore.sh script on db2 pod {{ db2wh_pod_name }}
   shell: oc exec -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- su -lc '/tmp/postRestore.sh | tee /tmp/postRestore.log' db2inst1
   register: post_restore_output
   failed_when: post_restore_output.rc != 0
@@ -279,8 +313,8 @@
 - debug:
     msg: "{{ post_restore_output.stdout_lines }}"
 
-# 7. Delete temporary db2 backup files in target db2wh pod
+# 13. Delete temporary db2 backup files in target db2wh pod
 # -----------------------------------------------------------------------------
-- name: "Delete db_backup folder from {{ db2wh_instance_id_target }} now that backup files were restored..."
+- name: "Delete db_backup folder from {{ db2wh_pod_name }} now that backup files were restored..."
   shell: |
-    oc exec -it -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- bash -c "sudo rm -rf /tmp/db_backup && sudo rm -rf /tmp/db_backup_logs && sudo rm -rf /mnt/blumeta0/home/db2inst1/db_backup"
+    oc exec -it -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- bash -c "sudo rm -rf {{ db2wh_temp_backup_dir }} && sudo rm -rf {{ db2wh_temp_backup_logs_dir }} && sudo rm -rf {{ db2wh_db2inst1_backup_dir }}"

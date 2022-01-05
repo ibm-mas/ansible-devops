@@ -19,22 +19,10 @@ Required. Local directory that stores the backup files to be used in the DB2 War
 - Environment Variable: `DB2WH_BACKUP_DIR`
 - Default: None
 
-### cpd_meta_namespace_target
-Required. CloudPak for Data namespace for the target DB2 Warehouse instance where you want to restore the backup to, i.e `cpd-services`.
+### db2wh_instance_name
+Required. DB2 Warehouse target instance to restore the backup to, i.e `db2wh-iot`.
 
-- Environment Variable: `CPD_NAMESPACE_TARGET`
-- Default: None
-
-### db2wh_instance_id_target
-Required. DB2 Warehouse target instance to restore the backup to, i.e `db2wh-1641225392061935`.
-
-- Environment Variable: `DB2WH_INSTANCE_ID_TARGET`
-- Default: None
-
-### oc_login_target
-Optional. Openshift login command for the target cluster where you want to restore the backup to. Only needed if you want to run the backup and restore process end-to-end and target DB2 Warehouse instance is hosted in different cluster than the source DB2 Warehouse instance.
-
-- Environment Variable: `OC_LOGIN_TARGET`
+- Environment Variable: `DB2WH_INSTANCE_NAME_TARGET`
 - Default: None
 
 Example Playbook
@@ -45,8 +33,7 @@ Example Playbook
   any_errors_fatal: true
   vars:
     db2wh_backup_folder: "{{ lookup('env', 'DB2WH_BACKUP_DIR') }}"
-    cpd_meta_namespace_target: "{{ lookup('env', 'CPD_NAMESPACE_TARGET') }}"
-    db2wh_instance_id_target: "{{ lookup('env', 'DB2WH_INSTANCE_ID_TARGET') }}"
+    db2wh_instance_name: "{{ lookup('env', 'DB2WH_INSTANCE_NAME_TARGET') }}"
   roles:
     - ibm.mas_devops.cp4d_db2wh_restore
 ```
@@ -55,3 +42,22 @@ License
 -------
 
 EPL-2.0
+
+Note: Support for DB2 Warehouse instances running on CP4D v3.5
+--------
+Smart detection of CPD namespace is in place for this role, which means it will use default namespaces accordingly to the CPD version identified.
+If running this role against a DB2 Warehouse instance in CPD v3.5 version, it will expect you to have a config map named `"mas-automation-config-{{ db2wh_instance_name }}"` in the same namespace as your CP4D is installed, in order for `db2wh_instance_id` property to be correctly defined, such as below:
+
+```
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: mas-automation-config-db2wh-iot
+  namespace: cpd-meta-ops
+data:
+  db2wh_instance_id: '1618938039379016'
+```
+
+This config-map is automatically generated if you used `ibm/mas_devops/roles/cp4d_db2wh` role to create your DB2 Warehouse instance.
+However, if running this role as a standalone playbook and such config map is not found, the backup/restore process will fail.
+For DB2 Warehouse instance in CPD v4.0 version, no action regarding config map setup is needed, as the required `db2wh_instance_name` property is enough, therefore the role will be executed properly without further interventions.

@@ -35,9 +35,7 @@ This playbook will execute procedures to take a backup from a source DB2 instanc
 
 ```bash
 export DB2WH_BACKUP_DIR='/Users/Documents/db_backup'
-export CPD_NAMESPACE_SOURCE='ibm-common-services'
 export DB2WH_INSTANCE_ID_SOURCE='db2wh-1637258370283030'
-export CPD_NAMESPACE_TARGET='ibm-common-services'
 export DB2WH_INSTANCE_ID_TARGET='db2wh-1641225392064040'
 
 ansible-playbook playbooks/cp4d/db2wh-backup.yml
