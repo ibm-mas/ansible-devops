@@ -12,22 +12,22 @@
 # 2. Fail if no required keys are provided
 # -----------------------------------------------------------------------------
 - name: "Assert that cpd_meta_namespace_target is defined"
-  assert: 
-    that: 
+  assert:
+    that:
       - cpd_meta_namespace_target is defined
       - cpd_meta_namespace_target != ""
     fail_msg: "cpd_meta_namespace_target property is required"
 
 - name: "Assert that db2wh_instance_id_target is defined"
-  assert: 
-    that: 
+  assert:
+    that:
       - db2wh_instance_id_target is defined
       - db2wh_instance_id_target != ""
     fail_msg: "db2wh_instance_id_target property is required"
 
 - name: "Assert that db2wh_backup_dir is defined"
-  assert: 
-    that: 
+  assert:
+    that:
       - db2wh_backup_dir is defined
       - db2wh_backup_dir != ""
     fail_msg: "db2wh_backup_dir property is required"
@@ -54,8 +54,8 @@
   loop: "{{ db_filenames }}"
 
 - name: "Assert that backup keystore file is found"
-  assert: 
-    that: 
+  assert:
+    that:
       - db_backup_keystore_file is defined
       - db_backup_keystore_file != ""
     fail_msg: "db_backup_keystore_file property could not be found in {{ db2wh_backup_dir }}, .p12 keystore file from source DB2 instance must be provided for the restore process to work."
@@ -69,8 +69,8 @@
   loop: "{{ db_filenames }}"
 
 - name: "Assert that backup stash file is found"
-  assert: 
-    that: 
+  assert:
+    that:
       - db_backup_stash_file is defined
       - db_backup_stash_file != ""
     fail_msg: "db_backup_stash_file property could not be found in {{ db2wh_backup_dir }}, .sth keystore file from source DB2 instance must be provided for the restore process to work."
@@ -84,8 +84,8 @@
   loop: "{{ db_filenames }}"
 
 - name: "Assert that backup master key label file is found"
-  assert: 
-    that: 
+  assert:
+    that:
       - db_backup_kdb_file is defined
       - db_backup_kdb_file != ""
     fail_msg: "db_backup_kdb_file property could not be found in {{ db2wh_backup_dir }}, .kdb file containing the DB2 master key label from source DB2 instance must be provided for the restore process to work."
@@ -99,8 +99,8 @@
   loop: "{{ db_filenames }}"
 
 - name: "Assert that backup timestamp is defined"
-  assert: 
-    that: 
+  assert:
+    that:
       - db_backup_restore_timestamp is defined
       - db_backup_restore_timestamp != ""
     fail_msg: "db_backup_restore_timestamp property has not been set, this means the DB2 backup files were not found in {{ db2wh_backup_dir }} or it does not have the expected format i.e 'BLUDB.0.db2inst1.DBPART000.202XXXXXXXXXXX.001'"
@@ -237,7 +237,7 @@
 - name: "Run restore.sh script (this can take several minutes...)"
   shell: oc exec -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- su -lc '/tmp/restore.sh | tee /tmp/restore.log' db2inst1
   register: restore_output
-  failed_when: restore_output.rc != 0 or 'SQL2581N' in restore_output.stdout_lines[0] # this db2 error code means something went wrong in restore command 
+  failed_when: restore_output.rc != 0 or 'SQL2581N' in restore_output.stdout_lines[0] # this db2 error code means something went wrong in restore command
 
 - debug:
     msg: "{{ restore_output.stdout_lines }}"
@@ -256,7 +256,7 @@
 - name: "Run rollforward.sh script (this can take several minutes...)"
   shell: oc exec -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- su -lc '/tmp/rollforward.sh | tee /tmp/rollforward.log' db2inst1
   register: rollforward_output
-  failed_when: rollforward_output.rc != 0 or 'SQL1119N' in rollforward_output.stdout_lines[0] # this db2 error code means something went wrong in rollforward command 
+  failed_when: rollforward_output.rc != 0 or 'SQL1119N' in rollforward_output.stdout_lines[0] # this db2 error code means something went wrong in rollforward command
 - debug:
     msg: "{{ rollforward_output.stdout_lines }}"
 
