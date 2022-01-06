@@ -57,10 +57,26 @@
   include_tasks: tasks/cert_manager_upgrade/remove_jetstack.yml
 
 
-# 3. Uninstall IBM cert-manager
+# 3. Install IBM cert-manager
 # -------------------------------------------------------------------------------------------------
 - name: "Install IBM cert-manager in ibm-common-services namespace"
+  when:
+    - cert_manager_sub_info.resources is defined
+    - cert_manager_sub_info.resources | length == 1
+    - cert_manager_sub_info.resources[0].status.installedCSV is defined
+    - cert_manager_sub_info.resources[0].status.installPlanRef.name is defined
   include_tasks: tasks/cert_manager_upgrade/install_ibm.yml
+
+# It can take a while for the webhook to be ready to recieve requests
+# TODO: we should make this a check for something that tells us the webhook is ready, rather than a dumb 5 minute sleep.
+- name: Wait 5 minutes for IBM cert-manager to settle
+  when:
+    - cert_manager_sub_info.resources is defined
+    - cert_manager_sub_info.resources | length == 1
+    - cert_manager_sub_info.resources[0].status.installedCSV is defined
+    - cert_manager_sub_info.resources[0].status.installPlanRef.name is defined
+  pause:
+    minutes: 5
 
 
 # 4. Copy Default Public CA Issuer resources from cert-manager namespace

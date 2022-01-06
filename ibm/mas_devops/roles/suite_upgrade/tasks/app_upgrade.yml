@@ -1,0 +1,29 @@
+---
+# 1. Lookup the application CR
+# -----------------------------------------------------------------------------
+- name: "Get installed version of {{ app_upgrade_id }}"
+  community.kubernetes.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "mas-{{ mas_instance_id }}-{{ app_upgrade_id }}"
+    kind: "{{ app_upgrade_kind }}"
+  register: app_info
+
+
+# 2 Change subscription channel
+# -----------------------------------------------------------------------------
+- name: "Update subscription channel"
+  when:
+    - app_info.resources is defined
+    - app_info.resources | length == 1
+  community.kubernetes.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-mas-{{ app_upgrade_id }}"
+    namespace: "mas-{{ mas_instance_id }}-{{ app_upgrade_id }}"
+    kind: Subscription
+    definition:
+      spec:
+        channel: "{{ mas_app_upgrade_target_channels[app_upgrade_id] }}"
+    apply: true
+  register: app_sub_update
+
