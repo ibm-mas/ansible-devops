@@ -33,7 +33,7 @@ Each time you want to modify and test a pipeline run, use the following:
 
 ```bash
 export DEV_MODE=true
-export VERSION=5.1.2
+export VERSION=5.1.4
 
 # Update the settings secret (if you changed any global settings)
 oc apply -f pipelines/samples/sample-pipelinesettings-roks-donotcommit.yaml
