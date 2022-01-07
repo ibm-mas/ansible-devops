@@ -1,0 +1,12 @@
+- name: "Lookup ibm-operator-catalog"
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-operator-catalog
+    namespace: openshift-marketplace
+    kind: CatalogSource
+  register: _ibm_operator_catalog
+
+- name: "Install ibm-operator-catalog if not present"
+  when: _ibm_operator_catalog.resources[0] is not defined or _ibm_operator_catalog.resources[0] | length == 0
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
