@@ -104,6 +104,7 @@ export BAS_GRAFANA_PASSWORD=$(cat /workspace/settings/BAS_GRAFANA_PASSWORD)
 export BAS_CONTACT_MAIL=$(cat /workspace/settings/BAS_CONTACT_MAIL)
 export BAS_CONTACT_FIRSTNAME=$(cat /workspace/settings/BAS_CONTACT_FIRSTNAME)
 export BAS_CONTACT_LASTNAME=$(cat /workspace/settings/BAS_CONTACT_LASTNAME)
+export BAS_EVENT_SCHEDULER_FREQUENCY=$(cat /workspace/settings/BAS_EVENT_SCHEDULER_FREQUENCY)
 
 # -----------------------------------------------------------------------------
 # mas/install-suite.yml
