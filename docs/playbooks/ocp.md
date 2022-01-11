@@ -50,6 +50,19 @@ Refer to the [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md) role documenta
 
 **TODO: Provide example (and update the role doc as it's rubbish atm)**
 
+### Required environment variables
+- `GRAFANA_USER` user name to be registered for authentication in Grafana portal
+- `GRAFANA_PASSWORD` user password to be registered for authentication in Grafana portal
+- `GRAFANA_STORAGE_CLASS` storage class of GrafanaDataSource
+
+### Optional environment variables
+- `GRAFANA_STORAGE_SIZE` size of GrafanaDataSource, this will default to `10Gi`
+- `GRAFANA_DATASOURCE_URL` url of grafana data source, this will default to Thanos Querier (Prometheus) internal service: `https://thanos-querier.openshift-monitoring.svc:9091`
+- `W3_USERNAME` This is required if you want to install the pre-release MAS operator catalogs
+- `ARTIFACTORY_APIKEY` This is required if you want to install the pre-release MAS operator catalogs
+
+### Example
+
 ```bash
 export VAR1=xxx
 

@@ -57,6 +57,17 @@
       - "CPD Version to be installed: {{ cpd_version }}"
       - "MAS Channel: {{ 'Unspecified' if (mas_channel is not defined or mas_channel == '') else mas_channel }}"
 
+  fail:
+    msg: "cpd_version {{ cpd_version }} is not compatible with mas_channel {{ mas_channel }}"
+
+# 3. Check which CPD version to install
+# -----------------------------------------------------------------------------
+# - if cpd_version not provided, then use mas_channel to determine which cpd version is compatible
+- name: Check CP4D version to be installed
+  when:
+    - cpd_version is not defined or cpd_version == ''
+  set_fact:
+    cpd_version: "{{ 'cpd40' if (mas_channel in mas87_channels) else 'cpd35' }}"
 
 # 4. Load variables and run the install for the selected version
 # -----------------------------------------------------------------------------

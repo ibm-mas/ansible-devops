@@ -1,0 +1,152 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if grafana_user is not provided"
+  when: grafana_user is not defined or grafana_user == ""
+  fail:
+    msg: "grafana_user is required"
+
+- name: "Fail if grafana_password is not provided"
+  when: grafana_password is not defined or grafana_password == ""
+  fail:
+    msg: "grafana_password is required"
+
+- name: "Fail if grafana_storage_class is not provided"
+  when: grafana_storage_class is not defined or grafana_storage_class == ""
+  fail:
+    msg: "grafana_storage_class is required"
+
+
+# 2. Provide debug
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Grafana Namespace ............ {{ grafana_namespace }}"
+      - "Grafana User ................. {{ grafana_user }}"
+      - "Grafana Password ............. *************************"
+      - "Grafana Storage Class ........ {{ grafana_storage_class }}"
+      - "Grafana Storage Size ......... {{ grafana_storage_size }}"
+      - "Grafana Data Source URL ...... {{ grafana_datasource_url }}"
+
+
+# 3. Create cluster monitoring config map to enable user monitoring
+# -----------------------------------------------------------------------------
+- name: "Create a cluster monitoring config map to enable user monitoring"
+  community.kubernetes.k8s:
+    apply: yes
+    template: templates/cluster_monitoring_config.yml.j2
+    wait: yes
+    wait_timeout: 120
+
+
+# 4. Install Grafana Operator
+# -----------------------------------------------------------------------------
+- name: "Install Grafana Operator"
+  community.kubernetes.k8s:
+    apply: yes
+    template: templates/subscription.yml.j2
+    wait: yes
+    wait_timeout: 120
+
+- name: "Wait for Grafana Operator Contoller be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: grafana-operator
+    namespace: "{{ grafana_namespace }}"
+    kind: Deployment
+  register: _operator_deployment
+  until: _operator_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+# 5. Obtain Grafana's intalledCSV
+# -----------------------------------------------------------------------------
+- name: Obtain Subscription
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: grafana-operator
+    namespace: "{{ grafana_namespace }}"
+    kind: Subscription
+  register: _grafana_subscription
+
+- name: Obtain Subscription's installedCSV
+  set_fact:
+    installedCSV: "{{ _grafana_subscription.resources[0].status.installedCSV }}"
+
+- name: Debug installedCSV
+  debug:
+    msg:
+      - "installedCSV ............ {{ installedCSV }}"
+
+# 6. Patch operator with '--scan-all' argument
+# Ref: https://github.com/ibm-watson-iot/iot-docs/tree/master/monitoring#red-hat-grafana-operator
+# -----------------------------------------------------------------------------
+- name: "Patch operator with '--scan-all' argument"
+  shell: "oc patch csv {{ installedCSV }} --namespace {{ grafana_namespace }} --type='json' -p='[{ \"op\": \"add\", \"path\": \"/spec/install/spec/deployments/0/spec/template/spec/containers/0/args\", \"value\": [\"--scan-all\"] }]'"
+
+
+# 7. Create ClusterRole
+# Ref: https://github.com/grafana-operator/grafana-operator/tree/master/deploy/cluster_roles#grant-grafana-instance-rbac-to-grafanadashboard-definitions-in-other-projectsnamespaces
+# -----------------------------------------------------------------------------
+- name: "Create ClusterRole"
+  community.kubernetes.k8s:
+    apply: yes
+    template: templates/cluster_role.yml.j2
+    wait: yes
+    wait_timeout: 120
+
+
+# 8. Create ClusterRoleBinding
+# Ref: https://github.com/grafana-operator/grafana-operator/tree/master/deploy/cluster_roles#grant-grafana-instance-rbac-to-grafanadashboard-definitions-in-other-projectsnamespaces
+# -----------------------------------------------------------------------------
+- name: "Create ClusterRoleBinding"
+  community.kubernetes.k8s:
+    apply: yes
+    template: templates/cluster_role_binding.yml.j2
+    wait: yes
+    wait_timeout: 120
+
+
+# 9. Install Grafana Operand
+# -----------------------------------------------------------------------------
+- name: "Install Grafana Operand"
+  community.kubernetes.k8s:
+    apply: yes
+    template: templates/grafana.yml.j2
+    wait: yes
+    wait_timeout: 120
+
+- name: "Wait for Grafana Deployment be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: grafana-deployment
+    namespace: "{{ grafana_namespace }}"
+    kind: Deployment
+  register: _grafana_deployment
+  until: _grafana_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+
+# 10. Get Prometheus token to use in GrafanaDataSource
+# Ref: https://github.com/ibm-watson-iot/iot-docs/tree/master/monitoring#grafana-datasource
+# -----------------------------------------------------------------------------
+- name: "Get Prometheus token to use in GrafanaDataSource"
+  shell: "oc -n {{ grafana_namespace }} serviceaccounts get-token prometheus-user-workload"
+  register: _prometheus_user_workflow_token
+
+# - name: "Debug information"
+#   debug:
+#     msg:
+#       - "Prometheus Token ............ {{ _prometheus_user_workflow_token.stdout }}"
+
+
+# 11. Install GrafanaDataSource Operand
+# -----------------------------------------------------------------------------
+- name: "Install GrafanaDataSource Operand"
+  community.kubernetes.k8s:
+    apply: yes
+    template: templates/grafana_data_source.yml.j2
+    wait: yes
+    wait_timeout: 120

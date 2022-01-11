@@ -178,7 +178,6 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 - Environment Variable: `'MAS_APP_ID`
 - Default: None
 
-
 Example Playbook
 ----------------
 

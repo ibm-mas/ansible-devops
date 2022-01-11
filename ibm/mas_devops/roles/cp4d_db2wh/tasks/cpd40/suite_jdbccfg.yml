@@ -1,0 +1,27 @@
+---
+# Create JDBCCfg yml definition
+# -----------------------------------------------------------------------------
+- name: Load variables to use in JDBCCfg
+  include_vars: "vars/{{ mas_config_scope }}.yml"
+
+- name: Lookup db2wh instance password
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "c-{{db2wh_instance_name | lower }}-instancepassword"
+    namespace: "{{cpd_meta_namespace}}"
+  register: _db2u_instance_password
+
+- name: Set Facts for JdbcCfg
+  set_fact:
+    db2wh_instance_id: "{{ db2wh_instance_name }}"
+    cp4d_db_certificate: "{{ _db2u_instance_certificates.resources[0].data['ca.crt'] | b64decode }}"
+    db2wh_admin_password: "{{ _db2u_instance_password.resources[0].data.password | b64decode }}"
+    jdbc_url: "jdbc:db2://{{db2wh_instance_name | lower }}-{{cpd_meta_namespace}}.{{_cluster_subdomain.resources[0].spec.domain}}:{{db2wh_tls_nodeport}}/{{db2wh_dbname}}:sslConnection=true;"
+
+- name: Create JDBCCfg yml definition into {{ mas_config_dir }} folder
+  ansible.builtin.template:
+    src: suite_jdbccfg.yml
+    dest: "{{ mas_config_dir }}/jdbc-{{ db2wh_instance_name | lower }}-{{ cpd_meta_namespace }}.yml"
+  vars:
+    cp4d_db_jdbc_url: "{{ jdbc_url }}"
