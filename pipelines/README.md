@@ -48,7 +48,7 @@ pipelines/bin/install-pipelines.sh
 # 2. Build and Install the MAS Pipeline Task Definitions
 ```
 export DEV_MODE=true
-export VERSION=5.1.4
+export VERSION=5.1.5
 
 pipelines/bin/build-pipelines.sh
 oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
