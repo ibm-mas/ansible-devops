@@ -20,8 +20,7 @@ RELEASE_BRANCH_REGEXP="^(master|(0|[1-9][0-9]*)\.x|(0|[1-9][0-9]*).(0|[1-9][0-9]
 MAINTENANCE_BRANCH_REGEXP="^((0|[1-9][0-9]*)\.x|(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
 
 if [[ "${GITHUB_REF_NAME}" =~ $SEMVER_REGEXP ]]; then
-  echo "Need to add the correct exclusion rule into .travis.yml to prevent builds from tagged releases"
-  exit 64
+  echo "Note: non-branch build for a tag named (${GITHUB_REF_NAME})"
 fi
 
 # Finds the most recent tag that is reachable from a commit. If the tag points
