@@ -1,0 +1,48 @@
+---
+
+# print out parameters
+- name: print the paramName:
+  debug:
+    msg:
+    - mas_app_type_name="{{ manage_app_type_name }}"
+    - prometheus_storage_class= "{{ prometheus_storage_class }}"
+    - prometheus_storage_class= "{{ prometheus_storage_class }}"
+    - prometheus_storage_size= "{{ prometheus_storage_size }}"
+    - prometheus_alertmgr_storage_class= "{{ prometheus_alertmgr_storage_class }}"
+    - prometheus_alertmgr_storage_size= "{{ prometheus_alertmgr_storage_size }}"
+    - prometheus_retention_period= "{{ prometheus_retention_period }}"
+    - mas_instance_id= "{{ mas_instance_id }}"
+    - mas_workspace_id= "{{ mas_workspace_id }}"
+
+# Update openshift user load monitoring to define a specific storage class for Prometheus logs
+# -------------------------------------------------------------------------------------
+# All other settings have defaults, but the user must set prometheus_storage_class and
+# prometheus_alertmgr_storage_class for us to be able to apply this configuration
+- name: Set storage class and retention period for Prometheus logs
+  when:
+    - prometheus_storage_class is defined
+    - prometheus_storage_class != ""
+    - prometheus_storage_size is defined
+    - prometheus_storage_size != ""
+    - prometheus_alertmgr_storage_class is defined
+    - prometheus_alertmgr_storage_class != ""
+    - prometheus_alertmgr_storage_size is defined
+    - prometheus_alertmgr_storage_size != ""
+    - prometheus_retention_period is defined
+    - prometheus_retention_period != ""
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/configmap.yml') }}"
+    apply: yes
+
+# Configure PodMonitor
+- name: Configure PodMonitor for Manage app
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_workspace_id is defined
+    - mas_workspace_id != ""
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/podmonitor.yml') }}"
+    apply: yes
+    wait_timeout: 120
+
