@@ -50,11 +50,26 @@
       - "CPD Version to be installed: {{ cpd_version }}"
       - "MAS Channel: {{ 'Unspecified' if (mas_channel is not defined or mas_channel == '') else mas_channel }}"
 
-# 4. Check if IBM catalogs are installed already
-# - if not installed, then install it as it is a pre-requisite for cpd install
+
+# 4. Check if required operator catalog is installed and ready
 # -----------------------------------------------------------------------------
-- name: "Check IBM catalogs are present"
-  include_tasks: "tasks/install-ibm-catalog.yml"
+- name: "Lookup ibm-operator-catalog"
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-operator-catalog
+    namespace: openshift-marketplace
+    kind: CatalogSource
+  register: catalog_lookup
+
+- name: "Assert that ibm-operator-catalog is available"
+  assert:
+    that:
+      - catalog_lookup.resources is defined
+      - catalog_lookup.resources | length == 0
+      - catalog_loojup.resources[0].status.connectionState.lastObservedState is defined
+      - catalog_loojup.resources[0].status.connectionState.lastObservedState == "READY"
+    fail_msg: "The ibm-operator-catalog is not installed, or is not ready to use.  Run the ibm.mas_devops.ocp_setup_mas_deps role, or install the CatalogSource manually."
+
 
 # 5. Load variables and run the install for the selected version
 # -----------------------------------------------------------------------------
