@@ -19,7 +19,7 @@ if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
   SEMVER_BUILD="(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?"
   SEMVER_REGEXP="^${SEMVER_XYZ}${SEMVER_PRE}${SEMVER_BUILD}$"
 
-  if [[ $GITHUB_REF_NAME !~ $SEMVER_REGEXP ]]; then
+  if [[ ! $GITHUB_REF_NAME =~ $SEMVER_REGEXP ]]; then
     echo "Aborting release build.  Tag '$GITHUB_REF_NAME' does not match a valid semantic version string"
     exit 1
   fi

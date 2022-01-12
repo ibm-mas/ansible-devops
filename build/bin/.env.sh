@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# GitHub Actions environment variables documentation:
+# https://docs.github.com/en/actions/learn-github-actions/environment-variables
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export PATH=$PATH:$DIR:$DIR/ptc
 
