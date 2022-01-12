@@ -6,7 +6,7 @@ on:
     tags:
       - '**'
 jobs:
-  deploy-docs:
+  galaxy-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,18 +18,6 @@ jobs:
           $GITHUB_WORKSPACE/build/bin/initbuild.sh
           source $GITHUB_WORKSPACE/build/bin/.functions.sh
           python -m pip install -q ansible==2.10.3 yamllint
-
-      # Make sure that the tag matches the version derived from automatic semantic versioning
-      - name: Get the tag
-        id: get_tag
-        run: echo ::set-output name=SOURCE_TAG::${GITHUB_REF#refs/tags/}
-
-      - name: Check tag and automatic semantic versioning are in agreement
-        uses: pr-mpt/actions-assert@v3
-        with:
-          assertion: npm://@assertions/is-equal:v1
-          actual: "${{ steps.get_tag.outputs.SOURCE_TAG }}"
-          expected: "${{ env.VERSION }}"
 
       # Note: Use "--format standard" to ensure filenames and line numbers are in the output
       # https://gitanswer.com/yamllint-missing-filenames-and-line-numbers-in-github-action-output-python-794550803
