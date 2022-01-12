@@ -24,9 +24,7 @@ if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
     exit 1
   fi
 
-  # See: https://github.com/fsaintjacques/semver-tool/blob/1.2.1/src/semver
-  semver init ${GITHUB_REF_NAME} &>/dev/null
-  echo "Semantic versioning system initialized: $(semver)"
+  echo "${GITHUB_REF_NAME}" > $VERSION_FILE
 else
   # Finds the most recent tag that is reachable from a commit. If the tag points
   # to the commit, then only the tag is shown. Otherwise, it suffixes the tag name with the number
