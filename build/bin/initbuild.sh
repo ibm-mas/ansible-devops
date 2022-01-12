@@ -65,42 +65,39 @@ else
     echo "Patch commits : ${PATCH_COUNT}"
   fi
 
+  if [ "$MAJOR_COUNT" -gt "0" ]; then
+    SEMVER_RELEASE_LEVEL="major"
+  elif [ "$MINOR_COUNT" -gt "0" ]; then
+    SEMVER_RELEASE_LEVEL="minor"
+  elif [ "$PATCH_COUNT" -gt "0" ]; then
+    SEMVER_RELEASE_LEVEL="patch"
+  fi
+
   echo "RELEASE LEVEL = ${SEMVER_RELEASE_LEVEL}"
   echo "${SEMVER_RELEASE_LEVEL}" > $GITHUB_WORKSPACE/.releaselevel
 
-  # See: https://github.com/fsaintjacques/semver-tool/blob/1.2.1/src/semver
-  semver init ${SEMVER_LAST_TAG} &>/dev/null
-  echo "Semantic versioning system initialized: $(semver)"
-
+  # See: https://github.com/fsaintjacques/semver-tool/blob/master/src/semver
   if [ "${SEMVER_RELEASE_LEVEL}" == "initial" ]; then
-    echo "initial release of $(semver)"
+    echo $SEMVER_LAST_TAG > $VERSION_FILE
+    echo "Configuring semver for initial release of $(cat $VERSION_FILE)"
   elif [[ "${SEMVER_RELEASE_LEVEL}" =~ ^(major|minor|patch)$ ]]; then
-    semver bump $SEMVER_RELEASE_LEVEL &>/dev/null
-    echo "${SEMVER_RELEASE_LEVEL} bump from ${SEMVER_LAST_TAG} to $(semver)"
+    semver bump ${SEMVER_RELEASE_LEVEL} ${SEMVER_LAST_TAG} > $VERSION_FILE
+    echo "Configuring semver for ${SEMVER_RELEASE_LEVEL} bump from ${SEMVER_LAST_TAG} to $(cat $VERSION_FILE)"
   else
-    semver bump build build.$GITHUB_RUN_ID &>/dev/null
-    echo "build bump from ${SEMVER_LAST_TAG} to $(semver)"
+    semver bump build build.$GITHUB_RUN_ID > $VERSION_FILE
+    echo "Configuring semver for rebuild of ${SEMVER_LAST_TAG}: $(cat $VERSION_FILE)"
   fi
 fi
 
 
 # 2. Tweak version string for pre-release builds
 # -----------------------------------------------------------------------------
-if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-  # Release mode
-  VERSION=$(semver)
-else
-  # Pre-release mode
-  if [ -f ${GITHUB_WORKSPACE}/setup.py ]; then
-    # For python PEP compatability we need to version python modules differently
-    VERSION=$(semver).dev${GITHUB_RUN_ID}
-  else
-    VERSION=$(semver)-pre.$GITHUB_REF_NAME
-  fi
+if [[ "${GITHUB_REF_TYPE}" == "branch" ]]; then
+    semver bump prerel pre.$GITHUB_REF_NAME $(cat $VERSION_FILE) > $VERSION_FILE
+    echo "Pre-release build: $(cat $VERSION_FILE)"
 fi
 
-echo "Setting ${VERSION_FILE} to ${VERSION}"
-echo -n $VERSION > $VERSION_FILE
+echo "Semantic versioning system initialized: $(cat $VERSION_FILE)"
 
 
 # 3. Version python modules (if they exist)
