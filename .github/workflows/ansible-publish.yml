@@ -1,4 +1,4 @@
-name: Publish Ansible Collection to Galaxy
+name: Publish Ansible Collection
 on:
   push:
     branches-ignore:
@@ -6,7 +6,7 @@ on:
     tags:
       - '**'
 jobs:
-  galaxy-publish:
+  ansible-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,11 +30,13 @@ jobs:
           $GITHUB_WORKSPACE/build/bin/build-collection.sh
 
       - name: Upload Ansible Collection
-        uses: actions/upload-artifact@v2
+        uses: svenstaro/upload-release-action@v2
         with:
-          name: ibm-mas_devops-${{ env.VERSION }}.tar.gz
-          path: ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz
-          retention-days: 30
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz
+          asset_name: ibm-mas_devops-${{ env.VERSION }}.tar.gz
+          tag: ${{ github.ref }}
+          overwrite: true
 
       # Publish
       - name: Publish Collection
