@@ -57,12 +57,6 @@
 - name: "Install IBM cert-manager in ibm-common-services namespace"
   include_tasks: tasks/cert_manager_upgrade/install_ibm.yml
 
-# It can take a while for the webhook to be ready to recieve requests
-# TODO: we should make this a check for something that tells us the webhook is ready, rather than a dumb 5 minute sleep.
-- name: Wait 5 minutes for IBM cert-manager to settle
-  pause:
-    minutes: 5
-
 # 4. Copy Default Public CA Issuer resources from cert-manager namespace
 # -------------------------------------------------------------------------------------------------
 # These resources will only exist if the user didn't provide their own ClusterIssuer
@@ -97,7 +91,7 @@
 
 # 8. Patch MAS 8.6 Suite CR to add spec.certManagerNamespace: ibm-common-services
 # -------------------------------------------------------------------------------------------------
-- name: "Patch MAS 8.6 Suite CR to add 'spec.certManagerNamespace: {{ common_services_namespace }}'"
+- name: "Patch MAS 8.6 Suite CR to add 'spec.certManagerNamespace': '{{ common_services_namespace }}'"
   community.kubernetes.k8s:
     definition:
       apiVersion: core.mas.ibm.com/v1
@@ -110,7 +104,7 @@
 
 # 9. Verify MAS 8.6 install is happy with the new cert-manager
 # -------------------------------------------------------------------------------------------------
-- name: "Wait for Suite to be successfully reconciled after 'spec.certManagerNamespace' replaced to 'ibm-common-services' (60s delay)"
+- name: "Wait for Suite CR to reconcile after 'spec.certManagerNamespace' replaced to 'ibm-common-services' (60s delay)"
   community.kubernetes.k8s_info:
     api_version: v1
     name: "{{mas_instance_id}}"

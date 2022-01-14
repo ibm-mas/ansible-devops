@@ -1,9 +1,35 @@
 ---
-# Fail if cluster type is not roks
-- name: "Assert cluster {{ cluster_name }} type is ROKS"
+# Fail if cluster_name is not provided
+- name: "Assert that cluster_name is provided"
   assert:
-    that: cluster_type == 'roks'
-    fail_msg: "This ocp upgrade process is only supported on ROKS clusters."
+    that:
+      - cluster_name is defined
+      - cluster_name != ''
+    fail_msg: "cluster_name property is required."
+
+# Fail if cluster type is not roks
+- name: "Assert that cluster {{ cluster_name }} type is IBM Cloud clusters (roks)."
+  assert:
+    that:
+      - cluster_type is defined
+      - cluster_type == 'roks'
+    fail_msg: "This ocp upgrade process is only supported on IBM Cloud clusters (roks)."
+
+# Fail if ocp_upgrade_version is not roks
+- name: "Assert that ocp_upgrade_version is provided"
+  assert:
+    that:
+      - ocp_upgrade_version is defined
+      - ocp_upgrade_version != ''
+    fail_msg: "ocp_upgrade_version is required."
+
+# Provide debug information
+- name: "Debug information"
+  debug:
+    msg:
+      - "Cluster name ..................... {{ cluster_name }}"
+      - "Cluster type ..................... {{ cluster_type }}"
+      - "OCP Version to be upgraded ....... {{ ocp_upgrade_version }}"
 
 # Upgrade cluster's master nodes ocp version
 - name: "Update cluster {{ cluster_name }} master nodes to {{ ocp_upgrade_version }} version"
@@ -39,7 +65,7 @@
   retries: 60
   delay: 60
 
-- name: "Debug cluster {{ cluster_name }} master nodes upgrade to state"
+- name: "Debug cluster {{ cluster_name }} master nodes upgrade state"
   debug:
     msg: "Cluster {{ cluster_name}} master nodes updated to: {{ (roks_cluster_upgrade_state_output.stdout | from_json).masterKubeVersion }} version"
 

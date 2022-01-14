@@ -27,6 +27,16 @@
       when: ready_worker_count != worker_count
       fail:
         msg: "[{{ retry_count }}/{{ worker_count|int * 20 }}] {{ ready_worker_count}} of {{ worker_count }} workers completed upgrade to {{ ocp_upgrade_version }} version"
+    
+    # reset retry count when all workers are upgraded
+    - set_fact:
+        retry_count: 0
+      when: ready_worker_count == worker_count
+
+    - debug:
+        msg: "Cluster '{{ cluster_name }}' completed the upgrade to '{{ (roks_cluster_completion.stdout | from_json)[0].kubeVersion }}' version!"
+      when: ready_worker_count == worker_count
+
   rescue:
     - name: "wait : Give up after {{ worker_count|int * 20 }} attempts (approx {{ worker_count|int * 20 }} minutes)"
       when: retry_count|int >= worker_count|int * 20
