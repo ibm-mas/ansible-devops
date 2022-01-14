@@ -1,51 +1,30 @@
 ---
-# https://olm.operatorframework.io/docs/tasks/uninstall-operator/
-# 1. Delete Subscriptions
-# 2. Delete CSV
-# 3. Delete Install Plan(s)
-# 4. Delete Deployment
-
-- debug: var=cert_manager_sub_info
-
 - assert:
     that:
       - cert_manager_sub_info.resources is defined
       - cert_manager_sub_info.resources | length == 1
-      - cert_manager_sub_info.resources[0].status.installedCSV is defined
-      - cert_manager_sub_info.resources[0].status.installPlanRef.name is defined
 
-- set_fact:
-    cert_manager_csv: "{{ cert_manager_sub_info.resources[0].status.installedCSV }}"
-    cert_manager_installplan: "{{ cert_manager_sub_info.resources[0].status.installPlanRef.name }}"
-
-- name: Delete JetStack Cert Manager Subscription
-  community.kubernetes.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: rh-service-binding-operator
-    namespace: openshift-operators
-
-- name: Delete JetStack Cert Manager CSV
-  community.kubernetes.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    name: "{{ cert_manager_csv }}"
-    namespace: openshift-operators
-
-- name: Delete JetStack Cert Manager Install Plan
-  community.kubernetes.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: InstallPlan
-    name: "{{ cert_manager_installplan }}"
-    namespace: openshift-operators
-
-- name: Delete JetStack Cert Manager Deploymnent
+# Delete Cert Manager deployments from cert-manager namespace so it does not clash with new ibm-cert-manager to be installed next
+- name: "Delete JetStack cert-manager deployment"
   community.kubernetes.k8s:
     state: absent
     api_version: apps/v1
     kind: Deployment
-    name: service-binding-operator
-    namespace: openshift-operators
+    name: cert-manager
+    namespace: "{{ cert_manager_namespace }}"
+
+- name: "Delete JetStack cert-manager-cainjector deployment"
+  community.kubernetes.k8s:
+    state: absent
+    api_version: apps/v1
+    kind: Deployment
+    name: cert-manager-cainjector
+    namespace: "{{ cert_manager_namespace }}"
+
+- name: "Delete JetStack cert-manager-webhook deployment"
+  community.kubernetes.k8s:
+    state: absent
+    api_version: apps/v1
+    kind: Deployment
+    name: cert-manager-webhook
+    namespace: "{{ cert_manager_namespace }}"
