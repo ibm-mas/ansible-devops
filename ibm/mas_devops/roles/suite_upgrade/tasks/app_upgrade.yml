@@ -3,12 +3,14 @@
 # -----------------------------------------------------------------------------
 - name: "Get installed version of {{ app_upgrade_id }}"
   community.kubernetes.k8s_info:
-    api_version: apps.mas.ibm.com/v1
+    api_version: "{{ app_upgrade_version }}"
     name: "{{ mas_instance_id }}"
     namespace: "mas-{{ mas_instance_id }}-{{ app_upgrade_id }}"
     kind: "{{ app_upgrade_kind }}"
   register: app_info
 
+# - debug:
+#     msg: "{{ app_info }}"
 
 # 2 Change subscription channel
 # -----------------------------------------------------------------------------
@@ -26,3 +28,6 @@
         channel: "{{ mas_app_upgrade_target_channels[app_upgrade_id] }}"
     apply: true
   register: app_sub_update
+
+# TODO: Should we add a wait for the application CR to be successful reconciled?
+# if so, need to check for a general status as each app CR has custom statuses
