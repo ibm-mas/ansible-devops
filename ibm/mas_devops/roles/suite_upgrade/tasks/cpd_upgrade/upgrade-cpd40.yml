@@ -1,6 +1,7 @@
 ---
-# The following playbook is an attempt to automate the CP4D 4.0 steps documented here:
-# https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
+# This role will assume you have CloudPak for Data v3.5 installed in 'cpd-meta-ops' namespace
+# and will perform an in-place upgrade to CloudPak for Data v4.0 where the CPD operators will be 
+# deployed in 'ibm-common-services' namespace and the services will be deployed in existing 'cpd-meta-ops' namespace 
 
 # 1. Fail if no required keys are provided
 # -----------------------------------------------------------------------------
@@ -9,10 +10,10 @@
   fail:
     msg: "cpd_storage_class property has not been set"
 
-- name: "Fail if cpd_block_storage_class has not been provided"
-  when: cpd_block_storage_class is not defined or cpd_block_storage_class == ""
-  fail:
-    msg: "cpd_block_storage_class property has not been set"
+# - name: "Fail if cpd_block_storage_class has not been provided"
+#   when: cpd_block_storage_class is not defined or cpd_block_storage_class == ""
+#   fail:
+#     msg: "cpd_block_storage_class property has not been set"
 
 - name: "Debug information"
   debug:
@@ -24,7 +25,6 @@
       - "CPD storage class ............ {{ cpd_storage_class }}"
       - "CPD block storage class ...... {{ cpd_block_storage_class }}"
 
-
 # 2. Setup namespace for CP4D
 # -----------------------------------------------------------------------------
 - name: "Check if ibm-common-services operator is installed already"
@@ -35,27 +35,50 @@
     kind: Deployment
   register: _cs_deployment
 
-- name: "Create CPD 4.0 Namespace"
-  vars:
-    namespace: "{{ cpd_meta_namespace }}"
-  community.kubernetes.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/cpd40/namespace.yaml') }}"
-  register: _cpd_meta_namespace_result
-
+# - name: "Create CPD 4.0 Namespace"
+#   vars:
+#     namespace: "{{ cpd_meta_namespace }}"
+#   community.kubernetes.k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/cpd40/namespace.yaml') }}"
+#   register: _cpd_meta_namespace_result
 
 # 3. Install CP4D operator
 # -----------------------------------------------------------------------------
 - name: "Apply operator group"
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/cpd40/operatorgroup.yaml') }}"
+    definition: "{{ lookup('template', 'templates/cpd/operatorgroup.yml') }}"
   when: _cs_deployment.resources[0] is not defined
+
+# just need this if foundation services/ibm-common-services not installed yet:
+- name: "Install namespace scope subscription"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd/namespacescope.yml') }}"
+  when: _cs_deployment.resources[0] is not defined
+
+- name: "Wait for namespace scope operator to be ready (60s delay)"
+  when: _cs_deployment.resources[0] is not defined
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: ibm-namespace-scope-operator
+    namespace: "{{ cpd_meta_namespace }}"
+    kind: Deployment
+  register: _ns_subscription
+  until: _ns_subscription.resources[0].status.availableReplicas is defined
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Apply namespace scope"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd/namespacescope.yml') }}"
 
 - name: "Install CPD 4.0 Subscription"
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/cpd40/subscription-cpd-operator.yaml') }}"
+    definition: "{{ lookup('template', 'templates/cpd/subscription-cpd-operator.yml') }}"
   register: _cpd_subscription_result
 
 - name: "Wait for cpd-platform-operator-manager to be ready (60s delay)"
@@ -80,19 +103,10 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-
-# 4. Install CP4D
-# -----------------------------------------------------------------------------
-- name: "Apply CloudPak for Data 4.0 - Operand Request"
-  community.kubernetes.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/cpd40/operand.yaml') }}"
-  register: _cpd_operand_result
-
 - name: "Apply CloudPak for Data 4.0 CR"
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/cpd40/ibmcpd.yaml') }}"
+    definition: "{{ lookup('template', 'templates/cpd/ibmcpd.yml') }}"
   register: _cpd_ibmcdp_result
 
 - name: "Wait for ibm-zen-operator to be ready (60s delay)"
@@ -106,7 +120,7 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-- name: "Wait for ibmcpd CPD 4.0 to be Completed"
+- name: "Wait for ibmcpd CR to have status 'Completed'"
   community.kubernetes.k8s_info:
     api_version: cpd.ibm.com/v1
     name: ibmcpd-cr
@@ -117,7 +131,7 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-- name: "Wait for ZenService CPD 4.0 to be Completed"
+- name: "Wait for ZenService CR to have status 'Completed'"
   community.kubernetes.k8s_info:
     api_version: zen.cpd.ibm.com/v1
     name: lite-cr

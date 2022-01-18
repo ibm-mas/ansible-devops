@@ -1,0 +1,41 @@
+---
+# This task will lookup for all existing db2wh instances
+# and patch them to use newer version compatible with cpd v4.0
+- name: "Debug information"
+  debug:
+    msg:
+      - "CPD services namespace .......... {{ cpd_services_namespace }}"
+      - "DB2 version to be upgraded....... {{ db2wh_upgrade_version }}"
+
+# 1. Lookup existing db2wh instances
+# -----------------------------------------------------------------------------
+- name: "Lookup existing db2wh instances"
+  community.kubernetes.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    namespace: "{{ cpd_services_namespace }}"
+    kind: Db2uCluster
+  register: db2ucluster_result
+
+# 2. Patch existing db2wh instances to the newer version
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=warehouse-upgrading-db2-from-version-35
+# -----------------------------------------------------------------------------
+- name: "Patch existing db2wh instances to upgrade to new version"
+  shell: oc patch db2ucluster -n {{ cpd_services_namespace }} {{ outer_item.metadata.name }} --type=merge -p '{"spec":{"version":"{{ db2wh_upgrade_version }}"}}'
+  loop: "{{ db2ucluster_result.resources }}"
+  loop_control:
+    loop_var: outer_item
+    label: "Db2uCluster {{ outer_item.metadata.name }} patched to version {{ db2wh_upgrade_version }}"
+  register: db2wh_patch_output
+
+- debug:
+    msg: "{{ db2wh_cmd.stdout_lines }}"
+  loop: "{{ db2wh_patch_output.results }}"
+  loop_control:
+    loop_var: db2wh_cmd
+    label: ""
+
+# TODO: need to figure out how to resolve the issue where db2u pod requires running 'sudo chown db2uadm.wheel /mnt/bludata0/sshkeys/db2uadm/.ssh/config' to be ready
+# Otherwise, it will never be in ready status during below task:
+
+- name: "Wait for DB2 Instances to be upgraded to {{ db2wh_upgrade_version }} version (CPD v4 compatible)"
+  include_tasks: tasks/cpd_upgrade/wait_for_db2wh_instances_upgrade.yml
