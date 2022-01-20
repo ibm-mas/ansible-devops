@@ -50,5 +50,20 @@
 - name: Load variables
   include_vars: "vars/{{ cpd_version }}.yml"
 
+# 4. Provision DB2 Warehouse Instances
+# -----------------------------------------------------------------------------
+- name: "Required for DB2 - Lookup 'norootsquash' DeamonSet is deployed"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: norootsquash
+    namespace: kube-system
+    kind: DaemonSet
+  register: daemonset_output
+
+- name: "Required for DB2 - Create 'norootsquash' DeamonSet"
+  when: 
+    - daemonset_output.results[0].resources | length == 0
+  include_tasks: tasks/setup_norootsquash.yml
+
 - name: Provision DB2 instance
   include_tasks: "tasks/{{ cpd_version }}/provision-instance.yml"
