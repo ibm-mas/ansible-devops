@@ -1,18 +1,20 @@
 # Contributing
 
+Note that during a build the version of the ansible collection is automatically adjusted to the correct version.  For local development will we always target the "next major" as the version, this is just a convenient placeholder string that works for local development; all released collections will automatically set this version to the correct value for the release.
+
 ## Building the collection locally
 
 ```bash
 cd ibm/mas_devops
 
-ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-5.1.4.tar.gz -p /home/david/.ansible/collections --force
+ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-6.0.0.tar.gz -p /home/david/.ansible/collections --force
 
 ansible-playbook ../../playbook.yml
 ```
 
 ```bash
 ansible-galaxy collection build --force
-ansible-galaxy collection publish ibm-mas_devops-5.1.4.tar.gz --token=$ANSIBLE_GALAXY_TOKEN
+ansible-galaxy collection publish ibm-mas_devops-6.0.0.tar.gz --token=$ANSIBLE_GALAXY_TOKEN
 ```
 
 ## Style Guide
