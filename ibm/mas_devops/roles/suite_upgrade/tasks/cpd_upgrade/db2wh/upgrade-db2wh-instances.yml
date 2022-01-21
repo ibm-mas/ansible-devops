@@ -7,7 +7,23 @@
       - "CPD services namespace .......... {{ cpd_services_namespace }}"
       - "DB2 version to be upgraded....... {{ db2wh_upgrade_version }}"
 
-# 1. Lookup existing db2wh instances
+# 1. Lookup 'norootsquash' DeamonSet is deployed
+# -----------------------------------------------------------------------------
+- name: "Check if 'norootsquash' DeamonSet is deployed"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: norootsquash
+    namespace: kube-system
+    kind: DaemonSet
+  register: daemonset_output
+
+- name: "Create 'norootsquash' DeamonSet"
+  when: 
+    - daemonset_output.results[0].resources is defined
+    - daemonset_output.results[0].resources | length == 0
+  include_tasks: tasks/cpd_upgrade/db2wh/setup_norootsquash.yml
+
+# 2. Lookup existing db2wh instances
 # -----------------------------------------------------------------------------
 - name: "Lookup existing db2wh instances"
   community.kubernetes.k8s_info:
@@ -16,10 +32,10 @@
     kind: Db2uCluster
   register: db2ucluster_result
 
-# 2. Patch existing db2wh instances to the newer version
+# 3. Patch existing db2wh instances to the newer version
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=warehouse-upgrading-db2-from-version-35
 # -----------------------------------------------------------------------------
-- name: "Patch existing db2wh instances to upgrade to new version"
+- name: "Patch existing db2wh instances to {{ db2wh_upgrade_version }} version compatible with CPD v4"
   shell: oc patch db2ucluster -n {{ cpd_services_namespace }} {{ outer_item.metadata.name }} --type=merge -p '{"spec":{"version":"{{ db2wh_upgrade_version }}"}}'
   loop: "{{ db2ucluster_result.resources }}"
   loop_control:
@@ -34,8 +50,5 @@
     loop_var: db2wh_cmd
     label: ""
 
-# TODO: need to figure out how to resolve the issue where db2u pod requires running 'sudo chown db2uadm.wheel /mnt/bludata0/sshkeys/db2uadm/.ssh/config' to be ready
-# Otherwise, it will never be in ready status during below task:
-
 - name: "Wait for DB2 Instances to be upgraded to {{ db2wh_upgrade_version }} version (CPD v4 compatible)"
-  include_tasks: tasks/cpd_upgrade/wait_for_db2wh_instances_upgrade.yml
+  include_tasks: tasks/cpd_upgrade/db2wh/wait_for_db2wh_instances_upgrade.yml

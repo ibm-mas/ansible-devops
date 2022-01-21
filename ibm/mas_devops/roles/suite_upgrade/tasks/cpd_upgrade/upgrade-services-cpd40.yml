@@ -43,7 +43,6 @@
 # -----------------------------------------------------------------------------
 - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_subscriptions.yml"
 
-
 # 4. Install CP4D Services CRs
 # -----------------------------------------------------------------------------
 - name: "Install Services CR"
@@ -54,23 +53,19 @@
     definition: "{{ lookup('template', 'templates/cpd/{{ item }}/service.yml') }}"
   with_items: "{{ cpd_services }}"
 
-# TODO: Likely to add a custom task here to apply changes for services like db2:
-# - need to wait for `db2wh-db2uoperator-request` to be created and patch it
-# to use 'ibm-common-services' registry instead of the 'cpd-meta-ops'
-# i.e
-# spec:
-#   requests:
-#     - operands:
-#         - name: ibm-db2u-operator
-#       registry: common-service
-#       registryNamespace: ibm-common-services (cpd-meta-ops should be replaced here...)
-# - name: "Do special things to make db2wh to work..."
-#   include_tasks: something_for_db2.yml
+# 4.1. Patch DB2 operand request to use ibm-common-services namespace
+# -----------------------------------------------------------------------------
+# By default db2 operator will be deployed in cpd services namespace, but we need
+# all cpd operators to exist in same namespace "ibm-common-services"
+# only cpd services cr's will exist in cpd services i.e cpd-meta-ops
+- name: "Patch DB2 Warehouse operand request"
+  when: item == "db2wh"
+  include_tasks: "{{ role_path }}/tasks/cpd_upgrade/db2wh/patch_db2u_operandrequest.yml"
+  with_items: "{{ cpd_services }}"
 
 # 5. Wait for CP4D Services to be ready
 # -----------------------------------------------------------------------------
 - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_services.yml"
-
 
 # 6. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------

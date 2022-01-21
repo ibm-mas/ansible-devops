@@ -18,23 +18,6 @@
 
 # 3. Upgrade DB2 Warehouse Instances v3.5 to v4.0
 # -----------------------------------------------------------------------------
-- name: "Required for DB2 - Lookup 'norootsquash' DeamonSet is deployed"
-  when: item == 'db2wh'
-  community.kubernetes.k8s_info:
-    api_version: apps/v1
-    name: norootsquash
-    namespace: kube-system
-    kind: DaemonSet
-  register: daemonset_output
-  with_items: "{{ cpd_services }}"
-
-- name: "Required for DB2 - Create 'norootsquash' DeamonSet"
-  when: 
-    - item == "db2wh"
-    - daemonset_output.results[0].resources | length == 0
-  include_tasks: tasks/cpd_upgrade/db2wh/setup_norootsquash.yml
-  with_items: "{{ cpd_services }}"
-
 - name: "Upgrade DB2 Warehouse instances"
   when: 
     - item == "db2wh"
