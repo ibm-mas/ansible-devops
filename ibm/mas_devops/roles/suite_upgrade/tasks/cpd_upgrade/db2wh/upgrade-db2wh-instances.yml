@@ -8,7 +8,7 @@
       - "DB2 version to be upgraded....... {{ db2wh_upgrade_version }}"
 
 # 1. Lookup 'norootsquash' DeamonSet is deployed
-# -----------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
 - name: "Check if 'norootsquash' DeamonSet is deployed"
   community.kubernetes.k8s_info:
     api_version: apps/v1
@@ -24,7 +24,7 @@
   include_tasks: tasks/cpd_upgrade/db2wh/setup_norootsquash.yml
 
 # 2. Lookup existing db2wh instances
-# -----------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
 - name: "Lookup existing db2wh instances"
   community.kubernetes.k8s_info:
     api_version: db2u.databases.ibm.com/v1
@@ -34,7 +34,7 @@
 
 # 3. Patch existing db2wh instances to the newer version
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=warehouse-upgrading-db2-from-version-35
-# -----------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
 - name: "Patch existing db2wh instances to {{ db2wh_upgrade_version }} version compatible with CPD v4"
   shell: oc patch db2ucluster -n {{ cpd_services_namespace }} {{ outer_item.metadata.name }} --type=merge -p '{"spec":{"version":"{{ db2wh_upgrade_version }}"}}'
   loop: "{{ db2ucluster_result.resources }}"
@@ -52,3 +52,8 @@
 
 - name: "Wait for DB2 Instances to be upgraded to {{ db2wh_upgrade_version }} version (CPD v4 compatible)"
   include_tasks: tasks/cpd_upgrade/db2wh/wait_for_db2wh_instances_upgrade.yml
+
+# 4. When db2wh instances are done upgrading, need to reapply its ssl certs into MAS configs
+# --------------------------------------------------------------------------------------------------
+- name: "Reapply new DB2 Instances ca.crt's into MAS jdbc configs"
+  include_tasks: tasks/cpd_upgrade/db2wh/apply_new_ssl_across_mas.yml

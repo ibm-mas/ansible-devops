@@ -10,11 +10,6 @@
   fail:
     msg: "cpd_storage_class property has not been set"
 
-# - name: "Fail if cpd_block_storage_class has not been provided"
-#   when: cpd_block_storage_class is not defined or cpd_block_storage_class == ""
-#   fail:
-#     msg: "cpd_block_storage_class property has not been set"
-
 - name: "Debug information"
   debug:
     msg:
@@ -25,8 +20,18 @@
       - "CPD storage class ............ {{ cpd_storage_class }}"
       - "CPD block storage class ...... {{ cpd_block_storage_class }}"
 
-# 2. Setup namespace for CP4D
 # -----------------------------------------------------------------------------
+## TODO: Need to find a way (assuming there´s one) to maintain 
+# cpd 3.5v existing internal-tls secret. 
+# During ucpd v4 upgrade, new ibm-cert-manager comes into place
+# and changes existing cpd 3.5v internal-tls secrets which
+# consequently changes db2 ssl certs after upgrade
+# Alternative for now is to reapply new internal-tls ca.crt across MAS configs
+# after cpd, services and instances upgrades are complete
+
+# 2. Upgrade CP4D operator
+# -----------------------------------------------------------------------------
+# If ibm-common-services is already installed
 - name: "Check if ibm-common-services operator is installed already"
   community.kubernetes.k8s_info:
     api_version: apps/v1
@@ -35,23 +40,14 @@
     kind: Deployment
   register: _cs_deployment
 
-# - name: "Create CPD 4.0 Namespace"
-#   vars:
-#     namespace: "{{ cpd_meta_namespace }}"
-#   community.kubernetes.k8s:
-#     apply: yes
-#     definition: "{{ lookup('template', 'templates/cpd40/namespace.yaml') }}"
-#   register: _cpd_meta_namespace_result
-
-# 3. Install CP4D operator
-# -----------------------------------------------------------------------------
+# If ibm-common-services is not installed yet, add operator group for cpd
 - name: "Apply operator group"
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd/operatorgroup.yml') }}"
   when: _cs_deployment.resources[0] is not defined
 
-# just need this if foundation services/ibm-common-services not installed yet:
+# If ibm-common-services is not installed yet, add namespace scope operator for cpd
 - name: "Install namespace scope subscription"
   community.kubernetes.k8s:
     apply: yes
@@ -70,17 +66,20 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
+# Apply namespace scope resource so cpd v4 operator can watch existing cpd installation namespace
 - name: "Apply namespace scope"
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd/namespacescope.yml') }}"
 
+# Apply cpd v4 operator subscription
 - name: "Install CPD 4.0 Subscription"
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd/subscription-cpd-operator.yml') }}"
   register: _cpd_subscription_result
 
+# Wait cpd v4 operator to be ready
 - name: "Wait for cpd-platform-operator-manager to be ready (60s delay)"
   community.kubernetes.k8s_info:
     api_version: apps/v1
@@ -92,6 +91,7 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
+# Wait operand-deployment-lifecycle-manager operator to be ready
 - name: "Wait for operand-deployment-lifecycle-manager to be ready (60s delay)"
   community.kubernetes.k8s_info:
     api_version: apps/v1
@@ -103,12 +103,15 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-- name: "Apply CloudPak for Data 4.0 CR"
+# Apply cpd v4 CR
+- name: "Apply CloudPak for Data v4.0 CR"
   community.kubernetes.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd/ibmcpd.yml') }}"
   register: _cpd_ibmcdp_result
 
+# Wait ibm-zen-operator to be ready
+# this operator will process cpd v4 installation/upgrade
 - name: "Wait for ibm-zen-operator to be ready (60s delay)"
   community.kubernetes.k8s_info:
     api_version: apps/v1
@@ -120,7 +123,8 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-- name: "Wait for ibmcpd CR to have status 'Completed'"
+# Wait cpd v4 CR to reconcile
+- name: "Wait for CloudPak for Data v4.0 CR to have status 'Completed'"
   community.kubernetes.k8s_info:
     api_version: cpd.ibm.com/v1
     name: ibmcpd-cr
@@ -131,6 +135,7 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
+# Wait cpd v4 CR to reconcile
 - name: "Wait for ZenService CR to have status 'Completed'"
   community.kubernetes.k8s_info:
     api_version: zen.cpd.ibm.com/v1
@@ -144,8 +149,8 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-# 5. Provide CP4D dashboard URL
-# -----------------------------------------------------------------------------
+# 3. Provide CP4D v4 Dashboard URL (this will be same CPD url from existing v3.5)
+# ------------------------------------------------------------------------------
 - name: "Retrieve admin credentials"
   community.kubernetes.k8s_info:
     api_version: v1
