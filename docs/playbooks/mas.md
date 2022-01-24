@@ -57,12 +57,14 @@ To utilise this feature you must set the optional `MAS_DOMAIN` detailed previous
 
 ### Required environment variables
 - `CIS_CRN` which can be obtained from your CIS service overview page, it will be in the format: `crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2bcd65684e4db3:9969652f-6955-482b-b59c-asdasasdede50c::`
-- `IBMCLOUD_APIKEY` Your IBM Cloud API key with DNS API write access. Note: (This API key will be stored in your cluster for DNS challenge when requesting new certs)
+- `CIS_APIKEY` A Service ID API key with DNS API Editor/Write access. Note: (This API key will be stored in your cluster for DNS challenge when requesting new certs)
 
-!!! important "TODO"
-    Support `CIS_APIKEY` instead as we don't really want to re-use the main `IBMCLOUD_APIKEY` API key as it has too wide scope for CIS.  Document what scope to set up the API key with and what steps etc.
-
-    Could we even use our API key to create this new API key automatically so that the user does not need to do anything?
+The process for creating a CIS_APIKEY:
+- Create a Service ID
+- Create an "Access Policy" with an access of Editor/Write
+- Create an API KEY which is the CIS_APIKEY
+ 
+Information on [Service IDs](https://cloud.ibm.com/docs/account?topic=account-serviceids&interface=ui)
 
 ### Optional environment variables
 - `CIS_SUBDOMAIN` Subdomain used by your DNS server. It allow you to reuse CIS for multiple MAS Instances.
