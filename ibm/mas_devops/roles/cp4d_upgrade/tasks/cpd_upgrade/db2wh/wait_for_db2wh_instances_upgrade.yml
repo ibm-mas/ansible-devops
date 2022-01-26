@@ -1,0 +1,45 @@
+---
+
+# Ansible can't support block retries, this is a relatively simple workaround
+# to achieve the same thing
+# https://github.com/ansible/ansible/issues/46203#issuecomment-556013701
+
+- name: 'wait : Wait until all db2wh instances are upgraded'
+  block:
+    - name: "wait : Set the retry count"
+      set_fact:
+        retry_count: "{{ 0 if retry_count is undefined else retry_count|int + 1 }}"
+        db2wh_count: 0
+        ready_db2wh_count: 0
+
+    - name: "Lookup existing db2wh instances"
+      community.kubernetes.k8s_info:
+        api_version: db2u.databases.ibm.com/v1
+        namespace: "{{ cpd_services_namespace }}"
+        kind: Db2uCluster
+      register: db2ucluster_result
+
+    - name: "wait : Check if db2wh instances completed upgrade to {{ db2wh_upgrade_version }}"
+      set_fact:
+        db2wh_count: "{{ db2wh_count|int + 1 }}"
+        ready_db2wh_count: "{{ ready_db2wh_count|int + 1 if (db2wh_instances.status.state == 'Ready') else ready_db2wh_count|int}}"
+      loop: "{{ db2ucluster_result.resources }}"
+      loop_control:
+        loop_var: db2wh_instances
+        label: "DB2 instance {{ db2wh_instances.metadata.name }} upgrade status: {{ db2wh_instances.status.state }} for version '{{ db2wh_upgrade_version }}'"
+
+    - name: "wait : Fail if one or more DB2 instances are not upgraded yet"
+      when: ready_db2wh_count != db2wh_count
+      fail:
+        msg: "[{{ retry_count }}/60] {{ ready_db2wh_count }} of {{ db2wh_count }} DB2 instances are upgraded to version '{{ db2wh_upgrade_version }}'"
+  rescue:
+    - name: "wait : Give up after 60 attempts (approx 60 minutes)"
+      when: retry_count|int >= 60
+      fail:
+        msg: Timed out waiting for service operator to be ready
+
+    - name: "wait : Wait for 60 seconds before checking again"
+      pause:
+        seconds: 60
+
+    - include_tasks: tasks/cpd_upgrade/db2wh/wait_for_db2wh_instances_upgrade.yml

@@ -49,3 +49,26 @@ internal_certificate_issuer:
 
 internal_ca_issuer:
   name: "{{ mas_namespace }}-internal-ca-issuer"
+
+# We will use the IBM Cloud CLI to upgrade OCP version to 4.8
+cluster_type: "{{ lookup('env', 'CLUSTER_TYPE') }}"
+cluster_name: "{{ lookup('env', 'CLUSTER_NAME') }}"
+
+# cpd upgrade vars
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=35-upgrading-cloud-pak-data
+# cpd35_meta_namespace: cpd-meta-ops
+cpd_meta_namespace: ibm-common-services
+cpd_services_namespace: cpd-meta-ops # reuse existing namespace that contains cpd v3.5 services
+cpd_registry: cp.icr.io
+cpd_registry_user: cp
+
+# This is only used for cpd35, we have to use cp4d_hack_worker_nodes to set up the global image pull secret needed by cpd40
+cpd_entitlement_key: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
+
+cpd_storage_class: 'ibmc-file-gold-gid'
+cpd_block_storage_class: 'ibmc-block-gold'
+
+cpd_services:
+  - db2wh
+
+db2wh_upgrade_version: "11.5.7.0"

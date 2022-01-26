@@ -1,0 +1,30 @@
+---
+- assert:
+    that:
+      - cert_manager_sub_info.resources is defined
+      - cert_manager_sub_info.resources | length == 1
+
+# Delete Cert Manager deployments from cert-manager namespace so it does not clash with new ibm-cert-manager to be installed next
+- name: "Delete JetStack cert-manager deployment"
+  community.kubernetes.k8s:
+    state: absent
+    api_version: apps/v1
+    kind: Deployment
+    name: cert-manager
+    namespace: "{{ cert_manager_namespace }}"
+
+- name: "Delete JetStack cert-manager-cainjector deployment"
+  community.kubernetes.k8s:
+    state: absent
+    api_version: apps/v1
+    kind: Deployment
+    name: cert-manager-cainjector
+    namespace: "{{ cert_manager_namespace }}"
+
+- name: "Delete JetStack cert-manager-webhook deployment"
+  community.kubernetes.k8s:
+    state: absent
+    api_version: apps/v1
+    kind: Deployment
+    name: cert-manager-webhook
+    namespace: "{{ cert_manager_namespace }}"

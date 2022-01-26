@@ -1,0 +1,180 @@
+---
+# Usage:
+
+# This upgrade proceess will enable MAS be able to migrate Cloud Native cert-manager
+# to ibm-mas-common services cert manager version
+#
+# This will allow MAS to keep using same original secrets
+
+# Uninstall jetstack cert-manager from cert-manager namespace
+# Install IBM cert-manager to the ibm-common-services namespace
+# Copy secrets from cert-manager namespace to ibm-common-services
+# Copy ClusterIssuers, Issuers and Certificates from cert-manager namespace to ibm-common-services
+# Verify all ClusterIssuers, Issuers, and Certificates are in a healthy state
+# Update the existing MAS 8.6 install to configure the suite to use cert-manager in the new namespace
+# Verify the existing MAS 8.6 install is happy with the cert-manager switch over
+# Delete the original certificates, secrets, and issuers from the cert-manager namespace
+
+# 1. Set facts and debug
+# -------------------------------------------------------------------------------------------------
+# ibm-common-services is the default namespace for cert-manager since MAS 8.7
+# Check settings.certManager.namespace
+- set_fact:
+    cert_manager_namespace: "{{ suite_info.resources[0].spec.certManagerNamespace | default('cert-manager', True) }}"
+    public_ca_issuer_name: "{{ mas_namespace }}-public-ca-issuer"
+    public_issuer_name: "{{ suite_info.resources[0].status['cert-manager'].external.name }}"
+    internal_issuer_name: "{{ suite_info.resources[0].status['cert-manager'].internal.name }}"
+
+- name: General Debug
+  debug:
+    msg:
+      - "Instance ID ................ {{ mas_instance_id }}"
+      - "MAS namespace .............. {{ mas_namespace }}"
+      - "Cert-Manager namespace ..... {{ cert_manager_namespace }}"
+      - "Common services namespace .. {{ common_services_namespace }}"
+      - "Public CA Issuer ........... {{ public_ca_issuer_name }}"
+      - "Public Issuer .............. {{ public_issuer_name }}"
+      - "Internal Issuer ............ {{ internal_issuer_name }}"
+
+# 2. Uninstall JetStack cert-manager
+# -------------------------------------------------------------------------------------------------
+- name: Lookup JetStack Cert Manager Deployment
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: cert-manager
+    namespace: cert-manager
+  register: cert_manager_sub_info
+
+- name: "Remove JetStack cert-manager from cert-manager namespace"
+  when:
+    - cert_manager_sub_info.resources is defined
+    - cert_manager_sub_info.resources | length == 1
+  include_tasks: tasks/cert_manager_upgrade/remove_jetstack.yml
+
+# 3. Install IBM cert-manager
+# -------------------------------------------------------------------------------------------------
+- name: "Install IBM cert-manager in ibm-common-services namespace"
+  include_tasks: tasks/cert_manager_upgrade/install_ibm.yml
+
+# 4. Copy Default Public CA Issuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+# These resources will only exist if the user didn't provide their own ClusterIssuer
+- name: "Public CA Issuer : Copy {{ mas_namespace }}-public-ca-issuer"
+  when: custom_cluster_issuer is not defined or custom_cluster_issuer == ''
+  include_tasks: tasks/cert_manager_upgrade/copy_issuer.yml
+  vars:
+    source_issuer_name: "{{ mas_namespace }}-public-ca-issuer"
+    source_issuer_secret_name: "{{ cert_names.public_ca }}"
+
+# 5. Copy MAS Internal CA Issuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+- name: "Internal CA Issuer : Copy {{ internal_ca_issuer.name }}"
+  include_tasks: tasks/cert_manager_upgrade/copy_issuer.yml
+  vars:
+    source_issuer_name: "{{ internal_ca_issuer.name }}"
+    source_issuer_secret_name: "{{ cert_names.internal_ca }}"
+
+# 6. Copy Public ClusterIssuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+- name: "Public ClusterIssuer : Copy {{ public_issuer_name }}"
+  include_tasks: tasks/cert_manager_upgrade/copy_cluster_issuer.yml
+  vars:
+    source_cluster_issuer_name: "{{ public_issuer_name }}"
+
+# 7. Copy Internal ClusterIssuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+- name: "Internal ClusterIssuer : Copy {{ internal_issuer_name }}"
+  include_tasks: tasks/cert_manager_upgrade/copy_cluster_issuer.yml
+  vars:
+    source_cluster_issuer_name: "{{ internal_issuer_name }}"
+
+# 8. Patch MAS 8.6 Suite CR to add spec.certManagerNamespace: ibm-common-services
+# -------------------------------------------------------------------------------------------------
+- name: "Patch MAS 8.6 Suite CR to add 'spec.certManagerNamespace': '{{ common_services_namespace }}'"
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: core.mas.ibm.com/v1
+      kind: Suite
+      metadata:
+        name: '{{ mas_instance_id }}'
+        namespace: '{{ mas_namespace }}'
+      spec:
+        certManagerNamespace: '{{ common_services_namespace }}'
+
+# 9. Verify MAS 8.6 install is happy with the new cert-manager
+# -------------------------------------------------------------------------------------------------
+- name: "Wait for Suite CR to reconcile after 'spec.certManagerNamespace' replaced to 'ibm-common-services' (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: "{{mas_instance_id}}"
+    namespace: "{{mas_namespace}}"
+    kind: Suite
+  register: suite_cr_result
+  until:
+    - suite_cr_result.resources[0].status is defined
+    - suite_cr_result.resources[0].status.conditions | length == 5
+    - suite_cr_result.resources[0].status.conditions[0].status == 'True'
+    - suite_cr_result.resources[0].status.conditions[1].status == 'True'
+    - suite_cr_result.resources[0].status.conditions[2].status == 'True'
+    - suite_cr_result.resources[0].status.conditions[3].status == 'True'
+    - suite_cr_result.resources[0].status.conditions[4].reason == 'Successful'
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Lookup original {{mas_instance_id}}-internalapi-cert-internal secret"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: "{{ mas_instance_id }}-internalapi-cert-internal"
+    namespace: "{{ mas_namespace }}"
+    kind: Secret
+  register: internalapi_original_secret_result
+  failed_when: internalapi_original_secret_result.resources[0] | length == 0
+
+- name: "Delete original {{mas_instance_id}}-internalapi-cert-internal secret"
+  community.kubernetes.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    name: "{{ mas_instance_id }}-internalapi-cert-internal"
+    namespace: "{{ mas_namespace }}"
+
+- name: "Wait for {{ mas_instance_id }}-internalapi-cert-internal secret to be recreated (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: "{{ mas_instance_id }}-internalapi-cert-internal"
+    namespace: "{{ mas_namespace }}"
+    kind: Secret
+  register: internalapi_new_secret_result
+  until:
+    - internalapi_new_secret_result.resources[0] is defined
+    - internalapi_new_secret_result.resources[0] | length > 0
+  retries: 10 # approx 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Assert original 'ca.crt' in {{ mas_instance_id }}-internalapi-cert-internal secret matches with the new one recreated"
+  assert:
+    that: internalapi_original_secret_result.resources[0].data['ca.crt'] == internalapi_new_secret_result.resources[0].data['ca.crt']
+    fail_msg: "Assertion Failed! Original {{ mas_instance_id }}-internalapi-cert-internal secret does not match with the recreated one."
+    success_msg: "Assertion Passed! Original 'ca.crt' in {{ mas_instance_id }}-internalapi-cert-internal secret matches with the new one recreated!"
+
+# 10. Delete the original certificates, issuers, and secrets from the cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+
+# 10.1 Delete Default Public CA Issuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+# These resources will only exist if the user didn't provide their own ClusterIssuer
+- name: "Public CA Issuer : Delete original {{ mas_namespace }}-public-ca-issuer"
+  when: custom_cluster_issuer is not defined or custom_cluster_issuer == ''
+  include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
+  vars:
+    source_issuer_name: "{{ mas_namespace }}-public-ca-issuer"
+    source_issuer_secret_name: "{{ cert_names.public_ca }}"
+
+# 10.2. Delete MAS Internal CA Issuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+- name: "Internal CA Issuer : Delete original {{ internal_ca_issuer.name }}"
+  include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
+  vars:
+    source_issuer_name: "{{ internal_ca_issuer.name }}"
+    source_issuer_secret_name: "{{ cert_names.internal_ca }}"
