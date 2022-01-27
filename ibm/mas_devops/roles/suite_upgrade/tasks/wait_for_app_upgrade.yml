@@ -45,7 +45,7 @@
         ready_apps_count: "{{ ready_apps_count|int + 1 if (item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1) else ready_apps_count|int}}"
       with_items: "{{ app_cr_lookup.results }}"
       loop_control:
-        label: "{{ item.resources[0].kind }} CR status = {{ 'Successful' if (item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1) else 'In Progress' }}"
+        label: "{{ item.resources[0].kind }} CR status = {{ 'Successful' if (item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1) else 'Reconciling...' }}"
 
     - name: "wait : Fail if one or more apps upgrade still in progress..."
       when: ready_apps_count != apps_count

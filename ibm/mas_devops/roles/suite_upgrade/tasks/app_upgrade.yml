@@ -6,7 +6,7 @@
       - "{{ app_upgrade_kind }}"
 
 # 1. Lookup the application CR
-# -----------------------------------------------------------------------------
+# --------------------------------------------------------------------------------
 - name: "Get installed version of {{ app_upgrade_id }}"
   community.kubernetes.k8s_info:
     api_version: "{{ app_upgrade_version }}"
@@ -18,8 +18,8 @@
 # - debug:
 #     msg: "{{ app_info }}"
 
-# 2 Change subscription channel
-# -----------------------------------------------------------------------------
+# 2. Change subscription channel
+# --------------------------------------------------------------------------------
 - name: "Update subscription channel"
   when:
     - app_info.resources is defined
@@ -35,5 +35,10 @@
     apply: true
   register: app_sub_update
 
-# TODO: Should we add a wait for the application CR to be successful reconciled?
-# if so, need to check for a general status as each app CR has custom statuses
+# 3. Generate a list of apps that are being upgraded so we can watch its progress 
+# --------------------------------------------------------------------------------
+- set_fact:
+    mas_apps: "{{ mas_apps|default([]) + [app_upgrade_id] }}"
+  when:
+    - app_info.resources is defined
+    - app_info.resources | length == 1
