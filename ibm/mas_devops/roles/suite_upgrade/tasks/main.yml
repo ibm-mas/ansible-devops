@@ -1,41 +1,41 @@
 ---
-# 1. Upgrade the Subscription for ibm-mas to 8.7.x channel
-# -----------------------------------------------------------------------------
-# 1.1 Change subscription channel
-- name: "Update MAS 8.6 subscription to 8.7.x channel"
-  community.kubernetes.k8s:
-    api_version: operators.coreos.com/v1alpha1
-    name: "ibm-mas-operator"
-    namespace: "{{ mas_namespace }}"
-    kind: Subscription
-    definition:
-      spec:
-        channel: "{{ mas_upgrade_target_channel }}"
-    apply: true
-  register: suite_sub_update
+# # 1. Upgrade the Subscription for ibm-mas to 8.7.x channel
+# # -----------------------------------------------------------------------------
+# # 1.1 Change subscription channel
+# - name: "Update MAS 8.6 subscription to 8.7.x channel"
+#   community.kubernetes.k8s:
+#     api_version: operators.coreos.com/v1alpha1
+#     name: "ibm-mas-operator"
+#     namespace: "{{ mas_namespace }}"
+#     kind: Subscription
+#     definition:
+#       spec:
+#         channel: "{{ mas_upgrade_target_channel }}"
+#     apply: true
+#   register: suite_sub_update
 
-# # - debug: var=suite_sub_update
+# # # - debug: var=suite_sub_update
 
-# 1.2 Wait MAS 8.7.x to reconcile upgrade
-# -----------------------------------------------------------------------------
-- name: "Wait for Suite CR to finish reconciling upgrade to MAS 8.7.x successfully (60s delay)"
-  community.kubernetes.k8s_info:
-    api_version: v1
-    name: "{{mas_instance_id}}"
-    namespace: "{{mas_namespace}}"
-    kind: Suite
-  register: suite_cr_updated_result
-  until:
-    - suite_cr_updated_result.resources[0].status is defined
-    - suite_cr_updated_result.resources[0].status.conditions | length == 7
-    - suite_cr_updated_result.resources[0].status.conditions[0].status == 'True'
-    - suite_cr_updated_result.resources[0].status.conditions[1].status == 'True'
-    - suite_cr_updated_result.resources[0].status.conditions[2].status == 'True'
-    - suite_cr_updated_result.resources[0].status.conditions[3].status == 'True'
-    - suite_cr_updated_result.resources[0].status.conditions[6] is defined # MAS 8.7 will introduced new conditions to Suite CR
-    - suite_cr_updated_result.resources[0].status.conditions[6].reason == 'Successful'
-  retries: 60 # approx 60 minutes before we give up
-  delay: 60 # 1 minute
+# # 1.2 Wait MAS 8.7.x to reconcile upgrade
+# # -----------------------------------------------------------------------------
+# - name: "Wait for Suite CR to finish reconciling upgrade to MAS 8.7.x successfully (60s delay)"
+#   community.kubernetes.k8s_info:
+#     api_version: v1
+#     name: "{{mas_instance_id}}"
+#     namespace: "{{mas_namespace}}"
+#     kind: Suite
+#   register: suite_cr_updated_result
+#   until:
+#     - suite_cr_updated_result.resources[0].status is defined
+#     - suite_cr_updated_result.resources[0].status.conditions | length == 7
+#     - suite_cr_updated_result.resources[0].status.conditions[0].status == 'True'
+#     - suite_cr_updated_result.resources[0].status.conditions[1].status == 'True'
+#     - suite_cr_updated_result.resources[0].status.conditions[2].status == 'True'
+#     - suite_cr_updated_result.resources[0].status.conditions[3].status == 'True'
+#     - suite_cr_updated_result.resources[0].status.conditions[6] is defined # MAS 8.7 will introduced new conditions to Suite CR
+#     - suite_cr_updated_result.resources[0].status.conditions[6].reason == 'Successful'
+#   retries: 60 # approx 60 minutes before we give up
+#   delay: 60 # 1 minute
 
 # 2. (optionally) Upgrade the application operators
 # -----------------------------------------------------------------------------
