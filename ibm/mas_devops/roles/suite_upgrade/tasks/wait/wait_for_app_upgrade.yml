@@ -42,16 +42,16 @@
       set_fact:
         apps_count: "{{ apps_count|int + 1 }}"
         ready_apps_count: "{{ ready_apps_count|int + 1 if (
-          item.resources is defined 
+          item.resources is defined
           and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
           and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
           and item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1)
           else ready_apps_count|int}}"
       with_items: "{{ app_cr_lookup.results }}"
       loop_control:
-        label: 
+        label:
           - "{{ item.resources[0].kind }} CR status = {{ 'Application operator upgraded!' if (
-            item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1 
+            item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
             and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
             and item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1)
             else 'Application upgrade pending...' }} Current operator version: {{ item.resources[0].status.versions.reconciled }}"
