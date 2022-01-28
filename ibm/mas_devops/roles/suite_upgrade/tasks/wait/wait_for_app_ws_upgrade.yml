@@ -1,0 +1,64 @@
+---
+# 1. First, let's retrieve the workspaceId being used
+- name: "Lookup MAS Workspace ID"
+  community.kubernetes.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    kind: Workspace
+    label_selectors:
+      - mas.ibm.com/instanceId={{ mas_instance_id }}
+  register: ws_cr_lookup
+  failed_when:
+    - ws_cr_lookup.resources | length == 0
+
+- set_fact:
+    mas_workspace_id: "{{ ws_cr_lookup.resources[0].metadata.labels['mas.ibm.com/workspaceId'] }}"
+
+# 2. Wait until all applications workspaces
+- name: 'wait : Wait until all apps workspace operators are reconciled after upgrade'
+  block:
+    - name: "wait : Set the retry count"
+      set_fact:
+        app_retry_count: "{{ 0 if app_retry_count is undefined else app_retry_count|int + 1 }}"
+        apps_count: 0
+        ready_apps_count: 0
+
+    - name: "wait : Lookup app ws CRs"
+      vars:
+        app_name: "{{ item }}"
+      community.kubernetes.k8s_info:
+        api_version: "{{ hostvars[inventory_hostname][item].apiVersion }}"
+        kind: "{{ hostvars[inventory_hostname][item].wskind }}"
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+        namespace: "mas-{{ mas_instance_id }}-{{ item }}"
+      register: app_cr_lookup
+      until:
+        - app_cr_lookup.resources is defined
+        - app_cr_lookup.resources | length > 0
+      with_items: "{{ mas_apps }}"
+
+    # - debug:
+    #     msg: "{{ app_cr_lookup}}"
+
+    - name: "wait : Check if apps ws reconcile have been completed"
+      set_fact:
+        apps_count: "{{ apps_count|int + 1 }}"
+        ready_apps_count: "{{ ready_apps_count|int + 1 if (item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1) else ready_apps_count|int}}"
+      with_items: "{{ app_cr_lookup.results }}"
+      loop_control:
+        label: "{{ item.resources[0].kind }} CR status = {{ 'Upgraded Successfully' if (item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1) else 'Reconciling...' }}"
+
+    - name: "wait : Fail if one or more apps upgrade still in progress..."
+      when: ready_apps_count != apps_count
+      fail:
+        msg: "[{{ app_retry_count }}/50] {{ ready_apps_count }} of {{ apps_count }} apps workspace operators are reconciled"
+  rescue:
+    - name: "wait : Give up after 50 attempts (approx 5 hours)"
+      when: app_retry_count|int >= 50
+      fail:
+        msg: Timed out waiting for app operator to be ready
+
+    - name: "wait : Wait for 5 minutes before checking again"
+      pause:
+        minutes: 5
+
+    - include_tasks: "{{ role_path }}/tasks/wait/wait_for_app_ws_upgrade.yml"

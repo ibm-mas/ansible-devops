@@ -2,17 +2,17 @@
 - hosts: localhost
   any_errors_fatal: true
 
-# 1. Deploy & configure the cluster
-# -----------------------------------------------------------------------------
-- name: Deploy ROKS cluster in IBM Cloud
-  import_playbook: ocp/provision-roks.yml
+# # 1. Deploy & configure the cluster
+# # -----------------------------------------------------------------------------
+# - name: Deploy ROKS cluster in IBM Cloud
+#   import_playbook: ocp/provision-roks.yml
 
-- name: Login & configure OCP cluster
-  import_playbook: ocp/configure-ocp.yml
-  vars:
-    cluster_type: roks
-    prometheus_storage_class: ibmc-block-gold
-    prometheus_alertmgr_storage_class: ibmc-file-gold-gid
+# - name: Login & configure OCP cluster
+#   import_playbook: ocp/configure-ocp.yml
+#   vars:
+#     cluster_type: roks
+#     prometheus_storage_class: ibmc-block-gold
+#     prometheus_alertmgr_storage_class: ibmc-file-gold-gid
 
 
 # # 2. Default Cluster Secret Hack for CP4D
@@ -79,42 +79,76 @@
 # #     bas_meta_storage_class: "ibmc-block-bronze"
 
 
-# 8. Create DB2 Warehouse instance for IoT (system scope)
+# # 8. Create DB2 Warehouse instance for IoT (system scope)
+# # -----------------------------------------------------------------------------
+# - name: Install CP4D services & configure Db2
+#   import_playbook: cp4d/create-db2-instance.yml
+#   vars:
+#     db2wh_instance_name: db2w-shared
+#     db2wh_meta_storage_class: ibmc-file-silver-gid
+#     db2wh_user_storage_class: ibmc-file-gold-gid
+#     db2wh_backup_storage_class: ibmc-file-gold-gid
+#     db2wh_logs_storage_class: ibmc-file-silver-gid # only applicable for cp4d 4.0
+#     db2wh_temp_storage_class: ibmc-file-silver-gid # only applicable for cp4d 4.0
+#     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+#     mas_config_scope: system
+
+
+# # 9. Install & configure MAS
+# # -----------------------------------------------------------------------------
+# - name: Install & configure MAS
+#   import_playbook: mas/install-suite.yml
+#   vars:
+#     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+
+# # 10. Install & Configure IoT application
+# # -----------------------------------------------------------------------------
+# - name: Install & configure IoT
+#   import_playbook: mas/install-app.yml
+#   vars:
+#     mas_app_catalog_source: ibm-mas-iot-operators
+#     mas_app_channel: 8.4.x
+#     mas_app_id: iot
+
+# # Note that this sample playbook is always assuming a workspace ID of masdev,
+# # this can easily be modified when creating your own playbooks.
+# - name: Configure IoT
+#   import_playbook: mas/configure-app.yml
+#   vars:
+#     mas_app_id: iot
+#     mas_workspace_id: masdev
+
+# 10. Install & Configure Safety application
 # -----------------------------------------------------------------------------
-- name: Install CP4D services & configure Db2
-  import_playbook: cp4d/create-db2-instance.yml
-  vars:
-    db2wh_instance_name: db2w-shared
-    db2wh_meta_storage_class: ibmc-file-silver-gid
-    db2wh_user_storage_class: ibmc-file-gold-gid
-    db2wh_backup_storage_class: ibmc-file-gold-gid
-    db2wh_logs_storage_class: ibmc-file-silver-gid # only applicable for cp4d 4.0
-    db2wh_temp_storage_class: ibmc-file-silver-gid # only applicable for cp4d 4.0
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-    mas_config_scope: system
-
-
-# 9. Install & configure MAS
-# -----------------------------------------------------------------------------
-- name: Install & configure MAS
-  import_playbook: mas/install-suite.yml
-  vars:
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
-
-# 10. Install & Configure IoT application
-# -----------------------------------------------------------------------------
-- name: Install & configure IoT
+- name: Install & configure Safety
   import_playbook: mas/install-app.yml
   vars:
-    mas_app_catalog_source: ibm-mas-iot-operators
-    mas_app_channel: 8.4.x
-    mas_app_id: iot
+    mas_app_catalog_source: ibm-mas-safety-operators
+    mas_app_channel: 8.2.x
+    mas_app_id: safety
 
 # Note that this sample playbook is always assuming a workspace ID of masdev,
 # this can easily be modified when creating your own playbooks.
-- name: Configure IoT
+- name: Configure Safety
   import_playbook: mas/configure-app.yml
   vars:
-    mas_app_id: iot
+    mas_app_id: safety
     mas_workspace_id: masdev
+
+# # 10. Install & Configure Monitor application
+# # -----------------------------------------------------------------------------
+# - name: Install & configure Monitor
+#   import_playbook: mas/install-app.yml
+#   vars:
+#     mas_app_catalog_source: ibm-mas-monitor-operators
+#     mas_app_channel: 8.6.x
+#     mas_app_id: monitor
+
+# # Note that this sample playbook is always assuming a workspace ID of masdev,
+# # this can easily be modified when creating your own playbooks.
+# - name: Configure Monitor
+#   import_playbook: mas/configure-app.yml
+#   vars:
+#     mas_app_id: monitor
+#     mas_workspace_id: masdev

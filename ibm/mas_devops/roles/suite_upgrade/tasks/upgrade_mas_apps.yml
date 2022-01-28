@@ -4,20 +4,20 @@
 - name: Load variables
   include_vars: "vars/main.yml"
 
-# # 4. Upgrade installed applications to the new feature releases in MAS 8.7
-# # -----------------------------------------------------------------------------
-# # 4.1 Assist
-# # Note: Assist is operating on an n-0 backwards compatability model in MAS 8.7,
-# # so there's no valid upgrade scenario as Assist 8.4 is not supported in earlier MAS releases either.
-# # In other words, you can't upgrade to MAS 8.7 if you have any prior version of Assist installed, sorry.
-# - name: "Upgrade Assist"
-#   include_tasks: tasks/app_upgrade.yml
-#   vars:
-#     app_upgrade_version: apps.mas.ibm.com/v1
-#     app_upgrade_id: assist
-#     app_upgrade_kind: AssistApp
+# # # 4. Upgrade installed applications to the new feature releases in MAS 8.7
+# # # -----------------------------------------------------------------------------
+# # # 4.1 Assist
+# # # Note: Assist is operating on an n-0 backwards compatability model in MAS 8.7,
+# # # so there's no valid upgrade scenario as Assist 8.4 is not supported in earlier MAS releases either.
+# # # In other words, you can't upgrade to MAS 8.7 if you have any prior version of Assist installed, sorry.
+# # - name: "Upgrade Assist"
+# #   include_tasks: tasks/app_upgrade.yml
+# #   vars:
+# #     app_upgrade_version: apps.mas.ibm.com/v1
+# #     app_upgrade_id: assist
+# #     app_upgrade_kind: AssistApp
 
-# # 4.1 HPUtils
+# # 4.2 HPUtils
 # - name: "Upgrade HPUtils"
 #   include_tasks: tasks/app_upgrade.yml
 #   vars:
@@ -41,44 +41,46 @@
     app_upgrade_version: "{{ hostvars[inventory_hostname].manage.apiVersion }}"
     app_upgrade_kind: "{{ hostvars[inventory_hostname].manage.crdkind }}"
 
-# 4.5 Monitor
-- name: "Upgrade Monitor"
+# # 4.5 Monitor
+# - name: "Upgrade Monitor"
+#   include_tasks: tasks/app_upgrade.yml
+#   vars:
+#     app_upgrade_id: monitor
+#     app_upgrade_version: "{{ hostvars[inventory_hostname].monitor.apiVersion }}"
+#     app_upgrade_kind: "{{ hostvars[inventory_hostname].monitor.crdkind }}"
+
+# 4.6 Predict
+- name: "Upgrade Predict"
   include_tasks: tasks/app_upgrade.yml
   vars:
-    app_upgrade_id: monitor
-    app_upgrade_version: "{{ hostvars[inventory_hostname].monitor.apiVersion }}"
-    app_upgrade_kind: "{{ hostvars[inventory_hostname].monitor.crdkind }}"
+    app_upgrade_id: predict
+    app_upgrade_version: "{{ hostvars[inventory_hostname].predict.apiVersion }}"
+    app_upgrade_kind: "{{ hostvars[inventory_hostname].predict.crdkind }}"
 
-# # 4.6 Predict
-# - name: "Upgrade Predict"
-#   include_tasks: tasks/app_upgrade.yml
-#   vars:
-#     app_upgrade_version: apps.mas.ibm.com/v1
-#     app_upgrade_id: predict
-#     app_upgrade_kind: predictApp
+# 4.7 Safety
+- name: "Upgrade Safety"
+  include_tasks: tasks/app_upgrade.yml
+  vars:
+    app_upgrade_id: safety
+    app_upgrade_version: "{{ hostvars[inventory_hostname].safety.apiVersion }}"
+    app_upgrade_kind: "{{ hostvars[inventory_hostname].safety.crdkind }}"
 
-# # 4.7 Safety
-# - name: "Upgrade Safety"
-#   include_tasks: tasks/app_upgrade.yml
-#   vars:
-#     app_upgrade_version: apps.mas.ibm.com/v1
-#     app_upgrade_id: safety
-#     app_upgrade_kind: SafetyApp
-
-# # 4.8 Visual Inspection
-# # Note: Visual Inspection is operating on an n-0 backwards compatability model in MAS 8.7,
-# # so there's no valid upgrade scenario as MVI 8.5 is not supported in earlier MAS releases either.
-# # In other words, you can't upgrade to MAS 8.7 if you have any prior version of MVI installed, sorry.
-# - name: "Upgrade Visual Inspection"
-#   include_tasks: tasks/app_upgrade.yml
-#   vars:
-#     app_upgrade_version: apps.mas.ibm.com/v1
-#     app_upgrade_id: visualinspection
-#     app_upgrade_kind: VisualInspection
+# # # 4.8 Visual Inspection
+# # # Note: Visual Inspection is operating on an n-0 backwards compatability model in MAS 8.7,
+# # # so there's no valid upgrade scenario as MVI 8.5 is not supported in earlier MAS releases either.
+# # # In other words, you can't upgrade to MAS 8.7 if you have any prior version of MVI installed, sorry.
+# # - name: "Upgrade Visual Inspection"
+# #   include_tasks: tasks/app_upgrade.yml
+# #   vars:
+# #     app_upgrade_version: apps.mas.ibm.com/v1
+# #     app_upgrade_id: visualinspection
+# #     app_upgrade_kind: VisualInspection
 
 - debug:
     msg: "MAS Applications to be upgraded: {{ mas_apps }}"
+  when: mas_apps is defined and mas_apps | length > 0
 
-# Wait all apps to be reconciled
-- name: Wait MAS apps to be upgraded to 8.7 version
-  include_tasks: tasks/wait_for_app_upgrade.yml
+# Wait all apps start reconciling the upgrade
+- name: Begin MAS 8.7 applications upgrade reconciliation...
+  include_tasks: wait/main.yml
+  when: mas_apps is defined and mas_apps | length > 0

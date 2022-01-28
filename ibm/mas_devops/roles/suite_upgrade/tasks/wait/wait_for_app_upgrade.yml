@@ -1,0 +1,65 @@
+---
+# Ansible can't support block retries, this is a relatively simple workaround
+# to achieve the same thing
+# https://github.com/ansible/ansible/issues/46203#issuecomment-556013701
+
+# - name: debug vars
+#   vars:
+#     app_name: "{{ item }}"
+#   debug: 
+#     msg: 
+#       - "{{ hostvars[inventory_hostname][item].apiVersion }}"
+#       - "{{ hostvars[inventory_hostname][item].crdkind }}"
+#       - "mas-{{ mas_instance_id }}-{{ item }}"
+#   with_items: "{{ mas_apps }}"
+
+- name: 'Wait until all apps are upgraded'
+  block:
+    - name: "wait : Set the retry count"
+      set_fact:
+        app_retry_count: "{{ 0 if app_retry_count is undefined else app_retry_count|int + 1 }}"
+        apps_count: 0
+        ready_apps_count: 0
+
+    - name: "wait : Lookup apps CRs"
+      vars:
+        app_name: "{{ item }}"
+      community.kubernetes.k8s_info:
+        api_version: "{{ hostvars[inventory_hostname][item].apiVersion }}"
+        kind: "{{ hostvars[inventory_hostname][item].crdkind }}"
+        name: "{{ mas_instance_id }}"
+        namespace: "mas-{{ mas_instance_id }}-{{ item }}"
+      register: app_cr_lookup
+      until:
+        - app_cr_lookup.resources is defined
+        - app_cr_lookup.resources | length > 0
+      with_items: "{{ mas_apps }}"
+
+    # - debug:
+    #     msg: "{{ app_cr_lookup}}"
+
+    - name: "wait : Check if apps upgrade have been completed"
+      set_fact:
+        apps_count: "{{ apps_count|int + 1 }}"
+        ready_apps_count: "{{ ready_apps_count|int + 1 if (item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1 and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1) else ready_apps_count|int}}"
+      with_items: "{{ app_cr_lookup.results }}"
+      loop_control:
+        label: 
+         - "{{ item.resources[0].kind }} CR status = {{ 'Upgrade completed successfully!' if (item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1 and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1) else 'Upgrade pending...' }} Current operator version: {{ item.resources[0].status.versions.reconciled }}"
+         - "{{ 'Error! Something went wrong while upgrading this application, check its CR for more details...' if (item.resources | json_query('[*].status.conditions[?type==`Failure`][].reason') | select ('match','Failed') | list | length == 1) }}"
+
+    - name: "wait : Fail if one or more apps upgrade still in progress..."
+      when: ready_apps_count != apps_count
+      fail:
+        msg: "[{{ app_retry_count }}/10] {{ ready_apps_count }} of {{ apps_count }} apps are upgraded"
+  rescue:
+    - name: "wait : Give up after 10 attempts (approx 1 hour)"
+      when: app_retry_count|int >= 10
+      fail:
+        msg: Timed out waiting for app operator to be ready
+
+    - name: "wait : Wait for 5 minutes before checking again"
+      pause:
+        minutes: 5
+
+    - include_tasks: "{{ role_path }}/tasks/wait/wait_for_app_upgrade.yml"
