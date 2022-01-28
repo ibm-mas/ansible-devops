@@ -38,28 +38,44 @@
     # - debug:
     #     msg: "{{ app_cr_lookup}}"
 
-    - name: "wait : Check if apps upgrade have been completed"
+    - name: "wait : Check if apps operators have been upgraded"
       set_fact:
         apps_count: "{{ apps_count|int + 1 }}"
-        ready_apps_count: "{{ ready_apps_count|int + 1 if (item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1 and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1) else ready_apps_count|int}}"
+        ready_apps_count: "{{ ready_apps_count|int + 1 if (
+          item.resources is defined 
+          and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
+          and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
+          and item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1)
+          else ready_apps_count|int}}"
       with_items: "{{ app_cr_lookup.results }}"
       loop_control:
         label: 
-         - "{{ item.resources[0].kind }} CR status = {{ 'Upgrade completed successfully!' if (item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1 and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1) else 'Upgrade pending...' }} Current operator version: {{ item.resources[0].status.versions.reconciled }}"
+         - "{{ item.resources[0].kind }} CR status = {{ 'Application operator upgraded!' if (
+          item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1 
+          and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
+          and item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1)
+          else 'Application upgrade pending...' }} Current operator version: {{ item.resources[0].status.versions.reconciled }}"
+         - "{{ (item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason')) }} - {{ (item.resources | json_query('[*].status.conditions[?type==`Ready`][].message')) }}"
          - "{{ 'Error! Something went wrong while upgrading this application, check its CR for more details...' if (item.resources | json_query('[*].status.conditions[?type==`Failure`][].reason') | select ('match','Failed') | list | length == 1) }}"
 
-    - name: "wait : Fail if one or more apps upgrade still in progress..."
+
+    - name: "wait : Fail if one or more apps operators are pending to upgrade..."
       when: ready_apps_count != apps_count
       fail:
-        msg: "[{{ app_retry_count }}/10] {{ ready_apps_count }} of {{ apps_count }} apps are upgraded"
+        msg: "[{{ app_retry_count }}/60] {{ ready_apps_count }} of {{ apps_count }} apps are upgraded"
+
+    # reset retry count when all apps are upgraded
+    - set_fact:
+        retry_apps_count: 0
+      when: ready_apps_count == apps_count
   rescue:
-    - name: "wait : Give up after 10 attempts (approx 1 hour)"
-      when: app_retry_count|int >= 10
+    - name: "wait : Give up after 60 attempts (approx 1 hour)"
+      when: app_retry_count|int >= 60
       fail:
         msg: Timed out waiting for app operator to be ready
 
-    - name: "wait : Wait for 5 minutes before checking again"
+    - name: "wait : Wait for 1 minute before checking again"
       pause:
-        minutes: 5
+        minutes: 1
 
     - include_tasks: "{{ role_path }}/tasks/wait/wait_for_app_upgrade.yml"
