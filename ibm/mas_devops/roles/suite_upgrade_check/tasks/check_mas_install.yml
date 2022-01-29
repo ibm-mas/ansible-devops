@@ -54,3 +54,13 @@
       - suite_info.resources[0].status.versions.reconciled is version('8.6.0', '>=')
       - suite_info.resources[0].status.versions.reconciled is version('8.7.0', '<')
     fail_msg: "Existing MAS installation is not running on MAS 8.6.x, so it cannot be upgraded to MAS 8.7.x"
+
+- name: "Assert that the core is in healthy state to be upgrade to 8.7.x"
+  assert:
+    that:
+      - suite_info.resources is defined
+      - suite_info.resources | length == 1
+      - suite_info.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
+      - suite_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+    fail_msg: 
+      - "Existing MAS installation for {{ mas_instance_id }} is not in healthy state to be upgraded to MAS 8.7.x, check its CR status for more details!"

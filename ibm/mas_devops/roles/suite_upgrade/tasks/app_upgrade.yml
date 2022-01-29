@@ -15,19 +15,7 @@
     kind: "{{ app_upgrade_kind }}"
   register: app_info
 
-# 2. Check if app is healthy to upgrade
-# --------------------------------------------------------------------------------
-- name: "Check if app {{ app_upgrade_id }} is in healthy state to be upgraded"
-  when:
-    - app_info.resources is defined
-    - app_info.resources | length == 1
-    - app_info.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
-    - app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
-  debug:
-    msg: 
-    - "MAS Application {{ app_upgrade_id|upper }} is in healthy state and is ready to upgrade!"
-
-# 3. Change subscription channel
+# 2. Change subscription channel
 # --------------------------------------------------------------------------------
 - name: "Update subscription channel"
   when:

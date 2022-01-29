@@ -1,17 +1,18 @@
 ---
-# 1. First, let's retrieve the workspaceId being used
-- name: "Lookup MAS Workspace ID"
-  community.kubernetes.k8s_info:
-    api_version: core.mas.ibm.com/v1
-    kind: Workspace
-    label_selectors:
-      - mas.ibm.com/instanceId={{ mas_instance_id }}
-  register: ws_cr_lookup
-  failed_when:
-    - ws_cr_lookup.resources | length == 0
+# # 1. First, let's retrieve the workspaceId being used
+# - name: "Lookup MAS Workspace ID"
+#   community.kubernetes.k8s_info:
+#     api_version: core.mas.ibm.com/v1
+#     kind: Workspace
+#     label_selectors:
+#       - mas.ibm.com/instanceId={{ mas_instance_id }}
+#       - mas.ibm.com/applicationId={{ mas_instance_id }}
+#   register: ws_cr_lookup
+#   failed_when:
+#     - ws_cr_lookup.resources | length == 0
 
-- set_fact:
-    mas_workspace_id: "{{ ws_cr_lookup.resources[0].metadata.labels['mas.ibm.com/workspaceId'] }}"
+# - set_fact:
+#     mas_workspace_id: "{{ ws_cr_lookup.resources[0].metadata.labels['mas.ibm.com/workspaceId'] }}"
 
 # 2. Wait until all applications workspaces
 - name: 'wait : Wait until all apps workspace operators are reconciled after upgrade'
@@ -28,8 +29,9 @@
       community.kubernetes.k8s_info:
         api_version: "{{ hostvars[inventory_hostname][item].apiVersion }}"
         kind: "{{ hostvars[inventory_hostname][item].wskind }}"
-        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
-        namespace: "mas-{{ mas_instance_id }}-{{ item }}"
+        label_selectors:
+          - mas.ibm.com/instanceId={{ mas_instance_id }}
+          - mas.ibm.com/applicationId={{ item }}
       register: app_cr_lookup
       until:
         - app_cr_lookup.resources is defined
@@ -45,6 +47,7 @@
         ready_apps_count: "{{ ready_apps_count|int + 1 if (
           item.resources is defined
           and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
+          and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
           and item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1)
           else ready_apps_count|int}}"
       with_items: "{{ app_cr_lookup.results }}"
@@ -53,6 +56,7 @@
           - "{{ item.resources[0].kind }} CR status = {{ 'Workspace operator upgraded!' if (
             item.resources is defined
             and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
+            and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
             and item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1)
             else 'Workspace upgrade pending...' }}"
           - "{{ (item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason')) }} - {{ (item.resources | json_query('[*].status.conditions[?type==`Ready`][].message')) }}"

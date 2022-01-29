@@ -2,7 +2,7 @@
 # 1. Lookup the application CR
 - name: "Get installed version of {{ app_check_id }}"
   community.kubernetes.k8s_info:
-    api_version: apps.mas.ibm.com/v1
+    api_version: "{{ app_api_version }}"
     name: "{{ mas_instance_id }}"
     namespace: "mas-{{ mas_instance_id }}-{{ app_check_id }}"
     kind: "{{ app_check_kind }}"
@@ -17,9 +17,20 @@
     that:
       - app_info.resources[0].status.versions.reconciled is version(app_check_min_version, '>=')
       - app_info.resources[0].status.versions.reconciled is version(app_check_max_version, '<')
-    fail_msg: "Installed {{ app_check_id }} applicaton is not in the supported range for MAS 8.7.x [ >={{ app_check_min_version }}, <{{ app_check_max_version }} ]"
+    fail_msg: "Installed {{ app_check_id }} application is not in the supported range for MAS 8.7.x [ >={{ app_check_min_version }}, <{{ app_check_max_version }} ], current version: {{ app_info.resources[0].status.versions.reconciled }} "
 
-# 3. Also check that the application is installed via a subscription, we will only support OLM-based upgrade (initially at least)
+# 3. Check if application is healthy to upgrade
+- name: "Assert that {{app_check_id }} is in healthy state to upgrade to MAS 8.7.x"
+  when:
+    - app_info.resources is defined
+    - app_info.resources | length == 1
+  assert:
+    that:
+      - app_info.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
+      - app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+    fail_msg: "Installed {{ app_check_id }} application is not in healthy state to upgrade to MAS 8.7.x. Check its CR status for more details!"
+    success_msg: "Installed {{ app_check_id }} application is in healthy state to upgrade to MAS 8.7.x!"
+
 - name: "Get subscription channel of {{ app_check_id }}"
   when:
     - app_info.resources is defined
