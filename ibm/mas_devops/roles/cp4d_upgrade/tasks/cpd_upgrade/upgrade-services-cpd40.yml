@@ -3,20 +3,42 @@
 # and will perform an in-place upgrade to CloudPak for Data v4.0 where the CPD operators will be 
 # deployed in 'ibm-common-services' namespace and the services will be deployed in existing 'cpd-meta-ops' namespace 
 
-# 1. Fail if the required parameters have not been provided
+# 1. Check which CP4D Services to be upgraded
 # -----------------------------------------------------------------------------
-- name: "Fail if cpd_storage_class has not been provided"
-  when: cpd_storage_class is not defined or cpd_storage_class == ""
-  fail:
-    msg: "cpd_storage_class property has not been set"
+- name: "Lookup for existing CPD v3.5 Services"
+  community.kubernetes.k8s_info:
+    api_version: metaoperator.cpd.ibm.com/v1
+    namespace: "{{cpd_services_namespace}}"
+    kind: CPDService
+  register: _cpd_services_to_upgrade
 
-- name: "Fail if cpd_block_storage_class has not been provided and we are installing IBM Watson Discovery"
-  vars:
-    service_name: "{{ item }}"
-  when: item == "wd" and (cpd_block_storage_class is not defined or cpd_block_storage_class == "")
-  fail:
-    msg: "cpd_block_storage_class property has not been set but it is required to install IBM Watson Discovery"
-  with_items: "{{ cpd_services }}"
+- set_fact:
+   cpd35_services: "{{ cpd35_services|default([]) + [outer_item.spec.serviceName] }}"
+  loop: "{{ _cpd_services_to_upgrade.resources }}"
+  loop_control:
+    loop_var: outer_item
+    label: "CPD service {{ outer_item.spec.serviceName }} is currently installed on CPD v3.5"
+
+- name: "Check if existing CPD v3.5 Services have supported upgrade path"
+  when: cpd_item in cpd_upgrade_supported_services
+  set_fact:
+   cpd_services: "{{ cpd_services|default([]) + [cpd_item] }}"
+  loop: "{{ cpd35_services }}"
+  loop_control:
+    loop_var: cpd_item
+
+# 2. Fail if the required parameters have not been provided
+# -----------------------------------------------------------------------------
+- name: "Assert that cpd_storage_class has been provided"
+  assert:
+    that: 
+      - cpd_storage_class is defined and cpd_storage_class != ""
+    fail_msg: "cpd_storage_class property has not been set"
+
+# 3. Generate a list of cpd services that are being upgraded so we can watch its progress 
+# --------------------------------------------------------------------------------
+- set_fact:
+    mas_apps: "{{ mas_apps|default([]) + [app_upgrade_id] }}"
 
 - name: "Debug information"
   debug:
@@ -25,12 +47,11 @@
       - "CPD Services Namespace .......... {{ cpd_services_namespace }}"
       - "CPD storage class ............... {{ cpd_storage_class }}"
       - "CPD block storage class ......... {{ cpd_block_storage_class | default('<undefined>', True) }}"
-      - "CPD services to be installed .... {{ cpd_services }}"
+      - "CPD services to be upgraded .... {{ cpd_services }}"
 
-
-# 2. Install CP4D Services Subscriptions
+# 3. Install CP4D Services Subscriptions
 # -----------------------------------------------------------------------------
-- name: "Install CP4D Services Subscription"
+- name: "Upgrade CP4D Services Subscription"
   vars:
     service_name: "{{ item }}"
   community.kubernetes.k8s:
@@ -38,50 +59,49 @@
     definition: "{{ lookup('template', 'templates/cpd/{{ item }}/subscription.yml') }}"
   with_items: "{{ cpd_services }}"
 
+# # 3. Wait for CP4D Services Subscriptions to be ready
+# # -----------------------------------------------------------------------------
+# - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_subscriptions.yml"
 
-# 3. Wait for CP4D Services Subscriptions to be ready
-# -----------------------------------------------------------------------------
-- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_subscriptions.yml"
+# # 4. Install CP4D Services CRs
+# # -----------------------------------------------------------------------------
+# - name: "Upgrade CPD Services CRs"
+#   vars:
+#     service_name: "{{ item }}"
+#   community.kubernetes.k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/cpd/{{ item }}/service.yml') }}"
+#   with_items: "{{ cpd_services }}"
 
-# 4. Install CP4D Services CRs
-# -----------------------------------------------------------------------------
-- name: "Install Services CR"
-  vars:
-    service_name: "{{ item }}"
-  community.kubernetes.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/cpd/{{ item }}/service.yml') }}"
-  with_items: "{{ cpd_services }}"
+# # 4.1. Patch DB2 operand request to use ibm-common-services namespace
+# # -----------------------------------------------------------------------------
+# # By default db2 operator will be deployed in cpd services namespace 
+# # (i.e cpd-meta-ops), but we need all cpd operators to exist 
+# # in same namespace "ibm-common-services"
+# # only cpd services cr's will exist in cpd services namespace
 
-# 4.1. Patch DB2 operand request to use ibm-common-services namespace
-# -----------------------------------------------------------------------------
-# By default db2 operator will be deployed in cpd services namespace 
-# (i.e cpd-meta-ops), but we need all cpd operators to exist 
-# in same namespace "ibm-common-services"
-# only cpd services cr's will exist in cpd services namespace
+# - name: "Patch DB2 Warehouse operand request"
+#   when: item == "db2wh"
+#   include_tasks: "{{ role_path }}/tasks/cpd_upgrade/db2wh/patch_db2u_operandrequest.yml"
+#   with_items: "{{ cpd_services }}"
 
-- name: "Patch DB2 Warehouse operand request"
-  when: item == "db2wh"
-  include_tasks: "{{ role_path }}/tasks/cpd_upgrade/db2wh/patch_db2u_operandrequest.yml"
-  with_items: "{{ cpd_services }}"
+# # 5. Wait for CP4D Services to be ready
+# # -----------------------------------------------------------------------------
+# - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_services.yml"
 
-# 5. Wait for CP4D Services to be ready
-# -----------------------------------------------------------------------------
-- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_services.yml"
+# # 6. Provide CP4D dashboard URL
+# # -----------------------------------------------------------------------------
+# - name: "Lookup CP4D dashboard URL"
+#   community.kubernetes.k8s_info:
+#     api_version: route.openshift.io/v1
+#     name: "{{ cpd_services_namespace }}-cpd" # for a clean install of cpd v4, this route is just named 'cpd' 
+#     namespace: "{{cpd_services_namespace}}"
+#     kind: Route
+#   register: _cpd_route
 
-# 6. Provide CP4D dashboard URL
-# -----------------------------------------------------------------------------
-- name: "Lookup CP4D dashboard URL"
-  community.kubernetes.k8s_info:
-    api_version: route.openshift.io/v1
-    name: "{{ cpd_services_namespace }}-cpd" # for a clean install of cpd v4, this route is just named 'cpd' 
-    namespace: "{{cpd_services_namespace}}"
-    kind: Route
-  register: _cpd_route
-
-- name: "Obtain CP4D dashboard URL"
-  debug:
-    msg:
-      - "CP4D Dashboard ................. https://{{_cpd_route.resources[0].spec.host}}"
-      - "CP4D Username .................. admin"
-      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_meta_namespace }}' namespace"
+# - name: "Obtain CP4D dashboard URL"
+#   debug:
+#     msg:
+#       - "CP4D Dashboard ................. https://{{_cpd_route.resources[0].spec.host}}"
+#       - "CP4D Username .................. admin"
+#       - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_meta_namespace }}' namespace"
