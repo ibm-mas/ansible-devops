@@ -59,49 +59,49 @@
     definition: "{{ lookup('template', 'templates/cpd/{{ item }}/subscription.yml') }}"
   with_items: "{{ cpd_services }}"
 
-# # 3. Wait for CP4D Services Subscriptions to be ready
-# # -----------------------------------------------------------------------------
-# - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_subscriptions.yml"
+# 4. Wait for CP4D Services Subscriptions to be ready
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_subscriptions.yml"
 
-# # 4. Install CP4D Services CRs
-# # -----------------------------------------------------------------------------
-# - name: "Upgrade CPD Services CRs"
-#   vars:
-#     service_name: "{{ item }}"
-#   community.kubernetes.k8s:
-#     apply: yes
-#     definition: "{{ lookup('template', 'templates/cpd/{{ item }}/service.yml') }}"
-#   with_items: "{{ cpd_services }}"
+# 5. Install CP4D Services CRs
+# -----------------------------------------------------------------------------
+- name: "Upgrade CPD Services CRs"
+  vars:
+    service_name: "{{ item }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd/{{ item }}/service.yml') }}"
+  with_items: "{{ cpd_services }}"
 
-# # 4.1. Patch DB2 operand request to use ibm-common-services namespace
-# # -----------------------------------------------------------------------------
-# # By default db2 operator will be deployed in cpd services namespace 
-# # (i.e cpd-meta-ops), but we need all cpd operators to exist 
-# # in same namespace "ibm-common-services"
-# # only cpd services cr's will exist in cpd services namespace
+# 5.1. Patch DB2 operand request to use ibm-common-services namespace
+# -----------------------------------------------------------------------------
+# By default db2 operator will be deployed in cpd services namespace 
+# (i.e cpd-meta-ops), but we need all cpd operators to exist 
+# in same namespace "ibm-common-services"
+# only cpd services cr's will exist in cpd services namespace
 
-# - name: "Patch DB2 Warehouse operand request"
-#   when: item == "db2wh"
-#   include_tasks: "{{ role_path }}/tasks/cpd_upgrade/db2wh/patch_db2u_operandrequest.yml"
-#   with_items: "{{ cpd_services }}"
+- name: "Patch DB2 Warehouse operand request"
+  when: item == "db2wh"
+  include_tasks: "{{ role_path }}/tasks/cpd_upgrade/db2wh/patch_db2u_operandrequest.yml"
+  with_items: "{{ cpd_services }}"
 
-# # 5. Wait for CP4D Services to be ready
-# # -----------------------------------------------------------------------------
-# - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_services.yml"
+# 6. Wait for CP4D Services to be ready
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_services.yml"
 
-# # 6. Provide CP4D dashboard URL
-# # -----------------------------------------------------------------------------
-# - name: "Lookup CP4D dashboard URL"
-#   community.kubernetes.k8s_info:
-#     api_version: route.openshift.io/v1
-#     name: "{{ cpd_services_namespace }}-cpd" # for a clean install of cpd v4, this route is just named 'cpd' 
-#     namespace: "{{cpd_services_namespace}}"
-#     kind: Route
-#   register: _cpd_route
+# 7. Provide CP4D dashboard URL
+# -----------------------------------------------------------------------------
+- name: "Lookup CP4D dashboard URL"
+  community.kubernetes.k8s_info:
+    api_version: route.openshift.io/v1
+    name: "{{ cpd_services_namespace }}-cpd" # for a clean install of cpd v4, this route is just named 'cpd' 
+    namespace: "{{cpd_services_namespace}}"
+    kind: Route
+  register: _cpd_route
 
-# - name: "Obtain CP4D dashboard URL"
-#   debug:
-#     msg:
-#       - "CP4D Dashboard ................. https://{{_cpd_route.resources[0].spec.host}}"
-#       - "CP4D Username .................. admin"
-#       - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_meta_namespace }}' namespace"
+- name: "Obtain CP4D dashboard URL"
+  debug:
+    msg:
+      - "CP4D Dashboard ................. https://{{_cpd_route.resources[0].spec.host}}"
+      - "CP4D Username .................. admin"
+      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_meta_namespace }}' namespace"
