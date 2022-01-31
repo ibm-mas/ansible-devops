@@ -50,25 +50,56 @@
 
 # 1.4 Restart SBO operator before we proceed with MAS apps upgrade
 # Temporary workaround as sometimes SBO operators doesn't reconcile properly
-# This will ensure the sbo secrets are up-to-date accross MAS apps prior upgrade
+# This will ensure the sbo secrets are up-to-date accross MAS apps prior its upgrade
+# Will scale down and up again, as SBO pod doesn't have a good lookup matching label
 # -----------------------------------------------------------------------------
-- name: "Lookup SBO operator"
+- name: "Lookup SBO deployment"
   community.kubernetes.k8s_info:
-    api_version: v1
-    kind: Pod
+    api_version: apps/v1
+    kind: Deployment
+    name: service-binding-operator
     namespace: openshift-operators
-    label_selectors:
-      - control-plane=controller-manager
-  register: sbo_output
-  
-- name: "Restart SBO operator before we proceed with MAS apps upgrade"
-  when: sbo_output.resources | length > 0
+  register: sbo_deployment
+
+- name: "Scale down SBO operator before we proceed with MAS apps upgrade"
+  when: sbo_deployment.resources | length > 0
   community.kubernetes.k8s:
-    state: absent
-    api_version: v1
-    kind: Pod
+    api_version: apps/v1
+    kind: Deployment
+    name: service-binding-operator
     namespace: openshift-operators
-    name: "{{ sbo_output.resources[0].metadata.name }}"
+    definition:
+      spec:
+        replicas: 0
+    apply: true
+
+- name: "Scale up SBO operator before we proceed with MAS apps upgrade"
+  when: sbo_deployment.resources | length > 0
+  community.kubernetes.k8s:
+    api_version: apps/v1
+    kind: Deployment
+    name: service-binding-operator
+    namespace: openshift-operators
+    definition:
+      spec:
+        replicas: 1
+    apply: true
+
+- name: "Wait SBO operator to be running again"
+  when: sbo_deployment.resources | length > 0
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: service-binding-operator
+    namespace: openshift-operators
+  register: sbo_restart
+  until:
+    - sbo_restart.resources is defined
+    - sbo_restart.resources[0].status is defined
+    - sbo_restart.resources[0].status.readyReplicas is defined
+    - sbo_restart.resources[0].status.readyReplicas == 1
+  retries: 5 # approx 5 minutes before we give up
+  delay: 60 # 1 minute
 
 # 2. (optionally) Upgrade the application operators
 # -----------------------------------------------------------------------------
