@@ -48,6 +48,28 @@
   retries: 60 # approx 60 minutes before we give up
   delay: 60 # 1 minute
 
+# 1.4 Restart SBO operator before we proceed with MAS apps upgrade
+# Temporary workaround as sometimes SBO operators doesn't reconcile properly
+# This will ensure the sbo secrets are up-to-date accross MAS apps prior upgrade
+# -----------------------------------------------------------------------------
+- name: "Lookup SBO operator"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: openshift-operators
+    label_selectors:
+      - control-plane=controller-manager
+  register: sbo_output
+  
+- name: "Restart SBO operator before we proceed with MAS apps upgrade"
+  when: sbo_output.resources | length > 0
+  community.kubernetes.k8s:
+    state: absent
+    api_version: v1
+    kind: Pod
+    namespace: openshift-operators
+    name: "{{ sbo_output.resources[0].metadata.name }}"
+
 # 2. (optionally) Upgrade the application operators
 # -----------------------------------------------------------------------------
 # You don't need to upgrade the applications, you can leave them at the n-1
