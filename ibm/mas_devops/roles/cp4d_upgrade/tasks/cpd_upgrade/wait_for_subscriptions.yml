@@ -8,7 +8,7 @@
   block:
     - name: "wait : Set the retry count"
       set_fact:
-        retry_count: "{{ 0 if retry_count is undefined else retry_count|int + 1 }}"
+        service_retry_count: "{{ 0 if retry_count is undefined else retry_count|int + 1 }}"
         services_count: 0
         ready_services_count: 0
 
@@ -34,7 +34,12 @@
     - name: "wait : Fail if one or more CPD Service Subscriptions operators are not running"
       when: ready_services_count != services_count
       fail:
-        msg: "[{{ retry_count }}/30] {{ ready_services_count }} of {{ services_count }} services are ready"
+        msg: "[{{ service_retry_count }}/30] {{ ready_services_count }} of {{ services_count }} services are ready"
+
+    # reset retry count
+    - set_fact:
+        service_retry_count: 0
+      when: ready_services_count == services_count
   rescue:
     - name: "wait : Give up after 30 attempts (approx 30 minutes)"
       when: retry_count|int >= 30

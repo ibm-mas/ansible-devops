@@ -1,13 +1,33 @@
 ---
 # This task will lookup for all existing db2wh instances
-# and patch them to use newer version compatible with cpd v4.0
+# and patch them to use latest version compatible with cpd v4.0
+
+# 1. Lookup for specific upgraded db2wh version to patch the db2wh instances
+# this is based on the db2wh service version that was upgraded earlier
+# --------------------------------------------------------------------------------------------------
+- name: Lookup for latest db2wh version to patch the existing db2wh instances
+  community.kubernetes.k8s_info:
+    api_version: "{{ hostvars[inventory_hostname].db2wh.apiVersion }}"
+    kind: "{{ hostvars[inventory_hostname].db2wh.crdkind }}"
+    name: "{{ hostvars[inventory_hostname].db2wh.crname }}"
+    namespace: "{{ cpd_services_namespace }}"
+  register: db2wh_cr
+
+- set_fact:
+    db2wh_upgrade_version: "{{ db2wh_cr.resources[0].status.versionBuild | regex_search(db2wh_regex) }}"
+  vars:
+    db2wh_regex: '(?<=\+)(.*?)(?=\+)'
+  when:
+    - db2wh_cr.resources is defined
+    - db2wh_cr.resources | length > 0
+
 - name: "Debug information"
   debug:
     msg:
       - "CPD services namespace .......... {{ cpd_services_namespace }}"
       - "DB2 version to be upgraded....... {{ db2wh_upgrade_version }}"
 
-# 1. Lookup 'norootsquash' DeamonSet is deployed
+# 2. Lookup 'norootsquash' DeamonSet is deployed
 # --------------------------------------------------------------------------------------------------
 - name: "Check if 'norootsquash' DeamonSet is deployed"
   community.kubernetes.k8s_info:
@@ -17,13 +37,14 @@
     kind: DaemonSet
   register: daemonset_output
 
+# - debug:
+#     msg: "{{ daemonset_output }}"
+
 - name: "Create 'norootsquash' DeamonSet"
-  when: 
-    - daemonset_output.results[0].resources is defined
-    - daemonset_output.results[0].resources | length == 0
+  when: daemonset_output.resources | length == 0
   include_tasks: tasks/cpd_upgrade/db2wh/setup_norootsquash.yml
 
-# 2. Lookup existing db2wh instances
+# 3. Lookup existing db2wh instances
 # --------------------------------------------------------------------------------------------------
 - name: "Lookup existing db2wh instances"
   community.kubernetes.k8s_info:
@@ -32,7 +53,7 @@
     kind: Db2uCluster
   register: db2ucluster_result
 
-# 3. Patch existing db2wh instances to the newer version
+# 4. Patch existing db2wh instances to the newer version
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=warehouse-upgrading-db2-from-version-35
 # --------------------------------------------------------------------------------------------------
 - name: "Patch existing db2wh instances to {{ db2wh_upgrade_version }} version compatible with CPD v4"
@@ -53,7 +74,7 @@
 - name: "Wait for DB2 Instances to be upgraded to {{ db2wh_upgrade_version }} version (CPD v4 compatible)"
   include_tasks: tasks/cpd_upgrade/db2wh/wait_for_db2wh_instances_upgrade.yml
 
-# 4. When db2wh instances are done upgrading, need to reapply its ssl certs into MAS configs
+# 5. When db2wh instances are done upgrading, need to reapply its ssl certs into MAS configs
 # --------------------------------------------------------------------------------------------------
 - name: "Reapply new DB2 Instances ca.crt's into MAS jdbc configs"
   include_tasks: tasks/cpd_upgrade/db2wh/apply_new_ssl_across_mas.yml

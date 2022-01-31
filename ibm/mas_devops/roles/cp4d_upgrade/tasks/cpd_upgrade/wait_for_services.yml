@@ -38,11 +38,16 @@
       when: ready_services_count != services_count
       fail:
         msg: "[{{ service_retry_count }}/30] {{ ready_services_count }} of {{ services_count }} services are ready"
+
+    # reset retry count
+    - set_fact:
+        service_retry_count: 0
+      when: ready_services_count == services_count
   rescue:
     - name: "wait : Give up after 30 attempts (approx 3 hours)"
       when: service_retry_count|int >= 30
       fail:
-        msg: Timed out waiting for service operator to be ready
+        msg: Timed out waiting for CPD services to be upgraded!
 
     - name: "wait : Wait for 5 minutes before checking again"
       pause:

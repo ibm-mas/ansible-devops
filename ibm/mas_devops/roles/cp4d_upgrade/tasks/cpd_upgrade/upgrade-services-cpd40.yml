@@ -27,18 +27,46 @@
   loop_control:
     loop_var: cpd_item
 
-# 2. Fail if the required parameters have not been provided
+# 2. Define the priority that CPD Services will be upgraded
+# -----------------------------------------------------------------------------
+# DB2 and Watson Studio must be upgraded first, once Watson Studio is upgraded then 
+# remaining Watson Services can be upgraded
+# Lastly, OpenScale will be upgraded as it is likely to fail if WML is not priorly upgraded.
+# That's the best we can do for now to try to control the order of what gets upgraded first 
+# so everything works out at the end... it would be too complex to upgrade
+# a given service conditionally upon a chain of services being upgraded priorly.
+
+- name: "Check CPD Services with 1st priority to be upgraded (DB2 and Watson Studio)"
+  when: cpd_item_priority1 in ['db2wh', 'wsl']
+  set_fact:
+   cpd_services_priority1: "{{ cpd_services_priority1|default([]) + [cpd_item_priority1] }}"
+  loop: "{{ cpd_services }}"
+  loop_control:
+    loop_var: cpd_item_priority1
+
+- name: "Check CPD Services with 2nd priority to be upgraded (WML, Spark, Dods and Dmc)"
+  when: cpd_item_priority2 in ['wml', 'spark', 'dods', 'dmc']
+  set_fact:
+   cpd_services_priority2: "{{ cpd_services_priority2|default([]) + [cpd_item_priority2] }}"
+  loop: "{{ cpd_services }}"
+  loop_control:
+    loop_var: cpd_item_priority2
+
+- name: "Check CPD Services with 3rd priority to be upgraded (OpenScale)"
+  when: cpd_item_priority3 in ['aiopenscale']
+  set_fact:
+   cpd_services_priority3: "{{ cpd_services_priority3|default([]) + [cpd_item_priority3] }}"
+  loop: "{{ cpd_services }}"
+  loop_control:
+    loop_var: cpd_item_priority3
+
+# 3. Fail if the required parameters have not been provided
 # -----------------------------------------------------------------------------
 - name: "Assert that cpd_storage_class has been provided"
   assert:
     that: 
       - cpd_storage_class is defined and cpd_storage_class != ""
     fail_msg: "cpd_storage_class property has not been set"
-
-# 3. Generate a list of cpd services that are being upgraded so we can watch its progress 
-# --------------------------------------------------------------------------------
-- set_fact:
-    mas_apps: "{{ mas_apps|default([]) + [app_upgrade_id] }}"
 
 - name: "Debug information"
   debug:
@@ -49,45 +77,26 @@
       - "CPD block storage class ......... {{ cpd_block_storage_class | default('<undefined>', True) }}"
       - "CPD services to be upgraded .... {{ cpd_services }}"
 
-# 3. Install CP4D Services Subscriptions
+# 4. Upgrade DB2 and Watson Studio
 # -----------------------------------------------------------------------------
-- name: "Upgrade CP4D Services Subscription"
+- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/upgrade_services_by_priority.yml"
+  when: cpd_services_priority1 | length > 0
   vars:
-    service_name: "{{ item }}"
-  community.kubernetes.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/cpd/{{ item }}/subscription.yml') }}"
-  with_items: "{{ cpd_services }}"
+    cpd_services: "{{ cpd_services_priority1 }}"
 
-# 4. Wait for CP4D Services Subscriptions to be ready
+# 5. Upgrade other Watson Services
 # -----------------------------------------------------------------------------
-- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_subscriptions.yml"
-
-# 5. Install CP4D Services CRs
-# -----------------------------------------------------------------------------
-- name: "Upgrade CPD Services CRs"
+- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/upgrade_services_by_priority.yml"
+  when: cpd_services_priority2 | length > 0
   vars:
-    service_name: "{{ item }}"
-  community.kubernetes.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/cpd/{{ item }}/service.yml') }}"
-  with_items: "{{ cpd_services }}"
+    cpd_services: "{{ cpd_services_priority2 }}"
 
-# 5.1. Patch DB2 operand request to use ibm-common-services namespace
+# 6. Upgrade OpenScale
 # -----------------------------------------------------------------------------
-# By default db2 operator will be deployed in cpd services namespace 
-# (i.e cpd-meta-ops), but we need all cpd operators to exist 
-# in same namespace "ibm-common-services"
-# only cpd services cr's will exist in cpd services namespace
-
-- name: "Patch DB2 Warehouse operand request"
-  when: item == "db2wh"
-  include_tasks: "{{ role_path }}/tasks/cpd_upgrade/db2wh/patch_db2u_operandrequest.yml"
-  with_items: "{{ cpd_services }}"
-
-# 6. Wait for CP4D Services to be ready
-# -----------------------------------------------------------------------------
-- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_services.yml"
+- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/upgrade_services_by_priority.yml"
+  when: cpd_services_priority3 | length > 0
+  vars:
+    cpd_services: "{{ cpd_services_priority3 }}"
 
 # 7. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------
@@ -102,6 +111,7 @@
 - name: "Obtain CP4D dashboard URL"
   debug:
     msg:
-      - "CP4D Dashboard ................. https://{{_cpd_route.resources[0].spec.host}}"
-      - "CP4D Username .................. admin"
-      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_meta_namespace }}' namespace"
+      - "CP4D Dashboard ..................... https://{{_cpd_route.resources[0].spec.host}}"
+      - "CP4D Username ...................... admin"
+      - "CP4D Password ...................... Found in 'admin-user-details' secret under '{{ cpd_meta_namespace }}' namespace"
+      - "CP4D Services upgraded to v4.0 ..... {{ cpd_services }}"

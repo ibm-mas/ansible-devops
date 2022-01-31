@@ -1,0 +1,46 @@
+---
+- debug:
+    msg:
+      - "Begin upgrade process for the following CPD Services: {{ cpd_services }}"
+
+# 1. Upgrade CP4D Services Subscriptions
+# -----------------------------------------------------------------------------
+- name: "Upgrade CP4D Services Subscriptions"
+  vars:
+    service_name: "{{ item }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd/{{ item }}/subscription.yml') }}"
+  with_items: "{{ cpd_services }}"
+
+# 2. Wait for CP4D Services Subscriptions to be upgraded
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_subscriptions.yml"
+
+# 3. Upgrade CP4D Services CRs
+# -----------------------------------------------------------------------------
+- name: "Upgrade CPD Services CRs"
+  vars:
+    service_name: "{{ item }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd/{{ item }}/service.yml') }}"
+  with_items: "{{ cpd_services }}"
+
+# 4. Patch DB2 operand request to use ibm-common-services namespace
+# -----------------------------------------------------------------------------
+# By default db2 operator will be deployed in cpd services namespace 
+# (i.e cpd-meta-ops), but we need all cpd operators to exist 
+# in same namespace "ibm-common-services"
+# only cpd services cr's will exist in cpd services namespace
+# therefore, below task will patch DB2 operand request 
+# to point to ibm-common-services operand registry, so db2u operator v4.0
+# can be deployed correctly
+
+- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/db2wh/patch_db2u_operandrequest.yml"
+  when: item == "db2wh"
+  with_items: "{{ cpd_services }}"
+
+# 5. Wait for CP4D Services to be upgraded
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd_upgrade/wait_for_services.yml"
