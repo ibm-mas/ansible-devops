@@ -77,12 +77,28 @@
     namespace: "{{ mongodb_namespace }}"
   register: ca_cfgmap_info
 
+# Generate an openssl.cnf file from the template
+- name: "mongodb/community : Create openssl.cnf"
+  when:
+    - ca_cfgmap_info.resources is defined
+    - ca_cfgmap_info.resources | length == 0
+  set_fact:
+    openssl_cfg_file: "/tmp/{{ mongodb_namespace }}-openssl.cnf"
+
+- name: "mongodb/community : Template openssl.cnf"
+  when:
+    - ca_cfgmap_info.resources is defined
+    - ca_cfgmap_info.resources | length == 0
+  ansible.builtin.template:
+    src: openssl/openssl.cnf.j2
+    dest: "{{ openssl_cfg_file }}"
+
 - name: "mongodb/community : Create new CA"
   when:
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
   vars:
-    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
+    openssl_cfg: "{{ openssl_cfg_file }}"
     openssl_ca_cfg: "{{ role_path }}/files/ca.cnf"
     file_prefix: "/tmp/mongoce-"
   shell: |
@@ -93,7 +109,7 @@
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
   vars:
-    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
+    openssl_cfg: "{{ openssl_cfg_file }}"
     file_prefix: "/tmp/mongoce-"
   shell: |
     openssl req -config {{ openssl_cfg }} -nodes -newkey rsa:2048 -keyout {{ file_prefix }}server.key -out {{ file_prefix }}server.csr
@@ -105,7 +121,7 @@
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
   vars:
-    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
+    openssl_cfg: "{{ openssl_cfg_file }}"
     file_prefix: "/tmp/mongoce-"
   shell: |
     openssl req -config {{ openssl_cfg }} -subj "/C=US/ST=NY/L=New York/O=Example, LLC/CN=Mongo Client" -nodes -newkey rsa:2048 -keyout {{ file_prefix }}client.key -out {{ file_prefix }}client.csr
