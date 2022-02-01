@@ -2,7 +2,7 @@ ocp_setup_mas_deps
 ==================
 
 This role provides support to install operators that are required by MAS to work. The role will deploy Service Binding Operator in all namespaces and Cert Manager in the cert-manager namespace.  The role declares a dependency on `ocp_verify` to ensure that the RedHat Operator Catalog is installed and ready before we try to install the Service Binding Operator from that catalog.
-In addition, this role updates cluster's internal image registry settings to increase storage to 400GB (needed only for ROKS Cluster to install full stack of services in CP4D) and to configure custom storage for the Prometheus monitoring service for both the k8s and User Workload Prometheus instance (in namespace `openshift-user-workload-monitoring`).
+In addition, this role updates cluster's internal image registry settings to increase storage to 400GB (needed only for ROKS Cluster to install full stack of services in CP4D) and to configure custom storage for the Prometheus monitoring service for both the k8s and User Workload Prometheus instances (in namespace `openshift-user-workload-monitoring`).
 
 For MAS 8.6 or earlier JetStack cert-manager v1.2 is installed into the `cert-manager` namespace.  When used for MAS 8.7+ this role will result in the following operators being installed in the ibm-common-services namespace:
 - IBM Cert Manager
