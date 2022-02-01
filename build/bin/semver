@@ -1,80 +1,85 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# wget https://github.com/fsaintjacques/semver-tool/archive/1.2.1.tar.gz
-# tar -xz -C bin --strip=2 -f 1.2.1.tar.gz semver-tool-1.2.1/src/semver
-# rm 1.2.1.tar.gz
+# https://github.com/fsaintjacques/semver-tool/blob/master/src/semver
 
 set -o errexit -o nounset -o pipefail
 
-SEMVER_REGEX="^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(\-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$"
+NAT='0|[1-9][0-9]*'
+ALPHANUM='[0-9]*[A-Za-z-][0-9A-Za-z-]*'
+IDENT="$NAT|$ALPHANUM"
+FIELD='[0-9A-Za-z-]+'
+
+SEMVER_REGEX="\
+^[vV]?\
+($NAT)\\.($NAT)\\.($NAT)\
+(\\-(${IDENT})(\\.(${IDENT}))*)?\
+(\\+${FIELD}(\\.${FIELD})*)?$"
 
 PROG=semver
-PROG_VERSION=1.2.1
-
-VERSION_FILE=${VERSION_FILE:-.version}
-DEFAULT_VERSION=0.1.0
+PROG_VERSION="3.2.0"
 
 USAGE="\
 Usage:
-  $PROG
-  $PROG init [<version>]
-  $PROG bump [[--use <version>] (major|minor|patch|prerel <prerel>|build <build>) | --force <version>] [--pretend]
-  $PROG compare <version> [<oldversion>]
-  $PROG release [--use <version>] [--pretend]
+  $PROG bump (major|minor|patch|release|prerel [<prerel>]|build <build>) <version>
+  $PROG compare <version> <other_version>
+  $PROG diff <version> <other_version>
+  $PROG get (major|minor|patch|release|prerel|build) <version>
   $PROG --help
   $PROG --version
-
 Arguments:
-  <version>  A version must match the following regex pattern:
-             \"${SEMVER_REGEX}\".
-             In english, the version must match X.Y.Z(-PRERELEASE)(+BUILD)
-             where X, Y and Z are positive integers, PRERELEASE is an optionnal
-             string composed of alphanumeric characters and hyphens and
-             BUILD is also an optional string composed of alphanumeric
-             characters and hyphens.
-
-  <oldversion>  See <version> definition.
-
-  <prerel>  String that must be composed of alphanumeric characters and hyphens.
-
-  <build>   String that must be composed of alphanumeric characters and hyphens.
-
+  <version>  A version must match the following regular expression:
+             \"${SEMVER_REGEX}\"
+             In English:
+             -- The version must match X.Y.Z[-PRERELEASE][+BUILD]
+                where X, Y and Z are non-negative integers.
+             -- PRERELEASE is a dot separated sequence of non-negative integers and/or
+                identifiers composed of alphanumeric characters and hyphens (with
+                at least one non-digit). Numeric identifiers must not have leading
+                zeros. A hyphen (\"-\") introduces this optional part.
+             -- BUILD is a dot separated sequence of identifiers composed of alphanumeric
+                characters and hyphens. A plus (\"+\") introduces this optional part.
+  <other_version>  See <version> definition.
+  <prerel>  A string as defined by PRERELEASE above. Or, it can be a PRERELEASE
+            prototype string (or empty) followed by a dot.
+  <build>   A string as defined by BUILD above.
 Options:
-  -u, --use=<version>    Use a specific version instead of taking the version from the file.
-  -f, --force=<version>  Forces a bump of any version without checking if it
-                         respects semver bumping rules.
-  -p, --pretend          Do not overwrite the project's version file, only
-                         output what the new version string would be.
   -v, --version          Print the version of this tool.
   -h, --help             Print this help message.
-
 Commands:
-  init     initialize this project's version.
-  bump     this project's version by one of major, minor, patch, prerel, build
-           or a forced potentialy conflicting version.
-  compare  <version> to this project's version or to provided <oldversion>.
-  release  release the current version."
-
-
-function warning {
-  echo -e "$1" >&2
-}
+  bump     Bump by one of major, minor, patch; zeroing or removing
+           subsequent parts. \"bump prerel\" sets the PRERELEASE part and
+           removes any BUILD part. A trailing dot in the <prerel> argument
+           introduces an incrementing numeric field which is added or
+           bumped. If no <prerel> argument is provided, an incrementing numeric
+           field is introduced/bumped. \"bump build\" sets the BUILD part.
+           \"bump release\" removes any PRERELEASE or BUILD parts.
+           The bumped version is written to stdout.
+  compare  Compare <version> with <other_version>, output to stdout the
+           following values: -1 if <other_version> is newer, 0 if equal, 1 if
+           older. The BUILD part is not used in comparisons.
+  diff     Compare <version> with <other_version>, output to stdout the
+           difference between two versions by the release type (MAJOR, MINOR,
+           PATCH, PRERELEASE, BUILD).
+  get      Extract given part of <version>, where part is one of major, minor,
+           patch, prerel, build, or release.
+See also:
+  https://semver.org -- Semantic Versioning 2.0.0"
 
 function error {
   echo -e "$1" >&2
   exit 1
 }
 
-function usage-help {
+function usage_help {
   error "$USAGE"
 }
 
-function usage-version {
+function usage_version {
   echo -e "${PROG}: $PROG_VERSION"
   exit 0
 }
 
-function validate-version {
+function validate_version {
   local version=$1
   if [[ "$version" =~ $SEMVER_REGEX ]]; then
     # if a second argument is passed, store the result in var named by $2
@@ -83,7 +88,7 @@ function validate-version {
       local minor=${BASH_REMATCH[2]}
       local patch=${BASH_REMATCH[3]}
       local prere=${BASH_REMATCH[4]}
-      local build=${BASH_REMATCH[5]}
+      local build=${BASH_REMATCH[8]}
       eval "$2=(\"$major\" \"$minor\" \"$patch\" \"$prere\" \"$build\")"
     else
       echo "$version"
@@ -93,178 +98,294 @@ function validate-version {
   fi
 }
 
-# this function will reverse-traverse folders until VERSION_FILE is found
-# or '/' is reached.
-function get-version {
-  while [ -w . ]; do
-    if [ -e $VERSION_FILE ]; then
-      validate-version "$(cat $VERSION_FILE)"
-      return 0
+function is_nat {
+    [[ "$1" =~ ^($NAT)$ ]]
+}
+
+function is_null {
+    [ -z "$1" ]
+}
+
+function order_nat {
+    [ "$1" -lt "$2" ] && { echo -1 ; return ; }
+    [ "$1" -gt "$2" ] && { echo 1 ; return ; }
+    echo 0
+}
+
+function order_string {
+    [[ $1 < $2 ]] && { echo -1 ; return ; }
+    [[ $1 > $2 ]] && { echo 1 ; return ; }
+    echo 0
+}
+
+# given two (named) arrays containing NAT and/or ALPHANUM fields, compare them
+# one by one according to semver 2.0.0 spec. Return -1, 0, 1 if left array ($1)
+# is less-than, equal, or greater-than the right array ($2).  The longer array
+# is considered greater-than the shorter if the shorter is a prefix of the longer.
+#
+function compare_fields {
+    local l="$1[@]"
+    local r="$2[@]"
+    local leftfield=( "${!l}" )
+    local rightfield=( "${!r}" )
+    local left
+    local right
+
+    local i=$(( -1 ))
+    local order=$(( 0 ))
+
+    while true
+    do
+        [ $order -ne 0 ] && { echo $order ; return ; }
+
+        : $(( i++ ))
+        left="${leftfield[$i]}"
+        right="${rightfield[$i]}"
+
+        is_null "$left" && is_null "$right" && { echo 0  ; return ; }
+        is_null "$left"                     && { echo -1 ; return ; }
+                           is_null "$right" && { echo 1  ; return ; }
+
+        is_nat "$left" &&  is_nat "$right" && { order=$(order_nat "$left" "$right") ; continue ; }
+        is_nat "$left"                     && { echo -1 ; return ; }
+                           is_nat "$right" && { echo 1  ; return ; }
+                                              { order=$(order_string "$left" "$right") ; continue ; }
+    done
+}
+
+# shellcheck disable=SC2206     # checked by "validate"; ok to expand prerel id's into array
+function compare_version {
+  local order
+  validate_version "$1" V
+  validate_version "$2" V_
+
+  # compare major, minor, patch
+
+  local left=( "${V[0]}" "${V[1]}" "${V[2]}" )
+  local right=( "${V_[0]}" "${V_[1]}" "${V_[2]}" )
+
+  order=$(compare_fields left right)
+  [ "$order" -ne 0 ] && { echo "$order" ; return ; }
+
+  # compare pre-release ids when M.m.p are equal
+
+  local prerel="${V[3]:1}"
+  local prerel_="${V_[3]:1}"
+  local left=( ${prerel//./ } )
+  local right=( ${prerel_//./ } )
+
+  # if left and right have no pre-release part, then left equals right
+  # if only one of left/right has pre-release part, that one is less than simple M.m.p
+
+  [ -z "$prerel" ] && [ -z "$prerel_" ] && { echo 0  ; return ; }
+  [ -z "$prerel" ]                      && { echo 1  ; return ; }
+                      [ -z "$prerel_" ] && { echo -1 ; return ; }
+
+  # otherwise, compare the pre-release id's
+
+  compare_fields left right
+}
+
+# render_prerel -- return a prerel field with a trailing numeric string
+#                  usage: render_prerel numeric [prefix-string]
+#
+function render_prerel {
+    if [ -z "$2" ]
+    then
+        echo "${1}"
+    else
+        echo "${2}${1}"
+    fi
+}
+
+# extract_prerel -- extract prefix and trailing numeric portions of a pre-release part
+#                   usage: extract_prerel prerel prerel_parts
+#                   The prefix and trailing numeric parts are returned in "prerel_parts".
+#
+PREFIX_ALPHANUM='[.0-9A-Za-z-]*[.A-Za-z-]'
+DIGITS='[0-9][0-9]*'
+EXTRACT_REGEX="^(${PREFIX_ALPHANUM})*(${DIGITS})$"
+
+function extract_prerel {
+    local prefix; local numeric;
+
+    if [[ "$1" =~ $EXTRACT_REGEX ]]
+    then                                        # found prefix and trailing numeric parts
+        prefix="${BASH_REMATCH[1]}"
+        numeric="${BASH_REMATCH[2]}"
+    else                                        # no numeric part
+        prefix="${1}"
+        numeric=
     fi
 
-    pushd .. > /dev/null
-  done
-
-  error "Version file $VERSION_FILE not found, you may want to initialize this project with 'version init'"
+    eval "$2=(\"$prefix\" \"$numeric\")"
 }
 
-function compare-version {
-  validate-version "$1" V
-  validate-version "$2" V_
+# bump_prerel -- return the new pre-release part based on previous pre-release part
+#                and prototype for bump
+#                usage: bump_prerel proto previous
+#
+function bump_prerel {
+    local proto; local prev_prefix; local prev_numeric;
 
-  # MAJOR, MINOR and PATCH should compare numericaly
-  for i in 0 1 2; do
-    case $((${V[$i]} - ${V_[$i]})) in
-      0) ;;
-      -[0-9]*) echo -1; return 0;;
-      [0-9]*) echo 1; return 0 ;;
-    esac
-  done
-
-  # PREREL should compare with the ASCII order.
-  if [[ -n "${V[3]}" ]] && [[ -n "${V_[3]}" ]]; then
-    if [[ "${V[3]}" > "${V_[3]}" ]]; then
-      echo 1; return 0;
-    elif [[ "${V[3]}" < "${V_[3]}" ]]; then
-      echo -1; return 0;
+    # case one: no trailing dot in prototype => simply replace previous with proto
+    if [[ ! ( "$1" =~ \.$ ) ]]
+    then
+        echo "$1"
+        return
     fi
-  elif [[ -z "${V[3]}" ]] && [[ -n "${V_[3]}" ]]; then
-    echo 1; return 0;
-  elif [[ -n "${V[3]}" ]] && [[ -z "${V_[3]}" ]]; then
-    echo -1; return 0;
-  fi
 
-  echo 0
+    proto="${1%.}"                              # discard trailing dot marker from prototype
+
+    extract_prerel "${2#-}" prerel_parts        # extract parts of previous pre-release
+#   shellcheck disable=SC2154
+    prev_prefix="${prerel_parts[0]}"
+    prev_numeric="${prerel_parts[1]}"
+
+    # case two: bump or append numeric to previous pre-release part
+    if [ "$proto" == "+" ]                      # dummy "+" indicates no prototype argument provided
+    then
+        if [ -n "$prev_numeric" ]
+        then
+            : $(( ++prev_numeric ))             # previous pre-release is already numbered, bump it
+            render_prerel "$prev_numeric" "$prev_prefix"
+        else
+            render_prerel 1 "$prev_prefix"      # append starting number
+        fi
+        return
+    fi
+
+    # case three: set, bump, or append using prototype prefix
+    if [  "$prev_prefix" != "$proto" ]
+    then
+        render_prerel 1 "$proto"                # proto not same pre-release; set and start at '1'
+    elif [ -n "$prev_numeric" ]
+    then
+        : $(( ++prev_numeric ))                 # pre-release is numbered; bump it
+        render_prerel "$prev_numeric" "$prev_prefix"
+    else
+        render_prerel 1 "$prev_prefix"          # start pre-release at number '1'
+    fi
 }
 
-function cli-print {
-  get-version
-  exit 0
-}
+function command_bump {
+  local new; local version; local sub_version; local command;
 
-function command-init {
-  local version=""
   case $# in
-    0) version="$DEFAULT_VERSION" ;;
-    1) version=$(validate-version "$1") ;;
-    2) usage-help;;
+    2) case $1 in
+        major|minor|patch|prerel|release) command=$1; sub_version="+."; version=$2;;
+        *) usage_help;;
+       esac ;;
+    3) case $1 in
+        prerel|build) command=$1; sub_version=$2 version=$3 ;;
+        *) usage_help;;
+       esac ;;
+    *) usage_help;;
   esac
 
-  if [ -e "$VERSION_FILE" ]; then
-    error "version file $VERSION_FILE exists, cannot initialize project.  Either remove the current file or use 'version bump --force <newversion>'."
-  fi
+  validate_version "$version" parts
+  # shellcheck disable=SC2154
+  local major="${parts[0]}"
+  local minor="${parts[1]}"
+  local patch="${parts[2]}"
+  local prere="${parts[3]}"
+  local build="${parts[4]}"
 
-  echo "$version" | tee "$VERSION_FILE"
+  case "$command" in
+    major) new="$((major + 1)).0.0";;
+    minor) new="${major}.$((minor + 1)).0";;
+    patch) new="${major}.${minor}.$((patch + 1))";;
+    release) new="${major}.${minor}.${patch}";;
+    prerel) new=$(validate_version "${major}.${minor}.${patch}-$(bump_prerel "$sub_version" "$prere")");;
+    build) new=$(validate_version "${major}.${minor}.${patch}${prere}+${sub_version}");;
+    *) usage_help ;;
+  esac
+
+  echo "$new"
   exit 0
 }
 
-function command-bump {
-  local new; local pretend=0; local version=$(get-version)
-  while [[ $# -gt 0 ]]; do
-    validate-version $version split
-    local major=${split[0]}
-    local minor=${split[1]}
-    local patch=${split[2]}
-    local prere=${split[3]}
-    local build=${split[4]}
-
-    case "$1" in
-      major) new="$(($major + 1)).0.0"; shift ;;
-      minor) new="${major}.$(($minor + 1)).0"; shift ;;
-      patch) new="${major}.${minor}.$(($patch + 1))"; shift ;;
-      prerel)
-        if [[ $# -lt 2 ]]; then
-          usage-help
-        else
-          new=$(validate-version "${major}.${minor}.${patch}-${2}")
-          shift 2
-        fi ;;
-      build)
-        if [[ $# -lt 2 ]]; then
-          usage-help
-        else
-          new=$(validate-version "${major}.${minor}.${patch}${prere}+${2}")
-          shift 2
-        fi ;;
-      --use|-u)
-        if [[ $# -lt 2 ]]; then
-          usage-help
-        else
-          version="$2"
-          shift 2
-        fi ;;
-      --force|-f)
-        if [[ $# -lt 2 ]]; then
-          usage-help
-        else
-          new=$(validate-version "$2")
-          shift 2
-        fi ;;
-      --pretend|-p) pretend=1; shift ;;
-      *) usage-help ;;
-    esac
-  done
-
-  [ -z "${new:-}" ] && usage-help
-
-  if [[ "$pretend" -eq 1 ]]; then
-    echo $new
-  else
-    echo $new | tee $VERSION_FILE
-  fi
-  exit 0
-}
-
-function command-compare {
+function command_compare {
   local v; local v_;
 
   case $# in
-    0) usage-help ;;
-    1) v=$(validate-version "$1"); v_=$(get-version) ;;
-    2) v=$(validate-version "$1"); v_=$(validate-version "$2") ;;
+    2) v=$(validate_version "$1"); v_=$(validate_version "$2") ;;
+    *) usage_help ;;
   esac
 
-  echo $(compare-version "$v" "$v_")
+  set +u                        # need unset array element to evaluate to null
+  compare_version "$v" "$v_"
   exit 0
 }
 
-function command-release {
-  local pretend=0; local version=$(get-version);
+function command_diff {
+  validate_version "$1" v1_parts
+  # shellcheck disable=SC2154
+  local v1_major="${v1_parts[0]}"
+  local v1_minor="${v1_parts[1]}"
+  local v1_patch="${v1_parts[2]}"
+  local v1_prere="${v1_parts[3]}"
+  local v1_build="${v1_parts[4]}"
 
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --use|-u)
-        if [[ $# -lt 2 ]]; then
-          usage-help
-        else
-          version="$2"
-          shift 2
-        fi ;;
-      --pretend|-p) pretend=1; shift ;;
-      *) usage-help ;;
-    esac
-  done
+  validate_version "$2" v2_parts
+  # shellcheck disable=SC2154
+  local v2_major="${v2_parts[0]}"
+  local v2_minor="${v2_parts[1]}"
+  local v2_patch="${v2_parts[2]}"
+  local v2_prere="${v2_parts[3]}"
+  local v2_build="${v2_parts[4]}"
 
-  local release="${version%%[-+]*}"
-
-  if [[ "$pretend" -eq 1 ]]; then
-    echo $release
-  else
-    echo $release | tee $VERSION_FILE
+  if [ "${v1_major}" != "${v2_major}" ]; then
+    echo "major"
+  elif [ "${v1_minor}" != "${v2_minor}" ]; then
+    echo "minor"
+  elif [ "${v1_patch}" != "${v2_patch}" ]; then
+    echo "patch"
+  elif [ "${v1_prere}" != "${v2_prere}" ]; then
+    echo "prerelease"
+  elif [ "${v1_build}" != "${v2_build}" ]; then
+    echo "build"
   fi
-  exit 0
+}
+
+# shellcheck disable=SC2034
+function command_get {
+    local part version
+
+    if [[ "$#" -ne "2" ]] || [[ -z "$1" ]] || [[ -z "$2" ]]; then
+        usage_help
+        exit 0
+    fi
+
+    part="$1"
+    version="$2"
+
+    validate_version "$version" parts
+    local major="${parts[0]}"
+    local minor="${parts[1]}"
+    local patch="${parts[2]}"
+    local prerel="${parts[3]:1}"
+    local build="${parts[4]:1}"
+    local release="${major}.${minor}.${patch}"
+
+    case "$part" in
+        major|minor|patch|release|prerel|build) echo "${!part}" ;;
+        *) usage_help ;;
+    esac
+
+    exit 0
 }
 
 case $# in
-  0) cli-print ;;
+  0) echo "Unknown command: $*"; usage_help;;
 esac
 
 case $1 in
   --help|-h) echo -e "$USAGE"; exit 0;;
-  --version|-v) usage-version ;;
-  init) shift; command-init $@;;
-  bump) shift; command-bump $@;;
-  compare) shift; command-compare $@;;
-  release) shift; command-release $@;;
-  *) echo "Unknown arguments: $@"; usage-help;;
+  --version|-v) usage_version ;;
+  bump) shift; command_bump "$@";;
+  get) shift; command_get "$@";;
+  compare) shift; command_compare "$@";;
+  diff) shift; command_diff "$@";;
+  *) echo "Unknown arguments: $*"; usage_help;;
 esac

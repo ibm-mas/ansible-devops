@@ -1,4 +1,4 @@
-name: Publish Ansible Collection to Galaxy
+name: Publish Ansible Collection
 on:
   push:
     branches-ignore:
@@ -6,7 +6,7 @@ on:
     tags:
       - '**'
 jobs:
-  deploy-docs:
+  ansible-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,18 +19,6 @@ jobs:
           source $GITHUB_WORKSPACE/build/bin/.functions.sh
           python -m pip install -q ansible==2.10.3 yamllint
 
-      # Make sure that the tag matches the version derived from automatic semantic versioning
-      - name: Get the tag
-        id: get_tag
-        run: echo ::set-output name=SOURCE_TAG::${GITHUB_REF#refs/tags/}
-
-      - name: Check tag and automatic semantic versioning are in agreement
-        uses: pr-mpt/actions-assert@v3
-        with:
-          assertion: npm://@assertions/is-equal:v1
-          actual: "${{ steps.get_tag.outputs.SOURCE_TAG }}"
-          expected: "${{ env.VERSION }}"
-
       # Note: Use "--format standard" to ensure filenames and line numbers are in the output
       # https://gitanswer.com/yamllint-missing-filenames-and-line-numbers-in-github-action-output-python-794550803
       - name: Validate that the ansible collection lints successfully
@@ -42,11 +30,13 @@ jobs:
           $GITHUB_WORKSPACE/build/bin/build-collection.sh
 
       - name: Upload Ansible Collection
-        uses: actions/upload-artifact@v2
+        uses: svenstaro/upload-release-action@v2
         with:
-          name: ibm-mas_devops-${{ env.VERSION }}.tar.gz
-          path: ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz
-          retention-days: 30
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz
+          asset_name: ibm-mas_devops-${{ env.VERSION }}.tar.gz
+          tag: ${{ github.ref }}
+          overwrite: true
 
       # Publish
       - name: Publish Collection
