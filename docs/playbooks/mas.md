@@ -57,11 +57,13 @@ To utilise this feature you must set the optional `MAS_DOMAIN` detailed previous
 
 ### Required environment variables
 - `CIS_CRN` which can be obtained from your CIS service overview page, it will be in the format: `crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2bcd65684e4db3:9969652f-6955-482b-b59c-asdasasdede50c::`
-- `CIS_APIKEY` A Service ID API key with DNS API Editor/Write access. Note: (This API key will be stored in your cluster for DNS challenge when requesting new certs)
+- `CIS_APIKEY` A Service ID API key with DNS API Editor/Manager access.  Note: (This API key will be stored in your cluster for DNS challenge when requesting new certs)
 
 The process for creating a CIS_APIKEY:
 - Create a Service ID
-- Create an "Access Policy" with an access of Editor/Write
+- Create an "Access Policy" with
+  - `Platform Access` set to `Editor`
+  - `Service Access` set to `Manager`
 - Create an API KEY which is the CIS_APIKEY
  
 Information on [Service IDs](https://cloud.ibm.com/docs/account?topic=account-serviceids&interface=ui)
