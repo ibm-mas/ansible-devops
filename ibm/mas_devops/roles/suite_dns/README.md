@@ -53,8 +53,9 @@ Example Playbook
     cis_crn: "{{ lookup('env', 'CIS_CRN') }}"
     # Domain prefix is whatever you want to append to your DNS entry to make it unique
     cis_subdomain: "{{ lookup('env', 'CIS_SUBDOMAIN') }}"
-    # generate the cis_apikey for a Service ID in IBM Cloud with an 'Access Policy' of Editor/Manager
-    cis_apikey: "{{ lookup('env', 'CIS_APIKEY') }}"
+    # generate a Service ID apikey in IBM Cloud for strict access to the 'Internet Services` service with
+    # an 'Access Policy' of Editor/Manager
+    cis_apikey: "{{ lookup('env', 'CIS_APIKEY') | default(lookup('env', 'IBMCLOUD_APIKEY'), true) }}"
 
     # Email used register letsencrypt certificates and receive cert notifications
     cis_email: "{{ lookup('env', 'CIS_EMAIL') }}"
