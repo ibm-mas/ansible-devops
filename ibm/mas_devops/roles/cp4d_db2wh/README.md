@@ -178,6 +178,23 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 - Environment Variable: `'MAS_APP_ID`
 - Default: None
 
+### db2wh_workload
+The workload profile of the db2wh instance, possible values are 'PUREDATA_OLAP' or 'ANALYTICS'
+
+- Environment Variable: `'DB2WH_WORKLOAD`
+- Default: 'ANALYTICS'
+
+### db2wh_node_label
+The label used to specify node affinity and tolerations in the db2ucluster CR.
+
+- Environment Variable: `'DB2WH_NODE_LABEL`
+- Default: None
+
+### db2wh_dedicated_node
+The name of the worker node to apply the {{ db2wh_node_label }} taint and label to.
+
+- Environment Variable: `'DB2WH_DEDICATED_NODE`
+- Default: None
 
 Example Playbook
 ----------------
