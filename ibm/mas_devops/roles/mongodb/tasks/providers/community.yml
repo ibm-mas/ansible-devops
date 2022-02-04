@@ -77,12 +77,20 @@
     namespace: "{{ mongodb_namespace }}"
   register: ca_cfgmap_info
 
+- name: "mongodb/community : Set shared variable , location of openssl.cnf file"
+  set_fact:
+    openssl_cfg: "/tmp/mongoce-openssl.cnf"
+
+- name: "mongodb/community : Update openssl.cnf with specified mongodb namespace"
+  template:
+    src: "{{ mongodb_provider }}/openssl.cnf.j2"
+    dest: "{{ openssl_cfg }}"
+
 - name: "mongodb/community : Create new CA"
   when:
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
   vars:
-    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
     openssl_ca_cfg: "{{ role_path }}/files/ca.cnf"
     file_prefix: "/tmp/mongoce-"
   shell: |
@@ -93,7 +101,6 @@
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
   vars:
-    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
     file_prefix: "/tmp/mongoce-"
   shell: |
     openssl req -config {{ openssl_cfg }} -nodes -newkey rsa:2048 -keyout {{ file_prefix }}server.key -out {{ file_prefix }}server.csr
@@ -105,7 +112,6 @@
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
   vars:
-    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
     file_prefix: "/tmp/mongoce-"
   shell: |
     openssl req -config {{ openssl_cfg }} -subj "/C=US/ST=NY/L=New York/O=Example, LLC/CN=Mongo Client" -nodes -newkey rsa:2048 -keyout {{ file_prefix }}client.key -out {{ file_prefix }}client.csr
