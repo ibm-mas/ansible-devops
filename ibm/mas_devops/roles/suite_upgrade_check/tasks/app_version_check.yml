@@ -8,16 +8,36 @@
     kind: "{{ app_check_kind }}"
   register: app_info
 
+- debug:
+    msg: "{{ app_info.msg }}"
+  when: app_info.msg is defined
+
 # 2. If the application is installed, check whether it's running at a supported version
+# 2a. Most apps have `status.versions.reconciced` in its CR
 - name: "Assert that {{app_check_id }} is running a supported version to upgrade to MAS 8.7"
   when:
     - app_info.resources is defined
     - app_info.resources | length == 1
+    - app_info.resources[0].status.versions.reconciled is defined
+    - app_info.resources[0].status.versions.reconciled | length > 0
   assert:
     that:
       - app_info.resources[0].status.versions.reconciled is version(app_check_min_version, '>=')
       - app_info.resources[0].status.versions.reconciled is version(app_check_max_version, '<')
     fail_msg: "Installed {{ app_check_id }} application is not in the supported range for MAS 8.7.x [ >={{ app_check_min_version }}, <{{ app_check_max_version }} ], current version: {{ app_info.resources[0].status.versions.reconciled }} "
+
+# 2b. Apps like predict have `status.version.reconciced` in its CR
+- name: "Assert that {{app_check_id }} is running a supported version to upgrade to MAS 8.7"
+  when:
+    - app_info.resources is defined
+    - app_info.resources | length == 1
+    - app_info.resources[0].status.version.reconciled is defined
+    - app_info.resources[0].status.version.reconciled | length > 0
+  assert:
+    that:
+      - app_info.resources[0].status.version.reconciled is version(app_check_min_version, '>=')
+      - app_info.resources[0].status.version.reconciled is version(app_check_max_version, '<')
+    fail_msg: "Installed {{ app_check_id }} application is not in the supported range for MAS 8.7.x [ >={{ app_check_min_version }}, <{{ app_check_max_version }} ], current version: {{ app_info.resources[0].status.version.reconciled }} "
 
 # 3. Check if application is healthy to upgrade
 - name: "Assert that {{app_check_id }} is in healthy state to upgrade to MAS 8.7.x"

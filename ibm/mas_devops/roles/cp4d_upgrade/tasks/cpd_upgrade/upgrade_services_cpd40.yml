@@ -37,7 +37,7 @@
 # a given service conditionally upon a chain of services being upgraded priorly.
 
 - name: "Check CPD Services with 1st priority to be upgraded (DB2 and Watson Studio)"
-  when: cpd_item_priority1 in ['db2wh', 'wsl']
+  when: cpd_item_priority1 in cpd_services_list_priority1
   set_fact:
    cpd_services_priority1: "{{ cpd_services_priority1|default([]) + [cpd_item_priority1] }}"
   loop: "{{ cpd_services }}"
@@ -45,7 +45,7 @@
     loop_var: cpd_item_priority1
 
 - name: "Check CPD Services with 2nd priority to be upgraded (WML, Spark, Dods and Dmc)"
-  when: cpd_item_priority2 in ['wml', 'spark', 'dods', 'dmc']
+  when: cpd_item_priority2 in cpd_services_list_priority2
   set_fact:
    cpd_services_priority2: "{{ cpd_services_priority2|default([]) + [cpd_item_priority2] }}"
   loop: "{{ cpd_services }}"
@@ -53,7 +53,7 @@
     loop_var: cpd_item_priority2
 
 - name: "Check CPD Services with 3rd priority to be upgraded (OpenScale)"
-  when: cpd_item_priority3 in ['aiopenscale']
+  when: cpd_item_priority3 in cpd_services_list_priority3
   set_fact:
    cpd_services_priority3: "{{ cpd_services_priority3|default([]) + [cpd_item_priority3] }}"
   loop: "{{ cpd_services }}"
@@ -80,21 +80,27 @@
 # 4. Upgrade DB2 and Watson Studio
 # -----------------------------------------------------------------------------
 - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/upgrade_services_by_priority.yml"
-  when: cpd_services_priority1 | length > 0
+  when:
+    - cpd_services_priority1 is defined 
+    - cpd_services_priority1 | length > 0
   vars:
     cpd_services: "{{ cpd_services_priority1 }}"
 
 # 5. Upgrade other Watson Services
 # -----------------------------------------------------------------------------
 - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/upgrade_services_by_priority.yml"
-  when: cpd_services_priority2 | length > 0
+  when:
+    - cpd_services_priority2 is defined 
+    - cpd_services_priority2 | length > 0
   vars:
     cpd_services: "{{ cpd_services_priority2 }}"
 
 # 6. Upgrade OpenScale
 # -----------------------------------------------------------------------------
 - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/upgrade_services_by_priority.yml"
-  when: cpd_services_priority3 | length > 0
+  when: 
+    - cpd_services_priority3 is defined
+    - cpd_services_priority3 | length > 0
   vars:
     cpd_services: "{{ cpd_services_priority3 }}"
 
