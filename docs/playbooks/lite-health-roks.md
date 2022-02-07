@@ -15,10 +15,10 @@ This master playbook will drive the following playbooks in sequence:
     - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack) (5 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
-    - [Install & configure MAS](mas.md#install-mas) (15 minutes)
+    - [Install & configure MAS Core](mas.md#install-mas) (15 minutes)
 - Install and Configure Health application:
     - [Install application](mas.md#install-mas-application) (10 minutes)
-    - [Configure workspace](mas.md#configure-mas-application) (2 hours)
+    - [Configure application workspace](mas.md#configure-mas-application) (2 hours)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 
@@ -64,7 +64,7 @@ If you do not want to use a workspace called `masdev` you **must** customize the
 - `CPD_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/)
 
 ## Optional environment variables
-- `MAS_APPWS_COMPONENTS` default value is (`{'health':{'version':'latest'}}`)
+- `MAS_APPWS_COMPONENTS` Defines the app component and versions to configure in the application workspace. Default value is (`{'health':{'version':'latest'}}`)
 - `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none are passed, `Default` resource group will be used.
 - `OCP_VERSION` to override the default version of OCP to use (latest 4.6 release)
 - `W3_USERNAME` to enable access to pre-release development builds of MAS
@@ -84,7 +84,7 @@ If you do not want to use a workspace called `masdev` you **must** customize the
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance 
-- `DB2WH_INSTANCE_NAME` name of the DB2 Warehouse instance created in CP4D. Default is set to `db2w-shared`
+- `DB2WH_INSTANCE_NAME` name of the DB2 Warehouse instance created in CP4D. Default is set to `db2w-shared` in the playbook
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
@@ -145,6 +145,7 @@ export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 export MAS_CONFIG_DIR=~/masconfig
 
 # APP configuration
+export MAS_APP_CATALOG_SOURCE=ibm-mas-manage-operators
 export MAS_APP_CHANNEL=dev83
 export MAS_APPWS_COMPONENTS="{'health':{'version':'8.3.0-pre.dev83'}}"
 
