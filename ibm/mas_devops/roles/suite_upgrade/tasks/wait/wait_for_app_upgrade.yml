@@ -1,18 +1,4 @@
 ---
-# Ansible can't support block retries, this is a relatively simple workaround
-# to achieve the same thing
-# https://github.com/ansible/ansible/issues/46203#issuecomment-556013701
-
-# - name: debug vars
-#   vars:
-#     app_name: "{{ item }}"
-#   debug:
-#     msg:
-#       - "{{ hostvars[inventory_hostname][item].apiVersion }}"
-#       - "{{ hostvars[inventory_hostname][item].crdkind }}"
-#       - "mas-{{ mas_instance_id }}-{{ item }}"
-#   with_items: "{{ mas_apps }}"
-
 - name: 'Wait until all apps are upgraded'
   block:
     - name: "wait : Set the retry count"
@@ -54,7 +40,7 @@
             item.resources is defined and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
             and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
             and item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1)
-            else 'Application upgrade pending...' }} Current operator version: {{ item.resources[0].status.versions.reconciled }}"
+            else 'Application upgrade pending...' }} Current operator version: {{ item.resources[0].status.versions.reconciled if (item.resources[0].status.versions is defined) else item.resources[0].status.version.reconciled }}" #this hack is needed so it doesnt break on PredictApp which is using `status.version` (unlike all other apps)
           - "{{ (item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason')) }} - {{ (item.resources | json_query('[*].status.conditions[?type==`Ready`][].message')) }}"
           - "{{ 'Error! Something wrong while upgrading this app, check its CR for more details...' if (item.resources | json_query('[*].status.conditions[?type==`Failure`][].reason') | select ('match','Failed') | list | length == 1) }}"
 
