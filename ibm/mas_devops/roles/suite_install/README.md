@@ -16,6 +16,7 @@ Role Variables
 - `mas_entitlement_username` Username for entitled registry. This username will be used to create the image pull secret. Set to `cp` when installing release or use your `w3Id` for dev.
 - `mas_entitlement_key` API Key for entitled registry. This password will be used to create the image pull secret. Set to with IBM entitlement key when installing release or use your artifactory `apikey` for dev.
 - `mas_config` List of configuration files to be applied to configure the MAS installation
+- `certManager.namespace` The namespace containing the cert-manager to be used by MAS
 
 
 Example Playbook
@@ -36,6 +37,9 @@ Example Playbook
     mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') }}"
 
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+    certManager:
+      namespace: "{{ lookup('env', 'CERT_MANAGER_NAMESPACE') }}"
 
   roles:
     - ibm.mas_devops.suite_install
