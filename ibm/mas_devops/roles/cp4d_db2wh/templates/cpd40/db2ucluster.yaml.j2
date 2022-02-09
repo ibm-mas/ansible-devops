@@ -19,6 +19,17 @@ spec:
             memory: "{{ db2wh_memory_limits }}"
   account:
     privileged: true
+{% if db2wh_node_label is defined and db2wh_node_label != "" %}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: icp4data
+            operator: In
+            values:
+            - {{ db2wh_node_label }}
+{% endif %}
   environment:
     database:
       name: "{{db2wh_dbname}}"
@@ -37,7 +48,8 @@ spec:
       registry:
         DB2AUTH: 'OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD'
         DB2_FMP_RUN_AS_CONNECTED_USER: 'NO'
-        DB2_WORKLOAD: ANALYTICS
+        DB2_WORKLOAD: {{ db2wh_workload }}
+        DB2_4K_DEVICE_SUPPORT: "ON"
     mln:
       total: 1
   addOns:
@@ -45,6 +57,13 @@ spec:
     rest: {}
   advOpts:
     db2SecurityPlugin: cloud_gss_plugin
+{% if db2wh_node_label is defined and db2wh_node_label != "" %}
+  tolerations:
+  - effect: NoSchedule
+    key: icp4data
+    operator: Equal
+    value: "{{ db2wh_node_label }}"
+{% endif %}
   version: "{{ db2wh_version }}"
   storage:
     - name: meta
