@@ -182,7 +182,7 @@
 # -----------------------------------------------------------------------------
 - name: "Creating backup folder in {{ db2wh_pod_name }}..."
   shell: |
-    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo mkdir {{ db2wh_temp_backup_dir }} {{ db2wh_temp_backup_logs_dir }} && sudo chown -R db2uadm {{ db2wh_temp_backup_dir }}/ && sudo chown -R db2inst1 {{ db2wh_temp_backup_logs_dir }}/"
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo mkdir -p {{ db2wh_temp_backup_dir }} {{ db2wh_temp_backup_logs_dir }} && sudo chown -R db2uadm {{ db2wh_temp_backup_dir }}/ && sudo chown -R db2inst1 {{ db2wh_temp_backup_logs_dir }}/"
   register: creating_backup_folder_output
 
 - name: "Uploading DB2 backup files into DB2WH pod {{ db2wh_pod_name }}{{ db2wh_temp_backup_dir }}/...(this can take several minutes)"
@@ -222,24 +222,6 @@
 
 # 9. Deactivate DB2 in preparation for restore
 # -----------------------------------------------------------------------------
-- name: Deactivate DB2 in preparation for restore
-  shell: |
-    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "cat << EOF > /tmp/prepRestoreDB.sh
-    sudo wvcli system disable -m 'Disable HA before Db2 maintenance'
-    db2 connect to BLUDB
-    db2 list applications
-    db2 force application all
-    db2 terminate
-    db2 deactivate database BLUDB
-    db2stop force
-    ipclean -a
-    db2set -null DB2COMM
-    db2start admin mode restricted access
-    EOF"
-    oc exec -it -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- bash -c "chmod 755 /tmp/prepRestoreDB.sh"
-    oc exec -it -n {{db2wh_pod_namespace}} {{db2wh_pod_name}} -- su -lc /tmp/prepRestoreDB.sh db2inst1
-  register: prep_restore_output
-
 - name: Create preRestore.sh script in local /tmp
   ansible.builtin.template:
     src: preRestore.sh.j2
@@ -306,7 +288,7 @@
   shell: "oc cp /tmp/postRestore.sh {{ db2wh_pod_namespace }}/{{ db2wh_pod_name }}:/tmp/postRestore.sh"
 
 - name: Run postRestore.sh script on db2 pod {{ db2wh_pod_name }}
-  shell: oc exec -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- su -lc '/tmp/postRestore.sh | tee /tmp/postRestore.log' db2inst1
+  shell: oc exec -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- su -lc '/tmp/postRestore.sh | tee /tmp/postRestore.log' db2inst1
   register: post_restore_output
   failed_when: post_restore_output.rc != 0
 
@@ -317,4 +299,4 @@
 # -----------------------------------------------------------------------------
 - name: "Delete db_backup folder from {{ db2wh_pod_name }} now that backup files were restored..."
   shell: |
-    oc exec -it -n {{ cpd_meta_namespace_target }} {{ db2wh_pod_name }} -- bash -c "sudo rm -rf {{ db2wh_temp_backup_dir }} && sudo rm -rf {{ db2wh_temp_backup_logs_dir }} && sudo rm -rf {{ db2wh_db2inst1_backup_dir }}"
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo rm -rf {{ db2wh_temp_backup_dir }} && sudo rm -rf {{ db2wh_temp_backup_logs_dir }} && sudo rm -rf {{ db2wh_db2inst1_backup_dir }}"

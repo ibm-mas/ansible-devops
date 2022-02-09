@@ -86,21 +86,24 @@
       - type=engine
       - app={{ db2wh_instance_id }}
   register: db2wh_pod
+  failed_when: 
+    - db2wh_pod.resources is not defined
+    - db2wh_pod.resources | length = 0
 
 - name: Configure facts
   set_fact:
-    db2wh_pod_name: "{{ db2wh_pod.resources[0].metadata.name }}"
+    db2wh_pod_name: "{{ db2wh_pod.resources[0].metadata.name if (db2wh_pod.resources is defined) else 'Undefined' }}"
 
 # 6. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
-      - "CPD version ............................ {{ cpd_version }}"
-      - "Db2 instance name ...................... {{ db2wh_instance_name }}"
-      - "Db2 pod namespace ...................... {{ db2wh_pod_namespace }}"
-      - "Db2 pod name ........................... {{ db2wh_pod_name}}"
-      - "DB2 backup files directory ............. {{ db2wh_backup_dir }}"
+      - "CPD version ............................ {{ cpd_version if (cpd_version is defined) else 'Undefined' }}"
+      - "Db2 instance name ...................... {{ db2wh_instance_name if (db2wh_instance_name is defined) else 'Undefined' }}"
+      - "Db2 pod namespace ...................... {{ db2wh_pod_namespace if (db2wh_pod_namespace is defined) else 'Undefined' }}"
+      - "Db2 pod name ........................... {{ db2wh_pod_name if (db2wh_pod_name is defined) else 'Undefined' }}"
+      - "DB2 backup files directory ............. {{ db2wh_backup_dir if (db2wh_backup_dir is defined) else 'Undefined' }}"
 
 # 7. Run backup script in source db2wh pod
 # -----------------------------------------------------------------------------
@@ -125,12 +128,12 @@
 # -----------------------------------------------------------------------------
 - name: "Creating backup folder in {{ db2wh_instance_id }}"
   shell: |
-    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo mkdir {{ db2wh_temp_backup_dir }}"
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo mkdir -p {{ db2wh_temp_backup_dir }}"
   register: creating_backup_folder_output
 
 - name: "Copying backup files to backup folder in {{ db2wh_instance_id }}"
   shell: |
-    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo cp {{ db2wh_db2inst1_backup_dir }}/* {{ db2wh_temp_backup_dir }}"
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo cp -p {{ db2wh_db2inst1_backup_dir }}/* {{ db2wh_temp_backup_dir }}"
   register: copy_backup_folder_output
 
 # 9. Extract db2wh keystore master key label and copy keystore files to backup folder
@@ -157,7 +160,7 @@
 
 - name: "Copying Master Key Label secret to backup folder in {{ db2wh_instance_id }}"
   shell: |
-    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo cp -a {{ db2wh_keystore_dir }}/. {{ db2wh_temp_backup_dir }}"
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo cp -a -p {{ db2wh_keystore_dir }}/. {{ db2wh_temp_backup_dir }}"
   register: copy_bkp_locally_output
 
 - name: "Applying db2uadm permissions to copy backup files from {{ db2wh_instance_id }}"
