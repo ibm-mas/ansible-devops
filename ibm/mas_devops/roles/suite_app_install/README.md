@@ -15,6 +15,12 @@ Role Variables
 - `mas_entitlement_key` API Key for entitled registry. This password will be used to create the image pull secret. Set to with IBM entitlement key when installing release or use your artifactory `apikey` for dev.
 - `mas_app_id` Defines the kind of application that is intended for installation such as `assist`, `health`, `iot`, `manage`, `monitor`, `mso`, `predict`, or `safety`
 
+### mas_app_spec
+Optional.  The application deployment spec used to configure various aspects of the application deployment configuration. 
+
+- Environment Variable: None
+- Default: defaults are specified in vars/defaultspecs/{{mas_app_id}}.yml
+
 
 Example Playbook
 ----------------
@@ -42,6 +48,19 @@ Example Playbook
     # MAS application configuration
     mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
 
+    mas_app_spec:
+      bindings:
+        jdbc: system
+        mongo: system
+        kafka: system
+      settings:
+        messagesight:
+          storage:
+            class: block1000p
+            size: 100Gi
+        deployment:
+          size: medium
+  
   roles:
     - ibm.mas_devops.suite_app_install
 ```
