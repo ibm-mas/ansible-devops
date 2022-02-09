@@ -181,40 +181,63 @@
             <div class="section">
               
                 <h1 id="suite_app_install">suite_app_install<a class="headerlink" href="#suite_app_install" title="Permanent link"></a></h1>
-<p>TODO: Summarize role</p>
+<p>This role is used to install a specified application in Maximo Application Suite.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<ul>
+<li><code>mas_app_catalog_source</code> Defines the catalog to be used to install the MAS app. You can set it to ibm-operator-catalog for release install or ibm-mas-{mas_app_id}-operators for development, where {mas_app_id} will be manage for the Manage and Health app installation, for example.</li>
+<li><code>artifactory_username</code> Required when using this role for development versions of the MAS application</li>
+<li><code>artifactory_apikey</code> Required when using this role for development versions of the MAS application</li>
+<li><code>mas_app_channel</code> Defines which channel of the MAS application to subscribe to. Set to <code>8.x</code> when installing released version</li>
+<li><code>mas_instance_id</code> Defines the instance id that was used for the MAS installation</li>
+<li><code>mas_icr_cp</code> Defines the entitled registry from the images should be pulled from. Set this to <code>cp.icr.io/cp</code> when installing release version of MAS or <code>wiotp-docker-local.artifactory.swg-devops.com</code> for dev</li>
+<li><code>mas_entitlement_username</code> Username for entitled registry. This username will be used to create the image pull secret. Set to <code>cp</code> when installing release or use your <code>w3Id</code> for dev</li>
+<li><code>mas_entitlement_key</code> API Key for entitled registry. This password will be used to create the image pull secret. Set to with IBM entitlement key when installing release or use your artifactory <code>apikey</code> for dev.</li>
+<li><code>mas_app_id</code> Defines the kind of application that is intended for installation such as <code>assist</code>, <code>health</code>, <code>iot</code>, <code>manage</code>, <code>monitor</code>, <code>mso</code>, <code>predict</code>, or <code>safety</code></li>
+</ul>
 <h3 id="mas_app_spec">mas_app_spec<a class="headerlink" href="#mas_app_spec" title="Permanent link"></a></h3>
 <p>Optional.  The application deployment spec used to configure various aspects of the application deployment configuration. </p>
 <ul>
 <li>Environment Variable: None</li>
 <li>Default: defaults are specified in vars/defaultspecs/{{mas_app_id}}.yml</li>
 </ul>
-<p>Example,</p>
-<pre><code>- hosts: localhost
-  any_errors_fatal: true
-    roles:
-    # Install IoT App
-    - role: ibm.mas_devops.suite_app_install
-        vars:
-          mas_app_catalog_source: ibm-mas-iot-operators
-          mas_app_channel: 8.x
-          mas_app_id: iot
-          mas_app_spec:
-            bindings:
-              jdbc: system
-              mongo: system
-              kafka: system
-            components: {}
-            settings:
-              messagesight:
-                storage:
-                  class: block1000p
-                  size: 100Gi
-              deployment:
-                size: medium
-</code></pre>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
-<pre><code class="language-yaml">TODO: Add example
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # Choose which catalog source to use for the MAS install, default to the IBM operator catalog
+    mas_app_catalog_source: &quot;{{ lookup('env', 'MAS_APP_CATALOG_SOURCE') | default('ibm-operator-catalog', true) }}&quot;
+
+    # Which MAS channel to subscribe to
+    mas_app_channel: &quot;{{ lookup('env', 'MAS_APP_CHANNEL') | default('8.x', true) }}&quot;
+
+    # MAS configuration
+    mas_instance_id: &quot;{{ lookup('env', 'MAS_INSTANCE_ID') }}&quot;
+
+    # MAS configuration - IBM container registry configuration
+    mas_icr_cp: &quot;{{ lookup('env', 'MAS_ICR_CP') | default('cp.icr.io/cp', true) }}&quot;
+
+    # MAS configuration - Entitlement
+    mas_entitlement_username: &quot;{{ lookup('env', 'MAS_ENTITLEMENT_USERNAME') | default('cp', true) }}&quot;
+    mas_entitlement_key: &quot;{{ lookup('env', 'MAS_ENTITLEMENT_KEY') }}&quot;
+
+    # MAS application configuration
+    mas_app_id: &quot;{{ lookup('env', 'MAS_APP_ID') }}&quot;
+
+    mas_app_spec:
+      bindings:
+        jdbc: system
+        mongo: system
+        kafka: system
+      settings:
+        messagesight:
+          storage:
+            class: block1000p
+            size: 100Gi
+        deployment:
+          size: medium
+
+  roles:
+    - ibm.mas_devops.suite_app_install
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>

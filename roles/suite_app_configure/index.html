@@ -117,6 +117,14 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_instance_id">mas_instance_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_app_id">mas_app_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_workspace_id">mas_workspace_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_appws_components">mas_appws_components</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#mas_app_ws_spec">mas_app_ws_spec</a>
     </li>
         </ul>
@@ -181,30 +189,44 @@
             <div class="section">
               
                 <h1 id="suite_app_configure">suite_app_configure<a class="headerlink" href="#suite_app_configure" title="Permanent link"></a></h1>
-<p>TODO: Summarize role</p>
+<p>This role is used to configure specific components of the application workspace after the application has been installed in the Maximo Application Suite.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
+<p>Defines the instance id that was used for the MAS installation</p>
+<h3 id="mas_app_id">mas_app_id<a class="headerlink" href="#mas_app_id" title="Permanent link"></a></h3>
+<p>Defines the kind of application that is intended for installation such as <code>assist</code>, <code>health</code>, <code>iot</code>, <code>manage</code>, <code>monitor</code>, <code>mso</code>, <code>predict</code>, or <code>safety</code></p>
+<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link"></a></h3>
+<p>MAS application workspace to use to configure app components</p>
+<h3 id="mas_appws_components">mas_appws_components<a class="headerlink" href="#mas_appws_components" title="Permanent link"></a></h3>
+<p>Defines the app components and versions to configure in the application workspace.</p>
 <h3 id="mas_app_ws_spec">mas_app_ws_spec<a class="headerlink" href="#mas_app_ws_spec" title="Permanent link"></a></h3>
-<p>Optional.  The application workspace deployment spec used to configure various aspects of the application workspace configuration. </p>
+<p>Optional.  The application workspace deployment spec used to configure various aspects of the application workspace configuration. Note that use of this will override anything set in <code>mas_appws_components</code></p>
 <ul>
 <li>Environment Variable: None</li>
-<li>Default: defaults are specified in vars/defaultspecs/{{mas_app_id}}.yml</li>
+<li>Default: defaults are specified in <code>vars/defaultspecs/{{mas_app_id}}.yml</code></li>
 </ul>
-<p>Example,</p>
-<pre><code>- hosts: localhost
-  any_errors_fatal: true
-    roles:
-    # Cofigure Manage App
-    - role: ibm.mas_devops.suite_app_configure
-        vars:
-          mas_app_id: manage
-          mas_app_ws_spec:
-            bindings:
-              jdbc: &quot;{{ mas_appws_jdbc_binding | default( 'system' , true) }}&quot;
-              components: &quot;{{ mas_appws_components | default({'base': {'version': 'latest'}}, true) }}&quot;
-</code></pre>
-<p>TODO: Finish documentation</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
-<pre><code class="language-yaml">TODO: Add example
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # MAS configuration
+    mas_instance_id: &quot;{{ lookup('env', 'MAS_INSTANCE_ID') }}&quot;
+
+    # MAS workspace configuration
+    mas_workspace_id: &quot;{{ lookup('env', 'MAS_WORKSPACE_ID') }}&quot;
+
+    # MAS application configuration
+    mas_app_id: &quot;{{ lookup('env', 'MAS_APP_ID') }}&quot;
+
+    mas_app_ws_spec:
+      bindings:
+        jdbc: &quot;{{ mas_appws_jdbc_binding | default( 'system' , true) }}&quot;
+      components:
+        base:
+          version: 'latest'
+
+  roles:
+    - ibm.mas_devops.suite_app_config
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>
