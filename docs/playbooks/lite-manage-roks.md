@@ -20,22 +20,18 @@ This master playbook will drive the following playbooks in sequence:
     - [Install application](mas.md#install-mas-application) (10 minutes)
     - [Configure workspace](mas.md#configure-mas-application) (2 hours)
 
-All timings are estimates, see the individual pages for each of these playbooks for more information.
-
-!!! warning
-    There is a known problem with Manage v8.1.0 that will result in the system being unusable following a successful deployment.
-
-    Refer to the following technote for more information: ["OpenID Connect client returned with status: SEND_401" when logging in to Manage after installation](https://www.ibm.com/support/pages/openid-connect-client-returned-status-send401-when-logging-manage-after-installation)
+All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.
 
 
 ## Preparation
 Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
 
-### Copy your entitlement license key file
-Copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
+### Prepare your entitlement license key file
+First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from your entitlement file, then copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
-!!! important
-    Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](dependencies.md#install-sls) topic.
+!!! tip
+    If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
+
 
 ### Create a Workspace template
 If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:
@@ -53,7 +49,7 @@ spec:
   displayName: "MAS Development"
 ```
 
-If you do not want to use a workspace called `masdev` you **must**  customize the playbook, because it is configured by default to install and configure the Manage application in this workspace.
+You do not need to create a workspace called `masdev`, you can modify the workspace template above to suite your needs.  If you do not want to use a workspace called `masdev` you **must** customize the playbook, because it is configured by default to install and configure the Manage application in this workspace.
 
 ## Required environment variables
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
@@ -86,12 +82,17 @@ If you do not want to use a workspace called `masdev` you **must**  customize th
 - `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
 - `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
+- `MAS_APPWS_COMPONENTS` to customize the application components installed in the Manage Workspace
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
 
+!!! tip
+   By default only the base Manage component is installed.  To customise the components that are enabled use the optional `MAS_APPWS_COMPONENTS` environment variable, for example to enable Health set it to the following:
+
+   `export MAS_APPWS_COMPONENTS="{'base':{'version':'latest'}, 'health':{'version':'latest'}}"`
 
 
 ## Release build
