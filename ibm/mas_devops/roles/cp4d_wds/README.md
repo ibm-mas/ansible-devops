@@ -7,15 +7,46 @@ It's also used for WDScfg (For Assist Install) related yaml preparation if you w
 
 Role Variables
 --------------
+### wdschannel
+The discovery channel used by discovery install. By default the `v4.0`  will be used as channel name for discovery install.  
+- Environment Variable: `WDS_CHANNEL`
+- Default Value: v4.0
 
-- `useexternalwd` Set to `true` if you want to use existing WDS, `false` by default 
-- `ASSIST_WDS_URL` External WDS instance URL  
-- `ASSIST_WDS_ADMIN` External CP4D ADMIN User name
-- `ASSIST_WDS_PASS` External CP4D ADMIN User password
-- `MAS_CONFIG_DIR` Provide the MAS Config Dir to Save the WDS related Config yaml
-- `MAS_INSTANCE_ID` Provide the MAS instance ID that will be used in any generated MAS configuration files
+### wdsversion
+The discovery version used by discovery install. By default the discovery `4.0.4` version will be installed. 
+- Environment Variable: `WDS_CHANNEL`
+- Default Value: 4.0.4
 
+### wdsstorageclass
+The specific storage class for discovery install, if not specified , the storage class used by CP4D will be auto queried in the cluster and used for discovery install. 
+- Environment Variable: `WDS_STORAGE_CLASS`
+- Default Value: None
 
+### mas_instance_id
+The instance ID of Maximo Application Suite that the discovery configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a discovery template.
+
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
+
+### mas_config_dir
+Local directory to save the generated discovery configuration files.  This can be used to manually configure a Assist instance to connect to the discovery cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a discovery template.
+
+- Environment Variable: `MAS_CONFIG_DIR`
+- Default Value: None
+
+If you want to use the existing available external WDS instance(not in the cluster), the below Environment Variables are `required` to generate the Discovery configuration files. Either is missing will cause the failure to use external Discovery.
+### assist_wds_url
+External Discovery URL for discovery API use
+- Environment Variable: `ASSIST_WDS_URL`
+- Default Value: None
+### assist_wds_admin
+External Discovery admin User name
+- Environment Variable: `ASSIST_WDS_ADMIN`
+- Default Value: None
+### assist_wds_pass
+External Discovery admin User password
+- Environment Variable: `ASSIST_WDS_PASS`
+- Default Value: None
 
 Example Playbook
 ----------------
@@ -36,7 +67,6 @@ Use External WDS instance in the OCP Env
   any_errors_fatal: true
   vars:
     #  Use External WDS instance for assist install
-    useexternalwds: true
     assist_wds_url: "{{ lookup('env', 'ASSIST_WDS_URL') }}"
     assist_wds_admin: "{{ lookup('env', 'ASSIST_WDS_ADMIN') }}"
     assist_wds_pass: "{{ lookup('env', 'ASSIST_WDS_PASS') }}"

@@ -1,34 +1,10 @@
-- name: "Fail if mas_instance_id is not provided"
-  when: mas_instance_id is not defined or mas_instance_id == ""
-  fail:
-    msg: "mas_instance_id property is required"
-
-- name: "Fail if mas_config_dir is not provided"
-  when: mas_config_dir is not defined or mas_config_dir == ""
-  fail:
-    msg: "mas_config_dir property is required"
-
 - name: "Fail if assist_wds_pass is not provided if you use external discovery"
   when:
-    - assist_wds_pass is not defined or assist_wds_pass == ""
-    - useexternalwds is defined and useexternalwds
-  fail:
-    msg: "assist_wds_pass property is required"
-
-- name: "Fail if assist_wds_admin is not provided if you use external discovery"
-  when:
-    - assist_wds_admin is not defined or assist_wds_admin == ""
-    - useexternalwds is defined and useexternalwds
-  fail:
-    msg: "assist_wds_admin property is required"
-
-- name: "Fail if assist_wds_url is not provided if you use external discovery"
-  when:
-    - assist_wds_url is not defined or assist_wds_url == ""
-    - useexternalwds is defined and useexternalwds
-  fail:
-    msg: "assist_wds_url property is required"
-
+    - assist_wds_pass is defined and assist_wds_pass != ""
+    - assist_wds_admin is defined and assist_wds_admin != ""
+    - assist_wds_url is defined and assist_wds_url != ""
+  set_fact: 
+    useexternalwds: true
 
 - name: "cp4d/wds: Set and Print the external Discovery login URL and Credential for use"
   when:
@@ -52,8 +28,11 @@
   include_tasks: tasks/embeddedwds.yml
   
 - name: Copy WDS secret to filesytem
-  vars:
-    instanceId: "{{ mas_instance_id }}"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   ansible.builtin.template:
     src: wdscfg.yml.j2
     dest: "{{ mas_config_dir }}/wdscfg.yml"
