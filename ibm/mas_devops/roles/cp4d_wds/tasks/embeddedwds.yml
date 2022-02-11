@@ -13,47 +13,13 @@
 
 # 1. Provide debug information to the user
 # -----------------------------------------------------------------------------
-- name: "Debug information"
+- name: "cp4d/wds: Print Storage Class used for Discovery install"
   debug:
     msg:
       - "Storage class ................ {{ wdsstorageclass }}"
 
-- name: "cp4d/wds: Check if cpd instance is there "
-  community.kubernetes.k8s_info:
-    api_version: cpd.ibm.com/v1
-    kind: Ibmcpd
-  register: cp4dalllist
-
-- name: "Fail if no cp4d instance is provided"
-  when: cp4dalllist.resources| length == 0
-  fail:
-    msg: "CP4D Base is required to WDS install and instance provision"
-
-- name: "cp4d/wds: cp4d cluster status"
-  when: cp4dalllist.resources| length != 0
-  set_fact:
-    cpdavailable: '{% if cp4dalllist.resources[0].status.controlPlaneStatus == "Completed" %}True{% else %}False{% endif %}'
-    cpdnamespace: "{{ cp4dalllist.resources[0].metadata.namespace }}"
-    cpdstorageclass: "{{ cp4dalllist.resources[0].spec.storageClass is defined | ternary(cp4dalllist.resources[0].spec.storageClass,wdsstorageclass) }}"
-
-- name: "cp4d/wds: Check if cpd instance is there "
-  when: cpdavailable is defined and cpdavailable
-  community.kubernetes.k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "admin-user-details"
-    namespace: "{{ cpdnamespace }}"
-  register: cpdadmincred
-
-- name: "cp4d/wds: Query CP4D Operator namespace"
-  when: 
-    - cpdavailable is defined and cpdavailable
-    - cpdadmincred.resources| length != 0
-  set_fact:
-    wds_admin_username: "admin"
-    wds_admin_password: "{{ cpdadmincred.resources[0]['data']['initial_admin_password'] | b64decode }}"
-
-- name: "cp4d/wds: set WDS SC based on existing storage class"
+## 2. Find if it's IBM cloud OCP and the corresponding Storage Class is already there
+- name: "cp4d/wds: set Discovery Storage Class based on existing CP4D storage class for IBM cloud OCP cluster"
   block:
     - name: list all SC
       community.kubernetes.k8s_info:
@@ -65,6 +31,49 @@
       with_items: "{{ sc.resources }}"
       when: item.metadata.name is defined and item.metadata.name == 'ibmc-block-gold'
 
+# 3. Check if CP4D is installed and fail if not there
+# -----------------------------------------------------------------------------
+- name: "cp4d/wds: Check if cp4d instance is there"
+  community.kubernetes.k8s_info:
+    api_version: cpd.ibm.com/v1
+    kind: Ibmcpd
+  register: cp4dalllist
+
+- name: "Fail if no cp4d instance is provided before discovery install"
+  when: cp4dalllist.resources| length == 0
+  fail:
+    msg: "CP4D Base is required to WDS install and instance provision"
+
+# 4. Check the existing CP4D used project, Storage Class and admin Crdential
+# -----------------------------------------------------------------------------
+
+- name: "cp4d/wds: cp4d cluster status and query the project and Storage Class used by CP4D"
+  when: cp4dalllist.resources| length != 0
+  set_fact:
+    cpdavailable: '{% if cp4dalllist.resources[0].status.controlPlaneStatus == "Completed" %}True{% else %}False{% endif %}'
+    cpdnamespace: "{{ cp4dalllist.resources[0].metadata.namespace }}"
+    cpdstorageclass: "{{ cp4dalllist.resources[0].spec.storageClass is defined | ternary(cp4dalllist.resources[0].spec.storageClass,wdsstorageclass) }}"
+
+- name: "cp4d/wds: check if the cp4d admin user secret exist"
+  when: cpdavailable is defined and cpdavailable
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "admin-user-details"
+    namespace: "{{ cpdnamespace }}"
+  register: cpdadmincred
+
+- name: "cp4d/wds: Query the existing cp4d instance Login Credential"
+  when: 
+    - cpdavailable is defined and cpdavailable
+    - cpdadmincred.resources| length != 0
+  set_fact:
+    wds_admin_username: "admin"
+    wds_admin_password: "{{ cpdadmincred.resources[0]['data']['initial_admin_password'] | b64decode }}"
+
+# 6. Query if there's existing Discovery CR instance 
+# -----------------------------------------------------------------------------
+
 - name: "cp4d/wds: Check if cpd platform and fundermental service operator is there "
   when: cpdavailable is defined and cpdavailable
   community.kubernetes.k8s_info:
@@ -74,16 +83,14 @@
     namespace: "{{ cpdnamespace }}"
   register: cp4doperandrequest
 
-# 2. Query CP4D Operator namespace
-# -----------------------------------------------------------------------------
-- name: "cp4d/wds: Query CP4D Operator namespace"
+- name: "cp4d/wds: Query CP4D instance namespace"
   when: 
     - cpdavailable is defined and cpdavailable
     - cp4doperandrequest.resources| length != 0
   set_fact:
     cpdopsnamespace: "{{ cp4doperandrequest.resources[0].spec.requests[0].registryNamespace }}"
 
-- name: "cp4d/wds: Check if cpd wds instance is there "
+- name: "cp4d/wds: Check if Discovery instance is there in the same project"
   community.kubernetes.k8s_info:
     api_version: discovery.watson.ibm.com/v1
     name: wd
@@ -91,7 +98,7 @@
     kind: WatsonDiscovery
   register: wdsinstance_info
 
-# 2. Install edb Operator in the cpd instance namespace
+# 7. Install edb Operator as it's pre-condition for Discovery install
 # -----------------------------------------------------------------------------
 - name: "cp4d/wds: Find if subscription for edb exist"
   when: 
@@ -140,7 +147,7 @@
         - edb_crd_info.resources is defined
         - edb_crd_info.resources | length > 0
 
-# 3. Create CP4D WDS subscription
+# 8. Create CP4D WDS Operator(Subscription)
 # -----------------------------------------------------------------------------
 - name: "cp4d/wds : Create CP4D WDS subscription"
   when: 
@@ -174,7 +181,7 @@
     - wds_crd_info.resources is defined
     - wds_crd_info.resources | length > 0
 
-# 4. Create CP4D WDS instance
+# 9. Create CP4D WDS CR instance and Wait for it's up running
 # -----------------------------------------------------------------------------
 - name: "cp4d/wds : Create CP4D WDS instance"
   when: 
@@ -203,11 +210,12 @@
   retries: 24 # Approximately 2 hours before we give up
   delay: 300 # 5 minutes
 
-
+# 10. Provisioning the Discovery instance using CP4D API
+# -----------------------------------------------------------------------------
 - name: "cp4d/wds: Find cp4d route info"
   when: cpdavailable is defined and cpdavailable
   block:
-    - name: Get the CP4D Route info from OpenShift
+    - name: "cp4d/wds: Get the CP4D Route info from OpenShift"
       community.kubernetes.k8s_info:
         api_version: route.openshift.io/v1
         kind: Route
@@ -222,7 +230,7 @@
       set_fact:
         cp4d_host_url: "https://{{ cp4dhost }}"
 
-- name: Authorize the CP4D (get Bearer token)
+- name: "cp4d/wds: Authorize the CP4D (get Bearer token)"
   when: cpdavailable is defined and cpdavailable
   uri:
     url: "{{ cp4d_host_url }}/icp4d-api/v1/authorize"
@@ -236,14 +244,12 @@
     timeout: 30
   register: cp4d_authorization_info
 
-- name: Get the CP4D Bearer token
+- name: "cp4d/wds: Get the CP4D Bearer token"
   when: cpdavailable is defined and cpdavailable
   set_fact:
     wds_bearer_token: "{{ cp4d_authorization_info.json.token }}"
 
-# 4. Query a CP4D WDS instance
-# -----------------------------------------------------------------------------
-- name: Query the WDS instance in CP4D
+- name: "cp4d/wds:Check if there's existing Discovery instance in CP4D"
   when: wds_bearer_token is defined
   uri:
     url: "{{ cp4d_host_url }}/zen-data/v3/service_instances?fetch_all_instances=false&limit=9223372036854775807&offset=0"
@@ -256,7 +262,7 @@
     timeout: 30
   register: query_instance_output
 
-- name: find if there's WDS instance 
+- name: "cp4d/wds: find the WDS instance and query the wds uuid"
   set_fact:
     wds_number: "{{ item.id | int}}"  
     findwdsinst: true
@@ -265,9 +271,9 @@
     - query_instance_output.status is defined and query_instance_output.status|int == 200
     - item.addon_type == "discovery"
 
-# 4. Create a CP4D WDS  instance
+# 4. Create a CP4D WDS instance
 # -----------------------------------------------------------------------------
-- name: Create the WDS instance in CP4D when WDS instance not exist
+- name: "cp4d/wds: Create the WDS instance in CP4D when WDS instance not exist and query its uuid"
   when: not ( findwdsinst is defined and findwdsinst ) 
   block:
     - name: find if there's WDS instance 
@@ -286,16 +292,16 @@
     - debug: 
         msg: "discovery instance ID.....{{ create_wds_output.json.id }}"
       when: create_wds_output.status|int == 200
-    - name: Get the CP4D instanceurl
+    - name: "cp4d/wds: Get the CP4D instance uuid number"
       when: create_wds_output.status|int == 200
       set_fact:
         wds_number: "{{ create_wds_output.json.id | replace('-','')|int }}"
 
-# Write out the WDS config/secret to the local filesystem
+# 11. Print Out the Discovery instance URL and crdential for use
 # -----------------------------------------------------------------------------
-- name: Create the WDS instance cm and secret yml file when WDS instance exist
+- name: "cp4d/wds: Set and Print out Discovery instance info"
   block:
-    - name: Get the CP4D instanceurl
+    - name: Get the CP4D instance url
       set_fact:
         wds_url: "{{ cp4d_host_url}}/discovery/{{ cpdnamespace }}-wd/instances/{{ wds_number }}/api"
     - name: Print the WDS related info
