@@ -47,14 +47,14 @@
   register: cpdadmincred
 
 - name: "cp4d/wds: Query the existing cp4d instance Login Credential"
-  when: 
+  when:
     - cpdavailable is defined and cpdavailable
     - cpdadmincred.resources| length != 0
   set_fact:
     wds_admin_username: "admin"
     wds_admin_password: "{{ cpdadmincred.resources[0]['data']['initial_admin_password'] | b64decode }}"
 
-# 4. Query if there's existing Discovery CR instance 
+# 4. Query if there's existing Discovery CR instance
 # -----------------------------------------------------------------------------
 
 - name: "cp4d/wds: Check if cpd platform and fundermental service operator is there "
@@ -84,7 +84,7 @@
 # 5. Install edb Operator as it's pre-condition for Discovery install
 # -----------------------------------------------------------------------------
 - name: "cp4d/wds: Find if subscription for edb exist"
-  when: 
+  when:
     - cpdavailable is defined and cpdavailable
     - wdsinstance_info.resources | length == 0
   block:
@@ -96,13 +96,13 @@
       register: cp4d_subs
     - name: "cp4d/wds: Find sub info for CP4D edb operator"
       set_fact:
-        edbavailable:  true
+        edbavailable: true
       with_items: "{{ cp4d_subs.resources }}"
       when: item.spec.name == 'cloud-native-postgresql' or item.spec.name == 'ibm-cpd-edb'
     - name: Print EDB namespace info if it's found
       when: edbavailable is defined and edbavailable
       debug:
-        msg: 
+        msg:
           - "EDB Available ...................... {{ edbavailable }}"
           - "EDB Namespace....................... {{ cpdopsnamespace }}"
     - name: "cp4d/wds : Create CP4D EDB subscription"
@@ -112,7 +112,7 @@
         definition: "{{ lookup('template', 'templates/edbsub.yml') }}"
         namespace: "{{ cpdopsnamespace }}"
     - name: "Wait until the EDB CRD is available"
-      when: not ( edbavailable is defined and edbavailable )      
+      when: not ( edbavailable is defined and edbavailable )
       community.kubernetes.k8s_info:
         api_version: apiextensions.k8s.io/v1
         name: "clusters.postgresql.k8s.enterprisedb.io"
@@ -133,7 +133,7 @@
 # 6. Create CP4D WDS Operator(Subscription)
 # -----------------------------------------------------------------------------
 - name: "cp4d/wds : Create CP4D WDS subscription"
-  when: 
+  when:
     - cpdavailable is defined and cpdavailable
     - edbavailable is defined and edbavailable
     - wdsinstance_info.resources | length == 0
@@ -145,7 +145,7 @@
 - name: "Wait until the WDS CRD is available"
   when:
     - cpdavailable is defined and cpdavailable
-    - edbavailable is defined and edbavailable    
+    - edbavailable is defined and edbavailable
     - wdsinstance_info.resources | length == 0
   community.kubernetes.k8s_info:
     api_version: apiextensions.k8s.io/v1
@@ -167,7 +167,7 @@
 # 7. Create CP4D WDS CR instance and Wait for it's up running
 # -----------------------------------------------------------------------------
 - name: "cp4d/wds : Create CP4D WDS instance"
-  when: 
+  when:
     - cpdavailable is defined and cpdavailable
     - edbavailable is defined and edbavailable
     - wdsinstance_info.resources | length == 0
@@ -177,7 +177,7 @@
 
 # Wait for the cluster to be ready
 - name: "cp4d/wds : Wait for WDS instance to be ready (5m delay)"
-  when: 
+  when:
     - cpdavailable is defined and cpdavailable
     - edbavailable is defined and edbavailable
     - wdsinstance_info.resources | length == 0
@@ -249,19 +249,19 @@
 
 - name: "cp4d/wds: find the WDS instance and query the wds uuid"
   set_fact:
-    wds_number: "{{ item.id | int}}"  
+    wds_number: "{{ item.id | int}}"
     findwdsinst: true
   with_items: "{{ query_instance_output.json.service_instances }}"
-  when: 
+  when:
     - query_instance_output.status is defined and query_instance_output.status|int == 200
     - item.addon_type == "discovery"
 
 # 10. Provision the CP4D WDS instance and get its uuid
 # -----------------------------------------------------------------------------
 - name: "cp4d/wds: Create the WDS instance in CP4D when WDS instance not exist and query its uuid"
-  when: not ( findwdsinst is defined and findwdsinst ) 
+  when: not ( findwdsinst is defined and findwdsinst )
   block:
-    - name: find if there's WDS instance 
+    - name: find if there's WDS instance
       uri:
         url: "{{ cp4d_host_url }}/watson/common/discovery/api/ibmcloud/resource-controller/resource_instances"
         validate_certs: no
@@ -274,7 +274,7 @@
         status_code: 200,412
         timeout: 30
       register: create_wds_output
-    - debug: 
+    - debug:
         msg: "discovery instance ID.............. {{ create_wds_output.json.id }}"
       when: create_wds_output.status|int == 200
     - name: "cp4d/wds: Get the CP4D instance uuid number"
@@ -299,4 +299,3 @@
     - name: Fail as we didn't get the WDS instance here or CP4D is not installed.
       fail:
         msg: "We Couldn't get the WDS instance here or CP4D is not installed"
-
