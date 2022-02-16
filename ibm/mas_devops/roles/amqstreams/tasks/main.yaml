@@ -1,10 +1,10 @@
 ---
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-- name: "Fail if kafka_storage_class is not provided"
-  when: kafka_storage_class is not defined or kafka_storage_class == ""
-  fail:
-    msg: "kafka_storage_class property is required"
+- name: "Verify that kafka_storage_class is defined"
+  assert:
+    that: kafka_storage_class is defined and kafka_storage_class != ""
+    fail_msg: "kafka_storage_class property is required"
 
 
 # 2. Provide debug
@@ -66,7 +66,10 @@
 
 # 7. Lookup details
 # -----------------------------------------------------------------------------
-- name: "Get Kafka Resource"
+# We have seen instances where the Kafka cluster is reported as Ready but
+# the necessary fields in the status resource are not set yet so we retry until
+# the expected fields are set as well
+- name: "Lookup Kafka Resource"
   community.kubernetes.k8s_info:
     api_version: kafka.strimzi.io/v1beta2
     kind: Kafka
@@ -79,8 +82,15 @@
       type: Ready
       status: "True"
   register: kafka_cluster_lookup
+  retries: 10 # Once the cluster is ready we will wait for up to 5 minutes for the listener information to be added to the status sub-resource
+  delay: 30 # seconds
+  until:
+    - kafka_cluster_lookup.resources | length > 0
+    - kafka_cluster_lookup.resources[0].status is defined
+    - kafka_cluster_lookup.resources[0].status.listeners is defined
+    - kafka_cluster_lookup.resources[0].status.listeners | length > 0
 
-- name: "Get Kafka Resource"
+- name: "Lookup Kafka Secret"
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Secret
