@@ -6,7 +6,7 @@ Very cut back version of continuous integration build system for IBM Maximo Appl
 
 **Managed Branches** are ones where any commit will result in a new version being released.  These branches take one of two forms:
 - `master` (current major version)
-- `v1.x`, `v2.x`, `v3.x` etc
+- `v1.x`, `v2.x`, `v3.x`, `v4.x` etc
 
 Versioning is controlled by the GitHub commit messages:
 - A commit comment of `[patch] Fix the thing` will result in a version change from `1.0.0` to `1.0.1`
