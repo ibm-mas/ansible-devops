@@ -27,33 +27,32 @@
 # 3. Install SLS
 # -----------------------------------------------------------------------------
 - name: Install SLS
-  import_playbook: sls/install-sls.yml
+  import_playbook: dependencies/install-sls.yml
   vars:
-    sls_storage_class: ocs-storagecluster-ceph-rbd
-    # Default to re-using the MAS entitlement key if we do not provide a specific one for SLS
-    sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
-    sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') | default(lookup('env', 'IBM_ENTITLEMENT_KEY'), true) }}"
+    sls_storage_class: ibmc-file-gold-gid
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
     # Use the generated mongodb configuration
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
-    # Bootstrap from the mas_config_dir
-    bootstrap:
-      license_id: "{{ lookup('env', 'SLS_LICENSE_ID') | default('', true) }}"
-      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
-      entitlement_file: "{{mas_config_dir}}/entitlement.lic"
 
-
-# 5. Perform Airgap Install if required
+# 4. Install BAS
 # -----------------------------------------------------------------------------
-- name: Airgap Install
-  import_playbook: airgap/airgap-install.yml
+- name: Install BAS
+  import_playbook: dependencies/install-bas.yml
   vars:
-    use_internal_registry: true
-    configure_network: true
-    # don't copy images from these apps
-    excludeImages: "ibm-mas-assist,ibm-mas-hputilities,ibm-mas-iot,ibm-mas-manage,ibm-mas-monitor,ibm-mas-predict,ibm-mas-safety,ibm-mas-visualinspection,ibm-sls"
+    bas_persistent_storage_class: "ibmc-file-bronze-gid"
+    bas_meta_storage_class: "ibmc-block-bronze"
+
+# 5. Install Db2 CP4D service
+# -----------------------------------------------------------------------------
+- name: Install CP4D services
+  import_playbook: cp4d/install-services-discovery.yml
+  vars:
+    cpd_version: cpd40
+    cpd_storage_class: ibmc-file-gold-gid
+    cpd_block_storage_class: ibmc-block-gold
 
 
 # 6. Install & configure MAS
@@ -69,10 +68,9 @@
   vars:
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    useibmcos: True
-    ibm_cloud_apikey: "{{ lookup('env', 'IC_API_KEY') }}"
-    ibm_cloud_space: "{{ lookup('env', 'IC_SPACE_NAME') }}"
-    ibm_cloud_org: "{{ lookup('env', 'IC_ORG_NAME') }}"
+    cos_type: ibm 
+    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+
 
 # 9. Install & Configure Assist application
 # -----------------------------------------------------------------------------
@@ -81,10 +79,6 @@
   vars:
     mas_app_id: assist
     mas_app_channel: m1dev87
-    assist_couchdb_storageclass: ibmc-file-gold-gid
-    assist_couchdb_storagesize: 30Gi
-    assist_redis_storageclass: ibmc-file-gold-gid
-    assist_redis_storagesize: 10Gi
 
 # Note that this sample playbook is always assuming a workspace ID of masdev,
 # this can easily be modified when creating your own playbooks.
