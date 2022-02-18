@@ -4,9 +4,11 @@
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
-  when: mas_instance_id is not defined or mas_instance_id == ""
-  fail:
-    msg: "mas_instance_id property is required"
+  assert:
+    that:
+      - mas_instance_id is defined
+      - mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
 
 
 # 2. Configure target namespace
@@ -26,12 +28,15 @@
     kind: Suite
   register: suite_cr_result
   until:
-    - suite_cr_result.resources[0].status is defined
-    - suite_cr_result.resources[0].status.conditions | length == 5
-    - suite_cr_result.resources[0].status.conditions[0].status == 'True'
-    - suite_cr_result.resources[0].status.conditions[1].status == 'True'
-    - suite_cr_result.resources[0].status.conditions[2].status == 'True'
-    - suite_cr_result.resources[0].status.conditions[3].status == 'True'
+    - suite_cr_result.resources[0].status.conditions is defined
+    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SystemDatabaseReady') | map(attribute='status') | list | length > 0
+    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SystemDatabaseReady') | map(attribute='status') | list | first == "True"
+    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'BASIntegrationReady') | map(attribute='status') | list | length > 0
+    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'BASIntegrationReady') | map(attribute='status') | list | first == "True"
+    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SLSIntegrationReady') | map(attribute='status') | list | length > 0
+    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SLSIntegrationReady') | map(attribute='status') | list | first == "True"
+    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | length > 0
+    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | first == "True"
   retries: 30 # approx 30 minutes before we give up
   delay: 60 # 1 minute
 
@@ -39,6 +44,7 @@
 # 4. Lookup for superuser credentials
 # -----------------------------------------------------------------------------
 - name: "Lookup MAS superuser credentials"
+  when: not mas_hide_superuser_credentials
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Secret
@@ -46,6 +52,17 @@
     namespace: "{{mas_namespace}}"
   register: superuser_credentials
 
+- name: "Show the username/password"
+  when: not mas_hide_superuser_credentials
+  set_fact:
+    superuser_username: "{{ superuser_credentials.resources[0].data.username | b64decode }}"
+    superuser_password: "{{ superuser_credentials.resources[0].data.password | b64decode }}"
+
+- name: "Hide acutal username/password"
+  when: mas_hide_superuser_credentials
+  set_fact:
+    superuser_username: "Available in Secret/{{ mas_instance_id }}-credentials-superuser"
+    superuser_password: "Available in Secret/{{ mas_instance_id }}-credentials-superuser"
 
 # 5. Print MAS login information
 # -----------------------------------------------------------------------------
@@ -67,7 +84,6 @@
 - debug:
     msg:
       - "Maximo Application is Ready, use the superuser credentials to authenticate"
-      - "Superuser Credentials:"
-      - "Username: .... {{ superuser_credentials.resources[0].data.username | b64decode }}"
-      - "Password: .... {{ superuser_credentials.resources[0].data.password | b64decode }}"
-      - "Admin Url: ... {{ admin_route.resources[0].spec.host}}"
+      - "Admin Dashboard ... https://{{ admin_route.resources[0].spec.host }}/"
+      - "Username .......... {{ superuser_username }}"
+      - "Password .......... {{ superuser_password }}"

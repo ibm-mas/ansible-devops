@@ -9,133 +9,93 @@ pip install --quiet pyyaml yamllint
 # 1. Set up semantic versioning
 # -----------------------------------------------------------------------------
 VERSION_FILE=$GITHUB_WORKSPACE/.version
-PREVIOUS_VERSION_FILE=${GITHUB_WORKSPACE}/.previous_version
 
-SEMVER_XYZ="(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-SEMVER_PRE="(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?"
-SEMVER_BUILD="(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?"
-SEMVER_REGEXP="^${SEMVER_XYZ}${SEMVER_PRE}${SEMVER_BUILD}$"
+if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+  echo "Note: non-branch build for a tag named '${GITHUB_REF_NAME}'"
+  TAG_BASED_RELEASE=true
 
-RELEASE_BRANCH_REGEXP="^(master|(0|[1-9][0-9]*)\.x|(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
-MAINTENANCE_BRANCH_REGEXP="^((0|[1-9][0-9]*)\.x|(0|[1-9][0-9]*).(0|[1-9][0-9]*)\.x)$"
+  SEMVER_XYZ="(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+  SEMVER_PRE="(-(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*)?"
+  SEMVER_BUILD="(\+[0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*)?"
+  SEMVER_REGEXP="^${SEMVER_XYZ}${SEMVER_PRE}${SEMVER_BUILD}$"
 
-if [[ "${GITHUB_REF_NAME}" =~ $SEMVER_REGEXP ]]; then
-  echo "Need to add the correct exclusion rule into .travis.yml to prevent builds from tagged releases"
-  exit 64
-fi
-
-# Finds the most recent tag that is reachable from a commit. If the tag points
-# to the commit, then only the tag is shown. Otherwise, it suffixes the tag name with the number
-# of additional commits on top of the tagged object and the abbreviated object name of the most
-# recent commit.
-echo "npm install of git-latest-semver-tag starting"
-npm install -g git-latest-semver-tag@1.0.2
-echo "- npm install complete"
-SEMVER_LAST_TAG=$(git-latest-semver-tag 2>/dev/null)
-
-echo "LAST TAG = ${SEMVER_LAST_TAG}"
-
-if [ -z $SEMVER_LAST_TAG ]; then
-  SEMVER_LAST_TAG="1.0.0"
-  SEMVER_RELEASE_LEVEL="initial"
-  echo "Creating $GITHUB_WORKSPACE/.changelog"
-  # Obtain a list of commits since dawn of time
-  git log --oneline -1 --pretty=%B > $GITHUB_WORKSPACE/.changelog
-else
-  echo "Creating $GITHUB_WORKSPACE/.changelog (${SEMVER_LAST_TAG}..HEAD)"
-  # Obtain a list of commits since ${SEMVER_LAST_TAG}
-  git log ${SEMVER_LAST_TAG}..HEAD --oneline --pretty=%B > $GITHUB_WORKSPACE/.changelog
-
-  echo "Changelog START:##################################################################"
-  cat $GITHUB_WORKSPACE/.changelog
-  echo "Changelog DONE:###################################################################"
-
-  # Work out what has changed
-  MAJOR_COUNT=`grep -ciF '[major]' $GITHUB_WORKSPACE/.changelog`
-  echo "Major commits : ${MAJOR_COUNT}"
-
-  MINOR_COUNT=`grep -ciF '[minor]' $GITHUB_WORKSPACE/.changelog`
-  echo "Minor commits : ${MINOR_COUNT}"
-
-  PATCH_COUNT=`grep -ciF '[patch]' $GITHUB_WORKSPACE/.changelog`
-  echo "Patch commits : ${PATCH_COUNT}"
-
-  # Important: Keep in sync with .env.sh
-  SEMVER_MIN_RELEASE_LEVEL="${SEMVER_MIN_RELEASE_LEVEL:-build}"
-  SEMVER_MAX_RELEASE_LEVEL="${SEMVER_MAX_RELEASE_LEVEL:-major}"
-  # Semver control overrides for maintenance branches
-  # - On a maintenance branch minor and major commits are banned as it would take the branch out of scope
-  if [[ "${GITHUB_REF_NAME}" =~ $MAINTENANCE_BRANCH_REGEXP ]]; then
-    SEMVER_MAX_RELEASE_LEVEL=patch
-  fi
-
-  SHOULD_EXIT=false
-  if [ "$MAJOR_COUNT" -gt "0" ]; then
-    SEMVER_RELEASE_LEVEL="major"
-    if [ "$SEMVER_MAX_RELEASE_LEVEL" != "major" ]; then
-        SHOULD_EXIT=true
-    fi
-  elif [ "$MINOR_COUNT" -gt "0" ]; then
-    SEMVER_RELEASE_LEVEL="minor"
-    if [ "$SEMVER_MAX_RELEASE_LEVEL" = "patch" ] || [ "$SEMVER_MIN_RELEASE_LEVEL" = "major" ]; then
-        SHOULD_EXIT=true
-    fi
-  elif [ "$PATCH_COUNT" -gt "0" ]; then
-    SEMVER_RELEASE_LEVEL="patch"
-    if [ "$SEMVER_MIN_RELEASE_LEVEL" = "major" ] || [ "$SEMVER_MIN_RELEASE_LEVEL" = "minor" ]; then
-        SHOULD_EXIT=true
-    fi
-  else
-    # For a build release as long as SEMVER_MIN_RELEASE_LEVEL equals "build" then we are okay
-    SEMVER_RELEASE_LEVEL="build"
-    if [ "$SEMVER_MIN_RELEASE_LEVEL" != "build" ]; then
-        SHOULD_EXIT=true
-    fi
-  fi
-
-  if [ "$SHOULD_EXIT" = true ]; then
-    echo "Minimum release level is '${SEMVER_MIN_RELEASE_LEVEL}' & maximum is '${SEMVER_MAX_RELEASE_LEVEL}', but release level is set to '${SEMVER_RELEASE_LEVEL}'. Exiting build."
+  if [[ ! $GITHUB_REF_NAME =~ $SEMVER_REGEXP ]]; then
+    echo "Aborting release build.  Tag '$GITHUB_REF_NAME' does not match a valid semantic version string"
     exit 1
   fi
-fi
-echo "RELEASE LEVEL = ${SEMVER_RELEASE_LEVEL}"
-echo "${SEMVER_RELEASE_LEVEL}" > $GITHUB_WORKSPACE/.releaselevel
 
-# See: https://github.com/fsaintjacques/semver-tool/blob/1.2.1/src/semver
-semver init ${SEMVER_LAST_TAG} &>/dev/null
-echo "Semantic versioning system initialized: $(semver)"
-
-if [ "${SEMVER_RELEASE_LEVEL}" == "initial" ]; then
-  echo "initial release of $(semver)"
-elif [[ "${SEMVER_RELEASE_LEVEL}" =~ ^(major|minor|patch)$ ]]; then
-  semver bump $SEMVER_RELEASE_LEVEL &>/dev/null
-  echo "${SEMVER_RELEASE_LEVEL} bump from ${SEMVER_LAST_TAG} to $(semver)"
+  echo "${GITHUB_REF_NAME}" > $VERSION_FILE
 else
-  semver bump build build.$GITHUB_RUN_ID &>/dev/null
-  echo "build bump from ${SEMVER_LAST_TAG} to $(semver)"
+  # Finds the most recent tag that is reachable from a commit. If the tag points
+  # to the commit, then only the tag is shown. Otherwise, it suffixes the tag name with the number
+  # of additional commits on top of the tagged object and the abbreviated object name of the most
+  # recent commit.
+  echo "npm install of git-latest-semver-tag starting"
+  npm install -g git-latest-semver-tag@1.0.2
+  echo "- npm install complete"
+  SEMVER_LAST_TAG=$(git-latest-semver-tag 2>/dev/null)
+
+  echo "LAST TAG = ${SEMVER_LAST_TAG}"
+
+  if [ -z $SEMVER_LAST_TAG ]; then
+    SEMVER_LAST_TAG="1.0.0"
+    SEMVER_RELEASE_LEVEL="initial"
+    echo "Creating $GITHUB_WORKSPACE/.changelog"
+    # Obtain a list of commits since dawn of time
+    git log --oneline -1 --pretty=%B > $GITHUB_WORKSPACE/.changelog
+  else
+    echo "Creating $GITHUB_WORKSPACE/.changelog (${SEMVER_LAST_TAG}..HEAD)"
+    # Obtain a list of commits since ${SEMVER_LAST_TAG}
+    git log ${SEMVER_LAST_TAG}..HEAD --oneline --pretty=%B > $GITHUB_WORKSPACE/.changelog
+
+    echo "Changelog START:##################################################################"
+    cat $GITHUB_WORKSPACE/.changelog
+    echo "Changelog DONE:###################################################################"
+
+    # Work out what has changed
+    MAJOR_COUNT=`grep -ciF '[major]' $GITHUB_WORKSPACE/.changelog`
+    echo "Major commits : ${MAJOR_COUNT}"
+
+    MINOR_COUNT=`grep -ciF '[minor]' $GITHUB_WORKSPACE/.changelog`
+    echo "Minor commits : ${MINOR_COUNT}"
+
+    PATCH_COUNT=`grep -ciF '[patch]' $GITHUB_WORKSPACE/.changelog`
+    echo "Patch commits : ${PATCH_COUNT}"
+  fi
+
+  if [ "$MAJOR_COUNT" -gt "0" ]; then
+    SEMVER_RELEASE_LEVEL="major"
+  elif [ "$MINOR_COUNT" -gt "0" ]; then
+    SEMVER_RELEASE_LEVEL="minor"
+  elif [ "$PATCH_COUNT" -gt "0" ]; then
+    SEMVER_RELEASE_LEVEL="patch"
+  fi
+
+  echo "RELEASE LEVEL = ${SEMVER_RELEASE_LEVEL}"
+  echo "${SEMVER_RELEASE_LEVEL}" > $GITHUB_WORKSPACE/.releaselevel
+
+  # See: https://github.com/fsaintjacques/semver-tool/blob/master/src/semver
+  if [ "${SEMVER_RELEASE_LEVEL}" == "initial" ]; then
+    echo $SEMVER_LAST_TAG > $VERSION_FILE
+    echo "Configuring semver for initial release of $(cat $VERSION_FILE)"
+  elif [[ "${SEMVER_RELEASE_LEVEL}" =~ ^(major|minor|patch)$ ]]; then
+    semver bump ${SEMVER_RELEASE_LEVEL} ${SEMVER_LAST_TAG} > $VERSION_FILE
+    echo "Configuring semver for ${SEMVER_RELEASE_LEVEL} bump from ${SEMVER_LAST_TAG} to $(cat $VERSION_FILE)"
+  else
+    semver bump build build.$GITHUB_RUN_ID > $VERSION_FILE
+    echo "Configuring semver for rebuild of ${SEMVER_LAST_TAG}: $(cat $VERSION_FILE)"
+  fi
 fi
 
 
 # 2. Tweak version string for pre-release builds
 # -----------------------------------------------------------------------------
-if [[ "${GITHUB_REF_NAME}" =~ $RELEASE_BRANCH_REGEXP ]]; then
-  # Release mode
-  VERSION=$(semver)
-else
-  # Pre-release mode
-  if [ -f ${GITHUB_WORKSPACE}/setup.py ]; then
-    # For python PEP compatability we need to version python modules differently
-    VERSION=$(semver).dev${GITHUB_RUN_ID}
-  else
-    VERSION=$(semver)-pre.$GITHUB_REF_NAME
-  fi
+if [[ "${GITHUB_REF_TYPE}" == "branch" ]]; then
+    semver bump prerel pre.$GITHUB_REF_NAME $(cat $VERSION_FILE) > $VERSION_FILE
+    echo "Pre-release build: $(cat $VERSION_FILE)"
 fi
 
-echo "Setting ${VERSION_FILE} to ${VERSION}"
-echo -n $VERSION > $VERSION_FILE
-
-echo "Setting ${PREVIOUS_VERSION_FILE} to ${SEMVER_LAST_TAG}"
-echo -n $SEMVER_LAST_TAG > $PREVIOUS_VERSION_FILE
+echo "Semantic versioning system initialized: $(cat $VERSION_FILE)"
 
 
 # 3. Version python modules (if they exist)
@@ -144,11 +104,5 @@ if [ -f ${GITHUB_WORKSPACE}/setup.py ]; then
   sed -i "s/version='1.0.0'/version='${VERSION}'/" setup.py
 fi
 
-
-# 4. Configure git
-# -----------------------------------------------------------------------------
-git config --global user.email "iotf@uk.ibm.com"
-git config --global user.name "Travis CI"
-git config --global push.default simple
 
 exit 0

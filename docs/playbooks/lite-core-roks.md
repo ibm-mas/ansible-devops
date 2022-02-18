@@ -16,11 +16,12 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ## Preparation
 Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
 
-### Copy your entitlement license key file
-Copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
+### Prepare your entitlement license key file
+First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from your entitlement file, then copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
-!!! important
-    Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](dependencies.md#install-sls) topic.
+!!! tip
+    If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
+
 
 ### Create a Workspace template
 If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:

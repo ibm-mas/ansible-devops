@@ -6,6 +6,11 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `5.2` Multiple Updates:
+    - Support MongoDb CPU and memory configuration ([#158](https://github.com/ibm-mas/ansible-devops/pull/158))
+    - Separate CIS_APIKEY support for MAS Installation ([#156](https://github.com/ibm-mas/ansible-devops/pull/156))
+    - Support configurable prometheus storage & retention policy ([#151](https://github.com/ibm-mas/ansible-devops/pull/151))
+    - Support configurable application spec ([#160](https://github.com/ibm-mas/ansible-devops/pull/160))
 - `5.1` Multiple Updates:
     - Add support for Cloud Object Storage ([#122](https://github.com/ibm-mas/ansible-devops/pull/122))
     - Conditional application deployment in Tekton pipelines ([#118](https://github.com/ibm-mas/ansible-devops/pull/118))
