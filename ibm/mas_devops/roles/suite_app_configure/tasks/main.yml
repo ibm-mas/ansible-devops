@@ -53,7 +53,7 @@
     definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
-# 8. Wait for application workspace to be ready
+# 5. Wait for application workspace to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application workspace to be ready ({{ mas_app_cfg_timeout }}s timeout)"
   community.kubernetes.k8s_info:
@@ -74,3 +74,23 @@
     - app_ws_cr_result.resources is defined
     - app_ws_cr_result.resources | length > 0
     - app_ws_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+
+
+# 6. Configure cluster role
+# -----------------------------------------------------------------------------
+- name: "Apply cluster role"
+  when: mas_app_id == "visualinspection"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/clusterrole.yml') }}"
+
+
+# 7. Configure cluster role binding
+# -----------------------------------------------------------------------------
+- name: "Apply cluster role binding"
+  when: mas_app_id == "visualinspection"
+  vars:
+    mas_app_namespace: "{{ mas_app_namespace }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/clusterrole_binding.yml') }}"
