@@ -23,6 +23,11 @@
 - name: Load variables
   include_vars: "vars/{{ mas_app_id }}.yml"
 
+# 2.1 Load default application workspace spec, if user does not provide one
+# -----------------------------------------------------------------------------
+- name: Load default application workspace spec
+  when: mas_app_ws_spec is not defined or mas_app_ws_spec == ""
+  include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
 
 # 3. Provide debug information
 # -----------------------------------------------------------------------------
@@ -56,7 +61,7 @@
     kind: "{{ mas_app_ws_kind }}"
     name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
     namespace: "{{ mas_app_namespace }}"
-    wait: true
+    wait: yes
     wait_condition:
       status: "True"
       type: Ready
@@ -64,7 +69,7 @@
     wait_timeout: "{{ mas_app_cfg_timeout }}" # before we give up and fall back into the retry loop
   register: app_ws_cr_result
   retries: "{{ mas_app_cfg_retries }}"
-  delay: 0
+  delay: 5 # seconds
   until:
     - app_ws_cr_result.resources is defined
     - app_ws_cr_result.resources | length > 0
