@@ -1,0 +1,34 @@
+
+---
+# Copy all resources created by Webhook IBM CIS under cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+- name: "Webhook IBM CIS Secrets : Lookup all ibm-cis related secrets"
+  shell: oc get secrets -n {{ cert_manager_namespace }} | grep cis- | awk '{print $1}'
+  register: cis_secrets_output
+  failed_when: cis_secrets_output.stdout_lines | length == 0
+
+- set_fact:
+    list_of_cis_secrets: "{{ cis_secrets_output.stdout_lines }}"
+
+- debug:
+    msg: "List of Webhook IBM CIS Secrets to be copied: {{ list_of_cis_secrets }}"
+
+- name: "Webhook IBM CIS Secrets : Copy all ibm-cis related secrets"
+  vars:
+    secret_name: "{{ item }}"
+  include_tasks: tasks/cert_manager_upgrade/copy_secret.yml
+  with_items: "{{ list_of_cis_secrets }}"
+
+- name: "Webhook IBM CIS Root CA : Copy cert-manager-webhook-ibm-cis-root-ca-issuer"
+  include_tasks: tasks/cert_manager_upgrade/copy_issuer.yml
+  vars:
+    source_issuer_name: "cert-manager-webhook-ibm-cis-root-ca-issuer"
+    source_issuer_secret_name: "cert-manager-webhook-ibm-cis-root-ca-certificate"
+    source_certificate_name: "cert-manager-webhook-ibm-cis-root-ca-certificate"
+
+- name: "Webhook IBM CIS Root CA : Copy cert-manager-webhook-ibm-cis-self-signed-issuer"
+  include_tasks: tasks/cert_manager_upgrade/copy_issuer.yml
+  vars:
+    source_issuer_name: "cert-manager-webhook-ibm-cis-self-signed-issuer"
+    source_issuer_secret_name: ""
+    source_certificate_name: "cert-manager-webhook-ibm-cis-serving-cert"

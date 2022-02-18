@@ -5,8 +5,28 @@
 # - source_issuer_name
 # - source_issuer_secret_name
 
+# 0. Lookup Issuer
+- name: "Lookup Issuer : {{ source_issuer_name }}"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Issuer
+    name: "{{ source_issuer_name }}"
+    namespace: "{{ cert_manager_namespace }}"
+  register: issuer_info
+
+- name: "Lookup Issuer : {{ source_issuer_name }} : Assert that the issuer exists"
+  assert:
+    that:
+      - issuer_info is defined
+      - issuer_info.resources is defined
+      - issuer_info.resources | length == 1
+    fail_msg: "Unable to lookup issuer, the source Issuer ({{ source_issuer_name }}) does not exist: {{ issuer_info }}"
+
 # 1. Copy Secret
 - name: "Copy Issuer : {{ source_issuer_name }} : Copy Issuer's secret"
+  when: 
+    - source_issuer_secret_name is defined 
+    - source_issuer_secret_name | length > 0 # i.e cert-manager-webhook-ibm-cis-self-signed-issuer don't have a secret to be copied
   include_tasks: tasks/cert_manager_upgrade/copy_secret.yml
   vars:
     secret_name: "{{ source_issuer_secret_name }}"
@@ -16,7 +36,8 @@
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Certificate
-    name: "{{ source_issuer_secret_name }}" # changed here as it seems the certificate will have the issuer secret's name instead of the issuer's name
+    # name: "{{ source_issuer_secret_name }}" # changed here as it seems the certificate will have the issuer secret's name instead of the issuer's name
+    name: "{{ source_certificate_name }}"
     namespace: "{{ cert_manager_namespace }}"
   register: source_issuer_cert_info
 
@@ -35,7 +56,8 @@
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Certificate
-    name: "{{ source_issuer_secret_name }}" # changed here as it seems the certificate will have the issuer secret's name instead of the issuer's name
+    # name: "{{ source_issuer_secret_name }}" # changed here as it seems the certificate will have the issuer secret's name instead of the issuer's name
+    name: "{{ source_certificate_name }}"
     namespace: "{{ common_services_namespace }}"
   register: copied_issuer_cert_info
   until:
@@ -92,7 +114,8 @@
   assert:
     that:
       - copied_issuer_info.resources is defined
-      - copied_issuer_info.resources[0].status.conditions[0].reason  == 'IsReady'
+      # if issuer is selfsigned, then reason = 'isReady' however if that has a secret associated to it then reason == 'KeyPairVerified'
+      - copied_issuer_info.resources[0].status.conditions[0].reason  == 'IsReady' or copied_issuer_info.resources[0].status.conditions[0].reason  == 'KeyPairVerified'
       - copied_issuer_info.resources[0].status.conditions[0].status == 'True'
     fail_msg: "Issuer '{{ source_issuer_name }}' is in bad state! Reason: {{ copied_issuer_info.resources[0].status.conditions[0].reason }} = {{ copied_issuer_info.resources[0].status.conditions[0].status }}"
     success_msg: "Issuer '{{ source_issuer_name }}' is in healthy state! Reason: {{ copied_issuer_info.resources[0].status.conditions[0].reason }} = {{ copied_issuer_info.resources[0].status.conditions[0].status }}"
