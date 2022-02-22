@@ -1,38 +1,71 @@
-Role Name
-=========
+manage_mmi_monitoring_configure
+================================
 
-A brief description of the role goes here.
+This role enables the pod monitoring service for manage app via mmi monitoring. 
 
 Requirements
 ------------
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+MAS Manage app has to be installed. 
 
 Role Variables
 --------------
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
+### MAS_INSTANCE_ID
+
+required. The name of mas instance. 
+ * Environment Variable: MAS_INSTANCE_ID
+ * Default Value: none
+
+### MAS_WORKSPACE_ID
+
+required. The name of mas workspace. 
+ * Environment Variable: MAS_WORKSPACE_ID
+ * Default Value: none
+
+### MANAGE_APP_TYPE_NAME
+
+required. The name of mas manage bundle type. 
+ * Environment Variable: MANAGE_APP_TYPE_NAME
+ * Default Value: all
+
+### PROMETHEUS_STORAGE_CLASS
+
+required. The storageclass name of userload prometheus db. 
+ * Environment Variable: PROMETHEUS_STORAGE_CLASS
+ * Default Value: none
+
+### PROMETHEUS_STORAGE_SIZE
+
+required. The storageclass size of userload prometheus db. 
+ * Environment Variable: PROMETHEUS_STORAGE_SIZE
+ * Default Value: none
+
+
+### PROMETHEUS_RETENTION_PERIOD
+
+required. The retention period of userload prometheus db. 
+ * Environment Variable: PROMETHEUS_RETENTION_PERIOD
+ * Default Value: 90d
+
+### PROMETHEUS_ALERTMGR_STORAGE_CLASS
+
+required. The storageclass name of userload prometheus alert db. 
+ * Environment Variable: PROMETHEUS_ALERTMGR_STORAGE_CLASS
+ * Default Value: none
+
+### PROMETHEUS_ALERTMGR_STORAGE_SIZE
+
+required. The storageclass size of userload prometheus alert db. 
+ * Environment Variable: PROMETHEUS_ALERTMGR_STORAGE_SIZE
+ * Default Value: none
 
 Dependencies
 ------------
+N/A
 
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
-
-Example Playbook
-----------------
-
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
-
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
 
 License
 -------
 
 BSD
-
-Author Information
-------------------
-
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).

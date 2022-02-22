@@ -4,7 +4,7 @@ ocp_setup_aws_efs
 This role provides support to configure AWS EFS based storageclass into Openshift cluster. EFS can be used RWX storage. 
 
 
-### Pre-req
+Requirements
 -------
 
 Create an [EFS file system](https://docs.aws.amazon.com/efs/latest/ug/gs-step-two-create-efs-resources.html), configured appropriately with respect to VPC, availability zones, etc.
