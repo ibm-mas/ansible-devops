@@ -75,7 +75,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   roles:
-  - ibm.mas_devops.bas_appconnect
+  - ibm.mas_devops.appconnect_install
 ```
 
 License
