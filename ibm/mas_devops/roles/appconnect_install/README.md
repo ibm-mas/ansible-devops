@@ -8,7 +8,7 @@ Role Variables
 --------------
 
 ### appconnect_namespace
-Optional - Defines the targetted cluster namespace/project where AppConnect will be installed. If not provided, default AppConnect namespace will be 'ibm-app-connect'.
+Optional - Defines the targetted cluster namespace/project where AppConnect will be installed. If not provided, default AppConnect namespace will be `ibm-app-connect`.
 
 - Environment Variable: `APPCONNECT_NAMESPACE`
 - Default Value: `ibm-app-connect`
