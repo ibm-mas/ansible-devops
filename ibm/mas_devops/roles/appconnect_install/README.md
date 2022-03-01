@@ -14,7 +14,14 @@ Optional - Defines the targetted cluster namespace/project where AppConnect will
 - Default Value: `ibm-app-connect`
 
 ### appconnect_channel
-Optional - AppConnect subscription channel to be installed. For MAS 8.7, `v3.0` channel is the supported channel. Use `v2.0` channel for older MAS versions.
+Optional - AppConnect subscription channel to be installed. For MAS 8.7, default `v3.0` channel is used. Ensure the supported dashboard version and license ID according to the AppConnect operator/channel version. 
+
+- MAS 8.4 uses AppConnect channel subscription v1.4 and license id = L-APEH-BSVCHU
+- MAS 8.5 uses AppConnect channel subscription v2.0 and license id = L-KSBM-BZWEAT
+- MAS 8.6 uses AppConnect channel subscription v2.0 and license id = L-KSBM-C37J2R
+- MAS 8.7 uses AppConnect channel subscription v3.0 and license id = L-KSBM-C87FU2
+
+For more details: https://www.ibm.com/support/knowledgecenter/SSTTDS_11.0.0/com.ibm.ace.icp.doc/certc_licensingreference.html
 
 - Environment Variable: `APPCONNECT_CHANNEL`
 - Default Value: `v3.0`
@@ -26,8 +33,7 @@ Optional - AppConnect Dashboard instance name.
 - Default Value: `dashboard-12020r2`
 
 ### appconnect_license_id
-Optional - AppConnect license ID. Ensure the supported dashboard version and license ID according to the AppConnect operator/channel version. 
-For more details: https://www.ibm.com/support/knowledgecenter/SSTTDS_11.0.0/com.ibm.ace.icp.doc/certc_licensingreference.html
+Optional - AppConnect license ID.
 
 - Environment Variable: `APPCONNECT_LICENSE_ID`
 - Default Value: `L-KSBM-C87FU2` (Which is compatible with AppConnect `v3.0` operator/channel)
