@@ -19,8 +19,6 @@
   when:
     - app_info.resources is defined
     - app_info.resources | length == 1
-    # - app_info.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
-    # - app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
   community.kubernetes.k8s:
     api_version: operators.coreos.com/v1alpha1
     name: "ibm-mas-{{ app_upgrade_id }}"
@@ -32,38 +30,10 @@
     apply: true
   register: app_sub_update
 
-# # 3. Wait for application subscription to update installedCSV in installPlan
-# # This is just a tentative way to know the subscription was upgraded to a new version
-# # --------------------------------------------------------------------------------
-# - name: "Wait for subscription to update installedCSV version for {{ app_upgrade_id }}"
-#   community.kubernetes.k8s_info:
-#     api_version: operators.coreos.com/v1alpha1
-#     name: "ibm-mas-{{ app_upgrade_id }}"
-#     namespace: "mas-{{ mas_instance_id }}-{{ app_upgrade_id }}"
-#     kind: Subscription
-#   register: sub_info
-#   retries: 60 # ~approx 5 minutes before we give up waiting for the CRD to be created
-#   delay: 10 # seconds
-#   until:
-#     - sub_info.resources[0].status is defined
-#     - sub_info.resources[0].status.installedCSV is defined 
-#     - sub_info.resources[0].status.currentCSV is defined
-#     - sub_info.resources[0].status.currentCSV == sub_info.resources[0].status.installedCSV
-
-# - debug:
-#     msg: "Subscription for MAS application {{ app_upgrade_id }} patched to installedCSV: {{ sub_info.resources[0].status.installedCSV }}"
-#   when:
-#     - sub_info.resources[0].status is defined
-#     - sub_info.resources[0].status.installedCSV is defined 
-#     - sub_info.resources[0].status.currentCSV is defined
-#     - sub_info.resources[0].status.currentCSV == sub_info.resources[0].status.installedCSV
-
-# 4. Generate a list of apps that are being upgraded so we can watch its progress 
+# 3. Generate a list of apps that are being upgraded so we can watch its progress 
 # --------------------------------------------------------------------------------
 - set_fact:
     mas_apps: "{{ mas_apps|default([]) + [app_upgrade_id] }}"
   when:
     - app_info.resources is defined
     - app_info.resources | length == 1
-    # - app_info.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
-    # - app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1

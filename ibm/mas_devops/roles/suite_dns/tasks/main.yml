@@ -8,8 +8,9 @@
   register: _cert_manager_deployed
 
 # if cert-manager from cert-manager namespace is deployed, then it will be used per default otherwise set ibm-cert-manager from ibm-common-services to be used
+# if it is a MAS 8.6.x -> 8.7.x upgrade being executed, then we need to install CIS into ibm-common-services namespace too
 - name: Define which cert-manager to use
-  when: _cert_manager_deployed.resources is defined and _cert_manager_deployed.resources | length == 0
+  when: ((_cert_manager_deployed.resources is defined and _cert_manager_deployed.resources | length == 0) or (isSuiteUpgrade is defined and isSuiteUpgrade == true))
   set_fact:
     certManager:
       namespace: ibm-common-services

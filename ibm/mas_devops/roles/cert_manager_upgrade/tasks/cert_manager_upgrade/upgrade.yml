@@ -241,33 +241,31 @@
   retries: 30 # approx 30 minutes before we give up
   delay: 60 # 1 minute
 
-# # 10. Delete the original certificates, issuers, and secrets from the cert-manager namespace
-# # -------------------------------------------------------------------------------------------------
+# 10. Delete the original certificates, issuers, and secrets from the cert-manager namespace
+# -------------------------------------------------------------------------------------------------
 
-# #TODO: Delete related CIS/Webhook secrets from cert-manager ns
+# 10.1 Delete Default Public CA Issuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+# These resources will only exist if the user didn't provide their own ClusterIssuer
+- name: "Public CA Issuer : Delete original {{ mas_namespace }}-public-ca-issuer"
+  when: custom_cluster_issuer is not defined or custom_cluster_issuer == ''
+  include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
+  vars:
+    source_issuer_name: "{{ mas_namespace }}-public-ca-issuer"
+    source_issuer_secret_name: "{{ cert_names.public_ca }}"
 
-# # 10.1 Delete Default Public CA Issuer resources from cert-manager namespace
-# # -------------------------------------------------------------------------------------------------
-# # These resources will only exist if the user didn't provide their own ClusterIssuer
-# - name: "Public CA Issuer : Delete original {{ mas_namespace }}-public-ca-issuer"
-#   when: custom_cluster_issuer is not defined or custom_cluster_issuer == ''
-#   include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
-#   vars:
-#     source_issuer_name: "{{ mas_namespace }}-public-ca-issuer"
-#     source_issuer_secret_name: "{{ cert_names.public_ca }}"
+# 10.2. Delete MAS Internal CA Issuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+- name: "Internal CA Issuer : Delete original {{ internal_ca_issuer.name }}"
+  include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
+  vars:
+    source_issuer_name: "{{ internal_ca_issuer.name }}"
+    source_issuer_secret_name: "{{ cert_names.internal_ca }}"
 
-# # 10.2. Delete MAS Internal CA Issuer resources from cert-manager namespace
-# # -------------------------------------------------------------------------------------------------
-# - name: "Internal CA Issuer : Delete original {{ internal_ca_issuer.name }}"
-#   include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
-#   vars:
-#     source_issuer_name: "{{ internal_ca_issuer.name }}"
-#     source_issuer_secret_name: "{{ cert_names.internal_ca }}"
-
-# # 10.3. Delete related CIS/Webhook secrets from cert-manager namespace
-# # -------------------------------------------------------------------------------------------------
-# - name: "Internal CA Issuer : Delete original {{ internal_ca_issuer.name }}"
-#   include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
-#   vars:
-#     source_issuer_name: "{{ internal_ca_issuer.name }}"
-#     source_issuer_secret_name: "{{ cert_names.internal_ca }}"
+# 10.3. Delete related CIS/Webhook secrets from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+- name: "Internal CA Issuer : Delete original {{ internal_ca_issuer.name }}"
+  include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
+  vars:
+    source_issuer_name: "{{ internal_ca_issuer.name }}"
+    source_issuer_secret_name: "{{ cert_names.internal_ca }}"

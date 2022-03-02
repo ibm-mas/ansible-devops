@@ -23,9 +23,7 @@
         - app_cr_lookup.resources | length > 0
       with_items: "{{ mas_apps }}"
 
-    # - debug:
-    #     msg: "{{ app_cr_lookup}}"
-
+    # Most Apps Workspace CRs are ready when 'type': 'Ready' and 'reason': 'Ready', but Predict's Workspace 'reason': 'WorkspaceReady'
     - name: "wait : Check if apps workspace operators have been upgraded"
       set_fact:
         apps_count: "{{ apps_count|int + 1 }}"
@@ -33,7 +31,7 @@
           item.resources is defined
           and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
           and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
-          and item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1)
+          and (item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1 or item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','WorkspaceReady') | list | length == 1))
           else ready_apps_count|int}}"
       with_items: "{{ app_cr_lookup.results }}"
       loop_control:
@@ -42,7 +40,7 @@
             item.resources is defined
             and item.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
             and item.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
-            and item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1)
+            and (item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1 or item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','WorkspaceReady') | list | length == 1))
             else 'Workspace upgrade pending...' }}"
           - "{{ (item.resources | json_query('[*].status.conditions[?type==`Ready`][].reason')) }} - {{ (item.resources | json_query('[*].status.conditions[?type==`Ready`][].message')) }}"
           - "{{ 'Error! Something wrong while upgrading this app workspace, check its CR for more details...' if (item.resources | json_query('[*].status.conditions[?type==`Failure`][].reason') | select ('match','Failed') | list | length == 1) }}"
