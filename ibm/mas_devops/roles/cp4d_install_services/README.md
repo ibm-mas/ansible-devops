@@ -23,10 +23,10 @@ Required.  This is used to set `spec.storageClass` in all CPD v3.5 services, and
 - Environment Variable: `CPD_STORAGE_CLASS`
 - Default Value: None
 
-### cpd_block_storage_class
+### cpd_wd_storage_class
 Required only if installing Watson Discovery service (`wd`) on CP4D v4.0.
 
-- Environment Variable: `CPD_BLOCK_STORAGE_CLASS`
+- Environment Variable: `CPD_WD_STORAGE_CLASS`
 - Default Value: None
 
 ### cpd_services
@@ -44,7 +44,7 @@ Example Playbook
   any_errors_fatal: true
   vars:
     cpd_storage_class: ibmc-file-gold-gid
-    cpd_block_storage_class: ibmc-block-gold
+    cpd_wd_storage_class: ibmc-block-gold
     # Install the Db2 Warehouse & WSL services
     cpd_services:
       - db2wh
