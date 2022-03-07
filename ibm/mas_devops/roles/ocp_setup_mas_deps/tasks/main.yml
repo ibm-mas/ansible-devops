@@ -55,13 +55,11 @@
       - "OCP Install Version ................ {{ ocp_install_version }}"
       - "OCP Install Release ................ {{ ocp_install_release }}"
 
-
 # 1. Install IBM catalogs
 # -----------------------------------------------------------------------------
 - name: "Create IBM catalogs"
   community.kubernetes.k8s:
     definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
-
 
 # 2. Install development (pre-release) catalogs
 # -----------------------------------------------------------------------------
@@ -73,7 +71,6 @@
     - artifactory_apikey != ""
     - not airgap_install
   include_tasks: "tasks/development-catalogs.yml"
-
 
 # 3. Install cert-manager
 # -----------------------------------------------------------------------------
@@ -88,7 +85,7 @@
 # Install foundation services cert-manager if MAS 8.7+, otherwise, install jetstack/standalone version
 - name: Define which Cert Manager to install
   set_fact:
-    cm_version: "{{ 'foundation-services' if (mas_channel in mas87_channels) else 'standalone' }}"
+    cm_version: "{{ 'foundation-services' if (mas_channel not in mas_channels_old_releases) else 'standalone' }}"
   when:
     - (_cert_manager_deployed.resources | length) == 0
     - not airgap_install
@@ -99,7 +96,6 @@
     - (_cert_manager_deployed.resources | length) == 0
     - not airgap_install
 
-
 # 4. Install Service Binding Operator
 # -----------------------------------------------------------------------------
 # Install stable channel with automatic updates if MAS 8.7+, otherwise, install preview channel locked to v0.8
@@ -108,12 +104,11 @@
   when:
     - not airgap_install
   set_fact:
-    sbo_channel: "{{ 'stable' if (mas_channel in mas87_channels and ocp_install_release != '4.6') else 'preview' }}"
+    sbo_channel: "{{ 'stable' if (mas_channel not in mas_channels_old_releases and ocp_install_release != '4.6') else 'preview' }}"
 
 - include_tasks: "tasks/sbo/{{ sbo_channel }}.yml"
   when:
     - not airgap_install
-
 
 # 5. Update openshift monitoring to define a specific storage class for Prometheus logs
 # -------------------------------------------------------------------------------------
@@ -129,7 +124,6 @@
     definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yml') }}"
     wait: yes
     wait_timeout: 120
-
 
 # 6. Increase cluster image registry from defautl 100Gi to 400Gi (cp4d images consume lot of space)
 # -------------------------------------------------------------------------------------

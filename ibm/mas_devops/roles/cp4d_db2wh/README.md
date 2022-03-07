@@ -196,6 +196,21 @@ The name of the worker node to apply the {{ db2wh_node_label }} taint and label 
 - Environment Variable: `'DB2WH_DEDICATED_NODE`
 - Default: None
 
+### db2wh_mln_count
+The number of logical nodes (i.e. database partitions to create).
+
+- Environment Variable: `'DB2WH_MLN_COUNT`
+- Default: 1
+
+### db2wh_num_pods
+The number of db2 pods to create in the instance. Note that db2wh_num_pods must be less than or equal to db2wh_mln_count.
+A single db2u pod can contain multiple logical nodes. So be sure to avoid specifying a large number for db2wh_mln_count while 
+specifying a small number for db2wh_num_pods. If in doubt, make db2wh_mln_count = db2wh_num_pods. A slightly out of date reference
+but still decent: https://www.ibm.com/docs/en/db2-warehouse?topic=SSCJDQ/com.ibm.swg.im.dashdb.ucontainer.doc/doc/db2w-mempernode-new.html
+
+- Environment Variable: `'DB2WH_NUM_PODS`
+- Default: 1
+
 Example Playbook
 ----------------
 
