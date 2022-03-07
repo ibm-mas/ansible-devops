@@ -1,0 +1,186 @@
+---
+# 1. Fail if no required keys are provided
+# -----------------------------------------------------------------------------
+- name: "Assert that db2wh_instance_name is defined"
+  assert:
+    that:
+      - db2wh_instance_name is defined
+      - db2wh_instance_name != ""
+    fail_msg: "db2wh_instance_name property is required"
+
+- name: "Assert that db2wh_backup_dir is defined"
+  assert:
+    that:
+      - db2wh_backup_dir is defined
+      - db2wh_backup_dir != ""
+    fail_msg: "db2wh_backup_dir property is required"
+
+# 2. Determine which version of CP4D we are working with
+# -----------------------------------------------------------------------------
+# - if cpd_version is set explicitly then we use that
+# - if cpd-meta-ops namespace exists then we assume it's 3.5
+# - otherwise we assume CPD v4
+
+- name: Check for the presence of the CPDv4 services namespace
+  when: cpd_version is not defined or cpd_version == ''
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: cpd-meta-ops
+  register: cpd3_namespace_lookup
+
+- name: Set cpd_version to cpd35 if we found the CP4D v3 namespace
+  when:
+    - cpd_version is not defined or cpd_version == ''
+    - cpd3_namespace_lookup.resources is defined
+    - cpd3_namespace_lookup.resources | length == 1
+  set_fact:
+    cpd_version: cpd35
+
+- name: Default to cpd40 if we did not find the CP4D v3 namespace
+  when: cpd_version is not defined or cpd_version == ''
+  set_fact:
+    cpd_version: cpd40
+
+- debug:
+    msg: "CPD Version ........................... {{ cpd_version }}"
+
+# 3. Load version-specific variables
+# -----------------------------------------------------------------------------
+- name: Load variables
+  include_vars: "vars/{{ cpd_version }}.yml"
+
+# 4a. Determine Db2 instance ID from name - CP4D v3.5
+# -----------------------------------------------------------------------------
+# When we create the database instance, we save the instance ID in a config map
+# named mas-automation-config-{{db2wh_instance_name}}.  We need this instance ID
+# to access the engine pod.
+- name: "[CP4D v3.5] Load DB2 Deployment ID from Config Map - {{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}"
+  when: cpd_version == 'cpd35'
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ cp4d_db_config_configmap_name }}-{{ db2wh_instance_name }}"
+    namespace: "{{ cpd_meta_namespace }}"
+  register: cp4d_db_config_info
+
+- name: "[CP4D v3.5] Read the DB2 database ID for {{ db2wh_instance_name }} from DB config ConfigMap data"
+  when: cpd_version == 'cpd35'
+  set_fact:
+    db2wh_instance_id: "db2wh-{{ cp4d_db_config_info.resources[0].data.db2wh_instance_id }}"
+
+# 4b. Determine Db2 instance ID from name - CP4D v4.0
+# -----------------------------------------------------------------------------
+- name: "[CP4D v4] Set instance ID = instance name"
+  when: cpd_version == 'cpd40'
+  set_fact:
+    db2wh_instance_id: "{{ db2wh_instance_name }}"
+
+# 5. Determine which pod to run in
+# -----------------------------------------------------------------------------
+- name: "Lookup db2 Pod {{ db2wh_instance_id }} in {{ db2wh_pod_namespace }} namespace"
+  community.kubernetes.k8s_info:
+    kind: Pod
+    namespace: "{{ db2wh_pod_namespace }}"
+    label_selectors:
+      - type=engine
+      - app={{ db2wh_instance_id }}
+  register: db2wh_pod
+  failed_when:
+    - db2wh_pod.resources is not defined
+    - db2wh_pod.resources | length = 0
+
+- name: Configure facts
+  set_fact:
+    db2wh_pod_name: "{{ db2wh_pod.resources[0].metadata.name if (db2wh_pod.resources is defined) else 'Undefined' }}"
+
+# 6. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "CPD version ............................ {{ cpd_version if (cpd_version is defined) else 'Undefined' }}"
+      - "Db2 instance name ...................... {{ db2wh_instance_name if (db2wh_instance_name is defined) else 'Undefined' }}"
+      - "Db2 pod namespace ...................... {{ db2wh_pod_namespace if (db2wh_pod_namespace is defined) else 'Undefined' }}"
+      - "Db2 pod name ........................... {{ db2wh_pod_name if (db2wh_pod_name is defined) else 'Undefined' }}"
+      - "DB2 backup files directory ............. {{ db2wh_backup_dir if (db2wh_backup_dir is defined) else 'Undefined' }}"
+
+# 7. Run backup script in source db2wh pod
+# -----------------------------------------------------------------------------
+- name: Create backup script in local /tmp
+  ansible.builtin.template:
+    src: backup.sh.j2
+    dest: /tmp/backup.sh
+    mode: '777'
+
+- name: Copy the backup script into the db2 pod {{ db2wh_instance_id }}
+  shell: "oc cp /tmp/backup.sh {{ db2wh_pod_namespace }}/{{ db2wh_pod_name }}:/tmp/backup.sh"
+
+- name: Run backup script on db2 pod {{ db2wh_instance_id }} as db2inst username... (this can take several minutes)
+  shell: oc exec -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- su -lc '/tmp/backup.sh | tee /tmp/backup.log' db2inst1
+  register: backup_output
+  failed_when: backup_output.rc != 0
+
+- debug:
+    msg: "{{ backup_output.stdout_lines }}"
+
+# 8. Create temporary backup folder in source db2wh pod
+# -----------------------------------------------------------------------------
+- name: "Creating backup folder in {{ db2wh_instance_id }}"
+  shell: |
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo mkdir -p {{ db2wh_temp_backup_dir }}"
+  register: creating_backup_folder_output
+
+- name: "Copying backup files to backup folder in {{ db2wh_instance_id }}"
+  shell: |
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo cp -p {{ db2wh_db2inst1_backup_dir }}/* {{ db2wh_temp_backup_dir }}"
+  register: copy_backup_folder_output
+
+# 9. Extract db2wh keystore master key label and copy keystore files to backup folder
+# https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
+# -----------------------------------------------------------------------------------------------------------------
+
+- name: "Check current Master Key Label from source keystore.p12"
+  shell: |
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- su -lc "gsk8capicmd_64 -cert -list all -db '{{ db2wh_keystore_dir }}/keystore.p12' -stashed" db2inst1
+  register: check_master_label_output
+
+- name: "Get current Master Key Label from source keystore.p12"
+  vars:
+    regex: '\DB2(.*)'
+  when: item is regex('\DB2(.*)')
+  set_fact:
+    master_key_label: "{{ item | regex_search(regex) }}"
+  with_items: "{{ check_master_label_output.stdout_lines | list }}"
+
+- name: "Extract Master Key Label from keystore.p12"
+  shell: |
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- su -lc "gsk8capicmd_64 -secretkey -extract -db '{{ db2wh_keystore_dir }}/keystore.p12' -stashed -label '{{ master_key_label }}' -format ascii -target '{{ db2wh_keystore_dir }}/master_key_label.kdb'" db2inst1
+  register: extract_master_label_output
+
+- name: "Copying Master Key Label secret to backup folder in {{ db2wh_instance_id }}"
+  shell: |
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo cp -a -p {{ db2wh_keystore_dir }}/. {{ db2wh_temp_backup_dir }}"
+  register: copy_bkp_locally_output
+
+- name: "Applying db2uadm permissions to copy backup files from {{ db2wh_instance_id }}"
+  shell: |
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo chown -R db2uadm {{ db2wh_temp_backup_dir }}/"
+  register: apply_db2uadm_output
+
+# 10. Download db2 backup files to local machine
+# -----------------------------------------------------------------------------
+- name: "Downloading backup files from {{ db2wh_instance_id }} pod to your local machine... (this can take several minutes)"
+  shell: |
+    oc rsync --progress=true -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }}:{{ db2wh_temp_backup_dir }}/. {{ db2wh_backup_dir }}
+  register: copy_bkp_locally_output
+
+- debug:
+    msg: "{{ copy_bkp_locally_output }}"
+
+# 11. Delete temporary db2 backup files in source db2wh pod
+# -----------------------------------------------------------------------------
+- name: "Delete temporary db2 backup files from {{ db2wh_instance_id }} now that backup is complete"
+  when: copy_bkp_locally_output.rc == 0
+  shell: |
+    oc exec -it -n {{ db2wh_pod_namespace }} {{ db2wh_pod_name }} -- bash -c "sudo rm -rf {{ db2wh_temp_backup_dir }} && sudo rm -rf {{ db2wh_db2inst1_backup_dir }} && sudo rm -rf {{ db2wh_keystore_dir }}/master_key_label.kdb"
