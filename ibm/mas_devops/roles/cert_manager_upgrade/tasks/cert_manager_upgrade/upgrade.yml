@@ -15,6 +15,14 @@
 # Verify the existing MAS 8.6 install is happy with the cert-manager switch over
 # Delete the original certificates, secrets, and issuers from the cert-manager namespace
 
+# For MAS selfsigned instances, these are the resources that will be copied to ibm-common-services namespace
+# secret/masupgrade87-cert-internal-ca
+# secret/masupgrade87-cert-public-ca
+# issuer.cert-manager.io/mas-masupgrade87-core-internal-ca-issuer
+# issuer.cert-manager.io/mas-masupgrade87-core-public-ca-issuer
+# certificate.cert-manager.io/masupgrade87-cert-internal-ca
+# certificate.cert-manager.io/masupgrade87-cert-public-ca
+
 # 1. Set facts and debug
 # -------------------------------------------------------------------------------------------------
 # ibm-common-services is the default namespace for cert-manager since MAS 8.7
@@ -30,6 +38,7 @@
     msg:
       - "Instance ID ................ {{ mas_instance_id }}"
       - "MAS namespace .............. {{ mas_namespace }}"
+      - "MAS Custom Cluster Issuer .. {{ custom_cluster_issuer }}"
       - "Cert-Manager namespace ..... {{ cert_manager_namespace }}"
       - "Common services namespace .. {{ common_services_namespace }}"
       - "Public CA Issuer ........... {{ public_ca_issuer_name }}"
@@ -59,16 +68,14 @@
 
 # 4. Copy Default Public CA Issuer resources from cert-manager namespace
 # -------------------------------------------------------------------------------------------------
-- set_fact:
-    certs_migration_type: "{{ 'ciswebhook' if (custom_cluster_issuer is defined and custom_cluster_issuer != '') else 'selfsigned' }}"
-
-- debug:
-    msg: 
-      - "Custom Cluster Issuer ............ {{ custom_cluster_issuer }}"
-      - "Certificate Migration Type ....... {{ certs_migration_type }}"
-
-- name: "Migrate Issuers, Certs and Secrets"
-  include_tasks: 'tasks/cert_manager_upgrade/migrate_{{ certs_migration_type }}_resources.yml'
+# These resources will only exist if the user didn't provide their own ClusterIssuer
+- name: "Public CA Issuer : Copy {{ mas_namespace }}-public-ca-issuer"
+  when: custom_cluster_issuer is not defined or custom_cluster_issuer == ''
+  include_tasks: tasks/cert_manager_upgrade/copy_issuer.yml
+  vars:
+    source_issuer_name: "{{ mas_namespace }}-public-ca-issuer"
+    source_issuer_secret_name: "{{ cert_names.public_ca }}"
+    source_certificate_name: "{{ cert_names.public_ca }}"
 
 # 5. Copy MAS Internal CA Issuer resources from cert-manager namespace
 # -------------------------------------------------------------------------------------------------
@@ -248,7 +255,9 @@
 # -------------------------------------------------------------------------------------------------
 # These resources will only exist if the user didn't provide their own ClusterIssuer
 - name: "Public CA Issuer : Delete original {{ mas_namespace }}-public-ca-issuer"
-  when: custom_cluster_issuer is not defined or custom_cluster_issuer == ''
+  when: 
+    - custom_cluster_issuer is not defined or custom_cluster_issuer == ''
+    - cert_manager_namespace == 'cert-manager' # this will ensure only delete resources from cert-manager ns
   include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
   vars:
     source_issuer_name: "{{ mas_namespace }}-public-ca-issuer"
@@ -257,6 +266,8 @@
 # 10.2. Delete MAS Internal CA Issuer resources from cert-manager namespace
 # -------------------------------------------------------------------------------------------------
 - name: "Internal CA Issuer : Delete original {{ internal_ca_issuer.name }}"
+  when: 
+    - cert_manager_namespace == 'cert-manager' # this will ensure only delete resources from cert-manager ns
   include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
   vars:
     source_issuer_name: "{{ internal_ca_issuer.name }}"
@@ -265,6 +276,8 @@
 # 10.3. Delete related CIS/Webhook secrets from cert-manager namespace
 # -------------------------------------------------------------------------------------------------
 - name: "Internal CA Issuer : Delete original {{ internal_ca_issuer.name }}"
+  when:
+    - cert_manager_namespace == 'cert-manager' # this will ensure only delete resources from cert-manager ns
   include_tasks: tasks/cert_manager_upgrade/delete_issuer.yml
   vars:
     source_issuer_name: "{{ internal_ca_issuer.name }}"
