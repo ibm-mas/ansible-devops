@@ -46,6 +46,10 @@ ansible-galaxy collection install ibm.mas_devops
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `5.3` Multiple Updates:
+    - Add support for db2wh backup & restore ([#133](https://github.com/ibm-mas/ansible-devops/pull/133))
+    - Add support for appConnect ([#170](https://github.com/ibm-mas/ansible-devops/pull/170))
+    - Switch BAS from FullDeployment to AnalyticsProxy ([#178](https://github.com/ibm-mas/ansible-devops/pull/178))
 - `5.2` Multiple Updates:
     - Support MongoDb CPU and memory configuration ([#158](https://github.com/ibm-mas/ansible-devops/pull/158))
     - Separate CIS_APIKEY support for MAS Installation ([#156](https://github.com/ibm-mas/ansible-devops/pull/156))
