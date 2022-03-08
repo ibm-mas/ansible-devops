@@ -60,6 +60,20 @@ Before you use this playbook you will likely want to edit the `mas_config_dir` v
 - `SLS_LICENSE_ID` Must be set to the license id specified in the license file when one is provided
 - `SLS_REGISTRATION_KEY` optional var when you want to install sls using a registration key you have.
 
+## Install AppConnect
+AppConnect will be installed into the `ibm-app-connect` namespace, using `ibmc-file-gold-gid` as the storage class.  The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
+
+Refer to the [appconnect_install](../roles/appconnect_install.md) role documentation for more information.
+
+```bash
+export APPCONNECT_STORAGE_CLASS=ibmc-file-gold-gid
+export APPCONNECT_ENTITLEMENT_KEY=xxx
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
+
+ansible-playbook playbooks/dependencies/install-appconnect.yml
+```
+
 ### Example usage: release build
 
 ```bash
