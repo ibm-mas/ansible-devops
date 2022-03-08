@@ -30,6 +30,12 @@ oc -n cpd-meta-ops get formations.db2u.databases.ibm.com db2wh-db01 -o go-templa
 
     This file can be directly applied using `oc apply -f /tmp/jdbccfg-cp4ddb2wh-system.yaml` or added to the `mas_config` list variable used by the `ibm.mas_devops.suite_install` role to deploy and configure MAS.
 
+#### Installing DB2WH on NFS based volumes
+DB2 requires you to set no_root_squash when you use NFS with IBM® Cloud File Storage (ibmc-file-gold-gid storage class) or the restore morph job fails.
+This role will install a daemonset which applies the `no_root_squash` NFS mount option on NFS volumes. For more details see the following references:
+- https://www.ibm.com/docs/en/db2/11.5?topic=requirements-cloud-file-storage
+- https://www.ibm.com/docs/en/db2/11.5?topic=cds-nfs-storage-requirements-1
+- https://cloud.ibm.com/docs/FileStorage?topic=FileStorage-mountingLinux&interface=ui#norootsquash
 
 Role Variables
 --------------
