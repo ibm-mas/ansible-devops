@@ -42,3 +42,22 @@ jobs:
       - name: Publish Collection
         run: |
           ansible-galaxy collection publish ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz --token=${{ secrets.ANSIBLE_GALAXY_TOKEN }}
+
+      - name: Install the Ansible collection in the container image
+        run: cp $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz $GITHUB_WORKSPACE/image/ansible-devops/ibm-mas_devops.tar.gz
+
+      # Docker build
+      - name: Build the docker image
+        run: |
+          $GITHUB_WORKSPACE/build/bin/docker-build.sh -n ibmmas -i ansible-devops
+          docker tag ibmmas/ansible-devops ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+          docker tag ibmmas/ansible-devops quay.io/ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+
+      # https://github.com/marketplace/actions/push-to-registry
+      - name: Push the docker image
+        id: push_to_quay
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          tags: quay.io/ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+          username: ${{ secrets.QUAYIO_USERNAME }}
+          password: ${{ secrets.QUAYIO_PASSWORD }}
