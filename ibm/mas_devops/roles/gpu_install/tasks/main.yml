@@ -1,0 +1,97 @@
+---
+
+# 0. Fetch information from Openshift for GPU subscribtion
+# -----------------------------------------------------------------------------
+- name: "Fetch GPU version information from Openshift"
+  shell: oc get packagemanifests/gpu-operator-certified -n openshift-marketplace -ojson | jq -r '.status.channels[] | select(.name == "'{{gpu_channel}}'") | .currentCSV'
+  register: csv_result
+
+- name: "Set value for gpu channel CSV"
+  set_fact:
+    gpu_startingCSV: "{{csv_result.stdout}}"
+
+
+# 1. Provide Debug information
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "GPU Namespace ...................... {{ gpu_namespace }}"
+      - "GPU Channel   ...................... {{ gpu_channel }}"
+      - "GPU Version ................... {{ gpu_startingCSV }}"
+      - "GPU Driver Version ................. {{ gpu_driver_version }}"
+
+
+# 2. Create NVIDIA GPU project
+# -----------------------------------------------------------------------------
+- name: "Create gpu namespace"
+  when: 
+  - gpu_namespace != "openshift-operators"
+  community.kubernetes.k8s:
+    api_version: v1
+    kind: Namespace
+    name: '{{ gpu_namespace }}'
+
+
+# 3. Create NVIDIA GPU operator group and subscription
+# -----------------------------------------------------------------------------
+- name: "Create gpu operator group"
+  when: 
+    - gpu_namespace != "openshift-operators"
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/gpu-operatorgroup.yml.j2') }}"
+    wait: yes
+    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
+
+- name: "Create gpu subscription"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/gpu-subscription.yml.j2') }}"
+    wait: yes
+    wait_timeout: 300
+    wait_condition:
+      type: 'CatalogSourcesUnhealthy'
+      status: "False"
+
+- name: "Wait until ClusterPolicy CRD is available"
+  community.kubernetes.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "clusterpolicies.nvidia.com"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: gpu_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - gpu_crd_info.resources is defined
+    - gpu_crd_info.resources | length > 0
+
+
+# 4. Create GPU Cluster Policy
+# -----------------------------------------------------------------------------
+- name: "Create Cluster Policy instance"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/clusterpolicy.yml.j2') }}"
+  
+
+# 5. Wait for Cluster Policy to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Cluster Policy instance to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: nvidia.com/v1
+    name: "gpu-cluster-policy"
+    kind: ClusterPolicy
+  register: gpu_cr_result
+  until:
+    - gpu_cr_result.resources is defined and gpu_cr_result.resources | length == 1
+    - gpu_cr_result.resources[0].status is defined
+    - gpu_cr_result.resources[0].status.state is defined
+    - gpu_cr_result.resources[0].status.state == 'ready'
+  retries: 20 # approx 20 minutes before we give up
+  delay: 60 # 1 minute
