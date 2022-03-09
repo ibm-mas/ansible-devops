@@ -132,14 +132,75 @@
   no_log: "{{ bas_grafana_password is defined }}"
 
 
-# 7. Create BAS Full Deployment
+# 7. Create BAS AnalyticsProxy
 # -----------------------------------------------------------------------------
 - name: "Create BAS AnalyticsProxy"
   community.kubernetes.k8s:
     definition: "{{ lookup('template', 'templates/analyticsproxy.yaml') }}"
 
 
-# 8. Wait for AnalyticsProxy to be complete
+# 8. BAS Install Reliability Hack
+# -----------------------------------------------------------------------------
+# BAS is VERY unreliable
+# Instead of waiting for the AnalyticsProxy status to report success as we
+# normally would, we need to do some hacky steps to try to handle known problems
+# with the BAS operator that the team are not fixing.
+#
+# If, after 20 minutes, the createcluster job still exists, then we will delete
+# it causing the BAS operator to try again.
+#
+# Note that when the job has successfully completed, the BAS operator deletes
+# the job entirely, so there is no visibility of this job on a good path install.
+# If the job merely exists at this stage then there is a problem with the
+# install, so we don't need to check the state of the job, only that it exists.
+#
+# The BAS operator will now recreate the job, and usually it works on the second
+# attempt.
+#
+# We now resume the normal deployment flow, and will monitor the AnalyticsProxy
+# until it's status.phase is set to "Ready"
+
+- name: "Check the initial status of the AnalyticsProxy"
+  community.kubernetes.k8s_info:
+    api_version: bas.ibm.com/v1
+    name: analyticsproxy
+    namespace: "{{ bas_namespace }}"
+    kind: AnalyticsProxy
+  register: bas_cr_lookup
+  until:
+    - bas_cr_lookup.resources is defined and bas_cr_lookup.resources | length == 1
+    - bas_cr_lookup.resources[0].status is defined
+    - bas_cr_lookup.resources[0].status.phase is defined
+  retries: 15 # approx 15 minutes before we give up waiting for status.phase to be initialized
+  delay: 60 # 1 minute
+
+- name: "Pause for 20 minutes to wait for the createcluster job to complete"
+  when: bas_cr_lookup.resources[0].status.phase != 'Ready'
+  pause:
+    minutes: 20
+
+- name: "Look up the status of the createcluster Job"
+  when: bas_cr_lookup.resources[0].status.phase != 'Ready'
+  community.kubernetes.k8s_info:
+    api_version: batch/v1
+    name: createcluster
+    namespace: "{{ bas_namespace }}"
+    kind: Job
+  register: bas_createcluster_job_lookup
+
+- name: "Delete the createcluster job if it's still present"
+  when:
+    - bas_cr_lookup.resources[0].status.phase != 'Ready'
+    - bas_createcluster_job_lookup.resources | length == 1
+  community.kubernetes.k8s:
+    api_version: batch/v1
+    name: createcluster
+    namespace: "{{ bas_namespace }}"
+    kind: Job
+    state: absent
+
+
+# 9. Wait for AnalyticsProxy to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for AnalyticsProxy to be ready (60s delay)"
   community.kubernetes.k8s_info:
@@ -147,12 +208,12 @@
     name: analyticsproxy
     namespace: "{{ bas_namespace }}"
     kind: AnalyticsProxy
-  register: bas_cr_result
+  register: bas_cr_lookup
   until:
-    - bas_cr_result.resources is defined and bas_cr_result.resources | length == 1
-    - bas_cr_result.resources[0].status is defined
-    - bas_cr_result.resources[0].status.phase is defined
-    - bas_cr_result.resources[0].status.phase == 'Ready'
+    - bas_cr_lookup.resources is defined and bas_cr_lookup.resources | length == 1
+    - bas_cr_lookup.resources[0].status is defined
+    - bas_cr_lookup.resources[0].status.phase is defined
+    - bas_cr_lookup.resources[0].status.phase == 'Ready'
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
 
@@ -161,7 +222,7 @@
     definition: "{{ lookup('template', 'templates/generateKey.yaml') }}"
 
 
-# 9. Wait for GenerateKey to be complete
+# 10. Wait for GenerateKey to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for GenerateKey to be ready (60s delay)"
   community.kubernetes.k8s_info:
@@ -179,7 +240,7 @@
   delay: 60 # 1 minute
 
 
-# 10. MAS Config
+# 11. MAS Config
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/bascfg.yml
   when:
@@ -188,7 +249,7 @@
     - mas_config_dir is defined
     - mas_config_dir != ""
 
-# 11. BAS deployment details
+# 12. BAS deployment details
 # -----------------------------------------------------------------------------
 - name: "BAS Deployment details"
   debug:
