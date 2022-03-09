@@ -3,12 +3,12 @@
 # 1. Check for missing properties that do not have defaults
 # -----------------------------------------------------------------------------
 - name: "Fail if sls_entitlement_username has not been provided"
-  when: sls_entitlement_username is not defined or sls_entitlement_username == ""
+  when: sls_entitlement_username is not defined or sls_entitlement_username|length == 0
   fail:
     msg: "sls_entitlement_username property has not been set"
 
 - name: "Fail if sls_entitlement_key has not been provided"
-  when: sls_entitlement_key is not defined or sls_entitlement_key == ""
+  when: sls_entitlement_key is not defined or sls_entitlement_key|length == 0
   fail:
     msg: "sls_entitlement_key property has not been set"
 
@@ -36,6 +36,7 @@
       - "SLS ICR cp content ............ {{ sls_icr_cp }}"
       - "SLS ICR cpopen content ........ {{ sls_icr_cpopen }}"
       - "SLS Storage class ............. {{ sls_storage_class }}"
+      - "SLS Instance Name ............. {{ sls_instance_name }}"
 
 - name: "Create SLS Namespace"
   community.kubernetes.k8s:
@@ -161,12 +162,23 @@
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/sls-verify.yml"
 
+# Adding some delay to get SLS LicenseService ready 
+- name: Pause for 5 minutes 
+  pause: 
+    minutes: 5
 
 # 9. Generate SLSCfg for MAS
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/slscfg.yml
   when:
     - mas_instance_id is defined
-    - mas_instance_id != ""
+    - mas_instance_id|length > 0
     - mas_config_dir is defined
-    - mas_config_dir != ""
+    - mas_config_dir|length > 0
+
+# 10. Create Cloud CredentialsRequest in SLS namespace
+
+- name: Create CredentialsRequest in SLS namespace
+  community.kubernetes.k8s:
+    state: present
+    template: templates/credential-request.yml.j2

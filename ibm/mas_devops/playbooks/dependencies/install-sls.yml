@@ -35,15 +35,16 @@
     sls_compliance_enforce: "{{ lookup('env', 'SLS_COMPLIANCE_ENFORCE') | default('True', true) | bool }}"
     sls_registration_open: "{{ lookup('env', 'SLS_REGISTRATION_OPEN') | default('True', true) | bool }}"
 
-    # You can either re-use a MAS MongoCfg resource template (see mongodb role) or provide mongo
-    # configuration directly. Note: mongo-mongoce.yml is the output of install_mongodb-ce.yml playbook
-    # generated in mas_config_dir at the end of the process
-    mongodb_cfg_file: "{{mas_config_dir}}/mongo-mongoce.yml"
+    # Destination for the generated MAS SlsCfg resource template
+    sls_cfg_file: "{{ mas_config_dir }}/sls.yml"
+
+    # configuration file for 
+    mongodb_cfg_file: "{{mas_config_dir}}/mongo-{{ lookup('env', 'MONGODB_NAMESPACE') }}.yml"
 
     # Bootstrap is used to initialize SLS, provide if you have an existing lic file and licenseId
     bootstrap:
-      license_id: "{{ lookup('env', 'SLS_LICENSE_ID') }}"
-      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') }}"
+      license_id: "{{ lookup('env', 'SLS_LICENSE_ID') | default('', true) }}"
+      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
       entitlement_file: "{{mas_config_dir}}/entitlement.lic"
   roles:
     - ibm.mas_devops.sls_install
