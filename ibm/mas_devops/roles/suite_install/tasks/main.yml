@@ -3,7 +3,7 @@
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
-  when: mas_instance_id is not defined or mas_instance_id == ""
+  when: mas_instance_id is not defined or mas_instance_id|length == 0
   fail:
     msg: "mas_instance_id property is required"
 
@@ -40,7 +40,20 @@
       - "MAS ICR cpopen content ....... {{ mas_icr_cpopen }}"
       - "MAS Custom Cluster Issue ..... {{ custom_cluster_issuer }}"
 
-# 4. Install the operator
+
+# 4. Install development (pre-release) catalogs for airgap installation
+# This has to be done after the airgap setup disables network access to the
+# publicly available catalogs.
+# -----------------------------------------------------------------------------
+- name: "Install airgap catalogs"
+  when:
+    - mas_catalog_source != "ibm-operator-catalog"
+    - airgap_install is defined
+    - airgap_install == true
+  include_tasks: "tasks/airgap-catalogs.yml"
+
+
+# 5. Install the operator
 # -----------------------------------------------------------------------------
 - name: "Install MAS Operator"
   include_role:
@@ -52,7 +65,7 @@
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
 
-# 5. Wait until the Suite CRD is available
+# 6. Wait until the Suite CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Suite CRD is available"
   community.kubernetes.k8s_info:
@@ -73,7 +86,7 @@
     - suite_crd_info.resources | length > 0
 
 
-# 6. Create the ibm-entitlement secret for entitled content
+# 7. Create the ibm-entitlement secret for entitled content
 # -----------------------------------------------------------------------------
 - name: "init : Create ibm-entitlement secret in MAS Namespace"
   vars:
@@ -103,7 +116,7 @@
     cr_definition: "{{ (custom_cluster_issuer != '') | ternary (suite_cr + certificate_block, suite_cr) }}"
 
 
-# 7. Suite installation
+# 8. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
   community.kubernetes.k8s:

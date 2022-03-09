@@ -3,12 +3,17 @@
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
-  when: mas_instance_id is not defined or mas_instance_id == ""
+  when: mas_instance_id is not defined or mas_instance_id|length == 0
   fail:
     msg: "mas_instance_id property is required"
 
+- name: "Fail if mas_workspace_id is not provided"
+  when: mas_workspace_id is not defined or mas_workspace_id|length == 0
+  fail:
+    msg: "mas_workspace_id property is required"
+
 - name: "Fail if mas_config_dir is not provided"
-  when: mas_config_dir is not defined or mas_config_dir == ""
+  when: mas_config_dir is not defined or mas_config_dir|length == 0
   fail:
     msg: "mas_config_dir property is required"
 
@@ -23,6 +28,7 @@
   debug:
     msg:
       - "Instance ID ............... {{ mas_instance_id }}"
+      - "Workspace ID ............... {{ mas_workspace_id }}"
       - "MAS namespace ............. {{ mas_namespace }}"
       - "MAS config directory ...... {{ mas_config_dir }}"
 
@@ -48,3 +54,13 @@
     state: present
     definition: "{{ lookup('template', item.path) }}"
   with_items: "{{ mas_config_files.files }}"
+
+- name: "Configure MAS workspace"
+  vars:
+    instance_id: "{{ mas_instance_id }}"
+    workspace_id: "{{ mas_workspace_id }}"
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ mas_namespace }}"
+    definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
+
