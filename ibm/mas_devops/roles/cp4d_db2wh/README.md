@@ -142,6 +142,12 @@ Define the Kubernetes memory limit for the Db2 pod.  Only supported with CloudPa
 - Environment Variable: `DB2WH_MEMORY_LIMITS`
 - Default: `12Gi`
 
+### cpd_entitlement_key
+Required.  This is the entitlement key used to install the norootsquash Daemonset in the `kube-system` namespace. Holds your IBM Entitlement key.
+
+- Environment Variable: `CPD_ENTITLEMENT_KEY`
+- Default: None
+
 ### cpd_api_username
 Required for CP4D v3.5 only.  These credentials are used to call the REST API to create the database because CP4D v3.5 Kubernetes API is broken.  Yes, the default admin account for CP4D v3.5 really is set up as admin/password.
 
@@ -209,10 +215,7 @@ The number of logical nodes (i.e. database partitions to create).
 - Default: 1
 
 ### db2wh_num_pods
-The number of db2 pods to create in the instance. Note that db2wh_num_pods must be less than or equal to db2wh_mln_count.
-A single db2u pod can contain multiple logical nodes. So be sure to avoid specifying a large number for db2wh_mln_count while 
-specifying a small number for db2wh_num_pods. If in doubt, make db2wh_mln_count = db2wh_num_pods. A slightly out of date reference
-but still decent: https://www.ibm.com/docs/en/db2-warehouse?topic=SSCJDQ/com.ibm.swg.im.dashdb.ucontainer.doc/doc/db2w-mempernode-new.html
+The number of Db2 pods to create in the instance. Note that `db2wh_num_pods` must be less than or equal to `db2wh_mln_count`.  A single db2u pod can contain multiple logical nodes. So be sure to avoid specifying a large number for `db2wh_mln_count` while specifying a small number for `db2wh_num_pods`. If in doubt, make `db2wh_mln_count = db2wh_num_pods`. For more information refer to the [Db2 documentation](https://www.ibm.com/docs/en/db2-warehouse?topic=SSCJDQ/com.ibm.swg.im.dashdb.ucontainer.doc/doc/db2w-mempernode-new.html).
 
 - Environment Variable: `'DB2WH_NUM_PODS`
 - Default: 1
