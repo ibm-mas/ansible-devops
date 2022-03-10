@@ -7,10 +7,34 @@
   fail:
     msg: "mas_instance_id property is required"
 
+- name: "Fail if mas_workspace_id is not provided"
+  when: mas_workspace_id is not defined or mas_workspace_id == ""
+  fail:
+    msg: "mas_workspace_id property is required"
+
 - name: "Fail if mas_config_dir is not provided"
   when: mas_config_dir is not defined or mas_config_dir == ""
   fail:
     msg: "mas_config_dir property is required"
+
+# Wait for Mongocfg CRD 
+- name: "Wait until the Mongocfg CRD is available"
+  community.kubernetes.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "mongocfgs.config.mas.ibm.com"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: mongocfg_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - mongocfg_crd_info.resources is defined
+    - mongocfg_crd_info.resources | length > 0
 
 
 # 2. Provide debug information
@@ -23,6 +47,7 @@
   debug:
     msg:
       - "Instance ID ............... {{ mas_instance_id }}"
+      - "Workspace ID ............... {{ mas_workspace_id }}"
       - "MAS namespace ............. {{ mas_namespace }}"
       - "MAS config directory ...... {{ mas_config_dir }}"
 
@@ -48,3 +73,13 @@
     state: present
     definition: "{{ lookup('template', item.path) }}"
   with_items: "{{ mas_config_files.files }}"
+
+- name: "Configure MAS workspace"
+  vars:
+    instance_id: "{{ mas_instance_id }}"
+    workspace_id: "{{ mas_workspace_id }}"
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ mas_namespace }}"
+    definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
+
