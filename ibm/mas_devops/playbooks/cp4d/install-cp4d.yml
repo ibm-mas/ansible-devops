@@ -1,5 +1,39 @@
 ---
 - hosts: localhost
   any_errors_fatal: true
+  vars:
+    cpd_registry: cp.icr.io
+    cpd_registry_user: cp
+    cpd_registry_password: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') }}"
+    # cpd_version: "{{ lookup('env', 'CPD_VERSION') }}"
+    # mas_channel: "{{ lookup('env', 'MAS_CHANNEL') }}"
+    ## TODO : fix namespace
+
+    cpd_meta_namespace: "{{ lookup('env', 'CPD_NAMESPACE') | default('ibm-common-services', true) }}"
+    cpd_services_namespace: "{{ lookup('env', 'CPD_SERVICES_NAMESPACE') | default('cpd-services', true) }}"
+    db2wh_namespace: "{{ lookup('env', 'CPD_SERVICES_NAMESPACE') | default('cpd-services', true) }}"
+
+    # CP4D service configuration
+    ## TODO: fix storage classes
+    cpd_block_storage_class: "{{ lookup('env', 'CPD_BLOCK_STORAGE_CLASS') }}"
+    cpd_storage_class: "{{ lookup('env', 'CPD_STORAGE_CLASS') }}"
+    cpd_services:
+      - db2wh
+      - dmc
+
+    # Configuration for the Db2 cluster
+    db2wh_version: 11.5.7.0-cn1
+    db2wh_username: db2inst1
+    db2wh_jdbc_username: db2inst1
+    db2wh_instance_id: db2wh-db01
+    db2wh_instance_name: db2wh-db01
+    db2wh_dbname: BLUDB
+
+    # Create the MAS JdbcCfg & Secret resource definitions
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
   roles:
     - ibm.mas_devops.cp4d_install
+    - ibm.mas_devops.cp4d_install_services
+    - ibm.mas_devops.cp4d_db2wh
+    
