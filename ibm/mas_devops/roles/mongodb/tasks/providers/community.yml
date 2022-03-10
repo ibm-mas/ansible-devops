@@ -60,10 +60,70 @@
     definition: "{{ lookup('template', 'templates/community/manager.yml') }}"
 
 
-# 5. Configure TLS
+# 5. Configure TLS using cert manager
 # -----------------------------------------------------------------------------
-# TODO: We should be able to do this with cert-manager natively inside Kubernetes
 
+#This task will create ClusterIssuer and wait till it gets ready 
+- name : "Create a cluster issuer "
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/cluster-issuer.yml') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Ready
+
+#Task to create a CA-Cert in namespace which can be used as root CA for other certificates in same NS 
+- name : "Create a ca certificate in {{ mongodb_namespace }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/ca-cert.yml') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Ready
+
+#Taks to create issuer in namespace which will be used to create other application related certificates 
+- name : "Create a issuer  in {{ mongodb_namespace }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/issuer.yml') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Ready
+
+#Server certificate
+- name : "Create a server certificate in {{ mongodb_namespace }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/server-cert.yml') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Ready
+
+#Client certificate
+- name : "Create a client certificate  in {{ mongodb_namespace }}"
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/client-cert.yml') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Ready
+
+#Taking ca.crt value in a variable 
+#Mongo needs a configmap having ca.crt value
+- name: "mongodb/community : Lookup the ca.crt"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mongo-server-cert
+    namespace: "{{mongodb_namespace}}"
+  register: mongodb_ca_lookup
+
+#Check if configmap exists 
 - name: "mongodb/community : Check for existing CA configmap"
   community.kubernetes.k8s_info:
     api_version: v1
