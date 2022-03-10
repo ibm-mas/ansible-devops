@@ -55,30 +55,6 @@
       - "OCP Install Version ................ {{ ocp_install_version }}"
       - "OCP Install Release ................ {{ ocp_install_release }}"
 
-#Getting cluster version details 
-- name: "Get ocp cluster version details "
-  k8s_info:
-    kind: ClusterVersion
-    name: version
-  register: cluster_details
-#Print cluster id 
-- name: Print cluster id 
-  debug:
-    msg: "clusterID : {{ cluster_details.resources[0].spec.clusterID }}"
-
-#Task to update ClusterVersionDefinition of OCP cluster
-
-#Removed desiredUpdate, updatechannel   
-- name : Set Cluster Version Definition
-  vars:
-    cluster_id: "{{ cluster_details.resources[0].spec.clusterID }}"
-  community.kubernetes.k8s:
-    apply: yes
-    force: yes
-    state: present
-    definition: "{{ lookup('template', 'templates/cluster-version.yml') }}"
-
-# -----------------------------------------------------------------------------
 # 1. Install IBM catalogs
 # -----------------------------------------------------------------------------
 - name: "Create IBM catalogs"
@@ -90,10 +66,10 @@
 - name: "Install development (pre-release) catalogs"
   when:
     - artifactory_username is defined
-    - artifactory_username|length > 0
+    - artifactory_username != ""
     - artifactory_apikey is defined
-    - artifactory_apikey|length > 0
-    - airgap_install is not defined or not airgap_install
+    - artifactory_apikey != ""
+    - not airgap_install
   include_tasks: "tasks/development-catalogs.yml"
 
 # 3. Install cert-manager
