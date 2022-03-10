@@ -1,12 +1,11 @@
 ---
-
 # 0. Fetch verstion information for NFD subscribtion
 # -----------------------------------------------------------------------------
-- name: "Fetch NFD version information from Openshift"
+- name: "Get NFD channel CSV information from Openshift"
   shell: oc get packagemanifests/nfd -n openshift-marketplace -ojson | jq -r '.status.channels[] | select(.name == "'{{nfd_channel}}'") | .currentCSV'
   register: csv_result
 
-- name: "Set value for nfd channel CSV"
+- name: "Set variable for nfd channel CSV"
   set_fact:
     nfd_csv: "{{csv_result.stdout}}"
 
@@ -75,13 +74,34 @@
     definition: "{{ lookup('template', 'templates/nfd-instance.yml.j2') }}"
 
 
-# 5. Check if NFD instance to be created and pods are running
+# 5. Make sure NFD daemonsets have been created and all pods are ready
 # -----------------------------------------------------------------------------
-- name: "Verify that NFD instance is created and all pods are running"
-  shell: oc get pods -n {{nfd_namespace}} -o json
-  register: nfd_pods
+- name: "Wait for 'nfd-master' DaemonSet pods to be ready"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: nfd-master
+    namespace: "{{nfd_namespace}}"
+    kind: DaemonSet
+  register: nfd_master_daemonset
   until:
-    - nfd_pods.stdout is defined and nfd_pods.stdout | length > 0
-    - nfd_pods.stdout | from_json | json_query('items[*].status.phase')|unique == ["Running"]
-  retries: 20 # approx 20 minutes before we give up
+    - nfd_master_daemonset.resources is defined
+    - nfd_master_daemonset.resources | length > 0
+    - nfd_master_daemonset.resources[0].status.numberReady > 0
+    - nfd_master_daemonset.resources[0].status.numberReady == nfd_master_daemonset.resources[0].status.desiredNumberScheduled
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Wait for 'nfd-worker' DaemonSet pods to be ready"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: nfd-worker
+    namespace: "{{nfd_namespace}}"
+    kind: DaemonSet
+  register: nfd_worker_daemonset
+  until:
+    - nfd_worker_daemonset.resources is defined
+    - nfd_worker_daemonset.resources | length > 0
+    - nfd_worker_daemonset.resources[0].status.numberReady > 0
+    - nfd_worker_daemonset.resources[0].status.numberReady == nfd_worker_daemonset.resources[0].status.desiredNumberScheduled
+  retries: 30 # approx 30 minutes before we give up
   delay: 60 # 1 minute
