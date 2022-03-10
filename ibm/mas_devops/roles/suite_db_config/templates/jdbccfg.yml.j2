@@ -1,0 +1,30 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: "jdbc-{{ db_instance_id | lower }}-credentials"
+  namespace: "mas-{{mas_instance_id}}-core"
+stringData:
+  username: "{{db_username}}"
+  password: "{{jdbc_instance_password}}"
+---
+apiVersion: config.mas.ibm.com/v1
+kind: JdbcCfg
+metadata:
+  name: "{{mas_instance_id}}-jdbc-system"
+  namespace: "mas-{{mas_instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{mas_instance_id}}"
+spec:
+  displayName: "{{ db_instance_id | lower }}"
+  config:
+    url: "{{ jdbc_url }}"
+    sslEnabled: true
+    credentials:
+      secretName: "jdbc-{{ db_instance_id | lower }}-credentials"
+  certificates:
+    - alias: "{{ db_instance_id | lower }}"
+      crt: |
+        {{ db_pem | indent(8) }}

@@ -1,0 +1,75 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id|length == 0
+  fail:
+    msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_workspace_id is not provided"
+  when: mas_workspace_id is not defined or mas_workspace_id|length == 0
+  fail:
+    msg: "mas_workspace_id property is required"
+
+- name: "Fail if db_username is not provided"
+  when: db_username is not defined or db_username|length == 0
+  fail:
+    msg: "db_username property is required"
+
+- name: "Fail if jdbc_instance_password is not provided"
+  when: jdbc_instance_password is not defined or jdbc_instance_password|length == 0
+  fail:
+    msg: "jdbc_instance_password property is required"
+
+- name: "Fail if jdbc_url is not provided"
+  when: jdbc_url is not defined or jdbc_url|length == 0
+  fail:
+    msg: "jdbc_url property is required"
+
+- name: "Fail if db_pem_file is not provided"
+  when: db_pem_file is not defined or db_pem_file|length == 0
+  fail:
+    msg: "db_pem_file property is required"
+
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_namespace: "mas-{{ mas_instance_id }}-core"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "MAS Instance ID ............... {{ mas_instance_id }}"
+      - "MAS Workspace ID ............... {{ mas_workspace_id }}"
+      - "Database Instance ID .......... {{ db_instance_id }}"
+      - "Database Username ............. {{ db_username }}"
+      - "JDBC URL ...................... {{ jdbc_url }}"
+      - "Certificate file............... {{ db_pem_file }}"
+
+# 3. Read file information
+# -----------------------------------------------------------------------------
+- name: Read DB Certificate file
+  set_fact:
+    db_pem: "{{ lookup('file', db_pem_file) }}"
+  when: db_pem_file is defined
+
+# 4. Apply database MAS configuration
+# -----------------------------------------------------------------------------
+
+- name: "Configure MAS DB credentials"
+  # vars:
+    # mas_instance_id: "{{ mas_instance_id }}"
+    # db_instance_id: "{{ db_instance_id }}"
+    # db_instance_id: "db2"
+    # db_username: "{{ db_username }}"
+    # jdbc_instance_password: "{{ jdbc_instance_password }}"
+    # jdbc_url: "{{ jdbc_url }}"
+    # db_pem: "{{ db_pem }}"
+    # db_pem: "{{ lookup('file', db_pem_file) }}"
+  community.kubernetes.k8s:
+    state: present
+    namespace: "{{ mas_namespace }}"
+    definition: "{{ lookup('template', 'templates/jdbccfg-workspace-application.yml.j2') }}"
