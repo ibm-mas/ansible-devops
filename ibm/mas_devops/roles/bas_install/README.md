@@ -7,67 +7,67 @@ Role Variables
 --------------
 
 ### bas_namespace
-Optional - Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be 'ibm-bas'.
+Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be 'ibm-bas'.
 
 - Environment Variable: `BAS_NAMESPACE`
 - Default Value: `ibm-mas`
 
 ### bas_persistent_storage_class
-Required - Storage class where BAS will be installed - for IBM Cloud clusters, `ibmc-file-bronze-gid` can be used.
+Required.  Storage class where BAS will be installed.  On IBM Cloud RedHat Openshift Kubernetes Service (ROKS) `ibmc-file-bronze-gid` is the recommended value.
 
 - Environment Variable: `BAS_PERSISTENT_STORAGE_CLASS`
 - Default Value: None
 
 ### bas_meta_storage_class
-Required - Storage class where BAS internal components such as Kafka service will be installed - for IBM Cloud clusters, `ibmc-block-bronze` can be used.
+Required.  Storage class where BAS internal components such as Kafka service will be installed.  On IBM Cloud RedHat Openshift Kubernetes Service (ROKS)  `ibmc-block-bronze` is the recommended value.
 
 - Environment Variable: `BAS_META_STORAGE_CLASS`
 - Default Value: None
 
 ### bas_event_scheduler_frequency
-Optional - Defines the frequency that BAS will collect event data. The value can be set following a [cron tab](https://crontab.guru/) format.
+Defines the frequency that BAS will collect event data. The value can be set following a [cron tab](https://crontab.guru/) format.
 
 - Environment Variable: `BAS_EVENT_SCHEDULER_FREQUENCY`
 - Default Value: `0 12 * * *` (every day at 12PM)
 
 ### bas_username
-Optional - BAS default username.
+BAS username, when not provided a username will be automatically generated.
 
 - Environment Variable: `BAS_USERNAME`
 - Default Value: `basuser`
 
 ### bas_password
-Optional - BAS default password.
+BAS password, when not provided a password will be automatically generated.
 
 - Environment Variable: `BAS_PASSWORD`
 - Default Value: random 15 character string
 
 ### bas_grafana_username
-Optional - BAS default username for Grafana service.
+BAS default username for Grafana service, when not provided a username will be automatically generated.
 
 - Environment Variable: `BAS_GRAFANA_USERNAME`
 - Default Value: `basuser`
 
 ### bas_grafana_password
-Optional - BAS default password for Grafana service.
+BAS default password for Grafana service, when not provided a password will be automatically generated.
 
 - Environment Variable: `BAS_GRAFANA_PASSWORD`
 - Default Value: random 15 character string
 
 ### bas_contact.email
-Required - BAS default user's email
+Required.  BAS contact e-mail address.
 
 - Environment Variable: `BAS_CONTACT_MAIL`
 - Default Value: None
 
 ### bas_contact.firstName
-Required - BAS default user's first name
+Required.  BAS contact first name
 
 - Environment Variable: `BAS_CONTACT_FIRSTNAME`
 - Default Value: None
 
 ### bas_contact.lastName
-Required - BAS default user's last name
+Required.  BAS contact last name
 
 - Environment Variable: `BAS_CONTACT_LASTNAME`
 - Default Value: None
