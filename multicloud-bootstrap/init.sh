@@ -293,3 +293,4 @@ if [[ $CLOUD_TYPE == "aws" ]]; then
   aws s3 cp $GIT_REPO_HOME/mas-provisioning.log $OCP_TERRAFORM_CONFIG_UPLOAD_S3_PATH
 fi
 exit $RESP_CODE
+
