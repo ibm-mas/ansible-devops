@@ -16,7 +16,7 @@ Role Variables
 - `mas_app_id` Defines the kind of application that is intended for installation such as `assist`, `health`, `iot`, `manage`, `monitor`, `mso`, `predict`, or `safety`
 
 ### mas_app_spec
-Optional.  The application deployment spec used to configure various aspects of the application deployment configuration. 
+Optional.  The application deployment spec used to configure different aspects of the application deployment configuration. 
 
 - Environment Variable: None
 - Default: defaults are specified in vars/defaultspecs/{{mas_app_id}}.yml
