@@ -1,0 +1,34 @@
+# Shared BAS system running on the masdeps1 cluster in IBM Cloud (MAS Development account)
+# You may connect any development system to this configuration
+---
+apiVersion: v1
+kind: Secret
+type: opaque
+metadata:
+  name: bas-apikey
+  namespace: "mas-{{mas_instance_id}}-core"
+stringData:
+  api_key: "{{bas_api_key}}"
+---
+apiVersion: config.mas.ibm.com/v1
+kind: BasCfg
+metadata:
+  name: "{{mas_instance_id}}-bas-system"
+  namespace: "mas-{{mas_instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{mas_instance_id}}"
+spec:
+  displayName: bas.{{mas_instance_id}}
+  config:
+    url: "{{bas_endpoint_url}}"
+    contact:
+      email: "{{ contact.email}}"
+      firstName: "{{ contact.firstName}}"
+      lastName: "{{ contact.lastName}}"
+    credentials:
+      secretName: bas-apikey
+  certificates: 
+    - alias: ca
+      crt: |
+        {{bas_tls_crt | indent(8) }}
