@@ -14,7 +14,7 @@ COPY ibmcloud-oc.sh ${HOME}/ibmcloud-oc.sh
 USER root
 
 # Install Python modules
-RUN python3 -m pip install junit_xml pymongo xmljson
+RUN python3 -m pip install junit_xml pymongo xmljson kubernetes==12.0.1
 
 # Install Ansible Collections
 COPY ibm-mas_devops.tar.gz ${HOME}/ibm-mas_devops.tar.gz

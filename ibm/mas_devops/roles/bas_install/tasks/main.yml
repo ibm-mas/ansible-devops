@@ -56,7 +56,7 @@
 # 3. Create BAS project
 # -----------------------------------------------------------------------------
 - name: "Create namespace"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     api_version: v1
     kind: Namespace
     name: '{{ bas_namespace }}'
@@ -65,13 +65,13 @@
 # 4. Deploy BAS subscription and Operator Group
 # -----------------------------------------------------------------------------
 - name: "Create operator group"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/operator-group.yaml') }}"
     wait: yes
     wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
 
 - name: "Create subscription"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/subscription.yaml') }}"
     wait: yes
     wait_timeout: 300
@@ -80,7 +80,7 @@
       status: "False"
 
 - name: "Wait until the analyticsproxies CRD is available"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apiextensions.k8s.io/v1
     name: "analyticsproxies.bas.ibm.com"
     kind: CustomResourceDefinition
@@ -101,7 +101,7 @@
 # 5. Create BAS User Secret
 # -----------------------------------------------------------------------------
 - name: Create BAS User Secret
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
@@ -118,7 +118,7 @@
 # 6. Create Grafana User Secret
 # -----------------------------------------------------------------------------
 - name: Create Grafana User Secret
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
@@ -135,97 +135,33 @@
 # 7. Create BAS AnalyticsProxy
 # -----------------------------------------------------------------------------
 - name: "Create BAS AnalyticsProxy"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/analyticsproxy.yaml') }}"
 
 
 # 8. BAS Install Reliability Hack
 # -----------------------------------------------------------------------------
-# BAS is VERY unreliable
-# Instead of waiting for the AnalyticsProxy status to report success as we
-# normally would, we need to do some hacky steps to try to handle known problems
-# with the BAS operator that the team are not fixing.
+# BAS is VERY unreliable, so we include this task, which add lots of extra
+# handholding for BAS to try to mitigate just how unreliable it's installation
+# is.
 #
-# If, after 20 minutes, the createcluster job still exists, then we will delete
-# it causing the BAS operator to try again.
-#
-# Note that when the job has successfully completed, the BAS operator deletes
-# the job entirely, so there is no visibility of this job on a good path install.
-# If the job merely exists at this stage then there is a problem with the
-# install, so we don't need to check the state of the job, only that it exists.
-#
-# The BAS operator will now recreate the job, and usually it works on the second
-# attempt.
-#
+# Basically, this task will give BAS 5 attempts to install, each attempt will
+# be given 25 minutes, after which we will delete the createcluster job pod
+# if it exists, as this is usually the cause of the failure to install.
+- include_tasks: tasks/recover.yml
+
+
 # We now resume the normal deployment flow, and will monitor the AnalyticsProxy
 # until it's status.phase is set to "Ready"
-
-- name: "Check the initial status of the AnalyticsProxy"
-  community.kubernetes.k8s_info:
-    api_version: bas.ibm.com/v1
-    name: analyticsproxy
-    namespace: "{{ bas_namespace }}"
-    kind: AnalyticsProxy
-  register: bas_cr_lookup
-  until:
-    - bas_cr_lookup.resources is defined and bas_cr_lookup.resources | length == 1
-    - bas_cr_lookup.resources[0].status is defined
-    - bas_cr_lookup.resources[0].status.phase is defined
-  retries: 15 # approx 15 minutes before we give up waiting for status.phase to be initialized
-  delay: 60 # 1 minute
-
-- name: "Pause for 20 minutes to wait for the createcluster job to complete"
-  when: bas_cr_lookup.resources[0].status.phase != 'Ready'
-  pause:
-    minutes: 20
-
-- name: "Look up the status of the createcluster Job"
-  when: bas_cr_lookup.resources[0].status.phase != 'Ready'
-  community.kubernetes.k8s_info:
-    api_version: batch/v1
-    name: createcluster
-    namespace: "{{ bas_namespace }}"
-    kind: Job
-  register: bas_createcluster_job_lookup
-
-- name: "Delete the createcluster job if it's still present"
-  when:
-    - bas_cr_lookup.resources[0].status.phase != 'Ready'
-    - bas_createcluster_job_lookup.resources | length == 1
-  community.kubernetes.k8s:
-    api_version: batch/v1
-    name: createcluster
-    namespace: "{{ bas_namespace }}"
-    kind: Job
-    state: absent
-
-
-# 9. Wait for AnalyticsProxy to be complete
-# -----------------------------------------------------------------------------
-- name: "Wait for AnalyticsProxy to be ready (60s delay)"
-  community.kubernetes.k8s_info:
-    api_version: bas.ibm.com/v1
-    name: analyticsproxy
-    namespace: "{{ bas_namespace }}"
-    kind: AnalyticsProxy
-  register: bas_cr_lookup
-  until:
-    - bas_cr_lookup.resources is defined and bas_cr_lookup.resources | length == 1
-    - bas_cr_lookup.resources[0].status is defined
-    - bas_cr_lookup.resources[0].status.phase is defined
-    - bas_cr_lookup.resources[0].status.phase == 'Ready'
-  retries: 45 # approx 45 minutes before we give up
-  delay: 60 # 1 minute
-
 - name: "Create BAS Generate Key"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/generateKey.yaml') }}"
 
 
 # 10. Wait for GenerateKey to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for GenerateKey to be ready (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: bas.ibm.com/v1
     name: bas-api-key
     namespace: "{{bas_namespace}}"

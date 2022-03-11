@@ -51,7 +51,7 @@ To make the tasks easier to read use section headers as below:
 # 1. Install the CRD
 # -----------------------------------------------------------------------------
 - name: "Install MongoDBCommunity CRD"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/crd.yml') }}"
 
@@ -59,7 +59,7 @@ To make the tasks easier to read use section headers as below:
 # 2. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
 - name: "Create namespace & install RBAC"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/rbac.yml') }}"
 ```
@@ -88,7 +88,7 @@ All tasks must be named.  For tasks that are not in main.yaml of the role, they 
 # 7. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "community : Create MongoDb cluster"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/cr.yml') }}"
 ```

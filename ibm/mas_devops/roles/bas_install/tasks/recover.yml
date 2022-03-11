@@ -1,0 +1,63 @@
+---
+# BAS is VERY unreliable
+# Instead of waiting for the AnalyticsProxy status to report success as we
+# normally would, we need to do some hacky steps to try to handle known problems
+# with the BAS operator that the team are not fixing.
+#
+# If, after 20 minutes, the createcluster job still exists, then we will delete
+# it causing the BAS operator to try again.
+#
+# Note that when the job has successfully completed, the BAS operator deletes
+# the job entirely, so there is no visibility of this job on a good path install.
+# If the job merely exists at this stage then there is a problem with the
+# install, so we don't need to check the state of the job, only that it exists.
+#
+# The BAS operator will now recreate the job, and usually it works on the second
+# attempt.
+#
+# We now resume the normal deployment flow, and will monitor the AnalyticsProxy
+# until it's status.phase is set to "Ready"
+
+- block:
+    - name: "Initialize recover_count variable if not set"
+      when: recover_count is not defined or recover_count == 0
+      set_fact:
+        recover_count: 0
+
+    - name: "Check the status of the AnalyticsProxy"
+      kubernetes.core.k8s_info:
+        api_version: bas.ibm.com/v1
+        name: analyticsproxy
+        namespace: "{{ bas_namespace }}"
+        kind: AnalyticsProxy
+      register: bas_cr_lookup
+      until:
+        - bas_cr_lookup.resources is defined and bas_cr_lookup.resources | length == 1
+        - bas_cr_lookup.resources[0].status is defined
+        - bas_cr_lookup.resources[0].status.phase is defined
+        - bas_cr_lookup.resources[0].status.phase == 'Ready'
+      retries: 15 # approx 30 minutes before we give up waiting for status.phase to be Ready
+      delay: 120 # 2 minutes
+  rescue:
+    # It doesn't matter if there are no pods to delete, so there's no need to check for their existence.
+    - name: "Delete the createcluster pods"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ bas_namespace }}"
+        label_selectors:
+          - "job-name = createcluster"
+        state: absent
+
+    # Recursion with a limit of 5 retries (so this could run for up to 2 1/2 hours if we need all 5 retries)
+    - name: "Retry waiting for the install to complete ({{ recover_count }})"
+      when: recover_count <= 5
+      include_tasks: tasks/recover.yml
+      vars:
+        recover_count: "{{ recover_count + 1}}"
+
+    # Time to give up :(
+    - name: "Fail BAS install"
+      when: recover_count > 5
+      fail:
+        msg: "Uable to get BAS to install successfully after multiple attempts"
