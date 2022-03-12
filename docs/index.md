@@ -12,7 +12,7 @@ The following python modules are required in order to use this collection.
 
 #### Useful commands
 - Confirm availability and version: `python --version`
-- Installed Python modules: `python -m pip install ansible openshift==0.11.2`
+- Installed Python modules: `python -m pip install ansible kubernetes=12.0.1`
 - Confirm that ansible has been correctly installed: `ansible-playbook --version`
 
 
