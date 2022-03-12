@@ -15,10 +15,10 @@ Required.  Storage class where BAS will be installed.  On IBM Cloud RedHat Opens
 
 
 ### uds_event_scheduler_frequency
-Defines the frequency that BAS will collect event data. The value can be set following a [cron tab](https://crontab.guru/) format.
+Defines the frequency that BAS will collect event data. The value can be set following a [cron tab](https://crontab.guru/) format, however support in UDS is limited to the following subset of valid cron formats: `@annually`, `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`.
 
 - Environment Variable: `UDS_EVENT_SCHEDULER_FREQUENCY`
-- Default Value: `0 12 * * *` (every day at 12PM)
+- Default Value: `@daily`
 
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the BasCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a BasCfg template.
