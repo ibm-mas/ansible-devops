@@ -22,7 +22,11 @@ echo "Export all env vars defined in /workspace/settings"
 for file in /workspace/settings/*; do
   if [[ -f $file ]]; then
     echo "Exporting $file"
+    # Temporarily turn off glob, otherwise any wildcard characters (*) in the
+    # vars will be expanded to matching filenames.
+    set -f
     export $(basename $file)=$(cat $file)
+    set +f
   fi
 done
 
