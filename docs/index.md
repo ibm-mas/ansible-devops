@@ -12,7 +12,7 @@ The following python modules are required in order to use this collection.
 
 #### Useful commands
 - Confirm availability and version: `python --version`
-- Installed Python modules: `python -m pip install ansible kubernetes=12.0.1`
+- Installed Python modules: `python -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1`
 - Confirm that ansible has been correctly installed: `ansible-playbook --version`
 
 
@@ -23,17 +23,18 @@ If you are using this collection to manage an OpenShift cluster in IBM Cloud Red
 - Install: `curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/master/linux-installer/idt-installer | bash`
 - Confirm availability and version: `ibmcloud version`
 
-
 ### OpenShift CLI
-If you do not already have the `oc` command line tool, you can download the version corresponding to the OpenShift cluster you are using, from the Command Line Tools option under the help menu
+If you do not already have the `oc` command line tool, you can download it as below:
+
+```
+wget -q https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+tar -xvzf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+mv openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit/oc /usr/local/bin/
+rm -rf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+```
 
 #### Useful commands
 - Confirm availability and version: `oc version`
-
-!!! note
-    This is a rather annoying chicken and egg situation, you need to have a running OCP instance before you can access the command line client that we want to use to automate setting up that instance.
-
-    See [ibm-mas/ansible-devops#2](https://github.com/ibm-mas/ansible-devops/issues/2)
 
 
 ## Installation
