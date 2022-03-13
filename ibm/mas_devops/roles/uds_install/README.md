@@ -32,6 +32,12 @@ Local directory to save the generated BasCfg resource definition.  This can be u
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
+### mas_segment_key
+Override the biult-in segment key used by MAS when communicating with User Data Services.  This variable is only used for the generation of the BASCfg template, and in 99% of use cases you will not need to set this.
+
+- Environment Variable: `MAS_SEGMENT_KEY`
+- Default Value: None
+
 ### uds_contact.email
 Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the Contact e-mail address used by the MAS instance's UDS configuration.
 
