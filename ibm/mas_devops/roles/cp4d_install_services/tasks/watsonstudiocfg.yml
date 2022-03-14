@@ -1,0 +1,34 @@
+---
+# We need to retrieve CPD url and admin password's for wsl config in mas
+# CPD url is passed as var to this task, the admin password we'll retrieve below
+
+# 1. Provide CP4D credentials
+# -----------------------------------------------------------------------------
+- name: Retrieve CPD admin credentials
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: admin-user-details
+    namespace: "{{ cpd_services_namespace }}"
+    kind: Secret
+  register: _cpd_admin
+
+- name: Assert CPD admin credentials exists
+  assert:
+    that: 
+      - _cpd_admin.resources is defined
+      - _cpd_admin.resources | length > 0
+
+# 2. Write out the config to the local filesystem
+# -----------------------------------------------------------------------------
+- name: Copy WatsonStudioCfg to filesytem
+  no_log: true
+  vars:
+    cpd_admin_password: "{{ _cpd_admin.resources[0].data.initial_admin_password }}"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  ansible.builtin.template:
+    src: watsonstudiocfg.yml.j2
+    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-watsonstudio-system.yml"
