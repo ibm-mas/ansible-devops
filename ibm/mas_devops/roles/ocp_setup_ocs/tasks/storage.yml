@@ -3,7 +3,7 @@
 # 1. Setup namespaces for OCS
 # -----------------------------------------------------------------------------
 - name: "ocs/storage : Create Namespaces for OCS"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/storage/namespace.yaml') }}"
   register: localNamespace
@@ -12,13 +12,13 @@
 # 2. Install the Operator
 # -----------------------------------------------------------------------------
 - name: "ocs/storage : Create Openshift Container Storage Operator Group"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/storage/operatorgroup.yaml') }}"
   register: ocsGroup
 
 - name: "ocs/storage : Openshift Container Storage Operator Subscription"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/storage/subscription.yaml') }}"
   register: ocsSubscription
@@ -26,7 +26,7 @@
 # 3. Wait until the StorageCluster CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the StorageCluster CRD is available"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apiextensions.k8s.io/v1
     kind: CustomResourceDefinition
     name: "storageclusters.ocs.openshift.io"
@@ -47,7 +47,7 @@
 # 4. Create the storage cluster
 # -----------------------------------------------------------------------------
 - name: "ocs/storage : Create OSC Cluster"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/storage/storagecluster.yaml') }}"
 

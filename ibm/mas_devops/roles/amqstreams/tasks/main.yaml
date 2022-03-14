@@ -22,7 +22,7 @@
 # 3. Install AMQ Streams operator
 # -----------------------------------------------------------------------------
 - name: "Install AMQ Streams Operator"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     template: templates/subscription.yml.j2
 
@@ -30,7 +30,7 @@
 # 4. Wait until the Kafka CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Kafka CRD is available"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apiextensions.k8s.io/v1
     name: "kafkas.kafka.strimzi.io"
     kind: CustomResourceDefinition
@@ -51,7 +51,7 @@
 # 5. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "Create Kafka Cluster"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     template: "templates/clusters/{{ kafka_cluster_size }}.yml.j2"
 
@@ -59,7 +59,7 @@
 # 6. Create the MAS user
 # -----------------------------------------------------------------------------
 - name: "Create Kafka User"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     template: templates/masuser.yml.j2
 
@@ -70,7 +70,7 @@
 # the necessary fields in the status resource are not set yet so we retry until
 # the expected fields are set as well
 - name: "Wait for Kafka Resource to be ready (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: kafka.strimzi.io/v1beta2
     kind: Kafka
     name: "{{ kafka_cluster_name }}"
@@ -88,7 +88,7 @@
     - kafka_cluster_lookup.resources[0].status.listeners | length > 0
 
 - name: "Lookup Kafka Secret"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ kafka_user_name }}"
