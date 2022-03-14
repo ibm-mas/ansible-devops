@@ -138,7 +138,6 @@
     db2wh_svc_name: "c-db2wh-{{ db2wh_instance_id }}-db2u-engn-svc"
     db2wh_svc_fqn: "c-db2wh-{{ db2wh_instance_id }}-db2u-engn-svc.{{ db2wh_namespace }}.svc"
 
-
 # 7. Wait till DB2 status is RUNNING
 # -----------------------------------------------------------------------------
 - name: "Wait till status of DB2 database {{ db2wh_instance_name }} is RUNNING"
@@ -152,7 +151,11 @@
     status_code: 200
     timeout: 30
   register: db_status
-  until: db_status.json.service_instance.metadata.status == 'RUNNING'
+  until:
+    - db_status.json.service_instance is defined
+    - db_status.json.service_instance.metadata is defined
+    - db_status.json.service_instance.metadata.status is defined
+    - db_status.json.service_instance.metadata.status == 'RUNNING'
   retries: 60
   delay: 60
 
