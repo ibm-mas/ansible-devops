@@ -10,6 +10,10 @@ The following python modules are required in order to use this collection.
 - **openshift**
 - **ansible**
 
+!!! important
+    As of version 6 of this collection the dependencies have changed. The upgrade from `community.kubernetes` to `kubernetes.core` necessitates an upgrade in the version of the kubernetes and openshift modules from v11 to v12.
+
+
 #### Useful commands
 - Confirm availability and version: `python --version`
 - Installed Python modules: `python -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1`
@@ -47,6 +51,9 @@ ansible-galaxy collection install ibm.mas_devops
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `6.0` Multiple Updates:
+    - Upgrade to [kubernetes.core](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/) Ansible module ([#194](https://github.com/ibm-mas/ansible-devops/pull/194))
+    - Remove BAS support (replaced by UDS) ([#194](https://github.com/ibm-mas/ansible-devops/pull/194))
 - `5.3` Multiple Updates:
     - Add support for db2wh backup & restore ([#133](https://github.com/ibm-mas/ansible-devops/pull/133))
     - Add support for appConnect ([#170](https://github.com/ibm-mas/ansible-devops/pull/170))
