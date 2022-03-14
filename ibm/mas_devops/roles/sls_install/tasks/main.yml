@@ -24,6 +24,11 @@
   fail:
     msg: "Review provided MongoDb details, it could be missing hosts, username or password"
 
+- name: "Configure airgap_install"
+  set_fact:
+    airgap_install: "{{ lookup('env', 'AIRGAP_INSTALL') | default('false', true) }}"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') | default(None) }}"
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') | default(None) }}"
 
 # 2. Provide debug information
 # -----------------------------------------------------------------------------
@@ -93,9 +98,6 @@
     catalog_source: "{{ sls_catalog_source }}"
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
-  when:
-    # The airgap case bundle install will already install the operator
-    - not airgap_install
 
 
 # 5. Wait until the LicenseService CRD is available
