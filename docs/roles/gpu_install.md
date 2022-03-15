@@ -1,10 +1,12 @@
 gpu_install
 ===========
+
 This role installs the **NVIDIA Graphical Processing Unit (GPU)** operator and its prerequisite **Node Feature Discovery (NFD)** operator in an IBM Cloud Openshift cluster console. The role first installs the NFD operator and continues with the final step to install the NVIDIA GPU Operator. The NFD Operator is installed using the Red Hat Operators catalog source and the GPU operator is installed using the Certified Operators catalog source. 
 
 
 Role Variables
 --------------
+
 ### nfd_namespace
 The namespace where the node feature discovery operator will be deployed.
 
@@ -12,18 +14,19 @@ The namespace where the node feature discovery operator will be deployed.
 - Default Value: `gpu-operator-resources`
 
 ### nfd_channel
-The channel to subscribe to for the nfd operator installation and updates. Available channels may be found in the package manifest of nfd in openshift.
+The channel to subscribe to for the nfd operator installation and updates. Available channels may be found in the package manifest of nfd operator in openshift.
+
 - Environment Variable: `NFD_CHANNEL`
 - Default Value: `stable`
 
 ### gpu_namespace
-The namespace where the NVIDIA GPU operator will be deployed. For version 1.8.x, use of single namespace is not supported, therefore namespace is defaulted to `openshift-operators`. The suggested namespace to use for versions 1.9.0 and above is `nvidia-gpu-operator` 
+The namespace where the NVIDIA GPU operator will be deployed. For version 1.8.x, use of single namespace is not supported, therefore namespace is defaulted to `openshift-operators`. NVIDIA's suggested namespace to use for versions 1.9.0 and above is `nvidia-gpu-operator` 
 
 - Environment Variable: `GPU_NAMESPACE`
 - Default Value: `openshift-operators`
 
 ### gpu_channel
-The channel to subscribe to for the gpu operator installation and updates. Available channels may be found in the package manifest of gpu-operator-certified in openshift. 
+The channel to subscribe to for the gpu operator installation and updates. Available channels may be found in the package manifest of gpu-operator-certified operator in openshift. 
 
 - Environment Variable: `GPU_CHANNEL`
 - Default Value: `v1.8`

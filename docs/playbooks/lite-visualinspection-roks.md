@@ -1,53 +1,30 @@
-# Full Stack on IBM Cloud
-
+# MAS Core with Maximo Visual Inspection (MVI) on IBM Cloud
 This master playbook will drive the following playbooks in sequence:
 
 - [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
 - Install dependencies:
     - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (10 minutes)
-    - [Install Kafka (AMQ Streams)](dependencies.md#install-amq-streams) (10 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
     - [Install BAS](dependencies.md#install-bas) (2 hours)
     - [Install GPU (with NFD)](dependencies.md#install-gpu) (2 minutes)
-    - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
-    - Install Cloud Pak for Data Services:
-        - [Db2 Warehouse](cp4d.md#db2-install) (1 hour)
-        - [Watson Studio](cp4d.md#watson-studio-install) with [Apache Spark](cp4d.md#watson-studio-install), [Watson Machine Learning](cp4d.md#watson-studio-install), & [Watson AI OpenScale](cp4d.md#watson-studio-install) (4-5 hours)
-    - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (45 minutes)
-    - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack) (5 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (15 minutes)
-- Install applications:
-    - [Install & configure Manage](mas.md#install-mas-application) (10 minute install + 2 hours configure)
-    - [Install & configure IoT](mas.md#install-mas-application) (25 minute install + 5 minutes configure)
-    - [Install & configure Monitor](mas.md#install-mas-application) (10 minute install + ? configure)
-    - [Install & configure Predict](mas.md#install-mas-application) (10 minute install + 5 minutes configure)
-    - [Install & configure Safety](mas.md#install-mas-application) (? minute install + ? configure)
-    - [Install & configure Maximo Scheduler Optmization](mas.md#install-mas-application) (10 minute install + ? configure)
-    - [Install & configure Visual Inspection](mas.md#install-mas-application) (20 minute install + 2 minutes configure)
+- Install & configure Visual Inspection application:
+    - [Install application](mas.md#install-mas-application) (20 minutes)
+    - [Configure workspace](mas.md#configure-mas-application) (2 minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
-
-!!! warning
-    The install time for Cloud Pak for Data with all the services supported by MAS enabled is considerable.  Unfortunately this is out of our control, plan accordingly!
-
-    Also note that Cloud Pak for Data requires approximately 40 PVCs.  You may need to contact IBM to increase the quota assigned to your IBM Cloud account if you see PVCs stuck in pending state and this error message: "Your order will exceed the maximum number of storage volumes allowed. Please contact Sales"
-
-!!! warning
-    There is a known problem with Manage v8.1.0 that will result in the system being unusable following a successful deployment.
-
-    Refer to the following technote for more information: ["OpenID Connect client returned with status: SEND_401" when logging in to Manage after installation](https://www.ibm.com/support/pages/openid-connect-client-returned-status-send401-when-logging-manage-after-installation)
-
 
 ## Preparation
 Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
 
-### Copy your entitlement license key file
-Copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
+### Prepare your entitlement license key file
+First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from your entitlement file, then copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
-!!! important
-    Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](dependencies.md#install-sls) topic.
+!!! tip
+    If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
+
 
 ### Create a Workspace template
 If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:
@@ -78,15 +55,12 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 - `BAS_CONTACT_MAIL` Defines the email for person to contact for BAS
 - `BAS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
 - `BAS_CONTACT_LASTNAME` Defines the last name of the person to contact for BAS
-- `CPD_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/
-
 
 ## Optional environment variables
-- `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none are passed, `Default` resource group will be used.
+- `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none is passed, `Default` resource group will be used.
 - `OCP_VERSION` to override the default version of OCP to use (latest 4.6 release)
 - `W3_USERNAME` to enable access to pre-release development builds of MAS
 - `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
-- `KAFKA_CLUSTER_SIZE` to override the default configuration used (small)
 - `MONGODB_NAMESPACE` overrides the Kubernetes namespace where the MongoDb CE operator will be installed, this will default to `mongoce`
 - `BAS_USERNAME` BAS default username. If not provided, default username will be `basuser`
 - `BAS_PASSWORD` Defines the password for your BAS instance. If not provided, a random 15 character password will be generated
@@ -101,24 +75,33 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
+- `GPU_NAMESPACE` to set a namespace for GPU deployment. Default will be `openshift-operators`.
+- `GPU_CHANNEL` to set a channel for GPU version install and updates. Default will be `v1.8`.
+- `GPU_DRIVER_VERSION` to specify a GPU driver image version. Default value is `450.80.02`.
+- `NFD_NAMESPACE` to set a namespace for NFD deployment. Default will be `gpu-operator-resources`.
+- `NFD_CHANNEL` to set a channel for NFD version install and updates. Default will be `stable`.
 - `MVI_STORAGE_CLASS` Defines the name of the MVI PVC storage class. The default storage class is `ibmc-file-gold`, which is suitable for deployments to IBM Cloud, but might not be supported by other cloud vendors. Be sure to select a storage class that supports the **ReadWriteMany access mode** and is supported by your cloud vendor.
 - `MVI_STORAGE_SIZE` Defines the size of the MVI PVC storage class. The required storage size, for example, to specify 40 gibibytes of storage, which is the recommended minimum, enter `40Gi`. Default for this playbook is `100Gi`.
+
+### Pre-release environment variables
+- `MAS_APP_CATALOG_SOURCE` catalog source to use to install app
+- `MAS_APP_CHANNEL` channel name for version to install
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
 
-## Release build
+
+
+## Release build example
+The simplest configuration to deploy a release build of IBM Maximo Application Suite with Visual Inspection Application and dependencies is:
 
 ```bash
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
 
-# CP4D configuration
-export CPD_ENTITLEMENT_KEY=xxx
-
 # MAS configuration
-export MAS_INSTANCE_ID=xxx
+export MAS_INSTANCE_ID=$CLUSTER_NAME
 export MAS_ENTITLEMENT_KEY=xxx
 
 export MAS_CONFIG_DIR=~/masconfig
@@ -132,22 +115,17 @@ export BAS_CONTACT_MAIL=xxx@xxx.com
 export BAS_CONTACT_FIRSTNAME=xxx
 export BAS_CONTACT_LASTNAME=xxx
 
-ansible-playbook playbooks/fullstack-roks.yml
+ansible-playbook playbooks/lite-visualinspection-roks.yml
 ```
 
-!!! note
-    Lookup your entitlement keys from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 
-
-## Pre-release build
+## Pre-release build example
+The simplest configuration to deploy a pre-release build (only available to IBM employees) of IBM Maximo Application Suite (core only) with dependencies is:
 
 ```bash
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-
-# CP4D configuration
-export CPD_ENTITLEMENT_KEY=xxx
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
@@ -155,7 +133,7 @@ export ARTIFACTORY_APIKEY=xxx
 
 # MAS configuration
 export MAS_CATALOG_SOURCE=ibm-mas-operators
-export MAS_CHANNEL=m1dev87
+export MAS_CHANNEL=m1dev88
 export MAS_INSTANCE_ID=$CLUSTER_NAME
 
 export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
@@ -164,6 +142,10 @@ export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 export MAS_CONFIG_DIR=~/masconfig
+
+# MVI configuration
+export MAS_APP_CATALOG_SOURCE=ibm-mas-visualinspection-operators
+export MAS_APP_CHANNEL=8.x
 
 # SLS configuration
 export SLS_ENTITLEMENT_KEY=xxx
@@ -174,5 +156,5 @@ export BAS_CONTACT_MAIL=xxx@xxx.com
 export BAS_CONTACT_FIRSTNAME=xxx
 export BAS_CONTACT_LASTNAME=xxx
 
-ansible-playbook playbooks/fullstack-roks.yml
+ansible-playbook playbooks/lite-visualinspection-roks.yml
 ```
