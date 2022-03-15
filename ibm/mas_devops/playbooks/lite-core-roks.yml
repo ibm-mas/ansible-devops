@@ -11,7 +11,8 @@
   import_playbook: ocp/configure-ocp.yml
   vars:
     cluster_type: roks
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+    prometheus_storage_class: ibmc-block-gold
+    prometheus_alertmgr_storage_class: ibmc-file-gold-gid
 
 
 # 2. Install MongoDb
@@ -20,7 +21,6 @@
   import_playbook: dependencies/install-mongodb-ce.yml
   vars:
     mongodb_storage_class: ibmc-block-gold
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
 # 3. Install SLS
@@ -36,13 +36,12 @@
     mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
 
-# 4. Install BAS
+# 4. Install UDS
 # -----------------------------------------------------------------------------
-- name: Install BAS
-  import_playbook: dependencies/install-bas.yml
+- name: Install UDS
+  import_playbook: dependencies/install-uds.yml
   vars:
-    bas_persistent_storage_class: "ibmc-file-bronze-gid"
-    bas_meta_storage_class: "ibmc-block-bronze"
+    uds_storage_class: "ibmc-block-bronze"
 
 
 # 5. Install & configure MAS

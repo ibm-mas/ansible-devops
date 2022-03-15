@@ -23,6 +23,11 @@
 - name: Load variables
   include_vars: "vars/{{ mas_app_id }}.yml"
 
+# 2.1 Load default application workspace spec, if user does not provide one
+# -----------------------------------------------------------------------------
+- name: Load default application workspace spec
+  when: mas_app_ws_spec is not defined or mas_app_ws_spec == ""
+  include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
 
 # 3. Provide debug information
 # -----------------------------------------------------------------------------
@@ -42,7 +47,7 @@
 # 4. Workspace configuration
 # -----------------------------------------------------------------------------
 - name: Configure application in workspace
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     state: present
     namespace: "{{ mas_app_namespace }}"
     definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
@@ -50,21 +55,21 @@
 
 # 8. Wait for application workspace to be ready
 # -----------------------------------------------------------------------------
-- name: "Wait for application workspace to be ready (60s delay)"
-  community.kubernetes.k8s_info:
+- name: "Wait for application workspace to be ready ({{ mas_app_cfg_delay }}s delay)"
+  kubernetes.core.k8s_info:
     api_version: "{{ mas_app_ws_apiversion }}"
     kind: "{{ mas_app_ws_kind }}"
     name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
     namespace: "{{ mas_app_namespace }}"
-    wait: true
+    wait: yes
     wait_condition:
       status: "True"
       type: Ready
     wait_sleep: 30
-    wait_timeout: 300 # 5 minutes before we give up and fall back into the retry loop
+    wait_timeout: 120 # before we give up and fall back into the retry loop
   register: app_ws_cr_result
-  retries: 60 # 5 mins each loop * 50 loops = 5 hours
-  delay: 0
+  retries: "{{ mas_app_cfg_retries }}"
+  delay: "{{ mas_app_cfg_delay }}"
   until:
     - app_ws_cr_result.resources is defined
     - app_ws_cr_result.resources | length > 0

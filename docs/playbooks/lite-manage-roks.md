@@ -3,38 +3,35 @@
 This master playbook will drive the following playbooks in sequence:
 
 - [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
+- [Update Default Cluster Pull Secret and Reboot Worker Nodes](cp4d.md#hack-worker-nodes) (10 minutes)
 - Install dependencies:
-    - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (15 minutes)
+    - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (10 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
-    - [Install BAS](dependencies.md#install-bas) (35 minutes)
+    - [Install UDS](dependencies.md#install-uds) (35 minutes)
     - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
     - Install Cloud Pak for Data Services:
-        - [Db2 Warehouse](cp4d.md#db2-install) with [Db2 Management Console](cp4d.md#db2-install) (1-2 hours)
-    - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (60 minutes)
-    - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack)
+        - [Db2 Warehouse](cp4d.md#db2-install) (1 hour)
+    - [Create Db2 Warehouse Cluster](cp4d.md#install-db2) (45 minutes)
+    - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack) (5 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
-    - [Install & configure MAS](mas.md#install-mas) (20 minutes)
+    - [Install & configure MAS](mas.md#install-mas) (15 minutes)
 - Install Manage application:
-    - [Install application](mas.md#install-mas-application)
-    - [Configure workspace](mas.md#configure-mas-application)
+    - [Install application](mas.md#install-mas-application) (10 minutes)
+    - [Configure workspace](mas.md#configure-mas-application) (2 hours)
 
-All timings are estimates, see the individual pages for each of these playbooks for more information.
-
-!!! warning
-    There is a known problem with Manage v8.1.0 that will result in the system being unusable following a successful deployment.
-
-    Refer to the following technote for more information: ["OpenID Connect client returned with status: SEND_401" when logging in to Manage after installation](https://www.ibm.com/support/pages/openid-connect-client-returned-status-send401-when-logging-manage-after-installation)
+All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.
 
 
 ## Preparation
 Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
 
-### Copy your entitlement license key file
-Copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
+### Prepare your entitlement license key file
+First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from your entitlement file, then copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
-!!! important
-    Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](dependencies.md#install-sls) topic.
+!!! tip
+    If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
+
 
 ### Create a Workspace template
 If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:
@@ -52,7 +49,7 @@ spec:
   displayName: "MAS Development"
 ```
 
-If you do not want to use a workspace called `masdev` you **must**  customize the playbook, because it is configured by default to install and configure the Manage application in this workspace.
+You do not need to create a workspace called `masdev`, you can modify the workspace template above to suite your needs.  If you do not want to use a workspace called `masdev` you **must** customize the playbook, because it is configured by default to install and configure the Manage application in this workspace.
 
 ## Required environment variables
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
@@ -62,9 +59,9 @@ If you do not want to use a workspace called `masdev` you **must**  customize th
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
-- `BAS_CONTACT_MAIL` Defines the email for person to contact for BAS
-- `BAS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
-- `BAS_CONTACT_LASTNAME` Defines the last name of the person to contact for BAS
+- `UDS_CONTACT_EMAIL` Defines the email for person to contact for BAS
+- `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
+- `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for BAS
 - `CPD_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/
 
 
@@ -74,23 +71,23 @@ If you do not want to use a workspace called `masdev` you **must**  customize th
 - `W3_USERNAME` to enable access to pre-release development builds of MAS
 - `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
 - `MONGODB_NAMESPACE` overrides the Kubernetes namespace where the MongoDb CE operator will be installed, this will default to `mongoce`
-- `BAS_USERNAME` BAS default username. If not provided, default username will be `basuser`
-- `BAS_PASSWORD` Defines the password for your BAS instance. If not provided, a random 15 character password will be generated
-- `BAS_GRAFANA_USERNAME` Defines the username for the BAS Graphana instance, default is `basuser`
-- `BAS_GRAFANA_PASSWORD` Defines the password for BAS Graphana dashboard. If not provided, a random 15 character password will be generated
-- `BAS_NAMESPACE` Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be `ibm-bas`
 - `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
 - `MAS_CHANNEL` to override the use of the `8.x` channel
 - `MAS_DOMAIN` to set a custom domain for the MAS installation
 - `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
 - `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
+- `MAS_APPWS_COMPONENTS` to customize the application components installed in the Manage Workspace
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
 
+!!! tip
+   By default only the base Manage component is installed.  To customise the components that are enabled use the optional `MAS_APPWS_COMPONENTS` environment variable, for example to enable Health set it to the following:
+
+   `export MAS_APPWS_COMPONENTS="{'base':{'version':'latest'}, 'health':{'version':'latest'}}"`
 
 
 ## Release build

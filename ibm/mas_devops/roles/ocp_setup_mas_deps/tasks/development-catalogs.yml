@@ -2,6 +2,7 @@
 # Install the operator catalog
 
 # 1. Create an image pull secret for local artifactory so that we can install the development catalog
+# ---------------------------------------------------------------------------------------------------------------------
 - name: "Create wiotp-docker-local secret"
   vars:
     artifactoryAuthStr: "{{artifactory_username}}:{{artifactory_apikey}}"
@@ -10,7 +11,7 @@
       - '{"auths":{"wiotp-docker-local.artifactory.swg-devops.com": {"username":"{{artifactory_username}}","password":"{{artifactory_apikey}}","auth":"{{artifactoryAuth}}"}'
       - '}'
       - '}'
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
@@ -23,21 +24,42 @@
         .dockerconfigjson: "{{ content | join('') | string }}"
   register: result
 
-# 2. Patch the default service account in openshift-marketplace so that it is able to pull from Artifactory
-- name: "Patch default SA on openshift-marketplace"
-  community.kubernetes.k8s:
+# 2. Create the service accounts in openshift-marketplace so that it is able to pull from Artifactory
+# ---------------------------------------------------------------------------------------------------------------------
+# The default service account is used in OCP 4.6
+# In OCP 4.8+ each catalog source uses it's own ServiceAccount
+- name: "Create service accounts on openshift-marketplace"
+  vars:
+    catalog_sa: "{{ item }}"
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: ServiceAccount
       metadata:
-        name: default
+        name: "{{ item }}"
         namespace: openshift-marketplace
       imagePullSecrets:
         - name: wiotp-docker-local
+  with_items:
+    - default
+    - ibm-mas-operators
+    - ibm-sls-operators
+    - ibm-data-dictionary-operators
+    - ibm-truststore-mgr-operators
+    - ibm-mas-manage-operators
+    - ibm-mas-iot-operators
+    - ibm-mas-monitor-operators
+    - ibm-mas-safety-operators
+    - ibm-mas-assist-operators
+    - ibm-mas-predict-operators
+    - ibm-mas-visualinspection-operators
+    - ibm-mas-hputilities-operators
+    - ibm-mas-mso-operators
 
 # 3. Install the catalog
-- name: "Create catalog"
-  community.kubernetes.k8s:
-    definition: "{{ lookup('template', 'templates/development-catalogs.yaml') }}"
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Create catalogs"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/development-catalogs.yml') }}"
     wait: yes
     wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created

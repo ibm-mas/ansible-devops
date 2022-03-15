@@ -1,94 +1,45 @@
-# Depedencies Playbooks
-
-
+# Dependencies Playbooks
 
 ## Install AMQ Streams
+AMQ Streams operator will be installed into the `amq-streams` namespace, a cluster named `maskafka` will be created using the small configuration and `ibmc-block-gold` as the storage class.  The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
 
-### Required environment variables
-- `KAFKA_STORAGE_CLASS` sets the storage class to use for both Kafka and Zookeeper
-- `MAS_INSTANCE_ID` sets the instance ID of the MAS install that we are configuring
-
-### Optional environment variables
-- `KAFKA_NAMESPACE` overrides the Kubernetes namespace where the AMQ streams operator will be installed, this will default to `amq-streams`
-- `KAFKA_CLUSTER_NAME` overrides the name Kafka cluster, this will default `maskafka`
-- `KAFKA_CLUSTER_SIZE` provides a choice between a small and large cluster configuration, this will default to `small`
-- `KAFKA_USER_NAME` configures the user that will be created for MAS, will default to `masuser`
-
-
-### Example usage
-AMQ Streams operator will be installed into the `amq-streams` namespace, a cluster named `maskafka` will be created using the small configuration and `ibmc-block-gold` as the storage class.
+Refer to the [amqstreams](../roles/amqstreams.md) role documentation for more information.
 
 ```bash
 export KAFKA_STORAGE_CLASS=ibmc-block-gold
 export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/dependencies/install-amqstreams.yml
 ```
 
-!!! tip
-    The playbook will generate a yaml file containing the definition of a Secret and KafkaCfg resource that can be used to configure the deployed cluster as the MAS system Kafka.
-
-    This file can be directly applied using `oc apply -f /tmp/kafkacfg-amqstreams-system.yaml` or added to the `mas_config` list variable used by the `ibm.mas_devops.suite_install` role to deploy and configure MAS.
-
-
-
 ## Install MongoDb (CE)
+MongoDb CE operator will be installed into the `mongoce` namespace, a 3 node cluster cluster will be created.  The cluster will bind six 20GB `ibmc-block-gold` PVCs, these provide persistence for the data and system logs across the three nodes.  The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
 
-### Required environment variables
-- `MAS_INSTANCE_ID` sets the instance ID of the MAS install that we are configuring
-
-### Optional environment variables
-- `MONGODB_NAMESPACE` overrides the Kubernetes namespace where the MongoDb CE operator will be installed, this will default to `mongoce`
-
-### Example usage
-MongoDb CE operator will be installed into the `mongoce` namespace, a 3 node cluster cluster will be created.  The cluster will bind six 20GB PVCs of the default storage class, these provide persistence for the data and system logs across the three nodes.
+Refer to the [mongodb](../roles/mongodb.md) role documentation for more information.
 
 ```bash
+export MONGODB_STORAGE_CLASS=ibmc-block-gold
 export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/dependencies/install-mongodb-ce.yml
 ```
 
-!!! tip
-    The playbook will generate a yaml file containing the definition of a Secret and MongoCfg resource that can be used to configure the deployed instance as the MAS system MongoDb.
 
-    This file can be directly applied using `oc apply -f /tmp/mongocfg-mongoce-system.yaml` or added to the `mas_config` list variable used by the `ibm.mas_devops.suite_install` role to deploy and configure MAS.
-
-
-
-## Install BAS
-Installs **IBM Behavior Analytics Services** on IBM Cloud Openshift Clusters (ROKS) and generates configuration that can be directly applied to IBM Maximo Application Suite.
-
-Before you use this playbook you will likely want to edit the `mas_config_dir` variable to supply your own configuration, instead of the sample data provided.
-This is the directory where this playbook will store BAS configurations such as BAS endpoint and username/password credentials to configure BAS in your Maximo Application Suite instance.
-
-### Required environment variables
-- `BAS_CONTACT_MAIL` Defines the email for person to contact for BAS
-- `BAS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
-- `BAS_CONTACT_LASTNAME` Defines the last name of the person to contact for BAS
-
-### Optional environment variables
-- `BAS_USERNAME` BAS default username. If not provided, default username will be `basuser`.
-- `BAS_PASSWORD` Defines the password for your BAS instance. If not provided, a random 15 character password will be generated.
-- `BAS_GRAFANA_USERNAME` Defines the username for the BAS Graphana instance, default is `basuser`.
-- `BAS_GRAFANA_PASSWORD` Defines the password for BAS Graphana dashboard. If not provided, a random 15 character password will be generated
-- `BAS_NAMESPACE` Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be 'ibm-bas'.
-
-### Usage:
+## Install UDS
+Installs **IBM User Data Services**.  Refer to the [uds_install](../roles/uds_install.md) role documentation for more information.
 
 ```bash
-export BAS_NAMESPACE=ibm-bas
-export BAS_USER=basuser
-export BAS_PASSWORD=xxx
-export BAS_GRAFANA_USER=basuser
-export BAS_GRAFANA_PASSWORD=xxx
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+export UDS_STORAGE_CLASS=ibmc-block-bronze
+export UDS_CONTACT_EMAIL=john@email.com
+export UDS_CONTACT_FIRSTNAME=john
+export UDS_CONTACT_LASTNAME=winter
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/dependencies/install-bas.yml
+ansible-playbook playbooks/dependencies/install-uds.yml
 ```
-
 
 
 ## Install SLS
@@ -107,6 +58,20 @@ Before you use this playbook you will likely want to edit the `mas_config_dir` v
 - `SLS_STORAGE_CLASS` Defines Storage Class to be used by SLS Persistent Volumes
 - `SLS_LICENSE_ID` Must be set to the license id specified in the license file when one is provided
 - `SLS_REGISTRATION_KEY` optional var when you want to install sls using a registration key you have.
+
+## Install AppConnect
+AppConnect will be installed into the `ibm-app-connect` namespace, using `ibmc-file-gold-gid` as the storage class.  The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
+
+Refer to the [appconnect_install](../roles/appconnect_install.md) role documentation for more information.
+
+```bash
+export APPCONNECT_STORAGE_CLASS=ibmc-file-gold-gid
+export APPCONNECT_ENTITLEMENT_KEY=xxx
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
+
+ansible-playbook playbooks/dependencies/install-appconnect.yml
+```
 
 ### Example usage: release build
 

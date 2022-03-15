@@ -1,0 +1,93 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: ClusterTask
+metadata:
+  name: mas-devops-cp4d-create-db2-instance
+spec:
+  params:
+    - name: junit_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+
+    # Configure DB2W
+    - name: instance_name
+      type: string
+      default: "" # By default, no config will be generated
+    - name: version
+      type: string
+      default: "" # Use the default built into the ansible role
+    - name: tableorg
+      type: string
+      default: "" # Use the default built into the ansible role
+
+    # Configure JDBCCfg
+    - name: config_scope
+      type: string
+      default: "" # By default, no config will be generated
+    - name: application_id
+      type: string
+      default: "" # Only required is config_scope = app or wsapp
+    - name: workspace_id
+      type: string
+      default: "" # Only required is config_scope = ws or wsapp
+
+    # Configure storage sizes
+    - name: meta_storage
+      type: string
+      default: "20"
+    - name: user_storage
+      type: string
+      default: "100"
+    - name: backup_storage
+      type: string
+      default: "100"
+    - name: logs_storage
+      type: string
+      default: "100"
+    - name: temp_storage
+      type: string
+      default: "100"
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: JUNIT_SUITE_NAME
+        value: $(params.junit_suite_name)
+      # Configure DB2W
+      - name: DB2WH_INSTANCE_NAME
+        value: $(params.instance_name)
+      - name: DB2WH_VERSION
+        value: $(params.version)
+      - name: DB2WH_TABLE_ORG
+        value: $(params.tableorg)
+      # Configure JdbcCfg
+      - name: MAS_CONFIG_SCOPE
+        value: $(params.config_scope)
+      - name: MAS_APP_ID
+        value: $(params.application_id)
+      - name: MAS_WORKSPACE_ID
+        value: $(params.workspace_id)
+      # Configure storage sizes (storage classes are set globally in the secret)
+      - name: DB2WH_META_STORAGE_SIZE_GB
+        value: $(params.meta_storage)
+      - name: DB2WH_USER_STORAGE_SIZE_GB
+        value: $(params.user_storage)
+      - name: DB2WH_BACKUP_STORAGE_SIZE_GB
+        value: $(params.backup_storage)
+      - name: DB2WH_LOGS_STORAGE_SIZE_GB
+        value: $(params.logs_storage)
+      - name: DB2WH_TEMP_STORAGE_SIZE_GB
+        value: $(params.temp_storage)
+  steps:
+    - name: cp4d-create-db2-instance
+      command:
+        - /opt/app-root/src/run-playbook.sh
+        - /opt/app-root/lib/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks/cp4d/create-db2-instance.yml
+      image: quay.io/ibmmas/ansible-devops:latest
+      imagePullPolicy: Always
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: configs
+    - name: settings

@@ -57,12 +57,17 @@ To utilise this feature you must set the optional `MAS_DOMAIN` detailed previous
 
 ### Required environment variables
 - `CIS_CRN` which can be obtained from your CIS service overview page, it will be in the format: `crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2bcd65684e4db3:9969652f-6955-482b-b59c-asdasasdede50c::`
-- `IBMCLOUD_APIKEY` Your IBM Cloud API key with DNS API write access. Note: (This API key will be stored in your cluster for DNS challenge when requesting new certs)
+- `CIS_APIKEY` A Service ID API key with DNS API Editor/Manager access.  Note: (This API key will be stored in your cluster for DNS challenge when requesting new certs)
 
-!!! important "TODO"
-    Support `CIS_APIKEY` instead as we don't really want to re-use the main `IBMCLOUD_APIKEY` API key as it has too wide scope for CIS.  Document what scope to set up the API key with and what steps etc.
-
-    Could we even use our API key to create this new API key automatically so that the user does not need to do anything?
+Process to create a strict api key that can only access the `Internet Services` service:
+- Create a Service ID
+- Create an "Access Policy" with the following entries:
+  - `Scope of access` set to `Resources based on selected attributes`
+  - `Platform access` set to `Editor`
+  - `Service access` set to `Manager`
+- Create an API KEY for the Service ID, which is the CIS_APIKEY
+ 
+Information on [Service IDs](https://cloud.ibm.com/docs/account?topic=account-serviceids&interface=ui)
 
 ### Optional environment variables
 - `CIS_SUBDOMAIN` Subdomain used by your DNS server. It allow you to reuse CIS for multiple MAS Instances.
@@ -86,48 +91,6 @@ export CIS_CRN=crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2b
 
 ansible-playbook playbooks/mas/install-suite.yml
 ```
-
-## AirGap Support
-
-### Additional environment variables
-- `AIRGAP_INSTALL` - flag to enable airgap install
-- `CASE_NAME` - the name of the CASE bundle to be installed
-- `CASE_BUNDLE_DIR` - the location of the CASE bundle to be installed
-- `CASE_INV_NAME` - the name of the Setup inventory within the CASE bundle
-- `CASE_SOURCE` Optional URL of the case bundle archive to download - must be .tgz format
-- `CP_ICR_ENTITLEMENT_KEY` to mirror images from ICR - lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
-- `MAS_CATALOG_IMG` - a digest reference to the MAS catalog image
-- `TM_CATALOG_IMG` -  digest reference to the Trustore Manager catalog image
-
-### Example
-```bash
-# Fyre credentials
-export FYRE_USERNAME=xxx
-export FYRE_APIKEY=xxx
-export FYRE_PRODUCT_ID=225
-# Cluster configuration
-export CLUSTER_NAME=xxx
-export OCP_VERSION=4.6.38
-
-# MAS configuration
-export MAS_INSTANCE_ID=xxx
-export MAS_ENTITLEMENT_KEY=xxx
-
-export MAS_CONFIG_DIR=~/masconfig
-
-# Airgap config
-export AIRGAP_INSTALL=true
-export CASE_NAME=ibm-mas
-export CASE_BUNDLE_DIR=XXX/ibm-mas-case/stable/ibm-mas-bundle/
-export CASE_INV_NAME=ibmMasSetup
-export CASE_SOURCE=https://github.com/IBM/cloud-pak/blob/master/repo/case/ibm-mas/8.5.0/ibm-mas-8.5.0.tgz?raw=true
-export MAS_CATALOG_IMG=icr.io/cpopen/ibm-mas-operator-catalog@sha256:822e4840748737a012a94997c202eeb160107dc5adb7c2a40d42aa087ceb41b1
-export TM_CATALOG_IMG=icr.io/cpopen/ibm-truststore-mgr-operator-catalog@sha256:56d5af1b31637c318edef4522d4bd215425ac43a4fe0056adac504577ca21f3e
-export CP_ICR_ENTITLEMENT_KEY=XXX
-
-ansible-playbook playbooks/mas/install-mas.yml
-```
-
 
 ----
 
@@ -194,15 +157,14 @@ This should should be part of the Manage operator, but is not so we have to do i
 The parameters are all optional:
 
 - `CPD_NAMESPACE` namespace where Cloud Pak for Data is installed. Default is `cpd_meta_namespace`
-- `CPD_DB2WH_INSTANCE_NAME` name of the DB2 Warehouse instance created in CP4D. Default is `db2wh-db01` to be compatible with `install-db2` playbook
-- `CPD_DB2WH_db2wh_load_from_config` when `true`, it tells the playbook to obtain DB2 Warehouse instance from the internal config-map created by `install-db2-api` instead of using `CPD_DB2WH_INSTANCE_NAME`. This option must be used when `hack-manage-db2` is executed after `install-db2-api`. Default is `false`
+- `DB2WH_INSTANCE_NAME` name of the DB2 Warehouse instance created in CP4D.
 
 ### Examples
 
 ```bash
 (...)
 
-ansible-playbook playbooks/cp4d/install-db2.yml
+ansible-playbook playbooks/cp4d/install-services-db2.yml
 
 ansible-playbook playbooks/mas/hack-manage-db2.yml
 ```
@@ -210,10 +172,9 @@ ansible-playbook playbooks/mas/hack-manage-db2.yml
 ```bash
 (...)
 
-ansible-playbook playbooks/cp4d/install-db2-api.yml
+ansible-playbook playbooks/cp4d/create-db2-instance.yml
 
 export CPD_DB2WH_INSTANCE_NAME=db2w-iot
-export CPD_DB2WH_db2wh_load_from_config=true
 
 ansible-playbook playbooks/mas/hack-manage-db2.yml
 ```

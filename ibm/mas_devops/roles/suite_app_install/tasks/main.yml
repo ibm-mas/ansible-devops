@@ -18,6 +18,10 @@
 - name: Load variables
   include_vars: "vars/{{ mas_app_id }}.yml"
 
+# 2.1 Load default application spec, if none is provided by user
+- name: Load default application spec
+  when: mas_app_spec is not defined or mas_app_spec == ""
+  include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
 
 # 3. Provide debug information
 # -----------------------------------------------------------------------------
@@ -49,7 +53,7 @@
 # 5. Wait until the Application's CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Application's CRD is available"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apiextensions.k8s.io/v1
     name: "{{ mas_app_fqn }}"
     kind: CustomResourceDefinition
@@ -77,7 +81,7 @@
       - '{"auths":{"{{mas_icr_cp}}": {"username":"{{mas_entitlement_username}}","password":"{{mas_entitlement_key}}","auth":"{{entitledAuth}}"}'
       - '}'
       - '}'
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
@@ -93,7 +97,7 @@
 # 7. App installation
 # -----------------------------------------------------------------------------
 - name: Install application
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     state: present
     namespace: "{{ mas_app_namespace }}"
     definition: "{{ lookup('template', 'templates/application.yml.j2') }}"
@@ -102,20 +106,20 @@
 # 8. Wait for application to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application to be ready (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: "{{ mas_app_api_version }}"
     name: "{{ mas_instance_id }}"
     namespace: "{{ mas_app_namespace }}"
     kind: "{{ mas_app_kind }}"
-    wait: true
+    wait: yes # changed true to yes
     wait_condition:
       status: "True"
       type: Ready
     wait_sleep: 30
-    wait_timeout: 300 # 5 minutes before we give up and fall back into the retry loop
+    wait_timeout: 120 # before we give up and fall back into the retry loop
   register: app_cr_result
-  retries: 40 # 5 mins each loop * 40 loops =~ 2 hours
-  delay: 0
+  retries: "{{ mas_app_install_retries }}"
+  delay: "{{ mas_app_install_delay }}"
   until:
     - app_cr_result.resources is defined
     - app_cr_result.resources | length > 0

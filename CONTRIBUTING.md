@@ -1,18 +1,20 @@
 # Contributing
 
+Note that during a build the version of the ansible collection is automatically adjusted to the correct version.  For local development will we always target the "next major" as the version, this is just a convenient placeholder string that works for local development; all released collections will automatically set this version to the correct value for the release.
+
 ## Building the collection locally
 
 ```bash
 cd ibm/mas_devops
 
-ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-5.0.0.tar.gz -p /home/david/.ansible/collections --force
+ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-7.0.0.tar.gz -p /home/david/.ansible/collections --force
 
 ansible-playbook ../../playbook.yml
 ```
 
 ```bash
 ansible-galaxy collection build --force
-ansible-galaxy collection publish ibm-mas_devops-5.0.0.tar.gz --token=$ANSIBLE_GALAXY_TOKEN
+ansible-galaxy collection publish ibm-mas_devops-7.0.0.tar.gz --token=$ANSIBLE_GALAXY_TOKEN
 ```
 
 ## Style Guide
@@ -49,7 +51,7 @@ To make the tasks easier to read use section headers as below:
 # 1. Install the CRD
 # -----------------------------------------------------------------------------
 - name: "Install MongoDBCommunity CRD"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/crd.yml') }}"
 
@@ -57,7 +59,7 @@ To make the tasks easier to read use section headers as below:
 # 2. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
 - name: "Create namespace & install RBAC"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/rbac.yml') }}"
 ```
@@ -86,7 +88,7 @@ All tasks must be named.  For tasks that are not in main.yaml of the role, they 
 # 7. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "community : Create MongoDb cluster"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/cr.yml') }}"
 ```

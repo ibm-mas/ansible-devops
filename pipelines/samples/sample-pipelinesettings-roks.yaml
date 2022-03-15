@@ -6,9 +6,12 @@ kind: Secret
 type: Opaque
 metadata:
   name: pipeline-settings
-  namespace: "{{ pipelines_namespace }}"
+  namespace: mas-sample-pipelines
 stringData:
   # ---------------------------------------------------------------------------
+  # These are all global settings that will apply to every stage
+  # Additional task-scoped settings can be provided via parameters in the Tasks
+  #
   # Many values can be left set to "" to inherit a default, refer to
   # the Ansible playbook documentation for more details
   # ---------------------------------------------------------------------------
@@ -16,10 +19,18 @@ stringData:
   # -------------------------
   # ocp/configure-ocp.yml
   # -------------------------
-  CLUSTER_NAME: ""
+  # W3_USERNAME and ARTIFACTORY_APIKEY are used to install the pre-release
+  # development catalogs, they are not required
   W3_USERNAME: ""
   ARTIFACTORY_APIKEY: ""
-  IBMCLOUD_APIKEY: "<REQUIRED: enter your IBM Cloud api key here>"
+
+  CIS_APIKEY: "<REQUIRED: enter the IBM Cloud Service ID api key here>"
+
+  PROMETHEUS_RETENTION_PERIOD: ""
+  PROMETHEUS_STORAGE_CLASS: "ibmc-block-gold"
+  PROMETHEUS_STORAGE_SIZE: ""
+  PROMETHEUS_ALERTMGR_STORAGE_CLASS: "ibmc-file-gold-gid"
+  PROMETHEUS_ALERTMGR_STORAGE_SIZE: ""
 
   # -------------------------
   # dependencies/install-mongodb-ce.yml
@@ -36,26 +47,27 @@ stringData:
   # -------------------------
   CPD_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
   CPD_STORAGE_CLASS: "ibmc-file-gold-gid"
+  CPD_BLOCK_STORAGE_CLASS: "ibmc-block-gold"
   CPD_NAMESPACE: ""
 
   # -------------------------
-  # cp4d/install-db2-api.yml
+  # cp4d/create-db2-instance.yml
   # -------------------------
-  DB2WH_INSTANCE_NAME: ""
-  DB2WH_META_STORAGE_CLASS: ""
-  DB2WH_META_STORAGE_SIZE_GB: ""
+  CPD_API_USER: ""
+  CPD_API_PASSWORD: ""
 
-  DB2WH_USER_STORAGE_CLASS: ""
-  DB2WH_USER_STORAGE_SIZE_GB: ""
+  DB2WH_META_STORAGE_CLASS: "ibmc-file-silver-gid"
+  DB2WH_USER_STORAGE_CLASS: "ibmc-file-gold-gid"
+  DB2WH_BACKUP_STORAGE_CLASS: "ibmc-file-gold-gid"
+  DB2WH_LOGS_STORAGE_CLASS: "ibmc-file-silver-gid"
+  DB2WH_TEMP_STORAGE_CLASS: "ibmc-file-silver-gid"
 
-  DB2WH_BACKUP_STORAGE_CLASS: ""
-  DB2WH_BACKUP_STORAGE_SIZE_GB: ""
-
-  DB2WH_ADMIN_USER: ""
-  DB2WH_ADMIN_PASSWORD: ""
-
-  DB2WH_ADDON_VERSION: ""
-  DB2WH_TABLE_ORG: ""
+  # The following settings are provided as env vars per-task because they may
+  # vary for different tasks in the same pipeline
+  # -----------------------------------------------------------------------------
+  # - DB2WH_INSTANCE_NAME
+  # - DB2WH_VERSION
+  # - DB2WH_TABLE_ORG
 
   # -------------------------
   # dependencies/install-amqstreams.yml
@@ -67,9 +79,8 @@ stringData:
   KAFKA_USER_NAME: "masuser"
 
   # -------------------------
-  # sls/install-sls.yml
+  # dependencies/install-sls.yml
   # -------------------------
-  SLS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
   SLS_COMPLIANCE_ENFORCE: ""
   SLS_LICENSE_ID: ""
   SLS_STORAGE_CLASS: "ibmc-file-gold-gid"
@@ -80,23 +91,19 @@ stringData:
   SLS_ICR_CPOPEN: ""
   SLS_INSTANCE_NAME: ""
   SLS_ENTITLEMENT_USERNAME: "cp"
+  SLS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
   SLS_DOMAIN: ""
   SLS_AUTH_ENFORCE: ""
   SLS_REGISTRATION_OPEN: ""
 
   # -------------------------
-  # bas/install-bas.yml
+  # dependencies/install-uds.yml
   # -------------------------
-  BAS_NAMESPACE: ""
-  BAS_PERSISTENT_STORAGE: ""
-  BAS_META_STORAGE: ""
-  BAS_USERNAME: ""
-  BAS_PASSWORD: ""
-  BAS_GRAFANA_USERNAME: ""
-  BAS_GRAFANA_PASSWORD: ""
-  BAS_CONTACT_MAIL: ""
-  BAS_CONTACT_FIRSTNAME: ""
-  BAS_CONTACT_LASTNAME: ""
+  UDS_STORAGE_CLASS: "ibmc-block-bronze"
+  UDS_CONTACT_EMAIL: "<REQUIRED: enter your email here>"
+  UDS_CONTACT_FIRSTNAME: "<REQUIRED: enter your first name here>"
+  UDS_CONTACT_LASTNAME: "<REQUIRED: enter your last name here>"
+  UDS_EVENT_SCHEDULER_FREQUENCY: ""
 
   # -------------------------
   # mas/install-suite.yml
@@ -104,12 +111,12 @@ stringData:
   CIS_CRN: ""
   CIS_SUBDOMAIN: ""
   MAS_DOMAIN: ""
-  MAS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
   MAS_CATALOG_SOURCE: ""
   MAS_CHANNEL: "8.x"
   MAS_ICR_CP: ""
   MAS_ICR_CPOPEN: ""
   MAS_ENTITLEMENT_USERNAME: ""
+  MAS_ENTITLEMENT_KEY: "<REQUIRED: enter your IBM entitlement key here>"
   CIS_EMAIL: ""
   CIS_SKIP_DNS_ENTRIES: ""
   CIS_SKIP_CLUSTER_ISSUER: ""
@@ -122,33 +129,6 @@ stringData:
   TM_CATALOG_IMG: ""
 
   # -------------------------
-  # mas/install-app.yml
-  # -------------------------
-
-  # -------------------------
   # mas/configure-app.yml
   # -------------------------
   MAS_WORKSPACE_ID: ""
-
-  # -------------------------
-  # Used in ClusterTask context
-  # -------------------------
-  MAS_APP_CATALOG_SOURCE_IOT: ""
-  MAS_APP_CATALOG_SOURCE_MONITOR: ""
-  MAS_APP_CATALOG_SOURCE_MANAGE: ""
-  MAS_APP_CATALOG_SOURCE_PREDICT: ""
-  MAS_APP_CATALOG_SOURCE_HPUTILITIES: ""
-  MAS_APP_CATALOG_SOURCE_MVI: ""
-  MAS_APP_CATALOG_SOURCE_SAFETY: ""
-  MAS_APP_CATALOG_SOURCE_ASSIST: ""
-  MAS_APP_CATALOG_SOURCE_MSO: ""
-
-  MAS_APP_CHANNEL_IOT: ""
-  MAS_APP_CHANNEL_MONITOR: ""
-  MAS_APP_CHANNEL_MANAGE: ""
-  MAS_APP_CHANNEL_PREDICT: ""
-  MAS_APP_CHANNEL_HPUTILITIES: ""
-  MAS_APP_CHANNEL_MVI: ""
-  MAS_APP_CHANNEL_SAFETY: ""
-  MAS_APP_CHANNEL_ASSIST: ""
-  MAS_APP_CHANNEL_MSO: ""

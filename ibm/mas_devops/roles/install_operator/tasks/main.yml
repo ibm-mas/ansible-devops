@@ -3,7 +3,7 @@
 # 1. Create namespace we will deploy to
 # -----------------------------------------------------------------------------
 - name: "Create namespace"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     api_version: v1
     kind: Namespace
     name: '{{ namespace }}'
@@ -13,7 +13,8 @@
 # -----------------------------------------------------------------------------
 - name: "Create wiotp-docker-local secret"
   when:
-    catalog_source != "ibm-operator-catalog"
+    - catalog_source != "ibm-operator-catalog"
+    - not airgap_install
   vars:
     artifactoryAuthStr: "{{artifactory_username}}:{{artifactory_apikey}}"
     artifactoryAuth: "{{ artifactoryAuthStr | b64encode }}"
@@ -21,7 +22,7 @@
       - '{"auths":{"wiotp-docker-local.artifactory.swg-devops.com": {"username":"{{artifactory_username}}","password":"{{artifactory_apikey}}","auth":"{{artifactoryAuth}}"}'
       - '}'
       - '}'
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
@@ -39,8 +40,9 @@
 # -----------------------------------------------------------------------------
 - name: "Patch default SA"
   when:
-    catalog_source != "ibm-operator-catalog"
-  community.kubernetes.k8s:
+    - catalog_source != "ibm-operator-catalog"
+    - not airgap_install
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: ServiceAccount
@@ -54,7 +56,7 @@
 # 4. Create the operator group that will scope the operator
 # -----------------------------------------------------------------------------
 - name: "Create operator group"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition: "{{ operator_group }}"
     wait: yes
     wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
@@ -63,7 +65,7 @@
 # 5. Create the subscription for the operator
 # -----------------------------------------------------------------------------
 - name: "Create subscription"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition: "{{ subscription }}"
     wait: yes
     wait_timeout: 300

@@ -1,0 +1,48 @@
+---
+apiVersion: edb.cpd.ibm.com/v1
+kind: CPDEdbService
+metadata:
+  name: cpd-edb-service     # This is the recommended name, but you can change it
+  namespace: "{{ cpd_services_namespace }}" # Replace with the project where you will install EDB Postgres Standard
+spec:
+  license:
+    accept: true
+    license: Standard     # Specify the license you purchased
+  storageClass: "{{ cpd_wd_storage_class }}"    # See the guidance in "Information you need to complete this task"
+---
+apiVersion: discovery.watson.ibm.com/v1
+kind: WatsonDiscovery
+metadata:
+  annotations:
+    oppy.ibm.com/disable-rollback: 'true'
+  name: wd     # This is the recommended name, but you can change it
+  namespace: "{{ cpd_services_namespace }}"     # Replace with the project where you will install Watson Discovery
+spec:
+  license:
+    accept: true
+  version: 4.0.3
+  shared:
+    storageClassName: "{{ cpd_wd_storage_class }}"     # See the guidance in "Information you need to complete this task"
+  watsonGateway:
+    version: main
+  elasticsearch:
+    clientNode:
+      persistence:
+        size: 1Gi     # Persistent volume claim size for the Elasticsearch client node
+    dataNode:
+      persistence:
+        size: 40Gi     # Persistent volume claim size for the Elasticsearch data node
+    masterNode:
+      persistence:
+        size: 2Gi     # Persistent volume claim size for the Elasticsearch coordinator node
+  etcd:
+    storageSize: 10Gi     # Persistent volume claim size for etcd data store
+  minio:
+    persistence:
+      size: 100Gi     # Persistent volume claim size for the MinIO data store
+  postgres:
+    database:
+      storageRequest: 30Gi     # Persistent volume claim size for the PostgreSQL database
+  rabbitmq:
+    persistentVolume:
+      size: 5Gi     # Persistent volume claim size for the RabbitMQ data store

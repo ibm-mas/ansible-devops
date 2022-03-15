@@ -1,0 +1,56 @@
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  config.yaml: |
+    prometheusOperator:
+      baseImage: quay.io/coreos/prometheus-operator
+      prometheusConfigReloaderBaseImage: quay.io/coreos/prometheus-config-reloader
+      configReloaderBaseImage: quay.io/coreos/configmap-reload
+    prometheusK8s:
+      retention: "{{ prometheus_retention_period }}"
+      baseImage: openshift/prometheus
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "{{ prometheus_storage_class }}"
+          resources:
+            requests:
+              storage: "{{ prometheus_storage_size }}"
+    alertmanagerMain:
+      baseImage: openshift/prometheus-alertmanager
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "{{ prometheus_alertmgr_storage_class }}"
+          resources:
+            requests:
+              storage: "{{ prometheus_alertmgr_storage_size }}"
+    enableUserWorkload: true
+    nodeExporter:
+      baseImage: openshift/prometheus-node-exporter
+    kubeRbacProxy:
+      baseImage: quay.io/coreos/kube-rbac-proxy
+    kubeStateMetrics:
+      baseImage: quay.io/coreos/kube-state-metrics
+    grafana:
+      baseImage: grafana/grafana
+    auth:
+      baseImage: openshift/oauth-proxy
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+---
+apiVersion: v1
+kind: ConfigMap
+data:
+  config.yaml: |
+    prometheus:
+      retention: "{{ prometheus_userworkload_retention_period }}"
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "{{ prometheus_userworkload_storage_class }}"
+          resources:
+            requests:
+              storage: "{{ prometheus_userworkload_storage_size }}"
+metadata:
+  name: user-workload-monitoring-config
+  namespace: openshift-user-workload-monitoring
