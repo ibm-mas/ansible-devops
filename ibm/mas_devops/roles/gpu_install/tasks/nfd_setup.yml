@@ -23,7 +23,7 @@
 # 2. Create NFD project
 # -----------------------------------------------------------------------------
 - name: "Create nfd namespace"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     api_version: v1
     kind: Namespace
     name: '{{ nfd_namespace }}'
@@ -32,13 +32,13 @@
 # 3. Create NFD operator group and subscription
 # -----------------------------------------------------------------------------
 - name: "Create nfd operator group"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/nfd-operatorgroup.yml.j2') }}"
     wait: yes
     wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
 
 - name: "Create nfd subscription"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/nfd-subscription.yml.j2') }}"
     wait: yes
@@ -48,7 +48,7 @@
       status: "False"
 
 - name: "Wait until NodeFeatureDiscoveries CRD is available"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apiextensions.k8s.io/v1
     name: "nodefeaturediscoveries.nfd.openshift.io"
     kind: CustomResourceDefinition
@@ -69,7 +69,7 @@
 # 4. Create NFD instance
 # -----------------------------------------------------------------------------
 - name: "Create NodeFeatureDiscovery instance"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/nfd-instance.yml.j2') }}"
 
@@ -77,7 +77,7 @@
 # 5. Make sure NFD daemonsets have been created and all pods are ready
 # -----------------------------------------------------------------------------
 - name: "Wait for 'nfd-master' DaemonSet pods to be ready"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     name: nfd-master
     namespace: "{{nfd_namespace}}"
@@ -92,7 +92,7 @@
   delay: 60 # 1 minute
 
 - name: "Wait for 'nfd-worker' DaemonSet pods to be ready"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     name: nfd-worker
     namespace: "{{nfd_namespace}}"
