@@ -69,14 +69,14 @@
 # 2. Create a Db2 instance
 # -----------------------------------------------------------------------------
 - name: "Create db2wh instance"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/{{ cpd_version }}/db2ucluster.yaml.j2') | from_yaml }}"
   register: _db2_cluster_result
 
 # Wait for the cluster to be ready
 - name: "Wait for db2wh instance to be ready (5m delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2wh_instance_name | lower }}"
     namespace: "{{ db2wh_namespace }}"
@@ -92,14 +92,14 @@
 # 3. Configure a public route for Db2
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
     name: cluster
   register: _cluster_subdomain
 
 - name: Lookup db2wh TLS certificates
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "internal-tls"
@@ -107,7 +107,7 @@
   register: _db2u_instance_certificates
 
 - name: Lookup db2wh Engn Service
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Service
     name: "c-{{db2wh_instance_name | lower}}-db2u-engn-svc"
@@ -137,7 +137,7 @@
     "{{_db2u_instance_engn_svc.resources[0].spec.ports}}"
 
 - name: "Create Db2 Warehouse route"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd40/tlsroute.yml') }}"
 
@@ -158,7 +158,7 @@
     - mas_instance_id != ""
     - mas_config_dir is defined
     - mas_config_dir != ""
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "c-{{db2wh_instance_name | lower }}-instancepassword"
