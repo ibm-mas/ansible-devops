@@ -8,6 +8,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Install Kafka (AMQ Streams)](dependencies.md#install-amq-streams) (10 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
     - [Install UDS](dependencies.md#install-uds) (35 minutes)
+    - [Install GPU (with NFD)](dependencies.md#install-gpu) (2 minutes)
     - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
     - Install Cloud Pak for Data Services:
         - [Db2 Warehouse](cp4d.md#db2-install) (1 hour)
@@ -24,6 +25,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Install & configure Predict](mas.md#install-mas-application) (10 minute install + 5 minutes configure)
     - [Install & configure Safety](mas.md#install-mas-application) (? minute install + ? configure)
     - [Install & configure Maximo Scheduler Optmization](mas.md#install-mas-application) (10 minute install + ? configure)
+    - [Install & configure Visual Inspection](mas.md#install-mas-application) (30 minute install + 3 minutes configure)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 
@@ -94,6 +96,8 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
+- `MVI_STORAGE_CLASS` Defines the name of the MVI PVC storage class. Be sure to select a storage class that supports the **ReadWriteMany access mode** and is supported by your cloud vendor.
+- `MVI_STORAGE_SIZE` Defines the size of the MVI PVC storage class. The required storage size, for example, to specify 40 gibibytes of storage, which is the recommended minimum, enter `40Gi`.
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.

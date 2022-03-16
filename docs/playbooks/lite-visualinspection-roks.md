@@ -5,14 +5,14 @@ This master playbook will drive the following playbooks in sequence:
 - Install dependencies:
     - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (10 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
-    - [Install BAS](dependencies.md#install-bas) (2 hours)
+    - [Install UDS](dependencies.md#install-uds) (35 minutes)
     - [Install GPU (with NFD)](dependencies.md#install-gpu) (2 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (15 minutes)
 - Install & configure Visual Inspection application:
-    - [Install application](mas.md#install-mas-application) (20 minutes)
-    - [Configure workspace](mas.md#configure-mas-application) (2 minutes)
+    - [Install application](mas.md#install-mas-application) (30 minutes)
+    - [Configure workspace](mas.md#configure-mas-application) (3 minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 
@@ -52,9 +52,9 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
-- `BAS_CONTACT_MAIL` Defines the email for person to contact for BAS
-- `BAS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
-- `BAS_CONTACT_LASTNAME` Defines the last name of the person to contact for BAS
+- `UDS_CONTACT_MAIL` Defines the email for person to contact for UDS
+- `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for UDS
+- `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for UDS
 
 ## Optional environment variables
 - `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none is passed, `Default` resource group will be used.
@@ -62,11 +62,6 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 - `W3_USERNAME` to enable access to pre-release development builds of MAS
 - `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
 - `MONGODB_NAMESPACE` overrides the Kubernetes namespace where the MongoDb CE operator will be installed, this will default to `mongoce`
-- `BAS_USERNAME` BAS default username. If not provided, default username will be `basuser`
-- `BAS_PASSWORD` Defines the password for your BAS instance. If not provided, a random 15 character password will be generated
-- `BAS_GRAFANA_USERNAME` Defines the username for the BAS Graphana instance, default is `basuser`
-- `BAS_GRAFANA_PASSWORD` Defines the password for BAS Graphana dashboard. If not provided, a random 15 character password will be generated
-- `BAS_NAMESPACE` Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be `ibm-bas`
 - `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
 - `MAS_CHANNEL` to override the use of the `8.x` channel
 - `MAS_DOMAIN` to set a custom domain for the MAS installation
@@ -110,10 +105,10 @@ export MAS_CONFIG_DIR=~/masconfig
 export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
 
-# BAS configuration
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+# UDS configuration
+export UDS_CONTACT_MAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/lite-visualinspection-roks.yml
 ```
@@ -151,10 +146,10 @@ export MAS_APP_CHANNEL=8.x
 export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
 
-# BAS configuration
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+# UDS configuration
+export UDS_CONTACT_MAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/lite-visualinspection-roks.yml
 ```
