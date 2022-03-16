@@ -17,11 +17,6 @@
   fail:
     msg: "mongodb_storage_capacity_logs property is required"
 
-- name: "mongodb/community : Fail if mas_instance_id is not provided"
-  when: mas_instance_id is not defined or mas_instance_id == ""
-  fail:
-    msg: "mas_instance_id property is required"
-
 - name: "mongodb/community : Debug properties"
   debug:
     msg:
@@ -29,14 +24,14 @@
       - "MongoDb storage class ........ {{ mongodb_storage_class }}"
       - "MongoDb data capacity ........ {{ mongodb_storage_capacity_data }}"
       - "MongoDb logs capacity ........ {{ mongodb_storage_capacity_logs }}"
-      - "MAS instance ID .............. {{ mas_instance_id }}"
-      - "MAS config directory ......... {{ mas_config_dir }}"
+      - "MAS instance ID .............. {{ mas_instance_id | default('<undefined>', True) }}"
+      - "MAS config directory ......... {{ mas_config_dir | default('<undefined>', True)  }}"
 
 
 # 1. Install the CRD
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Install MongoDBCommunity CRD"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/crd.yml') }}"
 
@@ -44,7 +39,7 @@
 # 2. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Create namespace & install RBAC"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/rbac.yml') }}"
 
@@ -60,7 +55,7 @@
 # 4. Install the operator
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Install the MongoDb Operator"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/manager.yml') }}"
 
@@ -70,19 +65,35 @@
 # TODO: We should be able to do this with cert-manager natively inside Kubernetes
 
 - name: "mongodb/community : Check for existing CA configmap"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
     name: mas-mongo-ce-cert-map
     namespace: "{{ mongodb_namespace }}"
   register: ca_cfgmap_info
 
+# Generate an openssl.cnf file from the template
+- name: "mongodb/community : Create openssl.cnf"
+  when:
+    - ca_cfgmap_info.resources is defined
+    - ca_cfgmap_info.resources | length == 0
+  set_fact:
+    openssl_cfg_file: "/tmp/{{ mongodb_namespace }}-openssl.cnf"
+
+- name: "mongodb/community : Template openssl.cnf"
+  when:
+    - ca_cfgmap_info.resources is defined
+    - ca_cfgmap_info.resources | length == 0
+  ansible.builtin.template:
+    src: openssl/openssl.cnf.j2
+    dest: "{{ openssl_cfg_file }}"
+
 - name: "mongodb/community : Create new CA"
   when:
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
   vars:
-    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
+    openssl_cfg: "{{ openssl_cfg_file }}"
     openssl_ca_cfg: "{{ role_path }}/files/ca.cnf"
     file_prefix: "/tmp/mongoce-"
   shell: |
@@ -93,7 +104,7 @@
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
   vars:
-    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
+    openssl_cfg: "{{ openssl_cfg_file }}"
     file_prefix: "/tmp/mongoce-"
   shell: |
     openssl req -config {{ openssl_cfg }} -nodes -newkey rsa:2048 -keyout {{ file_prefix }}server.key -out {{ file_prefix }}server.csr
@@ -105,7 +116,7 @@
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
   vars:
-    openssl_cfg: "{{ role_path }}/files/openssl.cnf"
+    openssl_cfg: "{{ openssl_cfg_file }}"
     file_prefix: "/tmp/mongoce-"
   shell: |
     openssl req -config {{ openssl_cfg }} -subj "/C=US/ST=NY/L=New York/O=Example, LLC/CN=Mongo Client" -nodes -newkey rsa:2048 -keyout {{ file_prefix }}client.key -out {{ file_prefix }}client.csr
@@ -124,7 +135,7 @@
     mongodb_ca_pem: "{{ lookup('file', pem_file) }}"
     mongodb_server_crt: "{{ lookup('file', crt_file) }}"
     mongodb_server_key: "{{ lookup('file', key_file) }}"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/tls.yml') }}"
 
@@ -132,7 +143,7 @@
 # 6. Create MongoDb admin user credentials secret
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Check for existing user password secret"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: mas-mongo-ce-admin-password
@@ -143,7 +154,7 @@
   when:
     - admin_password_info.resources is defined
     - admin_password_info.resources | length == 0
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/admin-password.yml') }}"
 
@@ -151,7 +162,7 @@
 # 7. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Create MongoDb cluster"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/cr.yml') }}"
 
@@ -159,7 +170,7 @@
 # 8. Wait for the cluster to be ready
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Wait for stateful set to be ready"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet
     name: mas-mongo-ce
@@ -177,13 +188,13 @@
 
 # Lookup the admin password that was used
 - name: "mongodb/community : Lookup admin password"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: mas-mongo-ce-admin-admin
     namespace: "{{ mongodb_namespace }}"
   register: admin_password_lookup
-  retries: 30 # 30 * 30 seconds = 15 minutes
+  retries: 30 # 30 * 30 seconds = 30 minutes
   delay: 30
   until:
     - admin_password_lookup.resources | length > 0
@@ -191,7 +202,7 @@
 
 # Lookup the CA PEM
 - name: "mongodb/community : Lookup the ca.pem"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
     name: mas-mongo-ce-cert-map
@@ -200,7 +211,7 @@
 
 # Lookup the server certificate
 - name: "mongodb/community : Lookup the server.crt"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: mas-mongo-ce-cert-secret

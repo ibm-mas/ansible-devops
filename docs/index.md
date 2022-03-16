@@ -10,9 +10,13 @@ The following python modules are required in order to use this collection.
 - **openshift**
 - **ansible**
 
+!!! important
+    As of version 6 of this collection the dependencies have changed. The upgrade from `community.kubernetes` to `kubernetes.core` necessitates an upgrade in the version of the kubernetes and openshift modules from v11 to v12.
+
+
 #### Useful commands
 - Confirm availability and version: `python --version`
-- Installed Python modules: `python -m pip install ansible openshift==0.11.2`
+- Installed Python modules: `python -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1`
 - Confirm that ansible has been correctly installed: `ansible-playbook --version`
 
 
@@ -23,17 +27,18 @@ If you are using this collection to manage an OpenShift cluster in IBM Cloud Red
 - Install: `curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/master/linux-installer/idt-installer | bash`
 - Confirm availability and version: `ibmcloud version`
 
-
 ### OpenShift CLI
-If you do not already have the `oc` command line tool, you can download the version corresponding to the OpenShift cluster you are using, from the Command Line Tools option under the help menu
+If you do not already have the `oc` command line tool, you can download it as below:
+
+```
+wget -q https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+tar -xvzf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+mv openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit/oc /usr/local/bin/
+rm -rf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+```
 
 #### Useful commands
 - Confirm availability and version: `oc version`
-
-!!! note
-    This is a rather annoying chicken and egg situation, you need to have a running OCP instance before you can access the command line client that we want to use to automate setting up that instance.
-
-    See [ibm-mas/ansible-devops#2](https://github.com/ibm-mas/ansible-devops/issues/2)
 
 
 ## Installation
@@ -46,6 +51,18 @@ ansible-galaxy collection install ibm.mas_devops
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `6.0` Multiple Updates:
+    - Upgrade to [kubernetes.core](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/) Ansible module ([#194](https://github.com/ibm-mas/ansible-devops/pull/194))
+    - Remove BAS support (replaced by UDS) ([#194](https://github.com/ibm-mas/ansible-devops/pull/194))
+- `5.3` Multiple Updates:
+    - Add support for db2wh backup & restore ([#133](https://github.com/ibm-mas/ansible-devops/pull/133))
+    - Add support for appConnect ([#170](https://github.com/ibm-mas/ansible-devops/pull/170))
+    - Switch BAS from FullDeployment to AnalyticsProxy ([#178](https://github.com/ibm-mas/ansible-devops/pull/178))
+- `5.2` Multiple Updates:
+    - Support MongoDb CPU and memory configuration ([#158](https://github.com/ibm-mas/ansible-devops/pull/158))
+    - Separate CIS_APIKEY support for MAS Installation ([#156](https://github.com/ibm-mas/ansible-devops/pull/156))
+    - Support configurable prometheus storage & retention policy ([#151](https://github.com/ibm-mas/ansible-devops/pull/151))
+    - Support configurable application spec ([#160](https://github.com/ibm-mas/ansible-devops/pull/160))
 - `5.1` Multiple Updates:
     - Add support for Cloud Object Storage setup ([#122](https://github.com/ibm-mas/ansible-devops/pull/122))
     - Conditional application deployment in Tekton pipelines ([#118](https://github.com/ibm-mas/ansible-devops/pull/118))

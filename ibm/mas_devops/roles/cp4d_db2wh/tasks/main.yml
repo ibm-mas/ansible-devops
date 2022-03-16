@@ -12,7 +12,7 @@
 
 - name: Check for the presence of the CPDv4 services namespace
   when: cpd_version is not defined or cpd_version == ''
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Namespace
     name: cpd-meta-ops
@@ -44,11 +44,44 @@
       - "CPD Version ........................... {{ cpd_version }}"
       - "DB2WH Version ......................... {{ db2wh_version }}"
 
+# 3. Taint and label dedicated node if specified
+# -----------------------------------------------------------------------------
+- name: Taint and label dedicated worker node
+  when:
+    - db2wh_node_label is defined and db2wh_node_label != ''
+    - db2wh_dedicated_node is defined and db2wh_dedicated_node != ''
+  shell: |
+    oc adm taint node {{ db2wh_dedicated_node }} icp4data={{ db2wh_node_label }}:NoSchedule --overwrite
+    oc adm drain {{ db2wh_dedicated_node }} --ignore-daemonsets --delete-local-data
+    oc label node {{ db2wh_dedicated_node }} icp4data={{ db2wh_node_label }} --overwrite
+    oc adm uncordon {{ db2wh_dedicated_node }}
 
-# 3. Load var files
+# 4. Load var files
 # -----------------------------------------------------------------------------
 - name: Load variables
   include_vars: "vars/{{ cpd_version }}.yml"
 
+# 5. Setup norootsquash DaemonSet for NFS volumes
+# -----------------------------------------------------------------------------
+# Seeing lots of failures to deploy CP4D since adding this code.  Disabling it
+# as a precaution for now.
+#
+# If we need to do this, perhaps it should be done BEFORE we install
+# anything that uses NFS volumes (ie, in the ocp_setup_mas_deps role?)
+#
+# - name: "Required for DB2 on NFS volumes - Lookup 'norootsquash' DaemonSet is deployed"
+#   kubernetes.core.k8s_info:
+#     api_version: apps/v1
+#     name: norootsquash
+#     namespace: kube-system
+#     kind: DaemonSet
+#   register: daemonset_output
+
+# - name: "Required for DB2 on NFS volumes - Create 'norootsquash' DaemonSet"
+#   when: daemonset_output.resources | length == 0
+#   include_tasks: tasks/setup_norootsquash.yml
+
+# 6. Provision DB2 Warehouse Instances
+# -----------------------------------------------------------------------------
 - name: Provision DB2 instance
   include_tasks: "tasks/{{ cpd_version }}/provision-instance.yml"

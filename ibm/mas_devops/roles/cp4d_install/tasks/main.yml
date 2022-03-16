@@ -33,7 +33,7 @@
     - cpd_version is defined
     - cpd_version == 'cpd35'
   assert:
-    that: mas_channel not in mas87_channels
+    that: mas_channel in mas_channels_old_releases
     fail_msg: "cpd_version {{ cpd_version }} is not compatible with mas_channel {{ mas_channel }}"
 
 # 3. Check which CPD version to install
@@ -43,18 +43,17 @@
   when:
     - cpd_version is not defined or cpd_version == ''
   set_fact:
-    cpd_version: "{{ 'cpd40' if (mas_channel in mas87_channels) else 'cpd35' }}"
+    cpd_version: "{{ 'cpd40' if (mas_channel not in mas_channels_old_releases) else 'cpd35' }}"
 
 - debug:
     msg:
       - "CPD Version to be installed: {{ cpd_version }}"
       - "MAS Channel: {{ 'Unspecified' if (mas_channel is not defined or mas_channel == '') else mas_channel }}"
 
-
 # 4. Check if required operator catalog is installed and ready
 # -----------------------------------------------------------------------------
 - name: "Lookup ibm-operator-catalog"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     name: ibm-operator-catalog
     namespace: openshift-marketplace

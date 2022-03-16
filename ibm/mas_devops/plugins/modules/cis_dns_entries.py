@@ -42,7 +42,7 @@ def main():
             required = True,
         ),
 
-        ibmcloud_apikey = dict(
+        cis_apikey = dict(
             type = "str",
             required = True,
             no_log = True,
@@ -72,13 +72,13 @@ def main():
         supports_check_mode = True,
     )
 
-    if any(v == "" for v in [module.params['dns_entries'], module.params['cis_crn'], module.params['ibmcloud_apikey'], module.params['ocp_ingress']]):
-        module.fail_json(msg = f"Required parameters: [dns_entries, cis_crn, ibmcloud_apikey, ocp_ingress] cannot be empty")
+    if any(v == "" for v in [module.params['dns_entries'], module.params['cis_crn'], module.params['cis_apikey'], module.params['ocp_ingress']]):
+        module.fail_json(msg = f"Required parameters: [dns_entries, cis_crn, cis_apikey, ocp_ingress] cannot be empty")
 
     changed = False
 
     crn = module.params['cis_crn']
-    ibmCloudApiKey = module.params['ibmcloud_apikey']
+    cisApiKey = module.params['cis_apikey']
     openshiftIngress = module.params['ocp_ingress']
     domainPrefix = module.params['cis_subdomain']
     updateDNS = module.params['update_dns']
@@ -88,7 +88,7 @@ def main():
 
     url = "https://iam.cloud.ibm.com/oidc/token"
 
-    payload='apikey=' + ibmCloudApiKey + '&response_type=cloud_iam&grant_type=urn%3Aibm%3Aparams%3Aoauth%3Agrant-type%3Aapikey'
+    payload='apikey=' + cisApiKey + '&response_type=cloud_iam&grant_type=urn%3Aibm%3Aparams%3Aoauth%3Agrant-type%3Aapikey'
     headers = {
     'Accept': 'application/json',
     'Content-Type': 'application/x-www-form-urlencoded'

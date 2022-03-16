@@ -6,7 +6,7 @@
 # In ROKS OCP 4.6 and 4.8 we find this configmap named as "openshift-install"
 
 - name: Get OCP Install Information (openshift-install)
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
     name: openshift-install
@@ -25,7 +25,7 @@
 # If we didn't already set the new facts then it means we couldn't find the "openshift-install" configmap
 - name: Get OCP Install Information (openshift-install-manifests)
   when: ocp_install_invoker is not defined
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
     name: openshift-install-manifests
@@ -55,13 +55,11 @@
       - "OCP Install Version ................ {{ ocp_install_version }}"
       - "OCP Install Release ................ {{ ocp_install_release }}"
 
-
 # 1. Install IBM catalogs
 # -----------------------------------------------------------------------------
 - name: "Create IBM catalogs"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
-
 
 # 2. Install development (pre-release) catalogs
 # -----------------------------------------------------------------------------
@@ -74,11 +72,34 @@
     - not airgap_install
   include_tasks: "tasks/development-catalogs.yml"
 
+# 3. Install Foundation Services
+# -----------------------------------------------------------------------------
+# This will result in the following operators being installed in the ibm-common-services namespace
+# - IBM Cloud Pak Foundational Services
+# - IBM NamespaceScope Operator
+# - Operand Deployment Lifecycle Manager
 
-# 3. Install cert-manager
+- name: "Install Foundation Services"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/foundation-services/subscription.yml') }}"
+    wait: yes
+    wait_timeout: 120
+
+- name: "Wait for Foundation Services resources to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _operand_deployment
+  until: _operand_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+# 4. Install cert-manager
 # -----------------------------------------------------------------------------
 - name: Check if Cert Manager is already installed
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     name: cert-manager
     namespace: "cert-manager"
@@ -88,7 +109,7 @@
 # Install foundation services cert-manager if MAS 8.7+, otherwise, install jetstack/standalone version
 - name: Define which Cert Manager to install
   set_fact:
-    cm_version: "{{ 'foundation-services' if (mas_channel in mas87_channels) else 'standalone' }}"
+    cm_version: "{{ 'foundation-services' if (mas_channel not in mas_channels_old_releases) else 'standalone' }}"
   when:
     - (_cert_manager_deployed.resources | length) == 0
     - not airgap_install
@@ -99,8 +120,7 @@
     - (_cert_manager_deployed.resources | length) == 0
     - not airgap_install
 
-
-# 4. Install Service Binding Operator
+# 5. Install Service Binding Operator
 # -----------------------------------------------------------------------------
 # Install stable channel with automatic updates if MAS 8.7+, otherwise, install preview channel locked to v0.8
 
@@ -108,14 +128,13 @@
   when:
     - not airgap_install
   set_fact:
-    sbo_channel: "{{ 'stable' if (mas_channel in mas87_channels and ocp_install_release != '4.6') else 'preview' }}"
+    sbo_channel: "{{ 'stable' if (mas_channel not in mas_channels_old_releases and ocp_install_release != '4.6') else 'preview' }}"
 
 - include_tasks: "tasks/sbo/{{ sbo_channel }}.yml"
   when:
     - not airgap_install
 
-
-# 5. Update openshift monitoring to define a specific storage class for Prometheus logs
+# 6. Update openshift monitoring to define a specific storage class for Prometheus logs
 # -------------------------------------------------------------------------------------
 # All other settings have defaults, but the user must set prometheus_storage_class and
 # prometheus_alertmgr_storage_class for us to be able to apply this configuration
@@ -125,13 +144,12 @@
     - prometheus_storage_class != ""
     - prometheus_alertmgr_storage_class is defined
     - prometheus_alertmgr_storage_class != ""
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yml') }}"
     wait: yes
     wait_timeout: 120
 
-
-# 6. Increase cluster image registry from defautl 100Gi to 400Gi (cp4d images consume lot of space)
+# 7. Increase cluster image registry from defautl 100Gi to 400Gi (cp4d images consume lot of space)
 # -------------------------------------------------------------------------------------
 - name: "Increase cluster image registry"
   when: ocp_install_invoker == "ROKS"

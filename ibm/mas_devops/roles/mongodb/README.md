@@ -37,6 +37,18 @@ The size of the PVC that will be created for log storage in the cluster.
 - Environment Variable: `MONGODB_STORAGE_CAPACITY_LOGS`
 - Default Value: `20Gi`
 
+### mongodb_cpu_limits
+The CPU limits on the mongod container.
+
+- Environment Variable: `MONGODB_CPU_LIMITS`
+- Default Value: `1`
+
+### mongodb_mem_limits
+The Memory limits on the mongod container.
+
+- Environment Variable: `MONGODB_MEM_LIMITS_GB`
+- Default Value: `1Gi`
+
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a MongoCfg template.
 

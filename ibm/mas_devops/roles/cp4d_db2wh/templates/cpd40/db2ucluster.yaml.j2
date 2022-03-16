@@ -1,0 +1,119 @@
+apiVersion: db2u.databases.ibm.com/v1
+kind: Db2uCluster
+metadata:
+  name: "{{ db2wh_instance_name | lower }}"
+  namespace: "{{ db2wh_namespace }}"
+spec:
+  size: {{ db2wh_num_pods }}
+  license:
+    accept: true
+  podConfig:
+    db2u:
+      resource:
+        db2u:
+          requests:
+            cpu: "{{ db2wh_cpu_requests }}"
+            memory: "{{ db2wh_memory_requests }}"
+          limits:
+            cpu: "{{ db2wh_cpu_limits }}"
+            memory: "{{ db2wh_memory_limits }}"
+  account:
+    privileged: true
+{% if db2wh_node_label is defined and db2wh_node_label != "" %}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: icp4data
+            operator: In
+            values:
+            - {{ db2wh_node_label }}
+{% endif %}
+  environment:
+    database:
+      name: "{{db2wh_dbname}}"
+      settings:
+        dftTableOrg: "{{ db2wh_table_org }}"
+      ssl:
+        secretName: "internal-tls"
+        certLabel: "CN=zen-ca-cert"
+    dbType: db2wh
+    instance:
+      dbmConfig:
+        SRVCON_PW_PLUGIN: IBMIAMauthpwfile
+        group_plugin: IBMIAMauthgroup
+        srvcon_auth: GSS_SERVER_ENCRYPT
+        srvcon_gssplugin_list: IBMIAMauth
+      registry:
+        DB2AUTH: 'OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD'
+        DB2_FMP_RUN_AS_CONNECTED_USER: 'NO'
+        DB2_WORKLOAD: {{ db2wh_workload }}
+        DB2_4K_DEVICE_SUPPORT: "ON"
+    mln:
+      total: {{ db2wh_mln_count }}
+  addOns:
+    graph: {}
+    rest: {}
+  advOpts:
+    db2SecurityPlugin: cloud_gss_plugin
+{% if db2wh_node_label is defined and db2wh_node_label != "" %}
+  tolerations:
+  - effect: NoSchedule
+    key: icp4data
+    operator: Equal
+    value: "{{ db2wh_node_label }}"
+{% endif %}
+  version: "{{ db2wh_version }}"
+  storage:
+    - name: meta
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: "{{ db2wh_meta_storage_size_gb }}"
+        storageClassName: "{{ db2wh_meta_storage_class }}"
+      type: create
+    - name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ db2wh_user_storage_size_gb }}"
+        storageClassName: "{{ db2wh_user_storage_class }}"
+      type: template
+    - name: backup
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: "{{ db2wh_backup_storage_size_gb }}"
+        storageClassName: "{{ db2wh_backup_storage_class }}"
+      type: create
+    - name: activelogs
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ db2wh_logs_storage_size_gb }}"
+        storageClassName: "{{ db2wh_logs_storage_class }}"
+      type: template
+    - name: tempts
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ db2wh_temp_storage_size_gb }}"
+        storageClassName: "{{ db2wh_temp_storage_class }}"
+      type: template
+  volumeSources:
+    - visibility:
+        - db2u
+      volumeSource:
+        secret:
+          secretName: zen-service-broker-secret

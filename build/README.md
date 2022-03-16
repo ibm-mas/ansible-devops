@@ -6,7 +6,7 @@ Very cut back version of continuous integration build system for IBM Maximo Appl
 
 **Managed Branches** are ones where any commit will result in a new version being released.  These branches take one of two forms:
 - `master` (current major version)
-- `v1.x`, `v2.x`, `v3.x` etc
+- `v1.x`, `v2.x`, `v3.x`, `v4.x` etc
 
 Versioning is controlled by the GitHub commit messages:
 - A commit comment of `[patch] Fix the thing` will result in a version change from `1.0.0` to `1.0.1`
@@ -27,7 +27,6 @@ Incase these get messed up for any reason:
 cd docs/roles
 ROLE=amqstreams; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=ansible_version_check; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=bas_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=cp4d_db2wh; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=cp4d_db2wh_manage_hack; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=cp4d_hack_worker_nodes; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
@@ -50,4 +49,5 @@ ROLE=suite_dns; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_mustgather; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_verify; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
+ROLE=uds_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ```
