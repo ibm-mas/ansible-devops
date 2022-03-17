@@ -96,8 +96,6 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
-- `MVI_STORAGE_CLASS` Defines the name of the MVI PVC storage class. The default storage class is `ibmc-file-gold`, which is suitable for deployments to IBM Cloud, but might not be supported by other cloud vendors. Be sure to select a storage class that supports the **ReadWriteMany access mode** and is supported by your cloud vendor.
-- `MVI_STORAGE_SIZE` Defines the size of the MVI PVC storage class. The required storage size, for example, to specify 40 gibibytes of storage, which is the recommended minimum, enter `40Gi`.
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
@@ -123,9 +121,9 @@ export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
 
 # BAS configuration
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+export UDS_CONTACT_EMAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/fullstack-roks.yml
 ```
@@ -165,9 +163,9 @@ export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
 
 # BAS configuration
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+export UDS_CONTACT_EMAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/fullstack-roks.yml
 ```
