@@ -31,7 +31,7 @@
 # 1. Install the CRD
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Install MongoDBCommunity CRD"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/crd.yml') }}"
 
@@ -39,7 +39,7 @@
 # 2. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Create namespace & install RBAC"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/rbac.yml') }}"
 
@@ -55,7 +55,7 @@
 # 4. Install the operator
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Install the MongoDb Operator"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/manager.yml') }}"
 
@@ -65,7 +65,7 @@
 # TODO: We should be able to do this with cert-manager natively inside Kubernetes
 
 - name: "mongodb/community : Check for existing CA configmap"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
     name: mas-mongo-ce-cert-map
@@ -135,7 +135,7 @@
     mongodb_ca_pem: "{{ lookup('file', pem_file) }}"
     mongodb_server_crt: "{{ lookup('file', crt_file) }}"
     mongodb_server_key: "{{ lookup('file', key_file) }}"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/tls.yml') }}"
 
@@ -143,7 +143,7 @@
 # 6. Create MongoDb admin user credentials secret
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Check for existing user password secret"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: mas-mongo-ce-admin-password
@@ -154,7 +154,7 @@
   when:
     - admin_password_info.resources is defined
     - admin_password_info.resources | length == 0
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/admin-password.yml') }}"
 
@@ -162,7 +162,7 @@
 # 7. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Create MongoDb cluster"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/cr.yml') }}"
 
@@ -170,7 +170,7 @@
 # 8. Wait for the cluster to be ready
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Wait for stateful set to be ready"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet
     name: mas-mongo-ce
@@ -188,7 +188,7 @@
 
 # Lookup the admin password that was used
 - name: "mongodb/community : Lookup admin password"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: mas-mongo-ce-admin-admin
@@ -202,7 +202,7 @@
 
 # Lookup the CA PEM
 - name: "mongodb/community : Lookup the ca.pem"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
     name: mas-mongo-ce-cert-map
@@ -211,7 +211,7 @@
 
 # Lookup the server certificate
 - name: "mongodb/community : Lookup the server.crt"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: mas-mongo-ce-cert-secret
