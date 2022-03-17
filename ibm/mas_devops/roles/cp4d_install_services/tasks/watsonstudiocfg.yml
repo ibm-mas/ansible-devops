@@ -1,0 +1,135 @@
+---
+# We need to retrieve CPD url and admin password's for wsl config in mas
+# CPD url is passed as var to this task, the admin password we'll retrieve below
+
+# 1. Provide CP4D credentials
+# -----------------------------------------------------------------------------
+- name: Retrieve CPD admin credentials
+  community.kubernetes.k8s_info:
+    api_version: v1
+    name: admin-user-details
+    namespace: "{{ cpd_services_namespace }}"
+    kind: Secret
+  register: _cpd_admin
+
+- name: Assert CPD admin credentials exists
+  assert:
+    that:
+      - _cpd_admin.resources is defined
+      - _cpd_admin.resources | length > 0
+
+- set_fact:
+    cpd_admin_password: "{{ _cpd_admin.resources[0].data.initial_admin_password | b64decode }}"
+  no_log: true
+
+# 2. Set CP4D Bearer Token (cp4d_bearer_token) into Facts
+# -----------------------------------------------------------------------------
+- name: Authorize the CP4D (get Bearer token)
+  uri:
+    url: "{{ cpd_url }}/icp4d-api/v1/authorize"
+    validate_certs: no
+    method: POST
+    headers:
+      cache-control: "no-cache"
+    body_format: "json"
+    body: "{\"username\":\"{{ cpd_admin_username }}\",\"password\":\"{{ cpd_admin_password }}\"}"
+    status_code: 200
+    timeout: 30
+  register: cp4d_authorization
+
+- name: Get the CP4D Bearer token
+  set_fact:
+    cp4d_bearer_token: "{{ cp4d_authorization.json.token }}"
+
+- debug:
+    msg: "{{ cp4d_bearer_token }}"
+
+# -----------------------------------------------------------------------------
+# Get Catalog
+# -----------------------------------------------------------------------------
+#Target must be specified (project_id, catalog_id, space_id, profile_id or account_id)."
+- name: Get Catalog
+  uri:
+    url: "{{ cpd_url }}/v2/catalogs"
+    validate_certs: no
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cp4d_bearer_token }}"
+      cache-control: "no-cache"
+      bss_account_id: 999
+      public: true
+      enforce_members: true
+    status_code: 200
+    timeout: 30
+  register: catalog_output
+
+- debug:
+    msg: "{{ catalog_output }}"
+
+- set_fact:
+    catalog_id: "{{ catalog_output.json.catalogs[0].metadata.guid }}"
+
+- debug:
+    msg: "catalog_id: {{ catalog_id }}"
+
+# # https://cloud.ibm.com/apidocs/watson-data-api-cpd#createfolder
+# # -----------------------------------------------------------------------------
+# # Create Asset File
+# # -----------------------------------------------------------------------------
+# #Target must be specified (project_id, catalog_id, space_id, profile_id or account_id)."
+# - name: Create Asset File
+#   uri:
+#     url: "{{ cpd_url }}/v2/asset_files?catalog_id={{ catalog_id }}"
+#     validate_certs: no
+#     method: PUT
+#     headers:
+#       Authorization: "Bearer {{ cp4d_bearer_token }}"
+#       cache-control: "no-cache"
+#     status_code: 201,409
+#     timeout: 30
+#   register: asset_file_output
+
+# - debug:
+#     msg: "{{ asset_file_output }}"
+
+# -----------------------------------------------------------------------------
+# Create WSL project
+# -----------------------------------------------------------------------------
+
+- name: Create the WSL project in CP4D
+  vars:
+    wsl_project_name: "project_test2"
+    wsl_project_description: "project test description2"
+  uri:
+    url: "{{ cpd_url }}/transactional/v2/projects"
+    validate_certs: no
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cp4d_bearer_token }}"
+      cache-control: "no-cache"
+      Content-Type: "application/json"
+    body_format: "json"
+    body: "{{ lookup('template','templates/create_wsl_project.json.j2') }}"
+    status_code: 201,409
+    timeout: 30
+  register: create_wsl_project_output
+
+- debug:
+    msg: "{{ create_wsl_project_output }}"
+
+# 2. Write out the config to the local filesystem
+# -----------------------------------------------------------------------------
+- name: Copy WatsonStudioCfg to filesytem
+  no_log: true
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+    - cpd_admin_password is defined
+    - cpd_admin_password != ""
+    - cpd_admin_username is defined
+    - cpd_admin_username != ""
+  ansible.builtin.template:
+    src: watsonstudiocfg.yml.j2
+    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-watsonstudio-system.yml"

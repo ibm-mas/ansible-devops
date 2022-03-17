@@ -12,7 +12,7 @@
 
 - name: Check for the presence of the CPDv4 services namespace
   when: cpd_version is not defined or cpd_version == ''
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Namespace
     name: cpd-meta-ops
@@ -63,17 +63,23 @@
 
 # 5. Setup norootsquash DaemonSet for NFS volumes
 # -----------------------------------------------------------------------------
-- name: "Required for DB2 on NFS volumes - Lookup 'norootsquash' DeamonSet is deployed"
-  community.kubernetes.k8s_info:
-    api_version: apps/v1
-    name: norootsquash
-    namespace: kube-system
-    kind: DaemonSet
-  register: daemonset_output
+# Seeing lots of failures to deploy CP4D since adding this code.  Disabling it
+# as a precaution for now.
+#
+# If we need to do this, perhaps it should be done BEFORE we install
+# anything that uses NFS volumes (ie, in the ocp_setup_mas_deps role?)
+#
+# - name: "Required for DB2 on NFS volumes - Lookup 'norootsquash' DaemonSet is deployed"
+#   kubernetes.core.k8s_info:
+#     api_version: apps/v1
+#     name: norootsquash
+#     namespace: kube-system
+#     kind: DaemonSet
+#   register: daemonset_output
 
-- name: "Required for DB2 on NFS volumes - Create 'norootsquash' DeamonSet"
-  when: daemonset_output.resources | length == 0
-  include_tasks: tasks/setup_norootsquash.yml
+# - name: "Required for DB2 on NFS volumes - Create 'norootsquash' DaemonSet"
+#   when: daemonset_output.resources | length == 0
+#   include_tasks: tasks/setup_norootsquash.yml
 
 # 6. Provision DB2 Warehouse Instances
 # -----------------------------------------------------------------------------

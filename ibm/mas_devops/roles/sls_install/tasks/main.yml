@@ -42,7 +42,7 @@
       - "SLS Instance Name ............. {{ sls_instance_name }}"
 
 - name: "Create SLS Namespace"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Namespace
@@ -53,7 +53,7 @@
 # 2. Set up the domain name for SLS
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
     name: cluster
@@ -75,7 +75,7 @@
       - '{"auths":{"{{sls_icr_cp}}": {"username":"{{sls_entitlement_username}}","password":"{{sls_entitlement_key}}","auth":"{{entitledAuth}}"}'
       - '}'
       - '}'
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
@@ -106,7 +106,7 @@
 # 5. Wait until the LicenseService CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the LicenseService CRD is available"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apiextensions.k8s.io/v1
     name: "licenseservices.sls.ibm.com"
     kind: CustomResourceDefinition
@@ -140,7 +140,7 @@
   when: mongocfg is defined
 
 - name: Create the Mongo Secret for SLS
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     state: present
     namespace: '{{ sls_namespace }}'
     template: templates/mongo-secret.yml.j2
@@ -155,7 +155,7 @@
 # 7. Create the license service CR
 # -----------------------------------------------------------------------------
 - name: Create the sls.ibm.com/v1.LicenseService
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     state: present
     namespace: '{{ sls_namespace }}'
     template: templates/service.yml.j2

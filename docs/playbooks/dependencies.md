@@ -27,19 +27,18 @@ ansible-playbook playbooks/dependencies/install-mongodb-ce.yml
 ```
 
 
-## Install BAS
-Installs **IBM Behavior Analytics Services** on IBM Cloud Openshift Clusters (ROKS) and generates configuration that can be directly applied to IBM Maximo Application Suite. The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
-
-Refer to the [bas_install](../roles/bas_install.md) role documentation for more information.
+## Install UDS
+Installs **IBM User Data Services**.  Refer to the [uds_install](../roles/uds_install.md) role documentation for more information.
 
 ```bash
-export BAS_CONTACT_MAIL=john@email.com
-export BAS_CONTACT_FIRSTNAME=john
-export BAS_CONTACT_LASTNAME=winter
+export UDS_STORAGE_CLASS=ibmc-block-bronze
+export UDS_CONTACT_EMAIL=john@email.com
+export UDS_CONTACT_FIRSTNAME=john
+export UDS_CONTACT_LASTNAME=winter
 export MAS_INSTANCE_ID=masdev1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/dependencies/install-bas.yml
+ansible-playbook playbooks/dependencies/install-uds.yml
 ```
 
 
