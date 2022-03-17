@@ -72,7 +72,31 @@
     - not airgap_install
   include_tasks: "tasks/development-catalogs.yml"
 
-# 3. Install cert-manager
+# 3. Install Foundation Services
+# -----------------------------------------------------------------------------
+# This will result in the following operators being installed in the ibm-common-services namespace
+# - IBM Cloud Pak Foundational Services
+# - IBM NamespaceScope Operator
+# - Operand Deployment Lifecycle Manager
+
+- name: "Install Foundation Services"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/foundation-services/subscription.yml') }}"
+    wait: yes
+    wait_timeout: 120
+
+- name: "Wait for Foundation Services resources to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _operand_deployment
+  until: _operand_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+# 4. Install cert-manager
 # -----------------------------------------------------------------------------
 - name: Check if Cert Manager is already installed
   kubernetes.core.k8s_info:
@@ -94,7 +118,7 @@
     - cm_version is defined and cm_version !=''
     - (_cert_manager_deployed.resources | length) == 0
 
-# 4. Install Service Binding Operator
+# 5. Install Service Binding Operator
 # -----------------------------------------------------------------------------
 # Install stable channel with automatic updates if MAS 8.7+, otherwise, install preview channel locked to v0.8
 
@@ -104,7 +128,7 @@
 
 - include_tasks: "tasks/sbo/{{ sbo_channel }}.yml"
 
-# 5. Update openshift monitoring to define a specific storage class for Prometheus logs
+# 6. Update openshift monitoring to define a specific storage class for Prometheus logs
 # -------------------------------------------------------------------------------------
 # All other settings have defaults, but the user must set prometheus_storage_class and
 # prometheus_alertmgr_storage_class for us to be able to apply this configuration
@@ -119,7 +143,7 @@
     wait: yes
     wait_timeout: 120
 
-# 6. Increase cluster image registry from defautl 100Gi to 400Gi (cp4d images consume lot of space)
+# 7. Increase cluster image registry from defautl 100Gi to 400Gi (cp4d images consume lot of space)
 # -------------------------------------------------------------------------------------
 - name: "Increase cluster image registry"
   when: ocp_install_invoker == "ROKS"

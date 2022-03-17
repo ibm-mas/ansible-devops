@@ -38,3 +38,40 @@
 
 - name: "Run the services install"
   include_tasks: "tasks/{{ cpd_version }}/install-services.yml"
+
+# 3. Provide CP4D dashboard URL
+# -----------------------------------------------------------------------------
+- name: "Obtain CP4D dashboard URL"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Route
+    label_selectors: component=ibm-nginx
+  register: cpd_route_lookup
+  until:
+    - cpd_route_lookup.resources is defined
+    - cpd_route_lookup.resources | length > 0
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- set_fact:
+    cpd_url: https://{{ cpd_route_lookup.resources[0].spec.host }}
+  when: cpd_route_lookup is defined and cpd_route_lookup.resources[0] | length > 0
+
+- name: "CP4D Installation Summary:"
+  debug:
+    msg:
+      - "CP4D Dashboard ................. {{ cpd_url }}"
+      - "CP4D Username .................. admin"
+      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_services_namespace }}' namespace"
+      - "CP4D Services Installed ........ {{ cpd_services }}"
+
+# 4. Generate MAS Config (Watson Studio)
+# -----------------------------------------------------------------------------
+- name: Create WatsonStudio yml definition into {{ mas_config_dir }} folder
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+    - "'wsl' in cpd_services"
+  include_tasks: "watsonstudiocfg.yml"
