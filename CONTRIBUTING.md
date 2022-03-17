@@ -7,7 +7,7 @@ Note that during a build the version of the ansible collection is automatically 
 ```bash
 cd ibm/mas_devops
 
-ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-7.0.0.tar.gz -p /home/david/.ansible/collections --force
+ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-7.0.0.tar.gz --force
 
 ansible-playbook ../../playbook.yml
 ```
