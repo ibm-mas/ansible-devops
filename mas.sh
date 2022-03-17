@@ -152,15 +152,19 @@ function runplaybook() {
 
 function runpipeline() {
   show_target
-  VERSION=6.0.0
   # Install pipelines support
   bash pipelines/bin/install-pipelines.sh
+
+  # Build Pipeline definitions
+  export DEV_MODE=true
+  export VERSION=6.0.1-pre.relprep
+  bash pipelines/bin/build-pipelines.sh
 
   # Install the MAS pipeline definition
   oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
 
   oc new-project mas-sample-pipelines
-  oc apply -f pipelines/samples/sample-pipelinesettings.yaml
+  oc apply -f pipelines/samples/sample-pipelinesettings-roks-donotcommit.yaml
 
   oc create secret generic pipeline-additional-configs --from-file=$MAS_CONFIG_DIR/workspace_masdev.yaml
   oc create secret generic pipeline-sls-entitlement --from-file=$MAS_CONFIG_DIR/entitlement.lic
@@ -170,18 +174,21 @@ function runpipeline() {
 }
 
 set_target
-#runpipeline
 
 PLAYBOOK=$1
-  if [[ -z "$PLAYBOOK" ]]; then
-    echo "Enter the name of a playbook to run:"
-    echo " - fullstack-roks"
-    echo " - lite-core-roks"
-    echo " - lite-iot-roks"
-    echo " - lite-manage-roks"
-    echo ""
-    read -p '> ' PLAYBOOK
-  fi
-runplaybook $PLAYBOOK
+if [[ -z "$PLAYBOOK" ]]; then
+  echo "Enter the name of a playbook to run:"
+  echo " - fullstack-roks"
+  echo " - lite-core-roks"
+  echo " - lite-iot-roks"
+  echo " - lite-manage-roks"
+  echo ""
+  read -p '> ' PLAYBOOK
+
+  runplaybook $PLAYBOOK
+elif [[ "$PLAYBOOK" == "pipeline" ]]; then
+  echo "Deploying via in-cluster Tektok Pipeline"
+  runpipeline
+fi
 
 exit 0
