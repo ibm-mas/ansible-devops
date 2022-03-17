@@ -45,7 +45,12 @@
       - "Public Issuer .............. {{ public_issuer_name }}"
       - "Internal Issuer ............ {{ internal_issuer_name }}"
 
-# 2. Uninstall JetStack cert-manager
+# 2. Install IBM cert-manager
+# -------------------------------------------------------------------------------------------------
+- name: "Install IBM cert-manager in ibm-common-services namespace"
+  include_tasks: tasks/cert_manager_upgrade/install_ibm.yml
+
+# 3. Uninstall JetStack cert-manager
 # -------------------------------------------------------------------------------------------------
 - name: Lookup JetStack Cert Manager Deployment
   community.kubernetes.k8s_info:
@@ -60,11 +65,6 @@
     - cert_manager_sub_info.resources is defined
     - cert_manager_sub_info.resources | length == 1
   include_tasks: tasks/cert_manager_upgrade/remove_jetstack.yml
-
-# 3. Install IBM cert-manager
-# -------------------------------------------------------------------------------------------------
-- name: "Install IBM cert-manager in ibm-common-services namespace"
-  include_tasks: tasks/cert_manager_upgrade/install_ibm.yml
 
 # 4. Copy Default Public CA Issuer resources from cert-manager namespace
 # -------------------------------------------------------------------------------------------------
