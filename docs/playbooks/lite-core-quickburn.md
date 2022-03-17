@@ -6,7 +6,6 @@ This master playbook will drive the following playbooks in sequence:
 - Install dependencies:
     - [Install MongoDb](dependencies.md#install-mongodb-ce) (10 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
-    - [Install BAS](dependencies.md#install-bas) (35 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (15 minutes)
