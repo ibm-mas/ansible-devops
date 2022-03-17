@@ -42,7 +42,7 @@ function set_target() {
   export OCP_VERSION=4.8_openshift
 
   if [[ -z "$MAS_CONFIG_DIR" ]]; then
-    read -e -p 'MAS_CONFIG_DIR> ' -i "~/masconfig/$MAS_INSTANCE_ID" MAS_CONFIG_DIR
+    read -e -p 'MAS_CONFIG_DIR> ' -i "/home/david/masconfig/$MAS_INSTANCE_ID" MAS_CONFIG_DIR
   else
     read -e -p 'MAS_CONFIG_DIR> ' -i "$MAS_CONFIG_DIR" MAS_CONFIG_DIR
   fi
