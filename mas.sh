@@ -152,6 +152,8 @@ function runplaybook() {
 
 function runpipeline() {
   show_target
+  echo ""
+  echo "Deploying via in-cluster Tekton Pipeline"
   # Install pipelines support
   bash pipelines/bin/install-pipelines.sh
 
@@ -201,7 +203,6 @@ if [[ -z "$PLAYBOOK" ]]; then
 
   runplaybook $PLAYBOOK
 elif [[ "$PLAYBOOK" == "pipeline" ]]; then
-  echo "Deploying via in-cluster Tekton Pipeline"
   runpipeline
 fi
 
