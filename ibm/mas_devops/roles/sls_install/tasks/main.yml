@@ -3,26 +3,29 @@
 # 1. Check for missing properties that do not have defaults
 # -----------------------------------------------------------------------------
 - name: "Fail if sls_entitlement_username has not been provided"
-  when: sls_entitlement_username is not defined or sls_entitlement_username == ""
-  fail:
-    msg: "sls_entitlement_username property has not been set"
+  assert: 
+    that: sls_entitlement_username is defined and sls_entitlement_username != ""
+    fail_msg: "sls_entitlement_username property has not been set"
 
 - name: "Fail if sls_entitlement_key has not been provided"
-  when: sls_entitlement_key is not defined or sls_entitlement_key == ""
-  fail:
-    msg: "sls_entitlement_key property has not been set"
+  assert: 
+    that: sls_entitlement_key is defined and sls_entitlement_key != ""
+    fail_msg: "sls_entitlement_key property has not been set"
 
 - name: "Fail if no MongoDb config is provided"
-  when: mongodb is not defined and mongodb_cfg_file is not defined
-  fail:
-    msg: "mongodb_cfg_file property has not been set"
+  assert: 
+    that: mongodb is defined or mongodb_cfg_file is defined
+    fail_msg: "Either mongodb_cfg_file or mongodb properties must be set"
 
 - name: "Fail if missing any mongodb information"
   when:
     - mongodb is defined
-    - mongodb.hosts is not defined or mongodb.username is not defined or mongodb.password is not defined
-  fail:
-    msg: "Review provided MongoDb details, it could be missing hosts, username or password"
+  assert:
+    that: 
+      - mongodb.hosts is defined
+      - mongodb.username is defined
+      - mongodb.password is defined 
+    fail_msg: "Review provided MongoDb details, it is missing required elements"
 
 
 # 2. Provide debug information
@@ -46,7 +49,8 @@
       metadata:
         name: "{{sls_namespace}}"
 
-# 2. Set up the domain name for MAS
+
+# 2. Set up the domain name for SLS
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
   community.kubernetes.k8s_info:
@@ -163,17 +167,35 @@
 - include_tasks: "tasks/sls-verify.yml"
 
 
-# 9. Generate SLSCfg for MAS
+# 9. Generate properties used by sls_gencfg
 # -----------------------------------------------------------------------------
-- include_tasks: tasks/slscfg.yml
-  when:
-    - mas_instance_id is defined
-    - mas_instance_id != ""
-    - mas_config_dir is defined
-    - mas_config_dir != ""
-# 10. Create Cloud CredentialsRequest in SLS namespace
+# The SLSCfg resource is not generated as part of this role anymore, a dedicated
+# role exists to generate the configuraion file (sls_gencfg), this role will set up
+# all the properties required by that role
+# - slscfg_registration_key
+# - slscfg_url
+# - slscfg_tls_crt
+# 
+# If you want to generate the configuration file automatically chain the two roles
+# together in your playbook.
+- name: Lookup sls.ibm.com/v1.LicenseService
+  k8s_info:
+    api_version: sls.ibm.com/v1
+    kind: LicenseService
+    name: "{{ sls_instance_name }}"
+    namespace: "{{ sls_namespace }}"
+  register: sls_cr_result
 
-- name: Create CredentialsRequest in SLS namespace
-  community.kubernetes.k8s:
-    state: present
-    template: templates/credential-request.yml.j2
+- name: Obtain License Service Certificate
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ sls_cr_result.resources[0].status.ca.secretName }}"
+    namespace: "{{ sls_namespace }}"
+  register: _sls_ca
+
+- name: Set facts for SLSCfg
+  set_fact:
+    slscfg_registration_key: "{{sls_cr_result.resources[0].status.registrationKey}}"
+    slscfg_url: "{{sls_cr_result.resources[0].status.url}}"
+    slscfg_tls_crt: "{{_sls_ca.resources[0].data['ca.crt'] | b64decode }}"
