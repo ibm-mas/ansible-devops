@@ -156,16 +156,26 @@ function runpipeline() {
   bash pipelines/bin/install-pipelines.sh
 
   # Build Pipeline definitions
+  if [[ -z "$PIPELINE_VERSION" ]]; then
+    read -p 'PIPELINE_VERSION> ' PIPELINE_VERSION
+  else
+    read -e -p 'PIPELINE_VERSION> ' -i "$PIPELINE_VERSION" PIPELINE_VERSION
+  fi
+  export VERSION=$PIPELINE_VERSION
   export DEV_MODE=true
-  export VERSION=6.0.1-pre.relprep
   bash pipelines/bin/build-pipelines.sh
 
   # Install the MAS pipeline definition
-  oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
+  oc apply -f pipelines/ibm-mas_devops-clustertasks-$PIPELINE_VERSION.yaml
 
-  oc new-project mas-sample-pipelines
+  oc project mas-sample-pipelines &> /dev/null || oc new-project mas-sample-pipelines
   oc apply -f pipelines/samples/sample-pipelinesettings-roks-donotcommit.yaml
 
+  # Clean up existing secrets
+  oc delete secret pipeline-additional-configs --ignore-not-found=true
+  oc delete secret pipeline-sls-entitlement --ignore-not-found=true
+
+  # Create new secrets
   oc create secret generic pipeline-additional-configs --from-file=$MAS_CONFIG_DIR/workspace_masdev.yaml
   oc create secret generic pipeline-sls-entitlement --from-file=$MAS_CONFIG_DIR/entitlement.lic
 
@@ -173,6 +183,10 @@ function runpipeline() {
   oc create -f pipelines/samples/sample-pipelinerun.yaml
 }
 
+
+# -----------------------------------------------------------------------------
+# Entrypoint
+# -----------------------------------------------------------------------------
 set_target
 
 PLAYBOOK=$1
@@ -187,7 +201,7 @@ if [[ -z "$PLAYBOOK" ]]; then
 
   runplaybook $PLAYBOOK
 elif [[ "$PLAYBOOK" == "pipeline" ]]; then
-  echo "Deploying via in-cluster Tektok Pipeline"
+  echo "Deploying via in-cluster Tekton Pipeline"
   runpipeline
 fi
 
