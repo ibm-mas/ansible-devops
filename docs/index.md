@@ -15,8 +15,8 @@ The following python modules are required in order to use this collection.
 
 
 #### Useful commands
-- Confirm availability and version: `python --version`
-- Installed Python modules: `python -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1`
+- Confirm availability and version: `python3 --version`
+- Installed Python modules: `python3 -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1`
 - Confirm that ansible has been correctly installed: `ansible-playbook --version`
 
 

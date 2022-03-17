@@ -23,13 +23,15 @@ if __name__ == "__main__":
     version = "unknown"
 
     if suite == "":
-        print ("Test results not recorded as JUNIT_SUITE_NAME is not defined")
+        print ("Results not recorded because JUNIT_SUITE_NAME is not defined")
         exit(0)
 
     if instanceId is None:
-        raise Exception("MAS_INSTANCE_ID env var is not set, unable to save results to MongoDb")
+        print("Results not recorded because MAS_INSTANCE_ID env var is not set")
+        exit(0)
     if build is None:
-        raise Exception("TRAVIS_BUILD_NUMBER env var is not set, unable to save results to MongoDb")
+        print("Results not recorded because TRAVIS_BUILD_NUMBER env var is not set")
+        exit(0)
 
     runId = f"{instanceId}:{build}"
     resultId = f"{instanceId}:{build}:{productId}:{suite}"
