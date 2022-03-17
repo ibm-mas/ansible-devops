@@ -2,17 +2,12 @@
 # The following playbook is an attempt to automate the CP4D 4.0 steps documented here:
 # https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
 
-# 1. Fail if no required keys are provided
+# 1. Assert that cpd_storage_class has been provided
 # -----------------------------------------------------------------------------
-- name: "Fail if cpd_storage_class has not been provided"
-  when: cpd_storage_class is not defined or cpd_storage_class == ""
-  fail:
-    msg: "cpd_storage_class property has not been set"
-
-- name: "Fail if cpd_metadb_storage_class has not been provided"
-  when: cpd_metadb_storage_class is not defined or cpd_metadb_storage_class == ""
-  fail:
-    msg: "cpd_metadb_storage_class property has not been set"
+- name: "Assert that cpd_storage_class has been provided"
+  assert: 
+    that: cpd_storage_class is defined and cpd_storage_class != ""
+    fail_msg: "cpd_storage_class property has not been set"
 
 - name: "Debug information"
   debug:
@@ -22,7 +17,6 @@
       - "CPD registry ................. {{ cpd_registry }}"
       - "CPD username ................. {{ cpd_registry_user }}"
       - "CPD storage class ............ {{ cpd_storage_class }}"
-      - "CPD metadb storage class ..... {{ cpd_metadb_storage_class }}"
 
 # 2. Setup namespace for CP4D
 # -----------------------------------------------------------------------------
