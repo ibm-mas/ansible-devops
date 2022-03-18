@@ -10,6 +10,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Install UDS](dependencies.md#install-uds) (35 minutes)
     - [Install GPU (with NFD)](dependencies.md#install-gpu) (2 minutes)
     - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
+    - [Install AppConnect](dependencies.md#install-appconnect) (?)
     - Install Cloud Pak for Data Services:
         - [Db2 Warehouse](cp4d.md#db2-install) (1 hour)
         - [Watson Studio](cp4d.md#watson-studio-install) with [Apache Spark](cp4d.md#watson-studio-install), [Watson Machine Learning](cp4d.md#watson-studio-install), & [Watson AI OpenScale](cp4d.md#watson-studio-install) (4-5 hours)
@@ -26,6 +27,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Install & configure Safety](mas.md#install-mas-application) (? minute install + ? configure)
     - [Install & configure Maximo Scheduler Optmization](mas.md#install-mas-application) (10 minute install + ? configure)
     - [Install & configure Visual Inspection](mas.md#install-mas-application) (30 minute install + 3 minutes configure)
+    - [Install & configure Health & Predict Utilities](mas.md#install-mas-application) (10 minute install + ? configure)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 
