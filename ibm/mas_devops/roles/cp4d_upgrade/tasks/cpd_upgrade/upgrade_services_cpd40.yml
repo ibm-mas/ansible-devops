@@ -1,7 +1,7 @@
 ---
 # This role will assume you have CloudPak for Data v3.5 installed in 'cpd-meta-ops' namespace
-# and will perform an in-place upgrade to CloudPak for Data v4.0 where the CPD operators will be 
-# deployed in 'ibm-common-services' namespace and the services will be deployed in existing 'cpd-meta-ops' namespace 
+# and will perform an in-place upgrade to CloudPak for Data v4.0 where the CPD operators will be
+# deployed in 'ibm-common-services' namespace and the services will be deployed in existing 'cpd-meta-ops' namespace
 
 # 1. Check which CP4D Services to be upgraded
 # -----------------------------------------------------------------------------
@@ -13,7 +13,7 @@
   register: _cpd_services_to_upgrade
 
 - set_fact:
-   cpd35_services: "{{ cpd35_services|default([]) + [outer_item.spec.serviceName] }}"
+    cpd35_services: "{{ cpd35_services|default([]) + [outer_item.spec.serviceName] }}"
   loop: "{{ _cpd_services_to_upgrade.resources }}"
   loop_control:
     loop_var: outer_item
@@ -22,17 +22,17 @@
 - name: "Check if existing CPD v3.5 Services have supported upgrade path"
   when: cpd_item in cpd_upgrade_supported_services
   set_fact:
-   cpd_services: "{{ cpd_services|default([]) + [cpd_item] }}"
+    cpd_services: "{{ cpd_services|default([]) + [cpd_item] }}"
   loop: "{{ cpd35_services }}"
   loop_control:
     loop_var: cpd_item
 
 # 2. Define the priority that CPD Services will be upgraded
 # -----------------------------------------------------------------------------
-# DB2 and Watson Studio must be upgraded first, once Watson Studio is upgraded then 
+# DB2 and Watson Studio must be upgraded first, once Watson Studio is upgraded then
 # remaining Watson Services can be upgraded
 # Lastly, OpenScale will be upgraded as it is likely to fail if WML is not priorly upgraded.
-# That's the best we can do for now to try to control the order of what gets upgraded first 
+# That's the best we can do for now to try to control the order of what gets upgraded first
 # so everything works out at the end... it would be too complex to upgrade
 # a given service conditionally upon a chain of services being upgraded priorly.
 
@@ -42,7 +42,7 @@
 - name: "Check CPD Services with 1st priority to be upgraded (DB2 and Watson Studio)"
   when: cpd_item_priority1 in cpd_services_list_priority1
   set_fact:
-   cpd_services_priority1: "{{ cpd_services_priority1|default([]) + [cpd_item_priority1] }}"
+    cpd_services_priority1: "{{ cpd_services_priority1|default([]) + [cpd_item_priority1] }}"
   loop: "{{ cpd_services }}"
   loop_control:
     loop_var: cpd_item_priority1
@@ -50,7 +50,7 @@
 - name: "Check CPD Services with 2nd priority to be upgraded (WML, Spark, Dods and Dmc)"
   when: cpd_item_priority2 in cpd_services_list_priority2
   set_fact:
-   cpd_services_priority2: "{{ cpd_services_priority2|default([]) + [cpd_item_priority2] }}"
+    cpd_services_priority2: "{{ cpd_services_priority2|default([]) + [cpd_item_priority2] }}"
   loop: "{{ cpd_services }}"
   loop_control:
     loop_var: cpd_item_priority2
@@ -58,7 +58,7 @@
 - name: "Check CPD Services with 3rd priority to be upgraded (OpenScale)"
   when: cpd_item_priority3 in cpd_services_list_priority3
   set_fact:
-   cpd_services_priority3: "{{ cpd_services_priority3|default([]) + [cpd_item_priority3] }}"
+    cpd_services_priority3: "{{ cpd_services_priority3|default([]) + [cpd_item_priority3] }}"
   loop: "{{ cpd_services }}"
   loop_control:
     loop_var: cpd_item_priority3
@@ -67,7 +67,7 @@
 # -----------------------------------------------------------------------------
 - name: "Assert that cpd_storage_class has been provided"
   assert:
-    that: 
+    that:
       - cpd_storage_class is defined and cpd_storage_class != ""
     fail_msg: "cpd_storage_class property has not been set"
 
@@ -84,7 +84,7 @@
 # -----------------------------------------------------------------------------
 - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/upgrade_services_by_priority.yml"
   when:
-    - cpd_services_priority1 is defined 
+    - cpd_services_priority1 is defined
     - cpd_services_priority1 | length > 0
   vars:
     cpd_services: "{{ cpd_services_priority1 }}"
@@ -93,7 +93,7 @@
 # -----------------------------------------------------------------------------
 - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/upgrade_services_by_priority.yml"
   when:
-    - cpd_services_priority2 is defined 
+    - cpd_services_priority2 is defined
     - cpd_services_priority2 | length > 0
   vars:
     cpd_services: "{{ cpd_services_priority2 }}"
@@ -101,7 +101,7 @@
 # 6. Upgrade OpenScale
 # -----------------------------------------------------------------------------
 - include_tasks: "{{ role_path }}/tasks/cpd_upgrade/upgrade_services_by_priority.yml"
-  when: 
+  when:
     - cpd_services_priority3 is defined
     - cpd_services_priority3 | length > 0
   vars:
@@ -112,7 +112,7 @@
 - name: "Lookup CP4D dashboard URL"
   community.kubernetes.k8s_info:
     api_version: route.openshift.io/v1
-    name: "{{ cpd_services_namespace }}-cpd" # for a clean install of cpd v4, this route is just named 'cpd' 
+    name: "{{ cpd_services_namespace }}-cpd" # for a clean install of cpd v4, this route is just named 'cpd'
     namespace: "{{cpd_services_namespace}}"
     kind: Route
   register: _cpd_route
