@@ -23,7 +23,7 @@
     cpd_admin_password: "{{ _cpd_admin.resources[0].data.initial_admin_password | b64decode }}"
   no_log: true
 
-# 2. Set CP4D Bearer Token (cp4d_bearer_token) into Facts
+# 2. Get CP4D Beaker token to enable Watson API authentication
 # -----------------------------------------------------------------------------
 - name: Authorize the CP4D (get Bearer token)
   uri:
@@ -45,7 +45,6 @@
 
 # - debug:
 #     msg: "{{ cp4d_bearer_token }}"
-
 
 # 3. Create WSL project
 # -----------------------------------------------------------------------------
@@ -69,12 +68,12 @@
 
 - debug:
     msg: "'cpd_wsl_project_id' was not set or was not found in cpd instance, therefore one wsl project will be created to be used in MAS!"
-  when: 
+  when:
     - lookup_wsl_project_output.status is not defined or (lookup_wsl_project_output.status is defined and lookup_wsl_project_output.status == 404)
 
-# only create wsl project if cpd_wsl_project_id is defined and if that cpd_wsl_project_id exists in cpd, otherwise create one
+# only create wsl project if cpd_wsl_project_id is not pre-set or if the defined cpd_wsl_project_id does not exists in cpd, otherwise create one wsl project
 - name: Create the WSL project in CP4D if one is needed
-  when: 
+  when:
     - lookup_wsl_project_output.status is not defined or (lookup_wsl_project_output.status is defined and lookup_wsl_project_output.status == 404)
   uri:
     url: "{{ cpd_url }}/transactional/v2/projects"
