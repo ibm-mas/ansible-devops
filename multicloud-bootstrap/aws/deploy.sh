@@ -269,7 +269,8 @@ fi
 # Deploy CP4D
 if [[ $DEPLOY_CP4D == "true" ]]; then
   log "==== CP4D deployment started ===="
-  ansible-playbook install-cp4d.yml
+  ansible-playbook install-services-db2.yml
+  ansible-playbook create-db2-instance.yml
   log "==== CP4D deployment completed ===="
 fi
 
