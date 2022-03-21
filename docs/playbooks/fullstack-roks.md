@@ -98,6 +98,9 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
+- `CPD_WSL_PROJECT_ID` to set a Watson Studio project id to be passed to HP Utilities application during its deployment and configuration. If not set, a new project will be created in Watson Studio automatically to configure HP Utilities application in the MAS instance created by this playbook
+- `CPD_WSL_PROJECT_NAME` to set a Watson Studio project name, if not set a default project name will be used
+- `CPD_WSL_PROJECT_DESCRIPTION` - to set a Watson Studio project description, if not set a default project description will be used
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
