@@ -26,7 +26,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Install & configure Predict](mas.md#install-mas-application) (10 minute install + 5 minutes configure)
     - [Install & configure Safety](mas.md#install-mas-application) (? minute install + ? configure)
     - [Install & configure Maximo Scheduler Optmization](mas.md#install-mas-application) (10 minute install + ? configure)
-    - [Install & configure Visual Inspection](mas.md#install-mas-application) (30 minute install + 3 minutes configure)
+    - [Install & configure Maximo Visual Inspection](mas.md#install-mas-application) (30 minute install + 3 minutes configure)
     - [Install & configure Health & Predict Utilities](mas.md#install-mas-application) (10 minute install + ? configure)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
