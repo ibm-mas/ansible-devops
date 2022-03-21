@@ -114,7 +114,7 @@ function show_config() {
 
   echo -e "\nIBMCloud Settings"
   echo "-------------------------------------------------------------"
-  echo "IBMCLOUD_APIKEY ........... $(./yq_linux_amd64 '.stringData.IBMCLOUD_APIKEY' pipelinesettings-$MAS_INSTANCE_ID.yaml)"
+  echo "IBMCLOUD_APIKEY ........... $($DIR/yq '.stringData.IBMCLOUD_APIKEY' pipelinesettings-$MAS_INSTANCE_ID.yaml)"
 
   echo -e "\nIBM Maximo Application Suite Settings"
   echo "-------------------------------------------------------------"
@@ -145,15 +145,19 @@ function show_config() {
 # Launch the pipeline run
 # -----------------------------------------------------------------------------
 function run_pipeline() {
+  OCP_CONSOLE_ROUTE=$(oc -n openshift-console get route console -o=jsonpath='{.spec.host}')
+  echo "Connected to OCP cluster: https://$OCP_CONSOLE_ROUTE"
+  confirm "Proceed with deployment on this cluster [y/N] " || exit 0
+
   MAS_INSTANCE_ID=$1
-  if [[ ! -e pipelinesettings-$MAS_INSTANCE_ID.yaml ]]; then
+  MAS_CONFIG_DIR=$2
+  if [[ ! -e "pipelinesettings-$MAS_INSTANCE_ID.yaml" ]]; then
     echo "No configuration exists for $MAS_INSTANCE_ID"
-    exit 1
   fi
 
   echo ""
   echo "Deploying via in-cluster Tekton Pipeline"
-  show_config
+  show_config $MAS_INSTANCE_ID
   confirm "Proceed with these settings [y/N] " || exit 0
 
   fail=0
@@ -208,8 +212,7 @@ case $1 in
     ;;
 
   run|run)
-    show_config $2
-    run_pipeline $2
+    run_pipeline $2 $3
     ;;
 
   *)

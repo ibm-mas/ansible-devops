@@ -24,17 +24,17 @@ function set_target() {
 
   export OCP_VERSION=4.8_openshift
 
-  if [[ -z "$MAS_CONFIG_DIR" ]]; then
-    read -e -p 'MAS_CONFIG_DIR> ' -i "/home/david/masconfig/$MAS_INSTANCE_ID" MAS_CONFIG_DIR
-  else
-    read -e -p 'MAS_CONFIG_DIR> ' -i "$MAS_CONFIG_DIR" MAS_CONFIG_DIR
-  fi
-  export MAS_CONFIG_DIR
+  # if [[ -z "$MAS_CONFIG_DIR" ]]; then
+  #   read -e -p 'MAS_CONFIG_DIR> ' -i "/home/david/masconfig/$MAS_INSTANCE_ID" MAS_CONFIG_DIR
+  # else
+  #   read -e -p 'MAS_CONFIG_DIR> ' -i "$MAS_CONFIG_DIR" MAS_CONFIG_DIR
+  # fi
+  # export MAS_CONFIG_DIR
 
-  if [[ ! -e "$MAS_CONFIG_DIR" ]]; then
-    echo "MAS_CONFIG_DIR does not exist, creating directory"
-    mkdir -p "$MAS_CONFIG_DIR"
-  fi
+  # if [[ ! -e "$MAS_CONFIG_DIR" ]]; then
+  #   echo "MAS_CONFIG_DIR does not exist, creating directory"
+  #   mkdir -p "$MAS_CONFIG_DIR"
+  # fi
 
   # TODO: make these work for non-development target
   export MAS_CATALOG_SOURCE=ibm-mas-operators
