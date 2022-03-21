@@ -10,17 +10,15 @@ function set_target() {
   fi
   export IBMCLOUD_APIKEY
 
-  if [[ -z "$CLUSTER_NAME" ]]; then
-    read -p 'CLUSTER_NAME> ' CLUSTER_NAME
-  else
-    read -e -p 'CLUSTER_NAME> ' -i "$CLUSTER_NAME" CLUSTER_NAME
-  fi
-  export CLUSTER_NAME
+  # if [[ -z "$CLUSTER_NAME" ]]; then
+  #   read -p 'CLUSTER_NAME> ' CLUSTER_NAME
+  # else
+  #   read -e -p 'CLUSTER_NAME> ' -i "$CLUSTER_NAME" CLUSTER_NAME
+  # fi
+  # export CLUSTER_NAME
 
   if [[ -z "$MAS_INSTANCE_ID" ]]; then
-    read -e -p 'MAS_INSTANCE_ID> ' -i "$CLUSTER_NAME" MAS_INSTANCE_ID
-  else
-    read -e -p 'MAS_INSTANCE_ID> ' -i "$MAS_INSTANCE_ID" MAS_INSTANCE_ID
+    read -p 'MAS_INSTANCE_ID> ' MAS_INSTANCE_ID
   fi
   export MAS_INSTANCE_ID
 
