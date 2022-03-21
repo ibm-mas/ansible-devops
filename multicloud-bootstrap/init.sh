@@ -101,6 +101,7 @@ export CPD_STORAGE_CLASS=ocs-storagecluster-cephfs
 export CPD_NAMESPACE="ibm-common-services"
 export CPD_SERVICES_NAMESPACE="cpd-services-${RANDOM_STR}"
 # DB2WH variables
+export DB2WH_NAMESPACE="cpd-services-${RANDOM_STR}"
 export DB2WH_META_STORAGE_CLASS=ocs-storagecluster-cephfs
 export DB2WH_USER_STORAGE_CLASS=ocs-storagecluster-cephfs
 export DB2WH_BACKUP_STORAGE_CLASS=ocs-storagecluster-cephfs
