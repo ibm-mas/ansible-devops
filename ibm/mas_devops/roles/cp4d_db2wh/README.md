@@ -40,6 +40,12 @@ This role will install a daemonset which applies the `no_root_squash` NFS mount 
 Role Variables
 --------------
 
+### db2wh_namespace
+Only supported when using CloudPak for Data v4.0, otherwise unused. For v3.5 support the value is always set to `cpd-meta-ops`.
+
+- Environment Variable: `DB2WH_NAMESPACE`
+- Default Value: `cpd-services`
+
 ### db2wh_instance_name
 Required.  Name of the database instance, note that this is the instance **name**, which is different from the instance **ID**.
 
