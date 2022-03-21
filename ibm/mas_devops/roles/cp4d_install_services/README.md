@@ -34,6 +34,37 @@ Required.  Provide a list of Cloud Pak for Data services to enable.
 
 - Environment Variable: None
 - Default Value: None
+### cpd_wsl_project_id
+Optional - Stores the CP4D Watson Studio Project ID that can be used to configure HP Utilities application in MAS. 
+
+If this property is not set, and Watson Studio is installed as part of CP4D, this role will automatically create one Watson Studio project that could be used to configure HP Utilities application in MAS instance (`mas_instance_id` and `mas_config_dir` properties must also be set in order for Watson Studio project to be created as part of this role.)
+
+- Environment Variable: `CPD_WSL_PROJECT_ID`
+- Default Value: None.
+
+### cpd_wsl_project_name
+Optional - Stores the CP4D Watson Studio Project name that can be used to configure HP Utilities application in MAS. 
+
+- Environment Variable: `CPD_WSL_PROJECT_NAME`
+- Default Value: `wsl_default_project`
+
+### cpd_wsl_project_description
+Optional - Stores the CP4D Watson Studio Project description that can be used to configure HP Utilities application in MAS. 
+
+- Environment Variable: `CPD_WSL_PROJECT_DESCRIPTION`
+- Default Value: `Watson Studio project to be used by HP Utilities app in MAS`
+### mas_instance_id
+If Watson Studio is installed as part of CP4D: The instance ID of Maximo Application Suite that the WatsonStudioCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a WatsonStudioCfg template.
+
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
+
+### mas_config_dir
+If Watson Studio is installed as part of CP4D: Local directory to save the generated WatsonStudioCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Watson Studio, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a WatsonStudioCfg template.
+
+- Environment Variable: `MAS_CONFIG_DIR`
+- Default Value: None
+
 
 Example Playbook
 ----------------

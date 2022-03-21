@@ -6,36 +6,36 @@ kind: Secret
 type: opaque
 metadata:
   name: bas-apikey
-  namespace: "mas-{{mas_instance_id}}-core"
+  namespace: "mas-{{ mas_instance_id }}-core"
 stringData:
-  api_key: "{{bas_api_key}}"
+  api_key: "{{ uds_api_key }}"
 ---
 apiVersion: config.mas.ibm.com/v1
 kind: BasCfg
 metadata:
-  name: "{{mas_instance_id}}-bas-system"
-  namespace: "mas-{{mas_instance_id}}-core"
+  name: "{{ mas_instance_id }}-bas-system"
+  namespace: "mas-{{ mas_instance_id }}-core"
   labels:
     mas.ibm.com/configScope: system
-    mas.ibm.com/instanceId: "{{mas_instance_id}}"
+    mas.ibm.com/instanceId: "{{ mas_instance_id }}"
 spec:
-  displayName: bas.{{mas_instance_id}}
+  displayName: UDS {{ mas_instance_id }}
   config:
-    url: "{{bas_endpoint_url}}"
+    url: "{{ uds_endpoint_url }}"
     contact:
-      email: "{{ bas_contact.email}}"
-      firstName: "{{ bas_contact.firstName}}"
-      lastName: "{{ bas_contact.lastName}}"
+      email: "{{ uds_contact.email }}"
+      firstName: "{{ uds_contact.first_name }}"
+      lastName: "{{ uds_contact.last_name }}"
     credentials:
       secretName: bas-apikey
-    segmentKey: "{{bas_segment_key}}"
-  certificates: 
+    segmentKey: "{{ mas_segment_key | default(omit, true) }}"
+  certificates:
     - alias: part1
       crt: |
-        {{bas_tls_crt[0] | indent(8) }}
+        {{ uds_tls_crt[0] | indent(8) }}
     - alias: part2
       crt: |
-        {{bas_tls_crt[1] | indent(8) }}
+        {{ uds_tls_crt[1] | indent(8) }}
     - alias: part3
       crt: |
         -----BEGIN CERTIFICATE-----
