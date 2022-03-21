@@ -3,6 +3,15 @@ set -e
 
 # !!!! INCOMPLETE / WORK IN PROGRESS / USE AT OWN RISK !!!!
 
+# Usage:
+# oc login xxx
+# bin/mas install-pipeline
+# bin/mas set-config masinst1
+# bin/mas show-config masinst1
+# bin/mas run-pipeline masinst1 /path/to/dir/containing/licensefile_and_masdev_workspace
+
+
+
 # Load common functions
 # -----------------------------------------------------------------------------
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -23,12 +32,16 @@ fi
 # Install the pipeline
 # -----------------------------------------------------------------------------
 function install_pipeline() {
+  OCP_CONSOLE_ROUTE=$(oc -n openshift-console get route console -o=jsonpath='{.spec.host}')
+  echo "Connected to OCP cluster: https://$OCP_CONSOLE_ROUTE"
+  confirm "Proceed with installation on this cluster [y/N] " || exit 0
+
   # Install pipelines support
   bash pipelines/bin/install-pipelines.sh
 
   # Build Pipeline definitions
   if [[ -z "$PIPELINE_VERSION" ]]; then
-    read -p 'PIPELINE_VERSION> ' PIPELINE_VERSION
+    read -e -p 'PIPELINE_VERSION> ' -i "6.1.0" PIPELINE_VERSION
   else
     read -e -p 'PIPELINE_VERSION> ' -i "$PIPELINE_VERSION" PIPELINE_VERSION
   fi
@@ -194,12 +207,14 @@ function run_pipeline() {
 
   # Start pipeline execution
   oc create -f pipelinerun-$MAS_INSTANCE_ID.yaml
+
+  echo "View progress: https://${OCP_CONSOLE_ROUTE}/pipelines/ns/mas-sample-pipelines"
 }
 
 
 case $1 in
 
-  install)
+  install-pipeline)
     install_pipeline
     ;;
 
@@ -211,7 +226,7 @@ case $1 in
     show_config $2
     ;;
 
-  run|run)
+  run|run-pipeline)
     run_pipeline $2 $3
     ;;
 
