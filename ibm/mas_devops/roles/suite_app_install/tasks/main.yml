@@ -31,11 +31,13 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Instance ID ............... {{ mas_instance_id }}"
-      - "Application ID ............ {{ mas_app_id }}"
-      - "MAS app namespace ......... {{ mas_app_namespace }}"
-      - "App catalog source ........ {{ mas_app_catalog_source }}"
-      - "App channel ............... {{ mas_app_channel }}"
+      - "Instance ID ................ {{ mas_instance_id }}"
+      - "Application ID ............. {{ mas_app_id }}"
+      - "MAS app namespace .......... {{ mas_app_namespace }}"
+      - "App catalog source ......... {{ mas_app_catalog_source }}"
+      - "App channel ................ {{ mas_app_channel }}"
+      - "App Subscription Upgrade ... {{ mas_app_upgrade_strategy }}"
+
 
 # 4. Apply security context constraints
 # -----------------------------------------------------------------------------
@@ -57,7 +59,35 @@
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
-# 6. Wait until the Application's CRD is available
+- name: Lookup and Approve MAS Subscription
+  block:
+    - name: Lookup and Approve Operator install plan
+      community.kubernetes.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: InstallPlan
+        namespace: "{{ mas_app_namespace }}"
+        label_selectors:
+          - operators.coreos.com/ibm-mas-{{mas_app_id}}.{{mas_app_namespace}}
+      register: mas_app_installplan_info
+      retries: 20
+      delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+      until: mas_app_installplan_info.resources | length > 0
+
+    - name: Approve the install plan for MAS
+      when:
+        - (mas_app_installplan_info.resources[0].status.phase != "Complete" or first_install)
+      community.kubernetes.k8s:
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: InstallPlan
+          metadata:
+            name: "{{ mas_app_installplan_info.resources[0].metadata.name }}"
+            namespace: "{{ mas_app_namespace }}"
+          spec:
+            approved: true
+  when: mas_app_upgrade_strategy == 'Manual'
+
+# 5. Wait until the Application's CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Application's CRD is available"
   kubernetes.core.k8s_info:

@@ -124,3 +124,18 @@ export GPU_CHANNEL=v1.9
 
 ansible-playbook playbooks/dependencies/install-gpu.yml
 ```
+
+
+## Install DB2
+Installs **IBM DB2** using the db2u operator. Refer to the [db2u] role documentation for more information. The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
+
+```bash
+export DB2U_META_STORAGE_CLASS=ibmc-file-gold
+export DB2U_DATA_STORAGE_CLASS=ibmc-block-gold
+export DB2U_INSTANCE_NAME=db2u-db01
+export ENTITLEMENT_KEY=xxx
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
+
+ansible-playbook playbooks/dependencies/install-db2.yml
+```
