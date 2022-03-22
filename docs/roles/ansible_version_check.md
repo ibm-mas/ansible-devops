@@ -1,1 +1,0 @@
-../../ibm/mas_devops/roles/ansible_version_check/README.md
