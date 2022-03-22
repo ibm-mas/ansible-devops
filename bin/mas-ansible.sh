@@ -1,25 +1,16 @@
-# Ubuntu Install
+#!/bin/bash
+set -e
 
-function install_dependencies_ubuntu() {
-  # APT package installations
-  # python3-pip is required to install additional python packages
-  # ansible is required for ansible-galaxy command to be available
-  sudo apt install python3-pip ansible
+# !!!! INCOMPLETE / WORK IN PROGRESS / USE AT OWN RISK !!!!
 
-  # Python package installations
-  python3 -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1
+# Load common functions
+# -----------------------------------------------------------------------------
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+. $DIR/mas-common.sh
 
-  # Confirm versions
-  python3 --version
-  ansible-playbook --version
-}
-
-function build_and_install_local() {
-  ansible-galaxy collection build --force
-  ansible-galaxy collection install ibm-mas_devops-7.0.0.tar.gz --force
-}
-
-function set_target() {
+# Set Target
+# -----------------------------------------------------------------------------
+function set_target_roks() {
   if [[ -z "$IBMCLOUD_APIKEY" ]]; then
     read -p 'IBMCLOUD_APIKEY> ' IBMCLOUD_APIKEY
   fi
@@ -35,7 +26,7 @@ function set_target() {
   if [[ -z "$MAS_INSTANCE_ID" ]]; then
     read -e -p 'MAS_INSTANCE_ID> ' -i "$CLUSTER_NAME" MAS_INSTANCE_ID
   else
-    read -p 'MAS_INSTANCE_ID> ' MAS_INSTANCE_ID
+    read -e -p 'MAS_INSTANCE_ID> ' -i "$MAS_INSTANCE_ID" MAS_INSTANCE_ID
   fi
   export MAS_INSTANCE_ID
 
@@ -108,7 +99,10 @@ function set_target() {
   export MAS_CONFIG_DIR
 }
 
-function show_target() {
+
+# Show Target
+# -----------------------------------------------------------------------------
+function show_target_roks() {
   echo "IBMCLOUD_APIKEY ........... $IBMCLOUD_APIKEY"
   echo "MAS_INSTANCE_ID ........... $MAS_INSTANCE_ID"
   echo "CLUSTER_NAME .............. $CLUSTER_NAME"
@@ -133,63 +127,34 @@ function show_target() {
   echo "UDS_CONTACT_LASTNAME ...... $UDS_CONTACT_LASTNAME"
 }
 
-confirm() {
-  read -r -p "${1:-Proceed? [y/N]} " response
-  case "$response" in
-    [yY][eE][sS]|[yY])
-      true
-      ;;
-    *)
-      false
-      ;;
-  esac
+
+
+
+function install_dependencies_ubuntu() {
+  # APT package installations
+  # python3-pip is required to install additional python packages
+  # ansible is required for ansible-galaxy command to be available
+  sudo apt install python3-pip ansible
+
+  # Python package installations
+  python3 -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1
+
+  # Confirm versions
+  python3 --version
+  ansible-playbook --version
 }
 
-function runplaybook() {
-  show_target
-  confirm "Run $1 playbook with these settings?" && ansible-playbook ibm/mas_devops/playbooks/$1.yml
+function build_and_install_local() {
+  ansible-galaxy collection build $DIR/../ibm/mas_devops --force
+  ansible-galaxy collection install $DIR/../ibm-mas_devops-7.0.0.tar.gz --force
 }
 
-function runpipeline() {
-  show_target
-  echo ""
-  echo "Deploying via in-cluster Tekton Pipeline"
-  # Install pipelines support
-  bash pipelines/bin/install-pipelines.sh
+set_target_roks
 
-  # Build Pipeline definitions
-  if [[ -z "$PIPELINE_VERSION" ]]; then
-    read -p 'PIPELINE_VERSION> ' PIPELINE_VERSION
-  else
-    read -e -p 'PIPELINE_VERSION> ' -i "$PIPELINE_VERSION" PIPELINE_VERSION
-  fi
-  export VERSION=$PIPELINE_VERSION
-  export DEV_MODE=true
-  bash pipelines/bin/build-pipelines.sh
-
-  # Install the MAS pipeline definition
-  oc apply -f pipelines/ibm-mas_devops-clustertasks-$PIPELINE_VERSION.yaml
-
-  oc project mas-sample-pipelines &> /dev/null || oc new-project mas-sample-pipelines
-  oc apply -f pipelines/samples/sample-pipelinesettings-roks-donotcommit.yaml
-
-  # Clean up existing secrets
-  oc delete secret pipeline-additional-configs --ignore-not-found=true
-  oc delete secret pipeline-sls-entitlement --ignore-not-found=true
-
-  # Create new secrets
-  oc create secret generic pipeline-additional-configs --from-file=$MAS_CONFIG_DIR/workspace_masdev.yaml
-  oc create secret generic pipeline-sls-entitlement --from-file=$MAS_CONFIG_DIR/entitlement.lic
-
-  oc apply -f pipelines/samples/sample-pipeline.yaml
-  oc create -f pipelines/samples/sample-pipelinerun.yaml
-}
-
-
-# -----------------------------------------------------------------------------
-# Entrypoint
-# -----------------------------------------------------------------------------
-set_target
+if [[ ! -e "$MAS_CONFIG_DIR/entitlement.lic" ]]; then
+  echo "Error: Missing required file: $MAS_CONFIG_DIR/entitlement.lic"
+  exit 1
+fi
 
 PLAYBOOK=$1
 if [[ -z "$PLAYBOOK" ]]; then
@@ -200,10 +165,11 @@ if [[ -z "$PLAYBOOK" ]]; then
   echo " - lite-manage-roks"
   echo ""
   read -p '> ' PLAYBOOK
-
-  runplaybook $PLAYBOOK
-elif [[ "$PLAYBOOK" == "pipeline" ]]; then
-  runpipeline
 fi
+
+show_target_roks
+confirm "Run '$PLAYBOOK' playbook with these settings?" || exit 0
+build_and_install_local
+ansible-playbook $DIR/../ibm/mas_devops/playbooks/$PLAYBOOK.yml
 
 exit 0

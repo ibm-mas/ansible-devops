@@ -79,6 +79,10 @@ spec:
       type: string
       description: Workspace ID used to configure all applications
       default: masdev
+    - name: mas_workspace_name
+      type: string
+      description: Workspace Name used when setting up the workspace
+      default: MAS Development
     # Application Catalog Channels
     - name: mas_app_channel_iot
       type: string
@@ -188,10 +192,8 @@ spec:
           value: cp4d-install-db2
       # Only install CP4D with Db2 if IoT or Manage are being installed
       when:
-        - input: "$(params.mas_app_channel_iot)"
-          operator: notin
-          values: [""]
-        - input: "$(params.mas_app_channel_manage)"
+        # See: https://github.com/tektoncd/pipeline/issues/3591#issuecomment-1073901961
+        - input: "$(params.mas_app_channel_iot)$(params.mas_app_channel_manage)"
           operator: notin
           values: [""]
       taskRef:
@@ -215,10 +217,8 @@ spec:
           value: db2w-shared
       # Only create a Db2 instance if IoT or Manage are being installed
       when:
-        - input: "$(params.mas_app_channel_iot)"
-          operator: notin
-          values: [""]
-        - input: "$(params.mas_app_channel_manage)"
+        # See: https://github.com/tektoncd/pipeline/issues/3591#issuecomment-1073901961
+        - input: "$(params.mas_app_channel_iot)$(params.mas_app_channel_manage)"
           operator: notin
           values: [""]
       taskRef:
@@ -293,7 +293,24 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 9. Install & configure IBM MAS
+
+    # 9. Configure Workspace
+    # -------------------------------------------------------------------------
+    - name: gencfg-workspace
+      params:
+        - name: junit_suite_name
+          value: gencfg-workspace
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-gencfg-workspace
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+
+    # 10. Install & configure IBM MAS
     # -------------------------------------------------------------------------
     - name: install-suite
       params:
@@ -305,6 +322,7 @@ spec:
       runAfter:
         - install-sls
         - install-uds
+        - gencfg-workspace
       workspaces:
         - name: configs
           workspace: shared-configs
@@ -313,7 +331,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 10. Configure Db2 in MAS
+    # 11. Configure Db2 in MAS
     # -------------------------------------------------------------------------
     - name: cfg-suite-db2
       params:
@@ -323,11 +341,9 @@ spec:
         kind: ClusterTask
         name: mas-devops-configure-suite
       # Only load the JDBCCfg if IoT or Manage are being installed
+      # See: https://github.com/tektoncd/pipeline/issues/3591#issuecomment-1073901961
       when:
-        - input: "$(params.mas_app_channel_iot)"
-          operator: notin
-          values: [""]
-        - input: "$(params.mas_app_channel_manage)"
+        - input: "$(params.mas_app_channel_iot)$(params.mas_app_channel_manage)"
           operator: notin
           values: [""]
       runAfter:
@@ -339,7 +355,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 11 Configure Kafka in MAS
+    # 12. Configure Kafka in MAS
     # -------------------------------------------------------------------------
     - name: cfg-suite-kafka
       params:
@@ -362,9 +378,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 12. Install IBM MAS IoT application
+    # 13. Install IBM MAS IoT application
     # -------------------------------------------------------------------------
-    # 12.1 Install IoT
+    # 13.1 Install IoT
     - name: install-iot
       params:
         - name: junit_suite_name
@@ -390,7 +406,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 12.2 Configure IoT workspace
+    # 13.2 Configure IoT workspace
     - name: cfg-iot
       params:
         - name: junit_suite_name
@@ -413,9 +429,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 13. Install IBM MAS Monitor application
+    # 14. Install IBM MAS Monitor application
     # -------------------------------------------------------------------------
-    # 13.1 Install Monitor
+    # 14.1 Install Monitor
     - name: install-monitor
       params:
         - name: junit_suite_name
@@ -440,7 +456,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 13.2 Configure Monitor workspace
+    # 14.2 Configure Monitor workspace
     - name: cfg-monitor
       params:
         - name: junit_suite_name
@@ -463,9 +479,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 14. Install IBM MAS Safety application
+    # 15. Install IBM MAS Safety application
     # -------------------------------------------------------------------------
-    # 14.1 Install Safety
+    # 15.1 Install Safety
     - name: install-safety
       params:
         - name: junit_suite_name
@@ -490,7 +506,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 14.2 Configure Safety workspace
+    # 15.2 Configure Safety workspace
     - name: cfg-safety
       params:
         - name: junit_suite_name
@@ -513,9 +529,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 15. Install IBM MAS Manage application
+    # 16. Install IBM MAS Manage application
     # -------------------------------------------------------------------------
-    # 15.1 Manage Install
+    # 16.1 Manage Install
     - name: install-manage
       params:
         - name: junit_suite_name
@@ -540,7 +556,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 15.2 Configure Manage workspace
+    # 16.2 Configure Manage workspace
     - name: cfg-manage
       params:
         - name: junit_suite_name
@@ -563,9 +579,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 16. Predict
+    # 17. Predict
     # -------------------------------------------------------------------------
-    # 16.1 Predict Install
+    # 17.1 Predict Install
     - name: install-predict
       params:
         - name: junit_suite_name
@@ -590,7 +606,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 16.2 Configure Predict workspace
+    # 17.2 Configure Predict workspace
     - name: cfg-predict
       params:
         - name: junit_suite_name
@@ -613,9 +629,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 17. MSO
+    # 18. MSO
     # -------------------------------------------------------------------------
-    # 17.1 MSO Install
+    # 18.1 MSO Install
     - name: install-mso
       params:
         - name: junit_suite_name
@@ -640,7 +656,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 17.2 Configure MSO workspace
+    # 18.2 Configure MSO workspace
     - name: cfg-mso
       params:
         - name: junit_suite_name

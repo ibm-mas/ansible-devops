@@ -55,6 +55,7 @@
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', True) }}" #  when defined, it will automatically install a cpd version that is compatible with the chosen mas_channel
     cpd_storage_class: ibmc-file-gold-gid
 
+
 # 6. Create DB2 Warehouse instance for Manage (wsapp scope)
 # -----------------------------------------------------------------------------
 - name: Create DB2 Warehouse instance for Manage (wsapp scope)
@@ -80,7 +81,7 @@
 
     # Use the generated mongodb configuration
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
-    mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+    sls_mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
 
 # 8. Install UDS
@@ -105,13 +106,26 @@
   import_playbook: dependencies/install-gpu.yml
 
 
-# 11. Install & configure MAS
+# 11. Tune the Db2 instance
+# -----------------------------------------------------------------------------
 # Temporary hack for Manage, because the operator is missing critical
 # database configuration that requires manual intervention to set up.
 - name: Db2 configuration hack for Manage
   import_playbook: mas/hack-manage-db2.yml
   vars:
     db2wh_instance_name: db2w-shared
+
+
+# 11. Generate a Workspace
+# -----------------------------------------------------------------------------
+- name: Generate Workspace Configuration
+  import_playbook: mas/gencfg-workspace.yml
+  vars:
+    # Note: If you change the ID of the workspace, make sure to also update it
+    # in subsequent roles as well
+    mas_workspace_name: "MAS Development"
+    mas_workspace_id: masdev
+
 
 # 12. Install & configure MAS
 # -----------------------------------------------------------------------------
@@ -127,9 +141,6 @@
   import_playbook: mas/install-app.yml
   vars:
     mas_app_id: manage
-
-# Note that this sample playbook is always assuming a workspace ID of masdev,
-# this can easily be modified when creating your own playbooks.
 - name: Configure Manage
   import_playbook: mas/configure-app.yml
   vars:

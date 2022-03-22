@@ -1,7 +1,10 @@
-sls_cfg
+gencfg_sls
 ===========
 
-Install **IBM Suite License Service** and generate configuration that can be directly applied to IBM Maximo Application Suite.
+This role is used to generate a SLSCfg Custom Resource that can be applied to Maximo Application Suite manually, or using the `suite_config` role.  The configuration will be saved to local disk in the directory specified by the `mas_config_dir` variable.
+
+If `mas_instance_id` and `mas_config_dir` are not both set, then the role will simply print a debug message containing the configuration information.
+
 
 Role Variables
 --------------
