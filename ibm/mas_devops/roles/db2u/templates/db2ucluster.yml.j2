@@ -1,0 +1,130 @@
+apiVersion: db2u.databases.ibm.com/v1
+kind: Db2uCluster
+metadata:
+  name: "{{ db2u_instance_name | lower }}"
+  namespace: "{{ db2u_namespace }}"
+spec:
+  account:
+    privileged: true
+    imagePullSecrets:
+      - ibm-registry
+
+  addOns:
+    graph:
+      enabled: false
+    rest:
+      enabled: false
+
+  advOpts:
+    db2SecurityPlugin: cloud_gss_plugin
+
+  version: "{{ db2u_version }}"
+  size: {{ db2u_num_pods }}
+
+{% if db2u_node_label is defined and db2u_node_label != "" %}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: database
+            operator: In
+            values:
+            - {{ db2u_node_label }}
+  tolerations:
+  - effect: NoSchedule
+    key: database
+    operator: Equal
+    value: "{{ db2u_node_label }}"
+{% endif %}
+
+  environment:
+    dbType: db2wh
+    database:
+      name: "{{ db2u_dbname }}"
+      settings:
+        dftTableOrg: "{{db2u_table_org }}"
+      ssl:
+        secretName: "db2u-certificate"
+        certLabel: "CN=db2u"
+    instance:
+      registry:
+        DB2_4K_DEVICE_SUPPORT: "{{ db2u_4k_device_support }}"
+        DB2AUTH: 'OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD'
+        DB2_FMP_RUN_AS_CONNECTED_USER: 'NO'
+        DB2_WORKLOAD: {{ db2u_workload }}
+      dbmConfig:
+        SRVCON_PW_PLUGIN: IBMIAMauthpwfile
+        group_plugin: IBMIAMauthgroup
+        srvcon_auth: GSS_SERVER_ENCRYPT
+        srvcon_gssplugin_list: IBMIAMauth
+    mln:
+      total: {{ db2u_mln_count }}
+
+  license:
+    accept: true
+
+  podConfig:
+    db2u:
+      resource:
+        db2u:
+          requests:
+            cpu: "{{ db2u_cpu_requests }}"
+            memory: "{{ db2u_memory_requests }}"
+          limits:
+            cpu: "{{ db2u_cpu_limits }}"
+            memory: "{{ db2u_memory_limits }}"
+
+  storage:
+    - name: meta
+      type: create
+      spec:
+        storageClassName: "{{ db2u_meta_storage_class }}"
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: "{{ db2u_meta_storage_size_gb }}"
+    - name: data
+      type: template
+      spec:
+        storageClassName: "{{ db2u_data_storage_class }}"
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ db2u_data_storage_size_gb }}"
+{% if db2u_backup_storage_class is defined and db2u_backup_storage_class != "" %}
+    - name: backup
+      type: create
+      spec:
+        accessModes:
+        - ReadWriteMany
+        resources:
+          requests:
+            storage: "{{ db2u_backup_storage_size_gb }}"
+        storageClassName: "{{ db2u_backup_storage_class }}"
+      type: create
+{% endif %}
+{% if db2u_logs_storage_class is defined and db2u_logs_storage_class != "" %}
+    - name: activelogs
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ db2u_logs_storage_size_gb }}"
+        storageClassName: "{{ db2u_logs_storage_class }}"
+      type: template
+{% endif %}
+{% if db2u_temp_storage_class is defined and db2u_temp_storage_class != "" %}
+    - name: tempts
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: "{{ db2u_temp_storage_size_gb }}"
+        storageClassName: "{{ db2u_temp_storage_class }}"
+      type: template
+{% endif %}
