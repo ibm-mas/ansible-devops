@@ -65,7 +65,10 @@ def main():
         dns_zone = dict(
             type = "str",
         ),
-
+        enable_ddos_protection = dict(
+            type = "bool",
+            required = True
+        )
     )
     module = AnsibleModule(
         argument_spec=fields,
@@ -82,6 +85,7 @@ def main():
     openshiftIngress = module.params['ocp_ingress']
     domainPrefix = module.params['cis_subdomain']
     updateDNS = module.params['update_dns']
+    ddosProtection = module.params['enable_ddos_protection']
 
     # User may want to select an specific zone
     dnsZone = module.params['dns_zone']
@@ -183,7 +187,7 @@ def main():
                     # Updating DNS entry
                     url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records/{dnsId}"
 
-                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress + "\",\n    \"proxied\": true  \n}"
+                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress + "\",\n    \"proxied\": \"" + str(ddosProtection) + "\"  \n}"
                     headers = {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
@@ -199,7 +203,7 @@ def main():
                 # Adding DNS entry
                 url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records"
 
-                payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress + "\",\n    \"proxied\":  true  \n}"
+                payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress + "\",\n    \"proxied\": \"" + str(ddosProtection) + "\"  \n}"
                 headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',

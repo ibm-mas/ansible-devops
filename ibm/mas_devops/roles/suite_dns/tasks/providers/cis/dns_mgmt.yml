@@ -26,29 +26,16 @@
   set_fact:
     ocp_ingress: "{{ (custom_ocp_ingress != '') | ternary (custom_ocp_ingress, 'cis-proxy-route.' ~ _cluster_subdomain.resources[0].spec.domain) }}"
 
-- name: "DNS Entries"
-  set_fact:
-    dns_entries:
-      - sls
-      - ""
-      - admin
-      - api
-      - auth
-      - home
-      - main.home
-      - main.health
-      - main-all.health
-      - maxinst-health
-      - iot
-      - messaging.iot
-      - manage
-      - main.manage
-      - monitor
-      - admin.monitor
-      - api.monitor
-      - predict
-      - safety
-      - visualinspection
+- name: "Load DNS Entries"
+  include_vars: vars/ddos.yml
+  when:
+    - "{{enable_ddos_protection}}"
+
+
+- name: "Load DNS Entries"
+  include_vars: vars/nonddos.yml
+  when:
+    - "{{not enable_ddos_protection}}"
 
 - name: "Debug information"
   debug:
@@ -72,6 +59,7 @@
     cis_apikey: "{{ cis_apikey }}"
     # These are MAS 8.4 list of DNS Entries. cis_subdomain will be appended to it
     dns_entries: "{{ dns_entries }}"
+    enable_ddos_protection: "{{enable_ddos_protection}}"
   register: dnsoutput
 
 - name: dump output
