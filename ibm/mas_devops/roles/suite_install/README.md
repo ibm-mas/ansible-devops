@@ -17,6 +17,7 @@ Role Variables
 - `mas_entitlement_key` API Key for entitled registry. This password will be used to create the image pull secret. Set to with IBM entitlement key when installing release or use your artifactory `apikey` for dev.
 - `mas_config` List of configuration files to be applied to configure the MAS installation
 - `certManager.namespace` The namespace containing the cert-manager to be used by MAS
+- `mas_upgrade_strategy` The Upgrade strategy for MAS Operator. Defualt is set to Manual
 
 
 Example Playbook
@@ -38,6 +39,9 @@ Example Playbook
 
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
+    # Determine MAS Operator Upgrade Strategy Manual | Automatic
+    mas_upgrade_strategy: "{{ lookup('env', 'MAS_UPGRADE_STRATEGY') | default('Manual', true) }}"
+    
     certManager:
       namespace: "{{ lookup('env', 'CERT_MANAGER_NAMESPACE') }}"
 
