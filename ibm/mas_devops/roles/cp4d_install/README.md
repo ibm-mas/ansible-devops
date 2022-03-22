@@ -24,13 +24,19 @@ Required only if `cpd_version = cpd35`, otherwise unused because in CP4D v4 we h
 - Default: None
 
 ### cpd_storage_class
-Required only if `cpd_version = cpd40`, otherwise unused. 
+Required only if `cpd_version = cpd40`, otherwise unused.
 
 - Environment Variable: `CPD_STORAGE_CLASS`
 - Default Value: None
 
 Note: As per CloudPak For Data support team's recommendation, the value set for `cpd_storage_class` will also be used for file and metastore storages while installing CPD v4.0 Control Plane.
 Source: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=requirements-storage
+
+### cpd_services_namespace
+Only supported if `cpd_version = cpd40`, otherwise unused. For v3.5 support this value is always set to `cpd-meta-ops`.
+
+- Environment Variable: `CPD_SERVICES_NAMESPACE`
+- Default Value: `cpd-services`
 
 ### mas_channel
 You can specify this property as an alternative to `cpd_version` to allow the role to automatically select the appropriate version of CP4D based on the MAS Channel you are subscribing to.  If `cpd_version` is set, then this is ignored.

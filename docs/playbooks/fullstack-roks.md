@@ -9,6 +9,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
     - [Install UDS](dependencies.md#install-uds) (35 minutes)
     - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
+    - [Install AppConnect](dependencies.md#install-appconnect) (?)
     - Install Cloud Pak for Data Services:
         - [Db2 Warehouse](cp4d.md#db2-install) (1 hour)
         - [Watson Studio](cp4d.md#watson-studio-install) with [Apache Spark](cp4d.md#watson-studio-install), [Watson Machine Learning](cp4d.md#watson-studio-install), & [Watson AI OpenScale](cp4d.md#watson-studio-install) (4-5 hours)
@@ -24,6 +25,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Install & configure Predict](mas.md#install-mas-application) (10 minute install + 5 minutes configure)
     - [Install & configure Safety](mas.md#install-mas-application) (? minute install + ? configure)
     - [Install & configure Maximo Scheduler Optmization](mas.md#install-mas-application) (10 minute install + ? configure)
+    - [Install & configure Health & Predict Utilities](mas.md#install-mas-application) (10 minute install + ? configure)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 
@@ -94,6 +96,9 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
+- `CPD_WSL_PROJECT_ID` to set a Watson Studio project id to be passed to HP Utilities application during its deployment and configuration. If not set, a new project will be created in Watson Studio automatically to configure HP Utilities application in the MAS instance created by this playbook
+- `CPD_WSL_PROJECT_NAME` to set a Watson Studio project name, if not set a default project name will be used
+- `CPD_WSL_PROJECT_DESCRIPTION` - to set a Watson Studio project description, if not set a default project description will be used
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
