@@ -14,8 +14,7 @@ ole Variables
 - `db_username` This username will be used to configure the DB in MAS.
 - `jdbc_instance_password` This password will be used connect to DB in Maximo Application Suite.
 - `jdbc_url`
-- `db_pem_file`
-- `jdbc_template`
+- `db_pem_file` 
 
 
 Example Playbook
@@ -23,6 +22,7 @@ Example Playbook
 
 ```yaml
 ---
+
 - hosts: localhost
   any_errors_fatal: true
   vars:
@@ -33,10 +33,10 @@ Example Playbook
     jdbc_instance_password: "{{ lookup('env', 'MAS_JDBC_PASSWORD') }}"
     jdbc_url: "{{ lookup('env', 'MAS_JDBC_URL') }}"
     db_pem_file: "{{ lookup('env', 'MAS_JDBC_CERT_LOCAL_FILE') }}"
-    jdbc_template:  "{{ lookup('env', 'MAS_JDBC_CONFIG') | default('templates/jdbccfg-workspace-application.yml.j2', true) }}"
-
+    mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE) | default('wsapp', True)}}"
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
   roles:
-    - ibm.mas_devops.suite_db_config
+    - ibm.mas_devops.gencfg_jdbc
 ```
 
 License

@@ -48,6 +48,16 @@
       - "Database Username ............. {{ db_username }}"
       - "JDBC URL ...................... {{ jdbc_url }}"
       - "Certificate file............... {{ db_pem_file }}"
+      -
+# 2. Create JDBCCfg yml definition
+# -----------------------------------------------------------------------------
+- name: Load variables to use in JDBCCfg
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  include_vars: "vars/jdbccfg/{{ mas_config_scope }}.yml"
 
 # 3. Read file information
 # -----------------------------------------------------------------------------
@@ -56,20 +66,14 @@
     db_pem: "{{ lookup('file', db_pem_file) }}"
   when: db_pem_file is defined
 
-# 4. Apply database MAS configuration
-# -----------------------------------------------------------------------------
 
-- name: "Configure MAS DB credentials"
-  # vars:
-    # mas_instance_id: "{{ mas_instance_id }}"
-    # db_instance_id: "{{ db_instance_id }}"
-    # db_instance_id: "db2"
-    # db_username: "{{ db_username }}"
-    # jdbc_instance_password: "{{ jdbc_instance_password }}"
-    # jdbc_url: "{{ jdbc_url }}"
-    # db_pem: "{{ db_pem }}"
-    # db_pem: "{{ lookup('file', db_pem_file) }}"
-  community.kubernetes.k8s:
-    state: present
-    namespace: "{{ mas_namespace }}"
-    definition: "{{ lookup('template', jdbc_template) }}"
+# 4. Generate JDBCcfg for MAS configuration
+# -----------------------------------------------------------------------------
+- name: Copy JDBCcfg to filesytem
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+  ansible.builtin.template:
+    src: jdbccfg.yml.j2
+    dest: "{{ mas_config_dir }}/jdbc.yml"
+    mode: '644'
