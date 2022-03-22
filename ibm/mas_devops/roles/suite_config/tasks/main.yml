@@ -3,38 +3,19 @@
 # 1. Check for undefined properties that do not have a default values
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
-  when: mas_instance_id is not defined or mas_instance_id == ""
-  fail:
-    msg: "mas_instance_id property is required"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+  fail_msg: "mas_instance_id property is required"
 
 - name: "Fail if mas_workspace_id is not provided"
-  when: mas_workspace_id is not defined or mas_workspace_id == ""
-  fail:
-    msg: "mas_workspace_id property is required"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+  fail_msg: "mas_workspace_id property is required"
 
 - name: "Fail if mas_config_dir is not provided"
-  when: mas_config_dir is not defined or mas_config_dir == ""
-  fail:
-    msg: "mas_config_dir property is required"
-
-# Wait for Mongocfg CRD
-- name: "Wait until the Mongocfg CRD is available"
-  community.kubernetes.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    name: "mongocfgs.config.mas.ibm.com"
-    kind: CustomResourceDefinition
-    wait: yes
-    wait_sleep: 10
-    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
-    wait_condition:
-      type: NamesAccepted
-      status: "True"
-  register: mongocfg_crd_info
-  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
-  delay: 5 # seconds
-  until:
-    - mongocfg_crd_info.resources is defined
-    - mongocfg_crd_info.resources | length > 0
+  assert:
+    that: mas_config_dir is defined and mas_config_dir != ""
+  fail_msg: "mas_config_dir property is required"
 
 
 # 2. Provide debug information

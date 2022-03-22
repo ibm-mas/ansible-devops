@@ -38,6 +38,7 @@
   vars:
     mongodb_storage_class: ibmc-block-gold
 
+
 # 4. Install Db2 CP4D service
 # -----------------------------------------------------------------------------
 - name: Install CP4D services
@@ -45,6 +46,7 @@
   vars:
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', True) }}" #  when defined, it will automatically install a cpd version that is compatible with the chosen mas_channel
     cpd_storage_class: ibmc-file-gold-gid
+
 
 # 5. Install SLS
 # -----------------------------------------------------------------------------
@@ -88,7 +90,18 @@
     db2wh_instance_name: db2w-shared
 
 
-# 8. Install & configure MAS
+# 8. Generate a Workspace
+# -----------------------------------------------------------------------------
+- name: Generate Workspace Configuration
+  import_playbook: mas/gencfg-workspace.yml
+  vars:
+    # Note: If you change the ID of the workspace, make sure to also update it
+    # in subsequent roles as well
+    mas_workspace_name: "MAS Development"
+    mas_workspace_id: masdev
+
+
+# 9. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
@@ -96,7 +109,7 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 9. Install & Configure Manage application
+# 10. Install & Configure Manage application
 # -----------------------------------------------------------------------------
 # Tip, to install the Health application in standalone mode, simply change
 # mas_app_id to "health" in the following tasks, nothing else needs to be changed
@@ -105,9 +118,6 @@
   import_playbook: mas/install-app.yml
   vars:
     mas_app_id: manage
-
-# Note that this sample playbook is always assuming a workspace ID of masdev,
-# this can easily be modified when creating your own playbooks.
 - name: Configure Manage
   import_playbook: mas/configure-app.yml
   vars:
