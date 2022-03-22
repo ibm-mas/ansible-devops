@@ -9,6 +9,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Install UDS](dependencies.md#install-uds) (35 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
+    - Generate MAS Workspace Configuration (1 minute)
     - [Install & configure MAS](mas.md#install-mas) (15 minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
@@ -22,24 +23,6 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
 !!! tip
     If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
 
-
-### Create a Workspace template
-If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:
-
-```yaml
-apiVersion: core.mas.ibm.com/v1
-kind: Workspace
-metadata:
-  name: "{{instance_id}}-masdev"
-  namespace: "mas-{{instance_id}}-core"
-  labels:
-    mas.ibm.com/instanceId: "{{instance_id}}"
-    mas.ibm.com/workspaceId: "masdev"
-spec:
-  displayName: "MAS Development"
-```
-
-You do not need to create a workspace called `masdev`, you can modify the workspace template above to suite your needs.
 
 ## Required environment variables
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud

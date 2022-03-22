@@ -33,7 +33,7 @@
 
     # Use the generated mongodb configuration
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
-    mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+    sls_mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
 
 # 4. Install UDS
@@ -44,7 +44,16 @@
     uds_storage_class: "ibmc-block-bronze"
 
 
-# 5. Install & configure MAS
+# 5. Generate a Workspace
+# -----------------------------------------------------------------------------
+- name: Generate Workspace Configuration
+  import_playbook: mas/gencfg-workspace.yml
+  vars:
+    mas_workspace_name: "MAS Development"
+    mas_workspace_id: masdev
+
+
+# 6. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml

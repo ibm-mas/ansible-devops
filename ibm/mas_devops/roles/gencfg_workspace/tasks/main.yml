@@ -1,0 +1,27 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Assert that mas_instance_id has been provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property has not been set"
+
+- name: "Assert that mas_workspace_id has been provided"
+  assert:
+    that: mas_workspace_id is defined or mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property has not been set"
+
+- name: "Assert that mas_workspace_name has been provided"
+  assert:
+    that: mas_workspace_name is defined and mas_workspace_name != ""
+    fail_msg: "mas_workspace_name property has not been set"
+
+
+# 2. Generate Workspace for MAS
+# -----------------------------------------------------------------------------
+- name: Copy Workspace to filesytem
+  ansible.builtin.template:
+    src: workspace.yml.j2
+    dest: "{{ mas_config_dir }}/workspace-{{ mas_workspace_id }}.yml"
+    mode: '644'
