@@ -55,7 +55,7 @@ Storage class used for metadata. This must support ReadWriteMany
 - Environment Variable: `DB2U_META_STORAGE_CLASS`
 - Default: None
 
-### [required] db2u_meta_storage_size_gb
+### [optional] db2u_meta_storage_size_gb
 Size of the metadata persistent volume, in gigabytes
 
 - Environment Variable: `DB2U_META_STORAGE_SIZE_GB`
@@ -67,7 +67,7 @@ Storage class used for user data. This must support ReadWriteOnce
 - Environment Variable: `DB2U_USER_STORAGE_CLASS`
 - Default: None
 
-### [required] db2u_user_storage_size_gb
+### [optional] db2u_user_storage_size_gb
 Size of user persistent volume, in gigabytes.
 
 - Environment Variable: `DB2U_USER_STORAGE_SIZE_GB`
