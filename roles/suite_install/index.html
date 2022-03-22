@@ -193,7 +193,7 @@
             <div class="section">
               
                 <h1 id="suite_install">suite_install<a class="headerlink" href="#suite_install" title="Permanent link"></a></h1>
-<p>TODO: Summarize role</p>
+<p>This role install Maximo Application Suite. It internally resolve the namespace based on the <code>mas_instance_id</code> as <code>mas-{mas_instance_id}-core</code>. By default this role install MAS Operator using Manual Upgrade Strategy. Set <code>MAS_UPGRADE_STRATEGY</code> environment variable to Automatic to override it. In the <code>Manual</code> upgrade mode, IBM Common Services operators requested by MAS will inherit the upgrade strategy from MAS and their pending install plans approved.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
 <ul>
 <li><code>mas_catalog_source</code> Defines the catalog to be used to install MAS. You can set it to      ibm-operator-catalog for release install or ibm-mas-operators for development</li>
@@ -208,6 +208,7 @@
 <li><code>mas_entitlement_key</code> API Key for entitled registry. This password will be used to create the image pull secret. Set to with IBM entitlement key when installing release or use your artifactory <code>apikey</code> for dev.</li>
 <li><code>mas_config</code> List of configuration files to be applied to configure the MAS installation</li>
 <li><code>certManager.namespace</code> The namespace containing the cert-manager to be used by MAS</li>
+<li><code>mas_upgrade_strategy</code> The Upgrade strategy for MAS Operator. Defualt is set to Manual</li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
@@ -224,6 +225,9 @@
     mas_entitlement_key: &quot;{{ lookup('env', 'MAS_ENTITLEMENT_KEY') }}&quot;
 
     mas_config_dir: &quot;{{ lookup('env', 'MAS_CONFIG_DIR') }}&quot;
+
+    # Determine MAS Operator Upgrade Strategy Manual | Automatic
+    mas_upgrade_strategy: &quot;{{ lookup('env', 'MAS_UPGRADE_STRATEGY') | default('Manual', true) }}&quot;
 
     certManager:
       namespace: &quot;{{ lookup('env', 'CERT_MANAGER_NAMESPACE') }}&quot;
