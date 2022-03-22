@@ -15,8 +15,8 @@ The following python modules are required in order to use this collection.
 
 
 #### Useful commands
-- Confirm availability and version: `python --version`
-- Installed Python modules: `python -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1`
+- Confirm availability and version: `python3 --version`
+- Installed Python modules: `python3 -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1`
 - Confirm that ansible has been correctly installed: `ansible-playbook --version`
 
 
@@ -51,6 +51,7 @@ ansible-galaxy collection install ibm.mas_devops
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `6.1` Create WSL project and enable HPU deploy ([#201](https://github.com/ibm-mas/ansible-devops/pull/201))
 - `6.0` Multiple Updates:
     - Upgrade to [kubernetes.core](https://docs.ansible.com/ansible/latest/collections/kubernetes/core/) Ansible module ([#194](https://github.com/ibm-mas/ansible-devops/pull/194))
     - Remove BAS support (replaced by UDS) ([#194](https://github.com/ibm-mas/ansible-devops/pull/194))
