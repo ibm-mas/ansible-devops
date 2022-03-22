@@ -4,7 +4,7 @@
 #
 
 ## Inputs
-export CLOUD_TYPE=$1
+export CLUSTER_TYPE=$1
 export OFFERING_TYPE=$2
 export DEPLOY_REGION=$3
 export ACCOUNT_ID=$4
@@ -43,7 +43,7 @@ export -f get_bas_endpoint_url
 export -f get_bas_api_key
 
 # Check for input parameters
-if [[ (-z $CLOUD_TYPE) || (-z $DEPLOY_REGION) || (-z $ACCOUNT_ID) || (-z $CLUSTER_SIZE) \
+if [[ (-z $CLUSTER_TYPE) || (-z $DEPLOY_REGION) || (-z $ACCOUNT_ID) || (-z $CLUSTER_SIZE) \
    || (-z $RANDOM_STR) || (-z $BASE_DOMAIN) || (-z $SSH_KEY_NAME) || (-z $DEPLOY_WAIT_HANDLE) ]]; then
   log "ERROR: Required parameter not specified, please provide all the required inputs to the script."
   PRE_VALIDATION=fail
@@ -64,9 +64,9 @@ fi
 # OCP variables
 export GIT_REPO_HOME=$(pwd)
 export CLUSTER_NAME="masocp-${RANDOM_STR}"
-export OPENSHIFT_USER="masocpuser"
-export OPENSHIFT_PASSWORD=masocp${RANDOM_STR}pass
-export OPENSHIFT_PULL_SECRET_FILE_PATH=${GIT_REPO_HOME}/pull-secret.json
+export OCP_USER="masocpuser"
+export OCP_PASSWORD=masocp${RANDOM_STR}pass
+export OCP_PULL_SECRET_FILE_PATH=${GIT_REPO_HOME}/pull-secret.json
 export MASTER_NODE_COUNT="3"
 export WORKER_NODE_COUNT="3"
 export AZ_MODE="multi_zone"
@@ -81,9 +81,9 @@ export KAFKA_NAMESPACE=amq-streams
 export KAFKA_CLUSTER_NAME=test
 export KAFKA_CLUSTER_SIZE=small
 export KAFKA_USER_NAME=masuser
-# SLS variables 
+# SLS variables
 export SLS_NAMESPACE="ibm-sls-${RANDOM_STR}"
-# BAS variables 
+# BAS variables
 export BAS_NAMESPACE="ibm-bas-${RANDOM_STR}"
 export BAS_PERSISTENT_STORAGE=ocs-storagecluster-cephfs
 export BAS_PASSWORD=basuser
@@ -145,7 +145,7 @@ esac
 
 # Log the variable values
 log "Below are common deployment parameters,"
-echo " CLOUD_TYPE: $CLOUD_TYPE"
+echo " CLUSTER_TYPE: $CLUSTER_TYPE"
 echo " OFFERING_TYPE: $OFFERING_TYPE"
 echo " DEPLOY_REGION: $DEPLOY_REGION"
 echo " ACCOUNT_ID: $ACCOUNT_ID"
@@ -176,9 +176,9 @@ echo " EXS_OCP_PWD: $EXS_OCP_PWD"
 echo " HOME: $HOME"
 echo " GIT_REPO_HOME: $GIT_REPO_HOME"
 echo " CLUSTER_NAME: $CLUSTER_NAME"
-echo " OPENSHIFT_USER: $OPENSHIFT_USER"
-echo " OPENSHIFT_PASSWORD: $OPENSHIFT_PASSWORD"
-echo " OPENSHIFT_PULL_SECRET_FILE_PATH: $OPENSHIFT_PULL_SECRET_FILE_PATH"
+echo " OCP_USER: $OCP_USER"
+echo " OCP_PASSWORD: $OCP_PASSWORD"
+echo " OCP_PULL_SECRET_FILE_PATH: $OCP_PULL_SECRET_FILE_PATH"
 echo " MASTER_NODE_COUNT: $MASTER_NODE_COUNT"
 echo " WORKER_NODE_COUNT: $WORKER_NODE_COUNT"
 echo " AZ_MODE: $AZ_MODE"
@@ -228,33 +228,33 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     log "Openshift cluster details provided"
     # https://api.masocp-cluster.mas4aws.com/
     # https://api.ftmpsl-ocp-dev3.cp.fyre.ibm.com:6443/
-    
+
     log "Debug: before: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
     split_ocp_api_url $EXS_OCP_URL
     log "Debug: after: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
     # echo $BASE_DOMAIN
-    export OPENSHIFT_USER=$EXS_OCP_USER
-    export OPENSHIFT_PASSWORD=$EXS_OCP_PWD
-    export OPENSHIFT_USER_PROVIDE="true"
+    export OCP_USER=$EXS_OCP_USER
+    export OCP_PASSWORD=$EXS_OCP_PWD
+    export OCP_USER_PROVIDE="true"
   else
-    ## No input from user. Generate Cluster Name, Username, and Password. 
+    ## No input from user. Generate Cluster Name, Username, and Password.
     echo "Debug: No cluster details or insufficient data provided. Proceed to create new OCP cluster later"
     export CLUSTER_NAME="masocp-${RANDOM_STR}"
-    export OPENSHIFT_USER="masocpuser"
-    export OPENSHIFT_PASSWORD=masocp${RANDOM_STR}pass
-    export OPENSHIFT_USER_PROVIDE="false"
+    export OCP_USER="masocpuser"
+    export OCP_PASSWORD=masocp${RANDOM_STR}pass
+    export OCP_USER_PROVIDE="false"
   fi
-  log " OPENSHIFT_USER_PROVIDE=$OPENSHIFT_USER_PROVIDE"
+  log " OCP_USER_PROVIDE=$OCP_USER_PROVIDE"
 
   # Create Red Hat pull secret
-  echo "$OCP_PULL_SECRET" > $OPENSHIFT_PULL_SECRET_FILE_PATH
-  chmod 600 $OPENSHIFT_PULL_SECRET_FILE_PATH
+  echo "$OCP_PULL_SECRET" > $OCP_PULL_SECRET_FILE_PATH
+  chmod 600 $OCP_PULL_SECRET_FILE_PATH
 
   # Call cloud specific script
-  chmod +x $CLOUD_TYPE/*.sh
+  chmod +x $CLUSTER_TYPE/*.sh
   log "===== PROVISIONING STARTED ====="
   log "Calling cloud specific automation ..."
-  cd $CLOUD_TYPE
+  cd $CLUSTER_TYPE
   ./deploy.sh
   retcode=$?
   log "Deployment return code is $retcode"
@@ -264,9 +264,9 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     export STATUS=SUCCESS
     export STATUS_MSG="MAS deployment completed successfully."
     export IMPORT_CERT_MSG="Please import the attached certificate into the browser to access MAS UI."
-    export OPENSHIFT_CLUSTER_CONSOLE_URL="https:\/\/console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
-    export OPENSHIFT_CLUSTER_API_URL="https:\/\/api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443"
-    export OPENSHIFT_CLUSTER_API_URL="https:\/\/api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443"
+    export OCP_CLUSTER_CONSOLE_URL="https:\/\/console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
+    export OCP_CLUSTER_API_URL="https:\/\/api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443"
+    export OCP_CLUSTER_API_URL="https:\/\/api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443"
     export MAS_URL_INIT_SETUP="https:\/\/admin.mas-${RANDOM_STR}.apps.${CLUSTER_NAME}.${BASE_DOMAIN}\/initialsetup"
     export MAS_URL_ADMIN="https:\/\/admin.mas-${RANDOM_STR}.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
     export MAS_URL_WORKSPACE="https:\/\/$MAS_WORKSPACE_ID.home.mas-${RANDOM_STR}.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
@@ -277,13 +277,13 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
 fi
 
 ## Complete the template deployment
-if [[ $CLOUD_TYPE == "aws" ]]; then
-  cd $GIT_REPO_HOME/$CLOUD_TYPE
+if [[ $CLUSTER_TYPE == "aws" ]]; then
+  cd $GIT_REPO_HOME/$CLUSTER_TYPE
   # Complete the CFT stack creation successfully
   log "Sending completion signal to CloudFormation stack."
   log " STATUS=$STATUS"
   log " STATUS_MSG=$STATUS_MSG"
-  curl -k -X PUT -H 'Content-Type:' --data-binary "{\"Status\":\"SUCCESS\",\"Reason\":\"MAS deployment complete\",\"UniqueId\":\"ID-$CLOUD_TYPE-$CLUSTER_SIZE-$CLUSTER_NAME\",\"Data\":\"${STATUS}#${STATUS_MSG}\"}" "$DEPLOY_WAIT_HANDLE"
+  curl -k -X PUT -H 'Content-Type:' --data-binary "{\"Status\":\"SUCCESS\",\"Reason\":\"MAS deployment complete\",\"UniqueId\":\"ID-$CLUSTER_TYPE-$CLUSTER_SIZE-$CLUSTER_NAME\",\"Data\":\"${STATUS}#${STATUS_MSG}\"}" "$DEPLOY_WAIT_HANDLE"
 
   # Send email notification
   sleep 30
@@ -294,4 +294,3 @@ if [[ $CLOUD_TYPE == "aws" ]]; then
   aws s3 cp $GIT_REPO_HOME/mas-provisioning.log $OCP_TERRAFORM_CONFIG_UPLOAD_S3_PATH
 fi
 exit $RESP_CODE
-

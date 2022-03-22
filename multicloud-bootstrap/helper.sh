@@ -67,7 +67,7 @@ get_sls_endpoint_url() {
 
 get_sls_registration_key() {
   uniqstr=$1
-  
+
 }
 
 get_bas_endpoint_url() {
@@ -77,7 +77,7 @@ get_bas_endpoint_url() {
 
 get_bas_api_key() {
   uniqstr=$1
-  
+
 }
 
 # Mark provisioning failed
@@ -116,15 +116,15 @@ mark_provisioning_failed() {
     export STATUS_MSG="Failure in configuring OCP cluster."
   fi
   export IMPORT_CERT_MSG=NA
-  export OPENSHIFT_CLUSTER_CONSOLE_URL=NA
-  export OPENSHIFT_CLUSTER_API_URL=NA
+  export OCP_CLUSTER_CONSOLE_URL=NA
+  export OCP_CLUSTER_API_URL=NA
   export MAS_URL_INIT_SETUP=NA
   export MAS_URL_ADMIN=NA
   export MAS_URL_WORKSPACE=NA
   export CLUSTER_NAME=NA
   export BASE_DOMAIN=NA
-  export OPENSHIFT_USER=NA
-  export OPENSHIFT_PASSWORD=NA
+  export OCP_USER=NA
+  export OCP_PASSWORD=NA
   export MAS_USER=NA
   export MAS_PASSWORD=NA
   export SLS_URL=NA
@@ -138,8 +138,8 @@ split_ocp_api_url() {
   BASE_DOMAIN=""
   CLUSTER_NAME=""
   oldIFS="$IFS"
-  IFS='.'; for i in $apiurl; do 
-      # echo $i 
+  IFS='.'; for i in $apiurl; do
+      # echo $i
       if [[ $COUNTER -eq 1 ]]; then
           CLUSTER_NAME=$i
       elif [[ $COUNTER -gt 1 ]]; then
@@ -155,7 +155,7 @@ split_ocp_api_url() {
   # echo $CLUSTER_NAME
   BASE_DOMAIN=${BASE_DOMAIN//-/.}
   ## Remove any possible port number provided by user
-  strindex() { 
+  strindex() {
     x="${1%%$2*}"
     [[ "$x" = "$1" ]] && echo -1 || echo "${#x}"
   }
