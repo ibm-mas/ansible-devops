@@ -57,6 +57,7 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
 - `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
 - `MAS_CHANNEL` to override the use of the `8.x` channel
 - `MAS_DOMAIN` to set a custom domain for the MAS installation
+- `MAS_UPGRADE_STRATEGY` to override the use of Manual upgrade strategy.
 - `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
 - `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
