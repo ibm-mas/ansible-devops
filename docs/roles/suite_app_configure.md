@@ -1,1 +1,0 @@
-../../ibm/mas_devops/roles/suite_app_configure/README.md
