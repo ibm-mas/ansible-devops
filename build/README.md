@@ -42,6 +42,7 @@ ROLE=ocp_setup_mas_deps; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.
 ROLE=ocp_setup_ocs; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=ocp_verify; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=sls_gencfg; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
+ROLE=gencfg_jdbc; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=sls_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_app_configure; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
 ROLE=suite_app_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
