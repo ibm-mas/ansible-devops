@@ -1,7 +1,7 @@
 ocp_login
 =========
 
-This role provides support to login to a cluster using the `oc cli`
+This role provides support to login to a cluster using the `oc cli`. If you set `ocp_server` and `ocp_token` then a non cluster type specific login is attempted rather than using the cluster_type specific facts (apikey or username/password).
 
 
 Role Variables
@@ -16,6 +16,10 @@ Role Variables
 #### Fyre specific facts
 - `username` Required when cluster type is quickburn
 - `password` Required when cluster type is quickburn
+
+#### Non cluster_type specific facts
+- `ocp_server` The OCP server address to perform oc login against
+- `ocp_token` The login token to use for oc login
 
 
 Example Playbook

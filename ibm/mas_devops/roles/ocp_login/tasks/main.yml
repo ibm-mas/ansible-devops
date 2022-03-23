@@ -6,10 +6,14 @@
   fail:
     msg: "cluster_type property is required"
 
-- name: "Fail if cluster_type is not supported"
-  when: cluster_type is not in supported_cluster_types
+# Allow for different cluster_types if the ocp_token and ocp_server have been set
+- name: "Fail if cluster_type is not supported and no ocp_token or ocp_server has been set"
+  when: 
+    - cluster_type is not in supported_cluster_types
+    - ocp_token is not defined or ocp_token == ""
+    - ocp_server is not defined or ocp_server == ""
   fail:
-    msg: "cluster_type '{{ cluster_type }}' property is not supported by this role"
+    msg: "cluster_type '{{ cluster_type }}' property is not supported by this role if you haven't set ocp_server or ocp_token properties"
 
 
 # 2. Provide debug info
@@ -18,9 +22,21 @@
     msg:
       - "Cluster name ................. {{ cluster_name }}"
       - "Cluster type ................. {{ cluster_type }}"
+      - "OCP server ................... {{ ocp_server }}"
 
 
-# 3. Perform login
+# 3. Perform login using cluster specific login
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/login-{{ cluster_type }}.yml"
-  when: cluster_type != 'in-cluster'
+  when: 
+    - cluster_type != 'in-cluster'
+    - ocp_token is not defined or ocp_token == ""
+    - ocp_server is not defined or ocp_server == ""
+
+# 4. Perform login using generic ocp token
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/login.yml"
+  when: 
+    - cluster_type != 'in-cluster'
+    - ocp_token is defined and ocp_token != ""
+    - ocp_server is defined and ocp_server != ""
