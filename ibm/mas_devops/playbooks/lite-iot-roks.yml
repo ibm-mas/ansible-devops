@@ -55,6 +55,7 @@
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', True) }}" #  when defined, it will automatically install a cpd version that is compatible with the chosen mas_channel
     cpd_storage_class: ibmc-file-gold-gid
 
+
 # 6. Install SLS
 # -----------------------------------------------------------------------------
 - name: Install SLS
@@ -65,7 +66,7 @@
 
     # Use the generated mongodb configuration
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
-    mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+    sls_mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
 
 # 7. Install UDS
@@ -91,7 +92,18 @@
     mas_config_scope: system
 
 
-# 9. Install & configure MAS
+# 9. Generate a Workspace
+# -----------------------------------------------------------------------------
+- name: Generate Workspace Configuration
+  import_playbook: mas/gencfg-workspace.yml
+  vars:
+    # Note: If you change the ID of the workspace, make sure to also update it
+    # in subsequent roles as well
+    mas_workspace_name: "MAS Development"
+    mas_workspace_id: masdev
+
+
+# 10. Install & configure MAS
 # -----------------------------------------------------------------------------
 - name: Install & configure MAS
   import_playbook: mas/install-suite.yml
@@ -99,15 +111,12 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 
-# 10. Install & Configure IoT application
+# 11. Install & Configure IoT application
 # -----------------------------------------------------------------------------
 - name: Install & configure IoT
   import_playbook: mas/install-app.yml
   vars:
     mas_app_id: iot
-
-# Note that this sample playbook is always assuming a workspace ID of masdev,
-# this can easily be modified when creating your own playbooks.
 - name: Configure IoT
   import_playbook: mas/configure-app.yml
   vars:

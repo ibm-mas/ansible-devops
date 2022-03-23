@@ -1,1 +1,0 @@
-../../ibm/mas_devops/roles/cp4d_install/README.md
