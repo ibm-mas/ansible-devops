@@ -2,60 +2,66 @@
 - hosts: localhost
   any_errors_fatal: true
 
-# 1. Deploy & configure the cluster
-# -----------------------------------------------------------------------------
-- name: Deploy ROKS cluster in IBM Cloud
-  import_playbook: ocp/provision-roks.yml
+  # REQUIRED Environment Variables
+  # ------------------------------
+  # IBMCLOUD_APIKEY
+  # CLUSTER_NAME
+  # MAS_INSTANCE_ID
+  # MAS_CONFIG_DIR
+  # MAS_ENTITLEMENT_KEY
+  # SLS_LICENSE_ID
+  # SLS_ENTITLEMENT_KEY
+  # UDS_CONTACT_EMAIL
+  # UDS_CONTACT_FIRSTNAME
+  # UDS_CONTACT_LASTNAME
+  #
+  # For full usage information refer to the documentation
 
-- name: Login & configure OCP cluster
-  import_playbook: ocp/configure-ocp.yml
   vars:
+    # Deploy & configure the cluster
     cluster_type: roks
     prometheus_storage_class: ibmc-block-gold
     prometheus_alertmgr_storage_class: ibmc-file-gold-gid
 
-
-# 2. Install MongoDb
-# -----------------------------------------------------------------------------
-- name: Install MongoDb (Community Edition)
-  import_playbook: dependencies/install-mongodb-ce.yml
-  vars:
+    # Install MongoDb
     mongodb_storage_class: ibmc-block-gold
 
-
-# 3. Install SLS
-# -----------------------------------------------------------------------------
-- name: Install SLS
-  import_playbook: dependencies/install-sls.yml
-  vars:
+    # Install SLS
     sls_storage_class: ibmc-file-gold-gid
+    # Note: We need to create some intermediate variables to construct sls_mongodb_cfg_file,
+    # This is the only reason they feature here, all the roles that use these variables would also
+    # load them directly from the same environment variables if they were not defined here.
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
-    # Use the generated mongodb configuration
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     sls_mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
-
-# 4. Install UDS
-# -----------------------------------------------------------------------------
-- name: Install UDS
-  import_playbook: dependencies/install-uds.yml
-  vars:
+    # Install UDS
     uds_storage_class: "ibmc-block-bronze"
 
-
-# 5. Generate a Workspace
-# -----------------------------------------------------------------------------
-- name: Generate Workspace Configuration
-  import_playbook: mas/gencfg-workspace.yml
-  vars:
+    # Workspace Configuration
     mas_workspace_name: "MAS Development"
     mas_workspace_id: masdev
 
+  roles:
+    # 1. Deploy & configure the cluster
+    - ibm.mas_devops.ocp_provision
+    - ibm.mas_devops.ocp_setup_mas_deps
 
-# 6. Install & configure MAS
-# -----------------------------------------------------------------------------
-- name: Install & configure MAS
-  import_playbook: mas/install-suite.yml
-  vars:
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+    # 2. Install MongoDb
+    - ibm.mas_devops.mongodb
+
+    # 3. Install SLS
+    - ibm.mas_devops.sls_install
+    - ibm.mas_devops.gencfg_sls
+
+    # 4. Install UDS
+    - ibm.mas_devops.uds_install
+
+    # 5. Generate a Workspace
+    - ibm.mas_devops.gencfg_workspace
+
+    # 6. Install & configure MAS
+    - ibm.mas_devops.suite_dns
+    - ibm.mas_devops.suite_install
+    - ibm.mas_devops.suite_config
+    - ibm.mas_devops.suite_verify
