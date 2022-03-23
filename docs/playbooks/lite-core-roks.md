@@ -24,6 +24,7 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 
 
 ## Required environment variables
+
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
 - `CLUSTER_NAME` The name to assign to the new ROKS cluster
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
@@ -31,13 +32,14 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
-- `UDS_CONTACT_EMAIL` Defines the email for person to contact for BAS
-- `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
-- `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for BAS
+- `UDS_CONTACT_EMAIL` Defines the email for person to contact for UDS
+- `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for UDS
+- `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for UDS
 
 
 ## Optional environment variables
 Refer to the role documentation for full details of all configuration options available in this playbook:
+
 1. [ocp_provision](../roles/ocp_provision.md)
 2. [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md)
 3. [mongodb](../roles/mongodb.md)
