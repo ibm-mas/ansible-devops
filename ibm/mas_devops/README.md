@@ -6,6 +6,7 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `6.3` Allow `ocp_server` and `ocp_token` to be used for `ocp_login` ([#211](https://github.com/ibm-mas/ansible-devops/pull/211))
 - `6.2` Multiple Updates:
     - Support manual upgrade approvals ([#205](https://github.com/ibm-mas/ansible-devops/pull/205))
     - Add support for Db2u operator ([#203](https://github.com/ibm-mas/ansible-devops/pull/203))
