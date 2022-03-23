@@ -2,19 +2,18 @@
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if type is not provided"
-  when: cluster_type is not defined or cluster_type == ""
-  fail:
-    msg: "cluster_type property is required"
+  assert:
+    that: cluster_type is defined and cluster_type != ""
+    fail_msg: "cluster_type property is required"
 
 # Allow for different cluster_types if the ocp_token and ocp_server have been set
 - name: "Fail if cluster_type is not supported and no ocp_token or ocp_server has been set"
-  when:
-    - cluster_type is not in supported_cluster_types
-    - ocp_token is not defined or ocp_token == ""
-    - ocp_server is not defined or ocp_server == ""
-  fail:
-    msg: "cluster_type '{{ cluster_type }}' property is not supported by this role if you haven't set ocp_server or ocp_token properties"
-
+  assert:
+    that:
+      - ocp_token is defined and ocp_token != ""
+      - ocp_server is defined and ocp_server != ""
+    fail_msg: "cluster_type '{{ cluster_type }}' property is not supported by this role if you haven't set ocp_server or ocp_token properties"
+  when: cluster_type is not in supported_cluster_types
 
 # 2. Provide debug info
 # -----------------------------------------------------------------------------
