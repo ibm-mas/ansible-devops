@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ template "ibm-object-storage-plugin.drivername" . }}
+  namespace: {{ template "ibm-object-storage-plugin.namespace" . }}
+  annotations:
+    razee.io/source-url: {{ template "ibm-object-storage-plugin.repoSourceUrl" . }}
+    razee.io/build-url: {{ template "ibm-object-storage-plugin.buildUrl" . }}
+  labels:
+    app: {{ template "ibm-object-storage-plugin.drivername" . }}
+    app.kubernetes.io/name: {{ template "ibm-object-storage-plugin.drivername" . }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    release: {{ .Release.Name }}
+spec:
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: {{ .Values.maxUnavailableNodeCount }}
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: {{ template "ibm-object-storage-plugin.drivername" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "ibm-object-storage-plugin.drivername" . }}
+        app.kubernetes.io/name: {{ template "ibm-object-storage-plugin.drivername" . }}
+        helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        release: {{ .Release.Name }}
+      annotations:
+        productID: "IBMCloudObjectStoragePlugin_{{ .Chart.AppVersion }}_Apache02_00000"
+        productMetric: "FREE"
+        productName: "ibmcloud-object-storage-plugin"
+        productVersion: "{{ .Chart.AppVersion }}"
+        autoUpdate: {{ randAlphaNum 5 | quote }}
+        razee.io/source-url: {{ template "ibm-object-storage-plugin.repoSourceUrl" . }}
+        razee.io/build-url: {{ template "ibm-object-storage-plugin.buildUrl" . }}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+      tolerations:
+      - operator: "Exists"
+      hostNetwork: true
+      hostPID: false
+      hostIPC: false
+      serviceAccountName: ibmcloud-object-storage-driver
+      containers:
+        - name: {{ template "ibm-object-storage-plugin.drivername" . }}-container
+          {{- if or (contains "RHOCP" (.Values.provider | quote | upper)) (contains "SATELLITE" (.Values.provider | quote | upper))  }}
+          image: "{{ .Values.image.driverImage.publicRegistry }}"
+          {{- else }}
+          image: "{{ .Values.image.driverImage.ibmContainerRegistry }}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            requests:
+              memory: {{ .Values.resource.memory }}
+              cpu: {{ .Values.resource.cpu }}
+              ephemeral-storage: 5Mi
+            limits:
+              memory: {{ .Values.resource.memory }}
+              cpu: {{ .Values.resource.cpu }}
+              ephemeral-storage: 5Mi
+          securityContext:
+            capabilities:
+              drop: ["ALL"]
+            privileged: false
+            allowPrivilegeEscalation: true
+            readOnlyRootFilesystem: true
+            runAsNonRoot: false
+            runAsUser: 0
+          livenessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - version1=$(cat /home/s3-dep/version.txt | grep "^Version" );
+                version2=$(/host/kubernetes/kubelet-plugins/volume/exec/ibm~ibmc-s3fs/ibmc-s3fs version);
+                if [ "$version1" = "$version2" ]; then exit 0; else exit 1; fi
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 60
+            failureThreshold: 1
+          readinessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - version1=$(cat /home/s3-dep/version.txt | grep "^Version" );
+                version2=$(/host/kubernetes/kubelet-plugins/volume/exec/ibm~ibmc-s3fs/ibmc-s3fs version);
+                if [ "$version1" == "$version2" ]; then exit 0; else exit 1; fi
+            initialDelaySeconds: 60
+            timeoutSeconds: 5
+            periodSeconds: 60
+            failureThreshold: 1
+          volumeMounts:
+             - mountPath: /host/kubernetes
+               name: kube-driver
+             - mountPath: /host/local
+               name: usr-local
+             - mountPath: /host/usr/lib
+               name: usr-lib
+               readOnly: true
+             - mountPath: /host/etc
+               name: etc-mount
+             - mountPath: /host/log
+               name: host-logs
+               readOnly: true
+      volumes:
+        - name: kube-driver
+          hostPath:
+              path: {{.Values.kubeDriver}}
+        - name: usr-local
+          hostPath:
+             path: /usr/local
+        - name: usr-lib
+          hostPath:
+             path: /usr/lib
+        - name: etc-mount
+          hostPath:
+             path: /etc
+        - name: host-logs
+          hostPath:
+             path: /var/log

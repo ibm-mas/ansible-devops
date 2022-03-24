@@ -1,0 +1,34 @@
+{{- if or (contains "RHOCP" (.Values.provider | quote | upper)) (contains "SATELLITE" (.Values.provider | quote | upper)) }}
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: ibmc-s3fs-cos
+  annotations:
+    razee.io/source-url: {{ template "ibm-object-storage-plugin.repoSourceUrl" . }}
+    razee.io/build-url: {{ template "ibm-object-storage-plugin.buildUrl" . }}
+  labels:
+    app: {{ template "ibm-object-storage-plugin.name" . }}
+    app.kubernetes.io/name: {{ template "ibm-object-storage-plugin.name" . }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+provisioner: ibm.io/ibmc-s3fs
+parameters:
+  ibm.io/chunk-size-mb: "16"
+  ibm.io/parallel-count: "2"
+  ibm.io/multireq-max: "20"
+  {{- if contains "REDHAT" (.Values.workerOS | quote | upper) }}
+  ibm.io/tls-cipher-suite: "ecdhe_rsa_aes_128_gcm_sha_256"
+  {{- else }}
+  ibm.io/tls-cipher-suite: "AESGCM"
+  {{- end }}
+  ibm.io/stat-cache-size: "100000"
+  ibm.io/debug-level: "warn"
+  ibm.io/curl-debug: "false"
+  ibm.io/kernel-cache: "false"
+  ibm.io/s3fs-fuse-retry-count: "5"
+  ibm.io/iam-endpoint: "{{ .Values.iamEndpoint }}"
+  ibm.io/object-store-endpoint: "{{ .Values.cos.endpoint }}"
+  ibm.io/object-store-storage-class: "{{ .Values.cos.storageClass }}"
+{{- end -}}

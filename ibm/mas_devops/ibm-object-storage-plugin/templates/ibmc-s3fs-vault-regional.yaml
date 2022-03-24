@@ -1,0 +1,52 @@
+{{- if contains "IBMC" (.Values.provider | quote | upper) }}
+{{- $secondaryValueFile := (.Files.Get .Values.secondaryValueFile) | fromYaml }}
+{{- $Provider := (.Values.provider | replace "-" "_" | lower) }}
+{{- $regionSubstr := (.Values.region | lower) }}
+{{- $dataCenter := (.Values.dcname | lower) }}
+{{- $EndpointType := printf "direct" }}
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: ibmc-s3fs-vault-regional
+  annotations:
+    razee.io/source-url: {{ template "ibm-object-storage-plugin.repoSourceUrl" . }}
+    razee.io/build-url: {{ template "ibm-object-storage-plugin.buildUrl" . }}
+  labels:
+    app: {{ template "ibm-object-storage-plugin.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+provisioner: ibm.io/ibmc-s3fs
+parameters:
+  ibm.io/chunk-size-mb: "16"
+  ibm.io/parallel-count: "2"
+  ibm.io/multireq-max: "20"
+  {{- if contains "REDHAT" (.Values.workerOS | quote | upper) }}
+  ibm.io/tls-cipher-suite: "ecdhe_rsa_aes_128_gcm_sha_256"
+  {{- else }}
+  ibm.io/tls-cipher-suite: "AESGCM"
+  {{- end }}
+  ibm.io/stat-cache-size: "100000"
+  ibm.io/debug-level: "warn"
+  ibm.io/curl-debug: "false"
+  ibm.io/kernel-cache: "false"
+  ibm.io/s3fs-fuse-retry-count: "5"
+  {{- if contains "IBMC-VPC" (.Values.provider | quote | upper) }}
+  ibm.io/iam-endpoint: "{{ .Values.iamEndpointVPC }}"
+  {{- $EndpointType = printf "direct" }}
+  {{- else }}
+  ibm.io/iam-endpoint: "{{ .Values.iamEndpoint }}"
+  {{- $EndpointType = printf "private" }}
+  {{- end }}
+  {{- range $key, $val := $secondaryValueFile.singlesite }}
+  {{- if eq $key $dataCenter }}
+  {{- $hostname := index $secondaryValueFile.singlesite $dataCenter $EndpointType  $dataCenter }}
+  ibm.io/object-store-endpoint: "https://{{ $hostname }}"
+  ibm.io/object-store-storage-class: "{{ $dataCenter }}-vault"
+  {{- else }}
+  {{- $hostname := index $secondaryValueFile.regional $regionSubstr $EndpointType  $regionSubstr }}
+  ibm.io/object-store-endpoint: "https://{{ $hostname }}"
+  ibm.io/object-store-storage-class: "{{ $regionSubstr }}-vault"
+  {{- end }}
+  {{- end }}
+{{- end -}}
