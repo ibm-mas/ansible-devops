@@ -1,1 +1,0 @@
-../../ibm/mas_devops/roles/sls_install/README.md

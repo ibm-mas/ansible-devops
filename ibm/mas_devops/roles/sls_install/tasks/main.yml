@@ -14,17 +14,17 @@
 
 - name: "Fail if no MongoDb config is provided"
   assert:
-    that: mongodb is defined or mongodb_cfg_file is defined
-    fail_msg: "Either mongodb_cfg_file or mongodb properties must be set"
+    that: sls_mongodb is defined or sls_mongodb_cfg_file is defined
+    fail_msg: "Either sls_mongodb_cfg_file or mongodb properties must be set"
 
 - name: "Fail if missing any mongodb information"
   when:
-    - mongodb is defined
+    - sls_mongodb is defined
   assert:
     that:
-      - mongodb.hosts is defined
-      - mongodb.username is defined
-      - mongodb.password is defined
+      - sls_mongodb.hosts is defined
+      - sls_mongodb.username is defined
+      - sls_mongodb.password is defined
     fail_msg: "Review provided MongoDb details, it is missing required elements"
 
 
@@ -40,6 +40,7 @@
       - "SLS ICR cpopen content ........ {{ sls_icr_cpopen }}"
       - "SLS Storage class ............. {{ sls_storage_class }}"
       - "SLS Instance Name ............. {{ sls_instance_name }}"
+      - "SLS MongoCfg file ............. {{ sls_mongodb_cfg_file | default('<undefined>', True) }}"
 
 - name: "Create SLS Namespace"
   kubernetes.core.k8s:
@@ -128,15 +129,15 @@
 # -----------------------------------------------------------------------------
 - name: Read MongoDb config file
   set_fact:
-    mongocfg: "{{ lookup('file', mongodb_cfg_file) | from_yaml_all  }}"
-  when: mongodb_cfg_file is defined
+    mongocfg: "{{ lookup('file', sls_mongodb_cfg_file) | from_yaml_all  }}"
+  when: sls_mongodb_cfg_file is defined
 
 - name: Overide MongoDb facts bases on mongocfg
   set_fact:
     mongodb:
-      username: "{{mongocfg[0].stringData.username}}"
-      password: "{{mongocfg[0].stringData.password}}"
-      hosts: "{{mongocfg[1].spec.config.hosts}}"
+      username: "{{ mongocfg[0].stringData.username }}"
+      password: "{{ mongocfg[0].stringData.password }}"
+      hosts: "{{ mongocfg[1].spec.config.hosts }}"
   when: mongocfg is defined
 
 - name: Create the Mongo Secret for SLS

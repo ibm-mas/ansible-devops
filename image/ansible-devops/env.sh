@@ -25,7 +25,7 @@ for file in /workspace/settings/*; do
     # Temporarily turn off glob, otherwise any wildcard characters (*) in the
     # vars will be expanded to matching filenames.
     set -f
-    export $(basename $file)=$(cat $file)
+    export $(basename $file)="$(cat $file)"
     set +f
   fi
 done

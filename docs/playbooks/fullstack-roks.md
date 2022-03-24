@@ -17,6 +17,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack) (5 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
+    - Generate MAS Workspace Configuration (1 minute)
     - [Install & configure MAS](mas.md#install-mas) (15 minutes)
 - Install applications:
     - [Install & configure Manage](mas.md#install-mas-application) (10 minute install + 2 hours configure)
@@ -49,23 +50,6 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 !!! important
     Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](dependencies.md#install-sls) topic.
 
-### Create a Workspace template
-If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:
-
-```yaml
-apiVersion: core.mas.ibm.com/v1
-kind: Workspace
-metadata:
-  name: "{{instance_id}}-masdev"
-  namespace: "mas-{{instance_id}}-core"
-  labels:
-    mas.ibm.com/instanceId: "{{instance_id}}"
-    mas.ibm.com/workspaceId: "masdev"
-spec:
-  displayName: "MAS Development"
-```
-
-You do not need to create a workspace called `masdev`, you can modify the workspace template above to suite your needs.
 
 ## Required environment variables
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
@@ -91,11 +75,15 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 - `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
 - `MAS_CHANNEL` to override the use of the `8.x` channel
 - `MAS_DOMAIN` to set a custom domain for the MAS installation
+- `MAS_UPGRADE_STRATEGY` to override the use of Manual upgrade strategy.
 - `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
 - `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
+- `CPD_WSL_PROJECT_ID` to set a Watson Studio project id to be passed to HP Utilities application during its deployment and configuration. If not set, a new project will be created in Watson Studio automatically to configure HP Utilities application in the MAS instance created by this playbook
+- `CPD_WSL_PROJECT_NAME` to set a Watson Studio project name, if not set a default project name will be used
+- `CPD_WSL_PROJECT_DESCRIPTION` - to set a Watson Studio project description, if not set a default project description will be used
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.

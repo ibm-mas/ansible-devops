@@ -8,6 +8,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
+    - Generate MAS Workspace Configuration (1 minute)
     - [Install & configure MAS](mas.md#install-mas) (15 minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Due to the size limtations of QuickBurn clusters a full MAS stack is not possible.
@@ -16,27 +17,26 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `FYRE_USERNAME`
 - `FYRE_APIKEY`
 - `FYRE_PRODUCT_ID`
-- `CLUSTER_NAME`
-- `OCP_VERSION`
+- `CLUSTER_NAME` The name to assign to the new ROKS cluster
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
+- `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
+- `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 
 ## Optional environment variables
-- `FYRE_CLUSTER_SIZE`
-- `W3_USERNAME` to enable access to pre-release development builds of MAS
-- `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
-- `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
-- `MAS_CHANNEL` to override the use of the `8.x` channel
-- `MAS_DOMAIN` to set a custom domain for the MAS installation
-- `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
-- `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
-- `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
-- `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
-- `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
+Refer to the role documentation for full details of all configuration options available in this playbook:
 
-!!! tip
-    `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
+1. [ocp_provision](../roles/ocp_provision.md)
+2. [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md)
+3. [mongodb](../roles/mongodb.md)
+4. [sls_install](../roles/sls_install.md)
+5. [gencfg_sls](../roles/gencfg_sls.md)
+6. [gencfg_workspace](../roles/gencfg_workspace.md)
+7. [suite_dns](../roles/suite_dns.md)
+8. [suite_install](../roles/suite_install.md)
+9. [suite_config](../roles/suite_config.md)
+10. [suite_verify](../roles/suite_verify.md)
 
 
 ## Release build
