@@ -25,7 +25,7 @@ RUN chmod -R ug+rwx ${HOME}/env.sh && \
     chmod a+x ${HOME}/run-playbook.sh && \
     chmod a+x ${HOME}/ibmcloud-oc.sh
 
-# Install OpenShift CLI
+# Install OpenShift CLI 4.8.35
 RUN wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.8.35/openshift-client-linux.tar.gz && \
     tar -zxf openshift-client-linux.tar.gz && \
     mv openshift-client-linux/oc /usr/local/bin/ && \
