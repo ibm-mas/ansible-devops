@@ -24,6 +24,7 @@ copyDoc cp4d_install_services
 copyDoc db2u
 copyDoc gencfg_sls
 copyDoc gencfg_workspace
+copyDoc gpu_install
 copyDoc install_operator
 copyDoc mongodb
 copyDoc ocp_deprovision

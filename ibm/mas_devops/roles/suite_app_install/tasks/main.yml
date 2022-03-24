@@ -12,7 +12,6 @@
   fail:
     msg: "mas_app_id property is required"
 
-
 # 2. Load var files
 # -----------------------------------------------------------------------------
 - name: Load variables
@@ -39,7 +38,17 @@
       - "App channel ................ {{ mas_app_channel }}"
       - "App Subscription Upgrade ... {{ mas_app_upgrade_strategy }}"
 
-# 4. Install the operator
+
+# 4. Apply security context constraints
+# -----------------------------------------------------------------------------
+- name: "Apply security context constraints"
+  when: mas_app_id == "visualinspection"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/customscc.yml.j2') }}"
+
+
+# 5. Install the operator
 # -----------------------------------------------------------------------------
 - name: "Install Operator"
   include_role:
@@ -99,7 +108,7 @@
     - app_crd_info.resources | length > 0
 
 
-# 6. Create the ibm-entitlement secret for entitled content
+# 7. Create the ibm-entitlement secret for entitled content
 # -----------------------------------------------------------------------------
 - name: "Create ibm-entitlement secret in application Namespace"
   vars:
@@ -122,7 +131,7 @@
         .dockerconfigjson: "{{ content | join('') | string }}"
 
 
-# 7. App installation
+# 8. App installation
 # -----------------------------------------------------------------------------
 - name: Install application
   kubernetes.core.k8s:
@@ -131,7 +140,7 @@
     definition: "{{ lookup('template', 'templates/application.yml.j2') }}"
 
 
-# 8. Wait for application to be ready
+# 9. Wait for application to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application to be ready (60s delay)"
   kubernetes.core.k8s_info:
