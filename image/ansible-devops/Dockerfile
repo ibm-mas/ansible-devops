@@ -39,3 +39,4 @@ RUN wget -q https://download.clis.cloud.ibm.com/ibm-cloud-cli/2.3.0/IBM_Cloud_CL
     rm -rf Bluemix_CLI IBM_Cloud_CLI_2.3.0_amd64.tar.gz
 
 ENV ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg
+
