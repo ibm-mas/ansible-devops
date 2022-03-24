@@ -76,6 +76,17 @@ function set_target_roks() {
     export SLS_LICENSE_ID
   fi
 
+  if [[ -z "$CPD_ENTITLEMENT_KEY" ]]; then
+    # Use IBM_ENTITLEMENT_KEY as the default and prompt for key
+    if [[ -z "$IBM_ENTITLEMENT_KEY" ]]; then
+      read -e -p 'CPD_ENTITLEMENT_KEY> ' CPD_ENTITLEMENT_KEY
+    else
+      read -e -p 'CPD_ENTITLEMENT_KEY> ' -i "$IBM_ENTITLEMENT_KEY" CPD_ENTITLEMENT_KEY
+    fi
+  else
+    read -e -p 'CPD_ENTITLEMENT_KEY> ' -i "$CPD_ENTITLEMENT_KEY" CPD_ENTITLEMENT_KEY
+  fi
+  export CPD_ENTITLEMENT_KEY
 
   if [[ -z "$UDS_CONTACT_EMAIL" ]]; then
     read -p 'UDS_CONTACT_EMAIL> ' UDS_CONTACT_EMAIL
@@ -115,6 +126,8 @@ function show_target_roks() {
   echo "MAS_ICR_CPOPEN ............ $MAS_ICR_CPOPEN"
   echo "MAS_ENTITLEMENT_USERNAME .. $MAS_ENTITLEMENT_USERNAME"
   echo "MAS_ENTITLEMENT_KEY ....... $MAS_ENTITLEMENT_KEY"
+
+  echo "CPD_ENTITLEMENT_KEY ....... $CPD_ENTITLEMENT_KEY"
 
   echo "SLS_ICR_CP ................ $SLS_ICR_CP"
   echo "SLS_ICR_CPOPEN ............ $SLS_ICR_CPOPEN"

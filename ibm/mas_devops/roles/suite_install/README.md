@@ -15,9 +15,9 @@ Role Variables
 - `mas_icr_cpopen` Defines the registry for non entitled images, such as operators. Set this to `icr.io/cpopen` when installing release version of MAS or `wiotp-docker-local.artifactory.swg-devops.com` for dev
 - `mas_entitlement_username` Username for entitled registry. This username will be used to create the image pull secret. Set to `cp` when installing release or use your `w3Id` for dev.
 - `mas_entitlement_key` API Key for entitled registry. This password will be used to create the image pull secret. Set to with IBM entitlement key when installing release or use your artifactory `apikey` for dev.
-- `mas_config` List of configuration files to be applied to configure the MAS installation
+- `mas_config_dir` Directory containing configuration files (`*.yaml` and `*.yml`) to be applied to the MAS installation.  Intended for creating the various MAS custom resources to configure the suite post-install, but can be used to apply any kubernetes resource you need to customize any aspect of your cluster.
 - `certManager.namespace` The namespace containing the cert-manager to be used by MAS
-- `mas_upgrade_strategy` The Upgrade strategy for MAS Operator. Defualt is set to Manual
+- `mas_upgrade_strategy` The Upgrade strategy for MAS Operator. Default is set to Automatic
 
 
 Example Playbook
@@ -27,23 +27,9 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    # Which MAS channel to subscribe to
-    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('8.x', true) }}"
-
-    # MAS configuration
-    custom_domain: "{{ lookup('env', 'MAS_DOMAIN') | default(None)}}"
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-
-    # MAS configuration - Entitlement
-    mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') }}"
-
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-
-    # Determine MAS Operator Upgrade Strategy Manual | Automatic
-    mas_upgrade_strategy: "{{ lookup('env', 'MAS_UPGRADE_STRATEGY') | default('Manual', true) }}"
-    
-    certManager:
-      namespace: "{{ lookup('env', 'CERT_MANAGER_NAMESPACE') }}"
+    mas_instance_id: "inst1"
+    mas_config_dir: "/home/david/masconfig"
+    mas_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
 
   roles:
     - ibm.mas_devops.suite_install
