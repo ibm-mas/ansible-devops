@@ -8,9 +8,7 @@ set -e
 # bin/mas install-pipeline
 # bin/mas set-config masinst1
 # bin/mas show-config masinst1
-# bin/mas run-pipeline masinst1 /path/to/dir/containing/licensefile_and_masdev_workspace
-
-
+# bin/mas run-pipeline masinst1 /path/to/dir/containing/licensefile
 
 # Load common functions
 # -----------------------------------------------------------------------------
@@ -63,7 +61,82 @@ function install_pipeline() {
 # -----------------------------------------------------------------------------
 function config_pipeline() {
   export MAS_INSTANCE_ID=$1
-  set_target
+
+  if [[ -z "$IBMCLOUD_APIKEY" ]]; then
+    read -p 'IBMCLOUD_APIKEY> ' IBMCLOUD_APIKEY
+  fi
+  export IBMCLOUD_APIKEY
+
+  if [[ -z "$MAS_INSTANCE_ID" ]]; then
+    read -p 'MAS_INSTANCE_ID> ' MAS_INSTANCE_ID
+  fi
+  export MAS_INSTANCE_ID
+
+  export OCP_VERSION=4.8_openshift
+
+  # TODO: make these work for non-development target
+  export MAS_CATALOG_SOURCE=ibm-mas-operators
+  export MAS_CHANNEL=m1dev88
+
+  if [[ -z "$CPD_ENTITLEMENT_KEY" ]]; then
+    if [[ -z "$IBM_ENTITLEMENT_KEY" ]]; then
+      read -p 'CPD_ENTITLEMENT_KEY> ' CPD_ENTITLEMENT_KEY
+    else
+      read -e -p 'CPD_ENTITLEMENT_KEY> ' -i "$IBM_ENTITLEMENT_KEY" CPD_ENTITLEMENT_KEY
+    fi
+  else
+      read -e -p 'CPD_ENTITLEMENT_KEY> ' -i "$CPD_ENTITLEMENT_KEY" CPD_ENTITLEMENT_KEY
+  fi
+
+  if [[ "$MAS_CATALOG_SOURCE" == "ibm-mas-operators" ]]; then
+    export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
+    export MAS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
+    export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
+    export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
+
+    # Also use development pre-release builds of IBM SLS
+    export SLS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
+    export SLS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
+    export SLS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
+    export SLS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
+    export SLS_LICENSE_ID=0242ac110002
+  else
+    if [[ -z "$MAS_ENTITLEMENT_KEY" ]]; then
+      # Use IBM_ENTITLEMENT_KEY as the default and prompt for key
+      if [[ -z "$IBM_ENTITLEMENT_KEY" ]]; then
+        read -e -p 'MAS_ENTITLEMENT_KEY> ' MAS_ENTITLEMENT_KEY
+      else
+        read -e -p 'MAS_ENTITLEMENT_KEY> ' -i "$IBM_ENTITLEMENT_KEY" MAS_ENTITLEMENT_KEY
+      fi
+    fi
+    export MAS_ENTITLEMENT_KEY
+    export SLS_ENTITLEMENT_KEY=$MAS_ENTITLEMENT_KEY
+
+    read -e -p 'SLS_LICENSE_ID> ' SLS_LICENSE_ID
+    export SLS_LICENSE_ID
+  fi
+
+  if [[ -z "$UDS_CONTACT_EMAIL" ]]; then
+    read -p 'UDS_CONTACT_EMAIL> ' UDS_CONTACT_EMAIL
+  else
+    read -e -p 'UDS_CONTACT_EMAIL> ' -i "$UDS_CONTACT_EMAIL" UDS_CONTACT_EMAIL
+  fi
+  export UDS_CONTACT_EMAIL
+
+  if [[ -z "$UDS_CONTACT_FIRSTNAME" ]]; then
+    read -p 'UDS_CONTACT_FIRSTNAME> ' UDS_CONTACT_FIRSTNAME
+  else
+    read -e -p 'UDS_CONTACT_FIRSTNAME> ' -i "$UDS_CONTACT_FIRSTNAME" UDS_CONTACT_FIRSTNAME
+  fi
+  export UDS_CONTACT_FIRSTNAME
+
+  if [[ -z "$UDS_CONTACT_LASTNAME" ]]; then
+    read -p 'UDS_CONTACT_LASTNAME> ' UDS_CONTACT_LASTNAME
+  else
+    read -e -p 'UDS_CONTACT_LASTNAME> ' -i "$UDS_CONTACT_LASTNAME" UDS_CONTACT_LASTNAME
+  fi
+  export MAS_CONFIG_DIR
+
 
   if confirm "Install IoT Application [y/N]"; then
     export MAS_APP_SOURCE_IOT='""'; export MAS_APP_CHANNEL_IOT=8.4.x
@@ -139,6 +212,10 @@ function show_config() {
   echo "MAS_ENTITLEMENT_USERNAME .. $($DIR/yq '.stringData.MAS_ENTITLEMENT_USERNAME' pipelinesettings-$MAS_INSTANCE_ID.yaml)"
   echo "MAS_ENTITLEMENT_KEY ....... $($DIR/yq '.stringData.MAS_ENTITLEMENT_KEY' pipelinesettings-$MAS_INSTANCE_ID.yaml)"
 
+  echo -e "\nCloudPak for Data Settings"
+  echo "-------------------------------------------------------------"
+  echo "CPD_ENTITLEMENT_KEY ....... $($DIR/yq '.stringData.CPD_ENTITLEMENT_KEY' pipelinesettings-$MAS_INSTANCE_ID.yaml)"
+
   echo -e "\nIBM Suite License Service Settings"
   echo "-------------------------------------------------------------"
   echo "SLS_LICENSE_ID ............ $($DIR/yq '.stringData.SLS_LICENSE_ID' pipelinesettings-$MAS_INSTANCE_ID.yaml)"
@@ -198,7 +275,6 @@ function run_pipeline() {
   oc delete secret pipeline-sls-entitlement --ignore-not-found=true
 
   # Create new secrets
-  oc create secret generic pipeline-additional-configs --from-file=$MAS_CONFIG_DIR/workspace_masdev.yaml
   oc create secret generic pipeline-sls-entitlement --from-file=$MAS_CONFIG_DIR/entitlement.lic
 
   # Start pipeline execution
