@@ -30,6 +30,12 @@ oc -n cpd-meta-ops get formations.db2u.databases.ibm.com db2wh-db01 -o go-templa
 
     This file can be directly applied using `oc apply -f /tmp/jdbccfg-cp4ddb2wh-system.yaml` or added to the `mas_config` list variable used by the `ibm.mas_devops.suite_install` role to deploy and configure MAS.
 
+#### Installing DB2WH on NFS based volumes
+DB2 requires you to set no_root_squash when you use NFS with IBM® Cloud File Storage (ibmc-file-gold-gid storage class) or the restore morph job fails.
+This role will install a daemonset which applies the `no_root_squash` NFS mount option on NFS volumes. For more details see the following references:
+- https://www.ibm.com/docs/en/db2/11.5?topic=requirements-cloud-file-storage
+- https://www.ibm.com/docs/en/db2/11.5?topic=cds-nfs-storage-requirements-1
+- https://cloud.ibm.com/docs/FileStorage?topic=FileStorage-mountingLinux&interface=ui#norootsquash
 
 Role Variables
 --------------
@@ -178,6 +184,38 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 - Environment Variable: `'MAS_APP_ID`
 - Default: None
 
+### db2wh_workload
+The workload profile of the db2wh instance, possible values are 'PUREDATA_OLAP' or 'ANALYTICS'
+
+- Environment Variable: `'DB2WH_WORKLOAD`
+- Default: 'ANALYTICS'
+
+### db2wh_node_label
+The label used to specify node affinity and tolerations in the db2ucluster CR.
+
+- Environment Variable: `'DB2WH_NODE_LABEL`
+- Default: None
+
+### db2wh_dedicated_node
+The name of the worker node to apply the {{ db2wh_node_label }} taint and label to.
+
+- Environment Variable: `'DB2WH_DEDICATED_NODE`
+- Default: None
+
+### db2wh_mln_count
+The number of logical nodes (i.e. database partitions to create).
+
+- Environment Variable: `'DB2WH_MLN_COUNT`
+- Default: 1
+
+### db2wh_num_pods
+The number of db2 pods to create in the instance. Note that db2wh_num_pods must be less than or equal to db2wh_mln_count.
+A single db2u pod can contain multiple logical nodes. So be sure to avoid specifying a large number for db2wh_mln_count while 
+specifying a small number for db2wh_num_pods. If in doubt, make db2wh_mln_count = db2wh_num_pods. A slightly out of date reference
+but still decent: https://www.ibm.com/docs/en/db2-warehouse?topic=SSCJDQ/com.ibm.swg.im.dashdb.ucontainer.doc/doc/db2w-mempernode-new.html
+
+- Environment Variable: `'DB2WH_NUM_PODS`
+- Default: 1
 
 Example Playbook
 ----------------

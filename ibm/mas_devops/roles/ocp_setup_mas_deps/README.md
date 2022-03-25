@@ -2,7 +2,7 @@ ocp_setup_mas_deps
 ==================
 
 This role provides support to install operators that are required by MAS to work. The role will deploy Service Binding Operator in all namespaces and Cert Manager in the cert-manager namespace.  The role declares a dependency on `ocp_verify` to ensure that the RedHat Operator Catalog is installed and ready before we try to install the Service Binding Operator from that catalog.
-In addition, this role updates cluster's internal image registry settings to increase storage to 400GB (needed only for ROKS Cluster to install full stack of services in CP4D) and to configure custom storage for Prometheus monitoring service.
+In addition, this role updates cluster's internal image registry settings to increase storage to 400GB (needed only for ROKS Cluster to install full stack of services in CP4D) and to configure custom storage for the Prometheus monitoring service for both the k8s and User Workload (in namespace `openshift-user-workload-monitoring`) Prometheus instances.
 
 For MAS 8.6 or earlier JetStack cert-manager v1.2 is installed into the `cert-manager` namespace.  When used for MAS 8.7+ this role will result in the following operators being installed in the ibm-common-services namespace:
 - IBM Cert Manager
@@ -56,6 +56,24 @@ Adjust the size of the volume used by AlertManager, only used when both `prometh
 
 - Environment Variable: `PROMETHEUS_ALERTMGR_STORAGE_SIZE`
 - Default Value: `20Gi`
+
+### prometheus_userworkload_retention_period
+Adjust the retention period for User Workload Prometheus metrics, this parameter applies only to the User Workload Prometheus instance.
+
+- Environment Variable: `PROMETHEUS_USERWORKLOAD_RETENTION_PERIOD`
+- Default Value: `15d`
+
+### prometheus_userworkload_storage_class
+Declare the storage class for User Workload Prometheus' metrics data persistent volume.
+
+- Environment Variable: `PROMETHEUS_USERWORKLOAD_STORAGE_CLASS`
+- Default Value: `PROMETHEUS_STORAGE_CLASS`
+
+### prometheus_userworkload_storage_size
+Adjust the size of the volume used to store User Workload metrics.
+
+- Environment Variable: `PROMETHEUS_USERWORKLOAD_STORAGE_SIZE`
+- Default Value: `300Gi`
 
 ### mas_channel
 Used to determine whether to install SBO stable channel and the IBM badged cert-manager.

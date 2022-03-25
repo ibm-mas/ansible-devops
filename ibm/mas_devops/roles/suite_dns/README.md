@@ -20,9 +20,6 @@ The Webhook Task will deploy a cert-manager webhook for CIS integration.  The we
 
     At present there is no workaround for this, so do not use the LetsEncrypt staging certificate issuer.
 
-!!! warning
-    We need to support a seperate `cis_apikey` property, because the API key provided will be stored in a secret in the cluster used by the webhook to create challenge request files in your DNS. We should support the ability to set the API key used here seperate from the main IBMCloud API key used elsewhere so that it can be restricted to only the permissions required by CIS.
-
 
 Role Variables
 --------------
@@ -56,8 +53,9 @@ Example Playbook
     cis_crn: "{{ lookup('env', 'CIS_CRN') }}"
     # Domain prefix is whatever you want to append to your DNS entry to make it unique
     cis_subdomain: "{{ lookup('env', 'CIS_SUBDOMAIN') }}"
-    # generate your apikey in IBM Cloud
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+    # generate a Service ID apikey in IBM Cloud for strict access to the 'Internet Services` service with
+    # an 'Access Policy' of Editor/Manager
+    cis_apikey: "{{ lookup('env', 'CIS_APIKEY') | default(lookup('env', 'IBMCLOUD_APIKEY'), true) }}"
 
     # Email used register letsencrypt certificates and receive cert notifications
     cis_email: "{{ lookup('env', 'CIS_EMAIL') }}"

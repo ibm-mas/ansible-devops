@@ -1,0 +1,51 @@
+# If you are using IBM® Cloud File Storage (ibmc-file-gold-gid storage class) for Red Hat® OpenShift® Kubernetes Service with Db2®,
+# you must use the cp.icr.io/cp/cpd/norootsquash:3.0-amd64 image to set no_root_squash.
+
+# 1. Set 'cpregistrysecret' secret content
+- name: Set 'cpregistrysecret' secret content
+  vars:
+    entitledAuthStr: "{{ cpd_registry_user }}:{{ cpd_entitlement_key }}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - "{\"auths\":{\"{{ cpd_registry }}/cp/cpd\":{\"username\":\"{{ cpd_registry_user }}\",\"password\":\"{{ cpd_entitlement_key }}\",\"email\":\"{{ cpd_registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
+      - "}"
+      - "}"
+  set_fact:
+    new_secret: "{{ content | join('') }}"
+
+# 2. Generate 'cpregistrysecret' secret
+- name: "Generate 'cpregistrysecret' secret"
+  community.kubernetes.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: cpregistrysecret
+        namespace: kube-system
+      data:
+        .dockerconfigjson: "{{ new_secret | to_json | b64encode }}"
+  register: secretUpdateResult
+
+# 3. Create DeamonSet
+- name: Create 'norootsquash' DeamonSet
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/norootsquash_deamonset.yml') }}"
+    wait: yes
+    wait_timeout: 120
+
+# 4. Wait for 'norootsquash' DaemonSet to be running
+# -----------------------------------------------------------------------------
+- name: "Wait for 'norootsquash' DaemonSet to be running"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: norootsquash
+    namespace: kube-system
+    kind: DaemonSet
+  register: daemonset_output
+  until:
+    - daemonset_output.resources is defined
+    - daemonset_output.resources | length > 0
+    - daemonset_output.resources[0].status.numberReady > 0
+  retries: 60 # approx 60 minutes before we give up
+  delay: 60 # 1 minute

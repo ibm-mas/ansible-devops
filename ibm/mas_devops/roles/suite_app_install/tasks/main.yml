@@ -18,6 +18,10 @@
 - name: Load variables
   include_vars: "vars/{{ mas_app_id }}.yml"
 
+# 2.1 Load default application spec, if none is provided by user
+- name: Load default application spec
+  when: mas_app_spec is not defined or mas_app_spec == ""
+  include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
 
 # 3. Provide debug information
 # -----------------------------------------------------------------------------
@@ -107,15 +111,15 @@
     name: "{{ mas_instance_id }}"
     namespace: "{{ mas_app_namespace }}"
     kind: "{{ mas_app_kind }}"
-    wait: true
+    wait: yes # changed true to yes
     wait_condition:
       status: "True"
       type: Ready
     wait_sleep: 30
-    wait_timeout: "{{ mas_app_install_timeout }}" # before we give up and fall back into the retry loop
+    wait_timeout: 120 # before we give up and fall back into the retry loop
   register: app_cr_result
   retries: "{{ mas_app_install_retries }}"
-  delay: 0
+  delay: "{{ mas_app_install_delay }}"
   until:
     - app_cr_result.resources is defined
     - app_cr_result.resources | length > 0
