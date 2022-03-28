@@ -9,6 +9,7 @@ COPY run-playbook.sh ${HOME}/run-playbook.sh
 COPY save-junit-to-mongo.py ${HOME}/save-junit-to-mongo.py
 COPY ansible.cfg ${HOME}/ansible.cfg
 COPY ibmcloud-oc.sh ${HOME}/ibmcloud-oc.sh
+COPY clear-mustgather-workspace.sh ${HOME}/clear-mustgather-workspace.sh
 
 # TODO: Caio, why do we switch to the root user for the rest of this Dockerfile, and why leave it as root user active at the end?
 USER root
@@ -23,7 +24,8 @@ RUN ansible-galaxy collection install ${HOME}/ibm-mas_devops.tar.gz -p /opt/app-
 RUN chmod -R ug+rwx ${HOME}/env.sh && \
     chmod -R ug+rwx ${HOME}/.ansible && \
     chmod a+x ${HOME}/run-playbook.sh && \
-    chmod a+x ${HOME}/ibmcloud-oc.sh
+    chmod a+x ${HOME}/ibmcloud-oc.sh && \
+    chmod a+x ${HOME}/clear-mustgather-workspace.sh
 
 # Install OpenShift CLI 4.8.35
 RUN wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.8.35/openshift-client-linux.tar.gz && \

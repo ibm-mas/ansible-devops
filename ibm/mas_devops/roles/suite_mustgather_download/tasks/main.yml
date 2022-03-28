@@ -1,0 +1,53 @@
+---
+
+# 1. Check that all properties are provided
+# -----------------------------------------------------------------------------
+- name: "Fail if local_output_dir is not provided"
+  when: local_output_dir is not defined or local_output_dir == ""
+  fail:
+    msg: "local_output_dir property is required"
+
+- name: "Fail if mustgather_namespace is not provided"
+  when: mustgather_namespace is not defined or mustgather_namespace == ""
+  fail:
+    msg: "mustgather_namespace property is required"
+
+# 2. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Local Output Directory ............. {{ local_output_dir }}"
+      - "Mustgather Namespace ............... {{ mustgather_namespace }}"
+
+# 4. Download the must gather to local folder
+# ------------------------------------------------------------------------------
+- name: Start Pod and run kubectl to retrieve logs
+  block:
+    - name: "Start pod to run kubectl cp to retrieve mustgather logs from PV"
+      kubernetes.core.k8s:
+        apply: yes
+        wait: yes
+        wait_timeout: 120
+        definition: "{{ lookup('template', 'templates/deployment.yml') }}"
+
+    - name: Search for Pod labelled app=mas-devops-mustgather-download
+      kubernetes.core.k8s_info:
+        kind: Pod
+        label_selectors:
+          - app = mas-devops-mustgather-download
+      register: _mustgatherDownloadPod
+
+    - name: "Copy /mustgathers from a mustgathers PV to local destination {{ local_output_dir }}"
+      kubernetes.core.k8s_cp:
+        namespace: "{{ mustgather_namespace }}"
+        pod: "{{ _mustgatherDownloadPod.resources[0].metadata.name }}"
+        remote_path: /mustgathers/
+        local_path: "{{ local_output_dir }}"
+        state: from_pod
+
+  always:
+    - name: Destroy Pod
+      kubernetes.core.k8s:
+        state: absent
+        definition: "{{ lookup('template', 'templates/deployment.yml') }}"
