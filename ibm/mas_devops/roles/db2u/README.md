@@ -190,7 +190,7 @@ The name of the worker node to apply the {{ db2u_node_label }} taint and label t
 - Default: None
 
 ### db2u_mln_count
-The number of logical nodes (i.e. database partitions to create).
+The number of logical nodes (i.e. database partitions to create). Note: ensure that the application using this DB2 can support DB2 MPP (which is created when DB2U_MLN_COUNT is > 1). As of MAS 8.7 no MAS application supports MPP. 
 
 - Environment Variable: `'DB2U_MLN_COUNT`
 - Default: 1
