@@ -40,12 +40,15 @@
       until: item_install_plan.resources | length > 0
       when:
         - _item_subscription_result.resources | length > 0
+        - _item_subscription_result.resources[0].status is defined
         - _item_subscription_result.resources[0].status.state != "AtLatestKnown"
 
     - name: Approve the subscription install plan
       when:
         - _item_subscription_result.resources[0].status.state != "AtLatestKnown"
+        - _item_subscription_result.resources[0].status is defined
         - item_install_plan.resources | length > 0
+        - item_install_plan.resources[0].status is defined
         - item_install_plan.resources[0].status.phase != "Complete"
       community.kubernetes.k8s:
         definition:
