@@ -41,8 +41,7 @@ RUN wget -q https://download.clis.cloud.ibm.com/ibm-cloud-cli/2.3.0/IBM_Cloud_CL
     mv Bluemix_CLI/bin/ibmcloud /usr/local/bin/  && \
     rm -rf Bluemix_CLI IBM_Cloud_CLI_2.3.0_amd64.tar.gz
 
-# ----- Switch back to default user ---------------------------------------------------
-USER default
 ENV ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg
 
 RUN ln -s /opt/app-root/lib64/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks /opt/app-root/playbooks
+RUN ln -s /opt/app-root/lib64/python3.8/site-packages/ansible_collections/ibm/mas_devops/roles /opt/app-root/roles
