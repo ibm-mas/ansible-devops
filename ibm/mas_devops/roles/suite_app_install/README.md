@@ -17,7 +17,7 @@ Role Variables
 - `mas_app_upgrade_strategy` Defines the Upgrade strategy for the MAS Application Operator. Default is set to Manual
 
 ### mas_app_spec
-Optional.  The application deployment spec used to configure various aspects of the application deployment configuration. 
+Optional.  The application deployment spec used to configure different aspects of the application deployment configuration. 
 
 - Environment Variable: None
 - Default: defaults are specified in vars/defaultspecs/{{mas_app_id}}.yml
