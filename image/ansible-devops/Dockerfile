@@ -1,7 +1,7 @@
 FROM registry.access.redhat.com/ubi8/python-38
 
 # Running as userId = default
-RUN echo ${HOME}
+# HOME=/opt/app-root
 
 COPY requirements.yml ${HOME}/requirements.yml
 COPY requirements.txt ${HOME}/requirements.txt
@@ -12,15 +12,17 @@ COPY ansible.cfg ${HOME}/ansible.cfg
 COPY ibmcloud-oc.sh ${HOME}/ibmcloud-oc.sh
 COPY clear-mustgather-workspace.sh ${HOME}/clear-mustgather-workspace.sh
 
-# TODO: Caio, why do we switch to the root user for the rest of this Dockerfile, and why leave it as root user active at the end?
+# ----- Switch to root user ---------------------------------------------------
+# If we switch back to the "default" user then mounts in /workspace/xxx are
+# not writeable, there may be a way to fix this so that we don't have to leave
+# the active user as root, haven't looked into this yet.
+
 USER root
 
 # Upgrade pip and install Python modules
 RUN python3 -m pip install --upgrade pip && python3 -m pip install -r requirements.txt
 
 # Install Ansible Collections
-ENV ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg
-
 COPY ibm-mas_devops.tar.gz ${HOME}/ibm-mas_devops.tar.gz
 RUN ansible-galaxy collection install ${HOME}/ibm-mas_devops.tar.gz -p /opt/app-root/lib64/python3.8/site-packages/ansible_collections --force && \
     ansible-galaxy collection install -r ${HOME}/requirements.yml -p /opt/app-root/lib64/python3.8/site-packages/ansible_collections
@@ -42,3 +44,8 @@ RUN wget -q https://download.clis.cloud.ibm.com/ibm-cloud-cli/2.3.0/IBM_Cloud_CL
     tar -xvzf IBM_Cloud_CLI_2.3.0_amd64.tar.gz && \
     mv Bluemix_CLI/bin/ibmcloud /usr/local/bin/  && \
     rm -rf Bluemix_CLI IBM_Cloud_CLI_2.3.0_amd64.tar.gz
+
+ENV ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg
+
+RUN ln -s /opt/app-root/lib64/python3.8/site-packages/ansible_collections/ibm/mas_devops/playbooks /opt/app-root/playbooks
+RUN ln -s /opt/app-root/lib64/python3.8/site-packages/ansible_collections/ibm/mas_devops/roles /opt/app-root/roles
