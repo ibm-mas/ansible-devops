@@ -1,9 +1,9 @@
 db2u
 ==========
 
-This role creates a Db2 Warehouse instance using the Db2u Operator. A namespace called `db2u` will be created and the db2u operator will be installed into the `ibm-common-services` namespace to service the `db2ucluster` requests in `db2u` namespace. A self-signed certificate is created and a Db2 Warehouse cluster will be created along with a public TLS encrypted route is configured to allow external access to the cluster (access is via port 443 on the route).
+This role creates a Db2 Warehouse instance using the Db2u Operator. A namespace called `db2u` will be created and the db2u operator will be installed into the `ibm-common-services` namespace to service the `db2ucluster` requests in `db2u` namespace. A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via port 443 on the route). Both the external route and the internal service use the same server certificate.
 
-The certificates are available from the `db2u-ca` and `db2u-certificate` secrets in the `db2u` namespace.  The default user is `db2inst1` and the password is available in the `instancepassword` secret in the same namespace.  You can examine the deployed resources in the `db2u` namespace:
+The private root CA certificate and the server certificate are available from the `db2u-ca` and `db2u-certificate` secrets in the `db2u` namespace.  The default user is `db2inst1` and the password is available in the `instancepassword` secret in the same namespace.  You can examine the deployed resources in the `db2u` namespace:
 
 ```bash
 oc -n db2u get db2ucluster
@@ -15,6 +15,8 @@ db2u-db01   Ready   None               29m
 It typically takes 20-30 minutes from the db2ucluster being created till it is ready. If the db2ucluster is not ready after that period then check that all the PersistentVolumeClaims in the `db2u` namespace are ready and that the pods in the namespace are not stuck in init state. If the `c-<db2u_instance_name>-db2u-0` pod is running then you can exec into the pod and check the `/var/log/db2u.log` for any issue.
 
 If the `db2u_node_label` and `db2u_dedicated_node` variables are defined then role will taint and drain the dedicated node before labeling it using `database={{ db2u_node_label }}`. The node is then uncordoned.
+
+If the `mas_instance_id` and `mas_config_dir` are provided then the role will generate the JdbcCfg yaml that can be used to configure MAS to connect to this database. It does not apply the yaml to the cluster but does provide you with the yaml files to apply if needed.
 
 Role Variables
 --------------
@@ -188,7 +190,7 @@ The name of the worker node to apply the {{ db2u_node_label }} taint and label t
 - Default: None
 
 ### db2u_mln_count
-The number of logical nodes (i.e. database partitions to create).
+The number of logical nodes (i.e. database partitions to create). Note: ensure that the application using this DB2 can support DB2 MPP (which is created when DB2U_MLN_COUNT is > 1). As of MAS 8.7 no MAS application supports MPP. 
 
 - Environment Variable: `'DB2U_MLN_COUNT`
 - Default: 1
