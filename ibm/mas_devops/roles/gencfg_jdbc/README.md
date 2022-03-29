@@ -6,16 +6,47 @@ This role is used to configure db in Maximo Application Suite.
 Role Variables
 --------------
 
-ole Variables
---------------
-- `db_instance_id` Defines the jdbc db instance id to be used to install the MAS app. 
-- `mas_instance_id` Defines the instance id that was used for the db configure in MAS installation
-- `mas_workspace_id` Defines mas  workspace id used to install the MAS app.
-- `db_username` This username will be used to configure the DB in MAS.
-- `jdbc_instance_password` This password will be used connect to DB in Maximo Application Suite.
-- `jdbc_url`
-- `db_pem_file` 
+### mas_instance_id
+Providing this and `mas_config_dir` will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.
 
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default: None
+- 
+### mas_workspace_id
+This is only used when both `mas_config_dir` and `mas_instance_id` are set, and `mas_config_scope` is set to either `ws` or `wsapp`
+
+- Environment Variable: `MAS_WORKSPACE_ID`
+- Default: None
+
+### db_instance_id
+Defines the instance id that is used for the db configure in MAS installation
+
+- Environment Variable: `DB_INSTANCE_ID`
+- Default: `dbinst`
+
+### db_username
+Defines the username that is used for the db configure in MAS installation
+
+- Environment Variable: `MAS_JDBC_USER`
+- Default: None
+- 
+### jdbc_instance_password
+Defines the password that is used to connect to db in MAS installation
+
+- Environment Variable: `MAS_JDBC_PASSWORD`
+- Default: None
+- 
+### jdbc_url
+Defines the jdbc url  that is used to connect to db in MAS installation , Append ;sslConnection=true to the URL so that it has the form jdbc:db2://hostname:port/database_name:sslConnection=true .
+
+- Environment Variable: `MAS_JDBC_URL`
+- Default: None
+- 
+### db_pem_file
+Defines the location of the pem file used for JDBC connection in MAS installation
+
+- Environment Variable: `MAS_JDBC_CERT_LOCAL_FILE`
+- Default: None
 
 Example Playbook
 ----------------
@@ -24,17 +55,7 @@ Example Playbook
 ---
 
 - hosts: localhost
-  any_errors_fatal: true
-  vars:
-    db_instance_id: "{{ lookup('env', 'DB_INSTANCE_ID') | default('dbinst', True) }}"
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
-    db_username: "{{ lookup('env', 'MAS_JDBC_USER') }}"
-    jdbc_instance_password: "{{ lookup('env', 'MAS_JDBC_PASSWORD') }}"
-    jdbc_url: "{{ lookup('env', 'MAS_JDBC_URL') }}"
-    db_pem_file: "{{ lookup('env', 'MAS_JDBC_CERT_LOCAL_FILE') }}"
-    mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE) | default('wsapp', True)}}"
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+  any_errors_fatal: true  
   roles:
     - ibm.mas_devops.gencfg_jdbc
 ```
