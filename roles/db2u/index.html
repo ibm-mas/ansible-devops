@@ -237,8 +237,8 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="db2u">db2u<a class="headerlink" href="#db2u" title="Permanent link"></a></h1>
-<p>This role creates a Db2 Warehouse instance using the Db2u Operator. A namespace called <code>db2u</code> will be created and the db2u operator will be installed into the <code>ibm-common-services</code> namespace to service the <code>db2ucluster</code> requests in <code>db2u</code> namespace. A self-signed certificate is created and a Db2 Warehouse cluster will be created along with a public TLS encrypted route is configured to allow external access to the cluster (access is via port 443 on the route).</p>
-<p>The certificates are available from the <code>db2u-ca</code> and <code>db2u-certificate</code> secrets in the <code>db2u</code> namespace.  The default user is <code>db2inst1</code> and the password is available in the <code>instancepassword</code> secret in the same namespace.  You can examine the deployed resources in the <code>db2u</code> namespace:</p>
+<p>This role creates a Db2 Warehouse instance using the Db2u Operator. A namespace called <code>db2u</code> will be created and the db2u operator will be installed into the <code>ibm-common-services</code> namespace to service the <code>db2ucluster</code> requests in <code>db2u</code> namespace. A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via port 443 on the route). Both the external route and the internal service use the same server certificate.</p>
+<p>The private root CA certificate and the server certificate are available from the <code>db2u-ca</code> and <code>db2u-certificate</code> secrets in the <code>db2u</code> namespace.  The default user is <code>db2inst1</code> and the password is available in the <code>instancepassword</code> secret in the same namespace.  You can examine the deployed resources in the <code>db2u</code> namespace:</p>
 <pre><code class="language-bash">oc -n db2u get db2ucluster
 
 NAME        STATE   MAINTENANCESTATE   AGE
@@ -246,6 +246,7 @@ db2u-db01   Ready   None               29m
 </code></pre>
 <p>It typically takes 20-30 minutes from the db2ucluster being created till it is ready. If the db2ucluster is not ready after that period then check that all the PersistentVolumeClaims in the <code>db2u</code> namespace are ready and that the pods in the namespace are not stuck in init state. If the <code>c-&lt;db2u_instance_name&gt;-db2u-0</code> pod is running then you can exec into the pod and check the <code>/var/log/db2u.log</code> for any issue.</p>
 <p>If the <code>db2u_node_label</code> and <code>db2u_dedicated_node</code> variables are defined then role will taint and drain the dedicated node before labeling it using <code>database={{ db2u_node_label }}</code>. The node is then uncordoned.</p>
+<p>If the <code>mas_instance_id</code> and <code>mas_config_dir</code> are provided then the role will generate the JdbcCfg yaml that can be used to configure MAS to connect to this database. It does not apply the yaml to the cluster but does provide you with the yaml files to apply if needed.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
 <h3 id="required-db2u_instance_name">[required] db2u_instance_name<a class="headerlink" href="#required-db2u_instance_name" title="Permanent link"></a></h3>
 <p>Required.  Name of the database instance, note that this is the instance <strong>name</strong>, which is different from the instance <strong>ID</strong>.</p>
@@ -416,7 +417,7 @@ db2u-db01   Ready   None               29m
 <li>Default: None</li>
 </ul>
 <h3 id="db2u_mln_count">db2u_mln_count<a class="headerlink" href="#db2u_mln_count" title="Permanent link"></a></h3>
-<p>The number of logical nodes (i.e. database partitions to create).</p>
+<p>The number of logical nodes (i.e. database partitions to create). Note: ensure that the application using this DB2 can support DB2 MPP (which is created when DB2U_MLN_COUNT is &gt; 1). As of MAS 8.7 no MAS application supports MPP. </p>
 <ul>
 <li>Environment Variable: <code>'DB2U_MLN_COUNT</code></li>
 <li>Default: 1</li>
