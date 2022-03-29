@@ -24,6 +24,7 @@ copyDoc cp4d_install_services
 copyDoc db2u
 copyDoc gencfg_sls
 copyDoc gencfg_workspace
+copyDoc gpu_install
 copyDoc install_operator
 copyDoc mongodb
 copyDoc ocp_deprovision
@@ -40,5 +41,6 @@ copyDoc suite_config
 copyDoc suite_dns
 copyDoc suite_install
 copyDoc suite_mustgather
+copyDoc suite_mustgather_download
 copyDoc suite_verify
 copyDoc uds_install

@@ -73,6 +73,8 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
 
    `export MAS_APPWS_COMPONENTS="{'base':{'version':'latest'}, 'health':{'version':'latest'}}"`
 
+   To install Health as a Standalone with a specified version, set `MAS_APP_ID` to health and set `MAS_APPWS_COMPONENTS` to `"{'health':{'version':'x.x.x'}}"`. The default version when installing health is set to the `latest` version.
+
 
 ## Release build
 The simplest configuration to deploy a release build of IBM Maximo Application Suite (core only) with dependencies is:
