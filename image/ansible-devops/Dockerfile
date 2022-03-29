@@ -13,6 +13,10 @@ COPY ibmcloud-oc.sh ${HOME}/ibmcloud-oc.sh
 COPY clear-mustgather-workspace.sh ${HOME}/clear-mustgather-workspace.sh
 
 # ----- Switch to root user ---------------------------------------------------
+# If we switch back to the "default" user then mounts in /workspace/xxx are
+# not writeable, there may be a way to fix this so that we don't have to leave
+# the active user as root, haven't looked into this yet.
+
 USER root
 
 # Upgrade pip and install Python modules
