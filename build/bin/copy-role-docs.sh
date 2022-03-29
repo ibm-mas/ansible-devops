@@ -41,5 +41,6 @@ copyDoc suite_config
 copyDoc suite_dns
 copyDoc suite_install
 copyDoc suite_mustgather
+copyDoc suite_mustgather_download
 copyDoc suite_verify
 copyDoc uds_install
