@@ -81,6 +81,15 @@
       status: 'True'
       type: Ready
 
+#Task to create one issuer from CA-cert
+- name: "Create a Issuer for server certificate  in {{ mongodb_namespace }}"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/server-cert-issuer.yml') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Ready
 
 #Server certificate
 - name: "Create a server certificate in {{ mongodb_namespace }}"
@@ -198,7 +207,7 @@
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
-    name: mas-mongo-ce-cert-secret
+    name: mongo-server-cert
     namespace: "{{ mongodb_namespace }}"
   register: mongodb_crt_lookup
 
