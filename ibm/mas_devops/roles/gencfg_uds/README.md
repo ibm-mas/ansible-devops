@@ -44,21 +44,20 @@ Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the Contact 
 - Environment Variable: `UDS_CONTACT_LASTNAME`
 - Default Value: None
 
-### uds_tls_crt
-Required. TODO: Write me
+### uds_tls_cr
+Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS TLS CR used by the MAS instance's UDS configuration.
 
 - Environment Variable: None
 - Default Value: None
 
 ### uds_endpoint_url
-Required. TODO: Write me
-
+Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS endpoint url used by the MAS instance's UDS configuration.
 - Environment Variable: None
 - Default Value: None
 
 ### uds_api_key
-Required. TODO: Write me
 
+Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS api key used by the MAS instance's UDS configuration.
 - Environment Variable: None
 - Default Value: None
 
