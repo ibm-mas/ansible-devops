@@ -172,6 +172,7 @@ fi
 PLAYBOOK=$1
 if [[ -z "$PLAYBOOK" ]]; then
   echo "Enter the name of a playbook to run:"
+  echo " - ocp/provision"
   echo " - fullstack-roks"
   echo " - lite-core-roks"
   echo " - lite-iot-roks"

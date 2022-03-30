@@ -55,33 +55,13 @@
       - "OCP Install Version ................ {{ ocp_install_version }}"
       - "OCP Install Release ................ {{ ocp_install_release }}"
 
-#Getting cluster version details
-- name: "Get ocp cluster version details "
-  k8s_info:
-    kind: ClusterVersion
-    name: version
-  register: cluster_details
-#Print cluster id
-- name: Print cluster id
-  debug:
-    msg: "clusterID : {{ cluster_details.resources[0].spec.clusterID }}"
-
-#Task to avoid automatic upgrades of OCP cluster
-#Removed desiredUpdate, updatechannel
-- name: Set Cluster Version Definition
-  vars:
-    cluster_id: "{{ cluster_details.resources[0].spec.clusterID }}"
-  kubernetes.core.k8s:
-    apply: yes
-    force: yes
-    state: present
-    definition: "{{ lookup('template', 'templates/cluster-version.yml') }}"
 
 # 1. Install IBM catalogs
 # -----------------------------------------------------------------------------
 - name: "Create IBM catalogs"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
+
 
 # 2. Install development (pre-release) catalogs
 # -----------------------------------------------------------------------------
@@ -93,6 +73,7 @@
     - artifactory_apikey != ""
     - not airgap_install
   include_tasks: "tasks/development-catalogs.yml"
+
 
 # 3. Install Foundation Services
 # -----------------------------------------------------------------------------
@@ -118,6 +99,7 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
+
 # 4. Install cert-manager
 # -----------------------------------------------------------------------------
 - name: Check if Cert Manager is already installed
@@ -142,6 +124,7 @@
     - (_cert_manager_deployed.resources | length) == 0
     - not airgap_install
 
+
 # 5. Install Service Binding Operator
 # -----------------------------------------------------------------------------
 # Install stable channel with automatic updates if MAS 8.7+, otherwise, install preview channel locked to v0.8
@@ -155,6 +138,7 @@
 - include_tasks: "tasks/sbo/{{ sbo_channel }}.yml"
   when:
     - not airgap_install
+
 
 # 6. Update openshift monitoring to define a specific storage class for Prometheus logs
 # -------------------------------------------------------------------------------------
@@ -171,6 +155,7 @@
     wait: yes
     wait_timeout: 120
 
+
 # 7. Increase cluster image registry from defautl 100Gi to 400Gi (cp4d images consume lot of space)
 # -------------------------------------------------------------------------------------
 - name: "Increase cluster image registry"
@@ -180,3 +165,9 @@
 
 - name: Debug Image Registry Volume order request
   debug: msg="{{ result }}"
+
+# 8. Disable OCP Upgrade
+# -----------------------------------------------------------------------------
+- name: "Disable OCP Upgrade"
+  include_tasks: "tasks/disable-ocp-upgrade.yml"
+  when: ocp_disable_upgrade == true
