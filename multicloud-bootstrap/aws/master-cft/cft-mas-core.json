@@ -6,6 +6,7 @@
             "Description": "Select your preferred Suite offering type.",
             "Type": "String",
             "Default": "MAS Core + Cloud Pak for Data",
+            "MinLength" : "1",
             "AllowedValues": [
                 "MAS Core + Cloud Pak for Data",
                 "MAS Core + Manage (no Cloud Pak for Data)"
@@ -17,12 +18,14 @@
         },
         "BootnodeSGIngressCidrIp": {
             "Description": "Use CIDR notation to enter the IP addresses that can access the bootnode. For example, 192.12.33.3/32. To allow access from all IP addresses, enter 0.0.0.0/0.",
-            "Type": "String"
+            "Type": "String",
+            "MinLength" : "1"
         },
         "ClusterSize": {
-            "Description": "Select your preferred cluster size. All master nodes (M) are m5.2xlarge Amazon EC2 instances. All worker nodes (W) are m5.4xlarge instances. Choose from: small (3M, 3W, total memory: 288GB), medium (3M, 3W, total memory: 416GB), or large (5M, 7W, total memory: 608GB).",
+            "Description": "Select your preferred cluster size. All master nodes (M) are m5.2xlarge Amazon EC2 instances. All worker nodes (W) are m5.4xlarge instances. Choose from: small (3M, 3W, total memory: 288GB), medium (3M, 5W, total memory: 416GB), or large (5M, 7W, total memory: 608GB).",
             "Type": "String",
             "Default": "small",
+            "MinLength" : "1",
             "AllowedValues": [
                 "small",
                 "medium",
@@ -45,16 +48,19 @@
         "EntitledRegistryKey": {
             "Description": "Enter the registry key that you downloaded from the IBM Container Library.",
             "Type": "String",
-            "NoEcho": true
+            "NoEcho": true,
+            "MinLength" : "1"
         },
         "OpenShiftPullSecret": {
             "Description": "Enter the JSON text from the pull secret file that you downloaded from the Red Hat Hybrid Cloud Console.",
             "Type": "String",
-            "NoEcho": true
+            "NoEcho": true,
+            "MinLength" : "1"
         },
         "MASLicenseUrl": {
             "Description": "Enter the HTTP or S3 location of your Suite license key file, for example: s3://masocp-license/entitlement.lic",
-            "Type": "String"
+            "Type": "String",
+            "MinLength" : "1"
         },
         "MASManageDBUser": {
             "Description": "Enter the username that the Maximo Manage application uses to connect to the database.",
@@ -95,7 +101,7 @@
             "Type": "String"
         },
         "SLSPublicCertificateUrl": {
-            "Description": "Enter the HTTP or S3 location of the service's public certificate that you retrieved from the 'ca.crt' file in the 'mas-*-sls-cfg' route in the MAS core namespace.",
+            "Description": "Enter the HTTP or S3 location of the service's public certificate that you retrieved from the 'ca.crt' file in the 'mas-*-sls-cfg' secret in the MAS core namespace.",
             "Type": "String"
         },
         "BASEndpointUrl": {
@@ -107,8 +113,17 @@
             "Type": "String"
         },
         "BASPublicCertificateUrl": {
-            "Description": "Enter the HTTP or S3 location of the service's public certificate that you retrieved from the 'ca.crt' file in the 'mas-*-bas-cfg' route in the MAS core namespace.",
+            "Description": "Enter the HTTP or S3 location of the service's public certificate that you retrieved from the 'ca-bundle.pem' file in the 'mas-*-bas-cfg' secret in the MAS core namespace.",
             "Type": "String"
+        },
+        "EmailNotification": {
+            "Description": "Indicate whether you want to receive emails that contain the connection details and credentials for the Suite. These emails are sent only to the verified email addresses that you configured in the Amazon SES service.",
+            "Default": false,
+            "Type": "String",
+            "AllowedValues": [
+                true,
+                false
+            ]
         }
     },
     "Metadata": {
@@ -143,7 +158,7 @@
                 },
                 {
                     "Label": {
-                        "default": "Cluster and bootnode access"
+                        "default": "Cluster and bootnode access (you must complete this section)"
                     },
                     "Parameters": [
                         "SSHKey",
@@ -152,7 +167,7 @@
                 },
                 {
                     "Label": {
-                        "default": "Keys and licenses"
+                        "default": "Keys and licenses (you must complete this section)"
                     },
                     "Parameters": [
                         "EntitledRegistryKey",
@@ -190,6 +205,14 @@
                         "BASEndpointUrl",
                         "BASAPIKey",
                         "BASPublicCertificateUrl"
+                    ]
+                },
+                {
+                    "Label": {
+                        "default": "Email notification"
+                    },
+                    "Parameters": [
+                        "EmailNotification"
                     ]
                 }
             ]
@@ -251,12 +274,24 @@
         }
     },
     "Conditions": {
-        "ShowOCPDetailsInOutput": {
+        "NoExistingOCPCluster": {
             "Fn::Equals": [
                 {
                     "Ref": "OpenShiftClusterApiUrl"
                 },
                 ""
+            ]
+        },
+        "ExistingOCPCluster": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "OpenShiftClusterApiUrl"
+                        },
+                        ""
+                    ]
+                }
             ]
         }
     },
@@ -406,7 +441,11 @@
                                     "Action": [
                                         "ses:ListIdentities",
                                         "route53:ListHostedZones",
-                                        "ses:GetIdentityVerificationAttributes"
+                                        "ses:GetIdentityVerificationAttributes",
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "logs:PutLogEvents",
+                                        "logs:DescribeLogStreams"
                                     ],
                                     "Resource": "*"
                                 }
@@ -724,8 +763,8 @@
                                 "# Initiate the provisioning process\n",
                                 "ssh-keyscan github.com >> ~/.ssh/known_hosts;",
                                 "cd /root;",
-                                "git clone https://github.com/ibm-mas/ansible-devops.git;",
-                                "cd ansible-devops;",
+                                "git clone https://github.com/ibm-mas/mas-on-aws.git;",
+                                "cd mas-on-aws;",
                                 "find . -type f -name \"*.sh\" -exec chmod +x {} \\;;",
                                 "./init.sh \"aws\" \"",
                                 {
@@ -834,6 +873,10 @@
                                 {
                                     "Ref": "OpenShiftPassword"
                                 },
+                                "' '",
+                                {
+                                    "Ref": "EmailNotification"
+                                },
                                 "' ",
                                 "2>&1 | tee mas-provisioning.log; ",
                                 "shutdown -P \"+1\""
@@ -888,15 +931,9 @@
                 ]
             }
         },
-        "BootnodeInstanceID": {
-            "Description": "The Bootnode instance Id",
-            "Value": {
-                "Ref": "Bootnode"
-            }
-        },
         "OpenShiftConsoleUrl": {
             "Description": "Url to login to OpenShift console",
-            "Condition": "ShowOCPDetailsInOutput",
+            "Condition": "NoExistingOCPCluster",
             "Value": {
                 "Fn::Join": [
                     "",
@@ -921,7 +958,7 @@
         },
         "OpenShiftApiUrl": {
             "Description": "Url to login to OpenShift Api",
-            "Condition": "ShowOCPDetailsInOutput",
+            "Condition": "NoExistingOCPCluster",
             "Value": {
                 "Fn::Join": [
                     "",
@@ -946,13 +983,13 @@
             }
         },
         "OpenShiftUser": {
-            "Description": "Username to login to OpenShift consple",
-            "Condition": "ShowOCPDetailsInOutput",
+            "Description": "Username to login to OpenShift console",
+            "Condition": "NoExistingOCPCluster",
             "Value": "masocpuser"
         },
         "OpenShiftPassword": {
-            "Description": "Username to login to OpenShift consple",
-            "Condition": "ShowOCPDetailsInOutput",
+            "Description": "Username to login to OpenShift console",
+            "Condition": "NoExistingOCPCluster",
             "Value": {
                 "Fn::Join": [
                     "",
@@ -971,6 +1008,7 @@
         },
         "MASInitialSetupUrl": {
             "Description": "Url to perform MAS initial setup, make sure you have imported the MAS public certificate into the browser",
+            "Condition": "NoExistingOCPCluster",
             "Value": {
                 "Fn::Join": [
                     "",
@@ -1001,8 +1039,30 @@
                 ]
             }
         },
+        "MASInitialSetupUrlLogin": {
+            "Description": "Url to perform MAS initial setup, make sure you have imported the MAS public certificate into the browser",
+            "Condition": "ExistingOCPCluster",
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "https://admin.mas-",
+                        {
+                            "Fn::GetAtt": [
+                                "CallLambdaRandomizer",
+                                "Lower_RandomString"
+                            ]
+                        },
+                        ".apps.",
+                        { "Fn::Select" : [ "1", { "Fn::Split": ["api.", "Ref": "OpenShiftClusterApiUrl"]}] },
+                        "/initialsetup"
+                    ]
+                ]
+            }
+        },
         "MASAdminUrl": {
             "Description": "Url to login to MAS Admin UI, make sure you have imported the MAS public certificate into the browser",
+            "Condition": "NoExistingOCPCluster",
             "Value": {
                 "Fn::Join": [
                     "",
@@ -1032,8 +1092,29 @@
                 ]
             }
         },
+        "MASAdminUrlLogin": {
+            "Description": "Url to login to MAS Admin UI, make sure you have imported the MAS public certificate into the browser",
+            "Condition": "ExistingOCPCluster",
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "https://admin.mas-",
+                        {
+                            "Fn::GetAtt": [
+                                "CallLambdaRandomizer",
+                                "Lower_RandomString"
+                            ]
+                        },
+                        ".apps.",
+                        { "Fn::Select" : [ "1", { "Fn::Split": ["api.", "Ref": "OpenShiftClusterApiUrl"]}] }
+                    ]
+                ]
+            }
+        },
         "MASWorkspaceUrl": {
             "Description": "Url to login to MAS Workspace, make sure you have imported the MAS public certificate into the browser",
+            "Condition": "NoExistingOCPCluster",
             "Value": {
                 "Fn::Join": [
                     "",
@@ -1059,6 +1140,26 @@
                                 "ZoneName"
                             ]
                         }
+                    ]
+                ]
+            }
+        },
+        "MASWorkspaceUrlLogin": {
+            "Description": "Url to login to MAS Workspace, make sure you have imported the MAS public certificate into the browser",
+            "Condition": "ExistingOCPCluster",
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "https://wsmasocp.home.mas-",
+                        {
+                            "Fn::GetAtt": [
+                                "CallLambdaRandomizer",
+                                "Lower_RandomString"
+                            ]
+                        },
+                        ".apps.",
+                        { "Fn::Select" : [ "1", { "Fn::Split": ["api.", "Ref": "OpenShiftClusterApiUrl"]}] }
                     ]
                 ]
             }

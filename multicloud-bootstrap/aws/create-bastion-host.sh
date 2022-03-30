@@ -1,11 +1,9 @@
 #!/bin/bash
 
 # Get the first public subnet in the VPC created for OCP cluster
-BACKUP_FILE_NAME=terraform-backup-${CLUSTER_NAME}.zip
 NEW_VPC_ID=$(cat $GIT_REPO_HOME/aws/ocp-terraform/terraform.tfstate | jq '.resources[] | select((.type | contains("aws_subnet")) and (.name | contains("master1")))' | jq '.instances[0].attributes.vpc_id' | tr -d '"')
 NEW_VPC_PUBLIC_SUBNET_ID=$(cat $GIT_REPO_HOME/aws/ocp-terraform/terraform.tfstate | jq '.resources[] | select((.type | contains("aws_subnet")) and (.name | contains("master1")))' | jq '.instances[0].attributes.id' | tr -d '"')
 log " NEW_VPC_PUBLIC_SUBNET_ID=$NEW_VPC_PUBLIC_SUBNET_ID"
-log " BACKUP_FILE_NAME=$BACKUP_FILE_NAME"
 cd $GIT_REPO_HOME/aws/ocp-bastion-host
 rm -rf terraform.tfvars
 # Create tfvars file
