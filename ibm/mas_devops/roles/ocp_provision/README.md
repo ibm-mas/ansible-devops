@@ -25,6 +25,18 @@ Required.  Specify the version of OCP to install.  The exact format of this will
 - Environment Variable: `OCP_VERSION`
 - Default Value: None
 
+### ocp_provision_gpu
+Flag that determines if GPU worker nodes should be added during cluster creation (eg. needed for MVI application). This is currently only set up for ROKS clusters.
+
+- Environment Variable: `OCP_PROVISION_GPU`
+- Default Value: `false`
+
+### gpu_workers
+The number of GPU worker nodes to deploy in the cluster. Depends on `ocp_provision_gpu` and is currently only set up for ROKS clusters.
+
+- Environment Variable: `GPU_WORKERS`
+- Default Value: `1`
+
 
 Role Variables - ROKS
 ---------------------
