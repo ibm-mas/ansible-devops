@@ -67,7 +67,7 @@ get_sls_endpoint_url() {
 
 get_sls_registration_key() {
   uniqstr=$1
-
+  
 }
 
 get_bas_endpoint_url() {
@@ -77,7 +77,7 @@ get_bas_endpoint_url() {
 
 get_bas_api_key() {
   uniqstr=$1
-
+  
 }
 
 # Mark provisioning failed
@@ -88,14 +88,16 @@ mark_provisioning_failed() {
   RESP_CODE=1
   export STATUS=FAILURE
   export STATUS_MSG=NA
-  if [[ $retcode -eq 11 ]]; then
+  if [[ $retcode -eq 2 ]]; then
+    export STATUS_MSG="Failed in the Ansible playbook execution."
+  elif [[ $retcode -eq 11 ]]; then
     export STATUS_MSG="This region is not supported for MAS deployment."
   elif [[ $retcode -eq 12 ]]; then
     export STATUS_MSG="The provided ER key is not valid. It does not have access to download the MAS images."
   elif [[ $retcode -eq 13 ]]; then
     export STATUS_MSG="The provided Hosted zone is not a public hosted zone. Please provide a public hosted zone."
   elif [[ $retcode -eq 14 ]]; then
-    export STATUS_MSG="The provided JDBC details are not valid. Could not connect to the database using provided inputs."
+    export STATUS_MSG="The JDBC details for MAS Manage are missing or invalid."
   elif [[ $retcode -eq 15 ]]; then
     export STATUS_MSG="Please provide all the inputs to use existing SLS."
   elif [[ $retcode -eq 16 ]]; then
@@ -103,28 +105,28 @@ mark_provisioning_failed() {
   elif [[ $retcode -eq 17 ]]; then
     export STATUS_MSG="Please provide OCP pull secret."
   elif [[ $retcode -eq 18 ]]; then
-    export STATUS_MSG="Please provide MAS license URL."
+    export STATUS_MSG="Please provide a valid MAS license URL."
   elif [[ $retcode -eq 19 ]]; then
     export STATUS_MSG="Please provide all the inputs to use existing OCP."
   elif [[ $retcode -eq 21 ]]; then
     export STATUS_MSG="Failure in creating OCP cluster."
   elif [[ $retcode -eq 22 ]]; then
-    export STATUS_MSG="Failure in creating Basion host."
+    export STATUS_MSG="Failure in creating Bastion host."
   elif [[ $retcode -eq 23 ]]; then
     export STATUS_MSG="Failed in uploading deployment context to S3."
   elif [[ $retcode -eq 24 ]]; then
     export STATUS_MSG="Failure in configuring OCP cluster."
   fi
-  export IMPORT_CERT_MSG=NA
-  export OCP_CLUSTER_CONSOLE_URL=NA
-  export OCP_CLUSTER_API_URL=NA
+  export MESSAGE_TEXT=NA
+  export OPENSHIFT_CLUSTER_CONSOLE_URL=NA
+  export OPENSHIFT_CLUSTER_API_URL=NA
   export MAS_URL_INIT_SETUP=NA
   export MAS_URL_ADMIN=NA
   export MAS_URL_WORKSPACE=NA
   export CLUSTER_NAME=NA
   export BASE_DOMAIN=NA
-  export OCP_USER=NA
-  export OCP_PASSWORD=NA
+  export OPENSHIFT_USER=NA
+  export OPENSHIFT_PASSWORD=NA
   export MAS_USER=NA
   export MAS_PASSWORD=NA
   export SLS_URL=NA
@@ -138,8 +140,8 @@ split_ocp_api_url() {
   BASE_DOMAIN=""
   CLUSTER_NAME=""
   oldIFS="$IFS"
-  IFS='.'; for i in $apiurl; do
-      # echo $i
+  IFS='.'; for i in $apiurl; do 
+      # echo $i 
       if [[ $COUNTER -eq 1 ]]; then
           CLUSTER_NAME=$i
       elif [[ $COUNTER -gt 1 ]]; then
@@ -155,7 +157,7 @@ split_ocp_api_url() {
   # echo $CLUSTER_NAME
   BASE_DOMAIN=${BASE_DOMAIN//-/.}
   ## Remove any possible port number provided by user
-  strindex() {
+  strindex() { 
     x="${1%%$2*}"
     [[ "$x" = "$1" ]] && echo -1 || echo "${#x}"
   }
