@@ -55,6 +55,28 @@
       - "OCP Install Version ................ {{ ocp_install_version }}"
       - "OCP Install Release ................ {{ ocp_install_release }}"
 
+#Getting cluster version details
+- name: "Get ocp cluster version details "
+  k8s_info:
+    kind: ClusterVersion
+    name: version
+  register: cluster_details
+#Print cluster id
+- name: Print cluster id
+  debug:
+    msg: "clusterID : {{ cluster_details.resources[0].spec.clusterID }}"
+
+#Task to avoid automatic upgrades of OCP cluster
+#Removed desiredUpdate, updatechannel
+- name: Set Cluster Version Definition
+  vars:
+    cluster_id: "{{ cluster_details.resources[0].spec.clusterID }}"
+  kubernetes.core.k8s:
+    apply: yes
+    force: yes
+    state: present
+    definition: "{{ lookup('template', 'templates/cluster-version.yml') }}"
+
 # 1. Install IBM catalogs
 # -----------------------------------------------------------------------------
 - name: "Create IBM catalogs"

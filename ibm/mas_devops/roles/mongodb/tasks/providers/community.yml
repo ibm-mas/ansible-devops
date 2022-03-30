@@ -59,11 +59,59 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/manager.yml') }}"
 
-
-# 5. Configure TLS
+# 5. Configure TLS using cert manager
 # -----------------------------------------------------------------------------
-# TODO: We should be able to do this with cert-manager natively inside Kubernetes
+#Taks to create issuer in namespace which will be used to create other application related certificates
+- name: "Create a issuer  in {{ mongodb_namespace }}"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/issuer.yml') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Ready
 
+#Task to create a CA-Cert in mongodb namespace
+- name: "Create a ca certificate in {{ mongodb_namespace }}"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/ca-cert.yml') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Ready
+
+#Task to create one issuer from CA-cert
+- name: "Create a Issuer for server certificate  in {{ mongodb_namespace }}"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/server-cert-issuer.yml') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Ready
+
+#Server certificate
+- name: "Create a server certificate in {{ mongodb_namespace }}"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/server-cert.yml') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Ready
+
+#Taking ca.crt value in a variable
+#Mongo needs a configmap having ca.crt value
+- name: "mongodb/community : Lookup the ca.crt"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mongo-server-cert
+    namespace: "{{mongodb_namespace}}"
+  register: mongodb_ca_lookup
+
+#Check if configmap exists
 - name: "mongodb/community : Check for existing CA configmap"
   kubernetes.core.k8s_info:
     api_version: v1
@@ -72,69 +120,14 @@
     namespace: "{{ mongodb_namespace }}"
   register: ca_cfgmap_info
 
-# Generate an openssl.cnf file from the template
-- name: "mongodb/community : Create openssl.cnf"
-  when:
-    - ca_cfgmap_info.resources is defined
-    - ca_cfgmap_info.resources | length == 0
-  set_fact:
-    openssl_cfg_file: "/tmp/{{ mongodb_namespace }}-openssl.cnf"
+#Creating a ca.crt configmap which will be consumed by mongo cr
 
-- name: "mongodb/community : Template openssl.cnf"
-  when:
-    - ca_cfgmap_info.resources is defined
-    - ca_cfgmap_info.resources | length == 0
-  ansible.builtin.template:
-    src: openssl/openssl.cnf.j2
-    dest: "{{ openssl_cfg_file }}"
-
-- name: "mongodb/community : Create new CA"
+- name: "mongodb/community : Create new ca configmap"
   when:
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
   vars:
-    openssl_cfg: "{{ openssl_cfg_file }}"
-    openssl_ca_cfg: "{{ role_path }}/files/ca.cnf"
-    file_prefix: "/tmp/mongoce-"
-  shell: |
-    openssl req -config {{ openssl_ca_cfg }} -days 3650 -nodes -x509 -newkey rsa:2048 -subj "/C=US/ST=NY/L=New York/O=Example, LLC/CN=Mongo CA" -extensions v3_ca -keyout {{ file_prefix }}ca.key -out {{ file_prefix }}ca.pem
-
-- name: "mongodb/community : Create new server cert"
-  when:
-    - ca_cfgmap_info.resources is defined
-    - ca_cfgmap_info.resources | length == 0
-  vars:
-    openssl_cfg: "{{ openssl_cfg_file }}"
-    file_prefix: "/tmp/mongoce-"
-  shell: |
-    openssl req -config {{ openssl_cfg }} -nodes -newkey rsa:2048 -keyout {{ file_prefix }}server.key -out {{ file_prefix }}server.csr
-    openssl x509 -req -in {{ file_prefix }}server.csr -days 3650 -CA {{ file_prefix }}ca.pem -CAkey {{ file_prefix }}ca.key -CAcreateserial -extensions v3_req -extfile {{ openssl_cfg }} -out {{ file_prefix }}server.crt
-    cat {{ file_prefix }}server.key {{ file_prefix }}server.crt > {{ file_prefix }}mongodb.pem
-
-- name: "mongodb/community : Create new client cert"
-  when:
-    - ca_cfgmap_info.resources is defined
-    - ca_cfgmap_info.resources | length == 0
-  vars:
-    openssl_cfg: "{{ openssl_cfg_file }}"
-    file_prefix: "/tmp/mongoce-"
-  shell: |
-    openssl req -config {{ openssl_cfg }} -subj "/C=US/ST=NY/L=New York/O=Example, LLC/CN=Mongo Client" -nodes -newkey rsa:2048 -keyout {{ file_prefix }}client.key -out {{ file_prefix }}client.csr
-    openssl x509 -req -in {{ file_prefix }}client.csr -days 3650 -CA {{ file_prefix }}ca.pem -CAkey {{ file_prefix }}ca.key -CAserial {{ file_prefix }}ca.srl -extensions v3_clnt -extfile {{ openssl_cfg }} -out {{ file_prefix }}client.crt
-    cat {{ file_prefix }}client.key {{ file_prefix }}client.crt > {{ file_prefix }}client.pem
-
-- name: "mongodb/community : Create new TLS secret and configmap"
-  when:
-    - ca_cfgmap_info.resources is defined
-    - ca_cfgmap_info.resources | length == 0
-  vars:
-    file_prefix: "/tmp/mongoce-"
-    pem_file: "{{ file_prefix }}ca.pem"
-    crt_file: "{{ file_prefix }}server.crt"
-    key_file: "{{ file_prefix }}server.key"
-    mongodb_ca_pem: "{{ lookup('file', pem_file) }}"
-    mongodb_server_crt: "{{ lookup('file', crt_file) }}"
-    mongodb_server_key: "{{ lookup('file', key_file) }}"
+    mongodb_ca_crt: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] | b64decode }}"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/tls.yml') }}"
@@ -214,7 +207,7 @@
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
-    name: mas-mongo-ce-cert-secret
+    name: mongo-server-cert
     namespace: "{{ mongodb_namespace }}"
   register: mongodb_crt_lookup
 
