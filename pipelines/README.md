@@ -26,6 +26,7 @@ This aspect of the project is still in active development and should be consider
 - [Manage Db2 Database Configuration Hack](tasks/mas/hack-manage-db2.yaml)
 - [Install Application](tasks/mas/install-app.yaml)
 - [Install MAS Core](tasks/mas/install-suite.yaml)
+- [Run mustgather](tasks/mas/mustgather.yaml)
 
 ### OCP Management
 - [Configure OCP Cluster for MAS](tasks/ocp/configure-ocp.yaml)
@@ -70,3 +71,10 @@ oc create secret generic pipeline-sls-entitlement \
 oc apply -f pipelines/samples/sample-pipeline.yaml
 oc create -f pipelines/samples/sample-pipelinerun-mas86.yaml
 ```
+
+# 4. Mustgather
+The sample-pipeline.yaml sets a "finally" block that is executed at the end of the steps regardless of success or failure. Inside this finally block the [mustgather](tasks/mas/mustgather.yaml) clusterTask is executed which runs the IBM AI Applications' Must Gather tool against a MAS instance. It uses the mustgather workspace to persist the mustgather output into a Persistent Volume for retrieval after the pipeline has completed.
+
+Users can then use the [suite_mustgather_download](../../ansible-devops/ibm/mas_devops/playbooks/mas/mustgather-download.yml) playbook locally to pull the mustgather output from the persistent volume in the namespace the pipeline was run in.
+
+Note: The [mustgather](tasks/mas/mustgather.yaml) clusterTask will clear any previous content found in the /workspace/mustgather persistent volume before each call to the mustgather playbook. This is to ensure that the persistent volume does not become full after multiple runs using the same persistent volume/namespace.
