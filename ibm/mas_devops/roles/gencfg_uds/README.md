@@ -56,7 +56,6 @@ Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS endp
 - Default Value: None
 
 ### uds_api_key
-
 Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS api key used by the MAS instance's UDS configuration.
 - Environment Variable: None
 - Default Value: None
