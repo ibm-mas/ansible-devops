@@ -1,0 +1,38 @@
+- name: "Fail if assist_wds_pass is not provided if you use external discovery"
+  when:
+    - assist_wds_pass is defined and assist_wds_pass != ""
+    - assist_wds_admin is defined and assist_wds_admin != ""
+    - assist_wds_url is defined and assist_wds_url != ""
+  set_fact:
+    useexternalwds: true
+
+- name: "cp4d/wds: Set and Print the external Discovery login URL and Credential for use"
+  when:
+    - useexternalwds is defined and useexternalwds
+  block:
+    - name: Get the CP4D instanceurl
+      set_fact:
+        wds_admin_username: "{{ assist_wds_admin }}"
+        wds_admin_password: "{{ assist_wds_pass }}"
+        wds_url: "{{ assist_wds_url  }}"
+    - name: Print the WDS related info
+      debug:
+        msg:
+          - "WDS url ............................ {{ wds_url }}"
+          - "WDS Admin .......................... {{ wds_admin_username }}"
+          - "WDS Passw0rd ....................... {{ wds_admin_password }}"
+
+- name: "cp4d/wds: Prepare and setup Embedded Discovery instance on the existing CP4D"
+  when:
+    - not ( useexternalwds is defined and useexternalwds )
+  include_tasks: tasks/embeddedwds.yml
+
+- name: Copy WDS secret to filesytem
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  ansible.builtin.template:
+    src: wdscfg.yml.j2
+    dest: "{{ mas_config_dir }}/wdscfg.yml"
