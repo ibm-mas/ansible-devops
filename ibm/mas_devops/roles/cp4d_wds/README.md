@@ -35,6 +35,13 @@ The instance ID of Maximo Application Suite that the discovery configuration wil
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default Value: None
 
+### mas_workspace_id
+The workspace ID of Maximo Application Suite that the discovery instance name will be combined as "discovery-assist-{{ mas_workspace_id }}" if you set.
+Otherwise, single discovery instance will be created named as "discovery-assist".
+
+- Environment Variable: `MAS_WORKSPACE_ID`
+- Default Value: None
+
 ### mas_config_dir
 Local directory to save the generated discovery configuration files.  This can be used to manually configure a Assist instance to connect to the discovery cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a discovery template.
 
