@@ -30,6 +30,7 @@ export MAS_DB_IMPORT_DEMO_DATA=${23}
 export EXS_OCP_URL=${24}
 export EXS_OCP_USER=${25}
 export EXS_OCP_PWD=${26}
+export EMAIL_NOTIFICATION=${27}
 
 # Load helper functions
 . helper.sh
@@ -41,6 +42,41 @@ export -f get_sls_endpoint_url
 export -f get_sls_registration_key
 export -f get_bas_endpoint_url
 export -f get_bas_api_key
+
+## Configure CloudWatch agent
+if [[ $CLUSTER_TYPE == "aws" ]]; then
+  log "Configuring CloudWatch logs agent"
+  # TODO Temporary code to install CloudWatch agent. Later this will be done in AMI, and remove the code
+  #-----------------------------------------
+  cd /tmp
+  wget https://s3.amazonaws.com/amazoncloudwatch-agent/redhat/amd64/latest/amazon-cloudwatch-agent.rpm
+  rpm -U ./amazon-cloudwatch-agent.rpm
+  #-----------------------------------------
+  # Create CloudWatch agent config file
+  mkdir -p /opt/aws/amazon-cloudwatch-agent/bin
+  cat <<EOT >> /opt/aws/amazon-cloudwatch-agent/bin/config.json
+{
+  "agent": {
+    "run_as_user": "root"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [{
+          "file_path": "/root/mas-on-aws/mas-provisioning.log",
+          "log_group_name": "/ibm/mas/masocp-${RANDOM_STR}",
+          "log_stream_name": "mas-provisioning-logs"
+        }]
+      }
+    }
+  }
+}
+EOT
+  # Start CloudWatch agent service
+  /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s
+  sleep 60
+  cd -
+fi
 
 # Check for input parameters
 if [[ (-z $CLUSTER_TYPE) || (-z $DEPLOY_REGION) || (-z $ACCOUNT_ID) || (-z $CLUSTER_SIZE) \
@@ -64,14 +100,15 @@ fi
 # OCP variables
 export GIT_REPO_HOME=$(pwd)
 export CLUSTER_NAME="masocp-${RANDOM_STR}"
-export OCP_USER="masocpuser"
-export OCP_PASSWORD=masocp${RANDOM_STR}pass
-export OCP_PULL_SECRET_FILE_PATH=${GIT_REPO_HOME}/pull-secret.json
+export OPENSHIFT_USER="masocpuser"
+export OPENSHIFT_PASSWORD=masocp${RANDOM_STR}pass
+export OPENSHIFT_PULL_SECRET_FILE_PATH=${GIT_REPO_HOME}/pull-secret.json
 export MASTER_NODE_COUNT="3"
 export WORKER_NODE_COUNT="3"
 export AZ_MODE="multi_zone"
 export MAS_IMAGE_TEST_DOWNLOAD="cp.icr.io/cp/mas/admin-dashboard:5.1.27"
-export OCP_TERRAFORM_CONFIG_UPLOAD_S3_PATH="s3://masocp-${RANDOM_STR}-bucket-${DEPLOY_REGION}/ocp-cluster-provisioning-deployment-context/"
+export BACKUP_FILE_NAME=terraform-backup-${CLUSTER_NAME}.zip
+export DEPLOYMENT_CONTEXT_UPLOAD_PATH="s3://masocp-${RANDOM_STR}-bucket-${DEPLOY_REGION}/ocp-cluster-provisioning-deployment-context/"
 # Mongo variables
 export MAS_INSTANCE_ID="mas-${RANDOM_STR}"
 export MAS_CONFIG_DIR=/var/tmp/masconfigdir
@@ -81,9 +118,9 @@ export KAFKA_NAMESPACE=amq-streams
 export KAFKA_CLUSTER_NAME=test
 export KAFKA_CLUSTER_SIZE=small
 export KAFKA_USER_NAME=masuser
-# SLS variables
+# SLS variables 
 export SLS_NAMESPACE="ibm-sls-${RANDOM_STR}"
-# BAS variables
+# BAS variables 
 export BAS_NAMESPACE="ibm-bas-${RANDOM_STR}"
 export BAS_PERSISTENT_STORAGE=ocs-storagecluster-cephfs
 export BAS_PASSWORD=basuser
@@ -101,7 +138,6 @@ export CPD_STORAGE_CLASS=ocs-storagecluster-cephfs
 export CPD_NAMESPACE="ibm-common-services"
 export CPD_SERVICES_NAMESPACE="cpd-services-${RANDOM_STR}"
 # DB2WH variables
-export DB2WH_NAMESPACE="cpd-services-${RANDOM_STR}"
 export DB2WH_META_STORAGE_CLASS=ocs-storagecluster-cephfs
 export DB2WH_USER_STORAGE_CLASS=ocs-storagecluster-cephfs
 export DB2WH_BACKUP_STORAGE_CLASS=ocs-storagecluster-cephfs
@@ -172,16 +208,20 @@ echo " MAS_DB_IMPORT_DEMO_DATA: $MAS_DB_IMPORT_DEMO_DATA"
 echo " EXS_OCP_URL: $EXS_OCP_URL"
 echo " EXS_OCP_USER: $EXS_OCP_USER"
 echo " EXS_OCP_PWD: $EXS_OCP_PWD"
+echo " EMAIL_NOTIFICATION: $EMAIL_NOTIFICATION"
 
 echo " HOME: $HOME"
 echo " GIT_REPO_HOME: $GIT_REPO_HOME"
 echo " CLUSTER_NAME: $CLUSTER_NAME"
-echo " OCP_USER: $OCP_USER"
-echo " OCP_PASSWORD: $OCP_PASSWORD"
-echo " OCP_PULL_SECRET_FILE_PATH: $OCP_PULL_SECRET_FILE_PATH"
+echo " OPENSHIFT_USER: $OPENSHIFT_USER"
+echo " OPENSHIFT_PASSWORD: $OPENSHIFT_PASSWORD"
+echo " OPENSHIFT_PULL_SECRET_FILE_PATH: $OPENSHIFT_PULL_SECRET_FILE_PATH"
 echo " MASTER_NODE_COUNT: $MASTER_NODE_COUNT"
 echo " WORKER_NODE_COUNT: $WORKER_NODE_COUNT"
 echo " AZ_MODE: $AZ_MODE"
+echo " MAS_IMAGE_TEST_DOWNLOAD: $MAS_IMAGE_TEST_DOWNLOAD"
+echo " BACKUP_FILE_NAME: $BACKUP_FILE_NAME"
+echo " DEPLOYMENT_CONTEXT_UPLOAD_PATH: $DEPLOYMENT_CONTEXT_UPLOAD_PATH"
 echo " MAS_INSTANCE_ID: $MAS_INSTANCE_ID"
 echo " MAS_CONFIG_DIR: $MAS_CONFIG_DIR"
 echo " KAFKA_NAMESPACE: $KAFKA_NAMESPACE"
@@ -228,27 +268,27 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     log "Openshift cluster details provided"
     # https://api.masocp-cluster.mas4aws.com/
     # https://api.ftmpsl-ocp-dev3.cp.fyre.ibm.com:6443/
-
+    
     log "Debug: before: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
     split_ocp_api_url $EXS_OCP_URL
     log "Debug: after: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
     # echo $BASE_DOMAIN
-    export OCP_USER=$EXS_OCP_USER
-    export OCP_PASSWORD=$EXS_OCP_PWD
-    export OCP_USER_PROVIDE="true"
+    export OPENSHIFT_USER=$EXS_OCP_USER
+    export OPENSHIFT_PASSWORD=$EXS_OCP_PWD
+    export OPENSHIFT_USER_PROVIDE="true"
   else
-    ## No input from user. Generate Cluster Name, Username, and Password.
+    ## No input from user. Generate Cluster Name, Username, and Password. 
     echo "Debug: No cluster details or insufficient data provided. Proceed to create new OCP cluster later"
     export CLUSTER_NAME="masocp-${RANDOM_STR}"
-    export OCP_USER="masocpuser"
-    export OCP_PASSWORD=masocp${RANDOM_STR}pass
-    export OCP_USER_PROVIDE="false"
+    export OPENSHIFT_USER="masocpuser"
+    export OPENSHIFT_PASSWORD=masocp${RANDOM_STR}pass
+    export OPENSHIFT_USER_PROVIDE="false"
   fi
-  log " OCP_USER_PROVIDE=$OCP_USER_PROVIDE"
+  log " OPENSHIFT_USER_PROVIDE=$OPENSHIFT_USER_PROVIDE"
 
   # Create Red Hat pull secret
-  echo "$OCP_PULL_SECRET" > $OCP_PULL_SECRET_FILE_PATH
-  chmod 600 $OCP_PULL_SECRET_FILE_PATH
+  echo "$OCP_PULL_SECRET" > $OPENSHIFT_PULL_SECRET_FILE_PATH
+  chmod 600 $OPENSHIFT_PULL_SECRET_FILE_PATH
 
   # Call cloud specific script
   chmod +x $CLUSTER_TYPE/*.sh
@@ -263,10 +303,10 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     log "===== PROVISIONING COMPLETED ====="
     export STATUS=SUCCESS
     export STATUS_MSG="MAS deployment completed successfully."
-    export IMPORT_CERT_MSG="Please import the attached certificate into the browser to access MAS UI."
-    export OCP_CLUSTER_CONSOLE_URL="https:\/\/console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
-    export OCP_CLUSTER_API_URL="https:\/\/api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443"
-    export OCP_CLUSTER_API_URL="https:\/\/api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443"
+    export MESSAGE_TEXT="Please import the attached certificate into the browser to access MAS UI."
+    export OPENSHIFT_CLUSTER_CONSOLE_URL="https:\/\/console-openshift-console.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
+    export OPENSHIFT_CLUSTER_API_URL="https:\/\/api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443"
+    export OPENSHIFT_CLUSTER_API_URL="https:\/\/api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443"
     export MAS_URL_INIT_SETUP="https:\/\/admin.mas-${RANDOM_STR}.apps.${CLUSTER_NAME}.${BASE_DOMAIN}\/initialsetup"
     export MAS_URL_ADMIN="https:\/\/admin.mas-${RANDOM_STR}.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
     export MAS_URL_WORKSPACE="https:\/\/$MAS_WORKSPACE_ID.home.mas-${RANDOM_STR}.apps.${CLUSTER_NAME}.${BASE_DOMAIN}"
@@ -286,11 +326,19 @@ if [[ $CLUSTER_TYPE == "aws" ]]; then
   curl -k -X PUT -H 'Content-Type:' --data-binary "{\"Status\":\"SUCCESS\",\"Reason\":\"MAS deployment complete\",\"UniqueId\":\"ID-$CLUSTER_TYPE-$CLUSTER_SIZE-$CLUSTER_NAME\",\"Data\":\"${STATUS}#${STATUS_MSG}\"}" "$DEPLOY_WAIT_HANDLE"
 
   # Send email notification
-  sleep 30
-  log "Sending notification"
-  ./notify.sh
+  if [[ $EMAIL_NOTIFICATION == "true" ]]; then
+    sleep 30
+    log "Buyer has explicitly opted for email notification, sending notification"
+    ./notify.sh
+  fi
 
+  # Delete sensitive details from the log file
+  cd $GIT_REPO_HOME
+  sed -i '/openshift_password/d' mas-provisioning.log
+  sed -i '/aws_secret_access_key/d' mas-provisioning.log
+  log "Deleted sensitive details from log file"
+  
   # Upload the log file to s3
-  aws s3 cp $GIT_REPO_HOME/mas-provisioning.log $OCP_TERRAFORM_CONFIG_UPLOAD_S3_PATH
+  aws s3 cp $GIT_REPO_HOME/mas-provisioning.log $DEPLOYMENT_CONTEXT_UPLOAD_PATH
 fi
 exit $RESP_CODE

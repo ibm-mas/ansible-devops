@@ -23,7 +23,7 @@ export CPD_BLOCK_STORAGE_CLASS=gp2
 
 # Retrieve SSH public key
 TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-SSH_PUB_KEY=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" –v http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key)
+SSH_PUB_KEY=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" â€“v http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key)
 
 log "Below are Cloud specific deployment parameters,"
 echo " AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
@@ -35,20 +35,14 @@ echo " IAM_POLICY_NAME: $IAM_POLICY_NAME"
 echo " IAM_USER_NAME: $IAM_USER_NAME"
 echo " SLS_STORAGE_CLASS: $SLS_STORAGE_CLASS"
 echo " BAS_META_STORAGE: $BAS_META_STORAGE"
+echo " CPD_BLOCK_STORAGE_CLASS: $CPD_BLOCK_STORAGE_CLASS"
 echo " SSH_PUB_KEY: $SSH_PUB_KEY"
 
-## Download files from S3 bucket
-# Download MAS license
-log "==== Downloading MAS license ===="
-cd $GIT_REPO_HOME
-if [[ ${MAS_LICENSE_URL,,} =~ ^https? ]]; then
-  wget "$MAS_LICENSE_URL" -O entitlement.lic
-elif [[ ${MAS_LICENSE_URL,,} =~ ^s3 ]]; then
-  aws s3 cp "$MAS_LICENSE_URL" entitlement.lic
-fi
 if [[ -f entitlement.lic ]]; then
   chmod 600 entitlement.lic
 fi
+
+## Download files from S3 bucket
 # Download SLS certificate
 cd $GIT_REPO_HOME
 if [[ ${SLS_PUB_CERT_URL,,} =~ ^https? ]]; then
@@ -159,6 +153,8 @@ EOT
 
 ## Add ER Key to global pull secret
   cd /tmp
+  # Login to OCP cluster
+  oc login -u $OPENSHIFT_USER -p $OPENSHIFT_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
   oc extract secret/pull-secret -n openshift-config --keys=.dockerconfigjson --to=. --confirm
   export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | tr -d '\n' | base64 -w0)
   ##export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | base64 -w0)
@@ -179,7 +175,6 @@ EOT
   set -e
  
   # Backup Terraform configuration
-  BACKUP_FILE_NAME=terraform-backup-${CLUSTER_NAME}.zip
   cd $GIT_REPO_HOME
   rm -rf /tmp/mas-multicloud
   mkdir /tmp/mas-multicloud
@@ -187,14 +182,14 @@ EOT
   cd /tmp
   zip -r $BACKUP_FILE_NAME mas-multicloud/*
   set +e
-  aws s3 cp $BACKUP_FILE_NAME $OCP_TERRAFORM_CONFIG_UPLOAD_S3_PATH
+  aws s3 cp $BACKUP_FILE_NAME $DEPLOYMENT_CONTEXT_UPLOAD_PATH
   retcode=$?
   if [[ $retcode -ne 0 ]]; then
     log "Failed while uploading deployment context to S3"
     exit 23
   fi
   set -e
-  log "OCP cluster Terraform configuration backed up at $OCP_TERRAFORM_CONFIG_UPLOAD_S3_PATH in file $CLUSTER_NAME.zip"
+  log "OCP cluster Terraform configuration backed up at $DEPLOYMENT_CONTEXT_UPLOAD_PATH in file $CLUSTER_NAME.zip"
 else
   log "==== Existing OCP cluster provided, skipping the cluster creation, Bastion host creation and S3 upload of deployment context ===="
 fi
@@ -239,7 +234,6 @@ cp $GIT_REPO_HOME/entitlement.lic $MAS_CONFIG_DIR
 # SLS Deployment
 if [[ (-z $SLS_ENDPOINT_URL) || (-z $SLS_REGISTRATION_KEY) || (-z $SLS_PUB_CERT_URL) ]]
 then
-    log "=== Deploying SLS Deployment ==="
     ## Deploy SLS
     log "==== SLS deployment started ===="
     ansible-playbook install-sls.yml
@@ -254,7 +248,6 @@ fi
 #BAS Deployment
 if [[ (-z $BAS_API_KEY) || (-z $BAS_ENDPOINT_URL) || (-z $BAS_PUB_CERT_URL) ]]
 then
-    log "=== Deploying BAS Deployment ==="
     ## Deploy BAS
     log "==== BAS deployment started ===="
     ansible-playbook install-bas.yml
