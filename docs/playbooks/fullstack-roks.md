@@ -35,11 +35,6 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
     Also note that Cloud Pak for Data requires approximately 40 PVCs.  You may need to contact IBM to increase the quota assigned to your IBM Cloud account if you see PVCs stuck in pending state and this error message: "Your order will exceed the maximum number of storage volumes allowed. Please contact Sales"
 
-!!! warning
-    There is a known problem with Manage v8.1.0 that will result in the system being unusable following a successful deployment.
-
-    Refer to the following technote for more information: ["OpenID Connect client returned with status: SEND_401" when logging in to Manage after installation](https://www.ibm.com/support/pages/openid-connect-client-returned-status-send401-when-logging-manage-after-installation)
-
 
 ## Preparation
 Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
@@ -109,9 +104,9 @@ export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
 
 # BAS configuration
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+export UDS_CONTACT_EMAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/fullstack-roks.yml
 ```
@@ -151,9 +146,9 @@ export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
 
 # BAS configuration
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+export UDS_CONTACT_EMAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/fullstack-roks.yml
 ```

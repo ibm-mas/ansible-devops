@@ -2,6 +2,7 @@
 # Script to cleanup the MAS deployment on AWS.
 # It will cleanup all the below resources that get created during the deployment.
 # - EC2 instances
+# - EBS Volumes
 # - NAT gateways
 # - Elastic IPs
 # - Load balancers
@@ -9,7 +10,7 @@
 # - Internet gateway
 # - Subnets
 # - Routing tables
-# - Netowkr ALCs
+# - Network ACLs
 # - Security groups
 # - VPC
 # - S3 buckets
@@ -18,6 +19,7 @@
 # - IAM policies
 # - IAM roles
 # - Private hosted zone
+# - CloudWatch Log groups
 # - CloudFormation stack
 #
 
@@ -26,25 +28,47 @@ set -e
 
 # Functions
 usage() {
-  echo "Usage: cleanup-mas-deployment.sh [stack-name] [unique-string] [region-code]"
-  echo "       Provide either 'stack-name' or 'unique-string' parameter."
-  echo "       If CloudFormation stack is present and it has 'ClusterUniqueString' output variable present, then provide the 'stack-name' parameter."
-  echo "       If you want to cleanup the resources based on the unique string, then provide the 'unique-string' parameter."
-  echo "       If 'stack-name' is provided, 'unique-string' will be ignored."
-  echo "       For example, "
-  echo "         cleanup-mas-deployment.sh 'mas-stack-1' '' 'us-east-1'"
-  echo "         cleanup-mas-deployment.sh '' 'gf5thj' 'us-east-1'"
+  echo "Usage: cleanup-mas-deployment.sh -s stack-name -u unique-string -r region-code"
+  echo "  Provide either 'stack-name' or 'unique-string' parameter."
+  echo " "
+  echo "  - If CloudFormation stack is present and it has the resource with 'Logical ID' named 'DeploymentRoleProfile',"
+  echo "    you can delete the MAS instance by stack name. (Check the 'Resources' tab on CloudFormation stack)"
+  echo "  - If you want to cleanup the resources based on the unique string, then provide the 'unique-string' parameter."
+  echo "    In this case, the associated CloudFormation stack won't be deleted even if it exists. It should be deleted explicitly."
+  echo " "
+  echo "  Do not specify both 'stack-name' and 'unique-string' parameters at the same time."
+  echo "  For example, "
+  echo "   cleanup-mas-deployment.sh -s mas-stack-1 -r us-east-1"
+  echo "   cleanup-mas-deployment.sh -u gf5thj -r us-east-1"
   exit 1
 }
 
 # Read arguments
-STACK_NAME=$1
-UNIQUE_STR=$2
-REGION=$3
-
-echo "Stack name: $STACK_NAME"
-echo "Unique string: $UNIQUE_STR"
-echo "Region: $REGION"
+if [[ $# -eq 0 ]]; then
+  echo "No arguments provided with $0. Exiting.."
+  usage
+else
+  while getopts 's:u:r:?h' c; do
+    case $c in
+    s)
+      STACK_NAME=$OPTARG
+      ;;
+    u)
+      UNIQUE_STR=$OPTARG
+      ;;
+    r)
+      REGION=$OPTARG
+      ;;
+    h | *)
+      usage
+      ;;
+    esac
+  done
+fi
+echo "Script Inputs:"
+echo " Stack name = $STACK_NAME"
+echo " Unique string = $UNIQUE_STR"
+echo " Region = $REGION"
 
 # Check for supported region
 if [[ -z $REGION ]]; then
@@ -65,17 +89,23 @@ if [[ (-z $STACK_NAME) && (-z $UNIQUE_STR) ]]; then
   usage
 fi
 
+# If resource group is provided, do not specify unique string
+if [[ (-n $STACK_NAME) && (-n $UNIQUE_STR) ]]; then
+  echoRed "ERROR: Do not specify both 'stack-name' and 'unique-string'. If 'stack-name' is specified, do not specify 'unique-string'."
+  usage
+fi
+
 if [[ -n $STACK_NAME ]]; then
   # Get MAS instance unique string
-  UNIQ_STR=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION 2>/dev/null | jq ".Stacks[0].Outputs[] | select(.OutputKey == \"ClusterUniqueString\").OutputValue" | tr -d '"')
+  UNIQ_STR=$(aws cloudformation describe-stack-resources --stack-name $STACK_NAME --region $REGION 2>/dev/null | jq ".StackResources[] | select(.LogicalResourceId == \"DeploymentRoleProfile\").PhysicalResourceId" | tr -d '"' | cut -d '-' -f 5)
   if [[ -z $UNIQ_STR ]]; then
     echo "ERROR: Could not retrieve the unique string from the stack. Make sure stack name and region parameters are correct."
     exit 1
   fi
-  echo "Deleting by 'stack-name'"
+  echo "Deleting by 'stack-name' $STACK_NAME"
 elif [[ -n UNIQUE_STR ]]; then
   UNIQ_STR=$UNIQUE_STR
-  echo "Deleting by 'unique-string'"
+  echo "Deleting by 'unique-string' $UNIQ_STR"
 fi
 
 echo "==== Execution started at `date` ===="  
@@ -106,6 +136,20 @@ else
   echo "No EC2 instances found for this MAS instance"
 fi
 echo "---------------------------------------------"
+
+## Delete volumes
+echo "Checking for volumes"
+VOLS=$(aws ec2 describe-volumes --filters Name=tag:Name,Values=masocp-${UNIQ_STR}* --region $REGION | jq ".Volumes[].VolumeId" | tr -d '"')
+echo "VOLS=$VOLS"
+if [[ -n $VOLS ]]; then
+  echo "Found volumes for this MAS instance"
+  for inst in $VOLS; do
+    aws ec2 delete-volume --volume-id $inst --region $REGION
+    echo "Deleted volume $inst"
+  done
+else
+  echo "No volumess found for this MAS instance"
+fi
 
 ## Delete NAT gateways and release EIPs
 echo "Checking for VPC"
@@ -186,7 +230,7 @@ if [[ $VPC_ID != "null" ]]; then
   LOAD_BALANCERS_V2=$(aws elbv2 describe-load-balancers --region $REGION | jq ".LoadBalancers[] | select(.VpcId == \"$VPC_ID\").LoadBalancerArn" | tr -d '"')
   echo "LOAD_BALANCERS_V2 = $LOAD_BALANCERS_V2"
   if [[ -n $LOAD_BALANCERS_V2 ]]; then
-    SLEEPTIME=60
+    SLEEPTIME=120
     echo "Found v2 load balancers for this MAS instance"
     for inst in $LOAD_BALANCERS_V2; do
       aws elbv2 delete-load-balancer --region $REGION --load-balancer-arn "$inst"
@@ -208,6 +252,7 @@ if [[ $VPC_ID != "null" ]]; then
     for inst in $NW_IFS; do
       aws ec2 delete-network-interface --network-interface-id $inst --region $REGION
       echo "Deleted network interface $inst"
+      sleep 5
     done
   else
     echo "No network interfaces found for this MAS instance"
@@ -409,7 +454,7 @@ if [[ -n $INSTPROFS ]]; then
     fi
     # Delete instance profile
     aws iam delete-instance-profile --instance-profile-name $inst
-    echo "Deleted IAM instance profiles ${inst}"
+    echo "Deleted IAM instance profile ${inst}"
   done
 else
   echo "No IAM instance profiles for this MAS instance"
@@ -474,15 +519,51 @@ else
 fi
 echo "---------------------------------------------"
 
-# Delete CloudFormation stack
-echo "Checking for CloudFormation stack"
-aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION > /dev/null 2>&1
-if [[ $? -eq 0 ]]; then
-  echo "Found CloudFormation stack for this MAS instance"
-  aws cloudformation delete-stack --stack-name $STACK_NAME --region $REGION
-  echo "Deleted CloudFormation stack $STACK_NAME"
+## Delete CloudWatch log groups
+echo "Checking for CloudWatch Log groups"
+CWLG=$(aws logs describe-log-groups --region $REGION | jq ".logGroups[] | select(.logGroupName | contains(\"${STACK_NAME}-LambdaFunction\")).logGroupName" | tr -d '"')
+echo "CWLG = $CWLG"
+if [[ -n $CWLG ]]; then
+  echo "Found OCP installer created CloudWatch Log groups for this MAS instance"
+  for inst in $CWLG; do
+    # Delete log group
+    aws logs delete-log-group --log-group-name $inst --region $REGION 
+    echo "Deleted OCP installer created CloudWatch Log group $inst"
+  done
 else
-  echo "No CloudFormation stack for this MAS instance"
+  echo "No OCP installer created CloudWatch Log groups for this MAS instance"
+fi
+CWLG=$(aws logs describe-log-groups --region $REGION | jq ".logGroups[] | select(.logGroupName | contains(\"masocp-${UNIQ_STR}\")).logGroupName" | tr -d '"')
+echo "CWLG = $CWLG"
+if [[ -n $CWLG ]]; then
+  echo "Found automation created CloudWatch Log groups for this MAS instance"
+  for inst in $CWLG; do
+    # Delete log group
+    aws logs delete-log-group --log-group-name $inst --region $REGION 
+    echo "Deleted automation created CloudWatch Log group $inst"
+  done
+else
+  echo "No automation created CloudWatch Log groups for this MAS instance"
 fi
 echo "---------------------------------------------"
+
+# Delete CloudFormation stack
+if [[ -n $STACK_NAME ]]; then
+  echo "Checking for CloudFormation stack"
+  STACKARN=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION | jq ".Stacks[].StackId" | tr -d '"')
+  echo "STACKARN = $STACKARN"
+  if [[ -n $STACKARN ]]; then
+    # Get stack ARN
+    aws cloudformation delete-stack --stack-name $STACKARN --region $REGION
+    echo "Delete initiated for CloudFormation stack $STACK_NAME"
+    # Wait for delete complete
+    aws cloudformation wait stack-delete-complete --stack-name $STACKARN --region $REGION
+    echo "Deleted stack $STACK_NAME"
+  else
+    echo "No CloudFormation stack for this MAS instance"
+  fi
+  echo "---------------------------------------------"
+else
+  echo "No 'stack-name' specified, you may need to delete the CloudFormation stack explicitly if exists, or run the script with -s 'stack-name' parameter"
+fi
 echo "==== Execution completed at `date` ===="

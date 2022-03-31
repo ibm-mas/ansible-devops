@@ -33,7 +33,22 @@ spec:
     requests:
       storage: 500Mi
 ---
-# 3. Define the pipeline
+# 3. Set up a PVC for shared storage for mustgather
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-mustgather-storage
+  namespace: mas-sample-pipelines
+spec:
+  resources:
+    requests:
+      storage: 1Gi
+  volumeMode: Filesystem
+  storageClassName: ibmc-file-gold
+  accessModes:
+    - ReadWriteOnce
+---
+# 4. Define the pipeline
 #
 # MAS Sample Pipeline
 # -------------------
@@ -72,6 +87,9 @@ spec:
     # during install-sls.  This should contain a single file
     # named entitlement.lic
     - name: shared-entitlement
+
+    # Shared storage to hold mustgather output for tasks
+    - name: shared-mustgather
 
   params:
     # Workspace ID
@@ -158,6 +176,8 @@ spec:
       taskRef:
         kind: ClusterTask
         name: mas-devops-install-mongodb-ce
+      runAfter:
+        - cfg-ocp
       workspaces:
         - name: configs
           workspace: shared-configs
@@ -606,6 +626,7 @@ spec:
           values: [""]
       runAfter:
         - cfg-manage
+        - cfg-monitor
       workspaces:
         - name: settings
           workspace: shared-settings
@@ -682,3 +703,20 @@ spec:
       workspaces:
         - name: settings
           workspace: shared-settings
+
+  # 19. Mustgather executed in finally block. Use suite_mustgather_download
+  # playbook to retrieve the output on your local machine
+  # -------------------------------------------------------------------------
+  finally:
+    - name: mustgather
+      params:
+        - name: base_output_dir
+          value: "/workspace/mustgather/$(context.pipelineRun.name)"
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-mustgather
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+        - name: mustgather
+          workspace: shared-mustgather
