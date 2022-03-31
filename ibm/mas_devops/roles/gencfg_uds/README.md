@@ -44,8 +44,8 @@ Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the Contact 
 - Environment Variable: `UDS_CONTACT_LASTNAME`
 - Default Value: None
 
-### uds_tls_cr
-Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS TLS CR used by the MAS instance's UDS configuration.
+### uds_tls_crt
+Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS TLS CA or Server Certificate used by the MAS instance's UDS configuration.
 
 - Environment Variable: None
 - Default Value: None
