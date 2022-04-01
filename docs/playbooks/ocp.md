@@ -6,42 +6,46 @@ Refer to the [ocp_provision](../roles/ocp_provision.md) role documentation for m
 ```bash
 export CLUSTER_NAME=masinst1
 export OCP_VERSION="4.8_openshift"
+export CLUSTER_TYPE=roks
 
 export IBMCLOUD_APIKEY=xxx
 
-ansible-playbook playbooks/ocp/provision-roks.yml
+ansible-playbook playbooks/ocp/provision.yml
 ```
 
 ```bash
 export CLUSTER_NAME=masinst1
 export OCP_VERSION=4.6.16
+export CLUSTER_TYPE=quickburn
 
 export FYRE_USERNAME=xxx
-export FYRE_PASSWORD=xxx
+export FYRE_APIKEY=xxx
 export FYRE_PRODUCT_ID=xxx
 
-ansible-playbook playbooks/ocp/provision-quickburn.yml
+ansible-playbook playbooks/ocp/provision.yml
 ```
 
 
 ## Deprovision
 Refer to the [ocp_deprovision](../roles/ocp_deprovision.md) role documentation for more information.
 
-**TODO: Update the role doc as it's rubbish atm**
-
 ```bash
 export CLUSTER_NAME=masinst1
 export IBMCLOUD_APIKEY=xxx
+export CLUSTER_TYPE=roks
 
-ansible-playbook playbooks/ocp/deprovision-roks.yml
+export IBMCLOUD_APIKEY=xxx
+
+ansible-playbook playbooks/ocp/deprovision.yml
 ```
 
 ```bash
 export CLUSTER_NAME=masinst1
+export CLUSTER_TYPE=quickburn
 export FYRE_USERNAME=xxx
-export FYRE_PASSWORD=xxx
+export FYRE_APIKEY=xxx
 
-ansible-playbook playbooks/ocp/deprovision-quickburn.yml
+ansible-playbook playbooks/ocp/deprovision.yml
 ```
 
 
