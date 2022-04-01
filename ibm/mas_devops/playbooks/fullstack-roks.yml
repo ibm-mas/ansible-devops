@@ -4,6 +4,7 @@
 
 # 1. Deploy & configure the cluster
 # -----------------------------------------------------------------------------
+# To deploy GPU worker nodes set OCP_PROVISION_GPU flag, and GPU_WORKERS if deploying more than 1 gpu nodes
 - name: Deploy ROKS cluster in IBM Cloud
   import_playbook: ocp/provision-roks.yml
 
@@ -102,13 +103,8 @@
 
 # 10. Install NVIDIA GPU and NFD Operators for Visual Inspection
 # -----------------------------------------------------------------------------
-# MVI support is not yet available for the fullstack configuration as
-# the cluster deployed does not yet configure the required GPU nodes
-#
-# https://github.com/ibm-mas/ansible-devops/issues/48
-#
-# - name: Install NVIDIA GPU Operator
-#   import_playbook: dependencies/install-gpu.yml
+- name: Install NVIDIA GPU Operator
+  import_playbook: dependencies/install-gpu.yml
 
 
 # 11. Tune the Db2 instance
@@ -220,27 +216,22 @@
 
 # 20. Install & Configure MVI application
 # -----------------------------------------------------------------------------
-# MVI support is not yet available for the fullstack configuration as
-# the cluster deployed does not yet configure the required GPU nodes
-#
-# https://github.com/ibm-mas/ansible-devops/issues/48
-#
-# - name: Install Maximo Visual Inspection
-#   import_playbook: mas/install-app.yml
-#   vars:
-#     mas_app_id: visualinspection
-#     mas_app_spec:
-#       settings:
-#         storage:
-#           size: 100Gi
-#           storageClassName': ibmc-file-gold
-# # add to mas_app_spec such as to configure the binding for Edge addon if needed when creating your own playbooks.
-#
-# - name: Configure Maximo Visual Inspection
-#   import_playbook: mas/configure-app.yml
-#   vars:
-#     mas_app_id: visualinspection
-#     mas_workspace_id: masdev
+- name: Install Maximo Visual Inspection
+  import_playbook: mas/install-app.yml
+  vars:
+    mas_app_id: visualinspection
+    mas_app_spec:
+      settings:
+        storage:
+          size: 100Gi
+          storageClassName': ibmc-file-gold
+# add to mas_app_spec such as to configure the binding for Edge addon if needed when creating your own playbooks.
+
+- name: Configure Maximo Visual Inspection
+  import_playbook: mas/configure-app.yml
+  vars:
+    mas_app_id: visualinspection
+    mas_workspace_id: masdev
 
 
 # 21. Install & Configure Health-Predict Utilities application

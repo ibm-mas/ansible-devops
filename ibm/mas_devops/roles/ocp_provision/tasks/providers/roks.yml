@@ -80,13 +80,13 @@
 # 6. Setup vlans
 # -----------------------------------------------------------------------------
 - name: "roks : Lookup VLANs automatically (ibmcloud ks vlan ls --zone {{ roks_zone }} --output json)"
-  when: cluster_lookup.rc == 1
+  when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
   shell: |
     ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
   register: ibmcloud_zone_vlans
 
 - name: "roks : Configure Private and Public Vlans"
-  when: cluster_lookup.rc == 1
+  when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
   set_fact:
     public: "{{ ibmcloud_zone_vlans.stdout | from_json | ibm.mas_devops.public_vlan }}"
     private: "{{ ibmcloud_zone_vlans.stdout | from_json | ibm.mas_devops.private_vlan }}"
@@ -110,7 +110,69 @@
       {{ roks_flags }}
 
 
-# 8. Watch cluster provisioning progress
+# 8. Add a GPU worker node if ocp_provision_gpu is true
+# -----------------------------------------------------------------------------
+- name: "roks : Check if GPU worker pool already exists"
+  when:
+    - ocp_provision_gpu is defined
+    - ocp_provision_gpu|bool == true
+  shell: ibmcloud oc worker-pool get --cluster {{ cluster_name }} --worker-pool gpu --output json
+  register: workerpool_lookup
+  failed_when: "workerpool_lookup.rc > 1"
+
+- name: "roks : Debug worker pool status"
+  when:
+    - ocp_provision_gpu is defined
+    - ocp_provision_gpu|bool  == true
+    - workerpool_lookup.rc == 0
+  debug:
+    msg: "A gpu worker pool already exists, skipping creation of gpu worker pool"
+
+- name: "roks : Add a GPU worker pool"
+  when:
+    - ocp_provision_gpu is defined
+    - ocp_provision_gpu|bool  == true
+    - workerpool_lookup.rc == 1
+  shell: >
+    ibmcloud oc worker-pool create classic \
+      --hardware dedicated \
+      --cluster {{ cluster_name }} \
+      --name gpu \
+      --flavor mg4c.32x384.2xp100 \
+      --size-per-zone {{ gpu_workers }} \
+      --entitlement cloud_pak
+
+- name: "roks : Get GPU worker pool zone information"
+  when:
+    - ocp_provision_gpu is defined
+    - ocp_provision_gpu|bool  == true
+    - workerpool_lookup.rc == 0
+  set_fact:
+    zone_added: "{{(workerpool_lookup.stdout | from_json).zones}}"
+
+- name: "roks : Add GPU worker pool to zone"
+  when:
+    - ocp_provision_gpu is defined
+    - ocp_provision_gpu|bool  == true
+    - zone_added is undefined or zone_added == []
+  shell: |
+    ibmcloud oc zone add classic \
+      --zone {{ roks_zone }} \
+      --cluster {{ cluster_name }} \
+      --worker-pool gpu \
+      --private-vlan {{ private is defined | ternary(private, omit) }} \
+      --public-vlan {{ public is defined | ternary(public, omit) }}
+
+- name: "roks : status of GPU worker node provisioning"
+  when:
+    - ocp_provision_gpu is defined
+    - ocp_provision_gpu|bool  == true
+    - zone_added is undefined or zone_added == []
+  debug:
+    msg: "GPU worker node will continue to provision and can take at least 4 hours to be fully deployed"
+
+
+# 9. Watch cluster provisioning progress
 # -----------------------------------------------------------------------------
 - name: "roks : Wait until the Roks cluster is deployed"
   shell: |
