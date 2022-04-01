@@ -3,17 +3,19 @@ sls_install
 
 Install **IBM Suite License Service** and generate properties that can be used in the `sls_gencfg` role to create a configuration that can be directly applied to IBM Maximo Application Suite.
 
+The role assumes that you have already installed the Certificate Manager in the target cluster.  This action is performed by the [ocp_setup_mas_deps](ocp_setup_mas_deps.md) role if you want to use this collection to install the cert-manager operator.
+
 Role Variables
 --------------
 
 ### sls_catalog_source
-TODO: Write me
+Defines the OLM catalog to be used to install SLS. Set to `ibm-sls-operators` if you want to deploy pre-release development builds of SLS or leave as the default `ibm-operator-catalog` for the released versions. 
 
 - Environment Variable: `SLS_CATALOG_SOURCE`
 - Default: `ibm-operator-catalog`
 
 ### sls_channel
-TODO: Write me
+The SLS OLM subscription channel to be installed.
 
 - Environment Variable: `SLS_CHANNEL`
 - Default: `3.x`
@@ -25,13 +27,13 @@ Define the namespace where sls must be installed.
 - Default: `ibm-sls`
 
 ### sls_icr_cp
-TODO: Write me
+The container registry source for all container images deployed by the SLS operator. Override to use development images
 
 - Environment Variable: `SLS_ICR_CP`
 - Default: `cp.icr.io/cp`
 
 ### sls_icr_cpopen
-TODO: Write me
+The container registry source for the SLS operator container image. Override to use development image
 
 - Environment Variable: `SLS_ICR_CPOPEN`
 - Default: `icr.io/cpopen`
@@ -55,40 +57,40 @@ Required.  API Key for entitled registry. This password will be used to create t
 - Default: `sls`
 
 ### sls_storage_class
-TODO: Write me
+The Storage class on the target cluster to be used for the SLS Persistent Volume Claim. There is no performance requirement on this storage and both block and file storage are supported.
 
 - Environment Variable: `SLS_STORAGE_CLASS`
 - Default: None
 
 ### sls_storage_size
-TODO: Write me
+The size of the storage on the target cluster to be used for the SLS Persistent Volume Claim.
 
 - Environment Variable: None
 - Default: `5g`
 
 ### sls_domain
-TODO: Write me
+SLS can be configured to be externally accessible through a route by setting the domain. Set the domain if SLS is used by application suites that are installed in separate OpenShift clusters.
 
 - Environment Variable: `SLS_DOMAIN`
 - Default: None
 
 ### sls_auth_enforce
-TODO: Write me
+Determines whether authorization is enforced. If set to true, clients must use mTLS with certificates generated from the client registration flow for SLS API calls.
 
 - Environment Variable: `SLS_AUTH_ENFORCE`
-- Default: None
+- Default: `True`
 
 ### sls_compliance_enforce
-TODO: Write me
+Determines whether compliance is enforced. If there are not enough tokens to support the request. If compliance is not enforced, license checkout requests will be allowed even if there are not enough tokens to support the request.
 
 - Environment Variable: `SLS_COMPLIANCE_ENFORCE`
-- Default: None
+- Default: `True`
 
 ### sls_registration_open
-TODO: Write me
+Determines whether registration is open. If set to true, clients will be able to register themselves with SLS and use SLS APIs.
 
 - Environment Variable: `SLS_REGISTRATION_OPEN`
-- Default: None
+- Default: `True`
 
 ### bootstrap.license_id
 Defines the License Id to be used to bootstrap SLS.
