@@ -31,7 +31,6 @@ Refer to the [ocp_deprovision](../roles/ocp_deprovision.md) role documentation f
 
 ```bash
 export CLUSTER_NAME=masinst1
-export IBMCLOUD_APIKEY=xxx
 export CLUSTER_TYPE=roks
 
 export IBMCLOUD_APIKEY=xxx
