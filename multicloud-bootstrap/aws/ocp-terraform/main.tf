@@ -4,6 +4,7 @@ provider "aws" {
   secret_key = var.secret_access_key
 }
 
+
 data "aws_availability_zones" "azs" {}
 
 locals {
