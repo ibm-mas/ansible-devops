@@ -19,6 +19,7 @@ output "openshift_password" {
   sensitive = true
 }
 
+
 # output "cpd_url" {
 #   description = "URL for cpd web console"
 #   value       = "https://cpd-${var.cpd_namespace}.apps.${var.cluster_name}.${var.base_domain}"
