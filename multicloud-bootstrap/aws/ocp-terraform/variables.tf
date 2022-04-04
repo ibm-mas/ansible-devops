@@ -141,6 +141,7 @@ variable "existing_openshift_username" {
 variable "existing_openshift_password" {
   type    = string
   default = ""
+  sensitive = true
 }
 
 variable "existing_openshift_token" {
@@ -246,6 +247,7 @@ variable "openshift_username" {
 
 variable "openshift_password" {
   type = string
+  sensitive = true
 }
 
 variable "enable_autoscaler" {
