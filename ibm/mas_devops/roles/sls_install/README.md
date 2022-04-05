@@ -1,12 +1,18 @@
 sls_install
 ===========
 
-Install **IBM Suite License Service** and generate properties that can be used in the `sls_gencfg` role to create a configuration that can be directly applied to IBM Maximo Application Suite.
+Install **IBM Suite License Service** and generate properties that can be used in the [gencfg_sls](gencfg_sls.md) role to create a configuration that can be directly applied to IBM Maximo Application Suite.
 
 The role assumes that you have already installed the Certificate Manager in the target cluster.  This action is performed by the [ocp_setup_mas_deps](ocp_setup_mas_deps.md) role if you want to use this collection to install the cert-manager operator.
 
 Role Variables
 --------------
+
+### sls_entitlement_key
+Required.  API Key for entitled registry. This password will be used to create the image pull secret.
+
+- Environment Variable: `SLS_ENTITLEMENT_KEY` or `IBM_ENTITLEMENT_KEY`
+- Default: None
 
 ### sls_catalog_source
 Defines the OLM catalog to be used to install SLS. Set to `ibm-sls-operators` if you want to deploy pre-release development builds of SLS or leave as the default `ibm-operator-catalog` for the released versions. 
@@ -50,20 +56,14 @@ Username for entitled registry. This username will be used to create the image p
 - Environment Variable: `SLS_ENTITLEMENT_USERNAME`
 - Default: `cp`
 
-### sls_entitlement_key
-Required.  API Key for entitled registry. This password will be used to create the image pull secret.
-
-- Environment Variable: `SLS_ENTITLEMENT_KEY` or `IBM_ENTITLEMENT_KEY`
-- Default: `sls`
-
 ### sls_storage_class
-The Storage class on the target cluster to be used for the SLS Persistent Volume Claim. There is no performance requirement on this storage and both block and file storage are supported.
+The Storage class on the target cluster to be used for the SLS Persistent Volume Claim. There is no performance requirement on this storage and both block and file storage are supported. Note: Since SLS 3.2.4 no Persistent Volume is required so no storage class is needed.
 
 - Environment Variable: `SLS_STORAGE_CLASS`
 - Default: None
 
 ### sls_storage_size
-The size of the storage on the target cluster to be used for the SLS Persistent Volume Claim.
+The size of the storage on the target cluster to be used for the SLS Persistent Volume Claim .Note: Since SLS 3.2.4 no Persistent Volume is required so no storage size is needed.
 
 - Environment Variable: None
 - Default: `5g`
@@ -93,19 +93,19 @@ Determines whether registration is open. If set to true, clients will be able to
 - Default: `True`
 
 ### bootstrap.license_id
-Defines the License Id to be used to bootstrap SLS.
+Defines the License Id to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on
 
 - Environment Variable: `SLS_LICENSE_ID`
 - Default: None
 
 ### bootstrap.registration_key
-Defines the Registration Key to be used to bootstrap SLS.
+Defines the Registration Key to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on
 
 - Environment Variable: `SLS_REGISTRATION_KEY`
 - Default: None
 
 ### bootstrap.entitlement_file
-Defines the License File to be used to bootstrap SLS.
+Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on
 
 - Environment Variable: None
 - Default: `{{ mas_config_dir }}/entitlement.lic`
@@ -143,7 +143,6 @@ Example Playbook
   any_errors_fatal: true
   vars:
     sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') }}"
-    sls_storage_class: "ibmc-block-bronze"
 
     sls_mongodb_cfg_file: "/etc/mas/mongodb.yml"
 
