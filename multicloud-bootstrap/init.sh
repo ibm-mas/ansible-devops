@@ -11,26 +11,38 @@ export ACCOUNT_ID=$4
 export CLUSTER_SIZE=$5
 export RANDOM_STR=$6
 export BASE_DOMAIN=$7
-export SSH_KEY_NAME=$8
-export DEPLOY_WAIT_HANDLE=$9
-export SLS_ENTITLEMENT_KEY=${10}
-export OCP_PULL_SECRET=${11}
-export MAS_LICENSE_URL=${12}
-export SLS_ENDPOINT_URL=${13}
-export SLS_REGISTRATION_KEY=${14}
-export SLS_PUB_CERT_URL=${15}
-export BAS_ENDPOINT_URL=${16}
-export BAS_API_KEY=${17}
-export BAS_PUB_CERT_URL=${18}
-export MAS_JDBC_USER=${19}
-export MAS_JDBC_PASSWORD=${20}
-export MAS_JDBC_URL=${21}
-export MAS_JDBC_CERT_URL=${22}
-export MAS_DB_IMPORT_DEMO_DATA=${23}
-export EXS_OCP_URL=${24}
-export EXS_OCP_USER=${25}
-export EXS_OCP_PWD=${26}
-export EMAIL_NOTIFICATION=${27}
+export BASE_DOMAIN_RG_NAME=$8
+export SSH_KEY_NAME=$9
+export DEPLOY_WAIT_HANDLE=${10}
+export SLS_ENTITLEMENT_KEY=${11}
+export OCP_PULL_SECRET=${12}
+export MAS_LICENSE_URL=${13}
+export SLS_ENDPOINT_URL=${14}
+export SLS_REGISTRATION_KEY=${15}
+export SLS_PUB_CERT_URL=${16}
+export BAS_ENDPOINT_URL=${17}
+export BAS_API_KEY=${18}
+export BAS_PUB_CERT_URL=${19}
+export MAS_JDBC_USER=${20}
+export MAS_JDBC_PASSWORD=${21}
+export MAS_JDBC_URL=${22}
+export MAS_JDBC_CERT_URL=${23}
+export MAS_DB_IMPORT_DEMO_DATA=${24}
+export EXS_OCP_URL=${25}
+export EXS_OCP_USER=${26}
+export EXS_OCP_PWD=${27}
+export RG_NAME=${28}
+export RECEPIENT=${29}
+export SENDGRID_API_KEY=${30}
+export AZURE_SUBSC_ID=${31}
+export AZURE_TENANT_ID=${32}
+export AZURE_SP_CLIENT_ID=${33}
+export AZURE_SP_CLIENT_PWD=${34}
+export SELLER_SUBSCRIPTION_ID=${35}
+export SELLER_RESOURCE_GROUP=${36}
+export SELLER_COMPUTE_GALLERY=${37}
+export SELLER_IMAGE_VERSION=${38}
+export EMAIL_NOTIFICATION=${39}
 
 # Load helper functions
 . helper.sh
@@ -107,8 +119,12 @@ export MASTER_NODE_COUNT="3"
 export WORKER_NODE_COUNT="3"
 export AZ_MODE="multi_zone"
 export MAS_IMAGE_TEST_DOWNLOAD="cp.icr.io/cp/mas/admin-dashboard:5.1.27"
-export BACKUP_FILE_NAME=terraform-backup-${CLUSTER_NAME}.zip
-export DEPLOYMENT_CONTEXT_UPLOAD_PATH="s3://masocp-${RANDOM_STR}-bucket-${DEPLOY_REGION}/ocp-cluster-provisioning-deployment-context/"
+export BACKUP_FILE_NAME="terraform-backup-${CLUSTER_NAME}.zip"
+if [[ $CLUSTER_TYPE == "aws" ]]; then
+  export DEPLOYMENT_CONTEXT_UPLOAD_PATH="s3://masocp-${RANDOM_STR}-bucket-${DEPLOY_REGION}/ocp-cluster-provisioning-deployment-context/"
+elif [[ $CLUSTER_TYPE == "azure" ]]; then
+  DEPLOYMENT_CONTEXT_UPLOAD_PATH="ocp-cluster-provisioning-deployment-context/${BACKUP_FILE_NAME}"
+fi
 # Mongo variables
 export MAS_INSTANCE_ID="mas-${RANDOM_STR}"
 export MAS_CONFIG_DIR=/var/tmp/masconfigdir
@@ -204,6 +220,15 @@ echo " MAS_JDBC_CERT_URL: $MAS_JDBC_CERT_URL"
 echo " MAS_DB_IMPORT_DEMO_DATA: $MAS_DB_IMPORT_DEMO_DATA"
 echo " EXS_OCP_URL: $EXS_OCP_URL"
 echo " EXS_OCP_USER: $EXS_OCP_USER"
+echo " RG_NAME=$RG_NAME"
+echo " RECEPIENT=$RECEPIENT"
+echo " AZURE_SUBSC_ID=$AZURE_SUBSC_ID"
+echo " AZURE_TENANT_ID=$AZURE_TENANT_ID"
+echo " AZURE_SP_CLIENT_ID=$AZURE_SP_CLIENT_ID"
+echo " SELLER_SUBSCRIPTION_ID=$SELLER_SUBSCRIPTION_ID"
+echo " SELLER_RESOURCE_GROUP=$SELLER_RESOURCE_GROUP"
+echo " SELLER_COMPUTE_GALLERY=$SELLER_COMPUTE_GALLERY"
+echo " SELLER_IMAGE_VERSION=$SELLER_IMAGE_VERSION"
 echo " EMAIL_NOTIFICATION: $EMAIL_NOTIFICATION"
 
 echo " HOME: $HOME"
@@ -305,31 +330,37 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
   else
     mark_provisioning_failed $retcode
   fi
+  if [[ $CLUSTER_TYPE == "azure" ]]; then
+    az tag update --operation merge --resource-id /subscriptions/${AZURE_SUBSC_ID}/resourceGroups/${RG_NAME} --tags DeploymentStatus="${STATUS}#${STATUS_MSG}" > /dev/null
+  fi
 fi
 
-## Complete the template deployment
+cd $GIT_REPO_HOME/$CLUSTER_TYPE
 if [[ $CLUSTER_TYPE == "aws" ]]; then
+  # Complete the template deployment
   cd $GIT_REPO_HOME/$CLUSTER_TYPE
   # Complete the CFT stack creation successfully
   log "Sending completion signal to CloudFormation stack."
   log " STATUS=$STATUS"
   log " STATUS_MSG=$STATUS_MSG"
   curl -k -X PUT -H 'Content-Type:' --data-binary "{\"Status\":\"SUCCESS\",\"Reason\":\"MAS deployment complete\",\"UniqueId\":\"ID-$CLUSTER_TYPE-$CLUSTER_SIZE-$CLUSTER_NAME\",\"Data\":\"${STATUS}#${STATUS_MSG}\"}" "$DEPLOY_WAIT_HANDLE"
+fi
 
-  # Send email notification
-  if [[ $EMAIL_NOTIFICATION == "true" ]]; then
-    sleep 30
-    log "Buyer has explicitly opted for email notification, sending notification"
-    ./notify.sh
-  fi
+# Send email notification
+if [[ $EMAIL_NOTIFICATION == "true" ]]; then
+  sleep 30
+  log "Buyer has explicitly opted for email notification, sending notification"
+  ./notify.sh
+else
+  log "Buyer chose to not send email notification"
+fi
 
-  # Delete sensitive details from the log file
-  cd $GIT_REPO_HOME
-  sed -i '/openshift_password/d' mas-provisioning.log
-  sed -i '/aws_secret_access_key/d' mas-provisioning.log
-  log "Deleted sensitive details from log file"
-  
+# Upload log file to object store
+if [[ $CLUSTER_TYPE == "aws" ]]; then
   # Upload the log file to s3
   aws s3 cp $GIT_REPO_HOME/mas-provisioning.log $DEPLOYMENT_CONTEXT_UPLOAD_PATH
+elif [[ $CLUSTER_TYPE == "azure" ]]; then
+  # Upload the log file to blob storage
+  az storage blob upload --account-name ${STORAGE_ACNT_NAME} --container-name masocpcontainer --name ocp-cluster-provisioning-deployment-context/mas-provisioning.log --file /root/mas-azure-1/mas-provisioning.log --auth-mode login
 fi
 exit $RESP_CODE
