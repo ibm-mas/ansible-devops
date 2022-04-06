@@ -112,11 +112,21 @@
 
 # 8. Add a GPU worker node if ocp_provision_gpu is true
 # -----------------------------------------------------------------------------
+- name: "roks : Debug Information for GPU worker"
+  when: 
+    - ocp_provision_gpu is defined
+    - ocp_provision_gpu|bool == true
+  debug:
+    msg:
+      - "GPU woker pool name ................. {{ gpu_wpool_name }}"
+      - "GPU workers .................. {{ gpu_workers }}"
+      - "Expected GPU flavor ................. mg4c.32x384.2xp100"
+
 - name: "roks : Check if GPU worker pool already exists"
   when:
     - ocp_provision_gpu is defined
     - ocp_provision_gpu|bool == true
-  shell: ibmcloud oc worker-pool get --cluster {{ cluster_name }} --worker-pool gpu --output json
+  shell: ibmcloud oc worker-pool get --cluster {{ cluster_name }} --worker-pool {{ gpu_wpool_name }} --output json
   register: workerpool_lookup
   failed_when: "workerpool_lookup.rc > 1"
 
@@ -137,7 +147,7 @@
     ibmcloud oc worker-pool create classic \
       --hardware dedicated \
       --cluster {{ cluster_name }} \
-      --name gpu \
+      --name {{ gpu_wpool_name }} \
       --flavor mg4c.32x384.2xp100 \
       --size-per-zone {{ gpu_workers }} \
       --entitlement cloud_pak
@@ -159,7 +169,7 @@
     ibmcloud oc zone add classic \
       --zone {{ roks_zone }} \
       --cluster {{ cluster_name }} \
-      --worker-pool gpu \
+      --worker-pool {{ gpu_wpool_name }} \
       --private-vlan {{ private is defined | ternary(private, omit) }} \
       --public-vlan {{ public is defined | ternary(public, omit) }}
 
@@ -169,7 +179,7 @@
     - ocp_provision_gpu|bool  == true
     - zone_added is undefined or zone_added == []
   debug:
-    msg: "GPU worker node will continue to provision and can take at least 4 hours to be fully deployed"
+    msg: "GPU worker node(s) will continue to provision and can take at least 4 hours to be fully deployed"
 
 
 # 9. Watch cluster provisioning progress

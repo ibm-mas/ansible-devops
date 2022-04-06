@@ -31,6 +31,12 @@ Flag that determines if GPU worker nodes should be added during cluster creation
 - Environment Variable: `OCP_PROVISION_GPU`
 - Default Value: `false`
 
+### gpu_wpool_name
+The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal. 
+
+- Environment Variable: `GPU_WPOOL_NAME`
+- Default Value: `gpu`
+
 ### gpu_workers
 The number of GPU worker nodes to deploy in the cluster. Depends on `ocp_provision_gpu` and is currently only set up for ROKS clusters.
 
