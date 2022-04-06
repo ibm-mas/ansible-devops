@@ -17,6 +17,7 @@ variable "openshift_password" {
 variable "openshift_token" {
   type        = string
   description = "For cases where you don't have the password but a token can be generated (e.g SSO is being used)"
+  sensitive = true
 }
 
 variable "installer_workspace" {
