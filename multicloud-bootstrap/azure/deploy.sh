@@ -105,11 +105,12 @@ if [[ $OPENSHIFT_USER_PROVIDE == "false" ]]; then
   # set -e
  
   # Backup Terraform configuration
-  rm -rf /tmp/mas-azure-1
-  mkdir /tmp/mas-azure-1
-  cp -r * /tmp/mas-azure-1
+  rm -rf /tmp/ansible-devops
+  mkdir /tmp/ansible-devops
+  cp -r * /tmp/ansible-devops
   cd /tmp
-  zip -r $BACKUP_FILE_NAME mas-azure-1/*
+  zip -r $BACKUP_FILE_NAME ansible-devops/*
+  rm -rf /tmp/ansible-devops
   set +e
   az storage blob upload --account-name ${STORAGE_ACNT_NAME} --container-name masocpcontainer --name ${DEPLOYMENT_CONTEXT_UPLOAD_PATH} --file ${BACKUP_FILE_NAME} --auth-mode login
   retcode=$?

@@ -123,7 +123,7 @@ export BACKUP_FILE_NAME="terraform-backup-${CLUSTER_NAME}.zip"
 if [[ $CLUSTER_TYPE == "aws" ]]; then
   export DEPLOYMENT_CONTEXT_UPLOAD_PATH="s3://masocp-${RANDOM_STR}-bucket-${DEPLOY_REGION}/ocp-cluster-provisioning-deployment-context/"
 elif [[ $CLUSTER_TYPE == "azure" ]]; then
-  DEPLOYMENT_CONTEXT_UPLOAD_PATH="ocp-cluster-provisioning-deployment-context/${BACKUP_FILE_NAME}"
+  export DEPLOYMENT_CONTEXT_UPLOAD_PATH="ocp-cluster-provisioning-deployment-context/${BACKUP_FILE_NAME}"
   export STORAGE_ACNT_NAME="masocp${RANDOM_STR}stgaccount"
 fi
 # Mongo variables
@@ -371,6 +371,6 @@ if [[ $CLUSTER_TYPE == "aws" ]]; then
   aws s3 cp $GIT_REPO_HOME/mas-provisioning.log $DEPLOYMENT_CONTEXT_UPLOAD_PATH
 elif [[ $CLUSTER_TYPE == "azure" ]]; then
   # Upload the log file to blob storage
-  az storage blob upload --account-name ${STORAGE_ACNT_NAME} --container-name masocpcontainer --name ocp-cluster-provisioning-deployment-context/mas-provisioning.log --file /root/mas-azure-1/mas-provisioning.log --auth-mode login
+  az storage blob upload --account-name ${STORAGE_ACNT_NAME} --container-name masocpcontainer --name ocp-cluster-provisioning-deployment-context/mas-provisioning.log --file $GIT_REPO_HOME/mas-provisioning.log --auth-mode login
 fi
 exit $RESP_CODE
