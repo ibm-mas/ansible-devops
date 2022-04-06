@@ -67,7 +67,7 @@ get_sls_endpoint_url() {
 
 get_sls_registration_key() {
   uniqstr=$1
-  
+
 }
 
 get_bas_endpoint_url() {
@@ -77,7 +77,7 @@ get_bas_endpoint_url() {
 
 get_bas_api_key() {
   uniqstr=$1
-  
+
 }
 
 # Mark provisioning failed
@@ -116,6 +116,8 @@ mark_provisioning_failed() {
     export STATUS_MSG="Failed in uploading deployment context to S3."
   elif [[ $retcode -eq 24 ]]; then
     export STATUS_MSG="Failure in configuring OCP cluster."
+  elif [[ $retcode -eq 25 ]]; then
+    export STATUS_MSG="CNAME or A records already exist."
   fi
   export MESSAGE_TEXT=NA
   export OPENSHIFT_CLUSTER_CONSOLE_URL=NA
@@ -140,8 +142,8 @@ split_ocp_api_url() {
   BASE_DOMAIN=""
   CLUSTER_NAME=""
   oldIFS="$IFS"
-  IFS='.'; for i in $apiurl; do 
-      # echo $i 
+  IFS='.'; for i in $apiurl; do
+      # echo $i
       if [[ $COUNTER -eq 1 ]]; then
           CLUSTER_NAME=$i
       elif [[ $COUNTER -gt 1 ]]; then
@@ -157,7 +159,7 @@ split_ocp_api_url() {
   # echo $CLUSTER_NAME
   BASE_DOMAIN=${BASE_DOMAIN//-/.}
   ## Remove any possible port number provided by user
-  strindex() { 
+  strindex() {
     x="${1%%$2*}"
     [[ "$x" = "$1" ]] && echo -1 || echo "${#x}"
   }

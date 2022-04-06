@@ -135,9 +135,9 @@ export KAFKA_NAMESPACE=amq-streams
 export KAFKA_CLUSTER_NAME=test
 export KAFKA_CLUSTER_SIZE=small
 export KAFKA_USER_NAME=masuser
-# SLS variables 
+# SLS variables
 export SLS_NAMESPACE="ibm-sls-${RANDOM_STR}"
-# BAS variables 
+# BAS variables
 export BAS_NAMESPACE="ibm-bas-${RANDOM_STR}"
 export BAS_PERSISTENT_STORAGE=ocs-storagecluster-cephfs
 export BAS_PASSWORD=basuser
@@ -285,7 +285,7 @@ else
   PRE_VALIDATION=pass
 fi
 log "===== PRE-VALIDATION COMPLETED ($PRE_VALIDATION) ====="
-
+exit 0
 # Prrform the MAS deployment only if pre-validation checks are passed
 if [[ $PRE_VALIDATION == "pass" ]]; then
   ## If user provided input of Openshift API url along with creds, then use the provided details for deployment of other components like CP4D, MAS etc.
@@ -294,7 +294,7 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     log "Openshift cluster details provided"
     # https://api.masocp-cluster.mas4aws.com/
     # https://api.ftmpsl-ocp-dev3.cp.fyre.ibm.com:6443/
-    
+
     log "Debug: before: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
     split_ocp_api_url $EXS_OCP_URL
     log "Debug: after: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
@@ -303,7 +303,7 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     export OPENSHIFT_PASSWORD=$EXS_OCP_PWD
     export OPENSHIFT_USER_PROVIDE="true"
   else
-    ## No input from user. Generate Cluster Name, Username, and Password. 
+    ## No input from user. Generate Cluster Name, Username, and Password.
     echo "Debug: No cluster details or insufficient data provided. Proceed to create new OCP cluster later"
     export CLUSTER_NAME="masocp-${RANDOM_STR}"
     export OPENSHIFT_USER="masocpuser"
