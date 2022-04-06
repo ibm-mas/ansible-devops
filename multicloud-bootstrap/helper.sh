@@ -125,8 +125,8 @@ mark_provisioning_failed() {
   export MAS_URL_WORKSPACE=NA
   export CLUSTER_NAME=NA
   export BASE_DOMAIN=NA
-  export OPENSHIFT_USER=NA
-  export OPENSHIFT_PASSWORD=NA
+  export OCP_USERNAME=NA
+  export OCP_PASSWORD=NA
   export MAS_USER=NA
   export MAS_PASSWORD=NA
   export SLS_URL=NA

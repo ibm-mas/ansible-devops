@@ -75,7 +75,7 @@ if [[ $CLUSTER_TYPE == "aws" ]]; then
     "logs_collected": {
       "files": {
         "collect_list": [{
-          "file_path": "/root/mas-on-aws/mas-provisioning.log",
+          "file_path": "/root/ansible-devops/multicloud-bootstrap/mas-provisioning.log",
           "log_group_name": "/ibm/mas/masocp-${RANDOM_STR}",
           "log_stream_name": "mas-provisioning-logs"
         }]
@@ -112,8 +112,8 @@ fi
 # OCP variables
 export GIT_REPO_HOME=$(pwd)
 export CLUSTER_NAME="masocp-${RANDOM_STR}"
-export OPENSHIFT_USER="masocpuser"
-export OPENSHIFT_PASSWORD=masocp${RANDOM_STR}pass
+export OCP_USERNAME="masocpuser"
+export OCP_PASSWORD=masocp${RANDOM_STR}pass
 export OPENSHIFT_PULL_SECRET_FILE_PATH=${GIT_REPO_HOME}/pull-secret.json
 export MASTER_NODE_COUNT="3"
 export WORKER_NODE_COUNT="3"
@@ -137,6 +137,7 @@ export KAFKA_CLUSTER_SIZE=small
 export KAFKA_USER_NAME=masuser
 # SLS variables 
 export SLS_NAMESPACE="ibm-sls-${RANDOM_STR}"
+export SLS_MONGODB_CFG_FILE="${MAS_CONFIG_DIR}/mongo-${MONGODB_NAMESPACE}.yml"
 # BAS variables 
 export BAS_NAMESPACE="ibm-bas-${RANDOM_STR}"
 export BAS_PERSISTENT_STORAGE=ocs-storagecluster-cephfs
@@ -237,7 +238,7 @@ echo " EMAIL_NOTIFICATION: $EMAIL_NOTIFICATION"
 echo " HOME: $HOME"
 echo " GIT_REPO_HOME: $GIT_REPO_HOME"
 echo " CLUSTER_NAME: $CLUSTER_NAME"
-echo " OPENSHIFT_USER: $OPENSHIFT_USER"
+echo " OCP_USERNAME: $OCP_USERNAME"
 echo " OPENSHIFT_PULL_SECRET_FILE_PATH: $OPENSHIFT_PULL_SECRET_FILE_PATH"
 echo " MASTER_NODE_COUNT: $MASTER_NODE_COUNT"
 echo " WORKER_NODE_COUNT: $WORKER_NODE_COUNT"
@@ -299,15 +300,15 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     split_ocp_api_url $EXS_OCP_URL
     log "Debug: after: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
     # echo $BASE_DOMAIN
-    export OPENSHIFT_USER=$EXS_OCP_USER
-    export OPENSHIFT_PASSWORD=$EXS_OCP_PWD
+    export OCP_USERNAME=$EXS_OCP_USER
+    export OCP_PASSWORD=$EXS_OCP_PWD
     export OPENSHIFT_USER_PROVIDE="true"
   else
     ## No input from user. Generate Cluster Name, Username, and Password. 
     echo "Debug: No cluster details or insufficient data provided. Proceed to create new OCP cluster later"
     export CLUSTER_NAME="masocp-${RANDOM_STR}"
-    export OPENSHIFT_USER="masocpuser"
-    export OPENSHIFT_PASSWORD=masocp${RANDOM_STR}pass
+    export OCP_USERNAME="masocpuser"
+    export OCP_PASSWORD=masocp${RANDOM_STR}pass
     export OPENSHIFT_USER_PROVIDE="false"
   fi
   log " OPENSHIFT_USER_PROVIDE=$OPENSHIFT_USER_PROVIDE"
@@ -315,6 +316,10 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
   # Create Red Hat pull secret
   echo "$OCP_PULL_SECRET" > $OPENSHIFT_PULL_SECRET_FILE_PATH
   chmod 600 $OPENSHIFT_PULL_SECRET_FILE_PATH
+
+  # Create MAS_CONFIG_DIR directory
+  mkdir -p $MAS_CONFIG_DIR  
+  chmod 700 $MAS_CONFIG_DIR
 
   # Call cloud specific script
   chmod +x $CLUSTER_TYPE/*.sh

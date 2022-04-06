@@ -9,7 +9,7 @@ MSG_FILE="aws/notification/email/message-updated.json"
 ## Raw email using SES
 if [[ $STATUS == "SUCCESS" ]]; then
   # Login to OCP cluster
-  oc login -u $OPENSHIFT_USER -p $OPENSHIFT_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
+  oc login -u $OCP_USERNAME -p $OCP_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
   # Collect email details
   certfile="/tmp/${CLUSTER_NAME}-ca.crt"
   retrieve_mas_ca_cert $RANDOM_STR $certfile
@@ -54,8 +54,8 @@ else
     sed -i "s/\[UNIQ-STR\]/$RANDOM_STR/g" $MSG_FILE
     sed -i "s/\[OPENSHIFT-CLUSTER-CONSOLE-URL\]/$OPENSHIFT_CLUSTER_CONSOLE_URL/g" $MSG_FILE
     sed -i "s/\[OPENSHIFT-CLUSTER-API-URL\]/$OPENSHIFT_CLUSTER_API_URL/g" $MSG_FILE
-    sed -i "s/\[OCP-USER\]/$OPENSHIFT_USER/g" $MSG_FILE
-    sed -i "s/\[OCP-PASSWORD\]/$OPENSHIFT_PASSWORD/g" $MSG_FILE
+    sed -i "s/\[OCP-USER\]/$OCP_USERNAME/g" $MSG_FILE
+    sed -i "s/\[OCP-PASSWORD\]/$OCP_PASSWORD/g" $MSG_FILE
     sed -i "s/\[MAS-URL-INIT-SETUP\]/$MAS_URL_INIT_SETUP/g" $MSG_FILE
     sed -i "s/\[MAS-URL-ADMIN\]/$MAS_URL_ADMIN/g" $MSG_FILE
     sed -i "s/\[MAS-URL-WORKSPACE\]/$MAS_URL_WORKSPACE/g" $MSG_FILE
@@ -76,7 +76,7 @@ else
     sed -i "s/\[STATUS\]/$STATUS/g" $MSG_FILE
     sed -i "s/\[REGION\]/$DEPLOY_REGION/g" $MSG_FILE
     sed -i "s/\[UNIQ-STR\]/$RANDOM_STR/g" $MSG_FILE
-    sed -i "s/\[OCP-PASSWORD\]/$OPENSHIFT_PASSWORD/g" $MSG_FILE
+    sed -i "s/\[OCP-PASSWORD\]/$OCP_PASSWORD/g" $MSG_FILE
     sed -i "s/\[MAS-PASSWORD\]/$MAS_PASSWORD/g" $MSG_FILE
     sed -i "s/\[CA-CERT\]/$certcontents/g" $MSG_FILE
     log "Sending email using below file ..."
