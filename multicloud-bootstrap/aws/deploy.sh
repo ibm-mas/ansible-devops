@@ -16,8 +16,6 @@ IAM_POLICY_NAME="masocp-policy-${RANDOM_STR}"
 IAM_USER_NAME="masocp-user-${RANDOM_STR}"
 # SLS variables 
 export SLS_STORAGE_CLASS=gp2
-# BAS variables 
-export BAS_META_STORAGE=gp2
 # CP4D variables
 export CPD_BLOCK_STORAGE_CLASS=gp2
 
@@ -34,7 +32,6 @@ echo " KAFKA_STORAGE_CLASS: $KAFKA_STORAGE_CLASS"
 echo " IAM_POLICY_NAME: $IAM_POLICY_NAME"
 echo " IAM_USER_NAME: $IAM_USER_NAME"
 echo " SLS_STORAGE_CLASS: $SLS_STORAGE_CLASS"
-echo " BAS_META_STORAGE: $BAS_META_STORAGE"
 echo " CPD_BLOCK_STORAGE_CLASS: $CPD_BLOCK_STORAGE_CLASS"
 echo " SSH_PUB_KEY: $SSH_PUB_KEY"
 
@@ -55,7 +52,7 @@ fi
 if [[ -f sls.crt ]]; then
   chmod 600 sls.crt
 fi
-# Download BAS certificate
+# Download UDS certificate
 cd $GIT_REPO_HOME
 if [[ ${BAS_PUB_CERT_URL,,} =~ ^https? ]]; then
   log "Downloading BAS certificate from HTTP URL"
@@ -250,13 +247,13 @@ else
     log "=== Generated SLS Config YAML ==="
 fi
 
-#BAS Deployment
+#UDS Deployment
 if [[ (-z $BAS_API_KEY) || (-z $BAS_ENDPOINT_URL) || (-z $BAS_PUB_CERT_URL) ]]
 then
-    ## Deploy BAS
-    log "==== BAS deployment started ===="
+    ## Deploy UDS
+    log "==== UDS deployment started ===="
     ansible-playbook dependencies/install-uds.yml
-    log "==== BAS deployment completed ===="
+    log "==== UDS deployment completed ===="
 
 else
     log "=== Using Existing BAS Deployment ==="
