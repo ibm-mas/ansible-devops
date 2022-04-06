@@ -16,4 +16,5 @@ output "openshift_username" {
 output "openshift_password" {
   description = "password for OpenShift web console and api"
   value       = var.openshift_password
+  sensitive = true
 }

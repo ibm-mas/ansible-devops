@@ -4,6 +4,7 @@ provider "aws" {
   secret_key = var.secret_access_key
 }
 
+
 data "aws_availability_zones" "azs" {}
 
 locals {
@@ -141,28 +142,6 @@ module "ocp" {
   ]
 }
 
-module "portworx" {
-  count                 = var.portworx_enterprise.enable || var.portworx_essentials.enable || var.portworx_ibm.enable ? 1 : 0
-  source                = "./portworx"
-  openshift_api         = local.openshift_api
-  openshift_username    = local.openshift_username
-  openshift_password    = local.openshift_password
-  openshift_token       = var.existing_openshift_token
-  installer_workspace   = local.installer_workspace
-  region                = var.region
-  aws_access_key_id     = var.access_key_id
-  aws_secret_access_key = var.secret_access_key
-  portworx_enterprise   = var.portworx_enterprise
-  portworx_essentials   = var.portworx_essentials
-  portworx_ibm          = var.portworx_ibm
-
-  depends_on = [
-    module.ocp,
-    module.network,
-    null_resource.aws_configuration,
-  ]
-}
-
 module "ocs" {
   count               = var.ocs.enable ? 1 : 0
   source              = "./ocs"
@@ -187,52 +166,3 @@ module "ocs" {
     null_resource.aws_configuration,
   ]
 }
-
-# module "cpd" {
-#   count                     = var.accept_cpd_license == "accept" ? 1 : 0
-#   source                    = "./cpd"
-#   openshift_api             = var.existing_cluster ? var.existing_openshift_api : module.ocp[0].openshift_api
-#   openshift_username        = var.existing_cluster ? var.existing_openshift_username : module.ocp[0].openshift_username
-#   openshift_password        = var.existing_cluster ? var.existing_openshift_password : module.ocp[0].openshift_password
-#   openshift_token           = var.existing_openshift_token
-#   installer_workspace       = local.installer_workspace
-#   accept_cpd_license        = var.accept_cpd_license
-#   cpd_external_registry     = var.cpd_external_registry
-#   cpd_external_username     = var.cpd_external_username
-#   cpd_api_key               = var.cpd_api_key
-#   cpd_namespace             = var.cpd_namespace
-#   cloudctl_version          = var.cloudctl_version
-#   storage_option            = var.ocs.enable ? "ocs" : "portworx"
-#   cpd_platform              = var.cpd_platform
-#   data_virtualization       = var.data_virtualization
-#   analytics_engine          = var.analytics_engine
-#   watson_knowledge_catalog  = var.watson_knowledge_catalog
-#   watson_studio             = var.watson_studio
-#   watson_machine_learning   = var.watson_machine_learning
-#   watson_ai_openscale       = var.watson_ai_openscale
-#   cognos_dashboard_embedded = var.cognos_dashboard_embedded
-#   datastage                 = var.datastage
-#   db2_warehouse             = var.db2_warehouse
-#   cognos_analytics          = var.cognos_analytics
-#   spss_modeler              = var.spss_modeler
-#   data_management_console   = var.data_management_console
-#   db2_oltp                  = var.db2_oltp
-#   master_data_management    = var.master_data_management
-#   db2_aaservice             = var.db2_aaservice
-#   decision_optimization     = var.decision_optimization
-#   planning_analytics        = var.planning_analytics
-#   bigsql                    = var.bigsql
-#   watson_assistant          = var.watson_assistant
-#   watson_discovery          = var.watson_discovery
-#   openpages                 = var.openpages
-#   cluster_type              = local.cluster_type
-#   login_string              = "oc login ${local.openshift_api} -u ${local.openshift_username} -p ${local.openshift_password} --insecure-skip-tls-verify=true"
-  
-#   depends_on = [
-#     module.ocp,
-#     module.network,
-#     module.portworx,
-#     module.ocs,
-#     null_resource.aws_configuration,
-#   ]
-# }

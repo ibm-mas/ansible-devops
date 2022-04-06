@@ -16,7 +16,9 @@ output "openshift_username" {
 output "openshift_password" {
   description = "Password for OpenShift web console"
   value       = var.openshift_password
+  sensitive = true
 }
+
 
 # output "cpd_url" {
 #   description = "URL for cpd web console"
