@@ -198,6 +198,7 @@ log "==== mas_devops collection installation completed ===="
 
 ls /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/gencfg_uds/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+y | cp -r /root/ansible-devops/ibm/mas_devops/roles/ocp_verify/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 ls /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 
 ## Configure OCP cluster
