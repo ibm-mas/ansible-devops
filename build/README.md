@@ -19,36 +19,3 @@ When a build contains multiple commits the most significant commit "wins".
 
 Commits in **Unmanaged Branches** will still result in a new build, but any artifacts published will overwrite the previous release. Effectively there is only a latest version for these branches.
 
-
-## Setup symlinks for docs:
-Incase these get messed up for any reason:
-
-```
-cd docs/roles
-ROLE=amqstreams; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=ansible_version_check; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=cp4d_db2wh; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=cp4d_db2wh_manage_hack; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=cp4d_hack_worker_nodes; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=cp4d_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=cp4d_install_services; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=install_operator; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=mongodb; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=ocp_deprovision; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=ocp_login; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=ocp_provision; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=ocp_setup_github_oauth; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=ocp_setup_mas_deps; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=ocp_setup_ocs; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=ocp_verify; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=sls_gencfg; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=sls_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=suite_app_configure; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=suite_app_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=suite_config; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=suite_dns; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=suite_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=suite_mustgather; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=suite_verify; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-ROLE=uds_install; ln -s ../../ibm/mas_devops/roles/$ROLE/README.md $ROLE.md
-```

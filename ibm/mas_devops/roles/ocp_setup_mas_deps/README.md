@@ -15,6 +15,12 @@ For MAS 8.6 or earlier (or when running MAS 8.7 on OCP 4.6) Service Binding Oper
 
 Role Variables
 --------------
+### ocp_disable_upgrade
+Set this to `true` to instruct the role to disable automatic OCP upgrades in the cluster.
+
+- Environment Variable: None
+- Default Value: `false`
+
 ### artifactory_username
 Use to enable the install of development catalog sources for pre-release installation.
 

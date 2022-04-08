@@ -20,7 +20,6 @@
 - name: "Configure domain"
   set_fact:
     mas_domain: "{{ (custom_domain != '') | ternary (custom_domain, mas_instance_id ~ '.' ~ _cluster_subdomain.resources[0].spec.domain) }}"
-    mas_catalog_source: "{{ lookup('env', 'MAS_CATALOG_SOURCE') | default('ibm-operator-catalog', true) }}"
 
 
 # 3. Provide debug information
@@ -40,6 +39,7 @@
       - "MAS ICR cp content ........... {{ mas_icr_cp }}"
       - "MAS ICR cpopen content ....... {{ mas_icr_cpopen }}"
       - "MAS Custom Cluster Issue ..... {{ custom_cluster_issuer }}"
+      - "MAS Subcription Upgrade ...... {{ mas_upgrade_strategy }}"
 
 # 4. Install the operator
 # -----------------------------------------------------------------------------
@@ -52,6 +52,34 @@
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
+- name: Lookup and Approve MAS Subscription
+  block:
+    - name: Lookup Operator install plan
+      community.kubernetes.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: InstallPlan
+        namespace: "{{ mas_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/ibm-mas.{{ mas_namespace }}"
+      register: mas_install_plan
+      retries: 20
+      delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+      until: mas_install_plan.resources | length > 0
+    - name: Approve the subscription install plan
+      when:
+        - mas_install_plan.resources | length > 0
+        - mas_install_plan.resources[0].status.phase != "Complete"
+      community.kubernetes.k8s:
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: InstallPlan
+          metadata:
+            name: "{{ mas_install_plan.resources[0].metadata.name }}"
+            namespace: "{{ mas_namespace }}"
+          spec:
+            approved: true
+  when:
+    - mas_upgrade_strategy == 'Manual'
 
 # 5. Wait until the Suite CRD is available
 # -----------------------------------------------------------------------------
@@ -111,3 +139,13 @@
     state: present
     namespace: "{{ mas_namespace }}"
     definition: "{{ cr_definition }}"
+
+# 9. Handle IBM Common Services Install plan approvals when upgragre strategy is set to Manual
+# ibm-common-services operators deployed by MAS will inherit the inherit MAS upgrade strategy
+# when its set to Manual, we need to interate those to ensure we do approve the first install plan
+# otherwise MAS installation wont succeed.
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/ibm-common-services.yml
+  loop: "{{ibm_common_services_subscription_labels}}"
+  when:
+    - mas_upgrade_strategy == 'Manual'

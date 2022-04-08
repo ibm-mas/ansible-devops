@@ -59,20 +59,6 @@ Before you use this playbook you will likely want to edit the `mas_config_dir` v
 - `SLS_LICENSE_ID` Must be set to the license id specified in the license file when one is provided
 - `SLS_REGISTRATION_KEY` optional var when you want to install sls using a registration key you have.
 
-## Install AppConnect
-AppConnect will be installed into the `ibm-app-connect` namespace, using `ibmc-file-gold-gid` as the storage class.  The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
-
-Refer to the [appconnect_install](../roles/appconnect_install.md) role documentation for more information.
-
-```bash
-export APPCONNECT_STORAGE_CLASS=ibmc-file-gold-gid
-export APPCONNECT_ENTITLEMENT_KEY=xxx
-export MAS_INSTANCE_ID=masdev1
-export MAS_CONFIG_DIR=~/masconfig
-
-ansible-playbook playbooks/dependencies/install-appconnect.yml
-```
-
 ### Example usage: release build
 
 ```bash
@@ -106,3 +92,50 @@ ansible-playbook playbooks/dependencies/install-sls.yml
 
 !!! important
     You must have already installed the development (pre-release) catalogs, pre-release builds are not available directly from the IBM Operator Catalog.
+
+
+## Install AppConnect
+AppConnect will be installed into the `ibm-app-connect` namespace, using `ibmc-file-gold-gid` as the storage class.  The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
+
+Refer to the [appconnect_install](../roles/appconnect_install.md) role documentation for more information.
+
+```bash
+export APPCONNECT_STORAGE_CLASS=ibmc-file-gold-gid
+export APPCONNECT_ENTITLEMENT_KEY=xxx
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
+
+ansible-playbook playbooks/dependencies/install-appconnect.yml
+```
+
+
+## Install GPU
+Installs **NVIDIA Graphical Processing Unit (GPU)** and its prerequisite **Node Feature Discovery (NFD)**. The NFD Operator is installed using the Red Hat Operators catalog source and the GPU operator is installed using the Certified Operators catalog source. 
+
+Refer to the [gpu_install](../roles/gpu_install.md) role documentation for more information.
+
+### Example usage: 
+
+```bash
+export NFD_NAMESPACE=nfd-operator
+export NFD_CHANNEL=stable
+export GPU_NAMESPACE=nvidia-gpu-operator
+export GPU_CHANNEL=v1.9
+
+ansible-playbook playbooks/dependencies/install-gpu.yml
+```
+
+
+## Install DB2
+Installs **IBM DB2** using the db2u operator. Refer to the [db2u] role documentation for more information. The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
+
+```bash
+export DB2U_META_STORAGE_CLASS=ibmc-file-gold
+export DB2U_DATA_STORAGE_CLASS=ibmc-block-gold
+export DB2U_INSTANCE_NAME=db2u-db01
+export ENTITLEMENT_KEY=xxx
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
+
+ansible-playbook playbooks/dependencies/install-db2.yml
+```

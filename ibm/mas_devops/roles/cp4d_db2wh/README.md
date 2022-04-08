@@ -40,6 +40,12 @@ This role will install a daemonset which applies the `no_root_squash` NFS mount 
 Role Variables
 --------------
 
+### db2wh_namespace
+Only supported when using CloudPak for Data v4.0, otherwise unused. For v3.5 support the value is always set to `cpd-meta-ops`.
+
+- Environment Variable: `DB2WH_NAMESPACE`
+- Default Value: `cpd-services`
+
 ### db2wh_instance_name
 Required.  Name of the database instance, note that this is the instance **name**, which is different from the instance **ID**.
 
@@ -209,7 +215,7 @@ The name of the worker node to apply the {{ db2wh_node_label }} taint and label 
 - Default: None
 
 ### db2wh_mln_count
-The number of logical nodes (i.e. database partitions to create).
+The number of logical nodes (i.e. database partitions to create). Note: ensure that the application using this DB2 can support DB2 MPP (which is created when DB2U_MLN_COUNT is > 1). As of MAS 8.7 no MAS application supports MPP.
 
 - Environment Variable: `'DB2WH_MLN_COUNT`
 - Default: 1
