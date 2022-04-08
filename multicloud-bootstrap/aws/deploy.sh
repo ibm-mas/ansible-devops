@@ -213,7 +213,9 @@ ls /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/gencfg_uds/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/ocp_verify/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/uds_install/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+cp -r /root/ansible-devops/ibm/mas_devops/roles/gencfg_uds/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/cp4d_install_services/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+cp -r /root/ansible-devops/ibm/mas_devops/roles/cp4d_db2wh/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 ls /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 
 ## Configure OCP cluster
@@ -288,18 +290,16 @@ if [[ $DEPLOY_CP4D == "true" ]]; then
   ansible-playbook cp4d/create-db2-instance.yml
   log "==== CP4D deployment completed ===="
 fi
+
+## Create MAS Workspace
+log "==== MAS Workspace generation started ===="
+ansible-playbook mas/gencfg-workspace.yml
+log "==== MAS Workspace generation completed ===="
+
 if [[ $DEPLOY_MANAGE == "true" ]]; then
-  # Deploy Manage
-
-  if [[ (-z $MAS_JDBC_USER) || (-z $MAS_JDBC_PASSWORD) || (-z $MAS_JDBC_URL) || (-z $MAS_JDBC_CERT_URL) ]]; then
-
-    log "Skipping the JDBC configuration"
-  else
-    # Configure JDBC
-    log "==== Configure JDBC  started ===="
-    ansible-playbook mas/configure-suite-db.yml
-    log "==== Configure JDBC completed ===="
-  fi
+  log "==== Configure JDBC  started ===="
+  ansible-playbook mas/configure-suite-db.yml
+  log "==== Configure JDBC completed ===="
 fi
 
 ## Deploy MAS
@@ -311,15 +311,11 @@ log "==== MAS deployment completed ===="
 if [[ $DEPLOY_MANAGE == "true" ]]; then
   # Deploy Manage
   log "==== MAS Manage deployment started ===="
-
   ansible-playbook mas/install-app.yml
   log "==== MAS Manage deployment completed ===="
-  if [[ (-z $MAS_JDBC_USER) || (-z $MAS_JDBC_PASSWORD) || (-z $MAS_JDBC_URL) || (-z $MAS_JDBC_CERT_URL) ]]; then
-    log "Skipping the Manage app configuration"
-  else
-      # Configure app to use the DB
-    log "==== MAS Manage configure app started ===="
-    ansible-playbook mas/configure-app.yml
-    log "==== MAS Manage configure app completed ===="
-  fi
+  
+  # Configure app to use the DB
+  log "==== MAS Manage configure app started ===="
+  ansible-playbook mas/configure-app.yml
+  log "==== MAS Manage configure app completed ===="
 fi

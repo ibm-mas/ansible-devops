@@ -164,6 +164,7 @@ export DB2WH_NAMESPACE="cpd-services-${RANDOM_STR}"
 # Manage variables
 export MAS_APP_ID=manage
 export MAS_WORKSPACE_ID="wsmasocp"
+export MAS_WORKSPACE_NAME="wsmasocp"
 export MAS_JDBC_CERT_LOCAL_FILE=$GIT_REPO_HOME/db.crt
 export MAS_CLOUD_AUTOMATION_VERSION=1.0
 
