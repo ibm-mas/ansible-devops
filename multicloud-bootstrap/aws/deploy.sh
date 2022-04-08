@@ -202,6 +202,7 @@ cp -r /root/ansible-devops/ibm/mas_devops/roles/gencfg_uds/ /root/.ansible/colle
 cp -r /root/ansible-devops/ibm/mas_devops/roles/ocp_verify/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/uds_install/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/cp4d_install_services/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+cp -r /root/ansible-devops/ibm/mas_devops/roles/cp4d_db2wh/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 ls /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 
 ## Configure OCP cluster
