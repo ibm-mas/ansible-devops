@@ -192,4 +192,12 @@ else
         SCRIPT_STATUS=18
     fi
 fi
+
+# Validate non-empty sendgrid API key(SENDGRID_API_KEY) and recipient(RECEPIENT) email id when email notification is set to true.
+if [[ $EMAIL_NOTIFICATION == "true" ]]; then
+    if [[ (-z $SENDGRID_API_KEY) || (-z $RECEPIENT) ]]; then
+        log "ERROR: Missing Sendgrid API key or Recipeient email address."
+    fi
+fi
+
 exit $SCRIPT_STATUS

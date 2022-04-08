@@ -17,13 +17,13 @@ retrieve_mas_ca_cert() {
     if [[ $? -eq 1 ]]; then
       log "OCP secret mas-${uniqstr}-cert-public-ca not found ($counter), waiting ..."
       sleep 30
-      counter=$((counter+1))
+      counter=$((counter + 1))
       continue
     else
       log "OCP secret mas-${uniqstr}-cert-public-ca found"
       found="true"
     fi
-    oc get secret mas-${uniqstr}-cert-public-ca -n ibm-common-services -o yaml | grep ca.crt | cut -d ':' -f 2 | tr -d " ,\"" | base64 -d > $filepath
+    oc get secret mas-${uniqstr}-cert-public-ca -n ibm-common-services -o yaml | grep ca.crt | cut -d ':' -f 2 | tr -d " ,\"" | base64 -d >$filepath
   done
 }
 
@@ -38,7 +38,7 @@ get_mas_creds() {
     if [[ $? -eq 1 ]]; then
       log "OCP secret mas-${uniqstr}-credentials-superuser not found ($counter), waiting ..."
       sleep 30
-      counter=$((counter+1))
+      counter=$((counter + 1))
       continue
     else
       log "OCP secret mas-${uniqstr}-credentials-superuser found"
@@ -118,6 +118,8 @@ mark_provisioning_failed() {
     export STATUS_MSG="Failure in configuring OCP cluster."
   elif [[ $retcode -eq 25 ]]; then
     export STATUS_MSG="CNAME or A records already exist."
+  elif [[ $retcode -eq 26 ]]; then
+    export STATUS_MSG="You have opted for email notification but did not specify SendGrid API key and/or recipient email address."
   fi
   export MESSAGE_TEXT=NA
   export OPENSHIFT_CLUSTER_CONSOLE_URL=NA
@@ -142,18 +144,19 @@ split_ocp_api_url() {
   BASE_DOMAIN=""
   CLUSTER_NAME=""
   oldIFS="$IFS"
-  IFS='.'; for i in $apiurl; do
-      # echo $i
-      if [[ $COUNTER -eq 1 ]]; then
-          CLUSTER_NAME=$i
-      elif [[ $COUNTER -gt 1 ]]; then
-          if [[ $COUNTER -eq 2 ]]; then
-              BASE_DOMAIN=$i
-          else
-              BASE_DOMAIN=$BASE_DOMAIN"-"$i
-          fi
+  IFS='.'
+  for i in $apiurl; do
+    # echo $i
+    if [[ $COUNTER -eq 1 ]]; then
+      CLUSTER_NAME=$i
+    elif [[ $COUNTER -gt 1 ]]; then
+      if [[ $COUNTER -eq 2 ]]; then
+        BASE_DOMAIN=$i
+      else
+        BASE_DOMAIN=$BASE_DOMAIN"-"$i
       fi
-      COUNTER=$((COUNTER + 1 ))
+    fi
+    COUNTER=$((COUNTER + 1))
   done
   IFS="$oldIFS"
   # echo $CLUSTER_NAME
@@ -163,10 +166,10 @@ split_ocp_api_url() {
     x="${1%%$2*}"
     [[ "$x" = "$1" ]] && echo -1 || echo "${#x}"
   }
-  colIndex=`strindex $BASE_DOMAIN ":"`
+  colIndex=$(strindex $BASE_DOMAIN ":")
   if [[ $colIndex -ge 0 ]]; then
-      port=${BASE_DOMAIN:$colIndex:6}
-      BASE_DOMAIN="${BASE_DOMAIN/$port/}"
+    port=${BASE_DOMAIN:$colIndex:6}
+    BASE_DOMAIN="${BASE_DOMAIN/$port/}"
   fi
 
   export CLUSTER_NAME=$CLUSTER_NAME
