@@ -197,6 +197,7 @@ fi
 if [[ $EMAIL_NOTIFICATION == "true" ]]; then
     if [[ (-z $SENDGRID_API_KEY) || (-z $RECEPIENT) ]]; then
         log "ERROR: Missing Sendgrid API key or Recipeient email address."
+        SCRIPT_STATUS=26
     fi
 fi
 
