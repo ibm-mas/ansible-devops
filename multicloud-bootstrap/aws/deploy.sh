@@ -193,15 +193,15 @@ fi
 
 log "==== Adding ER key details to OCP default pull-secret ===="
 cd /tmp
-  # Login to OCP cluster
-  oc login -u $OCP_USERNAME -p $OCP_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
-  oc extract secret/pull-secret -n openshift-config --keys=.dockerconfigjson --to=. --confirm
-  export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | tr -d '\n' | base64 -w0)
-  ##export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | base64 -w0)
-  export emailAddress=$(cat .dockerconfigjson | jq -r '.auths["cloud.openshift.com"].email')
-  jq '.auths |= . + {"cp.icr.io": { "auth" : "$encodedEntitlementKey", "email" : "$emailAddress"}}' .dockerconfigjson > /tmp/dockerconfig.json
-  envsubst < /tmp/dockerconfig.json > /tmp/.dockerconfigjson
-  oc set data secret/pull-secret -n openshift-config --from-file=/tmp/.dockerconfigjson
+# Login to OCP cluster
+oc login -u $OCP_USERNAME -p $OCP_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
+oc extract secret/pull-secret -n openshift-config --keys=.dockerconfigjson --to=. --confirm
+export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | tr -d '\n' | base64 -w0)
+##export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | base64 -w0)
+export emailAddress=$(cat .dockerconfigjson | jq -r '.auths["cloud.openshift.com"].email')
+jq '.auths |= . + {"cp.icr.io": { "auth" : "$encodedEntitlementKey", "email" : "$emailAddress"}}' .dockerconfigjson > /tmp/dockerconfig.json
+envsubst < /tmp/dockerconfig.json > /tmp/.dockerconfigjson
+oc set data secret/pull-secret -n openshift-config --from-file=/tmp/.dockerconfigjson
 
 ## Installing the collection from ansible-galaxy
 log "==== mas_devops collection installation started ===="
@@ -213,7 +213,6 @@ ls /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/gencfg_uds/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/ocp_verify/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/uds_install/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
-cp -r /root/ansible-devops/ibm/mas_devops/roles/gencfg_uds/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/cp4d_install_services/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 cp -r /root/ansible-devops/ibm/mas_devops/roles/cp4d_db2wh/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
 ls /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
