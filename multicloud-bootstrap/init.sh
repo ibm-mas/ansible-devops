@@ -137,23 +137,12 @@ export KAFKA_CLUSTER_SIZE=small
 export KAFKA_USER_NAME=masuser
 # SLS variables
 export SLS_NAMESPACE="ibm-sls-${RANDOM_STR}"
-<<<<<<< HEAD
 export SLS_MONGODB_CFG_FILE="${MAS_CONFIG_DIR}/mongo-${MONGODB_NAMESPACE}.yml"
 # UDS variables
 export UDS_STORAGE_CLASS=gp2
 export UDS_CONTACT_EMAIL="uds.support@ibm.com"
 export UDS_CONTACT_FIRSTNAME=Uds
 export UDS_CONTACT_LASTNAME=Support
-=======
-# BAS variables
-export BAS_NAMESPACE="ibm-bas-${RANDOM_STR}"
-export BAS_PERSISTENT_STORAGE=ocs-storagecluster-cephfs
-export BAS_PASSWORD=basuser
-export BAS_CONTACT_MAIL="bas.support@ibm.com"
-export BAS_CONTACT_FIRSTNAME=Bas
-export BAS_CONTACT_LASTNAME=Support
-export GRAPHANA_PASSWORD=password
->>>>>>> origin/master
 # MAS variables
 #export MAS_ENTITLEMENT_KEY=$SLS_ENTITLEMENT_KEY
 # CP4D variables
