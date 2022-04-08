@@ -149,16 +149,16 @@ EOT
   log "==== OCP cluster creation completed ===="
 
 ## Add ER Key to global pull secret
-  cd /tmp
-  # Login to OCP cluster
-  oc login -u $OCP_USERNAME -p $OCP_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
-  oc extract secret/pull-secret -n openshift-config --keys=.dockerconfigjson --to=. --confirm
-  export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | tr -d '\n' | base64 -w0)
-  ##export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | base64 -w0)
-  export emailAddress=$(cat .dockerconfigjson | jq -r '.auths["cloud.openshift.com"].email')
-  jq '.auths |= . + {"cp.icr.io": { "auth" : "$encodedEntitlementKey", "email" : "$emailAddress"}}' .dockerconfigjson > /tmp/dockerconfig.json
-  envsubst < /tmp/dockerconfig.json > /tmp/.dockerconfigjson
-  oc set data secret/pull-secret -n openshift-config --from-file=/tmp/.dockerconfigjson
+#   cd /tmp
+#   # Login to OCP cluster
+#   oc login -u $OCP_USERNAME -p $OCP_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
+#   oc extract secret/pull-secret -n openshift-config --keys=.dockerconfigjson --to=. --confirm
+#   export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | tr -d '\n' | base64 -w0)
+#   ##export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | base64 -w0)
+#   export emailAddress=$(cat .dockerconfigjson | jq -r '.auths["cloud.openshift.com"].email')
+#   jq '.auths |= . + {"cp.icr.io": { "auth" : "$encodedEntitlementKey", "email" : "$emailAddress"}}' .dockerconfigjson > /tmp/dockerconfig.json
+#   envsubst < /tmp/dockerconfig.json > /tmp/.dockerconfigjson
+#   oc set data secret/pull-secret -n openshift-config --from-file=/tmp/.dockerconfigjson
 
   ## Create bastion host
   cd $GIT_REPO_HOME/aws
@@ -190,6 +190,18 @@ EOT
 else
   log "==== Existing OCP cluster provided, skipping the cluster creation, Bastion host creation and S3 upload of deployment context ===="
 fi
+
+log "==== Adding ER key details to OCP default pull-secret ===="
+cd /tmp
+  # Login to OCP cluster
+  oc login -u $OCP_USERNAME -p $OCP_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
+  oc extract secret/pull-secret -n openshift-config --keys=.dockerconfigjson --to=. --confirm
+  export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | tr -d '\n' | base64 -w0)
+  ##export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | base64 -w0)
+  export emailAddress=$(cat .dockerconfigjson | jq -r '.auths["cloud.openshift.com"].email')
+  jq '.auths |= . + {"cp.icr.io": { "auth" : "$encodedEntitlementKey", "email" : "$emailAddress"}}' .dockerconfigjson > /tmp/dockerconfig.json
+  envsubst < /tmp/dockerconfig.json > /tmp/.dockerconfigjson
+  oc set data secret/pull-secret -n openshift-config --from-file=/tmp/.dockerconfigjson
 
 ## Installing the collection from ansible-galaxy
 log "==== mas_devops collection installation started ===="
