@@ -78,13 +78,13 @@ if [[ $DEPLOY_MANAGE == "true" ]]; then
         else
             log "Downloading DB certificate"
             cd $GIT_REPO_HOME
-            if [[ $CLOUD_TYPE == "aws" ]]; then
+            if [[ $CLUSTER_TYPE == "aws" ]]; then
                 if [[ ${MAS_JDBC_CERT_URL,,} =~ ^s3 ]]; then
                     aws s3 cp "$MAS_JDBC_CERT_URL" db.crt
                 elif [[ ${MAS_JDBC_CERT_URL,,} =~ ^https? ]]; then
                     wget "$MAS_JDBC_CERT_URL" -O db.crt
                 fi
-            elif [[ $CLOUD_TYPE == "azure" ]]; then
+            elif [[ $CLUSTER_TYPE == "azure" ]]; then
                 # https://myaccount.blob.core.windows.net/mycontainer/myblob regex
                 if [[ ${MAS_JDBC_CERT_URL,,} =~ ^https://.+blob\.core\.windows\.net.+ ]]; then
                     azcopy copy "$MAS_JDBC_CERT_URL" db.crt
