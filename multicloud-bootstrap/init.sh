@@ -285,7 +285,7 @@ else
   PRE_VALIDATION=pass
 fi
 log "===== PRE-VALIDATION COMPLETED ($PRE_VALIDATION) ====="
-exit 0
+
 # Prrform the MAS deployment only if pre-validation checks are passed
 if [[ $PRE_VALIDATION == "pass" ]]; then
   ## If user provided input of Openshift API url along with creds, then use the provided details for deployment of other components like CP4D, MAS etc.
