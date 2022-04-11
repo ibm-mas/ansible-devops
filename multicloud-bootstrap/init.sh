@@ -143,8 +143,6 @@ export UDS_STORAGE_CLASS=gp2
 export UDS_CONTACT_EMAIL="uds.support@ibm.com"
 export UDS_CONTACT_FIRSTNAME=Uds
 export UDS_CONTACT_LASTNAME=Support
-# MAS variables
-#export MAS_ENTITLEMENT_KEY=$SLS_ENTITLEMENT_KEY
 # CP4D variables
 export CPD_ENTITLEMENT_KEY=$SLS_ENTITLEMENT_KEY
 export CPD_VERSION=cpd40
@@ -161,10 +159,12 @@ export DB2WH_TEMP_STORAGE_CLASS=ocs-storagecluster-cephfs
 export DB2WH_INSTANCE_NAME=db2wh-db01
 export DB2WH_VERSION=11.5.7.0-cn1
 export DB2WH_NAMESPACE="cpd-services-${RANDOM_STR}"
-# Manage variables
-export MAS_APP_ID=manage
+# MAS variables
+#export MAS_ENTITLEMENT_KEY=$SLS_ENTITLEMENT_KEY
 export MAS_WORKSPACE_ID="wsmasocp"
 export MAS_WORKSPACE_NAME="wsmasocp"
+export MAS_CONFIG_SCOPE="wsapp"
+export MAS_APP_ID=manage
 export MAS_JDBC_CERT_LOCAL_FILE=$GIT_REPO_HOME/db.crt
 export MAS_CLOUD_AUTOMATION_VERSION=1.0
 
