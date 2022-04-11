@@ -26,7 +26,7 @@
     namespace: "ibm-common-services"
   register: uds_endpoint
 
-- name: "Fail if we didn't find the bas-endpoint route"
+- name: "Fail if we didn't find the uds-endpoint route"
   assert:
     that: uds_endpoint.resources | length == 1
     fail_msg: "Failed looking up UDS endpoint route"
@@ -126,21 +126,8 @@
   set_fact:
     uds_tls_crt: "{{ uds_certificate_lookup.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
 
-# 5.5 If bas_tls_crt is still unset, then we've failed
+# 5.5 If uds_tls_crt is still unset, then we've failed
 - name: "Fail if we can't find the secret containing the UDS certificates"
   assert:
     that: uds_tls_crt is defined
     fail_msg: "Failed looking up secret containing UDS certificates from the default or custom router certificates secret"
-
-
-# 6. Write out the config to the local filesystem
-# -----------------------------------------------------------------------------
-- name: Copy BASCfg to filesytem
-  when:
-    - mas_instance_id is defined
-    - mas_instance_id != ""
-    - mas_config_dir is defined
-    - mas_config_dir != ""
-  ansible.builtin.template:
-    src: bascfg.yml.j2
-    dest: "{{ mas_config_dir }}/bas-ibm-common-services.yml"
