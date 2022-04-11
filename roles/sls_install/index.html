@@ -129,6 +129,8 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#sls_entitlement_key">sls_entitlement_key</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#sls_catalog_source">sls_catalog_source</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#sls_channel">sls_channel</a>
@@ -142,8 +144,6 @@
     <li class="toctree-l3"><a class="reference internal" href="#sls_instance_name">sls_instance_name</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#sls_entitlement_username">sls_entitlement_username</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#sls_entitlement_key">sls_entitlement_key</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#sls_storage_class">sls_storage_class</a>
     </li>
@@ -161,7 +161,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#bootstrapregistration_key">bootstrap.registration_key</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#bootstrapentitlement_file">bootstrap.entitlement_file</a>
+    <li class="toctree-l3"><a class="reference internal" href="#bootstraplicense_file">bootstrap.license_file</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#sls_mongodb_cfg_file">sls_mongodb_cfg_file</a>
     </li>
@@ -225,16 +225,23 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="sls_install">sls_install<a class="headerlink" href="#sls_install" title="Permanent link"></a></h1>
-<p>Install <strong>IBM Suite License Service</strong> and generate properties that can be used in the <code>sls_gencfg</code> role to create a configuration that can be directly applied to IBM Maximo Application Suite.</p>
+<p>Install <strong>IBM Suite License Service</strong> and generate properties that can be used in the <a href="../gencfg_sls/">gencfg_sls</a> role to create a configuration that can be directly applied to IBM Maximo Application Suite.</p>
+<p>The role assumes that you have already installed the Certificate Manager in the target cluster.  This action is performed by the <a href="../ocp_setup_mas_deps/">ocp_setup_mas_deps</a> role if you want to use this collection to install the cert-manager operator.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="sls_entitlement_key">sls_entitlement_key<a class="headerlink" href="#sls_entitlement_key" title="Permanent link"></a></h3>
+<p>Required.  API Key for entitled registry. This password will be used to create the image pull secret.</p>
+<ul>
+<li>Environment Variable: <code>SLS_ENTITLEMENT_KEY</code> or <code>IBM_ENTITLEMENT_KEY</code></li>
+<li>Default: None</li>
+</ul>
 <h3 id="sls_catalog_source">sls_catalog_source<a class="headerlink" href="#sls_catalog_source" title="Permanent link"></a></h3>
-<p>TODO: Write me</p>
+<p>Defines the OLM catalog to be used to install SLS. Set to <code>ibm-sls-operators</code> if you want to deploy pre-release development builds of SLS or leave as the default <code>ibm-operator-catalog</code> for the released versions. </p>
 <ul>
 <li>Environment Variable: <code>SLS_CATALOG_SOURCE</code></li>
 <li>Default: <code>ibm-operator-catalog</code></li>
 </ul>
 <h3 id="sls_channel">sls_channel<a class="headerlink" href="#sls_channel" title="Permanent link"></a></h3>
-<p>TODO: Write me</p>
+<p>The SLS OLM subscription channel to be installed.</p>
 <ul>
 <li>Environment Variable: <code>SLS_CHANNEL</code></li>
 <li>Default: <code>3.x</code></li>
@@ -246,13 +253,13 @@
 <li>Default: <code>ibm-sls</code></li>
 </ul>
 <h3 id="sls_icr_cp">sls_icr_cp<a class="headerlink" href="#sls_icr_cp" title="Permanent link"></a></h3>
-<p>TODO: Write me</p>
+<p>The container registry source for all container images deployed by the SLS operator. Override to use development images</p>
 <ul>
 <li>Environment Variable: <code>SLS_ICR_CP</code></li>
 <li>Default: <code>cp.icr.io/cp</code></li>
 </ul>
 <h3 id="sls_icr_cpopen">sls_icr_cpopen<a class="headerlink" href="#sls_icr_cpopen" title="Permanent link"></a></h3>
-<p>TODO: Write me</p>
+<p>The container registry source for the SLS operator container image. Override to use development image</p>
 <ul>
 <li>Environment Variable: <code>SLS_ICR_CPOPEN</code></li>
 <li>Default: <code>icr.io/cpopen</code></li>
@@ -269,65 +276,59 @@
 <li>Environment Variable: <code>SLS_ENTITLEMENT_USERNAME</code></li>
 <li>Default: <code>cp</code></li>
 </ul>
-<h3 id="sls_entitlement_key">sls_entitlement_key<a class="headerlink" href="#sls_entitlement_key" title="Permanent link"></a></h3>
-<p>Required.  API Key for entitled registry. This password will be used to create the image pull secret.</p>
-<ul>
-<li>Environment Variable: <code>SLS_ENTITLEMENT_KEY</code> or <code>IBM_ENTITLEMENT_KEY</code></li>
-<li>Default: <code>sls</code></li>
-</ul>
 <h3 id="sls_storage_class">sls_storage_class<a class="headerlink" href="#sls_storage_class" title="Permanent link"></a></h3>
-<p>TODO: Write me</p>
+<p>The Storage class on the target cluster to be used for the SLS Persistent Volume Claim. There is no performance requirement on this storage and both block and file storage are supported. Note: Since SLS 3.2.4 no Persistent Volume is required so no storage class is needed.</p>
 <ul>
 <li>Environment Variable: <code>SLS_STORAGE_CLASS</code></li>
 <li>Default: None</li>
 </ul>
 <h3 id="sls_storage_size">sls_storage_size<a class="headerlink" href="#sls_storage_size" title="Permanent link"></a></h3>
-<p>TODO: Write me</p>
+<p>The size of the storage on the target cluster to be used for the SLS Persistent Volume Claim .Note: Since SLS 3.2.4 no Persistent Volume is required so no storage size is needed.</p>
 <ul>
 <li>Environment Variable: None</li>
 <li>Default: <code>5g</code></li>
 </ul>
 <h3 id="sls_domain">sls_domain<a class="headerlink" href="#sls_domain" title="Permanent link"></a></h3>
-<p>TODO: Write me</p>
+<p>SLS can be configured to be externally accessible through a route by setting the domain. Set the domain if SLS is used by application suites that are installed in separate OpenShift clusters.</p>
 <ul>
 <li>Environment Variable: <code>SLS_DOMAIN</code></li>
 <li>Default: None</li>
 </ul>
 <h3 id="sls_auth_enforce">sls_auth_enforce<a class="headerlink" href="#sls_auth_enforce" title="Permanent link"></a></h3>
-<p>TODO: Write me</p>
+<p>Determines whether authorization is enforced. If set to true, clients must use mTLS with certificates generated from the client registration flow for SLS API calls.</p>
 <ul>
 <li>Environment Variable: <code>SLS_AUTH_ENFORCE</code></li>
-<li>Default: None</li>
+<li>Default: <code>True</code></li>
 </ul>
 <h3 id="sls_compliance_enforce">sls_compliance_enforce<a class="headerlink" href="#sls_compliance_enforce" title="Permanent link"></a></h3>
-<p>TODO: Write me</p>
+<p>Determines whether compliance is enforced. If there are not enough tokens to support the request. If compliance is not enforced, license checkout requests will be allowed even if there are not enough tokens to support the request.</p>
 <ul>
 <li>Environment Variable: <code>SLS_COMPLIANCE_ENFORCE</code></li>
-<li>Default: None</li>
+<li>Default: <code>True</code></li>
 </ul>
 <h3 id="sls_registration_open">sls_registration_open<a class="headerlink" href="#sls_registration_open" title="Permanent link"></a></h3>
-<p>TODO: Write me</p>
+<p>Determines whether registration is open. If set to true, clients will be able to register themselves with SLS and use SLS APIs.</p>
 <ul>
 <li>Environment Variable: <code>SLS_REGISTRATION_OPEN</code></li>
-<li>Default: None</li>
+<li>Default: <code>True</code></li>
 </ul>
 <h3 id="bootstraplicense_id">bootstrap.license_id<a class="headerlink" href="#bootstraplicense_id" title="Permanent link"></a></h3>
-<p>Defines the License Id to be used to bootstrap SLS.</p>
+<p>Defines the License Id to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on</p>
 <ul>
 <li>Environment Variable: <code>SLS_LICENSE_ID</code></li>
 <li>Default: None</li>
 </ul>
 <h3 id="bootstrapregistration_key">bootstrap.registration_key<a class="headerlink" href="#bootstrapregistration_key" title="Permanent link"></a></h3>
-<p>Defines the Registration Key to be used to bootstrap SLS.</p>
+<p>Defines the Registration Key to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on</p>
 <ul>
 <li>Environment Variable: <code>SLS_REGISTRATION_KEY</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="bootstrapentitlement_file">bootstrap.entitlement_file<a class="headerlink" href="#bootstrapentitlement_file" title="Permanent link"></a></h3>
-<p>Defines the License File to be used to bootstrap SLS.</p>
+<h3 id="bootstraplicense_file">bootstrap.license_file<a class="headerlink" href="#bootstraplicense_file" title="Permanent link"></a></h3>
+<p>Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: this variable used to be called bootstrap.entitlement_file and defaulted to <code>{{mas_config_dir}}/entitlement.lic</code>, this is no longer the case and <code>SLS_LICENSE_FILE</code> has to be set in order to bootstrap.</p>
 <ul>
-<li>Environment Variable: None</li>
-<li>Default: <code>{{ mas_config_dir }}/entitlement.lic</code></li>
+<li>Environment Variable: <code>SLS_LICENSE_FILE</code></li>
+<li>Default: None</li>
 </ul>
 <h3 id="sls_mongodb_cfg_file">sls_mongodb_cfg_file<a class="headerlink" href="#sls_mongodb_cfg_file" title="Permanent link"></a></h3>
 <p>Either <code>sls_mongodb_cfg_file</code> or the <code>sls_mongodb</code> object are required to configure MongoDb.  Location of a MAS MongoCfg defintion (as generated by the <code>mongodb</code> role).  If provided the role will use the information in that config file to configure SLS.</p>
@@ -358,14 +359,14 @@
   any_errors_fatal: true
   vars:
     sls_entitlement_key: &quot;{{ lookup('env', 'SLS_ENTITLEMENT_KEY') }}&quot;
-    sls_storage_class: &quot;ibmc-block-bronze&quot;
 
     sls_mongodb_cfg_file: &quot;/etc/mas/mongodb.yml&quot;
 
     bootstrap:
       license_id: &quot;aa78dd65ef10&quot;
+      license_file: &quot;/etc/mas/entitlement.lic&quot;
       registration_key: &quot;{{ lookup('env', 'SLS_REGISTRATION_KEY') }}&quot;
-      entitlement_file: &quot;/etc/mas/entitlement.lic&quot;
+
   roles:
     - ibm.mas_devops.sls_install
 </code></pre>
