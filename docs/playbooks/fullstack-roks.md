@@ -17,6 +17,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Additional Db2 configuration for Manage](mas.md#manage-db2-hack) (5 minutes)
 - Install & configure MAS:
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
+    - Generate MAS Workspace Configuration (1 minute)
     - [Install & configure MAS](mas.md#install-mas) (15 minutes)
 - Install applications:
     - [Install & configure Manage](mas.md#install-mas-application) (10 minute install + 2 hours configure)
@@ -34,11 +35,6 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
     Also note that Cloud Pak for Data requires approximately 40 PVCs.  You may need to contact IBM to increase the quota assigned to your IBM Cloud account if you see PVCs stuck in pending state and this error message: "Your order will exceed the maximum number of storage volumes allowed. Please contact Sales"
 
-!!! warning
-    There is a known problem with Manage v8.1.0 that will result in the system being unusable following a successful deployment.
-
-    Refer to the following technote for more information: ["OpenID Connect client returned with status: SEND_401" when logging in to Manage after installation](https://www.ibm.com/support/pages/openid-connect-client-returned-status-send401-when-logging-manage-after-installation)
-
 
 ## Preparation
 Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
@@ -49,27 +45,11 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 !!! important
     Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](dependencies.md#install-sls) topic.
 
-### Create a Workspace template
-If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:
-
-```yaml
-apiVersion: core.mas.ibm.com/v1
-kind: Workspace
-metadata:
-  name: "{{instance_id}}-masdev"
-  namespace: "mas-{{instance_id}}-core"
-  labels:
-    mas.ibm.com/instanceId: "{{instance_id}}"
-    mas.ibm.com/workspaceId: "masdev"
-spec:
-  displayName: "MAS Development"
-```
-
-You do not need to create a workspace called `masdev`, you can modify the workspace template above to suite your needs.
 
 ## Required environment variables
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
 - `CLUSTER_NAME` The name to assign to the new ROKS cluster
+- `CLUSTER_TYPE` The cluster type. Should be set to `roks`
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
@@ -91,11 +71,15 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 - `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
 - `MAS_CHANNEL` to override the use of the `8.x` channel
 - `MAS_DOMAIN` to set a custom domain for the MAS installation
+- `MAS_UPGRADE_STRATEGY` to override the use of Manual upgrade strategy.
 - `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
 - `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
+- `CPD_WSL_PROJECT_ID` to set a Watson Studio project id to be passed to HP Utilities application during its deployment and configuration. If not set, a new project will be created in Watson Studio automatically to configure HP Utilities application in the MAS instance created by this playbook
+- `CPD_WSL_PROJECT_NAME` to set a Watson Studio project name, if not set a default project name will be used
+- `CPD_WSL_PROJECT_DESCRIPTION` - to set a Watson Studio project description, if not set a default project description will be used
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
@@ -106,6 +90,7 @@ You do not need to create a workspace called `masdev`, you can modify the worksp
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=roks
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
@@ -121,9 +106,9 @@ export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
 
 # BAS configuration
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+export UDS_CONTACT_EMAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/fullstack-roks.yml
 ```
@@ -138,6 +123,7 @@ ansible-playbook playbooks/fullstack-roks.yml
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=roks
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
@@ -163,9 +149,9 @@ export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
 
 # BAS configuration
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+export UDS_CONTACT_EMAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/fullstack-roks.yml
 ```

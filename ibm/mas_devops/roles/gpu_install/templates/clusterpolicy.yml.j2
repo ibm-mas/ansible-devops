@@ -1,0 +1,156 @@
+---
+apiVersion: nvidia.com/v1
+kind: ClusterPolicy
+metadata:
+  name: gpu-cluster-policy
+spec:
+  daemonsets:
+    priorityClassName: system-node-critical
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+  dcgm:
+    enabled: true
+    hostPort: 5555
+    image: dcgm
+    imagePullSecrets: []
+    repository: nvcr.io/nvidia/cloud-native
+    resources: {}
+    securityContext: {}
+    version: 'sha256:28f334d6d5ca6e5cad2cf05a255989834128c952e3c181e6861bd033476d4b2c'
+    tolerations: []
+  dcgmExporter:
+    config:
+      name: ''
+    env:
+      - name: DCGM_EXPORTER_LISTEN
+        value: ':9400'
+      - name: DCGM_EXPORTER_KUBERNETES
+        value: 'true'
+      - name: DCGM_EXPORTER_COLLECTORS
+        value: /etc/dcgm-exporter/dcp-metrics-included.csv
+    image: dcgm-exporter
+    imagePullSecrets: []
+    repository: nvcr.io/nvidia/k8s
+    resources: {}
+    securityContext: {}
+    version: 'sha256:e37404194fa2bc2275827411049422b93d1493991fb925957f170b4b842846ff'
+    tolerations: []
+  devicePlugin:
+    args: []
+    env:
+      - name: PASS_DEVICE_SPECS
+        value: 'true'
+      - name: FAIL_ON_INIT_ERROR
+        value: 'true'
+      - name: DEVICE_LIST_STRATEGY
+        value: envvar
+      - name: DEVICE_ID_STRATEGY
+        value: uuid
+      - name: NVIDIA_VISIBLE_DEVICES
+        value: all
+      - name: NVIDIA_DRIVER_CAPABILITIES
+        value: all
+    image: k8s-device-plugin
+    imagePullSecrets: []
+    repository: nvcr.io/nvidia
+    resources: {}
+    securityContext: {}
+    version: 'sha256:85def0197f388e5e336b1ab0dbec350816c40108a58af946baa1315f4c96ee05'
+  driver:
+    enabled: true
+    image: driver
+    imagePullSecrets: []
+    licensingConfig:
+      configMapName: ''
+      nlsEnabled: false
+    manager:
+      env:
+        - name: DRAIN_USE_FORCE
+          value: 'false'
+        - name: DRAIN_POD_SELECTOR_LABEL
+          value: ''
+        - name: DRAIN_TIMEOUT_SECONDS
+          value: 0s
+        - name: DRAIN_DELETE_EMPTYDIR_DATA
+          value: 'false'
+      image: k8s-driver-manager
+      imagePullSecrets: []
+      repository: nvcr.io/nvidia/cloud-native
+      version: 'sha256:907ab0fc008bb90149ed059ac3a8ed3d19ae010d52c58c0ddbafce45df468d5b'
+    rdma:
+      enabled: false
+    repoConfig:
+      configMapName: ''
+      destinationDir: ''
+    repository: nvcr.io/nvidia
+    resources: {}
+    securityContext: {}
+    version: "{{gpu_driver_version}}"
+    virtualTopology:
+      config: ''
+    nodeSelector:
+      nvidia.com/gpu.deploy.driver: 'true'
+    podSecurityContext: {}
+  gfd:
+    env:
+      - name: GFD_SLEEP_INTERVAL
+        value: 60s
+      - name: FAIL_ON_INIT_ERROR
+        value: 'true'
+    image: gpu-feature-discovery
+    imagePullSecrets: []
+    repository: nvcr.io/nvidia
+    resources: {}
+    securityContext: {}
+    version: 'sha256:bfc39d23568458dfd50c0c5323b6d42bdcd038c420fb2a2becd513a3ed3be27f'
+  mig:
+    strategy: single
+  migManager:
+    config:
+      name: ''
+    enabled: true
+    env:
+      - name: WITH_REBOOT
+        value: 'false'
+    image: k8s-mig-manager
+    imagePullSecrets: []
+    repository: nvcr.io/nvidia/cloud-native
+    resources: {}
+    securityContext: {}
+    version: 'sha256:8cdb793f8a22b076bf0f19818f9d79fe87b121608f1aa28b12a560b6fe13f47e'
+  nodeStatusExporter:
+    enabled: true
+    image: gpu-operator-validator
+    imagePullSecrets: []
+    repository: nvcr.io/nvidia/cloud-native
+    resources: {}
+    securityContext: {}
+    version: 'sha256:a07fd1c74e3e469ac316d17cf79635173764fdab3b681dbc282027a23dbbe227'
+  operator:
+    defaultRuntime: crio
+    initContainer:
+      image: cuda
+      imagePullSecrets: []
+      repository: nvcr.io/nvidia
+      version: 'sha256:15674e5c45c97994bc92387bad03a0d52d7c1e983709c471c4fecc8e806dbdce'
+    deployGFD: true
+  toolkit:
+    enabled: true
+    image: container-toolkit
+    imagePullSecrets: []
+    repository: nvcr.io/nvidia/k8s
+    resources: {}
+    securityContext: {}
+    version: 'sha256:b0c84b47d5f95000a842b823ad33dc9aa28f0edfa6d9565c289b61cb1d4a9934'
+  validator:
+    env:
+      - name: WITH_WORKLOAD
+        value: 'true'
+    image: gpu-operator-validator
+    imagePullSecrets: []
+    repository: nvcr.io/nvidia/cloud-native
+    resources: {}
+    securityContext: {}
+    version: 'sha256:a07fd1c74e3e469ac316d17cf79635173764fdab3b681dbc282027a23dbbe227'

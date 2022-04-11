@@ -96,7 +96,7 @@
     kind: Deployment
   register: _zen_deployment
   until: _zen_deployment.resources[0].status.availableReplicas is defined
-  retries: 90 # Approximately 10 minutes before we give up
+  retries: 90 # Approximately 90 minutes before we give up
   delay: 60 # 1 minute
 
 - name: "Wait for ibmcpd CPD 4.0 to be Completed"
@@ -106,8 +106,11 @@
     namespace: "{{ cpd_services_namespace }}"
     kind: Ibmcpd
   register: _ibmcpd_subscription
-  until: _ibmcpd_subscription.resources[0].status.controlPlaneStatus == "Completed"
-  retries: 90 # Approximately 10 minutes before we give up
+  until:
+    - _ibmcpd_subscription.resources[0].status is defined
+    - _ibmcpd_subscription.resources[0].status.controlPlaneStatus is defined
+    - _ibmcpd_subscription.resources[0].status.controlPlaneStatus == "Completed"
+  retries: 90 # Approximately 90 minutes before we give up
   delay: 60 # 1 minute
 
 - name: "Wait for ZenService CPD 4.0 to be Completed"
@@ -117,10 +120,8 @@
     namespace: "{{ cpd_services_namespace }}"
     kind: ZenService
   register: _zen_subscription
-  until:
-    - _zen_subscription.resources[0].status is defined
-    - _zen_subscription.resources[0].status.zenStatus == "Completed"
-  retries: 90 # Approximately 10 minutes before we give up
+  until: _zen_subscription.resources[0].status.zenStatus == "Completed"
+  retries: 90 # Approximately 90 minutes before we give up
   delay: 60 # 1 minute
 
 # 5. Provide CP4D dashboard URL

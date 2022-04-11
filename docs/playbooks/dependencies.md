@@ -43,21 +43,46 @@ ansible-playbook playbooks/dependencies/install-uds.yml
 
 
 ## Install SLS
-Before you use this playbook you will likely want to edit the `mas_config_dir` variable to supply your own configuration, instead of the sample data provided.
+Before you use this playbook you will likely want to edit the `MAS_CONFIG_DIR` variable to supply your own configuration, instead of the sample data provided. Refer to the [sls_install](../roles/sls_install.md) role documentation for more information. The playbook will also call the [gencfg_sls](../roles/gencfg_sls.md) role after the install to generate the slscfg. 
 
-### Required environment variables
-- `SLS_ENTITLEMENT_KEY` Provide your IBM entitlement key
+### Example usage: release build
 
-### Optional environment variables
-- `SLS_CATALOG_SOURCE` Set to `ibm-sls-operators` if you want to deploy pre-release development builds
-- `SLS_CHANNEL` Override the default release channel (3.x)
-- `SLS_ICR_CP` Override the registry source for all container images deployed by the SLS operator
-- `SLS_ICR_CPOPEN` Override the registry source for all container images deployed by the SLS operator
-- `SLS_ENTITLEMENT_USERNAME` Override the default entitlement username (cp)
-- `SLS_NAMESPACE` Override the default entitlement username (ibm-sls)
-- `SLS_STORAGE_CLASS` Defines Storage Class to be used by SLS Persistent Volumes
-- `SLS_LICENSE_ID` Must be set to the license id specified in the license file when one is provided
-- `SLS_REGISTRATION_KEY` optional var when you want to install sls using a registration key you have.
+```bash
+export SLS_INSTANCE_ID=xxx
+export SLS_ENTITLEMENT_KEY=xxx
+export SLS_MONGODB_CFG_FILE="/etc/mas/mongodb.yml"
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
+
+ansible-playbook playbooks/dependencies/install-sls.yml
+```
+
+!!! note
+    Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
+
+
+### Example usage: pre-release build
+
+```bash
+export SLS_CATALOG_SOURCE=ibm-sls-operators
+export SLS_CHANNEL=3.1.0-pre.stable
+export SLS_INSTANCE_ID=xxx
+export SLS_MONGODB_CFG_FILE="/etc/mas/mongodb.yml"
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
+
+export SLS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
+export SLS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
+export SLS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
+export SLS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
+
+
+ansible-playbook playbooks/dependencies/install-sls.yml
+```
+
+!!! important
+    You must have already installed the development (pre-release) catalogs, pre-release builds are not available directly from the IBM Operator Catalog.
+
 
 ## Install AppConnect
 AppConnect will be installed into the `ibm-app-connect` namespace, using `ibmc-file-gold-gid` as the storage class.  The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
@@ -73,36 +98,34 @@ export MAS_CONFIG_DIR=~/masconfig
 ansible-playbook playbooks/dependencies/install-appconnect.yml
 ```
 
-### Example usage: release build
+
+## Install GPU
+Installs **NVIDIA Graphical Processing Unit (GPU)** and its prerequisite **Node Feature Discovery (NFD)**. The NFD Operator is installed using the Red Hat Operators catalog source and the GPU operator is installed using the Certified Operators catalog source. 
+
+Refer to the [gpu_install](../roles/gpu_install.md) role documentation for more information.
+
+### Example usage: 
 
 ```bash
-export SLS_INSTANCE_ID=xxx
-export SLS_ENTITLEMENT_KEY=xxx
-export SLS_STORAGE_CLASS=xxx
+export NFD_NAMESPACE=nfd-operator
+export NFD_CHANNEL=stable
+export GPU_NAMESPACE=nvidia-gpu-operator
+export GPU_CHANNEL=v1.9
 
-ansible-playbook playbooks/dependencies/install-sls.yml
+ansible-playbook playbooks/dependencies/install-gpu.yml
 ```
 
-!!! note
-    Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 
-
-### Example usage: pre-release build
+## Install DB2
+Installs **IBM DB2** using the db2u operator. Refer to the [db2u] role documentation for more information. The generated configuration for MAS will be available in the `~/masconfig` directory on the local system.
 
 ```bash
-export SLS_CATALOG_SOURCE=ibm-sls-operators
-export SLS_CHANNEL=3.1.0-pre.stable
-export SLS_INSTANCE_ID=xxx
+export DB2U_META_STORAGE_CLASS=ibmc-file-gold
+export DB2U_DATA_STORAGE_CLASS=ibmc-block-gold
+export DB2U_INSTANCE_NAME=db2u-db01
+export ENTITLEMENT_KEY=xxx
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
 
-export SLS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
-export SLS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
-export SLS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
-export SLS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
-export SLS_STORAGE_CLASS=xxx
-
-
-ansible-playbook playbooks/dependencies/install-sls.yml
+ansible-playbook playbooks/dependencies/install-db2.yml
 ```
-
-!!! important
-    You must have already installed the development (pre-release) catalogs, pre-release builds are not available directly from the IBM Operator Catalog.
