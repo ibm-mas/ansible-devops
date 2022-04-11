@@ -126,6 +126,10 @@ spec:
       type: string
       description: Subscription channel for Safety application operator
       default: ""
+    - name: mas_app_channel_visualinspection
+      type: string
+      description: Subscription channel for Visual Inspection application operator
+      default: ""
     # Application Catalog Sources
     - name: mas_app_source_iot
       type: string
@@ -150,6 +154,10 @@ spec:
     - name: mas_app_source_safety
       type: string
       description: Subscription source for Safety application operator
+      default: ibm-operator-catalog
+    - name: mas_app_source_visualinspection
+      type: string
+      description: Subscription source for Visual Inspection application operator
       default: ibm-operator-catalog
 
 
@@ -313,8 +321,24 @@ spec:
         - name: settings
           workspace: shared-settings
 
+    # 9. Install UDS
+    # -------------------------------------------------------------------------
+    - name: install-gpu
+      params:
+        - name: junit_suite_name
+          value: install-gpu
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-install-gpu
+      runAfter:
+        - cfg-ocp
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
 
-    # 9. Configure Workspace
+    # 10. Configure Workspace
     # -------------------------------------------------------------------------
     - name: gencfg-workspace
       params:
@@ -334,7 +358,7 @@ spec:
           workspace: shared-settings
 
 
-    # 10. Install & configure IBM MAS
+    # 11. Install & configure IBM MAS
     # -------------------------------------------------------------------------
     - name: install-suite
       params:
@@ -355,7 +379,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 11. Configure Db2 in MAS
+    # 12. Configure Db2 in MAS
     # -------------------------------------------------------------------------
     - name: cfg-suite-db2
       params:
@@ -379,7 +403,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 12. Configure Kafka in MAS
+    # 13. Configure Kafka in MAS
     # -------------------------------------------------------------------------
     - name: cfg-suite-kafka
       params:
@@ -402,9 +426,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 13. Install IBM MAS IoT application
+    # 14. Install IBM MAS IoT application
     # -------------------------------------------------------------------------
-    # 13.1 Install IoT
+    # 14.1 Install IoT
     - name: install-iot
       params:
         - name: junit_suite_name
@@ -430,7 +454,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 13.2 Configure IoT workspace
+    # 14.2 Configure IoT workspace
     - name: cfg-iot
       params:
         - name: junit_suite_name
@@ -453,9 +477,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 14. Install IBM MAS Monitor application
+    # 15. Install IBM MAS Monitor application
     # -------------------------------------------------------------------------
-    # 14.1 Install Monitor
+    # 15.1 Install Monitor
     - name: install-monitor
       params:
         - name: junit_suite_name
@@ -480,7 +504,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 14.2 Configure Monitor workspace
+    # 15.2 Configure Monitor workspace
     - name: cfg-monitor
       params:
         - name: junit_suite_name
@@ -503,9 +527,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 15. Install IBM MAS Safety application
+    # 16. Install IBM MAS Safety application
     # -------------------------------------------------------------------------
-    # 15.1 Install Safety
+    # 16.1 Install Safety
     - name: install-safety
       params:
         - name: junit_suite_name
@@ -530,7 +554,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 15.2 Configure Safety workspace
+    # 16.2 Configure Safety workspace
     - name: cfg-safety
       params:
         - name: junit_suite_name
@@ -553,9 +577,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 16. Install IBM MAS Manage application
+    # 17. Install IBM MAS Manage application
     # -------------------------------------------------------------------------
-    # 16.1 Manage Install
+    # 17.1 Manage Install
     - name: install-manage
       params:
         - name: junit_suite_name
@@ -580,7 +604,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 16.2 Configure Manage workspace
+    # 17.2 Configure Manage workspace
     - name: cfg-manage
       params:
         - name: junit_suite_name
@@ -603,9 +627,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 17. Predict
+    # 18. Predict
     # -------------------------------------------------------------------------
-    # 17.1 Predict Install
+    # 18.1 Predict Install
     - name: install-predict
       params:
         - name: junit_suite_name
@@ -631,7 +655,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 17.2 Configure Predict workspace
+    # 18.2 Configure Predict workspace
     - name: cfg-predict
       params:
         - name: junit_suite_name
@@ -654,9 +678,9 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 18. MSO
+    # 19. MSO
     # -------------------------------------------------------------------------
-    # 18.1 MSO Install
+    # 19.1 MSO Install
     - name: install-mso
       params:
         - name: junit_suite_name
@@ -681,7 +705,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 18.2 Configure MSO workspace
+    # 19.2 Configure MSO workspace
     - name: cfg-mso
       params:
         - name: junit_suite_name
@@ -700,6 +724,57 @@ spec:
           values: [""]
       runAfter:
         - install-mso
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 20. Visual Inspection
+    # -------------------------------------------------------------------------
+    # 20.1 Visual Inspection Install
+    - name: install-visualinspection
+      params:
+        - name: junit_suite_name
+          value: app-install-visualinspection
+        - name: mas_app_id
+          value: visualinspection
+        - name: mas_app_channel
+          value: "$(params.mas_app_channel_visualinspection)"
+        - name: mas_app_catalog_source
+          value: "$(params.mas_app_source_visualinspection)"
+      taskRef:
+        name: mas-devops-install-app
+        kind: ClusterTask
+      # Only install Visual Inspection if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_visualinspection)"
+          operator: notin
+          values: [""]
+      runAfter:
+        - install-gpu
+        - install-suite
+      workspaces:
+        - name: settings
+          workspace: shared-settings
+
+    # 20.2 Configure Visual Inspection workspace
+    - name: cfg-visualinspection
+      params:
+        - name: junit_suite_name
+          value: app-cfg-visualinspection
+        - name: mas_app_id
+          value: visualinspection
+        - name: mas_workspace_id
+          value: "$(params.mas_workspace_id)"
+      taskRef:
+        name: mas-devops-configure-app
+        kind: ClusterTask
+      # Only install Visual Inspection if a channel has been chosen
+      when:
+        - input: "$(params.mas_app_channel_visualinspection)"
+          operator: notin
+          values: [""]
+      runAfter:
+        - install-visualinspection
       workspaces:
         - name: settings
           workspace: shared-settings
