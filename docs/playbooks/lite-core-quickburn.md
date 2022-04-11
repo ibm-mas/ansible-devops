@@ -17,7 +17,8 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `FYRE_USERNAME`
 - `FYRE_APIKEY`
 - `FYRE_PRODUCT_ID`
-- `CLUSTER_NAME` The name to assign to the new ROKS cluster
+- `CLUSTER_NAME` The name to assign to the new Quickburn cluster
+- `CLUSTER_TYPE` The cluster type. Should be set to `quickburn`
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
@@ -48,6 +49,7 @@ export FYRE_APIKEY=xxx
 export FYRE_PRODUCT_ID=225
 # Cluster configuration
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=quickburn
 export OCP_VERSION=4.6.16
 
 # MAS configuration
@@ -73,6 +75,7 @@ export FYRE_PRODUCT_ID=225
 
 # Cluster configuration
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=quickburn
 export OCP_VERSION=4.6.16
 
 # Allow development catalogs to be installed

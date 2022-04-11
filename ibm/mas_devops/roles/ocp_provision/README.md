@@ -31,8 +31,14 @@ Flag that determines if GPU worker nodes should be added during cluster creation
 - Environment Variable: `OCP_PROVISION_GPU`
 - Default Value: `false`
 
+### gpu_workerpool_name
+The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal. 
+
+- Environment Variable: `GPU_WORKERPOOL_NAME`
+- Default Value: `gpu`
+
 ### gpu_workers
-The number of GPU worker nodes to deploy in the cluster. Depends on `ocp_provision_gpu` and is currently only set up for ROKS clusters.
+The number of GPU worker nodes that will be deploy in the cluster. The node created will have mg4c.32x384.2xp100-GPU flavor. This variable depends on `ocp_provision_gpu` and is currently supported on ROKS clusters only.
 
 - Environment Variable: `GPU_WORKERS`
 - Default Value: `1`
@@ -92,7 +98,7 @@ Required if `cluster_type = quickburn`.  IBM Cloud zone where the cluster should
 ### fyre_password
 Required if `cluster_type = quickburn`.  IBM Cloud zone where the cluster should be provisioned.
 
-- Environment Variable: `FYRE_PASSWORD`
+- Environment Variable: `FYRE_APIKEY`
 - Default Value: None
 
 ### fyre_product_id
@@ -109,32 +115,11 @@ The name of one of Fyre's pre-defined cluster sizes to use for the new cluster.
 
 
 
-Example Playbook - ROKS
+Example Playbook
 -----------------------
 
 ```yaml
 - hosts: localhost
-  vars:
-    cluster_name: masinst1
-    cluster_type: roks
-    ocp_version: "4.8_openshift"
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
-  roles:
-    - ibm.mas_devops.ocp_provision
-```
-
-Example Playbook - Quickburn
-----------------------------
-
-```yaml
-- hosts: localhost
-  vars:
-    cluster_name: masinst1
-    cluster_type: quickburn
-    ocp_version: "4.6.16"
-    fyre_username: "{{ lookup('env', 'FYRE_USERNAME') }}"
-    fyre_password: "{{ lookup('env', 'FYRE_PASSWORD') }}"
-    fyre_product_id: "{{ lookup('env', 'FYRE_PRODUCT_ID') }}"
   roles:
     - ibm.mas_devops.ocp_provision
 ```
