@@ -11,38 +11,38 @@ export ACCOUNT_ID=$4
 export CLUSTER_SIZE=$5
 export RANDOM_STR=$6
 export BASE_DOMAIN=$7
-export BASE_DOMAIN_RG_NAME=$8
-export SSH_KEY_NAME=$9
-export DEPLOY_WAIT_HANDLE=${10}
-export SLS_ENTITLEMENT_KEY=${11}
-export OCP_PULL_SECRET=${12}
-export MAS_LICENSE_URL=${13}
-export SLS_ENDPOINT_URL=${14}
-export SLS_REGISTRATION_KEY=${15}
-export SLS_PUB_CERT_URL=${16}
-export BAS_ENDPOINT_URL=${17}
-export BAS_API_KEY=${18}
-export BAS_PUB_CERT_URL=${19}
-export MAS_JDBC_USER=${20}
-export MAS_JDBC_PASSWORD=${21}
-export MAS_JDBC_URL=${22}
-export MAS_JDBC_CERT_URL=${23}
-export MAS_DB_IMPORT_DEMO_DATA=${24}
-export EXS_OCP_URL=${25}
-export EXS_OCP_USER=${26}
-export EXS_OCP_PWD=${27}
-export RG_NAME=${28}
-export RECEPIENT=${29}
-export SENDGRID_API_KEY=${30}
-export AZURE_SUBSC_ID=${31}
-export AZURE_TENANT_ID=${32}
-export AZURE_SP_CLIENT_ID=${33}
-export AZURE_SP_CLIENT_PWD=${34}
-export SELLER_SUBSCRIPTION_ID=${35}
-export SELLER_RESOURCE_GROUP=${36}
-export SELLER_COMPUTE_GALLERY=${37}
-export SELLER_IMAGE_VERSION=${38}
-export EMAIL_NOTIFICATION=${39}
+# export BASE_DOMAIN_RG_NAME=$8
+export SSH_KEY_NAME=$8
+export DEPLOY_WAIT_HANDLE=${9}
+export SLS_ENTITLEMENT_KEY=${10}
+export OCP_PULL_SECRET=${11}
+export MAS_LICENSE_URL=${12}
+export SLS_ENDPOINT_URL=${13}
+export SLS_REGISTRATION_KEY=${14}
+export SLS_PUB_CERT_URL=${15}
+export BAS_ENDPOINT_URL=${16}
+export BAS_API_KEY=${17}
+export BAS_PUB_CERT_URL=${18}
+export MAS_JDBC_USER=${19}
+export MAS_JDBC_PASSWORD=${20}
+export MAS_JDBC_URL=${21}
+export MAS_JDBC_CERT_URL=${22}
+export MAS_DB_IMPORT_DEMO_DATA=${23}
+export EXS_OCP_URL=${24}
+export EXS_OCP_USER=${25}
+export EXS_OCP_PWD=${26}
+export RG_NAME=${27}
+export RECEPIENT=${28}
+export SENDGRID_API_KEY=${29}
+# export AZURE_SUBSC_ID=${31}
+# export AZURE_TENANT_ID=${32}
+export AZURE_SP_CLIENT_ID=${30}
+export AZURE_SP_CLIENT_PWD=${31}
+export SELLER_SUBSCRIPTION_ID=${32}
+export SELLER_RESOURCE_GROUP=${33}
+export SELLER_COMPUTE_GALLERY=${34}
+export SELLER_IMAGE_VERSION=${35}
+export EMAIL_NOTIFICATION=${36}
 
 # Load helper functions
 . helper.sh
@@ -206,7 +206,7 @@ echo " ACCOUNT_ID: $ACCOUNT_ID"
 echo " CLUSTER_SIZE: $CLUSTER_SIZE"
 echo " RANDOM_STR: $RANDOM_STR"
 echo " BASE_DOMAIN: $BASE_DOMAIN"
-echo " BASE_DOMAIN_RG_NAME: $BASE_DOMAIN_RG_NAME"
+# echo " BASE_DOMAIN_RG_NAME: $BASE_DOMAIN_RG_NAME"
 echo " SSH_KEY_NAME: $SSH_KEY_NAME"
 echo " DEPLOY_CP4D: $DEPLOY_CP4D"
 echo " DEPLOY_MANAGE: $DEPLOY_MANAGE"
@@ -225,8 +225,8 @@ echo " EXS_OCP_URL: $EXS_OCP_URL"
 echo " EXS_OCP_USER: $EXS_OCP_USER"
 echo " RG_NAME=$RG_NAME"
 echo " RECEPIENT=$RECEPIENT"
-echo " AZURE_SUBSC_ID=$AZURE_SUBSC_ID"
-echo " AZURE_TENANT_ID=$AZURE_TENANT_ID"
+# echo " AZURE_SUBSC_ID=$AZURE_SUBSC_ID"
+# echo " AZURE_TENANT_ID=$AZURE_TENANT_ID"
 echo " AZURE_SP_CLIENT_ID=$AZURE_SP_CLIENT_ID"
 echo " SELLER_SUBSCRIPTION_ID=$SELLER_SUBSCRIPTION_ID"
 echo " SELLER_RESOURCE_GROUP=$SELLER_RESOURCE_GROUP"
@@ -269,6 +269,14 @@ if [[ $CLUSTER_TYPE == "azure" ]]; then
   # Perform az login for accessing blob storage
   az login --identity
   az resource list -n masocp-${RANDOM_STR}-bootnode-vm
+
+  # Get public domain resource group, subscription ID, tenant ID
+  export BASE_DOMAIN_RG_NAME=`az network dns zone list | jq -r --arg BASE_DOMAIN "$BASE_DOMAIN" '.[]|select (.name==$BASE_DOMAIN)|.resourceGroup'`
+  echo $BASE_DOMAIN_RG_NAME
+  export AZURE_SUBSC_ID=`az account list | jq -r '.[].id'`
+  echo $AZURE_SUBSC_ID
+  export AZURE_TENANT_ID=`az account list | jq -r '.[].tenantId'`
+  echo $AZURE_TENANT_ID
 fi
 
 # Perform prevalidation checks
