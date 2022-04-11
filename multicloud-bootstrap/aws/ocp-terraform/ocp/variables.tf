@@ -153,6 +153,7 @@ variable "openshift_username" {
 
 variable "openshift_password" {
   type = string
+  sensitive = true
 }
 
 variable "enable_autoscaler" {

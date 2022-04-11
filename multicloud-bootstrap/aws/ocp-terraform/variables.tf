@@ -22,6 +22,7 @@ variable "access_key_id" {
 variable "secret_access_key" {
   type        = string
   description = "Secret Access Key for the AWS account"
+  sensitive = true
 }
 
 variable "new_or_existing_vpc_subnet" {
@@ -141,11 +142,13 @@ variable "existing_openshift_username" {
 variable "existing_openshift_password" {
   type    = string
   default = ""
+  sensitive = true
 }
 
 variable "existing_openshift_token" {
   type    = string
   default = ""
+  sensitive = true
 }
 ##################################
 
@@ -246,6 +249,7 @@ variable "openshift_username" {
 
 variable "openshift_password" {
   type = string
+  sensitive = true
 }
 
 variable "enable_autoscaler" {

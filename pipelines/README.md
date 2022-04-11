@@ -9,16 +9,16 @@ This aspect of the project is still in active development and should be consider
 ## ClusterTasks
 
 # CP4D Management
-- [Create Db2 Warehouse Instance](tasks/dependencies/create-db2-instance.yaml)
-- [Install CP4D with Db2 Warehouse service enabled](tasks/dependencies/install-db2.yaml)
-- [Install CP4D with Db2 Warehouse & Watson Studio services enabled](tasks/dependencies/install-fullstack.yaml)
-- [Install CP4D with Watson Studio services enabled](tasks/dependencies/install-watsonstudio.yaml)
+- [Create Db2 Warehouse Instance](tasks/cp4d/create-db2-instance.yaml)
+- [Install CP4D with Db2 Warehouse service enabled](tasks/cp4d/install-services-db2.yaml)
+- [Install CP4D with Db2 Warehouse & Watson Studio services enabled](tasks/cp4d/install-services-fullstack.yaml)
+- [Install CP4D with Watson Studio services enabled](tasks/cp4d/install-services-watsonstudio.yaml)
 
 ### Dependency Management
 - [Install AMQStreams](tasks/dependencies/install-amqstreams.yaml)
-- [Install Behavior Analytics Service](tasks/bas/install-bas.yaml)
+- [Install Behavior Analytics Service (aka UDS)](tasks/dependencies/install-uds.yaml)
 - [Install MongoDb CE](tasks/dependencies/install-mongodb-ce.yaml)
-- [Install IBM Suite License Service](tasks/sls/install-sls.yaml)
+- [Install IBM Suite License Service](tasks/dependencies/install-sls.yaml)
 
 ### MAS Management
 - [Configure Application](tasks/mas/configure-app.yaml)
@@ -27,6 +27,7 @@ This aspect of the project is still in active development and should be consider
 - [Install Application](tasks/mas/install-app.yaml)
 - [Install MAS Core](tasks/mas/install-suite.yaml)
 - [Run mustgather](tasks/mas/mustgather.yaml)
+- [Generate Workspace config](tasks/mas/gencfg-workspace.yaml)
 
 ### OCP Management
 - [Configure OCP Cluster for MAS](tasks/ocp/configure-ocp.yaml)

@@ -1,0 +1,614 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "offeringType": {
+      "type": "string",
+      "metadata": {
+        "description": "Select your preferred Suite offering type."
+      },
+      "defaultValue": "MAS Core + Cloud Pak for Data",
+      "allowedValues": [
+        "MAS Core + Cloud Pak for Data",
+        "MAS Core + Manage (no Cloud Pak for Data)"
+      ]
+    },
+    "publicDomain": {
+      "type": "string",
+      "metadata": {
+        "description": "Provide the public App Service domain that you created in the App Service Domains, for example: mas4aws.myorg.com"
+      },
+      "defaultValue": "mas4azuredev.com"
+    },
+    "publicDomainResourceGroup": {
+      "type": "string",
+      "metadata": {
+        "description": "Provide the name of the resource group where public App Service domain is created"
+      },
+      "defaultValue": "EdgeTest"
+    },
+    "bootnodeSGIngressCidrIp": {
+      "type": "string",
+      "defaultValue": "0.0.0.0/0",
+      "metadata": {
+        "description": "Use CIDR notation to enter the IP addresses that can access the bootnode. For example, 192.12.33.3/32. To allow access from all IP addresses, enter 0.0.0.0/0."
+      }
+    },
+    "clusterSize": {
+      "type": "string",
+      "metadata": {
+        "description": "Select your preferred cluster size. All master nodes (M) are Standard_D8s_v3 virtual machines. All worker nodes (W) are Standard_D16s_v3 instances. Choose from: small (3M, 3W, total memory: 288GB), medium (3M, 5W, total memory: 416GB), or large (5M, 7W, total memory: 608GB)."
+      },
+      "defaultValue": "small",
+      "allowedValues": [
+        "small",
+        "medium",
+        "large"
+      ]
+    },
+    "openShiftClusterApiUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the cluster's URL in the format https://api.<cluster_name>.<domain_name>. Do not specify the port number. For example,https://api.masocp.joalae.mas4aws.com"
+      },
+      "defaultValue": ""
+    },
+    "openShiftUser": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the username of the existing cluster account."
+      },
+      "defaultValue": ""
+    },
+    "openShiftPassword": {
+      "type": "secureString",
+      "metadata": {
+        "description": "Enter the password of the existing cluster account."
+      },
+      "defaultValue": ""
+    },
+    "entitledRegistryKey": {
+      "type": "secureString",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Enter the registry key that you downloaded from the IBM Container Library."
+      }
+    },
+    "openShiftPullSecret": {
+      "type": "secureString",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Enter the JSON text from the pull secret file that you downloaded from the Red Hat Hybrid Cloud Console."
+      }
+    },
+    "masLicenseUrl": {
+      "type": "string",
+      "defaultValue": "https://masocpstgacnt.blob.core.windows.net/masocpfiles/entitlement.lic?sp=r&st=2022-04-06T04:02:45Z&se=2022-06-30T12:02:45Z&spr=https&sv=2020-08-04&sr=c&sig=CN27jhRfxHDmDgz%2FugkySY7h%2BEZdp9H5PVAoaxP%2FURY%3D",
+      "metadata": {
+        "description": "Enter the Blob SAS location of your Suite license key file, for example: https://masocpstgaccount.blob.core.windows.net/masocpcontainer/entitlement.lic?[blob-sas-token] (Applicable only for BYOL product)"
+      }
+    },
+    "masManageDBUser": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the username that the Maximo Manage application uses to connect to the database."
+      },
+      "defaultValue": ""
+    },
+    "masManageDBPassword": {
+      "type": "secureString",
+      "metadata": {
+        "description": "Enter the password that the Maximo Manage application uses to connect to the database."
+      },
+      "defaultValue": ""
+    },
+    "masManageDBJdbcUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the URL location of the database that the Maximo Manage application connects to, for example: jdbc:db2://1.2.3.4:50051/FTMDB:sslConnection=true;"
+      },
+      "defaultValue": ""
+    },
+    "masManageDBCertificateUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the Blob SAS location of the database's public certificate, for example: s3://masocp-license/db-certificate.crt"
+      },
+      "defaultValue": ""
+    },
+    "importDemoData": {
+      "type": "string",
+      "metadata": {
+        "description": "Indicate whether you want to import demo data into the database. This might be useful for development or test environments."
+      },
+      "defaultValue": "false",
+      "allowedValues": [
+        "true",
+        "false"
+      ]
+    },
+    "sshPublicKey": {
+      "type": "string",
+      "defaultValue": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCZsnnoLyMnmObhjDLHNh9ksowEb1dV1eb8Ssw7vdzLFoWVf+Upm1xtH2vOybaDfE/rES+aQIsjrKhwlGM+o2ViM9skQJIX/34/gzt3r+SUG4bzRvAtmPofAoQTrvRKWwL47K8nNPVcqHoV1TMEL9R+F8UTwQGbhz5FuxEt0eReOBCxNQnuLPLChawaml7LSNNaRka6tBQ/QeA/oJdo82sn/tpNZFNivOn8+fo+HNQPvirFJKLmsiER2HFuhH6p3wHYA1IMqzzOcWv52cRRIONyowyPbuCCVzbdXSHWt2JtcyvkwAqc2a5DuhxTeioYP+xAij9r/Xkc/x94sXAsAJtz imported-openssh-key",
+      "metadata": {
+        "description": "Provide the public SSH key that you want to add to the bootnode, bastion host and cluster nodes."
+      }
+    },
+    "slsEndpointUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the endpoint URL that you retrieved from the 'sls-*' OpenShift route in the cluster namespace where SLS is installed."
+      },
+      "defaultValue": ""
+    },
+    "slsRegistrationKey": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the 'status.registrationKey' value that you retrieved from the LicenseService YAML file in the SLS namespace."
+      },
+      "defaultValue": ""
+    },
+    "slsPublicCertificateUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the Blob SAS location of the service's public certificate that you retrieved from the 'ca.crt' file in the 'mas-*-sls-cfg' route in the MAS core namespace."
+      },
+      "defaultValue": ""
+    },
+    "basEndpointUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the endpoint URL that you retrieved from the 'bas-endpoint' OpenShift route in the cluster namespace where BAS is installed."
+      },
+      "defaultValue": ""
+    },
+    "basAPIKey": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the service's API key that you retrieved from the 'bas-api-key' secret in the BAS namespace."
+      },
+      "defaultValue": ""
+    },
+    "basPublicCertificateUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Enter the Blob SAS location of the service's public certificate that you retrieved from the 'ca.crt' file in the 'mas-*-bas-cfg' route in the MAS core namespace."
+      },
+      "defaultValue": ""
+    },
+    "azureSubscriptionId": {
+      "type": "string",
+      "defaultValue": "b2ca5467-2502-4b05-b78e-744604c6531d",
+      "metadata": {
+        "description": "Azure subscription Id."
+      }
+    },
+    "azureTenantId": {
+      "type": "string",
+      "defaultValue": "fcf67057-50c9-4ad4-98f3-ffca64add9e9",
+      "metadata": {
+        "description": "Azure tenant Id."
+      }
+    },
+    "azureServicePrincipalClientId": {
+      "type": "string",
+      "defaultValue": "1bc717ac-ea87-4011-ac59-21e6942a2e2f",
+      "metadata": {
+        "description": "Azure service principal client Id."
+      }
+    },
+    "azureServicePrincipalClientSecret": {
+      "type": "secureString",
+      "defaultValue": "749047dc-327b-4615-b510-51d3685ab70f",
+      "metadata": {
+        "description": "Azure service principal client secret."
+      }
+    },
+    "notificattionEmailAddress": {
+      "type": "string",
+      "metadata": {
+        "description": "Email address to send email to. If empty, no email will be sent."
+      },
+      "defaultValue": "santosh.pawar@ibm.com"
+    },
+    "sendGridAPIKey": {
+      "type": "secureString",
+      "defaultValue": "",
+      "metadata": {
+        "description": "SendGrid API key for sending the deployment completion email. If empty, no email will be sent."
+      }
+    },
+    "emailNotification": {
+      "type": "string",
+      "metadata": {
+        "description": "Indicate whether you want to receive emails that contain the connection details and credentials for the Suite. These emails are sent only to the verified email addresses that you configured in the Amazon SES service."
+      },
+      "defaultValue": "false",
+      "allowedValues": [
+        "true",
+        "false"
+      ]
+    }
+  },
+  "variables": {
+    "seller_subscription_id": "b2ca5467-2502-4b05-b78e-744604c6531d",
+    "seller_resource_group": "EdgeTest",
+    "seller_compute_gallery_name": "mas_image_gallery",
+    "seller_image_version": "masocp-bootnode-20220311",
+    "compute_gallery_externalid": "[concat('/subscriptions/', variables('seller_subscription_id'), '/resourceGroups/', variables('seller_resource_group'), '/providers/Microsoft.Compute/galleries/', variables('seller_compute_gallery_name'))]",
+    "projectName": "[substring(uniqueString(resourceGroup().id, deployment().name), 0, 6)]",
+    "location": "[resourceGroup().location]",
+    "rgName": "[resourceGroup().name]",
+    "adminUsername": "azureuser",
+    "vmSize": "Standard_D2s_v3",
+    "vNetName": "[concat(variables('projectName'), '-vnet')]",
+    "vNetAddressPrefixes": "10.0.0.0/16",
+    "vNetSubnetName": "default",
+    "vNetSubnetAddressPrefix": "10.0.0.0/24",
+    "vmName": "[concat('masocp-', variables('projectName'), '-bootnode-vm')]",
+    "publicIPAddressName": "[concat(variables('projectName'), '-ip')]",
+    "networkInterfaceName": "[concat(variables('projectName'), '-nic')]",
+    "networkSecurityGroupName": "[concat(variables('projectName'), '-nsg')]",
+    "networkSecurityGroupName2": "[concat(variables('vNetSubnetName'), '-nsg')]",
+    "storageaccountName": "[concat('masocp', variables('projectName'),'stgaccount')]",
+    "managedIdentityName": "[concat('masocp-', variables('projectName'), '-managedidentity')]",
+    "managedIdentityId": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', variables('rgName'), '/providers/Microsoft.ManagedIdentity/userAssignedIdentities/', variables('managedIdentityName'))]",
+    "ownerRoleAssignmentId": "[guid(subscription().id, variables('ownerRoleDefinitionId'),variables('managedIdentityId'))]",
+    "ownerRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8e3af657-a8ff-443c-a75c-2fe8c4bcb635')]",
+    "storageBlobRoleAssignmentId": "[guid(subscription().id, variables('storageBlobRoleDefinitionId'),variables('managedIdentityId'))]",
+    "storageBlobRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+    "readerRoleAssignmentId": "[guid(subscription().id, variables('readerRoleDefinitionId'),variables('managedIdentityId'))]",
+    "readerRoleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]"
+  },
+  "resources": [
+    {
+      "apiVersion": "2020-06-01",
+      "name": "pid-fcf67057-50c9-4ad4-98f3-ffca64add9e9",
+      "type": "Microsoft.Resources/deployments",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": []
+        }
+      }
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "name": "[variables('managedIdentityName')]",
+      "apiVersion": "2018-11-30",
+      "location": "[variables('location')]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[variables('ownerRoleAssignmentId')]",
+      "properties": {
+        "roleDefinitionId": "[variables('ownerRoleDefinitionId')]",
+        "principalId": "[reference(variables('managedIdentityName')).principalId]",
+        "principalType": "ServicePrincipal",
+        "scope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', variables('rgName'))]"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[variables('storageBlobRoleAssignmentId')]",
+      "properties": {
+        "roleDefinitionId": "[variables('storageBlobRoleDefinitionId')]",
+        "principalId": "[reference(variables('managedIdentityName')).principalId]",
+        "principalType": "ServicePrincipal",
+        "scope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', variables('rgName'))]"
+
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "name": "Nested-Role-Assignment-ManagedIdentity",
+      "apiVersion": "2021-04-01",
+      "resourceGroup": "[parameters('publicDomainResourceGroup')]",
+      "subscriptionId": "[subscription().subscriptionId]",
+      "properties": {
+        "mode": "Incremental",
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[variables('readerRoleAssignmentId')]",
+              "properties": {
+                "roleDefinitionId": "[variables('readerRoleDefinitionId')]",
+                "principalId": "[reference(variables('managedIdentityName')).principalId]",
+                "principalType": "ServicePrincipal",
+                "scope": "[concat('/subscriptions/', subscription().subscriptionId, '/resourceGroups/', parameters('publicDomainResourceGroup'))]"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2020-05-01",
+      "name": "[variables('networkSecurityGroupName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "ssh_rule",
+            "properties": {
+              "description": "Locks inbound down to ssh default port 22.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "22",
+              "sourceAddressPrefix": "[parameters('bootnodeSGIngressCidrIp')]",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 123,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2020-05-01",
+      "name": "[variables('publicIPAddressName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      },
+      "sku": {
+        "name": "Basic"
+      }
+    },
+    {
+      "comments": "Simple Network Security Group for subnet [variables('vNetSubnetName')]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2020-05-01",
+      "name": "[variables('networkSecurityGroupName2')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "default-allow-22",
+            "properties": {
+              "priority": 1000,
+              "access": "Allow",
+              "direction": "Inbound",
+              "destinationPortRange": "22",
+              "protocol": "Tcp",
+              "sourceAddressPrefix": "[parameters('bootnodeSGIngressCidrIp')]",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2020-05-01",
+      "name": "[variables('vNetName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName2'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('vNetAddressPrefixes')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('vNetSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('vNetSubnetAddressPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName2'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2020-05-01",
+      "name": "[variables('networkInterfaceName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkSecurityGroupName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]"
+              },
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vNetName'), variables('vNetSubnetName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2018-06-01",
+      "name": "[variables('vmName')]",
+      "location": "[variables('location')]",
+      "identity": {
+        "type": "userAssigned",
+        "userAssignedIdentities": {
+          "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities/', variables('managedIdentityName'))]": {}
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('vmName')]",
+          "adminUsername": "[variables('adminUsername')]",
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [
+                {
+                  "path": "[concat('/home/', variables('adminUsername'), '/.ssh/authorized_keys')]",
+                  "keyData": "[parameters('sshPublicKey')]"
+                }
+              ]
+            }
+          }
+        },
+        "storageProfile": {
+          "imageReference": {
+            "id": "[concat(variables('compute_gallery_externalid'), '/images/', variables('seller_image_version'))]"
+          },
+          "osDisk": {
+            "createOption": "fromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "apiVersion": "2015-06-15",
+          "type": "extensions",
+          "name": "config-app",
+          "location": "[variables('location')]",
+          "dependsOn": [
+            "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+          ],
+          "tags": {
+            "displayName": "config-app"
+          },
+          "properties": {
+            "publisher": "Microsoft.Azure.Extensions",
+            "type": "CustomScript",
+            "typeHandlerVersion": "2.0",
+            "autoUpgradeMinorVersion": true,
+            "protectedSettings": {
+              "commandToExecute": "[concat('sleep 120;', 'ssh-keyscan github.ibm.com >> ~/.ssh/known_hosts;', 'cd /root;', 'git clone -b master https://github.com/ibm-mas/ansible-devops.git;', 'cd ansible-devops/multicloud-bootstrap;', 'find . -type f -name \"*.sh\" -exec chmod +x {} \\;;', './init-async.sh azure ''', parameters('offeringType'), ''' ''', variables('location'), ''' null ''', parameters('clusterSize'), ''' ''', variables('projectName'), ''' ''', parameters('publicDomain'), ''' ''', parameters('publicDomainResourceGroup'), ''' ''', parameters('sshPublicKey'), ''' null ''', parameters('entitledRegistryKey'), ''' ''', parameters('openShiftPullSecret'), ''' ''', parameters('masLicenseUrl'), ''' ''', parameters('slsEndpointUrl'), ''' ''', parameters('slsRegistrationKey'), ''' ''', parameters('slsPublicCertificateUrl'), ''' ''', parameters('basEndpointUrl'), ''' ''', parameters('basAPIKey'), ''' ''', parameters('basPublicCertificateUrl'), ''' ''', parameters('masManageDBUser'), ''' ''', parameters('masManageDBPassword'), ''' ''', parameters('masManageDBJdbcUrl'), ''' ''', parameters('masManageDBCertificateUrl'), ''' ''', parameters('importDemoData'), ''' ''', parameters('openShiftClusterApiUrl'), ''' ''', parameters('openShiftUser'), ''' ''', parameters('openShiftPassword'), ''' ''', variables('rgName'), ''' ''', parameters('notificattionEmailAddress'), ''' ''', parameters('sendGridApiKey'), ''' ''', parameters('azureSubscriptionId'), ''' ''', parameters('azureTenantId'), ''' ''', parameters('azureServicePrincipalClientId'), ''' ''', parameters('azureServicePrincipalClientSecret'), ''' ''', variables('seller_subscription_id'), ''' ''', variables('seller_resource_group'), ''' ''', variables('seller_compute_gallery_name'), ''' ''', variables('seller_image_version'), ''' ''', parameters('emailNotification'), ''' > mas-provisioning.log 2>&1;')]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-04-01",
+      "name": "[variables('storageaccountName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "supportsHttpsTrafficOnly": true
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2021-06-01",
+      "name": "[concat(variables('storageaccountName'), '/default/masocpcontainer')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageaccountName'))]"
+      ],
+      "properties": {
+        "immutableStorageWithVersioning": {
+          "enabled": false
+        },
+        "defaultEncryptionScope": "$account-encryption-key",
+        "denyEncryptionScopeOverride": false,
+        "publicAccess": "None"
+      }
+    }
+  ],
+  "outputs": {
+    "masCloudAutomationVersion": {
+      "type": "string",
+      "value": "1.0"
+    },
+    "clusterUniqueString": {
+      "type": "string",
+      "value": "[variables('projectName')]"
+    },
+    "openShiftConsoleUrl": {
+      "type": "string",
+      "condition": "[equals(parameters('openShiftClusterApiUrl'), '')]",
+      "value": "[concat('https://console-openshift-console.apps.masocp-', variables('projectName'), '.', parameters('publicDomain'))]"
+    },
+    "openShiftApiUrl": {
+      "type": "string",
+      "condition": "[equals(parameters('openShiftClusterApiUrl'), '')]",
+      "value": "[concat('https://api.masocp-', variables('projectName'), '.', parameters('publicDomain'))]"
+    },
+    "openShiftUser": {
+      "type": "string",
+      "condition": "[equals(parameters('openShiftClusterApiUrl'), '')]",
+      "value": "masocpuser"
+    },
+    "openShiftPassword": {
+      "type": "string",
+      "condition": "[equals(parameters('openShiftClusterApiUrl'), '')]",
+      "value": "[concat('masocp', variables('projectName'), 'pass')]"
+    },
+    "masInitialSetupUrl": {
+      "type": "string",
+      "condition": "[equals(parameters('openShiftClusterApiUrl'), '')]",
+      "value": "[concat('https://admin.mas-', variables('projectName'), '.apps.masocp-', variables('projectName'), '.', parameters('publicDomain'), '/initialsetup')]"
+    },
+    "masInitialSetupUrlLogin": {
+      "type": "string",
+      "condition": "[not(equals(parameters('openShiftClusterApiUrl'), ''))]",
+      "value": "[concat('https://admin.mas-', variables('projectName'), '.apps.', last(split(parameters('openShiftClusterApiUrl'),'api.')), '/initialsetup')]"
+    },
+    "masAdminUrl": {
+      "type": "string",
+      "condition": "[equals(parameters('openShiftClusterApiUrl'), '')]",
+      "value": "[concat('https://admin.mas-', variables('projectName'), '.apps.masocp-', variables('projectName'), '.', parameters('publicDomain'))]"
+    },
+    "masAdminUrlLogin": {
+      "type": "string",
+      "condition": "[not(equals(parameters('openShiftClusterApiUrl'), ''))]",
+      "value": "[concat('https://admin.mas-', variables('projectName'), '.apps.', last(split(parameters('openShiftClusterApiUrl'),'api.')))]"
+    },
+    "masWorkspaceUrl": {
+      "type": "string",
+      "condition": "[equals(parameters('openShiftClusterApiUrl'), '')]",
+      "value": "[concat('https://wsmasocp.home.mas-', variables('projectName'), '.apps.masocp-', variables('projectName'), '.', parameters('publicDomain'))]"
+    },
+    "masWorkspaceUrlLogin": {
+      "type": "string",
+      "condition": "[not(equals(parameters('openShiftClusterApiUrl'), ''))]",
+      "value": "[concat('https://wsmasocp.home.mas-', variables('projectName'), '.apps.', last(split(parameters('openShiftClusterApiUrl'),'api.')))]"
+    },
+    "masCredentials": {
+      "type": "string",
+      "value": "<Get it from OCP secret 'mas-[uniqstr]-credentials-superuser' in namespace 'mas-mas-[uniqstr]-core'>"
+    }
+  }
+}
