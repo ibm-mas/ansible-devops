@@ -1,0 +1,76 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: mas-devops-ajw-pipeline-
+  namespace: mas-ajw-pipelines
+  labels:
+    tekton.dev/pipeline: mas-devops-ajw-pipeline
+spec:
+  pipelineRef:
+    name: mas-devops-ajw-pipeline
+
+  serviceAccountName: pipeline
+  timeout: 0s
+
+  # Important: note that this configuration will only work if you have access to pre-release builds
+  params:
+    # Configure MAS Applications to install
+    # IoT Application
+    - name: mas_app_source_iot
+      value: ibm-mas-iot-operators
+    - name: mas_app_channel_iot
+      value: m1dev88
+    # Manage application
+    - name: mas_app_source_manage
+      value: ibm-mas-manage-operators
+    - name: mas_app_channel_manage
+      value: dev83
+    # # Monitor Application
+    # - name: mas_app_source_monitor
+    #   value: ibm-operator-catalog
+    # - name: mas_app_channel_monitor
+    #   value: 8.x
+    # # MSO Application
+    # - name: mas_app_source_mso
+    #   value: ibm-operator-catalog
+    # - name: mas_app_channel_mso
+    #   value: 8.x
+    # # Predict Application
+    # - name: mas_app_source_predict
+    #   value: ibm-operator-catalog
+    # - name: mas_app_channel_predict
+    #   value: 8.x
+    # # Safety Application
+    # - name: mas_app_source_safety
+    #   value: ibm-operator-catalog
+    # - name: mas_app_channel_safety
+    #   value: 8.x
+
+  workspaces:
+    # The generated configuration files
+    - name: shared-configs
+      persistentVolumeClaim:
+        claimName: config-pvc
+
+    # All environment variables for the playbooks
+    - name: shared-settings
+      secret:
+        secretName: pipeline-settings
+
+    # Any pre-generated configs that will be copied into the
+    # shared-config during install-suite
+    - name: shared-additional-configs
+      secret:
+        secretName: pipeline-additional-configs
+
+    # The SLS entitlement key file that will be installed
+    # during install-sls
+    - name: shared-entitlement
+      secret:
+        secretName: pipeline-sls-entitlement
+
+    # The storage to hold mustgather output after the pipeline has completed
+    - name: shared-mustgather
+      persistentVolumeClaim:
+        claimName: shared-mustgather-storage

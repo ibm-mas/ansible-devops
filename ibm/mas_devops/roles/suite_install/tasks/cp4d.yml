@@ -1,0 +1,43 @@
+---
+- name: "Create certificate to be used for suite cp4d route"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cp4d/cp4d-certificate.yml.j2') }}"
+
+- name: "Lookup suite cp4d route certificate"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "suite-cp4d-certificate"
+    namespace: "{{ cpd_services_namespace }}"
+  register: suiteCp4dCrtSecret
+
+# Potentially a custom TLS cert might have been setup for the cp4d web client. Look for this first
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=client-using-custom-tls-certificate-connect-platform
+- name: "Lookup overridden internal CP4D CA certificate"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "external-tls-secret"
+    namespace: "{{ cpd_services_namespace }}"
+  register: cp4dCrtSecret
+
+- name: "Lookup default internal CP4D CA certificate if no external-tls-secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "default-ssl"
+    namespace: "{{ cpd_services_namespace }}"
+  register: cp4dCrtSecret
+  when:
+    - cp4dCrtSecret.resources | length == 0
+
+- name: "Set CP4D custom route with certificate"
+  vars:
+    cp4dInternalCertificateAuthorityCertificate: "{{ cp4dCrtSecret.resources[0]['data']['cert.crt'] | b64decode }}"
+    suiteCp4dExternalCertificate: "{{ suiteCp4dCrtSecret.resources[0]['data']['tls.crt'] | b64decode }}"
+    suiteCp4dExternalKey: "{{ suiteCp4dCrtSecret.resources[0]['data']['tls.key'] | b64decode }}"
+    suiteCp4dExternalCertificateAuthorityCertificate: "{{ suiteCp4dCrtSecret.resources[0]['data']['ca.crt']  | default('') }}"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cp4d/cp4d-route.yml.j2') }}"
