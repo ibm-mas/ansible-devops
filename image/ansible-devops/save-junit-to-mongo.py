@@ -46,17 +46,6 @@ if __name__ == "__main__":
 
         root = tree.getroot()
 
-#####
-        bf = Yahoo(dict_type=dict)
-        resultDoc = bf.data(root)
-
-        for testcase in resultDoc["testsuites"]["testsuite"]["testcase"]:
-            print(testcase)
-            print(testcase["name"])
-            print(testcase["classname"])
-            testcase["name"] = testcase["name"].replace("[localhost] localhost: ", "")
-            testcase["classname"] = testcase["classname"].split("ibm/mas_devops/")[1]
-#####
         if "DEVOPS_MONGO_URI" in os.environ and os.environ['DEVOPS_MONGO_URI'] != "":
             # Convert junit xml to json
             bf = Yahoo(dict_type=dict)
@@ -64,7 +53,8 @@ if __name__ == "__main__":
 
             for testcase in resultDoc["testsuites"]["testsuite"]["testcase"]:
                 testcase["name"] = testcase["name"].replace("[localhost] localhost: ", "")
-                testcase["classname"] = testcase["classname"].split("ibm/mas_devops/")[1]
+                if "/opt/app-root/" in testcase["classname"]:
+                    testcase["classname"] = testcase["classname"].split("/opt/app-root/")[1]
             # Enrich document
             resultDoc["_id"] = resultId
             resultDoc["build"] = build
