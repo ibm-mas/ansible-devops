@@ -116,6 +116,8 @@ mark_provisioning_failed() {
     export STATUS_MSG="Failed in uploading deployment context to S3."
   elif [[ $retcode -eq 24 ]]; then
     export STATUS_MSG="Failure in configuring OCP cluster."
+  elif [[ $retcode -eq 25 ]]; then
+    export STATUS_MSG="Failure in creating azurefiles storage class."
   fi
   export MESSAGE_TEXT=NA
   export OPENSHIFT_CLUSTER_CONSOLE_URL=NA
