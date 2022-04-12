@@ -53,7 +53,13 @@ if __name__ == "__main__":
 
             for testcase in resultDoc["testsuites"]["testsuite"]["testcase"]:
                 testcase["name"] = testcase["name"].replace("[localhost] localhost: ", "")
-                testcase["classname"] = testcase["classname"].split("ibm/mas_devops/")[1]
+                # Playbooks don't have ibm/mas_devops in the classnmae but do have /opt/app-root.
+                # Roles have both ibm/mas_devops and /opt/app-root. 
+                # Guard against both and remove when required.
+                if "/opt/app-root/" in testcase["classname"]:
+                    testcase["classname"] = testcase["classname"].split("/opt/app-root/")[1]
+                if "ibm/mas_devops/" in testcase["classname"]:
+                    testcase["classname"] = testcase["classname"].split("ibm/mas_devops/")[1]
             # Enrich document
             resultDoc["_id"] = resultId
             resultDoc["build"] = build
