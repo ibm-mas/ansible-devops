@@ -22,19 +22,19 @@ Local directory to save the generated SlsCfg resource definition.  This can be u
 - Default Value: None
 
 ### slscfg_tls_crt
-Required. TODO: Write me
+Required. The TLS CA certiticate of the LicenseService to be used when the Maximo Application Suite is registered with SLS.
 
 - Environment Variable: None
 - Default Value: None
 
 ### slscfg_url
-Required. TODO: Write me
+Required. The URL of the LicenseService to be called when the Maximo Application Suite is registered with SLS.
 
 - Environment Variable: `SLSCFG_URL`
 - Default Value: None
 
 ### slscfg_registration_key
-Required. TODO: Write me
+Required. The Registration key of the LicenseService instance to be used when the Maximo Application Suite is registered with SLS.
 
 - Environment Variable: `SLSCFG_REGISTRATION_KEY`
 - Default Value: None
