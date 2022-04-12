@@ -76,7 +76,7 @@
 # 3. Get the cluster subdomain to be used for the certificate and route creation
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
     name: cluster
@@ -86,13 +86,13 @@
 # 4. Create self-signed certificate for Db2u SSL
 # -----------------------------------------------------------------------------
 - name: "Create internal CA certificate issuer"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/certs/ca_issuer.yml.j2') }}"
   register: createCaIssuer
 
 - name: "Create and wait for CA certificate"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/certs/ca_certificate.yml.j2') }}"
     wait: yes
@@ -103,13 +103,13 @@
   register: createCaCert
 
 - name: "Create certificate issuer"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/certs/issuer.yml.j2') }}"
   register: createIssuer
 
 - name: "Create db2u certificate"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/certs/certificate.yml.j2') }}"
   register: createCertificate
@@ -129,13 +129,13 @@
 # 6. Create a Db2 instance
 # -----------------------------------------------------------------------------
 - name: "Create db2 instance"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/db2ucluster.yml.j2') }}"
 
 # Wait for the cluster to be ready
 - name: "Wait for db2u instance to be ready (5m delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2u_instance_name | lower }}"
     namespace: "{{db2u_namespace}}"
@@ -153,7 +153,7 @@
 # 7. Configure a public route for Db2
 # -----------------------------------------------------------------------------
 - name: Lookup db2u Engn Service
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Service
     name: "c-{{db2u_instance_name | lower}}-db2u-engn-svc"
@@ -165,7 +165,7 @@
   delay: 20
 
 - name: Lookup db2u TLS certificates
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "db2u-certificate"
@@ -189,7 +189,7 @@
     "{{_db2u_instance_engn_svc.resources[0].spec.ports}}"
 
 - name: "Create Db2u route"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/tlsroute.yml.j2') }}"
 
