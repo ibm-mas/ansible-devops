@@ -143,5 +143,5 @@ ansible-playbook configure-azurefiles.yml
 retcode=$?
 if [[ $retcode -ne 0 ]]; then
   log "Failed to create azurefiles-standard storageclass"
-  exit 25
+  exit 27
 fi
