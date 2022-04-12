@@ -75,7 +75,7 @@ if [[ $CLUSTER_TYPE == "aws" ]]; then
     "logs_collected": {
       "files": {
         "collect_list": [{
-          "file_path": "/root/mas-on-aws/mas-provisioning.log",
+          "file_path": "/root/ansible-devops/multicloud-bootstrap/mas-provisioning.log",
           "log_group_name": "/ibm/mas/masocp-${RANDOM_STR}",
           "log_stream_name": "mas-provisioning-logs"
         }]
@@ -112,8 +112,8 @@ fi
 # OCP variables
 export GIT_REPO_HOME=$(pwd)
 export CLUSTER_NAME="masocp-${RANDOM_STR}"
-export OPENSHIFT_USER="masocpuser"
-export OPENSHIFT_PASSWORD=masocp${RANDOM_STR}pass
+export OCP_USERNAME="masocpuser"
+export OCP_PASSWORD=masocp${RANDOM_STR}pass
 export OPENSHIFT_PULL_SECRET_FILE_PATH=${GIT_REPO_HOME}/pull-secret.json
 export MASTER_NODE_COUNT="3"
 export WORKER_NODE_COUNT="3"
@@ -137,16 +137,13 @@ export KAFKA_CLUSTER_SIZE=small
 export KAFKA_USER_NAME=masuser
 # SLS variables
 export SLS_NAMESPACE="ibm-sls-${RANDOM_STR}"
-# BAS variables
-export BAS_NAMESPACE="ibm-bas-${RANDOM_STR}"
-export BAS_PERSISTENT_STORAGE=ocs-storagecluster-cephfs
-export BAS_PASSWORD=basuser
-export BAS_CONTACT_MAIL="bas.support@ibm.com"
-export BAS_CONTACT_FIRSTNAME=Bas
-export BAS_CONTACT_LASTNAME=Support
-export GRAPHANA_PASSWORD=password
-# MAS variables
-#export MAS_ENTITLEMENT_KEY=$SLS_ENTITLEMENT_KEY
+export SLS_MONGODB_CFG_FILE="${MAS_CONFIG_DIR}/mongo-${MONGODB_NAMESPACE}.yml"
+export SLS_LICENSE_FILE="${MAS_CONFIG_DIR}/entitlement.lic"
+# UDS variables
+export UDS_STORAGE_CLASS=gp2
+export UDS_CONTACT_EMAIL="uds.support@ibm.com"
+export UDS_CONTACT_FIRSTNAME=Uds
+export UDS_CONTACT_LASTNAME=Support
 # CP4D variables
 export CPD_ENTITLEMENT_KEY=$SLS_ENTITLEMENT_KEY
 export CPD_VERSION=cpd40
@@ -162,9 +159,14 @@ export DB2WH_LOGS_STORAGE_CLASS=ocs-storagecluster-cephfs
 export DB2WH_TEMP_STORAGE_CLASS=ocs-storagecluster-cephfs
 export DB2WH_INSTANCE_NAME=db2wh-db01
 export DB2WH_VERSION=11.5.7.0-cn1
-# Manage variables
-export MAS_APP_ID=manage
+export DB2WH_NAMESPACE="cpd-services-${RANDOM_STR}"
+# MAS variables
+#export MAS_ENTITLEMENT_KEY=$SLS_ENTITLEMENT_KEY
 export MAS_WORKSPACE_ID="wsmasocp"
+export MAS_WORKSPACE_NAME="wsmasocp"
+export MAS_CONFIG_SCOPE="wsapp"
+export MAS_APP_ID=manage
+export MAS_APPWS_JDBC_BINDING="workspace-application"
 export MAS_JDBC_CERT_LOCAL_FILE=$GIT_REPO_HOME/db.crt
 export MAS_CLOUD_AUTOMATION_VERSION=1.0
 
@@ -237,7 +239,7 @@ echo " EMAIL_NOTIFICATION: $EMAIL_NOTIFICATION"
 echo " HOME: $HOME"
 echo " GIT_REPO_HOME: $GIT_REPO_HOME"
 echo " CLUSTER_NAME: $CLUSTER_NAME"
-echo " OPENSHIFT_USER: $OPENSHIFT_USER"
+echo " OCP_USERNAME: $OCP_USERNAME"
 echo " OPENSHIFT_PULL_SECRET_FILE_PATH: $OPENSHIFT_PULL_SECRET_FILE_PATH"
 echo " MASTER_NODE_COUNT: $MASTER_NODE_COUNT"
 echo " WORKER_NODE_COUNT: $WORKER_NODE_COUNT"
@@ -252,10 +254,10 @@ echo " KAFKA_NAMESPACE: $KAFKA_NAMESPACE"
 echo " KAFKA_CLUSTER_NAME: $KAFKA_CLUSTER_NAME"
 echo " KAFKA_CLUSTER_SIZE: $KAFKA_CLUSTER_SIZE"
 echo " KAFKA_USER_NAME: $KAFKA_USER_NAME"
-echo " BAS_PERSISTENT_STORAGE: $BAS_PERSISTENT_STORAGE"
-echo " BAS_CONTACT_MAIL: $BAS_CONTACT_MAIL"
-echo " BAS_CONTACT_FIRSTNAME: $BAS_CONTACT_FIRSTNAME"
-echo " BAS_CONTACT_LASTNAME: $BAS_CONTACT_LASTNAME"
+echo " UDS_STORAGE_CLASS: $UDS_STORAGE_CLASS"
+echo " UDS_CONTACT_MAIL: $UDS_CONTACT_MAIL"
+echo " UDS_CONTACT_FIRSTNAME: $UDS_CONTACT_FIRSTNAME"
+echo " UDS_CONTACT_LASTNAME: $UDS_CONTACT_LASTNAME"
 echo " CPD_STORAGE_CLASS: $CPD_STORAGE_CLASS"
 echo " MAS_APP_ID: $MAS_APP_ID"
 echo " MAS_WORKSPACE_ID: $MAS_WORKSPACE_ID"
@@ -299,15 +301,15 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     split_ocp_api_url $EXS_OCP_URL
     log "Debug: after: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
     # echo $BASE_DOMAIN
-    export OPENSHIFT_USER=$EXS_OCP_USER
-    export OPENSHIFT_PASSWORD=$EXS_OCP_PWD
+    export OCP_USERNAME=$EXS_OCP_USER
+    export OCP_PASSWORD=$EXS_OCP_PWD
     export OPENSHIFT_USER_PROVIDE="true"
   else
     ## No input from user. Generate Cluster Name, Username, and Password.
     echo "Debug: No cluster details or insufficient data provided. Proceed to create new OCP cluster later"
     export CLUSTER_NAME="masocp-${RANDOM_STR}"
-    export OPENSHIFT_USER="masocpuser"
-    export OPENSHIFT_PASSWORD=masocp${RANDOM_STR}pass
+    export OCP_USERNAME="masocpuser"
+    export OCP_PASSWORD=masocp${RANDOM_STR}pass
     export OPENSHIFT_USER_PROVIDE="false"
   fi
   log " OPENSHIFT_USER_PROVIDE=$OPENSHIFT_USER_PROVIDE"
@@ -315,6 +317,10 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
   # Create Red Hat pull secret
   echo "$OCP_PULL_SECRET" > $OPENSHIFT_PULL_SECRET_FILE_PATH
   chmod 600 $OPENSHIFT_PULL_SECRET_FILE_PATH
+
+  # Create MAS_CONFIG_DIR directory
+  mkdir -p $MAS_CONFIG_DIR  
+  chmod 700 $MAS_CONFIG_DIR
 
   # Call cloud specific script
   chmod +x $CLUSTER_TYPE/*.sh

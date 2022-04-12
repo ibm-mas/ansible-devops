@@ -34,6 +34,7 @@ elif [[ $CLUSTER_TYPE == "azure" ]]; then
 else
     true
 fi
+
 if [ $? -eq 0 ]; then
     log "MAS public domain verification = PASS"
 else
@@ -41,20 +42,22 @@ else
     SCRIPT_STATUS=13
 fi
 
-# check if CNAME and A records already exist for the given MAS instance being deployed
-# A) Check if the DNS zone A records already exists wtih $UNIQ_STR
-A_RECS=$(az network dns record-set a list -g $BASE_DOMAIN_RG_NAME -z $BASE_DOMAIN | jq ".[] | select(.name == \"*.apps.masocp-$UNIQ_STR\").name" | tr -d '"')
+if [[ $CLUSTER_TYPE == "azure" ]]; then
+    # check if CNAME and A records already exist for the given MAS instance being deployed
+    # A) Check if the DNS zone A records already exists wtih $UNIQ_STR
+    A_RECS=$(az network dns record-set a list -g $BASE_DOMAIN_RG_NAME -z $BASE_DOMAIN | jq ".[] | select(.name == \"*.apps.masocp-$UNIQ_STR\").name" | tr -d '"')
 
-if [[ -n $A_RECS ]]; then
-    log "ERROR: Record set with $UNIQ_STR already exists as $A_RECS"
-    SCRIPT_STATUS=25
-fi
+    if [[ -n $A_RECS ]]; then
+        log "ERROR: Record set with $UNIQ_STR already exists as $A_RECS"
+        SCRIPT_STATUS=25
+    fi
 
-# B) Check if the DNS zone CNAME records already exists wtih $UNIQ_STR
-CNAME_RECS=$(az network dns record-set cname list -g $BASE_DOMAIN_RG_NAME -z $BASE_DOMAIN | jq ".[] | select(.name == \"api.masocp-$UNIQ_STR\").name" | tr -d '"')
-if [[ -n $CNAME_RECS ]]; then
-    log "ERROR: Record set with $UNIQ_STR already exists as $CNAME_REC"
-    SCRIPT_STATUS=25
+    # B) Check if the DNS zone CNAME records already exists wtih $UNIQ_STR
+    CNAME_RECS=$(az network dns record-set cname list -g $BASE_DOMAIN_RG_NAME -z $BASE_DOMAIN | jq ".[] | select(.name == \"api.masocp-$UNIQ_STR\").name" | tr -d '"')
+    if [[ -n $CNAME_RECS ]]; then
+        log "ERROR: Record set with $UNIQ_STR already exists as $CNAME_REC"
+        SCRIPT_STATUS=25
+    fi
 fi
 
 # JDBC CFT inputs validation and connection test
@@ -193,11 +196,13 @@ else
     fi
 fi
 
-# Validate non-empty sendgrid API key(SENDGRID_API_KEY) and recipient(RECEPIENT) email id when email notification is set to true.
-if [[ $EMAIL_NOTIFICATION == "true" ]]; then
-    if [[ (-z $SENDGRID_API_KEY) || (-z $RECEPIENT) ]]; then
-        log "ERROR: Missing Sendgrid API key or Recipeient email address."
-        SCRIPT_STATUS=26
+if [[ $CLUSTER_TYPE == "azure" ]]; then
+    # Validate non-empty sendgrid API key(SENDGRID_API_KEY) and recipient(RECEPIENT) email id when email notification is set to true.
+    if [[ $EMAIL_NOTIFICATION == "true" ]]; then
+        if [[ (-z $SENDGRID_API_KEY) || (-z $RECEPIENT) ]]; then
+            log "ERROR: Missing Sendgrid API key or Recipeient email address."
+            SCRIPT_STATUS=26
+        fi
     fi
 fi
 

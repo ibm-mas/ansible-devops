@@ -16,8 +16,6 @@ IAM_POLICY_NAME="masocp-policy-${RANDOM_STR}"
 IAM_USER_NAME="masocp-user-${RANDOM_STR}"
 # SLS variables 
 export SLS_STORAGE_CLASS=gp2
-# BAS variables 
-export BAS_META_STORAGE=gp2
 # CP4D variables
 export CPD_BLOCK_STORAGE_CLASS=gp2
 
@@ -34,7 +32,6 @@ echo " KAFKA_STORAGE_CLASS: $KAFKA_STORAGE_CLASS"
 echo " IAM_POLICY_NAME: $IAM_POLICY_NAME"
 echo " IAM_USER_NAME: $IAM_USER_NAME"
 echo " SLS_STORAGE_CLASS: $SLS_STORAGE_CLASS"
-echo " BAS_META_STORAGE: $BAS_META_STORAGE"
 echo " CPD_BLOCK_STORAGE_CLASS: $CPD_BLOCK_STORAGE_CLASS"
 echo " SSH_PUB_KEY: $SSH_PUB_KEY"
 
@@ -55,7 +52,7 @@ fi
 if [[ -f sls.crt ]]; then
   chmod 600 sls.crt
 fi
-# Download BAS certificate
+# Download UDS certificate
 cd $GIT_REPO_HOME
 if [[ ${BAS_PUB_CERT_URL,,} =~ ^https? ]]; then
   log "Downloading BAS certificate from HTTP URL"
@@ -127,8 +124,8 @@ secret_access_key               = "$AWS_SECRET_ACCESS_KEY"
 base_domain                     = "$BASE_DOMAIN"
 openshift_pull_secret_file_path = "$OPENSHIFT_PULL_SECRET_FILE_PATH"
 public_ssh_key                  = "$SSH_PUB_KEY"
-openshift_username              = "$OPENSHIFT_USER"
-openshift_password              = "$OPENSHIFT_PASSWORD"
+openshift_username              = "$OCP_USERNAME"
+openshift_password              = "$OCP_PASSWORD"
 cpd_api_key                     = "$CPD_API_KEY"
 master_instance_type            = "$MASTER_INSTANCE_TYPE"
 worker_instance_type            = "$WORKER_INSTANCE_TYPE"
@@ -152,16 +149,16 @@ EOT
   log "==== OCP cluster creation completed ===="
 
 ## Add ER Key to global pull secret
-  cd /tmp
-  # Login to OCP cluster
-  oc login -u $OPENSHIFT_USER -p $OPENSHIFT_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
-  oc extract secret/pull-secret -n openshift-config --keys=.dockerconfigjson --to=. --confirm
-  export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | tr -d '\n' | base64 -w0)
-  ##export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | base64 -w0)
-  export emailAddress=$(cat .dockerconfigjson | jq -r '.auths["cloud.openshift.com"].email')
-  jq '.auths |= . + {"cp.icr.io": { "auth" : "$encodedEntitlementKey", "email" : "$emailAddress"}}' .dockerconfigjson > /tmp/dockerconfig.json
-  envsubst < /tmp/dockerconfig.json > /tmp/.dockerconfigjson
-  oc set data secret/pull-secret -n openshift-config --from-file=/tmp/.dockerconfigjson
+#   cd /tmp
+#   # Login to OCP cluster
+#   oc login -u $OCP_USERNAME -p $OCP_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
+#   oc extract secret/pull-secret -n openshift-config --keys=.dockerconfigjson --to=. --confirm
+#   export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | tr -d '\n' | base64 -w0)
+#   ##export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | base64 -w0)
+#   export emailAddress=$(cat .dockerconfigjson | jq -r '.auths["cloud.openshift.com"].email')
+#   jq '.auths |= . + {"cp.icr.io": { "auth" : "$encodedEntitlementKey", "email" : "$emailAddress"}}' .dockerconfigjson > /tmp/dockerconfig.json
+#   envsubst < /tmp/dockerconfig.json > /tmp/.dockerconfigjson
+#   oc set data secret/pull-secret -n openshift-config --from-file=/tmp/.dockerconfigjson
 
   ## Create bastion host
   cd $GIT_REPO_HOME/aws
@@ -194,11 +191,37 @@ else
   log "==== Existing OCP cluster provided, skipping the cluster creation, Bastion host creation and S3 upload of deployment context ===="
 fi
 
+log "==== Adding ER key details to OCP default pull-secret ===="
+cd /tmp
+# Login to OCP cluster
+oc login -u $OCP_USERNAME -p $OCP_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
+oc extract secret/pull-secret -n openshift-config --keys=.dockerconfigjson --to=. --confirm
+export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | tr -d '\n' | base64 -w0)
+##export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | base64 -w0)
+export emailAddress=$(cat .dockerconfigjson | jq -r '.auths["cloud.openshift.com"].email')
+jq '.auths |= . + {"cp.icr.io": { "auth" : "$encodedEntitlementKey", "email" : "$emailAddress"}}' .dockerconfigjson > /tmp/dockerconfig.json
+envsubst < /tmp/dockerconfig.json > /tmp/.dockerconfigjson
+oc set data secret/pull-secret -n openshift-config --from-file=/tmp/.dockerconfigjson
+
+## Installing the collection from ansible-galaxy
+log "==== mas_devops collection installation started ===="
+ansible-galaxy collection install ibm.mas_devops
+log "==== mas_devops collection installation completed ===="
+
+## Temporarily copying the roles which aren't updated in the collection
+ls /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+cp -r /root/ansible-devops/ibm/mas_devops/roles/gencfg_uds/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+cp -r /root/ansible-devops/ibm/mas_devops/roles/ocp_verify/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+cp -r /root/ansible-devops/ibm/mas_devops/roles/uds_install/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+cp -r /root/ansible-devops/ibm/mas_devops/roles/cp4d_install_services/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+cp -r /root/ansible-devops/ibm/mas_devops/roles/cp4d_db2wh/ /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+ls /root/.ansible/collections/ansible_collections/ibm/mas_devops/roles
+
 ## Configure OCP cluster
 log "==== OCP cluster configuration (Cert Manager and SBO) started ===="
-cd $GIT_REPO_HOME/ansible/playbooks
+cd $GIT_REPO_HOME/../ibm/mas_devops/playbooks
 set +e
-ansible-playbook configure-ocp.yml 
+ansible-playbook ocp/configure-ocp.yml 
 if [[ $? -ne 0 ]]; then
   # One reason for this failure is catalog sources not having required state information, so recreate the catalog-operator pod
   # https://bugzilla.redhat.com/show_bug.cgi?id=1807128
@@ -208,7 +231,7 @@ if [[ $? -ne 0 ]]; then
   oc delete pod $podname -n openshift-operator-lifecycle-manager
   sleep 10
   # Retry the step
-  ansible-playbook configure-ocp.yml
+  ansible-playbook ocp/configure-ocp.yml
   retcode=$?
   if [[ $retcode -ne 0 ]]; then
     log "Failed while configuring OCP cluster"
@@ -220,7 +243,7 @@ log "==== OCP cluster configuration (Cert Manager and SBO) completed ===="
 
 ## Deploy MongoDB
 log "==== MongoDB deployment started ===="
-ansible-playbook install-mongodb.yml 
+ansible-playbook dependencies/install-mongodb-ce.yml
 log "==== MongoDB deployment completed ===="
 
 ## Copying the entitlement.lic to MAS_CONFIG_DIR
@@ -236,68 +259,62 @@ if [[ (-z $SLS_ENDPOINT_URL) || (-z $SLS_REGISTRATION_KEY) || (-z $SLS_PUB_CERT_
 then
     ## Deploy SLS
     log "==== SLS deployment started ===="
-    ansible-playbook install-sls.yml
+    ansible-playbook dependencies/install-sls.yml
     log "==== SLS deployment completed ===="
 
 else
     log "=== Using Existing SLS Deployment ==="
-    ansible-playbook cfg-sls.yml
+    ansible-playbook dependencies/cfg-sls.yml
     log "=== Generated SLS Config YAML ==="
 fi
 
-#BAS Deployment
+#UDS Deployment
 if [[ (-z $BAS_API_KEY) || (-z $BAS_ENDPOINT_URL) || (-z $BAS_PUB_CERT_URL) ]]
 then
-    ## Deploy BAS
-    log "==== BAS deployment started ===="
-    ansible-playbook install-bas.yml
-    log "==== BAS deployment completed ===="
+    ## Deploy UDS
+    log "==== UDS deployment started ===="
+    ansible-playbook dependencies/install-uds.yml
+    log "==== UDS deployment completed ===="
 
 else
     log "=== Using Existing BAS Deployment ==="
-    ansible-playbook cfg-bas.yml
+    ansible-playbook dependencies/cfg-bas.yml
     log "=== Generated BAS Config YAML ==="
 fi
 
 # Deploy CP4D
 if [[ $DEPLOY_CP4D == "true" ]]; then
   log "==== CP4D deployment started ===="
-  ansible-playbook install-services-db2.yml
-  ansible-playbook create-db2-instance.yml
+  ansible-playbook cp4d/install-services-db2.yml
+  ansible-playbook cp4d/create-db2-instance.yml
   log "==== CP4D deployment completed ===="
 fi
+
+## Create MAS Workspace
+log "==== MAS Workspace generation started ===="
+ansible-playbook mas/gencfg-workspace.yml
+log "==== MAS Workspace generation completed ===="
+
 if [[ $DEPLOY_MANAGE == "true" ]]; then
-  # Deploy Manage
-
-  if [[ (-z $MAS_JDBC_USER) || (-z $MAS_JDBC_PASSWORD) || (-z $MAS_JDBC_URL) || (-z $MAS_JDBC_CERT_URL) ]]; then
-
-    log "Skipping the JDBC configuration"
-  else
-    # Configure JDBC
-    log "==== Configure JDBC  started ===="
-    ansible-playbook configure-suite-db.yml -vv
-    log "==== Configure JDBC completed ===="
-  fi
+  log "==== Configure JDBC  started ===="
+  ansible-playbook mas/configure-suite-db.yml
+  log "==== Configure JDBC completed ===="
 fi
 
 ## Deploy MAS
 log "==== MAS deployment started ===="
-ansible-playbook install-suite.yml
+ansible-playbook mas/install-suite.yml
 log "==== MAS deployment completed ===="
 
 ## Deploy Manage
 if [[ $DEPLOY_MANAGE == "true" ]]; then
   # Deploy Manage
   log "==== MAS Manage deployment started ===="
-
-  ansible-playbook install-app.yml
+  ansible-playbook mas/install-app.yml
   log "==== MAS Manage deployment completed ===="
-  if [[ (-z $MAS_JDBC_USER) || (-z $MAS_JDBC_PASSWORD) || (-z $MAS_JDBC_URL) || (-z $MAS_JDBC_CERT_URL) ]]; then
-    log "Skipping the Manage app configuration"
-  else
-      # Configure app to use the DB
-    log "==== MAS Manage configure app started ===="
-    ansible-playbook configure-app.yml -vv
-    log "==== MAS Manage configure app completed ===="
-  fi
+  
+  # Configure app to use the DB
+  log "==== MAS Manage configure app started ===="
+  ansible-playbook mas/configure-app.yml
+  log "==== MAS Manage configure app completed ===="
 fi
