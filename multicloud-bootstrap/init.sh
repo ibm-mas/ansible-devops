@@ -34,15 +34,15 @@ export EXS_OCP_PWD=${27}
 export RG_NAME=${28}
 export RECEPIENT=${29}
 export SENDGRID_API_KEY=${30}
-export AZURE_SUBSC_ID=${31}
-export AZURE_TENANT_ID=${32}
-export AZURE_SP_CLIENT_ID=${33}
-export AZURE_SP_CLIENT_PWD=${34}
-export SELLER_SUBSCRIPTION_ID=${35}
-export SELLER_RESOURCE_GROUP=${36}
-export SELLER_COMPUTE_GALLERY=${37}
-export SELLER_IMAGE_VERSION=${38}
-export EMAIL_NOTIFICATION=${39}
+# export AZURE_SUBSC_ID=${31}
+# export AZURE_TENANT_ID=${32}
+export AZURE_SP_CLIENT_ID=${31}
+export AZURE_SP_CLIENT_PWD=${32}
+export SELLER_SUBSCRIPTION_ID=${33}
+export SELLER_RESOURCE_GROUP=${34}
+export SELLER_COMPUTE_GALLERY=${35}
+export SELLER_IMAGE_VERSION=${36}
+export EMAIL_NOTIFICATION=${37}
 
 # Load helper functions
 . helper.sh
@@ -135,9 +135,9 @@ export KAFKA_NAMESPACE=amq-streams
 export KAFKA_CLUSTER_NAME=test
 export KAFKA_CLUSTER_SIZE=small
 export KAFKA_USER_NAME=masuser
-# SLS variables 
+# SLS variables
 export SLS_NAMESPACE="ibm-sls-${RANDOM_STR}"
-# BAS variables 
+# BAS variables
 export BAS_NAMESPACE="ibm-bas-${RANDOM_STR}"
 export BAS_PERSISTENT_STORAGE=ocs-storagecluster-cephfs
 export BAS_PASSWORD=basuser
@@ -225,8 +225,8 @@ echo " EXS_OCP_URL: $EXS_OCP_URL"
 echo " EXS_OCP_USER: $EXS_OCP_USER"
 echo " RG_NAME=$RG_NAME"
 echo " RECEPIENT=$RECEPIENT"
-echo " AZURE_SUBSC_ID=$AZURE_SUBSC_ID"
-echo " AZURE_TENANT_ID=$AZURE_TENANT_ID"
+# echo " AZURE_SUBSC_ID=$AZURE_SUBSC_ID"
+# echo " AZURE_TENANT_ID=$AZURE_TENANT_ID"
 echo " AZURE_SP_CLIENT_ID=$AZURE_SP_CLIENT_ID"
 echo " SELLER_SUBSCRIPTION_ID=$SELLER_SUBSCRIPTION_ID"
 echo " SELLER_RESOURCE_GROUP=$SELLER_RESOURCE_GROUP"
@@ -269,6 +269,13 @@ if [[ $CLUSTER_TYPE == "azure" ]]; then
   # Perform az login for accessing blob storage
   az login --identity
   az resource list -n masocp-${RANDOM_STR}-bootnode-vm
+
+  # Get subscription ID, tenant ID
+  echo $BASE_DOMAIN_RG_NAME
+  export AZURE_SUBSC_ID=`az account list | jq -r '.[].id'`
+  echo $AZURE_SUBSC_ID
+  export AZURE_TENANT_ID=`az account list | jq -r '.[].tenantId'`
+  echo $AZURE_TENANT_ID
 fi
 
 # Perform prevalidation checks
@@ -294,7 +301,7 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     log "Openshift cluster details provided"
     # https://api.masocp-cluster.mas4aws.com/
     # https://api.ftmpsl-ocp-dev3.cp.fyre.ibm.com:6443/
-    
+
     log "Debug: before: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
     split_ocp_api_url $EXS_OCP_URL
     log "Debug: after: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
@@ -303,7 +310,7 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     export OPENSHIFT_PASSWORD=$EXS_OCP_PWD
     export OPENSHIFT_USER_PROVIDE="true"
   else
-    ## No input from user. Generate Cluster Name, Username, and Password. 
+    ## No input from user. Generate Cluster Name, Username, and Password.
     echo "Debug: No cluster details or insufficient data provided. Proceed to create new OCP cluster later"
     export CLUSTER_NAME="masocp-${RANDOM_STR}"
     export OPENSHIFT_USER="masocpuser"

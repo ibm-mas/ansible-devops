@@ -1,7 +1,7 @@
 # This script allows you to record the results of the pipeline in a MongoDb database.
 # To enable this capability you must set additional environment variables as follows:
 #
-# - DEVOPS_MONGO_URI="mongodb://user:password@host1:port1,host2:port2/admin?ssl=true&ssl_cert_reqs=CERT_NONE"
+# - DEVOPS_MONGO_URI="mongodb://user:password@host1:port1,host2:port2/admin?tls=true&tlsAllowInvalidCertificates=true"
 #
 import os
 import xml.etree.ElementTree as ET

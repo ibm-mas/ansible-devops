@@ -43,28 +43,16 @@ ansible-playbook playbooks/dependencies/install-uds.yml
 
 
 ## Install SLS
-Before you use this playbook you will likely want to edit the `mas_config_dir` variable to supply your own configuration, instead of the sample data provided.
-
-### Required environment variables
-- `SLS_ENTITLEMENT_KEY` Provide your IBM entitlement key
-
-### Optional environment variables
-- `SLS_CATALOG_SOURCE` Set to `ibm-sls-operators` if you want to deploy pre-release development builds
-- `SLS_CHANNEL` Override the default release channel (3.x)
-- `SLS_ICR_CP` Override the registry source for all container images deployed by the SLS operator
-- `SLS_ICR_CPOPEN` Override the registry source for all container images deployed by the SLS operator
-- `SLS_ENTITLEMENT_USERNAME` Override the default entitlement username (cp)
-- `SLS_NAMESPACE` Override the default entitlement username (ibm-sls)
-- `SLS_STORAGE_CLASS` Defines Storage Class to be used by SLS Persistent Volumes
-- `SLS_LICENSE_ID` Must be set to the license id specified in the license file when one is provided
-- `SLS_REGISTRATION_KEY` optional var when you want to install sls using a registration key you have.
+Before you use this playbook you will likely want to edit the `MAS_CONFIG_DIR` variable to supply your own configuration, instead of the sample data provided. Refer to the [sls_install](../roles/sls_install.md) role documentation for more information. The playbook will also call the [gencfg_sls](../roles/gencfg_sls.md) role after the install to generate the slscfg. 
 
 ### Example usage: release build
 
 ```bash
 export SLS_INSTANCE_ID=xxx
 export SLS_ENTITLEMENT_KEY=xxx
-export SLS_STORAGE_CLASS=xxx
+export SLS_MONGODB_CFG_FILE="/etc/mas/mongodb.yml"
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/dependencies/install-sls.yml
 ```
@@ -79,12 +67,14 @@ ansible-playbook playbooks/dependencies/install-sls.yml
 export SLS_CATALOG_SOURCE=ibm-sls-operators
 export SLS_CHANNEL=3.1.0-pre.stable
 export SLS_INSTANCE_ID=xxx
+export SLS_MONGODB_CFG_FILE="/etc/mas/mongodb.yml"
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
 
 export SLS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
 export SLS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
 export SLS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export SLS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
-export SLS_STORAGE_CLASS=xxx
 
 
 ansible-playbook playbooks/dependencies/install-sls.yml

@@ -14,7 +14,7 @@
 
 - name: "Fail if no MongoDb config is provided"
   assert:
-    that: sls_mongodb is defined or sls_mongodb_cfg_file is defined
+    that: sls_mongodb is defined or (sls_mongodb_cfg_file is defined and sls_mongodb_cfg_file != "")
     fail_msg: "Either sls_mongodb_cfg_file or mongodb properties must be set"
 
 - name: "Fail if missing any mongodb information"
@@ -40,7 +40,10 @@
       - "SLS ICR cpopen content ........ {{ sls_icr_cpopen }}"
       - "SLS Storage class ............. {{ sls_storage_class }}"
       - "SLS Instance Name ............. {{ sls_instance_name }}"
-      - "SLS MongoCfg file ............. {{ sls_mongodb_cfg_file | default('<undefined>', True) }}"
+      - "SLS MongoCfg file .............. {{ sls_mongodb_cfg_file | default('<undefined>', True) }}"
+      - "SLS Bootstrap ................. {{ bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != '' }}"
+      - "SLS Bootstrap license file ..... {{ bootstrap.license_file }}"
+      - "SLS Bootstrap license id ...... {{ bootstrap.license_id }}"
 
 - name: "Create SLS Namespace"
   kubernetes.core.k8s:
@@ -150,8 +153,7 @@
 # 6. Bootstrap the license service
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/bootstrap.yml
-  when: bootstrap is defined
-
+  when: bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != ''
 
 # 7. Create the license service CR
 # -----------------------------------------------------------------------------
@@ -159,7 +161,7 @@
   kubernetes.core.k8s:
     state: present
     namespace: '{{ sls_namespace }}'
-    template: templates/service.yml.j2
+    template: templates/licenseservice.yml.j2
   register: sls_cr_result
 
 
