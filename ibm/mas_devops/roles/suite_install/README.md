@@ -18,8 +18,6 @@ Role Variables
 - `mas_config_dir` Directory containing configuration files (`*.yaml` and `*.yml`) to be applied to the MAS installation.  Intended for creating the various MAS custom resources to configure the suite post-install, but can be used to apply any kubernetes resource you need to customize any aspect of your cluster.
 - `certManager.namespace` The namespace containing the cert-manager to be used by MAS
 - `mas_upgrade_strategy` The Upgrade strategy for MAS Operator. Default is set to Automatic
-- `cpd_services_namespace` The namespace containing the CP4D instance (if configured) on the same cluster as MAS
-- `configure_suite_cp4d_route` Whether to create a route using the `mas_domain` to point to the installed CP4D web client on the same OCP cluster as MAS. Route is configured as https://cp4d.<mas_domain> . If you set `mas_domain` but dont have CP4D installed on the same OCP cluster then set this to `False`. Default is `True`
 
 Example Playbook
 ----------------
