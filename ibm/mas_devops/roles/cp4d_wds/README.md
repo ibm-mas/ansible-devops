@@ -14,12 +14,11 @@ The discovery channel used by discovery install. By default the `v4.0`  will be 
 
 ### wdsversion
 The discovery version used by discovery install. By default the discovery `4.0.4` version will be installed. 
-- Environment Variable: `WDS_CHANNEL`
-- Default Value: 4.0.4
+- Environment Variable: `WDS_VERSION`
+- Default Value: 4.0.6
 
 ### wdsstorageclass
-The specific storage class for discovery install, if not specified , the storage class used by CP4D will be auto queried in the cluster and used for discovery.
-install.
+The specific storage class for discovery install, if not specified , the storage class used by CP4D will be auto queried in the cluster and used for discovery install.
 Usually Watson Discovery uses the following storage classes. If you don't use these storage classes on your cluster, ensure that you have a storage class with an equivalent definition:
 OpenShift Container Storage: `ocs-storagecluster-ceph-rbd`
 IBM Cloud OCP cluster: `ibmc-block-gold`,`ibmc-block-gold-gid`
