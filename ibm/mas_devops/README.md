@@ -15,7 +15,6 @@ Note that links to pull requests prior to public release of the code (4.0) direc
     - Support GPU node in OCP on ROKS ([#224](https://github.com/ibm-mas/ansible-devops/pull/224))
     - Azure support for OCP cluster deployment ([#243](https://github.com/ibm-mas/ansible-devops/pull/243))
     - Add UDSCfg (BASCfg) generator ([#210](https://github.com/ibm-mas/ansible-devops/pull/210))
-
 - `6.5` Multiple Updates:
     - Add JDBCCfg generator role ([#188](https://github.com/ibm-mas/ansible-devops/pull/188))
     - Add mustgather clusterTask to pipeline and new mustgather_download playbook ([#222](https://github.com/ibm-mas/ansible-devops/pull/222))
