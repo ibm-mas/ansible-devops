@@ -6,20 +6,13 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `7.1` Create secure route to CP4D web client when setting up DNS using CIS and suite_dns role by @whitfiea in ([#251](https://github.com/ibm-mas/ansible-devops/pull/251)) 
+- `7.1` Create secure route to CP4D web client when setting up DNS using CIS and suite_dns role ([#251](https://github.com/ibm-mas/ansible-devops/pull/251)) 
 - `7.0` Mulitple Updates:
-    - Consolidate cluster specific provision/deprovision playbooks by @whitfiea in ([#236](https://github.com/ibm-mas/ansible-devops/pull/236)) - Playbooks removed, check you are using the new playbook for provision.
-    - Fix SLS bootstrap and update docs by @whitfiea in ([#242](https://github.com/ibm-mas/ansible-devops/pull/242)) - SLS_LICENSE_FILE environment variable now needs to be set.
-    - Support GPU node in OCP on ROKS by @caroazad in ([#224](https://github.com/ibm-mas/ansible-devops/pull/224))
-    - Prevention of sensitive variables logging (#240) by @vskhabani in ([#241](https://github.com/ibm-mas/ansible-devops/pull/241))
-    - Azure support for OCP cluster deployment by @santoshjpawar in ([#243](https://github.com/ibm-mas/ansible-devops/pull/243))
-    - Add variable for GPU worker pool name by @caroazad in ([#246](https://github.com/ibm-mas/ansible-devops/pull/246))
-    - Add UDSCfg (BASCfg) generator by @prasanthgelli1 in ([#210](https://github.com/ibm-mas/ansible-devops/pull/210))
-    - prevalidation script changes by @vaibhavkulkarniibm in ([#248](https://github.com/ibm-mas/ansible-devops/pull/248))
-    - BasCfg CR name has to be {inst}-bas-system by @whitfiea in ([#249](https://github.com/ibm-mas/ansible-devops/pull/249))
-    - Use image digests for mongo by @whitfiea in ([#244](https://github.com/ibm-mas/ansible-devops/pull/244))
-    - ARM template parameter change (#253) by @vskhabani in ([#254](https://github.com/ibm-mas/ansible-devops/pull/254))
-    - Fixes indexerror in save-to-junit script + change to use kubernetes.core by @whitfiea in ([#255](https://github.com/ibm-mas/ansible-devops/pull/255))
+    - Consolidate cluster specific provision/deprovision playbooks ([#236](https://github.com/ibm-mas/ansible-devops/pull/236))
+    - Fix SLS bootstrap and update docs ([#242](https://github.com/ibm-mas/ansible-devops/pull/242))
+    - Support GPU node in OCP on ROKS ([#224](https://github.com/ibm-mas/ansible-devops/pull/224))
+    - Azure support for OCP cluster deployment ([#243](https://github.com/ibm-mas/ansible-devops/pull/243))
+    - Add UDSCfg (BASCfg) generator ([#210](https://github.com/ibm-mas/ansible-devops/pull/210))
 
 - `6.5` Multiple Updates:
     - Add JDBCCfg generator role ([#188](https://github.com/ibm-mas/ansible-devops/pull/188))
