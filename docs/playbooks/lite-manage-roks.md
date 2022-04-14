@@ -37,6 +37,7 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
 ## Required environment variables
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
 - `CLUSTER_NAME` The name to assign to the new ROKS cluster
+- `CLUSTER_TYPE` The cluster type. Should be set to `roks`
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
@@ -82,6 +83,7 @@ The simplest configuration to deploy a release build of IBM Maximo Application S
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=roks
 
 # MAS configuration
 export MAS_INSTANCE_ID=$CLUSTER_NAME
@@ -112,6 +114,7 @@ The simplest configuration to deploy a pre-release build (only available to IBM 
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=roks
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx

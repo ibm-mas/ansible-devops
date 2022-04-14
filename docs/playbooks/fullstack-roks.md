@@ -49,6 +49,7 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 ## Required environment variables
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
 - `CLUSTER_NAME` The name to assign to the new ROKS cluster
+- `CLUSTER_TYPE` The cluster type. Should be set to `roks`
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
@@ -89,6 +90,7 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=roks
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx
@@ -121,6 +123,7 @@ ansible-playbook playbooks/fullstack-roks.yml
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=roks
 
 # CP4D configuration
 export CPD_ENTITLEMENT_KEY=xxx

@@ -23,6 +23,7 @@ copyDoc cp4d_install
 copyDoc cp4d_install_services
 copyDoc db2u
 copyDoc gencfg_sls
+copyDoc gencfg_uds
 copyDoc gencfg_workspace
 copyDoc gencfg_jdbc
 copyDoc gpu_install
