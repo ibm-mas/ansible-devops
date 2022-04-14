@@ -136,3 +136,12 @@ else
   log "==== Existing OCP cluster provided, skipping the cluster creation, Bastion host creation and S3 upload of deployment context ===="
 fi
 
+#Run ansible playbook to create azurefiles storage class 
+log "=== Creating azurefiles-standard Storage class on OCP cluster ==="
+cd $GIT_REPO_HOME/azure
+ansible-playbook configure-azurefiles.yml
+retcode=$?
+if [[ $retcode -ne 0 ]]; then
+  log "Failed to create azurefiles-standard storageclass"
+  exit 27
+fi
