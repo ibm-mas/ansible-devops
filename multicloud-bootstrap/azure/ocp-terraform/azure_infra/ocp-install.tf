@@ -260,27 +260,6 @@ EOF
   ]
 }
 
-
-# module "portworx" {
-#   count                   = var.storage == "portworx" ? 1 : 0
-#   source                  = "../portworx"
-#   openshift_api           = var.openshift_api
-#   openshift_username      = var.openshift-username
-#   openshift_password      = var.openshift-password
-#   openshift_token         = ""
-#   installer_workspace     = local.installer_workspace
-#   region                  = var.region
-#   storage                 = var.storage
-#   portworx-encryption     = var.portworx-encryption
-#   portworx-encryption-key = var.portworx-encryption-key
-#   portworx-spec-url       = var.portworx-spec-url
-
-#   depends_on = [
-#     null_resource.install_openshift,
-#     null_resource.openshift_post_install,
-#   ]
-# }
-
 # module "ocs" {
 #   count                = var.storage == "ocs" ? 1 : 0
 #   source               = "../ocs"
@@ -303,20 +282,36 @@ EOF
 #   ]
 # }
 
-# resource "null_resource" "install_nfs_client" {
-#   count = var.storage == "nfs" ? 1 : 0
-#   triggers = {
-#     username = var.admin-username
-#   }
-#   provisioner "local-exec" {
-#     command = <<EOF
-# oc adm policy add-scc-to-user hostmount-anyuid system:serviceaccount:kube-system:nfs-client-provisioner
-# oc process -f ${local.ocptemplates}/nfs-template.yaml | oc create -n kube-system -f -
-# EOF
-#   }
-#   depends_on = [
-#     null_resource.install_openshift,
-#     null_resource.openshift_post_install,
-#     local_file.nfs-template_yaml
-#   ]
-# }
+#Adding code to create a storage account to support Azure files instead of OCS
+resource "null_resource" "oc_command" {
+    provisioner "local-exec" {
+      command = "oc get machineset -n openshift-machine-api -o jsonpath='{.items[0].metadata.labels.machine\\.openshift\\.io/cluster-api-cluster}' >> rgname.txt"
+    }
+	depends_on = [
+     null_resource.install_openshift,
+     null_resource.openshift_post_install,
+   ]
+  
+}
+
+data "local_file" "rg_file" {
+    filename = "rgname.txt"
+  depends_on = [
+    null_resource.oc_command
+  ]
+}
+locals {
+  rg_name= "${data.local_file.rg_file.content}-rg"
+}
+
+resource "azurerm_storage_account" "azure_file_store" {
+  name                     = "masazfilestorageac"
+  resource_group_name      = local.rg_name
+  location                 = var.region
+  account_replication_type = "LRS"
+  account_tier             = "Standard"
+  depends_on = [
+      null_resource.install_openshift,
+     null_resource.openshift_post_install
+  ]
+}
