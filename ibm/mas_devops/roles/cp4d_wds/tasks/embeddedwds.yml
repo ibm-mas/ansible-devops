@@ -28,11 +28,21 @@
       - "Project for Discovery install .......... {{ cpdnamespace }}"
       - "Storage Class used by Discovery ........ {{ cpdstorageclass }}"
 
-# 3. Query the existing CP4D admin login crdential
+# 3. Check and see if we need to Query the existing CP4D admin login crdential
 # -----------------------------------------------------------------------------
+- name: "embeddedwds: Decide if external discovery service will be used"
+  when:
+    - cp4d_username is defined and cp4d_username != ""
+    - cp4d_password is defined and cp4d_password != ""
+  set_fact:
+    useprovidedcp4dcredential: true
+    wds_admin_username: "{{ cp4d_username }}"
+    wds_admin_password: "{{ cp4d_password }}"
 
 - name: "embeddedwds: check if the cp4d admin user secret exist"
-  when: cpdavailable is defined and cpdavailable
+  when:
+    - cpdavailable is defined and cpdavailable
+    - not ( useprovidedcp4dcredential is defined and useprovidedcp4dcredential )
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Secret
@@ -44,6 +54,7 @@
   when:
     - cpdavailable is defined and cpdavailable
     - cpdadmincred.resources| length != 0
+    - not ( useprovidedcp4dcredential is defined and useprovidedcp4dcredential )
   set_fact:
     wds_admin_username: "admin"
     wds_admin_password: "{{ cpdadmincred.resources[0]['data']['initial_admin_password'] | b64decode }}"
@@ -103,7 +114,7 @@
       when: not ( edbavailable is defined and edbavailable )
       community.kubernetes.k8s:
         apply: yes
-        definition: "{{ lookup('template', 'templates/edbsub.yml') }}"
+        definition: "{{ lookup('template', 'templates/edbsub.yml.j2') }}"
         namespace: "{{ cpdopsnamespace }}"
     - name: "Wait until the EDB CRD is available"
       when: not ( edbavailable is defined and edbavailable )
@@ -133,7 +144,7 @@
     - wdsinstance_info.resources | length == 0
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/subscription.yml') }}"
+    definition: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
     namespace: "{{ cpdopsnamespace }}"
 
 - name: "Wait until the WDS CRD is available"
@@ -167,7 +178,7 @@
     - wdsinstance_info.resources | length == 0
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/cr.yml') }}"
+    definition: "{{ lookup('template', 'templates/cr.yml.j2') }}"
 
 # Wait for the cluster to be ready
 - name: "cp4d/wds : Wait for WDS instance to be ready (5m delay)"
