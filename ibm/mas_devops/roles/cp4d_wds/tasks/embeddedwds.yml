@@ -8,9 +8,10 @@
   register: cp4dalllist
 
 - name: "Fail if no cp4d instance is provided before discovery install"
-  when: cp4dalllist.resources| length == 0
-  fail:
-    msg: "CP4D Base is required to WDS install and instance provision"
+  assert:
+    that:
+      - cp4dalllist.resources| length > 0
+    fail_msg: "CP4D Base is required to WDS install and instance provision"
 
 # 2. Query the existing CP4D used project, Storage Class
 # -----------------------------------------------------------------------------
@@ -50,7 +51,7 @@
 # 4. Query if there's existing Discovery CR instance
 # -----------------------------------------------------------------------------
 
-- name: "embeddedwds: Check if cpd platform and fundermental service operator is there "
+- name: "embeddedwds: Check if cpd platform and foundational service operator is there "
   when: cpdavailable is defined and cpdavailable
   community.kubernetes.k8s_info:
     api_version: operator.ibm.com/v1alpha1
