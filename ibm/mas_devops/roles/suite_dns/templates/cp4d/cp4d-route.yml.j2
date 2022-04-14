@@ -1,0 +1,27 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: suite-cp4d-route
+  namespace: "{{ cpd_services_namespace }}"
+  annotations:
+    haproxy.router.openshift.io/balance=roundrobin
+spec:
+  host: "cp4d.{{ custom_domain }}"
+  to:
+    kind: Service
+    name: ibm-nginx-svc
+    weight: 100
+  port:
+    targetPort: ibm-nginx-https-port
+  tls:
+    termination: reencrypt
+    certificate: |
+      {{ suiteCp4dExternalCertificate | indent(6, False) }}
+    key: |
+      {{ suiteCp4dExternalKey | indent(6, False) }}
+    caCertificate: |
+      {{ suiteCp4dExternalCertificateAuthorityCertificate | indent(6, False) }}
+    destinationCACertificate: |
+      {{ cp4dInternalCertificateAuthorityCertificate | indent(6, False) }}
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

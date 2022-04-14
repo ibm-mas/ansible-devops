@@ -19,7 +19,6 @@ Role Variables
 - `certManager.namespace` The namespace containing the cert-manager to be used by MAS
 - `mas_upgrade_strategy` The Upgrade strategy for MAS Operator. Default is set to Automatic
 
-
 Example Playbook
 ----------------
 
