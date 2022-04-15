@@ -350,9 +350,6 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
   else
     mark_provisioning_failed $retcode
   fi
-  if [[ $CLUSTER_TYPE == "azure" ]]; then
-    az tag update --operation merge --resource-id /subscriptions/${AZURE_SUBSC_ID}/resourceGroups/${RG_NAME} --tags DeploymentStatus="${STATUS}#${STATUS_MSG}" > /dev/null
-  fi
 fi
 
 cd $GIT_REPO_HOME/$CLUSTER_TYPE
