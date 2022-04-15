@@ -80,8 +80,7 @@ if [[ $OPENSHIFT_USER_PROVIDE == "false" ]]; then
   ## Create OCP cluster
   cd $GIT_REPO_HOME/azure
   set +e
-  #./create-ocp-cluster.sh
-  true
+  ./create-ocp-cluster.sh
   retcode=$?
   if [[ $retcode -ne 0 ]]; then
     log "OCP cluster creation failed in Terraform step"
