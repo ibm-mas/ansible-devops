@@ -43,6 +43,7 @@ export SELLER_RESOURCE_GROUP=${34}
 export SELLER_COMPUTE_GALLERY=${35}
 export SELLER_IMAGE_VERSION=${36}
 export EMAIL_NOTIFICATION=${37}
+export ENV_TYPE=${38}
 
 # Load helper functions
 . helper.sh
@@ -235,6 +236,7 @@ echo " SELLER_RESOURCE_GROUP=$SELLER_RESOURCE_GROUP"
 echo " SELLER_COMPUTE_GALLERY=$SELLER_COMPUTE_GALLERY"
 echo " SELLER_IMAGE_VERSION=$SELLER_IMAGE_VERSION"
 echo " EMAIL_NOTIFICATION: $EMAIL_NOTIFICATION"
+echo " ENV_TYPE : $ENV_TYPE"
 
 echo " HOME: $HOME"
 echo " GIT_REPO_HOME: $GIT_REPO_HOME"
@@ -326,7 +328,7 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
   chmod 600 $OPENSHIFT_PULL_SECRET_FILE_PATH
 
   # Create MAS_CONFIG_DIR directory
-  mkdir -p $MAS_CONFIG_DIR  
+  mkdir -p $MAS_CONFIG_DIR
   chmod 700 $MAS_CONFIG_DIR
 
   # Call cloud specific script
