@@ -24,16 +24,16 @@ export BAS_META_STORAGE=gp2
 #SSH_PUB_KEY=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" –v http://169.254.169.254/latest/meta-data/public-keys/0/openssh-key)
 
 log "Below are Cloud specific deployment parameters,"
-#echo " AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
-#echo " MASTER_INSTANCE_TYPE: $MASTER_INSTANCE_TYPE"
-#echo " WORKER_INSTANCE_TYPE: $WORKER_INSTANCE_TYPE"
-echo " MONGODB_STORAGE_CLASS: $MONGODB_STORAGE_CLASS"
-echo " KAFKA_STORAGE_CLASS: $KAFKA_STORAGE_CLASS"
-echo " SP_NAME: $SP_NAME"
-#echo " IAM_USER_NAME: $IAM_USER_NAME"
-echo " SLS_STORAGE_CLASS: $SLS_STORAGE_CLASS"
-echo " BAS_META_STORAGE: $BAS_META_STORAGE"
-echo " SSH_PUB_KEY: $SSH_PUB_KEY"
+#log " AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION"
+#log " MASTER_INSTANCE_TYPE: $MASTER_INSTANCE_TYPE"
+#log " WORKER_INSTANCE_TYPE: $WORKER_INSTANCE_TYPE"
+log " MONGODB_STORAGE_CLASS: $MONGODB_STORAGE_CLASS"
+log " KAFKA_STORAGE_CLASS: $KAFKA_STORAGE_CLASS"
+log " SP_NAME: $SP_NAME"
+#log " IAM_USER_NAME: $IAM_USER_NAME"
+log " SLS_STORAGE_CLASS: $SLS_STORAGE_CLASS"
+log " BAS_META_STORAGE: $BAS_META_STORAGE"
+log " SSH_PUB_KEY: $SSH_PUB_KEY"
 
 ## Download files from S3 bucket
 # Download MAS license
@@ -59,8 +59,8 @@ line=$(head -n 1 entitlement.lic)
 set -- $line
 hostname=$2
 hostid=$3
-echo " SLS_HOSTNAME: $hostname"
-echo " SLS_HOST_ID: $hostid"
+log " SLS_HOSTNAME: $hostname"
+log " SLS_HOST_ID: $hostid"
 #SLS Instance name
 export SLS_INSTANCE_NAME="$hostname"
 export SLS_LICENSE_ID="$hostid"
