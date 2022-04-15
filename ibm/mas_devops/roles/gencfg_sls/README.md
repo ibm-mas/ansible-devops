@@ -24,19 +24,19 @@ Local directory to save the generated SlsCfg resource definition.  This can be u
 ### slscfg_tls_crt
 Required. The TLS CA certiticate of the LicenseService to be used when the Maximo Application Suite is registered with SLS.
 
-- Environment Variable: None
+- Environment Variable: `SLS_TLS_CERT_LOCAL_FILE`
 - Default Value: None
 
 ### slscfg_url
 Required. The URL of the LicenseService to be called when the Maximo Application Suite is registered with SLS.
 
-- Environment Variable: `SLSCFG_URL`
+- Environment Variable: `SLS_ENDPOINT_URL`
 - Default Value: None
 
 ### slscfg_registration_key
 Required. The Registration key of the LicenseService instance to be used when the Maximo Application Suite is registered with SLS.
 
-- Environment Variable: `SLSCFG_REGISTRATION_KEY`
+- Environment Variable: `SLS_REGISTRATION_KEY`
 - Default Value: None
 
 
@@ -55,7 +55,7 @@ Example Playbook
     slscfg_registration_key: "xxx"
 
   roles:
-    - ibm.mas_devops.sls_gencfg
+    - ibm.mas_devops.gencfg_sls
 ```
 
 

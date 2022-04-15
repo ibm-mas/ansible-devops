@@ -54,12 +54,12 @@ if [[ -f sls.crt ]]; then
 fi
 # Download UDS certificate
 cd $GIT_REPO_HOME
-if [[ ${BAS_PUB_CERT_URL,,} =~ ^https? ]]; then
+if [[ ${UDS_PUB_CERT_URL,,} =~ ^https? ]]; then
   log "Downloading BAS certificate from HTTP URL"
-  wget "$BAS_PUB_CERT_URL" -O bas.crt
-elif [[ ${BAS_PUB_CERT_URL,,} =~ ^s3 ]]; then
+  wget "$UDS_PUB_CERT_URL" -O bas.crt
+elif [[ ${UDS_PUB_CERT_URL,,} =~ ^s3 ]]; then
   log "Downloading BAS certificate from S3 URL"
-  aws s3 cp "$BAS_PUB_CERT_URL" bas.crt
+  aws s3 cp "$UDS_PUB_CERT_URL" bas.crt
 fi
 if [[ -f bas.crt ]]; then
   chmod 600 bas.crt
@@ -260,7 +260,7 @@ else
 fi
 
 #UDS Deployment
-if [[ (-z $BAS_API_KEY) || (-z $BAS_ENDPOINT_URL) || (-z $BAS_PUB_CERT_URL) ]]
+if [[ (-z $UDS_API_KEY) || (-z $UDS_ENDPOINT_URL) || (-z $UDS_PUB_CERT_URL) ]]
 then
     ## Deploy UDS
     log "==== UDS deployment started ===="

@@ -20,7 +20,7 @@ MSG_FILE_CREDS="azure/notification/email/message-creds-updated.html"
 #    get_sls_endpoint_url $RANDOM_STR
 #    log " CALL_SLS_URL=$CALL_SLS_URL"
 #  fi
-#  if [[ -z $BAS_ENDPOINT_URL ]]; then
+#  if [[ -z $UDS_ENDPOINT_URL ]]; then
 #    get_bas_endpoint_url $RANDOM_STR
 #    log " CALL_BAS_URL=$CALL_BAS_URL"
 #  fi

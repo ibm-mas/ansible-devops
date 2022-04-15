@@ -47,17 +47,17 @@ Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the Contact 
 ### uds_tls_crt
 Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS TLS CA or Server Certificate used by the MAS instance's UDS configuration.
 
-- Environment Variable: None
+- Environment Variable: `UDS_TLS_CERT_LOCAL_FILE`
 - Default Value: None
 
 ### uds_endpoint_url
 Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS endpoint url used by the MAS instance's UDS configuration.
-- Environment Variable: None
+- Environment Variable: `UDS_ENDPOINT_URL`
 - Default Value: None
 
 ### uds_api_key
 Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS api key used by the MAS instance's UDS configuration.
-- Environment Variable: None
+- Environment Variable: `UDS_API_KEY`
 - Default Value: None
 
 Example Playbook
