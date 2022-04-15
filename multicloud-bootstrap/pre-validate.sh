@@ -193,10 +193,10 @@ else
     fi
 fi
 
-# Validate non-empty sendgrid API key(SENDGRID_API_KEY) and recipient(RECEPIENT) email id when email notification is set to true.
+# Validate if all the required params are specifid when email notification is set to true.
 if [[ $EMAIL_NOTIFICATION == "true" ]]; then
-    if [[ (-z $SENDGRID_API_KEY) || (-z $RECEPIENT) ]]; then
-        log "ERROR: Missing Sendgrid API key or Recipeient email address."
+    if [[ (-z $SMTP_HOST) || (-z $SMTP_PORT) || (-z $SMTP_USERNAME) || (-z $SMTP_PASSWORD) || (-z $RECEPIENT) ]]; then
+        log "ERROR: Missing required parameters when email notification is set to true."
         SCRIPT_STATUS=26
     fi
 fi

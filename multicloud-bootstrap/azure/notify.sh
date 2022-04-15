@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script will send email notification using SMTP details
-cd $GIT_REPO_HOME/multicloud-bootstrap/azure
+cd $GIT_REPO_HOME/azure
 SCRIPT_FILE="notify.py"
 
 #if [[ $STATUS == "SUCCESS" ]]; then
