@@ -27,15 +27,16 @@ SCRIPT_FILE="notify.py"
 #fi
 
 # Temp code
+echo "*** CLUSTER_NAME=$CLUSTER_NAME"
 certfilename="${CLUSTER_NAME}-ca.crt"
-certfilepath="/tmp/${certfilename}"
-echo "dummy data" >> $certfilepath
+echo "dummy data" >> $certfilename
+echo "*** certfilename=$certfilename"
 
 sed -i "s/\[SMTP-HOST\]/$SMTP_HOST/g" $SCRIPT_FILE
 sed -i "s/\[SMTP-PORT\]/$SMTP_PORT/g" $SCRIPT_FILE
 sed -i "s/\[SMTP-USERNAME\]/$SMTP_USERNAME/g" $SCRIPT_FILE
 sed -i "s/\[SMTP-PASSWORD\]/$SMTP_PASSWORD/g" $SCRIPT_FILE
-sed -i "s/\[CERT-FILE\]/$certfilepath/g" $SCRIPT_FILE
+sed -i "s/\[CERT-FILE\]/$certfilename/g" $SCRIPT_FILE
 sed -i "s/\[RECEPIENT\]/$RECEPIENT/g" $SCRIPT_FILE
 sed -i "s/\[MESSAGE-TEXT\]/$MESSAGE_TEXT/g" $SCRIPT_FILE
 sed -i "s/\[STATUS\]/$STATUS/g" $SCRIPT_FILE
