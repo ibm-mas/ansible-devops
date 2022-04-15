@@ -3,7 +3,7 @@
 # Set DB2 SSL Port (db2wh_certificate) into Facts
 # -----------------------------------------------------------------------------
 - name: Lookup db2wh TLS certificates
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "internal-tls"
@@ -11,9 +11,9 @@
   register: db2u_instance_certificates
 
 - name: "Fail if we couldn't find the certificates"
-  when: db2u_instance_certificates.resources is not defined or db2u_instance_certificates.resources | length == 0
-  fail:
-    msg: "Unable to retrieve the certificates for Db2 from '{{ db2wh_namespace }}/internal-tls' Secret"
+  assert:
+    that: db2u_instance_certificates.resources is defined and db2u_instance_certificates.resources | length > 0
+    fail_msg: "Unable to retrieve the certificates for Db2 from '{{ db2wh_namespace }}/internal-tls' Secret"
 
 - name: Set Db2wh certificates as Facts
   when:

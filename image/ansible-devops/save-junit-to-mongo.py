@@ -1,7 +1,7 @@
 # This script allows you to record the results of the pipeline in a MongoDb database.
 # To enable this capability you must set additional environment variables as follows:
 #
-# - DEVOPS_MONGO_URI="mongodb://user:password@host1:port1,host2:port2/admin?ssl=true&ssl_cert_reqs=CERT_NONE"
+# - DEVOPS_MONGO_URI="mongodb://user:password@host1:port1,host2:port2/admin?tls=true&tlsAllowInvalidCertificates=true"
 #
 import os
 import xml.etree.ElementTree as ET
@@ -23,13 +23,15 @@ if __name__ == "__main__":
     version = "unknown"
 
     if suite == "":
-        print ("Test results not recorded as JUNIT_SUITE_NAME is not defined")
+        print ("Results not recorded because JUNIT_SUITE_NAME is not defined")
         exit(0)
 
     if instanceId is None:
-        raise Exception("MAS_INSTANCE_ID env var is not set, unable to save results to MongoDb")
+        print("Results not recorded because MAS_INSTANCE_ID env var is not set")
+        exit(0)
     if build is None:
-        raise Exception("TRAVIS_BUILD_NUMBER env var is not set, unable to save results to MongoDb")
+        print("Results not recorded because TRAVIS_BUILD_NUMBER env var is not set")
+        exit(0)
 
     runId = f"{instanceId}:{build}"
     resultId = f"{instanceId}:{build}:{productId}:{suite}"
@@ -51,7 +53,13 @@ if __name__ == "__main__":
 
             for testcase in resultDoc["testsuites"]["testsuite"]["testcase"]:
                 testcase["name"] = testcase["name"].replace("[localhost] localhost: ", "")
-                testcase["classname"] = testcase["classname"].split("ibm/mas_devops/")[1]
+                # Playbooks don't have ibm/mas_devops in the classnmae but do have /opt/app-root.
+                # Roles have both ibm/mas_devops and /opt/app-root. 
+                # Guard against both and remove when required.
+                if "/opt/app-root/" in testcase["classname"]:
+                    testcase["classname"] = testcase["classname"].split("/opt/app-root/")[1]
+                if "ibm/mas_devops/" in testcase["classname"]:
+                    testcase["classname"] = testcase["classname"].split("ibm/mas_devops/")[1]
             # Enrich document
             resultDoc["_id"] = resultId
             resultDoc["build"] = build

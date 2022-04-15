@@ -1,0 +1,87 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property is required"
+
+- name: "Fail if mas_application_id is not provided"
+  assert:
+    that: mas_application_id is defined and mas_application_id|length != 0
+    fail_msg: "mas_application_id property is required"
+  when: mas_config_scope == "app" or mas_config_scope == "wsapp"
+
+- name: "Fail if db_username is not provided"
+  assert:
+    that: db_username is defined and db_username != ""
+    fail_msg: "db_username property is required"
+
+- name: "Fail if jdbc_instance_password is not provided"
+  assert:
+    that: jdbc_instance_password is defined and jdbc_instance_password != ""
+    fail_msg: "jdbc_instance_password property is required"
+
+- name: "Fail if jdbc_url is not provided"
+  assert:
+    that: jdbc_url is defined and jdbc_url != ""
+    fail_msg: "jdbc_url property is required"
+
+- name: "Fail if db_pem_file is not provided"
+  assert:
+    that: db_pem_file is defined and db_pem_file != ""
+    fail_msg: "db_pem_file property is required"
+
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_namespace: "mas-{{ mas_instance_id }}-core"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "MAS Instance ID ............... {{ mas_instance_id }}"
+      - "MAS Workspace ID ............... {{ mas_workspace_id }}"
+      - "Database Instance ID .......... {{ db_instance_id }}"
+      - "Database Username ............. {{ db_username }}"
+      - "JDBC URL ...................... {{ jdbc_url }}"
+      - "Certificate file............... {{ db_pem_file }}"
+      - "MAS Config Scope .............. {{ mas_config_scope }}"
+      - "MAS Application ID .............. {{ mas_application_id }}"
+
+# 2. Create JDBCCfg yml definition
+# -----------------------------------------------------------------------------
+- name: Load variables to use in JDBCCfg
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  include_vars: "vars/jdbccfg/{{ mas_config_scope }}.yml"
+
+# 3. Read file information
+# -----------------------------------------------------------------------------
+- name: Read DB Certificate file
+  set_fact:
+    db_pem: "{{ lookup('file', db_pem_file) }}"
+  when: db_pem_file is defined
+
+
+# 4. Generate JDBCcfg for MAS configuration
+# -----------------------------------------------------------------------------
+- name: Copy JDBCcfg to filesytem
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+  ansible.builtin.template:
+    src: jdbccfg.yml.j2
+    dest: "{{ mas_config_dir }}/jdbc.yml"
+    mode: '644'

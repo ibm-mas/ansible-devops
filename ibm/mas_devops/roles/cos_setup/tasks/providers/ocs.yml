@@ -2,7 +2,7 @@
 # 0. Check if the ocs is installed
 # ----------------------------------------------------------------------------
 - name: "Get OCS cluster "
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: ocs.openshift.io/v1
     kind: StorageCluster
     namespace: "openshift-storage"
@@ -14,9 +14,9 @@
     ocsavailable: '{% if SCluster.resources[0].status.phase == "Ready" %}True{% else %}False{% endif %}'
 
 - name: "Fail if OCS Cluster is not provided"
-  when: not ( ocsavailable is defined and ocsavailable )
-  fail:
-    msg: "OCS Cluster is not ready, pls install OCS first."
+  assert:
+    that: ocsavailable is defined and ocsavailable
+    fail_msg: "OCS Cluster is not ready, pls install OCS first."
 
 - name: "Print If there's OCS cluster"
   debug:
@@ -27,7 +27,7 @@
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore in OSC Cluster"
   when: ocsavailable is defined and ocsavailable
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/ocs/object.yaml') }}"
 
@@ -35,12 +35,12 @@
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore User"
   when: ocsavailable is defined and ocsavailable
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/ocs/objectuser.yaml') }}"
 
 - name: "Wait for Ceph os user to be ready (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: ceph.rook.io/v1
     name: object
     namespace: "openshift-storage"
@@ -54,7 +54,7 @@
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage :Get cluster subdomain"
   when: ocsavailable is defined and ocsavailable
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
     name: cluster
@@ -69,7 +69,7 @@
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore route"
   when: ocsavailable is defined and ocsavailable
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/ocs/rgw.yaml') }}"
 
@@ -77,7 +77,7 @@
 ## -----------------------------------------------------------------------------
 - name: "ocs/objectstorage :Lookup if cos user secret is there"
   when: ocsavailable is defined and ocsavailable
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "rook-ceph-object-user-object-object"
@@ -89,7 +89,7 @@
 ## -----------------------------------------------------------------------------
 - name: "ocs/objectstorage :Lookup cos route tls secret"
   when: ocsavailable is defined and ocsavailable
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "router-certs-default"

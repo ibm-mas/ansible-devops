@@ -2,19 +2,25 @@
 # 0. Fail if required parameters are not set
 # -----------------------------------------------------------------------------
 - name: "Fail if db2wh_meta_storage_class has not been provided"
-  when: db2wh_meta_storage_class is not defined or db2wh_meta_storage_class == ""
-  fail:
-    msg: "db2wh_meta_storage_class property has not been set"
+  assert:
+    that:
+      - db2wh_meta_storage_class is defined
+      - db2wh_meta_storage_class != ""
+    fail_msg: "db2wh_meta_storage_class property has not been set"
 
 - name: "Fail if db2wh_user_storage_class has not been provided"
-  when: db2wh_user_storage_class is not defined or db2wh_user_storage_class == ""
-  fail:
-    msg: "db2wh_user_storage_class property has not been set"
+  assert:
+    that:
+      - db2wh_user_storage_class is defined
+      - db2wh_user_storage_class != ""
+    fail_msg: "db2wh_user_storage_class property has not been set"
 
 - name: "Fail if db2wh_backup_storage_class has not been provided"
-  when: db2wh_backup_storage_class is not defined or db2wh_backup_storage_class == ""
-  fail:
-    msg: "db2wh_backup_storage_class property has not been set"
+  assert:
+    that:
+      - db2wh_backup_storage_class is defined
+      - db2wh_backup_storage_class != ""
+    fail_msg: "db2wh_backup_storage_class property has not been set"
 
 
 # 1. Provide debug information to the user
@@ -87,7 +93,7 @@
         db2wh_instance_id: "{{ create_db2_database_output.json.id }}"
 
     - name: Save the DB2 database id in a DB config ConfigMap {{ cpd_db_config_configmap_name }}-{{ db2wh_instance_name }} under {{ db2wh_namespace }} namespace
-      community.kubernetes.k8s:
+      kubernetes.core.k8s:
         state: present
         namespace: "{{ db2wh_namespace }}"
         definition: "{{ lookup('template', 'templates/cpd35/cp4d_db2_database_config.yaml.j2') | from_yaml }}"
@@ -119,7 +125,7 @@
   when: create_db2_database_output.status == 409
   block:
     - name: "Read the DB2 database config from the DB config ConfigMap {{ cpd_db_config_configmap_name }}"
-      community.kubernetes.k8s_info:
+      kubernetes.core.k8s_info:
         api_version: v1
         kind: ConfigMap
         name: "{{ cpd_db_config_configmap_name }}-{{ db2wh_instance_name }}"
@@ -138,7 +144,6 @@
     db2wh_svc_name: "c-db2wh-{{ db2wh_instance_id }}-db2u-engn-svc"
     db2wh_svc_fqn: "c-db2wh-{{ db2wh_instance_id }}-db2u-engn-svc.{{ db2wh_namespace }}.svc"
 
-
 # 7. Wait till DB2 status is RUNNING
 # -----------------------------------------------------------------------------
 - name: "Wait till status of DB2 database {{ db2wh_instance_name }} is RUNNING"
@@ -152,7 +157,11 @@
     status_code: 200
     timeout: 30
   register: db_status
-  until: db_status.json.service_instance.metadata.status == 'RUNNING'
+  until:
+    - db_status.json.service_instance is defined
+    - db_status.json.service_instance.metadata is defined
+    - db_status.json.service_instance.metadata.status is defined
+    - db_status.json.service_instance.metadata.status == 'RUNNING'
   retries: 60
   delay: 60
 
@@ -170,7 +179,7 @@
 # 10. Save the DB2 database hostname and port info
 # -----------------------------------------------------------------------------
 - name: Update the DB2 database url and port info in the DB config ConfigMap for {{ cpd_db_config_configmap_name }}-{{ db2wh_instance_name }}
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     state: present
     namespace: "{{ db2wh_namespace }}"
     definition: "{{ lookup('template', 'templates/cpd35/cp4d_db2_database_config.yaml.j2') | from_yaml }}"
@@ -192,7 +201,7 @@
     - mas_instance_id != ""
     - mas_config_dir is defined
     - mas_config_dir != ""
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "c-db2wh-{{ db2wh_instance_id  }}-instancepassword"

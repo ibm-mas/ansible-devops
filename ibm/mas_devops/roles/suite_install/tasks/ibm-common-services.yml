@@ -1,0 +1,63 @@
+# 1. Lookup Common Services Operator Install Plans and approve
+# ----------------------------------------------------------------------------
+- name: Debug Operator name
+  debug:
+    msg: "{{item}}"
+
+- name: "Verify if ibm operator is already installed"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ ibm_common_services_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{item}}"
+  register: _item_subscription
+
+- name: Lookup and Approve IBM Common Services operators
+  block:
+    - name: "Lookup and wait for Operator subscription to exist"
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        namespace: "{{ ibm_common_services_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/{{item}}"
+      register: _item_subscription_result
+      retries: 20
+      delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+      until: _item_subscription_result.resources | length > 0
+
+    - name: Lookup Operator install plan
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: InstallPlan
+        namespace: "{{ ibm_common_services_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/{{item}}"
+      register: item_install_plan
+      retries: 20
+      delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+      until: item_install_plan.resources | length > 0
+      when:
+        - _item_subscription_result.resources | length > 0
+        - _item_subscription_result.resources[0].status is defined
+        - _item_subscription_result.resources[0].status.state != "AtLatestKnown"
+
+    - name: Approve the subscription install plan
+      when:
+        - _item_subscription_result.resources[0].status.state != "AtLatestKnown"
+        - _item_subscription_result.resources[0].status is defined
+        - item_install_plan.resources | length > 0
+        - item_install_plan.resources[0].status is defined
+        - item_install_plan.resources[0].status.phase != "Complete"
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: InstallPlan
+          metadata:
+            name: "{{ item_install_plan.resources[0].metadata.name }}"
+            namespace: "{{ ibm_common_services_namespace }}"
+          spec:
+            approved: true
+  when:
+    - (_item_subscription.resources | length == 0 or _item_subscription.resources[0].status.state == 'UpgradePending')

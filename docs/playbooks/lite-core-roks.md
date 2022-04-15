@@ -1,80 +1,57 @@
 # MAS Core Service on IBM Cloud ROKS
 
-This master playbook will drive the following playbooks in sequence:
+This master playbook will drive the following actions:
 
 - [Provision & setup OCP on IBM Cloud](ocp.md#provision) (20-30 minutes)
 - Install dependencies:
     - [Install MongoDb (Community Edition)](dependencies.md#install-mongodb-ce) (10 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
-    - [Install BAS](dependencies.md#install-bas) (35 minutes)
+    - [Install UDS](dependencies.md#install-uds) (35 minutes)
 - Install & configure MAS:
+    - Generate MAS Workspace Configuration (1 minute)
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (15 minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 
 ## Preparation
-Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
+Before you run the playbook you **must** prepare the entitlement license key file that will be used during the playbook run.
 
-### Prepare your entitlement license key file
-First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from your entitlement file, then copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
+Copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
 !!! tip
     If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
 
 
-### Create a Workspace template
-If you want the playbook to create a workspace in MAS you must create a file named `MAS_CONFIG_DIR/workspace.yml` (the exact filename does not matter, as long as the extension is `.yml` or `.yaml` it will be processed when configuring MAS) with the following content:
-
-```yaml
-apiVersion: core.mas.ibm.com/v1
-kind: Workspace
-metadata:
-  name: "{{instance_id}}-masdev"
-  namespace: "mas-{{instance_id}}-core"
-  labels:
-    mas.ibm.com/instanceId: "{{instance_id}}"
-    mas.ibm.com/workspaceId: "masdev"
-spec:
-  displayName: "MAS Development"
-```
-
-You do not need to create a workspace called `masdev`, you can modify the workspace template above to suite your needs.
-
 ## Required environment variables
+
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
 - `CLUSTER_NAME` The name to assign to the new ROKS cluster
+- `CLUSTER_TYPE` The cluster type. Should be set to `roks`
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
-- `BAS_CONTACT_MAIL` Defines the email for person to contact for BAS
-- `BAS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
-- `BAS_CONTACT_LASTNAME` Defines the last name of the person to contact for BAS
+- `UDS_CONTACT_EMAIL` Defines the email for person to contact for UDS
+- `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for UDS
+- `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for UDS
+
 
 ## Optional environment variables
-- `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none is passed, `Default` resource group will be used.
-- `OCP_VERSION` to override the default version of OCP to use (latest 4.6 release)
-- `W3_USERNAME` to enable access to pre-release development builds of MAS
-- `ARTIFACTORY_APIKEY`  to enable access to pre-release development builds of MAS
-- `MONGODB_NAMESPACE` overrides the Kubernetes namespace where the MongoDb CE operator will be installed, this will default to `mongoce`
-- `BAS_USERNAME` BAS default username. If not provided, default username will be `basuser`
-- `BAS_PASSWORD` Defines the password for your BAS instance. If not provided, a random 15 character password will be generated
-- `BAS_GRAFANA_USERNAME` Defines the username for the BAS Graphana instance, default is `basuser`
-- `BAS_GRAFANA_PASSWORD` Defines the password for BAS Graphana dashboard. If not provided, a random 15 character password will be generated
-- `BAS_NAMESPACE` Defines the targetted cluster namespace/project where BAS will be installed. If not provided, default BAS namespace will be `ibm-bas`
-- `MAS_CATALOG_SOURCE` to override the use of the IBM Operator Catalog as the catalog source
-- `MAS_CHANNEL` to override the use of the `8.x` channel
-- `MAS_DOMAIN` to set a custom domain for the MAS installation
-- `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
-- `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
-- `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
-- `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
-- `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
+Refer to the role documentation for full details of all configuration options available in this playbook:
 
-!!! tip
-    `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
+1. [ocp_provision](../roles/ocp_provision.md)
+2. [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md)
+3. [mongodb](../roles/mongodb.md)
+4. [sls_install](../roles/sls_install.md)
+5. [gencfg_sls](../roles/gencfg_sls.md)
+6. [uds_install](../roles/uds_install.md)
+7. [gencfg_workspace](../roles/gencfg_workspace.md)
+8. [suite_dns](../roles/suite_dns.md)
+9. [suite_install](../roles/suite_install.md)
+10. [suite_config](../roles/suite_config.md)
+11. [suite_verify](../roles/suite_verify.md)
 
 
 ## Release build
@@ -83,6 +60,7 @@ The simplest configuration to deploy a release build of IBM Maximo Application S
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=roks
 
 # MAS configuration
 export MAS_INSTANCE_ID=$CLUSTER_NAME
@@ -91,13 +69,13 @@ export MAS_ENTITLEMENT_KEY=xxx
 export MAS_CONFIG_DIR=~/masconfig
 
 # SLS configuration
-export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
+export SLS_ENTITLEMENT_KEY=xxx
 
-# BAS configuration
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+# UDS configuration
+export UDS_CONTACT_EMAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/lite-core-roks.yml
 ```
@@ -110,15 +88,16 @@ The simplest configuration to deploy a pre-release build (only available to IBM 
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=roks
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
 export ARTIFACTORY_APIKEY=xxx
 
 # MAS configuration
-export MAS_CATALOG_SOURCE=ibm-mas-operators
-export MAS_CHANNEL=m1dev87
 export MAS_INSTANCE_ID=$CLUSTER_NAME
+export MAS_CATALOG_SOURCE=ibm-mas-operators
+export MAS_CHANNEL=m2dev88
 
 export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
@@ -128,13 +107,23 @@ export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 export MAS_CONFIG_DIR=~/masconfig
 
 # SLS configuration
-export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
+export SLS_ENTITLEMENT_KEY=xxx
 
-# BAS configuration
-export BAS_CONTACT_MAIL=xxx@xxx.com
-export BAS_CONTACT_FIRSTNAME=xxx
-export BAS_CONTACT_LASTNAME=xxx
+# UDS configuration
+export UDS_CONTACT_EMAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 ansible-playbook playbooks/lite-core-roks.yml
 ```
+
+## Locating the playbook
+After you have installed the ibm.mas_devops collection you will be able to find the playbook on your system as part of that installation.
+
+For example, if you installed the collection to `/home/david/.ansible/collections/ansible_collections` the path to this playbook will be `/home/david/.ansible/collections/ansible_collections/ibm/mas_devops/playbooks/lite-core-roks.yml`
+
+Alternatively:
+
+- You can download the playbook from GitHub, but make sure to download the version of the playbook that corresponds to the version of the ibm.mas_devops Ansible collection that you have installed.
+- You can close the repository from GitHub, but make sure to use the branch/tag corresponding to the version of the ibm.mas_devops Ansible colleciton that you have installed.

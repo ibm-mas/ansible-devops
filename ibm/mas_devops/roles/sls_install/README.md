@@ -1,44 +1,139 @@
 sls_install
 ===========
 
-Install **IBM Suite License Service** and generate configuration that can be directly applied to IBM Maximo Application Suite.
+Install **IBM Suite License Service** and generate properties that can be used in the [gencfg_sls](gencfg_sls.md) role to create a configuration that can be directly applied to IBM Maximo Application Suite.
+
+The role assumes that you have already installed the Certificate Manager in the target cluster.  This action is performed by the [ocp_setup_mas_deps](ocp_setup_mas_deps.md) role if you want to use this collection to install the cert-manager operator.
 
 Role Variables
 --------------
 
-###### Pre-release support
-- `artifactory_username`: Required when using this role for development versions of SLS
-- `artifactory_apikey` Required when using this role for development versions of SLS
+### sls_entitlement_key
+Required.  API Key for entitled registry. This password will be used to create the image pull secret.
 
-###### Primary settings
-- `sls_catalog_source` Defines the catalog to be used to install SLS. You can set it to      ibm-operator-catalog for release install or ibm-sls-operators for development
-- `sls_channel`  Defines which channel of MAS to subscribe to
-- `sls_namespace`  Defined the namespace where sls must be installed
-- `sls_icr_cp` when installing release version of MAS or `wiotp-docker-local.artifactory.swg-devops.com` for dev
-- `sls_icr_cpopen` when installing release version of MAS or `wiotp-docker-local.artifactory.swg-devops.com` for dev
-- `sls_instance_name` Defines the instance id to be used for SLS installation
-- `sls_entitlement_username` Username for entitled registry. This username will be used to create the image pull secret. Set to `cp` when installing release or use your `w3Id` for dev.
-- `sls_entitlement_key`  API Key for entitled registry. This password will be used to create the image pull secret. Set to with IBM entitlement key when installing release or use your
-- `sls_storage_class` Defines the Storage Class that can be used by SLS to store data
+- Environment Variable: `SLS_ENTITLEMENT_KEY` or `IBM_ENTITLEMENT_KEY`
+- Default: None
 
-###### MongoDb settings
-Use either `mongodb_cfg_file` or the `mongodb` object to configure the MongoDb for SLS to use
+### sls_catalog_source
+Defines the OLM catalog to be used to install SLS. Set to `ibm-sls-operators` if you want to deploy pre-release development builds of SLS or leave as the default `ibm-operator-catalog` for the released versions. 
 
-- `mongodb_cfg_file` Defines the path to the mongodb configuration used with MAS, when defined the SLS role will extract the configuration from there.
-- `mongodb` Defines custom configuration for mongodb to be used with SLS, all the follwing facts are required when this fact is defined
-    - `mongodb.hosts` Defines list of host and port pair for MongoDb to be used with SLS
-    - `mongodb.username` Defines the MongoDB Username
-    - `mongodb.password` Defines the MongoDb Password
-- `bootstrap` Bootstrap is used to initialize SLS, provide if you do have a lic file and licenseId you want to use
-    - `bootstrap.license_id` Defines the License Id to be used to bootstrap SLS
-    - `bootstrap.registration_key`  Defines the Registration Key to be used to bootstrap SLS
-    - `bootstrap.entitlement_file` Defines the License File to be used to bootstrap SLS
+- Environment Variable: `SLS_CATALOG_SOURCE`
+- Default: `ibm-operator-catalog`
 
-###### MAS integration
-- `mas_instance_id` The instance ID of Maximo Application Suite that the KafkaCfg configuration will target, there
-- `mas_config_dir` Defines the directory from where some configs can be pulled from including the entitlement file and mongo configuration
-- `mas_instance_id` Used to generate a output slscfg file for MAS
-- `sls_cfg_file` Defines the destination dir for the generated SLS configuration for MAS
+### sls_channel
+The SLS OLM subscription channel to be installed.
+
+- Environment Variable: `SLS_CHANNEL`
+- Default: `3.x`
+
+### sls_namespace
+Define the namespace where sls must be installed.
+
+- Environment Variable: `SLS_NAMESPACE`
+- Default: `ibm-sls`
+
+### sls_icr_cp
+The container registry source for all container images deployed by the SLS operator. Override to use development images
+
+- Environment Variable: `SLS_ICR_CP`
+- Default: `cp.icr.io/cp`
+
+### sls_icr_cpopen
+The container registry source for the SLS operator container image. Override to use development image
+
+- Environment Variable: `SLS_ICR_CPOPEN`
+- Default: `icr.io/cpopen`
+
+### sls_instance_name
+Defines the instance ID to be used for SLS installation.
+
+- Environment Variable: `SLS_INSTANCE_NAME`
+- Default: `sls`
+
+### sls_entitlement_username
+Username for entitled registry. This username will be used to create the image pull secret.
+
+- Environment Variable: `SLS_ENTITLEMENT_USERNAME`
+- Default: `cp`
+
+### sls_storage_class
+The Storage class on the target cluster to be used for the SLS Persistent Volume Claim. There is no performance requirement on this storage and both block and file storage are supported. Note: Since SLS 3.2.4 no Persistent Volume is required so no storage class is needed.
+
+- Environment Variable: `SLS_STORAGE_CLASS`
+- Default: None
+
+### sls_storage_size
+The size of the storage on the target cluster to be used for the SLS Persistent Volume Claim .Note: Since SLS 3.2.4 no Persistent Volume is required so no storage size is needed.
+
+- Environment Variable: None
+- Default: `5g`
+
+### sls_domain
+SLS can be configured to be externally accessible through a route by setting the domain. Set the domain if SLS is used by application suites that are installed in separate OpenShift clusters.
+
+- Environment Variable: `SLS_DOMAIN`
+- Default: None
+
+### sls_auth_enforce
+Determines whether authorization is enforced. If set to true, clients must use mTLS with certificates generated from the client registration flow for SLS API calls.
+
+- Environment Variable: `SLS_AUTH_ENFORCE`
+- Default: `True`
+
+### sls_compliance_enforce
+Determines whether compliance is enforced. If there are not enough tokens to support the request. If compliance is not enforced, license checkout requests will be allowed even if there are not enough tokens to support the request.
+
+- Environment Variable: `SLS_COMPLIANCE_ENFORCE`
+- Default: `True`
+
+### sls_registration_open
+Determines whether registration is open. If set to true, clients will be able to register themselves with SLS and use SLS APIs.
+
+- Environment Variable: `SLS_REGISTRATION_OPEN`
+- Default: `True`
+
+### bootstrap.license_id
+Defines the License Id to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on
+
+- Environment Variable: `SLS_LICENSE_ID`
+- Default: None
+
+### bootstrap.registration_key
+Defines the Registration Key to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on
+
+- Environment Variable: `SLS_REGISTRATION_KEY`
+- Default: None
+
+### bootstrap.license_file
+Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: this variable used to be called bootstrap.entitlement_file and defaulted to `{{mas_config_dir}}/entitlement.lic`, this is no longer the case and `SLS_LICENSE_FILE` has to be set in order to bootstrap.
+
+- Environment Variable: `SLS_LICENSE_FILE`
+- Default: None
+
+### sls_mongodb_cfg_file
+Either `sls_mongodb_cfg_file` or the `sls_mongodb` object are required to configure MongoDb.  Location of a MAS MongoCfg defintion (as generated by the `mongodb` role).  If provided the role will use the information in that config file to configure SLS.
+
+- Environment Variable: `SLS_MONGODB_CFG_FILE`
+- Default: None
+
+### sls_mongodb.hosts
+Either `sls_mongodb_cfg_file` or the `sls_mongodb` object are required to configure MongoDb.  Defines list of host and port pair for MongoDb to be used with SLS.
+
+- Environment Variable: None
+- Default: None
+
+### sls_mongodb.username
+Either `sls_mongodb_cfg_file` or the `sls_mongodb` object are required to configure MongoDb.  Defines the MongoDB Username.
+
+- Environment Variable: None
+- Default: None
+
+### sls_mongodb.password
+Either `sls_mongodb_cfg_file` or the `sls_mongodb` object are required to configure MongoDb.  Defines the MongoDb Password.
+
+- Environment Variable: None
+- Default: None
+
 
 Example Playbook
 ----------------
@@ -47,37 +142,19 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    sls_catalog_source: "{{ lookup('env', 'SLS_CATALOG_SOURCE') | default('ibm-operator-catalog', true) }}"
-    sls_channel: "{{ lookup('env', 'SLS_CHANNEL') | default('3.x', true) }}"
-    sls_namespace: "{{ lookup('env', 'SLS_NAMESPACE') | default('ibm-sls', true) }}"
-    sls_icr_cp: "{{ lookup('env', 'SLS_ICR_CP') | default('cp.icr.io/cp', true) }}"
-    sls_icr_cpopen: "{{ lookup('env', 'SLS_ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
-    sls_instance_name: "{{ lookup('env', 'SLS_INSTANCE_NAME') | default('sls', true) }}"
-    sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
     sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') }}"
-    sls_storage_class: "{{ lookup('env', 'SLS_STORAGE_CLASS') }}"
-    sls_domain: "{{ lookup('env', 'SLS_DOMAIN') }}"
 
-    sls_cfg_file: "{{ mas_config_dir }}/sls.yml"
+    sls_mongodb_cfg_file: "/etc/mas/mongodb.yml"
 
-    # You can either provide a mongocfg file from MAS or provide mongo configuration manually
-    mongodb_cfg_file: "{{mas_config_dir}}/mongodb.yml"
-
-    # mongodb:
-    #    hosts:
-    #      - host:
-    #      - port:
-    #    username: "{{ lookup('env', 'MONGODB_USERNAME') }}"
-    #   password: "{{ lookup('env', 'MONGODB_PASSWORD') }}"
-
-    # Bootstrap is used to initialize SLS, provide if you do have a lic file and licenseId you want to use
     bootstrap:
-      license_id: "{{ lookup('env', 'SLS_LICENSE_ID') | default('', true) }}"
-      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default('', true) }}"
-      entitlement_file: "{{mas_config_dir}}/entitlement.lic"
+      license_id: "aa78dd65ef10"
+      license_file: "/etc/mas/entitlement.lic"
+      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') }}"
+      
   roles:
     - ibm.mas_devops.sls_install
 ```
+
 
 License
 -------

@@ -12,7 +12,6 @@
   fail:
     msg: "mas_app_id property is required"
 
-
 # 2. Load var files
 # -----------------------------------------------------------------------------
 - name: Load variables
@@ -32,14 +31,24 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Instance ID ............... {{ mas_instance_id }}"
-      - "Application ID ............ {{ mas_app_id }}"
-      - "MAS app namespace ......... {{ mas_app_namespace }}"
-      - "App catalog source ........ {{ mas_app_catalog_source }}"
-      - "App channel ............... {{ mas_app_channel }}"
+      - "Instance ID ................ {{ mas_instance_id }}"
+      - "Application ID ............. {{ mas_app_id }}"
+      - "MAS app namespace .......... {{ mas_app_namespace }}"
+      - "App catalog source ......... {{ mas_app_catalog_source }}"
+      - "App channel ................ {{ mas_app_channel }}"
+      - "App Subscription Upgrade ... {{ mas_app_upgrade_strategy }}"
 
 
-# 4. Install the operator
+# 4. Apply security context constraints
+# -----------------------------------------------------------------------------
+- name: "Apply security context constraints"
+  when: mas_app_id == "visualinspection"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/customscc.yml.j2') }}"
+
+
+# 5. Install the operator
 # -----------------------------------------------------------------------------
 - name: "Install Operator"
   include_role:
@@ -50,10 +59,38 @@
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
+- name: Lookup and Approve MAS Subscription
+  block:
+    - name: Lookup and Approve Operator install plan
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: InstallPlan
+        namespace: "{{ mas_app_namespace }}"
+        label_selectors:
+          - operators.coreos.com/ibm-mas-{{mas_app_id}}.{{mas_app_namespace}}
+      register: mas_app_installplan_info
+      retries: 20
+      delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+      until: mas_app_installplan_info.resources | length > 0
+
+    - name: Approve the install plan for MAS Application
+      when:
+        - mas_app_installplan_info.resources[0].status.phase != "Complete"
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: InstallPlan
+          metadata:
+            name: "{{ mas_app_installplan_info.resources[0].metadata.name }}"
+            namespace: "{{ mas_app_namespace }}"
+          spec:
+            approved: true
+  when: mas_app_upgrade_strategy == 'Manual'
+
 # 5. Wait until the Application's CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Application's CRD is available"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apiextensions.k8s.io/v1
     name: "{{ mas_app_fqn }}"
     kind: CustomResourceDefinition
@@ -71,7 +108,7 @@
     - app_crd_info.resources | length > 0
 
 
-# 6. Create the ibm-entitlement secret for entitled content
+# 7. Create the ibm-entitlement secret for entitled content
 # -----------------------------------------------------------------------------
 - name: "Create ibm-entitlement secret in application Namespace"
   vars:
@@ -81,7 +118,7 @@
       - '{"auths":{"{{mas_icr_cp}}": {"username":"{{mas_entitlement_username}}","password":"{{mas_entitlement_key}}","auth":"{{entitledAuth}}"}'
       - '}'
       - '}'
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
@@ -94,19 +131,19 @@
         .dockerconfigjson: "{{ content | join('') | string }}"
 
 
-# 7. App installation
+# 8. App installation
 # -----------------------------------------------------------------------------
 - name: Install application
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     state: present
     namespace: "{{ mas_app_namespace }}"
     definition: "{{ lookup('template', 'templates/application.yml.j2') }}"
 
 
-# 8. Wait for application to be ready
+# 9. Wait for application to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application to be ready (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: "{{ mas_app_api_version }}"
     name: "{{ mas_instance_id }}"
     namespace: "{{ mas_app_namespace }}"

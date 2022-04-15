@@ -40,6 +40,12 @@ This role will install a daemonset which applies the `no_root_squash` NFS mount 
 Role Variables
 --------------
 
+### db2wh_namespace
+Only supported when using CloudPak for Data v4.0, otherwise unused. For v3.5 support the value is always set to `cpd-meta-ops`.
+
+- Environment Variable: `DB2WH_NAMESPACE`
+- Default Value: `cpd-services`
+
 ### db2wh_instance_name
 Required.  Name of the database instance, note that this is the instance **name**, which is different from the instance **ID**.
 
@@ -142,6 +148,12 @@ Define the Kubernetes memory limit for the Db2 pod.  Only supported with CloudPa
 - Environment Variable: `DB2WH_MEMORY_LIMITS`
 - Default: `12Gi`
 
+### cpd_entitlement_key
+Required.  This is the entitlement key used to install the norootsquash Daemonset in the `kube-system` namespace. Holds your IBM Entitlement key.
+
+- Environment Variable: `CPD_ENTITLEMENT_KEY`
+- Default: None
+
 ### cpd_api_username
 Required for CP4D v3.5 only.  These credentials are used to call the REST API to create the database because CP4D v3.5 Kubernetes API is broken.  Yes, the default admin account for CP4D v3.5 really is set up as admin/password.
 
@@ -203,16 +215,13 @@ The name of the worker node to apply the {{ db2wh_node_label }} taint and label 
 - Default: None
 
 ### db2wh_mln_count
-The number of logical nodes (i.e. database partitions to create).
+The number of logical nodes (i.e. database partitions to create). Note: ensure that the application using this DB2 can support DB2 MPP (which is created when DB2U_MLN_COUNT is > 1). As of MAS 8.7 no MAS application supports MPP.
 
 - Environment Variable: `'DB2WH_MLN_COUNT`
 - Default: 1
 
 ### db2wh_num_pods
-The number of db2 pods to create in the instance. Note that db2wh_num_pods must be less than or equal to db2wh_mln_count.
-A single db2u pod can contain multiple logical nodes. So be sure to avoid specifying a large number for db2wh_mln_count while 
-specifying a small number for db2wh_num_pods. If in doubt, make db2wh_mln_count = db2wh_num_pods. A slightly out of date reference
-but still decent: https://www.ibm.com/docs/en/db2-warehouse?topic=SSCJDQ/com.ibm.swg.im.dashdb.ucontainer.doc/doc/db2w-mempernode-new.html
+The number of Db2 pods to create in the instance. Note that `db2wh_num_pods` must be less than or equal to `db2wh_mln_count`.  A single db2u pod can contain multiple logical nodes. So be sure to avoid specifying a large number for `db2wh_mln_count` while specifying a small number for `db2wh_num_pods`. If in doubt, make `db2wh_mln_count = db2wh_num_pods`. For more information refer to the [Db2 documentation](https://www.ibm.com/docs/en/db2-warehouse?topic=SSCJDQ/com.ibm.swg.im.dashdb.ucontainer.doc/doc/db2w-mempernode-new.html).
 
 - Environment Variable: `'DB2WH_NUM_PODS`
 - Default: 1

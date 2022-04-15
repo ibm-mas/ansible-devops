@@ -2,13 +2,13 @@
   block:
 
     - name: "Wait for LicenseService to be ready (60s delay)"
-      community.kubernetes.k8s_info:
+      kubernetes.core.k8s_info:
         name: "{{sls_instance_name}}"
         namespace: "{{sls_namespace}}"
       register: sls_cr_result
 
     - name: "Wait for LicenseService to be running (60s delay)"
-      community.kubernetes.k8s_info:
+      kubernetes.core.k8s_info:
         name: "{{sls_instance_name}}"
         namespace: "{{sls_namespace}}"
       register: sls_cr_result
@@ -22,7 +22,7 @@
       delay: 60 # 1 minute
 
     - name: "Wait for LicenseService to be ready (60s delay)"
-      community.kubernetes.k8s_info:
+      kubernetes.core.k8s_info:
         name: "{{sls_instance_name}}"
         namespace: "{{sls_namespace}}"
       register: sls_cr_result
@@ -36,11 +36,11 @@
       delay: 60 # 1 minute
 
     - name: "Wait for LicenseService to be initialized (60s delay)"
-      community.kubernetes.k8s_info:
+      kubernetes.core.k8s_info:
         name: "{{sls_instance_name}}"
         namespace: "{{sls_namespace}}"
       register: sls_cr_result
-      when: bootstrap is defined
+      when: bootstrap.license_file != ''
       until:
         - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
         - sls_cr_result.resources[0].status is defined
@@ -51,11 +51,11 @@
       delay: 60 # 1 minute
 
     - name: "Wait for License key bootstrap (60s delay)"
-      community.kubernetes.k8s_info:
+      kubernetes.core.k8s_info:
         name: "{{sls_instance_name}}"
         namespace: "{{sls_namespace}}"
       register: sls_cr_result
-      when: bootstrap is defined
+      when: bootstrap.license_file != ''
       until:
         - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
         - sls_cr_result.resources[0].status is defined
@@ -66,11 +66,11 @@
       delay: 60 # 1 minute
 
     - name: "Wait for License ID bootstrap (60s delay)"
-      community.kubernetes.k8s_info:
+      kubernetes.core.k8s_info:
         name: "{{sls_instance_name}}"
         namespace: "{{sls_namespace}}"
       register: sls_cr_result
-      when: bootstrap is defined
+      when: bootstrap.license_id != ''
       until:
         - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
         - sls_cr_result.resources[0].status is defined
@@ -81,6 +81,6 @@
       delay: 60 # 1 minute
 
   module_defaults:
-    community.kubernetes.k8s_info:
+    kubernetes.core.k8s_info:
       api_version: sls.ibm.com/v1
       kind: LicenseService

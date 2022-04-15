@@ -6,7 +6,8 @@ Provision the cluster and perform the CP4D worker node hack (technically only re
 ```bash
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
-ansible-playbook ibm/mas_devops/playbooks/ocp/provision-roks.yml && ansible-playbook ibm/mas_devops/playbooks/cp4d/hack-worker-nodes.yml
+export CLUSTER_TYPE=roks
+ansible-playbook ibm/mas_devops/playbooks/ocp/provision.yml && ansible-playbook ibm/mas_devops/playbooks/cp4d/hack-worker-nodes.yml
 ```
 
 ### 2. Install Pipelines feature
@@ -33,7 +34,7 @@ Each time you want to modify and test a pipeline run, use the following:
 
 ```bash
 export DEV_MODE=true
-export VERSION=6.0.0
+export VERSION=7.0.0
 
 # Update the settings secret (if you changed any global settings)
 oc apply -f pipelines/samples/sample-pipelinesettings-roks-donotcommit.yaml

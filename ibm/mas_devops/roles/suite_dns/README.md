@@ -1,7 +1,7 @@
 suite_dns
 =========
 
-This role will manage MAS and DNS provider integration.  IBM Cloud Internet Services is the only supported DNS provider currently.
+This role will manage MAS and DNS provider integration.  IBM Cloud Internet Services is the only supported DNS provider currently. It will also create a secure route (https://cp4d.<mas_domain>) to the CP4D web client using the custom domain used in this role.
 
 ### Cloud Internet Services (CIS)
 This role will create DNS entries automatically in the CIS service instance.  Two different modes are available:
@@ -24,7 +24,19 @@ The Webhook Task will deploy a cert-manager webhook for CIS integration.  The we
 Role Variables
 --------------
 
-TODO: Finish documentation
+TODO: Add other variables
+
+### cpd_services_namespace
+The namespace containing the CP4D instance (if configured) on the same cluster as MAS
+
+- Environment Variable: `CPD_SERVICES_NAMESPACE`
+- Default: `cpd-services`
+  
+### configure_suite_cp4d_route
+Whether to create a route using the `mas_domain` to point to the installed CP4D web client on the same OCP cluster as MAS. Route is configured as https://cp4d.<mas_domain> . If you set `mas_domain` but dont have CP4D installed on the same OCP cluster then set this to `False`.
+
+- Environment Variable: `CONFIGURE_SUITE_CP4D_ROUTE`
+- Default: `True`
 
 
 Example Playbook

@@ -1,0 +1,111 @@
+---
+# 1. Check for required facts
+# -----------------------------------------------------------------------------
+- name: "Fail if UDS storage class has not been provided"
+  assert:
+    that: uds_storage_class is defined and uds_storage_class != ""
+    fail_msg: "uds_storage_class property is required"
+
+
+- name: "UDS Deployment details"
+  debug:
+    msg:
+      - "UDS Namespace ...................... ibm-common-services"
+      - "UDS Storage Class .................. {{ uds_storage_class }}"
+      - "UDS Event Scheduler Frequency ...... {{ uds_event_scheduler_frequency }}"
+      - "UDS API Key ........................ Found in 'uds_api_key' secret under 'ibm-common-services' namespace"
+      - "MAS Instance ID .................... {{ mas_instance_id | default('<undefined>', True) }}"
+      - "MAS Config Directory ............... {{ mas_config_dir | default('<undefined>', True) }}"
+      - "UDS Contact First Name ............. {{ uds_contact.first_name | default('<undefined>', True) }}"
+      - "UDS Contact Last Name .............. {{ uds_contact.last_name | default('<undefined>', True) }}"
+      - "UDS Contact e-mail ................. {{ uds_contact.email | default('<undefined>', True) }}"
+
+
+# 2. Install UDS Operator
+# -----------------------------------------------------------------------------
+- name: Install Foundation Services ibm-user-data-services operand request
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/foundation-services/ibm-user-data-services.yml') }}"
+    wait: yes
+    wait_timeout: 120
+
+
+# 3. Wait for UDS Operator to be Ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Foundation Services ibm-user-data-services operator to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: user-data-services-operator
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _uds_deployment
+  until: _uds_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+
+# 4. Create UDS AnalyticsProxy
+# -----------------------------------------------------------------------------
+- name: "Create UDS AnalyticsProxy"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/foundation-services/analyticsproxy.yaml') }}"
+
+# Note that the AnalyticsProxy references a 'uds-images-pull-secret', but we do not create this.
+# For some reason it seems to work anyway.
+
+
+# 5. Wait for the UDS AnalyticsProxy to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for the AnalyticsProxy to be ready"
+  kubernetes.core.k8s_info:
+    api_version: uds.ibm.com/v1
+    name: analyticsproxy
+    namespace: "ibm-common-services"
+    kind: AnalyticsProxy
+  register: uds_ap_cr_lookup
+  until:
+    - uds_ap_cr_lookup.resources is defined and uds_ap_cr_lookup.resources | length == 1
+    - uds_ap_cr_lookup.resources[0].status is defined
+    - uds_ap_cr_lookup.resources[0].status.phase is defined
+    - uds_ap_cr_lookup.resources[0].status.phase == 'Ready'
+  retries: 20 # approx 40 minutes before we give up waiting for status.phase to be Ready
+  delay: 120 # 2 minutes
+
+
+# 6. Wait for GenerateKey to be complete
+# -----------------------------------------------------------------------------
+- name: "Create UDS Generate Key"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/foundation-services/generateKey.yaml') }}"
+
+
+# 7. Wait for GenerateKey to be complete
+# -----------------------------------------------------------------------------
+- name: "Wait for GenerateKey to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: uds.ibm.com/v1
+    name: uds-api-key
+    namespace: ibm-common-services
+    kind: GenerateKey
+  register: uds_gk_result
+  until:
+    - uds_gk_result.resources is defined and uds_gk_result.resources | length == 1
+    - uds_gk_result.resources[0].status is defined
+    - uds_gk_result.resources[0].status.phase is defined
+    - uds_gk_result.resources[0].status.phase == 'Ready'
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 1 minute
+
+
+# 8. MAS Config
+# -----------------------------------------------------------------------------
+# Notes that the MAS config resource still refers to UDS by it's
+# original name (BAS).  It would be a breaking change to re-name the MAS CRD
+- name: "Create MAS BasCfg resource definition"
+  include_tasks: tasks/udscfg.yml
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+    - uds_contact.first_name is defined and uds_contact.first_name != ""
+    - uds_contact.last_name is defined and uds_contact.last_name != ""
+    - uds_contact.email is defined and uds_contact.email != ""

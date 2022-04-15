@@ -7,19 +7,29 @@ It's also used for WDScfg (For Assist Install) related yaml preparation if you w
 
 Role Variables
 --------------
+### cp4d_username
+The CP4D Admin User name used to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install,you don't need to provide it. And the initial admin user name `admin` will be used.
+- Environment Variable: `CP4D_USERNAME`
+- Default Value: None
+
+### cp4d_password
+The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.
+And the initial admin user password for `admin` will be used.
+- Environment Variable: `CP4D_PASSWORD`
+- Default Value: None
+
 ### wdschannel
 The discovery channel used by discovery install. By default the `v4.0`  will be used as channel name for discovery install.  
 - Environment Variable: `WDS_CHANNEL`
 - Default Value: v4.0
 
 ### wdsversion
-The discovery version used by discovery install. By default the discovery `4.0.4` version will be installed. 
-- Environment Variable: `WDS_CHANNEL`
-- Default Value: 4.0.4
+The discovery version used by discovery install. By default the discovery `4.0.6` version will be installed.
+- Environment Variable: `WDS_VERSION`
+- Default Value: 4.0.6
 
 ### wdsstorageclass
-The specific storage class for discovery install, if not specified , the storage class used by CP4D will be auto queried in the cluster and used for discovery.
-install.
+The specific storage class for discovery install, if not specified , the storage class used by CP4D will be auto queried in the cluster and used for discovery install.
 Usually Watson Discovery uses the following storage classes. If you don't use these storage classes on your cluster, ensure that you have a storage class with an equivalent definition:
 OpenShift Container Storage: `ocs-storagecluster-ceph-rbd`
 IBM Cloud OCP cluster: `ibmc-block-gold`,`ibmc-block-gold-gid`
