@@ -337,6 +337,7 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
         echo "=== Get the version from galaxy.yml ==="
         cd $GIT_REPO_HOME/../ibm/mas_devops
         export MAS_DEVOPS_COLLECTION_VERSION=$(grep -i '^version:' ./galaxy.yml | awk '{print $2}')
+        echo "MAS_DEVOPS_COLLECTION_VERSION=$MAS_DEVOPS_COLLECTION_VERSION"
         log "==== Installing Ansible Collection ===="
         ansible-galaxy collection install ibm.mas_devops:==${MAS_DEVOPS_COLLECTION_VERSION}
         log "==== Installed Ansible Collection Successfully ===="
