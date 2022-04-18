@@ -43,6 +43,7 @@ export SELLER_RESOURCE_GROUP=${34}
 export SELLER_COMPUTE_GALLERY=${35}
 export SELLER_IMAGE_VERSION=${36}
 export EMAIL_NOTIFICATION=${37}
+export ENV_TYPE=${38}
 
 # Load helper functions
 . helper.sh
@@ -235,7 +236,7 @@ echo " SELLER_RESOURCE_GROUP=$SELLER_RESOURCE_GROUP"
 echo " SELLER_COMPUTE_GALLERY=$SELLER_COMPUTE_GALLERY"
 echo " SELLER_IMAGE_VERSION=$SELLER_IMAGE_VERSION"
 echo " EMAIL_NOTIFICATION: $EMAIL_NOTIFICATION"
-
+echo " ENV_TYPE : $ENV_TYPE"
 echo " HOME: $HOME"
 echo " GIT_REPO_HOME: $GIT_REPO_HOME"
 echo " CLUSTER_NAME: $CLUSTER_NAME"
@@ -325,10 +326,28 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
   echo "$OCP_PULL_SECRET" > $OPENSHIFT_PULL_SECRET_FILE_PATH
   chmod 600 $OPENSHIFT_PULL_SECRET_FILE_PATH
 
-  # Create MAS_CONFIG_DIR directory
-  mkdir -p $MAS_CONFIG_DIR  
-  chmod 700 $MAS_CONFIG_DIR
+  ## Installing the collection depending on ENV_TYPE
+  if [[ $ENV_TYPE == "dev" ]]; then
+        echo "=== Building and Installing Ansible Collection Locally ==="
+        cd $GIT_REPO_HOME/../ibm/mas_devops
+        ansible-galaxy collection build
+        ansible-galaxy collection install ibm-mas_devops-*.tar.gz
+        echo "=== Ansible Collection built and installed locally Successfully ==="
+  else
+        echo "=== Get the version from galaxy.yml ==="
+        cd $GIT_REPO_HOME/../ibm/mas_devops
+        export MAS_DEVOPS_COLLECTION_VERSION=$(grep -i '^version:' ./galaxy.yml | awk '{print $2}')
+        echo "MAS_DEVOPS_COLLECTION_VERSION=$MAS_DEVOPS_COLLECTION_VERSION"
+        log "==== Installing Ansible Collection ===="
+        ansible-galaxy collection install ibm.mas_devops:==${MAS_DEVOPS_COLLECTION_VERSION}
+        log "==== Installed Ansible Collection Successfully ===="
 
+  fi
+  cd $GIT_REPO_HOME
+  # Create MAS_CONFIG_DIR directory
+  mkdir -p $MAS_CONFIG_DIR
+  chmod 700 $MAS_CONFIG_DIR
+  exit 0
   # Call cloud specific script
   chmod +x $CLUSTER_TYPE/*.sh
   log "===== PROVISIONING STARTED ====="
