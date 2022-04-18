@@ -343,11 +343,13 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
         log "==== Installed Ansible Collection Successfully ===="
 
   fi
+
   cd $GIT_REPO_HOME
+
   # Create MAS_CONFIG_DIR directory
   mkdir -p $MAS_CONFIG_DIR
   chmod 700 $MAS_CONFIG_DIR
-  exit 0
+
   # Call cloud specific script
   chmod +x $CLUSTER_TYPE/*.sh
   log "===== PROVISIONING STARTED ====="
