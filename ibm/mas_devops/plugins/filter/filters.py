@@ -62,14 +62,17 @@ def appws_components(components):
           description: key=value pairs of components, seperated by commas, to install into an application workspace.
           required: True
   """
-  # Take base=latest,health=latest and make {'base': {'version': 'latest'},'health': {'version': 'latest'}}
-  split_components = components.strip().split(',')
-  components_yaml = {}
-  for component in split_components:
-    split_component = component.split('=')
-    components_yaml[split_component[0]] = {'version': split_component[1]}
+  if components is None or components == '' or components == '{}':
+    return None
+  else:
+    # Take base=latest,health=latest and make {'base': {'version': 'latest'},'health': {'version': 'latest'}}
+    split_components = components.strip().split(',')
+    components_yaml = {}
+    for component in split_components:
+      split_component = component.split('=')
+      components_yaml[split_component[0]] = {'version': split_component[1]}
 
-  return components_yaml
+    return components_yaml
 
 class FilterModule(object):
   def filters(self):

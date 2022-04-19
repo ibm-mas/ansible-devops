@@ -74,7 +74,7 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
 
    `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
 
-   To install Health as a Standalone with a specified version, set `MAS_APP_ID` to health and set `MAS_APPWS_COMPONENTS` to `health=x.x.x`.
+   To install Health as a Standalone with a specified version, set `MAS_APP_ID` to health and set `MAS_APPWS_COMPONENTS` to `health=x.x.x`. By default health standalone will be installed using `health=latest`
 
 
 ## Release build

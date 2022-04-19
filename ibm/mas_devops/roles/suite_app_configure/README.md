@@ -16,10 +16,15 @@ Defines the kind of application that is intended for installation such as `assis
 MAS application workspace to use to configure app components
 
 ### mas_appws_components
-Defines the app components and versions to configure in the application workspace. Takes the form of key=value pairs seperated by a comma i.e. base=latest,health=latest 
+Defines the app components and versions to configure in the application workspace. Takes the form of key=value pairs seperated by a comma i.e. To install health within Manage set `base=latest,health=latest`
 
 - Environment Variable: `MAS_APPWS_COMPONENTS`
-- Default: None
+- Default:
+  For Manage the default is:
+    `base=latest`
+
+  For Health (standalone) the default is:
+    `health=latest`
 
 ### mas_app_ws_spec
 Optional.  The application workspace deployment spec used to configure various aspects of the application workspace configuration. Note that use of this will override anything set in `mas_appws_components`
@@ -47,9 +52,6 @@ Example Playbook
     mas_app_ws_spec:
       bindings:
         jdbc: "{{ mas_appws_jdbc_binding | default( 'system' , true) }}"
-      components:
-        base:
-          version: 'latest'
 
   roles:
     - ibm.mas_devops.suite_app_config
