@@ -42,23 +42,21 @@ else
     SCRIPT_STATUS=13
 fi
 
-if [[ $CLUSTER_TYPE == "azure" ]]; then
-    # check if CNAME and A records already exist for the given MAS instance being deployed
-    # A) Check if the DNS zone A records already exists wtih $UNIQ_STR
-    A_RECS=$(az network dns record-set a list -g $BASE_DOMAIN_RG_NAME -z $BASE_DOMAIN | jq ".[] | select(.name == \"*.apps.masocp-$UNIQ_STR\").name" | tr -d '"')
+# check if CNAME and A records already exist for the given MAS instance being deployed
+# A) Check if the DNS zone A records already exists wtih $UNIQ_STR
+#A_RECS=$(az network dns record-set a list -g $BASE_DOMAIN_RG_NAME -z $BASE_DOMAIN | jq ".[] | select(.name == \"*.apps.masocp-$UNIQ_STR\").name" | tr -d '"')
 
-    if [[ -n $A_RECS ]]; then
-        log "ERROR: Record set with $UNIQ_STR already exists as $A_RECS"
-        SCRIPT_STATUS=25
-    fi
+#if [[ -n $A_RECS ]]; then
+#    log "ERROR: Record set with $UNIQ_STR already exists as $A_RECS"
+#    SCRIPT_STATUS=25
+#fi
 
-    # B) Check if the DNS zone CNAME records already exists wtih $UNIQ_STR
-    CNAME_RECS=$(az network dns record-set cname list -g $BASE_DOMAIN_RG_NAME -z $BASE_DOMAIN | jq ".[] | select(.name == \"api.masocp-$UNIQ_STR\").name" | tr -d '"')
-    if [[ -n $CNAME_RECS ]]; then
-        log "ERROR: Record set with $UNIQ_STR already exists as $CNAME_REC"
-        SCRIPT_STATUS=25
-    fi
-fi
+# B) Check if the DNS zone CNAME records already exists wtih $UNIQ_STR
+#CNAME_RECS=$(az network dns record-set cname list -g $BASE_DOMAIN_RG_NAME -z $BASE_DOMAIN | jq ".[] | select(.name == \"api.masocp-$UNIQ_STR\").name" | tr -d '"')
+#if [[ -n $CNAME_RECS ]]; then
+#    log "ERROR: Record set with $UNIQ_STR already exists as $CNAME_REC"
+#    SCRIPT_STATUS=25
+#fi
 
 # JDBC CFT inputs validation and connection test
 if [[ $DEPLOY_MANAGE == "true" ]]; then
@@ -130,16 +128,16 @@ else
 fi
 
 # Check if all the existing BAS inputs are provided
-if [[ (-z $BAS_API_KEY) && (-z $BAS_ENDPOINT_URL) && (-z $BAS_PUB_CERT_URL) ]]; then
+if [[ (-z $UDS_API_KEY) && (-z $UDS_ENDPOINT_URL) && (-z $UDS_PUB_CERT_URL) ]]; then
     log "=== New BAS Will be deployed ==="
 else
-    if [ -z "$BAS_API_KEY" ]; then
+    if [ -z "$UDS_API_KEY" ]; then
         log "ERROR: BAS API Key is not specified"
         SCRIPT_STATUS=16
-    elif [ -z "$BAS_ENDPOINT_URL" ]; then
+    elif [ -z "$UDS_ENDPOINT_URL" ]; then
         log "ERROR: BAS Endpoint URL is not specified"
         SCRIPT_STATUS=16
-    elif [ -z "$BAS_PUB_CERT_URL" ]; then
+    elif [ -z "$UDS_PUB_CERT_URL" ]; then
         log "ERROR: BAS Public Cerificate URL is not specified"
         SCRIPT_STATUS=16
     else
@@ -197,10 +195,9 @@ else
 fi
 
 if [[ $CLUSTER_TYPE == "azure" ]]; then
-    # Validate non-empty sendgrid API key(SENDGRID_API_KEY) and recipient(RECEPIENT) email id when email notification is set to true.
     if [[ $EMAIL_NOTIFICATION == "true" ]]; then
-        if [[ (-z $SENDGRID_API_KEY) || (-z $RECEPIENT) ]]; then
-            log "ERROR: Missing Sendgrid API key or Recipeient email address."
+        if [[ (-z $SMTP_HOST) || (-z $SMTP_PORT) || (-z $SMTP_USERNAME) || (-z $SMTP_PASSWORD) || (-z $RECEPIENT) ]]; then
+            log "ERROR: Missing required parameters when email notification is set to true."
             SCRIPT_STATUS=26
         fi
     fi
