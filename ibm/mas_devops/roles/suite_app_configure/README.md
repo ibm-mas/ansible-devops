@@ -16,7 +16,10 @@ Defines the kind of application that is intended for installation such as `assis
 MAS application workspace to use to configure app components
 
 ### mas_appws_components
-Defines the app components and versions to configure in the application workspace.
+Defines the app components and versions to configure in the application workspace. Takes the form of key=value pairs seperated by a comma i.e. base=latest,health=latest 
+
+- Environment Variable: `MAS_APPWS_COMPONENTS`
+- Default: None
 
 ### mas_app_ws_spec
 Optional.  The application workspace deployment spec used to configure various aspects of the application workspace configuration. Note that use of this will override anything set in `mas_appws_components`

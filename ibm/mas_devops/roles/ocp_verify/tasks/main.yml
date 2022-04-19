@@ -61,12 +61,25 @@
     namespace: openshift-ingress
   register: cluster_ingress_secret
 
+# If "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}" does not exist, then lookup for secret named after cluster ingress
+# If "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}" exists, then skip it
+- name: Get cluster subdomain
+  when:
+    - cluster_ingress_secret.resources is defined
+    - cluster_ingress_secret.resources | length == 0
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ cluster_name }}-primary-cert-bundle-secret"
+    namespace: openshift-ingress
+  register: cluster_primary_secret
+
 # If at least one of the secrets exist, then all good, skip it
 # If neither of the two secrets are found, then fail with a message
 - name: Fail if cluster required secrets do not exist
   when:
-    - cluster_ingress_secret.resources is defined
-    - cluster_ingress_secret.resources | length == 0
+    - cluster_primary_secret.resources is defined
+    - cluster_primary_secret.resources | length == 0
   fail:
     msg:
-      - "This cluster does not contain required secrets named 'router-certs-default' or '{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*') }}' under 'openshift-ingress' namespace. Please, provision a new cluster."
+      - "This cluster does not contain required secrets named 'router-certs-default' or '{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*') }}' or '{{ cluster_name }}-primary-cert-bundle-secret' under 'openshift-ingress' namespace. Please, provision a new cluster."
