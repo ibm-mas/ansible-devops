@@ -47,7 +47,7 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
 - `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
 - `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for BAS
 - `CPD_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/
-
+- `MAS_APPWS_COMPONENTS` to customize the application components installed in the Manage Workspace
 
 ## Optional environment variables
 - `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none are passed, `Default` resource group will be used.
@@ -62,7 +62,6 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
 - `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
 - `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
-- `MAS_APPWS_COMPONENTS` to customize the application components installed in the Manage Workspace
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
 
@@ -70,11 +69,11 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
 
 !!! tip
-   By default only the base Manage component is installed.  To customise the components that are enabled use the optional `MAS_APPWS_COMPONENTS` environment variable, for example to enable Health set it to the following:
+    Manage requires the user to select one or more application components to enable in the workspace. By default the `base` component at the `latest` version will be installed if no `MAS_APPWS_COMPONENTS` is set. To customise the components that are enabled use the `MAS_APPWS_COMPONENTS` environment variable, for example to enable Manage(base) and Health set it to the following:
 
-   `export MAS_APPWS_COMPONENTS="{'base':{'version':'latest'}, 'health':{'version':'latest'}}"`
+   `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
 
-   To install Health as a Standalone with a specified version, set `MAS_APP_ID` to health and set `MAS_APPWS_COMPONENTS` to `"{'health':{'version':'x.x.x'}}"`. The default version when installing health is set to the `latest` version.
+   To install Health as a Standalone with a specified version, set `MAS_APP_ID` to health and set `MAS_APPWS_COMPONENTS` to `health=x.x.x`.
 
 
 ## Release build

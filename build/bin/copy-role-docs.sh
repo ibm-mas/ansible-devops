@@ -21,6 +21,7 @@ copyDoc cp4d_db2wh_restore
 copyDoc cp4d_hack_worker_nodes
 copyDoc cp4d_install
 copyDoc cp4d_install_services
+copyDoc cp4d_wds
 copyDoc db2u
 copyDoc gencfg_sls
 copyDoc gencfg_uds
