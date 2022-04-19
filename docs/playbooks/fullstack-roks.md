@@ -40,7 +40,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
 
 ### Copy your entitlement license key file
-Copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
+Copy the MAS license key file that you obtained from Rational License Key Server to a local path and set `SLS_LICENSE_FILE` to point to this file location. During the installation of SLS this license file will be automatically bootstrapped into the system.
 
 !!! important
     Make sure you set `SLS_LICENSE_ID` to the correct value.  For full details on what configuration options are available with the SLS install refer to the [Install SLS](dependencies.md#install-sls) topic.
@@ -53,7 +53,8 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
-- `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
+- `SLS_LICENSE_ID` The license ID must match the license file available in `SLS_LICENSE_FILE`
+- `SLS_LICENSE_FILE` The path to the location of the license file.
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `UDS_CONTACT_EMAIL` Defines the email for person to contact for BAS
 - `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
