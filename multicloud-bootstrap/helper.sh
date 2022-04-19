@@ -2,7 +2,7 @@
 
 # Helper functions
 log() {
-  echo "$(date +%a-%d-%b-%Y-%H-%M-%S) $1"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') $1"
 }
 
 # Retrieve MAS CA certificate
@@ -119,7 +119,7 @@ mark_provisioning_failed() {
   elif [[ $retcode -eq 25 ]]; then
     export STATUS_MSG="CNAME or A records already exist."
   elif [[ $retcode -eq 26 ]]; then
-    export STATUS_MSG="You have opted for email notification but did not specify SendGrid API key and/or recipient email address."
+    export STATUS_MSG="Missing required parameters when email notification is set to true."
   elif [[ $retcode -eq 27 ]]; then
     export STATUS_MSG="Failure in creating azurefiles storage class."
   fi
