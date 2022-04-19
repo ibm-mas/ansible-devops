@@ -251,7 +251,7 @@ then
 
 else
     log "=== Using Existing SLS Deployment ==="
-    ansible-playbook dependencies/cfg-sls.yml
+    ansible-playbook dependencies/gencfg-sls.yml
     log "=== Generated SLS Config YAML ==="
 fi
 
@@ -264,9 +264,9 @@ then
     log "==== UDS deployment completed ===="
 
 else
-    log "=== Using Existing BAS Deployment ==="
-    ansible-playbook dependencies/cfg-bas.yml
-    log "=== Generated BAS Config YAML ==="
+    log "=== Using Existing UDS Deployment ==="
+    ansible-playbook dependencies/gencfg-uds.yml
+    log "=== Generated UDS Config YAML ==="
 fi
 
 # Deploy CP4D
