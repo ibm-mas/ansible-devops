@@ -70,8 +70,8 @@ line=$(head -n 1 entitlement.lic)
 set -- $line
 hostname=$2
 hostid=$3
-echo " SLS_HOSTNAME: $hostname"
-echo " SLS_HOST_ID: $hostid"
+log " SLS_HOSTNAME: $hostname"
+log " SLS_HOST_ID: $hostid"
 #SLS Instance name
 export SLS_INSTANCE_NAME="$hostname"
 export SLS_LICENSE_ID="$hostid"

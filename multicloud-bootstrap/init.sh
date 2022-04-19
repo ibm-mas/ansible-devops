@@ -267,6 +267,8 @@ echo " MAS_JDBC_CERT_LOCAL_FILE: $MAS_JDBC_CERT_LOCAL_FILE"
 # Get deployment options
 export DEPLOY_CP4D=$(echo $DEPLOY_CP4D | cut -d '=' -f 2)
 export DEPLOY_MANAGE=$(echo $DEPLOY_MANAGE | cut -d '=' -f 2)
+log " DEPLOY_CP4D: $DEPLOY_CP4D"
+log " DEPLOY_MANAGE: $DEPLOY_MANAGE"
 
 if [[ $CLUSTER_TYPE == "azure" ]]; then
   # Perform az login for accessing blob storage
@@ -274,11 +276,10 @@ if [[ $CLUSTER_TYPE == "azure" ]]; then
   az resource list -n masocp-${RANDOM_STR}-bootnode-vm
 
   # Get subscription ID, tenant ID
-  echo $BASE_DOMAIN_RG_NAME
   export AZURE_SUBSC_ID=`az account list | jq -r '.[].id'`
-  echo $AZURE_SUBSC_ID
+  log " AZURE_SUBSC_ID: $AZURE_SUBSC_ID"
   export AZURE_TENANT_ID=`az account list | jq -r '.[].tenantId'`
-  echo $AZURE_TENANT_ID
+  log " AZURE_TENANT_ID: $AZURE_TENANT_ID"
 fi
 
 # Perform prevalidation checks
@@ -314,7 +315,7 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     export OPENSHIFT_USER_PROVIDE="true"
   else
     ## No input from user. Generate Cluster Name, Username, and Password.
-    echo "Debug: No cluster details or insufficient data provided. Proceed to create new OCP cluster later"
+    log "Debug: No cluster details or insufficient data provided. Proceed to create new OCP cluster later"
     export CLUSTER_NAME="masocp-${RANDOM_STR}"
     export OCP_USERNAME="masocpuser"
     export OCP_PASSWORD=masocp${RANDOM_STR}pass
@@ -373,9 +374,6 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     RESP_CODE=0
   else
     mark_provisioning_failed $retcode
-  fi
-  if [[ $CLUSTER_TYPE == "azure" ]]; then
-    az tag update --operation merge --resource-id /subscriptions/${AZURE_SUBSC_ID}/resourceGroups/${RG_NAME} --tags DeploymentStatus="${STATUS}#${STATUS_MSG}" > /dev/null
   fi
 fi
 

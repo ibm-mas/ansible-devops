@@ -94,7 +94,7 @@ echo "SUB_ID: $SUB_ID"
 echoBlue "Trying to delete OCP cluster resource group"
 if [[ -n $RG_NAME ]]; then
   # Get the cluster unique string
-  UNIQ_STR=$(az tag list --resource-id /subscriptions/${SUB_ID}/resourceGroups/${RG_NAME} | jq ".properties.tags.ClusterUniqueString" | tr -d '"')
+  UNIQ_STR=$(az deployment group list --resource-group $RG_NAME | jq ".[] | select(.properties.outputs.clusterUniqueString.value != null).properties.outputs.clusterUniqueString.value" | tr -d '"')
   echo "Deleting by 'bootnode-resource-group' $RG_NAME"
 else
   UNIQ_STR=$UNIQUE_STR
