@@ -141,7 +141,7 @@ export KAFKA_USER_NAME=masuser
 export SLS_NAMESPACE="ibm-sls-${RANDOM_STR}"
 export SLS_MONGODB_CFG_FILE="${MAS_CONFIG_DIR}/mongo-${MONGODB_NAMESPACE}.yml"
 export SLS_LICENSE_FILE="${MAS_CONFIG_DIR}/entitlement.lic"
-export SLS_TLS_CERT_LOCAL_FILE = "${GIT_REPO_HOME}/sls.crt"
+export SLS_TLS_CERT_LOCAL_FILE="${GIT_REPO_HOME}/sls.crt"
 # UDS variables
 export UDS_STORAGE_CLASS=gp2
 export UDS_CONTACT_EMAIL="uds.support@ibm.com"
