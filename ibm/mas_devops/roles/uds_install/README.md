@@ -7,6 +7,13 @@ Installs [IBM User Data Services](https://www.ibm.com/docs/en/cpfs?topic=service
 Role Variables
 --------------
 
+### cluster_name
+Required only for ROSA cluster. This variable is required to extract the UDS certificates. For other clusters this variable is not used.
+
+- Environment Variable: `CLUSTER_NAME`
+- Default Value: None
+
+
 ### uds_storage_class
 Required.  Storage class where BAS will be installed.  On IBM Cloud RedHat Openshift Kubernetes Service (ROKS) `ibmc-block-bronze` is the recommended value.
 

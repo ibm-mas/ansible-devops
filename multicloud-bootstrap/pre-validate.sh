@@ -34,6 +34,7 @@ if [[ $CLUSTER_TYPE == "aws" ]]; then
 else
     true
 fi
+
 if [ $? -eq 0 ]; then
     log "MAS public domain verification = PASS"
 else
@@ -127,16 +128,16 @@ else
 fi
 
 # Check if all the existing BAS inputs are provided
-if [[ (-z $BAS_API_KEY) && (-z $BAS_ENDPOINT_URL) && (-z $BAS_PUB_CERT_URL) ]]; then
+if [[ (-z $UDS_API_KEY) && (-z $UDS_ENDPOINT_URL) && (-z $UDS_PUB_CERT_URL) ]]; then
     log "=== New BAS Will be deployed ==="
 else
-    if [ -z "$BAS_API_KEY" ]; then
+    if [ -z "$UDS_API_KEY" ]; then
         log "ERROR: BAS API Key is not specified"
         SCRIPT_STATUS=16
-    elif [ -z "$BAS_ENDPOINT_URL" ]; then
+    elif [ -z "$UDS_ENDPOINT_URL" ]; then
         log "ERROR: BAS Endpoint URL is not specified"
         SCRIPT_STATUS=16
-    elif [ -z "$BAS_PUB_CERT_URL" ]; then
+    elif [ -z "$UDS_PUB_CERT_URL" ]; then
         log "ERROR: BAS Public Cerificate URL is not specified"
         SCRIPT_STATUS=16
     else
@@ -193,11 +194,12 @@ else
     fi
 fi
 
-# Validate if all the required params are specifid when email notification is set to true.
-if [[ $EMAIL_NOTIFICATION == "true" ]]; then
-    if [[ (-z $SMTP_HOST) || (-z $SMTP_PORT) || (-z $SMTP_USERNAME) || (-z $SMTP_PASSWORD) || (-z $RECEPIENT) ]]; then
-        log "ERROR: Missing required parameters when email notification is set to true."
-        SCRIPT_STATUS=26
+if [[ $CLUSTER_TYPE == "azure" ]]; then
+    if [[ $EMAIL_NOTIFICATION == "true" ]]; then
+        if [[ (-z $SMTP_HOST) || (-z $SMTP_PORT) || (-z $SMTP_USERNAME) || (-z $SMTP_PASSWORD) || (-z $RECEPIENT) ]]; then
+            log "ERROR: Missing required parameters when email notification is set to true."
+            SCRIPT_STATUS=26
+        fi
     fi
 fi
 
