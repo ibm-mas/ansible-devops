@@ -251,7 +251,7 @@ then
 
 else
     log "=== Using Existing SLS Deployment ==="
-    ansible-playbook dependencies/gencfg-sls.yml
+    ansible-playbook dependencies/gencfg-sls.yml -vvvv
     log "=== Generated SLS Config YAML ==="
 fi
 
@@ -265,7 +265,7 @@ then
 
 else
     log "=== Using Existing UDS Deployment ==="
-    ansible-playbook dependencies/gencfg-uds.yml
+    ansible-playbook dependencies/gencfg-uds.yml -vvvv
     log "=== Generated UDS Config YAML ==="
 fi
 
