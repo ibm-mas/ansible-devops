@@ -110,6 +110,7 @@ export MAS_CONFIG_DIR=~/masconfig
 # SLS configuration
 export SLS_LICENSE_ID=xxx
 export SLS_ENTITLEMENT_KEY=xxx
+export SLS_ENTITLEMENT_FILE=xxx
 
 # UDS configuration
 export UDS_CONTACT_EMAIL=xxx@xxx.com
