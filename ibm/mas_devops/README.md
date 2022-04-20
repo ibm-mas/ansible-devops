@@ -6,9 +6,12 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `7.1` Multiple Updates:
+- `8.0` Multiple Updates:
     - Create secure route to CP4D web client when setting up DNS using CIS and suite_dns role ([#251](https://github.com/ibm-mas/ansible-devops/pull/251))
     - Configure azurefiles storage class for multi-cloud ([#260](https://github.com/ibm-mas/ansible-devops/pull/260))
+    - SMTP email support for Azure and other changes ([#265](https://github.com/ibm-mas/ansible-devops/pull/265))
+    - Add cp4d_wds role for discovery instance provison ([#234](https://github.com/ibm-mas/ansible-devops/pull/234))
+    - Change MAS_APPWS_COMPONENTS variable format ([#267](https://github.com/ibm-mas/ansible-devops/pull/267))
 - `7.0` Mulitple Updates:
     - Consolidate cluster specific provision/deprovision playbooks ([#236](https://github.com/ibm-mas/ansible-devops/pull/236))
     - Fix SLS bootstrap and update docs ([#242](https://github.com/ibm-mas/ansible-devops/pull/242))
