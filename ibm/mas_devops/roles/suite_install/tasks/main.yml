@@ -132,9 +132,12 @@
   set_fact:
     cr_definition: "{{ (custom_cluster_issuer != '') | ternary (suite_cr + certificate_block, suite_cr) }}"
 
-- name: "Invoke add Annotation"
+- name: "Add Annotation block to CR"
+  vars:
+    annotation_dict: "{{ mas_annotations | string | getAnnotations() }}"
+    annotation_block: "{{ lookup('template', 'templates/annotation_block.yml.j2') }}"
   set_fact:
-    cr_definition: "{{ cr_definition | string | addAnnotation(mas_annotations) }}"
+    cr_definition: "{{ cr_definition | string | addAnnotationBlock(annotation_block) }}"
   when:
     - mas_annotations is defined
     - mas_annotations != ""
