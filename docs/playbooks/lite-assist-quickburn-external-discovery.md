@@ -12,8 +12,7 @@ This master playbook will drive the following playbooks in sequence:
     - Generate MAS Workspace Configuration (1 minute)
     - [Install & configure MAS](mas.md#install-mas) (15 minutes)
 - [Configure and prepare object storage instance](../roles/cos_setup.md)
-- Install and prepare discovery instance
-    - [Install discovery Service](cp4d.md#install-services-discovery)
+- Prepare the existing discovery instance
     - [Create Disocvery instance](cp4d.md#create-discovery-instance)
 - Install Assist and Configure Assist Workspace
     - [Refer to Suite App Assist](../roles/suite_app_install.md) (20 Minutes)
@@ -33,6 +32,9 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
+- `ASSIST_WDS_URL` External Discovery URL for discovery API use
+- `ASSIST_WDS_ADMIN` External Discovery admin User name
+- `ASSIST_WDS_PASSWORD` External Discovery admin User password
 
 ## Optional environment variables
 Refer to the role documentation for full details of all configuration options available in this playbook:
@@ -49,11 +51,9 @@ Refer to the role documentation for full details of all configuration options av
 10. [suite_config](../roles/suite_config.md)
 11. [suite_verify](../roles/suite_verify.md)
 12. [cos_setup](../roles/cos_setup.md)
-13. [cp4d_install](../roles/cos_setup.md)
-14. [cp4d_install_servicesl](../roles/cp4d_install_services.md)
-15. [cp4d_wds](../roles/cp4d_wds.md)
-16. [suite_app_install](../roles/suite_app_install.md)
-17. [suite_app_configure](../roles/suite_app_configure.md)
+13. [cp4d_wds](../roles/cp4d_wds.md)
+14. [suite_app_install](../roles/suite_app_install.md)
+15. [suite_app_configure](../roles/suite_app_configure.md)
 
 ## Release build
 
@@ -76,7 +76,11 @@ export MAS_ENTITLEMENT_KEY=xxx
 
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/lite-assist-quickburn.yml
+export ASSIST_WDS_URL=https://xxx/discovery/cpd-services-wd/instances/1645760445828523/api
+export ASSIST_WDS_ADMIN=admin
+export ASSIST_WDS_PASS=xxx
+
+ansible-playbook playbooks/lite-assist-quickburn-external-discovery.yml
 ```
 
 !!! note
@@ -115,11 +119,16 @@ export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 export MAS_CONFIG_DIR=~/masconfig
+# The existing External Discovery instance  
+export ASSIST_WDS_URL=https://xxx/discovery/cpd-services-wd/instances/1645760445828523/api
+export ASSIST_WDS_ADMIN=admin
+export ASSIST_WDS_PASS=xxx
+
 
 # Assist Configure
 export MAS_APP_CHANNEL=m1dev88
 export MAS_APP_CATALOG_SOURCE=ibm-mas-assist-operators
 
 
-ansible-playbook playbooks/lite-assist-quickburn.yml
+ansible-playbook playbooks/lite-assist-quickburn-external-discovery.yml
 ```

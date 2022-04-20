@@ -4,7 +4,9 @@
   vars:
     # Deploy & configure the cluster
     cluster_type: quickburn
-
+    
+    # OCP Release used for OCS setup
+    ocp_release: "{{ lookup('env', 'OCP_RELEASE') | default('4.8', True) }}"
     # Install MongoDb
     mongodb_storage_class: ocs-storagecluster-ceph-rbd
 
@@ -61,6 +63,7 @@
           - lookup('env', 'CLUSTER_NAME') != ""
           - lookup('env', 'CLUSTER_TYPE') != ""
           - lookup('env', 'OCP_VERSION') != ""
+          - lookup('env', 'OCP_RELEASE') != ""
           - lookup('env', 'MAS_INSTANCE_ID') != ""
           - lookup('env', 'MAS_CONFIG_DIR') != ""
           - lookup('env', 'MAS_ENTITLEMENT_KEY') != ""
@@ -71,6 +74,7 @@
   roles:
     # 1. Deploy & configure the cluster
     - ibm.mas_devops.ocp_provision
+    - ibm.mas_devops.ocp_setup_ocs
     - ibm.mas_devops.ocp_setup_mas_deps
 
     # 2. Install MongoDb
