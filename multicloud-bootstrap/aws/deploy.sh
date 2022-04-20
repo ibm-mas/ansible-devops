@@ -56,13 +56,13 @@ fi
 cd $GIT_REPO_HOME
 if [[ ${UDS_PUB_CERT_URL,,} =~ ^https? ]]; then
   log "Downloading BAS certificate from HTTP URL"
-  wget "$UDS_PUB_CERT_URL" -O bas.crt
+  wget "$UDS_PUB_CERT_URL" -O uds.crt
 elif [[ ${UDS_PUB_CERT_URL,,} =~ ^s3 ]]; then
   log "Downloading BAS certificate from S3 URL"
-  aws s3 cp "$UDS_PUB_CERT_URL" bas.crt
+  aws s3 cp "$UDS_PUB_CERT_URL" uds.crt
 fi
-if [[ -f bas.crt ]]; then
-  chmod 600 bas.crt
+if [[ -f uds.crt ]]; then
+  chmod 600 uds.crt
 fi
 
 ### Read License File & Retrive SLS hostname and host id
