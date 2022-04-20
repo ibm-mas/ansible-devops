@@ -3,7 +3,7 @@
 This master playbook will drive the following playbooks in sequence:
 
 - [Provision & setup Quickburn](ocp.md#quickburn) (25 minutes)
-- [Prepare the OCS cluster ]((../roles/ocp_setup_ocs.md)) (10 minutes)
+- [Prepare the OCS cluster ](../roles/ocp_setup_ocs.md) (10 minutes)
 - Install MAS dependencies:
     - [Install MongoDb](dependencies.md#install-mongodb-ce) (10 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
