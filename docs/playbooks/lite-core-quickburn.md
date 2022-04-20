@@ -19,10 +19,13 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `FYRE_PRODUCT_ID`
 - `CLUSTER_NAME` The name to assign to the new Quickburn cluster
 - `CLUSTER_TYPE` The cluster type. Should be set to `quickburn`
+- `OCP_VERSION` The version of OCP to install as currently supported by fyre i.e. 4.8.35
+- `OCP_RELEASE` The release of OCP to help setup OCS i.e. 4.8
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
-- `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
+- `SLS_LICENSE_ID` The license ID must match the license file available in `SLS_LICENSE_FILE`
+- `SLS_LICENSE_FILE` The path to the location of the license file.
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 
 ## Optional environment variables
@@ -50,7 +53,13 @@ export FYRE_PRODUCT_ID=225
 # Cluster configuration
 export CLUSTER_NAME=xxx
 export CLUSTER_TYPE=quickburn
-export OCP_VERSION=4.6.16
+export OCP_VERSION=4.8.35
+export OCP_RELEASE=4.8
+
+# SLS configuration
+export SLS_LICENSE_ID=xxx
+export SLS_ENTITLEMENT_KEY=xxx
+export SLS_ENTITLEMENT_FILE=xxx
 
 # MAS configuration
 export MAS_INSTANCE_ID=xxx
@@ -76,7 +85,13 @@ export FYRE_PRODUCT_ID=225
 # Cluster configuration
 export CLUSTER_NAME=xxx
 export CLUSTER_TYPE=quickburn
-export OCP_VERSION=4.6.16
+export OCP_VERSION=4.8.35
+export OCP_RELEASE=4.8
+
+# SLS configuration
+export SLS_LICENSE_ID=xxx
+export SLS_ENTITLEMENT_KEY=xxx
+export SLS_ENTITLEMENT_FILE=xxx
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
