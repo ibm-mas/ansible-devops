@@ -149,7 +149,7 @@ The following call will install Manage with latest versions of Health and Servic
 export MAS_INSTANCE_ID=xxx
 export MAS_WORKSPACE_ID=masdev
 export MAS_APP_ID=manage
-export MAS_APPWS_COMPONENTS="{'base':{'version':'latest'},'health':{'version':'latest'},'serviceprovider':{'version':'latest'}}"
+export MAS_APPWS_COMPONENTS="base=latest,health=latest,serviceprovider=latest"
 
 ansible-playbook playbooks/mas/configure-app.yml
 ```

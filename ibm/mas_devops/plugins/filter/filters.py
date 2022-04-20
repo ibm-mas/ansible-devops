@@ -5,6 +5,7 @@
 # US Government Users Restricted Rights - Use, duplication, or disclosure
 # restricted by GSA ADP Schedule Contract with IBM Corp.
 # -----------------------------------------------------------
+import yaml
 
 def private_vlan(vlans):
   """
@@ -47,10 +48,33 @@ def public_vlan(vlans):
   public_vlan = [x['id'] for x in vlans if x['type'] == 'public'][0]  
   return public_vlan
 
+def appws_components(components):
+  """
+      filter: appws_components
+      author: Andrew Whitfield <whitfiea@uk.ibm.com>
+      version_added: 0.1
+      short_description: Returns components in yaml form
+      description:
+          - This filter takes the key=value pairs, seperated by commas, for components to be installed into an app workspace
+          and returns them in yaml form.
+      options:
+        components:
+          description: key=value pairs of components, seperated by commas, to install into an application workspace.
+          required: True
+  """
+  # Take base=latest,health=latest and make {'base': {'version': 'latest'},'health': {'version': 'latest'}}
+  split_components = components.strip().split(',')
+  components_yaml = {}
+  for component in split_components:
+    split_component = component.split('=')
+    components_yaml[split_component[0]] = {'version': split_component[1]}
+
+  return components_yaml
 
 class FilterModule(object):
   def filters(self):
     return {
       'private_vlan': private_vlan,
-      'public_vlan': public_vlan
+      'public_vlan': public_vlan,
+      'appws_components': appws_components
     }
