@@ -1,4 +1,4 @@
-# MAS Core Service on IBM Cloud ROKS
+# MAS Assist Service on IBM Cloud ROKS
 
 This master playbook will drive the following actions:
 
@@ -22,13 +22,13 @@ This master playbook will drive the following actions:
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 
 ## Preparation
-Before you run the playbook you **must** prepare the entitlement license key file that will be used during the playbook run.
+Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
 
-Copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
+### Prepare your entitlement license key file
+First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from your entitlement file, then set `SLS_LICENSE_FILE` to the location of the MAS license key file that you obtained from Rational License Key Server (thie will typically be called `entitlement.lic`).  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
 !!! tip
     If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
-
 
 ## Required environment variables
 
@@ -38,7 +38,8 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
-- `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
+- `SLS_LICENSE_ID` The license ID must match the license file available in `SLS_LICENSE_FILE`
+- `SLS_LICENSE_FILE` The path to the location of the license file.
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `UDS_CONTACT_EMAIL` Defines the email for person to contact for UDS
 - `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for UDS
@@ -82,8 +83,9 @@ export MAS_ENTITLEMENT_KEY=xxx
 export MAS_CONFIG_DIR=~/masconfig
 
 # SLS configuration
-export SLS_LICENSE_ID=xxx
 export SLS_ENTITLEMENT_KEY=xxx
+export SLS_LICENSE_ID=xxx
+export SLS_LICENSE_FILE=xxx
 
 # UDS configuration
 export UDS_CONTACT_EMAIL=xxx@xxx.com
@@ -121,8 +123,9 @@ export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 export MAS_CONFIG_DIR=~/masconfig
 
 # SLS configuration
-export SLS_LICENSE_ID=xxx
 export SLS_ENTITLEMENT_KEY=xxx
+export SLS_LICENSE_ID=xxx
+export SLS_LICENSE_FILE=xxx
 
 # UDS configuration
 export UDS_CONTACT_EMAIL=xxx@xxx.com

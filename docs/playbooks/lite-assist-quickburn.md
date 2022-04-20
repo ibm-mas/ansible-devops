@@ -1,4 +1,5 @@
 # MAS Assist Service on DevIT Quickburn
+(Deploy CP4D and watson discovery instance in this cluster)
 
 This master playbook will drive the following playbooks in sequence:
 
@@ -22,6 +23,15 @@ This master playbook will drive the following playbooks in sequence:
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Due to the size limtations of QuickBurn clusters a full MAS stack is not possible.
 
+## Preparation
+Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
+
+### Prepare your entitlement license key file
+First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from your entitlement file, then set `SLS_LICENSE_FILE` to the location of the MAS license key file that you obtained from Rational License Key Server (thie will typically be called `entitlement.lic`).  During the installation of SLS this license file will be automatically bootstrapped into the system.
+
+!!! tip
+    If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
+
 ## Required environment variables
 - `FYRE_USERNAME`
 - `FYRE_APIKEY`
@@ -31,7 +41,8 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
-- `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
+- `SLS_LICENSE_ID` The license ID must match the license file available in `SLS_LICENSE_FILE`
+- `SLS_LICENSE_FILE` The path to the location of the license file.
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 
 ## Optional environment variables
@@ -70,6 +81,11 @@ export OCP_VERSION=4.8.35
 # ocs version
 export OCP_RELEASE=4.8
 
+# SLS configuration
+export SLS_ENTITLEMENT_KEY=xxx
+export SLS_LICENSE_ID=xxx
+export SLS_LICENSE_FILE=xxx
+
 # MAS configuration
 export MAS_INSTANCE_ID=xxx
 export MAS_ENTITLEMENT_KEY=xxx
@@ -98,6 +114,11 @@ export OCP_VERSION=4.8.35
 
 # ocs version
 export OCP_RELEASE=4.8
+
+# SLS configuration
+export SLS_ENTITLEMENT_KEY=xxx
+export SLS_LICENSE_ID=xxx
+export SLS_LICENSE_FILE=xxx
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
