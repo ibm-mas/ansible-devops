@@ -1,0 +1,102 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # Deploy & configure the cluster
+    cluster_type: quickburn
+
+    # Install MongoDb
+    mongodb_storage_class: ocs-storagecluster-ceph-rbd
+
+    # Install SLS
+    sls_storage_class: ocs-storagecluster-ceph-rbd
+    # Note: We need to create some intermediate variables to construct sls_mongodb_cfg_file,
+    # This is the only reason they feature here, all the roles that use these variables would also
+    # load them directly from the same environment variables if they were not defined here.
+    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+    mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
+    sls_mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+
+    # Workspace Configuration
+    mas_workspace_name: "MAS Development"
+    mas_workspace_id: masdev
+
+    # Object Storage type
+    cos_type: ocs
+
+    # Assist Channel and appid
+    mas_icr_cp: "{{ lookup('env', 'MAS_ICR_CP') | default('cp.icr.io/cp', true) }}"
+
+    # MAS configuration - Entitlement
+    mas_entitlement_username: "{{ lookup('env', 'MAS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
+    mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') }}"
+
+    mas_app_id: assist
+    mas_app_channel: "{{ lookup('env', 'MAS_APP_CHANNEL') | default('8.x', true) }}"
+    mas_app_catalog_source: "{{ lookup('env', 'MAS_APP_CATALOG_SOURCE') | default('ibm-operator-catalog', true) }}"
+
+    mas_app_spec:
+      bindings:
+        objectstorage: system
+
+    mas_app_ws_spec:
+      bindings:
+        watsondiscovery: application
+
+  pre_tasks:
+    # For the full set of supported environment variables refer to the playbook documentation
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'FYRE_USERNAME') != ""
+          - lookup('env', 'FYRE_APIKEY') != ""
+          - lookup('env', 'FYRE_PRODUCT_ID') != ""
+          - lookup('env', 'CLUSTER_NAME') != ""
+          - lookup('env', 'CLUSTER_TYPE') != ""
+          - lookup('env', 'OCP_VERSION') != ""
+          - lookup('env', 'OCP_RELEASE') != ""
+          - lookup('env', 'MAS_INSTANCE_ID') != ""
+          - lookup('env', 'MAS_CONFIG_DIR') != ""
+          - lookup('env', 'MAS_ENTITLEMENT_KEY') != ""
+          - lookup('env', 'SLS_LICENSE_ID') != ""
+          - lookup('env', 'SLS_ENTITLEMENT_KEY') != ""
+          - lookup('env', 'ASSIST_WDS_URL') != ""
+          - lookup('env', 'ASSIST_WDS_ADMIN') != ""
+          - lookup('env', 'ASSIST_WDS_PASS') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    # 1. Deploy & configure the cluster
+    - ibm.mas_devops.ocp_provision
+    - ibm.mas_devops.ocp_setup_mas_deps
+
+    # 2. Install MongoDb
+    - ibm.mas_devops.mongodb
+
+    # 3. Install SLS
+    - ibm.mas_devops.sls_install
+    - ibm.mas_devops.gencfg_sls
+
+    # 4. Generate a Workspace
+    - ibm.mas_devops.gencfg_workspace
+
+    # 5. Install & configure MAS
+    - ibm.mas_devops.suite_dns
+    - ibm.mas_devops.suite_install
+    - ibm.mas_devops.suite_config
+    - ibm.mas_devops.suite_verify
+
+    # 6. Prepare Assist COS instance and  Generate objectstoragecfg
+    - ibm.mas_devops.cos_setup
+
+    # 7. Prepare Assist WDS instance and  Generate wds related cfg
+    - ibm.mas_devops.cp4d_wds
+
+    # 8. Rerun the suite config to apply the discovery and cos config
+    - ibm.mas_devops.suite_config
+
+    # 9. Install Assist
+    - ibm.mas_devops.suite_app_install
+
+    # 10. Configure Assist workspace
+    - ibm.mas_devops.suite_app_configure
