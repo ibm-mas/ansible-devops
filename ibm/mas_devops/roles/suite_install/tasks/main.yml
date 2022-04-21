@@ -106,10 +106,13 @@
 # -----------------------------------------------------------------------------
 - name: "init : Create ibm-entitlement secret in MAS Namespace"
   vars:
+    airgap_install: "{{ lookup('env', 'AIRGAP_INSTALL') | default(False, true) }}"
+    airgap_install_registry: "{{ lookup('env', 'AIRGAP_INSTALL_REGISTRY') | default(mas_icr_cp, true) }}"
+    entitledRegistry: "{{ mas_icr_cp if (airgap_install != 'true') else airgap_install_registry }}"
     entitledAuthStr: "{{mas_entitlement_username}}:{{mas_entitlement_key}}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
-      - '{"auths":{"{{mas_icr_cp}}": {"username":"{{mas_entitlement_username}}","password":"{{mas_entitlement_key}}","auth":"{{entitledAuth}}"}'
+      - '{"auths":{"{{entitledRegistry}}": {"username":"{{mas_entitlement_username}}","password":"{{mas_entitlement_key}}","auth":"{{entitledAuth}}"}'
       - '}'
       - '}'
   kubernetes.core.k8s:

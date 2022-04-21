@@ -70,10 +70,13 @@
 # -----------------------------------------------------------------------------
 - name: "Create ibm-entitlement secret in SLS Namespace"
   vars:
+    airgap_install: "{{ lookup('env', 'AIRGAP_INSTALL') | default(False, true) }}"
+    airgap_install_registry: "{{ lookup('env', 'AIRGAP_INSTALL_REGISTRY') | default(mas_icr_cp, true) }}"
+    entitledRegistry: "{{ sls_icr_cp if (airgap_install != 'true') else airgap_install_registry }}"
     entitledAuthStr: "{{sls_entitlement_username}}:{{sls_entitlement_key}}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
-      - '{"auths":{"{{sls_icr_cp}}": {"username":"{{sls_entitlement_username}}","password":"{{sls_entitlement_key}}","auth":"{{entitledAuth}}"}'
+      - '{"auths":{"{{entitledRegistry}}": {"username":"{{sls_entitlement_username}}","password":"{{sls_entitlement_key}}","auth":"{{entitledAuth}}"}'
       - '}'
       - '}'
   kubernetes.core.k8s:
