@@ -159,7 +159,7 @@ function install_dependencies_ubuntu() {
 
 function build_and_install_local() {
   ansible-galaxy collection build $DIR/../ibm/mas_devops --force
-  ansible-galaxy collection install $DIR/../ibm-mas_devops-7.0.0.tar.gz --force
+  ansible-galaxy collection install $DIR/../ibm-mas_devops-9.0.0.tar.gz --force
 }
 
 set_target_roks
