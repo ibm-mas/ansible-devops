@@ -55,7 +55,7 @@
 - name: Lookup and Approve MAS Subscription
   block:
     - name: Lookup Operator install plan
-      community.kubernetes.k8s_info:
+      kubernetes.core.k8s_info:
         api_version: operators.coreos.com/v1alpha1
         kind: InstallPlan
         namespace: "{{ mas_namespace }}"
@@ -69,7 +69,7 @@
       when:
         - mas_install_plan.resources | length > 0
         - mas_install_plan.resources[0].status.phase != "Complete"
-      community.kubernetes.k8s:
+      kubernetes.core.k8s:
         definition:
           apiVersion: operators.coreos.com/v1alpha1
           kind: InstallPlan
@@ -134,6 +134,15 @@
   set_fact:
     cr_definition: "{{ (custom_cluster_issuer != '') | ternary (suite_cr + certificate_block, suite_cr) }}"
 
+- name: "Add Annotation block to CR"
+  vars:
+    annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
+    annotation_block: "{{ lookup('template', 'templates/annotation_block.yml.j2') }}"
+  set_fact:
+    cr_definition: "{{ cr_definition | string | ibm.mas_devops.addAnnotationBlock(annotation_block) }}"
+  when:
+    - mas_annotations is defined
+    - mas_annotations != ""
 
 # 7. Suite installation
 # -----------------------------------------------------------------------------

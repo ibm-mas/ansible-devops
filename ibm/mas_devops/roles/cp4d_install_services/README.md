@@ -29,6 +29,12 @@ Required only if installing Watson Discovery service (`wd`) on CP4D v4.0.
 - Environment Variable: `CPD_WD_STORAGE_CLASS`
 - Default Value: None
 
+### cpd_services_namespace
+Only supported if `cpd_version = cpd40`, otherwise unused. For v3.5 support this value is always set to `cpd-meta-ops`.
+
+- Environment Variable: `CPD_SERVICES_NAMESPACE`
+- Default Value: `cpd-services`
+
 ### cpd_services
 Required.  Provide a list of Cloud Pak for Data services to enable.
 

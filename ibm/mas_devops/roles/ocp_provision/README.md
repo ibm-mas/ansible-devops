@@ -98,7 +98,7 @@ Required if `cluster_type = quickburn`.  IBM Cloud zone where the cluster should
 ### fyre_password
 Required if `cluster_type = quickburn`.  IBM Cloud zone where the cluster should be provisioned.
 
-- Environment Variable: `FYRE_PASSWORD`
+- Environment Variable: `FYRE_APIKEY`
 - Default Value: None
 
 ### fyre_product_id
@@ -115,32 +115,11 @@ The name of one of Fyre's pre-defined cluster sizes to use for the new cluster.
 
 
 
-Example Playbook - ROKS
+Example Playbook
 -----------------------
 
 ```yaml
 - hosts: localhost
-  vars:
-    cluster_name: masinst1
-    cluster_type: roks
-    ocp_version: "4.8_openshift"
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
-  roles:
-    - ibm.mas_devops.ocp_provision
-```
-
-Example Playbook - Quickburn
-----------------------------
-
-```yaml
-- hosts: localhost
-  vars:
-    cluster_name: masinst1
-    cluster_type: quickburn
-    ocp_version: "4.6.16"
-    fyre_username: "{{ lookup('env', 'FYRE_USERNAME') }}"
-    fyre_password: "{{ lookup('env', 'FYRE_PASSWORD') }}"
-    fyre_product_id: "{{ lookup('env', 'FYRE_PRODUCT_ID') }}"
   roles:
     - ibm.mas_devops.ocp_provision
 ```

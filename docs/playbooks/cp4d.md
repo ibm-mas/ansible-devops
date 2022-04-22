@@ -120,3 +120,35 @@ export CPD_BLOCK_STORAGE_CLASS=ibmc-block-gold
 
 ansible-playbook playbooks/cp4d/install-services-watsonstudio.yml
 ```
+
+-------------------------------------------------------------------------------
+
+## Install Services: Discovery
+This playbook will install CP4D and enable the CP4D **Discovery** service.
+
+Refer to the [cp4d_install](../roles/cp4d_install.md) and [cp4d_install_services](../roles/cp4d_install_services.md) role documentation for more information.
+
+```bash
+export CPD_VERSION=cpd40
+export CPD_STORAGE_CLASS=ibmc-file-gold-gid
+export CPD_BLOCK_STORAGE_CLASS=ibmc-block-gold
+
+ansible-playbook playbooks/cp4d/install-services-discovery.yml
+```
+-------------------------------------------------------------------------------
+
+## Create Discovery Instance
+This playbook will auto-detect whether CP4D v4 is active in the cluster, and Create the Disocvery instance.
+Refer to the [cp4d_wds](../roles/cp4d_wds.md) role documentation for more information.
+`CP4D_USERNAME` and `CP4D_PASSWORD` is not required if you didn't  change the initial admin password after install discovery.
+
+```bash
+export CP4D_USERNAME=admin
+export CP4D_PASSWORD=xxxx
+export MAS_INSTANCE_ID=inst1
+export MAS_CONFIG_DIR=~/masconfig
+
+ansible-playbook playbooks/cp4d/create-discovery-instance.yml
+```
+
+-------------------------------------------------------------------------------
