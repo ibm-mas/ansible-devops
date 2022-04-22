@@ -1,18 +1,21 @@
 ---
 apiVersion: uds.ibm.com/v1
-kind: AnalyticsProxy
+kind: AnalyticsProxyWithSubmodule
 metadata:
   name: analyticsproxy
   namespace: ibm-common-services
 spec:
   license:
     accept: true
+  submodule_scheduler_frequency: '@hourly'
   image_pull_secret: uds-images-pull-secret
 
   allowed_domains: '*'
 
   env_type: lite
   airgappeddeployment:
+    backup_deletion_frequency: '@daily'
+    backup_retention_period: 90
     enabled: {{ airgap_install }}
 
   storage_class: "{{ uds_storage_class }}"
@@ -35,8 +38,9 @@ spec:
     storage_size: 10G
 
   tls:
-    airgap_host: ''
     uds_host: ''
+    submodule_host: ''
+    airgap_host: ''
 
   ibmproxyurl: 'https://iaps.ibm.com'
   proxy_settings:
