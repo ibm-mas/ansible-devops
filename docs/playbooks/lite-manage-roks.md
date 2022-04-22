@@ -28,7 +28,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
 
 ### Prepare your entitlement license key file
-First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from your entitlement file, then copy the MAS license key file that you obtained from Rational License Key Server to `$MAS_CONFIG_DIR/entitlement.lic` (the file must have this exact name).  During the installation of SLS this license file will be automatically bootstrapped into the system.
+First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from your entitlement file, then set `SLS_LICENSE_FILE` to the location of the MAS license key file that you obtained from Rational License Key Server (thie will typically be called `entitlement.lic`).  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
 !!! tip
     If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
@@ -37,16 +37,17 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
 ## Required environment variables
 - `IBMCLOUD_APIKEY` The API key that will be used to create a new ROKS cluster in IBMCloud
 - `CLUSTER_NAME` The name to assign to the new ROKS cluster
+- `CLUSTER_TYPE` The cluster type. Should be set to `roks`
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
-- `SLS_LICENSE_ID` The license ID must match the license file available in `$MAS_CONFIG_DIR/entitlement.lic`
+- `SLS_LICENSE_ID` The license ID must match the license file available in `SLS_LICENSE_FILE`
+- `SLS_LICENSE_FILE` The path to the location of the license file.
 - `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `UDS_CONTACT_EMAIL` Defines the email for person to contact for BAS
 - `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for BAS
 - `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for BAS
 - `CPD_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/
-
 
 ## Optional environment variables
 - `IBMCLOUD_RESOURCEGROUP` creates an IBM Cloud resource group to be used, if none are passed, `Default` resource group will be used.
@@ -61,19 +62,19 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
 - `MAS_ICR_CP` to override the value MAS uses for the IBM Entitled Registry (`cp.icr.io/cp`)
 - `MAS_ICR_CPOPEN` to override the value MAS uses for the IBM Open Registry (`icr.io/cpopen`)
 - `MAS_ENTITLEMENT_USERNAME` to override the username MAS uses to access content in the IBM Entitled Registry
-- `MAS_APPWS_COMPONENTS` to customize the application components installed in the Manage Workspace
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
+- `MAS_APPWS_COMPONENTS` to customize the application components installed in the Manage Workspace
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
 
 !!! tip
-   By default only the base Manage component is installed.  To customise the components that are enabled use the optional `MAS_APPWS_COMPONENTS` environment variable, for example to enable Health set it to the following:
+    Manage requires the user to select one or more application components to enable in the workspace. By default the `base` component at the `latest` version will be installed if no `MAS_APPWS_COMPONENTS` is set. To customise the components that are enabled use the `MAS_APPWS_COMPONENTS` environment variable, for example to enable Manage(base) and Health set it to the following:
 
-   `export MAS_APPWS_COMPONENTS="{'base':{'version':'latest'}, 'health':{'version':'latest'}}"`
+   `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
 
-   To install Health as a Standalone with a specified version, set `MAS_APP_ID` to health and set `MAS_APPWS_COMPONENTS` to `"{'health':{'version':'x.x.x'}}"`. The default version when installing health is set to the `latest` version.
+   To install Health as a Standalone with a specified version, set `MAS_APP_ID` to health and set `MAS_APPWS_COMPONENTS` to `health=x.x.x`. By default health standalone will be installed using `health=latest`
 
 
 ## Release build
@@ -82,6 +83,7 @@ The simplest configuration to deploy a release build of IBM Maximo Application S
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=roks
 
 # MAS configuration
 export MAS_INSTANCE_ID=$CLUSTER_NAME
@@ -95,6 +97,7 @@ export CPD_ENTITLEMENT_KEY=xxx
 # SLS configuration
 export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
+export SLS_LICENSE_FILE=xxx
 
 # BAS configuration
 export BAS_CONTACT_MAIL=xxx@xxx.com
@@ -112,6 +115,7 @@ The simplest configuration to deploy a pre-release build (only available to IBM 
 # IBM Cloud ROKS configuration
 export IBMCLOUD_APIKEY=xxx
 export CLUSTER_NAME=xxx
+export CLUSTER_TYPE=roks
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
@@ -135,6 +139,7 @@ export CPD_ENTITLEMENT_KEY=xxx
 # SLS configuration
 export SLS_ENTITLEMENT_KEY=xxx
 export SLS_LICENSE_ID=xxx
+export SLS_LICENSE_FILE=xxx
 
 # BAS configuration
 export BAS_CONTACT_MAIL=xxx@xxx.com

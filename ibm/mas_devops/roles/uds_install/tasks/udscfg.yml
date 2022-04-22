@@ -117,7 +117,25 @@
     namespace: openshift-ingress
   register: uds_certificate_lookup
 
-# 5.4 If we have a lookup result (last step wasn't skipped) and we haven't already set the crt variable, then set it now
+# 5.4 If it does exist, then use it
+- name: Generate router secret name from the cluster subdomain
+  when:
+    - uds_certificate_lookup.resources is defined
+    - uds_certificate_lookup.resources | length == 1
+  set_fact:
+    uds_tls_crt: "{{ uds_certificate_lookup.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+
+- name: Lookup Certificate for UDS (ROSA)
+  when: uds_tls_crt is not defined
+  no_log: true
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ cluster_name }}-primary-cert-bundle-secret"
+    namespace: openshift-ingress
+  register: uds_certificate_lookup
+
+# 5.5 If we have a lookup result (last step wasn't skipped) and we haven't already set the crt variable, then set it now
 - name: Generate router secret name from the cluster subdomain
   when:
     - uds_certificate_lookup.resources is defined
@@ -126,10 +144,8 @@
   set_fact:
     uds_tls_crt: "{{ uds_certificate_lookup.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
 
-# 5.5 If uds_tls_crt is still unset, then we've failed
+# 5.6 If uds_tls_crt is still unset, then we've failed
 - name: "Fail if we can't find the secret containing the UDS certificates"
   assert:
     that: uds_tls_crt is defined
     fail_msg: "Failed looking up secret containing UDS certificates from the default or custom router certificates secret"
-
-
