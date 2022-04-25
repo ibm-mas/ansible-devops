@@ -30,7 +30,7 @@ Required. The TLS CA certiticate of the LicenseService to be used when the Maxim
 ### slscfg_url
 Required. The URL of the LicenseService to be called when the Maximo Application Suite is registered with SLS.
 
-- Environment Variable: `SLS_ENDPOINT_URL`
+- Environment Variable: `SLSCFG_URL`
 - Default Value: None
 
 ### slscfg_registration_key

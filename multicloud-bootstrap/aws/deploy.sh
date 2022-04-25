@@ -242,7 +242,7 @@ cp $GIT_REPO_HOME/entitlement.lic $MAS_CONFIG_DIR
 # log "==== Amq streams deployment completed ===="
 
 # SLS Deployment
-if [[ (-z $SLS_ENDPOINT_URL) || (-z $SLS_REGISTRATION_KEY) || (-z $SLS_PUB_CERT_URL) ]]
+if [[ (-z $SLSCFG_URL) || (-z $SLS_REGISTRATION_KEY) || (-z $SLS_PUB_CERT_URL) ]]
 then
     ## Deploy SLS
     log "==== SLS deployment started ===="
