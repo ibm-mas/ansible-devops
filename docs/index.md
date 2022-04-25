@@ -51,6 +51,11 @@ ansible-galaxy collection install ibm.mas_devops
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `9.0` Multiple Updates:
+    - Added ability to set annotations onto suite CR  ([#269](https://github.com/ibm-mas/ansible-devops/pull/269)
+    - Add Assist install playbooks ([#271](https://github.com/ibm-mas/ansible-devops/pull/271)
+    - Added gencfg-sls and gencfg-uds playbooks for using existing SLS and UDS ([#275](https://github.com/ibm-mas/ansible-devops/pull/275)
+    - Add new required var CPD_METADB_BLOCK_STORAGE_CLASS for CP4D 4.0 ([#273](https://github.com/ibm-mas/ansible-devops/pull/273)
 - `8.0` Multiple Updates:
     - Create secure route to CP4D web client when setting up DNS using CIS and suite_dns role ([#251](https://github.com/ibm-mas/ansible-devops/pull/251))
     - Configure azurefiles storage class for multi-cloud ([#260](https://github.com/ibm-mas/ansible-devops/pull/260))
