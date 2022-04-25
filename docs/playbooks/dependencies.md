@@ -129,3 +129,36 @@ export MAS_CONFIG_DIR=~/masconfig
 
 ansible-playbook playbooks/dependencies/install-db2.yml
 ```
+
+
+## Gencfg UDS
+Generates BasCfg file. Refer to the [gencfg_uds](../roles/gencfg_uds.md) role documentation for more information.
+
+```bash
+export UDS_ENDPOINT_URL="https://uds-endpoint-ibm-common-services.apps.masocp-xxxxxx.....com"
+export UDS_API_KEY=xxx
+export UDS_TLS_CERT_LOCAL_FILE_PATH="/etc/mas/uds.crt"
+export UDS_CONTACT_EMAIL=john@email.com
+export UDS_CONTACT_FIRSTNAME=john
+export UDS_CONTACT_LASTNAME=winter
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
+
+ansible-playbook playbooks/dependencies/gencfg-uds.yml
+```
+
+
+## Gencfg SLS
+Generates SlsCfg file. Refer to the [gencfg_sls](../roles/gencfg_sls.md) role documentation for more information.
+
+### Example usage: release build
+
+```bash
+export SLSCFG_URL="https://sls-xxxxxx.ibm-sls-xxxxxx.ibm-sls-xxxxxx.apps.masocp-xxxxxx.....com"
+export SLS_REGISTRATION_KEY=xxx
+export SLS_TLS_CERT_LOCAL_FILE_PATH="/etc/mas/sls.crt"
+export MAS_INSTANCE_ID=masdev1
+export MAS_CONFIG_DIR=~/masconfig
+
+ansible-playbook playbooks/dependencies/gencfg-sls.yml
+```
