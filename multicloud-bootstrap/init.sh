@@ -20,9 +20,9 @@ export MAS_LICENSE_URL=${13}
 export SLS_ENDPOINT_URL=${14}
 export SLS_REGISTRATION_KEY=${15}
 export SLS_PUB_CERT_URL=${16}
-export BAS_ENDPOINT_URL=${17}
-export BAS_API_KEY=${18}
-export BAS_PUB_CERT_URL=${19}
+export UDS_ENDPOINT_URL=${17}
+export UDS_API_KEY=${18}
+export UDS_PUB_CERT_URL=${19}
 export MAS_JDBC_USER=${20}
 export MAS_JDBC_PASSWORD=${21}
 export MAS_JDBC_URL=${22}
@@ -33,16 +33,18 @@ export EXS_OCP_USER=${26}
 export EXS_OCP_PWD=${27}
 export RG_NAME=${28}
 export RECEPIENT=${29}
-export SENDGRID_API_KEY=${30}
-export AZURE_SUBSC_ID=${31}
-export AZURE_TENANT_ID=${32}
-export AZURE_SP_CLIENT_ID=${33}
-export AZURE_SP_CLIENT_PWD=${34}
-export SELLER_SUBSCRIPTION_ID=${35}
-export SELLER_RESOURCE_GROUP=${36}
-export SELLER_COMPUTE_GALLERY=${37}
-export SELLER_IMAGE_VERSION=${38}
-export EMAIL_NOTIFICATION=${39}
+export SMTP_HOST=${30}
+export SMTP_PORT=${31}
+export SMTP_USERNAME=${32}
+export SMTP_PASSWORD=${33}
+export AZURE_SP_CLIENT_ID=${34}
+export AZURE_SP_CLIENT_PWD=${35}
+export SELLER_SUBSCRIPTION_ID=${36}
+export SELLER_RESOURCE_GROUP=${37}
+export SELLER_COMPUTE_GALLERY=${38}
+export SELLER_IMAGE_VERSION=${39}
+export EMAIL_NOTIFICATION=${40}
+export ENV_TYPE=${41}
 
 # Load helper functions
 . helper.sh
@@ -75,7 +77,7 @@ if [[ $CLUSTER_TYPE == "aws" ]]; then
     "logs_collected": {
       "files": {
         "collect_list": [{
-          "file_path": "/root/mas-on-aws/mas-provisioning.log",
+          "file_path": "/root/ansible-devops/multicloud-bootstrap/mas-provisioning.log",
           "log_group_name": "/ibm/mas/masocp-${RANDOM_STR}",
           "log_stream_name": "mas-provisioning-logs"
         }]
@@ -112,8 +114,8 @@ fi
 # OCP variables
 export GIT_REPO_HOME=$(pwd)
 export CLUSTER_NAME="masocp-${RANDOM_STR}"
-export OPENSHIFT_USER="masocpuser"
-export OPENSHIFT_PASSWORD=masocp${RANDOM_STR}pass
+export OCP_USERNAME="masocpuser"
+export OCP_PASSWORD=masocp${RANDOM_STR}pass
 export OPENSHIFT_PULL_SECRET_FILE_PATH=${GIT_REPO_HOME}/pull-secret.json
 export MASTER_NODE_COUNT="3"
 export WORKER_NODE_COUNT="3"
@@ -137,16 +139,13 @@ export KAFKA_CLUSTER_SIZE=small
 export KAFKA_USER_NAME=masuser
 # SLS variables
 export SLS_NAMESPACE="ibm-sls-${RANDOM_STR}"
-# BAS variables
-export BAS_NAMESPACE="ibm-bas-${RANDOM_STR}"
-export BAS_PERSISTENT_STORAGE=ocs-storagecluster-cephfs
-export BAS_PASSWORD=basuser
-export BAS_CONTACT_MAIL="bas.support@ibm.com"
-export BAS_CONTACT_FIRSTNAME=Bas
-export BAS_CONTACT_LASTNAME=Support
-export GRAPHANA_PASSWORD=password
-# MAS variables
-#export MAS_ENTITLEMENT_KEY=$SLS_ENTITLEMENT_KEY
+export SLS_MONGODB_CFG_FILE="${MAS_CONFIG_DIR}/mongo-${MONGODB_NAMESPACE}.yml"
+export SLS_LICENSE_FILE="${MAS_CONFIG_DIR}/entitlement.lic"
+# UDS variables
+export UDS_STORAGE_CLASS=gp2
+export UDS_CONTACT_EMAIL="uds.support@ibm.com"
+export UDS_CONTACT_FIRSTNAME=Uds
+export UDS_CONTACT_LASTNAME=Support
 # CP4D variables
 export CPD_ENTITLEMENT_KEY=$SLS_ENTITLEMENT_KEY
 export CPD_VERSION=cpd40
@@ -162,9 +161,14 @@ export DB2WH_LOGS_STORAGE_CLASS=ocs-storagecluster-cephfs
 export DB2WH_TEMP_STORAGE_CLASS=ocs-storagecluster-cephfs
 export DB2WH_INSTANCE_NAME=db2wh-db01
 export DB2WH_VERSION=11.5.7.0-cn1
-# Manage variables
-export MAS_APP_ID=manage
+export DB2WH_NAMESPACE="cpd-services-${RANDOM_STR}"
+# MAS variables
+#export MAS_ENTITLEMENT_KEY=$SLS_ENTITLEMENT_KEY
 export MAS_WORKSPACE_ID="wsmasocp"
+export MAS_WORKSPACE_NAME="wsmasocp"
+export MAS_CONFIG_SCOPE="wsapp"
+export MAS_APP_ID=manage
+export MAS_APPWS_JDBC_BINDING="workspace-application"
 export MAS_JDBC_CERT_LOCAL_FILE=$GIT_REPO_HOME/db.crt
 export MAS_CLOUD_AUTOMATION_VERSION=1.0
 
@@ -199,76 +203,86 @@ esac
 
 # Log the variable values
 log "Below are common deployment parameters,"
-echo " CLUSTER_TYPE: $CLUSTER_TYPE"
-echo " OFFERING_TYPE: $OFFERING_TYPE"
-echo " DEPLOY_REGION: $DEPLOY_REGION"
-echo " ACCOUNT_ID: $ACCOUNT_ID"
-echo " CLUSTER_SIZE: $CLUSTER_SIZE"
-echo " RANDOM_STR: $RANDOM_STR"
-echo " BASE_DOMAIN: $BASE_DOMAIN"
-echo " BASE_DOMAIN_RG_NAME: $BASE_DOMAIN_RG_NAME"
-echo " SSH_KEY_NAME: $SSH_KEY_NAME"
-echo " DEPLOY_CP4D: $DEPLOY_CP4D"
-echo " DEPLOY_MANAGE: $DEPLOY_MANAGE"
-echo " MAS_LICENSE_URL: $MAS_LICENSE_URL"
-echo " SLS_ENDPOINT_URL: $SLS_ENDPOINT_URL"
-echo " SLS_REGISTRATION_KEY: $SLS_REGISTRATION_KEY"
-echo " SLS_PUB_CERT_URL: $SLS_PUB_CERT_URL"
-echo " BAS_ENDPOINT_URL: $BAS_ENDPOINT_URL"
-echo " BAS_API_KEY: $BAS_API_KEY"
-echo " BAS_PUB_CERT_URL: $BAS_PUB_CERT_URL"
-echo " MAS_JDBC_USER: $MAS_JDBC_USER"
-echo " MAS_JDBC_URL: $MAS_JDBC_URL"
-echo " MAS_JDBC_CERT_URL: $MAS_JDBC_CERT_URL"
-echo " MAS_DB_IMPORT_DEMO_DATA: $MAS_DB_IMPORT_DEMO_DATA"
-echo " EXS_OCP_URL: $EXS_OCP_URL"
-echo " EXS_OCP_USER: $EXS_OCP_USER"
-echo " RG_NAME=$RG_NAME"
-echo " RECEPIENT=$RECEPIENT"
-echo " AZURE_SUBSC_ID=$AZURE_SUBSC_ID"
-echo " AZURE_TENANT_ID=$AZURE_TENANT_ID"
-echo " AZURE_SP_CLIENT_ID=$AZURE_SP_CLIENT_ID"
-echo " SELLER_SUBSCRIPTION_ID=$SELLER_SUBSCRIPTION_ID"
-echo " SELLER_RESOURCE_GROUP=$SELLER_RESOURCE_GROUP"
-echo " SELLER_COMPUTE_GALLERY=$SELLER_COMPUTE_GALLERY"
-echo " SELLER_IMAGE_VERSION=$SELLER_IMAGE_VERSION"
-echo " EMAIL_NOTIFICATION: $EMAIL_NOTIFICATION"
+log " CLUSTER_TYPE: $CLUSTER_TYPE"
+log " OFFERING_TYPE: $OFFERING_TYPE"
+log " DEPLOY_REGION: $DEPLOY_REGION"
+log " ACCOUNT_ID: $ACCOUNT_ID"
+log " CLUSTER_SIZE: $CLUSTER_SIZE"
+log " RANDOM_STR: $RANDOM_STR"
+log " BASE_DOMAIN: $BASE_DOMAIN"
+log " BASE_DOMAIN_RG_NAME: $BASE_DOMAIN_RG_NAME"
+log " SSH_KEY_NAME: $SSH_KEY_NAME"
+log " DEPLOY_CP4D: $DEPLOY_CP4D"
+log " DEPLOY_MANAGE: $DEPLOY_MANAGE"
+log " MAS_LICENSE_URL: $MAS_LICENSE_URL"
+log " SLS_ENDPOINT_URL: $SLS_ENDPOINT_URL"
+log " SLS_REGISTRATION_KEY: $SLS_REGISTRATION_KEY"
+log " SLS_PUB_CERT_URL: $SLS_PUB_CERT_URL"
+log " UDS_ENDPOINT_URL: $UDS_ENDPOINT_URL"
+log " UDS_API_KEY: $UDS_API_KEY"
+log " UDS_PUB_CERT_URL: $UDS_PUB_CERT_URL"
+log " MAS_JDBC_USER: $MAS_JDBC_USER"
+log " MAS_JDBC_URL: $MAS_JDBC_URL"
+log " MAS_JDBC_CERT_URL: $MAS_JDBC_CERT_URL"
+log " MAS_DB_IMPORT_DEMO_DATA: $MAS_DB_IMPORT_DEMO_DATA"
+log " EXS_OCP_URL: $EXS_OCP_URL"
+log " EXS_OCP_USER: $EXS_OCP_USER"
+log " RG_NAME=$RG_NAME"
+log " RECEPIENT=$RECEPIENT"
+log " SMTP_HOST=$SMTP_HOST"
+log " SMTP_PORT=$SMTP_PORT"
+log " SMTP_USERNAME=$SMTP_USERNAME"
+log " SMTP_PASSWORD=$SMTP_PASSWORD"
+log " AZURE_SP_CLIENT_ID=$AZURE_SP_CLIENT_ID"
+log " SELLER_SUBSCRIPTION_ID=$SELLER_SUBSCRIPTION_ID"
+log " SELLER_RESOURCE_GROUP=$SELLER_RESOURCE_GROUP"
+log " SELLER_COMPUTE_GALLERY=$SELLER_COMPUTE_GALLERY"
+log " SELLER_IMAGE_VERSION=$SELLER_IMAGE_VERSION"
+log " EMAIL_NOTIFICATION: $EMAIL_NOTIFICATION"
 
-echo " HOME: $HOME"
-echo " GIT_REPO_HOME: $GIT_REPO_HOME"
-echo " CLUSTER_NAME: $CLUSTER_NAME"
-echo " OPENSHIFT_USER: $OPENSHIFT_USER"
-echo " OPENSHIFT_PULL_SECRET_FILE_PATH: $OPENSHIFT_PULL_SECRET_FILE_PATH"
-echo " MASTER_NODE_COUNT: $MASTER_NODE_COUNT"
-echo " WORKER_NODE_COUNT: $WORKER_NODE_COUNT"
-echo " AZ_MODE: $AZ_MODE"
-echo " MAS_IMAGE_TEST_DOWNLOAD: $MAS_IMAGE_TEST_DOWNLOAD"
-echo " BACKUP_FILE_NAME: $BACKUP_FILE_NAME"
-echo " DEPLOYMENT_CONTEXT_UPLOAD_PATH: $DEPLOYMENT_CONTEXT_UPLOAD_PATH"
-echo " STORAGE_ACNT_NAME: $STORAGE_ACNT_NAME"
-echo " MAS_INSTANCE_ID: $MAS_INSTANCE_ID"
-echo " MAS_CONFIG_DIR: $MAS_CONFIG_DIR"
-echo " KAFKA_NAMESPACE: $KAFKA_NAMESPACE"
-echo " KAFKA_CLUSTER_NAME: $KAFKA_CLUSTER_NAME"
-echo " KAFKA_CLUSTER_SIZE: $KAFKA_CLUSTER_SIZE"
-echo " KAFKA_USER_NAME: $KAFKA_USER_NAME"
-echo " BAS_PERSISTENT_STORAGE: $BAS_PERSISTENT_STORAGE"
-echo " BAS_CONTACT_MAIL: $BAS_CONTACT_MAIL"
-echo " BAS_CONTACT_FIRSTNAME: $BAS_CONTACT_FIRSTNAME"
-echo " BAS_CONTACT_LASTNAME: $BAS_CONTACT_LASTNAME"
-echo " CPD_STORAGE_CLASS: $CPD_STORAGE_CLASS"
-echo " MAS_APP_ID: $MAS_APP_ID"
-echo " MAS_WORKSPACE_ID: $MAS_WORKSPACE_ID"
-echo " MAS_JDBC_CERT_LOCAL_FILE: $MAS_JDBC_CERT_LOCAL_FILE"
+log " HOME: $HOME"
+log " GIT_REPO_HOME: $GIT_REPO_HOME"
+log " CLUSTER_NAME: $CLUSTER_NAME"
+log " OPENSHIFT_USER: $OPENSHIFT_USER"
+log " OPENSHIFT_PULL_SECRET_FILE_PATH: $OPENSHIFT_PULL_SECRET_FILE_PATH"
+log " MASTER_NODE_COUNT: $MASTER_NODE_COUNT"
+log " WORKER_NODE_COUNT: $WORKER_NODE_COUNT"
+log " AZ_MODE: $AZ_MODE"
+log " MAS_IMAGE_TEST_DOWNLOAD: $MAS_IMAGE_TEST_DOWNLOAD"
+log " BACKUP_FILE_NAME: $BACKUP_FILE_NAME"
+log " DEPLOYMENT_CONTEXT_UPLOAD_PATH: $DEPLOYMENT_CONTEXT_UPLOAD_PATH"
+log " STORAGE_ACNT_NAME: $STORAGE_ACNT_NAME"
+log " MAS_INSTANCE_ID: $MAS_INSTANCE_ID"
+log " MAS_CONFIG_DIR: $MAS_CONFIG_DIR"
+log " KAFKA_NAMESPACE: $KAFKA_NAMESPACE"
+log " KAFKA_CLUSTER_NAME: $KAFKA_CLUSTER_NAME"
+log " KAFKA_CLUSTER_SIZE: $KAFKA_CLUSTER_SIZE"
+log " KAFKA_USER_NAME: $KAFKA_USER_NAME"
+log " UDS_STORAGE_CLASS: $UDS_STORAGE_CLASS"
+log " UDS_CONTACT_MAIL: $UDS_CONTACT_MAIL"
+log " UDS_CONTACT_FIRSTNAME: $UDS_CONTACT_FIRSTNAME"
+log " UDS_CONTACT_LASTNAME: $UDS_CONTACT_LASTNAME"
+log " CPD_STORAGE_CLASS: $CPD_STORAGE_CLASS"
+log " MAS_APP_ID: $MAS_APP_ID"
+log " MAS_WORKSPACE_ID: $MAS_WORKSPACE_ID"
+log " MAS_JDBC_CERT_LOCAL_FILE: $MAS_JDBC_CERT_LOCAL_FILE"
 
 # Get deployment options
 export DEPLOY_CP4D=$(echo $DEPLOY_CP4D | cut -d '=' -f 2)
 export DEPLOY_MANAGE=$(echo $DEPLOY_MANAGE | cut -d '=' -f 2)
+log " DEPLOY_CP4D: $DEPLOY_CP4D"
+log " DEPLOY_MANAGE: $DEPLOY_MANAGE"
 
 if [[ $CLUSTER_TYPE == "azure" ]]; then
   # Perform az login for accessing blob storage
   az login --identity
   az resource list -n masocp-${RANDOM_STR}-bootnode-vm
+
+  # Get subscription ID, tenant ID
+  export AZURE_SUBSC_ID=`az account list | jq -r '.[].id'`
+  log " AZURE_SUBSC_ID: $AZURE_SUBSC_ID"
+  export AZURE_TENANT_ID=`az account list | jq -r '.[].tenantId'`
+  log " AZURE_TENANT_ID: $AZURE_TENANT_ID"
 fi
 
 # Perform prevalidation checks
@@ -286,7 +300,7 @@ else
 fi
 log "===== PRE-VALIDATION COMPLETED ($PRE_VALIDATION) ====="
 
-# Prrform the MAS deployment only if pre-validation checks are passed
+# Perform the MAS deployment only if pre-validation checks are passed
 if [[ $PRE_VALIDATION == "pass" ]]; then
   ## If user provided input of Openshift API url along with creds, then use the provided details for deployment of other components like CP4D, MAS etc.
   ## Otherwise, proceed with new cluster creation.
@@ -299,15 +313,15 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     split_ocp_api_url $EXS_OCP_URL
     log "Debug: after: CLUSTER_NAME: $CLUSTER_NAME  BASE_DOMAIN: $BASE_DOMAIN"
     # echo $BASE_DOMAIN
-    export OPENSHIFT_USER=$EXS_OCP_USER
-    export OPENSHIFT_PASSWORD=$EXS_OCP_PWD
+    export OCP_USERNAME=$EXS_OCP_USER
+    export OCP_PASSWORD=$EXS_OCP_PWD
     export OPENSHIFT_USER_PROVIDE="true"
   else
     ## No input from user. Generate Cluster Name, Username, and Password.
-    echo "Debug: No cluster details or insufficient data provided. Proceed to create new OCP cluster later"
+    log "Debug: No cluster details or insufficient data provided. Proceed to create new OCP cluster later"
     export CLUSTER_NAME="masocp-${RANDOM_STR}"
-    export OPENSHIFT_USER="masocpuser"
-    export OPENSHIFT_PASSWORD=masocp${RANDOM_STR}pass
+    export OCP_USERNAME="masocpuser"
+    export OCP_PASSWORD=masocp${RANDOM_STR}pass
     export OPENSHIFT_USER_PROVIDE="false"
   fi
   log " OPENSHIFT_USER_PROVIDE=$OPENSHIFT_USER_PROVIDE"
@@ -315,6 +329,30 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
   # Create Red Hat pull secret
   echo "$OCP_PULL_SECRET" > $OPENSHIFT_PULL_SECRET_FILE_PATH
   chmod 600 $OPENSHIFT_PULL_SECRET_FILE_PATH
+
+  ## Installing the collection depending on ENV_TYPE
+  if [[ $ENV_TYPE == "dev" ]]; then
+        echo "=== Building and Installing Ansible Collection Locally ==="
+        cd $GIT_REPO_HOME/../ibm/mas_devops
+        ansible-galaxy collection build
+        ansible-galaxy collection install ibm-mas_devops-*.tar.gz
+        echo "=== Ansible Collection built and installed locally Successfully ==="
+  else
+        echo "=== Get the version from galaxy.yml ==="
+        cd $GIT_REPO_HOME/../ibm/mas_devops
+        export MAS_DEVOPS_COLLECTION_VERSION=$(grep -i '^version:' ./galaxy.yml | awk '{print $2}')
+        echo "MAS_DEVOPS_COLLECTION_VERSION=$MAS_DEVOPS_COLLECTION_VERSION"
+        log "==== Installing Ansible Collection ===="
+        ansible-galaxy collection install ibm.mas_devops:==${MAS_DEVOPS_COLLECTION_VERSION}
+        log "==== Installed Ansible Collection Successfully ===="
+
+  fi
+
+  cd $GIT_REPO_HOME
+
+  # Create MAS_CONFIG_DIR directory
+  mkdir -p $MAS_CONFIG_DIR
+  chmod 700 $MAS_CONFIG_DIR
 
   # Call cloud specific script
   chmod +x $CLUSTER_TYPE/*.sh
@@ -339,9 +377,6 @@ if [[ $PRE_VALIDATION == "pass" ]]; then
     RESP_CODE=0
   else
     mark_provisioning_failed $retcode
-  fi
-  if [[ $CLUSTER_TYPE == "azure" ]]; then
-    az tag update --operation merge --resource-id /subscriptions/${AZURE_SUBSC_ID}/resourceGroups/${RG_NAME} --tags DeploymentStatus="${STATUS}#${STATUS_MSG}" > /dev/null
   fi
 fi
 
