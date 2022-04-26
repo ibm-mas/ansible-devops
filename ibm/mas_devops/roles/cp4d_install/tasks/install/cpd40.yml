@@ -105,7 +105,7 @@
   retries: 90 # Approximately 90 minutes before we give up
   delay: 60 # 1 minute
 
-# Wait ZenService lite-cr to be deployed
+# 5. Wait ZenService lite-cr to be deployed
 # ----------------------------------------------------------------------------------------------
 - name: "Wait ZenService lite-cr to be deployed"
   community.kubernetes.k8s_info:
@@ -120,7 +120,7 @@
   retries: 60 # approx 60 minutes before we give up
   delay: 60 # 1 minute
 
-# Patch ZenService lite-cr to scaleConfig: medium - this is a recommendation from cpd team
+# 6. Patch ZenService lite-cr to scaleConfig: medium - this is a recommendation from cpd team
 # ----------------------------------------------------------------------------------------------
 - name: "Patch ZenService lite-cr to scaleConfig: medium"
   community.kubernetes.k8s:
@@ -131,9 +131,23 @@
     definition:
       spec:
         scaleConfig: medium
+        ZenCoreMetaDb:
+          name: zen-metastoredb
+          kind: StatefulSet
+          container: zen-metastoredb
+          replicas: 3
+          resources:
+            limits:
+              cpu: 2
+              memory: 4Gi
+            requests:
+              cpu: 200m
+              memory: 1024Mi
     apply: true
   register: zenlitecr_update
 
+# 7. Wait CPD installation to finish
+# ----------------------------------------------------------------------------------------------
 - name: "Wait for ibmcpd CPD 4.0 to be Completed"
   kubernetes.core.k8s_info:
     api_version: cpd.ibm.com/v1
@@ -159,7 +173,7 @@
   retries: 90 # Approximately 90 minutes before we give up
   delay: 60 # 1 minute
 
-# 5. Provide CP4D dashboard URL
+# 8. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------
 - name: "Retrieve admin credentials"
   kubernetes.core.k8s_info:
