@@ -56,13 +56,13 @@ fi
 cd $GIT_REPO_HOME
 if [[ ${UDS_PUB_CERT_URL,,} =~ ^https? ]]; then
   log "Downloading BAS certificate from HTTP URL"
-  wget "$UDS_PUB_CERT_URL" -O bas.crt
+  wget "$UDS_PUB_CERT_URL" -O uds.crt
 elif [[ ${UDS_PUB_CERT_URL,,} =~ ^s3 ]]; then
   log "Downloading BAS certificate from S3 URL"
-  aws s3 cp "$UDS_PUB_CERT_URL" bas.crt
+  aws s3 cp "$UDS_PUB_CERT_URL" uds.crt
 fi
-if [[ -f bas.crt ]]; then
-  chmod 600 bas.crt
+if [[ -f uds.crt ]]; then
+  chmod 600 uds.crt
 fi
 
 ### Read License File & Retrive SLS hostname and host id
@@ -194,7 +194,7 @@ fi
 log "==== Adding ER key details to OCP default pull-secret ===="
 cd /tmp
 # Login to OCP cluster
-oc login -u $OCP_USERNAME -p $OCP_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443
+oc login -u $OCP_USERNAME -p $OCP_PASSWORD --server=https://api.${CLUSTER_NAME}.${BASE_DOMAIN}:6443 --insecure-skip-tls-verify=true
 oc extract secret/pull-secret -n openshift-config --keys=.dockerconfigjson --to=. --confirm
 export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | tr -d '\n' | base64 -w0)
 ##export encodedEntitlementKey=$(echo cp:$SLS_ENTITLEMENT_KEY | base64 -w0)
@@ -242,7 +242,7 @@ cp $GIT_REPO_HOME/entitlement.lic $MAS_CONFIG_DIR
 # log "==== Amq streams deployment completed ===="
 
 # SLS Deployment
-if [[ (-z $SLS_ENDPOINT_URL) || (-z $SLS_REGISTRATION_KEY) || (-z $SLS_PUB_CERT_URL) ]]
+if [[ (-z $SLSCFG_URL) || (-z $SLS_REGISTRATION_KEY) || (-z $SLS_PUB_CERT_URL) ]]
 then
     ## Deploy SLS
     log "==== SLS deployment started ===="
@@ -251,7 +251,7 @@ then
 
 else
     log "=== Using Existing SLS Deployment ==="
-    ansible-playbook dependencies/cfg-sls.yml
+    ansible-playbook dependencies/gencfg-sls.yml
     log "=== Generated SLS Config YAML ==="
 fi
 
@@ -264,9 +264,9 @@ then
     log "==== UDS deployment completed ===="
 
 else
-    log "=== Using Existing BAS Deployment ==="
-    ansible-playbook dependencies/cfg-bas.yml
-    log "=== Generated BAS Config YAML ==="
+    log "=== Using Existing UDS Deployment ==="
+    ansible-playbook dependencies/gencfg-uds.yml
+    log "=== Generated UDS Config YAML ==="
 fi
 
 # Deploy CP4D

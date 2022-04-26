@@ -1,4 +1,4 @@
-# MAS Core Service on IBM Cloud ROKS
+# MAS Assist Service on IBM Cloud ROKS
 
 This master playbook will drive the following actions:
 
@@ -11,17 +11,24 @@ This master playbook will drive the following actions:
     - Generate MAS Workspace Configuration (1 minute)
     - [Configure Cloud Internet Services integration](mas.md#cloud-internet-services-integration) (Optional, 1 minute)
     - [Install & configure MAS](mas.md#install-mas) (15 minutes)
+- [Configure and prepare ibm cloud object storage instance](../roles/cos_setup.md)
+- Install and prepare discovery instance
+    - [Install discovery Service](cp4d.md#install-services-discovery)
+    - [Create Disocvery instance](cp4d.md#create-discovery-instance)
+- Install Assist and Configure Assist Workspace
+    - [Refer to Suite App Assist](../roles/suite_app_install.md) (20 Minutes)
+    - [Refer to Suite App Configure](../roles/suite_app_configure.md)  (10 Minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.
 
 ## Preparation
-Before you run the playbook you **must** prepare the entitlement license key file that will be used during the playbook run.
+Before you run the playbook you need to configure a few things in your `MAS_CONFIG_DIR`:
 
-Copy the MAS license key file that you obtained from Rational License Key Server to a local path and set `SLS_LICENSE_FILE` to point to this location.  During the installation of SLS this license file will be automatically bootstrapped into the system.
+### Prepare your entitlement license key file
+First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from your entitlement file, then set `SLS_LICENSE_FILE` to the location of the MAS license key file that you obtained from Rational License Key Server (thie will typically be called `entitlement.lic`).  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
 !!! tip
     If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
-
 
 ## Required environment variables
 
@@ -53,6 +60,12 @@ Refer to the role documentation for full details of all configuration options av
 9. [suite_install](../roles/suite_install.md)
 10. [suite_config](../roles/suite_config.md)
 11. [suite_verify](../roles/suite_verify.md)
+12. [cos_setup](../roles/cos_setup.md)
+13. [cp4d_install](../roles/cos_setup.md)
+14. [cp4d_install_servicesl](../roles/cp4d_install_services.md)
+15. [cp4d_wds](../roles/cp4d_wds.md)
+16. [suite_app_install](../roles/suite_app_install.md)
+17. [suite_app_configure](../roles/suite_app_configure.md)
 
 
 ## Release build
@@ -70,15 +83,16 @@ export MAS_ENTITLEMENT_KEY=xxx
 export MAS_CONFIG_DIR=~/masconfig
 
 # SLS configuration
-export SLS_LICENSE_ID=xxx
 export SLS_ENTITLEMENT_KEY=xxx
+export SLS_LICENSE_ID=xxx
+export SLS_LICENSE_FILE=xxx
 
 # UDS configuration
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
 
-ansible-playbook playbooks/lite-core-roks.yml
+ansible-playbook playbooks/lite-assist-roks.yml
 ```
 
 
@@ -93,6 +107,7 @@ export CLUSTER_TYPE=roks
 
 # Allow development catalogs to be installed
 export W3_USERNAME=xxx
+export W3_USERNAME_LOWERCASE=xxx
 export ARTIFACTORY_APIKEY=xxx
 
 # MAS configuration
@@ -108,22 +123,26 @@ export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 export MAS_CONFIG_DIR=~/masconfig
 
 # SLS configuration
-export SLS_LICENSE_ID=xxx
 export SLS_ENTITLEMENT_KEY=xxx
-export SLS_ENTITLEMENT_FILE=xxx
+export SLS_LICENSE_ID=xxx
+export SLS_LICENSE_FILE=xxx
 
 # UDS configuration
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
 
-ansible-playbook playbooks/lite-core-roks.yml
+# Assist Configure
+export MAS_APP_CHANNEL=m1dev88
+export MAS_APP_CATALOG_SOURCE=ibm-mas-assist-operators
+
+ansible-playbook playbooks/lite-assist-roks.yml
 ```
 
 ## Locating the playbook
 After you have installed the ibm.mas_devops collection you will be able to find the playbook on your system as part of that installation.
 
-For example, if you installed the collection to `/home/david/.ansible/collections/ansible_collections` the path to this playbook will be `/home/david/.ansible/collections/ansible_collections/ibm/mas_devops/playbooks/lite-core-roks.yml`
+For example, if you installed the collection to `/home/david/.ansible/collections/ansible_collections` the path to this playbook will be `/home/david/.ansible/collections/ansible_collections/ibm/mas_devops/playbooks/lite-assist-roks.yml`
 
 Alternatively:
 

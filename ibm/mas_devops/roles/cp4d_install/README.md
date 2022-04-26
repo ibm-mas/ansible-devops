@@ -25,12 +25,17 @@ Required only if `cpd_version = cpd35`, otherwise unused because in CP4D v4 we h
 
 ### cpd_storage_class
 Required only if `cpd_version = cpd40`, otherwise unused.
+Default storage class in CPD v4.0, for IBM Cloud `ibmc-file-gold-gid` can be used.
 
 - Environment Variable: `CPD_STORAGE_CLASS`
 - Default Value: None
 
-Note: As per CloudPak For Data support team's recommendation, the value set for `cpd_storage_class` will also be used for file and metastore storages while installing CPD v4.0 Control Plane.
-Source: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=requirements-storage
+### cpd_metadb_block_storage_class
+Required only if `cpd_version = cpd40`, otherwise unused.
+Default block storage class for `zenCoreMetaDbStorageClass` in CPD v4.0, for IBM Cloud `ibmc-block-gold` can be used.
+
+- Environment Variable: `CPD_METADB_BLOCK_STORAGE_CLASS`
+- Default Value: None
 
 ### cpd_services_namespace
 Only supported if `cpd_version = cpd40`, otherwise unused. For v3.5 support this value is always set to `cpd-meta-ops`.

@@ -51,7 +51,7 @@ fi
 # Download BAS certificate
 cd $GIT_REPO_HOME
 if [[ ! -z ${UDS_PUB_CERT_URL} ]]; then
-  azcopy copy "${UDS_PUB_CERT_URL}" "bas.crt"
+  azcopy copy "${UDS_PUB_CERT_URL}" "uds.crt"
 fi
 
 ### Read License File & Retrive SLS hostname and host id
