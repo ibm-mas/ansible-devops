@@ -66,7 +66,7 @@ Refer to the [cp4d_install](../roles/cp4d_install.md) and [cp4d_install_services
 ```bash
 export CPD_VERSION=cpd40
 export CPD_STORAGE_CLASS=ibmc-file-gold-gid
-export CPD_BLOCK_STORAGE_CLASS=ibmc-block-gold
+export CPD_METADB_BLOCK_STORAGE_CLASS=ibmc-block-gold
 
 ansible-playbook playbooks/cp4d/install-services-db2.yml
 ```
@@ -91,7 +91,7 @@ Refer to the [cp4d_install](../roles/cp4d_install.md) and [cp4d_install_services
 ```bash
 export CPD_VERSION=cpd40
 export CPD_STORAGE_CLASS=ibmc-file-gold-gid
-export CPD_BLOCK_STORAGE_CLASS=ibmc-block-gold
+export CPD_METADB_BLOCK_STORAGE_CLASS=ibmc-block-gold
 
 ansible-playbook playbooks/cp4d/install-services-fullstack.yml
 ```
@@ -116,7 +116,7 @@ Refer to the [cp4d_install](../roles/cp4d_install.md) and [cp4d_install_services
 ```bash
 export CPD_VERSION=cpd40
 export CPD_STORAGE_CLASS=ibmc-file-gold-gid
-export CPD_BLOCK_STORAGE_CLASS=ibmc-block-gold
+export CPD_METADB_BLOCK_STORAGE_CLASS=ibmc-block-gold
 
 ansible-playbook playbooks/cp4d/install-services-watsonstudio.yml
 ```
@@ -131,7 +131,7 @@ Refer to the [cp4d_install](../roles/cp4d_install.md) and [cp4d_install_services
 ```bash
 export CPD_VERSION=cpd40
 export CPD_STORAGE_CLASS=ibmc-file-gold-gid
-export CPD_BLOCK_STORAGE_CLASS=ibmc-block-gold
+export CPD_METADB_BLOCK_STORAGE_CLASS=ibmc-block-gold
 
 ansible-playbook playbooks/cp4d/install-services-discovery.yml
 ```
