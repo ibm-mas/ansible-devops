@@ -13,7 +13,7 @@ SCRIPT_FILE="notify.py"
 #  certcontents=$(cat $certfile | tr '\n' "," | sed "s/,/\\\\\\\n/g")
 #  certcontents=$(echo $certcontents | sed 's/\//\\\//g')
 #  log "$certcontents"
-#    if [[ -z $SLS_ENDPOINT_URL ]]; then
+#    if [[ -z $SLSCFG_URL ]]; then
 #    get_sls_endpoint_url $RANDOM_STR
 #    log " CALL_SLS_URL=$CALL_SLS_URL"
 #  fi
