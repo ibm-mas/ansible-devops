@@ -330,7 +330,29 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 9. Configure Workspace
+    # 9. Install GPU and NFD operators
+    # -------------------------------------------------------------------------
+    - name: install-gpu
+      params:
+        - name: junit_suite_name
+          value: install-gpu
+      taskRef:
+        kind: ClusterTask
+        name: mas-devops-install-gpu
+      # Only load the GPU operator if Visual Inspection is being installed
+      when:
+        - input: "$(params.mas_app_channel_visualinspection)"
+          operator: notin
+          values: [""]
+      runAfter:
+        - cfg-ocp
+      workspaces:
+        - name: configs
+          workspace: shared-configs
+        - name: settings
+          workspace: shared-settings
+
+    # 10. Configure Workspace
     # -------------------------------------------------------------------------
     - name: gencfg-workspace
       params:
@@ -350,7 +372,7 @@ spec:
           workspace: shared-settings
 
 
-    # 10. Install & configure IBM MAS
+    # 11. Install & configure IBM MAS
     # -------------------------------------------------------------------------
     - name: install-suite
       params:
@@ -371,7 +393,7 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 11. Configure Db2 in MAS
+    # 12. Configure Db2 in MAS
     # -------------------------------------------------------------------------
     - name: cfg-suite-db2
       params:
@@ -389,28 +411,6 @@ spec:
       runAfter:
         - install-suite
         - hack-db2-for-manage
-      workspaces:
-        - name: configs
-          workspace: shared-configs
-        - name: settings
-          workspace: shared-settings
-
-    # 12. Install GPU
-    # -------------------------------------------------------------------------
-    - name: install-gpu
-      params:
-        - name: junit_suite_name
-          value: install-gpu
-      taskRef:
-        kind: ClusterTask
-        name: mas-devops-install-gpu
-      # Only load the GPU operator if Visual Inspection is being installed
-      when:
-        - input: "$(params.mas_app_channel_visualinspection)"
-          operator: notin
-          values: [""]
-      runAfter:
-        - cfg-ocp
       workspaces:
         - name: configs
           workspace: shared-configs
