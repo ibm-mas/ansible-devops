@@ -210,7 +210,7 @@ For more information about MAS upgrade process, please refer to [Upgrading Maxim
 
 ### Optional environment variables
 
-Below parameters are needed if your existing MAS instance is configured using CIS webhook. During the upgrade process, [CIS webhook](suite_dns.md) might be reinstalled targetting `ibm-common-services` namespace if needed.
+Below parameters are needed if your existing MAS instance is configured using CIS webhook. During the upgrade process, [CIS webhook](../roles/suite_dns.md) might be reinstalled targetting `ibm-common-services` namespace if needed.
 
 - `MAS_CUSTOM_CLUSTER_ISSUER` Holds the MAS custom cluster issuer, if not set it will be considered that MAS is configured with self-signed certificates.
 - `CIS_CRN` which can be obtained from your CIS service overview page, it will be in the format: `crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2bcd65684e4db3:9969652f-6955-482b-b59c-asdasasdede50c::`
