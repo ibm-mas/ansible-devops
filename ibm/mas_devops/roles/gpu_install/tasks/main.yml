@@ -3,18 +3,6 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/nfd_setup.yml
 
-
-# Fetch information from Openshift for GPU subscribtion
-# -----------------------------------------------------------------------------
-- name: "Get GPU channel CSV information from Openshift"
-  shell: oc get packagemanifests/gpu-operator-certified -n openshift-marketplace -ojson | jq -r '.status.channels[] | select(.name == "'{{gpu_channel}}'") | .currentCSV'
-  register: csv_result
-
-- name: "Set variable for gpu channel CSV"
-  set_fact:
-    gpu_startingCSV: "{{csv_result.stdout}}"
-
-
 # 1. Provide Debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information"
@@ -22,7 +10,6 @@
     msg:
       - "GPU Namespace ...................... {{ gpu_namespace }}"
       - "GPU Channel   ...................... {{ gpu_channel }}"
-      - "GPU Version ................... {{ gpu_startingCSV }}"
       - "GPU Driver Version ................. {{ gpu_driver_version }}"
 
 

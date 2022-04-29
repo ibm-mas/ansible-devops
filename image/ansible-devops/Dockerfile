@@ -9,7 +9,6 @@ COPY env.sh ${HOME}/env.sh
 COPY run-playbook.sh ${HOME}/run-playbook.sh
 COPY save-junit-to-mongo.py ${HOME}/save-junit-to-mongo.py
 COPY ansible.cfg ${HOME}/ansible.cfg
-COPY ibmcloud-oc.sh ${HOME}/ibmcloud-oc.sh
 COPY clear-mustgather-workspace.sh ${HOME}/clear-mustgather-workspace.sh
 
 # ----- Switch to root user ---------------------------------------------------
@@ -29,7 +28,6 @@ RUN ansible-galaxy collection install ${HOME}/ibm-mas_devops.tar.gz -p /opt/app-
 RUN chmod -R ug+rwx ${HOME}/env.sh && \
     chmod -R ug+rwx ${HOME}/.ansible && \
     chmod a+x ${HOME}/run-playbook.sh && \
-    chmod a+x ${HOME}/ibmcloud-oc.sh && \
     chmod a+x ${HOME}/clear-mustgather-workspace.sh
 
 # Install OpenShift CLI 4.8.35
