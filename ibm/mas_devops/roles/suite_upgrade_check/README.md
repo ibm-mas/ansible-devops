@@ -1,22 +1,15 @@
-suite_upgrade
+suite_upgrade_check
 =============
 
-This role supports an in-place upgrade from MAS 8.6 to 8.7 in an OpenShift Cluster, this upgrade covers a number of facets beyond just upgrading the MAS operators themselves:
-
-- Dependency checks to ensure the environment is ready to be upgraded
-- Upgrade to cert-manager v1.5 (IBM badged version), required by CP4D v4
-- Upgrade to CP4D v4
-- Upgrade of MAS Core
-- Upgrade of all installed MAS applications (optional)
-- Upgrade of OCP to v4.8 (optional)
-- Upgrade of SBO to v1.0 (optional)
-
+This role just validates if a given MAS 8.6.x instance is ready to be upgraded to MAS 8.7.x version in an OpenShift Cluster.
+This checks for readiness for MAS Core and all the existing application version deployed. 
+In order to be able to upgrade to MAS 8.7 version, your MAS instance will need to have latest MAS 8.6 correspondent patches for MAS Core and applications.
+For more information, please refer to [Upgrading Maximo Application Suite](https://www.ibm.com/docs/en/mas87/8.7.0?topic=upgrading) documentation.
 
 Role Variables
 --------------
 
-TODO: Finish documentation
-
+- `mas_instance_id` Defines the instance id that is used in the existing MAS installation, will be used to lookup the existing MAS subscription.
 
 Example Playbook
 ----------------
@@ -25,10 +18,5 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   roles:
-    - ibm.mas_devops.suite_upgrade
+    - ibm.mas_devops.suite_upgrade_check
 ```
-
-License
--------
-
-EPL-2.0

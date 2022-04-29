@@ -183,3 +183,57 @@ export CPD_DB2WH_INSTANCE_NAME=db2w-iot
 
 ansible-playbook playbooks/mas/hack-manage-db2.yml
 ```
+
+## Upgrade MAS (8.6 to 8.7 version)
+
+This playbook will perform all tasks necessary to upgrade a MAS 8.6 (from 8.6.x channel) to MAS 8.7 (to 8.7.x channel).
+A list of tasks will be executed, therefore be sure you know what you're doing when executing this playbook.
+
+In summary what this playbook will do:
+
+1. Check your MAS 8.6 instance is ready to be upgrade to MAS 8.7. More details here: [suite_upgrade_check](../roles/suite_upgrade_check.md)
+2. Migrate Certificate Manager resources from `cert-manager` namespace to `ibm-common-service` namespace. More details here: [cert_manager_upgrade](../roles/cert_manager_upgrade.md)
+3. Upgrade CloudPak for Data 3.5v to 4.0v. More details here: [cp4d_upgrade](../roles/cp4d_upgrade.md)
+4. MAS Core + Applications upgrade to correspondent 8.7 version. More details here: [suite_upgrade](../roles/suite_upgrade.md)
+5. IBM Cloud Openshift Cluster upgrade from version 4.6 to 4.7 and 4.8. More details here: [ocp_upgrade](../roles/ocp_upgrade.md)
+6. Service Binding Operator upgrade from 0.8v (preview channel) to 1.0.x version (stable channel). More details here: [sbo_upgrade](../roles/sbo_upgrade.md)
+
+For more information about MAS upgrade process, please refer to [Upgrading Maximo Application Suite](https://www.ibm.com/docs/en/mas87/8.7.0?topic=upgrading) documentation.
+
+### Required environment variables
+
+- `CLUSTER_TYPE` Specify the cluster type, only IBM Cloud Openshift Clusters are supported by this role at the moment. If you provide a different cluster type than `roks`, this role will fail.
+- `CLUSTER_NAME`  Specify the name of the cluster to be upgraded.
+- `IBMCLOUD_APIKEY` Specify the IBM Cloud API Key to be able to trigger ibmcloud command line commands (Required for ocp_upgrade task)
+- `MAS_INSTANCE_ID` Declare the instance ID for the MAS upgrade.
+- `CPD_ENTITLEMENT_KEY` Holds your IBM entitlement key. Will be needed to upgrade CloudPak for Data v4.0.
+
+### Optional environment variables
+
+Below parameters are needed if your existing MAS instance is configured using CIS webhook. During the upgrade process, [CIS webhook](suite_dns.md) might be reinstalled targetting `ibm-common-services` namespace if needed.
+
+- `MAS_CUSTOM_CLUSTER_ISSUER` Holds the MAS custom cluster issuer, if not set it will be considered that MAS is configured with self-signed certificates.
+- `CIS_CRN` which can be obtained from your CIS service overview page, it will be in the format: `crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2bcd65684e4db3:9969652f-6955-482b-b59c-asdasasdede50c::`
+- `CIS_APIKEY` A Service ID API key with DNS API Editor/Manager access.  Note: (This API key will be stored in your cluster for DNS challenge when requesting new certs)
+- `CIS_SUBDOMAIN` Subdomain used by your DNS server. It allow you to reuse CIS for multiple MAS Instances.
+- `OCP_INGRESS` Default to your cluster OCP ingress. This value is used as the target for the DNS entries
+
+!!! note
+   
+
+### Example usage: release build
+
+```bash
+export CLUSTER_NAME=clustername
+export CLUSTER_TYPE=roks
+export IBMCLOUD_APIKEY=oiHig...
+export MAS_INSTANCE_ID=masupgrade87
+export MAS_CUSTOM_CLUSTER_ISSUER=cis-letsencrypt-production-masupgrade87
+export CPD_ENTITLEMENT_KEY=eyJhb...
+export CIS_EMAIL=xxx@test.com
+export CIS_SUBDOMAIN=$MAS_INSTANCE_ID
+export CIS_CRN=crn:v1:bluemix:public:internet-svcs:global:a/02...
+export OCP_INGRESS=clustername.us-east.containers.appdomain.cloud
+
+ansible-playbook playbooks/mas/upgrade-suite.yml
+```

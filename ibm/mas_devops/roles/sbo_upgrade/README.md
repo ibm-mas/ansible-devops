@@ -1,22 +1,16 @@
-suite_upgrade
+sbo_upgrade
 =============
+This role will upgrade Service Binding Operator version 0.8v (preview channel) to 1.0.x (stable channel), which is the supported SBO version for MAS 8.7+
 
-This role supports an in-place upgrade from MAS 8.6 to 8.7 in an OpenShift Cluster, this upgrade covers a number of facets beyond just upgrading the MAS operators themselves:
-
-- Dependency checks to ensure the environment is ready to be upgraded
-- Upgrade to cert-manager v1.5 (IBM badged version), required by CP4D v4
-- Upgrade to CP4D v4
-- Upgrade of MAS Core
-- Upgrade of all installed MAS applications (optional)
-- Upgrade of OCP to v4.8 (optional)
-- Upgrade of SBO to v1.0 (optional)
-
+For more information, please refer to [Upgrading Maximo Application Suite](https://www.ibm.com/docs/en/mas87/8.7.0?topic=upgrading) documentation.
 
 Role Variables
 --------------
+### mas_instance_id
+Required - Defines the instance id that is used in the existing MAS installation, will be used to lookup the existing Service Binding resources associated to your MAS instance, to ensure it is ready to support SBO version 1.0.x.
 
-TODO: Finish documentation
-
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
 
 Example Playbook
 ----------------
@@ -25,10 +19,5 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   roles:
-    - ibm.mas_devops.suite_upgrade
+    - ibm.mas_devops.sbo_upgrade
 ```
-
-License
--------
-
-EPL-2.0
