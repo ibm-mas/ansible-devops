@@ -3,42 +3,38 @@
 ## Requirements
 
 ### Python & Ansible
-[Python 3.8](https://www.python.org/downloads/) is recommended as it is the most widely used version of Python within our development team, but any in-support 3.x version of Python should work fine:
-
-The following python modules are required in order to use this collection.
-
-- **openshift**
-- **ansible**
+[Python 3.8](https://www.python.org/downloads/) is recommended as it is the most widely used version of Python within our development team, but any in-support 3.x version of Python should work fine.
 
 !!! important
     As of version 6 of this collection the dependencies have changed. The upgrade from `community.kubernetes` to `kubernetes.core` necessitates an upgrade in the version of the kubernetes and openshift modules from v11 to v12.
 
 
-#### Useful commands
-- Confirm availability and version: `python3 --version`
-- Installed Python modules: `python3 -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1`
-- Confirm that ansible has been correctly installed: `ansible-playbook --version`
-
-
-### IBM Cloud CLI
-If you are using this collection to manage an OpenShift cluster in IBM Cloud RedHat OpenShift Kubernetes Service (ROKS), then you must install the IBM Cloud CLI:
-
-#### Useful commands
-- Install: `curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/master/linux-installer/idt-installer | bash`
-- Confirm availability and version: `ibmcloud version`
+```bash
+python3 --version
+python3 -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1
+ansible --version
+ansible-playbook --version
+```
 
 ### OpenShift CLI
 If you do not already have the `oc` command line tool, you can download it as below:
 
 ```
-wget -q https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
-tar -xvzf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
-mv openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit/oc /usr/local/bin/
-rm -rf openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz
+wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.8.35/openshift-client-linux.tar.gz
+tar -zxf openshift-client-linux.tar.gz
+mv oc /usr/local/bin/
+mv kubectl /usr/local/bin/
+rm -rf openshift-client-linux.tar.gz
+oc version
 ```
 
-#### Useful commands
-- Confirm availability and version: `oc version`
+### IBM Cloud CLI
+If you are using this collection to manage an OpenShift cluster in IBM Cloud RedHat OpenShift Kubernetes Service (ROKS), then you must install the IBM Cloud CLI:
+
+```bash
+curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/master/linux-installer/idt-installer | bash
+ibmcloud version`
+```
 
 
 ## Installation
@@ -48,6 +44,21 @@ Install the collection direct from [Ansible Galaxy](https://galaxy.ansible.com/i
 ansible-galaxy collection install ibm.mas_devops
 ```
 
+
+## Usage
+### Directly invoke a playbook
+The collection includes a number of playbooks that string together multiple roles, you can directly invoke them after installing the collection like so:
+```bash
+ansible-playbook ibm.mas_devops.lite_core_roks
+```
+
+### Directly invoke a role
+If you only want to perform a simple action, you can directly invoke one of our roles from the command line without the need to build a playbook like so:
+```bash
+ansible localhost -m include_role -a name=ibm.mas_devops.ocp_setup_ocs
+```
+
+
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
@@ -55,7 +66,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
     - Added ability to set annotations onto suite CR  ([#269](https://github.com/ibm-mas/ansible-devops/pull/269)
     - Add Assist install playbooks ([#271](https://github.com/ibm-mas/ansible-devops/pull/271)
     - Added gencfg-sls and gencfg-uds playbooks for using existing SLS and UDS ([#275](https://github.com/ibm-mas/ansible-devops/pull/275)
-    - Add new required var CPD_METADB_BLOCK_STORAGE_CLASS for CP4D 4.0 ([#273](https://github.com/ibm-mas/ansible-devops/pull/273)
+    - Add new required var `CPD_METADB_BLOCK_STORAGE_CLASS` for CP4D 4.0 ([#273](https://github.com/ibm-mas/ansible-devops/pull/273)
 - `8.0` Multiple Updates:
     - Create secure route to CP4D web client when setting up DNS using CIS and suite_dns role ([#251](https://github.com/ibm-mas/ansible-devops/pull/251))
     - Configure azurefiles storage class for multi-cloud ([#260](https://github.com/ibm-mas/ansible-devops/pull/260))

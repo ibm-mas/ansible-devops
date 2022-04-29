@@ -25,7 +25,7 @@ export DB2WH_TEMP_STORAGE_CLASS=ibmc-file-silver-gid
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/cp4d/create-db2-instance.yml
+ansible-playbook ibm.mas_devops.cp4d_create_db2_instance
 ```
 
 -------------------------------------------------------------------------------
@@ -38,8 +38,8 @@ export DB2WH_BACKUP_DIR='/Users/Documents/db_backup'
 export DB2WH_INSTANCE_ID_SOURCE='db2wh-1637258370283030'
 export DB2WH_INSTANCE_ID_TARGET='db2wh-1641225392064040'
 
-ansible-playbook playbooks/cp4d/db2wh-backup.yml
-ansible-playbook playbooks/cp4d/db2wh-restore.yml
+ansible-playbook ibm.mas_devops.cp4d_db2wh_backup
+ansible-playbook ibm.mas_devops.cp4d_db2wh_restore
 ```
 
 -------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ export CLUSTER_TYPE=roks
 export IBMCLOUD_APIKEY=xxx
 export CPD_ENTITLEMENT_KEY=xxx
 
-ansible-playbook playbooks/cp4d/hack-worker-nodes.yml
+ansible-playbook ibm.mas_devops.cp4d_hack_worker_nodes
 ```
 
 -------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ export CPD_VERSION=cpd40
 export CPD_STORAGE_CLASS=ibmc-file-gold-gid
 export CPD_METADB_BLOCK_STORAGE_CLASS=ibmc-block-gold
 
-ansible-playbook playbooks/cp4d/install-services-db2.yml
+ansible-playbook ibm.mas_devops.cp4d_install_services_db2
 ```
 
 -------------------------------------------------------------------------------
@@ -93,7 +93,7 @@ export CPD_VERSION=cpd40
 export CPD_STORAGE_CLASS=ibmc-file-gold-gid
 export CPD_METADB_BLOCK_STORAGE_CLASS=ibmc-block-gold
 
-ansible-playbook playbooks/cp4d/install-services-fullstack.yml
+ansible-playbook ibm.mas_devops.cp4d_install_services_fullstack
 ```
 
 -------------------------------------------------------------------------------
@@ -118,7 +118,7 @@ export CPD_VERSION=cpd40
 export CPD_STORAGE_CLASS=ibmc-file-gold-gid
 export CPD_METADB_BLOCK_STORAGE_CLASS=ibmc-block-gold
 
-ansible-playbook playbooks/cp4d/install-services-watsonstudio.yml
+ansible-playbook ibm.mas_devops.cp4d_install_services_watsonstudio
 ```
 
 -------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ export CPD_VERSION=cpd40
 export CPD_STORAGE_CLASS=ibmc-file-gold-gid
 export CPD_METADB_BLOCK_STORAGE_CLASS=ibmc-block-gold
 
-ansible-playbook playbooks/cp4d/install-services-discovery.yml
+ansible-playbook ibm.mas_devops.cp4d_install_services_discovery
 ```
 -------------------------------------------------------------------------------
 
@@ -148,7 +148,7 @@ export CP4D_PASSWORD=xxxx
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/cp4d/create-discovery-instance.yml
+ansible-playbook ibm.mas_devops.cp4d_create_discovery_instance
 ```
 
 -------------------------------------------------------------------------------
