@@ -1,6 +1,15 @@
 ---
 
-# 1. Check for missing properties that do not have defaults
+# 1. Set slscfg_tls_crt
+# -----------------------------------------------------------------------------
+- name: "Set slscfg_tls_crt fact for SlsCfg when using existing SLS"
+  no_log: true
+  set_fact:
+    slscfg_tls_crt: "{{ lookup('file', sls_tls_crt_local_file_path) }}"
+  when: slscfg_tls_crt is not defined and sls_tls_crt_local_file_path is defined and sls_tls_crt_local_file_path != ""
+
+
+# 2. Check for missing properties that do not have defaults
 # -----------------------------------------------------------------------------
 - name: "Assert that slscfg_url has been provided"
   assert:
@@ -18,7 +27,7 @@
     fail_msg: "slscfg_tls_crt property has not been set"
 
 
-# 2. Provide Debug for no-op mode
+# 3. Provide Debug for no-op mode
 # -----------------------------------------------------------------------------
 # Important: mas_instance_id and mas_config_dir are not required, calling this role
 # without them defined is effectively saying "do nothing", it allows the role to
@@ -30,7 +39,7 @@
     msg: "mas_instance_id and/or mas_config_dir are not set, so the SLSCfg will not be generated"
 
 
-# 2. Generate SLSCfg for MAS
+# 4. Generate SLSCfg for MAS
 # -----------------------------------------------------------------------------
 - name: Copy SLSCfg to filesytem
   when:
