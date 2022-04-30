@@ -1,0 +1,96 @@
+---
+
+# Provide intelligent storage class selection to minimize required user knowledge
+#
+# 1. Has the user provided a storage class directly
+# 2. Are IBMCloud ROKS Storage classes available, use ROKS defaults
+# 3. Are OpenShift Container Storage classes available, use OCS defaults (not implemented)
+# 4. Otherwise, fail if the storage class is required
+
+# 1. Lookup ROKS storage class availabiity
+# -----------------------------------------------------------------------------
+# We only need to perform this lookup if one or more storage classes are not defined
+- name: Lookup ROKS storage classes
+  when:
+    - db2u_data_storage_class is not defined or db2u_data_storage_class == ""
+    - db2u_meta_storage_class is not defined or db2u_meta_storage_class == ""
+    - db2u_logs_storage_class is not defined or db2u_logs_storage_class == ""
+    - db2u_backup_storage_class is not defined or db2u_backup_storage_class == ""
+    - db2u_temp_storage_class is not defined or db2u_temp_storage_class == ""
+  kubernetes.core.k8s_info:
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+    name: ibmc-block-gold
+  register: lookup_roks_storageclass
+
+
+# 2. Data Storage (Required)
+# -----------------------------------------------------------------------------
+- name: Default Data Storage for ROKS if not set by user (ReadWriteOnce)
+  when:
+    - db2u_data_storage_class is not defined or db2u_data_storage_class == ""
+    - lookup_roks_storageclass.resources | length > 0
+  set_fact:
+    db2u_data_storage_class: ibmc-block-gold
+
+- name: Assert that a data storage class has been defined
+  assert:
+    that: db2u_data_storage_class is defined and db2u_data_storage_class != ""
+    fail_msg: "db2u_data_storage_class must be defined"
+
+
+# 3. Meta Storage (Required)
+# -----------------------------------------------------------------------------
+- name: Default Meta Storage for ROKS if not set by user (ReadWriteMany)
+  when:
+    - db2u_meta_storage_class is not defined or db2u_meta_storage_class == ""
+    - lookup_roks_storageclass.resources | length > 0
+  set_fact:
+    db2u_meta_storage_class: ibmc-file-gold
+
+- name: Assert that a meta storage class has been defined
+  assert:
+    that: db2u_meta_storage_class is defined and db2u_meta_storage_class != ""
+    fail_msg: "db2u_meta_storage_class must be defined"
+
+
+# 4. Logs Storage (Optional)
+# -----------------------------------------------------------------------------
+- name: Default Logs Storage for ROKS if not set by user (ReadWriteOnce)
+  when:
+    - db2u_logs_storage_class is not defined or db2u_logs_storage_class == ""
+    - lookup_roks_storageclass.resources | length > 0
+  set_fact:
+    db2u_logs_storage_class: ibmc-block-gold
+
+
+# 5. Backup Storage (Optional)
+# -----------------------------------------------------------------------------
+- name: Default Backup Storage for ROKS if not set by user (ReadWriteMany)
+  when:
+    - db2u_backup_storage_class is not defined or db2u_backup_storage_class == ""
+    - lookup_roks_storageclass.resources | length > 0
+  set_fact:
+    db2u_backup_storage_class: ibmc-file-gold
+
+
+# 6. Temp Storage (Optional)
+# -----------------------------------------------------------------------------
+- name: Default Temp Storage for ROKS if not set by user (ReadWriteOnce)
+  when:
+    - db2u_temp_storage_class is not defined or db2u_temp_storage_class == ""
+    - lookup_roks_storageclass.resources | length > 0
+  set_fact:
+    db2u_temp_storage_class: ibmc-block-gold
+
+
+# 7. Debug storage class configuration
+# -----------------------------------------------------------------------------
+- name: "Debug DB2U storage class configuration"
+  debug:
+    msg:
+      - "Storage class (meta) ......... {{ db2u_meta_storage_class }}"
+      - "Storage class (data) ......... {{ db2u_data_storage_class }}"
+      - "Storage class (backup) ....... {{ db2u_backup_storage_class }}"
+      - "Storage class (logs) ......... {{ db2u_logs_storage_class }}"
+      - "Storage class (temp) ......... {{ db2u_temp_storage_class }}"

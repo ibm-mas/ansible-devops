@@ -55,7 +55,7 @@ The way database tables will be organized. It can be set to either `ROW` or `COL
 Storage class used for metadata. This must support ReadWriteMany
 
 - Environment Variable: `DB2U_META_STORAGE_CLASS`
-- Default: None
+- Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster.
 
 ### [optional] db2u_meta_storage_size_gb
 Size of the metadata persistent volume, in gigabytes
@@ -67,7 +67,7 @@ Size of the metadata persistent volume, in gigabytes
 Storage class used for user data. This must support ReadWriteOnce
 
 - Environment Variable: `DB2U_USER_STORAGE_CLASS`
-- Default: None
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
 
 ### [optional] db2u_user_storage_size_gb
 Size of user persistent volume, in gigabytes.
@@ -79,7 +79,7 @@ Size of user persistent volume, in gigabytes.
 Storage class used for backup. This must support ReadWriteMany
 
 - Environment Variable: `DB2U_BACKUP_STORAGE_CLASS`
-- Default: None
+- Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster.
 
 ### [optional] db2u_backup_storage_size_gb
 Size of backup persistent volume, in gigabytes.
@@ -91,7 +91,7 @@ Size of backup persistent volume, in gigabytes.
 Storage class used for transaction logs. This must support ReadWriteOnce
 
 - Environment Variable: `DB2U_LOGS_STORAGE_CLASS`
-- Default: None
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
 
 ### [optional] db2u_logs_storage_size_gb
 Size (in gigabytes) of transaction logs persistent volume.
@@ -103,7 +103,7 @@ Size (in gigabytes) of transaction logs persistent volume.
 Storage class used for temporary data. This must support ReadWriteOnce
 
 - Environment Variable: `DB2U_TEMP_STORAGE_CLASS`
-- Default: None
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
 
 ### [optional] db2u_temp_storage_size_gb
 Size (in gigabytes) of temporary persistent volume.
@@ -190,7 +190,7 @@ The name of the worker node to apply the {{ db2u_node_label }} taint and label t
 - Default: None
 
 ### db2u_mln_count
-The number of logical nodes (i.e. database partitions to create). Note: ensure that the application using this DB2 can support DB2 MPP (which is created when DB2U_MLN_COUNT is > 1). As of MAS 8.7 no MAS application supports MPP. 
+The number of logical nodes (i.e. database partitions to create). Note: ensure that the application using this DB2 can support DB2 MPP (which is created when DB2U_MLN_COUNT is > 1). As of MAS 8.7 no MAS application supports MPP.
 
 - Environment Variable: `'DB2U_MLN_COUNT`
 - Default: 1

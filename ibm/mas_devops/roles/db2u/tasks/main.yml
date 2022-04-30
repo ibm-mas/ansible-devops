@@ -1,22 +1,18 @@
 ---
-# 0. Fail if required parameters are not set
+# 1. Fail if required parameters are not set
 # -----------------------------------------------------------------------------
-- name: "Fail if db2u_meta_storage_class has not been provided"
-  when: db2u_meta_storage_class is not defined or db2u_meta_storage_class == ""
-  fail:
-    msg: "db2u_meta_storage_class property has not been set"
-
-- name: "Fail if db2u_data_storage_class has not been provided"
-  when: db2u_data_storage_class is not defined or db2u_data_storage_class == ""
-  fail:
-    msg: "db2u_data_storage_class property has not been set"
-
 - name: "Fail if db2u_instance_name has not been provided"
-  when: db2u_instance_name is not defined or db2u_instance_name == ""
-  fail:
-    msg: "db2u_instance_name property has not been set"
+  assert:
+    that: db2u_instance_name is defined and db2u_instance_name != ""
+  fail_msg: "db2u_instance_name property has not been set"
 
-# 1. Provide debug information to the user
+
+# 2. Load default storage classes (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
+
+
+# 3. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
@@ -31,10 +27,10 @@
       - "Db2 database name ............ {{ db2u_dbname }}"
       - "Db2 version .................. {{ db2u_version }}"
       - "MAS Instance ID .............. {{ mas_instance_id }}"
-      - "MAS Config directory .......... {{ mas_config_dir }}"
+      - "MAS Config directory ......... {{ mas_config_dir }}"
 
 
-# 2. Install a Db2u Operator
+# 4. Install a Db2u Operator
 # -----------------------------------------------------------------------------
 - name: "Create db2u Namespace"
   kubernetes.core.k8s:
@@ -73,7 +69,7 @@
     wait_timeout: 120
 
 
-# 3. Get the cluster subdomain to be used for the certificate and route creation
+# 5. Get the cluster subdomain to be used for the certificate and route creation
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
   kubernetes.core.k8s_info:
@@ -83,7 +79,7 @@
   register: _cluster_subdomain
 
 
-# 4. Create self-signed certificate for Db2u SSL
+# 6. Create self-signed certificate for Db2u SSL
 # -----------------------------------------------------------------------------
 - name: "Create internal CA certificate issuer"
   kubernetes.core.k8s:
@@ -114,7 +110,7 @@
     definition: "{{ lookup('template', 'templates/certs/certificate.yml.j2') }}"
   register: createCertificate
 
-# 5. Taint and label dedicated node if specified
+# 7. Taint and label dedicated node if specified
 # -----------------------------------------------------------------------------
 - name: Taint and label dedicated worker node
   when:
@@ -126,7 +122,8 @@
     oc label node {{ db2u_dedicated_node }} database={{ db2u_node_label }} --overwrite
     oc adm uncordon {{ db2u_dedicated_node }}
 
-# 6. Create a Db2 instance
+
+# 8. Create a Db2 instance
 # -----------------------------------------------------------------------------
 - name: "Create db2 instance"
   kubernetes.core.k8s:
@@ -150,7 +147,7 @@
   delay: 300 # 5 minutes
 
 
-# 7. Configure a public route for Db2
+# 9. Configure a public route for Db2
 # -----------------------------------------------------------------------------
 - name: Lookup db2u Engn Service
   kubernetes.core.k8s_info:
@@ -194,7 +191,7 @@
     definition: "{{ lookup('template', 'templates/tlsroute.yml.j2') }}"
 
 
-# 8. Generate a JdbcCfg for MAS configuration
+# 10. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/suite_jdbccfg.yml
   when:
