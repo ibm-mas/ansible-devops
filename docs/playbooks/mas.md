@@ -19,7 +19,7 @@ Before you use this playbook you will likely want to edit the `mas_config` varia
 - `MAS_UPGRADE_STRATEGY` Override the use of Manual upgrade strategy.
 
 !!! note
-   
+
 
 ### Example usage: release build
 
@@ -48,7 +48,7 @@ export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/mas/install-suite.yml
+ansible-playbook ibm.mas_devops.mas_install_suite
 ```
 
 !!! important
@@ -71,7 +71,7 @@ Process to create a strict api key that can only access the `Internet Services` 
   - `Platform access` set to `Editor`
   - `Service access` set to `Manager`
 - Create an API KEY for the Service ID, which is the CIS_APIKEY
- 
+
 Information on [Service IDs](https://cloud.ibm.com/docs/account?topic=account-serviceids&interface=ui)
 
 ### Optional environment variables
@@ -94,7 +94,7 @@ export IBMCLOUD_APIKEY=xxx
 export CIS_SUBDOMAIN=mas.internal
 export CIS_CRN=crn:v1:bluemix:public:internet-svcs:global:a/02fd888448c1415baa2bcd65684e4db3:9969652f-6955-482b-b59c-asdasasdede50c::
 
-ansible-playbook playbooks/mas/install-suite.yml
+ansible-playbook ibm.mas_devops.mas_install_suite
 ```
 
 ----
@@ -120,7 +120,7 @@ export MAS_INSTANCE_ID=xxx
 export MAS_WORKSPACE_ID=masdev
 export MAS_APP_ID=manage
 
-ansible-playbook playbooks/mas/configure-app.yml
+ansible-playbook ibm.mas_devops.mas_configure_app
 ```
 
 
@@ -151,7 +151,7 @@ export MAS_WORKSPACE_ID=masdev
 export MAS_APP_ID=manage
 export MAS_APPWS_COMPONENTS="base=latest,health=latest,serviceprovider=latest"
 
-ansible-playbook playbooks/mas/configure-app.yml
+ansible-playbook ibm.mas_devops.mas_configure_app
 ```
 
 ----
@@ -167,19 +167,7 @@ The parameters are all optional:
 ### Examples
 
 ```bash
-(...)
-
-ansible-playbook playbooks/cp4d/install-services-db2.yml
-
-ansible-playbook playbooks/mas/hack-manage-db2.yml
-```
-
-```bash
-(...)
-
-ansible-playbook playbooks/cp4d/create-db2-instance.yml
-
-export CPD_DB2WH_INSTANCE_NAME=db2w-iot
-
-ansible-playbook playbooks/mas/hack-manage-db2.yml
+ansible-playbook ibm.mas_devops.cp4d_install_services_db2
+ansible-playbook ibm.mas_devops.cp4d_create_db2_instance
+ansible-playbook ibm.mas_devops.mas_hack_manage_db2
 ```

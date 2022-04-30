@@ -117,15 +117,5 @@ export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
 
-ansible-playbook playbooks/lite-core-roks.yml
+ansible-playbook ibm.mas_devops.lite_core_roks
 ```
-
-## Locating the playbook
-After you have installed the ibm.mas_devops collection you will be able to find the playbook on your system as part of that installation.
-
-For example, if you installed the collection to `/home/david/.ansible/collections/ansible_collections` the path to this playbook will be `/home/david/.ansible/collections/ansible_collections/ibm/mas_devops/playbooks/lite-core-roks.yml`
-
-Alternatively:
-
-- You can download the playbook from GitHub, but make sure to download the version of the playbook that corresponds to the version of the ibm.mas_devops Ansible collection that you have installed.
-- You can close the repository from GitHub, but make sure to use the branch/tag corresponding to the version of the ibm.mas_devops Ansible colleciton that you have installed.

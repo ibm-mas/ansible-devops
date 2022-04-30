@@ -10,7 +10,7 @@ export KAFKA_STORAGE_CLASS=ibmc-block-gold
 export MAS_INSTANCE_ID=masdev1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/dependencies/install-amqstreams.yml
+ansible-playbook ibm.mas_devops.deps_install-amqstreams
 ```
 
 ## Install MongoDb (CE)
@@ -23,7 +23,7 @@ export MONGODB_STORAGE_CLASS=ibmc-block-gold
 export MAS_INSTANCE_ID=masdev1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/dependencies/install-mongodb-ce.yml
+ansible-playbook ibm.mas_devops.deps_install_mongodb_ce
 ```
 
 
@@ -38,12 +38,12 @@ export UDS_CONTACT_LASTNAME=winter
 export MAS_INSTANCE_ID=masdev1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/dependencies/install-uds.yml
+ansible-playbook ibm.mas_devops.deps_install_uds
 ```
 
 
 ## Install SLS
-Before you use this playbook you will likely want to edit the `MAS_CONFIG_DIR` variable to supply your own configuration, instead of the sample data provided. Refer to the [sls_install](../roles/sls_install.md) role documentation for more information. The playbook will also call the [gencfg_sls](../roles/gencfg_sls.md) role after the install to generate the slscfg. 
+Before you use this playbook you will likely want to edit the `MAS_CONFIG_DIR` variable to supply your own configuration, instead of the sample data provided. Refer to the [sls_install](../roles/sls_install.md) role documentation for more information. The playbook will also call the [gencfg_sls](../roles/gencfg_sls.md) role after the install to generate the slscfg.
 
 ### Example usage: release build
 
@@ -54,7 +54,7 @@ export SLS_MONGODB_CFG_FILE="/etc/mas/mongodb.yml"
 export MAS_INSTANCE_ID=masdev1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/dependencies/install-sls.yml
+ansible-playbook ibm.mas_devops.deps_install_sls
 ```
 
 !!! note
@@ -77,7 +77,7 @@ export SLS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export SLS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 
-ansible-playbook playbooks/dependencies/install-sls.yml
+ansible-playbook ibm.mas_devops.deps_install_sls
 ```
 
 !!! important
@@ -95,16 +95,16 @@ export APPCONNECT_ENTITLEMENT_KEY=xxx
 export MAS_INSTANCE_ID=masdev1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/dependencies/install-appconnect.yml
+ansible-playbook ibm.mas_devops.deps_install_appconnect
 ```
 
 
 ## Install GPU
-Installs **NVIDIA Graphical Processing Unit (GPU)** and its prerequisite **Node Feature Discovery (NFD)**. The NFD Operator is installed using the Red Hat Operators catalog source and the GPU operator is installed using the Certified Operators catalog source. 
+Installs **NVIDIA Graphical Processing Unit (GPU)** and its prerequisite **Node Feature Discovery (NFD)**. The NFD Operator is installed using the Red Hat Operators catalog source and the GPU operator is installed using the Certified Operators catalog source.
 
 Refer to the [gpu_install](../roles/gpu_install.md) role documentation for more information.
 
-### Example usage: 
+### Example usage:
 
 ```bash
 export NFD_NAMESPACE=nfd-operator
@@ -112,7 +112,7 @@ export NFD_CHANNEL=stable
 export GPU_NAMESPACE=nvidia-gpu-operator
 export GPU_CHANNEL=v1.9
 
-ansible-playbook playbooks/dependencies/install-gpu.yml
+ansible-playbook ibm.mas_devops.deps_install_gpu
 ```
 
 
@@ -127,7 +127,7 @@ export ENTITLEMENT_KEY=xxx
 export MAS_INSTANCE_ID=masdev1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/dependencies/install-db2.yml
+ansible-playbook ibm.mas_devops.deps_install_db2
 ```
 
 
@@ -144,7 +144,7 @@ export UDS_CONTACT_LASTNAME=winter
 export MAS_INSTANCE_ID=masdev1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/dependencies/gencfg-uds.yml
+ansible-playbook ibm.mas_devops.deps_gencfg_uds
 ```
 
 
@@ -160,5 +160,5 @@ export SLS_TLS_CERT_LOCAL_FILE_PATH="/etc/mas/sls.crt"
 export MAS_INSTANCE_ID=masdev1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/dependencies/gencfg-sls.yml
+ansible-playbook ibm.mas_devops.deps_gencfg_sls
 ```

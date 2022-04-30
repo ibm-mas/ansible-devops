@@ -109,5 +109,5 @@ export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook playbooks/lite-core-quickburn.yml
+ansible-playbook ibm.mas_devops.lite_core_quickburn
 ```

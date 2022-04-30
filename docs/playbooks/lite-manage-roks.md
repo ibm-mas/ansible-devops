@@ -146,5 +146,5 @@ export BAS_CONTACT_MAIL=xxx@xxx.com
 export BAS_CONTACT_FIRSTNAME=xxx
 export BAS_CONTACT_LASTNAME=xxx
 
-ansible-playbook playbooks/lite-manage-roks.yml
+ansible-playbook ibm.mas_devops.lite_manage_roks
 ```

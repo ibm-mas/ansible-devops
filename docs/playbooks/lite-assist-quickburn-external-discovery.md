@@ -18,7 +18,7 @@ This master playbook will drive the following playbooks in sequence:
 - Install Assist and Configure Assist Workspace
     - [Refer to Suite App Assist](../roles/suite_app_install.md) (20 Minutes)
     - [Refer to Suite App Configure](../roles/suite_app_configure.md)  (10 Minutes)
-  
+
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Due to the size limtations of QuickBurn clusters a full MAS stack is not possible.
 
@@ -140,7 +140,7 @@ export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 export MAS_CONFIG_DIR=~/masconfig
-# The existing External Discovery instance  
+# The existing External Discovery instance
 export ASSIST_WDS_URL=https://xxx/discovery/cpd-services-wd/instances/1645760445828523/api
 export ASSIST_WDS_ADMIN=admin
 export ASSIST_WDS_PASS=xxx
@@ -151,5 +151,5 @@ export MAS_APP_CHANNEL=m1dev88
 export MAS_APP_CATALOG_SOURCE=ibm-mas-assist-operators
 
 
-ansible-playbook playbooks/lite-assist-quickburn-external-discovery.yml
+ansible-playbook ibm.mas_devops.deps_lite_assist_quickburn_external_discovery
 ```

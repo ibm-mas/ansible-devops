@@ -10,7 +10,7 @@ export CLUSTER_TYPE=roks
 
 export IBMCLOUD_APIKEY=xxx
 
-ansible-playbook playbooks/ocp/provision.yml
+ansible-playbook ibm.mas_devops.ocp_provision
 ```
 
 ```bash
@@ -22,7 +22,7 @@ export FYRE_USERNAME=xxx
 export FYRE_APIKEY=xxx
 export FYRE_PRODUCT_ID=xxx
 
-ansible-playbook playbooks/ocp/provision.yml
+ansible-playbook ibm.mas_devops.ocp_provision
 ```
 
 
@@ -35,7 +35,7 @@ export CLUSTER_TYPE=roks
 
 export IBMCLOUD_APIKEY=xxx
 
-ansible-playbook playbooks/ocp/deprovision.yml
+ansible-playbook ibm.mas_devops.ocp_deprovision
 ```
 
 ```bash
@@ -44,29 +44,22 @@ export CLUSTER_TYPE=quickburn
 export FYRE_USERNAME=xxx
 export FYRE_APIKEY=xxx
 
-ansible-playbook playbooks/ocp/deprovision.yml
+ansible-playbook ibm.mas_devops.ocp_deprovision
 ```
 
 
 ## Configure
 Refer to the [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md) role documentation for more information.
 
-**TODO: Provide example (and update the role doc as it's rubbish atm)**
-
 ```bash
-export VAR1=xxx
-
-ansible-playbook playbooks/ocp/configure-ocp.yml
+ansible-playbook ibm.mas_devops.ocp_configure
 ```
 
 
 ## Verify
 Refer to the [ocp_verify](../roles/ocp_verify.md) role documentation for more information.
 
-**TODO: Provide example (and update the role doc as it's rubbish atm)**
 
 ```bash
-export VAR1=xxx
-
-ansible-playbook playbooks/ocp/verify-roks.yml
+ansible-playbook ibm.mas_devops.ocp_verify
 ```

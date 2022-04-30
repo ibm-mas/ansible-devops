@@ -154,5 +154,5 @@ export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
 
-ansible-playbook playbooks/fullstack-roks.yml
+ansible-playbook ibm.mas_devops.fullstack_roks
 ```
