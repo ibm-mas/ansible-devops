@@ -1,30 +1,33 @@
 ---
 
-# 1. Set slscfg_tls_crt
+# 1. Set sls_tls_crt
 # -----------------------------------------------------------------------------
-- name: "Set slscfg_tls_crt fact for SlsCfg when using existing SLS"
-  no_log: true
+- name: "Set sls_tls_crt fact for SlsCfg when using existing SLS"
+  when:
+    - sls_tls_crt is not defined
+    - sls_tls_crt_local_file_path is defined
+    - sls_tls_crt_local_file_path != ""
   set_fact:
-    slscfg_tls_crt: "{{ lookup('file', sls_tls_crt_local_file_path) }}"
-  when: slscfg_tls_crt is not defined and sls_tls_crt_local_file_path is defined and sls_tls_crt_local_file_path != ""
+    sls_tls_crt: "{{ lookup('file', sls_tls_crt_local_file_path) }}"
+  no_log: true
 
 
 # 2. Check for missing properties that do not have defaults
 # -----------------------------------------------------------------------------
-- name: "Assert that slscfg_url has been provided"
+- name: "Assert that sls_url has been provided"
   assert:
-    that: slscfg_url is defined and slscfg_url != ""
-    fail_msg: "slscfg_url property has not been set"
+    that: sls_url is defined and sls_url != ""
+    fail_msg: "sls_url property has not been set"
 
-- name: "Assert that slscfg_registration_key has been provided"
+- name: "Assert that sls_registration_key has been provided"
   assert:
-    that: slscfg_registration_key is defined or slscfg_registration_key != ""
-    fail_msg: "slscfg_registration_key property has not been set"
+    that: sls_registration_key is defined or sls_registration_key != ""
+    fail_msg: "sls_registration_key property has not been set"
 
-- name: "Assert that slscfg_tls_crt has been provided"
+- name: "Assert that sls_tls_crt has been provided"
   assert:
-    that: slscfg_tls_crt is defined and slscfg_tls_crt != ""
-    fail_msg: "slscfg_tls_crt property has not been set"
+    that: sls_tls_crt is defined and sls_tls_crt != ""
+    fail_msg: "sls_tls_crt property has not been set"
 
 
 # 3. Provide Debug for no-op mode
