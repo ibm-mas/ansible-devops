@@ -1,6 +1,18 @@
 ---
 
-# 1. Check for required facts
+# 1. Set uds_tls_crt
+# -----------------------------------------------------------------------------
+- name: "Set uds_tls_crt fact for BasCfg when using existing UDS"
+  when:
+    - uds_tls_crt is not defined
+    - uds_tls_crt_local_file_path is defined
+    - uds_tls_crt_local_file_path != ""
+  set_fact:
+    uds_tls_crt: "{{ lookup('file', uds_tls_crt_local_file_path) | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+  no_log: true
+
+
+# 2. Check for required facts
 # -----------------------------------------------------------------------------
 - name: "Fail if uds_endpoint_url has not been provided"
   assert:
@@ -12,29 +24,25 @@
     that: uds_api_key is defined and uds_api_key|length != 0
     fail_msg: "uds_api_key property has not been set"
 
-# - name: "Fail if uds_segment_key has not been provided"
-#   when: uds_segment_key is not defined or uds_segment_key|length == 0
-#   fail:
-#     msg: "uds_segment_key property has not been set"
-
 - name: "Fail if uds_tls_crt has not been provided"
   assert:
     that: uds_tls_crt is defined and uds_tls_crt|length != 0
     fail_msg: "uds_tls_crt property has not been set"
 
-# 2. Provide Debug information
+
+# 3. Provide Debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
-      - "UDS URL ...................... {{ uds_endpoint_url }}"
+      - "UDS URL ............................ {{ uds_endpoint_url }}"
       - "UDS Contact First Name ............. {{ uds_contact.first_name | default('<undefined>', True) }}"
       - "UDS Contact Last Name .............. {{ uds_contact.last_name | default('<undefined>', True) }}"
       - "UDS Contact e-mail ................. {{ uds_contact.email | default('<undefined>', True) }}"
 
-#
-# 3. Generate UDSCfg for MAS
-# ------------------------------------------------------------------------------
+
+# 4. Generate BASCfg for MAS
+# -----------------------------------------------------------------------------
 - name: Copy BASCfg to filesytem
   ansible.builtin.template:
     src: bascfg.yml.j2
