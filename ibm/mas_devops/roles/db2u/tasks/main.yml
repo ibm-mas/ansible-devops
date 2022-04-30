@@ -4,7 +4,7 @@
 - name: "Fail if db2u_instance_name has not been provided"
   assert:
     that: db2u_instance_name is defined and db2u_instance_name != ""
-  fail_msg: "db2u_instance_name property has not been set"
+    fail_msg: "db2u_instance_name property has not been set"
 
 
 # 2. Load default storage classes (if not provided by the user)
@@ -123,14 +123,37 @@
     oc adm uncordon {{ db2u_dedicated_node }}
 
 
-# 8. Create a Db2 instance
+# 8. Wait until the Db2uCluster CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the Db2uCluster CRD is available"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: db2uclusters.db2u.databases.ibm.com
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: db2u_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - db2u_crd_info.resources is defined
+    - db2u_crd_info.resources | length > 0
+
+
+# 9. Create a Db2 instance
 # -----------------------------------------------------------------------------
 - name: "Create db2 instance"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/db2ucluster.yml.j2') }}"
 
-# Wait for the cluster to be ready
+
+# 10. Wait for the cluster to be ready
+# -----------------------------------------------------------------------------
 - name: "Wait for db2u instance to be ready (5m delay)"
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
@@ -147,7 +170,7 @@
   delay: 300 # 5 minutes
 
 
-# 9. Configure a public route for Db2
+# 11. Configure a public route for Db2
 # -----------------------------------------------------------------------------
 - name: Lookup db2u Engn Service
   kubernetes.core.k8s_info:
@@ -191,7 +214,7 @@
     definition: "{{ lookup('template', 'templates/tlsroute.yml.j2') }}"
 
 
-# 10. Generate a JdbcCfg for MAS configuration
+# 12. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/suite_jdbccfg.yml
   when:
