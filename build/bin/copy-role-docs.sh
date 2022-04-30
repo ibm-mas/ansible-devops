@@ -33,6 +33,7 @@ copyDoc mongodb
 copyDoc ocp_deprovision
 copyDoc ocp_login
 copyDoc ocp_provision
+copyDoc ocp_roks_upgrade_registry_storage
 copyDoc ocp_setup_github_oauth
 copyDoc ocp_setup_mas_deps
 copyDoc ocp_setup_ocs
