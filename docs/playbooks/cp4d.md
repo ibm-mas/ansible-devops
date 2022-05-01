@@ -10,40 +10,6 @@ CloudPak for Data support comes in two flavours: CP4D v3.5 and CP4D v4.  For use
 
 -------------------------------------------------------------------------------
 
-## Create DB2 Instance
-This playbook will auto-detect whether CP4D v3.5 or v4 is active in the cluster.  Refer to the [cp4d_db2wh](../roles/cp4d_db2wh.md) role documentation for more information.
-
-```bash
-export DB2WH_INSTANCE_NAME=db2w-shared
-
-export DB2WH_META_STORAGE_CLASS=ibmc-file-silver-gid
-export DB2WH_USER_STORAGE_CLASS=ibmc-file-gold-gid
-export DB2WH_BACKUP_STORAGE_CLASS=ibmc-file-gold-gid
-export DB2WH_LOGS_STORAGE_CLASS=ibmc-file-silver-gid
-export DB2WH_TEMP_STORAGE_CLASS=ibmc-file-silver-gid
-
-export MAS_INSTANCE_ID=inst1
-export MAS_CONFIG_DIR=~/masconfig
-
-ansible-playbook ibm.mas_devops.cp4d_create_db2_instance
-```
-
--------------------------------------------------------------------------------
-
-## Backup & Restore DB2 Instance
-This playbook will execute procedures to take a backup from a source DB2 instance and restore into a target DB2 instance.
-
-```bash
-export DB2WH_BACKUP_DIR='/Users/Documents/db_backup'
-export DB2WH_INSTANCE_ID_SOURCE='db2wh-1637258370283030'
-export DB2WH_INSTANCE_ID_TARGET='db2wh-1641225392064040'
-
-ansible-playbook ibm.mas_devops.cp4d_db2wh_backup
-ansible-playbook ibm.mas_devops.cp4d_db2wh_restore
-```
-
--------------------------------------------------------------------------------
-
 ## Hack Worker Nodes
 This playbook will auto-detect whether CP4D v3.5 or v4 is active in the cluster.  Refer to the [cp4d_hack_worker_nodes](../roles/cp4d_hack_worker_nodes.md) role documentation for more information.
 
@@ -58,23 +24,8 @@ ansible-playbook ibm.mas_devops.cp4d_hack_worker_nodes
 
 -------------------------------------------------------------------------------
 
-## Install Services: Db2
-This playbook will install CP4D and enable the CP4D **Db2 Warehouse** service.
-
-Refer to the [cp4d_install](../roles/cp4d_install.md) and [cp4d_install_services](../roles/cp4d_install_services.md) role documentation for more information.
-
-```bash
-export CPD_VERSION=cpd40
-export CPD_STORAGE_CLASS=ibmc-file-gold-gid
-export CPD_METADB_BLOCK_STORAGE_CLASS=ibmc-block-gold
-
-ansible-playbook ibm.mas_devops.cp4d_install_services_db2
-```
-
--------------------------------------------------------------------------------
-
 ## Install Services: Fullstack
-This playbook will install CP4D and enable the CP4D **Db2 Warehouse** service and **Watson Studio** with Watson Machine Learning, Apache Spark, & Watson AI OpenScale capabilities enabled.
+This playbook will install CP4D and enable **Watson Studio** with Watson Machine Learning, Apache Spark, & Watson AI OpenScale capabilities enabled.
 
 - **Watson Machine Learning** As part of Watson Studio, Watson Machine Learning helps data scientists and developers accelerate AI and machine learning deployment.
 - **Apache Spark** Apache Spark is a runtime environment configured inside of Watson Studio similar to a Python Runtime environment.  When Spark is enabled from CP4D, you can opt to create a notebook and choose Spark as runtime to expand data modeling capabilities.
