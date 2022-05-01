@@ -1,0 +1,22 @@
+---
+- hosts: localhost
+  vars:
+    cluster_type: quickburn
+    ocp_version: "4.8"
+
+  pre_tasks:
+    # For the full set of supported environment variables refer to the playbook documentation
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'FYRE_USERNAME') != ""
+          - lookup('env', 'FYRE_APIKEY') != ""
+          - lookup('env', 'FYRE_PRODUCT_ID') != ""
+          - lookup('env', 'CLUSTER_NAME') != ""
+          - lookup('env', 'CLUSTER_TYPE') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    - ibm.mas_devops.ocp_provision
+    - ibm.mas_devops.ocp_setup_ocs
+    - ibm.mas_devops.ocp_verify

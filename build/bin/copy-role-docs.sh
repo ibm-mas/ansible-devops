@@ -14,15 +14,13 @@ copyDoc amqstreams
 copyDoc ansible_version_check
 copyDoc appconnect_install
 copyDoc cos_setup
-copyDoc cp4d_db2wh
-copyDoc cp4d_db2wh_backup
-copyDoc cp4d_db2wh_manage_hack
-copyDoc cp4d_db2wh_restore
 copyDoc cp4d_hack_worker_nodes
 copyDoc cp4d_install
 copyDoc cp4d_install_services
 copyDoc cp4d_wds
 copyDoc db2u
+copyDoc db2u_backup
+copyDoc db2u_restore
 copyDoc gencfg_sls
 copyDoc gencfg_uds
 copyDoc gencfg_workspace
@@ -34,6 +32,7 @@ copyDoc ocp_deprovision
 copyDoc ocp_login
 copyDoc ocp_provision
 copyDoc ocp_roks_upgrade_registry_storage
+copyDoc ocp_setup_cluster_monitoring
 copyDoc ocp_setup_github_oauth
 copyDoc ocp_setup_mas_deps
 copyDoc ocp_setup_ocs
@@ -42,6 +41,7 @@ copyDoc sls_install
 copyDoc suite_app_configure
 copyDoc suite_app_install
 copyDoc suite_config
+copyDoc suite_db2_setup_for_manage
 copyDoc suite_dns
 copyDoc suite_install
 copyDoc suite_mustgather

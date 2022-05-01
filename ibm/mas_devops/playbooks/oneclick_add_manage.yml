@@ -1,0 +1,26 @@
+---
+# Add Manage application to an existing MAS Core installation (see oneclick_core_with_deps playbook)
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    db2u_instance_name: db2w-shared
+
+    mas_workspace_id: masdev
+    mas_app_id: manage
+
+  pre_tasks:
+    # For the full set of supported environment variables refer to the playbook documentation
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'MAS_INSTANCE_ID') != ""
+          - lookup('env', 'MAS_CONFIG_DIR') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    - ibm.mas_devops.db2u
+    - ibm.mas_devops.mas_db2_setup_for_manage
+    - ibm.mas_devops.suite_config
+    - ibm.mas_devops.suite_app_install
+    - ibm.mas_devops.suite_app_configure

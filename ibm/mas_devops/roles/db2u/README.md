@@ -22,7 +22,7 @@ Role Variables
 --------------
 
 ### [required] db2u_instance_name
-Required.  Name of the database instance, note that this is the instance **name**, which is different from the instance **ID**.
+Required.  Name of the database instance, note that this is the instance **name**.
 
 - Environment Variable: `DB2U_INSTANCE_NAME`
 - Default: None

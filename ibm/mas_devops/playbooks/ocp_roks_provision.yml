@@ -1,0 +1,27 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cluster_type: roks
+    ocp_version: 4.8_openshift
+    prometheus_storage_class: ibmc-block-gold
+    prometheus_alertmgr_storage_class: ibmc-file-gold-gid
+
+  pre_tasks:
+    # For the full set of supported environment variables refer to the playbook documentation
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'IBMCLOUD_APIKEY') != ""
+          - lookup('env', 'CLUSTER_NAME') != ""
+          - lookup('env', 'CPD_ENTITLEMENT_KEY') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    # 1. Provision the ROKS cluster
+    - ibm.mas_devops.ocp_provision
+    - ibm.mas_devops.ocp_verify
+    # 2. Install an IBM Entitlement key as a global image pull secret
+    - ibm.mas_devops.cp4d_hack_worker_nodes
+    # 3. Upgrade the image registry to 400Gb
+    - ibm.mas_devops.ocp_roks_upgrade_registry_storage
