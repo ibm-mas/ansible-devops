@@ -11,52 +11,63 @@ Role Variables
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the BasCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a BasCfg template.
 
+- Optional
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default Value: None
 
 ### mas_config_dir
 Local directory to save the generated BasCfg resource definition.  This can be used to manually configure a MAS instance to connect to BAS instance, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a BasCfg template.
 
+- Optional
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
 ### mas_segment_key
 Override the biult-in segment key used by MAS when communicating with User Data Services.  This variable is only used for the generation of the BASCfg template, and in 99% of use cases you will not need to set this.
 
+- Optional
 - Environment Variable: `MAS_SEGMENT_KEY`
 - Default Value: None
 
 ### uds_contact.email
-Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the Contact e-mail address used by the MAS instance's UDS configuration.
+Sets the Contact e-mail address used by the MAS instance's UDS configuration.
 
+- **Required** when `mas_instance_id` and `mas_config_dir` are set
 - Environment Variable: `UDS_CONTACT_EMAIL`
 - Default Value: None
 
 ### uds_contact.first_name
-Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the Contact first name used by the MAS instance's UDS configuration.
+Sets the Contact first name used by the MAS instance's UDS configuration.
 
+- **Required** when `mas_instance_id` and `mas_config_dir` are set
 - Environment Variable: `UDS_CONTACT_FIRSTNAME`
 - Default Value: None
 
 ### uds_contact.last_name
-Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the Contact last name used by the MAS instance's UDS configuration.
+Sets the Contact last name used by the MAS instance's UDS configuration.
 
+- **Required** when `mas_instance_id` and `mas_config_dir` are set
 - Environment Variable: `UDS_CONTACT_LASTNAME`
 - Default Value: None
 
 ### uds_tls_crt
-Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS TLS CA or Server Certificate used by the MAS instance's UDS configuration.
+Sets the UDS TLS CA or Server Certificate used by the MAS instance's UDS configuration.
 
+- **Required** when `mas_instance_id` and `mas_config_dir` are set
 - Environment Variable: None
 - Default Value: None
 
 ### uds_endpoint_url
-Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS endpoint url used by the MAS instance's UDS configuration.
+Sets the UDS endpoint url used by the MAS instance's UDS configuration.
+
+- **Required** when `mas_instance_id` and `mas_config_dir` are set
 - Environment Variable: None
 - Default Value: None
 
 ### uds_api_key
-Required when `mas_instance_id` and `mas_config_dir` are set.  Sets the UDS api key used by the MAS instance's UDS configuration.
+Sets the UDS api key used by the MAS instance's UDS configuration.
+
+- **Required** when `mas_instance_id` and `mas_config_dir` are set
 - Environment Variable: None
 - Default Value: None
 
