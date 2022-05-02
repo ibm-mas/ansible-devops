@@ -1,7 +1,7 @@
 sls
-===========
+===
 
-Install **IBM Suite License Service** and generate properties that can be used in the [gencfg_sls](gencfg_sls.md) role to create a configuration that can be directly applied to IBM Maximo Application Suite.
+Install **IBM Suite License Service** and generate a configuration that can be directly applied to IBM Maximo Application Suite.
 
 The role assumes that you have already installed the Certificate Manager in the target cluster.  This action is performed by the [ocp_setup_mas_deps](ocp_setup_mas_deps.md) role if you want to use this collection to install the cert-manager operator.
 
