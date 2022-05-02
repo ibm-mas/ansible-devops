@@ -12,12 +12,7 @@
       - "MAS config directory ......... {{ mas_config_dir | default('<undefined>', True)  }}"
 
 
-# 2. Load default storage classes (if not provided by the user)
-# -----------------------------------------------------------------------------
-- include_tasks: tasks/community/determine-storage-classes.yml
-
-
-# 3. Install the CRD
+# 2. Install the CRD
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Install MongoDBCommunity CRD"
   kubernetes.core.k8s:
@@ -25,7 +20,7 @@
     definition: "{{ lookup('template', 'templates/community/crd.yml') }}"
 
 
-# 4. Create namespace & install RBAC
+# 3. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Create namespace & install RBAC"
   kubernetes.core.k8s:
@@ -33,7 +28,7 @@
     definition: "{{ lookup('template', 'templates/community/rbac.yml') }}"
 
 
-# 5. Configure anyuid permissions in the MongoDb namespace
+# 4. Configure anyuid permissions in the MongoDb namespace
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Configure anyuid permissions in the MongoDb namespace"
   shell: |
@@ -41,7 +36,7 @@
     oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-kubernetes-operator
 
 
-# 6. Install the operator
+# 5. Install the operator
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Install the MongoDb Operator"
   kubernetes.core.k8s:
@@ -49,7 +44,7 @@
     definition: "{{ lookup('template', 'templates/community/manager.yml') }}"
 
 
-# 7. Configure TLS using cert manager
+# 6. Configure TLS using cert manager
 # -----------------------------------------------------------------------------
 - name: "Create a issuer  in {{ mongodb_namespace }}"
   kubernetes.core.k8s:
@@ -118,7 +113,7 @@
     definition: "{{ lookup('template', 'templates/community/tls.yml') }}"
 
 
-# 8. Create MongoDb admin user credentials secret
+# 7. Create MongoDb admin user credentials secret
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Check for existing user password secret"
   kubernetes.core.k8s_info:
@@ -137,7 +132,7 @@
     definition: "{{ lookup('template', 'templates/community/admin-password.yml') }}"
 
 
-# 9. Deploy the cluster
+# 8. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Create MongoDb cluster"
   kubernetes.core.k8s:
@@ -145,7 +140,7 @@
     definition: "{{ lookup('template', 'templates/community/cr.yml') }}"
 
 
-# 10. Wait for the cluster to be ready
+# 9. Wait for the cluster to be ready
 # -----------------------------------------------------------------------------
 - name: "mongodb/community : Wait for stateful set to be ready"
   kubernetes.core.k8s_info:
@@ -162,7 +157,7 @@
     - mongodb_statefulset.resources[0].status.readyReplicas == 3
 
 
-# 11. Create MAS MongoCfg
+# 10. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
 # Lookup the admin password that was used
 - name: "mongodb/community : Lookup admin password"
