@@ -29,6 +29,7 @@ RUN ansible-galaxy collection install ${HOME}/ibm-mas_devops.tar.gz -p /opt/app-
 RUN chmod -R ug+rwx ${HOME}/env.sh && \
     chmod -R ug+rwx ${HOME}/.ansible && \
     chmod a+x ${HOME}/run-playbook.sh && \
+    chmod a+x ${HOME}/run-role.sh && \
     chmod a+x ${HOME}/clear-mustgather-workspace.sh
 
 # Install OpenShift CLI 4.8.35
