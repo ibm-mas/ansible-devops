@@ -1,27 +1,32 @@
 ---
 apiVersion: tekton.dev/v1beta1
-kind: ClusterTask
+kind: Task
 metadata:
-  name: mas-devops-install-uds
+  name: mas-devops-suite-db2-setup-for-manage
 spec:
   params:
     - name: junit_suite_name
       type: string
       description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
       default: ""
-
+    - name: db2wh_instance_name
+      type: string
+      description: Name (specifically, not the ID) of the DB2 Warehouse instance to execute the hack
+      default: "db2wh-db01"
   stepTemplate:
     env:
       - name: MAS_CONFIG_DIR
         value: /workspace/configs
       - name: JUNIT_SUITE_NAME
         value: $(params.junit_suite_name)
+      - name: DB2WH_INSTANCE_NAME
+        value: $(params.db2wh_instance_name)
 
   steps:
-    - name: install-uds
+    - name: suite-db2-setup-for-manage
       command:
-        - /opt/app-root/src/run-playbook.sh
-        - ibm.mas_devops.deps_install_uds
+        - /opt/app-root/src/run-role.sh
+        - suite_db2_setup_for_manage
       image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
       workingDir: /workspace/configs

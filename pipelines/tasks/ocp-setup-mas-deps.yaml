@@ -1,8 +1,8 @@
 ---
 apiVersion: tekton.dev/v1beta1
-kind: ClusterTask
+kind: Task
 metadata:
-  name: mas-devops-install-sls
+  name: mas-devops-ocp-setup-mas-deps
 spec:
   params:
     - name: junit_suite_name
@@ -12,21 +12,19 @@ spec:
 
   stepTemplate:
     env:
-      - name: MAS_CONFIG_DIR
-        value: /workspace/configs
       - name: JUNIT_SUITE_NAME
         value: $(params.junit_suite_name)
+      - name: CLUSTER_TYPE
+        value: in-cluster
 
   steps:
-    - name: install-sls
+    - name: ocp-setup-mas-deps
       command:
-        - /opt/app-root/src/run-playbook.sh
-        - ibm.mas_devops.deps_install_sls
+        - /opt/app-root/src/run-role.sh
+        - ocp_setup_mas_deps
       image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
       workingDir: /workspace/configs
 
   workspaces:
-    - name: configs
     - name: settings
-    - name: entitlement

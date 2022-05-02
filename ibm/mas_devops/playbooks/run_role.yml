@@ -1,0 +1,23 @@
+---
+# This playbook can be used to execute any role in this collection.  It's
+# primary purpose is as the driver for our tekton pipeline Tasks, each
+# task will call ibm.mas_devops.run_role with a specific ROLE_NAME set.
+#
+# This avoids us needing to define an entire swathe of playbooks that
+# are not really playbooks.
+#
+# Individual roles can still be executed normally with Ansible:
+#     ansible localhost -m include_role -a name=ibm.mas_devops.xxx
+#
+# One benefit of using this wrapper is that you will be able to take
+# advantage of Ansible features only available when running a playbook,
+# such as the callbacks that only trigger from a playbook, for example
+# we use the profile_tasks & junit callbacks extensively in our automation
+# frameworks.
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    role_name: "{{ lookup('env', 'ROLE_NAME') }}"
+
+  roles:
+    - "ibm.mas_devops.{{ role_name }}"

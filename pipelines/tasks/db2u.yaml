@@ -1,8 +1,8 @@
 ---
 apiVersion: tekton.dev/v1beta1
-kind: ClusterTask
+kind: Task
 metadata:
-  name: mas-devops-cp4d-create-db2-instance
+  name: mas-devops-db2u
 spec:
   params:
     - name: junit_suite_name
@@ -55,11 +55,11 @@ spec:
       - name: JUNIT_SUITE_NAME
         value: $(params.junit_suite_name)
       # Configure DB2W
-      - name: DB2WH_INSTANCE_NAME
+      - name: DB2U_INSTANCE_NAME
         value: $(params.instance_name)
-      - name: DB2WH_VERSION
+      - name: DB2U_VERSION
         value: $(params.version)
-      - name: DB2WH_TABLE_ORG
+      - name: DB2U_TABLE_ORG
         value: $(params.tableorg)
       # Configure JdbcCfg
       - name: MAS_CONFIG_SCOPE
@@ -69,21 +69,21 @@ spec:
       - name: MAS_WORKSPACE_ID
         value: $(params.workspace_id)
       # Configure storage sizes (storage classes are set globally in the secret)
-      - name: DB2WH_META_STORAGE_SIZE_GB
+      - name: DB2U_META_STORAGE_SIZE_GB
         value: $(params.meta_storage)
-      - name: DB2WH_USER_STORAGE_SIZE_GB
+      - name: DB2U_USER_STORAGE_SIZE_GB
         value: $(params.user_storage)
-      - name: DB2WH_BACKUP_STORAGE_SIZE_GB
+      - name: DB2U_BACKUP_STORAGE_SIZE_GB
         value: $(params.backup_storage)
-      - name: DB2WH_LOGS_STORAGE_SIZE_GB
+      - name: DB2U_LOGS_STORAGE_SIZE_GB
         value: $(params.logs_storage)
-      - name: DB2WH_TEMP_STORAGE_SIZE_GB
+      - name: DB2U_TEMP_STORAGE_SIZE_GB
         value: $(params.temp_storage)
   steps:
-    - name: cp4d-create-db2-instance
+    - name: db2u
       command:
-        - /opt/app-root/src/run-playbook.sh
-        - ibm.mas_devops.cp4d_create_db2_instance
+        - /opt/app-root/src/run-role.sh
+        - db2u
       image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
       workingDir: /workspace/configs

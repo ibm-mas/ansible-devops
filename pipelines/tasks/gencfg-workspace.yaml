@@ -1,24 +1,21 @@
 ---
 apiVersion: tekton.dev/v1beta1
-kind: ClusterTask
+kind: Task
 metadata:
-  name: mas-devops-configure-app
+  name: mas-devops-gencfg-workspace
 spec:
   params:
     - name: junit_suite_name
       type: string
       description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
       default: ""
-    - name: mas_app_id
-      type: string
-      description: Maximo Application Suite Application ID
-    - name: mas_appws_components
-      type: string
-      description: Components to configure in the workspace
-      default: ""
     - name: mas_workspace_id
       type: string
-      description: Maximo Application Suite Workspace ID
+      description: Workspace ID
+    - name: mas_workspace_name
+      type: string
+      description: Workspace Name
+
   stepTemplate:
     env:
       - name: MAS_CONFIG_DIR
@@ -27,19 +24,18 @@ spec:
         value: $(params.junit_suite_name)
       - name: MAS_WORKSPACE_ID
         value: $(params.mas_workspace_id)
-      - name: MAS_APP_ID
-        value: $(params.mas_app_id)
-      - name: MAS_APPWS_COMPONENTS
-        value: $(params.mas_appws_components)
+      - name: MAS_WORKSPACE_NAME
+        value: $(params.mas_workspace_name)
 
   steps:
-    - name: configure-app
+    - name: gencfg-workspace
       command:
-        - /opt/app-root/src/run-playbook.sh
-        - ibm.mas_devops.mas_configure_app
+        - /opt/app-root/src/run-role.sh
+        - gencfg_workspace
       image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
       workingDir: /workspace/configs
 
   workspaces:
+    - name: configs
     - name: settings

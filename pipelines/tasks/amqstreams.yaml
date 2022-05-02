@@ -1,8 +1,8 @@
 ---
 apiVersion: tekton.dev/v1beta1
-kind: ClusterTask
+kind: Task
 metadata:
-  name: mas-devops-configure-ocp
+  name: mas-devops-amqstreams
 spec:
   params:
     - name: junit_suite_name
@@ -12,19 +12,20 @@ spec:
 
   stepTemplate:
     env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
       - name: JUNIT_SUITE_NAME
         value: $(params.junit_suite_name)
-      - name: CLUSTER_TYPE
-        value: in-cluster
 
   steps:
-    - name: configure-ocp
+    - name: amqstreams
       command:
-        - /opt/app-root/src/run-playbook.sh
-        - ibm.mas_devops.ocp_configure
+        - /opt/app-root/src/run-role.sh
+        - amqstreams
       image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
       workingDir: /workspace/configs
 
   workspaces:
+    - name: configs
     - name: settings

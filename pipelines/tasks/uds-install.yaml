@@ -1,8 +1,8 @@
 ---
 apiVersion: tekton.dev/v1beta1
-kind: ClusterTask
+kind: Task
 metadata:
-  name: mas-devops-install-gpu
+  name: mas-devops-uds-install
 spec:
   params:
     - name: junit_suite_name
@@ -12,14 +12,16 @@ spec:
 
   stepTemplate:
     env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
       - name: JUNIT_SUITE_NAME
         value: $(params.junit_suite_name)
 
   steps:
-    - name: install-gpu
+    - name: uds-install
       command:
-        - /opt/app-root/src/run-playbook.sh
-        - ibm.mas_devops.deps_install_gpu
+        - /opt/app-root/src/run-role.sh
+        - uds_install
       image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
       workingDir: /workspace/configs

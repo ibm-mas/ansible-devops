@@ -150,7 +150,6 @@ Example Playbook
   any_errors_fatal: true
   vars:
     sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') }}"
-
     sls_mongodb_cfg_file: "/etc/mas/mongodb.yml"
 
     bootstrap:

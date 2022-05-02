@@ -8,6 +8,20 @@ This role supports both CP4D v3.5 and v4.0.
 - With CP4D v3.5 all services will be installed to the `cpd-meta-ops` namespace.
 - With CP4D v4.0 all services will be installed to the `cpd-services` namespace.
 
+Supported Services
+------------------
+
+- **Watson Machine Learning** As part of Watson Studio, Watson Machine Learning helps data scientists and developers accelerate AI and machine learning deployment.
+- **Apache Spark** Apache Spark is a runtime environment configured inside of Watson Studio similar to a Python Runtime environment.  When Spark is enabled from CP4D, you can opt to create a notebook and choose Spark as runtime to expand data modeling capabilities.
+- **Watson AI OpenScale**  Watson OpenScale enables tracking AI models in production, validation and test models to mitigate operational risks.
+
+!!! info "Application Support"
+    For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists)
+
+    - [Predict](https://www.ibm.com/docs/en/mas84/8.4.0?topic=applications-maximo-predict) requires Watson Studio, Machine Learning and Spark; Openscale is an optional dependency
+    - [Health & Predict Utilities](https://www.ibm.com/docs/en/mas84/8.4.0?topic=solutions-maximo-health-predict-utilities) requires Watson Studio base capability only
+
+
 Role Variables
 --------------
 
@@ -41,7 +55,7 @@ Required.  Provide a list of Cloud Pak for Data services to enable.
 - Environment Variable: None
 - Default Value: None
 ### cpd_wsl_project_id
-Optional - Stores the CP4D Watson Studio Project ID that can be used to configure HP Utilities application in MAS. 
+Optional - Stores the CP4D Watson Studio Project ID that can be used to configure HP Utilities application in MAS.
 
 If this property is not set, and Watson Studio is installed as part of CP4D, this role will automatically create one Watson Studio project that could be used to configure HP Utilities application in MAS instance (`mas_instance_id` and `mas_config_dir` properties must also be set in order for Watson Studio project to be created as part of this role.)
 
@@ -49,13 +63,13 @@ If this property is not set, and Watson Studio is installed as part of CP4D, thi
 - Default Value: None.
 
 ### cpd_wsl_project_name
-Optional - Stores the CP4D Watson Studio Project name that can be used to configure HP Utilities application in MAS. 
+Optional - Stores the CP4D Watson Studio Project name that can be used to configure HP Utilities application in MAS.
 
 - Environment Variable: `CPD_WSL_PROJECT_NAME`
 - Default Value: `wsl_default_project`
 
 ### cpd_wsl_project_description
-Optional - Stores the CP4D Watson Studio Project description that can be used to configure HP Utilities application in MAS. 
+Optional - Stores the CP4D Watson Studio Project description that can be used to configure HP Utilities application in MAS.
 
 - Environment Variable: `CPD_WSL_PROJECT_DESCRIPTION`
 - Default Value: `Watson Studio project to be used by HP Utilities app in MAS`
