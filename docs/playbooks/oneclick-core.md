@@ -63,6 +63,7 @@ export MAS_CONFIG_DIR=~/masconfig
 
 # SLS configuration
 export SLS_LICENSE_ID=xxx
+export SLS_LICENSE_FILE=/path/to/entitlement.lic
 export SLS_ENTITLEMENT_KEY=xxx
 
 # UDS configuration
@@ -96,6 +97,7 @@ export MAS_CONFIG_DIR=~/masconfig
 
 # SLS configuration
 export SLS_LICENSE_ID=xxx
+export SLS_LICENSE_FILE=/path/to/entitlement.lic
 export SLS_ENTITLEMENT_KEY=xxx
 export SLS_ENTITLEMENT_FILE=xxx
 
