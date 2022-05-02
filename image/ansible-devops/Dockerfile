@@ -7,7 +7,7 @@ COPY requirements.yml ${HOME}/requirements.yml
 COPY requirements.txt ${HOME}/requirements.txt
 COPY env.sh ${HOME}/env.sh
 COPY run-playbook.sh ${HOME}/run-playbook.sh
-COPY run-playbook.sh ${HOME}/run-role.sh
+COPY run-role.sh ${HOME}/run-role.sh
 COPY save-junit-to-mongo.py ${HOME}/save-junit-to-mongo.py
 COPY ansible.cfg ${HOME}/ansible.cfg
 COPY clear-mustgather-workspace.sh ${HOME}/clear-mustgather-workspace.sh
