@@ -41,15 +41,14 @@ Refer to the role documentation for full details of all configuration options av
 1. [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md)
 2. [ocp_setup_cluster_monitoring](../roles/ocp_setup_cluster_monitoring.md)
 3. [mongodb](../roles/mongodb.md)
-4. [sls_install](../roles/sls_install.md)
-5. [gencfg_sls](../roles/gencfg_sls.md)
-6. [uds_install](../roles/uds_install.md)
-7. [gencfg_uds](../roles/gencfg_uds.md)
-8. [gencfg_workspace](../roles/gencfg_workspace.md)
-9. [suite_dns](../roles/suite_dns.md)
-10. [suite_install](../roles/suite_install.md)
-11. [suite_config](../roles/suite_config.md)
-12. [suite_verify](../roles/suite_verify.md)
+4. [sls](../roles/sls.md)
+5. [uds_install](../roles/uds_install.md)
+6. [gencfg_uds](../roles/gencfg_uds.md)
+7. [gencfg_workspace](../roles/gencfg_workspace.md)
+8. [suite_dns](../roles/suite_dns.md)
+9. [suite_install](../roles/suite_install.md)
+10. [suite_config](../roles/suite_config.md)
+11. [suite_verify](../roles/suite_verify.md)
 
 
 ## Release build

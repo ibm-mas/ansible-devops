@@ -21,7 +21,6 @@ copyDoc cp4d_wds
 copyDoc db2u
 copyDoc db2u_backup
 copyDoc db2u_restore
-copyDoc gencfg_sls
 copyDoc gencfg_uds
 copyDoc gencfg_workspace
 copyDoc gencfg_jdbc
@@ -37,7 +36,7 @@ copyDoc ocp_setup_github_oauth
 copyDoc ocp_setup_mas_deps
 copyDoc ocp_setup_ocs
 copyDoc ocp_verify
-copyDoc sls_install
+copyDoc sls
 copyDoc suite_app_configure
 copyDoc suite_app_install
 copyDoc suite_config
