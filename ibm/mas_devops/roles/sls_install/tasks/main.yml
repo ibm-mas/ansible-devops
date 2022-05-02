@@ -169,18 +169,20 @@
 - include_tasks: "tasks/sls-verify.yml"
 
 
-# 9. Generate properties used by sls_gencfg
+# 9. Generate SLSCfg
 # -----------------------------------------------------------------------------
 # The SLSCfg resource is not generated as part of this role anymore, a dedicated
-# role exists to generate the configuraion file (sls_gencfg), this role will set up
-# all the properties required by that role
+# role exists to generate the configuraion file (gencfg_sls), this role will set
+# up all the properties required by that role before calling it
 # - sls_registration_key
 # - sls_url
 # - sls_tls_crt
-#
-# If you want to generate the configuration file automatically chain the two roles
-# together in your playbook.
 - name: Lookup sls.ibm.com/v1.LicenseService
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   k8s_info:
     api_version: sls.ibm.com/v1
     kind: LicenseService
@@ -189,6 +191,11 @@
   register: sls_cr_result
 
 - name: Obtain License Service Certificate
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   k8s_info:
     api_version: v1
     kind: Secret
@@ -197,7 +204,21 @@
   register: _sls_ca
 
 - name: Set facts for SLSCfg
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
   set_fact:
     sls_registration_key: "{{sls_cr_result.resources[0].status.registrationKey}}"
     sls_url: "{{sls_cr_result.resources[0].status.url}}"
     sls_tls_crt: "{{_sls_ca.resources[0].data['ca.crt'] | b64decode }}"
+
+- name: "Create MAS SLSCfg"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  import_role:
+    name: gencfg_sls
