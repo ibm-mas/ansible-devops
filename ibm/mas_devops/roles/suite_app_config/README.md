@@ -1,5 +1,5 @@
-suite_app_configure
-===================
+suite_app_config
+================
 
 This role is used to configure specific components of the application workspace after the application has been installed in the Maximo Application Suite.
 
@@ -48,7 +48,7 @@ Example Playbook
 
     # MAS application configuration
     mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
-    
+
     mas_app_ws_spec:
       bindings:
         jdbc: "{{ mas_appws_jdbc_binding | default( 'system' , true) }}"
