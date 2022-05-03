@@ -22,7 +22,12 @@
     mas_domain: "{{ (custom_domain != '') | ternary (custom_domain, mas_instance_id ~ '.' ~ _cluster_subdomain.resources[0].spec.domain) }}"
 
 
-# 3. Provide debug information
+# 3. Determine version of cert-manager in use on the cluster
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/detect-cert-manager.yml
+
+
+# 4. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
@@ -41,7 +46,8 @@
       - "MAS Custom Cluster Issue ..... {{ custom_cluster_issuer }}"
       - "MAS Subcription Upgrade ...... {{ mas_upgrade_strategy }}"
 
-# 4. Install the operator
+
+# 5. Install the operator
 # -----------------------------------------------------------------------------
 - name: "Install MAS Operator"
   include_role:
@@ -82,7 +88,8 @@
   when:
     - mas_upgrade_strategy == 'Manual'
 
-# 5. Wait until the Suite CRD is available
+
+# 6. Wait until the Suite CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Suite CRD is available"
   kubernetes.core.k8s_info:
@@ -103,7 +110,7 @@
     - suite_crd_info.resources | length > 0
 
 
-# 6. Create the ibm-entitlement secret for entitled content
+# 7. Create the ibm-entitlement secret for entitled content
 # -----------------------------------------------------------------------------
 - name: "init : Create ibm-entitlement secret in MAS Namespace"
   vars:
@@ -142,7 +149,8 @@
     - mas_annotations is defined
     - mas_annotations != ""
 
-# 7. Suite installation
+
+# 8. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
   kubernetes.core.k8s:
@@ -150,11 +158,12 @@
     namespace: "{{ mas_namespace }}"
     definition: "{{ cr_definition }}"
 
+
 # 9. Handle IBM Common Services Install plan approvals when upgragre strategy is set to Manual
+# -----------------------------------------------------------------------------
 # ibm-common-services operators deployed by MAS will inherit the inherit MAS upgrade strategy
 # when its set to Manual, we need to interate those to ensure we do approve the first install plan
 # otherwise MAS installation wont succeed.
-# -----------------------------------------------------------------------------
 - include_tasks: tasks/ibm-common-services.yml
   loop: "{{ibm_common_services_subscription_labels}}"
   when:
