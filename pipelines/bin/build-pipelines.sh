@@ -8,10 +8,10 @@ if [ "$DEV_MODE" != "true" ]; then
   source ${GITHUB_WORKSPACE}/build/bin/.functions.sh
 
   FILES=$GITHUB_WORKSPACE/pipelines/tasks/*.yaml
-  TARGET_FILE=$GITHUB_WORKSPACE/pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml
+  TARGET_FILE=$GITHUB_WORKSPACE/pipelines/ibm-mas-devops-tasks-$VERSION.yaml
 else
   FILES=$DIR/../tasks/*.yaml
-  TARGET_FILE=$DIR/../ibm-mas_devops-clustertasks-$VERSION.yaml
+  TARGET_FILE=$DIR/../ibm-mas-devops-tasks-$VERSION.yaml
 fi
 
 echo "" > $TARGET_FILE
