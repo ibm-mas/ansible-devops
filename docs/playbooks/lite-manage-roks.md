@@ -65,6 +65,7 @@ First, set `SLS_LICENSE_ID` to the correct ID (a 12 character hex string) from y
 - `CIS_CRN` to enable integration with IBM Cloud Internet Services (CIS) for DNS & certificate management
 - `CIS_SUBDOMAIN` if you want to use a subdomain within your CIS instance
 - `MAS_APPWS_COMPONENTS` to customize the application components installed in the Manage Workspace
+- `MANAGE_AIO_FLAG` to enable and install Health AIO set value to True.
 
 !!! tip
     `MAS_ICR_CP`, `MAS_ICR_CPOPEN`, & `MAS_ENTITLEMENT_USERNAME` are primarily used when working with pre-release builds in conjunction with `W3_USERNAME`, `ARTIFACTORY_APIKEY` and the `MAS_CATALOG_SOURCE` environment variables.
