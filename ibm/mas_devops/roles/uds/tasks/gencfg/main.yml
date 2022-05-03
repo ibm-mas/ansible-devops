@@ -2,11 +2,10 @@
 
 # 1. Set uds_tls_crt
 # -----------------------------------------------------------------------------
-- name: "Set uds_tls_crt fact for BasCfg when using existing UDS"
+- name: "gencfg : Set uds_tls_crt fact for BasCfg when using existing UDS"
   when:
-    - uds_tls_crt is not defined
-    - uds_tls_crt_local_file_path is defined
-    - uds_tls_crt_local_file_path != ""
+    - uds_tls_crt is not defined or uds_tls_crt == ""
+    - uds_tls_crt_local_file_path is defined and uds_tls_crt_local_file_path != ""
   set_fact:
     uds_tls_crt: "{{ lookup('file', uds_tls_crt_local_file_path) | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
   no_log: true
@@ -14,17 +13,17 @@
 
 # 2. Check for required facts
 # -----------------------------------------------------------------------------
-- name: "Fail if uds_endpoint_url has not been provided"
+- name: "gencfg : Fail if uds_endpoint_url has not been provided"
   assert:
     that: uds_endpoint_url is defined and uds_endpoint_url|length != 0
     fail_msg: "uds_endpoint_url property has not been set"
 
-- name: "Fail if uds_api_key has not been provided"
+- name: "gencfg : Fail if uds_api_key has not been provided"
   assert:
     that: uds_api_key is defined and uds_api_key|length != 0
     fail_msg: "uds_api_key property has not been set"
 
-- name: "Fail if uds_tls_crt has not been provided"
+- name: "gencfg : Fail if uds_tls_crt has not been provided"
   assert:
     that: uds_tls_crt is defined and uds_tls_crt|length != 0
     fail_msg: "uds_tls_crt property has not been set"
@@ -32,7 +31,7 @@
 
 # 3. Provide Debug information
 # -----------------------------------------------------------------------------
-- name: "Debug information"
+- name: "gencfg : Debug information"
   debug:
     msg:
       - "UDS URL ............................ {{ uds_endpoint_url }}"
@@ -43,7 +42,7 @@
 
 # 4. Generate BASCfg for MAS
 # -----------------------------------------------------------------------------
-- name: Copy BASCfg to filesytem
+- name: "gencfg : Copy BASCfg to filesytem"
   ansible.builtin.template:
     src: bascfg.yml.j2
     dest: "{{ mas_config_dir }}/uds.yml"
