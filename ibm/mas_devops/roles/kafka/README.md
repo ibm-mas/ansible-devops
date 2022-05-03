@@ -1,5 +1,5 @@
-amqstreams
-==========
+kafka
+=====
 
 This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet) and generate configuration that can be directly applied to Maximo Application Suite.
 
@@ -37,10 +37,10 @@ The configuration to apply, there are two configurations available: small and la
 - Default Value: `small`
 
 ### kafka_storage_class
-Required.  The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Kafka cluster.
+The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Kafka cluster.
 
 - Environment Variable: `KAFKA_STORAGE_CLASS`
-- Default Value: None
+- Default Value: `
 
 ### kafka_user_name
 The name of the user to setup in the cluster for MAS.
@@ -75,7 +75,7 @@ Example Playbook
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
   roles:
-    - ibm.mas_devops.amqstreams
+    - ibm.mas_devops.kafka
 ```
 
 License
