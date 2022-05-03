@@ -7,35 +7,35 @@ The role will copy a bash script (setupdb.sh) into the Db2 pod and execute it in
 
 Role Variables
 --------------
-### db2u_instance_name
+### db2_instance_name
 The name of the db2 instance to execute the setup in.
 
 - **Required**
-- Environment Variable: `DB2U_INSTANCE_NAME`
+- Environment Variable: `DB2_INSTANCE_NAME`
 - Default Value: None
 
-### db2u_namespace
+### db2_namespace
 The namespace where the Db2 instance is running.
 
 - Optional
-- Environment Variable: `DB2U_NAMESPACE`
+- Environment Variable: `DB2_NAMESPACE`
 - Default Value: `db2u`
 
-### db2u_username
-The username that will be used to connect to the database specified by `db2u_dbname`.
+### db2_username
+The username that will be used to connect to the database specified by `db2_dbname`.
 
 - Optional
 - Environment Variable: None
 - Default Value: `db2inst1`
 
-### db2u_dbname
+### db2_dbname
 The name of the database in the instance to connect to when executing the setup script.
 
 - Optional
 - Environment Variable: None
 - Default Value: `BLUDB`
 
-### db2u_schema
+### db2_schema
 The name of the Manage schema where the hack should be targeted in.
 
 - Optional
@@ -50,7 +50,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    db2u_instancename: mydb2
+    db2_instancename: mydb2
   roles:
     - ibm.mas_devops.suite_db2_setup_for_manage
 ```

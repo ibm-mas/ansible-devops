@@ -1,0 +1,224 @@
+---
+# 1. Fail if required parameters are not set
+# -----------------------------------------------------------------------------
+- name: "Fail if db2_instance_name has not been provided"
+  assert:
+    that: db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: "db2_instance_name property has not been set"
+
+
+# 2. Load default storage classes (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
+
+
+# 3. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Namespace .................... {{ db2_namespace }}"
+      - "Storage class (meta) ......... {{ db2_meta_storage_class }}"
+      - "Storage class (data) ......... {{ db2_data_storage_class }}"
+      - "Storage class (backup) ....... {{ db2_backup_storage_class }}"
+      - "Storage class (logs) ......... {{ db2_logs_storage_class }}"
+      - "Storage class (temp) ......... {{ db2_temp_storage_class }}"
+      - "Db2 database instanceId ...... {{ db2_instance_name }}"
+      - "Db2 database name ............ {{ db2_dbname }}"
+      - "Db2 version .................. {{ db2_version }}"
+      - "MAS Instance ID .............. {{ mas_instance_id }}"
+      - "MAS Config directory ......... {{ mas_config_dir }}"
+
+
+# 4. Install a Db2u Operator
+# -----------------------------------------------------------------------------
+- name: "Create db2u Namespace"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/db2_namespace.yaml') }}"
+  register: _db2_namespace_result
+
+- name: Set 'ibm-registry' secret content
+  vars:
+    entitledAuthStr: "{{ registry_user }}:{{ entitlement_key }}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - "{\"auths\":{\"{{ registry }}/cp/cpd\":{\"username\":\"{{ registry_user }}\",\"password\":\"{{ entitlement_key }}\",\"email\":\"{{ registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
+      - "}"
+      - "}"
+  set_fact:
+    new_secret: "{{ content | join('') }}"
+
+- name: "Generate 'ibm-registry' secret"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: ibm-registry
+        namespace: "{{ db2_namespace }}"
+      data:
+        .dockerconfigjson: "{{ new_secret | to_json | b64encode }}"
+  register: secretUpdateResult
+
+- name: "Create db2u Operand Request"
+  kubernetes.core.k8s:
+    template: templates/db2_operator.yml.j2
+    wait: yes
+    wait_timeout: 120
+
+
+# 5. Get the cluster subdomain to be used for the certificate and route creation
+# -----------------------------------------------------------------------------
+- name: "Get cluster subdomain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+
+# 6. Create self-signed certificate for Db2u SSL
+# -----------------------------------------------------------------------------
+- name: "Create internal CA certificate issuer"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/certs/ca_issuer.yml.j2') }}"
+  register: createCaIssuer
+
+- name: "Create and wait for CA certificate"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/certs/ca_certificate.yml.j2') }}"
+    wait: yes
+    wait_timeout: 600 #10 minutes
+    wait_condition:
+      type: Ready
+      status: True
+  register: createCaCert
+
+- name: "Create certificate issuer"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/certs/issuer.yml.j2') }}"
+  register: createIssuer
+
+- name: "Create db2u certificate"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/certs/certificate.yml.j2') }}"
+  register: createCertificate
+
+# 7. Taint and label dedicated node if specified
+# -----------------------------------------------------------------------------
+- name: Taint and label dedicated worker node
+  when:
+    - db2_node_label is defined and db2_node_label != ''
+    - db2_dedicated_node is defined and db2_dedicated_node != ''
+  shell: |
+    oc adm taint node {{ db2_dedicated_node }} database={{ db2_node_label }}:NoSchedule --overwrite
+    oc adm drain {{ db2_dedicated_node }} --ignore-daemonsets --delete-local-data
+    oc label node {{ db2_dedicated_node }} database={{ db2_node_label }} --overwrite
+    oc adm uncordon {{ db2_dedicated_node }}
+
+
+# 8. Wait until the Db2uCluster CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the Db2uCluster CRD is available"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: db2uclusters.db2u.databases.ibm.com
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: db2_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - db2_crd_info.resources is defined
+    - db2_crd_info.resources | length > 0
+
+
+# 9. Create a Db2 instance
+# -----------------------------------------------------------------------------
+- name: "Create db2 instance"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/db2ucluster.yml.j2') }}"
+
+
+# 10. Wait for the cluster to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for db2u instance to be ready (5m delay)"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{db2_namespace}}"
+    kind: Db2uCluster
+  register: db2_cluster_lookup
+  until:
+    - db2_cluster_lookup.resources | length == 1
+    - db2_cluster_lookup.resources[0].status is defined
+    - db2_cluster_lookup.resources[0].status.state is defined
+    - db2_cluster_lookup.resources[0].status.state == "Ready"
+  retries: 24 # Approximately 2 hours before we give up
+  delay: 300 # 5 minutes
+
+
+# 11. Configure a public route for Db2
+# -----------------------------------------------------------------------------
+- name: Lookup db2u Engn Service
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    name: "c-{{db2_instance_name | lower}}-db2u-engn-svc"
+    namespace: "{{db2_namespace}}"
+  register: _db2_instance_engn_svc
+  until:
+    - _db2_instance_engn_svc.resources[0] is defined
+  retries: 15 # approx 5 minutes before we give up
+  delay: 20
+
+- name: Lookup db2u TLS certificates
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "db2u-certificate"
+    namespace: "{{db2_namespace}}"
+  register: _db2_instance_certificates
+
+- name: Set Db2u certificates as Facts
+  set_fact:
+    db2_ca_pem: "{{ _db2_instance_certificates.resources[0].data['ca.crt'] | b64decode }}"
+    db2_tls_crt: "{{ _db2_instance_certificates.resources[0].data['tls.crt'] | b64decode }}"
+    db2_tls_key: "{{ _db2_instance_certificates.resources[0].data['tls.key'] | b64decode }}"
+  when:
+    - _db2_instance_certificates is defined
+    - (_db2_instance_certificates.resources | length > 0)
+
+- name: Set Db2u TLS nodePort
+  set_fact:
+    db2_tls_nodeport: "{{item.nodePort}}"
+  when: "item.name == 'ssl-server'"
+  loop:
+    "{{_db2_instance_engn_svc.resources[0].spec.ports}}"
+
+- name: "Create Db2u route"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tlsroute.yml.j2') }}"
+
+
+# 12. Generate a JdbcCfg for MAS configuration
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/suite_jdbccfg.yml
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""

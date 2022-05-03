@@ -18,10 +18,9 @@ copyDoc cp4d_hack_worker_nodes
 copyDoc cp4d_install
 copyDoc cp4d_install_services
 copyDoc cp4d_wds
-copyDoc db2u
-copyDoc db2u_backup
-copyDoc db2u_restore
-copyDoc gencfg_uds
+copyDoc db2
+copyDoc db2_backup
+copyDoc db2_restore
 copyDoc gencfg_workspace
 copyDoc gencfg_jdbc
 copyDoc gpu_install
@@ -46,4 +45,4 @@ copyDoc suite_install
 copyDoc suite_mustgather
 copyDoc suite_mustgather_download
 copyDoc suite_verify
-copyDoc uds_install
+copyDoc uds
