@@ -99,20 +99,20 @@ ansible-playbook playbooks/dependencies/install-appconnect.yml
 ```
 
 
-## Install GPU
+## Install NVIDIA
 Installs **NVIDIA Graphical Processing Unit (GPU)** and its prerequisite **Node Feature Discovery (NFD)**. The NFD Operator is installed using the Red Hat Operators catalog source and the GPU operator is installed using the Certified Operators catalog source. 
 
-Refer to the [gpu_install](../roles/gpu_install.md) role documentation for more information.
+Refer to the [nvidia](../roles/nvidia.md) role documentation for more information.
 
 ### Example usage: 
 
 ```bash
 export NFD_NAMESPACE=nfd-operator
 export NFD_CHANNEL=stable
-export GPU_NAMESPACE=nvidia-gpu-operator
-export GPU_CHANNEL=v1.9
+export NVIDIA_NAMESPACE=nvidia-gpu-operator
+export NVIDIA_CHANNEL=v1.9
 
-ansible-playbook playbooks/dependencies/install-gpu.yml
+ansible-playbook playbooks/dependencies/nvidia.yml
 ```
 
 

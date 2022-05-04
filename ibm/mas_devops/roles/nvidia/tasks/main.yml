@@ -8,34 +8,34 @@
 - name: "Debug information"
   debug:
     msg:
-      - "GPU Namespace ...................... {{ gpu_namespace }}"
-      - "GPU Channel   ...................... {{ gpu_channel }}"
-      - "GPU Driver Version ................. {{ gpu_driver_version }}"
+      - "NVIDIA Namespace ...................... {{ nvidia_namespace }}"
+      - "NVIDIA Channel   ...................... {{ nvidia_channel }}"
+      - "NVIDIA Driver Version ................. {{ nvidia_driver_version }}"
 
 
-# 2. Create NVIDIA GPU project
+# 2. Create NVIDIA project
 # -----------------------------------------------------------------------------
-- name: "Create gpu namespace"
+- name: "Create nvidia namespace"
   kubernetes.core.k8s:
     api_version: v1
     kind: Namespace
-    name: '{{ gpu_namespace }}'
+    name: '{{ nvidia_namespace }}'
 
 
 # 3. Create NVIDIA GPU operator group and subscription
 # -----------------------------------------------------------------------------
-- name: "Create gpu operator group"
+- name: "Create nvidia operator group"
   when:
-    - gpu_namespace != "openshift-operators"
+    - nvidia_namespace != "openshift-operators"
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/gpu-operatorgroup.yml.j2') }}"
+    definition: "{{ lookup('template', 'templates/nvidia-operatorgroup.yml.j2') }}"
     wait: yes
     wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
 
-- name: "Create gpu subscription"
+- name: "Create nvidia subscription"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/gpu-subscription.yml.j2') }}"
+    definition: "{{ lookup('template', 'templates/nvidia-subscription.yml.j2') }}"
     wait: yes
     wait_timeout: 300
     wait_condition:
@@ -53,15 +53,15 @@
     wait_condition:
       type: NamesAccepted
       status: "True"
-  register: gpu_crd_info
+  register: nvidia_crd_info
   retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
   delay: 5 # seconds
   until:
-    - gpu_crd_info.resources is defined
-    - gpu_crd_info.resources | length > 0
+    - nvidia_crd_info.resources is defined
+    - nvidia_crd_info.resources | length > 0
 
 
-# 4. Create GPU Cluster Policy
+# 4. Create NVIDIA Cluster Policy
 # -----------------------------------------------------------------------------
 - name: "Create Cluster Policy instance"
   kubernetes.core.k8s:
@@ -76,11 +76,11 @@
     api_version: nvidia.com/v1
     name: "gpu-cluster-policy"
     kind: ClusterPolicy
-  register: gpu_cr_result
+  register: clusterpolicy_cr_result
   until:
-    - gpu_cr_result.resources is defined and gpu_cr_result.resources | length == 1
-    - gpu_cr_result.resources[0].status is defined
-    - gpu_cr_result.resources[0].status.state is defined
-    - gpu_cr_result.resources[0].status.state == 'ready'
+    - clusterpolicy_cr_result.resources is defined and clusterpolicy_cr_result.resources | length == 1
+    - clusterpolicy_cr_result.resources[0].status is defined
+    - clusterpolicy_cr_result.resources[0].status.state is defined
+    - clusterpolicy_cr_result.resources[0].status.state == 'ready'
   retries: 30 # approx 30 minutes before we give up
   delay: 60 # 1 minute
