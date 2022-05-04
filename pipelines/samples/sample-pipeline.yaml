@@ -164,11 +164,6 @@ spec:
       type: string
       description: Subscription source for Visual Inspection application operator
       default: ibm-operator-catalog
-    # Application Specifications
-    - name: mas_app_spec_visualinspection
-      type: string
-      description: Specifications for Visual Inspection application installation
-      default: ""
 
   tasks:
     # 1. Setup the cluster-wide dependencies
@@ -330,15 +325,15 @@ spec:
         - name: settings
           workspace: shared-settings
 
-    # 9. Install GPU and NFD operators
+    # 9. Install NVIDIA GPU and NFD operators
     # -------------------------------------------------------------------------
-    - name: install-gpu
+    - name: install-nvidia
       params:
         - name: junit_suite_name
-          value: install-gpu
+          value: install-nvidia
       taskRef:
         kind: ClusterTask
-        name: mas-devops-install-gpu
+        name: mas-devops-nvidia
       # Only load the GPU operator if Visual Inspection is being installed
       when:
         - input: "$(params.mas_app_channel_visualinspection)"
@@ -758,7 +753,7 @@ spec:
         - name: mas_app_catalog_source
           value: "$(params.mas_app_source_visualinspection)"
         - name: mas_app_spec
-          value: "$(params.mas_app_spec_visualinspection)"
+          value: "{'settings':{'storage':{'size':'$MVI_PVC_STORAGE_SIZE','storageClassName':'$MVI_PVC_STORAGE_CLASS'}}}"
       taskRef:
         name: mas-devops-install-app
         kind: ClusterTask
@@ -768,7 +763,7 @@ spec:
           operator: notin
           values: [""]
       runAfter:
-        - install-gpu
+        - install-nvidia
         - install-suite
       workspaces:
         - name: settings
