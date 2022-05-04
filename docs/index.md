@@ -5,10 +5,6 @@
 ### Python & Ansible
 [Python 3.8](https://www.python.org/downloads/) is recommended as it is the most widely used version of Python within our development team, but any in-support 3.x version of Python should work fine.
 
-!!! important
-    As of version 6 of this collection the dependencies have changed. The upgrade from `community.kubernetes` to `kubernetes.core` necessitates an upgrade in the version of the kubernetes and openshift modules from v11 to v12.
-
-
 ```bash
 python3 --version
 python3 -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1
@@ -29,7 +25,7 @@ oc version
 ```
 
 ### IBM Cloud CLI
-If you are using this collection to manage an OpenShift cluster in IBM Cloud RedHat OpenShift Kubernetes Service (ROKS), then you must install the IBM Cloud CLI:
+If you are using this collection to manage an OpenShift cluster in IBM Cloud RedHat OpenShift Kubernetes Service (ROKS), then you must also install the IBM Cloud CLI:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/master/linux-installer/idt-installer | bash
@@ -42,6 +38,11 @@ Install the collection direct from [Ansible Galaxy](https://galaxy.ansible.com/i
 
 ```
 ansible-galaxy collection install ibm.mas_devops
+```
+
+Optionally, you can also pin the version of the collection that you install, allowing you to control exactly what version of the collection is in use in your automation:
+```
+ansible-galaxy collection install ibm.mas_devops:10.0.0
 ```
 
 
@@ -57,6 +58,10 @@ If you only want to perform a simple action, you can directly invoke one of our 
 ```bash
 ansible localhost -m include_role -a name=ibm.mas_devops.ocp_setup_ocs
 ```
+
+
+## Support
+TODO: Write me
 
 
 ## Change Log
