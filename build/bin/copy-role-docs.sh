@@ -31,6 +31,7 @@ copyDoc ocp_login
 copyDoc ocp_provision
 copyDoc ocp_roks_upgrade_registry_storage
 copyDoc ocp_setup_cluster_monitoring
+copyDoc ocp_setup_common_services
 copyDoc ocp_setup_github_oauth
 copyDoc ocp_setup_ibm_catalogs
 copyDoc ocp_setup_mas_deps
