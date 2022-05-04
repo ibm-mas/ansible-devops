@@ -1,0 +1,53 @@
+---
+
+# Ansible can't support block retries, this is a relatively simple workaround
+# to achieve the same thing
+# https://github.com/ansible/ansible/issues/46203#issuecomment-556013701
+
+- name: 'wait : Wait until all subscription are ready'
+  block:
+    - name: "wait : Set the retry count"
+      set_fact:
+        sub_retry_count: "{{ 0 if sub_retry_count is undefined else sub_retry_count|int + 1 }}"
+        subs_count: 0
+        ready_subs_count: 0
+
+    - name: "wait : Lookup CPD Service Subscriptions operators"
+      vars:
+        sub_name: "{{ item }}"
+      community.kubernetes.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ hostvars[inventory_hostname][item].operatorname }}"
+        namespace: "{{ cpd_meta_namespace }}"
+      register: cpd_subs_lookup
+      with_items: "{{ cpd_services }}"
+
+    - name: "wait : Check if CPD Service Subscriptions operators are running"
+      set_fact:
+        subs_count: "{{ subs_count|int + 1 }}"
+        ready_subs_count: "{{ ready_subs_count|int + 1 if (item.resources[0].status.availableReplicas is defined and item.resources[0].status.availableReplicas == 1) else ready_subs_count|int}}"
+      with_items: "{{ cpd_subs_lookup.results }}"
+      loop_control:
+        label: "{{ item.resources[0].metadata.name if (item.resources[0] is defined and item.resources[0] | length > 0) else 'Subscription is being installed;' }} operator available replicas = {{ item.resources[0].status.availableReplicas if (item.resources[0] is defined and item.resources[0].status.availableReplicas is defined) else 0}}"
+
+    - name: "wait : Fail if one or more CPD Service Subscriptions operators are not running"
+      when: ready_subs_count != subs_count
+      fail:
+        msg: "[{{ sub_retry_count }}/30] {{ ready_subs_count }} of {{ subs_count }} subs are ready"
+
+    # reset retry count
+    - set_fact:
+        sub_retry_count: 0
+      when: ready_subs_count == subs_count
+  rescue:
+    - name: "wait : Give up after 30 attempts (approx 30 minutes)"
+      when: sub_retry_count|int >= 30
+      fail:
+        msg: Timed out waiting for subscription operator to be ready
+
+    - name: "wait : Wait for 60 seconds before checking again"
+      pause:
+        seconds: 60
+
+    - include_tasks: wait_for_subscriptions.yml

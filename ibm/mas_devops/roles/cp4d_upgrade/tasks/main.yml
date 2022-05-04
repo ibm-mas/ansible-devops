@@ -1,0 +1,24 @@
+---
+# 1. Upgrade to CP4D v4
+# -----------------------------------------------------------------------------
+# This role will upgrade CPD v4, it assumes you ran this playbook 'cp4d/hack-worker-nodes.yml'
+# prior to that so it won't run it again to update the pullsecret CPD v4 requires.
+# If it didn't run before, the CPD v4 upgrade will fail.
+
+# This role was based out of the official CPD v4 docs:
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=upgrading
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=35-upgrading-cloud-pak-data
+
+# Different namespaces are being used (cpd-meta-ops & cpd-services) so maybe we
+# have both installed at the same time to migrate data? Answer: No, it will just keep the existing
+# 'cpd-meta-ops' namespace + install CPD v4 operators into 'ibm-common-services' namespace
+#
+# - How do we migrate a Db2 instance from CP4D v3.5 to v4? Answer: This role will take care of upgrading DB2 instances too.
+# - How do we migrate <whatever> is being used in Watson Studio so that it
+#   carries over into the v4 installation? Answer: This role will take care of upgrading WSL so not disruptions to existing projects.
+# - No upgrade for Discovery (when we tried to upgrade our development env
+#   from CP4D 3.5 + WD 2.2.1 ---> CP4D 4.0 + WD 4.0 we met a lot of issues.
+#   The process is quite complex and we met a lot of issues)
+
+- name: "Upgrade CPD v4"
+  include_tasks: tasks/cpd_upgrade/upgrade.yml

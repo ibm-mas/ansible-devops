@@ -1,0 +1,52 @@
+---
+# 1. Wait db2wh-db2uoperator-request operand request
+# ----------------------------------------------------------------------------------------------
+- name: "Wait for db2wh-db2uoperator-request operand request"
+  community.kubernetes.k8s_info:
+    api_version: operator.ibm.com/v1alpha1
+    name: db2wh-db2uoperator-request
+    namespace: "{{ cpd_services_namespace }}"
+    kind: OperandRequest
+  register: db2operand_output
+  until:
+    - db2operand_output.resources is defined
+    - db2operand_output.resources | length > 0
+  retries: 60 # approx 60 minutes before we give up
+  delay: 60 # 1 minute
+
+# 2. Patch db2wh-db2uoperator-request operand request
+# to point to "ibm-common-services"
+# ----------------------------------------------------------------------------------------------
+- name: "Patch db2wh-db2uoperator-request operand request to use 'ibm-common-services' registry"
+  community.kubernetes.k8s:
+    api_version: operator.ibm.com/v1alpha1
+    name: "db2wh-db2uoperator-request"
+    namespace: "{{ cpd_services_namespace }}"
+    kind: OperandRequest
+    definition:
+      spec:
+        requests:
+          - operands:
+              - name: ibm-db2u-operator
+            registry: common-service
+            registryNamespace: "{{ cpd_meta_namespace }}"
+    apply: true
+  register: db2operand_update
+
+# 3. Wait db2wh-db2uoperator-manager operator to be ready
+# ----------------------------------------------------------------------------------------------
+- name: "Wait for db2wh-db2uoperator-manager operator to be ready"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: db2u-operator-manager
+    namespace: "{{ cpd_meta_namespace }}"
+    kind: Deployment
+  register: db2operator_output
+  until:
+    - db2operator_output.resources is defined
+    - db2operator_output.resources | length > 0
+    - db2operator_output.resources[0].status is defined
+    - db2operator_output.resources[0].status.availableReplicas is defined
+    - db2operator_output.resources[0].status.availableReplicas == 1
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 1 minute

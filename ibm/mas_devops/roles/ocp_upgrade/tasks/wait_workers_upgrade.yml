@@ -1,0 +1,50 @@
+---
+# Ansible can't support block retries, this is a relatively simple workaround
+# to achieve the same thing
+# https://github.com/ansible/ansible/issues/46203#issuecomment-556013701
+- name: 'wait : Wait until all worker nodes are upgraded to {{ ocp_upgrade_version }} successfully'
+  block:
+    - name: "wait : Set the retry count"
+      set_fact:
+        retry_count: "{{ 0 if retry_count is undefined else retry_count|int + 1 }}"
+        worker_count: 0
+        ready_worker_count: 0
+
+    - name: "Lookup worker nodes"
+      shell: ibmcloud oc worker ls -c {{ cluster_name }} -q --output json
+      register: roks_cluster_completion
+
+    - name: "Check if worker nodes completed upgrade to {{ ocp_upgrade_version }}"
+      set_fact:
+        worker_count: "{{ worker_count|int + 1 }}"
+        ready_worker_count: "{{ ready_worker_count|int + 1 if (item.kubeVersion == item.targetVersion) else ready_worker_count|int}}"
+      with_items: "{{ roks_cluster_completion.stdout }}"
+      loop_control:
+        label: "Worker node {{ item.id }} openshift version: {{ item.kubeVersion }}"
+
+    # Note: Each worker node takes around 20 minutes (safely) to complete ocp upgrade, so retry_count = worker_count * 20
+    - name: "Fail if one or more workers nodes are still pending to upgrade"
+      when: ready_worker_count != worker_count
+      fail:
+        msg: "[{{ retry_count }}/{{ worker_count|int * 20 }}] {{ ready_worker_count}} of {{ worker_count }} workers completed upgrade to {{ ocp_upgrade_version }} version"
+
+    # reset retry count when all workers are upgraded
+    - set_fact:
+        retry_count: 0
+      when: ready_worker_count == worker_count
+
+    - debug:
+        msg: "Cluster '{{ cluster_name }}' completed the upgrade to '{{ (roks_cluster_completion.stdout | from_json)[0].kubeVersion }}' version!"
+      when: ready_worker_count == worker_count
+
+  rescue:
+    - name: "wait : Give up after {{ worker_count|int * 20 }} attempts (approx {{ worker_count|int * 20 }} minutes)"
+      when: retry_count|int >= worker_count|int * 20
+      fail:
+        msg: Timed out waiting for workers to be upgraded
+
+    - name: "wait : Wait for 60 seconds before checking again"
+      pause:
+        seconds: 60
+
+    - include_tasks: wait_workers_upgrade.yml

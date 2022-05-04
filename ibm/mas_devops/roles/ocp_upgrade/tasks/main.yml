@@ -1,0 +1,29 @@
+---
+# 1. (optionally) Upgrade OCP to v4.8
+# -----------------------------------------------------------------------------
+# MAS 8.7 is fully supported on both OCP 4.6, 4.8 (we can't support 4.7 because
+# CP4D does not), however at some point before you eventually upgrade to MAS
+# 8.8 you will need to upgrade OCP to v4.8
+
+# We can only really automate the upgrade in ROKS, in other cluster types
+# the user will need to perform the upgrade themselves (or implement additional
+# provider support in this collection, we welcome all contributions)
+
+# https://cloud.ibm.com/docs/openshift?topic=openshift-update#master
+
+# 1.1 Upgrade to OCP 4.7
+- name: "Upgrade cluster {{ cluster_name }} to OCP 4.7"
+  vars:
+    ocp_upgrade_version: 4.7_openshift
+  include_tasks: tasks/ocp_upgrade.yml
+
+# Note: You are now running CP4D on an unsupported platform so may experience
+# issues in the cluster until we complete the subsequent upgrade to OCP 4.8,
+# sorry but there's no way to skip this intermediate upgrade step and CP4D
+# are skipping OCP 4.7 support.
+
+# 1.2 Upgrade to OCP 4.8
+- name: "Upgrade cluster {{ cluster_name }} to OCP 4.8"
+  vars:
+    ocp_upgrade_version: 4.8_openshift
+  include_tasks: tasks/ocp_upgrade.yml

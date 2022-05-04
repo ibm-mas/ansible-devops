@@ -1,0 +1,98 @@
+---
+# Usage:
+
+# This upgrade process will enable MAS to migrate Cloud Native cert-manager
+# to ibm-mas-common services cert manager version
+#
+# This will allow MAS to keep using same original secrets
+
+# Install IBM cert-manager to the ibm-common-services namespace
+# Uninstall jetstack cert-manager from cert-manager namespace
+# Copy secrets from cert-manager namespace to ibm-common-services
+# Copy ClusterIssuers, Issuers and Certificates from cert-manager namespace to ibm-common-services
+# Verify all ClusterIssuers, Issuers, and Certificates are in a healthy state
+
+# For MAS selfsigned instances, these are the resources that will be copied to ibm-common-services namespace
+# secret/masupgrade87-cert-internal-ca
+# secret/masupgrade87-cert-public-ca
+# issuer.cert-manager.io/mas-masupgrade87-core-internal-ca-issuer
+# issuer.cert-manager.io/mas-masupgrade87-core-public-ca-issuer
+# certificate.cert-manager.io/masupgrade87-cert-internal-ca
+# certificate.cert-manager.io/masupgrade87-cert-public-ca
+
+# 1. Set facts and debug
+# -------------------------------------------------------------------------------------------------
+# ibm-common-services is the default namespace for cert-manager since MAS 8.7
+# Check settings.certManager.namespace
+- set_fact:
+    cert_manager_namespace: "{{ suite_info.resources[0].spec.certManagerNamespace | default('cert-manager', True) }}"
+    public_ca_issuer_name: "{{ mas_namespace }}-public-ca-issuer"
+    public_issuer_name: "{{ suite_info.resources[0].status['cert-manager'].external.name }}"
+    internal_issuer_name: "{{ suite_info.resources[0].status['cert-manager'].internal.name }}"
+
+- name: General Debug
+  debug:
+    msg:
+      - "Instance ID ................ {{ mas_instance_id }}"
+      - "MAS namespace .............. {{ mas_namespace }}"
+      - "MAS Custom Cluster Issuer .. {{ custom_cluster_issuer }}"
+      - "Cert-Manager namespace ..... {{ cert_manager_namespace }}"
+      - "Common services namespace .. {{ common_services_namespace }}"
+      - "Public CA Issuer ........... {{ public_ca_issuer_name }}"
+      - "Public Issuer .............. {{ public_issuer_name }}"
+      - "Internal Issuer ............ {{ internal_issuer_name }}"
+
+# 2. Install IBM cert-manager
+# -------------------------------------------------------------------------------------------------
+- name: "Install IBM cert-manager in ibm-common-services namespace"
+  include_tasks: tasks/cert_manager_upgrade/install_ibm.yml
+
+# 3. Uninstall JetStack cert-manager
+# -------------------------------------------------------------------------------------------------
+- name: Lookup JetStack Cert Manager Deployment
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: cert-manager
+    namespace: cert-manager
+  register: cert_manager_sub_info
+
+- name: "Remove JetStack cert-manager from cert-manager namespace"
+  when:
+    - cert_manager_sub_info.resources is defined
+    - cert_manager_sub_info.resources | length == 1
+  include_tasks: tasks/cert_manager_upgrade/remove_jetstack.yml
+
+# 4. Copy Default Public CA Issuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+# These resources will only exist if the user didn't provide their own ClusterIssuer
+- name: "Public CA Issuer : Copy {{ mas_namespace }}-public-ca-issuer"
+  when: custom_cluster_issuer is not defined or custom_cluster_issuer == ''
+  include_tasks: tasks/cert_manager_upgrade/copy_issuer.yml
+  vars:
+    source_issuer_name: "{{ mas_namespace }}-public-ca-issuer"
+    source_issuer_secret_name: "{{ cert_names.public_ca }}"
+    source_certificate_name: "{{ cert_names.public_ca }}"
+
+# 5. Copy MAS Internal CA Issuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+- name: "Internal CA Issuer : Copy {{ internal_ca_issuer.name }}"
+  include_tasks: tasks/cert_manager_upgrade/copy_issuer.yml
+  vars:
+    source_issuer_name: "{{ internal_ca_issuer.name }}"
+    source_issuer_secret_name: "{{ cert_names.internal_ca }}"
+    source_certificate_name: "{{ cert_names.internal_ca }}"
+
+# 6. Copy Public ClusterIssuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+- name: "Public ClusterIssuer : Copy {{ public_issuer_name }}"
+  include_tasks: tasks/cert_manager_upgrade/copy_cluster_issuer.yml
+  vars:
+    source_cluster_issuer_name: "{{ public_issuer_name }}"
+
+# 7. Copy Internal ClusterIssuer resources from cert-manager namespace
+# -------------------------------------------------------------------------------------------------
+- name: "Internal ClusterIssuer : Copy {{ internal_issuer_name }}"
+  include_tasks: tasks/cert_manager_upgrade/copy_cluster_issuer.yml
+  vars:
+    source_cluster_issuer_name: "{{ internal_issuer_name }}"

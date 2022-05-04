@@ -1,0 +1,63 @@
+---
+## TODO: Need to find a way (assuming there´s one) to maintain
+# cpd 3.5v existing internal-tls secret.
+# During cpd v4 upgrade, new ibm-cert-manager comes into place
+# and changes existing cpd 3.5v internal-tls secrets which
+# consequently changes db2 ssl certs after upgrade which breaks the existing MAS apps db2 connection
+# Alternative for now is to reapply new internal-tls ca.crt across MAS JdbcCfg CRs
+
+- name: Lookup existing cpd 'internal-tls' secret
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: internal-tls
+    namespace: "{{ cpd_services_namespace }}"
+  register: secret_info
+
+- name: "Assert that the 'internal-tls' secret exists"
+  assert:
+    that:
+      - secret_info is defined
+      - secret_info.resources is defined
+      - secret_info.resources | length == 1
+    fail_msg: "Unable to lookup secret, the Secret 'internal-tls' does not exist: {{ secret_info }}"
+
+- name: Extract 'ca.crt' from 'internal-tls' secret
+  set_fact:
+    internal_tls_ca_crt: "{{ secret_info.resources[0].data['ca.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+
+# is it ok if we do the below?
+# we're assuming all jdbcCfg's found for a given mas instance will be derived from existing cpd
+# and must be patched with new cpd ssl cert
+# what if MAS instance has jdbcCfg for Oracle/SQL Server, or has a DB2 config from a total separate deployment
+# nothing related to cpd? how can we determine which jdbcCfg to patch with new ssl or not?
+
+- name: "Lookup MAS JdbcCfg resources"
+  community.kubernetes.k8s_info:
+    api_version: config.mas.ibm.com/v1
+    kind: JdbcCfg
+    label_selectors:
+      - mas.ibm.com/instanceId={{ mas_instance_id }}
+  register: jdbccfg_info
+
+# Below step will replace the old/existing jdbc ca.crt in spec.certificates, should we append as new crt and leave the old one instead?
+- name: "Patch MAS JdbcCfg resources with new CPD v4 'internal-tls' secret's ca.crt"
+  when:
+    - jdbccfg_info.resources is defined
+    - jdbccfg_info.resources | length > 0
+  community.kubernetes.k8s:
+    api_version: config.mas.ibm.com/v1
+    kind: JdbcCfg
+    name: "{{ jdbccfg_item.metadata.name }}"
+    namespace: "{{ mas_namespace }}"
+    definition:
+      spec:
+        certificates:
+          - alias: db2upgcert
+            crt: |
+              {{ internal_tls_ca_crt[0] }}
+  loop: "{{ jdbccfg_info.resources }}"
+  loop_control:
+    loop_var: jdbccfg_item
+    label: "MAS JdbcCfg '{{ jdbccfg_item.metadata.name }}' patched with new internal-tls ca.crt..."
+  register: jdbc_patch_output

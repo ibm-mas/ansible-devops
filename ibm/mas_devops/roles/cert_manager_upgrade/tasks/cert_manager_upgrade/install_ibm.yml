@@ -1,0 +1,69 @@
+---
+# 1. Check if ibm-common-services operator is installed already
+# -----------------------------------------------------------------------------
+- name: "Check if ibm-common-services operator is installed already"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-common-service-operator
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _cs_deployment
+
+# Only apply operator group for ibm-common-services ns, if it's not installed in first place
+# -----------------------------------------------------------------------------
+- name: "Apply operator group"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cert-manager/operatorgroup.yaml') }}"
+  when: _cs_deployment.resources[0] is not defined
+
+# 2. Install ibm-cert-manager
+# -----------------------------------------------------------------------------
+- name: Install IBM Cert Manager
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/cert-manager/subscription.yml') }}"
+    wait: yes
+    wait_timeout: 120
+
+- name: "Wait for Foundation Services resources to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _operand_deployment
+  until: _operand_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: Install Foundation Services ibm-cert-manager operand request
+  community.kubernetes.k8s:
+    definition: "{{ lookup('template', 'templates/cert-manager/ibm-cert-manager.yml') }}"
+    wait: yes
+    wait_timeout: 120
+
+# Wait until ibm-cert-manager webhook operator is ready
+# -----------------------------------------------------------------------------
+- name: "Wait for ibm-cert-manager operator to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: ibm-cert-manager-operator
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _certmanager_deployment
+  until: _certmanager_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+# Wait until cert-manager webhook operator is ready to receive requests
+# -----------------------------------------------------------------------------
+- name: "Wait for cert-manager-webhook operator to be ready (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-webhook
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _certmanager_webhook_deployment
+  until: _certmanager_webhook_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute

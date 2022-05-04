@@ -1,0 +1,56 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: norootsquash
+  namespace: kube-system
+  labels:
+    tier: management
+    app: norootsquash
+spec:
+  selector:
+    matchLabels:
+      name: norootsquash
+  template:
+    metadata:
+      labels:
+        name: norootsquash
+    spec:
+      hostNetwork: true
+      hostPID: true
+      hostIPC: true
+      containers:
+        - resources:
+            requests:
+              cpu: 0.01
+          name: systemdutil01
+          image: cp.icr.io/cp/cpd/norootsquash:3.0-amd64
+          imagePullPolicy: Always
+          args: ["-option", "restart", "-service", "nfs-idmapd.service"]
+          volumeMounts:
+            - mountPath: /host/etc
+              name: host-etc
+            - mountPath: /host/var/log
+              name: host-log
+              readOnly: true
+            - mountPath: /run/systemd
+              name: host-systemd
+            - mountPath: /host/sys
+              name: host-sys
+      imagePullSecrets:
+        - name: cpregistrysecret
+      tolerations:
+        - operator: Exists
+      volumes:
+        - name: host-etc
+          hostPath:
+            path: /etc
+        - name: host-log
+          hostPath:
+            path: /var/log
+        - name: host-systemd
+          hostPath:
+            path: /run/systemd
+        - name: host-sys
+          hostPath:
+            path: /sys
