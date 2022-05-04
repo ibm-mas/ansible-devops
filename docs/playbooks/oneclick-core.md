@@ -38,8 +38,8 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 
 ## Optional environment variables
 Refer to the role documentation for full details of all configuration options available in this playbook:
-1. [ocp_setup_ibm_catalogs](../roles/ocp_setup_ibm_catalogs.md)
-2. [ocp_setup_common_services](../roles/ocp_setup_common_services.md)
+1. [ibm_catalogs](../roles/ibm_catalogs.md)
+2. [common_services](../roles/common_services.md)
 3. [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md)
 4. [ocp_setup_cluster_monitoring](../roles/ocp_setup_cluster_monitoring.md)
 5. [mongodb](../roles/mongodb.md)
