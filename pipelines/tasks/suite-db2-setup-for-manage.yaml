@@ -1,0 +1,41 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: mas-devops-suite-db2-setup-for-manage
+spec:
+  params:
+    - name: junit_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+    - name: db2_instance_name
+      type: string
+      description: Name (specifically, not the ID) of the DB2 Warehouse instance to execute the hack
+    - name: db2_namespace
+      type: string
+      description: Namespace where the DB2 Warehouse instance to execute the hack resides
+      default: "db2u"
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: JUNIT_SUITE_NAME
+        value: $(params.junit_suite_name)
+      - name: DB2_INSTANCE_NAME
+        value: $(params.db2_instance_name)
+      - name: DB2_NAMESPACE
+        value: $(params.db2_namespace)
+
+  steps:
+    - name: suite-db2-setup-for-manage
+      command:
+        - /opt/app-root/src/run-role.sh
+        - suite_db2_setup_for_manage
+      image: quay.io/ibmmas/ansible-devops:latest
+      imagePullPolicy: Always
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: configs
+    - name: settings

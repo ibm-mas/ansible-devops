@@ -1,0 +1,20 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: db2u-tls-route
+  namespace: "{{db2_namespace}}"
+  labels:
+    formation_id: "{{db2_instance_name | lower }}"
+spec:
+  host: >-
+    {{db2_instance_name | lower }}-{{db2_namespace}}.{{_cluster_subdomain.resources[0].spec.domain}}
+  to:
+    kind: Service
+    name: "c-{{db2_instance_name | lower}}-db2u-engn-svc"
+    weight: 100
+  port:
+    targetPort: ssl-server
+  tls:
+    termination: passthrough
+    nsecureEdgeTerminationPolicy: None
+  wildcardPolicy: None

@@ -1,0 +1,32 @@
+---
+# 1. Install IBM Common Services
+# -----------------------------------------------------------------------------
+# This will result in the following operators being installed in the ibm-common-services namespace
+# - IBM Cloud Pak Foundational Services
+# - IBM NamespaceScope Operator
+# - Operand Deployment Lifecycle Manager
+#
+# Also, an operator group will be created in the namespace if one does not already exist
+
+- name: Check if operator group is present in ibm-common-services already
+  k8s_info:
+    namespace: ibm-common-services
+    kind: OperatorGroup
+  register: og_info
+
+- name: "Install Foundation Services"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
+    wait: yes
+    wait_timeout: 120
+
+- name: "Wait for Foundation Services resources to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: ibm-common-services
+    kind: Deployment
+  register: _operand_deployment
+  until: _operand_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute

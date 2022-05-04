@@ -1,0 +1,19 @@
+---
+
+# 1. Install IBM catalogs
+# -----------------------------------------------------------------------------
+- name: "Create IBM catalogs"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
+
+
+# 2. Install development (pre-release) catalogs
+# -----------------------------------------------------------------------------
+- name: "Install development (pre-release) catalogs"
+  when:
+    - artifactory_username is defined
+    - artifactory_username != ""
+    - artifactory_apikey is defined
+    - artifactory_apikey != ""
+    - not airgap_install
+  include_tasks: "tasks/development-catalogs.yml"

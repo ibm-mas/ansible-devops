@@ -1,0 +1,53 @@
+---
+
+# 1. Set sls_tls_crt
+# -----------------------------------------------------------------------------
+- name: "Set sls_tls_crt fact for SlsCfg when using existing SLS"
+  when:
+    - sls_tls_crt is not defined or sls_tls_crt == ""
+    - sls_tls_crt_local_file_path is defined and sls_tls_crt_local_file_path != ""
+  set_fact:
+    sls_tls_crt: "{{ lookup('file', sls_tls_crt_local_file_path) }}"
+  no_log: true
+
+
+# 2. Check for missing properties that do not have defaults
+# -----------------------------------------------------------------------------
+- name: "Assert that sls_url has been provided"
+  assert:
+    that: sls_url is defined and sls_url != ""
+    fail_msg: "sls_url property has not been set"
+
+- name: "Assert that sls_registration_key has been provided"
+  assert:
+    that: sls_registration_key is defined or sls_registration_key != ""
+    fail_msg: "sls_registration_key property has not been set"
+
+- name: "Assert that sls_tls_crt has been provided"
+  assert:
+    that: sls_tls_crt is defined and sls_tls_crt != ""
+    fail_msg: "sls_tls_crt property has not been set"
+
+
+# 3. Provide Debug for no-op mode
+# -----------------------------------------------------------------------------
+# Important: mas_instance_id and mas_config_dir are not required, calling this role
+# without them defined is effectively saying "do nothing", it allows the role to
+# be used safely with sls_install even when not used in the context of a specific
+# MAS installation.
+- name: "Debug no-op mode"
+  when: (mas_instance_id is not defined or mas_instance_id == "") or (mas_config_dir is not defined or mas_config_dir == "")
+  debug:
+    msg: "mas_instance_id and/or mas_config_dir are not set, so the SLSCfg will not be generated"
+
+
+# 4. Generate SLSCfg for MAS
+# -----------------------------------------------------------------------------
+- name: Copy SLSCfg to filesytem
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+  ansible.builtin.template:
+    src: slscfg.yml.j2
+    dest: "{{ mas_config_dir }}/sls.yml"
+    mode: '644'

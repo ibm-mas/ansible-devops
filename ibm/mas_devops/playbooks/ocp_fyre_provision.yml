@@ -1,0 +1,28 @@
+---
+- hosts: localhost
+  vars:
+    cluster_type: quickburn
+    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.8', True) }}"
+
+  pre_tasks:
+    # For the full set of supported environment variables refer to the playbook documentation
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'FYRE_USERNAME') != ""
+          - lookup('env', 'FYRE_APIKEY') != ""
+          - lookup('env', 'FYRE_PRODUCT_ID') != ""
+          - lookup('env', 'CLUSTER_NAME') != ""
+          - lookup('env', 'CLUSTER_TYPE') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    # 1. Provision the FYRE cluster
+    - ibm.mas_devops.ocp_provision
+
+    # 2. Login and verify the cluster is ready
+    - ibm.mas_devops.ocp_login
+    - ibm.mas_devops.ocp_verify
+
+    # 3. Install OpenShift Container Storage
+    - ibm.mas_devops.ocp_setup_ocs

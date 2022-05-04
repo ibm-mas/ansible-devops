@@ -1,0 +1,31 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: mas-devops-suite-config
+spec:
+  params:
+    - name: junit_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: JUNIT_SUITE_NAME
+        value: $(params.junit_suite_name)
+
+  steps:
+    - name: suite-config
+      command:
+        - /opt/app-root/src/run-role.sh
+        - suite_config
+      image: quay.io/ibmmas/ansible-devops:latest
+      imagePullPolicy: Always
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: configs
+    - name: settings
