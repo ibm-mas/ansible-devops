@@ -1,0 +1,15 @@
+---
+
+# 1. Load default storage classes (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
+
+# 2. Update openshift monitoring configuration
+# -------------------------------------------------------------------------------------
+# All other settings have defaults, but the user must set prometheus_storage_class and
+# prometheus_alertmgr_storage_class for us to be able to apply this configuration
+- name: Set storage class and retention period for Prometheus logs
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/cluster-monitoring.yml') }}"
+    wait: yes
+    wait_timeout: 120

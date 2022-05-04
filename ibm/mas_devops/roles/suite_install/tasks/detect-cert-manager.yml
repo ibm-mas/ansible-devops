@@ -1,0 +1,35 @@
+---
+# 1. Check if cert-manager is installed
+# -----------------------------------------------------------------------------
+- name: Check if cert-manager is installed
+  when: certManager is not defined or certManager.namespace is not defined
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: cert-manager
+    namespace: "cert-manager"
+    kind: Deployment
+  register: jetstack_cert_manager_lookup
+
+
+# 2. Choose the version of cert-manager to use
+# -----------------------------------------------------------------------------
+# If jetstack cert-manager is available use it, otherwise assume IBM
+# cert-manager will be used (ibm-common-services).
+- name: Use JetStack cert-manager
+  when:
+    - certManager is not defined or certManager.namespace is not defined
+    - jetstack_cert_manager_lookup.resources is defined
+    - jetstack_cert_manager_lookup.resources | length == 1
+  set_fact:
+    certManager:
+      namespace: cert-manager
+
+- name: Use IBM cert-manager
+  when: certManager is not defined or certManager.namespace is not defined
+  set_fact:
+    certManager:
+      namespace: ibm-common-services
+
+- debug:
+    msg:
+      - "Cert-manager namespace: {{ certManager.namespace }}"

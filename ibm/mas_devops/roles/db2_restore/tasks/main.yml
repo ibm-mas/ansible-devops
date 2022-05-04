@@ -1,0 +1,252 @@
+---
+# 1. Fail if no required keys are provided
+# -----------------------------------------------------------------------------
+- name: "Assert that db2_restore_instance_name is defined"
+  assert:
+    that:
+      - db2_restore_instance_name is defined
+      - db2_restore_instance_name != ""
+    fail_msg: "db2_restore_instance_name property is required"
+
+- name: "Assert that db2_restore_dir is defined"
+  assert:
+    that:
+      - db2_restore_dir is defined
+      - db2_restore_dir != ""
+    fail_msg: "db2_restore_dir property is required"
+
+
+# 2. Validate files requires to perform a restore are present
+# -----------------------------------------------------------------------------
+- name: "Check backup files in {{ db2_restore_dir }} folder"
+  find:
+    paths: "{{ db2_restore_dir }}"
+    file_type: "file"
+  register: find_result
+
+- set_fact:
+    db_filenames: "{{ db_filenames }} + [ '{{ item | basename }}' ]"
+  with_items: "{{ full_path }}"
+  vars:
+    db_filenames: []
+    full_path: "{{ find_result.files | map(attribute='path') | list }}"
+
+- name: Check DB2 keystore .p12 file
+  vars:
+    regex: '.+?(?=.p12)'
+  when: item is regex(regex)
+  set_fact:
+    db_backup_keystore_file: "{{ item }}"
+  loop: "{{ db_filenames }}"
+
+- name: "Assert that backup keystore file is found"
+  assert:
+    that:
+      - db_backup_keystore_file is defined
+      - db_backup_keystore_file != ""
+    fail_msg: "db_backup_keystore_file property could not be found in {{ db2_restore_dir }}, .p12 keystore file from source DB2 instance must be provided for the restore process to work."
+
+- name: Check DB2 keystore .sth file
+  vars:
+    regex: '.+?(?=.sth)'
+  when: item is regex(regex)
+  set_fact:
+    db_backup_stash_file: "{{ item }}"
+  loop: "{{ db_filenames }}"
+
+- name: "Assert that backup stash file is found"
+  assert:
+    that:
+      - db_backup_stash_file is defined
+      - db_backup_stash_file != ""
+    fail_msg: "db_backup_stash_file property could not be found in {{ db2_restore_dir }}, .sth keystore file from source DB2 instance must be provided for the restore process to work."
+
+- name: Check DB2 source master key label .kdb file
+  vars:
+    regex: '.+?(?=.kdb)'
+  when: item is regex(regex)
+  set_fact:
+    db_backup_kdb_file: "{{ item }}"
+  loop: "{{ db_filenames }}"
+
+- name: "Assert that backup master key label file is found"
+  assert:
+    that:
+      - db_backup_kdb_file is defined
+      - db_backup_kdb_file != ""
+    fail_msg: "db_backup_kdb_file property could not be found in {{ db2_restore_dir }}, .kdb file containing the DB2 master key label from source DB2 instance must be provided for the restore process to work."
+
+- name: Check DB2 backup file timestamp
+  vars:
+    regex: '\d+\d+\d+\d'
+  when: item is regex('^BLUDB.*')
+  set_fact:
+    db_backup_restore_timestamp: "{{ item | regex_search(regex) }}"
+  loop: "{{ db_filenames }}"
+
+- name: "Assert that backup timestamp is defined"
+  assert:
+    that:
+      - db_backup_restore_timestamp is defined
+      - db_backup_restore_timestamp != ""
+    fail_msg: "db_backup_restore_timestamp property has not been set, this means the DB2 backup files were not found in {{ db2_restore_dir }} or it does not have the expected format i.e 'BLUDB.0.db2inst1.DBPART000.202XXXXXXXXXXX.001'"
+
+- debug:
+    msg: "DB Backup Timestamp is: {{ db_backup_restore_timestamp }}"
+
+
+# 3. Determine which pod to run in
+# -----------------------------------------------------------------------------
+- name: "Lookup db2 Pod {{ db2_restore_instance_name }} in {{ db2_namespace }} namespace"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - type=engine
+      - app={{ db2_restore_instance_name }}
+  register: db2_pod
+
+- name: Configure facts
+  set_fact:
+    db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
+
+
+# 4. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Db2 namespace .......................... {{ db2_namespace }}"
+      - "Db2 instance name ...................... {{ db2_restore_instance_name }}"
+      - "Db2 pod name ........................... {{ db2_pod_name}}"
+      - "DB2 backup files directory ............. {{ db2_restore_dir }}"
+
+
+# 5. Upload db2 backup files from local machine to Db2uCluster pod
+# -----------------------------------------------------------------------------
+- name: "Creating backup folder in {{ db2_pod_name }}..."
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- bash -c "sudo mkdir -p {{ db2_temp_backup_dir }} {{ db2_temp_backup_logs_dir }} && sudo chown -R db2uadm {{ db2_temp_backup_dir }}/ && sudo chown -R db2inst1 {{ db2_temp_backup_logs_dir }}/"
+  register: creating_backup_folder_output
+
+- name: "Uploading DB2 backup files into DB2WH pod {{ db2_pod_name }}{{ db2_temp_backup_dir }}/...(this can take several minutes)"
+  shell: |
+    oc rsync --progress=true {{ db2_restore_dir }}/ -n {{ db2_namespace }} {{ db2_pod_name }}:{{ db2_temp_backup_dir }}/ --no-perms
+  register: copy_output
+  failed_when: copy_output.rc != 0
+
+- debug:
+    msg: "{{ copy_output.stdout_lines }}"
+
+- name: "Move backup files from {{ db2_temp_backup_dir }}/ to db2inst1/db_backup/ folder..."
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- bash -c "sudo mv /{{ db2_temp_backup_dir }} /mnt/blumeta0/home/db2inst1/ && sudo chown -R db2inst1 {{ db2_db2inst1_backup_dir }}/*"
+  register: apply_output
+
+
+# 6. Insert db2wh keystore master key label from source db2wh keystore into target db2wh keystore and copy keystore
+# https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
+# -----------------------------------------------------------------------------------------------------------------
+- name: "Check source keystore.p12 master key label..."
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "gsk8capicmd_64 -cert -list all -db '{{ db2_db2inst1_backup_dir }}/keystore.p12' -stashed" db2inst1
+  register: check_master_label_output
+
+- name: "Get source keystore.p12 master key label..."
+  vars:
+    regex: '\DB2(.*)'
+  when: item is regex('\DB2(.*)')
+  set_fact:
+    master_key_label: "{{ item | regex_search(regex) }}"
+  with_items: "{{ check_master_label_output.stdout_lines | list }}"
+
+- name: "Add extracted master key label from source into target keystore.p12 ..."
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "gsk8capicmd_64 -secretkey -add -db '/mnt/blumeta0/db2/keystore/keystore.p12' -stashed -label '{{ master_key_label }}' -format ascii -file {{ db2_db2inst1_backup_dir }}/master_key_label.kdb" db2inst1
+  register: extract_master_label_output
+
+
+# 7. Deactivate Db2 in preparation for restore
+# -----------------------------------------------------------------------------
+- name: Create preRestore.sh script in local /tmp
+  ansible.builtin.template:
+    src: preRestore.sh.j2
+    dest: /tmp/preRestore.sh
+    mode: '777'
+
+- name: Copy the preRestore.sh script into the db2 pod {{ db2_pod_name }}
+  shell: "oc cp /tmp/preRestore.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/preRestore.sh"
+
+- name: Run preRestore.sh script on db2 pod {{ db2_pod_name }}
+  shell: oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc '/tmp/preRestore.sh | tee /tmp/preRestore.log' db2inst1
+  register: prep_restore_output
+  failed_when: prep_restore_output.rc != 0
+
+- debug:
+    msg: "{{ prep_restore_output.stdout_lines }}"
+
+
+# 8. Run Db2 restore command
+# -----------------------------------------------------------------------------
+- name: Create restore.sh script in local /tmp
+  ansible.builtin.template:
+    src: restore.sh.j2
+    dest: /tmp/restore.sh
+    mode: '777'
+
+- name: Copy the restore.sh script into the db2 pod {{ db2_pod_name }}
+  shell: "oc cp /tmp/restore.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/restore.sh"
+
+- name: "Run restore.sh script (this can take several minutes...)"
+  shell: oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc '/tmp/restore.sh | tee /tmp/restore.log' db2inst1
+  register: restore_output
+  failed_when: restore_output.rc != 0 or 'SQL2581N' in restore_output.stdout_lines[0] # this Db2 error code means something went wrong in restore command
+
+- debug:
+    msg: "{{ restore_output.stdout_lines }}"
+
+
+# 9. Run Db2 rollforward command
+# -----------------------------------------------------------------------------
+- name: Create rollforward.sh script in local /tmp
+  ansible.builtin.template:
+    src: rollforward.sh.j2
+    dest: /tmp/rollforward.sh
+    mode: '777'
+
+- name: Copy the rollforward.sh script into the db2 pod {{ db2_pod_name }}
+  shell: "oc cp /tmp/rollforward.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/rollforward.sh"
+
+- name: "Run rollforward.sh script (this can take several minutes...)"
+  shell: oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc '/tmp/rollforward.sh | tee /tmp/rollforward.log' db2inst1
+  register: rollforward_output
+  failed_when: rollforward_output.rc != 0 or 'SQL1119N' in rollforward_output.stdout_lines[0] # this db2 error code means something went wrong in rollforward command
+- debug:
+    msg: "{{ rollforward_output.stdout_lines }}"
+
+
+# 10. Activate Db2 after successfull rollforward
+# -----------------------------------------------------------------------------
+- name: Create postRestore.sh script in local /tmp
+  ansible.builtin.template:
+    src: postRestore.sh.j2
+    dest: /tmp/postRestore.sh
+    mode: '777'
+
+- name: Copy the postRestore.sh script into the db2 pod {{ db2_pod_name }}
+  shell: "oc cp /tmp/postRestore.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/postRestore.sh"
+
+- name: Run postRestore.sh script on db2 pod {{ db2_pod_name }}
+  shell: oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc '/tmp/postRestore.sh | tee /tmp/postRestore.log' db2inst1
+  register: post_restore_output
+  failed_when: post_restore_output.rc != 0
+
+- debug:
+    msg: "{{ post_restore_output.stdout_lines }}"
+
+
+# 11. Delete temporary db2 backup files in target db2wh pod
+# -----------------------------------------------------------------------------
+- name: "Delete db_backup folder from {{ db2_pod_name }} now that backup files were restored..."
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- bash -c "sudo rm -rf {{ db2_temp_backup_dir }} && sudo rm -rf {{ db2_temp_backup_logs_dir }} && sudo rm -rf {{ db2_db2inst1_backup_dir }}"

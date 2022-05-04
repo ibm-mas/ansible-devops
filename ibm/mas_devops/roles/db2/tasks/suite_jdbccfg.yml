@@ -1,0 +1,31 @@
+---
+- name: Load variables to use in JDBCCfg
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  include_vars: "vars/jdbccfg/{{ mas_config_scope }}.yml"
+
+- name: Lookup db2u instance password
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "c-{{db2_instance_name | lower }}-instancepassword"
+    namespace: "{{db2_namespace}}"
+  register: _db2_instance_password
+
+- name: Set Facts for JdbcCfg
+  set_fact:
+    jdbc_instance_password: "{{ _db2_instance_password.resources[0].data.password | b64decode }}"
+    jdbc_url: "jdbc:db2://c-{{db2_instance_name | lower}}-db2u-engn-svc.{{ db2_namespace }}.svc:{{db2_tls_serviceport}}/{{db2_dbname}}:sslConnection=true;"
+
+- name: Copy JdbcCfg to filesytem
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  ansible.builtin.template:
+    src: suite_jdbccfg.yml.j2
+    dest: "{{ mas_config_dir }}/jdbc-{{ db2_instance_name | lower }}-{{ db2_namespace }}.yml"

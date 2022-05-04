@@ -1,0 +1,69 @@
+---
+# Should should be part of the manage operator, but is not so we have to do it
+# as a seperate step in the install flow for now :(
+
+# 1. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information - part 1"
+  debug:
+    msg:
+      - "Db2 namespace .......................... {{ db2_namespace }}"
+      - "Db2 instance name ...................... {{ db2_instance_name }}"
+      - "Db2 database name ...................... {{ db2_dbname }}"
+      - "Db2 database schema .................... {{ db2_schema }}"
+      - "Db2 database user ...................... {{ db2_username }}"
+
+
+# 2. Determine which pod to run in
+# -----------------------------------------------------------------------------
+# TODO: We should do this locally, connecting to the Db2 instance using the route
+# that we have created.  Execing into a container is considered bad practice in
+# production environment, and we want this collection to be production friendly.
+#
+# However given that we want to get all of this moved into the manage operator
+# ASAP, there is little point investing the effort to fix this in this collection,
+# rather that effort should be put into migrating this code into the manage
+# operator itself, so that this isn't even necessary!
+
+- name: "Lookup db2 Pod"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - type=engine
+      - app={{ db2_instance_name }}
+  register: db2_pod
+
+- name: Configure facts
+  set_fact:
+    db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
+
+- name: "Debug information - part 2"
+  debug:
+    msg:
+      - "Pod name ............................... {{ db2_pod_name }}"
+
+
+# 3. Prepare database for use with Maximo TPAE
+# -----------------------------------------------------------------------------
+- name: Create setupdb script in local /tmp
+  ansible.builtin.template:
+    src: setupdb.sh.j2
+    dest: /tmp/setupdb.sh
+    mode: '777'
+
+- name: Copy the setupdb script into the db2u pod
+  shell: "oc cp /tmp/setupdb.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/setupdb.sh"
+
+# The log file will also be available inside the pod /tmp/setupdb.log
+# The script will exit early if /tmp/setupdb_complete exists to avoid unnecessarily re-running
+# the setup, however this file will be lost after pod restarts.
+- name: Run setupdb to prepare Db2 for use with Maximo TPAE
+  shell: oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/tmp/setupdb.sh | tee /tmp/setupdb.log' db2inst1
+  register: prepare_cmds_status
+
+- name: "Database setup debug information"
+  debug:
+    msg:
+      - "Result (stdout) ........................ {{ prepare_cmds_status.stdout }}"
+      - "result (stderr) ........................ {{ prepare_cmds_status.stderr }}"
