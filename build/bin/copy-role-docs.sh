@@ -10,7 +10,6 @@ function copyDoc() {
   cp $SRC_DIR/$ROLE/README.md $TO_DIR/$ROLE.md
 }
 
-copyDoc amqstreams
 copyDoc ansible_version_check
 copyDoc appconnect_install
 copyDoc cos_setup
@@ -25,6 +24,7 @@ copyDoc gencfg_workspace
 copyDoc gencfg_jdbc
 copyDoc gpu_install
 copyDoc install_operator
+copyDoc kafka
 copyDoc mongodb
 copyDoc ocp_deprovision
 copyDoc ocp_login
@@ -36,7 +36,7 @@ copyDoc ocp_setup_mas_deps
 copyDoc ocp_setup_ocs
 copyDoc ocp_verify
 copyDoc sls
-copyDoc suite_app_configure
+copyDoc suite_app_config
 copyDoc suite_app_install
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
