@@ -39,15 +39,16 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 ## Optional environment variables
 Refer to the role documentation for full details of all configuration options available in this playbook:
 1. [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md)
-2. [ocp_setup_cluster_monitoring](../roles/ocp_setup_cluster_monitoring.md)
-3. [mongodb](../roles/mongodb.md)
-4. [sls](../roles/sls.md)
-5. [uds](../roles/uds.md)
-6. [gencfg_workspace](../roles/gencfg_workspace.md)
-7. [suite_dns](../roles/suite_dns.md)
-8. [suite_install](../roles/suite_install.md)
-9. [suite_config](../roles/suite_config.md)
-10. [suite_verify](../roles/suite_verify.md)
+2. [ocp_setup_ibm_catalogs](../roles/ocp_setup_ibm_catalogs.md)
+3. [ocp_setup_cluster_monitoring](../roles/ocp_setup_cluster_monitoring.md)
+4. [mongodb](../roles/mongodb.md)
+5. [sls](../roles/sls.md)
+6. [uds](../roles/uds.md)
+7. [gencfg_workspace](../roles/gencfg_workspace.md)
+8. [suite_dns](../roles/suite_dns.md)
+9. [suite_install](../roles/suite_install.md)
+10. [suite_config](../roles/suite_config.md)
+11. [suite_verify](../roles/suite_verify.md)
 
 
 ## Release build
