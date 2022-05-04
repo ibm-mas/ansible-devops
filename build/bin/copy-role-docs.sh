@@ -15,6 +15,7 @@ copyDoc appconnect_install
 copyDoc cos_setup
 copyDoc cert_manager_upgrade
 copyDoc cert_manager_upgrade_check
+copyDoc cp4d_hack_worker_nodes
 copyDoc cp4d_install
 copyDoc cp4d_install_services
 copyDoc cp4d_upgrade
