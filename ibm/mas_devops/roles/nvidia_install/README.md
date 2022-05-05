@@ -1,5 +1,5 @@
 nvidia_install
-===========
+==============
 
 This role installs the **NVIDIA Graphical Processing Unit (GPU)** operator and its prerequisite **Node Feature Discovery (NFD)** operator in an IBM Cloud Openshift cluster console. The role first installs the NFD operator and continues with the final step to install the NVIDIA GPU Operator. The NFD Operator is installed using the Red Hat Operators catalog source and the GPU operator is installed using the Certified Operators catalog source. 
 
