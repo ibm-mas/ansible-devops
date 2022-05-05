@@ -8,6 +8,7 @@ This master playbook will drive the following playbooks in sequence:
     - [Install Kafka (AMQ Streams)](dependencies.md#install-amq-streams) (10 minutes)
     - [Install SLS](dependencies.md#install-sls) (10 minutes)
     - [Install UDS](dependencies.md#install-uds) (35 minutes)
+    - [Install NVIDIA](dependencies.md#install-nvidia) (7 minutes)
     - [Install Cloud Pak for Data Operator](cp4d.md#install-cp4d) (2 minutes)
     - [Install AppConnect](dependencies.md#install-appconnect) (?)
     - Install Cloud Pak for Data Services:
