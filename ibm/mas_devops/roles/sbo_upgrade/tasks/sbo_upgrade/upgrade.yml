@@ -1,0 +1,60 @@
+---
+# The upgrade of SBO v1.0 consists in uninstalling v0.8 (preview channel)
+# and reinstalling SBO 1.0v (stable channel)
+
+# 1. Confirm SBO resources contain `spec.application` property (required to upgrade to SBO 1.0)
+# MAS 8.7 operators must update service binding resources with `spec.application` property
+# If any SBO resource does not include `spec.application` property, SB0 1.0 install will fail
+# # --------------------------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/sbo_upgrade/wait_for_spec_application.yml"
+
+# 2. Check if SBO v0.8 is installed (preview channel)
+# --------------------------------------------------------------------------------------------
+- name: "sbo/preview : Lookup SBO v0.8 subscription"
+  community.kubernetes.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: openshift-operators
+    name: rh-service-binding-operator
+  register: sbo_sub_info
+  retries: 20
+  delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+  until: sbo_sub_info.resources | length > 0
+
+- name: "Assert SBO v0.8 is currently installed"
+  assert:
+    that: sbo_sub_info.resources[0].status.installedCSV == 'service-binding-operator.v0.8.0'
+
+# 3. Uninstall SBO v0.8 if installed (preview channel)
+# --------------------------------------------------------------------------------------------
+- name: "Uninstall SBO v0.8 subscription"
+  community.kubernetes.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: openshift-operators
+    name: rh-service-binding-operator
+
+- name: "Delete SBO v0.8 ClusterServiceVersion"
+  community.kubernetes.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: service-binding-operator.v0.8.0
+    namespace: openshift-operators
+
+- name: "Wait for SBO v0.8 operator to be gone (60s delay)"
+  community.kubernetes.k8s_info:
+    api_version: apps/v1
+    name: service-binding-operator
+    namespace: openshift-operators
+    kind: Deployment
+  register: _sbo_deployment
+  until: _sbo_deployment.resources[0].status.availableReplicas is not defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+# 4. Install SBO v1.0 (stable channel)
+# --------------------------------------------------------------------------------------------
+- name: Install SBO v1.0 (stable channel)
+  include_tasks: "{{ role_path }}/tasks/sbo_upgrade/stable.yml"

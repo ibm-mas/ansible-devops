@@ -8,6 +8,15 @@ If you are installing CP4D v4 then the [cp4d_hack_worker_nodes](cp4d_hack_worker
 The role assumes that you have already installed the IBM Operator Catalog in the target cluster.  This action is performed by the [ocp_setup_mas_deps](ocp_setup_mas_deps.md) role if you want to use this collection to install the CatalogSource.
 
 
+CloudPak for Data support comes in two flavours: CP4D v3.5 and CP4D v4.  For users of MAS v8.7 or later only CP4D v4 is supported.  MAS 8.6 with the January 2022 maintenance updates supports both, and earlier version of MAS only support CP4D v3.5.
+
+- CloudPak for Data v3.5 is installed from the IBM Operator Catalog using the `v1.0` channel to the `cpd-meta-ops` namespace.
+- CloudPak for Data v4 is installed from the IBM Operator Catalog using the `v2.0` channel to the `ibm-common-services` namespace.
+
+!!! warning
+    The credentials to sign-in when deploying CP4D v3.5 are the defaults, which are `admin/password`.  Yes, really!
+
+
 Role Variables
 --------------
 

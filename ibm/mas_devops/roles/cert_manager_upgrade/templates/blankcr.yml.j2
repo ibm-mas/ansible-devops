@@ -1,0 +1,21 @@
+---
+apiVersion: "{{ data.apiVersion }}"
+kind: "{{ data.kind }}"
+metadata:
+  name: "{{ data.metadata.name }}"
+  labels:
+{% for label in data.metadata.labels %}
+    {{ label }}: {{ data.metadata.labels[label] }}
+{% endfor %}
+{% if data.metadata.annotations is defined %}
+  annotations:
+{% for annot in data.metadata.annotations %}
+{% if 'kubectl.kubernetes.io/last-applied-configuration' != annot %}
+    {{ annot }}: "{{ data.metadata.annotations[annot] }}"
+{% endif %}
+{% endfor %}
+{% endif %}
+spec:
+{% for i in data.spec %}
+  {{ i }}: {{ data.spec[i] }}
+{% endfor %}

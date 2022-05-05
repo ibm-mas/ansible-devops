@@ -55,60 +55,7 @@
       - "OCP Install Version ................ {{ ocp_install_version }}"
       - "OCP Install Release ................ {{ ocp_install_release }}"
 
-
-# 1. Install IBM catalogs
-# -----------------------------------------------------------------------------
-- name: "Create IBM catalogs"
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
-
-
-# 2. Install development (pre-release) catalogs
-# -----------------------------------------------------------------------------
-- name: "Install development (pre-release) catalogs"
-  when:
-    - artifactory_username is defined
-    - artifactory_username != ""
-    - artifactory_apikey is defined
-    - artifactory_apikey != ""
-    - not airgap_install
-  include_tasks: "tasks/development-catalogs.yml"
-
-
-# 3. Install Foundation Services
-# -----------------------------------------------------------------------------
-# This will result in the following operators being installed in the ibm-common-services namespace
-# - IBM Cloud Pak Foundational Services
-# - IBM NamespaceScope Operator
-# - Operand Deployment Lifecycle Manager
-#
-# Also, an operator group will be created in the namespace if one does not already exist
-
-- name: Check if operator group is present in ibm-common-services already
-  k8s_info:
-    namespace: ibm-common-services
-    kind: OperatorGroup
-  register: og_info
-
-- name: "Install Foundation Services"
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/foundation-services/subscription.yml.j2') }}"
-    wait: yes
-    wait_timeout: 120
-
-- name: "Wait for Foundation Services resources to be ready (60s delay)"
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    name: operand-deployment-lifecycle-manager
-    namespace: ibm-common-services
-    kind: Deployment
-  register: _operand_deployment
-  until: _operand_deployment.resources[0].status.availableReplicas is defined
-  retries: 90 # Approximately 10 minutes before we give up
-  delay: 60 # 1 minute
-
-
-# 4. Install cert-manager
+# 1. Install cert-manager
 # -----------------------------------------------------------------------------
 - name: Check if Cert Manager is already installed
   kubernetes.core.k8s_info:
@@ -133,7 +80,7 @@
     - not airgap_install
 
 
-# 5. Install Service Binding Operator
+# 2. Install Service Binding Operator
 # -----------------------------------------------------------------------------
 # Install stable channel with automatic updates if MAS 8.7+, otherwise, install preview channel locked to v0.8
 
@@ -148,33 +95,7 @@
     - not airgap_install
 
 
-# 6. Update openshift monitoring to define a specific storage class for Prometheus logs
-# -------------------------------------------------------------------------------------
-# All other settings have defaults, but the user must set prometheus_storage_class and
-# prometheus_alertmgr_storage_class for us to be able to apply this configuration
-- name: Set storage class and retention period for Prometheus logs
-  when:
-    - prometheus_storage_class is defined
-    - prometheus_storage_class != ""
-    - prometheus_alertmgr_storage_class is defined
-    - prometheus_alertmgr_storage_class != ""
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/cluster-monitoring/configmap.yml') }}"
-    wait: yes
-    wait_timeout: 120
-
-
-# 7. Increase cluster image registry from defautl 100Gi to 400Gi (cp4d images consume lot of space)
-# -------------------------------------------------------------------------------------
-- name: "Increase cluster image registry"
-  when: ocp_install_invoker == "ROKS"
-  command: bash "{{ role_path }}"/files/configImgRegStorage.sh
-  register: result
-
-- name: Debug Image Registry Volume order request
-  debug: msg="{{ result }}"
-
-# 8. Disable OCP Upgrade
+# 3. Disable OCP Upgrade
 # -----------------------------------------------------------------------------
 - name: "Disable OCP Upgrade"
   include_tasks: "tasks/disable-ocp-upgrade.yml"

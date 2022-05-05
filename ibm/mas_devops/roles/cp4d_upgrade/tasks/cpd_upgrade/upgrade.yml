@@ -1,0 +1,25 @@
+---
+# This role will assume you have CloudPak for Data v3.5 installed in 'cpd-meta-ops' namespace
+# and will perform an in-place upgrade to CloudPak for Data v4.0 where the CPD operators will be
+# deployed in 'ibm-common-services' namespace and the services will be deployed in existing 'cpd-meta-ops' namespace
+
+# 1. Upgrade CPD v3.5 to v4.0
+# -----------------------------------------------------------------------------
+- name: "Upgrade CloudPak for Data installation from v3.5 to v4.0"
+  include_tasks: tasks/cpd_upgrade/upgrade_cpd40.yml
+
+# 2. Upgrade CPD Services v3.5 to v4.0
+# -----------------------------------------------------------------------------
+- name: Load variables
+  include_vars: vars/cpd40.yml
+
+- name: "Upgrade CloudPak for Data Services installation from v3.5 to v4.0"
+  include_tasks: tasks/cpd_upgrade/upgrade_services_cpd40.yml
+
+# 3. Upgrade DB2 Warehouse Instances v3.5 to v4.0
+# -----------------------------------------------------------------------------
+- name: "Upgrade DB2 Warehouse instances"
+  when:
+    - item == "db2wh"
+  include_tasks: tasks/cpd_upgrade/db2wh/upgrade_db2wh_instances.yml
+  with_items: "{{ cpd_services }}"

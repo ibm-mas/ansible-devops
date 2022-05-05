@@ -1,0 +1,35 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: mas-devops-suite-mustgather
+spec:
+  params:
+    - name: base_output_dir
+      type: string
+      description: Locaton for the output of mustgather. Set as a sub-path of /workspace/mustgather to ensure that data is persisted.
+      default: "/workspace/mustgather"
+
+  stepTemplate:
+    env:
+      - name: BASE_OUTPUT_DIR
+        value: $(params.base_output_dir)
+
+  steps:
+    - name: clear-mustgather
+      command:
+        - /opt/app-root/src/clear-mustgather-workspace.sh
+      image: quay.io/ibmmas/ansible-devops:latest
+      imagePullPolicy: Always
+      workingDir: /workspace/mustgather
+    - name: suite-mustgather
+      command:
+        - /opt/app-root/src/run-role.sh
+        - suite_mustgather
+      image: quay.io/ibmmas/ansible-devops:latest
+      imagePullPolicy: Always
+      workingDir: /workspace/mustgather
+
+  workspaces:
+    - name: settings
+    - name: mustgather

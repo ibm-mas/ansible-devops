@@ -7,6 +7,7 @@ COPY requirements.yml ${HOME}/requirements.yml
 COPY requirements.txt ${HOME}/requirements.txt
 COPY env.sh ${HOME}/env.sh
 COPY run-playbook.sh ${HOME}/run-playbook.sh
+COPY run-role.sh ${HOME}/run-role.sh
 COPY save-junit-to-mongo.py ${HOME}/save-junit-to-mongo.py
 COPY ansible.cfg ${HOME}/ansible.cfg
 COPY clear-mustgather-workspace.sh ${HOME}/clear-mustgather-workspace.sh
@@ -28,6 +29,7 @@ RUN ansible-galaxy collection install ${HOME}/ibm-mas_devops.tar.gz -p /opt/app-
 RUN chmod -R ug+rwx ${HOME}/env.sh && \
     chmod -R ug+rwx ${HOME}/.ansible && \
     chmod a+x ${HOME}/run-playbook.sh && \
+    chmod a+x ${HOME}/run-role.sh && \
     chmod a+x ${HOME}/clear-mustgather-workspace.sh
 
 # Install OpenShift CLI 4.8.35

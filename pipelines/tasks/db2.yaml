@@ -1,0 +1,97 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: mas-devops-db2
+spec:
+  params:
+    - name: junit_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+
+    # Configure DB2W
+    - name: db2_instance_name
+      type: string
+      default: "" # By default, no config will be generated
+    - name: db2_version
+      type: string
+      default: "" # Use the default built into the ansible role
+    - name: db2_table_org
+      type: string
+      default: "" # Use the default built into the ansible role
+
+    # Configure JDBCCfg
+    - name: mas_config_scope
+      type: string
+      default: "" # By default, no config will be generated
+    - name: mas_application_id
+      type: string
+      default: "" # Only required is config_scope = app or wsapp
+    - name: mas_workspace_id
+      type: string
+      default: "" # Only required is config_scope = ws or wsapp
+
+    # Configure storage sizes
+    - name: db2_meta_storage_size_gb
+      type: string
+      default: "20"
+    - name: db2_user_storage_size_gb
+      type: string
+      default: "100"
+    - name: db2_backup_storage_size_gb
+      type: string
+      default: "100"
+    - name: db2_logs_storage_size_gb
+      type: string
+      default: "100"
+    - name: db2_temp_storage_size_gb
+      type: string
+      default: "100"
+
+  stepTemplate:
+    env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: JUNIT_SUITE_NAME
+        value: $(params.junit_suite_name)
+
+      # Configure Db2uCluster
+      - name: DB2_INSTANCE_NAME
+        value: $(params.db2_instance_name)
+      - name: DB2_VERSION
+        value: $(params.db2_version)
+      - name: DB2_TABLE_ORG
+        value: $(params.db2_table_org)
+
+      # Configure JdbcCfg
+      - name: MAS_CONFIG_SCOPE
+        value: $(params.mas_config_scope)
+      - name: MAS_APP_ID
+        value: $(params.mas_application_id)
+      - name: MAS_WORKSPACE_ID
+        value: $(params.mas_workspace_id)
+
+      # Configure storage sizes (storage classes are set globally in the secret)
+      - name: DB2_META_STORAGE_SIZE_GB
+        value: $(params.db2_meta_storage_size_gb)
+      - name: DB2_USER_STORAGE_SIZE_GB
+        value: $(params.db2_user_storage_size_gb)
+      - name: DB2_BACKUP_STORAGE_SIZE_GB
+        value: $(params.db2_backup_storage_size_gb)
+      - name: DB2_LOGS_STORAGE_SIZE_GB
+        value: $(params.db2_logs_storage_size_gb)
+      - name: DB2_TEMP_STORAGE_SIZE_GB
+        value: $(params.db2_temp_storage_size_gb)
+  steps:
+    - name: db2
+      command:
+        - /opt/app-root/src/run-role.sh
+        - db2
+      image: quay.io/ibmmas/ansible-devops:latest
+      imagePullPolicy: Always
+      workingDir: /workspace/configs
+
+  workspaces:
+    - name: configs
+    - name: settings
