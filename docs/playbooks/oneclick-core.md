@@ -42,7 +42,7 @@ Refer to the role documentation for full details of all configuration options av
 2. [common_services](../roles/common_services.md)
 3. [cert_manager](../roles/cert_manager.md)
 4. [sbo](../roles/sbo.md)
-5. [cluster_monitoring](../roles/ocp_setup_cluster_monitoring.md)
+5. [cluster_monitoring](../roles/cluster_monitoring.md)
 6. [mongodb](../roles/mongodb.md)
 7. [sls](../roles/sls.md)
 8. [uds](../roles/uds.md)
