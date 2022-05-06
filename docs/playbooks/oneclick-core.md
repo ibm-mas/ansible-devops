@@ -38,18 +38,19 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 
 ## Optional environment variables
 Refer to the role documentation for full details of all configuration options available in this playbook:
-1. [ocp_setup_ibm_catalogs](../roles/ocp_setup_ibm_catalogs.md)
-2. [ocp_setup_common_services](../roles/ocp_setup_common_services.md)
-3. [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md)
-4. [ocp_setup_cluster_monitoring](../roles/ocp_setup_cluster_monitoring.md)
-5. [mongodb](../roles/mongodb.md)
-6. [sls](../roles/sls.md)
-7. [uds](../roles/uds.md)
-8. [gencfg_workspace](../roles/gencfg_workspace.md)
-9. [suite_dns](../roles/suite_dns.md)
-10. [suite_install](../roles/suite_install.md)
-11. [suite_config](../roles/suite_config.md)
-12. [suite_verify](../roles/suite_verify.md)
+1. [ibm_catalogs](../roles/ibm_catalogs.md)
+2. [common_services](../roles/common_services.md)
+3. [cert_manager](../roles/cert_manager.md)
+4. [sbo](../roles/sbo.md)
+5. [cluster_monitoring](../roles/cluster_monitoring.md)
+6. [mongodb](../roles/mongodb.md)
+7. [sls](../roles/sls.md)
+8. [uds](../roles/uds.md)
+9. [gencfg_workspace](../roles/gencfg_workspace.md)
+10. [suite_dns](../roles/suite_dns.md)
+11. [suite_install](../roles/suite_install.md)
+12. [suite_config](../roles/suite_config.md)
+13. [suite_verify](../roles/suite_verify.md)
 
 
 ## Release build

@@ -44,14 +44,3 @@ export FYRE_APIKEY=xxx
 
 ansible-playbook ibm.mas_devops.ocp_fyre_deprovision
 ```
-
-
-## Configure
-Refer to the role documentation for more information:
-
-- [ocp_setup_mas_deps](../roles/ocp_setup_mas_deps.md)
-- [ocp_setup_cluster_monitoring](../roles/ocp_setup_cluster_monitoring.md)
-
-```bash
-ansible-playbook ibm.mas_devops.ocp_configure
-```

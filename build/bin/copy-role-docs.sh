@@ -11,10 +11,13 @@ function copyDoc() {
 }
 
 copyDoc ansible_version_check
-copyDoc appconnect_install
-copyDoc cos_setup
+copyDoc appconnect
+copyDoc cert_manager
 copyDoc cert_manager_upgrade
 copyDoc cert_manager_upgrade_check
+copyDoc cluster_monitoring
+copyDoc common_services
+copyDoc cos
 copyDoc cp4d_hack_worker_nodes
 copyDoc cp4d_install
 copyDoc cp4d_install_services
@@ -23,24 +26,23 @@ copyDoc cp4d_wds
 copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
-copyDoc gencfg_workspace
 copyDoc gencfg_jdbc
-copyDoc gpu_install
+copyDoc gencfg_workspace
+copyDoc ibm_catalogs
 copyDoc install_operator
 copyDoc kafka
 copyDoc mongodb
+copyDoc nvidia_gpu
 copyDoc ocp_deprovision
+copyDoc ocp_disable_updates
+copyDoc ocp_github_oauth
 copyDoc ocp_login
 copyDoc ocp_provision
 copyDoc ocp_roks_upgrade_registry_storage
-copyDoc ocp_setup_cluster_monitoring
-copyDoc ocp_setup_common_services
-copyDoc ocp_setup_github_oauth
-copyDoc ocp_setup_ibm_catalogs
-copyDoc ocp_setup_mas_deps
-copyDoc ocp_setup_ocs
 copyDoc ocp_upgrade
 copyDoc ocp_verify
+copyDoc ocs
+copyDoc sbo
 copyDoc sbo_upgrade
 copyDoc sls
 copyDoc suite_app_config

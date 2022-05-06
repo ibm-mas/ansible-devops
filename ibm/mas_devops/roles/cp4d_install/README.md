@@ -5,8 +5,7 @@ This role installs [IBM Cloud Pak for Data](https://www.ibm.com/uk-en/products/c
 
 If you are installing CP4D v4 then the [cp4d_hack_worker_nodes](cp4d_hack_worker_nodes.md) role must have been executed during cluster set up to update the cluster's global image pull secret and reload all worker nodes.
 
-The role assumes that you have already installed the IBM Operator Catalog in the target cluster.  This action is performed by the [ocp_setup_mas_deps](ocp_setup_mas_deps.md) role if you want to use this collection to install the CatalogSource.
-
+The role assumes that you have already installed the IBM Operator Catalog in the target cluster.  This action is performed by the [ibm_catalogs](ibm_catalogs.md) role if you want to use this collection to install the CatalogSource.
 
 CloudPak for Data support comes in two flavours: CP4D v3.5 and CP4D v4.  For users of MAS v8.7 or later only CP4D v4 is supported.  MAS 8.6 with the January 2022 maintenance updates supports both, and earlier version of MAS only support CP4D v3.5.
 

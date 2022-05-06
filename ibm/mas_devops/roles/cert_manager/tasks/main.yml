@@ -1,0 +1,24 @@
+---
+# 1. Install cert-manager
+# -----------------------------------------------------------------------------
+- name: Check if Cert Manager is already installed
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: cert-manager
+    namespace: "cert-manager"
+    kind: Deployment
+  register: _cert_manager_deployed
+
+# Install foundation services cert-manager if MAS 8.7+, otherwise, install jetstack/standalone version
+- name: Define which Cert Manager to install
+  set_fact:
+    cm_version: "{{ 'foundation-services' if (mas_channel not in mas_channels_old_releases) else 'standalone' }}"
+  when:
+    - (_cert_manager_deployed.resources | length) == 0
+    - not airgap_install
+
+- include_tasks: "tasks/install/{{ cm_version }}.yml"
+  when:
+    - cm_version is defined and cm_version !=''
+    - (_cert_manager_deployed.resources | length) == 0
+    - not airgap_install
