@@ -3,6 +3,28 @@
 cpd_primary_storage_class: "{{ lookup('env', 'CPD_PRIMARY_STORAGE_CLASS') }}"
 cpd_metadata_storage_class: "{{ lookup('env', 'CPD_METADATA_STORAGE_CLASS') }}"
 
+
 # ------ CPD namespaces -----------------------------------------------------------------------------------------------
-common_services_namespace: 'ibm-common-services' # You shouldn't need to change this, is it even supported to change?
-cpd_zen_namespace: "{{ lookup('env', 'CPD_SERVICE_NAMESPACE') | default('ibm-cp4d-zen', true) }}"
+
+# Specialized installations
+# -------------------------
+#
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=planning-architecture#architecture__deployment-architecture
+#
+# A specialized installation allows a user with project administrator permissions to install the software after
+# a cluster administrator completes the initial cluster setup.
+# A specialized installation also facilitates strict division between Red Hat OpenShift Container Platform
+# projects (Kubernetes namespaces).
+# In a specialized installation, the IBM Cloud Pak foundational services operators are installed in the
+# ibm-common-services project and the Cloud Pak for Data operators are installed in a separate project
+# (typically cpd-operators). Each project has a dedicated:
+#
+# - Operator group, which specifies the OwnNamespace installation mode
+# - NamespaceScope Operator, which allows the operators in the project to manage operators
+#   and service workloads in specific projects
+#
+# In this way, you can specify different settings for the IBM Cloud Pak foundational services and
+# for the Cloud Pak for Data operators.
+cpd_operators_namespace: "{{ lookup('env', 'CPD_OPERATORS_NAMESPACE') | default('ibm-cpd-operators', true) }}"
+
+cpd_instance_namespace: "{{ lookup('env', 'CPD_INSTANCE_NAMESPACE') | default('ibm-cpd', true) }}"

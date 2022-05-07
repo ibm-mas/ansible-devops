@@ -28,7 +28,7 @@
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: operand-deployment-lifecycle-manager
-    namespace: "{{ common_services_namespace }}"
+    namespace: "ibm-common-services"
     kind: Deployment
   register: odlm_lookup
 
@@ -38,7 +38,7 @@
       - odlm_lookup.resources is defined
       - odlm_lookup.resources | length >= 0
       - odlm_lookup.resources[0].status.availableReplicas is defined
-    fail_msg: "IBM Common Services (&ODLM) must be installed before installing CloudPak for Data v4."
+    fail_msg: "IBM Common Services (& ODLM) must be installed before installing CloudPak for Data v4."
 
 
 # 3. Load default storage classes and debug
@@ -49,58 +49,102 @@
 - name: "Debug information"
   debug:
     msg:
-      - "CPD operator namespace ................. {{ common_services_namespace }}"
+      - "CPD operator namespace ................. {{ cpd_operators_namespace }}"
       - "CPD primary storage class .............. {{ cpd_primary_storage_class }}"
       - "CPD metadata storage class ............. {{ cpd_metadata_storage_class }}"
 
 
-# 4. Create Zen Namespace
+# 4. Create Namespaces & OperatorGroup
 # -----------------------------------------------------------------------------
-- name: "Create Zen Namespace"
+- name: "Create Namespaces for CP4D"
   kubernetes.core.k8s:
     apply: yes
-    template: 'templates/namespace.yml.j2'
+    template: 'templates/namespaces.yml.j2'
+
+- name: "Create OperatorGroup for CP4D"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/operatorGroup.yml.j2'
 
 
-# 5. Install CP4D operator
+# 5. Create Operator Subscriptions
 # -----------------------------------------------------------------------------
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=tasks-creating-operator-subscriptions
+
+# 5.1 We don't use the scheduling service
+
+# 5.2 Install the IBM Cloud Pak for Data platform operator
+#
+# This will result in two operators being installed into the cpd operator namespace:
+# - cpd-platform-operator-manager v2.0
+# - ibm-common-service-operator v3
+
 - name: "Create CPD 4.0 Subscription in IBM Common Services namespace"
   kubernetes.core.k8s:
     apply: yes
-    template: 'templates/subscription-cpd-operator.yml.j2'
-  register: _cpd_subscription_result
+    template: 'templates/subscription.yml.j2'
 
 - name: "Wait for cpd-platform-operator-manager to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: cpd-platform-operator-manager
-    namespace: "{{ common_services_namespace }}"
+    namespace: "{{ cpd_operators_namespace }}"
     kind: Deployment
-  register: _cpd_subscription
-  until: _cpd_subscription.resources[0].status.availableReplicas is defined
+  register: cpd_subscription
+  until: cpd_subscription.resources[0].status.availableReplicas is defined
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-
-# 6. Install CP4D Zen
-# -----------------------------------------------------------------------------
-- name: "Apply CloudPak for Data 4.0 - Operand Request"
+# 5.3 Enabling services to use namespace scoping with third-party operators
+- name: "Create NamespaceScope for CP4D"
   kubernetes.core.k8s:
     apply: yes
-    template: 'templates/operand.yml.j2'
-  register: _cpd_operand_result
+    template: 'templates/namespaceScope.yml.j2'
 
-- name: "Apply CloudPak for Data 4.0 CR"
+
+# 6. Install CloudPak for Data
+# -----------------------------------------------------------------------------
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=installing-cloud-pak-data
+
+- name: "Install CloudPak for Data"
   kubernetes.core.k8s:
     apply: yes
     template: 'templates/ibmcpd.yml.j2'
-  register: _cpd_ibmcdp_result
+
+# oc get Ibmcpd ibmcpd-cr -o jsonpath="{.status.controlPlaneStatus}{'\n'}"
+- name: "Wait for controlPlaneStatus to be 'Completed' (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    name: ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: Ibmcpd
+  register: ibmcpd_lookup
+  until:
+    - ibmcpd_lookup.resources[0].status.controlPlaneStatus is defined
+    - ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Completed"
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+# oc get ZenService lite-cr -o jsonpath="{.status.zenStatus}{'\n'}"
+- name: "Wait for zenStatus to be ready to be 'Completed' (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    name: lite-cr
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: ZenService
+  register: zenservice_lookup
+  until:
+    - zenservice_lookup.resources[0].status.zenStatus is defined
+    - zenservice_lookup.resources[0].status.zenStatus == "Completed"
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
 
 - name: "Wait for ibm-zen-operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: ibm-zen-operator
-    namespace: "{{ common_services_namespace }}"
+    namespace: "{{ cpd_operators_namespace }}"
     kind: Deployment
   register: _zen_deployment
   until: _zen_deployment.resources[0].status.availableReplicas is defined
@@ -108,91 +152,91 @@
   delay: 60 # 1 minute
 
 
-# 7. Wait ZenService lite-cr to be deployed
-# ----------------------------------------------------------------------------------------------
-- name: "Wait ZenService lite-cr to be deployed"
-  community.kubernetes.k8s_info:
-    api_version: zen.cpd.ibm.com/v1
-    name: lite-cr
-    namespace: "{{ cpd_zen_namespace }}"
-    kind: ZenService
-  register: zenlitecr_output
-  until:
-    - zenlitecr_output.resources is defined
-    - zenlitecr_output.resources | length > 0
-  retries: 60 # approx 60 minutes before we give up
-  delay: 60 # 1 minute
+# # 7. Wait ZenService lite-cr to be deployed
+# # ----------------------------------------------------------------------------------------------
+# - name: "Wait ZenService lite-cr to be deployed"
+#   community.kubernetes.k8s_info:
+#     api_version: zen.cpd.ibm.com/v1
+#     name: lite-cr
+#     namespace: "{{ cpd_instance_namespace }}"
+#     kind: ZenService
+#   register: zenlitecr_output
+#   until:
+#     - zenlitecr_output.resources is defined
+#     - zenlitecr_output.resources | length > 0
+#   retries: 60 # approx 60 minutes before we give up
+#   delay: 60 # 1 minute
 
 
-# 8. Patch ZenService lite-cr to scaleConfig: medium
-# ----------------------------------------------------------------------------------------------
-# Per recommendation from CP4D team
-- name: "Patch ZenService lite-cr to scaleConfig: medium"
-  community.kubernetes.k8s:
-    api_version: zen.cpd.ibm.com/v1
-    name: lite-cr
-    namespace: "{{ cpd_zen_namespace }}"
-    kind: ZenService
-    definition:
-      spec:
-        scaleConfig: medium
-        ZenCoreMetaDb:
-          name: zen-metastoredb
-          kind: StatefulSet
-          container: zen-metastoredb
-          replicas: 3
-          resources:
-            limits:
-              cpu: 2
-              memory: 4Gi
-            requests:
-              cpu: 200m
-              memory: 1024Mi
-    apply: true
-  register: zenlitecr_update
+# # 8. Patch ZenService lite-cr to scaleConfig: medium
+# # ----------------------------------------------------------------------------------------------
+# # Per recommendation from CP4D team
+# - name: "Patch ZenService lite-cr to scaleConfig: medium"
+#   community.kubernetes.k8s:
+#     api_version: zen.cpd.ibm.com/v1
+#     name: lite-cr
+#     namespace: "{{ cpd_instance_namespace }}"
+#     kind: ZenService
+#     definition:
+#       spec:
+#         scaleConfig: medium
+#         ZenCoreMetaDb:
+#           name: zen-metastoredb
+#           kind: StatefulSet
+#           container: zen-metastoredb
+#           replicas: 3
+#           resources:
+#             limits:
+#               cpu: 2
+#               memory: 4Gi
+#             requests:
+#               cpu: 200m
+#               memory: 1024Mi
+#     apply: true
+#   register: zenlitecr_update
 
 
-# 9. Wait CPD installation to finish
-# ----------------------------------------------------------------------------------------------
-- name: "Wait for ibmcpd CPD 4.0 to be Completed"
-  kubernetes.core.k8s_info:
-    api_version: cpd.ibm.com/v1
-    name: ibmcpd-cr
-    namespace: "{{ cpd_zen_namespace }}"
-    kind: Ibmcpd
-  register: _ibmcpd_subscription
-  until:
-    - _ibmcpd_subscription.resources[0].status is defined
-    - _ibmcpd_subscription.resources[0].status.controlPlaneStatus is defined
-    - _ibmcpd_subscription.resources[0].status.controlPlaneStatus == "Completed"
-  retries: 90 # Approximately 90 minutes before we give up
-  delay: 60 # 1 minute
+# # 9. Wait CPD installation to finish
+# # ----------------------------------------------------------------------------------------------
+# - name: "Wait for ibmcpd CPD 4.0 to be Completed"
+#   kubernetes.core.k8s_info:
+#     api_version: cpd.ibm.com/v1
+#     name: ibmcpd-cr
+#     namespace: "{{ cpd_instance_namespace }}"
+#     kind: Ibmcpd
+#   register: _ibmcpd_subscription
+#   until:
+#     - _ibmcpd_subscription.resources[0].status is defined
+#     - _ibmcpd_subscription.resources[0].status.controlPlaneStatus is defined
+#     - _ibmcpd_subscription.resources[0].status.controlPlaneStatus == "Completed"
+#   retries: 90 # Approximately 90 minutes before we give up
+#   delay: 60 # 1 minute
 
-- name: "Wait for ZenService CPD 4.0 to be Completed"
-  kubernetes.core.k8s_info:
-    api_version: zen.cpd.ibm.com/v1
-    name: lite-cr
-    namespace: "{{ cpd_zen_namespace }}"
-    kind: ZenService
-  register: _zen_subscription
-  until: _zen_subscription.resources[0].status.zenStatus == "Completed"
-  retries: 90 # Approximately 90 minutes before we give up
-  delay: 60 # 1 minute
+# - name: "Wait for ZenService CPD 4.0 to be Completed"
+#   kubernetes.core.k8s_info:
+#     api_version: zen.cpd.ibm.com/v1
+#     name: lite-cr
+#     namespace: "{{ cpd_instance_namespace }}"
+#     kind: ZenService
+#   register: _zen_subscription
+#   until: _zen_subscription.resources[0].status.zenStatus == "Completed"
+#   retries: 90 # Approximately 90 minutes before we give up
+#   delay: 60 # 1 minute
 
 
-# 10. Provide CP4D dashboard URL
-# -----------------------------------------------------------------------------
-- name: "Retrieve admin credentials"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    name: admin-user-details
-    namespace: "{{ cpd_zen_namespace }}"
-    kind: Secret
-  register: _cpd_admin
+# # 10. Provide CP4D dashboard URL
+# # -----------------------------------------------------------------------------
+# - name: "Retrieve admin credentials"
+#   kubernetes.core.k8s_info:
+#     api_version: v1
+#     name: admin-user-details
+#     namespace: "{{ cpd_instance_namespace }}"
+#     kind: Secret
+#   register: _cpd_admin
 
-- name: "Obtain CP4D dashboard URL"
-  debug:
-    msg:
-      - "CP4D Dashboard ................. https://{{_zen_subscription.resources[0].status.url}}"
-      - "CP4D Username .................. admin"
-      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_zen_namespace }}' namespace"
+# - name: "Obtain CP4D dashboard URL"
+#   debug:
+#     msg:
+#       - "CP4D Dashboard ................. https://{{_zen_subscription.resources[0].status.url}}"
+#       - "CP4D Username .................. admin"
+#       - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
