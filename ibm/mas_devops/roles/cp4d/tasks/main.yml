@@ -121,23 +121,33 @@
   register: ibmcpd_lookup
   until:
     - ibmcpd_lookup.resources[0].status.controlPlaneStatus is defined
-    - ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Completed"
+    - ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Completed" or ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Failed"
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
+
+- name: "Check that the controlPlaneStatus is 'Completed'"
+  assert:
+    that: ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Completed"
+    fail_msg: "IBM CloudPak for Data install failed (controlPlaneStatus)"
 
 # oc get ZenService lite-cr -o jsonpath="{.status.zenStatus}{'\n'}"
 - name: "Wait for zenStatus to be ready to be 'Completed' (60s delay)"
   kubernetes.core.k8s_info:
-    api_version: cpd.ibm.com/v1
+    api_version: zen.cpd.ibm.com/v1
     name: lite-cr
     namespace: "{{ cpd_instance_namespace }}"
     kind: ZenService
   register: zenservice_lookup
   until:
     - zenservice_lookup.resources[0].status.zenStatus is defined
-    - zenservice_lookup.resources[0].status.zenStatus == "Completed"
+    - zenservice_lookup.resources[0].status.zenStatus == "Completed" or zenservice_lookup.resources[0].status.zenStatus == "Failed"
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
+
+- name: "Check that the zenStatus is 'Completed'"
+  assert:
+    that: zenservice_lookup.resources[0].status.zenStatus == "Completed"
+    fail_msg: "IBM CloudPak for Data install failed (zenStatus)"
 
 
 - name: "Wait for ibm-zen-operator to be ready (60s delay)"
