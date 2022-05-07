@@ -1,0 +1,109 @@
+---
+# 1. Debug
+# -----------------------------------------------------------------------------
+- debug:
+    msg:
+      - "CPD Product Version .................... {{ cpd_product_version }}"
+      - "CPD Service ............................ {{ cpd_service }}"
+
+
+# 2. Load default storage classes and debug
+# -----------------------------------------------------------------------------
+- name: "Determine storage classes"
+  include_tasks: "{{ role_path }}/tasks/determine-storage-classes.yml"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "CPD Operator Namespace ................. {{ cpd_operator_namespace }}"
+      - "CPD Service Namespace .................. {{ cpd_service_namespace }}"
+      - "CPD service storage class .............. {{ cpd_service_storage_class }}"
+      - "CPD service to be installed ............ {{ cpd_service_name }}"
+
+
+# 3. Install CP4D Service Subscriptions
+# -----------------------------------------------------------------------------
+- name: "Install CP4D Service Subscription"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/{{ cpd_service }}/subscription.yml.j2') }}"
+
+
+# 4. Wait for CP4D Service Subscription to be ready
+# -----------------------------------------------------------------------------
+- name: "Lookup CPD Service Subscription operators"
+  vars:
+    service_name: "{{ cpd_service_name }}"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: "{{ hostvars[inventory_hostname][cpd_service_name].operatorname }}"
+    namespace: "{{ cpd_operator_namespace }}"
+  register: cpd_service_lookup
+
+- debug:
+    var: cpd_service_lookup
+
+
+# 5. Install CP4D Service CRs
+# -----------------------------------------------------------------------------
+- name: "Install Service CR"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/{{ cpd_service_name }}/service.yml.j2') }}"
+
+
+# 6. Wait for CP4D Service to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for CPD Service CR to be ready"
+  kubernetes.core.k8s_info:
+    api_version: "{{ hostvars[inventory_hostname][cpd_service_name].apiVersion }}"
+    kind: "{{ hostvars[inventory_hostname][cpd_service_name].crdkind }}"
+    name: "{{ hostvars[inventory_hostname][cpd_service_name].crname }}"
+    namespace: "{{ cpd_service_namespace }}"
+  register: cpd_cr_lookup
+  until:
+    - cpd_cr_lookup.resources is defined
+    - cpd_cr_lookup.resources | length == 1
+    # TODO: Additional conditions
+
+- debug:
+    var: cpd_cr_lookup
+
+
+# 7. Provide CP4D dashboard URL
+# -----------------------------------------------------------------------------
+- name: "Obtain CP4D dashboard URL"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Route
+    label_selectors: component=ibm-nginx
+  register: cpd_route_lookup
+  until:
+    - cpd_route_lookup.resources is defined
+    - cpd_route_lookup.resources | length > 0
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Set the CP4D Dashboard URL"
+  when: cpd_route_lookup is defined and cpd_route_lookup.resources[0] | length > 0
+  set_fact:
+    cpd_url: https://{{ cpd_route_lookup.resources[0].spec.host }}
+
+- name: "CP4D Installation Summary"
+  debug:
+    msg:
+      - "CP4D Dashboard ................. {{ cpd_url }}"
+      - "CP4D Username .................. admin"
+      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_service_namespace }}' namespace"
+      - "CP4D Service Installed ......... {{ cpd_service }}"
+
+
+# 8. Generate MAS Config (Watson Studio)
+# -----------------------------------------------------------------------------
+- name: Create WatsonStudio yml definition into {{ mas_config_dir }} folder
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+    - cpd_services == 'wsl'
+  include_tasks: "watsonstudiocfg.yml"
