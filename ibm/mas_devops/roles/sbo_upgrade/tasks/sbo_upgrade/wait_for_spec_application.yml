@@ -28,15 +28,15 @@
         # ready_worker_count: "{{ ready_worker_count|int + 1 if (item.kubeVersion == item.targetVersion) else ready_worker_count|int}}"
 
     - name: "Fail if one or more SBO resources are still pending to include 'spec.application' in its definition"
-      when: ready_sbo_count != sbo_count
-      fail:
-        msg: "[{{ retry_count }}/30] {{ ready_sbo_count}} of {{ sbo_count }} SBO resources already includes 'spec.application' in its definition"
+      assert:
+        that: ready_sbo_count == sbo_count
+        fail_msg: "[{{ retry_count }}/30] {{ ready_sbo_count}} of {{ sbo_count }} SBO resources already includes 'spec.application' in its definition"
 
   rescue:
     - name: "wait : Give up after 30 attempts (approx 30 minutes)"
-      when: retry_count|int >= 30
-      fail:
-        msg: Timed out waiting for SBO resources to be updated with 'spec.application'
+      assert:
+        that: retry_count|int < 30
+        fail_msg: Timed out waiting for SBO resources to be updated with 'spec.application'
 
     - name: "wait : Wait for 60 seconds before checking again"
       pause:

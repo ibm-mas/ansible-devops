@@ -46,9 +46,9 @@
           - "{{ 'Error! Something wrong while upgrading this app workspace, check its CR for more details...' if (item.resources | json_query('[*].status.conditions[?type==`Failure`][].reason') | select ('match','Failed') | list | length == 1) }}"
 
     - name: "wait : Fail if one or more apps workspace operators are pending to upgrade..."
-      when: ready_apps_count != apps_count
-      fail:
-        msg: "[{{ app_retry_count }}/50] {{ ready_apps_count }} of {{ apps_count }} apps workspace operators are reconciled"
+      assert:
+        that: ready_apps_count == apps_count
+        fail_msg: "[{{ app_retry_count }}/50] {{ ready_apps_count }} of {{ apps_count }} apps workspace operators are reconciled"
 
     # reset retry count when all apps are upgraded
     - set_fact:
@@ -56,9 +56,9 @@
       when: ready_apps_count == apps_count
   rescue:
     - name: "wait : Give up after 50 attempts (approx 5 hours)"
-      when: app_retry_count|int >= 50
-      fail:
-        msg: Timed out waiting for app operator to be ready
+      assert:
+        that: app_retry_count | int < 50
+        fail_msg: Timed out waiting for app operator to be ready
 
     - name: "wait : Wait for 5 minutes before checking again"
       pause:

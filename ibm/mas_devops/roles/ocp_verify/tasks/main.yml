@@ -77,9 +77,8 @@
 # If at least one of the secrets exist, then all good, skip it
 # If neither of the two secrets are found, then fail with a message
 - name: Fail if cluster required secrets do not exist
-  when:
-    - cluster_primary_secret.resources is defined
-    - cluster_primary_secret.resources | length == 0
-  fail:
-    msg:
-      - "This cluster does not contain required secrets named 'router-certs-default' or '{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*') }}' or '{{ cluster_name }}-primary-cert-bundle-secret' under 'openshift-ingress' namespace. Please, provision a new cluster."
+  assert:
+    that:
+      - cluster_primary_secret.resources is defined
+      - cluster_primary_secret.resources | length > 0
+    fail_msg: "This cluster does not contain required secrets named 'router-certs-default' or '{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*') }}' or '{{ cluster_name }}-primary-cert-bundle-secret' under 'openshift-ingress' namespace. Please, provision a new cluster."

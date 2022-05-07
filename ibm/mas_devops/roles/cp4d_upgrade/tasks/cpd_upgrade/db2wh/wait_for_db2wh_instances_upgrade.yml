@@ -29,9 +29,9 @@
         label: "DB2 instance {{ db2wh_instances.metadata.name }} upgrade status: {{ db2wh_instances.status.state }} for version '{{ db2wh_upgrade_version }}'"
 
     - name: "wait : Fail if one or more DB2 instances are not upgraded yet"
-      when: ready_db2wh_count != db2wh_count
-      fail:
-        msg: "[{{ retry_count }}/120] {{ ready_db2wh_count }} of {{ db2wh_count }} DB2 instances are upgraded to version '{{ db2wh_upgrade_version }}'"
+      assert:
+        that: ready_db2wh_count == db2wh_count
+        fail_msg: "[{{ retry_count }}/120] {{ ready_db2wh_count }} of {{ db2wh_count }} DB2 instances are upgraded to version '{{ db2wh_upgrade_version }}'"
 
     # reset retry count
     - set_fact:
@@ -39,9 +39,9 @@
       when: ready_db2wh_count == db2wh_count
   rescue:
     - name: "wait : Give up after 120 attempts (approx 2 hours)"
-      when: retry_count|int >= 120
-      fail:
-        msg: Timed out waiting for service operator to be ready
+      assert:
+        that: retry_count|int < 120
+        fail_msg: Timed out waiting for service operator to be ready
 
     - name: "wait : Wait for 60 seconds before checking again"
       pause:
