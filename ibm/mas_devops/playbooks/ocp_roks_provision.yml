@@ -14,7 +14,6 @@
         that:
           - lookup('env', 'IBMCLOUD_APIKEY') != ""
           - lookup('env', 'CLUSTER_NAME') != ""
-          - lookup('env', 'CPD_ENTITLEMENT_KEY') != ""
         fail_msg: "One or more required environment variables are not defined"
 
   roles:
@@ -24,13 +23,13 @@
     # 2. Login to the cluster
     - ibm.mas_devops.ocp_login
 
-    # 3. Install an IBM Entitlement key as a global image pull secret
+    # 3. Reboot worker nodes to install an IBM Entitlement key as a global image pull secret
     - name: ibm.mas_devops.cp4d_hack_worker_nodes
-      when: lookup('env', 'REBOOT_WORKER_NODES') != "false"
+      when: lookup('env', 'REBOOT_WORKER_NODES') == "true"
 
     # 4. Upgrade the cluster's image registry to 400Gb
     - name: ibm.mas_devops.ocp_roks_upgrade_registry_storage
-      when: lookup('env', 'UPGRADE_IMAGE_REGISTRY_STORAGE') != "false"
+      when: lookup('env', 'UPGRADE_IMAGE_REGISTRY_STORAGE') == "true"
 
     # 5. Verify the cluster is ready to use
     - ibm.mas_devops.ocp_verify

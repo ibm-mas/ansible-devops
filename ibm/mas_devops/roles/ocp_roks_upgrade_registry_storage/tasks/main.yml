@@ -1,6 +1,74 @@
 ---
+# 0. Check for required parameters
+# -------------------------------------------------------------------------------------
+- name: "Check that IBMCloud API Key was provided"
+  assert:
+    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
+    fail_msg: "IBMCloud API key (ibmcloud_apikey) must be provided to resize the image registry volume"
 
-# 1. Increase cluster image registry from default 100Gi to 400Gi (cp4d images consume lot of space)
+
+# 1. Lookup the PVC ID
+# -------------------------------------------------------------------------------------
+- name: Lookup openshift-image-registry PVC
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PersistentVolumeClaim
+    name: image-registry-storage
+    namespace: openshift-image-registry
+  register: lookup_registry_pvc
+
+- name: "Check that we could find the PVC"
+  assert:
+    that:
+      - lookup_registry_pvc.resources is defined
+      - lookup_registry_pvc.resources | length == 1
+      - lookup_registry_pvc.resources[0].spec.volumeName is defined
+
+- name: "Set PVC ID"
+  set_fact:
+    registry_pvc_id: "{{ lookup_registry_pvc.resources[0].spec.volumeName }}"
+
+
+# 2. Lookup the Volume ID
+# -------------------------------------------------------------------------------------
+- name: Lookup Persistent Volume
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PersistentVolume
+    name: "{{ registry_pvc_id }}"
+    namespace: openshift-image-registry
+  register: lookup_registry_pv
+
+- name: "Check that we could find the PV"
+  assert:
+    that:
+      - lookup_registry_pv.resources is defined
+      - lookup_registry_pv.resources | length == 1
+      - lookup_registry_pv.resources[0].metadata.labels.volumeId is defined
+
+- name: "Set Volume ID"
+  set_fact:
+    registry_volume_id: "{{ lookup_registry_pv.resources[0].metadata.labels.volumeId }}"
+
+- name: "Debug Lookups"
+  debug:
+    msg:
+      - "Registry PVC ID ........................ {{ registry_pvc_id }}"
+      - "Registry IBMCloud Volume ID ............ {{ registry_volume_id }}"
+
+
+# 3. Login to IBM Cloud
+# -----------------------------------------------------------------------------
+- name: "login-roks : Login to IBM Cloud"
+  shell: |
+    ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
+  register: login_result
+  retries: 10
+  delay: 30
+  until: login_result.rc == 0
+
+
+# 4. Increase the size of the Volume using IBMCloud API
 # -------------------------------------------------------------------------------------
 - name: "Increase cluster image registry storage"
-  command: "bash {{ role_path }}/files/configImgRegStorage.sh {{ ibmcloud_apikey }} {{ image_registry_size }}"
+  command: "bash {{ role_path }}/files/configImgRegStorage.sh {{ registry_volume_id }} {{ image_registry_size }}"
