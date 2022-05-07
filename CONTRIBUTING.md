@@ -100,29 +100,18 @@ TASK [ibm.mas_devops.mongodb : community : Create MongoDb cluster]
 
 ### Failure condition checks
 All roles must provide clear feedback about missing required properties that do not have a default built into the role.
-- The feedback must be exact.  Do not return a list of required properties, state specifically which variable is missing.
-- Be sure to check for empty string as well as not defined.  Properties that are resolved from environment variables which are not set will be passed into the role as empty string (`""`) rather than undefined.
+- Use Ansible `assert/that` rather than `fail/when`.
+- Be sure to check for empty string as well as not defined.  Properties that are resolved from environment variables which are not set will be passed into the role as an empty string (`""`) rather than undefined.
 
 ```yaml
-# 0. Validate required properties
+# 1. Validate required properties
 # -----------------------------------------------------------------------------
-- name: "community : Fail if mongodb_storage_class is not provided"
-  when: mongodb_storage_class is not defined or mongodb_storage_class == ""
-  fail:
-    msg: "mongodb_storage_class property is required"
-
-- name: "community : Fail if mongodb_storage_capacity_data is not provided"
-  when: mongodb_storage_capacity_data is not defined or mongodb_storage_capacity_data == ""
-  fail:
-    msg: "mongodb_storage_capacity_data property is required"
-
-- name: "community : Fail if mongodb_storage_capacity_logs is not provided"
-  when: mongodb_storage_capacity_logs is not defined or mongodb_storage_capacity_logs == ""
-  fail:
-    msg: "mongodb_storage_capacity_logs property is required"
-
-- name: "community : Fail if mas_instance_id is not provided"
-  when: mas_instance_id is not defined or mas_instance_id == ""
-  fail:
-    msg: "mas_instance_id property is required"
+- name: "community : Fail if required properties are not provided"
+  assert:
+    that:
+      - mongodb_storage_class is defined and mongodb_storage_class != ""
+      - mongodb_storage_capacity_data is defined and mongodb_storage_capacity_data != ""
+      - mongodb_storage_capacity_logs is defined and mongodb_storage_capacity_logs != ""
+      - mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "One or more required properties are missing"
 ```

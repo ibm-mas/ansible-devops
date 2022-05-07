@@ -32,9 +32,9 @@
         label: "{{ item.resources[0].metadata.name if (item.resources[0] is defined and item.resources[0] | length > 0) else 'Subscription is being installed;' }} operator available replicas = {{ item.resources[0].status.availableReplicas if (item.resources[0] is defined and item.resources[0].status.availableReplicas is defined) else 0}}"
 
     - name: "wait : Fail if one or more CPD Service Subscriptions operators are not running"
-      when: ready_subs_count != subs_count
-      fail:
-        msg: "[{{ sub_retry_count }}/30] {{ ready_subs_count }} of {{ subs_count }} subs are ready"
+      assert:
+        that: ready_subs_count == subs_count
+        fail_msg: "[{{ sub_retry_count }}/30] {{ ready_subs_count }} of {{ subs_count }} subs are ready"
 
     # reset retry count
     - set_fact:
@@ -42,9 +42,9 @@
       when: ready_subs_count == subs_count
   rescue:
     - name: "wait : Give up after 30 attempts (approx 30 minutes)"
-      when: sub_retry_count|int >= 30
-      fail:
-        msg: Timed out waiting for subscription operator to be ready
+      assert:
+        that: sub_retry_count|int < 30
+        fail_msg: Timed out waiting for subscription operator to be ready
 
     - name: "wait : Wait for 60 seconds before checking again"
       pause:

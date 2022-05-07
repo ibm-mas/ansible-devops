@@ -35,14 +35,14 @@
         label: "{{ item.resources[0].metadata.name }} CR status = {{ 'Completed' if (item.resources[0].status is defined and item.resources[0].status.values() | select('match', '^.*Completed*$')) else 'In Progress' }}"
 
     - name: "wait : Fail if one or more CPD Services installation still in progress..."
-      when: ready_services_count != services_count
-      fail:
-        msg: "[{{ service_retry_count }}/30] {{ ready_services_count }} of {{ services_count }} services are ready"
+      assert:
+        that: ready_services_count == services_count
+        fail_msg: "[{{ service_retry_count }}/30] {{ ready_services_count }} of {{ services_count }} services are ready"
   rescue:
     - name: "wait : Give up after 30 attempts (approx 3 hours)"
-      when: service_retry_count|int >= 30
-      fail:
-        msg: Timed out waiting for service operator to be ready
+      assert:
+        that: service_retry_count|int < 30
+        fail_msg: Timed out waiting for service operator to be ready
 
     - name: "wait : Wait for 5 minutes before checking again"
       pause:

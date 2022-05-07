@@ -24,9 +24,9 @@
 
     # Note: Each worker node takes around 20 minutes (safely) to complete ocp upgrade, so retry_count = worker_count * 20
     - name: "Fail if one or more workers nodes are still pending to upgrade"
-      when: ready_worker_count != worker_count
-      fail:
-        msg: "[{{ retry_count }}/{{ worker_count|int * 20 }}] {{ ready_worker_count}} of {{ worker_count }} workers completed upgrade to {{ ocp_upgrade_version }} version"
+      assert:
+        that: ready_worker_count == worker_count
+        fail_msg: "[{{ retry_count }}/{{ worker_count|int * 20 }}] {{ ready_worker_count}} of {{ worker_count }} workers completed upgrade to {{ ocp_upgrade_version }} version"
 
     # reset retry count when all workers are upgraded
     - set_fact:
@@ -39,9 +39,9 @@
 
   rescue:
     - name: "wait : Give up after {{ worker_count|int * 20 }} attempts (approx {{ worker_count|int * 20 }} minutes)"
-      when: retry_count|int >= worker_count|int * 20
-      fail:
-        msg: Timed out waiting for workers to be upgraded
+      assert:
+        that: retry_count | int < worker_count | int * 20
+        fail_msg: Timed out waiting for workers to be upgraded
 
     - name: "wait : Wait for 60 seconds before checking again"
       pause:
