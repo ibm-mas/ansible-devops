@@ -92,7 +92,33 @@
     var: cpd_cr_lookup
 
 
-# 7. Generate MAS Config (Watson Studio)
+# 7. Provide CP4D dashboard URL
+# -----------------------------------------------------------------------------
+- name: "Obtain CP4D dashboard URL"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Route
+    label_selectors: component=ibm-nginx
+  register: cpd_route_lookup
+  until:
+    - cpd_route_lookup.resources is defined
+    - cpd_route_lookup.resources | length > 0
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Set CP4D URL"
+  set_fact:
+    cpd_url: https://{{ cpd_route_lookup.resources[0].spec.host }}
+
+- name: "CP4D Installation Summary:"
+  debug:
+    msg:
+      - "CP4D Dashboard ................. {{ cpd_url }}"
+      - "CP4D Username .................. admin"
+      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_services_namespace }}' namespace"
+      - "CP4D Services Installed ........ {{ cpd_services }}"
+
+# 8. Generate MAS Config (Watson Studio)
 # -----------------------------------------------------------------------------
 - name: Create WatsonStudio yml definition into {{ mas_config_dir }} folder
   when:
