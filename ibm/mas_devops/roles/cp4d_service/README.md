@@ -31,7 +31,7 @@ Users may **optionally** pass this parameter to explicitly control the version o
 - Environment Variable: `CPD_VERSION`
 - Default Value: None
 
-### cpd_primary_storage_class
+### cpd_service_storage_class
 Required.  This is used to set `spec.storageClass` in all CPD v3.5 services, and many - but not all - CP4D v4.0 services.
 
 - Environment Variable: `CPD_STORAGE_CLASS`
@@ -43,7 +43,7 @@ Required only if installing Watson Discovery service (`wd`) on CP4D v4.0.
 - Environment Variable: `CPD_WD_STORAGE_CLASS`
 - Default Value: None
 
-### cpd_services_namespace
+### cpd_instance_namespace
 Only supported if `cpd_version = cpd40`, otherwise unused. For v3.5 support this value is always set to `cpd-meta-ops`.
 
 - Environment Variable: `CPD_SERVICES_NAMESPACE`
@@ -94,7 +94,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cpd_primary_storage_class: ibmc-file-gold-gid
+    cpd_service_storage_class: ibmc-file-gold-gid
     cpd_wd_storage_class: ibmc-block-gold
     # Install the Db2 Warehouse & WSL services
     cpd_services:

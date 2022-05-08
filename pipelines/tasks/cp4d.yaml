@@ -1,0 +1,50 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: mas-devops-cp4d
+spec:
+  params:
+    - name: junit_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+
+    # Namespace configuration (Optional, defaults built into Ansible role)
+    - name: cpd_operator_namespace
+      type: string
+      default: ""
+    - name: cpd_instance_namespace
+      type: string
+      default: ""
+
+    # Storage classes (Optional, defaults built into Ansible role)
+    - name: cpd_primary_storage_class
+      type: string
+      default: ""
+    - name: cpd_metadata_storage_class
+      type: string
+      default: ""
+
+  stepTemplate:
+    env:
+      - name: JUNIT_SUITE_NAME
+        value: $(params.junit_suite_name)
+
+      - name: CPD_OPERATOR_NAMESPACE
+        value: $(params.cpd_operator_namespace)
+      - name: CPD_INSTANCE_NAMESPACE
+        value: $(params.cpd_instance_namespace)
+
+      - name: CPD_PRIMARY_STORAGE_CLASS
+        value: $(params.cpd_primary_storage_class)
+      - name: CPD_METADATA_STORAGE_CLASS
+        value: $(params.cpd_metadata_storage_class)
+
+  steps:
+    - name: cp4d
+      command:
+        - /opt/app-root/src/run-role.sh
+        - cp4d
+      image: quay.io/ibmmas/ansible-devops:latest
+      imagePullPolicy: Always

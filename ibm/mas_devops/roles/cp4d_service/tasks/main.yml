@@ -1,10 +1,15 @@
 ---
 # 1. Debug
 # -----------------------------------------------------------------------------
+- name: "Check that CPD Service name has been provided"
+  assert:
+    that: cpd_service_name is defined and cpd_service_name != ""
+    fail_msg: "CPD service name (cpd_service_name) is a required parameter to run this role"
+
 - debug:
     msg:
       - "CPD Product Version .................... {{ cpd_product_version }}"
-      - "CPD Service ............................ {{ cpd_service }}"
+      - "CPD Service ............................ {{ cpd_service_name }}"
 
 
 # 2. Load default storage classes and debug
@@ -16,17 +21,28 @@
   debug:
     msg:
       - "CPD Operator Namespace ................. {{ cpd_operator_namespace }}"
-      - "CPD Service Namespace .................. {{ cpd_service_namespace }}"
-      - "CPD service storage class .............. {{ cpd_service_storage_class }}"
+      - "CPD Instance Namespace ................. {{ cpd_instance_namespace }}"
       - "CPD service to be installed ............ {{ cpd_service_name }}"
+      - "CPD service storage class .............. {{ cpd_service_storage_class }}"
 
 
 # 3. Install CP4D Service Subscriptions
 # -----------------------------------------------------------------------------
-- name: "Install CP4D Service Subscription"
+
+- name: "Create EDB Operand Request if service is Watson Discovery"
+  when: cpd_service_name == "wd"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/{{ cpd_service }}/subscription.yml.j2') }}"
+    definition: "{{ lookup('template', 'templates/wd/operandRequest-edb.yml.j2') }}"
+
+- name: "Install CP4D Service Subscription"
+  vars:
+    cpd_service_subscription_name: "cpd-{{ hostvars[inventory_hostname][cpd_service_name] }}-operator"
+    cpd_service_operator_name: "{{ hostvars[inventory_hostname][cpd_service_name].operator_name }}"
+    cpd_service_channel_name: "{{ hostvars[inventory_hostname][cpd_service_name].channel_name }}"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
 
 # 4. Wait for CP4D Service Subscription to be ready
@@ -37,7 +53,7 @@
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: Deployment
-    name: "{{ hostvars[inventory_hostname][cpd_service_name].operatorname }}"
+    name: "{{ hostvars[inventory_hostname][cpd_service_name].operator_name }}"
     namespace: "{{ cpd_operator_namespace }}"
   register: cpd_service_lookup
 
@@ -50,17 +66,17 @@
 - name: "Install Service CR"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/{{ cpd_service_name }}/service.yml.j2') }}"
+    definition: "{{ lookup('template', 'templates//services/{{ cpd_service_name }}.yml.j2') }}"
 
 
 # 6. Wait for CP4D Service to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for CPD Service CR to be ready"
   kubernetes.core.k8s_info:
-    api_version: "{{ hostvars[inventory_hostname][cpd_service_name].apiVersion }}"
-    kind: "{{ hostvars[inventory_hostname][cpd_service_name].crdkind }}"
-    name: "{{ hostvars[inventory_hostname][cpd_service_name].crname }}"
-    namespace: "{{ cpd_service_namespace }}"
+    api_version: "{{ hostvars[inventory_hostname][cpd_service_name].api_version }}"
+    kind: "{{ hostvars[inventory_hostname][cpd_service_name].crd_kind }}"
+    name: "ibmcpd-{{ cpd_service_name }}"
+    namespace: "{{ cpd_instance_namespace }}"
   register: cpd_cr_lookup
   until:
     - cpd_cr_lookup.resources is defined
@@ -71,39 +87,11 @@
     var: cpd_cr_lookup
 
 
-# 7. Provide CP4D dashboard URL
-# -----------------------------------------------------------------------------
-- name: "Obtain CP4D dashboard URL"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Route
-    label_selectors: component=ibm-nginx
-  register: cpd_route_lookup
-  until:
-    - cpd_route_lookup.resources is defined
-    - cpd_route_lookup.resources | length > 0
-  retries: 10 # Approximately 10 minutes before we give up
-  delay: 60 # 1 minute
-
-- name: "Set the CP4D Dashboard URL"
-  when: cpd_route_lookup is defined and cpd_route_lookup.resources[0] | length > 0
-  set_fact:
-    cpd_url: https://{{ cpd_route_lookup.resources[0].spec.host }}
-
-- name: "CP4D Installation Summary"
-  debug:
-    msg:
-      - "CP4D Dashboard ................. {{ cpd_url }}"
-      - "CP4D Username .................. admin"
-      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_service_namespace }}' namespace"
-      - "CP4D Service Installed ......... {{ cpd_service }}"
-
-
-# 8. Generate MAS Config (Watson Studio)
+# 7. Generate MAS Config (Watson Studio)
 # -----------------------------------------------------------------------------
 - name: Create WatsonStudio yml definition into {{ mas_config_dir }} folder
   when:
     - mas_instance_id is defined and mas_instance_id != ""
     - mas_config_dir is defined and mas_config_dir != ""
     - cpd_services == 'wsl'
-  include_tasks: "watsonstudiocfg.yml"
+  include_tasks: "gencfg-watsonstudio.yml"
