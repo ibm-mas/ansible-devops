@@ -1,0 +1,48 @@
+---
+
+# 1. Create Namespaces & OperatorGroup
+# -----------------------------------------------------------------------------
+- name: "Create Namespaces for CP4D"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/namespaces.yml.j2'
+
+- name: "Create OperatorGroup for CP4D"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/operatorGroup.yml.j2'
+
+
+# 2. Create Operator Subscriptions
+# -----------------------------------------------------------------------------
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=tasks-creating-operator-subscriptions
+
+# 5.1 We don't use the scheduling service
+
+# 5.2 Install the IBM Cloud Pak for Data platform operator
+#
+# This will result in two operators being installed into the cpd operator namespace:
+# - cpd-platform-operator-manager v2.0
+# - ibm-common-service-operator v3
+
+- name: "Create CPD 4.0 Subscription in IBM Common Services namespace"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/subscription.yml.j2'
+
+- name: "Wait for cpd-platform-operator-manager to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cpd-platform-operator-manager
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: Deployment
+  register: cpd_subscription
+  until: cpd_subscription.resources[0].status.availableReplicas is defined
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+# 5.3 Enabling services to use namespace scoping with third-party operators
+- name: "Create NamespaceScope for CP4D"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/namespaceScope.yml.j2'
