@@ -21,6 +21,7 @@
     - redhat_catalog_info.resources[0].status.connectionState.lastObservedState is defined
     - redhat_catalog_info.resources[0].status.connectionState.lastObservedState == "READY"
 
+
 # 2. Check for router and ingress secrets
 # -----------------------------------------------------------------------------
 # We don't know why but sometimes the name of the secret will be
@@ -76,9 +77,26 @@
 
 # If at least one of the secrets exist, then all good, skip it
 # If neither of the two secrets are found, then fail with a message
-- name: Fail if cluster required secrets do not exist
+- when:
+    - router_certs_default_secret is defined
+    - router_certs_default_secret.resources | length > 0
+  set_fact:
+    found_router_default_secret: true
+- when:
+    - found_router_default_secret is not defined
+    - cluster_ingress_secret is defined
+    - cluster_ingress_secret.resources | length > 0
+  set_fact:
+    found_cluster_ingress_secret: true
+- when:
+    - found_cluster_ingress_secret is not defined
+    - cluster_primary_secret is defined
+    - cluster_primary_secret.resources | length > 0
+  set_fact:
+    found_cluster_primary_secret: true
+
+
+- name: Fail if one of the cluster required secrets do not exist
   assert:
-    that:
-      - cluster_primary_secret.resources is defined
-      - cluster_primary_secret.resources | length > 0
+    that: found_router_default_secret is defined or found_cluster_ingress_secret is defined or found_cluster_primary_secret is defined
     fail_msg: "This cluster does not contain required secrets named 'router-certs-default' or '{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*') }}' or '{{ cluster_name }}-primary-cert-bundle-secret' under 'openshift-ingress' namespace. Please, provision a new cluster."
