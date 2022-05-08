@@ -37,9 +37,9 @@
 
 - name: "Install CP4D Service Subscription"
   vars:
-    cpd_service_subscription_name: "cpd-{{ hostvars[inventory_hostname][cpd_service_name] }}-operator"
-    cpd_service_operator_name: "{{ hostvars[inventory_hostname][cpd_service_name].operator_name }}"
-    cpd_service_channel_name: "{{ hostvars[inventory_hostname][cpd_service_name].channel_name }}"
+    cpd_service_subscription_name: "cpd-{{ cpd_service_name }}-operator"
+    cpd_service_package_name: "{{ cpd_service_info[cpd_service_name].package_name }}"
+    cpd_service_channel_name: "{{ cpd_service_info[cpd_service_name].channel_name }}"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
@@ -53,7 +53,7 @@
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: Deployment
-    name: "{{ hostvars[inventory_hostname][cpd_service_name].operator_name }}"
+    name: "{{ cpd_service_info[cpd_service_name].operator_name }}"
     namespace: "{{ cpd_operators_namespace }}"
   register: cpd_service_lookup
 
@@ -73,8 +73,8 @@
 # -----------------------------------------------------------------------------
 - name: "Wait for CPD Service CR to be ready"
   kubernetes.core.k8s_info:
-    api_version: "{{ hostvars[inventory_hostname][cpd_service_name].api_version }}"
-    kind: "{{ hostvars[inventory_hostname][cpd_service_name].crd_kind }}"
+    api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
+    kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
     name: "ibmcpd-{{ cpd_service_name }}"
     namespace: "{{ cpd_instance_namespace }}"
   register: cpd_cr_lookup
