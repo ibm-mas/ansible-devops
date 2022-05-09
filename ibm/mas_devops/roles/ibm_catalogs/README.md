@@ -15,7 +15,7 @@ Role Variables
 Use to enable the install of development catalog sources for pre-release installation.
 
 - Optional
-- Environment Variable: `W3_USERNAME`
+- Environment Variable: `ARTIFACTORY_USERNAME`
 - Default Value: None
 
 ### artifactory_apikey
