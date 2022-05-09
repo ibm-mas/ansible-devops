@@ -28,7 +28,7 @@
 # "router-certs-default" and sometimes it will be named after the cluster's ingress
 # cluster must have at least one of these secrets to run the playbooks from this collection
 
-# First lookup for router-certs-default secret
+# 2.1 First lookup for router-certs-default secret
 - name: Lookup for router-certs-default secret
   no_log: true
   k8s_info:
@@ -38,12 +38,16 @@
     namespace: openshift-ingress
   register: router_certs_default_secret
 
-# If router-certs-default does not exist, then lookup for secret named after cluster ingress
-# If router-certs-default exists, then skip it
-- name: Get cluster subdomain
+- name: "Record that we have found the router default cert secret"
   when:
-    - router_certs_default_secret.resources is defined
-    - router_certs_default_secret.resources | length == 0
+    - router_certs_default_secret is defined
+    - router_certs_default_secret.resources | length > 0
+  set_fact:
+    found_router_default_secret: true
+
+# 2.2. If router-certs-default does not exist, lookup for secret named after cluster ingress
+- name: Get cluster subdomain
+  when: found_router_default_secret is not defined
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
@@ -52,8 +56,9 @@
 
 - name: Lookup for cluster ingress secret
   when:
-    - router_certs_default_secret.resources is defined
-    - router_certs_default_secret.resources | length == 0
+    - found_router_default_secret is not defined
+    - cluster_subdomain.resources is defined
+    - cluster_subdomain.resources | length > 0
   no_log: true
   k8s_info:
     api_version: v1
@@ -62,12 +67,19 @@
     namespace: openshift-ingress
   register: cluster_ingress_secret
 
-# If "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}" does not exist, then lookup for secret named after cluster ingress
-# If "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}" exists, then skip it
+- name: "Record that we have found the cluster ingress cert secret"
+  when:
+    - found_router_default_secret is not defined
+    - cluster_ingress_secret is defined
+    - cluster_ingress_secret.resources | length > 0
+  set_fact:
+    found_cluster_ingress_secret: true
+
+# 2.3.  If "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}" does not exist, lookup for secret named after cluster ingress
 - name: Get cluster subdomain
   when:
-    - cluster_ingress_secret.resources is defined
-    - cluster_ingress_secret.resources | length == 0
+    - found_router_default_secret is not defined
+    - found_cluster_ingress_secret is not defined
   k8s_info:
     api_version: v1
     kind: Secret
@@ -75,27 +87,19 @@
     namespace: openshift-ingress
   register: cluster_primary_secret
 
-# If at least one of the secrets exist, then all good, skip it
-# If neither of the two secrets are found, then fail with a message
-- when:
-    - router_certs_default_secret is defined
-    - router_certs_default_secret.resources | length > 0
-  set_fact:
-    found_router_default_secret: true
-- when:
+- name: "Record that we have found the cluster primary cert secret"
+  when:
     - found_router_default_secret is not defined
-    - cluster_ingress_secret is defined
-    - cluster_ingress_secret.resources | length > 0
-  set_fact:
-    found_cluster_ingress_secret: true
-- when:
     - found_cluster_ingress_secret is not defined
     - cluster_primary_secret is defined
     - cluster_primary_secret.resources | length > 0
   set_fact:
     found_cluster_primary_secret: true
 
-
+# 3. Determine which secret was found
+# -----------------------------------------------------------------------------
+# If at least one of the secrets exist, then all good.  If neither of the two
+# secrets are found, then fail with a message
 - name: Fail if one of the cluster required secrets do not exist
   assert:
     that: found_router_default_secret is defined or found_cluster_ingress_secret is defined or found_cluster_primary_secret is defined
