@@ -1,0 +1,119 @@
+---
+# This will generate WatsonStudioCfg for MAS and also create WSL project id if not provided
+# We need to retrieve CPD url and admin password's for wsl config in mas
+# CPD url is passed as var to this task, the admin password we'll retrieve below
+
+# 1. Provide CP4D credentials
+# -----------------------------------------------------------------------------
+- name: Retrieve CPD admin credentials
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: admin-user-details
+    namespace: "{{ cpd_services_namespace }}"
+    kind: Secret
+  register: _cpd_admin
+
+- name: Assert CPD admin credentials exists
+  assert:
+    that:
+      - _cpd_admin.resources is defined
+      - _cpd_admin.resources | length > 0
+
+- set_fact:
+    cpd_admin_password: "{{ _cpd_admin.resources[0].data.initial_admin_password | b64decode }}"
+  no_log: true
+
+# 2. Get CP4D Beaker token to enable Watson API authentication
+# -----------------------------------------------------------------------------
+- name: Authorize the CP4D (get Bearer token)
+  uri:
+    url: "{{ cpd_url }}/icp4d-api/v1/authorize"
+    validate_certs: no
+    method: POST
+    headers:
+      cache-control: "no-cache"
+    body_format: "json"
+    body: "{\"username\":\"{{ cpd_admin_username }}\",\"password\":\"{{ cpd_admin_password }}\"}"
+    status_code: 200
+    timeout: 30
+  register: cp4d_authorization
+
+- name: Get the CP4D Bearer token
+  no_log: true
+  set_fact:
+    cp4d_bearer_token: "{{ cp4d_authorization.json.token }}"
+
+# - debug:
+#     msg: "{{ cp4d_bearer_token }}"
+
+# 3. Create WSL project
+# -----------------------------------------------------------------------------
+# If cpd_wsl_project_id is not set, then we will create one WSL project to be passed to MAS config
+# So first, let's check if the cpd_wsl_project_id was set, if so then we will check if it exists in cpd
+- name: Check if the WSL project is defined and if it exists in CP4D
+  when: cpd_wsl_project_id is defined and cpd_wsl_project_id !=""
+  uri:
+    url: "{{ cpd_url }}/v2/projects/{{ cpd_wsl_project_id }}"
+    validate_certs: no
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cp4d_bearer_token }}"
+      cache-control: "no-cache"
+      Content-Type: "application/json"
+    body_format: "json"
+    body: "{{ lookup('template','templates/create_wsl_project.json.j2') }}"
+    status_code: 200,404
+    timeout: 30
+  register: lookup_wsl_project_output
+
+- debug:
+    msg: "'cpd_wsl_project_id' was not set or was not found in cpd instance, therefore one wsl project will be created to be used in MAS!"
+  when:
+    - lookup_wsl_project_output.status is not defined or (lookup_wsl_project_output.status is defined and lookup_wsl_project_output.status == 404)
+
+# only create wsl project if cpd_wsl_project_id is not pre-set or if the defined cpd_wsl_project_id does not exists in cpd, otherwise create one wsl project
+- name: Create the WSL project in CP4D if one is needed
+  when:
+    - lookup_wsl_project_output.status is not defined or (lookup_wsl_project_output.status is defined and lookup_wsl_project_output.status == 404)
+  uri:
+    url: "{{ cpd_url }}/transactional/v2/projects"
+    validate_certs: no
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cp4d_bearer_token }}"
+      cache-control: "no-cache"
+      Content-Type: "application/json"
+    body_format: "json"
+    body: "{{ lookup('template','templates/create_wsl_project.json.j2') }}"
+    status_code: 201,409
+    timeout: 30
+  register: create_wsl_project_output
+
+- name: Extract cpd_wsl_project_id when it's created via rest api
+  vars:
+    regex: '[^/]*$'
+  when:
+    - create_wsl_project_output.status is defined
+    - create_wsl_project_output.status == 201
+  set_fact:
+    cpd_wsl_project_id: "{{ create_wsl_project_output.json.location | regex_search(regex) }}"
+
+- debug:
+    msg: "Watson Studio Project ID to be used in MAS: {{ cpd_wsl_project_id }}"
+
+# 4. Write out the config to the local filesystem
+# -----------------------------------------------------------------------------
+- name: Copy WatsonStudioCfg to filesytem
+  no_log: true
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+    - cpd_admin_password is defined
+    - cpd_admin_password != ""
+    - cpd_admin_username is defined
+    - cpd_admin_username != ""
+  ansible.builtin.template:
+    src: watsonstudiocfg.yml.j2
+    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-watsonstudio-system.yml"

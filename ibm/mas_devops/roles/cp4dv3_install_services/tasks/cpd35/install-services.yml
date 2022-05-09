@@ -1,0 +1,33 @@
+---
+# 1. Fail if the required parameters have not been provided
+# -----------------------------------------------------------------------------
+- name: "Fail if cpd_storage_class has not been provided"
+  assert:
+    that: cpd_storage_class is defined and cpd_storage_class != ""
+    fail_msg: "cpd_storage_class property has not been set"
+
+
+# 2. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Namespace .................... {{ cpd_meta_namespace }}"
+      - "Storage class ................ {{ cpd_storage_class }}"
+      - "CP4D services ................ {{ cpd_services }}"
+
+
+# 3. Install CP4D Services
+# -----------------------------------------------------------------------------
+- name: "Install CPDServices"
+  vars:
+    service_name: "{{ item }}"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd35/cpdservice.yml') }}"
+  with_items: "{{ cpd_services }}"
+
+
+# 4. Wait for CP4D Services to be ready
+# -----------------------------------------------------------------------------
+- include_tasks: "{{ role_path }}/tasks/cpd35/wait_for_services.yml"

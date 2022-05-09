@@ -1,0 +1,79 @@
+---
+- name: "Debug parameters"
+  debug:
+    msg:
+      - "CPD Version .......... {{ cpd_version | default( '<undefined>', True) }}"
+      - "MAS Channel .......... {{ mas_channel | default( '<undefined>', True) }}"
+
+# 0. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+# - fail if neither cpd_version nor mas_channel provided, as we need something to determine which version of to install.
+- name: "Assert that either cpd_version or mas_channel are defined"
+  assert:
+    that: (cpd_version is defined and cpd_version != '') or (mas_channel is defined and mas_channel != '')
+    fail_msg: "One of the cpd_version and mas_channel properties are required, neither are set"
+
+# 1. Check for CPD supported versions
+# -----------------------------------------------------------------------------
+# - fail if neither cpd_version nor mas_channel provided, as we need something to determine which cpd version to be installed.
+- name: "Assert that cpd_version is supported"
+  when: cpd_version is defined and cpd_version != ''
+  assert:
+    that: cpd_version in cpd_supported_versions
+    fail_msg: "cpd_version {{ cpd_version }} is not supported. cpd_versions supported are {{ cpd_supported_versions }}"
+
+# 2. Check if CPD version is compatible with MAS version to be installed (if any)
+# -----------------------------------------------------------------------------
+# - fail when MAS 8.7 installed not installed with cpd_version = 4.0
+# - CPDv4 is supported in MAS 8.6 and 8.7, but we are not checking that here
+- name: "Assert that cpd_version and mas_channel are compatible, if both are set"
+  when:
+    - mas_channel is defined
+    - mas_channel != ''
+    - cpd_version is defined
+    - cpd_version == 'cpd35'
+  assert:
+    that: mas_channel in mas_channels_old_releases
+    fail_msg: "cpd_version {{ cpd_version }} is not compatible with mas_channel {{ mas_channel }}"
+
+# 3. Check which CPD version to install
+# -----------------------------------------------------------------------------
+# - if cpd_version not provided, then use mas_channel to determine which cpd version is compatible
+- name: Check CP4D version to be installed
+  when:
+    - cpd_version is not defined or cpd_version == ''
+  set_fact:
+    cpd_version: "{{ 'cpd40' if (mas_channel not in mas_channels_old_releases) else 'cpd35' }}"
+
+- debug:
+    msg:
+      - "CPD Version to be installed: {{ cpd_version }}"
+      - "MAS Channel: {{ 'Unspecified' if (mas_channel is not defined or mas_channel == '') else mas_channel }}"
+
+# 4. Check if required operator catalog is installed and ready
+# -----------------------------------------------------------------------------
+- name: "Lookup ibm-operator-catalog"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-operator-catalog
+    namespace: openshift-marketplace
+    kind: CatalogSource
+  register: catalog_lookup
+
+- name: "Assert that ibm-operator-catalog is available"
+  assert:
+    that:
+      - catalog_lookup.resources is defined
+      - catalog_lookup.resources | length == 1
+      - catalog_lookup.resources[0].status.connectionState.lastObservedState is defined
+      - catalog_lookup.resources[0].status.connectionState.lastObservedState == "READY"
+    fail_msg: "The ibm-operator-catalog is not installed, or is not ready to use.  Run the ibm.mas_devops.ocp_setup_mas_deps role, or install the CatalogSource manually."
+
+
+# 5. Load variables and run the install for the selected version
+# -----------------------------------------------------------------------------
+- name: Load variables
+  include_vars: "vars/{{ cpd_version }}.yml"
+
+- name: "Run the install"
+  include_tasks: "tasks/install/{{ cpd_version }}.yml"

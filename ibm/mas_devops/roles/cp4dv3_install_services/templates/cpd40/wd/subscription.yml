@@ -1,0 +1,40 @@
+# Watson Discovery Install process: https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/svc-discovery/discovery-install-overview.html
+---
+apiVersion: operator.ibm.com/v1alpha1
+kind: OperandRequest
+metadata:
+  name: common-service-edb
+  namespace: "{{ cpd_meta_namespace }}"
+spec:
+  requests:
+    - operands:
+        - name: cloud-native-postgresql
+      registry: common-service
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: ibm-cpd-edb-operator-catalog-subscription
+  namespace: "{{ cpd_meta_namespace }}"    # Pick the project that contains the Cloud Pak for Data
+spec:
+  installPlanApproval: Automatic
+  channel: v4.0
+  name: ibm-cpd-edb
+  source: ibm-operator-catalog
+  sourceNamespace: openshift-marketplace
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  labels:
+    app.kubernetes.io/instance: ibm-watson-discovery-operator-subscription
+    app.kubernetes.io/managed-by: ibm-watson-discovery-operator
+    app.kubernetes.io/name: ibm-watson-discovery-operator-subscription
+  name: ibm-watson-discovery-operator-subscription
+  namespace: "{{ cpd_meta_namespace }}"   # Pick the project that contains the Cloud Pak for Data operator
+spec:
+  channel: v4.0
+  name: ibm-watson-discovery-operator
+  source: ibm-operator-catalog
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
