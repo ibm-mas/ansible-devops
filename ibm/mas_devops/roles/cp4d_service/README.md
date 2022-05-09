@@ -10,7 +10,9 @@ These services can be deployed and configured using this role:
 - [Watson Studio](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-studio) required by [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict) and [Health & Predict Utilities](https://www.ibm.com/docs/en/mas87/8.7.0?topic=solutions-maximo-health-predict-utilities)
 - [Watson Machine Learning](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-machine-learning) required by [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
 - [Analytics Service (Apache Spark)](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-analytics) required by [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
+- [Watson OpenScale](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-openscale) an optional dependency for [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
 - [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-discovery) required by Assist
+- [Decision Optimization](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-decision-optimization) an optional dependency for [Maximo Scheduler Optimization](https://www.ibm.com/docs/en/mas87/8.7.0?topic=ons-maximo-scheduler-optimization)
 
 
 !!! info "Application Support"
@@ -75,6 +77,16 @@ Optional - Stores the CP4D Watson Studio Project description that can be used to
 Role Variables - Watson Discovery
 ------------------------------
 
+### cpd_wd_storage_class
+The specific storage class for discovery install, if not specified , the storage class used by CP4D will be auto queried in the cluster and used for discovery install.
+Usually Watson Discovery uses the following storage classes. If you don't use these storage classes on your cluster, ensure that you have a storage class with an equivalent definition:
+OpenShift Container Storage: `ocs-storagecluster-ceph-rbd`
+IBM Cloud OCP cluster: `ibmc-block-gold`,`ibmc-block-gold-gid`
+IBM Spectrum® Scale Container Native: `ibm-spectrum-scale-sc`
+Portworx: `portworx-db-gp2-sc`
+
+- Environment Variable: `CPD_WD_STORAGE_CLASS`
+- Default Value: None
 
 Role Variables - MAS Configuration Generation
 ----------------------------------==---------
