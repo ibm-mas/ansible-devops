@@ -75,11 +75,12 @@
   set_fact:
     found_cluster_ingress_secret: true
 
-# 2.3.  If "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}" does not exist, lookup for secret named after cluster ingress
+# 2.3.  If that does not exist either, lookup for secret based on the cluster name
 - name: Get cluster subdomain
   when:
     - found_router_default_secret is not defined
     - found_cluster_ingress_secret is not defined
+    - cluster_name is defined and cluster_name != ""
   k8s_info:
     api_version: v1
     kind: Secret
@@ -100,6 +101,10 @@
 # -----------------------------------------------------------------------------
 # If at least one of the secrets exist, then all good.  If neither of the
 # secrets are found, then fail with a message
+
+# COS and UDS roles both require one of these secrets ... can we fix it so that
+# they don't, not sure why they can't create their own certs and need to
+# piggyback off the cluster cert tbh.
 - name: Fail if one of the cluster required secrets does not exist
   assert:
     that: found_router_default_secret is defined or found_cluster_ingress_secret is defined or found_cluster_primary_secret is defined
