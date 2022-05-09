@@ -1,0 +1,107 @@
+---
+# Important: Do not confuse this with the operator versions, CP4D operator and
+# product versions are completely different
+
+# Important (2): Product/Operand version doesn't actually work in CP4D.  Newer versions of the operators
+# can't actually support older product versions being used.  We have reached out to the CP4D team and have
+# been told to basically install a fixed version operator catalog for CP4D.  It's unfortunate, but it's out
+# of our control -- the only version of CP4D that works with MAS 8.7 is v4.0.7, but we can't install that
+# from the IBM operator catalog at present, much more work is needed in this collection to support the operating
+# model of the Cloud Pak teams :/
+cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('4.0.8', true) }}"
+
+# CP4D Admin User Crdential used to call CP4D APIs
+# If not specified, the script will look these up
+cpd_admin_username: "{{ lookup('env', 'CPD_ADMIN_USERNAME') }}"
+cpd_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
+
+
+# ------ CPD namespaces -----------------------------------------------------------------------------------------------
+
+# Specialized installations
+# -------------------------
+#
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=planning-architecture#architecture__deployment-architecture
+#
+# A specialized installation allows a user with project administrator permissions to install the software after
+# a cluster administrator completes the initial cluster setup.
+# A specialized installation also facilitates strict division between Red Hat OpenShift Container Platform
+# projects (Kubernetes namespaces).
+# In a specialized installation, the IBM Cloud Pak foundational services operators are installed in the
+# ibm-common-services project and the Cloud Pak for Data operators are installed in a separate project
+# (typically cpd-operators). Each project has a dedicated:
+#
+# - Operator group, which specifies the OwnNamespace installation mode
+# - NamespaceScope Operator, which allows the operators in the project to manage operators
+#   and service workloads in specific projects
+#
+# In this way, you can specify different settings for the IBM Cloud Pak foundational services and
+# for the Cloud Pak for Data operators.
+cpd_operators_namespace: "{{ lookup('env', 'CPD_OPERATORS_NAMESPACE') | default('ibm-cpd-operators', true) }}"
+cpd_instance_namespace: "{{ lookup('env', 'CPD_INSTANCE_NAMESPACE') | default('ibm-cpd', true) }}"
+
+cpd_service_name: "{{ lookup('env', 'CPD_SERVICE_NAME') }}"
+
+# The storage class to use for this CP4D service
+cpd_service_storage_class: "{{ lookup('env', 'CPD_SERVICE_STORAGE_CLASS') }}"
+
+cpd_service_installplan_approval: Automatic
+
+
+# MAS Configuration
+# ---------------------------------------------------------------------------------------------------------------------
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+
+# CPD Watson Studio default properties
+# ---------------------------------------------------------------------------------------------------------------------
+# If cpd_wsl_project_id is undefined or if the one provided does not exist, a new ws project will be created
+cpd_wsl_project_id: "{{ lookup('env', 'CPD_WSL_PROJECT_ID') }}"
+cpd_wsl_project_name: "{{ lookup('env', 'CPD_WSL_PROJECT_NAME') | default('ws_default_project', true) }}"
+cpd_wsl_project_description: "{{ lookup('env', 'CPD_WSL_PROJECT_DESCRIPTION') | default('Watson Studio Project for Maximo Application Suite', true) }}"
+cpd_wsl_project_storage_guid: "{{ 1000 | random | to_uuid | lower }}"
+
+
+# CPD Service Information
+# ---------------------------------------------------------------------------------------------------------------------
+cpd_service_info:
+  # Watson Machine Learning
+  # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-machine-learning
+  wml:
+    operator_name: ibm-cpd-wml-operator
+    package_name: ibm-cpd-wml-operator
+    channel_name: v1.1
+    api_version: wml.cpd.ibm.com/v1beta1
+    crd_kind: WmlBase
+    crd_name: wmlbases.wml.cpd.ibm.com
+
+  # Analytics Engine Powered by Apache Spark
+  # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-analytics-engine-powered-by-apache-spark
+  spark:
+    operator_name: ibm-cpd-ae-operator
+    package_name: analyticsengine-operator
+    channel_name: stable-v1
+    api_version: ae.cpd.ibm.com/v1
+    crd_kind: AnalyticsEngine
+    crd_name: analyticsengines.ae.cpd.ibm.com
+
+  # Watson Studio
+  # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-studio
+  wsl:
+    operator_name: ibm-cpd-ws-operator
+    package_name: ibm-cpd-wsl
+    channel_name: v2.0
+    api_version: ws.cpd.ibm.com/v1beta1
+    crd_kind: WS
+    crd_name: ws.ws.cpd.ibm.com
+
+  # Watson Discovery
+  # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-discovery
+  wd:
+    operator_name: wd-discovery-operator
+    package_name: ibm-watson-discovery-operator
+    channel_name: v4.0
+    api_version: discovery.watson.ibm.com/v1
+    crd_kind: WatsonDiscovery
+    crd_name: watsondiscoveries.discovery.watson.ibm.com

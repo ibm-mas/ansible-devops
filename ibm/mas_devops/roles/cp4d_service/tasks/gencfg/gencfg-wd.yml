@@ -1,0 +1,124 @@
+---
+# TODO: Finish me!
+
+# 8. Authorize the CP4D admin user nad get Bearer token for API use
+# -----------------------------------------------------------------------------
+- name: "embeddedwds: Find cp4d route info"
+  when: cpdavailable is defined and cpdavailable
+  block:
+    - name: "embeddedwds: Get the CP4D Route info from OpenShift"
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        namespace: "{{ cpdnamespace }}"
+      register: cp4d_routes
+    - name: "embeddedwds: Find route info for CP4D "
+      set_fact:
+        cp4dhost: "{{ item.spec.host }}"
+      with_items: "{{ cp4d_routes.resources }}"
+      when: item.spec.to.name is defined and item.spec.to.name =='ibm-nginx-svc'
+    - name: Get the CP4D host from Route info and set as cp4d_host
+      set_fact:
+        cp4d_host_url: "https://{{ cp4dhost }}"
+
+- name: "embeddedwds: Authorize the CP4D (get Bearer token)"
+  when: cpdavailable is defined and cpdavailable
+  uri:
+    url: "{{ cp4d_host_url }}/icp4d-api/v1/authorize"
+    validate_certs: no
+    method: POST
+    headers:
+      cache-control: "no-cache"
+    body_format: "json"
+    body: "{\"username\":\"{{ wds_admin_username }}\",\"password\":\"{{ wds_admin_password }}\"}"
+    status_code: 200
+    timeout: 30
+  register: cp4d_authorization_info
+
+- name: "embeddedwds: Get the CP4D Bearer token"
+  when: cpdavailable is defined and cpdavailable
+  set_fact:
+    wds_bearer_token: "{{ cp4d_authorization_info.json.token }}"
+
+# 9. Check the existing Discovery instance UUID
+# -----------------------------------------------------------------------------
+- name: "embeddedwds: find if the WDS instance is already there"
+  set_fact:
+    wds_instname: "discovery-assist"
+
+- name: "embeddedwds: find if the WDS instance is already there"
+  set_fact:
+    wds_instname: "discovery-assist-{{ mas_workspace_id }}"
+  when: mas_workspace_id is defined and mas_workspace_id != ""
+
+- name: "embeddedwds: Print the Discovery Instance Name"
+  debug:
+    msg:
+      - "Discovery Instance Name.......... {{ wds_instname }}"
+
+- name: "embeddedwds:Check if there's existing Discovery instance in CP4D"
+  when: wds_bearer_token is defined
+  uri:
+    url: "{{ cp4d_host_url }}/zen-data/v3/service_instances?fetch_all_instances=false&limit=9223372036854775807&offset=0"
+    validate_certs: no
+    method: GET
+    headers:
+      Authorization: "Bearer {{ wds_bearer_token }}"
+      cache-control: "no-cache"
+    status_code: 200,412
+    timeout: 30
+  register: query_instance_output
+
+- name: "embeddedwds: find the WDS instance and query the wds uuid"
+  set_fact:
+    wds_number: "{{ item.id | int}}"
+    findwdsinst: true
+  with_items: "{{ query_instance_output.json.service_instances }}"
+  when:
+    - query_instance_output.status is defined and query_instance_output.status|int == 200
+    - item.addon_type == "discovery"
+    - item.display_name == wds_instname
+
+
+# 10. Provision the CP4D WDS instance and get its uuid
+# -----------------------------------------------------------------------------
+- name: "embeddedwds: Create the WDS instance in CP4D when WDS instance not exist and query its uuid"
+  when: not ( findwdsinst is defined and findwdsinst )
+  block:
+    - name: create new WDS instance
+      uri:
+        url: "{{ cp4d_host_url }}/watson/common/discovery/api/ibmcloud/resource-controller/resource_instances"
+        validate_certs: no
+        method: POST
+        headers:
+          Authorization: "Bearer {{ wds_bearer_token }}"
+          cache-control: "no-cache"
+        body_format: "json"
+        body: "{{ lookup('template','templates/wds.json.j2') }}"
+        status_code: 200,412
+        timeout: 30
+      register: create_wds_output
+    - debug:
+        msg: "discovery instance ID.............. {{ create_wds_output.json.id }}"
+      when: create_wds_output.status|int == 200
+    - name: "embeddedwds: Get the CP4D instance uuid number"
+      when: create_wds_output.status|int == 200
+      set_fact:
+        wds_number: "{{ create_wds_output.json.id | replace('-','')|int }}"
+
+# 11. Print Out the Discovery instance URL and crdential for use
+# -----------------------------------------------------------------------------
+- name: "embeddedwds: Set and Print out Discovery instance info"
+  block:
+    - name: Get the CP4D instance url
+      set_fact:
+        wds_url: "{{ cp4d_host_url}}/discovery/{{ cpdnamespace }}-wd/instances/{{ wds_number }}/api"
+    - name: Print the WDS related info
+      debug:
+        msg:
+          - "WDS url ............................ {{ wds_url }}"
+          - "WDS Admin .......................... {{ wds_admin_username }}"
+  rescue:
+    - name: Fail as we didn't get the WDS instance here or CP4D is not installed.
+      fail:
+        msg: "We Couldn't get the WDS instance here or CP4D is not installed"

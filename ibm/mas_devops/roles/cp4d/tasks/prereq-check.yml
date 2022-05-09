@@ -1,0 +1,41 @@
+---
+# The following playbook is an attempt to automate the CP4D 4.0 steps documented here:
+# https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
+
+# 1. Check if required operator catalog is installed and ready
+# -----------------------------------------------------------------------------
+- name: "Lookup ibm-operator-catalog"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-operator-catalog
+    namespace: openshift-marketplace
+    kind: CatalogSource
+  register: catalog_lookup
+
+- name: "Assert that ibm-operator-catalog is available"
+  assert:
+    that:
+      - catalog_lookup.resources is defined
+      - catalog_lookup.resources | length == 1
+      - catalog_lookup.resources[0].status.connectionState.lastObservedState is defined
+      - catalog_lookup.resources[0].status.connectionState.lastObservedState == "READY"
+    fail_msg: "The ibm-operator-catalog is not installed, or is not ready to use.  Run the ibm.mas_devops.ocp_setup_mas_deps role, or install the CatalogSource manually."
+
+
+# 2. Check whether IBM Common Services are already installed
+# -----------------------------------------------------------------------------
+- name: "Check if ODLM is available"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: "ibm-common-services"
+    kind: Deployment
+  register: odlm_lookup
+
+- name: "Assert that ODLM is available"
+  assert:
+    that:
+      - odlm_lookup.resources is defined
+      - odlm_lookup.resources | length >= 0
+      - odlm_lookup.resources[0].status.availableReplicas is defined
+    fail_msg: "IBM Common Services (& ODLM) must be installed before installing CloudPak for Data v4."

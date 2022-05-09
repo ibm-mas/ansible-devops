@@ -1,6 +1,6 @@
 cp4d_upgrade
 =============
-This role requires Cloud Pak for Data 3.5 to have been installed in first place using the [cp4d_install](cp4d_install.md) role and that [cp4d_hack_worker_nodes](cp4d_hack_worker_nodes.md) role have been also been executed before to prepare the cluster ahead of time by setting up a global image pull secret for CP4D 4.0 installation.
+This role requires Cloud Pak for Data 3.5 to have been installed in first place using the [cp4d](cp4d.md) role and that [cp4d_hack_worker_nodes](cp4d_hack_worker_nodes.md) role have been also been executed before to prepare the cluster ahead of time by setting up a global image pull secret for CP4D 4.0 installation.
 
 This role will collect CP4D 3.5 installation information and will run the upgrade process to CP4D 4.0.
 
@@ -10,7 +10,7 @@ Here are the list of events that will happen as part of this role:
 2. Collect information about existing CP4D services that are installed/enabled and upgrade them all one by one.
 3. If DB2 Warehouse instances are detected, it will also upgrade each DB2 instance to the latest patch version available and compatible with CP4D 4.0.
 
-Note: When CloudPak is upgraded to version 4.0, the SSL certificates for DB2 instances will be updated and changed. As part of the DB2 Warehouse upgrade to version 4.0, this role will collect all existing `JDBCCfg` instances associated to your targeted MAS instance and automatically update them to have the newer SSL certificates generated for DB2 Warehouse so that your MAS applications can continue to be able to establish DB2 connection. 
+Note: When CloudPak is upgraded to version 4.0, the SSL certificates for DB2 instances will be updated and changed. As part of the DB2 Warehouse upgrade to version 4.0, this role will collect all existing `JDBCCfg` instances associated to your targeted MAS instance and automatically update them to have the newer SSL certificates generated for DB2 Warehouse so that your MAS applications can continue to be able to establish DB2 connection.
 This role considers that every database connection for the targeted MAS instance uses DB2 Warehouse configuration in the existing CP4D instance that will be upgraded, if that is not true for your case, then this role might not suite your need.
 
 For more information, please refer to [Upgrading Maximo Application Suite](https://www.ibm.com/docs/en/mas87/8.7.0?topic=upgrading) documentation.

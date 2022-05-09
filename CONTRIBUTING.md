@@ -17,6 +17,11 @@ ansible-galaxy collection build --force
 ansible-galaxy collection publish ibm-mas_devops-10.0.0.tar.gz --token=$ANSIBLE_GALAXY_TOKEN
 ```
 
+## Testing a role
+```bash
+cd ~/ibm-mas/ansible-devops/ibm/mas_devops$
+export ROLE_NAME=ibm_catalogs && ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-10.0.0.tar.gz --force && ansible-playbook ibm.mas_devops.run_role
+```
 ## Style Guide
 Failure to adhere to the style guide will result in a PR being rejected!
 
