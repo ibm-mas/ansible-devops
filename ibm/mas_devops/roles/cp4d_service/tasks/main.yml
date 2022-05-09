@@ -15,7 +15,7 @@
 # 2. Load default storage classes and debug
 # -----------------------------------------------------------------------------
 - name: "Determine storage classes"
-  include_tasks: "{{ role_path }}/tasks/determine-storage-classes.yml"
+  include_tasks: "determine-storage-classes.yml"
 
 - name: "Debug information"
   debug:
@@ -26,15 +26,26 @@
       - "CPD service storage class .............. {{ cpd_service_storage_class }}"
 
 
-# 3. Install CP4D Service Subscriptions
+# 3. Determine CP4D admin login credentials
 # -----------------------------------------------------------------------------
+- name: "Lookup admin credentials if they haven't been provided already"
+  when:
+    - cpd_admin_username is not defined or cpd_admin_username == ""
+    - cpd_admin_password is not defined or cpd_admin_password == ""
+  include_tasks: "lookup-admin-credentials.yml"
 
-- name: "Create EDB Operand Request if service is Watson Discovery"
-  when: cpd_service_name == "wd"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/wd/operandRequest-edb.yml.j2') }}"
 
+# 4. Run Pre-req task
+# -----------------------------------------------------------------------------
+# Only Watson Discovery has special pre-reqs currently
+- name: Run Install Prereqs
+  when:
+    - cpd_service_name is in ['wd']
+  include_tasks: "prereqs/prereqs-{{ cpd_service_name }}.yml"
+
+
+# 5. Install CP4D Service Subscriptions
+# -----------------------------------------------------------------------------
 - name: "Install CP4D Service Subscription"
   vars:
     cpd_service_subscription_name: "cpd-{{ cpd_service_name }}-operator"
@@ -42,10 +53,10 @@
     cpd_service_channel_name: "{{ cpd_service_info[cpd_service_name].channel_name }}"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
+    template: "templates/subscription.yml.j2"
 
 
-# 4. Wait until the Service CRD is available
+# 6. Wait until the Service CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Service CRD is available"
   kubernetes.core.k8s_info:
@@ -66,33 +77,21 @@
     - service_crd_info.resources | length > 0
 
 
-# 5. Install CP4D Service CRs
+# 7. Install CP4D Service CRs
 # -----------------------------------------------------------------------------
 - name: "Install Service CR"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates//services/{{ cpd_service_name }}.yml.j2') }}"
+    template: "templates/services/{{ cpd_service_name }}.yml.j2"
 
 
-# 6. Wait for CP4D Service to be ready
+# 8. Wait for CP4D Service to be ready
 # -----------------------------------------------------------------------------
-- name: "Wait for CPD Service CR to be ready"
-  kubernetes.core.k8s_info:
-    api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
-    kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
-    name: "ibmcpd-{{ cpd_service_name }}"
-    namespace: "{{ cpd_instance_namespace }}"
-  register: cpd_cr_lookup
-  until:
-    - cpd_cr_lookup.resources is defined
-    - cpd_cr_lookup.resources | length == 1
-    # TODO: Additional conditions
-
-- debug:
-    var: cpd_cr_lookup
+- name: "Wait for the service to be ready"
+  include_tasks: "wait/wait-{{ cpd_service_name }}.yml"
 
 
-# 7. Provide CP4D dashboard URL
+# 9. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------
 - name: "Obtain CP4D dashboard URL"
   kubernetes.core.k8s_info:
@@ -118,11 +117,13 @@
       - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
       - "CP4D Service Installed ......... {{ cpd_service_name }}"
 
-# 8. Generate MAS Config (Watson Studio)
+
+# 10. Generate MAS Config
 # -----------------------------------------------------------------------------
-- name: Create WatsonStudio yml definition into {{ mas_config_dir }} folder
+# Only supported/required for Watson Studio currently
+- name: Generate MAS Config into {{ mas_config_dir }} folder
   when:
     - mas_instance_id is defined and mas_instance_id != ""
     - mas_config_dir is defined and mas_config_dir != ""
-    - cpd_service_name == 'wsl'
-  include_tasks: "gencfg-watsonstudio.yml"
+    - cpd_service_name is in ['wsl']
+  include_tasks: "gencfg/gencfg-{{ cpd_service_name }}.yml"
