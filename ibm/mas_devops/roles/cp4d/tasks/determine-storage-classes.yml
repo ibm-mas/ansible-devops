@@ -1,35 +1,28 @@
 ---
 
 # Provide intelligent storage class selection to minimize required user knowledge
-#
-# 1. Has the user provided a storage class directly
-# 2. Are IBMCloud ROKS Storage classes available, use ROKS defaults
-# 3. Are OpenShift Container Storage classes available, use OCS defaults
-# 4. Otherwise, fail if the storage class is required
 
-# 1. Lookup ROKS storage class availabiity
+# 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-# We only need to perform this lookup if one or more storage classes are not defined
-- name: Lookup ROKS storage classes
-  when:
-    - cpd_service_storage_class is not defined or cpd_service_storage_class == ""
+- name: Lookup storage classes
   kubernetes.core.k8s_info:
     api_version: storage.k8s.io/v1
     kind: StorageClass
-    name: ibmc-file-gold-gid
-  register: lookup_roks_storageclass
+  register: lookup_storageclasses
+
+- name: "Debug available storage classes"
+  debug:
+    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
 
 
 # 2. Set Primary Storage (Required)
 # -----------------------------------------------------------------------------
-# Unless the user sets a storage class we will auto-select the ibmc-file-gold-gid
-# storage class
-- name: Default Primary Storage for ROKS if not set by user
-  when:
-    - cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
-    - lookup_roks_storageclass.resources | length > 0
+- name: Default Primary Storage if not set by user
+  when: cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
+  vars:
+    supported_storage_classes: [ibmc-file-gold-gid]
   set_fact:
-    cpd_primary_storage_class: ibmc-file-gold-gid
+    cpd_primary_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
 - name: Assert that primary storage class has been defined
   assert:
@@ -39,14 +32,12 @@
 
 # 2. Set Metadata Storage (Required)
 # -----------------------------------------------------------------------------
-# Unless the user sets a storage class we will auto-select the ibmc-block-gold
-# storage class
-- name: Default Metadata Storage for ROKS if not set by user
-  when:
-    - cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
-    - lookup_roks_storageclass.resources | length > 0
+- name: Default Metadata Storage if not set by user
+  when: cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
+  vars:
+    supported_storage_classes: [ibmc-block-gold]
   set_fact:
-    cpd_metadata_storage_class: ibmc-block-gold
+    cpd_metadata_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
 - name: Assert that metadata storage class has been defined
   assert:

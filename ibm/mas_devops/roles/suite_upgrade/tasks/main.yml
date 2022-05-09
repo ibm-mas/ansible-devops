@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 # 1.1 Change subscription channel
 - name: "Update MAS 8.6 subscription to 8.7.x channel"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
     name: "ibm-mas-operator"
     namespace: "{{ mas_namespace }}"
@@ -22,7 +22,7 @@
 # 1.2 Wait MAS 8.7.x to reconcile upgrade
 # -----------------------------------------------------------------------------
 - name: "Wait for Suite CR to finish reconciling upgrade to MAS 8.7.x successfully (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     name: "{{mas_instance_id}}"
     namespace: "{{mas_namespace}}"
@@ -39,7 +39,7 @@
 # 1.3 Wait MAS 8.7.x to reconcile upgrade - Workspace CR
 # -----------------------------------------------------------------------------
 - name: "Wait for Suite Workspace CR to finish reconciling upgrade to MAS 8.7.x successfully (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: core.mas.ibm.com/v1
     kind: Workspace
     label_selectors:
@@ -59,7 +59,7 @@
 # Will scale down and up again, as SBO pod doesn't have a good lookup matching label
 # -----------------------------------------------------------------------------
 - name: "Lookup SBO deployment"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: Deployment
     name: service-binding-operator
@@ -68,7 +68,7 @@
 
 - name: "Scale down SBO operator before we proceed with MAS apps upgrade"
   when: sbo_deployment.resources | length > 0
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     api_version: apps/v1
     kind: Deployment
     name: service-binding-operator
@@ -80,7 +80,7 @@
 
 - name: "Scale up SBO operator before we proceed with MAS apps upgrade"
   when: sbo_deployment.resources | length > 0
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     api_version: apps/v1
     kind: Deployment
     name: service-binding-operator
@@ -92,7 +92,7 @@
 
 - name: "Wait SBO operator to be running again"
   when: sbo_deployment.resources | length > 0
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: Deployment
     name: service-binding-operator

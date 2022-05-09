@@ -21,12 +21,12 @@
     kind: Deployment
   register: zen_operator_lookup
   until: zen_operator_lookup.resources[0].status.availableReplicas is defined
-  retries: 90 # Approximately 90 minutes before we give up
+  retries: 20 # Approximately 20 minutes before we give up
   delay: 60 # 1 minute
 
 # 2.2 Wait for lite-cr to be created ...
 - name: "Wait for ZenService lite-cr to be created"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: zen.cpd.ibm.com/v1
     name: lite-cr
     namespace: "{{ cpd_instance_namespace }}"
@@ -35,12 +35,12 @@
   until:
     - zenlitecr_output.resources is defined
     - zenlitecr_output.resources | length > 0
-  retries: 60 # approx 60 minutes before we give up
+  retries: 20 # approx 20 minutes before we give up
   delay: 60 # 1 minute
 
 # 2.3 Apply the patch per recommendation from CP4D team
 - name: "Patch ZenService lite-cr to scaleConfig: medium"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     api_version: zen.cpd.ibm.com/v1
     name: lite-cr
     namespace: "{{ cpd_instance_namespace }}"
@@ -66,7 +66,7 @@
 # 3. Wait for controlPlaneStatus
 # -----------------------------------------------------------------------------
 # oc get Ibmcpd ibmcpd-cr -o jsonpath="{.status.controlPlaneStatus}{'\n'}"
-- name: "Wait for controlPlaneStatus to be 'Completed' (120s delay)"
+- name: "Wait for controlPlaneStatus to be 'Completed' (60s delay)"
   kubernetes.core.k8s_info:
     api_version: cpd.ibm.com/v1
     name: ibmcpd
@@ -76,7 +76,7 @@
   until:
     - ibmcpd_lookup.resources[0].status.controlPlaneStatus is defined
     - ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Completed" or ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Failed"
-  retries: 60 # Approximately 120 minutes before we give up
+  retries: 15 # Approximately 30 minutes before we give up
   delay: 120 # 2 minutes
 
 - name: "Check that the controlPlaneStatus is 'Completed'"
@@ -98,8 +98,8 @@
   until:
     - zenservice_lookup.resources[0].status.zenStatus is defined
     - zenservice_lookup.resources[0].status.zenStatus == "Completed" or zenservice_lookup.resources[0].status.zenStatus == "Failed"
-  retries: 15 # Approximately 30 minutes before we give up
-  delay: 120 # 2 minutes
+  retries: 25 # Approximately 2 hours before we give up
+  delay: 300 # 5 minutes
 
 - name: "Check that the zenStatus is 'Completed'"
   assert:
