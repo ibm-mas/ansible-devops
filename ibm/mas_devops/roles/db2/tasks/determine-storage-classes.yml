@@ -1,37 +1,28 @@
 ---
 
 # Provide intelligent storage class selection to minimize required user knowledge
-#
-# 1. Has the user provided a storage class directly
-# 2. Are IBMCloud ROKS Storage classes available, use ROKS defaults
-# 3. Are OpenShift Container Storage classes available, use OCS defaults (not implemented)
-# 4. Otherwise, fail if the storage class is required
 
-# 1. Lookup ROKS storage class availabiity
+# 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-# We only need to perform this lookup if one or more storage classes are not defined
 - name: Lookup ROKS storage classes
-  when:
-    - db2_data_storage_class is not defined or db2_data_storage_class == ""
-    - db2_meta_storage_class is not defined or db2_meta_storage_class == ""
-    - db2_logs_storage_class is not defined or db2_logs_storage_class == ""
-    - db2_backup_storage_class is not defined or db2_backup_storage_class == ""
-    - db2_temp_storage_class is not defined or db2_temp_storage_class == ""
   kubernetes.core.k8s_info:
     api_version: storage.k8s.io/v1
     kind: StorageClass
-    name: ibmc-block-gold
-  register: lookup_roks_storageclass
+  register: lookup_storageclasses
+
+- name: "Debug available storage classes"
+  debug:
+    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
 
 
 # 2. Data Storage (Required)
 # -----------------------------------------------------------------------------
 - name: Default Data Storage for ROKS if not set by user (ReadWriteOnce)
-  when:
-    - db2_data_storage_class is not defined or db2_data_storage_class == ""
-    - lookup_roks_storageclass.resources | length > 0
+  when: db2_data_storage_class is not defined or db2_data_storage_class == ""
+  vars:
+    supported_storage_classes: [ibmc-block-gold]
   set_fact:
-    db2_data_storage_class: ibmc-block-gold
+    db2_data_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
 - name: Assert that a data storage class has been defined
   assert:
@@ -42,11 +33,11 @@
 # 3. Meta Storage (Required)
 # -----------------------------------------------------------------------------
 - name: Default Meta Storage for ROKS if not set by user (ReadWriteMany)
-  when:
-    - db2_meta_storage_class is not defined or db2_meta_storage_class == ""
-    - lookup_roks_storageclass.resources | length > 0
+  when: db2_meta_storage_class is not defined or db2_meta_storage_class == ""
+  vars:
+    supported_storage_classes: [ibmc-file-gold]
   set_fact:
-    db2_meta_storage_class: ibmc-file-gold
+    db2_meta_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
 - name: Assert that a meta storage class has been defined
   assert:
@@ -57,31 +48,31 @@
 # 4. Logs Storage (Optional)
 # -----------------------------------------------------------------------------
 - name: Default Logs Storage for ROKS if not set by user (ReadWriteOnce)
-  when:
-    - db2_logs_storage_class is not defined or db2_logs_storage_class == ""
-    - lookup_roks_storageclass.resources | length > 0
+  when: db2_logs_storage_class is not defined or db2_logs_storage_class == ""
+  vars:
+    supported_storage_classes: [ibmc-block-gold]
   set_fact:
-    db2_logs_storage_class: ibmc-block-gold
+    db2_logs_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
 
 # 5. Backup Storage (Optional)
 # -----------------------------------------------------------------------------
 - name: Default Backup Storage for ROKS if not set by user (ReadWriteMany)
-  when:
-    - db2_backup_storage_class is not defined or db2_backup_storage_class == ""
-    - lookup_roks_storageclass.resources | length > 0
+  when: db2_backup_storage_class is not defined or db2_backup_storage_class == ""
+  vars:
+    supported_storage_classes: [ibmc-file-gold]
   set_fact:
-    db2_backup_storage_class: ibmc-file-gold
+    db2_backup_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
 
 # 6. Temp Storage (Optional)
 # -----------------------------------------------------------------------------
 - name: Default Temp Storage for ROKS if not set by user (ReadWriteOnce)
-  when:
-    - db2_temp_storage_class is not defined or db2_temp_storage_class == ""
-    - lookup_roks_storageclass.resources | length > 0
+  when: db2_temp_storage_class is not defined or db2_temp_storage_class == ""
+  vars:
+    supported_storage_classes: [ibmc-block-gold]
   set_fact:
-    db2_temp_storage_class: ibmc-block-gold
+    db2_temp_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
 
 # 7. Debug storage class configuration
