@@ -29,7 +29,7 @@
 # 8. Patch MAS 8.6 Suite CR to add spec.certManagerNamespace: ibm-common-services
 # -------------------------------------------------------------------------------------------------
 - name: "Patch MAS 8.6 Suite CR to add 'spec.certManagerNamespace': '{{ common_services_namespace }}'"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     definition:
       apiVersion: core.mas.ibm.com/v1
       kind: Suite
@@ -42,7 +42,7 @@
 # 8.1 Verify MAS 8.6 install is happy with the new cert-manager
 # -------------------------------------------------------------------------------------------------
 - name: "Wait for Suite CR to reconcile after 'spec.certManagerNamespace' replaced to 'ibm-common-services' (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     name: "{{mas_instance_id}}"
     namespace: "{{mas_namespace}}"
@@ -61,7 +61,7 @@
 # 9.1 Delete any cert-internal secret and check if it's recreated
 # -------------------------------------------------------------------------------------------------
 - name: "Lookup original {{mas_instance_id}}-internalapi-cert-internal secret"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     name: "{{ mas_instance_id }}-internalapi-cert-internal"
     namespace: "{{ mas_namespace }}"
@@ -70,7 +70,7 @@
   failed_when: internalapi_original_secret_result.resources[0] | length == 0
 
 - name: "Delete original {{mas_instance_id}}-internalapi-cert-internal secret"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     state: absent
     api_version: v1
     kind: Secret
@@ -78,7 +78,7 @@
     namespace: "{{ mas_namespace }}"
 
 - name: "Wait for {{ mas_instance_id }}-internalapi-cert-internal secret to be recreated (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     name: "{{ mas_instance_id }}-internalapi-cert-internal"
     namespace: "{{ mas_namespace }}"
@@ -101,7 +101,7 @@
 # 9.2 Delete MAS cert-public secret and check if it's recreated
 # -------------------------------------------------------------------------------------------------
 - name: "Lookup original {{mas_instance_id}}-cert-public secret"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     name: "{{ mas_instance_id }}-cert-public"
     namespace: "{{ mas_namespace }}"
@@ -110,7 +110,7 @@
   failed_when: publiccert_original_secret_result.resources[0] | length == 0
 
 - name: "Delete original {{mas_instance_id}}-cert-public secret"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     state: absent
     api_version: v1
     kind: Secret
@@ -118,7 +118,7 @@
     namespace: "{{ mas_namespace }}"
 
 - name: "Wait for {{mas_instance_id}}-cert-public secret to be recreated (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     name: "{{mas_instance_id}}-cert-public"
     namespace: "{{ mas_namespace }}"
@@ -160,7 +160,7 @@
 # since {{mas_instance_id}}-cert-public secret is recreated, it will reapply the new secret cross MAS instance
 # -------------------------------------------------------------------------------------------------
 - name: "Wait for Suite CR to reconcile after {{mas_instance_id}}-cert-public secret is recreated (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     name: "{{mas_instance_id}}"
     namespace: "{{mas_namespace}}"

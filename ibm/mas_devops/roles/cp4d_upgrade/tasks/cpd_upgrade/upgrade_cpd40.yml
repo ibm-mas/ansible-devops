@@ -25,7 +25,7 @@
 # -----------------------------------------------------------------------------
 # If ibm-common-services is already installed
 - name: "Check if ibm-common-services operator is installed already"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     name: ibm-common-service-operator
     namespace: ibm-common-services
@@ -34,21 +34,21 @@
 
 # If ibm-common-services is not installed yet, add operator group for cpd
 - name: "Apply operator group"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd/operatorgroup.yml') }}"
   when: _cs_deployment.resources[0] is not defined
 
 # If ibm-common-services is not installed yet, add namespace scope operator for cpd
 - name: "Install namespace scope subscription"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd/namespacescope.yml') }}"
   when: _cs_deployment.resources[0] is not defined
 
 - name: "Wait for namespace scope operator to be ready (60s delay)"
   when: _cs_deployment.resources[0] is not defined
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     name: ibm-namespace-scope-operator
     namespace: "{{ cpd_meta_namespace }}"
@@ -60,20 +60,20 @@
 
 # Apply namespace scope resource so cpd v4 operator can watch existing cpd installation namespace
 - name: "Apply namespace scope"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd/namespacescope.yml') }}"
 
 # Apply cpd v4 operator subscription
 - name: "Install CPD 4.0 Subscription"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd/subscription-cpd-operator.yml') }}"
   register: _cpd_subscription_result
 
 # Wait cpd v4 operator to be ready
 - name: "Wait for cpd-platform-operator-manager to be ready (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     name: cpd-platform-operator-manager
     namespace: "{{ cpd_meta_namespace }}"
@@ -85,7 +85,7 @@
 
 # Wait operand-deployment-lifecycle-manager operator to be ready
 - name: "Wait for operand-deployment-lifecycle-manager to be ready (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     name: operand-deployment-lifecycle-manager
     namespace: "{{ cpd_meta_namespace }}"
@@ -97,7 +97,7 @@
 
 # Apply cpd v4 CR
 - name: "Apply CloudPak for Data v4.0 CR"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/cpd/ibmcpd.yml') }}"
   register: _cpd_ibmcdp_result
@@ -105,7 +105,7 @@
 # Wait ibm-zen-operator to be ready
 # this operator will process cpd v4 installation/upgrade
 - name: "Wait for ibm-zen-operator to be ready (60s delay)"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: apps/v1
     name: ibm-zen-operator
     namespace: "{{ cpd_meta_namespace }}"
@@ -117,7 +117,7 @@
 
 # Wait ZenService lite-cr to be deployed
 - name: "Wait ZenService lite-cr to be deployed"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: zen.cpd.ibm.com/v1
     name: lite-cr
     namespace: "{{ cpd_services_namespace }}"
@@ -131,7 +131,7 @@
 
 # Patch ZenService lite-cr to scaleConfig: medium - this is a recommendation from cpd team
 - name: "Patch ZenService lite-cr to scaleConfig: medium"
-  community.kubernetes.k8s:
+  kubernetes.core.k8s:
     api_version: zen.cpd.ibm.com/v1
     name: lite-cr
     namespace: "{{ cpd_services_namespace }}"
@@ -156,7 +156,7 @@
 
 # Wait cpd v4 CR to reconcile
 - name: "Wait for CloudPak for Data v4.0 CR to have status 'Completed'"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: cpd.ibm.com/v1
     name: ibmcpd-cr
     namespace: "{{ cpd_services_namespace }}"
@@ -168,7 +168,7 @@
 
 # Wait cpd v4 CR to reconcile
 - name: "Wait for ZenService CR to have status 'Completed'"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: zen.cpd.ibm.com/v1
     name: lite-cr
     namespace: "{{ cpd_services_namespace }}"
@@ -183,7 +183,7 @@
 # 3. Provide CP4D v4 Dashboard URL (this will be same CPD url from existing v3.5)
 # ------------------------------------------------------------------------------
 - name: "Retrieve admin credentials"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     name: admin-user-details
     namespace: "{{ cpd_services_namespace }}"
