@@ -5,7 +5,7 @@
 # Unfortunately CP4D do not have a standard approach to managing status across
 # their services like MAS does, so we need module-specific wait code.
 
-- name: "wait-aiopenscale : Wait for analyticsengineStatus 'Completed' or 'Failed'"
+- name: "wait-aiopenscale : Wait for wosStatus 'Completed' or 'Failed'"
   kubernetes.core.k8s_info:
     api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
     kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
@@ -16,6 +16,7 @@
     - cpd_cr_lookup.resources is defined
     - cpd_cr_lookup.resources | length == 1
     - cpd_cr_lookup.resources[0].status is defined
+    - cpd_cr_lookup.resources[0].status.wosStatus is defined
     - cpd_cr_lookup.resources[0].status.wosStatus == "Completed" or cpd_cr_lookup.resources[0].status.wosStatus == "Failed"
   retries: 30 # Up to 1 hour
   delay: 120 # Every 2 minutes
