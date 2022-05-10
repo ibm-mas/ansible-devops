@@ -57,11 +57,11 @@ Storage class used for metadata. This must support ReadWriteMany
 - Environment Variable: `DB2_META_STORAGE_CLASS`
 - Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster.
 
-### [optional] db2_meta_storage_size_gb
+### [optional] db2_meta_storage_size
 Size of the metadata persistent volume, in gigabytes
 
-- Environment Variable: `DB2_META_STORAGE_SIZE_GB`
-- Default: `20`
+- Environment Variable: `DB2_META_STORAGE_SIZE`
+- Default: `20Gb`
 
 ### [required] db2_data_storage_class
 Storage class used for user data. This must support ReadWriteOnce
@@ -69,11 +69,11 @@ Storage class used for user data. This must support ReadWriteOnce
 - Environment Variable: `DB2_USER_STORAGE_CLASS`
 - Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
 
-### [optional] db2_user_storage_size_gb
-Size of user persistent volume, in gigabytes.
+### [optional] db2_data_storage_size
+Size of data persistent volume.
 
-- Environment Variable: `DB2_USER_STORAGE_SIZE_GB`
-- Default: `100`
+- Environment Variable: `DB2_DATA_STORAGE_SIZE`
+- Default: `100Gb`
 
 ### [optional] db2_backup_storage_class
 Storage class used for backup. This must support ReadWriteMany
@@ -81,11 +81,11 @@ Storage class used for backup. This must support ReadWriteMany
 - Environment Variable: `DB2_BACKUP_STORAGE_CLASS`
 - Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster.
 
-### [optional] db2_backup_storage_size_gb
-Size of backup persistent volume, in gigabytes.
+### [optional] db2_backup_storage_size
+Size of backup persistent volume.
 
-- Environment Variable: `DB2_BACKUP_STORAGE_SIZE_GB`
-- Default: `100`
+- Environment Variable: `DB2_BACKUP_STORAGE_SIZE`
+- Default: `100Gb`
 
 ### [optional] db2_logs_storage_class
 Storage class used for transaction logs. This must support ReadWriteOnce
@@ -93,11 +93,11 @@ Storage class used for transaction logs. This must support ReadWriteOnce
 - Environment Variable: `DB2_LOGS_STORAGE_CLASS`
 - Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
 
-### [optional] db2_logs_storage_size_gb
-Size (in gigabytes) of transaction logs persistent volume.
+### [optional] db2_logs_storage_size
+Size of transaction logs persistent volume.
 
-- Environment Variable: `DB2_LOGS_STORAGE_SIZE_GB`
-- Default: `100`
+- Environment Variable: `DB2_LOGS_STORAGE_SIZE`
+- Default: `100Gb`
 
 ### [optional] db2_temp_storage_class
 Storage class used for temporary data. This must support ReadWriteOnce
@@ -105,11 +105,11 @@ Storage class used for temporary data. This must support ReadWriteOnce
 - Environment Variable: `DB2_TEMP_STORAGE_CLASS`
 - Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
 
-### [optional] db2_temp_storage_size_gb
-Size (in gigabytes) of temporary persistent volume.
+### [optional] db2_temp_storage_size
+Size of temporary persistent volume.
 
-- Environment Variable: `DB2_TEMP_STORAGE_SIZE_GB`
-- Default: `100`
+- Environment Variable: `DB2_TEMP_STORAGE_SIZE`
+- Default: `100Gb`
 
 ### [optional] db2_cpu_requests
 Define the Kubernetes CPU request for the Db2 pod.
