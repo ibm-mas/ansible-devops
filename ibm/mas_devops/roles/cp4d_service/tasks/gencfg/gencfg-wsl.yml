@@ -32,71 +32,69 @@
   set_fact:
     cpd_bearer_token: "{{ cpd_authorization.json.token }}"
 
-# Below logic to create WSL project is not needed anymore as this logic was moved to HPU operator
-# # 2. Look for existing WSL project
-# # -----------------------------------------------------------------------------
-# # If cpd_wsl_project_id is not set, then we will create one WSL project to be
-# # passed to MAS config.  So first, let's check if the cpd_wsl_project_id was
-# # set, if so then we will check if it exists in cpd
-# - name: "gencfg-wsl : Check if the WSL project is defined and if it exists in CP4D"
-#   when: cpd_wsl_project_id is defined and cpd_wsl_project_id !=""
-#   uri:
-#     url: "{{ cpd_url }}/v2/projects/{{ cpd_wsl_project_id }}"
-#     validate_certs: no
-#     method: GET
-#     headers:
-#       Authorization: "Bearer {{ cpd_bearer_token }}"
-#       cache-control: "no-cache"
-#       Content-Type: "application/json"
-#     body_format: "json"
-#     body: "{{ lookup('template','templates/wsl/create_wsl_project.json.j2') }}"
-#     status_code: 200,404
-#     timeout: 30
-#   register: lookup_wsl_project_output
+# 2. Look for existing WSL project
+# -----------------------------------------------------------------------------
+# If cpd_wsl_project_id is not set, then we will create one WSL project to be
+# passed to MAS config.  So first, let's check if the cpd_wsl_project_id was
+# set, if so then we will check if it exists in cpd
+- name: "gencfg-wsl : Check if the WSL project is defined and if it exists in CP4D"
+  when: cpd_wsl_project_id is defined and cpd_wsl_project_id !=""
+  uri:
+    url: "{{ cpd_url }}/v2/projects/{{ cpd_wsl_project_id }}"
+    validate_certs: no
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cpd_bearer_token }}"
+      cache-control: "no-cache"
+      Content-Type: "application/json"
+    body_format: "json"
+    body: "{{ lookup('template','templates/wsl/create_wsl_project.json.j2') }}"
+    status_code: 200,404
+    timeout: 30
+  register: lookup_wsl_project_output
 
-# - name: "Debug WSL project lookup"
-#   when:
-#     - lookup_wsl_project_output.status is not defined or (lookup_wsl_project_output.status is defined and lookup_wsl_project_output.status == 404)
-#   debug:
-#     msg: "'cpd_wsl_project_id' was not set or was not found in cpd instance, therefore one wsl project will be created to be used in MAS!"
-
-
-# # 3. Create new WSL project if necessary
-# # -----------------------------------------------------------------------------
-# # only create wsl project if cpd_wsl_project_id is not pre-set or if the defined
-# # cpd_wsl_project_id does not exists in cpd, otherwise create one wsl project
-# - name: "gencfg-wsl : Create the WSL project in CP4D if one is needed"
-#   when:
-#     - lookup_wsl_project_output.status is not defined or (lookup_wsl_project_output.status is defined and lookup_wsl_project_output.status == 404)
-#   uri:
-#     url: "{{ cpd_url }}/transactional/v2/projects"
-#     validate_certs: no
-#     method: POST
-#     headers:
-#       Authorization: "Bearer {{ cpd_bearer_token }}"
-#       cache-control: "no-cache"
-#       Content-Type: "application/json"
-#     body_format: "json"
-#     body: "{{ lookup('template','templates/wsl/create_wsl_project.json.j2') }}"
-#     status_code: 201,409
-#     timeout: 30
-#   register: create_wsl_project_output
-
-# - name: "gencfg-wsl : Extract cpd_wsl_project_id when it's created via rest api"
-#   vars:
-#     regex: '[^/]*$'
-#   when:
-#     - create_wsl_project_output.status is defined
-#     - create_wsl_project_output.status == 201
-#   set_fact:
-#     cpd_wsl_project_id: "{{ create_wsl_project_output.json.location | regex_search(regex) }}"
+- name: "Debug WSL project lookup"
+  when:
+    - lookup_wsl_project_output.status is not defined or (lookup_wsl_project_output.status is defined and lookup_wsl_project_output.status == 404)
+  debug:
+    msg: "'cpd_wsl_project_id' was not set or was not found in cpd instance, therefore one wsl project will be created to be used in MAS!"
 
 
-# # 4. Write out the config to the local filesystem
-# # -----------------------------------------------------------------------------
-# - name: "Debug final WSL Project ID using in MAS configuration"
-#   debug:
-#     msg: "Watson Studio Project ID to be used in MAS: {{ cpd_wsl_project_id }}"
+# 3. Create new WSL project if necessary
+# -----------------------------------------------------------------------------
+# only create wsl project if cpd_wsl_project_id is not pre-set or if the defined
+# cpd_wsl_project_id does not exists in cpd, otherwise create one wsl project
+- name: "gencfg-wsl : Create the WSL project in CP4D if one is needed"
+  when:
+    - lookup_wsl_project_output.status is not defined or (lookup_wsl_project_output.status is defined and lookup_wsl_project_output.status == 404)
+  uri:
+    url: "{{ cpd_url }}/transactional/v2/projects"
+    validate_certs: no
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cpd_bearer_token }}"
+      cache-control: "no-cache"
+      Content-Type: "application/json"
+    body_format: "json"
+    body: "{{ lookup('template','templates/wsl/create_wsl_project.json.j2') }}"
+    status_code: 201,409
+    timeout: 30
+  register: create_wsl_project_output
+
+- name: "gencfg-wsl : Extract cpd_wsl_project_id when it's created via rest api"
+  vars:
+    regex: '[^/]*$'
+  when:
+    - create_wsl_project_output.status is defined
+    - create_wsl_project_output.status == 201
+  set_fact:
+    cpd_wsl_project_id: "{{ create_wsl_project_output.json.location | regex_search(regex) }}"
+
+# 4. Write out the config to the local filesystem
+# -----------------------------------------------------------------------------
+- name: "Debug final WSL Project ID using in MAS configuration"
+  debug:
+    msg: "Watson Studio Project ID to be used in MAS: {{ cpd_wsl_project_id }}"
 
 - name: "gencfg-wsl : Copy WatsonStudioCfg to filesytem"
   no_log: true
