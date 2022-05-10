@@ -9,17 +9,41 @@ spec:
       type: string
       description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
       default: ""
+
+    - name: artifactory_username
+      default: ''
+      type: string
+      description: Required to use development MAS builds
+    - name: artifactory_apikey
+      default: ''
+      type: string
+      description: Required to use development MAS builds
+
+    - name: mas_instance_id
+      type: string
+      description: Instance ID
     - name: mas_app_id
       type: string
       description: Maximo Applicaiton Suite Application Id
     - name: mas_app_channel
-      default: '8.x'
       type: string
       description: Catalog channel for the application operator subscription
+
     - name: mas_app_catalog_source
       default: 'ibm-operator-catalog'
       type: string
       description: Catalog source for the application operator subscription
+
+    - name: mas_icr_cp
+      type: string
+      default: ""
+
+    - name: mas_entitlement_username
+      type: string
+      default: ""
+    - name: mas_entitlement_key
+      type: string
+
     - name: mas_app_spec
       default: ""
       type: string
@@ -27,10 +51,25 @@ spec:
 
   stepTemplate:
     env:
-      - name: MAS_CONFIG_DIR
-        value: /workspace/configs
       - name: JUNIT_SUITE_NAME
         value: $(params.junit_suite_name)
+
+      - name: MAS_INSTANCE_ID
+        value: $(params.mas_instance_id)
+
+      - name: ARTIFACTORY_USERNAME
+        value: $(params.artifactory_username)
+      - name: ARTIFACTORY_APIKEY
+        value: $(params.artifactory_apikey)
+
+      - name: MAS_ICR_CP
+        value: $(params.mas_icr_cp)
+
+      - name: MAS_ENTITLEMENT_USERNAME
+        value: $(params.mas_entitlement_username)
+      - name: MAS_ENTITLEMENT_KEY
+        value: $(params.mas_entitlement_key)
+
       - name: MAS_APP_ID
         value: $(params.mas_app_id)
       - name: MAS_APP_CHANNEL
@@ -47,7 +86,3 @@ spec:
         - suite_app_install
       image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
-      workingDir: /workspace/configs
-
-  workspaces:
-    - name: settings

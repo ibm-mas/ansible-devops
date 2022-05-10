@@ -1,56 +1,29 @@
 ---
 
 # Provide intelligent storage class selection to minimize required user knowledge
-#
-# 1. Has the user provided a storage class directly
-# 2. Are IBMCloud ROKS Storage classes available, use ROKS defaults
-# 3. Are OpenShift Container Storage classes available, use OCS defaults
-# 4. Otherwise, fail if the storage class is required
 
-# 1. Lookup ROKS storage class availabiity
+# 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-# We only need to perform this lookup if one or more storage classes are not defined
-- name: Lookup ROKS storage classes
-  when:
-    - mongodb_storage_class is not defined or mongodb_storage_class == ""
+- name: Lookup storage classes
   kubernetes.core.k8s_info:
     api_version: storage.k8s.io/v1
     kind: StorageClass
-    name: ibmc-block-gold
-  register: lookup_roks_storageclass
+  register: lookup_storageclasses
+
+- name: "Debug available storage classes"
+  debug:
+    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
 
 
-# 2. Lookup OCS storage class availabiity
+# 2. Set Storage (Required)
 # -----------------------------------------------------------------------------
-# We only need to perform this lookup if one or more storage classes are not defined
-# and if we didn't find the ROKS storage class
-- name: Lookup ROKS storage classes
-  when:
-    - mongodb_storage_class is not defined or mongodb_storage_class == ""
-    - lookup_roks_storageclass.resources | length == 0
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-    name: ocs-storagecluster-ceph-rbd
-  register: lookup_ocs_storageclass
-
-
-# 3. Set Storage (Required)
-# -----------------------------------------------------------------------------
-- name: Default Storage for ROKS if not set by user
-  when:
-    - mongodb_storage_class is not defined or mongodb_storage_class == ""
-    - lookup_roks_storageclass.resources | length > 0
+- name: Default Storage if not set by user
+  when: mongodb_storage_class is not defined or mongodb_storage_class == ""
+  vars:
+    # ROKS, OCS, Azure
+    supported_storage_classes: [ibmc-block-gold, ocs-storagecluster-ceph-rbd, managed-premium]
   set_fact:
-    mongodb_storage_class: ibmc-block-gold
-
-- name: Default Storage for OCS if not set by user
-  when:
-    - mongodb_storage_class is not defined or mongodb_storage_class == ""
-    - lookup_roks_storageclass.resources | length == 0
-    - lookup_ocs_storageclass.resources | length > 0
-  set_fact:
-    mongodb_storage_class: ocs-storagecluster-ceph-rbd
+    mongodb_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
 - name: Assert that storage class has been defined
   assert:

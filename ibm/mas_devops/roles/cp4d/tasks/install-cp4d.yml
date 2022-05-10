@@ -21,7 +21,7 @@
     kind: Deployment
   register: zen_operator_lookup
   until: zen_operator_lookup.resources[0].status.availableReplicas is defined
-  retries: 90 # Approximately 90 minutes before we give up
+  retries: 20 # Approximately 20 minutes before we give up
   delay: 60 # 1 minute
 
 # 2.2 Wait for lite-cr to be created ...
@@ -35,7 +35,7 @@
   until:
     - zenlitecr_output.resources is defined
     - zenlitecr_output.resources | length > 0
-  retries: 60 # approx 60 minutes before we give up
+  retries: 20 # approx 20 minutes before we give up
   delay: 60 # 1 minute
 
 # 2.3 Apply the patch per recommendation from CP4D team
@@ -98,8 +98,8 @@
   until:
     - zenservice_lookup.resources[0].status.zenStatus is defined
     - zenservice_lookup.resources[0].status.zenStatus == "Completed" or zenservice_lookup.resources[0].status.zenStatus == "Failed"
-  retries: 15 # Approximately 30 minutes before we give up
-  delay: 120 # 2 minutes
+  retries: 25 # Approximately 2 hours before we give up
+  delay: 300 # 5 minutes
 
 - name: "Check that the zenStatus is 'Completed'"
   assert:

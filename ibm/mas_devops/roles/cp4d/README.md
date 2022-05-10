@@ -19,12 +19,6 @@ CloudPak for Data support comes in two flavours: CP4D v3.5 and CP4D v4.  For use
 Role Variables
 --------------
 
-### cpd_version
-Required.  CP4D version to be installed. Supported versions are `cpd35` (for CP4D 3.5) and `cpd40` (for CP4D 4.0)
-
-- Environment Variable: `CPD_VERSION`
-- Default: None
-
 ### cpd_entitlement_key
 Required only if `cpd_version = cpd35`, otherwise unused because in CP4D v4 we have to use the [cp4d_hack_worker_nodes](cp4d_hack_worker_nodes.md) role to prepare the cluster ahead of time by setting up a global image pull secret for CP4D.  Holds your IBM Entitlement key.
 
@@ -51,11 +45,6 @@ Only supported if `cpd_version = cpd40`, otherwise unused. For v3.5 support this
 - Environment Variable: `CPD_SERVICES_NAMESPACE`
 - Default Value: `cpd-services`
 
-### mas_channel
-You can specify this property as an alternative to `cpd_version` to allow the role to automatically select the appropriate version of CP4D based on the MAS Channel you are subscribing to.  If `cpd_version` is set, then this is ignored.
-
-- Environment Variable: `MAS_CHANNEL`
-- Default: None
 
 
 Example Playbook
