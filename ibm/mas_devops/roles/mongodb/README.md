@@ -46,7 +46,7 @@ The CPU limits on the mongod container.
 ### mongodb_mem_limits
 The Memory limits on the mongod container.
 
-- Environment Variable: `MONGODB_MEM_LIMITS_GB`
+- Environment Variable: `MONGODB_MEM_LIMITS`
 - Default Value: `1Gi`
 
 ### mas_instance_id
