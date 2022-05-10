@@ -25,12 +25,16 @@ spec:
     - name: mas_config_scope
       type: string
       default: "" # By default, no config will be generated
-    - name: mas_application_id
+    - name: mas_instance_id
       type: string
-      default: "" # Only required is config_scope = app or wsapp
+      description: Instance ID
+      default: "" # By default, no config will be generated
     - name: mas_workspace_id
       type: string
-      default: "" # Only required is config_scope = ws or wsapp
+      default: "" # Only required if config_scope = ws or wsapp
+    - name: mas_application_id
+      type: string
+      default: "" # Only required if config_scope = app or wsapp
 
     # Configure storage sizes
     - name: db2_meta_storage_size_gb
@@ -51,10 +55,20 @@ spec:
 
   stepTemplate:
     env:
-      - name: MAS_CONFIG_DIR
-        value: /workspace/configs
       - name: JUNIT_SUITE_NAME
         value: $(params.junit_suite_name)
+
+      # Configure JdbcCfg
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
+      - name: MAS_CONFIG_SCOPE
+        value: $(params.mas_config_scope)
+      - name: MAS_INSTANCE_ID
+        value: $(params.mas_instance_id)
+      - name: MAS_APP_ID
+        value: $(params.mas_application_id)
+      - name: MAS_WORKSPACE_ID
+        value: $(params.mas_workspace_id)
 
       # Configure Db2uCluster
       - name: DB2_INSTANCE_NAME
@@ -64,13 +78,6 @@ spec:
       - name: DB2_TABLE_ORG
         value: $(params.db2_table_org)
 
-      # Configure JdbcCfg
-      - name: MAS_CONFIG_SCOPE
-        value: $(params.mas_config_scope)
-      - name: MAS_APP_ID
-        value: $(params.mas_application_id)
-      - name: MAS_WORKSPACE_ID
-        value: $(params.mas_workspace_id)
 
       # Configure storage sizes (storage classes are set globally in the secret)
       - name: DB2_META_STORAGE_SIZE_GB
@@ -83,6 +90,7 @@ spec:
         value: $(params.db2_logs_storage_size_gb)
       - name: DB2_TEMP_STORAGE_SIZE_GB
         value: $(params.db2_temp_storage_size_gb)
+
   steps:
     - name: db2
       command:
@@ -94,4 +102,3 @@ spec:
 
   workspaces:
     - name: configs
-    - name: settings
