@@ -1,21 +1,16 @@
-# Ansible DevOps Collection for IBM Maximo Application Suite
-
-## Documentation
-[https://ibm-mas.github.io/ansible-devops/](https://ibm-mas.github.io/ansible-devops/)
-
-## Change Log
+## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
 - `10.0` One-click installer support ([#285](https://github.com/ibm-mas/ansible-devops/pull/285), [#296](https://github.com/ibm-mas/ansible-devops/pull/296), [#299](https://github.com/ibm-mas/ansible-devops/pull/299))
 - `9.0` Multiple Updates:
-    - Added ability to set annotations onto suite CR  ([#269](https://github.com/ibm-mas/ansible-devops/pull/269)
-    - Add Assist install playbooks ([#271](https://github.com/ibm-mas/ansible-devops/pull/271)
-    - Added gencfg-sls and gencfg-uds playbooks for using existing SLS and UDS ([#275](https://github.com/ibm-mas/ansible-devops/pull/275)
-    - Add new required var CPD_METADB_BLOCK_STORAGE_CLASS for CP4D 4.0 ([#273](https://github.com/ibm-mas/ansible-devops/pull/273)
+    - Added ability to set annotations onto suite CR ([#269](https://github.com/ibm-mas/ansible-devops/pull/269))
+    - Add Assist install playbooks ([#271](https://github.com/ibm-mas/ansible-devops/pull/271))
+    - Added gencfg-sls and gencfg-uds playbooks for using existing SLS and UDS ([#275](https://github.com/ibm-mas/ansible-devops/pull/275))
+    - Add new required var `CPD_METADB_BLOCK_STORAGE_CLASS` for CP4D 4.0 ([#273](https://github.com/ibm-mas/ansible-devops/pull/273))
 - `8.0` Multiple Updates:
-    - Create secure route to CP4D web client when setting up DNS using CIS and suite_dns role ([#251](https://github.com/ibm-mas/ansible-devops/pull/251))
-    - Configure azurefiles storage class for multi-cloud ([#260](https://github.com/ibm-mas/ansible-devops/pull/260))
     - SMTP email support for Azure and other changes ([#265](https://github.com/ibm-mas/ansible-devops/pull/265))
+    - Configure azurefiles storage class for multi-cloud ([#260](https://github.com/ibm-mas/ansible-devops/pull/260))
+    - Create secure route to CP4D web client when setting up DNS using CIS and suite_dns role ([#251](https://github.com/ibm-mas/ansible-devops/pull/251))
     - Add cp4d_wds role for discovery instance provison ([#234](https://github.com/ibm-mas/ansible-devops/pull/234))
     - Change MAS_APPWS_COMPONENTS variable format ([#267](https://github.com/ibm-mas/ansible-devops/pull/267))
 - `7.0` Mulitple Updates:
@@ -47,7 +42,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
     - Support configurable prometheus storage & retention policy ([#151](https://github.com/ibm-mas/ansible-devops/pull/151))
     - Support configurable application spec ([#160](https://github.com/ibm-mas/ansible-devops/pull/160))
 - `5.1` Multiple Updates:
-    - Add support for Cloud Object Storage ([#122](https://github.com/ibm-mas/ansible-devops/pull/122))
+    - Add support for Cloud Object Storage setup ([#122](https://github.com/ibm-mas/ansible-devops/pull/122))
     - Conditional application deployment in Tekton pipelines ([#118](https://github.com/ibm-mas/ansible-devops/pull/118))
     - Add support for CP4D v4 alongside existing support for v3.5 ([#93](https://github.com/ibm-mas/ansible-devops/pull/93))
 - `5.0` Multiple Updates:
@@ -63,8 +58,8 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 - `4.1` Add `ocp_verify` role and associated playbook ([#20](https://github.com/ibm-mas/ansible-devops/pull/20))
 - `4.0` Initial Public Release on ibm.mas_devops ([#5](https://github.com/ibm-mas/ansible-devops/pull/5))
 - `3.3` Support configurable SLS settings ([#53](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/53))
-- `3.2` Adding support to BAS ([#44](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/44))
-- `3.1` Adding support to SLS ([#35](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/35))
+- `3.2` Add support for BAS ([#44](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/44))
+- `3.1` Add support for SLS ([#35](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/35))
 - `3.0` Switch to config dir instead of config file list ([#36](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/36))
 - `2.7` Support AirGap install of MAS ([#28](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/28))
 - `2.6` Add support for Gen2 application mgmt (install and configure) ([#24](https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/24))
