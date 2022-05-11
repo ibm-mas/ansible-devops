@@ -1,18 +1,23 @@
 # OneClick Install for MAS Core
 
-This playbook will install and configure IBM Maximo Application Suite Core along with all necessary dependencies.  This can be ran against any OCP cluster regardless of it's type, whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
+This playbook will install and configure IBM Maximo Application Suite Core along with all necessary dependencies.  This can be ran against any OCP cluster regardless of it's type, whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.  It will take approximately 90 minutes to set up MAS core services and all of it's dependencies, at the end of the process you will be able to login to the MAS admin dashboard to install any applications that you wish to use, or you can use our other playbooks to automate the installation of those applications (including any additional dependencies)
 
-## Actions
-- Install dependencies:
-    - Install MongoDb (Community Edition) (10 minutes)
-    - Install IBM SLS (10 minutes)
-    - Install IBM UDS (35 minutes)
-- Install & configure MAS:
-    - Generate MAS Workspace Configuration (1 minute)
-    - Configure Cloud Internet Services integration (Optional, 1 minute)
-    - Install & configure MAS (15 minutes)
+## Playbook Content
+1. [Install IBM Operator Catalogs](../roles/ibm_catalogs.md) (1 minute)
+2. [Install IBM Common Services](../roles/common_services.md) (3 minutes)
+3. [Install Certificate Manager Operator](../roles/cert_manager.md) (3 minutes)
+4. [Install Service Binding Operator](../roles/sbo.md) (2 minutes)
+5. [Configure Cluster Monitoring](../roles/cluster_monitoring.md) (1 minute)
+6. [Install Mongodb Operator and Create a Cluster](../roles/mongodb.md) (10 minutes)
+7. [Install and bootstrap IBM Suite License Service](../roles/sls.md) (10 minutes)
+8. [Install IBM User Data Services](../roles/uds.md) (30 minutes)
+9. [Generate a MAS Workspace Configuration](../roles/gencfg_workspace.md) (1 minute)
+10. [Configure Cloud Internet Services Integration for Maximo Application Suite](../roles/suite_dns.md) (Optional, 1 minute)
+11. [Install Maximo Application Suite Core Services](../roles/suite_install.md) (1 minute)
+12. [Configure Maximo Application Suite](../roles/suite_config.md) (1 minute)
+13. [Verify the Install and Configuration of Maximo Application Suite](../roles/suite_verify.md) (25 minutes)
 
-All timings are estimates, see the individual pages for each of these roles for more information.
+All timings are estimates, see the individual pages for each of these roles for more information and full details of all configuration options available in this playbook.
 
 ## Preparation
 Before you run the playbook you **must** prepare the entitlement license key file that will be used during the playbook run.
@@ -20,10 +25,12 @@ Before you run the playbook you **must** prepare the entitlement license key fil
 Copy the MAS license key file that you obtained from Rational License Key Server to a local path and set `SLS_LICENSE_FILE` to point to this location.  During the installation of SLS this license file will be automatically bootstrapped into the system.
 
 !!! tip
-    If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Server.
+    If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Service.
 
 
-## Required environment variables
+## Usage
+
+### Required environment variables
 
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
@@ -36,76 +43,46 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 - `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for UDS
 
 
-## Optional environment variables
-Refer to the role documentation for full details of all configuration options available in this playbook:
-1. [ibm_catalogs](../roles/ibm_catalogs.md)
-2. [common_services](../roles/common_services.md)
-3. [cert_manager](../roles/cert_manager.md)
-4. [sbo](../roles/sbo.md)
-5. [cluster_monitoring](../roles/cluster_monitoring.md)
-6. [mongodb](../roles/mongodb.md)
-7. [sls](../roles/sls.md)
-8. [uds](../roles/uds.md)
-9. [gencfg_workspace](../roles/gencfg_workspace.md)
-10. [suite_dns](../roles/suite_dns.md)
-11. [suite_install](../roles/suite_install.md)
-12. [suite_config](../roles/suite_config.md)
-13. [suite_verify](../roles/suite_verify.md)
-
-
-## Release build
+### Release build
 The simplest configuration to deploy a release build of IBM Maximo Application Suite (core only) with dependencies is:
 ```bash
-# MAS configuration
 export MAS_INSTANCE_ID=inst1
 export MAS_ENTITLEMENT_KEY=xxx
-
 export MAS_CONFIG_DIR=~/masconfig
-
-# SLS configuration
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 export SLS_ENTITLEMENT_KEY=xxx
-
-# UDS configuration
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
 
+oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_core
 ```
 
 
-## Pre-release build
-The simplest configuration to deploy a pre-release build (only available to IBM employees) of IBM Maximo Application Suite (core only) with dependencies is:
+### Pre-release build
+To deploy a pre-release build of IBM Maximo Application Suite (core only) with dependencies a number of additional parameters are required, note that pre-release builds are only available to IBM employees:
 
 ```bash
-# Allow development catalogs to be installed
-export W3_USERNAME=xxx
+export ARTIFACTORY_USERNAME=$W3_USERNAME_LOWERCASE
 export ARTIFACTORY_APIKEY=xxx
-
-# MAS configuration
 export MAS_INSTANCE_ID=inst1
 export MAS_CATALOG_SOURCE=ibm-mas-operators
 export MAS_CHANNEL=m4dev88
-
 export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
-
 export MAS_CONFIG_DIR=~/masconfig
-
-# SLS configuration
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 export SLS_ENTITLEMENT_KEY=xxx
 export SLS_ENTITLEMENT_FILE=xxx
-
-# UDS configuration
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
 
+oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_core
 ```

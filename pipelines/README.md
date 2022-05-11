@@ -36,7 +36,7 @@ This aspect of the project is still in active development and should be consider
 ## Build and Install the MAS Pipeline Task Definitions
 ```bash
 export DEV_MODE=true
-export VERSION=10.0.0
+export VERSION=11.0.0
 
 pipelines/bin/build-pipelines.sh
 oc apply -f pipelines/ibm-mas_devops-clustertasks-$VERSION.yaml

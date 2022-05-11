@@ -31,5 +31,6 @@ All timings are estimates, see the individual pages for each of these playbooks 
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 
-ansible-playbook ibm.mas_devops.oneclick_add_manage
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.oneclick_manage
 ```
