@@ -45,31 +45,37 @@
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href=".">Home</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#python-ansible">Python &amp; Ansible</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#openshift-cli">OpenShift CLI</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#ibm-cloud-cli">IBM Cloud CLI</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a>
+    <li class="toctree-l2"><a class="reference internal" href="#mas-compatability">MAS Compatability</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#directly-invoke-a-playbook">Directly invoke a playbook</a>
+    <li class="toctree-l3"><a class="reference internal" href="#run-a-playbook">Run a playbook</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#directly-invoke-a-role">Directly invoke a role</a>
+    <li class="toctree-l3"><a class="reference internal" href="#run-a-role">Run a role</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#running-in-docker">Running in Docker</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#local-install">Local Install</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#install-python-ansible">Install Python &amp; Ansible</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#install-openshift-cli">Install OpenShift CLI</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#install-ibm-cloud-cli">Install IBM Cloud CLI</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#install-the-ansible-collection">Install the Ansible Collection</a>
     </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#support">Support</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#change-log">Change Log</a>
-    </li>
     </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="changes/">Changes</a>
                 </li>
               </ul>
               <p class="caption"><span class="caption-text">Playbooks</span></p>
@@ -207,142 +213,55 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="mas-devops-ansible-collection">MAS Devops Ansible Collection<a class="headerlink" href="#mas-devops-ansible-collection" title="Permanent link"></a></h1>
-<h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link"></a></h2>
-<h3 id="python-ansible">Python &amp; Ansible<a class="headerlink" href="#python-ansible" title="Permanent link"></a></h3>
-<p><a href="https://www.python.org/downloads/">Python 3.8</a> is recommended as it is the most widely used version of Python within our development team, but any in-support 3.x version of Python should work fine.</p>
+<h2 id="mas-compatability">MAS Compatability<a class="headerlink" href="#mas-compatability" title="Permanent link"></a></h2>
+<p>The collection supports IBM Maximo Application Suite version 8.6 and above.</p>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link"></a></h2>
+<h3 id="run-a-playbook">Run a playbook<a class="headerlink" href="#run-a-playbook" title="Permanent link"></a></h3>
+<p>The collection includes a number of playbooks that string together multiple roles, you can directly invoke them after installing the collection:</p>
+<pre><code class="language-bash">ansible-playbook ibm.mas_devops.lite_core_roks
+</code></pre>
+<h3 id="run-a-role">Run a role<a class="headerlink" href="#run-a-role" title="Permanent link"></a></h3>
+<p>If you only want to perform a single action, you can directly invoke one of our roles from the command line without the need to build a playbook:</p>
+<pre><code class="language-bash">ansible localhost -m include_role -a name=ibm.mas_devops.ocp_verify
+</code></pre>
+<h2 id="running-in-docker">Running in Docker<a class="headerlink" href="#running-in-docker" title="Permanent link"></a></h2>
+<p>The easiest way to use this collection is to take advantage of the <a href="https://quay.io/repository/ibmmas/ansible-devops">ibmmas/ansible-devops</a> container image, this negates the need to install anything on your local machine (other than docker, obviously).</p>
+<pre><code class="language-bash">docker run -ti quay.io/ibmmas/ansible-devops:10.0.0 bash
+(app-root) oc login --token=xxxx --server=https://myocpserver
+(app-root) ansible localhost -m include_role -a name=ibm.mas_devops.ocp_verify
+(app-root) ansible-playbook ibm.mas_devops.oneclick_core
+</code></pre>
+<h2 id="local-install">Local Install<a class="headerlink" href="#local-install" title="Permanent link"></a></h2>
+<h3 id="install-python-ansible">Install Python &amp; Ansible<a class="headerlink" href="#install-python-ansible" title="Permanent link"></a></h3>
+<p><a href="https://www.python.org/downloads/">Python 3.9</a> is recommended as it is the most widely used version of Python within our development team, but any in-support 3.x version of Python should work fine.</p>
 <pre><code class="language-bash">python3 --version
 python3 -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1
 ansible --version
 ansible-playbook --version
 </code></pre>
-<h3 id="openshift-cli">OpenShift CLI<a class="headerlink" href="#openshift-cli" title="Permanent link"></a></h3>
+<p>We recommend using the latest version of ansible-core at all times (at time of writing this was v2.12.3) and the collection has a minimum supported version of ansible-core v2.10.3 which is enforced by the <code>ibm.mas_devops.ansible_version_check</code> role.</p>
+<h3 id="install-openshift-cli">Install OpenShift CLI<a class="headerlink" href="#install-openshift-cli" title="Permanent link"></a></h3>
 <p>If you do not already have the <code>oc</code> command line tool, you can download it as below:</p>
 <pre><code>wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.8.35/openshift-client-linux.tar.gz
 tar -zxf openshift-client-linux.tar.gz
-mv oc /usr/local/bin/
-mv kubectl /usr/local/bin/
+mv oc kubectl /usr/local/bin/
 rm -rf openshift-client-linux.tar.gz
 oc version
 </code></pre>
-<h3 id="ibm-cloud-cli">IBM Cloud CLI<a class="headerlink" href="#ibm-cloud-cli" title="Permanent link"></a></h3>
+<h3 id="install-ibm-cloud-cli">Install IBM Cloud CLI<a class="headerlink" href="#install-ibm-cloud-cli" title="Permanent link"></a></h3>
 <p>If you are using this collection to manage an OpenShift cluster in IBM Cloud RedHat OpenShift Kubernetes Service (ROKS), then you must also install the IBM Cloud CLI:</p>
 <pre><code class="language-bash">curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/master/linux-installer/idt-installer | bash
 ibmcloud version`
 </code></pre>
-<h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link"></a></h2>
+<h3 id="install-the-ansible-collection">Install the Ansible Collection<a class="headerlink" href="#install-the-ansible-collection" title="Permanent link"></a></h3>
 <p>Install the collection direct from <a href="https://galaxy.ansible.com/ibm/mas_devops">Ansible Galaxy</a></p>
 <pre><code>ansible-galaxy collection install ibm.mas_devops
 </code></pre>
 <p>Optionally, you can also pin the version of the collection that you install, allowing you to control exactly what version of the collection is in use in your automation:</p>
 <pre><code>ansible-galaxy collection install ibm.mas_devops:10.0.0
 </code></pre>
-<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link"></a></h2>
-<h3 id="directly-invoke-a-playbook">Directly invoke a playbook<a class="headerlink" href="#directly-invoke-a-playbook" title="Permanent link"></a></h3>
-<p>The collection includes a number of playbooks that string together multiple roles, you can directly invoke them after installing the collection like so:</p>
-<pre><code class="language-bash">ansible-playbook ibm.mas_devops.lite_core_roks
-</code></pre>
-<h3 id="directly-invoke-a-role">Directly invoke a role<a class="headerlink" href="#directly-invoke-a-role" title="Permanent link"></a></h3>
-<p>If you only want to perform a simple action, you can directly invoke one of our roles from the command line without the need to build a playbook like so:</p>
-<pre><code class="language-bash">ansible localhost -m include_role -a name=ibm.mas_devops.ocp_setup_ocs
-</code></pre>
 <h2 id="support">Support<a class="headerlink" href="#support" title="Permanent link"></a></h2>
-<p>TODO: Write me</p>
-<h2 id="change-log">Change Log<a class="headerlink" href="#change-log" title="Permanent link"></a></h2>
-<p>Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.</p>
-<ul>
-<li><code>9.0</code> Multiple Updates:<ul>
-<li>Added ability to set annotations onto suite CR  (<a href="https://github.com/ibm-mas/ansible-devops/pull/269">#269</a></li>
-<li>Add Assist install playbooks (<a href="https://github.com/ibm-mas/ansible-devops/pull/271">#271</a></li>
-<li>Added gencfg-sls and gencfg-uds playbooks for using existing SLS and UDS (<a href="https://github.com/ibm-mas/ansible-devops/pull/275">#275</a></li>
-<li>Add new required var <code>CPD_METADB_BLOCK_STORAGE_CLASS</code> for CP4D 4.0 (<a href="https://github.com/ibm-mas/ansible-devops/pull/273">#273</a></li>
-</ul>
-</li>
-<li><code>8.0</code> Multiple Updates:<ul>
-<li>Create secure route to CP4D web client when setting up DNS using CIS and suite_dns role (<a href="https://github.com/ibm-mas/ansible-devops/pull/251">#251</a>)</li>
-<li>Configure azurefiles storage class for multi-cloud (<a href="https://github.com/ibm-mas/ansible-devops/pull/260">#260</a>)</li>
-<li>Create secure route to CP4D web client when setting up DNS using CIS and suite_dns role (<a href="https://github.com/ibm-mas/ansible-devops/pull/251">#251</a>)</li>
-<li>Configure azurefiles storage class for multi-cloud (<a href="https://github.com/ibm-mas/ansible-devops/pull/260">#260</a>)</li>
-<li>SMTP email support for Azure and other changes (<a href="https://github.com/ibm-mas/ansible-devops/pull/265">#265</a>)</li>
-<li>Add cp4d_wds role for discovery instance provison (<a href="https://github.com/ibm-mas/ansible-devops/pull/234">#234</a>)</li>
-<li>Change MAS_APPWS_COMPONENTS variable format (<a href="https://github.com/ibm-mas/ansible-devops/pull/267">#267</a>)</li>
-</ul>
-</li>
-<li><code>7.0</code> Mulitple Updates:<ul>
-<li>Consolidate cluster specific provision/deprovision playbooks (<a href="https://github.com/ibm-mas/ansible-devops/pull/236">#236</a>)</li>
-<li>Fix SLS bootstrap and update docs (<a href="https://github.com/ibm-mas/ansible-devops/pull/242">#242</a>)</li>
-<li>Support GPU node in OCP on ROKS (<a href="https://github.com/ibm-mas/ansible-devops/pull/224">#224</a>)</li>
-<li>Azure support for OCP cluster deployment (<a href="https://github.com/ibm-mas/ansible-devops/pull/243">#243</a>)</li>
-<li>Add UDSCfg (BASCfg) generator (<a href="https://github.com/ibm-mas/ansible-devops/pull/210">#210</a>)</li>
-</ul>
-</li>
-<li><code>6.5</code> Multiple Updates:<ul>
-<li>Add JDBCCfg generator role (<a href="https://github.com/ibm-mas/ansible-devops/pull/188">#188</a>)</li>
-<li>Add mustgather clusterTask to pipeline and new mustgather_download playbook (<a href="https://github.com/ibm-mas/ansible-devops/pull/222">#222</a>)</li>
-</ul>
-</li>
-<li><code>6.4</code> Add support for MVI deployment (<a href="https://github.com/ibm-mas/ansible-devops/pull/196">#196</a>)</li>
-<li><code>6.3</code> Allow <code>ocp_server</code> and <code>ocp_token</code> to be used for <code>ocp_login</code> (<a href="https://github.com/ibm-mas/ansible-devops/pull/211">#211</a>)</li>
-<li><code>6.2</code> Multiple Updates:<ul>
-<li>Support manual upgrade approvals (<a href="https://github.com/ibm-mas/ansible-devops/pull/205">#205</a>)</li>
-<li>Add support for Db2u operator (<a href="https://github.com/ibm-mas/ansible-devops/pull/203">#203</a>)</li>
-<li>Add Workspace config generator (<a href="https://github.com/ibm-mas/ansible-devops/pull/189">#189</a>)</li>
-</ul>
-</li>
-<li><code>6.1</code> Create WSL project and enable HPU deploy (<a href="https://github.com/ibm-mas/ansible-devops/pull/201">#201</a>)</li>
-<li><code>6.0</code> Multiple Updates:<ul>
-<li>Upgrade to <a href="https://docs.ansible.com/ansible/latest/collections/kubernetes/core/">kubernetes.core</a> Ansible module (<a href="https://github.com/ibm-mas/ansible-devops/pull/194">#194</a>)</li>
-<li>Remove BAS support (replaced by UDS) (<a href="https://github.com/ibm-mas/ansible-devops/pull/194">#194</a>)</li>
-</ul>
-</li>
-<li><code>5.3</code> Multiple Updates:<ul>
-<li>Add support for db2wh backup &amp; restore (<a href="https://github.com/ibm-mas/ansible-devops/pull/133">#133</a>)</li>
-<li>Add support for appConnect (<a href="https://github.com/ibm-mas/ansible-devops/pull/170">#170</a>)</li>
-<li>Switch BAS from FullDeployment to AnalyticsProxy (<a href="https://github.com/ibm-mas/ansible-devops/pull/178">#178</a>)</li>
-</ul>
-</li>
-<li><code>5.2</code> Multiple Updates:<ul>
-<li>Support MongoDb CPU and memory configuration (<a href="https://github.com/ibm-mas/ansible-devops/pull/158">#158</a>)</li>
-<li>Separate CIS_APIKEY support for MAS Installation (<a href="https://github.com/ibm-mas/ansible-devops/pull/156">#156</a>)</li>
-<li>Support configurable prometheus storage &amp; retention policy (<a href="https://github.com/ibm-mas/ansible-devops/pull/151">#151</a>)</li>
-<li>Support configurable application spec (<a href="https://github.com/ibm-mas/ansible-devops/pull/160">#160</a>)</li>
-</ul>
-</li>
-<li><code>5.1</code> Multiple Updates:<ul>
-<li>Add support for Cloud Object Storage setup (<a href="https://github.com/ibm-mas/ansible-devops/pull/122">#122</a>)</li>
-<li>Conditional application deployment in Tekton pipelines (<a href="https://github.com/ibm-mas/ansible-devops/pull/118">#118</a>)</li>
-<li>Add support for CP4D v4 alongside existing support for v3.5 (<a href="https://github.com/ibm-mas/ansible-devops/pull/93">#93</a>)</li>
-</ul>
-</li>
-<li><code>5.0</code> Multiple Updates:<ul>
-<li>Add support for AI Applications' must-gather tooling (<a href="https://github.com/ibm-mas/ansible-devops/pull/91">#91</a>)</li>
-<li>Migrate airgap support into ibm.mas_airgap collection (<a href="https://github.com/ibm-mas/ansible-devops/pull/38">#38</a>)</li>
-<li>Support for Assist application (<a href="https://github.com/ibm-mas/ansible-devops/pull/76">#76</a>)</li>
-<li>Significant refactoring for CP4D support (<a href="https://github.com/ibm-mas/ansible-devops/pull/68">#68</a>)</li>
-<li>Migrate build system to GitHub Actions (<a href="https://github.com/ibm-mas/ansible-devops/pull/68">#68</a>)</li>
-</ul>
-</li>
-<li><code>4.5</code> Add support for Manage (<a href="https://github.com/ibm-mas/ansible-devops/pull/61">#61</a>)</li>
-<li><code>4.4</code> Add CP4D and DB2W playbooks (<a href="https://github.com/ibm-mas/ansible-devops/pull/51">#51</a>)</li>
-<li><code>4.3</code> Add support for playbook junit result generation (<a href="https://github.com/ibm-mas/ansible-devops/pull/39">#39</a>)</li>
-<li><code>4.2</code> Add support for Tekton pipelines (<a href="https://github.com/ibm-mas/ansible-devops/pull/34">#34</a>)</li>
-<li><code>4.1</code> Add <code>ocp_verify</code> role and associated playbook (<a href="https://github.com/ibm-mas/ansible-devops/pull/20">#20</a>)</li>
-<li><code>4.0</code> Initial Public Release on ibm.mas_devops (<a href="https://github.com/ibm-mas/ansible-devops/pull/5">#5</a>)</li>
-<li><code>3.3</code> Support configurable SLS settings (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/53">#53</a>)</li>
-<li><code>3.2</code> Add support for BAS (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/44">#44</a>)</li>
-<li><code>3.1</code> Add support for SLS (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/35">#35</a>)</li>
-<li><code>3.0</code> Switch to config dir instead of config file list (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/36">#36</a>)</li>
-<li><code>2.7</code> Support AirGap install of MAS (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/28">#28</a>)</li>
-<li><code>2.6</code> Add support for Gen2 application mgmt (install and configure) (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/24">#24</a>)</li>
-<li><code>2.5</code> Add support for Watson Studio (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/16">#16</a>)</li>
-<li><code>2.4</code> Add support for MongoDb Community Edition (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/25">#25</a>)</li>
-<li><code>2.3</code> Add support for IBM Cloud resource groups (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/20">#20</a>)</li>
-<li><code>2.2</code> Support DNS and certificate mgmt with CIS &amp; LetsEncrypt (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/10">#10</a>)</li>
-<li><code>2.1</code> Add support for AMQ Streams (Kafka) (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/19">#19</a>)</li>
-<li><code>2.0</code> Major refactor of the roles and playbooks (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/17">#17</a>)</li>
-<li><code>1.2</code> Add initial Spark support (incomplete) (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/15">#15</a>)</li>
-<li><code>1.1</code> Enable db2wh SSL and generate jdbccfg for MAS (<a href="https://github.ibm.com/maximoappsuite/mas-devops-ansible/pull/9">#9</a>)</li>
-<li><code>1.0</code> Initial release</li>
-</ul>
+<p>This Ansible collection is developed by the IBM Maximo Application Suite development team, customers may raise support tickets via the same routes they would an issue with the product itself, or <a href="https://github.com/ibm-mas/ansible-devops/issues">raise an issue directly in the GitHub repository</a>.</p>
               
             </div>
           </div><footer>
@@ -372,7 +291,7 @@ ibmcloud version`
     
     
     
-      <span><a href="playbooks/ocp/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="changes/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
@@ -391,5 +310,5 @@ ibmcloud version`
 
 <!--
 MkDocs version : 1.3.0
-Build Date UTC : 2022-05-11 08:44:04.116695+00:00
+Build Date UTC : 2022-05-11 14:56:20.029898+00:00
 -->
