@@ -9,13 +9,14 @@
   kubernetes.core.k8s_info:
     api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
     kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
-    name: "ibmcpd-{{ cpd_service_name }}"
+    name: "{{ cpd_service_info[cpd_service_name].cr_name }}"
     namespace: "{{ cpd_instance_namespace }}"
   register: cpd_cr_lookup
   until:
     - cpd_cr_lookup.resources is defined
     - cpd_cr_lookup.resources | length == 1
     - cpd_cr_lookup.resources[0].status is defined
+    - cpd_cr_lookup.resources[0].status.wmlStatus is defined
     - cpd_cr_lookup.resources[0].status.wmlStatus == "Completed" or cpd_cr_lookup.resources[0].status.wmlStatus == "Failed"
   retries: 24 # Up to 2 hours
   delay: 300 # Every 5 minutes
