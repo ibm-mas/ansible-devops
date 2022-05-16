@@ -15,7 +15,7 @@ if __name__ == "__main__":
     # Initialize the properties we need
     instanceId = os.getenv("MAS_INSTANCE_ID")
     productId = "ibm-mas-devops"
-    build = os.getenv("TRAVIS_BUILD_NUMBER")
+    build = os.getenv("DEVOPS_BUILD_NUMBER")
     suite = os.getenv("JUNIT_SUITE_NAME", "")
     junitOutputDir = os.getenv("JUNIT_OUTPUT_DIR", "/tmp")
 
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         print("Results not recorded because MAS_INSTANCE_ID env var is not set")
         exit(0)
     if build is None:
-        print("Results not recorded because TRAVIS_BUILD_NUMBER env var is not set")
+        print("Results not recorded because DEVOPS_BUILD_NUMBER env var is not set")
         exit(0)
 
     runId = f"{instanceId}:{build}"
@@ -54,7 +54,7 @@ if __name__ == "__main__":
             for testcase in resultDoc["testsuites"]["testsuite"]["testcase"]:
                 testcase["name"] = testcase["name"].replace("[localhost] localhost: ", "")
                 # Playbooks don't have ibm/mas_devops in the classnmae but do have /opt/app-root.
-                # Roles have both ibm/mas_devops and /opt/app-root. 
+                # Roles have both ibm/mas_devops and /opt/app-root.
                 # Guard against both and remove when required.
                 if "/opt/app-root/" in testcase["classname"]:
                     testcase["classname"] = testcase["classname"].split("/opt/app-root/")[1]
