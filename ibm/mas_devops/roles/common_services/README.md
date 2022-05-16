@@ -20,6 +20,27 @@ Example Playbook
 ```
 
 
+Tekton Task
+-----------
+Start a run of the **mas-devops-common-services** Task as below, you must have already prepared the namespace:
+
+```
+cat <<EOF | oc create -f -
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  generateName: mas-devops-common-services-
+spec:
+  taskRef:
+    kind: Task
+    name: mas-devops-common-services
+  resources: {}
+  serviceAccountName: pipeline
+  timeout: 24h0m0s
+EOF
+```
+
+
 License
 -------
 
