@@ -16,14 +16,14 @@ if __name__ == "__main__":
     instanceId = os.getenv("MAS_INSTANCE_ID")
     productId = "ibm-mas-devops"
     build = os.getenv("DEVOPS_BUILD_NUMBER")
-    suite = os.getenv("JUNIT_SUITE_NAME", "")
+    suite = os.getenv("DEVOPS_SUITE_NAME", "")
     junitOutputDir = os.getenv("JUNIT_OUTPUT_DIR", "/tmp")
 
     channelId = "n/a"
     version = "unknown"
 
     if suite == "":
-        print ("Results not recorded because JUNIT_SUITE_NAME is not defined")
+        print ("Results not recorded because DEVOPS_SUITE_NAME is not defined")
         exit(0)
 
     if instanceId is None:
