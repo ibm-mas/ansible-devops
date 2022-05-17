@@ -5,11 +5,6 @@ metadata:
   name: mas-devops-db2
 spec:
   params:
-    - name: junit_suite_name
-      type: string
-      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
-      default: ""
-
     # Configure DB2W
     - name: db2_instance_name
       type: string
@@ -53,11 +48,23 @@ spec:
       type: string
       default: ""
 
+    # Optional support built into the ansible-devops image
+    # for saving task execution results to a MongoDb instance
+    - name: devops_mongo_uri
+      type: string
+      description: Optional MongoDb connection URI, used to enable save-junit-to-mongo.py
+      default: ""
+    - name: devops_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+    - name: devops_build_number
+      type: string
+      description: Optional identifier for the execution run, used to enable save-junit-to-mongo.py
+      default: ""
+
   stepTemplate:
     env:
-      - name: JUNIT_SUITE_NAME
-        value: $(params.junit_suite_name)
-
       # Configure JdbcCfg
       - name: MAS_CONFIG_DIR
         value: /workspace/configs
@@ -78,7 +85,6 @@ spec:
       - name: DB2_TABLE_ORG
         value: $(params.db2_table_org)
 
-
       # Configure storage sizes (storage classes are set globally in the secret)
       - name: DB2_META_STORAGE_SIZE
         value: $(params.db2_meta_storage_size)
@@ -90,6 +96,15 @@ spec:
         value: $(params.db2_logs_storage_size)
       - name: DB2_TEMP_STORAGE_SIZE
         value: $(params.db2_temp_storage_size)
+
+      # Optional support built into the ansible-devops image
+      # for saving task execution results to a MongoDb instance
+      - name: DEVOPS_MONGO_URI
+        value: $(params.devops_mongo_uri)
+      - name: DEVOPS_SUITE_NAME
+        value: $(params.devops_suite_name)
+      - name: DEVOPS_BUILD_NUMBER
+        value: $(params.devops_build_number)
 
   steps:
     - name: db2
