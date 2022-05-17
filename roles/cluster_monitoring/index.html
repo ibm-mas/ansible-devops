@@ -112,6 +112,8 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#tekton-task">Tekton Task</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
     </li>
     </ul>
@@ -277,6 +279,29 @@
     prometheus_alertmgr_storage_class: &quot;ibmc-file-gold-gid&quot;
   roles:
     - ibm.mas_devops.cluster_monitoring
+</code></pre>
+<h2 id="tekton-task">Tekton Task<a class="headerlink" href="#tekton-task" title="Permanent link"></a></h2>
+<p>Start a run of the <strong>mas-devops-cluster-monitoring</strong> Task as below, you must have already prepared the namespace:</p>
+<pre><code>cat &lt;&lt;EOF | oc create -f -
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  generateName: mas-devops-cluster-monitoring-
+spec:
+  taskRef:
+    kind: Task
+    name: mas-devops-cluster-monitoring
+  params:
+  - name: prometheus_storage_class
+    value: &quot;ibmc-block-gold&quot;
+  - name: prometheus_alertmgr_storage_class
+    value: &quot;ibmc-file-gold-gid&quot;
+  - name: prometheus_userworkload_storage_class
+    value: &quot;ibmc-block-gold&quot;
+  resources: {}
+  serviceAccountName: pipeline
+  timeout: 24h0m0s
+EOF
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>
