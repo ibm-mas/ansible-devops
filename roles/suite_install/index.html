@@ -141,6 +141,8 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#tekton-task">Tekton Task</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
     </li>
     </ul>
@@ -210,6 +212,7 @@
 <li><code>mas_config_dir</code> Directory containing configuration files (<code>*.yaml</code> and <code>*.yml</code>) to be applied to the MAS installation.  Intended for creating the various MAS custom resources to configure the suite post-install, but can be used to apply any kubernetes resource you need to customize any aspect of your cluster.</li>
 <li><code>certManager.namespace</code> The namespace containing the cert-manager to be used by MAS</li>
 <li><code>mas_upgrade_strategy</code> The Upgrade strategy for MAS Operator. Default is set to Automatic</li>
+<li><code>mas_annotations</code> Optional variable having all the annotations that need to be added to the Suite CR</li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
@@ -223,6 +226,29 @@
     - ibm.mas_devops.suite_install
     - ibm.mas_devops.suite_config
     - ibm.mas_devops.suite_verify
+</code></pre>
+<h2 id="tekton-task">Tekton Task<a class="headerlink" href="#tekton-task" title="Permanent link"></a></h2>
+<p>Start a run of the <strong>mas-devops-suite-install</strong> Task as below, you must have already prepared the namespace:</p>
+<pre><code>cat &lt;&lt;EOF | oc create -f -
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  generateName: mas-devops-suite-install-
+spec:
+  taskRef:
+    kind: Task
+    name: mas-devops-suite-install
+  params:
+  - name: mas_instance_id
+    value: inst1
+  - name: mas_channel
+    value: 8.7.x
+  - name: mas_entitlement_key
+    value: xxx
+  resources: {}
+  serviceAccountName: pipeline
+  timeout: 48h0m0s
+EOF
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>
