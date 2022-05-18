@@ -54,20 +54,11 @@ spec:
     name: mas-devops-suite-install
   params:
   - name: mas_instance_id
-    value: masintancename
+    value: inst1
   - name: mas_channel
-    value: stable
-  - name: mas_catalog_source
-    value: ibm-mas-operators
-  - name: mas_icr_cp
-    value: wiotp-docker-local.artifactory.swg-devops.com
-  - name: mas_icr_cpopen
-    value: wiotp-docker-local.artifactory.swg-devops.com
-  - name: mas_entitlement_username
-    value: username
+    value: 8.7.x
   - name: mas_entitlement_key
-    value: >-
-      entitlement-key-value
+    value: xxx
   resources: {}
   serviceAccountName: pipeline
   timeout: 48h0m0s
