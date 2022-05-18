@@ -18,6 +18,7 @@ Role Variables
 - `mas_config_dir` Directory containing configuration files (`*.yaml` and `*.yml`) to be applied to the MAS installation.  Intended for creating the various MAS custom resources to configure the suite post-install, but can be used to apply any kubernetes resource you need to customize any aspect of your cluster.
 - `certManager.namespace` The namespace containing the cert-manager to be used by MAS
 - `mas_upgrade_strategy` The Upgrade strategy for MAS Operator. Default is set to Automatic
+- `mas_annotations` Optional variable having all the annotations that need to be added to the Suite CR
 
 Example Playbook
 ----------------
@@ -35,6 +36,35 @@ Example Playbook
     - ibm.mas_devops.suite_config
     - ibm.mas_devops.suite_verify
 ```
+
+
+Tekton Task
+-----------
+Start a run of the **mas-devops-suite-install** Task as below, you must have already prepared the namespace:
+
+```
+cat <<EOF | oc create -f -
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  generateName: mas-devops-suite-install-
+spec:
+  taskRef:
+    kind: Task
+    name: mas-devops-suite-install
+  params:
+  - name: mas_instance_id
+    value: inst1
+  - name: mas_channel
+    value: 8.7.x
+  - name: mas_entitlement_key
+    value: xxx
+  resources: {}
+  serviceAccountName: pipeline
+  timeout: 48h0m0s
+EOF
+```
+
 
 License
 -------
