@@ -75,6 +75,34 @@ Example Playbook
 ```
 
 
+Tekton Task
+-----------
+Start a run of the **mas-devops-cluster-monitoring** Task as below, you must have already prepared the namespace:
+
+```
+cat <<EOF | oc create -f -
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  generateName: mas-devops-cluster-monitoring-
+spec:
+  taskRef:
+    kind: Task
+    name: mas-devops-cluster-monitoring
+  params:
+  - name: prometheus_storage_class
+    value: "ibmc-block-gold"
+  - name: prometheus_alertmgr_storage_class
+    value: "ibmc-file-gold-gid"
+  - name: prometheus_userworkload_storage_class
+    value: "ibmc-block-gold"
+  resources: {}
+  serviceAccountName: pipeline
+  timeout: 24h0m0s
+EOF
+```
+
+
 License
 -------
 

@@ -5,10 +5,6 @@ metadata:
   name: mas-devops-suite-app-config
 spec:
   params:
-    - name: junit_suite_name
-      type: string
-      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
-      default: ""
     - name: mas_app_id
       type: string
       description: Maximo Application Suite Application ID
@@ -22,10 +18,24 @@ spec:
     - name: mas_workspace_id
       type: string
       description: Maximo Application Suite Workspace ID
+
+    # Optional support built into the ansible-devops image
+    # for saving task execution results to a MongoDb instance
+    - name: devops_mongo_uri
+      type: string
+      description: Optional MongoDb connection URI, used to enable save-junit-to-mongo.py
+      default: ""
+    - name: devops_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+    - name: devops_build_number
+      type: string
+      description: Optional identifier for the execution run, used to enable save-junit-to-mongo.py
+      default: ""
+
   stepTemplate:
     env:
-      - name: JUNIT_SUITE_NAME
-        value: $(params.junit_suite_name)
       - name: MAS_INSTANCE_ID
         value: $(params.mas_instance_id)
       - name: MAS_WORKSPACE_ID
@@ -34,6 +44,16 @@ spec:
         value: $(params.mas_app_id)
       - name: MAS_APPWS_COMPONENTS
         value: $(params.mas_appws_components)
+
+      # Optional support built into the ansible-devops image
+      # for saving task execution results to a MongoDb instance
+      - name: DEVOPS_MONGO_URI
+        value: $(params.devops_mongo_uri)
+      - name: DEVOPS_SUITE_NAME
+        value: $(params.devops_suite_name)
+      - name: DEVOPS_BUILD_NUMBER
+        value: $(params.devops_build_number)
+
   steps:
     - name: suite-app-config
       command:

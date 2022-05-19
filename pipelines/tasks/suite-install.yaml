@@ -5,11 +5,6 @@ metadata:
   name: mas-devops-suite-install
 spec:
   params:
-    - name: junit_suite_name
-      type: string
-      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
-      default: ""
-
     - name: mas_instance_id
       type: string
     - name: mas_channel
@@ -39,11 +34,36 @@ spec:
       default: ''
       type: string
       description: Required to install development MAS catalogs
+    - name: mas_annotations
+      default: ''
+      type: string
+      description: Required to install  MAS with annotations (e.g. for saas)
+    - name: mas_domain
+      default: ''
+      type: string
+      description: Optional. If not provided the role will use the default cluster subdomain
+    - name: mas_upgrade_strategy
+      type: string
+      description: Optional identifier for the Upgrade strategy for MAS Operator. Default is set to Automatic
+      default: ""
+
+    # Optional support built into the ansible-devops image
+    # for saving task execution results to a MongoDb instance
+    - name: devops_mongo_uri
+      type: string
+      description: Optional MongoDb connection URI, used to enable save-junit-to-mongo.py
+      default: ""
+    - name: devops_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+    - name: devops_build_number
+      type: string
+      description: Optional identifier for the execution run, used to enable save-junit-to-mongo.py
+      default: ""
 
   stepTemplate:
     env:
-      - name: JUNIT_SUITE_NAME
-        value: $(params.junit_suite_name)
       - name: MAS_CHANNEL
         value: $(params.mas_channel)
       - name: MAS_CATALOG_SOURCE
@@ -72,6 +92,21 @@ spec:
         value: $(params.mas_entitlement_username)
       - name: MAS_ENTITLEMENT_KEY
         value: $(params.mas_entitlement_key)
+      - name: MAS_ANNOTATIONS
+        value: $(params.mas_annotations)
+      - name: MAS_DOMAIN
+        value: $(params.mas_domain)
+      - name: MAS_UPGRADE_STRATEGY
+        value: $(params.mas_upgrade_strategy)
+
+      # Optional support built into the ansible-devops image
+      # for saving task execution results to a MongoDb instance
+      - name: DEVOPS_MONGO_URI
+        value: $(params.devops_mongo_uri)
+      - name: DEVOPS_SUITE_NAME
+        value: $(params.devops_suite_name)
+      - name: DEVOPS_BUILD_NUMBER
+        value: $(params.devops_build_number)
 
   steps:
     - name: suite-install

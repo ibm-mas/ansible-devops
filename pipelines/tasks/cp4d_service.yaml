@@ -5,11 +5,6 @@ metadata:
   name: mas-devops-cp4d-service
 spec:
   params:
-    - name: junit_suite_name
-      type: string
-      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
-      default: ""
-
     # Namespace configuration (Optional, defaults built into Ansible role)
     - name: cpd_operator_namespace
       type: string
@@ -36,11 +31,23 @@ spec:
       description: Workspace ID
       default: ""
 
+    # Optional support built into the ansible-devops image
+    # for saving task execution results to a MongoDb instance
+    - name: devops_mongo_uri
+      type: string
+      description: Optional MongoDb connection URI, used to enable save-junit-to-mongo.py
+      default: ""
+    - name: devops_suite_name
+      type: string
+      description: Optional name for the junit suite, used to enable save-junit-to-mongo.py
+      default: ""
+    - name: devops_build_number
+      type: string
+      description: Optional identifier for the execution run, used to enable save-junit-to-mongo.py
+      default: ""
+
   stepTemplate:
     env:
-      - name: JUNIT_SUITE_NAME
-        value: $(params.junit_suite_name)
-
       - name: MAS_CONFIG_DIR
         value: /workspace/configs
       - name: MAS_INSTANCE_ID
@@ -57,6 +64,15 @@ spec:
         value: $(params.cpd_service_name)
       - name: CPD_SERVICE_STORAGE_CLASS
         value: $(params.cpd_service_storage_class)
+
+      # Optional support built into the ansible-devops image
+      # for saving task execution results to a MongoDb instance
+      - name: DEVOPS_MONGO_URI
+        value: $(params.devops_mongo_uri)
+      - name: DEVOPS_SUITE_NAME
+        value: $(params.devops_suite_name)
+      - name: DEVOPS_BUILD_NUMBER
+        value: $(params.devops_build_number)
 
   steps:
     - name: cp4d-service
