@@ -1,6 +1,6 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
-
+- `10.1` Update suite application roles to support Optimizer application
 - `10.0` One-click installer support ([#285](https://github.com/ibm-mas/ansible-devops/pull/285), [#296](https://github.com/ibm-mas/ansible-devops/pull/296), [#299](https://github.com/ibm-mas/ansible-devops/pull/299))
 - `9.0` Multiple Updates:
     - Added ability to set annotations onto suite CR ([#269](https://github.com/ibm-mas/ansible-devops/pull/269))
