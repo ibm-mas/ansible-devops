@@ -1,17 +1,26 @@
 ---
-# Add Manage application to an existing MAS Core installation (see oneclick_core_with_deps playbook)
+# Add Manage 8.3.x application to an existing MAS Core 8.7.x installation
+#
+# Dependencies:
+# - ansible-playbook ibm.mas_devops.oneclick_core
+#
 - hosts: localhost
   any_errors_fatal: true
 
   vars:
+    # Application Dependencies
     db2_instance_name: db2w-shared
 
-    # db2u role doesn't need this set, but suite_db2_setup_for_manage does, otherwise it will not
+    # db2 role doesn't need this set, but suite_db2_setup_for_manage does, otherwise it will not
     # know what namespace to look for the db2 isntance
     db2_namespace: db2u
 
-    mas_workspace_id: masdev
+    # Application Installation
     mas_app_id: manage
+    mas_app_channel: 8.3.x
+
+    # Application Configuration
+    mas_workspace_id: masdev
 
   pre_tasks:
     # For the full set of supported environment variables refer to the playbook documentation
@@ -20,6 +29,7 @@
         that:
           - lookup('env', 'MAS_INSTANCE_ID') != ""
           - lookup('env', 'MAS_CONFIG_DIR') != ""
+          - lookup('env', 'MAS_ENTITLEMENT_KEY') != ""
         fail_msg: "One or more required environment variables are not defined"
 
   roles:
