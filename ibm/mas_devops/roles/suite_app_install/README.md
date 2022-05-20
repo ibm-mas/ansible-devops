@@ -14,10 +14,10 @@ Role Variables
 - `mas_entitlement_username` Username for entitled registry. This username will be used to create the image pull secret. Set to `cp` when installing release or use your `w3Id` for dev
 - `mas_entitlement_key` API Key for entitled registry. This password will be used to create the image pull secret. Set to with IBM entitlement key when installing release or use your artifactory `apikey` for dev.
 - `mas_app_id` Defines the kind of application that is intended for installation such as `assist`, `health`, `iot`, `manage`, `monitor`, `mso`, `predict`, or `safety`
-- `mas_app_upgrade_strategy` Defines the Upgrade strategy for the MAS Application Operator. Default is set to Manual
+- `mas_app_upgrade_strategy` Defines the Upgrade strategy for the MAS Application Operator. Default is set to Automatic
 
 ### mas_app_spec
-Optional.  The application deployment spec used to configure different aspects of the application deployment configuration. 
+Optional.  The application deployment spec used to configure different aspects of the application deployment configuration.
 
 - Environment Variable: None
 - Default: defaults are specified in vars/defaultspecs/{{mas_app_id}}.yml
@@ -64,7 +64,7 @@ Example Playbook
             size: 100Gi
         deployment:
           size: medium
-  
+
   roles:
     - ibm.mas_devops.suite_app_install
 ```
