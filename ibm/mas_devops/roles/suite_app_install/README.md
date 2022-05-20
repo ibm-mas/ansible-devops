@@ -21,7 +21,7 @@ Defines what plan will be used in application install.
 
 - Environment Variable: `MAS_APP_PLAN`
 - Default: `full`
-- Supported values (example for Optimizer):
+- Supported values (applied for Optimizer application):
   - `full`: install `full` Optimizer
   - `limited`: install `limited` Optimizer
 
