@@ -51,7 +51,7 @@ export MAS_ENTITLEMENT_KEY=xxx
 export MAS_CONFIG_DIR=~/masconfig
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
-export SLS_ENTITLEMENT_KEY=xxx
+export SLS_ENTITLEMENT_KEY=x
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
@@ -59,6 +59,10 @@ export UDS_CONTACT_LASTNAME=xxx
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_core
 ```
+
+!!! tip
+    If you do not want to set up all the dependencies on your local system remember that you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.0.4 bash`
+
 
 
 ### Pre-release build
@@ -86,3 +90,7 @@ export UDS_CONTACT_LASTNAME=xxx
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_core
 ```
+
+!!! tip
+    If you do not want to set up all the dependencies on your local system remember that you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.0.4 bash`
+
