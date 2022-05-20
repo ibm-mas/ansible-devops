@@ -26,15 +26,6 @@ Defines the app components and versions to configure in the application workspac
   For Health (standalone) the default is:
     `health=latest`
 
-### mas_app_optimizer_plan
-Defines whether Optimizer will be installed using `full` or `limited` plan.
-
-- Environment Variable: `MAS_APP_OPTIMIZER_PLAN`
-- Default: `full`
-- Supported values:
-  - `full`: install `full` Optimizer
-  - `limited`: install `limited` Optimizer
-
 ### mas_app_ws_spec
 Optional.  The application workspace deployment spec used to configure various aspects of the application workspace configuration. Note that use of this will override anything set in `mas_appws_components`
 

@@ -16,6 +16,15 @@ Role Variables
 - `mas_app_id` Defines the kind of application that is intended for installation such as `assist`, `health`, `iot`, `manage`, `monitor`, `mso`, `predict`, or `safety`
 - `mas_app_upgrade_strategy` Defines the Upgrade strategy for the MAS Application Operator. Default is set to Manual
 
+### mas_app_plan
+Defines what plan will be used in application install.
+
+- Environment Variable: `MAS_APP_PLAN`
+- Default: `full`
+- Supported values (example for Optimizer):
+  - `full`: install `full` Optimizer
+  - `limited`: install `limited` Optimizer
+
 ### mas_app_spec
 Optional.  The application deployment spec used to configure different aspects of the application deployment configuration. 
 
@@ -52,6 +61,7 @@ Example Playbook
     # Determine MAS Operator Upgrade Strategy Manual | Automatic
     mas_app_upgrade_strategy: "{{ lookup('env', 'MAS_APP_UPGRADE_STRATEGY') | default('Manual', true) }}"
 
+    # Application Configuration - Spec
     mas_app_spec:
       bindings:
         jdbc: system
@@ -64,6 +74,9 @@ Example Playbook
             size: 100Gi
         deployment:
           size: medium
+    
+    # Application Configuration - Install Plan
+    mas_app_plan: "{{ lookup('env', 'MAS_APP_PLAN') | default('full', true) }}"
   
   roles:
     - ibm.mas_devops.suite_app_install
