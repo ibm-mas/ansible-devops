@@ -1,27 +1,19 @@
 ---
-# Add Manage application to an existing MAS Core+IoT installation
+# Add Monitor 8.7.x application to an existing MAS Core 8.7.x + IoT 8.4.x installation
 #
 # Dependencies:
 # - ansible-playbook ibm.mas_devops.oneclick_core
-# - ansible-playbook ibm.mas_devops.oneclick_add_iot
+# - ansible-playbook ibm.mas_devops.oneclick_iot
+#
+# Monitor will be configured to use the same db2 instance that IoT is using
 #
 - hosts: localhost
   any_errors_fatal: true
+
   vars:
-    # Application Dependencies
-    cos_type: ibm
-    cpd_service_name: wd
-
     # Application Installation
-    mas_app_id: assist
-    mas_app_channel: 8.4.x
-
-    mas_app_spec:
-      bindings:
-        objectstorage: system
-    mas_app_ws_spec:
-      bindings:
-        watsondiscovery: application
+    mas_app_id: monitor
+    mas_app_channel: 8.7.x
 
     # Application Configuration
     mas_workspace_id: masdev
@@ -32,14 +24,9 @@
       assert:
         that:
           - lookup('env', 'MAS_INSTANCE_ID') != ""
-          - lookup('env', 'MAS_CONFIG_DIR') != ""
           - lookup('env', 'MAS_ENTITLEMENT_KEY') != ""
         fail_msg: "One or more required environment variables are not defined"
 
   roles:
-    - ibm.mas_devops.cos
-    - ibm.mas_devops.cp4d
-    - ibm.mas_devops.cp4d_service
-    - ibm.mas_devops.suite_config
     - ibm.mas_devops.suite_app_install
     - ibm.mas_devops.suite_app_config
