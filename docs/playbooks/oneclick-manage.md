@@ -1,11 +1,19 @@
-# MAS Core with Manage on IBM Cloud
+# Install Manage Application
 
-This playbook will add Maximo Managed to an existing IBM Maximo Application Suite Core installation, along with all necessary dependencies.  This can be ran against any OCP cluster regardless of it's type, whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
+## Prerequisites
+You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.7 already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
+
+## Overview
+This playbook will add **Maximo Manage v8.3** to an existing IBM Maximo Application Suite Core installation.  It will also creatie an in-cluster Db2 instance, which will be automatically set up as the system-level JDBC configuration in MAS.  Manage will be configured to accept automatic security updates and bug fixes, but not new feature releases.
+
+This playbook can be ran against any OCP cluster regardless of it's type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 - Install dependencies:
     - Install IBM Db2 Universal Operator (2 minutes)
     - Create Db2 Warehouse Instance (45 minutes)
     - Additional Db2 configuration for Manage (5 minutes)
+- Configure Maximo Application Suite:
+    - Set up Db2 instance as the system-level JDBC datasource
 - Install Maximo Manage application:
     - Install application (10 minutes)
     - Configure workspace (2 hours)
@@ -15,6 +23,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ## Required environment variables
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
+- `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 
 
 !!! tip
@@ -30,7 +39,12 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
+export MAS_ENTITLEMENT_KEY=xxx
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_manage
+ansible-playbook ibm.mas_devops.oneclick_add_manage
 ```
+
+!!! tip
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.0.4 bash`
+

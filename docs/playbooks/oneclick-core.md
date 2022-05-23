@@ -60,6 +60,10 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_core
 ```
 
+!!! tip
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.0.4 bash`
+
+
 
 ### Pre-release build
 To deploy a pre-release build of IBM Maximo Application Suite (core only) with dependencies a number of additional parameters are required, note that pre-release builds are only available to IBM employees:
@@ -86,3 +90,7 @@ export UDS_CONTACT_LASTNAME=xxx
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_core
 ```
+
+!!! tip
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.0.4 bash`
+

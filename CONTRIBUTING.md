@@ -2,26 +2,35 @@
 
 Note that during a build the version of the ansible collection is automatically adjusted to the correct version.  For local development will we always target the "next major" as the version, this is just a convenient placeholder string that works for local development; all released collections will automatically set this version to the correct value for the release.
 
-## Building the collection locally
 
+## Building the collection locally
 ```bash
 cd ibm/mas_devops
 
 ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-11.0.0.tar.gz --force
-
-ansible-playbook ../../playbook.yml
+ansible-playbook ibm.mas_devops.playbook
 ```
 
-```bash
-ansible-galaxy collection build --force
-ansible-galaxy collection publish ibm-mas_devops-11.0.0.tar.gz --token=$ANSIBLE_GALAXY_TOKEN
-```
 
 ## Testing a role
 ```bash
 cd ~/ibm-mas/ansible-devops/ibm/mas_devops$
 export ROLE_NAME=ibm_catalogs && ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-11.0.0.tar.gz --force && ansible-playbook ibm.mas_devops.run_role
 ```
+
+
+## Using the docker image
+This is a great way to test in a clean environment (e.g. to ensure the myriad of environment variables that you no doubt have set up are not impacting your test scenarios).  After you commit your changes to the repository a pre-release container image will be built, which contains your in-development version of the collection:
+
+```bash
+docker run -ti quay.io/ibmmas/ansible-devops:x.y.z-pre.mybranch bash
+(app-root) oc login --token=xxxx --server=https://myocpserver
+(app-root) export STUFF
+(app-root) ansible localhost -m include_role -a name=ibm.mas_devops.ocp_verify
+(app-root) ansible-playbook ibm.mas_devops.oneclick_core
+```
+
+
 ## Style Guide
 Failure to adhere to the style guide will result in a PR being rejected!
 
