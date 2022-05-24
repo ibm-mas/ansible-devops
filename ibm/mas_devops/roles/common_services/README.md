@@ -10,6 +10,16 @@ This will result in the following operators being installed in the `ibm-common-s
 Also, an operator group will be created in the namespace if one does not already exist.
 
 
+Role Variables
+--------------
+### common_services_catalog_source
+Used to override the operator catalog source used when creating the `ibm-common-service-operator` subscription.
+
+- Optional
+- Environment Variable: `COMMON_SERVICES_CATALOG_SOURCE`
+- Default Value: `ibm-operator-catalog`
+
+
 Example Playbook
 ----------------
 
