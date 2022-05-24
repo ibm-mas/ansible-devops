@@ -76,7 +76,7 @@ else
 
   # See: https://github.com/fsaintjacques/semver-tool/blob/master/src/semver
   if [ "${SEMVER_RELEASE_LEVEL}" == "initial" ]; then
-    echo $SEMVER_LAST_TAG > $VERSION_FILE
+    echo "1.0.0" > $VERSION_FILE
     echo "Configuring semver for initial release of $(cat $VERSION_FILE)"
   elif [[ "${SEMVER_RELEASE_LEVEL}" =~ ^(major|minor|patch)$ ]]; then
     semver bump ${SEMVER_RELEASE_LEVEL} ${SEMVER_LAST_TAG} > $VERSION_FILE

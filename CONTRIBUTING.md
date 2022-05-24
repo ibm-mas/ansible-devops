@@ -4,10 +4,37 @@ Note that during a build the version of the ansible collection is automatically 
 
 
 ## Building the collection locally
-```bash
-cd ibm/mas_devops
 
-ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-11.0.0.tar.gz --force
+```bash
+# Build
+ansible-galaxy collection build --output-path image/ansible-devops/ ibm/mas_devops --force && mv image/ansible-devops/ibm-mas_devops-11.0.0.tar.gz image/ansible-devops/ibm-mas_devops.tar.gz
+
+# Install
+ansible-galaxy collection install image/ansible-devops/ibm-mas_devops.tar.gz --force
+
+# Run Ansible Playbook
+export REGISTRY_PUBLIC_HOST=xxx
+export IBM_ENTITLEMENT_KEY=xxx
+ansible-playbook ibm.mas_devops.mirror_sls
+
+# Build docker image
+docker build -t ansible-devops:local image/ansible-devops
+
+# Run Ansible Container
+docker run -ti ansible-devops:local bash
+```
+
+
+## Ultimate one-liner
+Build the collection, build the docker container, run the docker container ...
+```bash
+ansible-galaxy collection build --output-path image/ansible-devops/ ibm/mas_devops --force && mv image/ansible-devops/ibm-mas_devops-11.0.0.tar.gz image/ansible-devops/ibm-mas_devops.tar.gz && ansible-galaxy collection install image/ansible-devops/ibm-mas_devops.tar.gz --force && docker build -t ansible-devops image/ansible-devops && docker run -ti ansible-devops:local bash
+```
+
+
+## Building the collection locally
+```bash
+ansible-galaxy collection build ibm/mas_devops --force && ansible-galaxy collection install ibm-mas_devops-11.0.0.tar.gz --force
 ansible-playbook ibm.mas_devops.playbook
 ```
 
