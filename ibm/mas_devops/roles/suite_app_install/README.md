@@ -17,16 +17,15 @@ Role Variables
 - `mas_app_upgrade_strategy` Defines the Upgrade strategy for the MAS Application Operator. Default is set to Automatic
 
 ### mas_app_plan
-Defines what plan will be used in application install.
+Optional. Defines what plan will be used in application install.
 
 - Environment Variable: `MAS_APP_PLAN`
-- Default: `full`
-- Supported values (applied for Optimizer application):
-  - `full`: install `full` Optimizer
-  - `limited`: install `limited` Optimizer
+- Default: Application-specific, see details below.
+- Application Support:
+  - Optimizer v8.2+: `full` and `limited` are supported, defaults to `full`
 
 ### mas_app_spec
-Optional.  The application deployment spec used to configure different aspects of the application deployment configuration.
+Optional. The application deployment spec used to configure different aspects of the application deployment configuration.
 
 - Environment Variable: None
 - Default: defaults are specified in vars/defaultspecs/{{mas_app_id}}.yml
