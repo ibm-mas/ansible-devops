@@ -6,13 +6,22 @@
     that: db2_instance_name is defined and db2_instance_name != ""
     fail_msg: "db2_instance_name property has not been set"
 
+- name: "Fail if ENTITLEMENT_KEY has not been provided"
+  assert:
+    that: entitlement_key is defined and entitlement_key != ""
+    fail_msg: "ENTITLEMENT_KEY property has not been set"
 
 # 2. Load default storage classes (if not provided by the user)
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
 
-# 3. Provide debug information to the user
+# 3. Setup the norootsquash daemonsets for db2u pods to work with NFS backed storage
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/setup_norootsquash.yml
+
+
+# 4. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
@@ -30,7 +39,7 @@
       - "MAS Config directory ......... {{ mas_config_dir }}"
 
 
-# 4. Install a Db2u Operator
+# 5. Install a Db2u Operator
 # -----------------------------------------------------------------------------
 - name: "Create db2u Namespace"
   kubernetes.core.k8s:
@@ -69,7 +78,7 @@
     wait_timeout: 120
 
 
-# 5. Get the cluster subdomain to be used for the certificate and route creation
+# 6. Get the cluster subdomain to be used for the certificate and route creation
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
   kubernetes.core.k8s_info:
@@ -79,7 +88,7 @@
   register: _cluster_subdomain
 
 
-# 6. Create self-signed certificate for Db2u SSL
+# 7. Create self-signed certificate for Db2u SSL
 # -----------------------------------------------------------------------------
 - name: "Create internal CA certificate issuer"
   kubernetes.core.k8s:
@@ -110,7 +119,7 @@
     definition: "{{ lookup('template', 'templates/certs/certificate.yml.j2') }}"
   register: createCertificate
 
-# 7. Taint and label dedicated node if specified
+# 8. Taint and label dedicated node if specified
 # -----------------------------------------------------------------------------
 - name: Taint and label dedicated worker node
   when:
@@ -123,7 +132,7 @@
     oc adm uncordon {{ db2_dedicated_node }}
 
 
-# 8. Wait until the Db2uCluster CRD is available
+# 9. Wait until the Db2uCluster CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Db2uCluster CRD is available"
   kubernetes.core.k8s_info:
@@ -144,7 +153,18 @@
     - db2_crd_info.resources | length > 0
 
 
-# 9. Create a Db2 instance
+# 10. Lookup db2 instance to see if it exists already
+# -----------------------------------------------------------------------------
+- name: "See if db2u instance already exists"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{db2_namespace}}"
+    kind: Db2uCluster
+  register: initial_db2_cluster_lookup
+
+
+# 11. Create a Db2 instance
 # -----------------------------------------------------------------------------
 - name: "Create db2 instance"
   kubernetes.core.k8s:
@@ -152,7 +172,7 @@
     definition: "{{ lookup('template', 'templates/db2ucluster.yml.j2') }}"
 
 
-# 10. Wait for the cluster to be ready
+# 12. Wait for the cluster to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for db2u instance to be ready (5m delay)"
   kubernetes.core.k8s_info:
@@ -170,7 +190,7 @@
   delay: 300 # 5 minutes
 
 
-# 11. Configure a public route for Db2
+# 13. Configure a public route for Db2
 # -----------------------------------------------------------------------------
 - name: Lookup db2u Engn Service
   kubernetes.core.k8s_info:
@@ -214,7 +234,20 @@
     definition: "{{ lookup('template', 'templates/tlsroute.yml.j2') }}"
 
 
-# 12. Generate a JdbcCfg for MAS configuration
+# 14. Delete db2 pod on intial setup only, to workaround db2 issue
+# that was causing TLS connection issues when the pod was first started
+# -----------------------------------------------------------------------------
+- name: Delete db2u pod on intial setup
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Pod
+    name: "c-{{db2_instance_name | lower}}-db2u-0"
+    namespace: "{{db2_namespace}}"
+    state: absent
+  when: initial_db2_cluster_lookup.resources | length == 0
+
+
+# 15. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/suite_jdbccfg.yml
   when:
