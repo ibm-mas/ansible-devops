@@ -32,8 +32,14 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
    `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
 
+   To enable Asset Investment Optimizer, optional feature of health. Set `MANAGE_AIO_FLAG` to `true`. By default this flag is set to `false` . This featue is only avalaible on Manage with health as a addon or on Health as a Standalone install.
+
+   `export MANAGE_AIO_FLAG=true`
+
    To install Health as a Standalone with a specified version, set `MAS_APP_ID` to health and set `MAS_APPWS_COMPONENTS` to `health=x.x.x`. By default health standalone will be installed using `health=latest`
 
+   `export MAS_APP_ID=health`
+   `export MAS_APPWS_COMPONENTS="health=latest"`
 
 ## Usage
 
