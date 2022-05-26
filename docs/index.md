@@ -21,6 +21,12 @@ If you only want to perform a single action, you can directly invoke one of our 
 ansible localhost -m include_role -a name=ibm.mas_devops.ocp_verify
 ```
 
+You can also use the **run_role** playbook:
+
+```bash
+ROLE_NAME=cert_manager ansible-playbook ibm.mas_devops.run_role
+```
+
 ## Running in Docker
 The easiest way to use this collection is to take advantage of the [ibmmas/ansible-devops](https://quay.io/repository/ibmmas/ansible-devops) container image, this negates the need to install anything on your local machine (other than docker, obviously).
 
