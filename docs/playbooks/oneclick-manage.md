@@ -24,6 +24,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
+- `MAS_APP_ID` Declare app_id as either `manage` or `health`
 
 
 !!! tip
@@ -31,8 +32,14 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
    `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
 
+   To enable Asset Investment Optimizer, optional feature of health. Set `MANAGE_AIO_FLAG` to `true`. By default this flag is set to `false` . This featue is only avalaible on Manage with health as a addon or on Health as a Standalone install.
+
+   `export MANAGE_AIO_FLAG=true`
+
    To install Health as a Standalone with a specified version, set `MAS_APP_ID` to health and set `MAS_APPWS_COMPONENTS` to `health=x.x.x`. By default health standalone will be installed using `health=latest`
 
+   `export MAS_APP_ID=health`
+   `export MAS_APPWS_COMPONENTS="health=latest"`
 
 ## Usage
 
@@ -40,6 +47,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export MAS_ENTITLEMENT_KEY=xxx
+export MAS_APP_ID=manage
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_manage
