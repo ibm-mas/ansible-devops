@@ -16,13 +16,12 @@
     name: image-registry-storage
     namespace: openshift-image-registry
   register: lookup_registry_pvc
-
-- name: "Check that we could find the PVC"
-  assert:
-    that:
-      - lookup_registry_pvc.resources is defined
-      - lookup_registry_pvc.resources | length == 1
-      - lookup_registry_pvc.resources[0].spec.volumeName is defined
+  retries: 20 # 10 minutes
+  delay: 30
+  until:
+    - lookup_registry_pvc.resources is defined
+    - lookup_registry_pvc.resources | length == 1
+    - lookup_registry_pvc.resources[0].spec.volumeName is defined
 
 - name: "Set PVC ID"
   set_fact:
