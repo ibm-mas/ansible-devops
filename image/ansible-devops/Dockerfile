@@ -24,8 +24,8 @@ RUN python3 -m pip install --upgrade pip && python3 -m pip install -r requiremen
 
 # Install Ansible Collections
 COPY ibm-mas_devops.tar.gz ${HOME}/ibm-mas_devops.tar.gz
-RUN ansible-galaxy collection install ${HOME}/ibm-mas_devops.tar.gz -p /opt/app-root/lib64/python3.8/site-packages/ansible_collections --force && \
-    ansible-galaxy collection install -r ${HOME}/requirements.yml -p /opt/app-root/lib64/python3.8/site-packages/ansible_collections
+RUN ansible-galaxy collection install ${HOME}/ibm-mas_devops.tar.gz -p /opt/app-root/lib64/python3.9/site-packages/ansible_collections --force && \
+    ansible-galaxy collection install -r ${HOME}/requirements.yml -p /opt/app-root/lib64/python3.9/site-packages/ansible_collections
 
 RUN chmod -R ug+rwx ${HOME}/env.sh && \
     chmod -R ug+rwx ${HOME}/.ansible && \
