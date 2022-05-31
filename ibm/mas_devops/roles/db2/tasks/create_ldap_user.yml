@@ -1,0 +1,28 @@
+# 1. Get the pod name of the local LDAP service
+# -----------------------------------------------------------------------------
+- name: "Lookup db2 Pod {{ db2_restore_instance_name }} in {{ db2_namespace }} namespace"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - role=ldap
+  register: db2_ldap_pod
+
+- name: Set facts for LDAP pod name
+  set_fact:
+    db2_ldap_pod_name: "{{ db2_ldap_pod.resources[0].metadata.name }}"
+
+# 2. Create the user in the local LDAP registry
+# -----------------------------------------------------------------------------
+- name: "Creating db2 user in local LDAP registry"
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_ldap_pod_name }} -- /opt/ibm/ldap_scripts/addLdapUser.py -u {{ db2_ldap_username }} -r admin -p {{ db2_ldap_password }}
+  register: creating_ldap_user_output
+
+# 3. Test that the newly created user can connect to db2
+# -----------------------------------------------------------------------------
+- name: "Test that the newly created user can connect to db2"
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_ldap_pod_name }} -c db2u -- su -lc "db2 connect to bludb user {{ db2_ldap_username }} using {{ db2_ldap_password }}" db2inst1
+  register: db2_connect_result
+  failed_when: db2_connect_result.rc != 0
