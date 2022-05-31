@@ -26,6 +26,7 @@ RUN python3 -m pip install --upgrade pip && python3 -m pip install -r requiremen
 COPY ibm-mas_devops.tar.gz ${HOME}/ibm-mas_devops.tar.gz
 RUN ansible-galaxy collection install ${HOME}/ibm-mas_devops.tar.gz -p /opt/app-root/lib64/python3.8/site-packages/ansible_collections --force && \
     ansible-galaxy collection install -r ${HOME}/requirements.yml -p /opt/app-root/lib64/python3.8/site-packages/ansible_collections
+
 RUN chmod -R ug+rwx ${HOME}/env.sh && \
     chmod -R ug+rwx ${HOME}/.ansible && \
     chmod a+x ${HOME}/run-playbook.sh && \
@@ -39,11 +40,13 @@ RUN wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.8
     mv kubectl /usr/local/bin/ && \
     rm -rf openshift-client-linux.tar.gz
 
-# Install IBM CLoud CLI
+# Install IBM CLoud CLI with container-service plugin
 RUN wget -q https://download.clis.cloud.ibm.com/ibm-cloud-cli/2.3.0/IBM_Cloud_CLI_2.3.0_amd64.tar.gz &&\
     tar -xvzf IBM_Cloud_CLI_2.3.0_amd64.tar.gz && \
     mv Bluemix_CLI/bin/ibmcloud /usr/local/bin/  && \
-    rm -rf Bluemix_CLI IBM_Cloud_CLI_2.3.0_amd64.tar.gz
+    rm -rf Bluemix_CLI IBM_Cloud_CLI_2.3.0_amd64.tar.gz && \
+    ibmcloud plugin repo-plugins -r 'IBM Cloud' && \
+    ibmcloud plugin install container-service
 
 ENV ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg
 
