@@ -66,7 +66,7 @@
 # 3. Wait for controlPlaneStatus
 # -----------------------------------------------------------------------------
 # oc get Ibmcpd ibmcpd-cr -o jsonpath="{.status.controlPlaneStatus}{'\n'}"
-- name: "Wait for controlPlaneStatus to be 'Completed' (60s delay)"
+- name: "Wait for controlPlaneStatus to be 'Completed' (2m delay)"
   kubernetes.core.k8s_info:
     api_version: cpd.ibm.com/v1
     name: ibmcpd
@@ -88,7 +88,7 @@
 # 4. Wait for zenStatus
 # -----------------------------------------------------------------------------
 # oc get ZenService lite-cr -o jsonpath="{.status.zenStatus}{'\n'}"
-- name: "Wait for zenStatus to be ready to be 'Completed' (60s delay)"
+- name: "Wait for zenStatus to be ready to be 'Completed' (2m delay)"
   kubernetes.core.k8s_info:
     api_version: zen.cpd.ibm.com/v1
     name: lite-cr
@@ -98,8 +98,8 @@
   until:
     - zenservice_lookup.resources[0].status.zenStatus is defined
     - zenservice_lookup.resources[0].status.zenStatus == "Completed" or zenservice_lookup.resources[0].status.zenStatus == "Failed"
-  retries: 25 # Approximately 2 hours before we give up
-  delay: 300 # 5 minutes
+  retries: 60 # Approximately 2 hours before we give up
+  delay: 120 # 5 minutes
 
 - name: "Check that the zenStatus is 'Completed'"
   assert:

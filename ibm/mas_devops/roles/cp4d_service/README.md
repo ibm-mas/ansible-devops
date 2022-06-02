@@ -14,9 +14,52 @@ These services can be deployed and configured using this role:
 - [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-discovery) required by Assist
 - [Decision Optimization](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-decision-optimization) an optional dependency for [Maximo Scheduler Optimization](https://www.ibm.com/docs/en/mas87/8.7.0?topic=ons-maximo-scheduler-optimization) - Requires Watson Studio and Watson Machine Learning.
 
-
 !!! info "Application Support"
     For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists)
+
+Installation of Watson Studio involves the following being created in the **ibm-cpd** namespace, note that the operators function in a sequential mode so the installation can take a very long time and you will see these resources created over the course of the 3 hours installation:
+- `ws.ws.cpd.ibm.com/ws-cr` (reconcile of this resource will fail multiple times with the message `"Unable to install CSS prerequisite` due to timeouts waiting for the CCS resource)
+- `ccs.ccs.cpd.ibm.com/ccs-cr` (reconcile of this resource will fail multiple times with the message `The playbook has failed. See earlier output for exact error` due to timeouts waiting for various statefulsets that it manages)
+    - `deployment.apps/asset-files-api`
+    - `deployment.apps/ax-environments-api-deploy`
+    - `deployment.apps/ax-environments-ui-deploy`
+    - `deployment.apps/catalog-api`
+    - `deployment.apps/dap-dashboards-api`
+    - `deployment.apps/dataview-api-service`
+    - `deployment.apps/dc-main`
+    - `deployment.apps/event-logger-api`
+    - `deployment.apps/jobs-api`
+    - `deployment.apps/jobs-ui`
+    - `deployment.apps/ngp-projects-api`
+    - `deployment.apps/portal-catalog`
+    - `deployment.apps/portal-common-api`
+    - `deployment.apps/portal-dashboards`
+    - `deployment.apps/portal-job-manager`
+    - `deployment.apps/portal-main`
+    - `deployment.apps/portal-notifications`
+    - `deployment.apps/portal-projects`
+    - `deployment.apps/redis-ha-haproxy`
+    - `deployment.apps/runtime-assemblies-operator`
+    - `deployment.apps/runtime-manager-api`
+    - `deployment.apps/spaces`
+    - `deployment.apps/spawner-api`
+    - `deployment.apps/wdp-connect-connection`
+    - `deployment.apps/wdp-connect-connector`
+    - `deployment.apps/wdp-connect-flight`
+    - `deployment.apps/wdp-dataview`
+    - `deployment.apps/wml-main`
+    - `deployment.apps/wkc-search`
+    - `statefulset.apps/elasticsearch-master`
+    - `statefulset.apps/redis-ha-server` (can take 15-20 minutes to start up)
+    - `statefulset.apps/rabbitmq-ha` (can take 30-40 minutes to start up as each pod is started in sequence)
+    - `statefulset.apps/wdp-couchdb` (can take 5-10 minutes to start up)
+
+!!! note
+    If you are watching the install you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
+
+Useful debug commands:
+- `oc -n ibm-cpd get deployments,sts,pods`
+- `oc -n ibm-cpd get ccs,WS,DataRefinery,notebookruntimes`
 
 
 Role Variables - Installation
