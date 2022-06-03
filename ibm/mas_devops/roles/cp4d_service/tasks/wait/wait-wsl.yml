@@ -1,10 +1,134 @@
 ---
 
-# 1. Wait for CP4D service CR to be ready
+# 1 Hacks & Workarounds
+# TODO: Implement me so that we don't need the cluster scoped image pull secret
+# and the associated node reboot in IBMCloud ROKS
+
+# 1.1. Wait for ZenService service accounts to be created
+- name: "Wait for the zen service accounts to appear - {{ item }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: zen_sa_lookup
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - zen_sa_lookup.resources is defined
+    - zen_sa_lookup.resources | length > 0
+  with_items:
+    - zen-admin-sa
+    - zen-editor-sa
+    - zen-norbac-sa
+    - zen-runtime-sa
+    - zen-viewer-sa
+
+# 1.2. Patch the zen service accounts in ibm-cpd namespace to add ibm-entitlement
+- name: "Patch the zen service accounts - {{ item }}"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    definition:
+      imagePullSecrets:
+        - ibm-entitlement
+  with_items:
+    - zen-admin-sa
+    - zen-editor-sa
+    - zen-norbac-sa
+    - zen-runtime-sa
+    - zen-viewer-sa
+
+# 1.3. Wait for Runtime service accounts to be created
+- name: "Wait for the Runtime service accounts to appear - {{ item }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: runtime_sa_lookup
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - runtime_sa_lookup.resources is defined
+    - runtime_sa_lookup.resources | length > 0
+  with_items:
+    - runtime-assemblies-operator
+    - runtime-manager-api
+
+# 1.4. Patch the runtime service accounts in ibm-cpd namespace to add ibm-entitlement
+- name: "Patch the Runtime service accounts - {{ item }}"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    definition:
+      imagePullSecrets:
+        - ibm-entitlement
+  with_items:
+    - runtime-assemblies-operator
+    - runtime-manager-api
+
+
+# 2. Wait for CCS CR to be ready
+# -----------------------------------------------------------------------------
+# We can't stop waiting on Failed status, as it will report failed multiple
+# times during initial reconcile ... we just need to keep waiting.
+- name: "wait-wsl : Wait for ccsStatus 'Completed'"
+  kubernetes.core.k8s_info:
+    api_version: "ccs.cpd.ibm.com/v1beta1"
+    kind: CCS
+    name: "ccs-cr"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: ccs_cr_lookup
+  until:
+    - ccs_cr_lookup.resources is defined
+    - ccs_cr_lookup.resources | length == 1
+    - ccs_cr_lookup.resources[0].status is defined
+    - ccs_cr_lookup.resources[0].status.ccsStatus is defined
+    - ccs_cr_lookup.resources[0].status.ccsStatus == "Completed"
+  retries: 24 # Up to 2 hours
+  delay: 300 # Every 5 minutes
+
+- name: "wait-wsl : Check that the CCS ccsStatus is 'Completed'"
+  assert:
+    that: ccs_cr_lookup.resources[0].status.ccsStatus == "Completed"
+    fail_msg: "Watson Studio install failed (ccsStatus)"
+
+
+# 3. Wait for DataRefinery CR to be ready
+# -----------------------------------------------------------------------------
+# We can't stop waiting on Failed status, as it will report failed multiple
+# times during initial reconcile ... we just need to keep waiting.
+- name: "wait-wsl : Wait for datarefineryStatus 'Completed'"
+  kubernetes.core.k8s_info:
+    api_version: "datarefinery.cpd.ibm.com/v1beta1"
+    kind: DataRefinery
+    name: "datarefinery-sample"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: dr_cr_lookup
+  until:
+    - dr_cr_lookup.resources is defined
+    - dr_cr_lookup.resources | length == 1
+    - dr_cr_lookup.resources[0].status is defined
+    - dr_cr_lookup.resources[0].status.datarefineryStatus is defined
+    - dr_cr_lookup.resources[0].status.datarefineryStatus == "Completed"
+  retries: 24 # Up to 2 hours
+  delay: 300 # Every 5 minutes
+
+- name: "wait-wsl : Check that the CCS ccsStatus is 'Completed'"
+  assert:
+    that: dr_cr_lookup.resources[0].status.datarefineryStatus == "Completed"
+    fail_msg: "Watson Studio install failed (datarefineryStatus)"
+
+
+# 4. Wait for WSL service CR to be ready
 # -----------------------------------------------------------------------------
 # Unfortunately CP4D do not have a standard approach to managing status across
 # their services like MAS does, so we need module-specific wait code.
-
 - name: "wait-wsl : Wait for wsStatus 'Completed' or 'Failed'"
   kubernetes.core.k8s_info:
     api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
@@ -18,7 +142,7 @@
     - cpd_cr_lookup.resources[0].status is defined
     - cpd_cr_lookup.resources[0].status.wsStatus is defined
     - cpd_cr_lookup.resources[0].status.wsStatus == "Completed" or cpd_cr_lookup.resources[0].status.wsStatus == "Failed"
-  retries: 36 # Up to 3 hours
+  retries: 24 # Up to 2 hours
   delay: 300 # Every 5 minutes
 
 - name: "wait-wsl : Check that the WSL wsStatus is 'Completed'"

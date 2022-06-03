@@ -2,7 +2,7 @@
 
 .PHONY: ansible-build ansible-install ansible-all docker-build docker-run docker-all clean
 
-.DEFAULT_GOAL := build-install
+.DEFAULT_GOAL := ansible-all
 
 ansible-build:
 	ansible-galaxy collection build --output-path image/ansible-devops/app-root ibm/mas_devops --force

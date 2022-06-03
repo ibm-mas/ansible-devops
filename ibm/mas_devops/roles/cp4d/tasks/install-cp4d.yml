@@ -4,7 +4,7 @@
 # -----------------------------------------------------------------------------
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=installing-cloud-pak-data
 
-- name: "Install CloudPak for Data"
+- name: "install-cp4d : Install CloudPak for Data"
   kubernetes.core.k8s:
     apply: yes
     template: 'templates/ibmcpd.yml.j2'
@@ -13,7 +13,7 @@
 # 2. Patch ZenService lite-cr to scaleConfig: medium
 # ----------------------------------------------------------------------------------------------
 # 2.1 Wait for Zen operator ...
-- name: "Wait for ibm-zen-operator to be ready (60s delay)"
+- name: "install-cp4d : Wait for ibm-zen-operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: ibm-zen-operator
@@ -25,7 +25,7 @@
   delay: 60 # 1 minute
 
 # 2.2 Wait for lite-cr to be created ...
-- name: "Wait for ZenService lite-cr to be created"
+- name: "install-cp4d : Wait for ZenService lite-cr to be created"
   kubernetes.core.k8s_info:
     api_version: zen.cpd.ibm.com/v1
     name: lite-cr
@@ -39,7 +39,7 @@
   delay: 60 # 1 minute
 
 # 2.3 Apply the patch per recommendation from CP4D team
-- name: "Patch ZenService lite-cr to scaleConfig: medium"
+- name: "install-cp4d : Patch ZenService lite-cr to scaleConfig: medium"
   kubernetes.core.k8s:
     api_version: zen.cpd.ibm.com/v1
     name: lite-cr
@@ -66,7 +66,7 @@
 # 3. Wait for controlPlaneStatus
 # -----------------------------------------------------------------------------
 # oc get Ibmcpd ibmcpd-cr -o jsonpath="{.status.controlPlaneStatus}{'\n'}"
-- name: "Wait for controlPlaneStatus to be 'Completed' (2m delay)"
+- name: "install-cp4d : Wait for controlPlaneStatus to be 'Completed' (2m delay)"
   kubernetes.core.k8s_info:
     api_version: cpd.ibm.com/v1
     name: ibmcpd
@@ -79,7 +79,7 @@
   retries: 60 # Approximately 2 hours before we give up
   delay: 120 # 2 minutes
 
-- name: "Check that the controlPlaneStatus is 'Completed'"
+- name: "install-cp4d : Check that the controlPlaneStatus is 'Completed'"
   assert:
     that: ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Completed"
     fail_msg: "IBM CloudPak for Data install failed (controlPlaneStatus)"
@@ -88,7 +88,7 @@
 # 4. Wait for zenStatus
 # -----------------------------------------------------------------------------
 # oc get ZenService lite-cr -o jsonpath="{.status.zenStatus}{'\n'}"
-- name: "Wait for zenStatus to be ready to be 'Completed' (2m delay)"
+- name: "install-cp4d : Wait for zenStatus to be ready to be 'Completed' (2m delay)"
   kubernetes.core.k8s_info:
     api_version: zen.cpd.ibm.com/v1
     name: lite-cr
@@ -101,7 +101,7 @@
   retries: 60 # Approximately 2 hours before we give up
   delay: 120 # 5 minutes
 
-- name: "Check that the zenStatus is 'Completed'"
+- name: "install-cp4d : Check that the zenStatus is 'Completed'"
   assert:
     that: zenservice_lookup.resources[0].status.zenStatus == "Completed"
     fail_msg: "IBM CloudPak for Data install failed (zenStatus)"
@@ -109,7 +109,7 @@
 
 # 5. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------
-- name: "Obtain CP4D dashboard URL"
+- name: "install-cp4d : Obtain CP4D dashboard URL"
   debug:
     msg:
       - "CP4D Dashboard ......................... https://{{zenservice_lookup.resources[0].status.url}}"

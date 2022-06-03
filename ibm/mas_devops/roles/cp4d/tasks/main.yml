@@ -2,6 +2,10 @@
 # The following playbook is an attempt to automate the CP4D 4.0 steps documented here:
 # https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
 
+- name: Check that an entitlement key has been provided
+  assert:
+    that: cpd_entitlement_key is defined and cpd_entitlement_key != ""
+    fail_msg: "ibm_entitlement_key or cpd_entitlement_key override must be provided"
 
 - name: "Run pre-req check"
   include_tasks: "tasks/prereq-check.yml"
@@ -12,6 +16,11 @@
 - name: "Create CP4D Operator Subscriptions"
   include_tasks: "tasks/create-subscriptions.yml"
 
+# Install ibm-entitlement in ibm-cpd namespace
+# Nothing in the cp4d base platform requires entitlement, but the services that we want to enable in CP4D do.
+- name: "Install IBM Entitlement Key"
+  include_tasks: "tasks/entitlement.yml"
+
 # At this stage:
 # - The two namespaces (ibm-cpd and ibm-cpd-operators) will be created
 # - OperatorGroup will have been created in the ibm-cpd-operators namespace
@@ -19,7 +28,7 @@
 # - IBM Cloud Pak Foundational Services (ibm-common-service-operator) v3 will be installed in ibm-cpd-operators namespace
 # - IBM NamespaceScope Operator (ibm-namespace-scope-operator) v3 will be installed in ibm-cpd-operators namespace
 # - A NamespaceScope will have been created in the ibm-cpd-operators namespace
-# - Nothing will exist in the ibm-cpd namespace yet
+# - Nothing will exist in the ibm-cpd namespace yet except the entitlement key we just created
 
 - name: "Install CP4D"
   include_tasks: "tasks/install-cp4d.yml"
@@ -36,3 +45,40 @@
 #     - zen-data-sorcerer
 #     - zen-watchdog
 #     - zen-watcher
+
+# Wait for ZenService service accounts to be created
+- name: "Wait for the zen service accounts to appear - {{ item }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: zen_sa_lookup
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - zen_sa_lookup.resources is defined
+    - zen_sa_lookup.resources | length > 0
+  with_items:
+    - zen-admin-sa
+    - zen-editor-sa
+    - zen-norbac-sa
+    - zen-runtime-sa
+    - zen-viewer-sa
+
+# Patch the zen service accounts in ibm-cpd namespace to add ibm-entitlement
+- name: "Patch the zen service accounts - {{ item }}"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    definition:
+      imagePullSecrets:
+        - ibm-entitlement
+  with_items:
+    - zen-admin-sa
+    - zen-editor-sa
+    - zen-norbac-sa
+    - zen-runtime-sa
+    - zen-viewer-sa

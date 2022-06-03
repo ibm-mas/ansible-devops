@@ -58,6 +58,21 @@ Useful debugging commands:
 
 Role Variables
 --------------
+
+### ibm_entitlement_key
+Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary).
+
+- **Required**
+- Environment Variable: `IBM_ENTITLEMENT_KEY`
+- Default: None
+
+### cpd_entitlement_key
+An IBM entitlement key specific for Cloud Pak for Data installation, primarily used to override `ibm_entitlement_key` in development.
+
+- Optional
+- Environment Variable: `CPD_ENTITLEMENT_KEY`
+- Default: None
+
 ### cpd_primary_storage_class
 Primary storage class for Cloud Pak for Data.
 
