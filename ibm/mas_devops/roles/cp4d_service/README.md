@@ -20,16 +20,16 @@ These services can be deployed and configured using this role:
 ### Watson Studio
 Subscriptions related to Watson Studio (in the **ibm-cpd-operators** namespace):
 
-- **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
-- **ibm-cpd-wsl** on channel `v2.0` (currently v2.0.9)
-- **ibm-cpd-ccs** on channel `v1.0` (currently v1.0.9)
-- **ibm-cpd-datarefinery** on channel `v1.0` (currently v1.0.9)
-- **ibm-cpd-ws-runtimes** on channel `v1.0` (currently v1.0.9)
+- **cpd-platform-operator** on channel `v2.0`
+- **ibm-cpd-wsl** on channel `v2.0`
+- **ibm-cpd-ccs** on channel `v1.0`
+- **ibm-cpd-datarefinery** on channel `v1.0`
+- **ibm-cpd-ws-runtimes** on channel `v1.0`
 
 The key resources in the installation of Watson Studio involves are listed below, they are all created in the **ibm-cpd** namespace, note that the operators function in a sequential mode so the installation can take a very long time and you will see these resources created over the course of the 3 hour plus installation:
 
-- `ws.ws.cpd.ibm.com/ws-cr` (reconcile of this resource will fail multiple times with the message `"Unable to install CSS prerequisite` due to timeouts waiting for the CCS resource)
-- `ccs.ccs.cpd.ibm.com/ccs-cr` (reconcile of this resource will fail multiple times with the message `The playbook has failed. See earlier output for exact error` due to timeouts waiting for various statefulsets that it manages)
+- `ws.ws.cpd.ibm.com/ws-cr` (reconcile of this resource will fail multiple times with the message *"Unable to install CSS prerequisite"* due to timeouts waiting for the CCS resource)
+- `ccs.ccs.cpd.ibm.com/ccs-cr` (reconcile of this resource will fail multiple times with the message *"The playbook has failed. See earlier output for exact error"* due to timeouts waiting for various statefulsets that it manages)
 - `deployment.apps/redis-ha-haproxy`
 - `statefulset.apps/elasticsearch-master`
 - `statefulset.apps/redis-ha-server` (can take 15-20 minutes to start up)
@@ -46,9 +46,9 @@ Useful debug commands:
 ### Watson Machine Learning
 Subscriptions related to Watson Machine Learning (in the **ibm-cpd-operators** namespace):
 
-- **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
-- **ibm-cpd-wml** on channel `v1.1` (currently v2.0.9)
-- **ibm-cpd-ccs** on channel `v1.0` (currently v1.0.9)
+- **cpd-platform-operator** on channel `v2.0`
+- **ibm-cpd-wml** on channel `v1.1`
+- **ibm-cpd-ccs** on channel `v1.0`
 
 Assuming you are adding Watson Machine Learning on top of Watson Studio, the key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
 
@@ -66,8 +66,8 @@ Useful debug commands:
 ### Analytics Engine
 Subscriptions related to Analytics Engine (in the **ibm-cpd-operators** namespace):
 
-- **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
-- **analyticsengine-operator** on channel `stable-v1` (currently v1.0.9)
+- **cpd-platform-operator** on channel `v2.0`
+- **analyticsengine-operator** on channel `stable-v1`
 
 Assuming you are adding Analytics Engine on top of Watson Studio, the key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
 
@@ -81,18 +81,47 @@ Useful debug commands:
 ### Watson OpenScale
 Subscriptions related to Watson OpenScale (in the **ibm-cpd-operators** namespace):
 
-- **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
-- **ibm-cpd-wos** on channel `v1.5` (currently v1.5.4)
+- **cpd-platform-operator** on channel `v2.0`
+- **ibm-cpd-wos** on channel `v1.5`
 
 Assuming you are adding Watson OpenScale on top of Watson Studio, the key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
 
 - `woservice.wos.cpd.ibm.com/aiopenscale`
 - `statefulset.apps/aiopenscale-ibm-aios-zookeeper`
+- `statefulset.apps/aiopenscale-ibm-aios-kafka`
+- `statefulset.apps/aiopenscale-ibm-aios-redis`
+- `statefulset.apps/aiopenscale-ibm-aios-etcd`
 
 Useful debug commands:
 - `oc -n ibm-cpd get deployments,sts,pods`
 - `oc -n ibm-cpd get woservice`
 
+### Watson Discovery
+Subscriptions related to Watson Discovery (in the **ibm-cpd-operators** namespace):
+
+- **cpd-platform-operator** on channel `v2.0`
+- **ibm-watson-discovery-operator** on channel `v4.0`
+- **ibm-elasticsearch-operator** on channel `v1.1`
+- **ibm-etcd-operator** on channel `v1.0`
+- **ibm-minio-operator** on channel `v1.0`
+- **ibm-model-train-classic-operator** on channel `v1.0`
+- **ibm-rabbitmq-operator** on channel `v1.0`
+- **ibm-watson-gateway-operator** on channel `v1.0`
+
+Subscriptions related to Watson Discovery (in the **ibm-common-services** namespace):
+
+- **cloud-native-postgresql** on channel `stable`
+
+The key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
+
+- `woservice.wos.cpd.ibm.com/aiopenscale`
+- `statefulset.apps/wd-rabbitmq-discovery`
+- `statefulset.apps/wd-minio-discovery`
+- `statefulset.apps/wd-discovery-etcd`
+
+Useful debug commands:
+- `oc -n ibm-cpd get deployments,sts,pods`
+- `oc -n ibm-cpd get watsondiscoveries`
 
 Role Variables - Installation
 -----------------------------
