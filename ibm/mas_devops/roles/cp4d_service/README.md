@@ -132,6 +132,13 @@ Name of the service to install, supported values are: `wsl`, `wml`, `wd`, `aiope
 - Environment Variable: `CPD_SERVICE_NAME`
 - Default Value: None
 
+### cpd_product_version
+The product version (also known as operand version) of this service to install.  Currently, due to defects in Cloud Pak for Data the only version that works is the latest (`4.0.9`), but in the future you should be able to set this to any released version of CP4D.
+
+- **Required**
+- Environment Variable: `CPD_PRODUCT_VERSION`
+- Default Value: None
+
 ### cpd_service_storage_class
 This is used to set `spec.storageClass` in all CPD v3.5 services, and many - but not all - CP4D v4.0 services.
 

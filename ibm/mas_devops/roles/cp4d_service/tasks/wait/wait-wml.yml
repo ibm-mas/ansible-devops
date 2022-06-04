@@ -2,6 +2,11 @@
 
 # 1. Wait for CP4D service CR to be ready
 # -----------------------------------------------------------------------------
+# We can't exit early if the status goes to Failed because the reconcile will
+# report failure multiple times during initial install due to timeouts (CCS takes
+# a very long time to install because it's single threaded)
+#
+# https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3480
 - name: "wait-wml : Wait for wmlStatus 'Completed' or 'Failed'"
   kubernetes.core.k8s_info:
     api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
@@ -14,7 +19,7 @@
     - cpd_cr_lookup.resources | length == 1
     - cpd_cr_lookup.resources[0].status is defined
     - cpd_cr_lookup.resources[0].status.wmlStatus is defined
-    - cpd_cr_lookup.resources[0].status.wmlStatus == "Completed" or cpd_cr_lookup.resources[0].status.wmlStatus == "Failed"
+    - cpd_cr_lookup.resources[0].status.wmlStatus == "Completed" #  or cpd_cr_lookup.resources[0].status.wmlStatus == "Failed"
   retries: 24 # Up to 2 hours
   delay: 300 # Every 5 minutes
 
