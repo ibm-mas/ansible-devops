@@ -18,7 +18,6 @@ These services can be deployed and configured using this role:
     For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists)
 
 ### Watson Studio
-
 Subscriptions related to Watson Studio (in the **ibm-cpd-operators** namespace):
 
 - **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
@@ -44,9 +43,7 @@ Useful debug commands:
 - `oc -n ibm-cpd get deployments,sts,pods`
 - `oc -n ibm-cpd get ccs,WS,DataRefinery,notebookruntimes`
 
-
 ### Watson Machine Learning
-
 Subscriptions related to Watson Machine Learning (in the **ibm-cpd-operators** namespace):
 
 - **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
@@ -67,7 +64,6 @@ Useful debug commands:
 - `oc -n ibm-cpd get ccs,wmlbase`
 
 ### Analytics Engine
-
 Subscriptions related to Analytics Engine (in the **ibm-cpd-operators** namespace):
 
 - **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
@@ -79,10 +75,24 @@ Assuming you are adding Analytics Engine on top of Watson Studio, the key new re
 - `deployment.apps/spark-hb-control-plane`
 
 Useful debug commands:
-- `oc -n ibm-cpd get deployments,sts,pods`
+- `oc -n ibm-cpd get deployments,pods`
 - `oc -n ibm-cpd get ccs,wmlbase`
 
-spark-hb-control-plane
+### Watson OpenScale
+Subscriptions related to Watson OpenScale (in the **ibm-cpd-operators** namespace):
+
+- **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
+- **ibm-cpd-wos** on channel `v1.5` (currently v1.5.4)
+
+Assuming you are adding Watson OpenScale on top of Watson Studio, the key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
+
+- `woservice.wos.cpd.ibm.com/aiopenscale`
+- `statefulset.apps/aiopenscale-ibm-aios-zookeeper`
+
+Useful debug commands:
+- `oc -n ibm-cpd get deployments,sts,pods`
+- `oc -n ibm-cpd get woservice`
+
 
 Role Variables - Installation
 -----------------------------
