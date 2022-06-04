@@ -17,42 +17,25 @@ These services can be deployed and configured using this role:
 !!! info "Application Support"
     For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists)
 
-Installation of Watson Studio involves the following being created in the **ibm-cpd** namespace, note that the operators function in a sequential mode so the installation can take a very long time and you will see these resources created over the course of the 3 hours installation:
+### Watson Studio
+
+Subscriptions related to Watson Studio (in the **ibm-cpd-operators** namespace):
+
+- **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
+- **ibm-cpd-wsl** on channel `v2.0` (currently v2.0.9)
+- **ibm-cpd-ccs** on channel `v1.0` (currently v1.0.9)
+- **ibm-cpd-datarefinery** on channel `v1.0` (currently v1.0.9)
+- **ibm-cpd-ws-runtimes** on channel `v1.0` (currently v1.0.9)
+
+The key resources in the installation of Watson Studio involves are listed below, they are all created in the **ibm-cpd** namespace, note that the operators function in a sequential mode so the installation can take a very long time and you will see these resources created over the course of the 3 hour plus installation:
+
 - `ws.ws.cpd.ibm.com/ws-cr` (reconcile of this resource will fail multiple times with the message `"Unable to install CSS prerequisite` due to timeouts waiting for the CCS resource)
 - `ccs.ccs.cpd.ibm.com/ccs-cr` (reconcile of this resource will fail multiple times with the message `The playbook has failed. See earlier output for exact error` due to timeouts waiting for various statefulsets that it manages)
-    - `deployment.apps/asset-files-api`
-    - `deployment.apps/ax-environments-api-deploy`
-    - `deployment.apps/ax-environments-ui-deploy`
-    - `deployment.apps/catalog-api`
-    - `deployment.apps/dap-dashboards-api`
-    - `deployment.apps/dataview-api-service`
-    - `deployment.apps/dc-main`
-    - `deployment.apps/event-logger-api`
-    - `deployment.apps/jobs-api`
-    - `deployment.apps/jobs-ui`
-    - `deployment.apps/ngp-projects-api`
-    - `deployment.apps/portal-catalog`
-    - `deployment.apps/portal-common-api`
-    - `deployment.apps/portal-dashboards`
-    - `deployment.apps/portal-job-manager`
-    - `deployment.apps/portal-main`
-    - `deployment.apps/portal-notifications`
-    - `deployment.apps/portal-projects`
-    - `deployment.apps/redis-ha-haproxy`
-    - `deployment.apps/runtime-assemblies-operator`
-    - `deployment.apps/runtime-manager-api`
-    - `deployment.apps/spaces`
-    - `deployment.apps/spawner-api`
-    - `deployment.apps/wdp-connect-connection`
-    - `deployment.apps/wdp-connect-connector`
-    - `deployment.apps/wdp-connect-flight`
-    - `deployment.apps/wdp-dataview`
-    - `deployment.apps/wml-main`
-    - `deployment.apps/wkc-search`
-    - `statefulset.apps/elasticsearch-master`
-    - `statefulset.apps/redis-ha-server` (can take 15-20 minutes to start up)
-    - `statefulset.apps/rabbitmq-ha` (can take 30-40 minutes to start up as each pod is started in sequence)
-    - `statefulset.apps/wdp-couchdb` (can take 5-10 minutes to start up)
+- `deployment.apps/redis-ha-haproxy`
+- `statefulset.apps/elasticsearch-master`
+- `statefulset.apps/redis-ha-server` (can take 15-20 minutes to start up)
+- `statefulset.apps/rabbitmq-ha` (can take 30-40 minutes to start up as each pod is started in sequence)
+- `statefulset.apps/wdp-couchdb` (can take 5-10 minutes to start up)
 
 !!! note
     If you are watching the install you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
@@ -62,10 +45,49 @@ Useful debug commands:
 - `oc -n ibm-cpd get ccs,WS,DataRefinery,notebookruntimes`
 
 
+### Watson Machine Learning
+
+Subscriptions related to Watson Machine Learning (in the **ibm-cpd-operators** namespace):
+
+- **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
+- **ibm-cpd-wml** on channel `v1.1` (currently v2.0.9)
+- **ibm-cpd-ccs** on channel `v1.0` (currently v1.0.9)
+
+Assuming you are adding Watson Machine Learning on top of Watson Studio, the key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
+
+- `wmlbase.wml.cpd.ibm.com/wml-cr`
+- `deployment.apps/wmltraining`
+- `deployment.apps/wmltrainingorchestrator`
+- `statefulset.apps/wml-deployments-etcd`
+- `statefulset.apps/wml-deployment-agent`
+- `statefulset.apps/wml-deployment-manager`
+
+Useful debug commands:
+- `oc -n ibm-cpd get deployments,sts,pods`
+- `oc -n ibm-cpd get ccs,wmlbase`
+
+### Analytics Engine
+
+Subscriptions related to Analytics Engine (in the **ibm-cpd-operators** namespace):
+
+- **cpd-platform-operator** on channel `v2.0` (currently v2.0.8)
+- **analyticsengine-operator** on channel `stable-v1` (currently v1.0.9)
+
+Assuming you are adding Analytics Engine on top of Watson Studio, the key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
+
+- `analyticsengine.ae.cpd.ibm.com/analyticsengine-sample`
+- `deployment.apps/spark-hb-control-plane`
+
+Useful debug commands:
+- `oc -n ibm-cpd get deployments,sts,pods`
+- `oc -n ibm-cpd get ccs,wmlbase`
+
+spark-hb-control-plane
+
 Role Variables - Installation
 -----------------------------
 ### cpd_service_name
-Name of the service to install, supported values are: `wsl`
+Name of the service to install, supported values are: `wsl`, `wml`, `wd`, `aiopenscale`, `dods`, and `spark`
 
 - **Required**
 - Environment Variable: `CPD_SERVICE_NAME`
@@ -92,6 +114,20 @@ Namespace where the CP4D instance is deployed.
 - Environment Variable: `CPD_OPERATORS_NAMESPACE`
 - Default Value: `ibm-cpd-operators`
 
+### cpd_admin_username
+The CP4D Admin username to authenticate with CP4D APIs. If you didn't change the initial admin username after installing CP4D then you don't need to provide this.
+
+- Optional
+- Environment Variable: `CP4D_ADMIN_USERNAME`
+- Default Value: `admin`
+
+### cpd_admin_password
+The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` will be used.
+
+- Optional
+- Environment Variable: `CP4D_ADMIN_PASSWORD`
+- Default Value: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
+
 
 Role Variables - Watson Studio
 ------------------------------
@@ -116,8 +152,9 @@ Optional - Stores the CP4D Watson Studio Project description that can be used to
 - Environment Variable: `CPD_WSL_PROJECT_DESCRIPTION`
 - Default Value: `Watson Studio Project for Maximo Application Suite`
 
+
 Role Variables - MAS Configuration Generation
-----------------------------------==---------
+---------------------------------------------
 ### mas_instance_id
 The instance ID of Maximo Application Suite that a generated configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a resource template.
 
@@ -146,122 +183,6 @@ Example Playbook
   roles:
     - ibm.mas_devops.cp4d_service
 
-```
-
-License
--------
-
-EPL-2.0
-
-
-
-
-Content from cp4d_wds role that needs to be merged into here
----------------------------------------
-
-
-cp4d_wds
-==========
-
-It's only for WDS 4.0.x install on the existing CP4D 4.0.x and WDS instance provisioning, and also generated WDScfg (For Assist Install) related yaml to MAS config Directory.
-
-It's also used for WDScfg (For Assist Install) related yaml preparation if you want to use the existing external WDS instance.
-
-Role Variables
---------------
-### cp4d_username
-The CP4D Admin User name used to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install,you don't need to provide it. And the initial admin user name `admin` will be used.
-- Environment Variable: `CP4D_USERNAME`
-- Default Value: None
-
-### cp4d_password
-The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.
-And the initial admin user password for `admin` will be used.
-- Environment Variable: `CP4D_PASSWORD`
-- Default Value: None
-
-### wdschannel
-The discovery channel used by discovery install. By default the `v4.0`  will be used as channel name for discovery install.
-- Environment Variable: `WDS_CHANNEL`
-- Default Value: v4.0
-
-### wdsversion
-The discovery version used by discovery install. By default the discovery `4.0.6` version will be installed.
-- Environment Variable: `WDS_VERSION`
-- Default Value: 4.0.6
-
-### wdsstorageclass
-The specific storage class for discovery install, if not specified , the storage class used by CP4D will be auto queried in the cluster and used for discovery install.
-Usually Watson Discovery uses the following storage classes. If you don't use these storage classes on your cluster, ensure that you have a storage class with an equivalent definition:
-OpenShift Container Storage: `ocs-storagecluster-ceph-rbd`
-IBM Cloud OCP cluster: `ibmc-block-gold`,`ibmc-block-gold-gid`
-IBM Spectrum® Scale Container Native: `ibm-spectrum-scale-sc`
-Portworx: `portworx-db-gp2-sc`
-
-- Environment Variable: `WDS_STORAGE_CLASS`
-- Default Value: None
-
-### mas_instance_id
-The instance ID of Maximo Application Suite that the discovery configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a discovery template.
-
-- Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
-
-### mas_workspace_id
-The workspace ID of Maximo Application Suite that the discovery instance name will be combined as "discovery-assist-{{ mas_workspace_id }}" if you set.
-Otherwise, single discovery instance will be created named as "discovery-assist".
-
-- Environment Variable: `MAS_WORKSPACE_ID`
-- Default Value: None
-
-### mas_config_dir
-Local directory to save the generated discovery configuration files.  This can be used to manually configure a Assist instance to connect to the discovery cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a discovery template.
-
-- Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
-
-If you want to use the existing available external WDS instance(not in the cluster), the below Environment Variables are `required` to generate the Discovery configuration files. Either is missing will cause the failure to use external Discovery.
-### assist_wds_url
-External Discovery URL for discovery API use
-- Environment Variable: `ASSIST_WDS_URL`
-- Default Value: None
-### assist_wds_admin
-External Discovery admin User name
-- Environment Variable: `ASSIST_WDS_ADMIN`
-- Default Value: None
-### assist_wds_pass
-External Discovery admin User password
-- Environment Variable: `ASSIST_WDS_PASS`
-- Default Value: None
-
-Example Playbook
-----------------
-WDS install and WDS instance in the OCP Env
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    # Create the MAS WDSCfg & Secret resource definitions
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-  roles:
-    - mas.devops.cp4d_wds
-```
-Use External WDS instance in the OCP Env
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    #  Use External WDS instance for assist install
-    assist_wds_url: "{{ lookup('env', 'ASSIST_WDS_URL') }}"
-    assist_wds_admin: "{{ lookup('env', 'ASSIST_WDS_ADMIN') }}"
-    assist_wds_pass: "{{ lookup('env', 'ASSIST_WDS_PASS') }}"
-
-    #  Create the MAS WDSCfg & Secret resource definitions
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-    mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-  roles:
-    - mas.devops.cp4d_wds
 ```
 
 License

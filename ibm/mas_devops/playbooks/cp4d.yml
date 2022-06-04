@@ -2,14 +2,34 @@
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    install_watson_studio: true
+    install_cp4d: false
+    install_watson_studio: false
+    install_watson_machine_learning: false
+    install_analytics_engine: true
+    cpd_product_version: 4.0.9
 
   roles:
     - name: ibm.mas_devops.ibm_catalogs
+      when: install_cp4d == true
     - name: ibm.mas_devops.common_services
+      when: install_cp4d == true
     - name: ibm.mas_devops.cp4d
+      when: install_cp4d == true
+
+    # Watson Studio (~3 hours)
     - name: ibm.mas_devops.cp4d_service
       when: install_watson_studio == true
       vars:
         cpd_service_name: wsl
-        cpd_product_version: 4.0.9
+
+    # Watson Machine Learning (~2 hours)
+    - name: ibm.mas_devops.cp4d_service
+      when: install_watson_machine_learning == true
+      vars:
+        cpd_service_name: wml
+
+    # Analytics Engine Powered by Apache Spark (? hours)
+    - name: ibm.mas_devops.cp4d_service
+      when: install_analytics_engine == true
+      vars:
+        cpd_service_name: spark
