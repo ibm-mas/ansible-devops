@@ -18,7 +18,9 @@ These services can be deployed and configured using this role:
     For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists)
 
 ### Watson Studio
-Subscriptions related to Watson Studio (in the **ibm-cpd-operators** namespace):
+
+#### Operator Namespace
+Subscriptions related to Watson Studio:
 
 - **cpd-platform-operator** on channel `v2.0`
 - **ibm-cpd-wsl** on channel `v2.0`
@@ -26,42 +28,111 @@ Subscriptions related to Watson Studio (in the **ibm-cpd-operators** namespace):
 - **ibm-cpd-datarefinery** on channel `v1.0`
 - **ibm-cpd-ws-runtimes** on channel `v1.0`
 
-The key resources in the installation of Watson Studio involves are listed below, they are all created in the **ibm-cpd** namespace, note that the operators function in a sequential mode so the installation can take a very long time and you will see these resources created over the course of the 3 hour plus installation:
+```bash
+oc -n ibm-cpd-operators get deployments
+NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
+cpd-platform-operator-manager   1/1     1            1           150m
+ibm-common-service-operator     1/1     1            1           150m
+ibm-cpd-ccs-operator            1/1     1            1           63m
+ibm-cpd-wml-operator            1/1     1            1           65m
+ibm-namespace-scope-operator    1/1     1            1           150m
+```
 
-- `ws.ws.cpd.ibm.com/ws-cr` (reconcile of this resource will fail multiple times with the message *"Unable to install CSS prerequisite"* due to timeouts waiting for the CCS resource)
-- `ccs.ccs.cpd.ibm.com/ccs-cr` (reconcile of this resource will fail multiple times with the message *"The playbook has failed. See earlier output for exact error"* due to timeouts waiting for various statefulsets that it manages)
-- `deployment.apps/redis-ha-haproxy`
-- `statefulset.apps/elasticsearch-master`
-- `statefulset.apps/redis-ha-server` (can take 15-20 minutes to start up)
-- `statefulset.apps/rabbitmq-ha` (can take 30-40 minutes to start up as each pod is started in sequence)
-- `statefulset.apps/wdp-couchdb` (can take 5-10 minutes to start up)
+#### Instance Namespace
+The operators function in a sequential mode so the installation can take a very long time and you will see these resources created over the course of the 3 hour plus installation.
+
+```bash
+oc -n ibm-cpd get ccs,WS,DataRefinery,notebookruntimes,deployments,sts
+```
 
 !!! note
+    The reconcile of the WS and CCS resources will be marked as Failed multiple times during installation.  These are misleading status updates, the install is just really slow and the operators can not properly handle this today.
+
     If you are watching the install you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
 
-Useful debug commands:
-- `oc -n ibm-cpd get deployments,sts,pods`
-- `oc -n ibm-cpd get ccs,WS,DataRefinery,notebookruntimes`
 
 ### Watson Machine Learning
-Subscriptions related to Watson Machine Learning (in the **ibm-cpd-operators** namespace):
+Subscriptions related to Watson Machine Learning:
 
 - **cpd-platform-operator** on channel `v2.0`
 - **ibm-cpd-wml** on channel `v1.1`
 - **ibm-cpd-ccs** on channel `v1.0`
 
-Assuming you are adding Watson Machine Learning on top of Watson Studio, the key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
+Watson Machine Learning is made up of many moving parts across multiple namespaces.
 
-- `wmlbase.wml.cpd.ibm.com/wml-cr`
-- `deployment.apps/wmltraining`
-- `deployment.apps/wmltrainingorchestrator`
-- `statefulset.apps/wml-deployments-etcd`
-- `statefulset.apps/wml-deployment-agent`
-- `statefulset.apps/wml-deployment-manager`
+In the **ibm-cpd-operators** namespace:
 
-Useful debug commands:
-- `oc -n ibm-cpd get deployments,sts,pods`
-- `oc -n ibm-cpd get ccs,wmlbase`
+```bash
+oc -n ibm-cpd-operators get deployments
+NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
+cpd-platform-operator-manager   1/1     1            1           3h36m
+ibm-common-service-operator     1/1     1            1           3h36m
+ibm-cpd-ccs-operator            1/1     1            1           128m
+ibm-cpd-wml-operator            1/1     1            1           130m
+ibm-namespace-scope-operator    1/1     1            1           3h36m
+```
+
+In the **ibm-cpd** namespace:
+
+```
+oc -n ibm-cpd get ccs,wmlbase,deployments,sts
+NAME                         VERSION   RECONCILED   STATUS      AGE
+ccs.ccs.cpd.ibm.com/ccs-cr   4.0.9     4.0.9        Completed   128m
+
+NAME                             VERSION   BUILD         STATUS       AGE
+wmlbase.wml.cpd.ibm.com/wml-cr   4.0.9     4.0.10-3220   InProgress   131m
+
+NAME                                          READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/asset-files-api               1/1     1            1           60m
+deployment.apps/ax-environments-api-deploy    1/1     1            1           46m
+deployment.apps/ax-environments-ui-deploy     1/1     1            1           45m
+deployment.apps/catalog-api                   2/2     2            2           68m
+deployment.apps/dap-dashboards-api            1/1     1            1           60m
+deployment.apps/dataview-api-service          1/1     1            1           41m
+deployment.apps/dc-main                       1/1     1            1           67m
+deployment.apps/event-logger-api              1/1     1            1           60m
+deployment.apps/ibm-nginx                     3/3     3            3           3h13m
+deployment.apps/jobs-api                      1/1     1            1           55m
+deployment.apps/jobs-ui                       1/1     1            1           55m
+deployment.apps/ngp-projects-api              1/1     1            1           60m
+deployment.apps/portal-catalog                1/1     1            1           67m
+deployment.apps/portal-common-api             1/1     1            1           60m
+deployment.apps/portal-dashboards             1/1     1            1           60m
+deployment.apps/portal-job-manager            1/1     1            1           60m
+deployment.apps/portal-main                   1/1     1            1           60m
+deployment.apps/portal-notifications          1/1     1            1           60m
+deployment.apps/portal-projects               1/1     1            1           60m
+deployment.apps/redis-ha-haproxy              1/1     1            1           77m
+deployment.apps/runtime-assemblies-operator   1/1     1            1           51m
+deployment.apps/runtime-manager-api           1/1     1            1           49m
+deployment.apps/spaces                        1/1     1            1           44m
+deployment.apps/spawner-api                   1/1     1            1           48m
+deployment.apps/usermgmt                      3/3     3            3           3h15m
+deployment.apps/wdp-connect-connection        1/1     1            1           68m
+deployment.apps/wdp-connect-connector         1/1     1            1           68m
+deployment.apps/wdp-connect-flight            1/1     1            1           68m
+deployment.apps/wdp-dataview                  1/1     1            1           41m
+deployment.apps/wkc-search                    1/1     1            1           68m
+deployment.apps/wml-deployment-envoy          1/1     1            1           17m
+deployment.apps/wml-main                      1/1     1            1           45m
+deployment.apps/zen-audit                     1/1     1            1           3h7m
+deployment.apps/zen-core                      3/3     3            3           3h7m
+deployment.apps/zen-core-api                  3/3     3            3           3h7m
+deployment.apps/zen-data-sorcerer             2/2     2            2           3h
+deployment.apps/zen-watchdog                  1/1     1            1           179m
+deployment.apps/zen-watcher                   1/1     1            1           3h7m
+
+NAME                                      READY   AGE
+statefulset.apps/dsx-influxdb             1/1     3h2m
+statefulset.apps/elasticsearch-master     3/3     73m
+statefulset.apps/rabbitmq-ha              3/3     121m
+statefulset.apps/redis-ha-server          3/3     85m
+statefulset.apps/wdp-couchdb              3/3     125m
+statefulset.apps/wml-deployment-agent     1/1     11m
+statefulset.apps/wml-deployment-manager   1/1     3m48s
+statefulset.apps/wml-deployments-etcd     3/3     22m
+statefulset.apps/zen-metastoredb          3/3     3h19m
+```
 
 ### Analytics Engine
 Subscriptions related to Analytics Engine (in the **ibm-cpd-operators** namespace):

@@ -19,42 +19,61 @@ Cloud Pak for Data will be configured as a [specialized installation](https://ww
 
     In this way, you can specify different settings for the IBM Cloud Pak foundational services and for the Cloud Pak for Data operators.
 
-Cloud Pak for Data is made up of many moving parts across multiple namespaces:
+Cloud Pak for Data is made up of many moving parts across multiple namespaces.
 
 In the **ibm-common-services** namespace:
-
-- `deployment.apps/ibm-zen-operator`
-- `deployment.apps/meta-api-deploy`
-- `job.batch/pre-zen-operand-config-job`
-- `job.batch/setup-job`
+```bash
+oc -n ibm-common-services get deployments
+NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
+cert-manager-cainjector                1/1     1            1           85m
+cert-manager-controller                1/1     1            1           85m
+cert-manager-webhook                   1/1     1            1           85m
+configmap-watcher                      1/1     1            1           85m
+ibm-cert-manager-operator              1/1     1            1           87m
+ibm-common-service-operator            1/1     1            1           92m
+ibm-common-service-webhook             1/1     1            1           91m
+ibm-namespace-scope-operator           1/1     1            1           91m
+ibm-zen-operator                       1/1     1            1           87m
+meta-api-deploy                        1/1     1            1           86m
+operand-deployment-lifecycle-manager   1/1     1            1           90m
+secretshare                            1/1     1            1           91m
+```
 
 In the **ibm-cpd-operators** namespace:
-
-- `deployment.apps/ibm-common-service-operator`
-- `deployment.apps/ibm-namespace-scope-operator`
-- `deployment.apps/cpd-platform-operator-manager`
+```bash
+oc -n ibm-cpd-operators get deployments
+NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
+cpd-platform-operator-manager   1/1     1            1           87m
+ibm-common-service-operator     1/1     1            1           87m
+ibm-namespace-scope-operator    1/1     1            1           87m
+```
 
 In the **ibm-cpd** namespace:
+```
+oc -n ibm-cpd get zenservice,ibmcpd,deployments,sts
+NAME                                 AGE
+zenservice.zen.cpd.ibm.com/lite-cr   81m
 
-- `ibmcpd.cpd.ibm.com/ibmcpd`
-- `zenservice.zen.cpd.ibm.com/lite-cr`
-- `statefulset.apps/dsx-influxdb`
-- `statefulset.apps/zen-metastoredb`
-- `deployment.apps/ibm-nginx`
-- `deployment.apps/usermgmt`
-- `deployment.apps/zen-audit`
-- `deployment.apps/zen-core`
-- `deployment.apps/zen-core-api`
-- `deployment.apps/zen-data-sorcerer`
-- `deployment.apps/zen-watchdog`
-- `deployment.apps/zen-watcher`
+NAME                        AGE
+ibmcpd.cpd.ibm.com/ibmcpd   85m
 
-Useful debugging commands:
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/ibm-nginx           3/3     3            3           62m
+deployment.apps/usermgmt            3/3     3            3           64m
+deployment.apps/zen-audit           1/1     1            1           56m
+deployment.apps/zen-core            3/3     3            3           55m
+deployment.apps/zen-core-api        3/3     3            3           55m
+deployment.apps/zen-data-sorcerer   2/2     2            2           48m
+deployment.apps/zen-watchdog        1/1     1            1           48m
+deployment.apps/zen-watcher         1/1     1            1           55m
 
-- `oc -n ibm-cpd get ibmcpd,zenservice,sts,deployments,jobs,pods`
-- `oc -n ibm-cpd-operators get deployments,pods`
-- `oc -n ibm-common-services get deployments,jobs,pods`
-- `oc -n ibm-cpd get secret admin-user-details -o jsonpath="{.data.initial_admin_password}" | base64 -d`
+NAME                               READY   AGE
+statefulset.apps/dsx-influxdb      1/1     51m
+statefulset.apps/zen-metastoredb   3/3     68m
+```
+
+!!! tip
+    You can retrieve the Cloud Pak for Data password from the **admin-user-details** secret: `oc -n ibm-cpd get secret admin-user-details -o jsonpath="{.data.initial_admin_password}" | base64 -d`
 
 Role Variables
 --------------
