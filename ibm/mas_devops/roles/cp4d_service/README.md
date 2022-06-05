@@ -359,17 +359,94 @@ Subscriptions related to Watson OpenScale (in the **ibm-cpd-operators** namespac
 - **cpd-platform-operator** on channel `v2.0`
 - **ibm-cpd-wos** on channel `v1.5`
 
-Assuming you are adding Watson OpenScale on top of Watson Studio, the key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
+Analytics Engine is made up of many moving parts across multiple namespaces.
 
-- `woservice.wos.cpd.ibm.com/aiopenscale`
-- `statefulset.apps/aiopenscale-ibm-aios-zookeeper`
-- `statefulset.apps/aiopenscale-ibm-aios-kafka`
-- `statefulset.apps/aiopenscale-ibm-aios-redis`
-- `statefulset.apps/aiopenscale-ibm-aios-etcd`
+In the **ibm-common-services** namespace:
 
-Useful debug commands:
-- `oc -n ibm-cpd get deployments,sts,pods`
-- `oc -n ibm-cpd get woservice`
+- 15 workloads / 12 pods
+- 0.051 CPU usage / 1.11 CPU requests / 3.57 CPU limit (5% utilization)
+- 774.7 MiB memory usage, 2.27 GiB memory requests / 5.72 GiB memory limit (33% utilization)
+
+```
+oc -n ibm-common-services get deployments
+NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
+cert-manager-cainjector                1/1     1            1           126m
+cert-manager-controller                1/1     1            1           126m
+cert-manager-webhook                   1/1     1            1           126m
+configmap-watcher                      1/1     1            1           126m
+ibm-cert-manager-operator              1/1     1            1           126m
+ibm-common-service-operator            1/1     1            1           131m
+ibm-common-service-webhook             1/1     1            1           130m
+ibm-namespace-scope-operator           1/1     1            1           131m
+ibm-zen-operator                       1/1     1            1           126m
+meta-api-deploy                        1/1     1            1           126m
+operand-deployment-lifecycle-manager   1/1     1            1           130m
+secretshare                            1/1     1            1           130m
+```
+
+In the **ibm-cpd-operators** namespace:
+
+- 4 workloads / 4 pods
+- 0.005 CPU usage / 0.4 CPU requests / 2 CPU limit (1% utilization)
+- 148.1 MiB memory usage, 912 MiB memory requests / 3 GiB memory limit (16% utilization)
+
+```
+oc -n ibm-cpd-operators get deployments
+NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
+cpd-platform-operator-manager   1/1     1            1           145m
+ibm-common-service-operator     1/1     1            1           145m
+ibm-cpd-wos-operator            1/1     1            1           76m
+ibm-namespace-scope-operator    1/1     1            1           145m
+```
+
+In the **ibm-cpd** namespace:
+
+- 32 workloads / 63 pods
+- 0.591 CPU usage / 16.76 CPU requests / 31.9 CPU limit (4% utilization)
+- 7.67 GiB memory usage, 37.32 GiB memory requests / 97.89 GiB memory limit (20% utilization)
+
+```
+oc -n ibm-cpd get woservice,deployments,sts
+NAME                                    TYPE      STORAGE              SCALECONFIG   PHASE   RECONCILED   STATUS
+woservice.wos.cpd.ibm.com/aiopenscale   service   ibmc-file-gold-gid   small         Ready   4.0.9        Completed
+
+NAME                                                        READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/aiopenscale-ibm-aios-bias                   1/1     1            1           61m
+deployment.apps/aiopenscale-ibm-aios-bkpicombined           1/1     1            1           61m
+deployment.apps/aiopenscale-ibm-aios-common-api             1/1     1            1           61m
+deployment.apps/aiopenscale-ibm-aios-configuration          1/1     1            1           61m
+deployment.apps/aiopenscale-ibm-aios-dashboard              1/1     1            1           60m
+deployment.apps/aiopenscale-ibm-aios-datamart               1/1     1            1           60m
+deployment.apps/aiopenscale-ibm-aios-drift                  1/1     1            1           60m
+deployment.apps/aiopenscale-ibm-aios-explainability         1/1     1            1           60m
+deployment.apps/aiopenscale-ibm-aios-fast-path              1/1     1            1           60m
+deployment.apps/aiopenscale-ibm-aios-feedback               1/1     1            1           59m
+deployment.apps/aiopenscale-ibm-aios-ml-gateway-discovery   1/1     1            1           59m
+deployment.apps/aiopenscale-ibm-aios-ml-gateway-service     1/1     1            1           59m
+deployment.apps/aiopenscale-ibm-aios-mrm                    1/1     1            1           59m
+deployment.apps/aiopenscale-ibm-aios-nginx                  1/1     1            1           58m
+deployment.apps/aiopenscale-ibm-aios-notification           1/1     1            1           59m
+deployment.apps/aiopenscale-ibm-aios-payload-logging        1/1     1            1           58m
+deployment.apps/aiopenscale-ibm-aios-payload-logging-api    1/1     1            1           59m
+deployment.apps/aiopenscale-ibm-aios-scheduling             1/1     1            1           58m
+deployment.apps/ibm-nginx                                   3/3     3            3           125m
+deployment.apps/usermgmt                                    3/3     3            3           127m
+deployment.apps/zen-audit                                   1/1     1            1           120m
+deployment.apps/zen-core                                    3/3     3            3           120m
+deployment.apps/zen-core-api                                3/3     3            3           120m
+deployment.apps/zen-data-sorcerer                           2/2     2            2           114m
+deployment.apps/zen-watchdog                                1/1     1            1           114m
+deployment.apps/zen-watcher                                 1/1     1            1           120m
+
+NAME                                              READY   AGE
+statefulset.apps/aiopenscale-ibm-aios-etcd        3/3     62m
+statefulset.apps/aiopenscale-ibm-aios-kafka       3/3     62m
+statefulset.apps/aiopenscale-ibm-aios-redis       3/3     62m
+statefulset.apps/aiopenscale-ibm-aios-zookeeper   3/3     70m
+statefulset.apps/dsx-influxdb                     1/1     116m
+statefulset.apps/zen-metastoredb                  3/3     130m
+```
+
 
 ### Watson Discovery
 Subscriptions related to Watson Discovery (in the **ibm-cpd-operators** namespace):
@@ -387,16 +464,41 @@ Subscriptions related to Watson Discovery (in the **ibm-common-services** namesp
 
 - **cloud-native-postgresql** on channel `stable`
 
-The key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
+Watson Discovery is made up of many moving parts across multiple namespaces.
 
-- `woservice.wos.cpd.ibm.com/aiopenscale`
-- `statefulset.apps/wd-rabbitmq-discovery`
-- `statefulset.apps/wd-minio-discovery`
-- `statefulset.apps/wd-discovery-etcd`
+In the **ibm-common-services** namespace:
 
-Useful debug commands:
-- `oc -n ibm-cpd get deployments,sts,pods`
-- `oc -n ibm-cpd get watsondiscoveries`
+- x workloads / x pods
+- x CPU usage / x CPU requests / 3.57 CPU limit (x% utilization)
+- x memory usage, x memory requests / x memory limit (x% utilization)
+
+```
+oc -n ibm-common-services get deployments
+
+```
+
+In the **ibm-cpd-operators** namespace:
+
+- x workloads / x pods
+- x CPU usage / x CPU requests / 3.57 CPU limit (x% utilization)
+- x memory usage, x memory requests / x memory limit (x% utilization)
+
+```
+oc -n ibm-cpd-operators get deployments
+
+```
+
+In the **ibm-cpd** namespace:
+
+- x workloads / x pods
+- x CPU usage / x CPU requests / 3.57 CPU limit (x% utilization)
+- x memory usage, x memory requests / x memory limit (x% utilization)
+
+```
+oc -n ibm-cpd get watsondiscoveries,deployments,sts
+
+```
+
 
 Role Variables - Installation
 -----------------------------
