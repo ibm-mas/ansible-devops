@@ -34,6 +34,8 @@
 
 # 3. Wait for WSL service CR to be ready
 # -----------------------------------------------------------------------------
+# We can't stop waiting on Failed status, as it will report failed multiple
+# times during initial reconcile ... we just need to keep waiting.
 - name: "wait-wsl : Wait for wsStatus 'Completed' or 'Failed'"
   kubernetes.core.k8s_info:
     api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
@@ -46,7 +48,7 @@
     - cpd_cr_lookup.resources | length == 1
     - cpd_cr_lookup.resources[0].status is defined
     - cpd_cr_lookup.resources[0].status.wsStatus is defined
-    - cpd_cr_lookup.resources[0].status.wsStatus == "Completed" or cpd_cr_lookup.resources[0].status.wsStatus == "Failed"
+    - cpd_cr_lookup.resources[0].status.wsStatus == "Completed" # or cpd_cr_lookup.resources[0].status.wsStatus == "Failed"
   retries: 24 # Up to 2 hours
   delay: 300 # Every 5 minutes
 

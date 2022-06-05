@@ -17,9 +17,16 @@ These services can be deployed and configured using this role:
 !!! info "Application Support"
     For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists)
 
-### Watson Studio
 
-#### Operator Namespace
+!!! note
+    The reconcile many CP4D resources will be marked as Failed multiple times during initial installation.  These are **misleading status updates**, the install is just really slow and the operators can not properly handle this.
+
+    For example, if you are watching the install of CCS you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
+
+    During this time the operator is not installing other subsystems because it operates in a blocking mode waiting for each subsystem to be ready before moving onto the next one
+
+
+### Watson Studio
 Subscriptions related to Watson Studio:
 
 - **cpd-platform-operator** on channel `v2.0`
@@ -28,27 +35,124 @@ Subscriptions related to Watson Studio:
 - **ibm-cpd-datarefinery** on channel `v1.0`
 - **ibm-cpd-ws-runtimes** on channel `v1.0`
 
+Watson Studio is made up of many moving parts across multiple namespaces.
+
+In the **ibm-common-services** namespace:
+
+- 15 workloads / 12 pods
+- 0.126 CPU usage / 1.11 CPU requests / 3.57 CPU limit (11% utilization)
+- 773.8 MiB memory usage, 2.27 GiB memory requests / 5.72 GiB memory limit (33% utilization)
+
+```
+oc -n ibm-common-services get deployments
+NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
+cert-manager-cainjector                1/1     1            1           4h57m
+cert-manager-controller                1/1     1            1           4h57m
+cert-manager-webhook                   1/1     1            1           4h57m
+configmap-watcher                      1/1     1            1           4h57m
+ibm-cert-manager-operator              1/1     1            1           4h58m
+ibm-common-service-operator            1/1     1            1           5h3m
+ibm-common-service-webhook             1/1     1            1           5h2m
+ibm-namespace-scope-operator           1/1     1            1           5h3m
+ibm-zen-operator                       1/1     1            1           4h58m
+meta-api-deploy                        1/1     1            1           4h57m
+operand-deployment-lifecycle-manager   1/1     1            1           5h2m
+secretshare                            1/1     1            1           5h2m
+```
+
+In the **ibm-cpd-operators** namespace:
+
+- 7 workloads / 7 pods
+- 0.007 CPU usage / 0.7 CPU requests / 3.75 CPU limit (1% utilization)
+- 263.4 MiB memory usage, 1.64 GiB memory requests /6.5 GiB memory limit (15% utilization)
+
 ```bash
 oc -n ibm-cpd-operators get deployments
 NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
-cpd-platform-operator-manager   1/1     1            1           150m
-ibm-common-service-operator     1/1     1            1           150m
-ibm-cpd-ccs-operator            1/1     1            1           63m
-ibm-cpd-wml-operator            1/1     1            1           65m
-ibm-namespace-scope-operator    1/1     1            1           150m
+cpd-platform-operator-manager   1/1     1            1           5h
+ibm-common-service-operator     1/1     1            1           5h
+ibm-cpd-ccs-operator            1/1     1            1           3h43m
+ibm-cpd-datarefinery-operator   1/1     1            1           134m
+ibm-cpd-ws-operator             1/1     1            1           3h45m
+ibm-cpd-ws-runtimes-operator    1/1     1            1           118m
+ibm-namespace-scope-operator    1/1     1            1           5h
 ```
 
-#### Instance Namespace
-The operators function in a sequential mode so the installation can take a very long time and you will see these resources created over the course of the 3 hour plus installation.
+In the **ibm-cpd** namespace:
+
+- 51 workloads / 101 pods
+- 1.1 CPU usage / 18.72 CPU requests / 86.7 CPU limit (5% utilization)
+- 16.46 GiB memory usage, 33.04 GiB memory requests / 175.7 GiB memory limit (50% utilization)
 
 ```bash
-oc -n ibm-cpd get ccs,WS,DataRefinery,notebookruntimes,deployments,sts
+oc -n ibm-cpd get ccs,ws,datarefinery,notebookruntimes,deployments,sts
+NAME                         VERSION   RECONCILED   STATUS      AGE
+ccs.ccs.cpd.ibm.com/ccs-cr   4.0.9     4.0.9        Completed   3h42m
+
+NAME                      VERSION   RECONCILED   STATUS      AGE
+ws.ws.cpd.ibm.com/ws-cr   4.0.9     4.0.9        Completed   3h45m
+
+NAME                                                        VERSION   STATUS      AGE
+datarefinery.datarefinery.cpd.ibm.com/datarefinery-sample   4.0.9     Completed   133m
+
+NAME                                                     VERSION   RECONCILED   STATUS      AGE
+notebookruntime.ws.cpd.ibm.com/ibm-cpd-ws-runtime-py39             4.0.9        Completed   116m
+
+NAME                                                         READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/asset-files-api                              1/1     1            1           159m
+deployment.apps/ax-cdsx-jupyter-notebooks-converter-deploy   1/1     1            1           111m
+deployment.apps/ax-cdsx-notebooks-job-manager-deploy         1/1     1            1           111m
+deployment.apps/ax-environments-api-deploy                   1/1     1            1           144m
+deployment.apps/ax-environments-ui-deploy                    1/1     1            1           144m
+deployment.apps/ax-wdp-notebooks-api-deploy                  1/1     1            1           111m
+deployment.apps/ax-ws-notebooks-ui-deploy                    1/1     1            1           111m
+deployment.apps/catalog-api                                  2/2     2            2           167m
+deployment.apps/dap-dashboards-api                           1/1     1            1           159m
+deployment.apps/dataview-api-service                         1/1     1            1           138m
+deployment.apps/dc-main                                      1/1     1            1           167m
+deployment.apps/event-logger-api                             1/1     1            1           159m
+deployment.apps/ibm-0100-model-viewer-prod                   1/1     1            1           110m
+deployment.apps/ibm-nginx                                    3/3     3            3           4h37m
+deployment.apps/jobs-api                                     1/1     1            1           155m
+deployment.apps/jobs-ui                                      1/1     1            1           155m
+deployment.apps/ngp-projects-api                             1/1     1            1           159m
+deployment.apps/portal-catalog                               1/1     1            1           166m
+deployment.apps/portal-common-api                            1/1     1            1           159m
+deployment.apps/portal-dashboards                            1/1     1            1           159m
+deployment.apps/portal-job-manager                           1/1     1            1           159m
+deployment.apps/portal-main                                  1/1     1            1           159m
+deployment.apps/portal-ml-dl                                 1/1     1            1           111m
+deployment.apps/portal-notifications                         1/1     1            1           159m
+deployment.apps/portal-projects                              1/1     1            1           159m
+deployment.apps/redis-ha-haproxy                             1/1     1            1           174m
+deployment.apps/runtime-assemblies-operator                  1/1     1            1           151m
+deployment.apps/runtime-manager-api                          1/1     1            1           147m
+deployment.apps/spaces                                       1/1     1            1           142m
+deployment.apps/spawner-api                                  1/1     1            1           146m
+deployment.apps/usermgmt                                     3/3     3            3           4h39m
+deployment.apps/wdp-connect-connection                       1/1     1            1           167m
+deployment.apps/wdp-connect-connector                        1/1     1            1           167m
+deployment.apps/wdp-connect-flight                           1/1     1            1           167m
+deployment.apps/wdp-dataprep                                 1/1     1            1           126m
+deployment.apps/wdp-dataview                                 1/1     1            1           138m
+deployment.apps/wdp-shaper                                   1/1     1            1           128m
+deployment.apps/wkc-search                                   1/1     1            1           167m
+deployment.apps/wml-main                                     1/1     1            1           143m
+deployment.apps/zen-audit                                    1/1     1            1           4h33m
+deployment.apps/zen-core                                     3/3     3            3           4h32m
+deployment.apps/zen-core-api                                 3/3     3            3           4h32m
+deployment.apps/zen-data-sorcerer                            2/2     2            2           4h25m
+deployment.apps/zen-watchdog                                 1/1     1            1           4h25m
+deployment.apps/zen-watcher                                  1/1     1            1           4h32m
+
+NAME                                    READY   AGE
+statefulset.apps/dsx-influxdb           1/1     4h28m
+statefulset.apps/elasticsearch-master   3/3     171m
+statefulset.apps/rabbitmq-ha            3/3     3h35m
+statefulset.apps/redis-ha-server        3/3     3h1m
+statefulset.apps/wdp-couchdb            3/3     3h38m
+statefulset.apps/zen-metastoredb        3/3     4h43m
 ```
-
-!!! note
-    The reconcile of the WS and CCS resources will be marked as Failed multiple times during installation.  These are misleading status updates, the install is just really slow and the operators can not properly handle this today.
-
-    If you are watching the install you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
 
 
 ### Watson Machine Learning
@@ -58,96 +162,196 @@ Subscriptions related to Watson Machine Learning:
 - **ibm-cpd-wml** on channel `v1.1`
 - **ibm-cpd-ccs** on channel `v1.0`
 
+
 Watson Machine Learning is made up of many moving parts across multiple namespaces.
 
+In the **ibm-common-services** namespace:
+
+- 15 workloads / 12 pods
+- 0.126 CPU usage / 1.11 CPU requests / 3.57 CPU limit (11% utilization)
+- 773.8 MiB memory usage, 2.27 GiB memory requests / 5.72 GiB memory limit (33% utilization)
+
+```bash
+oc -n ibm-common-services get deployments
+NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
+cert-manager-cainjector                1/1     1            1           4h7m
+cert-manager-controller                1/1     1            1           4h7m
+cert-manager-webhook                   1/1     1            1           4h7m
+configmap-watcher                      1/1     1            1           4h7m
+ibm-cert-manager-operator              1/1     1            1           4h8m
+ibm-common-service-operator            1/1     1            1           4h14m
+ibm-common-service-webhook             1/1     1            1           4h12m
+ibm-namespace-scope-operator           1/1     1            1           4h13m
+ibm-zen-operator                       1/1     1            1           4h8m
+meta-api-deploy                        1/1     1            1           4h8m
+operand-deployment-lifecycle-manager   1/1     1            1           4h12m
+secretshare                            1/1     1            1           4h12m
+```
+
 In the **ibm-cpd-operators** namespace:
+
+- 5 workloads / 5 pods
+- 0.011 CPU usage / 0.5 CPU requests / 2.75 CPU limit (1% utilization)
+- 177.4 MiB memory usage, 1.14 GiB memory requests / 4.5 GiB memory limit (15% utilization)
 
 ```bash
 oc -n ibm-cpd-operators get deployments
 NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
-cpd-platform-operator-manager   1/1     1            1           3h36m
-ibm-common-service-operator     1/1     1            1           3h36m
-ibm-cpd-ccs-operator            1/1     1            1           128m
-ibm-cpd-wml-operator            1/1     1            1           130m
-ibm-namespace-scope-operator    1/1     1            1           3h36m
+cpd-platform-operator-manager   1/1     1            1           3h57m
+ibm-common-service-operator     1/1     1            1           3h57m
+ibm-cpd-ccs-operator            1/1     1            1           150m
+ibm-cpd-wml-operator            1/1     1            1           152m
+ibm-namespace-scope-operator    1/1     1            1           3h57m
 ```
 
 In the **ibm-cpd** namespace:
 
+- 50 workloads / 103 pods
+- 1.28 CPU usage / 18.07 CPU requests / 86.15 CPU limit (7% utilization)
+- 16.96 GiB memory usage, 41.29 GiB memory requests / 184.5 GiB memory limit (41% utilization)
+
 ```
 oc -n ibm-cpd get ccs,wmlbase,deployments,sts
 NAME                         VERSION   RECONCILED   STATUS      AGE
-ccs.ccs.cpd.ibm.com/ccs-cr   4.0.9     4.0.9        Completed   128m
+ccs.ccs.cpd.ibm.com/ccs-cr   4.0.9     4.0.9        Completed   149m
 
-NAME                             VERSION   BUILD         STATUS       AGE
-wmlbase.wml.cpd.ibm.com/wml-cr   4.0.9     4.0.10-3220   InProgress   131m
+NAME                             VERSION   BUILD         STATUS      AGE
+wmlbase.wml.cpd.ibm.com/wml-cr   4.0.9     4.0.10-3220   Completed   151m
 
 NAME                                          READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/asset-files-api               1/1     1            1           60m
-deployment.apps/ax-environments-api-deploy    1/1     1            1           46m
-deployment.apps/ax-environments-ui-deploy     1/1     1            1           45m
-deployment.apps/catalog-api                   2/2     2            2           68m
-deployment.apps/dap-dashboards-api            1/1     1            1           60m
-deployment.apps/dataview-api-service          1/1     1            1           41m
-deployment.apps/dc-main                       1/1     1            1           67m
-deployment.apps/event-logger-api              1/1     1            1           60m
-deployment.apps/ibm-nginx                     3/3     3            3           3h13m
-deployment.apps/jobs-api                      1/1     1            1           55m
-deployment.apps/jobs-ui                       1/1     1            1           55m
-deployment.apps/ngp-projects-api              1/1     1            1           60m
-deployment.apps/portal-catalog                1/1     1            1           67m
-deployment.apps/portal-common-api             1/1     1            1           60m
-deployment.apps/portal-dashboards             1/1     1            1           60m
-deployment.apps/portal-job-manager            1/1     1            1           60m
-deployment.apps/portal-main                   1/1     1            1           60m
-deployment.apps/portal-notifications          1/1     1            1           60m
-deployment.apps/portal-projects               1/1     1            1           60m
-deployment.apps/redis-ha-haproxy              1/1     1            1           77m
-deployment.apps/runtime-assemblies-operator   1/1     1            1           51m
-deployment.apps/runtime-manager-api           1/1     1            1           49m
-deployment.apps/spaces                        1/1     1            1           44m
-deployment.apps/spawner-api                   1/1     1            1           48m
-deployment.apps/usermgmt                      3/3     3            3           3h15m
-deployment.apps/wdp-connect-connection        1/1     1            1           68m
-deployment.apps/wdp-connect-connector         1/1     1            1           68m
-deployment.apps/wdp-connect-flight            1/1     1            1           68m
-deployment.apps/wdp-dataview                  1/1     1            1           41m
-deployment.apps/wkc-search                    1/1     1            1           68m
-deployment.apps/wml-deployment-envoy          1/1     1            1           17m
-deployment.apps/wml-main                      1/1     1            1           45m
-deployment.apps/zen-audit                     1/1     1            1           3h7m
-deployment.apps/zen-core                      3/3     3            3           3h7m
-deployment.apps/zen-core-api                  3/3     3            3           3h7m
-deployment.apps/zen-data-sorcerer             2/2     2            2           3h
-deployment.apps/zen-watchdog                  1/1     1            1           179m
-deployment.apps/zen-watcher                   1/1     1            1           3h7m
+deployment.apps/asset-files-api               1/1     1            1           80m
+deployment.apps/ax-environments-api-deploy    1/1     1            1           66m
+deployment.apps/ax-environments-ui-deploy     1/1     1            1           66m
+deployment.apps/catalog-api                   2/2     2            2           89m
+deployment.apps/dap-dashboards-api            1/1     1            1           80m
+deployment.apps/dataview-api-service          1/1     1            1           62m
+deployment.apps/dc-main                       1/1     1            1           88m
+deployment.apps/event-logger-api              1/1     1            1           80m
+deployment.apps/ibm-nginx                     3/3     3            3           3h34m
+deployment.apps/jobs-api                      1/1     1            1           76m
+deployment.apps/jobs-ui                       1/1     1            1           76m
+deployment.apps/ngp-projects-api              1/1     1            1           80m
+deployment.apps/portal-catalog                1/1     1            1           88m
+deployment.apps/portal-common-api             1/1     1            1           80m
+deployment.apps/portal-dashboards             1/1     1            1           80m
+deployment.apps/portal-job-manager            1/1     1            1           80m
+deployment.apps/portal-main                   1/1     1            1           80m
+deployment.apps/portal-notifications          1/1     1            1           80m
+deployment.apps/portal-projects               1/1     1            1           80m
+deployment.apps/redis-ha-haproxy              1/1     1            1           97m
+deployment.apps/runtime-assemblies-operator   1/1     1            1           72m
+deployment.apps/runtime-manager-api           1/1     1            1           70m
+deployment.apps/spaces                        1/1     1            1           64m
+deployment.apps/spawner-api                   1/1     1            1           69m
+deployment.apps/usermgmt                      3/3     3            3           3h36m
+deployment.apps/wdp-connect-connection        1/1     1            1           88m
+deployment.apps/wdp-connect-connector         1/1     1            1           88m
+deployment.apps/wdp-connect-flight            1/1     1            1           88m
+deployment.apps/wdp-dataview                  1/1     1            1           62m
+deployment.apps/wkc-search                    1/1     1            1           88m
+deployment.apps/wml-deployment-envoy          1/1     1            1           37m
+deployment.apps/wml-main                      1/1     1            1           65m
+deployment.apps/wml-repositoryv4              1/1     1            1           18m
+deployment.apps/wmltraining                   1/1     1            1           13m
+deployment.apps/wmltrainingorchestrator       1/1     1            1           8m11s
+deployment.apps/zen-audit                     1/1     1            1           3h28m
+deployment.apps/zen-core                      3/3     3            3           3h27m
+deployment.apps/zen-core-api                  3/3     3            3           3h27m
+deployment.apps/zen-data-sorcerer             2/2     2            2           3h20m
+deployment.apps/zen-watchdog                  1/1     1            1           3h20m
+deployment.apps/zen-watcher                   1/1     1            1           3h27m
 
 NAME                                      READY   AGE
-statefulset.apps/dsx-influxdb             1/1     3h2m
-statefulset.apps/elasticsearch-master     3/3     73m
-statefulset.apps/rabbitmq-ha              3/3     121m
-statefulset.apps/redis-ha-server          3/3     85m
-statefulset.apps/wdp-couchdb              3/3     125m
-statefulset.apps/wml-deployment-agent     1/1     11m
-statefulset.apps/wml-deployment-manager   1/1     3m48s
-statefulset.apps/wml-deployments-etcd     3/3     22m
-statefulset.apps/zen-metastoredb          3/3     3h19m
+statefulset.apps/dsx-influxdb             1/1     3h23m
+statefulset.apps/elasticsearch-master     3/3     94m
+statefulset.apps/rabbitmq-ha              3/3     142m
+statefulset.apps/redis-ha-server          3/3     106m
+statefulset.apps/wdp-couchdb              3/3     145m
+statefulset.apps/wml-deployment-agent     1/1     32m
+statefulset.apps/wml-deployment-manager   1/1     24m
+statefulset.apps/wml-deployments-etcd     3/3     43m
+statefulset.apps/zen-metastoredb          3/3     3h40m
 ```
 
+
 ### Analytics Engine
-Subscriptions related to Analytics Engine (in the **ibm-cpd-operators** namespace):
+Subscriptions related to Analytics Engine:
 
 - **cpd-platform-operator** on channel `v2.0`
 - **analyticsengine-operator** on channel `stable-v1`
 
-Assuming you are adding Analytics Engine on top of Watson Studio, the key new resources in the installation are listed below, they are all created in the **ibm-cpd** namespace:
+Analytics Engine is made up of many moving parts across multiple namespaces.
 
-- `analyticsengine.ae.cpd.ibm.com/analyticsengine-sample`
-- `deployment.apps/spark-hb-control-plane`
+In the **ibm-common-services** namespace:
 
-Useful debug commands:
-- `oc -n ibm-cpd get deployments,pods`
-- `oc -n ibm-cpd get ccs,wmlbase`
+- 15 workloads / 12 pods
+- 0.051 CPU usage / 1.11 CPU requests / 3.57 CPU limit (5% utilization)
+- 774.7 MiB memory usage, 2.27 GiB memory requests / 5.72 GiB memory limit (33% utilization)
+
+```
+oc -n ibm-common-services get deployments
+NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
+cert-manager-cainjector                1/1     1            1           126m
+cert-manager-controller                1/1     1            1           126m
+cert-manager-webhook                   1/1     1            1           126m
+configmap-watcher                      1/1     1            1           126m
+ibm-cert-manager-operator              1/1     1            1           126m
+ibm-common-service-operator            1/1     1            1           131m
+ibm-common-service-webhook             1/1     1            1           130m
+ibm-namespace-scope-operator           1/1     1            1           131m
+ibm-zen-operator                       1/1     1            1           126m
+meta-api-deploy                        1/1     1            1           126m
+operand-deployment-lifecycle-manager   1/1     1            1           130m
+secretshare                            1/1     1            1           130m
+```
+
+In the **ibm-cpd-operators** namespace:
+
+- 4 workloads / 4 pods
+- 0.003 CPU usage / 0.4 CPU requests / 2 CPU limit (1% utilization)
+- 131.5 MiB memory usage, 912 MiB memory requests / 3 GiB memory limit (15% utilization)
+
+```
+oc -n ibm-cpd-operators get deployments
+NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
+cpd-platform-operator-manager   1/1     1            1           128m
+ibm-common-service-operator     1/1     1            1           128m
+ibm-cpd-ae-operator             1/1     1            1           65m
+ibm-namespace-scope-operator    1/1     1            1           128m
+```
+
+In the **ibm-cpd** namespace:
+
+- 16 workloads / 60 pods
+- 0.449 CPU usage / 8.06 CPU requests / 21.15 CPU limit (5% utilization)
+- 3.15 GiB memory usage, 14.31 GiB memory requests / 32.71 GiB memory limit (22% utilization)
+
+```
+oc -n ibm-cpd get analyticsengine,deployments,sts
+NAME                                                    VERSION   RECONCILED   STATUS      AGE
+analyticsengine.ae.cpd.ibm.com/analyticsengine-sample   4.0.9     4.0.9        Completed   66m
+
+NAME                                             READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/ibm-nginx                        3/3     3            3           93m
+deployment.apps/spark-hb-control-plane           1/1     1            1           62m
+deployment.apps/spark-hb-create-trust-store      1/1     1            1           64m
+deployment.apps/spark-hb-deployer-agent          1/1     1            1           62m
+deployment.apps/spark-hb-helm-repo               1/1     1            1           62m
+deployment.apps/spark-hb-nginx                   1/1     1            1           62m
+deployment.apps/spark-hb-register-hb-dataplane   1/1     1            1           55m
+deployment.apps/usermgmt                         3/3     3            3           94m
+deployment.apps/zen-audit                        1/1     1            1           89m
+deployment.apps/zen-core                         3/3     3            3           89m
+deployment.apps/zen-core-api                     3/3     3            3           89m
+deployment.apps/zen-data-sorcerer                2/2     2            2           83m
+deployment.apps/zen-watchdog                     1/1     1            1           83m
+deployment.apps/zen-watcher                      1/1     1            1           89m
+
+NAME                               READY   AGE
+statefulset.apps/dsx-influxdb      1/1     85m
+statefulset.apps/zen-metastoredb   3/3     118m
+```
+
 
 ### Watson OpenScale
 Subscriptions related to Watson OpenScale (in the **ibm-cpd-operators** namespace):
