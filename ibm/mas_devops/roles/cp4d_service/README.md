@@ -18,12 +18,8 @@ These services can be deployed and configured using this role:
     For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists)
 
 
-!!! note
-    The reconcile many CP4D resources will be marked as Failed multiple times during initial installation.  These are **misleading status updates**, the install is just really slow and the operators can not properly handle this.
-
-    For example, if you are watching the install of CCS you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
-
-    During this time the operator is not installing other subsystems because it operates in a blocking mode waiting for each subsystem to be ready before moving onto the next one
+!!! warning
+    The reconcile of many CP4D resources will be marked as Failed multiple times during initial installation, these are **misleading status updates**, the install is just really slow and the operators can not properly handle this.  For example, if you are watching the install of CCS you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
 
 
 ### Watson Studio
@@ -468,35 +464,113 @@ Watson Discovery is made up of many moving parts across multiple namespaces.
 
 In the **ibm-common-services** namespace:
 
-- x workloads / x pods
-- x CPU usage / x CPU requests / 3.57 CPU limit (x% utilization)
-- x memory usage, x memory requests / x memory limit (x% utilization)
+- 13 workloads / 16 pods
+- 0.126 CPU usage / 1.11 CPU requests / 3.57 CPU limit (8% utilization)
+- 921.9 MiB memory usage, 2.27 GiB memory requests / 5.72 GiB memory limit (40% utilization)
 
 ```
 oc -n ibm-common-services get deployments
-
+NAME                                            READY   UP-TO-DATE   AVAILABLE   AGE
+cert-manager-cainjector                         1/1     1            1           3h9m
+cert-manager-controller                         1/1     1            1           3h9m
+cert-manager-webhook                            1/1     1            1           3h9m
+configmap-watcher                               1/1     1            1           3h9m
+ibm-cert-manager-operator                       1/1     1            1           3h10m
+ibm-common-service-operator                     1/1     1            1           3h16m
+ibm-common-service-webhook                      1/1     1            1           3h14m
+ibm-namespace-scope-operator                    1/1     1            1           3h15m
+ibm-zen-operator                                1/1     1            1           3h10m
+meta-api-deploy                                 1/1     1            1           3h9m
+operand-deployment-lifecycle-manager            1/1     1            1           3h14m
+postgresql-operator-controller-manager-1-15-0   1/1     1            1           134m
+secretshare                                     1/1     1            1           3h14m
 ```
 
 In the **ibm-cpd-operators** namespace:
 
-- x workloads / x pods
-- x CPU usage / x CPU requests / 3.57 CPU limit (x% utilization)
-- x memory usage, x memory requests / x memory limit (x% utilization)
+- 10 workloads / 10 pods
+- 0.984 CPU usage / 1.65 CPU requests / 7.3 CPU limit (60% utilization)
+- 671.6 MiB memory usage, 2.56 GiB memory requests / 9.46 GiB memory limit (25% utilization)
 
 ```
 oc -n ibm-cpd-operators get deployments
-
+NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
+cpd-platform-operator-manager                          1/1     1            1           3h12m
+gateway-operator                                       1/1     1            1           131m
+ibm-common-service-operator                            1/1     1            1           3h12m
+ibm-elasticsearch-operator-ibm-es-controller-manager   1/1     1            1           131m
+ibm-etcd-operator                                      1/1     1            1           131m
+ibm-minio-operator                                     1/1     1            1           131m
+ibm-model-train-classic-operator                       1/1     1            1           131m
+ibm-namespace-scope-operator                           1/1     1            1           3h12m
+ibm-rabbitmq-operator                                  1/1     1            1           131m
+wd-discovery-operator                                  1/1     1            1           131m
 ```
 
 In the **ibm-cpd** namespace:
 
-- x workloads / x pods
-- x CPU usage / x CPU requests / 3.57 CPU limit (x% utilization)
-- x memory usage, x memory requests / x memory limit (x% utilization)
+- 49 workloads / 83 pods
+- 0.994 CPU usage / 20.06 CPU requests / 112.3 CPU limit (5% utilization)
+- 12.2 GiB memory usage, 96.1 GiB memory requests / 195.5 GiB memory limit (12% utilization)
 
 ```
 oc -n ibm-cpd get watsondiscoveries,deployments,sts
+NAME                                          VERSION   READY   READYREASON   UPDATING   UPDATINGREASON   DEPLOYED   VERIFIED   QUIESCE        DATASTOREQUIESCE   AGE
+watsondiscovery.discovery.watson.ibm.com/wd   4.0.9     True    Stable        False      Stable           23/23      23/23      NOT_QUIESCED   NOT_QUIESCED       130m
 
+NAME                                                       READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/ibm-nginx                                  3/3     3            3           174m
+deployment.apps/usermgmt                                   3/3     3            3           176m
+deployment.apps/wd-discovery-cnm-api                       1/1     1            1           39m
+deployment.apps/wd-discovery-converter                     1/1     1            1           39m
+deployment.apps/wd-discovery-crawler                       1/1     1            1           39m
+deployment.apps/wd-discovery-gateway                       1/1     1            1           19m
+deployment.apps/wd-discovery-glimpse-builder               1/1     1            1           37m
+deployment.apps/wd-discovery-glimpse-query                 1/1     1            1           39m
+deployment.apps/wd-discovery-haywire                       1/1     1            1           39m
+deployment.apps/wd-discovery-hdp-rm                        1/1     1            1           39m
+deployment.apps/wd-discovery-ingestion-api                 1/1     1            1           39m
+deployment.apps/wd-discovery-inlet                         1/1     1            1           39m
+deployment.apps/wd-discovery-management                    1/1     1            1           39m
+deployment.apps/wd-discovery-minerapp                      1/1     1            1           24m
+deployment.apps/wd-discovery-orchestrator                  1/1     1            1           39m
+deployment.apps/wd-discovery-outlet                        1/1     1            1           39m
+deployment.apps/wd-discovery-po-box                        1/1     1            1           122m
+deployment.apps/wd-discovery-project-data-prep-agent       1/1     1            1           39m
+deployment.apps/wd-discovery-ranker-master                 1/1     1            1           37m
+deployment.apps/wd-discovery-ranker-monitor-agent          1/1     1            1           39m
+deployment.apps/wd-discovery-ranker-rest                   1/1     1            1           37m
+deployment.apps/wd-discovery-rapi                          1/1     1            1           120m
+deployment.apps/wd-discovery-rcm                           1/1     1            1           122m
+deployment.apps/wd-discovery-serve-ranker                  1/1     1            1           37m
+deployment.apps/wd-discovery-stateless-api-model-runtime   1/1     1            1           39m
+deployment.apps/wd-discovery-stateless-api-rest-proxy      1/1     1            1           39m
+deployment.apps/wd-discovery-support                       0/0     0            0           39m
+deployment.apps/wd-discovery-tooling                       1/1     1            1           24m
+deployment.apps/wd-discovery-training-agents               1/1     1            1           39m
+deployment.apps/wd-discovery-training-crud                 1/1     1            1           39m
+deployment.apps/wd-discovery-training-rest                 1/1     1            1           39m
+deployment.apps/wd-discovery-watson-gateway-gw-instance    1/1     1            1           15m
+deployment.apps/wd-discovery-wd-indexer                    1/1     1            1           122m
+deployment.apps/wd-discovery-wksml                         1/1     1            1           39m
+deployment.apps/zen-audit                                  1/1     1            1           171m
+deployment.apps/zen-core                                   3/3     3            3           171m
+deployment.apps/zen-core-api                               3/3     3            3           171m
+deployment.apps/zen-data-sorcerer                          2/2     2            2           165m
+deployment.apps/zen-watchdog                               1/1     1            1           165m
+deployment.apps/zen-watcher                                1/1     1            1           170m
+
+NAME                                                     READY   AGE
+statefulset.apps/dsx-influxdb                            1/1     167m
+statefulset.apps/wd-discovery-etcd                       3/3     124m
+statefulset.apps/wd-discovery-hdp-worker                 2/2     39m
+statefulset.apps/wd-discovery-sdu                        1/1     24m
+statefulset.apps/wd-ibm-elasticsearch-es-server-client   1/1     121m
+statefulset.apps/wd-ibm-elasticsearch-es-server-data     1/1     121m
+statefulset.apps/wd-ibm-elasticsearch-es-server-master   1/1     121m
+statefulset.apps/wd-minio-discovery                      4/4     125m
+statefulset.apps/wd-rabbitmq-discovery                   1/1     125m
+statefulset.apps/zen-metastoredb                         3/3     179m
 ```
 
 
