@@ -1,32 +1,12 @@
 ---
 
-# 1. Wait for CCS CR to be ready
+# 1. Wait for CCS
 # -----------------------------------------------------------------------------
-# We can't stop waiting on Failed status, as it will report failed multiple
-# times during initial reconcile ... we just need to keep waiting.
-- name: "wait-wsl : Wait for ccsStatus 'Completed'"
-  kubernetes.core.k8s_info:
-    api_version: "ccs.cpd.ibm.com/v1beta1"
-    kind: CCS
-    name: "ccs-cr"
-    namespace: "{{ cpd_instance_namespace }}"
-  register: ccs_cr_lookup
-  until:
-    - ccs_cr_lookup.resources is defined
-    - ccs_cr_lookup.resources | length == 1
-    - ccs_cr_lookup.resources[0].status is defined
-    - ccs_cr_lookup.resources[0].status.ccsStatus is defined
-    - ccs_cr_lookup.resources[0].status.ccsStatus == "Completed" #  or ccs_cr_lookup.resources[0].status.wmlStatus == "Failed"
-  retries: 24 # Up to 2 hours
-  delay: 300 # Every 5 minutes
-
-- name: "wait-wsl : Check that the CCS ccsStatus is 'Completed'"
-  assert:
-    that: ccs_cr_lookup.resources[0].status.ccsStatus == "Completed"
-    fail_msg: "Watson Machine Learning install failed (ccsStatus)"
+- name: "Wait for CCS"
+  include_tasks: "wait-ccs.yml"
 
 
-# 2. Wait for CP4D service CR to be ready
+# 2. Wait for WML CR to be ready
 # -----------------------------------------------------------------------------
 # We can't exit early if the status goes to Failed because the reconcile will
 # report failure multiple times during initial install due to timeouts (CCS takes
