@@ -102,13 +102,17 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ibm_entitlement_key">ibm_entitlement_key</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#cpd_entitlement_key">cpd_entitlement_key</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#cpd_primary_storage_class">cpd_primary_storage_class</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#cpd_metadata_storage_class">cpd_metadata_storage_class</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#cpd_services_namespace">cpd_services_namespace</a>
+    <li class="toctree-l3"><a class="reference internal" href="#cpd_operators_namespace">cpd_operators_namespace</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cpd_instance_namespace">cpd_instance_namespace</a>
     </li>
         </ul>
     </li>
@@ -208,44 +212,112 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="cp4d">cp4d<a class="headerlink" href="#cp4d" title="Permanent link"></a></h1>
-<p>This role installs <a href="https://www.ibm.com/uk-en/products/cloud-pak-for-data">IBM Cloud Pak for Data</a> Operator in the target cluster.  Support is available for both CP4D v3.5 (installed into the <code>cpd-meta-ops</code> namespace) and CP4D v4.0 (installed into the <code>ibm-common-services</code> namespace).</p>
-<p>If you are installing CP4D v4 then the <a href="../cp4d_hack_worker_nodes/">cp4d_hack_worker_nodes</a> role must have been executed during cluster set up to update the cluster's global image pull secret and reload all worker nodes.</p>
-<p>The role assumes that you have already installed the IBM Operator Catalog in the target cluster.  This action is performed by the <a href="../ibm_catalogs/">ibm_catalogs</a> role if you want to use this collection to install the CatalogSource.</p>
-<p>CloudPak for Data support comes in two flavours: CP4D v3.5 and CP4D v4.  For users of MAS v8.7 or later only CP4D v4 is supported.  MAS 8.6 with the January 2022 maintenance updates supports both, and earlier version of MAS only support CP4D v3.5.</p>
+<p>This role installs <a href="https://www.ibm.com/uk-en/products/cloud-pak-for-data">IBM Cloud Pak for Data</a> Operator in the target cluster.</p>
+<p>The <a href="../cp4d_hack_worker_nodes/">cp4d_hack_worker_nodes</a> role must have been executed during cluster set up to update the cluster's global image pull secret and reload all worker nodes.  Unfortunately Cloud Pak for data does not support using image pull secrets attached to service accounts in the namespace.</p>
+<p>The role assumes that you have already installed the IBM Operator Catalog and configured IBM Cloud Pak Foundational services in the target cluster.  These actions are performed by the <a href="../ibm_catalogs/">ibm_catalogs</a> <a href="../common_services/">common_services</a> roles in this collection.</p>
+<p>Cloud Pak for Data will be configured as a <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=planning-architecture#architecture__deployment-architecture">specialized installation</a></p>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>A specialized installation allows a user with project administrator permissions to install the software after a cluster administrator completes the initial cluster setup.  A specialized installation also facilitates strict division between Red Hat OpenShift Container Platform projects (Kubernetes namespaces).</p>
+<p>In a specialized installation, the IBM Cloud Pak foundational services operators are installed in the ibm-common-services project and the Cloud Pak for Data operators are installed in a separate project (typically cpd-operators). Each project has a dedicated:</p>
 <ul>
-<li>CloudPak for Data v3.5 is installed from the IBM Operator Catalog using the <code>v1.0</code> channel to the <code>cpd-meta-ops</code> namespace.</li>
-<li>CloudPak for Data v4 is installed from the IBM Operator Catalog using the <code>v2.0</code> channel to the <code>ibm-common-services</code> namespace.</li>
+<li>Operator group, which specifies the OwnNamespace installation mode</li>
+<li>NamespaceScope Operator, which allows the operators in the project to manage operators and service workloads in specific projects</li>
 </ul>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>The credentials to sign-in when deploying CP4D v3.5 are the defaults, which are <code>admin/password</code>.  Yes, really!</p>
+<p>In this way, you can specify different settings for the IBM Cloud Pak foundational services and for the Cloud Pak for Data operators.</p>
+</div>
+<p>Cloud Pak for Data is made up of many moving parts across multiple namespaces.</p>
+<p>In the <strong>ibm-common-services</strong> namespace:</p>
+<pre><code class="language-bash">oc -n ibm-common-services get deployments
+NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
+cert-manager-cainjector                1/1     1            1           85m
+cert-manager-controller                1/1     1            1           85m
+cert-manager-webhook                   1/1     1            1           85m
+configmap-watcher                      1/1     1            1           85m
+ibm-cert-manager-operator              1/1     1            1           87m
+ibm-common-service-operator            1/1     1            1           92m
+ibm-common-service-webhook             1/1     1            1           91m
+ibm-namespace-scope-operator           1/1     1            1           91m
+ibm-zen-operator                       1/1     1            1           87m
+meta-api-deploy                        1/1     1            1           86m
+operand-deployment-lifecycle-manager   1/1     1            1           90m
+secretshare                            1/1     1            1           91m
+</code></pre>
+<p>In the <strong>ibm-cpd-operators</strong> namespace:</p>
+<pre><code class="language-bash">oc -n ibm-cpd-operators get deployments
+NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
+cpd-platform-operator-manager   1/1     1            1           87m
+ibm-common-service-operator     1/1     1            1           87m
+ibm-namespace-scope-operator    1/1     1            1           87m
+</code></pre>
+<p>In the <strong>ibm-cpd</strong> namespace:</p>
+<pre><code>oc -n ibm-cpd get zenservice,ibmcpd,deployments,sts
+NAME                                 AGE
+zenservice.zen.cpd.ibm.com/lite-cr   81m
+
+NAME                        AGE
+ibmcpd.cpd.ibm.com/ibmcpd   85m
+
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/ibm-nginx           3/3     3            3           62m
+deployment.apps/usermgmt            3/3     3            3           64m
+deployment.apps/zen-audit           1/1     1            1           56m
+deployment.apps/zen-core            3/3     3            3           55m
+deployment.apps/zen-core-api        3/3     3            3           55m
+deployment.apps/zen-data-sorcerer   2/2     2            2           48m
+deployment.apps/zen-watchdog        1/1     1            1           48m
+deployment.apps/zen-watcher         1/1     1            1           55m
+
+NAME                               READY   AGE
+statefulset.apps/dsx-influxdb      1/1     51m
+statefulset.apps/zen-metastoredb   3/3     68m
+</code></pre>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You can retrieve the Cloud Pak for Data password from the <strong>admin-user-details</strong> secret: <code>oc -n ibm-cpd get secret admin-user-details -o jsonpath="{.data.initial_admin_password}" | base64 -d</code></p>
 </div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<h3 id="cpd_entitlement_key">cpd_entitlement_key<a class="headerlink" href="#cpd_entitlement_key" title="Permanent link"></a></h3>
-<p>Required only if <code>cpd_version = cpd35</code>, otherwise unused because in CP4D v4 we have to use the <a href="../cp4d_hack_worker_nodes/">cp4d_hack_worker_nodes</a> role to prepare the cluster ahead of time by setting up a global image pull secret for CP4D.  Holds your IBM Entitlement key.</p>
+<h3 id="ibm_entitlement_key">ibm_entitlement_key<a class="headerlink" href="#ibm_entitlement_key" title="Permanent link"></a></h3>
+<p>Provide your <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM entitlement key</a>.</p>
 <ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>IBM_ENTITLEMENT_KEY</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="cpd_entitlement_key">cpd_entitlement_key<a class="headerlink" href="#cpd_entitlement_key" title="Permanent link"></a></h3>
+<p>An IBM entitlement key specific for Cloud Pak for Data installation, primarily used to override <code>ibm_entitlement_key</code> in development.</p>
+<ul>
+<li>Optional</li>
 <li>Environment Variable: <code>CPD_ENTITLEMENT_KEY</code></li>
 <li>Default: None</li>
 </ul>
 <h3 id="cpd_primary_storage_class">cpd_primary_storage_class<a class="headerlink" href="#cpd_primary_storage_class" title="Permanent link"></a></h3>
-<p>Required only if <code>cpd_version = cpd40</code>, otherwise unused.
-Default storage class in CPD v4.0, for IBM Cloud <code>ibmc-file-gold-gid</code> can be used.</p>
+<p>Primary storage class for Cloud Pak for Data.</p>
 <ul>
-<li>Environment Variable: <code>CPD_STORAGE_CLASS</code></li>
-<li>Default Value: None</li>
+<li><strong>Required</strong> if one of the known supported storage classes is not installed in the cluster.</li>
+<li>Environment Variable: <code>CPD_PRIMARY_STORAGE_CLASS</code></li>
+<li>Default Value: <code>ibmc-file-gold-gid</code>, <code>ocs-storagecluster-cephfs</code>, <code>azurefiles-premium</code> (if available)</li>
 </ul>
 <h3 id="cpd_metadata_storage_class">cpd_metadata_storage_class<a class="headerlink" href="#cpd_metadata_storage_class" title="Permanent link"></a></h3>
-<p>Required only if <code>cpd_version = cpd40</code>, otherwise unused.
-Default block storage class for <code>zenCoreMetaDbStorageClass</code> in CPD v4.0, for IBM Cloud <code>ibmc-block-gold</code> can be used.</p>
+<p>Storage class for the Cloud Pak for Data Zen meta database.</p>
 <ul>
-<li>Environment Variable: <code>CPD_METADB_BLOCK_STORAGE_CLASS</code></li>
-<li>Default Value: None</li>
+<li><strong>Required</strong> if one of the known supported storage classes is not installed in the cluster.</li>
+<li>Environment Variable: <code>CPD_METADATA_STORAGE_CLASS</code></li>
+<li>Default Value: <code>ibmc-block-gold</code>, <code>ocs-storagecluster-ceph-rbd</code>, or <code>managed-premium</code> (if available)</li>
 </ul>
-<h3 id="cpd_services_namespace">cpd_services_namespace<a class="headerlink" href="#cpd_services_namespace" title="Permanent link"></a></h3>
-<p>Only supported if <code>cpd_version = cpd40</code>, otherwise unused. For v3.5 support this value is always set to <code>cpd-meta-ops</code>.</p>
+<h3 id="cpd_operators_namespace">cpd_operators_namespace<a class="headerlink" href="#cpd_operators_namespace" title="Permanent link"></a></h3>
+<p>Namespace where Cloud Pak for Data operators will be installed.</p>
 <ul>
-<li>Environment Variable: <code>CPD_SERVICES_NAMESPACE</code></li>
-<li>Default Value: <code>cpd-services</code></li>
+<li>Optional</li>
+<li>Environment Variable: <code>CPD_OPERATORS_NAMESPACE</code></li>
+<li>Default Value: <code>ibm-cpd-operators</code></li>
+</ul>
+<h3 id="cpd_instance_namespace">cpd_instance_namespace<a class="headerlink" href="#cpd_instance_namespace" title="Permanent link"></a></h3>
+<p>Namespace that the Cloud Pak for Data operators will be configured to watch.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>CPD_INSTANCE_NAMESPACE</code></li>
+<li>Default Value: <code>ibm-cpd</code></li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost

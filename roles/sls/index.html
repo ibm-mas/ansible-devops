@@ -126,6 +126,8 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables-installation">Role Variables - Installation</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ibm_entitlement_key">ibm_entitlement_key</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#sls_entitlement_key">sls_entitlement_key</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#sls_catalog_source">sls_catalog_source</a>
@@ -272,11 +274,18 @@
 <p>The role assumes that you have already installed the Certificate Manager in the target cluster.  This action is performed by the <a href="../cert_manager/">cert_manager</a> role if you want to use this collection to install the cert-manager operator.</p>
 <h2 id="role-variables-installation">Role Variables - Installation<a class="headerlink" href="#role-variables-installation" title="Permanent link"></a></h2>
 <p>If <code>sls_url</code> is set then the role will skip the installation of an SLS instance and simply generate the SLSCfg resource for the SLS instance defined.</p>
-<h3 id="sls_entitlement_key">sls_entitlement_key<a class="headerlink" href="#sls_entitlement_key" title="Permanent link"></a></h3>
-<p>API Key for entitled registry. This password will be used to create the image pull secret.</p>
+<h3 id="ibm_entitlement_key">ibm_entitlement_key<a class="headerlink" href="#ibm_entitlement_key" title="Permanent link"></a></h3>
+<p>Provide your <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM entitlement key</a>.</p>
 <ul>
-<li><strong>Required</strong> (unless <code>sls_url</code> is provided)</li>
-<li>Environment Variable: <code>SLS_ENTITLEMENT_KEY</code> or <code>IBM_ENTITLEMENT_KEY</code></li>
+<li><strong>Required</strong> unless <code>sls_url</code> is provided</li>
+<li>Environment Variable: <code>IBM_ENTITLEMENT_KEY</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="sls_entitlement_key">sls_entitlement_key<a class="headerlink" href="#sls_entitlement_key" title="Permanent link"></a></h3>
+<p>An IBM entitlement key specific for SLS installation, primarily used to override <code>ibm_entitlement_key</code> in development.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>SLS_ENTITLEMENT_KEY</code></li>
 <li>Default: None</li>
 </ul>
 <h3 id="sls_catalog_source">sls_catalog_source<a class="headerlink" href="#sls_catalog_source" title="Permanent link"></a></h3>
@@ -455,15 +464,15 @@
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
+    ibm_entitlement_key: xxxx
     mas_instance_id: inst1
     mas_config_dir: /home/me/masconfig
-    sls_entitlement_key: &quot;{{ lookup('env', 'SLS_ENTITLEMENT_KEY') }}&quot;
     sls_mongodb_cfg_file: &quot;/etc/mas/mongodb.yml&quot;
 
     bootstrap:
       license_id: &quot;aa78dd65ef10&quot;
       license_file: &quot;/etc/mas/entitlement.lic&quot;
-      registration_key: &quot;{{ lookup('env', 'SLS_REGISTRATION_KEY') }}&quot;
+      registration_key: xxxx
 
   roles:
     - ibm.mas_devops.sls
