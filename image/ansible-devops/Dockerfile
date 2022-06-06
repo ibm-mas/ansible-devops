@@ -15,8 +15,8 @@ ENV ANSIBLE_COLLECTIONS_PATH=/opt/app-root/lib64/python3.9/site-packages/ansible
     ANSIBLE_CONFIG=/opt/app-root/src/ansible.cfg
 
 # 1. Upgrade system packages
-RUN dnf update -y &&\
-    dnf upgrade -y &&\
+RUN dnf update -y --skip-broken --nobest &&\
+    dnf upgrade -y --skip-broken --nobest &&\
     dnf install nano -y &&\
     dnf clean all
 
