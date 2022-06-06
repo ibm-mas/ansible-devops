@@ -9,9 +9,10 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 - `10.1` Multiple Updates:
     - Update suite application roles to support Optimizer application ([309](https://github.com/ibm-mas/ansible-devops/pull/309))
     - Support AIO configuration in Manage ([316](https://github.com/ibm-mas/ansible-devops/pull/316))
+    - Consolidate entitlement management ([323](https://github.com/ibm-mas/ansible-devops/pull/323))
 - `10.0` One-click installer support ([#285](https://github.com/ibm-mas/ansible-devops/pull/285), [#296](https://github.com/ibm-mas/ansible-devops/pull/296), [#299](https://github.com/ibm-mas/ansible-devops/pull/299))
 - `9.0` Multiple Updates:
-    - Added ability to set annotations onto suite CR  ([#269](https://github.com/ibm-mas/ansible-devops/pull/269)
+    - Added ability to set annotations onto suite CR ([#269](https://github.com/ibm-mas/ansible-devops/pull/269)
     - Add Assist install playbooks ([#271](https://github.com/ibm-mas/ansible-devops/pull/271)
     - Added gencfg-sls and gencfg-uds playbooks for using existing SLS and UDS ([#275](https://github.com/ibm-mas/ansible-devops/pull/275)
     - Add new required var CPD_METADB_BLOCK_STORAGE_CLASS for CP4D 4.0 ([#273](https://github.com/ibm-mas/ansible-devops/pull/273)
