@@ -82,7 +82,6 @@ export MAS_CONFIG_DIR=~/masconfig
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 export SLS_ENTITLEMENT_KEY=xxx
-export SLS_ENTITLEMENT_FILE=xxx
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
