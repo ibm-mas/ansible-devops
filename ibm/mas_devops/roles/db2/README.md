@@ -135,6 +135,18 @@ Define the Kubernetes memory limit for the Db2 pod.
 - Environment Variable: `DB2_MEMORY_LIMITS`
 - Default: `12Gi`
 
+### [optional] db2_ldap_username
+Define the username of db2 in the local LDAP registry. If this defined, LDAP user will be the Manage user used to configure the JDBC configuration on MAS.
+
+- Environment Variable: `DB2_LDAP_USERNAME`
+- Default: None
+
+### [optional] db2_ldap_password
+Define the password of above db2 user in the local LDAP registry. Must define when db2_ldap_username is defined.  
+
+- Environment Variable: `DB2_LDAP_PASSWORD`
+- Default: None
+
 ### [required] entitlement_key
 Required.  This is the entitlement key used to install the Db2u Operator and Db2 images. Holds your IBM Entitlement key.
 
