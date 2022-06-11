@@ -1,7 +1,12 @@
 cluster_monitoring
 ==================
 
-Configure both cluster monitoring and user workload cluster monitoring with persistant storage.
+Configure both prometheus cluster monitoring and prometheus user workload cluster monitoring with persistant storage. Also configures 
+the [community grafana operator](https://github.com/grafana-operator/grafana-operator) v4 and deploys a grafana instance along with 
+a datasource to prometheus. The grafana operator will scan for dashboards across the whole cluster so that it can import any dashbaords
+from Maximo Application Suite. The namespace grafana is installed to defaults to `grafana` but can be changed using the role variables
+below. The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route
+is created in the grafana namespace to allow access to the grafana UI.
 
 Role Variables
 --------------
@@ -15,9 +20,9 @@ Adjust the retention period for Prometheus metrics, only used when both `prometh
 ### prometheus_storage_class
 Declare the storage class for Prometheus' metrics data persistent volume.
 
-- **Required** unless working with OCP on IBMCloud ROKS
+- **Required** if one of the known supported storage classes is not installed in the cluster.
 - Environment Variable: `PROMETHEUS_STORAGE_CLASS`
-- Default Value: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
+- Default Value: `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium` (if available)
 
 ### prometheus_storage_size
 Adjust the size of the volume used to store metrics, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
@@ -29,9 +34,9 @@ Adjust the size of the volume used to store metrics, only used when both `promet
 ### prometheus_alertmgr_storage_class
 Declare the storage class for AlertManager's persistent volume.
 
-- **Required** unless working with OCP on IBMCloud ROKS
+- **Required** if one of the known supported storage classes is not installed in the cluster.
 - Environment Variable: `PROMETHEUS_ALERTMGR_STORAGE_CLASS`
-- Default Value: Defaults to `ibmc-file-gold-gid` if the storage class is available in the cluster.
+- Default Value: `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium` (if available)
 
 ### prometheus_alertmgr_storage_size
 Adjust the size of the volume used by AlertManager, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
@@ -61,6 +66,26 @@ Adjust the size of the volume used to store User Workload metrics.
 - Environment Variable: `PROMETHEUS_USERWORKLOAD_STORAGE_SIZE`
 - Default Value: `300Gi`
 
+### grafana_instance_storage_class
+Declare the storage class for Grafana Instance user data persistent volume.
+
+- **Required** if one of the known supported storage classes is not installed in the cluster.
+- Environment Variable: `GRAFANA_INSTANCE_STORAGE_CLASS`
+- Default Value: `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium` (if available)
+
+### grafana_instance_storage_size
+Adjust the size of the volume used to store Grafana user data.
+
+- Optional
+- Environment Variable: `GRAFANA_INSTANCE_STORAGE_SIZE`
+- Default Value: `10Gi`
+
+### grafana_namespace
+Sets the namespace to install the grafana operator and grafana instance
+
+- Optional
+- Environment Variable: `GRAFANA_NAMESPACE`
+- Default Value: `grafana`
 
 Example Playbook
 ----------------
