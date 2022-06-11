@@ -129,3 +129,6 @@ All roles must provide clear feedback about missing required properties that do 
       - mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "One or more required properties are missing"
 ```
+
+## Maintain links between MAS documentation and github documentation
+When creating a new ansible role or renaming an existing ansible role, please use the Review Manager button at the top of [internal MAS Knowledge Center](https://ibmdocs-test.mybluemix.net/docs/en/MAS-review_test?topic=installing-ansible-collection) and add a comment to the `Ansible Collection` topic describing the required change.  The idea is to maintain the links between the public MAS documentation and the github docs here.
