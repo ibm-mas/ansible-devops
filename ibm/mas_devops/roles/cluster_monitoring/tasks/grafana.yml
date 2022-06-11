@@ -1,0 +1,144 @@
+---
+
+# 1. Install Grafana Operator
+# -------------------------------------------------------------------------------------
+- name: "grafana : Create Grafana namespace"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/grafana-namespace.yml.j2') }}"
+
+- name: "grafana : Create Grafana operatorgroup"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/grafana-operatorgroup.yml.j2') }}"
+
+- name: "grafana : Create Grafana Operator Subscription"
+  kubernetes.core.k8s:
+    template: templates/grafana-subscription.yml.j2
+    wait: yes
+    wait_timeout: 120
+
+- name: "grafana : Lookup Grafana Operator install plan"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: "{{ grafana_namespace }}"
+    label_selectors:
+      - operators.coreos.com/grafana-operator.{{ grafana_namespace }}
+  register: grafana_installplan_info
+  retries: 30
+  delay: 60 # Retry for approx 30 minutes (60s * 30 attempts) before giving up
+  until: grafana_installplan_info.resources | length > 0
+
+- name: "grafana : Wait for Grafana Operator install to complete"
+  when:
+    - grafana_installplan_info.resources[0].status.phase != "Complete"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    name: "{{ grafana_installplan_info.resources[0].metadata.name }}"
+    namespace: "{{ grafana_namespace }}"
+  register: grafana_installplan_info
+  retries: 20
+  delay: 30 # Retry for approx 10 minutes (20s * 30 attempts) before giving up
+  until:
+    - grafana_installplan_info.resources[0].status.phase is defined
+    - grafana_installplan_info.resources[0].status.phase == "Complete"
+
+
+# 2. Configure Grafana Operator so it can scan all namespaces for dashboards
+# -------------------------------------------------------------------------------------
+# See https://github.com/grafana-operator/grafana-operator/blob/master/documentation/multi_namespace_support.md
+- name: "grafana : Apply Cluster Role and Role Binding"
+  kubernetes.core.k8s:
+    template: templates/grafana-rbac.yml.j2
+    wait: yes
+    wait_timeout: 120
+
+
+# 3. Configure Grafana Instance
+# -------------------------------------------------------------------------------------
+- name: "grafana : Create Grafana Instance"
+  kubernetes.core.k8s:
+    template: templates/grafana.yml.j2
+    wait: yes
+    wait_timeout: 300
+
+
+# 4. Configure Grafana Datasource
+# -------------------------------------------------------------------------------------
+# As per https://docs.openshift.com/container-platform/4.8/monitoring/enabling-monitoring-for-user-defined-projects.html#enabling-monitoring-for-user-defined-projects
+# use the external thanos url
+- name: "grafana : Get Prometheus token secret"
+  kubernetes.core.k8s_info:
+    api: v1
+    kind: Secret
+    namespace: "openshift-user-workload-monitoring"
+  register: user_workload_secrets
+
+- name: "grafana : Get Prometheus token secret name"
+  set_fact:
+    prometheus_token_secret_name: "{{ item.metadata.name }}"
+  when: "item.metadata.name.startswith('prometheus-user-workload-token')"
+  loop: "{{ user_workload_secrets.resources }}"
+  no_log: true
+
+- name: Fail as we didn't get the user workload secret name.
+  fail:
+    msg: "The prometheus user-workload token secret not found in openshift-user-workload-monitoring"
+  when:
+    - prometheus_token_secret_name is not defined
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "Prometheus UserWorkload Token Secret ....... {{ prometheus_token_secret_name }}"
+
+- name: "grafana : Get Prometheus token secret"
+  kubernetes.core.k8s_info:
+    api: v1
+    kind: Secret
+    name: "{{ prometheus_token_secret_name }}"
+    namespace: "openshift-user-workload-monitoring"
+  register: prometheus_token_secret
+  no_log: true
+
+- name: Fail if we didn't get the user workload secret.
+  fail:
+    msg: "The prometheus user-workload token secret or token in secret not found in openshift-user-workload-monitoring"
+  when:
+    prometheus_token_secret.resources[0] is not defined or
+    prometheus_token_secret.resources[0] is not defined or
+    prometheus_token_secret.resources[0].data is not defined or
+    prometheus_token_secret.resources[0].data.token is not defined
+
+- name: "grafana : Get Prometheus token from secret"
+  set_fact:
+    prometheus_token: "{{ prometheus_token_secret.resources[0].data.token | b64decode }}"
+  no_log: true
+
+- name: "grafana : Get Thanos Querier route in opernshift-monitoring namespace"
+  kubernetes.core.k8s_info:
+    api: v1
+    kind: Route
+    name: thanos-querier
+    namespace: openshift-monitoring
+  register: thanos_route
+
+- name: Fail if we didn't get the Thanos route.
+  fail:
+    msg: "The Thanos route `thanos-querier` or host within route not found in openshift-monitoring"
+  when:
+    thanos_route is not defined or
+    thanos_route.resources[0].spec is not defined or
+    thanos_route.resources[0].spec.host is not defined
+
+- name: "grafana : Get Thanos Querier host from route"
+  set_fact:
+    thanos_host: "{{ thanos_route.resources[0].spec.host}}"
+
+- name: "grafana : Create Grafana Datasource"
+  kubernetes.core.k8s:
+    template: templates/grafana-datasource.yml.j2
+    wait: yes
+    wait_timeout: 120
