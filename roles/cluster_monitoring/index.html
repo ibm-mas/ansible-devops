@@ -112,6 +112,12 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#prometheus_userworkload_storage_size">prometheus_userworkload_storage_size</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#grafana_instance_storage_class">grafana_instance_storage_class</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#grafana_instance_storage_size">grafana_instance_storage_size</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#grafana_namespace">grafana_namespace</a>
+    </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
@@ -218,7 +224,12 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="cluster_monitoring">cluster_monitoring<a class="headerlink" href="#cluster_monitoring" title="Permanent link"></a></h1>
-<p>Configure both cluster monitoring and user workload cluster monitoring with persistant storage.</p>
+<p>Configure both prometheus cluster monitoring and prometheus user workload cluster monitoring with persistant storage. Also configures 
+the <a href="https://github.com/grafana-operator/grafana-operator">community grafana operator</a> v4 and deploys a grafana instance along with 
+a datasource to prometheus. The grafana operator will scan for dashboards across the whole cluster so that it can import any dashbaords
+from Maximo Application Suite. The namespace grafana is installed to defaults to <code>grafana</code> but can be changed using the role variables
+below. The credentials for the grafana admin user are stored in <code>grafana-admin-credentials</code> secret in the grafana namespace. A route
+is created in the grafana namespace to allow access to the grafana UI.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
 <h3 id="prometheus_retention_period">prometheus_retention_period<a class="headerlink" href="#prometheus_retention_period" title="Permanent link"></a></h3>
 <p>Adjust the retention period for Prometheus metrics, only used when both <code>prometheus_storage_class</code> and <code>prometheus_alertmgr_storage_class</code> are set.</p>
@@ -230,9 +241,9 @@
 <h3 id="prometheus_storage_class">prometheus_storage_class<a class="headerlink" href="#prometheus_storage_class" title="Permanent link"></a></h3>
 <p>Declare the storage class for Prometheus' metrics data persistent volume.</p>
 <ul>
-<li><strong>Required</strong> unless working with OCP on IBMCloud ROKS</li>
+<li><strong>Required</strong> if one of the known supported storage classes is not installed in the cluster.</li>
 <li>Environment Variable: <code>PROMETHEUS_STORAGE_CLASS</code></li>
-<li>Default Value: Defaults to <code>ibmc-block-gold</code> if the storage class is available in the cluster.</li>
+<li>Default Value: <code>ibmc-file-gold-gid</code>, <code>ocs-storagecluster-cephfs</code>, <code>azurefiles-premium</code> (if available)</li>
 </ul>
 <h3 id="prometheus_storage_size">prometheus_storage_size<a class="headerlink" href="#prometheus_storage_size" title="Permanent link"></a></h3>
 <p>Adjust the size of the volume used to store metrics, only used when both <code>prometheus_storage_class</code> and <code>prometheus_alertmgr_storage_class</code> are set.</p>
@@ -244,9 +255,9 @@
 <h3 id="prometheus_alertmgr_storage_class">prometheus_alertmgr_storage_class<a class="headerlink" href="#prometheus_alertmgr_storage_class" title="Permanent link"></a></h3>
 <p>Declare the storage class for AlertManager's persistent volume.</p>
 <ul>
-<li><strong>Required</strong> unless working with OCP on IBMCloud ROKS</li>
+<li><strong>Required</strong> if one of the known supported storage classes is not installed in the cluster.</li>
 <li>Environment Variable: <code>PROMETHEUS_ALERTMGR_STORAGE_CLASS</code></li>
-<li>Default Value: Defaults to <code>ibmc-file-gold-gid</code> if the storage class is available in the cluster.</li>
+<li>Default Value: <code>ibmc-file-gold-gid</code>, <code>ocs-storagecluster-cephfs</code>, <code>azurefiles-premium</code> (if available)</li>
 </ul>
 <h3 id="prometheus_alertmgr_storage_size">prometheus_alertmgr_storage_size<a class="headerlink" href="#prometheus_alertmgr_storage_size" title="Permanent link"></a></h3>
 <p>Adjust the size of the volume used by AlertManager, only used when both <code>prometheus_storage_class</code> and <code>prometheus_alertmgr_storage_class</code> are set.</p>
@@ -275,6 +286,27 @@
 <li>Optional</li>
 <li>Environment Variable: <code>PROMETHEUS_USERWORKLOAD_STORAGE_SIZE</code></li>
 <li>Default Value: <code>300Gi</code></li>
+</ul>
+<h3 id="grafana_instance_storage_class">grafana_instance_storage_class<a class="headerlink" href="#grafana_instance_storage_class" title="Permanent link"></a></h3>
+<p>Declare the storage class for Grafana Instance user data persistent volume.</p>
+<ul>
+<li><strong>Required</strong> if one of the known supported storage classes is not installed in the cluster.</li>
+<li>Environment Variable: <code>GRAFANA_INSTANCE_STORAGE_CLASS</code></li>
+<li>Default Value: <code>ibmc-file-gold-gid</code>, <code>ocs-storagecluster-cephfs</code>, <code>azurefiles-premium</code> (if available)</li>
+</ul>
+<h3 id="grafana_instance_storage_size">grafana_instance_storage_size<a class="headerlink" href="#grafana_instance_storage_size" title="Permanent link"></a></h3>
+<p>Adjust the size of the volume used to store Grafana user data.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>GRAFANA_INSTANCE_STORAGE_SIZE</code></li>
+<li>Default Value: <code>10Gi</code></li>
+</ul>
+<h3 id="grafana_namespace">grafana_namespace<a class="headerlink" href="#grafana_namespace" title="Permanent link"></a></h3>
+<p>Sets the namespace to install the grafana operator and grafana instance</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>GRAFANA_NAMESPACE</code></li>
+<li>Default Value: <code>grafana</code></li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
