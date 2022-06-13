@@ -2,7 +2,6 @@
 # Choose DNS Provider
 # -----------------------------------------------------------------------------
 dns_provider: "{{ lookup('env', 'DNS_PROVIDER') }}"
-mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 
 # Certificate Manager
 # -----------------------------------------------------------------------------
@@ -11,7 +10,12 @@ cert_manager_service_account: ibm-cert-manager-controller
 
 # MAS Domain
 # -----------------------------------------------------------------------------
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 mas_domain: "{{ lookup('env', 'MAS_DOMAIN') }}"
+
+# Override the OCP ingress used in DNS entries
+# -----------------------------------------------------------------------------
+ocp_ingress: "{{ lookup('env', 'OCP_INGRESS') }}"
 
 # Cloudflare DNS Integration
 # -----------------------------------------------------------------------------
@@ -25,34 +29,27 @@ cloudflare_subdomain: "{{ lookup('env', 'CLOUDFLARE_SUBDOMAIN') }}"
 
 # IBM Cloud Internet Services DNS Integration
 # -----------------------------------------------------------------------------
-cis_group_name: acme.msmaximoappsuite.br
-cis_log_level: 1
+cis_prod_issuer_name: "{{ mas_instance_id }}-cis-le-prod"
+cis_stg_issuer_name: "{{ mas_instance_id }}-cis-le-stg"
+
+cis_email: "{{ lookup('env', 'CIS_EMAIL') }}"
+cis_apikey: "{{ lookup('env', 'CIS_APIKEY') }}"
+cis_crn: "{{ lookup('env', 'CIS_CRN') }}"
+cis_subdomain: "{{ lookup('env', 'CIS_SUBDOMAIN') }}"
+
+cis_apiservice:
+  group_name: acme.msmaximoappsuite.com
 
 cis_webhook:
   image:
     repository: quay.io/ibmmas/cert-manager-webhook-ibm-cis
     tag: 1.0.0
     pullPolicy: Always
-  resources: {}
-  nodeSelector: {}
-  tolerations: []
-  affinity: {}
-  nameOverride: ""
-  fullnameOverride: ""
   service:
     type: ClusterIP
     port: 443
 
-cis_crn: "{{ lookup('env', 'CIS_CRN') }}"
-cis_subdomain: "{{ lookup('env', 'CIS_SUBDOMAIN') }}"
-cis_apikey: "{{ lookup('env', 'CIS_APIKEY') }}"
-cis_email: "{{ lookup('env', 'CIS_EMAIL') }}"
-cis_skip_dns_entries: "{{ lookup('env', 'CIS_SKIP_DNS_ENTRIES') | default(false, true) }}"
-cis_skip_cluster_issuer: "{{ lookup('env', 'CIS_SKIP_CLUSTER_ISSUER') | default(false, true) }}"
-
-cis_update_dns: "{{ lookup('env', 'UPDATE_DNS_ENTRIES') | default(true, true) }}"
-cis_custom_ocp_ingress: "{{ lookup('env', 'OCP_INGRESS') | default(None, true)}}"
-cis_default_custom_cluster_issuer: "cis-letsencrypt-production-{{ mas_instance_id }}"
+cis_update_dns: true
 
 # CP4D Integration
 # -----------------------------------------------------------------------------

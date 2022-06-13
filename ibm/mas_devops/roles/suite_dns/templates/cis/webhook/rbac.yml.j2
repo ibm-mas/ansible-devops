@@ -2,9 +2,10 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: "cert-manager-webhook-ibm-cis"
-  namespace: "{{ certManager.namespace }}"
+  namespace: "{{ cert_manager_namespace }}"
   labels:
     app: "cert-manager-webhook-ibm-cis"
+
 ---
 # Grant the webhook permission to read the ConfigMap containing the Kubernetes
 # apiserver's requestheader-ca-certificate.
@@ -12,7 +13,7 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
-  namespace: "{{ certManager.namespace }}"
+  namespace: "{{ cert_manager_namespace }}"
   name: "cert-manager-webhook-ibm-cis"
   labels:
     app: "cert-manager-webhook-ibm-cis"
@@ -24,14 +25,15 @@ subjects:
   - apiGroup: ""
     kind: ServiceAccount
     name: "cert-manager-webhook-ibm-cis"
-    namespace: {{ certManager.namespace }}
+    namespace: {{ cert_manager_namespace }}
+
 ---
 # Grant cert-manager permission to validate using our apiserver
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: Role
 metadata:
   name: "cert-manager-webhook-ibm-cis"
-  namespace: "{{ certManager.namespace }}"
+  namespace: "{{ cert_manager_namespace }}"
   labels:
     app: "cert-manager-webhook-ibm-cis"
 rules:
@@ -41,6 +43,7 @@ rules:
       - 'secrets'
     verbs:
       - 'get'
+
 ---
 # Grant the webhook permission to read the ConfigMap containing the Kubernetes
 # apiserver's requestheader-ca-certificate.
@@ -60,7 +63,8 @@ subjects:
   - apiGroup: ""
     kind: ServiceAccount
     name: "cert-manager-webhook-ibm-cis"
-    namespace: "{{ certManager.namespace }}"
+    namespace: "{{ cert_manager_namespace }}"
+
 ---
 # apiserver gets the auth-delegator role to delegate auth decisions to
 # the core apiserver
@@ -78,7 +82,8 @@ subjects:
   - apiGroup: ""
     kind: ServiceAccount
     name: "cert-manager-webhook-ibm-cis"
-    namespace: "{{ certManager.namespace }}"
+    namespace: "{{ cert_manager_namespace }}"
+
 ---
 # Grant cert-manager permission to validate using our apiserver
 apiVersion: rbac.authorization.k8s.io/v1beta1
@@ -94,6 +99,7 @@ rules:
       - '*'
     verbs:
       - 'create'
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
@@ -108,5 +114,5 @@ roleRef:
 subjects:
   - apiGroup: ""
     kind: ServiceAccount
-    name: "{{ certManager.serviceAccountName }}"
-    namespace: "{{ certManager.namespace }}"
+    name: "{{ cert_manager_service_account }}"
+    namespace: "{{ cert_manager_namespace }}"
