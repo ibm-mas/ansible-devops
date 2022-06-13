@@ -1,0 +1,21 @@
+---
+
+# 1. Look for the airgap config
+
+- name: "detect-airgap : Look for the MAS ImageContentSourcePolicy"
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1alpha1
+    kind: ImageContentSourcePolicy
+    name: ibm-mas-and-dependencies
+  register: content_source_policy_lookup
+
+- debug:
+    var: content_source_policy_lookup
+
+- name: "detect-airgap : Set airgap_install property"
+  set_fact:
+    airgap_install: "{{ content_source_policy_lookup.resources | length == 1 | bool }}"
+
+- name: "detect-airgap : Debug Airgap detection"
+  debug:
+    msg: "Airgap environment .................... {{ airgap_install }}"

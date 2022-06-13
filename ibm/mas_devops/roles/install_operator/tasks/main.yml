@@ -13,8 +13,8 @@
 # -----------------------------------------------------------------------------
 - name: "Create wiotp-docker-local secret"
   when:
-    - catalog_source != "ibm-operator-catalog"
-    - not airgap_install
+    - artifactory_username != ""
+    - artifactory_apikey != ""
   vars:
     artifactoryAuthStr: "{{artifactory_username}}:{{artifactory_apikey}}"
     artifactoryAuth: "{{ artifactoryAuthStr | b64encode }}"
@@ -40,8 +40,8 @@
 # -----------------------------------------------------------------------------
 - name: "Patch default SA"
   when:
-    - catalog_source != "ibm-operator-catalog"
-    - not airgap_install
+    - artifactory_username != ""
+    - artifactory_apikey != ""
   kubernetes.core.k8s:
     definition:
       apiVersion: v1
@@ -59,7 +59,7 @@
   kubernetes.core.k8s:
     definition: "{{ operator_group }}"
     wait: yes
-    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
+    wait_timeout: 60 # subsequent tasks will fail if the group isn't fully created
 
 
 # 5. Create the subscription for the operator
