@@ -1,44 +1,26 @@
 ---
-# 1. Check if cert-manager is installed and which to use
+# 1. Check required properties
 # -----------------------------------------------------------------------------
-- name: Check if cert-manager is installed
-  kubernetes.core.k8s_info:
-    api_version: v1
-    name: cert-manager
-    namespace: "cert-manager"
-    kind: Deployment
-  register: _cert_manager_deployed
+- name: "Check required properties"
+  assert:
+    that:
+      - dns_provider is defined and dns_provider != ""
+      - mas_instance_id is defined and mas_instance_id != ""
 
-# if cert-manager from cert-manager namespace is deployed, then it will be used per default otherwise set ibm-cert-manager from ibm-common-services to be used
-# if it is a MAS 8.6.x -> 8.7.x upgrade being executed, then we need to install CIS into ibm-common-services namespace too
-- name: Define which cert-manager to use
-  when: ((_cert_manager_deployed.resources is defined and _cert_manager_deployed.resources | length == 0) or (is_suite_upgrade is defined and is_suite_upgrade == true))
-  set_fact:
-    certManager:
-      namespace: ibm-common-services
-      serviceAccountName: ibm-cert-manager-controller
-
-- debug:
-    msg:
-      - "Cert-manager namespace: {{ certManager.namespace }}"
-      - "Cert-manager service account: {{ certManager.serviceAccountName }}"
 
 # 2. Use CIS to set DNS and the custom cluster provider
 # -----------------------------------------------------------------------------
-- include_tasks: tasks/providers/cis/main.yml
-  when:
-    - custom_domain != ""
-    - custom_cluster_issuer != ""
-    - custom_cluster_issuer != None
-    - cis_crn is defined
-    - cis_email is defined
-    - cis_apikey is defined
+- include_tasks: tasks/providers/cloudflare/main.yml
+  when: dns_provider == "cloudflare"
 
-# 3. Set custom cp4d route based on the custom cluster issuer
+
+# 3. Use CIS to set DNS and the custom cluster provider
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/providers/cis/main.yml
+  when: dns_provider == "cis"
+
+
+# 4. Set custom cp4d route based on the custom cluster issuer
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/cp4d.yml
-  when:
-    - configure_suite_cp4d_route
-    - custom_domain != ''
-    - custom_cluster_issuer != ''
-    - custom_cluster_issuer != None
+  when: cpd_instance_namespace is defined and cpd_instance_namespace != ""

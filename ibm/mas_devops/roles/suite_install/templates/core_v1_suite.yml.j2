@@ -5,8 +5,20 @@ metadata:
   namespace: "{{ mas_namespace }}"
   labels:
     mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+{% if annotation_dict.items() %}
+  annotations:
+{% for key, value in annotation_dict.items() %}
+    {{key}}: "{{value}}"
+{% endfor %}
+{% endif %}
 spec:
   certManagerNamespace: "{{ certManager.namespace }}"
+{% if mas_cluster_issuer is defined and mas_cluster_issuer != '' %}
+  certificateIssuer:
+    name: "{{ mas_cluster_issuer }}"
+    duration: "{{ mas_certificate_duration }}"
+    renewBefore: "{{ mas_certificate_renew_before }}"
+{% endif %}
   domain: "{{ mas_domain }}"
   license:
     accept: true
