@@ -1,5 +1,12 @@
 ---
-# 1. Load default storage class (if not provided by the user)
+
+# 1. Check for MAS ImageContentSourcePolicy
+# -----------------------------------------------------------------------------
+- name: "Determine whether this is an airgap environment"
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
+
+
+# 2. Load default storage class (if not provided by the user)
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/determine-storage-classes.yml
 
@@ -17,7 +24,7 @@
       - "UDS Contact e-mail ................. {{ uds_contact.email | default('<undefined>', True) }}"
 
 
-# 2. Install UDS Operator
+# 3. Install UDS Operator
 # -----------------------------------------------------------------------------
 - name: Install Foundation Services ibm-user-data-services operand request
   kubernetes.core.k8s:
@@ -26,7 +33,7 @@
     wait_timeout: 120
 
 
-# 3. Wait for UDS Operator to be Ready
+# 4. Wait for UDS Operator to be Ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Foundation Services ibm-user-data-services operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -40,7 +47,7 @@
   delay: 60 # 1 minute
 
 
-# 4. Create UDS AnalyticsProxy
+# 5. Create UDS AnalyticsProxy
 # -----------------------------------------------------------------------------
 - name: "Create UDS AnalyticsProxy"
   kubernetes.core.k8s:
@@ -50,7 +57,7 @@
 # For some reason it seems to work anyway.
 
 
-# 5. Wait for the UDS AnalyticsProxy to be ready
+# 6. Wait for the UDS AnalyticsProxy to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for the AnalyticsProxy to be ready"
   kubernetes.core.k8s_info:
@@ -68,14 +75,14 @@
   delay: 120 # 2 minutes
 
 
-# 6. Wait for GenerateKey to be complete
+# 7. Wait for GenerateKey to be complete
 # -----------------------------------------------------------------------------
 - name: "Create UDS Generate Key"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/foundation-services/generateKey.yaml') }}"
 
 
-# 7. Wait for GenerateKey to be complete
+# 8. Wait for GenerateKey to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for GenerateKey to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -93,7 +100,7 @@
   delay: 60 # 1 minute
 
 
-# 8. MAS Config
+# 9. MAS Config
 # -----------------------------------------------------------------------------
 # Note that the MAS config resource still refers to UDS by it's
 # original name (BAS).  It would be a breaking change to re-name the MAS CRD
