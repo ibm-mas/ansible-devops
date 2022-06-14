@@ -17,9 +17,10 @@
     name: cluster
   register: _cluster_subdomain
 
-- name: "Configure domain"
+- name: "Configure domain if not set"
+  when: mas_domain == ""
   set_fact:
-    mas_domain: "{{ (custom_domain != '') | ternary (custom_domain, mas_instance_id ~ '.' ~ _cluster_subdomain.resources[0].spec.domain) }}"
+    mas_domain: "{{ mas_instance_id }}. {{ _cluster_subdomain.resources[0].spec.domain }} }}"
 
 
 # 3. Determine version of cert-manager in use on the cluster
@@ -43,7 +44,7 @@
       - "MAS domain ................... {{ mas_domain }}"
       - "MAS ICR cp content ........... {{ mas_icr_cp }}"
       - "MAS ICR cpopen content ....... {{ mas_icr_cpopen }}"
-      - "MAS Custom Cluster Issue ..... {{ custom_cluster_issuer }}"
+      - "MAS Cluster Issuer ........... {{ mas_cluster_issuer }}"
       - "MAS Subcription Upgrade ...... {{ mas_upgrade_strategy }}"
 
 
@@ -59,6 +60,7 @@
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
 - name: Lookup and Approve MAS Subscription
+  when: mas_upgrade_strategy == 'Manual'
   block:
     - name: Lookup Operator install plan
       kubernetes.core.k8s_info:
@@ -85,8 +87,6 @@
             namespace: "{{ mas_namespace }}"
           spec:
             approved: true
-  when:
-    - mas_upgrade_strategy == 'Manual'
 
 
 # 6. Wait until the Suite CRD is available
@@ -132,39 +132,23 @@
         # Only way I could get three consecutive "}" into a string :)
         .dockerconfigjson: "{{ content | join('') | string }}"
 
-- name: "Configure CR template"
-  vars:
-    suite_cr: "{{ lookup('template', 'templates/core_v1_suite.yml.j2') }}"
-    certificate_block: "{{ lookup('template', 'templates/certificate.yml.j2') }}"
-  set_fact:
-    cr_definition: "{{ (custom_cluster_issuer != '' and custom_cluster_issuer != None) | ternary (suite_cr + certificate_block, suite_cr) }}"
-
-- name: "Add Annotation block to CR"
-  vars:
-    annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
-    annotation_block: "{{ lookup('template', 'templates/annotation_block.yml.j2') }}"
-  set_fact:
-    cr_definition: "{{ cr_definition | string | ibm.mas_devops.addAnnotationBlock(annotation_block) }}"
-  when:
-    - mas_annotations is defined
-    - mas_annotations != ""
-
 
 # 8. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
+  vars:
+    annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
   kubernetes.core.k8s:
     state: present
     namespace: "{{ mas_namespace }}"
-    definition: "{{ cr_definition }}"
+    template: templates/core_v1_suite.yml.j2
 
 
-# 9. Handle IBM Common Services Install plan approvals when upgragre strategy is set to Manual
+# 9. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
 # -----------------------------------------------------------------------------
 # ibm-common-services operators deployed by MAS will inherit the inherit MAS upgrade strategy
 # when its set to Manual, we need to interate those to ensure we do approve the first install plan
 # otherwise MAS installation wont succeed.
 - include_tasks: tasks/ibm-common-services.yml
+  when: mas_upgrade_strategy == 'Manual'
   loop: "{{ibm_common_services_subscription_labels}}"
-  when:
-    - mas_upgrade_strategy == 'Manual'
