@@ -98,7 +98,7 @@ Size of the metadata persistent volume, in gigabytes
 Storage class used for user data. This must support ReadWriteOnce
 
 - **Required**
-- Environment Variable: `DB2_USER_STORAGE_CLASS`
+- Environment Variable: `DB2_DATA_STORAGE_CLASS`
 - Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
 
 ### db2_data_storage_size
@@ -212,8 +212,11 @@ The name of the worker node to apply the `{{ db2_node_label }}` taint and label 
 
 Role Variables - MPP System
 ---------------------------
+!!! warning
+    Do not use these variables if you intend to use the Db2 instance with IBM Maximo Application Suite; no MAS application supports Db2 MPP
+
 ### db2_mln_count
-The number of logical nodes (i.e. database partitions to create). Note: ensure that the application using this Db2 can support Db2 MPP (which is created when `DB2_MLN_COUNT` is greater than 1). **As of MAS 8.7 no MAS application supports MPP**.
+The number of logical nodes (i.e. database partitions to create). Note: ensure that the application using this Db2 can support Db2 MPP (which is created when `DB2_MLN_COUNT` is greater than 1).
 
 - Optional
 - Environment Variable: `'DB2_MLN_COUNT`
