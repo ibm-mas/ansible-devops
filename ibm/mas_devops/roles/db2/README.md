@@ -181,15 +181,17 @@ Define the Kubernetes memory limit for the Db2 pod.
 - Environment Variable: `DB2_MEMORY_LIMITS`
 - Default: `12Gi`
 
-### [optional] db2_ldap_username
+### db2_ldap_username
 Define the username of db2 in the local LDAP registry. If this defined, LDAP user will be the Manage user used to configure the JDBC configuration on MAS.
 
+- Optional
 - Environment Variable: `DB2_LDAP_USERNAME`
 - Default: None
 
-### [optional] db2_ldap_password
+### db2_ldap_password
 Define the password of above db2 user in the local LDAP registry. Must define when db2_ldap_username is defined.  
 
+- Optional
 - Environment Variable: `DB2_LDAP_PASSWORD`
 - Default: None
 
