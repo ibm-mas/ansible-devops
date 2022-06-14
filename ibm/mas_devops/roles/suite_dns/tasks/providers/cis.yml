@@ -1,0 +1,103 @@
+---
+
+# 1. Validate required properties
+# =============================================================================
+- name: "cis : Fail if required properties are not provided"
+  assert:
+    that:
+      - cis_crn != ""
+      - cis_email != ""
+      - cis_apikey != ""
+    fail_msg: "One or more required properties are missing"
+
+
+# 2. Lookup the cluster ingress
+# =============================================================================
+- name: "cis : Get cluster subdomain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Configure ingress"
+  when: ocp_ingress is not defined or ocp_ingress == ""
+  set_fact:
+    ocp_ingress: "cis-proxy-route.{{ _cluster_subdomain.resources[0].spec.domain }}"
+
+
+# 3. Set up the DNS entries
+# =============================================================================
+- name: "cis : Define DNS Entries"
+  set_fact:
+    dns_entries:
+      - ""
+      - "*"
+      - "*.api.monitor"
+      - "*.assist"
+      - "*.health"
+      - "*.home"
+      - "*.hputilities"
+      - "*.iot"
+      - "*.manage"
+      - "*.messaging.iot"
+      - "*.monitor"
+      - "*.predict"
+      - "*.safety"
+      - "*.visualinspection"
+      - "cis.test.cert"
+      - "cp4d"
+
+- name: "cis : Debug information"
+  debug:
+    msg:
+      - "CIS CRN ................................ {{ cis_crn }}"
+      - "CIS Subdomain .......................... {{ cis_subdomain }}"
+      - "OpenShift Ingress ...................... {{ ocp_ingress }}"
+      - "DNS Entries ............................ {{ dns_entries }}"
+
+
+# 4. Add DNS entries
+# =============================================================================
+- name: "cis : run cis_dns_entries module"
+  ibm.mas_devops.cis_dns_entries:
+    ocp_ingress: "{{ ocp_ingress }}"
+    cis_crn: "{{ cis_crn }}"
+    cis_subdomain: "{{ cis_subdomain }}"
+    update_dns: true
+    cis_apikey: "{{ cis_apikey }}"
+    dns_entries: "{{ dns_entries }}"
+  register: dnsoutput
+
+- name: "cis : dump output"
+  debug:
+    msg: '{{ dnsoutput }}'
+
+
+# 5. Deploy the CIS Webhook
+# =============================================================================
+- name: "cis : Create k8s resources for CIS webhook"
+  kubernetes.core.k8s:
+    namespace: "{{ cert_manager_namespace }}"
+    state: present
+    template: "{{ item }}"
+  with_items:
+    - templates/cis/webhook/rbac.yml.j2
+    - templates/cis/webhook/pki.yml.j2
+    - templates/cis/webhook/deployment.yml.j2
+    - templates/cis/webhook/apiservice.yml.j2
+    - templates/cis/webhook/service.yml.j2
+    - templates/cis/webhook/cis-apikey-secret.yml.j2
+    - templates/cis/webhook/cis-proxy-route.yml.j2
+
+
+# 6. Create the CIS ClusterIssuers
+# =============================================================================
+- name: "cis : Create k8s resources for CIS ClusterIssuers"
+  kubernetes.core.k8s:
+    namespace: "{{ cert_manager_namespace }}"
+    state: present
+    template: "{{ item }}"
+  with_items:
+    - templates/cis/clusterissuer-staging.yml.j2
+    - templates/cis/clusterissuer-prod.yml.j2
