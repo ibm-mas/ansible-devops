@@ -7,6 +7,22 @@ spec:
   params:
     - name: mas_instance_id
       type: string
+      description: Instance ID
+      default: ""
+
+    # Entitlement
+    - name: appconnect_entitlement_username
+      type: string
+      default: ""
+      description: "AppConnect Entitlement Username"
+    - name: ibm_entitlement_key
+      type: string
+      default: ""
+      description: "IBM Entitlement Key"
+    - name: appconnect_entitlement_key
+      type: string
+      default: ""
+      description: "Optional AppConnect-specific override for the IBM entitlement key"
 
     # Optional support built into the ansible-devops image
     # for saving task execution results to a MongoDb instance
@@ -25,8 +41,18 @@ spec:
 
   stepTemplate:
     env:
+      - name: MAS_CONFIG_DIR
+        value: /workspace/configs
       - name: MAS_INSTANCE_ID
         value: $(params.mas_instance_id)
+
+      # Entitlement
+      - name: APPCONNECT_ENTITLEMENT_USERNAME
+        value: $(params.appconnect_entitlement_username)
+      - name: IBM_ENTITLEMENT_KEY
+        value: $(params.ibm_entitlement_key)
+      - name: APPCONNECT_ENTITLEMENT_KEY
+        value: $(params.appconnect_entitlement_key)
 
       # Optional support built into the ansible-devops image
       # for saving task execution results to a MongoDb instance
@@ -45,3 +71,6 @@ spec:
       image: quay.io/ibmmas/ansible-devops:latest
       imagePullPolicy: Always
       workingDir: /workspace/configs
+
+  workspaces:
+    - name: configs
