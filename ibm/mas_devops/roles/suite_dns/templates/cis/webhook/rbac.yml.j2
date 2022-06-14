@@ -2,17 +2,18 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: "cert-manager-webhook-ibm-cis"
-  namespace: "{{ certManager.namespace }}"
+  namespace: "{{ cert_manager_namespace }}"
   labels:
     app: "cert-manager-webhook-ibm-cis"
+
 ---
 # Grant the webhook permission to read the ConfigMap containing the Kubernetes
 # apiserver's requestheader-ca-certificate.
 # This ConfigMap is automatically created by the Kubernetes apiserver.
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  namespace: "{{ certManager.namespace }}"
+  namespace: "{{ cert_manager_namespace }}"
   name: "cert-manager-webhook-ibm-cis"
   labels:
     app: "cert-manager-webhook-ibm-cis"
@@ -24,14 +25,15 @@ subjects:
   - apiGroup: ""
     kind: ServiceAccount
     name: "cert-manager-webhook-ibm-cis"
-    namespace: {{ certManager.namespace }}
+    namespace: {{ cert_manager_namespace }}
+
 ---
 # Grant cert-manager permission to validate using our apiserver
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: "cert-manager-webhook-ibm-cis"
-  namespace: "{{ certManager.namespace }}"
+  namespace: "{{ cert_manager_namespace }}"
   labels:
     app: "cert-manager-webhook-ibm-cis"
 rules:
@@ -41,11 +43,12 @@ rules:
       - 'secrets'
     verbs:
       - 'get'
+
 ---
 # Grant the webhook permission to read the ConfigMap containing the Kubernetes
 # apiserver's requestheader-ca-certificate.
 # This ConfigMap is automatically created by the Kubernetes apiserver.
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: "cert-manager-webhook-ibm-cis:webhook-authentication-reader"
@@ -60,11 +63,12 @@ subjects:
   - apiGroup: ""
     kind: ServiceAccount
     name: "cert-manager-webhook-ibm-cis"
-    namespace: "{{ certManager.namespace }}"
+    namespace: "{{ cert_manager_namespace }}"
+
 ---
 # apiserver gets the auth-delegator role to delegate auth decisions to
 # the core apiserver
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: "cert-manager-webhook-ibm-cis:auth-delegator"
@@ -78,10 +82,11 @@ subjects:
   - apiGroup: ""
     kind: ServiceAccount
     name: "cert-manager-webhook-ibm-cis"
-    namespace: "{{ certManager.namespace }}"
+    namespace: "{{ cert_manager_namespace }}"
+
 ---
 # Grant cert-manager permission to validate using our apiserver
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: "cert-manager-webhook-ibm-cis:domain-solver"
@@ -89,13 +94,14 @@ metadata:
     app: "cert-manager-webhook-ibm-cis"
 rules:
   - apiGroups:
-      - "{{ groupName }}"
+      - "{{ cis_apiservice.group_name }}"
     resources:
       - '*'
     verbs:
       - 'create'
+
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: "cert-manager-webhook-ibm-cis:domain-solver"
@@ -108,5 +114,5 @@ roleRef:
 subjects:
   - apiGroup: ""
     kind: ServiceAccount
-    name: "{{ certManager.serviceAccountName }}"
-    namespace: "{{ certManager.namespace }}"
+    name: "{{ cert_manager_service_account }}"
+    namespace: "{{ cert_manager_namespace }}"
