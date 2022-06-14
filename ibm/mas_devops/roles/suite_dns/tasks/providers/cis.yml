@@ -2,7 +2,7 @@
 
 # 1. Validate required properties
 # =============================================================================
-- name: "Fail if required properties are not provided"
+- name: "cis : Fail if required properties are not provided"
   assert:
     that:
       - cis_crn != ""
@@ -13,7 +13,7 @@
 
 # 2. Lookup the cluster ingress
 # =============================================================================
-- name: "Get cluster subdomain"
+- name: "cis : Get cluster subdomain"
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
@@ -28,7 +28,7 @@
 
 # 3. Set up the DNS entries
 # =============================================================================
-- name: "Define DNS Entries"
+- name: "cis : Define DNS Entries"
   set_fact:
     dns_entries:
       - ""
@@ -48,7 +48,7 @@
       - "cis.test.cert"
       - "cp4d"
 
-- name: "Debug information"
+- name: "cis : Debug information"
   debug:
     msg:
       - "CIS CRN ................................ {{ cis_crn }}"
@@ -59,7 +59,7 @@
 
 # 4. Add DNS entries
 # =============================================================================
-- name: run cis_dns_entries module
+- name: "cis : run cis_dns_entries module"
   ibm.mas_devops.cis_dns_entries:
     ocp_ingress: "{{ ocp_ingress }}"
     cis_crn: "{{ cis_crn }}"
@@ -69,14 +69,14 @@
     dns_entries: "{{ dns_entries }}"
   register: dnsoutput
 
-- name: dump output
+- name: "cis : dump output"
   debug:
     msg: '{{ dnsoutput }}'
 
 
 # 5. Deploy the CIS Webhook
 # =============================================================================
-- name: Create k8s resources for CIS webhook
+- name: "cis : Create k8s resources for CIS webhook"
   kubernetes.core.k8s:
     namespace: "{{ cert_manager_namespace }}"
     state: present
@@ -93,7 +93,7 @@
 
 # 6. Create the CIS ClusterIssuers
 # =============================================================================
-- name: Create k8s resources for CIS ClusterIssuers
+- name: "cis : Create k8s resources for CIS ClusterIssuers"
   kubernetes.core.k8s:
     namespace: "{{ cert_manager_namespace }}"
     state: present
@@ -101,5 +101,3 @@
   with_items:
     - templates/cis/clusterissuer-staging.yml.j2
     - templates/cis/clusterissuer-prod.yml.j2
-
-

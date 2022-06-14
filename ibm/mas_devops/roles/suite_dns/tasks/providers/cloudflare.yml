@@ -1,14 +1,14 @@
 ---
 # 1. Check required properties
 # -----------------------------------------------------------------------------
-- name: "Check required properties"
+- name: "cloudflare : Check required properties"
   assert:
     that:
       - cloudflare_zone is defined and cloudflare_zone != ""
       - cloudflare_apitoken is defined and cloudflare_apitoken != ""
       - cloudflare_email is defined and cloudflare_email != ""
 
-- name: "Check subdomain and zone is valid"
+- name: "cloudflare : Check subdomain and zone is valid"
   when: cloudflare_subdomain != ""
   vars:
     cloudflare_combined_domain: "{{ cloudflare_subdomain }}.{{ cloudflare_zone }}"
@@ -16,7 +16,7 @@
     that:
       - cloudflare_combined_domain == mas_domain
 
-- name: "Check zone is valid"
+- name: "cloudflare : Check zone is valid"
   when: cloudflare_subdomain == ""
   assert:
     that:
@@ -25,66 +25,45 @@
 
 # 2. Create Secret
 # -----------------------------------------------------------------------------
-- name: "Install Cloudflare API token secret"
+- name: "cloudflare : Install Cloudflare API token secret"
   kubernetes.core.k8s:
     template: templates/cloudflare/secret.yml.j2
 
 
 # 3. Create ClusterIssuer
 # -----------------------------------------------------------------------------
-- name: "Install Cloudflare production ClusterIssuer"
+- name: "cloudflare : Install Cloudflare production ClusterIssuer"
   kubernetes.core.k8s:
     template: templates/cloudflare/clusterissuer-prod.yml.j2
 
-- name: "Install Cloudflare staging ClusterIssuer"
+- name: "cloudflare : Install Cloudflare staging ClusterIssuer"
   kubernetes.core.k8s:
     template: templates/cloudflare/clusterissuer-staging.yml.j2
 
 
 # 4. Lookup the OCP ingress for DNS entries
 # -----------------------------------------------------------------------------
-- name: "Get cluster subdomain"
+- name: "cloudflare : Get cluster subdomain"
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
     name: cluster
   register: cluster_ingress_lookup
 
-- name: "Check that we found the cluster ingress"
+- name: "cloudflare : Check that we found the cluster ingress"
   assert:
     that:
       - cluster_ingress_lookup.resources is defined
       - cluster_ingress_lookup.resources | length == 1
 
-- name: "Set ocp_hostname"
+- name: "cloudflare : Set ocp_hostname"
   set_fact:
     ocp_hostname: "{{ cluster_ingress_lookup.resources[0].spec.domain }}"
 
 
-# 5. Create Test Certificate
+# 5. Setup MAS Domain Name Entries
 # -----------------------------------------------------------------------------
-- name: Create Test DNS record in Cloudflare
-  community.general.cloudflare_dns:
-    zone: "{{ cloudflare_zone }}"
-    record: "testdns-{{ mas_instance_id }}"
-    type: CNAME
-    value: "{{ ocp_hostname }}"
-    api_token: "{{ cloudflare_apitoken }}"
-
-- name: "Create Test Certificate"
-  kubernetes.core.k8s:
-    template: templates/cloudflare/test-certificate.yml.j2
-    wait: true
-    wait_condition:
-      type: Ready
-      status: true
-    wait_sleep: 10 # seconds
-    wait_timeout: 300 # 5 minutes
-
-
-# 6. Setup MAS Domain Name Entries
-# -----------------------------------------------------------------------------
-- name: "Setup MAS DNS Entries"
+- name: "cloudflare : Setup MAS DNS Entries"
   set_fact:
     dns_entries:
       # Core
@@ -111,7 +90,7 @@
       # Visual Inspection
       - "*.visualinspection"
 
-- name: "Create MAS DNS record in Cloudflare"
+- name: "cloudflare : Create MAS DNS record in Cloudflare"
   vars:
     record_name_without_subdomain: "{{ item }}"
     record_name_with_subdomain: "{{ item }}.{{ cloudflare_subdomain }}"
