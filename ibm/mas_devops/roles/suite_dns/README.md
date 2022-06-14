@@ -27,21 +27,25 @@ Role Variables - General
 
 - **Required**
 - Environment Variable: `DNS_PROVIDER`
+- Default: None
 
 ### mas_instance_id:
 
 - **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
+- Default: None
 
 ### mas_domain
 
 - **Required**
 - Environment Variable: `MAS_DOMAIN`
+- Default: None
 
 ### ocp_ingress
 
 - Optional
 - Environment Variable: `OCP_INGRESS`
+- Default: None
 
 Role Variables - Cloudflare DNS Integration
 -------------------------------------------
@@ -49,21 +53,25 @@ Role Variables - Cloudflare DNS Integration
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_EMAIL`
+- Default: None
 
 ### cloudflare_apitoken
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_APITOKEN`
+- Default: None
 
 ### cloudflare_zone
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_ZONE`
+- Default: None
 
 ### cloudflare_subdomain
 
 - Optional
 - Environment Variable: `CLOUDFLARE_SUBDOMAIN`
+- Default: None
 
 Role Variables - IBM Cloud Internet Services DNS Integration
 ------------------------------------------------------------
@@ -71,21 +79,25 @@ Role Variables - IBM Cloud Internet Services DNS Integration
 
 - **Required** if `dns_provider` is set to `cis`
 - Environment Variable: `CIS_EMAIL`
+- Default: None
 
 ### cis_apikey
 
 - **Required** if `dns_provider` is set to `cis`
 - Environment Variable: `CIS_APIKEY`
+- Default: None
 
 ### cis_crn
 
 - **Required** if `dns_provider` is set to `cis`
 - Environment Variable: `CIS_CRN`
+- Default: None
 
 ### cis_subdomain
 
 - Optional
 - Environment Variable: `CIS_SUBDOMAIN`
+- Default: None
 
 
 Example Playbook
