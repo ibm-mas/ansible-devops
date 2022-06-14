@@ -77,6 +77,19 @@ The way database tables will be organized. It can be set to either `ROW` or `COL
 - Environment Variable: `DB2_TABLE_ORG`
 - Default: `ROW`
 
+### db2_ldap_username
+Define the username of db2 in the local LDAP registry. If this is defined, the LDAP user will be the user identity passed into the MAS JDBC configuration.
+
+- Optional
+- Environment Variable: `DB2_LDAP_USERNAME`
+- Default: None
+
+### db2_ldap_password
+Define the password of above db2 user in the local LDAP registry. Must define when `db2_ldap_username` is defined.
+
+- Optional
+- Environment Variable: `DB2_LDAP_PASSWORD`
+- Default: None
 
 Role Variables - Storage
 ------------------------
@@ -180,7 +193,6 @@ Define the Kubernetes memory limit for the Db2 pod.
 - Optional
 - Environment Variable: `DB2_MEMORY_LIMITS`
 - Default: `12Gi`
-
 
 Role Variables - Node Affinity
 ----------------------------------
