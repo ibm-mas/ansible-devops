@@ -6,6 +6,7 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `10.3` Add support for Cloudflare DNS integration ([#349](https://github.com/ibm-mas/ansible-devops/pull/349))
 - `10.2` Deploy Grafana in `cluster_monitoring` role ([#336](https://github.com/ibm-mas/ansible-devops/pull/336))
 - `10.1` Multiple Updates:
     - Update suite application roles to support Optimizer application ([#309](https://github.com/ibm-mas/ansible-devops/pull/309))
