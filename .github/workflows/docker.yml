@@ -1,4 +1,4 @@
-name: Build Ansible Collection
+name: Build Container Image
 on:
   push:
     branches:
@@ -6,7 +6,7 @@ on:
     tags-ignore:
       - '**'
 jobs:
-  ansible-build:
+  docker-build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,9 +32,20 @@ jobs:
         run: |
           $GITHUB_WORKSPACE/build/bin/build-collection.sh
 
-      - name: Upload Ansible Collection
-        uses: actions/upload-artifact@v2
+      - name: Install the Ansible collection in the container image
+        run: cp $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz $GITHUB_WORKSPACE/image/ansible-devops/app-root/ibm-mas_devops.tar.gz
+
+      - name: Build the docker image
+        run: |
+          $GITHUB_WORKSPACE/build/bin/docker-build.sh -n ibmmas -i ansible-devops
+          docker tag ibmmas/ansible-devops ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+          docker tag ibmmas/ansible-devops quay.io/ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+
+      # https://github.com/marketplace/actions/push-to-registry
+      - name: Push the docker image
+        id: push_to_quay
+        uses: redhat-actions/push-to-registry@v2
         with:
-          name: ibm-mas_devops-${{ env.VERSION }}.tar.gz
-          path: ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz
-          retention-days: 30
+          tags: quay.io/ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+          username: ${{ secrets.QUAYIO_USERNAME }}
+          password: ${{ secrets.QUAYIO_PASSWORD }}

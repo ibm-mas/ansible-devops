@@ -1,4 +1,4 @@
-name: Publish Ansible Collection
+name: Publish Container Image
 on:
   push:
     branches-ignore:
@@ -6,7 +6,7 @@ on:
     tags:
       - '**'
 jobs:
-  ansible-publish:
+  docker-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -29,16 +29,21 @@ jobs:
         run: |
           $GITHUB_WORKSPACE/build/bin/build-collection.sh
 
-      - name: Upload Ansible Collection
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz
-          asset_name: ibm-mas_devops-${{ env.VERSION }}.tar.gz
-          tag: ${{ github.ref }}
-          overwrite: true
+      - name: Install the Ansible collection in the container image
+        run: cp $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz $GITHUB_WORKSPACE/image/ansible-devops/app-root/ibm-mas_devops.tar.gz
 
-      # Publish
-      - name: Publish Collection
+      # Docker build
+      - name: Build the docker image
         run: |
-          ansible-galaxy collection publish ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz --token=${{ secrets.ANSIBLE_GALAXY_TOKEN }}
+          $GITHUB_WORKSPACE/build/bin/docker-build.sh -n ibmmas -i ansible-devops
+          docker tag ibmmas/ansible-devops ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+          docker tag ibmmas/ansible-devops quay.io/ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+
+      # https://github.com/marketplace/actions/push-to-registry
+      - name: Push the docker image
+        id: push_to_quay
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          tags: quay.io/ibmmas/ansible-devops:${{ env.DOCKER_TAG }}
+          username: ${{ secrets.QUAYIO_USERNAME }}
+          password: ${{ secrets.QUAYIO_PASSWORD }}
