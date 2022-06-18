@@ -64,7 +64,6 @@
 - name: "gencfg-wd :  find the WDS instance and query the wds uuid"
   set_fact:
     wds_number: "{{ item.id | | replace('-','') | int }}"
-    findwdsinst: true
   with_items: "{{ query_instance_output.json.service_instances }}"
   when:
     - query_instance_output.status is defined and query_instance_output.status | int == 200
@@ -73,7 +72,6 @@
     - item.display_name == wds_instname
 
 - name: "gencfg-wd : Debug wds_number"
-  when: wds_number is defined
   debug:
     msg:
       - "Discovery Service Id: ..............{{ 'Not Found' if wds_number is not defined else wds_number }}"
@@ -82,7 +80,7 @@
 # 3. Provision the CP4D WDS instance and get its uuid
 # -----------------------------------------------------------------------------
 - name: "gencfg-wd :  Create the WDS instance in CP4D when WDS instance not exist and query its uuid"
-  when: wds_number is defined and wds_number > 0
+  when: wds_number is not defined or wds_number == ""
   uri:
     url: "{{ cpd_url }}/watson/common/discovery/api/ibmcloud/resource-controller/resource_instances"
     validate_certs: no
@@ -98,10 +96,10 @@
 
 - debug:
     msg: "Discovery instance ID.............. {{ create_wds_output.json.id }}"
-  when: create_wds_output is defined and create_wds_output.status == 200
+  when: wds_number is not defined or wds_number == ""
 
 - name: "gencfg-wd : Get the CP4D instance uuid number"
-  when: create_wds_output is defined and create_wds_output.status == 200
+  when: wds_number is not defined or wds_number == ""
   set_fact:
     wds_number: "{{ create_wds_output.json.id | replace('-','') | int }}"
 
