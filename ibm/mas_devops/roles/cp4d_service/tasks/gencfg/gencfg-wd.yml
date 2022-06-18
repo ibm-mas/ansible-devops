@@ -2,13 +2,6 @@
 
 # 1. Get CP4D Beaker token to enable Watson API authentication
 # -----------------------------------------------------------------------------
-- name: "gencfg-wd : Watson Discovery Installation Summary:"
-  debug:
-    msg:
-      - "CP4D Username .................. {{ cpd_admin_username }}"
-      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
-      - "CP4D URL ....................... {{ cpd_url }}"
-
 - name: "gencfg-wd : Authorize the CP4D (get Bearer token)"
   uri:
     url: "{{ cpd_url }}/icp4d-api/v1/authorize"
@@ -28,23 +21,18 @@
     cpd_bearer_token: "{{ cpd_authorization.json.token }}"
 
 
-# 2. Check the existing Discovery instance UUID
+# 2. Check if there is already a discovery service instance previously created
 # -----------------------------------------------------------------------------
-- name: "gencfg-wd :  Find if the WDS instance is already there"
+- name: "gencfg-wd : Define Discovery Instance Name (wd_instance_name)"
   set_fact:
-    wds_instname: "discovery-assist"
+    wd_instance_name: "discovery-assist-{{ mas_workspace_id }}"
 
-- name: "gencfg-wd :  find if the WDS instance is already there"
-  set_fact:
-    wds_instname: "discovery-assist-{{ mas_workspace_id }}"
-  when: mas_workspace_id is defined and mas_workspace_id != ""
-
-- name: "gencfg-wd :  Print the Discovery Instance Name"
+- name: "gencfg-wd : Debug wd_instance_name"
   debug:
     msg:
-      - "Discovery Instance Name.......... {{ wds_instname }}"
+      - "Discovery Instance Name.......... {{ wd_instance_name }}"
 
-- name: "gencfg-wd : Check if there's existing Discovery instance in CP4D"
+- name: "gencfg-wd : Get all discovery service instances (query_instance_output)"
   when: cpd_bearer_token is defined
   uri:
     url: "{{ cpd_url }}/zen-data/v3/service_instances?fetch_all_instances=false&limit=9223372036854775807&offset=0"
@@ -61,26 +49,26 @@
   debug:
     msg: "{{ query_instance_output }}"
 
-- name: "gencfg-wd :  find the WDS instance and query the wds uuid"
+- name: "gencfg-wd : Obtain Service Instance Id (wd_instance_id) if a discovery service is found with name {{ wd_instance_name }}"
   set_fact:
-    wds_number: "{{ item.id | | replace('-','') | int }}"
+    wd_instance_id: "{{ item.id }}"
   with_items: "{{ query_instance_output.json.service_instances }}"
   when:
     - query_instance_output.status is defined and query_instance_output.status | int == 200
     - query_instance_output.json.service_instances | length > 0
     - item.addon_type == "discovery"
-    - item.display_name == wds_instname
+    - item.display_name == wd_instance_name
 
-- name: "gencfg-wd : Debug wds_number"
+- name: "gencfg-wd : Debug wd_instance_id"
   debug:
     msg:
-      - "Discovery Service Id: ..............{{ 'Not Found' if wds_number is not defined else wds_number }}"
+      - "Discovery Instance Id: ............. {{ 'Not Found' if wd_instance_id is not defined else wd_instance_id }}"
 
 
-# 3. Provision the CP4D WDS instance and get its uuid
+# 3. Create a Discovery Service instance if none is found
 # -----------------------------------------------------------------------------
-- name: "gencfg-wd :  Create the WDS instance in CP4D when WDS instance not exist and query its uuid"
-  when: wds_number is not defined or wds_number == ""
+- name: "gencfg-wd : Create a Discovery Service instance if none is found"
+  when: wd_instance_id is not defined or wd_instance_id == ""
   uri:
     url: "{{ cpd_url }}/watson/common/discovery/api/ibmcloud/resource-controller/resource_instances"
     validate_certs: no
@@ -92,30 +80,33 @@
     body: "{{ lookup('template','templates/wd/wds.json.j2') }}"
     status_code: 200,412
     timeout: 30
-  register: create_wds_output
+  register: create_wd_output
 
-- debug:
-    msg: "Discovery instance ID.............. {{ create_wds_output.json.id }}"
-  when: wds_number is not defined or wds_number == ""
-
-- name: "gencfg-wd : Get the CP4D instance uuid number"
-  when: wds_number is not defined or wds_number == ""
+- name: "gencfg-wd : Define Discovery Instance Id (wd_instance_id) based on just created service (if not previously defined)"
+  when: wd_instance_id is not defined or wd_instance_id == ""
   set_fact:
-    wds_number: "{{ create_wds_output.json.id | replace('-','') | int }}"
+    wd_instance_id: "{{ create_wd_output.json.id }}"
 
-# 11. Print Out the Discovery instance URL and crdential for use
+- name: "gencfg-wd : Debug wd_instance_id"
+  debug:
+    msg: - "Discovery Instance Id: ............. {{ wd_instance_id }}"
+  when: wd_instance_id is not defined or wd_instance_id == ""
+
+
+# 4. Define Watson Discovery API URL
 # -----------------------------------------------------------------------------
-- name: "gencfg-wd : Obtain Watson Discovery API Host"
-  when: wds_number is defined and wds_number != ""
+- name: "gencfg-wd : Define Watson Discovery API URL"
+  when: wd_instance_id is defined and wd_instance_id != ""
   set_fact:
-    wds_url: "{{ cpd_url}}/discovery/{{ cpd_instance_namespace }}-wd/instances/{{ wds_number }}/api"
+    wd_url: "{{ cpd_url}}/discovery/{{ cpd_instance_namespace }}-wd/instances/{{ wd_instance_id }}/api"
 
 # 12. Write out the config to the local filesystem
-- name: "gencfg-wd: Debug configuration parameters"
+# -----------------------------------------------------------------------------
+- name: "gencfg-wd: Debug Watson Discovery configuration parameters for Assist binding"
   debug:
     msg:
       - "MAS Instance Id ......................... {{ mas_instance_id }}"
-      - "WDS Url ................................. {{ wds_url }}"
+      - "WD Api Url .............................. {{ wd_url }}"
       - "CPD Admin Username ...................... {{ cpd_admin_username }}"
       - "CPD Admin Password (REMOVE).............. {{ cpd_admin_password }}"
 
@@ -124,7 +115,7 @@
   when:
     - mas_instance_id is defined and mas_instance_id != ""
     - mas_config_dir is defined and mas_config_dir != ""
-    - wds_url is defined and wds_url != ""
+    - wd_url is defined and wd_url != ""
   ansible.builtin.template:
     src: wd/wdscfg.yml.j2
     dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-wd-config.yml" # WD does not use a WD CR to bind the service
