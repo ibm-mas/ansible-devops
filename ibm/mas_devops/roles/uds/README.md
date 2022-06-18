@@ -106,7 +106,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    uds_meta_storage_class: ibmc-block-bronze
+    uds_storage_class: ibmc-block-bronze
 
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig

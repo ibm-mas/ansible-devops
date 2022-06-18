@@ -1,6 +1,11 @@
 ---
-# 1.  Install Service Binding Operator (stable channel)
+# 1.  Install Service Binding Operator (stable channel locked at v1.0.1)
 # -----------------------------------------------------------------------------
+# Important
+# This set of tasks will set the SBO subscritpion to the stable channel and
+# lock the version to v1.0.1. It is locked to v1.0.1 by setting the starting
+# csv to v1.0.1 and configuring the subscription to Manual update strategy
+
 - name: "sbo/stable : Create SBO Subscription"
   kubernetes.core.k8s:
     template: templates/subscription-stable.yml
@@ -19,9 +24,24 @@
   delay: 60 # Retry for approx 30 minutes (60s * 30 attempts) before giving up
   until: sbo_installplan_info.resources | length > 0
 
+- name: "sbo/stable : Approve the install plan for SBO"
+  when:
+    - sbo_installplan_info.resources[0].status.phase != "Complete"
+    - sbo_installplan_info.resources[0].spec.clusterServiceVersionNames[0] == "service-binding-operator.v1.0.1"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: InstallPlan
+      metadata:
+        name: "{{ sbo_installplan_info.resources[0].metadata.name }}"
+        namespace: openshift-operators
+      spec:
+        approved: true
+
 - name: "sbo/stable : Wait for SBO install to complete"
   when:
     - sbo_installplan_info.resources[0].status.phase != "Complete"
+    - sbo_installplan_info.resources[0].spec.clusterServiceVersionNames[0] == "service-binding-operator.v1.0.1"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: InstallPlan
