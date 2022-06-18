@@ -81,7 +81,8 @@
 - name: "gencfg-wd : Define Discovery Instance Id (wd_instance_id) based on just created service (if not previously defined)"
   when: wd_instance_id is not defined or wd_instance_id == ""
   set_fact:
-    wd_instance_id: "{{ create_wd_output.json.id }}"
+    # Conversion is needed as Discovery uses this id format in the Access URL api exposed in CP4D UI
+    wd_instance_id: "{{ create_wd_output.json.id | replace('-', '') | int }}"
 
 - name: "gencfg-wd : Debug wd_instance_id"
   debug:
@@ -95,7 +96,7 @@
 - name: "gencfg-wd : Define Watson Discovery API URL"
   when: wd_instance_id is defined and wd_instance_id != ""
   set_fact:
-    wd_url: "{{ cpd_url}}/discovery/{{ cpd_instance_namespace }}-wd/instances/{{ wd_instance_id }}/api"
+    wd_url: "{{ cpd_url }}/discovery/{{ cpd_instance_namespace }}-wd/instances/{{ wd_instance_id }}/api"
 
 
 # 5. Write out the config to the local filesystem
