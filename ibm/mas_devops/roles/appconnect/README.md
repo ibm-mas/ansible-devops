@@ -41,7 +41,7 @@ Optional - AppConnect license ID.
 - Default Value: `L-KSBM-C87FU2` (Which is compatible with AppConnect `v3.0` operator/channel)
 
 ### appconnect_storage_class
-Required - Storage class where AppConnect will be installed - for IBM Cloud clusters, `ibmc-file-gold-gid` can be used.
+Required - Storage class where AppConnect will be installed - for IBM Cloud clusters, `ibmc-file-gold-gid` must be used as per [documentation](https://www.ibm.com/docs/en/app-connect/containers_cd?topic=resources-dashboard-reference#storage).
 
 - Environment Variable: `APPCONNECT_STORAGE_CLASS`
 - Default Value: None
