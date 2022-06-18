@@ -23,14 +23,10 @@
 
 # 2. Check if there is already a discovery service instance previously created
 # -----------------------------------------------------------------------------
-- name: "gencfg-wd : Define Discovery Instance Name (wd_instance_name)"
-  set_fact:
-    wd_instance_name: "discovery-assist-{{ mas_workspace_id }}"
-
-- name: "gencfg-wd : Debug wd_instance_name"
+- name: "gencfg-wd : Debug cpd_wd_instance_name"
   debug:
     msg:
-      - "Discovery Instance Name.......... {{ wd_instance_name }}"
+      - "Discovery Instance Name.......... {{ cpd_wd_instance_name }}"
 
 - name: "gencfg-wd : Get all discovery service instances (query_instance_output)"
   when: cpd_bearer_token is defined
@@ -49,7 +45,7 @@
   debug:
     msg: "{{ query_instance_output }}"
 
-- name: "gencfg-wd : Obtain Service Instance Id (wd_instance_id) if a discovery service is found with name {{ wd_instance_name }}"
+- name: "gencfg-wd : Obtain Service Instance Id (wd_instance_id) if a discovery service is found with name {{ cpd_wd_instance_name }}"
   set_fact:
     wd_instance_id: "{{ item.id }}"
   with_items: "{{ query_instance_output.json.service_instances }}"
@@ -57,7 +53,7 @@
     - query_instance_output.status is defined and query_instance_output.status | int == 200
     - query_instance_output.json.service_instances | length > 0
     - item.addon_type == "discovery"
-    - item.display_name == wd_instance_name
+    - item.display_name == cpd_wd_instance_name
 
 - name: "gencfg-wd : Debug wd_instance_id"
   debug:
