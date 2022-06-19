@@ -185,6 +185,30 @@ def defaultStorageClass(storageClassLookup, storageClassOptions):
   # We couldn't find a suitable storage class
   return ""
 
+def getWSLDefaultProjectId(wslProjectLookup, defaultWSLProject):
+  """
+    filter: getWSLDefaultProjectId
+    author: Alexandre Quinteiro <alefq@br.ibm.com>
+    version_added: 11.0
+    short_description: ---
+    description:
+        - This filter returns the name of an available storage class from the list of options provided
+    options:
+      _storageClassLookup:
+        description: list of storageclass resources
+        required: True
+      _storageClassOptions:
+        description: list of storageclasses that are supported, the first one found in the results will be used
+        required: True
+    notes:
+      - limited error handling, will not handle unexpected data currently
+  """
+  for wslProject in wslProjectLookup:
+    if wslProject['entity']['name'] == defaultWSLProject:
+      return wslProject['metadata']['guid']
+  # Default project is not set
+  return ""
+
 class FilterModule(object):
   def filters(self):
     return {
@@ -194,5 +218,6 @@ class FilterModule(object):
       'addAnnotationBlock': addAnnotationBlock,
       'getAnnotations': getAnnotations,
       'getResourceNames': getResourceNames,
-      'defaultStorageClass': defaultStorageClass
+      'defaultStorageClass': defaultStorageClass,
+      'getWSLDefaultProjectId': getWSLDefaultProjectId,
     }
