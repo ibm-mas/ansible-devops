@@ -1,26 +1,23 @@
 ---
 # 1. Check that we have the ocp vars defined
 # -----------------------------------------------------------------------------
-- name: "login : Fail if ocp_token is not provided"
+- name: "login : Fail if ocp_server or ocp_token are not provided"
   assert:
-    that: ocp_token is defined and ocp_token != ""
-    fail_msg: "ocp_token property is required"
-
-- name: "login : Fail if ocp_server is not provided"
-  assert:
-    that: ocp_server is defined and ocp_server != ""
-    fail_msg: "ocp_server property is required"
+    that:
+      - ocp_token is defined and ocp_token != ""
+      - ocp_server is defined and ocp_server != ""
+    fail_msg: "ocp_server and ocp_token must be provided together"
 
 
 # 2. Login to OCP
 # -----------------------------------------------------------------------------
 - name: "login : Login to OCP"
-  shell: |
-    oc login --token={{ ocp_token }} --server={{ ocp_server }}
+  shell: oc login --token={{ ocp_token }} --server={{ ocp_server }}
   register: login_result
   retries: 5
   delay: 10
   until: login_result.rc == 0
 
-- debug:
+- name: "login : Debug OCP login"
+  debug:
     msg: "{{ login_result.stdout_lines }}"

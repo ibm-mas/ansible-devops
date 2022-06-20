@@ -1,0 +1,82 @@
+---
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "roks : Fail if rosa_token is not provided"
+  assert:
+    that: rosa_token is defined and rosa_token != ""
+    fail_msg: "rosa_token property is required"
+
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "roks : Debug information"
+  debug:
+    msg:
+      - "Cluster name ................. {{ cluster_name }}"
+      - "ROSA token ................... ********************"
+
+
+# 3. Check for required software
+# -----------------------------------------------------------------------------
+- name: "Test if rosa is installed"
+  shell: rosa version
+  register: rosa_version
+  ignore_errors: true
+
+- name: "Fail if rosa is not installed"
+  assert:
+    that: ( rosa_version.rc == 0 )
+    fail_msg: "rosa CLI must be installed (https://console.redhat.com/openshift/create/rosa/welcome)"
+
+
+# 4. Login
+# -----------------------------------------------------------------------------
+- name: "rosa : Login"
+  shell: rosa login --token {{ rosa_token }}
+
+- name: "rosa : Validate login"
+  shell: rosa whoami
+  register: rosa_whoami_result
+
+- name: "rosa : Debug login"
+  debug:
+    msg: "{{ rosa_whoami_result }}"
+
+
+# 5. Check if the cluster is already provisioned
+# -----------------------------------------------------------------------------
+# State: pending -> installing -> ready
+- name: "rosa : Lookup Cluster"
+  shell: rosa describe cluster -c {{ cluster_name }} -o json
+  register: rosa_cluster_lookup_result
+  failed_when: "rosa_cluster_lookup_result.rc > 1"
+
+
+# 6. Delete cluster
+# -----------------------------------------------------------------------------
+- name: "rosa : Delete ROSA cluster"
+  when: rosa_cluster_lookup_result.rc != 1
+  shell: >
+    rosa delete cluster \
+      --cluster-name {{ cluster_name }} \
+      --yes
+
+
+# 7. Watch cluster deprovisioning progress
+# -----------------------------------------------------------------------------
+- name: "rosa : Wait for cluster to be deprovisioned"
+  shell: rosa describe cluster -c {{ cluster_name }} -o json
+  register: cluster_lookup
+  failed_when: "cluster_lookup.rc > 1"
+  retries: 60
+  delay: 60 # 60s * 60 retries = 1 hour
+  until: cluster_lookup.rc == 1
+
+
+# 8. Clean up other AWS resources related to the cluster
+# -----------------------------------------------------------------------------
+- name: "rosa : Clean up operator roles"
+  shell: "rosa delete operator-roles -c {{ (rosa_cluster_lookup_result.stdout | from_json).id }} -m auto --yes"
+
+- name: "rosa : Clean up OIDC provider"
+  shell: "rosa delete oidc-provider -c {{ (rosa_cluster_lookup_result.stdout | from_json).id }} -m auto --yes"

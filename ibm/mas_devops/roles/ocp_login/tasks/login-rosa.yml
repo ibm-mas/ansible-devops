@@ -1,0 +1,50 @@
+---
+# 1. Check that we have a ROSA token defined
+# -----------------------------------------------------------------------------
+- name: "login-rosa : Fail if rosa_token is not provided"
+  assert:
+    that:
+      - rosa_token is defined and rosa_token != ""
+      - cluster_name is defined and cluster_name != ""
+      - rosa_cluster_admin_password is defined and rosa_cluster_admin_password != ""
+
+
+# 2. Check for required software
+# -----------------------------------------------------------------------------
+- name: "Test if rosa is installed"
+  shell: rosa version
+  register: rosa_version
+  ignore_errors: true
+
+- name: "Fail if rosa is not installed"
+  assert:
+    that: ( rosa_version.rc == 0 )
+    fail_msg: "rosa CLI must be installed (https://console.redhat.com/openshift/create/rosa/welcome)"
+
+
+# 3. Login to Rosa
+# -----------------------------------------------------------------------------
+- name: "login-rosa : Login"
+  shell: rosa login --token {{ rosa_token }}
+
+- name: "login-rosa : Validate login"
+  shell: rosa whoami
+  register: rosa_whoami_result
+
+- name: "login-rosa : Debug login"
+  debug:
+    msg: "{{ rosa_whoami_result }}"
+
+
+# 4. Configure for the selected cluster
+# -----------------------------------------------------------------------------
+- name: "login-rosa : Lookup Cluster"
+  shell: rosa describe cluster -c {{ cluster_name }} -o json
+  register: rosa_cluster_lookup_result
+
+- name: "login-rosa : Debug status"
+  debug:
+    msg: "Cluster API URL ....................... {{ (rosa_cluster_lookup_result.stdout | from_json).api.url }}"
+
+- name: "login-rosa : Login to the cluster"
+  shell: "oc login {{ (rosa_cluster_lookup_result.stdout | from_json).api.url }} --username cluster-admin --password {{ rosa_cluster_admin_password }} --insecure-skip-tls-verify"

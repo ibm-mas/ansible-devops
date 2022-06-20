@@ -1,25 +1,82 @@
 ocp_login
 =========
 
-This role provides support to login to a cluster using the `oc cli`. If you set `ocp_server` and `ocp_token` then a non cluster type specific login is attempted rather than using the cluster_type specific facts (apikey or username/password).
+This role provides support to login to a cluster using the `oc cli` by looking up cluster information from the infrastructure provider's APIs. Also supports setting `ocp_server` and `ocp_token` directly to support login to any Kubernetes cluster.
 
 
 Role Variables
 --------------
 
-- `cluster_name` Gives a name for the provisioning cluster
-- `cluster_type` quickburn | roks
+### cluster_name
+The name of the cluster to login to.  This will be used to lookup the actual login credentials of the system.
 
-#### ROKS specific facts
-- `ibmcloud_apikey` APIKey to be used by ibmcloud login comand
+- **Required** unless `ocp_server` and `ocp_token` are set
+- Environment Variable: `CLUSTER_NAME`
+- Default: None
 
-#### Fyre specific facts
-- `username` Required when cluster type is quickburn
-- `password` Required when cluster type is quickburn
+###
+The type of cluster to login to (`roks`, `quickburn`, or `rosa`)
 
-#### Non cluster_type specific facts
-- `ocp_server` The OCP server address to perform oc login against
-- `ocp_token` The login token to use for oc login
+- **Required** unless `ocp_server` and `ocp_token` are set
+- Environment Variable: `CLUSTER_TYPE`
+- Default: None
+
+### ocp_server
+The OCP server address to perform oc login against
+
+- **Required** unless `cluster_name` and `cluster_type` are set
+- Environment Variable: `OCP_SERVER`
+- Default: None
+
+### ocp_token
+The login token to use for oc login
+
+- **Required** unless `cluster_name` and `cluster_type` are set
+- Environment Variable: `OCP_TOKEN`
+- Default: None
+
+
+Role Variables - IBMCloud ROKS
+------------------------------
+### ibmcloud_apikey
+APIKey to be used by ibmcloud login comand
+
+- **Required** when `cluster_type` is `roks`
+- Environment Variable: `IBMCLOUD_APIKEY`
+- Default: None
+
+
+Role Variables - IBM DevIT Fyre
+------------------------------
+### fyre_username
+Your FYRE username
+
+- **Required** when `cluster_type` is `quickburn`
+- Environment Variable: `FYRE_APIKEY`
+- Default: None
+
+### fyre_apikey
+Your FYRE API Key
+- **Required** when `cluster_type` is `quickburn`
+- Environment Variable: `FYRE_APIKEY`
+- Default: None
+
+
+Role Variables - AWS ROSA
+-------------------------
+### rosa_token
+Your ROSA secure token.
+
+- **Required** when `cluster_type` is `rosa`
+- Environment Variable: `ROSA_TOKEN`
+- Default: None
+
+### rosa_cluster_admin_password
+The password for the `cluster-admin` account (created when the cluster was provisioned).
+
+- **Required** when `cluster_type` is `rosa`
+- Environment Variable: `ROSA_CLUSTER_ADMIN_PASSWORD`
+- Default: None
 
 
 Example Playbook
@@ -28,10 +85,10 @@ Example Playbook
 ```yaml
 - hosts: localhost
   vars:
-    cluster_name: "{{ lookup('env', 'CLUSTER_NAME')}}"
+    cluster_name: mycluster
     cluster_type: roks
-    ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
-    ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
+    ibmcloud_apikey: xxxxx
+    ibmcloud_resourcegroup: mygroup
   roles:
     - ibm.mas_devops.ocp_login
 ```
