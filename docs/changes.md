@@ -1,6 +1,15 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `10.3` Multiple Updates:
+    - Add support for Cloudflare DNS integration ([#349](https://github.com/ibm-mas/ansible-devops/pull/349))
+    - Support creation of Db2 LDAP user ([#330](https://github.com/ibm-mas/ansible-devops/pull/330))
+- `10.2` Deploy Grafana in `cluster_monitoring` role ([#336](https://github.com/ibm-mas/ansible-devops/pull/336))
+- `10.1` Multiple Updates:
+    - Update suite application roles to support Optimizer application ([#309](https://github.com/ibm-mas/ansible-devops/pull/309))
+    - Support AIO configuration in Manage ([#316](https://github.com/ibm-mas/ansible-devops/pull/316))
+    - Consolidate entitlement management ([#323](https://github.com/ibm-mas/ansible-devops/pull/323))
+    - Add support for source & channel selection to `mas-devops-sls` Tekton task ([#324](https://github.com/ibm-mas/ansible-devops/pull/324))
 - `10.0` One-click installer support ([#285](https://github.com/ibm-mas/ansible-devops/pull/285), [#296](https://github.com/ibm-mas/ansible-devops/pull/296), [#299](https://github.com/ibm-mas/ansible-devops/pull/299))
 - `9.0` Multiple Updates:
     - Added ability to set annotations onto suite CR ([#269](https://github.com/ibm-mas/ansible-devops/pull/269))

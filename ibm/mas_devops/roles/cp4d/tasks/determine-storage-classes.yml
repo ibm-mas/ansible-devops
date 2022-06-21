@@ -4,7 +4,7 @@
 
 # 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-- name: Lookup storage classes
+- name: "determine-storage-classes : Lookup storage classes"
   kubernetes.core.k8s_info:
     api_version: storage.k8s.io/v1
     kind: StorageClass
@@ -17,7 +17,7 @@
 
 # 2. Set Primary Storage (Required)
 # -----------------------------------------------------------------------------
-- name: Default Primary Storage if not set by user
+- name: "determine-storage-classes : Default Primary Storage if not set by user"
   when: cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
   vars:
     # ROKS, OCS, Azure
@@ -25,7 +25,7 @@
   set_fact:
     cpd_primary_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
-- name: Assert that primary storage class has been defined
+- name: "determine-storage-classes : Assert that primary storage class has been defined"
   assert:
     that: cpd_primary_storage_class is defined and cpd_primary_storage_class != ""
     fail_msg: "cpd_primary_storage_class must be defined"
@@ -33,7 +33,7 @@
 
 # 2. Set Metadata Storage (Required)
 # -----------------------------------------------------------------------------
-- name: Default Metadata Storage if not set by user
+- name: "determine-storage-classes : Default Metadata Storage if not set by user"
   when: cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
   vars:
     # ROKS, OCS, Azure
@@ -41,7 +41,7 @@
   set_fact:
     cpd_metadata_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
-- name: Assert that metadata storage class has been defined
+- name: "determine-storage-classes : Assert that metadata storage class has been defined"
   assert:
     that: cpd_metadata_storage_class is defined and cpd_metadata_storage_class != ""
     fail_msg: "cpd_metadata_storage_class must be defined"
@@ -49,7 +49,7 @@
 
 # 3. Debug storage class configuration
 # -----------------------------------------------------------------------------
-- name: "Debug CP4D storage class configuration"
+- name: "determine-storage-classes : Debug CP4D storage class configuration"
   debug:
     msg:
       - "Storage class (primary) .......... {{ cpd_primary_storage_class }}"

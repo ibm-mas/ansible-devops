@@ -9,11 +9,18 @@ Role Variables - Installation
 -----------------------------
 If `sls_url` is set then the role will skip the installation of an SLS instance and simply generate the SLSCfg resource for the SLS instance defined.
 
-### sls_entitlement_key
-API Key for entitled registry. This password will be used to create the image pull secret.
+### ibm_entitlement_key
+Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary).
 
-- **Required** (unless `sls_url` is provided)
-- Environment Variable: `SLS_ENTITLEMENT_KEY` or `IBM_ENTITLEMENT_KEY`
+- **Required** unless `sls_url` is provided
+- Environment Variable: `IBM_ENTITLEMENT_KEY`
+- Default: None
+
+### sls_entitlement_key
+An IBM entitlement key specific for SLS installation, primarily used to override `ibm_entitlement_key` in development.
+
+- Optional
+- Environment Variable: `SLS_ENTITLEMENT_KEY`
 - Default: None
 
 ### sls_catalog_source
@@ -202,15 +209,15 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    ibm_entitlement_key: xxxx
     mas_instance_id: inst1
     mas_config_dir: /home/me/masconfig
-    sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') }}"
     sls_mongodb_cfg_file: "/etc/mas/mongodb.yml"
 
     bootstrap:
       license_id: "aa78dd65ef10"
       license_file: "/etc/mas/entitlement.lic"
-      registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') }}"
+      registration_key: xxxx
 
   roles:
     - ibm.mas_devops.sls

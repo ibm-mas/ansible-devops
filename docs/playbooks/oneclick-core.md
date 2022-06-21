@@ -61,7 +61,7 @@ ansible-playbook ibm.mas_devops.oneclick_core
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.0.4 bash`
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.2.0 bash`
 
 
 
@@ -82,7 +82,6 @@ export MAS_CONFIG_DIR=~/masconfig
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 export SLS_ENTITLEMENT_KEY=xxx
-export SLS_ENTITLEMENT_FILE=xxx
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
@@ -92,5 +91,5 @@ ansible-playbook ibm.mas_devops.oneclick_core
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.0.4 bash`
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.2.0 bash`
 

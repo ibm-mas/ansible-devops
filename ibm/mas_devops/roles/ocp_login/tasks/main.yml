@@ -3,25 +3,17 @@
 # -----------------------------------------------------------------------------
 - name: "Fail if type is not provided"
   assert:
-    that: cluster_type is defined and cluster_type != ""
-    fail_msg: "cluster_type property is required"
+    that: (cluster_type is defined and cluster_type != "" and cluster_name is defined and cluster_name != "") or (ocp_token is defined and ocp_token != "" and  ocp_server is defined and ocp_server != "")
+    fail_msg: "cluster_type & cluster_name, or ocp_token and ocp_server properties must be provided"
 
-# Allow for different cluster_types if the ocp_token and ocp_server have been set
-- name: "Fail if cluster_type is not supported and no ocp_token or ocp_server has been set"
-  assert:
-    that:
-      - ocp_token is defined and ocp_token != ""
-      - ocp_server is defined and ocp_server != ""
-    fail_msg: "cluster_type '{{ cluster_type }}' property is not supported by this role if you haven't set ocp_server or ocp_token properties"
-  when: cluster_type is not in supported_cluster_types
 
 # 2. Provide debug info
 # -----------------------------------------------------------------------------
 - debug:
     msg:
-      - "Cluster name ................. {{ cluster_name }}"
-      - "Cluster type ................. {{ cluster_type }}"
-      - "OCP server ................... {{ ocp_server }}"
+      - "Cluster name ................. {{ cluster_name | default('<undefined>', true) }}"
+      - "Cluster type ................. {{ cluster_type | default('<undefined>', true) }}"
+      - "OCP server ................... {{ ocp_server | default('<undefined>', true) }}"
 
 
 # 3. Perform login using cluster specific login

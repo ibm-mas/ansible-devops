@@ -1,15 +1,13 @@
 ---
 # 1. Fail if required parameters are not set
 # -----------------------------------------------------------------------------
-- name: "Fail if db2_instance_name has not been provided"
+- name: "Fail if required properties have not been provided"
   assert:
-    that: db2_instance_name is defined and db2_instance_name != ""
-    fail_msg: "db2_instance_name property has not been set"
+    that:
+      - db2_instance_name is defined and db2_instance_name != ""
+      - db2_entitlement_key is defined and db2_entitlement_key != ""
+    fail_msg: "One or more required properties have not been set"
 
-- name: "Fail if ENTITLEMENT_KEY has not been provided"
-  assert:
-    that: entitlement_key is defined and entitlement_key != ""
-    fail_msg: "ENTITLEMENT_KEY property has not been set"
 
 # 2. Load default storage classes (if not provided by the user)
 # -----------------------------------------------------------------------------
@@ -49,10 +47,10 @@
 
 - name: Set 'ibm-registry' secret content
   vars:
-    entitledAuthStr: "{{ registry_user }}:{{ entitlement_key }}"
+    entitledAuthStr: "{{ registry_user }}:{{ db2_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
-      - "{\"auths\":{\"{{ registry }}/cp/cpd\":{\"username\":\"{{ registry_user }}\",\"password\":\"{{ entitlement_key }}\",\"email\":\"{{ registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
+      - "{\"auths\":{\"{{ registry }}/cp/cpd\":{\"username\":\"{{ registry_user }}\",\"password\":\"{{ db2_entitlement_key }}\",\"email\":\"{{ registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
       - "}"
       - "}"
   set_fact:
@@ -246,8 +244,16 @@
     state: absent
   when: initial_db2_cluster_lookup.resources | length == 0
 
+# 15. create an LDAP user if db2_ldap_username specified
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/create_ldap_user.yml
+  when:
+    - db2_ldap_username is defined
+    - db2_ldap_username != ""
+    - db2_ldap_password is defined
+    - db2_ldap_password != ""
 
-# 15. Generate a JdbcCfg for MAS configuration
+# 16. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/suite_jdbccfg.yml
   when:

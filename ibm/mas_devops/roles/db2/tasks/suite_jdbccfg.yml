@@ -20,6 +20,14 @@
     jdbc_instance_password: "{{ _db2_instance_password.resources[0].data.password | b64decode }}"
     jdbc_url: "jdbc:db2://c-{{db2_instance_name | lower}}-db2u-engn-svc.{{ db2_namespace }}.svc:{{db2_tls_serviceport}}/{{db2_dbname}}:sslConnection=true;"
 
+- name: Set facts for db2_jdbc_username and jdbc_instance_password
+  set_fact:
+    db2_jdbc_username: "{{ db2_ldap_username }}"
+    jdbc_instance_password: "{{ db2_ldap_password }}"
+  when:
+    - db2_ldap_username is defined and db2_ldap_username != ""
+    - db2_ldap_password is defined and db2_ldap_password != ""
+
 - name: Copy JdbcCfg to filesytem
   when:
     - mas_instance_id is defined

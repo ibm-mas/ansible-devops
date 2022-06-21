@@ -6,21 +6,14 @@ mas_channel: "{{ lookup('env', 'MAS_CHANNEL') }}"
 
 # General Configuration
 # -----------------------------------------------------------------------------
-custom_domain: "{{ lookup('env', 'MAS_DOMAIN') | default(None)}}"
+mas_domain: "{{ lookup('env', 'MAS_DOMAIN') }}"
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-
-# CIS Integration
-# -----------------------------------------------------------------------------
-# We need to know some information about whether CIS integration is being enabled
-# so that we can tweak the public certificate that is configured for use in MAS
-cis_crn: "{{ lookup('env', 'CIS_CRN') }}"
-default_custom_cluster_issuer: "cis-letsencrypt-production-{{ mas_instance_id }}"
-custom_cluster_issuer: "{{ (cis_crn != '') | ternary (lookup('env', 'MAS_CUSTOM_CLUSTER_ISSUER') | default(default_custom_cluster_issuer, true), lookup('env', 'MAS_CUSTOM_CLUSTER_ISSUER') | default(None, true)) }}"
 
 # Certificate Management
 # -----------------------------------------------------------------------------
-certificate_duration: "{{ lookup('env', 'CERTIFICATE_DURATION') | default('8760h0m0s', true) }}"
-certificate_renew_before: "{{ lookup('env', 'CERTIFICATE_RENEW_BEFORE') | default('720h0m0s', true) }}"
+mas_cluster_issuer: "{{ lookup('env', 'MAS_CLUSTER_ISSUER') }}"
+mas_certificate_duration: "{{ lookup('env', 'MAS_CERTIFICATE_DURATION') | default('8760h0m0s', true) }}"
+mas_certificate_renew_before: "{{ lookup('env', 'MAS_CERTIFICATE_RENEW_BEFORE') | default('720h0m0s', true) }}"
 
 # Source container registry
 # -----------------------------------------------------------------------------
@@ -30,8 +23,8 @@ mas_icr_cpopen: "{{ lookup('env', 'MAS_ICR_CPOPEN') | default('icr.io/cpopen', t
 # MAS Entitlement
 # -----------------------------------------------------------------------------
 mas_entitlement_username: "{{ lookup('env', 'MAS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
-mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') }}"
-
+ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
+mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
 
 # Manual upgrade support
 # -----------------------------------------------------------------------------

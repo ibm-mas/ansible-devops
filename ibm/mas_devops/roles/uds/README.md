@@ -13,13 +13,13 @@ Required only for ROSA cluster. This variable is required to extract the UDS cer
 - Default Value: None
 
 ### uds_storage_class
-Required.  Storage class where BAS will be installed.  On IBM Cloud RedHat Openshift Kubernetes Service (ROKS) `ibmc-block-bronze` is the recommended value.
+Required.  Storage class where UDS will be installed.  On IBM Cloud RedHat Openshift Kubernetes Service (ROKS) `ibmc-block-bronze` is the recommended value.
 
 - Environment Variable: `UDS_STORAGE_CLASS`
 - Default Value: None
 
 ### uds_event_scheduler_frequency
-Defines the frequency that BAS will collect event data. The value can be set following a [cron tab](https://crontab.guru/) format, however support in UDS is limited to the following subset of valid cron formats: `@annually`, `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly`.
+Defines the frequency that BAS will collect event data. The value can be set following a [cron tab](https://crontab.guru/) format.
 
 - Environment Variable: `UDS_EVENT_SCHEDULER_FREQUENCY`
 - Default Value: `@daily`
@@ -106,7 +106,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    uds_meta_storage_class: ibmc-block-bronze
+    uds_storage_class: ibmc-block-bronze
 
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig

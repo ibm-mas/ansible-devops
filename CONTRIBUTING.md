@@ -4,46 +4,19 @@ Note that during a build the version of the ansible collection is automatically 
 
 
 ## Building the collection locally
+- Build and install the collection `make ansible-all` (default action)
+- Build the collection `make ansible-build`
+- Install the already built collection `make ansible-install`
 
+### Testing a role
 ```bash
-# Build
-ansible-galaxy collection build --output-path image/ansible-devops/ ibm/mas_devops --force && mv image/ansible-devops/ibm-mas_devops-11.0.0.tar.gz image/ansible-devops/ibm-mas_devops.tar.gz
-
-# Install
-ansible-galaxy collection install image/ansible-devops/ibm-mas_devops.tar.gz --force
-
-# Run Ansible Playbook
-export REGISTRY_PUBLIC_HOST=xxx
-export IBM_ENTITLEMENT_KEY=xxx
-ansible-playbook ibm.mas_devops.mirror_sls
-
-# Build docker image
-docker build -t ansible-devops:local image/ansible-devops
-
-# Run Ansible Container
-docker run -ti ansible-devops:local bash
+export ROLE_NAME=ibm_catalogs && make && ansible-playbook ibm.mas_devops.run_role
 ```
 
-
-## Ultimate one-liner
-Build the collection, build the docker container, run the docker container ...
-```bash
-ansible-galaxy collection build --output-path image/ansible-devops/ ibm/mas_devops --force && mv image/ansible-devops/ibm-mas_devops-11.0.0.tar.gz image/ansible-devops/ibm-mas_devops.tar.gz && ansible-galaxy collection install image/ansible-devops/ibm-mas_devops.tar.gz --force && docker build -t ansible-devops image/ansible-devops && docker run -ti ansible-devops:local bash
-```
-
-
-## Building the collection locally
-```bash
-ansible-galaxy collection build ibm/mas_devops --force && ansible-galaxy collection install ibm-mas_devops-11.0.0.tar.gz --force
-ansible-playbook ibm.mas_devops.playbook
-```
-
-
-## Testing a role
-```bash
-cd ~/ibm-mas/ansible-devops/ibm/mas_devops$
-export ROLE_NAME=ibm_catalogs && ansible-galaxy collection build --force && ansible-galaxy collection install ibm-mas_devops-11.0.0.tar.gz --force && ansible-playbook ibm.mas_devops.run_role
-```
+## Building the container image locally
+- Build the container image `make docker-build`
+- Run the already built container image `make docker-run`
+- Build and run the container image `make docker-all`
 
 
 ## Using the docker image
@@ -156,3 +129,6 @@ All roles must provide clear feedback about missing required properties that do 
       - mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "One or more required properties are missing"
 ```
+
+## Maintain links between MAS documentation and github documentation
+When creating a new ansible role or renaming an existing ansible role, please use the Review Manager button at the top of [internal MAS Knowledge Center](https://ibmdocs-test.mybluemix.net/docs/en/MAS-review_test?topic=installing-ansible-collection) and add a comment to the `Ansible Collection` topic describing the required change.  The idea is to maintain the links between the public MAS documentation and the github docs here.
