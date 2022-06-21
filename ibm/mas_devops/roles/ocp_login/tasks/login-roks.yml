@@ -5,17 +5,18 @@
 
 # 1. Check that we have an IBM Cloud API key defined
 # -----------------------------------------------------------------------------
-- name: "login-roks : Fail if ibmcloud_apikey is not provided"
+- name: "login-roks : Fail if ibmcloud_apikey & cluster_name are not provided"
   assert:
-    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
-    fail_msg: "ibmcloud_apikey property is required"
+    that:
+      - ibmcloud_apikey is defined and ibmcloud_apikey != ""
+      - cluster_name is defined and cluster_name != ""
+    fail_msg: "ibmcloud_apikey are cluster_name properties is required"
 
 
 # 2. Login to IBM Cloud
 # -----------------------------------------------------------------------------
 - name: "login-roks : Login to IBM Cloud"
-  shell: |
-    ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
+  shell: ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
   register: login_result
   retries: 10
   delay: 30
@@ -25,8 +26,7 @@
 # 3. Configure for the selected cluster
 # -----------------------------------------------------------------------------
 - name: "login-roks : Set the target cluster"
-  shell: |
-    ibmcloud oc cluster config -c {{ cluster_name }} --admin
+  shell: ibmcloud oc cluster config -c {{ cluster_name }} --admin
   register: config_result
   retries: 10
   delay: 30
