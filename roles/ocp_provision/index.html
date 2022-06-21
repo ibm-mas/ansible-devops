@@ -83,6 +83,10 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#ocp_version">ocp_version</a>
     </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-gpu-node-support">Role Variables - GPU Node Support</a>
+        <ul>
     <li class="toctree-l3"><a class="reference internal" href="#ocp_provision_gpu">ocp_provision_gpu</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#gpu_workerpool_name">gpu_workerpool_name</a>
@@ -104,6 +108,16 @@
     <li class="toctree-l3"><a class="reference internal" href="#roks_workers">roks_workers</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#roks_flags">roks_flags</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-rosa">Role Variables - ROSA</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#roso_token">roso_token</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#roso_cluster_admin_password">roso_cluster_admin_password</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#rosa_compute_nodes">rosa_compute_nodes</a>
     </li>
         </ul>
     </li>
@@ -260,6 +274,7 @@
 <li>Environment Variable: <code>OCP_VERSION</code></li>
 <li>Default Value: None</li>
 </ul>
+<h2 id="role-variables-gpu-node-support">Role Variables - GPU Node Support<a class="headerlink" href="#role-variables-gpu-node-support" title="Permanent link"></a></h2>
 <h3 id="ocp_provision_gpu">ocp_provision_gpu<a class="headerlink" href="#ocp_provision_gpu" title="Permanent link"></a></h3>
 <p>Flag that determines if GPU worker nodes should be added during cluster creation (eg. needed for MVI application). This is currently only set up for ROKS clusters.</p>
 <ul>
@@ -267,7 +282,7 @@
 <li>Default Value: <code>false</code></li>
 </ul>
 <h3 id="gpu_workerpool_name">gpu_workerpool_name<a class="headerlink" href="#gpu_workerpool_name" title="Permanent link"></a></h3>
-<p>The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal. </p>
+<p>The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal.</p>
 <ul>
 <li>Environment Variable: <code>GPU_WORKERPOOL_NAME</code></li>
 <li>Default Value: <code>gpu</code></li>
@@ -316,6 +331,29 @@
 <li>Environment Variable: <code>ROKS_FLAGS</code></li>
 <li>Default Value: None</li>
 </ul>
+<h2 id="role-variables-rosa">Role Variables - ROSA<a class="headerlink" href="#role-variables-rosa" title="Permanent link"></a></h2>
+<p>The following variables are only used when <code>cluster_type = rosa</code>.</p>
+<h3 id="roso_token">roso_token<a class="headerlink" href="#roso_token" title="Permanent link"></a></h3>
+<p>Token to authenticate to the ROSA service</p>
+<ul>
+<li><strong>Required</strong> if <code>cluster_type = rosa</code>.</li>
+<li>Environment Variable: <code>ROSA_TOKEN</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="roso_cluster_admin_password">roso_cluster_admin_password<a class="headerlink" href="#roso_cluster_admin_password" title="Permanent link"></a></h3>
+<p>Password to set up for the <code>cluster-admin</code> user account on the OCP instance.  You will need this to log onto the cluster after it is provisioned.</p>
+<ul>
+<li><strong>Required</strong> if <code>cluster_type = rosa</code>.</li>
+<li>Environment Variable: <code>ROSA_CLUSTER_ADMIN_PASSWORD</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="rosa_compute_nodes">rosa_compute_nodes<a class="headerlink" href="#rosa_compute_nodes" title="Permanent link"></a></h3>
+<p>Number of compute nodes to deploy in the cluster.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>ROSA_COMPUTE_NODES</code></li>
+<li>Default Value: <code>3</code></li>
+</ul>
 <h2 id="role-variables-quickburn">Role Variables - Quickburn<a class="headerlink" href="#role-variables-quickburn" title="Permanent link"></a></h2>
 <p>The following variables are only used when <code>cluster_type = quickburn</code>.</p>
 <h3 id="fyre_username">fyre_username<a class="headerlink" href="#fyre_username" title="Permanent link"></a></h3>
@@ -344,6 +382,12 @@
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
+  vars:
+    cluster_type: roks
+    cluster_name: mycluster
+    ocp_version: 4.10
+
+    ibmcloud_apikey: xxxxx
   roles:
     - ibm.mas_devops.ocp_provision
 </code></pre>
