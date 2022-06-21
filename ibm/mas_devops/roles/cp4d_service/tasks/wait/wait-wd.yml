@@ -80,11 +80,12 @@
     - cpd_cr_lookup.resources | length == 1
     - cpd_cr_lookup.resources[0].status is defined
     - cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus is defined
-    - cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus == "Completed" # or cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus == "Failed"
+    - cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus == "Completed"
   retries: 60 # Up to 5 (yes, FIVE !!) hours
   delay: 300 # Every 5 minutes
 
-# - name: "wait-wd : Check that the WD watsonDiscoveryStatus is 'Completed'"
-#   assert:
-#     that: cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus == "Completed"
-#     fail_msg: "Watson Discovery install failed (watsonDiscoveryStatus)"
+# Note: conditional of task above used to check also a Failed state.
+# Reason for the change: noticed during tests that the Failed condition
+# temporary happened in the first moments of the installation, causing a jump
+# to the next task (removed now) and then a failure in the role execution (no retry happened).
+# If a failure status happened in the beginning, we should not use it in our conditional
