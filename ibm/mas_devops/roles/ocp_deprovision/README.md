@@ -1,6 +1,5 @@
 ocp_deprovision
 ===============
-
 Deprovision OCP cluster in Fyre, IBM Cloud, & ROSA.
 
 Role Variables
