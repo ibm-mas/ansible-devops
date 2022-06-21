@@ -97,3 +97,11 @@
   shell: rosa create admin --cluster {{ cluster_name }} --password {{ rosa_cluster_admin_password }}
   register: rosa_cluster_completion
   failed_when: "rosa_cluster_completion.rc > 1"
+
+# We want to try to ensure the account is ready to use by the time the
+# script completes, so we will delay for 5 minutes if the return code
+# indicates that the account was created when we ran the previous command.
+- name: Pause for 5 minutes while the cluster-admin account is created
+  when: rosa_cluster_completion.rc == 0
+  pause:
+    minutes: 5
