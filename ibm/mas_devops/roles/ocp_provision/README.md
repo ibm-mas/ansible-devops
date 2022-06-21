@@ -25,6 +25,9 @@ Required.  Specify the version of OCP to install.  The exact format of this will
 - Environment Variable: `OCP_VERSION`
 - Default Value: None
 
+
+Role Variables - GPU Node Support
+---------------------------------
 ### ocp_provision_gpu
 Flag that determines if GPU worker nodes should be added during cluster creation (eg. needed for MVI application). This is currently only set up for ROKS clusters.
 
@@ -32,7 +35,7 @@ Flag that determines if GPU worker nodes should be added during cluster creation
 - Default Value: `false`
 
 ### gpu_workerpool_name
-The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal. 
+The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal.
 
 - Environment Variable: `GPU_WORKERPOOL_NAME`
 - Default Value: `gpu`
@@ -85,6 +88,32 @@ Can be used to specify additional parameters for the cluster creation
 - Default Value: None
 
 
+Role Variables - ROSA
+---------------------
+The following variables are only used when `cluster_type = rosa`.
+
+### roso_token
+Token to authenticate to the ROSA service
+
+- **Required** if `cluster_type = rosa`.
+- Environment Variable: `ROSA_TOKEN`
+- Default Value: None
+
+### roso_cluster_admin_password
+Password to set up for the `cluster-admin` user account on the OCP instance.  You will need this to log onto the cluster after it is provisioned.
+
+- **Required** if `cluster_type = rosa`.
+- Environment Variable: `ROSA_CLUSTER_ADMIN_PASSWORD`
+- Default Value: None
+
+### rosa_compute_nodes
+Number of compute nodes to deploy in the cluster.
+
+- Optional
+- Environment Variable: `ROSA_COMPUTE_NODES`
+- Default Value: `3`
+
+
 Role Variables - Quickburn
 --------------------------
 The following variables are only used when `cluster_type = quickburn`.
@@ -120,6 +149,12 @@ Example Playbook
 
 ```yaml
 - hosts: localhost
+  vars:
+    cluster_type: roks
+    cluster_name: mycluster
+    ocp_version: 4.10
+
+    ibmcloud_apikey: xxxxx
   roles:
     - ibm.mas_devops.ocp_provision
 ```
