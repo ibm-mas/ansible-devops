@@ -1,14 +1,11 @@
 ---
 
-- name: "quickburn : Fail if username is not provided"
+- name: "quickburn : Fail if fyre_user and fyre_apikey are not provided"
   assert:
-    that: username is defined and username != ""
-    fail_msg: "username property is required"
-
-- name: "quickburn : Fail if password is not provided"
-  assert:
-    that: password is defined and password != ""
-    fail_msg: "password property is required"
+    that:
+      - fyre_username is defined and fyre_username != ""
+      - fyre_apikey is defined and fyre_apikey != ""
+    fail_msg: "fyre_username & fyre_apikey properties are required"
 
 
 # 1. Debug Info
@@ -17,7 +14,7 @@
   debug:
     msg:
       - "Cluster name ................. {{ cluster_name }}"
-      - "Username ..................... {{ username }}"
+      - "Username ..................... {{ fyre_username }}"
       - "Password ..................... *****************"
 
 # 2. Deprovision
@@ -25,8 +22,8 @@
 - name: "quickburn : Deprovision quick burn cluster"
   uri:
     url: "https://ocpapi.svl.ibm.com/v1/ocp/{{cluster_name}}"
-    user: "{{username}}"
-    password: "{{password}}"
+    user: "{{ fyre_username }}"
+    password: "{{ fyre_apikey }}"
     method: DELETE
     status_code:
       - 200

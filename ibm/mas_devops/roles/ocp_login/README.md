@@ -1,7 +1,7 @@
 ocp_login
 =========
 
-This role provides support to login to a cluster using the `oc cli` by looking up cluster information from the infrastructure provider's APIs. Also supports setting `ocp_server` and `ocp_token` directly to support login to any Kubernetes cluster.
+This role provides support to login to a cluster using the `oc` CLI by looking up cluster information from the infrastructure provider's APIs, it also supports setting `ocp_server` and `ocp_token` directly to support login to any Kubernetes cluster.
 
 
 Role Variables
@@ -79,9 +79,20 @@ The password for the `cluster-admin` account (created when the cluster was provi
 - Default: None
 
 
-Example Playbook
+Example Playbooks
 ----------------
 
+### Direct Login
+```yaml
+- hosts: localhost
+  vars:
+    ocp_server: xxxxx
+    ocp_token: xxxxx
+  roles:
+    - ibm.mas_devops.ocp_login
+```
+
+### IBMCloud ROKS
 ```yaml
 - hosts: localhost
   vars:
@@ -89,6 +100,30 @@ Example Playbook
     cluster_type: roks
     ibmcloud_apikey: xxxxx
     ibmcloud_resourcegroup: mygroup
+  roles:
+    - ibm.mas_devops.ocp_login
+```
+
+### AWS ROSA
+```yaml
+- hosts: localhost
+  vars:
+    cluster_name: mycluster
+    cluster_type: rosa
+    rosa_token: xxxxx
+    rosa_cluster_admin_password: xxxxx
+  roles:
+    - ibm.mas_devops.ocp_login
+```
+
+### IBM DevIT Fyre
+```yaml
+- hosts: localhost
+  vars:
+    cluster_name: mycluster
+    cluster_type: quickburn
+    fyre_username: xxxxx
+    fyre_password: xxxxx
   roles:
     - ibm.mas_devops.ocp_login
 ```
