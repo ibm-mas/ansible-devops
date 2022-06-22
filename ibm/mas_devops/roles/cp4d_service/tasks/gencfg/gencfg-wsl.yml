@@ -12,6 +12,7 @@
       - "CP4D Password .................. When not informed, found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
       - "CP4D URL ....................... {{ cpd_url }}"
       - "CP4D WSL Project Id ............ {{ cpd_wsl_project_id }}"
+      - "MAS config directory ........... {{ mas_config_dir | default('<undefined>', True) }}"
 
 # 1. Get CP4D Beaker token to enable Watson API authentication
 # -----------------------------------------------------------------------------
@@ -133,3 +134,15 @@
   ansible.builtin.template:
     src: wsl/watsonstudiocfg.yml.j2
     dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-watsonstudio-system.yml"
+
+# 5. Write out wsl_project_id into hputilities configuration vars
+# -----------------------------------------------------------------------------
+- name: "gencfg-wd : Create hputilities directory in file system to hold wsl_project_id var"
+  file:
+    state: directory
+    dest: "{{ mas_config_dir }}/hputilities"
+- name: "gencfg-wd : Write out wsl_project_id into hputilities configuration vars"
+  copy:
+    dest: "{{ mas_config_dir }}/hputilities/vars.yml"
+    content: |
+      mas_app_cfg_wsl_product_id: {{ wsl_project_id }}

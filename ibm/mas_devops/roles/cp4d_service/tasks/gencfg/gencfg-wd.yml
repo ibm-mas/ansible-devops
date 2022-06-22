@@ -1,14 +1,15 @@
 ---
-# 0. Watson Discovefy Instance Installation Summary"
+# 1. Watson Discovefy Instance Installation Summary"
 # -----------------------------------------------------------------------------
-- name: "gencfg-wsl : Watson Studio Instance Installation Summary:"
+- name: "gencfg-wsl : Watson Discovery Installation Summary:"
   debug:
     msg:
       - "CP4D Username .................. {{ cpd_admin_username }}"
       - "CP4D Password .................. When not informed, found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
       - "CP4D URL ....................... {{ cpd_url }}"
+      - "Discovery Instance name ........ {[ cpd_wd_instance_name }}"
 
-# 1. Get CP4D Beaker token to enable Watson API authentication
+# 2. Get CP4D Beaker token to enable Watson API authentication
 # -----------------------------------------------------------------------------
 - name: "gencfg-wd : Authorize the CP4D (get Bearer token)"
   uri:
@@ -29,13 +30,8 @@
     cpd_bearer_token: "{{ cpd_authorization.json.token }}"
 
 
-# 2. Check if there is already a discovery service instance previously created
+# 3. Check if there is already a discovery service instance previously created
 # -----------------------------------------------------------------------------
-- name: "gencfg-wd : Debug cpd_wd_instance_name"
-  debug:
-    msg:
-      - "Discovery Instance Name.......... {{ cpd_wd_instance_name }}"
-
 - name: "gencfg-wd : Get all discovery service instances (query_instance_output)"
   when: cpd_bearer_token is defined
   uri:
@@ -69,7 +65,7 @@
       - "Discovery Instance Id: ............. {{ 'Not Found' if wd_instance_id is not defined else wd_instance_id }}"
 
 
-# 3. Create a Discovery Service instance if none is found
+# 4. Create a Discovery Service instance if none is found
 # -----------------------------------------------------------------------------
 - name: "gencfg-wd : Create a Discovery Service instance if none is found"
   when: wd_instance_id is not defined or wd_instance_id == ""
@@ -99,7 +95,7 @@
   when: wd_instance_id is not defined or wd_instance_id == ""
 
 
-# 4. Define Watson Discovery API URL
+# 5. Define Watson Discovery API URL
 # -----------------------------------------------------------------------------
 - name: "gencfg-wd : Define Watson Discovery API URL"
   when: wd_instance_id is defined and wd_instance_id != ""
@@ -107,7 +103,7 @@
     wd_url: "{{ cpd_url }}/discovery/{{ cpd_instance_namespace }}-wd/instances/{{ wd_instance_id }}/api"
 
 
-# 5. Write out the config to the local filesystem
+# 6. Write out the config to the local filesystem
 # -----------------------------------------------------------------------------
 - name: "gencfg-wd: Debug Watson Discovery configuration parameters for Assist binding"
   debug:
