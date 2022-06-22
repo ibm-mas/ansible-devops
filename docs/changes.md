@@ -1,6 +1,9 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `10.4` Multiple Updates:
+    - Support OCP on ROSA ([#360](https://github.com/ibm-mas/ansible-devops/pull/360))
+    - Support Watson Discovery Instance Creation ([#359](https://github.com/ibm-mas/ansible-devops/pull/359))
 - `10.3` Multiple Updates:
     - Add support for Cloudflare DNS integration ([#349](https://github.com/ibm-mas/ansible-devops/pull/349))
     - Support creation of Db2 LDAP user ([#330](https://github.com/ibm-mas/ansible-devops/pull/330))

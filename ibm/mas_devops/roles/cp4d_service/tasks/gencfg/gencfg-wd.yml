@@ -1,124 +1,127 @@
 ---
-# TODO: Finish me!
-
-# 8. Authorize the CP4D admin user nad get Bearer token for API use
+# 0. Watson Discovefy Instance Installation Summary"
 # -----------------------------------------------------------------------------
-- name: "embeddedwds: Find cp4d route info"
-  when: cpdavailable is defined and cpdavailable
-  block:
-    - name: "embeddedwds: Get the CP4D Route info from OpenShift"
-      kubernetes.core.k8s_info:
-        api_version: route.openshift.io/v1
-        kind: Route
-        namespace: "{{ cpd_instance_namespace }}"
-      register: cp4d_routes
-    - name: "embeddedwds: Find route info for CP4D "
-      set_fact:
-        cp4dhost: "{{ item.spec.host }}"
-      with_items: "{{ cp4d_routes.resources }}"
-      when: item.spec.to.name is defined and item.spec.to.name =='ibm-nginx-svc'
-    - name: Get the CP4D host from Route info and set as cp4d_host
-      set_fact:
-        cp4d_host_url: "https://{{ cp4dhost }}"
+- name: "gencfg-wsl : Watson Studio Instance Installation Summary:"
+  debug:
+    msg:
+      - "CP4D Username .................. {{ cpd_admin_username }}"
+      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
+      - "CP4D URL ....................... {{ cpd_url }}"
 
-- name: "embeddedwds: Authorize the CP4D (get Bearer token)"
-  when: cpdavailable is defined and cpdavailable
+# 1. Get CP4D Beaker token to enable Watson API authentication
+# -----------------------------------------------------------------------------
+- name: "gencfg-wd : Authorize the CP4D (get Bearer token)"
   uri:
-    url: "{{ cp4d_host_url }}/icp4d-api/v1/authorize"
+    url: "{{ cpd_url }}/icp4d-api/v1/authorize"
     validate_certs: no
     method: POST
     headers:
       cache-control: "no-cache"
     body_format: "json"
-    body: "{\"username\":\"{{ wds_admin_username }}\",\"password\":\"{{ wds_admin_password }}\"}"
+    body: "{\"username\":\"{{ cpd_admin_username }}\",\"password\":\"{{ cpd_admin_password }}\"}"
     status_code: 200
     timeout: 30
-  register: cp4d_authorization_info
+  register: cpd_authorization
 
-- name: "embeddedwds: Get the CP4D Bearer token"
-  when: cpdavailable is defined and cpdavailable
+- name: "gencfg-wd : Get the CP4D Bearer token"
+  no_log: true
   set_fact:
-    wds_bearer_token: "{{ cp4d_authorization_info.json.token }}"
+    cpd_bearer_token: "{{ cpd_authorization.json.token }}"
 
-# 9. Check the existing Discovery instance UUID
+
+# 2. Check if there is already a discovery service instance previously created
 # -----------------------------------------------------------------------------
-- name: "embeddedwds: find if the WDS instance is already there"
-  set_fact:
-    wds_instname: "discovery-assist"
-
-- name: "embeddedwds: find if the WDS instance is already there"
-  set_fact:
-    wds_instname: "discovery-assist-{{ mas_workspace_id }}"
-  when: mas_workspace_id is defined and mas_workspace_id != ""
-
-- name: "embeddedwds: Print the Discovery Instance Name"
+- name: "gencfg-wd : Debug cpd_wd_instance_name"
   debug:
     msg:
-      - "Discovery Instance Name.......... {{ wds_instname }}"
+      - "Discovery Instance Name.......... {{ cpd_wd_instance_name }}"
 
-- name: "embeddedwds:Check if there's existing Discovery instance in CP4D"
-  when: wds_bearer_token is defined
+- name: "gencfg-wd : Get all discovery service instances (query_instance_output)"
+  when: cpd_bearer_token is defined
   uri:
-    url: "{{ cp4d_host_url }}/zen-data/v3/service_instances?fetch_all_instances=false&limit=9223372036854775807&offset=0"
+    url: "{{ cpd_url }}/zen-data/v3/service_instances?fetch_all_instances=false&limit=9223372036854775807&offset=0"
     validate_certs: no
     method: GET
     headers:
-      Authorization: "Bearer {{ wds_bearer_token }}"
+      Authorization: "Bearer {{ cpd_bearer_token }}"
       cache-control: "no-cache"
     status_code: 200,412
     timeout: 30
   register: query_instance_output
 
-- name: "embeddedwds: find the WDS instance and query the wds uuid"
+- name: "gencfg-wd : Debug query_instance_output"
+  debug:
+    msg: "{{ query_instance_output }}"
+
+- name: "gencfg-wd : Obtain Service Instance Id (wd_instance_id) if a discovery service is found with name {{ cpd_wd_instance_name }}"
   set_fact:
-    wds_number: "{{ item.id | int}}"
-    findwdsinst: true
+    wd_instance_id: "{{ item.id }}"
   with_items: "{{ query_instance_output.json.service_instances }}"
   when:
-    - query_instance_output.status is defined and query_instance_output.status|int == 200
+    - query_instance_output.status is defined and query_instance_output.status | int == 200
+    - query_instance_output.json.service_instances | length > 0
     - item.addon_type == "discovery"
-    - item.display_name == wds_instname
+    - item.display_name == cpd_wd_instance_name
+
+- name: "gencfg-wd : Debug wd_instance_id"
+  debug:
+    msg:
+      - "Discovery Instance Id: ............. {{ 'Not Found' if wd_instance_id is not defined else wd_instance_id }}"
 
 
-# 10. Provision the CP4D WDS instance and get its uuid
+# 3. Create a Discovery Service instance if none is found
 # -----------------------------------------------------------------------------
-- name: "embeddedwds: Create the WDS instance in CP4D when WDS instance not exist and query its uuid"
-  when: not ( findwdsinst is defined and findwdsinst )
-  block:
-    - name: create new WDS instance
-      uri:
-        url: "{{ cp4d_host_url }}/watson/common/discovery/api/ibmcloud/resource-controller/resource_instances"
-        validate_certs: no
-        method: POST
-        headers:
-          Authorization: "Bearer {{ wds_bearer_token }}"
-          cache-control: "no-cache"
-        body_format: "json"
-        body: "{{ lookup('template','templates/wds.json.j2') }}"
-        status_code: 200,412
-        timeout: 30
-      register: create_wds_output
-    - debug:
-        msg: "discovery instance ID.............. {{ create_wds_output.json.id }}"
-      when: create_wds_output.status|int == 200
-    - name: "embeddedwds: Get the CP4D instance uuid number"
-      when: create_wds_output.status|int == 200
-      set_fact:
-        wds_number: "{{ create_wds_output.json.id | replace('-','')|int }}"
+- name: "gencfg-wd : Create a Discovery Service instance if none is found"
+  when: wd_instance_id is not defined or wd_instance_id == ""
+  uri:
+    url: "{{ cpd_url }}/watson/common/discovery/api/ibmcloud/resource-controller/resource_instances"
+    validate_certs: no
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cpd_bearer_token }}"
+      cache-control: "no-cache"
+    body_format: "json"
+    body: "{{ lookup('template','templates/wd/wds.json.j2') }}"
+    status_code: 200,412
+    timeout: 30
+  register: create_wd_output
 
-# 11. Print Out the Discovery instance URL and crdential for use
+- name: "gencfg-wd : Define Discovery Instance Id (wd_instance_id) based on just created service (if not previously defined)"
+  when: wd_instance_id is not defined or wd_instance_id == ""
+  set_fact:
+    # Conversion is needed as Discovery uses this id format in the Access URL api exposed in CP4D UI
+    wd_instance_id: "{{ create_wd_output.json.id | replace('-', '') | int }}"
+
+- name: "gencfg-wd : Debug wd_instance_id"
+  debug:
+    msg:
+      - "Discovery Instance Id: ............. {{ wd_instance_id }}"
+  when: wd_instance_id is not defined or wd_instance_id == ""
+
+
+# 4. Define Watson Discovery API URL
 # -----------------------------------------------------------------------------
-- name: "embeddedwds: Set and Print out Discovery instance info"
-  block:
-    - name: Get the CP4D instance url
-      set_fact:
-        wds_url: "{{ cp4d_host_url}}/discovery/{{ cpd_instance_namespace }}-wd/instances/{{ wds_number }}/api"
-    - name: Print the WDS related info
-      debug:
-        msg:
-          - "WDS url ............................ {{ wds_url }}"
-          - "WDS Admin .......................... {{ wds_admin_username }}"
-  rescue:
-    - name: Fail as we didn't get the WDS instance here or CP4D is not installed.
-      fail:
-        msg: "We Couldn't get the WDS instance here or CP4D is not installed"
+- name: "gencfg-wd : Define Watson Discovery API URL"
+  when: wd_instance_id is defined and wd_instance_id != ""
+  set_fact:
+    wd_url: "{{ cpd_url }}/discovery/{{ cpd_instance_namespace }}-wd/instances/{{ wd_instance_id }}/api"
+
+
+# 5. Write out the config to the local filesystem
+# -----------------------------------------------------------------------------
+- name: "gencfg-wd: Debug Watson Discovery configuration parameters for Assist binding"
+  debug:
+    msg:
+      - "MAS Instance Id ......................... {{ mas_instance_id }}"
+      - "WD Api Url .............................. {{ wd_url }}"
+      - "CPD Admin Username ...................... {{ cpd_admin_username }}"
+
+- name: "gencfg-wd : Write out the config to the local filesystem"
+  no_log: true
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+    - wd_url is defined and wd_url != ""
+  ansible.builtin.template:
+    src: wd/wdscfg.yml.j2
+    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-wd-config.yml" # WD does not use a WD CR to bind the service
