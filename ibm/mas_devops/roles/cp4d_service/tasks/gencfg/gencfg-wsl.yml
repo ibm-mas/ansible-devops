@@ -1,9 +1,11 @@
 ---
-# This will generate WatsonStudioCfg for MAS and also create WSL project id if not provided
-# We need to retrieve CPD url and admin password's for wsl config in mas
-# CPD url is passed as var to this task, the admin password we'll retrieve below
+# - Check if analytics project with informed name already exists
+# - If it does, look for it id
+# - If it does not, create a new project and get its id
+# - Write out WatsonStudioCfg into MAS Config Directory with Studio details for a later binding
+# - Write out analytics project id into MAS Config Directory to be consumed by other roles (suite_app_config in this case, for hputilities)
 
-# 0. Watson Studio Project Installation Summary
+# 1. Watson Studio Project Installation Summary
 # -----------------------------------------------------------------------------
 - name: "gencfg-wsl : Watson Studio Project Installation Summary:"
   debug:
@@ -11,10 +13,11 @@
       - "CP4D Username .................. {{ cpd_admin_username }}"
       - "CP4D Password .................. When not informed, found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
       - "CP4D URL ....................... {{ cpd_url }}"
-      - "CP4D WSL Project Id ............ {{ cpd_wsl_project_id }}"
+      - "CP4D WSL Project Name .......... {{ cpd_wsl_project_name }}"
       - "MAS config directory ........... {{ mas_config_dir | default('<undefined>', True) }}"
 
-# 1. Get CP4D Beaker token to enable Watson API authentication
+
+# 2. Get CP4D Beaker token to enable Watson API authentication
 # -----------------------------------------------------------------------------
 - name: "gencfg-wsl : Authorize the CP4D (get Bearer token)"
   uri:
@@ -34,33 +37,10 @@
   set_fact:
     cpd_bearer_token: "{{ cpd_authorization.json.token }}"
 
-- name: "gencfg-wsl : Initialize wls_project_id with cpd_wsl_project_id"
-  set_fact:
-    wsl_project_id: "{{ cpd_wsl_project_id }}"
 
-# 2. Look for existing WSL project
+# 3. Look for a project with informed name and retrieve its id 
 # -----------------------------------------------------------------------------
-# If wsl_project_id is not set, then we will create one WSL project to be
-# passed to MAS config.  So first, let's check if the wsl_project_id was
-# set, if so then we will check if it exists in cpd
-- name: "gencfg-wsl : Check if the WSL project is defined and if it exists in CP4D"
-  when: wsl_project_id is defined and wsl_project_id !=""
-  uri:
-    url: "{{ cpd_url }}/v2/projects/{{ wsl_project_id }}"
-    validate_certs: no
-    method: GET
-    headers:
-      Authorization: "Bearer {{ cpd_bearer_token }}"
-      cache-control: "no-cache"
-      Content-Type: "application/json"
-    body_format: "json"
-    body: "{{ lookup('template','templates/wsl/create_wsl_project.json.j2') }}"
-    status_code: 200,404
-    timeout: 30
-  register: lookup_wsl_project_output
-
-- name: "gencfg-wsl : 'cpd_wsl_project_id' was not set or was not found in cpd instance, therefore look for default project among existing ones"
-  when: lookup_wsl_project_output.status is not defined or (lookup_wsl_project_output.status is defined and lookup_wsl_project_output.status == 404)
+- name: "gencfg-wsl : Look for a project with name {{ cpd_wsl_project_name }} (cpd_wsl_project_name)"
   uri:
     url: "{{ cpd_url }}/v2/projects"
     validate_certs: no
@@ -75,26 +55,26 @@
 
 - name: "gencfg-wsl : Look for wsl default project among project list"
   set_fact:
-    wsl_project_id: "{{ lookup_wsl_project_list.json.resources | ibm.mas_devops.getWSLDefaultProjectId(cpd_wsl_project_name) }}"
+    wsl_project_id: "{{ lookup_wsl_project_list.json.resources | ibm.mas_devops.getWSLProjectId(cpd_wsl_project_name) }}"
 
+
+# 4. Communication to User regarding project search
+# -----------------------------------------------------------------------------
 - name: "gencfg-wsl : Debug wsl_project_id"
   when:
     - wsl_project_id is not defined or wsl_project_id == ""
   debug:
-    msg: "No project has been created with name={{ cpd_wsl_project_name }}, therefore one wsl project will be created to be used in MAS!"
-
-- name: "gencfg-wsl : Debug fact_project_id"
+    msg: "No project exists with name = {{ cpd_wsl_project_name }}, therefore a new project will be created"
+- name: "gencfg-wsl : Debug wsl_project_id"
   when:
     - wsl_project_id is defined and wsl_project_id != ""
   debug:
-    msg: "Project has been found: {{ wsl_project_id }}"
+    msg: "Project named {{ cpd_wsl_project_name }} has been found: {{ wsl_project_id }}"
 
 
-# 3. Create new WSL project if necessary
+# 5. Create new analytics project if necessary
 # -----------------------------------------------------------------------------
-# only create wsl project if cpd_wsl_project_id is not pre-set or if the defined
-# cpd_wsl_project_id does not exists in cpd, otherwise create one wsl project
-- name: "gencfg-wsl : Create a WSL project in CP4D if one is needed"
+- name: "gencfg-wsl : Create a analytics project if one is needed"
   when:
     - wsl_project_id is not defined or wsl_project_id == ""
   uri:
@@ -120,13 +100,16 @@
   set_fact:
     wsl_project_id: "{{ create_wsl_project_output.json.location | regex_search(regex) }}"
 
-# 4. Write out the config to the local filesystem
-# -----------------------------------------------------------------------------
-- name: "Debug final WSL Project ID using in MAS configuration"
-  debug:
-    msg: "Watson Studio Project ID to be used in MAS: {{ wsl_project_id }}"
 
-- name: "gencfg-wsl : Copy WatsonStudioCfg to filesytem"
+# 6. Write out the config to the local filesystem
+# -----------------------------------------------------------------------------
+- name: "Debug final Analytics Project details"
+  debug:
+    msg:
+      - "Project Name ................... {{ cpd_wsl_project_name }}"
+      - "Project Id ..................... {{ wsl_project_id }}"
+
+- name: "gencfg-wsl : Write out WatsonStudioCfg into MAS Configuration Directory"
   no_log: true
   when:
     - mas_instance_id is defined and mas_instance_id != ""
@@ -135,14 +118,8 @@
     src: wsl/watsonstudiocfg.yml.j2
     dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-watsonstudio-system.yml"
 
-# 5. Write out wsl_project_id into hputilities configuration vars
-# -----------------------------------------------------------------------------
-# - name: "gencfg-wd : Create hputilities directory in file system to hold wsl_project_id var"
-#   file:
-#     state: directory
-#     dest: "{{ mas_config_dir }}/hputilities"
-# - name: "gencfg-wd : Write out wsl_project_id into hputilities configuration vars"
-#   copy:
-#     dest: "{{ mas_config_dir }}/hputilities/vars.yml"
-#     content: |
-#       mas_app_cfg_wsl_product_id: {{ wsl_project_id }}
+- name: "gencfg-wsl : Write our wsl_project_id into MAS Configuration Directory"
+  copy:
+    dest: "{{ mas_config_dir }}/wsl-{{ cpd_wsl_project_name }}.id"
+    content: |
+      {{ wsl_project_id }}
