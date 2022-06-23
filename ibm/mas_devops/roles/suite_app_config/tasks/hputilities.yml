@@ -1,0 +1,23 @@
+---
+
+- name: Summary before loading HP Utilities Project data
+  debug:
+    msg:
+      - "WSL Project Id ................ {{ ws_project_id }}"
+      - "WSL Project Name .............. {{ ws_project_name }}"
+      - "Config Directory .............. {{ mas_config_dir }}"
+
+- name: Retrieve Analytics Project Id
+  block:
+    - set_fact:
+        mas_app_settings_project_id: "{{ lookup('file', mas_config_dir + '/wsl-' + ws_project_name + '.id') }}"
+  rescue:
+    - debug:
+        msg: "Warning: project not found in configuration directory"
+    - set_fact:
+        mas_app_settings_project_id: "{{ ws_project_id }}"
+
+- name: Analytics Project Id used by Health & Predict - Utilities
+  debug:
+    msg:
+      - "WSL Project Id ................ {{ mas_app_settings_project_id }}"
