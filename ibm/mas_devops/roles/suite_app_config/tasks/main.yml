@@ -15,14 +15,22 @@
 - name: Load variables
   include_vars: "vars/{{ mas_app_id }}.yml"
 
-# 2.1 Load default application workspace spec, if user does not provide one
+
+# 3. Run Application Specific Tasks
+# -----------------------------------------------------------------------------
+- name: Run application specific tasks
+  when: mas_app_id is in ['hputilities', 'manage'] # applications which have something to process before configuration
+  include_tasks: "tasks/{{ mas_app_id }}.yml"
+
+
+# 4. Load default application workspace spec, if user does not provide one
 # -----------------------------------------------------------------------------
 - name: Load default application workspace spec
   when: mas_app_ws_spec is not defined or mas_app_ws_spec == ""
   include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
 
 
-# 3. Provide debug information
+# 5. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
@@ -39,14 +47,7 @@
       - "Templated workspace CR .... {{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
-# 4. Application Specific Tasks
-# -----------------------------------------------------------------------------
-- name: Run application specific tasks
-  when: mas_app_id is in ['hputilities', 'manage'] # applications which have something to process before configuration
-  include_tasks: "tasks/{{ mas_app_id }}.yml"
-
-
-# 5. Workspace configuration
+# 6. Workspace configuration
 # -----------------------------------------------------------------------------
 - name: Configure application in workspace
   kubernetes.core.k8s:
@@ -55,7 +56,7 @@
     definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
-# 6. Wait for application workspace to be ready
+# 7. Wait for application workspace to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application workspace to be ready ({{ mas_app_cfg_delay }}s delay)"
   kubernetes.core.k8s_info:
