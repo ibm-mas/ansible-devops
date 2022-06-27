@@ -6,6 +6,7 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `10.5` Support use of `product_group` quota in FYRE ([#373](https://github.com/ibm-mas/ansible-devops/pull/373))
 - `10.4` Multiple Updates:
     - Support OCP on ROSA ([#360](https://github.com/ibm-mas/ansible-devops/pull/360))
     - Support Watson Discovery Instance Creation ([#359](https://github.com/ibm-mas/ansible-devops/pull/359))
