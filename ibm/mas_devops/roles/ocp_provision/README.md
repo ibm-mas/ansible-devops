@@ -8,7 +8,7 @@ Role Variables
 --------------
 
 ### cluster_type
-Required.  Specify the cluster type, supported values are `roks` and `quickburn`.
+Required.  Specify the cluster type, supported values are `fyre`, `roks` and `rosa`.
 
 - Environment Variable: `CLUSTER_TYPE`
 - Default Value: None
@@ -73,13 +73,13 @@ IBM Cloud zone where the cluster should be provisioned.
 Worker node flavor
 
 - Environment Variable: `ROKS_FLAVOR`
-- Default Value: `b3c.8x32`
+- Default Value: `b3c.16x64.300gb`
 
 ### roks_workers
 Number of worker nodes for the roks cluster
 
 - Environment Variable: `ROKS_WORKERS`
-- Default Value: `6`
+- Default Value: `3`
 
 ### roks_flags
 Can be used to specify additional parameters for the cluster creation
@@ -114,33 +114,72 @@ Number of compute nodes to deploy in the cluster.
 - Default Value: `3`
 
 
-Role Variables - Quickburn
---------------------------
-The following variables are only used when `cluster_type = quickburn`.
+Role Variables - Fyre
+---------------------
+The following variables are only used when `cluster_type = fyre`.
 
 ### fyre_username
-Required if `cluster_type = quickburn`.  IBM Cloud zone where the cluster should be provisioned.
+Username to authenticate with Fyre API.
 
+- **Required** if `cluster_type = fyre`.
 - Environment Variable: `FYRE_USERNAME`
 - Default Value: None
 
-### fyre_password
-Required if `cluster_type = quickburn`.  IBM Cloud zone where the cluster should be provisioned.
+### fyre_apikey
+API key to authenticate with Fyre API.
 
+- **Required** if `cluster_type = fyre`.
 - Environment Variable: `FYRE_APIKEY`
 - Default Value: None
 
-### fyre_product_id
-Required if `cluster_type = quickburn`.  The Product ID that the cluster will be associated with for accounting purposes.
+### fyre_quota_type
+Type of quota to draw from when provisioning the cluster, valid options are `quick_burn` and `product_group`.
 
+- **Required** if `cluster_type = fyre`.
+- Environment Variable: `FYRE_QUOTA_TYPE`
+- Default Value: `quick_burn`
+
+### fyre_product_id
+The Product ID that the cluster will be associated with for accounting purposes.
+
+- **Required** if `cluster_type = fyre`.
 - Environment Variable: `FYRE_PRODUCT_ID`
+- Default Value: None
+
+### fyre_cluster_description
+Provide a description for the cluster.
+
+- Optional
+- Environment Variable: `FYRE_CLUSTER_DESCRIPTION`
 - Default Value: None
 
 ### fyre_cluster_size
 The name of one of Fyre's pre-defined cluster sizes to use for the new cluster.
 
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
 - Environment Variable: `FYRE_CLUSTER_SIZE`
 - Default Value: `large`
+
+### fyre_worker_count
+The number of worker nodes to provision in the cluster.
+
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- Environment Variable: `FYRE_WORKER_COUNT`
+- Default Value: `3`
+
+### fyre_worker_cpu
+The amount of CPU to assign to each worker node (maximum value supported by FYRE 16).
+
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- Environment Variable: `FYRE_WORKER_CPU`
+- Default Value: `16`
+
+### fyre_worker_memory
+The amount of memory to assign to each worker node (maximum value supported by FYRE 64).
+
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- Environment Variable: `FYRE_WORKER_MEMORY`
+- Default Value: `64`
 
 
 

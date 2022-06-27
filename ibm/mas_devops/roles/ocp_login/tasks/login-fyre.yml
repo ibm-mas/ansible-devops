@@ -1,14 +1,19 @@
 ---
 # 1. Fyre Login
 # -----------------------------------------------------------------------------
-- name: "login-quickburn : Fail if fyre_username and fyre_apikey are not provided"
+- name: "login-fyre : Fail if fyre_username and fyre_apikey are not provided"
   assert:
     that:
       - fyre_username is defined and fyre_username != ""
       - fyre_apikey is defined and fyre_apikey != ""
     fail_msg: "fyre_username and fyre_apikey properties are required"
 
-- name: "login-quickburn : Get Cluster Details"
+- name: "Backwards compatability for 'quickburn' cluster type"
+  when: cluster_type == "quickburn"
+  set_fact:
+    cluster_type: "fyre"
+
+- name: "login-fyre : Get Cluster Details"
   uri:
     url: https://ocpapi.svl.ibm.com/v1/ocp/{{ cluster_name }}
     user: "{{ fyre_username }}"
@@ -18,11 +23,15 @@
     validate_certs: false
   register: _cluster_details
 
+- name: debug
+  debug:
+    var: _cluster_details.json
+
 - set_fact:
     api_host: "api.{{ cluster_name }}.cp.fyre.ibm.com"
     _this_cluster: "{{ _cluster_details.json.clusters | selectattr('cluster_name', '==', cluster_name) | last }}"
 
-- name: "login-quickburn : Login to the created cluster"
+- name: "login-fyre : Login to the created cluster"
   vars:
     login_password: "{{ _this_cluster.kubeadmin_password }}"
     login_server: "https://{{ api_host }}:6443"

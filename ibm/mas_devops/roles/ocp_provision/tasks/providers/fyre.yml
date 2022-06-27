@@ -2,33 +2,39 @@
 
 # 1. Failure conditions
 # -----------------------------------------------------------------------------
-- name: "quickburn : Fail if required properties are not provided"
+- name: "fyre : Fail if required properties are not provided"
   assert:
     that:
-      - fyre_cluster_size is defined and fyre_cluster_size != ""
+      - fyre_quota_type is defined and fyre_quota_type != ""
+      - fyre_quota_type is in ['quick_burn', 'product_group']
       - fyre_product_id is defined and fyre_product_id != ""
       - fyre_username is defined and fyre_username != ""
       - fyre_password is defined and fyre_password != ""
-    fail_msg: "One or more required properties are missing"
+
+- name: "fyre : Fail if required properties are not provided (quickburn)"
+  when: fyre_quota_type == "quick_burn"
+  assert:
+    that: fyre_cluster_size is defined and fyre_cluster_size != ""
 
 
 # 2. Debug Info
 # -----------------------------------------------------------------------------
-- name: "quickburn : Debug information"
+- name: "fyre : Debug information"
   debug:
     msg:
       - "Cluster name ................. {{ cluster_name }}"
+      - "Cluster name ................. {{ cluster_type }}"
       - "OCP version .................. {{ ocp_version }}"
       - "Username ..................... {{ fyre_username }}"
-      - "Password ..................... *********************"
-      # Quickburn specific
       - "Fyre product ID .............. {{ fyre_product_id }}"
-      - "Fyre cluster size ............ {{ fyre_cluster_size }}"
+      - "Fyre Quota Type .............. {{ fyre_quota_type }}"
+      # Quickburn specific
+      - "Fyre cluster size ............ {{ fyre_cluster_size | default('<undefined>', true) }}"
 
 
-# 3. Determine whether there is already a quickburn environment running
+# 3. Determine whether there is already an environment running
 # -----------------------------------------------------------------------------
-- name: "quickburn : Check if cluster already exists"
+- name: "fyre : Check if cluster already exists"
   uri:
     url: "https://ocpapi.svl.ibm.com/v1/ocp/{{cluster_name}}"
     user: "{{fyre_username}}"
@@ -40,17 +46,18 @@
   failed_when: _cluster_exist.status == 403
 
 
-# 4. Deploy the quick burn cluster
+# 4. Deploy the OCP+ cluster
 # -----------------------------------------------------------------------------
-- name: "quickburn : Create new quick burn cluster"
-  when:
-    - _cluster_exist.json.cluster_count is not defined
+- name: "fyre : Create new OCP+ cluster"
+  when: _cluster_exist.json.cluster_count is not defined
+  vars:
+    fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
   uri:
     url: https://ocpapi.svl.ibm.com/v1/ocp/
-    user: "{{fyre_username}}"
-    password: "{{fyre_password}}"
+    user: "{{ fyre_username }}"
+    password: "{{ fyre_password }}"
     method: POST
-    body: "{{ lookup('template','templates/quickburn.json') }}"
+    body: "{{ lookup('template', fyre_template_name) }}"
     force_basic_auth: yes
     body_format: json
     validate_certs: false
@@ -58,11 +65,11 @@
 
 # 5. Track the progress of the deployment
 # -----------------------------------------------------------------------------
-- name: "quickburn : Follow deployment status (~20-30 mins)"
+- name: "fyre : Follow deployment status (~20-30 mins)"
   uri:
-    url: "https://ocpapi.svl.ibm.com/v1/ocp/{{cluster_name}}/status"
-    user: "{{fyre_username}}"
-    password: "{{fyre_password}}"
+    url: "https://ocpapi.svl.ibm.com/v1/ocp/{{ cluster_name }}/status"
+    user: "{{ fyre_username }}"
+    password: "{{ fyre_password }}"
     method: GET
     force_basic_auth: yes
     validate_certs: false
