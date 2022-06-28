@@ -60,7 +60,7 @@ Role Variables - Manage
 ---------------------------------------------
 
 ### mas_app_settings_aio_flag
-Optional. Flag indicating if AIO resource must be loaded or not when Optimizer is installed.
+Optional. Flag indicating if Asset Investment Optimization (AIO) resource must be loaded or not. It can be loaded only when Optimizer application is installed.
 
 - Only supported when Optimizer application is installed.
 - Environment Variable: MAS_APP_SETTINGS_AIO_FLAG
