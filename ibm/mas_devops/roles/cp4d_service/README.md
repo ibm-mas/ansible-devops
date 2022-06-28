@@ -633,7 +633,7 @@ Stores the CP4D Watson Studio Project name that can be used to configure HP Util
 
 - Optional, only supported when `cpd_service_name` = `wsl`
 - Environment Variable: `CPD_WSL_PROJECT_NAME`
-- Default Value: `wsl_default_project`
+- Default Value: `mas-${mas_instance_id}-hputilities`
 
 ### cpd_wsl_project_description
 Optional - Stores the CP4D Watson Studio Project description that can be used to configure HP Utilities application in MAS.
@@ -641,6 +641,16 @@ Optional - Stores the CP4D Watson Studio Project description that can be used to
 - Optional, only supported when `cpd_service_name` = `wsl`
 - Environment Variable: `CPD_WSL_PROJECT_DESCRIPTION`
 - Default Value: `Watson Studio Project for Maximo Application Suite`
+
+
+Role Variables - Watson Discovery
+------------------------------
+### cpd_wd_instance_name
+Stores the name of the CP4D Watson Discovery Instance that can be used to configure Assist application in MAS.
+
+- Optional, only supported when `cpd_service_name` = `wd`
+- Environment Variable: `CPD_WD_INSTANCE_NAME`
+- Default Value: `mas-${mas_instance_id}-assist`
 
 
 Role Variables - MAS Configuration Generation
