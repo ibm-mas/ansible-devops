@@ -54,7 +54,7 @@ Optional. It specifies the name of the file in `mas_config_dir` where the id of 
 
 - Only supported when `mas_app_id` = `hputilities` and `mas_config_dir` is informed.
 - Environment Variable: CPD_WS_PROJECT_NAME
-- Default: None
+- Default Value: `wsl-mas-${mas_instance_id}-hputilities`
 
 Role Variables - Manage
 ---------------------------------------------
