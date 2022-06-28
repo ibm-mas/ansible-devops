@@ -18,7 +18,7 @@ MAS application workspace to use to configure app components
 ### mas_config_dir
 Optional. Local directory where generated resource definitions are saved into. It is used by current role to retrieve the id of the analytics project eventually created by [cp4d_service](cp4d_service.md) role and then configure it into Health & Predict - Utilities resource.
 
-- Optional, only supported when `mas_app_id` = `hputilities` and `ws_project_name` is informed.
+- Optional, only supported when `mas_app_id` = `hputilities` and `cpd_ws_project_name` is informed.
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
@@ -42,18 +42,18 @@ Optional.  The application workspace deployment spec used to configure various a
 Role Variables - Health & Predict Utilities
 ---------------------------------------------
 
-### ws_project_id
+### cpd_ws_project_id
 Optional. It is the id of the analytics project created in Watson Studio and used to configure `hputilities` application.
 
 - Only supported when `mas_app_id` = `hputilities`
-- Environment Variable: WS_PROJECT_ID
+- Environment Variable: CPD_WS_PROJECT_ID
 - Default: None
 
-### ws_project_name
+### cpd_ws_project_name
 Optional. It specifies the name of the file in `mas_config_dir` where the id of the analytics project is saved.
 
 - Only supported when `mas_app_id` = `hputilities` and `mas_config_dir` is informed.
-- Environment Variable: WS_PROJECT_NAME
+- Environment Variable: CPD_WS_PROJECT_NAME
 - Default: None
 
 Role Variables - Manage
