@@ -29,7 +29,7 @@
   set_fact:
     db2_manage_pod_name: "{{ db2_manage_pod.resources[0].metadata.name }}"
 
-# 2. Create the user in the local LDAP registry
+# 2. Check if user exist
 # -----------------------------------------------------------------------------
 - name: "check if user already exists"
   ignore_errors: true
@@ -37,21 +37,22 @@
     oc exec -it {{ db2_manage_pod_name }} -n {{ db2_namespace }} -c db2u -- su -lc "id {{ db2_ldap_username }}"
   register: check_ldap_user
 
-- name: Fail when the user already exist
-  fail:
-    msg: "User {{ db2_ldap_username }} already exist, please specify another one."
-  when: check_ldap_user.rc == 0
-
+# 3. Create LDAP user if it does not exist
+# -----------------------------------------------------------------------------
 - name: "Creating db2 user in local LDAP registry"
   shell: |
     oc exec -it -n {{ db2_namespace }} {{ db2_ldap_pod_name }} -- /opt/ibm/ldap_scripts/addLdapUser.py -u {{ db2_ldap_username }} -r admin -p {{ db2_ldap_password }}
   register: creating_ldap_user_output
   when: check_ldap_user.rc != 0
 
-# 3. Test that the newly created user can connect to db2
+
+# 4. Test that the newly created user can connect to db2
 # -----------------------------------------------------------------------------
 - name: "Test that the newly created user can connect to db2"
   shell: |
     oc exec -it {{ db2_manage_pod_name }} -n {{ db2_namespace }} -c db2u -- su -lc "db2 connect to bludb user {{ db2_ldap_username }} using {{ db2_ldap_password }}" db2inst1
   register: db2_connect_result
-  failed_when: db2_connect_result.rc != 0
+  retries: 5
+  delay: 5
+  until: db2_connect_result.rc == 0
+
