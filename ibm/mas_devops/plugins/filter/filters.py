@@ -185,28 +185,28 @@ def defaultStorageClass(storageClassLookup, storageClassOptions):
   # We couldn't find a suitable storage class
   return ""
 
-def getWSLDefaultProjectId(wslProjectLookup, defaultWSLProject):
+def getWSLProjectId(wslProjectLookup, wslProjectName):
   """
-    filter: getWSLDefaultProjectId
+    filter: getWSLProjectId
     author: Alexandre Quinteiro <alefq@br.ibm.com>
     version_added: 11.0
     short_description: ---
     description:
-        - This filter returns the name of an available storage class from the list of options provided
+        - This filter the id of the analytics project that has a name equals to wslProjectName
     options:
-      _storageClassLookup:
-        description: list of storageclass resources
+      _wslProjectLookup:
+        description: list of analytics project objects
         required: True
-      _storageClassOptions:
-        description: list of storageclasses that are supported, the first one found in the results will be used
+      _wslProjectName:
+        description: name of analytics project we are looking for
         required: True
     notes:
       - limited error handling, will not handle unexpected data currently
   """
   for wslProject in wslProjectLookup:
-    if wslProject['entity']['name'] == defaultWSLProject:
+    if wslProject['entity']['name'] == wslProjectName:
       return wslProject['metadata']['guid']
-  # Default project is not set
+  # Project not found
   return ""
 
 class FilterModule(object):
@@ -219,5 +219,5 @@ class FilterModule(object):
       'getAnnotations': getAnnotations,
       'getResourceNames': getResourceNames,
       'defaultStorageClass': defaultStorageClass,
-      'getWSLDefaultProjectId': getWSLDefaultProjectId,
+      'getWSLProjectId': getWSLProjectId,
     }
