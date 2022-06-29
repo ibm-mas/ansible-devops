@@ -1,12 +1,8 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `10.5` Multiple Updates:
-    - Support use of `product_group` quota in FYRE ([#373](https://github.com/ibm-mas/ansible-devops/pull/373))
-    - Analytics Project Configuration used in Health & Preduct Utilities ([#367](https://github.com/ibm-mas/ansible-devops/pull/367))
-    - `configs` workspace added into `suite_app_config` tekton task, so it can read analytcs project from it ([#367](https://github.com/ibm-mas/ansible-devops/pull/367/files#diff-05008ec094f807810eb5abeea2598aca0556a7c52061b4b7d64b1044be772f00R65))
-    - Small adjusts in timeout of watson services ([#367](https://github.com/ibm-mas/ansible-devops/pull/367/files#diff-a532c5743f0ad025ab19db9d41feedff46cfb7cfcb33d78084745ea81d9b57d2))
-    - Make AIO flag `true` by default ([#367](https://github.com/ibm-mas/ansible-devops/pull/367/files#diff-5d5519583349eab599eab4ee54ce8e249ab8533d03d345749e392a27ec8286b4R9))
+- `10.6` Analytics Project configuration in HPUtilities ([#367](https://github.com/ibm-mas/ansible-devops/pull/367))
+- `10.5` Support use of `product_group` quota in FYRE ([#373](https://github.com/ibm-mas/ansible-devops/pull/373))
 - `10.4` Multiple Updates:
     - Support OCP on ROSA ([#360](https://github.com/ibm-mas/ansible-devops/pull/360))
     - Support Watson Discovery Instance Creation ([#359](https://github.com/ibm-mas/ansible-devops/pull/359))
