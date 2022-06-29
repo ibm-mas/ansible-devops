@@ -1,0 +1,35 @@
+---
+- name: Summary before loading HP Utilities Project data
+  debug:
+    msg:
+      - "WSL Project Id ................ {{ cpd_ws_project_id }}"
+      - "WSL Project Name .............. {{ cpd_ws_project_name }}"
+      - "Config Directory .............. {{ mas_config_dir }}"
+
+- name: Load Analytics Project Id from cpd_ws_project_id
+  when: cpd_ws_project_id is defined and cpd_ws_project_id != ""
+  set_fact:
+    mas_app_settings_project_id: "{{ cpd_ws_project_id }}"
+
+- name: Load Analytics Project Id from configuration directory (only if id is not already defined)
+  when:
+    - mas_app_settings_project_id is not defined or mas_app_settings_project_id == ""
+    - cpd_ws_project_name is defined and cpd_ws_project_name != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+  block:
+    - set_fact:
+        mas_app_settings_project_id: "{{ lookup('file', mas_config_dir + '/' + cpd_ws_project_name + '.id') }}"
+  rescue:
+    - debug:
+        msg: "Warning: project not found in configuration directory"
+
+- name: "Fail mas_app_settings_project_id is not provided"
+  assert:
+    that:
+      - mas_app_settings_project_id is defined and mas_app_settings_project_id != ""
+    fail_msg: "Analytics Project Id has not been informed"
+
+- name: Analytics Project Id used by Health & Predict - Utilities
+  debug:
+    msg:
+      - "Analytics Project Id ........... {{ mas_app_settings_project_id }}"

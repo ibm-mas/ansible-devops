@@ -628,19 +628,12 @@ The CP4D Admin User password to call CP4D API to provision Discovery Instance. I
 
 Role Variables - Watson Studio
 ------------------------------
-### cpd_wsl_project_id
-Stores the CP4D Watson Studio Project ID that can be used to configure HP Utilities application in MAS.  If this property is not set, or the project identified by this ID does not already exist this role will automatically create one Watson Studio project.  **TODO: This needs to be fixed we need to key off the PROJECT_NAME to make this idempotent, user can't be expected to know the project ID upfront!**
-
-- Optional, only supported when `cpd_service_name` = `wsl`
-- Environment Variable: `CPD_WSL_PROJECT_ID`
-- Default Value: None
-
 ### cpd_wsl_project_name
 Stores the CP4D Watson Studio Project name that can be used to configure HP Utilities application in MAS.
 
 - Optional, only supported when `cpd_service_name` = `wsl`
 - Environment Variable: `CPD_WSL_PROJECT_NAME`
-- Default Value: `wsl_default_project`
+- Default Value: `wsl-mas-${mas_instance_id}-hputilities`
 
 ### cpd_wsl_project_description
 Optional - Stores the CP4D Watson Studio Project description that can be used to configure HP Utilities application in MAS.
@@ -648,6 +641,16 @@ Optional - Stores the CP4D Watson Studio Project description that can be used to
 - Optional, only supported when `cpd_service_name` = `wsl`
 - Environment Variable: `CPD_WSL_PROJECT_DESCRIPTION`
 - Default Value: `Watson Studio Project for Maximo Application Suite`
+
+
+Role Variables - Watson Discovery
+------------------------------
+### cpd_wd_instance_name
+Stores the name of the CP4D Watson Discovery Instance that can be used to configure Assist application in MAS.
+
+- Optional, only supported when `cpd_service_name` = `wd`
+- Environment Variable: `CPD_WD_INSTANCE_NAME`
+- Default Value: `wd-mas-${mas_instance_id}-assist`
 
 
 Role Variables - MAS Configuration Generation
