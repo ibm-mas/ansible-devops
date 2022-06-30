@@ -37,13 +37,11 @@
 - name: Create 'norootsquash' DaemonSet
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/norootsquash_daemonset.yml.j2') }}"
-    wait: yes
-    wait_timeout: 120
 
 
 # 4. Wait for 'norootsquash' DaemonSet to be running
 # -----------------------------------------------------------------------------
-- name: "Wait for 'norootsquash' DaemonSet to be running"
+- name: "Wait for 'norootsquash' DaemonSet to be running on all nodes"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: norootsquash
@@ -53,6 +51,9 @@
   until:
     - daemonset_output.resources is defined
     - daemonset_output.resources | length > 0
-    - daemonset_output.resources[0].status.numberReady > 0
+    - daemonset_output.resources[0].status is defined
+    - daemonset_output.resources[0].status.numberReady is defined
+    - daemonset_output.resources[0].status.desiredNumberScheduled is defined
+    - daemonset_output.resources[0].status.numberReady == daemonset_output.resources[0].status.desiredNumberScheduled
   retries: 60 # approx 60 minutes before we give up
   delay: 60 # 1 minute
