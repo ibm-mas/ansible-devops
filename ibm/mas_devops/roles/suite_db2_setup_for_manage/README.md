@@ -47,7 +47,7 @@ The size of the tablespaces in the database.
 
 - Optional
 - Environment Variable: DB2_TABLESPACE_SIZE
-- Default Value: 5000 M
+- Default Value: `5000 M`
 
 
 Example Playbook
