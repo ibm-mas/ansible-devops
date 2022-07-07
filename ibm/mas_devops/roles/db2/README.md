@@ -107,6 +107,13 @@ Size of the metadata persistent volume, in gigabytes
 - Environment Variable: `DB2_META_STORAGE_SIZE`
 - Default: `20Gb`
 
+### db2_meta_storage_accessmode
+The access mode for the storage.
+
+- Optional
+- Environment Variable: `DB2_META_STORAGE_ACCESSMODE`
+- Default: `ReadWriteMany`
+
 ### db2_data_storage_class
 Storage class used for user data. This must support ReadWriteOnce
 
@@ -120,6 +127,13 @@ Size of data persistent volume.
 - Optional
 - Environment Variable: `DB2_DATA_STORAGE_SIZE`
 - Default: `100Gb`
+
+### db2_data_storage_accessmode
+The access mode for the storage.
+
+- Optional
+- Environment Variable: `DB2_DATA_STORAGE_ACCESSMODE`
+- Default: `ReadWriteOnce`
 
 ### db2_backup_storage_class
 Storage class used for backup. This must support ReadWriteMany
@@ -135,6 +149,13 @@ Size of backup persistent volume.
 - Environment Variable: `DB2_BACKUP_STORAGE_SIZE`
 - Default: `100Gb`
 
+### db2_backup_storage_accessmode
+The access mode for the storage.
+
+- Optional
+- Environment Variable: `DB2_BACKUP_STORAGE_ACCESSMODE`
+- Default: `ReadWriteMany`
+
 ### db2_logs_storage_class
 Storage class used for transaction logs. This must support ReadWriteOnce
 
@@ -149,6 +170,13 @@ Size of transaction logs persistent volume.
 - Environment Variable: `DB2_LOGS_STORAGE_SIZE`
 - Default: `100Gb`
 
+### db2_logs_storage_accessmode
+The access mode for the storage.
+
+- Optional
+- Environment Variable: `DB2_LOGS_STORAGE_ACCESSMODE`
+- Default: `ReadWriteOnce`
+
 ### db2_temp_storage_class
 Storage class used for temporary data. This must support ReadWriteOnce
 
@@ -162,6 +190,13 @@ Size of temporary persistent volume.
 - Optional
 - Environment Variable: `DB2_TEMP_STORAGE_SIZE`
 - Default: `100Gb`
+
+### db2_temp_storage_accessmode
+The access mode for the storage.
+
+- Optional
+- Environment Variable: `DB2_TEMP_STORAGE_ACCESSMODE`
+- Default: `ReadWriteOnce`
 
 
 Role Variables - Resource Requests
