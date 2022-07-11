@@ -45,7 +45,7 @@ docker run -ti quay.io/ibmmas/ansible-devops:10.2.0 bash
 
 ```bash
 python3 --version
-python3 -m pip install ansible junit_xml pymongo xmljson kubernetes==12.0.1 openshift==0.12.1
+python3 -m pip install ansible junit_xml pymongo xmljson jmespath kubernetes==12.0.1 openshift==0.12.1
 ansible --version
 ansible-playbook --version
 ```

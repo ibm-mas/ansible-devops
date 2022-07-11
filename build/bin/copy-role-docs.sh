@@ -18,11 +18,10 @@ copyDoc cert_manager_upgrade_check
 copyDoc cluster_monitoring
 copyDoc common_services
 copyDoc cos
-copyDoc cp4d_hack_worker_nodes
 copyDoc cp4d
+copyDoc cp4d_hack_worker_nodes
 copyDoc cp4d_service
 copyDoc cp4d_upgrade
-copyDoc cp4d_wds
 copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
