@@ -44,12 +44,11 @@ The other values can be left at their defaults.  Finally, click **Generate** and
 
 ### Required environment variables
 
+- `IBM_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
-- `MAS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `SLS_LICENSE_ID` The license ID must match the license file available in `SLS_LICENSE_FILE`
 - `SLS_LICENSE_FILE` The path to the location of the license file.
-- `SLS_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
 - `UDS_CONTACT_EMAIL` Defines the email for person to contact for UDS
 - `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for UDS
 - `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for UDS
@@ -77,13 +76,13 @@ Usually fulfilled by file storage classes:
 ### Release build
 The simplest configuration to deploy a release build of IBM Maximo Application Suite (core only) with dependencies is:
 ```bash
+export IBM_ENTITLEMENT_KEY=xxx
+
 export MAS_INSTANCE_ID=inst1
-export MAS_ENTITLEMENT_KEY=xxx
 export MAS_CONFIG_DIR=~/masconfig
 
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
-export SLS_ENTITLEMENT_KEY=xxx
 
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
@@ -101,6 +100,8 @@ ansible-playbook ibm.mas_devops.oneclick_core
 To deploy a pre-release build of IBM Maximo Application Suite (core only) with dependencies a number of additional parameters are required, note that pre-release builds are only available to IBM employees:
 
 ```bash
+export IBM_ENTITLEMENT_KEY=xxx
+
 export ARTIFACTORY_USERNAME=$W3_USERNAME_LOWERCASE
 export ARTIFACTORY_APIKEY=xxx
 export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
@@ -109,13 +110,12 @@ export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
 export MAS_INSTANCE_ID=inst1
-export MAS_CATALOG_SOURCE=ibm-mas-operators
-export MAS_CHANNEL=m4dev88
 export MAS_CONFIG_DIR=~/masconfig
+export MAS_CATALOG_SOURCE=ibm-mas-operators
+export MAS_CHANNEL=rp1dev88
 
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
-export SLS_ENTITLEMENT_KEY=xxx
 
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
