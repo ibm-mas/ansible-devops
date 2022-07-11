@@ -68,18 +68,21 @@ Role Variables - Cloudflare DNS Integration
 - Default: None
 
 ### cloudflare_apitoken
+To generate an API token follow the [Cloudflare documentation](https://developers.cloudflare.com/api/tokens/create/).
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_APITOKEN`
 - Default: None
 
 ### cloudflare_zone
+This is your domain name that is managed by Cloudflare (e.g. `mydomain.com`).
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_ZONE`
 - Default: None
 
 ### cloudflare_subdomain
+Set this to the name of the subdomain under your Cloudflare domain where you would like to manage the MAS DNS entires if you don't want MAS to use the top-level domain itself.  In other words `cloudflare_subdomain.cloudflare_zone` should equal `mas_domain`.
 
 - Optional
 - Environment Variable: `CLOUDFLARE_SUBDOMAIN`
