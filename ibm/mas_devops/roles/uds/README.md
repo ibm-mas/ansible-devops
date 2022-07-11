@@ -113,8 +113,8 @@ Example Playbook
 
     uds_contact:
       email: 'john@email.com'
-      firstName: 'john'
-      lastName: 'winter'
+      first_name: 'john'
+      last_name: 'winter'
   roles:
   - ibm.mas_devops.uds
 ```
@@ -133,8 +133,8 @@ Example Playbook
 
     uds_contact:
       email: 'john@email.com'
-      firstName: 'john'
-      lastName: 'winter'
+      first_name: 'john'
+      last_name: 'winter'
   roles:
   - ibm.mas_devops.uds
 ```
