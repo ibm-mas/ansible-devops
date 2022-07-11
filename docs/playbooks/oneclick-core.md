@@ -19,13 +19,25 @@ This playbook will install and configure IBM Maximo Application Suite Core along
 
 All timings are estimates, see the individual pages for each of these roles for more information and full details of all configuration options available in this playbook.
 
+
 ## Preparation
-Before you run the playbook you **must** prepare the entitlement license key file that will be used during the playbook run.
 
-Copy the MAS license key file that you obtained from Rational License Key Server to a local path and set `SLS_LICENSE_FILE` to point to this location.  During the installation of SLS this license file will be automatically bootstrapped into the system.
+### 1. IBM Entitlement key
+Access [Container Software Library](https://myibm.ibm.com/products-services/containerlibrary) using your IBMId to access your entitlement key
 
-!!! tip
-    If you do not already have an entitlement file, create a random 12 character hex string and use this as the license ID when requesting your entitlement file from Rational License Key Service.
+### 2. MAS License File
+Access [IBM License Key Center](https://licensing.subscribenet.com/control/ibmr/login), on the **Get Keys** menu select **IBM AppPoint Suites**.  Select `IBM MAXIMO APPLICATION SUITE AppPOINT LIC` and on the next page fill in the information as below:
+
+| Field            | Content                                           |
+| ---------------- | ------------------------------------------------- |
+| Number of Keys   | How many AppPoints to assign to the license file  |
+| Host ID Type     | Set to **Ethernet Address**                       |
+| Host ID          | Enter any 12 digit hexadecimal string             |
+| Hostname         | Set to the hostname of your OCP instance          |
+| Port             | Set to **27000**                                  |
+
+
+The other values can be left at their defaults.  Finally, click **Generate** and download the license file to your home directory as `entitlement.lic`, set `SLS_LICENSE_FILE` to point to this location.
 
 
 ## Usage
@@ -42,6 +54,25 @@ Copy the MAS license key file that you obtained from Rational License Key Server
 - `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for UDS
 - `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for UDS
 
+### Storage Class Configuraton
+Storage class configuration is built into the collection and the playbook will auto-select the appropriate storage classes when it detects the presence of certain storage classes in your cluster (IBM Cloud Storage or OpenShift Container Storage).  If you are running the install on a cluster that does not have these storage classes then you will also must configure the following environment variables:
+
+#### ReadWriteMany Access Mode
+Usually fulfilled by block storage classes:
+
+- `PROMETHEUS_ALERTMGR_STORAGE_CLASS`
+
+#### ReadWriteOnce Access Mode
+Usually fulfilled by file storage classes:
+
+- `PROMETHEUS_STORAGE_CLASS`
+- `PROMETHEUS_USERWORKLOAD_STORAGE_CLASS`
+- `GRAFANA_INSTANCE_STORAGE_CLASS`
+- `MONGODB_STORAGE_CLASS`
+- `UDS_STORAGE_CLASS`
+
+
+## Examples
 
 ### Release build
 The simplest configuration to deploy a release build of IBM Maximo Application Suite (core only) with dependencies is:
@@ -49,9 +80,11 @@ The simplest configuration to deploy a release build of IBM Maximo Application S
 export MAS_INSTANCE_ID=inst1
 export MAS_ENTITLEMENT_KEY=xxx
 export MAS_CONFIG_DIR=~/masconfig
+
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 export SLS_ENTITLEMENT_KEY=xxx
+
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
@@ -62,7 +95,6 @@ ansible-playbook ibm.mas_devops.oneclick_core
 
 !!! tip
     If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.2.0 bash`
-
 
 
 ### Pre-release build
@@ -71,17 +103,20 @@ To deploy a pre-release build of IBM Maximo Application Suite (core only) with d
 ```bash
 export ARTIFACTORY_USERNAME=$W3_USERNAME_LOWERCASE
 export ARTIFACTORY_APIKEY=xxx
-export MAS_INSTANCE_ID=inst1
-export MAS_CATALOG_SOURCE=ibm-mas-operators
-export MAS_CHANNEL=m4dev88
 export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
 export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
+
+export MAS_INSTANCE_ID=inst1
+export MAS_CATALOG_SOURCE=ibm-mas-operators
+export MAS_CHANNEL=m4dev88
 export MAS_CONFIG_DIR=~/masconfig
+
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 export SLS_ENTITLEMENT_KEY=xxx
+
 export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
@@ -92,4 +127,3 @@ ansible-playbook ibm.mas_devops.oneclick_core
 
 !!! tip
     If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.2.0 bash`
-
