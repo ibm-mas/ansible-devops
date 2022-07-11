@@ -42,11 +42,18 @@ The name of the Manage schema where the hack should be targeted in.
 - Environment Variable: None
 - Default Value: `maximo`
 
-### db2_tablespace_size
-The size of the tablespaces in the database.
+### db2_tablespace_data_size
+The size of the tablespace data in the database.
 
 - Optional
-- Environment Variable: DB2_TABLESPACE_SIZE
+- Environment Variable: DB2_TABLESPACE_DATA_SIZE
+- Default Value: `5000 M`
+
+### db2_tablespace_index_size
+The size of the tablespace indexes in the database.
+
+- Optional
+- Environment Variable: DB2_TABLESPACE_INDEX_SIZE
 - Default Value: `5000 M`
 
 
