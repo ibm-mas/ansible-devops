@@ -49,6 +49,11 @@ The Memory limits on the mongod container.
 - Environment Variable: `MONGODB_MEM_LIMITS`
 - Default Value: `1Gi`
 
+### mongodb_replicas
+The number of the mongodb replica set members. Default is 3. Set to 1 for SNO Cluster.
+- Environment Variable: `MONGODB_REPLICAS`
+- Default Value: `3`
+
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a MongoCfg template.
 

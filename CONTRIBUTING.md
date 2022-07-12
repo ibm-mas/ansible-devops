@@ -3,10 +3,34 @@
 Note that during a build the version of the ansible collection is automatically adjusted to the correct version.  For local development will we always target the "next major" as the version, this is just a convenient placeholder string that works for local development; all released collections will automatically set this version to the correct value for the release.
 
 
+## Development Tips
+It is possible to develop the Ansible roles without needing to build the collection at all, this offers the most efficient development loop when authoring new roles or modifying existing ones:
+
+- Export your environment variables (varies based on the role being developed)
+- Create a new playbook in `ibm/mas_devops` named `dev-<something>.yml` that executes just the role (or roles) you are developing.  It's important that the playbook starts with `dev-` as the existing `.gitignore` rule will prevent accidental commits.
+
+```yaml
+# Example development playbook (ibm/mas_devops/dev-rosa.yml)
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cluster_type: rosa
+    cluster_name: fvtrosa
+    ocp_version: "4.10.17"
+
+  roles:
+    - ocp_provision
+    - ocp_login
+```
+
+You can now run this playbook using `ansible-playbook` to test the changes you make to any roles without needing to re-build or re-install the collection.  It's important to note that the roles in the dev playbook are not prefixed with the name of the collection (`ibm.mas_devops`) the same way the playbooks that are packaged in the collection are, this is what allows the development playbook to use the code as it exists in your clone of the repository instead of the version you last installed with `ansible-galaxy`.
+
+
 ## Building the collection locally
 - Build and install the collection `make ansible-all` (default action)
 - Build the collection `make ansible-build`
 - Install the already built collection `make ansible-install`
+
 
 ### Testing a role
 ```bash
