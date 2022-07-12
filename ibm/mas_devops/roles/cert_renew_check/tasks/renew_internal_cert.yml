@@ -1,0 +1,42 @@
+---
+- name: "Lookup original {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "{{ mas_instance_id }}-{{ cert_name }}-cert-internal"
+    namespace: "{{ mas_namespace }}"
+    kind: Secret
+  register: original_secret_result
+  failed_when: original_secret_result.resources[0] | length == 0
+
+- name: "Delete original {{ mas_instance_id}}-{{ cert_name }}-cert-internal secret"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    name: "{{ mas_instance_id }}-{{ cert_name }}-cert-internal"
+    namespace: "{{ mas_namespace }}"
+
+- name: "Wait for {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret to be recreated (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "{{ mas_instance_id }}-{{ cert_name }}-cert-internal"
+    namespace: "{{ mas_namespace }}"
+    kind: Secret
+  register: new_secret_result
+  until:
+    - new_secret_result.resources[0] is defined
+    - new_secret_result.resources[0] | length > 0
+  retries: 15 # approx 15 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Assert new 'ca.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret is different from the one prior to renewal"
+  block:
+    assert:
+      that:
+        - original_secret_result.resources[0].data['ca.crt'] != new_secret_result.resources[0].data['ca.crt']
+      fail_msg: "Assertion Failed! Original {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret does not match with the recreated one."
+      success_msg: "Assertion Passed! Original 'ca.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret matches with the new one recreated!"
+    rescue:
+        - debug:
+            msg: "Warning: new secret in {{ mas_instance_id }}-{{ cert_name }}-cert-internal is the same as the one prior to renewal, private key rotation failed"
+
