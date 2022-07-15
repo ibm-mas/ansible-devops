@@ -83,17 +83,5 @@ Optionally, you can also pin the version of the collection that you install, all
 ansible-galaxy collection install ibm.mas_devops:10.2.0
 ```
 
-### Build the Ansible Collection locally and install it
-
-Build the collection locally.
-```
-$ ansible-galaxy collection build ibm/mas_devops --force
-```
-
-Install from the tarball produced in the previous step.
-``` 
-ansible-galaxy collection install ibm-mas_devops-x.y.z.tar.gz --force 
-```
-
 ## Support
 This Ansible collection is developed by the IBM Maximo Application Suite development team, customers may raise support tickets via the same routes they would an issue with the product itself, or [raise an issue directly in the GitHub repository](https://github.com/ibm-mas/ansible-devops/issues).
