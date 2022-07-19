@@ -6,23 +6,27 @@
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
 
 
-# 2. Install IBM catalogs
+# 2. Install IBM catalog
 # -----------------------------------------------------------------------------
 # In an airgap install scenario, the catalogs are already installed as part of
 # preparing the cluster
-- name: "Create IBM catalogs"
+- name: "Create IBM catalog"
   when:
+    - artifactory_username is not defined or artifactory_username == ""
+    - artifactory_apikey is not defined or artifactory_apikey == ""
     - not airgap_install
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
+    definition: "{{ lookup('template', 'templates/release-catalog.yml') }}"
 
-- name: "Wait till IBM Catalogs are Ready"
+- name: "Wait until CatalogSource/ibm-operator-catalog is Ready"
   when:
+    - artifactory_username is not defined or artifactory_username == ""
+    - artifactory_apikey is not defined or artifactory_apikey == ""
     - not airgap_install
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: CatalogSource
-    name: "{{ item }}"
+    name: ibm-operator-catalog
     namespace: openshift-marketplace
   register: ibm_catalog_lookup
   retries: 30 # Up to 30 min
@@ -34,11 +38,9 @@
     - ibm_catalog_lookup.resources[0].status.connectionState is defined
     - ibm_catalog_lookup.resources[0].status.connectionState.lastObservedState is defined
     - ibm_catalog_lookup.resources[0].status.connectionState.lastObservedState == "READY"
-  with_items:
-    - ibm-operator-catalog
-    - opencloud-operators
 
-# 3. Install development (pre-release) catalogs
+
+# 3. Install development (pre-release) catalog
 # -----------------------------------------------------------------------------
 # In an airgap install scenario, the catalogs are already installed as part of
 # preparing the cluster
@@ -47,4 +49,4 @@
     - artifactory_username is defined and artifactory_username != ""
     - artifactory_apikey is defined and artifactory_apikey != ""
     - not airgap_install
-  include_tasks: "tasks/development-catalogs.yml"
+  include_tasks: "tasks/development-catalog.yml"
