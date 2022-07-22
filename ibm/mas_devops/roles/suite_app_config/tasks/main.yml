@@ -10,10 +10,14 @@
       - mas_workspace_id is defined and mas_workspace_id != ""
     fail_msg: "Missing one or more required properties"
 
+
 # 2. Load var files
 # -----------------------------------------------------------------------------
-- name: Load variables
+- name: Load workspace variables
   include_vars: "vars/{{ mas_app_id }}.yml"
+
+- name: Load application variables
+  include_vars: "{{ role_path }}/suite_app_install/vars/{{ mas_app_id }}.yml"
 
 
 # 3. Run Application Specific Tasks
@@ -56,7 +60,30 @@
     definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
-# 7. Wait for application workspace to be ready
+# 7. Check if the application is ready
+# -----------------------------------------------------------------------------
+# Workspaces can only be configured when an application is in Ready state.
+#
+# If the application is not in ready state we can fail fast rather than waiting
+# for the workspace to be Ready -- because it never will!
+- name: "Lookup application information"
+  kubernetes.core.k8s_info:
+    api_version: "{{ mas_app_api_version }}"
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: "{{ mas_app_kind }}"
+  register: app_cr_result
+
+- name: "Check that the application is ready to configure a workspace"
+  assert:
+    that:
+      - app_cr_result.resources is defined
+      - app_cr_result.resources | length > 0
+      - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+    fail_msg: "Workspace {{ mas_workspace_id }} created but application {{ mas_app_id }} is not ready"
+
+
+# 8. Wait for application workspace to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application workspace to be ready ({{ mas_app_cfg_delay }}s delay)"
   kubernetes.core.k8s_info:
