@@ -66,6 +66,34 @@
   with_items: "{{ discovery_pod_lookup.resources }}"
 
 
+# 1.5. Lookup and restart postgres initdb job
+- name: "wait-wd : Lookup postgres initdb job"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    label_selectors:
+      - job-name = wd-discovery-cn-postgres-1-initdb
+    namespace: "{{ cpd_instance_namespace }}"
+  register: discovery_pod_lookup2
+  retries: 10 # Up to 10 minutes
+  delay: 60 # Every 1 minute
+
+- name: "wait-wd : Delete postgres initdb job pod if it's in image pull backoff"
+  when:
+    - discovery_pod_lookup2.resources | length > 0
+    - item.status.containerStatuses[0].state is defined
+    - item.status.containerStatuses[0].state.waiting is defined
+    - item.status.containerStatuses[0].state.waiting.reason is defined
+    - item.status.containerStatuses[0].state.waiting.reason is in ["ImagePullBackOff", "ErrImagePull"]
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Pod
+    name: "{{ discovery_pod_lookup2.resources[0].metadata.name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  with_items: "{{ discovery_pod_lookup2.resources }}"
+
+
 # 2. Wait for CP4D service CR to be ready
 # -----------------------------------------------------------------------------
 - name: "wait-wd : Wait for watsonDiscoveryStatus 'Completed'"
