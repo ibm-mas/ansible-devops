@@ -1,5 +1,4 @@
 ---
-
 # 1. Check for missing properties that do not have defaults
 # -----------------------------------------------------------------------------
 - name: "Fail if sls_entitlement_key has not been provided"
@@ -63,42 +62,22 @@
     sls_domain: "{{ sls_namespace }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
 
-# 3. Create ibm-entitlement for SLS
-# -----------------------------------------------------------------------------
-- name: "Create ibm-entitlement secret in SLS Namespace"
-  vars:
-    entitledAuthStr: "{{sls_entitlement_username}}:{{sls_entitlement_key}}"
-    entitledAuth: "{{ entitledAuthStr | b64encode }}"
-    content:
-      - '{"auths":{"{{sls_icr_cp}}": {"username":"{{sls_entitlement_username}}","password":"{{sls_entitlement_key}}","auth":"{{entitledAuth}}"}'
-      - '}'
-      - '}'
-  kubernetes.core.k8s:
-    definition:
-      apiVersion: v1
-      kind: Secret
-      type: kubernetes.io/dockerconfigjson
-      metadata:
-        name: "ibm-entitlement"
-        namespace: "{{ sls_namespace}}"
-      stringData:
-        # Only way I could get three consecutive "}" into a string :)
-        .dockerconfigjson: "{{ content | join('') | string }}"
-
-
-# 4. Install Operator
+# 3. Install Operator & create entitlement
 # -----------------------------------------------------------------------------
 - name: "Install SLS Operator"
   include_role:
     name: ibm.mas_devops.install_operator
   vars:
     namespace: "{{ sls_namespace }}"
+    icr_host: "{{ sls_icr_cp }}"
+    icr_username: "{{ sls_entitlement_username }}"
+    icr_password: "{{ sls_entitlement_key }}"
     catalog_source: "{{ sls_catalog_source }}"
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
 
-# 5. Wait until the LicenseService CRD is available
+# 4. Wait until the LicenseService CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the LicenseService CRD is available"
   kubernetes.core.k8s_info:
@@ -145,6 +124,7 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/bootstrap.yml
   when: bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != ''
+
 
 # 7. Create the license service CR
 # -----------------------------------------------------------------------------

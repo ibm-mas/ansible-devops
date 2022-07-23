@@ -20,6 +20,7 @@
   when: mas_app_spec is not defined or mas_app_spec == ""
   include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
 
+
 # 3. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
@@ -53,6 +54,9 @@
     name: ibm.mas_devops.install_operator
   vars:
     namespace: "{{ mas_app_namespace }}"
+    icr_host: "{{ mas_icr_cp }}"
+    icr_username: "{{ mas_entitlement_username }}"
+    icr_password: "{{ mas_entitlement_key }}"
     catalog_source: "{{ mas_app_catalog_source }}"
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
@@ -85,7 +89,8 @@
             approved: true
   when: mas_app_upgrade_strategy == 'Manual'
 
-# 5. Wait until the Application's CRD is available
+
+# 6. Wait until the Application's CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Application's CRD is available"
   kubernetes.core.k8s_info:
@@ -106,30 +111,7 @@
     - app_crd_info.resources | length > 0
 
 
-# 7. Create the ibm-entitlement secret for entitled content
-# -----------------------------------------------------------------------------
-- name: "Create ibm-entitlement secret in application Namespace"
-  vars:
-    entitledAuthStr: "{{mas_entitlement_username}}:{{mas_entitlement_key}}"
-    entitledAuth: "{{ entitledAuthStr | b64encode }}"
-    content:
-      - '{"auths":{"{{mas_icr_cp}}": {"username":"{{mas_entitlement_username}}","password":"{{mas_entitlement_key}}","auth":"{{entitledAuth}}"}'
-      - '}'
-      - '}'
-  kubernetes.core.k8s:
-    definition:
-      apiVersion: v1
-      kind: Secret
-      type: kubernetes.io/dockerconfigjson
-      metadata:
-        name: "ibm-entitlement"
-        namespace: "{{ mas_app_namespace}}"
-      stringData:
-        # Only way I could get three consecutive "}" into a string :)
-        .dockerconfigjson: "{{ content | join('') | string }}"
-
-
-# 8. App installation
+# 7. App installation
 # -----------------------------------------------------------------------------
 - name: Install application
   kubernetes.core.k8s:
@@ -138,7 +120,7 @@
     definition: "{{ lookup('template', 'templates/application.yml.j2') }}"
 
 
-# 9. Wait for application to be ready
+# 8. Wait for application to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application to be ready (60s delay)"
   kubernetes.core.k8s_info:
