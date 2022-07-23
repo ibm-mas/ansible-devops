@@ -1,5 +1,9 @@
 ---
-# 1. Install cert-manager
+# Note: This version of cert-manager is incompatible with MAS gen1 applications (MAS 8.5 or earlier)
+# This will result in the following operators being installed in the ibm-common-services namespace
+# - IBM Cert Manager
+
+# 1. Check whether JetStack cert-manager is installed
 # -----------------------------------------------------------------------------
 - name: Check if Cert Manager is already installed
   kubernetes.core.k8s_info:
@@ -7,16 +11,55 @@
     name: cert-manager
     namespace: "cert-manager"
     kind: Deployment
-  register: _cert_manager_deployed
+  register: jetstack_lookup
 
-# Install foundation services cert-manager if MAS 8.7+, otherwise, install jetstack/standalone version
-- name: Define which Cert Manager to install
-  set_fact:
-    cm_version: "{{ 'foundation-services' if (mas_channel not in mas_channels_old_releases) else 'standalone' }}"
-  when:
-    - (_cert_manager_deployed.resources | length) == 0
 
-- include_tasks: "tasks/install/{{ cm_version }}.yml"
-  when:
-    - cm_version is defined and cm_version !=''
-    - (_cert_manager_deployed.resources | length) == 0
+# 2. Prevent installation of IBM Certificate Manager if JetStack installed
+# -----------------------------------------------------------------------------
+- name: "Check that JetStack Cert Manager is not installed"
+  assert:
+    that:
+      - jetstack_lookup.resources is defined
+      - jetstack_lookup.resources | length == 0
+    fail_msg: "JetStack Certificate Manager is already installed in the cert-manager namespace.  Installing IBM Certificate Manager on the same cluster will create a conflict"
+
+
+# 3. Install IBM Certificate Manager
+# -----------------------------------------------------------------------------
+- name: Install Foundation Services ibm-cert-manager operand request
+  kubernetes.core.k8s:
+    template: 'templates/ibm-cert-manager.yml'
+    wait: yes
+    wait_timeout: 120
+
+- name: "Wait for ibm-cert-manager-operator to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-cert-manager-operator
+    namespace: ibm-common-services
+    kind: Deployment
+  register: certmanager_deployment
+  until:
+    - certmanager_deployment.resources[0] > 0
+    - certmanager_deployment.resources[0].status is defined
+    - certmanager_deployment.resources[0].replicas is defined
+    - certmanager_deployment.resources[0].readyReplicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas == certmanager_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+
+- name: "Wait for cert-manager-webhook deployment to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-webhook
+    namespace: ibm-common-services
+    kind: Deployment
+  register: certmanager_webhook_deployment
+  until:
+    - certmanager_webhook_deployment.resources[0] > 0
+    - certmanager_webhook_deployment.resources[0].status is defined
+    - certmanager_webhook_deployment.resources[0].replicas is defined
+    - certmanager_webhook_deployment.resources[0].readyReplicas is defined
+    - certmanager_webhook_deployment.resources[0].status.readyReplicas == certmanager_webhook_deployment.resources[0].status.replicas
+  retries: 60 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
