@@ -4,7 +4,6 @@
 The collection supports IBM Maximo Application Suite version 8.6 and above.
 
 
-
 ## Usage
 
 ### Run a playbook
@@ -80,9 +79,8 @@ ansible-galaxy collection install ibm.mas_devops
 
 Optionally, you can also pin the version of the collection that you install, allowing you to control exactly what version of the collection is in use in your automation:
 ```
-ansible-galaxy collection install ibm.mas_devops:10.2.0
+ansible-galaxy collection install ibm.mas_devops:10.6.2
 ```
-
 
 
 ## Support

@@ -48,13 +48,16 @@
       - "MAS Subcription Upgrade ...... {{ mas_upgrade_strategy }}"
 
 
-# 5. Install the operator
+# 5. Install the operator & create entitlement secret
 # -----------------------------------------------------------------------------
 - name: "Install MAS Operator"
   include_role:
     name: ibm.mas_devops.install_operator
   vars:
     namespace: "{{ mas_namespace }}"
+    icr_host: "{{ mas_icr_cp }}"
+    icr_username: "{{ mas_entitlement_username }}"
+    icr_password: "{{ mas_entitlement_key }}"
     catalog_source: "{{ mas_catalog_source }}"
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
@@ -110,30 +113,7 @@
     - suite_crd_info.resources | length > 0
 
 
-# 7. Create the ibm-entitlement secret for entitled content
-# -----------------------------------------------------------------------------
-- name: "init : Create ibm-entitlement secret in MAS Namespace"
-  vars:
-    entitledAuthStr: "{{mas_entitlement_username}}:{{mas_entitlement_key}}"
-    entitledAuth: "{{ entitledAuthStr | b64encode }}"
-    content:
-      - '{"auths":{"{{mas_icr_cp}}": {"username":"{{mas_entitlement_username}}","password":"{{mas_entitlement_key}}","auth":"{{entitledAuth}}"}'
-      - '}'
-      - '}'
-  kubernetes.core.k8s:
-    definition:
-      apiVersion: v1
-      kind: Secret
-      type: kubernetes.io/dockerconfigjson
-      metadata:
-        name: "ibm-entitlement"
-        namespace: "{{ mas_namespace}}"
-      stringData:
-        # Only way I could get three consecutive "}" into a string :)
-        .dockerconfigjson: "{{ content | join('') | string }}"
-
-
-# 8. Suite installation
+# 7. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
   vars:
@@ -144,7 +124,7 @@
     template: templates/core_v1_suite.yml.j2
 
 
-# 9. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
+# 8. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
 # -----------------------------------------------------------------------------
 # ibm-common-services operators deployed by MAS will inherit the inherit MAS upgrade strategy
 # when its set to Manual, we need to interate those to ensure we do approve the first install plan

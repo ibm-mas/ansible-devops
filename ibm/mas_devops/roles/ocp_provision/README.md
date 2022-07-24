@@ -67,7 +67,7 @@ The resource group to create the cluster inside.
 IBM Cloud zone where the cluster should be provisioned.
 
 - Environment Variable: `ROKS_ZONE`
-- Default Value: `lon02`
+- Default Value: `dal10`
 
 ### roks_flavor
 Worker node flavor

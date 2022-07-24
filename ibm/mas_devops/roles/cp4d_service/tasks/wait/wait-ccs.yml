@@ -1,95 +1,9 @@
 ---
-# 1. Patch service accounts
+# 1. Wait for CCS CR to be ready
 # -----------------------------------------------------------------------------
-# 1.1. Wait for Runtime service accounts to be created (this will take in
-# excess of 1 hour for a new install)
-- name: "wait-ccs : Wait for the Runtime service accounts to appear"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: ServiceAccount
-    name: "{{ item }}"
-    namespace: "{{ cpd_instance_namespace }}"
-  register: runtime_sa_lookup
-  retries: 24 # Up to 2 hours
-  delay: 300 # Every 5 minutes
-  until:
-    - runtime_sa_lookup.resources is defined
-    - runtime_sa_lookup.resources | length > 0
-  with_items:
-    - runtime-assemblies-operator
-    - runtime-manager-api
-
-# 1.2. Patch the runtime service accounts in ibm-cpd namespace to add ibm-entitlement-key
-- name: "wait-ccs : Patch the Runtime service accounts"
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: ServiceAccount
-    name: "{{ item }}"
-    namespace: "{{ cpd_instance_namespace }}"
-    definition:
-      imagePullSecrets:
-        - name: ibm-entitlement-key
-  with_items:
-    - runtime-assemblies-operator
-    - runtime-manager-api
-
-# 1.3 If we look for pods in image pull backoff too early then we won't know which ones to
-# boot so that they pick up the image pull secret as it takes a while for pods to get
-# into "ImagePullBackOff" or "ErrImagePull" state
-- name: "wait-ccs : Pause for 5 minutes to allow the runtimes operator pod to start up"
-  pause:
-    minutes: 5
-
-# 1.4. Lookup and restart the runtimes operator pod if it's in ImagePullBackOff state
-- name: "wait-ccs : Lookup runtimes operator pod"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Pod
-    label_selectors:
-      - app.kubernetes.io/name = runtime-assemblies-operator
-    namespace: "{{ cpd_instance_namespace }}"
-  register: runtime_operator_pod_lookup
-  retries: 10 # Up to 10 minutes
-  delay: 60 # Every 1 minute
-
-- name: "wait-ccs : Delete runtimes operator pod if it's in image pull backoff"
-  when:
-    - runtime_operator_pod_lookup.resources | length > 0
-    - runtime_operator_pod_lookup.resources[0].status.containerStatuses[0].state is defined
-    - runtime_operator_pod_lookup.resources[0].status.containerStatuses[0].state.waiting is defined
-    - runtime_operator_pod_lookup.resources[0].status.containerStatuses[0].state.waiting.reason is defined
-    - runtime_operator_pod_lookup.resources[0].status.containerStatuses[0].state.waiting.reason is in ["ImagePullBackOff", "ErrImagePull"]
-  kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: Pod
-    name: "{{ runtime_operator_pod_lookup.resources[0].metadata.name }}"
-    namespace: "{{ cpd_instance_namespace }}"
-
-- name: "wait-ccs : Wait for the runtimes operator deployment to be ready"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Deployment
-    name: runtime-assemblies-operator
-    namespace: "{{ cpd_instance_namespace }}"
-    wait: true
-    wait_condition:
-      type: Available
-      status: True
-    wait_sleep: 10 # seconds
-    wait_timeout: 300 # 5 minutes
-
-
-# 2. Wait for CCS CR to be ready
-# -----------------------------------------------------------------------------
-# Although the overall time to install CCS is huge, by the time the runtimes
-# operator is deployed it will already have deployed the time-intensive parts
-# of CCS (RabbitMQ, Redis, CouchDb, Elasticsearch) and this should report
-# success within 1 hour.
-
 # Note: We can't fail early when we see Failed status, as the operator will
 # report failed multiple times during initial reconcile.
-- name: "wait-ccs : Wait for ccsStatus 'Completed'"
+- name: "wait-ccs : Wait for ccsStatus 'Completed' (5m interval)"
   kubernetes.core.k8s_info:
     api_version: "ccs.cpd.ibm.com/v1beta1"
     kind: CCS
@@ -102,10 +16,10 @@
     - ccs_cr_lookup.resources[0].status is defined
     - ccs_cr_lookup.resources[0].status.ccsStatus is defined
     - ccs_cr_lookup.resources[0].status.ccsStatus == "Completed" #  or ccs_cr_lookup.resources[0].status.wmlStatus == "Failed"
-  retries: 30 # Up to 1 hour
-  delay: 120 # Every 2 minutes
+  retries: 50 # Just over 4 hours
+  delay: 300 # Every 5 minutes
 
 - name: "wait-ccs : Check that the CCS ccsStatus is 'Completed'"
   assert:
     that: ccs_cr_lookup.resources[0].status.ccsStatus == "Completed"
-    fail_msg: "Watson Machine Learning install failed (ccsStatus)"
+    fail_msg: "CCS install failed (ccsStatus)"
