@@ -245,6 +245,7 @@
     state: absent
   when: initial_db2_cluster_lookup.resources | length == 0
 
+
 # 15. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/create_ldap_user.yml
@@ -254,7 +255,28 @@
     - db2_ldap_password is defined
     - db2_ldap_password != ""
 
-# 16. Generate a JdbcCfg for MAS configuration
+
+# 16. Wait for the statefulset to be ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Db2 Stateful set to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Statefulset
+    name: "c-{{ db2_instance_name | lower }}-db2u"
+    namespace: "{{ db2_namespace }}"
+  register: db2_sts
+  until:
+    - db2_sts.resources is defined
+    - db2_sts.resources | length > 0
+    - db2_sts.resources[0].status is defined
+    - db2_sts.resources[0].status.replicas is defined
+    - db2_sts.resources[0].status.readyReplicas is defined
+    - db2_sts.resources[0].status.readyReplicas == db2_sts.resources[0].status.replicas
+  retries: 20 # approx 10 minutes before we give up
+  delay: 30 # seconds
+
+
+# 17. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/suite_jdbccfg.yml
   when:
