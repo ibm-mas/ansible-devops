@@ -83,7 +83,5 @@ Optionally, you can also pin the version of the collection that you install, all
 ansible-galaxy collection install ibm.mas_devops:10.2.0
 ```
 
-
-
 ## Support
 This Ansible collection is developed by the IBM Maximo Application Suite development team, customers may raise support tickets via the same routes they would an issue with the product itself, or [raise an issue directly in the GitHub repository](https://github.com/ibm-mas/ansible-devops/issues).
