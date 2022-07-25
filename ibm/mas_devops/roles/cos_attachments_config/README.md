@@ -1,79 +1,68 @@
 cos
 ===
 
-This role provides support for Configuring Cloud Object Storage in MAS.  It currently supports two providers:
+This role provides extends support for Configuring IBM Cloud Object Storage for Manage application attachments.
 
-- In-cluster Ceph Object Storage leveraging OpenShift Container Storage
-- IBM Cloud Object Storage
-
-Currently this role only supports generating a system-scoped ObjectStorageCfg resource, but the generated file can be modified if you wish to use other scopes.
+You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage information to use as storage for Manage application attachments
 
 Role Variables
 --------------
 
-### cos_type
-Required.  Which COS provider to use; can be set to either `ibm` for IBM Cloud Object Storage or `ocs` for OpenShift Container Storage
-
-- Environment Variable: `COS_TYPE`
-- Default Value: None
-
 ### cos_instance_name
-Provide an optional name for the Object Storage instance.  This is only used when cos_type is set to `ibm` for IBM Cloud Object Storage.
+Required. IBM Cloud Object Storage instance name to be used to store Manage application attachments
 
 - Environment Variable: `COS_INSTANCE_NAME`
-- Default Value: `Object Storage for MAS`, if `mas_instance_id` is set the MAS instance ID will be appended to this name.
+- Default Value: None. If you do not have an existing IBM Cloud Object Storage instance, you can use `cos` role to provision one.
 
+### ibmcloud_resourcegroup
+Optional. Provide the name of the resource group that hosts your IBM Cloud Object Storage instance. If you do not provide it, the role will try to find the IBM Cloud Object Storage instance in `Default` resource group.
+
+- Environment Variable: `IBMCLOUD_RESOURCEGROUP`
+- Default Value: `Default`
 ### ibmcloud_apikey
-Required if cos_type is set to `ibm`.  Provide your IBM Cloud API Key.
+Required. Provide your IBM Cloud API Key.
 
 - Environment Variable: `IBMCLOUD_APIKEY`
 - Default Value: None
 
-### ibmcloud_resourcegroup
-Only used when cos_type is set to `ibm`.  Provide the name of the resource group which will own the COS instance.
-
-- Environment Variable: `IBMCLOUD_RESOURCEGROUP`
-- Default Value: `Default`
-
 ### mas_instance_id
-The instance ID of Maximo Application Suite that the ObjectStorageCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a ObjectStorageCfg template.
+Required. The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
 
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default Value: None
 
-### mas_config_dir
-Local directory to save the generated ObjectStorageCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a ObjectStorageCfg template.
+### mas_workspace_id
+Required. The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
 
-- Environment Variable: `MAS_CONFIG_DIR`
+- Environment Variable: `MAS_WORKSPACE_ID`
 - Default Value: None
 
+### db2_instance_name
+Required. The DB2 Warehouse instance name that stores your Manage application tables and data. This will be used to lookup for Manage application database and update it with the IBM Object Storage configuration.
+
+- Environment Variable: `DB2_INSTANCE_NAME` # e.g. db2u-iot or db2wh-1658148844550964
+- Default Value: None
+
+### db2_namespace
+Optional. The namespace in your cluster that hosts the DB2 Warehouse instance name. This will be used to lookup for Manage application database and update it with the IBM Object Storage configuration. If you do not provide it, the role will try to find the Db2 Warehouse in `db2u` namespace.
+
+- Environment Variable: `DB2_NAMESPACE` # e.g. db2u
+- Default Value: `db2u` 
 
 Example Playbook
 ----------------
-
-Create the Ceph Object store on the existing OCS cluster and prepare the objectstorageCfg yaml to mas_config_dir.
+.
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cos_type: ocs
     mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig
+    mas_workspace_id: masdev
+    db2_instance_name: db2u-manage
+    cos_instance_name: cos-masinst1
+    ibmcloud_apikey: xxxx
   roles:
-    - ibm.mas_devops.cos_setup
-```
-Create the IBM Cloud Object storage Instance and prepare the objectstorageCfg yaml to mas_config_dir.
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    cos_type: ibm
-
-    # MAS instance and config dir
-    mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig
-  roles:
-    - ibm.mas_devops.cos_setup
+    - ibm.mas_devops.cos_attachments_config
 ```
 License
 -------

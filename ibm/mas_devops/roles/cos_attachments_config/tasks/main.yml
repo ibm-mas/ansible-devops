@@ -1,16 +1,39 @@
 ---
+# ibmcloud_apikey is required in order to be able to lookup cos resources
 - name: "Fail if ibmcloud_apikey is not provided"
   assert:
     that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
     fail_msg: "ibmcloud_apikey property is required"
+
+# ibmcos_instance_name is required in order to be able to create cos resources i.e credentials and buckets
+- name: "Fail if ibmcos_instance_name is not provided"
+  assert:
+    that: ibmcos_instance_name is defined and ibmcos_instance_name != ""
+    fail_msg: "ibmcos_instance_name property is required"
+
+# mas_instance_id is required in order to be able to lookup for manage application resources
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+# mas_workspace_id is required in order to be able to lookup for manage application resources
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property is required"
+
+# db2_instance_name is required in order to be able to lookup for manage application database
+- name: "Fail if db2_instance_name is not provided"
+  assert:
+    that: db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: "db2_instance_name property is required"
 
 # 1. Determine the instance name
 # ---------------------------------------------------------------------------------------------------------------------
 - name: Customize CoS bucket name for Manage attachments
   when:
     - ibmcos_attachments_bucket_name == "maxdoc"
-    - mas_instance_id is defined
-    - mas_instance_id != ""
   set_fact:
     ibmcos_attachments_bucket_name: "{{ 'maxdoc-' + mas_instance_id }}"
 
@@ -47,7 +70,7 @@
 
 # 3. Retrieve COS instance
 # ---------------------------------------------------------------------------------------------------------------------
-- name: "ibm : Retrieve cos instance ID"
+- name: "Retrieve IBM COS instance ID"
   ibm.cloudcollection.ibm_resource_instance_info:
     name: "{{ ibmcos_instance_name }}"
     resource_group_id: "{{ resourceGID }}"
@@ -56,18 +79,18 @@
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
   register: cos_info
 
-- name: "ibm : Debug IBMCOS resource ID"
+- name: "Debug IBM COS resource ID"
   debug:
     msg: "COS Instance resource ID ... {{ cos_info.resource.id }}"
 
-- name: "ibmcos: Set resource instance id variable"
+- name: "Set resource instance id variable"
   when: cos_info.resource.id is defined
   set_fact:
     ibmcos_resource_id: "{{ cos_info.resource.id }}"
 
-# # 4. Create authentication credentials for the instance
-# # ---------------------------------------------------------------------------------------------------------------------
-- name: "ibm : Create a cos service credential for this MAS instance"
+# 4. Create authentication credentials for the instance
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Create IBM COS service credential for this MAS instance"
   ibm.cloudcollection.ibm_resource_key:
     name: "{{ mas_instance_id }}-attachments-key"
     role: "Manager"
@@ -75,24 +98,24 @@
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
     parameters: {'HMAC': true }
     
-- name: "ibm : Retrieve cos service credential for this MAS instance"
+- name: "Retrieve IBM COS service credential for this MAS instance"
   ibm.cloudcollection.ibm_resource_key_info:
     name: "{{ mas_instance_id }}-attachments-key"
     resource_instance_id: "{{ ibmcos_resource_id }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
   register: cos_key_info
 
-- name: "ibmcos: Set access key id variable"
+- name: "Set access key id variable"
   when: cos_key_info.resource.id is defined
   set_fact:
     ibmcos_access_key_id: "{{ cos_key_info.resource.credentials['cos_hmac_keys.access_key_id'] }}"
 
-- name: "ibmcos: Set secret access key variable"
+- name: "Set IBM COS secret access key variable"
   when: cos_key_info.resource.id is defined
   set_fact:
     ibmcos_secret_access_key: "{{ cos_key_info.resource.credentials['cos_hmac_keys.secret_access_key'] }}"
 
-- name: "ibm : Debug COS Resource Information needed to configure Manage attachments"
+- name: "Debug COS Resource Information needed to configure Manage attachments"
   debug:
     msg:
       - "IBM COS Bucket Name .......... {{ ibmcos_attachments_bucket_name }}"
@@ -100,9 +123,26 @@
       - "IBM COS Secret Access Key .... {{ ibmcos_secret_access_key }}"
       - "IBM COS url .................. {{ ibmcos_url }}"
 
-# 3. Create COS bucket
+# 5. Create COS bucket
 # ---------------------------------------------------------------------------------------------------------------------
-- name: "ibm : Create COS bucket to store Manage attachments"
+- name: "Lookup IBM COS bucket named '{{ ibmcos_attachments_bucket_name }}' in COS instance '{{ ibmcos_instance_name }}'"
+  ibm.cloudcollection.ibm_cos_bucket_info:
+    resource_instance_id: "{{ ibmcos_resource_id }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    bucket_name: "{{ ibmcos_attachments_bucket_name }}"
+    bucket_type: "cross_region_location"
+    bucket_region: "{{ ibmcos_attachments_bucket_location }}"
+  register: cos_bucket_lookup
+  ignore_errors: true # for some reason if bucket does not exist, 'ibm_cos_bucket_info' module fails, might be a bug.
+
+- name: "Debug IBM COS Bucket lookup information"
+  debug:
+    msg: "IBM COS Bucket Info ... {{ cos_bucket_lookup }}"
+
+- name: "Create COS bucket to store Manage attachments if it does not exist"
+  when:
+    - cos_bucket_lookup.resource is defined
+    - cos_bucket_lookup.resource.bucket_name is not defined # If it fails to find existing bucket, we try to create it anyway.
   ibm.cloudcollection.ibm_cos_bucket:
     resource_instance_id: "{{ ibmcos_resource_id }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
@@ -111,11 +151,11 @@
     cross_region_location: "{{ ibmcos_attachments_bucket_location }}"
   register: cos_bucket_info
 
-- name: "ibm : Debug IBM COS Bucket Information"
+- name: "Debug IBM COS Bucket provisioning information"
   debug:
     msg: "IBM COS Bucket Info ... {{ cos_bucket_info }}"
 
-# 4. Update Manage database with COS information 
+# 6. Update Manage database with COS information 
 # ---------------------------------------------------------------------------------------------------------------------
 - name: Lookup Manage Route
   kubernetes.core.k8s_info:
@@ -168,52 +208,44 @@
 - debug:
     msg: "{{ setup_attachment_output.stdout_lines }}"
 
-# TODO: JUST NEED TO RESTART MANAGE BUNDLE PODS TO TAKE EFFECT THE COS CONFIGURATION
-# SAMPLE:
-# - name: "Lookup SBO deployment"
-#   kubernetes.core.k8s_info:
-#     api_version: apps/v1
-#     kind: Deployment
-#     name: service-binding-operator
-#     namespace: openshift-operators
-#   register: sbo_deployment
+# 7. Restart Manage bundle pods to pick up the COS configuration 
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Lookup Manage bundle pods"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    label_selectors: mas.ibm.com/appType=serverBundle
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: manage_bundle_output
 
-# - name: "Scale down SBO operator before we proceed with MAS apps upgrade"
-#   when: sbo_deployment.resources | length > 0
-#   kubernetes.core.k8s:
-#     api_version: apps/v1
-#     kind: Deployment
-#     name: service-binding-operator
-#     namespace: openshift-operators
-#     definition:
-#       spec:
-#         replicas: 0
-#     apply: true
+- name: "List Manage bundle pods"
+  vars: 
+    list: []
+  set_fact: 
+    list: "{{ list + [item.metadata.name] }}"
+  with_items: "{{ manage_bundle_output.resources }}"
+  no_log: true
 
-# - name: "Scale up SBO operator before we proceed with MAS apps upgrade"
-#   when: sbo_deployment.resources | length > 0
-#   kubernetes.core.k8s:
-#     api_version: apps/v1
-#     kind: Deployment
-#     name: service-binding-operator
-#     namespace: openshift-operators
-#     definition:
-#       spec:
-#         replicas: 1
-#     apply: true
+- debug:
+    msg: "Restarting the following Manage bundle pods: {{ list }}"
 
-# - name: "Wait SBO operator to be running again"
-#   when: sbo_deployment.resources | length > 0
-#   kubernetes.core.k8s_info:
-#     api_version: apps/v1
-#     kind: Deployment
-#     name: service-binding-operator
-#     namespace: openshift-operators
-#   register: sbo_restart
-#   until:
-#     - sbo_restart.resources is defined
-#     - sbo_restart.resources[0].status is defined
-#     - sbo_restart.resources[0].status.readyReplicas is defined
-#     - sbo_restart.resources[0].status.readyReplicas == 1
-#   retries: 5 # approx 5 minutes before we give up
-#   delay: 60 # 1 minute
+- name: "Restart Manage bundle pods to apply the COS configuration"
+  failed_when:
+    - manage_bundle_output.resources | length == 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Pod
+    name: "{{ item.metadata.name }}"
+    label_selectors: mas.ibm.com/appType=serverBundle
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  with_items: "{{ manage_bundle_output.resources  }}"
+  loop_control:
+    label: "Restarting bundle pod: {{ item.metadata.name }}..."
+
+- name: "Pause for 1 minute before checking bundle pods..."
+  pause:
+    seconds: 60
+
+- name: "Wait Manage bundle pods to be ready"
+  include_tasks: tasks/wait_bundle_pods.yml
