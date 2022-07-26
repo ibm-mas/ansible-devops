@@ -78,6 +78,22 @@ Optional. Flag indicating if manage demodata should be loaded or not.
 - Environment Variable: MAS_APP_SETTINGS_DEMODATA
 - Default: `false` (do not load demodata)
 
+### mas_app_base_language
+Optional. Provide the base language for Manage application. 
+
+- Environment Variable: MAS_APP_BASE_LANG
+- Default: `EN` (English)
+
+### mas_app_secondary_languages
+Optional. Provide a list of additional secondary languages for Manage application. 
+Note: The more languages you add, the longer Manage will take to install and activate.
+Export the `MAS_APP_SECONDARY_LANGS` variable with the language codes as comma-separated values.
+For a full list of supported languages for Manage application, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
+
+Example: `export MAS_APP_SECONDARY_LANGS='AR,DE,JA,PT-BR'`
+
+- Environment Variable: MAS_APP_SECONDARY_LANGS
+- Default: None
 
 Example Playbook
 ----------------

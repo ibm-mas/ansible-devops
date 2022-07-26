@@ -1,9 +1,9 @@
 cos
 ===
 
-This role provides extends support for Configuring IBM Cloud Object Storage for Manage application attachments.
+This role extends support for Configuring IBM Cloud Object Storage for **Manage** application attachments.
 
-You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage information to use as storage for Manage application attachments
+You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage information to use it as storage for Manage application attachments
 
 Role Variables
 --------------
@@ -51,7 +51,8 @@ Optional. The namespace in your cluster that hosts the DB2 Warehouse instance na
 
 Example Playbook
 ----------------
-.
+The following sample can be used to configure COS for an existing Manage application instance.
+
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -64,6 +65,24 @@ Example Playbook
   roles:
     - ibm.mas_devops.cos_attachments_config
 ```
+
+The following sample playbook can be used to provision COS in IBM Cloud and configure COS for an existing Manage application instance.
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_workspace_id: masdev
+    db2_instance_name: db2u-manage
+    cos_type: ibm
+    cos_instance_name: cos-masinst1
+    ibmcloud_apikey: xxxx
+  roles:
+    - ibm.mas_devops.cos
+    - ibm.mas_devops.cos_attachments_config
+```
+
 License
 -------
 
