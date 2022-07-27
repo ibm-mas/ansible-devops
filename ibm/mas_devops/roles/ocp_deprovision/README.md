@@ -55,6 +55,30 @@ API key to authenticate with the Fyre API.
 - Environment Variable: `FYRE_APIKEY`
 - Default Value: None
 
+Role Variables - AWS-SNO
+---------------------
+The following variables are only used when `cluster_type = aws-sno`.
+
+### aws_access_key_id
+AWS access key associated with an IAM user or role. 
+
+- **Required** when `cluster_type = aws-sno`
+- Environment Variable: `AWS_ACCESS_KEY_ID`
+- Default Value: None
+
+### aws_secret_access_key
+AWS secret access key associated with an IAM user or role. 
+
+- **Required** when `cluster_type = aws-sno`
+- Environment Variable: `AWS_SECRET_ACCESS_KEY`
+- Default Value: None
+
+### sno_config_dir
+The directory that is used to store the installation configuration file and log. 
+
+- Optional when `cluster_type = aws-sno`
+- Environment Variable: `SNO_CONFIG_DIR`
+- Default Value: `/root/sno`
 
 Example Playbook
 ----------------

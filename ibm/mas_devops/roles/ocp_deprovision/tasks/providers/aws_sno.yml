@@ -1,0 +1,61 @@
+---
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "aws-sno : Fail if below variables not provided"
+  assert:
+    that:
+      - lookup('env', 'AWS_ACCESS_KEY_ID') != ""
+      - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
+      - lookup('env', 'AWS_REGION') != ""
+      - lookup('env', 'BASE_DOMAIN') != ""
+      - lookup('env', 'CLUSTER_NAME') != ""
+      - lookup('env', 'PULL_SECRET') != ""
+    fail_msg: "One or more required environment variables are not defined"
+
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "aws-sno: Debug information"
+  debug:
+    msg:
+      - "AWS_ACCESS_KEY_ID..............{{ aws_access_key_id}}"
+      - "AWS_SECRET_ACCESS_KEY..........{{ aws_secret_access_key}}"
+      - "SNO CONFIG DIR.................{{ sno_config_dir}}"
+
+
+# 3. Check for required software
+# -----------------------------------------------------------------------------
+- name: "Test if openshift-install is installed"
+  shell: openshift-install version
+  register: ocp_version
+  ignore_errors: true
+
+- name: "Fail if openshift-install is not installed"
+  assert:
+    that: ( ocp_version.rc == 0 )
+    fail_msg: "openshit-install must be installed (https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.8.43/openshift-install-linux.tar.gz)"
+
+# 4. Build the install-config.yaml
+# -----------------------------------------------------------------------------
+- name: "Check sno_config_dir"
+  stat:
+    path: "{{ sno_config_dir }}"
+  register: sno_config_directory
+
+
+# 5. Destroy SNO Cluster
+# -----------------------------------------------------------------------------
+- name: "aws-sno: Destroy SNO cluster"
+  shell: openshift-install destroy cluster --dir={{ sno_config_dir }}
+  register: aws_sno_cluster_completion
+  until:
+    - aws_sno_cluster_completion.rc == 0
+  retries: 60
+  delay: 60
+  when: sno_config_directory.stat.exists
+
+- name: "aws-sno: Debug final cluster state"
+  debug:
+    msg: "{{ aws_sno_cluster_completion.stdout}}"
+
+

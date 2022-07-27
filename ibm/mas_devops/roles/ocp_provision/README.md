@@ -181,6 +181,63 @@ The amount of memory to assign to each worker node (maximum value supported by F
 - Environment Variable: `FYRE_WORKER_MEMORY`
 - Default Value: `64`
 
+Role Variables - AWS-SNO
+---------------------
+The following variables are only used when `cluster_type = aws-sno`.
+
+### aws_access_key_id
+AWS access key associated with an IAM user or role. 
+
+- **Required** when `cluster_type = aws-sno`
+- Environment Variable: `AWS_ACCESS_KEY_ID`
+- Default Value: None
+
+### aws_secret_access_key
+AWS secret access key associated with an IAM user or role. 
+
+- **Required** when `cluster_type = aws-sno`
+- Environment Variable: `AWS_SECRET_ACCESS_KEY`
+- Default Value: None
+
+### cluster_name
+Required.  Specify the name of the cluster
+
+- Environment Variable: `CLUSTER_NAME`
+- Default Value: None
+
+### base_domain
+Required. Specify the base domain of the cluster
+
+- Environment Variable: `BASE_DOMAIN`
+- Default Value: None
+
+### aws_sno_instance_type
+EC2 Instance Type for SNO
+
+- Optional when `cluster_type = aws-sno`
+- Environment Variable: `AWS_SNO_INSTANCE_TYPE`
+- Default Value: `m5.4xlarge`
+
+### aws region
+AWS Region where SNO server will be created. 
+
+- Optional when `cluster_type = aws-sno`
+- Environment Variable: `AWS_REGION`
+- Default Value: `us-east-1`
+
+### sno_config_dir
+The directory that is used to store the installation configuration file and log. 
+
+- Optional when `cluster_type = aws-sno`
+- Environment Variable: `SNO_CONFIG_DIR`
+- Default Value: `/root/sno`
+
+### pull_secret
+Redhat OpenShift Pull Secret
+
+- **Required** when `cluster_type = aws-sno`
+- Environment Variable: `PULL_SECRET`
+- Default Value: None
 
 
 Example Playbook

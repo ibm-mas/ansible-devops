@@ -1,0 +1,28 @@
+---
+- hosts: localhost
+  vars:
+    cluster_type: aws_sno
+    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.10.18', True) }}"
+
+  pre_tasks:
+    # For the full set of supported environment variables refer to the playbook documentation
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'AWS_ACCESS_KEY_ID') != ""
+          - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
+          - lookup('env', 'BASE_DOMAIN') != ""
+          - lookup('env', 'CLUSTER_NAME') != ""
+          - lookup('env', 'PULL_SECRET') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    # 1. Provision the SNO cluster in AWS
+    - ibm.mas_devops.ocp_provision
+
+    # 2. Login and verify the cluster is ready
+    - ibm.mas_devops.ocp_login
+    - ibm.mas_devops.ocp_verify
+
+    # 3. Set up storage classes
+    # SNO in AWS doesn't come with a RWX storage class, we need to automate the process of adding EFS storage class to the cluster
