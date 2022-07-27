@@ -8,21 +8,39 @@
 
 # 2. Install IBM catalog
 # -----------------------------------------------------------------------------
-# In an airgap install scenario, the catalogs are already installed as part of
-# preparing the cluster
-- name: "Create IBM catalog"
+
+# 2.1 Online catalog
+- name: "Create IBM online catalog"
   when:
     - artifactory_username is not defined or artifactory_username == ""
     - artifactory_apikey is not defined or artifactory_apikey == ""
     - not airgap_install
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/release-catalog.yml') }}"
+    template: templates/online-catalog.yml
 
-- name: "Wait until CatalogSource/ibm-operator-catalog is Ready"
+# 2.2 Offline catalog
+- name: "Create IBM offline catalog"
   when:
-    - artifactory_username is not defined or artifactory_username == ""
-    - artifactory_apikey is not defined or artifactory_apikey == ""
+    - airgap_install
+  kubernetes.core.k8s:
+    template: templates/offline-catalog.yml
+
+
+# 3. Install development (pre-release) catalog
+# -----------------------------------------------------------------------------
+# In an airgap install scenario, the catalogs are already installed as part of
+# preparing the cluster.  The development catalog is not supported in airgap today
+- name: "Install development (pre-release) catalogs"
+  when:
+    - artifactory_username is defined and artifactory_username != ""
+    - artifactory_apikey is defined and artifactory_apikey != ""
     - not airgap_install
+  include_tasks: "tasks/development-catalog.yml"
+
+
+# 4. Wait until ready
+# -----------------------------------------------------------------------------
+- name: "Wait until CatalogSource/ibm-operator-catalog is Ready"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: CatalogSource
@@ -38,15 +56,3 @@
     - ibm_catalog_lookup.resources[0].status.connectionState is defined
     - ibm_catalog_lookup.resources[0].status.connectionState.lastObservedState is defined
     - ibm_catalog_lookup.resources[0].status.connectionState.lastObservedState == "READY"
-
-
-# 3. Install development (pre-release) catalog
-# -----------------------------------------------------------------------------
-# In an airgap install scenario, the catalogs are already installed as part of
-# preparing the cluster
-- name: "Install development (pre-release) catalogs"
-  when:
-    - artifactory_username is defined and artifactory_username != ""
-    - artifactory_apikey is defined and artifactory_apikey != ""
-    - not airgap_install
-  include_tasks: "tasks/development-catalog.yml"

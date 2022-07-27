@@ -53,20 +53,3 @@
     definition: "{{ lookup('template', 'templates/development-catalog.yml') }}"
     wait: yes
     wait_timeout: 60
-
-- name: "Wait until CatalogSource/ibm-operator-catalog is Ready"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: CatalogSource
-    name: ibm-operator-catalog
-    namespace: openshift-marketplace
-  register: ibm_catalog_lookup
-  retries: 30 # Up to 30 min
-  delay: 60 # Every minute
-  until:
-    - ibm_catalog_lookup.resources is defined
-    - ibm_catalog_lookup.resources | length == 1
-    - ibm_catalog_lookup.resources[0].status is defined
-    - ibm_catalog_lookup.resources[0].status.connectionState is defined
-    - ibm_catalog_lookup.resources[0].status.connectionState.lastObservedState is defined
-    - ibm_catalog_lookup.resources[0].status.connectionState.lastObservedState == "READY"
