@@ -47,7 +47,7 @@
         name: "{{sls_namespace}}"
 
 
-# 2. Set up the domain name for SLS
+# 3. Set up the domain name for SLS
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
   kubernetes.core.k8s_info:
@@ -62,7 +62,7 @@
     sls_domain: "{{ sls_namespace }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
 
-# 3. Install Operator & create entitlement
+# 4. Install Operator & create entitlement
 # -----------------------------------------------------------------------------
 - name: "Install SLS Operator"
   include_role:
@@ -77,7 +77,7 @@
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
 
-# 4. Wait until the LicenseService CRD is available
+# 5. Wait until the LicenseService CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the LicenseService CRD is available"
   kubernetes.core.k8s_info:
@@ -98,7 +98,7 @@
     - sls_crd_info.resources | length > 0
 
 
-# 5. Create Mongo Secret
+# 6. Create Mongo Secret
 # -----------------------------------------------------------------------------
 - name: Read MongoDb config file
   set_fact:
@@ -120,13 +120,25 @@
     template: templates/mongo-secret.yml.j2
 
 
-# 6. Bootstrap the license service
+# 7. Bootstrap the license service
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/bootstrap.yml
   when: bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != ''
 
 
-# 7. Create the license service CR
+# 8. Integrated Airgap support
+# -----------------------------------------------------------------------------
+# Before we create the CR we will set up the Airgap Image Map
+# We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
+- name: "Determine whether this is an airgap environment"
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
+
+- name: "Enable use of image digests"
+  when: airgap_install
+  include_tasks: "tasks/install/install_digest_cm.yml"
+
+
+# 9. Create the license service CR
 # -----------------------------------------------------------------------------
 - name: Create the sls.ibm.com/v1.LicenseService
   kubernetes.core.k8s:
@@ -136,12 +148,12 @@
   register: sls_cr_result
 
 
-# 8. Wait for it to hit Ready
+# 10. Wait for it to hit Ready
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/install/sls-verify.yml"
 
 
-# 9. Generate SLSCfg
+# 11. Generate SLSCfg
 # -----------------------------------------------------------------------------
 # The SLSCfg resource is not generated as part of this role anymore, a dedicated
 # role exists to generate the configuraion file (gencfg_sls), this role will set
