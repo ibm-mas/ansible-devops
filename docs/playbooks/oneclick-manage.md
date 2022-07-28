@@ -13,7 +13,7 @@ This playbook can be ran against any OCP cluster regardless of it's type; whethe
     - Create Db2 Warehouse Instance (45 minutes)
     - Additional Db2 configuration for Manage (5 minutes)
 - Configure Maximo Application Suite:
-    - Set up Db2 instance as the system-level JDBC datasource
+    - Set up Db2 instance as the workspace-application-level JDBC datasource
 - Install Maximo Manage application:
     - Install application (10 minutes)
     - Configure workspace (2 hours)
@@ -25,7 +25,6 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 - `MAS_APP_ID` Declare app_id as either `manage` or `health`
-
 
 !!! tip
     Manage requires the user to select one or more application components to enable in the workspace. By default the `base` component at the `latest` version will be installed if no `MAS_APPWS_COMPONENTS` is set. To customise the components that are enabled use the `MAS_APPWS_COMPONENTS` environment variable, for example to enable Manage(base) and Health set it to the following:
