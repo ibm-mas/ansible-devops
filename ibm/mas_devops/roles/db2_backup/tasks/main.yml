@@ -15,6 +15,12 @@
       - db2_backup_dir != ""
     fail_msg: "db2_backup_dir property is required"
 
+- name: "Assert that db2_namespace is defined"
+  assert:
+    that:
+      - db2_namespace is defined
+      - db2_namespace != ""
+    fail_msg: "db2_namespace property is required"
 
 # 2. Determine which pod to run in
 # -----------------------------------------------------------------------------
@@ -32,7 +38,7 @@
 
 - name: Configure facts
   set_fact:
-    db2wh_pod_name: "{{ db2_pod.resources[0].metadata.name if (db2_pod.resources is defined) else 'Undefined' }}"
+    db2_pod_name: "{{ db2_pod.resources[0].metadata.name if (db2_pod.resources is defined) else 'Undefined' }}"
 
 
 # 3. Provide debug information to the user
@@ -41,7 +47,7 @@
   debug:
     msg:
       - "Db2 instance name ...................... {{ db2_backup_instance_name if (db2_backup_instance_name is defined) else 'Undefined' }}"
-      - "Db2 pod namespace ...................... {{ db2_pod_namespace if (db2_pod_namespace is defined) else 'Undefined' }}"
+      - "Db2 namespace .......................... {{ db2_namespace if (db2_namespace is defined) else 'Undefined' }}"
       - "Db2 pod name ........................... {{ db2_pod_name if (db2_pod_name is defined) else 'Undefined' }}"
       - "DB2 backup files directory ............. {{ db2_backup_dir if (db2_backup_dir is defined) else 'Undefined' }}"
 
@@ -55,7 +61,7 @@
     mode: '777'
 
 - name: Copy the backup script into the db2 pod {{ db2_backup_instance_name }}
-  shell: "oc cp /tmp/backup.sh {{ db2_pod_namespace }}/{{ db2_pod_name }}:/tmp/backup.sh"
+  shell: "oc cp /tmp/backup.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/backup.sh"
 
 - name: Run backup script on db2 pod {{ db2_backup_instance_name }} as db2inst username... (this can take several minutes)
   shell: oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc '/tmp/backup.sh | tee /tmp/backup.log' db2inst1
@@ -70,7 +76,7 @@
 # -----------------------------------------------------------------------------
 - name: "Creating backup folder in {{ db2_backup_instance_name }}"
   shell: |
-    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- bash -c "sudo mkdir -p {{ db2_temp_backup_dir }}"
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- bash -c "sudo rm -rf {{ db2_temp_backup_dir }} ; sudo mkdir -p {{ db2_temp_backup_dir }}"
   register: creating_backup_folder_output
 
 - name: "Copying backup files to backup folder in {{ db2_backup_instance_name }}"

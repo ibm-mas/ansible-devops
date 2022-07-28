@@ -25,6 +25,12 @@ DB2 instance name to take the backup from.
 - Environment Variable: `DB2_BACKUP_INSTANCE_NAME`
 - Default: None
 
+### db2_namespace
+The namespace containing the DB instance to be backed up.
+
+- **Required**
+- Environment Variable: `DB2_NAMESPACE`
+- Default: None
 
 Example Playbook
 ----------------
@@ -33,6 +39,8 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    db2_namespace: "db2u"
+
     # Backup mydb1 and restore it to mydb2
     db2_backup_dir: "/tmp/db2backup"
     db2_backup_instance_name: "mydb1"
