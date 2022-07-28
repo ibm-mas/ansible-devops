@@ -78,28 +78,28 @@ Optional. Flag indicating if manage demodata should be loaded or not.
 - Environment Variable: `MAS_APP_SETTINGS_DEMODATA`
 - Default: `false` (do not load demodata)
 
-### mas_app_base_language
+### mas_app_settings_base_language
 Optional. Provide the base language for Manage application.
 For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
 
-- Environment Variable: MAS_APP_BASE_LANG
+- Environment Variable: `MAS_APP_SETTINGS_BASE_LANG`
 - Default: `EN` (English)
 
-### mas_app_secondary_languages
+### mas_app_settings_secondary_languages
 Optional. Provide a list of additional secondary languages for Manage application. 
 
 Note: The more languages you add, the longer Manage will take to install and activate.
 
-Export the `MAS_APP_SECONDARY_LANGS` variable with the language codes as comma-separated values.
+Export the `MAS_APP_SETTINGS_SECONDARY_LANGS` variable with the language codes as comma-separated values.
 For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
 
-- Environment Variable: `MAS_APP_SECONDARY_LANGS`
+- Environment Variable: `MAS_APP_SETTINGS_SECONDARY_LANGS`
 - Default: None
 
  For example, use the following to enable Manage application with Arabic, Deutsch and Japanese as secondary languages:
-`export MAS_APP_SECONDARY_LANGS='AR,DE,JA'`
+`export MAS_APP_SETTINGS_SECONDARY_LANGS='AR,DE,JA'`
 
-### mas_app_server_bundles_size
+### mas_app_settings_server_bundles_size
 Optional. Provides different flavors of server bundle configuration to handle workload for Manage application.
 For more details about Manage application server bundle configuration, refer to [Setting the server bundles for Manage application](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=manage-setting-server-bundles).
 
@@ -111,7 +111,7 @@ Currently supported server bundle sizes are:
   - i.e 4 bundle pods, each one handling workload for each main capabilities: `mea`, `cron`, `report` and `ui`
 - `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod. 
 
-- Environment Variable: `MAS_APP_SERVER_BUNDLES_SIZE`
+- Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
 - Default: `dev`
 
 Example Playbook
