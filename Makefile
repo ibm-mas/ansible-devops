@@ -8,7 +8,7 @@ ansible-build:
 	ansible-galaxy collection build --output-path image/ansible-devops/app-root ibm/mas_devops --force
 	mv image/ansible-devops/app-root/ibm-mas_devops-11.0.0.tar.gz image/ansible-devops/app-root/ibm-mas_devops.tar.gz
 ansible-install:
-	ansible-galaxy collection install image/ansible-devops/app-root/ibm-mas_devops.tar.gz --force
+	ansible-galaxy collection install image/ansible-devops/app-root/ibm-mas_devops.tar.gz --force --no-deps
 ansible-all: ansible-build ansible-install
 
 docker-build:

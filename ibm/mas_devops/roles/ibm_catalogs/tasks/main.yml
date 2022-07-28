@@ -19,9 +19,15 @@
     template: templates/online-catalog.yml
 
 # 2.2 Offline catalog
+# We need to know the digest of the version of the catalog that the user wants to install!
+- name: "Check that the version of the offline catalog is known"
+  when: airgap_install
+  assert:
+    that: mas_catalog_version is in mas_catalog_digests
+    fail_msg: "{{ mas_catalog_version }} does not exist or is not supported by this version of the ibm.mas_devops"
+
 - name: "Create IBM offline catalog"
-  when:
-    - airgap_install
+  when: airgap_install
   kubernetes.core.k8s:
     template: templates/offline-catalog.yml
 
