@@ -6,7 +6,6 @@
     that:
       - lookup('env', 'AWS_ACCESS_KEY_ID') != ""
       - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
-      - lookup('env', 'AWS_REGION') != ""
       - lookup('env', 'BASE_DOMAIN') != ""
       - lookup('env', 'CLUSTER_NAME') != ""
       - lookup('env', 'PULL_SECRET') != ""
@@ -75,5 +74,23 @@
 - name: "aws-sno: Debug final cluster state"
   debug:
     msg: "{{ aws_sno_cluster_completion.stdout}}"
+  
+# 6. Print SNO Cluster
+# -----------------------------------------------------------------------------
+- name: "aws-sno: Retrieve the access info"
+  set_fact:
+    login_password: "{{ lookup('file', sno_config_dir+'/auth/kubeadmin-password') }}"
+    login_user: "kubeadmin"
+    login_server:  "https://api.{{ lookup('env', 'CLUSTER_NAME') | default('', True) }}.{{ lookup('env','BASE_DOMAIN') }}:6443"
 
+- name: "aws:sno: Print the access info"  
+  debug:
+    msg:
+      - "Login Server:..................................{{ login_server }}"
+      - "Login User:....................................{{ login_user }}"
+      - "Login Password:................................{{ login_password }}"
+
+- name: "aws-sno: oc login"
+  shell: |
+    oc login -u {{ login_user }} -p {{ login_password }} --server={{ login_server }} --insecure-skip-tls-verify=true
 
