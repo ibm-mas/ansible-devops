@@ -111,7 +111,19 @@
     - app_crd_info.resources | length > 0
 
 
-# 7. App installation
+# 7. Integrated Airgap support
+# -----------------------------------------------------------------------------
+# Before we create the CR we will set up the Airgap Image Map
+# We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
+- name: "Determine whether this is an airgap environment"
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
+
+- name: "Enable use of image digests"
+  when: airgap_install
+  include_tasks: "tasks/install_digest_cm.yml"
+
+
+# 8. App installation
 # -----------------------------------------------------------------------------
 - name: Install application
   kubernetes.core.k8s:
@@ -120,7 +132,7 @@
     definition: "{{ lookup('template', 'templates/application.yml.j2') }}"
 
 
-# 8. Wait for application to be ready
+# 9. Wait for application to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application to be ready (60s delay)"
   kubernetes.core.k8s_info:
