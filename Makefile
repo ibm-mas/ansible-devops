@@ -1,21 +1,14 @@
 #!/bin/bash
 
-.PHONY: ansible-build ansible-install ansible-all docker-build docker-run docker-all clean
+.PHONY: build install clean all
 
-.DEFAULT_GOAL := ansible-all
+.DEFAULT_GOAL := all
 
-ansible-build:
-	ansible-galaxy collection build --output-path image/ansible-devops/app-root ibm/mas_devops --force
-	mv image/ansible-devops/app-root/ibm-mas_devops-11.0.0.tar.gz image/ansible-devops/app-root/ibm-mas_devops.tar.gz
-ansible-install:
-	ansible-galaxy collection install image/ansible-devops/app-root/ibm-mas_devops.tar.gz --force --no-deps
-ansible-all: ansible-build ansible-install
-
-docker-build:
-	docker build -t ansible-devops:local image/ansible-devops
-docker-run:
-	docker run -ti ansible-devops:local
-docker-all: docker-build docker-run
-
+build: clean
+	ansible-galaxy collection build --output-path . ibm/mas_devops --force
+install:
+	ansible-galaxy collection install ibm-mas_devops-11.0.0.tar.gz --force --no-deps
 clean:
-	rm image/ansible-devops/ibm-mas_devops.tar.gz
+	rm ibm-mas_devops-11.0.0.tar.gz
+
+all: build install

@@ -27,13 +27,10 @@ ROLE_NAME=cert_manager ansible-playbook ibm.mas_devops.run_role
 ```
 
 ## Running in Docker
-The easiest way to use this collection is to take advantage of the [ibmmas/ansible-devops](https://quay.io/repository/ibmmas/ansible-devops) container image, this negates the need to install anything on your local machine (other than docker, obviously).
+The easiest way to use this collection is to take advantage of the [ibmmas/cli](https://quay.io/repository/ibmmas/cli) container image, this negates the need to install anything on your local machine (other than docker - or podman if you prefer).
 
 ```bash
-docker run -ti quay.io/ibmmas/ansible-devops:latest bash
-(app-root) oc login --token=xxxx --server=https://myocpserver
-(app-root) ansible localhost -m include_role -a name=ibm.mas_devops.ocp_verify
-(app-root) ansible-playbook ibm.mas_devops.oneclick_core
+docker run -ti -rm quay.io/ibmmas/cli
 ```
 
 
