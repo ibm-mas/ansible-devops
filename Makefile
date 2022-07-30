@@ -4,7 +4,7 @@
 
 .DEFAULT_GOAL := all
 
-build: clean
+build:
 	ansible-galaxy collection build --output-path . ibm/mas_devops --force
 install:
 	ansible-galaxy collection install ibm-mas_devops-11.0.0.tar.gz --force --no-deps
