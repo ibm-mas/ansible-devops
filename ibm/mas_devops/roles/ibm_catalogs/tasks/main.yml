@@ -6,23 +6,51 @@
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
 
 
-# 2. Install IBM catalogs
+# 2. Install IBM catalog
 # -----------------------------------------------------------------------------
-# In an airgap install scenario, the catalogs are already installed as part of
-# preparing the cluster
-- name: "Create IBM catalogs"
+
+# 2.1 Online catalog
+- name: "Create IBM online catalog"
   when:
+    - artifactory_username is not defined or artifactory_username == ""
+    - artifactory_apikey is not defined or artifactory_apikey == ""
     - not airgap_install
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/ibm-catalogs.yml') }}"
+    template: templates/online-catalog.yml.j2
 
-- name: "Wait till IBM Catalogs are Ready"
+# 2.2 Offline catalog
+# We need to know the digest of the version of the catalog that the user wants to install!
+- name: "Check that the version of the offline catalog is known"
+  when: airgap_install
+  assert:
+    that: mas_catalog_version is in mas_catalog_digests
+    fail_msg: "{{ mas_catalog_version }} does not exist or is not supported by this version of the ibm.mas_devops"
+
+- name: "Create IBM offline catalog"
+  when: airgap_install
+  kubernetes.core.k8s:
+    template: templates/offline-catalog.yml.j2
+
+
+# 3. Install development (pre-release) catalog
+# -----------------------------------------------------------------------------
+# In an airgap install scenario, the catalogs are already installed as part of
+# preparing the cluster.  The development catalog is not supported in airgap today
+- name: "Install development (pre-release) catalogs"
   when:
+    - artifactory_username is defined and artifactory_username != ""
+    - artifactory_apikey is defined and artifactory_apikey != ""
     - not airgap_install
+  include_tasks: tasks/development-catalog.yml
+
+
+# 4. Wait until ready
+# -----------------------------------------------------------------------------
+- name: "Wait until CatalogSource/ibm-operator-catalog is Ready"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: CatalogSource
-    name: "{{ item }}"
+    name: ibm-operator-catalog
     namespace: openshift-marketplace
   register: ibm_catalog_lookup
   retries: 30 # Up to 30 min
@@ -34,17 +62,3 @@
     - ibm_catalog_lookup.resources[0].status.connectionState is defined
     - ibm_catalog_lookup.resources[0].status.connectionState.lastObservedState is defined
     - ibm_catalog_lookup.resources[0].status.connectionState.lastObservedState == "READY"
-  with_items:
-    - ibm-operator-catalog
-    - opencloud-operators
-
-# 3. Install development (pre-release) catalogs
-# -----------------------------------------------------------------------------
-# In an airgap install scenario, the catalogs are already installed as part of
-# preparing the cluster
-- name: "Install development (pre-release) catalogs"
-  when:
-    - artifactory_username is defined and artifactory_username != ""
-    - artifactory_apikey is defined and artifactory_apikey != ""
-    - not airgap_install
-  include_tasks: "tasks/development-catalogs.yml"

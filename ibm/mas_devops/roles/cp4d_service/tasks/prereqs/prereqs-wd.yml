@@ -2,8 +2,7 @@
 - name: "prereqs-wd : Create EDB Operand Request"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/wd/operandRequest-edb.yml.j2') }}"
-
+    template: templates/wd/operandRequest-edb.yml.j2
 
 # oc get opreq common-service-edb -n ${PROJECT_CPFS_OPS} -o jsonpath='{.status.phase}  {"\n"}'
 - name: "prereqs-wd : Wait for operand request to be processed"
@@ -35,3 +34,10 @@
     - cpd_pod_lookup.resources[0].status.phase == "Running"
   retries: 30 # Up to 1 hour
   delay: 120 # Every 2 minutes
+
+# This shouldn't be necessary
+# Ref: https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3481#issuecomment-44648280
+- name: "prereqs-wd : Pre-create wd-discovery-cn-postgres ServiceAccount with the right ImagePullSecret"
+  kubernetes.core.k8s:
+    apply: yes
+    template: templates/wd/serviceAccount.yml.j2

@@ -1,0 +1,55 @@
+---
+# Install the operator catalog
+
+# 1. Create an image pull secret for local artifactory so that we can install the development catalog
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Create wiotp-docker-local secret"
+  vars:
+    artifactoryAuthStr: "{{artifactory_username}}:{{artifactory_apikey}}"
+    artifactoryAuth: "{{ artifactoryAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"wiotp-docker-local.artifactory.swg-devops.com": {"username":"{{artifactory_username}}","password":"{{artifactory_apikey}}","auth":"{{artifactoryAuth}}"}'
+      - '}'
+      - '}'
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: wiotp-docker-local
+        namespace: openshift-marketplace
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
+  register: result
+
+
+# 2. Create the service accounts in openshift-marketplace so that it is able to pull from Artifactory
+# ---------------------------------------------------------------------------------------------------------------------
+# The default service account is used in OCP 4.6
+# In OCP 4.8+ each catalog source uses it's own ServiceAccount
+- name: "Create service accounts on openshift-marketplace"
+  vars:
+    catalog_sa: "{{ item }}"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "{{ item }}"
+        namespace: openshift-marketplace
+      imagePullSecrets:
+        - name: wiotp-docker-local
+  with_items:
+    - default
+    - ibm-operator-catalog
+
+
+# 3. Install the catalog
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Create development catalog"
+  kubernetes.core.k8s:
+    template: templates/development-catalog.yml.j2
+    wait: yes
+    wait_timeout: 60
