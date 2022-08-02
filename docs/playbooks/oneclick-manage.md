@@ -13,7 +13,7 @@ This playbook can be ran against any OCP cluster regardless of it's type; whethe
     - Create Db2 Warehouse Instance (45 minutes)
     - Additional Db2 configuration for Manage (5 minutes)
 - Configure Maximo Application Suite:
-    - Set up Db2 instance as the workspace-application-level JDBC datasource
+    - Set up Db2 instance as the system-level JDBC datasource
 - Install Maximo Manage application:
     - Install application (10 minutes)
     - Configure workspace (2 hours)

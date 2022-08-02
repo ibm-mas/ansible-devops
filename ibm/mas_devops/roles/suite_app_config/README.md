@@ -132,7 +132,7 @@ Example Playbook
 
     mas_app_ws_spec:
       bindings:
-        jdbc: "{{ mas_appws_jdbc_binding | default( 'workspace-application' , true) }}"
+        jdbc: "{{ mas_appws_jdbc_binding | default( 'system' , true) }}"
 
   roles:
     - ibm.mas_devops.suite_app_config
