@@ -88,17 +88,13 @@
                   </li>
                   <li class="toctree-l1 current"><a class="reference internal current" href="./">cert_manager</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#mas_channel">mas_channel</a>
+    <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a>
     </li>
-        </ul>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#tekton-task">Tekton Task</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
+    <li class="toctree-l2"><a class="reference internal" href="#run-role-playbook">Run Role Playbook</a>
     </li>
     </ul>
                   </li>
@@ -204,42 +200,24 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="cert_manager">cert_manager<a class="headerlink" href="#cert_manager" title="Permanent link"></a></h1>
-<p>Deploy a Certificate Manager Operator into the target OCP cluster.  For MAS 8.6 (or earlier) JetStack cert-manager v1.2 is installed into the <code>cert-manager</code> namespace.  When used for MAS 8.7+ IBM Certificate Manager will instead be installed in the <code>ibm-common-services</code> namespace.</p>
+<p>Deploy the <strong>IBM Certificate Manager Operator</strong> into the target OCP cluster in the <code>ibm-common-services</code> namespace.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link"></a></h2>
+<p>To run this role successfully you must have already installed a CatalogSource that contains IBM Certificate Manager and installed the <strong>IBM Cloud Pak Foundational Services Operator</strong>.  These tasks can be achieved using the <a href="../ibm_catalogs/">ibm_catalogs</a> and <a href="../common_services/">common_services</a> roles in this collection.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<h3 id="mas_channel">mas_channel<a class="headerlink" href="#mas_channel" title="Permanent link"></a></h3>
-<p>Used to determine whether to install SBO stable channel and the IBM badged cert-manager.</p>
-<ul>
-<li>Optional, if not provided then the IBM certificate manager will be preferred to the JetStack certificate manager.</li>
-<li>Environment Variable: <code>MAS_CHANNEL</code></li>
-<li>Default Value: None</li>
-</ul>
+<p>None</p>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
+<p>After installing the Ansible Collection you can include this role in your own custom playbooks.</p>
 <pre><code class="language-yaml">- hosts: localhost
-  vars:
-    mas_channel: 8.8.x
   roles:
+    - ibm.mas_devops.ibm_catalogs
+    - ibm.mas_devops.common_services
     - ibm.mas_devops.cert_manager
 </code></pre>
-<h2 id="tekton-task">Tekton Task<a class="headerlink" href="#tekton-task" title="Permanent link"></a></h2>
-<p>Start a run of the <strong>mas-devops-cert-manager</strong> Task as below, you must have already prepared the namespace:</p>
-<pre><code>cat &lt;&lt;EOF | oc create -f -
-apiVersion: tekton.dev/v1beta1
-kind: TaskRun
-metadata:
-  generateName: mas-devops-cert-manager-
-spec:
-  taskRef:
-    kind: Task
-    name: mas-devops-cert-manager
-  params:
-  - name: mas_channel
-    value: 8.8.x
-  resources: {}
-  serviceAccountName: pipeline
-  timeout: 24h0m0s
-EOF
+<h2 id="run-role-playbook">Run Role Playbook<a class="headerlink" href="#run-role-playbook" title="Permanent link"></a></h2>
+<p>After installing the Ansible Collection you can easily run the role standalone using the <code>run_role</code> playbook provided.</p>
+<pre><code class="language-bash">ROLE_NAME=cert_manager ansible-playbook ibm.mas_devops.run_role
 </code></pre>
-<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
+<h1 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h1>
 <p>EPL-2.0</p>
               
             </div>
