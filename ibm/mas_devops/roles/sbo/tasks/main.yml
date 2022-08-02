@@ -1,5 +1,4 @@
 ---
-
 # 0. Lookup the version and flavour of OCP that we are targeting
 # -----------------------------------------------------------------------------
 # In Frye OCP 4.6 we find this configmap named as "openshift-install-manifests"
@@ -59,10 +58,12 @@
 # 1. Install Service Binding Operator
 # -----------------------------------------------------------------------------
 # Install stable channel with automatic updates if MAS 8.7+, otherwise, install preview channel locked to v0.8
-
+# Unless MAS Channel = 8.8.x, in which case we don't need SBO anymore
 - name: Define which SBO to install
+  when: mas_channel != "8.8.x"
   set_fact:
     sbo_channel: "{{ 'stable' if (mas_channel not in mas_channels_old_releases and ocp_install_release != '4.6') else 'preview' }}"
 
 - name: "Launch SBO install"
+  when: mas_channel != "8.8.x"
   include_tasks: "tasks/install/{{ sbo_channel }}.yml"
