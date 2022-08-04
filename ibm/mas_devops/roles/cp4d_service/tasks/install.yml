@@ -31,7 +31,17 @@
     - cpd_service_name is in ['wd']
   include_tasks: "prereqs/prereqs-{{ cpd_service_name }}.yml"
 
-# 3. Install CP4D Service Catalog Sources
+# 3.1 Install Operand Configs and Operand Registries
+# -----------------------------------------------------------------------------
+# Only Watson Studio and Watson Discovery requires these operand configs
+- name: Install Operand Configs and Operand Registries
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/operand_config/{{ cpd_service_name }}.yml"
+  when:
+    - cpd_service_name is in ['wd', 'wsl']
+
+# 3.2 Install CP4D Service Catalog Sources
 # -----------------------------------------------------------------------------
 - name: "Install CP4D Service Catalog Source"
   kubernetes.core.k8s:
