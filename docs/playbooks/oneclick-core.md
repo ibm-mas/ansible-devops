@@ -93,7 +93,7 @@ ansible-playbook ibm.mas_devops.oneclick_core
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.2.0 bash`
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:latest bash`
 
 
 ### Pre-release build
@@ -126,4 +126,4 @@ ansible-playbook ibm.mas_devops.oneclick_core
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:10.2.0 bash`
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:latest bash`

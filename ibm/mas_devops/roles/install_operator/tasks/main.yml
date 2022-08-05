@@ -11,33 +11,33 @@
 
 # 2. Create an image pull secret for the pre-release catalog
 # -----------------------------------------------------------------------------
-- name: "Create wiotp-docker-local secret"
-  when:
-    - artifactory_username != ""
-    - artifactory_apikey != ""
-  vars:
-    artifactoryAuthStr: "{{artifactory_username}}:{{artifactory_apikey}}"
-    artifactoryAuth: "{{ artifactoryAuthStr | b64encode }}"
-    content:
-      - '{"auths":{"wiotp-docker-local.artifactory.swg-devops.com": {"username":"{{artifactory_username}}","password":"{{artifactory_apikey}}","auth":"{{artifactoryAuth}}"}'
-      - '}'
-      - '}'
+- name: "Debug Entitlement Secret Creation"
+  debug:
+    msg:
+      - "Target Namespace ....................... {{ namespace }}"
+      - "Artifactory Username ................... {{ artifactory_username | default('<undefined>', true) }}"
+      - "Artifactory Password ................... {{ artifactory_apikey | default('<undefined>', true) }}"
+      - "ICR Host ............................... {{ icr_host | default('<undefined>', true) }}"
+      - "ICR Username ........................... {{ icr_username | default('<undefined>', true) }}"
+      - "ICR Password ........................... {{ icr_password | default('<undefined>', true) }}"
+
+- name: "Create ibm-entitlement secret"
   kubernetes.core.k8s:
     definition:
       apiVersion: v1
       kind: Secret
       type: kubernetes.io/dockerconfigjson
       metadata:
-        name: wiotp-docker-local
+        name: ibm-entitlement
         namespace: '{{ namespace }}'
-      stringData:
-        # Only way I could get three consecutive "}" into a string :)
-        .dockerconfigjson: "{{ content | join('') | string }}"
-  register: result
+      data:
+        .dockerconfigjson: "{{ lookup('template', 'templates/ibm-entitlement-with-artifactory.json.j2') | to_json | b64encode }}"
 
 
 # 3. Patch the default service account for pre-release build access
 # -----------------------------------------------------------------------------
+# If we don't do this then we won't be able to pull the operator image from
+# Artifactory
 - name: "Patch default SA"
   when:
     - artifactory_username != ""
@@ -50,7 +50,7 @@
         name: default
         namespace: '{{ namespace }}'
       imagePullSecrets:
-        - name: wiotp-docker-local
+        - name: ibm-entitlement
 
 
 # 4. Create the operator group that will scope the operator
