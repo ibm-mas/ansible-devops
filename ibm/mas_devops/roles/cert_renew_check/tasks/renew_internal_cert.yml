@@ -1,41 +1,35 @@
 ---
-- name: "Lookup original {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret"
+- name: "Lookup original {{ mas_instance_id }}-{{ cert_name }}-cert-internal data"
   kubernetes.core.k8s_info:
     api_version: v1
     name: "{{ mas_instance_id }}-{{ cert_name }}-cert-internal"
     namespace: "{{ mas_namespace }}"
     kind: Secret
-  register: original_secret_result
-  failed_when: original_secret_result.resources[0] | length == 0
+  register: internalcert_original_data
+  failed_when: internalcert_original_data.resources[0] | length == 0
 
-- name: "Delete original {{ mas_instance_id}}-{{ cert_name }}-cert-internal secret"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: Secret
-    name: "{{ mas_instance_id }}-{{ cert_name }}-cert-internal"
-    namespace: "{{ mas_namespace }}"
+- name: "Run cmctl renew command"
+  shell: cmctl renew {{mas_instance_id}}-{{ cert_name }}-cert-internal
 
-- name: "Wait for {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret to be recreated (60s delay)"
+- name: "Wait for {{ mas_instance_id }}-{{ cert_name }}-cert-internal to be renewed (30s delay)"
   kubernetes.core.k8s_info:
     api_version: v1
     name: "{{ mas_instance_id }}-{{ cert_name }}-cert-internal"
     namespace: "{{ mas_namespace }}"
     kind: Secret
-  register: new_secret_result
+  register: internalcert_new_data
   until:
-    - new_secret_result.resources[0] is defined
-    - new_secret_result.resources[0] | length > 0
-  retries: 15 # approx 15 minutes before we give up
-  delay: 60 # 1 minute
+    - internalcert_new_data.resources[0] is defined
+  retries: 5 # approx 5 minutes before we give up
+  delay: 30 # 30 Seconds
 
-- name: "Assert new 'ca.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret is different from the one prior to renewal"
+- name: "Assert new 'tls.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret is different from the one prior to renewal"
   block:
     assert:
       that:
-        - original_secret_result.resources[0].data['ca.crt'] != new_secret_result.resources[0].data['ca.crt']
+        - internalcert_original_data.resources[0].data['tls.crt'] != new_secret_result.resources[0].data['tls.crt']
       fail_msg: "Assertion Failed! Original {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret does not match with the recreated one."
-      success_msg: "Assertion Passed! Original 'ca.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret matches with the new one recreated!"
+      success_msg: "Assertion Passed! Original 'tls.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret matches with the new one recreated!"
     rescue:
       - debug:
           msg: "Warning: new secret in {{ mas_instance_id }}-{{ cert_name }}-cert-internal is the same as the one prior to renewal, private key rotation failed"

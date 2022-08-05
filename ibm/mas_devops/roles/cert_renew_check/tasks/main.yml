@@ -1,12 +1,65 @@
 ---
 # This role will perform the following:
-# Delete the original certificates, secrets, and issuers from the cert-manager namespace
+# Renew the original certificates and check that the newly created certificate gets presented
 
 # 1. Set facts and debug
 # -------------------------------------------------------------------------------------------------
 - set_fact:
     cert_manager_namespace: "{{ suite_info.resources[0].spec.certManagerNamespace | default('cert-manager', True) }}"
-    internal_cert_names:
+
+
+- name: General Debug
+  debug:
+    msg:
+    - "Instance ID ................ {{ mas_instance_id }}"
+    - "MAS namespace .............. {{ mas_namespace }}"
+    - "MAS Custom Cluster Issuer .. {{ custom_cluster_issuer }}"
+    - "Cert-Manager namespace ..... {{ cert_manager_namespace }}"
+
+# 2.1. Renew MAS cert-public and check if it's recreated
+# -------------------------------------------------------------------------------------------------
+- name: "Lookup original {{mas_instance_id}}-cert-public data"
+  kubernetes.core.k8s_info:
+    api_version: v1oc
+    name: "{{ mas_instance_id }}-cert-public"
+    namespace: "{{ mas_namespace }}"
+    kind: Secret
+  register: publiccert_original_data
+  failed_when: publiccert_original_data.resources[0] | length == 0
+
+- name: "Run cmctl renew command"
+  shell: cmctl renew {{mas_instance_id}}-cert-public 
+
+- name: "Wait for {{mas_instance_id}}-cert-public to be renew (30s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "{{mas_instance_id}}-cert-public"
+    namespace: "{{ mas_namespace }}"
+    kind: Secret
+  register: publiccert_new_data
+  until:
+  - publiccert_new_data.resources[0] is defined
+  retries: 5 # approx 5 minutes before we give up
+  delay: 30 # 30 Seconds
+
+- name: "Assert new 'tls.crt' in {{mas_instance_id}}-cert-public secret is different from the one prior to renewal"
+  block:
+    assert:
+      that:
+        - publiccert_original_data.resources[0].data['tls.crt'] != publiccert_new_data.resources[0].data['tls.crt']
+      fail_msg: "Assertion Failed! Original {{mas_instance_id}}-cert-public secret does not match with the recreated one."
+      success_msg: "Assertion Passed! Original 'tls.crt' in {{mas_instance_id}}-cert-public secret matches with the new one recreated!"
+    rescue:
+      - debug:
+          msg: "Warning: new secret in {{mas_instance_id}}-cert-public is the same as the one prior to renewal, private key rotation failed"
+
+# 3 Renew all internal certs and check that they're recreated with new details
+# -------------------------------------------------------------------------------------------------
+- name: Renew internal certs
+  include_tasks: tasks/renew_internal_cert.yml
+  vars:
+    cert_name: "{{ item }}"
+  loop:
     - admindashboard
     - adoptionreporter
     - adoptionusageapi
@@ -26,125 +79,3 @@
     - sendmailapi
     - usersynccoordinator
     - workspacecoordinator
-
-- name: General Debug
-  debug:
-    msg:
-    - "Instance ID ................ {{ mas_instance_id }}"
-    - "MAS namespace .............. {{ mas_namespace }}"
-    - "MAS Custom Cluster Issuer .. {{ custom_cluster_issuer }}"
-    - "Cert-Manager namespace ..... {{ cert_manager_namespace }}"
-
-# 2.1. Delete MAS cert-public secret and check if it's recreated
-# -------------------------------------------------------------------------------------------------
-- name: "Lookup original {{mas_instance_id}}-cert-public secret"
-  kubernetes.core.k8s_info:
-    api_version: v1oc
-    name: "{{ mas_instance_id }}-cert-public"
-    namespace: "{{ mas_namespace }}"
-    kind: Secret
-  register: publiccert_original_secret_result
-  failed_when: publiccert_original_secret_result.resources[0] | length == 0
-
-- name: "Delete original {{mas_instance_id}}-cert-public secret"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: Secret
-    name: "{{mas_instance_id}}-cert-public"
-    namespace: "{{ mas_namespace }}"
-
-- name: "Wait for {{mas_instance_id}}-cert-public secret to be recreated (60s delay)"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    name: "{{mas_instance_id}}-cert-public"
-    namespace: "{{ mas_namespace }}"
-    kind: Secret
-  register: publiccert_new_secret_result
-  until:
-  - publiccert_new_secret_result.resources[0] is defined
-  - publiccert_new_secret_result.resources[0] | length > 0
-  retries: 15 # approx 15 minutes before we give up
-  delay: 60 # 1 minute
-
-# Self-signed MAS instances must have ca.crt, tls.crt and tls.key in {{mas_instance_id}}-cert-public secret
-- name: "Assert {{mas_instance_id}}-cert-public secret has been recreated and contains the expected content (Selfsigned instance)"
-  when:
-  - custom_cluster_issuer is not defined or custom_cluster_issuer == ''
-  assert:
-    that:
-    - publiccert_new_secret_result.resources[0].data is defined
-    - publiccert_new_secret_result.resources[0].data['ca.crt'] is defined
-    - publiccert_new_secret_result.resources[0].data['tls.crt'] is defined
-    - publiccert_new_secret_result.resources[0].data['tls.key'] is defined
-    fail_msg: "Assertion Failed! {{mas_instance_id}}-cert-public secret was not recreated with expected properties."
-    success_msg: "Assertion Passed! {{mas_instance_id}}-cert-public secret was recreated with expected properties 'ca.crt', 'tls.crt', 'tls.key'!"
-
-# Or, if it's a Let's encrypt type of MAS instances, it must have tls.crt and tls.key only in {{mas_instance_id}}-cert-public secret
-- name: "Assert {{mas_instance_id}}-cert-public secret has been recreated and contains the expected content (Selfsigned instance)"
-  when:
-  - custom_cluster_issuer is defined
-  - custom_cluster_issuer | length > 0
-  assert:
-    that:
-    - publiccert_new_secret_result.resources[0].data is defined
-    - publiccert_new_secret_result.resources[0].data['tls.crt'] is defined
-    - publiccert_new_secret_result.resources[0].data['tls.key'] is defined
-    fail_msg: "Assertion Failed! {{mas_instance_id}}-cert-public secret was not recreated with expected properties."
-    success_msg: "Assertion Passed! {{mas_instance_id}}-cert-public secret was recreated with expected properties 'tls.crt' and 'tls.key'!"
-
-# 2.2. Verify MAS 8.6 install is still happy with recreation of the cert-public secret
-# since {{mas_instance_id}}-cert-public secret is recreated, it will reapply the new secret cross MAS instance
-# -------------------------------------------------------------------------------------------------
-- name: "Wait for Suite CR to reconcile after {{mas_instance_id}}-cert-public secret is recreated (60s delay)"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    name: "{{mas_instance_id}}"
-    namespace: "{{mas_namespace}}"
-    kind: Suite
-  register: suite_cr_result
-  until:
-  - suite_cr_result.resources is defined
-  - suite_cr_result.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
-  - suite_cr_result.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
-  - suite_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
-  retries: 30 # approx 30 minutes before we give up
-  delay: 60 # 1 minute
-
-# 3 Delete any cert-internal secret and check if it's recreated
-# -------------------------------------------------------------------------------------------------
-
-- name: "Renew internal cert : {{  internal_cert_names[0] }}"
-  include_tasks: tasks/renew_internal_cert.yml
-  vars:
-    cert_name: "{{ internal_cert_names[0] }}"
-
-- name: "Renew internal cert : {{  internal_cert_names[1] }}"
-  include_tasks: tasks/renew_internal_cert.yml
-  vars:
-    cert_name: "{{ internal_cert_names[1] }}"
-
-- name: "Renew internal cert : {{  internal_cert_names[2] }}"
-  include_tasks: tasks/renew_internal_cert.yml
-  vars:
-    cert_name: "{{ internal_cert_names[2] }}"
-
-- name: "Renew internal cert : {{  internal_cert_names[3] }}"
-  include_tasks: tasks/renew_internal_cert.yml
-  vars:
-    cert_name: "{{ internal_cert_names[3] }}"
-
-- name: "Renew internal cert : {{  internal_cert_names[4] }}"
-  include_tasks: tasks/renew_internal_cert.yml
-  vars:
-    cert_name: "{{ internal_cert_names[4] }}"
-
-- name: "Renew internal cert : {{  internal_cert_names[5] }}"
-  include_tasks: tasks/renew_internal_cert.yml
-  vars:
-    cert_name: "{{ internal_cert_names[5] }}"
-
-- name: "Renew internal cert : {{  internal_cert_names[18] }}"
-  include_tasks: tasks/renew_internal_cert.yml
-  vars:
-    cert_name: "{{ internal_cert_names[18] }}"
