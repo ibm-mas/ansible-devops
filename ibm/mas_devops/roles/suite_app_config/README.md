@@ -36,7 +36,7 @@ Defines the app components and versions to configure in the application workspac
 ### mas_app_ws_spec
 Optional.  The application workspace deployment spec used to configure various aspects of the application workspace configuration. Note that use of this will override anything set in `mas_appws_components`
 
-- Environment Variable: None
+- Environment Variable: MAS_APP_WS_SPEC
 - Default: defaults are specified in `vars/defaultspecs/{{mas_app_id}}.yml`
 
 Role Variables - Health & Predict Utilities

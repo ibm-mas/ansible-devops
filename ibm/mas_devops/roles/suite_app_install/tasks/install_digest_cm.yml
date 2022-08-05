@@ -1,0 +1,86 @@
+---
+
+# 1. Determine the version of the application operator that is running
+# -----------------------------------------------------------------------------
+- name: "Lookup Application operator version"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-mas-{{ mas_app_id }}.{{ mas_app_namespace }}"
+  register: app_opcon
+
+
+# 2. Fail if we can't find the OperatorCondition for the application
+# -----------------------------------------------------------------------------
+- name: "Check that the OperatorCondition was found"
+  assert:
+    that:
+      - app_opcon.resources is defined
+      - app_opcon.resources | length == 1
+      - app_opcon.resources[0].metadata.name is defined
+
+
+# 3. Set the application operator version
+# -----------------------------------------------------------------------------
+# OperatorCondition names are in the format {packageName}.{packageVersion}
+# We want to strip off the "v" prefix from the version while we do this
+- name: "Lookup operator version"
+  set_fact:
+    mas_app_operator_version: "{{ app_opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+- name: Debug
+  debug:
+    msg:
+      - "Application operator condition ......... {{ app_opcon.resources[0].metadata.name }}"
+      - "Application operator version ........... {{ mas_app_operator_version }}"
+
+
+# 4. Create the Image Digest Map
+# -----------------------------------------------------------------------------
+- name: "Create ibm-mas-{{ mas_app_id }} Image Digest Map"
+  include_role:
+    name: ibm.mas_airgap.install_digest_cm
+  vars:
+    digest_image_map_namespace: "{{ mas_app_namespace }}"
+    case_name: "ibm-mas-{{ mas_app_id }}"
+    case_version: "{{ mas_app_operator_version }}"
+
+
+# 5. Lookup the OperatorCondition for Truststore Manager
+# -----------------------------------------------------------------------------
+- name: "Lookup Truststore Manager operator version"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-truststore-mgr.{{ mas_app_namespace }}"
+  register: tsm_opcon
+
+
+# 6. If TSM is installed, determine at which version
+# -----------------------------------------------------------------------------
+- name: "Lookup Truststore Manager operator version"
+  when:
+    - tsm_opcon.resources is defined
+    - tsm_opcon.resources | length == 1
+    - tsm_opcon.resources[0].metadata.name is defined
+  set_fact:
+    tsm_operator_version: "{{ tsm_opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+
+# 7. If TSM is installed, install it's digest map
+# -----------------------------------------------------------------------------
+- name: "Create ibm-truststore-mgr Image Digest Map"
+  when:
+    - tsm_opcon.resources is defined
+    - tsm_opcon.resources | length == 1
+    - tsm_opcon.resources[0].metadata.name is defined
+  include_role:
+    name: ibm.mas_airgap.install_digest_cm
+  vars:
+    digest_image_map_namespace: "{{ mas_app_namespace }}"
+    case_name: ibm-truststore-mgr
+    case_version: "{{ tsm_operator_version }}"

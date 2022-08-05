@@ -1,74 +1,7 @@
 ---
-# 1. Patch service account
+# 1. Wait for CP4D service CR to be ready
 # -----------------------------------------------------------------------------
-# 1.1. Wait for Discovery CN postgress service accounts to be created
-# https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3481#issuecomment-44648280
-- name: "wait-wd : Wait for thewd-discovery-cn-postgres service account to appear"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: ServiceAccount
-    name: "{{ item }}"
-    namespace: "{{ cpd_instance_namespace }}"
-  register: discovery_sa_lookup
-  retries: 24 # Up to 2 hours
-  delay: 300 # Every 5 minutes
-  until:
-    - discovery_sa_lookup.resources is defined
-    - discovery_sa_lookup.resources | length > 0
-  with_items:
-    - wd-discovery-cn-postgres
-
-# 1.2. Patch the Discovery CN postgress service accounts in ibm-cpd namespace to add ibm-entitlement-key
-- name: "wait-wd : Patch the wd-discovery-cn-postgres service account"
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: ServiceAccount
-    name: "{{ item }}"
-    namespace: "{{ cpd_instance_namespace }}"
-    definition:
-      imagePullSecrets:
-        - name: ibm-entitlement-key
-  with_items:
-    - wd-discovery-cn-postgres
-
-# 1.3 If we look for pods in image pull backoff too early then we won't know which ones to
-# boot so that they pick up the image pull secret as it takes a while for pods to get
-# into "ImagePullBackOff" or "ErrImagePull" state
-- name: "wait-wd : Pause for 5 minutes to allow the runtimes operator pod to start up"
-  pause:
-    minutes: 5
-
-# 1.4. Lookup and restart the runtimes operator pod if it's in ImagePullBackOff state
-- name: "wait-wd : Lookup discovery pods"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Pod
-    label_selectors:
-      - app.kubernetes.io/name = discovery
-    namespace: "{{ cpd_instance_namespace }}"
-  register: discovery_pod_lookup
-  retries: 10 # Up to 10 minutes
-  delay: 60 # Every 1 minute
-
-- name: "wait-wd : Delete discovery pod if it's in image pull backoff"
-  when:
-    - discovery_pod_lookup.resources | length > 0
-    - item.status.containerStatuses[0].state is defined
-    - item.status.containerStatuses[0].state.waiting is defined
-    - item.status.containerStatuses[0].state.waiting.reason is defined
-    - item.status.containerStatuses[0].state.waiting.reason is in ["ImagePullBackOff", "ErrImagePull"]
-  kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: Pod
-    name: "{{ discovery_pod_lookup.resources[0].metadata.name }}"
-    namespace: "{{ cpd_instance_namespace }}"
-  with_items: "{{ discovery_pod_lookup.resources }}"
-
-
-# 2. Wait for CP4D service CR to be ready
-# -----------------------------------------------------------------------------
-- name: "wait-wd : Wait for watsonDiscoveryStatus 'Completed'"
+- name: "wait-wd : Wait for watsonDiscoveryStatus 'Completed' (5m interval)"
   kubernetes.core.k8s_info:
     api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
     kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
@@ -83,9 +16,3 @@
     - cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus == "Completed"
   retries: 66 # Up to 5.5 (yes, FIVE !!) hours
   delay: 300 # Every 5 minutes
-
-# Note: conditional of task above used to check also a Failed state.
-# Reason for the change: noticed during tests that the Failed condition
-# temporary happened in the first moments of the installation, causing a jump
-# to the next task (removed now) and then a failure in the role execution (no retry happened).
-# If a failure status happened in the beginning, we should not use it in our conditional
