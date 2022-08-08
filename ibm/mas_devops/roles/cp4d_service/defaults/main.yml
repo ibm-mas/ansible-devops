@@ -63,7 +63,8 @@ cpd_wsl_project_storage_guid: "{{ 1000 | random | to_uuid | lower }}"
 # ---------------------------------------------------------------------------------------------------------------------
 # A Watson Discovery instance will be set up for Assist per MAS instance
 # Note: This is only used when mas_instance_id and mas_config_dir are not empty string
-cpd_wd_instance_name: "{{ lookup('env', 'CPD_WD_INSTANCE_NAME') | default('wd-mas-{{ mas_instance_id }}-assist', true) }}"
+cpd_default_wd_instance_name: "wd-mas-{{ mas_instance_id }}-assist"
+cpd_wd_instance_name: "{{ lookup('env', 'CPD_WD_INSTANCE_NAME') | default(cpd_default_wd_instance_name, true) }}"
 
 # CPD Service Information
 # ---------------------------------------------------------------------------------------------------------------------
@@ -127,15 +128,3 @@ cpd_service_info:
     crd_kind: WOService
     crd_name: woservices.wos.cpd.ibm.com
     cr_name: aiopenscale
-
-  # Decision Optimization
-  # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=services-decision-optimization
-  dods:
-    catalog_source: ibm-cpd-dods-operator-catalog
-    operator_name: ibm-cpd-dods-operator
-    package_name: ibm-cpd-dods
-    channel_name: "{{ 'v4.0' if (cpd_minor_version == '4.0') else 'v5.0' if (cpd_minor_version == '4.5') }}"
-    api_version: dods.cpd.ibm.com/v1beta1
-    crd_kind: DODS
-    crd_name: dods.dods.cpd.ibm.com
-    cr_name: dods-cr
