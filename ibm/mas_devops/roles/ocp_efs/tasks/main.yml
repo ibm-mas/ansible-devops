@@ -15,7 +15,7 @@
 
 - name: "Query to Filter the Cluster VPC Id from the list of VPCs"
   vars:
-    query : "Vpcs[?(Tags[?contains(Value,'{{ cluster_name }}' )])].VpcId"
+    query: "Vpcs[?(Tags[?contains(Value,'{{ cluster_name }}' )])].VpcId"
   set_fact:
     vpcid: "{{ vpc_ids.stdout|from_json|json_query(query) }}"
 
@@ -27,7 +27,7 @@
 
 - name: "Get Security Group Id from Output"
   set_fact:
-    security_group_id : "{{ security_group.stdout|from_json|json_query(\"ID\") }}"
+    security_group_id: "{{ security_group.stdout|from_json|json_query(\"ID\") }}"
 
 # 4. Add a New Rule which allows all the NFS traffic from the VPC private CIDR.
 # -----------------------------------------------------------------------------
@@ -48,7 +48,6 @@
 - name: "EFS Information"
   debug: 
     msg: "{{ efs_creds.stdout }}"
-  #when: init_db is defined and init_db == '1'
 
 - name: "Store EFS Creation Token"
   set_fact:
@@ -66,7 +65,7 @@
 
 - name: "Filter Subnet Id"
   set_fact:
-    private_subnet_id : "{{ private_subnet.stdout|from_json|json_query(\"[0]\") }}"
+    private_subnet_id: "{{ private_subnet.stdout|from_json|json_query(\"[0]\") }}"
 
 # 7. Add a Mount Target to EFS 
 # -----------------------------------------------------------------------------
@@ -82,7 +81,7 @@
 
 - name: "Filter Client Access Id"
   set_fact:
-    #client_access_id : "{{ client_access_info.stdout|from_json|json_query(\"AccessPointId\") }}"
+    #client_access_id: "{{ client_access_info.stdout|from_json|json_query(\"AccessPointId\") }}"
     client_access_id: fsap-0fd89028df52e5e05
 
 - name: "Debug For Client Access Id"
@@ -91,7 +90,7 @@
 
 # 8. Login to ROSA Cluster
 # -----------------------------------------------------------------------------
-- name: "login-rosa : Login to the cluster"
+- name: "login-rosa: Login to the cluster"
   shell: "oc login {{ rosa_cluster_url }} --username cluster-admin --password {{ rosa_cluster_admin_password }} --insecure-skip-tls-verify"
   register: output
 
@@ -105,11 +104,10 @@
   kubernetes.core.k8s:
     apply: yes
     template: "templates/oc_efs_subscription.yml.j2"
-  #when: init_db is defined and init_db == '1'
 
 # 10. Add AWS credentials to OpenShift secrets
 # -----------------------------------------------------------------------------
-- name : "OC create secret"
+- name: "OC create secret"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/aws_secret.yml.j2"
@@ -120,7 +118,6 @@
   kubernetes.core.k8s:
     apply: yes
     template: "templates/aws_efs_csi_driver_install_crd.yml.j2"
-  #when: init_db is defined and init_db == '1'
 
 # 12. Create a Storage Class for aws efs 
 # -----------------------------------------------------------------------------
@@ -128,4 +125,3 @@
   kubernetes.core.k8s:
     apply: yes
     template: "templates/oc_storage_class.yml.j2"
-  #when: init_db is defined and init_db == '1'
