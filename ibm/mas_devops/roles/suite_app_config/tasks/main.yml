@@ -26,6 +26,10 @@
   when: mas_app_id is in ['hputilities'] # applications which have something to process before configuration
   include_tasks: "tasks/{{ mas_app_id }}.yml"
 
+# The following will auto determine storage classes to be used as persistent volumes for Manage attachments/BIM configurations (Manage OOTB features)
+- name: Determine Storage Class for Manage application
+  when: mas_app_id is in ['manage'] # applications which have something to process before configuration
+  include_tasks: "tasks/determine-storage-classes.yml"
 
 # 4. Load default application workspace spec, if user does not provide one
 # -----------------------------------------------------------------------------
@@ -104,3 +108,17 @@
     - app_ws_cr_result.resources is defined
     - app_ws_cr_result.resources | length > 0
     - app_ws_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+
+
+
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: ibm-cpd-ws-operator-catalog-subscription
+  namespace: ibm-common-services
+spec:
+  channel: v2.0
+  installPlanApproval: Manual
+  name: ibm-cpd-wsl
+  source: ibm-cpd-ws-operator-catalog
+  sourceNamespace: openshift-marketplace
