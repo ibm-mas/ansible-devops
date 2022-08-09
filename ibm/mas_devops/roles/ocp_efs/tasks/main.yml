@@ -1,92 +1,92 @@
 # 1. AWS Login
 # -----------------------------------------------------------------------------
-- name: "login-aws Login"
+- name: "login-aws : Login"
   shell: aws configure set aws_access_key_id {{ aws_access_key_id }};aws configure set aws_secret_access_key {{ aws_secret_access_key }};aws configure set output {{ aws_output }};aws configure set region {{ aws_region }}
-
-- name: "Getting ClusterName"
-  debug:
-    msg: "{{ cluster_name }}"
 
 # 2. AWS Get VPC-Id's
 # -----------------------------------------------------------------------------
-- name: "AWS-VPC Get List of VPC Ids"
+- name: "AWS-VPC : Get List of VPC Ids"
   shell: aws ec2 describe-vpcs
   register: vpc_ids
 
-- name: "Query to Filter the Cluster VPC Id from the list of VPCs"
+- name: "AWS-VPC : Query to Filter the Cluster VPC Id from the list of VPCs"
   vars:
     query: "Vpcs[?(Tags[?contains(Value,'{{ cluster_name }}' )])].VpcId"
   set_fact:
     vpcid: "{{ vpc_ids.stdout|from_json|json_query(query) }}"
 
+- name: "AWS-VPC : Debug VPC Id"
+  debug:
+    msg: "VPC Id is........................................{{ vpcid }}"
+
 # 3. Get Security Group of the cluster
 # -----------------------------------------------------------------------------
-- name: "AWS-Security Group Get Security Group of the EC2 Istance"
+- name: "AWS-Security Group : Get Security Group of the EC2 Istance"
   shell: aws ec2 describe-security-groups --filters Name=vpc-id,Values={{ vpcid }} Name=tag:Name,Values='*worker*' --query "SecurityGroups[*].{ID:GroupId}[0]"
   register: security_group
 
-- name: "Get Security Group Id from Output"
+- name: "AWS-Security Group : Get Security Group Id from Output"
   set_fact:
     security_group_id: "{{ security_group.stdout|from_json|json_query(\"ID\") }}"
 
+- name: "AWS-Security Group : Debug Security Group Id"
+  debug:
+    msg: "Security Group Id is..............................{{ security_group_id }}"
+
 # 4. Add a New Rule which allows all the NFS traffic from the VPC private CIDR.
 # -----------------------------------------------------------------------------
-- name: "Add New Rule for A Security Group"
+- name: "AWS-Security Group : Add New Rule for A Security Group"
   shell: aws ec2 authorize-security-group-ingress --group-id {{ security_group_id }} --source-group {{ security_group_id }} --protocol tcp --port 2049
   register: inboudRule_output
 
-- name: "Debug for Inbound Rule"
-  debug:
-    msg: "{{ inboudRule_output.stdout }}"
-
 # 5. Create ELASTIC FILE SYSTEM
 # -----------------------------------------------------------------------------
-- name: "Create EFS(Elastic File System"
-  shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value=automated-efs
+- name: "AWS-EFS : Create EFS(Elastic File System"
+  shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value={{ cluster_name }}-efs
   register: efs_creds
 
-- name: "EFS Information"
-  debug:
-    msg: "{{ efs_creds.stdout }}"
-
-- name: "Store EFS Creation Token"
+- name: "AWS-EFS : Store EFS Creation Token"
   set_fact:
     client_token: "{{ efs_creds.stdout|from_json|json_query(\"CreationToken\") }}"
 
-- name: "Store EFS Id"
+- name: "AWS-EFS : Store EFS Id"
   set_fact:
     efs_id: "{{ efs_creds.stdout|from_json|json_query(\"FileSystemId\") }}"
 
+- name: "AWS-EFS : Debug EFS Id"
+  debug:
+    msg: "EFS Id is.........................................{{ efs_id }}"
+
 # 6. Get Private Subnet to Create Mount Target
 # -----------------------------------------------------------------------------
-- name: "Private Subnet to Mount Target"
+- name: "AWS-PrivateSubnet : Private Subnet to Mount Target"
   shell: aws ec2 describe-route-tables --filter Name=vpc-id,Values={{ vpcid }} Name=route.nat-gateway-id,Values='*nat*' --query "RouteTables[].Associations[].SubnetId"
   register: private_subnet
 
-- name: "Filter Subnet Id"
+- name: "AWS-PrivateSubnet : Filter Subnet Id"
   set_fact:
     private_subnet_id: "{{ private_subnet.stdout|from_json|json_query(\"[0]\") }}"
 
 # 7. Add a Mount Target to EFS
 # -----------------------------------------------------------------------------
-- name: "Mount Target to EFS"
+- name: "AWS-EFS-MountTarget : Mount Target to EFS"
   shell: aws efs create-mount-target --file-system-id {{ efs_id }} --subnet-id {{ private_subnet_id }} --security-groups {{ security_group_id }}
   register: mount_op
 
 # 8. Configure Client access
 # -----------------------------------------------------------------------------
-- name: "Add Client Access, Permissions to Owner and Posix User"
+- name: "AWS-ClientAccess : Add Client Access, Permissions to Owner and Posix User"
   shell: aws efs create-access-point --file-system-id {{ efs_id }} --client-token {{ client_token }} --posix-user Uid=10022,Gid=20000 --root-directory Path='/rosa,CreationInfo={OwnerUid=10011,OwnerGid=10000,Permissions=0755}'
   register: client_access_info
 
-- name: "Filter Client Access Id"
+- name: "AWS-ClientAccess : Filter Client Access Id"
   set_fact:
-    #client_access_id: "{{ client_access_info.stdout|from_json|json_query(\"AccessPointId\") }}"
-    client_access_id: fsap-0fd89028df52e5e05
+    client_access_id: "{{ client_access_info.stdout|from_json|json_query(\"AccessPointId\") }}"
 
-- name: "Debug For Client Access Id"
+- name: "AWS-ClientAccess : Debug Client Access Point Id"
   debug:
-    msg: "{{ client_access_id }}"
+    msg: "Client Access Point Id is.........................{{ client_access_id }}"
+
 
 # 8. Login to ROSA Cluster
 # -----------------------------------------------------------------------------
@@ -94,34 +94,34 @@
   shell: "oc login {{ rosa_cluster_url }} --username cluster-admin --password {{ rosa_cluster_admin_password }} --insecure-skip-tls-verify"
   register: output
 
-- name: "Debug Output"
-  debug:
-    msg: "{{ output.stdout }}"
-
 # 9. Install AWS EFS CSI Operator in ROSA
 # -----------------------------------------------------------------------------
-- name: "Install AWS EFS CSI Operator Subscription"
+- name: "AWS-EFS-Operator : Install AWS EFS CSI Operator Subscription"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/oc_efs_subscription.yml.j2"
 
 # 10. Add AWS credentials to OpenShift secrets
 # -----------------------------------------------------------------------------
-- name: "OC create secret"
+- name: "Create Secret : OC create secret"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/aws_secret.yml.j2"
 
 # 11. Install AWS EFS CSI DRIVER
 # -----------------------------------------------------------------------------
-- name: "Install AWS EFS CSI Driver"
+- name: "AWS-EFS-CSI-Driver : Install AWS EFS CSI Driver"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/aws_efs_csi_driver_install_crd.yml.j2"
 
 # 12. Create a Storage Class for aws efs
 # -----------------------------------------------------------------------------
-- name: "Create a Storage Class for aws efs"
+- name: "Create Storage Class : Storage Class Name"
+  set_fact:
+    storage_class_name: "{{ cluster_name }}-efs"
+
+- name: "Create Storage Class : Create a Storage Class for aws efs"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/oc_storage_class.yml.j2"
