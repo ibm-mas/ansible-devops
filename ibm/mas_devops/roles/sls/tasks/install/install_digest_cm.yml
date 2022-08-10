@@ -1,0 +1,86 @@
+---
+
+# 1. Determine the version of the SLS operator that is running
+# -----------------------------------------------------------------------------
+- name: "Lookup Application operator version"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ sls_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-sls.{{ sls_namespace }}"
+  register: sls_opcon
+
+
+# 2. Fail if we can't find the OperatorCondition for SLS
+# -----------------------------------------------------------------------------
+- name: "Check that the OperatorCondition was found"
+  assert:
+    that:
+      - sls_opcon.resources is defined
+      - sls_opcon.resources | length == 1
+      - sls_opcon.resources[0].metadata.name is defined
+
+
+# 3. Set the SLS operator version
+# -----------------------------------------------------------------------------
+# OperatorCondition names are in the format {packageName}.{packageVersion}
+# We want to strip off the "v" prefix from the version while we do this
+- name: "Lookup operator version"
+  set_fact:
+    sls_operator_version: "{{ sls_opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+- name: Debug
+  debug:
+    msg:
+      - "SLS operator condition ......... {{ sls_opcon.resources[0].metadata.name }}"
+      - "SLS operator version ........... {{ sls_operator_version }}"
+
+
+# 4. Create the Image Digest Map
+# -----------------------------------------------------------------------------
+- name: "Create ibm-sls Image Digest Map"
+  include_role:
+    name: ibm.mas_airgap.install_digest_cm
+  vars:
+    digest_image_map_namespace: "{{ sls_namespace }}"
+    case_name: ibm-sls
+    case_version: "{{ sls_operator_version }}"
+
+
+# 5. Lookup the OperatorCondition for Truststore Manager
+# -----------------------------------------------------------------------------
+- name: "Lookup Truststore Manager operator version"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ sls_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-truststore-mgr.{{ sls_namespace }}"
+  register: tsm_opcon
+
+
+# 6. If TSM is installed, determine at which version
+# -----------------------------------------------------------------------------
+- name: "Lookup Truststore Manager operator version"
+  when:
+    - tsm_opcon.resources is defined
+    - tsm_opcon.resources | length == 1
+    - tsm_opcon.resources[0].metadata.name is defined
+  set_fact:
+    tsm_operator_version: "{{ tsm_opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+
+# 7. If TSM is installed, install it's digest map
+# -----------------------------------------------------------------------------
+- name: "Create ibm-truststore-mgr Image Digest Map"
+  when:
+    - tsm_opcon.resources is defined
+    - tsm_opcon.resources | length == 1
+    - tsm_opcon.resources[0].metadata.name is defined
+  include_role:
+    name: ibm.mas_airgap.install_digest_cm
+  vars:
+    digest_image_map_namespace: "{{ sls_namespace }}"
+    case_name: ibm-truststore-mgr
+    case_version: "{{ tsm_operator_version }}"
