@@ -51,6 +51,7 @@ copyDoc suite_db2_setup_for_manage
 copyDoc suite_dns
 copyDoc suite_install
 copyDoc suite_manage_attachments_config
+copyDoc suite_manage_bim_config
 copyDoc suite_mustgather
 copyDoc suite_mustgather_download
 copyDoc suite_upgrade
