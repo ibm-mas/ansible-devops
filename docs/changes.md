@@ -1,6 +1,12 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- [`11.1`](https://github.com/ibm-mas/ansible-devops/releases/tag/11.1.0) Multiple Updates:
+    - Catalog update for IoT airgap support fix ([#435](https://github.com/ibm-mas/ansible-devops/pull/435))
+    - Support Manage attachment configuration with COS ([#420](https://github.com/ibm-mas/ansible-devops/pull/420))
+- [`11.0`](https://github.com/ibm-mas/ansible-devops/releases/tag/11.0.0) Multiple Updates:
+    - Support for MAS 8.8 & Maximo Curated Operator Catalog ([#413](https://github.com/ibm-mas/ansible-devops/pull/413))
+    - Support OCP Power on DevIT FYRE ([#423](https://github.com/ibm-mas/ansible-devops/pull/423))
 - `10.6` Analytics Project configuration in HPUtilities ([#367](https://github.com/ibm-mas/ansible-devops/pull/367))
 - `10.5` Support use of `product_group` quota in FYRE ([#373](https://github.com/ibm-mas/ansible-devops/pull/373))
 - `10.4` Multiple Updates:
