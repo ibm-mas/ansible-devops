@@ -12,6 +12,16 @@ cluster_platform: "{{lookup('env', 'CLUSTER_PLATFORM') | default('x',true)}}"
 # We can't provide a default, there is no single value that would make sense across all providers, and that would not eventually become dated
 ocp_version: "{{ lookup('env', 'OCP_VERSION') }}"
 
+# The source URL and destination directory where to download the OCP installer for IPI installations
+ocp_download_directory: "{{ lookup('env', 'OCP_DOWNLOAD_DIRECTORY') | default('/tmp/ocp', true) }}"
+ocp_download_url: "{{ lookup('env', 'OCP_DOWNLOAD_URL') | default('https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp', true) }}"
+
+# The number of worker nodes to deploy
+compute_node_count: "{{ lookup('env', 'COMPUTE_NODE_COUNT') | default('3', true) }}"
+
+# The number of control plane nodes to deploy
+controlplane_node_count: "{{ lookup('env', 'CONTROLPLANE_NODE_COUNT') | default('3', true) }}"
+
 # GPU node settings
 # Flag to add GPU worker node to cluster. Currently only set up for ROKS clusters
 ocp_provision_gpu: "{{ lookup('env', 'OCP_PROVISION_GPU') | default('false', True) }}"
@@ -22,11 +32,16 @@ gpu_workers: "{{ lookup('env', 'GPU_WORKERS') | default('1', true) }}"
 # The name of the gpu worker pool.
 gpu_workerpool_name: "{{ lookup('env', 'GPU_WORKERPOOL_NAME') | default('gpu', true) }}"
 
+# Parameters passed to the openshift installer via the install-config.yaml file
+base_domain: "{{ lookup('env', 'BASE_DOMAIN') }}"
+pull_secret: "{{ lookup('env', 'PULL_SECRET') }}"
+
 # What cluster types does this role support
 supported_cluster_types:
   - fyre
   - roks
   - rosa
+  - aws-ipi
 
 # ROKS defaults
 ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
@@ -55,3 +70,10 @@ fyre_worker_cpu: "{{ lookup('env', 'FYRE_WORKER_CPU') | default('64', true) }}"
 rosa_token: "{{ lookup('env', 'ROSA_TOKEN') }}"
 rosa_cluster_admin_password: "{{ lookup('env', 'ROSA_CLUSTER_ADMIN_PASSWORD') }}"
 rosa_compute_nodes: "{{ lookup('env', 'ROSA_COMPUTE_NODES') | default('3', true) }}"
+
+# AWS IPI defaults
+aws_region: "{{ lookup('env', 'AWS_REGION')  | default('us-east-1', true)  }}"
+aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+aws_compute_instance_type: "{{ lookup('env', 'AWS_COMPUTE_INSTANCE_TYPE') | default('m5.4xlarge', true) }}"
+aws_controlplane_instance_type: "{{ lookup('env', 'AWS_CONTROLPLANE_INSTANCE_TYPE') | default('m5.4xlarge', true) }}"

@@ -1,0 +1,158 @@
+---
+# 1. Failure conditions (environment variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are required by AWS IPI openshift installer)
+# -----------------------------------------------------------------------------
+- name: "aws-ipi : Fail if variables below are not provided"
+  assert:
+    that: 
+      - lookup('env', 'AWS_ACCESS_KEY_ID') != ""
+      - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
+      - base_domain is defined and base_domain != ""
+      - pull_secret is defined and pull_secret != ""
+      - ocp_version is defined and ocp_version != ""
+    fail_msg: "One or more required variables are not defined"
+
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "aws-ipi : Debug information"
+  debug:
+    msg:
+      - "Cluster name ...................... {{ cluster_name }}"
+      - "OCP version ....................... {{ ocp_version }}"
+      - "OCP download directory ............ {{ ocp_download_directory }}"
+      - "OCP installer download URL ........ {{ ocp_download_url }}/{{ ocp_version }}/openshift-install-linux.tar.gz"
+      - "AWS Region ........................ {{ aws_region }}"
+      - "Base Domain ....................... {{ base_domain }}"
+      - "AWS Compute Instance Type ......... {{ aws_compute_instance_type }}"
+      - "AWS Control Plane Instance Type ... {{ aws_controlplane_instance_type }}"
+      - "Compute Node Count ................ {{ compute_node_count }}"
+      - "Control Plane Node Count .......... {{ controlplane_node_count }}"
+      - "AWS Access Key ID ................. {{ aws_access_key_id }}"
+      - "AWS Access Key Secret ............. {{ aws_secret_access_key }}"
+      - "Pull Secret ....................... {{ pull_secret }}"
+
+# 3. Create OCP download directory if it does not exist
+# -----------------------------------------------------------------------------
+- name: "aws-ipi: check if OCP download directory exists"
+  stat:
+    path: "{{ ocp_download_directory }}/config"
+  register: check_ocp_directory
+
+- name: "aws-ipi: create the OCP download directory if it does not exist"
+  file: 
+    path: "{{ ocp_download_directory }}/config"
+    state: directory
+    mode: '755'
+  when: not check_ocp_directory.stat.exists
+
+
+# 4. Download OCP installer and client from https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp
+# -----------------------------------------------------------------------------
+- name: "aws-ipi: downloading OCP {{ ocp_version }} installer from {{ ocp_download_url }}/{{ ocp_version }}/openshift-install-linux.tar.gz"
+  shell: |
+    curl -w '%{http_code}\n' -o {{ ocp_download_directory }}/installer-{{ ocp_version }}.tar.gz "{{ ocp_download_url }}/{{ ocp_version }}/openshift-install-linux.tar.gz"
+  register: curl_output
+  failed_when: >
+    (curl_output.rc != 0) or 
+    (curl_output.stdout != "200")
+
+- name: "aws-ipi: downloading OCP {{ ocp_version }} client from {{ ocp_download_url }}/{{ ocp_version }}/openshift-client-linux.tar.gz"
+  shell: |
+    curl -w '%{http_code}\n' -o {{ ocp_download_directory }}/client-{{ ocp_version }}.tar.gz "{{ ocp_download_url }}/{{ ocp_version }}/openshift-client-linux.tar.gz"
+  register: curl_output
+  failed_when: >
+    (curl_output.rc != 0) or 
+    (curl_output.stdout != "200")
+
+- name: "aws-ipi: extracting OCP installer and client to {{ ocp_download_directory }}"
+  shell: |
+    tar xf {{ ocp_download_directory }}/client-{{ ocp_version }}.tar.gz -C {{ ocp_download_directory }}
+    tar xf {{ ocp_download_directory }}/installer-{{ ocp_version }}.tar.gz -C {{ ocp_download_directory }}
+  register: tar_output
+  failed_when: >
+    (tar_output.rc != 0)
+
+- name: "aws-ipi: list downloaded OCP files in {{ ocp_download_directory }}"
+  shell: ls -al {{ ocp_download_directory }}
+  register: ls_output
+- debug:
+    msg: "{{ ls_output.stdout_lines }}"
+
+# 5. Verify that the downloaded OCP installer (i.e. openshift-install) is included the PATH environment variable
+# -----------------------------------------------------------------------------
+- name: "aws-ipi: add {{ ocp_download_directory }} to system PATH environment variable"
+  set_fact: 
+    updated_path="{{ ocp_download_directory + ':' + lookup('env', 'PATH') }}"
+
+- name: "aws-ipi: verify that the downloaded OCP installer (i.e. openshift-install) is included the PATH environment variable"
+  shell: which openshift-install
+  register: which_result
+  ignore_errors: true
+  environment:
+    PATH: "{{ updated_path }}"
+- fail:
+    msg: "OCP installer downloaded to {{ ocp_download_directory }} is not in the PATH, before running this role add {{ ocp_download_directory }} to the PATH environment variable"
+  vars:
+    download_dir: "{{ ocp_download_directory }}"
+  when: >
+    (which_result.rc != 0) or
+    (not download_dir in which_result.stdout)
+
+- name: "aws-ipi: show openshift-install version"
+  shell: openshift-install version
+  register: oc_output
+  environment:
+    PATH: "{{ updated_path }}"
+- debug:
+    msg: "{{ oc_output.stdout_lines }}"
+
+# 6. Build the install-config.yaml
+# -----------------------------------------------------------------------------
+- name: "aws-ipi: build the install-config.yaml for the AWS IPI installation"
+  template:
+    src: aws-ipi/install-config.yaml.j2
+    dest: "{{ ocp_download_directory }}/config/install-config.yaml"
+    mode: '644'
+
+- name: "aws-ipi: dump install-config.yaml contents"
+  debug:
+    msg: 
+      - "{{ lookup('file', ocp_config_filename) }}"
+  vars:
+    ocp_config_filename: "{{ ocp_download_directory }}/config/install-config.yaml"
+
+# 7. Create the OCP cluster using the AWS IPI installer
+# -----------------------------------------------------------------------------
+- name: "aws-ipi: create OCP cluster {{ cluster_name }} in {{ aws_region }} AWS region. This can take a while..."
+  shell: openshift-install create cluster --dir={{ ocp_download_directory }}/config
+  environment:
+    PATH: "{{ updated_path }}"
+  register: aws_cluster_completion
+
+- name: "aws-ipi: Debug final OCP cluster state"
+  debug:
+    msg: "{{ aws_cluster_completion.stdout }}"
+
+# 8. Print OCP Cluster login information
+# -----------------------------------------------------------------------------
+- name: "aws-ipi: retrieve the OCP access info for cluster {{ cluster_name }}"
+  set_fact:
+    login_password: "{{ lookup('file', ocp_download_directory + '/config/auth/kubeadmin-password') }}"
+    login_user: "kubeadmin"
+    login_server:  "https://api.{{ cluster_name }}.{{ base_domain }}:6443"
+  when: aws_cluster_completion.rc == 0
+
+- name: "aws-ipi: Print the OCP access info for cluster {{ cluster_name }}"
+  debug:
+    msg:
+      - "Login Server:..................................{{ login_server }}"
+      - "Login User:....................................{{ login_user }}"
+      - "Login Password:................................{{ login_password }}"
+  when: aws_cluster_completion.rc == 0
+
+- name: "aws-ipi: oc login"
+  shell: |
+    oc login -u {{ login_user }} -p {{ login_password }} --server={{ login_server }} --insecure-skip-tls-verify=true
+  environment:
+    PATH: "{{ updated_path }}"
+  when: aws_cluster_completion.rc == 0

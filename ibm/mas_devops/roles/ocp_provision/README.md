@@ -8,7 +8,7 @@ Role Variables
 --------------
 
 ### cluster_type
-Required.  Specify the cluster type, supported values are `fyre`, `roks` and `rosa`.
+Required.  Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `aws-ipi`.
 
 - Environment Variable: `CLUSTER_TYPE`
 - Default Value: None
@@ -25,6 +25,36 @@ Required.  Specify the version of OCP to install.  The exact format of this will
 - Environment Variable: `OCP_VERSION`
 - Default Value: None
 
+Role Variables - openshift-install based installations
+---------------------
+The following variables are only used when installing OCP via the openshift-install program. For example, when `cluster_type = aws-ipi`
+
+### base_domain
+Required. Specify the base domain of the cluster
+
+- **Required** when using the openshift-install program
+- Environment Variable: `BASE_DOMAIN`
+- Default Value: None
+
+### pull_secret
+Redhat OpenShift Pull Secret
+
+- **Required** when using the openshift-install program
+- Environment Variable: `PULL_SECRET`
+- Default Value: None
+
+### ocp_download_directory
+The directory where the OCP installer will be downloaded to.
+
+- Environment Variable: `OCP_DOWNLOAD_DIRECTORY`
+- Default Value: /tmp/ocp
+
+### ocp_download_url
+The base URL from which the OCP installer download URL is constructed. 
+For example, {{ ocp_download_url }}/{{ ocp_version }}/openshift-install-linux.tar.gz
+
+- Environment Variable: `OCP_DOWNLOAD_URL`
+- Default Value: https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp
 
 Role Variables - GPU Node Support
 ---------------------------------
@@ -45,6 +75,24 @@ The number of GPU worker nodes that will be deploy in the cluster. The node crea
 
 - Environment Variable: `GPU_WORKERS`
 - Default Value: `1`
+
+### compute_node_count
+The number of compute nodes (i.e. worker nodes) allocate to the OCP cluster.
+
+- Environment Variable: `COMPUTE_NODE_COUNT`
+- Default Value: `3`
+
+### controlplane_node_count
+The number of control plane nodes (i.e. master nodes) allocate to the OCP cluster.
+
+- Environment Variable: `CONTROLPLANE_NODE_COUNT`
+- Default Value: `3`
+
+### gpu_workerpool_name
+The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal.
+
+- Environment Variable: `GPU_WORKERPOOL_NAME`
+- Default Value: `gpu`
 
 
 Role Variables - ROKS
@@ -92,14 +140,14 @@ Role Variables - ROSA
 ---------------------
 The following variables are only used when `cluster_type = rosa`.
 
-### roso_token
+### rosa_token
 Token to authenticate to the ROSA service
 
 - **Required** if `cluster_type = rosa`.
 - Environment Variable: `ROSA_TOKEN`
 - Default Value: None
 
-### roso_cluster_admin_password
+### rosa_cluster_admin_password
 Password to set up for the `cluster-admin` user account on the OCP instance.  You will need this to log onto the cluster after it is provisioned.
 
 - **Required** if `cluster_type = rosa`.
@@ -112,7 +160,6 @@ Number of compute nodes to deploy in the cluster.
 - Optional
 - Environment Variable: `ROSA_COMPUTE_NODES`
 - Default Value: `3`
-
 
 Role Variables - Fyre
 ---------------------
@@ -181,7 +228,45 @@ The amount of memory to assign to each worker node (maximum value supported by F
 - Environment Variable: `FYRE_WORKER_MEMORY`
 - Default Value: `64`
 
+Role Variables - AWS IPI
+----------------------------
+The following variables are only used when `cluster_type = aws-ipi`.
 
+### aws_region
+AWS Region where SNO server will be created. 
+
+- Optional when `cluster_type = aws-ipi`
+- Environment Variable: `AWS_REGION`
+- Default Value: `us-east-1`
+
+### aws_access_key_id
+AWS access key associated with an IAM user or role. Make sure the access key has permissions
+to create instances. 
+
+- **Required** when `cluster_type = aws-ipi`
+- Environment Variable: `AWS_ACCESS_KEY_ID`
+- Default Value: None
+
+### aws_secret_access_key
+AWS secret access key associated with an IAM user or role. 
+
+- **Required** when `cluster_type = aws-ipi`
+- Environment Variable: `AWS_SECRET_ACCESS_KEY`
+- Default Value: None
+
+### aws_compute_instance_type
+AWS compute instance type. 
+
+- Optional when `cluster_type = aws-ipi`
+- Environment Variable: `AWS_COMPUTE_INSTANCE_TYPE`
+- Default Value: `m5.4xlarge`
+
+### aws_controlplane_instance_type
+AWS compute instance type. 
+
+- Optional when `cluster_type = aws-ipi`
+- Environment Variable: `AWS_CONTROLPLANE_INSTANCE_TYPE`
+- Default Value: `m5.4xlarge`
 
 Example Playbook
 -----------------------

@@ -55,6 +55,22 @@ API key to authenticate with the Fyre API.
 - Environment Variable: `FYRE_APIKEY`
 - Default Value: None
 
+Role Variable
+---------------------
+### aws_access_key_id
+AWS access key associated with an IAM user or role. 
+
+- **Required** when `cluster_type = aws-ipi`
+- Environment Variable: `AWS_ACCESS_KEY_ID`
+- Default Value: None
+
+### aws_secret_access_key
+AWS secret access key associated with an IAM user or role. Make sure the access key has permissions
+to delete instances.
+
+- **Required** when `cluster_type = aws-ipi`
+- Environment Variable: `AWS_SECRET_ACCESS_KEY`
+- Default Value: None
 
 Example Playbook
 ----------------

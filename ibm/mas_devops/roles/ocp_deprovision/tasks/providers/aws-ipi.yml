@@ -1,0 +1,72 @@
+---
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "aws-ipi : Fail if below variables not provided"
+  assert:
+    that:
+      - lookup('env', 'AWS_ACCESS_KEY_ID') != ""
+      - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
+    fail_msg: "One or more required environment variables are not defined"
+
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "aws-ipi: Debug information"
+  debug:
+    msg:
+      - "AWS_ACCESS_KEY_ID .............. {{ aws_access_key_id }}"
+      - "AWS_SECRET_ACCESS_KEY .......... {{ aws_secret_access_key }}"
+      - "OCP download directory ......... {{ ocp_download_directory }}"
+      - "OCP cluster config ............. {{ ocp_download_directory }}/config/install-config.yaml"
+
+
+# 3. Check for required software
+# -----------------------------------------------------------------------------
+- name: Add {{ ocp_download_directory }} to system PATH environment variable
+  set_fact: 
+    updated_path="{{ ocp_download_directory + ':' + lookup('env', 'PATH') }}"
+  
+- name: "aws-ipi: verify that the OCP installer (i.e. openshift-install) is included the PATH environment variable"
+  shell: which openshift-install
+  register: which_result
+  ignore_errors: true
+  environment:
+    PATH: "{{ updated_path }}"
+- fail:
+    msg: "openshift-install must be installed to {{ ocp_download_directory }}.  You can download from (https://mirror.openshift.com/pub/openshift-v4/clients/ocp)"
+  vars:
+    download_dir: "{{ ocp_download_directory }}"
+  when: >
+    (which_result.rc != 0) or
+    (not download_dir in which_result.stdout)
+
+- name: "aws-ipi: show openshift-install version"
+  shell: openshift-install version
+  register: oc_output
+  environment:
+    PATH: "{{ updated_path }}"
+- debug:
+    msg: "{{ oc_output.stdout_lines }}"
+
+# 4. Check the config directory containing metadata.json exists
+# -----------------------------------------------------------------------------
+- name: "Check if OCP cluster config file exists"
+  stat:
+    path: "{{ ocp_download_directory }}/config/metadata.json"
+  register: check_ocp_config
+
+
+# 5. Destroy AWS Cluster
+# -----------------------------------------------------------------------------
+- name: "aws-ipi: Destroy AWS cluster defined in {{ ocp_download_directory }}/config/metadata.json. This can take a while..."
+  shell: openshift-install destroy cluster --dir={{ ocp_download_directory }}/config
+  register: aws_cluster_completion
+  environment:
+    PATH: "{{ updated_path }}"
+  when: check_ocp_config.stat.exists
+
+- name: "aws-ipi: Debug final cluster state"
+  debug:
+    msg: "{{ aws_cluster_completion.stdout }}"
+  when: aws_cluster_completion is defined and aws_cluster_completion != ""
+    
