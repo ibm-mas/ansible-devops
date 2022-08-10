@@ -46,6 +46,7 @@ copyDoc sbo_upgrade
 copyDoc sls
 copyDoc suite_app_config
 copyDoc suite_app_install
+copyDoc suite_certs_renew
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
 copyDoc suite_dns
