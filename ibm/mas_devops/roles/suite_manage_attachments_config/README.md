@@ -117,7 +117,7 @@ The following sample playbook can be used to deploy Manage with default persiste
     - ibm.mas_devops.suite_config
     - ibm.mas_devops.suite_app_install
     - ibm.mas_devops.suite_app_config
-    - ibm.mas_devops.manage_attachments_config
+    - ibm.mas_devops.suite_manage_attachments_config
 ```
 
 License

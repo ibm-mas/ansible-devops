@@ -1,4 +1,4 @@
-manage_bim_config
+suite_manage_bim_config
 ===
 
 This role extends support for configuring existing PVC mounted path for BIM (Building Information Models) in **Manage** application.
@@ -47,7 +47,7 @@ The following sample can be used to configure BIM for an existing Manage applica
     db2_instance_name: db2w-manage
     mas_app_settings_bim_mount_path: /bim
   roles:
-    - ibm.mas_devops.manage_bim_config
+    - ibm.mas_devops.suite_manage_bim_config
 ```
 
 The following sample playbook can be used to deploy Manage with default persistent storage for BIM (PVC mount path `/bim`), and configure Manage system properties with the corresponding BIM settings. 
@@ -69,5 +69,5 @@ The following sample playbook can be used to deploy Manage with default persiste
     - ibm.mas_devops.suite_config
     - ibm.mas_devops.suite_app_install
     - ibm.mas_devops.suite_app_config
-    - ibm.mas_devops.manage_bim_config
+    - ibm.mas_devops.suite_manage_bim_config
 ```
