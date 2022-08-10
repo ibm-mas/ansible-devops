@@ -13,7 +13,6 @@
     msg:
     - "Instance ID ................ {{ mas_instance_id }}"
     - "MAS namespace .............. {{ mas_namespace }}"
-    - "MAS Custom Cluster Issuer .. {{ custom_cluster_issuer }}"
     - "Cert-Manager namespace ..... {{ cert_manager_namespace }}"
 
 # 2.1. Renew MAS cert-public and check if it's recreated
@@ -79,3 +78,21 @@
   - sendmailapi
   - usersynccoordinator
   - workspacecoordinator
+
+# 4 Verify MAS install is still happy after the renewals
+# -------------------------------------------------------------------------------------------------
+- name: "Wait for Suite CR to reconcile after certs are renewed (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "{{mas_instance_id}}"
+    namespace: "{{mas_namespace}}"
+    kind: Suite
+  register: suite_cr_result
+  until:
+    - suite_cr_result.resources is defined
+    - suite_cr_result.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
+    - suite_cr_result.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == 1
+    - suite_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 1 minute
+  
