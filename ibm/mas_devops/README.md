@@ -9,6 +9,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 - `11.1` Multiple Updates:
     - Catalog update for IoT airgap support fix ([#435](https://github.com/ibm-mas/ansible-devops/pull/435))
     - Add Single Node OpenShift on AWS support ([#440](https://github.com/ibm-mas/ansible-devops/pull/440))
+    - Add support for OCP IPI installation on AWS ([#439](https://github.com/ibm-mas/ansible-devops/pull/439))
 - `11.0` Multiple Updates:
     - Support for MAS 8.8 & Maximo Curated Operator Catalog ([#413](https://github.com/ibm-mas/ansible-devops/pull/413))
     - Support OCP Power on DevIT FYRE ([#423](https://github.com/ibm-mas/ansible-devops/pull/423))
