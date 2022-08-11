@@ -75,6 +75,8 @@
                   </li>
                   <li class="toctree-l1 current"><a class="reference internal current" href="./">ocp_provision</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#pre-requisites">Pre-requisites</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#cluster_type">cluster_type</a>
@@ -140,6 +142,28 @@
     <li class="toctree-l3"><a class="reference internal" href="#fyre_worker_cpu">fyre_worker_cpu</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#fyre_worker_memory">fyre_worker_memory</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-aws-sno">Role Variables - AWS-SNO</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#aws_access_key_id">aws_access_key_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#aws_secret_access_key">aws_secret_access_key</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#aws_instance_type">aws_instance_type</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#aws_region">aws_region</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-openshift-install">Role Variables - openshift-install</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ocp_install_base_domain">ocp_install_base_domain</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ocp_install_pullsecret_file">ocp_install_pullsecret_file</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ocp_install_dir">ocp_install_dir</a>
     </li>
         </ul>
     </li>
@@ -265,6 +289,8 @@
               
                 <h1 id="ocp_provision">ocp_provision<a class="headerlink" href="#ocp_provision" title="Permanent link"></a></h1>
 <p>Provision OCP cluster on DevIT Fyre or IBM Cloud ROKS.</p>
+<h2 id="pre-requisites">Pre-requisites<a class="headerlink" href="#pre-requisites" title="Permanent link"></a></h2>
+<p>If you are using the <code>aws-sno</code> provider you must first download and install the appropriate version of the <code>openshift-install</code> utility from <a href="https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/">mirror.openshift.com</a>.  This must be installed in a directory available on your system <code>PATH</code>.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
 <h3 id="cluster_type">cluster_type<a class="headerlink" href="#cluster_type" title="Permanent link"></a></h3>
 <p>Required.  Specify the cluster type, supported values are <code>fyre</code>, <code>roks</code> and <code>rosa</code>.</p>
@@ -428,6 +454,59 @@
 <li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = quick_burn</code>.</li>
 <li>Environment Variable: <code>FYRE_WORKER_MEMORY</code></li>
 <li>Default Value: <code>64</code></li>
+</ul>
+<h2 id="role-variables-aws-sno">Role Variables - AWS-SNO<a class="headerlink" href="#role-variables-aws-sno" title="Permanent link"></a></h2>
+<p>The following variables are only used when <code>cluster_type = aws-sno</code>.  In addition to these also see the variables related to providers that utilize <code>openshift-install</code> below.</p>
+<h3 id="aws_access_key_id">aws_access_key_id<a class="headerlink" href="#aws_access_key_id" title="Permanent link"></a></h3>
+<p>AWS access key associated with an IAM user or role.</p>
+<ul>
+<li><strong>Required</strong> when <code>cluster_type = aws-sno</code></li>
+<li>Environment Variable: <code>AWS_ACCESS_KEY_ID</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="aws_secret_access_key">aws_secret_access_key<a class="headerlink" href="#aws_secret_access_key" title="Permanent link"></a></h3>
+<p>AWS secret access key associated with an IAM user or role.</p>
+<ul>
+<li><strong>Required</strong> when <code>cluster_type = aws-sno</code></li>
+<li>Environment Variable: <code>AWS_SECRET_ACCESS_KEY</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="aws_instance_type">aws_instance_type<a class="headerlink" href="#aws_instance_type" title="Permanent link"></a></h3>
+<p>EC2 Instance Type for SNO</p>
+<ul>
+<li>Optional when <code>cluster_type = aws-sno</code></li>
+<li>Environment Variable: <code>AWS_SNO_INSTANCE_TYPE</code></li>
+<li>Default Value: <code>m5.4xlarge</code></li>
+</ul>
+<h3 id="aws_region">aws_region<a class="headerlink" href="#aws_region" title="Permanent link"></a></h3>
+<p>AWS Region where SNO server will be created.</p>
+<ul>
+<li>Optional when <code>cluster_type = aws-sno</code></li>
+<li>Environment Variable: <code>AWS_REGION</code></li>
+<li>Default Value: <code>us-east-1</code></li>
+</ul>
+<h2 id="role-variables-openshift-install">Role Variables - openshift-install<a class="headerlink" href="#role-variables-openshift-install" title="Permanent link"></a></h2>
+<p>These variables are required for any provider that utilizes <code>openshift-install</code> under the covers</p>
+<h3 id="ocp_install_base_domain">ocp_install_base_domain<a class="headerlink" href="#ocp_install_base_domain" title="Permanent link"></a></h3>
+<p>Specify the base domain of the cluster when using <code>openshift-install</code> based provisioning.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>OCP_INSTALL_BASE_DOMAIN</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="ocp_install_pullsecret_file">ocp_install_pullsecret_file<a class="headerlink" href="#ocp_install_pullsecret_file" title="Permanent link"></a></h3>
+<p>Location of the file containing your Redhat OpenShift pull secret.  This file can be obtained from the <a href="https://console.redhat.com/openshift/install/metal/user-provisioned">Red Hat Hybrid Cloud Console</a></p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>OCP_INSTALL_PULLSECRET_FILE</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="ocp_install_dir">ocp_install_dir<a class="headerlink" href="#ocp_install_dir" title="Permanent link"></a></h3>
+<p>The directory that is used to store the installation configuration file used by, and logs generated by <code>openshift-install</code>.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OCP_INSTALL_DIR</code></li>
+<li>Default Value: <code>/tmp/openshift-install</code></li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
