@@ -56,14 +56,26 @@ API key to authenticate with the Fyre API.
 - Default Value: None
 
 
-Role Variables - AWS (IPI)
+Role Variables - IPI
 -------------------------------------------------------------------------------
-The following variables are only used when `cluster_type = aws-ipi`.
+The following variables are only used when `cluster_type = ipi`.
+
+### ipi_install_dir
+The directory that is used to store the `openshift-install` executable, it's configuration, & generated log files.
+
+- Optional when `cluster_type = aws-ipi`
+- Environment Variable: `OCP_INSTALL_DIR`
+- Default Value: `~/openshift-install`
+
+
+Role Variables - AWS
+-------------------------------------------------------------------------------
+The following variables are only used when `cluster_type = ipi` and `ipi_platform = aws`.
 
 ### aws_access_key_id
 AWS access key associated with an IAM user or role.
 
-- **Required** when `cluster_type = aws-ipi`
+- **Required** when `cluster_type = ipi` and `ipi_platform = aws`
 - Environment Variable: `AWS_ACCESS_KEY_ID`
 - Default Value: None
 
@@ -71,17 +83,9 @@ AWS access key associated with an IAM user or role.
 AWS secret access key associated with an IAM user or role. Make sure the access key has permissions
 to delete instances.
 
-- **Required** when `cluster_type = aws-ipi`
+- **Required** when `cluster_type = ipi` and `ipi_platform = aws`
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 - Default Value: None
-AWS secret access key associated with an IAM user or role.
-
-### ocp_install_dir
-The directory that is used to store the installation executable, configuration, & logs.
-
-- Optional when `cluster_type = aws-ipi`
-- Environment Variable: `OCP_INSTALL_DIR`
-- Default Value: `~/openshift-install`
 
 
 Example Playbook

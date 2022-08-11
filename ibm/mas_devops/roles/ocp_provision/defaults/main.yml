@@ -11,7 +11,7 @@ supported_cluster_types:
   - fyre
   - roks
   - rosa
-  - aws-ipi
+  - ipi
 
 
 # GPU support (limited)
@@ -64,24 +64,26 @@ rosa_compute_nodes: "{{ lookup('env', 'ROSA_COMPUTE_NODES') | default('3', true)
 # -----------------------------------------------------------------------------
 aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
 aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
-aws_region: "{{ lookup('env', 'AWS_REGION')  | default('us-east-1', true)  }}"
-aws_compute_instance_type: "{{ lookup('env', 'AWS_COMPUTE_INSTANCE_TYPE') | default('m5.4xlarge', true) }}"
-aws_controlplane_instance_type: "{{ lookup('env', 'AWS_CONTROLPLANE_INSTANCE_TYPE') | default('m5.4xlarge', true) }}"
 
 
-# openshift-install
+# Installer Provided Infrastructure
 # -----------------------------------------------------------------------------
-ocp_install_base_domain: "{{ lookup('env', 'OCP_INSTALL_BASE_DOMAIN') }}"
-ocp_install_pull_secret_file: "{{ lookup('env', 'OCP_INSTALL_PULL_SECRET_FILE') }}"
-ocp_install_dir: "{{ lookup('env', 'OCP_INSTALL_DIR') | default(ansible_env.HOME ~ '/openshift-install', True) }}"
-ocp_installer_dir: "{{ ocp_install_dir }}/{{ ocp_version }}"
-ocp_installer_exe: "{{ ocp_install_dir }}/{{ ocp_version }}/openshift-install"
-ocp_install_config_dir: "{{ ocp_install_dir }}/config/{{ cluster_name }}"
+ipi_base_domain: "{{ lookup('env', 'IPI_BASE_DOMAIN') }}"
+ipi_platform: "{{ lookup('env', 'IPI_PLATFORM')  | default('aws', true)  }}"
+ipi_region: "{{ lookup('env', 'IPI_REGION')  | default('us-east-1', true)  }}"
 
+# For now we can default the type to the best fit for AWS as that's all we support atm
+ipi_compute_type: "{{ lookup('env', 'IPI_COMPUTE_TYPE') | default('m5.4xlarge', true) }}"
+ipi_compute_replicas: "{{ lookup('env', 'IPI_COMPUTE_REPLICAS') | default('3', true) }}"
 
-# IPI installation
-# -----------------------------------------------------------------------------
-# The number of worker nodes to deploy
-compute_node_count: "{{ lookup('env', 'COMPUTE_NODE_COUNT') | default('3', true) }}"
-# The number of control plane nodes to deploy
-controlplane_node_count: "{{ lookup('env', 'CONTROLPLANE_NODE_COUNT') | default('3', true) }}"
+# For now we can default the type to the best fit for AWS as that's all we support atm
+ipi_controlplane_type: "{{ lookup('env', 'IPI_CONTROLPLANE_TYPE') | default('m5.4xlarge', true) }}"
+ipi_controlplane_replicas: "{{ lookup('env', 'IPI_CONTROLPLANE_REPLICAS') | default('3', true) }}"
+
+ipi_pull_secret_file: "{{ lookup('env', 'IPI_PULL_SECRET_FILE') }}"
+
+ipi_dir: "{{ lookup('env', 'IPI_DIR') | default(ansible_env.HOME ~ '/openshift-install', True) }}"
+ipi_config_dir: "{{ ipi_dir }}/config/{{ cluster_name }}"
+
+ocp_installer_dir: "{{ ipi_dir }}/installer/{{ ocp_version }}"
+ocp_installer_exe: "{{ ipi_dir }}/installer/{{ ocp_version }}/openshift-install"

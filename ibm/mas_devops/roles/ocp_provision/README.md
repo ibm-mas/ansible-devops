@@ -198,85 +198,94 @@ The amount of memory to assign to each worker node (maximum value supported by F
 - Default Value: `64`
 
 
-Role Variables - AWS (IPI)
+Role Variables - IPI
 -------------------------------------------------------------------------------
-The following variables are only used when `cluster_type = aws-ipi`.  In addition to these, also see the variables related to providers that utilize `openshift-install` below.
+These variables are only used when `cluster_type = ipi`.
 
 !!! note
     IPI stands for **Installer Provisioned Infrastructure**.  OpenShift offers two possible deployment methods: IPI and UPI (User Provisioned Infrastructure). The difference is the degree of automation and customization. IPI will not only deploy OpenShift but also all infrastructure components and configurations.
 
+### ipi_platform
+Platform to create the cluster on.  Technically, any platform supported by `openshift-install` should work here, but currently we have only specifically tested on `aws`, which is the default value.
+
+- Optional when `cluster_type = ipi`
+- Environment Variable: `IPI_PLATFORM`
+- Default Value: `aws`
+
+### ipi_region
+Platform region where OCP cluster will be created.
+
+- Optional when `cluster_type = ipi`
+- Environment Variable: `IPI_REGION`
+- Default Value: `us-east-1`
+
+### ipi_base_domain
+Specify the base domain of the cluster that will be provisioned.
+
+- **Required** when `cluster_type = aipi`
+- Environment Variable: `IPI_BASE_DOMAIN`
+- Default Value: None
+
+### ipi_pull_secret_file
+Location of the file containing your Redhat OpenShift pull secret.  This file can be obtained from the [Red Hat Hybrid Cloud Console](https://console.redhat.com/openshift/install/metal/user-provisioned)
+
+- **Required** when `cluster_type = ipi`
+- Environment Variable: `IPI_PULL_SECRET_FILE`
+- Default Value: None
+
+### ipi_dir
+The working directory that is used to perform the installation, it will contain the `openshift-install` executable, it's configuration files, & any generated logs.
+
+- Optional when `cluster_type = ipi`
+- Environment Variable: `IPI_DIR`
+- Default Value: `~/openshift-install`
+
+### ipi_controlplane_type
+Control plane node type.
+
+- Optional when `cluster_type = ipi`
+- Environment Variable: `IPI_CONTROLPLANE_TYPE`
+- Default Value: `m5.4xlarge`
+
+### ipi_controlplane_replicas
+The number of master nodes to provision to form the control plane of your cluster.
+
+- Optional when `cluster_type = ipi`
+- Environment Variable: `IPI_CONTROLPLANE_REPLICAS`
+- Default Value: `3`
+
+### ipi_compute_type
+Compute node type.
+
+- Optional when `cluster_type = ipi`
+- Environment Variable: `IPI_COMPUTE_TYPE`
+- Default Value: `m5.4xlarge`
+
+### ipi_compute_replicas
+The number of worker nodes to provsision in the cluster, providing your compute resource.
+
+- Optional when `cluster_type = ipi`
+- Environment Variable: `IPI_COMPUTE_REPLICAS`
+- Default Value: `3`
+
+
+Role Variables - AWS
+-------------------------------------------------------------------------------
+The following variables are only used when `cluster_type = ipi` and `ipi_platform = aws`.
+
 ### aws_access_key_id
 AWS access key associated with an IAM user or role. Make sure the access key has permissions to create instances.
 
-- **Required** when `cluster_type = aws-ipi`
+- **Required** when `cluster_type = ipi` and `ipi_platform = aws`
 - Environment Variable: `AWS_ACCESS_KEY_ID`
 - Default Value: None
 
 ### aws_secret_access_key
 AWS secret access key associated with an IAM user or role.
 
-- **Required** when `cluster_type = aws-ipi`
+- **Required** when `cluster_type = aws-ipi` and `ipi_platform = aws`
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 - Default Value: None
-
-### aws_region
-AWS Region where OCP cluster will be created.
-
-- Optional when `cluster_type = aws-ipi`
-- Environment Variable: `AWS_REGION`
-- Default Value: `us-east-1`
-
-### aws_compute_instance_type
-AWS compute instance type.
-
-- Optional when `cluster_type = aws-ipi`
-- Environment Variable: `AWS_COMPUTE_INSTANCE_TYPE`
-- Default Value: `m5.4xlarge`
-
-### aws_controlplane_instance_type
-AWS compute instance type.
-
-- Optional when `cluster_type = aws-ipi`
-- Environment Variable: `AWS_CONTROLPLANE_INSTANCE_TYPE`
-- Default Value: `m5.4xlarge`
-
-
-Role Variables - openshift-install
--------------------------------------------------------------------------------
-These variables are required for any provider that utilizes `openshift-install` under the covers, currently this is only the `aws-ipi` provider.
-
-### ocp_install_base_domain
-Specify the base domain of the cluster when using `openshift-install` based provisioning.
-
-- **Required** when `cluster_type = aws-ipi`
-- Environment Variable: `OCP_INSTALL_BASE_DOMAIN`
-- Default Value: None
-
-### ocp_install_controlplane_replicas
-The number of master nodes to provision to form the control plane of your cluster.
-- **Required** when `cluster_type = aws-ipi`
-- Environment Variable: `OCP_INSTALL_CONTROLPLANE_REPLICAS`
-- Default Value: None
-
-### ocp_install_compute_replicas
-The number of worker nodes to provsision in the cluster, providing your compute resource.
-- **Required** when `cluster_type = aws-ipi`
-- Environment Variable: `OCP_INSTALL_COMPUTE_REPLICAS`
-- Default Value: None
-
-### ocp_install_pull_secret_file
-Location of the file containing your Redhat OpenShift pull secret.  This file can be obtained from the [Red Hat Hybrid Cloud Console](https://console.redhat.com/openshift/install/metal/user-provisioned)
-
-- **Required** when `cluster_type = aws-ipi`
-- Environment Variable: `OCP_INSTALL_PULL_SECRET_FILE`
-- Default Value: None
-
-### ocp_install_dir
-The directory that is used to store the `openshift-install` executable, it's configuration files, & any generated logs.
-
-- Optional when `cluster_type = aws-ipi`
-- Environment Variable: `OCP_INSTALL_DIR`
-- Default Value: `~/openshift-install`
 
 
 Example Playbook
