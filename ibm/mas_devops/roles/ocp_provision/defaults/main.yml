@@ -1,17 +1,21 @@
 ---
-
-# cluster_name has no default, it must be passed in
+# Cluster definition
+# -----------------------------------------------------------------------------
 cluster_name: "{{ lookup('env', 'CLUSTER_NAME')}}"
-
-# cluster_type has no default, it must be passed in
 cluster_type: "{{ lookup('env', 'CLUSTER_TYPE')}}"
-
-#default value for cluster_platform is x for x86 cluster, if any other arch is to be specified it must be passed in
 cluster_platform: "{{lookup('env', 'CLUSTER_PLATFORM') | default('x',true)}}"
 
-# We can't provide a default, there is no single value that would make sense across all providers, and that would not eventually become dated
 ocp_version: "{{ lookup('env', 'OCP_VERSION') }}"
 
+supported_cluster_types:
+  - fyre
+  - roks
+  - rosa
+  - aws-sno
+
+
+# GPU support (limited)
+# -----------------------------------------------------------------------------
 # GPU node settings
 # Flag to add GPU worker node to cluster. Currently only set up for ROKS clusters
 ocp_provision_gpu: "{{ lookup('env', 'OCP_PROVISION_GPU') | default('false', True) }}"
@@ -22,13 +26,9 @@ gpu_workers: "{{ lookup('env', 'GPU_WORKERS') | default('1', true) }}"
 # The name of the gpu worker pool.
 gpu_workerpool_name: "{{ lookup('env', 'GPU_WORKERPOOL_NAME') | default('gpu', true) }}"
 
-# What cluster types does this role support
-supported_cluster_types:
-  - fyre
-  - roks
-  - rosa
 
-# ROKS defaults
+# ROKS
+# -----------------------------------------------------------------------------
 ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
 ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
 
@@ -37,7 +37,9 @@ roks_flavor: "{{ lookup('env', 'ROKS_FLAVOR') | default('b3c.16x64.300gb', true)
 roks_workers: "{{ lookup('env', 'ROKS_WORKERS') | default('3', true) }}"
 roks_flags: "{{ lookup('env', 'ROKS_FLAGS') | default('', true) }}"
 
-# FYRE defaults
+
+# FYRE
+# -----------------------------------------------------------------------------
 fyre_username: "{{ lookup('env', 'FYRE_USERNAME') }}"
 fyre_password: "{{ lookup('env', 'FYRE_APIKEY') }}"
 
@@ -51,7 +53,26 @@ fyre_worker_count: "{{ lookup('env', 'FYRE_WORKER_COUNT') | default('3', true) }
 fyre_worker_memory: "{{ lookup('env', 'FYRE_WORKER_MEMORY') | default('16', true) }}"
 fyre_worker_cpu: "{{ lookup('env', 'FYRE_WORKER_CPU') | default('64', true) }}"
 
-# ROSA defaults
+
+# ROSA
+# -----------------------------------------------------------------------------
 rosa_token: "{{ lookup('env', 'ROSA_TOKEN') }}"
 rosa_cluster_admin_password: "{{ lookup('env', 'ROSA_CLUSTER_ADMIN_PASSWORD') }}"
 rosa_compute_nodes: "{{ lookup('env', 'ROSA_COMPUTE_NODES') | default('3', true) }}"
+
+
+# AWS
+# -----------------------------------------------------------------------------
+aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+aws_region: "{{ lookup('env', 'AWS_REGION')  | default('us-east-1', true)  }}"
+aws_instance_type: "{{ lookup('env', 'AWS_INSTANCE_TYPE') | default('m5.4xlarge', true) }}"
+
+# openshift-install
+# -----------------------------------------------------------------------------
+ocp_install_base_domain: "{{ lookup('env', 'OCP_INSTALL_BASE_DOMAIN') }}"
+ocp_install_pull_secret_file: "{{ lookup('env', 'OCP_INSTALL_PULL_SECRET_FILE') }}"
+ocp_install_dir: "{{ lookup('env', 'OCP_INSTALL_DIR') | default(ansible_env.HOME ~ '/openshift-install', True) }}"
+ocp_installer_dir: "{{ ocp_install_dir }}/{{ ocp_version }}"
+ocp_installer_exe: "{{ ocp_install_dir }}/{{ ocp_version }}/openshift-install"
+ocp_install_config_dir: "{{ ocp_install_dir }}/config/{{ cluster_name }}"
