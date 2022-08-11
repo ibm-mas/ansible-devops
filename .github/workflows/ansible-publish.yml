@@ -42,3 +42,21 @@ jobs:
       - name: Publish Collection
         run: |
           ansible-galaxy collection publish ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz --token=${{ secrets.ANSIBLE_GALAXY_TOKEN }}
+
+      - name: Perform dependency check
+        uses: dependency-check/Dependency-Check_Action@main
+        id: owasp-depcheck
+        with:
+          project: 'ansible-devops'
+          path: '.'
+          format: 'HTML'
+          args: >
+            --failOnCVSS 7
+            --enableRetired
+
+      - name: Upload dependency check results
+        uses: actions/upload-artifact@v2
+        with:
+           name: OWASP dependency check report
+           path: ${{github.workspace}}/reports
+           retention-days: 90
