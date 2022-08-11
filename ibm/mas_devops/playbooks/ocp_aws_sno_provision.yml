@@ -1,7 +1,7 @@
 ---
 - hosts: localhost
   vars:
-    cluster_type: aws_sno
+    cluster_type: aws-sno
     ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.10.18', True) }}"
 
   pre_tasks:
@@ -9,11 +9,11 @@
     - name: Check for required environment variables
       assert:
         that:
+          - lookup('env', 'CLUSTER_NAME') != ""
+          - lookup('env', 'OCP_INSTALL_BASE_DOMAIN') != ""
+          - lookup('env', 'OCP_INSTALL_PULLSECRET_FILE') != ""
           - lookup('env', 'AWS_ACCESS_KEY_ID') != ""
           - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
-          - lookup('env', 'BASE_DOMAIN') != ""
-          - lookup('env', 'CLUSTER_NAME') != ""
-          - lookup('env', 'PULL_SECRET') != ""
         fail_msg: "One or more required environment variables are not defined"
 
   roles:
