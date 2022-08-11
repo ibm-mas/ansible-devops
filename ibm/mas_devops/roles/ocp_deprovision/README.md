@@ -64,7 +64,7 @@ The following variables are only used when `cluster_type = ipi`.
 The directory that is used to store the `openshift-install` executable, it's configuration, & generated log files.
 
 - Optional when `cluster_type = aws-ipi`
-- Environment Variable: `OCP_INSTALL_DIR`
+- Environment Variable: `IPI_DIR`
 - Default Value: `~/openshift-install`
 
 
