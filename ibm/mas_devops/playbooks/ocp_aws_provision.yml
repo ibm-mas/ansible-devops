@@ -1,10 +1,11 @@
 ---
+# Note: For single node openshift on AWS set:
+# - OCP_INSTALL_COMPUTE_REPLICAS=0
+# - OCP_INSTALL_CONTROLPLANS_REPLICAS=1
+
 - hosts: localhost
   vars:
     cluster_type: aws-ipi
-    # Single node openshift on AWS (0 worker nodes and 1 master node)
-    compute_node_count: 0
-    controlplane_node_count: 1
 
   pre_tasks:
     # For the full set of supported environment variables refer to the playbook documentation
@@ -13,6 +14,8 @@
         that:
           - lookup('env', 'CLUSTER_NAME') != ""
           - lookup('env', 'OCP_VERSION') != ""
+          - lookup('env', 'OCP_INSTALL_COMPUTE_REPLICAS') != ""
+          - lookup('env', 'OCP_INSTALL_CONTROLPLANS_REPLICAS') != ""
           - lookup('env', 'OCP_INSTALL_BASE_DOMAIN') != ""
           - lookup('env', 'OCP_INSTALL_PULLSECRET_FILE') != ""
           - lookup('env', 'AWS_ACCESS_KEY_ID') != ""
@@ -25,4 +28,4 @@
 
     # 2. Login and verify the cluster is ready
     # - ibm.mas_devops.ocp_login
-    # - ibm.mas_devops.ocp_verify
+    - ibm.mas_devops.ocp_verify

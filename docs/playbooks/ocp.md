@@ -1,7 +1,8 @@
-# OCP Playbooks
+OCP Playbooks
+===============================================================================
 
-
-## Provision
+Provision
+-------------------------------------------------------------------------------
 Refer to the [ocp_provision](../roles/ocp_provision.md) role documentation for more information.
 
 ### Provision on IBMCloud ROKS
@@ -35,7 +36,8 @@ ansible-playbook ibm.mas_devops.ocp_fyre_provision
 ```
 
 
-## Deprovision
+Deprovision
+-------------------------------------------------------------------------------
 Refer to the [ocp_deprovision](../roles/ocp_deprovision.md) role documentation for more information.
 
 ### Deprovision on IBMCloud ROKS
