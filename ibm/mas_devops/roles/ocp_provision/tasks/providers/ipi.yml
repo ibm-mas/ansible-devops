@@ -10,6 +10,16 @@
       - ipi_pull_secret_file is defined and ipi_pull_secret_file != ""
     fail_msg: "One or more required parameters are not defined"
 
+- name: "ipi : Check ipi_pull_secret_file"
+  stat:
+    path: "{{ ipi_pull_secret_file }}"
+  register: ipi_pull_secret_file_lookup
+
+- name: "ipi : Fail if pull secret does not exist"
+  assert:
+    that: ipi_pull_secret_file_lookup.stat.exists
+    fail_msg: "Red Hat pull secret file does not exist: {{ ipi_pull_secret_file }}"
+
 # Note that environment variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
 # are required by the AWS IPI openshift installer, they must be provided as
 # environment variables, rather than just as parameters to Ansible
@@ -107,7 +117,7 @@
 
 # 5. Create Cluster
 # -----------------------------------------------------------------------------
-- name: "ipi : Create SNO cluster"
+- name: "ipi : Create cluster"
   shell: openshift-install create cluster --dir={{ ipi_config_dir }}
   register: ipi_create_cluster_completion
   until: ipi_create_cluster_completion.rc == 0
