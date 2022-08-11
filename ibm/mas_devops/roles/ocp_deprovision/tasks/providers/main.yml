@@ -1,0 +1,24 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if cluster_type and cluster_name are not provided"
+  assert:
+    that:
+      - cluster_type is defined and cluster_type != ""
+      - cluster_name is defined and cluster_name != ""
+    fail_msg: "cluster_type & cluster_name properties are required"
+
+- name: "Backwards compatability for 'quickburn' cluster type"
+  when: cluster_type == "quickburn"
+  set_fact:
+    cluster_type: "fyre"
+
+- name: "Fail if cluster_type is not supported"
+  assert:
+    that: cluster_type is in supported_cluster_types
+    fail_msg: "cluster_type '{{ cluster_type }}' property is not supported by this role"
+
+
+# 2. Run the deprovision
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/providers/{{ cluster_type }}.yml"

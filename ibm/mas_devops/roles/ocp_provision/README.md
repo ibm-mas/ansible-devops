@@ -1,12 +1,10 @@
 ocp_provision
-=============
+===============================================================================
 
 Provision OCP cluster on DevIT Fyre or IBM Cloud ROKS.
 
-
 Role Variables
---------------
-
+-------------------------------------------------------------------------------
 ### cluster_type
 Required.  Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `aws-ipi`.
 
@@ -25,39 +23,9 @@ Required.  Specify the version of OCP to install.  The exact format of this will
 - Environment Variable: `OCP_VERSION`
 - Default Value: None
 
-Role Variables - openshift-install based installations
----------------------
-The following variables are only used when installing OCP via the openshift-install program. For example, when `cluster_type = aws-ipi`
-
-### base_domain
-Required. Specify the base domain of the cluster
-
-- **Required** when using the openshift-install program
-- Environment Variable: `BASE_DOMAIN`
-- Default Value: None
-
-### pull_secret
-Redhat OpenShift Pull Secret
-
-- **Required** when using the openshift-install program
-- Environment Variable: `PULL_SECRET`
-- Default Value: None
-
-### ocp_download_directory
-The directory where the OCP installer will be downloaded to.
-
-- Environment Variable: `OCP_DOWNLOAD_DIRECTORY`
-- Default Value: /tmp/ocp
-
-### ocp_download_url
-The base URL from which the OCP installer download URL is constructed. 
-For example, {{ ocp_download_url }}/{{ ocp_version }}/openshift-install-linux.tar.gz
-
-- Environment Variable: `OCP_DOWNLOAD_URL`
-- Default Value: https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp
 
 Role Variables - GPU Node Support
----------------------------------
+-------------------------------------------------------------------------------
 ### ocp_provision_gpu
 Flag that determines if GPU worker nodes should be added during cluster creation (eg. needed for MVI application). This is currently only set up for ROKS clusters.
 
@@ -96,7 +64,7 @@ The name of the gpu worker pool to added to or modify in the cluster. If already
 
 
 Role Variables - ROKS
----------------------
+-------------------------------------------------------------------------------
 The following variables are only used when `cluster_type = roks`.
 
 ### ibmcloud_apikey
@@ -137,7 +105,7 @@ Can be used to specify additional parameters for the cluster creation
 
 
 Role Variables - ROSA
----------------------
+-------------------------------------------------------------------------------
 The following variables are only used when `cluster_type = rosa`.
 
 ### rosa_token
@@ -161,8 +129,9 @@ Number of compute nodes to deploy in the cluster.
 - Environment Variable: `ROSA_COMPUTE_NODES`
 - Default Value: `3`
 
-Role Variables - Fyre
----------------------
+
+Role Variables - FYRE
+-------------------------------------------------------------------------------
 The following variables are only used when `cluster_type = fyre`.
 
 ### fyre_username
@@ -228,48 +197,78 @@ The amount of memory to assign to each worker node (maximum value supported by F
 - Environment Variable: `FYRE_WORKER_MEMORY`
 - Default Value: `64`
 
-Role Variables - AWS IPI
-----------------------------
-The following variables are only used when `cluster_type = aws-ipi`.
 
-### aws_region
-AWS Region where SNO server will be created. 
+Role Variables - AWS (IPI)
+-------------------------------------------------------------------------------
+The following variables are only used when `cluster_type = aws-ipi`.  In addition to these, also see the variables related to providers that utilize `openshift-install` below.
 
-- Optional when `cluster_type = aws-ipi`
-- Environment Variable: `AWS_REGION`
-- Default Value: `us-east-1`
+!!! note
+    IPI stands for **Installer Provisioned Infrastructure**.  OpenShift offers two possible deployment methods: IPI and UPI (User Provisioned Infrastructure). The difference is the degree of automation and customization. IPI will not only deploy OpenShift but also all infrastructure components and configurations.
 
 ### aws_access_key_id
-AWS access key associated with an IAM user or role. Make sure the access key has permissions
-to create instances. 
+AWS access key associated with an IAM user or role. Make sure the access key has permissions to create instances.
 
 - **Required** when `cluster_type = aws-ipi`
 - Environment Variable: `AWS_ACCESS_KEY_ID`
 - Default Value: None
 
 ### aws_secret_access_key
-AWS secret access key associated with an IAM user or role. 
+AWS secret access key associated with an IAM user or role.
 
 - **Required** when `cluster_type = aws-ipi`
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 - Default Value: None
 
+### aws_region
+AWS Region where OCP cluster will be created.
+
+- Optional when `cluster_type = aws-ipi`
+- Environment Variable: `AWS_REGION`
+- Default Value: `us-east-1`
+
 ### aws_compute_instance_type
-AWS compute instance type. 
+AWS compute instance type.
 
 - Optional when `cluster_type = aws-ipi`
 - Environment Variable: `AWS_COMPUTE_INSTANCE_TYPE`
 - Default Value: `m5.4xlarge`
 
 ### aws_controlplane_instance_type
-AWS compute instance type. 
+AWS compute instance type.
 
 - Optional when `cluster_type = aws-ipi`
 - Environment Variable: `AWS_CONTROLPLANE_INSTANCE_TYPE`
 - Default Value: `m5.4xlarge`
 
+
+Role Variables - openshift-install
+-------------------------------------------------------------------------------
+These variables are required for any provider that utilizes `openshift-install` under the covers
+
+### ocp_install_base_domain
+Specify the base domain of the cluster when using `openshift-install` based provisioning.
+
+- **Required** when `cluster_type = aws-ipi`
+- Environment Variable: `OCP_INSTALL_BASE_DOMAIN`
+- Default Value: None
+
+### ocp_install_pullsecret_file
+Location of the file containing your Redhat OpenShift pull secret.  This file can be obtained from the [Red Hat Hybrid Cloud Console](https://console.redhat.com/openshift/install/metal/user-provisioned)
+
+- **Required** when `cluster_type = aws-ipi`
+- Environment Variable: `OCP_INSTALL_PULLSECRET_FILE`
+- Default Value: None
+
+### ocp_install_dir
+The directory that is used to store the `openshift-install` executable, it's configuration files, & any generated logs.
+
+- Optional when `cluster_type = aws-ipi`
+- Environment Variable: `OCP_INSTALL_DIR`
+- Default Value: `~/openshift-install`
+
+
 Example Playbook
------------------------
+-------------------------------------------------------------------------------
 
 ```yaml
 - hosts: localhost
@@ -284,6 +283,6 @@ Example Playbook
 ```
 
 License
--------
+-------------------------------------------------------------------------------
 
 EPL-2.0

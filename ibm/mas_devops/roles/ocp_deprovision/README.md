@@ -1,9 +1,9 @@
 ocp_deprovision
-===============
+===============================================================================
 Deprovision OCP cluster in Fyre, IBM Cloud, & ROSA.
 
 Role Variables
---------------
+-------------------------------------------------------------------------------
 ### cluster_type
 Required.  Specify the cluster type, supported values are `roks` and `quickburn`.
 
@@ -20,7 +20,7 @@ Required.  Specify the name of the cluster
 
 
 Role Variables - ROKS
----------------------
+-------------------------------------------------------------------------------
 ### ibmcloud_apikey
 The APIKey to be used by ibmcloud login comand.
 
@@ -30,7 +30,7 @@ The APIKey to be used by ibmcloud login comand.
 
 
 Role Variables - ROSA
----------------------
+-------------------------------------------------------------------------------
 ### rosa_token
 The Token used to authenticate with the ROSA service.
 
@@ -39,8 +39,8 @@ The Token used to authenticate with the ROSA service.
 - Default Value: None
 
 
-Role Variables - Quickburn
---------------------------
+Role Variables - FYRE
+-------------------------------------------------------------------------------
 ### fyre_username
 Username to authenticate with the Fyre API.
 
@@ -55,10 +55,13 @@ API key to authenticate with the Fyre API.
 - Environment Variable: `FYRE_APIKEY`
 - Default Value: None
 
-Role Variable
----------------------
+
+Role Variables - AWS (IPI)
+-------------------------------------------------------------------------------
+The following variables are only used when `cluster_type = aws-ipi`.
+
 ### aws_access_key_id
-AWS access key associated with an IAM user or role. 
+AWS access key associated with an IAM user or role.
 
 - **Required** when `cluster_type = aws-ipi`
 - Environment Variable: `AWS_ACCESS_KEY_ID`
@@ -71,9 +74,18 @@ to delete instances.
 - **Required** when `cluster_type = aws-ipi`
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 - Default Value: None
+AWS secret access key associated with an IAM user or role.
+
+### ocp_install_dir
+The directory that is used to store the installation executable, configuration, & logs.
+
+- Optional when `cluster_type = aws-ipi`
+- Environment Variable: `OCP_INSTALL_DIR`
+- Default Value: `~/openshift-install`
+
 
 Example Playbook
-----------------
+-------------------------------------------------------------------------------
 
 ```yaml
 - hosts: localhost
@@ -87,6 +99,6 @@ Example Playbook
 ```
 
 License
--------
+-------------------------------------------------------------------------------
 
 EPL-2.0
