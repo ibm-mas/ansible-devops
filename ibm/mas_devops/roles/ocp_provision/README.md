@@ -243,7 +243,7 @@ AWS compute instance type.
 
 Role Variables - openshift-install
 -------------------------------------------------------------------------------
-These variables are required for any provider that utilizes `openshift-install` under the covers
+These variables are required for any provider that utilizes `openshift-install` under the covers, currently this is only the `aws-ipi` provider.
 
 ### ocp_install_base_domain
 Specify the base domain of the cluster when using `openshift-install` based provisioning.
@@ -252,11 +252,23 @@ Specify the base domain of the cluster when using `openshift-install` based prov
 - Environment Variable: `OCP_INSTALL_BASE_DOMAIN`
 - Default Value: None
 
-### ocp_install_pullsecret_file
+### ocp_install_controlplane_replicas
+The number of master nodes to provision to form the control plane of your cluster.
+- **Required** when `cluster_type = aws-ipi`
+- Environment Variable: `OCP_INSTALL_CONTROLPLANE_REPLICAS`
+- Default Value: None
+
+### ocp_install_compute_replicas
+The number of worker nodes to provsision in the cluster, providing your compute resource.
+- **Required** when `cluster_type = aws-ipi`
+- Environment Variable: `OCP_INSTALL_COMPUTE_REPLICAS`
+- Default Value: None
+
+### ocp_install_pull_secret_file
 Location of the file containing your Redhat OpenShift pull secret.  This file can be obtained from the [Red Hat Hybrid Cloud Console](https://console.redhat.com/openshift/install/metal/user-provisioned)
 
 - **Required** when `cluster_type = aws-ipi`
-- Environment Variable: `OCP_INSTALL_PULLSECRET_FILE`
+- Environment Variable: `OCP_INSTALL_PULL_SECRET_FILE`
 - Default Value: None
 
 ### ocp_install_dir
