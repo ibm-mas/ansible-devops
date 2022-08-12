@@ -1,15 +1,21 @@
 ---
-
-# cluster_name has no default, it must be passed in
+# Cluster definition
+# -----------------------------------------------------------------------------
 cluster_name: "{{ lookup('env', 'CLUSTER_NAME')}}"
-
-# cluster_type has no default, it must be passed in
 cluster_type: "{{ lookup('env', 'CLUSTER_TYPE')}}"
+cluster_platform: "{{lookup('env', 'CLUSTER_PLATFORM') | default('x',true)}}"
 
-# We can't provide a default, there is no single value that would make sense across all providers, and that would not eventually become dated
 ocp_version: "{{ lookup('env', 'OCP_VERSION') }}"
 
-# GPU node settings
+supported_cluster_types:
+  - fyre
+  - roks
+  - rosa
+  - ipi
+
+
+# GPU support (limited)
+# -----------------------------------------------------------------------------
 # Flag to add GPU worker node to cluster. Currently only set up for ROKS clusters
 ocp_provision_gpu: "{{ lookup('env', 'OCP_PROVISION_GPU') | default('false', True) }}"
 
@@ -19,22 +25,20 @@ gpu_workers: "{{ lookup('env', 'GPU_WORKERS') | default('1', true) }}"
 # The name of the gpu worker pool.
 gpu_workerpool_name: "{{ lookup('env', 'GPU_WORKERPOOL_NAME') | default('gpu', true) }}"
 
-# What cluster types does this role support
-supported_cluster_types:
-  - fyre
-  - roks
-  - rosa
 
-# ROKS defaults
+# ROKS
+# -----------------------------------------------------------------------------
 ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
 ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
 
-roks_zone: "{{ lookup('env', 'ROKS_ZONE') | default('lon02', true) }}"
+roks_zone: "{{ lookup('env', 'ROKS_ZONE') | default('dal10', true) }}"
 roks_flavor: "{{ lookup('env', 'ROKS_FLAVOR') | default('b3c.16x64.300gb', true) }}"
 roks_workers: "{{ lookup('env', 'ROKS_WORKERS') | default('3', true) }}"
 roks_flags: "{{ lookup('env', 'ROKS_FLAGS') | default('', true) }}"
 
-# FYRE defaults
+
+# FYRE
+# -----------------------------------------------------------------------------
 fyre_username: "{{ lookup('env', 'FYRE_USERNAME') }}"
 fyre_password: "{{ lookup('env', 'FYRE_APIKEY') }}"
 
@@ -48,7 +52,38 @@ fyre_worker_count: "{{ lookup('env', 'FYRE_WORKER_COUNT') | default('3', true) }
 fyre_worker_memory: "{{ lookup('env', 'FYRE_WORKER_MEMORY') | default('16', true) }}"
 fyre_worker_cpu: "{{ lookup('env', 'FYRE_WORKER_CPU') | default('64', true) }}"
 
-# ROSA defaults
+
+# ROSA
+# -----------------------------------------------------------------------------
 rosa_token: "{{ lookup('env', 'ROSA_TOKEN') }}"
 rosa_cluster_admin_password: "{{ lookup('env', 'ROSA_CLUSTER_ADMIN_PASSWORD') }}"
 rosa_compute_nodes: "{{ lookup('env', 'ROSA_COMPUTE_NODES') | default('3', true) }}"
+
+
+# AWS
+# -----------------------------------------------------------------------------
+aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+
+
+# Installer Provided Infrastructure
+# -----------------------------------------------------------------------------
+ipi_base_domain: "{{ lookup('env', 'IPI_BASE_DOMAIN') }}"
+ipi_platform: "{{ lookup('env', 'IPI_PLATFORM')  | default('aws', true)  }}"
+ipi_region: "{{ lookup('env', 'IPI_REGION')  | default('us-east-1', true)  }}"
+
+# For now we can default the type to the best fit for AWS as that's all we support atm
+ipi_compute_type: "{{ lookup('env', 'IPI_COMPUTE_TYPE') | default('m5.4xlarge', true) }}"
+ipi_compute_replicas: "{{ lookup('env', 'IPI_COMPUTE_REPLICAS') | default('3', true) }}"
+
+# For now we can default the type to the best fit for AWS as that's all we support atm
+ipi_controlplane_type: "{{ lookup('env', 'IPI_CONTROLPLANE_TYPE') | default('m5.4xlarge', true) }}"
+ipi_controlplane_replicas: "{{ lookup('env', 'IPI_CONTROLPLANE_REPLICAS') | default('3', true) }}"
+
+ipi_pull_secret_file: "{{ lookup('env', 'IPI_PULL_SECRET_FILE') }}"
+
+ipi_dir: "{{ lookup('env', 'IPI_DIR') | default(ansible_env.HOME ~ '/openshift-install', True) }}"
+ipi_config_dir: "{{ ipi_dir }}/config/{{ cluster_name }}"
+
+ocp_installer_dir: "{{ ipi_dir }}/installer/{{ ocp_version }}"
+ocp_installer_exe: "{{ ipi_dir }}/installer/{{ ocp_version }}/openshift-install"

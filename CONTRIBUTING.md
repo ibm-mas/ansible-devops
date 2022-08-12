@@ -37,24 +37,6 @@ You can now run this playbook using `ansible-playbook` to test the changes you m
 export ROLE_NAME=ibm_catalogs && make && ansible-playbook ibm.mas_devops.run_role
 ```
 
-## Building the container image locally
-- Build the container image `make docker-build`
-- Run the already built container image `make docker-run`
-- Build and run the container image `make docker-all`
-
-
-## Using the docker image
-This is a great way to test in a clean environment (e.g. to ensure the myriad of environment variables that you no doubt have set up are not impacting your test scenarios).  After you commit your changes to the repository a pre-release container image will be built, which contains your in-development version of the collection:
-
-```bash
-docker run -ti quay.io/ibmmas/ansible-devops:x.y.z-pre.mybranch bash
-(app-root) oc login --token=xxxx --server=https://myocpserver
-(app-root) export STUFF
-(app-root) ansible localhost -m include_role -a name=ibm.mas_devops.ocp_verify
-(app-root) ansible-playbook ibm.mas_devops.oneclick_core
-```
-
-
 ## Style Guide
 Failure to adhere to the style guide will result in a PR being rejected!
 
