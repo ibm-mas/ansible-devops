@@ -19,3 +19,44 @@
       stringData:
         # Only way I could get three consecutive "}" into a string :)
         .dockerconfigjson: "{{ content | join('') | string }}"
+        
+- name: "entitlement : Create ibm-entitlement-key secret in ibm-common-services namespace"
+  vars:
+    entitledAuthStr: "{{ cpd_entitlement_username }}:{{ cpd_entitlement_key }}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"cp.icr.io/cp": {"username":"{{ cpd_entitlement_username }}","password":"{{ cpd_entitlement_key }}","auth":"{{ entitledAuth }}"}'
+      - '}'
+      - '}'
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: "ibm-entitlement-key"
+        namespace: "ibm-common-services"
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
+
+- name: "entitlement : Create prod-cred secret in cpd instance namespace"
+  vars:
+    entitledAuthStr: "{{ cpd_entitlement_username }}:{{ cpd_entitlement_key }}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"cp.icr.io/cp": {"username":"{{ cpd_entitlement_username }}","password":"{{ cpd_entitlement_key }}","auth":"{{ entitledAuth }}"}'
+      - '}'
+      - '}'
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: "ibm-entitlement-key"
+        namespace: "{{ cpd_instance_namespace }}"
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
+
