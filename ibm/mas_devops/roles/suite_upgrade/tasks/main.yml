@@ -1,12 +1,35 @@
 ---
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-- name: "Assert that mas_instance_id & mas_channel are defined"
+- name: "Assert that mas_instance_id is defined"
   assert:
     that:
       - mas_instance_id is defined and mas_instance_id != ""
-      - mas_channel is defined and mas_channel != ""
-    fail_msg: "mas_instance_id & mas_channel are required"
+    fail_msg: "mas_instance_id is required"
+
+
+# 2. Load variables
+# -----------------------------------------------------------------------------
+- name: "Load application compatibility matrix"
+  include_vars: "{{ role_path }}/../../common_vars/compatibility_matrix.yml"
+
+# Default mas_channel based on the current version of the
+# installed MAS core if not provided by the user specifically
+- name: "Get subscription for ibm-mas"
+  when: mas_channel is not defined or mas_channel == ""
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-mas-operator"
+    namespace: "{{ mas_namespace }}"
+    kind: Subscription
+  register: core_sub_info
+
+- name: "Set default upgrade target based on installed version of MAS core"
+  when:
+    - mas_channel is not defined or mas_channel == ""
+    - core_sub_info.resources[0].spec.channel in upgrade_path
+  set_fact:
+    mas_channel: "{{ upgrade_path[core_sub_info.resources[0].spec.channel] }}"
 
 
 # 2. Provide debug information
@@ -14,7 +37,7 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Target Channel ......................... {{ mas_channel }}"
+      - "Target Channel ......................... {{ mas_channel | default('No upgrade available', True) }}"
       - "MAS Instance ID ........................ {{ mas_instance_id }}"
       - "MAS namespace .......................... {{ mas_namespace }}"
       - "Dry Run? ............................... {{ mas_upgrade_dryrun }}"
@@ -23,6 +46,7 @@
 # 3. Check the existing installation
 # -----------------------------------------------------------------------------
 - name: "Check existing MAS installation"
+  when: mas_channel is defined and mas_channel != ""
   include_tasks: tasks/check_core_compatibility.yml
 
 
@@ -31,6 +55,7 @@
 # 4.1. Assist
 - name: "Check application compatibility for Assist"
   when:
+    - mas_channel is defined and mas_channel != ""
     - suite_sub_info.resources[0].spec.channel != mas_channel
   include_tasks: tasks/check_app_compatibility.yml
   vars:
@@ -42,6 +67,7 @@
 # 4.2. HPUtils
 - name: "Check application compatibility for HPUtils"
   when:
+    - mas_channel is defined and mas_channel != ""
     - suite_sub_info.resources[0].spec.channel != mas_channel
   include_tasks: tasks/check_app_compatibility.yml
   vars:
@@ -53,6 +79,7 @@
 # 4.3. IoT
 - name: "Check application compatibility for IoT"
   when:
+    - mas_channel is defined and mas_channel != ""
     - suite_sub_info.resources[0].spec.channel != mas_channel
   include_tasks: tasks/check_app_compatibility.yml
   vars:
@@ -64,6 +91,7 @@
 # 4.4 Manage
 - name: "Check application compatibility for Manage"
   when:
+    - mas_channel is defined and mas_channel != ""
     - suite_sub_info.resources[0].spec.channel != mas_channel
   include_tasks: tasks/check_app_compatibility.yml
   vars:
@@ -75,6 +103,7 @@
 # 4.5. Monitor
 - name: "Check application compatibility for Monitor"
   when:
+    - mas_channel is defined and mas_channel != ""
     - suite_sub_info.resources[0].spec.channel != mas_channel
   include_tasks: tasks/check_app_compatibility.yml
   vars:
@@ -86,6 +115,7 @@
 # 4.6. Predict
 - name: "Check application compatibility for Predict"
   when:
+    - mas_channel is defined and mas_channel != ""
     - suite_sub_info.resources[0].spec.channel != mas_channel
   include_tasks: tasks/check_app_compatibility.yml
   vars:
@@ -97,6 +127,7 @@
 # 4.7. Safety
 - name: "Check application compatibility for Safety"
   when:
+    - mas_channel is defined and mas_channel != ""
     - suite_sub_info.resources[0].spec.channel != mas_channel
   include_tasks: tasks/check_app_compatibility.yml
   vars:
@@ -108,6 +139,7 @@
 # 4.8. Visual Inspection
 - name: "Check application compatibility for Visual Inspection"
   when:
+    - mas_channel is defined and mas_channel != ""
     - suite_sub_info.resources[0].spec.channel != mas_channel
   include_tasks: tasks/check_app_compatibility.yml
   vars:
@@ -119,6 +151,7 @@
 # 4.9. Optimizer
 - name: "Check application compatibility for Optimizer"
   when:
+    - mas_channel is defined and mas_channel != ""
     - suite_sub_info.resources[0].spec.channel != mas_channel
   include_tasks: tasks/check_app_compatibility.yml
   vars:
@@ -132,11 +165,19 @@
 # -----------------------------------------------------------------------------
 - name: "Execute Channel Upgrade"
   when:
+    - mas_channel is defined and mas_channel != ""
     - suite_sub_info.resources[0].spec.channel != mas_channel
     - not mas_upgrade_dryrun
   include_tasks: tasks/upgrade.yml
 
 - name: "Debug when we are already on the desired channel"
-  when: suite_sub_info.resources[0].spec.channel == mas_channel
+  when:
+    - mas_channel is defined and mas_channel != ""
+    - suite_sub_info.resources[0].spec.channel == mas_channel
   debug:
     msg: "No action required, subscription is already on the {{ mas_channel }} channel"
+
+- name: "Debug when no upgrade channel was available"
+  when: mas_channel is not defined or mas_channel == ""
+  debug:
+    msg: "No action required, no upgrade channel is available"

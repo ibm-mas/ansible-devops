@@ -25,33 +25,42 @@ Playbook Content
 
 Preparation
 -------------------------------------------------------------------------------
-If you are using a private/mirror registry it is **critical** that you mirror the images for the new release **before** you run this playbook, otherwise you will see numerous containers in **ImagePullBackoff** as the updates are rolled out automatically after the subscription has been changed, if you have not mirrored the new images the subscription change itself may fail if the operator bundle if not on your private registry.
+If you are using a private/mirror registry it is **critical** that you mirror the images for the new release **before** you run this playbook, otherwise you will see numerous containers in **ImagePullBackoff** as the updates are rolled out automatically after the subscription has been changed, if you have not mirrored the new images the subscription change itself may fail if the operator bundle is not on your private registry.
 
 
 Usage
 -------------------------------------------------------------------------------
 ### Required Parameters
 - `MAS_INSTANCE_ID` Set the instance ID of the MAS installation to upgrade
-- `MAS_CHANNEL` Set the target subscription channel for MAS Core
 
 ### Optional Parameters
-If you provide no values for the individual applications, the roles will attempt to upgrade applications to the latest version supported by the installed version of MAS Core.
+If you provide no values for MAS Core or the individual applications, the roles will attempt to upgrade to the next level of MAS and upgrade applications to the latest version supported by the installed version of MAS Core (after upgrading MAS Core).
 
-- `MAS_APP_CHANNEL_ASSIST` Explicitly set the target subscription channel for Assist
-- `MAS_APP_CHANNEL_HPUTILITIES` Explicitly set the target subscription channel for Health & Predict Utilities
-- `MAS_APP_CHANNEL_IOT` Explicitly set the target subscription channel for IoT
-- `MAS_APP_CHANNEL_MONITOR` Explicitly set the target subscription channel for Monitor
-- `MAS_APP_CHANNEL_OPTIMIZER` Explicitly set the target subscription channel for Optimizer
-- `MAS_APP_CHANNEL_PREDICT` Explicitly set the target subscription channel for Predict
-- `MAS_APP_CHANNEL_SAFETY` Explicitly set the target subscription channel for Safety
-- `MAS_APP_CHANNEL_VISUALINSPECTION` Explicitly set the target subscription channel for Visual Inspection
+- `MAS_CHANNEL` Set the target subscription channel for MAS Core
+- `MAS_APP_CHANNEL_ASSIST` Set the target subscription channel for Assist
+- `MAS_APP_CHANNEL_HPUTILITIES` Set the target subscription channel for Health & Predict Utilities
+- `MAS_APP_CHANNEL_IOT` Set the target subscription channel for IoT
+- `MAS_APP_CHANNEL_MONITOR` Set the target subscription channel for Monitor
+- `MAS_APP_CHANNEL_OPTIMIZER` Set the target subscription channel for Optimizer
+- `MAS_APP_CHANNEL_PREDICT` Set the target subscription channel for Predict
+- `MAS_APP_CHANNEL_SAFETY` Set the target subscription channel for Safety
+- `MAS_APP_CHANNEL_VISUALINSPECTION` Set the target subscription channel for Visual Inspection
 
 ### Example
-The simplest way to upgrade MAS is to provide only the instance ID that you wish to upgrade and the main MAS channel subscription, allowing the roles to determine the correct target version each application.
+The simplest way to upgrade MAS is to provide only the instance ID that you wish to upgrade, allowing the roles to determine the correct target version each application.
+
+```bash
+export MAS_INSTANCE_ID=instance1
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.oneclick_upgrade
+```
+
+You can also explicitly specify the target upgrade:
 
 ```bash
 export MAS_INSTANCE_ID=instance1
 export MAS_CHANNEL=8.8.x
+export MAS_APP_CHANNEL_IOT=8.5.x
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_upgrade
 ```
