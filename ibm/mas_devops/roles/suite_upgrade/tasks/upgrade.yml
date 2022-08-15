@@ -1,0 +1,110 @@
+---
+# 1. Update the Subscription
+# -----------------------------------------------------------------------------
+- name: "upgrade : Update ibm-mas subscription channel"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-mas-operator"
+    namespace: "{{ mas_namespace }}"
+    kind: Subscription
+    definition:
+      spec:
+        channel: "{{ mas_channel }}"
+    apply: true
+
+
+# 2. Check the Subscription
+# -----------------------------------------------------------------------------
+- name: "upgrade : Get updated subscription for ibm-mas"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-mas-operator"
+    namespace: "{{ mas_namespace }}"
+    kind: Subscription
+  register: updated_suite_sub_info
+  retries: 20 # about 10 minutes
+  delay: 30 # seconds
+  until:
+    - updated_suite_sub_info.resources[0].status.installPlanGeneration > suite_sub_info.resources[0].status.installPlanGeneration
+    - updated_suite_sub_info.resources[0].status.state == AtLatestKnown
+
+- name: "upgrade : Debug Subscription"
+  debug:
+    var: updated_suite_sub_info
+
+
+# 3. Lookup the OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "upgrade : Lookup OperatorCondition for ibm-mas"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ mas_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-mas.{{ mas_namespace }}"
+  register: updated_opcon
+
+- name: "upgrade : Debug OperatorCondition"
+  debug:
+    var: updated_opcon
+
+- name: "upgrade : Check that the OperatorCondition was found"
+  assert:
+    that:
+      - updated_opcon.resources is defined
+      - updated_opcon.resources | length == 1
+      - updated_opcon.resources[0].metadata.name is defined
+
+
+# 4. Set the operator version
+# -----------------------------------------------------------------------------
+# OperatorCondition names are in the format {packageName}.{packageVersion}
+# We want to strip off the "v" prefix from the version while we do this
+- name: "upgrade : Lookup operator version for ibm-mas"
+  set_fact:
+    updated_opcon_version: "{{ updated_opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+- name: "upgrade : Debug Operator Version"
+  debug:
+    msg:
+      - "Operator condition ..................... {{ updated_opcon.resources[0].metadata.name }}"
+      - "Operator version (before) .............. {{ opcon_version }}"
+      - "Operator version (after) ............... {{ updated_opcon_version }}"
+
+
+# 5. Check that the Suite CR meets the required state
+# -----------------------------------------------------------------------------
+- name: "upgrade : Get Suite CR for for ibm-mas"
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_namespace }}"
+    kind: Suite
+  retries: 20 # about 40 minutes
+  delay: 120 # 2 minutes
+  until:
+    - updated_suite_info.resources[0].status.versions.reconciled == updated_opcon_version
+    - updated_suite_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+  register: updated_suite_info
+
+- name: "upgrade : Debug Suite CR"
+  debug:
+    var: updated_suite_info
+
+
+# Unfortunately, our status reporting isn't ideal for upgrades, so even though the operator is now
+# reporting that the Suite is running at the new version and is Ready, that's not necessarily the case
+# as it's not tracking the time/progress of updating all the deployments/sts so the actual completion
+# of the upgrade will be some minutes after this completes.
+
+
+# We should also check other custom resources (that there can be multiples of) have been updated but
+# perhaps this would be covered when we improve the status reporting in the main CR ... probably
+# requires a custom module either way rather than something we try to implement in Ansible directly:
+# - Workspace
+# - MongoCfg
+# - JdbcCfg
+# - SlsCfg
+# - BasCfg
+# - CoreIDP
+# - etc

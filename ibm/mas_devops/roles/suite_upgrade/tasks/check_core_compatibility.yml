@@ -1,0 +1,122 @@
+---
+# 1. Check that the subscription meets the required state
+# -----------------------------------------------------------------------------
+- name: "core : Get subscription for ibm-mas"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-mas-operator"
+    namespace: "{{ mas_namespace }}"
+    kind: Subscription
+  register: suite_sub_info
+
+- name: "core : Debug existing Subscription"
+  debug:
+    var: suite_sub_info
+
+- name: "core : Check that the subscription exists"
+  assert:
+    that:
+      - suite_sub_info.resources is defined
+      - suite_sub_info.resources | length == 1
+      - suite_sub_info.resources[0].spec is defined
+      - suite_sub_info.resources[0].spec.channel is defined
+    fail_msg: "Unable to find MAS subscription in namespace {{ mas_namespace }}"
+
+- name: "core : Debug when we are already on the desired channel"
+  when: suite_sub_info.resources[0].spec.channel == mas_channel
+  debug:
+    msg: "No action required, subscription is already on the {{ suite_sub_info.resources[0].spec.channel }} channel"
+
+- name: "core : Check that upgrade is supported from current channel"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  assert:
+    that: suite_sub_info.resources[0].spec.channel == upgrade_requirement[mas_channel]
+    fail_msg: "Unable to upgrade from {{ suite_sub_info.resources[0].spec.channel }} to {{ mas_channel }}"
+
+- name: "core : Check that install plan approvals are set to 'Automatic'"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  assert:
+    that: suite_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
+    fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"
+
+
+# 2. Lookup the OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "core : Lookup OperatorCondition for ibm-mas"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ mas_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-mas.{{ mas_namespace }}"
+  register: opcon
+
+- name: "core : Debug OperatorCondition"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  debug:
+    var: opcon
+
+- name: "core : Check that the OperatorCondition was found"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  assert:
+    that:
+      - opcon.resources is defined
+      - opcon.resources | length == 1
+      - opcon.resources[0].metadata.name is defined
+
+
+# 3. Set the operator version
+# -----------------------------------------------------------------------------
+# OperatorCondition names are in the format {packageName}.{packageVersion}
+# We want to strip off the "v" prefix from the version while we do this
+- name: "core : Lookup operator version for ibm-mas"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  set_fact:
+    opcon_version: "{{ opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+- name: "core : Debug Operator Version"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  debug:
+    msg:
+      - "Operator condition ......... {{ opcon.resources[0].metadata.name }}"
+      - "Operator version ........... {{ opcon_version }}"
+
+
+# 4. Check that the Suite CR meets the required state
+# -----------------------------------------------------------------------------
+- name: "core : Get Suite CR for for ibm-mas"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_namespace }}"
+    kind: Suite
+  register: suite_info
+
+- name: "core : Debug Suite CR"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  debug:
+    var: suite_info
+
+- name: "core : Check that the Suite CR exists"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  assert:
+    that:
+      - suite_info.resources is defined
+      - suite_info.resources | length == 1
+    fail_msg: "Maximo Application Suite has not been installed in namespace {{ mas_namespace }}"
+
+- name: "core : Check that the Suite CR has been reconciled to the expected version"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  assert:
+    that:
+      - suite_info.resources[0].status.versions.reconciled == opcon_version
+    fail_msg: "Upgrade failed because Maximo Application Suite version ({{ suite_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
+
+- name: "core : Check that the Suite CR is in a healthy state"
+  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  assert:
+    that:
+      - suite_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+    fail_msg: "Upgrade failed because Maximo Application Suite is not healthy"
