@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ibm-mas.github.io/ansible-devops/roles/suite_upgrade_check/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ibm-mas.github.io/ansible-devops/roles/suite_app_upgrade/" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>suite_upgrade_check - MAS Devops Collection</title>
+    <title>suite_app_upgrade - MAS Devops Collection</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
@@ -13,9 +13,9 @@
     
       <script>
         // Current page data
-        var mkdocs_page_name = "suite_upgrade_check";
-        var mkdocs_page_input_path = "roles/suite_upgrade_check.md";
-        var mkdocs_page_url = "/ansible-devops/roles/suite_upgrade_check/";
+        var mkdocs_page_name = "suite_app_upgrade";
+        var mkdocs_page_input_path = "roles/suite_app_upgrade.md";
+        var mkdocs_page_url = "/ansible-devops/roles/suite_app_upgrade/";
       </script>
     
     <script src="../../js/jquery-3.6.0.min.js" defer></script>
@@ -61,6 +61,10 @@
                   <li class="toctree-l1"><a class="reference internal" href="../../playbooks/oneclick-manage/">Add Manage</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../playbooks/oneclick-monitor/">Add Monitor</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../playbooks/oneclick-update/">Update</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../playbooks/oneclick-upgrade/">Upgrade</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Roles: OCP Mgmt</span></p>
@@ -133,6 +137,22 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_app_install/">suite_app_install</a>
                   </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">suite_app_upgrade</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_instance_id">mas_instance_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_app_channel">mas_app_channel</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_upgrade_dryrun">mas_upgrade_dryrun</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
+    </li>
+    </ul>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_config/">suite_config</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_db2_setup_for_manage/">suite_db2_setup_for_manage</a>
@@ -146,14 +166,6 @@
                   <li class="toctree-l1"><a class="reference internal" href="../suite_mustgather_download/">suite_mustgather_download</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_upgrade/">suite_upgrade</a>
-                  </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="./">suite_upgrade_check</a>
-    <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
-    </li>
-    </ul>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_verify/">suite_verify</a>
                   </li>
@@ -184,9 +196,9 @@
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" alt="Docs"></a> &raquo;</li>
           <li>Roles: Suite Mgmt &raquo;</li>
-      <li>suite_upgrade_check</li>
+      <li>suite_app_upgrade</li>
     <li class="wy-breadcrumbs-aside">
-        <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/suite_upgrade_check.md"
+        <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/suite_app_upgrade.md"
           class="icon icon-github"> Edit on GitHub</a>
     </li>
   </ul>
@@ -195,20 +207,44 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="suite_upgrade_check">suite_upgrade_check<a class="headerlink" href="#suite_upgrade_check" title="Permanent link"></a></h1>
-<p>This role just validates if a given MAS 8.6.x instance is ready to be upgraded to MAS 8.7.x version in an OpenShift Cluster.
-This checks for readiness for MAS Core and all the existing application version deployed. 
-In order to be able to upgrade to MAS 8.7 version, your MAS instance will need to have latest MAS 8.6 correspondent patches for MAS Core and applications.
-For more information, please refer to <a href="https://www.ibm.com/docs/en/mas87/8.7.0?topic=upgrading">Upgrading Maximo Application Suite</a> documentation.</p>
-<h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+                <h1 id="suite_app_upgrade">suite_app_upgrade<a class="headerlink" href="#suite_app_upgrade" title="Permanent link"></a></h1>
+<p>This role will upgrade the subscription channel for an an installed MAS application after validating:</p>
 <ul>
-<li><code>mas_instance_id</code> Defines the instance id that is used in the existing MAS installation, will be used to lookup the existing MAS subscription.</li>
+<li>That the application is installed and in a healthy state</li>
+<li>That the new version of the application can be upgraded to from the existing version</li>
+<li>That the new version of the application is compatible with the running MAS core platform</li>
+</ul>
+<h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
+<p>Set the instance ID for the MAS installation where you wish to upgrade the application.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="mas_app_channel">mas_app_channel<a class="headerlink" href="#mas_app_channel" title="Permanent link"></a></h3>
+<p>Select the subscription channel you wish to upgrade to.  Built-in validation will ensure that the upgrade will only proceed if a supportable upgrade path is chosen.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MAS_APP_CHANNEL</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="mas_upgrade_dryrun">mas_upgrade_dryrun<a class="headerlink" href="#mas_upgrade_dryrun" title="Permanent link"></a></h3>
+<p>When set to <code>true</code> will ensure that the role only preforms upgrade validation checks and does not make any changes to the target installation.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_UPGRADE_DRYRUN</code></li>
+<li>Default: <code>False</code></li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
+  vars:
+    mas_instance_id: instance1
+    mas_app_id: iot
+    mas_app_channel: 8.5.x
   roles:
-    - ibm.mas_devops.suite_upgrade_check
+    - ibm.mas_devops.suite_app_upgrade
 </code></pre>
               
             </div>
@@ -238,10 +274,10 @@ For more information, please refer to <a href="https://www.ibm.com/docs/en/mas87
         </span>
     
     
-      <span><a href="../suite_upgrade/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../suite_app_install/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../suite_verify/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../suite_config/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

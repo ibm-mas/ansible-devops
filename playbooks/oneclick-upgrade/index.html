@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ibm-mas.github.io/ansible-devops/playbooks/oneclick-iot/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ibm-mas.github.io/ansible-devops/playbooks/oneclick-upgrade/" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>Add IoT - MAS Devops Collection</title>
+    <title>Upgrade - MAS Devops Collection</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
@@ -13,9 +13,9 @@
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Add IoT";
-        var mkdocs_page_input_path = "playbooks/oneclick-iot.md";
-        var mkdocs_page_url = "/ansible-devops/playbooks/oneclick-iot/";
+        var mkdocs_page_name = "Upgrade";
+        var mkdocs_page_input_path = "playbooks/oneclick-upgrade.md";
+        var mkdocs_page_url = "/ansible-devops/playbooks/oneclick-upgrade/";
       </script>
     
     <script src="../../js/jquery-3.6.0.min.js" defer></script>
@@ -56,17 +56,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../oneclick-core/">Install Core</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="./">Add IoT</a>
-    <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#required-environment-variables">Required environment variables</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a>
-    </li>
-    </ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../oneclick-iot/">Add IoT</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../oneclick-manage/">Add Manage</a>
                   </li>
@@ -74,7 +64,23 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../oneclick-update/">Update</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../oneclick-upgrade/">Upgrade</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">Upgrade</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#playbook-content">Playbook Content</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#preparation">Preparation</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#required-parameters">Required Parameters</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#optional-parameters">Optional Parameters</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#example">Example</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Roles: OCP Mgmt</span></p>
@@ -192,9 +198,9 @@
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" alt="Docs"></a> &raquo;</li>
           <li>Playbooks &raquo;</li>
-      <li>Add IoT</li>
+      <li>Upgrade</li>
     <li class="wy-breadcrumbs-aside">
-        <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/playbooks/oneclick-iot.md"
+        <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/playbooks/oneclick-upgrade.md"
           class="icon icon-github"> Edit on GitHub</a>
     </li>
   </ul>
@@ -203,49 +209,63 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="install-iot-application">Install IoT Application<a class="headerlink" href="#install-iot-application" title="Permanent link"></a></h1>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link"></a></h2>
-<p>You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.7 already be installed, the <a href="../oneclick-core/">oneclick-core</a> playbook can be used to set this up.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link"></a></h2>
-<p>This playbook will add <strong>Maximo IoT v8.4</strong> to an existing IBM Maximo Application Suite Core installation.  It will also creatie an in-cluster Db2 instance and Kafka cluster, both of which will be automatically set up as system-level configurations in MAS.  IoT will be configured to accept automatic security updates and bug fixes, but not new feature releases.</p>
-<p>This playbook can be ran against any OpenShift cluster regardless of it's type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.</p>
-<ul>
-<li>Install dependencies:<ul>
-<li>Install IBM Db2 Universal Operator (2 minutes)</li>
-<li>Create Db2 Warehouse Instance (45 minutes)</li>
-<li>Install RedHat AMQ Streams Operator (2 minutes)</li>
-<li>Create Apache Kafka Cluster (15 minutes)</li>
-</ul>
-</li>
-<li>Configure Maximo Application Suite:<ul>
-<li>Set up Db2 instance as the system-level JDBC datasource</li>
-<li>Set up Kafka cluster as the system-level Kafka</li>
-</ul>
-</li>
-<li>Install Maximo IoT application:<ul>
-<li>Install application (90 minutes)</li>
-<li>Configure workspace (5 minutes)</li>
-</ul>
-</li>
-</ul>
-<p>All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.</p>
-<h2 id="required-environment-variables">Required environment variables<a class="headerlink" href="#required-environment-variables" title="Permanent link"></a></h2>
-<ul>
-<li><code>MAS_INSTANCE_ID</code> Declare the instance ID for the MAS install</li>
-<li><code>MAS_CONFIG_DIR</code> Directory where generated config files will be saved (you may also provide pre-generated config files here)</li>
-<li><code>MAS_ENTITLEMENT_KEY</code> Your IBM Entitlement key to access the IBM Container Registry</li>
-</ul>
+                <h1 id="oneclick-upgrade">OneClick Upgrade<a class="headerlink" href="#oneclick-upgrade" title="Permanent link"></a></h1>
+<p>This playbook will <strong>upgrade</strong> the channel subscriptions for IBM Maximo Application Suite on your OpenShift cluster.  Upgrades can only be performed to releases available in the  version of the IBM Maximo Pperator Catalog that is installed in your cluster.  To <strong>update</strong> to a newer version of the operator catalog refer to the <a href="oneclick-update">oneclick-update.md</a> playbook documentation.</p>
+<p>The playbook will attempt to upgrade MAS Core and all installed applications.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you are using the dynamic catalog (<strong>ibm-maximo-operator-catalog:v8</strong>) you will always have access to the latest MAS releases, as you will recieve catalog updates in your cluster as soon as they are released.  Customers using the static catalogs to control the consumption of updates in their cluster will need to ensure that the version of the catalog they have installed supports the version of MAS that they wish to upgrade to.</p>
+</div>
+<h2 id="playbook-content">Playbook Content<a class="headerlink" href="#playbook-content" title="Permanent link"></a></h2>
+<ol>
+<li><a href="../../roles/suite_upgrade/">Upgrade MAS Core</a></li>
+<li><a href="../../roles/suite_verify/">Verify MAS Core</a></li>
+<li><a href="../../roles/suite_app_upgrade/">Upgrade MAS Application (Assist)</a></li>
+<li><a href="../../roles/suite_app_upgrade/">Upgrade MAS Application (HP Utilities)</a></li>
+<li><a href="../../roles/suite_app_upgrade/">Upgrade MAS Application (IoT)</a></li>
+<li><a href="../../roles/suite_app_upgrade/">Upgrade MAS Application (Manage)</a></li>
+<li><a href="../../roles/suite_app_upgrade/">Upgrade MAS Application (Monitor)</a></li>
+<li><a href="../../roles/suite_app_upgrade/">Upgrade MAS Application (Optimizer)</a></li>
+<li><a href="../../roles/suite_app_upgrade/">Upgrade MAS Application (Predict)</a></li>
+<li><a href="../../roles/suite_app_upgrade/">Upgrade MAS Application (Safety)</a></li>
+<li><a href="../../roles/suite_app_upgrade/">Upgrade MAS Application (Visual Inspection)</a></li>
+</ol>
+<h2 id="preparation">Preparation<a class="headerlink" href="#preparation" title="Permanent link"></a></h2>
+<p>If you are using a private/mirror registry it is <strong>critical</strong> that you mirror the images for the new release <strong>before</strong> you run this playbook, otherwise you will see numerous containers in <strong>ImagePullBackoff</strong> as the updates are rolled out automatically after the subscription has been changed, if you have not mirrored the new images the subscription change itself may fail if the operator bundle is not on your private registry.</p>
 <h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link"></a></h2>
-<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
-export MAS_CONFIG_DIR=/home/david/masconfig
-export MAS_ENTITLEMENT_KEY=xxx
-
+<h3 id="required-parameters">Required Parameters<a class="headerlink" href="#required-parameters" title="Permanent link"></a></h3>
+<ul>
+<li><code>MAS_INSTANCE_ID</code> Set the instance ID of the MAS installation to upgrade</li>
+</ul>
+<h3 id="optional-parameters">Optional Parameters<a class="headerlink" href="#optional-parameters" title="Permanent link"></a></h3>
+<p>If you provide no values for MAS Core or the individual applications, the roles will attempt to upgrade to the next level of MAS and upgrade applications to the latest version supported by the installed version of MAS Core (after upgrading MAS Core).</p>
+<ul>
+<li><code>MAS_CHANNEL</code> Set the target subscription channel for MAS Core</li>
+<li><code>MAS_APP_CHANNEL_ASSIST</code> Set the target subscription channel for Assist</li>
+<li><code>MAS_APP_CHANNEL_HPUTILITIES</code> Set the target subscription channel for Health &amp; Predict Utilities</li>
+<li><code>MAS_APP_CHANNEL_IOT</code> Set the target subscription channel for IoT</li>
+<li><code>MAS_APP_CHANNEL_MONITOR</code> Set the target subscription channel for Monitor</li>
+<li><code>MAS_APP_CHANNEL_OPTIMIZER</code> Set the target subscription channel for Optimizer</li>
+<li><code>MAS_APP_CHANNEL_PREDICT</code> Set the target subscription channel for Predict</li>
+<li><code>MAS_APP_CHANNEL_SAFETY</code> Set the target subscription channel for Safety</li>
+<li><code>MAS_APP_CHANNEL_VISUALINSPECTION</code> Set the target subscription channel for Visual Inspection</li>
+</ul>
+<h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link"></a></h3>
+<p>The simplest way to upgrade MAS is to provide only the instance ID that you wish to upgrade, allowing the roles to determine the correct target version each application.</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=instance1
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_iot
+ansible-playbook ibm.mas_devops.oneclick_upgrade
+</code></pre>
+<p>You can also explicitly specify the target upgrade:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=instance1
+export MAS_CHANNEL=8.8.x
+export MAS_APP_CHANNEL_IOT=8.5.x
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.oneclick_upgrade
 </code></pre>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: <code>docker run -ti quay.io/ibmmas/ansible-devops:latest bash</code></p>
+<p>If you do not want to set up all the dependencies on your local system, you can run the update from inside our container image: <code>docker run -ti --rm quay.io/ibmmas/cli:latest</code></p>
 </div>
               
             </div>
@@ -275,10 +295,10 @@ ansible-playbook ibm.mas_devops.oneclick_add_iot
         </span>
     
     
-      <span><a href="../oneclick-core/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../oneclick-update/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../oneclick-manage/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../../roles/ocp_deprovision/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
