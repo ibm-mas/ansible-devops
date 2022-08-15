@@ -1,0 +1,32 @@
+---
+# Note: For single node openshift on AWS set:
+# - OCP_INSTALL_COMPUTE_REPLICAS=0
+# - OCP_INSTALL_CONTROLPLANE_REPLICAS=1
+
+- hosts: localhost
+  vars:
+    cluster_type: ipi
+    ipi_platform: aws
+
+  pre_tasks:
+    # For the full set of supported environment variables refer to the playbook documentation
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'CLUSTER_NAME') != ""
+          - lookup('env', 'OCP_VERSION') != ""
+          - lookup('env', 'IPI_COMPUTE_REPLICAS') != ""
+          - lookup('env', 'IPI_CONTROLPLANE_REPLICAS') != ""
+          - lookup('env', 'IPI_BASE_DOMAIN') != ""
+          - lookup('env', 'IPI_PULL_SECRET_FILE') != ""
+          - lookup('env', 'AWS_ACCESS_KEY_ID') != ""
+          - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    # 1. Provision the SNO cluster in AWS
+    - ibm.mas_devops.ocp_provision
+
+    # 2. Login and verify the cluster is ready
+    # - ibm.mas_devops.ocp_login
+    - ibm.mas_devops.ocp_verify
