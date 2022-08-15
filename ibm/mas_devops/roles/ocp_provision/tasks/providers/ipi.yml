@@ -93,6 +93,13 @@
     dest: "{{ ocp_installer_dir }}"
     remote_src: yes
 
+- name: "ipi: Run OCP Installer version command"
+  shell: "{{ ocp_installer_dir }}/openshift-install version"
+  register: ocp_installer_version
+
+- name: "ipi : Debug OCP Installer version"
+  debug:
+    msg: "{{ ocp_installer_version.stdout_lines}}"
 
 # 4. Build the install-config.yaml
 # -----------------------------------------------------------------------------
@@ -118,7 +125,7 @@
 # 5. Create Cluster
 # -----------------------------------------------------------------------------
 - name: "ipi : Create cluster"
-  shell: openshift-install create cluster --dir={{ ipi_config_dir }}
+  shell: "{{ ocp_installer_dir }}/openshift-install create cluster --dir={{ ipi_config_dir }}"
   register: ipi_create_cluster_completion
   until: ipi_create_cluster_completion.rc == 0
   retries: 60
@@ -135,7 +142,7 @@
   set_fact:
     login_password: "{{ lookup('file', ipi_config_dir+'/auth/kubeadmin-password') }}"
     login_user: "kubeadmin"
-    login_server:  "https://api.{{ lookup('env', 'CLUSTER_NAME') | default('', True) }}.{{ lookup('env','IPI_BASE_DOMAIN') }}:6443"
+    login_server: "https://api.{{ lookup('env', 'CLUSTER_NAME') | default('', True) }}.{{ lookup('env','IPI_BASE_DOMAIN') }}:6443"
 
 - name: "ipi : Print the access info"
   debug:
