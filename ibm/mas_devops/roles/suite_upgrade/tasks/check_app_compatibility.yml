@@ -1,0 +1,112 @@
+---
+# 1. Check that the subscription meets the required state
+# -----------------------------------------------------------------------------
+- name: "{{ check_app.id }} : Initialize facts"
+  set_fact:
+    check_app_namespace: "mas-{{ mas_instance_id }}-{{ check_app.id }}"
+
+- name: "{{ check_app.id }} : Get subscription for ibm-mas-{{ check_app.id }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-mas-{{ check_app.id }}"
+    namespace: "{{ check_app_namespace }}"
+    kind: Subscription
+  register: checkapp_sub_info
+
+- name: "{{ check_app.id }} : Debug existing Subscription"
+  debug:
+    var: checkapp_sub_info
+
+- name: "{{ check_app.id }} : Check that upgrade is supported from current channel"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  assert:
+    that: checkapp_sub_info.resources[0].spec.channel in compatibility_matrix[mas_channel][check_app.id]
+    fail_msg: "Unable to upgrade to {{ mas_channel }} because ibm-mas-{{ check_app.id }} is subscribed to a channel that is not compatible with this release ({{ checkapp_sub_info.resources[0].spec.channel }}).  Supported channels are: {{ compatibility_matrix[mas_channel][check_app.id] }}"
+
+- name: "{{ check_app.id }} : Check that install plan approvals are set to 'Automatic'"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  assert:
+    that: checkapp_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
+    fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"
+
+
+# 2. Lookup the OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "{{ check_app.id }} : Lookup OperatorCondition for ibm-mas-{{ check_app.id }}"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ check_app_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-mas-{{ check_app.id }}.{{ check_app_namespace }}"
+  register: opcon
+
+- name: "{{ check_app.id }} : Debug OperatorCondition"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  debug:
+    var: opcon
+
+- name: "{{ check_app.id }} : Check that the OperatorCondition was found"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  assert:
+    that:
+      - opcon.resources is defined
+      - opcon.resources | length == 1
+      - opcon.resources[0].metadata.name is defined
+
+
+# 3. Set the operator version
+# -----------------------------------------------------------------------------
+# OperatorCondition names are in the format {packageName}.{packageVersion}
+# We want to strip off the "v" prefix from the version while we do this
+- name: "{{ check_app.id }} : Lookup operator version for ibm-mas"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  set_fact:
+    opcon_version: "{{ opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+- name: "{{ check_app.id }} : Debug Operator Version"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  debug:
+    msg:
+      - "Operator condition ......... {{ opcon.resources[0].metadata.name }}"
+      - "Operator version ........... {{ opcon_version }}"
+
+
+# 2. Check the health of the appliation
+# -----------------------------------------------------------------------------
+- name: "{{ check_app.id }} : Get CR for {{ check_app.id }}"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  kubernetes.core.k8s_info:
+    api_version: "{{ check_app.api_version }}"
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ check_app_namespace }}"
+    kind: "{{ check_app.kind }}"
+  register: app_info
+
+- name: "{{ check_app.id }} : Debug Application Info"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  debug:
+    var: app_info
+
+- name: "{{ check_app.id }} : Check that the CR exists"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  assert:
+    that:
+      - app_info.resources is defined
+      - app_info.resources | length == 1
+    fail_msg: "Upgrade failed, ibm-mas-{{ check_app.id }} operator has been deployed, but {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} has not been created in namespace {{ check_app_namespace }}"
+
+- name: "{{ check_app.id }} : Check that the Suite CR has been reconciled to the expected version"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  assert:
+    that:
+      - app_info.resources[0].status.versions.reconciled == opcon_version
+    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} version ({{ app_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
+
+- name: "{{ check_app.id }} : Check that the Application CR is in a healthy state"
+  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  assert:
+    that:
+      - app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} is not healthy"

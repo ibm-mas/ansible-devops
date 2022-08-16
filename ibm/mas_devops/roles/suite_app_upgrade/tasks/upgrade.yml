@@ -1,0 +1,103 @@
+---
+
+# 1. Upgrade Subscription
+# -----------------------------------------------------------------------------
+- name: "Update subscription"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    name: "{{ mas_app_fqn }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: Subscription
+    definition:
+      spec:
+        channel: "{{ mas_app_channel }}"
+    apply: true
+
+- name: "Pause for 2 minutes before checking upgrade status..."
+  pause:
+    minutes: 2
+
+
+# 2. Lookup the OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "upgrade : Lookup OperatorCondition for {{ mas_app_fqn }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ mas_app_fqn }}.{{ mas_app_namespace }}"
+  register: updated_opcon
+
+- name: "upgrade : Debug OperatorCondition"
+  debug:
+    var: updated_opcon
+
+- name: "upgrade : Check that the OperatorCondition was found"
+  assert:
+    that:
+      - updated_opcon.resources is defined
+      - updated_opcon.resources | length == 1
+      - updated_opcon.resources[0].metadata.name is defined
+
+
+# 3. Set the operator version
+# -----------------------------------------------------------------------------
+# OperatorCondition names are in the format {packageName}.{packageVersion}
+# We want to strip off the "v" prefix from the version while we do this
+- name: "upgrade : Lookup operator version for ibm-mas"
+  set_fact:
+    updated_opcon_version: "{{ updated_opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+- name: "upgrade : Debug Operator Version"
+  debug:
+    msg:
+      - "Operator condition ..................... {{ updated_opcon.resources[0].metadata.name }}"
+      - "Operator version (before) .............. {{ opcon_version }}"
+      - "Operator version (after) ............... {{ updated_opcon_version }}"
+
+
+# 4. Check that the Application CR meets the required state
+# -----------------------------------------------------------------------------
+- name: "upgrade : Get {{ app_info[mas_app_id].kind }} CR for for {{ mas_app_fqn }}"
+  kubernetes.core.k8s_info:
+    api_version: "{{ app_info[mas_app_id].api_version }}"
+    kind: "{{ app_info[mas_app_id].kind }}"
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+  retries: 20 # about 40 minutes
+  delay: 120 # 2 minutes
+  until:
+    - updated_app_info.resources is defined
+    - updated_app_info.resources[0].status is defined
+    - updated_app_info.resources[0].status.versions.reconciled == updated_opcon_version
+    - updated_app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+  register: updated_app_info
+
+- name: "upgrade : Debug {{ app_info[mas_app_id].kind }} CR"
+  debug:
+    var: updated_app_info
+
+
+# 5. Check that the Application Workspaces meet the required state
+# -----------------------------------------------------------------------------
+- name: 'Check that all workspace CRs are healthy'
+  kubernetes.core.k8s_info:
+    api_version: "{{ app_info[mas_app_id].api_version }}"
+    kind: "{{ app_info[mas_app_id].ws_kind }}"
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - mas.ibm.com/instanceId={{ mas_instance_id }}
+      - mas.ibm.com/applicationId={{ mas_app_id }}
+  retries: 20 # about 40 minutes
+  delay: 120 # 2 minutes
+  until:
+    - app_ws_cr_lookup.resources is defined
+    - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == app_ws_cr_lookup.resources | length
+    - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
+  register: app_ws_cr_lookup
+
+- name: "{{ mas_app_id }} : Debug Workspaces"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  debug:
+    var: app_ws_cr_lookup

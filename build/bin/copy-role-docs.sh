@@ -46,6 +46,7 @@ copyDoc sbo_upgrade
 copyDoc sls
 copyDoc suite_app_config
 copyDoc suite_app_install
+copyDoc suite_app_upgrade
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
 copyDoc suite_dns
@@ -55,6 +56,5 @@ copyDoc suite_manage_bim_config
 copyDoc suite_mustgather
 copyDoc suite_mustgather_download
 copyDoc suite_upgrade
-copyDoc suite_upgrade_check
 copyDoc suite_verify
 copyDoc uds
