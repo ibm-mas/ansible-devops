@@ -1,0 +1,28 @@
+---
+- name: "wait-wd : Pause for 5 minutes to allow pods that may have started before we patched the SA to get into ImgPullBackOff"
+  pause:
+    minutes: 5
+
+- name: "wait-wd : Lookup pods in CPD instance namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ cpd_instance_namespace }}"
+  register: discovery_pod_lookup
+
+- name: "wait-wd : Delete pod if it's in ImagePullBackoff"
+  when:
+    - discovery_pod_lookup.resources | length > 0
+    - item.status.containerStatuses[0].state is defined
+    - item.status.containerStatuses[0].state.waiting is defined
+    - item.status.containerStatuses[0].state.waiting.reason is defined
+    - item.status.containerStatuses[0].state.waiting.reason is in ["ImagePullBackOff", "ErrImagePull"]
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Pod
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  with_items: "{{ discovery_pod_lookup.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
