@@ -1,5 +1,81 @@
 ---
-# 1. Wait for CP4D service CR to be ready
+# The wd-discovery-cn-postgres-1-initdb will fail to pull as it has no link to
+# the ibm-entitlement-secret, we need to watch for this to be created, patch the
+# service account, and then ensure we delete any pods stuck in ImagePulLbackOff.
+#
+# It's really messy, but it's the only way to get this service deployed without
+# injecting the IBM entitlement as a default cluster image pull secret.
+#
+# Ref: https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3481#issuecomment-44648280
+
+
+# 1. Wait for Discovery CN postgres service accounts to be created
+# -----------------------------------------------------------------------------
+- name: "wait-wd : Wait for the wd-discovery-cn-postgres service account to appear"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: wd-discovery-cn-postgres
+    namespace: "{{ cpd_instance_namespace }}"
+  register: discovery_sa_lookup
+  retries: 50 # Up to 25 minutes
+  delay: 30 # Every 30 seconds
+  until:
+    - discovery_sa_lookup.resources is defined
+    - discovery_sa_lookup.resources | length > 0
+
+
+# 2. Patch the Discovery CN postgres service accounts in ibm-cpd namespace to add ibm-entitlement-key
+# -----------------------------------------------------------------------------
+- name: "wait-wd : Patch the wd-discovery-cn-postgres service account"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: wd-discovery-cn-postgres
+    namespace: "{{ cpd_instance_namespace }}"
+    definition:
+      imagePullSecrets:
+        - name: ibm-entitlement-key
+
+
+# 3. Wait for 10 minutes
+# -----------------------------------------------------------------------------
+# If we look for pods in image pull backoff too early then we won't know which ones to
+# boot so that they pick up the image pull secret as it takes a while for pods to get
+# into "ImagePullBackOff" or "ErrImagePull" state
+- name: "wait-wd : Pause for 10 minutes to allow pods that were started before we patched the SA to get into ImgPullBackOff"
+  pause:
+    minutes: 10
+
+
+# 4. Lookup and restart any pods in ImagePullBackOff state
+# -----------------------------------------------------------------------------
+- name: "wait-wd : Lookup pods in CPD instance namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ cpd_instance_namespace }}"
+  register: discovery_pod_lookup
+  retries: 10 # Up to 10 minutes
+  delay: 60 # Every 1 minute
+
+- name: "wait-wd : Delete pod if it's in ImagePullBackoff"
+  when:
+    - discovery_pod_lookup.resources | length > 0
+    - item.status.containerStatuses[0].state is defined
+    - item.status.containerStatuses[0].state.waiting is defined
+    - item.status.containerStatuses[0].state.waiting.reason is defined
+    - item.status.containerStatuses[0].state.waiting.reason is in ["ImagePullBackOff", "ErrImagePull"]
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Pod
+    name: "{{ discovery_pod_lookup.resources[0].metadata.name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  with_items: "{{ discovery_pod_lookup.resources }}"
+
+
+# 5. Wait for CP4D service CR to be ready
 # -----------------------------------------------------------------------------
 - name: "wait-wd : Wait for watsonDiscoveryStatus 'Completed' (5m interval)"
   kubernetes.core.k8s_info:
