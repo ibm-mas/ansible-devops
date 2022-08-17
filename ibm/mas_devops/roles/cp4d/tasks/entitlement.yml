@@ -1,6 +1,7 @@
 ---
-
-- name: "entitlement : Create ibm-entitlement-key secret in CP4D instance namespace"
+# The image pull secret is needed in the main CPD instance namespace as well as the ibm-common-services namespace
+# The "create-postgres-license-config" job will fail if the secret does not exist in ibm-common-services
+- name: "entitlement : Create ibm-entitlement-key secret in {{ item }} namespace"
   vars:
     entitledAuthStr: "{{ cpd_entitlement_username }}:{{ cpd_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
@@ -15,7 +16,10 @@
       type: kubernetes.io/dockerconfigjson
       metadata:
         name: "ibm-entitlement-key"
-        namespace: "{{ cpd_instance_namespace }}"
+        namespace: "{{ item }}"
       stringData:
         # Only way I could get three consecutive "}" into a string :)
         .dockerconfigjson: "{{ content | join('') | string }}"
+  with_items:
+    - "ibm-common-services"
+    - "{{ cpd_instance_namespace }}"

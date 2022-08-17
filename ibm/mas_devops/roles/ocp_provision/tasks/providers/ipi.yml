@@ -1,0 +1,156 @@
+---
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "ipi : Fail if required parameters are not provided"
+  assert:
+    that:
+      - cluster_name is defined and cluster_name != ""
+      - ocp_version is defined and ocp_version != ""
+      - ipi_base_domain is defined and ipi_base_domain != ""
+      - ipi_pull_secret_file is defined and ipi_pull_secret_file != ""
+    fail_msg: "One or more required parameters are not defined"
+
+- name: "ipi : Check ipi_pull_secret_file"
+  stat:
+    path: "{{ ipi_pull_secret_file }}"
+  register: ipi_pull_secret_file_lookup
+
+- name: "ipi : Fail if pull secret does not exist"
+  assert:
+    that: ipi_pull_secret_file_lookup.stat.exists
+    fail_msg: "Red Hat pull secret file does not exist: {{ ipi_pull_secret_file }}"
+
+# Note that environment variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+# are required by the AWS IPI openshift installer, they must be provided as
+# environment variables, rather than just as parameters to Ansible
+#
+# In future, we could check if they are defined, and if not set them when
+# we run the command, but as we mostly drive the role via environment variables
+# that seems rather redundant at present.
+- name: "ipi : Fail if required parameters are not provided (AWS)"
+  when: ipi_platform == "aws"
+  assert:
+    that:
+      - lookup('env', 'AWS_ACCESS_KEY_ID') != ""
+      - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
+    fail_msg: "One or more required parameters are not defined"
+
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "ipi : Debug information"
+  debug:
+    msg:
+      - "Cluster name ........................... {{ cluster_name }}"
+      - "OCP Version ............................ {{ ocp_version }}"
+      - ""
+      - "Platform ............................... {{ ipi_platform }}"
+      - "Region ................................. {{ ipi_region }}"
+      - "Base Domain ............................ {{ ipi_base_domain }}"
+      - ""
+      - "Compute Instance Type .................. {{ ipi_compute_type }}"
+      - " + Compute Node Replicas ............... {{ ipi_compute_replicas }}"
+      - "Control Plane Type ..................... {{ ipi_controlplane_type }}"
+      - " + Control Plane Replicas .............. {{ ipi_controlplane_replicas }}"
+      - ""
+      - "Pull Secret File ....................... {{ ipi_pull_secret_file }}"
+      - "IPI Directory .......................... {{ ipi_dir }}"
+      - ""
+      - "OpenShift Installer Directory .......... {{ ocp_installer_dir }}"
+      - "OpenShift Installer Executable ......... {{ ocp_installer_exe }}"
+
+- name: "ipi : Debug information (AWS)"
+  when: ipi_platform == "aws"
+  debug:
+    msg:
+      - "AWS Access Key ......................... {{ aws_access_key_id }}"
+      - "AWS Secret Access Key .................. {{ aws_secret_access_key }}"
+
+
+# 3. Install the installer
+# -----------------------------------------------------------------------------
+- name: "ipi : Check ocp_installer_dir"
+  stat:
+    path: "{{ ocp_installer_dir }}"
+  register: ocp_installer_dir_lookup
+
+- name: "ipi : Create ocp_installer_dir if it does not exist"
+  when: not ocp_installer_dir_lookup.stat.exists
+  file:
+    path: "{{ ocp_installer_dir }}"
+    state: directory
+    mode: '755'
+
+- name: "ipi : Check ocp_installer_exe exists"
+  stat:
+    path: "{{ ocp_installer_exe }}"
+  register: ocp_installer_exe_lookup
+
+- name: "ipi : Download the correct OCP Installer"
+  when: not ocp_installer_dir_lookup.stat.exists
+  unarchive:
+    src: "https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/{{ ocp_version }}/openshift-install-linux.tar.gz"
+    dest: "{{ ocp_installer_dir }}"
+    remote_src: yes
+
+- name: "ipi: Run OCP Installer version command"
+  shell: "{{ ocp_installer_dir }}/openshift-install version"
+  register: ocp_installer_version
+
+- name: "ipi : Debug OCP Installer version"
+  debug:
+    msg: "{{ ocp_installer_version.stdout_lines}}"
+
+# 4. Build the install-config.yaml
+# -----------------------------------------------------------------------------
+- name: "ipi : Check ipi_config_dir"
+  stat:
+    path: "{{ ipi_config_dir }}"
+  register: sno_config_directory
+
+- name: "ipi : Create ipi_config_dir if it does not exist"
+  file:
+    path: "{{ ipi_config_dir }}"
+    state: directory
+    mode: '755'
+  when: not sno_config_directory.stat.exists
+
+- name: "ipi : Build the install-config.yaml"
+  ansible.builtin.template:
+    src: ipi/install-config.yaml.j2
+    dest: "{{ ipi_config_dir }}/install-config.yaml"
+    mode: '644'
+
+
+# 5. Create Cluster
+# -----------------------------------------------------------------------------
+- name: "ipi : Create cluster"
+  shell: "{{ ocp_installer_dir }}/openshift-install create cluster --dir={{ ipi_config_dir }}"
+  register: ipi_create_cluster_completion
+  until: ipi_create_cluster_completion.rc == 0
+  retries: 60
+  delay: 60
+
+- name: "ipi : Debug final cluster state"
+  debug:
+    msg: "{{ ipi_create_cluster_completion.stdout}}"
+
+
+# 6. Print Cluster Information & login
+# -----------------------------------------------------------------------------
+- name: "ipi : Retrieve the access info"
+  set_fact:
+    login_password: "{{ lookup('file', ipi_config_dir+'/auth/kubeadmin-password') }}"
+    login_user: "kubeadmin"
+    login_server: "https://api.{{ lookup('env', 'CLUSTER_NAME') | default('', True) }}.{{ lookup('env','IPI_BASE_DOMAIN') }}:6443"
+
+- name: "ipi : Print the access info"
+  debug:
+    msg:
+      - "Login Server ........................... {{ login_server }}"
+      - "Login User ............................. {{ login_user }}"
+      - "Login Password ......................... {{ login_password }}"
+
+- name: "ipi : oc login"
+  shell: |
+    oc login -u {{ login_user }} -p {{ login_password }} --server={{ login_server }} --insecure-skip-tls-verify=true
