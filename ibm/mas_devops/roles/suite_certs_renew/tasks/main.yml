@@ -4,8 +4,6 @@
 
 # 1. Set facts and debug
 # -------------------------------------------------------------------------------------------------
-- set_fact:
-    cert_manager_namespace: "{{ suite_info.resources[0].spec.certManagerNamespace | default('cert-manager', True) }}"
 
 
 - name: General Debug
@@ -42,15 +40,12 @@
   delay: 30 # 30 Seconds
 
 - name: "Assert new 'tls.crt' in {{mas_instance_id}}-cert-public secret is different from the one prior to renewal"
-  block:
-    assert:
-      that:
-      - publiccert_original_data.resources[0].data['tls.crt'] != publiccert_new_data.resources[0].data['tls.crt']
-      fail_msg: "Assertion Failed! Original {{mas_instance_id}}-cert-public secret does not match with the recreated one."
-      success_msg: "Assertion Passed! Original 'tls.crt' in {{mas_instance_id}}-cert-public secret matches with the new one recreated!"
-    rescue:
-    - debug:
-        msg: "Warning: new secret in {{mas_instance_id}}-cert-public is the same as the one prior to renewal, private key rotation failed"
+  assert:
+    that:
+    - publiccert_original_data.resources[0].data['tls.crt'] != publiccert_new_data.resources[0].data['tls.crt']
+    fail_msg: "Assertion Failed! Original {{mas_instance_id}}-cert-public secret does not match with the recreated one."
+    success_msg: "Assertion Passed! Original 'tls.crt' in {{mas_instance_id}}-cert-public secret matches with the new one recreated!"
+
 
 # 3 Renew all internal certs and check that they're recreated with new details
 # -------------------------------------------------------------------------------------------------
