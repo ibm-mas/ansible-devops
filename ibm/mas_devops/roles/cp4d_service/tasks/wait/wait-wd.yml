@@ -38,44 +38,16 @@
         - name: ibm-entitlement-key
 
 
-# 3. Wait for 10 minutes
+# 3. Spend 25 minutes looking for pods stuck in ImagePullBackoff state
 # -----------------------------------------------------------------------------
 # If we look for pods in image pull backoff too early then we won't know which ones to
 # boot so that they pick up the image pull secret as it takes a while for pods to get
 # into "ImagePullBackOff" or "ErrImagePull" state
-- name: "wait-wd : Pause for 10 minutes to allow pods that were started before we patched the SA to get into ImgPullBackOff"
-  pause:
-    minutes: 10
+- name: "wait-wd : Catch any pods caughts in ImgPullBackOff"
+  include_tasks: wait-wd-detectimagepullbackoff.yml
 
 
-# 4. Lookup and restart any pods in ImagePullBackOff state
-# -----------------------------------------------------------------------------
-- name: "wait-wd : Lookup pods in CPD instance namespace"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Pod
-    namespace: "{{ cpd_instance_namespace }}"
-  register: discovery_pod_lookup
-  retries: 10 # Up to 10 minutes
-  delay: 60 # Every 1 minute
-
-- name: "wait-wd : Delete pod if it's in ImagePullBackoff"
-  when:
-    - discovery_pod_lookup.resources | length > 0
-    - item.status.containerStatuses[0].state is defined
-    - item.status.containerStatuses[0].state.waiting is defined
-    - item.status.containerStatuses[0].state.waiting.reason is defined
-    - item.status.containerStatuses[0].state.waiting.reason is in ["ImagePullBackOff", "ErrImagePull"]
-  kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: Pod
-    name: "{{ discovery_pod_lookup.resources[0].metadata.name }}"
-    namespace: "{{ cpd_instance_namespace }}"
-  with_items: "{{ discovery_pod_lookup.resources }}"
-
-
-# 5. Wait for CP4D service CR to be ready
+# 4. Wait for CP4D service CR to be ready
 # -----------------------------------------------------------------------------
 - name: "wait-wd : Wait for watsonDiscoveryStatus 'Completed' (5m interval)"
   kubernetes.core.k8s_info:
