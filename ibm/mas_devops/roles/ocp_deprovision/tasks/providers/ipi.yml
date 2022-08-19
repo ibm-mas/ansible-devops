@@ -1,0 +1,106 @@
+---
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "ipi : Fail if cluster_name is not provided"
+  assert:
+    that:
+      - cluster_name is defined and cluster_name != ""
+    fail_msg: "cluster_name is required"
+
+# Note that environment variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+# are required by the AWS IPI openshift installer, they must be provided as
+# environment variables, rather than just as parameters to Ansible
+#
+# In future, we could check if they are defined, and if not set them when
+# we run the command, but as we mostly drive the role via environment variables
+# that seems rather redundant at present.
+- name: "ipi : Fail if required parameters are not provided (AWS)"
+  when: ipi_platform == "aws"
+  assert:
+    that:
+      - lookup('env', 'AWS_ACCESS_KEY_ID') != ""
+      - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
+    fail_msg: "One or more required parameters are not defined"
+
+# We only use this to determine the openshift-install client to use to
+# perform the uninstall.  Assumption is that the latest installer should be
+# able to deprovision older clusters
+- name: "ipi : Default OCP version to latest"
+  when: ocp_version is not defined or ocp_version == ""
+  set_fact:
+    ocp_version: latest
+
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "ipi : Debug information"
+  debug:
+    msg:
+      - "Cluster name ........................... {{ cluster_name }}"
+      - "OCP Version ............................ {{ ocp_version }}"
+      - ""
+      - "IPI Directory .......................... {{ ipi_dir }}"
+      - ""
+      - "OpenShift Installer Directory .......... {{ ocp_installer_dir }}"
+      - "OpenShift Installer Executable ......... {{ ocp_installer_exe }}"
+
+- name: "ipi : Debug information (AWS)"
+  when: ipi_platform == "aws"
+  debug:
+    msg:
+      - "AWS Access Key ......................... {{ aws_access_key_id }}"
+      - "AWS Secret Access Key .................. {{ aws_secret_access_key }}"
+
+
+# 3. Install the installer
+# -----------------------------------------------------------------------------
+- name: "ipi : Check ocp_installer_dir"
+  stat:
+    path: "{{ ocp_installer_dir }}"
+  register: ocp_installer_dir_lookup
+
+- name: "ipi : Create ocp_installer_dir if it does not exist"
+  when: not ocp_installer_dir_lookup.stat.exists
+  file:
+    path: "{{ ocp_installer_dir }}"
+    state: directory
+    mode: '755'
+
+- name: "ipi : Check ocp_installer_exe exists"
+  stat:
+    path: "{{ ocp_installer_exe }}"
+  register: ocp_installer_exe_lookup
+
+- name: "ipi : Download the correct OCP Installer"
+  when: not ocp_installer_dir_lookup.stat.exists
+  unarchive:
+    src: "https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/{{ ocp_version }}/openshift-install-linux.tar.gz"
+    dest: "{{ ocp_installer_dir }}"
+    remote_src: yes
+
+
+# 4. Check the install-config.yaml exists
+# -----------------------------------------------------------------------------
+- name: "ipi : Check ipi_config_dir"
+  stat:
+    path: "{{ ipi_config_dir }}"
+  register: config_dir_lookup
+
+- name: "ipi : Assert that the configuration directory exists"
+  assert:
+    that: config_dir_lookup.stat.exists
+    fail_msg: "Unable to deprovision {{ cluster_name }} because '{{ ipi_config_dir }}' does not exist"
+
+
+# 5. Destroy Cluster
+# -----------------------------------------------------------------------------
+- name: "ipi : Destroy SNO cluster"
+  shell: "{{ ocp_installer_dir }}/openshift-install destroy cluster --dir={{ ipi_config_dir }}"
+  register: ipi_cluster_completion
+  until: ipi_cluster_completion.rc == 0
+  retries: 60
+  delay: 60
+
+- name: "ipi : Debug final cluster state"
+  debug:
+    msg: "{{ ipi_cluster_completion.stdout}}"

@@ -1,0 +1,68 @@
+---
+
+# 1. Load variables
+# -----------------------------------------------------------------------------
+- name: "{{ mas_app_id }} : Load application compatibility matrix"
+  include_vars: "{{ role_path }}/../../common_vars/compatibility_matrix.yml"
+- name: "Load application information"
+  include_vars: "{{ role_path }}/../../common_vars/application_info.yml"
+
+# Default mas_app_channel based on the latest supported version of the
+# installed MAS core if not provided by the user specifically
+- name: "{{ mas_app_id }} : Get subscription for ibm-mas"
+  when: mas_app_channel is not defined or mas_app_channel == ""
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-mas-operator"
+    namespace: "{{ mas_namespace }}"
+    kind: Subscription
+  register: core_sub_info
+
+- name: "{{ mas_app_id }} : Set default upgrade target based on installed version of MAS core"
+  when: mas_app_channel is not defined or mas_app_channel == ""
+  set_fact:
+    mas_app_channel: "{{ compatibility_matrix[core_sub_info.resources[0].spec.channel][mas_app_id] | last }}"
+
+- name: "{{ mas_app_id }} : Get subscription for {{ mas_app_fqn }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "{{ mas_app_fqn }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: Subscription
+  register: app_sub_info
+
+
+# 2. Check if the app is upgradeable from current version (n-1)
+# -----------------------------------------------------------------------------
+- name: "{{ mas_app_id }} : Check existing application installation"
+  when: app_sub_info.resources | length > 0
+  include_tasks: tasks/check_app_compatibility.yml
+
+
+# # 3. Check if the app is compatible with the version of MAS core platform
+# # -----------------------------------------------------------------------------
+- name: "{{ mas_app_id }} : Check MAS core compatability"
+  when: app_sub_info.resources | length > 0
+  include_tasks: tasks/check_core_compatibility.yml
+
+
+# # 4. Upgrade
+# -----------------------------------------------------------------------------
+- name: "{{ mas_app_id }} : Execute Channel Upgrade"
+  when:
+    - app_sub_info.resources | length > 0
+    - app_sub_info.resources[0].spec.channel != mas_app_channel
+    - not mas_upgrade_dryrun
+  include_tasks: tasks/upgrade.yml
+
+- name: "{{ mas_app_id }} : Debug when we are already on the desired channel"
+  when:
+    - app_sub_info.resources | length > 0
+    - app_sub_info.resources[0].spec.channel == mas_app_channel
+  debug:
+    msg: "No action required, subscription is already on the {{ mas_app_channel }} channel"
+
+- name: "{{ mas_app_id }} : Debug when there is nothing to upgrade"
+  when: app_sub_info.resources | length == 0
+  debug:
+    msg: "No action required, subscription for {{ mas_app_fqn }} does not exist in {{ mas_app_namespace }}"
