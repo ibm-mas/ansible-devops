@@ -1,5 +1,5 @@
 ---
-# 0. Check if the ocs is installed
+# 1. Check if the ocs is installed
 # ----------------------------------------------------------------------------
 - name: "Get OCS cluster "
   kubernetes.core.k8s_info:
@@ -23,7 +23,8 @@
     msg:
       - "OCS Cluster is available .... {{ ocsavailable }}"
 
-# 1. Create the object store
+
+# 2. Create the object store
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore in OSC Cluster"
   when: ocsavailable is defined and ocsavailable
@@ -31,7 +32,8 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/ocs/object.yaml') }}"
 
-# 2. Create the object User
+
+# 3. Create the object User
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore User"
   when: ocsavailable is defined and ocsavailable
@@ -50,7 +52,8 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-# 3. Set up the domain name for object storage route
+
+# 4. Set up the domain name for object storage route
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage :Get cluster subdomain"
   when: ocsavailable is defined and ocsavailable
@@ -65,7 +68,8 @@
   set_fact:
     cos_domain: "rgw-openshift-storage.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
-# 4. Create route for cos
+
+# 5. Create route for cos
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore route"
   when: ocsavailable is defined and ocsavailable
@@ -73,8 +77,9 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/ocs/rgw.yaml') }}"
 
-## 4. Query the object User crdential
-## -----------------------------------------------------------------------------
+
+# 6. Query the object User crdential
+# -----------------------------------------------------------------------------
 - name: "ocs/objectstorage :Lookup if cos user secret is there"
   when: ocsavailable is defined and ocsavailable
   kubernetes.core.k8s_info:
@@ -85,30 +90,29 @@
   register: objectuserSecret
 
 
-## 5. Query the tls for object route
-## -----------------------------------------------------------------------------
-- name: "ocs/objectstorage :Lookup cos route tls secret"
-  when: ocsavailable is defined and ocsavailable
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "router-certs-default"
-    namespace: "openshift-ingress"
-  register: objectrouteSecret
+# 7. Query the tls for object route
+# -----------------------------------------------------------------------------
+- name: "ocs/objectstorage : Lookup the default cluster ingress secret"
+  include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
+
+# Not sure why we do this manipulation on the certificate content, whoever wrote
+# this originally should really have put a comment in here explaining why this
+# is necessary :)
+- name: "ocs/objectstorage : Set COS cert variable"
+  set_fact:
+    ocscos_certs: "{{ cluster_ingress_tls_crt | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
 
 - name: "ocs/objectstorage :Query cos secret based on existing secret/cm"
   when:
     - ocsavailable is defined and ocsavailable
     - objectuserSecret.resources| length != 0
-    - objectrouteSecret.resources| length != 0
   set_fact:
     ocscos_url: "https://{{ cos_domain }}"
     ocscos_username: "{{ objectuserSecret.resources[0]['data']['AccessKey']| b64decode }}"
     ocscos_password: "{{ objectuserSecret.resources[0]['data']['SecretKey']| b64decode }}"
-    ocscos_certs: "{{ objectrouteSecret.resources[0]['data']['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True)  }}"
 
 
-# 6. Provide debug information and create coscfg.yml
+# 8. Provide debug information and create coscfg.yml
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Debug information"
   block:
@@ -124,7 +128,7 @@
         msg: "we didn't get the cos info xhere in ocs cluster."
 
 
-# 7. Write ObjectStorageCfg to disk
+# 9. Write ObjectStorageCfg to disk
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Copy objectstorageCfg to filesytem"
   when:
