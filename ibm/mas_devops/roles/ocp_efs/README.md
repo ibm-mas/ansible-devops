@@ -49,6 +49,7 @@ The password for the cluster-admin account (created when the cluster was provisi
 
 ### rosa_cluster_url
 The rosa cluster url used to login to cluster-admin account.  (created when the cluster was provisioned).
+
 - **Required**
 - Environment Variable: `ROSA_CLUSTER_URL`
 - Default: None
