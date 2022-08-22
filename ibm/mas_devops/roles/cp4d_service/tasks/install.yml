@@ -11,6 +11,7 @@
       - "CPD Instance Namespace ................. {{ cpd_instance_namespace }}"
       - "CPD service to be installed ............ {{ cpd_service_name }}"
       - "CPD service storage class .............. {{ cpd_service_storage_class }}"
+      - "CPD service subscription channel ....... {{ cpd_service_info[cpd_service_name].channel_name }}"
 
 
 # 2. Determine CP4D admin login credentials
@@ -30,6 +31,22 @@
     - cpd_service_name is in ['wd', 'wsl', 'wml']
   include_tasks: "prereqs/prereqs-{{ cpd_service_name }}.yml"
 
+# 3.1 Install Operand Configs and Operand Registries
+# -----------------------------------------------------------------------------
+# Only Watson Studio and Watson Discovery requires these operand configs
+- name: Install Operand Configs and Operand Registries
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/operand_config/{{ cpd_service_name }}.yml"
+  when:
+    - cpd_service_name is in ['wd', 'wsl']
+
+# 3.2 Install CP4D Service Catalog Sources
+# -----------------------------------------------------------------------------
+- name: "Install CP4D Service Catalog Source"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/catalog_sources/{{ cpd_service_name }}.yml"
 
 # 4. Install CP4D Service Subscriptions
 # -----------------------------------------------------------------------------
@@ -38,10 +55,10 @@
     cpd_service_subscription_name: "cpd-{{ cpd_service_name }}-operator"
     cpd_service_package_name: "{{ cpd_service_info[cpd_service_name].package_name }}"
     cpd_service_channel_name: "{{ cpd_service_info[cpd_service_name].channel_name }}"
+    cpd_service_catalog_source: "{{ cpd_service_info[cpd_service_name].catalog_source }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/subscription.yml.j2"
-
 
 # 5. Wait until the Service CRD is available
 # -----------------------------------------------------------------------------

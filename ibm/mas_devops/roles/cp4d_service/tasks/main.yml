@@ -8,13 +8,23 @@
       - cpd_product_version is defined and cpd_product_version != ""
     fail_msg: "CPD service name (cpd_service_name) and version (cpd_product_version) are required parameter to run this role"
 
+# - set_fact:
+#     cpd_minor_version: "{{ cpd_product_version | regex_search('(?<=)(.*)(?=..)') }}"
+
+- name: "Check that provided CPD product version is supported"
+  assert:
+    that:
+      - cpd_minor_version is defined and cpd_minor_version != ""
+      - cpd_minor_version in cpd_supported_minor_versions # Ensure only CPD 4.0.x and 4.5.x are supported
+    fail_msg: "CPD product version ({{ cpd_product_version }}) is not a supported CPD minor version. Supported CPD minor versions are: {{ cpd_supported_minor_versions }}."
+
 - debug:
     msg:
       - "CPD operators namespace ................ {{ cpd_operators_namespace }}"
       - "CPD instance namespace ................. {{ cpd_instance_namespace }}"
       - "CPD service ............................ {{ cpd_service_name }}"
       - "CPD product version .................... {{ cpd_product_version }}"
-
+      - "CPD control plane version .............. {{ cpd_minor_version }}"
 
 # 2. Run the installation
 # -----------------------------------------------------------------------------
