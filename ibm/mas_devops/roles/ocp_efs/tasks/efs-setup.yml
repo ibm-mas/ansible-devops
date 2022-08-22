@@ -1,0 +1,102 @@
+---
+# Set up an EFS instance ready to be used with a ROSA cluster
+
+# 1. AWS Login
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Login"
+  shell: |
+    aws configure set aws_access_key_id {{ aws_access_key_id }};
+    aws configure set aws_secret_access_key {{ aws_secret_access_key }};
+    aws configure set output json;
+    aws configure set region {{ aws_region }}
+
+
+# 2. AWS Get VPC-Id's
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Get List of VPC Ids"
+  shell: aws ec2 describe-vpcs
+  register: vpc_ids
+
+- name: "efs-setup : Query to Filter the Cluster VPC Id from the list of VPCs"
+  vars:
+    query: "Vpcs[?(Tags[?contains(Value,'{{ cluster_name }}' )])].VpcId"
+  set_fact:
+    vpcid: "{{ vpc_ids.stdout|from_json|json_query(query) }}"
+
+- name: "efs-setup : Debug VPC Id"
+  debug:
+    msg: "VPC Id is........................................{{ vpcid }}"
+
+
+# 3. Get Security Group of the cluster
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Get Security Group of the EC2 Istance"
+  shell: aws ec2 describe-security-groups --filters Name=vpc-id,Values={{ vpcid }} Name=tag:Name,Values='*worker*' --query "SecurityGroups[*].{ID:GroupId}[0]"
+  register: security_group
+
+- name: "efs-setup : Get Security Group Id from Output"
+  set_fact:
+    security_group_id: "{{ security_group.stdout|from_json|json_query(\"ID\") }}"
+
+- name: "efs-setup : Debug Security Group Id"
+  debug:
+    msg: "Security Group Id is..............................{{ security_group_id }}"
+
+
+# 4. Add a New Rule which allows all the NFS traffic from the VPC private CIDR.
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Add New Rule for A Security Group"
+  shell: aws ec2 authorize-security-group-ingress --group-id {{ security_group_id }} --source-group {{ security_group_id }} --protocol tcp --port 2049
+  register: inboudRule_output
+
+
+# 5. Create ELASTIC FILE SYSTEM
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Create EFS(Elastic File System"
+  shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value={{ cluster_name }}-efs
+  register: efs_creds
+
+- name: "efs-setup : Store EFS Creation Token"
+  set_fact:
+    client_token: "{{ efs_creds.stdout|from_json|json_query(\"CreationToken\") }}"
+
+- name: "efs-setup : Store EFS Id"
+  set_fact:
+    efs_id: "{{ efs_creds.stdout|from_json|json_query(\"FileSystemId\") }}"
+
+- name: "efs-setup : Debug EFS Id"
+  debug:
+    msg: "EFS Id is.........................................{{ efs_id }}"
+
+
+# 6. Get Private Subnet to Create Mount Target
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Private Subnet to Mount Target"
+  shell: aws ec2 describe-route-tables --filter Name=vpc-id,Values={{ vpcid }} Name=route.nat-gateway-id,Values='*nat*' --query "RouteTables[].Associations[].SubnetId"
+  register: private_subnet
+
+- name: "efs-setup : Filter Subnet Id"
+  set_fact:
+    private_subnet_id: "{{ private_subnet.stdout|from_json|json_query(\"[0]\") }}"
+
+
+# 7. Add a Mount Target to EFS
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Mount Target to EFS"
+  shell: aws efs create-mount-target --file-system-id {{ efs_id }} --subnet-id {{ private_subnet_id }} --security-groups {{ security_group_id }}
+  register: mount_op
+
+
+# 8. Configure Client access
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Add Client Access, Permissions to Owner and Posix User"
+  shell: aws efs create-access-point --file-system-id {{ efs_id }} --client-token {{ client_token }} --posix-user Uid=10022,Gid=20000 --root-directory Path='/rosa,CreationInfo={OwnerUid=10011,OwnerGid=10000,Permissions=0755}'
+  register: client_access_info
+
+- name: "efs-setup : Filter Client Access Id"
+  set_fact:
+    client_access_id: "{{ client_access_info.stdout|from_json|json_query(\"AccessPointId\") }}"
+
+- name: "efs-setup : Debug Client Access Point Id"
+  debug:
+    msg: "Client Access Point Id is.........................{{ client_access_id }}"
