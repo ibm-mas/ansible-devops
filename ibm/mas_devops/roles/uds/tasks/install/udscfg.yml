@@ -53,82 +53,18 @@
 
 # 4. Lookup the certificates
 # -----------------------------------------------------------------------------
-# We don't know why but sometimes the name of the secret will be
-# "router-certs-default" and sometimes it will be named after the domain of
-# the cluster (e.g. fvtstable-6f1620198115433da1cac8216c06779b-0000)
+- name: "udscfg : Lookup the default cluster ingress secret"
+  include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
 
-# 4.1 First, attempt to get the router-certs-default secret
-- name: "udscfg : Lookup Certificate for UDS (default)"
-  no_log: true
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: router-certs-default
-    namespace: openshift-ingress
-  register: uds_certificate_lookup
-
-# 4.2 If it does exist, then use it
-- name: "udscfg : Generate router secret name from the cluster subdomain"
-  when:
-    - uds_certificate_lookup.resources is defined
-    - uds_certificate_lookup.resources | length == 1
+# Not sure why we do this manipulation on the certificate content, whoever wrote
+# this originally should really have put a comment in here explaining why this
+# is necessary :)
+- name: "udscfg : Set UDS cert variable"
   set_fact:
-    uds_tls_crt: "{{ uds_certificate_lookup.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
-
-# 4.3 If it does not exist, then perform a second lookup for the custom secret
-- name: "udscfg : Get cluster subdomain"
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    kind: Ingress
-    name: cluster
-  register: cluster_subdomain
-
-- name: "udscfg : Lookup Certificate for UDS (custom)"
-  no_log: true
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
-    namespace: openshift-ingress
-  register: uds_certificate_lookup
-
-- name: "udscfg : Debug cert lookup result"
-  debug:
-    msg:
-      - "UDS Certificate Lookup ................. {{ uds_certificate_lookup }}"
-
-# 4.4 If it does exist, then use it
-- name: "udscfg : Generate router secret name from the cluster subdomain"
-  when:
-    - uds_certificate_lookup.resources is defined
-    - uds_certificate_lookup.resources | length == 1
-  set_fact:
-    uds_tls_crt: "{{ uds_certificate_lookup.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
-
-- name: "udscfg : Lookup Certificate for UDS (ROSA)"
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ cluster_name }}-primary-cert-bundle-secret"
-    namespace: openshift-ingress
-  register: uds_certificate_lookup
-
-# 4.5 If we have a lookup result (last step wasn't skipped) and we haven't already set the crt variable, then set it now
-- name: "udscfg : Generate router secret name from the cluster subdomain"
-  when:
-    - uds_certificate_lookup.resources is defined
-    - uds_certificate_lookup.resources | length == 1
-  set_fact:
-    uds_tls_crt: "{{ uds_certificate_lookup.resources[0].data['tls.crt'] | b64decode | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
-
-# 4.6 If uds_tls_crt is still unset, then we've failed
-- name: "udscfg : Fail if we can't find the secret containing the UDS certificates"
-  assert:
-    that: uds_tls_crt is defined
-    fail_msg: "Failed looking up secret containing UDS certificates from the default or custom router certificates secret"
+    uds_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
 
 
-# 5 Debug
+# 5. Debug
 # -----------------------------------------------------------------------------
 - name: "udscfg : Debug generated config"
   debug:
