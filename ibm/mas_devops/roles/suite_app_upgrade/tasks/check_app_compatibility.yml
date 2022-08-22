@@ -1,0 +1,157 @@
+---
+# 1. Check that the subscription meets the required state
+# -----------------------------------------------------------------------------
+- name: "{{ mas_app_id }} : Debug"
+  debug:
+    msg:
+      - "Application ID ......................... {{ mas_app_id }}"
+      - "Application FQN ........................ {{ mas_app_fqn }}"
+      - "Application Namespace .................. {{ mas_app_namespace }}"
+      - "Application API Version ................ {{ app_info[mas_app_id].api_version }}"
+      - "Application Kind ....................... {{ app_info[mas_app_id].kind }}"
+      - "Application CR Identifier .............. {{ mas_instance_id }}/{{ app_info[mas_app_id].kind }}.{{ app_info[mas_app_id].api_version }}"
+
+- name: "{{ mas_app_id }} : Get subscription for ibm-mas"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "{{ mas_app_fqn }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: Subscription
+  register: app_sub_info
+
+- name: "{{ mas_app_id }} : Debug existing Subscription"
+  debug:
+    var: app_sub_info
+
+- name: "{{ mas_app_id }} : Check that the subscription exists"
+  assert:
+    that:
+      - app_sub_info.resources is defined
+      - app_sub_info.resources | length == 1
+      - app_sub_info.resources[0].spec is defined
+      - app_sub_info.resources[0].spec.channel is defined
+    fail_msg: "Unable to find {{ mas_app_fqn }} subscription in namespace {{ mas_app_namespace }}"
+
+- name: "{{ mas_app_id }} : Debug when we are already on the desired channel"
+  when: app_sub_info.resources[0].spec.channel == mas_app_channel
+  debug:
+    msg: "No action required, subscription is already on the {{ app_sub_info.resources[0].spec.channel }} channel"
+
+- name: "{{ mas_app_id }} : Check that upgrade is supported from current channel"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  assert:
+    that: app_sub_info.resources[0].spec.channel == upgrade_requirement[mas_app_channel]
+    fail_msg: "Unable to upgrade from {{ app_sub_info.resources[0].spec.channel }} to {{ mas_app_channel }}"
+
+- name: "{{ mas_app_id }} : Check that install plan approvals are set to 'Automatic'"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  assert:
+    that: app_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
+    fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"
+
+
+# 2. Lookup the OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "{{ mas_app_id }} : Lookup OperatorCondition for {{ mas_app_fqn }}"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ mas_app_fqn }}.{{ mas_app_namespace }}"
+  register: opcon
+
+- name: "{{ mas_app_id }} : Debug OperatorCondition"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  debug:
+    var: opcon
+
+- name: "{{ mas_app_id }} : Check that the OperatorCondition was found"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  assert:
+    that:
+      - opcon.resources is defined
+      - opcon.resources | length == 1
+      - opcon.resources[0].metadata.name is defined
+
+
+# 3. Set the operator version
+# -----------------------------------------------------------------------------
+# OperatorCondition names are in the format {packageName}.{packageVersion}
+# We want to strip off the "v" prefix from the version while we do this
+- name: "{{ mas_app_id }} : Lookup operator version for {{ mas_app_fqn }}"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  set_fact:
+    opcon_version: "{{ opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+- name: "{{ mas_app_id }} : Debug Operator Version"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  debug:
+    msg:
+      - "Operator condition ......... {{ opcon.resources[0].metadata.name }}"
+      - "Operator version ........... {{ opcon_version }}"
+
+
+# 4. Check that the Application CR meets the required state
+# -----------------------------------------------------------------------------
+- name: "{{ mas_app_id }} : Get Application CR for for {{ mas_app_fqn }}"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  kubernetes.core.k8s_info:
+    api_version: "{{ app_info[mas_app_id].api_version }}"
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: "{{ app_info[mas_app_id].kind }}"
+  register: app_cr_lookup
+
+- name: "{{ mas_app_id }} : Debug Application CR"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  debug:
+    var: app_cr_lookup
+
+- name: "{{ mas_app_id }} : Check that the App CR exists"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  assert:
+    that:
+      - app_cr_lookup.resources is defined
+      - app_cr_lookup.resources | length == 1
+    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ app_info[mas_app_id].kind }}.{{ app_info[mas_app_id].api_version }} does not exist in namespace {{ mas_app_namespace }}"
+
+- name: "{{ mas_app_id }} : Check that the Application CR has been reconciled to the expected version"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  assert:
+    that:
+      - app_cr_lookup.resources[0].status.versions.reconciled == opcon_version
+    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ app_info[mas_app_id].kind }}.{{ app_info[mas_app_id].api_version }} version ({{ app_cr_lookup.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
+
+- name: "{{ mas_app_id }} : Check that the Application CR is in a healthy state"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  assert:
+    that:
+      - app_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ app_info[mas_app_id].kind }}.{{ app_info[mas_app_id].api_version }} is not healthy"
+
+
+# 5. Check that the Application Workspaces meet the required state
+# -----------------------------------------------------------------------------
+- name: 'Check that all workspace CRs are at the expected version'
+  kubernetes.core.k8s_info:
+    api_version: "{{ app_info[mas_app_id].api_version }}"
+    kind: "{{ app_info[mas_app_id].ws_kind }}"
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - mas.ibm.com/instanceId={{ mas_instance_id }}
+      - mas.ibm.com/applicationId={{ mas_app_id }}
+  register: app_ws_cr_lookup
+
+- name: "{{ mas_app_id }} : Debug Workspaces"
+  when: app_sub_info.resources[0].spec.channel != mas_app_channel
+  debug:
+    var: app_ws_cr_lookup
+
+- name: "{{ mas_app_id }} : Check that the Application Workspace CRs are in a healthy state"
+  assert:
+    that:
+      - app_ws_cr_lookup.resources is defined
+      - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == app_ws_cr_lookup.resources | length
+      - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length

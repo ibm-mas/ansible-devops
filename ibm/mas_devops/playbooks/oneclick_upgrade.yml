@@ -1,0 +1,100 @@
+---
+
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    upgrade_core: "{{ lookup('env', 'UPGRADE_CORE') | default ('True', True) | bool  }}"
+    upgrade_apps: "{{ lookup('env', 'UPGRADE_APPS') | default ('True', True) | bool }}"
+
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') }}"
+    mas_app_channel_assist: "{{ lookup('env', 'MAS_APP_CHANNEL_ASSIST') }}"
+    mas_app_channel_hputilities: "{{ lookup('env', 'MAS_APP_CHANNEL_HPUTILITIES') }}"
+    mas_app_channel_iot: "{{ lookup('env', 'MAS_APP_CHANNEL_IOT') }}"
+    mas_app_channel_manage: "{{ lookup('env', 'MAS_APP_CHANNEL_MANAGE') }}"
+    mas_app_channel_monitor: "{{ lookup('env', 'MAS_APP_CHANNEL_MONITOR') }}"
+    mas_app_channel_optimizer: "{{ lookup('env', 'MAS_APP_CHANNEL_OPTIMIZER') }}"
+    mas_app_channel_predict: "{{ lookup('env', 'MAS_APP_CHANNEL_PREDICT') }}"
+    mas_app_channel_safety: "{{ lookup('env', 'MAS_APP_CHANNEL_SAFETY') }}"
+    mas_app_channel_visualinspection: "{{ lookup('env', 'MAS_APP_CHANNEL_VISUALINSPECTION') }}"
+
+  pre_tasks:
+    # For the full set of supported environment variables refer to the playbook documentation
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'MAS_INSTANCE_ID') != ""
+        fail_msg: "You must provide the target MAS instance ID"
+
+  roles:
+    # 1. Core
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.suite_upgrade
+      when: upgrade_core
+    - name: ibm.mas_devops.suite_verify
+      when: upgrade_core
+
+
+    # 2. Applications
+    # -------------------------------------------------------------------------
+    # 2.1 Assist
+    - name: ibm.mas_devops.suite_app_upgrade
+      when: upgrade_apps
+      vars:
+        mas_app_id: assist
+        mas_app_channel: "{{ mas_app_channel_assist }}"
+
+    # 2.2 HP Utilities
+    - name: ibm.mas_devops.suite_app_upgrade
+      when: upgrade_apps
+      vars:
+        mas_app_id: hputilities
+        mas_app_channel: "{{ mas_app_channel_hputilities }}"
+
+    # 2.3 IoT
+    - name: ibm.mas_devops.suite_app_upgrade
+      when: upgrade_apps
+      vars:
+        mas_app_id: iot
+        mas_app_channel: "{{ mas_app_channel_iot }}"
+
+    # 2.4 Manage
+    - name: ibm.mas_devops.suite_app_upgrade
+      when: upgrade_apps
+      vars:
+        mas_app_id: manage
+        mas_app_channel: "{{ mas_app_channel_manage }}"
+
+    # 2.5 Monitor
+    - name: ibm.mas_devops.suite_app_upgrade
+      when: upgrade_apps
+      vars:
+        mas_app_id: monitor
+        mas_app_channel: "{{ mas_app_channel_monitor }}"
+
+    # 2.6 Optimizer
+    - name: ibm.mas_devops.suite_app_upgrade
+      when: upgrade_apps
+      vars:
+        mas_app_id: optimizer
+        mas_app_channel: "{{ mas_app_channel_optimizer }}"
+
+    # 2.7 Predict
+    - name: ibm.mas_devops.suite_app_upgrade
+      when: upgrade_apps
+      vars:
+        mas_app_id: predict
+        mas_app_channel: "{{ mas_app_channel_predict }}"
+
+    # 2.8 Safety
+    - name: ibm.mas_devops.suite_app_upgrade
+      when: upgrade_apps
+      vars:
+        mas_app_id: safety
+        mas_app_channel: "{{ mas_app_channel_safety }}"
+
+    # 2.9 Visual Inspection
+    - name: ibm.mas_devops.suite_app_upgrade
+      when: upgrade_apps
+      vars:
+        mas_app_id: visualinspection
+        mas_app_channel: "{{ mas_app_channel_visualinspection }}"
