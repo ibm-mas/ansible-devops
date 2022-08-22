@@ -13,49 +13,12 @@
     - "MAS namespace .............. {{ mas_namespace }}"
     - "Cert-Manager namespace ..... {{ cert_manager_namespace }}"
 
-# 2.1. Renew MAS cert-public and check if it's recreated
+# 2. Renew MAS cert-public and check if it's recreated
 # -------------------------------------------------------------------------------------------------
-- name: "Lookup original {{mas_instance_id}}-cert-public data"
-  kubernetes.core.k8s_info:
-    api_version: v1oc
-    name: "{{ mas_instance_id }}-cert-public"
-    namespace: "{{ mas_namespace }}"
-    kind: Secret
-  register: publiccert_original_data
-  failed_when: publiccert_original_data.resources[0] | length == 0
+- name: Renew public certs
+  include_tasks: tasks/renew_public_cert.yml
 
-- name: "Run cmctl renew command"
-  shell: cmctl renew {{mas_instance_id}}-cert-public
-
-- name: "Wait for {{mas_instance_id}}-cert-public to be renew (30s delay)"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    name: "{{mas_instance_id}}-cert-public"
-    namespace: "{{ mas_namespace }}"
-    kind: Secret
-  register: publiccert_new_data
-  until:
-  - publiccert_new_data.resources[0] is defined
-  retries: 5 # approx 5 minutes before we give up
-  delay: 30 # 30 Seconds
-
-- name: "Assert new 'tls.crt' in {{mas_instance_id}}-cert-public secret is different from the one prior to renewal"
-  assert:
-    that:
-    - publiccert_original_data.resources[0].data['tls.crt'] != publiccert_new_data.resources[0].data['tls.crt']
-    fail_msg: "Assertion Failed! The new 'tls.crt' in {{mas_instance_id}}-cert-public secret remains the same as it did before renewal."
-    success_msg: "Assertion Passed! Original 'tls.crt' in {{mas_instance_id}}-cert-public secret has been successfully renewed."
-
-
-- name: "Assert that 'ca.crt' in {{mas_instance_id}}-cert-public has not been changed during the renewal process"
-  assert:
-    that:
-    - publiccert_original_data.resources[0].data['ca.crt'] == publiccert_new_data.resources[0].data['ca.crt']
-    fail_msg: "Assertion Failed! Original {{mas_instance_id}}-cert-public CA has been erroneuously changed."
-    success_msg: "Assertion Passed! Original 'ca.crt' in {{mas_instance_id}}-cert-public remains unchanged as intended."
-
-
-# 3 Renew all internal certs and check that they're recreated with new details
+# 3. Renew all internal certs and check that they're recreated with new details
 # -------------------------------------------------------------------------------------------------
 - name: Renew internal certs
   include_tasks: tasks/renew_internal_cert.yml
@@ -82,7 +45,7 @@
   - usersynccoordinator
   - workspacecoordinator
 
-# 4 Verify MAS install is still happy after the renewals
+# 4. Verify MAS install is still happy after the renewals
 # -------------------------------------------------------------------------------------------------
 - name: "Wait for Suite CR to reconcile after certs are renewed (60s delay)"
   kubernetes.core.k8s_info:
