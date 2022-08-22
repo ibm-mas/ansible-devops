@@ -43,8 +43,16 @@
   assert:
     that:
     - publiccert_original_data.resources[0].data['tls.crt'] != publiccert_new_data.resources[0].data['tls.crt']
-    fail_msg: "Assertion Failed! Original {{mas_instance_id}}-cert-public secret does not match with the recreated one."
-    success_msg: "Assertion Passed! Original 'tls.crt' in {{mas_instance_id}}-cert-public secret matches with the new one recreated!"
+    fail_msg: "Assertion Failed! The new 'tls.crt' in {{mas_instance_id}}-cert-public secret remains the same as it did before renewal."
+    success_msg: "Assertion Passed! Original 'tls.crt' in {{mas_instance_id}}-cert-public secret has been successfully renewed."
+
+
+- name: "Assert that 'ca.crt' in {{mas_instance_id}}-cert-public has not been changed during the renewal process"
+  assert:
+    that:
+    - publiccert_original_data.resources[0].data['ca.crt'] == publiccert_new_data.resources[0].data['ca.crt']
+    fail_msg: "Assertion Failed! Original {{mas_instance_id}}-cert-public CA has been erroneuously changed."
+    success_msg: "Assertion Passed! Original 'ca.crt' in {{mas_instance_id}}-cert-public remains unchanged as intended."
 
 
 # 3 Renew all internal certs and check that they're recreated with new details

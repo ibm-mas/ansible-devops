@@ -24,12 +24,15 @@
   delay: 30 # 30 Seconds
 
 - name: "Assert new 'tls.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret is different from the one prior to renewal"
-  block:
-    assert:
-      that:
-        - internalcert_original_data.resources[0].data['tls.crt'] != new_secret_result.resources[0].data['tls.crt']
-      fail_msg: "Assertion Failed! Original {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret does not match with the recreated one."
-      success_msg: "Assertion Passed! Original 'tls.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal secret matches with the new one recreated!"
-    rescue:
-      - debug:
-          msg: "Warning: new secret in {{ mas_instance_id }}-{{ cert_name }}-cert-internal is the same as the one prior to renewal, private key rotation failed"
+  assert:
+    that:
+    - internalcert_original_data.resources[0].data['tls.crt'] != new_secret_result.resources[0].data['tls.crt']
+    fail_msg: "Assertion Failed! The new 'tls.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal  remains the same as it did before renewal."
+    success_msg: "Assertion Passed! Original 'tls.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal  has been successfully renewed."
+
+- name: "Assert that 'ca.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal  has not been changed during the renewal process"
+  assert:
+    that:
+    - internalcert_original_data.resources[0].data['ca.crt'] != new_secret_result.resources[0].data['ca.crt']
+    fail_msg: "Assertion Failed! Original {{ mas_instance_id }}-{{ cert_name }}-cert-internal  CA has been erroneuously changed."
+    success_msg: "Assertion Passed! Original 'ca.crt' in {{ mas_instance_id }}-{{ cert_name }}-cert-internal remains unchanged as intended."
