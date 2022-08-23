@@ -17,7 +17,7 @@
 
 # 2. Set Storage (Required)
 # -----------------------------------------------------------------------------
-- name: Default Storage for ROKS if not set by user
+- name: Default Kafka Storage for ROKS if not set by user
   when: kafka_storage_class is not defined or kafka_storage_class == ""
   vars:
     # ROKS, OCS, Azure
@@ -25,15 +25,28 @@
   set_fact:
     kafka_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
-- name: Assert that storage class has been defined
+- name: Assert that kafka storage class has been defined
   assert:
     that: kafka_storage_class is defined and kafka_storage_class != ""
     fail_msg: "kafka_storage_class must be defined"
 
+- name: Default Zookeeper Storage for ROKS if not set by user
+  when: zookeeper_storage_class is not defined or zookeeper_storage_class == ""
+  vars:
+    # ROKS, OCS, Azure
+    supported_storage_classes: [ibmc-block-gold, ocs-storagecluster-ceph-rbd, managed-premium]
+  set_fact:
+    zookeeper_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
+
+- name: Assert that zookeeper storage class has been defined
+  assert:
+    that: zookeeper_storage_class is defined and zookeeper_storage_class != ""
+    fail_msg: "zookeeper_storage_class must be defined"
 
 # 3. Debug storage class configuration
 # -----------------------------------------------------------------------------
-- name: "Debug Kafka storage class configuration"
+- name: "Debug Kafka storage classes configuration"
   debug:
     msg:
       - "Storage class (kafka) ...... {{ kafka_storage_class }}"
+      - "Storage class (zookeeper) .. {{ zookeeper_storage_class }}"
