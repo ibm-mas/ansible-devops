@@ -1,0 +1,30 @@
+---
+kind: Secret
+apiVersion: v1
+metadata:
+  name: {{ mas_instance_id }}-usersupplied-watsonstudio-creds-system
+  namespace: mas-{{ mas_instance_id }}-core
+data:
+  password: {{ ws_password }}
+  username: {{ ws_username }}
+type: Opaque
+---
+apiVersion: config.mas.ibm.com/v1
+kind: WatsonStudioCfg
+metadata:
+  name: {{ mas_instance_id }}-watsonstudio-system
+  namespace: mas-{{ mas_instance_id }}-core
+  labels: {{ suite_wscfg_labels }}
+spec:
+  certificates:
+    - alias: "{{ mas_instance_id | lower }}"
+      crt: |
+        {{ ws_pem_file | indent(8) }}
+  config:
+    credentials:
+      secretName: {{ mas_instance_id }}-usersupplied-watsonstudio-creds-system
+    endpoint: >-
+      {{ ws_url }}
+  displayName: >-
+    {{ ws_url }}
+  type: external

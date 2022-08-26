@@ -1,0 +1,86 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property is required"
+
+- name: "Fail if mas_application_id is not provided"
+  assert:
+    that: mas_application_id is defined and mas_application_id|length != 0
+    fail_msg: "mas_application_id property is required"
+  when: mas_config_scope == "app" or mas_config_scope == "wsapp"
+
+- name: "Fail if ws_username is not provided"
+  assert:
+    that: ws_username is defined and ws_username != ""
+    fail_msg: "ws_username property is required"
+
+- name: "Fail if ws_password is not provided"
+  assert:
+    that: ws_password is defined and ws_password != ""
+    fail_msg: "ws_password property is required"
+
+- name: "Fail if ws_url is not provided"
+  assert:
+    that: ws_url is defined and ws_url != ""
+    fail_msg: "ws_url property is required"
+
+- name: "Fail if ws_pem_file is not provided"
+  assert:
+    that: ws_pem_file is defined and ws_pem_file != ""
+    fail_msg: "ws_pem_file property is required"
+
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_namespace: "mas-{{ mas_instance_id }}-core"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "MAS Instance ID ............... {{ mas_instance_id }}"
+      - "MAS Workspace ID ............... {{ mas_workspace_id }}"
+      - "Watson Studio Username ............. {{ ws_username }}"
+      - "Watson Studio URL ...................... {{ ws_url }}"
+      - "Certificate file............... {{ ws_pem_file }}"
+      - "MAS Config Scope .............. {{ mas_config_scope }}"
+      - "MAS Application ID .............. {{ mas_app_id }}"
+
+# 2. Create WSCFG yml definition
+# -----------------------------------------------------------------------------
+- name: Load variables to use in WSCFG
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  include_vars: "vars/wscfg/{{ mas_config_scope }}.yml"
+
+# 3. Read file information
+# -----------------------------------------------------------------------------
+- name: Read Watson Studio Certificate file
+  set_fact:
+    ws_pem_file: "{{ lookup('file', ws_pem_file) }}"
+  when: ws_pem_file is defined
+
+
+# 4. Generate WSCFG for MAS configuration
+# -----------------------------------------------------------------------------
+- name: Copy WSCFG to filesytem
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+  ansible.builtin.template:
+    src: wscfg.yml.j2
+    dest: "{{ mas_config_dir }}/watsonstudiocfg.yml"
+    mode: '644'
