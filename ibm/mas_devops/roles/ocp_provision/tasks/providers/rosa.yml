@@ -91,17 +91,33 @@
 
 # 8. Set up cluster-admin user
 # -----------------------------------------------------------------------------
+- name: "rosa : Check for existing cluster-admin user"
+  shell: rosa describe admin --cluster {{ cluster_name }}
+  register: rosa_admin_check
+  failed_when: "rosa_admin_check.rc > 1"
+
+- name: "rosa : Debug cluster admin lookup"
+  debug:
+    msg: "{{ rosa_admin_check }}"
+
 # If the user already exists this will fail, but there's no way to see if the
 # user exists already (that I know of)
 - name: "rosa : Create cluster-admin user"
+  when: rosa_admin_check.rc == 1
   shell: rosa create admin --cluster {{ cluster_name }} --password {{ rosa_cluster_admin_password }}
-  register: rosa_cluster_completion
-  failed_when: "rosa_cluster_completion.rc > 1"
+  register: rosa_admin_create
+
+- name: "rosa : Debug cluster admin creation"
+  when: rosa_admin_check.rc == 1
+  debug:
+    msg: "{{ rosa_admin_create.stdout_lines }}"
 
 # We want to try to ensure the account is ready to use by the time the
 # script completes, so we will delay for 5 minutes if the return code
 # indicates that the account was created when we ran the previous command.
-- name: Pause for 5 minutes while the cluster-admin account is created
-  when: rosa_cluster_completion.rc == 0
+- name: "rosa : Pause for 5 minutes while the cluster-admin account is created"
+  when:
+    - rosa_admin_create.rc is defined
+    - rosa_admin_create.rc == 0
   pause:
     minutes: 5
