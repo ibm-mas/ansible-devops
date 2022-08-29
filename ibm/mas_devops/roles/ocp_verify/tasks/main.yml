@@ -2,8 +2,7 @@
 # 1. Check for the Red Hat Catalog Source
 # -----------------------------------------------------------------------------
 # In IBMCloud ROKS we have seen delays of over an hour before the catalog is
-# ready to use.  This will cause attempts to install e.g. SBO from OperatorHub
-# to fail
+# ready to use.
 - name: Check if Red Hat Catalog is ready
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
@@ -22,88 +21,5 @@
 
 # 2. Check for router and ingress secrets
 # -----------------------------------------------------------------------------
-# We don't know why but sometimes the name of the secret will be
-# "router-certs-default" and sometimes it will be named after the cluster's ingress
-# cluster must have at least one of these secrets to run the playbooks from this collection
-
-# 2.1 First lookup for router-certs-default secret
-- name: Lookup for router-certs-default secret
-  no_log: true
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: router-certs-default
-    namespace: openshift-ingress
-  register: router_certs_default_secret
-
-- name: "Record that we have found the router default cert secret"
-  when:
-    - router_certs_default_secret is defined
-    - router_certs_default_secret.resources | length > 0
-  set_fact:
-    found_router_default_secret: true
-
-# 2.2. If router-certs-default does not exist, lookup for secret named after cluster ingress
-- name: Get cluster subdomain
-  when: found_router_default_secret is not defined
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    kind: Ingress
-    name: cluster
-  register: cluster_subdomain
-
-- name: Lookup for cluster ingress secret
-  when:
-    - found_router_default_secret is not defined
-    - cluster_subdomain.resources is defined
-    - cluster_subdomain.resources | length > 0
-  no_log: true
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
-    namespace: openshift-ingress
-  register: cluster_ingress_secret
-
-- name: "Record that we have found the cluster ingress cert secret"
-  when:
-    - found_router_default_secret is not defined
-    - cluster_ingress_secret is defined
-    - cluster_ingress_secret.resources | length > 0
-  set_fact:
-    found_cluster_ingress_secret: true
-
-# 2.3.  If that does not exist either, lookup for secret based on the cluster name
-- name: Get cluster subdomain
-  when:
-    - found_router_default_secret is not defined
-    - found_cluster_ingress_secret is not defined
-    - cluster_name is defined and cluster_name != ""
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ cluster_name }}-primary-cert-bundle-secret"
-    namespace: openshift-ingress
-  register: cluster_primary_secret
-
-- name: "Record that we have found the cluster primary cert secret"
-  when:
-    - found_router_default_secret is not defined
-    - found_cluster_ingress_secret is not defined
-    - cluster_primary_secret is defined
-    - cluster_primary_secret.resources | length > 0
-  set_fact:
-    found_cluster_primary_secret: true
-
-# 3. Determine which secret was found
-# -----------------------------------------------------------------------------
-# If at least one of the secrets exist, then all good.  If neither of the
-# secrets are found, then fail with a message
-
-# COS and UDS roles both require one of these secrets ... can we fix it so that
-# they don't, not sure why they can't create their own certs and need to
-# piggyback off the cluster cert tbh.
-- name: Fail if one of the cluster required secrets does not exist
-  assert:
-    that: found_router_default_secret is defined or found_cluster_ingress_secret is defined or found_cluster_primary_secret is defined
-    fail_msg: "This cluster does not contain any of the secrets known to contain the TLS certificate for the cluster ingress."
+- name: "Lookup the default cluster ingress secret"
+  include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
