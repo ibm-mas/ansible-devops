@@ -14,31 +14,31 @@ Optional - Defines the targetted cluster namespace/project where AppConnect will
 - Default Value: `ibm-app-connect`
 
 ### appconnect_channel
-Optional - AppConnect subscription channel to be installed. For MAS 8.7, default `v3.0` channel is used. Ensure the supported dashboard version and license ID according to the AppConnect operator/channel version.
+Optional - AppConnect subscription channel to be installed.
+Ensure the supported dashboard version and license ID according to the AppConnect operator/channel version.
 
-- MAS 8.4 uses AppConnect channel subscription v1.4 and license id = L-APEH-BSVCHU
-- MAS 8.5 uses AppConnect channel subscription v2.0 and license id = L-KSBM-BZWEAT
 - MAS 8.6 uses AppConnect channel subscription v2.0 and license id = L-KSBM-C37J2R
 - MAS 8.7 uses AppConnect channel subscription v3.0 and license id = L-KSBM-C87FU2
+- MAS 8.8 uses AppConnect channel subscription v4.2 and license id = L-APEH-C9NCK6
 
 For more details: https://www.ibm.com/support/knowledgecenter/SSTTDS_11.0.0/com.ibm.ace.icp.doc/certc_licensingreference.html
 
 - Environment Variable: `APPCONNECT_CHANNEL`
-- Default Value: `v3.0`
+- Default Value: `v4.2`
 
 ### appconnect_dashboard_name
-Optional - AppConnect Dashboard instance name. Default to `dashboard-12020r2` as a reference to AppConnect Dashboard version `12.0.2.0-r2` that is compatible with AppConnect Channel subscription `v3.0` and license ID `L-KSBM-C87FU2` (MAS 8.7 compatible)
+Optional - AppConnect Dashboard instance name. Default to `dashboard-12040r2` as a reference to AppConnect Dashboard version `12.0.4.0-r2` that is compatible with AppConnect Channel subscription `v4.2` and license ID `L-APEH-C9NCK6` (MAS 8.8 compatible)
 
 For More details: https://www.ibm.com/docs/en/app-connect/containers_cd?topic=resources-licensing-reference-app-connect-operator
 
 - Environment Variable: `APPCONNECT_DASHBOARD_NAME`
-- Default Value: `dashboard-12020r2`
+- Default Value: `dashboard-12040r2`
 
 ### appconnect_license_id
 Optional - AppConnect license ID.
 
 - Environment Variable: `APPCONNECT_LICENSE_ID`
-- Default Value: `L-KSBM-C87FU2` (Which is compatible with AppConnect `v3.0` operator/channel)
+- Default Value: `L-KSBM-C9NCK6` (Which is compatible with AppConnect `v4.2` operator/channel)
 
 ### appconnect_storage_class
 Required - Storage class where AppConnect will be installed - for IBM Cloud clusters, `ibmc-file-gold-gid` must be used as per [documentation](https://www.ibm.com/docs/en/app-connect/containers_cd?topic=resources-dashboard-reference#storage).
