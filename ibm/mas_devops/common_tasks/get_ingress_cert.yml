@@ -1,12 +1,16 @@
 ---
 # 1. Lookup for router-certs-default secret
 # -----------------------------------------------------------------------------
+- name: set ocp ingress tls secret
+  set_fact:
+    ocp_ingress_tls_secret: "{{ lookup('env', 'OCP_INGRESS_TLS_SECRET') | default('router-certs-default', True) }}"
+
 - name: Lookup for router-certs-default secret
   no_log: true
   k8s_info:
     api_version: v1
     kind: Secret
-    name: router-certs-default
+    name: "{{ ocp_ingress_tls_secret }}"
     namespace: openshift-ingress
   register: router_certs_default_secret
 
@@ -16,7 +20,7 @@
     - router_certs_default_secret.resources | length > 0
   set_fact:
     found_router_default_secret: true
-    cluster_ingress_secret_name: router-certs-default
+    cluster_ingress_secret_name: "{{ ocp_ingress_tls_secret }}"
     cluster_ingress_tls_crt: "{{ router_certs_default_secret.data['tls.crt'] | b64decode }}"
 
 
