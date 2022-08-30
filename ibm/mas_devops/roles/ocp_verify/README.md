@@ -16,11 +16,11 @@ Specify the name of the cluster, in some cluster setups this name is required to
 - Environment Variable: `CLUSTER_NAME`
 - Default Value: None
 
-### cluster ingres tls secret 
+### cluster ingres tls secret name
 Specify the name of the cluster's ingres tls secret which contains the default router certificate.
 
 - Optional
-- Environment Variable: `OCP_INGRESS_TLS_SECRET`
+- Environment Variable: `OCP_INGRESS_TLS_SECRET_NAME`
 - Default Value: router-certs-default
 
 
