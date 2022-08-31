@@ -2,10 +2,32 @@
 # The following playbook is an attempt to automate the CP4D 4.0 steps documented here:
 # https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
 
+# 1. Debug
+# -----------------------------------------------------------------------------
+- name: "Check that CPD version has been provided"
+  assert:
+    that:
+      - cpd_version is defined and cpd_version != ""
+    fail_msg: "CPD version (cpd_version) is a required parameter to run this role"
+
+- name: "Check that provided CPD version is supported"
+  assert:
+    that:
+      - cpd_minor_version is defined and cpd_minor_version != ""
+      - cpd_minor_version in cpd_supported_versions # Ensure only CPD 4.0.x and 4.5.x are supported
+    fail_msg: "CPD version ({{ cpd_version }}) is not a supported CPD minor version. Supported CPD minor versions are: {{ cpd_supported_versions }}."
+
 - name: Check that an entitlement key has been provided
   assert:
     that: cpd_entitlement_key is defined and cpd_entitlement_key != ""
     fail_msg: "ibm_entitlement_key or cpd_entitlement_key override must be provided"
+
+- debug:
+    msg:
+      - "CPD operators namespace ................ {{ cpd_operators_namespace }}"
+      - "CPD instance namespace ................. {{ cpd_instance_namespace }}"
+      - "CPD control plane version .............. {{ cpd_version }}"
+      - "CPD subscription channel ............... {{ cpd_channel }}"
 
 - name: "Run pre-req check"
   include_tasks: "tasks/prereq-check.yml"
