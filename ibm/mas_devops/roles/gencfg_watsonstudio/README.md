@@ -18,22 +18,22 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
-### ws_username
+### CPD_ADMIN_USERNAMEname
 Defines the username that is used for the WatsonStudio configure in MAS installation
 
-- Environment Variable: `WS_USER`
+- Environment Variable: `CPD_ADMIN_USERNAME`
 - Default: None
 - 
-### ws_password
+### CPD_ADMIN_PASSWORD
 Defines the password that is used to connect to WatsonStudio in MAS installation
 
-- Environment Variable: `WS_PASSWORD`
+- Environment Variable: `CPD_ADMIN_PASSWORD`
 - Default: None
 - 
-### ws_url
+### CPD_URL
 Defines the url that is used to connect to WatsonStudio in MAS installation
 
-- Environment Variable: `WS_URL`
+- Environment Variable: `CPD_URL`
 - Default: None
 - 
 ### ws_pem_file
