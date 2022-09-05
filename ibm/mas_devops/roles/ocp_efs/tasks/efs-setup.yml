@@ -67,7 +67,13 @@
 - name: "efs-setup : Debug EFS Id"
   debug:
     msg: "EFS Id is.........................................{{ efs_id }}"
-
+    
+- name: "efs-availability : Check the EFS availability"
+  shell: aws efs describe-file-systems --file-system-id {{ efs_id }}
+  register: efs_status
+  until : efs_status.stdout.FileSystems.LifeCycleState == "available"
+  retry : 20
+  delay: 10
 
 # 6. Get Private Subnet to Create Mount Target
 # -----------------------------------------------------------------------------
