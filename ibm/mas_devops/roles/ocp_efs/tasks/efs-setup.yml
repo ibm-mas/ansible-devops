@@ -53,7 +53,7 @@
 # 5. Create ELASTIC FILE SYSTEM
 # -----------------------------------------------------------------------------
 - name: "efs-setup : Create EFS (Elastic File System)"
-  shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value={{ cluster_name }}-efs
+  shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value={{ cluster_name }}-efs --creation-token mas_devops.{{ cluster_name }}
   register: efs_creds
 
 - name: "efs-setup : Store EFS Creation Token"
@@ -64,10 +64,16 @@
   set_fact:
     efs_id: "{{ efs_creds.stdout|from_json|json_query(\"FileSystemId\") }}"
 
-- name: "efs-setup : Debug EFS Id"
+- name: "efs-setup : Debug EFS Creds"
   debug:
-    msg: "EFS Id is.........................................{{ efs_id }}"
-    
+    msg: "{{ efs_creds.stdout | from_json }}"
+
+- name: "efs-setup : Debug EFS Info"
+  debug:
+    msg:
+      - "EFS Creation Token ..................... {{ client_token }}"
+      - "EFS ID ................................. {{ efs_id }}"
+
 - name: "efs-availability : Check the EFS availability"
   shell: aws efs describe-file-systems --file-system-id {{ efs_id }}
   register: efs_status
