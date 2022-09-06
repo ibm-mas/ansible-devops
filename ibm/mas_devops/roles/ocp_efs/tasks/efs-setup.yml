@@ -36,7 +36,7 @@
 
 - name: "efs-setup : Get Security Group Id from Output"
   set_fact:
-    security_group_id: "{{ security_group.stdout|from_json|json_query(\"ID\") }}"
+    security_group_id: "{{ security_group.stdout | from_json | json_query(\"ID\") }}"
 
 - name: "efs-setup : Debug Security Group Id"
   debug:
@@ -45,41 +45,52 @@
 
 # 4. Add a New Rule which allows all the NFS traffic from the VPC private CIDR.
 # -----------------------------------------------------------------------------
-- name: "efs-setup : Add New Rule for A Security Group"
+# rc 0 indicates success, 254 indicated duplicate (already exists)
+- name: "efs-setup : Add New Rule for Security Group"
   shell: aws ec2 authorize-security-group-ingress --group-id {{ security_group_id }} --source-group {{ security_group_id }} --protocol tcp --port 2049
-  register: inboudRule_output
+  register: inbound_rule
+  failed_when: inbound_rule.rc not in [0, 254]
 
 
 # 5. Create ELASTIC FILE SYSTEM
 # -----------------------------------------------------------------------------
+# rc 0 indicates success, 254 indicated duplicate (already exists)
 - name: "efs-setup : Create EFS (Elastic File System)"
   shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value={{ cluster_name }}-efs --creation-token mas_devops.{{ cluster_name }}
   register: efs_creds
+  failed_when: efs_creds.rc not in [0, 254]
 
-- name: "efs-setup : Store EFS Creation Token"
-  set_fact:
-    client_token: "{{ efs_creds.stdout|from_json|json_query(\"CreationToken\") }}"
-
-- name: "efs-setup : Store EFS Id"
+- name: "efs-setup : Store EFS ID from creation"
+  when: efs_creds.rc == 0
   set_fact:
     efs_id: "{{ efs_creds.stdout|from_json|json_query(\"FileSystemId\") }}"
 
-- name: "efs-setup : Debug EFS Creds"
-  debug:
-    msg: "{{ efs_creds.stdout | from_json }}"
+- name: "efs-setup : Lookup EFS (Elastic File System)"
+  when: efs_creds.rc == 254
+  shell: aws efs describe-file-systems --creation-token mas_devops.{{ cluster_name }}
+  register: efs_lookup
+  failed_when:
+    - efs_lookup.rc != 0
+    - efs_lookup.stdout | from_json | json_query("FileSystems") | length != 1
+
+- name: "efs-setup : Store EFS ID from lookup"
+  when: efs_creds.rc == 254
+  set_fact:
+    efs_id: "{{ efs_lookup.stdout | from_json | json_query('FileSystems[0].FileSystemId') }}"
 
 - name: "efs-setup : Debug EFS Info"
   debug:
     msg:
-      - "EFS Creation Token ..................... {{ client_token }}"
+      - "EFS Creation Token ..................... mas_devops.{{ cluster_name }}"
       - "EFS ID ................................. {{ efs_id }}"
 
 - name: "efs-availability : Check the EFS availability"
   shell: aws efs describe-file-systems --file-system-id {{ efs_id }}
   register: efs_status
-  until : efs_status.stdout.FileSystems.LifeCycleState == "available"
-  retry : 20
+  until: efs_status.stdout | from_json | json_query("FileSystems[0].LifeCycleState") == "available"
+  retries: 20
   delay: 10
+
 
 # 6. Get Private Subnet to Create Mount Target
 # -----------------------------------------------------------------------------
@@ -102,7 +113,7 @@
 # 8. Configure Client access
 # -----------------------------------------------------------------------------
 - name: "efs-setup : Add Client Access, Permissions to Owner and Posix User"
-  shell: aws efs create-access-point --file-system-id {{ efs_id }} --client-token {{ client_token }} --posix-user Uid=10022,Gid=20000 --root-directory Path='/rosa,CreationInfo={OwnerUid=10011,OwnerGid=10000,Permissions=0755}'
+  shell: aws efs create-access-point --file-system-id {{ efs_id }} --client-token mas_devops.{{ cluster_name }} --posix-user Uid=10022,Gid=20000 --root-directory Path='/rosa,CreationInfo={OwnerUid=10011,OwnerGid=10000,Permissions=0755}'
   register: client_access_info
 
 - name: "efs-setup : Filter Client Access Id"
