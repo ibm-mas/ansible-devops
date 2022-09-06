@@ -15,7 +15,10 @@ This dependency is required by the Health and Predict Utilities application:
 | v8.3         | v3.0 - v4.2  | L-KSBM-C87FU2 | 12.0.2.0-r2              |
 | v8.2         | v1.5 - v3.1  | L-KSBM-C37J2R | 12.0.1.0-r1, 12.0.1.0-r2 |
 
-All defaults in this role are currently set for compatability with HP Utilities version 8.4.  For more information review the [licensing reference for IBM App Connect Operator](https://www.ibm.com/docs/en/app-connect/containers_cd?topic=resources-licensing-reference-app-connect-operator).
+For more information review the [licensing reference for IBM App Connect Operator](https://www.ibm.com/docs/en/app-connect/containers_cd?topic=resources-licensing-reference-app-connect-operator).
+
+!!! important
+    All defaults in this role are currently set for compatability with HP Utilities version 8.4.  If you are installing App Connect for use with older release of HP Utilities then you must set the `appconnect_channel` and `appconnect_license_id` variables (and it would be sensible to customize `appconnect_dashboard_name` as well).
 
 
 Role Variables - Installation
@@ -90,14 +93,31 @@ Local directory to save the generated AppConnect resource definition.  This can 
 - Default Value: None
 
 
-Example Playbook
+Example Playbooks
 -------------------------------------------------------------------------------
-
+### Install IBM App Connect for the latest release of HP Utilties (v8.4)
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
+  vars:
+    ibm_entitlement_key: xxx
   roles:
-  - ibm.mas_devops.appconnect
+    - ibm.mas_devops.ibm_catalogs
+    - ibm.mas_devops.appconnect
+```
+
+### Install IBM App Connect for HP Utilties v8.3
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    ibm_entitlement_key: xxx
+    appconnect_channel: v4.2
+    appconnect_license_id: L-KSBM-C87FU2
+    appconnect_dashboard_name: dashboard-12020r2
+  roles:
+    - ibm.mas_devops.ibm_catalogs
+    - ibm.mas_devops.appconnect
 ```
 
 License
