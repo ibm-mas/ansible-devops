@@ -1,5 +1,5 @@
 ---
-- name: Load variables accordingly to the CPD version {{ cpd_product_version }}
+- name: Load variables accordingly to the CPD product version {{ cpd_product_version }}
   include_vars: vars/cpd-release-{{ cpd_product_version }}.yml
 
 # 1. Load default storage classes and debug
@@ -12,9 +12,11 @@
     msg:
       - "CPD Operator Namespace ................. {{ cpd_operators_namespace }}"
       - "CPD Instance Namespace ................. {{ cpd_instance_namespace }}"
-      - "CPD service to be installed ............ {{ cpd_service_name }}"
-      - "CPD service storage class .............. {{ cpd_service_storage_class }}"
-      - "CPD service subscription channel ....... {{ cpd_service_info[cpd_service_name].channel_name }}"
+      - "CPD Service name ....................... {{ cpd_service_name }}"
+      - "CPD Service version .................... {{ cpd_service_info[cpd_service_name].cr_version }}"
+      - "CPD Service storage class .............. {{ cpd_service_storage_class }}"
+      - "CPD Service subscription channel ....... {{ cpd_service_info[cpd_service_name].channel_name }}"
+
 
 # 2. Determine CP4D admin login credentials
 # -----------------------------------------------------------------------------
@@ -35,20 +37,17 @@
 
 # 3.1 Install Operand Configs and Operand Registries
 # -----------------------------------------------------------------------------
-# Only Watson Studio and Watson Discovery requires these operand configs
+# If it's CPD 4.5, only Watson Studio and Watson Discovery requires these operand configs to be applied via this automation.
+# If it's CPD 4.0.x, no need to apply operand configs at all, as these will be automatically be set while installing services requiring it.
 - name: Install Operand Configs and Operand Registries
+  vars:
+    cpd_service_parameters: "{{ cpd_service_info[cpd_service_name] }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/operand_config/{{ cpd_service_name }}.yml"
   when:
     - cpd_service_name is in ['wd', 'wsl']
-
-# 3.2 Install CP4D Service Catalog Sources
-# -----------------------------------------------------------------------------
-- name: "Install CP4D Service Catalog Source"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/catalog_sources/{{ cpd_service_name }}.yml"
+    - cpd_minor_version == 4.5
 
 # 4. Install CP4D Service Subscriptions
 # -----------------------------------------------------------------------------
