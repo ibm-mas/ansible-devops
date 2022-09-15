@@ -105,9 +105,12 @@
 
 # 7. Add a Mount Target to EFS
 # -----------------------------------------------------------------------------
+# Return code of 254 indicates the mount target is already there
+# An error occurred (MountTargetConflict) when calling the CreateMountTarget operation: mount target already exists in this AZ
 - name: "efs-setup : Mount Target to EFS"
   shell: aws efs create-mount-target --file-system-id {{ efs_id }} --subnet-id {{ private_subnet_id }} --security-groups {{ security_group_id }}
   register: mount_op
+  failed_when: mount_op.rc not in [0, 254]
 
 
 # 8. Configure Client access
