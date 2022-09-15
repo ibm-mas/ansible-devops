@@ -18,6 +18,13 @@ This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams
 Role Variables
 --------------
 
+### kafka_version
+The version of Kafka to deploy by the operator. Before changing the kafka_version make the version is supported
+by the [amq-streams operator version](https://access.redhat.com/documentation/en-us/red_hat_amq_streams).
+
+- Environment Variable: `KAFKA_VERSION`
+- Default Value: `2.7.0`
+
 ### kafka_namespace
 The namespace where the operator and Kafka cluster will be deployed.
 
@@ -40,13 +47,37 @@ The configuration to apply, there are two configurations available: small and la
 The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Kafka cluster.
 
 - Environment Variable: `KAFKA_STORAGE_CLASS`
-- Default Value: `
+- Default Value: lookup supported storage classes in the cluster
+
+### kafka_storage_size
+The size of the storage to configure the AMQStreams operator to use for persistent storage in the Kafka cluster.
+
+- Environment Variable: `KAFKA_STORAGE_SIZE`
+- Default Value: `100Gi`
+
+### zookeeper_storage_class
+The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Zookeeper cluster.
+
+- Environment Variable: `ZOOKEEPER_STORAGE_CLASS`
+- Default Value: lookup supported storage classes in the cluster
+
+### zookeeper_storage_size
+The size of the storage to configure the AMQStreams operator to use for persistent storage in the Zookeeper cluster.
+
+- Environment Variable: `ZOOKEEPER_STORAGE_SIZE`
+- Default Value: `10Gi`
 
 ### kafka_user_name
 The name of the user to setup in the cluster for MAS.
 
 - Environment Variable: `KAFKA_USER_NAME`
 - Default Value: `masuser`
+
+### kafka_user_password (supported in Strimzi operator verion [0.25.0](https://github.com/strimzi/strimzi-kafka-operator/blob/main/CHANGELOG.md#0250) - amq streams operator version 2.x)
+The password of the user to setup in the cluster for MAS.
+
+- Environment Variable: `KAFKA_USER_PASSWORD`
+- Default Value: a randomly generated password is used if one is not specified
 
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the KafkaCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
