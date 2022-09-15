@@ -5,7 +5,7 @@ This role install Maximo Application Suite. It internally resolve the namespace 
 
 Role Variables
 --------------
-- `mas_catalog_source` Defines the catalog to be used to install MAS. You can set it to      ibm-operator-catalog for release install or ibm-mas-operators for development
+- `mas_catalog_source` Defines the catalog to be used to install MAS. You can set it to ibm-operator-catalog for both release as well as for development install
 - `artifactory_username` Required when using this role for development versions of MAS
 - `artifactory_apikey` Required when using this role for development versions of MAS
 - `mas_channel` Defines which channel of MAS to subscribe to
