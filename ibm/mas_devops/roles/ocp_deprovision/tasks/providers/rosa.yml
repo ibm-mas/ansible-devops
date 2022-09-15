@@ -80,3 +80,44 @@
 
 - name: "rosa : Clean up OIDC provider"
   shell: "rosa delete oidc-provider -c {{ (rosa_cluster_lookup_result.stdout | from_json).id }} -m auto --yes"
+
+# 9. AWS Login To Remove File Storage
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Login"
+  shell: |
+    aws configure set aws_access_key_id {{ aws_access_key_id }};
+    aws configure set aws_secret_access_key {{ aws_secret_access_key }};
+    aws configure set output json;
+    aws configure set region {{ aws_region }}
+
+# 10. Get EFS Id to Delete
+# -----------------------------------------------------------------------------
+- name: "Get-efsid : efsid"
+  shell: aws efs describe-file-systems --query "FileSystems[?Tags[?Value == '{{ cluster_name }}-efs']]".FileSystemId
+  register: efs_id_op
+
+- name: "Filter-efsId : EfsId"
+  set_fact:
+    efs_id: "{{ efs_id_op.stdout|from_json|json_query(\"[0]\") }}"
+
+# 11. Get Mount Id and Delete the associated Mount Target
+# -----------------------------------------------------------------------------
+- name: "Get-mountId : MountId"
+  shell : aws efs describe-mount-targets --file-system-id {{ efs_id  }} --query "MountTargets[*].MountTargetId"
+  register: mount_id_op
+
+- name: "Filter-mountId : MountId"
+  set_fact:
+    mount_id: "{{ mount_id_op.stdout|from_json|json_query(\"[0]\") }}"
+
+- name : "Delete-MountId : Mount Id"
+  shell : aws efs delete-mount-target --mount-target-id {{ mount_id }}
+
+- name: "Wait For Delete"
+  ansible.builtin.pause:
+    seconds: 30
+
+# 12. Delete EFS
+# -----------------------------------------------------------------------------
+- name: "Delete-EFS : Delete EFS"
+  shell: aws efs delete-file-system --file-system-id {{ efs_id }}
