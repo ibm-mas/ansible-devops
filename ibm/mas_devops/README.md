@@ -7,6 +7,7 @@
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
 - `11.3` Multiple Updates:
+    - AMQ Streams Kafka enhancements ([#451](https://github.com/ibm-mas/ansible-devops/pull/451))
     - Configure EFS as RWX Storage Class on ROSA ([#432](https://github.com/ibm-mas/ansible-devops/pull/432))
     - Add Oneclick MVI Playbook ([#434](https://github.com/ibm-mas/ansible-devops/pull/434))
     - Add Oneclick optimizer Playbook ([#456](https://github.com/ibm-mas/ansible-devops/pull/456))
