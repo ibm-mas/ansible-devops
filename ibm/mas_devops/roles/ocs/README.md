@@ -12,7 +12,7 @@ Role Variables
 Set this to e.g. `4.6`, `4.7`, `4.8`.  We need to know what the release level is to know what channel to target the operator subscriptions at.
 
 - Environment Variable: `OCP_RELEASE`
-- Default Value: `4.8`
+- Default Value: `4.10`
 
 
 Example Playbook
