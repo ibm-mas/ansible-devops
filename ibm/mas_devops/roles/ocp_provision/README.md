@@ -109,7 +109,7 @@ Role Variables - ROSA
 The following variables are only used when `cluster_type = rosa`.
 
 ### rosa_token
-Token to authenticate to the ROSA service
+Token to authenticate to the ROSA service.  To obtain your API token login to the [OpenShift cluster manager](https://console.redhat.com/openshift/token/rosa/show#).
 
 - **Required** if `cluster_type = rosa`.
 - Environment Variable: `ROSA_TOKEN`
