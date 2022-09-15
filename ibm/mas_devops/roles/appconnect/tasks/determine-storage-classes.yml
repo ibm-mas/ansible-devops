@@ -3,6 +3,9 @@
 
 # 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
+- name: "Load default storage class information"
+  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
+
 - name: Lookup storage classes
   kubernetes.core.k8s_info:
     api_version: storage.k8s.io/v1
@@ -18,11 +21,8 @@
 # -----------------------------------------------------------------------------
 - name: Default Storage if not set by user
   when: appconnect_storage_class is not defined or appconnect_storage_class == ""
-  vars:
-    # ROKS, OCS, Azure
-    supported_storage_classes: [ibmc-file-gold-gid, ocs-storagecluster-cephfs, azurefiles-premium]
   set_fact:
-    appconnect_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
+    appconnect_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
 
 - name: Assert that storage class has been defined
   assert:
