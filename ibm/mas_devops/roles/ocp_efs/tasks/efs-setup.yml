@@ -1,0 +1,139 @@
+---
+# Set up an EFS instance ready to be used with a ROSA cluster
+
+# 1. AWS Login
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Login"
+  shell: |
+    aws configure set aws_access_key_id {{ aws_access_key_id }};
+    aws configure set aws_secret_access_key {{ aws_secret_access_key }};
+    aws configure set output json;
+    aws configure set region {{ aws_region }}
+
+
+# 2. AWS Get VPC-Id's for the ROSA cluster
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Get List of VPC Ids"
+  shell: aws ec2 describe-vpcs
+  register: vpc_ids
+
+- name: "efs-setup : Query to Filter the Cluster VPC Id from the list of VPCs"
+  vars:
+    query: "Vpcs[?(Tags[?contains(Value,'{{ cluster_name }}' )])].VpcId"
+  set_fact:
+    vpcid: "{{ vpc_ids.stdout|from_json|json_query(query) }}"
+
+- name: "efs-setup : Debug VPC Id"
+  debug:
+    msg: "VPC Id is........................................{{ vpcid }}"
+
+
+# 3. Get Security Group of the cluster
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Get Security Group of the EC2 Istance"
+  shell: aws ec2 describe-security-groups --filters Name=vpc-id,Values={{ vpcid }} Name=tag:Name,Values='*worker*' --query "SecurityGroups[*].{ID:GroupId}[0]"
+  register: security_group
+
+- name: "efs-setup : Get Security Group Id from Output"
+  set_fact:
+    security_group_id: "{{ security_group.stdout | from_json | json_query(\"ID\") }}"
+
+- name: "efs-setup : Debug Security Group Id"
+  debug:
+    msg: "Security Group Id is..............................{{ security_group_id }}"
+
+
+# 4. Add a New Rule which allows all the NFS traffic from the VPC private CIDR.
+# -----------------------------------------------------------------------------
+# rc 0 indicates success, 254 indicated duplicate (already exists)
+- name: "efs-setup : Add New Rule for Security Group"
+  shell: aws ec2 authorize-security-group-ingress --group-id {{ security_group_id }} --source-group {{ security_group_id }} --protocol tcp --port 2049
+  register: inbound_rule
+  failed_when: inbound_rule.rc not in [0, 254]
+
+
+# 5. Create ELASTIC FILE SYSTEM
+# -----------------------------------------------------------------------------
+# rc 0 indicates success, 254 indicated duplicate (already exists)
+- name: "efs-setup : Create EFS (Elastic File System)"
+  shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value={{ cluster_name }}-efs --creation-token mas_devops.{{ cluster_name }}
+  register: efs_creds
+  failed_when: efs_creds.rc not in [0, 254]
+
+- name: "efs-setup : Store EFS ID from creation"
+  when: efs_creds.rc == 0
+  set_fact:
+    efs_id: "{{ efs_creds.stdout|from_json|json_query(\"FileSystemId\") }}"
+
+- name: "efs-setup : Lookup EFS (Elastic File System)"
+  when: efs_creds.rc == 254
+  shell: aws efs describe-file-systems --creation-token mas_devops.{{ cluster_name }}
+  register: efs_lookup
+  failed_when:
+    - efs_lookup.rc != 0
+    - efs_lookup.stdout | from_json | json_query("FileSystems") | length != 1
+
+- name: "efs-setup : Store EFS ID from lookup"
+  when: efs_creds.rc == 254
+  set_fact:
+    efs_id: "{{ efs_lookup.stdout | from_json | json_query('FileSystems[0].FileSystemId') }}"
+
+- name: "efs-setup : Debug EFS Info"
+  debug:
+    msg:
+      - "EFS Creation Token ..................... mas_devops.{{ cluster_name }}"
+      - "EFS ID ................................. {{ efs_id }}"
+
+- name: "efs-availability : Check the EFS availability"
+  shell: aws efs describe-file-systems --file-system-id {{ efs_id }}
+  register: efs_status
+  until: efs_status.stdout | from_json | json_query("FileSystems[0].LifeCycleState") == "available"
+  retries: 20
+  delay: 10
+
+
+# 6. Get Private Subnet to Create Mount Target
+# -----------------------------------------------------------------------------
+- name: "efs-setup : Private Subnet to Mount Target"
+  shell: aws ec2 describe-route-tables --filter Name=vpc-id,Values={{ vpcid }} Name=route.nat-gateway-id,Values='*nat*' --query "RouteTables[].Associations[].SubnetId"
+  register: private_subnet
+
+- name: "efs-setup : Filter Subnet Id"
+  set_fact:
+    private_subnet_id: "{{ private_subnet.stdout|from_json|json_query(\"[0]\") }}"
+
+
+# 7. Add a Mount Target to EFS
+# -----------------------------------------------------------------------------
+# Return code of 254 indicates the mount target is already there
+# An error occurred (MountTargetConflict) when calling the CreateMountTarget operation: mount target already exists in this AZ
+- name: "efs-setup : Mount Target to EFS"
+  shell: aws efs create-mount-target --file-system-id {{ efs_id }} --subnet-id {{ private_subnet_id }} --security-groups {{ security_group_id }}
+  register: mount_op
+  failed_when: mount_op.rc not in [0, 254]
+
+
+# 8. Configure Client access
+# -----------------------------------------------------------------------------
+# Creates an EFS access point. An access point is an application-specific view into an EFS file system that applies an operating system user and
+# group, and a file system path, to any file system request made through the access point.
+# - The operating system user and group override any identity information provided by the NFS client.
+# - The file system path is exposed as the access point's root directory.
+# - Applications using the access point can only access data in the application's own directory and any subdirectories.
+#
+# This operation requires permissions for the elasticfilesystem:CreateAccessPoint action.
+#
+# Related commands:
+# - aws efs create-access-point
+# - aws efs describe-access-points
+# - aws efs delete-access-point
+
+- name: "efs-setup : Add Client Access, Permissions to Owner and Posix User"
+  shell: aws efs create-access-point --file-system-id {{ efs_id }} --client-token mas_devops.{{ cluster_name }} --posix-user Uid=10022,Gid=20000 --root-directory Path='/rosa,CreationInfo={OwnerUid=10011,OwnerGid=10000,Permissions=0755}'
+  register: client_access_info
+  failed_when: client_access_info.rc not in [0, 254]
+
+- name: "efs-setup : Debug Client Access Point Id"
+  when: client_access_info.rc  == 0
+  debug:
+    msg: "Client Access Point ID ................ {{ client_access_info.stdout|from_json|json_query(\"AccessPointId\") }}"
