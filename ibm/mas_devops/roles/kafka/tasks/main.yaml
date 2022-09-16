@@ -9,12 +9,15 @@
 - name: "Debug information"
   debug:
     msg:
-      - "AMQ Streams namespace ........ {{ kafka_namespace }}"
-      - "AMQ Streams cluster name ..... {{ kafka_cluster_name }}"
-      - "AMQ Streams cluster size ..... {{ kafka_cluster_size }}"
-      - "AMQ Streams storage class .... {{ kafka_storage_class }}"
-      - "AMQ Streams MAS user ......... {{ kafka_user_name }}"
-
+      - "AMQ Streams namespace ................. {{ kafka_namespace }}"
+      - "AMQ Streams kafka version ............. {{ kafka_version }}"
+      - "AMQ Streams cluster name .............. {{ kafka_cluster_name }}"
+      - "AMQ Streams cluster size .............. {{ kafka_cluster_size }}"
+      - "AMQ Streams kafka storage class ....... {{ kafka_storage_class }}"
+      - "AMQ Streams kafka storage size ........ {{ kafka_storage_size }}"
+      - "AMQ Streams zookeeper storage class ... {{ zookeeper_storage_class }}"
+      - "AMQ Streams zookeeper storage size .... {{ zookeeper_storage_size }}"
+      - "AMQ Streams MAS user .................. {{ kafka_user_name }}"
 
 # 3. Install AMQ Streams operator
 # -----------------------------------------------------------------------------
@@ -45,7 +48,24 @@
     - kafka_crd_info.resources | length > 0
 
 
-# 5. Deploy the cluster
+# 5 Create logging/monitoring configmaps and PodMonitor custom resources
+# -----------------------------------------------------------------------------
+- name: "Create Kafka logging configmap"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/logging-configmap.yml.j2"
+
+- name: "Create Kafka monitoring configmap"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/metrics-configmap.yml.j2"
+
+- name: "Create Kafka PodMonitor custom resources"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/podmonitor.yml.j2"
+
+# 6. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "Create Kafka Cluster"
   kubernetes.core.k8s:
@@ -53,7 +73,7 @@
     template: "templates/clusters/{{ kafka_cluster_size }}.yml.j2"
 
 
-# 6. Wait until the KafkaUser CRD is available
+# 7. Wait until the KafkaUser CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the KafkaUser CRD is available"
   kubernetes.core.k8s_info:
@@ -74,15 +94,23 @@
     - kafkauser_crd_info.resources | length > 0
 
 
-# 7. Create the MAS user
+# 8. Create the MAS user
 # -----------------------------------------------------------------------------
 - name: "Create Kafka User"
   kubernetes.core.k8s:
     apply: yes
     template: templates/masuser.yml.j2
 
+# 9. Create Grafana dashboards for Kafka monitoring
+# -----------------------------------------------------------------------------
+- name: "Create Kafka monitoring dashboards"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ item }}"
+  with_fileglob:
+    - "templates/dashboards/*.yml.j2"
 
-# 8. Lookup details
+# 10. Lookup details
 # -----------------------------------------------------------------------------
 # We have seen instances where the Kafka cluster is reported as Ready but
 # the necessary fields in the status resource are not set yet so we retry until
@@ -115,19 +143,25 @@
 
 - name: "Set new facts based on resource lookups"
   set_fact:
-    kafka_bootstrap_host: "{{ kafka_cluster_lookup.resources[0].status.listeners[0].addresses[0].host }}"
-    kafka_bootstrap_cert: "{{ kafka_cluster_lookup.resources[0].status.listeners[0].certificates[0] }}"
+    kafka_bootstrap_host: "{{ kafka_cluster_lookup.resources[0].status.listeners[1].addresses[0].host }}"
+    kafka_bootstrap_cert: "{{ kafka_cluster_lookup.resources[0].status.listeners[1].certificates[0] }}"
+    kafka_int_bootstrap_host: "{{ kafka_cluster_lookup.resources[0].status.listeners[0].addresses[0].host }}"
+    kafka_int_bootstrap_cert: "{{ kafka_cluster_lookup.resources[0].status.listeners[0].certificates[0] }}"
     kafka_user_password: "{{ kafka_user_secret_lookup.resources[0].data.password | b64decode }}"
 
 - name: "Debug new facts"
   debug:
     msg:
-      - "Bootstrap host ............... {{ kafka_bootstrap_host }}"
-      - "Bootstrap cert ............... {{ kafka_bootstrap_cert }}"
+      - "External listener:"
+      - "  Bootstrap host ............... {{ kafka_bootstrap_host }}"
+      - "  Bootstrap cert ............... {{ kafka_bootstrap_cert }}"
+      - "Internal listener:"
+      - "  Bootstrap host ............... {{ kafka_int_bootstrap_host }}"
+      - "  Bootstrap cert ............... {{ kafka_int_bootstrap_cert }}"
       - "MAS user password ............ {{ kafka_user_password }}"
 
 
-# 9. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
+# 11. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
 # -----------------------------------------------------------------------------
 - name: Debug KafkaCfg creation properties
   when:
