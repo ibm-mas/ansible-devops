@@ -68,12 +68,30 @@
         
 
 
-# 3. Spend 25 minutes looking for pods stuck in ImagePullBackoff state
+# 3. Spend 15 minutes looking for pods stuck in ImagePullBackoff state
 # -----------------------------------------------------------------------------
 # If we look for pods in image pull backoff too early then we won't know which ones to
 # boot so that they pick up the image pull secret as it takes a while for pods to get
 # into "ImagePullBackOff" or "ErrImagePull" state
-- name: "wait-wd : Catch any pods caughts in ImgPullBackOff"
+- name: "wait-wd : Catch any pods caughts in ImgPullBackOff (1)"
+  include_tasks: wait-wd-detectimagepullbackoff.yml
+
+- name: "wait-wd : Catch any pods caughts in ImgPullBackOff (2)"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  include_tasks: wait-wd-detectimagepullbackoff.yml
+
+- name: "wait-wd : Catch any pods caughts in ImgPullBackOff (3)"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
   include_tasks: wait-wd-detectimagepullbackoff.yml
 
 
@@ -92,5 +110,5 @@
     - cpd_cr_lookup.resources[0].status is defined
     - cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus is defined
     - cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus == "Completed"
-  retries: 66 # Up to 5.5 (yes, FIVE !!) hours
+  retries: 60 # Up to 5 (yes, FIVE !!) hours
   delay: 300 # Every 5 minutes
