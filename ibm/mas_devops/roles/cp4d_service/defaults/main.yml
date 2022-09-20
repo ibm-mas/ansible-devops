@@ -10,6 +10,7 @@
 # model of the Cloud Pak for Data team :/
 cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default(lookup('env', 'CPD_VERSION'), true) | default('4.0.9', true)  }}"
 cpd_supported_versions: ['4.0.9', '4.5.0', '4.5.1', '4.5.2']
+cpd_minor_version: "{{ cpd_product_version | regex_search('(?<=)(.*)(?=..)') }}" # extract the cpd minor version to validate if its a supported version i.e 4.0 or 4.5
 
 # CP4D Admin User credential used to call CP4D APIs, if not specified, the script will look these up
 cpd_admin_username: "{{ lookup('env', 'CPD_ADMIN_USERNAME') }}"
@@ -64,3 +65,74 @@ cpd_wsl_project_storage_guid: "{{ 1000 | random | to_uuid | lower }}"
 # Note: This is only used when mas_instance_id and mas_config_dir are not empty string
 cpd_default_wd_instance_name: "wd-mas-{{ mas_instance_id }}-assist"
 cpd_wd_instance_name: "{{ lookup('env', 'CPD_WD_INSTANCE_NAME') | default(cpd_default_wd_instance_name, true) }}"
+cpd_wd_deployment_type: "Starter" # Default is "Starter" which creates 1 replica of each pod, "Production" creates at least 2 replicas of each pod, this cannot be changed in the future, and if you upgrade wd, you should use same type.
+
+# CPD Service Information
+# Reference: https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.0yml
+# ---------------------------------------------------------------------------------------------------------------------
+cpd_service_info:
+  # Watson Machine Learning
+  wml:
+    assembly_name: wml
+    catalog_source: ibm-operator-catalog
+    operator_name: ibm-cpd-wml-operator
+    package_name: ibm-cpd-wml-operator
+    csv_name: ibm-cpd-wml-operator
+    api_version: wml.cpd.ibm.com/v1beta1
+    crd_kind: WmlBase
+    crd_name: wmlbases.wml.cpd.ibm.com
+    cr_name: wml-cr
+
+  # Analytics Engine Powered by Apache Spark
+  spark:
+    assembly_name: analyticsengine
+    catalog_source: ibm-operator-catalog
+    operator_name: ibm-cpd-ae-operator
+    package_name: analyticsengine-operator
+    csv_name: ibm-cpd-ae
+    api_version: ae.cpd.ibm.com/v1
+    crd_kind: AnalyticsEngine
+    crd_name: analyticsengines.ae.cpd.ibm.com
+    cr_name: analyticsengine-sample
+
+  # Watson Studio
+  wsl:
+    assembly_name: ws
+    catalog_source: ibm-operator-catalog
+    operator_name: ibm-cpd-ws-operator
+    package_name: ibm-cpd-wsl
+    csv_name: ibm-cpd-wsl
+    api_version: ws.cpd.ibm.com/v1beta1
+    crd_kind: WS
+    crd_name: ws.ws.cpd.ibm.com
+    cr_name: ws-cr
+
+  # Watson Discovery
+  wd:
+    assembly_name: watson_discovery
+    catalog_source: ibm-operator-catalog
+    operator_name: wd-discovery-operator
+    package_name: ibm-watson-discovery-operator
+    csv_name: ibm-watson-discovery-operator
+
+    api_version: discovery.watson.ibm.com/v1
+    crd_kind: WatsonDiscovery
+    crd_name: watsondiscoveries.discovery.watson.ibm.com
+    cr_name: wd
+    rabbitmq:
+      channel_name: "v1.0" # this info does not exist in olm-utils-cm therefore adding here
+    elasticsearch:
+      channel_name: "v1.1" # this info does not exist in olm-utils-cm therefore adding here
+
+  # Watson OpenScale
+  # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=services-watson-openscale
+  aiopenscale:
+    assembly_name: openscale
+    catalog_source: ibm-operator-catalog
+    operator_name: ibm-cpd-wos-operator
+    package_name: ibm-cpd-wos
+    csv_name: ibm-cpd-wos
+    api_version: wos.cpd.ibm.com/v1
+    crd_kind: WOService
+    crd_name: woservices.wos.cpd.ibm.com
+    cr_name: aiopenscale

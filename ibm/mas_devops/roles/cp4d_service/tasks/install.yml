@@ -1,6 +1,31 @@
 ---
-- name: Load variables accordingly to the CPD product version {{ cpd_product_version }}
-  include_vars: vars/cpd-release-{{ cpd_product_version }}.yml
+# Create olm-utils-cm config maps which contains the versions 
+# for all CPD related services and dependencies.
+# This will be used by the CPD operators to automatically set the target versions
+# to be installed/upgraded
+# -----------------------------------------------------------------------------
+- name: "Create olm-utils-cm config map for cpd release {{ cpd_product_version }}"
+  kubernetes.core.k8s:
+    apply: yes
+    template: '{{ role_path }}/../cp4d/templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2'
+
+- name: "Lookup olm-utils-cm config map to know which CPD service version to install/upgrade for release {{ cpd_product_version }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "olm-utils-cm"
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+  register: cpd_cm_info
+
+- set_fact:
+    cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
+    cpd_assembly_name: "{{ cpd_service_info[cpd_service_name].assembly_name }}"
+
+- name: "Set {{ cpd_service_name }} versions for cr, csv and sub_channel"
+  set_fact:
+    cpd_service_cr_version: "{{ cpd_components_meta[cpd_assembly_name].cr_version }}"
+    cpd_service_csv_version: "{{ cpd_components_meta[cpd_assembly_name].csv_version }}"
+    cpd_service_channel: "{{ cpd_components_meta[cpd_assembly_name].sub_channel }}"
 
 # 1. Load default storage classes and debug
 # -----------------------------------------------------------------------------
@@ -13,10 +38,10 @@
       - "CPD Operator Namespace ................. {{ cpd_operators_namespace }}"
       - "CPD Instance Namespace ................. {{ cpd_instance_namespace }}"
       - "CPD Service name ....................... {{ cpd_service_name }}"
-      - "CPD Service version .................... {{ cpd_service_info[cpd_service_name].cr_version }}"
       - "CPD Service storage class .............. {{ cpd_service_storage_class }}"
-      - "CPD Service subscription channel ....... {{ cpd_service_info[cpd_service_name].channel_name }}"
-
+      - "CPD Service version .................... {{ cpd_service_cr_version }}"
+      - "CPD Service subscription channel ....... {{ cpd_service_channel }}"
+      - "CPD Service csv ........................ {{ cpd_service_csv_version }}"
 
 # 2. Determine CP4D admin login credentials
 # -----------------------------------------------------------------------------
@@ -25,7 +50,6 @@
     - cpd_admin_username is not defined or cpd_admin_username == ""
     - cpd_admin_password is not defined or cpd_admin_password == ""
   include_tasks: "lookup-admin-credentials.yml"
-
 
 # 3. Run Pre-req task
 # -----------------------------------------------------------------------------
@@ -41,7 +65,8 @@
 # If it's CPD 4.0.x, no need to apply operand configs at all, as these will be automatically be set while installing services requiring it.
 - name: Install Operand Configs and Operand Registries
   vars:
-    cpd_service_parameters: "{{ cpd_service_info[cpd_service_name] }}"
+    cpd_wd_parameters: "{{ cpd_service_info[wd] }}"
+    cpd_olm_utils_components: "{{ cpd_components_meta }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/operand_config/{{ cpd_service_name }}.yml"
@@ -55,7 +80,7 @@
   vars:
     cpd_service_subscription_name: "cpd-{{ cpd_service_name }}-operator"
     cpd_service_package_name: "{{ cpd_service_info[cpd_service_name].package_name }}"
-    cpd_service_channel_name: "{{ cpd_service_info[cpd_service_name].channel_name }}"
+    cpd_service_channel_name: "{{ cpd_service_channel }}"
     cpd_service_catalog_source: "{{ cpd_service_info[cpd_service_name].catalog_source }}"
   kubernetes.core.k8s:
     apply: yes
@@ -81,14 +106,40 @@
     - service_crd_info.resources is defined
     - service_crd_info.resources | length > 0
 
-
 # 6. Install CP4D Service CRs
 # -----------------------------------------------------------------------------
 - name: "Install Service CR"
+  vars:
+    cpd_olm_utils_components: "{{ cpd_components_meta }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/services/{{ cpd_service_name }}.yml.j2"
 
+# This is just a validation step to prevent the "wait tasks" to run before it gives enough time for the new cpd service operator version
+# to start reconciling in case of an upgrade, otherwise it might not have given enough time for it to process the new version to be upgrade 
+# while its status' cr might still show 'completed'.
+# With this, we ensure the new cpd service csv version operator is running/reconciling the new cr version before we check the cpd cr status
+- name: "Wait CPD services subscription installedCSV version at {{ expected_installed_csv }}"
+  vars: 
+    expected_installed_csv: "{{ cpd_service_info[cpd_service_name].csv_name }}.v{{ cpd_service_csv_version }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: "cpd-{{ cpd_service_name }}-operator"
+  register: cpd_sub_info
+  retries: 20
+  delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+  until:
+    - cpd_sub_info.resources is defined
+    - cpd_sub_info.resources | length > 0
+    - cpd_sub_info.resources[0].status is defined
+    - cpd_sub_info.resources[0].status.installedCSV is defined
+    - cpd_sub_info.resources[0].status.installedCSV == expected_installed_csv
+
+- name: "Pause for couple of minutes before checking cpd service {{ cpd_service_name }} cr status..."
+  pause:
+    minutes: 2
 
 # 7. Wait for CP4D Service to be ready
 # -----------------------------------------------------------------------------

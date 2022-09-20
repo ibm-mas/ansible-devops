@@ -22,10 +22,34 @@
 # This will be used by the CPD operators to automatically set the target versions
 # to be installed/upgraded
 # -----------------------------------------------------------------------------
-- name: "install-cp4d : Create olm-utils-cm config map"
+- name: "install-cp4d : Create olm-utils-cm config map for cpd release {{ cpd_version }}"
   kubernetes.core.k8s:
     apply: yes
     template: 'templates/config_maps/olm-utils-cm-{{ cpd_version }}.yml.j2'
+
+- name: "install-cp4d : Lookup olm-utils-cm config map to know which zen version to install/upgrade for release {{ cpd_version }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "olm-utils-cm"
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+  register: cpd_cm_info
+
+- set_fact:
+    cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
+
+- name: "install-cp4d : Set cpd_channel and zen_cr_version"
+  set_fact:
+    cpd_channel: "{{ cpd_default_channels[cpd_version].channel }}"
+    zen_cr_version: "{{ cpd_components_meta.zen.cr_version }}"
+
+- debug:
+    msg:
+      - "CPD operators namespace ................ {{ cpd_operators_namespace }}"
+      - "CPD instance namespace ................. {{ cpd_instance_namespace }}"
+      - "CPD release version .................... {{ cpd_version }}"
+      - "CPD subscription channel ............... {{ cpd_channel }}"
+      - "Zen/control plane version .............. {{ zen_cr_version }}"
 
 # 2.2 Install the IBM Cloud Pak for Data platform operator
 #
