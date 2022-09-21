@@ -1,5 +1,5 @@
 ---
-# Create olm-utils-cm config maps which contains the versions 
+# Create olm-utils-cm config maps which contains the versions
 # for all CPD related services and dependencies.
 # This will be used by the CPD operators to automatically set the target versions
 # to be installed/upgraded
@@ -65,7 +65,7 @@
 # If it's CPD 4.0.x, no need to apply operand configs at all, as these will be automatically be set while installing services requiring it.
 - name: Install Operand Configs and Operand Registries
   vars:
-    cpd_wd_parameters: "{{ cpd_service_info[wd] }}"
+    cpd_wd_components: "{{ cpd_service_info.wd }}"
     cpd_olm_utils_components: "{{ cpd_components_meta }}"
   kubernetes.core.k8s:
     apply: yes
@@ -116,11 +116,11 @@
     template: "templates/services/{{ cpd_service_name }}.yml.j2"
 
 # This is just a validation step to prevent the "wait tasks" to run before it gives enough time for the new cpd service operator version
-# to start reconciling in case of an upgrade, otherwise it might not have given enough time for it to process the new version to be upgrade 
+# to start reconciling in case of an upgrade, otherwise it might not have given enough time for it to process the new version to be upgrade
 # while its status' cr might still show 'completed'.
-# With this, we ensure the new cpd service csv version operator is running/reconciling the new cr version before we check the cpd cr status
+# With this, we ensure the new cpd service csv version operator is up and running with the new cr version before we check the cpd cr status
 - name: "Wait CPD services subscription installedCSV version at {{ expected_installed_csv }}"
-  vars: 
+  vars:
     expected_installed_csv: "{{ cpd_service_info[cpd_service_name].csv_name }}.v{{ cpd_service_csv_version }}"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
@@ -137,9 +137,11 @@
     - cpd_sub_info.resources[0].status.installedCSV is defined
     - cpd_sub_info.resources[0].status.installedCSV == expected_installed_csv
 
-- name: "Pause for couple of minutes before checking cpd service {{ cpd_service_name }} cr status..."
+# some service operators like wd takes quite some time to start reconciling the upgrade and set cr status to in progress
+# so adding a wait to let operator have enough time to set the proper cr status, this entire install/upgrade process will take much more than 5 minutes anyway...
+- name: "Pause for 5 minutes before checking cpd service {{ cpd_service_name }} cr status..." 
   pause:
-    minutes: 2
+    minutes: 5
 
 # 7. Wait for CP4D Service to be ready
 # -----------------------------------------------------------------------------

@@ -17,17 +17,17 @@
 # -----------------------------------------------------------------------------
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=si-creating-olm-objects
 
-# 2.1 Create olm-utils-cm config maps which contains the versions 
+# 2.1 Create olm-utils-cm config maps which contains the versions
 # for all CPD related services and dependencies.
 # This will be used by the CPD operators to automatically set the target versions
 # to be installed/upgraded
 # -----------------------------------------------------------------------------
-- name: "install-cp4d : Create olm-utils-cm config map for cpd release {{ cpd_version }}"
+- name: "install-cp4d : Create olm-utils-cm config map for cpd release {{ cpd_release_version }}"
   kubernetes.core.k8s:
     apply: yes
-    template: 'templates/config_maps/olm-utils-cm-{{ cpd_version }}.yml.j2'
+    template: 'templates/config_maps/olm-utils-cm-{{ cpd_release_version }}.yml.j2'
 
-- name: "install-cp4d : Lookup olm-utils-cm config map to know which zen version to install/upgrade for release {{ cpd_version }}"
+- name: "install-cp4d : Lookup olm-utils-cm config map to know which zen version to install/upgrade for release {{ cpd_release_version }}"
   kubernetes.core.k8s_info:
     api_version: v1
     name: "olm-utils-cm"
@@ -40,14 +40,14 @@
 
 - name: "install-cp4d : Set cpd_channel and zen_cr_version"
   set_fact:
-    cpd_channel: "{{ cpd_default_channels[cpd_version].channel }}"
+    cpd_channel: "{{ cpd_default_channels[cpd_release_version].channel }}"
     zen_cr_version: "{{ cpd_components_meta.zen.cr_version }}"
 
 - debug:
     msg:
       - "CPD operators namespace ................ {{ cpd_operators_namespace }}"
       - "CPD instance namespace ................. {{ cpd_instance_namespace }}"
-      - "CPD release version .................... {{ cpd_version }}"
+      - "CPD release version .................... {{ cpd_release_version }}"
       - "CPD subscription channel ............... {{ cpd_channel }}"
       - "Zen/control plane version .............. {{ zen_cr_version }}"
 
