@@ -37,9 +37,11 @@
     name: "{{ mas_instance_id}}-manage-{{ mas_workspace_id }}"
     namespace: "mas-{{ mas_instance_id }}-manage"
   register: manage_route
-  failed_when:
-    - manage_route.resources is not defined
-    - manage_route.resources | length = 0
+
+- name: Assert Manage Route is valid
+  assert:
+    that: "{{ manage_route.resources | length > 0 }}"
+    fail_msg: "Failed! Manage Route {{ mas_instance_id}}-manage-{{ mas_workspace_id }} not found..."
 
 - name: Set Manage Route variable
   set_fact:
@@ -59,6 +61,11 @@
   failed_when:
     - db2_pod.resources is not defined
     - db2_pod.resources | length = 0
+
+- name: Assert DB2 instance is valid
+  assert:
+    that: "{{ db2_pod.resources | length > 0 }}"
+    fail_msg: "Failed! DB2 instance name {{ db2_instance_name }} not found in {{ db2_namespace }} namespace..."
 
 - name: Set Manage app DB2 pod name variable
   set_fact:
