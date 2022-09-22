@@ -1,7 +1,18 @@
 cp4d_service
 =============
 
-Install a chosen CloudPak for Data service.
+Install or upgrade a chosen CloudPak for Data service.
+
+Currently supported Cloud Pak for Data release versions supported are:
+
+  - 4.0.9
+  - 4.5.0
+  - 4.5.1
+  - 4.5.2
+
+The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.
+
+For more information about the specific CPD services channels and versions associated to a particular Cloud Pak for Data release can be found [here](https://github.ibm.com/PrivateCloud/olm-utils/tree/master/ansible-play/config-vars).
 
 Services Supported
 ------------------
@@ -12,7 +23,14 @@ These services can be deployed and configured using this role:
 - [Analytics Service (Apache Spark)](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-analytics) required by [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
 - [Watson OpenScale](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-openscale) an optional dependency for [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
 - [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-discovery) required by Assist
-- [Decision Optimization](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-decision-optimization) an optional dependency for [Maximo Scheduler Optimization](https://www.ibm.com/docs/en/mas87/8.7.0?topic=ons-maximo-scheduler-optimization) - Requires Watson Studio and Watson Machine Learning.
+
+Upgrade
+------------------
+This role also supports seamlessly CPD services minor version upgrades (CPD 4.0.9 -> CPD 4.5.0), and patch version upgrades (CPD 4.5.0 -> CPD 4.5.x).
+All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role for a particular CPD service.
+It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.
+
+For more information about IBM Cloud Pak for Data upgrade process, refer to the [CPD official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=upgrading).
 
 !!! info "Application Support"
     For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists)
@@ -25,11 +43,11 @@ These services can be deployed and configured using this role:
 ### Watson Studio
 Subscriptions related to Watson Studio:
 
-- **cpd-platform-operator** on channel `v2.0`
-- **ibm-cpd-wsl** on channel `v2.0`
-- **ibm-cpd-ccs** on channel `v1.0`
-- **ibm-cpd-datarefinery** on channel `v1.0`
-- **ibm-cpd-ws-runtimes** on channel `v1.0`
+- **cpd-platform-operator**
+- **ibm-cpd-wsl**
+- **ibm-cpd-ccs**
+- **ibm-cpd-datarefinery**
+- **ibm-cpd-ws-runtimes**
 
 Watson Studio is made up of many moving parts across multiple namespaces.
 
@@ -154,9 +172,9 @@ statefulset.apps/zen-metastoredb        3/3     4h43m
 ### Watson Machine Learning
 Subscriptions related to Watson Machine Learning:
 
-- **cpd-platform-operator** on channel `v2.0`
-- **ibm-cpd-wml** on channel `v1.1`
-- **ibm-cpd-ccs** on channel `v1.0`
+- **cpd-platform-operator**
+- **ibm-cpd-wml**
+- **ibm-cpd-ccs**
 
 
 Watson Machine Learning is made up of many moving parts across multiple namespaces.
@@ -273,8 +291,8 @@ statefulset.apps/zen-metastoredb          3/3     3h40m
 ### Analytics Engine
 Subscriptions related to Analytics Engine:
 
-- **cpd-platform-operator** on channel `v2.0`
-- **analyticsengine-operator** on channel `stable-v1`
+- **cpd-platform-operator**
+- **analyticsengine-operator**
 
 Analytics Engine is made up of many moving parts across multiple namespaces.
 
@@ -352,8 +370,8 @@ statefulset.apps/zen-metastoredb   3/3     118m
 ### Watson OpenScale
 Subscriptions related to Watson OpenScale (in the **ibm-cpd-operators** namespace):
 
-- **cpd-platform-operator** on channel `v2.0`
-- **ibm-cpd-wos** on channel `v1.5`
+- **cpd-platform-operator**
+- **ibm-cpd-wos**
 
 Analytics Engine is made up of many moving parts across multiple namespaces.
 
@@ -447,18 +465,18 @@ statefulset.apps/zen-metastoredb                  3/3     130m
 ### Watson Discovery
 Subscriptions related to Watson Discovery (in the **ibm-cpd-operators** namespace):
 
-- **cpd-platform-operator** on channel `v2.0`
-- **ibm-watson-discovery-operator** on channel `v4.0`
-- **ibm-elasticsearch-operator** on channel `v1.1`
-- **ibm-etcd-operator** on channel `v1.0`
-- **ibm-minio-operator** on channel `v1.0`
-- **ibm-model-train-classic-operator** on channel `v1.0`
-- **ibm-rabbitmq-operator** on channel `v1.0`
-- **ibm-watson-gateway-operator** on channel `v1.0`
+- **cpd-platform-operator**
+- **ibm-watson-discovery-operator**
+- **ibm-elasticsearch-operator**
+- **ibm-etcd-operator**
+- **ibm-minio-operator**
+- **ibm-model-train-classic-operator**
+- **ibm-rabbitmq-operator**
+- **ibm-watson-gateway-operator**
 
 Subscriptions related to Watson Discovery (in the **ibm-common-services** namespace):
 
-- **cloud-native-postgresql** on channel `stable`
+- **cloud-native-postgresql**
 
 Watson Discovery is made up of many moving parts across multiple namespaces.
 
@@ -577,18 +595,18 @@ statefulset.apps/zen-metastoredb                         3/3     179m
 Role Variables - Installation
 -----------------------------
 ### cpd_service_name
-Name of the service to install, supported values are: `wsl`, `wml`, `wd`, `aiopenscale`, `dods`, and `spark`
+Name of the service to install, supported values are: `wsl`, `wml`, `wd`, `aiopenscale` and `spark`
 
 - **Required**
 - Environment Variable: `CPD_SERVICE_NAME`
 - Default Value: None
 
 ### cpd_product_version
-The product version (also known as operand version) of this service to install.  Currently, due to defects in Cloud Pak for Data the only version that works is the latest (`4.0.9`), but in the future you should be able to set this to any released version of CP4D.
+The product version (also known as operand version) of this service to install.
 
 - **Required**
-- Environment Variable: `CPD_PRODUCT_VERSION`
-- Default Value: None
+- Environment Variable: `CPD_PRODUCT_VERSION` (or `CPD_RELEASE_VERSION` to install CPD services at the same version as Zen/CPD Control Plane, which is the recommended.)
+- Default Value: 4.0.9
 
 ### cpd_service_storage_class
 This is used to set `spec.storageClass` in all CPD v3.5 services, and many - but not all - CP4D v4.0 services.
@@ -652,6 +670,17 @@ Stores the name of the CP4D Watson Discovery Instance that can be used to config
 - Environment Variable: `CPD_WD_INSTANCE_NAME`
 - Default Value: `wd-mas-${mas_instance_id}-assist`
 
+### cpd_wd_deployment_type
+Defines the CP4D Watson Discovery deployment type: 
+
+- `Starter`: One replica pod for each wd service/component, uses fewer resources in your cluster.
+- `Production`: Multiple replica pods for each Watson Discovery service/component, recommended for production deployments to increase workload capacity however consumes more cluster resources. 
+
+- Optional
+- Environment Variable: `CPD_WD_DEPLOYMENT_TYPE`
+- Default Value: `Starter`
+
+Note: Deployment type cannot be changed in the future neither while upgrading the service. If you need to change the deployment type, you must uninstall Watson Discovery and reinstall with the desired deployment type. More information, see [Upgrading Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=u-upgrading-from-version-40-1).
 
 Role Variables - MAS Configuration Generation
 ---------------------------------------------
@@ -678,6 +707,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    cpd_product_version: 4.5.0
     cpd_service_storage_class: ibmc-file-gold-gid
     cpd_service_name: wsl
   roles:
