@@ -18,7 +18,7 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
-### CPD_ADMIN_USERNAMEname
+### CPD_ADMIN_USERNAME
 Defines the username that is used for the WatsonStudio configure in MAS installation
 
 - Environment Variable: `CPD_ADMIN_USERNAME`
