@@ -1,25 +1,40 @@
 ---
 # We don't actually use this dictionary today, but in a future release we should simply pass in the version
 # of HP Utilities and key off this instead.
-appconnect_defaults:
+appconnect_defaults: # Based on HP Utilities version
+  8.5.x:
+    channel: v5.2
+    license:  L-APEH-CCHL5W
+    dashboard: mas-hpu-dashboard
+    dashboard_version: 12.0.5.0-r2
   8.4.x:
     channel: v5.2
     license: L-APEH-C9NCK6
-    dashboard: dashboard-12040r2
+    dashboard: mas-hpu-dashboard
+    dashboard_version: 12.0.4.0-r2
   8.3.x:
     channel: v4.2
     license: L-KSBM-C87FU2
-    dashboard: dashboard-12020r2
-  8.2.x:
+    dashboard: mas-hpu-dashboard
+    dashboard_version: 12.0.2.0-r2
+  8.2.x: # this appconnect version is deprecated
     channel: v3.1
     license: L-KSBM-C37J2R
-    dashboard: dashboard-12010r2
+    dashboard: mas-hpu-dashboard
+    dashboard_version: 12.0.1.0-r2
 
 # Define where AppConnect will be installed, the default values below
+# Default values precedence rules: 
+# 1. If specific AppConnect settings are defined, the role will use them.
+# 2. If `appconnect_hpu_version` is set, then it will use default AppConnect compatible version with HPU version defined
+# 3. Otherwise the default AppConnect settings will be defined by the default `appconnect_hpu_version` defined below
+appconnect_hpu_version_default: 8.4.x
+appconnect_hpu_version: "{{ lookup('env', 'APPCONNECT_COMPATIBLE_HPU_VERSION') }}"
 appconnect_namespace: "{{ lookup('env', 'APPCONNECT_NAMESPACE') | default('ibm-app-connect', true) }}"
-appconnect_channel: "{{ lookup('env', 'APPCONNECT_CHANNEL') | default('v5.2', true) }}"
-appconnect_dashboard_name: "{{ lookup('env', 'APPCONNECT_DASHBOARD_NAME') | default('dashboard-12040r2', true) }}"
-appconnect_license_id: "{{ lookup('env', 'APPCONNECT_LICENSE_ID') | default('L-APEH-C9NCK6', true) }}"
+appconnect_channel: "{{ lookup('env', 'APPCONNECT_CHANNEL') | default(appconnect_defaults[appconnect_hpu_version].channel, true) | default(appconnect_defaults[appconnect_hpu_version_default].channel, true) }}"
+appconnect_dashboard_name: "{{ lookup('env', 'APPCONNECT_DASHBOARD_NAME') | default(appconnect_defaults[appconnect_hpu_version].dashboard, true) | default(appconnect_defaults[appconnect_hpu_version_default].dashboard, true) }}"
+appconnect_dashboard_version: "{{ lookup('env', 'APPCONNECT_DASHBOARD_VERSION') | default(appconnect_defaults[appconnect_hpu_version].dashboard_version, true) | default(appconnect_defaults[appconnect_hpu_version_default].dashboard_version, true) }}"
+appconnect_license_id: "{{ lookup('env', 'APPCONNECT_LICENSE_ID') | default(appconnect_defaults[appconnect_hpu_version].license, true) | default(appconnect_defaults[appconnect_hpu_version_default].license, true) }}"
 appconnect_storage_class: "{{ lookup('env', 'APPCONNECT_STORAGE_CLASS') }}"
 
 # IBM entitlement key for AppConnect

@@ -61,6 +61,7 @@
       - "AppConnect Namespace ...................... {{ appconnect_namespace }}"
       - "AppConnect Channel ........................ {{ appconnect_channel }}"
       - "AppConnect Dashboard Name ................. {{ appconnect_dashboard_name }}"
+      - "AppConnect Dashboard Version .............. {{ appconnect_dashboard_version }}"
       - "AppConnect License ID ..................... {{ appconnect_license_id }}"
       - "AppConnect Storage Class .................. {{ appconnect_storage_class }}"
       - "MAS Instance Id ........................... {{ mas_instance_id }}"
@@ -146,17 +147,18 @@
     namespace: "{{ appconnect_namespace }}"
     kind: Dashboard
   register: appconnect_cr_result
-  until:
+  until:     
     - appconnect_cr_result.resources is defined and appconnect_cr_result.resources | length == 1
     - appconnect_cr_result.resources[0].status is defined
-    - appconnect_cr_result.resources[0].status.phase is defined
-    - appconnect_cr_result.resources[0].status.phase == 'Ready'
+    - appconnect_cr_result.resources[0].status.conditions is defined
+    - appconnect_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Deployed') | list | length == 1
+    - appconnect_cr_result.resources[0].status.versions.reconciled == appconnect_dashboard_version
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
 
 # 9. Retrieve AppConnect dashboard route
 # -----------------------------------------------------------------------------
-- name: "Retrieve AppConnect dashboard Route:"
+- name: "Retrieve AppConnect dashboard Route"
   kubernetes.core.k8s_info:
     api_version: v1
     name: "{{ appconnect_dashboard_name }}-ui"
@@ -195,4 +197,5 @@
       - "AppConnect Channel ........................ {{ appconnect_channel }}"
       - "AppConnect Endpoint Url ................... {{ appconnect_url }}"
       - "AppConnect Dashboard Name ................. {{ appconnect_dashboard_name }}"
+      - "AppConnect Dashboard Version .............. {{ appconnect_dashboard_version }}"
       - "AppConnect License ID ..................... {{ appconnect_license_id }}"
