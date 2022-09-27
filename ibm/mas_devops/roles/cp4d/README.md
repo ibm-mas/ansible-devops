@@ -3,7 +3,7 @@ cp4d
 
 This role installs or upgrades [IBM Cloud Pak for Data](https://www.ibm.com/uk-en/products/cloud-pak-for-data) Operator in the target cluster.
 
-Currently supported Cloud Pak for Data release versions supported are:
+Currently supported Cloud Pak for Data release versions are:
 
   - 4.0.9
   - 4.5.0
