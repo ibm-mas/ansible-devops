@@ -60,12 +60,14 @@ ansible-playbook ibm.mas_devops.oneclick_add_predict
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export MAS_ENTITLEMENT_KEY=xxx
+
 export CP4D_INSTALL_PLATFORM="true"
 export CP4D_INSTALL_WSL="true"
 export CP4D_INSTALL_WML="true"
 export CP4D_INSTALL_SPARK="true"
 export CP4D_INSTALL_OPENSCALE="true"
 export CP4D_INSTALL_DISCOVERY="true"
+
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_predict
 ```
