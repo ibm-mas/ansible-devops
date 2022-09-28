@@ -4,7 +4,10 @@
 
 # 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-- name: Lookup ROKS storage classes
+- name: "Load default storage class information"
+  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
+
+- name: Lookup storage classes
   kubernetes.core.k8s_info:
     api_version: storage.k8s.io/v1
     kind: StorageClass
@@ -20,10 +23,8 @@
 - name: Default Data Storage for ROKS if not set by user (ReadWriteOnce)
   when: db2_data_storage_class is not defined or db2_data_storage_class == ""
   vars:
-    # ROKS, OCS, Azure
-    supported_storage_classes: [ibmc-block-gold, ocs-storagecluster-ceph-rbd, managed-premium]
   set_fact:
-    db2_data_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
+    db2_data_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
 
 - name: Assert that a data storage class has been defined
   assert:
@@ -35,11 +36,8 @@
 # -----------------------------------------------------------------------------
 - name: Default Meta Storage for ROKS if not set by user (ReadWriteMany)
   when: db2_meta_storage_class is not defined or db2_meta_storage_class == ""
-  vars:
-    # ROKS, OCS, Azure
-    supported_storage_classes: [ibmc-file-gold, ocs-storagecluster-cephfs, azurefiles-premium]
   set_fact:
-    db2_meta_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
+    db2_meta_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
 
 - name: Assert that a meta storage class has been defined
   assert:
@@ -51,33 +49,24 @@
 # -----------------------------------------------------------------------------
 - name: Default Logs Storage for ROKS if not set by user (ReadWriteOnce)
   when: db2_logs_storage_class is not defined or db2_logs_storage_class == ""
-  vars:
-    # ROKS, OCS, Azure
-    supported_storage_classes: [ibmc-block-gold, ocs-storagecluster-ceph-rbd, managed-premium]
   set_fact:
-    db2_logs_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
+    db2_logs_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
 
 
 # 5. Backup Storage (Optional)
 # -----------------------------------------------------------------------------
 - name: Default Backup Storage for ROKS if not set by user (ReadWriteMany)
   when: db2_backup_storage_class is not defined or db2_backup_storage_class == ""
-  vars:
-    # ROKS, OCS, Azure
-    supported_storage_classes: [ibmc-file-gold, ocs-storagecluster-cephfs, azurefiles-premium]
   set_fact:
-    db2_backup_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
+    db2_backup_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx_nogid) }}"
 
 
 # 6. Temp Storage (Optional)
 # -----------------------------------------------------------------------------
 - name: Default Temp Storage for ROKS if not set by user (ReadWriteOnce)
   when: db2_temp_storage_class is not defined or db2_temp_storage_class == ""
-  vars:
-    # ROKS, OCS, Azure
-    supported_storage_classes: [ibmc-block-gold, ocs-storagecluster-ceph-rbd, managed-premium]
   set_fact:
-    db2_temp_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
+    db2_temp_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
 
 
 # 7. Debug storage class configuration

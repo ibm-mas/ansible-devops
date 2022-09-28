@@ -75,6 +75,7 @@
     kind: Namespace
     name: '{{ appconnect_namespace }}'
 
+
 # 5. Create ibm-entitlement for AppConnect
 # -----------------------------------------------------------------------------
 - name: "Create ibm-entitlement-key secret in AppConnect namespace"
@@ -95,6 +96,7 @@
         namespace: "{{ appconnect_namespace }}"
       stringData:
         .dockerconfigjson: "{{ content | join('') | string }}"
+
 
 # 6. Deploy AppConnect subscription and Operator Group
 # -----------------------------------------------------------------------------
@@ -131,13 +133,35 @@
     - appconnect_crd_info.resources is defined
     - appconnect_crd_info.resources | length > 0
 
-# 7. Create AppConnect Dashboard
+
+# 7. Wait until AppConnect Operator is ready
+# -----------------------------------------------------------------------------
+- name: "Wait for ibm-appconnect-operator to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-appconnect-operator
+    namespace: "{{ appconnect_namespace }}"
+    kind: Deployment
+  register: appconnect_operator_deployment
+  until:
+    - appconnect_operator_deployment.resources is defined
+    - appconnect_operator_deployment.resources | length > 0
+    - appconnect_operator_deployment.resources[0].status is defined
+    - appconnect_operator_deployment.resources[0].status.replicas is defined
+    - appconnect_operator_deployment.resources[0].status.readyReplicas is defined
+    - appconnect_operator_deployment.resources[0].status.readyReplicas == appconnect_operator_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+
+
+# 8. Create AppConnect Dashboard
 # -----------------------------------------------------------------------------
 - name: "Create AppConnect Dashboard"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/dashboard.yaml') }}"
 
-# 8. Wait AppConnect Dashboard to be complete
+
+# 9. Wait AppConnect Dashboard to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for AppConnect Dashboard to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -154,7 +178,8 @@
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
 
-# 9. Retrieve AppConnect dashboard route
+
+# 10. Retrieve AppConnect dashboard route
 # -----------------------------------------------------------------------------
 - name: "Retrieve AppConnect dashboard Route:"
   kubernetes.core.k8s_info:
@@ -175,7 +200,7 @@
     msg:
       - "AppConnect Dashboard Route ................. {{ appconnect_url }}"
 
-# 10. MAS Config
+# 11. MAS Config
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/appconnectcfg.yml
   when:
@@ -186,7 +211,8 @@
     - appconnect_url is defined
     - appconnect_url != ""
 
-# 11. AppConnect deployment details
+
+# 12. AppConnect deployment details
 # -----------------------------------------------------------------------------
 - name: "AppConnect Deployment details"
   debug:

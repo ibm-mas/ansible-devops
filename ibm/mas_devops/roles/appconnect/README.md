@@ -68,6 +68,13 @@ AppConnect dashboard instance name. Defaults to `dashboard-12040r2` as a referen
 - Environment Variable: `APPCONNECT_DASHBOARD_NAME`
 - Default Value: `dashboard-12040r2`
 
+### appconnect_dashboard_version
+AppConnect dashboard version, this must align with the License ID used.
+
+- Optional
+- Environment Variable: `APPCONNECT_DASHBOARD_VERSION`
+- Default Value: `12.0.4.0-r2`
+
 ### appconnect_license_id
 AppConnect license ID.
 

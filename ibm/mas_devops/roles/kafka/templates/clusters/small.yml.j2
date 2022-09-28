@@ -7,7 +7,7 @@ metadata:
 spec:
   # -------------------------------------------------------
   kafka:
-    version: 2.7.0
+    version: "{{ kafka_version }}"
     replicas: 3
     resources:
       requests:
@@ -19,30 +19,42 @@ spec:
     jvmOptions:
       -Xms: 3072m
       -Xmx: 3072m
-
+    logging:
+      type: external
+      valueFrom:
+        configMapKeyRef:
+          name: kafka-logging-config
+          key: kafka-log4j.properties
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: kafka-metrics-config
+          key: kafka-metrics-config.yml
     config:
       offsets.topic.replication.factor: 3
       transaction.state.log.replication.factor: 3
       transaction.state.log.min.isr: 2
-      log.message.format.version: "2.7"
+      log.message.format.version: "{{ kafka_version }}"
       log.retention.hours: 24
       log.retention.bytes: 1073741824
       log.segment.bytes: 268435456
       log.cleaner.enable: true
       log.cleanup.policy: delete
       auto.create.topics.enable: false
-
+      unclean.leader.election.enable: true
     storage:
       type: jbod
       volumes:
         - id: 0
           type: persistent-claim
           class: "{{ kafka_storage_class }}"
-          size: 100Gi
+          size: "{{ kafka_storage_size }}"
           deleteClaim: true
-
     authorization:
         type: simple
+        superUsers:
+          - admin
     listeners:
       - name: tls
         port: 9094
@@ -50,6 +62,29 @@ spec:
         tls: true
         authentication:
           type: scram-sha-512
+      - name: internal
+        port: 9093
+        type: internal
+        tls: true
+        authentication:
+          type: scram-sha-512
+        networkPolicyPeers:
+          - namespaceSelector: {}
+    template:
+      pod:
+        tmpDirSizeLimit: 100Mi
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: "kubernetes.io/hostname"
+                labelSelector:
+                  matchExpressions:
+                  - key: strimzi.io/name
+                    operator: In
+                    values:
+                    - "{{ kafka_cluster_name }}-kafka"
   # -------------------------------------------------------
   zookeeper:
     replicas: 3
@@ -63,12 +98,79 @@ spec:
     jvmOptions:
       -Xms: 768m
       -Xmx: 768m
-
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: kafka-metrics-config
+          key: zookeeper-metrics-config.yml
     storage:
       type: persistent-claim
-      class: "{{ kafka_storage_class }}"
-      size: 10Gi
+      class: "{{ zookeeper_storage_class }}"
+      size: "{{ zookeeper_storage_size }}"
       deleteClaim: true
+    template:
+      pod:
+        tmpDirSizeLimit: 100Mi
+        affinity:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: "kubernetes.io/hostname"
+                labelSelector:
+                  matchExpressions:
+                  - key: strimzi.io/name
+                    operator: In
+                    values:
+                    - "{{ kafka_cluster_name }}-zookeeper"
   # -------------------------------------------------------
   entityOperator:
-    userOperator: {}
+    template:
+      pod:
+        tmpDirSizeLimit: 1024Mi
+    tlsSidecar:
+      resources:
+        requests:
+          cpu: 200m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 128Mi
+    userOperator:
+      logging:
+        type: inline
+        loggers:
+          rootLogger.level: INFO
+      resources:
+        requests:
+          memory: 512Mi
+          cpu: 250m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+    topicOperator:
+      zookeeperSessionTimeoutSeconds: 30
+      logging:
+        type: inline
+        loggers:
+          rootLogger.level: INFO
+      resources:
+        requests:
+          memory: 512Mi
+          cpu: 250m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+  kafkaExporter:
+    groupRegex: ".*"
+    topicRegex: ".*"
+    resources:
+      requests:
+        cpu: 200m
+        memory: 64Mi
+      limits:
+        cpu: 500m
+        memory: 128Mi
+    logging: debug
+    enableSaramaLogging: true
