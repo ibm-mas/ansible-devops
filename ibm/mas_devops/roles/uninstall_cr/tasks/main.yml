@@ -1,0 +1,50 @@
+---
+# 1. Delete Custom Resource if needed
+- debug:
+    msg: 
+      - "Custom Resource Name: {{ cr_name }}"
+      - "Custom Resource Namespace: {{ cr_namespace }}"
+      - "Custom Kind: {{ cr_kind }}"
+      - "Custom API Version: {{ cr_apiversion }}"
+      - "Custom Label Selector: {{ cr_label_selector }}"
+
+- name: "Lookup custom resource (if needed)"
+  when: (cr_name is defined and cr_name !='') and (cr_kind is defined and cr_kind !='') or (cr_label_selector is defined and cr_label_selector !='')
+  kubernetes.core.k8s_info:
+    api_version: "{{ cr_apiversion }}"
+    kind: "{{ cr_kind }}"
+    namespace: "{{ cr_namespace }}"
+    name: "{{ cr_name }}"
+    label_selectors: "{{ cr_label_selector }}"
+  register: cr_output
+
+- name: "Assert custom resource exists"
+  when: (cr_name is defined and cr_name !='') and (cr_kind is defined and cr_kind !='') or (cr_label_selector is defined and cr_label_selector !='')
+  assert:
+    that: cr_output.resources is defined and cr_output.resources | length > 0
+
+- name: "Delete custom resource: {{ cr_output.resources[0].metadata.name }}"
+  when: cr_output.resources is defined and cr_output.resources | length > 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ cr_apiversion }}"
+    kind: "{{ cr_kind }}"
+    namespace: "{{ cr_namespace }}"
+    name: "{{ cr_name }}"
+    label_selectors: "{{ cr_label_selector }}"
+  register: cr_delete_output
+
+# TODO: NEED TO FIND WAY TO WAIT FOR IT TO BE GONE...
+- name: "Wait for custom resource to be gone"
+  when: cr_output.resources is defined and cr_output.resources | length > 0
+  kubernetes.core.k8s_info:
+    api_version: "{{ cr_apiversion }}"
+    kind: "{{ cr_kind }}"
+    namespace: "{{ cr_namespace }}"
+    name: "{{ cr_name }}"
+    label_selectors: "{{ cr_label_selector }}"
+  register: cr_wait_delete_output
+  retries: 20 # ~approx 10 minutes before we give up waiting
+  delay: 30 # seconds
+  until:
+    - cr_wait_delete_output.resources | length == 0

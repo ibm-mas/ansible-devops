@@ -56,3 +56,5 @@ copyDoc suite_mustgather_download
 copyDoc suite_upgrade
 copyDoc suite_verify
 copyDoc uds
+copyDoc uninstall_cr
+copyDoc uninstall_sub

@@ -1,0 +1,82 @@
+---
+# 1. Lookup subscription
+# --------------------------------------------------------------------------------------------
+- name: "Lookup subscription"
+  kubernetes.core.k8s_info:
+    api_version: "{{ sub_apiversion }}"
+    kind: Subscription
+    namespace: "{{ sub_namespace }}"
+    name: "{{ sub_name }}"
+    label_selectors: "{{ sub_label_selector }}"
+  register: sub_output
+
+- name: "Assert subscription exists"
+  assert:
+    that: sub_output.resources is defined and sub_output.resources | length > 0
+    fail_msg: 'Subscription was not found!'
+
+# 2. Lookup CSV
+# --------------------------------------------------------------------------------------------
+- name: "Lookup csv"
+  kubernetes.core.k8s_info:
+    api_version: "{{ csv_apiversion }}"
+    kind: ClusterServiceVersion
+    namespace: "{{ csv_namespace }}"
+    name: "{{ csv_name }}"
+    label_selectors: "{{ csv_label_selector }}"
+  register: csv_output
+
+- name: "Assert csv exists"
+  assert:
+    that: csv_output.resources is defined and csv_output.resources | length > 0
+
+# 3. Lookup deployment
+# --------------------------------------------------------------------------------------------
+- name: "Lookup deployment"
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ deployment_namespace }}"
+    name: "{{ deployment_name }}"
+    label_selectors: "{{ deployment_label_selector }}"
+  register: deployment_output
+
+- name: "Assert deployment exists"
+  assert:
+    that: deployment_output.resources is defined and deployment_output.resources | length > 0
+
+# 4. Delete subscription
+# --------------------------------------------------------------------------------------------
+- name: "Delete subscription: {{ sub_output.resources[0].metadata.name }}"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ sub_apiversion }}"
+    kind: Subscription
+    namespace: "{{ sub_namespace }}"
+    name: "{{ sub_name }}"
+    label_selectors: "{{ sub_label_selector }}"
+  register: sub_delete_output
+
+# 5. Delete csv
+# --------------------------------------------------------------------------------------------
+- name: "Delete csv: {{ csv_output.resources[0].metadata.name }}"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ sub_apiversion }}"
+    kind: ClusterServiceVersion
+    namespace: "{{ sub_namespace }}"
+    name: "{{ sub_name }}"
+    label_selectors: "{{ sub_label_selector }}"
+  register: csv_delete_output
+
+# 6. Wait deployment to be gone
+# --------------------------------------------------------------------------------------------
+- name: "Wait for deployment to be gone (30s delay)"
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ deployment_namespace }}"
+    name: "{{ deployment_name }}"
+    label_selectors: "{{ deployment_label_selector }}"
+  register: deployment_output
+  until: deployment_output.resources[0].status.availableReplicas is not defined
+  retries: 20 # Approximately 10 minutes before we give up
+  delay: 30 # 30 seconds
