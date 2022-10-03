@@ -5,6 +5,23 @@ Provision
 -------------------------------------------------------------------------------
 Refer to the [ocp_provision](../roles/ocp_provision.md) role documentation for more information.
 
+### Provision on AWS ROSA
+This playbook uses your ROSA API Token to provision a brand new OCP cluster, provision an instance of EFS and set up the cluster with a ReadWriteMany storage class named `efs` utilizing that instance.
+
+To obtain your API token login to the [OpenShift cluster manager](https://console.redhat.com/openshift/token/rosa/show#).
+
+```bash
+export AWS_ACCESS_KEY_ID=xxx
+export AWS_SECRET_ACCESS_KEY=xxx
+export ROSA_TOKEN=xxx
+
+export CLUSTER_NAME=masonrosa
+export OCP_VERSION=4.10
+export ROSA_COMPUTE_NODES=5
+export ROSA_CLUSTER_ADMIN_PASSWORD=xxx
+ansible-playbook ibm.mas_devops.ocp_rosa_provision
+```
+
 ### Provision on IBMCloud ROKS
 This playbook uses your IBMCloud API key to provision a brand new OCP cluster.
 

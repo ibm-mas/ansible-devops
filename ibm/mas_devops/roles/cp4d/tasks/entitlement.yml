@@ -1,6 +1,7 @@
 ---
-
-- name: "entitlement : Create ibm-entitlement-key secret in CP4D instance namespace"
+# The image pull secret is needed in the main CPD instance namespace as well as the ibm-common-services namespace
+# The "create-postgres-license-config" job will fail if the secret does not exist in ibm-common-services
+- name: "entitlement : Create ibm-entitlement-key secret in {{ item }} namespace"
   vars:
     entitledAuthStr: "{{ cpd_entitlement_username }}:{{ cpd_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
@@ -15,6 +16,33 @@
       type: kubernetes.io/dockerconfigjson
       metadata:
         name: "ibm-entitlement-key"
+        namespace: "{{ item }}"
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
+  with_items:
+    - "ibm-common-services"
+    - "{{ cpd_instance_namespace }}"
+
+
+# Watson Discovery - for some unkown reason - creates ONE POD that references an ImagePullSecret named "prod-cred".  Unless this secret is created
+# that pod will not be able to start up reliably, Kubernetes will sometimes ignore the image pull secrets assigned the service account that owns the pod.
+# It doesn't make any sense why it sometimes works and sometimes doesn't, but this is CP4D after-all:)
+- name: "entitlement : Create prod-cred secret in {{ cpd_instance_namespace }} namespace (for Watson Discovery)"
+  vars:
+    entitledAuthStr: "{{ cpd_entitlement_username }}:{{ cpd_entitlement_key }}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"cp.icr.io/cp": {"username":"{{ cpd_entitlement_username }}","password":"{{ cpd_entitlement_key }}","auth":"{{ entitledAuth }}"}'
+      - '}'
+      - '}'
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: "prod-cred"
         namespace: "{{ cpd_instance_namespace }}"
       stringData:
         # Only way I could get three consecutive "}" into a string :)
