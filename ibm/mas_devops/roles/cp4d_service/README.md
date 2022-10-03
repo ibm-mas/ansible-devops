@@ -605,7 +605,7 @@ Name of the service to install, supported values are: `wsl`, `wml`, `wd`, `aiope
 The product version (also known as operand version) of this service to install.
 
 - **Required**
-- Environment Variable: `CPD_PRODUCT_VERSION` (or `CPD_RELEASE_VERSION` to install CPD services at the same version as Zen/CPD Control Plane, which is the recommended.)
+- Environment Variable: `CPD_PRODUCT_VERSION`
 - Default Value: 4.0.9
 
 ### cpd_service_storage_class

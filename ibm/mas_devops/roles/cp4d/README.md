@@ -22,7 +22,7 @@ For more information about CPD versioning, see [IBM Cloud Pak for Data Operator 
 Upgrade
 ------------------
 This role also supports seamlessly CPD control plane (or also called `Zen` service) minor version upgrades (CPD 4.0.9 -> CPD 4.5.0), and patch version upgrades (CPD 4.5.0 -> CPD 4.5.x).
-All you need to do is to define `cpd_release_version` variable to the version you target to upgrade and run this role against an existing CPD instance.
+All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role against an existing CPD instance.
 
 For more information about IBM Cloud Pak for Data upgrade process, refer to the [CPD official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=upgrading).
 
@@ -98,11 +98,11 @@ statefulset.apps/zen-metastoredb   3/3     68m
 
 Role Variables
 --------------
-### cpd_release_version
+### cpd_product_version
 Defines the IBM Cloud Pak for Data release version to be installed.
 
 - **Required**
-- Environment Variable: `CPD_RELEASE_VERSION`
+- Environment Variable: `CPD_PRODUCT_VERSION`
 - Default: `4.0.9`
 
 ### ibm_entitlement_key
@@ -155,7 +155,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cpd_release_version: 4.5.0
+    cpd_product_version: 4.5.0
     cpd_primary_storage_class: ibmc-file-gold-gid
     cpd_metadata_storage_class: ibmc-block-gold
   roles:
