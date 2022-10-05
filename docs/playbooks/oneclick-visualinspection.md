@@ -28,7 +28,7 @@ export MAS_CONFIG_DIR=/home/david/masconfig
 export MAS_ENTITLEMENT_KEY=xxx
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_optimizer
+ansible-playbook ibm.mas_devops.oneclick_add_visualinspection
 ```
 
 !!! tip
