@@ -22,11 +22,11 @@
       loop_control:
         label: "Worker node {{ item.id }} openshift version: {{ item.kubeVersion }}"
 
-    # Note: Each worker node takes around 20 minutes (safely) to complete ocp upgrade, so retry_count = worker_count * 20
+    # Note: Each worker node takes around 20 minutes (safely) to complete ocp upgrade, so retry_count = worker_count x 4 x 5 minutes waiting
     - name: "Fail if one or more workers nodes are still pending to upgrade"
       assert:
         that: ready_worker_count == worker_count
-        fail_msg: "[{{ retry_count }}/{{ worker_count|int * 20 }}] {{ ready_worker_count}} of {{ worker_count }} workers completed upgrade to {{ ocp_upgrade_version }} version"
+        fail_msg: "[{{ retry_count }}/{{ worker_count|int * 4 }}] {{ ready_worker_count}} of {{ worker_count }} workers completed upgrade to {{ ocp_upgrade_version }} version"
 
     # reset retry count when all workers are upgraded
     - set_fact:
@@ -38,13 +38,13 @@
       when: ready_worker_count == worker_count
 
   rescue:
-    - name: "wait : Give up after {{ worker_count|int * 20 }} attempts (approx {{ worker_count|int * 20 }} minutes)"
+    - name: "wait : Give up after {{ worker_count|int * 4 }} attempts - [{{ retry_count }} out of {{ worker_count|int * 4 }}] (approx {{ worker_count|int * 20}} minutes)"
       assert:
-        that: retry_count | int < worker_count | int * 20
+        that: retry_count | int < worker_count | int * 4
         fail_msg: Timed out waiting for workers to be upgraded
 
-    - name: "wait : Wait for 60 seconds before checking again"
+    - name: "wait : Wait for 5 minutes before checking again"
       pause:
-        seconds: 60
+        seconds: 300
 
-    - include_tasks: wait_workers_upgrade.yml
+    - include_tasks: tasks/providers/roks_wait_workers_upgrade.yml

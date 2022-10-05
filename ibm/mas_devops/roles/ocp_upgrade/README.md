@@ -1,8 +1,7 @@
 ocp_upgrade
 =============
 
-This role supports the upgrade of the Openshift Cluster version in IBM Cloud provider, from version 4.6 to 4.7 then 4.8 (latest patch) which is the supported version of Openshift to run MAS in 8.7 release.
-
+This role supports the upgrade of the Openshift Cluster version in IBM Cloud provider.
 Role Variables
 --------------
 
@@ -16,6 +15,12 @@ Required.  Specify the cluster type, only IBM Cloud Openshift Clusters are suppo
 Required.  Specify the name of the cluster to be upgraded.
 
 - Environment Variable: `CLUSTER_NAME`
+- Default Value: None
+
+### ocp_upgrade_version
+Required.  Specify the target Openshift version to upgrade.
+
+- Environment Variable: `OCP_UPGRADE_VERSION`
 - Default Value: None
 
 Example Playbook
