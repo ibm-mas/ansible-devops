@@ -108,8 +108,12 @@
                   </li>
                   <li class="toctree-l1 current"><a class="reference internal current" href="./">cp4d</a>
     <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#upgrade">Upgrade</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#cpd_product_version">cpd_product_version</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#ibm_entitlement_key">ibm_entitlement_key</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#cpd_entitlement_key">cpd_entitlement_key</a>
@@ -210,8 +214,7 @@
           <li>Roles: Dependency Mgmt &raquo;</li>
       <li>cp4d</li>
     <li class="wy-breadcrumbs-aside">
-        <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/cp4d.md"
-          class="icon icon-github"> Edit on GitHub</a>
+          <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/cp4d.md" class="icon icon-github"> Edit on GitHub</a>
     </li>
   </ul>
   <hr/>
@@ -220,10 +223,28 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="cp4d">cp4d<a class="headerlink" href="#cp4d" title="Permanent link"></a></h1>
-<p>This role installs <a href="https://www.ibm.com/uk-en/products/cloud-pak-for-data">IBM Cloud Pak for Data</a> Operator in the target cluster.</p>
-<p>The <a href="../cp4d_hack_worker_nodes/">cp4d_hack_worker_nodes</a> role must have been executed during cluster set up to update the cluster's global image pull secret and reload all worker nodes.  Unfortunately Cloud Pak for data does not support using image pull secrets attached to service accounts in the namespace.</p>
+<p>This role installs or upgrades <a href="https://www.ibm.com/uk-en/products/cloud-pak-for-data">IBM Cloud Pak for Data</a> Operator in the target cluster.</p>
+<p>Currently supported Cloud Pak for Data release versions are:</p>
+<ul>
+<li>4.0.9</li>
+<li>4.5.0</li>
+<li>4.5.1</li>
+<li>4.5.2</li>
+</ul>
+<p>The role will automatically install or upgrade (if targeted to an existing CPD deployment) the corresponding Zen version associated to the chosen Cloud Pak for Data release, for example:</p>
+<ul>
+<li>Cloud Pak for Data release version <code>4.0.9</code> installs Zen/Control Plane version <a href="https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.0.9.yml#L13"><code>4.4.4</code></a>.</li>
+<li>Cloud Pak for Data release version <code>4.5.0</code> installs Zen/Control Plane version <a href="https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.0.yml#L59"><code>4.5.0</code></a>.</li>
+<li>Cloud Pak for Data release version <code>4.5.1</code> installs Zen/Control Plane version <a href="https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.1.yml#L61"><code>4.5.0</code></a>.</li>
+<li>Cloud Pak for Data release version <code>4.5.2</code> installs Zen/Control Plane version <a href="https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.2.yml#L62"><code>4.7.0</code></a>.</li>
+</ul>
+<p>For more information about CPD versioning, see <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=planning-operator-operand-versions">IBM Cloud Pak for Data Operator and operand versions</a></p>
+<h2 id="upgrade">Upgrade<a class="headerlink" href="#upgrade" title="Permanent link"></a></h2>
+<p>This role also supports seamlessly CPD control plane (or also called <code>Zen</code> service) minor version upgrades (CPD 4.0.9 -&gt; CPD 4.5.0), and patch version upgrades (CPD 4.5.0 -&gt; CPD 4.5.x).
+All you need to do is to define <code>cpd_product_version</code> variable to the version you target to upgrade and run this role against an existing CPD instance.</p>
+<p>For more information about IBM Cloud Pak for Data upgrade process, refer to the <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=upgrading">CPD official documentation</a>.</p>
 <p>The role assumes that you have already installed the IBM Operator Catalog and configured IBM Cloud Pak Foundational services in the target cluster.  These actions are performed by the <a href="../ibm_catalogs/">ibm_catalogs</a> <a href="../common_services/">common_services</a> roles in this collection.</p>
-<p>Cloud Pak for Data will be configured as a <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=planning-architecture#architecture__deployment-architecture">specialized installation</a></p>
+<p>Cloud Pak for Data will be configured as a <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=planning-architecture">specialized installation</a></p>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
 <p>A specialized installation allows a user with project administrator permissions to install the software after a cluster administrator completes the initial cluster setup.  A specialized installation also facilitates strict division between Red Hat OpenShift Container Platform projects (Kubernetes namespaces).</p>
@@ -285,6 +306,13 @@ statefulset.apps/zen-metastoredb   3/3     68m
 <p>You can retrieve the Cloud Pak for Data password from the <strong>admin-user-details</strong> secret: <code>oc -n ibm-cpd get secret admin-user-details -o jsonpath="{.data.initial_admin_password}" | base64 -d</code></p>
 </div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="cpd_product_version">cpd_product_version<a class="headerlink" href="#cpd_product_version" title="Permanent link"></a></h3>
+<p>Defines the IBM Cloud Pak for Data release version to be installed.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>CPD_PRODUCT_VERSION</code></li>
+<li>Default: <code>4.0.9</code></li>
+</ul>
 <h3 id="ibm_entitlement_key">ibm_entitlement_key<a class="headerlink" href="#ibm_entitlement_key" title="Permanent link"></a></h3>
 <p>Provide your <a href="https://myibm.ibm.com/products-services/containerlibrary">IBM entitlement key</a>.</p>
 <ul>
@@ -331,6 +359,7 @@ statefulset.apps/zen-metastoredb   3/3     68m
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
+    cpd_product_version: 4.5.0
     cpd_primary_storage_class: ibmc-file-gold-gid
     cpd_metadata_storage_class: ibmc-block-gold
   roles:

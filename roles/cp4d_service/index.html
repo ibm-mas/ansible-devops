@@ -111,6 +111,8 @@
                   <li class="toctree-l1 current"><a class="reference internal current" href="./">cp4d_service</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#services-supported">Services Supported</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#upgrade">Upgrade</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#watson-studio">Watson Studio</a>
     </li>
@@ -153,6 +155,8 @@
     <li class="toctree-l2"><a class="reference internal" href="#role-variables-watson-discovery">Role Variables - Watson Discovery</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#cpd_wd_instance_name">cpd_wd_instance_name</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cpd_wd_deployment_type">cpd_wd_deployment_type</a>
     </li>
         </ul>
     </li>
@@ -248,8 +252,7 @@
           <li>Roles: Dependency Mgmt &raquo;</li>
       <li>cp4d_service</li>
     <li class="wy-breadcrumbs-aside">
-        <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/cp4d_service.md"
-          class="icon icon-github"> Edit on GitHub</a>
+          <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/cp4d_service.md" class="icon icon-github"> Edit on GitHub</a>
     </li>
   </ul>
   <hr/>
@@ -258,7 +261,16 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="cp4d_service">cp4d_service<a class="headerlink" href="#cp4d_service" title="Permanent link"></a></h1>
-<p>Install a chosen CloudPak for Data service.</p>
+<p>Install or upgrade a chosen CloudPak for Data service.</p>
+<p>Currently supported Cloud Pak for Data release versions supported are:</p>
+<ul>
+<li>4.0.9</li>
+<li>4.5.0</li>
+<li>4.5.1</li>
+<li>4.5.2</li>
+</ul>
+<p>The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.</p>
+<p>For more information about the specific CPD services channels and versions associated to a particular Cloud Pak for Data release can be found <a href="https://github.ibm.com/PrivateCloud/olm-utils/tree/master/ansible-play/config-vars">here</a>.</p>
 <h2 id="services-supported">Services Supported<a class="headerlink" href="#services-supported" title="Permanent link"></a></h2>
 <p>These services can be deployed and configured using this role:</p>
 <ul>
@@ -267,8 +279,12 @@
 <li><a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-analytics">Analytics Service (Apache Spark)</a> required by <a href="https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict">Predict</a></li>
 <li><a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-openscale">Watson OpenScale</a> an optional dependency for <a href="https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict">Predict</a></li>
 <li><a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-discovery">Watson Discovery</a> required by Assist</li>
-<li><a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-decision-optimization">Decision Optimization</a> an optional dependency for <a href="https://www.ibm.com/docs/en/mas87/8.7.0?topic=ons-maximo-scheduler-optimization">Maximo Scheduler Optimization</a> - Requires Watson Studio and Watson Machine Learning.</li>
 </ul>
+<h2 id="upgrade">Upgrade<a class="headerlink" href="#upgrade" title="Permanent link"></a></h2>
+<p>This role also supports seamlessly CPD services minor version upgrades (CPD 4.0.9 -&gt; CPD 4.5.0), and patch version upgrades (CPD 4.5.0 -&gt; CPD 4.5.x).
+All you need to do is to define <code>cpd_product_version</code> variable to the version you target to upgrade and run this role for a particular CPD service.
+It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.</p>
+<p>For more information about IBM Cloud Pak for Data upgrade process, refer to the <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=upgrading">CPD official documentation</a>.</p>
 <div class="admonition info">
 <p class="admonition-title">Application Support</p>
 <p>For more information on how Predict and HP Utilities make use of Watson Studio, refer to <a href="https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists">Predict/HP Utilities documentation</a></p>
@@ -280,11 +296,11 @@
 <h3 id="watson-studio">Watson Studio<a class="headerlink" href="#watson-studio" title="Permanent link"></a></h3>
 <p>Subscriptions related to Watson Studio:</p>
 <ul>
-<li><strong>cpd-platform-operator</strong> on channel <code>v2.0</code></li>
-<li><strong>ibm-cpd-wsl</strong> on channel <code>v2.0</code></li>
-<li><strong>ibm-cpd-ccs</strong> on channel <code>v1.0</code></li>
-<li><strong>ibm-cpd-datarefinery</strong> on channel <code>v1.0</code></li>
-<li><strong>ibm-cpd-ws-runtimes</strong> on channel <code>v1.0</code></li>
+<li><strong>cpd-platform-operator</strong></li>
+<li><strong>ibm-cpd-wsl</strong></li>
+<li><strong>ibm-cpd-ccs</strong></li>
+<li><strong>ibm-cpd-datarefinery</strong></li>
+<li><strong>ibm-cpd-ws-runtimes</strong></li>
 </ul>
 <p>Watson Studio is made up of many moving parts across multiple namespaces.</p>
 <p>In the <strong>ibm-common-services</strong> namespace:</p>
@@ -401,9 +417,9 @@ statefulset.apps/zen-metastoredb        3/3     4h43m
 <h3 id="watson-machine-learning">Watson Machine Learning<a class="headerlink" href="#watson-machine-learning" title="Permanent link"></a></h3>
 <p>Subscriptions related to Watson Machine Learning:</p>
 <ul>
-<li><strong>cpd-platform-operator</strong> on channel <code>v2.0</code></li>
-<li><strong>ibm-cpd-wml</strong> on channel <code>v1.1</code></li>
-<li><strong>ibm-cpd-ccs</strong> on channel <code>v1.0</code></li>
+<li><strong>cpd-platform-operator</strong></li>
+<li><strong>ibm-cpd-wml</strong></li>
+<li><strong>ibm-cpd-ccs</strong></li>
 </ul>
 <p>Watson Machine Learning is made up of many moving parts across multiple namespaces.</p>
 <p>In the <strong>ibm-common-services</strong> namespace:</p>
@@ -511,8 +527,8 @@ statefulset.apps/zen-metastoredb          3/3     3h40m
 <h3 id="analytics-engine">Analytics Engine<a class="headerlink" href="#analytics-engine" title="Permanent link"></a></h3>
 <p>Subscriptions related to Analytics Engine:</p>
 <ul>
-<li><strong>cpd-platform-operator</strong> on channel <code>v2.0</code></li>
-<li><strong>analyticsengine-operator</strong> on channel <code>stable-v1</code></li>
+<li><strong>cpd-platform-operator</strong></li>
+<li><strong>analyticsengine-operator</strong></li>
 </ul>
 <p>Analytics Engine is made up of many moving parts across multiple namespaces.</p>
 <p>In the <strong>ibm-common-services</strong> namespace:</p>
@@ -582,8 +598,8 @@ statefulset.apps/zen-metastoredb   3/3     118m
 <h3 id="watson-openscale">Watson OpenScale<a class="headerlink" href="#watson-openscale" title="Permanent link"></a></h3>
 <p>Subscriptions related to Watson OpenScale (in the <strong>ibm-cpd-operators</strong> namespace):</p>
 <ul>
-<li><strong>cpd-platform-operator</strong> on channel <code>v2.0</code></li>
-<li><strong>ibm-cpd-wos</strong> on channel <code>v1.5</code></li>
+<li><strong>cpd-platform-operator</strong></li>
+<li><strong>ibm-cpd-wos</strong></li>
 </ul>
 <p>Analytics Engine is made up of many moving parts across multiple namespaces.</p>
 <p>In the <strong>ibm-common-services</strong> namespace:</p>
@@ -669,18 +685,18 @@ statefulset.apps/zen-metastoredb                  3/3     130m
 <h3 id="watson-discovery">Watson Discovery<a class="headerlink" href="#watson-discovery" title="Permanent link"></a></h3>
 <p>Subscriptions related to Watson Discovery (in the <strong>ibm-cpd-operators</strong> namespace):</p>
 <ul>
-<li><strong>cpd-platform-operator</strong> on channel <code>v2.0</code></li>
-<li><strong>ibm-watson-discovery-operator</strong> on channel <code>v4.0</code></li>
-<li><strong>ibm-elasticsearch-operator</strong> on channel <code>v1.1</code></li>
-<li><strong>ibm-etcd-operator</strong> on channel <code>v1.0</code></li>
-<li><strong>ibm-minio-operator</strong> on channel <code>v1.0</code></li>
-<li><strong>ibm-model-train-classic-operator</strong> on channel <code>v1.0</code></li>
-<li><strong>ibm-rabbitmq-operator</strong> on channel <code>v1.0</code></li>
-<li><strong>ibm-watson-gateway-operator</strong> on channel <code>v1.0</code></li>
+<li><strong>cpd-platform-operator</strong></li>
+<li><strong>ibm-watson-discovery-operator</strong></li>
+<li><strong>ibm-elasticsearch-operator</strong></li>
+<li><strong>ibm-etcd-operator</strong></li>
+<li><strong>ibm-minio-operator</strong></li>
+<li><strong>ibm-model-train-classic-operator</strong></li>
+<li><strong>ibm-rabbitmq-operator</strong></li>
+<li><strong>ibm-watson-gateway-operator</strong></li>
 </ul>
 <p>Subscriptions related to Watson Discovery (in the <strong>ibm-common-services</strong> namespace):</p>
 <ul>
-<li><strong>cloud-native-postgresql</strong> on channel <code>stable</code></li>
+<li><strong>cloud-native-postgresql</strong></li>
 </ul>
 <p>Watson Discovery is made up of many moving parts across multiple namespaces.</p>
 <p>In the <strong>ibm-common-services</strong> namespace:</p>
@@ -790,18 +806,18 @@ statefulset.apps/zen-metastoredb                         3/3     179m
 </code></pre>
 <h2 id="role-variables-installation">Role Variables - Installation<a class="headerlink" href="#role-variables-installation" title="Permanent link"></a></h2>
 <h3 id="cpd_service_name">cpd_service_name<a class="headerlink" href="#cpd_service_name" title="Permanent link"></a></h3>
-<p>Name of the service to install, supported values are: <code>wsl</code>, <code>wml</code>, <code>wd</code>, <code>aiopenscale</code>, <code>dods</code>, and <code>spark</code></p>
+<p>Name of the service to install, supported values are: <code>wsl</code>, <code>wml</code>, <code>wd</code>, <code>aiopenscale</code> and <code>spark</code></p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>CPD_SERVICE_NAME</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="cpd_product_version">cpd_product_version<a class="headerlink" href="#cpd_product_version" title="Permanent link"></a></h3>
-<p>The product version (also known as operand version) of this service to install.  Currently, due to defects in Cloud Pak for Data the only version that works is the latest (<code>4.0.9</code>), but in the future you should be able to set this to any released version of CP4D.</p>
+<p>The product version (also known as operand version) of this service to install.</p>
 <ul>
 <li><strong>Required</strong></li>
 <li>Environment Variable: <code>CPD_PRODUCT_VERSION</code></li>
-<li>Default Value: None</li>
+<li>Default Value: 4.0.9</li>
 </ul>
 <h3 id="cpd_service_storage_class">cpd_service_storage_class<a class="headerlink" href="#cpd_service_storage_class" title="Permanent link"></a></h3>
 <p>This is used to set <code>spec.storageClass</code> in all CPD v3.5 services, and many - but not all - CP4D v4.0 services.</p>
@@ -861,6 +877,20 @@ statefulset.apps/zen-metastoredb                         3/3     179m
 <li>Environment Variable: <code>CPD_WD_INSTANCE_NAME</code></li>
 <li>Default Value: <code>wd-mas-${mas_instance_id}-assist</code></li>
 </ul>
+<h3 id="cpd_wd_deployment_type">cpd_wd_deployment_type<a class="headerlink" href="#cpd_wd_deployment_type" title="Permanent link"></a></h3>
+<p>Defines the CP4D Watson Discovery deployment type: </p>
+<ul>
+<li><code>Starter</code>: One replica pod for each wd service/component, uses fewer resources in your cluster.</li>
+<li>
+<p><code>Production</code>: Multiple replica pods for each Watson Discovery service/component, recommended for production deployments to increase workload capacity however consumes more cluster resources. </p>
+</li>
+<li>
+<p>Optional</p>
+</li>
+<li>Environment Variable: <code>CPD_WD_DEPLOYMENT_TYPE</code></li>
+<li>Default Value: <code>Starter</code></li>
+</ul>
+<p>Note: Deployment type cannot be changed in the future neither while upgrading the service. If you need to change the deployment type, you must uninstall Watson Discovery and reinstall with the desired deployment type. More information, see <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=u-upgrading-from-version-40-1">Upgrading Watson Discovery</a>.</p>
 <h2 id="role-variables-mas-configuration-generation">Role Variables - MAS Configuration Generation<a class="headerlink" href="#role-variables-mas-configuration-generation" title="Permanent link"></a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
 <p>The instance ID of Maximo Application Suite that a generated configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a resource template.</p>
@@ -881,6 +911,7 @@ statefulset.apps/zen-metastoredb                         3/3     179m
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    cpd_product_version: 4.5.0
     cpd_service_storage_class: ibmc-file-gold-gid
     cpd_service_name: wsl
   roles:
