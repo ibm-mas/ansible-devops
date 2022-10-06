@@ -1,13 +1,34 @@
 cp4d
 ====
 
-This role installs [IBM Cloud Pak for Data](https://www.ibm.com/uk-en/products/cloud-pak-for-data) Operator in the target cluster.
+This role installs or upgrades [IBM Cloud Pak for Data](https://www.ibm.com/uk-en/products/cloud-pak-for-data) Operator in the target cluster.
 
-The [cp4d_hack_worker_nodes](cp4d_hack_worker_nodes.md) role must have been executed during cluster set up to update the cluster's global image pull secret and reload all worker nodes.  Unfortunately Cloud Pak for data does not support using image pull secrets attached to service accounts in the namespace.
+Currently supported Cloud Pak for Data release versions are:
+
+  - 4.0.9
+  - 4.5.0
+  - 4.5.1
+  - 4.5.2
+
+The role will automatically install or upgrade (if targeted to an existing CPD deployment) the corresponding Zen version associated to the chosen Cloud Pak for Data release, for example:
+
+- Cloud Pak for Data release version `4.0.9` installs Zen/Control Plane version [`4.4.4`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.0.9.yml#L13).
+- Cloud Pak for Data release version `4.5.0` installs Zen/Control Plane version [`4.5.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.0.yml#L59).
+- Cloud Pak for Data release version `4.5.1` installs Zen/Control Plane version [`4.5.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.1.yml#L61).
+- Cloud Pak for Data release version `4.5.2` installs Zen/Control Plane version [`4.7.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.2.yml#L62).
+
+For more information about CPD versioning, see [IBM Cloud Pak for Data Operator and operand versions](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=planning-operator-operand-versions)
+
+Upgrade
+------------------
+This role also supports seamlessly CPD control plane (or also called `Zen` service) minor version upgrades (CPD 4.0.9 -> CPD 4.5.0), and patch version upgrades (CPD 4.5.0 -> CPD 4.5.x).
+All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role against an existing CPD instance.
+
+For more information about IBM Cloud Pak for Data upgrade process, refer to the [CPD official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=upgrading).
 
 The role assumes that you have already installed the IBM Operator Catalog and configured IBM Cloud Pak Foundational services in the target cluster.  These actions are performed by the [ibm_catalogs](ibm_catalogs.md) [common_services](common_services.md) roles in this collection.
 
-Cloud Pak for Data will be configured as a [specialized installation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=planning-architecture#architecture__deployment-architecture)
+Cloud Pak for Data will be configured as a [specialized installation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=planning-architecture)
 
 !!! info
     A specialized installation allows a user with project administrator permissions to install the software after a cluster administrator completes the initial cluster setup.  A specialized installation also facilitates strict division between Red Hat OpenShift Container Platform projects (Kubernetes namespaces).
@@ -77,6 +98,12 @@ statefulset.apps/zen-metastoredb   3/3     68m
 
 Role Variables
 --------------
+### cpd_product_version
+Defines the IBM Cloud Pak for Data release version to be installed.
+
+- **Required**
+- Environment Variable: `CPD_PRODUCT_VERSION`
+- Default: `4.0.9`
 
 ### ibm_entitlement_key
 Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary).
@@ -128,6 +155,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    cpd_product_version: 4.5.0
     cpd_primary_storage_class: ibmc-file-gold-gid
     cpd_metadata_storage_class: ibmc-block-gold
   roles:
