@@ -36,11 +36,6 @@ Defines the url that is used to connect to WatsonStudio in MAS installation
 - Environment Variable: `CPD_URL`
 - Default: None
 - 
-### ws_pem_file
-Defines the location of the pem file used for WatsonStudio connection in MAS installation
-
-- Environment Variable: `WS_CERT_LOCAL_FILE`
-- Default: None
 
 Example Playbook
 ----------------
