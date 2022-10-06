@@ -15,18 +15,50 @@
 
 # 2. Create Operator Subscriptions
 # -----------------------------------------------------------------------------
-# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=tasks-creating-operator-subscriptions
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=si-creating-olm-objects
 
-# 5.1 We don't use the scheduling service
+# 2.1 Create olm-utils-cm config maps which contains the versions
+# for all CPD related services and dependencies.
+# This will be used by the CPD operators to automatically set the target versions
+# to be installed/upgraded
+# -----------------------------------------------------------------------------
+- name: "install-cp4d : Create olm-utils-cm config map for cpd release {{ cpd_product_version }}"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2'
 
-# 5.2 Install the IBM Cloud Pak for Data platform operator
+- name: "install-cp4d : Lookup olm-utils-cm config map to know which zen version to install/upgrade for release {{ cpd_product_version }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "olm-utils-cm"
+    kind: ConfigMap
+    namespace: "{{ cpd_instance_namespace }}"
+  register: cpd_cm_info
+
+- set_fact:
+    cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
+
+- name: "install-cp4d : Set cpd_channel and zen_cr_version"
+  set_fact:
+    cpd_channel: "{{ cpd_default_channels[cpd_product_version].channel }}"
+    zen_cr_version: "{{ cpd_components_meta.zen.cr_version }}"
+
+- debug:
+    msg:
+      - "CPD operators namespace ................ {{ cpd_operators_namespace }}"
+      - "CPD instance namespace ................. {{ cpd_instance_namespace }}"
+      - "CPD release version .................... {{ cpd_product_version }}"
+      - "CPD subscription channel ............... {{ cpd_channel }}"
+      - "Zen/control plane version .............. {{ zen_cr_version }}"
+
+# 2.2 Install the IBM Cloud Pak for Data platform operator
 #
 # This will result in two operators being installed into the cpd operator namespace:
-# - cpd-platform-operator-manager v2.0
-# - ibm-common-service-operator v3
-# - ibm-namespace-scope-operator v3
+# - cpd-platform-operator-manager
+# - ibm-common-service-operator
+# - ibm-namespace-scope-operator
 
-- name: "create-subscriptions : Create CP4D Platform & Namespace Scope Operator subscriptions"
+- name: "create-subscriptions : Create CP4D Platform & Namespace Scope Operator subscriptions using channel: {{ cpd_channel }}"
   kubernetes.core.k8s:
     apply: yes
     template: 'templates/subscriptions.yml.j2'
@@ -42,7 +74,7 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-# 5.3 Enabling services to use namespace scoping with third-party operators
+# 2.3 Enabling services to use namespace scoping with third-party operators
 - name: "create-subscriptions : Create NamespaceScope for CP4D Operators"
   kubernetes.core.k8s:
     apply: yes
