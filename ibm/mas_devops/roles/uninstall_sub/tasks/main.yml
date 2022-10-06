@@ -80,3 +80,29 @@
   until: deployment_output.resources[0].status.availableReplicas is not defined
   retries: 20 # Approximately 10 minutes before we give up
   delay: 30 # 30 seconds
+
+# 7. Check if need to delete the subscription's namespace
+# --------------------------------------------------------------------------------------------
+- debug:
+    msg: "Delete {{ sub_namespace }} namespace? {{ include_namespace_deletion }}"
+
+- name: "Delete namespace: {{ sub_namespace }}"
+  when: include_namespace_deletion
+  kubernetes.core.k8s:
+    api_version: project.openshift.io/v1
+    state: absent
+    kind: Project
+    name: "{{ sub_namespace }}"
+  register: ns_delete_output
+
+# 8. Wait namespace to be gone
+# --------------------------------------------------------------------------------------------
+- name: "Wait for namespace {{ sub_namespace }} to be gone (30s delay)"
+  kubernetes.core.k8s_info:
+    api_version: project.openshift.io/v1
+    kind: Project
+    name: "{{ sub_namespace }}"
+  register: ns_wait_delete_output
+  until: ns_wait_delete_output.resources | length == 0
+  retries: 20 # Approximately 10 minutes before we give up
+  delay: 30 # 30 seconds
