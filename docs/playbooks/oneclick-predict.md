@@ -25,7 +25,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 
-## These variables are requered only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
+## These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
 - `CPD_ADMIN_USERNAME` CP4D Username
 - `CPD_ADMIN_PASSWORD` CP4D Password
 - `CPD_URL` CP4D Base URL
