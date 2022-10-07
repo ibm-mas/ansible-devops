@@ -30,14 +30,20 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `CPD_ADMIN_PASSWORD` CP4D Password
 - `CPD_URL` CP4D Base URL
 
+!!! warning
+    Be sure that your current instance of CP4D has all the dependencies required by Predict:
+    - Install CP4D
+    - Install Watson Studio
+    - Install Watson Machine Learning
+    - Install Spark
+    - Install Openscale
+
 ## Optional environment variables
 - `CP4D_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
 - `CP4D_INSTALL_WSL` True/False - If you HAVE Watson Studio already installed in your cluster, then set it to "false"
 - `CP4D_INSTALL_WML` True/False - If you HAVE Watson Machine Learning already installed in your cluster, then set it to "false"
 - `CP4D_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster, then set it to "false"
 - `CP4D_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster, then set it to "false"
-- `CP4D_INSTALL_DISCOVERY` True/False - If you HAVE Watson Discovery already installed in your cluster, then set it to "false"
-
 
 
 ## Usage when you already HAVE CP4D installed
@@ -66,7 +72,6 @@ export CP4D_INSTALL_WSL="true"
 export CP4D_INSTALL_WML="true"
 export CP4D_INSTALL_SPARK="true"
 export CP4D_INSTALL_OPENSCALE="true"
-export CP4D_INSTALL_DISCOVERY="true"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_predict
