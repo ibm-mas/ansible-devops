@@ -11,6 +11,8 @@
 
 # 1. Wait for Discovery CN postgres service accounts to be created
 # -----------------------------------------------------------------------------
+# 1.1. Wait for Discovery CN postgress service accounts to be created
+# https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3481#issuecomment-44648280
 - name: "wait-wd : Wait for the wd-discovery-cn-postgres service account to appear"
   kubernetes.core.k8s_info:
     api_version: v1
@@ -23,6 +25,21 @@
   until:
     - discovery_sa_lookup.resources is defined
     - discovery_sa_lookup.resources | length > 0
+
+# 1.2. Wait for Discovery etcd service accounts to be created
+# -----------------------------------------------------------------------------
+- name: "wait-wd : Wait for the wd-discovery-etcd-serviceaccount service account to appear"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: wd-discovery-etcd-serviceaccount
+    namespace: "{{ cpd_instance_namespace }}"
+  register: discovery_etcd_sa_lookup
+  retries: 50 # Up to 25 minutes
+  delay: 30 # Every 30 seconds
+  until:
+    - discovery_etcd_sa_lookup.resources is defined
+    - discovery_etcd_sa_lookup.resources | length > 0
 
 
 # 2. Patch the Discovery CN postgres service accounts in ibm-cpd namespace to add ibm-entitlement-key
@@ -37,6 +54,17 @@
       imagePullSecrets:
         - name: ibm-entitlement-key
 
+# 2.1. Patch the Discovery etcd service accounts in ibm-cpd namespace to add ibm-entitlement-key
+# -----------------------------------------------------------------------------
+- name: "wait-wd : Patch the wd-discovery-etcd-serviceaccount service account"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: wd-discovery-etcd-serviceaccount
+    namespace: "{{ cpd_instance_namespace }}"
+    definition:
+      imagePullSecrets:
+        - name: ibm-entitlement-key
 
 # 3. Spend 15 minutes looking for pods stuck in ImagePullBackoff state
 # -----------------------------------------------------------------------------
@@ -80,5 +108,6 @@
     - cpd_cr_lookup.resources[0].status is defined
     - cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus is defined
     - cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus == "Completed"
+    - cpd_cr_lookup.resources[0].status.versions.reconciled == cpd_product_version # needed for the wd upgrade
   retries: 60 # Up to 5 (yes, FIVE !!) hours
   delay: 300 # Every 5 minutes
