@@ -1,6 +1,20 @@
 ---
-# The following playbook is an attempt to automate the CP4D 4.0 steps documented here:
+# The following playbook is an attempt to automate the CP4D 4.0 / 4.5 steps documented here:
 # https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
+
+# Validate properties are provided
+# -----------------------------------------------------------------------------
+- name: "Check that CPD release version has been provided"
+  assert:
+    that:
+      - cpd_product_version is defined and cpd_product_version != ""
+    fail_msg: "CPD version (cpd_product_version) is a required parameter to run this role"
+
+- name: "Check that provided CPD version is supported"
+  assert:
+    that:
+      - cpd_product_version in cpd_supported_versions
+    fail_msg: "CPD version ({{ cpd_product_version }}) is not a supported CPD version. Supported CPD versions are: {{ cpd_supported_versions }}."
 
 - name: Check that an entitlement key has been provided
   assert:
