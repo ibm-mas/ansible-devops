@@ -1,3 +1,37 @@
+# The following network policy is needed to workaround a bug found in WD 4.5.0 for ROKS installs, it might not be needed in future WD patches
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    icpdsupport/addOnId: discovery
+    icpdsupport/app: wd-discovery-kubeapi-egress-network-policy
+    icpdsupport/empty-on-nd-backup: "true"
+    icpdsupport/ignore-on-nd-backup: "true"
+    owner: discovery
+    service: discovery
+    tenant: wd
+  name: wd-discovery-kubeapi-egress-network-policy
+  namespace: "{{ cpd_instance_namespace }}"
+spec:
+  egress:
+  - {}
+  podSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values:
+      - ck-gen
+      - cn-postgres-license-config
+      - jks-secret
+      - postgres-secret-gen
+      - ranker-master
+      - cn-postgres
+    matchLabels:
+      app.kubernetes.io/instance: wd
+      app.kubernetes.io/name: discovery
+  policyTypes:
+  - Egress
 ---
 apiVersion: discovery.watson.ibm.com/v1
 kind: WatsonDiscovery
@@ -7,11 +41,14 @@ metadata:
   name: "{{ cpd_service_info[cpd_service_name].cr_name }}"
   namespace: "{{ cpd_instance_namespace }}"
 spec:
+  blockStorageClass: "{{ cpd_service_storage_class }}"
+  version: "{{ cpd_olm_utils_components.watson_discovery.cr_version }}"
   license:
     accept: true
   shared:
     imagePullSecret: ibm-entitlement-key
     storageClassName: "{{ cpd_service_storage_class }}"
+    deploymentType: "{{ cpd_wd_deployment_type }}" # needed to upgrade wd
   watsonGateway:
     version: main
   elasticsearch:
