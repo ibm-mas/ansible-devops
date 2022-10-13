@@ -26,6 +26,7 @@ copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
 copyDoc gencfg_jdbc
+copyDoc gencfg_watsonstudio
 copyDoc gencfg_workspace
 copyDoc ibm_catalogs
 copyDoc install_operator
