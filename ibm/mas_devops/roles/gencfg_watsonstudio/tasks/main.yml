@@ -1,0 +1,72 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property is required"
+
+- name: "Fail if mas_application_id is not provided"
+  assert:
+    that: mas_application_id is defined and mas_application_id|length != 0
+    fail_msg: "mas_application_id property is required"
+  when: mas_config_scope == "app" or mas_config_scope == "wsapp"
+
+- name: "Fail if cpd_admin_username is not provided"
+  assert:
+    that: cpd_admin_username is defined and cpd_admin_username != ""
+    fail_msg: "cpd_admin_username property is required"
+
+- name: "Fail if cpd_admin_password is not provided"
+  assert:
+    that: cpd_admin_password is defined and cpd_admin_password != ""
+    fail_msg: "cpd_admin_password property is required"
+
+- name: "Fail if cpd_url is not provided"
+  assert:
+    that: cpd_url is defined and cpd_url != ""
+    fail_msg: "cpd_url property is required"
+
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_namespace: "mas-{{ mas_instance_id }}-core"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "MAS Instance ID ............... {{ mas_instance_id }}"
+      - "MAS Workspace ID ............... {{ mas_workspace_id }}"
+      - "Watson Studio Username ............. {{ cpd_admin_username }}"
+      - "Watson Studio URL ...................... {{ cpd_url }}"
+      - "MAS Config Scope .............. {{ mas_config_scope }}"
+      - "MAS Application ID .............. {{ mas_app_id }}"
+
+# 2. Create WSCFG yml definition
+# -----------------------------------------------------------------------------
+- name: Load variables to use in WSCFG
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  include_vars: "vars/wscfg/{{ mas_config_scope }}.yml"
+
+# 3. Generate WSCFG for MAS configuration
+# -----------------------------------------------------------------------------
+- name: Copy WSCFG to filesytem
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+  ansible.builtin.template:
+    src: wscfg.yml.j2
+    dest: "{{ mas_config_dir }}/watsonstudiocfg.yml"
+    mode: '644'
