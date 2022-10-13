@@ -7,9 +7,10 @@
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
 - `11.4` Multiple Updates:
-    - Add support for Sep 2022 catalog ([#xx](https://github.com/ibm-mas/ansible-devops/pull/xx))
+    - Add support for Sep 2022 catalog ([#476](https://github.com/ibm-mas/ansible-devops/pull/476))
     - Support CloudPak for Data 4.5.x install/upgrade ([#466](https://github.com/ibm-mas/ansible-devops/pull/466))
     - Add One-click install playbook for Predict ([#454](https://github.com/ibm-mas/ansible-devops/pull/454))
+    - Support Manage attachments and BIM configuration ([#420](https://github.com/ibm-mas/ansible-devops/pull/420))
 - `11.3` Multiple Updates:
     - AMQ Streams Kafka enhancements ([#451](https://github.com/ibm-mas/ansible-devops/pull/451))
     - Configure EFS as RWX Storage Class on ROSA ([#432](https://github.com/ibm-mas/ansible-devops/pull/432))
@@ -20,7 +21,6 @@ Note that links to pull requests prior to public release of the code (4.0) direc
     - Catalog update for IoT airgap support fix ([#435](https://github.com/ibm-mas/ansible-devops/pull/435))
     - Add Single Node OpenShift on AWS support ([#440](https://github.com/ibm-mas/ansible-devops/pull/440))
     - Add support for OCP IPI installation on AWS ([#439](https://github.com/ibm-mas/ansible-devops/pull/439))
-    - Support Manage persistent storage configuration for BIM and attachments (using PVC File Storage or COS) ([#420](https://github.com/ibm-mas/ansible-devops/pull/420))
 - `11.0` Multiple Updates:
     - Support for MAS 8.8 & Maximo Curated Operator Catalog ([#413](https://github.com/ibm-mas/ansible-devops/pull/413))
     - Support OCP Power on DevIT FYRE ([#423](https://github.com/ibm-mas/ansible-devops/pull/423))

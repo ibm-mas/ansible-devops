@@ -2,9 +2,10 @@
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
 - `11.4` Multiple Updates:
-    - Add support for Sep 2022 catalog ([#xx](https://github.com/ibm-mas/ansible-devops/pull/xx))
+    - Add support for Sep 2022 catalog ([#476](https://github.com/ibm-mas/ansible-devops/pull/476))
     - Support CloudPak for Data 4.5.x install/upgrade ([#466](https://github.com/ibm-mas/ansible-devops/pull/466))
     - Add One-click install playbook for Predict ([#454](https://github.com/ibm-mas/ansible-devops/pull/454))
+    - Support Manage attachments and BIM configuration ([#420](https://github.com/ibm-mas/ansible-devops/pull/420))
 - `11.3` Multiple Updates:
     - AMQ Streams Kafka enhancements ([#451](https://github.com/ibm-mas/ansible-devops/pull/451))
     - Configure EFS as RWX Storage Class on ROSA ([#432](https://github.com/ibm-mas/ansible-devops/pull/432))
