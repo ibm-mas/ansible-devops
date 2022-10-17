@@ -26,6 +26,7 @@ copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
 copyDoc gencfg_jdbc
+copyDoc gencfg_watsonstudio
 copyDoc gencfg_workspace
 copyDoc ibm_catalogs
 copyDoc install_operator
@@ -51,6 +52,8 @@ copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
 copyDoc suite_dns
 copyDoc suite_install
+copyDoc suite_manage_attachments_config
+copyDoc suite_manage_bim_config
 copyDoc suite_mustgather
 copyDoc suite_mustgather_download
 copyDoc suite_upgrade
