@@ -56,33 +56,6 @@
     fail_msg: "GCP Service Account file does not exist: {{ gcp_service_account_file }}"
   when: ipi_platform == "gcp"
 
-#Openshift installer will check the service account file at ~/.gcp/osServiceAccount.json by default
-#Moving the ServiceAccount file at ~/.gcp/osServiceAccount.json
-- name: "ipi : Check ~/.gcp directory (GCP)"
-  stat:
-    path: "~/.gcp"
-  register: gcp_config_directory
-  when: ipi_platform == "gcp"
-
-- name: "ipi : Create ~/.gcp directory if it does not exist"
-  file:
-    path: "~/.gcp"
-    state: directory
-    mode: '755'
-  when: ipi_platform == "gcp" and not gcp_config_directory.stat.exists
-
-- name: "ipi : Debug information (GCP)"
-  when: ipi_platform == "gcp"
-  debug:
-    msg:
-      - "GCP Service Account file .................. {{ gcp_service_account_file }}"
-
-- name: "ipi : Copy ServiceAccount file at  ~/.gcp/osServiceAccount.json if not present"
-  copy:
-    src: "{{ gcp_service_account_file }}"
-    dest: "~/.gcp/osServiceAccount.json"
-  when: ipi_platform == "gcp"
-
 # 2. Debug Info
 # -----------------------------------------------------------------------------
 - name: "ipi : Debug information"
@@ -113,6 +86,12 @@
       - "AWS Access Key ......................... {{ aws_access_key_id }}"
       - "AWS Secret Access Key .................. {{ aws_secret_access_key }}"
 
+- name: "ipi : Debug information (GCP)"
+  when: ipi_platform == "gcp"
+  debug:
+    msg:
+      - "GCP Service Account file ......................... {{ gcp_service_account_file }}"
+      - "GCP project id .................. {{ ipi_gcp_projectid }}"
 
 # 3. Install the installer
 # -----------------------------------------------------------------------------
