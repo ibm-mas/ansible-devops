@@ -211,7 +211,7 @@ Platform to create the cluster on.  Technically, any platform supported by `open
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_PLATFORM`
 - Default Value: `aws`
-- Supported Value: `gcp`
+- Other supported Value: `gcp`
 
 ### ipi_region
 Platform region where OCP cluster will be created.
