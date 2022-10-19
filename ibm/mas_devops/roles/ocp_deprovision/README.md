@@ -92,7 +92,7 @@ Role Variables - GCP
 The following variables are only used when `cluster_type = ipi` and `ipi_platform = gcp`.
 
 ### gcp_service_account_file
-GCP service account file path. Make the service account has permissions to create instances.
+GCP service account file path. Make sure the service account has permissions to create instances.
 
 - **Required** when `cluster_type = ipi` and `ipi_platform = gcp`
 - Environment Variable: `GOOGLE_APPLICATION_CREDENTIALS`
