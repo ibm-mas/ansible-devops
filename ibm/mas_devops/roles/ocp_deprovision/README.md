@@ -87,6 +87,17 @@ to delete instances.
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 - Default Value: None
 
+Role Variables - GCP
+-------------------------------------------------------------------------------
+The following variables are only used when `cluster_type = ipi` and `ipi_platform = gcp`.
+
+### gcp_service_account_file
+GCP service account file path. Make sure the access key has permissions to create instances.
+
+- **Required** when `cluster_type = ipi` and `ipi_platform = gcp`
+- Environment Variable: `GOOGLE_APPLICATION_CREDENTIALS`
+- Default Value: None
+
 
 Example Playbook
 -------------------------------------------------------------------------------
