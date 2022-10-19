@@ -211,7 +211,7 @@ Platform to create the cluster on.  Technically, any platform supported by `open
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_PLATFORM`
 - Default Value: `aws`
-- Supported Value: `gcp`
+- Other supported Value: `gcp`
 
 ### ipi_region
 Platform region where OCP cluster will be created.
@@ -293,7 +293,7 @@ Role Variables - GCP
 The following variables are only used when `cluster_type = ipi` and `ipi_platform = gcp`.
 
 ### gcp_service_account_file
-GCP service account file path. Make sure the access key has permissions to create instances.
+GCP service account file path. Make sure the service account has permissions to create instances.
 
 - **Required** when `cluster_type = ipi` and `ipi_platform = gcp`
 - Environment Variable: `GOOGLE_APPLICATION_CREDENTIALS`
