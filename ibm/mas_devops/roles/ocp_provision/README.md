@@ -6,7 +6,7 @@ Provision OCP cluster on DevIT Fyre or IBM Cloud ROKS.
 Role Variables
 -------------------------------------------------------------------------------
 ### cluster_type
-Required.  Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `aws-ipi`.
+Required.  Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `ipi`.
 
 - Environment Variable: `CLUSTER_TYPE`
 - Default Value: None
@@ -211,7 +211,7 @@ Platform to create the cluster on.  Technically, any platform supported by `open
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_PLATFORM`
 - Default Value: `aws`
-- Other supported Value: `gcp`
+
 
 ### ipi_region
 Platform region where OCP cluster will be created.
