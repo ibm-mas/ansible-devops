@@ -38,15 +38,27 @@ The size of the PVC that will be created for log storage in the cluster.
 - Default Value: `20Gi`
 
 ### mongodb_cpu_limits
-The CPU limits on the mongod container.
+The CPU limits on the mongodb container.
 
 - Environment Variable: `MONGODB_CPU_LIMITS`
 - Default Value: `1`
 
 ### mongodb_mem_limits
-The Memory limits on the mongod container.
+The Memory limits on the mongodb container.
 
 - Environment Variable: `MONGODB_MEM_LIMITS`
+- Default Value: `1Gi`
+
+### mongodb_cpu_requests
+The CPU requests on the mongodb container.
+
+- Environment Variable: `MONGODB_CPU_REQUESTS`
+- Default Value: `500m`
+
+### mongodb_mem_requests
+The Memory requests on the mongodb container.
+
+- Environment Variable: `MONGODB_MEM_REQUESTS`
 - Default Value: `1Gi`
 
 ### mongodb_replicas
