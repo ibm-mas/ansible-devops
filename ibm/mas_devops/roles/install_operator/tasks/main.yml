@@ -20,6 +20,7 @@
       - "ICR Host ............................... {{ icr_host | default('<undefined>', true) }}"
       - "ICR Username ........................... {{ icr_username | default('<undefined>', true) }}"
       - "ICR Password ........................... {{ icr_password | default('<undefined>', true) }}"
+      - "Manual Cert Mgmt ....................... {{ manual_cert_mgmt }}"
 
 - name: "Create ibm-entitlement secret"
   kubernetes.core.k8s:
@@ -34,7 +35,26 @@
         .dockerconfigjson: "{{ lookup('template', 'templates/ibm-entitlement-with-artifactory.json.j2') | to_json | b64encode }}"
 
 
-# 3. Patch the default service account for pre-release build access
+# 3. Check manual public TLS certificate secret is valid and create public cert tls secret in core namespace.
+# -----------------------------------------------------------------------------
+
+- name: "Check Public certificate TLS secret has mandatory fields"
+  assert:
+    that:
+      - public_cert_secret['data']['tls.key'] is defined
+      - public_cert_secret['data']['tls.crt'] is defined
+      - public_cert_secret['data']['ca.crt'] is defined
+    fail: "Public certificate TLS secret data should have 'tls.key', 'tls.crt' and 'ca.crt'"
+  when: manual_cert_mgmt == True
+
+- name: "Create Public certificate secret in core namespace when manual certificate management mode is turned on"
+  kubernetes.core.k8s:
+    definition: "{{ public_cert_secret }}"
+    wait: yes
+    wait_timeout: 60 # subsequent tasks will fail if the group isn't fully created
+  when: manual_cert_mgmt == True
+
+# 4. Patch the default service account for pre-release build access
 # -----------------------------------------------------------------------------
 # If we don't do this then we won't be able to pull the operator image from
 # Artifactory
@@ -52,8 +72,7 @@
       imagePullSecrets:
         - name: ibm-entitlement
 
-
-# 4. Create the operator group that will scope the operator
+# 5. Create the operator group that will scope the operator
 # -----------------------------------------------------------------------------
 - name: "Create operator group"
   kubernetes.core.k8s:
@@ -62,7 +81,7 @@
     wait_timeout: 60 # subsequent tasks will fail if the group isn't fully created
 
 
-# 5. Create the subscription for the operator
+# 6. Create the subscription for the operator
 # -----------------------------------------------------------------------------
 - name: "Create subscription"
   kubernetes.core.k8s:

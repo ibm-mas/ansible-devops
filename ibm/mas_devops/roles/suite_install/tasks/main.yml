@@ -7,6 +7,11 @@
     that: mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "mas_instance_id property is required"
 
+- name: "Fail if mas_public_cert_secret_path is not provided when mas_manual_cert_mgmt=True"
+  assert:
+    that: mas_public_cert_secret_path != None and mas_public_cert_secret_path != ""
+    fail_msg: "mas_public_cert_secret_path is required when mas_manual_cert_mgmt is true"
+  when: mas_manual_cert_mgmt == True
 
 # 2. Set up the domain name for MAS
 # -----------------------------------------------------------------------------
@@ -46,6 +51,8 @@
       - "MAS ICR cpopen content ....... {{ mas_icr_cpopen }}"
       - "MAS Cluster Issuer ........... {{ mas_cluster_issuer }}"
       - "MAS Subcription Upgrade ...... {{ mas_upgrade_strategy }}"
+      - "MAS manual cert mgmt ......... {{ mas_manual_cert_mgmt }}"
+      - "MAS public cert secret path... {{ mas_public_cert_secret_path }}"
 
 
 # 5. Install the operator & create entitlement secret
@@ -61,6 +68,8 @@
     catalog_source: "{{ mas_catalog_source }}"
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
+    manual_cert_mgmt: "{{ mas_manual_cert_mgmt }}"
+    public_cert_secret: "{{ lookup('template', mas_public_cert_secret_path) }}"
 
 - name: Lookup and Approve MAS Subscription
   when: mas_upgrade_strategy == 'Manual'
