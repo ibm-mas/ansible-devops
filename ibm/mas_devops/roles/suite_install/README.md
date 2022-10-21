@@ -20,7 +20,7 @@ Role Variables
 - `mas_upgrade_strategy` The Upgrade strategy for MAS Operator. Default is set to Automatic
 - `mas_annotations` Optional variable having all the annotations that need to be added to the Suite CR
 - `mas_manual_cert_mgmt` Optional boolean variable, used for manual certificate management, defaults to false(auto mode)
-- `mas_public_cert_secret_path` Optional variable by default but mandatory when mas_manual_cert_mgmt is true. Represents absolute path to public tls secret yaml, operator will create secret in core namespace.
+- `mas_public_cert_secret_path` Optional variable by default but mandatory when `mas_manual_cert_mgmt` is true. Represents absolute path to public tls secret yaml, operator will create secret in core namespace.
   - Public cert TLS Secret file must be in the below format, replace the `<mas_instance_id>` and `<base64 encoded>` to the actual respective values.
     ```
     apiVersion: v1
