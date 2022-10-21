@@ -22,6 +22,14 @@
       - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
     fail_msg: "One or more required parameters are not defined"
 
+#GCP checks
+- name: "ipi : Fail if required parameters are not provided (GCP)"
+  when: ipi_platform == "gcp"
+  assert:
+    that:
+      - lookup('env', 'GOOGLE_APPLICATION_CREDENTIALS') != ""
+    fail_msg: "One or more required parameters are not defined for GCP"
+
 # We only use this to determine the openshift-install client to use to
 # perform the uninstall.  Assumption is that the latest installer should be
 # able to deprovision older clusters
@@ -51,7 +59,11 @@
       - "AWS Access Key ......................... {{ aws_access_key_id }}"
       - "AWS Secret Access Key .................. {{ aws_secret_access_key }}"
 
-
+- name: "ipi : Debug information (GCP)"
+  when: ipi_platform == "gcp"
+  debug:
+    msg:
+      - "GCP Service Account file ......................... {{ gcp_service_account_file }}"
 # 3. Install the installer
 # -----------------------------------------------------------------------------
 - name: "ipi : Check ocp_installer_dir"

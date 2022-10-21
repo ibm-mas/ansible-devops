@@ -35,6 +35,26 @@
       - lookup('env', 'AWS_SECRET_ACCESS_KEY') != ""
     fail_msg: "One or more required parameters are not defined"
 
+- name: "ipi : Fail if required parameters are not provided (GCP)"
+  when: ipi_platform == "gcp"
+  assert:
+    that:
+      - lookup('env', 'GOOGLE_PROJECTID') != ""
+      - lookup('env', 'GOOGLE_APPLICATION_CREDENTIALS') != ""
+    fail_msg: "One or more required parameters are not defined for GCP"
+
+# GCP Service Account file check
+- name: "ipi : Check gcp_service_account_file"
+  stat:
+    path: "{{ gcp_service_account_file }}"
+  register: gcp_service_account_file_lookup
+  when: ipi_platform == "gcp"
+
+- name: "ipi : Fail if GCP ServiceAccount file does not exist"
+  assert:
+    that: gcp_service_account_file_lookup.stat.exists
+    fail_msg: "GCP Service Account file does not exist: {{ gcp_service_account_file }}"
+  when: ipi_platform == "gcp"
 
 # 2. Debug Info
 # -----------------------------------------------------------------------------
@@ -66,6 +86,12 @@
       - "AWS Access Key ......................... {{ aws_access_key_id }}"
       - "AWS Secret Access Key .................. {{ aws_secret_access_key }}"
 
+- name: "ipi : Debug information (GCP)"
+  when: ipi_platform == "gcp"
+  debug:
+    msg:
+      - "GCP Service Account file ......................... {{ gcp_service_account_file }}"
+      - "GCP project id .................. {{ ipi_gcp_projectid }}"
 
 # 3. Install the installer
 # -----------------------------------------------------------------------------
