@@ -6,7 +6,7 @@ Provision OCP cluster on DevIT Fyre or IBM Cloud ROKS.
 Role Variables
 -------------------------------------------------------------------------------
 ### cluster_type
-Required.  Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `aws-ipi`.
+Required.  Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `ipi`.
 
 - Environment Variable: `CLUSTER_TYPE`
 - Default Value: None
@@ -206,11 +206,12 @@ These variables are only used when `cluster_type = ipi`.
     IPI stands for **Installer Provisioned Infrastructure**.  OpenShift offers two possible deployment methods: IPI and UPI (User Provisioned Infrastructure). The difference is the degree of automation and customization. IPI will not only deploy OpenShift but also all infrastructure components and configurations.
 
 ### ipi_platform
-Platform to create the cluster on.  Technically, any platform supported by `openshift-install` should work here, but currently we have only specifically tested on `aws`, which is the default value.
+Platform to create the cluster on.  Technically, any platform supported by `openshift-install` should work here, but currently we have only specifically tested on `aws` and `gcp` , where `aws` is the default value.
 
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_PLATFORM`
 - Default Value: `aws`
+
 
 ### ipi_region
 Platform region where OCP cluster will be created.
@@ -287,6 +288,23 @@ AWS secret access key associated with an IAM user or role.
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 - Default Value: None
 
+Role Variables - GCP
+-------------------------------------------------------------------------------
+The following variables are only used when `cluster_type = ipi` and `ipi_platform = gcp`.
+
+### gcp_service_account_file
+GCP service account file path. Make sure the service account has permissions to create instances.
+
+- **Required** when `cluster_type = ipi` and `ipi_platform = gcp`
+- Environment Variable: `GOOGLE_APPLICATION_CREDENTIALS`
+- Default Value: None
+
+### ipi_gcp_projectid
+GCP project id in which the cluster will be deployed.
+
+- **Required** when `cluster_type = ipi` and `ipi_platform = gcp`
+- Environment Variable: `GOOGLE_PROJECTID`
+- Default Value: None
 
 Example Playbook
 -------------------------------------------------------------------------------
