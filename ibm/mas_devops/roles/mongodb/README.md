@@ -93,6 +93,72 @@ Example Playbook
     - ibm.mas_devops.mongodb
 ```
 
+!!! warning
+    If the MongoDB CA Certificate expires the MongoDB replica set will become unusable. Replica set members will not be
+    able to communicate with each other and client applications (i.e. Maximo Application Suite components) will not be
+    to connect.
+
+CA Certificate Renewal
+----------------------
+
+In order to renew the CA Certificate used by the MongoDB replica set the following steps must be taken:
+
+- Delete the CA Certificate resource
+- Delete the MongoDB server Certificate resource
+- Delete the Secrets resources associated with both the CA Certificate and Server Certificate
+- Delete the Secret resource which contains the MongoDB configuration parameters
+- Delete the ConfigMap resources which contains the CA certificate
+- Delete the Secret resource which contains the sever certificate and private key
+
+The following script illustrates the process required to renew the CA Certificate, sever certificate and reconfigure the
+MongoDB replica set to leverage the new certificates. 
+
+```bash
+#!/bin/bash
+
+oc project mongoce
+oc delete certificate mongo-ca-crt   
+oc delete certificate mongo-server
+oc delete secret mongo-ca-secret
+oc delete secret mongo-server-cert
+
+oc delete secret mas-mongo-ce-config
+oc delete configmap  mas-mongo-ce-cert-map
+oc delete secret mas-mongo-ce-server-certificate-key
+
+export ROLE_NAME=mongodb 
+ansible-playbook ibm.mas_devops.run_role
+```
+
+After the CA and server Certificates have been renewed you must ensure that that MongoCfg Suite CR is updated with the 
+new CA Certificate. First obtain the CA Certificate from the Secret resource `mongo-ca-secret`. Then edit the Suite MongoCfg CR in the Maximo Application Suite corenamespace. This is done by updating the appropriate certificate under
+`.spec.certificates` in the MongoCfg CR:
+
+```yaml
+  spec:
+    certificates:
+    - alias: ca
+      crt: |
+        -----BEGIN CERTIFICATE-----
+
+        -----END CERTIFICATE-----
+
+```
+
+If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be 
+updated to reflect the new MongoDB CA. This can be added to the `.spec.mongo.certificates` section of the LicenseService CR. 
+
+```yaml
+    mongo:
+      certificates:
+      - alias: mongoca
+        crt: |
+          -----BEGIN CERTIFICATE-----
+
+          -----END CERTIFICATE-----
+```
+
+
 License
 -------
 
