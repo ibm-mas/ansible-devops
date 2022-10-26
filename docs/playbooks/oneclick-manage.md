@@ -26,7 +26,6 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 - `MAS_APP_ID` Declare app_id as either `manage` or `health`
 
-
 !!! tip
     Manage requires the user to select one or more application components to enable in the workspace. By default the `base` component at the `latest` version will be installed if no `MAS_APPWS_COMPONENTS` is set. To customise the components that are enabled use the `MAS_APPWS_COMPONENTS` environment variable, for example to enable Manage(base) and Health set it to the following:
 
