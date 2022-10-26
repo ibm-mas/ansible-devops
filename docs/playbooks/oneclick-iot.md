@@ -22,6 +22,13 @@ This playbook can be ran against any OpenShift cluster regardless of it's type; 
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.
 
+### Storage Class Configuraton
+A persistent volume storage class is required for the FPL component. Storage class configuration is built into the collection and the playbook will auto-select the appropriate storage classes when it detects the presence of certain storage classes in your cluster (IBM Cloud Storage or OpenShift Container Storage).  If you are running the install on a cluster that does not have these storage classes then you will also must configure the following environment variables:
+
+#### ReadWriteOnce Access Mode
+Usually fulfilled by block storage classes:
+
+- `MAS_APP_SETTINGS_IOT_FPL_PVC_STORAGE_CLASS`
 
 ## Required environment variables
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
