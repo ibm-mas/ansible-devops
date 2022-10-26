@@ -213,12 +213,12 @@ Platform to create the cluster on.  Technically, any platform supported by `open
 - Default Value: `aws`
 
 
-### ipi_region
+### ipi_regions.<ipi_platform>.region
 Platform region where OCP cluster will be created.
 
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_REGION`
-- Default Value: `us-east-1`
+- Default Value: `us-east-1` for ipi_platform `aws`. `us-central1` for ipi_platform `gcp`.
 
 ### ipi_base_domain
 Specify the base domain of the cluster that will be provisioned.
@@ -241,12 +241,12 @@ The working directory that is used to perform the installation, it will contain 
 - Environment Variable: `IPI_DIR`
 - Default Value: `~/openshift-install`
 
-### ipi_controlplane_type
+### ipi_controlplane_types.<ipi_platform>.type
 Control plane node type.
 
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_CONTROLPLANE_TYPE`
-- Default Value: `m5.4xlarge`
+- Default Value: `m5.4xlarge` for ipi_platform `aws`. `e2-standard-8` for ipi_platform `gcp`.
 
 ### ipi_controlplane_replicas
 The number of master nodes to provision to form the control plane of your cluster.
@@ -255,12 +255,12 @@ The number of master nodes to provision to form the control plane of your cluste
 - Environment Variable: `IPI_CONTROLPLANE_REPLICAS`
 - Default Value: `3`
 
-### ipi_compute_type
+### ipi_compute_types.<ipi_platform>.type
 Compute node type.
 
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_COMPUTE_TYPE`
-- Default Value: `m5.4xlarge`
+- Default Value: `m5.4xlarge` for ipi_platform `aws`. `e2-standard-16` for ipi_platform `gcp`.
 
 ### ipi_compute_replicas
 The number of worker nodes to provsision in the cluster, providing your compute resource.
