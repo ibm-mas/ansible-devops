@@ -218,7 +218,7 @@ Platform region where OCP cluster will be created.
 
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_REGION`
-- Default Value: `us-east-1` for ipi_platform `aws`. `us-central1` for ipi_platform `gcp`.
+- Default Value: `us-east-1` (when `ipi_platform` is `aws`), `us-central1` (when `ipi_platform` is `gcp`)
 
 ### ipi_base_domain
 Specify the base domain of the cluster that will be provisioned.
@@ -246,7 +246,7 @@ Control plane node type.
 
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_CONTROLPLANE_TYPE`
-- Default Value: `m5.4xlarge` for ipi_platform `aws`. `e2-standard-8` for ipi_platform `gcp`.
+- Default Value: `m5.4xlarge` (when `ipi_platform` is `aws`), `e2-standard-8` (when `ipi_platform` is `gcp`)
 
 ### ipi_controlplane_replicas
 The number of master nodes to provision to form the control plane of your cluster.
@@ -260,7 +260,7 @@ Compute node type.
 
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_COMPUTE_TYPE`
-- Default Value: `m5.4xlarge` for ipi_platform `aws`. `e2-standard-16` for ipi_platform `gcp`.
+- Default Value: `m5.4xlarge` (when `ipi_platform` is `aws`), `e2-standard-16` (when `ipi_platform` is `gcp`)
 
 ### ipi_compute_replicas
 The number of worker nodes to provsision in the cluster, providing your compute resource.
