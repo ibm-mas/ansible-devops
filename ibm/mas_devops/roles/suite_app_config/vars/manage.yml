@@ -45,6 +45,11 @@ mas_app_settings_base_language: "{{ lookup('env', 'MAS_APP_SETTINGS_BASE_LANG') 
 mas_app_settings_secondary_languages: "{{ lookup('env', 'MAS_APP_SETTINGS_SECONDARY_LANGS') | default([], true) }}"
 
 # properties to configure bundle servers
+server_bundles_add_server_config_secret_name: "{{ mas_workspace_id }}-manage-additional-server-config"
+server_bundle_jms_internal_endpoint: "{{ mas_instance_id }}-{{ mas_workspace_id }}-jms.mas-{{ mas_instance_id }}-manage.svc:7276" # maspreivt89-main-jms.mas-maspreivt89-manage.svc:7276
+server_bundles_add_server_config_content: "{{ lookup('file', '{{ role_path }}/files/manage/manage-additional-server-config.xml.j2') }}"
+server_bundles_jms_add_server_config_secret_name: "{{ mas_workspace_id }}-manage-jms-additional-server-config"
+server_bundles_jms_add_server_config_content: "{{ lookup('file', '{{ role_path }}/files/manage/manage-jms-additional-server-config.xml.j2') }}"
 mas_app_settings_server_bundles_size: "{{ lookup('env', 'MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE') | default('dev', true)  }}"
 mas_app_settings_server_bundles:
   dev:
@@ -88,35 +93,45 @@ mas_app_settings_server_bundles:
         routeSubDomain: cron
   jms:
     serverBundles:
-      - bundleType: ui
+      - additionalServerConfig:
+          secretName: "{{ server_bundles_add_server_config_secret_name }}"
+        bundleType: ui
         isDefault: true
         isMobileTarget: true
         isUserSyncTarget: false
         name: ui
         replica: 1
         routeSubDomain: ui
-      - bundleType: mea
+      - additionalServerConfig:
+          secretName: "{{ server_bundles_add_server_config_secret_name }}"
+        bundleType: mea
         isDefault: false
         isMobileTarget: false
         isUserSyncTarget: true
         name: mea
         replica: 1
         routeSubDomain: mea
-      - bundleType: report
+      - additionalServerConfig:
+          secretName: "{{ server_bundles_add_server_config_secret_name }}"
+        bundleType: report
         isDefault: false
         isMobileTarget: false
         isUserSyncTarget: false
         name: report
         replica: 1
         routeSubDomain: report
-      - bundleType: cron
+      - additionalServerConfig:
+          secretName: "{{ server_bundles_add_server_config_secret_name }}"
+        bundleType: cron
         isDefault: false
         isMobileTarget: false
         isUserSyncTarget: false
         name: cron
         replica: 1
         routeSubDomain: cron
-      - bundleType: standalonejms
+      - additionalServerConfig:
+          secretName: "{{ server_bundles_jms_add_server_config_secret_name }}"
+        bundleType: standalonejms
         isDefault: false
         isMobileTarget: false
         isUserSyncTarget: false
