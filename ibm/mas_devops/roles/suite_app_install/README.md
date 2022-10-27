@@ -30,6 +30,14 @@ Optional. The application deployment spec used to configure different aspects of
 - Environment Variable: None
 - Default: defaults are specified in vars/defaultspecs/{{mas_app_id}}.yml
 
+### mas_app_settings_iot_deployment_size
+Optional, The IoT deployment size, one of `dev`, `small` or `large`.
+
+- Environment Variable: `MAS_APP_SETTINGS_IOT_DEPLOYMENT_SIZE`
+- Default: `small`
+- Application Support:
+  - IoT 8.6
+
 ### mas_app_settings_iot_fpl_pvc_storage_class
 Optional. The persistent volume storage class used by the iot fpl component for transient state storage
 
