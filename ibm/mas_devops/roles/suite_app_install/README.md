@@ -30,16 +30,16 @@ Optional. The application deployment spec used to configure different aspects of
 - Environment Variable: None
 - Default: defaults are specified in vars/defaultspecs/{{mas_app_id}}.yml
 
-### visualinspection_storage_class
+### mas_app_settings_visualinspection_storage_class
 Optional. Storage class used for user data. This must support ReadWriteOnce
 
-- Environment Variable: `VISUALINSPECTION_STORAGE_CLASS`
+- Environment Variable: `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_CLASS`
 - Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster.
 
-### visualinspection_storage_size
+### mas_app_settings_visualinspection_storage_size
 Optional. Size of data persistent volume.
 
-- Environment Variable: `VISUALINSPECTION_STORAGE_SIZE`
+- Environment Variable: `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_SIZE`
 - Default: `100Gi`
 
 ### mas_app_settings_iot_deployment_size
