@@ -20,7 +20,6 @@
       - "ICR Host ............................... {{ icr_host | default('<undefined>', true) }}"
       - "ICR Username ........................... {{ icr_username | default('<undefined>', true) }}"
       - "ICR Password ........................... {{ icr_password | default('<undefined>', true) }}"
-      - "Manual Cert Mgmt ....................... {{ manual_cert_mgmt }}"
 
 - name: "Create ibm-entitlement secret"
   kubernetes.core.k8s:
@@ -34,42 +33,7 @@
       data:
         .dockerconfigjson: "{{ lookup('template', 'templates/ibm-entitlement-with-artifactory.json.j2') | to_json | b64encode }}"
 
-
-# 3. Check manual public TLS certificate secret is valid and create public cert tls secret in core namespace.
-# -----------------------------------------------------------------------------
-
-- name: "Get Public certificate data when manual cert mgmt is true"
-  set_fact:
-    public_cert_secret: "{{ lookup('template', mas_public_cert_data_path) }}"
-  when: manual_cert_mgmt == True and mas_public_cert_data_path != ""
-
-- name: "Check Public certificate TLS secret has mandatory fields"
-  assert:
-    that:
-      - public_cert_secret['data']['tls.key'] is defined
-      - public_cert_secret['data']['tls.crt'] is defined
-      - public_cert_secret['data']['ca.crt'] is defined
-    fail: "Public certificate TLS secret data should have 'tls.key', 'tls.crt' and 'ca.crt'"
-  when: manual_cert_mgmt == True and public_cert_secret is defined
-
-- name: "Create Public certificate secret in core namespace when manual certificate management mode is turned on"
-  kubernetes.core.k8s:
-    definition:
-      apiVersion: v1
-      kind: Secret
-      type: kubernetes.io/tls
-      metadata:
-        name: "{{ public_cert_secret_name}}"
-        namespace : "{{ namespace }}"
-      data:
-        tls.key: "{{ public_cert_secret['data']['tls.key'] }}"
-        tls.crt: "{{ public_cert_secret['data']['tls.crt'] }}"
-        ca.crt: "{{ public_cert_secret['data']['ca.crt'] }}"
-    wait: yes
-    wait_timeout: 60 # subsequent tasks will fail if the group isn't fully created
-  when: manual_cert_mgmt == True and public_cert_secret is defined
-
-# 4. Patch the default service account for pre-release build access
+# 3. Patch the default service account for pre-release build access
 # -----------------------------------------------------------------------------
 # If we don't do this then we won't be able to pull the operator image from
 # Artifactory
@@ -87,7 +51,7 @@
       imagePullSecrets:
         - name: ibm-entitlement
 
-# 5. Create the operator group that will scope the operator
+# 4. Create the operator group that will scope the operator
 # -----------------------------------------------------------------------------
 - name: "Create operator group"
   kubernetes.core.k8s:
@@ -96,7 +60,7 @@
     wait_timeout: 60 # subsequent tasks will fail if the group isn't fully created
 
 
-# 6. Create the subscription for the operator
+# 5. Create the subscription for the operator
 # -----------------------------------------------------------------------------
 - name: "Create subscription"
   kubernetes.core.k8s:
