@@ -9,19 +9,15 @@
     label_selectors:
       - "operators.coreos.com/ibm-mas.{{ mas_namespace }}"
   register: mas_opcon
+  retries: 10
+  delay: 1 # minutes
+  until:
+    - mas_opcon.resources is defined
+    - mas_opcon.resources | length == 1
+    - mas_opcon.resources[0].metadata.name is defined
 
 
-# 2. Fail if we can't find the OperatorCondition for the application
-# -----------------------------------------------------------------------------
-- name: "Check that the OperatorCondition was found"
-  assert:
-    that:
-      - mas_opcon.resources is defined
-      - mas_opcon.resources | length == 1
-      - mas_opcon.resources[0].metadata.name is defined
-
-
-# 3. Set the application operator version
+# 2. Set the application operator version
 # -----------------------------------------------------------------------------
 # OperatorCondition names are in the format {packageName}.{packageVersion}
 # We want to strip off the "v" prefix from the version while we do this
@@ -36,7 +32,7 @@
       - "MAS operator version ................... {{ mas_operator_version }}"
 
 
-# 4. Create the Image Digest Map
+# 3. Create the Image Digest Map
 # -----------------------------------------------------------------------------
 - name: "Create ibm-mas Image Digest Map"
   include_role:
@@ -47,7 +43,7 @@
     case_version: "{{ mas_operator_version }}"
 
 
-# 5. Lookup the OperatorCondition for Truststore Manager
+# 4. Lookup the OperatorCondition for Truststore Manager
 # -----------------------------------------------------------------------------
 - name: "Lookup Truststore Manager operator version"
   kubernetes.core.k8s_info:
@@ -59,7 +55,7 @@
   register: tsm_opcon
 
 
-# 6. If TSM is installed, determine at which version
+# 5. If TSM is installed, determine at which version
 # -----------------------------------------------------------------------------
 - name: "Lookup Truststore Manager operator version"
   when:
@@ -70,7 +66,7 @@
     tsm_operator_version: "{{ tsm_opcon.resources[0].metadata.name.split('.v')[1] }}"
 
 
-# 7. If TSM is installed, install it's digest map
+# 6. If TSM is installed, install it's digest map
 # -----------------------------------------------------------------------------
 - name: "Create ibm-truststore-mgr Image Digest Map"
   when:
