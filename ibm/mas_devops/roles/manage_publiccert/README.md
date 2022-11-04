@@ -1,7 +1,7 @@
 manage_publiccert
 ============
 
-Sets public certificate management mode to manual mode in suite level. Creates public TLS secret with the certificate provided in core namespace. To use manual certificate management mode, set `mas_manual_cert_mgmt` to True and use `mas_public_cert_data_path` to pass the own certificate data yml file path, file must be in below format, replace `<base64 encoded>` to the respective base64 encoded values.
+Creates public TLS secret in core namespace with the certificate data provided. This tls cert will be used by the public routes in core and should be managed by the user. To create, set `mas_manual_cert_mgmt` to True and use `mas_public_cert_data_path` to pass the own certificate data yml file path, file must be in below format, replace `<base64 encoded>` to the respective base64 encoded values.
 ```yaml
 data:
   tls.crt: <base64 encoded crt>
