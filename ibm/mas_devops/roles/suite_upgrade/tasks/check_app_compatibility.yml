@@ -41,19 +41,17 @@
     label_selectors:
       - "operators.coreos.com/ibm-mas-{{ check_app.id }}.{{ check_app_namespace }}"
   register: opcon
+  retries: 10
+  delay: 1 # minutes
+  until:
+    - opcon.resources is defined
+    - opcon.resources | length == 1
+    - opcon.resources[0].metadata.name is defined
 
 - name: "{{ check_app.id }} : Debug OperatorCondition"
   when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
   debug:
     var: opcon
-
-- name: "{{ check_app.id }} : Check that the OperatorCondition was found"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
-  assert:
-    that:
-      - opcon.resources is defined
-      - opcon.resources | length == 1
-      - opcon.resources[0].metadata.name is defined
 
 
 # 3. Set the operator version
