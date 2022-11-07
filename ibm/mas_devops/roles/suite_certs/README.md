@@ -3,7 +3,17 @@ suite_certs
 
 This role iterates through the subdirectories in `$MAS_CONFIG_DIR/certs` which are named as `core` or name of the `apps` like `monitor`, `manage`, `iot` and so on. It looks for tls.crt, tls.key and ca.crt in these subdirectories.
 
-The names of the subdirectories in `$MAS_CONFIG_DIR/certs` are used to create/identify namespace and also creates the TLS secret with the tls/ca certs in those namespaces. So these subdirectories should be named correctly as the app names used in namespace suffixes. 
+The names of the subdirectories in `$MAS_CONFIG_DIR/certs` are used to construct namespace to create/identify it and also creates the TLS secret with the tls/ca certs in those namespaces. So these subdirectories should be named correctly as the app names used in namespace suffixes.
+
+Directory structure example,
+```
+$MAS_CONFIG_DIR/certs/core/tls.crt
+$MAS_CONFIG_DIR/certs/core/tls.key
+$MAS_CONFIG_DIR/certs/core/ca.crt
+$MAS_CONFIG_DIR/certs/<apps>/tls.crt
+$MAS_CONFIG_DIR/certs/<apps>/tls.key
+$MAS_CONFIG_DIR/certs/<apps>/ca.crt
+```
 
 tls.crt, tls.key and ca.crt are mandatory files in these subdirectories.
 
