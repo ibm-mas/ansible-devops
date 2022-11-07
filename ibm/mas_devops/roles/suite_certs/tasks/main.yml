@@ -1,0 +1,41 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_suite_certs_dir is not provided when mas_manual_cert_mgmt=True"
+  assert:
+    that: mas_suite_certs_dir != ""
+    fail_msg: "mas_suite_certs_dir is required when mas_manual_cert_mgmt is true"
+  when: mas_manual_cert_mgmt == True
+
+
+# 2. Create public tls secret of Manual certificate manage mode
+# -----------------------------------------------------------------------------
+- name: "Debug manual cert management"
+  debug:
+    msg:
+      - "Instance Id ............................ {{ mas_instance_id }}"
+      - "Target Namespace ....................... mas-{{ mas_instance_id }}-core"
+      - "Manual Cert Mgmt ....................... {{ mas_manual_cert_mgmt }}"
+      - "MAS public cert data path .............. {{ mas_suite_certs_dir }}"
+
+- name: Find dirs in the MAS config cert directory
+  find:
+    paths: "{{ mas_suite_certs_dir }}"
+    recurse: no
+    file_type: directory
+  register: certs_dirs
+  when: mas_manual_cert_mgmt == True
+
+- name: "Debug the list of config files located"
+  include_tasks: tasks/cert_management.yml
+  vars:
+    app_name: "{{ item.path.rsplit('/', 1)[-1] }}"
+    cert_path: "{{ item.path }}"
+  with_items: "{{ certs_dirs.files }}"
+  when: mas_manual_cert_mgmt == True
