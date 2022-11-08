@@ -1,11 +1,11 @@
 suite_certs
 ============
 
-This role iterates through the subdirectories in `$MAS_CONFIG_DIR/certs` which are named as `core` or name of the `apps` like `monitor`, `manage`, `iot` and so on. It looks for tls.crt, tls.key and ca.crt in these subdirectories.
 
+This role iterates through the subdirectories in `$MAS_CONFIG_DIR/certs` which are named as `core` or name of the `apps` like `monitor`, `manage`, `iot` and so on. It looks for tls.crt, tls.key and ca.crt in these subdirectories.
 The names of the subdirectories in `$MAS_CONFIG_DIR/certs` are used to construct namespace to create/identify it and also creates the TLS secret with the tls/ca certs in those namespaces. So these subdirectories should be named correctly as the app names used in namespace suffixes.
 
-Directory structure example,
+## Directory structure example,
 ```
 $MAS_CONFIG_DIR/certs/core/tls.crt
 $MAS_CONFIG_DIR/certs/core/tls.key
@@ -15,10 +15,11 @@ $MAS_CONFIG_DIR/certs/<apps>/tls.key
 $MAS_CONFIG_DIR/certs/<apps>/ca.crt
 ```
 
-tls.crt, tls.key and ca.crt are mandatory files in these subdirectories.
+## TLS Secret
+`tls.crt`, `tls.key` and `ca.crt` are **mandatory** files in these subdirectories. They are used to create TLS secret in each applications' namespace. The role will fail if an empty app subdirectory is present or an app subdirectory missing a mandatory file
 
-The role will fail if an empty subdirectory is present. Subdirectories with mandatory files will be processed.
-
+### Note: 
+Currently the secret names for core and each app are maintained in `suite_certs/defaults/main.yml`. Any changes to the existing secret name or adding new apps needs to be done here.
 
 
 Role Variables
