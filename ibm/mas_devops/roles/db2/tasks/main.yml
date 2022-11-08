@@ -226,16 +226,38 @@
   loop:
     "{{_db2_instance_engn_svc.resources[0].spec.ports}}"
 
-- name: "Create Db2u route"
+- name: "Create dedicated route: db2u-{{ db2_instance_name }}-tls-route"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/tlsroute.yml.j2') }}"
 
+- name: Lookup existing db2u-tls-route
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Route
+    name: "db2u-tls-route"
+    namespace: "{{db2_namespace}}"
+  register: _db2_tls_route
+
+# delete existing db2u-tls-route if that exists and matches with the same host/location from route created by previous step.
+# that way we ensure that clean up should only happen if there's a conflicting route present.
+- name: Clean up db2u-tls-route if needed
+  vars: 
+    expected_host: "{{db2_instance_name | lower }}-{{db2_namespace}}.{{_cluster_subdomain.resources[0].spec.domain}}"
+  when: 
+    - _db2_tls_route.resources | length > 0
+    - _db2_tls_route.resources[0].spec.host == "{{ expected_host }}"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Route
+    name: "db2u-tls-route"
+    namespace: "{{db2_namespace}}"
+    state: absent
 
 # 14. Delete db2 pod on intial setup only, to workaround db2 issue
 # that was causing TLS connection issues when the pod was first started
 # -----------------------------------------------------------------------------
-- name: Delete db2u pod on intial setup
+- name: Delete db2u pod on initial setup
   kubernetes.core.k8s:
     api_version: v1
     kind: Pod
