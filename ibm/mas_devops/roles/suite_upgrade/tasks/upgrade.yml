@@ -43,17 +43,16 @@
     label_selectors:
       - "operators.coreos.com/ibm-mas.{{ mas_namespace }}"
   register: updated_opcon
+  retries: 10
+  delay: 1 # minutes
+  until:
+    - updated_opcon.resources is defined
+    - updated_opcon.resources | length == 1
+    - updated_opcon.resources[0].metadata.name is defined
 
 - name: "upgrade : Debug OperatorCondition"
   debug:
     var: updated_opcon
-
-- name: "upgrade : Check that the OperatorCondition was found"
-  assert:
-    that:
-      - updated_opcon.resources is defined
-      - updated_opcon.resources | length == 1
-      - updated_opcon.resources[0].metadata.name is defined
 
 
 # 4. Set the operator version
