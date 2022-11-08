@@ -153,6 +153,7 @@
   retries: 60 # 30 * 30 seconds = 15 minutes
   delay: 30
   until:
+    - mongodb_statefulset.resources is defined
     - mongodb_statefulset.resources | length > 0
     - mongodb_statefulset.resources[0].status.readyReplicas is defined
     - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas|int)
@@ -160,6 +161,25 @@
 
 # 10. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
+# Lookup the mongo pods
+- name: "mongodb/community : Lookup mongo pods"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ mongodb_namespace }}"
+    label_selectors:
+      - app=mas-mongo-ce-svc
+  register: mongo_pods_output
+
+# List all mongo replicas
+- set_fact:
+    mongo_replicas: "{{ mongo_replicas|default([]) + [item.metadata.name] }}"
+  with_items: "{{ mongo_pods_output.resources }}"
+
+# Load mongo-hosts template to dinamically set as many mongo hosts:port as identified
+- set_fact:
+    mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/community/mongo-hosts.yml.j2') }}"
+
 # Lookup the admin password that was used
 - name: "mongodb/community : Lookup admin password"
   kubernetes.core.k8s_info:
@@ -191,12 +211,6 @@
     name: mongo-server-cert
     namespace: "{{ mongodb_namespace }}"
   register: mongodb_crt_lookup
-
-- name: "mongodb/community : Create MAS MongoCfg (debug)"
-  debug:
-    msg:
-      - "ca.crt ...................... {{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
-      - "tls.crt ..................... {{ mongodb_crt_lookup.resources[0].data['tls.crt'] | b64decode }}"
 
 - name: "mongodb/community : Create MAS MongoCfg (debug)"
   debug:
