@@ -5,7 +5,10 @@
 
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
-
+- `11.6` Add support for Oct 2022 catalog ([#490](https://github.com/ibm-mas/ansible-devops/pull/490))
+- `11.5` Multiple Updates:
+    - Add support for OCP IPI on GCP ([#483](https://github.com/ibm-mas/ansible-devops/pull/483))
+    - Support default JMS queue config in Manage bundle workload config ([#486](https://github.com/ibm-mas/ansible-devops/pull/486))
 - `11.4` Multiple Updates:
     - Add support for Sep 2022 catalog ([#476](https://github.com/ibm-mas/ansible-devops/pull/476))
     - Support CloudPak for Data 4.5.x install/upgrade ([#466](https://github.com/ibm-mas/ansible-devops/pull/466))

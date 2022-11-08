@@ -78,6 +78,16 @@ Optional. Flag indicating if manage demodata should be loaded or not.
 - Environment Variable: `MAS_APP_SETTINGS_DEMODATA`
 - Default: `false` (do not load demodata)
 
+### mas_app_settings_persistent_volumes_flag
+Optional. Flag indicating if persistent volumes should be configured by default during Manage Workspace activation.
+There are two defaulted File Storage Persistent Volumes Claim resources that will be created out of the box for Manage if this flag is set to `true`:
+
+- `/DOCLINKS`: Persistent volume used to store attachments and JMS queues related artifacts (`/DOCLINKS/jmsstore`).
+- `/bim`: Persistent volume used to store Building Information Models related artifacts (models, docs and import)
+
+- Environment Variable: `MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG`
+- Default: `false`
+
 ### mas_app_settings_base_language
 Optional. Provide the base language for Manage application.
 For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
@@ -109,7 +119,8 @@ Currently supported server bundle sizes are:
   - i.e just 1 bundle pod handling `all` Manage application workload.
 - `small` - Deploys Manage with the most common deployment configuration. 
   - i.e 4 bundle pods, each one handling workload for each main capabilities: `mea`, `cron`, `report` and `ui`
-- `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod. 
+- `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod.
+  - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `DOCLINKS/jmsstore` persistent volume (Requires `mas_app_settings_persistent_volumes_flag` to be set to `true`)
 
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
 - Default: `dev`
