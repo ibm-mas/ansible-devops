@@ -24,6 +24,9 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
+- `WML_INSTANCE_ID` Set Default value to "openshift"
+- `WML_URL` Set Default value to "https://internal-nginx-svc.ibm-cpd.svc:12443" . ibm-cpd in the URL corresponds to the project name (namespace) of cp4d installation 
+- `WML_VERSION` Set Default value to "4.5". The wml_version for cp4d 4.0.x will be 4.0, if cp4d is 4.5.x , wml_version should change to 4.5
 
 ## These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
 - `CPD_ADMIN_USERNAME` CP4D Username
@@ -56,6 +59,10 @@ export MAS_ENTITLEMENT_KEY=xxx
 export CPD_ADMIN_USERNAME="admin"
 export CPD_ADMIN_PASSWORD="xxx"
 export CPD_URL="https://mycp4durl"
+export WML_INSTANCE_ID="openshift"
+export WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
+export WML_VERSION="4.5"
+
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_predict
@@ -72,6 +79,9 @@ export CP4D_INSTALL_WSL="true"
 export CP4D_INSTALL_WML="true"
 export CP4D_INSTALL_SPARK="true"
 export CP4D_INSTALL_OPENSCALE="true"
+export WML_INSTANCE_ID="openshift"
+export WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
+export WML_VERSION="4.5"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_predict
