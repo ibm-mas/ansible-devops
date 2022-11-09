@@ -28,6 +28,14 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `WML_URL` Set Default value to "https://internal-nginx-svc.ibm-cpd.svc:12443" . ibm-cpd in the URL corresponds to the project name (namespace) of cp4d installation 
 - `WML_VERSION` Set Default value to "4.5". The wml_version for cp4d 4.0.x will be 4.0, if cp4d is 4.5.x , wml_version should change to 4.5
 
+- `PREDICT_DEPLOYMENT_SIZE` Controls the workload size of predict containers. Avaliable options are `developer`, `small`, `medium`. 'small' is the choosen one set by default. 
+
+    | Deployment_size        | Replica |
+    | ---------------------- | :--: | 
+    | developer              |  1 | 
+    | small                  |  2 |
+    | medium                 |  3 |
+
 ## These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
 - `CPD_ADMIN_USERNAME` CP4D Username
 - `CPD_ADMIN_PASSWORD` CP4D Password
@@ -62,6 +70,7 @@ export CPD_URL="https://mycp4durl"
 export WML_INSTANCE_ID="openshift"
 export WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
 export WML_VERSION="4.5"
+export PREDICT_DEPLOYMENT_SIZE="small"
 
 
 oc login --token=xxxx --server=https://myocpserver
@@ -82,6 +91,7 @@ export CP4D_INSTALL_OPENSCALE="true"
 export WML_INSTANCE_ID="openshift"
 export WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
 export WML_VERSION="4.5"
+export PREDICT_DEPLOYMENT_SIZE="small"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_predict
