@@ -246,6 +246,56 @@ The name of the worker node to apply the `{{ db2_node_label }}` taint and label 
 - Default: None
 
 
+Role Variables - DB2UCluster Database Configuration Settings
+----------------------------------
+The following variables will overwrite DB2UCluster default properties for the DB2 configuration sections:
+
+- spec.environment.database.dbConfig
+- spec.environment.instance.dbmConfig
+- spec.environment.instance.registry
+
+```
+dbConfig:
+  APPLHEAPSZ: 8192 AUTOMATIC # Recommended heap memory size: https://www.ibm.com/docs/en/mas83/8.3.0?topic=dependencies-configure-database-health
+dbmConfig:
+  INSTANCE_MEMORY: AUTOMATIC
+registry:
+  DB2AUTH: 'OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD'
+  DB2_4K_DEVICE_SUPPORT: '{{ db2_4k_device_support }}'
+  DB2_FMP_RUN_AS_CONNECTED_USER: 'NO'
+  DB2_WORKLOAD: '{{ db2_workload }}'
+```
+
+### db2_database_db_config: 
+Overwrites the db2ucluster database configuration settings under `spec.environment.database.dbConfig` section.
+You can define parameters to be included in this section using semicolon separated values.
+
+Example: `export DB2_DATABASE_DB_CONFIG='APPLHEAPSZ=8192 AUTOMATIC'`
+
+- Optional
+- Environment Variable: `'DB2_DATABASE_DB_CONFIG'`
+- Default: None
+
+### db2_instance_dbm_config: 
+Overwrites the db2ucluster instance database configuration settings under `spec.environment.instance.dbmConfig` section.
+You can define parameters to be included in this section using semicolon separated values.
+
+Example: `export DB2_INSTANCE_DBM_CONFIG='INSTANCE_MEMORY=AUTOMATIC'`
+
+- Optional
+- Environment Variable: `'DB2_INSTANCE_DBM_CONFIG'`
+- Default: None
+
+### db2_instance_registry: 
+Overwrites the db2ucluster instance database configuration settings under `spec.environment.instance.registry` section.
+You can define parameters to be included in this section using semicolon separated values.
+
+Example: `export DB2_INSTANCE_REGISTRY='DB2AUTH=OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD;DB2_4K_DEVICE_SUPPORT=ON;DB2_FMP_RUN_AS_CONNECTED_USER=NO;DB2_WORKLOAD=ANALYTICS'`
+
+- Optional
+- Environment Variable: `'DB2_INSTANCE_REGISTRY'`
+- Default: None
+
 Role Variables - MPP System
 ---------------------------
 !!! warning

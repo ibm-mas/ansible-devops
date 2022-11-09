@@ -75,6 +75,33 @@ def appws_components(components):
 
     return components_yaml
 
+def db2_overwrite_config(components):
+  """
+      filter: db2_overwrite_config
+      author: André Marcelino <andrercm@br.ibm.com>
+      version_added: 0.1
+      short_description: Returns db2 config in yaml form
+      description:
+          - This filter takes the key=value pairs, seperated by semicolon, for db2 custom config to be used in db2ucluster
+          and returns them in yaml form.
+      options:
+        components:
+          description: key=value pairs of components, seperated by semicolon, to install into an application workspace.
+          required: True
+  """
+  if components is None or components == '' or components == '{}':
+    return None
+  else:
+    # Take INSTANCE_MEMORY=AUTOMATIC and make {'dbmConfig': {'INSTANCE_MEMORY': 'AUTOMATIC'}}
+    split_components = components.strip().split(';')
+    components_yaml = {}
+
+    for component in split_components:
+      split_component = component.split('=')
+      components_yaml[split_component[0]] = split_component[1]
+
+    return components_yaml
+
 def getAnnotations(annotations = None):
   """
   filter: getAnnotations
@@ -216,6 +243,7 @@ class FilterModule(object):
       'public_vlan': public_vlan,
       'appws_components': appws_components,
       'addAnnotationBlock': addAnnotationBlock,
+      'db2_overwrite_config': db2_overwrite_config,
       'getAnnotations': getAnnotations,
       'getResourceNames': getResourceNames,
       'defaultStorageClass': defaultStorageClass,

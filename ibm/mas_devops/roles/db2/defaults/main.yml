@@ -17,6 +17,26 @@ db2_node_label: "{{ lookup('env', 'DB2_NODE_LABEL') | default(None, true) }}" # 
 db2_dedicated_node: "{{ lookup('env', 'DB2_DEDICATED_NODE') | default(None, true) }}" # by default there is no dedicated node
 db2_workload: "{{ lookup('env', 'DB2_WORKLOAD') | default('ANALYTICS', true) }}" # default workload is ANALYTICS, other option is PUREDATA_OLAP
 
+# The following settings will overwrite db2ucluster default properties for:
+# spec.environment.database.dbConfig
+# spec.environment.instance.dbmConfig
+# spec.environment.instance.registry
+
+db2_default_config:
+  dbConfig:
+    APPLHEAPSZ: 8192 AUTOMATIC # Recommended heap memory size: https://www.ibm.com/docs/en/mas83/8.3.0?topic=dependencies-configure-database-health
+  dbmConfig:
+    INSTANCE_MEMORY: AUTOMATIC
+  registry:
+    DB2AUTH: 'OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD'
+    DB2_4K_DEVICE_SUPPORT: '{{ db2_4k_device_support }}'
+    DB2_FMP_RUN_AS_CONNECTED_USER: 'NO'
+    DB2_WORKLOAD: '{{ db2_workload }}'
+
+db2_database_db_config: "{{ lookup('env', 'DB2_DATABASE_DB_CONFIG') | ibm.mas_devops.db2_overwrite_config | default(db2_default_config.dbConfig, true) }}"
+db2_instance_dbm_config: "{{ lookup('env', 'DB2_INSTANCE_DBM_CONFIG') | ibm.mas_devops.db2_overwrite_config | default(db2_default_config.dbmConfig, true) }}"
+db2_instance_registry: "{{ lookup('env', 'DB2_INSTANCE_REGISTRY') | ibm.mas_devops.db2_overwrite_config |  default(db2_default_config.registry, true) }}"
+
 # Support DB2 MPP configurations
 db2_mln_count: "{{ lookup('env', 'DB2_MLN_COUNT') | default(1, true) }}" # by default only specify one logical node (i.e. one db partition)
 db2_num_pods: "{{ lookup('env', 'DB2_NUM_PODS') | default(1, true) }}" # by default only specify one db2 pod
