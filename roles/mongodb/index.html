@@ -318,9 +318,7 @@
 </code></pre>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>If the MongoDB CA Certificate expires the MongoDB replica set will become unusable. Replica set members will not be
-able to communicate with each other and client applications (i.e. Maximo Application Suite components) will not be
-to connect.</p>
+<p>If the MongoDB CA Certificate expires the MongoDB replica set will become unusable. Replica set members will not be able to communicate with each other and client applications (i.e. Maximo Application Suite components) will not be to connect.</p>
 </div>
 <h2 id="ca-certificate-renewal">CA Certificate Renewal<a class="headerlink" href="#ca-certificate-renewal" title="Permanent link"></a></h2>
 <p>In order to renew the CA Certificate used by the MongoDB replica set the following steps must be taken:</p>
@@ -332,12 +330,18 @@ to connect.</p>
 <li>Delete the ConfigMap resources which contains the CA certificate</li>
 <li>Delete the Secret resource which contains the sever certificate and private key</li>
 </ul>
-<p>The following script illustrates the process required to renew the CA Certificate, sever certificate and reconfigure the
-MongoDB replica set to leverage the new certificates. </p>
+<p>The following steps illustrate the process required to renew the CA Certificate, sever certificate and reconfigure the MongoDB replica set with the new CA and server certificates.</p>
+<p>The first step is to stop the Mongo replica set and MongoDb CE Operator pod.</p>
 <pre><code class="language-bash">#!/bin/bash
 
 oc project mongoce
-oc delete certificate mongo-ca-crt   
+
+oc delete deployment mongodb-kubernetes-operator
+oc delete statefulset mas-mongo-ce
+</code></pre>
+<p>Make sure all pods in the <code>mongoce</code> namespace have terminated and then execute the following to remove
+the old Mongo configuration:</p>
+<pre><code class="language-bash">oc delete certificate mongo-ca-crt   
 oc delete certificate mongo-server
 oc delete secret mongo-ca-secret
 oc delete secret mongo-server-cert
@@ -349,9 +353,8 @@ oc delete secret mas-mongo-ce-server-certificate-key
 export ROLE_NAME=mongodb 
 ansible-playbook ibm.mas_devops.run_role
 </code></pre>
-<p>After the CA and server Certificates have been renewed you must ensure that that MongoCfg Suite CR is updated with the 
-new CA Certificate. First obtain the CA Certificate from the Secret resource <code>mongo-ca-secret</code>. Then edit the Suite MongoCfg CR in the Maximo Application Suite corenamespace. This is done by updating the appropriate certificate under
-<code>.spec.certificates</code> in the MongoCfg CR:</p>
+<p>Once the <code>mongodb</code> role has completed the MongoDb CE Operator pod and Mongo replica set should be configured.</p>
+<p>After the CA and server Certificates have been renewed you must ensure that that MongoCfg Suite CR is updated with the new CA Certificate. First obtain the CA Certificate from the Secret resource <code>mongo-ca-secret</code>. Then edit the Suite MongoCfg CR in the Maximo Application Suite core namespace. This is done by updating the appropriate certificate under <code>.spec.certificates</code> in the MongoCfg CR:</p>
 <pre><code class="language-yaml">  spec:
     certificates:
     - alias: ca
@@ -361,8 +364,7 @@ new CA Certificate. First obtain the CA Certificate from the Secret resource <co
         -----END CERTIFICATE-----
 
 </code></pre>
-<p>If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be 
-updated to reflect the new MongoDB CA. This can be added to the <code>.spec.mongo.certificates</code> section of the LicenseService CR. </p>
+<p>If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be updated to reflect the new MongoDB CA. This can be added to the <code>.spec.mongo.certificates</code> section of the LicenseService CR. </p>
 <pre><code class="language-yaml">    mongo:
       certificates:
       - alias: mongoca
@@ -371,6 +373,7 @@ updated to reflect the new MongoDB CA. This can be added to the <code>.spec.mong
 
           -----END CERTIFICATE-----
 </code></pre>
+<p>Once the CA certificate has been updated for the MongoCfg and LicenseService CRs several pods in the core and SLS namespaces might need to be restarted to pick up the changes. This would include but is not limited to coreidp, coreapi, api-licensing.</p>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>
               
