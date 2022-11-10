@@ -84,6 +84,22 @@
       - "Project Storage Guid ........... {{ cpd_wsl_project_storage_guid }}"
       - "CPD Admin User Name ............ {{ cpd_admin_username }}"
 
+- name: "gencfg-wsl : Guarantee that admin user has permission to create projects, if needed"
+  when:
+    - wsl_project_id is not defined or wsl_project_id == ""
+  uri:
+    url: "{{ cpd_url }}/usermgmt/v1/role/zen_administrator_role"
+    validate_certs: no
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ cpd_bearer_token }}"
+      cache-control: "no-cache"
+      Content-Type: "application/json"
+    body_format: "json"
+    body: "{\"role_name\":\"Administrator\",\"description\":\"Administrator role\",\"permissions\":[\"administrator\",\"can_provision\",\"manage_catalog\",\"create_space\",\"create_project\"]}"
+    status_code: 200
+    timeout: 30
+
 - name: "gencfg-wsl : Create a analytics project if one is needed"
   when:
     - wsl_project_id is not defined or wsl_project_id == ""
