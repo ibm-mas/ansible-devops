@@ -26,8 +26,8 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 - `WML_INSTANCE_ID` Set Default value to "openshift"
 - `WML_URL` Set Default value to "https://internal-nginx-svc.ibm-cpd.svc:12443" . ibm-cpd in the URL corresponds to the project name (namespace) of cp4d installation 
-- `WML_VERSION` Set Default value to "4.5". The wml_version for cp4d 4.0.x will be 4.0, if cp4d is 4.5.x , wml_version should change to 4.5
-
+- `CPD_PRODUCT_VERSION` (Required if `WML_VERSION` is not informed) Cloud Pak for Data version installed in the cluster in 4.X format, it will be used to obtain the correct WML version to be installed
+- `WML_VERSION` (Required if `CPD_PRODUCT_VERSION` is not informed) The wml_version for cp4d 4.0.x will be 4.0, if cp4d is 4.5.x , wml_version should change to 4.5
 - `PREDICT_DEPLOYMENT_SIZE` Controls the workload size of predict containers. Avaliable options are `developer`, `small`, `medium`. 'small' is the choosen one set by default. 
 
     | Deployment_size        | Replica |
