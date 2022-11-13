@@ -89,7 +89,7 @@ Example Playbook
     registry_storage_capacity: 500Gb
     registry_service_type: loadbalancer
   roles:
-    - ibm.mas_airgap.registry
+    - ibm.mas_devops.registry
 ```
 
 License

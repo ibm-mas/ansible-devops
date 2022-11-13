@@ -1,6 +1,6 @@
 mirror_case_prepare
 ===============================================================================
-This role generates a mirror manifest file suitable for use with the `oc mirror` command (or the `ibm.mas_airgap.mirror_images` role) from an IBM CASE bundle.
+This role generates a mirror manifest file suitable for use with the `oc mirror` command (or the `ibm.mas_devops.mirror_images` role) from an IBM CASE bundle.
 
 Requirements
 -------------------------------------------------------------------------------
@@ -65,7 +65,7 @@ Example Playbook
     registry_public_port: 32500
 
   roles:
-    - ibm.mas_airgap.mirror_case_prepare
+    - ibm.mas_devops.mirror_case_prepare
 ```
 
 

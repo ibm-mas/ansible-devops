@@ -1,4 +1,4 @@
-ocp_operators_mirror
+mirror_ocp_operators
 ====================
 This role uses the specifed Red Hat OpenShift Operator version to mirror the standard OpenShift catalog container images to a mirror registry and configure the cluster to pull images from this mirror.
 
@@ -89,7 +89,7 @@ Example Playbook
     registry_public_port: 32500
 
   roles:
-    - ibm.mas_airgap.ocp_operators_mirror
+    - ibm.mas_devops.mirror_ocp_operators
 ```
 
 

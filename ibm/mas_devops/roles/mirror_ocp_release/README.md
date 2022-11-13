@@ -38,7 +38,7 @@ Example Playbook
     registry_public_port: 32500
 
   roles:
-    - ibm.mas_airgap.ocp_release_mirror
+    - ibm.mas_devops.mirror_ocp_release
 ```
 
 

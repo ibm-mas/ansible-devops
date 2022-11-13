@@ -1,4 +1,4 @@
-simulate_network
+ocp_simulate_disconnected_network
 ================
 
 Our goal is to modify the hosts file on each node (worker and master) to add a bogus entry that breaks DNS resolution for all the registries that we are going to mirror.  This will simulate the cluster running in an air gap configuration, although network access will be possible elsewhere, the cluster will be unable to access the docker registries

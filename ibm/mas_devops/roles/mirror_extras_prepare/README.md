@@ -1,6 +1,6 @@
 mirror_extras_prepare
 ===============================================================================
-This role generates a mirror manifest file suitable for use with the `oc mirror` command (or the `ibm.mas_airgap.mirror_images` role) for a specific set of extra images.
+This role generates a mirror manifest file suitable for use with the `oc mirror` command (or the `ibm.mas_devops.mirror_images` role) for a specific set of extra images.
 
 Available Extras
 -------------------------------------------------------------------------------
@@ -57,7 +57,7 @@ Example Playbook
     registry_public_port: 32500
 
   roles:
-    - ibm.mas_airgap.mirror_extras_prepare
+    - ibm.mas_devops.mirror_extras_prepare
 ```
 
 
