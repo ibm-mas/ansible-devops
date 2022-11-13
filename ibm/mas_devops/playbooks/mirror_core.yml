@@ -1,0 +1,244 @@
+---
+# Mirrors the following content which is REQUIRED to install Maximo Application Suite Core Services:
+# 1. IBM Maximo Operator Catalog
+# 2. MongoDb Community Edition
+# 3. IBM Cloud Pak Foundation Services
+# 4. IBM User Data Services
+# 5. IBM Suite License Service
+# 6. IBM Truststore Manager
+# 7. IBM Maximo Application Suite Core
+#
+# This playbook aligns with the ibm.mas_devops.oneclick_core playbook
+
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-221025-amd64', True) }}"
+    mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
+
+    mirror_catalog: "{{ lookup('env', 'MIRROR_CATALOG') | default ('True', True) | bool }}"
+    mirror_mongoce: "{{ lookup('env', 'MIRROR_MONGOCE') | default ('True', True) | bool }}"
+    mirror_common_svcs: "{{ lookup('env', 'MIRROR_COMMONSERVICES') | default ('True', True) | bool }}"
+    mirror_uds: "{{ lookup('env', 'MIRROR_UDS') | default ('True', True) | bool }}"
+    mirror_sls: "{{ lookup('env', 'MIRROR_SLS') | default ('True', True) | bool }}"
+    mirror_tsm: "{{ lookup('env', 'MIRROR_TRUSTSTOREMGR') | default ('True', True) | bool }}"
+    mirror_mas_core: "{{ lookup('env', 'MIRROR_MAS_CORE') | default ('True', True) | bool }}"
+
+  pre_tasks:
+    # Note that REGISTRY_USERNAME and REGISTRY_PASSWORD are not required.
+    # They are only needed if you have set up authentication on your private registry
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'REGISTRY_PUBLIC_HOST') != ""
+          - lookup('env', 'REGISTRY_PUBLIC_PORT') != ""
+          - lookup('env', 'IBM_ENTITLEMENT_KEY') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+    - name: Check for required environment variables (UDS)
+      when: mirror_uds
+      assert:
+        that:
+          - lookup('env', 'REDHAT_CONNECT_USERNAME') != ""
+          - lookup('env', 'REDHAT_CONNECT_PASSWORD') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+    - name: Load CASE bundle versions
+      include_vars:
+        file: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
+
+  roles:
+    # 1. IBM Maximo Operator Catalog
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_airgap.mirror_extras_prepare
+      when:
+        - mirror_catalog
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: catalog
+
+    - name: ibm.mas_airgap.mirror_images
+      when: mirror_catalog
+      vars:
+        manifest_name: catalog
+        manifest_version: "{{ catalog_tag }}"
+
+
+    # 2. MongoDb Community Edition
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_airgap.mirror_extras_prepare
+      when:
+        - mirror_mongoce
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: mongoce
+        extras_version: "{{ mongo_extras_version }}"
+
+    - name: ibm.mas_airgap.mirror_images
+      when: mirror_mongoce
+      vars:
+        manifest_name: extras_mongoce
+        manifest_version: "{{ mongo_extras_version }}"
+
+
+    # 3. IBM Cloud Pak Foundation Services
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_airgap.mirror_case_prepare
+      when:
+        - mirror_common_svcs
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-cp-common-services
+        case_version: "{{ common_svcs_version }}"
+        exclude_images:
+          - ibm-auditlogging
+          - ibm-cpp
+          - ibm-cs-commonui
+          - ibm-cs-healthcheck
+          - ibm-cs-iam
+          - ibm-cs-mongodb
+          - ibm-cs-monitoring
+          - ibm-events-operator
+          - ibm-management-ingress
+          - ibm-platform-api-operator
+          - ibm-zen
+
+    - name: ibm.mas_airgap.mirror_images
+      when: mirror_common_svcs
+      vars:
+        manifest_name: ibm-cp-common-services
+        manifest_version: "{{ common_svcs_version }}"
+
+
+    # Mirroring another version for Cloud Pak Foundation Services
+    - name: ibm.mas_airgap.mirror_case_prepare
+      when:
+        - mirror_common_svcs
+        - mirror_mode != "from-filesystem"
+        - common_svcs_version_1 is defined
+        - common_svcs_version_1 != ""
+      vars:
+        case_name: ibm-cp-common-services
+        case_version: "{{ common_svcs_version_1 }}"
+        exclude_images:
+          - ibm-auditlogging
+          - ibm-cpp
+          - ibm-cs-commonui
+          - ibm-cs-healthcheck
+          - ibm-cs-iam
+          - ibm-cs-mongodb
+          - ibm-cs-monitoring
+          - ibm-events-operator
+          - ibm-management-ingress
+          - ibm-platform-api-operator
+          - ibm-zen
+
+    - name: ibm.mas_airgap.mirror_images
+      when:
+        - mirror_common_svcs
+        - common_svcs_version_1 is defined
+        - common_svcs_version_1 != ""
+      vars:
+        manifest_name: ibm-cp-common-services
+        manifest_version: "{{ common_svcs_version_1 }}"
+
+
+    # 4. IBM User Data Services
+    # -------------------------------------------------------------------------
+    # 4.1 UDS
+    - name: ibm.mas_airgap.mirror_case_prepare
+      when:
+        - mirror_uds
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-uds
+        case_version: "{{ uds_version }}"
+        exclude_images: []
+
+    - name: ibm.mas_airgap.mirror_images
+      when: mirror_uds
+      vars:
+        manifest_name: ibm-uds
+        manifest_version: "{{ uds_version }}"
+
+    # 4.2 IBM Events Operator (Used by UDS)
+    # The CASE bundle for this operator is broken, so we will manually mirror the images
+    # Based on UDS version - see catalog version for details
+    - name: ibm.mas_airgap.mirror_extras_prepare
+      when:
+        - mirror_uds
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: uds
+        extras_version: "{{ uds_extras_version }}"
+
+    - name: ibm.mas_airgap.mirror_images
+      when: mirror_uds
+      vars:
+        manifest_name: extras_uds
+        manifest_version: "{{ uds_extras_version }}"
+
+
+    # 5. IBM Suite License Service
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_airgap.mirror_case_prepare
+      when:
+        - mirror_sls
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-sls
+        case_version: "{{ sls_version }}"
+        exclude_images: []
+
+    - name: ibm.mas_airgap.mirror_images
+      when: mirror_sls
+      vars:
+        manifest_name: ibm-sls
+        manifest_version: "{{ sls_version }}"
+
+
+    # 6. IBM Truststore Manager
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_airgap.mirror_case_prepare
+      when:
+        - mirror_tsm
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-truststore-mgr
+        case_version: "{{ tsm_version }}"
+        exclude_images: []
+
+    - name: ibm.mas_airgap.mirror_images
+      when: mirror_tsm
+      vars:
+        manifest_name: ibm-truststore-mgr
+        manifest_version: "{{ tsm_version }}"
+
+
+    # 7. IBM Maximo Application Suite Core
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_airgap.mirror_case_prepare
+      when:
+        - mirror_mas_core
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-mas
+        case_version: "{{ mas_core_version }}"
+        exclude_images:
+          - ibm-mas-assist
+          - ibm-mas-hputilities
+          - ibm-mas-iot
+          - ibm-mas-manage
+          - ibm-mas-monitor
+          - ibm-mas-predict
+          - ibm-mas-safety
+          - ibm-mas-visualinspection
+          - ibm-mas-optimizer
+          - ibm-sls
+
+    - name: ibm.mas_airgap.mirror_images
+      when: mirror_mas_core
+      vars:
+        manifest_name: ibm-mas
+        manifest_version: "{{ mas_core_version }}"
