@@ -137,7 +137,7 @@ Optional. Identifier of wml instance to be configured in Predict
 ### mas_app_settings_wml_url
 Optional. Url to access WML service (same as Cloud Pak for Data url)
 
-- Environment Variable: `WML_INSTANCE_ID`
+- Environment Variable: `WML_URL`
 - Default: `https://internal-nginx-svc.ibm-cpd.svc:12443` (it assumes cpd wml is installed in a namespace called `ibm-cpd`)
 
 ### cpd_product_version
