@@ -1,0 +1,17 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "extras : Fail if required properties are not provided"
+  assert:
+    that:
+      - extras_name is defined and extras_name != ""
+      - mirror_working_dir is defined and mirror_working_dir != ""
+    fail_msg: "One or more required properties are missing"
+
+- name: "extras : Select task to run"
+  set_fact:
+    task_name: "{{ ( extras_name == 'catalog' ) | ternary ('catalog', 'extras') }}"
+
+- name: "extras : Generate manifests"
+  include_tasks: "tasks/{{ task_name }}.yml"

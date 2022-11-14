@@ -1,0 +1,21 @@
+---
+# Approximate runtime: 30 minutes (on a good connection)
+- hosts: localhost
+  any_errors_fatal: true
+
+  pre_tasks:
+    # Note that REGISTRY_USERNAME and REGISTRY_PASSWORD are not required.
+    # They are only needed if you have set up authentication on your private registry
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'REGISTRY_PUBLIC_HOST') != ""
+          - lookup('env', 'REGISTRY_PUBLIC_PORT') != ""
+          - lookup('env', 'REDHAT_CONNECT_USERNAME') != ""
+          - lookup('env', 'REDHAT_CONNECT_PASSWORD') != ""
+          - lookup('env', 'QUAY_USERNAME') != ""
+          - lookup('env', 'QUAY_PASSWORD') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    - ibm.mas_devops.mirror_ocp_release
