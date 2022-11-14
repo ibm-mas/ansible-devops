@@ -1,0 +1,125 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Fail if required properties are not provided"
+  assert:
+    that:
+      - manifest_name is defined and manifest_name != ""
+      - manifest_version is defined and manifest_version != ""
+      - mirror_mode is defined and mirror_mode != ""
+      - mirror_working_dir is defined and mirror_working_dir != ""
+    fail_msg: "One or more required properties are missing"
+
+
+# 2. Set up auth secret
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Create working directory"
+  file:
+    path: "{{ ansible_env.HOME }}/.ibm-mas"
+    state: directory
+
+- name: "{{ manifest_name }} : Create auth secret"
+  ansible.builtin.template:
+    src: templates/auth-secret.json.j2
+    dest: "{{ auth_file }}"
+
+- name: "{{ manifest_name }} : Debug"
+  debug:
+    msg:
+      - "Manifest Name .......................... {{ manifest_name }}"
+      - "Manifest Version ....................... {{ manifest_version }}"
+      - "Working Directory ...................... {{ mirror_working_dir }}"
+      - "Mode ................................... {{ mirror_mode }}"
+      - "Auth File .............................. {{ auth_file }}"
+
+
+# 3A. Execute the mirror (to filesystem)
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Mirror Images to local filesystem"
+  when: mirror_mode == "to-filesystem"
+  block:
+    - name: "{{ manifest_name }}: Run mirror command"
+      shell: |
+        oc image mirror \
+          -a {{ auth_file }} \
+          -f {{ mirror_working_dir }}/manifests/to-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt \
+          --filter-by-os '.*'  \
+          --insecure  \
+          --skip-multiple-scopes \
+          --max-per-registry=1 \
+          --dir={{ mirror_working_dir }}
+      register: ocimagemirror_result
+      ignore_errors: true
+
+    - name: "{{ manifest_name }} : Debug mirror command"
+      debug:
+        msg:
+          - "Source: {{ mirror_working_dir }}/manifests/to-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt"
+          - "Auth: {{ auth_file }}"
+          - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
+
+    - name: "{{ manifest_name }} : Fail if mirror is not successful"
+      assert:
+        that: ocimagemirror_result.rc == 0
+        fail_msg: "Image mirroring failed (see debug information above)."
+
+
+# 3B. Execute the mirror (from filesystem)
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Mirror Images from local filesystem"
+  when: mirror_mode == "from-filesystem"
+  block:
+    - name: "{{ manifest_name }} : Run mirror command"
+      shell: |
+        oc image mirror \
+          -a {{ auth_file }} \
+          -f {{ mirror_working_dir }}/manifests/from-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt \
+          --filter-by-os '.*'  \
+          --insecure  \
+          --skip-multiple-scopes \
+          --max-per-registry=1 \
+          --dir={{ mirror_working_dir }}
+      register: ocimagemirror_result
+      ignore_errors: true
+
+    - name: "{{ manifest_name }} : Debug mirror command"
+      debug:
+        msg:
+          - "Source: {{ mirror_working_dir }}/manifests/from-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt"
+          - "Auth: {{ auth_file }}"
+          - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
+
+    - name: "{{ manifest_name }} : Fail if mirror is not successful"
+      assert:
+        that: ocimagemirror_result.rc == 0
+        fail_msg: "Image mirroring failed (see debug information above)."
+
+
+# 3C. Execute the mirror (direct)
+# -----------------------------------------------------------------------------
+- name: "Mirror Images directly"
+  when: mirror_mode == "direct"
+  block:
+    - name: "{{ manifest_name }} : Run mirror command"
+      shell: |
+        oc image mirror \
+          -a {{ auth_file }} \
+          -f {{ mirror_working_dir }}/manifests/direct/{{ manifest_name }}_{{ manifest_version }}.txt \
+          --filter-by-os '.*'  \
+          --insecure  \
+          --skip-multiple-scopes \
+          --max-per-registry=1 \
+      register: ocimagemirror_result
+      ignore_errors: true
+
+    - name: "{{ manifest_name }} : Debug mirror command"
+      debug:
+        msg:
+          - "Source: {{ mirror_working_dir }}/manifests/direct/{{ manifest_name }}_{{ manifest_version }}.txt"
+          - "Auth: {{ auth_file }}"
+          - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
+
+    - name: "{{ manifest_name }} : Fail if mirror is not successful"
+      assert:
+        that: ocimagemirror_result.rc == 0
+        fail_msg: "Image mirroring failed (see debug information above)."
