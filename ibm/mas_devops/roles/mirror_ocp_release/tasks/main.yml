@@ -1,0 +1,76 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if required properties are not provided"
+  assert:
+    that:
+      - openshift_release_version is defined and openshift_release_version != ""
+      - log_dir is defined and log_dir != ""
+      - registry_public_host is defined and registry_public_host != ""
+      - ibm_entitlement_key is defined and ibm_entitlement_key != ""
+      - redhat_connect_username is defined and redhat_connect_username != ""
+      - redhat_connect_password is defined and redhat_connect_password != ""
+    fail_msg: "One or more required properties are missing"
+
+
+# 2. Check for required software
+# -----------------------------------------------------------------------------
+- name: "Test if oc is installed"
+  shell: oc help
+  register: _oc_help
+  ignore_errors: true
+
+- name: "Fail if oc is not installed"
+  assert:
+    that: ( _oc_help['rc'] == 0 )
+    fail_msg: "oc tool must be installed."
+
+
+# 3. Debug
+# -----------------------------------------------------------------------------
+- name: "Airgap setup configuration"
+  debug:
+    msg:
+      - "OpenShift Release Version .............. {{ openshift_release_version }}"
+      - "Log Directory .......................... {{ log_dir }}"
+      - "Registry Public Host ................... {{ registry_public_host }}"
+      - "Registry Public Port ................... {{ registry_public_port }}"
+
+# 5. Set up authentication for the case mirroring process
+# -----------------------------------------------------------------------------
+
+# 5.1 Prepare the directory
+- name: Creates airgap secrets directory
+  file:
+    path: "{{ ansible_env.HOME }}/.airgap/auth"
+    state: directory
+
+# 5.2 Private registry
+- name: Create auth secret for private registry
+  vars:
+    registry_name1: "{{ registry_public_url }}"
+    registry_auth1: "{{ registry_auth }}"
+    registry_name2: registry.connect.redhat.com
+    registry_auth2: "{{ redhat_connect_auth }}"
+    registry_name3: registry.redhat.io
+    registry_auth3: "{{ redhat_connect_auth }}"
+    registry_name4: quay.io
+    registry_auth4: "{{ quay_auth }}"
+  ansible.builtin.template:
+    src: templates/auth-file.json.j2
+    dest: "{{ ansible_env.HOME }}/.airgap/auth/auth.json"
+
+
+# 6. Execute the Mirror
+# -----------------------------------------------------------------------------
+# UDS does not support --tolerance or --skipDelta params so we need a special case here :(
+- name: Mirror Images (This may take several minutes)
+  shell: >
+    oc adm release mirror -a {{ ansible_env.HOME }}/.airgap/auth/auth.json --from=quay.io/openshift-release-dev/ocp-release:{{ openshift_release_version }}-x86_64 --to={{ registry_public_host }}:{{ registry_public_port }}/ocp4/openshift4 --to-release-image={{ registry_public_host }}:{{ registry_public_port }}/ocp4/openshift4:{{ openshift_release_version }} --apply-release-image-signature --insecure=true \
+    | tee {{ log_dir }}/release-mirror-{{ openshift_release_version }}.log
+  register: mirror_result
+
+- name: "Debug Mirror"
+  debug:
+    msg: "{{ mirror_result.stdout_lines }}"
