@@ -59,6 +59,7 @@ copyDoc suite_app_upgrade
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
 copyDoc suite_dns
+copyDoc suite_certs
 copyDoc suite_install
 copyDoc suite_install_digest_cm
 copyDoc suite_manage_attachments_config
