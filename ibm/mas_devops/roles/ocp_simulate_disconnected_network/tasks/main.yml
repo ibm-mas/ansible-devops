@@ -1,0 +1,100 @@
+---
+# Disable network access to public image repositories
+# -----------------------------------------------------------------------------
+
+# 1. Query curent registry service address
+# -----------------------------------------------------------------------------
+# The hosts file needs to include a line for the registry service, otherwise the
+# file will get out of sync with the version on the file system, and MCO updates will fail.
+- name: Lookup Registry Service
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    name: image-registry
+    namespace: openshift-image-registry
+  register: registry_service_result
+
+- debug:
+    var: registry_service_result
+
+# 2. Pause worker node reboots
+# -----------------------------------------------------------------------------
+- name: Pause MachineConfigPool master node reboots
+  kubernetes.core.k8s_json_patch:
+    kind: MachineConfigPool
+    name: worker
+    patch:
+      - op: replace
+        path: /spec/paused
+        value: true
+
+# 3. Pause master node reboots
+# -----------------------------------------------------------------------------
+- name: Pause MachineConfigPool worker node reboots
+  kubernetes.core.k8s_json_patch:
+    kind: MachineConfigPool
+    name: master
+    patch:
+      - op: replace
+        path: /spec/paused
+        value: true
+
+# 4. Disable Network access to public repositories
+# -----------------------------------------------------------------------------
+# Set the /etc/hosts file on each cluster node to mis-direct any calls to icr.io, cp.icr.io and wiotp-docker-local.artifactory.swg-devops.com
+- name: Create hosts file
+  vars:
+    hosts_file_content: |
+      127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+      ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+      1.2.3.4     {{ airgap_network_exclusions }}
+      {{ registry_service_result.resources[0].spec.clusterIP }} image-registry.openshift-image-registry.svc image-registry.openshift-image-registry.svc.cluster.local # openshift-generated-node-resolver
+    hosts_file_b64: "{{ hosts_file_content | b64encode }} "
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/mc.yml.j2'
+  register: result
+
+- debug:
+    var: result
+
+# 5. Add registry ca crt to RHCOS trust bundle
+# -----------------------------------------------------------------------------
+- name: MachineConfig for registry-ca.crt
+  vars:
+    registry_ca_crt_b64: "{{ registry_private_ca_crt | b64encode }}"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/mc2.yml.j2'
+  register: result
+
+- debug:
+    var: result
+
+# 6. Enable master node reboots
+# -----------------------------------------------------------------------------
+- name: Enable MachineConfigPool master node reboots
+  kubernetes.core.k8s_json_patch:
+    kind: MachineConfigPool
+    name: master
+    patch:
+      - op: replace
+        path: /spec/paused
+        value: false
+
+# 7. Enable worker node reboots
+# -----------------------------------------------------------------------------
+- name: Enable MachineConfigPool worker node reboots
+  kubernetes.core.k8s_json_patch:
+    kind: MachineConfigPool
+    name: worker
+    patch:
+      - op: replace
+        path: /spec/paused
+        value: false
+
+# 8. Wait until the nodes have applied the updates
+# -----------------------------------------------------------------------------
+- name: Wait for Machine Configs to update
+  when: result.changed
+  include_tasks: "{{ role_path }}/../../common_tasks/wait-machine-config-update.yml"
