@@ -33,7 +33,7 @@ copyDoc install_operator
 copyDoc kafka
 copyDoc mirror_case_prepare
 copyDoc mirror_extras_prepare
-copyDoc mirror_ocp_operators
+# copyDoc mirror_ocp_operators
 copyDoc mirror_ocp_release
 copyDoc mirror_images
 copyDoc mongodb
