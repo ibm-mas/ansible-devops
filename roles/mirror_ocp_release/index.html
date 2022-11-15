@@ -143,13 +143,29 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../mirror_images/">mirror_images</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../mirror_ocp_operators/">mirror_ocp_operators</a>
-                  </li>
                   <li class="toctree-l1 current"><a class="reference internal current" href="./">mirror_ocp_release</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#openshift_release_version">openshift_release_version</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mirror_mode">mirror_mode</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mirror_working_dir">mirror_working_dir</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#registry_public_host">registry_public_host</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#registry_public_port">registry_public_port</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#registry_username">registry_username</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#registry_password">registry_password</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#redhat_pullsecret">redhat_pullsecret</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
     </li>
@@ -231,8 +247,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="case_mirror">case_mirror<a class="headerlink" href="#case_mirror" title="Permanent link"></a></h1>
-<p>This role uses the specifed OpenShift Release to mirror the OpenShift release container images to the mirror registry and configure the cluster to pull images from this mirror.</p>
+                <h1 id="mirror_ocp_release">mirror_ocp_release<a class="headerlink" href="#mirror_ocp_release" title="Permanent link"></a></h1>
+<p>This role mirrors container images for a specified OpenShift release to a target registry.</p>
 <p>When mirroring is complete, you can view the content of your registry:</p>
 <pre><code class="language-bash">curl -k https://$REGISTRY_PUBLIC_HOST/v2/_catalog | jq
 </code></pre>
@@ -241,23 +257,68 @@
 <li><code>oc</code> tool must be installed</li>
 </ul>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="openshift_release_version">openshift_release_version<a class="headerlink" href="#openshift_release_version" title="Permanent link"></a></h3>
+<p>The OpenShift release to mirror.</p>
 <ul>
-<li><code>openshift_release_version</code> The version of standard operators to be mirrored.</li>
-<li><code>log_dir</code> The directory to write output log.</li>
-<li><code>ibm_entitlement_key</code> The entitlement key for mirroring container images from cp.icr.io.</li>
-<li><code>redhat_connect_username</code> The username for accessing Red Hat docker images.</li>
-<li><code>redhat_connect_password</code> The password for accessing Red Hat docker images.</li>
-<li><code>registry_public_host</code> The public hostname for the target registry (defaults to the value of the REGISTRY_PUBLIC_HOST environment variable).</li>
-<li><code>registry_public_port</code> The public port number for the target registry (defaults to the value of the REGISTRY_PUBLIC_PORT environment variable).</li>
-<li><code>registry_username</code> The username for the target registry (defaults to the value of the REGISTRY_USERNAME environment variable).</li>
-<li><code>registry_password</code> The password for the target registry (defaults to the value of the REGISTRY_PASSWORD environment variable).</li>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>OPENSHIFT_RELEASE_VERSION</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="mirror_mode">mirror_mode<a class="headerlink" href="#mirror_mode" title="Permanent link"></a></h3>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MIRROR_MODE</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="mirror_working_dir">mirror_working_dir<a class="headerlink" href="#mirror_working_dir" title="Permanent link"></a></h3>
+<ul>
+<li><strong>Required</strong> unless <code>mirror_mode</code> is set to <code>direct</code></li>
+<li>Environment Variable: <code>MIRROR_WORKING_DIR</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="registry_public_host">registry_public_host<a class="headerlink" href="#registry_public_host" title="Permanent link"></a></h3>
+<ul>
+<li><strong>Required</strong> unless <code>mirror_mode</code> is set to <code>to-filesystem</code></li>
+<li>Environment Variable: <code>REGISTRY_PUBLIC_HOST</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="registry_public_port">registry_public_port<a class="headerlink" href="#registry_public_port" title="Permanent link"></a></h3>
+<ul>
+<li><strong>Required</strong> unless <code>mirror_mode</code> is set to <code>to-filesystem</code></li>
+<li>Environment Variable: <code>REGISTRY_PUBLIC_PORT</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="registry_username">registry_username<a class="headerlink" href="#registry_username" title="Permanent link"></a></h3>
+<ul>
+<li><strong>Required</strong> unless <code>mirror_mode</code> is set to <code>to-filesystem</code></li>
+<li>Environment Variable: <code>REGISTRY_USERNAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="registry_password">registry_password<a class="headerlink" href="#registry_password" title="Permanent link"></a></h3>
+<ul>
+<li><strong>Required</strong> unless <code>mirror_mode</code> is set to <code>to-filesystem</code></li>
+<li>Environment Variable: <code>REGISTRY_PASSWORD</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="redhat_pullsecret">redhat_pullsecret<a class="headerlink" href="#redhat_pullsecret" title="Permanent link"></a></h3>
+<p>Obtain your pull secret from <a href="https://console.redhat.com/openshift/install/pull-secret">https://console.redhat.com/openshift/install/pull-secret</a>.</p>
+<ul>
+<li><strong>Required</strong> unless <code>mirror_mode</code> is set to <code>from-filesystem</code></li>
+<li>Environment Variable: <code>REDHAT_PULLSECRET</code></li>
+<li>Default Value: None</li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
   vars:
-    openshift_release_version: 4.8.39
+    openshift_release_version: 4.10.0
     registry_public_host: myocp-5f1320191125833da1cac8216c06779e-0000.us-south.containers.appdomain.cloud
     registry_public_port: 32500
+
+    registry_username: user
+    registry_password: passwd
+
+    mirror_mode: direct
+    redhat_pullsecret: /home/me/redhat-pullsecret.json
 
   roles:
     - ibm.mas_devops.mirror_ocp_release
@@ -292,7 +353,7 @@
         </span>
     
     
-      <span><a href="../mirror_ocp_operators/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../mirror_images/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
       <span><a href="../ocp_contentsourcepolicy/" style="color: #fcfcfc">Next &raquo;</a></span>
