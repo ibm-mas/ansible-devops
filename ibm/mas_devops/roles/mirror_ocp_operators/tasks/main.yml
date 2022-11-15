@@ -5,11 +5,8 @@
 - name: "Fail if required properties are not provided"
   assert:
     that:
-      - openshift_operators_version is defined and openshift_operators_version != ""
-      - log_dir is defined and log_dir != ""
-      - registry_public_host is defined and registry_public_host != ""
-      - redhat_connect_username is defined and redhat_connect_username != ""
-      - redhat_connect_password is defined and redhat_connect_password != ""
+      - openshift_release_version is defined and openshift_release_version != ""
+      - mirror_mode is defined and mirror_mode != ""
     fail_msg: "One or more required properties are missing"
 
 
@@ -32,78 +29,17 @@
   debug:
     msg:
       - "OpenShift Operators Version ............ {{ openshift_operators_version }}"
-      - "Log Directory .......................... {{ log_dir }}"
-      - "Registry Public Host ................... {{ registry_public_host }}"
-      - "Registry Public Port ................... {{ registry_public_port }}"
+      - "Mirror Mode ............................ {{ mirror_mode }}"
 
-# 4. Set up authentication for the mirroring process
+
+# 4. Mirror Release
 # -----------------------------------------------------------------------------
+- name: Run Mirroring
+  include_tasks: "actions/{{ mirror_mode }}.yml"
+  with_items:
+    - redhat-operator-index    # Fails ... see support ticket https://access.redhat.com/support/cases/#/case/03362302
+    - community-operator-index # Fails ... docker.io pull rate limits make this non-viable today
+    - certified-operator-index # Fails ... error: unable to retrieve source image quay.io/kove/kove-xmem manifest sha256:4db798be1ec40d38b84a12d6fce97bd72e3a51d2811725f1023caef33e3dfce7: unauthorized: access to the requested resource is not authorized
+    - redhat-marketplace-index # Fails ... error: unable to retrieve source image registry.connect.redhat.com/zabbix/zabbix-agent-50 manifest sha256:229562a27ed45319ef17397fe81cac81129c84eccd2c14f6085531a86ef9b87d: name unknown: Image not found
 
-# 4.1 Prepare the directory
-- name: Creates airgap auth directory
-  file:
-    path: "{{ ansible_env.HOME }}/.airgap/auth"
-    state: directory
-
-# 4.2 Private registry
-- name: Create auth file for private registry
-  vars:
-    registry_name1: "{{ registry_public_url }}"
-    registry_auth1: "{{ registry_auth }}"
-    registry_name2: registry.connect.redhat.com
-    registry_auth2: "{{ redhat_connect_auth }}"
-    registry_name3: registry.redhat.io
-    registry_auth3: "{{ redhat_connect_auth }}"
-  ansible.builtin.template:
-    src: templates/auth-file.json.j2
-    dest: "{{ ansible_env.HOME }}/.airgap/auth/auth.json"
-
-
-# 5.  Mirror RedHat Operator Images
-# -----------------------------------------------------------------------------
-- name: Mirror RedHat Operator Images (This may take several minutes)
-  shell: >
-    oc adm catalog mirror -a {{ ansible_env.HOME }}/.airgap/auth/auth.json registry.redhat.io/redhat/redhat-operator-index:v{{ openshift_operators_version }} {{ registry_public_host }}:{{ registry_public_port }}/redhat --insecure=true \
-    | tee {{ log_dir }}/catalog-mirror-redhat-{{ openshift_operators_version }}.log
-  register: mirror_result
-
-- name: "Debug Mirror"
-  debug:
-    msg: "{{ mirror_result.stdout_lines }}"
-
-
-# 6.Mirror Community Operator Images
-# -----------------------------------------------------------------------------
-- name: Mirror Community Operator Images (This may take several minutes)
-  shell: >
-    oc adm catalog mirror -a {{ ansible_env.HOME }}/.airgap/auth/auth.json registry.redhat.io/redhat/community-operator-index:v{{ openshift_operators_version }} {{ registry_public_host }}:{{ registry_public_port }}/redhat --insecure=true \
-    | tee {{ log_dir }}/catalog-mirror-community-{{ openshift_operators_version }}.log
-  register: mirror_result
-
-- name: "Debug Mirror"
-  debug:
-    msg: "{{ mirror_result.stdout_lines }}"
-
-# 7. Mirror Certified Operator Images
-# -----------------------------------------------------------------------------
-- name: Mirror Certified Operator Images (This may take several minutes)
-  shell: >
-    oc adm catalog mirror -a {{ ansible_env.HOME }}/.airgap/auth/auth.json registry.redhat.io/redhat/certified-operator-index:v{{ openshift_operators_version }} {{ registry_public_host }}:{{ registry_public_port }}/redhat --insecure=true \
-    | tee {{ log_dir }}/catalog-mirror-certified-{{ openshift_operators_version }}.log
-  register: mirror_result
-
-- name: "Debug Mirror"
-  debug:
-    msg: "{{ mirror_result.stdout_lines }}"
-
-# 8. Mirror RedHat Marketplace Images
-# -----------------------------------------------------------------------------
-- name: Mirror RedHat Marketplace Images (This may take several minutes)
-  shell: >
-    oc adm catalog mirror -a {{ ansible_env.HOME }}/.airgap/auth/auth.json registry.redhat.io/redhat/redhat-marketplace-index:v{{ openshift_operators_version }} {{ registry_public_host }}:{{ registry_public_port }}/redhat --insecure=true \
-    | tee {{ log_dir }}/catalog-mirror-marketplace-{{ openshift_operators_version }}.log
-  register: mirror_result
-
-- name: "Debug Mirror"
-  debug:
-    msg: "{{ mirror_result.stdout_lines }}"
+# We can't even get mirroring to-filesystem working ... other mirror modes are not even implemented right now, and this entire role will be "hidden" until we are able to verify it/get it working and re-tested.
