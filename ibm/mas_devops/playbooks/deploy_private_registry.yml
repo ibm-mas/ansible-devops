@@ -1,0 +1,25 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+
+  pre_tasks:
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'REGISTRY_STORAGE_CLASS') != ""
+          - lookup('env', 'REGISTRY_USERNAME') != ""
+          - lookup('env', 'REGISTRY_PASSWORD') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    # 1. Dependencies
+    # -------------------------------------------------------------------------
+    # Certificate manager is used to generate and manage the certificate used by
+    # the registry, so we must install IBM common services
+    - ibm.mas_devops.ibm_catalogs
+    - ibm.mas_devops.common_services
+    - ibm.mas_devops.cert_manager
+
+    # 2. Deploy a private docker registry
+    # -------------------------------------------------------------------------
+    - ibm.mas_devops.registry

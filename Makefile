@@ -7,8 +7,8 @@
 build:
 	ansible-galaxy collection build --output-path . ibm/mas_devops --force
 install:
-	ansible-galaxy collection install ibm-mas_devops-11.0.0.tar.gz --force --no-deps
+	ansible-galaxy collection install ibm-mas_devops-13.0.0.tar.gz --force --no-deps
 clean:
-	rm ibm-mas_devops-11.0.0.tar.gz
+	rm ibm-mas_devops-13.0.0.tar.gz
 
 all: build install
