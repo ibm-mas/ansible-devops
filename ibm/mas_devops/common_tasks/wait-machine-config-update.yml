@@ -1,0 +1,43 @@
+---
+# 1. Wait for node pools to start updating
+# -----------------------------------------------------------------------------
+- name: Wait for node pools to start updating
+  kubernetes.core.k8s_info:
+    api_version: machineconfiguration.openshift.io/v1
+    kind: MachineConfigPool
+    name: "{{ item }}"
+    wait: yes
+    wait_sleep: 5
+    wait_timeout: 15 # give 15 seconds for the machines to start updating, if necessary
+    wait_condition:
+      type: Updating
+      status: 'True'
+  register: _mcp
+  ignore_errors: true
+  loop:
+    - "worker"
+    - "master"
+
+
+# 2. Wait for node pools to finish updating
+# -----------------------------------------------------------------------------
+- name: Wait for node pools to finish updating
+  kubernetes.core.k8s_info:
+    api_version: machineconfiguration.openshift.io/v1
+    kind: MachineConfigPool
+    name: "{{ item }}"
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 60 # 1 min wait
+    wait_condition:
+      type: Updated
+      status: 'True'
+  register: _mcp
+  retries: 30 # Approx 1 hour
+  delay: 2 # minutes
+  until:
+    - _mcp.resources is defined
+    - _mcp.resources | length > 0
+  loop:
+    - "worker"
+    - "master"
