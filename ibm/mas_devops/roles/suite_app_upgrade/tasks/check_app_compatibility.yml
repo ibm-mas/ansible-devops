@@ -61,19 +61,17 @@
     label_selectors:
       - "operators.coreos.com/{{ mas_app_fqn }}.{{ mas_app_namespace }}"
   register: opcon
+  retries: 10
+  delay: 1 # minutes
+  until:
+    - opcon.resources is defined
+    - opcon.resources | length == 1
+    - opcon.resources[0].metadata.name is defined
 
 - name: "{{ mas_app_id }} : Debug OperatorCondition"
   when: app_sub_info.resources[0].spec.channel != mas_app_channel
   debug:
     var: opcon
-
-- name: "{{ mas_app_id }} : Check that the OperatorCondition was found"
-  when: app_sub_info.resources[0].spec.channel != mas_app_channel
-  assert:
-    that:
-      - opcon.resources is defined
-      - opcon.resources | length == 1
-      - opcon.resources[0].metadata.name is defined
 
 
 # 3. Set the operator version

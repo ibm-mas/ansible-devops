@@ -51,19 +51,17 @@
     label_selectors:
       - "operators.coreos.com/ibm-mas.{{ mas_namespace }}"
   register: opcon
+  retries: 10
+  delay: 1 # minutes
+  until:
+    - opcon.resources is defined
+    - opcon.resources | length == 1
+    - opcon.resources[0].metadata.name is defined
 
 - name: "core : Debug OperatorCondition"
   when: suite_sub_info.resources[0].spec.channel != mas_channel
   debug:
     var: opcon
-
-- name: "core : Check that the OperatorCondition was found"
-  when: suite_sub_info.resources[0].spec.channel != mas_channel
-  assert:
-    that:
-      - opcon.resources is defined
-      - opcon.resources | length == 1
-      - opcon.resources[0].metadata.name is defined
 
 
 # 3. Set the operator version

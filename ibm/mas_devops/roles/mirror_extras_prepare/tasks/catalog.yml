@@ -1,0 +1,62 @@
+---
+
+# 1. Check for additional required properties
+# -----------------------------------------------------------------------------
+- name: "catalog : Fail if required properties are not provided"
+  assert:
+    that:
+      - catalog_tag is defined and catalog_tag != ""
+      - catalog_digest is defined and catalog_digest != ""
+    fail_msg: "One or more required properties are missing"
+
+
+- name: "catalog : Load variables"
+  include_vars:
+    file: "catalog.yml"
+
+
+# 2. Debug
+# -----------------------------------------------------------------------------
+- name: "catalog : Airgap setup configuration"
+  debug:
+    msg:
+      - "Catalog Tag ............................ {{ catalog_tag }}"
+      - "Catalog Digest ......................... {{ catalog_digest }}"
+      - "Registry Public Host ................... {{ registry_public_host }}"
+      - "Registry Public Port ................... {{ registry_public_port }}"
+
+
+# 3. Generate mirror-manifest
+# -----------------------------------------------------------------------------
+- name: "catalog : Ensure manifests/to-filesystem directory exists"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/to-filesystem"
+    state: directory
+    recurse: yes
+
+- name: "catalog : Ensure manifests/from-filesystem directory exists"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/from-filesystem"
+    state: directory
+    recurse: yes
+
+- name: "catalog : Ensure manifests/direct directory exists"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/direct"
+    state: directory
+    recurse: yes
+
+- name: "catalog : Generate the mirror manifest (to filesystem)"
+  template:
+    src: to-filesystem.txt.j2
+    dest: "{{ mirror_working_dir }}/manifests/to-filesystem/catalog_{{ catalog_tag }}.txt"
+
+- name: "catalog : Generate the mirror manifest (from filesystem)"
+  template:
+    src: from-filesystem.txt.j2
+    dest: "{{ mirror_working_dir }}/manifests/from-filesystem/catalog_{{ catalog_tag }}.txt"
+
+- name: "catalog : Generate the mirror manifest (direct)"
+  template:
+    src: direct.txt.j2
+    dest: "{{ mirror_working_dir }}/manifests/direct/catalog_{{ catalog_tag }}.txt"

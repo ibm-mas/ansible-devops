@@ -1,0 +1,43 @@
+---
+
+# 1. Check for additional required properties
+# -----------------------------------------------------------------------------
+- name: "{{ extras_name }} : Fail if required properties are not provided"
+  assert:
+    that:
+      - extras_version is defined and extras_version != ""
+    fail_msg: "One or more required properties are missing"
+
+
+- name: "{{ extras_name }} : Load variables"
+  include_vars:
+    file: "{{ extras_name }}_{{ extras_version }}.yml"
+
+
+# 2. Debug
+# -----------------------------------------------------------------------------
+- name: "{{ extras_name }} : Airgap setup configuration"
+  debug:
+    msg:
+      - "Extras Name ............................ {{ extras_name }}"
+      - "Extras Version ......................... {{ extras_version }}"
+      - "Registry Public Host ................... {{ registry_public_host }}"
+      - "Registry Public Port ................... {{ registry_public_port }}"
+
+
+# 3. Generate mirror-manifest
+# -----------------------------------------------------------------------------
+- name: "{{ extras_name }} : Generate the mirror manifest (to filesystem)"
+  template:
+    src: to-filesystem.txt.j2
+    dest: "{{ mirror_working_dir }}/manifests/to-filesystem/extras_{{ extras_name }}_{{ extras_version }}.txt"
+
+- name: "{{ extras_name }} : Generate the mirror manifest (from filesystem)"
+  template:
+    src: from-filesystem.txt.j2
+    dest: "{{ mirror_working_dir }}/manifests/from-filesystem/extras_{{ extras_name }}_{{ extras_version }}.txt"
+
+- name: "{{ extras_name }} : Generate the mirror manifest (direct)"
+  template:
+    src: direct.txt.j2
+    dest: "{{ mirror_working_dir }}/manifests/direct/extras_{{ extras_name }}_{{ extras_version }}.txt"
