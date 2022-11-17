@@ -125,6 +125,48 @@ Currently supported server bundle sizes are:
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
 - Default: `dev`
 
+Role Variables - Predict
+---------------------------------------------
+
+### mas_app_settings_wml_instance_id
+Optional. Identifier of wml instance to be configured in Predict
+
+- Environment Variable: `WML_INSTANCE_ID`
+- Default: `openshift`
+
+### mas_app_settings_wml_url
+Optional. Url to access WML service (same as Cloud Pak for Data url)
+
+- Environment Variable: `WML_URL`
+- Default: `https://internal-nginx-svc.ibm-cpd.svc:12443` (it assumes cpd wml is installed in a namespace called `ibm-cpd`)
+
+### cpd_product_version
+Required when `mas_app_settings_wml_version`is not informed. It is the version of cloud pak for data installed in the cluster. Based on that wml version will be identified. Recommend use of this variable instead of forcing wml version by setting `mas_app_settings_wml_version`
+
+Versions supported are `4.0` and `4.5`
+
+- Environment Variable: `CPD_PRODUCT_VERSION`
+- Default: None
+
+### mas_app_settings_wml_version
+Required when `cpd_product_version`is not informed. Is the version of WML to use.
+
+- Environment Variable: `WML_VERSION`
+- Default: None
+
+### mas_app_settings_predict_deployment_size
+Optional. Controls the workload size of predict containers. Avaliable options are `developer`, `small`, `medium` and `small`
+
+    | Deployment_size        | Replica |
+    | ---------------------- | :--: | 
+    | developer              |  1 | 
+    | small                  |  2 |
+    | medium                 |  3 |
+
+- Environment Variable: `PREDICT_DEPLOYMENT_SIZE`
+- Default: `small`
+
+
 Example Playbook
 ----------------
 
