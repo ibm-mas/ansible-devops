@@ -3,11 +3,20 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/nfd_setup.yml
 
+# 0. Verify that OCP release version is defined
+# -----------------------------------------------------------------------------
+- name: "Check that OCP release is defined"
+  assert:
+    that: ocp_release is defined and ocp_release != ""
+    fail_msg: "ocp_release is required"
+
+
 # 1. Provide Debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
+      - "OCP Release   ...................... {{ ocp_release }}"
       - "GPU Namespace ...................... {{ gpu_namespace }}"
       - "GPU Channel   ...................... {{ gpu_channel }}"
       - "GPU Driver Version ................. {{ gpu_driver_version }}"
@@ -25,8 +34,6 @@
 # 3. Create NVIDIA GPU operator group and subscription
 # -----------------------------------------------------------------------------
 - name: "Create gpu operator group"
-  when:
-    - gpu_namespace != "openshift-operators"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/gpu-operatorgroup.yml.j2') }}"
     wait: yes
@@ -64,9 +71,16 @@
 # 4. Create GPU Cluster Policy
 # -----------------------------------------------------------------------------
 - name: "Create Cluster Policy instance"
+  when: ocp_release == '4.10' or ocp_release == '4.11'
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/clusterpolicy.yml.j2') }}"
+    definition: "{{ lookup('template', 'templates/clusterpolicies/ocp_{{ ocp_release }}.yml.j2') }}"
+
+- name: "Create Cluster Policy instance"
+  when: ocp_release < '4.10'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/clusterpolicies/clusterpolicy.yml.j2') }}"
 
 
 # 5. Wait for Cluster Policy to be ready

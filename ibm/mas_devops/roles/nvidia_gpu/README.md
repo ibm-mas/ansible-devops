@@ -6,12 +6,17 @@ This role installs the **NVIDIA Graphical Processing Unit (GPU)** operator and i
 
 Role Variables
 --------------
+### ocp_release
+Required. The ocp release version for the cluster we are installing on. Eg. 4.10, 4.11, etc. This value would allow us to choose the right cluster policy to use.
+
+- Environment Variable: `OCP_RELEASE`
+- Default Value: none
 
 ### nfd_namespace
 The namespace where the node feature discovery operator will be deployed.
 
 - Environment Variable: `NFD_NAMESPACE`
-- Default Value: `gpu-operator-resources`
+- Default Value: `openshift-nfd`
 
 ### nfd_channel
 The channel to subscribe to for the nfd operator installation and updates. Available channels may be found in the package manifest of nfd operator in openshift.
@@ -20,16 +25,16 @@ The channel to subscribe to for the nfd operator installation and updates. Avail
 - Default Value: `stable`
 
 ### gpu_namespace
-The namespace where the NVIDIA GPU operator will be deployed. For version 1.8.x, use of single namespace is not supported, therefore namespace is defaulted to `openshift-operators`. NVIDIA's suggested namespace to use for versions 1.9.0 and above is `nvidia-gpu-operator`
+The namespace where the NVIDIA GPU operator will be deployed. For version 1.8.x, use of single namespace is not supported, therefore use `openshift-operators`.
 
 - Environment Variable: `GPU_NAMESPACE`
-- Default Value: `openshift-operators`
+- Default Value: `nvidia-gpu-operator`
 
 ### gpu_channel
 The channel to subscribe to for the gpu operator installation and updates. Available channels may be found in the package manifest of gpu-operator-certified operator in openshift.
 
 - Environment Variable: `GPU_CHANNEL`
-- Default Value: `v1.8`
+- Default Value: `v1.11`
 
 ### gpu_driver_version
 The gpu driver version image that needs to be pulled from the gpu repository. It is recommended that the right version if GPU driver is used. The MVI installation documentation, the default version below should be used.
@@ -51,7 +56,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   roles:
-    - ibm.mas_devops.gpu_install
+    - ibm.mas_devops.nvidia_gpu
 ```
 
 
