@@ -13,7 +13,7 @@ Required. Defines the instance id that was used for the MAS installation. It is 
 - Default Value: None
 
 ### dbc_script_path_local
-Optional. Defines the local path/folder where the DBC script files should be located in order to the loaded onto the Manage server.
+Optional. Defines the local path/folder where the DBC script files should be located in order to be loaded onto the Manage server.
 
 - Environment Variable: `DBC_SCRIPT_PATH_LOCAL`
 - Default Value: `mas_load_dbc_scripts/files`
