@@ -6,11 +6,6 @@ This role installs the **NVIDIA Graphical Processing Unit (GPU)** operator and i
 
 Role Variables
 --------------
-### ocp_release
-Required. The ocp release version for the cluster we are installing on. Eg. 4.10, 4.11, etc. This value would allow us to choose the right cluster policy to use.
-
-- Environment Variable: `OCP_RELEASE`
-- Default Value: none
 
 ### nfd_namespace
 The namespace where the node feature discovery operator will be deployed.
