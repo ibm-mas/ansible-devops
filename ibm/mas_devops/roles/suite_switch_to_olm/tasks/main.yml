@@ -1,0 +1,134 @@
+---
+# tasks file for suite_switch_to_olm
+
+# 1. Fail if required properties are not provided
+# -----------------------------------------------------------------------------
+- name: Assert that mas_instance_id is defined
+  assert:
+    that:
+      - mas_instance_id is defined
+      - mas_instance_id != ''
+    fail_msg: "mas_instance_id is not defined"
+
+- name: Assert that mas_upgrade_strategy is defined
+  assert:
+    that:
+      - mas_upgrade_strategy is defined
+      - mas_upgrade_strategy != ''
+    fail_msg: "mas_upgrade_strategy is not defined"
+
+# 2. Debug information
+# -----------------------------------------------------------------------------
+- name: Debug Information
+  debug:
+    msg:
+      - "MAS Instance ID ........ {{ mas_instance_id }}"
+      - "MAS Upgrade Strategy ... {{ mas_upgrade_strategy }}"
+
+# 3. Lookup for Suite deployed Instance
+# -----------------------------------------------------------------------------
+- name: Lookup Currently MAS Instance
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Suite
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_namespace }}"
+  register: _mas_installed_instance
+
+# 4. Fail if can't find the requested instance
+# -----------------------------------------------------------------------------
+- name: Fail if Provided MAS Instance Id cannot be found
+  fail:
+    msg: "MAS Instance Id is not defined"
+  when: _mas_installed_instance.resources | length == 0
+
+
+# 5. Cleanup MAS Operator Deployment
+# -----------------------------------------------------------------------------
+- name: Delete MAS Operator Deployment
+  community.kubernetes.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: Deployment
+      metadata:
+        namespace: "{{mas_namespace}}"
+        name: ibm-mas-operator
+
+
+# 6. Cleanup MAS TM Operator Deployment
+# -----------------------------------------------------------------------------
+- name: Delete TM Operator Deployment
+  community.kubernetes.k8s:
+    state: absent
+    definition:
+      apiVersion: v1
+      kind: Deployment
+      metadata:
+        namespace: "{{mas_namespace}}"
+        name: ibm-truststore-mgr-controller-manager
+
+# 7. Define MAS Channel
+# -----------------------------------------------------------------------------
+- name: Set MAS Deployed Version
+  set_fact:
+    mas_channel: "{{_mas_installed_instance.resources[0].status.versions.reconciled[:3]}}.x"
+    mas_starting_csv: "ibm-mas.v{{_mas_installed_instance.resources[0].status.versions.reconciled}}"
+
+- debug:
+    msg:
+      - "{{ mas_channel }}"
+      - "{{ mas_starting_csv }}"
+
+# 8. Install MAS Operator Using OLM
+# -----------------------------------------------------------------------------
+- name: "Install MAS Operator"
+  include_role:
+    name: ibm.mas_devops.install_operator
+  vars:
+    namespace: "{{ mas_namespace }}"
+    icr_host: "{{ mas_icr_cp }}"
+    icr_username: "{{ mas_entitlement_username }}"
+    icr_password: "{{ mas_entitlement_key }}"
+    catalog_source: "{{ mas_catalog_source }}"
+    operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
+    subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
+
+- name: Lookup and Approve MAS Subscription
+  block:
+    - name: Lookup Operator install plan
+      community.kubernetes.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: InstallPlan
+        namespace: "{{ mas_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/ibm-mas.{{ mas_namespace }}"
+      register: mas_install_plan
+      retries: 20
+      delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+      until: mas_install_plan.resources | length > 0
+
+    - name: Approve the subscription install plan
+      when:
+        - mas_install_plan.resources | length > 0
+        - mas_install_plan.resources[0].status.phase != "Complete"
+      community.kubernetes.k8s:
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: InstallPlan
+          metadata:
+            name: "{{ mas_install_plan.resources[0].metadata.name }}"
+            namespace: "{{ mas_namespace }}"
+          spec:
+            approved: true
+  when:
+    - mas_upgrade_strategy == 'Manual'
+
+# 9. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
+# -----------------------------------------------------------------------------
+# ibm-common-services operators deployed by MAS will inherit the inherit MAS upgrade strategy
+# when its set to Manual, we need to interate those to ensure we do approve the first install plan
+# otherwise MAS installation wont succeed.
+- include_tasks: tasks/ibm-common-services.yml
+  when: mas_upgrade_strategy == 'Manual'
+  loop: "{{ ibm_common_services_subscription_labels }}"
