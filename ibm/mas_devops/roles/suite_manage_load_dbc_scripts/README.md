@@ -1,4 +1,4 @@
-mas_load_dbc_scripts
+suite_manage_load_dbc_scripts
 ================
 
 This role allows to load and execute one or more ad-hoc DBC script files into Manage server. Only `dbc` format files will be accepted. 
@@ -16,7 +16,7 @@ Required. Defines the instance id that was used for the MAS installation. It is 
 Optional. Defines the local path/folder where the DBC script files should be located in order to be loaded onto the Manage server.
 
 - Environment Variable: `DBC_SCRIPT_PATH_LOCAL`
-- Default Value: `mas_load_dbc_scripts/files`
+- Default Value: `suite_manage_load_dbc_scripts/files`
 
 Example Playbook
 ----------------
@@ -28,7 +28,7 @@ Example Playbook
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
     dbc_script_path_local: "{{ lookup('env', 'DBC_SCRIPT_PATH_LOCAL') }}"
   roles:
-    - ibm.mas_devops.mas_load_dbc_scripts
+    - ibm.mas_devops.suite_manage_load_dbc_scripts
 ```
 
 License

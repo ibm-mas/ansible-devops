@@ -63,6 +63,7 @@ copyDoc suite_install
 copyDoc suite_install_digest_cm
 copyDoc suite_manage_attachments_config
 copyDoc suite_manage_bim_config
+copyDoc suite_manage_load_dbc_scripts
 copyDoc suite_mustgather
 copyDoc suite_mustgather_download
 copyDoc suite_upgrade
