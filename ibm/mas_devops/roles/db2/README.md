@@ -206,21 +206,21 @@ Define the Kubernetes CPU request for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_CPU_REQUESTS`
-- Default: `2000m`
+- Default: `4000m`
 
 ### db2_cpu_limits
 Define the Kubernetes CPU limit for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_CPU_LIMITS`
-- Default: `4000m`
+- Default: `6000m`
 
 ### db2_memory_requests
 Define the Kubernetes memory request for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_MEMORY_REQUESTS`
-- Default: `6Gi`
+- Default: `8Gi`
 
 ### db2_memory_limits
 Define the Kubernetes memory limit for the Db2 pod.
@@ -266,7 +266,7 @@ registry:
   DB2_WORKLOAD: '{{ db2_workload }}'
 ```
 
-### db2_database_db_config: 
+### db2_database_db_config:
 Overwrites the db2ucluster database configuration settings under `spec.environment.database.dbConfig` section.
 You can define parameters to be included in this section using semicolon separated values.
 
@@ -276,7 +276,7 @@ Example: `export DB2_DATABASE_DB_CONFIG='APPLHEAPSZ=8192 AUTOMATIC'`
 - Environment Variable: `'DB2_DATABASE_DB_CONFIG'`
 - Default: None
 
-### db2_instance_dbm_config: 
+### db2_instance_dbm_config:
 Overwrites the db2ucluster instance database configuration settings under `spec.environment.instance.dbmConfig` section.
 You can define parameters to be included in this section using semicolon separated values.
 
@@ -286,7 +286,7 @@ Example: `export DB2_INSTANCE_DBM_CONFIG='INSTANCE_MEMORY=AUTOMATIC'`
 - Environment Variable: `'DB2_INSTANCE_DBM_CONFIG'`
 - Default: None
 
-### db2_instance_registry: 
+### db2_instance_registry:
 Overwrites the db2ucluster instance database configuration settings under `spec.environment.instance.registry` section.
 You can define parameters to be included in this section using semicolon separated values.
 
