@@ -17,6 +17,15 @@
   set_fact:
     ocp_version_num: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
 
+- name: "Set gpu driver version default for ocp 4.11"
+  when: ocp_version_num is regex('^4.11.*')
+  set_fact:
+    gpu_driver_version: "{{ ocp_411_driver_version }}"
+
+- name: "Set gpu driver version for other ocp versions"
+  when: ocp_version_num is version('4.11.0', '<')
+  set_fact:
+    gpu_driver_version: "{{ ocp_410_driver_version }}"
 
 # 1. Provide Debug information
 # -----------------------------------------------------------------------------
@@ -77,23 +86,13 @@
 
 # 4. Create GPU Cluster Policy
 # -----------------------------------------------------------------------------
-- name: "Set gpu driver version default for ocp 4.11"
-  when: ocp_version_num is regex('^4.11.*')
-  set_fact:
-    gpu_driver_version_default: "{{ gpu_driver_version | default('ocp_411_driver_version') }}"
-
-- name: "Set gpu driver version for other ocp versions"
-  when: ocp_version_num is version('4.11.0', '<')
-  set_fact:
-    gpu_driver_version_default: "{{ gpu_driver_version | default('ocp_410_driver_version') }}"
-
 - name: "Create Cluster Policy instance if ocp 4.10 or 4.11"
   when: ocp_version_num is regex('^4.10.*') or ocp_version_num is regex('^4.11.*')
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/clusterpolicies/ocp_{{ ocp_version_num[:4] }}.yml.j2') }}"
 
-- name: "Create Cluster Policy instance (other ocp versions)"
+- name: "Create Cluster Policy instance (other ocp versions < 4.10)"
   when: ocp_version_num is version('4.10.0', '<')
   kubernetes.core.k8s:
     apply: yes

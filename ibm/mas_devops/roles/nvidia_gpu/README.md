@@ -34,7 +34,7 @@ The channel to subscribe to for the gpu operator installation and updates. Avail
 ### gpu_driver_version
 The gpu driver version image that needs to be pulled from the gpu repository. It is recommended that the right version if GPU driver is used. The MVI installation documentation, the default version below should be used.
 
-- Environment Variable: `GPU_DRIVER_VERSION`
+- Environment Variable: none
 - Default Value: `470.103.01` if ocp version 4.11 and `450.80.02` otherwise
 
 
