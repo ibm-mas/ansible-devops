@@ -1,0 +1,79 @@
+---
+# 1. Fail if required parameters are not set
+# -----------------------------------------------------------------------------
+- name: "Fail if digest_image_map_namespace has not been provided"
+  assert:
+    that:
+      - digest_image_map_namespace is defined and digest_image_map_namespace != ""
+      - case_name is defined and case_name != ""
+      - case_version is defined and case_version != ""
+    fail_msg: "Required properties have not been set"
+
+
+# 2. Setup Properties
+# -----------------------------------------------------------------------------
+- name: "Initialize facts (1/2)"
+  set_fact:
+    digest_image_map_name: "{{ case_name }}-image-map"
+    digest_image_map_file: "{{ role_path }}/../../common_vars/digests/{{ case_name }}/{{ case_version }}.yaml"
+    digest_image_map_label: "mas.ibm.com/{{ case_name }}-{{ case_version }}"
+
+# Manage v8.4.0-8.4.2, Visual Inspection v8.6.0, optimizer v8.2.0, Safety v8.3.0 all reference the wrong config map name
+- name: "Workaround for bug in ibm-mas-manage v8.4.0-8.4.2"
+  when: case_name == "ibm-mas-manage" and (case_version == "8.4.0" or case_version == "8.4.1" or case_version == "8.4.2")
+  set_fact:
+    digest_image_map_name: "ibm-manage-image-map"
+
+- name: "Workaround for bug in ibm-mas-visualinspection v8.6.0"
+  when: case_name == "ibm-mas-visualinspection" and case_version == "8.6.0"
+  set_fact:
+    digest_image_map_name: "ibm-visualinspection-image-map"
+
+- name: "Workaround for bug in ibm-mas-optimizer v8.2.0"
+  when: case_name == "ibm-mas-optimizer" and case_version == "8.2.0"
+  set_fact:
+    digest_image_map_name: "ibm-optimizer-image-map"
+
+- name: "Workaround for bug in ibm-mas-safety v8.3.0"
+  when: case_name == "ibm-mas-safety" and case_version == "8.3.0"
+  set_fact:
+    digest_image_map_name: "ibm-safety-image-map"
+
+- name: "Debug Image Digest Config Map"
+  debug:
+    msg:
+      - "Namespace .......................... {{ digest_image_map_namespace }}"
+      - "Case Name .......................... {{ case_name }}"
+      - "Case Version ....................... {{ case_version }}"
+      - "Digest Map Name .................... {{ digest_image_map_name }}"
+      - "Digest Map Local File .............. {{ digest_image_map_file }}"
+      - "Digest Map Label ................... {{ digest_image_map_label }}"
+
+- name: "Initialize facts (2/2)"
+  set_fact:
+    digest_image_map_data: "{{ lookup('file', digest_image_map_file) }}"
+
+- name: "Look for an existing image map"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "{{ digest_image_map_name }}"
+    kind: ConfigMap
+    namespace: "{{ digest_image_map_namespace }}"
+  register: existing_digest_cm
+
+
+# 3a. Merge with the existing Digest Image Map
+# -----------------------------------------------------------------------------
+- name: "Merge with existing image map"
+  when:
+    - existing_digest_cm.resources is defined
+    - existing_digest_cm.resources | length > 0
+    - (existing_digest_cm.resources[0].metadata.labels is defined and digest_image_map_label is not in existing_digest_cm.resources[0].metadata.labels) or existing_digest_cm.resources[0].metadata.labels is not defined
+  include_tasks: actions/merge.yml
+
+
+# 3b. Install the new Digest Image Map
+# -----------------------------------------------------------------------------
+- name: "Create new image map"
+  when: (existing_digest_cm.resources is defined and existing_digest_cm.resources | length == 0) or existing_digest_cm.resources is not defined
+  include_tasks: actions/new.yml

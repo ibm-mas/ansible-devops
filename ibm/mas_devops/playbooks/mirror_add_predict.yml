@@ -1,0 +1,162 @@
+---
+# Mirrors the following content which is REQUIRED to add Maximo Predict to an existing
+# Maximo Application Suite Core Services installation:
+# 1. CP4D
+# 2. IBM Zen
+# 3. Watson Studio
+# 4. Watson Machine Learning
+# 5. Analytics Engine
+# 6. IBM Maximo Predict
+#
+# This playbook aligns with the ibm.mas_devops.oneclick_add_predict playbook
+
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-221025-amd64', True) }}"
+    mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
+
+    # mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('True', True) | bool }}"
+    # mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('True', True) | bool }}"
+    # mirror_wml: "{{ lookup('env', 'MIRROR_WML') | default ('True', True) | bool }}"
+    # mirror_ae: "{{ lookup('env', 'MIRROR_AE') | default ('True', True) | bool }}"
+
+    mirror_mas_predict: "{{ lookup('env', 'MIRROR_MAS_PREDICT') | default ('True', True) | bool }}"
+
+  pre_tasks:
+    # Note that REGISTRY_USERNAME and REGISTRY_PASSWORD are not required.
+    # They are only needed if you have set up authentication on your private registry
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'REGISTRY_PUBLIC_HOST') != ""
+          - lookup('env', 'REGISTRY_PUBLIC_PORT') != ""
+          - lookup('env', 'IBM_ENTITLEMENT_KEY') != ""
+        fail_msg: "One or more required environment variables are not defined"
+    - name: Load CASE bundle versions
+      include_vars:
+        file: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
+
+  roles:
+    # # 1. CP4D
+    # # -------------------------------------------------------------------------
+    # - name: ibm.mas_devops.case_prepare
+    #   when: mirror_cp4d
+    #   vars:
+    #     case_name: ibm-cp-datacore
+    #     case_version: "{{ cp4d_version }}"
+    #     exclude_images:
+    #       - ibm-analyticsengine
+    #       - ibm-bigsql-case
+    #       - ibm-ccs
+    #       - ibm-cde
+    #       - ibm-cpd-scheduling
+    #       - ibm-datagate-prod
+    #       - ibm-datarefinery
+    #       - ibm-db2aaservice
+    #       - ibm-db2uoperator
+    #       - ibm-db2wh
+    #       - ibm-dmc
+    #       - ibm-dods
+    #       - ibm-dp
+    #       - ibm-dv-case
+    #       - ibm-hadoop
+    #       - ibm-iis
+    #       - ibm-mdm
+    #       - ibm-rstudio
+    #       - ibm-spss
+    #       - ibm-watson-openscale
+    #       - ibm-wkc
+    #       - ibm-wml-accelerator
+    #       - ibm-wml-cpd
+    #       - ibm-wsl
+    #       - ibm-zen
+
+    # - name: ibm.mas_devops.case_mirror
+    #   when: mirror_cp4d
+    #   vars:
+    #     case_name: ibm-cp-datacore
+    #     case_version: "{{ cp4d_version }}"
+    #     case_inventory_name: "cpdPlatformOperator"
+
+    # # 2. Zen Services
+    # # -------------------------------------------------------------------------
+    # - name: ibm.mas_devops.case_prepare
+    #   when: mirror_cp4d
+    #   vars:
+    #     case_name: ibm-zen
+    #     case_version: "{{ zen_version }}"
+    #     exclude_images: []
+
+    # - name: ibm.mas_devops.case_mirror
+    #   when: mirror_cp4d
+    #   vars:
+    #     case_name: ibm-zen
+    #     case_version: "{{ zen_version }}"
+    #     case_inventory_name: "zen_deploy"
+
+    # # 3. IBM Watson Studio
+    # # -------------------------------------------------------------------------
+    # - name: ibm.mas_devops.case_prepare
+    #   when: mirror_wsl
+    #   vars:
+    #     case_name: ibm-wsl
+    #     case_version: "{{ wsl_version }}"
+    #     exclude_images: []
+
+    # - name: ibm.mas_devops.case_mirror
+    #   when: mirror_wsl
+    #   vars:
+    #     case_name: ibm-wsl
+    #     case_version: "{{ wsl_version }}"
+    #     case_inventory_name: "wslSetup"
+
+    # # 4. IBM Watson Machine Learning
+    # # -------------------------------------------------------------------------
+    # - name: ibm.mas_devops.case_prepare
+    #   when: mirror_wml
+    #   vars:
+    #     case_name: ibm-wml-cpd
+    #     case_version: "{{ wml_version }}"
+    #     exclude_images: []
+
+    # - name: ibm.mas_devops.case_mirror
+    #   when: mirror_wml
+    #   vars:
+    #     case_name: ibm-wml-cpd
+    #     case_version: "{{ wml_version }}"
+    #     case_inventory_name: "wmlOperatorSetup"
+
+    # # 5. Analytics Engine
+    # # -------------------------------------------------------------------------
+    # - name: ibm.mas_devops.case_prepare
+    #   when: mirror_ae
+    #   vars:
+    #     case_name: ibm-analyticsengine
+    #     case_version: "{{ ae_version }}"
+    #     exclude_images: []
+
+    # - name: ibm.mas_devops.case_mirror
+    #   when: mirror_ae
+    #   vars:
+    #     case_name: ibm-analyticsengine
+    #     case_version: "{{ ae_version }}"
+    #     case_inventory_name: "analyticsengineOperatorSetup"
+
+    # 6. IBM Maximo Predict
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_mas_predict
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-mas-predict
+        case_version: "{{ mas_predict_version }}"
+        exclude_images: []
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_mas_predict
+      vars:
+        manifest_name: ibm-mas-predict
+        manifest_version: "{{ mas_predict_version }}"

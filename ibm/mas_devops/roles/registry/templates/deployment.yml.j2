@@ -1,0 +1,56 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airgap-registry
+  namespace: "{{ registry_namespace }}"
+  labels:
+    app: airgap-registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airgap-registry
+  template:
+    metadata:
+      labels:
+        app: airgap-registry
+    spec:
+      # -----------------------------------------------------------------------
+      containers:
+        - image: registry:2
+          name: airgap-registry
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REGISTRY_AUTH
+              value: "htpasswd"
+            - name: REGISTRY_AUTH_HTPASSWD_REALM
+              value: "Maximo Application Suite Private Registry"
+            - name: REGISTRY_AUTH_HTPASSWD_PATH
+              value: "/auth/htpasswd"
+            - name: REGISTRY_HTTP_TLS_CERTIFICATE
+              value: "/certs/tls.crt"
+            - name: REGISTRY_HTTP_TLS_KEY
+              value: "/certs/tls.key"
+          ports:
+            - containerPort: 5000
+          volumeMounts:
+            - name: registry-vol
+              mountPath: /var/lib/registry
+            - name: tls-vol
+              mountPath: /certs
+              readOnly: true
+            - name: auth-vol
+              mountPath: "/auth"
+              readOnly: true
+      # -----------------------------------------------------------------------
+      volumes:
+        - name: registry-vol
+          persistentVolumeClaim:
+            claimName: airgap-registry-storage
+        - name: tls-vol
+          secret:
+            secretName: airgap-registry-certificate
+        - name: auth-vol
+          secret:
+            secretName: airgap-registry-auth
