@@ -16,6 +16,7 @@
   set_fact:
     digest_image_map_name: "{{ case_name }}-image-map"
     digest_image_map_file: "{{ role_path }}/../../common_vars/digests/{{ case_name }}/{{ case_version }}.yaml"
+    digest_image_map_label: "mas.ibm.com/{{ case_name }}-{{ case_version }}"
 
 # Manage v8.4.0-8.4.2, Visual Inspection v8.6.0, optimizer v8.2.0, Safety v8.3.0 all reference the wrong config map name
 - name: "Workaround for bug in ibm-mas-manage v8.4.0-8.4.2"
@@ -38,7 +39,6 @@
   set_fact:
     digest_image_map_name: "ibm-safety-image-map"
 
-
 - name: "Debug Image Digest Config Map"
   debug:
     msg:
@@ -47,14 +47,33 @@
       - "Case Version ....................... {{ case_version }}"
       - "Digest Map Name .................... {{ digest_image_map_name }}"
       - "Digest Map Local File .............. {{ digest_image_map_file }}"
+      - "Digest Map Label ................... {{ digest_image_map_label }}"
 
-
-# 3. Install the Digest Image Map
-# -----------------------------------------------------------------------------
 - name: "Initialize facts (2/2)"
   set_fact:
     digest_image_map_data: "{{ lookup('file', digest_image_map_file) }}"
 
-- name: "Install digest config maps"
-  kubernetes.core.k8s:
-    template: 'templates/configmap.yml.j2'
+- name: "Look for an existing image map"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "{{ digest_image_map_name }}"
+    kind: ConfigMap
+    namespace: "{{ digest_image_map_namespace }}"
+  register: existing_digest_cm
+
+
+# 3a. Merge with the existing Digest Image Map
+# -----------------------------------------------------------------------------
+- name: "Merge with existing image map"
+  when:
+    - existing_digest_cm.resources is defined
+    - existing_digest_cm.resources | length > 0
+    - (existing_digest_cm.resources[0].metadata.labels is defined and digest_image_map_label is not in existing_digest_cm.resources[0].metadata.labels) or existing_digest_cm.resources[0].metadata.labels is not defined
+  include_tasks: actions/merge.yml
+
+
+# 3b. Install the new Digest Image Map
+# -----------------------------------------------------------------------------
+- name: "Create new image map"
+  when: (existing_digest_cm.resources is defined and existing_digest_cm.resources | length == 0) or existing_digest_cm.resources is not defined
+  include_tasks: actions/new.yml
