@@ -1,0 +1,62 @@
+
+---
+# 1. Lookup IBM Cloud Resource Group GUID
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "ibm : Retrieve resource group guid"
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
+- name: "ibm : Debug group GUID"
+  when:
+      - rg_info.resource.id is defined
+  debug:
+    msg:
+      - "Resource Group GUID ... {{ rg_info.resource.id }}"
+
+- name: "ibm : Set resource group guid variable"
+  when:
+    - rg_info.resource.id is defined
+  set_fact:
+    resourceGID: "{{ rg_info.resource.id }}"
+
+# 2. Deprovision COS instance
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "ibm : Retrieve cos instance Info"
+  ibm.cloudcollection.ibm_resource_instance_info:
+    name: "{{ ibmcos_instance_name }}"
+    resource_group_id: "{{ resourceGID }}"
+    service: "cloud-object-storage"
+    location: "{{ ibmcos_location_info }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+  register: cos_info
+
+- name: "ibm : Debug IBMCOS resource ID"
+  when: cos_info.resource.id is defined
+  debug:
+    msg: "COS Instance resource ID ... {{ cos_info.resource.id }}"
+
+- name: "ibm: Set resource instance id variable"
+  when: cos_info.resource.id is defined
+  set_fact:
+    ibmcos_resource_id: "{{ cos_info.resource.id }}"
+
+- name: "ibm : Deprovision cos instance"
+  when: 
+    - ibmcos_resource_id is defined
+    - ibmcos_resource_id != '' 
+  ibm.cloudcollection.ibm_resource_instance:
+    name: "{{ ibmcos_instance_name }}"
+    id: "{{ ibmcos_resource_id }}"
+    resource_group_id: "{{ resourceGID }}"
+    service: "cloud-object-storage"
+    plan: "{{ ibmcos_plan_type }}"
+    location: "{{ ibmcos_location_info }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    state: absent
+  register: cos_deprovision_output
+
+- name: "ibm : Deprovision debug"
+  debug:
+    msg: "{{ cos_deprovision_output }}"
