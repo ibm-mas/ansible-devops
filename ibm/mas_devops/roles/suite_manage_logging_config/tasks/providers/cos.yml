@@ -13,12 +13,6 @@
 
 # 1. Determine the instance name
 # ---------------------------------------------------------------------------------------------------------------------
-- name: Customize CoS bucket name for Manage attachments
-  when:
-    - ibmcos_attachments_bucket_name == "maxdoc"
-  set_fact:
-    ibmcos_attachments_bucket_name: "{{ 'maxdoc-' + mas_instance_id }}"
-
 - name: "ibm : Debug general info"
   debug:
     msg:
@@ -26,9 +20,9 @@
       - "IBM COS url ........................ {{ ibmcos_url }}"
       - "IBM COS instance name .............. {{ ibmcos_instance_name }}"
       - "IBM COS location info .............. {{ ibmcos_location_info }}"
-      - "IBM COS bucket name ................ {{ ibmcos_attachments_bucket_name }}"
-      - "IBM COS bucket storage class........ {{ ibmcos_attachments_bucket_storage_class }}"
-      - "IBM COS bucket location ............ {{ ibmcos_attachments_bucket_location }}"
+      - "IBM COS bucket name ................ {{ ibmcos_logging_bucket_name }}"
+      - "IBM COS bucket storage class........ {{ ibmcos_logging_bucket_storage_class }}"
+      - "IBM COS bucket location ............ {{ ibmcos_logging_bucket_location }}"
 
 # 2. Lookup IBM Cloud Resource Group GUID
 # ---------------------------------------------------------------------------------------------------------------------
@@ -74,15 +68,15 @@
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "Create IBM COS service credential for this MAS instance"
   ibm.cloudcollection.ibm_resource_key:
-    name: "{{ mas_instance_id }}-attachments-key"
-    role: "{{ ibmcos_attachments_resource_key_iam_role }}"
+    name: "{{ mas_instance_id }}-logging-key"
+    role: "{{ ibmcos_logging_resource_key_iam_role }}"
     resource_instance_id: "{{ ibmcos_resource_id }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
     parameters: {'HMAC': true }
 
 - name: "Retrieve IBM COS service credential for this MAS instance"
   ibm.cloudcollection.ibm_resource_key_info:
-    name: "{{ mas_instance_id }}-attachments-key"
+    name: "{{ mas_instance_id }}-logging-key"
     resource_instance_id: "{{ ibmcos_resource_id }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
   register: cos_key_info
@@ -97,24 +91,24 @@
   set_fact:
     ibmcos_secret_access_key: "{{ cos_key_info.resource.credentials['cos_hmac_keys.secret_access_key'] }}"
 
-- name: "Debug COS Resource Information needed to configure Manage attachments"
+- name: "Debug COS Resource Information needed to configure Manage logging"
   debug:
     msg:
-      - "IBM COS Bucket Name .......... {{ ibmcos_attachments_bucket_name }}"
+      - "IBM COS Bucket Name .......... {{ ibmcos_logging_bucket_name }}"
       - "IBM COS Access Key ID ........ {{ ibmcos_access_key_id }}"
       - "IBM COS Secret Access Key .... {{ ibmcos_secret_access_key }}"
-      - "IBM COS Resource Key Role .... {{ ibmcos_attachments_resource_key_iam_role }}"
+      - "IBM COS Resource Key Role .... {{ ibmcos_logging_resource_key_iam_role }}"
       - "IBM COS url .................. {{ ibmcos_url }}"
 
 # 5. Create COS bucket
 # ---------------------------------------------------------------------------------------------------------------------
-- name: "Lookup IBM COS bucket named '{{ ibmcos_attachments_bucket_name }}' in COS instance '{{ ibmcos_instance_name }}'"
+- name: "Lookup IBM COS bucket named '{{ ibmcos_logging_bucket_name }}' in COS instance '{{ ibmcos_instance_name }}'"
   ibm.cloudcollection.ibm_cos_bucket_info:
     resource_instance_id: "{{ ibmcos_resource_id }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
-    bucket_name: "{{ ibmcos_attachments_bucket_name }}"
+    bucket_name: "{{ ibmcos_logging_bucket_name }}"
     bucket_type: "cross_region_location"
-    bucket_region: "{{ ibmcos_attachments_bucket_location }}"
+    bucket_region: "{{ ibmcos_logging_bucket_location }}"
   register: cos_bucket_lookup
   ignore_errors: true # for some reason if bucket does not exist, 'ibm_cos_bucket_info' module fails, might be a bug.
 
@@ -122,18 +116,23 @@
   debug:
     msg: "IBM COS Bucket Info ... {{ cos_bucket_lookup }}"
 
-- name: "Create COS bucket to store Manage attachments if it does not exist"
+- name: "Create COS bucket to store Manage logging if it does not exist"
   when:
     - cos_bucket_lookup.resource is defined
     - cos_bucket_lookup.resource.bucket_name is not defined # If it fails to find existing bucket, we try to create it anyway.
   ibm.cloudcollection.ibm_cos_bucket:
     resource_instance_id: "{{ ibmcos_resource_id }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
-    bucket_name: "{{ ibmcos_attachments_bucket_name }}"
-    storage_class: "{{ ibmcos_attachments_bucket_storage_class }}"
-    cross_region_location: "{{ ibmcos_attachments_bucket_location }}"
+    bucket_name: "{{ ibmcos_logging_bucket_name }}"
+    storage_class: "{{ ibmcos_logging_bucket_storage_class }}"
+    cross_region_location: "{{ ibmcos_logging_bucket_location }}"
   register: cos_bucket_info
 
 - name: "Debug IBM COS Bucket provisioning information"
   debug:
     msg: "IBM COS Bucket Info ... {{ cos_bucket_info }}"
+
+- name: Create object storage service credentials secret in Manage namespace
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/logging-bucket-creds.yaml.j2')}}"

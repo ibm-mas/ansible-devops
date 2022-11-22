@@ -1,19 +1,45 @@
 ---
-- name: Summary before loading Manage JMS config
-  when: mas_app_settings_server_bundles_size == 'jms'
-  debug:
+- debug:
     msg:
-      - "server_bundles_add_server_config_secret_name: {{ server_bundles_add_server_config_secret_name }}"
-      - "server_bundle_jms_internal_endpoint: {{ server_bundle_jms_internal_endpoint }}"
-      - "server_bundles_add_server_config_content: {{ server_bundles_add_server_config_content }}"
-      - "server_bundles_jms_add_server_config_secret_name: {{ server_bundles_jms_add_server_config_secret_name }}"
-      - "server_bundles_jms_add_server_config_content: {{ server_bundles_jms_add_server_config_content }}"
+      - "mas_app_settings_s3_logging_flag: {{ mas_app_settings_s3_logging_flag }}"
+      - "mas_app_settings_server_bundles_size: {{ mas_app_settings_server_bundles_size }}"
 
-- name: "Replace xml file with jms_internal_endpoint: {{ jms_internal_endpoint }}"
-  when: mas_app_settings_server_bundles_size == 'jms'
-  replace: dest='{{ role_path }}/files/manage/manage-additional-server-config.xml.j2' regexp='server_bundle_jms_internal_endpoint' replace='{{ server_bundle_jms_internal_endpoint }}' backup=no
 
-- name: Create Manage app JMS additional server config secrets
+- name: "Manage: JMS Configuration"
   when: mas_app_settings_server_bundles_size == 'jms'
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/manage/manage-additional-server-config-secrets.yml.j2') }}"
+  block:
+
+  - name: Summary before loading Manage JMS config
+    debug:
+      msg:
+        - "server_bundles_add_server_config_secret_name: {{ server_bundles_add_server_config_secret_name }}"
+        - "server_bundle_jms_internal_endpoint: {{ server_bundle_jms_internal_endpoint }}"
+        - "server_bundles_add_server_config_content: {{ server_bundles_add_server_config_content }}"
+        - "server_bundles_jms_add_server_config_secret_name: {{ server_bundles_jms_add_server_config_secret_name }}"
+        - "server_bundles_jms_add_server_config_content: {{ server_bundles_jms_add_server_config_content }}"
+
+  - name: "Replace xml file with jms_internal_endpoint: {{ jms_internal_endpoint }}"
+    replace: dest='{{ role_path }}/files/manage/manage-additional-server-config.xml.j2' regexp='server_bundle_jms_internal_endpoint' replace='{{ server_bundle_jms_internal_endpoint }}' backup=no
+
+  - name: Create Manage app JMS additional server config secrets
+    kubernetes.core.k8s:
+      definition: "{{ lookup('template', 'templates/manage/manage-additional-server-config-secrets.yml.j2') }}"
+
+- name: "Manage: S3 Logging Configuration"
+  when: mas_app_settings_s3_logging_flag == 'true'
+  block:
+
+  - name: Lookup Manage s3 logging secret
+    kubernetes.core.k8s_info:
+      api_version: v1
+      name: manage-{{ mas_instance_id }}-{{ mas_workspace_id }}-logging-s3-secret
+      namespace: "mas-{{ mas_instance_id }}-manage"
+      kind: "Secret"
+    register: manage_s3_logging_secret
+
+  - name: Set s3 logging properties
+    when: manage_s3_logging_secret is defined and manage_s3_logging_secret | length > 0
+    set_fact:
+      mas_app_settings_logging_s3_accesskey_id: "{{ manage_s3_logging_secret.resources[0].data.accessKeyId | b64decode }}"
+      mas_app_settings_logging_s3_bucket_name: "{{ manage_s3_logging_secret.resources[0].data.bucketName | b64decode }}"
+      mas_app_settings_logging_s3_bucket_endpoint: "{{ manage_s3_logging_secret.resources[0].data.endpoint | b64decode }}"
