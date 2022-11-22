@@ -1,0 +1,29 @@
+---
+# mas_instance_id is required in order to be able to lookup for manage application resources
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+# mas_workspace_id is required in order to be able to lookup for manage application resources
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property is required"
+
+# db2_instance_name is required in order to be able to lookup for manage application database
+- name: "Fail if db2_instance_name is not provided"
+  assert:
+    that: db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: "db2_instance_name property is required"
+
+# mas_manage_logging_provider is required
+- name: "Fail if mas_manage_logging_provider is not provided"
+  assert:
+    that:
+      - mas_manage_logging_provider is defined and mas_manage_logging_provider in ['cos', 's3']
+    fail_msg: "mas_manage_logging_provider property is required and must be set to one of the supported storage providers: ['cos', 's3']"
+
+- name: "Running {{ mas_manage_logging_provider }} logging configuration for Manage application"
+  include_tasks: "tasks/providers/{{ mas_manage_logging_provider }}.yml"
+  when: mas_manage_logging_provider == 'cos'
