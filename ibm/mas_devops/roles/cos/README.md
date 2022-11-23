@@ -1,10 +1,13 @@
 cos
 ===
 
-This role provides support for Configuring Cloud Object Storage in MAS.  It currently supports two providers:
+This role provides support for :
+- Configuring Cloud Object Storage in MAS.  It currently supports two providers:
 
-- In-cluster Ceph Object Storage leveraging OpenShift Container Storage
-- IBM Cloud Object Storage
+  - In-cluster Ceph Object Storage leveraging OpenShift Container Storage
+  - IBM Cloud Object Storage
+- Deprovision Cloud Object Store. It currently supports one provider:
+    - IBM Cloud
 
 Currently this role only supports generating a system-scoped ObjectStorageCfg resource, but the generated file can be modified if you wish to use other scopes.
 
@@ -22,6 +25,30 @@ Provide an optional name for the Object Storage instance.  This is only used whe
 
 - Environment Variable: `COS_INSTANCE_NAME`
 - Default Value: `Object Storage for MAS`, if `mas_instance_id` is set the MAS instance ID will be appended to this name.
+
+### cos_action
+Required. Which action to perform for COS. Can be set either to `provision` or `deprovision`
+  - Environment Variable: `COS_ACTION`
+  - Default Value: `provision` 
+
+### cos_service
+The name of the service offering like cloud-object-storage, kms etc
+  - Environment Variable: `COS_SERVICE`
+  - Default Value: `cloud-object-storage`
+
+### ibmcos_location_info
+Required. The location where the instance available
+  - Environment Variable: `COS_LOCATION`
+  - Default Value: `global`
+
+### ibmcos_plan_type
+Required (For Provisioning). The plan type of the service
+  - Environment Variable: `COS_PLAN`
+  - Default Value: `standard`
+### resource_key_iam_role
+Provide an optional role when cos service credential is getting created during COS provisioning .
+  - Environment Variable: `RESOURCE_KEY_IAM_ROLE`
+  - Default Value: `Manager` 
 
 ### ibmcloud_apikey
 Required if cos_type is set to `ibm`.  Provide your IBM Cloud API Key.
