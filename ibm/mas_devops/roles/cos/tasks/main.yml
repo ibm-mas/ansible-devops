@@ -1,13 +1,16 @@
 ---
+- name: "Fail if cos_type is not provided"
+  assert:
+    that: cos_type is defined and cos_type != ""
+    fail_msg: "cos_type property is required"
+
+- name: "Fail if cos_action is not provided"
+  assert:
+    that: cos_action is defined and cos_action != ""
+    fail_msg: "cos_action property is required"
 
 # 1. Configure COS using IBM Cloud Object Storage (ibmcos) or OpenShift Container Storage (ocs)
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "Run the task for the appropriate provider"
-  include_tasks: tasks/providers/{{ cos_type }}.yml
+  include_tasks: tasks/providers/{{ cos_type }}/{{ cos_action }}.yml
   when: ibmcos_deprovision is not defined or not ibmcos_deprovision
-
-# 2. Deprovision  IBM Cloud Object Storage Instance (ibmcos)
-# ---------------------------------------------------------------------------------------------------------------------
-- name: "Run ibmcos_deprovision the task for IBM  cos"
-  include_tasks: tasks/deprovision/ibm-cos-deprovision.yml
-  when: ibmcos_deprovision is defined and ibmcos_deprovision

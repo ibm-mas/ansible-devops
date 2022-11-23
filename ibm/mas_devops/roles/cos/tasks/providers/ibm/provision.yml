@@ -1,9 +1,4 @@
 ---
-- name: "Fail if cos_type is not provided"
-  assert:
-    that: cos_type is defined and cos_type != ""
-    fail_msg: "cos_type property is required"
-
 - name: "Fail if ibmcloud_apikey is not provided"
   assert:
     that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
@@ -64,7 +59,7 @@
   ibm.cloudcollection.ibm_resource_instance:
     name: "{{ ibmcos_instance_name }}"
     resource_group_id: "{{ resourceGID }}"
-    service: "cloud-object-storage"
+    service: "{{ cos_service }}"
     plan: "{{ ibmcos_plan_type }}"
     location: "{{ ibmcos_location_info }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
@@ -73,7 +68,7 @@
   ibm.cloudcollection.ibm_resource_instance_info:
     name: "{{ ibmcos_instance_name }}"
     resource_group_id: "{{ resourceGID }}"
-    service: "cloud-object-storage"
+    service: "{{ cos_service }}"
     location: "{{ ibmcos_location_info }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
   register: cos_info
@@ -93,7 +88,7 @@
 - name: "ibm : Create a cos service credential for this MAS instance"
   ibm.cloudcollection.ibm_resource_key:
     name: "{{ mas_instance_id }}-key"
-    role: "Manager"
+    role: "{{ resource_key_iam_role }}"
     resource_instance_id: "{{ ibmcos_resource_id }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
 
