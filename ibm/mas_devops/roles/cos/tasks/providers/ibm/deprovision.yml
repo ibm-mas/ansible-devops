@@ -52,17 +52,22 @@
     ibmcos_resource_id: "{{ cos_info.resource.id }}"
 
 - name: "ibm : Deprovision cos instance"
+  when: 
+    - ibmcos_resource_id is defined
+    - ibmcos_resource_id != '' 
   ibm.cloudcollection.ibm_resource_instance:
     name: "{{ ibmcos_instance_name }}"
     id: "{{ ibmcos_resource_id }}"
     resource_group_id: "{{ resourceGID }}"
-    service: "{{ cos_service }}"
+    service: "cloud-object-storage"
     plan: "{{ ibmcos_plan_type }}"
     location: "{{ ibmcos_location_info }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
     state: absent
   register: cos_deprovision_output
 
-- name: "ibm : Deprovision debug"
-  debug:
-    msg: "{{ cos_deprovision_output }}"
+- name: "ibm: Assert cos instance '{{ ibmcos_instance_name }}' was deprovisioned"
+  assert:
+    that:
+      - cos_deprovision_output.rc == 0
+      - "{{ cos_deprovision_output.stdout_lines|select('equalto', 'Destroy complete! Resources: 1 destroyed.')| list | length }}"

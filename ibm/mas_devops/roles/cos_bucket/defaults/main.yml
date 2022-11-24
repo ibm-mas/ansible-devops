@@ -1,0 +1,41 @@
+---
+# The following MAS information is needed to lookup the right Manage app instance
+# ---------------------------------------------------------------------------------------------------------------------
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
+
+# COS bucket provider
+# ---------------------------------------------------------------------------------------------------------------------
+cos_type: "{{ lookup('env', 'COS_TYPE') }}" # "ibm" or "aws"
+cos_bucket_action: "{{ lookup('env', 'COS_BUCKET_ACTION') | default('create', true) }}" # "create" or "delete"
+
+# IBM Cloud Object Storage (ibm)
+# ---------------------------------------------------------------------------------------------------------------------
+ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
+ibmcos_service: cloud-object-storage
+ibmcos_instance_name: "{{ lookup('env', 'COS_INSTANCE_NAME') }}"
+ibmcos_url: "{{ lookup('env', 'COS_REGION_LOCATION_URL') | default('https://s3.us.cloud-object-storage.appdomain.cloud', true) }}"
+ibmcos_location_info: global
+
+# IBM Cloud Object Storage bucket details
+# ---------------------------------------------------------------------------------------------------------------------
+ibmcos_bucket_storage_class: "{{ lookup('env', 'COS_BUCKET_STORAGE_CLASS') | default('smart', true) }}" # supported: vault, cold, flex or smart - https://cloud.ibm.com/docs/cloud-object-storage/iam?topic=cloud-object-storage-classes#classes-locationconstraint
+ibmcos_bucket_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-bucket"
+ibmcos_bucket_name: "{{ lookup('env', 'COS_BUCKET_NAME') | default(ibmcos_bucket_name_default, true) }}"
+
+supported_cross_region_location: ['us', 'ap', 'eu']
+supported_region_location: ['au-syd', 'eu-de', 'eu-gb', 'jp-tok', 'us-east', 'us-south', 'ca-tor', 'jp-osa', 'br-sao']
+ibmcos_bucket_region_location_type: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION_TYPE') | default('cross_region_location', true) }}" # supported: region_location, cross_region_location and single_site_location
+ibmcos_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default('us', true) }}"
+
+ibmcos_resource_key_iam_role: "{{ lookup('env', 'COS_RESOURCE_KEY_IAM_ROLE') | default('Manager', True) }}"
+ibmcos_service_credentials_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ ibmcos_resource_key_iam_role | lower }}-key"
+ibmcos_service_credentials_name: "{{ lookup('env', 'COS_SERVICE_CREDENTIALS_NAME') | default(ibmcos_service_credentials_name_default, True) }}"
+
+# Create a rule to expire the current version of objects in your bucket after a specified number of days 
+# https://cloud.ibm.com/docs/cloud-object-storage?topic=cloud-object-storage-expiry
+# ibmcos_bucket_force_delete_flag: "{{ lookup('env', 'COS_BUCKET_FORCE_DELETE_FLAG') | default(True, True) }}"
+ibmcos_bucket_expire_rule_id: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE_ID') | default('delete_files', True) }}"
+ibmcos_bucket_expire_rule_enable_flag: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE_ENABLE_FLAG') | default(True, True) }}"
+ibmcos_bucket_expire_rule_days: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE_DAYS') | default(60, True) }}"

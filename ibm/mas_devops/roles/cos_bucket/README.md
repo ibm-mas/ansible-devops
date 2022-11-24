@@ -1,16 +1,5 @@
-cos
+cos_bucket
 ===
-
-This role provides support for:
-- Provisioning and Configuring Cloud Object Storage in MAS. It currently supports two providers:
-
-  - In-cluster Ceph Object Storage leveraging OpenShift Container Storage
-  - IBM Cloud Object Storage
-
-- Deprovision Cloud Object Store. It currently supports one provider:
-    - IBM Cloud Object Storage
-
-Currently this role only supports generating a system-scoped ObjectStorageCfg resource, but the generated file can be modified if you wish to use other scopes.
 
 Role Variables
 --------------
