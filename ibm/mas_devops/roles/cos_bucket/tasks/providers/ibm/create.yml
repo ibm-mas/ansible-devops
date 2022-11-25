@@ -29,9 +29,12 @@
       - "IBM COS bucket storage class........ {{ ibmcos_bucket_storage_class }}"
       - "IBM COS region location type ....... {{ ibmcos_bucket_region_location_type }}"
       - "IBM COS bucket location ............ {{ ibmcos_bucket_region_location }}"
+      - "IBM COS service credentials name ... {{ ibmcos_service_credentials_name }}"
+      - "IBM COS service credentials role ... {{ ibmcos_resource_key_iam_role }}"
       - "Expire Rule Enabled? ............... {{ ibmcos_bucket_expire_rule_enable_flag }}"
       - "Expire Rule Id ..................... {{ ibmcos_bucket_expire_rule_id }}"
       - "Expire Rule in Days ................ {{ ibmcos_bucket_expire_rule_days }}"
+      - "Enable object versioning ........... {{ ibmcos_bucket_versioning_flag }}"
 
 # 2. Lookup IBM Cloud Resource Group GUID
 # ---------------------------------------------------------------------------------------------------------------------
@@ -74,26 +77,8 @@
 
 # 4. Create authentication credentials for the instance
 # ---------------------------------------------------------------------------------------------------------------------
-# - name: "Create IBM COS service credentials with role {{ ibmcos_resource_key_iam_role }}"
-#   ibm.cloudcollection.ibm_resource_key:
-#     name: "{{ ibmcos_service_credentials_name }}"
-#     role: "{{ ibmcos_resource_key_iam_role }}"
-#     resource_instance_id: "{{ ibmcos_resource_id }}"
-#     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
-#     parameters: {'HMAC': true }
+- include_tasks: tasks/providers/ibm/create_service_credentials.yml
 
-# - name: "Retrieve IBM COS service credentials {{ ibmcos_service_credentials_name }}"
-#   ibm.cloudcollection.ibm_resource_key_info:
-#     name: "{{ ibmcos_service_credentials_name }}"
-#     resource_instance_id: "{{ ibmcos_resource_id }}"
-#     ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
-#   register: cos_key_info
-
-# - name: "Set access key id & secret access key variables"
-#   set_fact:
-#     ibmcos_access_key_id: "{{ cos_key_info.resource.credentials['cos_hmac_keys.access_key_id'] }}"
-#     ibmcos_secret_access_key: "{{ cos_key_info.resource.credentials['cos_hmac_keys.secret_access_key'] }}"
-  
 # # 5. Create COS bucket
 # ---------------------------------------------------------------------------------------------------------------------
 - include_tasks: tasks/providers/ibm/create_{{ ibmcos_bucket_region_location_type }}_bucket.yml
