@@ -1,0 +1,76 @@
+---
+# 1. Fetch CIS Instance Info
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Fetch Resource Group Id
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
+- name: Fetch CIS Instance Resource Id
+  when: rg_info.resource.id is defined and rg_info.resource.id != ""
+  ibm.cloudcollection.ibm_cis_info:
+    name: "{{ cis_instance_name }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    resource_group_id: "{{ rg_info.resource.id }}"
+  register: cis_info
+
+- name: Fail if CIS Instance Id is not fetched
+  assert:
+    that:
+      - cis_info.resource.id is defined and cis_info.resource.id != ""
+    fail_msg: "Unable to retrieve CIS Instance resource Id"
+
+
+# 2. Delete Domain from CIS Instance
+# ---------------------------------------------------------------------------------------------------------------------
+- name: CIS Domain Info
+  ibm.cloudcollection.ibm_cis_domain_info:
+    cis_id: "{{ cis_info.resource.id }}"
+    domain: "{{ customer_cis_domain }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: cis_domain_info
+
+- name: Fail if CIS Domain Info is not fetched
+  assert:
+    that:
+      - cis_domain_info.resource.id is defined and cis_domain_info.resource.id != ""
+    fail_msg: "Unable to retrieve CIS Domain resource Id"
+
+- name: Deleting Domain for IBM CIS instance in customer account
+  ibm.cloudcollection.ibm_cis_domain:
+    cis_id: "{{ cis_info.resource.id }}"
+    domain: "{{ customer_cis_domain }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    id: "{{ cis_domain_info.resource.id }}"
+    state: absent
+  register: cis_domain_delete_info
+
+- name: Fail if CIS Domain Deletion is not successful
+  assert:
+    that:
+      - not cis_domain_delete_info.failed
+    fail_msg: "Unable to delete CIS Domain resource"
+
+# 3. Destroy CIS Instance
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Destroy a CIS Instance
+  ibm.cloudcollection.ibm_cis:
+    resource_group_id: "{{ rg_info.resource.id }}"
+    name: "{{ cis_instance_name }}"
+    location: "global"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    state: absent
+    id: "{{cis_info.resource.id}}"
+  register: cis_destroy_info
+
+- name: Fail if CIS Instance is not deleted
+  assert:
+    that:
+      - not cis_destroy_info.failed
+    fail_msg: "Unable to delete CIS Instance resource"
+
+- name: Debug Destroy rg_info
+  debug:
+    msg:
+      - "CIS Destroy Info ....... {{ cis_destroy_info }}"

@@ -1,0 +1,94 @@
+---
+# 1. Create CIS Instance
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Fetch Resource Group Id
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
+- name: Create a CIS Instance
+  when: rg_info.resource.id is defined and rg_info.resource.id != ""
+  ibm.cloudcollection.ibm_cis:
+    resource_group_id: "{{ rg_info.resource.id }}"
+    plan: "standard"
+    name: "{{ cis_instance_name }}"
+    location: "global"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: cis_info
+
+- name: Fail if CIS Instance is not created
+  assert:
+    that:
+      - not cis_info.failed and cis_info.resource.id is defined
+    fail_msg: "Unable to create CIS Instance, Error: {{ cis_info.stderr }}"
+
+- name: Debug CIS Instance Info
+  debug:
+    msg:
+      - "CIS Instance creation ....{{ cis_info }}"
+
+# 2. Add and Configure valid Domain for IBM CIS instance
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Adding valid Domain for IBM CIS instance in customer account
+  ibm.cloudcollection.ibm_cis_domain:
+    cis_id: "{{ cis_info.resource.id }}"
+    domain: "{{ customer_cis_domain }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: domain_info
+
+- name: Fail if Domain is not added
+  assert:
+    that:
+      - not domain_info.failed and domain_info.resource.id is defined
+    fail_msg: "Unable Add Domain in CIS Instance, Error: {{ domain_info.stderr }}"
+
+- name: Configure Domain settings
+  ibm.cloudcollection.ibm_cis_domain_settings:
+    ssl : "strict"
+    min_tls_version : "1.2"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    cis_id: "{{ cis_info.resource.id }}"
+    domain_id: "{{ domain_info.resource.id }}"
+  register: domain_config_info
+
+- name: Fail if unable to configure Domain Settings
+  assert:
+    that:
+      - not domain_config_info.failed
+    fail_msg: "Unable to configure Domain Settings, Error: {{ domain_config_info.stderr }}"
+
+- name: Debug Info
+  debug:
+    msg:
+      - "Configure Domain settings ....{{ domain_config_info }}"
+      - "Domain creation op ....{{ domain_info }}"
+
+# 3. Add Both customer CIS nameserver record to master account
+# ---------------------------------------------------------------------------------------------------------------------
+# - name: Create 1st DNS Record in CIS
+#   ibm.cloudcollection.ibm_cis_dns_record:
+#     domain_id: "{{ domain_info.resource.id }}"
+#     cis_id: "{{ cis_info.resource.id }}"
+#     type: "NS"
+#     content: "{{ domain_info.resource.name_servers[0] }}"
+#     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+#   register: dns_record_info_1
+
+# - name: Create 2nd DNS Record in CIS
+#   ibm.cloudcollection.ibm_cis_dns_record:
+#     domain_id: "{{ domain_info.resource.id }}"
+#     cis_id: "{{ cis_info.resource.id }}"
+#     type: "NS"
+#     content: "{{ domain_info.resource.name_servers[1] }}"
+#     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+#   register: dns_record_info_2
+
+# - name: Debug Info
+#   debug:
+#     msg:
+#       - "Create DNS Record Op ....{{ dns_record_info_1 }}"
+#       - "Create DNS Record Op ....{{ dns_record_info_2 }}"
+
+
+
