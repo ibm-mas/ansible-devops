@@ -2,7 +2,8 @@
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
 - `12.2` Multiple Updates:
-    - Support switching MAS legacy installs to OLM installs ([#524](https://github.com/ibm-mas/ansible-devops/pull/524))
+    - Add support for Nov 2022 catalog ([#TBC](https://github.com/ibm-mas/ansible-devops/pull/TBC))
+    - Add support for Nvidia GPU on OCP 4.10 & 4.11 ([#525](https://github.com/ibm-mas/ansible-devops/pull/525))
 - `12.1` Fix wml_url and detect wml version ([#509](https://github.com/ibm-mas/ansible-devops/pull/509))
 - `12.0` Merge ibm.mas_airgap into the main collection ([#513](https://github.com/ibm-mas/ansible-devops/pull/513))
 - `11.7` Allow DB2U Cluster settings to be customized ([#479](https://github.com/ibm-mas/ansible-devops/pull/479))
