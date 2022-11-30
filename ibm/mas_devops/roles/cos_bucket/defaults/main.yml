@@ -24,10 +24,12 @@ ibmcos_bucket_storage_class: "{{ lookup('env', 'COS_BUCKET_STORAGE_CLASS') | def
 ibmcos_bucket_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-bucket"
 ibmcos_bucket_name: "{{ lookup('env', 'COS_BUCKET_NAME') | default(ibmcos_bucket_name_default, true) }}"
 
+ibmcloud_region: "{{ lookup('env', 'IBMCLOUD_REGION') | default('us-east', True) }}" # var used by SRE team
+bucket_cross_reg_loc: "{% if ibmcloud_region.split('-')[0]=='jp' %}ap{% elif ibmcloud_region.split('-')[0]=='eu'%}eu{% else %}us{% endif %}" # var used by SRE team
 supported_cross_region_location: ['us', 'ap', 'eu']
 supported_region_location: ['au-syd', 'eu-de', 'eu-gb', 'jp-tok', 'us-east', 'us-south', 'ca-tor', 'jp-osa', 'br-sao']
 ibmcos_bucket_region_location_type: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION_TYPE') | default('cross_region_location', true) }}" # supported: region_location, cross_region_location and single_site_location
-ibmcos_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default('us', true) }}"
+ibmcos_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default(bucket_cross_reg_loc, true) }}"
 
 ibmcos_resource_key_iam_role: "{{ lookup('env', 'COS_RESOURCE_KEY_IAM_ROLE') | default('Manager', True) }}"
 ibmcos_service_credentials_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ ibmcos_resource_key_iam_role | lower }}-key"

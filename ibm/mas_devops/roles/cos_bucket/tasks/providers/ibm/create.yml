@@ -16,6 +16,18 @@
     that: ibmcos_bucket_region_location_type is defined and ibmcos_bucket_region_location_type in ["region_location","cross_region_location"]
     fail_msg: "ibmcos_bucket_region_location_type property must be set of one of these values: ['region_location','cross_region_location']"
 
+- name: "Fail if cross_region_location is not supported"
+  when: ibmcos_bucket_region_location_type == 'cross_region_location'
+  assert:
+    that: ibmcos_bucket_region_location is defined and ibmcos_bucket_region_location in supported_cross_region_location
+    fail_msg: "ibmcos_bucket_region_location property was set to '{{ ibmcos_bucket_region_location }}' but must be set of one of the supported 'cross_region_location' values: {{ supported_cross_region_location }}"
+
+- name: "Fail if region_location is not supported"
+  when: ibmcos_bucket_region_location_type == 'region_location'
+  assert:
+    that: ibmcos_bucket_region_location is defined and ibmcos_bucket_region_location in supported_region_location
+    fail_msg: "ibmcos_bucket_region_location property was set to '{{ ibmcos_bucket_region_location }}' but must be set of one of the supported 'region_location' values: {{ supported_region_location }}"
+
 # 1. Determine the instance name
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "Provision COS Bucket: Debug general info"

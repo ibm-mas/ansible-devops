@@ -36,20 +36,9 @@
 
 # 4. Load default application workspace spec, if user does not provide one
 # -----------------------------------------------------------------------------
-# - name: Load default application workspace spec
-#   when: mas_app_ws_spec is not defined or mas_app_ws_spec == ""
-#   include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
-
-# - name: Load default application workspace spec
-#   when: mas_app_ws_spec is not defined or mas_app_ws_spec == ""
-#   set_fact:
-#     mas_app_ws_spec: {{ lookup('ansible.builtin.template', 'vars/defaultspecs/{{ mas_app_id }}.yml.j2') }}
-
-# - name: "Debug mas_app_ws_spec"
-#   debug:
-#     msg: "{{ mas_app_ws_spec }}"
-
-# TODO: Clean up the above...
+- name: Load default application workspace spec
+  when: mas_app_ws_spec is not defined or mas_app_ws_spec == ""
+  include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
 
 # 5. Provide debug information
 # -----------------------------------------------------------------------------
@@ -67,6 +56,11 @@
       - "MAS app namespace ......... {{ mas_app_namespace }}"
       - "Templated workspace CR .... {{ lookup('template', 'templates/workspace.yml.j2') }}"
 
+- name: Gen certs file
+  ansible.builtin.template:
+    src: templates/workspace.yml.j2
+    dest: "{{ mas_config_dir }}/manage-workspace-cr-old.yml"
+
 # 6. Workspace configuration
 # -----------------------------------------------------------------------------
 - name: Configure application in workspace
@@ -74,7 +68,6 @@
     state: present
     namespace: "{{ mas_app_namespace }}"
     definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
-
 
 # 7. Check if the application is ready
 # -----------------------------------------------------------------------------
