@@ -11,8 +11,8 @@
   when: rg_info.resource.id is defined and rg_info.resource.id != ""
   ibm.cloudcollection.ibm_cis:
     resource_group_id: "{{ rg_info.resource.id }}"
-    plan: "standard"
-    name: "{{ cis_instance_name }}"
+    plan: "{{ cis_plan }}"
+    name: "{{ cluster_name }}-cis-{{mas_instance_id}}"
     location: "global"
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
   register: cis_info
@@ -33,7 +33,7 @@
 - name: Adding valid Domain for IBM CIS instance in customer account
   ibm.cloudcollection.ibm_cis_domain:
     cis_id: "{{ cis_info.resource.id }}"
-    domain: "{{ customer_cis_domain }}"
+    domain: "{{ mas_instance_id }}.{{ masms_base_domain }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
   register: domain_info
 
@@ -64,31 +64,67 @@
       - "Configure Domain settings ....{{ domain_config_info }}"
       - "Domain creation op ....{{ domain_info }}"
 
-# 3. Add Both customer CIS nameserver record to master account
+# 3. Fetch Master CIS Instance Info
+# -------------------------------------------------------------------
+- name: Master, Fetch Resource Group Id
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ master_cis_resource_group }}"
+    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+  register: rg_info_master
+
+- name: Master, Fetch CIS Instance Resource Id
+  ibm.cloudcollection.ibm_cis_info:
+    name: "{{ master_cis_resource_name }}"
+    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+    resource_group_id: "{{ rg_info_master.resource.id }}"
+  register: cis_info_master
+
+- name: Master, CIS Domain Info
+  ibm.cloudcollection.ibm_cis_domain_info:
+    cis_id: "{{ cis_info_master.resource.id }}"
+    domain: "{{ masms_base_domain }}"
+    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+  register: domain_info_master
+
+# 4. Add Both customer CIS nameserver record to master account
 # ---------------------------------------------------------------------------------------------------------------------
-# - name: Create 1st DNS Record in CIS
-#   ibm.cloudcollection.ibm_cis_dns_record:
-#     domain_id: "{{ domain_info.resource.id }}"
-#     cis_id: "{{ cis_info.resource.id }}"
-#     type: "NS"
-#     content: "{{ domain_info.resource.name_servers[0] }}"
-#     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-#   register: dns_record_info_1
+- name: Create DNS NS type Record in Master CIS Instance
+  ibm.cloudcollection.ibm_cis_dns_record:
+    domain_id: "{{ domain_info_master.resource.id }}"
+    cis_id: "{{ cis_info_master.resource.id }}"
+    type: "NS"
+    content: "{{ domain_info.resource.name_servers[0] }}"
+    name: "{{ customer_cis_domain_prefix }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: dns_record_info_1
 
-# - name: Create 2nd DNS Record in CIS
-#   ibm.cloudcollection.ibm_cis_dns_record:
-#     domain_id: "{{ domain_info.resource.id }}"
-#     cis_id: "{{ cis_info.resource.id }}"
-#     type: "NS"
-#     content: "{{ domain_info.resource.name_servers[1] }}"
-#     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-#   register: dns_record_info_2
+- name: Fail if DNS record is not created
+  assert:
+    that:
+      - not dns_record_info_1.failed
+    fail_msg: "Unable to create DNS Record in master CIS"
 
-# - name: Debug Info
-#   debug:
-#     msg:
-#       - "Create DNS Record Op ....{{ dns_record_info_1 }}"
-#       - "Create DNS Record Op ....{{ dns_record_info_2 }}"
+- name: Create DNS NS type Record in Master CIS Instance
+  ibm.cloudcollection.ibm_cis_dns_record:
+    domain_id: "{{ domain_info_master.resource.id }}"
+    cis_id: "{{ cis_info_master.resource.id }}"
+    type: "NS"
+    content: "{{ domain_info.resource.name_servers[1] }}"
+    name: "{{ customer_cis_domain_prefix }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: dns_record_info_2
+
+- name: Fail if DNS record is not created
+  assert:
+    that:
+      - not dns_record_info_2.failed
+    fail_msg: "Unable to create DNS Record in master CIS"
+
+- name: Debug Info
+  debug:
+    msg:
+      - "Create DNS Record Op ....{{ dns_record_info_1 }}"
+      - "Create DNS Record Op ....{{ dns_record_info_2 }}"
 
 
 
