@@ -1,34 +1,13 @@
 ---
-# 1. Fetch CIS Instance Info
+# 1. Delete DNS Records from Master Account
 # ---------------------------------------------------------------------------------------------------------------------
-- name: Fetch Resource Group Id
-  ibm.cloudcollection.ibm_resource_group_info:
-    name: "{{ ibmcloud_resourcegroup }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-  register: rg_info
-
 - name: Set Fact for CIS Instance
   set_fact:
     customer_cis_domain: "{{ mas_instance_id }}.{{ masms_base_domain }}"
     customer_cis_domain_prefix: "{{ mas_instance_id }}"
     cis_service_name: "{{ cluster_name }}-cis-{{mas_instance_id}}"
+    dns_records_list: []
 
-- name: Fetch CIS Instance Resource Id
-  when: rg_info.resource.id is defined and rg_info.resource.id != ""
-  ibm.cloudcollection.ibm_cis_info:
-    name: "{{ cis_service_name }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-    resource_group_id: "{{ rg_info.resource.id }}"
-  register: cis_info
-
-- name: Fail if CIS Instance Id is not fetched
-  assert:
-    that:
-      - cis_info.resource.id is defined and cis_info.resource.id != ""
-    fail_msg: "Unable to retrieve CIS Instance resource Id"
-
-# 2. Delete DNS Records from Master Account
-# ---------------------------------------------------------------------------------------------------------------------
 - name: Master, Fetch Resource Group Id
   ibm.cloudcollection.ibm_resource_group_info:
     name: "{{ master_cis_resource_group }}"
@@ -62,23 +41,24 @@
   when:
     -  item.name == customer_cis_domain
   set_fact:
-    dns_record_id: "{{item.id}}"
+    dns_records_list: "{{ dns_records_list + [item.id] }}"
+
+- name: Debug, DNS Records found
+  debug:
+    msg:
+      - "DNS Records ......... {{ dns_records_list }}"
 
 - name: Fail if no resource Id found for DNS Record
   assert:
     that:
-      - dns_record_id is defined and dns_record_id != ""
+      - dns_records_list | length != 0
     fail_msg: "Unable to fetch Resource Id for DNS record {{customer_cis_domain}} "
 
-- name: Debug DNS record for {{customer_cis_domain}}
-  debug:
-    msg:
-      - "Resource Id for DNS Record ............. {{ dns_record_id }}"
-
 - name: Delete DNS NS type Record in Master CIS Instance
+  loop: "{{ dns_records_list }}"
   ibm.cloudcollection.ibm_cis_dns_record:
     ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-    id: "{{ dns_record_id }}"
+    id: "{{ item }}"
     state: absent
   register: dns_record_delete
 
@@ -88,10 +68,35 @@
       - "Deleted DNS Record ..................... {{ dns_record_delete }}"
 
 - name: Fail if DNS record is not deleted
+  loop: "{{ dns_record_delete.results }}"
   assert:
     that:
-      - not dns_record_delete.failed and dns_record_delete.changed
+      - not item.failed and item.changed
     fail_msg: "Unable to delete DNS Record in master CIS"
+
+
+# 2. Fetch CIS Instance Info
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Fetch Resource Group Id
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
+- name: Fetch CIS Instance Resource Id
+  when: rg_info.resource.id is defined and rg_info.resource.id != ""
+  ibm.cloudcollection.ibm_cis_info:
+    name: "{{ cis_service_name }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    resource_group_id: "{{ rg_info.resource.id }}"
+  register: cis_info
+
+- name: Fail if CIS Instance Id is not fetched
+  assert:
+    that:
+      - cis_info.resource.id is defined and cis_info.resource.id != ""
+    fail_msg: "Unable to retrieve CIS Instance resource Id"
+
 
 # 3. Delete Domain from CIS Instance
 # ---------------------------------------------------------------------------------------------------------------------
