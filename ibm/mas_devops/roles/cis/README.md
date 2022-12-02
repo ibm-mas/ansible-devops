@@ -1,7 +1,14 @@
 cis
 ===
 
-This role provides support for Configuring IBM Cloud Internet Services.
+This role provides support for Configuring IBM Cloud Internet Services.During CIS provisioning it performs four tasks :
+```
+1. Provision CIS Instance in customer account
+2. Add customer domain to customer's CIS Instance
+3. Configure Domain settings in customer CIS Instance
+4. Add DNS Records of type `NS` for customer's Domain nameservers to Master CIS Account
+```
+If during `Provisioning` failure happens for any of stage (2),(3) or (4) . A recovery subtask will be executed to restore Cluster to original state which will do a cleanup of any resources created in between.
 
 Role Variables
 --------------
@@ -71,3 +78,18 @@ Local directory to save the generated CIS Instance details as ConfigMap.
 
 Example Playbook
 ----------------
+Create CIS Instance alongwith save Instance details in MAS_CONFIG_DIR path as ConfigMap
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cis_action: provision
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
+    ibmcloud_apikey: "****"
+    master_ibmcloud_api_key: "******"
+    cluster_name: "test"
+  roles:
+    - ibm.mas_devops.cis
+```
