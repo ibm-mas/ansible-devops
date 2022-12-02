@@ -5,12 +5,18 @@ mas_app_ws_spec:
     jdbc: "{{ mas_appws_jdbc_binding | default( 'system' , true) }}"
   components: "{{ mas_appws_components | default({'health':{'version':'latest'}}, true) }}"
   settings:
+    deployment:
+      persistentVolumes: "{{ mas_app_settings_persistent_volumes if (mas_app_settings_persistent_volumes_flag == 'true') else [] }}"
+      serverBundles: "{{ mas_app_settings_server_bundles[mas_app_settings_server_bundles_size]['serverBundles']}}"
+    languages:
+      baseLang: "{{ mas_app_settings_base_language | default( 'EN' , true) }}"
+      secondaryLangs: "{{ mas_app_settings_secondary_languages.split(',') if (mas_app_settings_secondary_languages is defined and mas_app_settings_secondary_languages | length > 0) else [] }}"
     aio:
-      install: "{{ aio_flag | bool }}"
+      install: "{{ mas_app_settings_aio_flag | bool  }}"
     db:
-      dbSchema: "{{ db2_schema }}"
+      dbSchema: "{{ mas_app_settings_db2_schema }}"
       maxinst:
-        demodata: "{{ manage_demo_data | bool }}"
+        demodata: "{{ mas_app_settings_demodata | bool }}"
         db2Vargraphic: true
         indexSpace: MAXINDEX
         tableSpace: MAXDATA
