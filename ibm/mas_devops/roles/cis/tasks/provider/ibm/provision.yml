@@ -35,13 +35,13 @@
 
 # 2. Add and Configure valid Domain for IBM CIS instance
 # ---------------------------------------------------------------------------------------------------------------------
-- name: Adding valid Domain for IBM CIS instance in customer account
-  block:
-    ibm.cloudcollection.ibm_cis_domain:
-      cis_id: "{{ cis_info.resource.id }}"
-      domain: "{{ customer_cis_domain }}"
-      ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-    register: domain_info
+- block:
+    - name: Adding valid Domain for IBM CIS instance in customer account
+      ibm.cloudcollection.ibm_cis_domain:
+        cis_id: "{{ cis_info.resource.id }}"
+        domain: "{{ customer_cis_domain }}"
+        ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+      register: domain_info
   rescue:
     - name: Cleanup, Delete Customer CIS Instance
       include_tasks: tasks/provider/ibm/delete_cis.yml
@@ -56,15 +56,15 @@
       - domain_info.resource.id is defined and domain_info.resource.id != ""
     fail_msg: "Unable to  Add Domain: {{ customer_cis_domain }} to CIS Instance"
 
-- name: Configure Domain settings
-  block:
-    ibm.cloudcollection.ibm_cis_domain_settings:
-      ssl : "strict"
-      min_tls_version : "1.2"
-      ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-      cis_id: "{{ cis_info.resource.id }}"
-      domain_id: "{{ domain_info.resource.id }}"
-    register: domain_config_info
+- block:
+    - name: Configure Domain settings
+      ibm.cloudcollection.ibm_cis_domain_settings:
+        ssl : "strict"
+        min_tls_version : "1.2"
+        ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+        cis_id: "{{ cis_info.resource.id }}"
+        domain_id: "{{ domain_info.resource.id }}"
+      register: domain_config_info
   rescue:
     - name: Cleanup, Delete Domain inside CIS and CIS Instance
       include_tasks: "{{ item }}"
@@ -82,41 +82,40 @@
       - "Domain Resource created ................ {{ domain_info }}"
       - "Configured Domain settings ............. {{ domain_config_info }}"
 
-# 3. Fetch Master CIS Instance Info
-# -------------------------------------------------------------------
-- name: Master, Fetch Resource Group Id
-  ibm.cloudcollection.ibm_resource_group_info:
-    name: "{{ master_cis_resource_group }}"
-    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-  register: rg_info_master
 
-- name: Master, Fetch CIS Instance Resource Id
-  ibm.cloudcollection.ibm_cis_info:
-    name: "{{ master_cis_resource_name }}"
-    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-    resource_group_id: "{{ rg_info_master.resource.id }}"
-  register: cis_info_master
-
-- name: Master, CIS Domain Info
-  ibm.cloudcollection.ibm_cis_domain_info:
-    cis_id: "{{ cis_info_master.resource.id }}"
-    domain: "{{ masms_base_domain }}"
-    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-  register: domain_info_master
-
-# 4. Add Both customer CIS nameserver record to master account
+# 3. Add Both customer CIS nameserver record to master account
 # ---------------------------------------------------------------------------------------------------------------------
-- name: Create DNS NS type Record in Master CIS Instance
-  block:
-    when: domain_info_master.resource.id is defined and cis_info_master.resource.id is defined
-    ibm.cloudcollection.ibm_cis_dns_record:
-      domain_id: "{{ domain_info_master.resource.id }}"
-      cis_id: "{{ cis_info_master.resource.id }}"
-      type: "NS"
-      content: "{{ domain_info.resource.name_servers[0] }}"
-      name: "{{ customer_cis_domain_prefix }}"
-      ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-    register: dns_record_info_1
+- block:
+    - name: Master, Fetch Resource Group Id
+      ibm.cloudcollection.ibm_resource_group_info:
+        name: "{{ master_cis_resource_group }}"
+        ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+      register: rg_info_master
+
+    - name: Master, Fetch CIS Instance Resource Id
+      ibm.cloudcollection.ibm_cis_info:
+        name: "{{ master_cis_resource_name }}"
+        ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+        resource_group_id: "{{ rg_info_master.resource.id }}"
+      register: cis_info_master
+
+    - name: Master, CIS Domain Info
+      ibm.cloudcollection.ibm_cis_domain_info:
+        cis_id: "{{ cis_info_master.resource.id }}"
+        domain: "{{ masms_base_domain }}"
+        ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+      register: domain_info_master
+    
+    - name: Create DNS NS type Record in Master CIS Instance
+      when: domain_info_master.resource.id is defined and cis_info_master.resource.id is defined
+      ibm.cloudcollection.ibm_cis_dns_record:
+        domain_id: "{{ domain_info_master.resource.id }}"
+        cis_id: "{{ cis_info_master.resource.id }}"
+        type: "NS"
+        content: "{{ domain_info.resource.name_servers[0] }}"
+        name: "{{ customer_cis_domain_prefix }}"
+        ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+      register: dns_record_info_1
   rescue:
     - name: Cleanup, Delete Domain inside CIS and CIS Instance
       include_tasks: "{{ item }}"
@@ -128,16 +127,16 @@
       ansible.builtin.fail:
         msg: "Unable to create DNS NS type Record in Master CIS Instance"
 
-- name: Create DNS NS type Record in Master CIS Instance
-  block:
-    ibm.cloudcollection.ibm_cis_dns_record:
-      domain_id: "{{ domain_info_master.resource.id }}"
-      cis_id: "{{ cis_info_master.resource.id }}"
-      type: "NS"
-      content: "{{ domain_info.resource.name_servers[1] }}"
-      name: "{{ customer_cis_domain_prefix }}"
-      ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-    register: dns_record_info_2
+- block:
+    - name: Create DNS NS type Record in Master CIS Instance
+      ibm.cloudcollection.ibm_cis_dns_record:
+        domain_id: "{{ domain_info_master.resource.id }}"
+        cis_id: "{{ cis_info_master.resource.id }}"
+        type: "NS"
+        content: "{{ domain_info.resource.name_servers[1] }}"
+        name: "{{ customer_cis_domain_prefix }}"
+        ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+      register: dns_record_info_2
   rescue:
     - name: Cleanup, Master DNS record,CIS Domain entry and CIS Instance
       include_tasks: "{{ item }}"
@@ -156,7 +155,7 @@
       - "DNS Record1  ........................... {{ dns_record_info_1 }}"
       - "DNS Record2  ........................... {{ dns_record_info_2 }}"
 
-# 5. Store CIS outputs
+# 4. Store CIS outputs
 # -----------------------------------------------------------------------------
 - name: Store cis outputs as ConfigMap
   when:
