@@ -12,12 +12,6 @@
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
   register: rg_info
 
-- name: Set Fact for CIS Instance
-  set_fact:
-    customer_cis_domain: "{{ mas_instance_id }}.{{ masms_base_domain }}"
-    customer_cis_domain_prefix: "{{ mas_instance_id }}"
-    cis_service_name: "{{ cluster_name }}-cis-{{mas_instance_id}}"
-
 - name: Create a CIS Instance
   when: rg_info.resource.id is defined and rg_info.resource.id != ""
   ibm.cloudcollection.ibm_cis:
@@ -42,32 +36,45 @@
 # 2. Add and Configure valid Domain for IBM CIS instance
 # ---------------------------------------------------------------------------------------------------------------------
 - name: Adding valid Domain for IBM CIS instance in customer account
-  ibm.cloudcollection.ibm_cis_domain:
-    cis_id: "{{ cis_info.resource.id }}"
-    domain: "{{ customer_cis_domain }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-  register: domain_info
+  block:
+    ibm.cloudcollection.ibm_cis_domain:
+      cis_id: "{{ cis_info.resource.id }}"
+      domain: "{{ customer_cis_domain }}"
+      ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    register: domain_info
+  rescue:
+    - name: Cleanup, Delete Customer CIS Instance
+      include_tasks: tasks/provider/ibm/delete_cis.yml
 
-- name: Fail if Domain is not added
+    - name: Fail if Domain is not added
+      ansible.builtin.fail:
+        msg: "Unable Add Domain to CIS Instance"
+
+- name: Fail if Domain Id is missing
   assert:
     that:
-      - not domain_info.failed and domain_info.resource.id is defined
-    fail_msg: "Unable Add Domain in CIS Instance, Error: {{ domain_info.stderr }}"
+      - domain_info.resource.id is defined and domain_info.resource.id != ""
+    fail_msg: "Unable to  Add Domain: {{ customer_cis_domain }} to CIS Instance"
 
 - name: Configure Domain settings
-  ibm.cloudcollection.ibm_cis_domain_settings:
-    ssl : "strict"
-    min_tls_version : "1.2"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-    cis_id: "{{ cis_info.resource.id }}"
-    domain_id: "{{ domain_info.resource.id }}"
-  register: domain_config_info
+  block:
+    ibm.cloudcollection.ibm_cis_domain_settings:
+      ssl : "strict"
+      min_tls_version : "1.2"
+      ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+      cis_id: "{{ cis_info.resource.id }}"
+      domain_id: "{{ domain_info.resource.id }}"
+    register: domain_config_info
+  rescue:
+    - name: Cleanup, Delete Domain inside CIS and CIS Instance
+      include_tasks: "{{ item }}"
+      loop:
+        - tasks/provider/ibm/delete_cis_domain.yml
+        - tasks/provider/ibm/delete_cis.yml
 
-- name: Fail if unable to configure Domain Settings
-  assert:
-    that:
-      - not domain_config_info.failed
-    fail_msg: "Unable to configure Domain Settings, Error: {{ domain_config_info.stderr }}"
+    - name: Fail if Domain is not configured with given settings
+      ansible.builtin.fail:
+        msg: "Unable Configure Domain Settings"
 
 - name: Debug Info
   debug:
@@ -100,36 +107,48 @@
 # 4. Add Both customer CIS nameserver record to master account
 # ---------------------------------------------------------------------------------------------------------------------
 - name: Create DNS NS type Record in Master CIS Instance
-  ibm.cloudcollection.ibm_cis_dns_record:
-    domain_id: "{{ domain_info_master.resource.id }}"
-    cis_id: "{{ cis_info_master.resource.id }}"
-    type: "NS"
-    content: "{{ domain_info.resource.name_servers[0] }}"
-    name: "{{ customer_cis_domain_prefix }}"
-    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-  register: dns_record_info_1
+  block:
+    when: domain_info_master.resource.id is defined and cis_info_master.resource.id is defined
+    ibm.cloudcollection.ibm_cis_dns_record:
+      domain_id: "{{ domain_info_master.resource.id }}"
+      cis_id: "{{ cis_info_master.resource.id }}"
+      type: "NS"
+      content: "{{ domain_info.resource.name_servers[0] }}"
+      name: "{{ customer_cis_domain_prefix }}"
+      ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+    register: dns_record_info_1
+  rescue:
+    - name: Cleanup, Delete Domain inside CIS and CIS Instance
+      include_tasks: "{{ item }}"
+      loop:
+        - tasks/provider/ibm/delete_cis_domain.yml
+        - tasks/provider/ibm/delete_cis.yml
 
-- name: Fail if DNS record is not created
-  assert:
-    that:
-      - not dns_record_info_1.failed
-    fail_msg: "Unable to create DNS Record in master CIS"
+    - name: Fail if unable to create DNS NS type Record in Master CIS Instance
+      ansible.builtin.fail:
+        msg: "Unable to create DNS NS type Record in Master CIS Instance"
 
 - name: Create DNS NS type Record in Master CIS Instance
-  ibm.cloudcollection.ibm_cis_dns_record:
-    domain_id: "{{ domain_info_master.resource.id }}"
-    cis_id: "{{ cis_info_master.resource.id }}"
-    type: "NS"
-    content: "{{ domain_info.resource.name_servers[1] }}"
-    name: "{{ customer_cis_domain_prefix }}"
-    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-  register: dns_record_info_2
+  block:
+    ibm.cloudcollection.ibm_cis_dns_record:
+      domain_id: "{{ domain_info_master.resource.id }}"
+      cis_id: "{{ cis_info_master.resource.id }}"
+      type: "NS"
+      content: "{{ domain_info.resource.name_servers[1] }}"
+      name: "{{ customer_cis_domain_prefix }}"
+      ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+    register: dns_record_info_2
+  rescue:
+    - name: Cleanup, Master DNS record,CIS Domain entry and CIS Instance
+      include_tasks: "{{ item }}"
+      loop:
+        - tasks/provider/ibm/delete_dns_master.yml
+        - tasks/provider/ibm/delete_cis_domain.yml
+        - tasks/provider/ibm/delete_cis.yml
 
-- name: Fail if DNS record is not created
-  assert:
-    that:
-      - not dns_record_info_2.failed
-    fail_msg: "Unable to create DNS Record in master CIS"
+    - name: Fail if unable to create DNS NS type Record in Master CIS Instance
+      ansible.builtin.fail:
+        msg: "Unable to create DNS NS type Record in Master CIS Instance" 
 
 - name: Debug Info
   debug:
