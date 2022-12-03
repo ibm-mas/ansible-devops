@@ -22,6 +22,13 @@ Used to override the operator catalog source used when creating the `ibm-common-
 - Environment Variable: `COMMON_SERVICES_CATALOG_SOURCE`
 - Default Value: `ibm-operator-catalog`
 
+### common_services_channel
+Used to override the operator catalog source used when creating the `ibm-common-service-operator` subscription.
+
+- Optional
+- Environment Variable: `COMMON_SERVICES_CHANNEL`
+- Default Value: Role will lookup the default channel from the operator's package manifest.
+
 
 ## Example Playbook
 After installing the Ansible Collection you can include this role in your own custom playbooks.
