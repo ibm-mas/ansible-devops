@@ -1,10 +1,4 @@
 ---
-- debug:
-    msg:
-      - "mas_app_settings_s3_logging_flag: {{ mas_app_settings_s3_logging_flag }}"
-      - "mas_app_settings_server_bundles_size: {{ mas_app_settings_server_bundles_size }}"
-
-
 - name: "Manage: JMS Configuration"
   when: mas_app_settings_server_bundles_size == 'jms'
   block:
@@ -24,22 +18,3 @@
   - name: Create Manage app JMS additional server config secrets
     kubernetes.core.k8s:
       definition: "{{ lookup('template', 'templates/manage/manage-additional-server-config-secrets.yml.j2') }}"
-
-- name: "Manage: S3 Logging Configuration"
-  when: mas_app_settings_s3_logging_flag == 'true'
-  block:
-
-  - name: Lookup Manage s3 logging secret
-    kubernetes.core.k8s_info:
-      api_version: v1
-      name: manage-{{ mas_instance_id }}-{{ mas_workspace_id }}-logging-s3-secret
-      namespace: "mas-{{ mas_instance_id }}-manage"
-      kind: "Secret"
-    register: manage_s3_logging_secret
-
-  - name: Set s3 logging properties
-    when: manage_s3_logging_secret is defined and manage_s3_logging_secret | length > 0
-    set_fact:
-      mas_app_settings_logging_s3_accesskey_id: "{{ manage_s3_logging_secret.resources[0].data.accessKeyId | b64decode }}"
-      mas_app_settings_logging_s3_bucket_name: "{{ manage_s3_logging_secret.resources[0].data.bucketName | b64decode }}"
-      mas_app_settings_logging_s3_bucket_endpoint: "{{ manage_s3_logging_secret.resources[0].data.endpoint | b64decode }}"
