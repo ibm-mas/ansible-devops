@@ -14,11 +14,40 @@
     kind: OperatorGroup
   register: og_info
 
+
+# Look up the default channel for the ibm-common-service-operator package manifest
+# The way ODLM works (which we have to use) means that when an istance of MAS Core
+# is installed in the cluster, the ODLM framework will automatically upgdate the installed
+# version of the IBM common service operator to whatever is set as the default channel.
+#
+# This can cause the subsequent installation of the Licensing Operator to fail in
+# horrible ways, setting the subscription channel correctly here will hopefully avoid
+# this problem.
+- name: Lookup ibm-common-service-operator packagemanifest
+  when: common_services_channel is not defined or common_services_channel == ""
+  k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: ibm-common-service-operator
+    namespace: ibm-common-services
+  register: common_services_manifest_info
+
+- name: Set ibm-common-services-operator channel
+  when: common_services_channel is not defined or common_services_channel == ""
+  set_fact:
+    common_services_channel: "{{ common_services_manifest_info.resources[0].status.defaultChannel }}"
+
+- name: Debug IBM Common Services Install
+  debug:
+    msg:
+      - "Channel ................................ {{ common_services_channel }}"
+      - "Source ................................. {{ common_services_catalog_source }}"
+
 - name: "Install Foundation Services"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
     wait: yes
-    wait_timeout: 120
+    wait_timeout: 120 # 2 minutes
 
 - name: "Wait for Foundation Services resources to be ready (60s delay)"
   kubernetes.core.k8s_info:
