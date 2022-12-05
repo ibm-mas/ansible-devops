@@ -18,7 +18,9 @@ Role Variables
 - `mas_config_dir` Directory containing configuration files (`*.yaml` and `*.yml`) to be applied to the MAS installation.  Intended for creating the various MAS custom resources to configure the suite post-install, but can be used to apply any kubernetes resource you need to customize any aspect of your cluster.
 - `certManager.namespace` The namespace containing the cert-manager to be used by MAS
 - `mas_upgrade_strategy` The Upgrade strategy for MAS Operator. Default is set to Automatic
-- `mas_annotations` Optional variable having all the annotations that need to be added to the Suite CR
+- `mas_annotations` Optional variable having all the annotations that need to be added to the Suite CR. This variable takes a comma separated list of annotations. For example, to deploy your suite in non production mode, set this to `mas.ibm.com/operationalMode=nonproduction` 
+or set `MAS_ANNOTATIONS` environment variable as `export MAS_ANNOTATIONS=mas.ibm.com/operationalMode=nonproduction`
+
 
 Example Playbook
 ----------------
