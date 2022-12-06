@@ -15,22 +15,33 @@ Currently this role only supports generating a system-scoped ObjectStorageCfg re
 Role Variables
 --------------
 
+# IBM Cloud Object Storage (ibm)
+# ---------------------------------------------------------------------------------------------------------------------
+
+ibmcos_url: "{{ lookup('env', 'COS_REGION_LOCATION_URL') | default('https://s3.us.cloud-object-storage.appdomain.cloud', true) }}"
+ibmcos_username: "ibmcloud-iam-apikey"
+ibmcos_resource_key_iam_role: "{{ lookup('env', 'COS_RESOURCE_KEY_IAM_ROLE') | default('Manager', True) }}"
+
+
+
+
 ### cos_type
 Required.  Which COS provider to use; can be set to either `ibm` for IBM Cloud Object Storage or `ocs` for OpenShift Container Storage
 
 - Environment Variable: `COS_TYPE`
 - Default Value: None
 
-### cos_instance_name
+### cos_action
+Required.  Which action you want to run for the COS instance. You can either `provision` or `deprovision` a COS instance in your IBM Cloud account.
+
+- Environment Variable: `COS_ACTION`
+- Default Value: `provision`
+
+### ibmcos_instance_name
 Provide an optional name for the Object Storage instance.  This is only used when cos_type is set to `ibm` for IBM Cloud Object Storage.
 
 - Environment Variable: `COS_INSTANCE_NAME`
 - Default Value: `Object Storage for MAS`, if `mas_instance_id` is set the MAS instance ID will be appended to this name.
-
-### cos_action
-Required. Which action to perform for COS. Can be set either to `provision` or `deprovision`
-  - Environment Variable: `COS_ACTION`
-  - Default Value: `provision` 
 
 ### cos_service
 The name of the service offering like cloud-object-storage, kms etc
