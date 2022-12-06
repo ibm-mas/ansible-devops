@@ -1,8 +1,8 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `12.3` Add support of SSH public key in ocp_provision role ([#528](https://github.com/ibm-mas/ansible-devops/pull/528))
 - `12.2` Multiple Updates:
-    - Add support of SSH public key in ocp_provision role ([#528](https://github.com/ibm-mas/ansible-devops/pull/528))
     - Add support for Nov 2022 catalog ([#TBC](https://github.com/ibm-mas/ansible-devops/pull/TBC))
     - Add support for Nvidia GPU on OCP 4.10 & 4.11 ([#525](https://github.com/ibm-mas/ansible-devops/pull/525))
     - Add (MVI) Maximo Visual Inspection playbook ([#434](https://github.com/ibm-mas/ansible-devops/pull/434))
