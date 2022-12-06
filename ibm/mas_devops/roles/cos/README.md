@@ -18,13 +18,6 @@ Role Variables
 # IBM Cloud Object Storage (ibm)
 # ---------------------------------------------------------------------------------------------------------------------
 
-ibmcos_url: "{{ lookup('env', 'COS_REGION_LOCATION_URL') | default('https://s3.us.cloud-object-storage.appdomain.cloud', true) }}"
-ibmcos_username: "ibmcloud-iam-apikey"
-ibmcos_resource_key_iam_role: "{{ lookup('env', 'COS_RESOURCE_KEY_IAM_ROLE') | default('Manager', True) }}"
-
-
-
-
 ### cos_type
 Required.  Which COS provider to use; can be set to either `ibm` for IBM Cloud Object Storage or `ocs` for OpenShift Container Storage
 
@@ -43,11 +36,6 @@ Provide an optional name for the Object Storage instance.  This is only used whe
 - Environment Variable: `COS_INSTANCE_NAME`
 - Default Value: `Object Storage for MAS`, if `mas_instance_id` is set the MAS instance ID will be appended to this name.
 
-### cos_service
-The name of the service offering like cloud-object-storage, kms etc
-  - Environment Variable: `COS_SERVICE`
-  - Default Value: `cloud-object-storage`
-
 ### ibmcos_location_info
 Required. The location where the instance available
   - Environment Variable: `COS_LOCATION`
@@ -57,9 +45,15 @@ Required. The location where the instance available
 Required (For Provisioning). The plan type of the service
   - Environment Variable: `COS_PLAN`
   - Default Value: `standard`
-### resource_key_iam_role
-Provide an optional role when cos service credential is getting created during COS provisioning .
-  - Environment Variable: `RESOURCE_KEY_IAM_ROLE`
+
+### ibmcos_url
+Required (For Provisioning). The COS region location url endpoint. Needed to generage a system-scoped ObjectStorageCfg resource configuration file for MAS.
+  - Environment Variable: `COS_REGION_LOCATION_URL`
+  - Default Value: `https://s3.us.cloud-object-storage.appdomain.cloud`
+
+### ibmcos_resource_key_iam_role
+Provide an optional role when cos service credential is getting created during COS provisioning.
+  - Environment Variable: `COS_RESOURCE_KEY_IAM_ROLE`
   - Default Value: `Manager` 
 
 ### ibmcloud_apikey
@@ -106,7 +100,7 @@ Create the Ceph Object store on the existing OCS cluster and prepare the objects
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
   roles:
-    - ibm.mas_devops.cos_setup
+    - ibm.mas_devops.cos
 ```
 Create the IBM Cloud Object storage Instance and prepare the objectstorageCfg yaml to mas_config_dir.
 ```yaml
@@ -114,12 +108,11 @@ Create the IBM Cloud Object storage Instance and prepare the objectstorageCfg ya
   any_errors_fatal: true
   vars:
     cos_type: ibm
-
-    # MAS instance and config dir
+    ibmcloud_apikey: <Your IBM Cloud API Key>
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
   roles:
-    - ibm.mas_devops.cos_setup
+    - ibm.mas_devops.cos
 ```
 License
 -------
