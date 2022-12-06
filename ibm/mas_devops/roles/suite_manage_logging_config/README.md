@@ -5,7 +5,7 @@ This role extends support for configuring IBM Cloud Object Storage to storage **
 
 The default for Manage logging configuration is to use IBM Cloud Object Storage as persistent storage for Manage logging. You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage information to use it as storage for Manage application logs.
 
-Although, you can optionally define AWS S3 storage system.
+Although, you can optionally define AWS S3 storage system (aws support under development).
 
 Role Variables
 --------------

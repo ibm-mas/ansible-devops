@@ -13,7 +13,7 @@ ibmcos_service_credentials_name: "{{ lookup('env', 'COS_SERVICE_CREDENTIALS_NAME
 COS bucket provider variables
 --------------
 ### cos_type
-Required.  Which COS provider to use; can be set to either `ibm` for IBM Cloud Object Storage or `aws` for S3 bucket types.
+Required.  Which COS provider to use; can be set to either `ibm` for IBM Cloud Object Storage or `aws` for S3 bucket types (aws support under development).
 
 - Environment Variable: `COS_TYPE`
 - Default Value: None
