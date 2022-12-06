@@ -1,16 +1,8 @@
 cos_bucket
 ===
-This role
+This role extends support to create or deprovision Cloud Object Storage buckets.
 
 Role Variables
---------------
-
-
-ibmcos_resource_key_iam_role: "{{ lookup('env', 'COS_RESOURCE_KEY_IAM_ROLE') | default('Manager', True) }}"
-ibmcos_service_credentials_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ ibmcos_resource_key_iam_role | lower }}-key"
-ibmcos_service_credentials_name: "{{ lookup('env', 'COS_SERVICE_CREDENTIALS_NAME') | default(ibmcos_service_credentials_name_default, True) }}"
-
-COS bucket provider variables
 --------------
 ### cos_type
 Required.  Which COS provider to use; can be set to either `ibm` for IBM Cloud Object Storage or `aws` for S3 bucket types (aws support under development).
@@ -24,8 +16,6 @@ Required.  Which action you want to run for the COS bucket. You can either `crea
 - Environment Variable: `COS_BUCKET_ACTION`
 - Default Value: `create`
 
-IBM Cloud - COS buckets variables
---------------
 ### ibmcos_bucket_name
 Optional name for your IBM Cloud Object Storage bucket.
 
