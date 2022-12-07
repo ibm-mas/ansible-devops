@@ -15,7 +15,7 @@ The name of the cluster to login to.  This will be used to lookup the actual log
 - Default: None
 
 ###
-The type of cluster to login to (`roks`, `quickburn`, or `rosa`)
+The type of cluster to login to (`roks`, `fyre`, or `rosa`)
 
 - **Required** unless `ocp_server` and `ocp_token` are set
 - Environment Variable: `CLUSTER_TYPE`
@@ -51,13 +51,13 @@ Role Variables - IBM DevIT Fyre
 ### fyre_username
 Your FYRE username
 
-- **Required** when `cluster_type` is `quickburn`
+- **Required** when `cluster_type` is `fyre`
 - Environment Variable: `FYRE_APIKEY`
 - Default: None
 
 ### fyre_apikey
 Your FYRE API Key
-- **Required** when `cluster_type` is `quickburn`
+- **Required** when `cluster_type` is `fyre`
 - Environment Variable: `FYRE_APIKEY`
 - Default: None
 
@@ -121,7 +121,7 @@ Example Playbooks
 - hosts: localhost
   vars:
     cluster_name: mycluster
-    cluster_type: quickburn
+    cluster_type: fyre
     fyre_username: xxxxx
     fyre_password: xxxxx
   roles:
