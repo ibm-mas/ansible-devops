@@ -23,16 +23,11 @@
 # 2.2  Run Application Specific Tasks
 - name: Run application specific tasks
   when:
-    - mas_app_id is in ['iot']  # applications which have something to process before installing the operator
+    - mas_app_id is in ['iot', 'visualinspection']  # applications which have something to process before installing the operator
   include_tasks: "tasks/{{ mas_app_id }}.yml"
 
 
-# 3. Load default storage classes (if not provided by the user)
-# -----------------------------------------------------------------------------
-- include_tasks: tasks/determine-storage-classes.yml
-
-
-# 4. Provide debug information
+# 3. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
@@ -49,7 +44,7 @@
       - "App Subscription Upgrade ... {{ mas_app_upgrade_strategy }}"
 
 
-# 5. Apply security context constraints
+# 4. Apply security context constraints
 # -----------------------------------------------------------------------------
 - name: "Apply security context constraints"
   when: mas_app_id == "visualinspection"
@@ -58,7 +53,7 @@
     definition: "{{ lookup('template', 'templates/customscc.yml.j2') }}"
 
 
-# 6. Install the operator
+# 5. Install the operator
 # -----------------------------------------------------------------------------
 - name: "Install Operator"
   include_role:
@@ -101,7 +96,7 @@
   when: mas_app_upgrade_strategy == 'Manual'
 
 
-# 7. Wait until the Application's CRD is available
+# 6. Wait until the Application's CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Application's CRD is available"
   kubernetes.core.k8s_info:
@@ -122,7 +117,7 @@
     - app_crd_info.resources | length > 0
 
 
-# 8. Integrated Airgap support
+# 7. Integrated Airgap support
 # -----------------------------------------------------------------------------
 # Before we create the CR we will set up the Airgap Image Map
 # We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
@@ -134,7 +129,7 @@
   include_tasks: "tasks/install_digest_cm.yml"
 
 
-# 9. App installation
+# 8. App installation
 # -----------------------------------------------------------------------------
 - name: Install application
   kubernetes.core.k8s:
@@ -143,7 +138,7 @@
     definition: "{{ lookup('template', 'templates/application.yml.j2') }}"
 
 
-# 10. Wait for application to be ready
+# 9. Wait for application to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application to be ready (60s delay)"
   kubernetes.core.k8s_info:
