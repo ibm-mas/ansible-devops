@@ -2,7 +2,7 @@
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
 - `12.3` Multiple Updates:
-    - Support IBM CIS provisioning feature
+    - Support IBM CIS provisioning feature ([#549](https://github.com/ibm-mas/ansible-devops/pull/549/))
     - Support ad-hoc DBC scripts into Manage server ([#521](https://github.com/ibm-mas/ansible-devops/pull/521))
     - Support IBM Cloud COS buckets and Manage logging feature ([#526](https://github.com/ibm-mas/ansible-devops/pull/526))
 - `12.2` Multiple Updates:
