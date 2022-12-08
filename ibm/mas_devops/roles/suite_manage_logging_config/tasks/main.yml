@@ -24,6 +24,18 @@
       - mas_manage_logging_provider is defined and mas_manage_logging_provider in ['cos', 's3']
     fail_msg: "mas_manage_logging_provider property is required and must be set to one of the supported storage providers: ['cos', 's3']"
 
+# Check if logging is already setup for ManageWorkspace
+- name: "Get ManageWorkspace"
+  no_log: true
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: ManageWorkspace
+    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: managews_output
+
 - name: "Running {{ mas_manage_logging_provider }} logging configuration for Manage application"
-  include_tasks: "tasks/providers/{{ mas_manage_logging_provider }}.yml"
-  when: mas_manage_logging_provider == 'cos'
+  include_tasks: "tasks/providers/{{ mas_manage_logging_provider }}/setup-manage-logging.yml"
+  when: # only need to setup logging if that's not yet set
+    - managews_output.resources[0].spec.settings.deployment.loggingS3Destination is not defined
+    - managews_output.resources[0].spec.settings.deployment.loggingS3Destination.accessKey is not defined
