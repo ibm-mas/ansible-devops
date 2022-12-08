@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 - name: Retrieve IBM COS certificates using openssl
   vars:
-    host_name: "{{ ibmcos_url | regex_replace('https://', '''') }}" # remove https if needed
+    host_name: "{{ cos_url | regex_replace('https://', '''') }}" # remove https if needed
   shell:
     cmd: "openssl s_client -servername {{ host_name }} -connect {{ host_name }}:443 -showcerts </dev/null  2>/dev/null"
   register: get_certs_r
@@ -13,6 +13,12 @@
   set_fact:
     cos_tls_crt: "{{ get_certs_r.stdout | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
 
-- name: "Assert COS certificate content exists"
+- name: "Assert IBM COS certificate content exists"
+  when: cos_type == 'ibm'
   assert:
     that: "{{ cos_tls_crt | length == 3 }}"
+
+- name: "Assert AWS certificate content exists"
+  when: cos_type == 'aws'
+  assert:
+    that: "{{ cos_tls_crt | length == 4 }}"

@@ -1,0 +1,40 @@
+---
+- name: "Fail if aws_access_key_id is not provided"
+  assert:
+    that: aws_access_key_id is defined and aws_access_key_id != ""
+    fail_msg: "aws_access_key_id property is required"
+
+- name: "Fail if aws_secret_access_key is not provided"
+  assert:
+    that: aws_secret_access_key is defined and aws_secret_access_key != ""
+    fail_msg: "aws_secret_access_key property is required"
+
+# 1. Debug information
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Delete AWS Bucket: Debug general info"
+  debug:
+    msg:
+      - "AWS bucket name .................... {{ aws_bucket_name }}"
+      - "AWS bucket region .................. {{ aws_bucket_region_location }}"
+      - "AWS bucket force deletion .......... {{ aws_bucket_force_deletion_flag }}"
+
+# 2. Delete AWS bucket
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Delete AWS buckets"
+  s3_bucket:
+    name: "{{ aws_bucket_name }}"
+    state: absent
+    force: "{{ aws_bucket_force_deletion_flag }}"
+    region: "{{ aws_bucket_region_location }}"
+    aws_access_key: "{{ aws_access_key_id }}"
+    aws_secret_key: "{{ aws_secret_access_key }}"
+  register: aws_bucket_deletion_output
+
+- debug:
+    msg: "{{ aws_bucket_deletion_output }}"
+
+- name: "Assert AWS bucket '{{ ibmcos_bucket_name }}' was deleted"
+  assert:
+    that:
+      - aws_bucket_deletion_output.failed == false
+    fail_msg: "Something went wrong with the {{ aws_bucket_name }} deletion: {{ aws_bucket_deletion_output }}"
