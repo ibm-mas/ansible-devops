@@ -1,14 +1,20 @@
 cis
 ===
 
-This role provides support for Configuring IBM Cloud Internet Services.During CIS provisioning it performs four tasks :
+This role provides support for Configuring IBM Cloud Internet Services.During CIS provisioning it performs four tasks during provisioning in given order:
 ```
 1. Provision CIS Instance in customer account
 2. Add customer domain to customer's CIS Instance
 3. Configure Domain settings in customer CIS Instance
 4. Add DNS Records of type `NS` for customer's Domain nameservers to Master CIS Account
 ```
-If during `Provisioning` failure happens for any of stage (2),(3) or (4) . A recovery subtask will be executed to restore Cluster to original state which will do a cleanup of any resources created in between.
+
+During CIS Instance deprovisioing role will perform following tasks:
+```
+1. Delete DNS Record from Master Account
+2. Delete Domain from Customer Account
+3. Delete Customer CIS Instance
+```
 
 Role Variables
 --------------
@@ -56,7 +62,7 @@ Required. Master CIS Instance name
 - Default Value: `masms-cis`
 
 ### masms_base_domain
-
+Required. Domain from Master CIS Instance
 - Environment Variable: `MASMS_BASE_DOMAIN`
 - Default Value: `suite.maximo.com`
 

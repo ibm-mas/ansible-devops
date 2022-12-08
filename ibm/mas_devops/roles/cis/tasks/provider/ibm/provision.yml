@@ -99,6 +99,7 @@
     ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
   register: dns_records_info_master
 
+# Find if DNS records already exists or not
 - name: Loop through all DNS records of Master CIS to find customer DNS record
   no_log: yes
   loop: "{{ dns_records_info_master.resource.cis_dns_records }}"
@@ -113,7 +114,7 @@
     msg:
       - "DNS Record Info ........................ {{ dns_records_list }}"
 
-
+# Create DNS Records if not found in Master CIS
 - name: Create DNS NS type Record in Master CIS Instance
   loop: "{{domain_info.resource.name_servers}}"
   when:
@@ -128,7 +129,6 @@
     name: "{{ customer_cis_domain_prefix }}"
     ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
   register: create_dns_records_info
-
 
 - name: Debug , DNS Record creation in Master CIS
   when: dns_records_list | length == 0
