@@ -1,7 +1,9 @@
 suite_manage_attachments_config
 ===
 
-This role extends support for Configuring IBM Cloud Object Storage or PVC File Storages for **Manage** application attachments.
+This role extends support for configuring IBM Cloud Object Storage or PVC File Storages for **Manage** application attachments.
+**Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring attachments features.
+
 
 The default for Manage attachments configuration is to use your cluster's default file storage system as persistent storage.
 
@@ -12,30 +14,13 @@ Role Variables
 --------------
 ### mas_manage_attachments_provider
 Required. Defines the storage provider type to be used to store Manage application's attachments.
+Available options are:
+
+  - `filestorage` (default option): Configures cluster's file storage system for Manage attachments.
+  - `cos`: Configures IBM Cloud Object Storage as storage system for Manage attachments. If using `cos` as attachments provider, the [`cos_bucket`](../roles/cos_bucket.md) role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments.
 
 - Environment Variable: `MAS_MANAGE_ATTACHMENTS_PROVIDER`
-- Default Value: `filestorage`. Optionally set this variable to `cos` if you're planning to use IBM Cloud Object Storage instead of File Storage persistent volumes.
-
-### cos_instance_name
-Required. Only used if storage provider is `cos`.
-IBM Cloud Object Storage instance name to be used to store Manage application attachments
-
-- Environment Variable: `COS_INSTANCE_NAME`
-- Default Value: None. If you do not have an existing IBM Cloud Object Storage instance, you can use `cos` role to provision one.
-
-### ibmcloud_resourcegroup
-Optional. Only used if storage provider is `cos`.
-Provide the name of the resource group that hosts your IBM Cloud Object Storage instance. If you do not provide it, the role will try to find the IBM Cloud Object Storage instance in `Default` resource group.
-
-- Environment Variable: `IBMCLOUD_RESOURCEGROUP`
-- Default Value: `Default`
-
-### ibmcloud_apikey
-Required. Only used if storage provider is `cos`.
-Provide your IBM Cloud API Key.
-
-- Environment Variable: `IBMCLOUD_APIKEY`
-- Default Value: None
+- Default Value: `filestorage`
 
 ### mas_instance_id
 Required. The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
@@ -73,6 +58,7 @@ The following sample can be used to configure COS for an existing Manage applica
     mas_workspace_id: masdev
     db2_instance_name: db2w-manage
     cos_instance_name: cos-masinst1
+    ibmcos_bucket_name: manage-attachments-bucket
     ibmcloud_apikey: xxxx
     mas_manage_attachments_provider: cos
   roles:
@@ -90,6 +76,7 @@ The following sample playbook can be used to provision COS in IBM Cloud and conf
     db2_instance_name: db2w-manage
     cos_type: ibm
     cos_instance_name: cos-masinst1
+    ibmcos_bucket_name: manage-attachments-bucket
     ibmcloud_apikey: xxxx
     mas_manage_attachments_provider: cos
   roles:
