@@ -1,0 +1,156 @@
+---
+- name: "Fail if mas_config_dir is not provided"
+  assert:
+    that: mas_config_dir is defined and mas_config_dir != ""
+    fail_msg: "mas_config_dir property is required"
+
+# 1. Create CIS Instance
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Fetch Resource Group Id
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
+- name: Create a CIS Instance
+  ibm.cloudcollection.ibm_cis:
+    resource_group_id: "{{ rg_info.resource.id }}"
+    plan: "{{ cis_plan }}"
+    name: "{{ cis_service_name }}"
+    location: "global"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: cis_info
+
+- name: Fail if CIS Instance is not created
+  assert:
+    that:
+      - cis_info.resource.id is defined
+    fail_msg: "Unable to create CIS Instances"
+
+- name: Debug CIS Instance Info
+  debug:
+    msg:
+      - "CIS Instance creation .................. {{ cis_info }}"
+
+# 2. Add and Configure valid Domain for IBM CIS instance
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Adding valid Domain for IBM CIS instance in customer account
+  ibm.cloudcollection.ibm_cis_domain:
+    cis_id: "{{ cis_info.resource.id }}"
+    domain: "{{ customer_cis_domain }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: domain_info
+
+- name: Fail if Domain Id is missing
+  assert:
+    that:
+      - domain_info.resource.id is defined and domain_info.resource.id != ""
+    fail_msg: "Unable to  Add Domain: {{ customer_cis_domain }} to CIS Instance"
+
+- name: Debug Info
+  debug:
+    msg:
+      - "Domain Resource created ................ {{ domain_info }}"
+
+- name: Configure Domain settings
+  ibm.cloudcollection.ibm_cis_domain_settings:
+    ssl : "strict"
+    min_tls_version : "1.2"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    cis_id: "{{ cis_info.resource.id }}"
+    domain_id: "{{ domain_info.resource.id }}"
+  register: domain_config_info
+
+- name: Debug Info
+  debug:
+    msg:
+      - "Configured Domain settings ............. {{ domain_config_info }}"
+
+# 3. Add Both customer CIS nameserver record to master account
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Set Fact for CIS Instance
+  set_fact:
+    dns_records_list: []
+
+- name: Master, Fetch Resource Group Id
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ master_cis_resource_group }}"
+    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+  register: rg_info_master
+
+- name: Master, Fetch CIS Instance Resource Id
+  ibm.cloudcollection.ibm_cis_info:
+    name: "{{ master_cis_resource_name }}"
+    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+    resource_group_id: "{{ rg_info_master.resource.id }}"
+  register: cis_info_master
+
+- name: Master, CIS Domain Info
+  ibm.cloudcollection.ibm_cis_domain_info:
+    cis_id: "{{ cis_info_master.resource.id }}"
+    domain: "{{ masms_base_domain }}"
+    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+  register: domain_info_master
+
+- name: Fetch Master CIS DNS records
+  ibm.cloudcollection.ibm_cis_dns_records_info:
+    cis_id: "{{ cis_info_master.resource.id }}"
+    domain_id: "{{ domain_info_master.resource.id}}"
+    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+  register: dns_records_info_master
+
+# Find if DNS records already exists or not
+- name: Loop through all DNS records of Master CIS to find customer DNS record
+  no_log: yes
+  loop: "{{ dns_records_info_master.resource.cis_dns_records }}"
+  when:
+    - item.name == customer_cis_domain and ( item.content == domain_info.resource.name_servers[0] or item.content == domain_info.resource.name_servers[1])
+  set_fact:
+      dns_records_list: "{{ dns_records_list + [item] }}"
+
+- name: Debug, DNS Records info if they already exists
+  when:  dns_records_list | length != 0
+  debug:
+    msg:
+      - "DNS Record Info ........................ {{ dns_records_list }}"
+
+# Create DNS Records if not found in Master CIS
+- name: Create DNS NS type Record in Master CIS Instance
+  loop: "{{domain_info.resource.name_servers}}"
+  when:
+  - domain_info_master.resource.id is defined
+  - cis_info_master.resource.id is defined
+  - dns_records_list | length == 0
+  ibm.cloudcollection.ibm_cis_dns_record:
+    domain_id: "{{ domain_info_master.resource.id }}"
+    cis_id: "{{ cis_info_master.resource.id }}"
+    type: "NS"
+    content: "{{ item }}"
+    name: "{{ customer_cis_domain_prefix }}"
+    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+  register: create_dns_records_info
+
+- name: Debug , DNS Record creation in Master CIS
+  when: dns_records_list | length == 0
+  debug:
+    msg:
+      - "DNS Record Info ........................ {{ create_dns_records_info }}"
+
+- name: Fail, if DNS Record creation in Master CIS is not successful
+  loop: "{{ create_dns_records_info.results }}"
+  when: dns_records_list | length == 0
+  assert:
+    that:
+      - not item.failed
+
+# 4. Store CIS outputs
+# -----------------------------------------------------------------------------
+- name: Store cis outputs as ConfigMap
+  when:
+    - cis_info.resource.id is defined and cis_info.resource.id != ""
+    - domain_info.resource.id is defined and domain_info.resource.id != ""
+    - domain_info.resource.name_servers is defined
+    - mas_config_dir is defined and mas_config_dir != ""
+  ansible.builtin.template:
+    src: cis_output.yml.j2
+    dest: "{{ mas_config_dir }}/cis-cm.yml"

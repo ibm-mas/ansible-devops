@@ -71,3 +71,4 @@ copyDoc suite_mustgather_download
 copyDoc suite_upgrade
 copyDoc suite_verify
 copyDoc uds
+copyDoc cis
