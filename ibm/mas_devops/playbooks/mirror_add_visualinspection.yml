@@ -1,0 +1,48 @@
+---
+# Mirrors the following content which is REQUIRED to add Maximo Optimizer to an existing
+# Maximo Application Suite Core Services installation:
+# 1. IBM Maximo Optimizer
+#
+# This playbook aligns with the ibm.mas_devops.oneclick_add_optimizer playbook
+
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-221129-amd64', True) }}"
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.9.x', True) }}"
+    mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
+
+    mirror_mas_visualinspection: "{{ lookup('env', 'MIRROR_MAS_VISUALINSPECTION') | default ('True', True) | bool }}"
+
+  pre_tasks:
+    # Note that REGISTRY_USERNAME and REGISTRY_PASSWORD are not required.
+    # They are only needed if you have set up authentication on your private registry
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'REGISTRY_PUBLIC_HOST') != ""
+          - lookup('env', 'REGISTRY_PUBLIC_PORT') != ""
+          - lookup('env', 'IBM_ENTITLEMENT_KEY') != ""
+        fail_msg: "One or more required environment variables are not defined"
+    - name: Load CASE bundle versions
+      include_vars:
+        file: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
+
+  roles:
+    # 1. IBM Maximo Visual Inspection
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_mas_visualinspection
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-mas-visualinspection
+        case_version: "{{ mas_visualinspection_version[mas_channel] }}"
+        exclude_images: []
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_mas_visualinspection
+      vars:
+        manifest_name: ibm-mas-visualinspection
+        manifest_version: "{{ mas_visualinspection_version[mas_channel] }}"

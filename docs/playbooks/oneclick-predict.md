@@ -15,8 +15,8 @@ This playbook can be ran against any OCP cluster regardless of it's type; whethe
     - Install Spark (~30 minutes)
     - Install Openscale (~1 hour)
 - Install Predict application:
-    - Install application (~15 Minutes) 
-    - Configure workspace (~30 Minutes) 
+    - Install application (~15 Minutes)
+    - Configure workspace (~30 Minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.
 
@@ -24,6 +24,17 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
+- `WML_INSTANCE_ID` Set Default value to "openshift"
+- `WML_URL` Set Default value to "https://internal-nginx-svc.ibm-cpd.svc:12443" . ibm-cpd in the URL corresponds to the project name (namespace) of cp4d installation
+- `CPD_PRODUCT_VERSION` (Required if `WML_VERSION` is not informed) Cloud Pak for Data version installed in the cluster in 4.X format, it will be used to obtain the correct WML version to be installed
+- `WML_VERSION` (Required if `CPD_PRODUCT_VERSION` is not informed) The wml_version for cp4d 4.0.x will be 4.0, if cp4d is 4.5.x , wml_version should change to 4.5
+- `PREDICT_DEPLOYMENT_SIZE` Controls the workload size of predict containers. Avaliable options are `developer`, `small`, `medium`. 'small' is the choosen one set by default.
+
+    | Deployment_size        | Replica |
+    | ---------------------- | :--: |
+    | developer              |  1 |
+    | small                  |  2 |
+    | medium                 |  3 |
 
 ## These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
 - `CPD_ADMIN_USERNAME` CP4D Username
@@ -56,6 +67,11 @@ export MAS_ENTITLEMENT_KEY=xxx
 export CPD_ADMIN_USERNAME="admin"
 export CPD_ADMIN_PASSWORD="xxx"
 export CPD_URL="https://mycp4durl"
+export WML_INSTANCE_ID="openshift"
+export WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
+export WML_VERSION="4.5"
+export PREDICT_DEPLOYMENT_SIZE="small"
+
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_predict
@@ -72,10 +88,14 @@ export CP4D_INSTALL_WSL="true"
 export CP4D_INSTALL_WML="true"
 export CP4D_INSTALL_SPARK="true"
 export CP4D_INSTALL_OPENSCALE="true"
+export WML_INSTANCE_ID="openshift"
+export WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
+export WML_VERSION="4.5"
+export PREDICT_DEPLOYMENT_SIZE="small"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_predict
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/ansible-devops:latest bash`
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/cli:latest`

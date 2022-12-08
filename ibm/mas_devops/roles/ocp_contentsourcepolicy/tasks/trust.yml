@@ -1,0 +1,29 @@
+---
+
+# 1. Read the CA cert from the file
+# -----------------------------------------------------------------------------
+- name: Read the CA cert
+  set_fact:
+    registry_private_ca_crt: "{{ lookup('file', registry_private_ca_file) }}"
+
+
+# 2. Create configmap containing the CA cert of our airgap registry
+# -----------------------------------------------------------------------------
+- name: Create configmap
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/configmap.yml.j2'
+
+
+# 3. Patch cluster config to use this configmap in spec.additionalTrustedCA
+# -----------------------------------------------------------------------------
+- name: Patch cluster image configuration
+  kubernetes.core.k8s:
+    api_version: config.openshift.io/v1
+    kind: Image
+    name: cluster
+    apply: yes
+    definition:
+      spec:
+        additionalTrustedCA:
+          name: registry-config
