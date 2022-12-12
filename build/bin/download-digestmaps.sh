@@ -31,7 +31,7 @@ download_case ibm-truststore-mgr 1.4.0 ibmTrustStoreMgrSetup
 
 # MAS Core
 # -----------------------------------------------------------------------------
-download_case ibm-mas 8.8.3 ibmMasSetup
+download_case ibm-mas 8.8.4 ibmMasSetup
 download_case ibm-mas 8.9.0 ibmMasSetup
 
 # MAS Assist
@@ -46,12 +46,12 @@ download_case ibm-mas 8.9.0 ibmMasSetup
 
 # MAS IoT
 # -----------------------------------------------------------------------------
-download_case ibm-mas-iot 8.5.3 ibmMasIotSetup
+download_case ibm-mas-iot 8.5.4 ibmMasIotSetup
 download_case ibm-mas-iot 8.6.0 ibmMasIotSetup
 
 # MAS Manage
 # -----------------------------------------------------------------------------
-download_case ibm-mas-manage 8.4.3 ibmMasManageSetup
+download_case ibm-mas-manage 8.4.4 ibmMasManageSetup
 download_case ibm-mas-manage 8.5.0 ibmMasManageSetup
 
 # MAS Monitor
@@ -62,11 +62,11 @@ download_case ibm-mas-monitor 8.8.2 ibmMasMonitorSetup
 # MAS Predict
 # -----------------------------------------------------------------------------
 # Not supported for airgap
-# download_case ibm-mas-predict 8.6.0 ibmMasPredictSetup
+ download_case ibm-mas-predict 8.6.2 ibmMasPredictSetup
 
 # MAS Optimizer
 # -----------------------------------------------------------------------------
-download_case ibm-mas-optimizer 8.2.2 ibmMasOptimizerSetup
+download_case ibm-mas-optimizer 8.2.3 ibmMasOptimizerSetup
 download_case ibm-mas-optimizer 8.3.0 ibmMasOptimizerSetup
 
 # MAS Visual Inspection
