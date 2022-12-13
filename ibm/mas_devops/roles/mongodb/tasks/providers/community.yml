@@ -150,8 +150,8 @@
     name: mas-mongo-ce
     namespace: "{{ mongodb_namespace }}"
   register: mongodb_statefulset
-  retries: 60 # 30 * 30 seconds = 15 minutes
-  delay: 30
+  retries: 45 # Approx 45 minutes
+  delay: 60 # 1 minute
   until:
     - mongodb_statefulset.resources is defined
     - mongodb_statefulset.resources | length > 0
@@ -176,7 +176,7 @@
     mongo_replicas: "{{ mongo_replicas|default([]) + [item.metadata.name] }}"
   with_items: "{{ mongo_pods_output.resources }}"
 
-# Load mongo-hosts template to dinamically set as many mongo hosts:port as identified
+# Load mongo-hosts template to dynamically set as many mongo hosts:port as identified
 - set_fact:
     mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/community/mongo-hosts.yml.j2') }}"
 
