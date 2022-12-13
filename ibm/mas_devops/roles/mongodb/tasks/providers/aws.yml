@@ -1,0 +1,144 @@
+---
+# 1. set docdb admin user and password
+# -----------------------------------------------------------------------------
+- name: include vars for docdb specs according to the docdb_size specified
+  include_vars:
+    file: "{{mongodb_provider}}/{{ docdb_size }}.yml"
+  when: docdb_size is defined and docdb_size != ""
+
+# This task should be removed
+- name: Lookup existing k8s secret for docdb admin credentials
+  no_log: true
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ docdb_admin_credentials_secret_name }}"
+    namespace: "{{ sre_namespace }}"
+  register: existing_docdb_admin_credentials_secret
+
+- name: Set var docdb_master_password for docdb admin password from k8s secret
+  no_log: true
+  set_fact:
+    docdb_master_password: "{{ existing_docdb_admin_credentials_secret.resources[0].data.docdb_password | b64decode }}"
+  when: existing_docdb_admin_credentials_secret is defined and existing_docdb_admin_credentials_secret.resources is defined and existing_docdb_admin_credentials_secret.resources | length > 0
+
+- name: Generate docdb admin password
+  no_log: true
+  set_fact:
+    docdb_master_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+  when: docdb_master_password is undefined or docdb_master_password == ""
+
+# 2. Create three subnets in VPC
+# -----------------------------------------------------------------------------
+- name: Fetch availability Zones in VPC Reigon
+  command: >
+    aws ec2 describe-availability-zones
+  register: az_info
+
+- name: Set Fact for availability zones
+  set_fact:
+    az: "{{ az_info.stdout | from_json | json_query('AvailabilityZones') }}"
+
+- name: Create Subnet in each availability zone-1
+  command: >
+    aws ec2 create-subnet \
+      --vpc-id '{{ vpc_id }}' \
+      --cidr-block '{{docdb_cidr_az1}}' \
+      --availability-zone '{{ az[0].ZoneName }}'
+  register: subnet1_info
+
+- name: Create Subnet in each availability zone-2
+  command: >
+    aws ec2 create-subnet \
+      --vpc-id '{{ vpc_id }}' \
+      --cidr-block '{{docdb_cidr_az2}}' \
+      --availability-zone '{{ az[1].ZoneName }}'
+  register: subnet2_info
+
+- name: Create Subnet in each availability zone-3
+  command: >
+    aws ec2 create-subnet \
+      --vpc-id '{{ vpc_id }}' \
+      --cidr-block '{{docdb_cidr_az3}}' \
+      --availability-zone '{{ az[2].ZoneName }}'
+  register: subnet3_info
+
+- name: Debug Subnet Creation Info
+  debug:
+    msg:
+      - "{{ subnet1_info.stdout | from_json }}"
+      - "{{ subnet2_info.stdout | from_json }}"
+      - "{{ subnet3_info.stdout | from_json }}"
+
+- name: Set Fact for Subnet Ids
+  set_fact:
+    subnet_id1: "{{ subnet1_info.stdout | from_json | json_query('Subnet.SubnetId') }}"
+    subnet_id2: "{{ subnet2_info.stdout | from_json | json_query('Subnet.SubnetId') }}"
+    subnet_id3: "{{ subnet3_info.stdout | from_json | json_query('Subnet.SubnetId') }}"
+
+# 3. Create Subnet Group for DocDb Instances
+# -----------------------------------------------------------------------------
+- name: Create Subnet Group
+  ignore_errors: yes
+  command: >
+    aws docdb create-db-subnet-group \
+    --db-subnet-group-description 'Subnet Group for DocDB'
+    --db-subnet-group-name '{{ docdb_subnet_group_name }}' \
+    --subnet-ids '{{ subnet_id1 }}' '{{ subnet_id2 }}' '{{ subnet_id3 }}'
+  register: subnet_group_info
+
+- debug:
+    msg:
+      - "subnet_group_info : {{ subnet_group_info.stdout | from_json }}"
+
+# 4. Create Security Group and add ingress ,egress rules
+# -----------------------------------------------------------------------------
+- name: Create a Security Group
+  command: >
+    aws ec2 create-security-group \
+    --group-name '{{ docdb_security_group_name }}' \
+    --description "Enable inbound connection security group" \
+    --vpc-id '{{ vpc_id }}'
+  register: sg_info
+
+- name: Get Security group Id
+  set_fact: 
+    sg_id: "{{sg_info.stdout | from_json | json_query('GroupId')}}"
+
+- name: Add Ingress rule to SG"
+  command: >
+    aws ec2 authorize-security-group-ingress \
+    --group-id '{{ sg_id }}' \
+    --ip-permissions IpProtocol=tcp,FromPort=27017,ToPort=27017,IpRanges='[{CidrIp=10.1.0.0/23}]',Ipv6Ranges='[{CidrIpv6=::/0}]'
+  register: ingress_rule_info
+
+- name: Add Egress rule to SG"
+  command: >
+    aws ec2 authorize-security-group-egress \
+    --group-id '{{ sg_id }}' \
+    --ip-permissions IpProtocol=-1,FromPort=0,ToPort=0,IpRanges='[{CidrIp=10.1.0.0/23}]',Ipv6Ranges='[{CidrIpv6=::/0}]'
+  register: egress_rule_info
+
+
+# 5. Create DocumentDB Cluster and Instances
+# -----------------------------------------------------------------------------
+- name: Create DocDB Cluster
+  command: >
+    aws docdb create-db-cluster \
+    --db-cluster-identifier '{{ docdb_cluster_name }}' \
+    --engine docdb \
+    --master-username '{{ docdb_master_username }}' \
+    --master-user-password '{{ docdb_master_password }}' \
+    --db-subnet-group-name '{{ docdb_subnet_group_name }}' \
+    --vpc-security-group-ids  '{{sg_id}}' \ 
+    --port 27017 \
+    --engine-version '{{ docdb_engine_version }}'
+
+- name: Create DocumentDB Cluster Instance
+  command: >
+    aws docdb create-db-instance \
+    --db-cluster-identifier '{{ docdb_cluster_name }}' \
+    --db-instance-class '{{ docdb_instance_class }}' \
+    --db-instance-identifier '{{ docdb_cluster_name }}'-'{{ item }}' \
+    --engine docdb
+  with_sequence: start=1 end={{docdb_instance_number}}
