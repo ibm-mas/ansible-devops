@@ -45,6 +45,7 @@
       --vpc-id '{{ vpc_id }}' \
       --cidr-block '{{docdb_cidr_az1}}' \
       --availability-zone '{{ az[0].ZoneName }}'
+      --tag-specifications ResourceType=subnet,Tags=[{Key=Name,Value='{{ docdb_subnet_group_name }}'}]
   register: subnet1_info
 
 - name: Create Subnet in each availability zone-2
@@ -53,6 +54,7 @@
       --vpc-id '{{ vpc_id }}' \
       --cidr-block '{{docdb_cidr_az2}}' \
       --availability-zone '{{ az[1].ZoneName }}'
+      --tag-specifications ResourceType=subnet,Tags=[{Key=Name,Value='{{ docdb_subnet_group_name }}'}]
   register: subnet2_info
 
 - name: Create Subnet in each availability zone-3
@@ -61,6 +63,7 @@
       --vpc-id '{{ vpc_id }}' \
       --cidr-block '{{docdb_cidr_az3}}' \
       --availability-zone '{{ az[2].ZoneName }}'
+      --tag-specifications ResourceType=subnet,Tags=[{Key=Name,Value='{{ docdb_subnet_group_name }}'}]
   register: subnet3_info
 
 - name: Debug Subnet Creation Info
@@ -82,7 +85,7 @@
   ignore_errors: yes
   command: >
     aws docdb create-db-subnet-group \
-    --db-subnet-group-description 'Subnet Group for DocDB'
+    --db-subnet-group-description 'Subnet Group for DocDB' \
     --db-subnet-group-name '{{ docdb_subnet_group_name }}' \
     --subnet-ids '{{ subnet_id1 }}' '{{ subnet_id2 }}' '{{ subnet_id3 }}'
   register: subnet_group_info
@@ -133,6 +136,15 @@
     --vpc-security-group-ids  '{{sg_id}}' \ 
     --port 27017 \
     --engine-version '{{ docdb_engine_version }}'
+  register: docdb_cluster_info
+
+- name: Set Fact for Cluster Details
+  set_fact:
+    docdb_cluster_id: "{{ docdb_cluster_info.stdout | from_json | json_query('DBCluster.DbClusterResourceId') }}"
+    docdb_cluster_arn: "{{ docdb_cluster_info.stdout | from_json | json_query('DBCluster.DBClusterArn') }}"
+    docdb_cluster_endpoint: "{{ docdb_cluster_info.stdout | from_json | json_query('DBCluster.Endpoint') }}"
+    docdb_cluster_port: "{{ docdb_cluster_info.stdout | from_json | json_query('DBCluster.Port') }}"
+    docdb_cluster_reader_endpoint: "{{ docdb_cluster_info.stdout | from_json | json_query('DBCluster.ReaderEndpoint') }}"
 
 - name: Create DocumentDB Cluster Instance
   command: >
@@ -142,3 +154,16 @@
     --db-instance-identifier '{{ docdb_cluster_name }}'-'{{ item }}' \
     --engine docdb
   with_sequence: start=1 end={{docdb_instance_number}}
+
+# 6. Store DocDB Cluster outputs
+# -----------------------------------------------------------------------------
+- name: Store DocDB outputs as ConfigMap
+  when:
+    - docdb_cluster_id is defined and docdb_cluster_id != ""
+    - docdb_cluster_arn is defined and docdb_cluster_arn != ""
+    - docdb_cluster_endpoint is defined and docdb_cluster_endpoint != ""
+    - docdb_cluster_port is defined and docdb_cluster_port != ""
+    - docdb_cluster_reader_endpoint is defined and docdb_cluster_reader_endpoint != ""
+  ansible.builtin.template:
+    src: aws/docdb_tf_outputs_configmap.yml.j2
+    dest: "{{ mas_config_dir }}/docdb-cm.yml"

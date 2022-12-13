@@ -1,0 +1,77 @@
+# 5. Delete DocumentDB Cluster and Instances
+# -----------------------------------------------------------------------------
+- name: include vars for docdb specs according to the docdb_size specified
+  include_vars:
+    file: "aws/{{ docdb_size }}.yml"
+  when: docdb_size is defined and docdb_size != ""
+
+- name: Delete all docdb instances
+  ignore_errors: yes
+  command: >
+    aws docdb delete-db-instance \
+      --db-instance-identifier '{{ docdb_cluster_name }}'-'{{ item }}'
+  register: test_info
+  with_sequence: start=1 end={{docdb_instance_number}}
+
+- name: Delete DocDB Cluster
+  ignore_errors: yes
+  command: >
+    aws docdb delete-db-cluster \
+    --db-cluster-identifier '{{ docdb_cluster_name }}'
+    --skip-final-snapshot
+  register: docdb_cluster_delete_info
+
+# - name: Debug DocDb Cluster Deletion information
+#   debug:
+#     msg:
+#       - "{{ docdb_cluster_delete_info.stdout | from_json }}"
+
+# 3. Create Subnet Group for DocDb Instances
+# -----------------------------------------------------------------------------
+- name: Delete Subnet Group for DocDB Instance
+  command: >
+    aws docdb delete-db-subnet-group \
+    --db-subnet-group-name '{{ docdb_subnet_group_name }}'
+  register: subnet_group_delete_info
+
+# 1. Delete all three subnets in VPC
+# -----------------------------------------------------------------------------
+- name: Fetch Subnet Info in VPC created for DocDB
+  command: >
+    aws ec2 describe-subnets \
+      --filters "Name=tag:Name, Values='{{ docdb_subnet_group_name }}'"
+  register: subnets_info
+
+- name: Set Fact for fecthed Subnets
+  set_fact:
+    subnets: "{{ subnets_info.stdout | from_json | json_query('Subnets') }}"
+
+- name: Delete all subnets for DocDB
+  loop: "{{ subnets }}"
+  command: >
+    aws ec2 delete-subnet \
+      --subnet-id '{{ item.SubnetId }}'
+  register: subnet_delete_info
+
+
+
+# 4. Delete Security Group
+# -----------------------------------------------------------------------------
+- name: Fetch Security Group {{ docdb_security_group_name }} Info in vpc {{vpc_id}}
+  command: >
+    aws ec2 describe-security-groups \
+      --filters "Name=vpc-id,Values='{{ vpc_id }}'" "Name=group-name,Values='{{ docdb_security_group_name }}'"
+  register: sg_info
+
+- name: Set Fact , Security Group Id
+  set_fact:
+    sg_group_id: "{{sg_info.stdout | from_json | json_query('SecurityGroups[0].GroupId')}}"
+
+- name: Delete Security Group for DocDb Instance
+  when: sg_group_id is defined and sg_group_id != ''
+  command: >
+    aws ec2 delete-security-group \
+    --group-id '{{ sg_group_id }}'
+  register: sg_delete_info
+
+
