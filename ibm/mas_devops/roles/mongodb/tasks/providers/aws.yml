@@ -6,22 +6,6 @@
     file: "{{mongodb_provider}}/{{ docdb_size }}.yml"
   when: docdb_size is defined and docdb_size != ""
 
-# This task should be removed
-- name: Lookup existing k8s secret for docdb admin credentials
-  no_log: true
-  community.kubernetes.k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ docdb_admin_credentials_secret_name }}"
-    namespace: "{{ sre_namespace }}"
-  register: existing_docdb_admin_credentials_secret
-
-- name: Set var docdb_master_password for docdb admin password from k8s secret
-  no_log: true
-  set_fact:
-    docdb_master_password: "{{ existing_docdb_admin_credentials_secret.resources[0].data.docdb_password | b64decode }}"
-  when: existing_docdb_admin_credentials_secret is defined and existing_docdb_admin_credentials_secret.resources is defined and existing_docdb_admin_credentials_secret.resources | length > 0
-
 - name: Generate docdb admin password
   no_log: true
   set_fact:
@@ -30,6 +14,11 @@
 
 # 2. Create three subnets in VPC
 # -----------------------------------------------------------------------------
+
+- name: Initialize facts for subnet ids
+  set_fact:
+    subnet_id_list: []
+
 - name: Fetch availability Zones in VPC Reigon
   command: >
     aws ec2 describe-availability-zones
@@ -39,45 +28,30 @@
   set_fact:
     az: "{{ az_info.stdout | from_json | json_query('AvailabilityZones') }}"
 
-- name: Create Subnet in each availability zone-1
+- name: Create Subnet in three availability Zones
+  loop: ["{{docdb_cidr_az1}}","{{docdb_cidr_az2}}","{{docdb_cidr_az3}}"]
+  loop_control:
+    index_var: index
   command: >
     aws ec2 create-subnet \
       --vpc-id '{{ vpc_id }}' \
-      --cidr-block '{{docdb_cidr_az1}}' \
-      --availability-zone '{{ az[0].ZoneName }}'
+      --cidr-block '{{item}}' \
+      --availability-zone '{{ az[index].ZoneName }}'
       --tag-specifications ResourceType=subnet,Tags=[{Key=Name,Value='{{ docdb_subnet_group_name }}'}]
-  register: subnet1_info
-
-- name: Create Subnet in each availability zone-2
-  command: >
-    aws ec2 create-subnet \
-      --vpc-id '{{ vpc_id }}' \
-      --cidr-block '{{docdb_cidr_az2}}' \
-      --availability-zone '{{ az[1].ZoneName }}'
-      --tag-specifications ResourceType=subnet,Tags=[{Key=Name,Value='{{ docdb_subnet_group_name }}'}]
-  register: subnet2_info
-
-- name: Create Subnet in each availability zone-3
-  command: >
-    aws ec2 create-subnet \
-      --vpc-id '{{ vpc_id }}' \
-      --cidr-block '{{docdb_cidr_az3}}' \
-      --availability-zone '{{ az[2].ZoneName }}'
-      --tag-specifications ResourceType=subnet,Tags=[{Key=Name,Value='{{ docdb_subnet_group_name }}'}]
-  register: subnet3_info
+  register: create_subnet_info
 
 - name: Debug Subnet Creation Info
   debug:
     msg:
-      - "{{ subnet1_info.stdout | from_json }}"
-      - "{{ subnet2_info.stdout | from_json }}"
-      - "{{ subnet3_info.stdout | from_json }}"
+      - "{{ create_subnet_info.results[0].stdout | from_json }}"
+      - "{{ create_subnet_info.results[1].stdout | from_json }}"
+      - "{{ create_subnet_info.results[2].stdout | from_json }}"
 
-- name: Set Fact for Subnet Ids
+- name: Update Fact for subnet Ids list
+  loop: "{{ create_subnet_info.results }}"
+  when: create_subnet_info is defined
   set_fact:
-    subnet_id1: "{{ subnet1_info.stdout | from_json | json_query('Subnet.SubnetId') }}"
-    subnet_id2: "{{ subnet2_info.stdout | from_json | json_query('Subnet.SubnetId') }}"
-    subnet_id3: "{{ subnet3_info.stdout | from_json | json_query('Subnet.SubnetId') }}"
+    subnet_id_list: "{{ subnet_id_list + [item.stdout | from_json | json_query('Subnet.SubnetId')] }}"
 
 # 3. Create Subnet Group for DocDb Instances
 # -----------------------------------------------------------------------------
@@ -87,7 +61,7 @@
     aws docdb create-db-subnet-group \
     --db-subnet-group-description 'Subnet Group for DocDB' \
     --db-subnet-group-name '{{ docdb_subnet_group_name }}' \
-    --subnet-ids '{{ subnet_id1 }}' '{{ subnet_id2 }}' '{{ subnet_id3 }}'
+    --subnet-ids '{{subnet_id_list[0]}}' '{{subnet_id_list[1]}}' '{{subnet_id_list[2]}}'
   register: subnet_group_info
 
 - debug:

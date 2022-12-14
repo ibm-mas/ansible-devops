@@ -1,4 +1,4 @@
-# 5. Delete DocumentDB Cluster and Instances
+# 1. Delete DocumentDB Cluster and Instances
 # -----------------------------------------------------------------------------
 - name: include vars for docdb specs according to the docdb_size specified
   include_vars:
@@ -21,39 +21,44 @@
     --skip-final-snapshot
   register: docdb_cluster_delete_info
 
-# - name: Debug DocDb Cluster Deletion information
-#   debug:
-#     msg:
-#       - "{{ docdb_cluster_delete_info.stdout | from_json }}"
-
-# 3. Create Subnet Group for DocDb Instances
+# 2. Wait untill DocDB instances are deleted and then Delete Subnet Group
 # -----------------------------------------------------------------------------
 - name: Delete Subnet Group for DocDB Instance
   command: >
     aws docdb delete-db-subnet-group \
     --db-subnet-group-name '{{ docdb_subnet_group_name }}'
   register: subnet_group_delete_info
+  until:
+    - subnet_group_delete_info is defined
+    - subnet_group_delete_info.stderr == ""
+  retries: 10
+  delay: 60
 
-# 1. Delete all three subnets in VPC
+# 3. Delete all three subnets in VPC
 # -----------------------------------------------------------------------------
-- name: Fetch Subnet Info in VPC created for DocDB
+- name: Fetch Subnets already exists in VPC {{ vpc_id }}
+  loop: ["{{docdb_cidr_az1}}","{{docdb_cidr_az2}}","{{docdb_cidr_az3}}"]
   command: >
     aws ec2 describe-subnets \
-      --filters "Name=tag:Name, Values='{{ docdb_subnet_group_name }}'"
+      --filters "Name=cidr, Values={{item}}" "Name=vpc-id,Values={{ vpc_id }}"
   register: subnets_info
 
-- name: Set Fact for fecthed Subnets
+- name: Initialize Subnet Ids list
   set_fact:
-    subnets: "{{ subnets_info.stdout | from_json | json_query('Subnets') }}"
+    subnets: []
+
+- name: Set Fact for fecthed Subnets
+  loop: "{{ subnets_info.results }}"
+  set_fact:
+    subnets: "{{ subnets + [item.stdout | from_json | json_query('Subnets') ] }}"
 
 - name: Delete all subnets for DocDB
   loop: "{{ subnets }}"
   command: >
     aws ec2 delete-subnet \
-      --subnet-id '{{ item.SubnetId }}'
+      --subnet-id '{{ item[0].SubnetId }}'
   register: subnet_delete_info
-
-
+  when: item | length > 0
 
 # 4. Delete Security Group
 # -----------------------------------------------------------------------------
@@ -73,5 +78,3 @@
     aws ec2 delete-security-group \
     --group-id '{{ sg_group_id }}'
   register: sg_delete_info
-
-

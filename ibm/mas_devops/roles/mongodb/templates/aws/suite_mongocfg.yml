@@ -1,14 +1,14 @@
 ---
-# Mongo credentials for MAS
+# DocumentDB credentials for MAS
 apiVersion: v1
 kind: Secret
 type: Opaque
 metadata:
-  name: "mongodb-mongoce-admin"
+  name: "documentdb-mongoce-admin"
   namespace: "mas-{{mas_instance_id}}-core"
 stringData:
-  username: admin
-  password: "{{ mongodb_admin_password }}"
+  username: "{{ docdb_master_username }}"
+  password: "{{ docdb_master_password }}"
 ---
 # Mongo configuration for MAS
 apiVersion: config.mas.ibm.com/v1
@@ -20,16 +20,16 @@ metadata:
     mas.ibm.com/configScope: system
     mas.ibm.com/instanceId: "{{mas_instance_id}}"
 spec:
-  displayName: "MongoDb 4.2.6 Community Edition in '{{ mongodb_namespace }}' namespace"
+  displayName: "AWS DocumentDB '{{ documentdb_namespace }}' namespace"
   type: external
   config:
     configDb: admin
     authMechanism: DEFAULT
     credentials:
-      secretName: mongodb-mongoce-admin
+      secretName: documentdb-mongoce-admin
     hosts:
       {{ mongo_hosts | indent(6) }}
   certificates:
     - alias: ca
       crt: |
-        {{ mongodb_ca_pem | indent(8) }}
+        {{ documentdb_ca_pem | indent(8) }}
