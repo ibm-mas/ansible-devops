@@ -127,7 +127,57 @@
     --db-instance-class '{{ docdb_instance_class }}' \
     --db-instance-identifier '{{ docdb_cluster_name }}'-'{{ item }}' \
     --engine docdb
+  register: docdb_cluster_intances_info
   with_sequence: start=1 end={{docdb_instance_number}}
+
+
+- name: Fetch DocDb Instance 1 Info
+  command: >
+    aws docdb describe-db-instances \
+      --db-instance-identifier '{{ docdb_cluster_name }}'-'1'
+  register: docdb_cluster_intances_info_1
+  until:
+    - docdb_cluster_intances_info_1 is defined
+    - docdb_cluster_intances_info_1.stdout is defined
+    - docdb_cluster_intances_info_1.stdout | from_json | json_query('DBInstances[0].Endpoint.Address') != ''
+  retries: 10
+  delay: 60
+
+- name: Fetch DocDb Instance 2 Info
+  command: >
+    aws docdb describe-db-instances \
+      --db-instance-identifier '{{ docdb_cluster_name }}'-'2'
+  register: docdb_cluster_intances_info_2
+  until:
+    - docdb_cluster_intances_info_2 is defined
+    - docdb_cluster_intances_info_2.stdout is defined
+    - docdb_cluster_intances_info_2.stdout | from_json | json_query('DBInstances[0].Endpoint.Address') != ''
+  retries: 10
+  delay: 60
+
+- name: Fetch DocDb Instance 3 Info
+  command: >
+    aws docdb describe-db-instances \
+      --db-instance-identifier '{{ docdb_cluster_name }}'-'3'
+  register: docdb_cluster_intances_info_3
+  until:
+    - docdb_cluster_intances_info_3 is defined
+    - docdb_cluster_intances_info_3.stdout is defined
+    - docdb_cluster_intances_info_3.stdout | from_json | json_query('DBInstances[0].Endpoint.Address') != ''
+  retries: 10
+  delay: 60
+
+- name: Set Fact for DB Instance Info
+  set_fact:
+    docdb_hosts: []
+
+- name: Parse DocDB Host Address
+  loop:
+    - "{{docdb_cluster_intances_info_1}}"
+    - "{{docdb_cluster_intances_info_2}}"
+    - "{{docdb_cluster_intances_info_3}}"
+  set_fact:
+    docdb_hosts: "{{ docdb_hosts + [item.stdout | from_json | json_query('DBInstances[0].Endpoint.Address')] }}"
 
 # 6. Store DocDB Cluster outputs
 # -----------------------------------------------------------------------------
@@ -141,3 +191,28 @@
   ansible.builtin.template:
     src: aws/docdb_tf_outputs_configmap.yml.j2
     dest: "{{ mas_config_dir }}/docdb-cm.yml"
+
+# 7. Download DocDB CA Cert from AWS and Create DocDB creds Secret and MongoCfg
+# -----------------------------------------------------------------------------
+- name: include vars for docdb specs according to the docdb_size specified
+  include_vars:
+    file: "{{mongodb_provider}}/{{ docdb_size }}.yml"
+  when: docdb_size is defined and docdb_size != ""
+- name: "Download Amazon DocumentDB Certificate Authority (CA) certificate"
+  shell: |
+    wget https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem -O /tmp/rds-combined-ca-bundle.pem
+
+- name: Set DocumentDB certificates
+  set_fact:
+    docdb_master_certificates: "{{ lookup('file', '/tmp/rds-combined-ca-bundle.pem') }}"
+
+- name: Create Secret for docdb admin credentials
+  #no_log: true
+  ansible.builtin.template:
+    src: aws/docdb_master_user_credentials_secret.yaml.j2
+    dest: "{{ mas_config_dir }}/docdb-master-secret.yml"
+
+- name: Generate MongoCfg with DocDB details
+  ansible.builtin.template:
+    src: aws/suite_mongocfg.yml.j2
+    dest: "{{ mas_config_dir }}/docdb-cfg.yml"

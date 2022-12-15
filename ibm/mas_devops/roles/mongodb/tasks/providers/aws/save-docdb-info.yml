@@ -1,0 +1,26 @@
+
+# 1. Save docdb CA Certs
+# -----------------------------------------------------------------------------
+- name: include vars for docdb specs according to the docdb_size specified
+  include_vars:
+    file: "{{mongodb_provider}}/{{ docdb_size }}.yml"
+  when: docdb_size is defined and docdb_size != ""
+- name: "Download Amazon DocumentDB Certificate Authority (CA) certificate"
+  shell: |
+    wget https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem -O /tmp/rds-combined-ca-bundle.pem
+
+- name: Set DocumentDB certificates
+  set_fact:
+    docdb_master_certificates: "{{ lookup('file', '/tmp/rds-combined-ca-bundle.pem') }}"
+
+- name: Set demo facts
+  set_fact:
+    docdb_master_password: "dummy@123"
+
+# 2. Save docdb master user credentials into k8s Secret
+# -----------------------------------------------------------------------------
+- name: Create k8s Secret for docdb admin credentials
+  #no_log: true
+  ansible.builtin.template:
+    src: aws/docdb_master_user_credentials_secret.yaml.j2
+    dest: "{{ mas_config_dir }}/docdb-master-secret.yml"
