@@ -170,17 +170,17 @@
   retries: 10
   delay: 60
 
-- name: Set Fact for DB Instance Info
-  set_fact:
-    docdb_hosts: []
-
 - name: Parse DocDB Host Address
   loop:
     - "{{docdb_cluster_intances_info_1}}"
     - "{{docdb_cluster_intances_info_2}}"
     - "{{docdb_cluster_intances_info_3}}"
   set_fact:
-    docdb_hosts: "{{ docdb_hosts + [item.stdout | from_json | json_query('DBInstances[0].Endpoint.Address')] }}"
+    docdb_replicas: "{{ docdb_replicas|default([]) + [item.stdout | from_json | json_query('DBInstances[0].Endpoint.Address')] }}"
+
+# Load aws-docdb-hosts template to dynamically set as many docdb hosts:port as identified
+- set_fact:
+    docdb_hosts: "{{ lookup('ansible.builtin.template', 'templates/aws/docdb-hosts.yml.j2') }}"
 
 # 6. Store DocDB Cluster outputs
 # -----------------------------------------------------------------------------
@@ -210,7 +210,7 @@
     docdb_master_certificates: "{{ lookup('file', '/tmp/rds-combined-ca-bundle.pem') }}"
 
 - name: Create Secret for docdb admin credentials
-  #no_log: true
+  no_log: true
   ansible.builtin.template:
     src: aws/docdb_master_user_credentials_secret.yaml.j2
     dest: "{{ mas_config_dir }}/docdb-master-secret.yml"
