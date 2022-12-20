@@ -58,6 +58,36 @@
 # - ibm-common-service-operator
 # - ibm-namespace-scope-operator
 
+# Look up the default channel for the ibm-common-service-operator package manifest
+# The way ODLM works (which we have to use) means that when an istance of MAS Core
+# is installed in the cluster, the ODLM framework will automatically upgdate the installed
+# version of the IBM common service operator to whatever is set as the default channel.
+#
+# This can cause the subsequent installation of the Licensing Operator to fail in
+# horrible ways, setting the subscription channel correctly here will hopefully avoid
+# this problem.
+- name: Set ibm-common-services-operator channel if needed
+  when: common_services_channel is not defined or common_services_channel == ""
+  block:
+
+  - name: Lookup ibm-common-service-operator packagemanifest
+    k8s_info:
+      api_version: packages.operators.coreos.com/v1
+      kind: PackageManifest
+      name: ibm-common-service-operator
+      namespace: ibm-common-services
+    register: common_services_manifest_info
+
+  - name: Set ibm-common-services-operator channel
+    set_fact:
+      common_services_channel: "{{ common_services_manifest_info.resources[0].status.defaultChannel }}"
+
+- name: Debug IBM Common Services Install
+  debug:
+    msg:
+      - "Channel ................................ {{ common_services_channel }}"
+      - "Source ................................. {{ common_services_catalog_source }}"
+
 - name: "create-subscriptions : Create CP4D Platform & Namespace Scope Operator subscriptions using channel: {{ cpd_channel }}"
   kubernetes.core.k8s:
     apply: yes
