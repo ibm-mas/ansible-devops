@@ -46,14 +46,18 @@
     aws docdb describe-db-subnet-groups \
       --db-subnet-group-name '{{ docdb_subnet_group_name }}'
   register: subnet_group_exists_info
+  failed_when: subnet_group_exists_info.rc not in [0] and ('DBSubnetGroupNotFoundFault' not in subnet_group_exists_info.stderr )
+
+- set_fact:
+    subnet_group_exists: false
 
 - name: Set Fact for subnet group name
-  when: subnet_group_exists_info is defined and subnet_group_exists_info != ''
+  when: subnet_group_exists_info is defined and subnet_group_exists_info != '' and subnet_group_exists_info.stdout != ''
   set_fact:
-    subnet_group_name: "{{ subnet_group_exists_info.stdout | from_json | json_query('DBSubnetGroups[0].DBSubnetGroupName') }}"
+    subnet_group_exists: "{{ subnet_group_exists_info.stdout | from_json | json_query('DBSubnetGroups[0].DBSubnetGroupName') != '' }}"
 
 - name: Create Subnet Group
-  when: not subnet_group_name
+  when: not subnet_group_exists
   command: >
     aws docdb create-db-subnet-group \
     --db-subnet-group-description 'Subnet Group for DocDB' \
@@ -64,7 +68,7 @@
 - name: Debug Subnet Group Info
   debug:
     msg:
-      - "DocDB Subnet Group Info ........ {{ subnet_group_exists_info.stdout | from_json if subnet_group_name else create_subnet_group_info.stdout | from_json }}"
+      - "DocDB Subnet Group Info ........ {{ subnet_group_exists_info.stdout | from_json if subnet_group_exists else create_subnet_group_info.stdout | from_json }}"
 
 # 4. Create Security Group and add ingress ,egress rules
 # -----------------------------------------------------------------------------
@@ -114,13 +118,17 @@
 # 5. Create DocumentDB Cluster and Instances
 # -----------------------------------------------------------------------------
 - name: Check if DocDB Cluster already exists
-  ignore_errors: yes
   command: >
     aws docdb describe-db-clusters \
     --db-cluster-identifier '{{ docdb_cluster_name }}'
   register: docdb_cluster_exists_info
+  failed_when: docdb_cluster_exists_info.rc not in [0] and ('DBClusterNotFoundFault' not in docdb_cluster_exists_info.stderr )
+
+- set_fact:
+    docdb_cluster_exists: false
 
 - name: Set Fact to indicate whether DocDB cluster already exists
+  when: not docdb_cluster_exists_info.stderr
   set_fact:
     docdb_cluster_exists: "{{ docdb_cluster_exists_info.stdout | from_json | json_query('DBClusters[0].DBClusterIdentifier') ==  docdb_cluster_name }}"
 
@@ -153,6 +161,11 @@
 - name: Create DocumentDB Cluster Instance
   include_tasks: providers/aws/utils/create-docdb-instance.yml
   with_sequence: start=1 end=3
+
+- name: Debug DocDB Instances Host Address
+  debug:
+    msg:
+      - "docdb_replicas ........ {{ docdb_replicas }}"
 
 # Load aws-docdb-hosts template to dynamically set as many docdb hosts:port as identified
 - set_fact:

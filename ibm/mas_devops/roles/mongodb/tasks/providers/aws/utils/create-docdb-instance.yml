@@ -9,13 +9,14 @@
     --db-instance-identifier '{{ docdb_instance_identifier }}' \
     --filters "Name=db-cluster-id,Values={{docdb_cluster_arn}}"
   register: docdb_cluster_intance_exists_info
+  failed_when: docdb_cluster_intance_exists_info.rc not in [0] and ('DBInstanceNotFound' not in docdb_cluster_intance_exists_info.stderr)
 
-- debug: 
-    msg: 
-      - "{{ docdb_cluster_intance_exists_info.stdout | from_json | json_query('DBInstances[0]') }}"
+- name: Initialize Fact docdb_instance_exists to false
+  set_fact:
+    docdb_instance_exists: false
 
-- name: Set Fact if DocDB Instance already exists
-  when: docdb_cluster_intance_exists_info is defined and docdb_cluster_intance_exists_info != ''
+- name: Set Fact if DocDB Instance {{ docdb_instance_identifier }} already exists
+  when: not docdb_cluster_intance_exists_info.stderr
   set_fact:
     docdb_instance_exists: "{{ docdb_cluster_intance_exists_info.stdout | from_json | json_query('DBInstances[0].DBInstanceIdentifier') == docdb_instance_identifier }}"
 
@@ -25,14 +26,14 @@
     aws docdb create-db-instance \
     --db-cluster-identifier '{{ docdb_cluster_name }}' \
     --db-instance-class '{{ docdb_instance_class }}' \
-    --db-instance-identifier '{{ docdb_cluster_name }}'-'{{ item }}' \
+    --db-instance-identifier '{{ docdb_instance_identifier }}' \
     --engine docdb
 
-- name: Fetch DocDb Instance {{ docdb_cluster_name }}-{{item}}  Info
+- name: Fetch DocDb Instance {{ docdb_instance_identifier }}  Info
   when: not docdb_instance_exists
   command: >
     aws docdb describe-db-instances \
-      --db-instance-identifier '{{ docdb_cluster_name }}'-'1'
+      --db-instance-identifier '{{ docdb_instance_identifier }}'
   register: docdb_cluster_intance_create_info
   until:
     - docdb_cluster_intance_create_info is defined
@@ -43,7 +44,7 @@
   delay: 60
 
 - set_fact:
-    docdb_cluster_intance_info: "{{ docdb_cluster_intance_exists_info if docdb_instance_exists else docdb_cluster_intances_info }}"
+    docdb_cluster_intance_info: "{{ docdb_cluster_intance_exists_info if docdb_instance_exists else docdb_cluster_intance_create_info }}"
 
 - name: Set Fact for DocDB Instance Hosts
   set_fact:
