@@ -4,59 +4,45 @@
 - name: "Debug information"
   debug:
     msg:
-      - "SRE Namespace .......................... {{ sre_namespace }}"
-      - "Bucket name ............................ {{ bucket_name }}"
+      - "Bucket name ............................ {{ aws_bucket_name }}"
       - "AWS Region.............................. {{ aws_region }}"
       - "AWS User Name........................... {{ aws_user_name }}"
+      - "AWS ARN ................................ {{ aws_user_arn }}"
       - "S3 Access Point Name ................... {{ s3_access_point_name }}"
       - "S3 Access Point Action List ............ {{ s3_access_point_action_list }}"
 
-# 2. Get AWS user arn
-# -----------------------------------------------------------------------------
-- name: Lookup cos informations from configmaps
-  community.kubernetes.k8s_info:
-    api_version: v1
-    kind: ConfigMap
-    name: "{{aws_user_name}}-tf-outputs"
-    namespace: "{{ sre_namespace }}"
-  register: user_info
+# # 3. Create AWS Bucket and Bucket Access Point via Terraform
+# # -----------------------------------------------------------------------------
+# - name: copy tfvars file to nodes
+#   template:
+#     src: bucket_tfvars.j2
+#     dest: "{{ role_path }}/files/terraform/terraform.tfvars"
 
-- name: Set fact for aws_user_arn
-  set_fact:
-    aws_user_arn: "{{ user_info.resources[0].data.arn }}"
+# - name: start terraform init and deploy - create access point
+#   community.general.terraform:
+#     project_path: "{{ role_path }}/files/terraform/"
+#     state: present
+#     force_init: true
+#     workspace: "{{ tf_workspace }}"
+#     variables_file: "{{ role_path }}/files/terraform/terraform.tfvars"
+#     init_reconfigure: true
+#     purge_workspace: true
+#     backend_config:
+#       region: "{{ devops_cos_region }}"
+#       endpoint: "{{ tf_backend_cos_endpoint }}"
+#       bucket: "{{ tf_backend_cos_bucket }}"
+#       key: "{{bucket_name}}-{{ s3_access_point_name }}"
+#       access_key: "{{ tf_backend_cos_access_key_id }}"
+#       secret_key: "{{ tf_backend_cos_secret_access_key }}"
+#   environment:
+#     AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
+#     AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+#   register: tf_result
 
-# 3. Create AWS Bucket and Bucket Access Point via Terraform
-# -----------------------------------------------------------------------------
-- name: copy tfvars file to nodes
-  template:
-    src: bucket_tfvars.j2
-    dest: "{{ role_path }}/files/terraform/terraform.tfvars"
-
-- name: start terraform init and deploy - create access point
-  community.general.terraform:
-    project_path: "{{ role_path }}/files/terraform/"
-    state: present
-    force_init: true
-    workspace: "{{ tf_workspace }}"
-    variables_file: "{{ role_path }}/files/terraform/terraform.tfvars"
-    init_reconfigure: true
-    purge_workspace: true
-    backend_config:
-      region: "{{ devops_cos_region }}"
-      endpoint: "{{ tf_backend_cos_endpoint }}"
-      bucket: "{{ tf_backend_cos_bucket }}"
-      key: "{{bucket_name}}-{{ s3_access_point_name }}"
-      access_key: "{{ tf_backend_cos_access_key_id }}"
-      secret_key: "{{ tf_backend_cos_secret_access_key }}"
-  environment:
-    AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
-    AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
-  register: tf_result
-
-# 3. Save bucket outputs and sevice credentials
-# -----------------------------------------------------------------------------
-- name: Create k8s configmaps for bucket outputs
-  community.kubernetes.k8s:
-    state: present
-    namespace: "{{ sre_namespace }}"
-    definition: "{{ lookup('template', 'templates/access_point_tf_outputs_configmap.yaml.j2') | from_yaml }}"
+# # 3. Save bucket outputs and sevice credentials
+# # -----------------------------------------------------------------------------
+# - name: Create k8s configmaps for bucket outputs
+#   community.kubernetes.k8s:
+#     state: present
+#     namespace: "{{ sre_namespace }}"
+#     definition: "{{ lookup('template', 'templates/access_point_tf_outputs_configmap.yaml.j2') | from_yaml }}"

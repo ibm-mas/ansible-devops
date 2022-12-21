@@ -1,43 +1,32 @@
 ---
-- name: "Fail if aws_user_name is not provided"
-  assert:
-    that: aws_user_name is defined and aws_user_name != ""
-    fail_msg: "aws_user_name property is required"
-
-- name: "Fail if aws_user_action_list is not provided"
-  assert:
-    that: aws_user_action_list is defined and aws_user_action_list | length > 0
-    fail_msg: "aws_user_action_list property is required"
-
-- name: "Fail if aws_resources_list is not provided"
-  assert:
-    that: aws_resources_list is defined and aws_resources_list | length > 0
-    fail_msg: "aws_resources_list property is required"
-
 # 1. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
       - "AWS Region.............................. {{ aws_region }}"
-      - "AWS User Name........................... {{ aws_user_name }}"
-      - "AWS User Action List ................... {{ aws_user_action_list }}"
-      - "AWS Resources List ..................... {{ aws_resources_list }}"
+      - "AWS User Name readonly ................. {{ aws_bucket_read_only_username }}"
+      - "AWS User Name readwrite ................ {{ aws_bucket_read_write_username }}"
+      - "AWS Bucket ARN ......................... {{ aws_bucket_arn }}"
 
-- name: "Create a new aws username {{ aws_user_name }}"
-  community.aws.iam_user:
-    name: "{{ aws_user_name }}"
-    state: present
-  register: iam_user_creation_output
+- include_tasks: "tasks/create-readonly-policy.yml"
 
-- debug:
-    msg: "{{ iam_user_creation_output }}"
+- include_tasks: "tasks/create-readwrite-policy.yml"
 
-- name: "Create a new access key for aws username {{ aws_user_name }}"
-  community.aws.iam_access_key:
-    user_name: "{{ aws_user_name }}"
-    state: present
-  register: iam_access_key_creation_output
+- name: Debug IAM Policy ARN's
+  debug:
+    msg:
+      - "{{ s3readonly_policy_arn }}"
+      - "{{ s3readwrite_policy_arn }}"
 
-- debug:
-    msg: "{{ iam_access_key_creation_output }}"
+- name: "Create read-only user {{ aws_bucket_read_only_username }}"
+  include_tasks: "tasks/create-user.yml"
+  vars:
+    aws_username: "{{ aws_bucket_read_only_username }}"
+    aws_policy_arn: "{{ s3readonly_policy_arn }}"
+  
+- name: "Create read-write user {{ aws_bucket_read_write_username }}"
+  include_tasks: "tasks/create-user.yml"
+  vars:
+    aws_username: "{{ aws_bucket_read_write_username }}"
+    aws_policy_arn: "{{ s3readwrite_policy_arn }}"
