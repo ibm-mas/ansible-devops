@@ -6,20 +6,20 @@
   when: docdb_size is defined and docdb_size != ""
 
 - name: Delete all docdb instances
-  ignore_errors: yes
   command: >
     aws docdb delete-db-instance \
       --db-instance-identifier '{{ docdb_cluster_name }}'-'{{ item }}'
-  register: test_info
+  register: docdb_delete_info
   with_sequence: start=1 end={{docdb_instance_number}}
+  failed_when: docdb_delete_info.rc not in [0] and ('DBInstanceNotFound' not in docdb_delete_info.stderr ) and ('InvalidDBInstanceState' not in docdb_delete_info.stderr)
 
 - name: Delete DocDB Cluster
-  ignore_errors: yes
   command: >
     aws docdb delete-db-cluster \
     --db-cluster-identifier '{{ docdb_cluster_name }}'
     --skip-final-snapshot
   register: docdb_cluster_delete_info
+  failed_when: docdb_cluster_delete_info.rc not in [0] and ('DBClusterNotFoundFault' not in docdb_cluster_delete_info.stderr )
 
 # 2. Wait untill DocDB instances are deleted and then Delete Subnet Group
 # -----------------------------------------------------------------------------
@@ -28,11 +28,10 @@
     aws docdb delete-db-subnet-group \
     --db-subnet-group-name '{{ docdb_subnet_group_name }}'
   register: subnet_group_delete_info
-  until:
-    - subnet_group_delete_info is defined
-    - subnet_group_delete_info.stderr == ""
+  until: ('DBSubnetGroupNotFoundFault' in subnet_group_delete_info.stderr) or (subnet_group_delete_info is defined and subnet_group_delete_info.stderr == "")
   retries: 10
   delay: 60
+  failed_when: subnet_group_delete_info.rc not in [0] and ('DBSubnetGroupNotFoundFault' not in subnet_group_delete_info.stderr )
 
 # 3. Delete all three subnets in VPC
 # -----------------------------------------------------------------------------
