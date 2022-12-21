@@ -20,6 +20,7 @@ Role Variables
 - `mas_upgrade_strategy` The Upgrade strategy for MAS Operator. Default is set to Automatic
 - `mas_annotations` Optional variable having all the annotations that need to be added to the Suite CR. This variable takes a comma separated list of annotations. For example, to deploy your suite in non production mode, set this to `mas.ibm.com/operationalMode=nonproduction` 
 or set `MAS_ANNOTATIONS` environment variable as `export MAS_ANNOTATIONS=mas.ibm.com/operationalMode=nonproduction`
+- `custom_labels` Optional environment variable, CUSTOM_LABELS, containing a list of comma separated key=value pairs for setting custom labels on instance specific resources.
 
 
 Example Playbook

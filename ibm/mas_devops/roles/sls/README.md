@@ -200,6 +200,13 @@ The Registration key of the LicenseService instance to be used when the Maximo A
 - Environment Variable: `SLS_REGISTRATION_KEY`
 - Default Value: None
 
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default Value: None
+
 
 Example Playbook
 ----------------
