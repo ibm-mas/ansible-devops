@@ -1,0 +1,50 @@
+---
+- name: Set Fact for DB Instance Identifier
+  set_fact:
+    docdb_instance_identifier: "{{ docdb_cluster_name }}-{{item}}"
+
+- name: Check if DocDB Instance already exists
+  command: >
+    aws docdb describe-db-instances \
+    --db-instance-identifier '{{ docdb_instance_identifier }}' \
+    --filters "Name=db-cluster-id,Values={{docdb_cluster_arn}}"
+  register: docdb_cluster_intance_exists_info
+
+- debug: 
+    msg: 
+      - "{{ docdb_cluster_intance_exists_info.stdout | from_json | json_query('DBInstances[0]') }}"
+
+- name: Set Fact if DocDB Instance already exists
+  when: docdb_cluster_intance_exists_info is defined and docdb_cluster_intance_exists_info != ''
+  set_fact:
+    docdb_instance_exists: "{{ docdb_cluster_intance_exists_info.stdout | from_json | json_query('DBInstances[0].DBInstanceIdentifier') == docdb_instance_identifier }}"
+
+- name: Create DocumentDB Cluster Instance
+  when: not docdb_instance_exists
+  command: >
+    aws docdb create-db-instance \
+    --db-cluster-identifier '{{ docdb_cluster_name }}' \
+    --db-instance-class '{{ docdb_instance_class }}' \
+    --db-instance-identifier '{{ docdb_cluster_name }}'-'{{ item }}' \
+    --engine docdb
+
+- name: Fetch DocDb Instance {{ docdb_cluster_name }}-{{item}}  Info
+  when: not docdb_instance_exists
+  command: >
+    aws docdb describe-db-instances \
+      --db-instance-identifier '{{ docdb_cluster_name }}'-'1'
+  register: docdb_cluster_intance_create_info
+  until:
+    - docdb_cluster_intance_create_info is defined
+    - docdb_cluster_intance_create_info.stdout is defined
+    - docdb_cluster_intance_create_info.stdout | from_json | json_query('DBInstances[0].Endpoint') 
+    - docdb_cluster_intance_create_info.stdout | from_json | json_query('DBInstances[0].Endpoint.Address')
+  retries: 10
+  delay: 60
+
+- set_fact:
+    docdb_cluster_intance_info: "{{ docdb_cluster_intance_exists_info if docdb_instance_exists else docdb_cluster_intances_info }}"
+
+- name: Set Fact for DocDB Instance Hosts
+  set_fact:
+    docdb_replicas: "{{ docdb_replicas|default([]) + [ docdb_cluster_intance_info.stdout | from_json | json_query('DBInstances[0].Endpoint.Address')] }}"
