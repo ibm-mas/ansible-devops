@@ -1,8 +1,12 @@
 ---
-- name: Set Fact for DB Instance Identifier
+# 1. Create DocumentDB Instance in given Cluster
+# -----------------------------------------------------------------------------
+- name: Set Fact for DocumentDB Instance
   set_fact:
     docdb_instance_identifier: "{{ docdb_cluster_name }}-{{item}}"
+    docdb_instance_exists: false
 
+# check will not fail if Error Code is DBInstanceNotFound or return code is 0
 - name: Check if DocDB Instance already exists
   command: >
     aws docdb describe-db-instances \
@@ -10,11 +14,7 @@
     --filters "Name=db-cluster-id,Values={{docdb_cluster_arn}}"
   register: docdb_cluster_intance_exists_info
   failed_when: docdb_cluster_intance_exists_info.rc not in [0] and ('DBInstanceNotFound' not in docdb_cluster_intance_exists_info.stderr)
-
-- name: Initialize Fact docdb_instance_exists to false
-  set_fact:
-    docdb_instance_exists: false
-
+    
 - name: Set Fact if DocDB Instance {{ docdb_instance_identifier }} already exists
   when: not docdb_cluster_intance_exists_info.stderr
   set_fact:
@@ -46,6 +46,11 @@
 - set_fact:
     docdb_cluster_intance_info: "{{ docdb_cluster_intance_exists_info if docdb_instance_exists else docdb_cluster_intance_create_info }}"
 
-- name: Set Fact for DocDB Instance Hosts
+- name: Set Fact, DocDB Instance Hosts
   set_fact:
     docdb_replicas: "{{ docdb_replicas|default([]) + [ docdb_cluster_intance_info.stdout | from_json | json_query('DBInstances[0].Endpoint.Address')] }}"
+
+- name: Debug ,DocumentDB Cluster Instance {{ docdb_instance_identifier }} info
+  debug:
+    msg:
+      - "DocumentDB cluster instance ............ {{ docdb_cluster_intance_info }}"
