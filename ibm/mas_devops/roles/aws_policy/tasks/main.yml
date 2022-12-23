@@ -1,0 +1,32 @@
+---
+# For now this role is not prepared to be execured as standalone role.
+# We need to extend support for allowing env vars to define its properties. 
+# Currently it's being used internally by other roles.
+
+# 1. Provide debug information to the create aws policy
+# -----------------------------------------------------------------------------
+- name: "Create AWS Policy: Debug information"
+  debug:
+    msg:
+      - "AWS Policy name ........................ {{ aws_policy_name }}"
+      - "AWS Policy statement ................... {{ aws_policy_statement }}"
+
+- name: "Create the new policy {{ aws_policy_name }}"
+  shell: |
+    aws iam create-policy \
+    --policy-name {{ aws_policy_name }} \
+    --policy-document \
+    '{
+        "Version": "2012-10-17",
+        "Statement": {{ aws_policy_statement | to_json }}
+    }'
+  register: iam_policy_create_output
+  failed_when: iam_policy_create_output.rc > 0 and ('EntityAlreadyExists' not in iam_policy_create_output.stderr)
+
+
+- name: "Lookup aws policy's arn: {{ aws_policy_name }}"
+  shell: aws iam list-policies --query 'Policies[?PolicyName==`{{ aws_policy_name }}`].Arn' --output text
+  register: iam_policy_lookup_output
+
+- set_fact:
+    s3_policy_arn: "{{ iam_policy_lookup_output.stdout }}"

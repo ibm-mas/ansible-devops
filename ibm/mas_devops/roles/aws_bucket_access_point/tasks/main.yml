@@ -4,45 +4,70 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Bucket name ............................ {{ aws_bucket_name }}"
-      - "AWS Region.............................. {{ aws_region }}"
-      - "AWS User Name........................... {{ aws_user_name }}"
-      - "AWS ARN ................................ {{ aws_user_arn }}"
-      - "S3 Access Point Name ................... {{ s3_access_point_name }}"
-      - "S3 Access Point Action List ............ {{ s3_access_point_action_list }}"
+      - "AWS Access Point Name .................. {{ aws_access_point_name }}"
+      - "AWS Region.............................. {{ aws_access_point_region }}"
+      - "AWS Bucket Name ........................ {{ aws_access_point_bucket_name }}"
+      - "AWS Username ........................... {{ aws_access_point_username }}"
+      - "AWS Access Point policy actions ........ {{ aws_access_point_policy_actions }}"
 
-# # 3. Create AWS Bucket and Bucket Access Point via Terraform
-# # -----------------------------------------------------------------------------
-# - name: copy tfvars file to nodes
-#   template:
-#     src: bucket_tfvars.j2
-#     dest: "{{ role_path }}/files/terraform/terraform.tfvars"
+- name: "Get AWS account id"
+  shell: aws sts get-caller-identity
+  register: aws_account_identity_output
+  failed_when: aws_account_identity_output.rc > 0
 
-# - name: start terraform init and deploy - create access point
-#   community.general.terraform:
-#     project_path: "{{ role_path }}/files/terraform/"
-#     state: present
-#     force_init: true
-#     workspace: "{{ tf_workspace }}"
-#     variables_file: "{{ role_path }}/files/terraform/terraform.tfvars"
-#     init_reconfigure: true
-#     purge_workspace: true
-#     backend_config:
-#       region: "{{ devops_cos_region }}"
-#       endpoint: "{{ tf_backend_cos_endpoint }}"
-#       bucket: "{{ tf_backend_cos_bucket }}"
-#       key: "{{bucket_name}}-{{ s3_access_point_name }}"
-#       access_key: "{{ tf_backend_cos_access_key_id }}"
-#       secret_key: "{{ tf_backend_cos_secret_access_key }}"
-#   environment:
-#     AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
-#     AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
-#   register: tf_result
+- set_fact: 
+    aws_account_identity_json_output: "{{ aws_account_identity_output.stdout }}"
 
-# # 3. Save bucket outputs and sevice credentials
-# # -----------------------------------------------------------------------------
-# - name: Create k8s configmaps for bucket outputs
-#   community.kubernetes.k8s:
-#     state: present
-#     namespace: "{{ sre_namespace }}"
-#     definition: "{{ lookup('template', 'templates/access_point_tf_outputs_configmap.yaml.j2') | from_yaml }}"
+- set_fact:
+    aws_account_id: "{{ aws_account_identity_json_output.Account }}"
+
+- name: "Create access point {{ aws_access_point_name }} for bucket {{ aws_access_point_bucket_name }}"
+  shell: |
+    aws s3control create-access-point \
+    --account-id {{ aws_account_id }} \
+    --bucket {{ aws_access_point_bucket_name }} \
+    --name {{ aws_access_point_name }} \
+    --region {{ aws_region }}
+  register: aws_access_point_create_output
+  failed_when: aws_access_point_create_output.rc > 0 and ('AccessPointAlreadyOwnedByYou' not in aws_access_point_create_output.stderr )
+
+- name: "Lookup access point's arn: {{ aws_access_point_name }}"
+  shell: aws s3control list-access-points --account-id {{ aws_account_id }} --region {{ aws_region }} --query 'AccessPointList[?Name==`{{ aws_access_point_name }}`]' --output json
+  register: aws_access_point_lookup_output
+
+- set_fact:
+    aws_access_point_arn_lookup_json_output: "{{ aws_access_point_lookup_output.stdout }}"
+
+- debug:
+    msg: "aws_access_point_arn_lookup_json_output: {{ aws_access_point_arn_lookup_json_output }}"
+
+- set_fact:
+    aws_access_point_arn: "{{ aws_access_point_arn_lookup_json_output[0].AccessPointArn }}"
+    aws_access_point_alias: "{{ aws_access_point_arn_lookup_json_output[0].Alias }}"
+
+- name: "Lookup username's arn: {{ aws_access_point_username }}"
+  shell: aws iam list-users --query 'Users[?UserName==`{{ aws_access_point_username }}`].Arn' --output text
+  register: aws_access_point_username_arn_lookup_output
+
+- set_fact:
+    aws_access_point_username_arn: "{{ aws_access_point_username_arn_lookup_output.stdout }}"
+
+- name: "Generate access point policy for read-only user {{ aws_access_point_name }}"
+  ansible.builtin.template:
+    src: ap-policy.json.j2
+    dest: "{{ mas_config_dir }}/{{ aws_access_point_name }}-policy.json"
+    mode: '644'
+
+- name: "Apply access point policy for read-only access to the bucket"
+  shell: |
+    aws s3control put-access-point-policy \
+    --account-id {{ aws_account_id }} \
+    --name {{ aws_access_point_name }} \
+    --region {{ aws_access_point_region }} \
+    --policy file://{{ mas_config_dir }}/{{ aws_access_point_name }}-policy.json
+  register: aws_access_point_create_output
+  failed_when: aws_access_point_create_output.rc > 0 and ('AccessPointAlreadyOwnedByYou' not in aws_access_point_create_output.stderr )
+
+- debug:
+    msg:
+      - "AWS Access Point Alias for Username '{{ aws_access_point_username }}': {{ aws_access_point_alias }}"
