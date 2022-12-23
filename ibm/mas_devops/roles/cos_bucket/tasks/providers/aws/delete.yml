@@ -1,13 +1,13 @@
 ---
-- name: "Fail if aws_access_key_id is not provided"
+- name: "Fail if aws_bucket_name is not provided"
   assert:
-    that: aws_access_key_id is defined and aws_access_key_id != ""
-    fail_msg: "aws_access_key_id property is required"
+    that: aws_bucket_name is defined and aws_bucket_name != ""
+    fail_msg: "aws_bucket_name property is required"
 
-- name: "Fail if aws_secret_access_key is not provided"
+- name: "Fail if aws_bucket_region_location is not provided"
   assert:
-    that: aws_secret_access_key is defined and aws_secret_access_key != ""
-    fail_msg: "aws_secret_access_key property is required"
+    that: aws_bucket_region_location is defined and aws_bucket_region_location != ""
+    fail_msg: "aws_bucket_region_location property is required"
 
 # 1. Debug information
 # ---------------------------------------------------------------------------------------------------------------------
@@ -20,21 +20,17 @@
 
 # 2. Delete AWS bucket
 # ---------------------------------------------------------------------------------------------------------------------
+- name: "Delete AWS buckets objects first"
+  when: aws_bucket_force_deletion_flag == True
+  shell:
+    aws s3 rm s3://{{ aws_bucket_name }} --recursive
+  register: aws_bucket_objects_deletion_output
+  failed_when: aws_bucket_objects_deletion_output.rc > 0
+
+# 3. Delete AWS bucket
+# ---------------------------------------------------------------------------------------------------------------------
 - name: "Delete AWS buckets"
-  s3_bucket:
-    name: "{{ aws_bucket_name }}"
-    state: absent
-    force: "{{ aws_bucket_force_deletion_flag }}"
-    region: "{{ aws_bucket_region_location }}"
-    aws_access_key: "{{ aws_access_key_id }}"
-    aws_secret_key: "{{ aws_secret_access_key }}"
+  shell:
+    aws s3api delete-bucket --bucket {{ aws_bucket_name }} --region {{ aws_bucket_region_location }}
   register: aws_bucket_deletion_output
-
-- debug:
-    msg: "{{ aws_bucket_deletion_output }}"
-
-- name: "Assert AWS bucket '{{ ibmcos_bucket_name }}' was deleted"
-  assert:
-    that:
-      - aws_bucket_deletion_output.failed == false
-    fail_msg: "Something went wrong with the {{ aws_bucket_name }} deletion: {{ aws_bucket_deletion_output }}"
+  failed_when: aws_bucket_deletion_output.rc > 0
