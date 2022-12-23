@@ -1,0 +1,52 @@
+---
+# Task to load json scripts in json_script_path_local
+# Lookup for json files in the local path
+
+- name: "Create AWS Policy: Debug information"
+  debug:
+    msg:
+      - "AWS Policy name ........................ {{ aws_policy_name }}"
+      - "AWS Policy json folder ................. {{ aws_policy_json_path_local }}"
+
+- name: "Check json files in {{ aws_policy_json_path_local }} folder"
+  find:
+    paths: "{{ aws_policy_json_path_local }}"
+    patterns: '*.json'
+    file_type: "file"
+  register: find_result
+
+# Add json files in a list
+- set_fact:
+    json_files: [] # initializing the variable
+
+- set_fact:
+    json_files: "{{ json_files + [item | basename] }}"
+  with_items: "{{ full_path }}"
+  vars:
+    full_path: "{{ find_result.files | map(attribute='path') | list }}"
+
+- name: Fail if no json files found
+  assert:
+    that: json_files is defined and json_files | length > 0
+    fail_msg: "No json files found in {{ aws_policy_json_path_local }}. Exiting."
+
+- debug: 
+    var: json_files
+
+- name: Fail if there are more than 1 json files found
+  assert:
+    that: json_files is defined and json_files | length == 1
+    fail_msg: "There are more than 1 json files found in {{ aws_policy_json_path_local }}. Make sure to process 1 policy at a time."
+
+- debug:
+    msg: 
+      - "aws_policy_json_path_local: {{ aws_policy_json_path_local }}"
+      - "json_files: {{ json_files }}"
+
+- name: "Create the new policy {{ aws_policy_name }} from json files in {{ aws_policy_json_path_local }} local folder "
+  shell: |
+    aws iam create-policy \
+    --policy-name {{ aws_policy_name }} \
+    --policy-document file://{{ aws_policy_json_path_local }}/{{ json_files[0] }}
+  register: iam_policy_create_output
+  failed_when: iam_policy_create_output.rc > 0 and ('EntityAlreadyExists' not in iam_policy_create_output.stderr)
