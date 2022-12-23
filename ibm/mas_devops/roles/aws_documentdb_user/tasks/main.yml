@@ -1,0 +1,49 @@
+---
+# tasks file for Docdb
+- name: "Debug information"
+  debug:
+    msg:
+    - "DocumentDB Name ............................... {{ docdb_cluster_name }}"
+    - "SRE Namespace ................................. {{ sre_namespace }}"
+    - "MAS Instance ID ............................... {{ mas_instance_id }}"
+    - "DocumentDB Master credential name ............. {{ docdb_admin_credentials_secret_name }}"
+    - "DocumentDB instance credential name ........... {{ docdb_instance_credentials_secret_name }}"
+
+# 1. create docdb user for MAS instance
+# -----------------------------------------------------------------------------
+- name: set fact for document DB host, port and user name
+  # get both from env var
+  set_fact:
+    docdb_instance_username: "masinst_{{ mas_instance_id }}"
+
+- name: Generate Mongo admin password
+  no_log: true
+  set_fact:
+    docdb_instance_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+  when: docdb_instance_password is undefined or docdb_instance_password == ""
+
+- name: Ensure directory files exist
+  file:
+    path: "{{ role_path }}/files"
+    state: directory
+
+- name: "Download Amazon DocumentDB Certificate Authority (CA) certificate"
+  shell: |
+    wget https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem -O /tmp/rds-combined-ca-bundle.pem
+
+- name: create js file from template
+  template:
+    src: create_user.js.j2
+    dest: "/tmp/create_user.js"
+
+- name: Create docdb user for MAS instance
+  shell: |
+    mongo --ssl --host {{ docdb_host }}:{{ docdb_port }} --sslCAFile /tmp/rds-combined-ca-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/create_user.js
+  register: creating_user_output
+
+# 2. Save docdb user credentials into k8s Secret
+# -----------------------------------------------------------------------------
+- name: Create k8s Secret for docdb user credentials
+  ansible.builtin.template:
+    src: docdb_instance_user_credentials_secret.yaml.j2
+    dest: "{{ mas_config_dir }}/{{ docdb_instance_credentials_secret_name }}.yml"
