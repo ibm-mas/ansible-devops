@@ -1,5 +1,5 @@
-# aws_policy
-This role will create an AWS IAM Policy from a JSON file in the targeted AWS account.
+# aws_bucket_access_point
+This role will create an access point and associates it with the specified s3/aws bucket in the targeted AWS account.
 
 ## Prerequisites
 To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
@@ -7,19 +7,33 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 
 ## Role Variables
 
-### aws_policy_name
-AWS Policy name.
+### aws_access_point_name
+The name you want to assign to this access point.
 
-- Optional
-- Environment Variable: `AWS_POLICY_NAME`
+- Required.
+- Environment Variable: `AWS_ACCESS_POINT_NAME`
+- Default Value: `access-point-c1`
+
+### aws_access_point_bucket_name
+The name of the bucket that you want to associate this access point with.
+
+- Required.
+- Environment Variable: `COS_BUCKET_NAME`
 - Default Value: None
 
-### aws_policy_json_file_path_local
-Local path for the AWS Policy json file. 
-The AWS Policy json file should be structured as the sample found in `/templates/policy-template.json`
+### aws_access_point_region
+The region where the bucket is located.
 
-- Required (if running this as standalone role)
-- Environment Variable: `AWS_POLICY_JSON_FILE_PATH_LOCAL`
+- Required.
+- Environment Variable: `AWS_REGION`
+- Default Value: `us-east-2`
+
+### aws_access_point_username
+The AWS account or username who is allowed access to the actions defined in by the access point policy.
+By default, the defined `aws_access_point_username` will have read-only permissions to the bucket objects through the created access point alias.
+
+- Required.
+- Environment Variable: `AWS_ACCESS_POINT_USERNAME`
 - Default Value: None
 
 ## Example Playbook
@@ -28,19 +42,22 @@ After installing the Ansible Collection you can include this role in your own cu
 ```yaml
 - hosts: localhost
   vars:
-    aws_policy: "{{ lookup('env', 'AWS_POLICY_NAME') }}"
-    aws_policy_json_file_path_local: "{{ lookup('env', 'AWS_POLICY_JSON_FILE_PATH_LOCAL') }}"
+    aws_access_point_name: "{{ lookup('env', 'AWS_ACCESS_POINT_NAME') | default('access-point-c1', True) }}"
+    aws_access_point_bucket_name: "{{ lookup('env', 'COS_BUCKET_NAME') }}"
+    aws_access_point_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-2', True) }}"
+    aws_access_point_username: "{{ lookup('env', 'AWS_ACCESS_POINT_USERNAME') }}"
   roles:
-    - ibm.mas_devops.aws_policy
+    - ibm.mas_devops.aws_bucket_access_point
 ```
 
 ## Run Role Playbook
 After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
 
 ```bash
-export AWS_POLICY_NAME=my-aws-policy
-export AWS_POLICY_JSON_FILE_PATH_LOCAL=/tmp/local/my-aws-policy.json
-ROLE_NAME=aws_policy ansible-playbook ibm.mas_devops.run_role
+export AWS_ACCESS_POINT_NAME=my-aws-access-point
+export COS_BUCKET_NAME=my-aws-bucket
+export AWS_ACCESS_POINT_USERNAME=my-aws-username
+ROLE_NAME=aws_bucket_access_point ansible-playbook ibm.mas_devops.run_role
 ```
 
 ## License

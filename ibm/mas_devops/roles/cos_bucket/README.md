@@ -100,14 +100,6 @@ Local directory to save the generated ObjectStorageCfg resource definition.  Thi
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
-### cluster ingres tls secret name
-Specify the name of the cluster's ingres tls secret which contains the default router certificate.
-
-- Optional
-- Environment Variable: `OCP_INGRESS_TLS_SECRET_NAME`
-- Default Value: router-certs-default
-
-
 Example Playbook
 ----------------
 
