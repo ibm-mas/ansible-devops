@@ -56,14 +56,14 @@
   vars:
     aws_policy_name: "{{ aws_bucket_read_only_username }}-readonly-policy"
     aws_policy_statement:
-      [
-        {
-          "Sid": "VisualEditor0",
-          "Effect": "Allow",
-          "Action": ["s3:GetObject", "s3:ListBucket"],
-          "Resource": ["{{ aws_bucket_arn }}/*", "{{ aws_bucket_arn }}"],
-        },
-      ]
+      - Sid: VisualEditor0
+        Effect: Allow
+        Action:
+        - s3:GetObject
+        - s3:ListBucket
+        Resource:
+        - "{{ aws_bucket_arn }}/*"
+        - "{{ aws_bucket_arn }}"
 
 - set_fact:
     s3readonly_policy_arn: "{{ s3_policy_arn }}"
@@ -76,20 +76,16 @@
   vars:
     aws_policy_name: "{{ aws_bucket_read_write_username }}-readwrite-policy"
     aws_policy_statement:
-      [
-        {
-          "Sid": "VisualEditor0",
-          "Effect": "Allow",
-          "Action":
-            [
-              "s3:GetObject",
-              "s3:ListBucket",
-              "s3:DeleteObject",
-              "s3:PutObject",
-            ],
-          "Resource": ["{{ aws_bucket_arn }}/*", "{{ aws_bucket_arn }}"],
-        },
-      ]
+      - Sid: VisualEditor0
+        Effect: Allow
+        Action:
+        - s3:GetObject
+        - s3:ListBucket
+        - s3:DeleteObject
+        - s3:PutObject
+        Resource:
+        - "{{ aws_bucket_arn }}/*"
+        - "{{ aws_bucket_arn }}"
 
 - set_fact:
     s3readwrite_policy_arn: "{{ s3_policy_arn }}"
@@ -119,9 +115,11 @@
   import_role:
     name: ibm.mas_devops.aws_bucket_access_point
   vars:
-    aws_access_point_username: "{{ aws_bucket_read_only_username }}"
-    aws_access_point_policy_actions: ["s3:GetObject", "s3:ListBucket"]
     aws_access_point_bucket_name: "{{ aws_bucket_name }}"
+    aws_access_point_username: "{{ aws_bucket_read_only_username }}"
+    aws_access_point_policy_actions:
+      - "s3:GetObject"
+      - "s3:ListBucket"
 
 # For AWS, the IAM credentials for the read-write granted user will used by standard
 - name: "AWS: Set access key id & secret access key variables"
