@@ -1,6 +1,8 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `12.5` Multiple Updates:
+    - AWS support for S3 buckets and Manage logging feature.
 - `12.4` Support FIPS option on FYRE infrastructure ([#562](https://github.com/ibm-mas/ansible-devops/pull/562))
 - `12.3` Multiple Updates:
     - Support ad-hoc DBC scripts into Manage server ([#521](https://github.com/ibm-mas/ansible-devops/pull/521))

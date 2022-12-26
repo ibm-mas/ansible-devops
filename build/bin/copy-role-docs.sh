@@ -11,6 +11,9 @@ function copyDoc() {
 }
 
 copyDoc ansible_version_check
+copyDoc aws_bucket_access_point
+copyDoc aws_policy
+copyDoc aws_user_creation
 copyDoc appconnect
 copyDoc cert_manager
 copyDoc cert_manager_upgrade
