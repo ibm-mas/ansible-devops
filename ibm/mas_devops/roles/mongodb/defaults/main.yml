@@ -1,7 +1,8 @@
 ---
-# Currently, it's the only supported provider
+# Currently supported providers are aws,ibm,community
 mongodb_provider: "{{ lookup('env','DB_PROVIDER') | default('community','True')}}"
 db_action: "{{ lookup('env','DB_ACTION') | default('provision','True') }}"
+
 # Where to install the operator and create the mongo instance
 mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
 
@@ -25,15 +26,25 @@ mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 # MongoDB Replicas
 mongodb_replicas: "{{ lookup('env', 'MONGODB_REPLICAS') | default(3,True) }}"
 
+# defaults only required for aws documentdb
 aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
 aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
 aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-2', True) }}"
 
-#vars for docdb provision or deprovision
+# aws vpc id where subnets and other resources will be created
+vpc_id: "{{ lookup('env','VPC_ID') }}"
+
 docdb_cluster_name: "{{ lookup('env', 'DOCDB_CLUSTER_NAME') }}"
 docdb_size: "{{ lookup('env', 'DOCDB_SIZE') | default('nprod', True) }}"
 docdb_subnet_group_name: "docdb-{{ docdb_cluster_name }}"
 docdb_security_group_name: "docdb-{{ docdb_cluster_name }}"
 docdb_admin_credentials_secret_name: "{{ docdb_cluster_name }}-admin-credentials"
-# aws resource
-vpc_id: "{{ lookup('env','VPC_ID') }}"
+
+# ibm cloud mongodb defaults
+ibm_mongo_admin_credentials_secret_name: "{{ mongo_name }}-admin-credentials"
+ibm_mongo_backup_id: ''
+is_restore: "false"
+ibmcloud_resourcegroup: "{{ lookup('env','IBMCLOUD_RESOURCEGROUP') }}"
+ibmcloud_region: "{{ lookup('env', 'IBMCLOUD_REGION') | default('us-east', True) }}"
+ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+ibm_mongo_config: 'main'
