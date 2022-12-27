@@ -21,8 +21,8 @@
 - name: "Fail if cos_type is not provided"
   assert:
     that:
-      - cos_type is defined and cos_type in ['ibm', 'aws']
-    fail_msg: "cos_type property is required and must be set to one of the supported storage providers: ['ibm', 'aws']"
+      - cos_type is defined and cos_type in cos_type_supported
+    fail_msg: "cos_type property is required and must be set to one of the supported storage providers: {{ cos_type_supported }}"
 
 # Check if logging is already setup for ManageWorkspace
 - name: "Get ManageWorkspace"
@@ -33,12 +33,6 @@
     name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
     namespace: "mas-{{ mas_instance_id }}-manage"
   register: managews_output
-
-# - name: "Running {{ mas_manage_logging_provider }} logging configuration for Manage application"
-#   include_tasks: "tasks/providers/{{ mas_manage_logging_provider }}/setup-manage-logging.yml"
-#   when: # only need to setup logging if that's not yet set
-#     - managews_output.resources[0].spec.settings.deployment.loggingS3Destination is not defined
-#     - managews_output.resources[0].spec.settings.deployment.loggingS3Destination.accessKey is not defined
 
 - name: "Running {{ cos_type }} logging configuration for Manage application"
   include_tasks: "tasks/setup-manage-logging.yml"
