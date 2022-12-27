@@ -1,10 +1,22 @@
 ---
 # 1. Delete DNS Records from Master Account
 # ---------------------------------------------------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "IBM Cloud region .......................... {{ ibmcloud_region }}"
+      - "Master CIS Resource Group ................. {{ master_cis_resource_group }}"
+      - "Customer CIS Resource Group ............... {{ ibmcloud_resourcegroup }}"
+      - "Master CIS Instance Name .................. {{ master_cis_resource_name }}"
+      - "CIS Action ................................ {{ cis_action }}"
+      - "MAS Instance Id ........................... {{ mas_instance_id }}"
+      - "MAS Config Dir ............................ {{ mas_config_dir }}"
+
 - name: Set Fact for CIS Instance
   set_fact:
     dns_records_list: []
     cis_exists: true
+    cis_domain_exists: true
 
 - name: Master, Fetch Resource Group Id
   ibm.cloudcollection.ibm_resource_group_info:
@@ -83,7 +95,7 @@
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
     resource_group_id: "{{ rg_info.resource.id }}"
   register: cis_info
-  ignore_errors: yes
+  failed_when: cis_info.rc != 0 and ("No resource instance found" not in cis_info.stderr)
 
 - name: Check if Customer CIS Instance is already Deleted
   when:
@@ -92,9 +104,11 @@
   set_fact:
     cis_exists: false
 
-- name: End Play if Customer CIS Instance is already Deleted
-  ansible.builtin.meta: end_host
+- name: Debug , Skip all steps if CIS is already Deleted
   when: not cis_exists
+  debug:
+    msg:
+      - "CIS Instance {{ cis_service_name }} Not Found, skipping next tasks "
 
 - name: Fail if Customer CIS Instance Id is not fetched
   when: cis_exists
@@ -103,39 +117,46 @@
       - cis_info.resource.id is defined and cis_info.resource.id != ""
     fail_msg: "Unable to retrieve CIS Instance resource Id"
 
-- block:
-  - name: CIS Domain Info
-    ibm.cloudcollection.ibm_cis_domain_info:
-      cis_id: "{{ cis_info.resource.id }}"
-      domain: "{{ customer_cis_domain }}"
-      ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-    register: cis_domain_info
-
-  - name: Fail if CIS Domain Info is not fetched
-    assert:
-      that:
-        - cis_domain_info.resource.id is defined and cis_domain_info.resource.id != ""
-      fail_msg: "Unable to retrieve CIS Domain resource Id"
-
-  - name: Deleting Domain for IBM CIS instance in customer account
-    ibm.cloudcollection.ibm_cis_domain:
-      cis_id: "{{ cis_info.resource.id }}"
-      domain: "{{ customer_cis_domain }}"
-      ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-      id: "{{ cis_domain_info.resource.id }}"
-      state: absent
-    register: cis_domain_delete_info
-
-  rescue:
-    - name: Ignore Error if CIS Domain is not found
-      debug:
-        msg:
-          - "Ignore if Domain Resource is not present in CIS Instance"
+- name: CIS Domain Info
   when: cis_exists
+  ibm.cloudcollection.ibm_cis_domain_info:
+    cis_id: "{{ cis_info.resource.id }}"
+    domain: "{{ customer_cis_domain }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: cis_domain_info
+  failed_when: cis_domain_info.rc != 0 and ("No resource instance found" not in cis_domain_info.stderr)
+
+- name: Set cis_domain_exists var to true
+  when: 
+    - cis_exists
+    - cis_domain_info.rc == 0
+  set_fact:
+    cis_domain_exists: true
+
+- name: Fail if CIS Domain Info is not fetched
+  when:
+    - cis_exists 
+    - cis_domain_exists
+  assert:
+    that:
+      - cis_domain_info.resource.id is defined and cis_domain_info.resource.id != ""
+    fail_msg: "Unable to retrieve CIS Domain resource Id"
+
+- name: Deleting Domain {{ customer_cis_domain }} from Customer CIS Instance
+  when:
+    - cis_exists
+    - cis_domain_exists
+  ibm.cloudcollection.ibm_cis_domain:
+    cis_id: "{{ cis_info.resource.id }}"
+    domain: "{{ customer_cis_domain }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    id: "{{ cis_domain_info.resource.id }}"
+    state: absent
+  register: cis_domain_delete_info
 
 # 2. Delete Customer CIS Instance
 # ---------------------------------------------------------------------------------------------------------------------
-- name: Destroy a CIS Instance
+- name: Destroy CIS Instance {{ cis_service_name }}
   when: cis_exists
   ibm.cloudcollection.ibm_cis:
     resource_group_id: "{{ rg_info.resource.id }}"

@@ -6,6 +6,18 @@
 
 # 1. Create CIS Instance
 # ---------------------------------------------------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "IBM Cloud region .......................... {{ ibmcloud_region }}"
+      - "Master CIS Resource Group ................. {{ master_cis_resource_group }}"
+      - "Customer CIS Resource Group ............... {{ ibmcloud_resourcegroup }}"
+      - "Master CIS Instance Name .................. {{ master_cis_resource_name }}"
+      - "CIS Action ................................ {{ cis_action }}"
+      - "MAS Instance Id ........................... {{ mas_instance_id }}"
+      - "MAS Config Dir ............................ {{ mas_config_dir }}"
+      - "CIS Plan .................................. {{ cis_plan }}"
+
 - name: Fetch Resource Group Id
   ibm.cloudcollection.ibm_resource_group_info:
     name: "{{ ibmcloud_resourcegroup }}"
@@ -92,56 +104,51 @@
     ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
   register: domain_info_master
 
-- name: Fetch Master CIS DNS records
-  ibm.cloudcollection.ibm_cis_dns_records_info:
-    cis_id: "{{ cis_info_master.resource.id }}"
-    domain_id: "{{ domain_info_master.resource.id}}"
-    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-  register: dns_records_info_master
-
-# Find if DNS records already exists or not
-- name: Loop through all DNS records of Master CIS to find customer DNS record
-  no_log: yes
-  loop: "{{ dns_records_info_master.resource.cis_dns_records }}"
-  when:
-    - item.name == customer_cis_domain and ( item.content == domain_info.resource.name_servers[0] or item.content == domain_info.resource.name_servers[1])
-  set_fact:
-      dns_records_list: "{{ dns_records_list + [item] }}"
-
-- name: Debug, DNS Records info if they already exists
-  when:  dns_records_list | length != 0
-  debug:
-    msg:
-      - "DNS Record Info ........................ {{ dns_records_list }}"
-
 # Create DNS Records if not found in Master CIS
-- name: Create DNS NS type Record in Master CIS Instance
-  loop: "{{domain_info.resource.name_servers}}"
+- name: Create First DNS NS type Record in Master CIS Instance
   when:
   - domain_info_master.resource.id is defined
   - cis_info_master.resource.id is defined
-  - dns_records_list | length == 0
   ibm.cloudcollection.ibm_cis_dns_record:
     domain_id: "{{ domain_info_master.resource.id }}"
     cis_id: "{{ cis_info_master.resource.id }}"
     type: "NS"
-    content: "{{ item }}"
+    content: "{{ domain_info.resource.name_servers[0] }}"
     name: "{{ customer_cis_domain_prefix }}"
     ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-  register: create_dns_records_info
+  register: create_dns_records_info_first
+  failed_when: create_dns_records_info_first.rc != 0 and ('Record already exists' not in create_dns_records_info_first.stderr)
+
+- name: Create Second DNS NS type Record in Master CIS Instance
+  when:
+  - domain_info_master.resource.id is defined
+  - cis_info_master.resource.id is defined
+  ibm.cloudcollection.ibm_cis_dns_record:
+    domain_id: "{{ domain_info_master.resource.id }}"
+    cis_id: "{{ cis_info_master.resource.id }}"
+    type: "NS"
+    content: "{{ domain_info.resource.name_servers[1] }}"
+    name: "{{ customer_cis_domain_prefix }}"
+    ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+  register: create_dns_records_info_second
+  failed_when: create_dns_records_info_second.rc != 0 and ('Record already exists' not in create_dns_records_info_second.stderr)
 
 - name: Debug , DNS Record creation in Master CIS
-  when: dns_records_list | length == 0
+  when:
+    - create_dns_records_info_second.rc == 0
+    - create_dns_records_info_first.rc == 0
   debug:
     msg:
       - "DNS Record Info ........................ {{ create_dns_records_info }}"
 
 - name: Fail, if DNS Record creation in Master CIS is not successful
-  loop: "{{ create_dns_records_info.results }}"
-  when: dns_records_list | length == 0
+  when:
+    - create_dns_records_info_second.rc == 0
+    - create_dns_records_info_first.rc == 0
   assert:
     that:
-      - not item.failed
+      - create_dns_records_info_first.resource.id != ''
+      - create_dns_records_info_second.resource.id != ''
 
 # 4. Store CIS outputs
 # -----------------------------------------------------------------------------
