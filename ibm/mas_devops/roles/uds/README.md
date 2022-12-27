@@ -55,6 +55,11 @@ Override the biult-in segment key used by MAS when communicating with User Data 
 - Environment Variable: `MAS_SEGMENT_KEY`
 - Default Value: None
 
+### mas_customize_scaling
+- Optional, ConfigMap name used for customizing MAS Core resources scaling configuration. MAS comes with buit-in t-shape sizes for small/medium/large deployments. For example, to deploy your suite with small size set this to `{mas_instance_id}-wl-cust-small`, for medium size set this to `{mas_instance_id}-wl-cust-small` and for large size this to `{mas_instance_id}-wl-cust-small`. If using a custom scaling configuration, use any ConfigMap name, however, the ConfigMap has to be available in the MAS Core namespace.
+- Environment Variable: `MAS_CUSTOMIZE_SCALING`
+- Default Value: None
+
 ### uds_contact.email
 Sets the Contact e-mail address used by the MAS instance's UDS configuration.
 
