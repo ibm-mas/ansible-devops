@@ -1,0 +1,28 @@
+apiVersion: config.mas.ibm.com/v1
+kind: MongoCfg
+metadata:
+  name: "{{mas_instance_id}}-mongo-system"
+  namespace: "mas-{{mas_instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{mas_instance_id}}"
+spec:
+  displayName: "IBM Cloud MongoDB" # Not sure what name should be
+  type: external
+  config:
+    configDb: admin
+    authMechanism: DEFAULT
+    retryWrites: false
+    credentials:
+      secretName: "{{ ibm_mongo_admin_credentials_secret_name }}"
+    hosts:
+    - host: "{{ mongo_host_0 }}"
+      port: "{{ mongo_port }}"
+    - host: "{{ mongo_host_1 }}"
+      port: "{{ mongo_port }}"
+    - host: "{{ mongo_host_2 }}"
+      port: "{{ mongo_port }}"
+  certificates:
+    - alias: ca
+      crt: |
+        {{ mongo_instance_info.resource.connectionstrings[0].certbase64 | indent(8) }}
