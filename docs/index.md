@@ -30,7 +30,7 @@ ROLE_NAME=cert_manager ansible-playbook ibm.mas_devops.run_role
 The easiest way to use this collection is to take advantage of the [ibmmas/cli](https://quay.io/repository/ibmmas/cli) container image, this negates the need to install anything on your local machine (other than docker - or podman if you prefer).
 
 ```bash
-docker run -ti --rm quay.io/ibmmas/cli
+docker run -ti --rm --pull always quay.io/ibmmas/cli
 ```
 
 
