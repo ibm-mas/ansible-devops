@@ -172,15 +172,6 @@ Local directory to save the generated SlsCfg resource definition.  This can be u
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
-### mas_customize_scaling
-Workload Scaling custom configuration
-
-- Optional, ConfigMap name used for customizing MAS Core resources scaling settings. MAS provides the following buit-in t-shape sizes: small/medium/large. 
-For example, to deploy your suite with small size, set this to `{mas_instance_id}-wl-cust-small`, for medium size set to `{mas_instance_id}-wl-cust-small` and for large size set to `{mas_instance_id}-wl-cust-small`. If using a custom scaling configuration, use any ConfigMap name previously created. 
-
-- Environment Variable: `MAS_CUSTOMIZE_SCALING`
-- Default Value: None
-
 ### sls_url
 The URL of the LicenseService to be called when the Maximo Application Suite is registered with SLS.
 
