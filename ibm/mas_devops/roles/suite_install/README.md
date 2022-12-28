@@ -20,7 +20,7 @@ Role Variables
 - `mas_upgrade_strategy` The Upgrade strategy for MAS Operator. Default is set to Automatic
 - `mas_annotations` Optional variable having all the annotations that need to be added to the Suite CR. This variable takes a comma separated list of annotations. For example, to deploy your suite in non production mode, set this to `mas.ibm.com/operationalMode=nonproduction` 
 or set `MAS_ANNOTATIONS` environment variable as `export MAS_ANNOTATIONS=mas.ibm.com/operationalMode=nonproduction`
-- `mas_customize_scaling` Optional, only supported in MAS 8.10 or later, installation of earlier releases will ignore this parameter. ConfigMap name used for customizing MAS Core resources scaling settings. MAS provides the following buit-in t-shirt sizes: small/medium/large. 
+- `mas_customize_scaling` Optional, only supported in MAS 8.10 or later, installation of earlier releases will ignore this parameter. ConfigMap name used for customizing MAS Core resources scaling settings. MAS provides the following built-in t-shirt sizes: small/medium/large. 
 For example, to deploy your suite with small size, set this to `{mas_instance_id}-wl-cust-small`, for medium size set to `{mas_instance_id}-wl-cust-small` and for large size set to `{mas_instance_id}-wl-cust-small`. If using a custom scaling configuration, use any ConfigMap name previously created. Alternatively, you can use the environment variable `MAS_CUSTOMIZE_SCALING` to set the scaling ConfigMap name.
 
 Example Playbook
