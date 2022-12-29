@@ -3,6 +3,9 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 
 - `12.6` Multiple Updates:
     - AWS support for S3 buckets and Manage logging feature.
+- `12.5`
+    - Add support for Dec 2022 catalog ([#584](https://github.com/ibm-mas/ansible-devops/pull/584))
+    - Support workload scaling customization ([#583](https://github.com/ibm-mas/ansible-devops/pull/583))
 - `12.4` Support FIPS option on FYRE infrastructure ([#562](https://github.com/ibm-mas/ansible-devops/pull/562))
 - `12.3` Multiple Updates:
     - Support ad-hoc DBC scripts into Manage server ([#521](https://github.com/ibm-mas/ansible-devops/pull/521))
