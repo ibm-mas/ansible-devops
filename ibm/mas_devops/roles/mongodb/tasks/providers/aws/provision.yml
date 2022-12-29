@@ -14,7 +14,7 @@
   when: mongodb_provider == 'aws'
   assert:
     that: vpc_id is defined and vpc_id != ''
-    fail_msg: "vpc_id property is required"      
+    fail_msg: "vpc_id property is required"  
 
 - name: Fail if required vars for DocDB not provided in vars/aws/{{ docdb_size }}.yml file
   when: mongodb_provider == 'aws'
@@ -61,9 +61,9 @@
 - name: Create Subnets in three availability Zones
   include_tasks: providers/aws/utils/create-subnet.yml
   loop:
-   - ["{{az[0].ZoneName}}","{{ docdb_cidr_az1 }}"]
-   - ["{{az[1].ZoneName}}","{{ docdb_cidr_az2 }}"]
-   - ["{{az[2].ZoneName}}","{{ docdb_cidr_az3 }}"]
+    - ["{{az[0].ZoneName}}","{{ docdb_cidr_az1 }}"]
+    - ["{{az[1].ZoneName}}","{{ docdb_cidr_az2 }}"]
+    - ["{{az[2].ZoneName}}","{{ docdb_cidr_az3 }}"]
 
 - name: Debug Created Subnet Ids in VPC
   debug:
@@ -74,12 +74,12 @@
 # -----------------------------------------------------------------------------
 # check will not fail if resource not found
 - name: Check if Subnet Group {{ docdb_subnet_group_name }} for DocumentDB exists
-  command: > 
+  command: >
     aws docdb describe-db-subnet-groups \
       --db-subnet-group-name '{{ docdb_subnet_group_name }}'
   register: subnet_group_exists_info
   failed_when: >
-    subnet_group_exists_info.rc not in [0] and 
+    subnet_group_exists_info.rc not in [0] and
     ('DBSubnetGroupNotFoundFault' not in subnet_group_exists_info.stderr )
 
 - name: Set Fact, subnet group exists or not
@@ -104,7 +104,7 @@
       - create_subnet_group_info.stdout
       - create_subnet_group_info.stdout | from_json | json_query('DBSubnetGroup.DBSubnetGroupName') == docdb_subnet_group_name
 
-- name: Debug Info ,Created Subnet Group 
+- name: Debug Info ,Created Subnet Group
   debug:
     msg:
       - "DocDB Subnet Group Info ................ {{ subnet_group_exists_info.stdout | from_json if subnet_group_exists else create_subnet_group_info.stdout | from_json }}"
@@ -119,7 +119,7 @@
 
 - name: Set Fact , Security Group Id
   when: security_group_info is defined and security_group_info != ''
-  set_fact: 
+  set_fact:
     sg_id: "{{security_group_info.stdout | from_json | json_query('SecurityGroups[0].GroupId')}}"
 
 - name: Create a Security Group {{ docdb_security_group_name }}, if doesn't exists
@@ -141,7 +141,7 @@
 
 - name: Set Fact, Security group Id
   when: not sg_id
-  set_fact: 
+  set_fact:
     sg_id: "{{sg_info.stdout | from_json | json_query('GroupId')}}"
 
 - name: Add Ingress rule to SG
@@ -181,7 +181,7 @@
     aws docdb describe-db-clusters \
     --db-cluster-identifier '{{ docdb_cluster_name }}'
   register: docdb_cluster_exists_info
-  failed_when: docdb_cluster_exists_info.rc not in [0] and ('DBClusterNotFoundFault' not in docdb_cluster_exists_info.stderr ) 
+  failed_when: docdb_cluster_exists_info.rc not in [0] and ('DBClusterNotFoundFault' not in docdb_cluster_exists_info.stderr )
 
 - name: Set Fact to indicate whether DocDB cluster already exists
   when: not docdb_cluster_exists_info.stderr
@@ -197,7 +197,7 @@
     --master-username '{{ docdb_master_username }}' \
     --master-user-password '{{ docdb_master_password }}' \
     --db-subnet-group-name '{{ docdb_subnet_group_name }}' \
-    --vpc-security-group-ids  '{{sg_id}}' \ 
+    --vpc-security-group-ids  '{{sg_id}}' \
     --port 27017 \
     --engine-version '{{ docdb_engine_version }}'
   register: docdb_cluster_create_info
