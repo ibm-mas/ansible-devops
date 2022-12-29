@@ -59,12 +59,11 @@ Required. Provide the name of the resource group which owns the Master CIS insta
 Required. Master CIS Instance name
 
 - Environment Variable: `MASTER_CIS_RESOURCE_NAME`
-- Default Value: `masms-cis`
+- Default Value: `{{mas_instance_id}}-cis`
 
-### masms_base_domain
+### master_cis_base_domain
 Required. Domain from Master CIS Instance
-- Environment Variable: `MASMS_BASE_DOMAIN`
-- Default Value: `suite.maximo.com`
+- Environment Variable: `MASTER_CIS_BASE_DOMAIN`
 
 ### mas_instance_id
 Used as suffix string to define CIS Service name.
