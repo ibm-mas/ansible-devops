@@ -25,6 +25,15 @@
 
 # 3. Create IAM User's access key
 # -----------------------------------------------------------------------------
+- name: If IAM username {{ aws_username }} AccessKeyId and SecretAccessKey are provided, then no need to create new credentials
+  when: 
+    - aws_username_secret_access_key is defined and aws_username_secret_access_key !=''
+    - aws_username_access_key_id is defined and aws_username_access_key_id !=''
+  set_fact: 
+    aws_username_create_access_key_flag: False
+    aws_new_user_access_key_id: "{{ aws_username_secret_access_key }}"
+    aws_new_user_secret_access_key: "{{ aws_username_access_key_id }}"
+
 - name: "Check if IAM user {{ aws_username }} needs an AccessKeyId and SecretAccessKey"
   when: aws_username_create_access_key_flag == True
   block:
@@ -45,3 +54,8 @@
       set_fact:
         aws_new_user_access_key_id: "{{ iam_user_creds_json_output.AccessKey.AccessKeyId }}"
         aws_new_user_secret_access_key: "{{ iam_user_creds_json_output.AccessKey.SecretAccessKey }}"
+
+- debug:
+    msg:
+      - "aws_new_user_access_key_id: {{ aws_new_user_access_key_id }}"
+      - "aws_new_user_secret_access_key: {{ aws_new_user_secret_access_key }}"
