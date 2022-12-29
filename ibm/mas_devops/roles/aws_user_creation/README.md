@@ -22,6 +22,22 @@ If set to `False`, then only the AWS Username will be created but no IAM Access 
 - Environment Variable: `AWS_USERNAME_CREATE_ACCESS_KEY_FLAG`
 - Default Value: `True`.
 
+### aws_username_access_key_id
+Defines an existing IAM Access Key ID for your AWS username.
+If both `aws_username_access_key_id` and `aws_username_secret_access_key` are defined, then `aws_username_create_access_key_flag` will be automatically forced to `False`, therefore if you want to create new pair of credentials for the username, do not set this property.
+
+- Optional
+- Environment Variable: `AWS_USERNAME_ACCESS_KEY_ID`
+- Default Value: None.
+
+### aws_username_secret_access_key
+Defines and existing IAM Secret Access Key for your AWS username.
+If both `aws_username_access_key_id` and `aws_username_secret_access_key` are defined, then `aws_username_create_access_key_flag` will be automatically forced to `False`, therefore if you want to create new pair of credentials for the username, do not set this property.
+
+- Optional
+- Environment Variable: `AWS_USERNAME_SECRET_ACCESS_KEY`
+- Default Value: None.
+
 ### aws_policy_arn
 If set, then it will attach the corresponding policy to the AWS Username's permissions.
 
