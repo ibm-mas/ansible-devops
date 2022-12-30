@@ -1,0 +1,31 @@
+---
+
+# Provide intelligent storage class selection to minimize required user knowledge
+
+# 1. Lookup storage class availabiity
+# -----------------------------------------------------------------------------
+- name: "determine-storage-classes : Lookup storage classes"
+  kubernetes.core.k8s_info:
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+  register: lookup_storageclasses
+
+- name: "Debug available storage classes"
+  debug:
+    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
+
+# 2. Set Primary Storage (Required)
+# -----------------------------------------------------------------------------
+- name: "determine-storage-classes : Default Manage PVC Storage if not set by user"
+  when:
+    - mas_app_settings_custom_persistent_volume_sc_name is not defined or mas_app_settings_custom_persistent_volume_sc_name == ""
+  vars:
+    # ROKS, OCS, Azure
+    supported_storage_classes: [ibmc-file-gold-gid, ocs-storagecluster-cephfs, azurefiles-premium]
+  set_fact:
+    mas_app_settings_custom_persistent_volume_sc_name: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
+
+- name: "determine-storage-classes : Assert that Manage PVC storage class has been defined"
+  assert:
+    that: mas_app_settings_custom_persistent_volume_sc_name is defined and mas_app_settings_custom_persistent_volume_sc_name != ""
+    fail_msg: "mas_app_settings_custom_persistent_volume_sc_name must be defined"
