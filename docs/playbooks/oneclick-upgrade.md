@@ -66,4 +66,4 @@ ansible-playbook ibm.mas_devops.oneclick_upgrade
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the update from inside our container image: `docker run -ti --rm quay.io/ibmmas/cli:latest`
+    If you do not want to set up all the dependencies on your local system, you can run the update from inside our container image: `docker run -ti --rm --pull always quay.io/ibmmas/cli`
