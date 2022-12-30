@@ -66,6 +66,7 @@ copyDoc suite_manage_attachments_config
 copyDoc suite_manage_bim_config
 copyDoc suite_manage_load_dbc_scripts
 copyDoc suite_manage_logging_config
+copyDoc suite_manage_persistent_volumes_config
 copyDoc suite_mustgather
 copyDoc suite_mustgather_download
 copyDoc suite_upgrade
