@@ -44,7 +44,7 @@
 
 # The following will auto determine storage classes to be used as persistent volumes for Manage configurations
 - name: Determine Persistent Volume Storage Class automatically (if not provided)
-  when: 
+  when:
     - mas_app_settings_custom_persistent_volume_sc_name is not defined or mas_app_settings_custom_persistent_volume_sc_name == ''
     - mas_app_settings_custom_persistent_volume_file_path is not defined or mas_app_settings_custom_persistent_volume_file_path == ''
   include_tasks: "tasks/determine-storage-classes.yml"
@@ -67,7 +67,7 @@
 - debug:
     var: mas_app_settings_custom_persistent_volumes
 
+# only configure PVC if new pvc name is not configured already or if new pvc definition comes from a custom file
 - name: "Setting up persistent volume claim configuration for Manage application from file"
   include_tasks: "tasks/configure-manage-pvcs.yml"
   when: (existing_manage_pvcs | selectattr('pvcName', 'equalto', mas_app_settings_custom_persistent_volume_pvc_name) | list | length == 0) or (mas_app_settings_custom_persistent_volume_file_path is defined and mas_app_settings_custom_persistent_volume_file_path != '')
-  # when: existing_manage_pvcs | selectattr('pvcName', 'equalto', mas_app_settings_custom_persistent_volumes.pvcName) | list | length == 0
