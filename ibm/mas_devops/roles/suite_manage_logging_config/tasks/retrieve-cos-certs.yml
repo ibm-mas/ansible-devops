@@ -1,7 +1,7 @@
 ---
 # Retrieve COS certificate chain
 # -----------------------------------------------------------------------------
-- name: Retrieve IBM COS certificates using openssl
+- name: Retrieve COS certificates using openssl
   vars:
     cos_host_name: "{{ cos_url | regex_replace('https://', '''') }}" # remove https if needed
   shell:
@@ -22,3 +22,11 @@
   when: cos_type == 'aws'
   assert:
     that: "{{ cos_tls_crt | length == 4 }}"
+
+- name: "Set COS certificates into existing Manage certificates"
+  set_fact:
+    manage_cos_certs: "{{ existing_manage_imported_certs + cos_tls_crt }}"
+
+# Ensure we only have unique certs to avoid patching duplicates
+- set_fact:
+    manage_cos_certs: "{{ manage_cos_certs | unique }}"

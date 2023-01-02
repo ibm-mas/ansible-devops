@@ -34,6 +34,14 @@
     namespace: "mas-{{ mas_instance_id }}-manage"
   register: managews_output
 
+- set_fact:
+    list_manage_imported_certs: "{{ managews_output.resources[0].spec.settings.deployment.importedCerts | default([])  }}"
+
+- name: Extract existing Manage certificates and aliases
+  set_fact:
+    existing_manage_imported_certs: "{{ list_manage_imported_certs | map(attribute='crt') | list | default([]) }}"
+    existing_manage_imported_certs_aliases: "{{ list_manage_imported_certs | map(attribute='alias') | list | default([]) }}"
+
 - name: "Running {{ cos_type }} logging configuration for Manage application"
   include_tasks: "tasks/setup-manage-logging.yml"
   when: # only need to setup logging if that's not yet set
