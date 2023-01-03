@@ -25,7 +25,7 @@
     fail_msg: "cos_type property is required and must be set to one of the supported storage providers: {{ cos_type_supported }}"
 
 # Check if logging is already setup for ManageWorkspace
-- name: "Get ManageWorkspace"
+- name: "Lookup ManageWorkspace CR to check if logging is already setup"
   no_log: true
   community.kubernetes.k8s_info:
     api_version: v1
@@ -34,16 +34,9 @@
     namespace: "mas-{{ mas_instance_id }}-manage"
   register: managews_output
 
-- set_fact:
-    list_manage_imported_certs: "{{ managews_output.resources[0].spec.settings.deployment.importedCerts | default([])  }}"
-
-- name: Extract existing Manage certificates and aliases
-  set_fact:
-    existing_manage_imported_certs: "{{ list_manage_imported_certs | map(attribute='crt') | list | default([]) }}"
-    existing_manage_imported_certs_aliases: "{{ list_manage_imported_certs | map(attribute='alias') | list | default([]) }}"
-
+# only need to setup logging if that's not yet set
 - name: "Running {{ cos_type }} logging configuration for Manage application"
   include_tasks: "tasks/setup-manage-logging.yml"
-  when: # only need to setup logging if that's not yet set
+  when:
     - managews_output.resources[0].spec.settings.deployment.loggingS3Destination is not defined
     - managews_output.resources[0].spec.settings.deployment.loggingS3Destination.accessKey is not defined

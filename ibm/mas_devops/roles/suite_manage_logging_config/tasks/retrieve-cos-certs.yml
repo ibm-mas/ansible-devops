@@ -13,20 +13,12 @@
   set_fact:
     cos_tls_crt: "{{ get_certs_r.stdout | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
 
-- name: "Assert IBM COS certificate content exists"
+- name: "Assert IBM COS certificate content exists - if applicable"
   when: cos_type == 'ibm'
   assert:
     that: "{{ cos_tls_crt | length == 3 }}"
 
-- name: "Assert AWS certificate content exists"
+- name: "Assert AWS certificate content exists - if applicable"
   when: cos_type == 'aws'
   assert:
     that: "{{ cos_tls_crt | length == 4 }}"
-
-- name: "Set COS certificates into existing Manage certificates"
-  set_fact:
-    manage_cos_certs: "{{ existing_manage_imported_certs + cos_tls_crt }}"
-
-# Ensure we only have unique certs to avoid patching duplicates
-- set_fact:
-    manage_cos_certs: "{{ manage_cos_certs | unique }}"
