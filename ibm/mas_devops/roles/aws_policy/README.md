@@ -16,7 +16,7 @@ AWS Policy name.
 
 ### aws_policy_json_file_path_local
 Local path for the AWS Policy json file. 
-The AWS Policy json file should be structured as the sample found in `/templates/policy-template.json`
+The AWS Policy json file should be structured as the sample found in `/files/policy-template-sample.json`
 
 - Required.
 - Environment Variable: `AWS_POLICY_JSON_FILE_PATH_LOCAL`
