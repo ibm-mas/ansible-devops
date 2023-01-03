@@ -51,5 +51,5 @@ ansible-playbook ibm.mas_devops.oneclick_add_iot
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/cli:latest`
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`
 
