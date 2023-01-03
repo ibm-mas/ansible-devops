@@ -1,9 +1,4 @@
 ---
-- name: include vars for docdb specs according to the docdb_size specified
-  include_vars:
-    file: "{{mongodb_provider}}/{{ docdb_size }}.yml"
-  when: docdb_size is defined and docdb_size != ""
-
 - name: Fail if var docdb_cluster_name not provided for DocDB provisioning
   when: mongodb_provider == 'aws'
   assert:
@@ -43,9 +38,9 @@
     docdb_master_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
   when: docdb_master_password is undefined or docdb_master_password == ""
 
-- debug:
-    msg:
-      - "Mongo Admin pass ..... {{ docdb_master_password }}"
+# - debug:
+#     msg:
+#       - "Mongo Admin pass ..... {{ docdb_master_password }}"
 
 # 2. Create three subnets in VPC
 # -----------------------------------------------------------------------------
@@ -144,11 +139,12 @@
   set_fact:
     sg_id: "{{sg_info.stdout | from_json | json_query('GroupId')}}"
 
+# cidrip must match docdb cidr 
 - name: Add Ingress rule to SG
   command: >
     aws ec2 authorize-security-group-ingress \
     --group-id '{{ sg_id }}' \
-    --ip-permissions IpProtocol=tcp,FromPort=27017,ToPort=27017,IpRanges='[{CidrIp=10.1.0.0/23}]',Ipv6Ranges='[{CidrIpv6=::/0}]'
+    --ip-permissions IpProtocol=tcp,FromPort=27017,ToPort=27017,IpRanges='[{CidrIp={{ docdb_ingress_cidr }} }]',Ipv6Ranges='[{CidrIpv6=::/0}]'
   register: ingress_rule_info
   failed_when: >
     ingress_rule_info.rc not in [0] and ('InvalidPermission.Duplicate' not in ingress_rule_info.stderr )
@@ -159,11 +155,12 @@
     msg:
       - "{{ ingress_rule_info.stdout | from_json }}"
 
+# cidrip must match docdb cidr 
 - name: Add Egress rule to SG
   command: >
     aws ec2 authorize-security-group-egress \
     --group-id '{{ sg_id }}' \
-    --ip-permissions IpProtocol=-1,FromPort=0,ToPort=0,IpRanges='[{CidrIp=10.1.0.0/23}]',Ipv6Ranges='[{CidrIpv6=::/0}]'
+    --ip-permissions IpProtocol=-1,FromPort=0,ToPort=0,IpRanges='[{CidrIp={{ docdb_egress_cidr }} }]',Ipv6Ranges='[{CidrIpv6=::/0}]'
   register: egress_rule_info
   failed_when: >
     egress_rule_info.rc not in [0] and ('InvalidPermission.Duplicate' not in egress_rule_info.stderr )
