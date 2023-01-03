@@ -14,29 +14,29 @@
 
 - name: Fetch Mongo DB Instance information
   ibm.cloudcollection.ibm_database_info:
-    name: "{{mongo_name}}"
+    name: "{{ ibm_mongo_name }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
     resource_group_id: "{{ resourceGID }}"
-    service: "{{ mongo_service }}"
-    region: "{{ mongo_location }}"
+    service: "{{ ibm_mongo_service }}"
+    region: "{{ ibm_mongo_location }}"
   register: mongodb_info
   failed_when: mongodb_info.rc != 0 and ('No resource instance found' not in mongodb_info.stderr )
 
-- name: Debug, MongoDB {{mongo_name}} already deleted
+- name: Debug, MongoDB {{ibm_mongo_name}} already deleted
   when: mongodb_info.rc != 0 and ('No resource instance found' in mongodb_info.stderr )
   debug:
     msg:
-      - "MongoDB Instance {{ mongo_name }} Not Found ,so skipping deprovisioning"
+      - "MongoDB Instance {{ ibm_mongo_name }} Not Found ,so skipping deprovisioning"
 
 - name: Deprovision IBM Cloud MongoDB
   when: mongodb_info.rc == 0
   ibm.cloudcollection.ibm_database:
-    name: "{{mongo_name}}"
+    name: "{{ibm_mongo_name}}"
     id: "{{mongodb_info.resource.id}}"
     state: absent
-    service: "{{ mongo_service }}"
-    location: "{{ mongo_location }}"
-    region: "{{ mongo_location }}"
+    service: "{{ ibm_mongo_service }}"
+    location: "{{ ibm_mongo_location }}"
+    region: "{{ ibm_mongo_location }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
   register: mongo_delete_info
 
