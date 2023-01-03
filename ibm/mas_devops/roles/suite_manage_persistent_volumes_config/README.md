@@ -62,7 +62,7 @@ Optional. Persistent Volume Claim Storage Class. If not set, it will be automati
 - Default Value: None.
 
 ### mas_app_settings_custom_persistent_volume_file_path
-Optional. Alternatively, this defines a local path pointing the persistent volume definition from a custom file. Sample file definition can be found in `vars/manage-persistent-volumes-sample.yml`.
+Optional. Alternatively, this defines a local path pointing the persistent volume definition from a custom file. Sample file definition can be found in `files/manage-persistent-volumes-sample.yml`.
 
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOM_PV_FILE_PATH`
 - Default Value: None.
