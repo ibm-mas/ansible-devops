@@ -1,0 +1,18 @@
+---
+- name: "Create AWS Policy: Debug information"
+  debug:
+    msg:
+      - "AWS Policy name ........................ {{ aws_policy_name }}"
+      - "AWS Policy statement ................... {{ aws_policy_statement }}"
+
+- name: "Create the new policy {{ aws_policy_name }} from 'aws_policy_statement' "
+  shell: |
+    aws iam create-policy \
+    --policy-name {{ aws_policy_name }} \
+    --policy-document \
+    '{
+        "Version": "2012-10-17",
+        "Statement": {{ aws_policy_statement | to_json }}
+    }'
+  register: iam_policy_create_output
+  failed_when: iam_policy_create_output.rc > 0 and ('EntityAlreadyExists' not in iam_policy_create_output.stderr)
