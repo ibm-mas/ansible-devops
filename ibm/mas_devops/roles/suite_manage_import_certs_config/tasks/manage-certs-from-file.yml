@@ -1,0 +1,47 @@
+---
+- name: "Import Certificates From File: Debug information"
+  debug:
+    msg:
+      - "Manage certificates file path .............. {{ manage_certificates_file_path_local | default('Not Defined', true) }}"
+
+- name: "Set new Manage certificates from file"
+  when: manage_certificates is not defined or manage_certificates | length == 0
+  set_fact:
+    manage_certs_from_file: "{{ lookup('file', manage_certificates_file_path_local) | from_yaml }}" # this will add '\n' at the end of the certs so we'll trim it later
+
+# Add certs/aliases from file into a list
+- set_fact:
+    list_manage_new_imported_certs: "{{ manage_certs_from_file.importedCerts | default([]) }}"
+
+# Assert file has data
+- name: "Assert there's a least one certificate to be added"
+  assert:
+    that: list_manage_new_imported_certs | length > 0
+    fail_msg: "There should be at least one certificate to be imported."
+
+# Map file data into vars
+- name: Extract existing Manage certificates and aliases
+  set_fact:
+    new_manage_imported_certs_without_trim: "{{ list_manage_new_imported_certs | map(attribute='crt') | list | default([]) }}"
+    new_manage_imported_certs_aliases: "{{ list_manage_new_imported_certs | map(attribute='alias') | list | default([]) }}"
+
+# trimming the certificate results so we can compare and remove duplicates later
+- set_fact:
+    new_manage_imported_certs: "{{ new_manage_imported_certs | default([]) + [item | trim] }}"
+  with_items: "{{ new_manage_imported_certs_without_trim }}"
+
+# Here we will combine/merge existing Manage imported certificates with new certificates included with the file
+- name: "Combine new certificates from file into existing Manage certificates"
+  set_fact:
+    manage_certificates: "{{ existing_manage_imported_certs + new_manage_imported_certs }}"
+    manage_certificates_aliases: "{{ existing_manage_imported_certs_aliases + new_manage_imported_certs_aliases }}"
+
+# Ensure we only have unique certs to avoid patching duplicates
+- name: "Remove duplicate Manage certificates"
+  set_fact:
+    manage_certificates: "{{ manage_certificates | unique | select }}"
+    manage_certificates_aliases: "{{ manage_certificates_aliases | unique | select }}"
+
+- name: Assert certificates and aliases length matches
+  assert:
+    that: manage_certificates | length == manage_certificates_aliases | length
