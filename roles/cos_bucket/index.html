@@ -94,6 +94,12 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../appconnect/">appconnect</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../aws_bucket_access_point/">aws_bucket_access_point</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../aws_policy/">aws_policy</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../aws_user_creation/">aws_user_creation</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../cert_manager/">cert_manager</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../cert_manager_upgrade/">cert_manager_upgrade</a>
@@ -235,6 +241,7 @@
 <li>Environment Variable: <code>COS_BUCKET_ACTION</code></li>
 <li>Default Value: <code>create</code></li>
 </ul>
+<h2 id="role-variables-ibm-cloud-object-storage-buckets">Role Variables - IBM Cloud Object Storage buckets<a class="headerlink" href="#role-variables-ibm-cloud-object-storage-buckets" title="Permanent link"></a></h2>
 <h3 id="ibmcos_bucket_name">ibmcos_bucket_name<a class="headerlink" href="#ibmcos_bucket_name" title="Permanent link"></a></h3>
 <p>Optional name for your IBM Cloud Object Storage bucket.</p>
 <ul>
@@ -301,47 +308,69 @@ For <code>region_location</code> type, the supported regions are <code>au-syd</c
 <li>Environment Variable: <code>IBMCLOUD_RESOURCEGROUP</code></li>
 <li>Default Value: <code>Default</code></li>
 </ul>
-<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
-<p>The instance ID of Maximo Application Suite that the ObjectStorageCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a ObjectStorageCfg template.</p>
+<h2 id="role-variables-aws-s3-buckets">Role Variables - AWS S3 Buckets<a class="headerlink" href="#role-variables-aws-s3-buckets" title="Permanent link"></a></h2>
+<p>To run this role successfully for AWS s3 buckets, you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
+Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
+<h3 id="aws_bucket_name">aws_bucket_name<a class="headerlink" href="#aws_bucket_name" title="Permanent link"></a></h3>
+<p>Optional name for your AWS/S3 bucket.</p>
 <ul>
-<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
+<li>Environment Variable: <code>COS_BUCKET_NAME</code></li>
+<li>Default Value: <code>$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID-bucket</code></li>
+</ul>
+<h3 id="aws_region">aws_region<a class="headerlink" href="#aws_region" title="Permanent link"></a></h3>
+<p>The region where the bucket is located.</p>
+<ul>
+<li>Required.</li>
+<li>Environment Variable: <code>AWS_REGION</code></li>
+<li>Default Value: <code>us-east-2</code></li>
+</ul>
+<h3 id="aws_bucket_versioning_flag">aws_bucket_versioning_flag<a class="headerlink" href="#aws_bucket_versioning_flag" title="Permanent link"></a></h3>
+<p>Flag to define if versioning should be enabled for the bucket</p>
+<ul>
+<li>Optional.</li>
+<li>Environment Variable: <code>COS_BUCKET_VERSIONING_FLAG</code></li>
+<li>Default Value: <code>True</code></li>
+</ul>
+<h3 id="aws_bucket_encryption">aws_bucket_encryption<a class="headerlink" href="#aws_bucket_encryption" title="Permanent link"></a></h3>
+<p>JSON formatted string to define default encryption configuration for AWS S3 bucket.</p>
+<ul>
+<li>Optional.</li>
+<li>Environment Variable: <code>COS_BUCKET_ENCRYPTION</code></li>
 <li>Default Value: None</li>
 </ul>
-<h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link"></a></h3>
-<p>Local directory to save the generated ObjectStorageCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the <a href="../suite_config/">suite_config</a> role. If this or <code>mas_instance_id</code> are not set then the role will not generate a ObjectStorageCfg template.</p>
+<h3 id="aws_bucket_force_deletion_flag">aws_bucket_force_deletion_flag<a class="headerlink" href="#aws_bucket_force_deletion_flag" title="Permanent link"></a></h3>
+<p>Deletes S3 AWS bucket objects prior deleting the S3 bucket. This option only works if versioning <strong>is not enabled</strong> in the bucket.
+<strong>Note:</strong> To delete AWS bucket, <code>cos_bucket_action</code> must be set to <code>delete</code>.</p>
 <ul>
-<li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
-<li>Default Value: None</li>
-</ul>
-<h3 id="cluster-ingres-tls-secret-name">cluster ingres tls secret name<a class="headerlink" href="#cluster-ingres-tls-secret-name" title="Permanent link"></a></h3>
-<p>Specify the name of the cluster's ingres tls secret which contains the default router certificate.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>OCP_INGRESS_TLS_SECRET_NAME</code></li>
-<li>Default Value: router-certs-default</li>
+<li>Optional.</li>
+<li>Environment Variable: <code>COS_BUCKET_FORCE_DELETION_FLAG</code></li>
+<li>Default Value: <code>True</code></li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
-<p>Create the Ceph Object store on the existing OCS cluster and prepare the objectstorageCfg yaml to mas_config_dir.</p>
-<pre><code class="language-yaml">- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    cos_type: ocs
-    mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig
-  roles:
-    - ibm.mas_devops.cos_setup
-</code></pre>
-<p>Create the IBM Cloud Object storage Instance and prepare the objectstorageCfg yaml to mas_config_dir.</p>
+<p>Create the IBM Cloud Object storage bucket.</p>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
     cos_type: ibm
-
-    # MAS instance and config dir
-    mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig
+    cos_bucket_action: create
+    ibmcos_bucket_name: my-ibm-bucket
+    ibmcos_instance_name: my-ibmcos-instance-name
+    ibmcloud_apikey: my-ibm-cloud-apikey
   roles:
-    - ibm.mas_devops.cos_setup
+    - ibm.mas_devops.cos_bucket
+</code></pre>
+<p>Create the AWS S3 storage bucket.</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cos_type: aws
+    cos_bucket_action: create
+    aws_bucket_name: my-aws-bucket
+    aws_region: us-east-2
+    aws_bucket_versioning_flag: True
+    aws_bucket_encryption: '{&quot;Rules&quot;: [{&quot;ApplyServerSideEncryptionByDefault&quot;: {&quot;SSEAlgorithm&quot;: &quot;AES256&quot;}}]}'
+  roles:
+    - ibm.mas_devops.cos_bucket
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>
