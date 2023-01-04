@@ -5,12 +5,6 @@
     msg: "Set Mongo DB backup ID if you need restore from a backup."
   when: is_restore|default(false)|bool and ibm_mongo_backup_id == ""
 
-- name: Generate Mongo admin password
-  no_log: true
-  set_fact:
-    mongo_admpass: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
-  when: mongo_admpass is undefined or mongo_admpass == ""
-
 # 2. Provision MongoDB in IBM Cloud
 # -----------------------------------------------------------------------------
 - name: Retrieve resource group guid
@@ -51,6 +45,13 @@
     - existing_mongodb_info.resource.id is defined and existing_mongodb_info.resource.id != ''
   set_fact:
     mongo_exists: true
+
+# should consider taking from user via env var
+- name: Generate Mongo admin password
+  no_log: true
+  set_fact:
+    mongo_admpass: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+  when: not mongo_exists and mongo_admpass is undefined or mongo_admpass == ""
 
 - name: Provision MongoDB in IBM Cloud
   when: not mongo_exists
