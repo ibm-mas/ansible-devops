@@ -73,6 +73,7 @@ copyDoc suite_manage_logging_config
 copyDoc suite_manage_pvc_config
 copyDoc suite_mustgather
 copyDoc suite_mustgather_download
+copyDoc suite_switch_to_olm
 copyDoc suite_upgrade
 copyDoc suite_verify
 copyDoc uds
