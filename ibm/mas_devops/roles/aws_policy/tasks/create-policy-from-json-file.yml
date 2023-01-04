@@ -1,0 +1,22 @@
+---
+# Task to load json scripts in json_script_path_local
+# Lookup for json files in the local path
+
+- name: "Fail if aws_policy_json_file_path_local is not provided"
+  assert:
+    that: aws_policy_json_file_path_local is defined and aws_policy_json_file_path_local != ""
+    fail_msg: "aws_policy_json_file_path_local property is required"
+
+- name: "Create AWS Policy: Debug information"
+  debug:
+    msg:
+      - "AWS Policy name ........................ {{ aws_policy_name }}"
+      - "AWS Policy json file path .............. {{ aws_policy_json_file_path_local }}"
+
+- name: "Create the new policy '{{ aws_policy_name }}' from json file: '{{ aws_policy_json_file_path_local }}'"
+  shell: |
+    aws iam create-policy \
+    --policy-name {{ aws_policy_name }} \
+    --policy-document file://{{ aws_policy_json_file_path_local }}
+  register: iam_policy_create_output
+  failed_when: iam_policy_create_output.rc > 0 and ('EntityAlreadyExists' not in iam_policy_create_output.stderr)
