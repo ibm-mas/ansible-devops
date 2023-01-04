@@ -6,7 +6,9 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `12.5`
+- `12.6` Multiple Updates:
+    - Support custom PVC configuration for Manage
+- `12.5` Multiple Updates:
     - Add support for Dec 2022 catalog ([#584](https://github.com/ibm-mas/ansible-devops/pull/584))
     - Support workload scaling customization ([#583](https://github.com/ibm-mas/ansible-devops/pull/583))
 - `12.4` Support FIPS option on FYRE infrastructure ([#562](https://github.com/ibm-mas/ansible-devops/pull/562))
