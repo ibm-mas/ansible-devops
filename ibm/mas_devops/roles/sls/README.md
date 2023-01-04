@@ -117,6 +117,13 @@ Defines list of host and port pair for MongoDb to be used with SLS.
 - Environment Variable: None
 - Default: None
 
+### sls_mongodb.certificates
+Defines list of Certificates for MongoDb to be used with SLS.
+
+- Either `sls_mongodb_cfg_file` or the `sls_mongodb` object are required to install SLS.
+- Environment Variable: None
+- Default: None
+
 ### sls_mongodb.username
 Defines the MongoDB Username.
 
