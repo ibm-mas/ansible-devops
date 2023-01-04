@@ -1,6 +1,8 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `12.6` Multiple Updates:
+    - Support CloudPak for Data 4.6.x support ([#538](https://github.com/ibm-mas/ansible-devops/pull/538))
 - `12.5`
     - Add support for Dec 2022 catalog ([#584](https://github.com/ibm-mas/ansible-devops/pull/584))
     - Support workload scaling customization ([#583](https://github.com/ibm-mas/ansible-devops/pull/583))
