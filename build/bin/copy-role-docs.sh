@@ -15,6 +15,7 @@ copyDoc appconnect
 copyDoc cert_manager
 copyDoc cert_manager_upgrade
 copyDoc cert_manager_upgrade_check
+copyDoc cis
 copyDoc cluster_monitoring
 copyDoc common_services
 copyDoc cos
@@ -71,4 +72,3 @@ copyDoc suite_mustgather_download
 copyDoc suite_upgrade
 copyDoc suite_verify
 copyDoc uds
-copyDoc cis
