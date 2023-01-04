@@ -1,12 +1,14 @@
-suite_manage_persistent_volume_config
+suite_manage_pvc_config
 ===
 This role extends support for configuring persistent volume claims for **Manage** application.
-**Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring additional persistent volume claims.
+
+!!! note
+    This role should be executed **after** Manage application is deployed and activated because it needs Manage up and running prior to configuring the additional persistent volume claims.
 
 The are two options to setup new Manage PVCS:
 
-- exporting Manage PVC's variables or;
-- loading Manage PVC's variables from a file.
+- Exporting Manage PVCs variables
+- Loading Manage PVCs variables from a file
 
 Role Variables
 --------------
@@ -83,7 +85,7 @@ The following sample can be used to configure new PVCs for an existing Manage ap
     mas_app_settings_custom_persistent_volume_pvc_size: "20Gi"
     mas_app_settings_custom_persistent_volume_mount_path: "/MyOwnFolder"
   roles:
-    - ibm.mas_devops.suite_manage_persistent_volumes_config
+    - ibm.mas_devops.suite_manage_pvc_config
 ```
 
 The following sample can be used to configure new PVCs for an existing Manage application instance from a custom file definition.
@@ -96,7 +98,7 @@ The following sample can be used to configure new PVCs for an existing Manage ap
     mas_workspace_id: masdev
     mas_app_settings_custom_persistent_volume_file_path: "/my-path/manage-pv.yml"
   roles:
-    - ibm.mas_devops.suite_manage_persistent_volumes_config
+    - ibm.mas_devops.suite_manage_pvc_config
 ```
 
 Run Role Playbook
@@ -110,7 +112,7 @@ export MAS_APP_SETTINGS_CUSTOM_PVC_SIZE=20Gi
 export MAS_APP_SETTINGS_CUSTOM_MOUNT_PATH=/MyOwnDir
 export MAS_APP_SETTINGS_CUSTOM_PV_FILE_PATH=/my-path/manage-pv.yml
 
-ROLE_NAME='suite_manage_persistent_volumes_config' ansible-playbook playbooks/run_role.yml
+ROLE_NAME='suite_manage_pvc_config' ansible-playbook playbooks/run_role.yml
 
 
 License
