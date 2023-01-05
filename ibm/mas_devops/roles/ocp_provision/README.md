@@ -169,6 +169,10 @@ Provide a description for the cluster.
 - Environment Variable: `FYRE_CLUSTER_DESCRIPTION`
 - Default Value: None
 
+- Optional
+- Environment Variable: `OCP_FIPS`
+- Default Value: false
+
 ### fyre_cluster_size
 The name of one of Fyre's pre-defined cluster sizes to use for the new cluster.
 

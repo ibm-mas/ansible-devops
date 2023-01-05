@@ -50,6 +50,9 @@
     - exclude_images is defined
     - exclude_images | length > 0
   shell: rm ~/.ibm-pak/data/cases/{{ case_name }}/{{ case_version }}/{{ item }}-*-images.csv
+  # We ignore errors, because if we can't delete something that isn't there it
+  # doesn't really matter, e.g. removing ibm-mas-safety which isn't present since MAS v8.8
+  ignore_errors: true
   register: excludeImagesResult
   loop: "{{ exclude_images }}"
 
@@ -112,3 +115,11 @@
 - name: "IBM UDS 2.0.8 workaround"
   when: case_name == "ibm-uds" and case_version == "2.0.8"
   include_tasks: "tasks/uds-208-fix.yml"
+
+
+# 10. IBM Maximo IoT 8.6.0 Bad Digest Hack
+# -----------------------------------------------------------------------------
+# The IoT CASE bundle for 8.6.0 has an incorrect image digest in it
+- name: "IBM UDS 2.0.8 workaround"
+  when: case_name == "ibm-mas-iot" and case_version == "8.6.0"
+  include_tasks: "tasks/iot-860-fix.yml"
