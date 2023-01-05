@@ -166,6 +166,12 @@ Optional. Controls the workload size of predict containers. Avaliable options ar
 - Environment Variable: `PREDICT_DEPLOYMENT_SIZE`
 - Default: `small`
 
+### custom_labels
+Optional. List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Environment Variable: `CUSTOM_LABELS`
+- Default: None
+
 
 Example Playbook
 ----------------

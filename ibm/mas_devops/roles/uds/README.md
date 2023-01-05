@@ -104,6 +104,13 @@ Sets the UDS api key used by the MAS instance's UDS configuration.
 - Environment Variable: `UDS_API_KEY`
 - Default Value: None
 
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default Value: None
+
 
 Example Playbook
 ----------------

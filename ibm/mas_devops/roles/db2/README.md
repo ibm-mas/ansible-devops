@@ -246,6 +246,14 @@ The name of the worker node to apply the `{{ db2_node_label }}` taint and label 
 - Default: None
 
 
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default Value: None
+
+
 Role Variables - DB2UCluster Database Configuration Settings
 ----------------------------------
 The following variables will overwrite DB2UCluster default properties for the DB2 configuration sections:
