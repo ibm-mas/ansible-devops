@@ -1,0 +1,29 @@
+---
+# For now this role is not prepared to be execured as standalone role.
+# We need to extend support for allowing env vars to define its properties.
+# Currently it's being used internally by other roles.
+
+- name: "Fail if aws_policy_name is not provided"
+  assert:
+    that: aws_policy_name is defined and aws_policy_name != ""
+    fail_msg: "aws_policy_name property is required"
+
+# 1. Provide debug information to the create aws policy
+# -----------------------------------------------------------------------------
+- name: "Create AWS Policy from 'aws_policy_statement' property"
+  when: aws_policy_statement is defined and aws_policy_statement !=''
+  include_tasks: "tasks/create-policy-from-variable.yml"
+
+- name: "Create AWS Policy from json file: '{{ aws_policy_json_file_path_local }}'"
+  when: aws_policy_statement is not defined or aws_policy_statement ==''
+  include_tasks: "tasks/create-policy-from-json-file.yml"
+
+- name: "Lookup aws policy's arn: {{ aws_policy_name }}"
+  shell: aws iam list-policies --query 'Policies[?PolicyName==`{{ aws_policy_name }}`].Arn' --output text
+  register: iam_policy_lookup_output
+
+- set_fact:
+    s3_policy_arn: "{{ iam_policy_lookup_output.stdout }}"
+
+- debug:
+    var: s3_policy_arn

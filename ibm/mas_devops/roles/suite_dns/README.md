@@ -114,6 +114,13 @@ Role Variables - IBM Cloud Internet Services DNS Integration
 - Environment Variable: `CIS_SUBDOMAIN`
 - Default: None
 
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default: None
+
 
 Example Playbook
 ----------------

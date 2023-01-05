@@ -74,6 +74,13 @@ Optional. The persistent volume size used by the iot fpl pipeline router for tra
 - Application Support:
   - IoT 8.6
 
+### custom_labels
+Optional. List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Environment Variable: `CUSTOM_LABELS`
+- Default: None
+
+
 Example Playbook
 ----------------
 
