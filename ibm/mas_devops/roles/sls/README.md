@@ -117,6 +117,13 @@ Defines list of host and port pair for MongoDb to be used with SLS.
 - Environment Variable: None
 - Default: None
 
+### sls_mongodb.certificates
+Defines list of Certificates for MongoDb to be used with SLS.
+
+- Either `sls_mongodb_cfg_file` or the `sls_mongodb` object are required to install SLS.
+- Environment Variable: None
+- Default: None
+
 ### sls_mongodb.username
 Defines the MongoDB Username.
 
@@ -198,6 +205,13 @@ The Registration key of the LicenseService instance to be used when the Maximo A
 
 - Optional
 - Environment Variable: `SLS_REGISTRATION_KEY`
+- Default Value: None
+
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
 - Default Value: None
 
 

@@ -28,6 +28,12 @@ Required. The directory to save the configuration to.
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
+### custom_labels
+Optional. List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Environment Variable: `CUSTOM_LABELS`
+- Default Value: None
+
 
 Example Playbook
 ----------------

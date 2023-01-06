@@ -1,0 +1,41 @@
+---
+- name: "Fail if cis_action is not provided"
+  assert:
+    that: cis_action is defined and cis_action != ""
+    fail_msg: "cis_action property is required"
+
+- name: "Fail if ibmcloud_apikey is not provided"
+  assert:
+    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
+    fail_msg: "ibmcloud_apikey property is required"
+
+- name: "Fail if master_ibmcloud_api_key is not provided"
+  assert:
+    that: master_ibmcloud_api_key is defined and master_ibmcloud_api_key != ""
+    fail_msg: "master_ibmcloud_api_key property is required"
+
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "Fail if cluster_name is not provided"
+  assert:
+    that: cluster_name is defined and cluster_name != ""
+    fail_msg: "cluster_name property is required"
+
+- name: "Fail if master_cis_base_domain is not provided"
+  assert:
+    that: master_cis_base_domain is defined and master_cis_base_domain != ""
+    fail_msg: "master_cis_base_domain property is required"
+
+- name: Set Fact for CIS Instance
+  set_fact:
+    customer_cis_domain: "{{ mas_instance_id }}.{{ master_cis_base_domain }}"
+    customer_cis_domain_prefix: "{{ mas_instance_id }}"
+    cis_service_name: "{{ cluster_name }}-cis-{{mas_instance_id}}"
+
+# 1. Configure CIS
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Provision or Deprovision CIS Instance
+  include_tasks: tasks/provider/ibm/{{ cis_action }}.yml

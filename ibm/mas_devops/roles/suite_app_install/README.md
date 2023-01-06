@@ -30,6 +30,18 @@ Optional. The application deployment spec used to configure different aspects of
 - Environment Variable: None
 - Default: defaults are specified in vars/defaultspecs/{{mas_app_id}}.yml
 
+### mas_app_settings_visualinspection_storage_class
+Optional. Storage class used for user data. This must support ReadWriteOnce
+
+- Environment Variable: `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_CLASS`
+- Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster.
+
+### mas_app_settings_visualinspection_storage_size
+Optional. Size of data persistent volume.
+
+- Environment Variable: `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_SIZE`
+- Default: `100Gi`
+
 ### mas_app_settings_iot_deployment_size
 Optional, The IoT deployment size, one of `dev`, `small` or `large`.
 
@@ -61,6 +73,13 @@ Optional. The persistent volume size used by the iot fpl pipeline router for tra
 - Default: 100Gi.
 - Application Support:
   - IoT 8.6
+
+### custom_labels
+Optional. List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Environment Variable: `CUSTOM_LABELS`
+- Default: None
+
 
 Example Playbook
 ----------------

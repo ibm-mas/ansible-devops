@@ -31,6 +31,13 @@ The namespace where the ConfigMap will be created.
 - Environment Variable: None
 - Default: None
 
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default: None
+
 
 License
 -------------------------------------------------------------------------------
