@@ -3,7 +3,7 @@
 - name: "Debug information for changing CP4D admin password"
   debug:
     msg:
-      - "cpd_namespace .............. {{ cpd_namespace }}"
+      - "cp4d_namespace .............. {{ cp4d_namespace }}"
       - "cp4d_admin_credentials_secret_name ............. {{ cp4d_admin_credentials_secret_name }}"
       - "cp4d_admin_password_force_update ............. {{ cp4d_admin_password_force_update }}"
 
@@ -20,7 +20,7 @@
         api_version: v1
         kind: Secret
         name: admin-user-details
-        namespace: "{{ cpd_namespace }}"
+        namespace: "{{ cp4d_namespace }}"
       register: cp4d_initial_admin_credentials
 
     - name: Set cp4d_initial_admin_password based on value of CP4D initial_admin_password
@@ -36,7 +36,7 @@
 - name: If the k8s Secret for CP4D admin credentials dose not exist, create it before updating the password
   kubernetes.core.k8s:
     state: present
-    namespace: "{{ cpd_namespace }}"
+    namespace: "{{ cp4d_namespace }}"
     definition: "{{ lookup('template', 'templates/cp4d_admin_credentials_secret.yaml.j2') | from_yaml }}"
   when: cp4d_admin_credentials_secret_exists is undefined or cp4d_admin_credentials_secret_exists == false
 
@@ -85,7 +85,7 @@
         - name: Update k8s Secret for cp4d_admin_password
           kubernetes.core.k8s:
             state: present
-            namespace: "{{ cpd_namespace }}"
+            namespace: "{{ cp4d_namespace }}"
             definition: "{{ lookup('template', 'templates/cp4d_admin_credentials_secret.yaml.j2') | from_yaml }}"
       when: cp4d_authorization.status == 200
 
