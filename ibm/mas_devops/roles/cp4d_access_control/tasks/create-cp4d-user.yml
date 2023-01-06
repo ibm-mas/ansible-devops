@@ -4,7 +4,7 @@
   debug:
     msg:
       - "cpd_namespace .............. {{ cpd_namespace }}"
-      - "sre_namespace .............. {{ sre_namespace }}"
+      - "mas_namespace .............. {{ mas_namespace }}"
       - "cp4d_username ............. {{ cp4d_username }}"
       - "cp4d_user_credentials_secret_name ............. {{ cp4d_user_credentials_secret_name }}"
       - "cp4d_admin_credentials_secret_name ............. {{ cp4d_admin_credentials_secret_name }}"
@@ -16,19 +16,17 @@
 # Read existing user credentials data in k8s Secret if it's defined
 # -----------------------------------------------------------------------------
 - name: Get CP4D user credentials data from k8s Secret if cp4d_user_credentials_secret_name is defined
-  no_log: true
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ cp4d_user_credentials_secret_name }}"
-    namespace: "{{ sre_namespace }}"
+    namespace: "{{ mas_namespace }}"
   register: _cp4d_credentials_from_k8s_secret
   when:
     - cp4d_user_credentials_secret_name is defined
     - cp4d_user_credentials_secret_name != ""
 
 - name: Set vars for CP4D username & password based on data from k8s Secret
-  no_log: true
   set_fact:
     cp4d_username: "{{ _cp4d_credentials_from_k8s_secret.resources[0].data.username | b64decode }}"
     cp4d_password: "{{ _cp4d_credentials_from_k8s_secret.resources[0].data.password | b64decode }}"
@@ -69,7 +67,6 @@
 - name: If username already exists in CP4D and credentials k8s secret exists, verify the password via CP4D auth API
   block:
     - name: Try to invoke CP4D auth API with username & password from k8s secret
-      no_log: true
       uri:
         url: "https://{{ cp4d_host }}/icp4d-api/v1/authorize"
         validate_certs: no
@@ -101,7 +98,6 @@
 - name: Create new CP4D user if it doesn't exist
   block:
     - name: Generate cp4d_password for {{ cp4d_username }} if it's not defined
-      no_log: true
       set_fact:
         cp4d_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
       when: cp4d_password is undefined or cp4d_password == ""
@@ -122,7 +118,6 @@
       when: cp4d_user_display_name is undefined or cp4d_user_display_name == ""
 
     - name: Create the user in CP4D - {{ cp4d_username }}
-      no_log: true
       uri:
         url: "https://{{ cp4d_host }}/icp4d-api/v1/users"
         validate_certs: no
@@ -162,14 +157,12 @@
         - (_db2u_instance_certificates.resources | length > 0)
 
     - name: Create k8s Secret for the user credentials - {{ cp4d_user_credentials_secret_name }}
-      no_log: true
       kubernetes.core.k8s:
         state: present
-        namespace: "{{ sre_namespace }}"
+        namespace: "{{ mas_namespace }}"
         definition: "{{ lookup('template', 'templates/cp4d_credentials_secret.yaml.j2') | from_yaml }}"
 
     - name: Save the credentials of this CP4D user to P2PaaS ColdVault if the cluster is in P2PaaS - {{ cp4d_username }}
-      no_log: true
       shell: |
         curl -k -X PUT -H "X-Vault-Request: true" -H "X-Vault-Token: {{ hashicorp_vault_token }}" -d '{ "data":{ "cp4d_password":"{{ cp4d_password }}", "cp4d_username":"{{ cp4d_username }}" }, "options":{} }' "{{ p2paas_coldvault_base_url }}/{{ cp4d_user_credentials_secret_name }}"
       when: is_p2paas_infra|default(false)|bool and p2paas_coldvault_enabled|default(false)|bool
