@@ -12,7 +12,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
     - Support switching MAS legacy install to OLM ([#524](https://github.com/ibm-mas/ansible-devops/pull/524))
     - Support management of CIS in IBM Cloud ([#549](https://github.com/ibm-mas/ansible-devops/pull/549))
     - Support for setting custom labels on instance specific resources ([#568](https://github.com/ibm-mas/ansible-devops/pull/568))
-    - Support for updating CP4D instance admin password ([#591](https://github.com/ibm-mas/ansible-devops/pull/591))
+    - Support updating CP4D instance admin password ([#591](https://github.com/ibm-mas/ansible-devops/pull/591))
 - `12.5` Multiple Updates:
     - Add support for Dec 2022 catalog ([#584](https://github.com/ibm-mas/ansible-devops/pull/584))
     - Support workload scaling customization ([#583](https://github.com/ibm-mas/ansible-devops/pull/583))
