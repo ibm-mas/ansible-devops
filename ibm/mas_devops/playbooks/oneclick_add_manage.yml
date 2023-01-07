@@ -19,6 +19,14 @@
     # Application Configuration
     mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') | default('masdev', true) }}"
 
+    # Check if external database is provided instead of the default DB2
+    configure_external_db: "{{ lookup('env', 'CONFIGURE_EXTERNAL_DATABASE') | default('False', true) | bool }}"
+
+    mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE') | default('system', true) }}" # Supported values are "system", "ws", "app", or "wsapp"
+
+    # Check if SSL is enabled
+    ssl_enabled: "{{ lookup('env', 'SSL_ENABLED') | default('True', true) | bool }}"
+
   pre_tasks:
     # For the full set of supported environment variables refer to the playbook documentation
     - name: Check for required environment variables
@@ -30,8 +38,11 @@
         fail_msg: "One or more required environment variables are not defined"
 
   roles:
-    - ibm.mas_devops.db2
-    - ibm.mas_devops.suite_db2_setup_for_manage
-    - ibm.mas_devops.suite_config
+    - name: ibm.mas_devops.db2
+      when: configure_external_db == false
+    - name: ibm.mas_devops.suite_db2_setup_for_manage
+      when: configure_external_db == false
+    - name: ibm.mas_devops.gencfg_jdbc
+      when: configure_external_db == true
     - ibm.mas_devops.suite_app_install
     - ibm.mas_devops.suite_app_config
