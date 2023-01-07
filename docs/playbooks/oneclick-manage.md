@@ -41,6 +41,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
    `export MAS_APPWS_COMPONENTS="health=latest"`
 
    To connect to an external database (Oracle, SQL Server or DB2) set the following variables:
+
    `export CONFIGURE_EXTERNAL_DATABASE=true`
 
    `export DB_INSTANCE_ID=your database instance name`  
@@ -48,28 +49,29 @@ All timings are estimates, see the individual pages for each of these playbooks 
    `export MAS_JDBC_PASSWORD=your JDBC password`
    `export MAS_JDBC_URL=your JDBC URL`
    
-   if the database is not SSL enabled, set
+   If the database is not SSL enabled, set
+
    `export SSL_ENABLED=false`. By default, SSL_ENABLED is true
 
-   if SSL enabled == true, set
+   If SSL enabled == true, set
+
    `export MAS_JDBC_CERT_LOCAL_FILE=path to your cetificate`
 
    For example,
 
    ``` bash
    DB2:
-   export MAS_JDBC_URL="jdbc:db2://database-1ibm.com:50000/maxdb76"
+   export MAS_JDBC_URL=jdbc:db2://database-1.ibm.com:50000/maxdb76
 
-   export MAS_JDBC_URL="jdbc:db2://database-2.ibm.com:50000/maxdb76:sslConnection=true" if SSL enabled
+   export MAS_JDBC_URL=jdbc:db2://database-2.ibm.com:50000/maxdb76:sslConnection=true  if SSL enabled
 
    Oracle:
-   export MAS_JDBC_URL="jdbc:oracle:thin:@db1.ibm.com:1521:maximo"
+   export MAS_JDBC_URL=jdbc:oracle:thin:@db1.ibm.com:1521:maximo
 
    SQL Server:
    export MAS_JDBC_URL="jdbc:sqlserver://;serverName=ssldb1.ibm.com;portNumber=1433;databaseName=msdb;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;"
 
    export MAS_JDBC_URL="jdbc:sqlserver://;serverName=ssldb2.ibm.com;portNumber=1433;databaseName=msdb;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;" if SSL enabled
-
    ```
    
 ## Usage
