@@ -48,6 +48,9 @@ All timings are estimates, see the individual pages for each of these playbooks 
    `export MAS_JDBC_USER=your JDBC user name`
    `export MAS_JDBC_PASSWORD=your JDBC password`
    `export MAS_JDBC_URL=your JDBC URL`
+   `export MAS_APP_SETTINGS_DB2_SCHEMA=your schema name  By default, the value is maximo`
+   `export MAS_APP_SETTINGS_INDEXSPACE=your tablename   By default, the value is maximo`
+   `export MAS_APP_SETTINGS_INDEXSPACE=your indexspace  By default, the value is maximo`
    
    If the database is not SSL enabled, set
 
