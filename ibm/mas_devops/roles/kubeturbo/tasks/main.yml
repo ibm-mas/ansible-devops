@@ -1,0 +1,127 @@
+---
+
+# Provide Debug information
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Kubeturbo Namespace ...................... {{ kubeturbo_namespace }}"
+      - "Kubeturbo Channel ........................ {{ kubeturbo_channel }}"
+      - "Kubeturbo CR ............................. {{ kubeturbo_cr_name }}"
+      - "Cluster .................................. {{ cluster_name }}"
+      - "Turbonomic endpoint ...................... {{ turbonomic_route }}"
+
+
+- fail: msg="The variable 'CLUSTER_NAME' is not defined"
+  when: cluster_name is undefined or (cluster_name|length == 0)
+
+
+# 1. Create Kubeturbo project
+# -----------------------------------------------------------------------------
+- name: "Create Kubeturbo namespace"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: '{{ kubeturbo_namespace }}'
+
+- name: "Lookup Kubeturbo namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: '{{ kubeturbo_namespace }}'
+  register: kubeturbo_namespace_output
+
+- name: Set kubeturbo_namespace_fsgroup
+  vars:
+    regex: '.+?(?=/)'
+  set_fact:
+    kubeturbo_namespace_fsgroup: "{{ kubeturbo_namespace_output.resources[0].metadata.annotations['openshift.io/sa.scc.uid-range'] | regex_search(regex) }}"
+
+# 2. Deploy Kubeturbo subscription and Operator Group
+# -----------------------------------------------------------------------------
+- name: "Create Kubeturbo operator group"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/kubeturbo-operator-group.yaml') }}"
+    wait: yes
+    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
+
+- name: "Create Kubeturbo subscription"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/kubeturbo-subscription.yaml') }}"
+    wait: yes
+    wait_timeout: 300
+    wait_condition:
+      type: 'CatalogSourcesUnhealthy'
+      status: "False"
+
+# 2. Deploy Kubeturbo CRD
+# -----------------------------------------------------------------------------
+
+- name: "Wait until the Kubeturbo CRD is available"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "kubeturbos.charts.helm.k8s.io"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: kubeturbo_crd_info
+  retries: 120 # ~approx 10 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - kubeturbo_crd_info.resources is defined
+    - kubeturbo_crd_info.resources | length > 0
+
+# 12. Wait until Kubeturbo Operator is ready
+# -----------------------------------------------------------------------------
+- name: "Wait for {{ kubeturbo_sub_name }} to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: "kubeturbo-operator"
+    namespace: "{{ kubeturbo_namespace }}"
+    kind: Deployment
+  register: kubeturbo_operator_deployment
+  until:
+    - kubeturbo_operator_deployment.resources is defined
+    - kubeturbo_operator_deployment.resources | length > 0
+    - kubeturbo_operator_deployment.resources[0].status is defined
+    - kubeturbo_operator_deployment.resources[0].status.replicas is defined
+    - kubeturbo_operator_deployment.resources[0].status.readyReplicas is defined
+    - kubeturbo_operator_deployment.resources[0].status.readyReplicas == kubeturbo_operator_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+
+# 13. Create Kubeturbo Custom Resource
+# -----------------------------------------------------------------------------
+- name: "Create Kubeturbo Custom Resource"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/kubeturbo-cr.yaml') }}"
+
+# 14. Wait Kubeturbo Custom Resourceto be complete. This needs fixing.
+# -----------------------------------------------------------------------------
+- name: "Wait for Kubeturbo Custom Resource to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: charts.helm.k8s.io/v1
+    name: "{{ kubeturbo_cr_name }}"
+    namespace: "{{ kubeturbo_namespace }}"
+    kind: kubeturbo
+  register: kubeturbo_cr_result
+  until:
+    - kubeturbo_cr_result.resources is defined and kubeturbo_cr_result.resources | length == 1
+    - kubeturbo_cr_result.resources[0].status is defined
+    - kubeturbo_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'NamesAccepted') | map(attribute='status') | list | length > 0
+    - kubeturbo_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'NamesAccepted') | map(attribute='status') | list | first == "True"
+    - kubeturbo_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Established') | map(attribute='status') | list | length > 0
+    - kubeturbo_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Established') | map(attribute='status') | list | first == "True"
+    - kubeturbo_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'KubernetesAPIApprovalPolicyConformant') | map(attribute='status') | list | length > 0
+    - kubeturbo_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'KubernetesAPIApprovalPolicyConformant') | map(attribute='status') | list | first == "True"
+  retries: 45 # approx 45 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "{{ kubeturbo_cr_result }}"
