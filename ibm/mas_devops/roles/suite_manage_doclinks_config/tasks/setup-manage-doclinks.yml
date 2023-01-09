@@ -1,7 +1,7 @@
 ---
 # Configure COS bucket for Manage doclinks
 # -----------------------------------------------------------------------------
-- name: "Configure {{ cos_type }} bucket for Manage logging"
+- name: "Configure {{ cos_type }} bucket for Manage doclinks"
   include_role:
     name: ibm.mas_devops.cos_bucket
 
@@ -10,7 +10,7 @@
 
 # Configure Manage bundle servers
 # -----------------------------------------------------------------------------
-- name: Lookup Manage Route
+- name: Lookup Main Manage Route
   kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
     kind: Route
@@ -18,26 +18,41 @@
     namespace: "mas-{{ mas_instance_id }}-manage"
   register: manage_route
 
-- name: Assert Manage Route is valid
+- name: Assert Main Manage Route is valid
   assert:
     that: "{{ manage_route.resources | length > 0 }}"
-    fail_msg: "Failed! Manage Route {{ mas_instance_id}}-manage-{{ mas_workspace_id }} not found..."
+    fail_msg: "Failed! Main Manage Route {{ mas_instance_id}}-manage-{{ mas_workspace_id }} not found..."
+
+- name: Lookup Mea Manage Route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "mea-{{ mas_instance_id}}-manage-{{ mas_workspace_id }}-81"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: manage_mea_route
 
 - name: Set Manage Route variable
   set_fact:
     manage_url: "{{ manage_route.resources[0].spec.host }}"
+    manage_mea_url: "{{ manage_mea_route.resources[0].spec.host | default(manage_route.resources[0].spec.host, true) }}"
 
 - name: Set Manage doclinks properties
   set_fact:
     doclinkPath01: "https://{{ manage_url }}/maximo/oslc/cosdoclink"
+    mxeIntWebAppUrl: "https://{{ manage_mea_url }}/meaweb" # mxe.int.webappurl - if mea route is not defined, then we use the main manage route
+    mxeOslcRestWebAppUrl: "https://{{ manage_url }}/maxrest/oslc" # mxe.oslc.restwebappurl
+    mxeOslcWebAppUrl: "https://{{ manage_url }}/maximo/oslc" # mxe.oslc.webappurl
+    mxeRestWebAppUrl: "https://{{ manage_url }}/maxrest" # mxe.oslc.restwebappurl
     bucketName: "{{ cos_bucket_name }}"
     accessKey: "{{ cos_access_key_id }}"
     secretAccesskey: "{{ cos_secret_access_key }}"
-    bucketEndpoint: "https://s3.private.{{ cos_bucket_region }}.cloud-object-storage.appdomain.cloud"
+    bucketEndpoint: 
+      aws: 'https://s3.{{ cos_bucket_region }}.amazonaws.com'
+      ibm: 'https://s3.private.{{ cos_bucket_region }}.cloud-object-storage.appdomain.cloud'
 
 - name: Set Manage bundle server properties
   set_fact:
-    serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setDoclinksProperties(doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint) }}"
+    serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setDoclinksProperties(doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint[cos_type], mxeIntWebAppUrl, mxeOslcRestWebAppUrl, mxeOslcWebAppUrl, mxeRestWebAppUrl) }}"
 
 - debug:
     msg:

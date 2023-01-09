@@ -1,9 +1,9 @@
 suite_manage_doclinks_config
 ===
 This role extends support for configuring IBM Cloud Object Storage to storage **Manage** application doclinks.
-**Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring logging features.
+**Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring doclinks features.
 
-The default for Manage logging configuration is to use IBM Cloud Object Storage as persistent storage for Manage logging. You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage information to use it as storage for Manage application logs.
+You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage or AWS S3 information to use it as storage for Manage application doclinks.
 
 Role Variables
 --------------
@@ -11,9 +11,13 @@ Role Variables
 Required. Defines the storage provider type to be used to store Manage application's doclinks.
 Currently available options are:
 
-  - `ibm`: Configures IBM Cloud Object Storage as storage system for Manage doclinks.
+  - `ibm`: Configures IBM Cloud Object Storage as storage system for Manage attachments. 
+  - `aws`: Configures Amazon S3 buckets as storage system for Manage attachments. 
+  
+  **Note:** If using `ibm` or `aws` as attachments provider, the [`cos_bucket`](../roles/cos_bucket.md) role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments.
 
-When running this role, the [`cos_bucket`](../roles/cos_bucket.md) role will be executed underneath the covers to setup a new or existing targeted IBM Cloud object bucket to be used to store Manage docklinks, therefore make sure you set the expected variables to customize your Object Storage bucket accordingly to the desired provider.
+To run this role successfully for AWS S3 buckets, you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
 
 - Environment Variable: `COS_TYPE`
 - Default Value: None.
@@ -65,10 +69,24 @@ The following sample playbook can be used to provision COS in IBM Cloud and conf
     db2_instance_name: db2w-manage
     cos_type: ibm
     cos_instance_name: cos-masinst1
-    ibmcos_bucket_name: manage-logs-bucket
+    ibmcos_bucket_name: ibm-manage-doclinks-bucket
     ibmcloud_apikey: xxxx
   roles:
     - ibm.mas_devops.cos
+    - ibm.mas_devops.suite_manage_doclinks_config
+```
+
+The following sample can be used to configure AWS S3 buckets for an existing Manage application instance.
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_workspace_id: masdev
+    cos_type: aws
+    aws_bucket_name: s3-manage-doclinks-bucket
+  roles:
     - ibm.mas_devops.suite_manage_doclinks_config
 ```
 
