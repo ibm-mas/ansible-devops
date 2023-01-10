@@ -366,6 +366,15 @@ Prefix for DocumentDB Instance name
 
 - Environment variable: `DOCDB_INSTANCE_IDENTIFIER_PREFIX`
 
+### docdb_ingress_cidr
+
+- Environment variable: `DOCDB_INGRESS_CIDR`
+
+
+### docdb_egress_cidr
+
+- Environment variable: `DOCDB_EGRESS_CIDR`
+
 Example Playbook
 ----------------
 
