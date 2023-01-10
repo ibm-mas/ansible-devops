@@ -102,6 +102,34 @@ def db2_overwrite_config(components):
 
     return components_yaml
 
+def string2dict(_string = None):
+  """
+  filter: string2dict
+    _string
+    author: Richard Acree <acree@us.ibm.com>
+    version_added: 0.1
+    short_description: This method creates dict from a string
+    description:
+      - This method creates dict from the user passed string
+    options:
+      _string:
+        description: user passed string, format to be passed x=y,foo=bar,hello=world
+        required: True
+    notes:
+      - limited error handling, will not handle unexpected data
+  """
+  _dict = {}
+  if _string:
+    try:
+      _list = _string.strip().split(',')
+      for _item in _list:
+        _item = _item.split("=")
+        _dict[ _item[0] ] = _item[1]
+    except:
+      print("block processing failed, set _dict blank")
+      _dict = {}
+  return _dict
+
 def getAnnotations(annotations = None):
   """
   filter: getAnnotations
@@ -244,6 +272,7 @@ class FilterModule(object):
       'appws_components': appws_components,
       'addAnnotationBlock': addAnnotationBlock,
       'db2_overwrite_config': db2_overwrite_config,
+      'string2dict': string2dict,
       'getAnnotations': getAnnotations,
       'getResourceNames': getResourceNames,
       'defaultStorageClass': defaultStorageClass,

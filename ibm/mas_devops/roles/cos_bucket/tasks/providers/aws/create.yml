@@ -1,0 +1,130 @@
+---
+# 1. Debug information
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Create AWS Bucket: Debug general info"
+  debug:
+    msg:
+      - "AWS bucket name .................... {{ aws_bucket_name }}"
+      - "AWS bucket region .................. {{ aws_bucket_region_location }}"
+      - "AWS bucket versioning enabled ...... {{ aws_bucket_versioning_flag }}"
+      - "AWS bucket encryption .............. {{ aws_bucket_encryption }}"
+      - "AWS bucket endpoint ................ {{ aws_url }}"
+
+# 2. Create AWS bucket
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Create AWS bucket: {{ aws_bucket_name }}"
+  command: >
+    aws s3api create-bucket \
+      --bucket {{ aws_bucket_name }} \
+      --region {{ aws_bucket_region_location }} \
+      --create-bucket-configuration LocationConstraint={{ aws_bucket_region_location }}
+  register: aws_bucket_creation_output
+  failed_when: aws_bucket_creation_output.rc > 0 and ('BucketAlreadyOwnedByYou' not in aws_bucket_creation_output.stderr)
+
+- debug:
+    msg: "{{ aws_bucket_creation_output }}"
+
+- name: "Enable AWS bucket versioning for {{ aws_bucket_name }}"
+  when: aws_bucket_versioning_flag == True
+  command: >
+    aws s3api put-bucket-versioning \
+      --bucket {{ aws_bucket_name }} \
+      --versioning-configuration Status=Enabled
+  register: aws_bucket_versioning_output
+  failed_when: "aws_bucket_versioning_output.rc > 1"
+
+- debug:
+    msg: "{{ aws_bucket_versioning_output }}"
+
+- name: "Enable AWS bucket encryption for {{ aws_bucket_name }}"
+  when: aws_bucket_encryption is defined and aws_bucket_encryption != ''
+  shell: |
+    aws s3api put-bucket-encryption --bucket {{ aws_bucket_name }} --server-side-encryption-configuration '{{ aws_bucket_encryption }}'
+  register: aws_bucket_encryption_output
+  failed_when: "aws_bucket_encryption_output.rc > 1"
+
+- debug:
+    msg: "{{ aws_bucket_encryption_output }}"
+
+# 3. Create IAM Policies to access buckets in read only and read write modes
+# -----------------------------------------------------------------------------
+# aws_policy_actions: ["s3:GetObject","s3:ListBucket"]
+# aws_policy_resources: ["{{ aws_bucket_arn }}/*","{{ aws_bucket_arn }}"]
+- name: "Create policy to access the bucket in read-only mode"
+  import_role:
+    name: ibm.mas_devops.aws_policy
+  vars:
+    aws_policy_name: "{{ aws_bucket_read_only_username }}-readonly-policy"
+    aws_policy_statement:
+      - Sid: VisualEditor0
+        Effect: Allow
+        Action:
+          - s3:GetObject
+          - s3:ListBucket
+        Resource:
+          - "{{ aws_bucket_arn }}/*"
+          - "{{ aws_bucket_arn }}"
+
+- set_fact:
+    s3readonly_policy_arn: "{{ s3_policy_arn }}"
+
+# aws_policy_actions: ["s3:GetObject","s3:ListBucket","s3:DeleteObject","s3:PutObject"]
+# aws_policy_resources: ["{{ aws_bucket_arn }}/*","{{ aws_bucket_arn }}"]
+- name: "Create policy to access the bucket in read-write mode"
+  import_role:
+    name: ibm.mas_devops.aws_policy
+  vars:
+    aws_policy_name: "{{ aws_bucket_read_write_username }}-readwrite-policy"
+    aws_policy_statement:
+      - Sid: VisualEditor0
+        Effect: Allow
+        Action:
+          - s3:GetObject
+          - s3:ListBucket
+          - s3:DeleteObject
+          - s3:PutObject
+        Resource:
+          - "{{ aws_bucket_arn }}/*"
+          - "{{ aws_bucket_arn }}"
+
+- set_fact:
+    s3readwrite_policy_arn: "{{ s3_policy_arn }}"
+
+# 4. Create AWS Users to access the bucket
+# -----------------------------------------------------------------------------
+- name: "Create AWS IAM User and attach policies to access the bucket {{ aws_bucket_name }} in read-only mode"
+  import_role:
+    name: ibm.mas_devops.aws_user_creation
+  vars:
+    aws_username: "{{ aws_bucket_read_only_username }}"
+    aws_username_create_access_key_flag: True
+    aws_policy_arn: "{{ s3readonly_policy_arn }}"
+
+- name: "Create AWS IAM User and attach policies to access the bucket {{ aws_bucket_name }} in read-write mode"
+  import_role:
+    name: ibm.mas_devops.aws_user_creation
+  vars:
+    aws_username: "{{ aws_bucket_read_write_username }}"
+    aws_username_create_access_key_flag: True
+    aws_policy_arn: "{{ s3readwrite_policy_arn }}"
+
+# 5. Create Bucket Access Point
+# -----------------------------------------------------------------------------
+# By default, bucket access point will be granted access to a user with read-only access to the bucket
+- name: Create Bucket Access Point
+  import_role:
+    name: ibm.mas_devops.aws_bucket_access_point
+  vars:
+    aws_access_point_bucket_name: "{{ aws_bucket_name }}"
+    aws_access_point_username: "{{ aws_bucket_read_only_username }}"
+    aws_access_point_policy_actions:
+      - "s3:GetObject"
+      - "s3:ListBucket"
+
+# For AWS, the IAM credentials for the read-write granted user will used by standard
+- name: "AWS: Set access key id & secret access key variables"
+  set_fact:
+    cos_url: "{{ aws_url }}"
+    cos_bucket_name: "{{ aws_bucket_name }}"
+    cos_access_key_id: "{{ aws_new_user_access_key_id }}"
+    cos_secret_access_key: "{{ aws_new_user_secret_access_key }}"

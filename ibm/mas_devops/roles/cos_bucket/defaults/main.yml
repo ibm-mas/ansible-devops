@@ -1,6 +1,5 @@
 ---
-# The following MAS information is needed to lookup the right Manage app instance
-# ---------------------------------------------------------------------------------------------------------------------
+# MAS Configs - Only used to set default name for buckets if none provided
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
 
@@ -42,3 +41,20 @@ ibmcos_bucket_expire_rule_enable_flag: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE
 ibmcos_bucket_expire_rule_days: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE_DAYS') | default(60, True) }}"
 
 ibmcos_bucket_versioning_flag: "{{ lookup('env', 'COS_BUCKET_VERSIONING_FLAG') | default(True, True) }}"
+
+# S3 Storage (aws)
+# ---------------------------------------------------------------------------------------------------------------------
+aws_bucket_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-bucket"
+aws_bucket_name: "{{ lookup('env', 'COS_BUCKET_NAME') | default(aws_bucket_name_default, true) }}"
+aws_bucket_arn: "arn:aws:s3:::{{ aws_bucket_name }}"
+aws_bucket_read_write_username: "{{ aws_bucket_name }}-sid-rw"
+aws_bucket_read_only_username: "{{ aws_bucket_name }}-sid-ro"
+
+aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-2', True) }}"
+aws_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default(aws_region, true) }}"
+aws_url: "https://s3.{{ aws_region }}.amazonaws.com"
+
+aws_bucket_versioning_flag: "{{ lookup('env', 'COS_BUCKET_VERSIONING_FLAG') | default(True, True) }}"
+aws_bucket_encryption: "{{ lookup('env', 'COS_BUCKET_ENCRYPTION') | string }}"
+
+aws_bucket_force_deletion_flag: "{{ lookup('env', 'COS_BUCKET_FORCE_DELETION_FLAG') | default(True, True) | bool }}"
