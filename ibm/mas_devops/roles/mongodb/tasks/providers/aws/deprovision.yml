@@ -1,18 +1,15 @@
 ---
 - name: Fail if var docdb_cluster_name not provided for DocDB provisioning
-  when: mongodb_provider == 'aws'
   assert:
     that: docdb_cluster_name is defined and docdb_cluster_name != ''
     fail_msg: "docdb_cluster_name property is required"
 
 - name: Fail if var vpc_id not provided for DocDB provisioning
-  when: mongodb_provider == 'aws'
   assert:
     that: vpc_id is defined and vpc_id != ''
     fail_msg: "vpc_id property is required"
 
 - name: Fail if required vars for DocDB not provided in vars/aws/{{ docdb_size }}.yml file
-  when: mongodb_provider == 'aws'
   assert:
     that:
       - docdb_engine_version is defined and docdb_engine_version != ''
@@ -58,7 +55,7 @@
   loop: ["{{docdb_cidr_az1}}", "{{docdb_cidr_az2}}", "{{docdb_cidr_az3}}"]
   command: >
     aws ec2 describe-subnets \
-      --filters "Name=cidr, Values={{item}}" "Name=vpc-id,Values={{ vpc_id }}"
+      --filters "Name=cidr, Values={{item}}" "Name=vpc-id,Values={{ vpc_id }}" "Name=tag:Name,Values={{ docdb_cluster_name }}"
   register: subnets_info
 
 - name: Initialize Subnet Ids list

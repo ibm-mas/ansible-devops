@@ -1,28 +1,23 @@
 ---
 - name: Fail if var docdb_cluster_name not provided for DocDB provisioning
-  when: mongodb_provider == 'aws'
   assert:
     that: docdb_cluster_name is defined and docdb_cluster_name != ''
     fail_msg: "docdb_cluster_name property is required"
 
 - name: Fail if var vpc_id not provided for DocDB provisioning
-  when: mongodb_provider == 'aws'
   assert:
     that: vpc_id is defined and vpc_id != ''
     fail_msg: "vpc_id property is required"
 
 - name: Fail if required vars for DocDB not provided in vars/aws/{{ docdb_size }}.yml file
-  when: mongodb_provider == 'aws'
   assert:
     that:
-      - docdb_master_username is defined and docdb_master_username != ''
-      - docdb_engine_version is defined and docdb_engine_version != ''
-      - docdb_instance_number is defined and docdb_instance_number != ''
-      - docdb_instance_class is defined and docdb_instance_class != ''
       - docdb_cidr_az1 is defined and docdb_cidr_az1 != ''
       - docdb_cidr_az2 is defined and docdb_cidr_az2 != ''
       - docdb_cidr_az3 is defined and docdb_cidr_az3 != ''
-    fail_msg: "file vars/aws/{{ docdb_size }}.yml is missing one or more of following properties: docdb_master_username,docdb_engine_version,docdb_instance_number,docdb_instance_class,docdb_cidr_az1,docdb_cidr_az2,docdb_cidr_az3"
+      - docdb_ingress_cidr is defined and docdb_ingress_cidr != ''
+      - docdb_egress_cidr is defined and docdb_egress_cidr != ''
+    fail_msg: "file vars/aws/{{ docdb_size }}.yml is missing one or more of following properties: docdb_ingress_cidr,docdb_egress_cidr,docdb_cidr_az1,docdb_cidr_az2,docdb_cidr_az3"
 
 - name: Initialize Facts for provisioning
   set_fact:
@@ -30,19 +25,7 @@
     docdb_cluster_exists: false
     subnet_id_list: []
 
-# 1. set docdb admin user and password
-# -----------------------------------------------------------------------------
-- name: Generate docdb admin password
-  no_log: true
-  set_fact:
-    docdb_master_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
-  when: docdb_master_password is undefined or docdb_master_password == ""
-
-# - debug:
-#     msg:
-#       - "Mongo Admin pass ..... {{ docdb_master_password }}"
-
-# 2. Create three subnets in VPC
+# 1. Create three subnets in VPC
 # -----------------------------------------------------------------------------
 - name: Fetch availability Zones in VPC Reigon
   command: >
@@ -65,7 +48,7 @@
     msg:
       - "Subnet Id List ......................... {{ subnet_id_list }}"
 
-# 3. Create Subnet Group for DocDb Instances
+# 2. Create Subnet Group for DocDb Instances
 # -----------------------------------------------------------------------------
 # check will not fail if resource not found
 - name: Check if Subnet Group {{ docdb_subnet_group_name }} for DocumentDB exists
@@ -104,7 +87,7 @@
     msg:
       - "DocDB Subnet Group Info ................ {{ subnet_group_exists_info.stdout | from_json if subnet_group_exists else create_subnet_group_info.stdout | from_json }}"
 
-# 4. Create Security Group and add ingress ,egress rules
+# 3. Create Security Group and add ingress ,egress rules
 # -----------------------------------------------------------------------------
 - name: Check if Security Group {{ docdb_security_group_name }} already exists
   command: >
@@ -171,7 +154,7 @@
     msg:
       - "{{ egress_rule_info.stdout | from_json }}"
 
-# 5. Create DocumentDB Cluster and Instances
+# 4. Create DocumentDB Cluster and Instances
 # -----------------------------------------------------------------------------
 - name: Check if DocDB Cluster {{ docdb_cluster_name }} already exists
   command: >
@@ -184,6 +167,13 @@
   when: not docdb_cluster_exists_info.stderr
   set_fact:
     docdb_cluster_exists: "{{ docdb_cluster_exists_info.stdout | from_json | json_query('DBClusters[0].DBClusterIdentifier') ==  docdb_cluster_name }}"
+
+# Generate docdb admin password only while creating the new cluster
+- name: Generate docdb admin password
+  no_log: true
+  set_fact:
+    docdb_master_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+  when: not docdb_cluster_exists and docdb_master_password is undefined or docdb_master_password == ""
 
 - name: Create DocDB Cluster
   when: not docdb_cluster_exists
@@ -233,17 +223,20 @@
     docdb_hosts: "{{ lookup('ansible.builtin.template', 'templates/aws/docdb-hosts.yml.j2') }}"
 
 
-# 6. Download DocDB CA Cert from AWS and Create DocDB creds Secret and MongoCfg
+# 5. Download DocDB CA Cert from AWS and Create DocDB creds Secret and MongoCfg
 # -----------------------------------------------------------------------------
-- name: "Download Amazon DocumentDB Certificate Authority (CA) certificate"
+- name: "Download Amazon DocumentDB Certificate Authority (CA) certificates"
   shell: |
-    wget https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem -O /tmp/rds-combined-ca-bundle.pem
+    wget https://s3.amazonaws.com/rds-downloads/rds-ca-2019-root.pem -O /tmp/rds-ca-2019-root.pem
+    wget https://s3.amazonaws.com/rds-downloads/rds-ca-2019-{{aws_region}}.pem -O /tmp/rds-ca-2019-{{aws_region}}.pem
 
 - name: Set DocumentDB certificates
   set_fact:
-    docdb_master_certificates: "{{ lookup('file', '/tmp/rds-combined-ca-bundle.pem') }}"
+    docdb_master_root_cert: "{{ lookup('file', '/tmp/rds-ca-2019-root.pem') }}"
+    docdb_master_cert: "{{ lookup('file', '/tmp/rds-ca-2019-{{aws_region}}.pem') }}"
 
 - name: Create Secret for docdb admin credentials
+  when: not docdb_cluster_exists
   no_log: true
   ansible.builtin.template:
     src: aws/docdb_master_user_credentials_secret.yaml.j2

@@ -200,12 +200,10 @@ Secret for MongoDB Admin credentials.
 
 - Secret Name: `<mongo-name>-admin-credentials`
 
-### ibm_mongo_backup_id
-CRN ID for backup resource
+### ibm_mongo_service_credentials_secret_name
+Secret for MongoDB Service credentials.
 
-### is_restore
-
-- Default Value: `false`
+- Secret Name: `<mongo-name>-service-credentials`
 
 ### ibmcloud_resourcegroup
 Required.IBM Cloud Resource Group under which resource group will be created.
@@ -223,19 +221,56 @@ Required.IBM Cloud API Key.
 
 - Environment Variable: `IBMCLOUD_APIKEY`
 
-### ibm_mongo_config
-Required. File containing Configurations related to MongoDB.
-Following parameters can be set in this file
+### ibm_mongo_plan
 
-- mongo_plan
-- mongo_location
-- mongo_service
-- mongo_service_endpoints
-- mongo_version
-- mongo_memory
-- mongo_disk
-- mongo_cpu
-- mongo_name
+- Environment Variable: `IBM_MONGO_PLAN`
+- Default Value: `standard`
+
+
+### ibm_mongo_service
+
+- Value: `databases-for-mongodb`
+
+
+### ibm_mongo_service_endpoints
+
+- Environment Variable: `IBM_MONGO_SERVICE_ENDPOINTS`
+- Default Value: `public`
+
+### ibm_mongo_version
+
+- Environment Variable: `IBM_MONGO_VERSION`
+- Default Value: `4.2`
+
+### ibm_mongo_memory
+
+- Environment Variable: `IBM_MONGO_MEMORY`
+- Default Value: `3840`
+
+### ibm_mongo_disk
+
+- Environment Variable: `IBM_MONGO_DISK`
+- Default Value: `30720`
+
+### ibm_mongo_cpu
+
+- Environment Variable: `IBM_MONGO_CPU`
+- Default Value: `0`
+
+### ibm_mongo_name
+
+- Value: `mongo-{{mas_instance_id}}`
+
+### ibm_mongo_backup_id
+CRN ID for backup resource
+
+- Environment Variable: `IBM_MONGO_BACKUP_ID`
+- Default Value: ``
+
+### is_restore
+
+- Environment Variable: `IS_RESTORE`
+- Default Value: `false`
 
 Example Playbook
 ----------------
@@ -248,8 +283,7 @@ Example Playbook
     mas_config_dir: ~/masconfig
     mongodb_provider: ibm
     ibmcloud_apikey: apikey****
-    ibmcloud_resource_group: mas-test 
-    ibm_mongo_config: ~/mongo-config.yml
+    ibmcloud_resource_group: mas-test
   roles:
     - ibm.mas_devops.mongodb
 ```
@@ -303,6 +337,35 @@ DocumentDB Admin Credentials Secret Name
 
 - Value: `{{ docdb_cluster_name }}-admin-credentials`
 
+### docdb_engine_version
+DocumentDB Engine version
+
+- Environment variable: `DOCDB_ENGINE_VERSION`
+- Default Value: `4.0.0`
+
+### docdb_master_username
+DocumentDB master username
+
+- Environment variable: `DOCDB_MASTER_USERNAME`
+- Default Value: `docdbadmin`
+
+### docdb_instance_class
+DocumentDB Instance Class
+
+- Environment variable: `DOCDB_INSTANCE_CLASS`
+- Default Value: `db.t3.medium`
+
+### docdb_instance_number
+Number of instances required for DocumentDB
+
+- Environment variable: `DOCDB_INSTANCE_NUMBER`
+- Default Value: `3`
+
+### docdb_instance_identifier_prefix
+Prefix for DocumentDB Instance name
+
+- Environment variable: `DOCDB_INSTANCE_IDENTIFIER_PREFIX`
+
 Example Playbook
 ----------------
 
@@ -322,6 +385,36 @@ Example Playbook
   roles:
     - ibm.mas_devops.mongodb
 ```
+
+AWS DocumentDB Secret Rotate role Variables
+----------------------------------
+### docdb_mongo_instance_name
+
+- Environment variable: `DOCDB_MONGO_INSTANCE_NAME`
+
+### docdb_host
+
+- Environment variable: `DOCDB_HOST`
+
+### docdb_port
+
+- Environment variable: `DOCDB_PORT`
+
+### docdb_instance_username
+
+- Environment variable: `DOCDB_INSTANCE_USERNAME`
+
+### docdb_instance_password_old
+
+- Environment variable: `DOCDB_PASSWORD_OLD`
+
+### docdb_master_password
+
+- Environment variable: `DOCDB_MASTER_PASSWORD`
+
+### docdb_master_username
+
+- Environment variable: `DOCDB_MASTER_USERNAME`
 
 
 License
