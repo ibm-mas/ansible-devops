@@ -264,6 +264,32 @@ def getWSLProjectId(wslProjectLookup, wslProjectName):
   # Project not found
   return ""
 
+def setManageBirtProperties(data, rptRoute, rptServerBundleName):
+  sb_list = []
+  rpt_bundle = {
+    "bundleType": "report",
+    "isDefault": False,
+    "isMobileTarget": False,
+    "isUserSyncTarget": False,
+    "name": rptServerBundleName,
+    "replica": 1,
+    "routeSubDomain": rptServerBundleName
+  }
+
+  hasRpt = [True for x in data if x['bundleType'] == 'report']
+  if len(hasRpt) == 0:
+    data.append(rpt_bundle)
+  for sb in data:
+    disablequeuemanager = 0 if sb['bundleType'] == 'report' else 1
+    if 'bundleLevelProperties' in sb:
+      if 'mxe.report.birt.viewerurl' not in sb['bundleLevelProperties'] and 'mxe.report.birt.disablequeuemanager' not in sb['bundleLevelProperties']:
+        sb['bundleLevelProperties']+=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+    else:
+      sb['bundleLevelProperties']=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+    sb_list.append(sb)
+  return sb_list
+
+
 class FilterModule(object):
   def filters(self):
     return {
@@ -277,4 +303,5 @@ class FilterModule(object):
       'getResourceNames': getResourceNames,
       'defaultStorageClass': defaultStorageClass,
       'getWSLProjectId': getWSLProjectId,
+      'setManageBirtProperties': setManageBirtProperties
     }
