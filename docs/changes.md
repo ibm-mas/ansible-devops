@@ -2,7 +2,7 @@
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
 - `12.7` Multiple Updates:
-    - Support updating CP4D instance admin password ([#591](https://github.com/ibm-mas/ansible-devops/pull/591))
+    - Support updating admin password for CP4D instance ([#591](https://github.com/ibm-mas/ansible-devops/pull/591))
 - `12.6` Multiple Updates:
     - AWS support for S3 buckets, Manage logging & imported certificates ([#575](https://github.com/ibm-mas/ansible-devops/pull/575))
     - Support custom PVC configuration for Manage ([#587](https://github.com/ibm-mas/ansible-devops/pull/587))
