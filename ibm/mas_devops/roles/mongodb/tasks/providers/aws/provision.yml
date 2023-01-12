@@ -17,13 +17,36 @@
       - docdb_cidr_az3 is defined and docdb_cidr_az3 != ''
       - docdb_ingress_cidr is defined and docdb_ingress_cidr != ''
       - docdb_egress_cidr is defined and docdb_egress_cidr != ''
-    fail_msg: "Missing one or more of following properties: docdb_ingress_cidr,docdb_egress_cidr,docdb_cidr_az1,docdb_cidr_az2,docdb_cidr_az3"
+      - mas_instance_id is defined and mas_instance_id != ''
+      - mas_config_dir is defined and mas_config_dir != ''
+    fail_msg: "Missing one or more of following properties: docdb_ingress_cidr,docdb_egress_cidr,docdb_cidr_az1,docdb_cidr_az2,docdb_cidr_az3,mas_instance_id,mas_config_dir"
 
 - name: Initialize Facts for provisioning
   set_fact:
     subnet_group_exists: false
     docdb_cluster_exists: false
     subnet_id_list: []
+
+- name: "Debug properties, Provider: {{ mongodb_provider }} Action: {{db_action}}"
+  debug:
+    msg:
+      - "VPC ID ................................. {{ vpc_id }}"
+      - "DocumentDB Cluster Name ................ {{ docdb_cluster_name }}"
+      - "DocumentDB Instance Name Prefix ........ {{ docdb_instance_identifier_prefix }}"
+      - "Number of Instances for DocumentDB ..... {{ docdb_instance_number }}"
+      - "DocumentDB Instance Class .............. {{ docdb_instance_class }}"
+      - "DocumentDB Engine Version .............. {{ docdb_engine_version }}"
+      - "DocumentDB Master Username ............. {{ docdb_master_username }}"
+      - "DocumentDB Subnet Group Name ........... {{ docdb_subnet_group_name }}"
+      - "DocumentDB Security Group Name ......... {{ docdb_security_group_name }}"
+      - "DocumentDB Admin credential Secret ..... {{ docdb_security_group_name }}"
+      - "CIDR Block for Subnet 1 ................ {{docdb_cidr_az1}}"
+      - "CIDR Block for Subnet 2 ................ {{docdb_cidr_az2}}"
+      - "CIDR Block for Subnet 3 ................ {{docdb_cidr_az3}}"
+      - "Allow incoming traffic from CIDR block . {{ docdb_ingress_cidr }}"
+      - "Allow outgoing traffic to CIDR block ... {{ docdb_egress_cidr }}"
+      - "MAS instance ID ........................ {{ mas_instance_id }}"
+      - "MAS config directory ................... {{ mas_config_dir }}"
 
 # 1. Create three subnets in VPC
 # -----------------------------------------------------------------------------
