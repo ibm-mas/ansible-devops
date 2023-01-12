@@ -58,7 +58,7 @@ If the database is not SSL enabled, set
 
 If SSL enabled == true, set
 
-`MAS_JDBC_CERT_LOCAL_FILE` Path to your certificate file
+`MAS_JDBC_CERT_LOCAL_FILE` Path to your database certificate file
  
 ## Usage
 
