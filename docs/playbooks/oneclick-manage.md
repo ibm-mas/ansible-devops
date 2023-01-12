@@ -40,17 +40,17 @@ All timings are estimates, see the individual pages for each of these playbooks 
    `export MAS_APP_ID=health`
    `export MAS_APPWS_COMPONENTS="health=latest"`
 
-   To connect to an external database (Oracle, SQL Server or DB2) set the following variables:
+## Optional environment variables
+- To connect to an external database (Oracle, SQL Server or DB2) set the following variables:
 
-   `export CONFIGURE_EXTERNAL_DATABASE=true`
-
+   `export CONFIGURE_EXTERNAL_DATABASE=true`  By default, the value is false
    `export DB_INSTANCE_ID=your database instance name`  
    `export MAS_JDBC_USER=your JDBC user name`
    `export MAS_JDBC_PASSWORD=your JDBC password`
    `export MAS_JDBC_URL=your JDBC URL`
-   `export MAS_APP_SETTINGS_DB2_SCHEMA=your schema name  By default, the value is maximo`
-   `export MAS_APP_SETTINGS_INDEXSPACE=your tablename   By default, the value is maximo`
-   `export MAS_APP_SETTINGS_INDEXSPACE=your indexspace  By default, the value is maximo`
+   `export MAS_APP_SETTINGS_DB2_SCHEMA=your schema name`  By default, the value is maximo
+   `export MAS_APP_SETTINGS_TABLESPACE=your tablespace name`   By default, the value is maximo
+   `export MAS_APP_SETTINGS_INDEXSPACE=your indexspace name`  By default, the value is maximo
    
    If the database is not SSL enabled, set
 
@@ -88,6 +88,22 @@ export MAS_APP_ID=manage
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_manage
 ```
+
+``` bash
+   If you want to connect to external database:
+
+   DB2:
+   export MAS_JDBC_URL=jdbc:db2://dbserver1:50000/maxdb76
+   export MAS_JDBC_URL=jdbc:db2://dbserver2:50000/maxdb76:sslConnection=true  if SSL enabled
+
+   Oracle:
+   export MAS_JDBC_URL=jdbc:oracle:thin:@ddbserver3:1521:maximo
+
+   SQL Server:
+   export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserver4;portNumber=1433;databaseName=msdb;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;"
+
+   export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserber5;portNumber=1433;databaseName=msdb;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;" if SSL enabled
+   ```
 
 !!! tip
     If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`
