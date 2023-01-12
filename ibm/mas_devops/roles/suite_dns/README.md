@@ -59,6 +59,13 @@ Role Variables - General
 - Environment Variable: `OCP_INGRESS`
 - Default: None
 
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default: None
+
 Role Variables - Cloudflare DNS Integration
 -------------------------------------------
 ### cloudflare_email
@@ -114,13 +121,52 @@ Role Variables - IBM Cloud Internet Services DNS Integration
 - Environment Variable: `CIS_SUBDOMAIN`
 - Default: None
 
-### custom_labels
-List of comma separated key=value pairs for setting custom labels on instance specific resources.
+### cis_waf
 
 - Optional
-- Environment Variable: `CUSTOM_LABELS`
-- Default: None
+- Environment Variable: `CIS_WAF`
+- Default: true
 
+### cis_proxy
+
+- Optional
+- Environment Variable: `CIS_PROXY`
+- Default: false
+
+### update_dns
+Set this to false if you want to not update DNS entries if they already exist
+
+- Optional
+- Environment Variable: `UPDATE_DNS_ENTRIES`
+- Default: true
+
+### delete_wildcards
+Set this to true to force deletion of wildcard dns entries in cis
+
+- Optional
+- Environment Variable: `DELETE_WILDCARDS`
+- Default: false
+
+### override_EdgeCerts
+Set this to false to not override and delete any existing edge certificates in cis instance when creating new edge certificates
+
+- Optional
+- Environment Variable: `OVERRIDE_EDGECERTS`
+- Default: true
+
+### cis_skip_dns_entries
+Set this to true to skip DNS entries creation
+
+- Optional
+- Environment Variable: `CIS_SKIP_DNS_ENTRIES`
+- Default: false
+
+### output_dir
+Location to output the edge-routes-{mas_instance_id}.txt
+
+- Optional
+- Environment Variable: `OUTPUT_DIR`
+- Default: `.` (which will set the directory file in ibm/mas_devops)
 
 Example Playbook
 ----------------
@@ -130,6 +176,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    dns_provider: cis OR cloudflare
     mas_instance_id: inst1
     mas_domain: mydomain.com
     cis_crn: xxx
