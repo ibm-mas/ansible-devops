@@ -46,19 +46,16 @@ To connect to an external database (Oracle, SQL Server or DB2) set the following
 - `CONFIGURE_EXTERNAL_DATABASE` Set it to true. By default, the value is false
 - `DB_INSTANCE_ID` Your database instance ID  
 - `MAS_JDBC_USER` Your database user name
-- `MAS_JDBC_PASSWORD` Your databse password
+- `MAS_JDBC_PASSWORD` Your database password
 - `MAS_JDBC_URL=your JDBC URL` Your JDBC URL
 - `MAS_APP_SETTINGS_DB2_SCHEMA`  Your schema name. By default, the value is maximo
 - `MAS_APP_SETTINGS_TABLESPACE` Your tablespace name. By default, the value is maximo
 - `MAS_APP_SETTINGS_INDEXSPACE` Your indexspace name. By default, the value is maximo
+- `MAS_JDBC_CERT_LOCAL_FILE` Path to your database certificate file if the database is SSL enabled
    
-If the database is not SSL enabled, set
+If the database is not SSL enabled, set the SSL_ENABLED variable to false. By default, SSL_ENABLED is true.
 
-`SSL_ENABLED` Set it to false. By default, SSL_ENABLED is true
-
-If SSL enabled == true, set
-
-`MAS_JDBC_CERT_LOCAL_FILE` Path to your database certificate file
+`export SSL_ENABLED=false`  
  
 ## Usage
 
