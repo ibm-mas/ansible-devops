@@ -2,7 +2,9 @@
 # Configure Manage report bundle servers
 # -----------------------------------------------------------------------------
 - name: Check if report bundle is already configured
-  when: managews_output.resources[0].spec.settings.deployment.serverBundles | selectattr('bundleType', 'equalto', 'report')| map(attribute='name') | list | length > 0
+  when:
+    - managews_output.resources[0].spec.settings.deployment.serverBundles is defined
+    - managews_output.resources[0].spec.settings.deployment.serverBundles | selectattr('bundleType', 'equalto', 'report')| map(attribute='name') | list | length > 0
   set_fact:
     existing_manage_report_name: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | selectattr('bundleType', 'equalto', 'report')| map(attribute='name') | list | first }}"
 
@@ -28,14 +30,14 @@
 # When report bundle does not exist, then we'll use the 'manage_report_bundle_server_name' property to define its name.
 - name: "Configure Manage report route"
   set_fact:
-    manage_report_route: "  https://{{ mas_workspace_id}}-{{ existing_manage_report_name | default(manage_report_bundle_server_name, true) }}.manage.{{ suite_instance.resources[0].spec.domain }}"
+    manage_report_route: "https://{{ mas_workspace_id}}-{{ existing_manage_report_name | default(manage_report_bundle_server_name, true) }}.manage.{{ suite_instance.resources[0].spec.domain }}"
 
 - debug:
     var: manage_report_route
 
 - name: Set Manage bundle server properties
   set_fact:
-    birtServerBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setManageBirtProperties(manage_report_route, existing_manage_report_name | default(manage_report_bundle_server_name, true) )}}"
+    birtServerBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | default([]) | ibm.mas_devops.setManageBirtProperties(manage_report_route, existing_manage_report_name | default(manage_report_bundle_server_name, true) )}}"
 
 - debug:
     var: birtServerBundles
