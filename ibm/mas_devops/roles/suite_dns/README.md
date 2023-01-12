@@ -133,6 +133,12 @@ Role Variables - IBM Cloud Internet Services DNS Integration
 - Environment Variable: `CIS_PROXY`
 - Default: false
 
+### cis_service_name
+Set this to override the default CIS service name that would otherwise be created as {ClusterName}-cis-{mas_instance_id} (where Cluster Name is derived automatically from the cluster)
+
+- Optional
+- Environment Variable: `CIS_SERVICE_NAME`
+
 ### update_dns
 Set this to false if you want to not update DNS entries if they already exist
 
