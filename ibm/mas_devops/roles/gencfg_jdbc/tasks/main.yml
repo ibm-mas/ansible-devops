@@ -57,7 +57,18 @@
       - "MAS Config Scope .............. {{ mas_config_scope }}"
       - "MAS Application ID .............. {{ mas_application_id }}"
 
-# 2. Create JDBCCfg yml definition
+# 3. Create JDBCCfg yml definition
+# -----------------------------------------------------------------------------
+- name: Prepare vars file from template.
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  template: src=vars/jdbccfg/{{ mas_config_scope }}.yml.j2
+            dest=/tmp/{{ mas_config_scope }}.yml
+
+# 4. Load JDBCCfg yml definition
 # -----------------------------------------------------------------------------
 - name: Load variables to use in JDBCCfg
   when:
@@ -65,17 +76,16 @@
     - mas_instance_id != ""
     - mas_config_dir is defined
     - mas_config_dir != ""
-  include_vars: "vars/jdbccfg/{{ mas_config_scope }}.yml"
+  include_vars: "/tmp/{{ mas_config_scope }}.yml"
 
-# 3. Read file information
+# 5. Read file information
 # -----------------------------------------------------------------------------
 - name: Read DB Certificate file
   set_fact:
     db_pem: "{{ lookup('file', db_pem_file) }}"
   when: db_pem_file is defined
 
-
-# 4. Generate JDBCcfg for MAS configuration
+# 6. Generate JDBCcfg for MAS configuration
 # -----------------------------------------------------------------------------
 - name: Copy JDBCcfg to filesytem
   when:

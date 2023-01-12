@@ -19,17 +19,17 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ## Required environment variables
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
-- `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
+- `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 
 ## Usage
 ```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=/home/david/masconfig
-export MAS_ENTITLEMENT_KEY=xxx
+export IBM_ENTITLEMENT_KEY=xxx
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_visualinspection
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/cli:latest`
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`

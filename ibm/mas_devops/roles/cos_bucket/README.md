@@ -16,6 +16,8 @@ Required.  Which action you want to run for the COS bucket. You can either `crea
 - Environment Variable: `COS_BUCKET_ACTION`
 - Default Value: `create`
 
+Role Variables - IBM Cloud Object Storage buckets
+--------------
 ### ibmcos_bucket_name
 Optional name for your IBM Cloud Object Storage bucket.
 
@@ -88,53 +90,79 @@ Only used when cos_type is set to `ibm`.  Provide the name of the resource group
 - Environment Variable: `IBMCLOUD_RESOURCEGROUP`
 - Default Value: `Default`
 
-### mas_instance_id
-The instance ID of Maximo Application Suite that the ObjectStorageCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a ObjectStorageCfg template.
+Role Variables - AWS S3 Buckets
+--------------
 
-- Environment Variable: `MAS_INSTANCE_ID`
+To run this role successfully for AWS s3 buckets, you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
+
+### aws_bucket_name
+Optional name for your AWS/S3 bucket.
+
+- Environment Variable: `COS_BUCKET_NAME`
+- Default Value: `$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID-bucket`
+
+### aws_region
+The region where the bucket is located.
+
+- Required.
+- Environment Variable: `AWS_REGION`
+- Default Value: `us-east-2`
+
+### aws_bucket_versioning_flag
+Flag to define if versioning should be enabled for the bucket
+
+- Optional.
+- Environment Variable: `COS_BUCKET_VERSIONING_FLAG`
+- Default Value: `True`
+
+### aws_bucket_encryption
+JSON formatted string to define default encryption configuration for AWS S3 bucket.
+
+- Optional.
+- Environment Variable: `COS_BUCKET_ENCRYPTION`
 - Default Value: None
 
-### mas_config_dir
-Local directory to save the generated ObjectStorageCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a ObjectStorageCfg template.
+### aws_bucket_force_deletion_flag
+Deletes S3 AWS bucket objects prior deleting the S3 bucket. This option only works if versioning **is not enabled** in the bucket.
+**Note:** To delete AWS bucket, `cos_bucket_action` must be set to `delete`.
 
-- Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
-
-### cluster ingres tls secret name
-Specify the name of the cluster's ingres tls secret which contains the default router certificate.
-
-- Optional
-- Environment Variable: `OCP_INGRESS_TLS_SECRET_NAME`
-- Default Value: router-certs-default
-
+- Optional.
+- Environment Variable: `COS_BUCKET_FORCE_DELETION_FLAG`
+- Default Value: `True`
 
 Example Playbook
 ----------------
 
-Create the Ceph Object store on the existing OCS cluster and prepare the objectstorageCfg yaml to mas_config_dir.
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    cos_type: ocs
-    mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig
-  roles:
-    - ibm.mas_devops.cos_setup
-```
-Create the IBM Cloud Object storage Instance and prepare the objectstorageCfg yaml to mas_config_dir.
+Create the IBM Cloud Object storage bucket.
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
     cos_type: ibm
-
-    # MAS instance and config dir
-    mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig
+    cos_bucket_action: create
+    ibmcos_bucket_name: my-ibm-bucket
+    ibmcos_instance_name: my-ibmcos-instance-name
+    ibmcloud_apikey: my-ibm-cloud-apikey
   roles:
-    - ibm.mas_devops.cos_setup
+    - ibm.mas_devops.cos_bucket
 ```
+
+Create the AWS S3 storage bucket.
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cos_type: aws
+    cos_bucket_action: create
+    aws_bucket_name: my-aws-bucket
+    aws_region: us-east-2
+    aws_bucket_versioning_flag: True
+    aws_bucket_encryption: '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'
+  roles:
+    - ibm.mas_devops.cos_bucket
+```
+
 License
 -------
 
