@@ -72,7 +72,7 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_manage
 ```
 
-If you want to connect to external database:
+If you want to connect to an external database:
 
 ``` bash 
 export MAS_INSTANCE_ID=inst1
@@ -100,7 +100,6 @@ export MAS_JDBC_URL=jdbc:oracle:thin:@dbserverxx:1521:maximo
 
 SQL Server:
 export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;"
-
 export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;" if SSL enabled
 
 oc login --token=xxxx --server=https://myocpserver
