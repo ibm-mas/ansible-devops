@@ -8,6 +8,8 @@ The following Manage properties will be added to every and each Manage server bu
 - `mxe.report.birt.viewerurl`= `https://{{ mas_workspace_id }}-{{ manage_report_bundle_server_name }}.manage.{{ mas_domain }}`
 - `mxe.report.birt.disablequeuemanager`= 0 (if bundle type = `report`) or 1 (if bundle type != `report`)
 
+The goal for this role is to setup the specific Manage Report route to be the endpoint for the generated reports in Manage (which will forward the report workload to the dedicated `report` type bundle pod).
+
 Role Variables
 --------------
 ### mas_instance_id
@@ -49,7 +51,6 @@ The following sample can be used to configure BIRT report for an existing Manage
   roles:
     - ibm.mas_devops.suite_manage_birt_report_config
 ```
-
 
 Run Role Playbook
 ----------------
