@@ -41,26 +41,25 @@ All timings are estimates, see the individual pages for each of these playbooks 
    `export MAS_APPWS_COMPONENTS="health=latest"`
 
 ## Optional environment variables
-- To connect to an external database (Oracle, SQL Server or DB2) set the following variables:
+To connect to an external database (Oracle, SQL Server or DB2) set the following variables:
 
-   `export CONFIGURE_EXTERNAL_DATABASE=true`  By default, the value is false
-   `export DB_INSTANCE_ID=your database instance name`  
-   `export MAS_JDBC_USER=your JDBC user name`
-   `export MAS_JDBC_PASSWORD=your JDBC password`
-   `export MAS_JDBC_URL=your JDBC URL`
-   `export MAS_APP_SETTINGS_DB2_SCHEMA=your schema name`  By default, the value is maximo
-   `export MAS_APP_SETTINGS_TABLESPACE=your tablespace name`   By default, the value is maximo
-   `export MAS_APP_SETTINGS_INDEXSPACE=your indexspace name`  By default, the value is maximo
+- `CONFIGURE_EXTERNAL_DATABASE` Set it to true. By default, the value is false
+- `DB_INSTANCE_ID` Your database instance ID  
+- `MAS_JDBC_USER` Your database user name
+- `MAS_JDBC_PASSWORD` Your databse password
+- `MAS_JDBC_URL=your JDBC URL` Your JDBC URL
+- `MAS_APP_SETTINGS_DB2_SCHEMA`  Your schema name. By default, the value is maximo
+- `MAS_APP_SETTINGS_TABLESPACE` Your tablespace name. By default, the value is maximo
+- `MAS_APP_SETTINGS_INDEXSPACE` Your indexspace name. By default, the value is maximo
    
-   If the database is not SSL enabled, set
+If the database is not SSL enabled, set
 
-   `export SSL_ENABLED=false`. By default, SSL_ENABLED is true
+`SSL_ENABLED` Set it to false. By default, SSL_ENABLED is true
 
-   If SSL enabled == true, set
+If SSL enabled == true, set
 
-   `export MAS_JDBC_CERT_LOCAL_FILE=path to your cetificate`
-
-   
+`MAS_JDBC_CERT_LOCAL_FILE` Path to your certificate file
+ 
 ## Usage
 
 ```bash
@@ -80,6 +79,17 @@ export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 export MAS_APP_ID=manage
+
+export CONFIGURE_EXTERNAL_DATABASE = true
+export DB_INSTANCE_ID=maxdbxx 
+export MAS_JDBC_USER=maximo
+export MAS_JDBC_PASSWORD=xxx
+export MAS_JDBC_URL=xxx 
+export MAS_APP_SETTINGS_DB2_SCHEMA=maximo
+export MAS_APP_SETTINGS_TABLESPACE=maxdata
+export MAS_APP_SETTINGS_INDEXSPACE=maxindex
+
+Database URL examples:
 
 DB2:
 export MAS_JDBC_URL=jdbc:db2://dbserverxx:50000/maxdbxx
