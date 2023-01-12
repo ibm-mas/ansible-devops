@@ -60,22 +60,6 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
    `export MAS_JDBC_CERT_LOCAL_FILE=path to your cetificate`
 
-   For example,
-
-   ``` bash
-   DB2:
-   export MAS_JDBC_URL=jdbc:db2://database-1.ibm.com:50000/maxdb76
-
-   export MAS_JDBC_URL=jdbc:db2://database-2.ibm.com:50000/maxdb76:sslConnection=true  if SSL enabled
-
-   Oracle:
-   export MAS_JDBC_URL=jdbc:oracle:thin:@db1.ibm.com:1521:maximo
-
-   SQL Server:
-   export MAS_JDBC_URL="jdbc:sqlserver://;serverName=ssldb1.ibm.com;portNumber=1433;databaseName=msdb;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;"
-
-   export MAS_JDBC_URL="jdbc:sqlserver://;serverName=ssldb2.ibm.com;portNumber=1433;databaseName=msdb;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;" if SSL enabled
-   ```
    
 ## Usage
 
@@ -89,21 +73,29 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_manage
 ```
 
-``` bash
-   If you want to connect to external database:
+If you want to connect to external database:
 
-   DB2:
-   export MAS_JDBC_URL=jdbc:db2://dbserver1:50000/maxdb76
-   export MAS_JDBC_URL=jdbc:db2://dbserver2:50000/maxdb76:sslConnection=true  if SSL enabled
+``` bash 
+export MAS_INSTANCE_ID=inst1
+export MAS_CONFIG_DIR=~/masconfig
+export IBM_ENTITLEMENT_KEY=xxx
+export MAS_APP_ID=manage
 
-   Oracle:
-   export MAS_JDBC_URL=jdbc:oracle:thin:@ddbserver3:1521:maximo
+DB2:
+export MAS_JDBC_URL=jdbc:db2://dbserverxx:50000/maxdbxx
+export MAS_JDBC_URL=jdbc:db2://dbserverxx:50000/maxdbxx:sslConnection=true  if SSL enabled
 
-   SQL Server:
-   export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserver4;portNumber=1433;databaseName=msdb;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;"
+Oracle:
+export MAS_JDBC_URL=jdbc:oracle:thin:@dbserverxx:1521:maximo
 
-   export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserber5;portNumber=1433;databaseName=msdb;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;" if SSL enabled
-   ```
+SQL Server:
+export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;"
+
+export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;" if SSL enabled
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.oneclick_add_manage
+```
 
 !!! tip
     If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`
