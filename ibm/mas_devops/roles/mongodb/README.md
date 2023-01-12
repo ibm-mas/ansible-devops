@@ -100,18 +100,6 @@ The number of the mongodb replica set members. Default is 3. Set to 1 for SNO Cl
 - Environment Variable: `MONGODB_REPLICAS`
 - Default Value: `3`
 
-### mas_instance_id
-The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a MongoCfg template.
-
-- Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
-
-### mas_config_dir
-Local directory to save the generated MongoCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Mongo cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a MongoCfg template.
-
-- Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
-
 ### custom_labels
 List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
@@ -209,12 +197,6 @@ Once the CA certificate has been updated for the MongoCfg and LicenseService CRs
 
 IBM Cloud MongoDB Role Variables
 ----------------------------------
-### mongodb_namespace
-The namespace where the operator and MongoDb cluster will be deployed.
-
-- Environment Variable: `MONGODB_NAMESPACE`
-- Default Value: `mongoce`
-
 ### ibm_mongo_admin_credentials_secret_name
 Secret for MongoDB Admin credentials.
 
@@ -229,6 +211,7 @@ Secret for MongoDB Service credentials.
 Required.IBM Cloud Resource Group under which resource group will be created.
 
 - Environment Variable: `IBMCLOUD_RESOURCEGROUP`
+- Default Value: `Default`
 
 ### ibmcloud_region
 Required.IBM Cloud region where MongoDB resources will be created.
@@ -242,42 +225,49 @@ Required.IBM Cloud API Key.
 - Environment Variable: `IBMCLOUD_APIKEY`
 
 ### ibm_mongo_plan
+Plan name for this IBMCloud Service.
 
 - Environment Variable: `IBM_MONGO_PLAN`
 - Default Value: `standard`
 
-
 ### ibm_mongo_service
+IBMCloud Offering name for MongoDB Database
 
 - Value: `databases-for-mongodb`
 
 
 ### ibm_mongo_service_endpoints
+MongoDB Service Endpoints type can be either public or private
 
 - Environment Variable: `IBM_MONGO_SERVICE_ENDPOINTS`
 - Default Value: `public`
 
 ### ibm_mongo_version
+Specify MongoDB version to be deployed
 
 - Environment Variable: `IBM_MONGO_VERSION`
 - Default Value: `4.2`
 
 ### ibm_mongo_memory
+Specify MongoDB Memory size
 
 - Environment Variable: `IBM_MONGO_MEMORY`
 - Default Value: `3840`
 
 ### ibm_mongo_disk
+Specify MongoDB Disk size
 
 - Environment Variable: `IBM_MONGO_DISK`
 - Default Value: `30720`
 
 ### ibm_mongo_cpu
+Specify MongoDB CPU
 
 - Environment Variable: `IBM_MONGO_CPU`
 - Default Value: `0`
 
 ### ibm_mongo_name
+Resource Name in IBMCloud for MongoDB
 
 - Value: `mongo-{{mas_instance_id}}`
 
@@ -288,6 +278,7 @@ CRN ID for backup resource
 - Default Value: ``
 
 ### is_restore
+Whether want to restore from an existing backup resource or not.
 
 - Environment Variable: `IS_RESTORE`
 - Default Value: `false`
@@ -337,11 +328,6 @@ Required.DocumentDB Cluster Name
 
 - Environment Variable: `DOCDB_CLUSTER_NAME`
 
-### docdb_size
-Required.Config File containing specs for DocumentDB
-
-- Environment Variable: `DOCDB_SIZE`
-
 ### docdb_subnet_group_name
 DocumentDB Subnet Group Name
 
@@ -387,11 +373,15 @@ Prefix for DocumentDB Instance name
 - Environment variable: `DOCDB_INSTANCE_IDENTIFIER_PREFIX`
 
 ### docdb_ingress_cidr
+Required. IPv4 Address from which incoming connection requests will be allowed to DocumentDB cluster
+e.g Provide IPv4 CIDR address of VPC where ROSA cluster is installed
 
 - Environment variable: `DOCDB_INGRESS_CIDR`
 
 
 ### docdb_egress_cidr
+Required. IPv4 Address at which outgoing connection requests will be allowed to DocumentDB cluster
+e.g Provide IPv4 CIDR address of VPC where ROSA cluster is installed
 
 - Environment variable: `DOCDB_EGRESS_CIDR`
 
@@ -405,8 +395,12 @@ Example Playbook
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
     mongodb_provider: aws
+    db_action: provision
     docdb_size: ~/docdb-config.yml
     docdb_cluster_name: test-db
+    docdb_ingress_cidr: 10.0.0.0/16
+    docdb_egress_cidr: 10.0.0.0/16
+    docdb_instance_identifier_prefix: test-db-instance
     vpc_id: test-vpc-id
     aws_access_key_id: aws-key
     aws_secret_access_key: aws-access-key
@@ -418,32 +412,64 @@ Example Playbook
 AWS DocumentDB Secret Rotate role Variables
 ----------------------------------
 ### docdb_mongo_instance_name
+Required. DocumentDB Instance Name
 
 - Environment variable: `DOCDB_MONGO_INSTANCE_NAME`
 
 ### docdb_host
+Required. Any one Host Address out of multiple documentDB Instances
 
 - Environment variable: `DOCDB_HOST`
 
 ### docdb_port
+Required. Corresponding port address of DocumentDB Instance Host
 
 - Environment variable: `DOCDB_PORT`
 
 ### docdb_instance_username
+Required. Specify username for which password is being changed
 
 - Environment variable: `DOCDB_INSTANCE_USERNAME`
 
 ### docdb_instance_password_old
+Required. Specify the old user password
 
 - Environment variable: `DOCDB_PASSWORD_OLD`
 
 ### docdb_master_password
+Required. DocumentDB Master Username
 
 - Environment variable: `DOCDB_MASTER_PASSWORD`
 
 ### docdb_master_username
+Required. DocumentDB Master Password
 
 - Environment variable: `DOCDB_MASTER_USERNAME`
+
+
+Example Playbook
+----------------
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
+    mongodb_provider: aws
+    db_action: docdb_secret_rotate
+    docdb_mongo_instance_name: test-db-instance
+    db_host: aws.test1.host7283-*****
+    db_port: 27017
+    docdb_master_username: admin
+    docdb_master_password: pass***
+    docdb_instance_password_old: oldpass****
+    docdb_instance_username: testuser
+    aws_access_key_id: aws-key
+    aws_secret_access_key: aws-access-key
+
+  roles:
+    - ibm.mas_devops.mongodb
+```
 
 
 License

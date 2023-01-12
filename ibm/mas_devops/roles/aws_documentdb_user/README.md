@@ -1,6 +1,6 @@
 aws_documentdb_user
 -----------------------
-This role creates a docdb user for MAS instance
+This role creates a docdb user for MAS instance and saves username and password as k8 Secret in specified config directory
 
 ## Prerequisites
 To run this role with providers you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
@@ -30,12 +30,12 @@ Required. AWS DocumentDB Port Address
 - Environment Variable: `DOCDB_PORT`
 
 ### docdb_master_username
-Required. AWS DocumentDB Cluster Name
+Required. AWS DocumentDB Master Username
 
 - Environment Variable: `DOCDB_MASTER_USERNAME`
 
 ### docdb_master_password
-Required. AWS DocumentDB Cluster Name
+Required. AWS DocumentDB Master Password
 
 - Environment Variable: `DOCDB_MASTER_PASSWORD`
 
