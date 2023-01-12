@@ -100,6 +100,26 @@ The number of the mongodb replica set members. Default is 3. Set to 1 for SNO Cl
 - Environment Variable: `MONGODB_REPLICAS`
 - Default Value: `3`
 
+### mas_instance_id
+The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a MongoCfg template.
+
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
+
+### mas_config_dir
+Local directory to save the generated MongoCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Mongo cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a MongoCfg template.
+
+- Environment Variable: `MAS_CONFIG_DIR`
+- Default Value: None
+
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default Value: None
+
+
 Example Playbook
 ----------------
 
