@@ -80,7 +80,7 @@ export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 export MAS_APP_ID=manage
 
-export CONFIGURE_EXTERNAL_DATABASE = true
+export CONFIGURE_EXTERNAL_DATABASE=true
 export DB_INSTANCE_ID=maxdbxx 
 export MAS_JDBC_USER=maximo
 export MAS_JDBC_PASSWORD=xxx
