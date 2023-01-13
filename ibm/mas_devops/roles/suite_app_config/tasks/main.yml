@@ -19,20 +19,19 @@
 - name: Load application variables
   include_vars: "{{ role_path }}/../suite_app_install/vars/{{ mas_app_id }}.yml"
 
-
 # 3. Run Application Specific Tasks
 # -----------------------------------------------------------------------------
-- name: Run application specific tasks
-  when:
-    - mas_app_id is in ['hputilities', 'manage', 'predict'] # applications which have something to process before configuration
-  include_tasks: "tasks/{{ mas_app_id }}.yml"
-
 # The following will auto determine storage classes to be used as persistent volumes for Manage attachments/BIM configurations (Manage OOTB features)
 - name: Determine Storage Class for Manage application
   when:
     - mas_app_id is in ['manage'] # applications which have something to process before configuration
-    - mas_app_settings_persistent_volumes_flag == 'true'
+    - mas_app_settings_persistent_volumes_flag == 'true' or mas_app_settings_server_bundles_size == 'jms'
   include_tasks: "tasks/determine-storage-classes.yml"
+
+- name: Run application specific tasks
+  when:
+    - mas_app_id is in ['hputilities', 'manage', 'predict'] # applications which have something to process before configuration
+  include_tasks: "tasks/{{ mas_app_id }}.yml"
 
 # 4. Load default application workspace spec, if user does not provide one
 # -----------------------------------------------------------------------------
