@@ -5,7 +5,8 @@
 
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
-
+- `12.7` Multiple Updates:
+    - Added JDBC configuration to connect to an external SSL and not SSL enabled database for Manage application *DB2, Oracle and SQL Server) ([600]( https://github.com/ibm-mas/ansible-devops/pull/600))
 - `12.6` Multiple Updates:
     - AWS support for S3 buckets, Manage logging & imported certificates ([#575](https://github.com/ibm-mas/ansible-devops/pull/575))
     - Support custom PVC configuration for Manage ([#587](https://github.com/ibm-mas/ansible-devops/pull/587))
