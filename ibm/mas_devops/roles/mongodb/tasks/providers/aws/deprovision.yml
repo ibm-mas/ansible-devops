@@ -17,12 +17,27 @@
       - docdb_cidr_az3 is defined and docdb_cidr_az3 != ''
     fail_msg: "Missing one or more of following properties: docdb_cidr_az1,docdb_cidr_az2,docdb_cidr_az3"
 
+- name: "Debug properties, Provider: {{ mongodb_provider }} Action: {{db_action}}"
+  debug:
+    msg:
+      - "VPC ID ................................. {{ vpc_id }}"
+      - "DocumentDB Cluster Name ................ {{ docdb_cluster_name }}"
+      - "DocumentDB Instance Name Prefix ........ {{ docdb_instance_identifier_prefix }}"
+      - "Number of Instances for DocumentDB ..... {{ docdb_instance_number }}"
+      - "DocumentDB Instance Class .............. {{ docdb_instance_class }}"
+      - "DocumentDB Engine Version .............. {{ docdb_engine_version }}"
+      - "DocumentDB Subnet Group Name ........... {{ docdb_subnet_group_name }}"
+      - "DocumentDB Security Group Name ......... {{ docdb_security_group_name }}"
+      - "CIDR Block for Subnet 1 ................ {{docdb_cidr_az1}}"
+      - "CIDR Block for Subnet 2 ................ {{docdb_cidr_az2}}"
+      - "CIDR Block for Subnet 3 ................ {{docdb_cidr_az3}}"
+
 # 1. Delete DocumentDB Cluster and Instances
 # -----------------------------------------------------------------------------
 - name: Delete all docdb instances
   command: >
     aws docdb delete-db-instance \
-      --db-instance-identifier '{{ docdb_cluster_name }}'-'{{ item }}'
+      --db-instance-identifier '{{ docdb_instance_identifier_prefix }}'-'{{ item }}'
   register: docdb_delete_info
   with_sequence: start=1 end={{docdb_instance_number}}
   failed_when: docdb_delete_info.rc not in [0] and ('DBInstanceNotFound' not in docdb_delete_info.stderr ) and ('InvalidDBInstanceState' not in docdb_delete_info.stderr)
