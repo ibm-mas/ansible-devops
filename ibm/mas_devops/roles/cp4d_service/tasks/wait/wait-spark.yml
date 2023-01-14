@@ -2,7 +2,9 @@
 
 # 1. Wait for CP4D service CR to be ready
 # -----------------------------------------------------------------------------
-- name: "wait-spark : Wait for analyticsengineStatus 'Completed' or 'Failed' (4m interval)"
+# We can't stop waiting on Failed status, as it will report failed multiple
+# times during initial reconcile ... we just need to keep waiting.
+- name: "wait-spark : Wait for analyticsengineStatus 'Completed' (4m interval)"
   kubernetes.core.k8s_info:
     api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
     kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
@@ -14,7 +16,7 @@
     - cpd_cr_lookup.resources | length == 1
     - cpd_cr_lookup.resources[0].status is defined
     - cpd_cr_lookup.resources[0].status.analyticsengineStatus is defined
-    - cpd_cr_lookup.resources[0].status.analyticsengineStatus == "Completed" or cpd_cr_lookup.resources[0].status.analyticsengineStatus == "Failed"
+    - cpd_cr_lookup.resources[0].status.analyticsengineStatus == "Completed" # or cpd_cr_lookup.resources[0].status.analyticsengineStatus == "Failed"
   retries: 30 # Up to 2 hours
   delay: 240 # Every 4 minutes
 
