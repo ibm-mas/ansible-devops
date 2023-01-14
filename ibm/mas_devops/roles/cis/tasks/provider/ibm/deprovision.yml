@@ -59,25 +59,25 @@
       - "DNS Records ......... {{ dns_records_list }}"
 
 - block:
-  - name: Delete DNS NS type Record in Master CIS Instance
-    loop: "{{ dns_records_list }}"
-    ibm.cloudcollection.ibm_cis_dns_record:
-      ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
-      id: "{{ item }}"
-      state: absent
-    register: dns_record_delete
+    - name: Delete DNS NS type Record in Master CIS Instance
+      loop: "{{ dns_records_list }}"
+      ibm.cloudcollection.ibm_cis_dns_record:
+        ibmcloud_api_key: "{{ master_ibmcloud_api_key }}"
+        id: "{{ item }}"
+        state: absent
+      register: dns_record_delete
 
-  - name: Debug DNS Record Deletion
-    debug:
-      msg:
-        - "Deleted DNS Record ..................... {{ dns_record_delete }}"
+    - name: Debug DNS Record Deletion
+      debug:
+        msg:
+          - "Deleted DNS Record ..................... {{ dns_record_delete }}"
 
-  - name: Fail if DNS record is not deleted
-    loop: "{{ dns_record_delete.results }}"
-    assert:
-      that:
-        - not item.failed and item.changed
-      fail_msg: "Unable to delete DNS Record in master CIS"
+    - name: Fail if DNS record is not deleted
+      loop: "{{ dns_record_delete.results }}"
+      assert:
+        that:
+          - not item.failed and item.changed
+        fail_msg: "Unable to delete DNS Record in master CIS"
   when: dns_records_list | length != 0
 
 # 2. Delete Domain from customer CIS Account
