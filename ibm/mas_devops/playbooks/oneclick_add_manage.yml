@@ -38,6 +38,7 @@
         fail_msg: "One or more required environment variables are not defined"
 
     - name: Check for JDBC configuration environment variables
+      when: configure_external_db == "true"
       assert:
         that:
           - lookup('env', 'DB_INSTANCE_ID') != ""
@@ -48,14 +49,15 @@
           - lookup('env', 'MAS_APP_SETTINGS_TABLESPACE') != ""
           - lookup('env', 'MAS_APP_SETTINGS_INDEXSPACE') != ""
         fail_msg: "One or more JDBC configuration environment variables are not defined"
-      when: configure_external_db == "true"
 
     - name: Check for JDBC certificate environment variable for ssl enabled database
+      when:
+        - configure_external_db == "true"
+        - ssl_enabled == "true"
       assert:
         that:
           - lookup('env', 'MAS_JDBC_CERT_LOCAL_FILE') != ""
         fail_msg: "JDBC certificate file name is not defined"
-      when: ssl_enabled == "true"
 
   roles:
     - name: ibm.mas_devops.db2
