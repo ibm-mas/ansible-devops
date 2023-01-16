@@ -83,8 +83,8 @@ Optional. Flag indicating if manage demodata should be loaded or not.
 Optional. Flag indicating if persistent volumes should be configured by default during Manage Workspace activation.
 There are two defaulted File Storage Persistent Volumes Claim resources that will be created out of the box for Manage if this flag is set to `true`:
 
-- `/DOCLINKS`: Persistent volume used to store attachments and JMS queues related artifacts (`/DOCLINKS/jmsstore`).
-- `/bim`: Persistent volume used to store Building Information Models related artifacts (models, docs and import)
+- `/DOCLINKS`: Persistent volume used to store doclinks/attachments.
+- `/bim`: Persistent volume used to store Building Information Models related artifacts (models, docs and import).
 
 - Environment Variable: `MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG`
 - Default: `false`
