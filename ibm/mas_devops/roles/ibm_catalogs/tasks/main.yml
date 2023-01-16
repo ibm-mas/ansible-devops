@@ -1,6 +1,6 @@
 ---
 
-# 1. Check for MAS ImageContentSourcePolicy
+# 1. Check for MAS ImageContentSourcePolicy & load CASE bundle info
 # -----------------------------------------------------------------------------
 - name: "Determine whether this is an airgap environment"
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
@@ -19,12 +19,11 @@
     template: templates/online-catalog.yml.j2
 
 # 2.2 Offline catalog
-# We need to know the digest of the version of the catalog that the user wants to install!
-- name: "Check that the version of the offline catalog is known"
+# If this fails then it means we can't perform an airgap install using this catalog
+- name: Load CASE bundle versions for the offline catalog
   when: airgap_install
-  assert:
-    that: mas_catalog_version is in mas_catalog_digests
-    fail_msg: "{{ mas_catalog_version }} does not exist or is not supported by this version of the ibm.mas_devops collection"
+  include_vars:
+    file: "{{ role_path }}/../../common_vars/casebundles/{{ mas_catalog_version }}.yml"
 
 # If we are updating the catalog in an airgap environment, we first have to
 # update the image digest configmaps, otherwise when the operators update
