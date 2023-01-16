@@ -153,11 +153,11 @@ Set this to true to force deletion of wildcard dns entries in cis
 - Environment Variable: `DELETE_WILDCARDS`
 - Default: false
 
-### override_EdgeCerts
+### override_edge_certs
 Set this to false to not override and delete any existing edge certificates in cis instance when creating new edge certificates
 
 - Optional
-- Environment Variable: `OVERRIDE_EDGECERTS`
+- Environment Variable: `OVERRIDE_EDGE_CERTS`
 - Default: true
 
 ### cis_skip_dns_entries
