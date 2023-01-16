@@ -196,6 +196,8 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#ocp_ingress">ocp_ingress</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#custom_labels">custom_labels</a>
+    </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#role-variables-cloudflare-dns-integration">Role Variables - Cloudflare DNS Integration</a>
@@ -220,7 +222,21 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#cis_subdomain">cis_subdomain</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#custom_labels">custom_labels</a>
+    <li class="toctree-l3"><a class="reference internal" href="#cis_waf">cis_waf</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cis_proxy">cis_proxy</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cis_service_name">cis_service_name</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#update_dns">update_dns</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#delete_wildcards">delete_wildcards</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#override_edge_certs">override_edge_certs</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cis_skip_dns_entries">cis_skip_dns_entries</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#output_dir">output_dir</a>
     </li>
         </ul>
     </li>
@@ -337,6 +353,13 @@
 <li>Environment Variable: <code>OCP_INGRESS</code></li>
 <li>Default: None</li>
 </ul>
+<h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link"></a></h3>
+<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>CUSTOM_LABELS</code></li>
+<li>Default: None</li>
+</ul>
 <h2 id="role-variables-cloudflare-dns-integration">Role Variables - Cloudflare DNS Integration<a class="headerlink" href="#role-variables-cloudflare-dns-integration" title="Permanent link"></a></h2>
 <h3 id="cloudflare_email">cloudflare_email<a class="headerlink" href="#cloudflare_email" title="Permanent link"></a></h3>
 <ul>
@@ -390,18 +413,65 @@
 <li>Environment Variable: <code>CIS_SUBDOMAIN</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link"></a></h3>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<h3 id="cis_waf">cis_waf<a class="headerlink" href="#cis_waf" title="Permanent link"></a></h3>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>CUSTOM_LABELS</code></li>
-<li>Default: None</li>
+<li>Environment Variable: <code>CIS_WAF</code></li>
+<li>Default: true</li>
+</ul>
+<h3 id="cis_proxy">cis_proxy<a class="headerlink" href="#cis_proxy" title="Permanent link"></a></h3>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>CIS_PROXY</code></li>
+<li>Default: false</li>
+</ul>
+<h3 id="cis_service_name">cis_service_name<a class="headerlink" href="#cis_service_name" title="Permanent link"></a></h3>
+<p>Set this to override the default CIS service name that would otherwise be created as {ClusterName}-cis-{mas_instance_id} (where Cluster Name is derived automatically from the cluster)</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>CIS_SERVICE_NAME</code></li>
+</ul>
+<h3 id="update_dns">update_dns<a class="headerlink" href="#update_dns" title="Permanent link"></a></h3>
+<p>Set this to false if you want to not update DNS entries if they already exist</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>UPDATE_DNS_ENTRIES</code></li>
+<li>Default: true</li>
+</ul>
+<h3 id="delete_wildcards">delete_wildcards<a class="headerlink" href="#delete_wildcards" title="Permanent link"></a></h3>
+<p>Set this to true to force deletion of wildcard dns entries in cis</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DELETE_WILDCARDS</code></li>
+<li>Default: false</li>
+</ul>
+<h3 id="override_edge_certs">override_edge_certs<a class="headerlink" href="#override_edge_certs" title="Permanent link"></a></h3>
+<p>Set this to false to not override and delete any existing edge certificates in cis instance when creating new edge certificates</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OVERRIDE_EDGE_CERTS</code></li>
+<li>Default: true</li>
+</ul>
+<h3 id="cis_skip_dns_entries">cis_skip_dns_entries<a class="headerlink" href="#cis_skip_dns_entries" title="Permanent link"></a></h3>
+<p>Set this to true to skip DNS entries creation</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>CIS_SKIP_DNS_ENTRIES</code></li>
+<li>Default: false</li>
+</ul>
+<h3 id="output_dir">output_dir<a class="headerlink" href="#output_dir" title="Permanent link"></a></h3>
+<p>Location to output the edge-routes-{mas_instance_id}.txt</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OUTPUT_DIR</code></li>
+<li>Default: <code>.</code> (which will set the directory file in ibm/mas_devops)</li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">---
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    dns_provider: cis OR cloudflare
     mas_instance_id: inst1
     mas_domain: mydomain.com
     cis_crn: xxx
