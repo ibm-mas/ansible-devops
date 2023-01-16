@@ -1,6 +1,9 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `12.8` Multiple Updates:
+    - Support updating admin password for CP4D instance ([#591](https://github.com/ibm-mas/ansible-devops/pull/591))
+    - Support VPC creation or deletion in AWS Cloud ([#598](https://github.com/ibm-mas/ansible-devops/pull/598))
 - `12.7` Add support for Jan 2023 catalog ([#602](https://github.com/ibm-mas/ansible-devops/pull/602))
 - `12.6` Multiple Updates:
     - AWS support for S3 buckets, Manage logging & imported certificates ([#575](https://github.com/ibm-mas/ansible-devops/pull/575))
