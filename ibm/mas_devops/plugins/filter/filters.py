@@ -119,14 +119,14 @@ def string2dict(_string = None):
       - limited error handling, will not handle unexpected data
   """
   _dict = {}
-  if _string:
+  if _string and _string != 'None':
     try:
       _list = _string.strip().split(',')
       for _item in _list:
         _item = _item.split("=")
         _dict[ _item[0] ] = _item[1]
     except:
-      print("block processing failed, set _dict blank")
+      print("Failed to parse parameter: "+_string)
       _dict = {}
   return _dict
 
