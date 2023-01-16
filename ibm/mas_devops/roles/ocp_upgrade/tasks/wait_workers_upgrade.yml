@@ -2,7 +2,7 @@
 # Ansible can't support block retries, this is a relatively simple workaround
 # to achieve the same thing
 # https://github.com/ansible/ansible/issues/46203#issuecomment-556013701
-- name: 'wait : Wait until all worker nodes are upgraded to {{ ocp_upgrade_version }} successfully'
+- name: 'wait : Wait until all worker nodes are upgraded to {{ ocp_version_upgrade }} successfully'
   block:
     - name: "wait : Set the retry count"
       set_fact:
@@ -14,7 +14,7 @@
       shell: ibmcloud oc worker ls -c {{ cluster_name }} -q --output json
       register: roks_cluster_completion
 
-    - name: "Check if worker nodes completed upgrade to {{ ocp_upgrade_version }}"
+    - name: "Check if worker nodes completed upgrade to {{ ocp_version_upgrade }}"
       set_fact:
         worker_count: "{{ worker_count|int + 1 }}"
         ready_worker_count: "{{ ready_worker_count|int + 1 if (item.kubeVersion == item.targetVersion) else ready_worker_count|int}}"
@@ -26,7 +26,7 @@
     - name: "Fail if one or more workers nodes are still pending to upgrade"
       assert:
         that: ready_worker_count == worker_count
-        fail_msg: "[{{ retry_count }}/{{ worker_count|int * 20 }}] {{ ready_worker_count}} of {{ worker_count }} workers completed upgrade to {{ ocp_upgrade_version }} version"
+        fail_msg: "[{{ retry_count }}/{{ worker_count|int * 20 }}] {{ ready_worker_count}} of {{ worker_count }} workers completed upgrade to {{ ocp_version_upgrade }} version"
 
     # reset retry count when all workers are upgraded
     - set_fact:
