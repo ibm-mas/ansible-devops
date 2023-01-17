@@ -23,7 +23,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ## Required environment variables
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
-- `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
+- `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 - `MAS_APP_ID` Declare app_id as either `manage` or `health`
 
 !!! tip
@@ -45,7 +45,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
-export MAS_ENTITLEMENT_KEY=xxx
+export IBM_ENTITLEMENT_KEY=xxx
 export MAS_APP_ID=manage
 
 oc login --token=xxxx --server=https://myocpserver

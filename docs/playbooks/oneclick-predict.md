@@ -23,7 +23,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ## Required environment variables
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
-- `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
+- `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 - `WML_INSTANCE_ID` Set Default value to "openshift"
 - `WML_URL` Set Default value to "https://internal-nginx-svc.ibm-cpd.svc:12443" . ibm-cpd in the URL corresponds to the project name (namespace) of cp4d installation
 - `CPD_PRODUCT_VERSION` (Required if `WML_VERSION` is not informed) Cloud Pak for Data version installed in the cluster in 4.X format, it will be used to obtain the correct WML version to be installed
@@ -55,6 +55,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `CP4D_INSTALL_WML` True/False - If you HAVE Watson Machine Learning already installed in your cluster, then set it to "false"
 - `CP4D_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster, then set it to "false"
 - `CP4D_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster, then set it to "false"
+- `WS_PROJECT_ID` - Ensure a Project ID Text box has a valid Watson Studio project ID. To obtain the project ID, Navigate to Cp4d/Watson Studio and create/Reuse a project. Open the project and look into the Browser URL, obtain the project ID from the URL and update Project ID settings.  
 
 
 ## Usage when you already HAVE CP4D installed
@@ -62,7 +63,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
-export MAS_ENTITLEMENT_KEY=xxx
+export IBM_ENTITLEMENT_KEY=xxx
 
 export CPD_ADMIN_USERNAME="admin"
 export CPD_ADMIN_PASSWORD="xxx"
@@ -81,7 +82,7 @@ ansible-playbook ibm.mas_devops.oneclick_add_predict
 ```bash
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
-export MAS_ENTITLEMENT_KEY=xxx
+export IBM_ENTITLEMENT_KEY=xxx
 
 export CP4D_INSTALL_PLATFORM="true"
 export CP4D_INSTALL_WSL="true"

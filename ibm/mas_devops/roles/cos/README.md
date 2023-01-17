@@ -87,6 +87,13 @@ Specify the name of the cluster's ingres tls secret which contains the default r
 - Environment Variable: `OCP_INGRESS_TLS_SECRET_NAME`
 - Default Value: router-certs-default
 
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default Value: None
+
 
 Example Playbook
 ----------------
