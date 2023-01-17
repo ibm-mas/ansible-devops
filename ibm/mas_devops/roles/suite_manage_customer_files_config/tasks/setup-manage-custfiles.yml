@@ -1,0 +1,110 @@
+---
+# Configure COS bucket for Manage doclinks
+# -----------------------------------------------------------------------------
+- name: "Configure {{ cos_type }} bucket for {{ custfiles_bucketname }}"
+  include_role:
+    name: ibm.mas_devops.cos_bucket
+  vars:
+    aws_bucket_name: "{{ custfiles_bucketname }}"
+    ibmcos_bucket_name: "{{ custfiles_bucketname }}"
+
+# - name: "Configure {{ cos_type }} bucket for {{ custfiles_bucketname_recovery }}"
+#   include_role:
+#     name: ibm.mas_devops.cos_bucket
+#   vars:
+#     aws_bucket_name: "{{ custfiles_bucketname_recovery }}"
+#     ibmcos_bucket_name: "{{ custfiles_bucketname_recovery }}"
+
+# - name: "Configure {{ cos_type }} bucket for {{ custfiles_bucketname_backup }}"
+#   include_role:
+#     name: ibm.mas_devops.cos_bucket
+#   vars:
+#     aws_bucket_name: "{{ custfiles_bucketname_backup }}"
+#     ibmcos_bucket_name: "{{ custfiles_bucketname_backup }}"
+
+# - name: "Retrieve {{ cos_type }} certificates"
+#   include_tasks: "tasks/retrieve-cos-certs.yml"
+
+# # Configure Manage bundle servers
+# # -----------------------------------------------------------------------------
+# - name: Lookup Main Manage Route
+#   kubernetes.core.k8s_info:
+#     api_version: route.openshift.io/v1
+#     kind: Route
+#     name: "{{ mas_instance_id}}-manage-{{ mas_workspace_id }}"
+#     namespace: "mas-{{ mas_instance_id }}-manage"
+#   register: manage_route
+
+# - name: Assert Main Manage Route is valid
+#   assert:
+#     that: "{{ manage_route.resources | length > 0 }}"
+#     fail_msg: "Failed! Main Manage Route {{ mas_instance_id}}-manage-{{ mas_workspace_id }} not found..."
+
+# - name: Lookup Mea Manage Route
+#   kubernetes.core.k8s_info:
+#     api_version: route.openshift.io/v1
+#     kind: Route
+#     name: "mea-{{ mas_instance_id}}-manage-{{ mas_workspace_id }}-81"
+#     namespace: "mas-{{ mas_instance_id }}-manage"
+#   register: manage_mea_route
+
+# - name: Set Manage Route variable
+#   set_fact:
+#     manage_url: "{{ manage_route.resources[0].spec.host }}"
+#     manage_mea_url: "{{ manage_mea_route.resources[0].spec.host | default(manage_route.resources[0].spec.host, true) }}"
+
+# - name: Set Manage Doclinks Properties
+#   set_fact:
+#     doclinkPath01: "https://{{ manage_url }}/maximo/oslc/cosdoclink"
+#     bucketName: "{{ cos_bucket_name }}"
+#     accessKey: "{{ cos_access_key_id }}"
+#     secretAccesskey: "{{ cos_secret_access_key }}"
+#     bucketEndpoint:
+#       aws: 'https://s3.{{ cos_bucket_region }}.amazonaws.com'
+#       ibm: 'https://s3.private.{{ cos_bucket_region }}.cloud-object-storage.appdomain.cloud'
+
+# - name: Set Manage bundle server properties
+#   set_fact:
+#     serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setManageDoclinksProperties(doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint[cos_type]) }}"
+
+# - debug:
+#     msg:
+#       - "doclinkPath01: {{ doclinkPath01 }}"
+#       - "bucketName: {{ bucketName }}"
+#       - "accessKey: {{ accessKey }}"
+#       - "secretAccesskey: {{ secretAccesskey }}"
+#       - "bucketEndpoint: {{ bucketEndpoint }}"
+
+# - debug:
+#     var: serverBundles
+
+# # Configure COS bucket's certificates into Manage Workspace
+# # -----------------------------------------------------------------------------
+# - name: "Add the {{ cos_type | upper }} COS certificates in ManageWorkspace CR"
+#   import_role:
+#     name: ibm.mas_devops.suite_manage_import_certs_config
+#   vars:
+#     manage_certificates: "{{ cos_tls_crt }}"
+#     manage_certificates_alias_prefix: "{{ cos_cert_alias_prefix }}"
+
+# # Configure Server bundle properties into Manage Workspace
+# # -----------------------------------------------------------------------------
+# - name: "Add the Server Bundle doclinks properties in ManageWorkspace CR"
+#   community.kubernetes.k8s:
+#     definition:
+#       apiVersion: apps.mas.ibm.com/v1
+#       kind: ManageWorkspace
+#       metadata:
+#         name: "{{ manage_workspace_cr_name }}"
+#         namespace: "mas-{{ mas_instance_id }}-manage"
+#       spec:
+#         settings:
+#           deployment:
+#             serverBundles: |
+#               {{ serverBundles }}
+#   register: managews_sb_output
+
+# - name: "Debug information"
+#   debug:
+#     msg:
+#       - "ManageWorkspace Changed ............... {{ managews_sb_output.changed }}"
