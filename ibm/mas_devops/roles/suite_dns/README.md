@@ -121,6 +121,26 @@ Role Variables - IBM Cloud Internet Services DNS Integration
 - Environment Variable: `CIS_SUBDOMAIN`
 - Default: None
 
+### cis_enhanced_security
+Set this to true to enable the enhanced CIS DNS integration security. See below for details.
+
+- Optional
+- Environment Variable: `CIS_ENHANCED_SECURITY`
+- Default: false
+
+
+Role Variables - Enhanced IBM CIS DNS Integration Secruity
+------------------------------------------------------------
+- Enable WAF firewall disabling rules that affect MAS application functionalities
+- Enable Proxy for DNS entries
+- Ensure there are no wildcard DNS entry in CIS
+- Create Edge Certificates in CIS instance
+
+### ibmcloud_api_key
+
+- **Required** if `cis_enhanced_security` is set to `true`
+- Environment Variable: `IBMCLOUD_API_KEY`
+
 ### cis_waf
 
 - Optional
@@ -160,12 +180,6 @@ Set this to false to not override and delete any existing edge certificates in c
 - Environment Variable: `OVERRIDE_EDGE_CERTS`
 - Default: true
 
-### cis_skip_dns_entries
-Set this to true to skip DNS entries creation
-
-- Optional
-- Environment Variable: `CIS_SKIP_DNS_ENTRIES`
-- Default: false
 
 ### output_dir
 Location to output the edge-routes-{mas_instance_id}.txt
