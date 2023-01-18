@@ -122,7 +122,13 @@ Role Variables - IBM Cloud Internet Services DNS Integration
 - Default: None
 
 ### cis_enhanced_security
-Set this to true to enable the enhanced CIS DNS integration security. See the "Role Variables - Enhanced IBM CIS DNS Integration Secruity" below for the specifics of this option.
+Set this to true to enable the enhanced IBM CIS DNS integration security - which includes:
+- Enabling WAF firewall disabling rules that affect MAS application functionalities
+- Enabling Proxy for DNS entries
+- Using an expanded list of DNS entries
+- Ensuring there are no wildcard DNS entry in CIS
+- Creating Edge Certificates in CIS instance
+See https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-security for more details.
 
 - Optional
 - Environment Variable: `CIS_ENHANCED_SECURITY`
@@ -131,13 +137,7 @@ Set this to true to enable the enhanced CIS DNS integration security. See the "R
 
 Role Variables - Enhanced IBM CIS DNS Integration Secruity
 ------------------------------------------------------------
-Enhanced IBM CIS DNS Integration Secruity includes:
-- Enabling WAF firewall disabling rules that affect MAS application functionalities
-- Enabling Proxy for DNS entries
-- Using an expanded list of DNS entries
-- Ensuring there are no wildcard DNS entry in CIS
-- Creating Edge Certificates in CIS instance
-See https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-security for more details.
+See the "cis_enhanced_security" variable above for details.
 
 ### ibmcloud_apikey
 
