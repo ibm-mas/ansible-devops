@@ -6,7 +6,23 @@ mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
 
 # Manage attachments provider
 # ---------------------------------------------------------------------------------------------------------------------
-mas_manage_attachments_provider: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_PROVIDER') | default('filestorage', true) }}" # supported options: filestorage or cos
+mas_manage_attachments_provider: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_PROVIDER') | default('filestorage', true) }}" # supported options: filestorage, ibm or aws
+mas_manage_attachments_provider_supported:
+  - "ibm"
+  - "aws"
+  - "filestorage"
+
+# maximo properties for attachments config using persistent volume file storage changes a bit compared to using ibm or s3 buckets config
+# so depending on the provider, we will use one config script or another
+mas_manage_attachments_provider_template_file_config:
+  filestorage:
+    'filestorage.sh.j2'
+  aws:
+    'cos.sh.j2'
+  ibm:
+    'cos.sh.j2'
+
+cos_cert_alias_prefix: "{{ mas_manage_attachments_provider }}coscertpart" # prefix to be used to name the cloud object storage certificates
 
 # Manage app DB2 instance where COS configuration will be done
 # ---------------------------------------------------------------------------------------------------------------------
