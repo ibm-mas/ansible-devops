@@ -14,6 +14,7 @@ copyDoc ansible_version_check
 copyDoc aws_bucket_access_point
 copyDoc aws_policy
 copyDoc aws_user_creation
+copyDoc aws_vpc
 copyDoc appconnect
 copyDoc cert_manager
 copyDoc cert_manager_upgrade
@@ -69,6 +70,7 @@ copyDoc suite_install
 copyDoc suite_install_digest_cm
 copyDoc suite_manage_attachments_config
 copyDoc suite_manage_bim_config
+copyDoc suite_manage_doclinks_config
 copyDoc suite_manage_import_certs_config
 copyDoc suite_manage_load_dbc_scripts
 copyDoc suite_manage_logging_config
