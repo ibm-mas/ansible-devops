@@ -1,0 +1,44 @@
+---
+# 1. Delete VPC in AWS
+# --------------------------------------------------------------
+- name: Debug Information - VPC {{ vpc_action }}
+  debug:
+    msg:
+      - "aws_region ................................. {{ aws_region }}"
+      - "vpc_cidr ................................... {{ vpc_cidr }}"
+      - "vpc_name ................................... {{ vpc_name }}"
+
+- name: Fetch VPCs Info
+  command: >
+    aws ec2 describe-vpcs \
+      --region '{{ aws_region }}'
+      --filters "Name=cidr, Values={{ vpc_cidr }}"  "Name=tag:Name,Values={{ vpc_name }}"
+  register: vpc_info
+
+- name: Debug Fetched VPCs Info
+  debug:
+    msg:
+      - "{{ vpc_info.stdout | from_json }}"
+
+- name: Set fact vpc id
+  set_fact:
+    vpc_id: "{{ vpc_info.stdout | from_json | json_query('Vpcs[0].VpcId') }}"
+
+- name: Debug Info, when VPC doesn't exist
+  when: not vpc_id
+  debug:
+    msg:
+      - "VPC Resource {{ vpc_name }} doesn't exist in region {{ aws_region }}, Skipping deletion"
+
+- name: Delete VPC
+  when: vpc_id is defined and vpc_id != ''
+  command: >
+    aws ec2 delete-vpc \
+      --vpc-id '{{ vpc_id }}'
+  register: delete_info
+
+- name: Debug ,Deleted VPC Info
+  when: vpc_id is defined and vpc_id != ''
+  debug:
+    msg:
+      - "Deleted Vpc Info ............................ {{ delete_info }}"

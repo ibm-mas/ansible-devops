@@ -264,6 +264,7 @@ def getWSLProjectId(wslProjectLookup, wslProjectName):
   # Project not found
   return ""
 
+
 def setManageBirtProperties(data, rptRoute, rptServerBundleName):
   sb_list = []
   rpt_bundle = {
@@ -290,6 +291,18 @@ def setManageBirtProperties(data, rptRoute, rptServerBundleName):
   return sb_list
 
 
+def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint):
+  sb_list = []
+  for sb in data:
+    if 'bundleLevelProperties' in sb:
+      if 'mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties'] and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties'] and 'mxe.doclink.path01' not in sb['bundleLevelProperties'] and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']:
+        sb['bundleLevelProperties']+=f"  mxe.doclink.doctypes.topLevelPaths=cos:doclinks  mxe.doclink.doctypes.defpath=cos:doclinks/default  mxe.doclink.path01=cos:doclinks={doclinkPath01}  mxe.doclink.securedAttachment=true  mxe.cosbucketname={bucketName}  mxe.cosaccesskey={accessKey}  mxe.cossecretkey={secretAccesskey}  mxe.cosendpointuri={bucketEndpoint}  mxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+    else:
+      sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks  mxe.doclink.doctypes.defpath=cos:doclinks/default  mxe.doclink.path01=cos:doclinks={doclinkPath01}  mxe.doclink.securedAttachment=true  mxe.cosbucketname={bucketName}  mxe.cosaccesskey={accessKey}  mxe.cossecretkey={secretAccesskey}  mxe.cosendpointuri={bucketEndpoint}  mxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+    sb_list.append(sb)
+  return sb_list
+
+
 class FilterModule(object):
   def filters(self):
     return {
@@ -303,5 +316,6 @@ class FilterModule(object):
       'getResourceNames': getResourceNames,
       'defaultStorageClass': defaultStorageClass,
       'getWSLProjectId': getWSLProjectId,
-      'setManageBirtProperties': setManageBirtProperties
+      'setManageBirtProperties': setManageBirtProperties,
+      'setManageDoclinksProperties': setManageDoclinksProperties
     }
