@@ -1,0 +1,29 @@
+---
+# Disable WAF rule {{ item.rule_id }} in {{ item.rule_package_id }} in var/waf_rules_to_disable.ymal
+# -----------------------------------------------------------------------------
+- name: "cis : Check whether WAF rule exists: {{ item.rule_id }}"
+  ansible.builtin.shell: |
+    if echo $(ibmcloud cis waf-rule {{(_cis_domains_result.stdout | from_json)[0].id}} {{ item.rule_package_id }} {{ item.rule_id }} -i {{cis_service_name}}) | grep 'Invalid or missing WAF Rule ID'; then echo "not_exists"; else echo "exists"; fi
+  register: _cis_waf_rule_exists_result
+
+- name: "cis : Check WAF rule mode:  {{ item.rule_id }}"
+  ansible.builtin.shell: |
+    if echo $(ibmcloud cis waf-rule {{(_cis_domains_result.stdout | from_json)[0].id}} {{ item.rule_package_id }} {{ item.rule_id }} -i {{cis_service_name}}) | grep 'Mode disable'; then echo "disabled"; else echo "not_disabled"; fi
+  register: _cis_waf_rule_mode_result
+  when: _cis_waf_rule_exists_result.stdout_lines[-1] == "exists"
+
+- name: "cis : Output WAF rule exists or not {{ item.rule_id }}"
+  debug:
+    msg: WAF rule {{ item.rule_id }} {{_cis_waf_rule_mode_result.stdout_lines[-1]}}
+  when: _cis_waf_rule_exists_result.stdout_lines[-1] == "exists"
+
+- name: "cis : Disable WAF rule: {{ item.rule_id }}"
+  ansible.builtin.shell: |
+    ibmcloud cis waf-rule-mode-set {{(_cis_domains_result.stdout | from_json)[0].id}} {{ item.rule_package_id }} {{ item.rule_id }} disable -i {{cis_service_name}}
+  register: _cis_waf_rule_disable_result
+  when: _cis_waf_rule_mode_result.stdout_lines[-1] == "not_disabled" and _cis_waf_rule_exists_result.stdout_lines[-1] == "exists"
+
+- name: "cis : Output WAF rule disable result: {{ item.rule_id }}"
+  debug:
+    msg: WAF rule disable {{_cis_waf_rule_disable_result}}
+  when: _cis_waf_rule_mode_result.stdout_lines[-1] == "not_disabled" and _cis_waf_rule_exists_result.stdout_lines[-1] == "exists"

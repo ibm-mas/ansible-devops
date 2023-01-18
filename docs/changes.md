@@ -1,9 +1,7 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `12.7` Multiple Updates:
-    - Support for provisioning of MongoDB in AWS and IBMCloud ([#559](https://github.com/ibm-mas/ansible-devops/pull/559))
-    - AWS support for adding new user to DocumentDB ([#559](https://github.com/ibm-mas/ansible-devops/pull/559))
+- `12.7` Add support for Jan 2023 catalog ([#602](https://github.com/ibm-mas/ansible-devops/pull/602))
 - `12.6` Multiple Updates:
     - AWS support for S3 buckets, Manage logging & imported certificates ([#575](https://github.com/ibm-mas/ansible-devops/pull/575))
     - Support custom PVC configuration for Manage ([#587](https://github.com/ibm-mas/ansible-devops/pull/587))
