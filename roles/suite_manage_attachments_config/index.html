@@ -206,6 +206,16 @@
     </li>
     </ul>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../suite_manage_bim_config/">suite_manage_bim_config</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../suite_manage_doclinks_config/">suite_manage_doclinks_config</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../suite_manage_import_certs_config/">suite_manage_import_certs_config</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../suite_manage_load_dbc_scripts/">suite_manage_load_dbc_scripts</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../suite_manage_logging_config/">suite_manage_logging_config</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_manage_pvc_config/">suite_manage_pvc_config</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_mustgather/">suite_mustgather</a>
@@ -258,7 +268,7 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="suite_manage_attachments_config">suite_manage_attachments_config<a class="headerlink" href="#suite_manage_attachments_config" title="Permanent link"></a></h1>
-<p>This role extends support for configuring IBM Cloud Object Storage or PVC File Storages for <strong>Manage</strong> application attachments.
+<p>This role extends support for configuring IBM Cloud Object Storage or Persistent Volume/File Storages for <strong>Manage</strong> application attachments.
 <strong>Note:</strong> This role should be executed <strong>after</strong> Manage application is deployed and activated as it needs Manage up and running prior configuring attachments features.</p>
 <p>The default for Manage attachments configuration is to use your cluster's default file storage system as persistent storage.</p>
 <p>Although, you can optionally define IBM Cloud Object Storage.
@@ -269,12 +279,14 @@ You can run <code>cos</code> role to provision an IBM Cloud Object Storage or yo
 Available options are:</p>
 <ul>
 <li><code>filestorage</code> (default option): Configures cluster's file storage system for Manage attachments.</li>
-<li>
-<p><code>cos</code>: Configures IBM Cloud Object Storage as storage system for Manage attachments. If using <code>cos</code> as attachments provider, the <a href="../cos_bucket/"><code>cos_bucket</code></a> role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments.</p>
-</li>
-<li>
-<p>Environment Variable: <code>MAS_MANAGE_ATTACHMENTS_PROVIDER</code></p>
-</li>
+<li><code>ibm</code>: Configures IBM Cloud Object Storage as storage system for Manage attachments. </li>
+<li><code>aws</code>: Configures Amazon S3 buckets as storage system for Manage attachments.</li>
+</ul>
+<p><strong>Note:</strong> If using <code>ibm</code> or <code>aws</code> as attachments provider, the <a href="../cos_bucket/"><code>cos_bucket</code></a> role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments.</p>
+<p>To run this role successfully for AWS s3 buckets, you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
+Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
+<ul>
+<li>Environment Variable: <code>MAS_MANAGE_ATTACHMENTS_PROVIDER</code></li>
 <li>Default Value: <code>filestorage</code></li>
 </ul>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
@@ -312,22 +324,21 @@ Available options are:</p>
     cos_instance_name: cos-masinst1
     ibmcos_bucket_name: manage-attachments-bucket
     ibmcloud_apikey: xxxx
-    mas_manage_attachments_provider: cos
+    mas_manage_attachments_provider: ibm
   roles:
     - ibm.mas_devops.suite_manage_attachments_config
 </code></pre>
-<p>The following sample playbook can be used to provision COS in IBM Cloud and configure COS for an existing Manage application instance.</p>
+<p>The following sample playbook can be used to provision COS in IBM Cloud and configure COS for an existing Manage application instance's attachments.</p>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
     mas_instance_id: masinst1
     mas_workspace_id: masdev
     db2_instance_name: db2w-manage
-    cos_type: ibm
     cos_instance_name: cos-masinst1
     ibmcos_bucket_name: manage-attachments-bucket
     ibmcloud_apikey: xxxx
-    mas_manage_attachments_provider: cos
+    mas_manage_attachments_provider: ibm
   roles:
     - ibm.mas_devops.cos
     - ibm.mas_devops.suite_manage_attachments_config
@@ -350,6 +361,18 @@ Available options are:</p>
     - ibm.mas_devops.suite_config
     - ibm.mas_devops.suite_app_install
     - ibm.mas_devops.suite_app_config
+    - ibm.mas_devops.suite_manage_attachments_config
+</code></pre>
+<p>The following sample can be used to configure AWS S3 buckets for an existing Manage application instance's attachments.</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_workspace_id: masdev
+    db2_instance_name: db2w-manage
+    aws_bucket_name: manage-attachments-bucket
+    mas_manage_attachments_provider: aws
+  roles:
     - ibm.mas_devops.suite_manage_attachments_config
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
@@ -385,7 +408,7 @@ Available options are:</p>
       <span><a href="../suite_install_digest_cm/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../suite_manage_pvc_config/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../suite_manage_bim_config/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
