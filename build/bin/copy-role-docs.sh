@@ -14,6 +14,7 @@ copyDoc ansible_version_check
 copyDoc aws_bucket_access_point
 copyDoc aws_policy
 copyDoc aws_user_creation
+copyDoc aws_vpc
 copyDoc appconnect
 copyDoc cert_manager
 copyDoc cert_manager_upgrade
