@@ -1,0 +1,92 @@
+# 1. Provide debug information to the user
+---
+- name: "Debug information for changing CP4D admin password"
+  debug:
+    msg:
+      - "cp4d_namespace ......................... {{ cp4d_namespace }}"
+      - "cp4d_admin_credentials_secret_name ..... {{ cp4d_admin_credentials_secret_name }}"
+      - "cp4d_admin_password_force_update ....... {{ cp4d_admin_password_force_update }}"
+
+# Authenticate to CP4D - get cp4d_host and cp4d_bearer_token
+- name: Authenticate to CP4D - get cp4d_host and cp4d_bearer_token
+  block:
+    - include_tasks: 'cp4d-access-control.yml'
+  no_log: true
+
+- name: Get initial_admin_password from admin-user-details Secret in CP4D namespace if cp4d_initial_admin_password is not set
+  block:
+    - name: Get CP4D initial admin credentials from k8s Secret
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: admin-user-details
+        namespace: "{{ cp4d_namespace }}"
+      register: cp4d_initial_admin_credentials
+
+    - name: Set cp4d_initial_admin_password based on value of CP4D initial_admin_password
+      set_fact:
+        cp4d_initial_admin_password: "{{ cp4d_initial_admin_credentials.resources[0].data.initial_admin_password | b64decode }}"
+      when:
+        - cp4d_initial_admin_credentials is defined
+        - cp4d_initial_admin_credentials.resources is defined
+        - cp4d_initial_admin_credentials.resources | length > 0
+  when: cp4d_initial_admin_password is undefined or cp4d_initial_admin_password == ""
+
+# Note: Flag cp4d_admin_credentials_secret_exists is already checked/assigned in get-cp4d-bearer-token.yml task
+- name: If the k8s Secret for CP4D admin credentials dose not exist, create it before updating the password
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ cp4d_namespace }}"
+    definition: "{{ lookup('template', 'templates/cp4d_admin_credentials_secret.yaml.j2') | from_yaml }}"
+  when: cp4d_admin_credentials_secret_exists is undefined or cp4d_admin_credentials_secret_exists == false
+
+- name: Determine if CP4D admin credentials is to be updated
+  set_fact:
+    cp4d_admin_credentials_secret_to_be_updated: true
+  when: (cp4d_admin_password is defined and cp4d_initial_admin_password is defined and cp4d_admin_password == cp4d_initial_admin_password) or cp4d_admin_password_force_update|default(false)|bool
+
+- name: Update the CP4D admin credentials if needed
+  block:
+    - name: Get the CP4D token
+      set_fact:
+        mas_cp4d_token: "{{ cp4d_authorization.json.token }}"
+
+    - name: Generate new cp4d_admin_password
+      set_fact:
+        cp4d_admin_new_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+
+    - name: Apply the new admin password to CP4D
+      shell: |
+        curl -k -X POST "https://{{ cp4d_host }}/icp4d-api/v1/changepassword" \
+        --header 'cache-control: no-cache' \
+        --header "Authorization: Bearer {{cp4d_bearer_token}}" \
+        --form 'current_password="{{ cp4d_admin_password }}"' \
+        --form 'new_password="{{ cp4d_admin_new_password }}"'
+
+    - name: Try to log in with new admin password of CP4D
+      uri:
+        url: "https://{{ cp4d_host }}/icp4d-api/v1/authorize"
+        validate_certs: no
+        method: POST
+        headers:
+          cache-control: "no-cache"
+        body_format: "json"
+        body: "{\"username\":\"{{ cp4d_admin_username }}\",\"password\":\"{{ cp4d_admin_new_password }}\"}"
+        status_code: 200
+        timeout: 30
+      register: cp4d_authorization
+
+    - name: Update k8s Secret for cp4d_admin_password if login succeed
+      block:
+        - name: Set the new password as the target password to be saved
+          set_fact:
+            cp4d_admin_password: "{{ cp4d_admin_new_password }}"
+
+        - name: Update k8s Secret for cp4d_admin_password
+          kubernetes.core.k8s:
+            state: present
+            namespace: "{{ cp4d_namespace }}"
+            definition: "{{ lookup('template', 'templates/cp4d_admin_credentials_secret.yaml.j2') | from_yaml }}"
+      when: cp4d_authorization.status == 200
+
+  when: cp4d_admin_credentials_secret_to_be_updated|default(false)|bool
