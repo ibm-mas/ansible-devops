@@ -121,7 +121,7 @@ Currently supported server bundle sizes are:
 - `small` - Deploys Manage with the most common deployment configuration. 
   - i.e 4 bundle pods, each one handling workload for each main capabilities: `mea`, `cron`, `report` and `ui`
 - `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod.
-  - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/jms` persistent volume mount path.
+  - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path.
 
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
 - Default: `dev`
