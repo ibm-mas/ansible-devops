@@ -20,7 +20,7 @@
     name: cluster
   register: _cluster_subdomain
 
-- name: "cis : onfigure ingress"
+- name: "Configure ingress"
   when: ocp_ingress is not defined or ocp_ingress == ""
   set_fact:
     ocp_ingress: "cis-proxy-route.{{ _cluster_subdomain.resources[0].spec.domain }}"
@@ -29,53 +29,49 @@
 # 3. Set up the DNS entries
 # =============================================================================
 - name: "cis : Define DNS Entries"
-  include_vars: vars/dnsentries.yml
-
-# Load variables to order the edge certificate
-- name: "cis : Define Edge Certificate Routes"
-  include_vars: vars/edge_certificate_routes.yml
+  set_fact:
+    dns_entries:
+      - ""
+      - "*"
+      - "*.api.monitor"
+      - "*.assist"
+      - "*.health"
+      - "*.home"
+      - "*.hputilities"
+      - "*.iot"
+      - "*.manage"
+      - "*.messaging.iot"
+      - "*.monitor"
+      - "*.predict"
+      - "*.safety"
+      - "*.visualinspection"
+      - "cis.test.cert"
+      - "cp4d"
 
 - name: "cis : Debug information"
   debug:
     msg:
-      - "CIS CRN .................. {{ cis_crn }}"
-      - "CIS Subdomain ............ {{ cis_subdomain }}"
-      - "OpenShift Ingress ........ {{ ocp_ingress }}"
-      - "CIS WAF .................. {{ cis_waf }}"
-      - "Delete Wildcards ......... {{ delete_wildcards }}"
-      - "Override Edge Certs ...... {{ override_edge_certs }}"
-      - "Update DNS Entries ....... {{ update_dns }}"
-      - "DNS Entries .............. {{ dns_entries }}"
+      - "CIS CRN ................................ {{ cis_crn }}"
+      - "CIS Subdomain .......................... {{ cis_subdomain }}"
+      - "OpenShift Ingress ...................... {{ ocp_ingress }}"
+      - "DNS Entries ............................ {{ dns_entries }}"
 
 
 # 4. Add DNS entries
 # =============================================================================
-- name: "cis : run cis_dns_entries module (this can take several minutes)"
+- name: "cis : run cis_dns_entries module"
   ibm.mas_devops.cis_dns_entries:
     ocp_ingress: "{{ ocp_ingress }}"
     cis_crn: "{{ cis_crn }}"
     cis_subdomain: "{{ cis_subdomain }}"
-    update_dns: "{{ update_dns }}"
+    update_dns: true
     cis_apikey: "{{ cis_apikey }}"
-    delete_wildcards: "{{ delete_wildcards }}"
     dns_entries: "{{ dns_entries }}"
-    cis_waf: "{{ cis_waf }}"
-    edge_certificate_routes: "{{edge_cert_routes}}"
-    cis_proxy: "{{cis_proxy}}"
+    cis_waf: null
+    edge_certificate_routes: null
+    cis_proxy: null
   register: dnsoutput
 
 - name: "cis : dump output"
   debug:
     msg: '{{ dnsoutput }}'
-
-- name: "cis : Show Edge Routes to create the Certificate"
-  debug:
-    msg:
-      - "CIS has been updated with the non wildcard CNAMES"
-      - "Use the following routes to create the certificate"
-      - "{{edge_cert_routes}}"
-
-- name: "cis : Copy routes to file"
-  ansible.builtin.template:
-    src: routes_edge_certificates.txt.j2
-    dest: "{{ output_dir }}/edge-routes-{{ mas_instance_id }}.txt"

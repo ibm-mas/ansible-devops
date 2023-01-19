@@ -1,24 +1,12 @@
 ---
-
-- include_tasks: tasks/providers/cis/cis_dns_mgmt.yml
+- name: "cis : running standard cis suite dns"
+  include_tasks: tasks/providers/cis/cis_suitedns_basic.yml
   when:
-    - not cis_skip_dns_entries
+    - not cis_enhanced_security
 
-- include_tasks: tasks/providers/cis/cis_edge_certificate.yml
+- name: "cis : running cis suite dns with enhanced security"
+  include_tasks: tasks/providers/cis/cis_suitedns_enhanced.yml
   when:
-    - not cis_skip_dns_entries
-
-# Load the WAF rules to disable
-- name: "WAF rules to disable"
-  include_vars: vars/waf_rules_to_disable.yml
-
-- include_tasks: tasks/providers/cis/cis_waf_rule.yml
-  loop: "{{ waf_rules_to_disable }}"
-  when:
-    - not cis_skip_dns_entries
-
-- include_tasks: tasks/providers/cis/cis_domain_setting.yml
-  when:
-    - not cis_skip_dns_entries
+    - cis_enhanced_security
 
 - include_tasks: tasks/providers/cis/cis_webhook.yml
