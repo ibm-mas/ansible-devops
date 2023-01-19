@@ -4,8 +4,8 @@
 [https://ibm-mas.github.io/ansible-devops/](https://ibm-mas.github.io/ansible-devops/)
 
 ## Change Log
-Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
-- `12.9` Added JDBC configuration to connect to an external SSL and not SSL enabled database for Manage application (DB2, Oracle and SQL Server) ([#600]( https://github.com/ibm-mas/ansible-devops/pull/600))
+Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM em ployees.
+- `12.9` Add JDBC configuration to connect to external databases ([#600]( https://github.com/ibm-mas/ansible-devops/pull/600))
 - `12.8` Multiple Updates:
     - Extend support for Manage's BIRT report configuration ([#601](https://github.com/ibm-mas/ansible-devops/pull/601))
     - Support updating admin password for CP4D instance ([#591](https://github.com/ibm-mas/ansible-devops/pull/591))
