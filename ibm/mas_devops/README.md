@@ -4,7 +4,7 @@
 [https://ibm-mas.github.io/ansible-devops/](https://ibm-mas.github.io/ansible-devops/)
 
 ## Change Log
-Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM em ployees.
+Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 - `12.9` Add JDBC configuration to connect to external databases ([#600]( https://github.com/ibm-mas/ansible-devops/pull/600))
 - `12.8` Multiple Updates:
     - Extend support for Manage's BIRT report configuration ([#601](https://github.com/ibm-mas/ansible-devops/pull/601))
