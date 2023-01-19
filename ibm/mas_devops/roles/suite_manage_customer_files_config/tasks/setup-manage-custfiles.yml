@@ -3,27 +3,35 @@
 # -----------------------------------------------------------------------------
 - name: "Configure {{ cos_type }} bucket for {{ custfiles_bucketname }}"
   include_role:
-    name: ibm.mas_devops.cos_bucket
+    name: ibm.mas_devops.cos_bucket_refactor
   vars:
     aws_bucket_name: "{{ custfiles_bucketname }}"
     ibmcos_bucket_name: "{{ custfiles_bucketname }}"
 
-# - name: "Configure {{ cos_type }} bucket for {{ custfiles_bucketname_recovery }}"
-#   include_role:
-#     name: ibm.mas_devops.cos_bucket
-#   vars:
-#     aws_bucket_name: "{{ custfiles_bucketname_recovery }}"
-#     ibmcos_bucket_name: "{{ custfiles_bucketname_recovery }}"
+- name: "Configure {{ cos_type }} bucket for {{ custfiles_bucketname_recovery }}"
+  include_role:
+    name: ibm.mas_devops.cos_bucket_refactor
+  vars:
+    aws_bucket_name: "{{ custfiles_bucketname_recovery }}"
+    ibmcos_bucket_name: "{{ custfiles_bucketname_recovery }}"
 
-# - name: "Configure {{ cos_type }} bucket for {{ custfiles_bucketname_backup }}"
-#   include_role:
-#     name: ibm.mas_devops.cos_bucket
-#   vars:
-#     aws_bucket_name: "{{ custfiles_bucketname_backup }}"
-#     ibmcos_bucket_name: "{{ custfiles_bucketname_backup }}"
+- name: "Configure {{ cos_type }} bucket for {{ custfiles_bucketname_backup }}"
+  include_role:
+    name: ibm.mas_devops.cos_bucket_refactor
+  vars:
+    aws_bucket_name: "{{ custfiles_bucketname_backup }}"
+    ibmcos_bucket_name: "{{ custfiles_bucketname_backup }}"
 
-# - name: "Retrieve {{ cos_type }} certificates"
-#   include_tasks: "tasks/retrieve-cos-certs.yml"
+- name: "Setup AWS S3 bucket policies, users and access points"
+  vars:
+    aws_bucket_name: "{{ custfiles_bucketname }}"
+    aws_bucket_region: "{{ cos_bucket_region }}"
+  include_tasks: "tasks/setup_aws_bucket_permissions.yml"
+  when: cos_type == 'aws'
+
+- name: "Retrieve {{ cos_type }} certificates"
+  include_tasks: "tasks/retrieve-cos-certs.yml"
+
 
 # # Configure Manage bundle servers
 # # -----------------------------------------------------------------------------

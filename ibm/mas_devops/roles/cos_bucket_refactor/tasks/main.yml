@@ -1,0 +1,24 @@
+---
+- name: "Fail if cos_type is not provided"
+  assert:
+    that: cos_type is defined and cos_type != ""
+    fail_msg: "cos_type property is required"
+
+- name: "Fail if cos_bucket_action is not provided"
+  assert:
+    that: cos_bucket_action is defined and cos_bucket_action != ""
+    fail_msg: "cos_bucket_action property is required"
+
+# 1. Configure COS bucket using IBM Cloud Object Storage (ibm) or S3 (aws)
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Run the task for the appropriate provider"
+  include_tasks: tasks/providers/{{ cos_type }}/{{ cos_bucket_action }}.yml
+
+- name: "{{ cos_type }} bucket details"
+  when: cos_bucket_action == 'create'
+  debug:
+    msg:
+      - "Bucket endpoint ....................... {{ cos_url }}"
+      - "Bucket name ........................... {{ cos_bucket_name }}"
+      - "Bucket access key id .................. {{ cos_access_key_id | default('Not defined yet', true) }}"
+      - "Bucket secret access key .............. {{ cos_secret_access_key | default('Not defined yet', true) }}"
