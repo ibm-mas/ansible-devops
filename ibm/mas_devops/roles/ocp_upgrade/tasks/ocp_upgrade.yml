@@ -15,13 +15,13 @@
       - cluster_type == 'roks'
     fail_msg: "This ocp upgrade process is only supported on IBM Cloud clusters (roks)."
 
-# Fail if ocp_upgrade_version is not roks
-- name: "Assert that ocp_upgrade_version is provided"
+# Fail if ocp_version_upgrade is not roks
+- name: "Assert that ocp_version_upgrade is provided"
   assert:
     that:
-      - ocp_upgrade_version is defined
-      - ocp_upgrade_version != ''
-    fail_msg: "ocp_upgrade_version is required."
+      - ocp_version_upgrade is defined
+      - ocp_version_upgrade != ''
+    fail_msg: "ocp_version_upgrade is required."
 
 # Provide debug information
 - name: "Debug information"
@@ -29,12 +29,12 @@
     msg:
       - "Cluster name ..................... {{ cluster_name }}"
       - "Cluster type ..................... {{ cluster_type }}"
-      - "OCP Version to be upgraded ....... {{ ocp_upgrade_version }}"
+      - "OCP Version to be upgraded ....... {{ ocp_version_upgrade }}"
 
 # Upgrade cluster's master nodes ocp version
-- name: "Update cluster {{ cluster_name }} master nodes to {{ ocp_upgrade_version }} version"
+- name: "Update cluster {{ cluster_name }} master nodes to {{ ocp_version_upgrade }} version"
   shell: |
-    ibmcloud oc cluster master update -c {{ cluster_name }} --version {{ ocp_upgrade_version }} -f
+    ibmcloud oc cluster master update -c {{ cluster_name }} --version {{ ocp_version_upgrade }} -f
   register: roks_cluster_upgrade_output
   failed_when: roks_cluster_upgrade_output.rc != 0
 
@@ -43,7 +43,7 @@
     msg: "{{ roks_cluster_upgrade_output.stdout }}"
 
 # Wait for cluster status to detect upgrade is in progress
-- name: "Wait until cluster {{ cluster_name }} targetVersion is updated to {{ ocp_upgrade_version }} version (1 hour timeout)"
+- name: "Wait until cluster {{ cluster_name }} targetVersion is updated to {{ ocp_version_upgrade }} version (1 hour timeout)"
   shell: ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
   register: roks_cluster_upgrade_pending_output
   until:
@@ -56,7 +56,7 @@
     msg: "Cluster {{ cluster_name}} master nodes will be updated to: {{ (roks_cluster_upgrade_pending_output.stdout | from_json).targetVersion }} version"
 
 # Wait for cluster status to return to "normal"
-- name: "Wait until cluster {{ cluster_name }} masterKubeVersion is updated to {{ ocp_upgrade_version }} version (1 hour timeout)"
+- name: "Wait until cluster {{ cluster_name }} masterKubeVersion is updated to {{ ocp_version_upgrade }} version (1 hour timeout)"
   shell: ibmcloud oc cluster get --cluster {{ cluster_name }} --output json
   register: roks_cluster_upgrade_state_output
   until:
@@ -76,7 +76,7 @@
   failed_when: "cluster_lookup.rc > 1"
 
 # Upgrade cluster's worker nodes ocp version as well
-- name: "Update cluster {{ cluster_name }} worker nodes to {{ ocp_upgrade_version }} version"
+- name: "Update cluster {{ cluster_name }} worker nodes to {{ ocp_version_upgrade }} version"
   vars:
     workers: "{{ item }}"
   when:
@@ -84,5 +84,5 @@
   shell: ibmcloud oc worker update -c {{ cluster_name }} -w {{ item }} -f
   with_items: "{{ cluster_lookup.stdout_lines }}"
 
-- name: "Wait all worker nodes to complete upgrade to {{ ocp_upgrade_version }} version"
+- name: "Wait all worker nodes to complete upgrade to {{ ocp_version_upgrade }} version"
   include_tasks: tasks/wait_workers_upgrade.yml

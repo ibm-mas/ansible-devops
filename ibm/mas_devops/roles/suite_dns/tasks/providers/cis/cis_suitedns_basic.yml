@@ -67,37 +67,11 @@
     update_dns: true
     cis_apikey: "{{ cis_apikey }}"
     dns_entries: "{{ dns_entries }}"
+    cis_waf: null
+    edge_certificate_routes: null
+    cis_proxy: null
   register: dnsoutput
 
 - name: "cis : dump output"
   debug:
     msg: '{{ dnsoutput }}'
-
-
-# 5. Deploy the CIS Webhook
-# =============================================================================
-- name: "cis : Create k8s resources for CIS webhook"
-  kubernetes.core.k8s:
-    namespace: "{{ cert_manager_namespace }}"
-    state: present
-    template: "{{ item }}"
-  with_items:
-    - templates/cis/webhook/rbac.yml.j2
-    - templates/cis/webhook/pki.yml.j2
-    - templates/cis/webhook/deployment.yml.j2
-    - templates/cis/webhook/apiservice.yml.j2
-    - templates/cis/webhook/service.yml.j2
-    - templates/cis/webhook/cis-apikey-secret.yml.j2
-    - templates/cis/webhook/cis-proxy-route.yml.j2
-
-
-# 6. Create the CIS ClusterIssuers
-# =============================================================================
-- name: "cis : Create k8s resources for CIS ClusterIssuers"
-  kubernetes.core.k8s:
-    namespace: "{{ cert_manager_namespace }}"
-    state: present
-    template: "{{ item }}"
-  with_items:
-    - templates/cis/clusterissuer-staging.yml.j2
-    - templates/cis/clusterissuer-prod.yml.j2
