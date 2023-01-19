@@ -1,0 +1,79 @@
+- name: Get CP4D admin credentials data from k8s Secret if cp4d_admin_credentials_secret_name is defined
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ cp4d_admin_credentials_secret_name }}"
+    namespace: "{{ cp4d_namespace }}"
+  register: cp4d_admin_credentials
+  when: cp4d_admin_credentials_secret_name is defined and cp4d_admin_credentials_secret_name != ""
+
+- name: Set vars for CP4D admin credentials based on k8s Secret data
+  block:
+    - name: Set flag cp4d_admin_credentials_secret_exists to true
+      set_fact:
+        cp4d_admin_credentials_secret_exists: true
+
+    - name: Set vars for CP4D admin credentials based on k8s Secret data if cp4d_admin_password is not specified
+      set_fact:
+        cp4d_admin_username: "{{ cp4d_admin_credentials.resources[0].data.cp4d_admin_username | b64decode }}"
+        cp4d_admin_password: "{{ cp4d_admin_credentials.resources[0].data.cp4d_admin_password | b64decode }}"
+      when:
+        - cp4d_admin_password is undefined or cp4d_admin_password == ""
+        - cp4d_admin_credentials.resources[0].data.cp4d_admin_username is defined
+        - cp4d_admin_credentials.resources[0].data.cp4d_admin_password is defined
+  when:
+    - cp4d_admin_credentials is defined
+    - cp4d_admin_credentials.resources is defined
+    - cp4d_admin_credentials.resources | length > 0
+
+- name: Get initial_admin_password from admin-user-details Secret in CP4D namespace if cp4d_admin_password is still not set
+  block:
+    - name: Get CP4D initial admin credentials from k8s Secret
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: admin-user-details
+        namespace: "{{ cp4d_namespace }}"
+      register: cp4d_initial_admin_credentials
+
+    - name: Set cp4d_admin_password based on value of CP4D initial_admin_password
+      set_fact:
+        cp4d_admin_password: "{{ cp4d_initial_admin_credentials.resources[0].data.initial_admin_password | b64decode }}"
+        cp4d_initial_admin_password: "{{ cp4d_initial_admin_credentials.resources[0].data.initial_admin_password | b64decode }}"
+      when:
+        - cp4d_initial_admin_credentials is defined
+        - cp4d_initial_admin_credentials.resources is defined
+        - cp4d_initial_admin_credentials.resources | length > 0
+  when: cp4d_admin_password is undefined or cp4d_admin_password == ""
+
+- name: Fail if cp4d_admin_username not specified
+  fail:
+    msg: "cp4d_admin_username not specified! Unable to authenticate to CP4D REST API!"
+  when: cp4d_admin_username is undefined or cp4d_admin_username == ""
+
+- name: Fail if cp4d_admin_password not specified
+  fail:
+    msg: "cp4d_admin_password not specified! Unable to authenticate to CP4D REST API!"
+  when: cp4d_admin_password is undefined or cp4d_admin_password == ""
+
+- name: Authorize the CP4D (get Bearer token)
+  uri:
+    url: "https://{{ cp4d_host }}/icp4d-api/v1/authorize"
+    validate_certs: no
+    method: POST
+    headers:
+      cache-control: "no-cache"
+    body_format: "json"
+    body: "{\"username\":\"{{ cp4d_admin_username }}\",\"password\":\"{{ cp4d_admin_password }}\"}"
+    status_code: 200
+    timeout: 30
+  register: cp4d_authorization
+
+- name: "Debug information for CP4D authorization"
+  debug:
+    msg:
+      - "cp4d_authorization .............. {{ cp4d_authorization }}"
+
+- name: Get the CP4D Bearer token
+  set_fact:
+    cp4d_bearer_token: "{{ cp4d_authorization.json.token }}"
