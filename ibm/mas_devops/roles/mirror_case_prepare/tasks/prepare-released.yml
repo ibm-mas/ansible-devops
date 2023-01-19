@@ -1,0 +1,114 @@
+---
+
+# 1. Check for required software
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Test if ibm-pak is installed"
+  shell: oc ibm-pak --version
+  register: ibmpak_version_result
+  ignore_errors: true
+
+- name: "{{ case_name }} : Fail if ibm-pak is not installed"
+  assert:
+    that: ( ibmpak_version_result['rc'] == 0 )
+    fail_msg: "ibm-pak tool must be installed."
+
+
+# 2. Debug
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Airgap setup configuration"
+  debug:
+    msg:
+      - "Case Name .............................. {{ case_name }}"
+      - "Case Version ........................... {{ case_version }}"
+      - "Registry Public Host ................... {{ registry_public_host }}"
+      - "Registry Public Port ................... {{ registry_public_port }}"
+
+
+# 3. Get the CASE bundle
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Get the CASE bundle"
+  shell: oc ibm-pak get {{ case_name }} --version {{ case_version }}
+  register: ibmpak_get_result
+
+
+# 4. Remove excluded images
+# -----------------------------------------------------------------------------
+# Some CASE bundles define images that we don't want to mirror, so delete the excluded image files.
+- name: Delete excluded images
+  when:
+    - exclude_images is defined
+    - exclude_images | length > 0
+  shell: rm ~/.ibm-pak/data/cases/{{ case_name }}/{{ case_version }}/{{ item }}-*-images.csv
+  # We ignore errors, because if we can't delete something that isn't there it
+  # doesn't really matter, e.g. removing ibm-mas-safety which isn't present since MAS v8.8
+  ignore_errors: true
+  register: excludeImagesResult
+  loop: "{{ exclude_images }}"
+
+
+# 5. Generate mirror-manifest
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
+  shell: oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ case_version }}
+  register: ibmpak_gen1_result
+
+- name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
+  shell: oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ case_version }} --final-registry {{ registry_public_url }}
+  register: ibmpak_gen2_result
+
+
+# 6. Collect generated files
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Create target directories (direct)"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/direct"
+    state: directory
+
+- name: "{{ case_name }} : Create target directories (to)"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/to-filesystem"
+    state: directory
+
+- name: "{{ case_name }} : Create target directories (from)"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/from-filesystem"
+    state: directory
+
+- name: "{{ case_name }} : Copy images-mapping-to-filesystem"
+  ansible.builtin.copy:
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping-to-filesystem.txt
+    dest: "{{ mirror_working_dir }}/manifests/to-filesystem/{{ case_name }}_{{ case_version }}.txt"
+
+- name: "{{ case_name }} : Copy images-mapping-from-filesystem"
+  ansible.builtin.copy:
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping-from-filesystem.txt
+    dest: "{{ mirror_working_dir }}/manifests/from-filesystem/{{ case_name }}_{{ case_version }}.txt"
+
+- name: "{{ case_name }} : Copy images-mapping"
+  ansible.builtin.copy:
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping.txt
+    dest: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
+
+
+# 7. IBM SLS 3.5.0 Bad Digest Hack
+# -----------------------------------------------------------------------------
+# The SLS CASE bundle for 3.5.0 has the wrong image digest in it ... not really sure why TBH
+- name: "IBM SLS 3.5.0 workaround"
+  when: case_name == "ibm-sls" and case_version == "3.5.0"
+  include_tasks: "tasks/sls-350-fix.yml"
+
+
+# 8. IBM UDS 2.0.8 Entitled Image Hack
+# -----------------------------------------------------------------------------
+# The UDS CASE bundle includes one entitled image - cp/uds/uds-submodule:2.0.8
+- name: "IBM UDS 2.0.8 workaround"
+  when: case_name == "ibm-uds" and case_version == "2.0.8"
+  include_tasks: "tasks/uds-208-fix.yml"
+
+
+# 9. IBM Maximo IoT 8.6.0 Bad Digest Hack
+# -----------------------------------------------------------------------------
+# The IoT CASE bundle for 8.6.0 has an incorrect image digest in it
+- name: "IBM UDS 2.0.8 workaround"
+  when: case_name == "ibm-mas-iot" and case_version == "8.6.0"
+  include_tasks: "tasks/iot-860-fix.yml"
