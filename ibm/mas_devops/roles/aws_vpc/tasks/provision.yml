@@ -1,0 +1,67 @@
+---
+- name: Fail if vpc_cidr is not defined
+  assert:
+    that:
+      - vpc_cidr is defined and vpc_cidr != ''
+    fail_msg: "property vpc_cidr is required"
+
+- name: Fail if vpc_name is not defined
+  assert:
+    that:
+      - vpc_name is defined and vpc_name != ''
+    fail_msg: "property vpc_name is required"
+
+# 1. Create VPC in AWS
+# --------------------------------------------------------------
+- name: Debug Information - VPC {{ vpc_action }}
+  debug:
+    msg:
+      - "aws_region ................................. {{ aws_region }}"
+      - "vpc_cidr ................................... {{ vpc_cidr }}"
+      - "vpc_name ................................... {{ vpc_name }}"
+      - "mas_config_dir ............................. {{ mas_config_dir }}"
+
+- name: Fetch VPCs Info
+  command: >
+    aws ec2 describe-vpcs \
+      --region '{{ aws_region }}'
+      --filters "Name=cidr, Values={{ vpc_cidr }}"  "Name=tag:Name,Values={{ vpc_name }}"
+  register: vpc_info
+
+- name: Debug Fetched VPCs Info
+  debug:
+    msg:
+      - "{{ vpc_info.stdout | from_json }}"
+
+- name: Set fact vpc id
+  set_fact:
+    vpc_id: "{{ vpc_info.stdout | from_json | json_query('Vpcs[0].VpcId') }}"
+
+- name: Create a VPC in AWS
+  when: not vpc_id
+  command: >
+    aws ec2 create-vpc \
+      --cidr-block '{{ vpc_cidr }}' \
+      --tag-specification ResourceType=vpc,Tags=[{Key=Name,Value='{{ vpc_name }}'}]
+  register: create_vpc_info
+
+- name: Debug ,VPC Creation Info
+  when: not vpc_id
+  debug:
+    msg:
+      - "Created VPC Info ..................... {{ create_vpc_info.stdout | from_json }}"
+
+- name: Set Fact VPC Id
+  when: not vpc_id
+  set_fact:
+    vpc_id: "{{ create_vpc_info.stdout | from_json | json_query('Vpc.VpcId') }}"
+
+- name: Fail if VPC Id doesn't exist
+  assert:
+    that:
+      - vpc_id is defined and vpc_id != ''
+
+- name: Save Vpc Info to ConfigMap
+  ansible.builtin.template:
+    src: vpc_configmap.yml.j2
+    dest: "{{mas_config_dir}}/vpc-{{vpc_name}}-cm.yml"

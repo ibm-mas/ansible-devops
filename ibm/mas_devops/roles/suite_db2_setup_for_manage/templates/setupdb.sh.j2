@@ -25,32 +25,17 @@ db2 update db cfg for {{ db2_dbname }} using dft_table_org ROW
 db2 update db cfg for {{ db2_dbname }} using AUTO_MAINT ON DEFERRED
 db2 update db cfg for {{ db2_dbname }} using AUTO_TBL_MAINT ON DEFERRED
 db2 update db cfg for {{ db2_dbname }} using AUTO_RUNSTATS ON DEFERRED
-
-db2 update db cfg for {{ db2_dbname }} using AUTO_REORG OFF DEFERRED
-
-
-db2 update db cfg for {{ db2_dbname }} using AUTO_DB_BACKUP OFF DEFERRED
-
+db2 update db cfg for {{ db2_dbname }} using AUTO_REORG ON DEFERRED
+db2 update db cfg for {{ db2_dbname }} using AUTO_DB_BACKUP ON DEFERRED
 db2 update db cfg for {{ db2_dbname }} using CATALOGCACHE_SZ 800 DEFERRED
 db2 update db cfg for {{ db2_dbname }} using CHNGPGS_THRESH 40 DEFERRED
 db2 update db cfg for {{ db2_dbname }} using DBHEAP AUTOMATIC
 db2 update db cfg for {{ db2_dbname }} using LOCKLIST AUTOMATIC DEFERRED
 db2 update db cfg for {{ db2_dbname }} using LOGBUFSZ 1024 DEFERRED
 db2 update db cfg for {{ db2_dbname }} using LOCKTIMEOUT 300 DEFERRED
-
-db2 update db cfg for {{ db2_dbname }} using LOGPRIMARY 100 DEFERRED
-
-db2 update db cfg for {{ db2_dbname }} using LOGSECOND 156 DEFERRED
-
-
-db2 update db cfg for {{ db2_dbname }} using LOGFILSIZ 50000 DEFERRED
-
-db2 update db cfg for {{ db2_dbname }} using MIRRORLOGPATH /mnt/backup/MIRRORLOGPATH   
-db2 update db cfg for {{ db2_dbname }} using NUM_DB_BACKUPS 60                         
-db2 update db cfg for {{ db2_dbname }} using LOGARCHCOMPR1 ON                          
-db2 update db cfg for {{ db2_dbname }} using REC_HIS_RETENTN 60                        
-
-
+db2 update db cfg for {{ db2_dbname }} using LOGPRIMARY 20 DEFERRED
+db2 update db cfg for {{ db2_dbname }} using LOGSECOND 100 DEFERRED
+db2 update db cfg for {{ db2_dbname }} using LOGFILSIZ 8192 DEFERRED
 db2 update db cfg for {{ db2_dbname }} using SOFTMAX 1000 DEFERRED
 db2 update db cfg for {{ db2_dbname }} using MAXFILOP 61440 DEFERRED
 db2 update db cfg for {{ db2_dbname }} using PCKCACHESZ AUTOMATIC DEFERRED
@@ -59,11 +44,6 @@ db2 update db cfg for {{ db2_dbname }} using STMTHEAP AUTOMATIC DEFERRED
 db2 update db cfg for {{ db2_dbname }} using UTIL_HEAP_SZ 10000 DEFERRED
 db2 update db cfg for {{ db2_dbname }} using DATABASE_MEMORY AUTOMATIC DEFERRED
 db2 update db cfg for {{ db2_dbname }} using AUTO_STMT_STATS OFF DEFERRED
-
-### the STMT_CONC may need to be set to off for sum customers
-### For customers that need this parameter set to OFF, we will need to update the configmap settings for this parameter to OFF 
-### so the database will retain his value (Currently, there is only one customer that needs it set to OFF). 
-### However, if, in the future we support Text Search, this parameter will need to be OFF for all databases with Text search enabled.
 db2 update db cfg for {{ db2_dbname }} using STMT_CONC LITERALS DEFERRED
 db2 update alert cfg for database on {{ db2_dbname }} using db.db_backup_req SET THRESHOLDSCHECKED YES
 db2 update alert cfg for database on {{ db2_dbname }} using db.tb_reorg_req SET THRESHOLDSCHECKED YES
@@ -84,24 +64,13 @@ db2set DB2_FMP_COMM_HEAPSZ=65536
 db2set DB2_SKIPDELETED=ON
 db2set DB2_USE_ALTERNATE_PAGE_CLEANING=ON
 
-echo "###  set the tmp backup location   ###"
-db2set DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH=/mnt/backup/staging       
-echo "###  Enable PIT recovery  ###"
-db2set DB2_CDE_REDUCED_LOGGING=REDUCED_REDO:NO                         
-
 # These will fail if re-running the script, but I don't know enough about Db2 to make them idempotent
 # so for now we will ignore failures in them
 set +e
 db2 CREATE BUFFERPOOL MAXBUFPOOL IMMEDIATE SIZE 4096 AUTOMATIC PAGESIZE 32 K
-
-### db2 CREATE REGULAR TABLESPACE MAXDATA PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE {{ db2_tablespace_data_size }} BUFFERPOOL MAXBUFPOOL
-db2 CREATE LARGE TABLESPACE MAXDATA PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE {{ db2_tablespace_data_size }} BUFFERPOOL MAXBUFPOOL
-
+db2 CREATE REGULAR TABLESPACE MAXDATA PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE {{ db2_tablespace_data_size }} BUFFERPOOL MAXBUFPOOL
 db2 CREATE TEMPORARY TABLESPACE MAXTEMP PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE BUFFERPOOL MAXBUFPOOL
-
-### db2 CREATE REGULAR TABLESPACE MAXINDEX PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE {{ db2_tablespace_index_size }} BUFFERPOOL MAXBUFPOOL
-db2 CREATE LARGE TABLESPACE MAXINDEX PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE {{ db2_tablespace_index_size }} BUFFERPOOL MAXBUFPOOL
-
+db2 CREATE REGULAR TABLESPACE MAXINDEX PAGESIZE 32 K MANAGED BY AUTOMATIC STORAGE INITIALSIZE {{ db2_tablespace_index_size }} BUFFERPOOL MAXBUFPOOL
 db2 create schema {{ db2_schema }} authorization {{ db2_username }}
 
 set -e
@@ -114,4 +83,3 @@ chmod a+rw /tmp/setupdb_complete
 
 # If we get this far, then we can consider the setup a success
 exit 0
-

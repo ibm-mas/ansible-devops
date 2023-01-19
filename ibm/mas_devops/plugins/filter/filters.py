@@ -308,6 +308,44 @@ def setManagePVC(data, mountPath, pvcName, pvcSize, storageClassName, volumeName
     pvc_list.append(pvc)
   return pvc_list
 
+def setManageBirtProperties(data, rptRoute, rptServerBundleName):
+  sb_list = []
+  rpt_bundle = {
+    "bundleType": "report",
+    "isDefault": False,
+    "isMobileTarget": False,
+    "isUserSyncTarget": False,
+    "name": rptServerBundleName,
+    "replica": 1,
+    "routeSubDomain": rptServerBundleName
+  }
+
+  hasRpt = [True for x in data if x['bundleType'] == 'report']
+  if len(hasRpt) == 0:
+    data.append(rpt_bundle)
+  for sb in data:
+    disablequeuemanager = 0 if sb['bundleType'] == 'report' else 1
+    if 'bundleLevelProperties' in sb:
+      if 'mxe.report.birt.viewerurl' not in sb['bundleLevelProperties'] and 'mxe.report.birt.disablequeuemanager' not in sb['bundleLevelProperties']:
+        sb['bundleLevelProperties']+=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+    else:
+      sb['bundleLevelProperties']=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+    sb_list.append(sb)
+  return sb_list
+
+
+def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint):
+  sb_list = []
+  for sb in data:
+    if 'bundleLevelProperties' in sb:
+      if 'mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties'] and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties'] and 'mxe.doclink.path01' not in sb['bundleLevelProperties'] and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']:
+        sb['bundleLevelProperties']+=f"  mxe.doclink.doctypes.topLevelPaths=cos:doclinks  mxe.doclink.doctypes.defpath=cos:doclinks/default  mxe.doclink.path01=cos:doclinks={doclinkPath01}  mxe.doclink.securedAttachment=true  mxe.cosbucketname={bucketName}  mxe.cosaccesskey={accessKey}  mxe.cossecretkey={secretAccesskey}  mxe.cosendpointuri={bucketEndpoint}  mxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+    else:
+      sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks  mxe.doclink.doctypes.defpath=cos:doclinks/default  mxe.doclink.path01=cos:doclinks={doclinkPath01}  mxe.doclink.securedAttachment=true  mxe.cosbucketname={bucketName}  mxe.cosaccesskey={accessKey}  mxe.cossecretkey={secretAccesskey}  mxe.cosendpointuri={bucketEndpoint}  mxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+    sb_list.append(sb)
+  return sb_list
+
+
 class FilterModule(object):
   def filters(self):
     return {
@@ -321,5 +359,7 @@ class FilterModule(object):
       'getResourceNames': getResourceNames,
       'defaultStorageClass': defaultStorageClass,
       'getWSLProjectId': getWSLProjectId,
-      'setManagePVC': setManagePVC
+      'setManagePVC': setManagePVC,
+      'setManageBirtProperties': setManageBirtProperties,
+      'setManageDoclinksProperties': setManageDoclinksProperties
     }
