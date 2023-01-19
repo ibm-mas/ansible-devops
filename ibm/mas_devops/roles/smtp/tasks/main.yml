@@ -8,18 +8,20 @@
 - name: Debug Information
   debug:
     msg:
+      - "SMTP Type ......... {{ smtp_type }}"
       - "MAS Instance Id ... {{ mas_instance_id }}"
       - "MAS Config Dir .... {{ mas_config_dir }}"
-      - "Customer Name ......{{ customer_name }}"
+      - "SMTP User Name .... {{ smtp_username }}"
+
 
 - name: Lookup for existent configuration in MAS
   community.kubernetes.k8s_info:
     api_version: v1
     kind: SmtpCfg
-    namespace: mas-{{mas_instance_id}}-core
+    namespace: mas-{{ mas_instance_id }}-core
   register: _existent_smtp
 
 
-- include_tasks: tasks/sendgrid_new_mas.yml
+- include_tasks: tasks/{{ smtp_type }}/smtpcfg.yml
   when:
     -  _existent_smtp.resources | length == 0

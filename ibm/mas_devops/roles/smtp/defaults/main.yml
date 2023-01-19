@@ -1,18 +1,27 @@
 ---
+
+# smtp_type has no default, it must be passed in
+smtp_type: "{{ lookup('env', 'SMTP_TYPE')}}"
+
+# What smtp types does this role support
+supported_smtp_types:
+  - sendgrid
+  - mailhog
+
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
-customer_name: "{{ lookup('env', 'CUSTOMER_NAME') }}"
+smtp_config_namespace: "mas-{{ mas_instance_id }}-core"
 
-#from bootstrap
-sendgrid_apikey: "{{ lookup('env', 'SENDGRID_APIKEY') }}"
+smtp_instance_creds_name_default: "smtp-{{ smtp_type }}-credentials"
+smtp_instance_creds_name: "{{ lookup('env', 'SMTP_INSTANCE_CREDS_NAME') | default(smtp_instance_creds_name_default, True) }}"
+smtp_instance_username_default: "ibm-mas_{{ mas_instance_id }}"
+smtp_instance_username: "{{ lookup('env', 'SMTP_INSTANCE_USERNAME') | default(smtp_instance_username_default, True) }}"
+smtp_instance_apikey_name: "{{ mas_instance_id }}-smtp-apikey"
+smtp_instance_email: "{{ lookup('env', 'SMTP_INSTANCE_EMAIL') | default('MAS.MS.SMTP@ibm.com', True) }}"
+smtp_instance_ips: "{{ lookup('env', 'SMTP_INSTANCE_IPS') | default('149.72.75.134', True) }}"
 
-mas_namespace: "mas-{{ mas_instance_id }}-core"
-smtpsendgrid_namespace: "{{ lookup ('env', 'SMTP_SENDGRID_NAMESPACE', | default( mas_namespace, True) }}"
-
-sendgrid_api_key_secret: masms-smtp-sendgrid-credentials
-sendgrid_api_url: "api.sendgrid.com"
-masms_smtp_email: MAS.MS.SMTP@ibm.com
-
-_instance_user_name: ibm-masms_{{customer_name}}
-_instance_user_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=20') }}"
+smtp_provider_api_url: "{{ lookup ('env', 'SMTP_PROVIDER_API_URL', | default('api.sendgrid.com', True) }}"
+smtp_provider_hostname: "{{ lookup('env', 'SMTP_PROVIDER_HOSTNAME') | default('smtp.sendgrid.net', True) }}"
+smtp_provider_creds_name: "{{ lookup('env', 'SMTP_PROVIDER_CREDS_NAME') | default('smtp-provider-credentials', True) }}"
+smtp_provider_apikey: "{{ lookup('env', 'SMTP_PROVIDER_APIKEY') }}"
 
