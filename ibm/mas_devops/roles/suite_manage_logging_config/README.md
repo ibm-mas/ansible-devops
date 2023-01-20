@@ -75,7 +75,6 @@ The following sample can be used to configure AWS S3 for an existing Manage appl
     cos_type: aws
     cos_bucket_action: create
     aws_bucket_name: manage-logs-bucket
-    aws_bucket_name: my-aws-bucket
     aws_region: us-east-2
     aws_bucket_versioning_flag: True
     aws_bucket_encryption: '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'
