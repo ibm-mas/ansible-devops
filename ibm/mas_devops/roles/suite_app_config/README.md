@@ -78,12 +78,24 @@ Optional. Flag indicating if manage demodata should be loaded or not.
 - Environment Variable: `MAS_APP_SETTINGS_DEMODATA`
 - Default: `false` (do not load demodata)
 
+### mas_app_settings_tablespace
+Optional. Name of the Manage database tablespace
+
+- Environment Variable: `MAS_APP_SETTINGS_TABLESPACE`
+- Default: `MAXDATA` 
+
+### mas_app_settings_indexspace
+Optional. Name of the Manage database indexspace
+
+- Environment Variable: `MAS_APP_SETTINGS_INDEXSPACE`
+- Default: `MAXINDEX` 
+
 ### mas_app_settings_persistent_volumes_flag
 Optional. Flag indicating if persistent volumes should be configured by default during Manage Workspace activation.
 There are two defaulted File Storage Persistent Volumes Claim resources that will be created out of the box for Manage if this flag is set to `true`:
 
-- `/DOCLINKS`: Persistent volume used to store attachments and JMS queues related artifacts (`/DOCLINKS/jmsstore`).
-- `/bim`: Persistent volume used to store Building Information Models related artifacts (models, docs and import)
+- `/DOCLINKS`: Persistent volume used to store doclinks/attachments.
+- `/bim`: Persistent volume used to store Building Information Models related artifacts (models, docs and import).
 
 - Environment Variable: `MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG`
 - Default: `false`
@@ -120,10 +132,38 @@ Currently supported server bundle sizes are:
 - `small` - Deploys Manage with the most common deployment configuration. 
   - i.e 4 bundle pods, each one handling workload for each main capabilities: `mea`, `cron`, `report` and `ui`
 - `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod.
-  - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `DOCLINKS/jmsstore` persistent volume (Requires `mas_app_settings_persistent_volumes_flag` to be set to `true`)
+  - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path.
 
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
 - Default: `dev`
+
+### mas_app_settings_jms_queue_pvc_storage_class
+Optional. Provide the persistent volume storage class to be used for JMS queue configuration.
+**Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
+
+- Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_STORAGE_CLASS`
+- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
+
+### mas_app_settings_jms_queue_pvc_name
+Optional. Provide the persistent volume claim name to be used for JMS queue configuration.
+**Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
+
+- Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_NAME`
+- Default: `manage-jms`
+
+### mas_app_settings_jms_queue_pvc_size
+Optional. Provide the persistent volume claim size to be used for JMS queue configuration.
+**Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
+
+- Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_SIZE`
+- Default: `20Gi`
+
+### mas_app_settings_jms_queue_mount_path
+Optional. Provide the persistent volume storage mount path to be used for JMS queue configuration.
+**Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
+
+- Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_MOUNT_PATH`
+- Default: `/jms`
 
 Role Variables - Predict
 ---------------------------------------------

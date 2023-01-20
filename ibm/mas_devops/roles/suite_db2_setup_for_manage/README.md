@@ -56,13 +56,6 @@ The size of the tablespace indexes in the database.
 - Environment Variable: DB2_TABLESPACE_INDEX_SIZE
 - Default Value: `5000 M`
 
-### db2_mirrorlog_path
-The mirrorlog path replicates the active transaction logs.
-
-- Optional
-- Environment Variable: DB2_MIRRORLOG_PATH
-- Default Value: `/mnt/backup/MIRRORLOGPATH`
-
 
 Example Playbook
 ----------------
