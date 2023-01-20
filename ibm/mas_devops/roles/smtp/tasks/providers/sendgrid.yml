@@ -1,0 +1,170 @@
+- name: Lookup SMTP Provider Credentials
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: {{ smtp_provider_creds_name }}
+    namespace: "{{ smtp_config_namespace }}"
+  register: _provider_creds_result
+
+- name: Create SMTP Provider Credentials
+  when
+    - not _provider_creds_result.resources | length > 0
+  community.kubernetes.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/sendgrid/smtp-provider-credentials.yml.j2')}}"
+  register: _provider_creds_result
+
+
+- name: Lookup SMTP Instance Credentials
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: {{ smtp_instance_creds_name }}
+    namespace: "{{ smtp_config_namespace }}"
+  register: _instance_creds_result
+
+- name: Create SMTP Instance Credentials
+  block:
+
+  - name: Generate SMTP Instance Password
+    set_fact:
+      _smtp_instance_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=20') }}"
+
+  - name: Create SMTP Instance Credentials
+    community.kubernetes.k8s:
+      apply: yes
+      apiVersion: v1
+      kind: Secret
+      type: Opaque
+      metadata:
+        name: "{{ smtp_instance_creds_name }}"
+        namespace: "{{ smtp_config_namespace }}"
+      stringData:
+        username: "{{ smtp_instance_username }}"
+        password: "{{ _smtp_instance_password }}"
+    register: _instance_creds_result
+
+  when
+    - not _instance_creds_result.resources | length > 0
+
+
+- name: Lookup Instance apikey
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ smtp_instance_apikey_name }}"
+    namespace: "{{ smtp_config_namespace }}"
+  register: _instance_apikey_result
+
+- name: Create send grid user
+  block:
+    - name: Check if subuser already exist
+      uri:
+        url: "https://{{ smtp_provider_api_url }}/v3/subusers/{{ smtp_instance_username }}"
+        validate_certs: no
+        method: GET
+        headers:
+          Authorization: "Bearer {{ smtp_provider_apikey }}"
+          cache-control: "no-cache"
+        status_code: [201, 404, 200]
+        timeout: 30
+      register: _user_exist_result
+
+
+    - name: Create subuser if user does not exist
+      when:
+        - _user_exist_result.status == 404
+      uri:
+        url: "https://{{ smtp_provider_api_url }}/v3/subusers"
+        validate_certs: no
+        method: POST
+        headers:
+          Authorization: "Bearer {{ smtp_provider_apikey }}"
+          cache-control: "no-cache"
+        body_format: "json"
+        body: "{{ lookup('template','templates/sendgrid/subuser.json.j2') }}"
+        status_code: 201
+        timeout: 30
+      register: _create_user_result
+
+
+    - name: Generate API Key for Subuser
+      when:
+        - _user_exist_result.status == 404
+      uri:
+        url: "https://{{ smtp_provider_api_url }}/v3/api_keys"
+        validate_certs: no
+        method: POST
+        headers:
+          Authorization: "Bearer {{ smtp_provider_apikey }}"
+          On-behalf-of: "{{ smtp_instance_username }}"
+          cache-control: "no-cache"
+        body_format: "json"
+        body:
+          name: "{{ smtp_instance_username}}_apikey"
+          scopes:
+            - "mail.send"
+        status_code: 201
+        timeout: 30
+      register: _smtp_instance_apikey
+
+
+    - name:  Create secret to hold instance smtp apikey
+      when:
+        - _user_exist_result.status == 404
+      community.kubernetes.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ smtp_instance_apikey_name }}"
+            namespace: "{{ smtp_config_namespace }}"
+          data:
+            api_key: "{{_smtp_instance_apikey.json.api_key | b64encode }}"
+
+
+    - name:  Perform Single Sender Authentication
+      when:
+        - _user_exist_result.status == 404
+      changed_when:
+        - (_result.json.errors is not defined or _result.json.errors[0].message == 'already exists')
+      register: _result
+      uri:
+        url: "https://{{ smtp_provider_api_url }}/v3/verified-senders"
+        validate_certs: no
+        method: POST
+        headers:
+          Authorization: "Bearer {{ smtp_provider_apikey }}"
+          On-behalf-of: "{{ smtp_instance_username }}"
+          cache-control: "no-cache"
+        body_format: "json"
+        body: "{{ lookup('template','templates/sendgrid/verify-sender.json.j2') }}"
+        status_code: 201, 400
+        timeout: 30
+  when:
+    - not _instance_apikey_result.resources | length > 0
+
+
+- name: Lookup Instance apikey
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ smtp_instance_apikey_name }}"
+    namespace: "{{ smtp_config_namespace }}"
+  register: _instance_apikey_result
+
+
+- name: Set apikey
+  when: (_smtp_instance_apikey.changed or _smtp_instance_apikey.resources | length > 0)
+  set_fact:
+    smtp_instance_apikey: "{{ (_smtp_instance_apikey is defined and _smtp_instance_apikey.json is defined) | ternary(_smtp_instance_apikey.json.api_key, _instance_apikey_result.resources[0].data.api_key | b64decode) }}"
+
+
+- name: Copy SMTPCfg to filesystem
+  ansible.builtin.template:
+    src: smtpcfg.yaml
+    dest: "{{ mas_config_dir }}/smtp-{{ mas_instance_id | lower }}.yml"
+  when:
+    - _existent_smtp.resources | length == 0
+    - smtp_instance_apikey is defined
