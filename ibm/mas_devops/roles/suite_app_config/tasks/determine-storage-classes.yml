@@ -17,31 +17,35 @@
 # 2. Set Primary Storage (Required)
 # -----------------------------------------------------------------------------
 - name: "determine-storage-classes : Default Manage PVC Storage if not set by user"
-  when:
-    - mas_app_settings_doclinks_pvc_storage_class is not defined or mas_app_settings_doclinks_pvc_storage_class == ""
-    - mas_app_settings_bim_pvc_storage_class is not defined or mas_app_settings_bim_pvc_storage_class == ""
   vars:
     # ROKS, OCS, Azure
     supported_storage_classes: [ibmc-file-gold-gid, ocs-storagecluster-cephfs, azurefiles-premium]
   set_fact:
-    mas_app_settings_doclinks_pvc_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
-    mas_app_settings_bim_pvc_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
-
-- name: "determine-storage-classes : Assert that Manage PVC storage class has been defined"
-  assert:
-    that: mas_app_settings_doclinks_pvc_storage_class is defined and mas_app_settings_doclinks_pvc_storage_class != ""
-    fail_msg: "mas_app_settings_doclinks_pvc_storage_class must be defined"
+    mas_app_settings_default_pvc_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
 # 3. Debug storage class configuration
 # -----------------------------------------------------------------------------
 - name: "determine-storage-classes : Debug Manage PVC storage class configuration"
   debug:
     msg:
-      - "Manage Doclinks PVC Storage class .......... {{ mas_app_settings_doclinks_pvc_storage_class }}"
-      - "Manage Doclinks PVC Name ................... {{ mas_app_settings_doclinks_pvc_name }}"
-      - "Manage Doclinks PVC Size ................... {{ mas_app_settings_doclinks_pvc_size }} "
-      - "Manage Doclinks PVC Mount Path ............. {{ mas_app_settings_doclinks_mount_path }}"
-      - "Manage BIM PVC Storage class ............... {{ mas_app_settings_bim_pvc_storage_class }}"
-      - "Manage BIM PVC Name ........................ {{ mas_app_settings_bim_pvc_name }}"
-      - "Manage BIM PVC Size ........................ {{ mas_app_settings_bim_pvc_size }} "
-      - "Manage BIM PVC Mount Path .................. {{ mas_app_settings_bim_mount_path }}"
+      - "Manage Default PVC Storage class .......... {{ mas_app_settings_default_pvc_storage_class }}"
+
+# 4. Auto define storage classes when required
+# -----------------------------------------------------------------------------
+- name: Set doclinks default pvc storage class
+  set_fact:
+    mas_app_settings_doclinks_pvc_storage_class: "{{ mas_app_settings_default_pvc_storage_class }}"
+  when:
+    - mas_app_settings_doclinks_pvc_storage_class is not defined or mas_app_settings_doclinks_pvc_storage_class == ""
+
+- name: Set bim default pvc storage class
+  set_fact:
+    mas_app_settings_bim_pvc_storage_class: "{{ mas_app_settings_default_pvc_storage_class }}"
+  when:
+    - mas_app_settings_bim_pvc_storage_class is not defined or mas_app_settings_bim_pvc_storage_class == ""
+
+- name: Set jms queue default pvc storage class
+  set_fact:
+    mas_app_settings_jms_queue_pvc_storage_class: "{{ mas_app_settings_default_pvc_storage_class }}"
+  when:
+    - mas_app_settings_jms_queue_pvc_storage_class is not defined or mas_app_settings_jms_queue_pvc_storage_class == ""

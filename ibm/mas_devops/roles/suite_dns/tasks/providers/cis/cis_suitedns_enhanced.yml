@@ -1,0 +1,19 @@
+---
+- include_tasks: tasks/providers/cis/cis_dns_mgmt.yml
+
+- name: "cis : login to IBM Cloud"
+  shell: |
+    ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
+  retries: 10
+  delay: 60
+
+- include_tasks: tasks/providers/cis/cis_edge_certificate.yml
+
+# Load the WAF rules to disable
+- name: "cis : WAF rules to disable"
+  include_vars: vars/waf_rules_to_disable.yml
+
+- include_tasks: tasks/providers/cis/cis_waf_rule.yml
+  loop: "{{ waf_rules_to_disable }}"
+
+- include_tasks: tasks/providers/cis/cis_domain_setting.yml
