@@ -78,6 +78,17 @@ Optional. Flag indicating if manage demodata should be loaded or not.
 - Environment Variable: `MAS_APP_SETTINGS_DEMODATA`
 - Default: `false` (do not load demodata)
 
+### mas_app_settings_tablespace
+Optional. Name of the Manage database tablespace
+
+- Environment Variable: `MAS_APP_SETTINGS_TABLESPACE`
+- Default: `MAXDATA` 
+
+### mas_app_settings_indexspace
+Optional. Name of the Manage database indexspace
+
+- Environment Variable: `MAS_APP_SETTINGS_INDEXSPACE`
+- Default: `MAXINDEX` 
 
 ### mas_app_settings_persistent_volumes_flag
 Optional. Flag indicating if persistent volumes should be configured by default during Manage Workspace activation.
