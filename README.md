@@ -1,6 +1,6 @@
 # Ansible DevOps Collection for IBM Maximo Application Suite
 
-## Installation
+## Installation 
 Install the collection direct from [Ansible Galaxy](https://galaxy.ansible.com/ibm/mas_devops)
 
 ```
