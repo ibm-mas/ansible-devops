@@ -66,6 +66,8 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#required-environment-variables">Required environment variables</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#optional-environment-variables">Optional environment variables</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a>
     </li>
     </ul>
@@ -302,11 +304,57 @@
 <p>To install Health as a Standalone with a specified version, set <code>MAS_APP_ID</code> to health and set <code>MAS_APPWS_COMPONENTS</code> to <code>health=x.x.x</code>. By default health standalone will be installed using <code>health=latest</code></p>
 <p><code>export MAS_APP_ID=health</code>
    <code>export MAS_APPWS_COMPONENTS="health=latest"</code></p>
+<h2 id="optional-environment-variables">Optional environment variables<a class="headerlink" href="#optional-environment-variables" title="Permanent link"></a></h2>
+<p>To connect to an external database (Oracle, SQL Server or DB2) set the following variables:</p>
+<ul>
+<li><code>CONFIGURE_EXTERNAL_DATABASE</code> Set it to true. By default, the value is false</li>
+<li><code>DB_INSTANCE_ID</code> Your database instance ID  </li>
+<li><code>MAS_JDBC_USER</code> Your database user name</li>
+<li><code>MAS_JDBC_PASSWORD</code> Your database password</li>
+<li><code>MAS_JDBC_URL</code> Your JDBC URL</li>
+<li><code>MAS_APP_SETTINGS_DB2_SCHEMA</code>  Your schema name. By default, the value is maximo</li>
+<li><code>MAS_APP_SETTINGS_TABLESPACE</code> Your tablespace name. By default, the value is maximo</li>
+<li><code>MAS_APP_SETTINGS_INDEXSPACE</code> Your indexspace name. By default, the value is maximo</li>
+<li><code>MAS_JDBC_CERT_LOCAL_FILE</code> Path to your database certificate file if the database is SSL enabled</li>
+</ul>
+<p>If the database is not SSL enabled, set the SSL_ENABLED variable to false. By default, SSL_ENABLED is true.</p>
+<p><code>export SSL_ENABLED=false</code>  </p>
 <h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link"></a></h2>
 <pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 export MAS_APP_ID=manage
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.oneclick_add_manage
+</code></pre>
+<p>If you want to connect to an external database:</p>
+<pre><code class="language-bash">export MAS_INSTANCE_ID=inst1
+export MAS_CONFIG_DIR=~/masconfig
+export IBM_ENTITLEMENT_KEY=xxx
+export MAS_APP_ID=manage
+
+export CONFIGURE_EXTERNAL_DATABASE=true
+export DB_INSTANCE_ID=maxdbxx 
+export MAS_JDBC_USER=maximo
+export MAS_JDBC_PASSWORD=xxx
+export MAS_JDBC_URL=xxx 
+export MAS_APP_SETTINGS_DB2_SCHEMA=maximo
+export MAS_APP_SETTINGS_TABLESPACE=maxdata
+export MAS_APP_SETTINGS_INDEXSPACE=maxindex
+
+Database URL examples:
+
+DB2:
+export MAS_JDBC_URL=jdbc:db2://dbserverxx:50000/maxdbxx
+export MAS_JDBC_URL=jdbc:db2://dbserverxx:50000/maxdbxx:sslConnection=true  if SSL enabled
+
+Oracle:
+export MAS_JDBC_URL=jdbc:oracle:thin:@dbserverxx:1521:maximo
+
+SQL Server:
+export MAS_JDBC_URL=&quot;jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;&quot;
+export MAS_JDBC_URL=&quot;jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;&quot; if SSL enabled
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_manage
