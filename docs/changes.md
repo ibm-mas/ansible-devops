@@ -1,6 +1,8 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `12.9` Multiple Updates:
+    - Enhancements to Manage's JMS queue configuration ([#606](https://github.com/ibm-mas/ansible-devops/pull/606))
 - `12.8` Multiple Updates:
     - Extend support for Manage's BIRT report configuration ([#601](https://github.com/ibm-mas/ansible-devops/pull/601))
     - Support updating admin password for CP4D instance ([#591](https://github.com/ibm-mas/ansible-devops/pull/591))
