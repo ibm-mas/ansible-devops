@@ -50,12 +50,12 @@ All timings are estimates, see the individual pages for each of these playbooks 
     - Install Openscale
 
 ## Optional environment variables
-- `CP4D_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
-- `CP4D_INSTALL_WSL` True/False - If you HAVE Watson Studio already installed in your cluster, then set it to "false"
-- `CP4D_INSTALL_WML` True/False - If you HAVE Watson Machine Learning already installed in your cluster, then set it to "false"
-- `CP4D_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster, then set it to "false"
-- `CP4D_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster, then set it to "false"
-- `WS_PROJECT_ID` - Ensure a Project ID Text box has a valid Watson Studio project ID. To obtain the project ID, Navigate to Cp4d/Watson Studio and create/Reuse a project. Open the project and look into the Browser URL, obtain the project ID from the URL and update Project ID settings.
+- `CPD_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
+- `CPD_INSTALL_WSL` True/False - If you HAVE Watson Studio already installed in your cluster, then set it to "false"
+- `CPD_INSTALL_WML` True/False - If you HAVE Watson Machine Learning already installed in your cluster, then set it to "false"
+- `CPD_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster, then set it to "false"
+- `CPD_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster, then set it to "false"
+- `CPD_WSL_PROJECT_ID` - Ensure a Project ID Text box has a valid Watson Studio project ID. To obtain the project ID, Navigate to Cp4d/Watson Studio and create/Reuse a project. Open the project and look into the Browser URL, obtain the project ID from the URL and update Project ID settings.
 
 
 ## Usage when you already HAVE CP4D installed
