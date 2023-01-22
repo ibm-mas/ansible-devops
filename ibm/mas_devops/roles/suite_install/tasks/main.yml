@@ -14,12 +14,13 @@
     mas_annotations_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
   when:
     -  mas_annotations_dict is defined
-    -  mas_annotation_valid_entries[item.key] is defined and mas_annotation_valid_entries[item.key] | length>0
   assert:
     that:
+      -  item.key in mas_annotation_valid_entries
+      -  mas_annotation_valid_entries[item.key] is defined and mas_annotation_valid_entries[item.key] | length>0
       -  item.value in mas_annotation_valid_entries[item.key]
-    fail_msg: "Assertion Failed! Annotation '{{item.key}}' with value '{{item.value}}' is not found in allowed list {{mas_annotation_valid_entries[item.key]}}"
-    success_msg: "Assertion Passed!  Annotation '{{item.key}}' with value '{{item.value}}' is found in allowed list {{mas_annotation_valid_entries[item.key]}}"
+    fail_msg: "Assertion Failed! Annotation {{item.key}}={{item.value}} is not valid "
+    success_msg: "Assertion Passed!  Annotation {{item.key}}={{item.value}} is valid "
   with_dict:
     - "{{  mas_annotations_dict  }}"
 
