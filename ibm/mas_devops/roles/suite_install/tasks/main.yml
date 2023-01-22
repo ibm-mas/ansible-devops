@@ -1,12 +1,27 @@
 ---
 
-# 1. Check for undefined properties that do not have a default
+# 1.a Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
   assert:
     that: mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "mas_instance_id property is required"
 
+# 1.b Validate annotations: Check if mas_annotations has valid allowed values 
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_annotations value is invalid"
+  vars:
+    mas_annotations_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
+  when:
+    -  mas_annotations_dict is defined 
+    -  mas_annotation_valid_entries[item.key] is defined and mas_annotation_valid_entries[item.key] | length>0 
+  assert:
+    that:
+      -  item.value in mas_annotation_valid_entries[item.key]
+    fail_msg: "Assertion Failed! Annotation '{{item.key}}' with value '{{item.value}}' is not found in allowed list {{mas_annotation_valid_entries[item.key]}}"
+    success_msg: "Assertion Passed!  Annotation '{{item.key}}' with value '{{item.value}}' is found in allowed list {{mas_annotation_valid_entries[item.key]}}"   
+  with_dict:
+    - "{{  mas_annotations_dict  }}"
 
 # 2. Set up the domain name for MAS
 # -----------------------------------------------------------------------------
