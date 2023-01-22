@@ -19,25 +19,34 @@
 - name: Load application variables
   include_vars: "{{ role_path }}/../suite_app_install/vars/{{ mas_app_id }}.yml"
 
-# 3. Run Application Specific Tasks
+
+# 3. Run Application Specific Pre-configuration
 # -----------------------------------------------------------------------------
-# The following will auto determine storage classes to be used as persistent volumes for Manage attachments/BIM configurations (Manage OOTB features)
+# The following will auto determine storage classes to be used as persistent
+# volumes for Manage attachments/BIM configurations (Manage OOTB features)
 - name: Determine Storage Class for Manage application
   when:
-    - mas_app_id is in ['manage'] # applications which have something to process before configuration
+    - mas_app_id == 'manage'
     - mas_app_settings_persistent_volumes_flag == 'true' or mas_app_settings_server_bundles_size == 'jms'
   include_tasks: "tasks/determine-storage-classes.yml"
 
-- name: Run application specific tasks
-  when:
-    - mas_app_id is in ['hputilities', 'manage', 'predict'] # applications which have something to process before configuration
+# Build the incredibly complex Manage spec.settings from a set of env vars
+- name: Run Manage specific pre-configuration
+  when: mas_app_id == 'manage'
   include_tasks: "tasks/{{ mas_app_id }}.yml"
+
+# Resolve the WSL project ID that will be used by Predict and HP Utilities
+- name: Lookup Watson Studio Project ID
+  when: mas_app_id is in ['hputilities', 'predict']
+  include_tasks: "tasks/determine-watson-studio-id.yml"
+
 
 # 4. Load default application workspace spec, if user does not provide one
 # -----------------------------------------------------------------------------
 - name: Load default application workspace spec
   when: mas_app_ws_spec is not defined or mas_app_ws_spec == ""
   include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
+
 
 # 5. Provide debug information
 # -----------------------------------------------------------------------------
@@ -55,6 +64,7 @@
       - "MAS app namespace ......... {{ mas_app_namespace }}"
       - "Templated workspace CR .... {{ lookup('template', 'templates/workspace.yml.j2') }}"
 
+
 # 6. Workspace configuration
 # -----------------------------------------------------------------------------
 - name: Configure application in workspace
@@ -62,6 +72,7 @@
     state: present
     namespace: "{{ mas_app_namespace }}"
     definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
+
 
 # 7. Check if the application is ready
 # -----------------------------------------------------------------------------
