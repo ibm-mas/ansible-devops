@@ -209,26 +209,33 @@ The access mode for the storage.
 
 Role Variables - Resource Requests
 -----------------------------------------------------------------------------------------------------------------
+These variables allow you to customize the resources available to the Db2 pod in your cluster.  In most circumstances you will want to set these properties because it's impossible for us to provide a default value that will be appropriate for all users.  We have set defaults that are suitable for deploying Db2 onto a dedicated worker node with 4cpu and 16gb memory.
+
+!!! tip
+    Note that you must take into account the system overhead on any given node when setting these parameters, if you set the requests equal to the number of CPU or amount of memory on yournode then the scheduler will not be able to schedule the Db2 pod because not 100% of the worker nodes' resource will be available to pod on that node, even if there's only a single pod on it.
+
+    Db2 is sensitive to both CPU and memory issues, particularly memory, we recommennd setting requests and limits to the same values, ensuring the scheduler always reserves the resources that Db2 expects to be available to it.
+
 ### db2_cpu_requests
 Define the Kubernetes CPU request for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_CPU_REQUESTS`
-- Default: `4000m`
+- Default: `3000m`
 
 ### db2_cpu_limits
 Define the Kubernetes CPU limit for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_CPU_LIMITS`
-- Default: `6000m`
+- Default: `3000m`
 
 ### db2_memory_requests
 Define the Kubernetes memory request for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_MEMORY_REQUESTS`
-- Default: `8Gi`
+- Default: `12Gi`
 
 ### db2_memory_limits
 Define the Kubernetes memory limit for the Db2 pod.
