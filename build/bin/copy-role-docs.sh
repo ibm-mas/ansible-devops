@@ -50,6 +50,7 @@ copyDoc ocp_deprovision
 copyDoc ocp_disable_updates
 copyDoc ocp_github_oauth
 copyDoc ocp_login
+copyDoc ocp_node_config
 copyDoc ocp_provision
 copyDoc ocp_roks_upgrade_registry_storage
 copyDoc ocp_simulate_disconnected_network

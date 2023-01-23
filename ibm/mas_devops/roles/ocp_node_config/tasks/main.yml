@@ -1,0 +1,138 @@
+---
+# 1. Fail if required parameters are not set
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Node name  ............................. {{ ocp_node_name | default('<undefined>', true) }}"
+      - "Node index ............................. {{ ocp_node_index | default('<undefined>', true) }}"
+
+      - "Label keys ............................. {{ ocp_node_label_keys | default('<undefined>', true) }}"
+      - "Label values ........................... {{ ocp_node_label_values | default('<undefined>', true) }}"
+
+      - "Taint keys ............................. {{ ocp_node_taint_keys | default('<undefined>', true) }}"
+      - "Taint values ........................... {{ ocp_node_taint_values | default('<undefined>', true) }}"
+      - "Taint effects .......................... {{ ocp_node_taint_effects | default('<undefined>', true) }}"
+
+- name: "Fail if required properties have not been provided"
+  assert:
+    that:
+      - ocp_node_name != "" or ocp_node_index != ""
+    fail_msg: "One or more required properties have not been set"
+
+- name: "Set up label lists"
+  when:
+    - ocp_node_label_keys != ""
+    - ocp_node_label_values != ""
+  set_fact:
+    ocp_node_label_keys_list: "{{ ocp_node_label_keys.split(',') }}"
+    ocp_node_label_values_list: "{{ ocp_node_label_values.split(',') }}"
+
+- name: "Set up label and taint lists"
+  when:
+    - ocp_node_taint_keys != ""
+    - ocp_node_taint_values != ""
+    - ocp_node_taint_effects != ""
+  set_fact:
+    ocp_node_taint_keys_list: "{{ ocp_node_taint_keys.split(',') }}"
+    ocp_node_taint_values_list: "{{ ocp_node_taint_values.split(',') }}"
+    ocp_node_taint_effects_list: "{{ ocp_node_taint_effects.split(',') }}"
+
+- name: "Count the number of labels and taints being applied"
+  set_fact:
+    ocp_node_label_count: "{{ ocp_node_label_keys_list | default([]) | length  }}"
+    ocp_node_taint_count: "{{ ocp_node_taint_keys_list | default([]) | length }}"
+
+- name: "Debug information (2)"
+  debug:
+    msg:
+      - "Labels ................................. {{ ocp_node_label_count }}"
+      - "Label keys ............................. {{ ocp_node_label_keys_list | default('<undefined>', true) }}"
+      - "Label values ........................... {{ ocp_node_label_values_list | default('<undefined>', true) }}"
+
+      - "Taints ................................. {{ ocp_node_taint_count }}"
+      - "Taint keys ............................. {{ ocp_node_taint_keys_list | default('<undefined>', true) }}"
+      - "Taint values ........................... {{ ocp_node_taint_values_list | default('<undefined>', true) }}"
+      - "Taint effects .......................... {{ ocp_node_taint_effects_list | default('<undefined>', true) }}"
+
+
+- name: "Fail if the same number of label keys and values have not been provided"
+  when: ocp_node_label_count | int > 0
+  assert:
+    that:
+      - (ocp_node_label_values_list | length) == ocp_node_label_count | int
+    fail_msg: "The number of label keys and keys provided does not match"
+
+- name: "Fail if the same number of taint keys, values, & effects have not been provided"
+  when: ocp_node_taint_count | int > 0
+  assert:
+    that:
+      - (ocp_node_taint_values_list | length) == ocp_node_taint_count | int
+      - (ocp_node_taint_effects_list | length) == ocp_node_taint_count | int
+    fail_msg: "The number of taint keys, labels, and effects provided does not match"
+
+
+# 2. Lookup the node name if ocp_node_index was used
+# -----------------------------------------------------------------------------
+- name: "Lookup node name"
+  when: ocp_node_index != ""
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+  register: ocp_node_list
+
+- debug:
+    msg: "{{ ocp_node_list.resources | length }}"
+
+- name: "Fail if there are no enough nodes"
+  when: ocp_node_index != ""
+  assert:
+    that:
+      - (ocp_node_list.resources | length ) > (ocp_node_index | int)
+    fail_msg: "There are less than {{ ocp_node_index }} nodes in the cluster ({{ (ocp_node_list.resources | length | int) }})"
+
+- name: "Lookup the name of the specified node"
+  when: ocp_node_index != ""
+  set_fact:
+    ocp_node_name: "{{ ocp_node_list.resources[ocp_node_index | int].metadata.name }}"
+
+- name: "Debug the identified node"
+  when: ocp_node_index != ""
+  debug:
+    msg:
+      - "Node name .............................. {{ ocp_node_name }}"
+
+
+# 3. Label the node
+# -----------------------------------------------------------------------------
+# Use the following command to verify:
+#   oc get node "xxx" -o yaml | yq .metadata.labels
+- name: "Add labels to node {{ ocp_node_name }}"
+  when:
+    - ocp_node_label_keys_list[item] is defined
+    - ocp_node_label_values_list[item] is defined
+  shell: |
+    oc label node {{ ocp_node_name }} {{ ocp_node_label_keys_list[item] }}={{ ocp_node_label_values_list[item] }} --overwrite
+  loop: "{{ range(0, ocp_node_label_count | int) | list }}"
+
+
+# 4. Taint the node
+# -----------------------------------------------------------------------------
+# Effects:
+# - NoSchedule: New pods are not scheduled onto the node
+# - PreferNoSchedule: New pods try not to be scheduled onto the node
+# - NoExecute: New pods are not schedules onto the node, existing pods are removed
+#
+# Use the following command to verify:
+#   oc get node "xxx" -o yaml | yq .spec.taints
+- name: "Add taints to node {{ ocp_node_name }}"
+  when:
+    - ocp_node_taint_keys_list[item] is defined
+    - ocp_node_taint_values_list[item] is defined
+    - ocp_node_taint_effects_list[item] is defined
+  shell: |
+    oc adm taint node {{ ocp_node_name }} {{ ocp_node_taint_keys_list[item] }}={{ ocp_node_taint_values_list[item] }}:{{ ocp_node_taint_effects_list[item] }} --overwrite
+  loop: "{{ range(0, ocp_node_taint_count | int) | list }}"
+
+# Use the following command to see what's running on the node:
+#  oc get pods --all-namespaces -o wide --field-selector spec.nodeName=xxx
