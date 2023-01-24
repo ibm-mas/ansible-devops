@@ -1,6 +1,12 @@
+---
+- name: Fail if ibmcloud_apikey not provided
+  assert:
+    that:
+      - ibmcloud_apikey is defined and ibmcloud_apikey != ''
+    fail_msg: "property ibmcloud_apikey is required"
+
 # 1. Backup the Mongodb instance
 #--------------------------------------------------------------------------------
-
 - name: "Debug information when backup MongoDB"
   debug:
     msg:
@@ -10,11 +16,11 @@
 
 - name: Login IBMCloud
   ansible.builtin.shell: |
-    ibmcloud login --apikey {{ibmcloud_apikey}} -r {{ibmcloud_region}} --quiet -g {{ibmcloud_resourcegroup}}
+    ibmcloud login --apikey {{ ibmcloud_apikey }} -r {{ ibmcloud_region }} --quiet -g {{ ibmcloud_resourcegroup }}
 
 - name: Find IBM Cloud Resource
   ansible.builtin.shell: |
-    ibmcloud resource service-instances --service-name databases-for-mongodb  --type all --output JSON | jq -r '.[] | select(.name=="{{ibm_mongo_name}}") | .id'
+    ibmcloud resource service-instances --service-name databases-for-mongodb  --type all --output JSON | jq -r '.[] | select(.name=="{{ ibm_mongo_name }}") | .id'
   register: mongodb_crn
 
 - name: Back up MongoDB
@@ -40,7 +46,7 @@
     mongo_memory: "{{ mongo_db_info.stdout | from_json | json_query('[0].parameters.members_memory_allocation_mb')}}"
     resource_group_id: "{{ mongo_db_info.stdout | from_json | json_query('[0].resource_group_id')}}"
 
-# # 2. login oenshift cluster
+# # 2. Debug Information
 # #--------------------------------------------------------------------------------
 - name: "Debug information for this MongoDB"
   debug:
