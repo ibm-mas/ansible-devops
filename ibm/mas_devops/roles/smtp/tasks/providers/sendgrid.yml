@@ -1,85 +1,66 @@
-- name: Lookup SMTP Provider Credentials
-  community.kubernetes.k8s_info:
+- name: Create namespace
+  kubernetes.core.k8s:
     api_version: v1
-    kind: Secret
-    name: {{ smtp_provider_creds_name }}
-    namespace: "{{ smtp_config_namespace }}"
-  register: _provider_creds_result
+    kind: Namespace
+    name: "mas-{{ mas_instance_id }}-core"
 
-- name: Create SMTP Provider Credentials
-  when:
-    - not _provider_creds_result.resources | length > 0
+- name: Create SendGrid secret
   community.kubernetes.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/sendgrid/smtp-provider-credentials.yml.j2')}}"
-  register: _provider_creds_result
+    definition: "{{ lookup('template', 'templates/sendgrid/send-grid-secret.yaml') }}"
+  register: _sendgrid_secret_result
 
-- name: Lookup SMTP Instance Credentials
+- name: Lookup SendGrid auth secret
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Secret
-    name: {{ smtp_instance_creds_name }}
-    namespace: "{{ smtp_config_namespace }}"
-  register: _instance_creds_result
+    namespace: "mas-{{ mas_instance_id }}-core"
+    name: "{{sendgrid_api_key_secret}}"
+  register: _send_grid_creds
 
-- name: Create SMTP Instance Credentials
-  block:
-  - name: Generate SMTP Instance Password
-    set_fact:
-      _smtp_instance_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=20') }}"
-
-  - name: Create SMTP Instance Credentials
-    community.kubernetes.k8s:
-      apply: yes
-      apiVersion: v1
-      kind: Secret
-      type: Opaque
-      metadata:
-        name: "{{ smtp_instance_creds_name }}"
-        namespace: "{{ smtp_config_namespace }}"
-      stringData:
-        username: "{{ smtp_instance_username }}"
-        password: "{{ _smtp_instance_password }}"
-    register: _instance_creds_result
-  when:
-    - not _instance_creds_result.resources | length > 0
-
-
-- name: Lookup Instance apikey
-  community.kubernetes.k8s_info:
+- name: Lookup for instance credentials Secret
+   community.kubernetes.k8s_info:
     api_version: v1
     kind: Secret
-    name: "{{ smtp_instance_apikey_name }}"
-    namespace: "{{ smtp_config_namespace }}"
-  register: _instance_apikey_result
+    name: "{{mas_instance_id}}-smtp-apikey"
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: _instance_smtp_key
+
+- name: Set Facts
+  set_fact:
+    _send_grid_apikey: "{{_send_grid_creds.resources[0].data.api_key | b64decode}}"
+    _send_grid_cert_1: "{{_send_grid_creds.resources[0].data.ca_1 | b64decode}}"
+    _send_grid_cert_2: "{{_send_grid_creds.resources[0].data.ca_2 | b64decode}}"
+    _send_grid_cert_3: "{{_send_grid_creds.resources[0].data.ca_3 | b64decode}}"
+    _instance_user_name: ibm-masms_{{customer_name}}
+    _instance_user_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=20') }}"
 
 - name: Create send grid user
   block:
     - name: Check if subuser already exist
       uri:
-        url: "https://api.sendgrid.com/v3/subusers/{{ smtp_instance_username }}"
+        url: "https://{{ sendgrid_api_url }}/v3/subusers/{{_instance_user_name}}"
         validate_certs: no
         method: GET
         headers:
-          Authorization: "Bearer {{ smtp_provider_apikey }}"
+          Authorization: "Bearer {{ _send_grid_apikey }}"
           cache-control: "no-cache"
         status_code: [201, 404, 200]
         timeout: 30
       register: _user_exist_result
 
-
     - name: Create subuser if user does not exist
       when:
         - _user_exist_result.status == 404
       uri:
-        url: "https://api.sendgrid.com/v3/subusers"
+        url: "https://{{ sendgrid_api_url }}/v3/subusers"
         validate_certs: no
         method: POST
         headers:
-          Authorization: "Bearer {{ smtp_provider_apikey }}"
+          Authorization: "Bearer {{ _send_grid_apikey }}"
           cache-control: "no-cache"
         body_format: "json"
-        body: "{{ lookup('template','templates/sendgrid/subuser.json.j2') }}"
+        body: "{{ lookup('template','templates/sendgrid/ibm-masms-subuser.json.j2') }}"
         status_code: 201
         timeout: 30
       register: _create_user_result
@@ -89,22 +70,21 @@
       when:
         - _user_exist_result.status == 404
       uri:
-        url: "https://api.sendgrid.com/v3/api_keys"
+        url: "https://{{ sendgrid_api_url }}/v3/api_keys"
         validate_certs: no
         method: POST
         headers:
-          Authorization: "Bearer {{ smtp_provider_apikey }}"
-          On-behalf-of: "{{ smtp_instance_username }}"
+          Authorization: "Bearer {{ _send_grid_apikey }}"
+          On-behalf-of: "{{_instance_user_name}}"
           cache-control: "no-cache"
         body_format: "json"
         body:
-          name: "{{ smtp_instance_username}}_apikey"
+          name: "{{_instance_user_name}}_apikey"
           scopes:
             - "mail.send"
         status_code: 201
         timeout: 30
-      register: _smtp_instance_apikey
-
+      register: _subuser_apikey
 
     - name:  Create secret to hold instance smtp apikey
       when:
@@ -115,11 +95,10 @@
           apiVersion: v1
           kind: Secret
           metadata:
-            name: "{{ smtp_instance_apikey_name }}"
-            namespace: "{{ smtp_config_namespace }}"
+            name: "{{mas_instance_id}}-smtp-apikey"
+            namespace: "mas-{{ mas_instance_id }}-core"
           data:
-            api_key: "{{_smtp_instance_apikey.json.api_key | b64encode }}"
-
+            api_key: "{{_subuser_apikey.json.api_key | b64encode }}"
 
     - name:  Perform Single Sender Authentication
       when:
@@ -128,40 +107,37 @@
         - (_result.json.errors is not defined or _result.json.errors[0].message == 'already exists')
       register: _result
       uri:
-        url: "https://api.sendgrid.com/v3/verified-senders"
+        url: "https://{{ sendgrid_api_url }}/v3/verified_senders"
         validate_certs: no
         method: POST
         headers:
-          Authorization: "Bearer {{ smtp_provider_apikey }}"
-          On-behalf-of: "{{ smtp_instance_username }}"
+          Authorization: "Bearer {{ _send_grid_apikey }}"
+          On-behalf-of: "{{_instance_user_name}}"
           cache-control: "no-cache"
         body_format: "json"
-        body: "{{ lookup('template','templates/sendgrid/verify-sender.json.j2') }}"
+        body: "{{ lookup('template','templates/sendgrid/ibm-masms-verify-sender.json.j2') }}"
         status_code: 201, 400
         timeout: 30
   when:
-    - not _instance_apikey_result.resources | length > 0
+    - not _instance_smtp_key.resources | length > 0
 
-
-- name: Lookup Instance apikey
+- name: Lookup for instance credentials Secret
   community.kubernetes.k8s_info:
     api_version: v1
     kind: Secret
-    name: "{{ smtp_instance_apikey_name }}"
-    namespace: "{{ smtp_config_namespace }}"
-  register: _instance_apikey_result
-
+    name: "{{mas_instance_id}}-smtp-apikey"
+    namespace: "{{ibm_aiapp_sre_pipelines_namespace}}"
+  register: _instance_smtp_key
 
 - name: Set apikey
-  when: (_smtp_instance_apikey.changed or _smtp_instance_apikey.resources | length > 0)
+  when: (_subuser_apikey.changed or _instance_smtp_key.resources | length > 0)
   set_fact:
-    smtp_instance_apikey: "{{ (_smtp_instance_apikey is defined and _smtp_instance_apikey.json is defined) | ternary(_smtp_instance_apikey.json.api_key, _instance_apikey_result.resources[0].data.api_key | b64decode) }}"
-
+    sendgrid_user_apikey: "{{(_subuser_apikey is defined and _subuser_apikey.json is defined) | ternary(_subuser_apikey.json.api_key, _instance_smtp_key.resources[0].data.api_key | b64decode)}}"
 
 - name: Copy SMTPCfg to filesystem
   ansible.builtin.template:
     src: smtpcfg.yaml
     dest: "{{ mas_config_dir }}/smtp-{{ mas_instance_id | lower }}.yml"
   when:
-    - _existent_smtp.resources | length == 0
-    - smtp_instance_apikey is defined
+    -  _existent_smtp.resources | length == 0
+    - sendgrid_user_apikey is defined
