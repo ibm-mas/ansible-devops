@@ -1,7 +1,7 @@
 Role Name
 =========
 
-Create IBM Cloud resource keys (apikeys for speficic services associated to the account)
+Create IBM Cloud resource keys (apikeys for specific services associated to the account)
 
 
 Role Variables
