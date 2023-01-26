@@ -79,5 +79,10 @@ Optionally, you can also pin the version of the collection that you install, all
 ansible-galaxy collection install ibm.mas_devops:10.6.2
 ```
 
+## Install via Automation Operator
+You can now install the Maximo Application Suite via a single operator. The operator will run all the MAS ansible in the background for you.  This is a good approach if you do not have extensive MAS experience or do not want to install via other methods.  The operator provides defaults for a straightforward installation.  
+
+To leverage this approach, install the custom catalog into your cluster and simply install and use the operator as any other operator.  More detailed instructions and installation notes can be found [here](https://github.com/cloud-native-toolkit/operator-masauto)
+
 ## Support
 This Ansible collection is developed by the IBM Maximo Application Suite development team, customers may raise support tickets via the same routes they would an issue with the product itself, or [raise an issue directly in the GitHub repository](https://github.com/ibm-mas/ansible-devops/issues).
