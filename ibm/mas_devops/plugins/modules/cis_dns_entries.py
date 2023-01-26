@@ -55,17 +55,17 @@ def main():
 
         cis_waf = dict(
             type = 'bool',
-            required = True
+            required = False
         ),
 
         edge_certificate_routes = dict(
             type = 'list',
-            required = True
+            required = False
         ),
 
         cis_proxy = dict(
             type = 'bool',
-            required = True
+            required = False
         ),
 
         cis_subdomain = dict(
