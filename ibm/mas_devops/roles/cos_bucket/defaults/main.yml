@@ -14,7 +14,6 @@ ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
 ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
 ibmcos_service: cloud-object-storage
 ibmcos_instance_name: "{{ lookup('env', 'COS_INSTANCE_NAME') }}"
-ibmcos_url: "{{ lookup('env', 'COS_REGION_LOCATION_URL') | default('https://s3.us.cloud-object-storage.appdomain.cloud', true) }}"
 ibmcos_location_info: global
 
 # IBM Cloud Object Storage bucket details
@@ -29,6 +28,8 @@ supported_cross_region_location: ['us', 'ap', 'eu']
 supported_region_location: ['au-syd', 'eu-de', 'eu-gb', 'jp-tok', 'us-east', 'us-south', 'ca-tor', 'jp-osa', 'br-sao']
 ibmcos_bucket_region_location_type: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION_TYPE') | default('cross_region_location', true) }}" # supported: region_location, cross_region_location and single_site_location
 ibmcos_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default(bucket_cross_reg_loc, true) }}"
+ibmcos_url_default: "https://s3.{{ ibmcos_bucket_region_location }}.cloud-object-storage.appdomain.cloud"
+ibmcos_url: "{{ lookup('env', 'COS_REGION_LOCATION_URL') | default(ibmcos_url_default, true) }}"
 
 ibmcos_resource_key_iam_role: "{{ lookup('env', 'COS_RESOURCE_KEY_IAM_ROLE') | default('Manager', True) }}"
 ibmcos_service_credentials_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ ibmcos_resource_key_iam_role | lower }}-key"
@@ -52,7 +53,8 @@ aws_bucket_read_only_username: "{{ aws_bucket_name }}-sid-ro"
 
 aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-2', True) }}"
 aws_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default(aws_region, true) }}"
-aws_url: "https://s3.{{ aws_region }}.amazonaws.com"
+aws_url_default: "https://s3.{{ aws_region }}.amazonaws.com"
+aws_url: "{{ lookup('env', 'COS_REGION_LOCATION_URL') | default(aws_url_default, true) }}"
 
 aws_bucket_versioning_flag: "{{ lookup('env', 'COS_BUCKET_VERSIONING_FLAG') | default(True, True) }}"
 aws_bucket_encryption: "{{ lookup('env', 'COS_BUCKET_ENCRYPTION') | string }}"

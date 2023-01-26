@@ -1,0 +1,14 @@
+---
+- name: Get the CP4D Route info from OpenShift
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ cpd_version is match('3.*') | ternary('mas-cpd-cpd', 'cpd') }}"
+    namespace: "{{ cp4d_namespace }}"
+  register: cp4d_route_info
+
+- debug: var=cp4d_route_info
+
+- name: Get the CP4D host from Route info and set as cp4d_host
+  set_fact:
+    cp4d_host: "{{ cp4d_route_info.resources[0].spec.host }}"

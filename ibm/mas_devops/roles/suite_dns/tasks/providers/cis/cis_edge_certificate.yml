@@ -1,3 +1,4 @@
+---
 - name: "cis : Ensure IBMCloud CIS is installed"
   ansible.builtin.shell: |
     ibmcloud plugin install cis -f
@@ -35,13 +36,13 @@
     hasDedicated: "{{'advanced' in _cis_certificates.stdout_lines[2]}}"
     dedicatedId: "{{ _cis_certificates.stdout_lines[2].split(' ')[0]}}"
 
-- name: Delete Existent Advanced Edge Certificate
+- name: "cis : Delete Existent Advanced Edge Certificate"
   ansible.builtin.shell: |
     ibmcloud cis certificate-delete {{(_cis_domains_result.stdout | from_json)[0].id}}  {{dedicatedId}} -i {{cis_service_name}} -f
   when: hasDedicated and override_edge_certs
   register: _deleted_certificate
 
-- name: Order certificate if there no dedicated yet
+- name: "cis : Order certificate if there no dedicated yet"
   ansible.builtin.shell: |
     ibmcloud cis certificate-order {{(_cis_domains_result.stdout | from_json)[0].id}} --hostnames {{edge_cert_routes|join(',')}} -i {{cis_service_name}}
   when:
