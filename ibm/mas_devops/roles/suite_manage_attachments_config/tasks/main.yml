@@ -21,12 +21,31 @@
 - name: "Fail if mas_manage_attachments_provider is not provided"
   assert:
     that:
-      - mas_manage_attachments_provider is defined and mas_manage_attachments_provider in ['cos', 'filestorage']
-    fail_msg: "mas_manage_attachments_provider property is required and must be set to one of the supported storage providers: ['cos', 'filestorage']"
+      - mas_manage_attachments_provider is defined and mas_manage_attachments_provider in ['filestorage', 'ibm', 'aws']
+    fail_msg: "mas_manage_attachments_provider property is required and must be set to one of the supported storage providers: {{ mas_manage_attachments_provider_supported }}"
 
-- name: "Running {{ mas_manage_attachments_provider }} attachments configuration for Manage application"
-  include_tasks: "tasks/providers/cos.yml"
-  when: mas_manage_attachments_provider == 'cos'
+# Configure COS bucket for Manage attachments
+# -----------------------------------------------------------------------------
+- when: mas_manage_attachments_provider in ['ibm', 'aws']
+  block:
+
+    - name: 'Configure {{ mas_manage_attachments_provider }} cos bucket for Manage attachments'
+      include_role:
+        name: ibm.mas_devops.cos_bucket
+      vars:
+        cos_type: "{{ mas_manage_attachments_provider }}"
+
+    - name: 'Retrieve {{ mas_manage_attachments_provider }} cos certificates'
+      include_tasks: "tasks/retrieve-cos-certs.yml"
+      vars:
+        cos_type: "{{ mas_manage_attachments_provider }}"
+
+    - name: "Add the {{ cos_type | upper }} COS certificates in ManageWorkspace CR"
+      import_role:
+        name: ibm.mas_devops.suite_manage_import_certs_config
+      vars:
+        manage_certificates: "{{ cos_tls_crt }}"
+        manage_certificates_alias_prefix: "{{ cos_cert_alias_prefix }}"
 
 # 6. Update Manage database with COS information
 # ---------------------------------------------------------------------------------------------------------------------
@@ -71,9 +90,9 @@
   set_fact:
     db2_pod_name: "{{ db2_pod.resources[0].metadata.name if (db2_pod.resources is defined) else 'Undefined' }}"
 
-- name: Create SQL script to update Manage DB2 with COS information
+- name: Create SQL script to update Manage DB2 with storage provider information
   ansible.builtin.template:
-    src: '{{ mas_manage_attachments_provider }}.sh.j2'
+    src: '{{ mas_manage_attachments_provider_template_file_config[mas_manage_attachments_provider] }}'
     dest: '/tmp/{{ mas_manage_attachments_provider }}_attachment_config.sh'
     mode: '777'
 
