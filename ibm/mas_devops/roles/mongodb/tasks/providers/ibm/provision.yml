@@ -77,16 +77,23 @@
       "members_memory_allocation_mb":"{{ ibm_mongo_memory }}",
       "members_disk_allocation_mb": "{{ ibm_mongo_disk }}",
       "members_cpu_allocation_count":"{{ ibm_mongo_cpu }}",
-      "adminpassword":"{{ mongo_admpass }}",
-      "backup_id" : "{{ (is_restore) | ternary(ibm_mongo_backup_id,None) }}"
+      "adminpassword":"{{ mongo_admpass }}"
       }'
   register: ibm_mongo_info
 
-- name: Debug MongoDB Provisioning Info
-  when: not mongo_exists
-  debug: 
-    msg:
-      - "Provision Info ........ {{ ibm_mongo_info.stdout }}"
+
+- name: Restore MongoDB with backed up Instance in IBM Cloud
+  when: is_restore
+  ansible.builtin.shell: |
+    ibmcloud resource service-instance-create {{ ibm_mongo_name }} {{ ibm_mongo_service }} {{ ibm_mongo_plan }}  {{ ibmcloud_region }} --service-endpoints {{ ibm_mongo_service_endpoints }} --parameters  \ '{
+      "version":"{{ ibm_mongo_version }}",
+      "members_memory_allocation_mb":"{{ ibm_mongo_memory }}",
+      "members_disk_allocation_mb": "{{ ibm_mongo_disk }}",
+      "members_cpu_allocation_count":"{{ ibm_mongo_cpu }}",
+      "adminpassword":"{{ mongo_admpass }}",
+      "backup_id" : "{{ ibm_mongo_backup_id }}"
+      }'
+  register: ibm_mongo_restore_info
 
 # provisioning takes minimum of about 10 mins ,so we need to retry to fetch instance info
 - name: Fetch Mongo DB Instance information
