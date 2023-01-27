@@ -1,0 +1,41 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: oracle-database-operator-selfsigned-issuer
+  namespace: {{ oracle_namespace }}
+spec:
+  selfSigned: {}
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: oracle-database-operator-serving-cert
+  namespace: {{ oracle_namespace }}
+spec:
+  commonName: "oracle"
+  duration: "175200h0m0s"
+  renewBefore: "2160h0m0s"
+  dnsNames:
+  - oracle-database-operator-webhook-service.{{ oracle_namespace }}.svc
+  - oracle-database-operator-webhook-service.{{ oracle_namespace }}.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: oracle-database-operator-selfsigned-issuer
+  usages:
+    - cert sign
+    - digital signature
+    - key encipherment
+    - server auth
+  secretName: webhook-server-cert
+  organization:
+    - "IBM Maximo Application Suite"
+  subject:
+    countries:
+      - GB
+    streetAddresses:
+      - London
+    localities:
+      - London
+    organizationalUnits:
+      - IBM Maximo Application Suite DB2U
