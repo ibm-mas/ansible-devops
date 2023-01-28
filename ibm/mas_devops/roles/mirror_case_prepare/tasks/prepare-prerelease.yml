@@ -38,24 +38,53 @@
     tar -xzf "{{ bundle_download.dest }}" -C "{{ mirror_working_dir }}"
   register: bundle_unarchive
 
-# 5. Create Directories to hold the manifest file
+# 5. Create a list of all the images for this CASE
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Make a list from image-map"
+  set_fact:
+    images_with_tags: '{{ images_with_tags + [((item | split(": ") | first) | split("/"))[2:] | join("/")] }}'
+    images_with_tags_long: '{{ images_with_tags_long + [((item | split(": ") | first) | split("/"))[1:] | join("/")] }}'
+  loop: "{{ lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}/inventory/{{ case_inventory }}/files/image-map.yaml').splitlines() }}"
+  vars:
+    images_with_tags: []
+    images_with_tags_long: []
+
+- name: "{{ case_name }} : Add images from resource file"
+  when: '"-operator-bundle" is not in item.image'
+  set_fact:
+    images_with_tags: '{{ images_with_tags + [item.image + ":" + item.tag] }}'
+    images_with_tags_long: '{{ images_with_tags_long + [item.image + ":" + item.tag] }}'
+  loop: "{{ (lookup('template', '{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}/inventory/{{ case_inventory }}/resources.yaml') | from_yaml).resources.resourceDefs.containerImages }}"
+
+- name: "{{ case_name }} : Add operator bundle image"
+  when: '"-operator-bundle" is in item.image'
+  set_fact:
+    images_with_tags: '{{ images_with_tags + [item.image + "-with-digest:" + item.tag] }}'
+    images_with_tags_long: '{{ images_with_tags_long + [item.image + "-with-digest:" + item.tag] }}'
+  loop: "{{ (lookup('template', '{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}/inventory/{{ case_inventory }}/resources.yaml') | from_yaml).resources.resourceDefs.containerImages }}"
+
+# 6. Create Directories to hold the manifest file
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Create target directories (only direct for pre-release)"
   file:
     path: "{{ mirror_working_dir }}/manifests/direct"
     state: directory
 
-# 6. Generate the manifest file from the image-map and resources file
+# 7. Get the images digests from artifactory using image list
 # -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Generate manifest from image-map"
+- name: "{{ case_name }} : Get images digests from artifactory"
+  shell: |
+    (skopeo inspect "docker://wiotp-docker-local.artifactory.swg-devops.com/{{ item }}" \
+      --creds "{{ artifactory_username }}:{{ artifactory_apikey }}" \
+      --no-tags)| jq -r '[.Name, .Digest] | join("@")' \
+  loop: "{{ images_with_tags }}"
+  register: images_with_digests
+
+# 8. Generate the manifest file from images_with_digests and images_with_tags_long
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Generate the manifest file"
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
     create: true
-    line: '{{ "wiotp-docker-local.artifactory.swg-devops.com" + "/" + ((item | split(": ") | first) | split("/"))[2:] | join("/") + "=" + registry_public_url + "/" + ((item | split(": ") | first) | split("/"))[1:] | join("/") }}'
-  loop: "{{ lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}/inventory/{{ case_inventory }}/files/image-map.yaml').splitlines() }}"
-
-- name: "{{ case_name }} : Generate remaining manifest from resources file"
-  ansible.builtin.lineinfile:
-    path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
-    line: '{{ "wiotp-docker-local.artifactory.swg-devops.com" + "/" + item.image + ":" + item.tag + "=" +registry_public_url + "/" + item.image + ":" + item.tag }}'
-  loop: "{{ (lookup('template', '{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}/inventory/{{ case_inventory }}/resources.yaml') | from_yaml).resources.resourceDefs.containerImages }}"
+    line: '{{ item.0.stdout + "=" + registry_public_url + "/" + item.1 }}'
+  loop: "{{ images_with_digests.results | zip(images_with_tags_long) | list }}"
