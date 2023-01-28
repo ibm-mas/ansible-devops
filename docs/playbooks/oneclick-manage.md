@@ -57,7 +57,6 @@ If the database is not SSL enabled, set the SSL_ENABLED variable to false. By de
 
 `export SSL_ENABLED=false`  
  
- 
 ## Usage
 
 ```bash
