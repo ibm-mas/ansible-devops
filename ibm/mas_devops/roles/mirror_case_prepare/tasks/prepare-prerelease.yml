@@ -74,7 +74,7 @@
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Get images digests from artifactory"
   shell: |
-    (skopeo inspect "docker://wiotp-docker-local.artifactory.swg-devops.com/{{ item }}" \
+    (skopeo inspect "docker://{{ artifactory_image_repo }}/{{ item }}" \
       --creds "{{ artifactory_username }}:{{ artifactory_apikey }}" \
       --no-tags)| jq -r '[.Name, .Digest] | join("@")' \
   loop: "{{ images_with_tags }}"
@@ -88,3 +88,20 @@
     create: true
     line: '{{ item.0.stdout + "=" + registry_public_url + "/" + item.1 }}'
   loop: "{{ images_with_digests.results | zip(images_with_tags_long) | list }}"
+
+# 9. Update digests in image-map and save to file
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Update the digests in the image-map and save to file"
+  ansible.builtin.lineinfile:
+    path: "{{ mirror_working_dir }}/image-maps/{{ case_name }}/{{ case_version }}.yaml"
+    create: true
+    line: '{{ (item.0 | split("@") | first) + "@" + (item.1.stdout | split("@") | last) }}'
+  loop: "{{ images_map_lines | zip(images_with_digests.results) | list }}"
+  vars:
+    images_map_lines: "{{ lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}/inventory/{{ case_inventory }}/files/image-map.yaml').splitlines() }}"
+
+# 10. Debug
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Location of updated image-map"
+  debug:
+    msg: "Image map location - {{ mirror_working_dir }}/image-maps/{{ case_name }}/{{ case_version }}.yaml"
