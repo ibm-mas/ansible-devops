@@ -29,42 +29,40 @@
   with_dict:
     - "{{  mas_annotations_dict  }}"
 
-    - name: "Set facts : HyperscalerProvider"
-      set_fact:
-        input_hyperscalerProvider: "{{ item.value }}"
-      when:
-        -  mas_annotations_dict is defined and item.key == 'mas.ibm.com/hyperscalerProvider'
-      with_dict:
-        - "{{  mas_annotations_dict  }}"
+- name: "Set facts : HyperscalerProvider"
+  set_fact:
+    input_hyperscalerProvider: "{{ item.value }}"
+  when:
+    -  mas_annotations_dict is defined and item.key == 'mas.ibm.com/hyperscalerProvider'
+  with_dict:
+    - "{{  mas_annotations_dict  }}"
 
-    - name: "Debug input hyperscaler values"
-      debug:
-        msg:
-          - "Hyperscaler Provider ............ {{ input_hyperscalerProvider | default('<undefined>', true) }}"
-          - "Hyperscaler Channel ............ {{ input_hyperscalerChannel | default('<undefined>', true) }}"
-          - "Hyperscaler Format ............ {{ input_hyperscalerFormat | default('<undefined>', true) }}"
-          - "mas_annotations_dict ............ {{ mas_annotations_dict }}"
+- name: "Debug input hyperscaler values"
+  debug:
+    msg:
+      - "Hyperscaler Provider ............ {{ input_hyperscalerProvider | default('<undefined>', true) }}"
+      - "Hyperscaler Channel ............ {{ input_hyperscalerChannel | default('<undefined>', true) }}"
+      - "Hyperscaler Format ............ {{ input_hyperscalerFormat | default('<undefined>', true) }}"
+      - "mas_annotations_dict ............ {{ mas_annotations_dict }}"
 
-    # 1.c Validate annotations: Check for Hyperscaler flag partially set
-    # -----------------------------------------------------------------------------
-    - name: "Check for Hyperscaler flag partially set"
-      when:
-        -  mas_annotations_dict is defined
-      assert:
-        that:
-          -  (input_hyperscalerProvider is undefined and input_hyperscalerChannel is undefined and input_hyperscalerFormat is undefined) or (input_hyperscalerProvider is defined and input_hyperscalerChannel is defined )
-        fail_msg: "Assertion Failed! Invalid HyperScalerFlag combination in {{mas_annotations}} "
-        success_msg: "Assertion Passed!  Valid HyperScalerFlag combination in {{mas_annotations}} "
-
-
-# 1.c Validate annotations: Check if mas_annotations has valid allowed values
+# 1.c Validate annotations: Check for Hyperscaler flag partially set
 # -----------------------------------------------------------------------------
-- name: "Fail if mas_annotations value is invalid"
+- name: "Check for Hyperscaler flag partially set"
   when:
     -  mas_annotations_dict is defined
   assert:
     that:
-      -  item.key in mas_annotation_valid_entries
+      -  (input_hyperscalerProvider is undefined and input_hyperscalerChannel is undefined and input_hyperscalerFormat is undefined) or (input_hyperscalerProvider is defined and input_hyperscalerChannel is defined )
+    fail_msg: "Assertion Failed! Invalid HyperScalerFlag combination in {{mas_annotations}} "
+    success_msg: "Assertion Passed!  Valid HyperScalerFlag combination in {{mas_annotations}} "
+
+# 1.d Validate annotations: Check if mas_annotations has valid allowed values
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_annotations value is invalid"
+  when:
+    -  mas_annotations_dict is defined and item.key in mas_annotation_valid_entries  
+  assert:
+    that:
       -  mas_annotation_valid_entries[item.key] is defined and mas_annotation_valid_entries[item.key] | length>0
       -  item.value in mas_annotation_valid_entries[item.key]
     fail_msg: "Assertion Failed! Annotation {{item.key}}={{item.value}} is not valid "
@@ -72,7 +70,7 @@
   with_dict:
     - "{{  mas_annotations_dict  }}"
 
-# 1.d Check if mas_annotations value has invalid combinations
+# 1.e Check if mas_annotations value has invalid combinations
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_annotations value has invalid combinations"
   when:
