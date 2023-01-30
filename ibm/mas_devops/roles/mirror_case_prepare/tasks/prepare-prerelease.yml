@@ -44,10 +44,12 @@
   set_fact:
     images_with_tags: '{{ images_with_tags + [((item | split(": ") | first) | split("/"))[2:] | join("/")] }}'
     images_with_tags_long: '{{ images_with_tags_long + [((item | split(": ") | first) | split("/"))[1:] | join("/")] }}'
+    og_images_with_digests: '{{ og_images_with_digests + [((item | split(": ") | last) | split("/")) | last] }}'
   loop: "{{ lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}/inventory/{{ case_inventory }}/files/image-map.yaml').splitlines() }}"
   vars:
     images_with_tags: []
     images_with_tags_long: []
+    og_images_with_digests: []
 
 - name: "{{ case_name }} : Add images from resource file"
   when: '"-operator-bundle" is not in item.image'
@@ -80,7 +82,15 @@
   loop: "{{ images_with_tags }}"
   register: images_with_digests
 
-# 8. Generate the manifest file from images_with_digests and images_with_tags_long
+# 8. Compare the artifactory digests with the original from image map
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Verify the digests for the images"
+  when: "(item.0.stdout | split('/') | last) != item.1"
+  debug:
+    msg: "Original image map digest from bundle will be replaced to match the digest from artifactory"
+  loop: "{{ images_with_digests.results | zip(og_images_with_digests) | list }}"
+
+# 9. Generate the manifest file from images_with_digests and images_with_tags_long
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Generate the manifest file"
   ansible.builtin.lineinfile:
@@ -89,7 +99,7 @@
     line: '{{ item.0.stdout + "=" + registry_public_url + "/" + item.1 }}'
   loop: "{{ images_with_digests.results | zip(images_with_tags_long) | list }}"
 
-# 9. Update digests in image-map and save to file
+# 10. Update digests in image-map and save to file
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Update the digests in the image-map and save to file"
   ansible.builtin.lineinfile:
@@ -100,7 +110,7 @@
   vars:
     images_map_lines: "{{ lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}/inventory/{{ case_inventory }}/files/image-map.yaml').splitlines() }}"
 
-# 10. Debug
+# 11. Debug
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Location of updated image-map"
   debug:
