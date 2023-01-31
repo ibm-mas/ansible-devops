@@ -213,8 +213,8 @@ The Registration key of the LicenseService instance to be used when the Maximo A
 Only supported in SLS 3.6 or later. Installation of earlier releases will ignore this parameter. ConfigMap name used for customizing SLS resources scaling settings. SLS provides the following built-in t-shirt sizes: small/medium/large. 
 For example, to deploy your suite with 
 - small size, set this to `{sls_instance_id}-wl-cust-small`,
-- for medium size set to `{sls_instance_id}-wl-cust-small` and 
-- for large size set to `{sls_instance_id}-wl-cust-small`. 
+- for medium size set to `{sls_instance_id}-wl-cust-medium` and 
+- for large size set to `{sls_instance_id}-wl-cust-large`. 
 
 If using a custom scaling configuration, use any ConfigMap name previously created. Alternatively, you can use the environment variable `SLS_CUSTOMIZE_SCALING` to set the scaling ConfigMap name.
 
