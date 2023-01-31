@@ -5,7 +5,7 @@
     msg: "{{ item }}"
 
 - name: "Verify if ibm operator is already installed"
-  community.kubernetes.k8s_info:
+  kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
     namespace: "{{ ibm_common_services_namespace }}"
@@ -16,7 +16,7 @@
 - name: Lookup and Approve IBM Common Services operators
   block:
     - name: "Lookup and wait for Operator subscription to exist"
-      community.kubernetes.k8s_info:
+      kubernetes.core.k8s_info:
         api_version: operators.coreos.com/v1alpha1
         kind: Subscription
         namespace: "{{ ibm_common_services_namespace }}"
@@ -28,7 +28,7 @@
       until: _item_subscription_result.resources | length > 0
 
     - name: Lookup Operator install plan
-      community.kubernetes.k8s_info:
+      kubernetes.core.k8s_info:
         api_version: operators.coreos.com/v1alpha1
         kind: InstallPlan
         namespace: "{{ ibm_common_services_namespace }}"
@@ -47,7 +47,7 @@
         - _item_subscription_result.resources[0].status.state != "AtLatestKnown"
         - item_install_plan.resources | length > 0
         - item_install_plan.resources[0].status.phase != "Complete"
-      community.kubernetes.k8s:
+      kubernetes.core.k8s:
         definition:
           apiVersion: operators.coreos.com/v1alpha1
           kind: InstallPlan
