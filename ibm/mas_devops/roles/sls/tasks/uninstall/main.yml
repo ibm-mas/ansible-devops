@@ -1,0 +1,87 @@
+---
+# 1. Delete LicenseService
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete the sls.ibm.com/v1.LicenseService"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: sls.ibm.com/v1
+    kind: LicenseService
+    namespace: "{{ sls_namespace }}"
+    name: "{{ sls_instance_name }}"
+
+
+# 2. Wait for Deployments to shut down
+# -----------------------------------------------------------------------------
+# We should be left with only two deployments running in the namespace:
+# - ibm-sls-operator
+# - ibm-truststore-mgr-controller-manager
+#
+- name: "uninstall : Wait for all deployments to wind down"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    namespace: "{{ sls_namespace }}"
+  register: deployments
+  until:
+    - deployments.resources is defined
+    - deployments.resources | length <= 2
+  retries: 30
+  delay: 10
+
+
+# 3. Verify that LicenseService CR is gone
+# -----------------------------------------------------------------------------
+- name: "uninstall : Look for the LicenseService CR after deletion"
+  kubernetes.core.k8s_info:
+    api_version:  sls.ibm.com/v1
+    kind: LicenseService
+    namespace: "{{ sls_namespace }}"
+    name: "{{ sls_instance_name }}"
+  register: verify_sls_delete
+
+- name: "uninstall : Verify the LicenseService CR was deleted"
+  assert:
+    that:
+      - verify_sls_delete.resources is defined
+      - verify_sls_delete.resources | length == 0
+
+
+# 4. Verify that Truststore CRs are all gone
+# -----------------------------------------------------------------------------
+- name: "uninstall : Look for the Suite CR after deletion"
+  kubernetes.core.k8s_info:
+    api_version: truststore-mgr.ibm.com/v1
+    kind: Truststore
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: verify_truststores_delete
+
+- name: "uninstall : Verify the Suite Truststores were all deleted"
+  assert:
+    that:
+      - verify_truststores_delete.resources is defined
+      - verify_truststores_delete.resources | length == 0
+
+
+# 5. Delete Namespace
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete SLS Namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ sls_namespace }}"
+
+
+# 6. Verify Namespace is gone
+# -----------------------------------------------------------------------------
+- name: "uninstall : Wait for namespace to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ sls_namespace }}"
+  register: namespace_check
+  until:
+    - namespace_check.resources is defined
+    - namespace_check.resources | length == 0
+  retries: 30
+  delay: 10
