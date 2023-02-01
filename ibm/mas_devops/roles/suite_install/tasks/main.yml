@@ -1,12 +1,90 @@
 ---
 
-# 1. Check for undefined properties that do not have a default
+# 1.a Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
   assert:
     that: mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "mas_instance_id property is required"
 
+# 1.b Set facts for mas_annotations_dict, HyperscalerFormat, HyperscalerChannel
+# -----------------------------------------------------------------------------
+- name: "Set facts : mas_annotations_dict"
+  set_fact:
+    mas_annotations_dict: "{{ mas_annotations | string  | ibm.mas_devops.getAnnotations() }}"
+
+- name: "Set facts : HyperscalerFormat"
+  set_fact:
+    input_hyperscalerFormat: "{{ item.value }}"
+  when:
+    -  mas_annotations_dict is defined and item.key == 'mas.ibm.com/hyperscalerFormat'
+  with_dict:
+    - "{{  mas_annotations_dict  }}"
+
+- name: "Set facts : HyperscalerChannel"
+  set_fact:
+    input_hyperscalerChannel: "{{ item.value }}"
+  when:
+    -  mas_annotations_dict is defined and item.key == 'mas.ibm.com/hyperscalerChannel'
+  with_dict:
+    - "{{  mas_annotations_dict  }}"
+
+- name: "Set facts : HyperscalerProvider"
+  set_fact:
+    input_hyperscalerProvider: "{{ item.value }}"
+  when:
+    -  mas_annotations_dict is defined and item.key == 'mas.ibm.com/hyperscalerProvider'
+  with_dict:
+    - "{{  mas_annotations_dict  }}"
+
+- name: "Debug input hyperscaler values"
+  debug:
+    msg:
+      - "Hyperscaler Provider ................... {{ input_hyperscalerProvider | default('<undefined>', true) }}"
+      - "Hyperscaler Channel .................... {{ input_hyperscalerChannel | default('<undefined>', true) }}"
+      - "Hyperscaler Format ..................... {{ input_hyperscalerFormat | default('<undefined>', true) }}"
+      - "mas_annotations_dict ................... {{ mas_annotations_dict }}"
+
+# 1.c Validate annotations: Check for Hyperscaler flag partially set
+# -----------------------------------------------------------------------------
+- name: "Check for Hyperscaler flag partially set"
+  when:
+    -  mas_annotations_dict is defined
+  assert:
+    that:
+      -  (input_hyperscalerProvider is undefined and input_hyperscalerChannel is undefined and input_hyperscalerFormat is undefined) or (input_hyperscalerProvider is defined and input_hyperscalerChannel is defined )
+    fail_msg: "Assertion Failed! Invalid HyperScalerFlag combination in {{mas_annotations}} "
+    success_msg: "Assertion Passed!  Valid HyperScalerFlag combination in {{mas_annotations}} "
+
+# 1.d Validate annotations: Check if mas_annotations has valid allowed values
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_annotations value is invalid"
+  when:
+    -  mas_annotations_dict is defined and item.key in mas_annotation_valid_entries
+  assert:
+    that:
+      -  mas_annotation_valid_entries[item.key] is defined and mas_annotation_valid_entries[item.key] | length>0
+      -  item.value in mas_annotation_valid_entries[item.key]
+    fail_msg: "Assertion Failed! Annotation {{item.key}}={{item.value}} is not valid "
+    success_msg: "Assertion Passed!  Annotation {{item.key}}={{item.value}} is valid "
+  with_dict:
+    - "{{  mas_annotations_dict  }}"
+
+# 1.e Check if mas_annotations value has invalid combinations
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_annotations value has invalid combinations"
+  when:
+    -  mas_annotations_dict is defined and item.key == 'mas.ibm.com/hyperscalerProvider'
+  assert:
+    that:
+      -  item.value in mas_annotation_valid_combinations and mas_annotation_valid_combinations[item.value] is defined # check if provider exist in 'mas_annotation_valid_combinations' lookup
+      -  input_hyperscalerChannel is defined and input_hyperscalerChannel in mas_annotation_valid_combinations[item.value] # check if channel exist in 'mas_annotation_valid_combinations' lookup
+      -  mas_annotation_valid_combinations[item.value][input_hyperscalerChannel] | length>0 # check channel's [format list] length
+      -  (input_hyperscalerFormat is undefined and input_hyperscalerChannel == 'azure') or (input_hyperscalerFormat is defined and input_hyperscalerFormat in mas_annotation_valid_combinations[item.value][input_hyperscalerChannel]) # check if format exist in 'mas_annotation_valid_combinations' lookup, (edge case for azure, hyperscalerFormat is undefined in marketplace)
+    fail_msg: "Assertion Failed! Invalid HyperScalerFlag combination in {{mas_annotations}} "
+    success_msg: "Assertion Passed!  Valid HyperScalerFlag combination in {{mas_annotations}} "
+  with_dict:
+    - "{{  mas_annotations_dict  }}"
 
 # 2. Set up the domain name for MAS
 # -----------------------------------------------------------------------------
