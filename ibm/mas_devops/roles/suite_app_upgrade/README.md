@@ -31,7 +31,7 @@ When set to `true` will ensure that the role only preforms upgrade validation ch
 - Default: `False`
 
 ### skip_compatibility_check
-When set to `true` will skip compatibility check for suite app upgrade when user specify the mas_app_channel.
+When set to `true` will skip compatibility check before the upgrade install. By default, compatibility check will be performed to validate the specific target mas_app_channel is valid or not based on the existing mas and apps version.
 
 - Optional
 - Environment Variable: `SKIP_COMPATIBILITY_CHECK`
