@@ -103,7 +103,7 @@ Defines the IBM Cloud Pak for Data release version to be installed.
 
 - **Required**
 - Environment Variable: `CPD_PRODUCT_VERSION`
-- Default: `4.0.9`
+- Default: None
 
 ### ibm_entitlement_key
 Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary).

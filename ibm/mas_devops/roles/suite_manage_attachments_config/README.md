@@ -1,7 +1,9 @@
 suite_manage_attachments_config
 ===
 
-This role extends support for Configuring IBM Cloud Object Storage or PVC File Storages for **Manage** application attachments.
+This role extends support for configuring IBM Cloud Object Storage or Persistent Volume/File Storages for **Manage** application attachments.
+**Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring attachments features.
+
 
 The default for Manage attachments configuration is to use your cluster's default file storage system as persistent storage.
 
@@ -12,30 +14,19 @@ Role Variables
 --------------
 ### mas_manage_attachments_provider
 Required. Defines the storage provider type to be used to store Manage application's attachments.
+Available options are:
+
+  - `filestorage` (default option): Configures cluster's file storage system for Manage attachments.
+  - `ibm`: Configures IBM Cloud Object Storage as storage system for Manage attachments. 
+  - `aws`: Configures Amazon S3 buckets as storage system for Manage attachments.
+  
+  **Note:** If using `ibm` or `aws` as attachments provider, the [`cos_bucket`](../roles/cos_bucket.md) role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments.
+
+To run this role successfully for AWS s3 buckets, you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
 
 - Environment Variable: `MAS_MANAGE_ATTACHMENTS_PROVIDER`
-- Default Value: `filestorage`. Optionally set this variable to `cos` if you're planning to use IBM Cloud Object Storage instead of File Storage persistent volumes.
-
-### cos_instance_name
-Required. Only used if storage provider is `cos`.
-IBM Cloud Object Storage instance name to be used to store Manage application attachments
-
-- Environment Variable: `COS_INSTANCE_NAME`
-- Default Value: None. If you do not have an existing IBM Cloud Object Storage instance, you can use `cos` role to provision one.
-
-### ibmcloud_resourcegroup
-Optional. Only used if storage provider is `cos`.
-Provide the name of the resource group that hosts your IBM Cloud Object Storage instance. If you do not provide it, the role will try to find the IBM Cloud Object Storage instance in `Default` resource group.
-
-- Environment Variable: `IBMCLOUD_RESOURCEGROUP`
-- Default Value: `Default`
-
-### ibmcloud_apikey
-Required. Only used if storage provider is `cos`.
-Provide your IBM Cloud API Key.
-
-- Environment Variable: `IBMCLOUD_APIKEY`
-- Default Value: None
+- Default Value: `filestorage`
 
 ### mas_instance_id
 Required. The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
@@ -73,13 +64,14 @@ The following sample can be used to configure COS for an existing Manage applica
     mas_workspace_id: masdev
     db2_instance_name: db2w-manage
     cos_instance_name: cos-masinst1
+    ibmcos_bucket_name: manage-attachments-bucket
     ibmcloud_apikey: xxxx
-    mas_manage_attachments_provider: cos
+    mas_manage_attachments_provider: ibm
   roles:
     - ibm.mas_devops.suite_manage_attachments_config
 ```
 
-The following sample playbook can be used to provision COS in IBM Cloud and configure COS for an existing Manage application instance.
+The following sample playbook can be used to provision COS in IBM Cloud and configure COS for an existing Manage application instance's attachments.
 
 ```yaml
 - hosts: localhost
@@ -88,10 +80,10 @@ The following sample playbook can be used to provision COS in IBM Cloud and conf
     mas_instance_id: masinst1
     mas_workspace_id: masdev
     db2_instance_name: db2w-manage
-    cos_type: ibm
     cos_instance_name: cos-masinst1
+    ibmcos_bucket_name: manage-attachments-bucket
     ibmcloud_apikey: xxxx
-    mas_manage_attachments_provider: cos
+    mas_manage_attachments_provider: ibm
   roles:
     - ibm.mas_devops.cos
     - ibm.mas_devops.suite_manage_attachments_config
@@ -117,6 +109,21 @@ The following sample playbook can be used to deploy Manage with default persiste
     - ibm.mas_devops.suite_config
     - ibm.mas_devops.suite_app_install
     - ibm.mas_devops.suite_app_config
+    - ibm.mas_devops.suite_manage_attachments_config
+```
+
+The following sample can be used to configure AWS S3 buckets for an existing Manage application instance's attachments.
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_workspace_id: masdev
+    db2_instance_name: db2w-manage
+    aws_bucket_name: manage-attachments-bucket
+    mas_manage_attachments_provider: aws
+  roles:
     - ibm.mas_devops.suite_manage_attachments_config
 ```
 

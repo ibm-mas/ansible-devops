@@ -1,6 +1,33 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `12.9` Multiple Updates:
+    - Enhancements to Manage's JMS queue configuration ([#606](https://github.com/ibm-mas/ansible-devops/pull/606))
+    - Add JDBC configuration to connect to external databases ([#600]( https://github.com/ibm-mas/ansible-devops/pull/600))
+- `12.8` Multiple Updates:
+    - Extend support for Manage's BIRT report configuration ([#601](https://github.com/ibm-mas/ansible-devops/pull/601))
+    - Support updating admin password for CP4D instance ([#591](https://github.com/ibm-mas/ansible-devops/pull/591))
+    - Extend support for Manage's doclinks configuration ([#594](https://github.com/ibm-mas/ansible-devops/pull/594))
+    - Support VPC creation or deletion in AWS Cloud ([#598](https://github.com/ibm-mas/ansible-devops/pull/598))
+- `12.7` Add support for Jan 2023 catalog ([#602](https://github.com/ibm-mas/ansible-devops/pull/602))
+- `12.6` Multiple Updates:
+    - AWS support for S3 buckets, Manage logging & imported certificates ([#575](https://github.com/ibm-mas/ansible-devops/pull/575))
+    - Support custom PVC configuration for Manage ([#587](https://github.com/ibm-mas/ansible-devops/pull/587))
+    - Support switching MAS legacy install to OLM ([#524](https://github.com/ibm-mas/ansible-devops/pull/524))
+    - Support management of CIS in IBM Cloud ([#549](https://github.com/ibm-mas/ansible-devops/pull/549))
+    - Support for setting custom labels on instance specific resources ([#568](https://github.com/ibm-mas/ansible-devops/pull/568))
+- `12.5` Multiple Updates:
+    - Add support for Dec 2022 catalog ([#584](https://github.com/ibm-mas/ansible-devops/pull/584))
+    - Support workload scaling customization ([#583](https://github.com/ibm-mas/ansible-devops/pull/583))
+- `12.4` Support FIPS option on FYRE infrastructure ([#562](https://github.com/ibm-mas/ansible-devops/pull/562))
+- `12.3` Multiple Updates:
+    - Support ad-hoc DBC scripts into Manage server ([#521](https://github.com/ibm-mas/ansible-devops/pull/521))
+    - Support IBM Cloud COS buckets and Manage logging feature ([#526](https://github.com/ibm-mas/ansible-devops/pull/526))
+- `12.2` Multiple Updates:
+    - Add support for Nov 2022 catalog ([#531](https://github.com/ibm-mas/ansible-devops/pull/531))
+    - Add support for Nvidia GPU on OCP 4.10 & 4.11 ([#525](https://github.com/ibm-mas/ansible-devops/pull/525))
+    - Add (MVI) Maximo Visual Inspection playbook ([#434](https://github.com/ibm-mas/ansible-devops/pull/434))
+- `12.1` Fix wml_url and detect wml version ([#509](https://github.com/ibm-mas/ansible-devops/pull/509))
 - `12.0` Merge ibm.mas_airgap into the main collection ([#513](https://github.com/ibm-mas/ansible-devops/pull/513))
 - `11.7` Allow DB2U Cluster settings to be customized ([#479](https://github.com/ibm-mas/ansible-devops/pull/479))
 - `11.6` Add support for Oct 2022 catalog ([#490](https://github.com/ibm-mas/ansible-devops/pull/490))

@@ -11,14 +11,21 @@ function copyDoc() {
 }
 
 copyDoc ansible_version_check
+copyDoc aws_bucket_access_point
+copyDoc aws_policy
+copyDoc aws_user_creation
+copyDoc aws_vpc
 copyDoc appconnect
 copyDoc cert_manager
 copyDoc cert_manager_upgrade
 copyDoc cert_manager_upgrade_check
+copyDoc cis
 copyDoc cluster_monitoring
 copyDoc common_services
 copyDoc cos
+copyDoc cos_bucket
 copyDoc cp4d
+copyDoc cp4d_admin_pwd_update
 copyDoc cp4d_hack_worker_nodes
 copyDoc cp4d_service
 copyDoc cp4d_upgrade
@@ -63,8 +70,15 @@ copyDoc suite_install
 copyDoc suite_install_digest_cm
 copyDoc suite_manage_attachments_config
 copyDoc suite_manage_bim_config
+copyDoc suite_manage_birt_report_config
+copyDoc suite_manage_doclinks_config
+copyDoc suite_manage_import_certs_config
+copyDoc suite_manage_load_dbc_scripts
+copyDoc suite_manage_logging_config
+copyDoc suite_manage_pvc_config
 copyDoc suite_mustgather
 copyDoc suite_mustgather_download
+copyDoc suite_switch_to_olm
 copyDoc suite_upgrade
 copyDoc suite_verify
 copyDoc uds

@@ -17,10 +17,10 @@ Required.  Specify the name of the cluster to be upgraded.
 - Environment Variable: `CLUSTER_NAME`
 - Default Value: None
 
-### ocp_upgrade_version
-Required.  Specify the target Openshift version to upgrade.
+### ocp_version_upgrade
+Required.  Specify the target version of the Openshift to be upgraded.
 
-- Environment Variable: `OCP_UPGRADE_VERSION`
+- Environment Variable: `OCP_VERSION_UPGRADE`
 - Default Value: None
 
 Example Playbook
@@ -29,6 +29,10 @@ Example Playbook
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
+  vars:
+    cluster_name: my-ocp-cluster
+    cluster_type: roks
+    ocp_version_upgrade: 4.10_openshift
   roles:
     - ibm.mas_devops.ocp_upgrade
 ```

@@ -5,6 +5,11 @@ metadata:
   namespace: "{{ mas_namespace }}"
   labels:
     mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
 {% if annotation_dict.items() %}
   annotations:
 {% for key, value in annotation_dict.items() %}
@@ -30,4 +35,8 @@ spec:
     dataDictionary:
       catalog: {{ mas_add_catalog }}
       channel: {{ mas_add_channel }}
+{% endif %}
+{% if mas_channel != '8.8.x' and mas_channel != '8.9.x' and mas_customize_scaling != '' %}
+    workloadScaling: 
+      configMapName: {{  mas_customize_scaling  }}
 {% endif %}

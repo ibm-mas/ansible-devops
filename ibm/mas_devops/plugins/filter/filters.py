@@ -102,6 +102,34 @@ def db2_overwrite_config(components):
 
     return components_yaml
 
+def string2dict(_string = None):
+  """
+  filter: string2dict
+    _string
+    author: Richard Acree <acree@us.ibm.com>
+    version_added: 0.1
+    short_description: This method creates dict from a string
+    description:
+      - This method creates dict from the user passed string
+    options:
+      _string:
+        description: user passed string, format to be passed x=y,foo=bar,hello=world
+        required: True
+    notes:
+      - limited error handling, will not handle unexpected data
+  """
+  _dict = {}
+  if _string and _string != 'None':
+    try:
+      _list = _string.strip().split(',')
+      for _item in _list:
+        _item = _item.split("=")
+        _dict[ _item[0] ] = _item[1]
+    except:
+      print("Failed to parse parameter: "+_string)
+      _dict = {}
+  return _dict
+
 def getAnnotations(annotations = None):
   """
   filter: getAnnotations
@@ -236,6 +264,88 @@ def getWSLProjectId(wslProjectLookup, wslProjectName):
   # Project not found
   return ""
 
+def setManagePVC(data, mountPath, pvcName, pvcSize, storageClassName, volumeName = None):
+  """
+    filter: setManagePVC
+    author: André Marcelino <andrercm@br.ibm.com>
+    version_added: 13.0
+    short_description: ---
+    description:
+        - This builds the yaml structure to set Manage persistent volume
+    options:
+      data:
+        description: list of existing Manage Persistent Volumes
+        required: True
+      mountPath:
+        description: Persistent Volumes mount path
+        required: True
+      mountPath:
+        description: Persistent Volumes Claim name
+        required: True
+      storageClassName:
+        description: Persistent Volumes Claim Storage Class name
+        required: True
+      volumeName:
+        description: Persistent Volume name associated to the PVC
+        required: True
+    notes:
+      - limited error handling, will not handle unexpected data currently
+  """
+  pvc_list = []
+
+  persistentVolumes = {  
+    "accessModes": ["ReadWriteMany"],
+    "mountPath": mountPath,
+    "pvcName": pvcName,
+    "size": pvcSize,
+    "storageClassName": storageClassName,
+    "volumeName": volumeName
+  }
+  if not volumeName:
+    del persistentVolumes['volumeName']
+  data.append(persistentVolumes)
+  for pvc in data:
+    pvc_list.append(pvc)
+  return pvc_list
+
+def setManageBirtProperties(data, rptRoute, rptServerBundleName):
+  sb_list = []
+  rpt_bundle = {
+    "bundleType": "report",
+    "isDefault": False,
+    "isMobileTarget": False,
+    "isUserSyncTarget": False,
+    "name": rptServerBundleName,
+    "replica": 1,
+    "routeSubDomain": rptServerBundleName
+  }
+
+  hasRpt = [True for x in data if x['bundleType'] == 'report']
+  if len(hasRpt) == 0:
+    data.append(rpt_bundle)
+  for sb in data:
+    disablequeuemanager = 0 if sb['bundleType'] == 'report' else 1
+    if 'bundleLevelProperties' in sb:
+      if 'mxe.report.birt.viewerurl' not in sb['bundleLevelProperties'] and 'mxe.report.birt.disablequeuemanager' not in sb['bundleLevelProperties']:
+        sb['bundleLevelProperties']+=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+    else:
+      sb['bundleLevelProperties']=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+    sb_list.append(sb)
+  return sb_list
+
+
+def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint):
+  sb_list = []
+  for sb in data:
+    if 'bundleLevelProperties' in sb:
+      if 'mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties'] and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties'] and 'mxe.doclink.path01' not in sb['bundleLevelProperties'] and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']:
+        sb['bundleLevelProperties']+=f"  mxe.doclink.doctypes.topLevelPaths=cos:doclinks  mxe.doclink.doctypes.defpath=cos:doclinks/default  mxe.doclink.path01=cos:doclinks={doclinkPath01}  mxe.doclink.securedAttachment=true  mxe.cosbucketname={bucketName}  mxe.cosaccesskey={accessKey}  mxe.cossecretkey={secretAccesskey}  mxe.cosendpointuri={bucketEndpoint}  mxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+    else:
+      sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks  mxe.doclink.doctypes.defpath=cos:doclinks/default  mxe.doclink.path01=cos:doclinks={doclinkPath01}  mxe.doclink.securedAttachment=true  mxe.cosbucketname={bucketName}  mxe.cosaccesskey={accessKey}  mxe.cossecretkey={secretAccesskey}  mxe.cosendpointuri={bucketEndpoint}  mxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+    sb_list.append(sb)
+  return sb_list
+
+
 class FilterModule(object):
   def filters(self):
     return {
@@ -244,8 +354,12 @@ class FilterModule(object):
       'appws_components': appws_components,
       'addAnnotationBlock': addAnnotationBlock,
       'db2_overwrite_config': db2_overwrite_config,
+      'string2dict': string2dict,
       'getAnnotations': getAnnotations,
       'getResourceNames': getResourceNames,
       'defaultStorageClass': defaultStorageClass,
       'getWSLProjectId': getWSLProjectId,
+      'setManagePVC': setManagePVC,
+      'setManageBirtProperties': setManageBirtProperties,
+      'setManageDoclinksProperties': setManageDoclinksProperties
     }

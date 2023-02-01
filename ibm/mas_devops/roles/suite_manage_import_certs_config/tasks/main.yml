@@ -1,0 +1,69 @@
+---
+# mas_instance_id is required in order to be able to lookup for manage application resources
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+# mas_workspace_id is required in order to be able to lookup for manage application resources
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property is required"
+
+- name: "Fail if `manage_certificates_file_path_local` or `manage_certificates` are not provided"
+  assert:
+    that: (manage_certificates_file_path_local is defined and manage_certificates_file_path_local != "") or (manage_certificates is defined and manage_certificates != "")
+    fail_msg: "Either `manage_certificates_file_path_local` or `manage_certificates` property must be defined"
+
+- name: Set manage_workspace_cr_name
+  when: manage_workspace_cr_name is not defined or manage_workspace_cr_name == ''
+  set_fact:
+    manage_workspace_cr_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+
+- name: "Lookup ManageWorkspace CR to retrieve existing imported certificates"
+  no_log: true
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: managews_output
+
+- set_fact:
+    list_manage_imported_certs: "{{ managews_output.resources[0].spec.settings.deployment.importedCerts | default([])  }}"
+
+- name: Extract existing Manage certificates and aliases
+  set_fact:
+    existing_manage_imported_certs: "{{ list_manage_imported_certs | map(attribute='crt') | list | default([]) }}"
+    existing_manage_imported_certs_aliases: "{{ list_manage_imported_certs | map(attribute='alias') | list | default([]) }}"
+
+- name: Configure Manage certificates from file
+  include_tasks: "tasks/manage-certs-from-file.yml"
+  when: manage_certificates_file_path_local is defined and manage_certificates_file_path_local !=''
+
+- name: Configure Manage certificates from internal variable
+  include_tasks: "tasks/manage-certs-from-variable.yml"
+  when:
+    - manage_certificates is defined and manage_certificates | length > 0
+    - manage_certificates_alias_prefix is defined and manage_certificates_alias_prefix !=''
+
+- name: "Add the new certificates in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps.mas.ibm.com/v1
+      kind: ManageWorkspace
+      metadata:
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "mas-{{ mas_instance_id }}-manage"
+      spec:
+        settings:
+          deployment:
+            importedCerts: |-
+              {{ lookup('template', 'imported-certs.yml.j2') | from_yaml }}
+
+- name: "Reset variables"
+  set_fact:
+    manage_certificates: []
+    manage_certificates_aliases: []
+    manage_certificates_alias_prefix: ""

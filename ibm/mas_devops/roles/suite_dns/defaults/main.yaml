@@ -11,7 +11,12 @@ cert_manager_service_account: ibm-cert-manager-controller
 # MAS Domain
 # -----------------------------------------------------------------------------
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_namespace: "mas-{{ mas_instance_id }}-core"
 mas_domain: "{{ lookup('env', 'MAS_DOMAIN') }}"
+
+# Ouput Directory
+# -----------------------------------------------------------------------------
+output_dir: "{{ lookup('env', 'OUTPUT_DIR') | default('.', true)}}"
 
 # Override the OCP ingress used in DNS entries
 # -----------------------------------------------------------------------------
@@ -36,6 +41,20 @@ cis_email: "{{ lookup('env', 'CIS_EMAIL') }}"
 cis_apikey: "{{ lookup('env', 'CIS_APIKEY') }}"
 cis_crn: "{{ lookup('env', 'CIS_CRN') }}"
 cis_subdomain: "{{ lookup('env', 'CIS_SUBDOMAIN') }}"
+cis_enhanced_security: "{{ lookup('env', 'CIS_ENHANCED_SECURITY') | default(false, false) }}"
+
+# Enhanced IBM CIS DNS Integration Secruity
+# -----------------------------------------------------------------------------
+ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
+cis_waf: "{{ lookup('env', 'CIS_WAF') | default(true, true) }}"
+cis_proxy: "{{ lookup('env', 'CIS_PROXY') | default(false, true) }}"
+cis_service_name: "{{ lookup('env', 'CIS_SERVICE_NAME')}}"
+# Update DNS entry if it already exists
+update_dns: "{{ lookup('env', 'UPDATE_DNS_ENTRIES') | default(true, true) }}"
+# Force deletion of wildcard dns entries in cis
+delete_wildcards: "{{ lookup('env', 'DELETE_WILDCARDS') | default(false, true)}}"
+# Override and delete any existing edge certificates in cis instance
+override_edge_certs: "{{ lookup('env', 'OVERRIDE_EDGE_CERTS') | default(true, true)}}"
 
 cis_apiservice:
   group_name: acme.cis.ibm.com
@@ -53,3 +72,7 @@ cis_webhook:
 # CP4D Integration
 # -----------------------------------------------------------------------------
 cpd_instance_namespace: "{{ lookup('env', 'CPD_INSTANCE_NAMESPACE') }}"
+
+# Custom Labels
+# -----------------------------------------------------------------------------
+custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string | ibm.mas_devops.string2dict() }}"

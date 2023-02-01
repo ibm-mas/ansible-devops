@@ -53,6 +53,21 @@ def main():
             required = True,
         ),
 
+        cis_waf = dict(
+            type = 'bool',
+            required = False
+        ),
+
+        edge_certificate_routes = dict(
+            type = 'list',
+            required = False
+        ),
+
+        cis_proxy = dict(
+            type = 'bool',
+            required = False
+        ),
+
         cis_subdomain = dict(
             type = "str",
         ),
@@ -66,6 +81,9 @@ def main():
             type = "str",
         ),
 
+        delete_wildcards = dict(
+            type = 'bool'
+        )
     )
     module = AnsibleModule(
         argument_spec=fields,

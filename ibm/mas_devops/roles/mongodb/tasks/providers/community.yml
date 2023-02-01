@@ -150,8 +150,8 @@
     name: mas-mongo-ce
     namespace: "{{ mongodb_namespace }}"
   register: mongodb_statefulset
-  retries: 60 # 30 * 30 seconds = 15 minutes
-  delay: 30
+  retries: 45 # Approx 45 minutes
+  delay: 60 # 1 minute
   until:
     - mongodb_statefulset.resources is defined
     - mongodb_statefulset.resources | length > 0
@@ -176,7 +176,7 @@
     mongo_replicas: "{{ mongo_replicas|default([]) + [item.metadata.name] }}"
   with_items: "{{ mongo_pods_output.resources }}"
 
-# Load mongo-hosts template to dinamically set as many mongo hosts:port as identified
+# Load mongo-hosts template to dynamically set as many mongo hosts:port as identified
 - set_fact:
     mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/community/mongo-hosts.yml.j2') }}"
 
@@ -214,7 +214,7 @@
 
 - name: "mongodb/community : Create MAS MongoCfg (debug)"
   debug:
-    msg: "{{ lookup('template', 'templates/community/suite_mongocfg.yml') }}"
+    msg: "{{ lookup('template', 'templates/community/suite_mongocfg.yml.j2') }}"
   vars:
     mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
     mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
@@ -226,7 +226,7 @@
     - mas_config_dir is defined
     - mas_config_dir != ""
   ansible.builtin.template:
-    src: community/suite_mongocfg.yml
+    src: community/suite_mongocfg.yml.j2
     dest: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
   vars:
     mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
