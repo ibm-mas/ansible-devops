@@ -1,0 +1,56 @@
+---
+
+# 1. Check if resource key with the requested name already exists
+# -----------------------------------------------------------------------------
+- name: "Check if resource key with the requested name already exists"
+  block:
+    - name: "Fail if resource key already exists"
+      shell: |
+        ibmcloud resource service-key {{ service_resource_key_name }}
+      register: resource_lookup
+      failed_when: resource_lookup.rc == 0
+  rescue:
+    - name: "Error information:"
+      debug:
+        msg:
+          - "Key already exists with the name: {{ service_resource_key_name }}"
+          - "Setting role to output details of oldest existing key with the same name"
+
+    - name: "Set role to lookup existing service_key instead of a creating a new one"
+      set_fact:
+        service_key_already_exists: True
+
+# 2. Create service-key
+# -----------------------------------------------------------------------------
+- name: "Create resource service-key"
+  when: service_key_already_exists is undefined or service_key_already_exists != True
+  shell: |
+    ibmcloud resource service-key-create {{ service_resource_key_name }} --instance-name {{ service_instance }}
+  register: key_create
+  failed_when: key_create.rc != 0
+
+- name: "Fetch resource service-key"
+  shell: |
+    ibmcloud resource service-key {{ service_resource_key_name }} --output JSON
+  register: key_details
+
+- name: "Convert service-key details into json"
+  set_fact:
+    service_key_json_output: "{{ key_details.stdout }}"
+
+# 3. Provide service-key details to the user
+# -----------------------------------------------------------------------------
+- name: "Resource service-key details"
+  debug:
+    msg:
+      - "Resource service-key name ..........................{{ service_key_json_output[0].name }}"
+      - "Resource service-key creation time .................{{ service_key_json_output[0].created_at }}"
+      - "Resource service-key state .........................{{ service_key_json_output[0].state }}"
+      - "Resource service-key id ............................{{ service_key_json_output[0].id }}"
+
+- name: "Copy full resource service-key information to file"
+  copy:
+    dest: "{{ output_dir }}/service-key_{{ service_key_json_output[0].name }}.json"
+    content: "{{ service_key_json_output[0] | to_nice_json }}"
+  when:
+    - output_service_key_details_to_file

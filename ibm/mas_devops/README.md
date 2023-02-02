@@ -6,6 +6,11 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+
+- `12.10` Multiple Updates:
+    - Support creating and deleting IBM Cloud resource keys ([#626](https://github.com/ibm-mas/ansible-devops/pull/626))
+    - Support uninstall of Core & dependencies ([#637](https://github.com/ibm-mas/ansible-devops/pull/637))
+    - Support SLS workload scaling feature ([#635](https://github.com/ibm-mas/ansible-devops/pull/635))
 - `12.9` Multiple Updates:
     - Enhancements to Manage's JMS queue configuration ([#606](https://github.com/ibm-mas/ansible-devops/pull/606))
     - Add JDBC configuration to connect to external databases ([#600]( https://github.com/ibm-mas/ansible-devops/pull/600))
