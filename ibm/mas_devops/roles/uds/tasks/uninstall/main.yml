@@ -1,0 +1,92 @@
+---
+# Note that we don't delete the namespace, because UDS runs inside
+# ibm-common-services and there may be other services running in this
+# namespace which we do not want to affect.
+
+# 1. Delete AnalyticsProxy and GenerateKey
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete the GenerateKey"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: uds.ibm.com/v1
+    kind: GenerateKey
+    namespace: ibm-common-services
+    name: uds-api-key
+    wait: yes
+    wait_timeout: 600
+
+- name: "uninstall : Delete the AnalyticsProxy"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: uds.ibm.com/v1
+    kind: AnalyticsProxy
+    namespace: ibm-common-services
+    name: analyticsproxy
+    wait: yes
+    wait_timeout: 600
+
+
+# 2. Delete the UDS OperandRequest
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete UDS OperandRequest"
+  kubernetes.core.k8s:
+    state: absent
+    definition: "{{ lookup('template', 'templates/foundation-services/ibm-user-data-services.yml') }}"
+    wait: yes
+    wait_timeout: 600
+
+
+# 3. Verify that AnalyticsProxy CR is gone
+# -----------------------------------------------------------------------------
+- name: "uninstall : Look for the AnalyticsProxy CR after deletion"
+  kubernetes.core.k8s_info:
+    api_version:  uds.ibm.com/v1
+    kind: AnalyticsProxy
+    namespace: ibm-common-services
+    name: analyticsproxy
+  register: verify_uds_delete
+
+- name: "uninstall : Verify the AnalyticsProxy CR was deleted"
+  assert:
+    that:
+      - verify_uds_delete.resources is defined
+      - verify_uds_delete.resources | length == 0
+
+
+# 4. Verify that GenerateKey CRs are all gone
+# -----------------------------------------------------------------------------
+- name: "uninstall : Look for the Suite CR after deletion"
+  kubernetes.core.k8s_info:
+    api_version: uds.ibm.com/v1
+    kind: GenerateKey
+    namespace: ibm-common-services
+    name: uds-api-key
+  register: verify_genkey_delete
+
+- name: "uninstall : Verify the UDS GenerateKey was deleted"
+  assert:
+    that:
+      - verify_genkey_delete.resources is defined
+      - verify_genkey_delete.resources | length == 0
+
+
+# 5. Delete the Crunchy Postgres Subscription
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete Crunchy Postgres Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    definition: "{{ lookup('template', 'templates/crunchy-postgres/subscription.yml') }}"
+    wait: yes
+    wait_timeout: 300
+
+
+# 6. Delete the Crunchy Postgres CSV
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete crunchy-postgres-operator CSV"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: ibm-common-services
+    label_selectors:
+      - "operators.coreos.com/crunchy-postgres-operator.ibm-common-services"
