@@ -227,7 +227,7 @@ Define the Kubernetes memory limit for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_MEMORY_LIMITS`
-- Default: `12Gi`
+- Default: `16Gi`
 
 Role Variables - Node Affinity
 ----------------------------------
