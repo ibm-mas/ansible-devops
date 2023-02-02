@@ -66,11 +66,13 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../playbooks/oneclick-predict/">Add Predict</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../playbooks/oneclick-visualinspection/">Add Visual Inspection</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../playbooks/oneclick-update/">Update</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../playbooks/oneclick-upgrade/">Upgrade</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../playbooks/oneclick-visualinspection/">Add Visual Inspection</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../playbooks/uninstall-core/">Uninstall Core</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Roles: OCP Mgmt</span></p>
@@ -142,6 +144,8 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#mongodb_action">mongodb_action</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#mongodb_namespace">mongodb_namespace</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#mongodb_storage_class">mongodb_storage_class</a>
@@ -244,6 +248,8 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_switch_to_olm/">suite_switch_to_olm</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../suite_uninstall/">suite_uninstall</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_upgrade/">suite_upgrade</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_verify/">suite_verify</a>
@@ -295,6 +301,13 @@
 <p>This file can be directly applied using <code>oc apply -f $MAS_CONFIG_DIR/mongocfg-mongoce-system.yaml</code> or used in conjunction with the <a href="../suite_config/">suite_config</a> role.</p>
 </div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="mongodb_action">mongodb_action<a class="headerlink" href="#mongodb_action" title="Permanent link"></a></h3>
+<p>Inform the role whether to perform an install or uninstall of MongoDb.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MONGODB_ACTION</code></li>
+<li>Default: <code>install</code></li>
+</ul>
 <h3 id="mongodb_namespace">mongodb_namespace<a class="headerlink" href="#mongodb_namespace" title="Permanent link"></a></h3>
 <p>The namespace where the operator and MongoDb cluster will be deployed.</p>
 <ul>
@@ -401,7 +414,7 @@ oc delete statefulset mas-mongo-ce
 </code></pre>
 <p>Make sure all pods in the <code>mongoce</code> namespace have terminated and then execute the following to remove
 the old Mongo configuration:</p>
-<pre><code class="language-bash">oc delete certificate mongo-ca-crt   
+<pre><code class="language-bash">oc delete certificate mongo-ca-crt
 oc delete certificate mongo-server
 oc delete secret mongo-ca-secret
 oc delete secret mongo-server-cert
@@ -410,7 +423,7 @@ oc delete secret mas-mongo-ce-config
 oc delete configmap  mas-mongo-ce-cert-map
 oc delete secret mas-mongo-ce-server-certificate-key
 
-export ROLE_NAME=mongodb 
+export ROLE_NAME=mongodb
 ansible-playbook ibm.mas_devops.run_role
 </code></pre>
 <p>Once the <code>mongodb</code> role has completed the MongoDb CE Operator pod and Mongo replica set should be configured.</p>
@@ -424,7 +437,7 @@ ansible-playbook ibm.mas_devops.run_role
         -----END CERTIFICATE-----
 
 </code></pre>
-<p>If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be updated to reflect the new MongoDB CA. This can be added to the <code>.spec.mongo.certificates</code> section of the LicenseService CR. </p>
+<p>If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be updated to reflect the new MongoDB CA. This can be added to the <code>.spec.mongo.certificates</code> section of the LicenseService CR.</p>
 <pre><code class="language-yaml">    mongo:
       certificates:
       - alias: mongoca
