@@ -44,11 +44,11 @@ The application workspace deployment spec used to configure various aspects of t
 - Environment Variable: `MAS_APPWS_SPEC`
 - Default: defaults are specified in `vars/defaultspecs/{mas_app_id}.yml`
 
-### mas_app_bindings_jdbc
-Set the binding scope for the application's JDBC binding (`system` or `application`)
+### mas_appws_bindings_jdbc
+Set the binding scope for the application workspace's JDBC binding (`system`, `application`, `workspace`, or `workspace-application`)
 
 - Optional
-- Environment Variable: `MAS_APP_BINDINGS_JDBC`
+- Environment Variable: `MAS_APPWS_BINDINGS_JDBC`
 - Default: `system`
 
 ### mas_appws_components
