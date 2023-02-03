@@ -38,7 +38,7 @@ MongoDB provider
 - Environment variable: `DB_PROVIDER`
 - Defult Value: `community`
 
-### db_action
+### mongodb_action
 Determines which action needs to be performed w.r.t mongodb for a specfied `provider`
 
 - Environment variable: `DB_ACTION`
@@ -48,13 +48,6 @@ Community MongoDB Role Variables
 ---------------------------------
 Role Variables
 -------------------------------------------------------------------------------
-### mongodb_action
-Inform the role whether to perform an install or uninstall of MongoDb.
-
-- Optional
-- Environment Variable: `MONGODB_ACTION`
-- Default: `install`
-
 ### mongodb_namespace
 The namespace where the operator and MongoDb cluster will be deployed.
 
@@ -403,7 +396,7 @@ Example Playbook
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
     mongodb_provider: aws
-    db_action: provision
+    mongodb_action: provision
     docdb_size: ~/docdb-config.yml
     docdb_cluster_name: test-db
     docdb_ingress_cidr: 10.0.0.0/16
@@ -464,7 +457,7 @@ Example Playbook
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
     mongodb_provider: aws
-    db_action: docdb_secret_rotate
+    mongodb_action: docdb_secret_rotate
     docdb_mongo_instance_name: test-db-instance
     db_host: aws.test1.host7283-*****
     db_port: 27017
