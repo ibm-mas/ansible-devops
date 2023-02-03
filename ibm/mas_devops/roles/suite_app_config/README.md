@@ -6,13 +6,6 @@ This role is used to configure specific components of the application workspace 
 
 Role Variables - General
 -------------------------------------------------------------------------------
-### custom_labels
-List of comma separated key=value pairs for setting custom labels on instance specific resources.
-
-- Optional
-- Environment Variable: `CUSTOM_LABELS`
-- Default: None
-
 ### mas_instance_id
 Defines the instance id that was used for the MAS installation
 
@@ -34,24 +27,41 @@ MAS application workspace to use to configure app components
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default: None
+
+
+Role Variables - Workspace Configuration
+-------------------------------------------------------------------------------
+### mas_appws_spec
+The application workspace deployment spec used to configure various aspects of the application workspace configuration. Note that use of this will override anything set in `mas_appws_components`
+
+- Optional
+- Environment Variable: `MAS_APPWS_SPEC`
+- Default: defaults are specified in `vars/defaultspecs/{mas_app_id}.yml`
+
+### mas_app_bindings_jdbc
+Set the binding scope for the application's JDBC binding (`system` or `application`)
+
+- Optional
+- Environment Variable: `MAS_APP_BINDINGS_JDBC`
+- Default: `system`
+
 ### mas_appws_components
 Defines the app components and versions to configure in the application workspace. Takes the form of key=value pairs seperated by a comma i.e. To install health within Manage set `base=latest,health=latest`
 
+- Optional
 - Environment Variable: `MAS_APPWS_COMPONENTS`
-- Default:
-  For Manage the default is:
-    `base=latest`
+- Default: Application specific
 
-  For Health (standalone) the default is:
-    `health=latest`
 
-### mas_app_ws_spec
-Optional.  The application workspace deployment spec used to configure various aspects of the application workspace configuration. Note that use of this will override anything set in `mas_appws_components`
-
-- Environment Variable: `MAS_APP_WS_SPEC`
-- Default: defaults are specified in `vars/defaultspecs/{{mas_app_id}}.yml`
-
-### mas_app_settings_deployment_size
+Role Variables - Predict Configuration
+-------------------------------------------------------------------------------
+### mas_appws_settings_deployment_size
 Controls the workload size of predict containers. Avaliable options are `developer`, `small`, `medium` and `small`
 
     | Deployment_size        | Replica |
@@ -61,7 +71,7 @@ Controls the workload size of predict containers. Avaliable options are `develop
     | medium                 |  3 |
 
 - Optional, only supported when configuring **Predict**
-- Environment Variable: `MAS_APP_SETTINGS_DEPLOYMENT_SIZE`
+- Environment Variable: `MAS_APPWS_SETTINGS_DEPLOYMENT_SIZE`
 - Default: `small`
 
 
@@ -92,7 +102,7 @@ Local directory where generated resource definitions are saved into. Used in con
 
 
 Role Variables - Watson Machine Learning
----------------------------------------------
+-------------------------------------------------------------------------------
 These variables are only used when using this role to configure **Predict**.
 
 ### cpd_product_version
@@ -117,7 +127,7 @@ URL to access WML service (same as Cloud Pak for Data URL).
 - Default: `https://internal-nginx-svc.ibm-cpd.svc:12443` (assumes CPD WML is installed the `ibm-cpd` namespace)
 
 
-Role Variables - Manage
+Role Variables - Manage Workspace
 -------------------------------------------------------------------------------
 ### mas_app_settings_aio_flag
 Optional. Flag indicating if Asset Investment Optimization (AIO) resource must be loaded or not. It can be loaded only when Optimizer application is installed.
@@ -227,7 +237,7 @@ Optional. Provide the persistent volume storage mount path to be used for JMS qu
 
 
 Example Playbook
-----------------
+-------------------------------------------------------------------------------
 
 ```yaml
 - hosts: localhost
@@ -242,7 +252,7 @@ Example Playbook
     # MAS application configuration
     mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
 
-    mas_app_ws_spec:
+    mas_appws_spec:
       bindings:
         jdbc: "{{ mas_appws_jdbc_binding | default( 'system' , true) }}"
 
@@ -251,6 +261,6 @@ Example Playbook
 ```
 
 License
--------
+-------------------------------------------------------------------------------
 
 EPL-2.0
