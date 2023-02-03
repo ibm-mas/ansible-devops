@@ -1,0 +1,30 @@
+---
+
+- name: Debug Info
+  debug:
+    msg:
+      - "{{ eventstreams_needed }}"
+
+- name: Setup Event Streams if needed
+  block:
+  # check for naming convention
+  # - name: Set eventstreams name
+  #   set_fact:
+  #     eventstreams_name: "es-{{instance_name}}"
+
+  - name: Set eventstreams configmap name and secret name
+    set_fact:
+      eventstreams_configmap_name: "{{ eventstreams_name }}-cm"
+      eventstreams_credentials_secret_name: "{{ eventstreams_name }}-credentials"
+
+  - include_tasks: tasks/provision-eventstreams.yml
+    when:
+    - eventstreams_action is defined
+    - eventstreams_action == "provision" or eventstreams_action == "deprovision"
+
+  # - include_tasks: tasks/create-eventstreams-service-credentials.yml
+  #   when:
+  #   - eventstreams_action is defined
+  #   - eventstreams_action == "provision"
+
+  when: eventstreams_needed
