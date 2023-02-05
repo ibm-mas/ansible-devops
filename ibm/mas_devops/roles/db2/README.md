@@ -85,7 +85,7 @@ Define the username of db2 in the local LDAP registry. If this is defined, the L
 - Default: None
 
 ### db2_ldap_password
-Define the password of above db2 user in the local LDAP registry. Must define when `db2_ldap_username` is defined.
+Define the password of above db2 user in the local LDAP registry. Must define when `db2_ldap_username` is used.
 
 - Optional
 - Environment Variable: `DB2_LDAP_PASSWORD`
