@@ -66,13 +66,12 @@
 - name: Install Operand Configs and Operand Registries
   vars:
     cpd_wd_components: "{{ cpd_service_info.wd }}"
-    cpd_olm_utils_components: "{{ cpd_components_meta }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/operand_config/{{ cpd_service_name }}.yml"
   when:
     - cpd_service_name is in ['wd', 'wsl']
-    - cpd_minor_version == '4.5'
+    - cpd_minor_version in ['4.5','4.6']
 
 # 4. Install CP4D Service Subscriptions
 # -----------------------------------------------------------------------------
@@ -116,8 +115,6 @@
 # 7. Install CP4D Service CRs
 # -----------------------------------------------------------------------------
 - name: "Install Service CR"
-  vars:
-    cpd_olm_utils_components: "{{ cpd_components_meta }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/services/{{ cpd_service_name }}.yml.j2"
@@ -154,7 +151,6 @@
 # -----------------------------------------------------------------------------
 - name: "Wait for the service to be ready"
   include_tasks: "wait/wait-{{ cpd_service_name }}.yml"
-
 
 # 9. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------
