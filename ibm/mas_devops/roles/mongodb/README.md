@@ -1,5 +1,5 @@
 mongodb
-=======
+===============================================================================
 
 [MongoDb CE operator](https://github.com/mongodb/mongodb-kubernetes-operator) will be installed into the specified namespace, a 3 node cluster cluster will be created.  The cluster will bind six PVCs, these provide persistence for the data and system logs across the three nodes.  Currently there is no support built-in for customizing the cluster beyond this configuration.
 
@@ -9,9 +9,22 @@ mongodb
     This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/mongocfg-mongoce-system.yaml` or used in conjunction with the [suite_config](suite_config.md) role.
 
 
-
 Role Variables
---------------
+-------------------------------------------------------------------------------
+### mongodb_action
+Inform the role whether to perform an install or uninstall of MongoDb.
+
+- Optional
+- Environment Variable: `MONGODB_ACTION`
+- Default: `install`
+
+### mongodb_ce_version
+Set the version of the MongoDb Community Edition Operator to install in the namespace.
+
+- Optional
+- Environment Variable: `MONGODB_CE_VERSION`
+- Default: `0.7.0`
+
 
 ### mongodb_namespace
 The namespace where the operator and MongoDb cluster will be deployed.
@@ -87,7 +100,7 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 
 
 Example Playbook
-----------------
+-------------------------------------------------------------------------------
 
 ```yaml
 - hosts: localhost
@@ -104,7 +117,7 @@ Example Playbook
     If the MongoDB CA Certificate expires the MongoDB replica set will become unusable. Replica set members will not be able to communicate with each other and client applications (i.e. Maximo Application Suite components) will not be to connect.
 
 CA Certificate Renewal
-----------------------
+-------------------------------------------------------------------------------
 
 In order to renew the CA Certificate used by the MongoDB replica set the following steps must be taken:
 
@@ -131,7 +144,7 @@ Make sure all pods in the `mongoce` namespace have terminated and then execute t
 the old Mongo configuration:
 
 ```bash
-oc delete certificate mongo-ca-crt   
+oc delete certificate mongo-ca-crt
 oc delete certificate mongo-server
 oc delete secret mongo-ca-secret
 oc delete secret mongo-server-cert
@@ -140,7 +153,7 @@ oc delete secret mas-mongo-ce-config
 oc delete configmap  mas-mongo-ce-cert-map
 oc delete secret mas-mongo-ce-server-certificate-key
 
-export ROLE_NAME=mongodb 
+export ROLE_NAME=mongodb
 ansible-playbook ibm.mas_devops.run_role
 ```
 
@@ -159,7 +172,7 @@ After the CA and server Certificates have been renewed you must ensure that that
 
 ```
 
-If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be updated to reflect the new MongoDB CA. This can be added to the `.spec.mongo.certificates` section of the LicenseService CR. 
+If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be updated to reflect the new MongoDB CA. This can be added to the `.spec.mongo.certificates` section of the LicenseService CR.
 
 ```yaml
     mongo:
@@ -174,6 +187,6 @@ If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replic
 Once the CA certificate has been updated for the MongoCfg and LicenseService CRs several pods in the core and SLS namespaces might need to be restarted to pick up the changes. This would include but is not limited to coreidp, coreapi, api-licensing.
 
 License
--------
+-------------------------------------------------------------------------------
 
 EPL-2.0

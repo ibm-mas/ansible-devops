@@ -264,6 +264,76 @@ def getWSLProjectId(wslProjectLookup, wslProjectName):
   # Project not found
   return ""
 
+def setManagePVC(data, mountPath, pvcName, pvcSize, storageClassName, volumeName = None):
+  """
+    filter: setManagePVC
+    author: André Marcelino <andrercm@br.ibm.com>
+    version_added: 13.0
+    short_description: ---
+    description:
+        - This builds the yaml structure to set Manage persistent volume
+    options:
+      data:
+        description: list of existing Manage Persistent Volumes
+        required: True
+      mountPath:
+        description: Persistent Volumes mount path
+        required: True
+      mountPath:
+        description: Persistent Volumes Claim name
+        required: True
+      storageClassName:
+        description: Persistent Volumes Claim Storage Class name
+        required: True
+      volumeName:
+        description: Persistent Volume name associated to the PVC
+        required: True
+    notes:
+      - limited error handling, will not handle unexpected data currently
+  """
+  pvc_list = []
+
+  persistentVolumes = {  
+    "accessModes": ["ReadWriteMany"],
+    "mountPath": mountPath,
+    "pvcName": pvcName,
+    "size": pvcSize,
+    "storageClassName": storageClassName,
+    "volumeName": volumeName
+  }
+  if not volumeName:
+    del persistentVolumes['volumeName']
+  data.append(persistentVolumes)
+  for pvc in data:
+    pvc_list.append(pvc)
+  return pvc_list
+
+def setManageBirtProperties(data, rptRoute, rptServerBundleName):
+  sb_list = []
+  rpt_bundle = {
+    "bundleType": "report",
+    "isDefault": False,
+    "isMobileTarget": False,
+    "isUserSyncTarget": False,
+    "name": rptServerBundleName,
+    "replica": 1,
+    "routeSubDomain": rptServerBundleName
+  }
+
+  hasRpt = [True for x in data if x['bundleType'] == 'report']
+  if len(hasRpt) == 0:
+    data.append(rpt_bundle)
+  for sb in data:
+    disablequeuemanager = 0 if sb['bundleType'] == 'report' else 1
+    if 'bundleLevelProperties' in sb:
+      if 'mxe.report.birt.viewerurl' not in sb['bundleLevelProperties'] and 'mxe.report.birt.disablequeuemanager' not in sb['bundleLevelProperties']:
+        sb['bundleLevelProperties']+=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+    else:
+      sb['bundleLevelProperties']=f"mxe.report.birt.viewerurl={rptRoute}  mxe.report.birt.disablequeuemanager={disablequeuemanager}"
+    sb_list.append(sb)
+  return sb_list
+
+
 def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint):
   sb_list = []
   for sb in data:
@@ -274,6 +344,7 @@ def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secr
       sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks  mxe.doclink.doctypes.defpath=cos:doclinks/default  mxe.doclink.path01=cos:doclinks={doclinkPath01}  mxe.doclink.securedAttachment=true  mxe.cosbucketname={bucketName}  mxe.cosaccesskey={accessKey}  mxe.cossecretkey={secretAccesskey}  mxe.cosendpointuri={bucketEndpoint}  mxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
     sb_list.append(sb)
   return sb_list
+
 
 class FilterModule(object):
   def filters(self):
@@ -288,5 +359,7 @@ class FilterModule(object):
       'getResourceNames': getResourceNames,
       'defaultStorageClass': defaultStorageClass,
       'getWSLProjectId': getWSLProjectId,
+      'setManagePVC': setManagePVC,
+      'setManageBirtProperties': setManageBirtProperties,
       'setManageDoclinksProperties': setManageDoclinksProperties
     }
