@@ -145,9 +145,13 @@
   register: artifactory_image_info
 
 # 11. Add images to the src(with digest)=dest(with tag) mapping for mirroring
+# If the image's digest was not fetched for instance, if the *bundle-with-digest
+# image was not located for the said version, then that image would be skipped.
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Add to the mapping file for mirroring"
+  when: item.0.stdout is defined and item.0.stdout != ""
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
+    create: true
     line: '{{ item.0.stdout + "=" + registry_public_url + "/dev/" + item.1.image + ":" + item.1.tag }}'
   loop: "{{ artifactory_image_info.results | zip(resources_images_info) | list }}"
