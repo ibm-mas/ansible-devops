@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Secret
 type: Opaque
 metadata:
-  name: "masms-{{ mas_instance_id }}-sendgrid-credentials"
+  name: "{{ sendgrid_secretname }}"
   namespace: "mas-{{ mas_instance_id }}-core"
 {% if custom_labels is defined and custom_labels.items() %}
 {% for key, value in custom_labels.items() %}
@@ -12,7 +12,7 @@ metadata:
 {% endif %}
 stringData:
   username: "apikey"
-  password: "{{ _subuser_apikey.json.api_key | b64encode }}"
+  password: "{{ sendgrid_apikey | b64encode }}"
 ---
 apiVersion: config.mas.ibm.com/v1
 kind: SmtpCfg
@@ -20,7 +20,7 @@ metadata:
   name: "{{ mas_instance_id }}-smtp-system"
   namespace: "mas-{{ mas_instance_id }}-core"
   labels:
-    mas.ibm.com/configScope: system
+    mas.ibm.com/configScope: {{ sendgrid_configscope }}
     mas.ibm.com/instanceId: "{{ mas_instance_id }}"
 {% if custom_labels is defined and custom_labels.items() %}
 {% for key, value in custom_labels.items() %}
@@ -28,26 +28,26 @@ metadata:
 {% endfor %}
 {% endif %}
 spec:
-  displayName: "MAS MS {{ mas_instance_id }} Send Grid Configuration "
+  displayName: "MAS {{ mas_instance_id }} Send Grid Configuration"
   config:
-    hostname: smtp.sendgrid.net
-    port: 465
-    security: SSL
-    authentication: true
-    defaultSenderEmail: MAS.MS.SMTP@ibm.com
-    defaultSenderName: ''
-    defaultRecipientEmail: MAS.MS.SMTP@ibm.com
-    defaultShouldEmailPasswords: false
+    hostname: {{ sendgrid_hostname }}
+    port: {{ sendgrid_port }}
+    security: {{ sendgrid_security }}
+    authentication: {{ sendgrid_authentication }}
+    defaultSenderEmail: {{ sendgrid_defaultsenderemail }}
+    defaultSenderName: {{ sendgrid_defaultsendername }}
+    defaultRecipientEmail: {{ sendgrid_defaultrecipientemail }}
+    defaultShouldEmailPasswords: {{ sendgrid_defaultshouldemailpasswords }}
     credentials:
-      secretName: masms-{{ mas_instance_id }}-sendgrid-credentials
+      secretName: {{ sendgrid_secretname }}
   certificates:
     - alias: SGCA1
       crt: |
-        {{ sendgrid_ca_1 | indent(8)}}
+        {{ sendgrid_ca_1 | indent(7)}}
     - alias: SGCA2
       crt: |
-        {{ sendgrid_ca_2 | indent(8)}}
+        {{ sendgrid_ca_2 | indent(7)}}
     - alias: SGCA3
       crt: |
-        {{ sendgrid_ca_3 | indent(8)}}
+        {{ sendgrid_ca_3 | indent(7)}}
 

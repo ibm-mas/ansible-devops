@@ -2,7 +2,7 @@
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
-    name: "masms-{{ mas_instance_id }}-sendgrid-credentials"
+    name: "{{ sendgrid_secretname }}"
     namespace: "mas-{{ mas_instance_id }}-core"
   register: _instance_smtp_key
 
@@ -10,11 +10,11 @@
   block:
     - name: Set Facts
       set_fact:
-        _masms_smtp_user_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=20') }}"
+        _smtp_user_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=20') }}"
 
     - name: Check if subuser already exist
       uri:
-        url: "https://{{ sendgrid_api_url }}/v3/subusers/{{ masms_smtp_user_name }}"
+        url: "https://{{ sendgrid_api_url }}/v3/subusers/{{ smtp_user_name }}"
         validate_certs: no
         method: GET
         headers:
@@ -36,9 +36,9 @@
           cache-control: "no-cache"
         body_format: "json"
         body:
-          username: "{{ masms_smtp_user_name }}"
-          email: "{{ masms_smtp_email }}"
-          password: "{{ _masms_smtp_user_password }}"
+          username: "{{ smtp_user_name }}"
+          email: "{{ smtp_email }}"
+          password: "{{ _smtp_user_password }}"
           ips:
             - "149.72.75.134"
         status_code: 201
@@ -54,11 +54,11 @@
         method: POST
         headers:
           Authorization: "Bearer {{ sendgrid_apikey }}"
-          On-behalf-of: "{{masms_smtp_user_name}}"
+          On-behalf-of: "{{ smtp_user_name }}"
           cache-control: "no-cache"
         body_format: "json"
         body:
-          name: "{{masms_smtp_user_name}}_apikey"
+          name: "{{ smtp_user_name }}_apikey"
           scopes:
             - "mail.send"
         status_code: 201
@@ -77,14 +77,14 @@
         method: POST
         headers:
           Authorization: "Bearer {{ sendgrid_apikey }}"
-          On-behalf-of: "{{masms_smtp_user_name}}"
+          On-behalf-of: "{{ smtp_user_name }}"
           cache-control: "no-cache"
         body_format: "json"
         body:
-          nickname: "{{ masms_smtp_email }}"
-          from_email: "{{ masms_smtp_email }}"
-          from_name: "{{ masms_smtp_email }}"
-          reply_to: "{{ masms_smtp_email }}"
+          nickname: "{{ smtp_email }}"
+          from_email: "{{ smtp_email }}"
+          from_name: "{{ smtp_email }}"
+          reply_to: "{{ smtp_email }}"
           reply_to_name: ""
           address: "250 York St #301"
           address2: ""
