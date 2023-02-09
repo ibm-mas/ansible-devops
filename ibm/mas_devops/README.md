@@ -7,6 +7,7 @@
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
 - `12.8` Multiple Updates:
+    - Support for mongodb backup and restore functionality for Provider IBM ([#623](https://github.com/ibm-mas/ansible-devops/pull/623))
     - Support for mongodb provisioning on aws and ibmcloud alongwith user creation for documentdb ([#559](https://github.com/ibm-mas/ansible-devops/pull/559))
 - `12.7` Add support for Jan 2023 catalog ([#602](https://github.com/ibm-mas/ansible-devops/pull/602))
 - `12.6` Multiple Updates:
