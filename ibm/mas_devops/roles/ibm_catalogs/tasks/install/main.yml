@@ -21,7 +21,9 @@
 # 2.2 Offline catalog
 # If this fails then it means we can't perform an airgap install using this catalog
 - name: Load CASE bundle versions for the offline catalog
-  when: airgap_install
+  when:
+    - airgap_install
+    - not dev_mode
   include_vars:
     file: "{{ role_path }}/../../common_vars/casebundles/{{ mas_catalog_version }}.yml"
 
@@ -29,24 +31,26 @@
 # update the image digest configmaps, otherwise when the operators update
 # they will not be able to use digests for the new images.
 - name: "Update digest maps ahead of catalog update"
-  when: airgap_install
+  when:
+    - airgap_install
+    - not dev_mode
   include_tasks: tasks/install/update-digest-maps.yml
 
 - name: "Create IBM offline catalog"
-  when: airgap_install
+  when:
+    - airgap_install
+    - not dev_mode
   kubernetes.core.k8s:
     template: templates/offline-catalog.yml.j2
 
 
 # 3. Install development (pre-release) catalog
 # -----------------------------------------------------------------------------
-# In an airgap install scenario, the catalogs are already installed as part of
-# preparing the cluster.  The development catalog is not supported in airgap today
 - name: "Install development (pre-release) catalogs"
   when:
     - artifactory_username is defined and artifactory_username != ""
     - artifactory_apikey is defined and artifactory_apikey != ""
-    - not airgap_install
+    - airgap_install and dev_mode
   include_tasks: tasks/install/development-catalog.yml
 
 
