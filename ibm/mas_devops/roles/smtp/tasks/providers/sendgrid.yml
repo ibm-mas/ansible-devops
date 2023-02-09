@@ -1,17 +1,19 @@
-- name: Lookup for instance credentials Secret
+- name: Check if apikey secret exists in the instance namespace
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ sendgrid_secretname }}"
     namespace: "mas-{{ mas_instance_id }}-core"
-  register: _instance_smtp_key
+  register: _instance_smtp_apikey
 
-- name: Create send grid user
+- name: If apikey secret exists, record apikey
+  when:
+    - _instance_smtp_apikey.resources[0].data.api_key is defined
+  set_fact: 
+    _apikey: "{{ _instance_smtp_apikey.resources[0].data.api_key }}"
+
+- name: If apikey not found in instance namespace, generate new apikey
   block:
-    - name: Set Facts
-      set_fact:
-        _smtp_user_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=20') }}"
-
     - name: Check if subuser already exist
       uri:
         url: "https://{{ sendgrid_api_url }}/v3/subusers/{{ smtp_user_name }}"
@@ -24,7 +26,14 @@
         timeout: 30
       register: _user_exist_result
 
-    - name: Create subuser if user does not exist
+    - name: Generate subuser password
+      when:
+        - _user_exist_result.status == 404
+      set_fact:
+        _user_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=20') }}"
+
+
+    - name: Create subuser 
       when:
         - _user_exist_result.status == 404
       uri:
@@ -34,36 +43,38 @@
         headers:
           Authorization: "Bearer {{ sendgrid_apikey }}"
           cache-control: "no-cache"
+          Content-Type: "application/json"
         body_format: "json"
         body:
-          username: "{{ smtp_user_name }}"
-          email: "{{ smtp_email }}"
-          password: "{{ _smtp_user_password }}"
-          ips:
-            - "149.72.75.134"
+          "username": "{{ smtp_user_name }}"
+          "email": "{{ smtp_email }}"
+          "password": "{{ _user_password }}"
+          "ips": "{{ sendgrid_ips }}"
         status_code: 201
         timeout: 30
       register: _create_user_result
 
-    - name: Generate API Key for Subuser
-      when:
-        - _subuser_apikey.status == 404
+    - name: Generate subuser API Key
       uri:
         url: "https://{{ sendgrid_api_url }}/v3/api_keys"
         validate_certs: no
         method: POST
         headers:
           Authorization: "Bearer {{ sendgrid_apikey }}"
-          On-behalf-of: "{{ smtp_user_name }}"
+          On-behalf-of: "{{smtp_user_name}}"
           cache-control: "no-cache"
         body_format: "json"
         body:
-          name: "{{ smtp_user_name }}_apikey"
+          name: "{{smtp_user_name}}_apikey"
           scopes:
             - "mail.send"
         status_code: 201
         timeout: 30
       register: _subuser_apikey
+
+    - name: Record apikey
+      set_fact: 
+        _apikey: "{{ _subuser_apikey.json.api_key }}"
 
     - name: Perform Single Sender Authentication
       when:
@@ -94,16 +105,13 @@
           zip: "N6A 6K2"
         status_code: 201, 400
         timeout: 30
+
   when:
-    - not _instance_smtp_key.resources | length > 0
-- name: Set apikey
-  when: (_subuser_apikey.changed or _instance_smtp_key.resources | length > 0)
-  set_fact:
-    sendgrid_user_apikey: "{{(_subuser_apikey is defined and _subuser_apikey.json is defined) | ternary(_subuser_apikey.json.api_key, _instance_smtp_key.resources[0].data.api_key | b64decode)}}"
-- name: Copy SMTPCfg to filesystem
+    - _instance_smtp_apikey.resources[0].data.api_key is not defined
+
+- name: create smtpcfg file in config dir
   ansible.builtin.template:
     src: "sendgrid/smtpcfg.yml.j2"
     dest: "{{ mas_config_dir }}/smtp-{{ mas_instance_id | lower }}.yml"
   when:
-    - _existent_smtp.resources | length == 0
-    - sendgrid_user_apikey is defined
+    - _apikey is defined
