@@ -77,3 +77,27 @@
 - name: "Create new image map"
   when: (existing_digest_cm.resources is defined and existing_digest_cm.resources | length == 0) or existing_digest_cm.resources is not defined
   include_tasks: actions/new.yml
+
+
+# 4. Workaround for Manage Workspace Entity Manager Image digest
+#------------------------------------------------------------------------------
+- name: Fix Manage 844 and 845 Workspace image-map.
+  block:
+    - name: "Initialize facts"
+      set_fact:
+        digest_image_map_name: "ibm-manage-image-map"
+        digest_image_map_name_controller: "{{ case_name }}-image-map"
+
+    - name: "Look for the controller image map"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        name: "{{ digest_image_map_name_controller }}"
+        kind: ConfigMap
+        namespace: "{{ digest_image_map_namespace }}"
+      register: existing_digest_cm
+
+    - name: "Create new image map"
+      when: (existing_digest_cm.resources is defined and existing_digest_cm.resources | length == 0) or existing_digest_cm.resources is not defined
+      include_tasks: actions/new.yml
+
+  when: case_name == "ibm-mas-manage" and (case_version == "8.4.4" or case_version == "8.4.5")
