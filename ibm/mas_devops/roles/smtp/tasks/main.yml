@@ -1,27 +1,30 @@
 ---
-# tasks file for masms_smtp_sendgrid
-# 1. SendGrid Process for new MASMS Customer
-# 2. Configuring SendGrid in MAS Core
-# 3. Configuring SendGrid in MAS Manage
-# 4. SendGrid Domain Authentication
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "sendgrid : Fail if required properties are not provided"
+  assert:
+    that: smtp_type is defined and smtp_type != "" and smtp_type is in supported_smtp_types
+    fail_msg: "smtp_type property is required and must be one of the suppported smtp types"
 
+  assert:
+    that: mas_instance_id defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+  assert:
+    that: mas_config_dir is defined and mas_config_dir != ""
+    fail_msg: "mas_config_idr property is required"
+
+
+# 2. Debug information
+# -----------------------------------------------------------------------------
 - name: Debug Information
   debug:
     msg:
-      - "SMTP Type ......... {{ smtp_type }}"
-      - "MAS Instance Id ... {{ mas_instance_id }}"
-      - "MAS Config Dir .... {{ mas_config_dir }}"
-      - "SMTP User Name .... {{ smtp_user_name }}"
+      - "SMTP Type ............... {{ smtp_type }}"
+      - "MAS Instance Id ......... {{ mas_instance_id }}"
+      - "MAS Config Dir .......... {{ mas_config_dir }}"
 
 
-- name: Lookup for existent configuration in MAS
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: SmtpCfg
-    namespace: mas-{{ mas_instance_id }}-core
-  register: _existent_smtp
-
-
+# 3. Execute provider specific tasks
+# -----------------------------------------------------------------------------
 - include_tasks: tasks/providers/{{ smtp_type }}.yml
-  when:
-    - _existent_smtp.resources | length == 0
