@@ -23,7 +23,7 @@
 - name: Load CASE bundle versions for the offline catalog
   when:
     - airgap_install
-    - not dev_mode
+    - not dev_mode_airgap
   include_vars:
     file: "{{ role_path }}/../../common_vars/casebundles/{{ mas_catalog_version }}.yml"
 
@@ -33,13 +33,13 @@
 - name: "Update digest maps ahead of catalog update"
   when:
     - airgap_install
-    - not dev_mode
+    - not dev_mode_airgap
   include_tasks: tasks/install/update-digest-maps.yml
 
 - name: "Create IBM offline catalog"
   when:
     - airgap_install
-    - not dev_mode
+    - not dev_mode_airgap
   kubernetes.core.k8s:
     template: templates/offline-catalog.yml.j2
 
@@ -49,7 +49,7 @@
 - name: "Install development (pre-release) catalogs"
   when: (artifactory_username is defined and artifactory_username != "") and
         (artifactory_apikey is defined and artifactory_apikey != "") or
-        (airgap_install and dev_mode)
+        (airgap_install and dev_mode_airgap)
   include_tasks: tasks/install/development-catalog.yml
 
 
