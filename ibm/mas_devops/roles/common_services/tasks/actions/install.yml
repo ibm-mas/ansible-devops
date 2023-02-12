@@ -9,23 +9,21 @@
 # Also, an operator group will be created in the namespace if one does not already exist
 
 - name: Check if operator group is present in ibm-common-services already
-  k8s_info:
+  kubernetes.core.k8s_info:
     namespace: ibm-common-services
     kind: OperatorGroup
   register: og_info
 
-
 # Look up the default channel for the ibm-common-service-operator package manifest
-# The way ODLM works (which we have to use) means that when an istance of MAS Core
-# is installed in the cluster, the ODLM framework will automatically upgdate the installed
+# The way ODLM works (which we have to use) means that when an instance of MAS Core
+# is installed in the cluster, the ODLM framework will automatically upgrade the installed
 # version of the IBM common service operator to whatever is set as the default channel.
 #
 # This can cause the subsequent installation of the Licensing Operator to fail in
 # horrible ways, setting the subscription channel correctly here will hopefully avoid
 # this problem.
 - name: Lookup ibm-common-service-operator packagemanifest
-  when: common_services_channel is not defined or common_services_channel == ""
-  k8s_info:
+  kubernetes.core.k8s_info:
     api_version: packages.operators.coreos.com/v1
     kind: PackageManifest
     name: ibm-common-service-operator
@@ -34,14 +32,15 @@
   until: common_services_manifest_info.resources[0].status.defaultChannel is defined
   retries: 60 # Approximately 30 minutes before we give up
   delay: 30 # 30 seconds
+  when: common_services_channel is not defined or common_services_channel == ""
 
 - name: Set ibm-common-services-operator channel
-  when: common_services_channel is not defined or common_services_channel == ""
-  set_fact:
+  ansible.builtin.set_fact:
     common_services_channel: "{{ common_services_manifest_info.resources[0].status.defaultChannel }}"
+  when: common_services_channel is not defined or common_services_channel == ""
 
 - name: Debug IBM Common Services Install
-  debug:
+  ansible.builtin.debug:
     msg:
       - "Channel ................................ {{ common_services_channel }}"
       - "Source ................................. {{ common_services_catalog_source }}"
