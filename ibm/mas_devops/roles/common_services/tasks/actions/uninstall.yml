@@ -6,11 +6,21 @@
 # NamespaceScope CRs get stuck on their finalizer
 # because the IBM NamespaceScope Operator gets deleted first
 # blocking the removal of the ibm-common-services namespace
+- name: Get all NamespaceScopes
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: NamespaceScope
+    namespace: ibm-common-services
+  register: ns_scopes_lookup
+
 - name: Delete all NamespaceScopes
-  ansible.builtin.command: oc delete --all NamespaceScope -n ibm-common-services
-  ignore_errors: True
-  register: deletion_results
-  changed_when: deletion_results.rc != 0
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: NamespaceScope
+    namespace: ibm-common-services
+    name: "{{ item.metadata.name }}"
+  loop: "{{ ns_scopes_lookup.resources }}"
 
 - name: Delete the ibm-common-services namespace
   kubernetes.core.k8s:
