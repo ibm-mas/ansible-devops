@@ -3,6 +3,15 @@
 # For example this should always run after the cert_manager role's uninstall if IBM Certificate Manager
 # is installed, and after uds role's uninstall action if IBM User Data Services is installed.
 
+# NamespaceScope CRs get stuck on their finalizer
+# because the IBM NamespaceScope Operator gets deleted first
+# blocking the removal of the ibm-common-services namespace
+- name: Delete all NamespaceScopes
+  ansible.builtin.command: oc delete --all NamespaceScope -n ibm-common-services
+  ignore_errors: True
+  register: deletion_results
+  changed_when: deletion_results.rc != 0
+
 - name: Delete the ibm-common-services namespace
   kubernetes.core.k8s:
     state: absent
