@@ -9,6 +9,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 - `12.11` Multiple Updates:
     - Support for additional mongodb providers([#559](https://github.com/ibm-mas/ansible-devops/pull/559))
 
+- `12.11` Add Cloud Pak for Data v4.6 support ([#538](https://github.com/ibm-mas/ansible-devops/pull/538))
 - `12.10` Multiple Updates:
     - Support creating and deleting IBM Cloud resource keys ([#626](https://github.com/ibm-mas/ansible-devops/pull/626))
     - Support uninstall of Core & dependencies ([#637](https://github.com/ibm-mas/ansible-devops/pull/637))

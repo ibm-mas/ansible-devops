@@ -48,6 +48,21 @@ Community MongoDB Role Variables
 ---------------------------------
 Role Variables
 -------------------------------------------------------------------------------
+### mongodb_action
+Inform the role whether to perform an install or uninstall of MongoDb.
+
+- Optional
+- Environment Variable: `MONGODB_ACTION`
+- Default: `install`
+
+### mongodb_ce_version
+Set the version of the MongoDb Community Edition Operator to install in the namespace.
+
+- Optional
+- Environment Variable: `MONGODB_CE_VERSION`
+- Default: `0.7.0`
+
+
 ### mongodb_namespace
 The namespace where the operator and MongoDb cluster will be deployed.
 
