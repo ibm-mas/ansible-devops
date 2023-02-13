@@ -2,10 +2,11 @@
 
 # 1. Debug Properties
 # -----------------------------------------------------------------------------
-- name: "mongodb/community : Debug properties"
+- name: "community : install : Debug properties"
   debug:
     msg:
       - "MongoDb namespace ............ {{ mongodb_namespace }}"
+      - "MongoDb operator version ..... {{ mongodb_ce_version }}"
       - "MongoDb data capacity ........ {{ mongodb_storage_capacity_data }}"
       - "MongoDb logs capacity ........ {{ mongodb_storage_capacity_logs }}"
       - "MongoDb replicas ............. {{ mongodb_replicas }}"
@@ -15,34 +16,39 @@
 
 # 2. Install the CRD
 # -----------------------------------------------------------------------------
-- name: "mongodb/community : Install MongoDBCommunity CRD"
+- name: "community : install : Install MongoDBCommunity CRD"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/crd.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/crd.yml') }}"
 
 
 # 3. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
-- name: "mongodb/community : Create namespace & install RBAC"
+- name: "community : install : Create namespace & install RBAC"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/rbac.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/rbac.yml') }}"
 
 
 # 4. Configure anyuid permissions in the MongoDb namespace
 # -----------------------------------------------------------------------------
-- name: "mongodb/community : Configure anyuid permissions in the MongoDb namespace"
+- name: "community : install : Configure anyuid permissions in the MongoDb namespace"
   shell: |
     oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:default
     oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-kubernetes-operator
 
+- name: "community : install : Configure anyuid permissions for database service account"
+  when: mongodb_ce_version != "0.7.0"
+  shell: |
+    oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-database
+
 
 # 5. Install the operator
 # -----------------------------------------------------------------------------
-- name: "mongodb/community : Install the MongoDb Operator"
+- name: "community : install : Install the MongoDb Operator"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/manager.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/manager.yml') }}"
 
 
 # 6. Configure TLS using cert manager
@@ -85,7 +91,7 @@
 
 # Taking ca.crt value in a variable
 # Mongo needs a configmap having ca.crt value
-- name: "mongodb/community : Lookup the ca.crt"
+- name: "community : install : Lookup the ca.crt"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
@@ -94,7 +100,7 @@
   register: mongodb_ca_lookup
 
 # Check if configmap exists
-- name: "mongodb/community : Check for existing CA configmap"
+- name: "community : install : Check for existing CA configmap"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
@@ -103,7 +109,7 @@
   register: ca_cfgmap_info
 
 # Creating a ca.crt configmap which will be consumed by mongo cr
-- name: "mongodb/community : Create new ca configmap"
+- name: "community : install : Create new ca configmap"
   when:
     - ca_cfgmap_info.resources is defined
     - ca_cfgmap_info.resources | length == 0
@@ -116,7 +122,7 @@
 
 # 7. Create MongoDb admin user credentials secret
 # -----------------------------------------------------------------------------
-- name: "mongodb/community : Check for existing user password secret"
+- name: "community : install : Check for existing user password secret"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
@@ -124,7 +130,7 @@
     namespace: "{{ mongodb_namespace }}"
   register: admin_password_info
 
-- name: "mongodb/community : Create new MongoDb admin user credentials secret"
+- name: "community : install : Create new MongoDb admin user credentials secret"
   when:
     - admin_password_info.resources is defined
     - admin_password_info.resources | length == 0
@@ -135,15 +141,15 @@
 
 # 8. Deploy the cluster
 # -----------------------------------------------------------------------------
-- name: "mongodb/community : Create MongoDb cluster"
+- name: "community : install : Create MongoDb cluster"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/cr.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml') }}"
 
 
 # 9. Wait for the cluster to be ready
 # -----------------------------------------------------------------------------
-- name: "mongodb/community : Wait for stateful set to be ready"
+- name: "community : install : Wait for stateful set to be ready"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet
@@ -162,7 +168,7 @@
 # 10. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
 # Lookup the mongo pods
-- name: "mongodb/community : Lookup mongo pods"
+- name: "community : install : Lookup mongo pods"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Pod
@@ -181,7 +187,7 @@
     mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/community/mongo-hosts.yml.j2') }}"
 
 # Lookup the admin password that was used
-- name: "mongodb/community : Lookup admin password"
+- name: "community : install : Lookup admin password"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
@@ -195,7 +201,7 @@
     - admin_password_lookup.resources[0].data.password is defined
 
 # Lookup the CA PEM
-- name: "mongodb/community : Lookup the ca.pem"
+- name: "community : install : Lookup the ca.pem"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
@@ -204,7 +210,7 @@
   register: mongodb_ca_lookup
 
 # Lookup the server certificate
-- name: "mongodb/community : Lookup the server.crt"
+- name: "community : install : Lookup the server.crt"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
@@ -212,14 +218,14 @@
     namespace: "{{ mongodb_namespace }}"
   register: mongodb_crt_lookup
 
-- name: "mongodb/community : Create MAS MongoCfg (debug)"
+- name: "community : install : Create MAS MongoCfg (debug)"
   debug:
     msg: "{{ lookup('template', 'templates/community/suite_mongocfg.yml.j2') }}"
   vars:
     mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
     mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
 
-- name: "mongodb/community : Create MAS MongoCfg"
+- name: "community : install : Create MAS MongoCfg"
   when:
     - mas_instance_id is defined
     - mas_instance_id != ""
@@ -228,6 +234,7 @@
   ansible.builtin.template:
     src: community/suite_mongocfg.yml.j2
     dest: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+    mode: '664'
   vars:
     mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
     mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
