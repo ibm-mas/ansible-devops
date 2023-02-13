@@ -78,7 +78,7 @@
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
     create: true
-    line: '{{ artifactory_image_repo + "/"+ images[item].name + "@" + images[item].digest + "=" + registry_public_url + "/dev/" + images[item].name + ":" + images[item].tag }}'
+    line: '{{ artifactory_image_repo + "/"+ images[item].name + "@" + images[item].digest + "=" + registry_public_url + "/" + images[item].name + ":" + images[item].tag }}'
   loop: "{{ images | list }}"
   vars:
     operatorVersion: "{{ case_version }}"
@@ -90,7 +90,7 @@
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Find the inventory Setup path"
   find:
-    paths: "{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}"
+    paths: "{{ mirror_working_dir }}/{{ case_name }}-dev-with-digest-bundle/case/{{ case_name }}"
     patterns: "*Setup"
     file_type: "directory"
     recurse: true
@@ -153,5 +153,5 @@
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
     create: true
-    line: '{{ item.0.stdout + "=" + registry_public_url + "/dev/" + item.1.image + ":" + item.1.tag }}'
+    line: '{{ item.0.stdout + "=" + registry_public_url + "/" + item.1.image + ":" + item.1.tag }}'
   loop: "{{ artifactory_image_info.results | zip(resources_images_info) | list }}"

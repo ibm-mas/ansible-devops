@@ -47,11 +47,27 @@
 # 3. Install development (pre-release) catalog
 # -----------------------------------------------------------------------------
 - name: "Install development (pre-release) catalogs"
-  when: (artifactory_username is defined and artifactory_username != "") and
-        (artifactory_apikey is defined and artifactory_apikey != "") or
-        (airgap_install and dev_mode_airgap)
+  when:
+    - artifactory_username is defined and artifactory_username != ""
+    - artifactory_apikey is defined and artifactory_apikey != ""
+    - not airgap_install
   include_tasks: tasks/install/development-catalog.yml
 
+- name: "Make sure that catalog digest is available if using airgap dev mode"
+  when:
+    - airgap_install
+    - dev_mode_airgap
+  assert:
+    that:
+      - catalog_digest is defined and catalog_digest != ""
+    fail_msg: "CATALOG_DIGEST is required for dev mode airgap catalogs"
+
+- name: "Install development (pre-release) catalog using digest for airgap"
+  when:
+    - airgap_install
+    - dev_mode_airgap
+  kubernetes.core.k8s:
+    template: templates/development-catalog-with-digest.yml.j2
 
 # 4. Wait until ready
 # -----------------------------------------------------------------------------
