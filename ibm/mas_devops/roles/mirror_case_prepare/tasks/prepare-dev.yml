@@ -23,7 +23,7 @@
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Download the dev bundle"
   ansible.builtin.get_url:
-    url: "{{ artifactory_bundle_url }}/{{ case_name }}/{{ case_version }}/{{ case_name }}-dev-with-digest-bundle-{{ case_version }}.tgz"
+    url: "{{ artifactory_bundle_url }}/{{ case_name }}/{{ case_version }}/{{ case_name }}-bundle-{{ case_version }}.tgz"
     username: "{{ artifactory_username }}"
     password: "{{ artifactory_apikey }}"
     dest: "{{ mirror_working_dir }}"
@@ -40,7 +40,7 @@
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Find images-with-digests.yml in case bundle"
   find:
-    paths: "{{ mirror_working_dir }}/{{ case_name }}-dev-with-digest-bundle"
+    paths: "{{ mirror_working_dir }}/{{ case_name }}-bundle"
     patterns: "images-with-digests.yml"
     recurse: true
   register: find_file_result
@@ -90,7 +90,7 @@
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Find the inventory Setup path"
   find:
-    paths: "{{ mirror_working_dir }}/{{ case_name }}-dev-with-digest-bundle/case/{{ case_name }}"
+    paths: "{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}"
     patterns: "*Setup"
     file_type: "directory"
     recurse: true
@@ -128,8 +128,10 @@
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Get images info from resource file"
   set_fact:
-    resources_images_info: "{{ resources_images_info | default([]) + [{ 'image': item.image | regex_replace('bundle','bundle-with-digest'), 'tag': item.tag }] }}"
+    resources_images_info: "{{ resources_images_info + [{ 'image': item.image | regex_replace('bundle','bundle-with-digest'), 'tag': item.tag }] }}"
   loop: "{{ (lookup('file', '{{ resources_file_path }}') | from_yaml).resources.resourceDefs.containerImages }}"
+  vars:
+    resources_images_info: []
 
 # 10. Get the images digests from artifactory for the additional images.
 #     The digests in the resources.yaml file is not correct and since we added
