@@ -9,6 +9,7 @@ Currently supported Cloud Pak for Data release versions supported are:
   - 4.5.0
   - 4.5.1
   - 4.5.2
+  - 4.6.0
 
 The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.
 
@@ -26,7 +27,7 @@ These services can be deployed and configured using this role:
 
 Upgrade
 ------------------
-This role also supports seamlessly CPD services minor version upgrades (CPD 4.0.9 -> CPD 4.5.0), and patch version upgrades (CPD 4.5.0 -> CPD 4.5.x).
+This role also supports seamlessly CPD services minor version upgrades (CPD 4.0.9 -> CPD 4.5.x -> CPD 4.6.x), as well as patch version upgrades.
 All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role for a particular CPD service.
 It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.
 
