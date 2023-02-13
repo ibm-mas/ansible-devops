@@ -41,20 +41,13 @@ MongoDB provider
 ### mongodb_action
 Determines which action needs to be performed w.r.t mongodb for a specfied `provider`
 
-- Environment variable: `DB_ACTION`
+- Environment variable: `MONGODB_ACTION`
 - Deafult Value: `provision`
 
 Community MongoDB Role Variables
 ---------------------------------
 Role Variables
 -------------------------------------------------------------------------------
-### mongodb_action
-Inform the role whether to perform an install or uninstall of MongoDb.
-
-- Optional
-- Environment Variable: `MONGODB_ACTION`
-- Default: `install`
-
 ### mongodb_ce_version
 Set the version of the MongoDb Community Edition Operator to install in the namespace.
 
