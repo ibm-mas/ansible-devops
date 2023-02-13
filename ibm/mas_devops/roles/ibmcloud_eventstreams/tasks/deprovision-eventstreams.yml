@@ -3,8 +3,7 @@
     msg:
       - "Event Streams Name ...... {{ eventstreams_name }}"
       - "Region .............................. {{ ibmcloud_region }}"
-      - "Plan ...................... {{ eventstreams_plan }}"
-      - "Retention(ms) ...................... {{ eventstreams_retention }}"
+      - "Evenstreams Action ...................... {{ eventstreams_action }}"
 
 - name: Initialize vars
   set_fact:
@@ -27,42 +26,33 @@
   set_fact:
     kafka_exists: true
 
-- name: Provision IBM eventstreams
+- name: Set Resource Id for deletion
+  when: kafka_exists
+  set_fact:
+    es_id: "{{ es_exist_info.resource.id }}"
+
+- name: Deprovision IBM eventstreams
   ibm.cloudcollection.ibm_resource_instance:
     name: "{{ eventstreams_name }}"
     plan: "{{ eventstreams_plan }}"
     service: "{{ eventstreams_service }}"
     location: "{{ eventstreams_location }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    state: absent
+    id: "{{ es_id }}"
     #resource_group_id: "{{ ibmcloud_resourcegroup }}"
   register: es_info
-  when: not kafka_exists
+  when: kafka_exists
 
-- set_fact:
-    es_exist_info: "{{ es_info }}"
-  when: not kafka_exists
-
-- debug:
+- name: Debug Deprovision Output
+  debug:
     msg:
-      - "{{ es_exist_info }}"
+      - "Deprovision ......... {{ es_info }}"
 
-- name: Build kafka broker property list
-  set_fact:
-    kafka_host_prop_list: "{{ kafka_host_prop_list | default([]) + ['kafka_brokers_sasl.'+ item ] }}"
-  with_sequence: start=0 end={{ es_exist_info.resource.extensions['kafka_brokers_sasl.#'] | int - 1 }}
-
-- name: Fetch Kafka brokers
-  loop: "{{ kafka_host_prop_list }}"
-  set_fact: 
-    hostports: "{{ hostports | default([]) + [es_exist_info.resource.extensions[item] | split(':')] }}"
-
-- set_fact:
-    kafka_hosts: "{{ lookup('ansible.builtin.template', 'templates/kafka-hosts.yml.j2') }}"
-
-- name: Create KafkaCfg
-  ansible.builtin.template:
-    src: evenstreams_kafkacfg.yml.j2
-    dest: "{{ mas_config_dir }}/{{ eventstreams_name }}-kafkacfg.yml"
-
-- name: Create Service Credentials for IBM Cloud Eventstreams
-  include_tasks: tasks/create-eventstreams-service-credentials.yml
+- name: Check IBM eventstreams deleted successfully
+  assert:
+    that:
+      - es_info.rc == 0
+      - es_info.stdout.find('Destroy complete') != -1
+    fail_msg: "Unable to delete IBM eventstreams"
+  when: kafka_exists
