@@ -1,6 +1,8 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `12.12` Multiple Updates:
+    - Extend support for Manage's customer files configuration ([#661](https://github.com/ibm-mas/ansible-devops/pull/661))
 - `12.11` Add Cloud Pak for Data v4.6 support ([#538](https://github.com/ibm-mas/ansible-devops/pull/538))
 - `12.10` Multiple Updates:
     - Support creating and deleting IBM Cloud resource keys ([#626](https://github.com/ibm-mas/ansible-devops/pull/626))
