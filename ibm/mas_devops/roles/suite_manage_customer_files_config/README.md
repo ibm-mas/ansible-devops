@@ -1,14 +1,22 @@
-suite_manage_doclinks_config
+suite_manage_customer_files_config
 ===
-This role extends support for configuring IBM Cloud Object Storage to storage **Manage** application doclinks.
-**Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring doclinks features.
+This role extends support for configuring S3 / Cloud Object Storage to store **Manage** application customer files.
+**Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring customer files features.
 
-You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage or AWS S3 information to use it as storage for Manage application doclinks.
+You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage or AWS S3 information to use it as storage for Manage application customer files.
+
+As part of this role, three defaulted buckets will be created:
+
+- "{{ mas_instance_id }}-{{ mas_workspace_id }}-custfiles"
+- "{{ mas_instance_id }}-{{ mas_workspace_id }}-custfilesbackup"
+- "{{ mas_instance_id }}-{{ mas_workspace_id }}-custfilesrecovery"
+
+These buckets will be used to store Manage's customer documents and files, and also will be used on the backup and recovery process.
 
 Role Variables
 --------------
 ### cos_type
-Required. Defines the storage provider type to be used to store Manage application's doclinks.
+Required. Defines the storage provider type to be used to store Manage application's customer files.
 Currently available options are:
 
   - `ibm`: Configures IBM Cloud Object Storage as storage system for Manage attachments. 
@@ -21,6 +29,24 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 
 - Environment Variable: `COS_TYPE`
 - Default Value: None.
+
+### custfiles_bucketname
+Optional. The main customer files bucket name.
+
+- Environment Variable: `MANAGE_CUSTFILES_BUCKET_NAME`
+- Default Value: `{{ mas_instance_id }}-{{ mas_workspace_id }}-custfiles`
+
+### custfiles_bucketname_backup
+Optional. The customer files bucket name used for backup.
+
+- Environment Variable: `MANAGE_CUSTFILES_BACKUP_BUCKET_NAME`
+- Default Value: `{{ mas_instance_id }}-{{ mas_workspace_id }}-custfilesbackup`
+
+### custfiles_bucketname_recovery
+Optional. The customer files bucket name used for recovery.
+
+- Environment Variable: `MANAGE_CUSTFILES_RECOVERY_BUCKET_NAME`
+- Default Value: `{{ mas_instance_id }}-{{ mas_workspace_id }}-custfilesrecovery`
 
 ### mas_instance_id
 Required. The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
@@ -52,10 +78,9 @@ The following sample can be used to configure COS for an existing Manage applica
     mas_workspace_id: masdev
     cos_type: ibm
     cos_instance_name: cos-masinst1
-    ibmcos_bucket_name: manage-doclinks-bucket
     ibmcloud_apikey: xxxx
   roles:
-    - ibm.mas_devops.suite_manage_doclinks_config
+    - ibm.mas_devops.suite_manage_customer_files_config
 ```
 
 The following sample playbook can be used to provision COS in IBM Cloud and configure COS for an existing Manage application instance.
@@ -66,14 +91,12 @@ The following sample playbook can be used to provision COS in IBM Cloud and conf
   vars:
     mas_instance_id: masinst1
     mas_workspace_id: masdev
-    db2_instance_name: db2w-manage
     cos_type: ibm
     cos_instance_name: cos-masinst1
-    ibmcos_bucket_name: ibm-manage-doclinks-bucket
     ibmcloud_apikey: xxxx
   roles:
     - ibm.mas_devops.cos
-    - ibm.mas_devops.suite_manage_doclinks_config
+    - ibm.mas_devops.suite_manage_customer_files_config
 ```
 
 The following sample can be used to configure AWS S3 buckets for an existing Manage application instance.
@@ -85,9 +108,8 @@ The following sample can be used to configure AWS S3 buckets for an existing Man
     mas_instance_id: masinst1
     mas_workspace_id: masdev
     cos_type: aws
-    aws_bucket_name: s3-manage-doclinks-bucket
   roles:
-    - ibm.mas_devops.suite_manage_doclinks_config
+    - ibm.mas_devops.suite_manage_customer_files_config
 ```
 
 License
