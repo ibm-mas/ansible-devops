@@ -9,6 +9,7 @@ Currently supported Cloud Pak for Data release versions are:
   - 4.5.0
   - 4.5.1
   - 4.5.2
+  - 4.6.0
 
 The role will automatically install or upgrade (if targeted to an existing CPD deployment) the corresponding Zen version associated to the chosen Cloud Pak for Data release, for example:
 
@@ -16,8 +17,9 @@ The role will automatically install or upgrade (if targeted to an existing CPD d
 - Cloud Pak for Data release version `4.5.0` installs Zen/Control Plane version [`4.5.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.0.yml#L59).
 - Cloud Pak for Data release version `4.5.1` installs Zen/Control Plane version [`4.5.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.1.yml#L61).
 - Cloud Pak for Data release version `4.5.2` installs Zen/Control Plane version [`4.7.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.2.yml#L62).
+- Cloud Pak for Data release version `4.6.0` installs Zen/Control Plane version [`4.8.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.0.yml#L65).
 
-For more information about CPD versioning, see [IBM Cloud Pak for Data Operator and operand versions](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=planning-operator-operand-versions)
+For more information about CPD versioning, see [IBM Cloud Pak for Data Operator and operand versions](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=planning-operator-operand-versions)
 
 Upgrade
 ------------------
