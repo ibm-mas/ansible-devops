@@ -1,6 +1,6 @@
-suite_switch_to_olm
+convert_to_olm
 =============
-This role provides capabilities to switch a MAS instance from legacy deployment using mas-install.sh installer to OLM/Channel subscription install.
+This role provides capabilities to switch MAS and its Applications from legacy deployment (using mas-install.sh installer/manual deployment) to OLM/Channel subscription install.
 
 Role Variables
 --------------
@@ -52,7 +52,7 @@ Required. API Key for entitled registry. This password will be used to create th
 - Environment Variable: `MAS_ENTITLEMENT_KEY` (or `IBM_ENTITLEMENT_KEY`)
 - Default Value: None
 
-### mas_entitlement_key
+### mas_upgrade_strategy
 Optional. The Upgrade strategy for MAS Operator.
 
 - Environment Variable: `MAS_UPGRADE_STRATEGY`
@@ -65,6 +65,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    mas_app_id: "core"
     mas_instance_id: "inst1"
     mas_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
   roles:

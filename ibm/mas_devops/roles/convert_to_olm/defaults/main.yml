@@ -1,10 +1,14 @@
 ---
-# defaults file for suite_switch_to_olm
+# defaults file for convert_to_olm
 # -----------------------------------------------------------------------------
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 mas_upgrade_strategy: "{{ lookup('env', 'MAS_UPGRADE_STRATEGY') | default('Manual', true) }}"
 mas_catalog_source: "{{ lookup('env', 'MAS_CATALOG_SOURCE') | default('ibm-operator-catalog', true) }}"
-mas_namespace: "mas-{{ mas_instance_id }}-core"
+
+mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+
+# defaults for ibm common services task
+# -----------------------------------------------------------------------------
 ibm_common_services_namespace: ibm-common-services
 ibm_common_services_subscription_labels:
   - ibm-common-service-operator.ibm-common-services
@@ -22,3 +26,35 @@ mas_icr_cpopen: "{{ lookup('env', 'MAS_ICR_CPOPEN') | default('icr.io/cpopen', t
 mas_entitlement_username: "{{ lookup('env', 'MAS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
 ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
 mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
+
+# App specific defaults
+# -----------------------------------------------------------------------------
+crs:
+  assist: AssistApp
+  core: Suite
+  health: HealthApp
+  hputilities: HPUtilitiesApp
+  iot: IoT
+  manage: ManageApp
+  monitor: MonitorApp
+  optimizer: OptimizerApp
+  predict: PredictApp
+  visualinspection: VisualInspectionApp
+
+app_name:
+  assist: Assist
+  core: MAS
+  health: Health
+  hputilities: HPUtilities
+  iot: IoT
+  manage: Manage
+  monitor: Monitor
+  optimizer: Optimizer
+  predict: Predict
+  visualinspection: VisualInspection
+
+mas_app_prefix: "-{{ mas_app_id }}"
+mas_app_suffix: "{{ mas_app_id }}-"
+
+mas_app_name_prefix: "{{ mas_app_id is defined | mas_app_id == 'core' | ternary('', mas_app_prefix) | default('', true) }}"
+mas_app_name_suffix: "{{ mas_app_id is defined | mas_app_id == 'core' | ternary('', mas_app_suffix) | default('', true) }}"

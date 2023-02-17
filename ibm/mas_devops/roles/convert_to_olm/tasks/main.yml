@@ -1,0 +1,142 @@
+---
+# tasks file for convert_to_olm
+
+# 1. Fail if required properties are not provided
+# -----------------------------------------------------------------------------
+- name: Assert that mas_instance_id is defined
+  assert:
+    that:
+      - mas_instance_id is defined
+      - mas_instance_id != ''
+    fail_msg: "mas_instance_id is not defined"
+
+- name: Assert that mas_upgrade_strategy is defined
+  assert:
+    that:
+      - mas_upgrade_strategy is defined
+      - mas_upgrade_strategy != ''
+    fail_msg: "mas_upgrade_strategy is not defined"
+
+# 2. Debug information
+# -----------------------------------------------------------------------------
+- name: Debug Information
+  debug:
+    msg:
+      - "MAS Instance ID ........ {{ mas_instance_id }}"
+      - "MAS Upgrade Strategy ... {{ mas_upgrade_strategy }}"
+      - "Namespace .............. {{ mas_app_namespace }}"
+
+# 3. Lookup for Suite deployed Instance
+# -----------------------------------------------------------------------------
+- name: Lookup Currently MAS Instance
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: "{{ crs[mas_app_id] }}"
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: _app_installed_instance
+
+# 4. Skip if it can't find App CR
+# -----------------------------------------------------------------------------
+- name: Set found_app_cr fact
+  set_fact:
+    found_app_cr: "{{ _app_installed_instance.resources | length == 1 }}"
+
+- name: Debug found_app_cr
+  debug:
+    msg: "Could not find {{ crs[mas_app_id] }} CR with name {{ mas_instance_id }} - Skipping switch"
+  when: not found_app_cr
+
+
+- name: Run OLM Switch Block
+  block:
+    # 5. Cleanup App Operator Deployment
+    # -----------------------------------------------------------------------------
+    - name: "Delete {{ app_name[mas_app_id] }} Operator Deployment"
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: Deployment
+          metadata:
+            namespace: "{{mas_app_namespace}}"
+            name: ibm-mas-operator
+
+
+    # 6. Cleanup App TM Operator Deployment
+    # -----------------------------------------------------------------------------
+    - name: Delete TM Operator Deployment
+      kubernetes.core.k8s:
+        state: absent
+        definition:
+          apiVersion: v1
+          kind: Deployment
+          metadata:
+            namespace: "{{mas_app_namespace}}"
+            name: ibm-truststore-mgr-controller-manager
+
+    # 7. Define App Channel
+    # -----------------------------------------------------------------------------
+    - name: "Set {{ app_name[mas_app_id] }} Deployed Version"
+      set_fact:
+        app_channel: "{{_app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1') | first  }}.x"
+        app_starting_csv: "ibm-mas{{ mas_app_name_prefix }}.v{{_app_installed_instance.resources[0].status.versions.reconciled}}"
+
+    - debug:
+        msg:
+          - "{{ app_channel }}"
+          - "{{ app_starting_csv }}"
+
+    # 8. Install MAS Operator Using OLM
+    # -----------------------------------------------------------------------------
+    - name: "Install {{ app_name[mas_app_id] }} Operator"
+      include_role:
+        name: ibm.mas_devops.install_operator
+      vars:
+        namespace: "{{ mas_app_namespace }}"
+        icr_username: "{{ mas_entitlement_username }}"
+        icr_password: "{{ mas_entitlement_key }}"
+        catalog_source: "{{ mas_catalog_source }}"
+        operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
+        subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
+
+    - name: "Lookup and Approve {{ app_name[mas_app_id] }} Subscription"
+      block:
+        - name: Lookup Operator install plan
+          kubernetes.core.k8s_info:
+            api_version: operators.coreos.com/v1alpha1
+            kind: InstallPlan
+            namespace: "{{ mas_app_namespace }}"
+            label_selectors:
+              - "operators.coreos.com/ibm-mas{{ mas_app_name_prefix }}.{{ mas_app_namespace }}"
+          register: mas_install_plan
+          retries: 20
+          delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+          until: mas_install_plan.resources | length > 0
+
+        - name: Approve the subscription install plan
+          when:
+            - mas_install_plan.resources | length > 0
+            - mas_install_plan.resources[0].status.phase != "Complete"
+          kubernetes.core.k8s:
+            definition:
+              apiVersion: operators.coreos.com/v1alpha1
+              kind: InstallPlan
+              metadata:
+                name: "{{ mas_install_plan.resources[0].metadata.name }}"
+                namespace: "{{ mas_app_namespace }}"
+              spec:
+                approved: true
+      when:
+        - mas_upgrade_strategy == 'Manual'
+
+    # 9. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
+    # -----------------------------------------------------------------------------
+    # ibm-common-services operators deployed by MAS will inherit the inherit MAS upgrade strategy
+    # when its set to Manual, we need to iterate those to ensure we do approve the first install plan
+    # otherwise MAS installation wont succeed.
+    - include_tasks: tasks/ibm-common-services.yml
+      when: mas_upgrade_strategy == 'Manual' && mas_app_id == 'core'
+      loop: "{{ ibm_common_services_subscription_labels }}"
+
+  when: found_app_cr
