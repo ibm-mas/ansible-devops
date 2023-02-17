@@ -69,5 +69,5 @@ Example Playbook
     mas_instance_id: "inst1"
     mas_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
   roles:
-    - ibm.mas_devops.suite_switch_to_olm
+    - ibm.mas_devops.convert_to_olm
 ```
