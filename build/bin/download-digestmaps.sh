@@ -31,8 +31,8 @@ function download_case() {
 
 # MAS Core
 # -----------------------------------------------------------------------------
- #download_case ibm-mas 8.8.5 ibmMasSetup
- #download_case ibm-mas 8.9.1 ibmMasSetup
+download_case ibm-mas 8.8.6 ibmMasSetup
+download_case ibm-mas 8.9.2 ibmMasSetup
 
 # MAS Assist
 # -----------------------------------------------------------------------------
@@ -51,13 +51,13 @@ function download_case() {
 
 # MAS Manage
 # -----------------------------------------------------------------------------
-#download_case ibm-mas-manage 8.4.5 ibmMasManageSetup
-#download_case ibm-mas-manage 8.5.1 ibmMasManageSetup
+download_case ibm-mas-manage 8.4.6 ibmMasManageSetup
+download_case ibm-mas-manage 8.5.2 ibmMasManageSetup
 
 # MAS Monitor
 # -----------------------------------------------------------------------------
-#download_case ibm-mas-monitor 8.9.1 ibmMasMonitorSetup
-#download_case ibm-mas-monitor 8.8.3 ibmMasMonitorSetup
+download_case ibm-mas-monitor 8.9.3 ibmMasMonitorSetup
+download_case ibm-mas-monitor 8.8.3 ibmMasMonitorSetup
 
 # MAS Predict
 # -----------------------------------------------------------------------------
@@ -66,9 +66,9 @@ function download_case() {
 
 # MAS Optimizer
 # -----------------------------------------------------------------------------
-# download_case ibm-mas-optimizer 8.2.3 ibmMasOptimizerSetup
-#download_case ibm-mas-optimizer 8.3.1 ibmMasOptimizerSetup
+download_case ibm-mas-optimizer 8.2.4 ibmMasOptimizerSetup
+download_case ibm-mas-optimizer 8.3.2 ibmMasOptimizerSetup
 
 # MAS Visual Inspection
 # -----------------------------------------------------------------------------
-# download_case ibm-mas-visualinspection 8.7.0 ibmMasVisualInspectionSetup
+#download_case ibm-mas-visualinspection 8.7.0 ibmMasVisualInspectionSetup
