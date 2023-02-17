@@ -127,6 +127,48 @@ URL to access WML service (same as Cloud Pak for Data URL).
 - Default: `https://internal-nginx-svc.ibm-cpd.svc:12443` (assumes CPD WML is installed the `ibm-cpd` namespace)
 
 
+Role Variables - Assist and Watson Discovery
+-------------------------------------------------------------------------------
+These variables are only used when using this role to configure **Assist**. All of them are optional if you Watson discovery is installed in the same cluster as Assist 
+
+### cpd_admin_username
+Admin User name to login in the Cloud Pak for Data.
+
+- Optional
+- Environment Variable: `CPD_ADMIN_USERNAME`
+- Default: `admin`
+
+### cpd_admin_password
+Admin password to login in the Cloud Pak for Data.
+
+- Optional
+- Environment Variable: `CPD_ADMIN_PASSWORD`
+- Default: no default value for it.
+
+If you didn't specify the `cpd_admin_username` and `cpd_admin_password`, it will be retrieved from secret `admin-user-details` in the project `cpd_instance_namespace`.
+
+### wd_url
+URL to access Discovery instance API service.
+- Optional
+- Environment Variable: `WD_URL`
+- Default: No default value, it will be auto retrieved from the below `cpd_wd_instance_name` if not specified.
+  
+### cpd_wd_instance_name
+The instance name provisioned by Watson discovery during Watson discovery service install, and it's used for the assist workspace.
+By default, it is `wd-mas-{{ mas_instance_id }}-assist`.
+
+- Required
+- Environment Variable: `CPD_WD_INSTANCE_NAME`
+- Default: `wd-mas-{{ mas_instance_id }}-assist` if not specified.
+
+### cpd_instance_namespace
+Project/namespace that the Watson Discovery service is installed
+
+- Required
+- Environment Variable: `CPD_INSTANCE_NAMESPACE`
+- Default:  assumes CPD Discovery is installed the `ibm-cpd` namespace if not specified.
+
+
 Role Variables - Manage Workspace
 -------------------------------------------------------------------------------
 ### mas_app_settings_aio_flag
