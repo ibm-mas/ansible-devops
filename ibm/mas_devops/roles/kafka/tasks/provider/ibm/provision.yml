@@ -9,6 +9,8 @@
       - "Region .............................. {{ ibmcloud_region }}"
       - "Plan ................................ {{ eventstreams_plan }}"
       - "Retention(ms) ....................... {{ eventstreams_retention }}"
+      - "Resource Group ...................... {{ ibmcloud_resourcegroup }}"
+      - "Location ............................ {{ eventstreams_location }}"
 
 - name: Set eventstreams configmap name and secret name
   set_fact:
@@ -19,8 +21,15 @@
   set_fact:
     kafka_exists: false
 
+- name: Fetch IBM Cloud Resource Group Id
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
 - name: Fetch IBM eventstreams Information
   ibm.cloudcollection.ibm_resource_instance_info:
+    resource_group_id: "{{ rg_info.resource.id }}"
     name: "{{ eventstreams_name }}"
     service: "{{ eventstreams_service }}"
     location: "{{ eventstreams_location }}"
@@ -43,7 +52,7 @@
     service: "{{ eventstreams_service }}"
     location: "{{ eventstreams_location }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-    resource_group_id: "{{ ibmcloud_resourcegroup }}"
+    resource_group_id: "{{ rg_info.resource.id }}"
   register: es_info
   when: not kafka_exists
 
@@ -54,8 +63,9 @@
 - name: Fail if Eventstreams is not created
   assert:
     that:
-      - es_exist_info.resource.id is defined
-      - es_exist_info.resource.id != ''
+      - es_exist_info is defined and es_exist_info != ''
+      - es_exist_info.resource is defined and es_exist_info.resource != ''
+      - es_exist_info.resource.id is defined and es_exist_info.resource.id != ''
 
 - name: Build kafka broker property list
   set_fact:
@@ -150,13 +160,20 @@
 # 2. Save eventstreams info and create service credentials
 # -----------------------------------------------------------------------------
 
-- set_fact:
+- name: Save all Kafka hosts
+  when: output_kafkacfg
+  set_fact:
     kafka_hosts: "{{ lookup('ansible.builtin.template', 'templates/{{ kafka_provider }}/kafka-hosts.yml.j2') }}"
 
+- name: Get ES TLS certificate
+  include_tasks: "provider/{{ kafka_provider }}/retrieve-es-certs.yml"
+
 - name: Create KafkaCfg
+  when: output_kafkacfg
   ansible.builtin.template:
     src: "{{ kafka_provider }}/evenstreams_kafkacfg.yml.j2"
     dest: "{{ mas_config_dir }}/{{ eventstreams_name }}-kafkacfg.yml"
 
 - name: Create Service Credentials for IBM Cloud Eventstreams
+  when: not kafka_exists
   include_tasks: tasks/provider/{{ kafka_provider }}/create-eventstreams-service-credentials.yml
