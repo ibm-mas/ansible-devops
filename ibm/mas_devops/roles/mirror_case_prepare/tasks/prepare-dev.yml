@@ -23,7 +23,7 @@
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Download the dev bundle"
   ansible.builtin.get_url:
-    url: "{{ artifactory_bundle_url }}/{{ case_name }}/{{ case_version }}/{{ case_name }}-bundle-{{ case_version }}.tgz"
+    url: "{{ artifactory_bundle_url }}/{{ case_name }}/{{ case_version }}/{{ case_name }}-dev-with-digest-bundle-{{ case_version }}.tgz"
     username: "{{ artifactory_username }}"
     password: "{{ artifactory_apikey }}"
     dest: "{{ mirror_working_dir }}"
@@ -36,124 +36,11 @@
     tar -xzf "{{ bundle_download.dest }}" -C "{{ mirror_working_dir }}"
   register: bundle_unarchive
 
-# 5. Locate the path to the images-with-digests.yml file in the bundle
+# 5. Write src=dest mapping for image mirroring
 # -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Find images-with-digests.yml in case bundle"
-  find:
-    paths: "{{ mirror_working_dir }}/{{ case_name }}-bundle"
-    patterns: "images-with-digests.yml"
-    recurse: true
-  register: find_file_result
-
-- name: "{{ case_name }} : Fail if the file does not exist"
-  assert:
-    that:
-      - find_file_result.files is defined and find_file_result.files | length == 1
-    fail_msg: "images-with-digests.yml file does not exist or has multiple occurances"
-
-- name: "{{ case_name }} : Retrieve the file path to images-with-digest.yml"
-  set_fact:
-    file_path: "{{ find_file_result.files[0].path }}"
-
-- name: "{{ case_name }} : Display the path to images-with-digests.yml"
-  debug:
-    msg:
-      - "File .............................. {{ file_path }}"
-
-- name: "{{ case_name }} : Include vars from images-with-digest file"
-  include_vars: "{{ file_path }}"
-
-# 6. Create Directories to hold the manifest file
-# -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Create target directories (only direct for pre-release)"
-  file:
-    path: "{{ mirror_working_dir }}/manifests/direct"
-    state: directory
-
-# 7. Write src(with digest)=dest(with tag) mapping for mirroring
-# -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Generate a mapping file for mirroring"
-  when:
-    - images[item].digest is defined and images[item].digest != ""
+- name: "{{ case_name }} : Generate manifest using the related images from the CSV file"
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
     create: true
-    line: '{{ artifactory_image_repo + "/"+ images[item].name + "@" + images[item].digest + "=" + registry_public_url + "/" + images[item].name + ":" + images[item].tag }}'
-  loop: "{{ images | list }}"
-  vars:
-    operatorVersion: "{{ case_version }}"
-    settings:
-      icr:
-        cp: ""
-
-# 8. Locate resources.yaml file to retrieve additional images
-# -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Find the inventory Setup path"
-  find:
-    paths: "{{ mirror_working_dir }}/{{ case_name }}-bundle/case/{{ case_name }}"
-    patterns: "*Setup"
-    file_type: "directory"
-    recurse: true
-  register: find_directory_result
-
-- name: "{{ case_name }} : Fail if the path does not exist"
-  assert:
-    that:
-      - find_directory_result.files is defined and find_directory_result.files | length == 1
-    fail_msg: "Inventory Setup directory does not exist or has multiple occurances"
-
-- name: "{{ case_name }} : Find resources.yaml using the inventory Setup path"
-  find:
-    paths: "{{ find_directory_result.files[0].path }}"
-    patterns: "resources.yaml"
-    recurse: true
-  register: find_file_result
-
-- name: "{{ case_name }} : Fail if the file does not exist"
-  assert:
-    that:
-      - find_file_result.files is defined and find_file_result.files | length == 1
-    fail_msg: "resources.yaml file does not exist or has multiple occurances in the inventory Setup directory"
-
-- name: "{{ case_name }} : Retrieve the file path to resources.yaml"
-  set_fact:
-    resources_file_path: "{{ find_file_result.files[0].path }}"
-
-- name: "{{ case_name }} : Display the path to resources.yaml"
-  debug:
-    msg:
-      - "File .............................. {{ resources_file_path }}"
-
-# 9. Get additional images from resources.yaml
-# -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Get images info from resource file"
-  set_fact:
-    resources_images_info: "{{ resources_images_info + [{ 'image': item.image | regex_replace('bundle','bundle-with-digest'), 'tag': item.tag }] }}"
-  loop: "{{ (lookup('file', '{{ resources_file_path }}') | from_yaml).resources.resourceDefs.containerImages }}"
-  vars:
-    resources_images_info: []
-
-# 10. Get the images digests from artifactory for the additional images.
-#     The digests in the resources.yaml file is not correct and since we added
-#     the extension for *bundle-with-digest in the task above, the digests need
-#     to be updated
-# -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Get images digests from artifactory"
-  shell: |
-    (skopeo inspect "docker://{{ artifactory_image_repo }}/{{ item.image + ':' + item.tag }}" \
-      --creds "{{ artifactory_username }}:{{ artifactory_apikey }}" \
-      --no-tags)| jq -r '[.Name, .Digest] | join("@")' \
-  loop: "{{ resources_images_info }}"
-  register: artifactory_image_info
-
-# 11. Add images to the src(with digest)=dest(with tag) mapping for mirroring
-# If the image's digest was not fetched for instance, if the *bundle-with-digest
-# image was not located for the said version, then that image would be skipped.
-# -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Add to the mapping file for mirroring"
-  when: item.0.stdout is defined and item.0.stdout != ""
-  ansible.builtin.lineinfile:
-    path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
-    create: true
-    line: '{{ item.0.stdout + "=" + registry_public_url + "/" + item.1.image + ":" + item.1.tag }}'
-  loop: "{{ artifactory_image_info.results | zip(resources_images_info) | list }}"
+    line: "{{ item.image + '=' + registry_public_url + '/' + item.name }}"
+  loop: "{{ (lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-dev-with-digest-bundle/operators/{{ case_name }}/config/manifests/bases/{{ case_name }}.clusterserviceversion.yaml') | from_yaml).spec.relatedImages }}"
