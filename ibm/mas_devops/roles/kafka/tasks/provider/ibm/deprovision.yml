@@ -11,11 +11,18 @@
   set_fact:
     kafka_exists: false
 
+- name: Fetch IBM Cloud Resource Group Id
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
 - name: Fetch IBM eventstreams Information
   ibm.cloudcollection.ibm_resource_instance_info:
     name: "{{ eventstreams_name }}"
     service: "{{ eventstreams_service }}"
     location: "{{ eventstreams_location }}"
+    resource_group_id: "{{ rg_info.resource.id }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
   register: es_exist_info
   failed_when: es_exist_info.rc != 0 and  "No resource instance found" not in  es_exist_info.stderr
