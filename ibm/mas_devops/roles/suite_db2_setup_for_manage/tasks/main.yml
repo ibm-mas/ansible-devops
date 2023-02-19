@@ -82,9 +82,6 @@
     oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2 connect to {{ db2_dbname }} && manage_snapshots --action resume' - db2inst1
     oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/tmp/setupdb.sh | tee /tmp/setupdb.log' - db2inst1
   register: prepare_cmds_status
-  retries: 5
-  delay: 5
-  until: prepare_cmds_status.rc == 0
 
 - name: "Database setup debug information"
   debug:
@@ -93,8 +90,13 @@
       - "result (stderr) ........................ {{ prepare_cmds_status.stderr }}"
       - "return code     ........................ {{ prepare_cmds_status.rc }}"
 
+- name: Assert successful execution of setupdb to prepare Db2 for use with Maximo TPAE
+  assert:
+    that: prepare_cmds_status.rc == 0
+    fail_msg: "Failed running setupdb to prepare Db2 for use with Maximo TPAE"
+
 - name: "Check if /tmp/setupdb_complete exist inside pod"
-  shell: oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -ls '/tmp/setupdb_complete' - db2inst1
+  shell: oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'ls -ltr /tmp/setupdb_complete' - db2inst1
   register: setupdb_complete_status
   retries: 5
   delay: 5
@@ -108,4 +110,3 @@
       - "Result (stdout) ........................ {{ setupdb_complete_status.stdout }}"
       - "result (stderr) ........................ {{ setupdb_complete_status.stderr }}"
       - "return code     ........................ {{ setupdb_complete_status.rc }}"
-
