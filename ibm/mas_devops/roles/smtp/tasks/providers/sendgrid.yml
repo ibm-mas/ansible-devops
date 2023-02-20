@@ -4,9 +4,9 @@
   assert:
     that:
       - sendgrid_primary_apikey is defined and sendgrid_primary_apikey != ""
-      - smtp_primary_username is defined and smtp_primary_username != ""
-      - smtp_primary_email is defined and smtp_primary_email != ""
-      - smtp_subuser_email is defined and smtp_subuser_email != ""
+      - sendgrid_primary_username is defined and sendgrid_primary_username != ""
+      - sendgrid_primary_email is defined and sendgrid_primary_email != ""
+      - sendgrid_subuser_email is defined and sendgrid_subuser_email != ""
       - sendgrid_defaultrecipientemail is defined and sendgrid_defaultrecipientemail != ""
       - sendgrid_ips is defined and sendgrid_ips != ""
     fail_msg: "Missing required properties"
@@ -27,10 +27,10 @@
       - "sendgrid_primary_apikey ................ *****************************"
       - "sendgrid_secretname .................... {{ sendgrid_secretname }}"
       - "sendgrid_security ...................... {{ sendgrid_security }}"
-      - "smtp_primary_email ..................... {{ smtp_primary_email }}"
-      - "smtp_primary_username .................. {{ smtp_primary_username }}"
-      - "smtp_subuser_email ..................... {{ smtp_subuser_email }}"
-      - "smtp_subuser_username .................. {{ smtp_subuser_username }}"
+      - "sendgrid_primary_email ................. {{ sendgrid_primary_email }}"
+      - "sendgrid_primary_username .............. {{ sendgrid_primary_username }}"
+      - "sendgrid_subuser_email ................. {{ sendgrid_subuser_email }}"
+      - "sendgrid_subuser_username .............. {{ sendgrid_subuser_username }}"
 
 # 3. Check if apikey already exists
 # -----------------------------------------------------------------------------
@@ -59,7 +59,7 @@
     # -----------------------------------------------------------------------------
     - name: Check if subuser already exist
       uri:
-        url: "https://{{ sendgrid_api_url }}/v3/subusers/{{ smtp_subuser_username }}"
+        url: "https://{{ sendgrid_api_url }}/v3/subusers/{{ sendgrid_subuser_username }}"
         validate_certs: no
         method: GET
         headers:
@@ -99,8 +99,8 @@
           Content-Type: "application/json"
         body_format: "json"
         body:
-          "username": "{{ smtp_subuser_username }}"
-          "email": "{{ smtp_primary_email }}"
+          "username": "{{ sendgrid_subuser_username }}"
+          "email": "{{ sendgrid_primary_email }}"
           "password": "{{ _user_password }}"
           "ips": "{{ sendgrid_ips }}"
         status_code: 201
@@ -125,11 +125,11 @@
         method: POST
         headers:
           Authorization: "Bearer {{ sendgrid_primary_apikey }}"
-          On-behalf-of: "{{smtp_subuser_username}}"
+          On-behalf-of: "{{sendgrid_subuser_username}}"
           cache-control: "no-cache"
         body_format: "json"
         body:
-          name: "{{smtp_subuser_username}}_apikey"
+          name: "{{sendgrid_subuser_username}}_apikey"
           scopes:
             - "mail.send"
         status_code: 201
@@ -163,15 +163,15 @@
         method: POST
         headers:
           Authorization: "Bearer {{ sendgrid_primary_apikey }}"
-          On-behalf-of: "{{ smtp_subuser_username }}"
+          On-behalf-of: "{{ sendgrid_subuser_username }}"
           cache-control: "no-cache"
         body_format: "json"
         body:
-          nickname: "{{ smtp_primary_username }}"
-          from_email: "{{ smtp_primary_email }}"
+          nickname: "{{ sendgrid_primary_username }}"
+          from_email: "{{ sendgrid_primary_email }}"
           from_name: "{{ sendgrid_defaultsendername }}"
-          reply_to: "{{ smtp_primary_email }}"
-          reply_to_name: "{{ smtp_primary_email }}"
+          reply_to: "{{ sendgrid_primary_email }}"
+          reply_to_name: "{{ sendgrid_primary_email }}"
           address: "250 York St #301"
           address2: ""
           state: ""
