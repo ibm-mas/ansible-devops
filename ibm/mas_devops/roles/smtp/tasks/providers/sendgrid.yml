@@ -2,29 +2,14 @@
 # -----------------------------------------------------------------------------
 - name: "sendgrid : Fail if required properties are not provided"
   assert:
-    that: sendgrid_primary_apikey is defined and sendgrid_primary_apikey != ""
-    fail_msg: "sendgrid_primary_apikey property is required"
-
-  assert:
-    that: smtp_primary_username is defined and smtp_primary_username != ""
-    fail_msg: "smtp_primary_username property is required"
-
-  assert:
-    that: smtp_primary_email is defined and smtp_primary_email != ""
-    fail_msg: "smtp_primary_email property is required"
-
-  assert:
-    that: smtp_subuser_email is defined and smtp_subuser_email != ""
-    fail_msg: "smtp_subuser_email property is required"
-
-  assert:
-    that: sendgrid_defaultrecipientemail is defined and sendgrid_defaultrecipientemail != ""
-    fail_msg: "sendgrid_defaultrecipientemail property is required"
-
-  assert:
-    that: sendgrid_ips is defined and sendgrid_ips != ""
-    fail_msg: "sendgrid_ips property is required"
-
+    that: 
+      - sendgrid_primary_apikey is defined and sendgrid_primary_apikey != ""
+      - smtp_primary_username is defined and smtp_primary_username != ""
+      - smtp_primary_email is defined and smtp_primary_email != ""
+      - smtp_subuser_email is defined and smtp_subuser_email != ""
+      - sendgrid_defaultrecipientemail is defined and sendgrid_defaultrecipientemail != ""
+      - sendgrid_ips is defined and sendgrid_ips != ""
+    fail_msg: "Missing required properties"
 
 # 2. Debug Info
 # -----------------------------------------------------------------------------
@@ -62,7 +47,7 @@
 - name: If apikey secret exists, record apikey
   when:
     - _instance_smtp_apikey.resources[0].data.api_key is defined
-  set_fact: 
+  set_fact:
     _apikey: "{{ _instance_smtp_apikey.resources[0].data.api_key }}"
 
 # 5. if apikey does not exist, then create one
@@ -101,7 +86,7 @@
 
     # 5.4 Create the subuser account in sendgrid
     # -----------------------------------------------------------------------------
-    - name: Create subuser 
+    - name: Create subuser
       when:
         - _user_exist_result.status == 404
       uri:
@@ -125,7 +110,7 @@
     # 5.5 Display results of creating subuser
     # -----------------------------------------------------------------------------
     - name: create subuser result
-      when: 
+      when:
         - sendgrid_debug == True
         - _user_exist_result.status == 404
       debug:
@@ -161,7 +146,7 @@
     # 5.8 Store apikey for future task
     # -----------------------------------------------------------------------------
     - name: Record apikey
-      set_fact: 
+      set_fact:
         _apikey: "{{ _subuser_apikey.json.api_key }}"
 
     # 5.9 Authenticate single sender in sendgrid
@@ -199,7 +184,7 @@
     # 5.10 Display results of sender Authentication
     # -----------------------------------------------------------------------------
     - name: sender auth result
-      when: 
+      when:
         - sendgrid_debug == True
         - _user_exist_result.status == 404
       debug:
