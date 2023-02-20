@@ -634,14 +634,14 @@ Namespace where the CP4D instance is deployed.
 The CP4D Admin username to authenticate with CP4D APIs. If you didn't change the initial admin username after installing CP4D then you don't need to provide this.
 
 - Optional
-- Environment Variable: `CP4D_ADMIN_USERNAME`
+- Environment Variable: `CPD_ADMIN_USERNAME`
 - Default Value: `admin`
 
 ### cpd_admin_password
 The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` will be used.
 
 - Optional
-- Environment Variable: `CP4D_ADMIN_PASSWORD`
+- Environment Variable: `CPD_ADMIN_PASSWORD`
 - Default Value: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
 
 
