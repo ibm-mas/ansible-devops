@@ -31,14 +31,6 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 - `WML_URL` Set Default value to "https://internal-nginx-svc.ibm-cpd.svc:12443" . ibm-cpd in the URL corresponds to the project name (namespace) of cp4d installation
 - `CPD_PRODUCT_VERSION` (Required if `WML_VERSION` is not informed) Cloud Pak for Data version installed in the cluster in 4.X format, it will be used to obtain the correct WML version to be installed
 - `WML_VERSION` (Required if `CPD_PRODUCT_VERSION` is not informed) The wml_version for cp4d 4.0.x will be 4.0, if cp4d is 4.5.x , wml_version should change to 4.5
-- `PREDICT_DEPLOYMENT_SIZE` Controls the workload size of predict containers. Avaliable options are `developer`, `small`, `medium`. 'small' is the choosen one set by default.
-
-    | Deployment_size        | Replica |
-    | ---------------------- | :--: |
-    | developer              |  1 |
-    | small                  |  2 |
-    | medium                 |  3 |
-
 ## These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
 - `CPD_ADMIN_USERNAME` CP4D Username
 - `CPD_ADMIN_PASSWORD` CP4D Password
@@ -60,8 +52,16 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 - `CPD_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster, then set it to "false"
 - `CPD_INSTALL_SPSS` True/False - If you HAVE SPSS Modeler already installed in your cluster, then set it to "false"
 - `CPD_WSL_PROJECT_ID` - Ensure a Project ID Text box has a valid Watson Studio project ID. To obtain the project ID, Navigate to Cp4d/Watson Studio and create/Reuse a project. Open the project and look into the Browser URL, obtain the project ID from the URL and update Project ID settings.
-
-
+- `MAS_IMAGE_PULL_POLICY` - Controls the pull policy of predict images. As default is set: `IfNotPresent`. Avaliable options are: 
+    - IfNotPresent
+    - Always
+- `WORKLOAD_SCALING_CONFIGMAP` - Controls the workload scaling of predict containers. As default is set: `{{ instanceId }}-wl-cust-medium`. Avaliable options are: 
+    - {{ instanceId }}-wl-cust-small
+    - {{ instanceId }}-wl-cust-medium
+    - {{ instanceId }}-wl-cust-large
+    
+    **NOTE:**
+    If `WORKLOAD_SCALING_CONFIGMAP` is defined to empty value - then default value will be taken from fe.: `explainability/vars/images.yml`
 ## Usage when you already HAVE CP4D installed
 
 ```bash
