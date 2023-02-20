@@ -1,0 +1,53 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: "{{ sendgrid_secretname }}"
+  namespace: "mas-{{ mas_instance_id }}-core"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+stringData:
+  username: "apikey"
+  password: "{{ _apikey }}"
+---
+apiVersion: config.mas.ibm.com/v1
+kind: SmtpCfg
+metadata:
+  name: "{{ mas_instance_id }}-smtp-system"
+  namespace: "mas-{{ mas_instance_id }}-core"
+  labels:
+    mas.ibm.com/configScope: {{ sendgrid_configscope }}
+    mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+  displayName: "MAS {{ mas_instance_id }} Send Grid Configuration"
+  config:
+    hostname: {{ sendgrid_hostname }}
+    port: {{ sendgrid_port }}
+    security: {{ sendgrid_security }}
+    authentication: {{ sendgrid_authentication }}
+    defaultSenderEmail: {{ smtp_primary_email }}
+    defaultSenderName: {{ sendgrid_defaultsendername }}
+    defaultRecipientEmail: {{ sendgrid_defaultrecipientemail }}
+    defaultShouldEmailPasswords: {{ sendgrid_defaultshouldemailpasswords }}
+    credentials:
+      secretName: {{ sendgrid_secretname }}
+  certificates:
+    - alias: SGCA1
+      crt: |
+        {{ sendgrid_ca_1 | indent(7)}}
+    - alias: SGCA2
+      crt: |
+        {{ sendgrid_ca_2 | indent(7)}}
+    - alias: SGCA3
+      crt: |
+        {{ sendgrid_ca_3 | indent(7)}}
+
