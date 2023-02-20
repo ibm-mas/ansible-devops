@@ -44,3 +44,25 @@
     create: true
     line: "{{ item.image + '=' + registry_public_url + '/' + item.name }}"
   loop: "{{ (lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-dev-with-digest-bundle/operators/{{ case_name }}/config/manifests/bases/{{ case_name }}.clusterserviceversion.yaml') | from_yaml).spec.relatedImages }}"
+
+# 6. Get the rest of the images from resources.yaml file
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Find the inventory Setup path"
+  find:
+    paths: "{{ mirror_working_dir }}/{{ case_name }}-dev-with-digest-bundle/case"
+    patterns: "*Setup"
+    file_type: "directory"
+    recurse: true
+  register: inventory_lookup
+
+- name: "{{ case_name }} : Fail if the path does not exist"
+  assert:
+    that:
+      - inventory_lookup.files is defined and inventory_lookup.files | length == 1
+    fail_msg: "Inventory Setup directory does not exist or has multiple occurances"
+
+- name: "{{ case_name }} : Generate remaining manifest from resources file"
+  ansible.builtin.lineinfile:
+    path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
+    line: '{{ item.registries[0].host + "/" + item.image + ":" + item.digest + "=" +registry_public_url + "/" + item.image + ":" + item.tag }}'
+  loop: "{{ (lookup('file', '{{ inventory_lookup.files[0].path }}/resources.yaml') | from_yaml).resources.resourceDefs.containerImages }}"
