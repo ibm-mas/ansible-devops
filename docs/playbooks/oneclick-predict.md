@@ -51,7 +51,7 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 - `CPD_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster, then set it to "false"
 - `CPD_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster, then set it to "false"
 - `CPD_INSTALL_SPSS` True/False - If you HAVE SPSS Modeler already installed in your cluster, then set it to "false"
-- `CPD_WSL_PROJECT_ID` - Ensure a Project ID Text box has a valid Watson Studio project ID. To obtain the project ID, Navigate to Cp4d/Watson Studio and create/Reuse a project. Open the project and look into the Browser URL, obtain the project ID from the URL and update Project ID settings.
+- `CPD_PREDICT_WS_PROJECT` - This can be either a Watson Studio project ID or a project name that you want the Predict notebooks and data to be loaded into. If a project name is entered, the project will be created if it does not exist. The project ID can be found by opening the project in CP4D and copying the ID from the URL- `https://<host>/projects/<project_id>/assets`.
 - `MAS_IMAGE_PULL_POLICY` - Controls the pull policy of predict images. As default is set: `IfNotPresent`. Avaliable options are: 
     - IfNotPresent
     - Always
