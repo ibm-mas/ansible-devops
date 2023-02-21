@@ -1,5 +1,5 @@
 db2
-===
+===============================================================================
 
 This role creates a Db2 Warehouse instance using the Db2u Operator. A namespace called `db2u` will be created and the db2u operator will be installed into the `ibm-common-services` namespace to service the `db2ucluster` requests in `db2u` namespace. A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the *-db2u-engn-svc service). Internal access is via the *-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.
 
@@ -20,7 +20,7 @@ If the `mas_instance_id` and `mas_config_dir` are provided then the role will ge
 
 
 Role Variables - Installation
------------------------------
+-------------------------------------------------------------------------------
 ### db2_instance_name
 Name of the database instance, note that this is the instance **name**.
 
@@ -85,14 +85,14 @@ Define the username of db2 in the local LDAP registry. If this is defined, the L
 - Default: None
 
 ### db2_ldap_password
-Define the password of above db2 user in the local LDAP registry. Must define when `db2_ldap_username` is defined.
+Define the password of above db2 user in the local LDAP registry. Must define when `db2_ldap_username` is used.
 
 - Optional
 - Environment Variable: `DB2_LDAP_PASSWORD`
 - Default: None
 
 Role Variables - Storage
-------------------------
+-------------------------------------------------------------------------------
 ### db2_meta_storage_class
 Storage class used for metadata. This must support ReadWriteMany
 
@@ -200,7 +200,7 @@ The access mode for the storage.
 
 
 Role Variables - Resource Requests
-----------------------------------
+-------------------------------------------------------------------------------
 ### db2_cpu_requests
 Define the Kubernetes CPU request for the Db2 pod.
 
@@ -227,10 +227,11 @@ Define the Kubernetes memory limit for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_MEMORY_LIMITS`
-- Default: `12Gi`
+- Default: `16Gi`
+
 
 Role Variables - Node Affinity
-----------------------------------
+-------------------------------------------------------------------------------
 ### db2_node_label
 The label used to specify node affinity and tolerations in the db2ucluster CR.
 
@@ -255,54 +256,37 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 
 
 Role Variables - DB2UCluster Database Configuration Settings
-----------------------------------
-The following variables will overwrite DB2UCluster default properties for the DB2 configuration sections:
+-------------------------------------------------------------------------------
+The following variables will overwrite DB2UCluster default properties for the DB2 configuration sections, in each case when using environment variables provide a semi-colon separated name=value pairs, which will be converted into the appropriate data structure.
 
-- spec.environment.database.dbConfig
-- spec.environment.instance.dbmConfig
-- spec.environment.instance.registry
+- `spec.environment.database.dbConfig`
+- `spec.environment.instance.dbmConfig`
+- `spec.environment.instance.registry`
 
-```
-dbConfig:
-  APPLHEAPSZ: 8192 AUTOMATIC # Recommended heap memory size: https://www.ibm.com/docs/en/mas83/8.3.0?topic=dependencies-configure-database-health
-dbmConfig:
-  INSTANCE_MEMORY: AUTOMATIC
-registry:
-  DB2AUTH: 'OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD'
-  DB2_4K_DEVICE_SUPPORT: '{{ db2_4k_device_support }}'
-  DB2_FMP_RUN_AS_CONNECTED_USER: 'NO'
-  DB2_WORKLOAD: '{{ db2_workload }}'
-```
-
-### db2_database_db_config:
+### db2_database_db_config
 Overwrites the db2ucluster database configuration settings under `spec.environment.database.dbConfig` section.
-You can define parameters to be included in this section using semicolon separated values.
-
-Example: `export DB2_DATABASE_DB_CONFIG='APPLHEAPSZ=8192 AUTOMATIC'`
-
 - Optional
-- Environment Variable: `'DB2_DATABASE_DB_CONFIG'`
+- Environment Variable: `DB2_DATABASE_DB_CONFIG`
 - Default: None
 
-### db2_instance_dbm_config:
+### db2_instance_dbm_config
 Overwrites the db2ucluster instance database configuration settings under `spec.environment.instance.dbmConfig` section.
-You can define parameters to be included in this section using semicolon separated values.
 
-Example: `export DB2_INSTANCE_DBM_CONFIG='INSTANCE_MEMORY=AUTOMATIC'`
+!!! important
+    Do not set [instance_memory](https://www.ibm.com/docs/en/db2/11.5?topic=parameters-instance-memory-instance-memory).  The Db2 engine does not know Db2 is running inside a container, setting `dbmConfig.INSTANCE_MEMORY: automatic` will cause it to read the cgroups of the node and potentially go beyond the pod memory limit.  Db2U has logic built in to use a normalized percentage that takes into account the memory limit and free memory of the node.
 
 - Optional
-- Environment Variable: `'DB2_INSTANCE_DBM_CONFIG'`
+- Environment Variable: `DB2_INSTANCE_DBM_CONFIG`
 - Default: None
 
-### db2_instance_registry:
+### db2_instance_registry
 Overwrites the db2ucluster instance database configuration settings under `spec.environment.instance.registry` section.
 You can define parameters to be included in this section using semicolon separated values.
 
-Example: `export DB2_INSTANCE_REGISTRY='DB2AUTH=OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD;DB2_4K_DEVICE_SUPPORT=ON;DB2_FMP_RUN_AS_CONNECTED_USER=NO;DB2_WORKLOAD=ANALYTICS'`
-
 - Optional
-- Environment Variable: `'DB2_INSTANCE_REGISTRY'`
+- Environment Variable: `DB2_INSTANCE_REGISTRY`
 - Default: None
+
 
 Role Variables - MPP System
 ---------------------------
@@ -325,7 +309,7 @@ The number of Db2 pods to create in the instance. Note that `db2_num_pods` must 
 
 
 Role Variables - MAS Configuration
-----------------------------------
+-------------------------------------------------------------------------------
 ### mas_instance_id
 Providing this and `mas_config_dir` will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.
 
@@ -363,7 +347,7 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 
 
 Example Playbook
-----------------
+-------------------------------------------------------------------------------
 
 ```yaml
 - hosts: localhost
@@ -390,6 +374,6 @@ Example Playbook
 ```
 
 License
--------
+-------------------------------------------------------------------------------
 
 EPL-2.0

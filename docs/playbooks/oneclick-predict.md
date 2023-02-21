@@ -14,12 +14,15 @@ This playbook can be ran against any OCP cluster regardless of it's type; whethe
     - Install Watson Machine Learning (~2 1/2 hours)
     - Install Spark (~30 minutes)
     - Install Openscale (~1 hour)
+    - Install SPSS
 - Install Predict application:
     - Install application (~15 Minutes)
     - Configure workspace (~30 Minutes)
 
-All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.
+All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook. 
 
+As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPSS as part of CP4d please enable the below flag 
+`export CPD_INSTALL_SPSS=true`
 ## Required environment variables
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
@@ -55,6 +58,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `CPD_INSTALL_WML` True/False - If you HAVE Watson Machine Learning already installed in your cluster, then set it to "false"
 - `CPD_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster, then set it to "false"
 - `CPD_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster, then set it to "false"
+- `CPD_INSTALL_SPSS` True/False - If you HAVE SPSS Modeler already installed in your cluster, then set it to "false"
 - `CPD_WSL_PROJECT_ID` - Ensure a Project ID Text box has a valid Watson Studio project ID. To obtain the project ID, Navigate to Cp4d/Watson Studio and create/Reuse a project. Open the project and look into the Browser URL, obtain the project ID from the URL and update Project ID settings.
 
 
@@ -84,11 +88,12 @@ export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 
-export CP4D_INSTALL_PLATFORM="true"
-export CP4D_INSTALL_WSL="true"
-export CP4D_INSTALL_WML="true"
-export CP4D_INSTALL_SPARK="true"
-export CP4D_INSTALL_OPENSCALE="true"
+export CPD_INSTALL_PLATFORM="true"
+export CPD_INSTALL_WSL="true"
+export CPD_INSTALL_WML="true"
+export CPD_INSTALL_SPARK="true"
+export CPD_INSTALL_OPENSCALE="true"
+export CPD_INSTALL_SPSS="true"
 export WML_INSTANCE_ID="openshift"
 export WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
 export CPD_PRODUCT_VERSION="4.5.0"

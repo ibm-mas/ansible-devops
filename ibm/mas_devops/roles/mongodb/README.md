@@ -1,5 +1,5 @@
 mongodb
-=======
+===============================================================================
 
 This role currently supports provisioning of mongodb in three different providers:
  - community
@@ -39,10 +39,10 @@ MongoDB provider
 - Defult Value: `community`
 - Supported providers: `community`,`aws`,`ibm`
 
-### db_action
+### mongodb_action
 Determines which action needs to be performed w.r.t mongodb for a specfied `provider`
 
-- Environment variable: `DB_ACTION`
+- Environment variable: `MONGODB_ACTION`
 - Deafult Value: `provision`
   ```
   Following Providers supports below mentioned DB_ACTION values:
@@ -57,6 +57,16 @@ Determines which action needs to be performed w.r.t mongodb for a specfied `prov
 
 Community MongoDB Role Variables
 ---------------------------------
+Role Variables
+-------------------------------------------------------------------------------
+
+### mongodb_ce_version
+Set the version of the MongoDb Community Edition Operator to install in the namespace.
+
+- Optional
+- Environment Variable: `MONGODB_CE_VERSION`
+- Default: `0.7.0`
+
 
 ### mongodb_namespace
 The namespace where the operator and MongoDb cluster will be deployed.
@@ -120,7 +130,7 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 
 
 Example Playbook
-----------------
+-------------------------------------------------------------------------------
 
 ```yaml
 - hosts: localhost
@@ -137,7 +147,7 @@ Example Playbook
     If the MongoDB CA Certificate expires the MongoDB replica set will become unusable. Replica set members will not be able to communicate with each other and client applications (i.e. Maximo Application Suite components) will not be to connect.
 
 CA Certificate Renewal
-----------------------
+-------------------------------------------------------------------------------
 
 In order to renew the CA Certificate used by the MongoDB replica set the following steps must be taken:
 
@@ -164,7 +174,7 @@ Make sure all pods in the `mongoce` namespace have terminated and then execute t
 the old Mongo configuration:
 
 ```bash
-oc delete certificate mongo-ca-crt   
+oc delete certificate mongo-ca-crt
 oc delete certificate mongo-server
 oc delete secret mongo-ca-secret
 oc delete secret mongo-server-cert
@@ -173,7 +183,7 @@ oc delete secret mas-mongo-ce-config
 oc delete configmap  mas-mongo-ce-cert-map
 oc delete secret mas-mongo-ce-server-certificate-key
 
-export ROLE_NAME=mongodb 
+export ROLE_NAME=mongodb
 ansible-playbook ibm.mas_devops.run_role
 ```
 
@@ -192,7 +202,7 @@ After the CA and server Certificates have been renewed you must ensure that that
 
 ```
 
-If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be updated to reflect the new MongoDB CA. This can be added to the `.spec.mongo.certificates` section of the LicenseService CR. 
+If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be updated to reflect the new MongoDB CA. This can be added to the `.spec.mongo.certificates` section of the LicenseService CR.
 
 ```yaml
     mongo:
@@ -411,7 +421,7 @@ Example Playbook
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
     mongodb_provider: aws
-    db_action: provision
+    mongodb_action: provision
     docdb_size: ~/docdb-config.yml
     docdb_cluster_name: test-db
     docdb_ingress_cidr: 10.0.0.0/16
@@ -472,7 +482,7 @@ Example Playbook
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
     mongodb_provider: aws
-    db_action: docdb_secret_rotate
+    mongodb_action: docdb_secret_rotate
     docdb_mongo_instance_name: test-db-instance
     db_host: aws.test1.host7283-*****
     db_port: 27017
@@ -489,6 +499,6 @@ Example Playbook
 
 
 License
--------
+-------------------------------------------------------------------------------
 
 EPL-2.0

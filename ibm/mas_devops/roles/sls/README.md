@@ -1,12 +1,23 @@
 sls
-===
+===============================================================================
 
 Install **IBM Suite License Service** and generate a configuration that can be directly applied to IBM Maximo Application Suite.
 
 The role assumes that you have already installed the Certificate Manager in the target cluster.  This action is performed by the [cert_manager](cert_manager.md) role if you want to use this collection to install the cert-manager operator.
 
+
+Role Variables
+-------------------------------------------------------------------------------
+### sls_action
+Inform the role whether to perform an install or uninstall of the Suite License Service.
+
+- Optional
+- Environment Variable: `SLS_ACTION`
+- Default: `install`
+
+
 Role Variables - Installation
------------------------------
+-------------------------------------------------------------------------------
 If `sls_url` is set then the role will skip the installation of an SLS instance and simply generate the SLSCfg resource for the SLS instance defined.
 
 ### ibm_entitlement_key
@@ -74,7 +85,7 @@ Username for entitled registry. This username will be used to create the image p
 
 
 Role Variables - Configuration
-------------------------------
+-------------------------------------------------------------------------------
 ### sls_domain
 SLS can be configured to be externally accessible through a route by setting the domain. Set the domain if SLS is used by application suites that are installed in separate OpenShift clusters.
 
@@ -140,7 +151,7 @@ Defines the MongoDb Password.
 
 
 Role Variables - Bootstrap
---------------------------
+-------------------------------------------------------------------------------
 ### bootstrap.license_id
 Defines the License Id to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on
 
@@ -164,7 +175,7 @@ Defines the License File to be used to bootstrap SLS. Don't set if you wish to s
 
 
 Role Variables - SLSCfg
------------------------
+-------------------------------------------------------------------------------
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the SlsCfg configuration will target.
 
@@ -207,6 +218,22 @@ The Registration key of the LicenseService instance to be used when the Maximo A
 - Environment Variable: `SLS_REGISTRATION_KEY`
 - Default Value: None
 
+
+### sls_customize_scaling
+
+Only supported in SLS 3.6 or later. Installation of earlier releases will ignore this parameter. ConfigMap name used for customizing SLS resources scaling settings. SLS provides the following built-in t-shirt sizes: small/medium/large. 
+For example, to deploy your suite with 
+- small size, set this to `{sls_instance_id}-wl-cust-small`,
+- for medium size set to `{sls_instance_id}-wl-cust-medium` and 
+- for large size set to `{sls_instance_id}-wl-cust-large`. 
+
+If using a custom scaling configuration, use any ConfigMap name previously created. Alternatively, you can use the environment variable `SLS_CUSTOMIZE_SCALING` to set the scaling ConfigMap name.
+
+- Optional
+- Environment Variable: `SLS_CUSTOMIZE_SCALING`
+- Default Value: None
+
+
 ### custom_labels
 List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
@@ -216,7 +243,7 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 
 
 Example Playbook
-----------------
+-------------------------------------------------------------------------------
 
 ### Install and generate a configuration
 ```yaml
@@ -256,6 +283,6 @@ Example Playbook
 
 
 License
--------
+-------------------------------------------------------------------------------
 
 EPL-2.0
