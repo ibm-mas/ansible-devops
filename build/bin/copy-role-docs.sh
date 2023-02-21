@@ -22,7 +22,6 @@ copyDoc cert_manager_upgrade_check
 copyDoc cis
 copyDoc cluster_monitoring
 copyDoc common_services
-copyDoc configure_manage_cfg
 copyDoc cos
 copyDoc cos_bucket
 copyDoc cp4d
