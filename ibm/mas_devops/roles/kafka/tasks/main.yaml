@@ -1,4 +1,185 @@
-# 1. Configure Kafka
-# ---------------------------------------------------------------------------------------------------------------------
-- name: Provision or Deprovision Kafka Instance
-  include_tasks: tasks/provider/{{ kafka_provider }}/{{ kafka_action }}.yml
+---
+# 1. Load default storage classes (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
+
+
+# 2. Provide debug
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "AMQ Streams namespace ................. {{ kafka_namespace }}"
+      - "AMQ Streams kafka version ............. {{ kafka_version }}"
+      - "AMQ Streams cluster name .............. {{ kafka_cluster_name }}"
+      - "AMQ Streams cluster size .............. {{ kafka_cluster_size }}"
+      - "AMQ Streams kafka storage class ....... {{ kafka_storage_class }}"
+      - "AMQ Streams kafka storage size ........ {{ kafka_storage_size }}"
+      - "AMQ Streams zookeeper storage class ... {{ zookeeper_storage_class }}"
+      - "AMQ Streams zookeeper storage size .... {{ zookeeper_storage_size }}"
+      - "AMQ Streams MAS user .................. {{ kafka_user_name }}"
+
+# 3. Install AMQ Streams operator
+# -----------------------------------------------------------------------------
+- name: "Install AMQ Streams Operator"
+  kubernetes.core.k8s:
+    apply: yes
+    template: templates/subscription.yml.j2
+
+
+# 4. Wait until the Kafka CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the Kafka CRD is available"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "kafkas.kafka.strimzi.io"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 600 # 10 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: kafka_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - kafka_crd_info.resources is defined
+    - kafka_crd_info.resources | length > 0
+
+
+# 5 Create logging/monitoring configmaps and PodMonitor custom resources
+# -----------------------------------------------------------------------------
+- name: "Create Kafka logging configmap"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/logging-configmap.yml.j2"
+
+- name: "Create Kafka monitoring configmap"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/metrics-configmap.yml.j2"
+
+- name: "Create Kafka PodMonitor custom resources"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/podmonitor.yml.j2"
+
+# 6. Deploy the cluster
+# -----------------------------------------------------------------------------
+- name: "Create Kafka Cluster"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/clusters/{{ kafka_cluster_size }}.yml.j2"
+
+
+# 7. Wait until the KafkaUser CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the KafkaUser CRD is available"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "kafkausers.kafka.strimzi.io"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 600 # 10 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: kafkauser_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - kafkauser_crd_info.resources is defined
+    - kafkauser_crd_info.resources | length > 0
+
+
+# 8. Create the MAS user
+# -----------------------------------------------------------------------------
+- name: "Create Kafka User"
+  kubernetes.core.k8s:
+    apply: yes
+    template: templates/masuser.yml.j2
+
+# 9. Create Grafana dashboards for Kafka monitoring
+# -----------------------------------------------------------------------------
+- name: "Create Kafka monitoring dashboards"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ item }}"
+  with_fileglob:
+    - "templates/dashboards/*.yml.j2"
+
+# 10. Lookup details
+# -----------------------------------------------------------------------------
+# We have seen instances where the Kafka cluster is reported as Ready but
+# the necessary fields in the status resource are not set yet so we retry until
+# the expected fields are set as well
+- name: "Wait for Kafka Resource to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    name: "{{ kafka_cluster_name }}"
+    namespace: "{{ kafka_namespace }}"
+  register: kafka_cluster_lookup
+  retries: 30 # will wait for up to 30 minutes for the listener information to be added to the status sub-resource
+  delay: 60 # seconds
+  until:
+    - kafka_cluster_lookup.resources is defined
+    - kafka_cluster_lookup.resources | length > 0
+    - kafka_cluster_lookup.resources[0].status is defined
+    - kafka_cluster_lookup.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | length > 0
+    - kafka_cluster_lookup.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready')| map(attribute='status') | list | first == "True"
+    - kafka_cluster_lookup.resources[0].status.listeners is defined
+    - kafka_cluster_lookup.resources[0].status.listeners | length > 0
+
+- name: "Lookup Kafka Secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ kafka_user_name }}"
+    namespace: "{{ kafka_namespace }}"
+  register: kafka_user_secret_lookup
+
+- name: "Set new facts based on resource lookups"
+  set_fact:
+    kafka_bootstrap_host: "{{ kafka_cluster_lookup.resources[0].status.listeners[1].addresses[0].host }}"
+    kafka_bootstrap_cert: "{{ kafka_cluster_lookup.resources[0].status.listeners[1].certificates[0] }}"
+    kafka_int_bootstrap_host: "{{ kafka_cluster_lookup.resources[0].status.listeners[0].addresses[0].host }}"
+    kafka_int_bootstrap_cert: "{{ kafka_cluster_lookup.resources[0].status.listeners[0].certificates[0] }}"
+    kafka_user_password: "{{ kafka_user_secret_lookup.resources[0].data.password | b64decode }}"
+
+- name: "Debug new facts"
+  debug:
+    msg:
+      - "External listener:"
+      - "  Bootstrap host ............... {{ kafka_bootstrap_host }}"
+      - "  Bootstrap cert ............... {{ kafka_bootstrap_cert }}"
+      - "Internal listener:"
+      - "  Bootstrap host ............... {{ kafka_int_bootstrap_host }}"
+      - "  Bootstrap cert ............... {{ kafka_int_bootstrap_cert }}"
+      - "MAS user password ............ {{ kafka_user_password }}"
+
+
+# 11. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
+# -----------------------------------------------------------------------------
+- name: Debug KafkaCfg creation properties
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  debug:
+    msg:
+      - "MAS Instance ID .............. {{ mas_instance_id }}"
+      - "MAS Config directory ......... {{ mas_config_dir }}"
+
+- name: Save KafkaCfg to filesytem
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  ansible.builtin.template:
+    src: kafkacfg.yml.j2
+    dest: "{{ mas_config_dir }}/kafka-{{ kafka_cluster_name }}-{{ kafka_namespace }}.yml"
