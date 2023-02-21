@@ -1,55 +1,91 @@
 ---
 # tasks file for convert_to_olm
 
-# 1. Fail if required properties are not provided
+# 1. Initial checks and debug
 # -----------------------------------------------------------------------------
-- name: Assert that mas_instance_id is defined
-  assert:
-    that:
-      - mas_instance_id is defined
-      - mas_instance_id != ''
-    fail_msg: "mas_instance_id is not defined"
+- name: Preliminary checks
+  block:
+    - name: Assert that mas_app_id is defined
+      ansible.builtin.assert:
+        that:
+          - mas_app_id is defined
+          - mas_app_id != ''
+        fail_msg: "mas_app_id is not defined"
 
-- name: Assert that mas_upgrade_strategy is defined
-  assert:
-    that:
-      - mas_upgrade_strategy is defined
-      - mas_upgrade_strategy != ''
-    fail_msg: "mas_upgrade_strategy is not defined"
+    - name: Assert that mas_instance_id is defined
+      ansible.builtin.assert:
+        that:
+          - mas_instance_id is defined
+          - mas_instance_id != ''
+        fail_msg: "mas_instance_id is not defined"
 
-# 2. Debug information
+    - name: Set mas_app_operator_name fact
+      ansible.builtin.set_fact:
+        mas_app_operator_name: "{{ (mas_app_id == 'core') | ternary(mas_core_name, mas_app_prefix) }}"
+
+    - name: Debug Information
+      ansible.builtin.debug:
+        msg:
+          - "MAS App ID ............. {{ mas_app_id }}"
+          - "MAS Instance ID ........ {{ mas_instance_id }}"
+          - "Namespace .............. {{ mas_app_namespace }}"
+          - "MAS Upgrade Strategy ... {{ mas_upgrade_strategy }}"
+
+# 2. Check App and Determine OLM Conversion
 # -----------------------------------------------------------------------------
-- name: Debug Information
-  debug:
-    msg:
-      - "MAS Instance ID ........ {{ mas_instance_id }}"
-      - "MAS Upgrade Strategy ... {{ mas_upgrade_strategy }}"
-      - "Namespace .............. {{ mas_app_namespace }}"
+- name: Check if OLM Conversion is Needed
+  block:
+    # 2.1. Lookup for Suite deployed Instance
+    # -----------------------------------------------------------------------------
+    - name: "Lookup Current {{ crs[mas_app_id] }} CR"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: "{{ crs[mas_app_id] }}"
+        name: "{{ mas_instance_id }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: _app_installed_instance
 
-# 3. Lookup for Suite deployed Instance
+    # 2.2. Skip if it can't find App CR
+    # -----------------------------------------------------------------------------
+    - name: Set found_app_cr fact
+      ansible.builtin.set_fact:
+        found_app_cr: "{{ _app_installed_instance.resources | length == 1 }}"
+
+    - name: CR Not Found
+      ansible.builtin.debug:
+        msg: "Could not find {{ crs[mas_app_id] }} CR with name {{ mas_instance_id }} - Skipping conversion"
+      when: not found_app_cr
+
+    # 2.3. Lookup existing Subscription
+    # -----------------------------------------------------------------------------
+    - name: "Lookup Existing Subscription"
+      kubernetes.core.k8s_info:
+        api_version: v1alpha1
+        kind: Subscription
+        name: "{{ mas_app_operator_name }}-operator"
+        namespace: "{{ mas_app_namespace }}"
+      register: _app_subscription_instance
+      when: found_app_cr
+
+    # 2.4. Skip if it found existing App Subscription
+    # -----------------------------------------------------------------------------
+    - name: Set found_app_subscription fact
+      ansible.builtin.set_fact:
+        found_app_subscription: "{{ _app_subscription_instance.resources | length == 1 }}"
+      when: found_app_cr
+
+    - name: Existing Subscription Found
+      ansible.builtin.debug:
+        msg: "Found existing Subscription for {{ app_name[mas_app_id] }}  - Skipping conversion"
+      when:
+        - found_app_cr
+        - found_app_subscription
+
+# 3. Run the OLM Conversion tasks
 # -----------------------------------------------------------------------------
-- name: "Lookup Current {{ crs[mas_app_id] }} CR"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: "{{ crs[mas_app_id] }}"
-    name: "{{ mas_instance_id }}"
-    namespace: "{{ mas_app_namespace }}"
-  register: _app_installed_instance
-
-# 4. Skip if it can't find App CR
-# -----------------------------------------------------------------------------
-- name: Set found_app_cr fact
-  set_fact:
-    found_app_cr: "{{ _app_installed_instance.resources | length == 1 }}"
-
-- name: Debug found_app_cr
-  debug:
-    msg: "Could not find {{ crs[mas_app_id] }} CR with name {{ mas_instance_id }} - Skipping switch"
-  when: not found_app_cr
-
 - name: Run OLM Switch Block
   block:
-    # 5. Cleanup App Operator Deployment
+    # 3.1. Cleanup App Operator Deployment
     # -----------------------------------------------------------------------------
     - name: "Delete {{ app_name[mas_app_id] }} Operator Deployment"
       kubernetes.core.k8s:
@@ -58,10 +94,10 @@
           apiVersion: v1
           kind: Deployment
           metadata:
-            namespace: "{{mas_app_namespace}}"
-            name: "ibm-mas{{ mas_app_name_prefix }}-operator"
+            namespace: "{{ mas_app_namespace }}"
+            name: "{{ mas_app_operator_name }}-operator"
 
-    # 6. Cleanup App TM Operator Deployment
+    # 3.2. Cleanup App TM Operator Deployment
     # -----------------------------------------------------------------------------
     - name: Delete TM Operator Deployment
       kubernetes.core.k8s:
@@ -70,26 +106,52 @@
           apiVersion: v1
           kind: Deployment
           metadata:
-            namespace: "{{mas_app_namespace}}"
+            namespace: "{{ mas_app_namespace }}"
             name: ibm-truststore-mgr-controller-manager
-        when: mas_app_id not in ['visualinspection', 'hputilities']
+      when: mas_app_id not in ['visualinspection', 'hputilities']
 
-    # 7. Define App Channel
+    # 3.3. Define App Channel
     # -----------------------------------------------------------------------------
     - name: "Set {{ app_name[mas_app_id] }} Deployed Version"
-      set_fact:
-        app_channel: "{{_app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1') | first  }}.x"
-        app_starting_csv: "ibm-mas{{ mas_app_name_prefix }}.v{{_app_installed_instance.resources[0].status.versions.reconciled}}"
+      ansible.builtin.set_fact:
+        app_channel: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1', '\\2') | join('.') }}.x"
+        app_starting_csv: "{{ mas_app_operator_name }}.v{{ _app_installed_instance.resources[0].status.versions.reconciled }}"
 
-    - debug:
+    - name: Debug {{ app_name[mas_app_id] }} Channel
+      ansible.builtin.debug:
         msg:
           - "{{ app_channel }}"
           - "{{ app_starting_csv }}"
 
-    # 8. Install MAS Operator Using OLM
+    # 3.4. Remove any existing OperatorGroups
+    # -----------------------------------------------------------------------------
+    # Having multiple OperatorGroups will lead to conflict and prevent the
+    # InstallPlan from working
+    - name: Remove any existing OperatorGroups
+      block:
+        - name: Find existing OperatorGroup(s)
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: OperatorGroup
+            namespace: "{{ mas_app_namespace }}"
+          register: _app_op_group_lookup
+
+        - name: "Delete {{ item.metadata.name }} OperatorGroup"
+          kubernetes.core.k8s:
+            state: absent
+            definition:
+              apiVersion: v1
+              kind: OperatorGroup
+              metadata:
+                namespace: "{{ mas_app_namespace }}"
+                name: "{{ item.metadata.name }}"
+          loop: "{{ _app_op_group_lookup.resources }}"
+          when: _app_op_group_lookup.resources | length > 0
+
+    # 3.5. Install MAS Operator Using OLM
     # -----------------------------------------------------------------------------
     - name: "Install {{ app_name[mas_app_id] }} Operator"
-      include_role:
+      ansible.builtin.include_role:
         name: ibm.mas_devops.install_operator
       vars:
         namespace: "{{ mas_app_namespace }}"
@@ -99,6 +161,8 @@
         operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
         subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
+    # 3.6. Approve InstallPlan(s) when in Manual subscription
+    # -----------------------------------------------------------------------------
     - name: "Lookup and Approve {{ app_name[mas_app_id] }} Subscription"
       block:
         - name: Lookup Operator install plan
@@ -107,7 +171,7 @@
             kind: InstallPlan
             namespace: "{{ mas_app_namespace }}"
             label_selectors:
-              - "operators.coreos.com/ibm-mas{{ mas_app_name_prefix }}.{{ mas_app_namespace }}"
+              - "operators.coreos.com/{{ mas_app_operator_name }}.{{ mas_app_namespace }}"
           register: mas_install_plan
           retries: 20
           delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
@@ -129,13 +193,17 @@
       when:
         - mas_upgrade_strategy == 'Manual'
 
-    # 9. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
+    # 3.7. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
     # -----------------------------------------------------------------------------
     # ibm-common-services operators deployed by MAS will inherit the inherit MAS upgrade strategy
     # when its set to Manual, we need to iterate those to ensure we do approve the first install plan
     # otherwise MAS installation wont succeed.
-    - include_tasks: tasks/ibm-common-services.yml
-      when: mas_upgrade_strategy == 'Manual' && mas_app_id == 'core'
+    - name: Handle IBM Common Services InstallPlan approvals
+      ansible.builtin.include_tasks: tasks/ibm-common-services.yml
+      when:
+        - mas_upgrade_strategy == 'Manual'
+        - mas_app_id == 'core'
       loop: "{{ ibm_common_services_subscription_labels }}"
-
-  when: found_app_cr
+  when:
+    - found_app_cr
+    - not found_app_subscription
