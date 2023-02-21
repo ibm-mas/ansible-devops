@@ -32,7 +32,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
     - Install CP4D
 
 ## Optional environment variables
-- `CP4D_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
+- `CPD_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
 
 ## Usage when you already HAVE CP4D installed
 
@@ -57,8 +57,8 @@ export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 
-export CP4D_INSTALL_PLATFORM="true"
-export CP4D_PRODUCT_VERSION="4.6.0"
+export CPD_INSTALL_PLATFORM="true"
+export CPD_PRODUCT_VERSION="4.6.0"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_cognos

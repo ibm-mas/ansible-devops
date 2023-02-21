@@ -58,8 +58,8 @@ If the database is not SSL enabled, set the SSL_ENABLED variable to false. By de
 `export SSL_ENABLED=false`  
 
 To install CP4D and Cognos Analytics:
-- `CP4D_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
-- `CP4D_INSTALL_COGNOS` True/False - If you HAVE Cognos Analytics already installed in your cluster, then set it to "false"
+- `CPD_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
+- `CPD_INSTALL_COGNOS` True/False - If you HAVE Cognos Analytics already installed in your cluster, then set it to "false"
 - `CPD_PRODUCT_VERSION` (Required) Cloud Pak for Data version installed in the cluster in 4.X format.
    
 ## Usage
@@ -118,14 +118,14 @@ export MAS_APP_ID=manage
 
 If CP4D is not installed:
 
-export CP4D_INSTALL_PLATFORM="true"
-export CP4D_INSTALL_COGNOS="true"
+export CPD_INSTALL_PLATFORM="true"
+export CPD_INSTALL_COGNOS="true"
 export CPD_PRODUCT_VERSION="4.6.0"
 
 If CP4D is already installed:
 
-export CP4D_INSTALL_PLATFORM="false"
-export CP4D_INSTALL_COGNOS="true"
+export CPD_INSTALL_PLATFORM="false"
+export CPD_INSTALL_COGNOS="true"
 export CPD_ADMIN_USERNAME="admin"
 export CPD_ADMIN_PASSWORD="xxx"
 export CPD_URL="https://mycp4durl"
