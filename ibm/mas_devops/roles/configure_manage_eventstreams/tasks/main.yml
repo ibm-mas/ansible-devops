@@ -1,0 +1,244 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  when: mas_instance_id is not defined or mas_instance_id == ""
+  fail:
+    msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_workspace_id is not provided"
+  when: mas_workspace_id is not defined or mas_workspace_id == ""
+  fail:
+    msg: "mas_workspace_id property is required"
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_namespace: "mas-{{ mas_instance_id }}-core"
+    mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+
+- name: Set eventstreams name
+  set_fact:
+    eventstreams_name: "{{ eventstreams_name }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "Instance ID ............... {{ mas_instance_id }}"
+      - "Application ID ............ {{ mas_app_id }}"
+      - "Workspace ID .............. {{ mas_workspace_id }}"
+      - "MAS app namespace ......... {{ mas_app_namespace }}"
+
+# 3. Check application workspace is ready
+# -----------------------------------------------------------------------------
+- name: "Check application workspace is ready"
+  kubernetes.core.k8s_info:
+    api_version: "{{ mas_app_ws_apiversion }}"
+    kind: "{{ mas_app_ws_kind }}"
+    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+    namespace: "{{ mas_app_namespace }}"
+    wait: true
+    wait_condition:
+      status: "True"
+      type: Ready
+    wait_sleep: 30
+    wait_timeout: 30 # before we give up and fall back into the retry loop
+  register: app_ws_cr_result
+  retries: 3
+  delay: 0
+  until:
+    - app_ws_cr_result.resources is defined
+    - app_ws_cr_result.resources | length > 0
+    - app_ws_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+
+# 4. Patch IBM Event Streams certificates for Manage
+# -----------------------------------------------------------------------------
+- name: Fetch IBM Cloud Resource Group Id
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
+- name: Fetch IBM eventstreams Information
+  ibm.cloudcollection.ibm_resource_instance_info:
+    resource_group_id: "{{ rg_info.resource.id }}"
+    name: "{{ eventstreams_name }}"
+    service: "{{ eventstreams_service }}"
+    location: "{{ eventstreams_location }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: es_info
+  failed_when: es_info.rc != 0 and  "No resource instance found" not in  es_info.stderr
+
+- name: Get Event Streams server
+  set_fact:
+    es_server: "{{ es_info.resource.extensions['kafka_brokers_sasl.0'] }}"
+
+- name: Get Event Streams host and port
+  set_fact:
+    host: "{{ es_server.split(':')[0] }}"
+    port: "{{ es_server.split(':')[1] }}"
+
+- name: Get Event Streams certficates
+  include_tasks: "retrieve-es-certs.yml"
+
+- name: Patch Event Streams certs
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition:
+      apiVersion: "{{ mas_app_ws_apiversion }}"
+      kind: "{{ mas_app_ws_kind }}"
+      metadata:
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+        namespace: "{{ mas_app_namespace }}"
+      spec:
+        settings:
+          deployment:
+            importedCerts:
+              - alias: ES_cert1
+                crt: |-
+                  {{ es_tls_crt[1] }}
+              - alias: ES_cert2
+                crt: |-
+                  -----BEGIN CERTIFICATE-----
+                  MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+                  TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+                  cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+                  WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+                  ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+                  MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
+                  h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
+                  0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
+                  A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
+                  T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
+                  B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
+                  B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
+                  KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
+                  OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
+                  jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
+                  qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
+                  rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
+                  HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
+                  hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+                  ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
+                  3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+                  NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
+                  ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
+                  TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
+                  jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
+                  oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
+                  4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
+                  mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
+                  emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
+                  -----END CERTIFICATE-----
+
+# 5. Config system properties for Event Streams
+# -----------------------------------------------------------------------------
+- name: "Get MAS instance domain"
+  kubernetes.core.k8s_info:
+    api_version: "core.mas.ibm.com/v1"
+    kind: "Suite"
+    name: "{{ mas_instance_id }}"
+    namespace: "mas-{{mas_instance_id}}-core"
+  register: suite_cr_result
+  retries: 3
+  delay: 0
+  until:
+    - suite_cr_result.resources[0].spec.domain is defined
+    - suite_cr_result.resources[0].spec.domain | length > 0
+
+- name: Set MAS domain
+  set_fact:
+    mas_domain: "{{ suite_cr_result.resources[0].spec.domain }}"
+
+- name: Set Manage prop value
+  set_fact:
+    meaweb_value: "https://main.manage.{{mas_domain}}/meaweb"
+    oslc_rest_value: "https://main.manage.{{mas_domain}}/maxrest/oslc"
+    webapp_value: "https://main.manage.{{mas_domain}}/maximo/oslc"
+    rest_webapp_value: "https://main.manage.{{mas_domain}}/maxrest"
+
+- name: Resolve Server Bundles
+  set_fact:
+    systemServerBundles: "{{app_ws_cr_result.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setSystemProperties(meaweb_value, oslc_rest_value, webapp_value, rest_webapp_value)}}"
+
+- name: "Patch Event Streams components"
+  kubernetes.core.k8s:
+    state: present
+    merge_type: merge
+    definition: "{{ lookup('template', 'templates/system_properties.yaml.j2') }}"
+  register: prepare_cmds_status
+
+- name: "Patch debug information"
+  debug:
+    msg:
+      - "Result ........................ {{ prepare_cmds_status }}"
+
+- name: Retrieve CP4D DB2 pod name
+  set_fact:
+    db2_pod_name: "c-db2wh-sre-andre-db2u-0"
+    
+  # import_role:
+  #   name: ibm.sre_devops.cp4d_db2wh_db_info
+  # vars:
+  #   cp4d_db_config_configmap_name: "masms-{{mas_instance_id}}-cp4d-manage-db-config"
+
+
+# 6. Config external system for Event Streams
+# -----------------------------------------------------------------------------
+- name: Get Kafka host list
+  set_fact:
+    es_server0: "{{ es_info.resource.extensions['kafka_brokers_sasl.0'] }}"
+    es_server1: "{{ es_info.resource.extensions['kafka_brokers_sasl.1'] }}"
+    es_server2: "{{ es_info.resource.extensions['kafka_brokers_sasl.2'] }}"
+    es_server3: "{{ es_info.resource.extensions['kafka_brokers_sasl.3'] }}"
+    es_server4: "{{ es_info.resource.extensions['kafka_brokers_sasl.4'] }}"
+    es_server5: "{{ es_info.resource.extensions['kafka_brokers_sasl.5'] }}"
+
+- name: Create configmsgprovider script in local /tmp
+  ansible.builtin.template:
+    src: configmsgprovider.j2
+    dest: /tmp/configmsgprovider.sh
+    mode: '777'
+
+- name: Copy the configmsgprovider script into the db2 pod
+  shell: "oc cp /tmp/configmsgprovider.sh {{ cpd_meta_namespace }}/{{ db2_pod_name }}:/tmp/configmsgprovider.sh"
+
+# # The log file will also be available inside the pod /tmp/configmsgprovider.log
+# # The script will exit early if /tmp/configmsgprovider exists to avoid unnecessarily re-running
+# # the configmsgprovider, however this file will be lost after pod restarts.
+- name: Run configmsgprovider to config Event Streams for Manage
+  shell: oc exec -n {{cpd_meta_namespace}} {{db2_pod_name}} -- su -lc '/tmp/configmsgprovider.sh | tee /tmp/configmsgprovider.log' db2inst1
+  register: prepare_cmds_status
+
+- name: "Message Hub Provider config Event Streams debug information"
+  debug:
+    msg:
+      - "Result (stdout) ........................ {{ prepare_cmds_status.stdout }}"
+      - "result (stderr) ........................ {{ prepare_cmds_status.stderr }}"
+
+
+# # 7. Config cron task for Event Streams
+
+# # -----------------------------------------------------------------------------
+- name: Create configcrontask script in local /tmp
+  ansible.builtin.template:
+    src: configcrontask.j2
+    dest: /tmp/configcrontask.sh
+    mode: '777'
+
+- name: Copy the configcrontask script into the db2 pod
+  shell: "oc cp /tmp/configcrontask.sh {{ cpd_meta_namespace }}/{{ db2_pod_name }}:/tmp/configcrontask.sh"
+
+# # The log file will also be available inside the pod /tmp/configcrontask.log
+# # The script will exit early if /tmp/configcrontask exists to avoid unnecessarily re-running
+# # the configcrontask, however this file will be lost after pod restarts.
+- name: Run configcrontask to update Manage cron task
+  shell: oc exec -n {{cpd_meta_namespace}} {{db2_pod_name}} -- su -lc '/tmp/configcrontask.sh | tee /tmp/configcrontask.log' db2inst1
+  register: prepare_cmds_status
+
+- name: "Cron task config Event Streams debug information"
+  debug:
+    msg:
+      - "Result (stdout) ........................ {{ prepare_cmds_status.stdout }}"
+      - "result (stderr) ........................ {{ prepare_cmds_status.stderr }}"
