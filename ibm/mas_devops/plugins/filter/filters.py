@@ -345,20 +345,6 @@ def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secr
     sb_list.append(sb)
   return sb_list
 
-def _setSystemProperties(data, meaweb_value, oslc_rest_value, webapp_value, rest_webapp_value):
-
-  sb_list = []
-
-  for sb in data:
-    if 'bundleLevelProperties' in sb:
-      if 'mxe.int.webappurl' not in sb['bundleLevelProperties'] and 'mxe.oslc.restwebappurl' not in sb['bundleLevelProperties'] and 'mxe.oslc.webappurl' not in sb['bundleLevelProperties'] and 'mxe.rest.webappurl' not in sb['bundleLevelProperties']:
-        sb['bundleLevelProperties']+=f"  mxe.int.webappurl={meaweb_value}  mxe.oslc.restwebappurl={oslc_rest_value}  mxe.oslc.webappurl={webapp_value}  mxe.rest.webappurl={rest_webapp_value}"
-    else:
-      sb['bundleLevelProperties']=f"mxe.int.webappurl={meaweb_value}  mxe.oslc.restwebappurl={oslc_rest_value}  mxe.oslc.webappurl={webapp_value}  mxe.rest.webappurl={rest_webapp_value}"
-    sb_list.append(sb)
-  return sb_list
-
-
 class FilterModule(object):
   def filters(self):
     return {
@@ -374,6 +360,5 @@ class FilterModule(object):
       'getWSLProjectId': getWSLProjectId,
       'setManagePVC': setManagePVC,
       'setManageBirtProperties': setManageBirtProperties,
-      'setManageDoclinksProperties': setManageDoclinksProperties,
-      'setSystemProperties': _setSystemProperties,
+      'setManageDoclinksProperties': setManageDoclinksProperties
     }
