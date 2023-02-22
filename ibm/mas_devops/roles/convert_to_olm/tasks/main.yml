@@ -5,19 +5,19 @@
 # -----------------------------------------------------------------------------
 - name: Preliminary checks
   block:
-    - name: Assert that mas_app_id is defined
-      ansible.builtin.assert:
-        that:
-          - mas_app_id is defined
-          - mas_app_id != ''
-        fail_msg: "mas_app_id is not defined"
-
     - name: Assert that mas_instance_id is defined
       ansible.builtin.assert:
         that:
           - mas_instance_id is defined
           - mas_instance_id != ''
         fail_msg: "mas_instance_id is not defined"
+
+    - name: Assert that mas_app_id is defined
+      ansible.builtin.assert:
+        that:
+          - mas_app_id is defined
+          - mas_app_id != ''
+        fail_msg: "mas_app_id is not defined"
 
     - name: Set mas_app_operator_name fact
       ansible.builtin.set_fact:
@@ -28,7 +28,7 @@
         msg:
           - "MAS App ID ............. {{ mas_app_id }}"
           - "MAS Instance ID ........ {{ mas_instance_id }}"
-          - "Namespace .............. {{ mas_app_namespace }}"
+          - "MAS App Namespace ...... {{ mas_app_namespace }}"
           - "MAS Upgrade Strategy ... {{ mas_upgrade_strategy }}"
 
 # 2. Check App and Determine OLM Conversion
@@ -37,7 +37,7 @@
   block:
     # 2.1. Lookup for Suite deployed Instance
     # -----------------------------------------------------------------------------
-    - name: "Lookup Current {{ crs[mas_app_id] }} CR"
+    - name: "Lookup Current CR: {{ crs[mas_app_id] }}"
       kubernetes.core.k8s_info:
         api_version: v1
         kind: "{{ crs[mas_app_id] }}"
@@ -50,11 +50,16 @@
     - name: Set found_app_cr fact
       ansible.builtin.set_fact:
         found_app_cr: "{{ _app_installed_instance.resources | length == 1 }}"
+      when:
+        - _app_installed_instance is defined
+        - _app_installed_instance.resources is defined
 
     - name: CR Not Found
       ansible.builtin.debug:
         msg: "Could not find {{ crs[mas_app_id] }} CR with name {{ mas_instance_id }} - Skipping conversion"
-      when: not found_app_cr
+      when:
+        - found_app_cr is defined
+        - not found_app_cr
 
     # 2.3. Lookup existing Subscription
     # -----------------------------------------------------------------------------
@@ -65,29 +70,40 @@
         name: "{{ mas_app_operator_name }}-operator"
         namespace: "{{ mas_app_namespace }}"
       register: _app_subscription_instance
-      when: found_app_cr
+      when:
+        - found_app_cr is defined
+        - found_app_cr
 
     # 2.4. Skip if it found existing App Subscription
     # -----------------------------------------------------------------------------
     - name: Set found_app_subscription fact
       ansible.builtin.set_fact:
         found_app_subscription: "{{ _app_subscription_instance.resources | length == 1 }}"
-      when: found_app_cr
+      when:
+        - found_app_cr is defined
+        - found_app_cr
 
     - name: Existing Subscription Found
       ansible.builtin.debug:
         msg: "Found existing Subscription for {{ app_name[mas_app_id] }}  - Skipping conversion"
       when:
+        - found_app_cr is defined
         - found_app_cr
+        - found_app_subscription is defined
         - found_app_subscription
 
 # 3. Run the OLM Conversion tasks
 # -----------------------------------------------------------------------------
-- name: Run OLM Switch Block
+- name: Run OLM Conversion Block
+  when:
+    - found_app_cr is defined
+    - found_app_cr
+    - found_app_subscription is defined
+    - not found_app_subscription
   block:
     # 3.1. Cleanup App Operator Deployment
     # -----------------------------------------------------------------------------
-    - name: "Delete {{ app_name[mas_app_id] }} Operator Deployment"
+    - name: "Delete Operator Deployment: {{ app_name[mas_app_id] }}"
       kubernetes.core.k8s:
         state: absent
         definition:
@@ -97,27 +113,88 @@
             namespace: "{{ mas_app_namespace }}"
             name: "{{ mas_app_operator_name }}-operator"
 
-    # 3.2. Cleanup App TM Operator Deployment
+    # 3.2. Cleanup App TM Operator
     # -----------------------------------------------------------------------------
-    - name: Delete TM Operator Deployment
-      kubernetes.core.k8s:
-        state: absent
-        definition:
-          apiVersion: v1
-          kind: Deployment
-          metadata:
-            namespace: "{{ mas_app_namespace }}"
-            name: ibm-truststore-mgr-controller-manager
+    - name: Delete Truststore Manager
       when: mas_app_id not in ['visualinspection', 'hputilities']
+      block:
+        - name: Find existing TM Subscription
+          kubernetes.core.k8s_info:
+            api_version: v1alpha1
+            kind: Subscription
+            name: ibm-truststore-mgr
+            namespace: "{{ mas_app_namespace }}"
+          register: _app_tm_subscription
+
+        - name: Set _app_tm_current_csv fact
+          ansible.builtin.set_fact:
+            _app_tm_current_csv: "{{ _app_tm_subscription.resources[0].status.currentCSV }}"
+          when:
+            - _app_tm_subscription is defined
+            - _app_tm_subscription.resources is defined
+            - _app_tm_subscription.resources | length == 1
+            - _app_tm_subscription.resources[0].status is defined
+            - _app_tm_subscription.resources[0].status.currentCSV is defined
+
+        - name: Delete TM Subscription
+          kubernetes.core.k8s:
+            state: absent
+            definition:
+              apiVersion: v1alpha1
+              kind: Subscription
+              metadata:
+                namespace: "{{ mas_app_namespace }}"
+                name: ibm-truststore-mgr
+          when:
+            - _app_tm_subscription is defined
+            - _app_tm_subscription.resources is defined
+            - _app_tm_subscription.resources | length == 1
+
+        - name: Delete TM CSV
+          kubernetes.core.k8s:
+            state: absent
+            definition:
+              apiVersion: v1alpha1
+              kind: ClusterServiceVersion
+              metadata:
+                namespace: "{{ mas_app_namespace }}"
+                name: "{{ _app_tm_current_csv }}"
+          when:
+            - _app_tm_subscription is defined
+            - _app_tm_subscription.resources is defined
+            - _app_tm_subscription.resources | length == 1
+            - _app_tm_current_csv is defined
+            - _app_tm_current_csv != ''
+
+        - name: Delete TM Operator Deployment
+          kubernetes.core.k8s:
+            state: absent
+            definition:
+              apiVersion: v1
+              kind: Deployment
+              metadata:
+                namespace: "{{ mas_app_namespace }}"
+                name: ibm-truststore-mgr-controller-manager
+          when:
+            - _app_tm_subscription is defined
+            - _app_tm_subscription.resources is defined
+            - _app_tm_subscription.resources | length == 0
 
     # 3.3. Define App Channel
     # -----------------------------------------------------------------------------
-    - name: "Set {{ app_name[mas_app_id] }} Deployed Version"
+    - name: "Set Deployed Version: {{ app_name[mas_app_id] }}"
       ansible.builtin.set_fact:
         app_channel: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1', '\\2') | join('.') }}.x"
         app_starting_csv: "{{ mas_app_operator_name }}.v{{ _app_installed_instance.resources[0].status.versions.reconciled }}"
+      when:
+        - _app_installed_instance is defined
+        - _app_installed_instance.resources is defined
+        - _app_installed_instance.resources | length == 1
+        - _app_installed_instance.resources[0].status is defined
+        - _app_installed_instance.resources[0].status.versions is defined
+        - _app_installed_instance.resources[0].status.versions.reconciled is defined
 
-    - name: Debug {{ app_name[mas_app_id] }} Channel
+    - name: "Debug Channel {{ app_name[mas_app_id] }}"
       ansible.builtin.debug:
         msg:
           - "{{ app_channel }}"
@@ -136,7 +213,7 @@
             namespace: "{{ mas_app_namespace }}"
           register: _app_op_group_lookup
 
-        - name: "Delete {{ item.metadata.name }} OperatorGroup"
+        - name: "Delete Existing OperatorGroup(s)"
           kubernetes.core.k8s:
             state: absent
             definition:
@@ -146,11 +223,14 @@
                 namespace: "{{ mas_app_namespace }}"
                 name: "{{ item.metadata.name }}"
           loop: "{{ _app_op_group_lookup.resources }}"
-          when: _app_op_group_lookup.resources | length > 0
+          when:
+            - _app_op_group_lookup is defined
+            - _app_op_group_lookup.resources is defined
+            - _app_op_group_lookup.resources | length > 0
 
     # 3.5. Install MAS Operator Using OLM
     # -----------------------------------------------------------------------------
-    - name: "Install {{ app_name[mas_app_id] }} Operator"
+    - name: "Install Operator: {{ app_name[mas_app_id] }}"
       ansible.builtin.include_role:
         name: ibm.mas_devops.install_operator
       vars:
@@ -163,7 +243,8 @@
 
     # 3.6. Approve InstallPlan(s) when in Manual subscription
     # -----------------------------------------------------------------------------
-    - name: "Lookup and Approve {{ app_name[mas_app_id] }} Subscription"
+    - name: "Lookup and Approve Subscription: {{ app_name[mas_app_id] }}"
+      when: mas_upgrade_strategy == 'Manual'
       block:
         - name: Lookup Operator install plan
           kubernetes.core.k8s_info:
@@ -179,7 +260,11 @@
 
         - name: Approve the subscription install plan
           when:
+            - mas_install_plan is defined
+            - mas_install_plan.resources is defined
             - mas_install_plan.resources | length > 0
+            - mas_install_plan.resources[0].status is defined
+            - mas_install_plan.resources[0].status.phase is defined
             - mas_install_plan.resources[0].status.phase != "Complete"
           kubernetes.core.k8s:
             definition:
@@ -190,8 +275,6 @@
                 namespace: "{{ mas_app_namespace }}"
               spec:
                 approved: true
-      when:
-        - mas_upgrade_strategy == 'Manual'
 
     # 3.7. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
     # -----------------------------------------------------------------------------
@@ -204,6 +287,3 @@
         - mas_upgrade_strategy == 'Manual'
         - mas_app_id == 'core'
       loop: "{{ ibm_common_services_subscription_labels }}"
-  when:
-    - found_app_cr
-    - not found_app_subscription
