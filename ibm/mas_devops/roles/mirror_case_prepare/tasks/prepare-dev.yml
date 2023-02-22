@@ -36,7 +36,19 @@
     tar -xzf "{{ bundle_download.dest }}" -C "{{ mirror_working_dir }}"
   register: bundle_unarchive
 
-# 5. Write src=dest mapping for image mirroring
+# 5. Prepare directories to store the manifest file
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Create target directories (direct)"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/direct"
+    state: directory
+
+- name: "{{ case_name }} : Remove file if it already exists"
+  ansible.builtin.file:
+    path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
+    state: absent
+
+# 6. Write src=dest mapping for image mirroring
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Generate manifest using the related images from the CSV file"
   ansible.builtin.lineinfile:
@@ -45,7 +57,7 @@
     line: "{{ item.image + '=' + registry_public_url + '/' + item.name }}"
   loop: "{{ (lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-dev-with-digest-bundle/operators/{{ case_name }}/config/manifests/bases/{{ case_name }}.clusterserviceversion.yaml') | from_yaml).spec.relatedImages }}"
 
-# 6. Get the rest of the images from resources.yaml file
+# 7. Get the rest of the images from resources.yaml file
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Find the inventory Setup path"
   find:
