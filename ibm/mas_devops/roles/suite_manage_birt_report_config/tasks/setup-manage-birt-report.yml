@@ -1,0 +1,154 @@
+---
+# Configure Manage report bundle servers
+# -----------------------------------------------------------------------------
+- name: Check if report bundle is already configured
+  when:
+    - managews_output.resources[0].spec.settings.deployment.serverBundles is defined
+    - managews_output.resources[0].spec.settings.deployment.serverBundles | selectattr('bundleType', 'equalto', 'report')| map(attribute='name') | list | length > 0
+  set_fact:
+    existing_manage_report_name: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | selectattr('bundleType', 'equalto', 'report')| map(attribute='name') | list | first }}"
+
+- debug:
+    var: existing_manage_report_name
+
+- name: "Get Suite Instance Domain"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Suite
+    name: "{{ mas_instance_id }}"
+    namespace: "mas-{{mas_instance_id}}-core"
+  register: suite_instance
+
+- name: "Assert Suite instance exists and domain is valid"
+  assert:
+    that:
+      - suite_instance.resources is defined
+      - suite_instance.resources | length > 0
+      - suite_instance.resources[0].spec.domain != ''
+
+# When report bundle exists, we'll use existing report name to define the manage report route.
+# When report bundle does not exist, then we'll use the 'manage_report_bundle_server_name' property to define its name.
+- name: "Configure Manage report route"
+  set_fact:
+    manage_report_route: "https://{{ mas_workspace_id}}-{{ existing_manage_report_name | default(manage_report_bundle_server_name, true) }}.manage.{{ suite_instance.resources[0].spec.domain }}"
+
+- debug:
+    var: manage_report_route
+
+- name: Set Manage bundle server properties
+  set_fact:
+    birtServerBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | default([]) | ibm.mas_devops.setManageBirtProperties(manage_report_route, existing_manage_report_name | default(manage_report_bundle_server_name, true) )}}"
+
+- debug:
+    var: birtServerBundles
+
+# Configure Server bundle properties into Manage Workspace
+# -----------------------------------------------------------------------------
+- name: "Add the Server Bundle birt properties in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps.mas.ibm.com/v1
+      kind: ManageWorkspace
+      metadata:
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "mas-{{ mas_instance_id }}-manage"
+      spec:
+        settings:
+          deployment:
+            serverBundles: |
+              {{ birtServerBundles }}
+  register: managews_sb_output
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "ManageWorkspace Changed ............... {{ managews_sb_output.changed }}"
+
+# # ######## SRE CODE:
+
+# # - name: Setup birt server if needed
+# #   block:
+# # # 1. Check for undefined properties that do not have a default
+# # # -----------------------------------------------------------------------------
+# #   - name: "Fail if mas_instance_id is not provided"
+# #     when: mas_instance_id is not defined or mas_instance_id == ""
+# #     fail:
+# #       msg: "mas_instance_id property is required"
+
+# #   - name: Configure facts
+# #     set_fact:
+# #       manage_namespace: "mas-{{ mas_instance_id }}-manage"
+# #       manage_MW: "{{ mas_instance_id }}-main"
+
+# #   - name: "Get ManageWorkspace"
+# #     kubernetes.core.k8s_info:
+# #       api_version: v1
+# #       kind: ManageWorkspace
+# #       name: "{{manage_MW}}"
+# #       namespace: "{{manage_namespace}}"
+# #     register: _MW_instance
+
+# #   # - name: "Fail if Server has been bundled"
+# #   #   when: _MW_instance.resources[0].spec.settings.deployment.serverBundles is defined
+# #   #   fail:
+# #   #     msg: "Server has been bundled, Please check it before you run this"
+
+# # # 2. Get MAS Domain
+# # # -----------------------------------------------------------------------------
+# #   - name: "Get Suite Instance Domain"
+# #     kubernetes.core.k8s_info:
+# #       api_version: v1
+# #       kind: Suite
+# #       name: "{{mas_instance_id}}"
+# #       namespace: "mas-{{mas_instance_id}}-core"
+# #     register: _suite_instance
+
+# #   - name: "Configure rpt route"
+# #     set_fact:
+# #       rpt_route: "https://main-rpt.manage.{{_suite_instance.resources[0].spec.domain}}"
+
+# #   - name: "Debug information"
+# #     debug:
+# #       msg:
+# #         - "Instance ID ............... {{ mas_instance_id }}"
+# #         - "MAS namespace ............. {{ manage_namespace }}"
+# #         - "MAS config directory ...... {{ manage_MW }}"
+
+# #   - name: Resolve Server Bundles
+# #     set_fact:
+# #       birtServerBundles: "{{_MW_instance.resources[0].spec.settings.deployment.serverBundles | ibm.sre_devops.setBirtProperties(rpt_route)}}"
+
+# #   - name: "Patch MW for birt server setup"
+# #     kubernetes.core.k8s:
+# #       merge_type: merge
+# #       definition: "{{ lookup('template', 'templates/birt.yaml') }}"
+# #     register: _changed_bundle
+
+# #   - name: "Debug information"
+# #     debug:
+# #       msg:
+# #         - "ManageWorkspace Changed ............... {{ _changed_bundle.changed }}"
+
+# #   # 8. Wait for application to be ready
+# # # -----------------------------------------------------------------------------
+# #   - name: "Wait for ManageWorkspace to be ready (60s delay)"
+# #     kubernetes.core.k8s_info:
+# #       api_version: v1
+# #       name: "{{ mas_instance_id }}-main"
+# #       namespace: "{{ manage_namespace }}"
+# #       kind: "ManageWorkspace"
+# #       wait: true
+# #       wait_condition:
+# #         status: "True"
+# #         type: Ready
+# #       wait_sleep: 30
+# #       wait_timeout: 200 # before we give up and fall back into the retry loop
+# #     register: app_cr_result
+# #     retries: 20
+# #     delay: 0
+# #     until:
+# #       - app_cr_result.resources is defined
+# #       - app_cr_result.resources | length > 0
+# #       - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+
+# #   when: birt_server_needed
