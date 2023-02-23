@@ -1,7 +1,14 @@
 configure_manage_cfg
 ===
 
-This role configures manage to use IBM Cloud Eventstreams
+This role configures manage to use IBM Cloud Eventstreams.
+
+**NOTE**
+This role inserts dummy kafka password during configuration (not the actual one),so user has to follow below guide to configure kafka password manually via Manage Dashboard.
+
+<img width="1479" alt="Screenshot 2023-02-23 at 7 21 27 PM" src="https://user-images.githubusercontent.com/100187956/220930223-bd3f2cab-3eb9-4ae4-86f9-e5f6480bc22d.png">
+
+
 
 Role Variables
 --------------
