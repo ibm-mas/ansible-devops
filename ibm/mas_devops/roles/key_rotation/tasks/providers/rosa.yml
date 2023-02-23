@@ -1,0 +1,106 @@
+- name: Set Secret Path
+  set_fact:
+    secret_path: "project/mmas/data/data/automation/bootstrap/{{cluster_type}}/awssecret"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "vault_addr .............................. {{ vault_addr }}"
+      - "vault_role_id .............................. {{ vault_role_id }}"
+      - "vault_secret_id .............................. {{ vault_secret_id }}"
+
+- name: Login and use the resulting token
+  community.hashi_vault.vault_login:
+    url: "{{ vault_addr }}"
+    auth_method: approle
+    role_id: "{{ vault_role_id }}"
+    secret_id: '{{ vault_secret_id }}'
+  register: login_data
+
+- name: Lookup for existent secret
+  set_fact:
+    vault: "{{ lookup('hashi_vault', 'token='+ login_data.login.auth.client_token +' secret=' + secret_path ) }}"
+  ignore_errors: yes
+
+
+- name: "Fail if sre_namespace is not provided"
+  when: vault is not defined
+  fail:
+    msg: "no exist apikey, please add it before rotation"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "vault .............................. {{ vault }}"
+
+- name: Set new key name
+  set_fact:
+    keyid_old: "{{ vault.keyid }}"
+    key_username: "{{ vault.username }}"
+    secretkey_old: "{{ vault.secretkey }}"
+
+- name: copy configure file to .aws folder
+  template:
+    src: config.j2
+    dest: "~/.aws/config"
+
+- name: copy tfvars file to nodes
+  template:
+    src: credentials.j2
+    dest: "~/.aws/credentials"
+
+- name: "Create new secret key"
+  shell: |
+    aws iam create-access-key --user-name {{ key_username }}
+  retries: 10
+  delay: 60
+  register: _new_secret_key
+
+- name: Set Event Streams certs
+  set_fact:
+    new_secret_key_info: "{{ _new_secret_key.stdout }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "_new_secret_key .............................. {{ _new_secret_key }}"
+      - "new_secret_key_info .............................. {{ new_secret_key_info }}"
+
+- name: Set Event Streams certs
+  set_fact:
+    keyid_new: "{{ new_secret_key_info.AccessKey.AccessKeyId }}"
+    secretkey_new: "{{ new_secret_key_info.AccessKey.SecretAccessKey }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "keyid_new .............................. {{ keyid_new }}"
+      - "secretkey_new .............................. {{ secretkey_new }}"
+
+- name: "Fail if keyid_new is not provided"
+  when: keyid_new is not defined
+  fail:
+    msg: "create new key error! Please check it"
+
+- name: Write apikey after rotation
+  community.hashi_vault.vault_write:
+    path: "{{ secret_path }}"
+    token: "{{ login_data.login.auth.client_token }}"
+    data:
+      data:
+        keyid: "{{ keyid_new }}"
+        secretkey: "{{ secretkey_new }}"
+        username: "{{ key_username }}"
+
+- name: "deactive old apikey"
+  shell: |
+    aws iam update-access-key --access-key-id {{ keyid_old }} --status Inactive --user-name {{ key_username }}
+  retries: 10
+  delay: 60
+
+
+- name: "delete old apikey"
+  shell: |
+    aws iam delete-access-key --access-key-id {{ keyid_old }} --user-name {{ key_username }}
+  retries: 10
+  delay: 60

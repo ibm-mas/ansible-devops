@@ -1,0 +1,91 @@
+- name: Set Secret Path
+  set_fact:
+    secret_path: "project/mmas/data/data/automation/bootstrap/{{cluster_type}}/ibmcloud"
+
+- name: Get timestamp from the system
+  shell: "date +%Y-%m-%d%H-%M-%S.%5N"
+  register: tstamp_ns
+
+- name: Set new key name
+  set_fact:
+    key_name_new: "{{ cluster_type }}-{{ tstamp_ns.stdout[10:] }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "key_name_new .............................. {{ key_name_new }}"
+      - "vault_addr .............................. {{ vault_addr }}"
+      - "vault_role_id .............................. {{ vault_role_id }}"
+      - "vault_secret_id .............................. {{ vault_secret_id }}"
+
+- name: Login and use the resulting token
+  community.hashi_vault.vault_login:
+    url: "{{ vault_addr }}"
+    auth_method: approle
+    role_id: "{{ vault_role_id }}"
+    secret_id: '{{ vault_secret_id }}'
+  register: login_data
+
+- name: Lookup for existent secret
+  set_fact:
+    vault: "{{ lookup('hashi_vault', 'token='+ login_data.login.auth.client_token +' secret=' + secret_path +' url=' + vault_addr ) }}"
+  ignore_errors: yes
+
+
+- name: "Fail if existing apikey is not found"
+  when: vault is not defined
+  fail:
+    msg: "no existing apikey, please add it before rotation"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "vault .............................. {{ vault }}"
+      - "key_name_new .............................. {{ key_name_new }}"
+
+- name: Set new key name
+  set_fact:
+    apikey_old: "{{ vault.apikey }}"
+    keyname_old: "{{ vault.keyname }}"
+
+- name: "Login to IBM Cloud"
+  shell: |
+    ibmcloud login --apikey "{{ apikey_old }}" -q --no-region
+  retries: 10
+  delay: 60
+
+- name: "Create new apikey"
+  shell: |
+    ibmcloud iam api-key-create "{{key_name_new}}" -d "this is my API key" --file /tmp/{{key_name_new}}
+  retries: 10
+  delay: 60
+
+- name: Set Event Streams certs
+  set_fact:
+    new_key_file: "{{ lookup('file', '/tmp/{{key_name_new}}') }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "new_key_file .............................. {{ new_key_file }}"
+
+- name: "Fail if apikey is not created"
+  when: new_key_file.apikey is not defined
+  fail:
+    msg: "create new key error! Please check it"
+
+- name: Write apikey after rotation
+  community.hashi_vault.vault_write:
+    path: "{{ secret_path }}"
+    token: "{{ login_data.login.auth.client_token }}"
+    url: "{{ vault_addr }}"
+    data:
+      data:
+        keyname: "{{ key_name_new }}"
+        apikey: "{{ new_key_file.apikey }}"
+
+- name: "delete old apikey"
+  shell: |
+    ibmcloud iam api-key-delete "{{keyname_old}}" --force
+  retries: 10
+  delay: 60
