@@ -9,6 +9,24 @@ The SendGrid SMTP type assumes the SendGrid account has already been setup.
 
 Role Variables
 -------------------------------------------------------------------------------
+### smtp_type
+
+- Required
+- Environment Variable: `SMTP_TYPE`
+- Default: None
+
+### mas_instance_id
+
+- Required
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default: None
+
+### mas_config_dir
+
+- Required
+- Environment Variable: `MAS_CONFIG_DIR`
+- Default: None
+
 ### sendgrid_primary_username
 
 - Required
