@@ -1,16 +1,10 @@
 configure_manage_cfg
 ===
 
-This role provides configures manage to use IBM Cloud Eventstreams
+This role configures manage to use IBM Cloud Eventstreams
 
 Role Variables
 --------------
-
-### provider
-
-- Optional
-- Environment Variable: `PROVIDER`
-- Default Value: `ibm`
 
 ### mas_instance_id
 
