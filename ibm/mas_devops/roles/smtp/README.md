@@ -2,138 +2,134 @@ smtp
 ===============================================================================
 
 Generate an SMTP configuration that can be directly applied to IBM Maximo Application Suite.
+The role supports the Twilio SendGrid email provider.  [Twilio SendGrid](https://docs.sendgrid.com/)
 
-The role can be extended to support multiple SMTP types.  Currently it supports SendGrid. 
-The SendGrid SMTP type assumes the SendGrid account has already been setup.
+Prior to running this role, you must create an account with SendGrid.  The SendGrid account needs to support creating subusers.
 
+!!! tip
+    The role will generate a yaml file containing the definition of a Secret and SmtpCfg resource that can be used to configure the smtp email provider for MAS.
+    This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/smtp-$MAS_INSTANCE_ID.yml"` or used in conjunction with the [suite_config](suite_config.md) role.
+
+This role will create a subuser that must be validated.  An email with a validation link will be sent to the primary email address.  You need to validate the subuser using this link.  If validation fails, you can resend the email using the SendGrid admin UI.
 
 Role Variables
 -------------------------------------------------------------------------------
 ### smtp_type
 
-- Required
+- Required.  Specify the smtp provider. The supported value is `sendgrid`.
 - Environment Variable: `SMTP_TYPE`
 - Default: None
 
 ### mas_instance_id
+The instance ID of Maximo Application Suite that the SmtpCfg configuration will target.
 
-- Required
+- Required. If this or `mas_config_dir` are not set then the role will not generate a SmtpCfg template
 - Environment Variable: `MAS_INSTANCE_ID`
-- Default: None
+- Default Value: None
 
 ### mas_config_dir
+Local directory to save the generated SmtpCfg resource definition.  This can be used to manually configure a MAS instance to connect to smtp provider, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a SmtpCfg template.
 
-- Required
+- Required. if this or `mas_config_dir` are not set then the role will not generate a SmtpCfg template
 - Environment Variable: `MAS_CONFIG_DIR`
-- Default: None
+- Default Value: None
 
 ### sendgrid_primary_username
 
-- Required
+- Required.  Username of the existing SendGrid account.  
 - Environment Variable: `SMTP_PRIMARY_USERNAME`
 - Default: None
 
 ### sendgrid_primary_email
 
-- Required
+- Required.  Email of the existing SendGrid account.
 - Environment Variable: `SMTP_PRIMARY_EMAIL`
 - Default: None
 
 ### sendgrid_subuser_username
 
-- Required
+- Optional.  Username of the SendGrid subuser. This role creates a SendGrid subuser for sending emails [subusers](https://docs.sendgrid.com/ui/account-and-settings/subusers)
 - Environment Variable: `SMTP_SUBUSER_USERNAME`
-- Default: None
+- Default:  ibm-mas_$MAS_INSTANCE_ID
 
 ### sendgrid_subuser_email
 
-- Required
+- Required.  Email of the SendGrid subuser. This role creates a SendGrid subuser for sending emails [subusers](https://docs.sendgrid.com/ui/account-and-settings/subusers)
 - Environment Variable: `SMTP_SUBUSER_EMAIL`
 - Default: None
 
 ### sendgrid_debug
 
-- Optional
+- Optional.  When set to True, the results of the SendGrid REST calls will be displayed in the log.
 - Environment Variable: `SENDGRID_DEBUG`
-- Default: None
-
-### sendgrid_configscope
-
-- Required
-- Environment Variable: `SENDGRID_CONFIGSCOPE`
-- Default: None
-
-### sendgrid_hostname
-
-- Required
-- Environment Variable: `SENDGRID_HOSTNAME`
-- Default: None
-
-### sendgrid_port
-
-- Required
-- Environment Variable: `SENDGRID_PORT`
-- Default: None
-
-### sendgrid_security
-
-- Required
-- Environment Variable: `SENDGRID_SECURITY`
-- Default: None
-
-### sendgrid_authentication
-
-- Required
-- Environment Variable: `SENDGRID_AUTHENTICATION`
-- Default: None
+- Default: False
 
 ### sendgrid_defaultsendername
 
-- Required
+- Optional.  Easily readable name displayed in emails sent by the subuser
 - Environment Variable: `SENDGRID_DEFAULTSENDERNAME`
-- Default: None
+- Default: ''
 
 ### sendgrid_defaultrecipientemail
 
-- Required
+- Required.  Default destination email address.
 - Environment Variable: `SENDGRID_DEFAULTRECIPIENTEMAIL`
 - Default: None
 
 ### sendgrid_defaultshouldemailpasswords
 
-- Optional
+- Optional.  Flag to indicate if the password should be sent by email.
 - Environment Variable: `SENDGRID_DEFAULTSHOULDEMAILPASSWORDS`
-- Default: None
-
-### sendgrid_api_url
-
-- Required
-- Environment Variable: `SENDGRID_API_URL`
-- Default: None
+- Default: false
 
 ### sendgrid_primary_apikey
 
-- Required
+- Required.  Apikey of the existing SendGrid account.
 - Environment Variable: `SENDGRID_PRIMARY_APIKEY`
 - Default: None
 
 ### sendgrid_ips
 
-- Required
+- Required.  ips of the existing SendGrid account.  The primary SendGrid account has one or more IP Addresses associated with it.  Specify the list of SendGrid IP Addresses to associate with the subuser.
 - Environment Variable: `SENDGRID_IPS`
 - Default: None
 
-
-
-
-
-### sls_action
-Inform the role whether to perform an install or uninstall of the Suite License Service.
+### sendgrid_configscope
 
 - Optional
-- Environment Variable: `SLS_ACTION`
-- Default: `install`
+- Environment Variable: `SENDGRID_CONFIGSCOPE`
+- Default: system
 
+### sendgrid_hostname
+
+- Optional
+- Environment Variable: `SENDGRID_HOSTNAME`
+- Default: smtp.sendgrid.net
+
+### sendgrid_port
+
+- Optional
+- Environment Variable: `SENDGRID_PORT`
+- Default: 465
+
+### sendgrid_security
+
+- Optional
+- Environment Variable: `SENDGRID_SECURITY`
+- Default: SSL
+
+### sendgrid_authentication
+
+- Optional
+- Environment Variable: `SENDGRID_AUTHENTICATION`
+- Default: true
+
+### sendgrid_api_url
+The api URL of the smtp email service.  This URL is used for REST calls.
+
+- Optional
+- Environment Variable: `SENDGRID_API_URL`
+- Default: api.sendgrid.com
 
 ### custom_labels
 List of comma separated key=value pairs for setting custom labels on instance specific resources.
@@ -146,40 +142,25 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 Example Playbook
 -------------------------------------------------------------------------------
 
-### Install and generate a configuration
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    ibm_entitlement_key: xxxx
-    mas_instance_id: inst1
-    mas_config_dir: /home/me/masconfig
-    sls_mongodb_cfg_file: "/etc/mas/mongodb.yml"
-
-    bootstrap:
-      license_id: "aa78dd65ef10"
-      license_file: "/etc/mas/entitlement.lic"
-      registration_key: xxxx
-
-  roles:
-    - ibm.mas_devops.sls
-```
-
-
-### Generate a configuration for an existing installation
+### Generate a configuration
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
     mas_instance_id: inst1
     mas_config_dir: /home/me/masconfig
-
-    sls_tls_crt_local_file_path: "/home/me/sls.crt"
-    slscfg_url: "https://xxx"
-    slscfg_registration_key: "xxx"
+    smtp_type: sendgrid
+    sendgrid_primary_username: myusername
+    sendgrid_primary_email: myemail@mydomain
+    sendgrid_subuser_username: mysubusername
+    sendgrid_subuser_email: mysubuser@mydomain
+    sendgrid_defaultrecipientemail: myemail@mydomain
+    sendgrid_defaultsendername: 'My Name'
+    sendgrid_primary_apikey: xxxx
+    sendgrid_ips: '["XXX.XXX.XXX.XXX"]'
 
   roles:
-    - ibm.mas_devops.sls
+    - ibm.mas_devops.smtp
 ```
 
 
