@@ -2,6 +2,9 @@
 # so these resources are created upfront to enable the subscriptions to start up
 #
 # Custom Operand Registries: Cognos Analytics
+# - ccs
+# - elasticsearch
+# - rabbitmq
 # -----------------------------------------------------------------------------
 ---
 apiVersion: operator.ibm.com/v1alpha1
@@ -19,7 +22,40 @@ spec:
       scope: public
       sourceNamespace: openshift-marketplace
       sourceName: ibm-operator-catalog
+---
+apiVersion: operator.ibm.com/v1alpha1
+kind: OperandRegistry
+metadata:
+  name: opencontent-rabbitmq-registry
+  namespace: ibm-cpd-operators
+spec:
+  operators:
+    - channel: "{{ cpd_service_info.cognos_analytics.rabbitmq.channel_name }}"
+      installPlanApproval: Automatic
+      name: rabbitmq-operator
+      namespace: "{{ cpd_operators_namespace }}"
+      packageName: ibm-rabbitmq-operator
+      scope: public
+      sourceNamespace: openshift-marketplace
+---
+apiVersion: operator.ibm.com/v1alpha1
+kind: OperandRegistry
+metadata:
+  name: opencontent-elasticsearch-registry
+  namespace: ibm-cpd-operators
+spec:
+  operators:
+    - channel: "{{ cpd_service_info.cognos_analytics.elasticsearch.channel_name }}"
+      installPlanApproval: Automatic
+      name: elasticsearch-operator
+      namespace: "{{ cpd_operators_namespace }}"
+      packageName: ibm-elasticsearch-operator
+      scope: public
+      sourceNamespace: openshift-marketplace
 # Custom Operand Configs: Cognos Analytics
+# - ccs
+# - elasticsearch
+# - rabbitmq
 # -----------------------------------------------------------------------------
 ---
 apiVersion: operator.ibm.com/v1alpha1
@@ -30,4 +66,24 @@ metadata:
 spec:
   services:
     - name: ibm-cpd-ccs-operator
+      spec: {}
+---
+apiVersion: operator.ibm.com/v1alpha1
+kind: OperandConfig
+metadata:
+  name: opencontent-rabbitmq-registry
+  namespace: "{{ cpd_operators_namespace }}"
+spec:
+  services:
+    - name: rabbitmq-operator
+      spec: {}
+---
+apiVersion: operator.ibm.com/v1alpha1
+kind: OperandConfig
+metadata:
+  name: opencontent-elasticsearch-registry
+  namespace: "{{ cpd_operators_namespace }}"
+spec:
+  services:
+    - name: elasticsearch-operator
       spec: {}
