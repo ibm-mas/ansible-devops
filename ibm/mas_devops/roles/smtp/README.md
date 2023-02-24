@@ -16,7 +16,7 @@ Role Variables
 -------------------------------------------------------------------------------
 ### smtp_type
 
-- Required.  Specify the smtp provider. The supported value is `sendgrid`.
+- Required.  Specify the smtp provider. Currently the supported value is `sendgrid`.
 - Environment Variable: `SMTP_TYPE`
 - Default: None
 
@@ -46,41 +46,17 @@ Local directory to save the generated SmtpCfg resource definition.  This can be 
 - Environment Variable: `SMTP_PRIMARY_EMAIL`
 - Default: None
 
-### sendgrid_subuser_username
-
-- Optional.  Username of the SendGrid subuser. This role creates a SendGrid subuser for sending emails [subusers](https://docs.sendgrid.com/ui/account-and-settings/subusers)
-- Environment Variable: `SMTP_SUBUSER_USERNAME`
-- Default:  ibm-mas_$MAS_INSTANCE_ID
-
 ### sendgrid_subuser_email
 
 - Required.  Email of the SendGrid subuser. This role creates a SendGrid subuser for sending emails [subusers](https://docs.sendgrid.com/ui/account-and-settings/subusers)
 - Environment Variable: `SMTP_SUBUSER_EMAIL`
 - Default: None
 
-### sendgrid_debug
-
-- Optional.  When set to True, the results of the SendGrid REST calls will be displayed in the log.
-- Environment Variable: `SENDGRID_DEBUG`
-- Default: False
-
-### sendgrid_defaultsendername
-
-- Optional.  Easily readable name displayed in emails sent by the subuser
-- Environment Variable: `SENDGRID_DEFAULTSENDERNAME`
-- Default: ''
-
 ### sendgrid_defaultrecipientemail
 
 - Required.  Default destination email address.
 - Environment Variable: `SENDGRID_DEFAULTRECIPIENTEMAIL`
 - Default: None
-
-### sendgrid_defaultshouldemailpasswords
-
-- Optional.  Flag to indicate if the password should be sent by email.
-- Environment Variable: `SENDGRID_DEFAULTSHOULDEMAILPASSWORDS`
-- Default: false
 
 ### sendgrid_primary_apikey
 
@@ -93,6 +69,24 @@ Local directory to save the generated SmtpCfg resource definition.  This can be 
 - Required.  ips of the existing SendGrid account.  The primary SendGrid account has one or more IP Addresses associated with it.  Specify the list of SendGrid IP Addresses to associate with the subuser.
 - Environment Variable: `SENDGRID_IPS`
 - Default: None
+
+### sendgrid_subuser_username
+
+- Optional.  Username of the SendGrid subuser. This role creates a SendGrid subuser for sending emails [subusers](https://docs.sendgrid.com/ui/account-and-settings/subusers)
+- Environment Variable: `SMTP_SUBUSER_USERNAME`
+- Default:  ibm-mas_$MAS_INSTANCE_ID
+
+### sendgrid_defaultsendername
+
+- Optional.  Easily readable name displayed in emails sent by the subuser
+- Environment Variable: `SENDGRID_DEFAULTSENDERNAME`
+- Default: ''
+
+### sendgrid_defaultshouldemailpasswords
+
+- Optional.  Flag to indicate if the password should be sent by email.
+- Environment Variable: `SENDGRID_DEFAULTSHOULDEMAILPASSWORDS`
+- Default: false
 
 ### sendgrid_configscope
 
@@ -125,18 +119,22 @@ Local directory to save the generated SmtpCfg resource definition.  This can be 
 - Default: true
 
 ### sendgrid_api_url
-The api URL of the smtp email service.  This URL is used for REST calls.
 
-- Optional
+- Optional. The api URL of the smtp email service.  This URL is used for REST calls.
 - Environment Variable: `SENDGRID_API_URL`
 - Default: api.sendgrid.com
 
 ### custom_labels
-List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
-- Optional
+- Optional. List of comma separated key=value pairs for setting custom labels on instance specific resources.
 - Environment Variable: `CUSTOM_LABELS`
-- Default Value: None
+- Default: None
+
+### sendgrid_debug
+
+- Optional.  When set to True, the results of the SendGrid REST calls will be displayed in the log.
+- Environment Variable: `SENDGRID_DEBUG`
+- Default: False
 
 
 Example Playbook
