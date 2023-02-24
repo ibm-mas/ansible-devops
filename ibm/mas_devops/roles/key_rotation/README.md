@@ -1,7 +1,7 @@
 key_rotation
 ===============================================================================
 
-Create new apikeys for cluster.
+Create new apikey for user in cloud account.
 
 Role Variables
 -------------------------------------------------------------------------------
@@ -11,32 +11,56 @@ Required.  Specify the cluster type, supported values are `roks`, and `rosa`.
 - Environment Variable: `CLUSTER_TYPE`
 - Default Value: None
 
-### vault_role_id
-Required.  Specify the role id
 
-- Environment Variable: `VAULT_ROLE_ID`
-- Default Value: None
+Role Variables - ROKS
+-------------------------------------------------------------------------------
+### ibmcloud_apikey
 
-### vault_secret_id
-Required.  Specify the secret id
+- Required.
+- Environment Variable: `IBMCLOUD_APIKEY`
+- Default: None
 
-- Environment Variable: `VAULT_SECRET_ID`
-- Default Value: None
+### ibmcloud_keyname
 
-### vault_addr
-Required.  Specify the addr
+- Required.
+- Environment Variable: `IBMCLOUD_KEYNAME`
+- Default: None
 
-- Environment Variable: `VAULT_ADDR`
-- Default Value: None
+### ibmcloud_output_keydir
+
+- Optional.
+- Environment Variable: `IBMCLOUD_OUTPUT_KEYDIR`
+- Default: '/tmp'
 
 
 Role Variables - ROSA or IPI/AWS
 -------------------------------------------------------------------------------
 The following variables are used when `cluster_type = rosa` or `cluster_type=ipe` and `cluster_platform=aws`.
 
+### aws_region
+
 - **Required** when `cluster_type = rosa` or `cluster_type = ipi` and `ipi_platform = aws` 
 - Environment Variable: `AWS_REGION`
 - Default Value: us-east-1
+
+### aws_username
+
+- Required.
+- Environment Variable: `AWS_USERNAME`
+- Default: None
+
+### aws_access_key_id
+
+- Required.
+- Environment Variable: `AWS_ACCESS_KEY_ID`
+- Default: None
+
+### aws_secret_access_key
+
+- Required.
+- Environment Variable: `AWS_SECRET_ACCESS_KEY`
+- Default: None
+
 
 Example Playbook
 -------------------------------------------------------------------------------
@@ -45,9 +69,8 @@ Example Playbook
 - hosts: localhost
   vars:
     cluster_type: roks
-    vault_role_id: myrole
-    vault_secret_id: mysecret
-    vault_addr: XXX.XXX.XXX.XXX
+    ibmcloud_apikey: ################
+    ibmcloud_keyname:  myapikeyname
 
   roles:
     - ibm.mas_devops.key_rotation
