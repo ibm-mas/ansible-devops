@@ -1,0 +1,78 @@
+# -----------------------------------------------------------------------------
+- name: "ipi : Fail if not AWS"
+  when: cluster_type == "ipi"
+  assert:
+    that: ipi_plaform == "aws"
+    fail_msg: "ipi_platform must be aws"
+
+- name: "Verify required settings"
+  assert:
+    that:
+      -  aws_region is defined and aws_region != ""
+      -  aws_access_key_id is defined and aws_access_key_id != ""
+      -  aws_secret_access_key is defined and aws_secret_access_key != ""
+      -  aws_username is defined and aws_username != ""
+    fail_msg: "aws_region, aws_access_key_id, aws_secret_access_key, and aws_username are required"
+
+- name: "set AWS region"
+  shell: |
+    aws configure set region {{ aws_region }}
+  retries: 10
+  delay: 60
+
+- name: "set AWS access_key_id"
+  shell: |
+    aws configure set aws_access_key_id {{ aws_access_key_id }}
+  retries: 10
+  delay: 60
+
+- name: "set AWS secret_access_key"
+  shell: |
+    aws configure set aws_secret_access_key {{ aws_secret_access_key }}
+  retries: 10
+  delay: 60
+
+- name: "Create new secret key"
+  shell: |
+    aws iam create-access-key --user-name {{ aws_username }}
+  retries: 10
+  delay: 60
+  register: _new_access_key
+
+- name: "store secret key info"
+  set_fact:
+    _new_access_key_info: "{{ _new_access_key.stdout }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "new secret key .............................. {{ _new_access_key }}"
+      - "new secret key info .............................. {{ _new_access_key_info }}"
+
+- name: "get new access keyid and apikey"
+  set_fact:
+    _new_access_key_id: "{{ _new_access_key_info.AccessKey.AccessKeyId }}"
+    _new_secret_access_key: "{{ _new_access_key_info.AccessKey.SecretAccessKey }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "new AccessKeyId .............................. {{ _new_access_key_id }}"
+      - "new SecretAccessKey .......................... {{ _new_secret_access_key }}"
+
+- name: "Fail if access key id is not created"
+  when: _new_access_key_id is not defined
+  fail:
+    msg: "create new key error! Please check it"
+
+- name: "deactive old apikey"
+  shell: |
+    aws iam update-access-key --access-key-id {{ aws_access_key_id }} --status Inactive --user-name {{ aws_username }}
+  retries: 10
+  delay: 60
+
+- name: "delete old apikey"
+  shell: |
+    aws iam delete-access-key --access-key-id {{ aws_access_key_id }} --user-name {{ aws_username }}
+  retries: 10
+  delay: 60

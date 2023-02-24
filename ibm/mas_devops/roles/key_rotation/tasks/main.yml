@@ -1,37 +1,18 @@
 ---
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-- name: "Fail if cluster name is not provided"
-  assert:
-    that:
-      - cluster_type is defined and cluster_type != ""
-    fail_msg: "cluster_type is required"
-
-- name: "Fail if vault info is not provided"
-  assert:
-    that:
-      - vault_addr is defined and vault_addr != ""
-      - vault_role_id is defined and vault_role_id != ""
-      - vault_secret_id is defined and vault_secret_id != ""
-    fail_msg: "vault_addr, vault_role_id, and vault_secret_id is required"
-
-- name: "Map ipi_platform=aws to rosa"
-  when:
-    - cluster_type == "ipi"
-    - ipi_platform is defined and ipi_platform == "aws"
-  set_fact:
-    cluster_type: "rosa"
-
 - name: "Fail if cluster type is not supported"
   assert:
-    that: cluster_type is in supported_cluster_types
+    that: cluster_type is defined and cluster_type is in key_rotation_type.keys()
     fail_msg: "cluster_type '{{ cluster_type }}' property is not supported by this role"
 
-- name: "Fail if no OCP version is provided"
-  assert:
-    that: ocp_version is defined and ocp_version != ""
-    fail_msg: "ocp_version is required"
-
-# 2. Run the provision
+# 2. Provide Debug information
 # -----------------------------------------------------------------------------
-- include_tasks: "tasks/providers/{{ cluster_type }}.yml"
+- name: "Debug information"
+  debug:
+    msg:
+      - "Key Rotation Provider ..................... {{ key_rotation_type[cluster_type].provider }}"
+
+# 3. Run the provision
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/providers/{{ key_rotation_type[cluster_type].provider }}.yml"
