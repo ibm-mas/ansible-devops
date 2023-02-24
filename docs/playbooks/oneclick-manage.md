@@ -40,6 +40,23 @@ All timings are estimates, see the individual pages for each of these playbooks 
    `export MAS_APP_ID=health`
    `export MAS_APPWS_COMPONENTS="health=latest"`
 
+## Optional environment variables
+To connect to an external database (Oracle, SQL Server or DB2) set the following variables:
+
+- `CONFIGURE_EXTERNAL_DB` Set it to true. By default, the value is false
+- `DB_INSTANCE_ID` Your database instance ID  
+- `MAS_JDBC_USER` Your database user name
+- `MAS_JDBC_PASSWORD` Your database password
+- `MAS_JDBC_URL` Your JDBC URL
+- `MAS_APP_SETTINGS_DB2_SCHEMA`  Your schema name. By default, the value is maximo
+- `MAS_APP_SETTINGS_TABLESPACE` Your tablespace name. By default, the value is maxdata
+- `MAS_APP_SETTINGS_INDEXSPACE` Your indexspace name. By default, the value is maxindex
+- `MAS_JDBC_CERT_LOCAL_FILE` Path to your database certificate file if the database is SSL enabled
+   
+If the database is not SSL enabled, set the SSL_ENABLED variable to false. By default, SSL_ENABLED is true.
+
+`export SSL_ENABLED=false`  
+ 
 ## Usage
 
 ```bash
@@ -47,6 +64,40 @@ export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 export MAS_APP_ID=manage
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.oneclick_add_manage
+```
+
+If you want to connect to an external database:
+
+``` bash 
+export MAS_INSTANCE_ID=inst1
+export MAS_CONFIG_DIR=~/masconfig
+export IBM_ENTITLEMENT_KEY=xxx
+export MAS_APP_ID=manage
+
+export CONFIGURE_EXTERNAL_DATABASE=true
+export DB_INSTANCE_ID=maxdbxx 
+export MAS_JDBC_USER=maximo
+export MAS_JDBC_PASSWORD=xxx
+export MAS_JDBC_URL=xxx 
+export MAS_APP_SETTINGS_DB2_SCHEMA=maximo
+export MAS_APP_SETTINGS_TABLESPACE=maxdata
+export MAS_APP_SETTINGS_INDEXSPACE=maxindex
+
+Database URL examples:
+
+DB2:
+export MAS_JDBC_URL=jdbc:db2://dbserverxx:50000/maxdbxx
+export MAS_JDBC_URL=jdbc:db2://dbserverxx:50000/maxdbxx:sslConnection=true  if SSL enabled
+
+Oracle:
+export MAS_JDBC_URL=jdbc:oracle:thin:@dbserverxx:1521:maximo
+
+SQL Server:
+export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;"
+export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;" if SSL enabled
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_manage

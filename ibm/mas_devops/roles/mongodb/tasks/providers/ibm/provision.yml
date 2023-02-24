@@ -1,5 +1,5 @@
 ---
-- name: "Debug properties, Provider: {{ mongodb_provider }} Action: {{db_action}}"
+- name: "Debug properties, Provider: {{ mongodb_provider }} Action: {{mongodb_action}}"
   debug:
     msg:
       - "IBM Cloud Resource Group .................. {{ ibmcloud_resourcegroup }}"
@@ -65,25 +65,36 @@
     mongo_admpass: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
   when: not mongo_exists and mongo_admpass is undefined or mongo_admpass == ""
 
+- name: Login IBMCloud
+  ansible.builtin.shell: |
+    ibmcloud login --apikey {{ ibmcloud_apikey }} -r {{ ibmcloud_region }} --quiet -g {{ ibmcloud_resourcegroup }}
+
 - name: Provision MongoDB in IBM Cloud
-  when: not mongo_exists
-  ignore_errors: true
-  ibm.cloudcollection.ibm_database:
-    name: "{{ ibm_mongo_name }}"
-    service: "{{ ibm_mongo_service }}"
-    plan: "{{ ibm_mongo_plan }}"
-    location: "{{ ibm_mongo_location }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-    service_endpoints: "{{ ibm_mongo_service_endpoints }}"
-    resource_group_id: "{{ resourceGID }}"
-    version: "{{ ibm_mongo_version }}"
-    adminpassword: "{{ mongo_admpass }}"
-    members_memory_allocation_mb: "{{ ibm_mongo_memory }}"
-    members_disk_allocation_mb: "{{ ibm_mongo_disk }}"
-    members_cpu_allocation_count: "{{ ibm_mongo_cpu }}"
-    backup_id: "{{ (is_restore) | ternary(ibm_mongo_backup_id,None) }}"
+  when: not mongo_exists and not is_restore
+  ansible.builtin.shell: |
+    ibmcloud resource service-instance-create {{ ibm_mongo_name }} {{ ibm_mongo_service }} {{ ibm_mongo_plan }}  {{ ibmcloud_region }} --service-endpoints {{ ibm_mongo_service_endpoints }} --parameters  \ '{
+      "version":"{{ ibm_mongo_version }}",
+      "members_memory_allocation_mb":"{{ ibm_mongo_memory }}",
+      "members_disk_allocation_mb": "{{ ibm_mongo_disk }}",
+      "members_cpu_allocation_count":"{{ ibm_mongo_cpu }}",
+      "adminpassword":"{{ mongo_admpass }}"
+      }'
   register: ibm_mongo_info
 
+- name: Restore MongoDB with backed up Instance in IBM Cloud
+  when: not mongo_exists and is_restore
+  ansible.builtin.shell: |
+    ibmcloud resource service-instance-create {{ ibm_mongo_name }} {{ ibm_mongo_service }} {{ ibm_mongo_plan }}  {{ ibmcloud_region }} --service-endpoints {{ ibm_mongo_service_endpoints }} --parameters  \ '{
+      "version":"{{ ibm_mongo_version }}",
+      "members_memory_allocation_mb":"{{ ibm_mongo_memory }}",
+      "members_disk_allocation_mb": "{{ ibm_mongo_disk }}",
+      "members_cpu_allocation_count":"{{ ibm_mongo_cpu }}",
+      "adminpassword":"{{ mongo_admpass }}",
+      "backup_id" : "{{ ibm_mongo_backup_id }}"
+      }'
+  register: ibm_mongo_restore_info
+
+# provisioning takes minimum of about 10 mins ,so we need to retry to fetch instance info
 - name: Fetch Mongo DB Instance information
   ibm.cloudcollection.ibm_database_info:
     name: "{{ibm_mongo_name}}"
@@ -96,8 +107,8 @@
     - mongo_instance_info is defined and mongo_instance_info != ''
     - mongo_instance_info.resource is defined
     - mongo_instance_info.resource.id is defined and mongo_instance_info.resource.id != ''
-  delay: 30
-  retries: 10
+  delay: 120
+  retries: 15
 
 - name: Debug , Provisioning Info for MongoDB on IBM Cloud
   debug:
