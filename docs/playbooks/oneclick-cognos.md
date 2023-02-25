@@ -9,17 +9,17 @@ This playbook will add **Cognos Analytics v11.2.3** to an existing IBM Maximo Ap
 This playbook can be run against any OCP cluster regardless of it's type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 - Install dependencies:
-    - Install CP4D (~1 1/2 hours)
+    - Install CP4D (~1 hour)
 - Install Cognos Analytics application:
-    - Install application (~15 Minutes)
-    - Configure workspace (~30 Minutes)
+    - Install application (~30 Minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook. 
 
 ## Required environment variables
-- `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
-- `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
+- `CPD_INSTALL_COGNOS` True/False - Set to true to install Cognos Analytics
+- `CPD_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
+- `CPD_ENTITLEMENT_USERNAME` Your user name to access the IBM Container Registr
 - `CPD_PRODUCT_VERSION` (Required) Cloud Pak for Data version installed in the cluster in 4.X format.
 
 ## These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
@@ -37,9 +37,11 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ## Usage when you already HAVE CP4D installed
 
 ```bash
-export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
-export IBM_ENTITLEMENT_KEY=xxx
+export CPD_INSTALL_COGNOS="true"
+
+export CPD_ENTITLEMENT_KEY=xxx
+export CPD_ENTITLEMENT_USERNAME=xxx
 
 export CPD_ADMIN_USERNAME="admin"
 export CPD_ADMIN_PASSWORD="xxx"
@@ -48,20 +50,22 @@ export CPD_PRODUCT_VERSION="4.6.0"
 
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_cognos
+ansible-playbook ibm.mas_devops.cp4d
 ```
 
 ## Usage when you DON'T HAVE CP4D installed
 ```bash
-export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
-export IBM_ENTITLEMENT_KEY=xxx
+export CPD_INSTALL_COGNOS="true"
+
+export CPD_ENTITLEMENT_KEY=xxx
+export CPD_ENTITLEMENT_USERNAME=xxx
 
 export CPD_INSTALL_PLATFORM="true"
 export CPD_PRODUCT_VERSION="4.6.0"
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_cognos
+ansible-playbook ibm.mas_devops.cp4d
 ```
 
 !!! tip
