@@ -1,0 +1,24 @@
+---
+
+# 1. Check if requested resource key to delete exists
+# -----------------------------------------------------------------------------
+- name: "Check if requested resource key to delete exists"
+  block:
+    - name: "Fail if resource key doesn't exist"
+      shell: |
+        ibmcloud resource service-key {{ service_resource_key_name }}
+      register: resource_lookup
+      failed_when: resource_lookup.rc != 0
+  rescue:
+    - name: "Error information:"
+      fail:
+        msg: "No key could be found with the name: {{ service_resource_key_name }}"
+      when: '"was not found" in resource_lookup.stderr'
+
+# 2. Delete service-key
+# -----------------------------------------------------------------------------
+- name: "Delete resource service-key"
+  shell: |
+    ibmcloud resource service-key-delete {{ service_resource_key_name }} -f
+  register: key_delete
+  failed_when: key_delete.rc != 0

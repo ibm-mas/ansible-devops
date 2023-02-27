@@ -264,6 +264,49 @@ def getWSLProjectId(wslProjectLookup, wslProjectName):
   # Project not found
   return ""
 
+def setManagePVC(data, mountPath, pvcName, pvcSize, storageClassName, volumeName = None):
+  """
+    filter: setManagePVC
+    author: André Marcelino <andrercm@br.ibm.com>
+    version_added: 13.0
+    short_description: ---
+    description:
+        - This builds the yaml structure to set Manage persistent volume
+    options:
+      data:
+        description: list of existing Manage Persistent Volumes
+        required: True
+      mountPath:
+        description: Persistent Volumes mount path
+        required: True
+      mountPath:
+        description: Persistent Volumes Claim name
+        required: True
+      storageClassName:
+        description: Persistent Volumes Claim Storage Class name
+        required: True
+      volumeName:
+        description: Persistent Volume name associated to the PVC
+        required: True
+    notes:
+      - limited error handling, will not handle unexpected data currently
+  """
+  pvc_list = []
+
+  persistentVolumes = {  
+    "accessModes": ["ReadWriteMany"],
+    "mountPath": mountPath,
+    "pvcName": pvcName,
+    "size": pvcSize,
+    "storageClassName": storageClassName,
+    "volumeName": volumeName
+  }
+  if not volumeName:
+    del persistentVolumes['volumeName']
+  data.append(persistentVolumes)
+  for pvc in data:
+    pvc_list.append(pvc)
+  return pvc_list
 
 def setManageBirtProperties(data, rptRoute, rptServerBundleName):
   sb_list = []
@@ -316,6 +359,7 @@ class FilterModule(object):
       'getResourceNames': getResourceNames,
       'defaultStorageClass': defaultStorageClass,
       'getWSLProjectId': getWSLProjectId,
+      'setManagePVC': setManagePVC,
       'setManageBirtProperties': setManageBirtProperties,
       'setManageDoclinksProperties': setManageDoclinksProperties
     }

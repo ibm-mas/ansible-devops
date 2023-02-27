@@ -73,33 +73,45 @@ Required if `cluster_type = roks`.  The APIKey to be used by ibmcloud login coma
 - Environment Variable: `IBMCLOUD_APIKEY`
 - Default Value: None
 
+### ibmcloud_endpoint
+Override the default IBMCloud API endpoint.
+
+- Optional
+- Environment Variable: `IBMCLOUD_ENDPOINT`
+- Default Value: `https://cloud.ibm.com`
+
 ### ibmcloud_resourcegroup
 The resource group to create the cluster inside.
 
+- Optional
 - Environment Variable: `IBMCLOUD_RESOURCEGROUP`
 - Default Value: `Default`
 
 ### roks_zone
 IBM Cloud zone where the cluster should be provisioned.
 
+- Optional
 - Environment Variable: `ROKS_ZONE`
 - Default Value: `dal10`
 
 ### roks_flavor
 Worker node flavor
 
+- Optional
 - Environment Variable: `ROKS_FLAVOR`
 - Default Value: `b3c.16x64.300gb`
 
 ### roks_workers
 Number of worker nodes for the roks cluster
 
+- Optional
 - Environment Variable: `ROKS_WORKERS`
 - Default Value: `3`
 
 ### roks_flags
 Can be used to specify additional parameters for the cluster creation
 
+- Optional
 - Environment Variable: `ROKS_FLAGS`
 - Default Value: None
 

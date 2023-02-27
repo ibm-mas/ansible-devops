@@ -1,0 +1,51 @@
+---
+
+# 1. Check required properties
+# -----------------------------------------------------------------------------
+- name: "Fail if ibmcloud_apikey is not provided"
+  assert:
+    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
+    fail_msg: "ibmcloud_apikey property is required"
+
+- name: "Fail if service_instance is not provided"
+  assert:
+    that: service_instance is defined and service_instance != ""
+    fail_msg: "service_instance property is required"
+
+- name: "Derive key name if resource_service_key_name is not provided"
+  set_fact:
+    service_resource_key_name: "{{ service_instance }}_resource-key"
+  when: resource_service_key_name is undefined or resource_service_key_name == ""
+
+- name: "Login to ibmcloud account"
+  shell: |
+    ibmcloud login --apikey "{{ ibmcloud_apikey }}" -q --no-region
+
+- name: "Verify resource service instance exists under ibmcloud account"
+  shell: |
+    ibmcloud resource service-keys --instance-name {{ service_instance }}
+  register: resource_lookup
+  failed_when: resource_lookup.rc != 0
+
+# 2. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Target Service Instance Name .......................{{ service_instance }}"
+      - "Target Resource Service Key Name ...................{{ service_resource_key_name }}"
+      - "Delete Resource Service Key Mode ...................{{ delete_service_key }}"
+
+# 3. Run service-key creation task
+# -----------------------------------------------------------------------------
+- name: "Include service-key creation task"
+  include_tasks: tasks/service_key_create.yml
+  when:
+    - not delete_service_key
+
+# 4. Run service-key deletion task
+# -----------------------------------------------------------------------------
+- name: "Include service-key deletion task"
+  include_tasks: tasks/service_key_delete.yml
+  when:
+    - delete_service_key

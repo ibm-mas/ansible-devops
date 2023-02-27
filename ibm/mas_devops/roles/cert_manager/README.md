@@ -1,16 +1,25 @@
-# cert_manager
+cert_manager
+===============================================================================
 Deploy the **IBM Certificate Manager Operator** into the target OCP cluster in the `ibm-common-services` namespace.
 
 
-## Prerequisites
+Prerequisites
+-------------------------------------------------------------------------------
 To run this role successfully you must have already installed a CatalogSource that contains IBM Certificate Manager and installed the **IBM Cloud Pak Foundational Services Operator**.  These tasks can be achieved using the [ibm_catalogs](ibm_catalogs.md) and [common_services](common_services.md) roles in this collection.
 
 
-## Role Variables
-None
+Role Variables
+-------------------------------------------------------------------------------
+### cert_manager_action
+Inform the role whether to perform an install or an uninstall of IBM Certificate Manager.
+
+- Optional
+- Environment Variable: `CERT_MANAGER_ACTION`
+- Default: `install`
 
 
-## Example Playbook
+Example Playbook
+-------------------------------------------------------------------------------
 After installing the Ansible Collection you can include this role in your own custom playbooks.
 
 ```yaml
@@ -22,7 +31,8 @@ After installing the Ansible Collection you can include this role in your own cu
 ```
 
 
-## Run Role Playbook
+Run Role Playbook
+-------------------------------------------------------------------------------
 After installing the Ansible Collection you can easily run the role standalone using the `run_role` playbook provided.
 
 ```bash
@@ -30,5 +40,6 @@ ROLE_NAME=cert_manager ansible-playbook ibm.mas_devops.run_role
 ```
 
 
-# License
+License
+-------------------------------------------------------------------------------
 EPL-2.0

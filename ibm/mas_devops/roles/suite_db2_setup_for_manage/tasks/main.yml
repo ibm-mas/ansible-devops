@@ -68,7 +68,11 @@
     mode: '777'
 
 - name: Copy the setupdb script into the db2u pod
-  shell: "oc cp /tmp/setupdb.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/setupdb.sh"
+  shell: "oc cp /tmp/setupdb.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/setupdb.sh -c db2u"
+  register: copy_result
+  retries: 10
+  delay: 30 # seconds
+  until: copy_result.rc == 0
 
 # The log file will also be available inside the pod /tmp/setupdb.log
 # The script will exit early if /tmp/setupdb_complete exists to avoid unnecessarily re-running

@@ -25,11 +25,7 @@
   register: find_result
 
 - set_fact:
-    db_filenames: "{{ db_filenames }} + [ '{{ item | basename }}' ]"
-  with_items: "{{ full_path }}"
-  vars:
-    db_filenames: []
-    full_path: "{{ find_result.files | map(attribute='path') | list }}"
+    db_filenames: "{{ find_result['files'] | map(attribute='path') | map('regex_replace', '^.*/(.*)$', '\\1') | list }}"
 
 - name: Check DB2 keystore .p12 file
   vars:
