@@ -27,11 +27,6 @@
     mirror_tsm: "{{ lookup('env', 'MIRROR_TRUSTSTOREMGR') | default ('True', True) | bool }}"
     mirror_mas_core: "{{ lookup('env', 'MIRROR_MAS_CORE') | default ('True', True) | bool }}"
 
-    # support for dev mode
-    sls_version: "{{ lookup('env', 'SLS_VERSION') }}"
-    tsm_version: "{{ lookup('env', 'TSM_VERSION') }}"
-    mas_core_version: "{{ lookup('env', 'MAS_CORE_VERSION') }}"
-
   pre_tasks:
     # Note that REGISTRY_USERNAME and REGISTRY_PASSWORD are not required.
     # They are only needed if you have set up authentication on your private registry
@@ -60,12 +55,6 @@
         fail_msg: "One or more required environment variables are not defined"
 
     - name: Load CASE bundle versions
-      when: dev_mode_airgap
-      include_vars:
-        file: "{{ playbook_dir }}/../common_vars/casebundles/common-default.yml"
-
-    - name: Load CASE bundle versions
-      when: not dev_mode_airgap
       include_vars:
         file: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
 
@@ -209,14 +198,14 @@
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-sls
-        case_version: "{{ (sls_version != '') | ternary(sls_version, default_sls_version)  }}"
+        case_version: "{{ sls_version }}"
         exclude_images: []
 
     - name: ibm.mas_devops.mirror_images
       when: mirror_sls
       vars:
         manifest_name: ibm-sls
-        manifest_version: "{{ (sls_version != '') | ternary(sls_version, default_sls_version) }}"
+        manifest_version: "{{ sls_version }}"
 
 
     # 6. IBM Truststore Manager
@@ -227,14 +216,14 @@
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-truststore-mgr
-        case_version: "{{ (tsm_version != '') | ternary(tsm_version, default_tsm_version) }}"
+        case_version: "{{ tsm_version }}"
         exclude_images: []
 
     - name: ibm.mas_devops.mirror_images
       when: mirror_tsm
       vars:
         manifest_name: ibm-truststore-mgr
-        manifest_version: "{{ (tsm_version != '') | ternary(tsm_version, default_tsm_version) }}"
+        manifest_version: "{{ tsm_version }}"
 
 
     # 7. IBM Maximo Application Suite Core
