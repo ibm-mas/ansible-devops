@@ -1,7 +1,7 @@
 key_rotation
 ===============================================================================
 
-Create new apikey for user in cloud account.
+Create new apikey for user in cloud account and delete the existing one.
 
 Role Variables
 -------------------------------------------------------------------------------
@@ -16,13 +16,13 @@ Role Variables - ROKS
 -------------------------------------------------------------------------------
 ### ibmcloud_apikey
 
-- Required.
+- Required. A new key will be created and this key will be deleted.
 - Environment Variable: `IBMCLOUD_APIKEY`
 - Default: None
 
 ### ibmcloud_keyname
 
-- Required.
+- Required. A new key will be created and this key will be deleted.
 - Environment Variable: `IBMCLOUD_KEYNAME`
 - Default: None
 
@@ -51,13 +51,13 @@ The following variables are used when `cluster_type = rosa` or `cluster_type=ipe
 
 ### aws_access_key_id
 
-- Required.
+- Required. A new key will be created and this key will be deleted.
 - Environment Variable: `AWS_ACCESS_KEY_ID`
 - Default: None
 
 ### aws_secret_access_key
 
-- Required.
+- Required. A new key will be created and this key will be deleted.
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 - Default: None
 
