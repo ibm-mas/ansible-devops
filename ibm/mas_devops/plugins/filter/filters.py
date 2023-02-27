@@ -345,6 +345,7 @@ def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secr
     sb_list.append(sb)
   return sb_list
 
+
 class FilterModule(object):
   def filters(self):
     return {
