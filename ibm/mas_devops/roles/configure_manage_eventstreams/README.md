@@ -38,25 +38,25 @@ Role Variables
 - Default Value: `us-east`
 
 ### ibmcloud_resourcegroup
-
+IBM Cloud Resource Group Name where the IBM Cloud Eventstreams is provisioned.
 - Optional
 - Environment Variable: `IBMCLOUD_RESOURCEGROUP`
 - Default Value: `Default`
 
 ### eventstreams_name
-
+IBM Cloud Eventstreams Service Name
 - Required
 - Environment Variable: `EVENTSTREAMS_NAME`
 - Default Value: None
 
 ### eventstreams_location
-
+IBM Cloud Eventstreams Service Location
 - Optional
 - Environment Variable: `EVENTSTREAMS_LOCATION`
 - Default Value: `us-east`
 
 ### db2wh_dbname
-
+DB2 Database name where configurations will be done for Manage to use IBM Cloud Eventstreams
 - Optional
 - Environment Variable: `DB2WH_DBNAME`
 - Default Value: `BLUDB`
@@ -68,6 +68,7 @@ Role Variables
 - Default Value: None
 
 ### db2_instance_name
+Required to build up pod name running db2
 
 - Required
 - Environment Variable: `DB2_INSTANCE_NAME`
@@ -80,7 +81,7 @@ Role Variables
 - Default Value: `manage`
 
 ### mas_app_ws_fqn
-
+Fully Qualified Name for MAS Application
 - Optional
 - Environment Variable: `MAS_APP_WS_FQN`
 - Default Value: `manageworkspaces.apps.mas.ibm.com`
