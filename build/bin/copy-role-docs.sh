@@ -71,6 +71,7 @@ copyDoc suite_install_digest_cm
 copyDoc suite_manage_attachments_config
 copyDoc suite_manage_bim_config
 copyDoc suite_manage_birt_report_config
+copyDoc suite_manage_customer_files_config
 copyDoc suite_manage_doclinks_config
 copyDoc suite_manage_import_certs_config
 copyDoc suite_manage_load_dbc_scripts
