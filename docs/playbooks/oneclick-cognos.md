@@ -46,7 +46,7 @@ export CPD_ENTITLEMENT_USERNAME=xxx
 export CPD_ADMIN_USERNAME="admin"
 export CPD_ADMIN_PASSWORD="xxx"
 export CPD_URL="https://mycp4durl"
-export CPD_PRODUCT_VERSION="4.6.0"
+export CPD_PRODUCT_VERSION="4.6.3"
 
 
 oc login --token=xxxx --server=https://myocpserver
@@ -62,7 +62,7 @@ export CPD_ENTITLEMENT_KEY=xxx
 export CPD_ENTITLEMENT_USERNAME=xxx
 
 export CPD_INSTALL_PLATFORM="true"
-export CPD_PRODUCT_VERSION="4.6.0"
+export CPD_PRODUCT_VERSION="4.6.3"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.cp4d
