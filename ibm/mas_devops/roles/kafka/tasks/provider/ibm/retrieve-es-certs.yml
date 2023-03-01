@@ -1,0 +1,19 @@
+---
+# Retrieve es certificate chain
+# -----------------------------------------------------------------------------
+- name: Retrieve es certificates using openssl
+  vars:
+    es_host_name: "{{hostports[0][0] }}"
+    es_port: "{{hostports[0][1] }}"
+  shell:
+    cmd: "openssl s_client -servername {{ es_host_name }} -connect {{ es_host_name }}:{{ es_port }} -showcerts </dev/null  2>/dev/null"
+  register: get_certs_r
+  ignore_errors: true
+
+- name: "Extract es certificate content"
+  set_fact:
+    es_tls_crt: '{{ get_certs_r.stdout | regex_findall( "(-----BEGIN .+?-----[\s\S]*?-----END .*?-----)" ,multiline=true,ignorecase=true) }}'
+
+- name: "Assert IBM es certificate content exists"
+  assert:
+    that: "{{ es_tls_crt | length == 3 }}"

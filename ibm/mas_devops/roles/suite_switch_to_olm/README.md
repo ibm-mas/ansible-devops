@@ -29,13 +29,13 @@ Required. The instance ID of Maximo Application Suite. This will be used to look
 - Default Value: None
 
 ### mas_icr_cp
-Defines the entitled registry from the images should be pulled from. Set this to `cp.icr.io/cp` when installing release version of MAS or `wiotp-docker-local.artifactory.swg-devops.com` for dev.
+Defines the entitled registry from the images should be pulled from. Set this to `cp.icr.io/cp` when installing release version of MAS or `docker-na-public.artifactory.swg-devops.com/wiotp-docker-local` for dev.
 
 - Environment Variable: `MAS_ICR_CP`
 - Default: `cp.icr.io/cp`
 
 ### mas_icr_cpopen
-Defines the registry for non entitled images, such as operators. Set this to `icr.io/cpopen` when installing release version of MAS or `wiotp-docker-local.artifactory.swg-devops.com/cpopen` for dev
+Defines the registry for non entitled images, such as operators. Set this to `icr.io/cpopen` when installing release version of MAS or `docker-na-public.artifactory.swg-devops.com/wiotp-docker-local/cpopen` for dev
 
 - Environment Variable: `MAS_ICR_CPOPEN`
 - Default: `icr.io/cpopen`
