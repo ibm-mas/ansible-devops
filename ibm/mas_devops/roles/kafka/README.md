@@ -98,6 +98,76 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Environment Variable: `CUSTOM_LABELS`
 - Default Value: None
 
+IBM Cloud Evenstreams Role Variables
+-------------------------------------
+
+### ibmcloud_apikey
+
+- Required
+- Environment Variable: `IBMCLOUD_APIKEY`
+- Default Value: None
+
+### ibmcloud_region
+
+- Optional
+- Environment Variable: `IBMCLOUD_REGION`
+- Default Value: `us-east`
+
+### ibmcloud_resourcegroup
+
+- Optional
+- Environment Variable: `IBMCLOUD_RESOURCEGROUP`
+- Default Value: `Default`
+
+### eventstreams_name
+
+- Required
+- Environment Variable: `EVENTSTREAMS_NAME`
+- Default Value: None
+
+### eventstreams_plan
+
+- Optional
+- Environment Variable: `EVENTSTREAMS_PLAN`
+- Default Value: `standard`
+
+### eventstreams_location
+
+- Optional
+- Environment Variable: `EVENTSTREAMS_LOCATION`
+- Default Value: `us-east`
+
+### eventstreams_retention
+
+- Optional
+- Environment Variable: `EVENTSTREAMS_RETENTION`
+- Default Value: `1209600000`
+
+### output_kafkacfg 
+
+- Optional
+- Environment Variable: `OUTPUT_KAFKACFG`
+- Default Value: `false`
+
+### mas_instance_id
+The instance ID of Maximo Application Suite that the KafkaCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
+
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
+
+### mas_config_dir
+Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a KafkaCfg template.
+
+- Environment Variable: `MAS_CONFIG_DIR`
+- Default Value: None
+
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default Value: None
+
 
 Example Playbook
 ----------------
@@ -115,6 +185,8 @@ Example Playbook
   roles:
     - ibm.mas_devops.kafka
 ```
+
+
 
 License
 -------
