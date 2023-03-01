@@ -4,7 +4,7 @@
 You will need a RedHat OpenShift v4.10 cluster with IBM Maximo Application Suite Core v8.10 already installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
 
 ## Overview
-This playbook will add **Cognos Analytics v11.2.3** to an existing IBM Maximo Application Suite Core installation. It will also install CloudPak for Data + CP4D services.
+This playbook will add **Cognos Analytics v11.2.4** to an existing IBM Maximo Application Suite Core installation. It will also install CloudPak for Data + CP4D services.
 
 This playbook can be run against any OCP cluster regardless of it's type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
