@@ -60,7 +60,7 @@ If the database is not SSL enabled, set the SSL_ENABLED variable to false. By de
 To install CP4D and Cognos Analytics:
 - `CPD_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
 - `CPD_INSTALL_COGNOS` True/False - If you HAVE Cognos Analytics already installed in your cluster, then set it to "false"
-- `CPD_PRODUCT_VERSION` (Required) Cloud Pak for Data version installed in the cluster in 4.X format.
+- `CPD_PRODUCT_VERSION` Cloud Pak for Data version installed in the cluster in 4.X format.
    
 ## Usage
 
