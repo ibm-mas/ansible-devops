@@ -3,6 +3,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 
 - `12.12` Multiple Updates:
     - Extend support for Manage's customer files configuration ([#661](https://github.com/ibm-mas/ansible-devops/pull/661))
+    - Add support for configuring Manage for IBM EventStreams ([#678](https://github.com/ibm-mas/ansible-devops/pull/678))
 - `12.11`
     - Add Cloud Pak for Data v4.6 support ([#538](https://github.com/ibm-mas/ansible-devops/pull/538))
     - Add support for Feb 2023 catalog ([#662](https://github.com/ibm-mas/ansible-devops/pull/662))
