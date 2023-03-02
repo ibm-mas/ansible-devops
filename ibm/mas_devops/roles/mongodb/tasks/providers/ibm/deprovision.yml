@@ -1,0 +1,56 @@
+---
+- name: "Debug properties, Provider: {{ mongodb_provider }} Action: {{mongodb_action}}"
+  debug:
+    msg:
+      - "IBM Cloud Resource Group .................. {{ ibmcloud_resourcegroup }}"
+      - "IBM Cloud MongoDB Name .................... {{ ibm_mongo_name }}"
+      - "IBM Cloud MongoDB Service ................. {{ ibm_mongo_service }}"
+      - "IBM Cloud MongoDB location ................ {{ ibm_mongo_location }}"
+
+# 1. Deprovision Mongo in IBM Cloud
+# -----------------------------------------------------------------------------
+- name: Retrieve resource group guid
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
+- name: Set resource group guid variable
+  when:
+    - rg_info.resource.id is defined
+  set_fact:
+    resourceGID: "{{ rg_info.resource.id }}"
+
+- name: Fetch Mongo DB Instance information
+  ibm.cloudcollection.ibm_database_info:
+    name: "{{ ibm_mongo_name }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    resource_group_id: "{{ resourceGID }}"
+    service: "{{ ibm_mongo_service }}"
+    region: "{{ ibm_mongo_location }}"
+  register: mongodb_info
+  failed_when: mongodb_info.rc != 0 and ('No resource instance found' not in mongodb_info.stderr )
+
+- name: Debug, MongoDB {{ibm_mongo_name}} already deleted
+  when: mongodb_info.rc != 0 and ('No resource instance found' in mongodb_info.stderr )
+  debug:
+    msg:
+      - "MongoDB Instance {{ ibm_mongo_name }} Not Found ,so skipping deprovisioning"
+
+- name: Deprovision IBM Cloud MongoDB
+  when: mongodb_info.rc == 0
+  ibm.cloudcollection.ibm_database:
+    name: "{{ibm_mongo_name}}"
+    id: "{{mongodb_info.resource.id}}"
+    state: absent
+    service: "{{ ibm_mongo_service }}"
+    location: "{{ ibm_mongo_location }}"
+    region: "{{ ibm_mongo_location }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: mongo_delete_info
+
+- name: Debug, Deprovision MongoDB info
+  when: mongodb_info.rc == 0
+  debug:
+    msg:
+      - "Delete Mongo Instance Info Result ...... {{ mongo_delete_info }}"
