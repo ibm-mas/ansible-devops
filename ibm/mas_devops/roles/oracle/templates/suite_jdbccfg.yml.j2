@@ -1,0 +1,34 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: "jdbc-{{ db2_instance_name | lower }}-credentials"
+  namespace: "mas-{{ mas_instance_id }}-core"
+{% if custom_labels is defined and custom_labels.items() %}
+  labels:
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+stringData:
+  username: "{{db2_jdbc_username}}"
+  password: "{{jdbc_instance_password}}"
+---
+apiVersion: config.mas.ibm.com/v1
+kind: JdbcCfg
+metadata:
+  name: "{{ suite_jdbccfg_name }}"
+  namespace: "mas-{{ mas_instance_id }}-core"
+  labels: {{ suite_jdbccfg_labels }}
+spec:
+  displayName: "{{ suite_jdbccfg_name }}"
+  config:
+    url: "{{ jdbc_url }}"
+    sslEnabled: true
+    credentials:
+      secretName: "jdbc-{{ db2_instance_name | lower }}-credentials"
+  certificates:
+    - alias: "{{ db2_instance_name | lower }}"
+      crt: |
+        {{ db2_ca_pem | indent(8) }}

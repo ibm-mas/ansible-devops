@@ -1,0 +1,25 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: db2u-{{ db2_instance_name }}-tls-route
+  namespace: "{{ oracle_namespace }}"
+  labels:
+    formation_id: "{{db2_instance_name | lower }}"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+  host: >-
+    {{db2_instance_name | lower }}-{{db2_namespace}}.{{_cluster_subdomain.resources[0].spec.domain}}
+  to:
+    kind: Service
+    name: "c-{{db2_instance_name | lower}}-db2u-engn-svc"
+    weight: 100
+  port:
+    targetPort: ssl-server
+  tls:
+    termination: passthrough
+    nsecureEdgeTerminationPolicy: None
+  wildcardPolicy: None

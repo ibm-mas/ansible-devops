@@ -9,7 +9,10 @@ Oracle Image container registry:
 https://container-registry.oracle.com/ords/f?p=113:4:2014582443324:::RP,4:P4_REPOSITORY,AI_REPOSITORY,P4_REPOSITORY_NAME,AI_REPOSITORY_NAME:1283,1283,This%20image%20is%20part%20of%20and%20for%20use%20with%20the%20Oracle%20Database%20Operator%20for%20Kubernetes,This%20image%20is%20part%20of%20and%20for%20use%20with%20the%20Oracle%20Database%20Operator%20for%20Kubernetes&cs=3mEt_FCtmkjNdkr0z_qLxszLJ8Sxe6QXgWNI1xSu_84TUnLzQp548qOxksuBJXHfJBdCSNoS2VjzgDRAqi6Q11Q
 
 Oracle Database operator src: 
-https://github.com/oracle/oracle-database-operator
+https://github.com/oracle/oracle-database-operator 
+
+SingleInstance Database 
+https://github.com/oracle/oracle-database-operator/blob/main/docs/sidb/README.mds
 
 Requirements
 ------------
