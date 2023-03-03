@@ -5,6 +5,8 @@
 # -----------------------------------------------------------------------------
 - name: Preliminary checks
   block:
+    # 1.1. Check for mas_instance_id
+    # -------------------------------------------------------------------------
     - name: Assert that mas_instance_id is defined
       ansible.builtin.assert:
         that:
@@ -12,6 +14,8 @@
           - mas_instance_id != ''
         fail_msg: "mas_instance_id is not defined"
 
+    # 1.2. Check for mas_app_id
+    # -------------------------------------------------------------------------
     - name: Assert that mas_app_id is defined
       ansible.builtin.assert:
         that:
@@ -19,15 +23,42 @@
           - mas_app_id != ''
         fail_msg: "mas_app_id is not defined"
 
+    - name: Assert that mas_app_id is supported
+      ansible.builtin.assert:
+        that:
+          - mas_app_id in app_name
+        fail_msg: "mas_app_id: {{ mas_app_id }} is not supported. Supported options are {{ app_name | flatten }}"
+
+    # 1.3. Check for required vars to generate ibm-entitlement secret
+    # -------------------------------------------------------------------------
+    - name: Validate required variables for ibm-entitlement
+      ansible.builtin.set_fact:
+        mas_entitlement_username_set: "{{ mas_entitlement_username is defined and mas_entitlement_username != '' }}"
+        ibm_entitlement_key_set: "{{ ibm_entitlement_key is defined and ibm_entitlement_key != '' }}"
+        mas_entitlement_key_set: "{{ mas_entitlement_key is defined and mas_entitlement_key != '' }}"
+        artifactory_username_set: "{{ artifactory_username is defined and artifactory_username != '' }}"
+        artifactory_apikey_set: "{{ artifactory_apikey is defined and artifactory_apikey != '' }}"
+
+    - name: Assert that required variables are set for ibm-entitlement
+      ansible.builtin.assert:
+        that:
+          - (mas_entitlement_username_set and (ibm_entitlement_key_set or mas_entitlement_key_set)) or
+            (artifactory_username_set and artifactory_apikey_set)
+        fail_msg: "required variables are not set to generate ibm-entitlement secret"
+
+    # 1.4. Set mas_app_operator_name
+    # -------------------------------------------------------------------------
     - name: Set mas_app_operator_name fact
       ansible.builtin.set_fact:
         mas_app_operator_name: "{{ (mas_app_id == 'core') | ternary(mas_core_name, mas_app_prefix) }}"
 
+    # 1.5. Provide initial debug
+    # -------------------------------------------------------------------------
     - name: Debug Information
       ansible.builtin.debug:
         msg:
-          - "MAS App ID ............. {{ mas_app_id }}"
           - "MAS Instance ID ........ {{ mas_instance_id }}"
+          - "MAS App ID ............. {{ mas_app_id }}"
           - "MAS App Namespace ...... {{ mas_app_namespace }}"
           - "MAS Upgrade Strategy ... {{ mas_upgrade_strategy }}"
 
@@ -36,17 +67,17 @@
 - name: Check if OLM Conversion is Needed
   block:
     # 2.1. Lookup for Suite deployed Instance
-    # -----------------------------------------------------------------------------
-    - name: "Lookup Current CR: {{ crs[mas_app_id] }}"
+    # -------------------------------------------------------------------------
+    - name: "Lookup Current CR: {{ crs.mas_app_id }}"
       kubernetes.core.k8s_info:
         api_version: v1
-        kind: "{{ crs[mas_app_id] }}"
+        kind: "{{ crs.mas_app_id }}"
         name: "{{ mas_instance_id }}"
         namespace: "{{ mas_app_namespace }}"
       register: _app_installed_instance
 
     # 2.2. Skip if it can't find App CR
-    # -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     - name: Set found_app_cr fact
       ansible.builtin.set_fact:
         found_app_cr: "{{ _app_installed_instance.resources | length == 1 }}"
@@ -56,13 +87,13 @@
 
     - name: CR Not Found
       ansible.builtin.debug:
-        msg: "Could not find {{ crs[mas_app_id] }} CR with name {{ mas_instance_id }} - Skipping conversion"
+        msg: "Could not find {{ crs.mas_app_id }} CR with name {{ mas_instance_id }} - Skipping conversion"
       when:
         - found_app_cr is defined
         - not found_app_cr
 
     # 2.3. Lookup existing Subscription
-    # -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     - name: "Lookup Existing Subscription"
       kubernetes.core.k8s_info:
         api_version: v1alpha1
@@ -75,7 +106,7 @@
         - found_app_cr
 
     # 2.4. Skip if it found existing App Subscription
-    # -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     - name: Set found_app_subscription fact
       ansible.builtin.set_fact:
         found_app_subscription: "{{ _app_subscription_instance.resources | length == 1 }}"
@@ -85,7 +116,7 @@
 
     - name: Existing Subscription Found
       ansible.builtin.debug:
-        msg: "Found existing Subscription for {{ app_name[mas_app_id] }}  - Skipping conversion"
+        msg: "Found existing Subscription for {{ app_name.mas_app_id }}  - Skipping conversion"
       when:
         - found_app_cr is defined
         - found_app_cr
@@ -102,8 +133,8 @@
     - not found_app_subscription
   block:
     # 3.1. Cleanup App Operator Deployment
-    # -----------------------------------------------------------------------------
-    - name: "Delete Operator Deployment: {{ app_name[mas_app_id] }}"
+    # -------------------------------------------------------------------------
+    - name: "Delete Operator Deployment: {{ app_name.mas_app_id }}"
       kubernetes.core.k8s:
         state: absent
         definition:
@@ -114,10 +145,12 @@
             name: "{{ mas_app_operator_name }}-operator"
 
     # 3.2. Cleanup App TM Operator
-    # -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     - name: Delete Truststore Manager
       when: mas_app_id not in ['visualinspection', 'hputilities']
       block:
+        # 3.2.1. Check for existing TM Subscription
+        # ---------------------------------------------------------------------
         - name: Find existing TM Subscription
           kubernetes.core.k8s_info:
             api_version: v1alpha1
@@ -126,6 +159,8 @@
             namespace: "{{ mas_app_namespace }}"
           register: _app_tm_subscription
 
+        # 3.2.2. Extract currentCSV from existing TM Subscription
+        # ---------------------------------------------------------------------
         - name: Set _app_tm_current_csv fact
           ansible.builtin.set_fact:
             _app_tm_current_csv: "{{ _app_tm_subscription.resources[0].status.currentCSV }}"
@@ -136,6 +171,8 @@
             - _app_tm_subscription.resources[0].status is defined
             - _app_tm_subscription.resources[0].status.currentCSV is defined
 
+        # 3.2.3. Now delete the existing TM Subscription
+        # ---------------------------------------------------------------------
         - name: Delete TM Subscription
           kubernetes.core.k8s:
             state: absent
@@ -150,6 +187,8 @@
             - _app_tm_subscription.resources is defined
             - _app_tm_subscription.resources | length == 1
 
+        # 3.2.4. Finally, delete the existing TM CSV
+        # ---------------------------------------------------------------------
         - name: Delete TM CSV
           kubernetes.core.k8s:
             state: absent
@@ -166,6 +205,8 @@
             - _app_tm_current_csv is defined
             - _app_tm_current_csv != ''
 
+        # 3.2.5. If no Subscription exist just delete the TM Deployment
+        # ---------------------------------------------------------------------
         - name: Delete TM Operator Deployment
           kubernetes.core.k8s:
             state: absent
@@ -181,8 +222,8 @@
             - _app_tm_subscription.resources | length == 0
 
     # 3.3. Define App Channel
-    # -----------------------------------------------------------------------------
-    - name: "Set Deployed Version: {{ app_name[mas_app_id] }}"
+    # -------------------------------------------------------------------------
+    - name: "Set Deployed Version: {{ app_name.mas_app_id }}"
       ansible.builtin.set_fact:
         app_channel: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1', '\\2') | join('.') }}.x"
         app_starting_csv: "{{ mas_app_operator_name }}.v{{ _app_installed_instance.resources[0].status.versions.reconciled }}"
@@ -194,14 +235,14 @@
         - _app_installed_instance.resources[0].status.versions is defined
         - _app_installed_instance.resources[0].status.versions.reconciled is defined
 
-    - name: "Debug Channel {{ app_name[mas_app_id] }}"
+    - name: "Debug Channel {{ app_name.mas_app_id }}"
       ansible.builtin.debug:
         msg:
           - "{{ app_channel }}"
           - "{{ app_starting_csv }}"
 
     # 3.4. Remove any existing OperatorGroups
-    # -----------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Having multiple OperatorGroups will lead to conflict and prevent the
     # InstallPlan from working
     - name: Remove any existing OperatorGroups
@@ -229,12 +270,14 @@
             - _app_op_group_lookup.resources | length > 0
 
     # 3.5. Install MAS Operator Using OLM
-    # -----------------------------------------------------------------------------
-    - name: "Install Operator: {{ app_name[mas_app_id] }}"
+    # -------------------------------------------------------------------------
+    - name: "Install Operator: {{ app_name.mas_app_id }}"
       ansible.builtin.include_role:
-        name: ibm.mas_devops.install_operator
+        name: install_operator
       vars:
         namespace: "{{ mas_app_namespace }}"
+        artifactory_username: "{{ artifactory_username }}"
+        artifactory_apikey: "{{ artifactory_apikey }}"
         icr_username: "{{ mas_entitlement_username }}"
         icr_password: "{{ mas_entitlement_key }}"
         catalog_source: "{{ mas_catalog_source }}"
@@ -242,8 +285,8 @@
         subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
     # 3.6. Approve InstallPlan(s) when in Manual subscription
-    # -----------------------------------------------------------------------------
-    - name: "Lookup and Approve Subscription: {{ app_name[mas_app_id] }}"
+    # -------------------------------------------------------------------------
+    - name: "Lookup and Approve Subscription: {{ app_name.mas_app_id }}"
       when: mas_upgrade_strategy == 'Manual'
       block:
         - name: Lookup Operator install plan
@@ -253,34 +296,36 @@
             namespace: "{{ mas_app_namespace }}"
             label_selectors:
               - "operators.coreos.com/{{ mas_app_operator_name }}.{{ mas_app_namespace }}"
-          register: mas_install_plan
+          register: _mas_install_plan
           retries: 20
           delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
-          until: mas_install_plan.resources | length > 0
+          until: _mas_install_plan.resources | length > 0
 
         - name: Approve the subscription install plan
           when:
-            - mas_install_plan is defined
-            - mas_install_plan.resources is defined
-            - mas_install_plan.resources | length > 0
-            - mas_install_plan.resources[0].status is defined
-            - mas_install_plan.resources[0].status.phase is defined
-            - mas_install_plan.resources[0].status.phase != "Complete"
+            - _mas_install_plan is defined
+            - _mas_install_plan.resources is defined
+            - _mas_install_plan.resources | length > 0
+            - _mas_install_plan.resources[0].status is defined
+            - _mas_install_plan.resources[0].status.phase is defined
+            - _mas_install_plan.resources[0].status.phase != "Complete"
           kubernetes.core.k8s:
             definition:
               apiVersion: operators.coreos.com/v1alpha1
               kind: InstallPlan
               metadata:
-                name: "{{ mas_install_plan.resources[0].metadata.name }}"
+                name: "{{ _mas_install_plan.resources[0].metadata.name }}"
                 namespace: "{{ mas_app_namespace }}"
               spec:
                 approved: true
 
-    # 3.7. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
-    # -----------------------------------------------------------------------------
-    # ibm-common-services operators deployed by MAS will inherit the inherit MAS upgrade strategy
-    # when its set to Manual, we need to iterate those to ensure we do approve the first install plan
-    # otherwise MAS installation wont succeed.
+    # 3.7. Handle IBM Common Services Install plan approvals when
+    #      upgrade strategy is set to Manual
+    # -------------------------------------------------------------------------
+    # ibm-common-services operators deployed by MAS will inherit the inherit
+    # MAS upgrade strategy when its set to Manual, we need to iterate those to
+    # ensure we do approve the first install plan otherwise MAS installation
+    # won't succeed.
     - name: Handle IBM Common Services InstallPlan approvals
       ansible.builtin.include_tasks: tasks/ibm-common-services.yml
       when:
