@@ -21,11 +21,14 @@ fi
 
 set -e
 # SQL1032N  No start database manager command was issued.  SQLSTATE=57019
+db2 terminate
+sleep 15
 db2stop force
-sleep 30
+sleep 15
 db2start
-sleep 30
+sleep 15
 db2 connect to {{ db2_dbname }}
+
 db2 update db cfg for {{ db2_dbname }} using dft_table_org ROW
 db2 update db cfg for {{ db2_dbname }} using AUTO_MAINT ON DEFERRED
 db2 update db cfg for {{ db2_dbname }} using AUTO_TBL_MAINT ON DEFERRED
@@ -79,8 +82,10 @@ db2 CREATE REGULAR TABLESPACE MAXINDEX PAGESIZE 32 K MANAGED BY AUTOMATIC STORAG
 db2 create schema {{ db2_schema }} authorization {{ db2_username }}
 
 set -e
+db2 terminate
+sleep 15
 db2stop force
-sleep 30
+sleep 15
 db2start
 
 echo "COMPLETE" > /tmp/setupdb_complete
