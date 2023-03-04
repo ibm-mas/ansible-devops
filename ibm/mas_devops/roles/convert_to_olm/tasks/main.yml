@@ -44,7 +44,7 @@
         that:
           - (mas_entitlement_username_set and (ibm_entitlement_key_set or mas_entitlement_key_set)) or
             (artifactory_username_set and artifactory_apikey_set)
-        fail_msg: "required variables are not set to generate ibm-entitlement secret"
+        fail_msg: "Username/Password not set to generate ibm-entitlement secret"
 
     # 1.4. Set mas_app_operator_name
     # -------------------------------------------------------------------------
@@ -66,75 +66,101 @@
 # -----------------------------------------------------------------------------
 - name: Check if OLM Conversion is Needed
   block:
-    # 2.1. Lookup for Suite deployed Instance
+    # 2.1. Lookup for deployed Instance
     # -------------------------------------------------------------------------
-    - name: "Lookup Current CR: {{ crs.mas_app_id }}"
+    - name: "Lookup Current CR: {{ crs[mas_app_id] }}"
       kubernetes.core.k8s_info:
         api_version: v1
-        kind: "{{ crs.mas_app_id }}"
+        kind: "{{ crs[mas_app_id] }}"
         name: "{{ mas_instance_id }}"
         namespace: "{{ mas_app_namespace }}"
       register: _app_installed_instance
 
-    # 2.2. Skip if it can't find App CR
-    # -------------------------------------------------------------------------
     - name: Set found_app_cr fact
       ansible.builtin.set_fact:
-        found_app_cr: "{{ _app_installed_instance.resources | length == 1 }}"
-      when:
-        - _app_installed_instance is defined
-        - _app_installed_instance.resources is defined
+        found_app_cr: "{{ _app_installed_instance.resources | length == 1 | default(false, true) }}"
 
-    - name: CR Not Found
+    - name: "CR Not Found: {{ crs[mas_app_id] }}"
       ansible.builtin.debug:
-        msg: "Could not find {{ crs.mas_app_id }} CR with name {{ mas_instance_id }} - Skipping conversion"
+        msg: "Could not find {{ crs[mas_app_id] }} CR with name {{ mas_instance_id }} - Skipping conversion"
       when:
-        - found_app_cr is defined
         - not found_app_cr
 
-    # 2.3. Lookup existing Subscription
+    # 2.2. Perform further checks - Required vars in CR and Subscription
     # -------------------------------------------------------------------------
-    - name: "Lookup Existing Subscription"
-      kubernetes.core.k8s_info:
-        api_version: v1alpha1
-        kind: Subscription
-        name: "{{ mas_app_operator_name }}-operator"
-        namespace: "{{ mas_app_namespace }}"
-      register: _app_subscription_instance
-      when:
-        - found_app_cr is defined
-        - found_app_cr
+    - name: CR Found - Perform further Checks
+      when: found_app_cr
+      block:
+        # 2.2.1. Lookup 'status.versions.reconciled' for Channel and startingCSV
+        # -------------------------------------------------------------------------
+        - name: Reset Channel and startingCSV Facts
+          ansible.builtin.set_fact:
+            app_channel: ""
+            app_starting_csv: ""
 
-    # 2.4. Skip if it found existing App Subscription
-    # -------------------------------------------------------------------------
-    - name: Set found_app_subscription fact
-      ansible.builtin.set_fact:
-        found_app_subscription: "{{ _app_subscription_instance.resources | length == 1 }}"
-      when:
-        - found_app_cr is defined
-        - found_app_cr
+        - name: "Set Deployed Version: {{ app_name[mas_app_id] }}"
+          ansible.builtin.set_fact:
+            app_channel: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1', '\\2') | join('.') + '.x' }}"
+            app_starting_csv: "{{ mas_app_operator_name }}.v{{ _app_installed_instance.resources[0].status.versions.reconciled }}"
+          when:
+            - _app_installed_instance is defined
+            - _app_installed_instance.resources is defined
+            - _app_installed_instance.resources | length == 1
+            - _app_installed_instance.resources[0].status is defined
+            - _app_installed_instance.resources[0].status.versions is defined
+            - _app_installed_instance.resources[0].status.versions.reconciled is defined
 
-    - name: Existing Subscription Found
-      ansible.builtin.debug:
-        msg: "Found existing Subscription for {{ app_name.mas_app_id }}  - Skipping conversion"
-      when:
-        - found_app_cr is defined
-        - found_app_cr
-        - found_app_subscription is defined
-        - found_app_subscription
+        - name: Debug Channel and startingCSV
+          ansible.builtin.debug:
+            msg:
+              - "app_channel ............... {{ app_channel }}"
+              - "app_starting_csv .......... {{ app_starting_csv }}"
+
+        - name: "'status.versions.reconciled' Not Found"
+          ansible.builtin.debug:
+            msg: "Could not find status.versions.reconciled in {{ crs[mas_app_id] }} CR - Skipping conversion"
+          when:
+            - not app_channel
+            - not app_starting_csv
+
+        # 2.2.2. Check if a Subscription already exists
+        # -------------------------------------------------------------------------
+        - name: Check for Existing Subscription
+          when:
+            - app_channel != ''
+            - app_starting_csv != ''
+          block:
+            # 2.2.2.1. Lookup existing Subscription
+            # -------------------------------------------------------------------------
+            - name: "Lookup Existing Subscription"
+              kubernetes.core.k8s_info:
+                api_version: v1alpha1
+                kind: Subscription
+                name: "{{ mas_app_operator_name }}-operator"
+                namespace: "{{ mas_app_namespace }}"
+              register: _app_subscription_instance
+
+            - name: Set found_app_subscription fact
+              ansible.builtin.set_fact:
+                found_app_subscription: "{{ _app_subscription_instance.resources | length == 1 | default(false, true) }}"
+
+            - name: Existing Subscription Found
+              ansible.builtin.debug:
+                msg: "Found existing Subscription for {{ app_name[mas_app_id] }}  - Skipping conversion"
+              when:
+                - found_app_subscription
 
 # 3. Run the OLM Conversion tasks
 # -----------------------------------------------------------------------------
 - name: Run OLM Conversion Block
   when:
-    - found_app_cr is defined
     - found_app_cr
     - found_app_subscription is defined
-    - not found_app_subscription
+    - not found_app_subscription and (app_channel != '' and app_starting_csv != '')
   block:
     # 3.1. Cleanup App Operator Deployment
     # -------------------------------------------------------------------------
-    - name: "Delete Operator Deployment: {{ app_name.mas_app_id }}"
+    - name: "Delete Operator Deployment: {{ app_name[mas_app_id] }}"
       kubernetes.core.k8s:
         state: absent
         definition:
@@ -143,6 +169,8 @@
           metadata:
             namespace: "{{ mas_app_namespace }}"
             name: "{{ mas_app_operator_name }}-operator"
+        wait: true
+        wait_timeout: 300
 
     # 3.2. Cleanup App TM Operator
     # -------------------------------------------------------------------------
@@ -171,7 +199,7 @@
             - _app_tm_subscription.resources[0].status is defined
             - _app_tm_subscription.resources[0].status.currentCSV is defined
 
-        # 3.2.3. Now delete the existing TM Subscription
+        # 3.2.3. Delete the existing TM Subscription
         # ---------------------------------------------------------------------
         - name: Delete TM Subscription
           kubernetes.core.k8s:
@@ -187,7 +215,7 @@
             - _app_tm_subscription.resources is defined
             - _app_tm_subscription.resources | length == 1
 
-        # 3.2.4. Finally, delete the existing TM CSV
+        # 3.2.4. Delete the existing TM CSV
         # ---------------------------------------------------------------------
         - name: Delete TM CSV
           kubernetes.core.k8s:
@@ -221,27 +249,7 @@
             - _app_tm_subscription.resources is defined
             - _app_tm_subscription.resources | length == 0
 
-    # 3.3. Define App Channel
-    # -------------------------------------------------------------------------
-    - name: "Set Deployed Version: {{ app_name.mas_app_id }}"
-      ansible.builtin.set_fact:
-        app_channel: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1', '\\2') | join('.') }}.x"
-        app_starting_csv: "{{ mas_app_operator_name }}.v{{ _app_installed_instance.resources[0].status.versions.reconciled }}"
-      when:
-        - _app_installed_instance is defined
-        - _app_installed_instance.resources is defined
-        - _app_installed_instance.resources | length == 1
-        - _app_installed_instance.resources[0].status is defined
-        - _app_installed_instance.resources[0].status.versions is defined
-        - _app_installed_instance.resources[0].status.versions.reconciled is defined
-
-    - name: "Debug Channel {{ app_name.mas_app_id }}"
-      ansible.builtin.debug:
-        msg:
-          - "{{ app_channel }}"
-          - "{{ app_starting_csv }}"
-
-    # 3.4. Remove any existing OperatorGroups
+    # 3.3. Remove any existing OperatorGroups
     # -------------------------------------------------------------------------
     # Having multiple OperatorGroups will lead to conflict and prevent the
     # InstallPlan from working
@@ -269,24 +277,22 @@
             - _app_op_group_lookup.resources is defined
             - _app_op_group_lookup.resources | length > 0
 
-    # 3.5. Install MAS Operator Using OLM
+    # 3.4. Install MAS Operator Using OLM
     # -------------------------------------------------------------------------
-    - name: "Install Operator: {{ app_name.mas_app_id }}"
+    - name: "Install Operator: {{ app_name[mas_app_id] }}"
       ansible.builtin.include_role:
         name: install_operator
       vars:
         namespace: "{{ mas_app_namespace }}"
-        artifactory_username: "{{ artifactory_username }}"
-        artifactory_apikey: "{{ artifactory_apikey }}"
         icr_username: "{{ mas_entitlement_username }}"
         icr_password: "{{ mas_entitlement_key }}"
         catalog_source: "{{ mas_catalog_source }}"
         operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
         subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
-    # 3.6. Approve InstallPlan(s) when in Manual subscription
+    # 3.5. Approve InstallPlan(s) when in Manual subscription
     # -------------------------------------------------------------------------
-    - name: "Lookup and Approve Subscription: {{ app_name.mas_app_id }}"
+    - name: "Lookup and Approve Subscription: {{ app_name[mas_app_id] }}"
       when: mas_upgrade_strategy == 'Manual'
       block:
         - name: Lookup Operator install plan
@@ -319,7 +325,7 @@
               spec:
                 approved: true
 
-    # 3.7. Handle IBM Common Services Install plan approvals when
+    # 3.6. Handle IBM Common Services Install plan approvals when
     #      upgrade strategy is set to Manual
     # -------------------------------------------------------------------------
     # ibm-common-services operators deployed by MAS will inherit the inherit
