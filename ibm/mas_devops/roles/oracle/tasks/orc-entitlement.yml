@@ -1,0 +1,21 @@
+---
+# The image pull secret is needed to pull Oracle Entrprise edition runtime image
+- name: "entitlement : Create oracle-registry secret in {{ oracle_operator_namespace }} namespace"
+  vars:
+    entitledAuthStr: "{{ oracle_entitlement_username }}:{{ oracle_entitlement_pwd }}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"container-registry.oracle.com": {"username":"{{ oracle_entitlement_username }}","password":"{{ oracle_entitlement_pwd }}","auth":"{{ entitledAuth }}"}'
+      - '}'
+      - '}'
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: "oracle-registry"
+        namespace: "{{ oracle_operator_namespace }}"
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
