@@ -55,10 +55,6 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 - `MAS_IMAGE_PULL_POLICY` - Controls the pull policy of predict images. As default is set: `IfNotPresent`. Avaliable options are: 
     - IfNotPresent
     - Always
-- `WORKLOAD_SCALING_CONFIGMAP` - Controls the workload scaling of predict containers. As default is set: `{{ instanceId }}-wl-cust-medium`. Avaliable options are: 
-    - {{ instanceId }}-wl-cust-small
-    - {{ instanceId }}-wl-cust-medium
-    - {{ instanceId }}-wl-cust-large
     
     **NOTE:**
     If `WORKLOAD_SCALING_CONFIGMAP` is defined to empty value - then default value will be taken from fe.: `explainability/vars/images.yml`
