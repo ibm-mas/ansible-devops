@@ -96,7 +96,7 @@ export CPD_INSTALL_OPENSCALE="true"
 export CPD_INSTALL_SPSS="true"
 export WML_INSTANCE_ID="openshift"
 export WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
-export CP4D_PRODUCT_VERSION="4.5.0"
+export CPD_PRODUCT_VERSION="4.5.0"
 export PREDICT_DEPLOYMENT_SIZE="small"
 
 oc login --token=xxxx --server=https://myocpserver
