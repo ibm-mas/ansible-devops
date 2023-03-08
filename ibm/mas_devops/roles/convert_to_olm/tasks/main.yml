@@ -46,14 +46,7 @@
             (artifactory_username_set and artifactory_apikey_set)
         fail_msg: "Username/Password not set to generate ibm-entitlement secret"
 
-    # 1.4. Reset Channel and startingCSV Facts
-    # -------------------------------------------------------------------------
-    - name: Reset Channel and startingCSV
-      ansible.builtin.set_fact:
-        app_channel: ""
-        app_starting_csv: ""
-
-    # 1.5. Provide initial debug
+    # 1.4. Provide initial debug
     # -------------------------------------------------------------------------
     - name: Debug Information
       ansible.builtin.debug:
@@ -100,7 +93,6 @@
     - name: Set found_app_subscription fact
       ansible.builtin.set_fact:
         found_app_subscription: "{{ _app_subscription_instance.resources | length == 1 | default(false, true) }}"
-      when: found_app_namespace
 
     - name: Existing Subscription Found
       ansible.builtin.debug:
@@ -125,9 +117,6 @@
     - name: Set found_app_cr fact
       ansible.builtin.set_fact:
         found_app_cr: "{{ _app_installed_instance.resources | length == 1 | default(false, true) }}"
-      when:
-        - found_app_namespace
-        - not found_app_subscription
 
     - name: "CR Not Found: {{ supported_apps[mas_app_id]['crd_kind'] }}"
       ansible.builtin.debug:
@@ -137,8 +126,13 @@
         - not found_app_subscription
         - not found_app_cr
 
-    # 2.4. Lookup 'status.versions.reconciled' for Channel and startingCSV
+    # 2.4. Lookup 'status.versions.reconciled' and set Channel and startingCSV
     # -------------------------------------------------------------------------
+    - name: Reset app_channel and app_starting_csv facts
+      ansible.builtin.set_fact:
+        app_channel: ""
+        app_starting_csv: ""
+
     - name: "Set Channel and startingCSV: {{ supported_apps[mas_app_id]['name'] }}"
       ansible.builtin.set_fact:
         app_channel: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1', '\\2') | join('.') + '.x' }}"
@@ -160,6 +154,8 @@
         - found_app_namespace
         - not found_app_subscription
         - found_app_cr
+        - app_channel != ""
+        - app_starting_csv != ""
 
     - name: "'status.versions.reconciled' Not Found"
       ansible.builtin.debug:
@@ -171,13 +167,55 @@
         - not app_channel
         - not app_starting_csv
 
+    # 2.5. Check if Channel and startingCSV is available in PackageManifest
+    # -------------------------------------------------------------------------
+    - name: "Lookup PackageManifest: {{ supported_apps[mas_app_id]['csv_name'] }}"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: PackageManifest
+        name: "{{ supported_apps[mas_app_id]['csv_name']}}"
+        namespace: openshift-marketplace
+      register: _app_package_manifest_lookup
+      when:
+        - found_app_namespace
+        - not found_app_subscription
+        - found_app_cr
+
+    - name: Get channels list from PackageManifest
+      ansible.builtin.set_fact:
+        app_channels_in_pm: "{{ _app_package_manifest_lookup.resources[0].status.channels | default([], true)}}"
+      when:
+        - found_app_namespace
+        - not found_app_subscription
+        - found_app_cr
+
+    - name: Find app channel index in PackageManifest
+      ansible.builtin.set_fact:
+        app_channel_idx_in_pm: "{{ lookup('ansible.utils.index_of', data=app_channels_in_pm, test='eq', value=app_channel, key='name') }}"
+      when:
+        - found_app_namespace
+        - not found_app_subscription
+        - found_app_cr
+
+    - name: Set app channel object from PackageManifest
+      ansible.builtin.set_fact:
+        app_channel_in_pm: "{{ app_channels_in_pm[app_channel_idx_in_pm] | default([], true) }}"
+      when:
+        - found_app_namespace
+        - not found_app_subscription
+        - found_app_cr
+
+    - name: Set found_app_csv fact
+      ansible.builtin.set_fact:
+        found_app_csv: "{{ app_channel_in_pm['currentCSV'] == app_starting_csv | default(false, true) }}"
+
 # 3. Run the OLM Conversion tasks
 # -----------------------------------------------------------------------------
 - name: Run OLM Conversion Block
   when:
     - found_app_namespace
-    - found_app_subscription is defined and not found_app_subscription
-    - found_app_cr is defined and found_app_cr
+    - not found_app_subscription
+    - found_app_cr
     - app_channel != ''
     - app_starting_csv != ''
   block:
@@ -233,6 +271,8 @@
               metadata:
                 namespace: "{{ mas_app_namespace }}"
                 name: ibm-truststore-mgr
+          wait: true
+          wait_timeout: 300
           when:
             - _app_tm_subscription is defined
             - _app_tm_subscription.resources is defined
@@ -249,6 +289,8 @@
               metadata:
                 namespace: "{{ mas_app_namespace }}"
                 name: "{{ _app_tm_current_csv }}"
+          wait: true
+          wait_timeout: 300
           when:
             - _app_tm_subscription is defined
             - _app_tm_subscription.resources is defined
@@ -266,7 +308,9 @@
               kind: Deployment
               metadata:
                 namespace: "{{ mas_app_namespace }}"
-                name: ibm-truststore-mgr-controller-manager
+                name: "{{ tm_op_name }}"
+          wait: true
+          wait_timeout: 300
           when:
             - _app_tm_subscription is defined
             - _app_tm_subscription.resources is defined
@@ -295,6 +339,8 @@
                 namespace: "{{ mas_app_namespace }}"
                 name: "{{ item.metadata.name }}"
           loop: "{{ _app_op_group_lookup.resources }}"
+          wait: true
+          wait_timeout: 300
           when:
             - _app_op_group_lookup is defined
             - _app_op_group_lookup.resources is defined
@@ -361,3 +407,33 @@
         - mas_upgrade_strategy == 'Manual'
         - mas_app_id == 'core'
       loop: "{{ ibm_common_services_subscription_labels }}"
+
+    # 3.7. Verify the (main + TM) operator pods are running and ready
+    # -------------------------------------------------------------------------
+    - name: Verify operators are ready
+      block:
+        - name: "Check if operator is ready: {{ supported_apps[mas_app_id]['op_name'] }}"
+          kubernetes.core.k8s_info:
+            api_version: apps/v1
+            kind: Deployment
+            name: "{{ supported_apps[mas_app_id]['op_name'] }}"
+            namespace: "{{ mas_app_namespace }}"
+          retries: 10
+          delay: 60 # 10 * 60s = 10 minutes
+          until:
+            - (_app_op_lookup.resources | length) > 0 and _app_op_lookup.resources[0].status.readyReplicas is defined
+            - _app_op_lookup.resources[0].status.readyReplicas ==  _app_op_lookup.resources[0].status.replicas
+          register: _app_op_lookup
+
+        - name: "Check if operator is ready: {{ tm_op_name }}"
+          kubernetes.core.k8s_info:
+            api_version: apps/v1
+            kind: Deployment
+            name: "{{ tm_op_name }}"
+            namespace: "{{ mas_app_namespace }}"
+          retries: 10
+          delay: 60 # 10 * 60s = 10 minutes
+          until:
+            - (_app_tm_op_lookup.resources | length) > 0 and _app_tm_op_lookup.resources[0].status.readyReplicas is defined
+            - _app_tm_op_lookup.resources[0].status.readyReplicas ==  _app_tm_op_lookup.resources[0].status.replicas
+          register: _app_tm_op_lookup
