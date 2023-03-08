@@ -92,7 +92,7 @@
 
     - name: Set found_app_subscription fact
       ansible.builtin.set_fact:
-        found_app_subscription: "{{ _app_subscription_instance.resources | length == 1 | default(false, true) }}"
+        found_app_subscription: "{{ _app_subscription_instance.resources | default([], true) | length == 1 }}"
 
     - name: Existing Subscription Found
       ansible.builtin.debug:
@@ -116,7 +116,7 @@
 
     - name: Set found_app_cr fact
       ansible.builtin.set_fact:
-        found_app_cr: "{{ _app_installed_instance.resources | length == 1 | default(false, true) }}"
+        found_app_cr: "{{ _app_installed_instance.resources | default([], true) | length == 1 }}"
 
     - name: "CR Not Found: {{ supported_apps[mas_app_id]['crd_kind'] }}"
       ansible.builtin.debug:
@@ -173,7 +173,7 @@
       kubernetes.core.k8s_info:
         api_version: v1
         kind: PackageManifest
-        name: "{{ supported_apps[mas_app_id]['csv_name']}}"
+        name: "{{ supported_apps[mas_app_id]['csv_name'] }}"
         namespace: openshift-marketplace
       register: _app_package_manifest_lookup
       when:
@@ -183,7 +183,7 @@
 
     - name: Get channels list from PackageManifest
       ansible.builtin.set_fact:
-        app_channels_in_pm: "{{ _app_package_manifest_lookup.resources[0].status.channels | default([], true)}}"
+        app_channels_in_pm: "{{ _app_package_manifest_lookup.resources[0].status.channels | default([], true) }}"
       when:
         - found_app_namespace
         - not found_app_subscription
@@ -199,7 +199,7 @@
 
     - name: Set app channel object from PackageManifest
       ansible.builtin.set_fact:
-        app_channel_in_pm: "{{ app_channels_in_pm[app_channel_idx_in_pm] | default([], true) }}"
+        app_channel_in_pm: "{{ app_channels_in_pm[app_channel_idx_in_pm | int] | default([], true) }}"
       when:
         - found_app_namespace
         - not found_app_subscription
@@ -207,7 +207,7 @@
 
     - name: Set found_app_csv fact
       ansible.builtin.set_fact:
-        found_app_csv: "{{ app_channel_in_pm['currentCSV'] == app_starting_csv | default(false, true) }}"
+        found_app_csv: "{{ app_channel_in_pm is defined and app_channel_in_pm['currentCSV'] == app_starting_csv | default(false, true) }}"
 
 # 3. Run the OLM Conversion tasks
 # -----------------------------------------------------------------------------
@@ -271,8 +271,8 @@
               metadata:
                 namespace: "{{ mas_app_namespace }}"
                 name: ibm-truststore-mgr
-          wait: true
-          wait_timeout: 300
+            wait: true
+            wait_timeout: 300
           when:
             - _app_tm_subscription is defined
             - _app_tm_subscription.resources is defined
@@ -289,8 +289,8 @@
               metadata:
                 namespace: "{{ mas_app_namespace }}"
                 name: "{{ _app_tm_current_csv }}"
-          wait: true
-          wait_timeout: 300
+            wait: true
+            wait_timeout: 300
           when:
             - _app_tm_subscription is defined
             - _app_tm_subscription.resources is defined
@@ -309,8 +309,8 @@
               metadata:
                 namespace: "{{ mas_app_namespace }}"
                 name: "{{ tm_op_name }}"
-          wait: true
-          wait_timeout: 300
+            wait: true
+            wait_timeout: 300
           when:
             - _app_tm_subscription is defined
             - _app_tm_subscription.resources is defined
@@ -338,9 +338,9 @@
               metadata:
                 namespace: "{{ mas_app_namespace }}"
                 name: "{{ item.metadata.name }}"
+            wait: true
+            wait_timeout: 300
           loop: "{{ _app_op_group_lookup.resources }}"
-          wait: true
-          wait_timeout: 300
           when:
             - _app_op_group_lookup is defined
             - _app_op_group_lookup.resources is defined
@@ -418,8 +418,8 @@
             kind: Deployment
             name: "{{ supported_apps[mas_app_id]['op_name'] }}"
             namespace: "{{ mas_app_namespace }}"
-          retries: 10
-          delay: 60 # 10 * 60s = 10 minutes
+          retries: 20
+          delay: 30 # 20 * 30s = 10 minutes
           until:
             - (_app_op_lookup.resources | length) > 0 and _app_op_lookup.resources[0].status.readyReplicas is defined
             - _app_op_lookup.resources[0].status.readyReplicas ==  _app_op_lookup.resources[0].status.replicas
@@ -431,8 +431,8 @@
             kind: Deployment
             name: "{{ tm_op_name }}"
             namespace: "{{ mas_app_namespace }}"
-          retries: 10
-          delay: 60 # 10 * 60s = 10 minutes
+          retries: 20
+          delay: 30 # 20 * 30s = 10 minutes
           until:
             - (_app_tm_op_lookup.resources | length) > 0 and _app_tm_op_lookup.resources[0].status.readyReplicas is defined
             - _app_tm_op_lookup.resources[0].status.readyReplicas ==  _app_tm_op_lookup.resources[0].status.replicas
