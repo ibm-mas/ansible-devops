@@ -26,8 +26,8 @@
     - name: Assert that mas_app_id is supported
       ansible.builtin.assert:
         that:
-          - mas_app_id in app_name
-        fail_msg: "mas_app_id: {{ mas_app_id }} is not supported. Supported options are {{ app_name | flatten }}"
+          - mas_app_id in supported_apps
+        fail_msg: "mas_app_id: {{ mas_app_id }} is not supported. Supported options are {{ supported_apps | flatten }}"
 
     # 1.3. Check for required vars to generate ibm-entitlement secret
     # -------------------------------------------------------------------------
@@ -46,21 +46,15 @@
             (artifactory_username_set and artifactory_apikey_set)
         fail_msg: "Username/Password not set to generate ibm-entitlement secret"
 
-    # 1.4. Set mas_app_operator_name
-    # -------------------------------------------------------------------------
-    - name: Set mas_app_operator_name fact
-      ansible.builtin.set_fact:
-        mas_app_operator_name: "{{ (mas_app_id == 'core') | ternary(mas_core_name, mas_app_prefix) }}"
-
-    # 1.5. Provide initial debug
+    # 1.4. Provide initial debug
     # -------------------------------------------------------------------------
     - name: Debug Information
       ansible.builtin.debug:
         msg:
-          - "MAS Instance ID ........ {{ mas_instance_id }}"
-          - "MAS App ID ............. {{ mas_app_id }}"
-          - "MAS App Namespace ...... {{ mas_app_namespace }}"
-          - "MAS Upgrade Strategy ... {{ mas_upgrade_strategy }}"
+          - "MAS Instance ID ........ '{{ mas_instance_id }}'"
+          - "MAS App ID ............. '{{ mas_app_id }}'"
+          - "MAS App Namespace ...... '{{ mas_app_namespace }}'"
+          - "MAS Upgrade Strategy ... '{{ mas_upgrade_strategy }}'"
 
 # 2. Check App and Determine OLM Conversion
 # -----------------------------------------------------------------------------
@@ -68,10 +62,10 @@
   block:
     # 2.1. Lookup for deployed Instance
     # -------------------------------------------------------------------------
-    - name: "Lookup Current CR: {{ crs[mas_app_id] }}"
+    - name: "Lookup Current CR: {{ supported_apps[mas_app_id]['crd_kind'] }}"
       kubernetes.core.k8s_info:
         api_version: v1
-        kind: "{{ crs[mas_app_id] }}"
+        kind: "{{ supported_apps[mas_app_id]['crd_kind'] }}"
         name: "{{ mas_instance_id }}"
         namespace: "{{ mas_app_namespace }}"
       register: _app_installed_instance
@@ -80,9 +74,9 @@
       ansible.builtin.set_fact:
         found_app_cr: "{{ _app_installed_instance.resources | length == 1 | default(false, true) }}"
 
-    - name: "CR Not Found: {{ crs[mas_app_id] }}"
+    - name: "CR Not Found: {{ supported_apps[mas_app_id]['crd_kind'] }}"
       ansible.builtin.debug:
-        msg: "Could not find {{ crs[mas_app_id] }} CR with name {{ mas_instance_id }} - Skipping conversion"
+        msg: "Could not find {{ supported_apps[mas_app_id]['crd_kind'] }} CR with name {{ mas_instance_id }} - Skipping conversion"
       when:
         - not found_app_cr
 
@@ -98,10 +92,10 @@
             app_channel: ""
             app_starting_csv: ""
 
-        - name: "Set Deployed Version: {{ app_name[mas_app_id] }}"
+        - name: "Set Channel and startingCSV: {{ supported_apps[mas_app_id]['name'] }}"
           ansible.builtin.set_fact:
             app_channel: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1', '\\2') | join('.') + '.x' }}"
-            app_starting_csv: "{{ mas_app_operator_name }}.v{{ _app_installed_instance.resources[0].status.versions.reconciled }}"
+            app_starting_csv: "{{ supported_apps[mas_app_id]['csv_name'] }}.v{{ _app_installed_instance.resources[0].status.versions.reconciled }}"
           when:
             - _app_installed_instance is defined
             - _app_installed_instance.resources is defined
@@ -113,12 +107,12 @@
         - name: Debug Channel and startingCSV
           ansible.builtin.debug:
             msg:
-              - "app_channel ............... {{ app_channel }}"
-              - "app_starting_csv .......... {{ app_starting_csv }}"
+              - "app_channel ............... '{{ app_channel }}'"
+              - "app_starting_csv .......... '{{ app_starting_csv }}'"
 
         - name: "'status.versions.reconciled' Not Found"
           ansible.builtin.debug:
-            msg: "Could not find status.versions.reconciled in {{ crs[mas_app_id] }} CR - Skipping conversion"
+            msg: "Could not find status.versions.reconciled in {{ supported_apps[mas_app_id]['crd_kind'] }} CR - Skipping conversion"
           when:
             - not app_channel
             - not app_starting_csv
@@ -130,13 +124,11 @@
             - app_channel != ''
             - app_starting_csv != ''
           block:
-            # 2.2.2.1. Lookup existing Subscription
-            # -------------------------------------------------------------------------
             - name: "Lookup Existing Subscription"
               kubernetes.core.k8s_info:
                 api_version: v1alpha1
                 kind: Subscription
-                name: "{{ mas_app_operator_name }}-operator"
+                name: "{{ supported_apps[mas_app_id]['sub_name']) }}"
                 namespace: "{{ mas_app_namespace }}"
               register: _app_subscription_instance
 
@@ -146,7 +138,7 @@
 
             - name: Existing Subscription Found
               ansible.builtin.debug:
-                msg: "Found existing Subscription for {{ app_name[mas_app_id] }}  - Skipping conversion"
+                msg: "Found existing Subscription for {{ supported_apps[mas_app_id]['name'] }}  - Skipping conversion"
               when:
                 - found_app_subscription
 
@@ -160,7 +152,7 @@
   block:
     # 3.1. Cleanup App Operator Deployment
     # -------------------------------------------------------------------------
-    - name: "Delete Operator Deployment: {{ app_name[mas_app_id] }}"
+    - name: "Delete Operator Deployment: {{ supported_apps[mas_app_id]['name'] }}"
       kubernetes.core.k8s:
         state: absent
         definition:
@@ -168,7 +160,7 @@
           kind: Deployment
           metadata:
             namespace: "{{ mas_app_namespace }}"
-            name: "{{ mas_app_operator_name }}-operator"
+            name: "{{ supported_apps[mas_app_id]['op_name'] }}"
         wait: true
         wait_timeout: 300
 
@@ -279,7 +271,7 @@
 
     # 3.4. Install MAS Operator Using OLM
     # -------------------------------------------------------------------------
-    - name: "Install Operator: {{ app_name[mas_app_id] }}"
+    - name: "Install Operator: {{ supported_apps[mas_app_id]['name'] }}"
       ansible.builtin.include_role:
         name: install_operator
       vars:
@@ -292,7 +284,7 @@
 
     # 3.5. Approve InstallPlan(s) when in Manual subscription
     # -------------------------------------------------------------------------
-    - name: "Lookup and Approve Subscription: {{ app_name[mas_app_id] }}"
+    - name: "Lookup and Approve Subscription: {{ supported_apps[mas_app_id]['name'] }}"
       when: mas_upgrade_strategy == 'Manual'
       block:
         - name: Lookup Operator install plan
@@ -301,7 +293,7 @@
             kind: InstallPlan
             namespace: "{{ mas_app_namespace }}"
             label_selectors:
-              - "operators.coreos.com/{{ mas_app_operator_name }}.{{ mas_app_namespace }}"
+              - "operators.coreos.com/{{ supported_apps[mas_app_id]['csv_name'] }}.{{ mas_app_namespace }}"
           register: _mas_install_plan
           retries: 20
           delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
