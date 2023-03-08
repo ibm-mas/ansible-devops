@@ -46,7 +46,14 @@
             (artifactory_username_set and artifactory_apikey_set)
         fail_msg: "Username/Password not set to generate ibm-entitlement secret"
 
-    # 1.4. Provide initial debug
+    # 1.4. Reset Channel and startingCSV Facts
+    # -------------------------------------------------------------------------
+    - name: Reset Channel and startingCSV Facts
+      ansible.builtin.set_fact:
+        app_channel: ""
+        app_starting_csv: ""
+
+    # 1.5. Provide initial debug
     # -------------------------------------------------------------------------
     - name: Debug Information
       ansible.builtin.debug:
@@ -56,11 +63,53 @@
           - "MAS App Namespace ...... '{{ mas_app_namespace }}'"
           - "MAS Upgrade Strategy ... '{{ mas_upgrade_strategy }}'"
 
-# 2. Check App and Determine OLM Conversion
+# 2. Check App and Determine if OLM conversion is possible
 # -----------------------------------------------------------------------------
-- name: Check if OLM Conversion is Needed
+- name: Check if Conversion is Possible
   block:
-    # 2.1. Lookup for deployed Instance
+    # 2.1. Lookup namespace
+    # -------------------------------------------------------------------------
+    - name: "Lookup Namespace: {{ mas_app_namespace }}"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: "{{ mas_app_namespace }}"
+      register: _app_namespace_lookup
+
+    - name: Set found_app_namespace fact
+      ansible.builtin.set_fact:
+        found_app_namespace: "{{ _app_namespace_lookup.resources | length == 1 | default(false, true) }}"
+
+    - name: "Namespace Not Found: {{ mas_app_namespace }}"
+      ansible.builtin.debug:
+        msg: "Could not find {{ mas_app_namespace }} in the cluster - Skipping conversion"
+      when:
+        - not found_app_namespace
+
+    # 2.2. Check if a Subscription already exists
+    # -------------------------------------------------------------------------
+    - name: "Lookup Existing Subscription"
+      kubernetes.core.k8s_info:
+        api_version: v1alpha1
+        kind: Subscription
+        name: "{{ supported_apps[mas_app_id]['sub_name']) }}"
+        namespace: "{{ mas_app_namespace }}"
+      register: _app_subscription_instance
+      when: found_app_namespace
+
+    - name: Set found_app_subscription fact
+      ansible.builtin.set_fact:
+        found_app_subscription: "{{ _app_subscription_instance.resources | length == 1 | default(false, true) }}"
+      when: found_app_namespace
+
+    - name: Existing Subscription Found
+      ansible.builtin.debug:
+        msg: "Found existing Subscription for {{ supported_apps[mas_app_id]['name'] }}  - Skipping conversion"
+      when:
+        - found_app_namespace
+        - found_app_subscription
+
+    # 2.3. Lookup for CR Instance
     # -------------------------------------------------------------------------
     - name: "Lookup Current CR: {{ supported_apps[mas_app_id]['crd_kind'] }}"
       kubernetes.core.k8s_info:
@@ -69,86 +118,68 @@
         name: "{{ mas_instance_id }}"
         namespace: "{{ mas_app_namespace }}"
       register: _app_installed_instance
+      when:
+        - found_app_namespace
+        - not found_app_subscription
 
     - name: Set found_app_cr fact
       ansible.builtin.set_fact:
         found_app_cr: "{{ _app_installed_instance.resources | length == 1 | default(false, true) }}"
+      when:
+        - found_app_namespace
+        - not found_app_subscription
 
     - name: "CR Not Found: {{ supported_apps[mas_app_id]['crd_kind'] }}"
       ansible.builtin.debug:
         msg: "Could not find {{ supported_apps[mas_app_id]['crd_kind'] }} CR with name {{ mas_instance_id }} - Skipping conversion"
       when:
+        - found_app_namespace
+        - not found_app_subscription
         - not found_app_cr
 
-    # 2.2. Perform further checks - Required vars in CR and Subscription
+    # 2.4. Lookup 'status.versions.reconciled' for Channel and startingCSV
     # -------------------------------------------------------------------------
-    - name: CR Found - Perform further Checks
-      when: found_app_cr
-      block:
-        # 2.2.1. Lookup 'status.versions.reconciled' for Channel and startingCSV
-        # -------------------------------------------------------------------------
-        - name: Reset Channel and startingCSV Facts
-          ansible.builtin.set_fact:
-            app_channel: ""
-            app_starting_csv: ""
+    - name: "Set Channel and startingCSV: {{ supported_apps[mas_app_id]['name'] }}"
+      ansible.builtin.set_fact:
+        app_channel: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1', '\\2') | join('.') + '.x' }}"
+        app_starting_csv: "{{ supported_apps[mas_app_id]['csv_name'] }}.v{{ _app_installed_instance.resources[0].status.versions.reconciled }}"
+      when:
+        - found_app_namespace
+        - not found_app_subscription
+        - found_app_cr
+        - _app_installed_instance.resources[0].status is defined
+        - _app_installed_instance.resources[0].status.versions is defined
+        - _app_installed_instance.resources[0].status.versions.reconciled is defined
 
-        - name: "Set Channel and startingCSV: {{ supported_apps[mas_app_id]['name'] }}"
-          ansible.builtin.set_fact:
-            app_channel: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)', '\\1', '\\2') | join('.') + '.x' }}"
-            app_starting_csv: "{{ supported_apps[mas_app_id]['csv_name'] }}.v{{ _app_installed_instance.resources[0].status.versions.reconciled }}"
-          when:
-            - _app_installed_instance is defined
-            - _app_installed_instance.resources is defined
-            - _app_installed_instance.resources | length == 1
-            - _app_installed_instance.resources[0].status is defined
-            - _app_installed_instance.resources[0].status.versions is defined
-            - _app_installed_instance.resources[0].status.versions.reconciled is defined
+    - name: Debug Channel and startingCSV
+      ansible.builtin.debug:
+        msg:
+          - "app_channel ............... '{{ app_channel }}'"
+          - "app_starting_csv .......... '{{ app_starting_csv }}'"
+      when:
+        - found_app_namespace
+        - not found_app_subscription
+        - found_app_cr
 
-        - name: Debug Channel and startingCSV
-          ansible.builtin.debug:
-            msg:
-              - "app_channel ............... '{{ app_channel }}'"
-              - "app_starting_csv .......... '{{ app_starting_csv }}'"
-
-        - name: "'status.versions.reconciled' Not Found"
-          ansible.builtin.debug:
-            msg: "Could not find status.versions.reconciled in {{ supported_apps[mas_app_id]['crd_kind'] }} CR - Skipping conversion"
-          when:
-            - not app_channel
-            - not app_starting_csv
-
-        # 2.2.2. Check if a Subscription already exists
-        # -------------------------------------------------------------------------
-        - name: Check for Existing Subscription
-          when:
-            - app_channel != ''
-            - app_starting_csv != ''
-          block:
-            - name: "Lookup Existing Subscription"
-              kubernetes.core.k8s_info:
-                api_version: v1alpha1
-                kind: Subscription
-                name: "{{ supported_apps[mas_app_id]['sub_name']) }}"
-                namespace: "{{ mas_app_namespace }}"
-              register: _app_subscription_instance
-
-            - name: Set found_app_subscription fact
-              ansible.builtin.set_fact:
-                found_app_subscription: "{{ _app_subscription_instance.resources | length == 1 | default(false, true) }}"
-
-            - name: Existing Subscription Found
-              ansible.builtin.debug:
-                msg: "Found existing Subscription for {{ supported_apps[mas_app_id]['name'] }}  - Skipping conversion"
-              when:
-                - found_app_subscription
+    - name: "'status.versions.reconciled' Not Found"
+      ansible.builtin.debug:
+        msg: "Could not find status.versions.reconciled in {{ supported_apps[mas_app_id]['crd_kind'] }} CR - Skipping conversion"
+      when:
+        - found_app_namespace
+        - not found_app_subscription
+        - found_app_cr
+        - not app_channel
+        - not app_starting_csv
 
 # 3. Run the OLM Conversion tasks
 # -----------------------------------------------------------------------------
 - name: Run OLM Conversion Block
   when:
-    - found_app_cr
-    - found_app_subscription is defined
-    - not found_app_subscription and (app_channel != '' and app_starting_csv != '')
+    - found_app_namespace
+    - found_app_subscription is defined and not found_app_subscription
+    - found_app_cr is defined and found_app_cr
+    - app_channel != ''
+    - app_starting_csv != ''
   block:
     # 3.1. Cleanup App Operator Deployment
     # -------------------------------------------------------------------------
