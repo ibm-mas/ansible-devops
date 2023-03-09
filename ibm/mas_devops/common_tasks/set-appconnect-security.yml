@@ -1,0 +1,82 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if use_common_services is not provided"
+  assert:
+    that:
+      - use_common_services is defined and use_common_services != ""
+      - appconnect_namespace is defined and appconnect_namespace != ""
+    fail_msg: "use_common_services property is required"
+
+# 2. Lookup AppConnect Dashboard Settings
+# -----------------------------------------------------------------------------
+- name: "Obtain AppConnect dashboard settings"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Dashboard
+    namespace: "{{ appconnect_namespace }}"
+  register: _dashboard_lookup
+  until:
+    - _dashboard_lookup.resources is defined
+    - _dashboard_lookup.resources | length > 0
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Set AppConnect Dashboard name and Security"
+  set_fact:
+    _dashboard_name: {{ _dashboard_lookup.resources[0].metadata.name }}
+    _dashboard_use_common_services: {{ _dashboard_lookup.resources[0].spec.useCommonServices }}
+
+# 3. Update AppConnect Security
+# -----------------------------------------------------------------------------
+- name: Update AppConnect Security for HP Utilities
+  when: _dashboard_use_common_services != use_common_services
+  kubernetes.core.k8s_json_patch:
+    kind: Dashboard
+    namespace: "{{ appconnect_namespace }}"
+    name: "{{ _dashboard_name }}"
+    patch:
+      - op: replace
+        path: /spec/useCommonServices
+        value: "{{ use_common_services }}"
+
+# 4. Wait for AppConnect Dashboard to start updating
+# -----------------------------------------------------------------------------
+- name: Wait for AppConnect Dashboard to start updating
+  when: _dashboard_use_common_services != use_common_services
+  kubernetes.core.k8s_info:
+    api_version: machineconfiguration.openshift.io/v1
+    kind: Dashboard
+    namespace: "{{ appconnect_namespace }}"
+    name: "{{ _dashboard_name }}"
+    wait: yes
+    wait_sleep: 5
+    wait_timeout: 30 # give 30 seconds for the dashboard to start updating, if necessary
+    wait_condition:
+      type: Updating
+      status: 'True'
+  register: _acd
+  ignore_errors: true
+
+# 5. Wait for AppConnect Dashboard to finish updating
+# -----------------------------------------------------------------------------
+- name: Wait for AppConnect Dashboard to finish updating
+  when: _dashboard_use_common_services != use_common_services
+  kubernetes.core.k8s_info:
+    api_version: machineconfiguration.openshift.io/v1
+    kind: Dashboard
+    namespace: "{{ appconnect_namespace }}"
+    name: "{{ _dashboard_name }}"
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 60 # 1 min wait
+    wait_condition:
+      type: Updated
+      status: 'True'
+  register: _acd
+  retries: 20 # Approx 20 minutes
+  delay: 1 # minutes
+  until:
+    - _acd.resources is defined
+    - _acd.resources | length > 0
+

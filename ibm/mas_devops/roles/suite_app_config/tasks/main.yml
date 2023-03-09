@@ -66,6 +66,15 @@
       - "Templated workspace CR ................. {{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
+# Disable AppConnect Security
+- name: Disable AppConnect security for hputilities
+  when: 
+    - mas_app_id is in ['hputilities']
+  vars:
+    use_common_services: false
+  include_tasks: "../../common_tasks/set-appconnect-security.yml"
+
+
 # 6. Workspace configuration
 # -----------------------------------------------------------------------------
 - name: Configure application in workspace
@@ -119,3 +128,11 @@
     - app_ws_cr_result.resources is defined
     - app_ws_cr_result.resources | length > 0
     - app_ws_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+
+
+# Enable AppConnect Security
+- name: Enable AppConnect security for hputilities
+  when: mas_app_id is in ['hputilities']
+  vars:
+    use_common_services: true
+  include_tasks: "../../common_tasks/set-appconnect-security.yml"
