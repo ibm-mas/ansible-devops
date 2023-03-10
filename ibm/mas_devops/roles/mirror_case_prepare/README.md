@@ -45,6 +45,30 @@ A list of child CASE bundles to exclude from the mirroring process.
 - Default: None
 
 
+Role Variables - IBM Pak
+-------------------------------------------------------------------------------
+### ibmpak_skip_verify
+Skip the certification verification when downloading CASE bundles with `oc ibm-pak get`.
+
+- Optional
+- Environment Variable: `IBMPAK_SKIP_VERIFY`
+- Default: `False`
+
+### ibmpak_skip_dependencies
+Skip downloading CASE bundle dependencies with `oc ibm-pak get`.
+
+- Optional
+- Environment Variable: `IBMPAK_SKIP_DEPENDENCIES`
+- Default: `False`
+
+### ibmpak_insecure
+Skip TLS/SSL verification when downloading CASE bundles with `oc ibm-pak get`.
+
+- Optional
+- Environment Variable: `IBMPAK_INSECURE`
+- Default: `False`
+
+
 Example Playbook
 -------------------------------------------------------------------------------
 
