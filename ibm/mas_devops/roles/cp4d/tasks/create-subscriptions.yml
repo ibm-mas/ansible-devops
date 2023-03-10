@@ -42,6 +42,7 @@
   set_fact:
     cpd_channel: "{{ cpd_components_meta.cpd_platform.sub_channel }}"
     zen_cr_version: "{{ cpd_components_meta.zen.cr_version }}"
+    cpd_csv_version: "{{ cpd_components_meta.cpd_platform.csv_version }}"
 
 - debug:
     msg:
@@ -49,6 +50,7 @@
       - "CPD instance namespace ................. {{ cpd_instance_namespace }}"
       - "CPD release version .................... {{ cpd_product_version }}"
       - "CPD subscription channel ............... {{ cpd_channel }}"
+      - "CPD csv version ........................ {{ cpd_csv_version }}"
       - "Zen/control plane version .............. {{ zen_cr_version }}"
 
 # 2.2 Install the IBM Cloud Pak for Data platform operator
@@ -104,8 +106,32 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
+# This is just a validation step to prevent the "wait tasks" to run before it gives enough time for the new cpd service operator version
+# to start reconciling in case of an upgrade, otherwise it might not have given enough time for it to process the new version to be upgrade
+# while its status' cr might still show 'completed'.
+# With this, we ensure the new cpd service csv version operator is up and running with the new cr version before we check the cpd cr status
+- name: "Wait CP4D subscription installedCSV version at {{ expected_installed_csv }}"
+  vars:
+    expected_installed_csv: "cpd-platform-operator.v{{ cpd_csv_version }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    name: "cpd-operator"
+  register: cpd_sub_info
+  retries: 20
+  delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+  until:
+    - cpd_sub_info.resources is defined
+    - cpd_sub_info.resources | length > 0
+    - cpd_sub_info.resources[0].status is defined
+    - cpd_sub_info.resources[0].status.installedCSV is defined
+    - cpd_sub_info.resources[0].status.installedCSV == expected_installed_csv
+
 # 2.3 Enabling services to use namespace scoping with third-party operators
 - name: "create-subscriptions : Create NamespaceScope for CP4D Operators"
   kubernetes.core.k8s:
     apply: yes
     template: 'templates/namespaceScope.yml.j2'
+
+
