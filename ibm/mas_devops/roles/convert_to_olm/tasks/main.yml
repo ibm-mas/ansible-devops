@@ -134,18 +134,23 @@
             app_channel: ""
             app_current_version: ""
 
-        - name: Assert that 'status.versions.reconciled' exists
+        # Predict uses 'version' without 's' up to 8.7.x
+        - name: "Set app_versions_key fact"
+          ansible.builtin.set_fact:
+            app_versions_key: "{{ (mas_app_id == 'predict') | ternary('version', 'versions') | default('versions', true) }}"
+
+        - name: "Assert that 'status.{{ app_versions_key }}.reconciled' exists"
           ansible.builtin.assert:
             that:
               - _app_installed_instance.resources[0].status is defined
-              - _app_installed_instance.resources[0].status.versions is defined
-              - _app_installed_instance.resources[0].status.versions.reconciled is defined
+              - _app_installed_instance.resources[0]['status'][app_versions_key] is defined
+              - _app_installed_instance.resources[0]['status'][app_versions_key].reconciled is defined
             fail_msg: "Could not find 'status.versions.reconciled' in {{ supported_apps[mas_app_id]['crd_kind'] }}"
 
         - name: "Set app_channel and app_current_version: {{ supported_apps[mas_app_id]['name'] }}"
           ansible.builtin.set_fact:
-            app_current_version: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('([0-9]+)\\.([0-9]+)\\.([0-9]+)') }}"
-            app_channel: "{{ _app_installed_instance.resources[0].status.versions.reconciled | regex_search('^([0-9]+)\\.([0-9]+)') + '.x' }}"
+            app_current_version: "{{ _app_installed_instance.resources[0]['status'][app_versions_key].reconciled | regex_search('([0-9]+)\\.([0-9]+)\\.([0-9]+)') }}"
+            app_channel: "{{ _app_installed_instance.resources[0]['status'][app_versions_key].reconciled | regex_search('^([0-9]+)\\.([0-9]+)') + '.x' }}"
 
         - name: Debug app_channel and app_current_version
           ansible.builtin.debug:
@@ -232,7 +237,7 @@
     # 3.2. Cleanup App TM Operator
     # -------------------------------------------------------------------------
     - name: Delete Truststore Manager
-      when: mas_app_id not in ['visualinspection', 'hputilities']
+      when: mas_app_id not in ['assist', 'visualinspection', 'hputilities']
       block:
         # 3.2.1. Check for existing TM Subscription
         # ---------------------------------------------------------------------
@@ -431,4 +436,4 @@
         - (_app_tm_op_lookup.resources | length) > 0 and _app_tm_op_lookup.resources[0].status.readyReplicas is defined
         - _app_tm_op_lookup.resources[0].status.readyReplicas ==  _app_tm_op_lookup.resources[0].status.replicas
       register: _app_tm_op_lookup
-      when: mas_app_id not in ['visualinspection', 'hputilities']
+      when: mas_app_id not in ['assist', 'visualinspection', 'hputilities']
