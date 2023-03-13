@@ -296,7 +296,7 @@ Resource Name in IBMCloud for MongoDB
 Required only if `is_restore` is `True` CRN ID for backup resource
 
 - Environment Variable: `IBM_MONGO_BACKUP_ID`
-- Default Value: `None`
+- Default Value: ``
 
 ### is_restore
 Whether want to restore from an existing backup resource or not.

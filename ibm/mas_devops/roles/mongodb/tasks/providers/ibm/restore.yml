@@ -22,13 +22,12 @@
 
 # 1. Provision new Mongodb instance with public endpoint and Restore database
 # --------------------------------------------------------------------------------
-- name: Restore backups and provision new Mongodb instance
-  import_role:
-    name: mongodb
-  vars:
-    is_restore: "true"
-    ibm_mongo_service_endpoints: "public"
+- name: Set facts for restoring MongoDB
+  set_fact:
     ibm_mongo_name: "{{ restored_mongodb_service_name }}"
-    mongodb_provider: "ibm"
-    db_action: "provision"
     ibm_mongo_admin_credentials_secret_name: "restored-{{ ibm_mongo_name }}-admin-credentials"
+    is_restore: true
+
+- name: Restore backups and provision new Mongodb instance
+  include_tasks: "providers/{{ mongodb_provider }}/provision.yml"
+
