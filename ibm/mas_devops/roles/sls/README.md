@@ -27,11 +27,32 @@ Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/conta
 - Environment Variable: `IBM_ENTITLEMENT_KEY`
 - Default: None
 
+### sls_entitlement_username
+Username for entitled registry. This username will be used to create the image pull secret.
+
+- Optional
+- Environment Variable: `SLS_ENTITLEMENT_USERNAME`
+- Default: `cp`
+
 ### sls_entitlement_key
 An IBM entitlement key specific for SLS installation, primarily used to override `ibm_entitlement_key` in development.
 
 - Optional
 - Environment Variable: `SLS_ENTITLEMENT_KEY`
+- Default: None
+
+### artifactory_username
+Provide your artifactory username, primarily used to update the image pull secret in development.
+
+- Optional
+- Environment Variable: `ARTIFACTORY_USERNAME`
+- Default: None
+
+### artifactory_apikey
+Provide your artifactory api key, primarily used to update the image pull secret in development.
+
+- Optional
+- Environment Variable: `ARTIFACTORY_APIKEY`
 - Default: None
 
 ### sls_catalog_source
@@ -75,14 +96,6 @@ Defines the instance ID to be used for SLS installation.
 - Optional
 - Environment Variable: `SLS_INSTANCE_NAME`
 - Default: `sls`
-
-### sls_entitlement_username
-Username for entitled registry. This username will be used to create the image pull secret.
-
-- Optional
-- Environment Variable: `SLS_ENTITLEMENT_USERNAME`
-- Default: `cp`
-
 
 Role Variables - Configuration
 -------------------------------------------------------------------------------
