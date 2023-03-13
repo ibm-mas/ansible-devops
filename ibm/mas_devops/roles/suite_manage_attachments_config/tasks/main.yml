@@ -24,6 +24,13 @@
       - mas_manage_attachments_provider is defined and mas_manage_attachments_provider in ['filestorage', 'ibm', 'aws']
     fail_msg: "mas_manage_attachments_provider property is required and must be set to one of the supported storage providers: {{ mas_manage_attachments_provider_supported }}"
 
+- name: "Fail if mas_app_id is not provided"
+  assert:
+    that: 
+      - mas_app_id is defined and mas_app_id != ""
+      - mas_app_id is in ['manage', 'health']
+    fail_msg: "mas_app_id property is required and must be set to either 'manage' or 'health'"
+
 # Configure COS bucket for Manage attachments
 # -----------------------------------------------------------------------------
 - when: mas_manage_attachments_provider in ['ibm', 'aws']
@@ -57,27 +64,27 @@
 
 # 6. Update Manage database with COS information
 # ---------------------------------------------------------------------------------------------------------------------
-- name: Lookup Manage Route
+- name: Lookup {{ mas_app_id | capitalize }} Route
   kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
     kind: Route
-    name: "{{ mas_instance_id}}-manage-{{ mas_workspace_id }}"
-    namespace: "mas-{{ mas_instance_id }}-manage"
+    name: "{{ mas_instance_id}}-{{ mas_app_id }}-{{ mas_workspace_id }}"
+    namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
   register: manage_route
 
-- name: Assert Manage Route is valid
+- name: Assert {{ mas_app_id | capitalize }} Route is valid
   assert:
     that: "{{ manage_route.resources | length > 0 }}"
-    fail_msg: "Failed! Manage Route {{ mas_instance_id}}-manage-{{ mas_workspace_id }} not found..."
+    fail_msg: "Failed! Manage Route {{ mas_instance_id}}-{{ mas_app_id }}-{{ mas_workspace_id }} not found..."
 
-- name: Set Manage Route variable
+- name: Set {{ mas_app_id | capitalize }} Route variable
   set_fact:
     manage_url: "{{ manage_route.resources[0].spec.host }}"
 
 - debug:
     msg: "{{ manage_url }}"
 
-- name: "Lookup Manage app DB2 instance {{ db2_instance_name }} in {{ db2_namespace }} namespace"
+- name: "Lookup {{ mas_app_id | capitalize }} app DB2 instance {{ db2_instance_name }} in {{ db2_namespace }} namespace"
   kubernetes.core.k8s_info:
     kind: Pod
     namespace: "{{ db2_namespace }}"
@@ -94,20 +101,20 @@
     that: "{{ db2_pod.resources | length > 0 }}"
     fail_msg: "Failed! DB2 instance name {{ db2_instance_name }} not found in {{ db2_namespace }} namespace..."
 
-- name: Set Manage app DB2 pod name variable
+- name: Set {{ mas_app_id | capitalize }} app DB2 pod name variable
   set_fact:
     db2_pod_name: "{{ db2_pod.resources[0].metadata.name if (db2_pod.resources is defined) else 'Undefined' }}"
 
-- name: Create SQL script to update Manage DB2 with storage provider information
+- name: Create SQL script to update {{ mas_app_id | capitalize }} DB2 with storage provider information
   ansible.builtin.template:
     src: '{{ mas_manage_attachments_provider_template_file_config[mas_manage_attachments_provider] }}'
     dest: '/tmp/{{ mas_manage_attachments_provider }}_attachment_config.sh'
     mode: '777'
 
-- name: Copy the SQL script into the Manage app DB2 pod {{ db2_pod_name }}
+- name: Copy the SQL script into the {{ mas_app_id | capitalize }} app DB2 pod {{ db2_pod_name }}
   shell: "oc cp /tmp/{{ mas_manage_attachments_provider }}_attachment_config.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/{{ mas_manage_attachments_provider }}_attachment_config.sh"
 
-- name: Run SQL script on Manage app DB2 pod {{ db2_pod_name }} as db2inst username... (this can take several minutes)
+- name: Run SQL script on {{ mas_app_id | capitalize }} app DB2 pod {{ db2_pod_name }} as db2inst username... (this can take several minutes)
   shell: oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc '/tmp/{{ mas_manage_attachments_provider }}_attachment_config.sh | tee /tmp/{{ mas_manage_attachments_provider }}_attachment_config.log' db2inst1
   register: setup_attachment_output
   failed_when: setup_attachment_output.rc != 0
@@ -117,15 +124,15 @@
 
 # 7. Restart Manage bundle pods to pick up the storage provider configuration
 # ---------------------------------------------------------------------------------------------------------------------
-- name: "Lookup Manage bundle pods"
+- name: "Lookup {{ mas_app_id | capitalize }} bundle pods"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Pod
     label_selectors: mas.ibm.com/appType=serverBundle
-    namespace: "mas-{{ mas_instance_id }}-manage"
+    namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
   register: manage_bundle_output
 
-- name: "List Manage bundle pods"
+- name: "List {{ mas_app_id | capitalize }} bundle pods"
   vars:
     list: []
   set_fact:
@@ -134,9 +141,9 @@
   no_log: true
 
 - debug:
-    msg: "Restarting the following Manage bundle pods: {{ list }}"
+    msg: "Restarting the following {{ mas_app_id | capitalize }} bundle pods: {{ list }}"
 
-- name: "Restart Manage bundle pods to apply the attachments configuration"
+- name: "Restart {{ mas_app_id | capitalize }} bundle pods to apply the attachments configuration"
   failed_when:
     - manage_bundle_output.resources | length == 0
   kubernetes.core.k8s:
@@ -154,5 +161,5 @@
   pause:
     seconds: 60
 
-- name: "Wait Manage bundle pods to be ready"
+- name: "Wait {{ mas_app_id | capitalize }} bundle pods to be ready"
   include_tasks: tasks/wait_bundle_pods.yml
