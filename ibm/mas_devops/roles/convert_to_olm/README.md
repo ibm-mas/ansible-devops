@@ -9,7 +9,7 @@ Role Variables
 **Required**. The name of the Maximo Application Suite Application. This will be used to lookup for application namespace and resources.
 
 - Environment Variable: `MAS_APP_ID`
-- One of [`assist`, `core`, `add`, `health`, `hputilities`, `iot`, `manage`, `monitor`, `optimizer`, `predict`, `visualinspection`]
+- One of [`assist`, `core`, `health`, `hputilities`, `iot`, `manage`, `monitor`, `optimizer`, `predict`, `visualinspection`]
 - Default: None
 
 ### mas_instance_id
