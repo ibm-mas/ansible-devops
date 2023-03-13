@@ -26,6 +26,13 @@
 
 # 3. Debug
 # -----------------------------------------------------------------------------
+
+- name: "{{ case_name }} : Configure ibm-pak options"
+  set_fact:
+    ibmpak_flag_insecure: "{{ ibmpak_insecure | ternary('--insecure', '') }}"
+    ibmpak_flag_skip_verify: "{{ ibmpak_skip_verify | ternary('--skip-verify', '') }}"
+    ibmpak_flag_skip_dependencies: "{{ ibmpak_skip_dependencies | ternary('--skip-dependencies', '') }}"
+
 - name: "{{ case_name }} : Airgap setup configuration"
   debug:
     msg:
@@ -33,12 +40,16 @@
       - "Case Version ........................... {{ case_version }}"
       - "Registry Public Host ................... {{ registry_public_host }}"
       - "Registry Public Port ................... {{ registry_public_port }}"
+      - "Insecure ............................... {{ ibmpak_insecure }}"
+      - "Skip Verify ............................ {{ ibmpak_skip_verify }}"
+      - "Skip Dependencies ...................... {{ ibmpak_skip_dependencies }}"
+      - "IBM Pak Flags .......................... {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}"
 
 
 # 4. Get the CASE bundle
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Get the CASE bundle"
-  shell: oc ibm-pak get {{ case_name }} --version {{ case_version }}
+  shell: oc ibm-pak get {{ case_name }} --version {{ case_version }} {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}
   register: ibmpak_get_result
 
 

@@ -1,0 +1,119 @@
+---
+- name: "Debug properties, Provider: {{ mongodb_provider }} Action: {{mongodb_action}}"
+  debug:
+    msg:
+      - "IBM Cloud Resource Group .................. {{ ibmcloud_resourcegroup }}"
+      - "Restore MongoDB from a backup resource .... {{ is_restore }}"
+      - "IBM Cloud MongoDB Name .................... {{ ibm_mongo_name }}"
+      - "IBM Cloud MongoDB Service ................. {{ ibm_mongo_service }}"
+      - "IBM Cloud MongoDB location ................ {{ ibm_mongo_location }}"
+      - "IBM Cloud MongoDB Version ................. {{ ibm_mongo_version }}"
+      - "IBM Cloud MongoDB Plan .................... {{ ibm_mongo_plan }}"
+
+# 1. set Mongo admin user and password
+# -----------------------------------------------------------------------------
+- name: Fail if backup ID not specified if need a DB restore
+  fail:
+    msg: "Set Mongo DB backup ID if you need restore from a backup."
+  when: is_restore|default(false)|bool and ibm_mongo_backup_id == ""
+
+# 2. Provision MongoDB in IBM Cloud
+# -----------------------------------------------------------------------------
+- name: Retrieve resource group guid
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
+- name: Debug Resource Group GUID
+  debug:
+    msg:
+      - "Resource Group GUID ... {{ rg_info.resource.id }}"
+
+- name: Set resource group guid variable
+  when:
+    - rg_info.resource.id is defined
+  set_fact:
+    resourceGID: "{{ rg_info.resource.id }}"
+
+- name: Fetch Mongo DB Instance information
+  ibm.cloudcollection.ibm_database_info:
+    name: "{{ibm_mongo_name}}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    resource_group_id: "{{ resourceGID }}"
+    service: "{{ ibm_mongo_service }}"
+    region: "{{ ibm_mongo_location }}"
+  register: existing_mongodb_info
+  failed_when: existing_mongodb_info.rc != 0 and ('No resource instance found' not in existing_mongodb_info.stderr )
+
+- name: Initialize var mongo_exists to false
+  set_fact:
+    mongo_exists: false
+
+- name: Set mongo_exists to true if mongodb already exists
+  when:
+    - existing_mongodb_info is defined and existing_mongodb_info != ''
+    - existing_mongodb_info.resource is defined and existing_mongodb_info != ''
+    - existing_mongodb_info.resource.id is defined and existing_mongodb_info.resource.id != ''
+  set_fact:
+    mongo_exists: true
+
+# should consider taking from user via env var
+- name: Generate Mongo admin password
+  no_log: true
+  set_fact:
+    mongo_admpass: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+  when: not mongo_exists and mongo_admpass is undefined or mongo_admpass == ""
+
+- name: Login IBMCloud
+  ansible.builtin.shell: |
+    ibmcloud login --apikey {{ ibmcloud_apikey }} -r {{ ibmcloud_region }} --quiet -g {{ ibmcloud_resourcegroup }}
+
+- name: Provision MongoDB in IBM Cloud
+  when: not mongo_exists and not is_restore
+  ansible.builtin.shell: |
+    ibmcloud resource service-instance-create {{ ibm_mongo_name }} {{ ibm_mongo_service }} {{ ibm_mongo_plan }}  {{ ibmcloud_region }} --service-endpoints {{ ibm_mongo_service_endpoints }} --parameters  \ '{
+      "version":"{{ ibm_mongo_version }}",
+      "members_memory_allocation_mb":"{{ ibm_mongo_memory }}",
+      "members_disk_allocation_mb": "{{ ibm_mongo_disk }}",
+      "members_cpu_allocation_count":"{{ ibm_mongo_cpu }}",
+      "adminpassword":"{{ mongo_admpass }}"
+      }'
+  register: ibm_mongo_info
+
+- name: Restore MongoDB with backed up Instance in IBM Cloud
+  when: not mongo_exists and is_restore
+  ansible.builtin.shell: |
+    ibmcloud resource service-instance-create {{ ibm_mongo_name }} {{ ibm_mongo_service }} {{ ibm_mongo_plan }}  {{ ibmcloud_region }} --service-endpoints {{ ibm_mongo_service_endpoints }} --parameters  \ '{
+      "version":"{{ ibm_mongo_version }}",
+      "members_memory_allocation_mb":"{{ ibm_mongo_memory }}",
+      "members_disk_allocation_mb": "{{ ibm_mongo_disk }}",
+      "members_cpu_allocation_count":"{{ ibm_mongo_cpu }}",
+      "adminpassword":"{{ mongo_admpass }}",
+      "backup_id" : "{{ ibm_mongo_backup_id }}"
+      }'
+  register: ibm_mongo_restore_info
+
+# provisioning takes minimum of about 10 mins ,so we need to retry to fetch instance info
+- name: Fetch Mongo DB Instance information
+  ibm.cloudcollection.ibm_database_info:
+    name: "{{ibm_mongo_name}}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    resource_group_id: "{{ resourceGID }}"
+    service: "{{ ibm_mongo_service }}"
+    region: "{{ ibm_mongo_location }}"
+  register: mongo_instance_info
+  until:
+    - mongo_instance_info is defined and mongo_instance_info != ''
+    - mongo_instance_info.resource is defined
+    - mongo_instance_info.resource.id is defined and mongo_instance_info.resource.id != ''
+  delay: 120
+  retries: 15
+
+- name: Debug , Provisioning Info for MongoDB on IBM Cloud
+  debug:
+    msg:
+      - "Provisioning Result ...... {{ mongo_instance_info.resource }}"
+
+- name: Save MongoDB information
+  include_tasks: providers/ibm/save-mongo-info.yml
