@@ -297,15 +297,29 @@
 
 # 15. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
-- include_tasks: tasks/create_ldap_user.yml
+- name: Create LDAP user if username and password is provided
+  include_tasks: tasks/create_ldap_user.yml
   when:
     - db2_ldap_username is defined
     - db2_ldap_username != ""
     - db2_ldap_password is defined
     - db2_ldap_password != ""
+    - db2_rotate_password == false
 
+- debug:
+    msg:
+      - "{{db2_ldap_username}}"
+      - "{{db2_rotate_password}}"
+# 16. Rotate db2 ldap password
+# -----------------------------------------------------------------------------
+- name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
+  include_tasks: tasks/rotate_ldap_user_password.yml
+  when:
+    - db2_ldap_username is defined
+    - db2_ldap_username != ""
+    - db2_rotate_password == true
 
-# 16. Wait for the statefulset to be ready
+# 17. Wait for the statefulset to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Db2 Stateful set to be ready"
   kubernetes.core.k8s_info:
@@ -325,7 +339,7 @@
   delay: 30 # seconds
 
 
-# 17. Generate a JdbcCfg for MAS configuration
+# 18. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/suite_jdbccfg.yml
   when:
