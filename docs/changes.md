@@ -3,11 +3,11 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 
 - `12.13` 
     - Support backup and restore for IBM MongoDB ([#623](https://github.com/ibm-mas/ansible-devops/pull/623))
+    - Add support for CP4D v4.5.3 & v4.6.3, and Cognos ([#692](https://github.com/ibm-mas/ansible-devops/pull/692))
 - `12.12` Multiple Updates:
     - Extend support for Manage's customer files configuration ([#661](https://github.com/ibm-mas/ansible-devops/pull/661))
     - Support for additional mongodb providers ([#559](https://github.com/ibm-mas/ansible-devops/pull/559))
     - Add support for configuring Manage for IBM EventStreams ([#678](https://github.com/ibm-mas/ansible-devops/pull/678))
-    - Extend support for Cognos Analytics and latest patches for CloudPak for Data 4.5.3 and 4.6.3 ([#692](https://github.com/ibm-mas/ansible-devops/pull/692))
 - `12.11`
     - Add Cloud Pak for Data v4.6 support ([#538](https://github.com/ibm-mas/ansible-devops/pull/538))
     - Add support for Feb 2023 catalog ([#662](https://github.com/ibm-mas/ansible-devops/pull/662))

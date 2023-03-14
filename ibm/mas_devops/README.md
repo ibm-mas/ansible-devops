@@ -8,6 +8,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 
 - `12.13` 
     - Support backup and restore for IBM MongoDB ([#623](https://github.com/ibm-mas/ansible-devops/pull/623))
+    - Add support for CP4D v4.5.3 & v4.6.3, and Cognos ([#692](https://github.com/ibm-mas/ansible-devops/pull/692))
 - `12.12` Multiple Updates:
     - Extend support for Manage's customer files configuration ([#661](https://github.com/ibm-mas/ansible-devops/pull/661))
     - Support for additional mongodb providers ([#559](https://github.com/ibm-mas/ansible-devops/pull/559))
