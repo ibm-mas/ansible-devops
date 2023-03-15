@@ -37,12 +37,23 @@ MongoDB provider
 
 - Environment variable: `DB_PROVIDER`
 - Defult Value: `community`
+- Supported providers: `community`,`aws`,`ibm`
 
 ### mongodb_action
 Determines which action needs to be performed w.r.t mongodb for a specfied `provider`
 
 - Environment variable: `MONGODB_ACTION`
 - Deafult Value: `provision`
+  ```
+  Following Providers supports below mentioned DB_ACTION values:
+  1. Provider : community 
+  Supported DB_ACTION values : provision
+  2. Provider: aws
+  Supported DB_ACTION values : provision,deprovision,docdb_secret_rotate
+  3. Provider: ibm
+  Supported DB_ACTION values : provision,deprovision,backup,restore,create-mongo-service-credentials
+  ```
+ 
 
 Community MongoDB Role Variables
 ---------------------------------
@@ -282,7 +293,7 @@ Resource Name in IBMCloud for MongoDB
 - Value: `mongo-{{mas_instance_id}}`
 
 ### ibm_mongo_backup_id
-CRN ID for backup resource
+Required only if `is_restore` is `True` CRN ID for backup resource
 
 - Environment Variable: `IBM_MONGO_BACKUP_ID`
 - Default Value: ``
@@ -292,6 +303,11 @@ Whether want to restore from an existing backup resource or not.
 
 - Environment Variable: `IS_RESTORE`
 - Default Value: `false`
+
+### restored_mongodb_service_name
+Required only If `is_restore` is `True`.MongoDB Service Name
+
+- Environment Variable: `RESTORED_MONGODB_SERVICE_NAME`
 
 Example Playbook
 ----------------
