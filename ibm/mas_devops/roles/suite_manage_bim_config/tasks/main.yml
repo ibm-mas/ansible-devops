@@ -16,6 +16,13 @@
     that: mas_app_settings_bim_mount_path is defined and mas_app_settings_bim_mount_path != ""
     fail_msg: "mas_app_settings_bim_mount_path property is required"
 
+- name: "Fail if mas_app_id is not provided"
+  assert:
+    that:
+      - mas_app_id is defined and mas_app_id != ""
+      - mas_app_id is in ['manage', 'health']
+    fail_msg: "mas_app_id property is required and must be set to either 'manage' or 'health'"
+
 # 1. Create BIM folders in maxinst pod PVC mounted path
 # ---------------------------------------------------------------------------------------------------------------------
 # BIM needs three folders to be configured in the PVC mounted path:
@@ -24,9 +31,9 @@
 # /{{ mas_app_settings_bim_mount_path }}/models
 
 - set_fact:
-    manage_namespace: mas-{{ mas_instance_id }}-manage
+    manage_namespace: mas-{{ mas_instance_id }}-{{ mas_app_id }}
 
-- name: "Lookup Manage app DB2 instance {{ db2_instance_name }} in {{ db2_namespace }} namespace"
+- name: "Lookup {{ mas_app_id | capitalize }} app DB2 instance {{ db2_instance_name }} in {{ db2_namespace }} namespace"
   kubernetes.core.k8s_info:
     kind: Pod
     namespace: "{{ manage_namespace }}"
@@ -51,7 +58,7 @@
 
 # 2. Update Manage database with BIM information
 # ---------------------------------------------------------------------------------------------------------------------
-- name: "Lookup Manage app DB2 instance {{ db2_instance_name }} in {{ db2_namespace }} namespace"
+- name: "Lookup {{ mas_app_id | capitalize }} app DB2 instance {{ db2_instance_name }} in {{ db2_namespace }} namespace"
   kubernetes.core.k8s_info:
     kind: Pod
     namespace: "{{ db2_namespace }}"
@@ -63,20 +70,20 @@
     - db2_pod.resources is not defined
     - db2_pod.resources | length = 0
 
-- name: Set Manage app DB2 pod name variable
+- name: Set {{ mas_app_id | capitalize }} app DB2 pod name variable
   set_fact:
     db2_pod_name: "{{ db2_pod.resources[0].metadata.name if (db2_pod.resources is defined) else 'Undefined' }}"
 
-- name: Create SQL script to update Manage DB2 with BIM information
+- name: Create SQL script to update {{ mas_app_id | capitalize }} DB2 with BIM information
   ansible.builtin.template:
     src: 'updatebimconfig.sh.j2'
     dest: '/tmp/updatebimconfig.sh'
     mode: '777'
 
-- name: Copy the SQL script into the Manage app DB2 pod {{ db2_pod_name }}
+- name: Copy the SQL script into the {{ mas_app_id | capitalize }} app DB2 pod {{ db2_pod_name }}
   shell: "oc cp /tmp/updatebimconfig.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/updatebimconfig.sh"
 
-- name: Run SQL script on Manage app DB2 pod {{ db2_pod_name }} as db2inst username...
+- name: Run SQL script on {{ mas_app_id | capitalize }} app DB2 pod {{ db2_pod_name }} as db2inst username...
   shell: oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc '/tmp/updatebimconfig.sh | tee /tmp/updatebimconfig.log' db2inst1
   register: setup_attachment_output
   failed_when: setup_attachment_output.rc != 0
@@ -84,10 +91,10 @@
 - debug:
     msg: "{{ setup_attachment_output.stdout_lines }}"
 
-- name: "Manage BIM configuration debug"
+- name: "{{ mas_app_id | capitalize }} BIM configuration debug"
   debug:
     msg:
-      - "Manage BIM mounted path ................. {{ mas_app_settings_bim_mount_path }}"
-      - "Manage BIM 'docs' folder ................ bim.import.docdir: {{ mas_app_settings_bim_mount_path }}/docs"
-      - "Manage BIM 'import' folder .............. bim.import.dir: {{ mas_app_settings_bim_mount_path }}/import"
-      - "Manage BIM 'models' folder .............. bim.model.dir: {{ mas_app_settings_bim_mount_path }}/models"
+      - "{{ mas_app_id | capitalize }} BIM mounted path ................. {{ mas_app_settings_bim_mount_path }}"
+      - "{{ mas_app_id | capitalize }} BIM 'docs' folder ................ bim.import.docdir: {{ mas_app_settings_bim_mount_path }}/docs"
+      - "{{ mas_app_id | capitalize }} BIM 'import' folder .............. bim.import.dir: {{ mas_app_settings_bim_mount_path }}/import"
+      - "{{ mas_app_id | capitalize }} BIM 'models' folder .............. bim.model.dir: {{ mas_app_settings_bim_mount_path }}/models"
