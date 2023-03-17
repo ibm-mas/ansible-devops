@@ -12,28 +12,56 @@
     that: base_output_dir is defined and base_output_dir != ""
     fail_msg: "base_output_dir property is required"
 
+# 2. Initialize parameters to determine what is collected
+# -----------------------------------------------------------------------------
+- name: "Collect optional parameters"
+  ansible.builtin.set_fact:
+    command_parameters: " -cgl"
 
-# 2. Provide debug information to the user
+- name: "Collect optional parameters"
+  ansible.builtin.set_fact:
+    command_parameters: "{{ command_parameters }} --certs"
+  when: "collect_certificates != false"
+
+- name: "Add additional namespaces"
+  ansible.builtin.set_fact:
+    command_parameters: "{{ command_parameters }} -n {{ additional_namespaces }}"
+  when: "additional_namespaces != ''"
+  
+- name: "Set the MAS instance id paramter"
+  ansible.builtin.set_fact:
+    command_parameters: "{{ command_parameters }} --mas-instance-id {{ mas_instance_id }}"
+  when: "mas_instance_id != ''"
+
+# 3. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
       - "MAS Instance ID .................... {{ mas_instance_id }}"
       - "Base Output Directory .............. {{ base_output_dir }}"
+      - "Collect Certificates ................{{ collect_certificates }}"
+      - "additional namespaces ...............{{ additional_namespaces }}"
 
-
-# 3. Create folder for must gather
+# 4. Create folder for must gather
 # -----------------------------------------------------------------------------
 - name: "Create folder variable for must gather output in the base folder"
   set_fact:
     must_gather_folder: "{{ base_output_dir }}/result_{{ lookup('pipe','date +%Y-%m-%d-%H-%M-%S') }}"
 
+# 5. Print command to be executed
+# -----------------------------------------------------------------------------
+- name: "Location information for must-gather"
+  debug:
+    msg:
+      - "Executing:"
+      - "oc adm must-gather --dest-dir={{ must_gather_folder }} --image=quay.io/aiasupport/must-gather -- gather {{ command_parameters }}"
 
-# 4. Use the MAS Instance ID to run must gather
+# 6. Use the MAS Instance ID to run must gather
 # ------------------------------------------------------------------------------
 - name: "Run must gather (this might take a few minutes)"
   shell: |
-    oc adm must-gather --dest-dir={{ must_gather_folder }} --image=quay.io/aiasupport/must-gather -- gather -cgl --noclusterinfo --mas-instance-id {{ mas_instance_id }}
+    oc adm must-gather --dest-dir={{ must_gather_folder }} --image=quay.io/aiasupport/must-gather -- gather {{ command_parameters }}
   register: gather_results
 
 - debug:
