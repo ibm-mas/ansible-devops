@@ -1,6 +1,6 @@
 suite_manage_doclinks_config
 ===
-This role extends support for configuring IBM Cloud Object Storage to storage **Manage** application doclinks.
+This role extends support for configuring S3 / Cloud Object Storage to store **Manage** application doclinks.
 **Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring doclinks features.
 
 You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage or AWS S3 information to use it as storage for Manage application doclinks.
