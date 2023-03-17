@@ -6,8 +6,8 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `12.13` 
-    - Support backup and restore for IBM MongoDB ([#623](https://github.com/ibm-mas/ansible-devops/pull/623))
+- `12.14` Add support for March 2023 catalog ([#699](https://github.com/ibm-mas/ansible-devops/pull/699))
+- `12.13` Support backup and restore for IBM MongoDB ([#623](https://github.com/ibm-mas/ansible-devops/pull/623))
 - `12.12` Multiple Updates:
     - Extend support for Manage's customer files configuration ([#661](https://github.com/ibm-mas/ansible-devops/pull/661))
     - Support for additional mongodb providers ([#559](https://github.com/ibm-mas/ansible-devops/pull/559))
