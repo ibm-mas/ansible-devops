@@ -3,7 +3,6 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
-
 # 2. Provide debug
 # -----------------------------------------------------------------------------
 - name: "Debug information"
@@ -11,8 +10,11 @@
     msg:
       - "AMQ Streams namespace ................. {{ kafka_namespace }}"
 
-# 3. Install AMQ Streams operator
-# -----------------------------------------------------------------------------
+- name: "Create namespace: oracle-database-operator"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/namespace.yml') }}"
+
 - name: "Install Oracle Database Operator"
   kubernetes.core.k8s:
     apply: yes
@@ -22,6 +24,11 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/sidb_rbac.yml') }}"
+
+- name: "Create database Instance: oracle-database-operator"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cr/singleinstanceCR.yml') }}"
 
 - name: "Create dedicated route: oracle-database-operator"
   kubernetes.core.k8s:
