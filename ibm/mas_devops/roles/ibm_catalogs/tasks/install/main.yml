@@ -21,8 +21,7 @@
 # 2.2 Offline catalog
 # If this fails then it means we can't perform an airgap install using this catalog
 - name: Load CASE bundle versions for the offline catalog
-  when:
-    - airgap_install
+  when: airgap_install
   include_vars:
     file: "{{ role_path }}/../../common_vars/casebundles/{{ mas_catalog_version }}.yml"
 
@@ -32,13 +31,13 @@
 - name: "Update digest maps ahead of catalog update"
   when:
     - airgap_install
-    - not dev_mode_airgap
   include_tasks: tasks/install/update-digest-maps.yml
 
 - name: "Create IBM offline catalog"
   when:
     - airgap_install
-    - not dev_mode_airgap
+    - artifactory_username is not defined or artifactory_username == ""
+    - artifactory_apikey is not defined or artifactory_apikey == ""
   kubernetes.core.k8s:
     template: templates/offline-catalog.yml.j2
 
@@ -52,19 +51,21 @@
     - not airgap_install
   include_tasks: tasks/install/development-catalog.yml
 
-- name: "Make sure that catalog digest is available if using airgap dev mode"
+- name: "Make sure that catalog digest is available for airgap dev catalog"
   when:
     - airgap_install
-    - dev_mode_airgap
+    - artifactory_username is defined and artifactory_username != ""
+    - artifactory_apikey is defined and artifactory_apikey != ""
   assert:
     that:
-      - catalog_digest is defined and catalog_digest != ""
-    fail_msg: "CATALOG_DIGEST is required for dev mode airgap catalogs"
+      - mas_catalog_digest is defined and mas_catalog_digest != ""
+    fail_msg: "MAS_CATALOG_DIGEST is required for airgap dev catalogs"
 
 - name: "Install development (pre-release) catalog using digest for airgap"
   when:
     - airgap_install
-    - dev_mode_airgap
+    - artifactory_username is defined and artifactory_username != ""
+    - artifactory_apikey is defined and artifactory_apikey != ""
   kubernetes.core.k8s:
     template: templates/development-catalog-with-digest.yml.j2
 
