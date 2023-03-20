@@ -22,6 +22,7 @@ Role Variables
 or set `MAS_ANNOTATIONS` environment variable as `export MAS_ANNOTATIONS=mas.ibm.com/operationalMode=nonproduction`
 - `mas_customize_scaling` Optional, only supported in MAS 8.10 or later, installation of earlier releases will ignore this parameter. ConfigMap name used for customizing MAS Core resources scaling settings. MAS provides the following built-in t-shirt sizes: small/medium/large. 
 For example, to deploy your suite with small size, set this to `{mas_instance_id}-wl-cust-small`, for medium size set to `{mas_instance_id}-wl-cust-small` and for large size set to `{mas_instance_id}-wl-cust-small`. If using a custom scaling configuration, use any ConfigMap name previously created. Alternatively, you can use the environment variable `MAS_CUSTOMIZE_SCALING` to set the scaling ConfigMap name.
+- `mas_suitecr_img_pull_policy` Optional. When set to `Always` the `spec.settings.imagePullPolicy: Always` element is added to the Suite cr that governs the image pull policy of some MAS services such as coreidp, which by default are set to IfNotPresent.
 - `custom_labels` Optional environment variable, CUSTOM_LABELS, containing a list of comma separated key=value pairs for setting custom labels on instance specific resources.
 
 Example Playbook
