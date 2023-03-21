@@ -154,6 +154,21 @@ Optional. The persistent volume size used by the iot fpl pipeline router for tra
 - Application Support:
   - IoT 8.6
 
+### mas_app_settings_iot_mqttbroker_pvc_storage_class
+Optional. The persistent volume storage class used by the iot mqtt broker
+
+- Environment Variable: `MAS_APP_SETTINGS_IOT_MQTTBROKER_PVC_STORAGE_CLASS`
+- Default: Auto-selected from storage classes installed in the cluster.
+- Application Support:
+  - IoT 8.3
+
+### mas_app_settings_iot_mqttbroker_pvc_size
+Optional. The persistent volume size used by the iot mqtt broker
+
+- Environment Variable: `MAS_APP_SETTINGS_IOT_MQTTBROKER_PVC_SIZE`
+- Default: 100Gi.
+- Application Support:
+  - IoT 8.3
 
 Example Playbook
 -------------------------------------------------------------------------------
