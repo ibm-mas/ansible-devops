@@ -1,0 +1,25 @@
+#!/bin/bash
+
+if [ -f "/tmp/config_es" ]; then
+  echo "Aborting run.  /tmp/config_es exists; this script has already been executed"
+  exit 0
+fi
+
+set -e
+db2 connect to {{ db2wh_dbname }}
+
+db2 "UPDATE maximo.MAXPROPVALUE SET PROPVALUE = '{{ meaweb_value }}' WHERE PROPNAME ='mxe.int.webappurl'"
+
+db2 "UPDATE maximo.MAXPROPVALUE SET PROPVALUE = '{{ oslc_rest_value }}' WHERE PROPNAME ='mxe.oslc.restwebappurl'"
+
+db2 "UPDATE maximo.MAXPROPVALUE SET PROPVALUE = '{{ webapp_value }}' WHERE PROPNAME ='mxe.oslc.webappurl'"
+
+db2 "UPDATE maximo.MAXPROPVALUE SET PROPVALUE = '{{ rest_webapp_value }}' WHERE PROPNAME ='mxe.rest.webappurl'"
+
+db2 "commit"
+
+echo "COMPLETE" > /tmp/config_es
+chmod a+rw /tmp/config_es
+
+# If we get this far, then we can consider the setup a success
+exit 0

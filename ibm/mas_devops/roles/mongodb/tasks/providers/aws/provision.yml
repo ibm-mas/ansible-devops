@@ -1,0 +1,271 @@
+---
+- name: Fail if var docdb_cluster_name not provided for DocDB provisioning
+  assert:
+    that: docdb_cluster_name is defined and docdb_cluster_name != ''
+    fail_msg: "docdb_cluster_name property is required"
+
+- name: Fail if var vpc_id not provided for DocDB provisioning
+  assert:
+    that: vpc_id is defined and vpc_id != ''
+    fail_msg: "vpc_id property is required"
+
+- name: Fail if required vars for DocDB not provided
+  assert:
+    that:
+      - docdb_cidr_az1 is defined and docdb_cidr_az1 != ''
+      - docdb_cidr_az2 is defined and docdb_cidr_az2 != ''
+      - docdb_cidr_az3 is defined and docdb_cidr_az3 != ''
+      - docdb_ingress_cidr is defined and docdb_ingress_cidr != ''
+      - docdb_egress_cidr is defined and docdb_egress_cidr != ''
+      - mas_instance_id is defined and mas_instance_id != ''
+      - mas_config_dir is defined and mas_config_dir != ''
+    fail_msg: "Missing one or more of following properties: docdb_ingress_cidr,docdb_egress_cidr,docdb_cidr_az1,docdb_cidr_az2,docdb_cidr_az3,mas_instance_id,mas_config_dir"
+
+- name: Initialize Facts for provisioning
+  set_fact:
+    subnet_group_exists: false
+    docdb_cluster_exists: false
+    subnet_id_list: []
+
+- name: "Debug properties, Provider: {{ mongodb_provider }} Action: {{mongodb_action}}"
+  debug:
+    msg:
+      - "VPC ID ................................. {{ vpc_id }}"
+      - "DocumentDB Cluster Name ................ {{ docdb_cluster_name }}"
+      - "DocumentDB Instance Name Prefix ........ {{ docdb_instance_identifier_prefix }}"
+      - "Number of Instances for DocumentDB ..... {{ docdb_instance_number }}"
+      - "DocumentDB Instance Class .............. {{ docdb_instance_class }}"
+      - "DocumentDB Engine Version .............. {{ docdb_engine_version }}"
+      - "DocumentDB Master Username ............. {{ docdb_master_username }}"
+      - "DocumentDB Subnet Group Name ........... {{ docdb_subnet_group_name }}"
+      - "DocumentDB Security Group Name ......... {{ docdb_security_group_name }}"
+      - "DocumentDB Admin credential Secret ..... {{ docdb_security_group_name }}"
+      - "CIDR Block for Subnet 1 ................ {{docdb_cidr_az1}}"
+      - "CIDR Block for Subnet 2 ................ {{docdb_cidr_az2}}"
+      - "CIDR Block for Subnet 3 ................ {{docdb_cidr_az3}}"
+      - "Allow incoming traffic from CIDR block . {{ docdb_ingress_cidr }}"
+      - "Allow outgoing traffic to CIDR block ... {{ docdb_egress_cidr }}"
+      - "MAS instance ID ........................ {{ mas_instance_id }}"
+      - "MAS config directory ................... {{ mas_config_dir }}"
+
+# 1. Create three subnets in VPC
+# -----------------------------------------------------------------------------
+- name: Fetch availability Zones in VPC Reigon
+  command: >
+    aws ec2 describe-availability-zones
+  register: az_info
+
+- name: Set Fact for availability zones
+  set_fact:
+    az: "{{ az_info.stdout | from_json | json_query('AvailabilityZones') }}"
+
+- name: Create Subnets in three availability Zones
+  include_tasks: providers/aws/utils/create-subnet.yml
+  loop:
+    - ["{{az[0].ZoneName}}", "{{ docdb_cidr_az1 }}"]
+    - ["{{az[1].ZoneName}}", "{{ docdb_cidr_az2 }}"]
+    - ["{{az[2].ZoneName}}", "{{ docdb_cidr_az3 }}"]
+
+- name: Debug Created Subnet Ids in VPC
+  debug:
+    msg:
+      - "Subnet Id List ......................... {{ subnet_id_list }}"
+
+# 2. Create Subnet Group for DocDb Instances
+# -----------------------------------------------------------------------------
+# check will not fail if resource not found
+- name: Check if Subnet Group {{ docdb_subnet_group_name }} for DocumentDB exists
+  command: >
+    aws docdb describe-db-subnet-groups \
+      --db-subnet-group-name '{{ docdb_subnet_group_name }}'
+  register: subnet_group_exists_info
+  failed_when: >
+    subnet_group_exists_info.rc not in [0] and
+    ('DBSubnetGroupNotFoundFault' not in subnet_group_exists_info.stderr )
+
+- name: Set Fact, subnet group exists or not
+  when: subnet_group_exists_info is defined and subnet_group_exists_info != '' and subnet_group_exists_info.stdout != ''
+  set_fact:
+    subnet_group_exists: "{{ subnet_group_exists_info.stdout | from_json | json_query('DBSubnetGroups[0].DBSubnetGroupName') != '' }}"
+
+- name: Create Subnet Group {{ docdb_subnet_group_name }} for DocumentDB
+  when: not subnet_group_exists
+  command: >
+    aws docdb create-db-subnet-group \
+    --db-subnet-group-description 'Subnet Group for DocDB' \
+    --db-subnet-group-name '{{ docdb_subnet_group_name }}' \
+    --subnet-ids '{{subnet_id_list[0]}}' '{{subnet_id_list[1]}}' '{{subnet_id_list[2]}}'
+  register: create_subnet_group_info
+
+- name: Fail if subnet group not created
+  when: not subnet_group_exists
+  assert:
+    that:
+      - create_subnet_group_info is defined
+      - create_subnet_group_info.stdout
+      - create_subnet_group_info.stdout | from_json | json_query('DBSubnetGroup.DBSubnetGroupName') == docdb_subnet_group_name
+
+- name: Debug Info ,Created Subnet Group
+  debug:
+    msg:
+      - "DocDB Subnet Group Info ................ {{ subnet_group_exists_info.stdout | from_json if subnet_group_exists else create_subnet_group_info.stdout | from_json }}"
+
+# 3. Create Security Group and add ingress ,egress rules
+# -----------------------------------------------------------------------------
+- name: Check if Security Group {{ docdb_security_group_name }} already exists
+  command: >
+    aws ec2 describe-security-groups \
+    --filters "Name=vpc-id,Values={{ vpc_id }}" "Name=group-name,Values={{ docdb_security_group_name }}"
+  register: security_group_info
+
+- name: Set Fact , Security Group Id
+  when: security_group_info is defined and security_group_info != ''
+  set_fact:
+    sg_id: "{{security_group_info.stdout | from_json | json_query('SecurityGroups[0].GroupId')}}"
+
+- name: Create a Security Group {{ docdb_security_group_name }}, if doesn't exists
+  when: not sg_id
+  command: >
+    aws ec2 create-security-group \
+    --group-name '{{ docdb_security_group_name }}' \
+    --description "Enable inbound connection security group" \
+    --vpc-id '{{ vpc_id }}'
+  register: sg_info
+
+- name: Fail if Security group not created
+  when: not sg_id
+  assert:
+    that:
+      - sg_info is defined and sg_info != ''
+      - sg_info.stdout
+      - sg_info.stdout | from_json | json_query('GroupId')
+
+- name: Set Fact, Security group Id
+  when: not sg_id
+  set_fact:
+    sg_id: "{{sg_info.stdout | from_json | json_query('GroupId')}}"
+
+# allow incoming requests documentdb cluster from a cidr address
+- name: Add Ingress rule to SG
+  command: >
+    aws ec2 authorize-security-group-ingress \
+    --group-id '{{ sg_id }}' \
+    --ip-permissions IpProtocol=tcp,FromPort=27017,ToPort=27017,IpRanges='[{CidrIp={{ docdb_ingress_cidr }} }]',Ipv6Ranges='[{CidrIpv6=::/0}]'
+  register: ingress_rule_info
+  failed_when: >
+    ingress_rule_info.rc not in [0] and ('InvalidPermission.Duplicate' not in ingress_rule_info.stderr )
+
+- name: Debug Info, Added Ingress rule to Security Group
+  when: ingress_rule_info.stdout
+  debug:
+    msg:
+      - "{{ ingress_rule_info.stdout | from_json }}"
+
+# allow outgoing requests from documentdb cluster to a cidr address
+- name: Add Egress rule to SG
+  command: >
+    aws ec2 authorize-security-group-egress \
+    --group-id '{{ sg_id }}' \
+    --ip-permissions IpProtocol=-1,FromPort=0,ToPort=0,IpRanges='[{CidrIp={{ docdb_egress_cidr }} }]',Ipv6Ranges='[{CidrIpv6=::/0}]'
+  register: egress_rule_info
+  failed_when: >
+    egress_rule_info.rc not in [0] and ('InvalidPermission.Duplicate' not in egress_rule_info.stderr )
+
+- name: Debug Info, Added Egress rule to Security Group
+  when: egress_rule_info.stdout
+  debug:
+    msg:
+      - "{{ egress_rule_info.stdout | from_json }}"
+
+# 4. Create DocumentDB Cluster and Instances
+# -----------------------------------------------------------------------------
+- name: Check if DocDB Cluster {{ docdb_cluster_name }} already exists
+  command: >
+    aws docdb describe-db-clusters \
+    --db-cluster-identifier '{{ docdb_cluster_name }}'
+  register: docdb_cluster_exists_info
+  failed_when: docdb_cluster_exists_info.rc not in [0] and ('DBClusterNotFoundFault' not in docdb_cluster_exists_info.stderr )
+
+- name: Set Fact to indicate whether DocDB cluster already exists
+  when: not docdb_cluster_exists_info.stderr
+  set_fact:
+    docdb_cluster_exists: "{{ docdb_cluster_exists_info.stdout | from_json | json_query('DBClusters[0].DBClusterIdentifier') ==  docdb_cluster_name }}"
+
+# Generate docdb admin password only while creating the new cluster
+- name: Generate docdb admin password
+  no_log: true
+  set_fact:
+    docdb_master_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+  when: not docdb_cluster_exists and docdb_master_password is undefined or docdb_master_password == ""
+
+- name: Create DocDB Cluster
+  when: not docdb_cluster_exists
+  command: >
+    aws docdb create-db-cluster \
+    --db-cluster-identifier '{{ docdb_cluster_name }}' \
+    --engine docdb \
+    --master-username '{{ docdb_master_username }}' \
+    --master-user-password '{{ docdb_master_password }}' \
+    --db-subnet-group-name '{{ docdb_subnet_group_name }}' \
+    --vpc-security-group-ids  '{{sg_id}}' \
+    --port 27017 \
+    --engine-version '{{ docdb_engine_version }}'
+  register: docdb_cluster_create_info
+
+- name: Fail if Cluster not created
+  when: not docdb_cluster_exists
+  assert:
+    that:
+      - docdb_cluster_create_info is defined and docdb_cluster_create_info != ''
+      - docdb_cluster_create_info.stdout
+      - docdb_cluster_create_info.stdout | from_json | json_query('DBCluster.DBClusterIdentifier') == docdb_cluster_name
+
+- name: Set Fact for fetched DocDB Cluster Info
+  set_fact:
+    docdb_cluster_info: "{{ docdb_cluster_exists_info.stdout | from_json | json_query('DBClusters[0]') if docdb_cluster_exists else docdb_cluster_create_info.stdout | from_json | json_query('DBCluster') }}"
+
+- name: Set Fact for Cluster Details
+  set_fact:
+    docdb_cluster_id: "{{ docdb_cluster_info.DbClusterResourceId }}"
+    docdb_cluster_arn: "{{ docdb_cluster_info.DBClusterArn }}"
+    docdb_cluster_endpoint: "{{ docdb_cluster_info.Endpoint }}"
+    docdb_cluster_port: "{{ docdb_cluster_info.Port }}"
+    docdb_cluster_reader_endpoint: "{{ docdb_cluster_info.ReaderEndpoint }}"
+
+- name: Create DocumentDB Cluster Instance
+  include_tasks: providers/aws/utils/create-docdb-instance.yml
+  with_sequence: start=1 end={{docdb_instance_number}}
+
+- name: Debug DocDB Instances Host Address
+  debug:
+    msg:
+      - "docdb_replicas ......................... {{ docdb_replicas }}"
+
+# Load aws-docdb-hosts template to dynamically set as many docdb hosts:port as identified
+- set_fact:
+    docdb_hosts: "{{ lookup('ansible.builtin.template', 'templates/aws/docdb-hosts.yml.j2') }}"
+
+
+# 5. Download DocDB CA Cert from AWS and Create DocDB creds Secret and MongoCfg
+# -----------------------------------------------------------------------------
+- name: "Download Amazon DocumentDB Certificate Authority (CA) certificates"
+  shell: |
+    wget https://s3.amazonaws.com/rds-downloads/rds-ca-2019-root.pem -O /tmp/rds-ca-2019-root.pem
+    wget https://s3.amazonaws.com/rds-downloads/rds-ca-2019-{{aws_region}}.pem -O /tmp/rds-ca-2019-{{aws_region}}.pem
+
+- name: Set DocumentDB certificates
+  set_fact:
+    docdb_master_root_cert: "{{ lookup('file', '/tmp/rds-ca-2019-root.pem') }}"
+    docdb_master_cert: "{{ lookup('file', '/tmp/rds-ca-2019-{{aws_region}}.pem') }}"
+
+- name: Create Secret for docdb admin credentials
+  when: not docdb_cluster_exists
+  no_log: true
+  ansible.builtin.template:
+    src: aws/docdb_master_user_credentials_secret.yaml.j2
+    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-docdb-master-secret.yml"
+
+- name: Generate MongoCfg with DocDB details
+  ansible.builtin.template:
+    src: aws/suite_mongocfg.yml.j2
+    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-docdb-cfg.yml"
