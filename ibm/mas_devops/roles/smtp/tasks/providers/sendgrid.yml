@@ -1,0 +1,202 @@
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "sendgrid : Fail if required properties are not provided"
+  assert:
+    that:
+      - sendgrid_primary_apikey is defined and sendgrid_primary_apikey != ""
+      - sendgrid_primary_username is defined and sendgrid_primary_username != ""
+      - sendgrid_primary_email is defined and sendgrid_primary_email != ""
+      - sendgrid_subuser_email is defined and sendgrid_subuser_email != ""
+      - sendgrid_defaultrecipientemail is defined and sendgrid_defaultrecipientemail != ""
+      - sendgrid_ips is defined and sendgrid_ips != ""
+    fail_msg: "Missing required properties"
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "sendgrid : Debug information"
+  debug:
+    msg:
+      - "sendgrid_api_url ....................... {{ sendgrid_api_url }}"
+      - "sendgrid_authentication ................ {{ sendgrid_authentication }}"
+      - "sendgrid_defaultrecipientemail ......... {{ sendgrid_defaultrecipientemail }}"
+      - "sendgrid_defaultsendername ............. {{ sendgrid_defaultsendername }}"
+      - "sendgrid_defaultshouldemailpasswords ... {{ sendgrid_defaultshouldemailpasswords }}"
+      - "sendgrid_hostname ...................... {{ sendgrid_hostname }}"
+      - "sendgrid_ips ........................... {{ sendgrid_ips }}"
+      - "sendgrid_port .......................... {{ sendgrid_port }}"
+      - "sendgrid_secretname .................... {{ sendgrid_secretname }}"
+      - "sendgrid_security ...................... {{ sendgrid_security }}"
+      - "sendgrid_primary_email ................. {{ sendgrid_primary_email }}"
+      - "sendgrid_primary_username .............. {{ sendgrid_primary_username }}"
+      - "sendgrid_subuser_email ................. {{ sendgrid_subuser_email }}"
+      - "sendgrid_subuser_username .............. {{ sendgrid_subuser_username }}"
+
+# 3. Check if apikey already exists
+# -----------------------------------------------------------------------------
+- name: Check if apikey secret exists in the instance namespace
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ sendgrid_secretname }}"
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: _instance_smtp_apikey
+
+# 4. if apikey exists then use it
+# -----------------------------------------------------------------------------
+- name: If apikey secret exists, record apikey
+  when:
+    - _instance_smtp_apikey.resources[0].data.api_key is defined
+  set_fact:
+    _apikey: "{{ _instance_smtp_apikey.resources[0].data.api_key }}"
+
+# 5. if apikey does not exist, then create one
+# -----------------------------------------------------------------------------
+- name: If apikey not found in instance namespace, generate new apikey
+  block:
+
+    # 5.1 Check if subuser account exists
+    # -----------------------------------------------------------------------------
+    - name: Check if subuser already exist
+      uri:
+        url: "https://{{ sendgrid_api_url }}/v3/subusers/{{ sendgrid_subuser_username }}"
+        validate_certs: no
+        method: GET
+        headers:
+          Authorization: "Bearer {{ sendgrid_primary_apikey }}"
+          cache-control: "no-cache"
+        status_code: [201, 404, 200]
+        timeout: 30
+      register: _user_exist_result
+
+    # 5.2 Display results of check subuser account
+    # -----------------------------------------------------------------------------
+    - name: Display result of check subuser
+      when: sendgrid_debug == True
+      debug:
+        var: _user_exist_result
+
+    # 5.3 Generate a password for subuser
+    # -----------------------------------------------------------------------------
+    - name: Generate subuser password
+      when:
+        - _user_exist_result.status == 404
+      set_fact:
+        _user_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits,punctuation length=20') }}"
+
+    # 5.4 Create the subuser account in sendgrid
+    # -----------------------------------------------------------------------------
+    - name: Create subuser
+      when:
+        - _user_exist_result.status == 404
+      uri:
+        url: "https://{{ sendgrid_api_url }}/v3/subusers"
+        validate_certs: no
+        method: POST
+        headers:
+          Authorization: "Bearer {{ sendgrid_primary_apikey }}"
+          cache-control: "no-cache"
+          Content-Type: "application/json"
+        body_format: "json"
+        body:
+          "username": "{{ sendgrid_subuser_username }}"
+          "email": "{{ sendgrid_primary_email }}"
+          "password": "{{ _user_password }}"
+          "ips": "{{ sendgrid_ips }}"
+        status_code: 201
+        timeout: 30
+      register: _create_user_result
+
+    # 5.5 Display results of creating subuser
+    # -----------------------------------------------------------------------------
+    - name: create subuser result
+      when:
+        - sendgrid_debug == True
+        - _user_exist_result.status == 404
+      debug:
+        var: _create_user_result
+
+    # 5.6 Generate new apikey for subuser
+    # -----------------------------------------------------------------------------
+    - name: Generate subuser API Key
+      uri:
+        url: "https://{{ sendgrid_api_url }}/v3/api_keys"
+        validate_certs: no
+        method: POST
+        headers:
+          Authorization: "Bearer {{ sendgrid_primary_apikey }}"
+          On-behalf-of: "{{sendgrid_subuser_username}}"
+          cache-control: "no-cache"
+        body_format: "json"
+        body:
+          name: "{{sendgrid_subuser_username}}_apikey"
+          scopes:
+            - "mail.send"
+        status_code: 201
+        timeout: 30
+      register: _subuser_apikey
+
+    # 5.7 Display results of generate subuser apikey
+    # -----------------------------------------------------------------------------
+    - name: Generate subuser api key result
+      when: sendgrid_debug == True
+      debug:
+        var: _subuser_apikey
+
+    # 5.8 Store apikey for future task
+    # -----------------------------------------------------------------------------
+    - name: Record apikey
+      set_fact:
+        _apikey: "{{ _subuser_apikey.json.api_key }}"
+
+    # 5.9 Authenticate single sender in sendgrid
+    # -----------------------------------------------------------------------------
+    - name: Perform Single Sender Authentication
+      when:
+        - _user_exist_result.status == 404
+      changed_when:
+        - (_result.json.errors is not defined or _result.json.errors[0].message == 'already exists')
+      register: _result
+      uri:
+        url: "https://{{ sendgrid_api_url }}/v3/verified_senders"
+        validate_certs: no
+        method: POST
+        headers:
+          Authorization: "Bearer {{ sendgrid_primary_apikey }}"
+          On-behalf-of: "{{ sendgrid_subuser_username }}"
+          cache-control: "no-cache"
+        body_format: "json"
+        body:
+          nickname: "{{ sendgrid_primary_username }}"
+          from_email: "{{ sendgrid_primary_email }}"
+          from_name: "{{ sendgrid_defaultsendername }}"
+          reply_to: "{{ sendgrid_primary_email }}"
+          reply_to_name: "{{ sendgrid_primary_email }}"
+          address: "250 York St #301"
+          address2: ""
+          state: ""
+          city: "London"
+          country: "CAN"
+          zip: "N6A 6K2"
+        status_code: 201, 400
+        timeout: 30
+
+    # 5.10 Display results of sender Authentication
+    # -----------------------------------------------------------------------------
+    - name: sender auth result
+      when:
+        - sendgrid_debug == True
+        - _user_exist_result.status == 404
+      debug:
+        var: _result
+
+  when:
+    - _instance_smtp_apikey.resources[0].data.api_key is not defined
+
+# 6. Generate the smtpcfg file in MAS config dir
+# -----------------------------------------------------------------------------
+- name: create smtpcfg file in config dir
+  ansible.builtin.template:
+    src: "sendgrid/smtpcfg.yml.j2"
+    dest: "{{ mas_config_dir }}/smtp-{{ mas_instance_id | lower }}.yml"
+  when:
+    - _apikey is defined
