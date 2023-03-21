@@ -27,9 +27,9 @@ You can now run this playbook using `ansible-playbook` to test the changes you m
 
 
 ## Building the collection locally
-- Build and install the collection `make ansible-all` (default action)
-- Build the collection `make ansible-build`
-- Install the already built collection `make ansible-install`
+- Build and install the collection `make all` (default action)
+- Build the collection `make build`
+- Install the already built collection `make install`
 
 
 ### Testing a role
