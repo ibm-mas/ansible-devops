@@ -1,5 +1,10 @@
 ---
 # Default application spec for IoT
+_settings_messagesight:
+  storage:
+    class: "{{ mas_app_settings_iot_mqttbroker_pvc_storage_class }}"
+    size: "{{ mas_app_settings_iot_mqttbroker_pvc_size }}"
+
 mas_app_spec:
   bindings:
     jdbc: "{{ mas_app_bindings_jdbc }}"
@@ -9,12 +14,7 @@ mas_app_spec:
   settings:
     deployment:
       size: "{{ mas_app_settings_iot_deployment_size }}"
-    messagesight:
-{% if mas_app_settings_iot_deployment_size != dev % }
-      storage:
-        class: "{{ mas_app_settings_iot_mqttbroker_pvc_storage_class }}"
-        size: "{{ mas_app_settings_iot_mqttbroker_pvc_size }}"
-{% endif % }
+    messagesight: "{{ mas_app_settings_iot_deployment_size == 'dev' | ternary (omit, _settings_messagesight)}}"
     fpl:
       functionsexecutor:
         storage:
