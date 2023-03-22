@@ -98,11 +98,25 @@
     fail_msg: "Upgrade failed, ibm-mas-{{ check_app.id }} operator has been deployed, but {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} has not been created in namespace {{ check_app_namespace }}"
 
 - name: "{{ check_app.id }} : Check that the Suite CR has been reconciled to the expected version"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  when: 
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - check_app.id not in ['predict']
   assert:
     that:
       - app_info.resources[0].status.versions.reconciled == opcon_version
     fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} version ({{ app_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
+
+### Add switch to workaround predict because its operator does not have the versions, instead it use version.
+### Finally all APPs should use status.versions instead of version.
+- name: "{{ check_app.id }} : Check that the Suite CR has been reconciled to the expected version"
+  when: 
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - check_app.id is in ['predict']
+  assert:
+    that:
+      - app_info.resources[0].status.version.reconciled == opcon_version
+    fail_msg: "Upgrade failed because {{ mas_instance_id }}/{{ check_app.kind }}.{{ check_app.api_version }} version ({{ app_info.resources[0].status.version.reconciled }}) is not at the expected version {{ opcon_version }}"
+
 
 - name: "{{ check_app.id }} : Check that the Application CR is in a healthy state"
   when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
