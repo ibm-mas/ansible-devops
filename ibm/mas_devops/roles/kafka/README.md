@@ -319,8 +319,8 @@ Example Playbook to provision AWS MSK
   any_errors_fatal: true
   vars:
     aws_region: ca-central-1
-  	aws_access_key_id: *****
-	  aws_secret_access_key: *****
+    aws_access_key_id: *****
+    aws_secret_access_key: *****
     kafka_version: 2.8.1
     kafka_provider: aws
     kafka_action: provision
@@ -351,8 +351,8 @@ Example Playbook to deprovision AWS MSK
   any_errors_fatal: true
   vars:
     aws_region: ca-central-1
-	  aws_access_key_id: *****
-	  aws_secret_access_key: *****
+    aws_access_key_id: *****
+    aws_secret_access_key: *****
     vpc_id: vpc-07088da510b3c35c5	
     kafka_provider: aws
     kafka_action: deprovision
