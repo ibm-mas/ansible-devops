@@ -1,0 +1,51 @@
+---
+# Mongo credentials for MAS
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: "mongodb-{{db_provider | lower }}-admin"
+  namespace: "mas-{{mas_instance_id}}-core"
+{% if custom_labels is defined and custom_labels.items() %}
+  labels:
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+stringData:
+  username: "{{ mongo_admin_username }}"
+  password: "{{ mongo_admin_password }}"
+---
+# Mongo configuration for MAS
+apiVersion: config.mas.ibm.com/v1
+kind: MongoCfg
+metadata:
+  name: "{{mas_instance_id | lower }}-mongo-system"
+  namespace: "mas-{{mas_instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{mas_instance_id}}"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+  displayName: "External '{{db_provider_displayname}}'  in 'mas-{{mas_instance_id}}-core' namespace"
+  type: external
+  config:
+    configDb: admin
+{% if retry_writes | bool %}
+    retryWrites: true
+{% else %}
+    retryWrites: false
+{% endif %}
+    authMechanism: DEFAULT
+    credentials:
+      secretName: "mongodb-{{db_provider | lower}}-admin"
+    hosts:
+      {{ mongo_hosts | indent(6) }}
+  certificates:
+    - alias: ca
+      crt: |
+        {{ mongo_ca_pem | indent(8) }}

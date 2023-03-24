@@ -1,0 +1,107 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_config_dir is not provided"
+  assert:
+    that: mas_config_dir is defined and mas_config_dir != ""
+    fail_msg: "mas_config_dir property is required"
+
+- name: "Fail if mongo_admin_username is not provided"
+  assert:
+    that: mongo_admin_username is defined and mongo_admin_username != ""
+    fail_msg: "mongo_admin_username property is required"
+
+- name: "Fail if mongo_admin_password is not provided"
+  assert:
+    that: mongo_admin_password is defined and mongo_admin_password != ""
+    fail_msg: "mongo_admin_password property is required"
+
+- name: "Fail if mongo_hosts is not provided"
+  assert:
+    that: mongo_hosts is defined and mongo_hosts != ""
+    fail_msg: "mongo_hosts property is required"
+
+- name: "Fail if mongo_ca_pem_local_file is not provided"
+  assert:
+    that: mongo_ca_pem_local_file is defined and mongo_ca_pem_local_file != ""
+    fail_msg: "mongo_ca_pem_local_file property is required"
+
+- name: "Fail if mongo_namespace is not provided"
+  assert:
+    that: mongo_namespace is defined and mongo_namespace != ""
+    fail_msg: "mongo_namespace property is required"
+
+- name: "Fail if db_provider is not in allowed list"
+  when: db_provider != ""
+  assert:
+    that: db_provider is in ['mongo', 'documentdb']
+    fail_msg: "db_provider is not in allowed list ['mongo', 'documentdb']"
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Set retry_writes"
+  set_fact:
+    retry_writes: "{{retry_writes_values[db_provider]}}"
+    db_provider_displayname: ""
+
+- name: "Set db_provider_displayname"
+  when:
+    - db_provider_displayname_values is defined
+    - db_provider_displayname_values[db_provider] is defined
+  set_fact:
+    db_provider_displayname: "{{db_provider_displayname_values[db_provider]}}"
+
+- name: "Convert mongo_hosts to dictionary"
+  set_fact:
+    mongo_hosts_dict: "{{ mongo_hosts | replace(':', '=')  | string | ibm.mas_devops.string2dict() }}"
+
+- name: "Fail if mongo_hosts_dict is empty"
+  assert:
+    that: mongo_hosts_dict is defined and mongo_hosts_dict|length>0
+    fail_msg: "mongo_hosts_dict is empty"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "MAS Instance ID......................... {{ mas_instance_id }}"
+      - "MAS Config Dir.......................... {{ mas_config_dir }}"
+      - "Mongo Admin username.................... {{ mongo_admin_username }}"
+      - "Mongo Admin password.................... {{ mongo_admin_password }}"
+      - "Mongo hosts ID.......................... {{ mongo_hosts }}"
+      - "Mongo CA PEM............................ {{ mongo_ca_pem_local_file }}"
+      - "Mongo Namespace......................... {{ mongo_namespace }}"
+      - "Mongo host dict......................... {{ mongo_hosts_dict }}"
+      - "Mongo Provider.......................... {{ db_provider }}"
+      - "Mongo Provider displayname.............. {{ db_provider_displayname }}"
+      - "Mongo retry_writes...................... {{ retry_writes }}"
+
+# Load mongo-hosts template to dynamically set as many mongo hosts:port as identified
+- set_fact:
+    mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/mongo-hosts.yml.j2') }}"
+
+# 5. Read file information
+# -----------------------------------------------------------------------------
+- name: Read Mongo CA PEM file
+  set_fact:
+    mongo_ca_pem: "{{ lookup('file', mongo_ca_pem_local_file) }}"
+  when:
+    - mongo_ca_pem_local_file is defined
+
+- name: "External {{db_provider_displayname}} : Create MAS MongoCfg (debug)"
+  debug:
+    msg: "{{ lookup('template', 'templates/suite_mongocfg.yml.j2') }}"
+
+- name: "Create MAS MongoCfg"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  ansible.builtin.template:
+    src: suite_mongocfg.yml.j2
+    dest: "{{ mas_config_dir }}/mongo-{{ mongo_namespace }}.yml"

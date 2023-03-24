@@ -21,6 +21,10 @@
     fail_msg: "Review provided MongoDb details, it is missing required elements"
   when: sls_mongodb is defined
 
+- name: "Set sls_mongo_retrywrites"
+  set_fact:
+    sls_mongo_retrywrites: "{{retry_writes_values[db_provider]}}"
+
 # 2. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information"
@@ -37,6 +41,7 @@
       - "SLS Bootstrap license file ............. {{ bootstrap.license_file }}"
       - "SLS Bootstrap license id ............... {{ bootstrap.license_id }}"
       - "SLS Customize scaling .................. {{ sls_customize_scaling }}"
+      - "SLS Mongo Retry Writes ................. {{ sls_mongo_retrywrites }}"
 
 - name: "Create SLS Namespace"
   kubernetes.core.k8s:
@@ -107,7 +112,16 @@
       password: "{{ mongocfg[0].stringData.password }}"
       hosts: "{{ mongocfg[1].spec.config.hosts }}"
       certificates: "{{ lookup('template', 'templates/mongo-certificates.yml.j2') }}"
-  when: mongocfg is defined
+  when: mongocfg is defined and mongocfg[0] is defined and mongocfg[0].stringData is defined
+
+- name: Overide MongoDb facts bases on mongocfg
+  ansible.builtin.set_fact:
+    mongodb:
+      username: "{{ mongocfg[0].data.username | b64decode }}"
+      password: "{{ mongocfg[0].data.password | b64decode}}"
+      hosts: "{{ mongocfg[1].spec.config.hosts }}"
+      certificates: "{{ lookup('template', 'templates/mongo-certificates.yml.j2') }}"
+  when: mongocfg is defined and mongocfg[0] is defined and mongocfg[0].data is defined
 
 - name: Create the Mongo Secret for SLS
   kubernetes.core.k8s:
