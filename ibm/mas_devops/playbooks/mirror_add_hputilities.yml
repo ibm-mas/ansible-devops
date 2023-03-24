@@ -17,7 +17,7 @@
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.9.x', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
 
-    # mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('True', True) | bool }}"
+    mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('True', True) | bool }}"
     # mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('True', True) | bool }}"
     # mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('True', True) | bool }}"
 
@@ -111,21 +111,22 @@
     #     case_version: "{{ wsl_version }}"
     #     case_inventory_name: "wslSetup"
 
-    # # 4. App connect
-    # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
-    #   when: mirror_appconnect
-    #   vars:
-    #     case_name: ibm-appconnect
-    #     case_version: "{{ appconnect_version }}"
-    #     exclude_images: []
+    # 4. App connect
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_appconnect
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-appconnect
+        case_version: "{{ appconnect_version }}"
+        exclude_images: []
 
-    # - name: ibm.mas_devops.case_mirror
-    #   when: mirror_appconnect
-    #   vars:
-    #     case_name: ibm-appconnect
-    #     case_version: "{{ appconnect_version }}"
-    #     case_inventory_name: "ibmAppconnect"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_appconnect
+      vars:
+        manifest_name: ibm-appconnect
+        manifest_version: "{{ appconnect_version }}"
 
     # 5. IBM Maximo Health and Predict Utilities
     # -------------------------------------------------------------------------
