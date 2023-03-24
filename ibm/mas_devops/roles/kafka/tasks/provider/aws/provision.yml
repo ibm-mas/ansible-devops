@@ -1,0 +1,298 @@
+---
+# 1. Pre-validation mandatory parameter
+# -----------------------------------------------------------------------------
+- name: "Pre-validation mandatory parameter"
+  include_tasks: tasks/provider/aws/utils/validate.yml
+
+# 2. Generate Kafka username / password if missing
+# -----------------------------------------------------------------------------
+- name: "Generate kafka password"
+  when: aws_kafka_user_password is not defined or aws_kafka_user_password == ''
+  set_fact:
+    aws_kafka_user_password: "{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=16') }}"
+
+- name: "Debug: AWS MSK properties"
+  debug:
+    msg:
+      - "kafka_cluster_name ..................... {{ kafka_cluster_name}}"
+      - "aws_region ............................. {{ aws_region}}"
+      - "vpc_id ................................. {{ vpc_id}}"
+      - "aws_msk_cidr_az1 ....................... {{ aws_msk_cidr_az1}}"
+      - "aws_msk_cidr_az2 ....................... {{ aws_msk_cidr_az2}}"
+      - "aws_msk_cidr_az3 ....................... {{ aws_msk_cidr_az3}}"
+      - "aws_msk_ingress_cidr ................... {{ aws_msk_ingress_cidr}}"
+      - "aws_msk_egress_cidr .................... {{ aws_msk_egress_cidr}}"
+      - "aws_kafka_user_name .................... {{ aws_kafka_user_name}}"
+      - "aws_kafka_user_password ................ {{ aws_kafka_user_password}}"
+      - "aws_msk_instance_type .................. {{ aws_msk_instance_type}}"
+      - "aws_msk_volume_size .................... {{ aws_msk_volume_size}}"
+      - "aws_msk_instance_number ................ {{ aws_msk_instance_number}}"
+      - "aws_msk_security_group_name ............ {{ aws_msk_security_group_name}}"
+      - "aws_msk_cluster_configuration .......... {{ aws_msk_cluster_configuration}}"
+      - "aws_msk_secret ......................... {{ aws_msk_secret}}"
+      - "aws_msk_kms_key ........................ {{ aws_msk_kms_key}}"
+
+# 3. Generate AWS MSK Key
+# -----------------------------------------------------------------------------
+- name: "Pre-validation mandatory parameter"
+  include_tasks: tasks/provider/aws/utils/create-msk-key.yml
+
+# 4. Create three subnets in VPC
+# -----------------------------------------------------------------------------
+- name: "Initialize Facts for provisioning"
+  set_fact:
+    subnet_id_list: []
+
+- name: "Fetch availability Zones in VPC Region"
+  shell: aws ec2 describe-availability-zones
+  register: az_info
+
+- name: "Set Fact for availability zones"
+  set_fact:
+    az: "{{ az_info.stdout | from_json | json_query('AvailabilityZones') }}"
+
+- name: "Create Subnets in three availability Zones"
+  include_tasks: tasks/provider/aws/utils/create-subnet.yml
+  loop:
+    - ["{{az[0].ZoneName}}", "{{ aws_msk_cidr_az1 }}"]
+    - ["{{az[1].ZoneName}}", "{{ aws_msk_cidr_az2 }}"]
+    - ["{{az[2].ZoneName}}", "{{ aws_msk_cidr_az3 }}"]
+
+- name: "Debug Created Subnet Ids in VPC"
+  debug:
+    msg:
+      - "Subnet Id List ......................... {{ subnet_id_list }}"
+
+# 5. Create AWS MSK Secret
+# -----------------------------------------------------------------------------
+
+- name: "Debug kafka_user_name kafka_user_password"
+  debug:
+    msg:
+      - "kafka_user_name ........................ {{ aws_kafka_user_name }}"
+      - "kafka_user_password .................... {{ aws_kafka_user_password }}"
+      - "key_arn_id ............................. {{ key_arn_id }}"
+
+- name: "Create clusterinfo json file"
+  ansible.builtin.template:
+    src: aws/secretvalues.json.j2
+    dest: "{{mas_config_dir}}/secretvalues.json"
+
+- name: "Create {{aws_msk_secret}} in AWS Secrets Manager"
+  shell: |
+    aws secretsmanager create-secret \
+        --name "{{aws_msk_secret}}" \
+        --description "{{aws_msk_secret}}" \
+        --secret-string file://{{mas_config_dir}}/secretvalues.json \
+        --kms-key-id "{{ key_arn_id }}"
+  register: aws_msk_secret_result
+  failed_when: aws_msk_secret_result.rc not in [0] and ('ResourceExistsException' not in aws_msk_secret_result.stderr )
+
+- name: "Get {{aws_msk_secret}} arn from AWS Secrets Manager"
+  shell: aws secretsmanager get-secret-value --secret-id "{{aws_msk_secret}}"
+  register: aws_msk_secret_result
+  failed_when: aws_msk_secret_result.rc not in [0]
+
+- name: "Fail if secret not created successfully"
+  assert:
+    that:
+      - aws_msk_secret_result is defined and aws_msk_secret_result != ''
+      - aws_msk_secret_result.stdout
+      - aws_msk_secret_result.stdout | from_json | json_query('ARN')
+
+- name: "Set Fact, MSK Secret arn"
+  set_fact:
+    secret_arn: "{{ aws_msk_secret_result.stdout | from_json | json_query('ARN')  }}"
+
+- name: "Debug aws_msk_secret_result"
+  debug:
+    msg:
+      - "aws_msk_secret_manager ................. {{ aws_msk_secret_result  }}"
+      - "aws_msk_secret_manager ARN ............. {{ secret_arn }}"
+
+# 6. Create Security Group and add ingress ,egress rules
+# -----------------------------------------------------------------------------
+- name: "Create Security Group and add ingress ,egress rules"
+  include_tasks: tasks/provider/aws/utils/create-security-group.yml
+
+# 7. Create AWS MSK Kafka Configuration
+# -----------------------------------------------------------------------------
+- name: "Kafka Create Configuration"
+  shell: |
+    aws kafka create-configuration \
+        --name "{{aws_msk_cluster_configuration}}" \
+        --description "{{aws_msk_cluster_configuration}}" \
+        --kafka-versions "2.8.1" \
+        --server-properties fileb://{{role_path}}/files/aws/configuration.txt
+  register: msk_config_result
+  failed_when: msk_config_result.rc not in [0] and ('ConflictException' not in msk_config_result.stderr )
+
+- name: "Look for Kafka Configurations Arn"
+  shell: aws kafka list-configurations --region {{aws_region}} --output text|grep arn|grep /{{aws_msk_cluster_configuration}}/|awk '{print $2}'
+  register: msk_config_arn
+
+- name: "Debug msk_config"
+  debug:
+    msg:
+      - "msk_config_arn ......................... {{ msk_config_arn.stdout }}"
+
+- name: Kafka describe-configuration
+  shell: aws kafka describe-configuration --arn {{msk_config_arn.stdout}} --query "{Arn:Arn,Revision:LatestRevision.Revision,State:State}"
+  register: msk_config_result
+
+- name: "Debug msk_config_result"
+  debug:
+    msg:
+      - "msk_config_result ...................... {{ msk_config_result }}"
+
+- name: "Fail if configuration not created"
+  assert:
+    that:
+      - msk_config_result is defined and msk_config_result != ''
+      - msk_config_result.stdout | from_json | json_query('Arn')
+      - msk_config_result.stdout | from_json | json_query('Revision')
+      - msk_config_result.stdout | from_json | json_query('State')
+      - (msk_config_result.stdout | from_json | json_query('State') ) == 'ACTIVE'
+
+- name: "Debug msk_config"
+  debug:
+    msg:
+      - "msk_config_result ...................... {{ msk_config_result }}"
+      - "msk_config_result.arn .................. {{ msk_config_result.stdout | from_json | json_query('Arn') }}"
+      - "msk_config_result.revision ............. {{ msk_config_result.stdout | from_json | json_query('Revision') }}"
+
+- name: "Set Fact, config arn, revision"
+  set_fact:
+    config_arn: "{{ msk_config_result.stdout | from_json | json_query('Arn') }}"
+    config_revision: "{{ msk_config_result.stdout | from_json | json_query('Revision') }}"
+
+# 8. Create AWS MSK Kafka Cluster
+# -----------------------------------------------------------------------------
+- name: "Create clusterinfo json file"
+  ansible.builtin.template:
+    src: aws/clusterinfo.json.j2
+    dest: "{{ mas_config_dir }}/clusterinfo.json"
+
+- name: "Read clusterinfo"
+  set_fact:
+    clusterinfo: "{{ lookup('file', '{{ mas_config_dir }}/clusterinfo.json' ) }}"
+
+- name: "Debug clusterinfo"
+  debug:
+    msg:
+      - "clusterinfo ............................ {{ clusterinfo }}"
+
+- name: "Create MSK Cluster"
+  shell: aws kafka create-cluster --cli-input-json 'file://{{mas_config_dir}}/clusterinfo.json' --output json
+  register: create_msk_cluster_lookup_output
+  failed_when: create_msk_cluster_lookup_output.rc not in [0] and ('ConflictException' not in create_msk_cluster_lookup_output.stderr )
+
+- name: "Kafka list cluster"
+  shell: |
+    aws kafka list-clusters --region {{aws_region}} --query "{ClusterArn:ClusterInfoList[*].ClusterArn}"  \
+    --output text|grep arn|grep /{{kafka_cluster_name}}/|awk '{print $2}'
+  register: msk_cluster_arn
+
+- name: "Debug msk_cluster_arn"
+  debug:
+    msg:
+      - "msk_cluster_arn ........................ {{ msk_cluster_arn.stdout }}"
+
+- name: "Kafka describe-cluster"
+  shell: aws kafka describe-cluster --cluster-arn {{msk_cluster_arn.stdout}}
+  register: msk_config_result
+
+- name: "Debug msk_config_result"
+  debug:
+    msg:
+      - "msk_config_result ...................... {{ msk_config_result }}"
+
+- name: "Fail if cluster not created"
+  assert:
+    that:
+      - msk_config_result is defined and msk_config_result != ''
+      - msk_config_result.stdout | from_json | json_query('ClusterInfo.ClusterArn')
+      - msk_config_result.stdout | from_json | json_query('ClusterInfo.State')
+
+- name: "Get MSK Cluster Arn"
+  set_fact:
+    msk_cluster_arn: "{{ msk_config_result.stdout | from_json | json_query('ClusterInfo.ClusterArn')}}"
+
+- name: "Debug MSK Cluster Arn"
+  debug:
+    msg:
+      - "msk_cluster_arn ........................ {{ msk_cluster_arn }}"
+
+# Wait for cluster status to return to "normal"
+- name: "Wait until MSK cluster  is ready"
+  shell: aws kafka describe-cluster --cluster-arn {{msk_cluster_arn }} --output json
+  register: describe_msk_cluster_lookup_output
+  until:
+    - describe_msk_cluster_lookup_output.stdout | from_json | json_query('ClusterInfo.State')  == 'ACTIVE'
+  retries: 60
+  delay: 60
+
+# 9. Associate SCRAM Secret
+# -----------------------------------------------------------------------------
+- name: "Associate Scram Secret"
+  shell: |
+    aws kafka batch-associate-scram-secret --cluster-arn {{ msk_cluster_arn }} \
+    --secret-arn-list {{ secret_arn }} --output json
+  register: describe_msk_associate_secret_lookup_output
+
+# 10. Fetch bootstrap brokers endpoints
+# -----------------------------------------------------------------------------
+- name: "Get bootstrap brokers"
+  shell: aws kafka get-bootstrap-brokers --cluster-arn {{ msk_cluster_arn }} --output json
+  register: get_bootstrap_brokers_lookup_output
+
+- name: "Set fact bootstrap brokers"
+  set_fact:
+    bootstrap_brokers: "{{  get_bootstrap_brokers_lookup_output.stdout | from_json | json_query('BootstrapBrokerStringSaslScram') }}"
+
+- name: "Debug bootstrap brokers"
+  debug:
+    msg:
+      - "bootstrap_brokers ...................... {{ bootstrap_brokers }}"
+
+#convert b-1:9096,b-3:9096,b-2:9096 to b-1=9096,b-3=9096,b-2=9096 and call string2dict
+- name: "Convert bootstrap_brokers to dictionary"
+  set_fact:
+    bootstrap_brokers: "{{ bootstrap_brokers | replace(':', '=')  | string | ibm.mas_devops.string2dict() }}"
+
+- name: "Debug MSK Cluster Arn"
+  debug:
+    msg:
+      - "bootstrap_brokers ...................... {{   bootstrap_brokers  }}"
+
+# 11. Fetch AWS MSK Root CA PEM file
+# -----------------------------------------------------------------------------
+- name: "WGet AWS Root CA Pem file"
+  shell: wget https://www.amazontrust.com/repository/AmazonRootCA1.pem -O awsrootca.pem
+
+- name: "Set AWS Root CA in awsrootca"
+  set_fact:
+    awsrootca: "{{ lookup('file', 'awsrootca.pem') }}"
+
+- name: "Debug Set AWS Root CA in awsrootca"
+  debug:
+    msg:
+      - "awsrootca .............................. {{   awsrootca  }}"
+
+- name: Debug kafka_user_name kafka_user_password
+  debug:
+    msg:
+      - "kafka_user_name ........................ {{aws_kafka_user_name}}"
+      - "kafka_user_password .................... {{aws_kafka_user_password}}"
+
+# 12. Save KafkaCfg to filesytem
+# -----------------------------------------------------------------------------
+- name: "Save KafkaCfg to filesytem"
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  ansible.builtin.template:
+    src: aws/mskcfg.yml.j2
+    dest: "{{ mas_config_dir }}/kafka-{{ kafka_cluster_name }}-{{ kafka_namespace }}.yml"
