@@ -107,7 +107,7 @@ Role Variables - IBM Cloud Internet Services DNS Integration
 
 - **Required** if `dns_provider` is set to `cis`
 - Environment Variable: `CIS_APIKEY`
-- Default: if not defined, will try to lookup from `IBMCLOUD_APIKEY`
+- Default: None
 
 ### cis_crn
 
