@@ -139,11 +139,6 @@ Role Variables - Enhanced IBM CIS DNS Integration Secruity
 ------------------------------------------------------------
 See the "cis_enhanced_security" variable above for details.
 
-### ibmcloud_apikey
-
-- **Required** if `cis_enhanced_security` is set to `true`
-- Environment Variable: `IBMCLOUD_APIKEY`
-
 ### cis_waf
 
 - Optional
