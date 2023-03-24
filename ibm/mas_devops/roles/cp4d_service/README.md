@@ -674,12 +674,12 @@ Stores the name of the CP4D Watson Discovery Instance that can be used to config
 ### cpd_wd_deployment_type
 Defines the CP4D Watson Discovery deployment type: 
 
-- `Starter`: One replica pod for each wd service/component, uses fewer resources in your cluster.
+- `Starter`: One replica pod for each wd service/component, uses fewer resources in your cluster.It is intended for demonstration and trial purposes only.
 - `Production`: Multiple replica pods for each Watson Discovery service/component, recommended for production deployments to increase workload capacity however consumes more cluster resources. 
 
 - Optional
 - Environment Variable: `CPD_WD_DEPLOYMENT_TYPE`
-- Default Value: `Starter`
+- Default Value: `Production`
 
 Note: Deployment type cannot be changed in the future neither while upgrading the service. If you need to change the deployment type, you must uninstall Watson Discovery and reinstall with the desired deployment type. More information, see [Upgrading Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=u-upgrading-from-version-40-1).
 
