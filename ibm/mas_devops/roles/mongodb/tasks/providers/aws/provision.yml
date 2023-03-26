@@ -258,20 +258,9 @@
     docdb_master_root_cert: "{{ lookup('file', '/tmp/rds-ca-2019-root.pem') }}"
     docdb_master_cert: "{{ lookup('file', '/tmp/rds-ca-2019-{{aws_region}}.pem') }}"
 
-- name: Create Secret for docdb admin credentials
-  when: not docdb_cluster_exists
-  no_log: true
-  ansible.builtin.template:
-    src: aws/docdb_master_user_credentials_secret.yaml.j2
-    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-docdb-master-secret.yml"
 
-# Setting the dest file as mongo-${MONGODB_NAMESPACE}.yml as SLS_MONGODB_CFG_FILE is set in this format in init.sh mas provisioning script
 - name: "Generate MongoCfg with DocDB details mongo-{{ mongodb_namespace }}.yml"
   ansible.builtin.template:
     src: aws/suite_mongocfg.yml.j2
     dest: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
-- name: Generate MongoCfg with DocDB details
-  ansible.builtin.template:
-    src: aws/suite_mongocfg.yml.j2
-    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-docdb-cfg.yml"
