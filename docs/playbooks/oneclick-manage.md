@@ -52,11 +52,16 @@ To connect to an external database (Oracle, SQL Server or DB2) set the following
 - `MAS_APP_SETTINGS_TABLESPACE` Your tablespace name. By default, the value is maxdata
 - `MAS_APP_SETTINGS_INDEXSPACE` Your indexspace name. By default, the value is maxindex
 - `MAS_JDBC_CERT_LOCAL_FILE` Path to your database certificate file if the database is SSL enabled
-   
+
 If the database is not SSL enabled, set the SSL_ENABLED variable to false. By default, SSL_ENABLED is true.
 
 `export SSL_ENABLED=false`  
- 
+
+To install CP4D and Cognos Analytics (Support for this integration starts in MAS 8.10):
+- `CPD_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
+- `CPD_INSTALL_COGNOS` True/False - If you HAVE Cognos Analytics already installed in your cluster, then set it to "false"
+- `CPD_PRODUCT_VERSION` Cloud Pak for Data version installed in the cluster in 4.X format.
+   
 ## Usage
 
 ```bash
@@ -102,6 +107,36 @@ export MAS_JDBC_URL="jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;dat
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_manage
 ```
+
+If you want to install Cognos Analytics:
+
+```bash
+export MAS_INSTANCE_ID=inst1
+export MAS_CONFIG_DIR=~/masconfig
+export IBM_ENTITLEMENT_KEY=xxx
+export MAS_APP_ID=manage
+
+If CP4D is not installed:
+
+export CPD_INSTALL_PLATFORM="true"
+export CPD_INSTALL_COGNOS="true"
+export CPD_PRODUCT_VERSION="4.6.3"
+
+If CP4D is already installed:
+
+export CPD_INSTALL_PLATFORM="false"
+export CPD_INSTALL_COGNOS="true"
+export CPD_ADMIN_USERNAME="admin"
+export CPD_ADMIN_PASSWORD="xxx"
+export CPD_URL="https://mycp4durl"
+export CPD_PRODUCT_VERSION="4.6.3"
+
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.oneclick_add_manage
+```
+
+
 
 !!! tip
     If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`
