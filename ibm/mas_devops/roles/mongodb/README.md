@@ -47,7 +47,7 @@ Determines which action needs to be performed w.r.t mongodb for a specfied `prov
   ```
   Following Providers supports below mentioned DB_ACTION values:
   1. Provider : community 
-  Supported DB_ACTION values : provision
+  Supported DB_ACTION values : provision,deprovision
   2. Provider: aws
   Supported DB_ACTION values : provision,deprovision,docdb_secret_rotate
   3. Provider: ibm
