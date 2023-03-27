@@ -43,7 +43,7 @@ MongoDB provider
 Determines which action needs to be performed w.r.t mongodb for a specfied `provider`
 
 - Environment variable: `MONGODB_ACTION`
-- Deafult Value: `provision`
+- Default Value: `provision`
   ```
   Following Providers supports below mentioned MONGODB_ACTION values:
   1. Provider : community 
