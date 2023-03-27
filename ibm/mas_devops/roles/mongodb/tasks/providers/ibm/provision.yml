@@ -2,7 +2,7 @@
 - name: "Debug properties, Provider: {{ mongodb_provider }} Action: {{mongodb_action}}"
   debug:
     msg:
-      - "IBM Cloud Resource Group .................. {{ ibmcloud_resourcegroup }}"
+      - "IBM Cloud Resource Group .................. {{ ibm_mongo_resourcegroup }}"
       - "Restore MongoDB from a backup resource .... {{ is_restore }}"
       - "IBM Cloud MongoDB Name .................... {{ ibm_mongo_name }}"
       - "IBM Cloud MongoDB Service ................. {{ ibm_mongo_service }}"
@@ -21,7 +21,7 @@
 # -----------------------------------------------------------------------------
 - name: Retrieve resource group guid
   ibm.cloudcollection.ibm_resource_group_info:
-    name: "{{ ibmcloud_resourcegroup }}"
+    name: "{{ ibm_mongo_resourcegroup }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
   register: rg_info
 
@@ -67,12 +67,12 @@
 
 - name: Login IBMCloud
   ansible.builtin.shell: |
-    ibmcloud login --apikey {{ ibmcloud_apikey }} -r {{ ibmcloud_region }} --quiet -g {{ ibmcloud_resourcegroup }}
+    ibmcloud login --apikey {{ ibmcloud_apikey }} -r {{ ibm_mongo_region }} --quiet -g {{ ibm_mongo_resourcegroup }}
 
 - name: Provision MongoDB in IBM Cloud
   when: not mongo_exists and not is_restore
   ansible.builtin.shell: |
-    ibmcloud resource service-instance-create {{ ibm_mongo_name }} {{ ibm_mongo_service }} {{ ibm_mongo_plan }}  {{ ibmcloud_region }} --service-endpoints {{ ibm_mongo_service_endpoints }} --parameters  \ '{
+    ibmcloud resource service-instance-create {{ ibm_mongo_name }} {{ ibm_mongo_service }} {{ ibm_mongo_plan }}  {{ ibm_mongo_region }} --service-endpoints {{ ibm_mongo_service_endpoints }} --parameters  \ '{
       "version":"{{ ibm_mongo_version }}",
       "members_memory_allocation_mb":"{{ ibm_mongo_memory }}",
       "members_disk_allocation_mb": "{{ ibm_mongo_disk }}",
@@ -84,7 +84,7 @@
 - name: Restore MongoDB with backed up Instance in IBM Cloud
   when: not mongo_exists and is_restore
   ansible.builtin.shell: |
-    ibmcloud resource service-instance-create {{ ibm_mongo_name }} {{ ibm_mongo_service }} {{ ibm_mongo_plan }}  {{ ibmcloud_region }} --service-endpoints {{ ibm_mongo_service_endpoints }} --parameters  \ '{
+    ibmcloud resource service-instance-create {{ ibm_mongo_name }} {{ ibm_mongo_service }} {{ ibm_mongo_plan }}  {{ ibm_mongo_region }} --service-endpoints {{ ibm_mongo_service_endpoints }} --parameters  \ '{
       "version":"{{ ibm_mongo_version }}",
       "members_memory_allocation_mb":"{{ ibm_mongo_memory }}",
       "members_disk_allocation_mb": "{{ ibm_mongo_disk }}",
