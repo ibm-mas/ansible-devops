@@ -1,9 +1,10 @@
 ---
 # Mirrors the following content which is REQUIRED to add Maximo Monitor to an existing
 # Maximo Application Suite Core Services installation:
-# 1. IBM Maximo Monitor
+# 1. IBM Asset Data Dictionary
+# 2. IBM Maximo Monitor
 #
-# This playbook aligns with the ibm.mas_devops.oneclick_add_monitor playbook
+# This playbook aligns with the ibm.mas_devops.oneclick_add_monitor playbook except we need to add the dependencies
 
 - hosts: localhost
   any_errors_fatal: true
@@ -30,7 +31,24 @@
         file: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
 
   roles:
-    # 1. IBM Maximo Monitor
+    # 1. IBM Asset Data Dictionary
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_mas_monitor
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-data-dictionary
+        case_version: "{{ dd_version }}"
+        exclude_images: []
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_mas_monitor
+      vars:
+        manifest_name: ibm-data-dictionary
+        manifest_version: "{{ dd_version }}"
+
+    # 2. IBM Maximo Monitor
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
