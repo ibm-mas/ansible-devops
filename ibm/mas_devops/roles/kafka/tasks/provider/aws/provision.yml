@@ -66,13 +66,6 @@
 # 5. Create AWS MSK Secret
 # -----------------------------------------------------------------------------
 
-- name: "Debug kafka_user_name kafka_user_password"
-  debug:
-    msg:
-      - "kafka_user_name ........................ {{ aws_kafka_user_name }}"
-      - "kafka_user_password .................... {{ aws_kafka_user_password }}"
-      - "key_arn_id ............................. {{ key_arn_id }}"
-
 - name: "Create clusterinfo json file"
   ansible.builtin.template:
     src: aws/secretvalues.json.j2
@@ -189,8 +182,9 @@
 
 - name: "Kafka list cluster"
   shell: |
-    aws kafka list-clusters --region {{aws_region}} --query "{ClusterArn:ClusterInfoList[*].ClusterArn}"  \
-    --output text|grep arn|grep /{{kafka_cluster_name}}/|awk '{print $2}'
+    aws kafka list-clusters --cluster-name-filter {{ kafka_cluster_name }} --region {{ aws_region }} \
+        --query "{ClusterArn:ClusterInfoList[*].ClusterArn}" \
+        --output text |awk '{print $2}'
   register: msk_cluster_arn
 
 - name: "Debug msk_cluster_arn"
@@ -278,12 +272,6 @@
   debug:
     msg:
       - "awsrootca .............................. {{   awsrootca  }}"
-
-- name: Debug kafka_user_name kafka_user_password
-  debug:
-    msg:
-      - "kafka_user_name ........................ {{aws_kafka_user_name}}"
-      - "kafka_user_password .................... {{aws_kafka_user_password}}"
 
 # 12. Save KafkaCfg to filesytem
 # -----------------------------------------------------------------------------
