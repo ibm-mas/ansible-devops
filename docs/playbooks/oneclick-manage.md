@@ -82,7 +82,7 @@ export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 export MAS_APP_ID=manage
 
-export CONFIGURE_EXTERNAL_DATABASE=true
+export CONFIGURE_EXTERNAL_DB=true
 export DB_INSTANCE_ID=maxdbxx 
 export MAS_JDBC_USER=maximo
 export MAS_JDBC_PASSWORD=xxx
@@ -90,6 +90,9 @@ export MAS_JDBC_URL=xxx
 export MAS_APP_SETTINGS_DB2_SCHEMA=maximo
 export MAS_APP_SETTINGS_TABLESPACE=maxdata
 export MAS_APP_SETTINGS_INDEXSPACE=maxindex
+export MAS_CONFIG_SCOPE=wsapp
+export MAS_APPWS_BINDINGS_JDBC=workspace-application
+
 
 Database URL examples:
 
