@@ -1,4 +1,4 @@
-configure_manage_cfg
+configure_manage_eventstreams
 ===
 
 This role configures manage to use IBM Cloud Eventstreams.
