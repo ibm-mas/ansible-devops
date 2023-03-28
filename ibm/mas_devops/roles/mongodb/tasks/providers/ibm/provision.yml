@@ -62,8 +62,8 @@
 - name: Generate Mongo admin password
   no_log: true
   set_fact:
-    mongo_admpass: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
-  when: not mongo_exists and mongo_admpass is undefined or mongo_admpass == ""
+    ibm_mongo_admin_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+  when: not mongo_exists and ibm_mongo_admin_password is undefined or ibm_mongo_admin_password == ""
 
 - name: Login IBMCloud
   ansible.builtin.shell: |
@@ -77,7 +77,7 @@
       "members_memory_allocation_mb":"{{ ibm_mongo_memory }}",
       "members_disk_allocation_mb": "{{ ibm_mongo_disk }}",
       "members_cpu_allocation_count":"{{ ibm_mongo_cpu }}",
-      "adminpassword":"{{ mongo_admpass }}"
+      "adminpassword":"{{ ibm_mongo_admin_password }}"
       }'
   register: ibm_mongo_info
 
@@ -89,7 +89,7 @@
       "members_memory_allocation_mb":"{{ ibm_mongo_memory }}",
       "members_disk_allocation_mb": "{{ ibm_mongo_disk }}",
       "members_cpu_allocation_count":"{{ ibm_mongo_cpu }}",
-      "adminpassword":"{{ mongo_admpass }}",
+      "adminpassword":"{{ ibm_mongo_admin_password }}",
       "backup_id" : "{{ ibm_mongo_backup_id }}"
       }'
   register: ibm_mongo_restore_info
