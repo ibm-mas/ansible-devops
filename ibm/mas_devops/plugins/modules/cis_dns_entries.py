@@ -36,13 +36,16 @@ def main():
             type = "list",
             required = True,
         ),
-
+        cis_waf = dict(
+            type = 'bool',
+            required = True
+        ),
         cis_crn = dict(
             type = "str",
             required = True,
         ),
 
-        cis_apikey = dict(
+        ibmcloud_apikey = dict(
             type = "str",
             required = True,
             no_log = True,
@@ -51,21 +54,6 @@ def main():
         ocp_ingress = dict(
             type = "str",
             required = True,
-        ),
-
-        cis_waf = dict(
-            type = 'bool',
-            required = False
-        ),
-
-        edge_certificate_routes = dict(
-            type = 'list',
-            required = False
-        ),
-
-        cis_proxy = dict(
-            type = 'bool',
-            required = False
         ),
 
         cis_subdomain = dict(
@@ -80,33 +68,46 @@ def main():
         dns_zone = dict(
             type = "str",
         ),
-
         delete_wildcards = dict(
             type = 'bool'
+        ),
+        edge_certificate_routes = dict(
+            type = 'list',
+            required = True
+        ),
+        cis_proxy = dict(
+            type = 'bool',
+            required = True
         )
+
     )
     module = AnsibleModule(
         argument_spec=fields,
         supports_check_mode = True,
     )
 
-    if any(v == "" for v in [module.params['dns_entries'], module.params['cis_crn'], module.params['cis_apikey'], module.params['ocp_ingress']]):
-        module.fail_json(msg = f"Required parameters: [dns_entries, cis_crn, cis_apikey, ocp_ingress] cannot be empty")
+    if any(v == "" for v in [module.params['dns_entries'], module.params['cis_crn'], module.params['ibmcloud_apikey'], module.params['ocp_ingress']]):
+        module.fail_json(msg = f"Required parameters: [dns_entries, cis_crn, ibmcloud_apikey, ocp_ingress] cannot be empty")
 
     changed = False
 
     crn = module.params['cis_crn']
-    cisApiKey = module.params['cis_apikey']
+    ibmCloudApiKey = module.params['ibmcloud_apikey']
     openshiftIngress = module.params['ocp_ingress']
     domainPrefix = module.params['cis_subdomain']
     updateDNS = module.params['update_dns']
+    delete_wildcards = module.params['delete_wildcards']
+    cis_waf = module.params['cis_waf']
+    edgeCertRoutes = module.params['edge_certificate_routes']
+    cisProxy = module.params['cis_proxy']
+
 
     # User may want to select an specific zone
     dnsZone = module.params['dns_zone']
 
     url = "https://iam.cloud.ibm.com/oidc/token"
 
-    payload='apikey=' + cisApiKey + '&response_type=cloud_iam&grant_type=urn%3Aibm%3Aparams%3Aoauth%3Agrant-type%3Aapikey'
+    payload='apikey=' + ibmCloudApiKey + '&response_type=cloud_iam&grant_type=urn%3Aibm%3Aparams%3Aoauth%3Agrant-type%3Aapikey'
     headers = {
     'Accept': 'application/json',
     'Content-Type': 'application/x-www-form-urlencoded'
@@ -179,8 +180,7 @@ def main():
         existingDNSIDs = [ sub['id'] for sub in dnsRecords ]
 
         count = 0
-        dnsEntries = module.params['dns_entries']
-
+        dnsEntries = module.params['dns_entries']        
         for line in dnsEntries:
             count += 1
             if line != "":
@@ -200,8 +200,13 @@ def main():
                     dnsId = existingDNSIDs[existingDNSEntries.index(entryName)]
                     # Updating DNS entry
                     url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records/{dnsId}"
+                    proxied = True
+                    if  'reportdb' in entryName:
+                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"    
+                    else:    
+                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"
+                    
 
-                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress + "\"\n}"
                     headers = {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
@@ -211,13 +216,15 @@ def main():
                     response = requests.request("PUT", url, headers=headers, data=payload)
                     if(response.status_code == 200):
                         changed = True
-                    #     DNS record updated successfully
+                    #     DNS record updated successfully                    
 
             else:
                 # Adding DNS entry
                 url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records"
-
-                payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress + "\"\n}"
+                if  'reportdb' in entryName:
+                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"    
+                else:    
+                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"
                 headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -228,6 +235,34 @@ def main():
                 if(response.status_code == 200):
                     changed = True
                     # DNS record created successfully
+
+            response = requests.request("PATCH", url, headers=headers, data=payload)
+            if(response.status_code == 200):
+                changed = True
+        
+        if delete_wildcards:
+            for entry in existingDNSEntries:
+                if entry.startswith('*'):
+                    dnsId = existingDNSIDs[existingDNSEntries.index(entry)]
+                    url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records/{dnsId}"
+                    response = requests.request("DELETE", url, headers=headers, data=payload)
+                    if(response.status_code == 200):
+                        changed = True
+        if cis_waf:
+
+            url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/settings/waf"	
+            payload="{\n \"value\": \"on\" \n}"
+            response = requests.request("PATCH", url, headers=headers, data=payload)
+            if(response.status_code == 200):
+                changed = True
+        
+        if len(edgeCertRoutes) > 0:
+            url = f"https://api.cis.cloud.ibm.com/v2/{crn}/zones/{zoneId}/ssl/certificate_packs/order"
+            payload = "{\n \"certificate_authority\": \"digicert\",\n \"validation_method\": \"txt\",\n \"validity_days\": 365,\n \"type\": \"advanced\",\n  \"hosts\": ["+ ",".join(["'"+str(i)+"'" for i in edgeCertRoutes]) +"],:}" 
+            response = requests.request("POST", url, headers=headers, data=payload)
+            if(response.status_code == 200):
+                
+                changed = True
     except requests.exceptions.RequestException as e:  # This is the correct syntax
         module.fail_json(msg = f"Error calling : {url}")
 
