@@ -101,6 +101,18 @@
     mongocfg: "{{ lookup('file', sls_mongodb_cfg_file) | from_yaml_all }}"
   when: sls_mongodb_cfg_file is defined
 
+- name: "Fail if mongocfg missing required mongo connection details"
+  ansible.builtin.assert:
+    that:
+      - mongocfg is defined and mongocfg[0] is defined and mongocfg[1] is defined
+      - mongocfg[1].spec.config.hosts is defined and mongocfg[1].spec.config.hosts != ''
+      - ((mongocfg[0].stringData is defined and mongocfg[0].stringData.username is defined and mongocfg[0].stringData.username != '' and
+        mongocfg[0].stringData.password is defined and mongocfg[0].stringData.password != '') or 
+        (mongocfg[0].data is defined and mongocfg[0].data.username is defined and mongocfg[0].data.username != '' and
+        mongocfg[0].data.password is defined and mongocfg[0].data.password != ''))
+    fail_msg: "Review provided SLS MongoCfg file, it is missing required mongo connection details"
+  when: sls_mongodb_cfg_file is defined
+
 - name: Overide MongoDb facts bases on mongocfg
   ansible.builtin.set_fact:
     mongodb:
