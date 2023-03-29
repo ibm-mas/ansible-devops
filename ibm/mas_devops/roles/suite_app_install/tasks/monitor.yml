@@ -1,0 +1,44 @@
+---
+
+# 1. Determine the version of the application operator that is running
+# -----------------------------------------------------------------------------
+- name: "Lookup Application operator version"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "mas-{{ mas_instance_id }}-add"
+    label_selectors:
+      - "operators.coreos.com/ibm-data-dictionary.mas-{{ mas_instance_id }}-add"
+  register: app_opcon
+  retries: 10
+  delay: 1 # minutes
+  until:
+    - app_opcon.resources is defined
+    - app_opcon.resources | length == 1
+    - app_opcon.resources[0].metadata.name is defined
+
+
+# 2. Set the application operator version
+# -----------------------------------------------------------------------------
+# OperatorCondition names are in the format {packageName}.{packageVersion}
+# We want to strip off the "v" prefix from the version while we do this
+- name: "Lookup operator version"
+  set_fact:
+    mas_app_operator_version: "{{ app_opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+- name: Debug
+  debug:
+    msg:
+      - "Application operator condition ......... {{ app_opcon.resources[0].metadata.name }}"
+      - "Application operator version ........... {{ mas_app_operator_version }}"
+
+
+# 3. Create the Image Digest Map for Data Dictionary
+# -----------------------------------------------------------------------------
+- name: "Create ibm-data-dictionary Image Digest Map"
+  include_role:
+    name: ibm.mas_devops.suite_install_digest_cm
+  vars:
+    digest_image_map_namespace: "mas-{{ mas_instance_id }}-add"
+    case_name: "ibm-data-dictionary"
+    case_version: "{{ mas_app_operator_version }}"
