@@ -53,14 +53,15 @@
 
 # 3. Run Pre-req task
 # -----------------------------------------------------------------------------
-# Only Watson Discovery has special pre-reqs currently
+# Only Watson Discovery and Cognos Analytics has special pre-reqs currently
 - name: Run Install Prereqs
   when:
-    - cpd_service_name is in ['wd', 'wsl', 'wml', 'spss']
+    - cpd_service_name is in ['wd', 'wsl', 'wml', 'spss', 'ca']
   include_tasks: "prereqs/prereqs-{{ cpd_service_name }}.yml"
 
 # 3.1 Install Operand Configs and Operand Registries
 # -----------------------------------------------------------------------------
+# If it's CPD 4.6, only Watson Studio, Watson Discovery and Cognos Analytics requires these operand configs to be applied via this automation.
 # If it's CPD 4.5, only Watson Studio and Watson Discovery requires these operand configs to be applied via this automation.
 # If it's CPD 4.0.x, no need to apply operand configs at all, as these will be automatically be set while installing services requiring it.
 - name: Install Operand Configs and Operand Registries
@@ -70,7 +71,7 @@
     apply: yes
     template: "templates/operand_config/{{ cpd_service_name }}.yml"
   when:
-    - cpd_service_name is in ['wd', 'wsl']
+    - cpd_service_name is in ['wd', 'wsl', 'ca']
     - cpd_minor_version in ['4.5','4.6']
 
 # 4. Install CP4D Service Subscriptions
@@ -107,7 +108,7 @@
 
 # 6.  Pause for 3 minutes for Watson Discovery to come up
 # -----------------------------------------------------------------------------
-- name: "Pause for 5 minutes for Watson Discovery CRDs to come up"
+- name: "Pause for 3 minutes for Watson Discovery CRDs to come up"
   when: cpd_service_name == 'wd'
   pause:
     minutes: 3
