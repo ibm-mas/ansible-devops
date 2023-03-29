@@ -190,13 +190,13 @@ AWS MSK Role Variables
 -------------------------------------
 
 ### kafka_action
-Action to be performed by Kafka role. Valid values are `provision` or `deprovision`. To provision AWS MSK kafka cluster, set this variable as `provision`. To deprovision an existing AWS MSK kafka cluster, set this variable as `deprovision`. 
+Action to be performed by Kafka role. Valid values are `install` or `uninstall`. To install AWS MSK kafka cluster, set this variable as `install`. To uninstall an existing AWS MSK kafka cluster, set this variable as `uninstall`. 
 
 - Environment Variable: `KAFKA_ACTION`
-- Default Value: `provision`
+- Default Value: `install`
 
 ### kafka_provider
-Valid kafka providers are `redhat`, `ibm` and `aws`. To provision or deprovision AWS MSK kafka cluster, set this variable as `aws`
+Valid kafka providers are `redhat`, `ibm` and `aws`. To install or uninstall AWS MSK kafka cluster, set this variable as `aws`
 
 - Environment Variable: `KAFKA_PROVIDER`
 - Default Value: `redhat`
@@ -311,7 +311,7 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Default Value: None
 
 
-Example Playbook to provision AWS MSK
+Example Playbook to install AWS MSK
 ----------------
 
 ```yaml
@@ -323,7 +323,7 @@ Example Playbook to provision AWS MSK
     aws_secret_access_key: *****
     kafka_version: 2.8.1
     kafka_provider: aws
-    kafka_action: provision
+    kafka_action: install
     kafka_cluster_name: msk-abcd0zyxw
     kafka_namespace: msk-abcd0zyxw  
     vpc_id: vpc-07088da510b3c35c5
@@ -343,7 +343,7 @@ Example Playbook to provision AWS MSK
     - ibm.mas_devops.kafka
 ```
 
-Example Playbook to deprovision AWS MSK
+Example Playbook to uninstall AWS MSK
 ----------------
 
 ```yaml
@@ -355,7 +355,7 @@ Example Playbook to deprovision AWS MSK
     aws_secret_access_key: *****
     vpc_id: vpc-07088da510b3c35c5	
     kafka_provider: aws
-    kafka_action: deprovision
+    kafka_action: uninstall
     kafka_cluster_name: msk-abcd0zyxw
     aws_msk_cidr_az1: "10.0.128.0/20"
     aws_msk_cidr_az2: "10.0.144.0/20"
