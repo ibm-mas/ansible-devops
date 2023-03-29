@@ -1,20 +1,11 @@
 gencfg_mongo
 ============
 
-This role is used to generate mongo configuration in Maximo Application Suite for the below providers:
-  - Mongo
-  - AWS Documentdb
-
+This role is used to generate mongo configuration in Maximo Application Suite
 This generated mongo configuration can be used as an input to the [suite_config](suite_config.md) role, to configure a MAS instance to connect with an existing Mongo cluster
 
 Role Variables
 --------------
-
-### db_provider
-Required.  Defines the provider that is used for the Mongo configure in MAS installation. If DB provider is Mongo, set DB_PROVIDER as mongo. If DB provider is AWS Documentdb, set DB_PROVIDER as documentdb
-
-- Environment Variable: `DB_PROVIDER`
-- Default: None
 
 ### mongo_namespace
 The generated Mongo Config file name will be suffixed with this namespace value eg, mongo-<<mongo_namespace>>.yml
@@ -67,7 +58,6 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true 
   vars:
-    db_provider: mongo
     mongo_namespace: mongoce
     mongo_admin_username: mongoadmin
     mongo_admin_password: mongo-strong-password

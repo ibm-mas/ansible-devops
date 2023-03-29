@@ -4,7 +4,7 @@ apiVersion: v1
 kind: Secret
 type: Opaque
 metadata:
-  name: mongodb-{{db_provider|lower}}-admin
+  name: mongodb-{{mas_instance_id|lower}}-admin
   namespace: mas-{{mas_instance_id}}-core
 {% if custom_labels is defined and custom_labels.items() %}
   labels:
@@ -31,18 +31,14 @@ metadata:
 {% endfor %}
 {% endif %}
 spec:
-  displayName: "External '{{db_provider_displayname}}'  in 'mas-{{mas_instance_id}}-core' namespace"
+  displayName: "External MongoDB in 'mas-{{mas_instance_id}}-core' namespace"
   type: external
   config:
     configDb: admin
-{% if retry_writes | bool %}
-    retryWrites: true
-{% else %}
-    retryWrites: false
-{% endif %}
+    retryWrites: {{retry_writes}}
     authMechanism: DEFAULT
     credentials:
-      secretName: mongodb-{{db_provider|lower}}-admin
+      secretName: mongodb-{{mas_instance_id|lower}}-admin
     hosts:
       {{ mongo_hosts | indent(6) }}
   certificates:

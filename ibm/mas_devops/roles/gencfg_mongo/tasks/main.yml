@@ -36,26 +36,8 @@
     that: mongo_namespace is defined and mongo_namespace != ""
     fail_msg: "mongo_namespace property is required"
 
-- name: "Fail if db_provider is not in allowed list"
-  when: db_provider != ""
-  assert:
-    that: db_provider is in ['mongo', 'documentdb']
-    fail_msg: "db_provider is not in allowed list ['mongo', 'documentdb']"
-
 # 2. Provide debug information
 # -----------------------------------------------------------------------------
-- name: "Set retry_writes"
-  set_fact:
-    retry_writes: "{{retry_writes_values[db_provider]}}"
-    db_provider_displayname: ""
-
-- name: "Set db_provider_displayname"
-  when:
-    - db_provider_displayname_values is defined
-    - db_provider_displayname_values[db_provider] is defined
-  set_fact:
-    db_provider_displayname: "{{db_provider_displayname_values[db_provider]}}"
-
 - name: "Convert mongo_hosts to dictionary"
   set_fact:
     mongo_hosts_dict: "{{ mongo_hosts | replace(':', '=')  | string | ibm.mas_devops.string2dict() }}"
@@ -76,8 +58,6 @@
       - "Mongo CA PEM............................ {{ mongo_ca_pem_local_file }}"
       - "Mongo Namespace......................... {{ mongo_namespace }}"
       - "Mongo host dict......................... {{ mongo_hosts_dict }}"
-      - "Mongo Provider.......................... {{ db_provider }}"
-      - "Mongo Provider displayname.............. {{ db_provider_displayname }}"
       - "Mongo retry_writes...................... {{ retry_writes }}"
 
 # Load mongo-hosts template to dynamically set as many mongo hosts:port as identified
@@ -92,7 +72,7 @@
   when:
     - mongo_ca_pem_local_file is defined
 
-- name: "External {{db_provider_displayname}} : Create MAS MongoCfg (debug)"
+- name: "External MongoDB : Create MAS MongoCfg (debug)"
   debug:
     msg: "{{ lookup('template', 'templates/suite_mongocfg.yml.j2') }}"
 
