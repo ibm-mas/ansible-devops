@@ -18,7 +18,7 @@ If selected provider is `community` [MongoDb CE operator](https://github.com/mon
 To run this role with providers as `ibm` or `aws` you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws`.
 
-Common Role Variables for all providers 
+Common Role Variables for all providers
 ----------------------------------------
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a MongoCfg template.
@@ -33,7 +33,7 @@ Local directory to save the generated MongoCfg resource definition.  This can be
 - Default Value: None
 
 ### mongodb_provider
-MongoDB provider 
+MongoDB provider
 
 - Environment variable: `DB_PROVIDER`
 - Defult Value: `community`
@@ -46,14 +46,14 @@ Determines which action needs to be performed w.r.t mongodb for a specfied `prov
 - Deafult Value: `provision`
   ```
   Following Providers supports below mentioned DB_ACTION values:
-  1. Provider : community 
+  1. Provider : community
   Supported DB_ACTION values : provision
   2. Provider: aws
   Supported DB_ACTION values : provision,deprovision,docdb_secret_rotate
   3. Provider: ibm
   Supported DB_ACTION values : provision,deprovision,backup,restore,create-mongo-service-credentials
   ```
- 
+
 
 Community MongoDB Role Variables
 ---------------------------------
@@ -262,6 +262,12 @@ MongoDB Service Endpoints type can be either public or private
 
 - Environment Variable: `IBM_MONGO_SERVICE_ENDPOINTS`
 - Default Value: `public`
+
+### ibm_mongo_name
+Specify MongoDB Service Instance Name
+
+- Environment Variable: `IBM_MONGO_NAME`
+- Default Value: mongo-`mas_instance_id`
 
 ### ibm_mongo_version
 Specify MongoDB version to be deployed
