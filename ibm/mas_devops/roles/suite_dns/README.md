@@ -47,6 +47,12 @@ Role Variables - General
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
+### mas_workspace_id:
+
+- **Required**
+- Environment Variable: `MAS_WORKSPACE_ID`
+- Default: None
+
 ### mas_domain
 
 - **Required**
