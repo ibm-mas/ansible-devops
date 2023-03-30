@@ -5,25 +5,23 @@ This role installs or upgrades [IBM Cloud Pak for Data](https://www.ibm.com/uk-e
 
 Currently supported Cloud Pak for Data release versions are:
 
-  - 4.0.9
   - 4.5.0
-  - 4.5.1
-  - 4.5.2
+  - 4.5.3
   - 4.6.0
+  - 4.6.3
 
 The role will automatically install or upgrade (if targeted to an existing CPD deployment) the corresponding Zen version associated to the chosen Cloud Pak for Data release, for example:
 
-- Cloud Pak for Data release version `4.0.9` installs Zen/Control Plane version [`4.4.4`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.0.9.yml#L13).
 - Cloud Pak for Data release version `4.5.0` installs Zen/Control Plane version [`4.5.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.0.yml#L59).
-- Cloud Pak for Data release version `4.5.1` installs Zen/Control Plane version [`4.5.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.1.yml#L61).
-- Cloud Pak for Data release version `4.5.2` installs Zen/Control Plane version [`4.7.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.2.yml#L62).
+- Cloud Pak for Data release version `4.5.3` installs Zen/Control Plane version [`4.7.1`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.3.yml#L62).
 - Cloud Pak for Data release version `4.6.0` installs Zen/Control Plane version [`4.8.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.0.yml#L65).
+- Cloud Pak for Data release version `4.6.3` installs Zen/Control Plane version [`4.8.1`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.3.yml#L65).
 
 For more information about CPD versioning, see [IBM Cloud Pak for Data Operator and operand versions](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=planning-operator-operand-versions)
 
 Upgrade
 ------------------
-This role also supports seamlessly CPD control plane (or also called `Zen` service) minor version upgrades (CPD 4.0.9 -> CPD 4.5.x > CPD 4.6.x), and patch version upgrades (i.e CPD 4.6.0 -> CPD 4.6.1).
+This role also supports seamlessly CPD control plane (or also called `Zen` service) minor version upgrades (CPD 4.5.x > CPD 4.6.x), and patch version upgrades (i.e CPD 4.6.0 -> CPD 4.6.1).
 All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role against an existing CPD instance.
 
 For more information about IBM Cloud Pak for Data upgrade process, refer to the [CPD official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=upgrading).
