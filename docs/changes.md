@@ -45,7 +45,6 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 - `12.3` Multiple Updates:
     - Support ad-hoc DBC scripts into Manage server ([#521](https://github.com/ibm-mas/ansible-devops/pull/521))
     - Support IBM Cloud COS buckets and Manage logging feature ([#526](https://github.com/ibm-mas/ansible-devops/pull/526))
-    - Add support of SSH public key in ocp_provision role ([#528](https://github.com/ibm-mas/ansible-devops/pull/528))
 - `12.2` Multiple Updates:
     - Add support for Nov 2022 catalog ([#531](https://github.com/ibm-mas/ansible-devops/pull/531))
     - Add support for Nvidia GPU on OCP 4.10 & 4.11 ([#525](https://github.com/ibm-mas/ansible-devops/pull/525))
