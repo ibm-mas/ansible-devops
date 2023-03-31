@@ -2,6 +2,7 @@
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
 - `12.17` Multiple Updates:
+    - Add gencfg_mongo role ([#725](https://github.com/ibm-mas/ansible-devops/pull/725))    
     - Support AWS MSK as Kafka provider ([#727](https://github.com/ibm-mas/ansible-devops/pull/727))
     - Mustgather role enhanced to collect certificates and other namespaces ([#740](https://github.com/ibm-mas/ansible-devops/pull/740))
 - `12.16` Multiple Updates:
