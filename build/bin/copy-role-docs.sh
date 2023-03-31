@@ -22,6 +22,7 @@ copyDoc cert_manager_upgrade
 copyDoc cert_manager_upgrade_check
 copyDoc cis
 copyDoc cluster_monitoring
+copyDoc convert_to_olm
 copyDoc common_services
 copyDoc configure_manage_eventstreams
 copyDoc cos
@@ -35,6 +36,7 @@ copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
 copyDoc gencfg_jdbc
+copyDoc gencfg_mongo
 copyDoc gencfg_watsonstudio
 copyDoc gencfg_workspace
 copyDoc ibm_catalogs
