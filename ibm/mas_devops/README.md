@@ -6,8 +6,9 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `12.17` Mulitple Updates:
+- `12.17` Multiple Updates:
     - Support AWS MSK as Kafka provider ([#727](https://github.com/ibm-mas/ansible-devops/pull/727))
+    - Mustgather role enhanced to collect certificates and other namespaces ([#740](https://github.com/ibm-mas/ansible-devops/pull/740))
 - `12.16` Multiple Updates:
     - Update catalog support for MAS 8.10 release ([#709](https://github.com/ibm-mas/ansible-devops/pull/709))
     - Add support for CP4D v4.5.3 & v4.6.3, and Cognos ([#692](https://github.com/ibm-mas/ansible-devops/pull/692))
