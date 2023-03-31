@@ -11,39 +11,56 @@
     kind: ConfigMap
   register: _cluster_details_result
 
-- name: "cis : Define CIS service name"
+- name: "cis : Define default CIS service name"
   set_fact:
     cis_service_name: "{{ _cluster_details_result.resources[0].data.cluster_name }}-cis-{{mas_instance_id}}"
   when:
-    - cis_service_name is not defined
+    - cis_service_name is not defined or cis_service_name == ''
 
 - name: "cis : debug cis_service_name"
   debug:
-    msg: "CIS Service Name ......... {{  cis_service_name }}"
+    msg: "CIS Service Name ......... {{ cis_service_name }}"
 
 - name: "cis : Lookup for CIS Service Domains"
   ansible.builtin.shell: |
-    ibmcloud cis domains -i {{cis_service_name}} -o json
+    ibmcloud cis domains -i {{ cis_service_name }} -o json
   register: _cis_domains_result
+
+- set_fact:
+    _cis_domain_id: "{{(_cis_domains_result.stdout | from_json)[0].id}}"
+
+- name: CIS domain id
+  debug:
+    var: _cis_domain_id
 
 - name: "cis : Lookup for cis certificates"
   ansible.builtin.shell: |
-    ibmcloud cis certificates {{(_cis_domains_result.stdout | from_json)[0].id}} -i {{cis_service_name}}
+    ibmcloud cis certificates {{ _cis_domain_id }} -i {{ cis_service_name }} -o json
   register: _cis_certificates
 
 - name: "cis : Verify if is there a dedicated certificate already"
   set_fact:
-    hasDedicated: "{{'advanced' in _cis_certificates.stdout_lines[2]}}"
-    dedicatedId: "{{ _cis_certificates.stdout_lines[2].split(' ')[0]}}"
+    hasDedicated: "{{ _cis_certificates.stdout | from_json | selectattr('hosts', 'search', mas_instance_id) | map(attribute='id') | list | length == 1 }}"
+
+- name: "cis : Lookup the dedicated certificate id"
+  when: hasDedicated
+  set_fact:
+    dedicatedId: "{{ _cis_certificates.stdout | from_json | selectattr('hosts', 'search', mas_instance_id) | map(attribute='id') | first }}"
+
+- name: Debug dedicated certificates
+  debug:
+    msg:
+      - "hasDedicated: {{ hasDedicated }}"
+      - "dedicatedId: {{ dedicatedId | default('N/A', True )}}"
 
 - name: "cis : Delete Existent Advanced Edge Certificate"
   ansible.builtin.shell: |
-    ibmcloud cis certificate-delete {{(_cis_domains_result.stdout | from_json)[0].id}}  {{dedicatedId}} -i {{cis_service_name}} -f
+    ibmcloud cis certificate-delete {{ _cis_domain_id }}  {{ dedicatedId }} -i {{ cis_service_name }} -f
   when: hasDedicated and override_edge_certs
   register: _deleted_certificate
 
 - name: "cis : Order certificate if there no dedicated yet"
   ansible.builtin.shell: |
-    ibmcloud cis certificate-order {{(_cis_domains_result.stdout | from_json)[0].id}} --hostnames {{edge_cert_routes|join(',')}} -i {{cis_service_name}}
+    ibmcloud cis certificate-order {{ _cis_domain_id }} --hostnames {{ edge_cert_routes|join(',') }} -i {{ cis_service_name }}
   when:
     - not hasDedicated or _deleted_certificate is defined

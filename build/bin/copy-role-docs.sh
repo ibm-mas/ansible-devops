@@ -22,6 +22,7 @@ copyDoc cert_manager_upgrade
 copyDoc cert_manager_upgrade_check
 copyDoc cis
 copyDoc cluster_monitoring
+copyDoc convert_to_olm
 copyDoc common_services
 copyDoc configure_manage_eventstreams
 copyDoc cos
@@ -81,7 +82,6 @@ copyDoc suite_manage_logging_config
 copyDoc suite_manage_pvc_config
 copyDoc suite_mustgather
 copyDoc suite_mustgather_download
-copyDoc suite_switch_to_olm
 copyDoc suite_upgrade
 copyDoc suite_uninstall
 copyDoc suite_verify
