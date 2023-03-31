@@ -4,6 +4,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 - `12.16` Multiple Updates:
     - Update catalog support for MAS 8.10 release ([#709](https://github.com/ibm-mas/ansible-devops/pull/709))
     - Add support for CP4D v4.5.3 & v4.6.3, and Cognos ([#692](https://github.com/ibm-mas/ansible-devops/pull/692))
+    - Add gencfg_mongo role ([#725](https://github.com/ibm-mas/ansible-devops/pull/725))    
     - Support AWS MSK as Kafka provider ([#727](https://github.com/ibm-mas/ansible-devops/pull/727))
 - `12.15` Multiple Updates:
     - Add OLM conversion role & playbook ([#691](https://github.com/ibm-mas/ansible-devops/pull/691))
