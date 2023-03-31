@@ -31,6 +31,13 @@ Required. In case if there are multiple instances, the host address should be se
 - Environment Variable: `MONGODB_HOSTS`
 - Default: None
 
+### mongodb_retry_writes
+Set to true if MongoDB support retryable writes. In case if retryable writes is not supported (like in case of Amazon DocumentDB), set to false
+
+- Optional
+- Environment Variable: `MONGODB_RETRY_WRITES`
+- Default: `true`
+
 ### mongodb_ca_pem_local_file
 Required. defines the CA pem file's local file path
 
@@ -62,6 +69,7 @@ Example Playbook
     mongodb_admin_username: mongoadmin
     mongodb_admin_password: mongo-strong-password
     mongodb_hosts: docdb-1.abc.ca-central-1.docdb.amazonaws.com:27017,docdb-2.def.ca-central-1.docdb.amazonaws.com:27017
+    mongodb_retry_writes: false
     mongodb_ca_pem_local_file: /tmp/mongo-ca.pem
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig  
