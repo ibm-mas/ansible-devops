@@ -25,7 +25,7 @@ Optional. collects certificates from secrets and configmaps
 - Default Value: false
 
 ### additional_namespaces
-Optional. Collects data in the specified namespaces (coma separated list). 
+Optional. Collects data in the specified namespaces (comma separated list). 
 
 - Environment Variable: `ADDITIONAL_NAMESPACES`
 - Default Value: None
