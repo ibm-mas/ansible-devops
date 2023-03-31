@@ -1,0 +1,73 @@
+---
+# mas_instance_id is required in order to be able to lookup for manage application resources
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+# mas_workspace_id is required in order to be able to lookup for manage application resources
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property is required"
+
+- name: Set manage_workspace_cr_name
+  when: manage_workspace_cr_name is not defined or manage_workspace_cr_name == ''
+  set_fact:
+    manage_workspace_cr_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+
+- name: "Fail if mas_app_settings_custom_persistent_volume_pvc_name is not provided"
+  assert:
+    that: mas_app_settings_custom_persistent_volume_pvc_name is defined and mas_app_settings_custom_persistent_volume_pvc_name != ""
+    fail_msg: "mas_app_settings_custom_persistent_volume_pvc_name property is required"
+
+- name: "Fail if mas_app_settings_custom_persistent_volume_mount_path is not provided"
+  assert:
+    that: mas_app_settings_custom_persistent_volume_mount_path is defined and mas_app_settings_custom_persistent_volume_mount_path != ""
+    fail_msg: "mas_app_settings_custom_persistent_volume_mount_path property is required"
+
+# Check if logging is already setup for ManageWorkspace
+- name: "Get ManageWorkspace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: managews_output
+
+- set_fact:
+    existing_manage_pvcs: "{{ managews_output.resources[0].spec.settings.deployment.persistentVolumes | default([], true )}}"
+
+- name: "Debug existing Manage persistent volumes"
+  debug:
+    msg: "{{ existing_manage_pvcs }}"
+
+# The following will auto determine storage classes to be used as persistent volumes for Manage configurations
+- name: Determine Persistent Volume Storage Class automatically (if not provided)
+  when:
+    - mas_app_settings_custom_persistent_volume_sc_name is not defined or mas_app_settings_custom_persistent_volume_sc_name == ''
+    - mas_app_settings_custom_persistent_volume_file_path is not defined or mas_app_settings_custom_persistent_volume_file_path == ''
+  include_tasks: "tasks/determine-storage-classes.yml"
+
+- name: Load persistent volume vars from .j2 template
+  when: mas_app_settings_custom_persistent_volume_file_path is not defined or mas_app_settings_custom_persistent_volume_file_path == ''
+  include_vars:
+    file: "manage-persistent-volumes.yml.j2"
+    name: manage_persistent_volumes
+
+- name: Load persistent volume vars from custom file
+  when: mas_app_settings_custom_persistent_volume_file_path is defined and mas_app_settings_custom_persistent_volume_file_path != ''
+  include_vars:
+    file: "{{ mas_app_settings_custom_persistent_volume_file_path }}"
+    name: manage_persistent_volumes
+
+- set_fact:
+    mas_app_settings_custom_persistent_volumes: "{{ manage_persistent_volumes.persistentVolumes }}"
+
+- debug:
+    var: mas_app_settings_custom_persistent_volumes
+
+# only configure PVC if new pvc name is not configured already or if new pvc definition comes from a custom file
+- name: "Setting up persistent volume claim configuration for Manage application from file"
+  include_tasks: "tasks/configure-manage-pvcs.yml"
+  when: (existing_manage_pvcs | selectattr('pvcName', 'equalto', mas_app_settings_custom_persistent_volume_pvc_name) | list | length == 0) or (mas_app_settings_custom_persistent_volume_file_path is defined and mas_app_settings_custom_persistent_volume_file_path != '')

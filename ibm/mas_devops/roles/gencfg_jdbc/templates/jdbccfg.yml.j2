@@ -5,6 +5,12 @@ type: Opaque
 metadata:
   name: "jdbc-{{ db_instance_id | lower }}-credentials"
   namespace: "mas-{{ mas_instance_id }}-core"
+{% if custom_labels is defined and custom_labels.items() %}
+  labels:
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
 stringData:
   username: "{{db_username}}"
   password: "{{jdbc_instance_password}}"
@@ -19,10 +25,17 @@ spec:
   displayName: "{{ suite_jdbccfg_name }}"
   config:
     url: "{{ jdbc_url }}"
+{% if ssl_enabled | bool %}
     sslEnabled: true
+{% else %}
+    sslEnabled: false
+{% endif %}
     credentials:
       secretName: "jdbc-{{ db_instance_id | lower }}-credentials"
-  certificates:
+{% if ssl_enabled | bool %}
+  certificates: 
     - alias: "{{ db_instance_id | lower }}"
       crt: |
         {{ db_pem | indent(8) }}
+{% endif %}
+

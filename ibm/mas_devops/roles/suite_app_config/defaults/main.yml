@@ -1,11 +1,36 @@
 ---
-# MAS configuration
+# 1. Custom Labels
+# -----------------------------------------------------------------------------
+custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string | ibm.mas_devops.string2dict() }}"
+
+
+# 2. MAS configuration
+# -----------------------------------------------------------------------------
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
 mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
-# MAS application configuration
+
+# 3. MAS application configuration
+# -----------------------------------------------------------------------------
 mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
-mas_appws_jdbc_binding: "{{ lookup('env', 'MAS_APPWS_JDBC_BINDING') }}"
+mas_appws_bindings_jdbc: "{{ lookup('env', 'MAS_APPWS_BINDINGS_JDBC') }}"
 mas_appws_components: "{{ lookup('env', 'MAS_APPWS_COMPONENTS') | ibm.mas_devops.appws_components | default('{}', true) }}"
-mas_app_ws_spec: "{{ lookup('env', 'MAS_APP_WS_SPEC') }}"
+
+# Only used by Predict currently - will be deprecated in favour of OM3.1 implementation
+mas_appws_settings_deployment_size: "{{ lookup('env', 'MAS_APPWS_SETTINGS_DEPLOYMENT_SIZE') | default('small', true) }}"
+
+
+# 4. Cloud Pak for Data integration (Predict, HP Utils)
+# -----------------------------------------------------------------------------
+# This is used to determine the version of WML, which Predict needs to be
+# provided at install time
+cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
+
+# Watson Studio Local (Predict, HP Utils)
+cpd_wsl_project_id: "{{ lookup('env', 'CPD_WSL_PROJECT_ID') | default('', true) }}"
+cpd_wsl_project_name: "{{ lookup('env', 'CPD_WSL_PROJECT_NAME') | default('wsl-mas-' + mas_instance_id + '-hputilities', true) }}" # default must be the same expected by cp4d_services role
+
+# Watson Machine Learning (Predict)
+cpd_wml_instance_id: "{{ lookup('env', 'CPD_WML_INSTANCE_ID') | default('openshift', true) }}"
+cpd_wml_url: "{{ lookup('env', 'CPD_WML_URL') | default('https://internal-nginx-svc.ibm-cpd.svc:12443', true) }}"

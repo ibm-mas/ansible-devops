@@ -20,8 +20,8 @@
     name: wd-discovery-cn-postgres
     namespace: "{{ cpd_instance_namespace }}"
   register: discovery_sa_lookup
-  retries: 40 # Up to 40 minutes
-  delay: 60 # Every 1 minute
+  retries: 60 # Up to 2 hours
+  delay: 120 # Every 2 minutes
   until:
     - discovery_sa_lookup.resources is defined
     - discovery_sa_lookup.resources | length > 0
@@ -35,8 +35,8 @@
     name: wd-discovery-etcd-serviceaccount
     namespace: "{{ cpd_instance_namespace }}"
   register: discovery_etcd_sa_lookup
-  retries: 40 # Up to 40 minutes
-  delay: 60 # Every 1 minute
+  retries: 60 # Up to 2 hours
+  delay: 120 # Every 2 minutes
   until:
     - discovery_etcd_sa_lookup.resources is defined
     - discovery_etcd_sa_lookup.resources | length > 0
@@ -66,7 +66,7 @@
       imagePullSecrets:
         - name: ibm-entitlement-key
 
-# 3. Spend 15 minutes looking for pods stuck in ImagePullBackoff state
+# 3. Spend 30 minutes looking for pods stuck in ImagePullBackoff state
 # -----------------------------------------------------------------------------
 # If we look for pods in image pull backoff too early then we won't know which ones to
 # boot so that they pick up the image pull secret as it takes a while for pods to get
@@ -92,6 +92,33 @@
     - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
   include_tasks: wait-wd-detectimagepullbackoff.yml
 
+- name: "wait-wd : Catch any pods caughts in ImgPullBackOff (4)"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  include_tasks: wait-wd-detectimagepullbackoff.yml
+
+- name: "wait-wd : Catch any pods caughts in ImgPullBackOff (5)"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  include_tasks: wait-wd-detectimagepullbackoff.yml
+
+- name: "wait-wd : Catch any pods caughts in ImgPullBackOff (6)"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  include_tasks: wait-wd-detectimagepullbackoff.yml
+
 
 # 4. Wait for CP4D service CR to be ready
 # -----------------------------------------------------------------------------
@@ -108,6 +135,5 @@
     - cpd_cr_lookup.resources[0].status is defined
     - cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus is defined
     - cpd_cr_lookup.resources[0].status.watsonDiscoveryStatus == "Completed"
-    - cpd_cr_lookup.resources[0].status.versions.reconciled == cpd_product_version # needed for the wd upgrade
   retries: 60 # Up to 5 (yes, FIVE !!) hours
   delay: 300 # Every 5 minutes

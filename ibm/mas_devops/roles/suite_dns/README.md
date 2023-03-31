@@ -47,6 +47,12 @@ Role Variables - General
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
+### mas_workspace_id:
+
+- **Required**
+- Environment Variable: `MAS_WORKSPACE_ID`
+- Default: None
+
 ### mas_domain
 
 - **Required**
@@ -57,6 +63,13 @@ Role Variables - General
 
 - Optional
 - Environment Variable: `OCP_INGRESS`
+- Default: None
+
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
 - Default: None
 
 Role Variables - Cloudflare DNS Integration
@@ -114,6 +127,70 @@ Role Variables - IBM Cloud Internet Services DNS Integration
 - Environment Variable: `CIS_SUBDOMAIN`
 - Default: None
 
+### cis_enhanced_security
+Set this to true to enable the enhanced IBM CIS DNS integration security - which includes:
+- Enabling WAF firewall disabling rules that affect MAS application functionalities
+- Enabling Proxy for DNS entries
+- Using an expanded list of DNS entries
+- Ensuring there are no wildcard DNS entry in CIS
+- Creating Edge Certificates in CIS instance
+See https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-security for more details.
+
+- Optional
+- Environment Variable: `CIS_ENHANCED_SECURITY`
+- Default: false
+
+
+Role Variables - Enhanced IBM CIS DNS Integration Secruity
+------------------------------------------------------------
+See the "cis_enhanced_security" variable above for details.
+
+### cis_waf
+
+- Optional
+- Environment Variable: `CIS_WAF`
+- Default: true
+
+### cis_proxy
+
+- Optional
+- Environment Variable: `CIS_PROXY`
+- Default: false
+
+### cis_service_name
+Set this to override the default CIS service name that would otherwise be created as {ClusterName}-cis-{mas_instance_id} (where Cluster Name is derived automatically from the cluster)
+
+- Optional
+- Environment Variable: `CIS_SERVICE_NAME`
+
+### update_dns
+Set this to false if you want to not update DNS entries if they already exist
+
+- Optional
+- Environment Variable: `UPDATE_DNS_ENTRIES`
+- Default: true
+
+### delete_wildcards
+Set this to true to force deletion of wildcard dns entries in cis
+
+- Optional
+- Environment Variable: `DELETE_WILDCARDS`
+- Default: false
+
+### override_edge_certs
+Set this to false to not override and delete any existing edge certificates in cis instance when creating new edge certificates
+
+- Optional
+- Environment Variable: `OVERRIDE_EDGE_CERTS`
+- Default: true
+
+
+### output_dir
+Location to output the edge-routes-{mas_instance_id}.txt
+
+- Optional
+- Environment Variable: `OUTPUT_DIR`
+- Default: `.` (which will set the directory file in ibm/mas_devops)
 
 Example Playbook
 ----------------
@@ -123,6 +200,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    dns_provider: cis OR cloudflare
     mas_instance_id: inst1
     mas_domain: mydomain.com
     cis_crn: xxx

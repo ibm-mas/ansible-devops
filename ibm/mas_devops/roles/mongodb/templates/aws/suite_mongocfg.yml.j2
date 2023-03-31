@@ -1,0 +1,31 @@
+apiVersion: config.mas.ibm.com/v1
+kind: MongoCfg
+metadata:
+  name: "{{mas_instance_id}}-mongo-system"
+  namespace: "mas-{{mas_instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{mas_instance_id}}"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+  displayName: "AWS DocumentDB namespace"
+  type: external
+  config:
+    configDb: admin
+    authMechanism: DEFAULT
+    retryWrites: false
+    credentials:
+      secretName: "{{ docdb_admin_credentials_secret_name }}"
+    hosts:
+      {{ docdb_hosts | indent(6) }}
+  certificates:
+    - alias: ca
+      crt: |
+        {{ docdb_master_cert | indent(8) }}
+    - alias: root
+      crt: |
+        {{ docdb_master_root_cert | indent(8) }}

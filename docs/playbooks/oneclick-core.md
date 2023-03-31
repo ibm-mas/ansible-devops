@@ -93,7 +93,7 @@ ansible-playbook ibm.mas_devops.oneclick_core
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/cli:latest`
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`
 
 
 ### Pre-release build
@@ -104,8 +104,8 @@ export IBM_ENTITLEMENT_KEY=xxx
 
 export ARTIFACTORY_USERNAME=$W3_USERNAME_LOWERCASE
 export ARTIFACTORY_APIKEY=xxx
-export MAS_ICR_CP=wiotp-docker-local.artifactory.swg-devops.com
-export MAS_ICR_CPOPEN=wiotp-docker-local.artifactory.swg-devops.com
+export MAS_ICR_CP=docker-na-public.artifactory.swg-devops.com/wiotp-docker-local
+export MAS_ICR_CPOPEN=docker-na-public.artifactory.swg-devops.com/wiotp-docker-local
 export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
 export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
 
@@ -126,4 +126,4 @@ ansible-playbook ibm.mas_devops.oneclick_core
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti quay.io/ibmmas/cli:latest`
+    If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`

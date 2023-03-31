@@ -27,48 +27,48 @@ function download_case() {
 
 # Truststore Manager
 # -----------------------------------------------------------------------------
-download_case ibm-truststore-mgr 1.4.0 ibmTrustStoreMgrSetup
+# download_case ibm-truststore-mgr 1.4.0 ibmTrustStoreMgrSetup
 
 # MAS Core
 # -----------------------------------------------------------------------------
-download_case ibm-mas 8.8.3 ibmMasSetup
-download_case ibm-mas 8.9.0 ibmMasSetup
+download_case ibm-mas 8.8.6 ibmMasSetup
+download_case ibm-mas 8.9.2 ibmMasSetup
 
 # MAS Assist
 # -----------------------------------------------------------------------------
 # Not supported for airgap
-# download_case ibm-mas-assist 8.5.0 ibmMasAssistSetup
+#download_case ibm-mas-assist 8.6.1 ibmMasAssistSetup
 
 # MAS HP Utilities
 # -----------------------------------------------------------------------------
 # Not supported for airgap
-# download_case ibm-mas-hputilities 8.4.0 ibmMasHPUtilitiesSetup
+#download_case ibm-mas-hputilities 8.5.1 ibmMasHPUtilitiesSetup
 
 # MAS IoT
 # -----------------------------------------------------------------------------
-download_case ibm-mas-iot 8.5.3 ibmMasIotSetup
-download_case ibm-mas-iot 8.6.0 ibmMasIotSetup
+#download_case ibm-mas-iot 8.5.5 ibmMasIotSetup
+#download_case ibm-mas-iot 8.6.1 ibmMasIotSetup
 
 # MAS Manage
 # -----------------------------------------------------------------------------
-download_case ibm-mas-manage 8.4.3 ibmMasManageSetup
-download_case ibm-mas-manage 8.5.0 ibmMasManageSetup
+download_case ibm-mas-manage 8.4.6 ibmMasManageSetup
+download_case ibm-mas-manage 8.5.2 ibmMasManageSetup
 
 # MAS Monitor
 # -----------------------------------------------------------------------------
-download_case ibm-mas-monitor 8.9.0 ibmMasMonitorSetup
-download_case ibm-mas-monitor 8.8.2 ibmMasMonitorSetup
+download_case ibm-mas-monitor 8.9.3 ibmMasMonitorSetup
+download_case ibm-mas-monitor 8.8.3 ibmMasMonitorSetup
 
 # MAS Predict
 # -----------------------------------------------------------------------------
 # Not supported for airgap
-# download_case ibm-mas-predict 8.6.0 ibmMasPredictSetup
+#download_case ibm-mas-predict 8.7.1 ibmMasPredictSetup
 
 # MAS Optimizer
 # -----------------------------------------------------------------------------
-download_case ibm-mas-optimizer 8.2.2 ibmMasOptimizerSetup
-download_case ibm-mas-optimizer 8.3.0 ibmMasOptimizerSetup
+download_case ibm-mas-optimizer 8.2.4 ibmMasOptimizerSetup
+download_case ibm-mas-optimizer 8.3.2 ibmMasOptimizerSetup
 
 # MAS Visual Inspection
 # -----------------------------------------------------------------------------
-download_case ibm-mas-visualinspection 8.7.0 ibmMasVisualInspectionSetup
+#download_case ibm-mas-visualinspection 8.7.0 ibmMasVisualInspectionSetup

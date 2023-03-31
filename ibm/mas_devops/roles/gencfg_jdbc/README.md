@@ -1,7 +1,7 @@
 suite_config
 ============
 
-This role is used to configure db in Maximo Application Suite.
+This role is used to configure db in Maximo Application Suite. It will use the database SSL certificate if ssl_enabled flag is true. The`db_pem-file` defines the location of the pem file used for JDBC connection in MAS installation.
 
 Role Variables
 --------------
@@ -47,6 +47,14 @@ Defines the location of the pem file used for JDBC connection in MAS installatio
 
 - Environment Variable: `MAS_JDBC_CERT_LOCAL_FILE`
 - Default: None
+
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default: None
+
 
 Example Playbook
 ----------------
