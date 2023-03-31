@@ -6,6 +6,8 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `12.17` Multiple Updates:
+    - Add MongoDb clean option to suite_uninstall role ([#706](https://github.com/ibm-mas/ansible-devops/pull/706))
 - `12.16` Multiple Updates:
     - Add OLM conversion role & playbook ([#691](https://github.com/ibm-mas/ansible-devops/pull/691))
     - Support setting imagePullPolicy in Suite ([#710](https://github.com/ibm-mas/ansible-devops/pull/710))
