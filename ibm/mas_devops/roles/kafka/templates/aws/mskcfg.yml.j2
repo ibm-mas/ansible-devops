@@ -1,0 +1,46 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: "aws-msk-credentials-{{mas_instance_id | lower}}"
+  namespace: "mas-{{mas_instance_id}}-core"
+{% if custom_labels is defined and custom_labels.items() %}
+  labels:
+{% for key, value in custom_labels.items() %}
+    "{{key}}": "{{value}}"
+{% endfor %}
+{% endif %}
+stringData:
+  username: "{{aws_kafka_user_name}}"
+  password: "{{aws_kafka_user_password}}"
+---
+apiVersion: config.mas.ibm.com/v1
+kind: KafkaCfg
+metadata:
+  name: "{{mas_instance_id | lower}}-kafka-system"
+  namespace: "mas-{{mas_instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{mas_instance_id}}"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+    "{{key}}": "{{value}}"
+{% endfor %}
+{% endif %}
+spec:
+  displayName: "MSK Kafka - {{kafka_cluster_name}}"
+  type: external
+  config:
+    hosts:
+{% if bootstrap_brokers is defined and bootstrap_brokers.items() %}{% for key, value in bootstrap_brokers.items() %}
+      - host: "{{key}}"
+        port: {{value}}
+{% endfor %}{% endif %}
+    credentials:
+      secretName: "aws-msk-credentials-{{mas_instance_id | lower}}"
+    saslMechanism: SCRAM-SHA-512
+  certificates:
+    - alias: "mskca"
+      crt: |
+        {{awsrootca | indent(8)}}
