@@ -1,0 +1,177 @@
+---
+# Pre-validation mandatory parameter
+# -----------------------------------------------------------------------------
+- name: "Fail if aws_region is not provided"
+  assert:
+    that: aws_region is defined and aws_region != ""
+    fail_msg: "aws_region property is required"
+
+- name: "Fail if aws_access_key_id is not provided"
+  assert:
+    that: aws_access_key_id is defined and aws_access_key_id != ""
+    fail_msg: "aws_access_key_id property is required"
+
+- name: "Fail if aws_secret_access_key is not provided"
+  assert:
+    that: aws_secret_access_key is defined and aws_secret_access_key != ""
+    fail_msg: "aws_secret_access_key property is required"
+
+- name: "Fail if vpc_id is not provided"
+  assert:
+    that: vpc_id is defined and vpc_id != ""
+    fail_msg: "vpc_id property is required"
+
+- name: "Fail if kafka_cluster_name is not provided"
+  assert:
+    that: kafka_cluster_name is defined and kafka_cluster_name != ""
+    fail_msg: "kafka_cluster_name property is required"
+
+- name: "Fail if aws_msk_cidr_az1 is not provided"
+  assert:
+    that: aws_msk_cidr_az1 is defined and aws_msk_cidr_az1 != ""
+    fail_msg: "aws_msk_cidr_az1 property is required"
+
+- name: "Fail if aws_msk_cidr_az2 is not provided"
+  assert:
+    that: aws_msk_cidr_az2 is defined and aws_msk_cidr_az2 != ""
+    fail_msg: "aws_msk_cidr_az2 property is required"
+
+- name: "Fail if aws_msk_cidr_az3 is not provided"
+  assert:
+    that: aws_msk_cidr_az3 is defined and aws_msk_cidr_az3 != ""
+    fail_msg: "aws_msk_cidr_az3 property is required"
+
+- name: "Debug: AWS MSK properties"
+  debug:
+    msg:
+      - "kafka_cluster_name ..................... {{ kafka_cluster_name}}"
+      - "aws_region ............................. {{ aws_region}}"
+      - "vpc_id ................................. {{ vpc_id}}"
+      - "aws_msk_cidr_az1 ....................... {{ aws_msk_cidr_az1}}"
+      - "aws_msk_cidr_az2 ....................... {{ aws_msk_cidr_az2}}"
+      - "aws_msk_cidr_az3 ....................... {{ aws_msk_cidr_az3}}"
+      - "aws_msk_security_group_name ............ {{ aws_msk_security_group_name}}"
+      - "aws_msk_cluster_configuration .......... {{ aws_msk_cluster_configuration}}"
+      - "aws_msk_secret ......................... {{ aws_msk_secret}}"
+      - "aws_msk_kms_key ........................ {{ aws_msk_kms_key}}"
+
+# 1. Delete AWS MSK Kafka Cluster
+# -----------------------------------------------------------------------------
+- name: "Look for AWS MSK Kafka cluster"
+  shell: aws kafka list-clusters --cluster-name-filter {{ kafka_cluster_name }} --region {{ aws_region }}
+  changed_when: false
+  register: kafka_cluster_query
+
+- name: "Debug AWS MSK kafka_cluster_query"
+  debug:
+    msg:
+      - "kafka_cluster_query .................... {{ kafka_cluster_query }}"
+
+- name: "Extract AWS MSK cluster arn"
+  set_fact:
+    kafka_arn: "{{ kafka_cluster_query.stdout | from_json | json_query('ClusterInfoList[0].ClusterArn') }}"
+    kafka_state: "{{ kafka_cluster_query.stdout | from_json | json_query('ClusterInfoList[0].State') }}"
+
+- name: "Debug AWS MSK kafka arn"
+  debug:
+    msg:
+      - "kafka_arn .............................. {{ kafka_arn }}"
+      - "kafka_state ............................ {{ kafka_state }}"
+
+- name: "Delete AWS MSK Kafka cluster"
+  shell: aws kafka delete-cluster --cluster-arn {{ kafka_arn }} --region {{ aws_region }}
+  changed_when: false
+  when: kafka_arn != "" and kafka_state != 'Deleting'
+
+- name: "Wait until AWS MSK Kafka cluster deleted"
+  shell: aws kafka list-clusters --cluster-name-filter {{ kafka_cluster_name }} --region {{ aws_region }}
+  changed_when: false
+  register: kafka_cluster_query
+  until: not (kafka_cluster_query.stdout | from_json | json_query('ClusterInfoList'))
+  delay: 15
+  retries: 100
+
+# 2. Delete AWS MSK Kafka Configuration
+# -----------------------------------------------------------------------------
+- name: "Look for AWS MSK Kafka configuration arn"
+  shell: aws kafka list-configurations --region {{aws_region}} --output text|grep arn|grep /{{aws_msk_cluster_configuration}}/|awk '{print $2}'
+  register: msk_config_arn
+
+- name: "Debug AWS MSK msk_config_arn"
+  debug:
+    msg:
+      - "msk_config_arn ......................... {{ msk_config_arn.stdout }}"
+
+- name: "Delete AWS MSK Kafka configuration"
+  shell: aws kafka delete-configuration --arn {{ msk_config_arn.stdout }} --region {{ aws_region }}
+  when: msk_config_arn.stdout != ""
+
+# 3. Delete AWS KMS Key, SecretManager
+# -----------------------------------------------------------------------------
+- name: "Look for AWS msk_kms_key"
+  shell: aws kms describe-key --key-id alias/{{aws_msk_kms_key}}
+  register: msk_kms_key_query
+
+- name: "Debug AWS msk_kms_key_query"
+  debug:
+    msg:
+      - "msk_kms_key_query ...................... {{ msk_kms_key_query }}"
+
+- name: "Extract AWS msk_kms_key id and state"
+  set_fact:
+    msk_kms_key_id: "{{ msk_kms_key_query.stdout | from_json | json_query('KeyMetadata.KeyId') }}"
+    msk_kms_key_state: "{{ msk_kms_key_query.stdout | from_json | json_query('KeyMetadata.KeyState') }}"
+
+- name: "Debug AWS MSK kafka arn"
+  debug:
+    msg:
+      - "msk_kms_key_id ......................... {{ msk_kms_key_id }}"
+      - "msk_kms_key_state ...................... {{ msk_kms_key_state }}"
+
+- name: "Schedule Deletion AWS msk_kms_key_id"
+  shell: aws kms schedule-key-deletion --region {{ aws_region }} --key-id {{msk_kms_key_id}} --pending-window-in-days 10
+  when: msk_kms_key_id != "" and msk_kms_key_state != 'PendingDeletion'
+
+- name: "Delete Secretsmanager {{aws_msk_secret}}"
+  shell: aws secretsmanager delete-secret --secret-id {{aws_msk_secret}} --force-delete-without-recovery
+  register: delete_secrets_manager
+
+# 4. Delete all three subnets in VPC
+# -----------------------------------------------------------------------------
+- name: Fetch Subnets already exists in VPC {{ vpc_id }}
+  loop: ["{{aws_msk_cidr_az1}}", "{{aws_msk_cidr_az2}}", "{{aws_msk_cidr_az3}}"]
+  shell: aws ec2 describe-subnets --filters "Name=cidr, Values={{item}}" "Name=vpc-id,Values={{ vpc_id }}"
+  register: subnets_info
+
+- name: Initialize Subnet Ids list
+  set_fact:
+    subnets: []
+
+- name: Set Fact for fecthed Subnets
+  loop: "{{ subnets_info.results }}"
+  set_fact:
+    subnets: "{{ subnets + [item.stdout | from_json | json_query('Subnets') ] }}"
+
+- name: Delete all subnets for AWS MSK
+  loop: "{{ subnets }}"
+  shell: aws ec2 delete-subnet --subnet-id '{{ item[0].SubnetId }}'
+  register: subnet_delete_info
+  when: item | length > 0
+  failed_when: subnet_delete_info.rc not in [0] and ('DependencyViolation' not in subnet_delete_info.stderr )
+
+# 5. Delete Security Group
+# -----------------------------------------------------------------------------
+- name: Fetch Security Group {{ aws_msk_security_group_name }} Info in vpc {{vpc_id}}
+  shell: |
+    aws ec2 describe-security-groups \
+      --filters "Name=vpc-id,Values='{{ vpc_id }}'" "Name=group-name,Values='{{ aws_msk_security_group_name }}'"
+  register: sg_info
+
+- name: Set Fact , Security Group Id
+  set_fact:
+    sg_group_id: "{{sg_info.stdout | from_json | json_query('SecurityGroups[0].GroupId')}}"
+
+- name: Delete Security Group for AWS MSK Instance
+  when: sg_group_id is defined and sg_group_id != ''
+  shell: aws ec2 delete-security-group --group-id '{{ sg_group_id }}'
+  register: sg_delete_info
