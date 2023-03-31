@@ -1,7 +1,7 @@
 kafka
 =====
 
-This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet) and generate configuration that can be directly applied to Maximo Application Suite.
+This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet), IBM Event Streams or AWS MSK and generate configuration that can be directly applied to Maximo Application Suite.
 
 > The Red Hat AMQ streams component is a massively scalable, distributed, and high-performance data streaming platform based on the Apache Kafka project. It offers a distributed backbone that allows microservices and other applications to share data with high throughput and low latency.
 >
@@ -200,6 +200,12 @@ Valid kafka providers are `redhat`, `ibm` and `aws`. To install or uninstall AWS
 
 - Environment Variable: `KAFKA_PROVIDER`
 - Default Value: `redhat`
+
+### kafka_version
+The version of Kafka to deploy.
+
+- Environment Variable: `KAFKA_VERSION`
+- Default Value: `2.7.0`
 
 ### kafka_cluster_name
 
