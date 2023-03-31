@@ -11,36 +11,36 @@
     that: mas_config_dir is defined and mas_config_dir != ""
     fail_msg: "mas_config_dir property is required"
 
-- name: "Fail if mongo_admin_username is not provided"
+- name: "Fail if mongodb_admin_username is not provided"
   assert:
-    that: mongo_admin_username is defined and mongo_admin_username != ""
-    fail_msg: "mongo_admin_username property is required"
+    that: mongodb_admin_username is defined and mongodb_admin_username != ""
+    fail_msg: "mongodb_admin_username property is required"
 
-- name: "Fail if mongo_admin_password is not provided"
+- name: "Fail if mongodb_admin_password is not provided"
   assert:
-    that: mongo_admin_password is defined and mongo_admin_password != ""
-    fail_msg: "mongo_admin_password property is required"
+    that: mongodb_admin_password is defined and mongodb_admin_password != ""
+    fail_msg: "mongodb_admin_password property is required"
 
-- name: "Fail if mongo_hosts is not provided"
+- name: "Fail if mongodb_hosts is not provided"
   assert:
-    that: mongo_hosts is defined and mongo_hosts != ""
-    fail_msg: "mongo_hosts property is required"
+    that: mongodb_hosts is defined and mongodb_hosts != ""
+    fail_msg: "mongodb_hosts property is required"
 
-- name: "Fail if mongo_ca_pem_local_file is not provided"
+- name: "Fail if mongodb_ca_pem_local_file is not provided"
   assert:
-    that: mongo_ca_pem_local_file is defined and mongo_ca_pem_local_file != ""
-    fail_msg: "mongo_ca_pem_local_file property is required"
+    that: mongodb_ca_pem_local_file is defined and mongodb_ca_pem_local_file != ""
+    fail_msg: "mongodb_ca_pem_local_file property is required"
 
-- name: "Fail if mongo_namespace is not provided"
+- name: "Fail if mongodb_namespace is not provided"
   assert:
-    that: mongo_namespace is defined and mongo_namespace != ""
-    fail_msg: "mongo_namespace property is required"
+    that: mongodb_namespace is defined and mongodb_namespace != ""
+    fail_msg: "mongodb_namespace property is required"
 
 # 2. Provide debug information
 # -----------------------------------------------------------------------------
-- name: "Convert mongo_hosts to dictionary"
+- name: "Convert mongodb_hosts to dictionary"
   set_fact:
-    mongo_hosts_dict: "{{ mongo_hosts | replace(':', '=')  | string | ibm.mas_devops.string2dict() }}"
+    mongo_hosts_dict: "{{ mongodb_hosts | replace(':', '=')  | string | ibm.mas_devops.string2dict() }}"
 
 - name: "Fail if mongo_hosts_dict is empty"
   assert:
@@ -52,25 +52,25 @@
     msg:
       - "MAS Instance ID......................... {{ mas_instance_id }}"
       - "MAS Config Dir.......................... {{ mas_config_dir }}"
-      - "Mongo Admin username.................... {{ mongo_admin_username }}"
-      - "Mongo Admin password.................... {{ mongo_admin_password }}"
-      - "Mongo hosts ID.......................... {{ mongo_hosts }}"
-      - "Mongo CA PEM............................ {{ mongo_ca_pem_local_file }}"
-      - "Mongo Namespace......................... {{ mongo_namespace }}"
+      - "Mongo Admin username.................... {{ mongodb_admin_username }}"
+      - "Mongo Admin password.................... {{ mongodb_admin_password }}"
+      - "Mongo hosts ID.......................... {{ mongodb_hosts }}"
+      - "Mongo CA PEM............................ {{ mongodb_ca_pem_local_file }}"
+      - "Mongo Namespace......................... {{ mongodb_namespace }}"
       - "Mongo host dict......................... {{ mongo_hosts_dict }}"
-      - "Mongo retry_writes...................... {{ retry_writes }}"
+      - "Mongo mongodb_retry_writes.............. {{ mongodb_retry_writes }}"
 
 # Load mongo-hosts template to dynamically set as many mongo hosts:port as identified
 - set_fact:
-    mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/mongo-hosts.yml.j2') }}"
+    mongodb_hosts: "{{ lookup('ansible.builtin.template', 'templates/mongo-hosts.yml.j2') }}"
 
 # 5. Read file information
 # -----------------------------------------------------------------------------
 - name: Read Mongo CA PEM file
   set_fact:
-    mongo_ca_pem: "{{ lookup('file', mongo_ca_pem_local_file) }}"
+    mongo_ca_pem: "{{ lookup('file', mongodb_ca_pem_local_file) }}"
   when:
-    - mongo_ca_pem_local_file is defined
+    - mongodb_ca_pem_local_file is defined
 
 - name: "External MongoDB : Create MAS MongoCfg (debug)"
   debug:
@@ -84,4 +84,4 @@
     - mas_config_dir != ""
   ansible.builtin.template:
     src: suite_mongocfg.yml.j2
-    dest: "{{ mas_config_dir }}/mongo-{{ mongo_namespace }}.yml"
+    dest: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"

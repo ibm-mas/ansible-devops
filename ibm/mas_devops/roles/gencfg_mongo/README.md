@@ -7,34 +7,34 @@ This generated mongo configuration can be used as an input to the [suite_config]
 Role Variables
 --------------
 
-### mongo_namespace
-The generated Mongo Config file name will be suffixed with this namespace value eg, mongo-<<mongo_namespace>>.yml
+### mongodb_namespace
+The generated Mongo Config file name will be suffixed with this namespace value eg, mongo-<<mongodb_namespace>>.yml
 
 - Environment Variable: `MONGODB_NAMESPACE`
 - Default: mongoce
 
-### mongo_admin_username
+### mongodb_admin_username
 Required. MongoDB admin username
 
-- Environment Variable: `MONGO_ADMIN_USERNAME`
+- Environment Variable: `MONGODB_ADMIN_USERNAME`
 - Default: None
 
-### mongo_admin_password
+### mongodb_admin_password
 Required. MongoDB admin password
 
-- Environment Variable: `MONGO_ADMIN_PASSWORD`
+- Environment Variable: `MONGODB_ADMIN_PASSWORD`
 - Default: None
 
-### mongo_hosts
+### mongodb_hosts
 Required. In case if there are multiple instances, the host address should be seperated by a ,. Example: docdb-1.abc.ca-central-1.docdb.amazonaws.com:27017,docdb-2.def.ca-central-1.docdb.amazonaws.com:27017
 
-- Environment Variable: `MONGO_HOSTS`
+- Environment Variable: `MONGODB_HOSTS`
 - Default: None
 
-### mongo_ca_pem_local_file
+### mongodb_ca_pem_local_file
 Required. defines the CA pem file's local file path
 
-- Environment Variable: `MONGO_CA_PEM_LOCAL_FILE`
+- Environment Variable: `MONGODB_CA_PEM_LOCAL_FILE`
 - Default: None
 
 ### mas_instance_id
@@ -58,11 +58,11 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true 
   vars:
-    mongo_namespace: mongoce
-    mongo_admin_username: mongoadmin
-    mongo_admin_password: mongo-strong-password
-    mongo_hosts: docdb-1.abc.ca-central-1.docdb.amazonaws.com:27017,docdb-2.def.ca-central-1.docdb.amazonaws.com:27017
-    mongo_ca_pem_local_file: /tmp/mongo-ca.pem
+    mongodb_namespace: mongoce
+    mongodb_admin_username: mongoadmin
+    mongodb_admin_password: mongo-strong-password
+    mongodb_hosts: docdb-1.abc.ca-central-1.docdb.amazonaws.com:27017,docdb-2.def.ca-central-1.docdb.amazonaws.com:27017
+    mongodb_ca_pem_local_file: /tmp/mongo-ca.pem
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig  
   roles:
