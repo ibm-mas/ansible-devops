@@ -1,5 +1,4 @@
 ---
-
 # 1. Validate required properties
 # =============================================================================
 - name: "cis : Fail if required properties are not provided"
@@ -29,11 +28,13 @@
 # 3. Set up the DNS entries
 # =============================================================================
 - name: "cis : Define DNS Entries"
-  include_vars: vars/dnsentries.yml
+  set_fact:
+    dns_entries: "{{ lookup('ansible.builtin.template', 'dnsentries.yml.j2') | from_yaml }}"
+    list_edge_cert_routes: "{{ lookup('ansible.builtin.template', 'edge_certificate_routes.yml.j2') | from_yaml }}"
 
-# Load variables to order the edge certificate
 - name: "cis : Define Edge Certificate Routes"
-  include_vars: vars/edge_certificate_routes.yml
+  set_fact:
+    edge_cert_routes: "{{ list_edge_cert_routes['edge_cert_routes'] }}"
 
 - name: "cis : Debug information"
   debug:
@@ -46,8 +47,7 @@
       - "Delete Wildcards ......... {{ delete_wildcards }}"
       - "Override Edge Certs ...... {{ override_edge_certs }}"
       - "Update DNS Entries ....... {{ update_dns }}"
-      - "DNS Entries .............. {{ dns_entries }}"
-
+      - "DNS Entries .............. {{ dns_entries['nowildcard'] }}"
 
 # 4. Add DNS entries
 # =============================================================================
@@ -59,10 +59,10 @@
     update_dns: "{{ update_dns }}"
     ibmcloud_apikey: "{{ cis_apikey }}"
     delete_wildcards: "{{ delete_wildcards }}"
-    dns_entries: "{{ dns_entries }}"
+    dns_entries: "{{ dns_entries['nowildcard'] }}"
     cis_waf: "{{ cis_waf }}"
-    edge_certificate_routes: "{{edge_cert_routes}}"
-    cis_proxy: "{{cis_proxy}}"
+    edge_certificate_routes: "{{ edge_cert_routes }}"
+    cis_proxy: "{{ cis_proxy }}"
   register: dnsoutput
 
 - name: "cis : dump output"

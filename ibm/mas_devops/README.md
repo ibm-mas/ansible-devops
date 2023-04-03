@@ -6,6 +6,15 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `12.17` Multiple Updates:
+    - Add MongoDb clean option to suite_uninstall role ([#706](https://github.com/ibm-mas/ansible-devops/pull/706))
+    - Add support of SSH public key in ocp_provision role ([#528](https://github.com/ibm-mas/ansible-devops/pull/528))
+    - Add gencfg_mongo role ([#725](https://github.com/ibm-mas/ansible-devops/pull/725))
+    - Support AWS MSK as Kafka provider ([#727](https://github.com/ibm-mas/ansible-devops/pull/727))
+    - Mustgather role enhanced to collect certificates and other namespaces ([#740](https://github.com/ibm-mas/ansible-devops/pull/740))
+- `12.16` Multiple Updates:
+    - Update catalog support for MAS 8.10 release ([#709](https://github.com/ibm-mas/ansible-devops/pull/709))
+    - Add support for CP4D v4.5.3 & v4.6.3, and Cognos ([#692](https://github.com/ibm-mas/ansible-devops/pull/692))
 - `12.15` Multiple Updates:
     - Add OLM conversion role & playbook ([#691](https://github.com/ibm-mas/ansible-devops/pull/691))
     - Support setting imagePullPolicy in Suite ([#710](https://github.com/ibm-mas/ansible-devops/pull/710))
@@ -16,6 +25,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
     - Extend support for Manage's customer files configuration ([#661](https://github.com/ibm-mas/ansible-devops/pull/661))
     - Support for additional mongodb providers ([#559](https://github.com/ibm-mas/ansible-devops/pull/559))
     - Add support for configuring Manage for IBM EventStreams ([#678](https://github.com/ibm-mas/ansible-devops/pull/678))
+    - Extend support for Cognos Analytics and latest patches for CloudPak for Data 4.5.3 and 4.6.3 ([#692](https://github.com/ibm-mas/ansible-devops/pull/692))
 - `12.11`
     - Add Cloud Pak for Data v4.6 support ([#538](https://github.com/ibm-mas/ansible-devops/pull/538))
     - Add support for Feb 2023 catalog ([#662](https://github.com/ibm-mas/ansible-devops/pull/662))
