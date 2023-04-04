@@ -257,6 +257,14 @@ The working directory that is used to perform the installation, it will contain 
 - Environment Variable: `IPI_DIR`
 - Default Value: `~/openshift-install`
 
+### sshKey
+Public SSH key value. It will be set in the OCP cluster nodes.
+Can be used to SSH into the OCP cluster nodes using a bastion.
+
+- Optional when `cluster_type = ipi`
+- Environment Variable: `SSH_PUB_KEY`
+
+
 ### ipi_controlplane_type
 Control plane node type.
 

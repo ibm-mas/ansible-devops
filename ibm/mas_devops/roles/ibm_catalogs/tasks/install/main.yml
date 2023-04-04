@@ -33,15 +33,16 @@
   include_tasks: tasks/install/update-digest-maps.yml
 
 - name: "Create IBM offline catalog"
-  when: airgap_install
+  when:
+    - airgap_install
+    - artifactory_username is not defined or artifactory_username == ""
+    - artifactory_apikey is not defined or artifactory_apikey == ""
   kubernetes.core.k8s:
     template: templates/offline-catalog.yml.j2
 
 
 # 3. Install development (pre-release) catalog
 # -----------------------------------------------------------------------------
-# In an airgap install scenario, the catalogs are already installed as part of
-# preparing the cluster.  The development catalog is not supported in airgap today
 - name: "Install development (pre-release) catalogs"
   when:
     - artifactory_username is defined and artifactory_username != ""
@@ -49,6 +50,23 @@
     - not airgap_install
   include_tasks: tasks/install/development-catalog.yml
 
+- name: "Make sure that catalog digest is available for airgap dev catalog"
+  when:
+    - airgap_install
+    - artifactory_username is defined and artifactory_username != ""
+    - artifactory_apikey is defined and artifactory_apikey != ""
+  assert:
+    that:
+      - mas_catalog_digest is defined and mas_catalog_digest != ""
+    fail_msg: "MAS_CATALOG_DIGEST is required for airgap dev catalogs"
+
+- name: "Install development (pre-release) catalog using digest for airgap"
+  when:
+    - airgap_install
+    - artifactory_username is defined and artifactory_username != ""
+    - artifactory_apikey is defined and artifactory_apikey != ""
+  kubernetes.core.k8s:
+    template: templates/development-catalog-with-digest.yml.j2
 
 # 4. Wait until ready
 # -----------------------------------------------------------------------------
