@@ -36,7 +36,20 @@ The gpu driver version image that needs to be pulled from the gpu repository. It
 
 - Environment Variable: `GPU_DRIVER_VERSION`
 - Default Value: `470.103.01` if ocp version 4.11 and `450.80.02` otherwise
+The deciding factor for which image version to use is the RHEL version.
 
+RHEL 8.6
+470.103.01
+RHEL 7.9
+450.80.02
+The version of RHEL that is used by OCP version is (per https://cloud.ibm.com/docs/openshift?topic=openshift-rhel_migrate)
+
+OCP 4.10+
+RHEL 8
+OCP 4.9
+Either RHEL 8 or RHEL 7 with 7 being the default
+OCP 4.6, 4.7, & 4.8
+RHEL 7
 
 
 For more information on the NVIDIA GPU and NFD operators, visit https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/openshift/install-gpu-ocp.html

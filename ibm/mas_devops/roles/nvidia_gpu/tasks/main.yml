@@ -17,15 +17,15 @@
   set_fact:
     ocp_version_num: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
 
-- name: "Set gpu driver version default for ocp 4.11"
-  when: ocp_version_num is regex('^4.11.*')
+- name: "Set gpu driver version default for ocp 4.10+"
+  when: ocp_version_num is version('4.10.0', '>')
   set_fact:
-    gpu_driver_version: "{{ (_gpu_driver_version is defined and _gpu_driver_version != '') | ternary(_gpu_driver_version, ocp_411_driver_version) }}"
+    gpu_driver_version: "{{ (_gpu_driver_version is defined and _gpu_driver_version != '') | ternary(_gpu_driver_version, rhel8_driver_version) }}"
 
 - name: "Set gpu driver version for other ocp versions"
-  when: ocp_version_num is version('4.11.0', '<')
+  when: ocp_version_num is version('4.10.0', '<')
   set_fact:
-    gpu_driver_version: "{{ (_gpu_driver_version is defined and _gpu_driver_version != '') | ternary(_gpu_driver_version, ocp_410_driver_version) }}"
+    gpu_driver_version: "{{ (_gpu_driver_version is defined and _gpu_driver_version != '') | ternary(_gpu_driver_version, rhel7_driver_version) }}"
 
 # 1. Provide Debug information
 # -----------------------------------------------------------------------------
