@@ -224,6 +224,13 @@ Required. IBM Cloud Mongo database instance name.
 - Environment Variable: `IBM_MONGO_NAME`
 - Default Value: `mongo-${MAS_INSTANCE_ID}`
 
+### ibm_mongo_admin_password
+Optional. Sets IBM Cloud Mongo database administrator user password.
+If not set, an auto-generated 20 character length string will be used.
+
+- Environment Variable: `IBM_MONGO_ADMIN_PASSWORD`
+- Default Value: None.
+
 ### ibm_mongo_admin_credentials_secret_name
 Secret for MongoDB Admin credentials.
 
