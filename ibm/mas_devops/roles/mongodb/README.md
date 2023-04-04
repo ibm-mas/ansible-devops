@@ -43,15 +43,15 @@ MongoDB provider
 Determines which action needs to be performed w.r.t mongodb for a specfied `provider`
 
 - Environment variable: `MONGODB_ACTION`
-- Deafult Value: `provision`
+- Default Value: `install`
   ```
-  Following Providers supports below mentioned DB_ACTION values:
+  Following Providers supports below mentioned MONGODB_ACTION values:
   1. Provider : community 
-  Supported DB_ACTION values : provision
+  Supported MONGODB_ACTION values : install,uninstall
   2. Provider: aws
-  Supported DB_ACTION values : provision,deprovision,docdb_secret_rotate
+  Supported MONGODB_ACTION values : install,uninstall,docdb_secret_rotate
   3. Provider: ibm
-  Supported DB_ACTION values : provision,deprovision,backup,restore,create-mongo-service-credentials
+  Supported MONGODB_ACTION values : install,uninstall,backup,restore,create-mongo-service-credentials
   ```
  
 
