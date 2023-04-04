@@ -48,6 +48,12 @@ OCP 4.10+           --> RHEL 8
 OCP 4.9             --> Either RHEL 8 or RHEL 7 with 7 being the default
 OCP 4.6, 4.7, & 4.8 --> RHEL 7
 
+### gpu_driver_repository_path
+The gpu driver repository. If using a diffent repository, you can set the value for this repo. Usually this should be a public repo otherwise an image pull secret needs to be created and the clusterpolicy file needs to be updated to be able to pull the image.
+
+- Environment Variable: `GPU_DRIVER_REPOSITORY_PATH`
+- Default Value: `nvcr.io/nvidia`
+
 
 For more information on the NVIDIA GPU and NFD operators, visit https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/openshift/install-gpu-ocp.html
 
