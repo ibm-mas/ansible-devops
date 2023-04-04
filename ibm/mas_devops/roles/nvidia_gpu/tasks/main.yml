@@ -36,6 +36,7 @@
       - "GPU Namespace ...................... {{ gpu_namespace }}"
       - "GPU Channel   ...................... {{ gpu_channel }}"
       - "GPU Driver Version ................. {{ gpu_driver_version }}"
+      - "GPU Driver Repo Path ............... {{ gpu_driver_repository_path }}"
 
 
 # 2. Create NVIDIA GPU project
@@ -86,35 +87,10 @@
 
 # 4. Create GPU Cluster Policy
 # -----------------------------------------------------------------------------
-- name: "Patch Cluster Policy instance"
+- name: "Create Cluster Policy instance"
   kubernetes.core.k8s:
-    definition:
-      apiVersion: nvidia.com/v1
-      kind: ClusterPolicy
-      metadata:
-        name: gpu-cluster-policy
-      spec:
-        driver:
-          repository: "{{ gpu_driver_repository_path }}"
-          image: "{{ gpu_driver_image_name }}"
-          imagePullSecrets: "{{ gpu_driver_image_pull_secrets }}"
-          licensingConfig:
-            configMapName: "{{ gpu_driver_config_map_name }}"
-            nlsEnabled: "{{ gpu_driver_enable_nls }}"
-          version: "{{ gpu_driver_version }}"
-          enabled: "{{ gpu_driver_enabled }}"
-
-# - name: "Create Cluster Policy instance if ocp 4.10 or 4.11"
-#   when: ocp_version_num is regex('^4.10.*') or ocp_version_num is regex('^4.11.*')
-#   kubernetes.core.k8s:
-#     apply: yes
-#     definition: "{{ lookup('template', 'templates/clusterpolicies/ocp_{{ ocp_version_num[:4] }}.yml.j2') }}"
-
-# - name: "Create Cluster Policy instance (other ocp versions < 4.10)"
-#   when: ocp_version_num is version('4.10.0', '<')
-#   kubernetes.core.k8s:
-#     apply: yes
-#     definition: "{{ lookup('template', 'templates/clusterpolicies/clusterpolicy.yml.j2') }}"
+    apply: yes
+    definition: "{{ lookup('template', 'templates/clusterpolicy.yml.j2') }}"
 
 
 # 5. Wait for Cluster Policy to be ready
