@@ -38,7 +38,7 @@ def main():
         ),
         cis_waf = dict(
             type = 'bool',
-            required = True
+            required = False
         ),
         cis_crn = dict(
             type = "str",
@@ -73,11 +73,11 @@ def main():
         ),
         edge_certificate_routes = dict(
             type = 'list',
-            required = True
+            required = False
         ),
         cis_proxy = dict(
             type = 'bool',
-            required = True
+            required = False
         )
 
     )
@@ -200,13 +200,13 @@ def main():
                     dnsId = existingDNSIDs[existingDNSEntries.index(entryName)]
                     # Updating DNS entry
                     url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records/{dnsId}"
-                    proxied = True
-                    if  'reportdb' in entryName:
+                    # proxied = True
+                    if cisProxy and 'reportdb' not in entryName:
+                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"    
+                    else:
                         payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"    
-                    else:    
-                        payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"
-                    
 
+            
                     headers = {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
@@ -221,10 +221,11 @@ def main():
             else:
                 # Adding DNS entry
                 url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records"
-                if  'reportdb' in entryName:
+                if cisProxy and 'reportdb' not in entryName:
+                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"    
+                else:
                     payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"    
-                else:    
-                    payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"
+
                 headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
@@ -256,7 +257,7 @@ def main():
             if(response.status_code == 200):
                 changed = True
         
-        if len(edgeCertRoutes) > 0:
+        if (edgeCertRoutes) and len(edgeCertRoutes) > 0:
             url = f"https://api.cis.cloud.ibm.com/v2/{crn}/zones/{zoneId}/ssl/certificate_packs/order"
             payload = "{\n \"certificate_authority\": \"digicert\",\n \"validation_method\": \"txt\",\n \"validity_days\": 365,\n \"type\": \"advanced\",\n  \"hosts\": ["+ ",".join(["'"+str(i)+"'" for i in edgeCertRoutes]) +"],:}" 
             response = requests.request("POST", url, headers=headers, data=payload)
