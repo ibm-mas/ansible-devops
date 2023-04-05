@@ -182,7 +182,7 @@ Provide a description for the cluster.
 - Default Value: None
 
 - Optional
-- Environment Variable: `OCP_FIPS`
+- Environment Variable: `OCP_FIPS_ENABLED`
 - Default Value: false
 
 ### fyre_cluster_size
