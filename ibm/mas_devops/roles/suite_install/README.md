@@ -12,7 +12,7 @@ Defines the catalog to be used to install MAS. You can set it to ibm-operator-ca
 ### artifactory_username
 Required when using this role for development versions of MAS
 
-### artifactory_apikey
+### artifactory_token
 Required when using this role for development versions of MAS
 
 ### mas_channel

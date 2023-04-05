@@ -189,6 +189,10 @@ Example Playbook
 AWS MSK Role Variables
 -------------------------------------
 
+## Prerequisites
+To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
+
 ### kafka_action
 Action to be performed by Kafka role. Valid values are `install` or `uninstall`. To install AWS MSK kafka cluster, set this variable as `install`. To uninstall an existing AWS MSK kafka cluster, set this variable as `uninstall`. 
 
