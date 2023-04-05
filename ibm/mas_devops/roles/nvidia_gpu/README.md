@@ -32,28 +32,29 @@ The channel to subscribe to for the gpu operator installation and updates. Avail
 - Default Value: `v1.11`
 
 ### gpu_driver_version
-The gpu driver version image that needs to be pulled from the gpu repository. It is recommended that the right version of GPU driver is used. The MVI installation documentation, the default version below should be used.
+The gpu driver version image that needs to be pulled from the gpu driver repository. It is recommended that the right version of GPU driver is used depending on the OS version. The default versions are shown below. See the attached links for more information and to decide which driver version to use.
 
 - Environment Variable: `GPU_DRIVER_VERSION`
 - Default Value: `470.103.01` if ocp version 4.10+ and `450.80.02` otherwise
-The deciding factor for which image version to use is the RHEL version.
+The deciding factor for which image version to use is the RHEL or RHCOS version.
 
-RHEL 8.6
-470.103.01
-RHEL 7.9
-450.80.02
+RHEL 8.6            ---> 470.103.01
+RHEL 7.9            ---> 450.80.02
 The version of RHEL that is used by OCP version is per https://cloud.ibm.com/docs/openshift?topic=openshift-rhel_migrate
 
-OCP 4.10+           --> RHEL 8
-OCP 4.9             --> Either RHEL 8 or RHEL 7 with 7 being the default
-OCP 4.6, 4.7, & 4.8 --> RHEL 7
+OCP 4.10+           ---> RHEL 8
+OCP 4.9             ---> Either RHEL 8 or RHEL 7 with 7 being the default
+OCP 4.6, 4.7, & 4.8 ---> RHEL 7
+
+RHCOS 4.9 & 4.0     ---> 470.103.01
+RHCOS 4.4 - 4.6     ---> 450.80.02
+For other RHCOS versions find an appropriate driver version at https://catalog.ngc.nvidia.com/orgs/nvidia/containers/driver/tags
 
 ### gpu_driver_repository_path
-The gpu driver repository. If using a diffent repository, you can set the value for this repo. Usually this should be a public repo otherwise an image pull secret needs to be created and the clusterpolicy file needs to be updated to be able to pull the image.
+The gpu driver repository. If using a different repository, you can set the value for this repo. We only support public repositories at the moment.
 
 - Environment Variable: `GPU_DRIVER_REPOSITORY_PATH`
 - Default Value: `nvcr.io/nvidia`
-
 
 For more information on the NVIDIA GPU and NFD operators, visit https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/openshift/install-gpu-ocp.html
 
