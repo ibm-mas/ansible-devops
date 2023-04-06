@@ -1,0 +1,38 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- set_fact:
+    mas_instance_id: "{{ mas_instances_to_rotate_credentials[mas_instance_idx] }}"
+    namespace_summary_output: []
+
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+# -----------------------------------------------------------------------------
+- name: "Debug values"
+  debug:
+    msg:
+      - "MAS Instance Id ........................... {{ mas_instance_id }}"
+      - "MAS Namespaces to be updated .............. {{ mas_namespaces_default + ['openshift-marketplace'] }}"
+      - "Target {{ cluster_type }} cluster ......... {{ cluster_item }}"
+
+- name: "Login to cluster: {{ cluster_item }}"
+  include_role:
+    name: ibm.mas_devops.ocp_login
+
+- name: "Cluster {{ cluster_item }}: Rotate ibm-entitlement secret"
+  include_tasks: update-ibm-entitlement.yml
+  loop: "{{ mas_namespaces_default }}"
+
+- name: "Cluster {{ cluster_item }}: Rotate wiotp-docker-local secret"
+  include_tasks: update-wiotp-docker-local.yml
+  when: # we just  create 'wiotp-docker-local' in openshift-marketplace if artifactory credentials are defined
+    - artifactory_token is defined
+    - artifactory_token != ''
+    - artifactory_username is defined
+    - artifactory_username != ''
+
+- set_fact:
+    cluster_summary_output: "{{ cluster_summary_output | default({}) | combine ({ cluster_item : namespace_summary_output }) }}"

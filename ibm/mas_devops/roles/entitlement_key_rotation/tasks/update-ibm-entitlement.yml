@@ -1,0 +1,34 @@
+---
+- name: "Cluster {{ cluster_item }}: Lookup Namespace: {{ item }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ item }}"
+  register: _app_namespace_lookup
+
+- set_fact:
+    found_app_namespace: "{{ _app_namespace_lookup.resources | length == 1 | default(false, true) }}"
+
+- debug:
+    msg: "Could not find '{{ item }}' namespace in the cluster '{{ cluster_item }}' - Skipping"
+  when:
+    - not found_app_namespace
+
+- block:
+    - name: "Cluster {{ cluster_item }}: Create 'ibm-entitlement' for namespace: {{ item }}"
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Secret
+          type: kubernetes.io/dockerconfigjson
+          metadata:
+            name: 'ibm-entitlement'
+            namespace: '{{ item }}'
+          data:
+            .dockerconfigjson: "{{ lookup('template', 'templates/ibm-entitlement-with-artifactory.json.j2') | to_json | b64encode }}"
+
+    - set_fact:
+        namespace_summary_output: "{{ namespace_summary_output | default([]) + [item] }}"
+
+  when:
+    - found_app_namespace

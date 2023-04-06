@@ -1,0 +1,26 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+# -----------------------------------------------------------------------------
+- name: "Debug values"
+  debug:
+    msg:
+      - "MAS Namespaces to be updated ........... {{ mas_namespaces_default + ['openshift-marketplace'] }}"
+      - "MAS Instances to be updated ............ {{ mas_instances_to_rotate_credentials }}"
+      - "Clusters to be updated ................. {{ clusters_to_rotate_credentials }}"
+
+- name: Rotate clusters
+  include_tasks: clusters.yml
+  loop: "{{ clusters_to_rotate_credentials }}"
+  loop_control:
+    loop_var: cluster_item
+    index_var: mas_instance_idx
+
+- name: "Summary: Aggregate all clusters and namespaces where entitlement key was rotated"
+  debug:
+    msg: "{{ cluster_summary_output }}"
