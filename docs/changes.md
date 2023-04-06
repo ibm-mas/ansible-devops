@@ -1,6 +1,7 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `13.0` Switch to ARTIFACTORY_TOKEN ([#752](https://github.com/ibm-mas/ansible-devops/pull/752))
 - `12.18` Support March 28th Catalog Update ([#738](https://github.com/ibm-mas/ansible-devops/pull/738))
 - `12.17` Multiple Updates:
     - Add MongoDb clean option to suite_uninstall role ([#706](https://github.com/ibm-mas/ansible-devops/pull/706))

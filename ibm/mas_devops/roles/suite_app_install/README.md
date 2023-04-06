@@ -57,11 +57,11 @@ Required when using this role for development versions of the MAS application.
 - Environment Variable: `ARTIFACTORY_USERNAME`
 - Default: None
 
-### artifactory_apikey
+### artifactory_token
 Required when using this role for development versions of the MAS application
 
 - Optional
-- Environment Variable: `ARTIFACTORY_APIKEY`
+- Environment Variable: `ARTIFACTORY_TOKEN`
 - Default: None
 
 ### mas_entitlement_username
