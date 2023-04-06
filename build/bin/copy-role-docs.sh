@@ -57,6 +57,7 @@ copyDoc ocp_login
 copyDoc ocp_provision
 copyDoc ocp_roks_upgrade_registry_storage
 copyDoc ocp_simulate_disconnected_network
+copyDoc ocp_update_apiserver
 copyDoc ocp_upgrade
 copyDoc ocp_verify
 copyDoc ocs
