@@ -1,7 +1,7 @@
 kafka
 =====
 
-This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet) and generate configuration that can be directly applied to Maximo Application Suite.
+This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet), IBM Event Streams or AWS MSK and generate configuration that can be directly applied to Maximo Application Suite.
 
 > The Red Hat AMQ streams component is a massively scalable, distributed, and high-performance data streaming platform based on the Apache Kafka project. It offers a distributed backbone that allows microservices and other applications to share data with high throughput and low latency.
 >
@@ -186,7 +186,193 @@ Example Playbook
     - ibm.mas_devops.kafka
 ```
 
+AWS MSK Role Variables
+-------------------------------------
 
+## Prerequisites
+To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
+
+### kafka_action
+Action to be performed by Kafka role. Valid values are `install` or `uninstall`. To install AWS MSK kafka cluster, set this variable as `install`. To uninstall an existing AWS MSK kafka cluster, set this variable as `uninstall`. 
+
+- Environment Variable: `KAFKA_ACTION`
+- Default Value: `install`
+
+### kafka_provider
+Valid kafka providers are `redhat`, `ibm` and `aws`. To install or uninstall AWS MSK kafka cluster, set this variable as `aws`
+
+- Environment Variable: `KAFKA_PROVIDER`
+- Default Value: `redhat`
+
+### kafka_version
+The version of Kafka to deploy.
+
+- Environment Variable: `KAFKA_VERSION`
+- Default Value: `2.7.0`
+
+### kafka_cluster_name
+
+- Required
+- Environment Variable: `KAFKA_CLUSTER_NAME`
+- Default Value: None
+
+### aws_access_key_id
+
+- Required
+- Environment Variable: `AWS_ACCESS_KEY_ID`
+- Default Value: None
+
+### aws_secret_access_key
+
+- Required
+- Environment Variable: `AWS_SECRET_ACCESS_KEY`
+- Default Value: None
+
+### aws_region
+
+- Required
+- Environment Variable: `AWS_REGION`
+- Default Value: None
+
+### vpc_id
+
+- Required
+- Environment Variable: `VPC_ID`
+- Default Value: None
+
+### aws_msk_cidr_az1
+
+- Required
+- Environment Variable: `AWS_MSK_CIDR_AZ1`
+- Default Value: None
+
+### aws_msk_cidr_az2
+
+- Required
+- Environment Variable: `AWS_MSK_CIDR_AZ2`
+- Default Value: None
+
+### aws_msk_cidr_az3 
+
+- Required
+- Environment Variable: `AWS_MSK_CIDR_AZ3`
+- Default Value: None
+
+### aws_msk_ingress_cidr
+
+- Required
+- Environment Variable: `AWS_MSK_INGRESS_CIDR`
+- Default Value: None
+
+### aws_msk_egress_cidr 
+
+- Required
+- Environment Variable: `AWS_MSK_EGRESS_CIDR`
+- Default Value: None
+
+### aws_kafka_user_name 
+
+- Required
+- Environment Variable: `AWS_KAFKA_USER_NAME`
+- Default Value: None
+
+### aws_kafka_user_password 
+
+- Optional
+- Environment Variable: `AWS_KAFKA_USER_PASSWORD`
+- Default Value: None
+
+### aws_msk_instance_type 
+
+- Optional
+- Environment Variable: `AWS_MSK_INSTANCE_TYPE`
+- Default Value: `kafka.m5.large`
+
+### aws_msk_volume_size 
+
+- Optional
+- Environment Variable: `AWS_MSK_VOLUME_SIZE`
+- Default Value: `100`
+
+### aws_msk_instance_number 
+
+- Optional
+- Environment Variable: `AWS_MSK_INSTANCE_NUMBER`
+- Default Value: `3`
+
+### mas_instance_id
+The instance ID of Maximo Application Suite that the KafkaCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.
+
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
+
+### mas_config_dir
+Local directory to save the generated KafkaCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a KafkaCfg template.
+
+- Environment Variable: `MAS_CONFIG_DIR`
+- Default Value: None
+
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default Value: None
+
+
+Example Playbook to install AWS MSK
+----------------
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    aws_region: ca-central-1
+    aws_access_key_id: *****
+    aws_secret_access_key: *****
+    kafka_version: 2.8.1
+    kafka_provider: aws
+    kafka_action: install
+    kafka_cluster_name: msk-abcd0zyxw
+    kafka_namespace: msk-abcd0zyxw  
+    vpc_id: vpc-07088da510b3c35c5
+    aws_kafka_user_name: mskuser-abcd0zyxw
+    aws_msk_instance_type: kafka.t3.small
+    aws_msk_volume_size: 100
+    aws_msk_instance_number: 3
+    aws_msk_cidr_az1: "10.0.128.0/20"
+    aws_msk_cidr_az2: "10.0.144.0/20"
+    aws_msk_cidr_az3: "10.0.160.0/20"
+    aws_msk_ingress_cidr: "10.0.0.0/16"
+    aws_msk_egress_cidr: "10.0.0.0/16"	
+    # Generate a KafkaCfg template
+    mas_config_dir: /var/tmp/masconfigdir
+    mas_instance_id: abcd0zyxw
+  roles:
+    - ibm.mas_devops.kafka
+```
+
+Example Playbook to uninstall AWS MSK
+----------------
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    aws_region: ca-central-1
+    aws_access_key_id: *****
+    aws_secret_access_key: *****
+    vpc_id: vpc-07088da510b3c35c5	
+    kafka_provider: aws
+    kafka_action: uninstall
+    kafka_cluster_name: msk-abcd0zyxw
+    aws_msk_cidr_az1: "10.0.128.0/20"
+    aws_msk_cidr_az2: "10.0.144.0/20"
+    aws_msk_cidr_az3: "10.0.160.0/20"
+  roles:
+    - ibm.mas_devops.kafka
+```
 
 License
 -------

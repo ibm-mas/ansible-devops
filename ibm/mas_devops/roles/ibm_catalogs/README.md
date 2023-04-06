@@ -1,7 +1,7 @@
 # ibm_catalogs
 This role installs the **IBM Maximo Operator Catalog**, which is a curated Operator Catalog derived from the **IBM Operator Catalog**, with all content certified compatible with IBM Maximo Application Suite:
 
-Additional, for IBM employees only, the pre-release development operator catalog can be installed, this is achieved by setting both the `artifactory_username` and `artifactory_apikey` variables.
+Additional, for IBM employees only, the pre-release development operator catalog can be installed, this is achieved by setting both the `artifactory_username` and `artifactory_token` variables.
 
 
 ## Role Variables
@@ -10,7 +10,7 @@ Version of the IBM Maximo Operator Catalog to install.
 
 - Optional
 - Environment Variable: `MAS_CATALOG_VERSION`
-- Default Value: `v8`
+- Default Value: `v8-amd64`
 
 ### artifactory_username
 Use to enable the install of development catalog sources for pre-release installation.
@@ -19,11 +19,11 @@ Use to enable the install of development catalog sources for pre-release install
 - Environment Variable: `ARTIFACTORY_USERNAME`
 - Default Value: None
 
-### artifactory_apikey
+### artifactory_token
 Use to enable the install of development catalog sources for pre-release installation.
 
 - Optional
-- Environment Variable: `ARTIFACTORY_APIKEY`
+- Environment Variable: `ARTIFACTORY_TOKEN`
 - Default Value: None
 
 ## Example Playbook

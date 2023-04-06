@@ -1,16 +1,17 @@
 ---
 # Mirrors the following content which is REQUIRED to add Maximo Monitor to an existing
 # Maximo Application Suite Core Services installation:
-# 1. IBM Maximo Monitor
+# 1. IBM Asset Data Dictionary
+# 2. IBM Maximo Monitor
 #
-# This playbook aligns with the ibm.mas_devops.oneclick_add_monitor playbook
+# This playbook aligns with the ibm.mas_devops.oneclick_add_monitor playbook except we need to add the dependencies
 
 - hosts: localhost
   any_errors_fatal: true
 
   vars:
-    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-230314-amd64', True) }}"
-    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.9.x', True) }}"
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-230328-amd64', True) }}"
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.10.x', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
 
     mirror_mas_monitor: "{{ lookup('env', 'MIRROR_MAS_MONITOR') | default ('True', True) | bool }}"
@@ -30,7 +31,24 @@
         file: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
 
   roles:
-    # 1. IBM Maximo Monitor
+    # 1. IBM Asset Data Dictionary
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_mas_monitor
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-data-dictionary
+        case_version: "{{ dd_version }}"
+        exclude_images: []
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_mas_monitor
+      vars:
+        manifest_name: ibm-data-dictionary
+        manifest_version: "{{ dd_version }}"
+
+    # 2. IBM Maximo Monitor
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -45,4 +63,20 @@
       when: mirror_mas_monitor
       vars:
         manifest_name: ibm-mas-monitor
+        manifest_version: "{{ mas_monitor_version[mas_channel] }}"
+
+    # 2.2. IBM Maximo Monitor image fix (there are two digests and catalog uses one and case bundle uses the other)
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_mas_monitor
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: monitor
+        extras_version: "{{ mas_monitor_version[mas_channel] }}"
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_mas_monitor
+      vars:
+        manifest_name: extras_monitor
         manifest_version: "{{ mas_monitor_version[mas_channel] }}"
