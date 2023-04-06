@@ -62,8 +62,6 @@ copyDoc ocp_upgrade
 copyDoc ocp_verify
 copyDoc ocs
 copyDoc registry
-copyDoc sbo
-copyDoc sbo_upgrade
 copyDoc sls
 copyDoc suite_app_config
 copyDoc suite_app_install
