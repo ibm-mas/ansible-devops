@@ -103,11 +103,11 @@ To deploy a pre-release build of IBM Maximo Application Suite (core only) with d
 export IBM_ENTITLEMENT_KEY=xxx
 
 export ARTIFACTORY_USERNAME=$W3_USERNAME_LOWERCASE
-export ARTIFACTORY_APIKEY=xxx
+export ARTIFACTORY_TOKEN=xxx
 export MAS_ICR_CP=docker-na-public.artifactory.swg-devops.com/wiotp-docker-local
 export MAS_ICR_CPOPEN=docker-na-public.artifactory.swg-devops.com/wiotp-docker-local
 export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
-export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
+export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_TOKEN
 
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
