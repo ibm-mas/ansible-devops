@@ -1,0 +1,65 @@
+---
+# 1. Check for undefined properties
+# -----------------------------------------------------------------------------
+- set_fact:
+    mas_instance_id: "{{ mas_instances_entitlement_key_rotation_list[mas_instance_idx] }}"
+    namespace_summary_output: [] # reset before using below
+    mas_namespaces_entitlement_key_rotation_list: "{{ lookup('env', 'MAS_NAMESPACES_entitlement_key_rotation_list') | split(',') | select() }}" # reset before using below
+
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+# 2. Login to cluster and trigger entitlement key rotation
+# -----------------------------------------------------------------------------
+- name: "Cluster {{ cluster_item }} - OCP Login"
+  vars:
+    cluster_name: "{{ cluster_item }}"
+  include_role:
+    name: ibm.mas_devops.ocp_login
+
+- block:
+    # If 'mas_namespaces_entitlement_key_rotation_list' is not set, auto detect namespaces that are MAS related:
+    # - mas-{{ instance id }}-* : must have 'ibm-entitlement' secret
+    # - {{ sls namespace }} : must have 'ibm-entitlement' secret
+    # - openshift-marketplace : would have 'wiotp-docker-local' secret, if artifactory credentials are defined
+
+  - name: "Cluster {{ cluster_item }} - Lookup target namespaces"
+    shell: |
+      oc get projects | grep -E 'mas-{{ mas_instance_id }}|{{ sls_namespace }}|openshift-marketplace' | grep -v -e "pipelines" | awk '{print $1}'
+    register: namespace_list_output
+
+  - name: "Cluster {{ cluster_item }} - Set MAS related namespaces to rotate entitlement key"
+    set_fact: 
+      mas_namespaces_entitlement_key_rotation_list: "{{ namespace_list_output.stdout_lines | unique | default([]) }}"
+
+  when: mas_namespaces_entitlement_key_rotation_list is not defined or mas_namespaces_entitlement_key_rotation_list | length == 0
+
+- name: "Debug"
+  debug:
+    msg:
+      - "Target Cluster ............................ {{ cluster_item }}"
+      - "MAS Instance Id ........................... {{ mas_instance_id }}"
+      - "Target Namespaces ......................... {{ mas_namespaces_entitlement_key_rotation_list }}"
+
+- name: "Cluster {{ cluster_item }} - Rotate entitlement key in 'ibm-entitlement' secret"
+  include_tasks: update-ibm-entitlement.yml
+  loop: "{{ mas_namespaces_entitlement_key_rotation_list }}"
+  when: item != 'openshift-marketplace' # we just rotate 'ibm-entitlement' if namespace is not 'openshift-marketplace' namespace
+
+- name: "Cluster {{ cluster_item }} - Rotate entitlement key in 'wiotp-docker-local' secret"
+  include_tasks: update-wiotp-docker-local.yml
+  when: # we just rotate 'wiotp-docker-local' if it's openshift-marketplace namespace and artifactory credentials are defined
+    - artifactory_token is defined
+    - artifactory_token != ''
+    - artifactory_username is defined
+    - artifactory_username != ''
+    - "'openshift-marketplace' in mas_namespaces_entitlement_key_rotation_list"
+
+- name: "Cluster {{ cluster_item }} - Summary of Namespaces where entitlement key was rotated"
+  debug:
+    var: namespace_summary_output
+
+- set_fact:
+    cluster_summary_output: "{{ cluster_summary_output | default([]) + [ [] | combine ({ 'cluster_name': cluster_item, 'namespaces': namespace_summary_output }) ]}}"

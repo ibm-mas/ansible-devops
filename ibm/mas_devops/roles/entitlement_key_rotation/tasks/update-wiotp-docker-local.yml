@@ -1,34 +1,16 @@
 ---
-- name: "Cluster {{ cluster_item }}: Lookup Namespace: openshift-marketplace"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Namespace
-    name: "openshift-marketplace"
-  register: _app_namespace_lookup
+- name: "Cluster '{{ cluster_item }}' - Rotate entitlement key in 'wiotp-docker-local' secret under namespace: 'openshift-marketplace'"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: 'wiotp-docker-local'
+        namespace: 'openshift-marketplace'
+      data:
+        .dockerconfigjson: "{{ lookup('template', 'templates/ibm-entitlement-with-artifactory.json.j2') | to_json | b64encode }}"
 
-- set_fact:
-    found_app_namespace: "{{ _app_namespace_lookup.resources | length == 1 | default(false, true) }}"
-
-- debug:
-    msg: "Could not find 'openshift-marketplace' namespace in the cluster openshift-marketplace - Skipping"
-  when:
-    - not found_app_namespace
-
-- block:
-    - name: "Create 'wiotp-docker-local' for namespace: openshift-marketplace"
-      kubernetes.core.k8s:
-        definition:
-          apiVersion: v1
-          kind: Secret
-          type: kubernetes.io/dockerconfigjson
-          metadata:
-            name: 'wiotp-docker-local'
-            namespace: 'openshift-marketplace'
-          data:
-            .dockerconfigjson: "{{ lookup('template', 'templates/ibm-entitlement-with-artifactory.json.j2') | to_json | b64encode }}"
-
-    - set_fact:
-        namespace_summary_output: "{{ namespace_summary_output | default([]) }}"
-
-  when:
-    - found_app_namespace
+- name: "Cluster {{ cluster_item }} - Set Namespaces where entitlement key was rotated"
+  set_fact:
+    namespace_summary_output: "{{ namespace_summary_output | default([]) + ['openshift-marketplace'] }}"

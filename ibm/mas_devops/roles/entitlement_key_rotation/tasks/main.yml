@@ -1,26 +1,39 @@
 ---
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-- name: "Fail if mas_instance_id is not provided"
+- name: "Fail if mas_instances_entitlement_key_rotation_list is not provided"
   assert:
-    that: mas_instance_id is defined and mas_instance_id != ""
-    fail_msg: "mas_instance_id property is required"
+    that: mas_instances_entitlement_key_rotation_list is defined and mas_instances_entitlement_key_rotation_list | length > 0
+    fail_msg: "mas_instances_entitlement_key_rotation_list property is required"
 
-# -----------------------------------------------------------------------------
-- name: "Debug values"
+- name: "Fail if mas_clusters_entitlement_key_rotation_list is not provided"
+  assert:
+    that: mas_clusters_entitlement_key_rotation_list is defined and mas_clusters_entitlement_key_rotation_list | length > 0
+    fail_msg: "mas_clusters_entitlement_key_rotation_list property is required"
+
+# 2. Login to a list of clusters to trigger the entitlement key rotation
+# ---------------------------------------------------------------------------------------------
+- name: "Debug"
   debug:
     msg:
-      # - "MAS Namespaces to be updated ........... {{ mas_namespaces_default + ['openshift-marketplace'] }}"
-      - "MAS Instances to be updated ............ {{ mas_instances_to_rotate_credentials }}"
-      - "Clusters to be updated ................. {{ clusters_to_rotate_credentials }}"
+      - "MAS Instances to be updated ............ {{ mas_instances_entitlement_key_rotation_list }}"
+      - "Target clusters ........................ {{ mas_clusters_entitlement_key_rotation_list }}"
 
-- name: Rotate clusters
-  include_tasks: clusters.yml
-  loop: "{{ clusters_to_rotate_credentials }}"
+- name: "Rotate entitlement key in target clusters"
+  include_tasks: rotate_clusters.yml
+  loop: "{{ mas_clusters_entitlement_key_rotation_list }}"
   loop_control:
     loop_var: cluster_item
     index_var: mas_instance_idx
 
+# 3. Log back into the principal cluster before ending to avoid messing with the target context
+# ---------------------------------------------------------------------------------------------
+- name: "Log back into the principal cluster: {{ cluster_name }}"
+  include_role:
+    name: ibm.mas_devops.ocp_login
+
+# 4. Summary debug
+# ---------------------------------------------------------------------------------------------
 - name: "Summary: Aggregate all clusters and namespaces where entitlement key was rotated"
   debug:
     msg: "{{ cluster_summary_output }}"
