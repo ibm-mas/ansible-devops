@@ -1,5 +1,5 @@
 ---
-- name: "Lookup Namespace: openshift-marketplace"
+- name: "Cluster {{ cluster_item }}: Lookup Namespace: openshift-marketplace"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Namespace
@@ -10,7 +10,7 @@
     found_app_namespace: "{{ _app_namespace_lookup.resources | length == 1 | default(false, true) }}"
 
 - debug:
-    msg: "Could not find 'openshift-marketplace' namespace in the cluster - Skipping"
+    msg: "Could not find 'openshift-marketplace' namespace in the cluster openshift-marketplace - Skipping"
   when:
     - not found_app_namespace
 
@@ -28,7 +28,7 @@
             .dockerconfigjson: "{{ lookup('template', 'templates/ibm-entitlement-with-artifactory.json.j2') | to_json | b64encode }}"
 
     - set_fact:
-        namespace_summary_output: "{{ namespace_summary_output | default([]) + ['openshift-marketplace'] }}"
+        namespace_summary_output: "{{ namespace_summary_output | default([]) }}"
 
   when:
     - found_app_namespace

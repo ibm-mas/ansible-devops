@@ -3,7 +3,8 @@
 # -----------------------------------------------------------------------------
 - set_fact:
     mas_instance_id: "{{ mas_instances_to_rotate_credentials[mas_instance_idx] }}"
-    namespace_summary_output: []
+    namespace_summary_output: [] # reset before using below
+    mas_namespaces_to_rotate_credentials: "{{ lookup('env', 'MAS_NAMESPACES_TO_ROTATE_CREDENTIALS') | split(',') | select() }}" # reset before using below
 
 - name: "Fail if mas_instance_id is not provided"
   assert:
@@ -11,28 +12,59 @@
     fail_msg: "mas_instance_id property is required"
 
 # -----------------------------------------------------------------------------
-- name: "Debug values"
-  debug:
-    msg:
-      - "MAS Instance Id ........................... {{ mas_instance_id }}"
-      - "MAS Namespaces to be updated .............. {{ mas_namespaces_default + ['openshift-marketplace'] }}"
-      - "Target {{ cluster_type }} cluster ......... {{ cluster_item }}"
-
 - name: "Login to cluster: {{ cluster_item }}"
+  vars:
+    cluster_name: "{{ cluster_item }}"
   include_role:
     name: ibm.mas_devops.ocp_login
 
+- block:
+    # If 'mas_namespaces_to_rotate_credentials' is not set, lookup namespaces that are MAS related:
+    # - mas-{{ instance id }}-*
+    # - {{ sls namespace}}
+    # - openshift-marketplace
+
+  - name: Lookup for MAS namespaces
+    shell: |
+      oc get projects | grep -E 'mas-{{ mas_instance_id }}|{{ sls_namespace }}|openshift-marketplace' | grep -v -e "pipelines" | awk '{print $1}'
+    register: namespace_list_output
+
+  - name: Set MAS related namespaces to rotate entitlement key
+    set_fact: 
+      mas_namespaces_to_rotate_credentials: "{{ namespace_list_output.stdout_lines | unique | default([]) }}"
+
+  when: mas_namespaces_to_rotate_credentials is not defined or mas_namespaces_to_rotate_credentials | length == 0
+
+- name: "Debug values"
+  debug:
+    msg:
+      - "Target cluster ............................ {{ cluster_item }}"
+      - "MAS Instance Id ........................... {{ mas_instance_id }}"
+      - "MAS Namespaces to be updated .............. {{ mas_namespaces_to_rotate_credentials }}"
+
 - name: "Cluster {{ cluster_item }}: Rotate ibm-entitlement secret"
   include_tasks: update-ibm-entitlement.yml
-  loop: "{{ mas_namespaces_default }}"
+  loop: "{{ mas_namespaces_to_rotate_credentials }}"
 
 - name: "Cluster {{ cluster_item }}: Rotate wiotp-docker-local secret"
   include_tasks: update-wiotp-docker-local.yml
-  when: # we just  create 'wiotp-docker-local' in openshift-marketplace if artifactory credentials are defined
+  when: # we just  create 'wiotp-docker-local' if it's openshift-marketplace namespace and artifactory credentials are defined
     - artifactory_token is defined
     - artifactory_token != ''
     - artifactory_username is defined
     - artifactory_username != ''
+    - "'openshift-marketplace' in mas_namespaces_to_rotate_credentials"
+
+- name: "Cluster {{ cluster_item }}: Namespaces affected"
+  debug:
+    var: namespace_summary_output
+
+# - set_fact:
+#     cluster_summary_output: "{{ cluster_summary_output | default({}) | combine ({ cluster_item : namespace_summary_output }) }}"
 
 - set_fact:
-    cluster_summary_output: "{{ cluster_summary_output | default({}) | combine ({ cluster_item : namespace_summary_output }) }}"
+    cluster_summary_output: "{{ cluster_summary_output | default([]) + [ [] | combine ({ 'cluster_name': cluster_item, 'namespaces': namespace_summary_output }) ]}}"
+
+- name: "Cluster Summary: {{ cluster_item }}"
+  debug:
+    var: cluster_summary_output
