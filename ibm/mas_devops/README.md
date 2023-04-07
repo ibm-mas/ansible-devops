@@ -5,7 +5,7 @@
 
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
-
+  `13.1` Add additional AWS storage support for MVI playbook ([#712](https://github.com/ibm-mas/ansible-devops/pull/712))
 - `13.0` Multiple Updates:
     - Remove SBO support ([#755](https://github.com/ibm-mas/ansible-devops/pull/755))
     - Switch to ARTIFACTORY_TOKEN ([#752](https://github.com/ibm-mas/ansible-devops/pull/752))

@@ -107,7 +107,7 @@ Optional. Defines what plan will be used in application install.
 Role Variables - Visual Inspection Configuration
 -------------------------------------------------------------------------------
 ### mas_app_settings_visualinspection_storage_class
-Optional - Storage class used for user data. This must support ReadWriteOnce
+Optional - Storage class used for user data. This must support ReadWriteMany
 
 - Environment Variable: `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_CLASS`
 - Default: Auto-selected from storage classes installed in the cluster.
