@@ -23,7 +23,7 @@ The version of Kafka to deploy by the operator. Before changing the kafka_versio
 by the [amq-streams operator version](https://access.redhat.com/documentation/en-us/red_hat_amq_streams).
 
 - Environment Variable: `KAFKA_VERSION`
-- Default Value: `2.7.0`
+- Default Value: `3.2.0`
 
 ### kafka_namespace
 The namespace where the operator and Kafka cluster will be deployed.
@@ -143,7 +143,7 @@ IBM Cloud Evenstreams Role Variables
 - Environment Variable: `EVENTSTREAMS_RETENTION`
 - Default Value: `1209600000`
 
-### output_kafkacfg 
+### output_kafkacfg
 
 - Optional
 - Environment Variable: `OUTPUT_KAFKACFG`
@@ -194,7 +194,7 @@ To run this role successfully you must have already installed the [AWS CLI](http
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
 
 ### kafka_action
-Action to be performed by Kafka role. Valid values are `install` or `uninstall`. To install AWS MSK kafka cluster, set this variable as `install`. To uninstall an existing AWS MSK kafka cluster, set this variable as `uninstall`. 
+Action to be performed by Kafka role. Valid values are `install` or `uninstall`. To install AWS MSK kafka cluster, set this variable as `install`. To uninstall an existing AWS MSK kafka cluster, set this variable as `uninstall`.
 
 - Environment Variable: `KAFKA_ACTION`
 - Default Value: `install`
@@ -253,7 +253,7 @@ The version of Kafka to deploy.
 - Environment Variable: `AWS_MSK_CIDR_AZ2`
 - Default Value: None
 
-### aws_msk_cidr_az3 
+### aws_msk_cidr_az3
 
 - Required
 - Environment Variable: `AWS_MSK_CIDR_AZ3`
@@ -265,37 +265,37 @@ The version of Kafka to deploy.
 - Environment Variable: `AWS_MSK_INGRESS_CIDR`
 - Default Value: None
 
-### aws_msk_egress_cidr 
+### aws_msk_egress_cidr
 
 - Required
 - Environment Variable: `AWS_MSK_EGRESS_CIDR`
 - Default Value: None
 
-### aws_kafka_user_name 
+### aws_kafka_user_name
 
 - Required
 - Environment Variable: `AWS_KAFKA_USER_NAME`
 - Default Value: None
 
-### aws_kafka_user_password 
+### aws_kafka_user_password
 
 - Optional
 - Environment Variable: `AWS_KAFKA_USER_PASSWORD`
 - Default Value: None
 
-### aws_msk_instance_type 
+### aws_msk_instance_type
 
 - Optional
 - Environment Variable: `AWS_MSK_INSTANCE_TYPE`
 - Default Value: `kafka.m5.large`
 
-### aws_msk_volume_size 
+### aws_msk_volume_size
 
 - Optional
 - Environment Variable: `AWS_MSK_VOLUME_SIZE`
 - Default Value: `100`
 
-### aws_msk_instance_number 
+### aws_msk_instance_number
 
 - Optional
 - Environment Variable: `AWS_MSK_INSTANCE_NUMBER`
@@ -335,7 +335,7 @@ Example Playbook to install AWS MSK
     kafka_provider: aws
     kafka_action: install
     kafka_cluster_name: msk-abcd0zyxw
-    kafka_namespace: msk-abcd0zyxw  
+    kafka_namespace: msk-abcd0zyxw
     vpc_id: vpc-07088da510b3c35c5
     aws_kafka_user_name: mskuser-abcd0zyxw
     aws_msk_instance_type: kafka.t3.small
@@ -345,7 +345,7 @@ Example Playbook to install AWS MSK
     aws_msk_cidr_az2: "10.0.144.0/20"
     aws_msk_cidr_az3: "10.0.160.0/20"
     aws_msk_ingress_cidr: "10.0.0.0/16"
-    aws_msk_egress_cidr: "10.0.0.0/16"	
+    aws_msk_egress_cidr: "10.0.0.0/16"
     # Generate a KafkaCfg template
     mas_config_dir: /var/tmp/masconfigdir
     mas_instance_id: abcd0zyxw
@@ -363,7 +363,7 @@ Example Playbook to uninstall AWS MSK
     aws_region: ca-central-1
     aws_access_key_id: *****
     aws_secret_access_key: *****
-    vpc_id: vpc-07088da510b3c35c5	
+    vpc_id: vpc-07088da510b3c35c5
     kafka_provider: aws
     kafka_action: uninstall
     kafka_cluster_name: msk-abcd0zyxw
