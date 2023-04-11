@@ -1,6 +1,21 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `13.1` Support for Db2u and AMQ Streams on OCP 4.12 ([#759](https://github.com/ibm-mas/ansible-devops/pull/759))
+- `13.0` Multiple Updates:
+    - Remove SBO support ([#755](https://github.com/ibm-mas/ansible-devops/pull/755))
+    - Switch to ARTIFACTORY_TOKEN ([#752](https://github.com/ibm-mas/ansible-devops/pull/752))
+    - Update API Server tlsSecurityProfile to support IBM Java Semeru ([#754](https://github.com/ibm-mas/ansible-devops/pull/754))
+- `12.18` Support March 28th Catalog Update ([#738](https://github.com/ibm-mas/ansible-devops/pull/738))
+- `12.17` Multiple Updates:
+    - Add MongoDb clean option to suite_uninstall role ([#706](https://github.com/ibm-mas/ansible-devops/pull/706))
+    - Add support of SSH public key in ocp_provision role ([#528](https://github.com/ibm-mas/ansible-devops/pull/528))
+    - Add gencfg_mongo role ([#725](https://github.com/ibm-mas/ansible-devops/pull/725))
+    - Support AWS MSK as Kafka provider ([#727](https://github.com/ibm-mas/ansible-devops/pull/727))
+    - Mustgather role enhanced to collect certificates and other namespaces ([#740](https://github.com/ibm-mas/ansible-devops/pull/740))
+- `12.16` Multiple Updates:
+    - Update catalog support for MAS 8.10 release ([#709](https://github.com/ibm-mas/ansible-devops/pull/709))
+    - Add support for CP4D v4.5.3 & v4.6.3, and Cognos ([#692](https://github.com/ibm-mas/ansible-devops/pull/692))
 - `12.15` Multiple Updates:
     - Add OLM conversion role & playbook ([#691](https://github.com/ibm-mas/ansible-devops/pull/691))
     - Support setting imagePullPolicy in Suite ([#710](https://github.com/ibm-mas/ansible-devops/pull/710))

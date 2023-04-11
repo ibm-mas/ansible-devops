@@ -1,9 +1,9 @@
 ---
 kafka_provider: "{{ lookup('env', 'KAFKA_PROVIDER') | default('redhat', true) }}"
-kafka_action: "{{ lookup('env', 'KAFKA_ACTION') | default('provision', true) }}"
+kafka_action: "{{ lookup('env', 'KAFKA_ACTION') | default('install', true) }}"
 
 # vars for red hat amq
-kafka_version: "{{ lookup('env', 'KAFKA_VERSION') | default('2.7.0', true) }}"
+kafka_version: "{{ lookup('env', 'KAFKA_VERSION') | default('3.2.3', true) }}"
 kafka_namespace: "{{ lookup('env', 'KAFKA_NAMESPACE') | default('amq-streams', true) }}"
 kafka_cluster_name: "{{ lookup('env', 'KAFKA_CLUSTER_NAME') | default('maskafka', true)  }}"
 kafka_cluster_size: "{{ lookup('env', 'KAFKA_CLUSTER_SIZE') | default('small', true)  }}"
@@ -34,3 +34,29 @@ mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
 # Custom Labels
 custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string | ibm.mas_devops.string2dict() }}"
+
+# vars for AWS MSK
+# mandatory parameters
+aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+aws_region: "{{ lookup('env', 'AWS_REGION') }}"
+vpc_id: "{{ lookup('env', 'VPC_ID') }}"
+# cidr for subnets in 3 different availabilty zones
+aws_msk_cidr_az1: "{{ lookup('env', 'AWS_MSK_CIDR_AZ1') }}"
+aws_msk_cidr_az2: "{{ lookup('env', 'AWS_MSK_CIDR_AZ2') }}"
+aws_msk_cidr_az3: "{{ lookup('env', 'AWS_MSK_CIDR_AZ3') }}"
+# add ipv4 cidr of vpc so that all applications inside that vpc can talk to msk
+aws_msk_ingress_cidr: "{{ lookup('env', 'AWS_MSK_INGRESS_CIDR') }}"
+aws_msk_egress_cidr: "{{ lookup('env', 'AWS_MSK_EGRESS_CIDR') }}"
+aws_kafka_user_name: "{{ lookup('env', 'AWS_KAFKA_USER_NAME') }}"
+
+# optional parameters
+aws_kafka_user_password: "{{ lookup('env', 'AWS_KAFKA_USER_PASSWORD') }}"
+aws_msk_instance_type: "{{ lookup('env', 'AWS_MSK_INSTANCE_TYPE') | default('kafka.m5.large', true) }}"
+aws_msk_volume_size:  "{{ lookup('env', 'AWS_MSK_VOLUME_SIZE') | default('100', true) }}"
+aws_msk_instance_number: "{{ lookup('env', 'AWS_MSK_INSTANCE_NUMBER') | default('3', True) }}"
+
+aws_msk_security_group_name: "{{kafka_cluster_name}}-sg"
+aws_msk_cluster_configuration: "{{kafka_cluster_name}}-cluster-config"
+aws_msk_secret: "AmazonMSK_SECRET_{{kafka_cluster_name}}"
+aws_msk_kms_key: "{{kafka_cluster_name}}-kms-key"
