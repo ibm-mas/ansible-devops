@@ -2,14 +2,8 @@
 # 1. Check for undefined properties
 # -----------------------------------------------------------------------------
 - set_fact:
-    mas_instance_id: "{{ mas_instances_entitlement_key_rotation_list[mas_instance_idx] }}"
     namespace_summary_output: [] # reset before using below
-    mas_namespaces_entitlement_key_rotation_list: "{{ lookup('env', 'MAS_NAMESPACES_entitlement_key_rotation_list') | split(',') | select() }}" # reset before using below
-
-- name: "Fail if mas_instance_id is not provided"
-  assert:
-    that: mas_instance_id is defined and mas_instance_id != ""
-    fail_msg: "mas_instance_id property is required"
+    mas_namespaces_entitlement_key_rotation_list: "{{ lookup('env', 'MAS_NAMESPACES_ENTITLEMENT_KEY_ROTATION_LIST') | split(',') | select() }}" # reset before using below
 
 # 2. Login to cluster and trigger entitlement key rotation
 # -----------------------------------------------------------------------------
@@ -25,9 +19,13 @@
     # - {{ sls namespace }} : must have 'ibm-entitlement' secret
     # - openshift-marketplace : would have 'wiotp-docker-local' secret, if artifactory credentials are defined
 
+  - name: "Debug: Lookup target namespaces query"
+    debug: 
+     msg: "oc get projects | grep -E '{{ include_namespaces_query }}' | grep -v -e 'pipelines' | awk '{print $1}'"
+
   - name: "Cluster {{ cluster_item }} - Lookup target namespaces"
     shell: |
-      oc get projects | grep -E 'mas-{{ mas_instance_id }}|{{ sls_namespace }}|openshift-marketplace' | grep -v -e "pipelines" | awk '{print $1}'
+      oc get projects | grep -E "{{ include_namespaces_query }}" | grep -v -e "pipelines" | awk '{print $1}'
     register: namespace_list_output
 
   - name: "Cluster {{ cluster_item }} - Set MAS related namespaces to rotate entitlement key"
@@ -40,7 +38,6 @@
   debug:
     msg:
       - "Target Cluster ............................ {{ cluster_item }}"
-      - "MAS Instance Id ........................... {{ mas_instance_id }}"
       - "Target Namespaces ......................... {{ mas_namespaces_entitlement_key_rotation_list }}"
 
 - name: "Cluster {{ cluster_item }} - Rotate entitlement key in 'ibm-entitlement' secret"
