@@ -35,10 +35,9 @@ The channel to subscribe to for the gpu operator installation and updates. Avail
 The gpu driver version image that needs to be pulled from the gpu driver repository. It is recommended that the right version of GPU driver is used depending on the OS version. The default versions are shown below. See the attached links for more information and to decide which driver version to use.
 
 - Environment Variable: `GPU_DRIVER_VERSION`
-- Default Value: `470.103.01` if ocp version 4.10+ and `450.80.02` otherwise
+- Default Value: `470.182.03` if ocp version 4.10+ and `450.80.02` otherwise
 The deciding factor for which image version to use is the RHEL or RHCOS version.
-
-RHEL 8.6            ---> 470.103.01
+RHEL 8.6            ---> 470.182.03
 RHEL 7.9            ---> 450.80.02
 The version of RHEL that is used by OCP version is per https://cloud.ibm.com/docs/openshift?topic=openshift-rhel_migrate
 
@@ -46,7 +45,7 @@ OCP 4.10+           ---> RHEL 8
 OCP 4.9             ---> Either RHEL 8 or RHEL 7 with 7 being the default
 OCP 4.6, 4.7, & 4.8 ---> RHEL 7
 
-RHCOS 4.9 & 4.0     ---> 470.103.01
+RHCOS 4.9 & 4.0     ---> 470.182.03
 RHCOS 4.4 - 4.6     ---> 450.80.02
 For other RHCOS versions find an appropriate driver version at https://catalog.ngc.nvidia.com/orgs/nvidia/containers/driver/tags
 
