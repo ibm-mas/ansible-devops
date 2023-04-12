@@ -127,7 +127,7 @@ Optional, The IoT deployment size, one of `dev`, `small` or `large`.
 - Environment Variable: `MAS_APP_SETTINGS_IOT_DEPLOYMENT_SIZE`
 - Default: `small`
 - Application Support:
-  - IoT 8.6
+  - IoT 8.6+
 
 ### mas_app_settings_iot_fpl_pvc_storage_class
 Optional. The persistent volume storage class used by the iot fpl component for transient state storage
@@ -135,7 +135,7 @@ Optional. The persistent volume storage class used by the iot fpl component for 
 - Environment Variable: `MAS_APP_SETTINGS_IOT_FPL_PVC_STORAGE_CLASS`
 - Default: Auto-selected from storage classes installed in the cluster.
 - Application Support:
-  - IoT 8.6
+  - IoT 8.6+
 
 ### mas_app_settings_iot_fpl_router_pvc_size
 Optional. The persistent volume size used by the iot fpl pipeline router for transient state storage
@@ -143,7 +143,7 @@ Optional. The persistent volume size used by the iot fpl pipeline router for tra
 - Environment Variable: `MAS_APP_SETTINGS_IOT_FPL_ROUTER_PVC_SIZE`
 - Default: 100Gi.
 - Application Support:
-  - IoT 8.6
+  - IoT 8.6+
 
 ### mas_app_settings_iot_fpl_executor_pvc_size
 Optional. The persistent volume size used by the iot fpl pipeline router for transient state storage
@@ -151,7 +151,7 @@ Optional. The persistent volume size used by the iot fpl pipeline router for tra
 - Environment Variable: `MAS_APP_SETTINGS_IOT_FPL_EXECUTOR_PVC_SIZE`
 - Default: 100Gi.
 - Application Support:
-  - IoT 8.6
+  - IoT 8.6+
 
 ### mas_app_settings_iot_mqttbroker_pvc_storage_class
 Optional. The persistent volume storage class used by the iot mqtt broker
@@ -159,7 +159,7 @@ Optional. The persistent volume storage class used by the iot mqtt broker
 - Environment Variable: `MAS_APP_SETTINGS_IOT_MQTTBROKER_PVC_STORAGE_CLASS`
 - Default: Auto-selected from storage classes installed in the cluster.
 - Application Support:
-  - IoT 8.3
+  - IoT 8.3+
 
 ### mas_app_settings_iot_mqttbroker_pvc_size
 Optional. The persistent volume size used by the iot mqtt broker
@@ -167,7 +167,19 @@ Optional. The persistent volume size used by the iot mqtt broker
 - Environment Variable: `MAS_APP_SETTINGS_IOT_MQTTBROKER_PVC_SIZE`
 - Default: 100Gi.
 - Application Support:
-  - IoT 8.3
+  - IoT 8.3+
+
+
+Role Variables - Monitor Configuration
+-------------------------------------------------------------------------------
+### mas_app_settings_monitor_deployment_size
+Optional, The Monitor deployment size, one of `dev`, `small` or `large`.
+
+- Environment Variable: `MAS_APP_SETTINGS_MONITOR_DEPLOYMENT_SIZE`
+- Default: `dev`
+- Application Support:
+  - Monitor 8.6+
+
 
 Example Playbook
 -------------------------------------------------------------------------------
