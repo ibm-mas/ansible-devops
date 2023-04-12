@@ -20,8 +20,8 @@
     # - openshift-marketplace : would have 'wiotp-docker-local' secret, if artifactory credentials are defined
 
   - name: "Debug: Lookup target namespaces query"
-    debug: 
-     msg: "oc get projects | grep -E '{{ include_namespaces_query }}' | grep -v -e 'pipelines' | awk '{print $1}'"
+    debug:
+      msg: "oc get projects | grep -E '{{ include_namespaces_query }}' | grep -v -e 'pipelines' | awk '{print $1}'"
 
   - name: "Cluster {{ cluster_item }} - Lookup target namespaces"
     shell: |
@@ -29,7 +29,7 @@
     register: namespace_list_output
 
   - name: "Cluster {{ cluster_item }} - Set MAS related namespaces to rotate entitlement key"
-    set_fact: 
+    set_fact:
       mas_namespaces_entitlement_key_rotation_list: "{{ namespace_list_output.stdout_lines | unique | default([]) }}"
 
   when: mas_namespaces_entitlement_key_rotation_list is not defined or mas_namespaces_entitlement_key_rotation_list | length == 0
@@ -41,12 +41,12 @@
       - "Target Namespaces ......................... {{ mas_namespaces_entitlement_key_rotation_list }}"
 
 - name: "Cluster {{ cluster_item }} - Rotate entitlement key in 'ibm-entitlement' secret"
-  include_tasks: update-ibm-entitlement.yml
+  include_tasks: rotate-ibm-entitlement.yml
   loop: "{{ mas_namespaces_entitlement_key_rotation_list }}"
   when: item != 'openshift-marketplace' # we just rotate 'ibm-entitlement' if namespace is not 'openshift-marketplace' namespace
 
 - name: "Cluster {{ cluster_item }} - Rotate entitlement key in 'wiotp-docker-local' secret"
-  include_tasks: update-wiotp-docker-local.yml
+  include_tasks: rotate-wiotp-docker-local.yml
   when: # we just rotate 'wiotp-docker-local' if it's openshift-marketplace namespace and artifactory credentials are defined
     - artifactory_token is defined
     - artifactory_token != ''
