@@ -19,6 +19,7 @@
 
     mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('True', True) | bool }}"
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('True', True) | bool }}"
+    mirror_common_svcs: "{{ lookup('env', 'MIRROR_COMMONSERVICES') | default ('True', True) | bool }}"
     # mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('True', True) | bool }}"
 
     mirror_mas_hputilities: "{{ lookup('env', 'MIRROR_MAS_HPUTILITIES') | default ('True', True) | bool }}"
@@ -54,21 +55,21 @@
         manifest_name: ibm-cp-datacore
         manifest_version: "{{ cp4d_version }}"
 
-    # # 2. Zen Services
-    # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
-    #   when: mirror_cp4d
-    #   vars:
-    #     case_name: ibm-zen
-    #     case_version: "{{ zen_version }}"
-    #     exclude_images: []
+    # 2. Common Services UI
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when: mirror_common_svcs
+      vars:
+        case_name: ibm-cs-commonui
+        case_version: "{{ commonui_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
 
-    # - name: ibm.mas_devops.case_mirror
-    #   when: mirror_cp4d
-    #   vars:
-    #     case_name: ibm-zen
-    #     case_version: "{{ zen_version }}"
-    #     case_inventory_name: "zen_deploy"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_common_svcs
+      vars:
+        manifest_name: ibm-cs-commonui
+        manifest_version: "{{ commonui_version }}"
 
     # # 3. IBM Watson Studio
     # # -------------------------------------------------------------------------
