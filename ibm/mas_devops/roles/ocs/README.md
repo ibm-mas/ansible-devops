@@ -14,6 +14,12 @@ Set this to e.g. `4.10`, `4.11`, `4.12`.  We need to know what the release level
 - Environment Variable: `OCP_RELEASE`
 - Default Value: `4.12`
 
+### lso_device_path
+Set this value with your actual local disk filepath to be used in the LocalVolume for block storage using the localblock storageclass.
+
+- Environment Variable: `LSO_DEVICE_PATH`
+- Default Value: `/dev/vdb`
+
 
 Example Playbook
 ----------------
