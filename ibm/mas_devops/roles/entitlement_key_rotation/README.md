@@ -1,7 +1,7 @@
 entitlement_key_rotation
 ===============================================================================
 
-This role creates/updates the MAS username and password credentials throughout all MAS related namespaces for one or multiple clusters.
+This role creates/updates the entitlement username and password that are stored in the secrets used to pull images throughout all MAS related namespaces for one or multiple clusters.
 
 The main secret that is updated by this role is the `ibm-entitlement` which holds the credentials needed to pull the MAS images used by MAS Core or the MAS applications.
 
@@ -104,8 +104,8 @@ Rotate entitlement credentials across a specific list of namespaces, targeting m
     artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
     mas_entitlement_username: "{{ lookup('env', 'MAS_ENTITLEMENT_USERNAME') }}"
     mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') }}"
-    mas_clusters_entitlement_key_roration_list: "{{ lookup('env', 'MAS_CLUSTERS_ENTITLEMENT_KEY_ROTATION_LIST') }}"
-    mas_namespaces_entitlement_key_roration_list: "{{ lookup('env', 'MAS_NAMESPACES_ENTITLEMENT_KEY_ROTATION_LIST') }}"
+    mas_clusters_entitlement_key_rotation_list: "{{ lookup('env', 'MAS_CLUSTERS_ENTITLEMENT_KEY_ROTATION_LIST') }}"
+    mas_namespaces_entitlement_key_rotation_list: "{{ lookup('env', 'MAS_NAMESPACES_ENTITLEMENT_KEY_ROTATION_LIST') }}"
 
   roles:
     - ibm.mas_devops.entitlement_key_rotation
