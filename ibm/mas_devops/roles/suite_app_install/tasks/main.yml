@@ -43,13 +43,18 @@
       - "App Subscription Upgrade ... {{ mas_app_upgrade_strategy }}"
 
 
-# 4. Apply security context constraints
+# 4. Apply initial security context constraints
 # -----------------------------------------------------------------------------
-- name: "Apply security context constraints"
+- name: "Apply initial security context constraints"
   when: mas_app_id == "visualinspection"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/customscc.yml.j2') }}"
+    definition: "{{ lookup('template', 'templates/customsccinit.yml.j2') }}"
+
+- name: "Add anyuid permissions to visualinspection service account"
+  when: mas_app_id == "visualinspection"
+  shell: |
+    oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mas_app_namespace }}:ibm-mas-visualinspection-operator
 
 
 # 5. Install the operator
@@ -164,3 +169,16 @@
 - name: "Create ibm-data-dictionary Image Digest Map"
   when: mas_app_id == "monitor" and airgap_install
   include_tasks: "tasks/{{ mas_app_id }}.yml"
+
+# 11. Apply final security context constraints
+# -----------------------------------------------------------------------------
+- name: "Apply final security context constraints"
+  when: mas_app_id == "visualinspection"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/customscc.yml.j2') }}"
+
+- name: "Remove anyuid permissions from visualinspection service account"
+  when: mas_app_id == "visualinspection"
+  shell: |
+    oc adm policy remove-scc-from-user anyuid system:serviceaccount:{{ mas_app_namespace }}:ibm-mas-visualinspection-operator
