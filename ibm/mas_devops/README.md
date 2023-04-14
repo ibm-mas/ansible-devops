@@ -6,8 +6,9 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `13.2` Multiple Updates:
+- `13.3` Multiple Updates:
     - Add support to rotate ibm entitlement keys across MAS namespaces ([#764](https://github.com/ibm-mas/ansible-devops/pull/764))
+- `13.2` Multiple Updates:
     - Add support for Monitor deployment size ([#767](https://github.com/ibm-mas/ansible-devops/pull/767))
     - Support April Catalog Update ([#762](https://github.com/ibm-mas/ansible-devops/pull/762))
 - `13.1` Support for Db2u and AMQ Streams on OCP 4.12 ([#759](https://github.com/ibm-mas/ansible-devops/pull/759))
