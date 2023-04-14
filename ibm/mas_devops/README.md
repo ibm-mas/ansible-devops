@@ -6,6 +6,7 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `13.3` Update default DB2 version to s11.5.8.0 ([#770](https://github.com/ibm-mas/ansible-devops/pull/770))
 - `13.2` Multiple Updates:
     - Add support for Monitor deployment size ([#767](https://github.com/ibm-mas/ansible-devops/pull/767))
     - Support April Catalog Update ([#762](https://github.com/ibm-mas/ansible-devops/pull/762))
