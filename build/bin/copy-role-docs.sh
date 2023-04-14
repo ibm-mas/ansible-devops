@@ -35,6 +35,7 @@ copyDoc cp4d_upgrade
 copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
+copyDoc entitlement_key_rotation
 copyDoc gencfg_jdbc
 copyDoc gencfg_mongo
 copyDoc gencfg_watsonstudio
