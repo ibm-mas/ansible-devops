@@ -16,41 +16,41 @@
 # 2. Wipe Mongo data if needed
 # -----------------------------------------------------------------------------
 - block:
-  - name: "Lookup coreapi"
-    kubernetes.core.k8s_info:
-      api_version: v1
-      kind: Pod
-      namespace: "mas-{{ mas_instance_id }}-core"
-      label_selectors:
-        - mas.ibm.com/instanceId={{ mas_instance_id }}
-        - app={{ mas_instance_id }}-coreapi
-    register: coreapi_output
+    - name: "Lookup coreapi"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "mas-{{ mas_instance_id }}-core"
+        label_selectors:
+          - mas.ibm.com/instanceId={{ mas_instance_id }}
+          - app={{ mas_instance_id }}-coreapi
+      register: coreapi_output
 
-  - name: Set coreapi pod name
-    set_fact:
-      coreapi_pod_name: "{{ coreapi_output.resources[0].metadata.name }}"
+    - name: Set coreapi pod name
+      set_fact:
+        coreapi_pod_name: "{{ coreapi_output.resources[0].metadata.name }}"
 
-  - name: Create script to wipe mongo data in local /tmp
-    ansible.builtin.template:
-      src: wipe-mongo-data.sh.j2
-      dest: /tmp/wipe-mongo-data.sh
-      mode: '777'
+    - name: Create script to wipe mongo data in local /tmp
+      ansible.builtin.template:
+        src: wipe-mongo-data.sh.j2
+        dest: /tmp/wipe-mongo-data.sh
+        mode: '777'
 
-  - name: Copy the script to wipe mongo data into the coreapi pod
-    shell: "oc cp /tmp/wipe-mongo-data.sh mas-{{ mas_instance_id }}-core/{{ coreapi_pod_name }}:/tmp/wipe-mongo-data.sh"
-    register: copy_result
-    retries: 10
-    delay: 30 # seconds
-    until: copy_result.rc == 0
+    - name: Copy the script to wipe mongo data into the coreapi pod
+      shell: "oc cp /tmp/wipe-mongo-data.sh mas-{{ mas_instance_id }}-core/{{ coreapi_pod_name }}:/tmp/wipe-mongo-data.sh"
+      register: copy_result
+      retries: 10
+      delay: 30 # seconds
+      until: copy_result.rc == 0
 
-  - name: "Exec into coreapi and run mongo cleanup"
-    shell: oc exec -n mas-{{ mas_instance_id }}-core {{coreapi_pod_name}} -- bash /tmp/wipe-mongo-data.sh
-    register: mas_wipe_mongo_output
-    failed_when: mas_wipe_mongo_output.rc > 0
+    - name: "Exec into coreapi and run mongo cleanup"
+      shell: oc exec -n mas-{{ mas_instance_id }}-core {{coreapi_pod_name}} -- bash /tmp/wipe-mongo-data.sh
+      register: mas_wipe_mongo_output
+      failed_when: mas_wipe_mongo_output.rc > 0
 
-  - name: "Debug Mongo Wipe data:"
-    debug:
-      var: mas_wipe_mongo_output.stdout_lines
+    - name: "Debug Mongo Wipe data:"
+      debug:
+        var: mas_wipe_mongo_output.stdout_lines
 
   when:
     - mas_wipe_mongo_data is defined
