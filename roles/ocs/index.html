@@ -152,7 +152,7 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#ocp_release">ocp_release</a>
+    <li class="toctree-l3"><a class="reference internal" href="#lso_device_path">lso_device_path</a>
     </li>
         </ul>
     </li>
@@ -276,21 +276,20 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="ocs">ocs<a class="headerlink" href="#ocs" title="Permanent link"></a></h1>
-<p>This role provides support to install Openshift Container Storage. This role is not used by default when setting up IBM Cloud ROKS clusters because they are automatically provisioned with their own storage plugin already.</p>
-<p>Unfortunately, starting fromOCP 4.8 IBM/Red Hat have decided to stop supporting OCS on IBMCloud ROKS.  So this role is of limited value to users of ROKS going forward.  If you attempt to install OpenShift Container Storage on ROKS via a Subscription channel you will be met by the following error as the admission webhook has been coded to prevent use of the OCS operator on IBM Cloud ROKS: <strong>Failed to apply object: "admission webhook "validate.managed.openshift.io" denied the request: Installing OpenShift Data Foundation on IBM Cloud by using OperatorHub is not supported. You can install OpenShift Data Foundation by using the IBM Cloud add-on. For more information, see https://cloud.ibm.com/docs/openshift?topic=openshift-ocs-storage-prep.</strong></p>
+<p>This role provides support to install OpenShift Data Foundation Operator (ODF) (formerly called Openshift Container Storage (OCS)) and the Local Storage Operator (LSO). This role is not used by default when setting up IBM Cloud ROKS clusters because they are automatically provisioned with their own storage plugin already.</p>
+<p>The OCP Version is autodetected and if it is found to be at version <code>4.10</code> or less then the <code>ocs</code> operator is used, else the <code>odf</code> operator is used.</p>
+<p>Unfortunately, starting from OCP 4.8 IBM/Red Hat have decided to stop supporting OCS on IBMCloud ROKS.  So this role is of limited value to users of ROKS going forward.  If you attempt to install OpenShift Container Storage on ROKS via a Subscription channel you will be met by the following error as the admission webhook has been coded to prevent use of the OCS operator on IBM Cloud ROKS: <strong>Failed to apply object: "admission webhook "validate.managed.openshift.io" denied the request: Installing OpenShift Data Foundation on IBM Cloud by using OperatorHub is not supported. You can install OpenShift Data Foundation by using the IBM Cloud add-on. For more information, see https://cloud.ibm.com/docs/openshift?topic=openshift-ocs-storage-prep.</strong></p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<h3 id="ocp_release">ocp_release<a class="headerlink" href="#ocp_release" title="Permanent link"></a></h3>
-<p>Set this to e.g. <code>4.6</code>, <code>4.7</code>, <code>4.8</code>.  We need to know what the release level is to know what channel to target the operator subscriptions at.</p>
+<h3 id="lso_device_path">lso_device_path<a class="headerlink" href="#lso_device_path" title="Permanent link"></a></h3>
+<p>Set this value with your actual local disk filepath to be used in the LocalVolume for block storage using the localblock storageclass.</p>
 <ul>
-<li>Environment Variable: <code>OCP_RELEASE</code></li>
-<li>Default Value: <code>4.10</code></li>
+<li>Environment Variable: <code>LSO_DEVICE_PATH</code></li>
+<li>Default Value: <code>/dev/vdb</code></li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">---
 - hosts: localhost
   any_errors_fatal: true
-  vars:
-    ocp_release: &quot;4.8&quot;
   roles:
     - ibm.mas_devops.ocs
 </code></pre>
