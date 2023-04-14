@@ -84,14 +84,19 @@
     - gpu_crd_info.resources is defined
     - gpu_crd_info.resources | length > 0
 
-
 # 4. Create GPU Cluster Policy
 # -----------------------------------------------------------------------------
-- name: "Create Cluster Policy instance"
+- name: "Create Cluster Policy instance for ocp 4.10+"
+  when: ocp_version_num is version('4.10', '>')
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/clusterpolicy-v2.yml.j2') }}"
+
+- name: "Create Cluster Policy instance for other ocp versions"
+  when: ocp_version_num is version('4.10', '<')
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/clusterpolicy.yml.j2') }}"
-
 
 # 5. Wait for Cluster Policy to be ready
 # -----------------------------------------------------------------------------
