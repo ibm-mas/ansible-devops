@@ -35,6 +35,7 @@ copyDoc cp4d_upgrade
 copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
+copyDoc entitlement_key_rotation
 copyDoc gencfg_jdbc
 copyDoc gencfg_mongo
 copyDoc gencfg_watsonstudio
@@ -57,12 +58,11 @@ copyDoc ocp_login
 copyDoc ocp_provision
 copyDoc ocp_roks_upgrade_registry_storage
 copyDoc ocp_simulate_disconnected_network
+copyDoc ocp_update_apiserver
 copyDoc ocp_upgrade
 copyDoc ocp_verify
 copyDoc ocs
 copyDoc registry
-copyDoc sbo
-copyDoc sbo_upgrade
 copyDoc sls
 copyDoc suite_app_config
 copyDoc suite_app_install

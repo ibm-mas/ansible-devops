@@ -1,7 +1,17 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `12.19` Support ARTIFACTORY_TOKEN ([#752](https://github.com/ibm-mas/ansible-devops/pull/752))
+- `13.3` Mulitple Updates:
+    - Update ocs role to use odf operator for OCP 4.11+ and provide devicePaths option ([#766](https://github.com/ibm-mas/ansible-devops/pull/766))
+    - Add support to rotate ibm entitlement keys across MAS namespaces ([#764](https://github.com/ibm-mas/ansible-devops/pull/764))
+- `13.2` Multiple Updates:
+    - Add support for Monitor deployment size ([#767](https://github.com/ibm-mas/ansible-devops/pull/767))
+    - Support April Catalog Update ([#762](https://github.com/ibm-mas/ansible-devops/pull/762))
+- `13.1` Support for Db2u and AMQ Streams on OCP 4.12 ([#759](https://github.com/ibm-mas/ansible-devops/pull/759))
+- `13.0` Multiple Updates:
+    - Remove SBO support ([#755](https://github.com/ibm-mas/ansible-devops/pull/755))
+    - Switch to ARTIFACTORY_TOKEN ([#752](https://github.com/ibm-mas/ansible-devops/pull/752))
+    - Update API Server tlsSecurityProfile to support IBM Java Semeru ([#754](https://github.com/ibm-mas/ansible-devops/pull/754))
 - `12.18` Support March 28th Catalog Update ([#738](https://github.com/ibm-mas/ansible-devops/pull/738))
 - `12.17` Multiple Updates:
     - Add MongoDb clean option to suite_uninstall role ([#706](https://github.com/ibm-mas/ansible-devops/pull/706))
