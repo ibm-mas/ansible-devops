@@ -1,6 +1,9 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `13.3` Mulitple Updates:
+    - Update ocs role to use odf operator for OCP 4.11+ and provide devicePaths option ([#766](https://github.com/ibm-mas/ansible-devops/pull/766))
+    - Add support to rotate ibm entitlement keys across MAS namespaces ([#764](https://github.com/ibm-mas/ansible-devops/pull/764))
 - `13.2` Multiple Updates:
     - Add support for Monitor deployment size ([#767](https://github.com/ibm-mas/ansible-devops/pull/767))
     - Support April Catalog Update ([#762](https://github.com/ibm-mas/ansible-devops/pull/762))
