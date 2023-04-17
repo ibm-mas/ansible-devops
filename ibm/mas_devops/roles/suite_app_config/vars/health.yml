@@ -13,10 +13,54 @@ mas_app_settings_demodata: "{{ lookup('env', 'MAS_APP_SETTINGS_DEMODATA') | defa
 mas_app_settings_tablespace: "{{ lookup('env', 'MAS_APP_SETTINGS_TABLESPACE') | default('MAXDATA', true)}}"
 mas_app_settings_indexspace: "{{ lookup('env', 'MAS_APP_SETTINGS_INDEXSPACE') | default('MAXINDEX', true)}}"
 
-server_bundles_jms_add_server_config_secret_name: "{{ mas_workspace_id }}-manage-jms-additional-server-config"
-server_bundles_add_server_config_secret_name: "{{ mas_workspace_id }}-manage-additional-server-config"
-mas_app_settings_persistent_volumes_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG') | default('false', true) }}"
-mas_app_settings_server_bundles_size: "{{ lookup('env', 'MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE') | default('dev', true)  }}"
+# if mas_app_settings_persistent_volumes_flag = 'true' then it will configure persistent storage for attachments and bim
+# otherwise no persistent storage will be configured at all
+mas_app_settings_persistent_volumes_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG') | default(False, true) | bool }}"
+
+# properties to configure persistent volumes for doclinks i.e attachments
+mas_app_settings_doclinks_pvc_storage_class: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_STORAGE_CLASS') }}" # if not defined by user, it will be automatically defined while setting persistent storage
+mas_app_settings_doclinks_pvc_name: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_NAME') | default('manage-doclinks', true) }}"
+mas_app_settings_doclinks_pvc_size: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_SIZE') | default('20Gi', true) }}"
+mas_app_settings_doclinks_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_MOUNT_PATH') | default('/DOCLINKS', true) }}"
+
+# properties to configure persistent volumes for Building Information Modeling (i.e BIM)
+# the values defined here will be used to create 3 separate PVCs with the same size each:
+# - bim/models
+# - bim/docs
+# - bim/import
+mas_app_settings_bim_pvc_storage_class: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_PVC_STORAGE_CLASS') }}" # if not defined by user, it will be automatically defined while setting persistent storage
+mas_app_settings_bim_pvc_name: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_PVC_NAME') | default('manage-bim', true) }}"
+mas_app_settings_bim_pvc_size: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_PVC_SIZE') | default('20Gi', true) }}"
+mas_app_settings_bim_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_MOUNT_PATH') | default('/bim', true) }}"
+
+# properties to configure persistent volumes for JMS queues, the below will only be set if 'mas_app_settings_server_bundles_size' = 'jms'
+mas_app_settings_jms_queue_pvc_storage_class: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_STORAGE_CLASS') }}" # if not defined by user, it will be automatically defined while setting persistent storage
+mas_app_settings_jms_queue_pvc_name: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_NAME') | default('manage-jms', true) }}"
+mas_app_settings_jms_queue_pvc_size: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_SIZE') | default('20Gi', true) }}"
+mas_app_settings_jms_queue_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_MOUNT_PATH') | default('/jms', true) }}"
+
+mas_app_settings_persistent_volumes_default:
+  - accessModes:
+      - ReadWriteMany
+    mountPath: "{{ mas_app_settings_doclinks_mount_path }}"
+    pvcName: "{{ mas_app_settings_doclinks_pvc_name }}"
+    size: "{{ mas_app_settings_doclinks_pvc_size }}"
+    storageClassName: "{{ mas_app_settings_doclinks_pvc_storage_class }}"
+  - accessModes:
+      - ReadWriteMany
+    mountPath: "{{ mas_app_settings_bim_mount_path }}"
+    pvcName: "{{ mas_app_settings_bim_pvc_name }}"
+    size: "{{ mas_app_settings_bim_pvc_size }}"
+    storageClassName: "{{ mas_app_settings_bim_pvc_storage_class }}"
+
+mas_app_settings_persistent_volumes: "{{ mas_app_settings_persistent_volumes_default if (mas_app_settings_persistent_volumes_flag == True) else [] }}"
+
+# properties to configure supported languages
+mas_app_settings_base_language: "{{ lookup('env', 'MAS_APP_SETTINGS_BASE_LANG') | default( 'EN', true) }}"
+mas_app_settings_secondary_languages: "{{ lookup('env', 'MAS_APP_SETTINGS_SECONDARY_LANGS') | default([], true) }}"
+
+# these settings will defined the bundle servers spec - health standalone just has dev size (all bundle pod)
+mas_app_settings_server_bundles_size: "dev"
 mas_app_settings_server_bundles:
   dev:
     serverBundles:
@@ -27,80 +71,3 @@ mas_app_settings_server_bundles:
         name: all
         replica: 1
         routeSubDomain: all
-  small:
-    serverBundles:
-      - bundleType: ui
-        isDefault: true
-        isMobileTarget: true
-        isUserSyncTarget: false
-        name: ui
-        replica: 1
-        routeSubDomain: ui
-      - bundleType: mea
-        isDefault: false
-        isMobileTarget: false
-        isUserSyncTarget: true
-        name: mea
-        replica: 1
-        routeSubDomain: mea
-      - bundleType: report
-        isDefault: false
-        isMobileTarget: false
-        isUserSyncTarget: false
-        name: rpt
-        replica: 1
-        routeSubDomain: rpt
-      - bundleType: cron
-        isDefault: false
-        isMobileTarget: false
-        isUserSyncTarget: false
-        name: cron
-        replica: 1
-        routeSubDomain: cron
-  jms:
-    serverBundles:
-      - additionalServerConfig:
-          secretName: "{{ server_bundles_add_server_config_secret_name }}"
-        bundleType: ui
-        isDefault: true
-        isMobileTarget: true
-        isUserSyncTarget: false
-        name: ui
-        replica: 1
-        routeSubDomain: ui
-      - additionalServerConfig:
-          secretName: "{{ server_bundles_add_server_config_secret_name }}"
-        bundleType: mea
-        isDefault: false
-        isMobileTarget: false
-        isUserSyncTarget: true
-        name: mea
-        replica: 1
-        routeSubDomain: mea
-      - additionalServerConfig:
-          secretName: "{{ server_bundles_add_server_config_secret_name }}"
-        bundleType: report
-        isDefault: false
-        isMobileTarget: false
-        isUserSyncTarget: false
-        name: rpt
-        replica: 1
-        routeSubDomain: rpt
-      - additionalServerConfig:
-          secretName: "{{ server_bundles_add_server_config_secret_name }}"
-        bundleType: cron
-        isDefault: false
-        isMobileTarget: false
-        isUserSyncTarget: false
-        name: cron
-        replica: 1
-        routeSubDomain: cron
-      - additionalServerConfig:
-          secretName: "{{ server_bundles_jms_add_server_config_secret_name }}"
-        bundleType: standalonejms
-        isDefault: false
-        isMobileTarget: false
-        isUserSyncTarget: false
-        name: jms
-        replica: 1
-        routeSubDomain: jms
