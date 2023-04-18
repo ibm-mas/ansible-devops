@@ -1,10 +1,10 @@
 # Install Predict Application
 
 ## Prerequisites
-You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.7 already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
+You will need a RedHat OpenShift cluster with IBM Maximo Application Suite Core. already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
 
 ## Overview
-This playbook will add **Predict v8.6** to an existing IBM Maximo Application Suite Core installation. It will also install CloudPak for Data + CP4D services.
+This playbook will add **Predict** to an existing IBM Maximo Application Suite Core installation. It will also install CloudPak for Data + CP4D services.
 
 This playbook can be ran against any OCP cluster regardless of it's type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
@@ -25,6 +25,7 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 `export CPD_INSTALL_SPSS=true`
 ## Required environment variables
 - `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
+- `MAS_WORKSPACE_ID` Declare the workspace ID for the MAS install
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 - `WML_INSTANCE_ID` Set Default value to "openshift"
@@ -39,7 +40,7 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
     | small                  |  2 |
     | medium                 |  3 |
 
-## These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
+## These variables are required only if you set CP4D_INSTALL_WSL to false in optional variables, otherwise don't set it.
 - `CPD_ADMIN_USERNAME` CP4D Username
 - `CPD_ADMIN_PASSWORD` CP4D Password
 - `CPD_URL` CP4D Base URL

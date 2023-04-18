@@ -3,23 +3,18 @@ appconnect
 
 Installs **IBM AppConnect** and generates configuration that can be directly applied to IBM Maximo Application Suite.
 
-This dependency is required by the Health and Predict Utilities application:
+This dependency is optional by the Health and Predict Utilities application:
 
-- HP Utilities v8.4 requires support for `12.0.4.0-r2` AppConnect dashboards (License ID `L-APEH-C9NCK6`)
-- HP Utilities v8.3 requires support for `12.0.2.0-r2` AppConnect dashboards (License ID `L-KSBM-C87FU2`)
-- HP Utilities v8.2 requires support for `12.0.1.0-r2` AppConnect dashboards (license ID `L-KSBM-C37J2R`)
-
-| HP Utilities | AppConnect   | License       | Dashboard Versions       |
+| HP Utilities |  AppConnect  |    License    |    Dashboard Versions    | 
 | ------------ | ------------ | ------------- | ------------------------ |
+| v8.6         | v6.0 - v6.2  | L-APEH-CFZE47 |       12.0.6.0-r1        |
+| v8.5         | v5.2 - v6.0  | L-APEH-CCHL5W |       12.0.5.0-r2        |
 | v8.4         | v4.1 - v5.2  | L-APEH-C9NCK6 | 12.0.4.0-r1, 12.0.4.0-r2 |
-| v8.3         | v3.0 - v4.2  | L-KSBM-C87FU2 | 12.0.2.0-r2              |
-| v8.2         | v1.5 - v3.1  | L-KSBM-C37J2R | 12.0.1.0-r1, 12.0.1.0-r2 |
 
 For more information review the [licensing reference for IBM App Connect Operator](https://www.ibm.com/docs/en/app-connect/containers_cd?topic=resources-licensing-reference-app-connect-operator).
 
 !!! important
-    All defaults in this role are currently set for compatability with HP Utilities version 8.4.  If you are installing App Connect for use with older release of HP Utilities then you must set the `appconnect_channel` and `appconnect_license_id` variables (and it would be sensible to customize `appconnect_dashboard_name` as well).
-
+    All defaults in this role are currently set for compatability with HP Utilities version 8.6.  If you are installing App Connect for use with older release of HP Utilities then you must set the `appconnect_channel` and `appconnect_license_id` variables (and it would be sensible to customize `appconnect_dashboard_name` as well).
 
 Role Variables - Installation
 -------------------------------------------------------------------------------
