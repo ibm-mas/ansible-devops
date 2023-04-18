@@ -20,7 +20,7 @@
 
     # mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('True', True) | bool }}"
     # mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('True', True) | bool }}"
-    # mirror_wml: "{{ lookup('env', 'MIRROR_WML') | default ('True', True) | bool }}"
+    mirror_wml: "{{ lookup('env', 'MIRROR_WML') | default ('True', True) | bool }}"
     # mirror_ae: "{{ lookup('env', 'MIRROR_AE') | default ('True', True) | bool }}"
 
     mirror_mas_predict: "{{ lookup('env', 'MIRROR_MAS_PREDICT') | default ('True', True) | bool }}"
@@ -113,37 +113,39 @@
     #     case_version: "{{ wsl_version }}"
     #     case_inventory_name: "wslSetup"
 
-    # # 4. IBM Watson Machine Learning
-    # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
-    #   when: mirror_wml
-    #   vars:
-    #     case_name: ibm-wml-cpd
-    #     case_version: "{{ wml_version }}"
-    #     exclude_images: []
+    # 4. IBM Watson Machine Learning
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wml
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-wml-cpd
+        case_version: "{{ wml_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: true
 
-    # - name: ibm.mas_devops.case_mirror
-    #   when: mirror_wml
-    #   vars:
-    #     case_name: ibm-wml-cpd
-    #     case_version: "{{ wml_version }}"
-    #     case_inventory_name: "wmlOperatorSetup"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_wml
+      vars:
+        manifest_name: ibm-wml-cpd
+        manifest_version: "{{ wml_version }}"
 
-    # # 5. Analytics Engine
-    # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
-    #   when: mirror_ae
-    #   vars:
-    #     case_name: ibm-analyticsengine
-    #     case_version: "{{ ae_version }}"
-    #     exclude_images: []
+    # 5. Analytics Engine (Spark)
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when: mirror_spark
+      vars:
+        case_name: ibm-analyticsengine
+        case_version: "{{ spark_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
 
-    # - name: ibm.mas_devops.case_mirror
-    #   when: mirror_ae
-    #   vars:
-    #     case_name: ibm-analyticsengine
-    #     case_version: "{{ ae_version }}"
-    #     case_inventory_name: "analyticsengineOperatorSetup"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_spark
+      vars:
+        manifest_name: ibm-analyticsengine
+        manifest_version: "{{ spark_version }}"
 
     # 6. IBM Maximo Predict
     # -------------------------------------------------------------------------
@@ -155,6 +157,7 @@
         case_name: ibm-mas-predict
         case_version: "{{ mas_predict_version[mas_channel] }}"
         exclude_images: []
+        ibmpak_skip_dependencies: false
 
     - name: ibm.mas_devops.mirror_images
       when: mirror_mas_predict
