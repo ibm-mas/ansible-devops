@@ -1,5 +1,17 @@
 ---
 
+# 0. Check for required software
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Test if skopeo is installed"
+  shell: skopeo --version
+  register: skopeo_version_result
+  ignore_errors: true
+
+- name: "{{ case_name }} : Fail if skopeo is not installed"
+  assert:
+    that: ( skopeo_version_result['rc'] == 0 )
+    fail_msg: "skopeo tool must be installed."
+
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Fail if required properties are not provided for dev access"
@@ -67,6 +79,9 @@
   register: operator_bundle_with_digest
   vars:
     operator_bundle: "cpopen/{{ case_name }}-operator-bundle-with-digest:{{ case_version }}"
+
+- debug:
+  msg: "Bundle image with digest ................ {{ operator_bundle_with_digest.stdout }}"
 
 - name: "{{ case_name }} : Add operator bundle to manifest file"
   ansible.builtin.lineinfile:
