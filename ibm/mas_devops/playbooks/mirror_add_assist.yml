@@ -1,10 +1,10 @@
 ---
 # Mirrors the following content which is REQUIRED to add Maximo Assist to an existing
 # Maximo Application Suite Core Services installation:
+# 0. Common services (make sure to mirror MAS Core with common services)
 # 1. CP4D
-# 2. IBM Zen Services
-# 3. Watson Discovery
-# 4. IBM Maximo Assist
+# 2. Watson Discovery
+# 3. IBM Maximo Assist
 #
 # This playbook aligns with the ibm.mas_devops.oneclick_add_assist playbook
 
@@ -16,7 +16,7 @@
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.10.x', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
 
-    # mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('True', True) | bool }}"
+    mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('True', True) | bool }}"
     # mirror_wd: "{{ lookup('env', 'MIRROR_WD') | default ('True', True) | bool }}"
 
     mirror_mas_assist: "{{ lookup('env', 'MIRROR_MAS_ASSIST') | default ('True', True) | bool }}"
@@ -38,77 +38,37 @@
   roles:
     # # 1. CP4D
     # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
-    #   when: mirror_cp4d
-    #   vars:
-    #     case_name: ibm-cp-datacore
-    #     case_version: "{{ cp4d_version }}"
-    #     exclude_images:
-    #       - ibm-analyticsengine
-    #       - ibm-bigsql-case
-    #       - ibm-cde
-    #       - ibm-cpd-scheduling
-    #       - ibm-datagate-prod
-    #       - ibm-datarefinery
-    #       - ibm-db2aaservice
-    #       - ibm-db2uoperator
-    #       - ibm-db2wh
-    #       - ibm-dmc
-    #       - ibm-dods
-    #       - ibm-dp
-    #       - ibm-dv-case
-    #       - ibm-hadoop
-    #       - ibm-iis
-    #       - ibm-mdm
-    #       - ibm-rstudio
-    #       - ibm-spss
-    #       - ibm-watson-openscale
-    #       - ibm-wkc
-    #       - ibm-wml-accelerator
-    #       - ibm-wml-cpd
-    #       - ibm-wsl
-    #       - ibm-zen
+    - name: ibm.mas_devops.mirror_case_prepare
+      when: mirror_cp4d
+      vars:
+        case_name: ibm-cp-datacore
+        case_version: "{{ cp4d_platform_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: true
 
-    # - name: ibm.mas_devops.case_mirror
-    #   when: mirror_cp4d
-    #   vars:
-    #     case_name: ibm-cp-datacore
-    #     case_version: "{{ cp4d_version }}"
-    #     case_inventory_name: "cpdPlatformOperator"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_cp4d
+      vars:
+        manifest_name: ibm-cp-datacore
+        manifest_version: "{{ cp4d_platform_version }}"
 
-    # # 2. Zen Services
+    # # 2. Watson Discovery
     # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
-    #   when: mirror_cp4d
-    #   vars:
-    #     case_name: ibm-zen
-    #     case_version: "{{ zen_version }}"
-    #     exclude_images: []
-
-    # - name: ibm.mas_devops.case_mirror
-    #   when: mirror_cp4d
-    #   vars:
-    #     case_name: ibm-zen
-    #     case_version: "{{ zen_version }}"
-    #     case_inventory_name: "zen_deploy"
-
-    # # 3. Watson Discovery
-    # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
+    # - name: ibm.mas_devops.mirror_case_prepare
     #   when: mirror_wd
     #   vars:
     #     case_name: ibm-watson-discovery
     #     case_version: "{{ wd_version }}"
     #     exclude_images: []
+          # ibmpak_skip_dependencies: false
 
-    # - name: ibm.mas_devops.case_mirror
+    # - name: ibm.mas_devops.mirror_images
     #   when: mirror_wd
     #   vars:
-    #     case_name: ibm-watson-discovery
-    #     case_version: "{{ wd_version }}"
-    #     case_inventory_name: "discoveryOperators"
+    #     manifest_name: ibm-watson-discovery
+    #     manifest_version: "{{ wd_version }}"
 
-    # 4. IBM Maximo Assist
+    # 3. IBM Maximo Assist
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -118,6 +78,7 @@
         case_name: ibm-mas-assist
         case_version: "{{ mas_assist_version[mas_channel] }}"
         exclude_images: []
+        ibmpak_skip_dependencies: false
 
     - name: ibm.mas_devops.mirror_images
       when: mirror_mas_assist
