@@ -57,11 +57,11 @@ Required when using this role for development versions of the MAS application.
 - Environment Variable: `ARTIFACTORY_USERNAME`
 - Default: None
 
-### artifactory_apikey
+### artifactory_token
 Required when using this role for development versions of the MAS application
 
 - Optional
-- Environment Variable: `ARTIFACTORY_APIKEY`
+- Environment Variable: `ARTIFACTORY_TOKEN`
 - Default: None
 
 ### mas_entitlement_username
@@ -107,11 +107,10 @@ Optional. Defines what plan will be used in application install.
 Role Variables - Visual Inspection Configuration
 -------------------------------------------------------------------------------
 ### mas_app_settings_visualinspection_storage_class
-Storage class used for user data. This must support ReadWriteOnce
+Optional - Storage class used for user data. This must support ReadWriteMany
 
-- Optional
 - Environment Variable: `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_CLASS`
-- Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster.
+- Default: Auto-selected from storage classes installed in the cluster.
 
 ### mas_app_settings_visualinspection_storage_size
 Optional. Size of data persistent volume.
@@ -128,7 +127,7 @@ Optional, The IoT deployment size, one of `dev`, `small` or `large`.
 - Environment Variable: `MAS_APP_SETTINGS_IOT_DEPLOYMENT_SIZE`
 - Default: `small`
 - Application Support:
-  - IoT 8.6
+  - IoT 8.6+
 
 ### mas_app_settings_iot_fpl_pvc_storage_class
 Optional. The persistent volume storage class used by the iot fpl component for transient state storage
@@ -136,7 +135,7 @@ Optional. The persistent volume storage class used by the iot fpl component for 
 - Environment Variable: `MAS_APP_SETTINGS_IOT_FPL_PVC_STORAGE_CLASS`
 - Default: Auto-selected from storage classes installed in the cluster.
 - Application Support:
-  - IoT 8.6
+  - IoT 8.6+
 
 ### mas_app_settings_iot_fpl_router_pvc_size
 Optional. The persistent volume size used by the iot fpl pipeline router for transient state storage
@@ -144,7 +143,7 @@ Optional. The persistent volume size used by the iot fpl pipeline router for tra
 - Environment Variable: `MAS_APP_SETTINGS_IOT_FPL_ROUTER_PVC_SIZE`
 - Default: 100Gi.
 - Application Support:
-  - IoT 8.6
+  - IoT 8.6+
 
 ### mas_app_settings_iot_fpl_executor_pvc_size
 Optional. The persistent volume size used by the iot fpl pipeline router for transient state storage
@@ -152,7 +151,34 @@ Optional. The persistent volume size used by the iot fpl pipeline router for tra
 - Environment Variable: `MAS_APP_SETTINGS_IOT_FPL_EXECUTOR_PVC_SIZE`
 - Default: 100Gi.
 - Application Support:
-  - IoT 8.6
+  - IoT 8.6+
+
+### mas_app_settings_iot_mqttbroker_pvc_storage_class
+Optional. The persistent volume storage class used by the iot mqtt broker
+
+- Environment Variable: `MAS_APP_SETTINGS_IOT_MQTTBROKER_PVC_STORAGE_CLASS`
+- Default: Auto-selected from storage classes installed in the cluster.
+- Application Support:
+  - IoT 8.3+
+
+### mas_app_settings_iot_mqttbroker_pvc_size
+Optional. The persistent volume size used by the iot mqtt broker
+
+- Environment Variable: `MAS_APP_SETTINGS_IOT_MQTTBROKER_PVC_SIZE`
+- Default: 100Gi.
+- Application Support:
+  - IoT 8.3+
+
+
+Role Variables - Monitor Configuration
+-------------------------------------------------------------------------------
+### mas_app_settings_monitor_deployment_size
+Optional, The Monitor deployment size, one of `dev`, `small` or `large`.
+
+- Environment Variable: `MAS_APP_SETTINGS_MONITOR_DEPLOYMENT_SIZE`
+- Default: `dev`
+- Application Support:
+  - Monitor 8.6+
 
 
 Example Playbook

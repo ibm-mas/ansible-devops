@@ -35,7 +35,7 @@ Local directory to save the generated MongoCfg resource definition.  This can be
 ### mongodb_provider
 MongoDB provider 
 
-- Environment variable: `DB_PROVIDER`
+- Environment variable: `MONGODB_PROVIDER`
 - Defult Value: `community`
 - Supported providers: `community`,`aws`,`ibm`
 
@@ -43,15 +43,15 @@ MongoDB provider
 Determines which action needs to be performed w.r.t mongodb for a specfied `provider`
 
 - Environment variable: `MONGODB_ACTION`
-- Deafult Value: `provision`
+- Default Value: `install`
   ```
-  Following Providers supports below mentioned DB_ACTION values:
+  Following Providers supports below mentioned MONGODB_ACTION values:
   1. Provider : community 
-  Supported DB_ACTION values : provision
+  Supported MONGODB_ACTION values : install,uninstall
   2. Provider: aws
-  Supported DB_ACTION values : provision,deprovision,docdb_secret_rotate
+  Supported MONGODB_ACTION values : install,uninstall,docdb_secret_rotate
   3. Provider: ibm
-  Supported DB_ACTION values : provision,deprovision,backup,restore,create-mongo-service-credentials
+  Supported MONGODB_ACTION values : install,uninstall,backup,restore,create-mongo-service-credentials
   ```
  
 
@@ -218,6 +218,19 @@ Once the CA certificate has been updated for the MongoCfg and LicenseService CRs
 
 IBM Cloud MongoDB Role Variables
 ----------------------------------
+### ibm_mongo_name
+Required. IBM Cloud Mongo database instance name.
+
+- Environment Variable: `IBM_MONGO_NAME`
+- Default Value: `mongo-${MAS_INSTANCE_ID}`
+
+### ibm_mongo_admin_password
+Optional. Sets IBM Cloud Mongo database administrator user password.
+If not set, an auto-generated 20 character length string will be used.
+
+- Environment Variable: `IBM_MONGO_ADMIN_PASSWORD`
+- Default Value: None.
+
 ### ibm_mongo_admin_credentials_secret_name
 Secret for MongoDB Admin credentials.
 
@@ -228,16 +241,16 @@ Secret for MongoDB Service credentials.
 
 - Secret Name: `<mongo-name>-service-credentials`
 
-### ibmcloud_resourcegroup
+### ibm_mongo_resourcegroup
 Required.IBM Cloud Resource Group under which resource group will be created.
 
-- Environment Variable: `IBMCLOUD_RESOURCEGROUP`
+- Environment Variable: `IBM_MONGO_RESOURCEGROUP`
 - Default Value: `Default`
 
-### ibmcloud_region
+### ibm_mongo_region
 Required.IBM Cloud region where MongoDB resources will be created.
 
-- Environment Variable: `IBMCLOUD_REGION`
+- Environment Variable: `IBM_MONGO_REGION`
 - Default Value: `us-east`
 
 ### ibmcloud_apikey

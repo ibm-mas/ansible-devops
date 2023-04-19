@@ -17,15 +17,15 @@
   set_fact:
     ocp_version_num: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
 
-- name: "Set gpu driver version default for ocp 4.11"
-  when: ocp_version_num is regex('^4.11.*')
+- name: "Set gpu driver version default for ocp 4.10+"
+  when: ocp_version_num is version('4.10.0', '>')
   set_fact:
-    gpu_driver_version: "{{ ocp_411_driver_version }}"
+    gpu_driver_version: "{{ (_gpu_driver_version is defined and _gpu_driver_version != '') | ternary(_gpu_driver_version, rhel8_driver_version) }}"
 
 - name: "Set gpu driver version for other ocp versions"
-  when: ocp_version_num is version('4.11.0', '<')
+  when: ocp_version_num is version('4.10.0', '<')
   set_fact:
-    gpu_driver_version: "{{ ocp_410_driver_version }}"
+    gpu_driver_version: "{{ (_gpu_driver_version is defined and _gpu_driver_version != '') | ternary(_gpu_driver_version, rhel7_driver_version) }}"
 
 # 1. Provide Debug information
 # -----------------------------------------------------------------------------
@@ -36,6 +36,7 @@
       - "GPU Namespace ...................... {{ gpu_namespace }}"
       - "GPU Channel   ...................... {{ gpu_channel }}"
       - "GPU Driver Version ................. {{ gpu_driver_version }}"
+      - "GPU Driver Repo Path ............... {{ gpu_driver_repository_path }}"
 
 
 # 2. Create NVIDIA GPU project
@@ -83,21 +84,19 @@
     - gpu_crd_info.resources is defined
     - gpu_crd_info.resources | length > 0
 
-
 # 4. Create GPU Cluster Policy
 # -----------------------------------------------------------------------------
-- name: "Create Cluster Policy instance if ocp 4.10 or 4.11"
-  when: ocp_version_num is regex('^4.10.*') or ocp_version_num is regex('^4.11.*')
+- name: "Create Cluster Policy instance for ocp 4.10+"
+  when: ocp_version_num is version('4.10', '>')
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/clusterpolicies/ocp_{{ ocp_version_num[:4] }}.yml.j2') }}"
+    definition: "{{ lookup('template', 'templates/clusterpolicy-v2.yml.j2') }}"
 
-- name: "Create Cluster Policy instance (other ocp versions < 4.10)"
-  when: ocp_version_num is version('4.10.0', '<')
+- name: "Create Cluster Policy instance for other ocp versions"
+  when: ocp_version_num is version('4.10', '<')
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/clusterpolicies/clusterpolicy.yml.j2') }}"
-
+    definition: "{{ lookup('template', 'templates/clusterpolicy.yml.j2') }}"
 
 # 5. Wait for Cluster Policy to be ready
 # -----------------------------------------------------------------------------

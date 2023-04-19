@@ -3,8 +3,9 @@ mas_app_ws_fqn: manageworkspaces.apps.mas.ibm.com
 mas_app_ws_apiversion: apps.mas.ibm.com/v1
 mas_app_ws_kind: ManageWorkspace
 
-mas_app_cfg_retries: 50
-mas_app_cfg_delay: 480
+# Depending on the number of components being used the time to configure Manage can grow significantly
+mas_app_cfg_retries: 60  # ~8 hours
+mas_app_cfg_delay: 480  # ~8 minutes
 
 mas_app_settings_aio_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_AIO_FLAG') | default('true', true)}}"
 mas_app_settings_db2_schema: "{{ lookup('env', 'MAS_APP_SETTINGS_DB2_SCHEMA') | default('maximo', true)}}"
@@ -63,15 +64,12 @@ mas_app_settings_secondary_languages: "{{ lookup('env', 'MAS_APP_SETTINGS_SECOND
 server_bundle_jms_internal_endpoint: "{{ mas_instance_id }}-{{ mas_workspace_id }}-jms.mas-{{ mas_instance_id }}-manage.svc:7276" # maspreivt89-main-jms.mas-maspreivt89-manage.svc:7276
 
 # these settings will be applied to ui, cron and report - these server bundles don't need the activation specification in the JMS config xml
-server_bundles_add_server_config_no_activation_secret_name: "{{ mas_workspace_id }}-manage-additional-server-config-no-activation"
 server_bundles_add_server_config_no_activation_content: "{{ lookup('file', '{{ role_path }}/files/manage/manage-additional-server-config-no-activation.xml.j2') }}"
 
-# these settings will be applied to mea - this server bundles will need the activation specification in the JMS config xml
-server_bundles_add_server_config_secret_name: "{{ mas_workspace_id }}-manage-additional-server-config"
+# this setting will be applied to mea - this server bundles will need the activation specification in the JMS config xml
 server_bundles_add_server_config_content: "{{ lookup('file', '{{ role_path }}/files/manage/manage-additional-server-config.xml.j2') }}"
 
-# these settings will be applied to jms - this server bundle will have special config for JMS queues in the xml
-server_bundles_jms_add_server_config_secret_name: "{{ mas_workspace_id }}-manage-jms-additional-server-config"
+# this setting will be applied to jms - this server bundle will have special config for JMS queues in the xml
 server_bundles_jms_add_server_config_content: "{{ lookup('file', '{{ role_path }}/files/manage/manage-jms-additional-server-config.xml.j2') }}"
 
 # these settings will defined the bundle servers spec
@@ -106,9 +104,9 @@ mas_app_settings_server_bundles:
         isDefault: false
         isMobileTarget: false
         isUserSyncTarget: false
-        name: report
+        name: rpt
         replica: 1
-        routeSubDomain: report
+        routeSubDomain: rpt
       - bundleType: cron
         isDefault: false
         isMobileTarget: false
@@ -119,7 +117,7 @@ mas_app_settings_server_bundles:
   jms:
     serverBundles:
       - additionalServerConfig:
-          secretName: "{{ server_bundles_add_server_config_no_activation_secret_name }}"
+          secretName: "{{ mas_workspace_id }}-{{ mas_app_id }}-d--sb0--asc--sn" # this will store content from 'server_bundles_add_server_config_no_activation_content'
         bundleType: ui
         isDefault: true
         isMobileTarget: true
@@ -128,7 +126,7 @@ mas_app_settings_server_bundles:
         replica: 1
         routeSubDomain: ui
       - additionalServerConfig:
-          secretName: "{{ server_bundles_add_server_config_secret_name }}"
+          secretName: "{{ mas_workspace_id }}-{{ mas_app_id }}-d--sb1--asc--sn" # this will store content from 'server_bundles_add_server_config
         bundleType: mea
         isDefault: false
         isMobileTarget: false
@@ -137,16 +135,16 @@ mas_app_settings_server_bundles:
         replica: 1
         routeSubDomain: mea
       - additionalServerConfig:
-          secretName: "{{ server_bundles_add_server_config_no_activation_secret_name }}"
+          secretName: "{{ mas_workspace_id }}-{{ mas_app_id }}-d--sb2--asc--sn" # this will store content from 'server_bundles_add_server_config_no_activation_content'
         bundleType: report
         isDefault: false
         isMobileTarget: false
         isUserSyncTarget: false
-        name: report
+        name: rpt
         replica: 1
-        routeSubDomain: report
+        routeSubDomain: rpt
       - additionalServerConfig:
-          secretName: "{{ server_bundles_add_server_config_no_activation_secret_name }}"
+          secretName: "{{ mas_workspace_id }}-{{ mas_app_id }}-d--sb3--asc--sn" # this will store content from 'server_bundles_add_server_config_no_activation_content'
         bundleType: cron
         isDefault: false
         isMobileTarget: false
@@ -155,7 +153,7 @@ mas_app_settings_server_bundles:
         replica: 1
         routeSubDomain: cron
       - additionalServerConfig:
-          secretName: "{{ server_bundles_jms_add_server_config_secret_name }}"
+          secretName: "{{ mas_workspace_id }}-{{ mas_app_id }}-d--sb4--asc--sn" # this will store content from 'server_bundles_jms_add_server_config_content'
         bundleType: standalonejms
         isDefault: false
         isMobileTarget: false
