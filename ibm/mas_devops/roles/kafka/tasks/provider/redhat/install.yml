@@ -96,10 +96,22 @@
 
 # 8. Create the MAS user
 # -----------------------------------------------------------------------------
+- name: "Check if Kafka User already exists"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: KafkaUser
+    name: "{{ kafka_user_name }}"
+    label_selectors:
+      - "strimzi.io/cluster={{ kafka_cluster_name }}"
+    namespace: "{{ kafka_namespace }}"
+  register: kafkauser_info
+
+# Just create the kafka user and credential secret when it's not present to avoid overwriting the existing secrets
 - name: "Create Kafka User"
   kubernetes.core.k8s:
     apply: yes
     template: templates/{{ kafka_provider }}/masuser.yml.j2
+  when: kafkauser_info.resources | length == 0
 
 # 9. Create Grafana dashboards for Kafka monitoring
 # -----------------------------------------------------------------------------
