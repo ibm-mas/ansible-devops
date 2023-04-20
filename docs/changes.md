@@ -1,6 +1,7 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `13.4` Support setting trustDefaultCAs in Suite ([#780](https://github.com/ibm-mas/ansible-devops/pull/780))
 - `13.3` Mulitple Updates:
     - Update default DB2 version to s11.5.8.0 ([#770](https://github.com/ibm-mas/ansible-devops/pull/770))
     - Update ocs role to use odf operator for OCP 4.11+ and provide devicePaths option ([#766](https://github.com/ibm-mas/ansible-devops/pull/766))
