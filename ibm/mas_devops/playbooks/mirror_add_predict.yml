@@ -20,8 +20,8 @@
 
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('True', True) | bool }}"
     mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('True', True) | bool }}"
-    # mirror_wml: "{{ lookup('env', 'MIRROR_WML') | default ('True', True) | bool }}"
-    # mirror_spark: "{{ lookup('env', 'MIRROR_SPARK') | default ('True', True) | bool }}"
+    mirror_wml: "{{ lookup('env', 'MIRROR_WML') | default ('True', True) | bool }}"
+    mirror_spark: "{{ lookup('env', 'MIRROR_SPARK') | default ('True', True) | bool }}"
 
     mirror_mas_predict: "{{ lookup('env', 'MIRROR_MAS_PREDICT') | default ('True', True) | bool }}"
 
@@ -43,7 +43,9 @@
     # 1. CP4D
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
-      when: mirror_cp4d
+      when:
+        - mirror_cp4d
+        - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-cp-datacore
         case_version: "{{ cp4d_platform_version }}"
@@ -59,7 +61,9 @@
     # 2.1. IBM Watson Studio
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
-      when: mirror_wsl
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-wsl
         case_version: "{{ wsl_version }}"
@@ -72,10 +76,12 @@
         manifest_name: ibm-wsl
         manifest_version: "{{ wsl_version }}"
 
-    # 2.2. IBM Watson Studio dependency - ibm-ccs
+    # 2.2. IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
-      when: mirror_wsl
+      when:
+        - mirror_wsl or mirror_wml
+        - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-ccs
         case_version: "{{ wsl_version }}"
@@ -83,7 +89,7 @@
         ibmpak_skip_dependencies: false
 
     - name: ibm.mas_devops.mirror_images
-      when: mirror_wsl
+      when: mirror_wsl or mirror_wml
       vars:
         manifest_name: ibm-ccs
         manifest_version: "{{ wsl_version }}"
@@ -91,7 +97,9 @@
     # 2.3. IBM Watson Studio dependency - ibm-datarefinery
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
-      when: mirror_wsl
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-datarefinery
         case_version: "{{ wsl_version }}"
@@ -107,7 +115,9 @@
     # 2.4. IBM Watson Studio depedency - ibm-wsl-runtimes
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
-      when: mirror_wsl
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-wsl-runtimes
         case_version: "{{ wsl_version }}"
@@ -122,35 +132,39 @@
 
     # # 3. IBM Watson Machine Learning
     # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.mirror_case_prepare
-    #   when: mirror_wml
-    #   vars:
-    #     case_name: ibm-wml-cpd
-    #     case_version: "{{ wml_version }}"
-    #     exclude_images: []
-    #     ibmpak_skip_dependencies: false
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wml
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-wml-cpd
+        case_version: "{{ wml_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: true
 
-    # - name: ibm.mas_devops.mirror_images
-    #   when: mirror_wml
-    #   vars:
-    #     manifest_name: ibm-wml-cpd
-    #     manifest_version: "{{ wml_version }}"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_wml
+      vars:
+        manifest_name: ibm-wml-cpd
+        manifest_version: "{{ wml_version }}"
 
-    # # 4. Analytics Services (Spark)
-    # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.mirror_case_prepare
-    #   when: mirror_spark
-    #   vars:
-    #     case_name: ibm-analyticsengine
-    #     case_version: "{{ spark_version }}"
-    #     exclude_images: []
-    #     ibmpak_skip_dependencies: false
+    # 5. Analytics Engine (Spark)
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_spark
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-analyticsengine
+        case_version: "{{ spark_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
 
-    # - name: ibm.mas_devops.mirror_images
-    #   when: mirror_spark
-    #   vars:
-    #     manifest_name: ibm-analyticsengine
-    #     manifest_version: "{{ spark_version }}"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_spark
+      vars:
+        manifest_name: ibm-analyticsengine
+        manifest_version: "{{ spark_version }}"
 
     # 5. IBM Maximo Predict
     # -------------------------------------------------------------------------
