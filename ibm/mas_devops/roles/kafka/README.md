@@ -102,30 +102,28 @@ IBM Cloud Evenstreams Role Variables
 -------------------------------------
 
 ### ibmcloud_apikey
+Defines IBM Cloud API Key. This API Key needs to have access to manage (provision/deprovision) IBM Cloud Event Streams.
 
 - Required
 - Environment Variable: `IBMCLOUD_APIKEY`
 - Default Value: None
 
-### ibmcloud_region
+### eventstreams_resourcegroup
+Defines the IBM Cloud Resource Group to target the Event Streams instance.
 
 - Optional
-- Environment Variable: `IBMCLOUD_REGION`
-- Default Value: `us-east`
-
-### ibmcloud_resourcegroup
-
-- Optional
-- Environment Variable: `IBMCLOUD_RESOURCEGROUP`
-- Default Value: `Default`
+- Environment Variable: `EVENTSTREAMS_RESOURCEGROUP`
+- Default Value: `Default` or value defined by `IBMCLOUD_RESOURCEGROUP`
 
 ### eventstreams_name
+Event Streams instance name.
 
 - Required
 - Environment Variable: `EVENTSTREAMS_NAME`
 - Default Value: None
 
 ### eventstreams_plan
+Event Streams instance plan.
 
 - Optional
 - Environment Variable: `EVENTSTREAMS_PLAN`
@@ -135,19 +133,21 @@ IBM Cloud Evenstreams Role Variables
 
 - Optional
 - Environment Variable: `EVENTSTREAMS_LOCATION`
-- Default Value: `us-east`
+- Default Value: `us-east` or value defined by `IBMCLOUD_REGION`
 
 ### eventstreams_retention
+Event Streams topic retention period (in miliseconds).
 
 - Optional
 - Environment Variable: `EVENTSTREAMS_RETENTION`
 - Default Value: `1209600000`
 
-### output_kafkacfg
+### eventstreams_create_manage_jms_topic
+Defines whether to create specific Manage application JMS topics by default.
 
 - Optional
-- Environment Variable: `OUTPUT_KAFKACFG`
-- Default Value: `false`
+- Environment Variable: `EVENTSTREAMS_CREATE_MANAGE_JMS_TOPICS`
+- Default Value: `True`
 
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the KafkaCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a KafkaCfg template.

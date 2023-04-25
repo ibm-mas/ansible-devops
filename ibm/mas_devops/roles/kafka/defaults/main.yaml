@@ -1,6 +1,7 @@
 ---
 kafka_provider: "{{ lookup('env', 'KAFKA_PROVIDER') | default('redhat', true) }}"
 kafka_action: "{{ lookup('env', 'KAFKA_ACTION') | default('install', true) }}"
+supports_integreatly_org: False
 
 # vars for red hat amq
 kafka_version: "{{ lookup('env', 'KAFKA_VERSION') | default('3.2.3', true) }}"
@@ -20,13 +21,14 @@ ibmcloud_region: "{{ lookup('env', 'IBMCLOUD_REGION') | default('us-east', True)
 ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', True) }}"
 
 # vars for eventstreams provision or deprovision
+eventstreams_resourcegroup: "{{ lookup('env', 'EVENTSTREAMS_RESOURCEGROUP') | default(ibmcloud_resourcegroup, true) }}"
 eventstreams_name: "{{ lookup('env', 'EVENTSTREAMS_NAME') }}"
 eventstreams_plan: "{{ lookup('env', 'EVENTSTREAMS_PLAN') | default('standard', True) }}"
-eventstreams_location: "{{ lookup('env', 'EVENTSTREAMS_LOCATION') | default('us-east', True) }}"
+eventstreams_location: "{{ lookup('env', 'EVENTSTREAMS_LOCATION') | default(ibmcloud_region, True) }}"
 eventstreams_service: "messagehub"
 eventstreams_retention: "{{ lookup('env', 'EVENTSTREAMS_RETENTION') | default('1209600000', True) }}"
-output_kafkacfg: "{{ lookup('env', 'OUTPUT_KAFKACFG') | default(false, True) }}"
-
+eventstreams_credentials_secret_name: "{{ eventstreams_name }}-credentials" # Set eventstreams configmap name and secret name
+eventstreams_create_manage_jms_topics: "{{ lookup('env', 'EVENTSTREAMS_CREATE_MANAGE_JMS_TOPICS') | default('True', True) | bool }}"
 
 # When these variables are defined we will create the KafkaCfg resource, if either is missing then the configuration will not be generated
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
