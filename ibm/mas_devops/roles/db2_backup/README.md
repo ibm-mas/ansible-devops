@@ -32,6 +32,13 @@ The namespace containing the DB instance to be backed up.
 - Environment Variable: `DB2_NAMESPACE`
 - Default: None
 
+### db2_dbname
+Name of the database within the instance.
+
+- Optional
+- Environment Variable: `DB2_DBNAME`
+- Default: `BLUDB`
+
 Example Playbook
 ----------------
 
@@ -40,6 +47,7 @@ Example Playbook
   any_errors_fatal: true
   vars:
     db2_namespace: "db2u"
+    db2_dbname: "BLUDB"
 
     # Backup mydb1 and restore it to mydb2
     db2_backup_dir: "/tmp/db2backup"
