@@ -52,6 +52,13 @@ Optional. The namespace in your cluster that hosts the DB2 Warehouse instance na
 - Environment Variable: `DB2_NAMESPACE` # e.g. db2u
 - Default Value: `db2u`
 
+### db2_dbname
+ Name of the database within the instance.
+
+- Optional
+- Environment Variable: `DB2_DBNAME`
+- Default: `BLUDB`
+
 Example Playbook
 ----------------
 The following sample can be used to configure COS for an existing Manage application instance.
@@ -101,7 +108,6 @@ The following sample playbook can be used to deploy Manage with default persiste
     mas_workspace_id: masdev
     db2_instance_name: db2w-manage
     mas_app_settings_persistent_volumes_flag: true
-    mas_app_settings_attachments_mount_path: /DOCLINKS
     mas_manage_attachments_provider: filestorage
   roles:
     - ibm.mas_devops.db2

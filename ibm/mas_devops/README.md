@@ -6,6 +6,7 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `13.5` Allow db2_dbname to be set rather then hardcode to BLUDB ([#784](https://github.com/ibm-mas/ansible-devops/pull/784))
 - `13.4` Add ability to control whether to create Manage JMS topics in Event Streams ([#783](https://github.com/ibm-mas/ansible-devops/pull/783))
 - `13.3` Multiple Updates:
     - Update default DB2 version to s11.5.8.0 ([#770](https://github.com/ibm-mas/ansible-devops/pull/770))
