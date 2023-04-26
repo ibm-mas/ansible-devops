@@ -14,17 +14,11 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Event Streams Name .................. {{ eventstreams_name }}"
-      - "Region .............................. {{ ibmcloud_region }}"
-      - "Plan ................................ {{ eventstreams_plan }}"
-      - "Retention(ms) ....................... {{ eventstreams_retention }}"
-      - "Resource Group ...................... {{ ibmcloud_resourcegroup }}"
-      - "Location ............................ {{ eventstreams_location }}"
-      - "Output KafkaCfg ..................... {{ output_kafkacfg }}"
-
-- name: Set eventstreams configmap name and secret name
-  set_fact:
-    eventstreams_credentials_secret_name: "{{ eventstreams_name }}-credentials"
+      - "Event Streams Name ................................ {{ eventstreams_name }}"
+      - "Event Streams Plan ................................ {{ eventstreams_plan }}"
+      - "Event Streams Topic Retention(ms) ................. {{ eventstreams_retention }}"
+      - "Event Streams Resource Group ...................... {{ eventstreams_resourcegroup }}"
+      - "Event Streams Location ...........,................ {{ eventstreams_location }}"
 
 - name: Initialize vars
   set_fact:
@@ -32,11 +26,11 @@
 
 - name: Fetch IBM Cloud Resource Group Id
   ibm.cloudcollection.ibm_resource_group_info:
-    name: "{{ ibmcloud_resourcegroup }}"
+    name: "{{ eventstreams_resourcegroup }}"
     ibmcloud_api_key: "{{ ibmcloud_apikey }}"
   register: rg_info
 
-- name: Fetch IBM eventstreams Information
+- name: Fetch IBM Event Streams Information
   ibm.cloudcollection.ibm_resource_instance_info:
     resource_group_id: "{{ rg_info.resource.id }}"
     name: "{{ eventstreams_name }}"
@@ -46,7 +40,7 @@
   register: es_exist_info
   failed_when: es_exist_info.rc != 0 and  "No resource instance found" not in  es_exist_info.stderr
 
-- name: Set Fact Kafka exists or not
+- name: Define if IBM Event Streams exists
   when:
     - es_exist_info is defined
     - es_exist_info.resource is defined
@@ -54,7 +48,7 @@
   set_fact:
     kafka_exists: true
 
-- name: Provision IBM eventstreams
+- name: Provision IBM Event Streams instance
   ibm.cloudcollection.ibm_resource_instance:
     name: "{{ eventstreams_name }}"
     plan: "{{ eventstreams_plan }}"
@@ -76,113 +70,111 @@
       - es_exist_info.resource is defined and es_exist_info.resource != ''
       - es_exist_info.resource.id is defined and es_exist_info.resource.id != ''
 
-- name: Build kafka broker property list
+- name: Build IBM Event Streams kafka broker property list
   set_fact:
     kafka_host_prop_list: "{{ kafka_host_prop_list | default([]) + ['kafka_brokers_sasl.'+ item ] }}"
   with_sequence: start=0 end={{ es_exist_info.resource.extensions['kafka_brokers_sasl.#'] | int - 1 }}
 
-- name: Fetch Kafka brokers
+- name: Fetch IBM Event Streams Kafka brokers
   loop: "{{ kafka_host_prop_list }}"
   set_fact:
     hostports: "{{ hostports | default([]) + [es_exist_info.resource.extensions[item] | split(':')] }}"
 
 # 2. Create Topics in Eventstreams
 # -----------------------------------------------------------------------------
+- block:
+    - name: Create Kafka Topic for Manage JMS (cqin)
+      ibm.cloudcollection.ibm_event_streams_topic:
+        name: "cqin"
+        partitions: 3
+        resource_instance_id: "{{ es_exist_info.resource.id }}"
+        config:
+        # we must enclose properties having . in double quotes then single quote or vice-versa
+          '"cleanup.policy"': "delete"
+          '"retention.ms"': "{{ eventstreams_retention }}"
+          '"retention.bytes"': 1073741824
+          '"segment.bytes"': 536870912
+        ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+      register: topic1_output
 
-- name: Create Kafka Topic 1
-  ibm.cloudcollection.ibm_event_streams_topic:
-    name: "cqin"
-    partitions: 3
-    resource_instance_id: "{{ es_exist_info.resource.id }}"
-    config:
-    # we must enclose properties having . in double quotes then single quote or vice-versa
-      '"cleanup.policy"': "delete"
-      '"retention.ms"': "{{ eventstreams_retention }}"
-      '"retention.bytes"': 1073741824
-      '"segment.bytes"': 536870912
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-  register: topic1_output
+    - name: Fail if topic (cqin) not created
+      assert:
+        that:
+          - topic1_output.resource.id is defined
+          - topic1_output.resource.id != ''
 
-- name: Fail if topic not created
-  assert:
-    that:
-      - topic1_output.resource.id is defined
-      - topic1_output.resource.id != ''
+    - name: Create Kafka Topic for Manage JMS (cqinerr)
+      ibm.cloudcollection.ibm_event_streams_topic:
+        name: "cqinerr"
+        partitions: 1
+        resource_instance_id: "{{ es_exist_info.resource.id }}"
+        config:
+          '"cleanup.policy"': "delete"
+          '"retention.ms"': "{{ eventstreams_retention }}"
+          '"retention.bytes"': 1073741824
+          '"segment.bytes"': 536870912
+        ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+      register: topic2_output
 
-- name: Create Kafka Topic 2
-  ibm.cloudcollection.ibm_event_streams_topic:
-    name: "cqinerr"
-    partitions: 1
-    resource_instance_id: "{{ es_exist_info.resource.id }}"
-    config:
-      '"cleanup.policy"': "delete"
-      '"retention.ms"': "{{ eventstreams_retention }}"
-      '"retention.bytes"': 1073741824
-      '"segment.bytes"': 536870912
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-  register: topic2_output
+    - name: Fail if topic (cqinerr) not created
+      assert:
+        that:
+          - topic2_output.resource.id is defined
+          - topic2_output.resource.id != ''
 
-- name: Fail if topic not created
-  assert:
-    that:
-      - topic2_output.resource.id is defined
-      - topic2_output.resource.id != ''
+    - name: Create Kafka Topic for Manage JMS (sqin)
+      ibm.cloudcollection.ibm_event_streams_topic:
+        name: "sqin"
+        partitions: 1
+        resource_instance_id: "{{ es_exist_info.resource.id }}"
+        config:
+          '"cleanup.policy"': "delete"
+          '"retention.ms"': "{{ eventstreams_retention }}"
+          '"retention.bytes"': 1073741824
+          '"segment.bytes"': 536870912
+        ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+      register: topic3_output
 
-- name: Create Kafka Topic 3
-  ibm.cloudcollection.ibm_event_streams_topic:
-    name: "sqin"
-    partitions: 1
-    resource_instance_id: "{{ es_exist_info.resource.id }}"
-    config:
-      '"cleanup.policy"': "delete"
-      '"retention.ms"': "{{ eventstreams_retention }}"
-      '"retention.bytes"': 1073741824
-      '"segment.bytes"': 536870912
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-  register: topic3_output
+    - name: Fail if topic (sqin) not created
+      assert:
+        that:
+          - topic3_output.resource.id is defined
+          - topic3_output.resource.id != ''
 
-- name: Fail if topic not created
-  assert:
-    that:
-      - topic3_output.resource.id is defined
-      - topic3_output.resource.id != ''
+    - name: Create Kafka Topic for Manage JMS (sqout)
+      ibm.cloudcollection.ibm_event_streams_topic:
+        name: "sqout"
+        partitions: 1
+        resource_instance_id: "{{ es_exist_info.resource.id }}"
+        config:
+          '"cleanup.policy"': "delete"
+          '"retention.ms"': "{{ eventstreams_retention }}"
+          '"retention.bytes"': 1073741824
+          '"segment.bytes"': 536870912
+        ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+      register: topic4_output
 
-- name: Create Kafka Topic 4
-  ibm.cloudcollection.ibm_event_streams_topic:
-    name: "sqout"
-    partitions: 1
-    resource_instance_id: "{{ es_exist_info.resource.id }}"
-    config:
-      '"cleanup.policy"': "delete"
-      '"retention.ms"': "{{ eventstreams_retention }}"
-      '"retention.bytes"': 1073741824
-      '"segment.bytes"': 536870912
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-  register: topic4_output
-
-- name: Fail if topic not created
-  assert:
-    that:
-      - topic4_output.resource.id is defined
-      - topic4_output.resource.id != ''
+    - name: Fail if topic (sqout) not created
+      assert:
+        that:
+          - topic4_output.resource.id is defined
+          - topic4_output.resource.id != ''
+  when: eventstreams_create_manage_jms_topics
 
 # 2. Save eventstreams info and create service credentials
 # -----------------------------------------------------------------------------
 
 - name: Save all Kafka hosts
-  when: output_kafkacfg
   set_fact:
     kafka_hosts: "{{ lookup('ansible.builtin.template', 'templates/{{ kafka_provider }}/kafka-hosts.yml.j2') }}"
 
-- name: Get ES TLS certificate
-  when: output_kafkacfg
-  include_tasks: "provider/{{ kafka_provider }}/retrieve-es-certs.yml"
-
-- name: Create KafkaCfg
-  when: output_kafkacfg
-  ansible.builtin.template:
-    src: "{{ kafka_provider }}/evenstreams_kafkacfg.yml.j2"
-    dest: "{{ mas_config_dir }}/{{ eventstreams_name }}-kafkacfg.yml"
+- name: Get IBM Event Streams TLS certificate
+  include_tasks: "provider/{{ kafka_provider }}/retrieve-eventstreams-certs.yml"
 
 - name: Create Service Credentials for IBM Cloud Eventstreams
   include_tasks: tasks/provider/{{ kafka_provider }}/create-eventstreams-service-credentials.yml
+
+- name: Create KafkaCfg using IBM Event Streams instance information
+  ansible.builtin.template:
+    src: "{{ kafka_provider }}/eventstreams_kafkacfg.yml.j2"
+    dest: "{{ mas_config_dir }}/ibm-eventstreams-{{ eventstreams_name }}-kafkacfg.yml"
