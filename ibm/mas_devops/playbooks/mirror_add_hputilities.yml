@@ -1,11 +1,11 @@
 ---
 # Mirrors the following content which is REQUIRED to add Maximo Health and Predict Utilities to an existing
 # Maximo Application Suite Core Services installation:
+# 0. Common services (make sure to mirror MAS Core with common services)
 # 1. CP4D
-# 2. IBM Zen
-# 3. Watson Studio
-# 4. App connect
-# 5. IBM Maximo Health and Predict Utilties
+# 2. Watson Studio and it's dependencies
+# 3. App connect
+# 4. IBM Maximo Health and Predict Utilties
 #
 # This playbook aligns with the ibm.mas_devops.oneclick_add_hputilities playbook
 
@@ -13,13 +13,13 @@
   any_errors_fatal: true
 
   vars:
-    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-230111-amd64', True) }}"
-    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.9.x', True) }}"
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-230414-amd64', True) }}"
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.10.x', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
 
-    # mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('True', True) | bool }}"
-    # mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('True', True) | bool }}"
-    # mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('True', True) | bool }}"
+    mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('True', True) | bool }}"
+    mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('True', True) | bool }}"
+    mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('True', True) | bool }}"
 
     mirror_mas_hputilities: "{{ lookup('env', 'MIRROR_MAS_HPUTILITIES') | default ('True', True) | bool }}"
 
@@ -38,96 +38,115 @@
         file: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
 
   roles:
-    # # 1. CP4D
-    # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
-    #   when: mirror_cp4d
-    #   vars:
-    #     case_name: ibm-cp-datacore
-    #     case_version: "{{ cp4d_version }}"
-    #     exclude_images:
-    #       - ibm-analyticsengine
-    #       - ibm-bigsql-case
-    #       - ibm-ccs
-    #       - ibm-cde
-    #       - ibm-cpd-scheduling
-    #       - ibm-datagate-prod
-    #       - ibm-datarefinery
-    #       - ibm-db2aaservice
-    #       - ibm-db2uoperator
-    #       - ibm-db2wh
-    #       - ibm-dmc
-    #       - ibm-dods
-    #       - ibm-dp
-    #       - ibm-dv-case
-    #       - ibm-hadoop
-    #       - ibm-iis
-    #       - ibm-mdm
-    #       - ibm-rstudio
-    #       - ibm-spss
-    #       - ibm-watson-openscale
-    #       - ibm-wkc
-    #       - ibm-wml-accelerator
-    #       - ibm-wml-cpd
-    #       - ibm-wsl
-    #       - ibm-zen
+    # 1. CP4D
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_cp4d
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-cp-datacore
+        case_version: "{{ cp4d_platform_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: true
 
-    # - name: ibm.mas_devops.case_mirror
-    #   when: mirror_cp4d
-    #   vars:
-    #     case_name: ibm-cp-datacore
-    #     case_version: "{{ cp4d_version }}"
-    #     case_inventory_name: "cpdPlatformOperator"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_cp4d
+      vars:
+        manifest_name: ibm-cp-datacore
+        manifest_version: "{{ cp4d_platform_version }}"
 
-    # # 2. Zen Services
-    # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
-    #   when: mirror_cp4d
-    #   vars:
-    #     case_name: ibm-zen
-    #     case_version: "{{ zen_version }}"
-    #     exclude_images: []
+    # 2.1. IBM Watson Studio
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-wsl
+        case_version: "{{ wsl_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: true
 
-    # - name: ibm.mas_devops.case_mirror
-    #   when: mirror_cp4d
-    #   vars:
-    #     case_name: ibm-zen
-    #     case_version: "{{ zen_version }}"
-    #     case_inventory_name: "zen_deploy"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_wsl
+      vars:
+        manifest_name: ibm-wsl
+        manifest_version: "{{ wsl_version }}"
 
-    # # 3. IBM Watson Studio
-    # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
-    #   when: mirror_wsl
-    #   vars:
-    #     case_name: ibm-wsl
-    #     case_version: "{{ wsl_version }}"
-    #     exclude_images: []
+    # 2.2. IBM Watson Studio dependency - ibm-ccs
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-ccs
+        case_version: "{{ wsl_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
 
-    # - name: ibm.mas_devops.case_mirror
-    #   when: mirror_wsl
-    #   vars:
-    #     case_name: ibm-wsl
-    #     case_version: "{{ wsl_version }}"
-    #     case_inventory_name: "wslSetup"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_wsl
+      vars:
+        manifest_name: ibm-ccs
+        manifest_version: "{{ wsl_version }}"
 
-    # # 4. App connect
-    # # -------------------------------------------------------------------------
-    # - name: ibm.mas_devops.case_prepare
-    #   when: mirror_appconnect
-    #   vars:
-    #     case_name: ibm-appconnect
-    #     case_version: "{{ appconnect_version }}"
-    #     exclude_images: []
+    # 2.3. IBM Watson Studio dependency - ibm-datarefinery
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-datarefinery
+        case_version: "{{ wsl_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
 
-    # - name: ibm.mas_devops.case_mirror
-    #   when: mirror_appconnect
-    #   vars:
-    #     case_name: ibm-appconnect
-    #     case_version: "{{ appconnect_version }}"
-    #     case_inventory_name: "ibmAppconnect"
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_wsl
+      vars:
+        manifest_name: ibm-datarefinery
+        manifest_version: "{{ wsl_version }}"
 
-    # 5. IBM Maximo Health and Predict Utilities
+    # 2.4. IBM Watson Studio depedency - ibm-wsl-runtimes
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-wsl-runtimes
+        case_version: "{{ wsl_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_wsl
+      vars:
+        manifest_name: ibm-wsl-runtimes
+        manifest_version: "{{ wsl_version }}"
+
+    # 3. App connect
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_appconnect
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-appconnect
+        case_version: "{{ appconnect_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_appconnect
+      vars:
+        manifest_name: ibm-appconnect
+        manifest_version: "{{ appconnect_version }}"
+
+    # 4. IBM Maximo Health and Predict Utilities
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -137,6 +156,7 @@
         case_name: ibm-mas-hputilities
         case_version: "{{ mas_hputilities_version[mas_channel] }}"
         exclude_images: []
+        ibmpak_skip_dependencies: false
 
     - name: ibm.mas_devops.mirror_images
       when: mirror_mas_hputilities

@@ -47,6 +47,12 @@ Role Variables - General
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
+### mas_workspace_id:
+
+- **Required**
+- Environment Variable: `MAS_WORKSPACE_ID`
+- Default: None
+
 ### mas_domain
 
 - **Required**
@@ -138,11 +144,6 @@ See https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-sec
 Role Variables - Enhanced IBM CIS DNS Integration Secruity
 ------------------------------------------------------------
 See the "cis_enhanced_security" variable above for details.
-
-### ibmcloud_apikey
-
-- **Required** if `cis_enhanced_security` is set to `true`
-- Environment Variable: `IBMCLOUD_APIKEY`
 
 ### cis_waf
 

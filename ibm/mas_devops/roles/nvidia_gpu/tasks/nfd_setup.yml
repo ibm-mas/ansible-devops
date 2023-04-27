@@ -65,20 +65,9 @@
 
 # 5. Make sure NFD daemonsets have been created and all pods are ready
 # -----------------------------------------------------------------------------
-- name: "Wait for 'nfd-master' DaemonSet pods to be ready"
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    name: nfd-master
-    namespace: "{{nfd_namespace}}"
-    kind: DaemonSet
-  register: nfd_master_daemonset
-  until:
-    - nfd_master_daemonset.resources is defined
-    - nfd_master_daemonset.resources | length > 0
-    - nfd_master_daemonset.resources[0].status.numberReady > 0
-    - nfd_master_daemonset.resources[0].status.numberReady == nfd_master_daemonset.resources[0].status.desiredNumberScheduled
-  retries: 30 # approx 30 minutes before we give up
-  delay: 60 # 1 minute
+# Depending on the version of NFD there may also be a nfd-master DaemonSet, but because
+# newer versions use a combined worker-master model we will only wait for the nfd-worker
+# DaemonSet so that this will work regardless of the version of OCP/NFD that is being used.
 
 - name: "Wait for 'nfd-worker' DaemonSet pods to be ready"
   kubernetes.core.k8s_info:

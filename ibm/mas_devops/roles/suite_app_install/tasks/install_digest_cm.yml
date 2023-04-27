@@ -36,6 +36,10 @@
 # 3. Create the Image Digest Map
 # -----------------------------------------------------------------------------
 - name: "Create ibm-mas-{{ mas_app_id }} Image Digest Map"
+  when: (mas_app_id == "iot" and mas_app_operator_version is version('8.7.0', '<')) or
+        (mas_app_id == "optimizer" and mas_app_operator_version is version('8.4.0', '<')) or
+        (mas_app_id == "manage") or
+        (mas_app_id == "monitor" and mas_app_operator_version is version('8.10.0', '<'))
   include_role:
     name: ibm.mas_devops.suite_install_digest_cm
   vars:
@@ -43,12 +47,14 @@
     case_name: "ibm-mas-{{ mas_app_id }}"
     case_version: "{{ mas_app_operator_version }}"
 
-
 # 4. Lookup the OperatorCondition for Truststore Manager
 # -----------------------------------------------------------------------------
 # Note that Visual Inspection does not use/need the IBM Truststore Manager
 - name: "Lookup Truststore Manager operator version"
-  when: mas_app_id != "visualinspection"
+  when: (mas_app_id == "iot" and mas_app_operator_version is version('8.7.0', '<')) or
+        (mas_app_id == "optimizer" and mas_app_operator_version is version('8.4.0', '<')) or
+        (mas_app_id == "manage") or
+        (mas_app_id == "monitor" and mas_app_operator_version is version('8.10.0', '<'))
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v2
     kind: OperatorCondition
@@ -68,7 +74,10 @@
 # -----------------------------------------------------------------------------
 # Note that Visual Inspection does not use/need the IBM Truststore Manager
 - name: "Lookup Truststore Manager operator version"
-  when: mas_app_id != "visualinspection"
+  when: (mas_app_id == "iot" and mas_app_operator_version is version('8.7.0', '<')) or
+        (mas_app_id == "optimizer" and mas_app_operator_version is version('8.4.0', '<')) or
+        (mas_app_id == "manage") or
+        (mas_app_id == "monitor" and mas_app_operator_version is version('8.10.0', '<'))
   set_fact:
     tsm_operator_version: "{{ tsm_opcon.resources[0].metadata.name.split('.v')[1] }}"
 
@@ -77,7 +86,9 @@
 # -----------------------------------------------------------------------------
 # Note that Visual Inspection does not use/need the IBM Truststore Manager
 - name: "Create ibm-truststore-mgr Image Digest Map"
-  when: mas_app_id != "visualinspection"
+  when:
+    - tsm_operator_version is defined
+    - tsm_operator_version is version('1.5.0', '<')
   include_role:
     name: ibm.mas_devops.suite_install_digest_cm
   vars:

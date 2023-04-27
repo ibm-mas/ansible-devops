@@ -35,7 +35,9 @@ copyDoc cp4d_upgrade
 copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
+copyDoc entitlement_key_rotation
 copyDoc gencfg_jdbc
+copyDoc gencfg_mongo
 copyDoc gencfg_watsonstudio
 copyDoc gencfg_workspace
 copyDoc ibm_catalogs
@@ -56,12 +58,11 @@ copyDoc ocp_login
 copyDoc ocp_provision
 copyDoc ocp_roks_upgrade_registry_storage
 copyDoc ocp_simulate_disconnected_network
+copyDoc ocp_update_apiserver
 copyDoc ocp_upgrade
 copyDoc ocp_verify
 copyDoc ocs
 copyDoc registry
-copyDoc sbo
-copyDoc sbo_upgrade
 copyDoc sls
 copyDoc suite_app_config
 copyDoc suite_app_install
@@ -82,6 +83,7 @@ copyDoc suite_manage_logging_config
 copyDoc suite_manage_pvc_config
 copyDoc suite_mustgather
 copyDoc suite_mustgather_download
+copyDoc suite_switch_to_olm
 copyDoc suite_upgrade
 copyDoc suite_uninstall
 copyDoc suite_verify

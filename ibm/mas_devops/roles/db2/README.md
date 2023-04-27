@@ -21,6 +21,20 @@ If the `mas_instance_id` and `mas_config_dir` are provided then the role will ge
 
 Role Variables - Installation
 -------------------------------------------------------------------------------
+### db2_namespace
+Name of the namespace where Db2 clusters will be created
+
+- Optional
+- Environment Variable: `DB2_NAMESPACE`
+- Default: `db2u`
+
+### db2_channel
+The subscription channel for the DB2 Universal Operator.
+
+- Optional
+- Environment Variable: `DB2_CHANNEL`
+- Default: The default channel, as defined in the operator package, will be used if this is not set.
+
 ### db2_instance_name
 Name of the database instance, note that this is the instance **name**.
 
