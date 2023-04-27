@@ -1,12 +1,24 @@
 ---
 
+# 0. Check for required software
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Test if skopeo is installed"
+  shell: skopeo --version
+  register: skopeo_version_result
+  ignore_errors: true
+
+- name: "{{ case_name }} : Fail if skopeo is not installed"
+  assert:
+    that: ( skopeo_version_result['rc'] == 0 )
+    fail_msg: "skopeo tool must be installed."
+
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Fail if required properties are not provided for dev access"
   assert:
     that:
       - artifactory_username is defined and artifactory_username != ""
-      - artifactory_apikey is defined and artifactory_apikey != ""
+      - artifactory_token is defined and artifactory_token != ""
     fail_msg: "One or more required properties are missing"
 
 # 2. Debug
@@ -25,7 +37,7 @@
   ansible.builtin.get_url:
     url: "{{ artifactory_bundle_url }}/{{ case_name }}/{{ case_version }}/{{ case_name }}-dev-with-digest-bundle-{{ case_version }}.tgz"
     username: "{{ artifactory_username }}"
-    password: "{{ artifactory_apikey }}"
+    password: "{{ artifactory_token }}"
     dest: "{{ mirror_working_dir }}"
   register: bundle_download
 
@@ -62,11 +74,14 @@
 - name: "{{ case_name }} : Get digest of operator bundle with digest"
   shell: |
     (skopeo inspect "docker://{{ artifactory_image_repo }}/{{ operator_bundle }}" \
-      --creds "{{ artifactory_username }}:{{ artifactory_apikey }}" \
+      --creds "{{ artifactory_username }}:{{ artifactory_token }}" \
       --no-tags)| jq -r '[.Name, .Digest] | join("@")' \
   register: operator_bundle_with_digest
   vars:
     operator_bundle: "cpopen/{{ case_name }}-operator-bundle-with-digest:{{ case_version }}"
+
+- debug:
+  msg: "Bundle image with digest ................ {{ operator_bundle_with_digest.stdout }}"
 
 - name: "{{ case_name }} : Add operator bundle to manifest file"
   ansible.builtin.lineinfile:

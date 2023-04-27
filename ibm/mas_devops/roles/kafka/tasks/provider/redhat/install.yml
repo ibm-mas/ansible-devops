@@ -4,7 +4,39 @@
 - include_tasks: tasks/determine-storage-classes.yml
 
 
-# 2. Provide debug
+# 2. Delete if the cluster supports 'integreatly.org/v1' for GrafanaDashboards
+# -----------------------------------------------------------------------------
+- name: Get cluster info
+  kubernetes.core.k8s_cluster_info:
+  register: api_status
+  no_log: true
+
+- name: Determine cluster capabilities
+  set_fact:
+    supports_integreatly_org: True # Default is 'False'
+  when:
+    - api_status is defined
+    - api_status.apis is defined
+    - api_status.apis['integreatly.org/v1alpha1'] is defined
+
+# 3. Lookup any existing kafka user in the kafka namespace to use the same password
+# -----------------------------------------------------------------------------
+- name: "Lookup any existing Kafka User Secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ kafka_user_name }}"
+    namespace: "{{ kafka_namespace }}"
+  register: kafka_user_secret_lookup
+
+- name: "Set kafka user password fact based on any existing secret"
+  set_fact:
+    kafka_user_password: "{{ kafka_user_secret_lookup.resources[0].data.password | b64decode }}"
+  when:
+    - kafka_user_secret_lookup is defined
+    - kafka_user_secret_lookup.resources[0].data.password is defined
+
+# 4. Provide debug
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
@@ -18,8 +50,9 @@
       - "AMQ Streams zookeeper storage class ... {{ zookeeper_storage_class }}"
       - "AMQ Streams zookeeper storage size .... {{ zookeeper_storage_size }}"
       - "AMQ Streams MAS user .................. {{ kafka_user_name }}"
+      - "Cluster supports integreatly .......... {{ supports_integreatly_org }}"
 
-# 3. Install AMQ Streams operator
+# 5. Install AMQ Streams operator
 # -----------------------------------------------------------------------------
 - name: "Install AMQ Streams Operator"
   kubernetes.core.k8s:
@@ -27,7 +60,7 @@
     template: templates/{{ kafka_provider }}/subscription.yml.j2
 
 
-# 4. Wait until the Kafka CRD is available
+# 6. Wait until the Kafka CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Kafka CRD is available"
   kubernetes.core.k8s_info:
@@ -48,7 +81,7 @@
     - kafka_crd_info.resources | length > 0
 
 
-# 5 Create logging/monitoring configmaps and PodMonitor custom resources
+# 7. Create logging/monitoring configmaps and PodMonitor custom resources
 # -----------------------------------------------------------------------------
 - name: "Create Kafka logging configmap"
   kubernetes.core.k8s:
@@ -65,7 +98,7 @@
     apply: yes
     template: "templates/{{ kafka_provider }}/podmonitor.yml.j2"
 
-# 6. Deploy the cluster
+# 8. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "Create Kafka Cluster"
   kubernetes.core.k8s:
@@ -73,7 +106,7 @@
     template: "templates/{{ kafka_provider }}/clusters/{{ kafka_cluster_size }}.yml.j2"
 
 
-# 7. Wait until the KafkaUser CRD is available
+# 9. Wait until the KafkaUser CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the KafkaUser CRD is available"
   kubernetes.core.k8s_info:
@@ -94,14 +127,14 @@
     - kafkauser_crd_info.resources | length > 0
 
 
-# 8. Create the MAS user
+# 10. Create the MAS user
 # -----------------------------------------------------------------------------
 - name: "Create Kafka User"
   kubernetes.core.k8s:
     apply: yes
     template: templates/{{ kafka_provider }}/masuser.yml.j2
 
-# 9. Create Grafana dashboards for Kafka monitoring
+# 11. Create Grafana dashboards for Kafka monitoring
 # -----------------------------------------------------------------------------
 - name: "Create Kafka monitoring dashboards"
   kubernetes.core.k8s:
@@ -109,8 +142,10 @@
     template: "{{ item }}"
   with_fileglob:
     - "templates/{{ kafka_provider }}/dashboards/*.yml.j2"
+  when: supports_integreatly_org
 
-# 10. Lookup details
+
+# 12. Lookup details
 # -----------------------------------------------------------------------------
 # We have seen instances where the Kafka cluster is reported as Ready but
 # the necessary fields in the status resource are not set yet so we retry until
@@ -161,7 +196,7 @@
       - "MAS user password ............ {{ kafka_user_password }}"
 
 
-# 11. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
+# 13. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
 # -----------------------------------------------------------------------------
 - name: Debug KafkaCfg creation properties
   when:

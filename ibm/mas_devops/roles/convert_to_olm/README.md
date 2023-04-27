@@ -34,11 +34,11 @@ Provide your artifactory username, primarily used to update the image pull secre
 - Environment Variable: `ARTIFACTORY_USERNAME`
 - Default: None
 
-### artifactory_apikey
+### artifactory_token
 Provide your artifactory api key, primarily used to update the image pull secret in development.
 
 - **Required** when using this role for development versions of MAS
-- Environment Variable: `ARTIFACTORY_APIKEY`
+- Environment Variable: `ARTIFACTORY_TOKEN`
 - Default: None
 
 ### mas_entitlement_username

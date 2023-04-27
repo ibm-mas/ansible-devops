@@ -20,6 +20,10 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 
+## Optional environment variables
+- `MAS_APP_SETTINGS_MONITOR_DEPLOYMENT_SIZE` Define the Monitor deployment size, one of `dev`,
+ `small` or `large`. Defaults to `dev`.
+
 ## Usage
 ```bash
 export MAS_INSTANCE_ID=inst1

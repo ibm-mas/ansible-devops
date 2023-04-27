@@ -8,6 +8,12 @@
       - db2_entitlement_key is defined and db2_entitlement_key != ""
     fail_msg: "One or more required properties have not been set"
 
+- name: "Fail if required db2_dbname is over 8 characters"
+  assert:
+    that:
+      - db2_dbname is defined and db2_dbname != ""
+      - db2_dbname | length <= 8
+    fail_msg: "Property value of db2_dbname is set to '{{ db2_dbname }}' and is greater than 8 character long."
 
 # 2. Load default storage classes (if not provided by the user)
 # -----------------------------------------------------------------------------
@@ -63,6 +69,29 @@
       - "Logs ................................... {{ db2_logs_storage_class }} - {{ db2_logs_storage_size }} @ {{ db2_logs_storage_accessmode }}"
       - "Temp ................................... {{ db2_temp_storage_class }} - {{ db2_temp_storage_size }} @ {{ db2_temp_storage_accessmode }}"
 
+# Look up the default channel for the db2u-operator package manifest
+- name: Lookup db2u-operator packagemanifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: db2u-operator
+    namespace: ibm-common-services
+  register: db2u_manifest_info
+  until: db2u_manifest_info.resources[0].status.defaultChannel is defined
+  retries: 60 # Approximately 30 minutes before we give up
+  delay: 30 # 30 seconds
+  when: db2_channel is not defined or db2_channel == ""
+
+- name: Set db2u-operator channel
+  ansible.builtin.set_fact:
+    db2_channel: "{{ db2u_manifest_info.resources[0].status.defaultChannel }}"
+  when: db2_channel is not defined or db2_channel == ""
+
+- name: Debug Db2 Universal Operator Install
+  ansible.builtin.debug:
+    msg:
+      - "Channel ................................ {{ db2_channel }}"
+
 
 # 5. Install a Db2u Operator
 # -----------------------------------------------------------------------------
@@ -96,9 +125,22 @@
         .dockerconfigjson: "{{ new_secret | to_json | b64encode }}"
   register: secretUpdateResult
 
-- name: "Create db2u Operand Request"
+- name: "Create Db2 Universal Operator Operand Request"
   kubernetes.core.k8s:
-    template: templates/db2u_operator.yml.j2
+    state: absent
+    template: templates/db2u_operandrequest.yml.j2
+    wait: yes
+    wait_timeout: 120
+  register: operandrequest_removal
+
+- name: "Wait 2 minutes if we removed an old OperandRequest"
+  when: operandrequest_removal.changed == True
+  pause:
+    minutes: 2
+
+- name: "Create Db2 Universal Operator Subscription"
+  kubernetes.core.k8s:
+    template: templates/db2u_subscription.yml.j2
     wait: yes
     wait_timeout: 120
 
