@@ -19,18 +19,18 @@
     # - {{ sls namespace }} : must have 'ibm-entitlement' secret
     # - openshift-marketplace : would have 'wiotp-docker-local' secret, if artifactory credentials are defined
 
-  - name: "Debug: Lookup target namespaces query"
-    debug:
-      msg: "oc get projects | grep -E '{{ include_namespaces_query }}' | grep -v -e 'pipelines' | awk '{print $1}'"
+    - name: "Debug: Lookup target namespaces query"
+      debug:
+        msg: "oc get projects | grep -E '{{ include_namespaces_query }}' | grep -v -e 'pipelines' | awk '{print $1}'"
 
-  - name: "Cluster {{ cluster_item }} - Lookup target namespaces"
-    shell: |
-      oc get projects | grep -E "{{ include_namespaces_query }}" | grep -v -e "pipelines" | awk '{print $1}'
-    register: namespace_list_output
+    - name: "Cluster {{ cluster_item }} - Lookup target namespaces"
+      shell: |
+        oc get projects | grep -E "{{ include_namespaces_query }}" | grep -v -e "pipelines" | awk '{print $1}'
+      register: namespace_list_output
 
-  - name: "Cluster {{ cluster_item }} - Set MAS related namespaces to rotate entitlement key"
-    set_fact:
-      mas_namespaces_entitlement_key_rotation_list: "{{ namespace_list_output.stdout_lines | unique | default([]) }}"
+    - name: "Cluster {{ cluster_item }} - Set MAS related namespaces to rotate entitlement key"
+      set_fact:
+        mas_namespaces_entitlement_key_rotation_list: "{{ namespace_list_output.stdout_lines | unique | default([]) }}"
 
   when: mas_namespaces_entitlement_key_rotation_list is not defined or mas_namespaces_entitlement_key_rotation_list | length == 0
 
