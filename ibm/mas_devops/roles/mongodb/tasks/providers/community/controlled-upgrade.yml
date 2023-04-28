@@ -1,0 +1,40 @@
+---
+- name: "community : controlled-upgrade : Starting the operator update"
+  debug:
+    msg: Starting the operator update
+
+# 1. Debug Properties
+# -----------------------------------------------------------------------------
+- name: "community : controlled-upgrade : Debug properties"
+  debug:
+    msg:
+      - "MongoDb namespace ............ {{ mongodb_namespace }}"
+      - "Target MongoDb operator ver .. {{ mongodb_ce_version }}"
+      - "Current Mongo operator image . {{ current_mongo_operator_image }}"
+      - "Current MongoDb version ...... {{ current_mongodb_version }}"
+      - "Current MongoDb image ........ {{ current_mongodb_image }}"
+      - "Target MongoDb version ....... {{ target_mongodb_version }}"
+
+- name: "community : controlled-upgrade : Call install task with controlled_upgrade set to true"
+  include_tasks: tasks/providers/community/install.yml
+  vars:
+    controlled_upgrade: true
+
+- name: "community : controlled-upgrade : Check for state of existing mongodb instance"
+  kubernetes.core.k8s_info:
+    api_version: mongodbcommunity.mongodb.com/v1
+    kind: MongoDBCommunity
+    name: mas-mongo-ce
+    namespace: "{{ mongodb_namespace }}"
+  register: existing_mongodb
+  until:
+    - existing_mongodb.resources is defined
+    - existing_mongodb.resources[0].status is defined
+    - existing_mongodb.resources[0].status.version is defined
+    - existing_mongodb.resources[0].status.version == current_mongodb_version
+  retries: 30 # approx 30 minutes before we give up
+  delay: 60 # 60 seconds
+
+- name: "community : controlled-upgrade : Completed the operator update"
+  debug:
+    msg: Completed the operator update
