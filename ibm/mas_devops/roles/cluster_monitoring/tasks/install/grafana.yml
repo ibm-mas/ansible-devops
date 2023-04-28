@@ -69,25 +69,18 @@
 # -------------------------------------------------------------------------------------
 # As per https://docs.openshift.com/container-platform/4.8/monitoring/enabling-monitoring-for-user-defined-projects.html#enabling-monitoring-for-user-defined-projects
 # use the external thanos url
+
 - name: "install : grafana : Get Prometheus token secret"
-  kubernetes.core.k8s_info:
-    api: v1
-    kind: Secret
-    namespace: "openshift-user-workload-monitoring"
-  register: user_workload_secrets
+  shell: |
+    oc get secret -n openshift-user-workload-monitoring | grep prometheus-user-workload-token | awk '{print $1}'
+  register: user_workload_secret_output
+  until: user_workload_secret_output.stdout_lines | length > 0
+  retries: 12 # retry for about 3 minutes
+  delay: 15
 
 - name: "install : grafana : Get Prometheus token secret name"
   set_fact:
-    prometheus_token_secret_name: "{{ item.metadata.name }}"
-  when: "item.metadata.name.startswith('prometheus-user-workload-token')"
-  loop: "{{ user_workload_secrets.resources }}"
-  no_log: true
-
-- name: "install : Fail as we didn't get the user workload secret name"
-  fail:
-    msg: "The prometheus user-workload token secret not found in openshift-user-workload-monitoring"
-  when:
-    - prometheus_token_secret_name is not defined
+    prometheus_token_secret_name: "{{ user_workload_secret_output.stdout_lines | first }}"
 
 - name: "Debug information"
   debug:
@@ -100,6 +93,8 @@
     kind: Secret
     name: "{{ prometheus_token_secret_name }}"
     namespace: "openshift-user-workload-monitoring"
+  retries: 10 # retry for about 3 minutes to find the secret
+  delay: 20 # seconds
   register: prometheus_token_secret
   no_log: true
 
@@ -135,7 +130,7 @@
 
 - name: "install : grafana : Get Thanos Querier host from route"
   set_fact:
-    thanos_host: "{{ thanos_route.resources[0].spec.host}}"
+    thanos_host: "{{ thanos_route.resources[0].spec.host }}"
 
 - name: "install : grafana : Create Grafana Datasource"
   kubernetes.core.k8s:
