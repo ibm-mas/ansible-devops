@@ -16,7 +16,7 @@
       - "Controlled Upgrade ........... {{ controlled_upgrade }}"
 
 # 2. Check if we need a controlled upgrade
-#  This will be when we have an existing mongodb and mongo operator and neither 
+#  This will be when we have an existing mongodb and mongo operator and neither
 #  version are at the version this role requires.
 # -----------------------------------------------------------------------------
 # - name: Check and start controlled-upgrade if we are not currently doing a controlled upgrade
@@ -67,7 +67,7 @@
 - name: "community : install : Install MongoDBCommunity CRD"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/crd.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/crd.yml.j2') }}"
 
 
 # 3. Create namespace & install RBAC
@@ -75,7 +75,7 @@
 - name: "community : install : Create namespace & install RBAC"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/rbac.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/rbac.yml.j2') }}"
 
 
 # 4. Configure anyuid permissions in the MongoDb namespace
@@ -96,7 +96,7 @@
 - name: "community : install : Install the MongoDb Operator"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/manager.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/manager.yml.j2') }}"
     wait: yes
     wait_condition:
       status: 'True'
@@ -195,7 +195,7 @@
 - name: "community : install : Create MongoDb cluster"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml.j2') }}"
 
 - name: "community : install : Set expected MongoDb version to {{ current_mongodb_version }}"
   set_fact:
@@ -205,14 +205,14 @@
 - name: "community : install : Set expected MongoDb version to {{ target_mongodb_version }}"
   set_fact:
     expected_mongodb_version: "{{ target_mongodb_version }}"
-  when: 
+  when:
     - not controlled_upgrade
     - mongodb_ce_version is version('0.7.8', '>=')
 
 - name: "community : install : Set expected MongoDb version to 4.2.23"
   set_fact:
     expected_mongodb_version: "4.2.23"
-  when: 
+  when:
     - not controlled_upgrade
     - mongodb_ce_version is version('0.7.0', '==')
 
