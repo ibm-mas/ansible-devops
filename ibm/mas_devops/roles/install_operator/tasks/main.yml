@@ -9,6 +9,15 @@
     name: '{{ namespace }}'
 
 
+- name: Add custom labels to namespace
+  when: custom_labels is defined and custom_labels | length > 0
+  kubernetes.core.k8s:
+    state: patched
+    kind: Namespace
+    name: '{{ namespace }}'
+    definition: "{{ lookup('template', 'templates/custom_labels.json.j2') }}"
+
+
 # 2. Create an image pull secret for the pre-release catalog
 # -----------------------------------------------------------------------------
 - name: "Debug Entitlement Secret Creation"
@@ -16,8 +25,7 @@
     msg:
       - "Target Namespace ....................... {{ namespace }}"
       - "Artifactory Username ................... {{ artifactory_username | default('<undefined>', true) }}"
-      - "Artifactory Password ................... {{ artifactory_apikey | default('<undefined>', true) }}"
-      - "ICR Host ............................... {{ icr_host | default('<undefined>', true) }}"
+      - "Artifactory Password ................... {{ artifactory_token | default('<undefined>', true) }}"
       - "ICR Username ........................... {{ icr_username | default('<undefined>', true) }}"
       - "ICR Password ........................... {{ icr_password | default('<undefined>', true) }}"
 
@@ -41,7 +49,7 @@
 - name: "Patch default SA"
   when:
     - artifactory_username != ""
-    - artifactory_apikey != ""
+    - artifactory_token != ""
   kubernetes.core.k8s:
     definition:
       apiVersion: v1

@@ -1,0 +1,66 @@
+---
+- name: Fail if ibmcloud_apikey not provided
+  assert:
+    that:
+      - ibmcloud_apikey is defined and ibmcloud_apikey != ''
+    fail_msg: "property ibmcloud_apikey is required"
+
+# 1. Backup the Mongodb instance
+#--------------------------------------------------------------------------------
+- name: "Debug information when backup MongoDB"
+  debug:
+    msg:
+      - "IBMCloud Region ......................... {{ ibmcloud_region }}"
+      - "IBMCloud Resource Group ................. {{ ibmcloud_resourcegroup }}"
+      - "MongoDB Service Name .................... {{ ibm_mongo_name }}"
+
+- name: Login IBMCloud
+  ansible.builtin.shell: |
+    ibmcloud login --apikey {{ ibmcloud_apikey }} -r {{ ibmcloud_region }} --quiet -g {{ ibmcloud_resourcegroup }}
+
+- name: Find IBM Cloud Resource
+  ansible.builtin.shell: |
+    ibmcloud resource service-instances --service-name databases-for-mongodb  --type all --output JSON | jq -r '.[] | select(.name=="{{ ibm_mongo_name }}") | .id'
+  register: mongodb_crn
+
+- name: Back up MongoDB
+  ansible.builtin.shell: |
+    ibmcloud cdb deployment-backup-now "{{ mongodb_crn.stdout }}" --json
+  register: mongo_backup_info
+
+- name: Set fact for mongo buckup id
+  set_fact:
+    backup_id: "{{ mongo_backup_info.stdout | from_json | json_query('task.id')}}"
+
+- name: Get MongoDB information
+  environment:
+    mongo_crn: "{{ mongodb_crn }}"
+  ansible.builtin.shell: |
+    ibmcloud resource service-instance "{{ mongodb_crn.stdout }}" --output JSON
+  register: mongo_db_info
+
+- name: Set fact for mongo info
+  set_fact:
+    mongo_name_old: "{{ mongo_db_info.stdout | from_json | json_query('[0].name')}}"
+    mongo_disk: "{{ mongo_db_info.stdout | from_json | json_query('[0].parameters.members_disk_allocation_mb')}}"
+    mongo_memory: "{{ mongo_db_info.stdout | from_json | json_query('[0].parameters.members_memory_allocation_mb')}}"
+    resource_group_id: "{{ mongo_db_info.stdout | from_json | json_query('[0].resource_group_id')}}"
+
+# # 2. Debug Information
+# #--------------------------------------------------------------------------------
+- name: "Debug information for this MongoDB"
+  debug:
+    msg:
+      - "Old MongoDB CRN ......................... {{ mongodb_crn }}"
+      - "Old MongoDB Name ........................ {{ mongo_name_old }}"
+      - "Old MongoDB Disk ........................ {{ mongo_disk }}"
+      - "Old MongoDB Memery ...................... {{ mongo_memory }}"
+      - "Old MongoDB Resorce Group ID ............ {{ resource_group_id }}"
+      - "Backup Id ............................... {{ backup_id }}"
+
+# # 3. Save Backup Id to CongfigMap
+# #--------------------------------------------------------------------------------
+- name: Save Backup Id in ConfigMap
+  ansible.builtin.template:
+    src: ibm/backupid-template.yml.j2
+    dest: "{{ mas_config_dir }}/ibmcloud-mongodb-backup-cm.yml"

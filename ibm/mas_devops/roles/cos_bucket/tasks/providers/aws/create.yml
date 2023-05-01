@@ -1,0 +1,53 @@
+---
+# 1. Debug information
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Create AWS Bucket: Debug general info"
+  debug:
+    msg:
+      - "AWS bucket name .................... {{ aws_bucket_name }}"
+      - "AWS bucket region .................. {{ aws_bucket_region_location }}"
+      - "AWS bucket versioning enabled ...... {{ aws_bucket_versioning_flag }}"
+      - "AWS bucket encryption .............. {{ aws_bucket_encryption }}"
+      - "AWS bucket endpoint ................ {{ aws_url }}"
+
+# 2. Create AWS bucket
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Create AWS bucket: {{ aws_bucket_name }}"
+  command: >
+    aws s3api create-bucket \
+      --bucket {{ aws_bucket_name }} \
+      --region {{ aws_bucket_region_location }} \
+      --create-bucket-configuration LocationConstraint={{ aws_bucket_region_location }}
+  register: aws_bucket_creation_output
+  failed_when: aws_bucket_creation_output.rc > 0 and ('BucketAlreadyOwnedByYou' not in aws_bucket_creation_output.stderr)
+
+- name: "Enable AWS bucket versioning for {{ aws_bucket_name }}"
+  when: aws_bucket_versioning_flag == True
+  command: >
+    aws s3api put-bucket-versioning \
+      --bucket {{ aws_bucket_name }} \
+      --versioning-configuration Status=Enabled
+  register: aws_bucket_versioning_output
+  failed_when: "aws_bucket_versioning_output.rc > 1"
+
+- name: "Enable AWS bucket encryption for {{ aws_bucket_name }}"
+  when: aws_bucket_encryption is defined and aws_bucket_encryption != ''
+  shell: |
+    aws s3api put-bucket-encryption --bucket {{ aws_bucket_name }} --server-side-encryption-configuration '{{ aws_bucket_encryption }}'
+  register: aws_bucket_encryption_output
+  failed_when: "aws_bucket_encryption_output.rc > 1"
+
+- name: "Create AWS Bucket: Debug general info"
+  debug:
+    msg:
+      - "AWS bucket name .................... {{ aws_bucket_name }}"
+      - "AWS bucket region .................. {{ aws_bucket_region_location }}"
+      - "AWS bucket versioning enabled ...... {{ aws_bucket_versioning_flag }}"
+      - "AWS bucket encryption .............. {{ aws_bucket_encryption }}"
+      - "AWS bucket endpoint ................ {{ aws_url }}"
+
+- name: "Set AWS bucket details"
+  set_fact:
+    cos_url: "{{ aws_url }}"
+    cos_bucket_name: "{{ aws_bucket_name }}"
+    cos_bucket_region: "{{ aws_bucket_region_location }}"

@@ -1,0 +1,59 @@
+---
+# 1. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Create AWS User: Debug information"
+  debug:
+    msg:
+      - "AWS User Name ................................... {{ aws_username }}"
+      - "Create Access Key ID and Secret Access Key? ..... {{ aws_username_create_access_key_flag }}"
+      - "AWS Policy ARN .................................. {{ aws_policy_arn | default('Not defined, will skip policy attachment', true) }}"
+
+# 2. Create IAM Users and attach to corresponding policies
+# -----------------------------------------------------------------------------
+- name: "Create an IAM user {{ aws_username }}"
+  shell: |
+    aws iam create-user --user-name {{ aws_username }}
+  register: iam_user_create_output
+  failed_when: iam_user_create_output.rc > 0 and ('EntityAlreadyExists' not in iam_user_create_output.stderr)
+
+- name: "Attach IAM policy to IAM user {{ aws_username }}"
+  when: aws_policy_arn is defined and aws_policy_arn !=''
+  shell: |
+    aws iam attach-user-policy --user-name {{ aws_username }} --policy-arn {{ aws_policy_arn }}
+  register: iam_attach_policy_output
+  failed_when: iam_attach_policy_output.rc > 0
+
+# 3. Create IAM User's access key
+# -----------------------------------------------------------------------------
+- name: If IAM username {{ aws_username }} AccessKeyId and SecretAccessKey are provided, then no need to create new credentials
+  when:
+    - aws_username_secret_access_key is defined and aws_username_secret_access_key !=''
+    - aws_username_access_key_id is defined and aws_username_access_key_id !=''
+  set_fact:
+    aws_username_create_access_key_flag: False
+    aws_new_user_access_key_id: "{{ aws_username_access_key_id }}"
+    aws_new_user_secret_access_key: "{{ aws_username_secret_access_key }}"
+
+- name: "Check if IAM user {{ aws_username }} needs an AccessKeyId and SecretAccessKey"
+  when: aws_username_create_access_key_flag == True
+  block:
+
+    - name: "Create an IAM user {{ aws_username }} AccessKeyId and SecretAccessKey"
+      shell: |
+        aws iam create-access-key --user-name {{ aws_username }}
+      register: iam_user_creds_output
+      failed_when: iam_user_creds_output.rc > 0
+
+    - set_fact:
+        iam_user_creds_json_output: "{{ iam_user_creds_output.stdout }}"
+
+    - name: "Set fact for IAM user {{ aws_username }} AccessKeyId and SecretAccessKey"
+      set_fact:
+        aws_new_user_access_key_id: "{{ iam_user_creds_json_output.AccessKey.AccessKeyId }}"
+        aws_new_user_secret_access_key: "{{ iam_user_creds_json_output.AccessKey.SecretAccessKey }}"
+
+- name: "Debug AWS Username '{{ aws_username }}' details"
+  debug:
+    msg:
+      - "{{ aws_username }} Access Key Id ................. {{ aws_new_user_access_key_id }}"
+      - "{{ aws_username }} Secret Access Key ............. {{ aws_new_user_secret_access_key }}"

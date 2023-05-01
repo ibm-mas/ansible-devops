@@ -1,0 +1,302 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "Debug Uninstall Parameters"
+  debug:
+    msg:
+      - "MAS Instance ID .................... {{ mas_instance_id }}"
+      - "Wipe data from Mongo? .............. {{ mas_wipe_mongo_data }}"
+
+# 2. Wipe Mongo data if needed
+# -----------------------------------------------------------------------------
+- block:
+    - name: "Lookup coreapi"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "mas-{{ mas_instance_id }}-core"
+        label_selectors:
+          - mas.ibm.com/instanceId={{ mas_instance_id }}
+          - app={{ mas_instance_id }}-coreapi
+      register: coreapi_output
+
+    - name: Set coreapi pod name
+      set_fact:
+        coreapi_pod_name: "{{ coreapi_output.resources[0].metadata.name }}"
+
+    - name: Create script to wipe mongo data in local /tmp
+      ansible.builtin.template:
+        src: wipe-mongo-data.sh.j2
+        dest: /tmp/wipe-mongo-data.sh
+        mode: '777'
+
+    - name: Copy the script to wipe mongo data into the coreapi pod
+      shell: "oc cp /tmp/wipe-mongo-data.sh mas-{{ mas_instance_id }}-core/{{ coreapi_pod_name }}:/tmp/wipe-mongo-data.sh"
+      register: copy_result
+      retries: 10
+      delay: 30 # seconds
+      until: copy_result.rc == 0
+
+    - name: "Exec into coreapi and run mongo cleanup"
+      shell: oc exec -n mas-{{ mas_instance_id }}-core {{coreapi_pod_name}} -- bash /tmp/wipe-mongo-data.sh
+      register: mas_wipe_mongo_output
+      failed_when: mas_wipe_mongo_output.rc > 0
+
+    - name: "Debug Mongo Wipe data:"
+      debug:
+        var: mas_wipe_mongo_output.stdout_lines
+
+  when:
+    - mas_wipe_mongo_data is defined
+    - mas_wipe_mongo_data == true | bool
+
+# 3. Delete the Suite CR
+# -----------------------------------------------------------------------------
+- name: "Delete Suite CR"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: core.mas.ibm.com/v1
+    kind: Suite
+    namespace: "mas-{{ mas_instance_id }}-core"
+    name: "{{ mas_instance_id }}"
+
+
+# 4. Wait for all deployments to be terminated other than the two operators
+# -----------------------------------------------------------------------------
+# We should be left with only three deployments running in the namespace:
+# - ibm-common-service-operator
+# - ibm-mas-operator
+# - ibm-truststore-mgr-controller-manager
+#
+# This should take approximately 5 minutes
+- name: "Wait for all deployments to wind down"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: deployments
+  until:
+    - deployments.resources is defined
+    - deployments.resources | length <= 3
+  retries: 30
+  delay: 10
+
+
+# 5. Verify that Suite CR is gone
+# -----------------------------------------------------------------------------
+- name: "Look for the Suite CR after deletion"
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    kind: Suite
+    namespace: "mas-{{ mas_instance_id }}-core"
+    name: "{{ mas_instance_id }}"
+  register: verify_suite_delete
+
+- name: "Verify the Suite CR was deleted"
+  assert:
+    that:
+      - verify_suite_delete.resources is defined
+      - verify_suite_delete.resources | length == 0
+
+
+# 6. Verify that Truststore CRs are all gone
+# -----------------------------------------------------------------------------
+- name: "Look for the Suite CR after deletion"
+  kubernetes.core.k8s_info:
+    api_version: truststore-mgr.ibm.com/v1
+    kind: Truststore
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: verify_truststores_delete
+
+- name: "Verify the Suite Truststores were all deleted"
+  assert:
+    that:
+      - verify_truststores_delete.resources is defined
+      - verify_truststores_delete.resources | length == 0
+
+
+# 7. Delete Suite Subscription
+# -----------------------------------------------------------------------------
+# TODO: This would be more reliable if we used a label selector with:
+#         operators.coreos.com/ibm-mas.mas-clitest-core: ""
+- name: "Delete ibm-mas Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "mas-{{ mas_instance_id }}-core"
+    label_selectors:
+      - "operators.coreos.com/ibm-mas.mas.mas-{{ mas_instance_id }}-core"
+
+- name: "Delete ibm-truststore-mgr Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "mas-{{ mas_instance_id }}-core"
+    label_selectors:
+      - "operators.coreos.com/ibm-truststore-mgr.mas-{{ mas_instance_id }}-core"
+
+- name: "Delete ibm-common-service-operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "mas-{{ mas_instance_id }}-core"
+    label_selectors:
+      - "operators.coreos.com/ibm-common-service-operator.mas-{{ mas_instance_id }}-core"
+
+
+# 8. Delete CSVs
+# -----------------------------------------------------------------------------
+- name: "Delete ibm-mas CSV"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "mas-{{ mas_instance_id }}-core"
+    label_selectors:
+      - "operators.coreos.com/ibm-mas.mas-{{ mas_instance_id }}-core"
+
+- name: "Delete ibm-truststore-mgr CSV"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "mas-{{ mas_instance_id }}-core"
+    label_selectors:
+      - "operators.coreos.com/ibm-truststore-mgr.mas-{{ mas_instance_id }}-core"
+
+- name: "Delete ibm-common-service-operator CSV"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "mas-{{ mas_instance_id }}-core"
+    label_selectors:
+      - "operators.coreos.com/ibm-common-service-operator.mas-{{ mas_instance_id }}-core"
+
+
+# 9. Wait for all deployments to be terminated
+# -----------------------------------------------------------------------------
+- name: "Wait for operator deployments to wind down"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: deployments
+  until:
+    - deployments.resources is defined
+    - deployments.resources | length == 0
+  retries: 30
+  delay: 10
+
+
+# 10. Delete ClusterIssuers
+# -----------------------------------------------------------------------------
+# The ClusterIssuers are used by MAS to create Certificates
+- name: "Delete ibm-mas Internal certificate ClusterIssuer"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cert-manager.io/v1
+    kind: ClusterIssuer
+    name: "mas-{{ mas_instance_id }}-core-internal-issuer"
+    wait: true
+    wait_timeout: 600
+
+- name: "Delete ibm-mas Public certificate ClusterIssuer"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cert-manager.io/v1
+    kind: ClusterIssuer
+    name: "mas-{{ mas_instance_id }}-core-public-issuer"
+    wait: true
+    wait_timeout: 600
+
+- name: "Delete ibm-mas CA certificate ClusterIssuer"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cert-manager.io/v1
+    kind: ClusterIssuer
+    name: "mas-{{ mas_instance_id }}-ca"
+    wait: true
+    wait_timeout: 600
+
+# 11. Delete Certificates
+# -----------------------------------------------------------------------------
+# The Certificates are created by the Issuers
+# The Certificates are used by the ClusterIssuers to sign Certificates
+- name: "Delete ibm-mas Internal CA Certificate"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cert-manager.io/v1
+    kind: Certificate
+    namespace: ibm-common-services
+    name: "{{ mas_instance_id }}-cert-internal-ca"
+    wait: true
+    wait_timeout: 600
+
+- name: "Delete ibm-mas Public CA Certificate"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cert-manager.io/v1
+    kind: Certificate
+    namespace: ibm-common-services
+    name: "{{ mas_instance_id }}-cert-public-ca"
+    wait: true
+    wait_timeout: 600
+
+
+# 12. Delete Issuers
+# -----------------------------------------------------------------------------
+# The issuers are used to generate the CA certificate used by the ClusterIssuers
+- name: "Delete ibm-mas Internal CA certificate Issuer"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cert-manager.io/v1
+    kind: Issuer
+    namespace: ibm-common-services
+    name: "mas-{{ mas_instance_id }}-core-internal-ca-issuer"
+    wait: true
+    wait_timeout: 600
+
+- name: "Delete ibm-mas Default Public CA certificate Issuer"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cert-manager.io/v1
+    kind: Issuer
+    namespace: ibm-common-services
+    name: "mas-{{ mas_instance_id }}-core-public-ca-issuer"
+    wait: true
+    wait_timeout: 600
+
+
+# 13. Delete Suite Namespace
+# -----------------------------------------------------------------------------
+- name: "Delete core namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "mas-{{ mas_instance_id }}-core"
+
+
+# 14. Verify Suite Namespace is gone
+# -----------------------------------------------------------------------------
+- name: "Wait for namespace to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "mas-{{ mas_instance_id }}-core"
+  register: namespace_check
+  until:
+    - namespace_check.resources is defined
+    - namespace_check.resources | length == 0
+  retries: 30
+  delay: 10

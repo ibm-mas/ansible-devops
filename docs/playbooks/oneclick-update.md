@@ -35,10 +35,10 @@ Usage
 Only one parameter is required, the new tag of the IBM Maximo Operator Catalog that you wish to use:
 
 ```bash
-export MAS_CATALOG_VERSION=v8-220805-amd64
+export MAS_CATALOG_VERSION=v8-230414-amd64
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_update
 ```
 
 !!! tip
-    If you do not want to set up all the dependencies on your local system, you can run the update from inside our container image: `docker run -ti --rm quay.io/ibmmas/cli:latest`
+    If you do not want to set up all the dependencies on your local system, you can run the update from inside our container image: `docker run -ti --rm --pull always quay.io/ibmmas/cli`
