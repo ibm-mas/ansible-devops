@@ -61,11 +61,11 @@ Role Variables
 -------------------------------------------------------------------------------
 
 ### mongodb_ce_version
-Set the version of the MongoDb Community Edition Operator to install in the namespace.
+Set the version of the MongoDb Community Edition Operator to install in the namespace. Supported options are `0.7.0`, `0.7.8` and `0.7.9`. Selecting `0.7.0` will deploy the MongoDb version of `4.2.23`, deploying `0.7.8` or `0.7.9` will result in MongoDb version `4.4.21` being used. Upgrading upwards with these versions is supported, so if you previously deployed using `0.7.0` you can run this role again with the `0.7.9` option (which is also the default) and the MongoDb Community Edition Operator will be upgraded as well as the underlying MongoDb replicaset without lose of service.
 
 - Optional
 - Environment Variable: `MONGODB_CE_VERSION`
-- Default: `0.7.0`
+- Default: `0.7.9`
 
 
 ### mongodb_namespace
