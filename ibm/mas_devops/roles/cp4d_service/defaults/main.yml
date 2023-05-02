@@ -8,8 +8,8 @@
 # of our control -- the only version of CP4D that works with MAS 8.7 is v4.0.7, but we can't install that
 # from the IBM operator catalog at present, much more work is needed in this collection to support the operating
 # model of the Cloud Pak for Data team :/
-cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('4.0.9', true)  }}"
-cpd_supported_versions: ['4.0.9', '4.5.0', '4.5.1', '4.5.2']
+cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
+cpd_supported_versions: ['4.5.0', '4.5.3', '4.6.0', '4.6.3']
 cpd_minor_version: "{{ cpd_product_version | regex_search('(?<=)(.*)(?=..)') }}" # extract the cpd minor version as depending on the version some extra steps are needed i.e 4.0 or 4.5
 
 # CP4D Admin User credential used to call CP4D APIs, if not specified, the script will look these up
@@ -45,6 +45,7 @@ cpd_service_name: "{{ lookup('env', 'CPD_SERVICE_NAME') }}"
 
 # The storage class to use for this CP4D service
 cpd_service_storage_class: "{{ lookup('env', 'CPD_SERVICE_STORAGE_CLASS') }}"
+cpd_service_block_storage_class: "{{ lookup('env', 'CPD_SERVICE_BLOCK_STORAGE_CLASS') }}" # needed for WD
 
 cpd_service_installplan_approval: Automatic
 
@@ -140,3 +141,48 @@ cpd_service_info:
     crd_kind: WOService
     crd_name: woservices.wos.cpd.ibm.com
     cr_name: aiopenscale
+
+  # SPSS Modeler
+  spss:
+    assembly_name: spss
+    catalog_source: ibm-operator-catalog
+    description: "SPSS Modeler"
+    operator_name: ibm-cpd-spss-operator
+    package_name: "ibm-cpd-spss"
+    cr_comment: "SPSS Modeler"
+    cr_name: "spssmodeler"
+    cr_api: "spssmodeler.cpd.ibm.com"
+    cr_api_version: "v1"
+    crd_kind: "Spss"
+    crd_name: "spss.spssmodeler.cpd.ibm.com"
+    csv_name: ibm-cpd-spss
+    api_version: spssmodeler.cpd.ibm.com/v1
+    component_dependencies:
+      - ccs
+      - datarefinery
+      - ws_runtimes
+      - ws
+
+  # Cognos Analytics
+  ca:
+    assembly_name: cognos_analytics
+    catalog_source: ibm-operator-catalog
+    description: "Cognos Analytics"
+    operator_name: ibm-ca-operator
+    package_name: "ibm-ca-operator"
+    cr_name: "ca-addon-cr"
+    cr_api: "ca.cpd.ibm.com"
+    cr_api_version: "v1"
+    crd_kind: "CAService"
+    crd_name: "caservices.ca.cpd.ibm.com"
+    csv_name: "ibm-ca-operator"
+    api_version: ca.cpd.ibm.com/v1
+    component_dependencies:
+      - ccs
+    rabbitmq:
+      channel_name: "v1.0" # this info does not exist in olm-utils-cm therefore adding here
+    elasticsearch:
+      channel_name: "v1.1" # this info does not exist in olm-utils-cm therefore adding here
+
+cluster_type:
+  - aws:

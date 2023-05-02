@@ -1,15 +1,22 @@
 cluster_monitoring
-==================
+===============================================================================
 
-Configure both prometheus cluster monitoring and prometheus user workload cluster monitoring with persistant storage. Also configures 
-the [community grafana operator](https://github.com/grafana-operator/grafana-operator) v4 and deploys a grafana instance along with 
+Configure both prometheus cluster monitoring and prometheus user workload cluster monitoring with persistant storage. Also configures
+the [community grafana operator](https://github.com/grafana-operator/grafana-operator) v4 and deploys a grafana instance along with
 a datasource to prometheus. The grafana operator will scan for dashboards across the whole cluster so that it can import any dashbaords
 from Maximo Application Suite. The namespace grafana is installed to defaults to `grafana` but can be changed using the role variables
 below. The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route
 is created in the grafana namespace to allow access to the grafana UI.
 
 Role Variables
---------------
+-------------------------------------------------------------------------------
+### cluster_monitoring_action
+Inform the role whether to perform an install or an uninstall of cluster monitoring.
+
+- Optional
+- Environment Variable: `CLUSTER_MONITORING_ACTION`
+- Default: `install`
+
 ### prometheus_retention_period
 Adjust the retention period for Prometheus metrics, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
 
@@ -87,8 +94,9 @@ Sets the namespace to install the grafana operator and grafana instance
 - Environment Variable: `GRAFANA_NAMESPACE`
 - Default Value: `grafana`
 
+
 Example Playbook
-----------------
+-------------------------------------------------------------------------------
 
 ```yaml
 - hosts: localhost
@@ -100,35 +108,7 @@ Example Playbook
 ```
 
 
-Tekton Task
------------
-Start a run of the **mas-devops-cluster-monitoring** Task as below, you must have already prepared the namespace:
-
-```
-cat <<EOF | oc create -f -
-apiVersion: tekton.dev/v1beta1
-kind: TaskRun
-metadata:
-  generateName: mas-devops-cluster-monitoring-
-spec:
-  taskRef:
-    kind: Task
-    name: mas-devops-cluster-monitoring
-  params:
-  - name: prometheus_storage_class
-    value: "ibmc-block-gold"
-  - name: prometheus_alertmgr_storage_class
-    value: "ibmc-file-gold-gid"
-  - name: prometheus_userworkload_storage_class
-    value: "ibmc-block-gold"
-  resources: {}
-  serviceAccountName: pipeline
-  timeout: 24h0m0s
-EOF
-```
-
-
 License
--------
+-------------------------------------------------------------------------------
 
 EPL-2.0

@@ -1,0 +1,58 @@
+---
+- name: "Debug new Manage persistent volumes definitions"
+  debug:
+    msg:
+      - "Existing Manage PVCs: {{ existing_manage_pvcs }}"
+      - "New Manage PVCs to be added: {{ mas_app_settings_custom_persistent_volumes }}"
+
+- set_fact:
+    mas_app_settings_custom_persistent_volumes: "{{ mas_app_settings_custom_persistent_volumes + existing_manage_pvcs }}"
+
+- name: Merge Manage Persistent Volumes configurations
+  set_fact:
+    mas_app_settings_custom_persistent_volumes: "{{ mas_app_settings_custom_persistent_volumes | unique }}"
+
+- name: "Debug Manage persistent volumes definitions"
+  debug:
+    msg: "{{ mas_app_settings_custom_persistent_volumes }}"
+
+- name: "Add the Persistent Volume definitions in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition:
+      apiVersion: apps.mas.ibm.com/v1
+      kind: ManageWorkspace
+      metadata:
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "mas-{{ mas_instance_id }}-manage"
+      spec:
+        settings:
+          deployment:
+            persistentVolumes: |-
+              {{ mas_app_settings_custom_persistent_volumes }}
+  register: _changed_pvc
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "ManageWorkspace Changed ............... {{ _changed_pvc.changed }}"
+
+- name: "Wait for ManageWorkspace to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "mas-{{mas_instance_id}}-manage"
+    kind: "ManageWorkspace"
+    wait: true
+    wait_condition:
+      status: "True"
+      type: Ready
+    wait_sleep: 30
+    wait_timeout: 200 # before we give up and fall back into the retry loop
+  register: app_cr_result
+  retries: 20
+  delay: 0
+  until:
+    - app_cr_result.resources is defined
+    - app_cr_result.resources | length > 0
+    - app_cr_result.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1

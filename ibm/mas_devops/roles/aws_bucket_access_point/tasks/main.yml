@@ -1,0 +1,101 @@
+---
+# 1. Assert properties are defined
+# -----------------------------------------------------------------------------
+- name: "Fail if aws_access_point_name is not provided"
+  assert:
+    that: aws_access_point_name is defined and aws_access_point_name != ""
+    fail_msg: "aws_access_point_name property is required"
+
+- name: "Fail if aws_access_point_region is not provided"
+  assert:
+    that: aws_access_point_region is defined and aws_access_point_region != ""
+    fail_msg: "aws_access_point_region property is required"
+
+- name: "Fail if aws_access_point_bucket_name is not provided"
+  assert:
+    that: aws_access_point_bucket_name is defined and aws_access_point_bucket_name != ""
+    fail_msg: "aws_access_point_bucket_name property is required"
+
+- name: "Fail if aws_access_point_username is not provided"
+  assert:
+    that: aws_access_point_username is defined and aws_access_point_username != ""
+    fail_msg: "aws_access_point_username property is required"
+
+# 2. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "AWS Access Point Name .................. {{ aws_access_point_name }}"
+      - "AWS Region.............................. {{ aws_access_point_region }}"
+      - "AWS Bucket Name ........................ {{ aws_access_point_bucket_name }}"
+      - "AWS Username ........................... {{ aws_access_point_username }}"
+      - "AWS Access Point policy actions ........ {{ aws_access_point_policy_actions }}"
+
+# 3. Lookup AWS account id
+# -----------------------------------------------------------------------------
+- name: "Get AWS account id"
+  shell: aws sts get-caller-identity
+  register: aws_account_identity_output
+  failed_when: aws_account_identity_output.rc > 0
+
+- set_fact:
+    aws_account_identity_json_output: "{{ aws_account_identity_output.stdout }}"
+
+- set_fact:
+    aws_account_id: "{{ aws_account_identity_json_output.Account }}"
+
+# 3. Create AWS access point for the bucket
+# -----------------------------------------------------------------------------
+- name: "Create access point {{ aws_access_point_name }} for bucket {{ aws_access_point_bucket_name }}"
+  shell: |
+    aws s3control create-access-point \
+    --account-id {{ aws_account_id }} \
+    --bucket {{ aws_access_point_bucket_name }} \
+    --name {{ aws_access_point_name }} \
+    --region {{ aws_access_point_region }}
+  register: aws_access_point_create_output
+  failed_when: aws_access_point_create_output.rc > 0 and ('AccessPointAlreadyOwnedByYou' not in aws_access_point_create_output.stderr )
+
+- name: "Lookup access point's arn: {{ aws_access_point_name }}"
+  shell: aws s3control list-access-points --account-id {{ aws_account_id }} --region {{ aws_access_point_region }} --query 'AccessPointList[?Name==`{{ aws_access_point_name }}`]' --output json
+  register: aws_access_point_lookup_output
+
+- set_fact:
+    aws_access_point_arn_lookup_json_output: "{{ aws_access_point_lookup_output.stdout }}"
+
+- set_fact:
+    aws_access_point_arn: "{{ aws_access_point_arn_lookup_json_output[0].AccessPointArn }}"
+    aws_access_point_alias: "{{ aws_access_point_arn_lookup_json_output[0].Alias }}"
+
+- name: "Lookup username's arn: {{ aws_access_point_username }}"
+  shell: aws iam list-users --query 'Users[?UserName==`{{ aws_access_point_username }}`].Arn' --output text
+  register: aws_access_point_username_arn_lookup_output
+
+- set_fact:
+    aws_access_point_username_arn: "{{ aws_access_point_username_arn_lookup_output.stdout }}"
+
+# 4. Apply access point policy for read-only access to the bucket
+# -----------------------------------------------------------------------------
+- name: "Generate access point policy for read-only user {{ aws_access_point_name }}"
+  ansible.builtin.template:
+    src: '{{ role_path }}/files/ap-policy.json.j2'
+    dest: '{{ role_path }}/files/{{ aws_access_point_name }}-policy.json'
+    mode: '644'
+
+- name: "Apply access point policy for read-only access to the bucket"
+  shell: |
+    aws s3control put-access-point-policy \
+    --account-id {{ aws_account_id }} \
+    --name {{ aws_access_point_name }} \
+    --region {{ aws_access_point_region }} \
+    --policy file://{{ role_path }}/files/{{ aws_access_point_name }}-policy.json
+  register: aws_access_point_create_output
+  failed_when: aws_access_point_create_output.rc > 0 and ('AccessPointAlreadyOwnedByYou' not in aws_access_point_create_output.stderr )
+
+- name: "Debug Access Point details"
+  debug:
+    msg:
+      - "AWS Username ..................... {{ aws_access_point_username }}"
+      - "AWS Bucket ....................... {{ aws_access_point_bucket_name }}"
+      - "AWS Access Point Alias ........... {{ aws_access_point_alias }}"

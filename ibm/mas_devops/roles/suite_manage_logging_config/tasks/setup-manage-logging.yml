@@ -1,0 +1,77 @@
+---
+# Configure COS bucket for Manage logging
+# -----------------------------------------------------------------------------
+- name: "Configure {{ cos_type }} bucket for Manage logging"
+  include_role:
+    name: ibm.mas_devops.cos_bucket
+
+- name: "Setup AWS S3 bucket policies, users and access points"
+  vars:
+    aws_bucket_name: "{{ cos_bucket_name }}"
+    aws_bucket_region: "{{ cos_bucket_region }}"
+  include_tasks: "tasks/providers/aws/setup_bucket_permissions.yml"
+  when: cos_type == 'aws'
+
+- name: Create s3secretkey secret in Manage namespace
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/logging-bucket-creds.yml.j2')}}"
+
+- name: "Retrieve {{ cos_type }} certificates"
+  include_tasks: "tasks/retrieve-cos-certs.yml"
+
+# Deactivate all the Admin center functionality except upload log to COS
+# !!!! Only Run Below DELETE statement on PROD database
+# -----------------------------------------------------------------------------
+- name: Deactivate all the Admin center
+  when: is_prod
+  block:
+    - name: "Lookup Manage db2 Pod"
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ db2_namespace }}"
+        label_selectors:
+          - type = engine
+          - app = {{ db2_instance_name }}
+      register: db2wh_pod
+
+    - name: Configure facts
+      set_fact:
+        db2wh_pod_name: "{{ db2wh_pod.resources[0].metadata.name }}"
+
+    - name: Fail if db2wh_pod_name not matched
+      fail:
+        msg: "db2wh_pod_name not matched! Please check the {{ db2_instance_name }} is valid or not."
+      when: db2wh_pod_name is undefined or db2wh_pod_name == ""
+
+    - name: "Run SQL scripts in Manage db2 pod"
+      shell: |
+        oc cp {{ role_path }}/files/db2.sql {{db2wh_pod_name}}:/tmp/ -n {{ db2_namespace }}
+        oc exec -it -n {{ db2_namespace }} {{ db2wh_pod_name }} -- bash -c 'su -lc "db2 connect to {{ db2_dbname }}; db2 -tvf /tmp/db2.sql" db2inst1'
+        oc rsh -n {{ db2_namespace }} "{{ db2wh_pod_name }}" rm -f /tmp/db2.sql
+      register: logupload_sec
+
+- name: "Add the {{ cos_type | upper }} COS certificates in ManageWorkspace CR"
+  import_role:
+    name: ibm.mas_devops.suite_manage_import_certs_config
+  vars:
+    manage_certificates: "{{ cos_tls_crt }}"
+    manage_certificates_alias_prefix: "{{ cos_cert_alias_prefix }}"
+
+- name: "Add the `loggingS3Destination` in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps.mas.ibm.com/v1
+      kind: ManageWorkspace
+      metadata:
+        name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+        namespace: "mas-{{ mas_instance_id }}-manage"
+      spec:
+        settings:
+          deployment:
+            loggingS3Destination:
+              accessKey: "{{ cos_access_key_id }}"
+              bucketName: "{{ cos_bucket_name }}"
+              endpointURL: "{{ cos_url }}"
+              secretKey:
+                secretName: "s3secretkey"

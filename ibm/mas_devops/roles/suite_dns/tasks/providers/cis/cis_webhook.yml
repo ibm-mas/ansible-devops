@@ -1,0 +1,28 @@
+---
+# 1. Deploy the CIS Webhook
+# =============================================================================
+- name: "cis : Create k8s resources for CIS webhook"
+  kubernetes.core.k8s:
+    namespace: "{{ cert_manager_namespace }}"
+    state: present
+    template: "{{ item }}"
+  with_items:
+    - templates/cis/webhook/rbac.yml.j2
+    - templates/cis/webhook/pki.yml.j2
+    - templates/cis/webhook/deployment.yml.j2
+    - templates/cis/webhook/apiservice.yml.j2
+    - templates/cis/webhook/service.yml.j2
+    - templates/cis/webhook/cis-apikey-secret.yml.j2
+    - templates/cis/webhook/cis-proxy-route.yml.j2
+
+
+# 2. Create the CIS ClusterIssuers
+# =============================================================================
+- name: "cis : Create k8s resources for CIS ClusterIssuers"
+  kubernetes.core.k8s:
+    namespace: "{{ cert_manager_namespace }}"
+    state: present
+    template: "{{ item }}"
+  with_items:
+    - templates/cis/clusterissuer-staging.yml.j2
+    - templates/cis/clusterissuer-prod.yml.j2

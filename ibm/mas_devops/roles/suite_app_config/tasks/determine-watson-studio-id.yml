@@ -1,0 +1,38 @@
+---
+# 1. Debug
+# -----------------------------------------------------------------------------
+- name: Debug information to determine Watson Studio version
+  debug:
+    msg:
+      - "cpd_wsl_project_id ..................... {{ cpd_wsl_project_id | default('<undefined>', true) }}"
+      - "cpd_wsl_project_name ................... {{ cpd_wsl_project_name | default('<undefined>', true) }}"
+      - "mas_config_dir ......................... {{ mas_config_dir | default('<undefined>', true) }}"
+
+
+# 2. Lookup Watson Studio Project ID if not already defined
+# -----------------------------------------------------------------------------
+- name: Load Analytics Project Id from configuration directory (only if id is not already defined)
+  when:
+    - cpd_wsl_project_id is not defined or cpd_wsl_project_id == ""
+    - cpd_wsl_project_name is defined and cpd_wsl_project_name != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+  block:
+    - set_fact:
+        cpd_wsl_project_id: "{{ lookup('file', mas_config_dir + '/' + cpd_wsl_project_name + '.id') }}"
+  rescue:
+    - debug:
+        msg: "Warning: project not found in configuration directory"
+
+- name: "Fail if cpd_wsl_project_id is not available"
+  assert:
+    that:
+      - cpd_wsl_project_id is defined and cpd_wsl_project_id != ""
+    fail_msg: "Analytics Project Id has not been informed"
+
+
+# 3. Debug final Watson Studio Project ID
+# -----------------------------------------------------------------------------
+- name: Debug final Watson Studio Project ID - Utilities
+  debug:
+    msg:
+      - "cpd_wsl_project_id ..................... {{ cpd_wsl_project_id }}"

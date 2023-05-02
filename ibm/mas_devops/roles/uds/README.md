@@ -1,11 +1,18 @@
 uds
-===
+===============================================================================
 
 Installs [IBM User Data Services](https://www.ibm.com/docs/en/cpfs?topic=services-enabling-user-data) as part of [IBM Foundational Services](https://www.ibm.com/docs/en/cpfs?topic=312-installing-foundational-services-by-using-console) in the `ibm-common-services` namespace.  If `mas_instance_id` and the others associated parameters are provided then the role will also generate a configuration file that can be directly applied to IBM Maximo Application Suite.
 
 
 Role Variables - Installation
------------------------------
+-------------------------------------------------------------------------------
+### uds_action
+Inform the role whether to perform an install or uninstall of IBM User Data Services or the Slim User Data Services. Supported values are `install`, `uninstall`, `install_suds` or `uninstall_suds`
+
+- Optional
+- Environment Variable: `UDS_ACTION`
+- Default: `install`
+
 ### cluster_name
 Required only for ROSA cluster. This variable is required to extract the UDS certificates. For other clusters this variable is not used.
 
@@ -33,7 +40,7 @@ Specify the name of the cluster's ingres tls secret which contains the default r
 
 
 Role Variables - BASCfg Generation
-----------------------------------
+-------------------------------------------------------------------------------
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the BasCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a BasCfg template.
 
@@ -104,9 +111,16 @@ Sets the UDS api key used by the MAS instance's UDS configuration.
 - Environment Variable: `UDS_API_KEY`
 - Default Value: None
 
+### custom_labels
+List of comma separated key=value pairs for setting custom labels on instance specific resources.
+
+- Optional
+- Environment Variable: `CUSTOM_LABELS`
+- Default Value: None
+
 
 Example Playbook
-----------------
+-------------------------------------------------------------------------------
 
 ### Install in-cluster and generate MAS configuration
 ```yaml
@@ -147,6 +161,6 @@ Example Playbook
 ```
 
 License
--------
+-------------------------------------------------------------------------------
 
 EPL-2.0

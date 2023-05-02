@@ -3,8 +3,14 @@ apiVersion: sls.ibm.com/v1
 kind: LicenseService
 metadata:
   name: {{ sls_instance_name }}
+{% if custom_labels is defined and custom_labels.items() %}
+  labels:
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
 spec:
-  domain: {{sls_domain}}
+  domain: {{ sls_domain }}
   settings:
     auth:
       enforce: {{ sls_auth_enforce }}
@@ -13,6 +19,10 @@ spec:
     registry: {{ sls_icr_cp }}
     registration:
       open: {{ sls_registration_open }}
+{% if sls_customize_scaling != '' %}
+    workloadScaling: 
+      configMapName: {{  sls_customize_scaling  }}
+{% endif %}
   license:
     accept: true
   mongo:
@@ -20,3 +30,6 @@ spec:
     configDb: {{ sls_mongo_configdb }}
     secretName: ibm-sls-mongo-credentials
     retryWrites: {{ sls_mongo_retrywrites }}
+    certificates: 
+      {{ mongodb.certificates | indent(6) }}
+  

@@ -24,7 +24,45 @@
       - "UDS Contact e-mail ................. {{ uds_contact.email | default('<undefined>', True) }}"
 
 
-# 3. Install UDS Operator
+# 3. Install Crunchy Postgres Operator (Properly)
+# -----------------------------------------------------------------------------
+# UDS installs the operator with a startingCSV set explicitly to 5.1.0 for some
+# unknown reason, the best case scenario is that we go through needless upgrades,
+# wasting time, to worst case scenario is that the upgrade path in the channel
+# hits a bad version of Postgres (which is happening in December 2022)
+#
+# Crunchy team have "fixed" the issue by releasing a new version, but the bad
+# version is still in the channel graph, so when we automatically upgrade from
+# 5.1.0 we hit the bad version and are unable to install intermediate version
+# 5.2.0
+#
+# Back-off pulling image "registry.connect.redhat.com/crunchydata/postgres-operator@sha256:4ad944f4f01a85249aa7678521e61fe48ed150ac43f3c38f33b42f7a32eb9961"
+#
+# By installing the operator first ourselves, we prevent this happening as
+# the operator will already be at the latest version on the channel, and the
+# startingCSV set by AnalyticsProxy will have no effect.
+- name: Create Crunchy Postgres Subscription
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/crunchy-postgres/subscription.yml') }}"
+    wait: yes
+    wait_timeout: 120
+
+
+# 4. Wait for Postgres Operator to be Ready
+# -----------------------------------------------------------------------------
+- name: "Wait for Crunchy Postgres operator to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: pgo
+    namespace: ibm-common-services
+    kind: Deployment
+  register: pgo_deployment
+  until: pgo_deployment.resources[0].status.availableReplicas is defined
+  retries: 90 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
+
+
+# 5. Install UDS Operator
 # -----------------------------------------------------------------------------
 - name: Install Foundation Services ibm-user-data-services operand request
   kubernetes.core.k8s:
@@ -33,7 +71,7 @@
     wait_timeout: 120
 
 
-# 4. Wait for UDS Operator to be Ready
+# 6. Wait for UDS Operator to be Ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Foundation Services ibm-user-data-services operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -41,13 +79,13 @@
     name: user-data-services-operator
     namespace: ibm-common-services
     kind: Deployment
-  register: _uds_deployment
-  until: _uds_deployment.resources[0].status.availableReplicas is defined
+  register: uds_deployment
+  until: uds_deployment.resources[0].status.availableReplicas is defined
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
 
-# 5. Create UDS AnalyticsProxy
+# 7. Create UDS AnalyticsProxy
 # -----------------------------------------------------------------------------
 - name: "Create UDS AnalyticsProxy"
   kubernetes.core.k8s:
@@ -57,7 +95,7 @@
 # For some reason it seems to work anyway.
 
 
-# 6. Wait for the UDS AnalyticsProxy to be ready
+# 8. Wait for the UDS AnalyticsProxy to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for the AnalyticsProxy to be ready"
   kubernetes.core.k8s_info:
@@ -75,14 +113,14 @@
   delay: 120 # 2 minutes
 
 
-# 7. Wait for GenerateKey to be complete
+# 9. Cretae the GenerateKey CR
 # -----------------------------------------------------------------------------
 - name: "Create UDS Generate Key"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/foundation-services/generateKey.yaml') }}"
 
 
-# 8. Wait for GenerateKey to be complete
+# 10. Wait for GenerateKey to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for GenerateKey to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -100,7 +138,7 @@
   delay: 60 # 1 minute
 
 
-# 9. MAS Config
+# 11. MAS Config
 # -----------------------------------------------------------------------------
 # Note that the MAS config resource still refers to UDS by it's
 # original name (BAS).  It would be a breaking change to re-name the MAS CRD

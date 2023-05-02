@@ -1,4 +1,5 @@
 ---
+sls_action: "{{ lookup('env', 'SLS_ACTION') | default('install', true) }}"
 
 # Define the version of SLS will be installed
 sls_catalog_source: "{{ lookup('env', 'SLS_CATALOG_SOURCE') | default('ibm-operator-catalog', true) }}"
@@ -16,9 +17,10 @@ sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | defaul
 ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
 sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
 
+db_provider: "{{ lookup('env', 'DB_PROVIDER') | default('community', true) }}"
 # SLS settings
 sls_mongo_configdb: "admin"
-sls_mongo_retrywrites: true
+sls_mongo_retrywrites: "{{ lookup('env', 'SLS_MONGO_RETRYWRITES') | default('true', true) | string }}"
 
 sls_domain: "{{ lookup('env', 'SLS_DOMAIN') }}"
 sls_auth_enforce: "{{ lookup('env', 'SLS_AUTH_ENFORCE') | default('True', true) | bool }}"
@@ -41,3 +43,15 @@ sls_url: "{{ lookup('env', 'SLS_URL') }}"
 sls_registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') }}"
 sls_tls_crt: "{{ lookup('env', 'SLS_TLS_CERT') }}"
 sls_tls_crt_local_file_path: "{{ lookup('env', 'SLS_TLS_CERT_LOCAL_FILE_PATH') }}"
+
+# Custom Labels
+custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string | ibm.mas_devops.string2dict() }}"
+
+# SLS Custom Workload Scaling configuration
+# ConfigMap name must exists in the cluster
+# Buit-in configMap names for each t-shirt sizes are:
+# small: {{ instanceId }}-wl-cust-small
+# medium: {{ instanceId }}-wl-cust-medium
+# large: {{ instanceId }}-wl-cust-large
+# -----------------------------------------------------------------------------
+sls_customize_scaling: "{{ lookup('env', 'SLS_CUSTOMIZE_SCALING') }}"

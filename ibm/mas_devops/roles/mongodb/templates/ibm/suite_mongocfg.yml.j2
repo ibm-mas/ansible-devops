@@ -1,0 +1,49 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: "{{ ibm_mongo_admin_credentials_secret_name }}"
+  namespace: "mas-{{mas_instance_id}}-core"
+{% if custom_labels is defined and custom_labels.items() %}
+  labels:
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+stringData:
+  username: "{{ mongo_instance_info.resource.adminuser }}"
+  password: "{{ ibm_mongo_admin_password }}"
+---
+apiVersion: config.mas.ibm.com/v1
+kind: MongoCfg
+metadata:
+  name: "{{mas_instance_id}}-mongo-system"
+  namespace: "mas-{{mas_instance_id}}-core"
+  labels:
+    mas.ibm.com/configScope: system
+    mas.ibm.com/instanceId: "{{mas_instance_id}}"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+    "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+  displayName: "IBM Cloud MongoDB" # Not sure what name should be
+  type: external
+  config:
+    configDb: admin
+    authMechanism: DEFAULT
+    credentials:
+      secretName: "{{ ibm_mongo_admin_credentials_secret_name }}"
+    hosts:
+      - host: {{ mongo_host_0 }}
+        port: {{ mongo_port }}
+      - host: {{ mongo_host_1 }}
+        port: {{ mongo_port }}
+      - host: {{ mongo_host_2 }}
+        port: {{ mongo_port }}
+  certificates:
+    - alias: ca
+      crt: |
+        {{ mongo_instance_info.resource.connectionstrings[0].certbase64 | b64decode | indent(8) }}
