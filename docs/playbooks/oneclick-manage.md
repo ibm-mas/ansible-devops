@@ -6,7 +6,7 @@ You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite 
 ## Overview
 This playbook will add **Maximo Manage v8.3** to an existing IBM Maximo Application Suite Core installation.  It will also creatie an in-cluster Db2 instance, which will be automatically set up as the system-level JDBC configuration in MAS.  Manage will be configured to accept automatic security updates and bug fixes, but not new feature releases.
 
-This playbook can be ran against any OCP cluster regardless of it's type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
+This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 - Install dependencies:
     - Install IBM Db2 Universal Operator (2 minutes)
