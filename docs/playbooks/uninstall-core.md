@@ -1,7 +1,7 @@
 Uninstall for MAS Core
 ===============================================================================
 
-This playbook will remove MAS Core Platform and it's dependencies from your cluster.  If you have installed any MAS applications you should uninstall them first.  This playbook will effectively undo everything done in the [oneclick-core](oneclick-core.md) playbook.
+This playbook will remove MAS Core Platform and its dependencies from your cluster.  If you have installed any MAS applications you should uninstall them first.  This playbook will effectively undo everything done in the [oneclick-core](oneclick-core.md) playbook.
 
 The following will be removed from the cluster.
 - MAS Core Platform for the specified instance ID
