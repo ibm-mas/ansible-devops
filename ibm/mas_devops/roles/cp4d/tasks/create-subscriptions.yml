@@ -38,20 +38,22 @@
 - set_fact:
     cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
 
-- name: "install-cp4d : Set cpd_channel and zen_cr_version"
+- name: "install-cp4d : Set CPD properties"
   set_fact:
     cpd_channel: "{{ cpd_components_meta.cpd_platform.sub_channel }}"
     zen_cr_version: "{{ cpd_components_meta.zen.cr_version }}"
     cpd_csv_version: "{{ cpd_components_meta.cpd_platform.csv_version }}"
+    foundation_services_csv_version: "{{ cpd_components_meta.cpfs.csv_version }}"
 
 - debug:
     msg:
-      - "CPD operators namespace ................ {{ cpd_operators_namespace }}"
-      - "CPD instance namespace ................. {{ cpd_instance_namespace }}"
-      - "CPD release version .................... {{ cpd_product_version }}"
-      - "CPD subscription channel ............... {{ cpd_channel }}"
-      - "CPD csv version ........................ {{ cpd_csv_version }}"
-      - "Zen/control plane version .............. {{ zen_cr_version }}"
+      - "CPD operators namespace ................... {{ cpd_operators_namespace }}"
+      - "CPD instance namespace .................... {{ cpd_instance_namespace }}"
+      - "CPD release version ....................... {{ cpd_product_version }}"
+      - "CPD subscription channel .................. {{ cpd_channel }}"
+      - "CPD csv version ........................... {{ cpd_csv_version }}"
+      - "Zen/control plane version ................. {{ zen_cr_version }}"
+      - "Cloud Pak Foundation Services version ..... v{{ foundation_services_csv_version }}"
 
 # 2.2 Install the IBM Cloud Pak for Data platform operator
 #
@@ -83,6 +85,60 @@
     - name: Set ibm-common-services-operator channel
       set_fact:
         common_services_channel: "{{ common_services_manifest_info.resources[0].status.defaultChannel }}"
+
+- name: Check if ibm-common-services-operator is installed
+  k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: ibm-common-service-operator
+    namespace: ibm-common-services
+  register: common_services_sub_info
+
+- set_fact:
+    foundation_services_installed_csv_version: "{{ common_services_sub_info.resources[0].status.installedCSV | regex_search(regex) }}"
+  vars:
+    regex: '(?<=ibm-common-service-operator.v)(.*)'
+
+
+- debug:
+    msg:
+      - "INSTALLED COMMON VERSION: {{ foundation_services_installed_csv_version }}"
+      - "EXPECTED COMMON VERSION: {{ foundation_services_csv_version }}"
+  
+- name: "Assert that ibm-common-services is installed and is compatible with CPD version {{ cpd_product_version }}"
+  assert:
+    that:
+      - common_services_sub_info.resources is defined
+      - common_services_sub_info.resources | length > 0
+      - common_services_sub_info.resources[0].status is defined
+      - common_services_sub_info.resources[0].status.installedCSV is defined
+      - foundation_services_installed_csv_version is version_compare(foundation_services_csv_version, '>=')
+    fail_msg: "Failed! You have incompatible IBM Foundation Services version v{{ foundation_services_installed_csv_version }} installed. You must have version {{ foundation_services_csv_version }} or above."
+
+# - name: Verify minimum Ansible version is {{ required_ansible_version }}
+#   assert:
+#     that: "ansible_version.full is version_compare(required_ansible_version, '>=')"
+#     fail_msg: "This collection is only supported on Ansible version {{ required_ansible_version }} or greater, your current Ansible version is {{ ansible_version.full }}"
+
+
+
+# - name: "Wait CPD services subscription installedCSV version at {{ expected_installed_csv }}"
+#   vars:
+#     expected_installed_csv: "{{ cpd_service_info[cpd_service_name].csv_name }}.v{{ cpd_service_csv_version }}"
+#   kubernetes.core.k8s_info:
+#     api_version: operators.coreos.com/v1alpha1
+#     kind: Subscription
+#     namespace: "{{ cpd_operators_namespace }}"
+#     name: "cpd-{{ cpd_service_name }}-operator"
+#   register: cpd_sub_info
+#   retries: 20
+#   delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+#   until:
+#     - cpd_sub_info.resources is defined
+#     - cpd_sub_info.resources | length > 0
+#     - cpd_sub_info.resources[0].status is defined
+#     - cpd_sub_info.resources[0].status.installedCSV is defined
+#     - cpd_sub_info.resources[0].status.installedCSV == expected_installed_csv
 
 - name: Debug IBM Common Services Install
   debug:
