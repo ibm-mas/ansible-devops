@@ -1,6 +1,7 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+<<<<<<< HEAD
 - `13.6` Update mongodb to 4.4.21 and mongo operator to 0.7.9 ([#790](https://github.com/ibm-mas/ansible-devops/pull/790))
 - `13.5` Allow db2_dbname to be set rather then hardcode to BLUDB ([#784](https://github.com/ibm-mas/ansible-devops/pull/784))
 - `13.4` Add ability to control whether to create Manage JMS topics in Event Streams ([#783](https://github.com/ibm-mas/ansible-devops/pull/783))
@@ -70,6 +71,9 @@ Note that links to pull requests prior to public release of the code (4.0) direc
     - Add support for Nvidia GPU on OCP 4.10 & 4.11 ([#525](https://github.com/ibm-mas/ansible-devops/pull/525))
     - Add (MVI) Maximo Visual Inspection playbook ([#434](https://github.com/ibm-mas/ansible-devops/pull/434))
 - `12.1` Fix wml_url and detect wml version ([#509](https://github.com/ibm-mas/ansible-devops/pull/509))
+=======
+- `12.1` Add support for Manual certificate management([#501](https://github.com/ibm-mas/ansible-devops/pull/501))
+>>>>>>> f51a901cac406eb6b6fbef68bdefb4bac50ab711
 - `12.0` Merge ibm.mas_airgap into the main collection ([#513](https://github.com/ibm-mas/ansible-devops/pull/513))
 - `11.7` Allow DB2U Cluster settings to be customized ([#479](https://github.com/ibm-mas/ansible-devops/pull/479))
 - `11.6` Add support for Oct 2022 catalog ([#490](https://github.com/ibm-mas/ansible-devops/pull/490))
