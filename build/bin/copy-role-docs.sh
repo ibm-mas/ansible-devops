@@ -43,6 +43,7 @@ copyDoc gencfg_workspace
 copyDoc ibm_catalogs
 copyDoc install_operator
 copyDoc kafka
+copyDoc kubeturbo
 copyDoc mirror_case_prepare
 copyDoc mirror_extras_prepare
 # copyDoc mirror_ocp_operators
