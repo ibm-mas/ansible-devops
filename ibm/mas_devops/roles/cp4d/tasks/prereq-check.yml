@@ -24,7 +24,15 @@
 
 # 2. Check whether IBM Common Services are already installed
 # -----------------------------------------------------------------------------
-- name: "prereq-check : Check if ODLM is available"
+- name: "prereq-check : Check if ibm-common-services-operator is installed"
+  k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: ibm-common-service-operator
+    namespace: ibm-common-services
+  register: common_services_sub_info
+
+- name: "prereq-check : Check if ODLM is installed"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: operand-deployment-lifecycle-manager
@@ -32,10 +40,24 @@
     kind: Deployment
   register: odlm_lookup
 
-- name: "prereq-check : Assert that ODLM is available"
+- name: "prereq-check : Assert that IBM Cloud Pak Foundational Services is installed"
+  assert:
+    that:
+      - common_services_sub_info.resources is defined
+      - common_services_sub_info.resources | length > 0
+      - common_services_sub_info.resources[0].status is defined
+      - common_services_sub_info.resources[0].status.installedCSV is defined
+    fail_msg: "Failed! IBM Cloud Pak Foundation Services must be installed before installing CloudPak for Data v4. Run 'common_services' role to install it."
+
+- set_fact:
+    foundational_services_installed_csv_version: "{{ common_services_sub_info.resources[0].status.installedCSV | regex_search(regex) }}"
+  vars:
+    regex: '(?<=ibm-common-service-operator.v)(.*)'
+
+- name: "prereq-check : Assert that ODLM is installed"
   assert:
     that:
       - odlm_lookup.resources is defined
       - odlm_lookup.resources | length >= 0
       - odlm_lookup.resources[0].status.availableReplicas is defined
-    fail_msg: "IBM Common Services (& ODLM) must be installed before installing CloudPak for Data v4."
+    fail_msg: "Failed! Operand Deployment Lifecycle Manager must be installed before installing CloudPak for Data v4. Run 'common_services' role to install it."
