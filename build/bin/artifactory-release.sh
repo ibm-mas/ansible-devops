@@ -32,7 +32,7 @@ if [ ! -e $FILE_PATH ]; then
   exit 1
 fi
 
-TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/${GITHUB_REPOSITORY}/${VERSION}/${FILE_NAME}-${VERSION}.${FILE_EXT}"
+TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/${GITHUB_REPOSITORY}/${VERSION}/${FILE_NAME}.${FILE_EXT}"
 artifactory_upload $FILE_PATH $TARGET_URL
 
 # Update latest when we publish release, and when we update master branch .. latest build is used internally in development
