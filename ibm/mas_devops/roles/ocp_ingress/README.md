@@ -1,4 +1,4 @@
-# ingress
+# ocp_ingress
 This role will tune the Ingress operator in the target OCP cluster. The following Ingress tuning parameters can be modified to avoid request failures due to timeout for long running requests.
 
 ## Role Variables
