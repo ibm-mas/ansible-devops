@@ -7,8 +7,56 @@
     that: mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "mas_instance_id property is required"
 
+- name: "Debug Uninstall Parameters"
+  debug:
+    msg:
+      - "MAS Instance ID .................... {{ mas_instance_id }}"
+      - "Wipe data from Mongo? .............. {{ mas_wipe_mongo_data }}"
 
-# 2. Delete the Suite CR
+# 2. Wipe Mongo data if needed
+# -----------------------------------------------------------------------------
+- block:
+    - name: "Lookup coreapi"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "mas-{{ mas_instance_id }}-core"
+        label_selectors:
+          - mas.ibm.com/instanceId={{ mas_instance_id }}
+          - app={{ mas_instance_id }}-coreapi
+      register: coreapi_output
+
+    - name: Set coreapi pod name
+      set_fact:
+        coreapi_pod_name: "{{ coreapi_output.resources[0].metadata.name }}"
+
+    - name: Create script to wipe mongo data in local /tmp
+      ansible.builtin.template:
+        src: wipe-mongo-data.sh.j2
+        dest: /tmp/wipe-mongo-data.sh
+        mode: '777'
+
+    - name: Copy the script to wipe mongo data into the coreapi pod
+      shell: "oc cp /tmp/wipe-mongo-data.sh mas-{{ mas_instance_id }}-core/{{ coreapi_pod_name }}:/tmp/wipe-mongo-data.sh"
+      register: copy_result
+      retries: 10
+      delay: 30 # seconds
+      until: copy_result.rc == 0
+
+    - name: "Exec into coreapi and run mongo cleanup"
+      shell: oc exec -n mas-{{ mas_instance_id }}-core {{coreapi_pod_name}} -- bash /tmp/wipe-mongo-data.sh
+      register: mas_wipe_mongo_output
+      failed_when: mas_wipe_mongo_output.rc > 0
+
+    - name: "Debug Mongo Wipe data:"
+      debug:
+        var: mas_wipe_mongo_output.stdout_lines
+
+  when:
+    - mas_wipe_mongo_data is defined
+    - mas_wipe_mongo_data == true | bool
+
+# 3. Delete the Suite CR
 # -----------------------------------------------------------------------------
 - name: "Delete Suite CR"
   kubernetes.core.k8s:
@@ -19,7 +67,7 @@
     name: "{{ mas_instance_id }}"
 
 
-# 3. Wait for all deployments to be terminated other than the two operators
+# 4. Wait for all deployments to be terminated other than the two operators
 # -----------------------------------------------------------------------------
 # We should be left with only three deployments running in the namespace:
 # - ibm-common-service-operator
@@ -40,7 +88,7 @@
   delay: 10
 
 
-# 4. Verify that Suite CR is gone
+# 5. Verify that Suite CR is gone
 # -----------------------------------------------------------------------------
 - name: "Look for the Suite CR after deletion"
   kubernetes.core.k8s_info:
@@ -57,7 +105,7 @@
       - verify_suite_delete.resources | length == 0
 
 
-# 5. Verify that Truststore CRs are all gone
+# 6. Verify that Truststore CRs are all gone
 # -----------------------------------------------------------------------------
 - name: "Look for the Suite CR after deletion"
   kubernetes.core.k8s_info:
@@ -73,7 +121,7 @@
       - verify_truststores_delete.resources | length == 0
 
 
-# 6. Delete Suite Subscription
+# 7. Delete Suite Subscription
 # -----------------------------------------------------------------------------
 # TODO: This would be more reliable if we used a label selector with:
 #         operators.coreos.com/ibm-mas.mas-clitest-core: ""
@@ -105,7 +153,7 @@
       - "operators.coreos.com/ibm-common-service-operator.mas-{{ mas_instance_id }}-core"
 
 
-# 7. Delete CSVs
+# 8. Delete CSVs
 # -----------------------------------------------------------------------------
 - name: "Delete ibm-mas CSV"
   kubernetes.core.k8s:
@@ -135,7 +183,7 @@
       - "operators.coreos.com/ibm-common-service-operator.mas-{{ mas_instance_id }}-core"
 
 
-# 8. Wait for all deployments to be terminated
+# 9. Wait for all deployments to be terminated
 # -----------------------------------------------------------------------------
 - name: "Wait for operator deployments to wind down"
   kubernetes.core.k8s_info:
@@ -150,7 +198,7 @@
   delay: 10
 
 
-# 9. Delete ClusterIssuers
+# 10. Delete ClusterIssuers
 # -----------------------------------------------------------------------------
 # The ClusterIssuers are used by MAS to create Certificates
 - name: "Delete ibm-mas Internal certificate ClusterIssuer"
@@ -180,7 +228,7 @@
     wait: true
     wait_timeout: 600
 
-# 10. Delete Certificates
+# 11. Delete Certificates
 # -----------------------------------------------------------------------------
 # The Certificates are created by the Issuers
 # The Certificates are used by the ClusterIssuers to sign Certificates
@@ -205,7 +253,7 @@
     wait_timeout: 600
 
 
-# 11. Delete Issuers
+# 12. Delete Issuers
 # -----------------------------------------------------------------------------
 # The issuers are used to generate the CA certificate used by the ClusterIssuers
 - name: "Delete ibm-mas Internal CA certificate Issuer"
@@ -229,7 +277,7 @@
     wait_timeout: 600
 
 
-# 12. Delete Suite Namespace
+# 13. Delete Suite Namespace
 # -----------------------------------------------------------------------------
 - name: "Delete core namespace"
   kubernetes.core.k8s:
@@ -239,7 +287,7 @@
     name: "mas-{{ mas_instance_id }}-core"
 
 
-# 13. Verify Suite Namespace is gone
+# 14. Verify Suite Namespace is gone
 # -----------------------------------------------------------------------------
 - name: "Wait for namespace to be deleted"
   kubernetes.core.k8s_info:

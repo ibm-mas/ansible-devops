@@ -18,6 +18,9 @@ If selected provider is `community` [MongoDb CE operator](https://github.com/mon
 To run this role with providers as `ibm` or `aws` you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws`.
 
+To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
+
+
 Common Role Variables for all providers 
 ----------------------------------------
 ### mas_instance_id
@@ -35,7 +38,7 @@ Local directory to save the generated MongoCfg resource definition.  This can be
 ### mongodb_provider
 MongoDB provider 
 
-- Environment variable: `DB_PROVIDER`
+- Environment variable: `MONGODB_PROVIDER`
 - Defult Value: `community`
 - Supported providers: `community`,`aws`,`ibm`
 
@@ -43,15 +46,15 @@ MongoDB provider
 Determines which action needs to be performed w.r.t mongodb for a specfied `provider`
 
 - Environment variable: `MONGODB_ACTION`
-- Deafult Value: `provision`
+- Default Value: `install`
   ```
-  Following Providers supports below mentioned DB_ACTION values:
+  Following Providers supports below mentioned MONGODB_ACTION values:
   1. Provider : community 
-  Supported DB_ACTION values : provision
+  Supported MONGODB_ACTION values : install,uninstall
   2. Provider: aws
-  Supported DB_ACTION values : provision,deprovision,docdb_secret_rotate
+  Supported MONGODB_ACTION values : install,uninstall,docdb_secret_rotate
   3. Provider: ibm
-  Supported DB_ACTION values : provision,deprovision,backup,restore,create-mongo-service-credentials
+  Supported MONGODB_ACTION values : install,uninstall,backup,restore,create-mongo-service-credentials
   ```
  
 
@@ -61,11 +64,11 @@ Role Variables
 -------------------------------------------------------------------------------
 
 ### mongodb_ce_version
-Set the version of the MongoDb Community Edition Operator to install in the namespace.
+Set the version of the MongoDb Community Edition Operator to install in the namespace. Supported options are `0.7.0`, `0.7.8` and `0.7.9`. Selecting `0.7.0` will deploy the MongoDb version of `4.2.23`, deploying `0.7.8` or `0.7.9` will result in MongoDb version `4.4.21` being used. Upgrading upwards with these versions is supported, so if you previously deployed using `0.7.0` you can run this role again with the `0.7.9` option (which is also the default) and the MongoDb Community Edition Operator will be upgraded as well as the underlying MongoDb replicaset without lose of service.
 
 - Optional
 - Environment Variable: `MONGODB_CE_VERSION`
-- Default: `0.7.0`
+- Default: `0.7.9`
 
 
 ### mongodb_namespace
@@ -218,6 +221,19 @@ Once the CA certificate has been updated for the MongoCfg and LicenseService CRs
 
 IBM Cloud MongoDB Role Variables
 ----------------------------------
+### ibm_mongo_name
+Required. IBM Cloud Mongo database instance name.
+
+- Environment Variable: `IBM_MONGO_NAME`
+- Default Value: `mongo-${MAS_INSTANCE_ID}`
+
+### ibm_mongo_admin_password
+Optional. Sets IBM Cloud Mongo database administrator user password.
+If not set, an auto-generated 20 character length string will be used.
+
+- Environment Variable: `IBM_MONGO_ADMIN_PASSWORD`
+- Default Value: None.
+
 ### ibm_mongo_admin_credentials_secret_name
 Secret for MongoDB Admin credentials.
 
@@ -228,16 +244,16 @@ Secret for MongoDB Service credentials.
 
 - Secret Name: `<mongo-name>-service-credentials`
 
-### ibmcloud_resourcegroup
+### ibm_mongo_resourcegroup
 Required.IBM Cloud Resource Group under which resource group will be created.
 
-- Environment Variable: `IBMCLOUD_RESOURCEGROUP`
+- Environment Variable: `IBM_MONGO_RESOURCEGROUP`
 - Default Value: `Default`
 
-### ibmcloud_region
+### ibm_mongo_region
 Required.IBM Cloud region where MongoDB resources will be created.
 
-- Environment Variable: `IBMCLOUD_REGION`
+- Environment Variable: `IBM_MONGO_REGION`
 - Default Value: `us-east`
 
 ### ibmcloud_apikey

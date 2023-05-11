@@ -48,11 +48,11 @@ Provide your artifactory username, primarily used to update the image pull secre
 - Environment Variable: `ARTIFACTORY_USERNAME`
 - Default: None
 
-### artifactory_apikey
+### artifactory_token
 Provide your artifactory api key, primarily used to update the image pull secret in development.
 
 - Optional
-- Environment Variable: `ARTIFACTORY_APIKEY`
+- Environment Variable: `ARTIFACTORY_TOKEN`
 - Default: None
 
 ### sls_catalog_source
@@ -112,6 +112,13 @@ Determines whether authorization is enforced. If set to true, clients must use m
 - Optional
 - Environment Variable: `SLS_AUTH_ENFORCE`
 - Default: `True`
+
+### sls_mongo_retrywrites
+Set to true if MongoDB support retryable writes. In case if retryable writes is not supported (like in case of Amazon DocumentDB), set to false
+
+- Optional
+- Environment Variable: `SLS_MONGO_RETRYWRITES`
+- Default: `true`
 
 ### sls_compliance_enforce
 Determines whether compliance is enforced. If there are not enough tokens to support the request. If compliance is not enforced, license checkout requests will be allowed even if there are not enough tokens to support the request.

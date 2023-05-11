@@ -1,21 +1,20 @@
 # OneClick Install for MAS Core
 
-This playbook will install and configure IBM Maximo Application Suite Core along with all necessary dependencies.  This can be ran against any OCP cluster regardless of it's type, whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.  It will take approximately 90 minutes to set up MAS core services and all of it's dependencies, at the end of the process you will be able to login to the MAS admin dashboard to install any applications that you wish to use, or you can use our other playbooks to automate the installation of those applications (including any additional dependencies)
+This playbook will install and configure IBM Maximo Application Suite Core along with all necessary dependencies.  This can be ran against any OCP cluster regardless of its type, whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.  It will take approximately 90 minutes to set up MAS core services and all of its dependencies, at the end of the process you will be able to login to the MAS admin dashboard to install any applications that you wish to use, or you can use our other playbooks to automate the installation of those applications (including any additional dependencies)
 
 ## Playbook Content
 1. [Install IBM Operator Catalogs](../roles/ibm_catalogs.md) (1 minute)
 2. [Install IBM Common Services](../roles/common_services.md) (3 minutes)
 3. [Install Certificate Manager Operator](../roles/cert_manager.md) (3 minutes)
-4. [Install Service Binding Operator](../roles/sbo.md) (2 minutes)
-5. [Configure Cluster Monitoring](../roles/cluster_monitoring.md) (1 minute)
-6. [Install Mongodb Operator and Create a Cluster](../roles/mongodb.md) (10 minutes)
-7. [Install and bootstrap IBM Suite License Service](../roles/sls.md) (10 minutes)
-8. [Install IBM User Data Services](../roles/uds.md) (30 minutes)
-9. [Generate a MAS Workspace Configuration](../roles/gencfg_workspace.md) (1 minute)
-10. [Configure Cloud Internet Services Integration for Maximo Application Suite](../roles/suite_dns.md) (Optional, 1 minute)
-11. [Install Maximo Application Suite Core Services](../roles/suite_install.md) (1 minute)
-12. [Configure Maximo Application Suite](../roles/suite_config.md) (1 minute)
-13. [Verify the Install and Configuration of Maximo Application Suite](../roles/suite_verify.md) (25 minutes)
+4. [Configure Cluster Monitoring](../roles/cluster_monitoring.md) (1 minute)
+5. [Install Mongodb Operator and Create a Cluster](../roles/mongodb.md) (10 minutes)
+6. [Install and bootstrap IBM Suite License Service](../roles/sls.md) (10 minutes)
+7. [Install IBM User Data Services](../roles/uds.md) (30 minutes)
+8. [Generate a MAS Workspace Configuration](../roles/gencfg_workspace.md) (1 minute)
+9. [Configure Cloud Internet Services Integration for Maximo Application Suite](../roles/suite_dns.md) (Optional, 1 minute)
+10. [Install Maximo Application Suite Core Services](../roles/suite_install.md) (1 minute)
+11. [Configure Maximo Application Suite](../roles/suite_config.md) (1 minute)
+12. [Verify the Install and Configuration of Maximo Application Suite](../roles/suite_verify.md) (25 minutes)
 
 All timings are estimates, see the individual pages for each of these roles for more information and full details of all configuration options available in this playbook.
 
@@ -103,11 +102,11 @@ To deploy a pre-release build of IBM Maximo Application Suite (core only) with d
 export IBM_ENTITLEMENT_KEY=xxx
 
 export ARTIFACTORY_USERNAME=$W3_USERNAME_LOWERCASE
-export ARTIFACTORY_APIKEY=xxx
+export ARTIFACTORY_TOKEN=xxx
 export MAS_ICR_CP=docker-na-public.artifactory.swg-devops.com/wiotp-docker-local
 export MAS_ICR_CPOPEN=docker-na-public.artifactory.swg-devops.com/wiotp-docker-local
 export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
-export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_APIKEY
+export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_TOKEN
 
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig

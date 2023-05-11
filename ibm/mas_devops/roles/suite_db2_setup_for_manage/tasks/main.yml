@@ -79,6 +79,29 @@
   delay: 30 # seconds
   until: copy_result.rc == 0
 
+- name: Execute db2 restart database
+  shell: |
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su - db2inst1 -lc "db2stop"
+    sleep 30
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su - db2inst1 -lc "db2start"
+    sleep 30
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su - db2inst1 -lc "db2 restart database {{ db2_dbname }}"
+    sleep 30
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su - db2inst1 -lc "db2 activate database {{ db2_dbname }}"
+    sleep 30
+  register: db2_restart_database_output
+  ignore_errors: true
+
+- name: "Database db2 restart debug information"
+  debug:
+    msg:
+      - "Result (stdout) ........................ {{ db2_restart_database_output.stdout }}"
+      - "result (stderr) ........................ {{ db2_restart_database_output.stderr }}"
+
+- name: "Pause for 1 minutes ..."
+  pause:
+    minutes: 1
+
 # The log file will also be available inside the pod /tmp/setupdb.log
 # The script will exit early if /tmp/setupdb_complete exists to avoid unnecessarily re-running
 # the setup, however this file will be lost after pod restarts.
