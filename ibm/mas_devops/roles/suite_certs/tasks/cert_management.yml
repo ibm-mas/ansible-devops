@@ -30,7 +30,7 @@
       - ca_crt_stat.stat.exists
     fail_msg: "Public certificate TLS files 'tls.crt', 'tls.key' and 'ca.crt' should be present in {{ cert_path }}"
 
-# 2. Create namespace we will deploy to
+# 2. Create namespace we will deploy secret to
 # -----------------------------------------------------------------------------
 - name: "Create namespace"
   kubernetes.core.k8s:
@@ -38,19 +38,36 @@
     kind: Namespace
     name: "mas-{{ mas_instance_id }}-{{ app_name }}"
 
+# 3. Set facts with size of the files to be used in template.
+# Note: We should not include attributes with empty files in the secret with risk to break TrustStore Worker job (i.g. it breaks when ca.crt is empty)
+# -----------------------------------------------------------------------------
+- name: Get stats of certificate files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: cert_st
+  with_items:
+    - /Users/alequint/Documents/projects/mas/manucert/test/certificates/ca.crt # 0
+    - /Users/alequint/Documents/projects/mas/manucert/test/certificates/tls.crt # 1
+    - /Users/alequint/Documents/projects/mas/manucert/test/certificates/tls.key # 2
 
+# Be sure to set results to the right variables following sequence of with_items above
+- name: Set Facts
+  set_fact:
+    ca_crt_size: "{{ cert_st.results.0.stat.size | int }}"
+    tls_crt_size: "{{ cert_st.results.1.stat.size | int }}"
+    tls_key_size: "{{ cert_st.results.2.stat.size | int }}"
+
+- name: Debug certificate file sizes
+  debug:
+    msg:
+      - "ca_crt_size ......... {{ ca_crt_size }}"  
+      - "tls_crt_size ........ {{ tls_crt_size }}"  
+      - "tls_key_size ........ {{ tls_key_size }}"  
+  
+# 4. Create Public certificate secret
+# -----------------------------------------------------------------------------
 - name: "Create Public certificate secret in {{ app_name }} namespace when manual certificate management mode is turned on"
   kubernetes.core.k8s:
-    definition:
-      apiVersion: v1
-      kind: Secret
-      type: kubernetes.io/tls
-      metadata:
-        name: "{{ tlssecretname[app_name] }}"
-        namespace: "mas-{{ mas_instance_id }}-{{ app_name }}"
-      data:
-        tls.key: "{{ lookup('file', '{{ cert_path }}/tls.key') | b64encode }}"
-        tls.crt: "{{ lookup('file', '{{ cert_path }}/tls.crt') | b64encode }}"
-        ca.crt: "{{ lookup('file', '{{ cert_path }}/ca.crt') | b64encode }}"
+    definition: "{{ lookup('template', 'templates/public-cert-secret.yml.j2') }}"
     wait: yes
-    wait_timeout: 60 # subsequent tasks will fail if the group isn't fully created
+    wait_timeout: 60
