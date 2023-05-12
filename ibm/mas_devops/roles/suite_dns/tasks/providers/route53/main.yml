@@ -1,0 +1,114 @@
+---
+# 1. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Create AWS User: Debug information"
+  debug:
+    msg:
+      - "AWS Hosted Zone name ................................... {{ aws_route53_hosted_zone_name | default('Not Available, no will be created', true) }}"
+
+# # 1. Create IAM Policy to allow cert-manager to add records to AWS Route53
+# # -----------------------------------------------------------------------------
+# - name: "aws-route53 : Create AWS IAM Policy to allow cert-manager to add records"
+#   import_role:
+#     name: ibm.mas_devops.aws_policy
+#   vars:
+#     aws_policy_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-route53-policy"
+#     aws_policy_statement:
+#       - Effect: Allow
+#         Action: route53:GetChange
+#         Resource: arn:aws:route53:::change/*
+#       - Effect: Allow
+#         Action:
+#         - route53:ChangeResourceRecordSets
+#         - route53:ListResourceRecordSets
+#         Resource: arn:aws:route53:::hostedzone/*
+#       - Effect: Allow
+#         Action: route53:ListHostedZonesByName
+#         Resource: "*"
+
+
+# aws route53 list-hosted-zones-by-name --dns-name andrercmaws.com
+
+# 2. Create AWS Route 53 hosted zones
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Lookup AWS Route53 Hosted zone instance"
+  shell: |
+    aws route53 list-hosted-zones-by-name | 
+    jq --arg name "{{ aws_route53_hosted_zone_name }}." \
+    -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
+  register: aws_hosted_zone_lookup_output
+
+- set_fact:
+    aws_route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout }}"
+
+- block:
+    - name: "aws-route53 : Create AWS Route53 Hosted zone instance if none exists with name {{ aws_route53_hosted_zone_name }}"
+      shell: |
+        aws route53 create-hosted-zone \
+        --name {{ aws_route53_hosted_zone_name }} \
+        --caller-reference {{ aws_route53_caller_reference }} \
+        --output json
+      register: aws_hosted_zone_create_output
+      failed_when: aws_hosted_zone_create_output.rc > 0 and ('HostedZoneAlreadyExists' not in aws_hosted_zone_create_output.stderr )
+
+    - name: "aws-route53 : Lookup AWS Route53 Hosted Zone ID for {{ aws_route53_hosted_zone_name }}"
+      when: aws_hosted_zone_lookup_output.stdout | length == 0
+      shell: |
+        aws route53 list-hosted-zones-by-name | 
+        jq --arg name "{{ aws_route53_hosted_zone_name }}." \
+        -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
+      register: aws_hosted_zone_lookup_output
+
+    - set_fact:
+        aws_route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout }}"
+
+  when: aws_route53_hosted_zone_id | length == 0
+
+- name: "Hosted Zone Id for {{ aws_route53_hosted_zone_name }}"
+  debug:
+    var: aws_route53_hosted_zone_id
+
+# TASK [ibm.mas_devops.suite_dns : Debug information] **************************************************************************************************************************************************************************************************************************************
+# ok: [localhost] => {
+#     "aws_hosted_zone_create_output": {
+#         "changed": true,
+#         "cmd": "aws route53 create-hosted-zone --name andrercmaws.com --caller-reference andrercmaws.com\n",
+#         "delta": "0:00:01.809864",
+#         "end": "2023-05-12 15:28:15.354633",
+#         "failed": false,
+#         "failed_when_result": false,
+#         "msg": "",
+#         "rc": 0,
+#         "start": "2023-05-12 15:28:13.544769",
+#         "stderr": "",
+#         "stderr_lines": [],
+#         "stdout": "{\n    \"Location\": \"https://route53.amazonaws.com/2013-04-01/hostedzone/Z07728341NKUKGL3X8S43\",\n    \"HostedZone\": {\n        \"Id\": \"/hostedzone/Z07728341NKUKGL3X8S43\",\n        \"Name\": \"andrercmaws.com.\",\n        \"CallerReference\": \"andrercmaws.com\",\n        \"Config\": {\n            \"PrivateZone\": false\n        },\n        \"ResourceRecordSetCount\": 2\n    },\n    \"ChangeInfo\": {\n        \"Id\": \"/change/C06279522VT6NJRC1VOU3\",\n        \"Status\": \"PENDING\",\n        \"SubmittedAt\": \"2023-05-12T18:28:15.497000+00:00\"\n    },\n    \"DelegationSet\": {\n        \"NameServers\": [\n            \"ns-209.awsdns-26.com\",\n            \"ns-1095.awsdns-08.org\",\n            \"ns-2015.awsdns-59.co.uk\",\n            \"ns-756.awsdns-30.net\"\n        ]\n    }\n}",
+#         "stdout_lines": [
+#             "{",
+#             "    \"Location\": \"https://route53.amazonaws.com/2013-04-01/hostedzone/Z07728341NKUKGL3X8S43\",",
+#             "    \"HostedZone\": {",
+#             "        \"Id\": \"/hostedzone/Z07728341NKUKGL3X8S43\",",
+#             "        \"Name\": \"andrercmaws.com.\",",
+#             "        \"CallerReference\": \"andrercmaws.com\",",
+#             "        \"Config\": {",
+#             "            \"PrivateZone\": false",
+#             "        },",
+#             "        \"ResourceRecordSetCount\": 2",
+#             "    },",
+#             "    \"ChangeInfo\": {",
+#             "        \"Id\": \"/change/C06279522VT6NJRC1VOU3\",",
+#             "        \"Status\": \"PENDING\",",
+#             "        \"SubmittedAt\": \"2023-05-12T18:28:15.497000+00:00\"",
+#             "    },",
+#             "    \"DelegationSet\": {",
+#             "        \"NameServers\": [",
+#             "            \"ns-209.awsdns-26.com\",",
+#             "            \"ns-1095.awsdns-08.org\",",
+#             "            \"ns-2015.awsdns-59.co.uk\",",
+#             "            \"ns-756.awsdns-30.net\"",
+#             "        ]",
+#             "    }",
+#             "}"
+#         ]
+#     }
+# }
