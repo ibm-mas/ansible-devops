@@ -6,7 +6,7 @@ This role is used to install or uninstall OpenTelemetry Operator.
 
 Role Variables - General
 -------------------------------------------------------------------------------
-### mas_instance_id
+### mas_app_monitoring_action
 Defines the instance id that was used for the MAS installation
 
 - Optional
@@ -17,11 +17,24 @@ Defines the instance id that was used for the MAS installation
 Example Playbook
 -------------------------------------------------------------------------------
 
+- Install OpenTelemetry Operator
+
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
     mas_app_monitoring_action: "install"
+  roles:
+    - ibm.mas_devops.suite_app_monitoring
+```
+
+- Uninstall OpenTelemetry Operator
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_app_monitoring_action: "uninstall"
   roles:
     - ibm.mas_devops.suite_app_monitoring
 ```
