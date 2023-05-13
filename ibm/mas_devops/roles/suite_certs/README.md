@@ -26,8 +26,9 @@ Role Variables
 --------------
 
 ### mas_instance_id
-Required.  The instance ID of the Maximo Application Suite installation to verify.
+The instance ID of the Maximo Application Suite installation to verify.
 
+- **Required**
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default Value: None
 
@@ -40,7 +41,50 @@ Set this to `True` if you want to enable manual certificate management mode.
 ### mas_config_dir
 Path to the mas config directory. 
 
+- **Required**
 - Environment Variable: `MAS_CONFIG_DIR`
+
+Role Variables - CIS as DNS Provider (Optional)
+--------------
+
+Optional variables for users using IBM Cloud Internet Services to manage DNS. This role will guarantee that your CNAMES related to MAS routes are created or updated in the informed CIS instance.
+
+### dns_provider
+Set this to `cis` if you manage DNS using IBM Cloud Internet. If this variable is informed with a value different than `cis` it results in error (except blank, as it is optional).
+
+- Optional
+- Environment Variable: `DNS_PROVIDER`
+
+### mas_workspace_id
+Workspace Id will be used as part of CNAMES definition when using `cis` as dns_provider.
+
+- **Required** if dns_provider is defined and is `cis`
+- Environment Variable: `MAS_WORKSPACE_ID`
+
+### cis_crn
+CRN Key identifying the CIS in IBM Cloud. You can find that information in the page of your CIS instance.
+
+- **Required** if dns_provider is defined and is `cis`
+- Environment Variable: `CIS_CRN`
+
+### cis_apikey
+API Key used to access the CIS in IBM CLoud.
+
+- **Required** if dns_provider is defined and is `cis`
+- Environment Variable: `CIS_APIKEY`
+
+### cis_subdomain
+Subdomain will be used as part of CNAMES definition when using `cis` as dns_provider.
+
+- **Required** if dns_provider is defined and is `cis`
+- Environment Variable: `CIS_SUBDOMAIN`
+
+### cis_proxy
+Set this to `True` if you want enable proxy in your CIS CNames leveraging security rules defined for this software.
+
+- Optional
+- Environment Variable: `CIS_PROXY`
+- Default Value: `False`
 
 The directory structure for the certificates must be like below
 ```

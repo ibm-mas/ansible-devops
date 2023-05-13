@@ -3,6 +3,8 @@ suite_dns
 
 This role will manage MAS and DNS provider integration.  IBM Cloud Internet Services is the only supported DNS provider currently. It will also create a secure route (https://cp4d.<mas_domain>) to the CP4D web client using the custom domain used in this role.
 
+**Note**: this role will take no action when `mas_manual_cert_mgmt`is set to `True`
+
 ## DNS management
 There are two different ways this role controls DNS entries in the provider:
 
