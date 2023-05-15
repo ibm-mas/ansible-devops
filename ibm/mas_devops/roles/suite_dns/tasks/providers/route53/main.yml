@@ -1,72 +1,133 @@
 ---
 # 1. Provide debug information to the user
 # -----------------------------------------------------------------------------
-- name: "Create AWS User: Debug information"
+- name: "AWS Route53: Debug information"
   debug:
     msg:
       - "AWS Hosted Zone name ................................... {{ aws_route53_hosted_zone_name | default('Not Available, no will be created', true) }}"
+      - "AWS Hosted Zone region ................................. {{ aws_route53_hosted_zone_region }}"
+      - "AWS Route53 Cluster Issuer ............................. {{ aws_route53_cluster_issuer }}"
 
-# # 1. Create IAM Policy to allow cert-manager to add records to AWS Route53
-# # -----------------------------------------------------------------------------
-# - name: "aws-route53 : Create AWS IAM Policy to allow cert-manager to add records"
-#   import_role:
-#     name: ibm.mas_devops.aws_policy
-#   vars:
-#     aws_policy_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-route53-policy"
-#     aws_policy_statement:
-#       - Effect: Allow
-#         Action: route53:GetChange
-#         Resource: arn:aws:route53:::change/*
-#       - Effect: Allow
-#         Action:
-#         - route53:ChangeResourceRecordSets
-#         - route53:ListResourceRecordSets
-#         Resource: arn:aws:route53:::hostedzone/*
-#       - Effect: Allow
-#         Action: route53:ListHostedZonesByName
-#         Resource: "*"
+      
 
 
-# aws route53 list-hosted-zones-by-name --dns-name andrercmaws.com
+# # # 1. Create IAM Policy to allow cert-manager to add records to AWS Route53
+# # # -----------------------------------------------------------------------------
+# # - name: "aws-route53 : Create AWS IAM Policy to allow cert-manager to add records"
+# #   import_role:
+# #     name: ibm.mas_devops.aws_policy
+# #   vars:
+# #     aws_policy_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-route53-policy"
+# #     aws_policy_statement:
+# #       - Effect: Allow
+# #         Action: route53:GetChange
+# #         Resource: arn:aws:route53:::change/*
+# #       - Effect: Allow
+# #         Action:
+# #         - route53:ChangeResourceRecordSets
+# #         - route53:ListResourceRecordSets
+# #         Resource: arn:aws:route53:::hostedzone/*
+# #       - Effect: Allow
+# #         Action: route53:ListHostedZonesByName
+# #         Resource: "*"
+
+
+# # aws route53 list-hosted-zones-by-name --dns-name andrercmaws.com
 
 # 2. Create AWS Route 53 hosted zones
 # -----------------------------------------------------------------------------
+# - name: "aws-route53 : Lookup AWS Route53 Hosted zone instance"
+#   shell: |
+#     aws route53 list-hosted-zones-by-name | 
+#     jq --arg name "{{ aws_route53_hosted_zone_name }}." \
+#     -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
+#   register: aws_hosted_zone_lookup_output
+
+# - set_fact:
+#     aws_route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout | regex_replace('/hostedzone/', '''') }}"
+
 - name: "aws-route53 : Lookup AWS Route53 Hosted zone instance"
   shell: |
-    aws route53 list-hosted-zones-by-name | 
-    jq --arg name "{{ aws_route53_hosted_zone_name }}." \
-    -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
+    aws route53 list-hosted-zones-by-name --dns-name "{{ aws_route53_hosted_zone_name }}" --max-items 1 --output json
   register: aws_hosted_zone_lookup_output
 
 - set_fact:
-    aws_route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout }}"
+    aws_route53_hosted_zone_info: "{{ aws_hosted_zone_lookup_output.stdout }}"
 
-- block:
-    - name: "aws-route53 : Create AWS Route53 Hosted zone instance if none exists with name {{ aws_route53_hosted_zone_name }}"
-      shell: |
-        aws route53 create-hosted-zone \
-        --name {{ aws_route53_hosted_zone_name }} \
-        --caller-reference {{ aws_route53_caller_reference }} \
-        --output json
-      register: aws_hosted_zone_create_output
-      failed_when: aws_hosted_zone_create_output.rc > 0 and ('HostedZoneAlreadyExists' not in aws_hosted_zone_create_output.stderr )
+- set_fact:
+    aws_route53_hosted_zone_id: "{{ aws_route53_hosted_zone_info.HostedZones[0].Id | regex_replace('/hostedzone/', '''') }}"
 
-    - name: "aws-route53 : Lookup AWS Route53 Hosted Zone ID for {{ aws_route53_hosted_zone_name }}"
-      when: aws_hosted_zone_lookup_output.stdout | length == 0
-      shell: |
-        aws route53 list-hosted-zones-by-name | 
-        jq --arg name "{{ aws_route53_hosted_zone_name }}." \
-        -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
-      register: aws_hosted_zone_lookup_output
+# # - block:
+# #     - name: "aws-route53 : Create AWS Route53 Hosted zone instance if none exists with name {{ aws_route53_hosted_zone_name }}"
+# #       shell: |
+# #         aws route53 create-hosted-zone \
+# #         --name {{ aws_route53_hosted_zone_name }} \
+# #         --caller-reference {{ aws_route53_caller_reference }} \
+# #         --region {{ aws_route53_hosted_zone_region }} \
+# #         --output json
+# #       register: aws_hosted_zone_create_output
+# #       failed_when: aws_hosted_zone_create_output.rc > 0 and ('HostedZoneAlreadyExists' not in aws_hosted_zone_create_output.stderr )
 
-    - set_fact:
-        aws_route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout }}"
+# #     - name: "aws-route53 : Lookup AWS Route53 Hosted Zone ID for {{ aws_route53_hosted_zone_name }}"
+# #       when: aws_hosted_zone_lookup_output.stdout | length == 0
+# #       shell: |
+# #         aws route53 list-hosted-zones-by-name | 
+# #         jq --arg name "{{ aws_route53_hosted_zone_name }}." \
+# #         -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
+# #       register: aws_hosted_zone_lookup_output
 
-  when: aws_route53_hosted_zone_id | length == 0
+# #     - set_fact:
+# #         aws_route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout | regex_replace('/hostedzone/', '''') }}"
+
+# #   when: aws_route53_hosted_zone_id | length == 0
 
 - name: "Hosted Zone Id for {{ aws_route53_hosted_zone_name }}"
   debug:
     var: aws_route53_hosted_zone_id
+
+# 3. Create AWS Route 53 cluster issuer
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Create AWS Route 53 cluster issuer: {{ aws_route53_cluster_issuer }}"
+  kubernetes.core.k8s:
+    namespace: "ibm-common-services"
+    state: present
+    template: templates/route53/clusterissuer.yml.j2
+
+# # 4. Change cert-manager deployment 
+# - '--dns01-recursive-nameservers-only'
+# - '--dns01-recursive-nameservers=8.8.8.8:53'
+# https://community.ibm.com/community/user/asset-facilities/blogs/brian-zhu/2022/10/08/using-lets-encrypt-ssl-certificates-with-maximo-ap?CommunityKey=3d7261ae-48f7-481d-b675-a40eb407e0fd
+
+
+# list resources in the hosted zone: aws route53 list-resource-record-sets --hosted-zone-id "Z010310826HGIMGPRATUZ"
+# 5. create cnames in the hosted zones
+# awsroute53.andrercmaws.com > points to lb > a778573fe118e4659a2926df9b85875a-1425861465.us-east-2.elb.amazonaws.com.
+# *.awsroute53.andrercmaws.com > points to lb > a778573fe118e4659a2926df9b85875a-1425861465.us-east-2.elb.amazonaws.com.
+
+# 5. create A entries in the hosted zones
+# api.rosa-ivt01.md00.p1.openshiftapps.com -> points to lb -> masocp-zmk6sc-7hvkk-ext-edae0d6909f0bedf.elb.us-east-2.amazonaws.com.
+# *.apps.rosa-ivt01.md00.p1.openshiftapps.com -> points to lb > a778573fe118e4659a2926df9b85875a-1425861465.us-east-2.elb.amazonaws.com.
+
+
+# # 6. Generate certificate
+# apiVersion: cert-manager.io/v1
+# kind: Certificate
+# metadata:
+#   name: awsroute53-cert-public
+#   namespace: ibm-common-services
+# spec:
+#   dnsNames:
+#     - awsroute53.andrercmaws10.com
+#     - '*.awsroute53.andrercmaws10.com'
+#     - '*.home.awsroute53.andrercmaws10.com'
+#   duration: 8760h0m0s
+#   issuerRef:
+#     kind: ClusterIssuer
+#     name: awsroute53-route53-issuer
+#   renewBefore: 720h0m0s
+#   secretName: awsroute53-cert-public
+
+
 
 # TASK [ibm.mas_devops.suite_dns : Debug information] **************************************************************************************************************************************************************************************************************************************
 # ok: [localhost] => {
