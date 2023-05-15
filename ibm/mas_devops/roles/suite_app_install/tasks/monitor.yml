@@ -26,7 +26,7 @@
 
 - name: "Lookup version of Data Dictionary using the channel"
   set_fact:
-    dd_version: "{{ dd_manifest_info.resources[0].status.channels | selectattr('name', 'equalto', dd_channel) | map(attribute='currentCSVDesc') | map(attribute='version') }}"
+    dd_version: "{{ dd_manifest_info.resources[0].status.channels | selectattr('name', 'equalto', dd_channel) | map(attribute='currentCSVDesc') | jq -r '.version' }}"
 
 - name: Debug
   debug:
@@ -38,17 +38,17 @@
 # 3. Create the Image Digest Map for Data Dictionary v1.1.3
 # -----------------------------------------------------------------------------
 - name: "Create data-dictionary namespace"
-  when: mas_app_operator_version[0] is version('1.1.3', '==')
+  when: mas_app_operator_version is version('1.1.3', '==')
   kubernetes.core.k8s:
     api_version: v1
     kind: Namespace
     name: 'mas-{{ mas_instance_id }}-add'
 
 - name: "Create ibm-data-dictionary Image Digest Map"
-  when: mas_app_operator_version[0] is version('1.1.3', '==')
+  when: mas_app_operator_version is version('1.1.3', '==')
   include_role:
     name: ibm.mas_devops.suite_install_digest_cm
   vars:
     digest_image_map_namespace: "mas-{{ mas_instance_id }}-add"
     case_name: "ibm-data-dictionary"
-    case_version: "{{ dd_version[0] }}"
+    case_version: "{{ dd_version }}"
