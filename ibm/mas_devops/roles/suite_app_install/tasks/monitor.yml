@@ -11,7 +11,8 @@
 
 - name: "Get the channel of Data Dictionary from the Suite lookup"
   set_fact:
-    dd_channel: "{{ suite_lookup.resources[0].staus.settings.dataDictionary.channel }}"
+    dd_channel: "{{ suite_lookup.resources[0].status.settings.dataDictionary.channel }}"
+
 
 # 2. Lookup package manifest to get version for the Data Dictionary channel
 # -----------------------------------------------------------------------------
@@ -36,6 +37,12 @@
 
 # 3. Create the Image Digest Map for Data Dictionary v1.1.3
 # -----------------------------------------------------------------------------
+- name: "Create data-dictionary namespace"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: 'mas-{{ mas_instance_id }}-add'
+
 - name: "Create ibm-data-dictionary Image Digest Map"
   when: mas_app_operator_version is version('1.1.3', '==')
   include_role:
