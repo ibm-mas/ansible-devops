@@ -1,42 +1,43 @@
 ---
 
-# 1. Determine the version of the application operator that is running
+# 1. Lookup Suite Cr to get override version of Data Dictionary
 # -----------------------------------------------------------------------------
-- name: "Lookup Application operator version"
+- name: "Lookup Suite Cr to get override version"
   kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v2
-    kind: OperatorCondition
-    namespace: "mas-{{ mas_instance_id }}-add"
-    label_selectors:
-      - "operators.coreos.com/ibm-data-dictionary.mas-{{ mas_instance_id }}-add"
-  register: app_opcon
-  retries: 10
-  delay: 1 # minutes
-  until:
-    - app_opcon.resources is defined
-    - app_opcon.resources | length == 1
-    - app_opcon.resources[0].metadata.name is defined
+    api_version: core.mas.ibm.com/v1
+    kind: Suite
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: suite_lookup
 
-
-# 2. Set the application operator version
-# -----------------------------------------------------------------------------
-# OperatorCondition names are in the format {packageName}.{packageVersion}
-# We want to strip off the "v" prefix from the version while we do this
-- name: "Lookup operator version"
+- name: "Get the channel of Data Dictionary from the Suite lookup"
   set_fact:
-    mas_app_operator_version: "{{ app_opcon.resources[0].metadata.name.split('.v')[1] }}"
+    dd_channel: "{{ suite_lookup.resources[0].staus.settings.dataDictionary.channel }}"
+
+# 2. Lookup package manifest to get version for the Data Dictionary channel
+# -----------------------------------------------------------------------------
+- name: Lookup datadictionary packagemanifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: ibm-data-dictionary
+    namespace: openshift-marketplace
+  register: dd_manifest_info
+
+- name: "Lookup version of Data Dictionary using the channel"
+  set_fact:
+    dd_version: "{{ dd_manifest_info.resources[0].staus.channels | selectattr('name', 'equalto', dd_channel) | map(attribute='version') }}"
 
 - name: Debug
   debug:
     msg:
-      - "Application operator condition ......... {{ app_opcon.resources[0].metadata.name }}"
-      - "Application operator version ........... {{ mas_app_operator_version }}"
+      - "Data Dictionary Channel ........... {{ dd_channel }}"
+      - "Data Dictionary Version ........... {{ dd_version }}"
 
 
 # 3. Create the Image Digest Map for Data Dictionary v1.1.3
 # -----------------------------------------------------------------------------
 - name: "Create ibm-data-dictionary Image Digest Map"
-  when: mas_app_operator_version is version('1.1.3', '>=')
+  when: mas_app_operator_version is version('1.1.3', '==')
   include_role:
     name: ibm.mas_devops.suite_install_digest_cm
   vars:

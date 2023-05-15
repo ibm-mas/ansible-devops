@@ -47,7 +47,15 @@
     case_name: "ibm-mas-{{ mas_app_id }}"
     case_version: "{{ mas_app_operator_version }}"
 
-# 4. Lookup the OperatorCondition for Truststore Manager
+
+# 4. Create Data Dictionary Image Digest Map if installing Monitor (special case)
+# ---------------------------------------------------------------------------------
+- name: "Create ibm-data-dictionary Image Digest Map"
+  when: mas_app_id == "monitor"
+  include_tasks: "tasks/{{ mas_app_id }}.yml"
+
+
+# 5. Lookup the OperatorCondition for Truststore Manager
 # -----------------------------------------------------------------------------
 # Note that Visual Inspection does not use/need the IBM Truststore Manager
 - name: "Lookup Truststore Manager operator version"
@@ -70,7 +78,7 @@
     - tsm_opcon.resources[0].metadata.name is defined
 
 
-# 5. If TSM is installed, determine at which version
+# 6. If TSM is installed, determine at which version
 # -----------------------------------------------------------------------------
 # Note that Visual Inspection does not use/need the IBM Truststore Manager
 - name: "Lookup Truststore Manager operator version"
@@ -82,7 +90,7 @@
     tsm_operator_version: "{{ tsm_opcon.resources[0].metadata.name.split('.v')[1] }}"
 
 
-# 6. If TSM is installed, install its digest map
+# 7. If TSM is installed, install its digest map
 # -----------------------------------------------------------------------------
 # Note that Visual Inspection does not use/need the IBM Truststore Manager
 - name: "Create ibm-truststore-mgr Image Digest Map"
