@@ -1,12 +1,24 @@
 cluster_monitoring
 ===============================================================================
 
-Configure both prometheus cluster monitoring and prometheus user workload cluster monitoring with persistant storage. Also configures
-the [community grafana operator](https://github.com/grafana-operator/grafana-operator) v4 and deploys a grafana instance along with
+Configures an out-of-the-box monitoring stack comprising of:
+- Prometheus
+- Grafana
+- OpenTelemetry
+
+
+- OpenShift user workload monitoring is enabled (`openshift-monitoring` namespace)
+- OpenShift clyster and user workload monitoring is configured with persistent storages (`openshift-monitoring` namespace)
+- OpenTelemetry operator is installed (`openshift-operators` namespace)
+- A Grafana instance is installed using the [community grafana operator](https://github.com/grafana-operator/grafana-operator)
+
+Also configures
+v4 and deploys a grafana instance along with
 a datasource to prometheus. The grafana operator will scan for dashboards across the whole cluster so that it can import any dashbaords
 from Maximo Application Suite. The namespace grafana is installed to defaults to `grafana` but can be changed using the role variables
 below. The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route
 is created in the grafana namespace to allow access to the grafana UI.
+
 
 Role Variables
 -------------------------------------------------------------------------------
@@ -17,6 +29,9 @@ Inform the role whether to perform an install or an uninstall of cluster monitor
 - Environment Variable: `CLUSTER_MONITORING_ACTION`
 - Default: `install`
 
+
+Role Variables - Prometheus
+-------------------------------------------------------------------------------
 ### prometheus_retention_period
 Adjust the retention period for Prometheus metrics, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
 
@@ -73,6 +88,9 @@ Adjust the size of the volume used to store User Workload metrics.
 - Environment Variable: `PROMETHEUS_USERWORKLOAD_STORAGE_SIZE`
 - Default Value: `300Gi`
 
+
+Role Variables - Grafana
+-------------------------------------------------------------------------------
 ### grafana_instance_storage_class
 Declare the storage class for Grafana Instance user data persistent volume.
 
@@ -103,6 +121,7 @@ Example Playbook
   vars:
     prometheus_storage_class: "ibmc-block-gold"
     prometheus_alertmgr_storage_class: "ibmc-file-gold-gid"
+    grafana_instance_storage_class: "ibmc-file-gold-gid"
   roles:
     - ibm.mas_devops.cluster_monitoring
 ```
