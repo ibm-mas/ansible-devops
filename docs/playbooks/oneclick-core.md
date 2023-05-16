@@ -59,13 +59,13 @@ Storage class configuration is built into the collection and the playbook will a
 Usually fulfilled by block storage classes:
 
 - `PROMETHEUS_ALERTMGR_STORAGE_CLASS`
+- `GRAFANA_INSTANCE_STORAGE_CLASS`
 
 #### ReadWriteOnce Access Mode
 Usually fulfilled by file storage classes:
 
 - `PROMETHEUS_STORAGE_CLASS`
 - `PROMETHEUS_USERWORKLOAD_STORAGE_CLASS`
-- `GRAFANA_INSTANCE_STORAGE_CLASS`
 - `MONGODB_STORAGE_CLASS`
 - `UDS_STORAGE_CLASS`
 
