@@ -1,5 +1,5 @@
 ---
-# 1. Check for missing properties that do not have defaults
+# 1. Check for missing properties that do not have defaults and debug
 # -----------------------------------------------------------------------------
 - name: "Fail if sls_entitlement_key has not been provided"
   ansible.builtin.assert:
@@ -21,9 +21,21 @@
     fail_msg: "Review provided MongoDb details, it is missing required elements"
   when: sls_mongodb is defined
 
-# 2. Provide debug information
-# -----------------------------------------------------------------------------
-- name: "Debug information"
+# Checks for new bootstrap mechanism in SLS 3.7.0+
+- name: "Fail if both bootstrap.license_file and bootstrap.entitlement_file are provided"
+  ansible.builtin.assert:
+    that:
+      - (bootstrap.license_file != "" and bootstrap.entitlement_file == "") or
+        (bootstrap.license_file == "" and bootstrap.entitlement_file != "")
+    fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or bootstrap.entitlement_file (SLS 3.7.0 or higher)."
+
+- name: "Fail if bootstrap.license_id is provided when bootstrap.entitlement_file is also provided"
+  ansible.builtin.assert:
+    that:
+      - bootstrap.license_id == "" and bootstrap.entitlement_file != ""
+    fail_msg: "When using bootstrap.entitlement_file (SLS 3.7.0 or higher) do not set bootstrap.license_id."
+
+- name: "Debug SLS information"
   ansible.builtin.debug:
     msg:
       - "Catalog Source ......................... {{ sls_catalog_source }}"
@@ -33,12 +45,15 @@
       - "SLS ICR cpopen content ................. {{ sls_icr_cpopen }}"
       - "SLS Instance Name ...................... {{ sls_instance_name }}"
       - "SLS MongoCfg file ...................... {{ sls_mongodb_cfg_file | default('<undefined>', True) }}"
-      - "SLS Bootstrap .......................... {{ bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != '' }}"
+      - "SLS Bootstrap .......................... {{ bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != '' or bootstrap.license_file != '' }}"
+      - "SLS Bootstrap entitlement file ......... {{ bootstrap.entitlement_file }}"
       - "SLS Bootstrap license file ............. {{ bootstrap.license_file }}"
       - "SLS Bootstrap license id ............... {{ bootstrap.license_id }}"
-      - "SLS Customize scaling .................. {{ sls_customize_scaling }}"
+      - "SLS Bootstrap registrationKey .......... {{ bootstrap.registration_key }}"
       - "SLS Mongo Retry Writes ................. {{ sls_mongo_retrywrites }}"
 
+# 2. Create the namespace for SLS
+# -----------------------------------------------------------------------------
 - name: "Create SLS Namespace"
   kubernetes.core.k8s:
     definition:
@@ -113,7 +128,7 @@
     fail_msg: "Review provided SLS MongoCfg file, it is missing required mongo connection details"
   when: sls_mongodb_cfg_file is defined
 
-- name: Overide MongoDb facts bases on mongocfg
+- name: Override MongoDb facts bases on mongocfg
   ansible.builtin.set_fact:
     mongodb:
       username: "{{ mongocfg[0].stringData.username }}"
@@ -122,7 +137,7 @@
       certificates: "{{ lookup('template', 'templates/mongo-certificates.yml.j2') }}"
   when: mongocfg is defined and mongocfg[0] is defined and mongocfg[0].stringData is defined
 
-- name: Overide MongoDb facts bases on mongocfg
+- name: Override MongoDb facts bases on mongocfg
   ansible.builtin.set_fact:
     mongodb:
       username: "{{ mongocfg[0].data.username | b64decode }}"
@@ -142,6 +157,11 @@
 - name: Initialize Bootstrap
   ansible.builtin.include_tasks: tasks/install/bootstrap.yml
   when: bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != ''
+
+# For SLS 3.7.0 and higher
+- name: Initialize Bootstrap of Entitlement Secret
+  ansible.builtin.include_tasks: tasks/install/bootstrap.yml
+  when: bootstrap.entitlement_file != ''
 
 # 8. Integrated Airgap support
 # -----------------------------------------------------------------------------

@@ -172,8 +172,8 @@ Defines the MongoDb Password.
 
 Role Variables - Bootstrap
 -------------------------------------------------------------------------------
-### bootstrap.license_id
-Defines the License Id to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on
+### bootstrap.license_id [Deprecated in SLS 3.7.0]
+Defines the License Id to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: this is now deprecated in SLS 3.7.0. Use this only for older versions of SLS.
 
 - Optional
 - Environment Variable: `SLS_LICENSE_ID`
@@ -186,13 +186,19 @@ Defines the Registration Key to be used to bootstrap SLS. Don't set if you wish 
 - Environment Variable: `SLS_REGISTRATION_KEY`
 - Default: None
 
-### bootstrap.license_file
-Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: this variable used to be called bootstrap.entitlement_file and defaulted to `{{mas_config_dir}}/entitlement.lic`, this is no longer the case and `SLS_LICENSE_FILE` has to be set in order to bootstrap.
+### bootstrap.license_file [Deprecated in SLS 3.7.0]
+Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: this variable used to be called bootstrap.entitlement_file and defaulted to `{{mas_config_dir}}/entitlement.lic`, this is no longer the case and `SLS_LICENSE_FILE` has to be set in order to bootstrap. This is now deprecated in SLS 3.7.0. Use this only for older versions of SLS.
 
 - Optional
 - Environment Variable: `SLS_LICENSE_FILE`
 - Default: None
 
+### bootstrap.entitlement_file [SLS 3.7.0 and higher]
+Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: use this variable with SLS version 3.7.0 and higher. Do not set `bootstrap.license_id` as this will be extracted automatically from the license file.
+
+- Optional
+- Environment Variable: `SLS_ENTITLEMENT_FILE`
+- Default: None
 
 Role Variables - SLSCfg
 -------------------------------------------------------------------------------

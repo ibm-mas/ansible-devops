@@ -1,14 +1,6 @@
 ---
 - name: Verify LicenseService instance status
   block:
-    - name: "Wait for LicenseService to be ready (60s delay)"
-      kubernetes.core.k8s_info:
-        api_version: sls.ibm.com/v1
-        name: "{{ sls_instance_name }}"
-        namespace: "{{ sls_namespace }}"
-        kind: LicenseService
-      register: sls_cr_result
-
     - name: "Wait for LicenseService to be running (60s delay)"
       kubernetes.core.k8s_info:
         api_version: sls.ibm.com/v1
@@ -56,7 +48,23 @@
         - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Initialized') | map(attribute='status') | list | first == "True"
       retries: 30 # approx 30 minutes before we give up
       delay: 60 # 1 minute
-      when: bootstrap.license_file != ''
+      when: bootstrap.license_file != '' or bootstrap.entitlement_file != ''
+
+    - name: "Wait for registrationKey bootstrap (60s delay)"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        name: sls-suite-registration
+        namespace: "{{ sls_namespace }}"
+        kind: ConfigMap
+      register: sls_registration_result
+      until:
+        - sls_registration_result.resources is defined and sls_registration_result.resources | length == 1
+        - sls_registration_result.resources[0].data is defined
+        - sls_registration_result.resources[0].data.registrationKey is defined
+        - sls_registration_result.resources[0].data.registrationKey == bootstrap.registration_key
+      retries: 30 # approx 30 minutes before we give up
+      delay: 60 # 1 minute
+      when: bootstrap.registration_key != ''
 
     - name: "Wait for License key bootstrap (60s delay)"
       kubernetes.core.k8s_info:
@@ -91,3 +99,37 @@
       retries: 30 # approx 30 minutes before we give up
       delay: 60 # 1 minute
       when: bootstrap.license_id != ''
+
+    - name: "Wait for License File Upload (60s delay)"
+      kubernetes.core.k8s_info:
+        api_version: sls.ibm.com/v1
+        name: "{{ sls_instance_name }}"
+        namespace: "{{ sls_namespace }}"
+        kind: LicenseService
+      register: sls_cr_result
+      until:
+        - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
+        - sls_cr_result.resources[0].status is defined
+        - sls_cr_result.resources[0].status.conditions is defined
+        - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'License File Upload') | map(attribute='status') | list | length > 0
+        - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'License File Upload') | map(attribute='status') | list | first == "True"
+      retries: 30 # approx 30 minutes before we give up
+      delay: 60 # 1 minute
+      when: bootstrap.entitlement_file != ''
+
+    - name: "Wait for License Server ID Upload (60s delay)"
+      kubernetes.core.k8s_info:
+        api_version: sls.ibm.com/v1
+        name: "{{ sls_instance_name }}"
+        namespace: "{{ sls_namespace }}"
+        kind: LicenseService
+      register: sls_cr_result
+      until:
+        - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
+        - sls_cr_result.resources[0].status is defined
+        - sls_cr_result.resources[0].status.conditions is defined
+        - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'License Server ID Upload') | map(attribute='status') | list | length > 0
+        - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'License Server ID Upload') | map(attribute='status') | list | first == "True"
+      retries: 30 # approx 30 minutes before we give up
+      delay: 60 # 1 minute
+      when: bootstrap.entitlement_file != ''
