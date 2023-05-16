@@ -1,12 +1,11 @@
 cluster_monitoring
 ===============================================================================
-
-Configures an out-of-the-box monitoring stack comprising of:
+Configures an in-cluster monitoring stack for IBM Maximo Application Suite:
 
 - [OpenShift user defined project monitoring](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/enabling-monitoring-for-user-defined-projects) is enabled (`openshift-monitoring` namespace)
 - [OpenShift monitoring stack](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/index) is configured to use persistent storage (`openshift-monitoring` namespace)
 - [OpenTelemetry operator](https://github.com/open-telemetry/opentelemetry-operator) is installed (`openshift-operators` namespace)
-- A Grafana instance is installed using the [community grafana operator](https://github.com/grafana-operator/grafana-operator) (`grafana` namespace)
+- [Grafana](https://grafana.com/) installed using the [community grafana operator](https://github.com/grafana-operator/grafana-operator) (`grafana` namespace)
 
 The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route  is created in the grafana namespace to allow access to the grafana UI.
 
