@@ -2,22 +2,13 @@ cluster_monitoring
 ===============================================================================
 
 Configures an out-of-the-box monitoring stack comprising of:
-- Prometheus
-- Grafana
-- OpenTelemetry
 
+- [OpenShift user defined project monitoring](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/enabling-monitoring-for-user-defined-projects) is enabled (`openshift-monitoring` namespace)
+- [OpenShift monitoring stack](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/index) is configured to use persistent storage (`openshift-monitoring` namespace)
+- [OpenTelemetry operator](https://github.com/open-telemetry/opentelemetry-operator) is installed (`openshift-operators` namespace)
+- A Grafana instance is installed using the [community grafana operator](https://github.com/grafana-operator/grafana-operator) (`grafana` namespace)
 
-- OpenShift user workload monitoring is enabled (`openshift-monitoring` namespace)
-- OpenShift clyster and user workload monitoring is configured with persistent storages (`openshift-monitoring` namespace)
-- OpenTelemetry operator is installed (`openshift-operators` namespace)
-- A Grafana instance is installed using the [community grafana operator](https://github.com/grafana-operator/grafana-operator)
-
-Also configures
-v4 and deploys a grafana instance along with
-a datasource to prometheus. The grafana operator will scan for dashboards across the whole cluster so that it can import any dashbaords
-from Maximo Application Suite. The namespace grafana is installed to defaults to `grafana` but can be changed using the role variables
-below. The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route
-is created in the grafana namespace to allow access to the grafana UI.
+The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route  is created in the grafana namespace to allow access to the grafana UI.
 
 
 Role Variables
@@ -91,6 +82,13 @@ Adjust the size of the volume used to store User Workload metrics.
 
 Role Variables - Grafana
 -------------------------------------------------------------------------------
+### grafana_namespace
+Sets the namespace to install the grafana operator and grafana instance
+
+- Optional
+- Environment Variable: `GRAFANA_NAMESPACE`
+- Default Value: `grafana`
+
 ### grafana_instance_storage_class
 Declare the storage class for Grafana Instance user data persistent volume.
 
@@ -104,13 +102,6 @@ Adjust the size of the volume used to store Grafana user data.
 - Optional
 - Environment Variable: `GRAFANA_INSTANCE_STORAGE_SIZE`
 - Default Value: `10Gi`
-
-### grafana_namespace
-Sets the namespace to install the grafana operator and grafana instance
-
-- Optional
-- Environment Variable: `GRAFANA_NAMESPACE`
-- Default Value: `grafana`
 
 
 Example Playbook
