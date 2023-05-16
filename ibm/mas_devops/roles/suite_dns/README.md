@@ -3,6 +3,8 @@ suite_dns
 
 This role will manage MAS and DNS provider integration.  IBM Cloud Internet Services is the only supported DNS provider currently. It will also create a secure route (https://cp4d.<mas_domain>) to the CP4D web client using the custom domain used in this role.
 
+**Note**: this role will take no action when `mas_manual_cert_mgmt`is set to `True`
+
 ## DNS management
 There are two different ways this role controls DNS entries in the provider:
 
@@ -11,9 +13,9 @@ This mode will create the entries directly under your DNS zone. Use this when th
 
 
 ### Subdomain DNS entries
-This mode will create DNS entries in the zone under a subdomain. Use this when your DNS zone will be used for more than just one MAS instance.  If your MAS installation will be using the domain **mymas.mycompany.com** and you have a DNS zone for **mycompany.com** then you will be creating subdomain DNS entries for MAS, e.g. **admin.mymas**, **home.mymas**, & **api.mymas**.
+This mode will create DNS entries in the zone under a subdomain. Use this when your DNS zone will be used for more than just one MAS instance. If your MAS installation will be using the domain **mymas.mycompany.com** and you have a DNS zone for **mycompany.com** then you will be creating subdomain DNS entries for MAS, e.g. **admin.mymas**, **home.mymas**, & **api.mymas**.
 
-CIS and Cloudflare integrations support both mode of DNS management.  A single optional variable is required to enable subdomain DNS management, in the examples above you would set these to **mymas**:
+CIS and Cloudflare integrations support both mode of DNS management. A single optional variable is required to enable subdomain DNS management, in the examples above you would set these to **mymas**:
 
 - [cis_subdomain](#cis_subdomain)
 - [cloudflare_subdomain](#cloudflare_subdomain)
