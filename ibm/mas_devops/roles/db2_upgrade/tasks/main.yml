@@ -1,0 +1,98 @@
+---
+#1. Lookup common services channel
+# -----------------------------------------------------------------------------
+- name: "Get the current subscription for common services"
+  when:
+    - common_services_channel is defined and common_services_channel != ""
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-common-service-operator"
+    namespace: "ibm-common-services"
+    kind: Subscription
+  register: cs_sub_info
+
+
+#2. Lookup common service channel
+# -----------------------------------------------------------------------------
+- name: "Get channel for common services"
+  when:
+    - common_services_channel is defined and common_services_channel != ""
+  set_fact:
+    cs_channel: "{{ cs_sub_info.resources[0].spec.channel }}"
+
+
+#4. If the current operator channel is the same for the upgrade, no upgrade
+# -----------------------------------------------------------------------------
+- name: "Debug when no upgrade is needed"
+  when:
+    - common_services_channel == cs_channel
+  debug:
+    msg: "No action required, subscription is already on the {{ mas_app_channel }} channel"
+
+
+#5. Upgrade Subscription otherwise
+# -----------------------------------------------------------------------------
+- name: "Update subscription to the new channel"
+  when:
+    - common_services_channel != cs_channel
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-common-service-operator
+    kind: Subscription
+    definition:
+      spec:
+        channel: "{{ common_services_channel }}"
+    apply: true
+
+- name: "Pause for 2 minutes before checking upgrade status..."
+  pause:
+    minutes: 2
+
+
+# 6. Lookup the updated OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "Lookup the updated OperatorCondition"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "ibm-common-services"
+    label_selectors:
+      - "operators.coreos.com/ibm-common-service-operator.ibm-common-services"
+  register: updated_cs_opcon
+  retries: 10
+  delay: 1 # minutes
+  until:
+    - updated_cs_opcon.resources is defined
+    - updated_cs_opcon.resources | length == 1
+    - updated_cs_opcon.resources[0].metadata.name is defined
+
+
+# 7. Debug operator version
+# -----------------------------------------------------------------------------
+- name: "Get operator version for the updated db2"
+  set_fact:
+    cs_version: "{{ updated_cs_opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+- name: "Debug Operator Version"
+  debug:
+    msg:
+      - "Operator condition ..................... {{ updated_cs_opcon.resources[0].metadata.name }}"
+
+# - name: "Create Db2 Universal Operator Operand Request"
+#   kubernetes.core.k8s:
+#     state: absent
+#     template: templates/db2u_operandrequest.yml.j2
+#     wait: yes
+#     wait_timeout: 120
+#   register: operandrequest_removal
+
+# - name: "Wait 2 minutes if we removed an old OperandRequest"
+#   when: operandrequest_removal.changed == True
+#   pause:
+#     minutes: 2
+
+# - name: "Create Db2 Universal Operator Subscription"
+#   kubernetes.core.k8s:
+#     template: templates/db2u_subscription.yml.j2
+#     wait: yes
+#     wait_timeout: 120
