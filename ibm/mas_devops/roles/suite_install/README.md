@@ -67,6 +67,13 @@ Provide a list of comma-separated key=value pairs which will be applied as label
 - Environment Variable: `CUSTOM_LABELS`,
 - Default: None
 
+### mas_manual_cert_mgmt
+Boolean variable that, when set to True, enable manual certificate management.
+
+- Optional
+- Environment Variable: `MAS_MANUAL_CERT_MGMT`,
+- Default: False
+
 
 Example Playbook
 -------------------------------------------------------------------------------
