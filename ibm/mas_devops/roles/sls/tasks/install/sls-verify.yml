@@ -52,26 +52,6 @@
         (bootstrap.license_file is defined and bootstrap.license_file != '') or
         (entitlement_file is defined and entitlement_file != '')
 
-    - name: "Verify registrationKey matches"
-      when: bootstrap.registration_key is defined and bootstrap.registration_key != ''
-      block:
-        - name: Lookup sls-suite-registration ConfigMap
-          kubernetes.core.k8s_info:
-            api_version: v1
-            name: sls-suite-registration
-            namespace: "{{ sls_namespace }}"
-            kind: ConfigMap
-          register: sls_registration_result
-
-        - name: Assert that the keys match
-          ansible.builtin.assert:
-            that:
-              - sls_registration_result.resources is defined and sls_registration_result.resources | length == 1
-              - sls_registration_result.resources[0].data is defined
-              - sls_registration_result.resources[0].data.registrationKey is defined
-              - sls_registration_result.resources[0].data.registrationKey == bootstrap.registration_key
-            fail_msg: "Bootstrap of registrationKey failed. Existing key does not match with predefined key."
-
     - name: "Wait for License key & ID bootstrap (30s delay)"
       kubernetes.core.k8s_info:
         api_version: sls.ibm.com/v1
@@ -109,3 +89,23 @@
       retries: 20 # 10 minutes before we give up
       delay: 30 # seconds
       when: entitlement_file is defined and entitlement_file != ''
+
+    - name: "Verify registrationKey matches"
+      when: bootstrap.registration_key is defined and bootstrap.registration_key != ''
+      block:
+        - name: Lookup sls-suite-registration ConfigMap
+          kubernetes.core.k8s_info:
+            api_version: v1
+            name: "{{ sls_instance_name }}-suite-registration"
+            namespace: "{{ sls_namespace }}"
+            kind: ConfigMap
+          register: sls_registration_result
+
+        - name: Assert that the registrationKeys match
+          ansible.builtin.assert:
+            that:
+              - sls_registration_result.resources is defined
+              - sls_registration_result.resources | length == 1
+              - sls_registration_result.resources[0].data is defined
+              - sls_registration_result.resources[0].data.registrationKey is defined
+              - sls_registration_result.resources[0].data.registrationKey == bootstrap.registration_key
