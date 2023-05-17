@@ -173,10 +173,17 @@ Defines the MongoDb Password.
 
 Role Variables - Bootstrap [Partly deprecated in SLS 3.7.0]
 -------------------------------------------------------------------------------
-### bootstrap.license_id [Deprecated in SLS 3.7.0]
-Defines the License Id to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: this is now deprecated in SLS 3.7.0. Use this only for versions up to 3.6.0.
+### bootstrap.license_file [Deprecated in SLS 3.7.0]
+Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: this variable used to be called bootstrap.entitlement_file and defaulted to `{{mas_config_dir}}/entitlement.lic`, this is no longer the case and `SLS_LICENSE_FILE` has to be set in order to bootstrap. This is now deprecated in SLS 3.7.0. Use this only for versions up to 3.6.0.
 
 - Optional
+- Environment Variable: `SLS_LICENSE_FILE`
+- Default: None
+
+### bootstrap.license_id [Deprecated in SLS 3.7.0]
+Defines the License Id to be used to bootstrap SLS. This must be set when `bootstrap.license_file` is also set and should match the licenseId from the license file. Don't set if you wish to setup entitlement later on. Note: this is now deprecated in SLS 3.7.0. Use this only for versions up to 3.6.0.
+
+- Optional unless `bootstrap.license_file` is set
 - Environment Variable: `SLS_LICENSE_ID`
 - Default: None
 
@@ -185,13 +192,6 @@ Defines the Registration Key to be used to bootstrap SLS. Don't set if you wish 
 
 - Optional
 - Environment Variable: `SLS_REGISTRATION_KEY`
-- Default: None
-
-### bootstrap.license_file [Deprecated in SLS 3.7.0]
-Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: this variable used to be called bootstrap.entitlement_file and defaulted to `{{mas_config_dir}}/entitlement.lic`, this is no longer the case and `SLS_LICENSE_FILE` has to be set in order to bootstrap. This is now deprecated in SLS 3.7.0. Use this only for versions up to 3.6.0.
-
-- Optional
-- Environment Variable: `SLS_LICENSE_FILE`
 - Default: None
 
 Role Variables - Upload License file [SLS 3.7.0 and higher]

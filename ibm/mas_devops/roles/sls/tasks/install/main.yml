@@ -22,9 +22,9 @@
   when: sls_mongodb is defined
 
 # SLS 3.7.0 introduced a new machanism for uploading a license file
-- name: Checks for new bootstrap/upload mechanism
+- name: Checks for bootstrap/upload mechanism
   block:
-    - name: "Fail if bootstrap.license_file and entitlement_file are both provided"
+    - name: "Fail if bootstrap.license_file and entitlement_file are both set"
       ansible.builtin.assert:
         that: bootstrap.license_file == ""
         fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or entitlement_file (SLS 3.7.0 or higher)."
@@ -33,7 +33,7 @@
         - entitlement_file is defined
         - entitlement_file != ""
 
-    - name: "Fail if bootstrap.license_file and entitlement_file are both provided"
+    - name: "Fail if bootstrap.license_file and entitlement_file are both set"
       ansible.builtin.assert:
         that: entitlement_file == ""
         fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or entitlement_file (SLS 3.7.0 or higher)."
@@ -41,6 +41,16 @@
         - entitlement_file is defined
         - bootstrap.license_file is defined
         - bootstrap.license_file != ""
+
+    - name: "Fail if bootstrap.license_id is missing when bootstrap.license_file is set"
+      ansible.builtin.assert:
+        that:
+          - bootstrap.license_id is defined
+          - bootstrap.license_id != ""
+        fail_msg: "When bootstrapping bootstrap.license_file the corresponding bootstrap.license_id must be set too."
+      when:
+        - bootstrap.license_file is defined
+        - bootstrap.license_file != ''
 
     - name: "Fail if bootstrap.license_id is provided when entitlement_file is also provided"
       ansible.builtin.assert:
@@ -51,12 +61,14 @@
         - entitlement_file is defined
         - entitlement_file != ""
 
-- name: "Debug SLS information"
-  vars:
-    bootstrap_mode:
-      (bootstrap.license_id is defined and bootstrap.license_id != '') or
+- name: Verify bootstrap mode
+  ansible.builtin.set_fact:
+    bootstrap_mode: >
+      {{ (bootstrap.license_id is defined and bootstrap.license_id != '') or
       (bootstrap.license_file is defined and bootstrap.license_file != '') or
-      (bootstrap.registration_key is defined and bootstrap.registration_key != '')
+      (bootstrap.registration_key is defined and bootstrap.registration_key != '') }}
+
+- name: "Debug SLS information"
   ansible.builtin.debug:
     msg:
       - "Catalog Source ......................... {{ sls_catalog_source }}"
@@ -176,14 +188,45 @@
 # 7. Bootstrap the license service
 # -----------------------------------------------------------------------------
 - name: Initialize Bootstrap
-  ansible.builtin.include_tasks: tasks/install/bootstrap.yml
-  when: (bootstrap.license_id is defined and bootstrap.license_id != '') or
-    (bootstrap.license_file is defined and bootstrap.license_file != '') or
-    (bootstrap.registration_key is defined and bootstrap.registration_key != '')
+  when: bootstrap_mode
+  block:
+    - name: Load License File
+      ansible.builtin.set_fact:
+        license_file_loaded: "{{ lookup('file', bootstrap.license_file) }}"
+      when: bootstrap.license_file is defined and bootstrap.license_file != ''
+
+    - name: Assert that license file is not empty
+      ansible.builtin.assert:
+        that: license_file_loaded != ''
+        fail_msg: "The license file loaded is empty!"
+      when: license_file_loaded is defined
+
+    - name: Create SLS Bootstrap secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ sls_instance_name }}-bootstrap"
+            namespace: "{{ sls_namespace }}"
+          stringData:
+            licensingId: "{{ (bootstrap.license_id is defined and bootstrap.license_id != '') | ternary(bootstrap.license_id, omit) }}"
+            licensingKey: "{{ (license_file_loaded is defined) | ternary(license_file_loaded, omit) }}"
+            registrationKey: "{{ (bootstrap.registration_key is defined and bootstrap.registration_key != '') | ternary(bootstrap.registration_key, omit) }}"
 
 # For SLS 3.7.0 and higher
-- name: Initialize Bootstrap of Entitlement Secret
-  ansible.builtin.include_tasks: tasks/install/bootstrap.yml
+- name: Create SLS Entitlement Secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "ibm-sls-{{ sls_instance_name }}-entitlement"
+        namespace: "{{ sls_namespace }}"
+      stringData:
+        entitlement: "{{ lookup('file', entitlement_file) }}"
   when: entitlement_file is defined and entitlement_file != ''
 
 # 8. Integrated Airgap support
