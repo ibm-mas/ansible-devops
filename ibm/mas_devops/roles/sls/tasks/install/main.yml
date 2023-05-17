@@ -21,19 +21,26 @@
     fail_msg: "Review provided MongoDb details, it is missing required elements"
   when: sls_mongodb is defined
 
-# Checks for new bootstrap mechanism in SLS 3.7.0+
-- name: "Fail if both bootstrap.license_file and bootstrap.entitlement_file are provided"
-  ansible.builtin.assert:
-    that:
-      - (bootstrap.license_file != "" and bootstrap.entitlement_file == "") or
-        (bootstrap.license_file == "" and bootstrap.entitlement_file != "")
-    fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or bootstrap.entitlement_file (SLS 3.7.0 or higher)."
+# Checks for new bootstrap mechanism in SLS 3.7.0
+- name: Checks for new bootstrap mechanism
+  block:
+    - name: "Fail if both bootstrap.license_file and bootstrap.entitlement_file are provided"
+      ansible.builtin.assert:
+        that: bootstrap.license_file == ""
+        fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or bootstrap.entitlement_file (SLS 3.7.0 or higher)."
+      when: bootstrap.entitlement_file != ""
 
-- name: "Fail if bootstrap.license_id is provided when bootstrap.entitlement_file is also provided"
-  ansible.builtin.assert:
-    that:
-      - bootstrap.license_id == "" and bootstrap.entitlement_file != ""
-    fail_msg: "When using bootstrap.entitlement_file (SLS 3.7.0 or higher) do not set bootstrap.license_id."
+    - name: "Fail if both bootstrap.license_file and bootstrap.entitlement_file are provided"
+      ansible.builtin.assert:
+        that: bootstrap.entitlement_file == ""
+        fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or bootstrap.entitlement_file (SLS 3.7.0 or higher)."
+      when: bootstrap.license_file != ""
+
+    - name: "Fail if bootstrap.license_id is provided when bootstrap.entitlement_file is also provided"
+      ansible.builtin.assert:
+        that: bootstrap.license_id == ""
+        fail_msg: "When using bootstrap.entitlement_file (SLS 3.7.0 or higher) do not set bootstrap.license_id."
+      when: bootstrap.entitlement_file != ""
 
 - name: "Debug SLS information"
   ansible.builtin.debug:
