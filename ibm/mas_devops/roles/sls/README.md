@@ -171,7 +171,7 @@ Defines the MongoDb Password.
 - Default: None
 
 
-Role Variables - Bootstrap
+Role Variables - Bootstrap [Partly deprecated in SLS 3.7.0]
 -------------------------------------------------------------------------------
 ### bootstrap.license_id [Deprecated in SLS 3.7.0]
 Defines the License Id to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: this is now deprecated in SLS 3.7.0. Use this only for versions up to 3.6.0.
@@ -194,8 +194,11 @@ Defines the License File to be used to bootstrap SLS. Don't set if you wish to s
 - Environment Variable: `SLS_LICENSE_FILE`
 - Default: None
 
-### bootstrap.entitlement_file [SLS 3.7.0 and higher]
-Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: use this variable with SLS version 3.7.0 and higher. Do not set `bootstrap.license_id` as this will be extracted automatically from the license file.
+Role Variables - Upload License file [SLS 3.7.0 and higher]
+-------------------------------------------------------------------------------
+
+### entitlement_file
+Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: use this variable with SLS version 3.7.0 and higher. Do not set `bootstrap.license_id` as this will be extracted automatically from the license file. Do not set deprecated `bootstrap.license_file` as this will cause conflict.
 
 - Optional
 - Environment Variable: `SLS_ENTITLEMENT_FILE`

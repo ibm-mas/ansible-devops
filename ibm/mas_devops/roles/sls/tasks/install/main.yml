@@ -21,26 +21,35 @@
     fail_msg: "Review provided MongoDb details, it is missing required elements"
   when: sls_mongodb is defined
 
-# Checks for new bootstrap mechanism in SLS 3.7.0
-- name: Checks for new bootstrap mechanism
+# SLS 3.7.0 introduced a new machanism for uploading a license file
+- name: Checks for new bootstrap/upload mechanism
   block:
-    - name: "Fail if both bootstrap.license_file and bootstrap.entitlement_file are provided"
+    - name: "Fail if bootstrap.license_file and entitlement_file are both provided"
       ansible.builtin.assert:
         that: bootstrap.license_file == ""
-        fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or bootstrap.entitlement_file (SLS 3.7.0 or higher)."
-      when: bootstrap.entitlement_file != ""
+        fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or entitlement_file (SLS 3.7.0 or higher)."
+      when:
+        - bootstrap.license_file is defined
+        - entitlement_file is defined
+        - entitlement_file != ""
 
-    - name: "Fail if both bootstrap.license_file and bootstrap.entitlement_file are provided"
+    - name: "Fail if bootstrap.license_file and entitlement_file are both provided"
       ansible.builtin.assert:
-        that: bootstrap.entitlement_file == ""
-        fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or bootstrap.entitlement_file (SLS 3.7.0 or higher)."
-      when: bootstrap.license_file != ""
+        that: entitlement_file == ""
+        fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or entitlement_file (SLS 3.7.0 or higher)."
+      when:
+        - entitlement_file is defined
+        - bootstrap.license_file is defined
+        - bootstrap.license_file != ""
 
-    - name: "Fail if bootstrap.license_id is provided when bootstrap.entitlement_file is also provided"
+    - name: "Fail if bootstrap.license_id is provided when entitlement_file is also provided"
       ansible.builtin.assert:
         that: bootstrap.license_id == ""
-        fail_msg: "When using bootstrap.entitlement_file (SLS 3.7.0 or higher) do not set bootstrap.license_id."
-      when: bootstrap.entitlement_file != ""
+        fail_msg: "When using entitlement_file (SLS 3.7.0 or higher) do not set bootstrap.license_id."
+      when:
+        - bootstrap.license_id is defined
+        - entitlement_file is defined
+        - entitlement_file != ""
 
 - name: "Debug SLS information"
   ansible.builtin.debug:
@@ -52,11 +61,11 @@
       - "SLS ICR cpopen content ................. {{ sls_icr_cpopen }}"
       - "SLS Instance Name ...................... {{ sls_instance_name }}"
       - "SLS MongoCfg file ...................... {{ sls_mongodb_cfg_file | default('<undefined>', True) }}"
-      - "SLS Bootstrap .......................... {{ bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != '' or bootstrap.license_file != '' }}"
-      - "SLS Bootstrap entitlement file ......... {{ bootstrap.entitlement_file }}"
+      - "SLS Bootstrap .......................... {{ bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != '' }}"
       - "SLS Bootstrap license file ............. {{ bootstrap.license_file }}"
       - "SLS Bootstrap license id ............... {{ bootstrap.license_id }}"
       - "SLS Bootstrap registrationKey .......... {{ bootstrap.registration_key }}"
+      - "SLS entitlement file ................... {{ entitlement_file }}"
       - "SLS Mongo Retry Writes ................. {{ sls_mongo_retrywrites }}"
 
 # 2. Create the namespace for SLS
@@ -163,12 +172,14 @@
 # -----------------------------------------------------------------------------
 - name: Initialize Bootstrap
   ansible.builtin.include_tasks: tasks/install/bootstrap.yml
-  when: bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != ''
+  when: (bootstrap.license_id is defined and bootstrap.license_id != '') or
+    (bootstrap.license_file is defined and bootstrap.license_file != '') or
+    (bootstrap.registration_key is defined and bootstrap.registration_key != '')
 
 # For SLS 3.7.0 and higher
 - name: Initialize Bootstrap of Entitlement Secret
   ansible.builtin.include_tasks: tasks/install/bootstrap.yml
-  when: bootstrap.entitlement_file != ''
+  when: entitlement_file is defined and entitlement_file != ''
 
 # 8. Integrated Airgap support
 # -----------------------------------------------------------------------------
