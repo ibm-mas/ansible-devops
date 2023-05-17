@@ -260,7 +260,7 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 Example Playbook
 -------------------------------------------------------------------------------
 
-### Install and generate a configuration
+### Install and generate a configuration [up to SLS 3.6.0]
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -274,6 +274,20 @@ Example Playbook
       license_id: "aa78dd65ef10"
       license_file: "/etc/mas/entitlement.lic"
       registration_key: xxxx
+
+  roles:
+    - ibm.mas_devops.sls
+```
+
+### Install and upload license file [from SLS 3.7.0]
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    ibm_entitlement_key: xxxx
+    mas_instance_id: inst1
+    sls_mongodb_cfg_file: "/etc/mas/mongodb.yml"
+    entitlement_file: "/etc/mas/entitlement.lic"
 
   roles:
     - ibm.mas_devops.sls
