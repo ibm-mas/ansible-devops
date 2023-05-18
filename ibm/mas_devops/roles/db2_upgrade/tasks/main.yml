@@ -206,16 +206,15 @@
 # 12. Update db2 version in instance
 # -----------------------------------------------------------------------------
 - name: "Update db2u instance with updated version"
-  kubernetes.core.k8s:
+  kubernetes.core.k8s_json_patch:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
     namespace: "{{ db2_namespace }}"
     kind: Db2uCluster
-    definition:
-      spec:
-        version: "{{ db2_version }}"
-        size: 1
-    apply: true
+    patch:
+      - op: replace
+        path: /spec/version
+        value: "{{ db2_version }}"
 
 - name: "Wait for db2u instance to be ready (1m delay)"
   kubernetes.core.k8s_info:
