@@ -6,6 +6,10 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `13.8` Multiple Updates:
+    - Add OpenTelemetry to monitoring stack ([#809](https://github.com/ibm-mas/ansible-devops/pull/809))
+    - Add support for Manual certificate management ([#501](https://github.com/ibm-mas/ansible-devops/pull/501))
+- `13.7` Add support for OCP Ingress tuning ([#798](https://github.com/ibm-mas/ansible-devops/pull/798))
 - `13.6` Update mongodb to 4.4.21 and mongo operator to 0.7.9 ([#790](https://github.com/ibm-mas/ansible-devops/pull/790))
 - `13.5` Allow db2_dbname to be set rather then hardcode to BLUDB ([#784](https://github.com/ibm-mas/ansible-devops/pull/784))
 - `13.4` Add ability to control whether to create Manage JMS topics in Event Streams ([#783](https://github.com/ibm-mas/ansible-devops/pull/783))

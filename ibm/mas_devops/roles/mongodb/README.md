@@ -18,6 +18,9 @@ If selected provider is `community` [MongoDb CE operator](https://github.com/mon
 To run this role with providers as `ibm` or `aws` you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws`.
 
+To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
+
+
 Common Role Variables for all providers 
 ----------------------------------------
 ### mas_instance_id
