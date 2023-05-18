@@ -109,7 +109,7 @@
 
 - name: "Lookup version of db2 using the channel"
   set_fact:
-    db2_version: "{{ db2u_manifest_info.resources[0].status.channels | selectattr('name', 'equalto', db2_channel) | map(attribute='currentCSVDesc') | map(attribute='version') | first }}"
+    db2_version: "{{ db2u_manifest_info.resources[0].status.channels | selectattr('name', 'equalto', db2_channel) | map(attribute='currentCSVDesc') | map(attribute='annotations') | map(attribute='productVersion') | first }}"
 
 
 # 7. Lookup current db2u channel
@@ -216,7 +216,7 @@
         path: /spec/version
         value: "{{ db2_version }}"
 
-- name: "Wait for db2u instance to be ready (1m delay)"
+- name: "Wait for db2u instance to be ready (5m delay)"
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
@@ -230,5 +230,5 @@
     - db2_cluster_lookup.resources[0].status.state is defined
     - db2_cluster_lookup.resources[0].status.state == "Ready"
     - db2_cluster_lookup.resources[0].status.version == db2_version
-  retries: 20 # Approximately 20 minutes before we give up
-  delay: 60 # 1 minute
+  retries: 24 # Approximately 2 hours before we give up
+  delay: 300 # 5 minute
