@@ -203,9 +203,11 @@
     msg:
       - "Db2u Operator condition ..................... {{ updated_db2_opcon.resources[0].metadata.name }}"
 
+
 # 12. Update db2 version in instance
 # -----------------------------------------------------------------------------
 - name: "Update db2u instance with updated version"
+  when: db2_channel != old_db2_channel
   kubernetes.core.k8s_json_patch:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
@@ -217,6 +219,7 @@
         value: "{{ db2_version }}"
 
 - name: "Wait for db2u instance to be ready (5m delay)"
+  when: db2_channel != old_db2_channel
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
