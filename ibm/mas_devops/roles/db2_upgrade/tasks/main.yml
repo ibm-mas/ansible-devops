@@ -1,4 +1,12 @@
 ---
+# 0. Fail if required parameters are not set
+# -----------------------------------------------------------------------------
+- name: "Fail if required properties have not been provided"
+  assert:
+    that:
+      - db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: "Db2 instance name has not been provided"
+
 # 1. Lookup common services channel if not provided
 # -----------------------------------------------------------------------------
 - name: Lookup ibm-common-service-operator packagemanifest
@@ -54,6 +62,7 @@
     apply: true
 
 - name: "Pause for 2 minutes before checking upgrade status..."
+  when: common_services_channel != old_cs_channel
   pause:
     minutes: 2
 
@@ -161,6 +170,7 @@
     apply: true
 
 - name: "Pause for 2 minutes before checking upgrade status..."
+  when: db2_channel != old_db2_channel
   pause:
     minutes: 2
 
@@ -172,7 +182,7 @@
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v2
     kind: OperatorCondition
-    namespace: "ibm-common-services"
+    namespace: ibm-common-services
     label_selectors:
       - "operators.coreos.com/db2u-operator.ibm-common-services"
   register: updated_db2_opcon
@@ -187,4 +197,34 @@
   when: db2_channel != old_db2_channel
   debug:
     msg:
-      - "Common Services Operator condition ..................... {{ updated_db2_opcon.resources[0].metadata.name }}"
+      - "Db2u Operator condition ..................... {{ updated_db2_opcon.resources[0].metadata.name }}"
+
+# 12. Update db2 version in instance
+# -----------------------------------------------------------------------------
+- name: "Update db2u instance with updated version"
+  kubernetes.core.k8s:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{ db2_namespace }}"
+    kind: Db2uCluster
+    definition:
+      spec:
+        version: "{{ db2_version }}"
+    apply: true
+
+- name: "Wait for db2u instance to be ready (1m delay)"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ db2_instance_name | lower }}"
+    namespace: "{{ db2_namespace }}"
+    kind: Db2uCluster
+  register: db2_cluster_lookup
+  until:
+    - db2_cluster_lookup.resources is defined
+    - db2_cluster_lookup.resources | length == 1
+    - db2_cluster_lookup.resources[0].status is defined
+    - db2_cluster_lookup.resources[0].status.state is defined
+    - db2_cluster_lookup.resources[0].status.state == "Ready"
+    - db2_cluster_lookup.resources[0].status.version == db2_version
+  retries: 20 # Approximately 20 minutes before we give up
+  delay: 60 # 1 minute
