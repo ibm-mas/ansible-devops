@@ -1,0 +1,61 @@
+---
+
+# 1. Validate required properties
+# =============================================================================
+- name: "cis : Fail if required properties are not provided"
+  assert:
+    that:
+      - cis_crn != ""
+      - cis_apikey != ""
+      - mas_workspace_id != ""
+    fail_msg: "One or more required properties are missing (cis_crn, cis_apikey or mas_workspace_id)"
+
+
+# 2. Lookup the cluster ingress
+# =============================================================================
+- name: "cis : Get cluster subdomain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Configure ingress"
+  when: ocp_ingress is not defined or ocp_ingress == ""
+  set_fact:
+    ocp_ingress: "cis-proxy-route.{{ _cluster_subdomain.resources[0].spec.domain }}"
+
+
+# 3. Set up the DNS entries
+# =============================================================================
+- name: "cis : Define DNS Entries"
+  set_fact:
+    dns_entries: "{{ lookup('ansible.builtin.template', 'dnsentries.yml.j2') | from_yaml }}"
+
+- name: "cis : Debug information"
+  debug:
+    msg:
+      - "CIS CRN ................................ {{ cis_crn }}"
+      - "CIS Subdomain .......................... {{ cis_subdomain }}"
+      - "CIS Proxy .............................. {{ cis_proxy }}"
+      - "OpenShift Ingress ...................... {{ ocp_ingress }}"
+      - "DNS Entries (No Wildcard) .............. {{ dns_entries['nowildcard'] }}"
+
+# 4. Add DNS entries
+# =============================================================================
+- name: "cis : run cis_dns_entries module"
+  ibm.mas_devops.cis_dns_entries:
+    ocp_ingress: "{{ ocp_ingress }}"
+    cis_crn: "{{ cis_crn }}"
+    cis_subdomain: "{{ cis_subdomain }}"
+    update_dns: true
+    ibmcloud_apikey: "{{ cis_apikey }}"
+    dns_entries: "{{ dns_entries['nowildcard'] }}"
+    cis_waf: null
+    edge_certificate_routes: null
+    cis_proxy: "{{ cis_proxy }}"
+  register: dnsoutput
+
+- name: "cis : dump output"
+  debug:
+    msg: '{{ dnsoutput }}'
