@@ -410,7 +410,7 @@ Number of instances required for DocumentDB
 - Default Value: `3`
 
 ### docdb_instance_identifier_prefix
-Prefix for DocumentDB Instance name
+Required. Prefix for DocumentDB Instance name
 
 - Environment variable: `DOCDB_INSTANCE_IDENTIFIER_PREFIX`
 
@@ -420,12 +420,30 @@ e.g Provide IPv4 CIDR address of VPC where ROSA cluster is installed
 
 - Environment variable: `DOCDB_INGRESS_CIDR`
 
-
 ### docdb_egress_cidr
 Required. IPv4 Address at which outgoing connection requests will be allowed to DocumentDB cluster
 e.g Provide IPv4 CIDR address of VPC where ROSA cluster is installed
 
 - Environment variable: `DOCDB_EGRESS_CIDR`
+
+### docdb_cidr_az1:
+
+Required. Provide IPv4 CIDR address for the subnet to be created in one of the 3 availabilty zones of your VPC. If the subnet exists already then it must contain the tag of Name: {{ docdb_cluster_name }}, if the subnet doesn't exist already then one is created.
+
+- Environment variable: `DOCDB_CIDR_AZ1`
+
+### docdb_cidr_az2:
+
+Required. Provide IPv4 CIDR address for the subnet to be created in one of the 3 availabilty zones of your VPC. If the subnet exists already then it must contain the tag of Name: {{ docdb_cluster_name }}, if the subnet doesn't exist already then one is created.
+
+- Environment variable: `DOCDB_CIDR_AZ2`
+
+### docdb_cidr_az3:
+
+Required. Provide IPv4 CIDR address for the subnet to be created in one of the 3 availabilty zones of your VPC. If the subnet exists already then it must contain the tag of Name: {{ docdb_cluster_name }}, if the subnet doesn't exist already then one is created.
+
+- Environment variable: `DOCDB_CIDR_AZ3`
+
 
 Example Playbook
 ----------------
@@ -442,6 +460,9 @@ Example Playbook
     docdb_cluster_name: test-db
     docdb_ingress_cidr: 10.0.0.0/16
     docdb_egress_cidr: 10.0.0.0/16
+    docdb_cidr_az1: 10.0.0.0/26
+    docdb_cidr_az2: 10.0.0.64/26
+    docdb_cidr_az3: 10.0.0.128/26
     docdb_instance_identifier_prefix: test-db-instance
     vpc_id: test-vpc-id
     aws_access_key_id: aws-key
