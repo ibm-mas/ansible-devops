@@ -21,9 +21,55 @@
     fail_msg: "Review provided MongoDb details, it is missing required elements"
   when: sls_mongodb is defined
 
-# 2. Provide debug information
+# 2. Check for valid combinations for bootstrap and new upload mechanism (3.7.0)
 # -----------------------------------------------------------------------------
-- name: "Debug information"
+- name: "Fail if bootstrap.license_file and entitlement_file are both set"
+  ansible.builtin.assert:
+    that: bootstrap.license_file == ""
+    fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or entitlement_file (SLS 3.7.0 or higher)."
+  when:
+    - bootstrap.license_file is defined
+    - entitlement_file is defined
+    - entitlement_file != ""
+
+- name: "Fail if bootstrap.license_file and entitlement_file are both set"
+  ansible.builtin.assert:
+    that: entitlement_file == ""
+    fail_msg: "Either set bootstrap.license_file (SLS 3.6.0 or lower) or entitlement_file (SLS 3.7.0 or higher)."
+  when:
+    - entitlement_file is defined
+    - bootstrap.license_file is defined
+    - bootstrap.license_file != ""
+
+- name: "Fail if bootstrap.license_id is missing when bootstrap.license_file is set"
+  ansible.builtin.assert:
+    that:
+      - bootstrap.license_id is defined
+      - bootstrap.license_id != ""
+    fail_msg: "When bootstrapping bootstrap.license_file the corresponding bootstrap.license_id must be set too."
+  when:
+    - bootstrap.license_file is defined
+    - bootstrap.license_file != ''
+
+- name: "Fail if bootstrap.license_id is provided when entitlement_file is also provided"
+  ansible.builtin.assert:
+    that: bootstrap.license_id == ""
+    fail_msg: "When using entitlement_file (SLS 3.7.0 or higher) do not set bootstrap.license_id."
+  when:
+    - bootstrap.license_id is defined
+    - entitlement_file is defined
+    - entitlement_file != ""
+
+- name: Set bootstrap_mode
+  ansible.builtin.set_fact:
+    bootstrap_mode: >
+      {{ (bootstrap.license_id is defined and bootstrap.license_id != '') or
+      (bootstrap.license_file is defined and bootstrap.license_file != '') or
+      (bootstrap.registration_key is defined and bootstrap.registration_key != '') }}
+
+# 3. Provide general debug information
+# -----------------------------------------------------------------------------
+- name: "Debug SLS information"
   ansible.builtin.debug:
     msg:
       - "Catalog Source ......................... {{ sls_catalog_source }}"
@@ -33,12 +79,15 @@
       - "SLS ICR cpopen content ................. {{ sls_icr_cpopen }}"
       - "SLS Instance Name ...................... {{ sls_instance_name }}"
       - "SLS MongoCfg file ...................... {{ sls_mongodb_cfg_file | default('<undefined>', True) }}"
-      - "SLS Bootstrap .......................... {{ bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != '' }}"
-      - "SLS Bootstrap license file ............. {{ bootstrap.license_file }}"
-      - "SLS Bootstrap license id ............... {{ bootstrap.license_id }}"
-      - "SLS Customize scaling .................. {{ sls_customize_scaling }}"
+      - "SLS Bootstrap .......................... {{ bootstrap_mode }}"
+      - "SLS Bootstrap license file ............. {{ bootstrap.license_file | default('<undefined>', True) }}"
+      - "SLS Bootstrap license id ............... {{ bootstrap.license_id | default('<undefined>', True) }}"
+      - "SLS Bootstrap registrationKey .......... {{ bootstrap.registration_key | default('<undefined>', True) }}"
+      - "SLS entitlement file ................... {{ entitlement_file }}"
       - "SLS Mongo Retry Writes ................. {{ sls_mongo_retrywrites }}"
 
+# 4. Create the namespace for SLS
+# -----------------------------------------------------------------------------
 - name: "Create SLS Namespace"
   kubernetes.core.k8s:
     definition:
@@ -47,7 +96,7 @@
       metadata:
         name: "{{ sls_namespace }}"
 
-# 3. Set up the domain name for SLS
+# 5. Set up the domain name for SLS
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
   kubernetes.core.k8s_info:
@@ -61,7 +110,7 @@
     sls_domain: "{{ sls_namespace }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
   when: not sls_domain
 
-# 4. Install Operator & create entitlement
+# 6. Install Operator & create entitlement
 # -----------------------------------------------------------------------------
 - name: "Install SLS Operator"
   ansible.builtin.include_role:
@@ -74,7 +123,7 @@
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
-# 5. Wait until the LicenseService CRD is available
+# 7. Wait until the LicenseService CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the LicenseService CRD is available"
   kubernetes.core.k8s_info:
@@ -94,7 +143,7 @@
     - sls_crd_info.resources is defined
     - sls_crd_info.resources | length > 0
 
-# 6. Create Mongo Secret
+# 8. Create Mongo Secret
 # -----------------------------------------------------------------------------
 - name: Read MongoDb config file
   ansible.builtin.set_fact:
@@ -113,7 +162,7 @@
     fail_msg: "Review provided SLS MongoCfg file, it is missing required mongo connection details"
   when: sls_mongodb_cfg_file is defined
 
-- name: Overide MongoDb facts bases on mongocfg
+- name: Override MongoDb facts bases on mongocfg
   ansible.builtin.set_fact:
     mongodb:
       username: "{{ mongocfg[0].stringData.username }}"
@@ -122,7 +171,7 @@
       certificates: "{{ lookup('template', 'templates/mongo-certificates.yml.j2') }}"
   when: mongocfg is defined and mongocfg[0] is defined and mongocfg[0].stringData is defined
 
-- name: Overide MongoDb facts bases on mongocfg
+- name: Override MongoDb facts bases on mongocfg
   ansible.builtin.set_fact:
     mongodb:
       username: "{{ mongocfg[0].data.username | b64decode }}"
@@ -137,13 +186,51 @@
     namespace: "{{ sls_namespace }}"
     template: templates/mongo-secret.yml.j2
 
-# 7. Bootstrap the license service
+# 9. Bootstrap the license service
 # -----------------------------------------------------------------------------
 - name: Initialize Bootstrap
-  ansible.builtin.include_tasks: tasks/install/bootstrap.yml
-  when: bootstrap.license_id != '' or bootstrap.license_file != '' or bootstrap.registration_key != ''
+  when: bootstrap_mode
+  block:
+    - name: Load License File
+      ansible.builtin.set_fact:
+        license_file_loaded: "{{ lookup('file', bootstrap.license_file) }}"
+      when: bootstrap.license_file is defined and bootstrap.license_file != ''
 
-# 8. Integrated Airgap support
+    - name: Assert that license file is not empty
+      ansible.builtin.assert:
+        that: license_file_loaded != ''
+        fail_msg: "The license file loaded is empty!"
+      when: license_file_loaded is defined
+
+    - name: Create SLS Bootstrap secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "{{ sls_instance_name }}-bootstrap"
+            namespace: "{{ sls_namespace }}"
+          stringData:
+            licensingId: "{{ (bootstrap.license_id is defined and bootstrap.license_id != '') | ternary(bootstrap.license_id, omit) }}"
+            licensingKey: "{{ (license_file_loaded is defined) | ternary(license_file_loaded, omit) }}"
+            registrationKey: "{{ (bootstrap.registration_key is defined and bootstrap.registration_key != '') | ternary(bootstrap.registration_key, omit) }}"
+
+# For SLS 3.7.0 and higher
+- name: Create SLS Entitlement Secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "ibm-sls-{{ sls_instance_name }}-entitlement"
+        namespace: "{{ sls_namespace }}"
+      stringData:
+        entitlement: "{{ lookup('file', entitlement_file) }}"
+  when: entitlement_file is defined and entitlement_file != ''
+
+# 10. Integrated Airgap support
 # -----------------------------------------------------------------------------
 # Before we create the CR we will set up the Airgap Image Map
 # We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
@@ -154,7 +241,7 @@
   ansible.builtin.include_tasks: "tasks/install/install_digest_cm.yml"
   when: airgap_install
 
-# 9. Create the license service CR
+# 11. Create the license service CR
 # -----------------------------------------------------------------------------
 - name: Create the sls.ibm.com/v1.LicenseService
   kubernetes.core.k8s:
@@ -163,12 +250,12 @@
     template: templates/licenseservice.yml.j2
   register: sls_cr_result
 
-# 10. Wait for it to hit Ready
+# 12. Wait for it to hit Ready
 # -----------------------------------------------------------------------------
 - name: Verify LicenseService CR
   ansible.builtin.include_tasks: "tasks/install/sls-verify.yml"
 
-# 11. Generate SLSCfg
+# 13. Generate SLSCfg
 # -----------------------------------------------------------------------------
 # The SLSCfg resource is not generated as part of this role anymore, a dedicated
 # role exists to generate the configuraion file (gencfg_sls), this role will set
