@@ -52,7 +52,24 @@
         (bootstrap.license_file is defined and bootstrap.license_file != '') or
         (entitlement_file is defined and entitlement_file != '')
 
-    - name: "Wait for License key & ID bootstrap (30s delay)"
+    - name: "Wait for License ID bootstrap (30s delay)"
+      kubernetes.core.k8s_info:
+        api_version: sls.ibm.com/v1
+        name: "{{ sls_instance_name }}"
+        namespace: "{{ sls_namespace }}"
+        kind: LicenseService
+      register: sls_cr_result
+      until:
+        - sls_cr_result.resources is defined and sls_cr_result.resources | length == 1
+        - sls_cr_result.resources[0].status is defined
+        - sls_cr_result.resources[0].status.conditions is defined
+        - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Server ID') | map(attribute='status') | list | length > 0
+        - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Server ID') | map(attribute='status') | list | first == "True"
+      retries: 20 # 10 minutes before we give up
+      delay: 30 # seconds
+      when: bootstrap.license_id is defined and bootstrap.license_id != ''
+
+    - name: "Wait for License key bootstrap (30s delay)"
       kubernetes.core.k8s_info:
         api_version: sls.ibm.com/v1
         name: "{{ sls_instance_name }}"
@@ -65,8 +82,6 @@
         - sls_cr_result.resources[0].status.conditions is defined
         - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Key File') | map(attribute='status') | list | length > 0
         - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Key File') | map(attribute='status') | list | first == "True"
-        - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Server ID') | map(attribute='status') | list | length > 0
-        - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Server ID') | map(attribute='status') | list | first == "True"
       retries: 20 # 10 minutes before we give up
       delay: 30 # seconds
       when: bootstrap.license_file is defined and bootstrap.license_file != ''
