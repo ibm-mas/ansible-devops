@@ -4,6 +4,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 - `13.8` Multiple Updates:
     - Add OpenTelemetry to monitoring stack ([#809](https://github.com/ibm-mas/ansible-devops/pull/809))
     - Add support for Manual certificate management ([#501](https://github.com/ibm-mas/ansible-devops/pull/501))
+    - Add new SLS license upload mechanism and partly deprecated SLS bootstrap process ([#815](https://github.com/ibm-mas/ansible-devops/pull/815))
 - `13.7` Add support for OCP Ingress tuning ([#798](https://github.com/ibm-mas/ansible-devops/pull/798))
 - `13.6` Update mongodb to 4.4.21 and mongo operator to 0.7.9 ([#790](https://github.com/ibm-mas/ansible-devops/pull/790))
 - `13.5` Allow db2_dbname to be set rather then hardcode to BLUDB ([#784](https://github.com/ibm-mas/ansible-devops/pull/784))
