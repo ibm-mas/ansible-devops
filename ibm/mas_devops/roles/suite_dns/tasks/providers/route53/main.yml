@@ -35,73 +35,28 @@
         Action: route53:ListHostedZonesByName
         Resource: "*"
 
-# 4. Create AWS Route 53 hosted zones
+# 4. Check AWS Route 53 hosted zone exists
 # -----------------------------------------------------------------------------
-# - name: "aws-route53 : Lookup AWS Route53 Hosted zone instance"
-#   shell: |
-#     aws route53 list-hosted-zones-by-name | 
-#     jq --arg name "{{ route53_hosted_zone_name }}." \
-#     -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
-#   register: aws_hosted_zone_lookup_output
-
-# # - set_fact:
-# #     route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout | regex_replace('/hostedzone/', '''') }}"
-
 - name: "aws-route53 : Lookup AWS Route53 Hosted zone instance"
   shell: |
-    aws route53 list-hosted-zones-by-name --dns-name "{{ route53_hosted_zone_name }}" --max-items 1 --output json
+    aws route53 list-hosted-zones-by-name | 
+    jq --arg name "{{ route53_hosted_zone_name }}." \
+    -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
   register: aws_hosted_zone_lookup_output
 
 - set_fact:
-    route53_hosted_zone_info: "{{ aws_hosted_zone_lookup_output.stdout }}"
+    route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout | regex_replace('/hostedzone/', '''') }}"
 
-- set_fact:
-    route53_hosted_zone_id: "{{ route53_hosted_zone_info.HostedZones[0].Id | regex_replace('/hostedzone/', '''') }}"
-
-- block:
-    - name: "aws-route53 : Create AWS Route53 Hosted zone instance if none exists with name {{ route53_hosted_zone_name }}"
-      shell: |
-        aws route53 create-hosted-zone \
-        --name {{ route53_hosted_zone_name }} \
-        --caller-reference {{ route53_caller_reference }} \
-        --region {{ route53_hosted_zone_region }} \
-        --output json
-      register: aws_hosted_zone_create_output
-      failed_when: aws_hosted_zone_create_output.rc > 0 and ('HostedZoneAlreadyExists' not in aws_hosted_zone_create_output.stderr )
-
-    - name: "aws-route53 : Lookup AWS Route53 Hosted Zone ID for {{ route53_hosted_zone_name }}"
-      when: aws_hosted_zone_lookup_output.stdout | length == 0
-      shell: |
-        aws route53 list-hosted-zones-by-name | 
-        jq --arg name "{{ route53_hosted_zone_name }}." \
-        -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
-      register: aws_hosted_zone_lookup_output
-
-    - set_fact:
-        route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout | regex_replace('/hostedzone/', '''') }}"
-
-  when: route53_hosted_zone_id | length == 0
+- name: "Assert hosted zone {{ route53_hosted_zone_name }} exists"
+  assert:
+    that: route53_hosted_zone_id is defined and route53_hosted_zone_id != ""
+    fail_msg: "route53_hosted_zone_name does not exist! You need to setup a valid hosted zone in your AWS account prior running this role. Optionally run 'aws_route53' role to create one public hosted zone."
 
 - name: "Hosted Zone Id for {{ route53_hosted_zone_name }}"
   debug:
     var: route53_hosted_zone_id
 
-# 5. Create AWS Route 53 cluster issuer
-# -----------------------------------------------------------------------------
-- name: "aws-route53 : Create AWS Route 53 cluster issuer: {{ route53_prod_issuer_name }}"
-  kubernetes.core.k8s:
-    namespace: "ibm-common-services"
-    state: present
-    template: templates/route53/clusterissuer.yml.j2
-
-# 6. Change cert-manager deployment to include dns01-recursive
-# -----------------------------------------------------------------------------
-# - '--dns01-recursive-nameservers-only'
-# - '--dns01-recursive-nameservers=8.8.8.8:53'
-# https://community.ibm.com/community/user/asset-facilities/blogs/brian-zhu/2022/10/08/using-lets-encrypt-ssl-certificates-with-maximo-ap?CommunityKey=3d7261ae-48f7-481d-b675-a40eb407e0fd
-
-
-# 7. Create CNAMEs in the hosted zone
+# 5. Create CNAMEs in the hosted zone
 # -----------------------------------------------------------------------------
 - name: "aws-route53 : Get cluster subdomain"
   when: found_router_default_secret is not defined
@@ -117,6 +72,8 @@
 - name: "aws-route53 : Lookup Load Balancer DNS Name for cluster {{ cluster_ingress }}"
   shell: |
     aws route53 list-resource-record-sets --hosted-zone-id {{ route53_hosted_zone_id }} --query "ResourceRecordSets[?Name == '\\052.{{ cluster_ingress }}.'].AliasTarget.DNSName" --output json
+        aws route53 list-resource-record-sets --hosted-zone-id Z06693421T2UIZHSZ9AYY --query "ResourceRecordSets[?Name == '\\052.apps.andrercmsnoaws.buyermas4aws.com.'].AliasTarget.DNSName" --output json
+
   register: aws_hosted_zone_loadbalancer_output
 
 - set_fact:
@@ -136,3 +93,19 @@
     aws route53 change-resource-record-sets --hosted-zone-id {{ route53_hosted_zone_id }} --change-batch file://{{ route53_cname_json_file_path_local }}/{{ mas_instance_id }}-{{ route53_hosted_zone_name }}-cnames.json
   register: aws_hosted_zone_loadbalancer_output
   failed_when: aws_hosted_zone_loadbalancer_output.rc > 0 and ('it already exists' not in aws_hosted_zone_loadbalancer_output.stderr )
+
+# 6. Create AWS Route 53 cluster issuer
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Create AWS Route 53 cluster issuer: {{ route53_prod_issuer_name }}"
+  kubernetes.core.k8s:
+    namespace: "ibm-common-services"
+    state: present
+    template: templates/route53/clusterissuer.yml.j2
+
+# 7. Change cert-manager deployment to include dns01-recursive parameters
+# -----------------------------------------------------------------------------
+# This step does not seem to be strictly necessary, thus will not be automated right now, but in some cases, there's a workaround that needs to be done in cert-manager-controller
+# https://community.ibm.com/community/user/asset-facilities/blogs/brian-zhu/2022/10/08/using-lets-encrypt-ssl-certificates-with-maximo-ap?CommunityKey=3d7261ae-48f7-481d-b675-a40eb407e0fd
+# Add the following parameters in args property for cert-manager-controller deployment:
+# - '--dns01-recursive-nameservers-only'
+# - '--dns01-recursive-nameservers=8.8.8.8:53'
