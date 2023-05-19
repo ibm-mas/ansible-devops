@@ -23,7 +23,7 @@ The version of Kafka to deploy by the operator. Before changing the kafka_versio
 by the [amq-streams operator version](https://access.redhat.com/documentation/en-us/red_hat_amq_streams).
 
 - Environment Variable: `KAFKA_VERSION`
-- Default Value: `3.2.3`
+- Default Value: `3.3.1`
 
 ### kafka_namespace
 The namespace where the operator and Kafka cluster will be deployed.
