@@ -10,12 +10,12 @@
 # 2. If no private CA is found then run the get__signed_ingress task
 # -----------------------------------------------------------------------------
 - name: "Run default ingress cert task - no private CA found"
-  when: private_root_ca is not defined
+  when: private_root_ca.stdout_lines[0] == "<none>"
   include_tasks: "common_tasks/get_signed_ingress_cert.yml"
 
 # 3. If private CA is found then run then use it instead of a signed one
 # -----------------------------------------------------------------------------
 - name: "Run private ingress cert task"
-  when: private_root_ca is defined
+  when: private_root_ca.stdout_lines[0] != "<none>"
   set_fact:
-    cluster_ingress_tls_crt: private_root_ca
+    cluster_ingress_tls_crt: private_root_ca.stdout
