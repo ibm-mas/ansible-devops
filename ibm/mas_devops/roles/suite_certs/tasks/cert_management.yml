@@ -1,0 +1,73 @@
+# 1. Check manual public TLS certificate files is present in the certificate path.
+# -----------------------------------------------------------------------------
+
+- name: debug the vars
+  debug:
+    msg:
+      - "app ........ {{ app_name }}"
+      - "cert_path ........ {{ cert_path }}"
+
+- name: "Check Public TLS tls.crt file is present in {{ cert_path }}"
+  stat:
+    path: "{{ cert_path }}/tls.crt"
+  register: tls_crt_stat
+
+- name: "Check Public TLS tls.key file is present in {{ cert_path }}"
+  stat:
+    path: "{{ cert_path }}/tls.key"
+  register: tls_key_stat
+
+- name: "Check Public CA ca.crt file is present in {{ cert_path }}"
+  stat:
+    path: "{{ cert_path }}/ca.crt"
+  register: ca_crt_stat
+
+- name: "Check if all mandatory certificate files are present."
+  assert:
+    that:
+      - tls_crt_stat.stat.exists
+      - tls_key_stat.stat.exists
+      - ca_crt_stat.stat.exists
+    fail_msg: "Public certificate TLS files 'tls.crt', 'tls.key' and 'ca.crt' should be present in {{ cert_path }}"
+
+# 2. Create namespace we will deploy secret to
+# -----------------------------------------------------------------------------
+- name: "Create namespace"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "mas-{{ mas_instance_id }}-{{ app_name }}"
+
+# 3. Set facts with size of the files to be used in template.
+# Note: We should not include attributes with empty files in the secret with risk to break TrustStore Worker job (i.g. it breaks when ca.crt is empty)
+# -----------------------------------------------------------------------------
+- name: Get stats of certificate files
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: cert_st
+  with_items:
+    - "{{ cert_path }}/ca.crt" # 0
+    - "{{ cert_path }}/tls.crt" # 1
+    - "{{ cert_path }}/tls.key" # 2
+
+# Be sure to set results to the right variables following sequence of with_items above
+- name: Set Facts
+  set_fact:
+    ca_crt_size: "{{ cert_st.results.0.stat.size | int }}"
+    tls_crt_size: "{{ cert_st.results.1.stat.size | int }}"
+    tls_key_size: "{{ cert_st.results.2.stat.size | int }}"
+
+- name: Debug certificate file sizes
+  debug:
+    msg:
+      - "ca_crt_size ......... {{ ca_crt_size }}"
+      - "tls_crt_size ........ {{ tls_crt_size }}"
+      - "tls_key_size ........ {{ tls_key_size }}"
+
+# 4. Create Public certificate secret
+# -----------------------------------------------------------------------------
+- name: "Create Public certificate secret in {{ app_name }} namespace when manual certificate management mode is turned on"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/public-cert-secret.yml.j2') }}"
+    wait: yes
+    wait_timeout: 60
