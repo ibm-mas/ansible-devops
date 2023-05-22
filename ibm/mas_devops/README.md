@@ -6,6 +6,7 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `13.9` Add support for AWS Route 53 as DNS provider for MAS installs ([#828](https://github.com/ibm-mas/ansible-devops/pull/828))
 - `13.8` Multiple Updates:
     - Support May Catalog Update ([#813](https://github.com/ibm-mas/ansible-devops/pull/813))
     - Add OpenTelemetry to monitoring stack ([#809](https://github.com/ibm-mas/ansible-devops/pull/809))
