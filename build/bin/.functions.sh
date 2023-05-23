@@ -56,3 +56,24 @@ function install_yq() {
 if [[ -z "$BUILD_SYSTEM_ENV_LOADED" ]]; then
   source $DIR/.env.sh
 fi
+
+# Upload a file to Artifactory
+# -----------------------------------------------------------------------------
+# Usage example:
+#  artifactory_upload $FILE_PATH $TARGET_URL
+#
+function artifactory_upload() {
+  if [ ! -e $1 ]; then
+    echo_warning "Artifactory upload failed - $1 does not exist"
+    exit 1
+  fi
+
+  md5Value="`md5sum "$1"`"
+  md5Value="${md5Value:0:32}"
+
+  sha1Value="`sha1sum "$1"`"
+  sha1Value="${sha1Value:0:40}"
+
+  echo "Uploading $1 to $2"
+  curl -H "Authorization:Bearer $ARTIFACTORY_TOKEN"  -H "X-Checksum-Md5: $md5Value" -H "X-Checksum-Sha1: $sha1Value" -T $1 $2 || exit 1
+}

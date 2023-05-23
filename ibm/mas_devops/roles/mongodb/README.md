@@ -18,6 +18,9 @@ If selected provider is `community` [MongoDb CE operator](https://github.com/mon
 To run this role with providers as `ibm` or `aws` you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws`.
 
+To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
+
+
 Common Role Variables for all providers 
 ----------------------------------------
 ### mas_instance_id
@@ -407,7 +410,7 @@ Number of instances required for DocumentDB
 - Default Value: `3`
 
 ### docdb_instance_identifier_prefix
-Prefix for DocumentDB Instance name
+Required. Prefix for DocumentDB Instance name
 
 - Environment variable: `DOCDB_INSTANCE_IDENTIFIER_PREFIX`
 
@@ -417,12 +420,30 @@ e.g Provide IPv4 CIDR address of VPC where ROSA cluster is installed
 
 - Environment variable: `DOCDB_INGRESS_CIDR`
 
-
 ### docdb_egress_cidr
 Required. IPv4 Address at which outgoing connection requests will be allowed to DocumentDB cluster
 e.g Provide IPv4 CIDR address of VPC where ROSA cluster is installed
 
 - Environment variable: `DOCDB_EGRESS_CIDR`
+
+### docdb_cidr_az1:
+
+Required. Provide IPv4 CIDR address for the subnet to be created in one of the 3 availabilty zones of your VPC. If the subnet exists already then it must contain the tag of Name: {{ docdb_cluster_name }}, if the subnet doesn't exist already then one is created.
+
+- Environment variable: `DOCDB_CIDR_AZ1`
+
+### docdb_cidr_az2:
+
+Required. Provide IPv4 CIDR address for the subnet to be created in one of the 3 availabilty zones of your VPC. If the subnet exists already then it must contain the tag of Name: {{ docdb_cluster_name }}, if the subnet doesn't exist already then one is created.
+
+- Environment variable: `DOCDB_CIDR_AZ2`
+
+### docdb_cidr_az3:
+
+Required. Provide IPv4 CIDR address for the subnet to be created in one of the 3 availabilty zones of your VPC. If the subnet exists already then it must contain the tag of Name: {{ docdb_cluster_name }}, if the subnet doesn't exist already then one is created.
+
+- Environment variable: `DOCDB_CIDR_AZ3`
+
 
 Example Playbook
 ----------------
@@ -439,6 +460,9 @@ Example Playbook
     docdb_cluster_name: test-db
     docdb_ingress_cidr: 10.0.0.0/16
     docdb_egress_cidr: 10.0.0.0/16
+    docdb_cidr_az1: 10.0.0.0/26
+    docdb_cidr_az2: 10.0.0.64/26
+    docdb_cidr_az3: 10.0.0.128/26
     docdb_instance_identifier_prefix: test-db-instance
     vpc_id: test-vpc-id
     aws_access_key_id: aws-key

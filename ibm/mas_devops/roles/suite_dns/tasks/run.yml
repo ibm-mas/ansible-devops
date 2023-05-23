@@ -1,0 +1,45 @@
+---
+# 1. Check required properties
+# -----------------------------------------------------------------------------
+- name: "Check required properties"
+  when: dns_provider != ""
+  assert:
+    that:
+      - dns_provider is in ['cis', 'cloudflare']
+      - mas_instance_id is defined and mas_instance_id != ""
+      - mas_workspace_id is defined and mas_workspace_id != ""
+
+- name: Check if cert-manager is installed
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: cert-manager
+    namespace: "cert-manager"
+    kind: Deployment
+  register: _cert_manager_deployed
+
+# if cert-manager from cert-manager namespace is deployed, then it will be used per default otherwise set ibm-cert-manager from ibm-common-services to be used
+- name: Define which cert-manager to use
+  when: _cert_manager_deployed.resources is defined and _cert_manager_deployed.resources | length == 0
+  set_fact:
+    certManager:
+      namespace: ibm-common-services
+      serviceAccountName: ibm-cert-manager-controller
+
+- debug:
+    msg:
+      - "Cert-manager namespace .................. {{ certManager.namespace }}"
+      - "Cert-manager service account ............ {{ certManager.serviceAccountName }}"
+
+# 2. Run provider task
+# -----------------------------------------------------------------------------
+- name: "Run the provider specific task"
+  when: dns_provider != ""
+  include_tasks: tasks/providers/{{ dns_provider }}/main.yml
+
+# 3. Set custom cp4d route based on the custom cluster issuer
+# -----------------------------------------------------------------------------
+- name: "Set up CP4D route under the appsuite domain"
+  when:
+    - dns_provider != ""
+    - cpd_instance_namespace is defined and cpd_instance_namespace != ""
+  include_tasks: tasks/cp4d.yml
