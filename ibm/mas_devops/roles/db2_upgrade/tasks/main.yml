@@ -85,7 +85,7 @@
     - updated_cs_opcon.resources | length == 1
     - updated_cs_opcon.resources[0].metadata.name is defined
 
-- name: "Debug Operator Version"
+- name: "Debug Common Services Operator Version"
   when: common_services_channel != old_cs_channel
   debug:
     msg:
@@ -97,6 +97,7 @@
 # 6. Look up the default channel for the db2u-operator package manifest
 # -----------------------------------------------------------------------------
 - name: Lookup db2u-operator packagemanifest
+  when: db2_channel is not defined or db2_channel == ""
   kubernetes.core.k8s_info:
     api_version: packages.operators.coreos.com/v1
     kind: PackageManifest
@@ -104,18 +105,10 @@
     namespace: ibm-common-services
   register: db2u_manifest_info
 
-- debug:
-    msg: "{{ db2u_manifest_info.resources[0].status.channels | selectattr('name', 'equalto', db2_channel) | map(attribute='currentCSVDesc') | map(attribute='annotations') | map(attribute='alm-examples') }}"
-
-- name: Set db2u-operator update channel if not provided
+- name: Set db2u-operator update channel to latest default channel if not provided
   when: db2_channel is not defined or db2_channel == ""
   set_fact:
     db2_channel: "{{ db2u_manifest_info.resources[0].status.defaultChannel }}"
-
-- name: "Lookup update version of db2 using the channel"
-  when: db2_version is not defined or db2_version == ""
-  set_fact:
-    db2_version: "{{ db2u_manifest_info.resources[0].status.channels | selectattr('name', 'equalto', db2_channel) | map(attribute='currentCSVDesc') | map(attribute='annotations') | map(attribute='alm-examples') | first.spec.version }}"
 
 
 # 7. Lookup current db2u channel
@@ -128,7 +121,7 @@
     kind: Subscription
   register: db2_sub_info
 
-- name: "Set old channel for db2"
+- name: "Set the value for the current channel for db2"
   set_fact:
     old_db2_channel: "{{ db2_sub_info.resources[0].spec.channel }}"
 
@@ -137,7 +130,7 @@
     msg:
       - "Current Db2 Channel ................................ {{ old_db2_channel }}"
       - "Update Db2 Channel ................................. {{ db2_channel }}"
-      - "Update Db2 Version ................................. {{ db2_version }}"
+      - "Update Db2 Engine Version .......................... {{ db2_version }}"
 
 
 # 8. If the current operator channel is the same for the upgrade, no upgrade
@@ -213,7 +206,6 @@
 # 12. Update db2 version in instance
 # -----------------------------------------------------------------------------
 - name: "Get db2u instance version"
-  when: db2_version is defined and db2_version != ""
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ db2_instance_name | lower }}"
@@ -222,7 +214,6 @@
   register: db2u_cluster_info
 
 - name: "Debug Operator Version"
-  when: db2_version is defined and db2_version != ""
   debug:
     msg:
       - "Db2ucluster current version ................. {{ db2u_cluster_info.resources[0].spec.version }}"
@@ -240,7 +231,7 @@
         path: /spec/version
         value: "{{ db2_version }}"
 
-- name: "Wait for db2u instance to be ready (5m delay)"
+- name: "Wait for db2u instance to be ready (1m delay)"
   when: db2u_cluster_info.resources[0].spec.version != db2_version
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
@@ -255,5 +246,5 @@
     - db2_cluster_lookup.resources[0].status.state is defined
     - db2_cluster_lookup.resources[0].status.state == "Ready"
     - db2_cluster_lookup.resources[0].status.version == db2_version
-  retries: 24 # Approximately 2 hours before we give up
-  delay: 300 # 5 minute
+  retries: 30 # Approximately 30 minutes before we give up
+  delay: 60 # 1 minute
