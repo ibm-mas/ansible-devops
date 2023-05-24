@@ -35,19 +35,34 @@
     - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'BASIntegrationReady') | map(attribute='status') | list | first == "True"
     - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SLSIntegrationReady') | map(attribute='status') | list | length > 0
     - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SLSIntegrationReady') | map(attribute='status') | list | first == "True"
-  retries: 50 # approx 50 minutes before we give up
+  retries: 40 # approx 40 minutes before we give up
   delay: 60 # 1 minute
 
-- name: "Wait for CoreIDP to be ready if check is present"
+# approx 50 minutes before we give up
+- name: "Wait for CoreIDP to be ready if check is present (60s delay)"
   when: suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'CoreIDPReady') | map(attribute='status') | list | length > 0
-  assert:
-    that: suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'CoreIDPReady') | map(attribute='status') | list | first == "True"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "{{mas_instance_id}}"
+    namespace: "{{mas_namespace}}"
+    kind: Suite
+  register: suite_cr_result
+  until: suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'CoreIDPReady') | map(attribute='status') | list | first == "True"
+  retries: 10 # approx 10 minutes before we give up
+  delay: 60 # 1 minute
 
-- name: "Confirm Overall Suite is ready"
-  assert:
-    that:
+- name: "Wait for Suite to be ready overall (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "{{mas_instance_id}}"
+    namespace: "{{mas_namespace}}"
+    kind: Suite
+  register: suite_cr_result
+  until:
       - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | length > 0
       - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | first == "True"
+  retries: 10 # approx 10 minutes before we give up
+  delay: 60 # 1 minute
 
 # 4. Lookup for superuser credentials
 # -----------------------------------------------------------------------------
