@@ -35,7 +35,7 @@
     - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'BASIntegrationReady') | map(attribute='status') | list | first == "True"
     - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SLSIntegrationReady') | map(attribute='status') | list | length > 0
     - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SLSIntegrationReady') | map(attribute='status') | list | first == "True"
-  retries: 40 # approx 40 minutes before we give up
+  retries: 50 # approx 50 minutes before we give up
   delay: 60 # 1 minute
 
 # Older versions of MAS Core may not have the CoreIDPReady status check so it is seperated here and it only runs if the check is present
@@ -48,7 +48,7 @@
     kind: Suite
   register: suite_cr_result
   until: suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'CoreIDPReady') | map(attribute='status') | list | first == "True"
-  retries: 10 # approx 10 minutes before we give up
+  retries: 20 # approx 20 minutes before we give up
   delay: 60 # 1 minute
 
 - name: "Wait for Suite to be ready overall (60s delay)"
@@ -61,7 +61,7 @@
   until:
       - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | length > 0
       - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | first == "True"
-  retries: 10 # approx 10 minutes before we give up
+  retries: 20 # approx 20 minutes before we give up
   delay: 60 # 1 minute
 
 # 4. Lookup for superuser credentials
