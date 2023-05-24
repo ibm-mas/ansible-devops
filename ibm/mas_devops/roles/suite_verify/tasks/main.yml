@@ -39,15 +39,15 @@
     - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | first == "True"
   retries: 50 # approx 50 minutes before we give up
   delay: 60 # 1 minute
-  
-- name: "Identify check suite_cr_result for core IDP exists (10s delay)"
+
+- name: "Identify CoreIDPReady check exists (10s delay)"
   when: suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'CoreIDPReady') | map(attribute='status') | list | length > 0
   set_fact:
     CoreIDPReady_present: true
   retries: 2
   delay: 10 # 2 * 10 = 20 seconds
 
-- name: "Assert that core IDP is ready"
+- name: "Assert that CoreIDP is ready"
   when: CoreIDPReady_present is defined
   assert:
     that: suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | first == "True"
