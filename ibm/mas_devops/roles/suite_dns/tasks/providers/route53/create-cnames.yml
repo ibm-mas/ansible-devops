@@ -1,0 +1,40 @@
+# Create CNAMEs in the hosted zone
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Get cluster subdomain"
+  when: found_router_default_secret is not defined
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: cluster_subdomain
+
+- set_fact:
+    cluster_ingress: "{{ cluster_subdomain.resources[0].spec.domain }}"
+
+- name: "aws-route53 : Lookup Load Balancer DNS Name for cluster {{ cluster_ingress }}"
+  shell: |
+    aws route53 list-resource-record-sets --hosted-zone-id {{ route53_hosted_zone_id }} --query "ResourceRecordSets[?Name == '\\052.{{ cluster_ingress }}.'].AliasTarget.DNSName" --output json
+  register: aws_hosted_zone_loadbalancer_output
+
+- set_fact:
+    route53_lb_dnsname_output: "{{ aws_hosted_zone_loadbalancer_output.stdout }}"
+
+- set_fact:
+    route53_lb_dnsname: "{{ route53_lb_dnsname_output | first }}"
+
+- name: "Assert Load Balancer DNS Name for cluster {{ cluster_ingress }} exists"
+  assert:
+    that: route53_lb_dnsname is defined and route53_lb_dnsname != ""
+    fail_msg: "There is no Load Balancer DNS Name found for {{ cluster_ingress }}. Verify your AWS Route53 hosted zone '{{ route53_hosted_zone_name }}' and ensure there's an 'A type' entry for your cluster and a corresponding load balancer associated to it."
+
+- name: "aws-route53 : Generate CNAME json file for {{ route53_lb_dnsname }}"
+  ansible.builtin.template:
+    src: "{{ route53_cname_json_file_path_local }}/create-cnames.json.j2"
+    dest: "{{ route53_cname_json_file_path_local }}/{{ mas_instance_id }}-{{ route53_hosted_zone_name }}-cnames.json"
+    mode: '664'
+
+- name: "aws-route53 : Create CNAME records pointing to {{ route53_lb_dnsname }}"
+  shell: |
+    aws route53 change-resource-record-sets --hosted-zone-id {{ route53_hosted_zone_id }} --change-batch file://{{ route53_cname_json_file_path_local }}/{{ mas_instance_id }}-{{ route53_hosted_zone_name }}-cnames.json
+  register: aws_hosted_zone_loadbalancer_output
+  failed_when: aws_hosted_zone_loadbalancer_output.rc > 0 and ('it already exists' not in aws_hosted_zone_loadbalancer_output.stderr )

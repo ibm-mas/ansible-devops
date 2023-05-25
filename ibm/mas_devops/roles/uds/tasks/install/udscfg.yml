@@ -56,13 +56,10 @@
 - name: "udscfg : Lookup the default cluster ingress secret"
   include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
 
-# Not sure why we do this manipulation on the certificate content, whoever wrote
-# this originally should really have put a comment in here explaining why this
-# is necessary :)
+# Break up the certificate into an array
 - name: "udscfg : Set UDS cert variable"
   set_fact:
     uds_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
-
 
 # 5. Debug
 # -----------------------------------------------------------------------------
@@ -70,6 +67,7 @@
   debug:
     msg:
       - "UDS URL ............................ {{ uds_endpoint_url }}"
+      - "Cluster Ingress TLS Certificate .... {{ cluster_ingress_tls_crt | default('<undefined>', True) }}"
       - "UDS TLS Certificate ................ {{ uds_tls_crt }}"
       - "UDS Contact First Name ............. {{ uds_contact.first_name | default('<undefined>', True) }}"
       - "UDS Contact Last Name .............. {{ uds_contact.last_name | default('<undefined>', True) }}"
