@@ -110,6 +110,8 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../aws_policy/">aws_policy</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../aws_route53/">aws_route53</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../aws_user_creation/">aws_user_creation</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../aws_vpc/">aws_vpc</a>
@@ -258,7 +260,23 @@
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-aws-route-53">Role Variables - AWS Route 53</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#route53_hosted_zone_name">route53_hosted_zone_name</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#route53_hosted_zone_region">route53_hosted_zone_region</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#route53_subdomain">route53_subdomain</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#route53_email">route53_email</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-playbook-cis-or-cloudflare">Example Playbook - CIS or Cloudflare</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-playbook-aws-route-53">Example Playbook - AWS Route 53</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
     </li>
@@ -519,7 +537,45 @@ See https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-sec
 <li>Environment Variable: <code>OUTPUT_DIR</code></li>
 <li>Default: <code>.</code> (which will set the directory file in ibm/mas_devops)</li>
 </ul>
-<h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
+<h2 id="role-variables-aws-route-53">Role Variables - AWS Route 53<a class="headerlink" href="#role-variables-aws-route-53" title="Permanent link"></a></h2>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link"></a></h2>
+<p>To run this role successfully you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
+Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
+<h3 id="route53_hosted_zone_name">route53_hosted_zone_name<a class="headerlink" href="#route53_hosted_zone_name" title="Permanent link"></a></h3>
+<p>AWS Route53 Hosted Zone name.</p>
+<ul>
+<li>Required.</li>
+<li>Environment Variable: <code>ROUTE53_HOSTED_ZONE_NAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="route53_hosted_zone_region">route53_hosted_zone_region<a class="headerlink" href="#route53_hosted_zone_region" title="Permanent link"></a></h3>
+<p>AWS Route53 Hosted Zone region. </p>
+<ul>
+<li>Required.</li>
+<li>Environment Variable: <code>ROUTE53_HOSTED_ZONE_REGION</code></li>
+<li>Default Value: Same value as defined in <code>AWS_REGION</code>, or if none defined, then <code>us-east-2</code> is the defaulted region.</li>
+</ul>
+<h3 id="route53_subdomain">route53_subdomain<a class="headerlink" href="#route53_subdomain" title="Permanent link"></a></h3>
+<p>If a subdomain is defined, this will be used to create the corresponding CNAME entries in the targeted Route53 hosted zone instance. 
+Therefore, the Route53 subdomain + the Route53 hosted zone name defined, when combined, needs to match with the chosen MAS Domain, otherwise the DNS records won't be able to get resolved.</p>
+<pre><code>Example:
+MAS Top Level Domain: my-mas-instance.mycompany.com
+AWS Route53 hosted zone name: mycompany.com
+AWS Route53 subdomain: my-mas-instance
+</code></pre>
+<ul>
+<li>Optional.</li>
+<li>Environment Variable: <code>ROUTE53_SUBDOMAIN</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="route53_email">route53_email<a class="headerlink" href="#route53_email" title="Permanent link"></a></h3>
+<p>AWS Route53 contact e-mail. Will be set in the cluster issuer created in order to receive alerts.</p>
+<ul>
+<li>Optional.</li>
+<li>Environment Variable: <code>ROUTE53_EMAIL</code></li>
+<li>Default Value: None.</li>
+</ul>
+<h2 id="example-playbook-cis-or-cloudflare">Example Playbook - CIS or Cloudflare<a class="headerlink" href="#example-playbook-cis-or-cloudflare" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">---
 - hosts: localhost
   any_errors_fatal: true
@@ -530,6 +586,23 @@ See https://cloud.ibm.com/docs/cis?topic=cis-manage-your-ibm-cis-for-optimal-sec
     cis_crn: xxx
     cis_apikey: xxx
     cis_email: xxx
+  roles:
+    - ibm.mas_devops.suite_dns
+</code></pre>
+<h2 id="example-playbook-aws-route-53">Example Playbook - AWS Route 53<a class="headerlink" href="#example-playbook-aws-route-53" title="Permanent link"></a></h2>
+<pre><code class="language-yaml">---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    dns_provider: route53
+    mas_instance_id: inst1
+    mas_domain: inst1.mydomain.com
+    aws_access_key_id: xxx
+    aws_secret_access_key: xxx
+    route53_hosted_zone_name: mydomain.com
+    route53_hosted_zone_region: us-east-2
+    route53_subdomain: inst1
+    route53_email: anyemail@test.com
   roles:
     - ibm.mas_devops.suite_dns
 </code></pre>
