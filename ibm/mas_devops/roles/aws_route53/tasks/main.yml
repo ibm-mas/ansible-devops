@@ -1,0 +1,83 @@
+---
+# 1. Check required properties
+# -----------------------------------------------------------------------------
+- name: "Check required properties"
+  assert:
+    that: route53_hosted_zone_name is defined and route53_hosted_zone_name != ""
+    fail_msg: "route53_hosted_zone_name property has not been set"
+
+# 2. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "AWS Route53: Debug information"
+  debug:
+    msg:
+      - "AWS Hosted Zone name ................................... {{ route53_hosted_zone_name }}"
+      - "AWS Hosted Zone region ................................. {{ route53_hosted_zone_region }}"
+
+# 3. Create IAM Policy to allow cert-manager to add records to AWS Route53
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Create AWS IAM Policy to allow cert-manager to add records"
+  import_role:
+    name: ibm.mas_devops.aws_policy
+  vars:
+    aws_policy_name: "{{ route53_policy_name }}"
+    aws_policy_statement:
+      - Effect: Allow
+        Action: route53:GetChange
+        Resource: arn:aws:route53:::change/*
+      - Effect: Allow
+        Action:
+          - route53:ChangeResourceRecordSets
+          - route53:ListResourceRecordSets
+        Resource: arn:aws:route53:::hostedzone/*
+      - Effect: Allow
+        Action: route53:ListHostedZonesByName
+        Resource: "*"
+
+# 4. Create AWS Route 53 hosted zones
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Lookup AWS Route53 Hosted zone instance"
+  shell: |
+    aws route53 list-hosted-zones-by-name |
+    jq --arg name "{{ route53_hosted_zone_name }}." \
+    -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
+  register: aws_hosted_zone_lookup_output
+
+- set_fact:
+    route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout | regex_replace('/hostedzone/', '''') }}"
+
+- block:
+    - name: "aws-route53 : Create AWS Route53 Hosted zone instance if none exists with name {{ route53_hosted_zone_name }}"
+      shell: |
+        aws route53 create-hosted-zone \
+        --name {{ route53_hosted_zone_name }} \
+        --caller-reference {{ route53_caller_reference }} \
+        --region {{ route53_hosted_zone_region }} \
+        --output json
+      register: aws_hosted_zone_create_output
+      failed_when: aws_hosted_zone_create_output.rc > 0 and ('HostedZoneAlreadyExists' not in aws_hosted_zone_create_output.stderr )
+
+    - name: "aws-route53 : Lookup AWS Route53 Hosted Zone ID for {{ route53_hosted_zone_name }}"
+      when: aws_hosted_zone_lookup_output.stdout | length == 0
+      shell: |
+        aws route53 list-hosted-zones-by-name |
+        jq --arg name "{{ route53_hosted_zone_name }}." \
+        -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
+      register: aws_hosted_zone_lookup_output
+
+    - set_fact:
+        route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout | regex_replace('/hostedzone/', '''') }}"
+
+  when: route53_hosted_zone_id | length == 0
+
+- name: "Hosted Zone Id for {{ route53_hosted_zone_name }}"
+  debug:
+    var: route53_hosted_zone_id
+
+- name: "AWS Route53 Hosted Zone: Summary information"
+  debug:
+    msg:
+      - "AWS Hosted Zone name ................................... {{ route53_hosted_zone_name }}"
+      - "AWS Hosted Zone region ................................. {{ route53_hosted_zone_region }}"
+      - "AWS Hosted Zone ID ..................................... {{ route53_hosted_zone_id }}"
+      - "AWS Policy created to allow recordsets to be changed ... {{ route53_policy_name }}"
