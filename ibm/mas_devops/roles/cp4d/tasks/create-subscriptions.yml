@@ -38,20 +38,21 @@
 - set_fact:
     cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
 
-- name: "install-cp4d : Set cpd_channel and zen_cr_version"
+- name: "install-cp4d : Set CPD properties"
   set_fact:
     cpd_channel: "{{ cpd_components_meta.cpd_platform.sub_channel }}"
     zen_cr_version: "{{ cpd_components_meta.zen.cr_version }}"
     cpd_csv_version: "{{ cpd_components_meta.cpd_platform.csv_version }}"
+    foundational_services_expected_csv_version: "{{ cpd_components_meta.cpfs.csv_version }}"
 
 - debug:
     msg:
-      - "CPD operators namespace ................ {{ cpd_operators_namespace }}"
-      - "CPD instance namespace ................. {{ cpd_instance_namespace }}"
-      - "CPD release version .................... {{ cpd_product_version }}"
-      - "CPD subscription channel ............... {{ cpd_channel }}"
-      - "CPD csv version ........................ {{ cpd_csv_version }}"
-      - "Zen/control plane version .............. {{ zen_cr_version }}"
+      - "CPD operators namespace ................... {{ cpd_operators_namespace }}"
+      - "CPD instance namespace .................... {{ cpd_instance_namespace }}"
+      - "CPD release version ....................... {{ cpd_product_version }}"
+      - "CPD subscription channel .................. {{ cpd_channel }}"
+      - "CPD csv version ........................... {{ cpd_csv_version }}"
+      - "Zen/control plane version ................. {{ zen_cr_version }}"
 
 # 2.2 Install the IBM Cloud Pak for Data platform operator
 #
@@ -84,11 +85,21 @@
       set_fact:
         common_services_channel: "{{ common_services_manifest_info.resources[0].status.defaultChannel }}"
 
-- name: Debug IBM Common Services Install
+- debug:
+    msg:
+
+- name: "Assert that IBM Cloud Pak Foundational Services is compatible with Cloud Pak for Data version {{ cpd_product_version }}"
+  assert:
+    that: foundational_services_installed_csv_version is version_compare(foundational_services_expected_csv_version, '>=')
+    fail_msg: "Failed! You have incompatible IBM Foundation Services version v{{ foundational_services_installed_csv_version }} installed. You must have version v{{ foundational_services_expected_csv_version }} or above."
+
+- name: Debug IBM Cloud Pak Foundational Services Install
   debug:
     msg:
-      - "Channel ................................ {{ common_services_channel }}"
-      - "Source ................................. ibm-operator-catalog"
+      - "Subscription Channel defined ............................................................. {{ common_services_channel }}"
+      - "Catalog Source ........................................................................... ibm-operator-catalog"
+      - "Current installed version ................................................................ v{{ foundational_services_installed_csv_version }}"
+      - "Expected compatible version with CloudPak for Data {{ cpd_product_version }} ................................. v{{ foundational_services_expected_csv_version }}+"
 
 - name: "create-subscriptions : Create CP4D Platform & Namespace Scope Operator subscriptions using channel: {{ cpd_channel }}"
   kubernetes.core.k8s:

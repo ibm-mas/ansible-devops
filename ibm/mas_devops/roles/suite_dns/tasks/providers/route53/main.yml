@@ -1,0 +1,81 @@
+---
+# 1. Check required properties
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Check required properties"
+  assert:
+    that: route53_hosted_zone_name is defined and route53_hosted_zone_name != ""
+    fail_msg: "route53_hosted_zone_name property has not been set"
+
+# 2. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Debug information"
+  debug:
+    msg:
+      - "AWS Hosted Zone name ................................... {{ route53_hosted_zone_name }}"
+      - "AWS Hosted Zone region ................................. {{ route53_hosted_zone_region }}"
+      - "AWS Route53 Cluster Issuer ............................. {{ route53_prod_issuer_name }}"
+
+# 3. Create IAM Policy to allow cert-manager to add records to AWS Route53
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Create AWS IAM Policy to allow cert-manager to add records"
+  import_role:
+    name: ibm.mas_devops.aws_policy
+  vars:
+    aws_policy_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-route53-policy"
+    aws_policy_statement:
+      - Effect: Allow
+        Action: route53:GetChange
+        Resource: arn:aws:route53:::change/*
+      - Effect: Allow
+        Action:
+          - route53:ChangeResourceRecordSets
+          - route53:ListResourceRecordSets
+        Resource: arn:aws:route53:::hostedzone/*
+      - Effect: Allow
+        Action: route53:ListHostedZonesByName
+        Resource: "*"
+
+# 4. Check AWS Route 53 hosted zone exists
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Lookup AWS Route53 Hosted zone instance"
+  shell: |
+    aws route53 list-hosted-zones-by-name |
+    jq --arg name "{{ route53_hosted_zone_name }}." \
+    -r '.HostedZones | .[] | select(.Name=="\($name)") | .Id'
+  register: aws_hosted_zone_lookup_output
+
+- set_fact:
+    route53_hosted_zone_id: "{{ aws_hosted_zone_lookup_output.stdout | regex_replace('/hostedzone/', '''') }}"
+
+- name: "aws-route53 : Assert hosted zone {{ route53_hosted_zone_name }} exists"
+  assert:
+    that: route53_hosted_zone_id is defined and route53_hosted_zone_id != ""
+    fail_msg: "route53_hosted_zone_name does not exist! You need to setup a valid hosted zone in your AWS account prior running this role. Optionally run 'aws_route53' role to create one public hosted zone."
+
+- name: "aws-route53 :Hosted Zone Id for {{ route53_hosted_zone_name }}"
+  debug:
+    var: route53_hosted_zone_id
+
+# 5. Create CNAMEs in the hosted zone
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Create CNAMEs in the hosted zone {{ route53_hosted_zone_name }}"
+  include_tasks: "tasks/providers/route53/create-cnames.yml"
+  when:
+    - route53_subdomain is defined
+    - route53_subdomain != ''
+
+# 6. Create AWS Route 53 cluster issuer
+# -----------------------------------------------------------------------------
+- name: "aws-route53 : Create AWS Route 53 cluster issuer: {{ route53_prod_issuer_name }}"
+  kubernetes.core.k8s:
+    namespace: "ibm-common-services"
+    state: present
+    template: templates/route53/clusterissuer.yml.j2
+
+# 7. Change cert-manager deployment to include dns01-recursive parameters
+# -----------------------------------------------------------------------------
+# This step does not seem to be strictly necessary, thus will not be automated right now, but in some cases, there's a workaround that needs to be done in cert-manager-controller
+# https://community.ibm.com/community/user/asset-facilities/blogs/brian-zhu/2022/10/08/using-lets-encrypt-ssl-certificates-with-maximo-ap?CommunityKey=3d7261ae-48f7-481d-b675-a40eb407e0fd
+# Add the following parameters in args property for cert-manager-controller deployment:
+# - '--dns01-recursive-nameservers-only'
+# - '--dns01-recursive-nameservers=8.8.8.8:53'

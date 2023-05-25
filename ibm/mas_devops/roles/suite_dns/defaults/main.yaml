@@ -2,6 +2,10 @@
 # Choose DNS Provider
 # -----------------------------------------------------------------------------
 dns_provider: "{{ lookup('env', 'DNS_PROVIDER') }}"
+supported_dns_providers:
+  - cis
+  - cloudflare
+  - route53
 mas_manual_cert_mgmt: "{{ lookup('env', 'MAS_MANUAL_CERT_MGMT')| default(False, true) }}"
 
 # Certificate Manager
@@ -70,6 +74,19 @@ cis_webhook:
     type: ClusterIP
     port: 443
   log_level: 1
+
+# AWS Route53 Integration
+# -----------------------------------------------------------------------------
+aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+route53_hosted_zone_name: "{{ lookup('env', 'ROUTE53_HOSTED_ZONE_NAME') }}"
+route53_subdomain: "{{ lookup('env', 'ROUTE53_SUBDOMAIN') }}"
+route53_caller_reference: "{{ lookup('env', 'ROUTE53_CALLER_REFERENCE') | default(ansible_date_time.iso8601_basic_short, true) }}" # sample default: "20170930T132646"
+route53_email: "{{ lookup('env', 'ROUTE53_EMAIL') }}"
+aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-2', True) }}"
+route53_hosted_zone_region: "{{ lookup('env', 'ROUTE53_HOSTED_ZONE_REGION') | default(aws_region, True) }}"
+route53_prod_issuer_name: "{{ mas_instance_id }}-route53-le-prod"
+route53_cname_json_file_path_local: "{{ role_path }}/templates/route53"
 
 # CP4D Integration
 # -----------------------------------------------------------------------------

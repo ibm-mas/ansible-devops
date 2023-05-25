@@ -4,6 +4,17 @@
   debug:
     msg: "dns_provider is not set, so this role will take no action"
 
+# 1. Check required properties
+# -----------------------------------------------------------------------------
+- name: "Check required properties"
+  when: dns_provider != ""
+  assert:
+    that:
+      - dns_provider is in supported_dns_providers
+      - mas_instance_id is defined and mas_instance_id != ""
+      - mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "'{{ dns_provider }}' is not a valid value for 'dns_provider' property! Supported DNS providers: {{ supported_dns_providers }}"
+
 - name: Debug manual certificate installation
   when: mas_manual_cert_mgmt != "" and mas_manual_cert_mgmt
   debug:

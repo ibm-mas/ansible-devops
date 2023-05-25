@@ -7,15 +7,23 @@
     oc get configmap -n openshift-config $(oc get proxy/cluster -o yaml -o custom-columns=":.spec.trustedCA.name" --no-headers) -o yaml -o custom-columns=":.data.ca-bundle\.crt" --no-headers
   register: private_root_ca
 
-# 2. If no private CA is found then run the get__signed_ingress task
+# 2. If no private CA is found then run the get_signed_ingress task
 # -----------------------------------------------------------------------------
-- name: "Run default ingress cert task - no private CA found"
+- name: "Get signed ingress certificates (no private CA found)"
   when: private_root_ca.stdout_lines[0] == "<none>"
   include_tasks: "get_signed_ingress_cert.yml"
 
+
 # 3. If private CA is found then run then use it instead of a signed one
 # -----------------------------------------------------------------------------
-- name: "Run private ingress cert task"
+# Break up the certificate into an array
+- name: "Get private ingress certificate (full)"
   when: private_root_ca.stdout_lines[0] != "<none>"
   set_fact:
-    cluster_ingress_tls_crt: private_root_ca.stdout
+    cluster_ingress_tls_crt_full: "{{ private_root_ca.stdout | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+
+# We only want the first part of this certificate, I don't know why, but this is what works
+- name: "Get private ingress certificate"
+  when: private_root_ca.stdout_lines[0] != "<none>"
+  set_fact:
+    cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt_full[0] }}"
