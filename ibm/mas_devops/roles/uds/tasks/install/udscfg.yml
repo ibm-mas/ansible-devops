@@ -57,15 +57,9 @@
   include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
 
 # Break up the certificate into an array
-- name: "udscfg : Set uds_tls_crt_full"
-  set_fact:
-    uds_tls_crt_full: "{{ cluster_ingress_tls_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
-
-# We only want the first part of this certificate, I don't know why, but this is what works!
 - name: "udscfg : Set uds_tls_crt"
   set_fact:
-    uds_tls_crt: [ "{{ uds_tls_crt_full[0] }}" ]
-
+    uds_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
 
 # 5. Debug
 # -----------------------------------------------------------------------------
@@ -74,7 +68,6 @@
     msg:
       - "UDS URL ............................ {{ uds_endpoint_url }}"
       - "Cluster Ingress TLS Certificate .... {{ cluster_ingress_tls_crt | default('<undefined>', True) }}"
-      - "UDS TLS Certificate (full) ......... {{ uds_tls_crt_full }}"
       - "UDS TLS Certificate ................ {{ uds_tls_crt }}"
       - "UDS Contact First Name ............. {{ uds_contact.first_name | default('<undefined>', True) }}"
       - "UDS Contact Last Name .............. {{ uds_contact.last_name | default('<undefined>', True) }}"
