@@ -137,3 +137,16 @@
     template: templates/grafana-datasource.yml.j2
     wait: yes
     wait_timeout: 120
+
+- name: "install : grafana : Wait for grafana to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: integreatly.org/v1alpha1
+    name: mas-grafana
+    namespace: "{{grafana_namespace}}"
+    kind: Grafana
+  register: grafana_cr_result
+  until:
+    - grafana_cr_result.resources[0].status.message is defined
+    - grafana_cr_result.resources[0].status.message == "success"
+  retries: 10 # approx 50 minutes before we give up
+  delay: 60 # 1 minute
