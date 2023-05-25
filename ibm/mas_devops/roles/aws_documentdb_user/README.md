@@ -13,12 +13,6 @@ Required.The instance ID of Maximo Application Suite required for creating docdb
 
 - Environment Variable: `MAS_INSTANCE_ID`
 
-
-### docdb_cluster_name
-Required. AWS DocumentDB Cluster Name
-
-- Environment Variable: `DOCDB_CLUSTER_NAME`
-
 ### docdb_host
 Required. AWS DocumentDB Instance Host Address
 
@@ -48,7 +42,6 @@ Required. AWS DocumentDB Master Password
     docdb_master_password: test-pass-***
     docdb_host: test1.aws-01....
     docdb_port: 27017
-    docdb_cluster_name: test-db-cluster
 
   roles:
     - ibm.mas_devops.aws_documentdb_user
