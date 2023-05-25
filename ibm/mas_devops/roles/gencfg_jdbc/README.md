@@ -1,7 +1,7 @@
-suite_config
+gencfg_jdbc
 ============
 
-This role is used to configure db in Maximo Application Suite. It will use the database SSL certificate if ssl_enabled flag is true. The`db_pem-file` defines the location of the pem file used for JDBC connection in MAS installation.
+This role is used to configure database in Maximo Application Suite. It will use the database SSL certificate if ssl_enabled flag is true. The`db_pem-file` defines the location of the pem file used for JDBC connection in MAS installation.
 
 Role Variables
 --------------
