@@ -6,7 +6,7 @@ Role Variables
 --------------
 
 ### cluster_name
-Required. The cluster name is required to install Kubeturbo.
+Required. The cluster name is required to install Kubeturbo. The agent component is deployed onto target Kubernetes and OpenShift cluster which then send data to the Turbonomic ARM server.
 
 - Environment Variable: `CLUSTER_NAME`
 - Default: None
@@ -24,22 +24,22 @@ Required. The password is required to access the Turbonomics instance.
 - Default: None
 
 ### turbonomic_route
-Required. The route is required to access the Turbonomics instance.
+Required. The route is required to access the Turbonomics instance. Kubeturbo communicates with the Turbo Server using the supplied turbonomic route as the Turbonomic Server endpoint while configuring kubeturbo.
 
 - Environment Variable: `TURBONOMIC_ROUTE`
 - Default: None
+
+### kubeturbo_sub_name
+
+- Required - The kubeturbo_sub_name will install the certified operator.
+- Environment Variable: `KUBETURBO_SUB_NAME`
+- Default: KUBETURBO-CERTIFIED
 
 ### kubeturbo_namespace
 
 - Optional
 - Environment Variable: `KUBETURBO_NAMESPACE`
 - Default: KUBETURBO 
-
-### kubeturbo_sub_name
-
-- Optional
-- Environment Variable: `KUBETURBO_SUB_NAME`
-- Default: KUBETURBO-CERTIFIED
 
 ### kubeturbo_channel
 
