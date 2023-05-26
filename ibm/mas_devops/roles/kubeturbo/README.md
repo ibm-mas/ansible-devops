@@ -29,12 +29,6 @@ Required. The route is required to access the Turbonomics instance. Kubeturbo co
 - Environment Variable: `TURBONOMIC_ROUTE`
 - Default: None
 
-### kubeturbo_sub_name
-
-- Required - The kubeturbo_sub_name will install the certified operator.
-- Environment Variable: `KUBETURBO_SUB_NAME`
-- Default: KUBETURBO-CERTIFIED
-
 ### kubeturbo_namespace
 
 - Optional
