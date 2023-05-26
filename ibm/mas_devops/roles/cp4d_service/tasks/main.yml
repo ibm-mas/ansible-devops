@@ -14,7 +14,35 @@
       - cpd_product_version in cpd_supported_versions # Ensure only CPD 4.0.x and 4.5.x are supported
     fail_msg: "CPD product version ({{ cpd_product_version }}) is not a supported CPD product/service version. Supported CPD product versions are: {{ cpd_supported_versions }}."
 
-# 2. Run the installation
+# 2. Check Cloud Pak for Data is installed and ready
+# -----------------------------------------------------------------------------
+- name: "Lookup Cloud Pak for Data"
+  k8s_info:
+    api_version: cpd.ibm.com/v1
+    kind: Ibmcpd
+    name: ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+  register: ibmcpd_info
+
+# We won't be able to install any cpd service if cpd itself is not installed
+- name: "Check if Cloud Pak for Data is installed"
+  assert:
+    that:
+      - ibmcpd_info.resources is defined
+      - ibmcpd_info.resources | length > 0
+      - ibmcpd_info.resources[0].status is defined
+      - ibmcpd_info.resources[0].status.controlPlaneStatus is defined
+    fail_msg: "Failed! IBM Cloud Pak for Data must be installed before installing any CloudPak for Data service. Run 'cp4d' role to install it."
+
+# We won't be able to install any cpd service if cpd itself is not healthy
+- name: "Check if Cloud Pak for Data is healthy"
+  assert:
+    that: ibmcpd_info.resources[0].status.controlPlaneStatus == 'Completed'
+    fail_msg:
+      - "Failed! IBM Cloud Pak for Data must be ready and successfully installed before installing any CloudPak for Data service."
+      - "Current IBM Cloud Pak for Data installation status: {{ ibmcpd_info.resources[0].status.controlPlaneStatus }}"
+
+# 3. Run the CPD service installation
 # -----------------------------------------------------------------------------
 - name: "Run install"
   include_tasks: "install.yml"
