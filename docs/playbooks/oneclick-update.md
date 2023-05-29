@@ -35,7 +35,7 @@ Usage
 Only one parameter is required, the new tag of the IBM Maximo Operator Catalog that you wish to use:
 
 ```bash
-export MAS_CATALOG_VERSION=v8-230518-amd64
+export MAS_CATALOG_VERSION=v8-230526-amd64
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_update
 ```
