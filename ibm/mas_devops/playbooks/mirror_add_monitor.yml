@@ -10,7 +10,7 @@
   any_errors_fatal: true
 
   vars:
-    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-230414-amd64', True) }}"
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-230526-amd64', True) }}"
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.10.x', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
 
@@ -65,18 +65,21 @@
         manifest_name: ibm-mas-monitor
         manifest_version: "{{ mas_monitor_version[mas_channel] }}"
 
-    # 2.2. IBM Maximo Monitor image fix (there are two digests and catalog uses one and case bundle uses the other)
+    # 2.2. IBM Maximo Monitor image fix in version 8.10.0 (there are two digests and catalog uses one and case bundle uses the other)
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_extras_prepare
       when:
         - mirror_mas_monitor
         - mirror_mode != "from-filesystem"
+        - mas_monitor_version[mas_channel] == "8.10.0"
       vars:
         extras_name: monitor
         extras_version: "{{ mas_monitor_version[mas_channel] }}"
 
     - name: ibm.mas_devops.mirror_images
-      when: mirror_mas_monitor
+      when:
+        - mirror_mas_monitor
+        - mas_monitor_version[mas_channel] == "8.10.0"
       vars:
         manifest_name: extras_monitor
         manifest_version: "{{ mas_monitor_version[mas_channel] }}"

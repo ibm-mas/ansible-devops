@@ -14,6 +14,7 @@ copyDoc ansible_version_check
 copyDoc aws_bucket_access_point
 copyDoc aws_documentdb_user
 copyDoc aws_policy
+copyDoc aws_route53
 copyDoc aws_user_creation
 copyDoc aws_vpc
 copyDoc appconnect
@@ -43,6 +44,7 @@ copyDoc gencfg_workspace
 copyDoc ibm_catalogs
 copyDoc install_operator
 copyDoc kafka
+copyDoc kubeturbo
 copyDoc mirror_case_prepare
 copyDoc mirror_extras_prepare
 # copyDoc mirror_ocp_operators
@@ -71,6 +73,7 @@ copyDoc suite_app_upgrade
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
 copyDoc suite_dns
+copyDoc suite_certs
 copyDoc suite_install
 copyDoc suite_install_digest_cm
 copyDoc suite_manage_attachments_config

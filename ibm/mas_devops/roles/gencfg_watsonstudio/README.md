@@ -1,4 +1,4 @@
-suite_config
+gencfg_watsonstudio
 ============
 
 This role is used to configure WatsonStudio in Maximo Application Suite.

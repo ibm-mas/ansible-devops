@@ -3,6 +3,8 @@ suite_dns
 
 This role will manage MAS and DNS provider integration.  IBM Cloud Internet Services is the only supported DNS provider currently. It will also create a secure route (https://cp4d.<mas_domain>) to the CP4D web client using the custom domain used in this role.
 
+**Note**: this role will take no action when `mas_manual_cert_mgmt`is set to `True`
+
 ## DNS management
 There are two different ways this role controls DNS entries in the provider:
 
@@ -11,9 +13,9 @@ This mode will create the entries directly under your DNS zone. Use this when th
 
 
 ### Subdomain DNS entries
-This mode will create DNS entries in the zone under a subdomain. Use this when your DNS zone will be used for more than just one MAS instance.  If your MAS installation will be using the domain **mymas.mycompany.com** and you have a DNS zone for **mycompany.com** then you will be creating subdomain DNS entries for MAS, e.g. **admin.mymas**, **home.mymas**, & **api.mymas**.
+This mode will create DNS entries in the zone under a subdomain. Use this when your DNS zone will be used for more than just one MAS instance. If your MAS installation will be using the domain **mymas.mycompany.com** and you have a DNS zone for **mycompany.com** then you will be creating subdomain DNS entries for MAS, e.g. **admin.mymas**, **home.mymas**, & **api.mymas**.
 
-CIS and Cloudflare integrations support both mode of DNS management.  A single optional variable is required to enable subdomain DNS management, in the examples above you would set these to **mymas**:
+CIS and Cloudflare integrations support both mode of DNS management. A single optional variable is required to enable subdomain DNS management, in the examples above you would set these to **mymas**:
 
 - [cis_subdomain](#cis_subdomain)
 - [cloudflare_subdomain](#cloudflare_subdomain)
@@ -192,7 +194,51 @@ Location to output the edge-routes-{mas_instance_id}.txt
 - Environment Variable: `OUTPUT_DIR`
 - Default: `.` (which will set the directory file in ibm/mas_devops)
 
-Example Playbook
+
+Role Variables - AWS Route 53
+------------------------------------------------------------
+
+## Prerequisites
+To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
+
+### route53_hosted_zone_name
+AWS Route53 Hosted Zone name.
+
+- Required.
+- Environment Variable: `ROUTE53_HOSTED_ZONE_NAME`
+- Default Value: None
+
+### route53_hosted_zone_region
+AWS Route53 Hosted Zone region. 
+
+- Required.
+- Environment Variable: `ROUTE53_HOSTED_ZONE_REGION`
+- Default Value: Same value as defined in `AWS_REGION`, or if none defined, then `us-east-2` is the defaulted region.
+
+### route53_subdomain
+If a subdomain is defined, this will be used to create the corresponding CNAME entries in the targeted Route53 hosted zone instance. 
+Therefore, the Route53 subdomain + the Route53 hosted zone name defined, when combined, needs to match with the chosen MAS Domain, otherwise the DNS records won't be able to get resolved.
+
+```
+Example:
+MAS Top Level Domain: my-mas-instance.mycompany.com
+AWS Route53 hosted zone name: mycompany.com
+AWS Route53 subdomain: my-mas-instance
+```
+
+- Optional.
+- Environment Variable: `ROUTE53_SUBDOMAIN`
+- Default Value: None
+
+### route53_email
+AWS Route53 contact e-mail. Will be set in the cluster issuer created in order to receive alerts.
+
+- Optional.
+- Environment Variable: `ROUTE53_EMAIL`
+- Default Value: None.
+
+Example Playbook - CIS or Cloudflare
 ----------------
 
 ```yaml
@@ -206,6 +252,27 @@ Example Playbook
     cis_crn: xxx
     cis_apikey: xxx
     cis_email: xxx
+  roles:
+    - ibm.mas_devops.suite_dns
+```
+
+Example Playbook - AWS Route 53
+----------------
+
+```yaml
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    dns_provider: route53
+    mas_instance_id: inst1
+    mas_domain: inst1.mydomain.com
+    aws_access_key_id: xxx
+    aws_secret_access_key: xxx
+    route53_hosted_zone_name: mydomain.com
+    route53_hosted_zone_region: us-east-2
+    route53_subdomain: inst1
+    route53_email: anyemail@test.com
   roles:
     - ibm.mas_devops.suite_dns
 ```
