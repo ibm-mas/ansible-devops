@@ -1,54 +1,100 @@
-mirror_ocp_operators
-====================
-This role uses the specifed Red Hat OpenShift Operator version to mirror the standard OpenShift catalog container images to a mirror registry and configure the cluster to pull images from this mirror.
+mirror_ocp
+===============================================================================
+This role supports mirroring the Red Hat Platform and **selected content from the Red Hat operator catalogs**.  Only content in the Red Hat catalogs directly used by IBM Maximo Application Suite is mirrored.
 
-When mirroring is complete, you can view the content of your registry:
+Four actions are supported:
 
-```bash
-curl -k https://$REGISTRY_PUBLIC_HOST/v2/_catalog | jq
-```
+- `direct` Directly mirror content to your target registry
+- `to-filesystem` Mirror content to the local filesystem
+- `from-filesystem` Mirror content from the local filesystem to your target registry
+- `install-catalogs` Install CatalogSources for the mirrored content.
+
+Three **CatalogSources** are created by the `install-catalogs` action in the `openshift-marketplace` namespace, containing the following content:
+
+### certified-operator-index
+- crunchy-postgres-operator (required by ibm.mas_devops.uds role)
+
+### community-operator-index
+- grafana-operator (required by ibm.mas_devops.cluster_monitoring role)
+
+### redhat-operator-index
+- amq-streams (required by ibm.mas_devops.kafka role)
+- openshift-pipelines-operator-rh (required by the MAS CLI)
+
 
 Requirements
-------------
+-------------------------------------------------------------------------------
 - `oc` tool must be installed
+- `oc-mirror` plugin must be installed
 
 
 Role Variables
---------------
-### openshift_operators_version
-The version of the operator catalogs to be mirrored in major.minor format, e.g. `4.8`.
+-------------------------------------------------------------------------------
+### mirror_mode
+Set the action to perform (`direct`, `to-filesystem`, `from-filesystem`)
 
 - **Required**
-- Environment Variable: `OPENSHIFT_OPERATORS_VERSION`
+- Environment Variable: `MIRROR_MODE`
 - Default: None
 
-### log_dir
-The directory to write output log.
+
+Role Variables - Mirror Actions
+-------------------------------------------------------------------------------
+### mirror_working_dir
+Set the working directory for the mirror operations
 
 - **Required**
-- Environment Variable: `LOG_DIR`
-- Default: `/tmp`
-
-
-Role Variables - Red Hat Authentication
----------------------------------------
-### redhat_connect_username
-The username for accessing Red Hat docker images.
-
-- **Required**
-- Environment Variable: `REDHAT_CONNECT_USERNAME`
+- Environment Variable: `MIRROR_WORKING_DIR`
 - Default: None
 
-### redhat_connect_password
-The password for accessing Red Hat docker images.
+### mirror_redhat_platform
+Enable mirroring of the Red Hat platform images.
+
+- **Optional**
+- Environment Variable: `MIRROR_REDHAT_PLATFORM`
+- Default: `False`
+
+### mirror_redhat_operators
+Enable mirroring of **selected content** from the Red Hat operator catalogs.
+
+- **Optional**
+- Environment Variable: `MIRROR_REDHAT_OPERATORS`
+- Default: `False`
+
+### redhat_pullsecret
+Path to your Red Hat pull secret, available from: [https://console.redhat.com/openshift/install/pull-secret](https://console.redhat.com/openshift/install/pull-secret).
 
 - **Required**
-- Environment Variable: `REDHAT_CONNECT_PASSWORD`
+- Environment Variable: `REDHAT_PULLSECRET`
+- Default: None
+
+
+Role Variables - OpenShift Version
+-------------------------------------------------------------------------------
+### ocp_release
+The Red Hat release you are mirroring content for, e.g. `4.12`.
+
+- **Required**
+- Environment Variable: `OCP_RELEASE`
+- Default: None
+
+### ocp_min_version
+The minimum version of the Red Hat release to mirror platform content for, e.g. `4.12.0`.
+
+- **Optional**
+- Environment Variable: `OCP_MIN_VERSION`
+- Default: None
+
+### ocp_max_version
+The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.12.18`.
+
+- **Optional**
+- Environment Variable: `OCP_MAX_VERSION`
 - Default: None
 
 
 Role Variables - Target Registry
---------------------------------
+-------------------------------------------------------------------------------
 ### registry_public_host
 The public hostname for the target registry
 
@@ -64,36 +110,45 @@ The public port number for the target registry
 - Default: None
 
 ### registry_username
-The username for the target registry, if the target registry requires authentication.
+The username for the target registry.
 
-- Optional
+- **Required**
 - Environment Variable: `REGISTRY_USERNAME`
 - Default: None
 
 ### registry_password
-The password for the target registry, if the target registry requires authentication.
+The password for the target registry.
 
-- Optional
+- **Required**
 - Environment Variable: `REGISTRY_PASSWORD`
 - Default: None
 
 
 Example Playbook
-----------------
+-------------------------------------------------------------------------------
 
 ```yaml
 - hosts: localhost
   vars:
-    openshift_operators_version: 4.8
     registry_public_host: myocp-5f1320191125833da1cac8216c06779e-0000.us-south.containers.appdomain.cloud
     registry_public_port: 32500
+    registry_username: admin
+    registry_password: 8934jk77s862!  # Not a real password, don't worry security folks
+
+    mirror_mode: direct
+    mirror_working_dir: /tmp/mirror
+    mirror_redhat_platform: false
+    mirror_redhat_operators: true
+
+    ocp_release: 4.12
+    redhat_pullsecret: ~/pull-secret.json
 
   roles:
-    - ibm.mas_devops.mirror_ocp_operators
+    - ibm.mas_devops.mirror_ocp
 ```
 
 
 License
--------
+-------------------------------------------------------------------------------
 
 EPL-2.0

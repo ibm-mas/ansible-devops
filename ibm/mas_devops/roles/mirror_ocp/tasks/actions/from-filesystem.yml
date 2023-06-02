@@ -4,21 +4,15 @@
 - name: "Fail if required properties are not provided"
   assert:
     that:
-      - openshift_operators_version is defined and openshift_operators_version != ""
-      - redhat_pullsecret is defined and redhat_pullsecret != ""
+      - ocp_release is defined and ocp_release != ""
+      - registry_public_url is defined and registry_public_url != ""
       - mirror_working_dir is defined and mirror_working_dir != ""
     fail_msg: "One or more required properties are missing"
 
 
 # 2. Perform Mirroring
 # -----------------------------------------------------------------------------
-- name: "Generate ImageSetConfiguration"
-  ansible.builtin.template:
-    src: imagesetconfiguration.yml.j2
-    dest: "{{ mirror_working_dir }}/imageset-{{ openshift_operators_version }}.yml"
-    mode: '664'
-
 - name: "Mirror Red Hat content from filesystem to target registry"
   shell: >
-    oc mirror --dest-skip-tls --from={{ mirror_working_dir }}/redhat-operators/mirror_seq1_000000.tar docker://{{ registry_public_url }}
+    DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --dest-skip-tls --from={{ mirror_working_dir }}/redhat-{{ ocp_release }}/mirror_seq1_000000.tar docker://{{ registry_public_url }}
   register: mirror_result
