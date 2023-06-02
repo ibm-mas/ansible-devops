@@ -4,21 +4,14 @@
 - name: "Fail if required properties are not provided"
   assert:
     that:
-      - openshift_release_version is defined and openshift_release_version != ""
-      - redhat_pullsecret is defined and redhat_pullsecret != ""
+      - registry_public_url is defined and registry_public_url != ""
       - mirror_working_dir is defined and mirror_working_dir != ""
     fail_msg: "One or more required properties are missing"
 
 
-# 3. Perform Mirroring
+# 2. Perform Mirroring
 # -----------------------------------------------------------------------------
-- name: Mirror Release (to filesystem)
+- name: "Mirror Red Hat content from filesystem to target registry"
   shell: >
-    oc adm release mirror {{ openshift_release_version }} \
-      -a {{ redhat_pullsecret }} \
-      --to-dir={{ mirror_working_dir }}
+    DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --dest-skip-tls --from={{ mirror_working_dir }}/mirror_seq1_000000.tar docker://{{ registry_public_url }}
   register: mirror_result
-
-- name: "Debug Mirror"
-  debug:
-    msg: "{{ mirror_result.stdout_lines }}"

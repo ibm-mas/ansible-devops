@@ -1,0 +1,24 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if required properties are not provided"
+  assert:
+    that:
+      - ocp_release is defined and ocp_release != ""
+      - registry_public_url is defined and registry_public_url != ""
+      - mirror_working_dir is defined and mirror_working_dir != ""
+    fail_msg: "One or more required properties are missing"
+
+
+# 2. Perform Mirroring
+# -----------------------------------------------------------------------------
+- name: "Generate ImageSetConfiguration"
+  ansible.builtin.template:
+    src: imagesetconfiguration.yml.j2
+    dest: "{{ mirror_working_dir }}/imageset-ocp{{ ocp_release }}.yml"
+    mode: '664'
+
+- name: "Mirror Red Hat content from source registry to target registry"
+  shell: >
+    DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --config={{ mirror_working_dir }}/imageset-ocp{{ ocp_release }}.yml docker://{{ registry_public_url }}
+  register: mirror_result

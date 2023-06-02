@@ -1,0 +1,72 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if required properties are not provided"
+  assert:
+    that:
+      - ocp_release is defined and ocp_release != ""
+      - mirror_mode is defined and mirror_mode != ""
+      - redhat_pullsecret is defined and redhat_pullsecret != ""
+    fail_msg: "One or more required properties are missing"
+
+
+# 2. Check for required software
+# -----------------------------------------------------------------------------
+- name: "Test if oc is installed"
+  shell: oc help
+  register: _oc_help
+  ignore_errors: true
+
+- name: "Fail if oc is not installed"
+  assert:
+    that: _oc_help['rc'] == 0
+    fail_msg: "oc command must be installed"
+
+- name: "Test if oc-mirror is installed"
+  shell: oc mirror help
+  register: _oc_mirror_help
+  ignore_errors: true
+
+- name: "Fail if oc-mirror is not installed"
+  assert:
+    that: _oc_mirror_help['rc'] == 0
+    fail_msg: "oc mirror plugin must be installed"
+
+
+# 3. Debug
+# -----------------------------------------------------------------------------
+- name: "Airgap setup configuration"
+  debug:
+    msg:
+      - "OpenShift Release ...................... {{ ocp_release | default('<undefined>', True) }}"
+      - "OpenShift Minimum Version .............. {{ ocp_min_version | default('<undefined>', True) }}"
+      - "OpenShift Maximum Version .............. {{ ocp_max_version | default('<undefined>', True) }}"
+
+      - "Mirror Mode ............................ {{ mirror_mode }}"
+      - "Mirror Platform ........................ {{ mirror_redhat_platform }}"
+      - "Mirror Operators ....................... {{ mirror_redhat_operators }}"
+
+      - "Red Hat Pull Secret .................... {{ redhat_pullsecret }}"
+
+      - "Target Registry ........................ {{ registry_public_url | default('<undefined>', True) }}"
+
+
+# 4. Generate new docker config
+# -----------------------------------------------------------------------------
+- name: Generate Docker config
+  command: >
+    jq ".auths[\"{{ registry_public_url }}\"]={\"auth\":\"{{ registry_auth | b64encode }}\"}" "{{ redhat_pullsecret }}"
+  register: new_pull_secret
+
+- name: Write Docker config to file
+  copy:
+    content: "{{ new_pull_secret.stdout }}"
+    dest: "{{ mirror_working_dir }}/config.json"
+
+
+# 5. Mirror Release
+# -----------------------------------------------------------------------------
+- name: Run Mirroring
+  include_tasks: "actions/{{ mirror_mode }}.yml"
+
