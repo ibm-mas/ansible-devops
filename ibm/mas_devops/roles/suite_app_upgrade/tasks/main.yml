@@ -19,7 +19,7 @@
 
 
 # Set mas_app_channel_internal on behalf of mas_app_channel:
-# There's probably a better way to do this but this was the way to prevent
+# There's probably a better way to do this but this was the way found to prevent
 # problems due ansible var precedence rule as set_fact on mas_app_channel will always take precedence
 # over what's being passed via var along any playbook that calls this role multiple times
 # so using a different and internal variable name to set the fact for mas_app_channel allows us
@@ -28,6 +28,7 @@
   when:
     - mas_app_channel is not defined or mas_app_channel == ""
     - not ( skip_compatibility_check is defined and skip_compatibility_check )
+    - compatibility_matrix[core_sub_info.resources[0].spec.channel][mas_app_id] is defined # avoid undefined when safety as it does not exist post MAS 8.9
   set_fact:
     mas_app_channel_internal: "{{ compatibility_matrix[core_sub_info.resources[0].spec.channel][mas_app_id] | last }}"
 
