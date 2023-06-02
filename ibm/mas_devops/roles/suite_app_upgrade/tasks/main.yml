@@ -1,5 +1,4 @@
 ---
-
 # 1. Load variables
 # -----------------------------------------------------------------------------
 - name: "{{ mas_app_id }} : Load application compatibility matrix"
@@ -18,12 +17,25 @@
     kind: Subscription
   register: core_sub_info
 
+
+# Set mas_app_channel_internal on behalf of mas_app_channel:
+# There's probably a better way to do this but this was the way to prevent
+# problems due ansible var precedence rule as set_fact on mas_app_channel will always take precedence 
+# over what's being passed via var along any playbook that calls this role multiple times
+# so using a different and internal variable name to set the fact for mas_app_channel allows us 
+# to receive its value from playbooks such as 'oneclick_upgrade.yml' 
 - name: "{{ mas_app_id }} : Set default upgrade target based on installed version of MAS core"
   when:
     - mas_app_channel is not defined or mas_app_channel == ""
     - not ( skip_compatibility_check is defined and skip_compatibility_check )
   set_fact:
-    mas_app_channel: "{{ compatibility_matrix[core_sub_info.resources[0].spec.channel][mas_app_id] | last }}"
+    mas_app_channel_internal: "{{ compatibility_matrix[core_sub_info.resources[0].spec.channel][mas_app_id] | last }}"
+
+- name: "{{ mas_app_id }} : Use mas_app_channel internally if needed"
+  set_fact:
+    mas_app_channel_internal: "{{ mas_app_channel }}"
+  when: 
+    - mas_app_channel_internal is not defined or mas_app_channel_internal == ""
 
 - name: "{{ mas_app_id }} : Get subscription for {{ mas_app_fqn }}"
   kubernetes.core.k8s_info:
@@ -54,28 +66,33 @@
 # -----------------------------------------------------------------------------
 - name: "{{ mas_app_id }} : Execute Channel Upgrade"
   when:
-    - mas_app_channel is defined and mas_app_channel != ""
+    - mas_app_channel_internal is defined and mas_app_channel_internal != ""
     - app_sub_info.resources | length > 0
-    - app_sub_info.resources[0].spec.channel != mas_app_channel
+    - app_sub_info.resources[0].spec.channel != mas_app_channel_internal
     - not mas_upgrade_dryrun
   include_tasks: tasks/upgrade.yml
 
 - name: "{{ mas_app_id }} : Debug when we are already on the desired channel"
   when:
-    - mas_app_channel is defined and mas_app_channel != ""
+    - mas_app_channel_internal is defined and mas_app_channel_internal != ""
     - app_sub_info.resources | length > 0
-    - app_sub_info.resources[0].spec.channel == mas_app_channel
+    - app_sub_info.resources[0].spec.channel == mas_app_channel_internal
   debug:
-    msg: "No action required, subscription is already on the {{ mas_app_channel }} channel"
+    msg: "No action required, subscription is already on the {{ mas_app_channel_internal }} channel"
 
 - name: "{{ mas_app_id }} : Debug when there is nothing to upgrade"
   when:
-    - mas_app_channel is defined and mas_app_channel != ""
+    - mas_app_channel_internal is defined and mas_app_channel_internal != ""
     - app_sub_info.resources | length == 0
   debug:
     msg: "No action required, subscription for {{ mas_app_fqn }} does not exist in {{ mas_app_namespace }}"
 
 - name: "Debug when no upgrade channel was available"
-  when: mas_app_channel is not defined or mas_app_channel == ""
+  when: mas_app_channel_internal is not defined or mas_app_channel_internal == ""
   debug:
     msg: "No action required, no upgrade channel is available for application {{ mas_app_id }}"
+
+# Reset mas_app_channel_internal so it can be initialized as null within the upcoming runs
+- name: Clear mas_app_channel_internal variable
+  set_fact:
+    mas_app_channel_internal: ""
