@@ -47,8 +47,7 @@ copyDoc kafka
 copyDoc kubeturbo
 copyDoc mirror_case_prepare
 copyDoc mirror_extras_prepare
-# copyDoc mirror_ocp_operators
-copyDoc mirror_ocp_release
+copyDoc mirror_ocp
 copyDoc mirror_images
 copyDoc mongodb
 copyDoc nvidia_gpu

@@ -1,0 +1,41 @@
+---
+apiVersion: mirror.openshift.io/v1alpha2
+kind: ImageSetConfiguration
+mirror:
+{% if mirror_redhat_platform %}
+  platform:
+    channels:
+      - name: stable-{{ ocp_release }}
+        minVersion: {{ ocp_min_version }}
+        maxVersion: {{ ocp_max_version }}
+        shortestPath: true
+{% endif %}
+{% if mirror_redhat_operators %}
+  operators:
+    # certified-operators
+    # - crunchy-postgres-operator (required by ibm.mas_devops.uds role)
+    # - kubeturbo-certified (required by ibm.mas_devops.kubeturbo role - not mirrored)
+    - catalog: registry.redhat.io/redhat/certified-operator-index:v{{ ocp_release }}
+      packages:
+        - name: crunchy-postgres-operator
+        # OCI images arenot supported by oc image mirror
+        # https://access.redhat.com/solutions/6997884
+        # https://issues.redhat.com/browse/CFE-780
+        # error: unable to retrieve source image icr.io/cpopen/kubeturbo-operator manifest sha256:d4c22d786f025093d03ba387bf7f4e3c7018b75cdfef05c128d360c56c188424:
+        # unknown: OCI index found, but accept header does not support OCI indexes
+        # - name: kubeturbo-certified
+
+    # community-operators
+    # - grafana-operator (required by ibm.mas_devops.cluster_monitoring role)
+    - catalog: registry.redhat.io/redhat/community-operator-index:v{{ ocp_release }}
+      packages:
+        - name: grafana-operator
+
+    # redhat-operators
+    # - amq-streams (required by ibm.mas_devops.kafka role)
+    # - openshift-pipelines-operator-rh (required by installer)
+    - catalog: registry.redhat.io/redhat/redhat-operator-index:v{{ ocp_release }}
+      packages:
+        - name: amq-streams
+        - name: openshift-pipelines-operator-rh
+{% endif %}
