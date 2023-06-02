@@ -7,6 +7,19 @@
 
 # 2. Install AWS EFS CSI Operator
 # -----------------------------------------------------------------------------
+- name: Get aws-efs-csi-driver-operator package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: aws-efs-csi-driver-operator
+  register: aws_efs_manifest
+
+- name: Set the subscription information
+  set_fact:
+    aws_efs_source: "{{ aws_efs_manifest.status.catalogSource }}"
+    aws_efs_source_namespace: "{{ aws_efs_manifest.status.catalogSourceNamespace }}"
+    aws_efs_default_channel: "{{ aws_efs_manifest.status.defaultChannel }}"
+
 - name: "Install CSI Drivers Operator Group"
   kubernetes.core.k8s:
     apply: yes

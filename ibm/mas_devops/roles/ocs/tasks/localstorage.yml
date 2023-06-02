@@ -7,6 +7,19 @@
     definition: "{{ lookup('template', 'templates/localstorage/namespace.yaml') }}"
   register: localNamespace
 
+- name: Get local storage operator package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: local-storage-operator
+  register: local_storage_operator_manifest
+
+- name: Set the subscription information
+  set_fact:
+    local_storage_operator_source: "{{ local_storage_operator_manifest.status.catalogSource }}"
+    local_storage_operator_source_namespace: "{{ local_storage_operator_manifest.status.catalogSourceNamespace }}"
+    local_storage_operator_default_channel: "{{ local_storage_operator_manifest.status.defaultChannel }}"
+
 
 # 2. Install the Operator
 # -----------------------------------------------------------------------------
