@@ -41,6 +41,20 @@
 # By installing the operator first ourselves, we prevent this happening as
 # the operator will already be at the latest version on the channel, and the
 # startingCSV set by AnalyticsProxy will have no effect.
+
+- name: Get postgres package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: "crunchy-postgres-operator"
+  register: postgres_manifest
+
+- name: Set the subscription information
+  set_fact:
+    postgres_source: "{{ postgres_manifest.status.catalogSource }}"
+    postgres_source_namespace: "{{ postgres_manifest.status.catalogSourceNamespace }}"
+    postgres_default_channel: "{{ postgres_manifest.status.defaultChannel }}"
+
 - name: Create Crunchy Postgres Subscription
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/crunchy-postgres/subscription.yml') }}"

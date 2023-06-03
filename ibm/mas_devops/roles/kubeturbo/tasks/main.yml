@@ -45,6 +45,19 @@
     wait: yes
     wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
 
+- name: Get Kubeturbo package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: "{{ kubeturbo_sub_name }}"
+  register: kubeturbo_manifest
+
+- name: Set the subscription information
+  set_fact:
+    kubeturbo_source: "{{ kubeturbo_manifest.status.catalogSource }}"
+    kubeturbo_source_namespace: "{{ kubeturbo_manifest.status.catalogSourceNamespace }}"
+    kubeturbo_default_channel: "{{ kubeturbo_manifest.status.defaultChannel }}"
+
 - name: "Create Kubeturbo subscription"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/kubeturbo-subscription.yaml') }}"

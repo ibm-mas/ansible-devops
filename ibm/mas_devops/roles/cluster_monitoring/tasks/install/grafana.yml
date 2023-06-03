@@ -12,6 +12,19 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/grafana-operatorgroup.yml.j2') }}"
 
+- name: "install : Get grafana package manifest"
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: grafana-operator
+  register: grafana_manifest
+
+- name: "install : Set the subscription information"
+  set_fact:
+    grafana_source: "{{ grafana_manifest.status.catalogSource }}"
+    grafana_source_namespace: "{{ grafana_manifest.status.catalogSourceNamespace }}"
+    grafana_default_channel: "{{ grafana_manifest.status.defaultChannel }}"
+
 - name: "install : grafana : Create Grafana Operator Subscription"
   kubernetes.core.k8s:
     template: templates/grafana-subscription.yml.j2
