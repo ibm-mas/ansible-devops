@@ -14,11 +14,19 @@
     name: local-storage-operator
   register: local_storage_operator_manifest
 
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - local_storage_operator_manifest is defined
+      - local_storage_operator_manifest.resources is defined
+      - local_storage_operator_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: local-storage-operator"
+
 - name: Set the subscription information
   set_fact:
-    local_storage_operator_source: "{{ local_storage_operator_manifest.status.catalogSource }}"
-    local_storage_operator_source_namespace: "{{ local_storage_operator_manifest.status.catalogSourceNamespace }}"
-    local_storage_operator_default_channel: "{{ local_storage_operator_manifest.status.defaultChannel }}"
+    local_storage_operator_source: "{{ local_storage_operator_manifest.resources[0].status.catalogSource }}"
+    local_storage_operator_source_namespace: "{{ local_storage_operator_manifest.resources[0].status.catalogSourceNamespace }}"
+    local_storage_operator_default_channel: "{{ local_storage_operator_manifest.resources[0].status.defaultChannel }}"
 
 
 # 2. Install the Operator

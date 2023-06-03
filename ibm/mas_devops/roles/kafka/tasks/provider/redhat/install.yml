@@ -13,11 +13,19 @@
     name: amq-streams
   register: amqstreams_manifest
 
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - amqstreams_manifest is defined
+      - amqstreams_manifest.resources is defined
+      - amqstreams_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: amq-streams"
+
 - name: Set the subscription information
   set_fact:
-    amqstreams_source: "{{ amqstreams_manifest.status.catalogSource }}"
-    amqstreams_source_namespace: "{{ amqstreams_manifest.status.catalogSourceNamespace }}"
-    amqstreams_default_channel: "{{ amqstreams_manifest.status.defaultChannel }}"
+    amqstreams_source: "{{ amqstreams_manifest.resources[0].status.catalogSource }}"
+    amqstreams_source_namespace: "{{ amqstreams_manifest.resources[0].status.catalogSourceNamespace }}"
+    amqstreams_default_channel: "{{ amqstreams_manifest.resources[0].status.defaultChannel }}"
 
 
 # 3. Detect if the cluster supports 'integreatly.org/v1' for GrafanaDashboards

@@ -30,11 +30,19 @@
     name: "{{ storage_operator }}-operator"
   register: storage_operator_manifest
 
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - storage_operator_manifest is defined
+      - storage_operator_manifest.resources is defined
+      - storage_operator_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: {{ storage_operator }}-operator"
+
 - name: Set the subscription information
   set_fact:
-    storage_operator_source: "{{ storage_operator_manifest.status.catalogSource }}"
-    storage_operator_source_namespace: "{{ storage_operator_manifest.status.catalogSourceNamespace }}"
-    storage_operator_default_channel: "{{ storage_operator_manifest.status.defaultChannel }}"
+    storage_operator_source: "{{ storage_operator_manifest.resources[0].status.catalogSource }}"
+    storage_operator_source_namespace: "{{ storage_operator_manifest.resources[0].status.catalogSourceNamespace }}"
+    storage_operator_default_channel: "{{ storage_operator_manifest.resources[0].status.defaultChannel }}"
 
 # 1. Debug configuration
 # -----------------------------------------------------------------------------

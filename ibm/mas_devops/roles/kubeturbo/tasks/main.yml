@@ -52,11 +52,19 @@
     name: "{{ kubeturbo_sub_name }}"
   register: kubeturbo_manifest
 
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - kubeturbo_manifest is defined
+      - kubeturbo_manifest.resources is defined
+      - kubeturbo_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: {{ kubeturbo_sub_name }}"
+
 - name: Set the subscription information
   set_fact:
-    kubeturbo_source: "{{ kubeturbo_manifest.status.catalogSource }}"
-    kubeturbo_source_namespace: "{{ kubeturbo_manifest.status.catalogSourceNamespace }}"
-    kubeturbo_default_channel: "{{ kubeturbo_manifest.status.defaultChannel }}"
+    kubeturbo_source: "{{ kubeturbo_manifest.resources[0].status.catalogSource }}"
+    kubeturbo_source_namespace: "{{ kubeturbo_manifest.resources[0].status.catalogSourceNamespace }}"
+    kubeturbo_default_channel: "{{ kubeturbo_manifest.resources[0].status.defaultChannel }}"
 
 - name: "Create Kubeturbo subscription"
   kubernetes.core.k8s:

@@ -14,11 +14,19 @@
     name: aws-efs-csi-driver-operator
   register: aws_efs_manifest
 
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - aws_efs_manifest is defined
+      - aws_efs_manifest.resources is defined
+      - aws_efs_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: nfd"
+
 - name: Set the subscription information
   set_fact:
-    aws_efs_source: "{{ aws_efs_manifest.status.catalogSource }}"
-    aws_efs_source_namespace: "{{ aws_efs_manifest.status.catalogSourceNamespace }}"
-    aws_efs_default_channel: "{{ aws_efs_manifest.status.defaultChannel }}"
+    aws_efs_source: "{{ aws_efs_manifest.resources[0].status.catalogSource }}"
+    aws_efs_source_namespace: "{{ aws_efs_manifest.resources[0].status.catalogSourceNamespace }}"
+    aws_efs_default_channel: "{{ aws_efs_manifest.resources[0].status.defaultChannel }}"
 
 - name: "Install CSI Drivers Operator Group"
   kubernetes.core.k8s:

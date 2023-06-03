@@ -19,11 +19,19 @@
     name: grafana-operator
   register: grafana_manifest
 
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - grafana_manifest is defined
+      - grafana_manifest.resources is defined
+      - grafana_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: grafana-operator"
+
 - name: "install : Set the subscription information"
   set_fact:
-    grafana_source: "{{ grafana_manifest.status.catalogSource }}"
-    grafana_source_namespace: "{{ grafana_manifest.status.catalogSourceNamespace }}"
-    grafana_default_channel: "{{ grafana_manifest.status.defaultChannel }}"
+    grafana_source: "{{ grafana_manifest.resources[0].status.catalogSource }}"
+    grafana_source_namespace: "{{ grafana_manifest.resources[0].status.catalogSourceNamespace }}"
+    grafana_default_channel: "{{ grafana_manifest.resources[0].status.defaultChannel }}"
 
 - name: "install : grafana : Create Grafana Operator Subscription"
   kubernetes.core.k8s:

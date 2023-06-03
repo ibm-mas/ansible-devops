@@ -9,11 +9,19 @@
     name: nfd
   register: nfd_manifest
 
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - nfd_manifest is defined
+      - nfd_manifest.resources is defined
+      - nfd_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: nfd"
+
 - name: Set the subscription information
   set_fact:
-    nfd_source: "{{ nfd_manifest.status.catalogSource }}"
-    nfd_source_namespace: "{{ nfd_manifest.status.catalogSourceNamespace }}"
-    nfd_default_channel: "{{ nfd_manifest.status.defaultChannel }}"
+    nfd_source: "{{ nfd_manifest.resources[0].status.catalogSource }}"
+    nfd_source_namespace: "{{ nfd_manifest.resources[0].status.catalogSourceNamespace }}"
+    nfd_default_channel: "{{ nfd_manifest.resources[0].status.defaultChannel }}"
 
 
 # 2. Provide Debug information

@@ -9,11 +9,19 @@
     name: opentelemetry-operator
   register: opentelemetry_manifest
 
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - opentelemetry_manifest is defined
+      - opentelemetry_manifest.resources is defined
+      - opentelemetry_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: opentelemetry-operator"
+
 - name: "install : opentelemetry : Set the subscription information"
   set_fact:
-    opentelemetry_source: "{{ opentelemetry_manifest.status.catalogSource }}"
-    opentelemetry_source_namespace: "{{ opentelemetry_manifest.status.catalogSourceNamespace }}"
-    opentelemetry_default_channel: "{{ opentelemetry_manifest.status.defaultChannel }}"
+    opentelemetry_source: "{{ opentelemetry_manifest.resources[0].status.catalogSource }}"
+    opentelemetry_source_namespace: "{{ opentelemetry_manifest.resources[0].status.catalogSourceNamespace }}"
+    opentelemetry_default_channel: "{{ opentelemetry_manifest.resources[0].status.defaultChannel }}"
 
 - name: "install : opentelemetry: Create OpenTelemetry Operator Subscription"
   kubernetes.core.k8s:

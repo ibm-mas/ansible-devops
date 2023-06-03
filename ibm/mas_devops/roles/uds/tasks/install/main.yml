@@ -49,11 +49,19 @@
     name: "crunchy-postgres-operator"
   register: postgres_manifest
 
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - postgres_manifest is defined
+      - postgres_manifest.resources is defined
+      - postgres_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: crunchy-postgres-operator"
+
 - name: Set the subscription information
   set_fact:
-    postgres_source: "{{ postgres_manifest.status.catalogSource }}"
-    postgres_source_namespace: "{{ postgres_manifest.status.catalogSourceNamespace }}"
-    postgres_default_channel: "{{ postgres_manifest.status.defaultChannel }}"
+    postgres_source: "{{ postgres_manifest.resources[0].status.catalogSource }}"
+    postgres_source_namespace: "{{ postgres_manifest.resources[0].status.catalogSourceNamespace }}"
+    postgres_default_channel: "{{ postgres_manifest.resources[0].status.defaultChannel }}"
 
 - name: Create Crunchy Postgres Subscription
   kubernetes.core.k8s:

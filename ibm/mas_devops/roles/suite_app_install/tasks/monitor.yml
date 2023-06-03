@@ -24,6 +24,14 @@
     namespace: openshift-marketplace
   register: dd_manifest_info
 
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - dd_manifest_info is defined
+      - dd_manifest_info.resources is defined
+      - dd_manifest_info.resources | length == 1
+    fail_msg: "PackageManifest not found: ibm-data-dictionary"
+
 - name: "Lookup version of Data Dictionary using the channel"
   set_fact:
     dd_version: "{{ dd_manifest_info.resources[0].status.channels | selectattr('name', 'equalto', dd_channel) | map(attribute='currentCSVDesc') | map(attribute='version') | first }}"
