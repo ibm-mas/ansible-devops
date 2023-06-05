@@ -49,13 +49,6 @@ Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/conta
 - Environment Variable: `IBM_ENTITLEMENT_KEY`
 - Default: None
 
-### db2_entitlement_key
-An IBM entitlement key specific for Db2 installation, primarily used to override `ibm_entitlement_key` in development.
-
-- Optional
-- Environment Variable: `DB2_ENTITLEMENT_KEY`
-- Default: None
-
 ### db2_dbname
 Name of the database within the instance.
 
@@ -111,6 +104,7 @@ Determines if the role should rotate the LDAP password for current LDAP user con
 - Optional
 - Environment Variable: `DB2_LDAP_ROTATE_PASSWORD`
 - Default: False
+
 
 Role Variables - Storage
 -------------------------------------------------------------------------------
@@ -234,21 +228,21 @@ Define the Kubernetes CPU request for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_CPU_REQUESTS`
-- Default: `3000m`
+- Default: `4000m`
 
 ### db2_cpu_limits
 Define the Kubernetes CPU limit for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_CPU_LIMITS`
-- Default: `3000m`
+- Default: `6000m`
 
 ### db2_memory_requests
 Define the Kubernetes memory request for the Db2 pod.
 
 - Optional
 - Environment Variable: `DB2_MEMORY_REQUESTS`
-- Default: `12Gi`
+- Default: `8Gi`
 
 ### db2_memory_limits
 Define the Kubernetes memory limit for the Db2 pod.
@@ -256,7 +250,6 @@ Define the Kubernetes memory limit for the Db2 pod.
 - Optional
 - Environment Variable: `DB2_MEMORY_LIMITS`
 - Default: `16Gi`
-
 
 
 Role Variables - Node Label Affinity
