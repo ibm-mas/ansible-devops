@@ -30,6 +30,12 @@ When set to `true` will ensure that the role only preforms upgrade validation ch
 - Environment Variable: `MAS_UPGRADE_DRYRUN`
 - Default: `False`
 
+### skip_compatibility_check
+When set to `true` will skip compatibility check before the upgrade install. By default, compatibility check will be performed to validate the specific target mas_app_channel is valid or not based on the existing mas and apps version.
+
+- Optional
+- Environment Variable: `SKIP_COMPATIBILITY_CHECK`
+- Default: `False`
 
 Example Playbook
 -------------------------------------------------------------------------------

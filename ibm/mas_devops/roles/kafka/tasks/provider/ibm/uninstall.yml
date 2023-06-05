@@ -1,0 +1,78 @@
+---
+- name: "Fail if ibmcloud_apikey is not provided"
+  assert:
+    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
+    fail_msg: "ibmcloud_apikey property is required"
+
+- name: "Fail if eventstreams_name is not provided"
+  assert:
+    that: eventstreams_name is defined and eventstreams_name != ""
+    fail_msg: "eventstreams_name property is required"
+
+# 1. Delete IBM Cloud Eventstreams
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Event Streams Name ...................... {{ eventstreams_name }}"
+      - "Region .................................. {{ ibmcloud_region }}"
+      - "Evenstreams Action ...................... {{ kafka_action }}"
+
+- name: Initialize vars
+  set_fact:
+    kafka_exists: false
+
+- name: Fetch IBM Cloud Resource Group Id
+  ibm.cloudcollection.ibm_resource_group_info:
+    name: "{{ ibmcloud_resourcegroup }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: rg_info
+
+- name: Fetch IBM eventstreams Information
+  ibm.cloudcollection.ibm_resource_instance_info:
+    name: "{{ eventstreams_name }}"
+    service: "{{ eventstreams_service }}"
+    location: "{{ eventstreams_location }}"
+    resource_group_id: "{{ rg_info.resource.id }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+  register: es_exist_info
+  failed_when: es_exist_info.rc != 0 and  "No resource instance found" not in  es_exist_info.stderr
+
+- name: Set Fact Kafka exists or not
+  when:
+    - es_exist_info is defined
+    - es_exist_info.resource is defined
+    - es_exist_info.resource.id is defined and es_exist_info.resource.id != ''
+  set_fact:
+    kafka_exists: true
+
+- name: Set Resource Id for deletion
+  when: kafka_exists
+  set_fact:
+    es_id: "{{ es_exist_info.resource.id }}"
+
+- name: Deprovision IBM eventstreams
+  ibm.cloudcollection.ibm_resource_instance:
+    name: "{{ eventstreams_name }}"
+    plan: "{{ eventstreams_plan }}"
+    service: "{{ eventstreams_service }}"
+    location: "{{ eventstreams_location }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    state: absent
+    id: "{{ es_id }}"
+    #resource_group_id: "{{ ibmcloud_resourcegroup }}"
+  register: es_info
+  when: kafka_exists
+
+- name: Debug Deprovision Output
+  debug:
+    msg:
+      - "Deprovision ......... {{ es_info }}"
+
+- name: Check IBM eventstreams deleted successfully
+  assert:
+    that:
+      - es_info.rc == 0
+      - es_info.stdout.find('Destroy complete') != -1
+    fail_msg: "Unable to delete IBM eventstreams"
+  when: kafka_exists

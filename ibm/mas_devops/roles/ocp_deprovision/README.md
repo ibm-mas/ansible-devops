@@ -61,7 +61,7 @@ Role Variables - IPI
 The following variables are only used when `cluster_type = ipi`.
 
 ### ipi_install_dir
-The directory that is used to store the `openshift-install` executable, it's configuration, & generated log files.
+The directory that is used to store the `openshift-install` executable, its configuration, & generated log files.
 
 - Optional when `cluster_type = aws-ipi`
 - Environment Variable: `IPI_DIR`

@@ -35,6 +35,7 @@
 # 3. Create the Image Digest Map
 # -----------------------------------------------------------------------------
 - name: "Create ibm-mas Image Digest Map"
+  when: mas_operator_version is version('8.10.0', '<')
   include_role:
     name: ibm.mas_devops.suite_install_digest_cm
   vars:
@@ -66,13 +67,14 @@
     tsm_operator_version: "{{ tsm_opcon.resources[0].metadata.name.split('.v')[1] }}"
 
 
-# 6. If TSM is installed, install it's digest map
+# 6. If TSM is installed, install its digest map
 # -----------------------------------------------------------------------------
 - name: "Create ibm-truststore-mgr Image Digest Map"
   when:
     - tsm_opcon.resources is defined
     - tsm_opcon.resources | length == 1
     - tsm_opcon.resources[0].metadata.name is defined
+    - tsm_operator_version is version('1.5.0', '<')
   include_role:
     name: ibm.mas_devops.suite_install_digest_cm
   vars:

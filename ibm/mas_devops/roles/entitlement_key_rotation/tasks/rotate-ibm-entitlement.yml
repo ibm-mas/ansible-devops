@@ -1,0 +1,15 @@
+---
+- name: "Cluster '{{ cluster_item }}' - Rotate entitlement key in 'ibm-entitlement' secret under namespace: {{ item }}"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: 'ibm-entitlement'
+        namespace: '{{ item }}'
+      data:
+        .dockerconfigjson: "{{ lookup('template', 'templates/ibm-entitlement-with-artifactory.json.j2') | to_json | b64encode }}"
+
+- set_fact:
+    namespace_summary_output: "{{ namespace_summary_output | default([]) + [item] }}"

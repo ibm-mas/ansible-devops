@@ -4,7 +4,7 @@
 # to achieve the same thing
 # https://github.com/ansible/ansible/issues/46203#issuecomment-556013701
 
-- name: 'Wait until all Manage bundle pods are ready'
+- name: 'Wait until all {{ mas_app_id | capitalize }} bundle pods are ready'
   block:
     - name: "wait : Set the retry count"
       set_fact:
@@ -12,12 +12,12 @@
         bundle_count: 0
         ready_bundle_count: 0
 
-    - name: "wait : Lookup Manage bundle pods"
+    - name: "wait : Lookup {{ mas_app_id | capitalize }} bundle pods"
       kubernetes.core.k8s_info:
         api_version: v1
         kind: Pod
         label_selectors: mas.ibm.com/appType=serverBundle
-        namespace: "mas-{{ mas_instance_id }}-manage"
+        namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
       register: manage_bundle_lookup
       until:
         - manage_bundle_lookup.resources is defined
@@ -33,7 +33,7 @@
       loop_control:
         label: "{{ item.metadata.name }} pod status = {{ 'READY!' if (item | json_query('status.conditions[?type==`ContainersReady`][].status') | select ('match','True')) else 'Not Ready' }}"
 
-    - name: "wait : Fail if one or more Manage bundle pods are pending to be ready..."
+    - name: "wait : Fail if one or more {{ mas_app_id | capitalize }} bundle pods are pending to be ready..."
       assert:
         that: ready_bundle_count == bundle_count
         fail_msg: "[{{ bundle_retry_count }}/60] {{ ready_bundle_count }} of {{ bundle_count }} bundle pods are ready"

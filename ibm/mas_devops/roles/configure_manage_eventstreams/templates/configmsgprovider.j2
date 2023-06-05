@@ -1,0 +1,31 @@
+#!/bin/bash
+
+if [ -f "/tmp/config_msgprovider" ]; then
+  echo "Aborting run.  /tmp/config_msgprovider exists; this script has already been executed"
+  exit 0
+fi
+
+set -e
+db2 connect to {{ db2wh_dbname }}
+
+db2 "insert into maximo.MSGHUBPROVIDER (PROVIDER,PROVIDERTYPE,ISDEFAULT,DESCRIPTION,MSGHUBPROVIDERID) VALUES ('KAFKA','KAFKA',1,'KAFKA',maximo.MSGHUBPROVIDERSEQ.nextval)"
+
+db2 "insert into maximo.msghubprovidercfg(provider,propname,propvalue,msghubprovidercfgid) values('KAFKA','BOOTSTRAPSERVERS','\"{{ es_server0 }}\", \"{{ es_server1 }}\", \"{{ es_server2 }}\", \"{{ es_server3 }}\", \"{{ es_server4 }}\", \"{{ es_server5 }}\"',NEXTVAL FOR MAXIMO.MSGHUBPROVIDERCFGSEQ)"
+
+db2 "insert into maximo.msghubprovidercfg(provider,propname,propvalue,msghubprovidercfgid) values('KAFKA','SECURITY_PROTOCOL','SASL_SSL',NEXTVAL FOR MAXIMO.MSGHUBPROVIDERCFGSEQ)"
+
+db2 "insert into maximo.msghubprovidercfg(provider,propname,propvalue,msghubprovidercfgid) values('KAFKA','SASL_MECHANISM','PLAIN',NEXTVAL FOR MAXIMO.MSGHUBPROVIDERCFGSEQ)"
+
+db2 "insert into maximo.msghubprovidercfg(provider,propname,propvalue,msghubprovidercfgid) values('KAFKA','USERNAME','token',NEXTVAL FOR MAXIMO.MSGHUBPROVIDERCFGSEQ)"
+
+db2 "insert into maximo.msghubprovidercfg(provider,propname,propvalue,msghubprovidercfgid) values('KAFKA','PASSWORD',x'43AD2B5DBB80F965B7E8F424F8D74E560CEE5CD9146C6B221DD9BF1CDC69E5F8206AF6651499254DABE25B7D5752B43B5DDE3281AA11744C',NEXTVAL FOR MAXIMO.MSGHUBPROVIDERCFGSEQ)"
+
+db2 "INSERT INTO maximo.MAXQUEUE (QUEUENAME,QCONFACTJNDINAME,INCONFACTORY,PROVIDERURL,ISSEQUENTIAL,ISINBOUND,EMAILADDR,USERDEFINED,CHANGEBY,CHANGEDATE,MAXTRYCOUNT,MAXQUEUEID,USERID,PASSWORD,ISCOMPRESS,ISTEXT,PROVIDERUSER,PROVIDERPASSWORD,TENANTCODE,PROVIDER,RETENTIONTIME,ERRORQUEUE,MULTIPART) VALUES ('cqin',NULL,NULL,NULL,0,1,NULL,1,'MAXADMIN',CURRENT_TIMESTAMP,1,maximo.MAXQUEUESEQ.nextval,NULL,NULL,1,0,NULL,NULL,NULL,'KAFKA',NULL,NULL,0),('sqin',NULL,NULL,NULL,1,1,NULL,1,'MAXADMIN',CURRENT_TIMESTAMP,1,maximo.MAXQUEUESEQ.nextval,NULL,NULL,1,0,NULL,NULL,NULL,'KAFKA',NULL,NULL,0),('sqout',NULL,NULL,NULL,1,0,NULL,1,'MAXADMIN',CURRENT_TIMESTAMP,1,maximo.MAXQUEUESEQ.nextval,NULL,NULL,1,0,NULL,NULL,NULL,'KAFKA',NULL,NULL,0),('cqinerr',NULL,NULL,NULL,1,1,NULL,1,'MAXADMIN',CURRENT_TIMESTAMP,1,maximo.MAXQUEUESEQ.nextval,NULL,NULL,1,0,NULL,NULL,NULL,'KAFKA',NULL,NULL,0)"
+
+db2 "commit"
+
+echo "COMPLETE" > /tmp/config_msgprovider
+chmod a+rw /tmp/config_msgprovider
+
+# If we get this far, then we can consider the setup a success
+exit 0

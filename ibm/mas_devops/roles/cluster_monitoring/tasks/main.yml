@@ -1,19 +1,25 @@
 ---
+- name: "Cluster Monitoring: Debug properties"
+  debug:
+    msg:
+      - "Cluster monitoring action ........................ {{ cluster_monitoring_action }}"
+      - "Prometheus retention period ...................... {{ prometheus_retention_period }}"
+      - "Prometheus storage class ......................... {{ prometheus_storage_class }}"
+      - "Prometheus storage size .......................... {{ prometheus_storage_size }}"
+      - "Prometheus alert storage class ................... {{ prometheus_alertmgr_storage_class }}"
+      - "Prometheus alert storage size .................... {{ prometheus_alertmgr_storage_size }}"
+      - "Prometheus user workload retention period ........ {{ prometheus_userworkload_retention_period }}"
+      - "Prometheus user workload storage class ........... {{ prometheus_userworkload_storage_class }}"
+      - "Prometheus user workload storage size ............ {{ prometheus_userworkload_storage_size }}"
+      - "Grafana namespace ................................ {{ grafana_namespace }}"
+      - "Grafana storage class ............................ {{ grafana_instance_storage_class }}"
+      - "Grafana storage size ............................. {{ grafana_instance_storage_size }}"
 
-# 1. Load default storage classes (if not provided by the user)
+# 1. Perform the selected action
 # -----------------------------------------------------------------------------
-- include_tasks: tasks/determine-storage-classes.yml
-
-# 2. Update openshift monitoring configuration
-# -------------------------------------------------------------------------------------
-# All other settings have defaults, but the user must set prometheus_storage_class and
-# prometheus_alertmgr_storage_class for us to be able to apply this configuration
-- name: Set storage class and retention period for Prometheus logs and turn on user workload monitoring
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/cluster-monitoring.yml.j2') }}"
-    wait: yes
-    wait_timeout: 120
-
-# 3. Install and configure Grafana
-# -----------------------------------------------------------------------------
-- include_tasks: tasks/grafana.yml
+# Two actions are supported:
+# - install
+# - uninstall
+- include_tasks: "{{ cluster_monitoring_action }}/main.yml"
+  when:
+    - cluster_monitoring_action != "none"

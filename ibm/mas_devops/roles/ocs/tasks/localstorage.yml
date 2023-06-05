@@ -7,6 +7,28 @@
     definition: "{{ lookup('template', 'templates/localstorage/namespace.yaml') }}"
   register: localNamespace
 
+- name: Get local storage operator package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: local-storage-operator
+    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+  register: local_storage_operator_manifest
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - local_storage_operator_manifest is defined
+      - local_storage_operator_manifest.resources is defined
+      - local_storage_operator_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: local-storage-operator"
+
+- name: Set the subscription information
+  set_fact:
+    local_storage_operator_source: "{{ local_storage_operator_manifest.resources[0].status.catalogSource }}"
+    local_storage_operator_source_namespace: "{{ local_storage_operator_manifest.resources[0].status.catalogSourceNamespace }}"
+    local_storage_operator_default_channel: "{{ local_storage_operator_manifest.resources[0].status.defaultChannel }}"
+
 
 # 2. Install the Operator
 # -----------------------------------------------------------------------------

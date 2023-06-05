@@ -1,0 +1,120 @@
+---
+# Set read only and read write users
+# -----------------------------------------------------------------------------
+- name: "Manage Logging: Set aws read-only username"
+  set_fact:
+    aws_bucket_read_only_username: "{{ aws_bucket_name }}-sid-ro"
+  when:
+    - aws_bucket_read_only_username is not defined or aws_bucket_read_only_username == ''
+
+- name: "Manage Logging: Set aws read-write username"
+  set_fact:
+    aws_bucket_read_write_username: "{{ aws_bucket_name }}-sid-rw"
+  when:
+    - aws_bucket_read_write_username is not defined or aws_bucket_read_write_username == ''
+
+# Create IAM Policies to access buckets in read only and read write modes
+# -----------------------------------------------------------------------------
+- name: "Manage Logging: Create policy to access the bucket in read-only mode"
+  import_role:
+    name: ibm.mas_devops.aws_policy
+  vars:
+    aws_policy_name: "{{ aws_bucket_read_only_username }}-policy"
+    aws_policy_statement:
+      - Sid: VisualEditor0
+        Effect: Allow
+        Action:
+          - s3:GetObject
+          - s3:ListBucket
+        Resource:
+          - "arn:aws:s3:::{{ aws_bucket_name }}/*"
+          - "arn:aws:s3:::{{ aws_bucket_name }}"
+
+- set_fact:
+    s3readonly_policy_arn: "{{ s3_policy_arn }}"
+
+- name: "Manage Logging: Create policy to access the bucket in read-write mode"
+  import_role:
+    name: ibm.mas_devops.aws_policy
+  vars:
+    aws_policy_name: "{{ aws_bucket_read_write_username }}-read-write-policy"
+    aws_policy_statement:
+      - Sid: VisualEditor0
+        Effect: Allow
+        Action:
+          - s3:GetObject
+          - s3:ListBucket
+          - s3:DeleteObject
+          - s3:PutObject
+        Resource:
+          - "arn:aws:s3:::{{ aws_bucket_name }}/*"
+          - "arn:aws:s3:::{{ aws_bucket_name }}"
+
+- set_fact:
+    s3readwrite_policy_arn: "{{ s3_policy_arn }}"
+
+# Create AWS Users to access the bucket
+# -----------------------------------------------------------------------------
+- name: "Manage Logging: Create AWS IAM User and attach policies to access the bucket {{ aws_bucket_name }} in read-only mode"
+  import_role:
+    name: ibm.mas_devops.aws_user_creation
+  vars:
+    aws_username: "{{ aws_bucket_read_only_username }}"
+    aws_username_create_access_key_flag: True
+    aws_policy_arn: "{{ s3readonly_policy_arn }}"
+
+- set_fact:
+    aws_bucket_read_only_username_access_key_id: "{{ aws_new_user_access_key_id }}"
+    aws_bucket_read_only_username_secret_access_key: "{{ aws_new_user_secret_access_key }}"
+
+- name: "Manage Logging: Create AWS IAM User and attach policies to access the bucket {{ aws_bucket_name }} in read-write mode"
+  import_role:
+    name: ibm.mas_devops.aws_user_creation
+  vars:
+    aws_username: "{{ aws_bucket_read_write_username }}"
+    aws_username_create_access_key_flag: True
+    aws_policy_arn: "{{ s3readwrite_policy_arn }}"
+
+- set_fact:
+    aws_bucket_read_write_username_access_key_id: "{{ aws_new_user_access_key_id }}"
+    aws_bucket_read_write_username_secret_access_key: "{{ aws_new_user_secret_access_key }}"
+
+# Create Bucket Access Point
+# -----------------------------------------------------------------------------
+- name: "Manage Logging: Create Bucket Access Point for read-only access"
+  import_role:
+    name: ibm.mas_devops.aws_bucket_access_point
+  vars:
+    aws_access_point_name: "{{ aws_bucket_name }}-ro-access-point"
+    aws_access_point_bucket_name: "{{ aws_bucket_name }}"
+    aws_access_point_username: "{{ aws_bucket_read_only_username }}"
+    aws_access_point_policy_actions:
+      - "s3:GetObject"
+      - "s3:ListBucket"
+
+- set_fact:
+    aws_ro_access_point_alias: "{{ aws_access_point_alias }}"
+
+- name: "Manage Logging: Create Bucket Access Point for read-write access"
+  import_role:
+    name: ibm.mas_devops.aws_bucket_access_point
+  vars:
+    aws_access_point_name: "{{ aws_bucket_name }}-read-write-access-point"
+    aws_access_point_bucket_name: "{{ aws_bucket_name }}"
+    aws_access_point_username: "{{ aws_bucket_read_write_username }}"
+    aws_access_point_policy_actions:
+      - "s3:GetObject"
+      - "s3:ListBucket"
+      - "s3:DeleteObject"
+      - "s3:PutObject"
+
+- set_fact:
+    aws_rw_access_point_alias: "{{ aws_access_point_alias }}"
+
+# For AWS, the IAM credentials for the read-write granted user / access point will provided by standard
+- name: "Manage Logging: Set access key id & secret access key variables"
+  set_fact:
+    cos_access_key_id: "{{ aws_bucket_read_write_username_access_key_id }}"
+    cos_secret_access_key: "{{ aws_bucket_read_write_username_secret_access_key }}"
+    cos_username: "{{ aws_bucket_read_write_username }}"
+    cos_bucket_name: "{{ aws_rw_access_point_alias }}" # if you don't want to use aws access point, but use bucket name instead, comment this line.

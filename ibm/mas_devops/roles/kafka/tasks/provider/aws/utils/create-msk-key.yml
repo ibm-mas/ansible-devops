@@ -1,0 +1,60 @@
+---
+- name: "Check if {{aws_msk_kms_key}} managed key already exist"
+  shell: aws kms describe-key --key-id alias/{{aws_msk_kms_key}} --query KeyMetadata.Arn --output text
+  register: key_arn
+  failed_when: key_arn.rc not in [0] and ('NotFoundException' not in key_arn.stderr )
+
+- name: "Debug: key_arn of {{aws_msk_kms_key}} managed key if exists"
+  debug:
+    msg:
+      - "key_arn ................................ {{ key_arn}}"
+
+- name: "Set Fact , {{aws_msk_kms_key}} managed key if exists"
+  when:
+    - key_arn.stdout is defined and key_arn.stdout != ''
+    - key_arn.rc in [0]
+  set_fact:
+    key_arn_id: "{{key_arn.stdout}}"
+
+- name: "Debug: key_arn_id of {{aws_msk_kms_key}} managed key if exists"
+  when: key_arn_id is defined and key_arn_id != ''
+  debug:
+    msg:
+      - "key_arn_id ............................. {{ key_arn_id}}"
+
+- name: "Create Managed Key {{aws_msk_kms_key}} if not exist"
+  when: key_arn_id is undefined or key_arn_id == ''
+  shell: aws kms create-key --query KeyMetadata.Arn --output text
+  register: create_key_output
+
+- name: "Debug: Create Managed Key {{aws_msk_kms_key}} if not exist"
+  when: key_arn_id is undefined or key_arn_id == ''
+  debug:
+    msg:
+      - "create_key_output ...................... {{ create_key_output }}"
+
+- name: "Fail if create Managed Key {{aws_msk_kms_key}} fails"
+  when: key_arn_id is undefined or key_arn_id == ''
+  assert:
+    that:
+      - create_key_output is defined and create_key_output != ''
+      - create_key_output.stdout is defined and create_key_output.stdout != ''
+
+- name: "Create alias for Customer Managed Key {{aws_msk_kms_key}} if not exist"
+  when:
+    - key_arn_id is undefined or key_arn_id == ''
+    - create_key_output.stdout is defined and create_key_output.stdout != ''
+  shell: aws kms create-alias --alias-name alias/{{aws_msk_kms_key}} --target-key-id {{create_key_output.stdout}}
+  register: create_alias
+
+- name: Set Fact , key_arn_id
+  when:
+    - key_arn_id is undefined or key_arn_id == ''
+    - create_key_output.stdout is defined and create_key_output.stdout != ''
+  set_fact:
+    key_arn_id: "{{create_key_output.stdout}}"
+
+- name: "Debug key_arn_id"
+  debug:
+    msg:
+      - "key_arn_id ............................. {{ key_arn_id}}"

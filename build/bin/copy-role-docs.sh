@@ -12,7 +12,9 @@ function copyDoc() {
 
 copyDoc ansible_version_check
 copyDoc aws_bucket_access_point
+copyDoc aws_documentdb_user
 copyDoc aws_policy
+copyDoc aws_route53
 copyDoc aws_user_creation
 copyDoc aws_vpc
 copyDoc appconnect
@@ -21,7 +23,9 @@ copyDoc cert_manager_upgrade
 copyDoc cert_manager_upgrade_check
 copyDoc cis
 copyDoc cluster_monitoring
+copyDoc convert_to_olm
 copyDoc common_services
+copyDoc configure_manage_eventstreams
 copyDoc cos
 copyDoc cos_bucket
 copyDoc cp4d
@@ -32,16 +36,18 @@ copyDoc cp4d_upgrade
 copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
+copyDoc entitlement_key_rotation
 copyDoc gencfg_jdbc
+copyDoc gencfg_mongo
 copyDoc gencfg_watsonstudio
 copyDoc gencfg_workspace
 copyDoc ibm_catalogs
 copyDoc install_operator
 copyDoc kafka
+copyDoc kubeturbo
 copyDoc mirror_case_prepare
 copyDoc mirror_extras_prepare
-# copyDoc mirror_ocp_operators
-copyDoc mirror_ocp_release
+copyDoc mirror_ocp
 copyDoc mirror_images
 copyDoc mongodb
 copyDoc nvidia_gpu
@@ -49,17 +55,17 @@ copyDoc ocp_contentsourcepolicy
 copyDoc ocp_deprovision
 copyDoc ocp_disable_updates
 copyDoc ocp_github_oauth
+copyDoc ocp_ingress
 copyDoc ocp_login
 copyDoc ocp_node_config
 copyDoc ocp_provision
 copyDoc ocp_roks_upgrade_registry_storage
 copyDoc ocp_simulate_disconnected_network
+copyDoc ocp_update_apiserver
 copyDoc ocp_upgrade
 copyDoc ocp_verify
 copyDoc ocs
 copyDoc registry
-copyDoc sbo
-copyDoc sbo_upgrade
 copyDoc sls
 copyDoc suite_app_config
 copyDoc suite_app_install
@@ -67,11 +73,13 @@ copyDoc suite_app_upgrade
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
 copyDoc suite_dns
+copyDoc suite_certs
 copyDoc suite_install
 copyDoc suite_install_digest_cm
 copyDoc suite_manage_attachments_config
 copyDoc suite_manage_bim_config
 copyDoc suite_manage_birt_report_config
+copyDoc suite_manage_customer_files_config
 copyDoc suite_manage_doclinks_config
 copyDoc suite_manage_import_certs_config
 copyDoc suite_manage_load_dbc_scripts
@@ -81,5 +89,6 @@ copyDoc suite_mustgather
 copyDoc suite_mustgather_download
 copyDoc suite_switch_to_olm
 copyDoc suite_upgrade
+copyDoc suite_uninstall
 copyDoc suite_verify
 copyDoc uds

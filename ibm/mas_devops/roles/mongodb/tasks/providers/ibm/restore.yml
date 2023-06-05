@@ -1,0 +1,32 @@
+---
+- name: Fail if ibm_mongo_backup_id not provided
+  assert:
+    that:
+      - ibm_mongo_backup_id is defined and ibm_mongo_backup_id != ''
+    fail_msg: "property ibm_mongo_backup_id is required"
+
+- name: Fail if restored_mongodb_service_name not provided
+  assert:
+    that:
+      - restored_mongodb_service_name is defined and restored_mongodb_service_name != ''
+    fail_msg: "property restored_mongodb_service_name is required"
+
+# tasks file for mongodb
+- name: "Debug information when restoring MongoDB"
+  debug:
+    msg:
+      - "IBMCloud Region ............................ {{ ibmcloud_region }}"
+      - "New MongoDB Service Name ................... {{ restored_mongodb_service_name }}"
+      - "Backup Id for DB restore ................... {{ ibm_mongo_backup_id }}"
+      - "Secret Name for Admin Credentials .......... restored-{{ ibm_mongo_name }}-admin-credentials"
+
+# 1. Provision new Mongodb instance with public endpoint and Restore database
+# --------------------------------------------------------------------------------
+- name: Set facts for restoring MongoDB
+  set_fact:
+    ibm_mongo_name: "{{ restored_mongodb_service_name }}"
+    ibm_mongo_admin_credentials_secret_name: "restored-{{ ibm_mongo_name }}-admin-credentials"
+    is_restore: true
+
+- name: Restore backups and provision new Mongodb instance
+  include_tasks: "providers/{{ mongodb_provider }}/install.yml"

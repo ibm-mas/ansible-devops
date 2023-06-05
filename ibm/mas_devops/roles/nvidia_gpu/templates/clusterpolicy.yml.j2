@@ -1,0 +1,61 @@
+---
+apiVersion: nvidia.com/v1
+kind: ClusterPolicy
+metadata:
+  name: gpu-cluster-policy
+spec:
+  driver:
+    repository: "{{ gpu_driver_repository_path }}"
+    image: driver
+    imagePullSecrets: []
+    licensingConfig:
+      configMapName: ''
+      nlsEnabled: false
+    version: "{{ gpu_driver_version }}"
+    enabled: true
+  vgpuDeviceManager:
+    config:
+      default: default
+      name: vgpu-devices-config
+    enabled: true
+  migManager:
+    enabled: true
+  operator:
+    defaultRuntime: crio
+    initContainer: {}
+    runtimeClass: nvidia
+    use_ocp_driver_toolkit: true
+  dcgm:
+    enabled: true
+  gfd: {}
+  dcgmExporter:
+    config:
+      name: ''
+  devicePlugin:
+    config:
+      default: ''
+      name: ''
+  mig:
+    strategy: single
+  sandboxDevicePlugin:
+    enabled: true
+  validator:
+    plugin:
+      env:
+        - name: WITH_WORKLOAD
+          value: 'true'
+  nodeStatusExporter:
+    enabled: true
+  daemonsets: {}
+  sandboxWorkloads:
+    defaultWorkload: container
+    enabled: false
+  vgpuManager:
+    enabled: true
+  vfioManager:
+    enabled: true
+  toolkit:
+    enabled: true
+    image: container-toolkit
+    repository: nvcr.io/nvidia/k8s
+    version: 1.6.0-ubi8

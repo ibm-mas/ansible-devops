@@ -1,0 +1,18 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if cluster type is not supported"
+  assert:
+    that: cluster_type is defined and cluster_type is in key_rotation_type.keys()
+    fail_msg: "cluster_type '{{ cluster_type }}' property is not supported by this role"
+
+# 2. Provide Debug information
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Key Rotation Provider .................. {{ key_rotation_type[cluster_type].provider }}"
+
+# 3. Run the provision
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/providers/{{ key_rotation_type[cluster_type].provider }}.yml"

@@ -9,6 +9,7 @@ Currently supported Cloud Pak for Data release versions supported are:
   - 4.5.0
   - 4.5.1
   - 4.5.2
+  - 4.6.0
 
 The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.
 
@@ -26,7 +27,7 @@ These services can be deployed and configured using this role:
 
 Upgrade
 ------------------
-This role also supports seamlessly CPD services minor version upgrades (CPD 4.0.9 -> CPD 4.5.0), and patch version upgrades (CPD 4.5.0 -> CPD 4.5.x).
+This role also supports seamlessly CPD services minor version upgrades (CPD 4.0.9 -> CPD 4.5.x -> CPD 4.6.x), as well as patch version upgrades.
 All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role for a particular CPD service.
 It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.
 
@@ -633,14 +634,14 @@ Namespace where the CP4D instance is deployed.
 The CP4D Admin username to authenticate with CP4D APIs. If you didn't change the initial admin username after installing CP4D then you don't need to provide this.
 
 - Optional
-- Environment Variable: `CP4D_ADMIN_USERNAME`
+- Environment Variable: `CPD_ADMIN_USERNAME`
 - Default Value: `admin`
 
 ### cpd_admin_password
 The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` will be used.
 
 - Optional
-- Environment Variable: `CP4D_ADMIN_PASSWORD`
+- Environment Variable: `CPD_ADMIN_PASSWORD`
 - Default Value: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
 
 

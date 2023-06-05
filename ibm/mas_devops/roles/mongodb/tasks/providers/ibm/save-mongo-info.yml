@@ -1,0 +1,17 @@
+# 1. Save Mongo host and port into K8s Configmap
+# -----------------------------------------------------------------------------
+- name: Set the var for mongo_host_port_string from TF output
+  set_fact:
+    mongo_host_port_string: "{{ mongo_instance_info.resource.connectionstrings[0].composed.split('@')[1].split('/')[0] }}"
+
+- name: Set the var for mongo hosts and ports
+  set_fact:
+    mongo_host_0: "{{ mongo_instance_info.resource.connectionstrings[0].hosts[0].hostname }}"
+    mongo_host_1: "{{ mongo_instance_info.resource.connectionstrings[0].hosts[1].hostname }}"
+    mongo_host_2: "{{ mongo_instance_info.resource.connectionstrings[0].hosts[2].hostname }}"
+    mongo_port: "{{ mongo_instance_info.resource.connectionstrings[0].hosts[0].port }}"
+
+- name: "Create MongoCfg: ibmcloud-mongo-{{ ibm_mongo_name }}-cfg.yml"
+  ansible.builtin.template:
+    src: ibm/suite_mongocfg.yml.j2
+    dest: "{{ mas_config_dir }}/ibmcloud-mongo-{{ ibm_mongo_name }}-cfg.yml"

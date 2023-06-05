@@ -1,0 +1,30 @@
+---
+kind: Secret
+apiVersion: v1
+metadata:
+  name: {{ route53_prod_issuer_name }}-secret-credentials
+  namespace: ibm-common-services
+stringData:
+  secret-access-key: {{ aws_secret_access_key }}
+type: Opaque
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ route53_prod_issuer_name }}
+spec:
+  acme:
+    email: {{ route53_email }}
+    preferredChain: ''
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    server: 'https://acme-v02.api.letsencrypt.org/directory'
+    solvers:
+      - dns01:
+          route53:
+            accessKeyID: {{ aws_access_key_id }}
+            hostedZoneID: {{ route53_hosted_zone_id }}
+            region: {{ route53_hosted_zone_region }}
+            secretAccessKeySecretRef:
+              key: secret-access-key
+              name: {{ route53_prod_issuer_name }}-secret-credentials

@@ -1,0 +1,68 @@
+# 3. Create Security Group and add ingress ,egress rules
+# -----------------------------------------------------------------------------
+- name: Check if Security Group {{ aws_msk_security_group_name }} already exists
+  shell: |
+    aws ec2 describe-security-groups \
+    --filters "Name=vpc-id,Values={{ vpc_id }}" "Name=group-name,Values={{ aws_msk_security_group_name }}"
+  register: security_group_info
+
+- name: Set Fact , Security Group Id
+  when: security_group_info is defined and security_group_info != ''
+  set_fact:
+    sg_id: "{{security_group_info.stdout | from_json | json_query('SecurityGroups[0].GroupId')}}"
+
+- name: Create a Security Group {{ aws_msk_security_group_name }}, if doesn't exists
+  when: not sg_id
+  shell: |
+    aws ec2 create-security-group \
+    --group-name '{{ aws_msk_security_group_name }}' \
+    --description "Enable inbound connection security group" \
+    --vpc-id '{{ vpc_id }}'
+  register: sg_info
+
+- name: Fail if Security group not created
+  when: not sg_id
+  assert:
+    that:
+      - sg_info is defined and sg_info != ''
+      - sg_info.stdout
+      - sg_info.stdout | from_json | json_query('GroupId')
+
+- name: Set Fact, Security group Id
+  when: not sg_id
+  set_fact:
+    sg_id: "{{sg_info.stdout | from_json | json_query('GroupId')}}"
+
+# allow incoming requests to cluster from a cidr address
+- name: Add Ingress rule to SG
+  shell: |
+    aws ec2 authorize-security-group-ingress \
+    --group-id '{{ sg_id }}' \
+    --ip-permissions IpProtocol=tcp,FromPort=9096,ToPort=9096,IpRanges='[{CidrIp={{ aws_msk_ingress_cidr }} }]',Ipv6Ranges='[{CidrIpv6=::/0}]' \
+    IpProtocol=tcp,FromPort=2181,ToPort=2181,IpRanges='[{CidrIp={{ aws_msk_ingress_cidr }} }]',Ipv6Ranges='[{CidrIpv6=::/0}]' \
+    IpProtocol=tcp,FromPort=2182,ToPort=2182,IpRanges='[{CidrIp={{ aws_msk_ingress_cidr }} }]',Ipv6Ranges='[{CidrIpv6=::/0}]'
+  register: ingress_rule_info
+  failed_when: >
+    ingress_rule_info.rc not in [0] and ('InvalidPermission.Duplicate' not in ingress_rule_info.stderr)
+
+- name: Debug Info, Added Ingress rule to Security Group
+  when: ingress_rule_info.stdout
+  debug:
+    msg:
+      - "ingress_rule_info ...................... {{ ingress_rule_info.stdout | from_json }}"
+
+# allow outgoing requests from cluster to a cidr address
+- name: Add Egress rule to SG
+  shell: |
+    aws ec2 authorize-security-group-egress \
+    --group-id '{{ sg_id }}' \
+    --ip-permissions IpProtocol=-1,FromPort=0,ToPort=0,IpRanges='[{CidrIp={{ aws_msk_egress_cidr }} }]',Ipv6Ranges='[{CidrIpv6=::/0}]'
+  register: egress_rule_info
+  failed_when: >
+    egress_rule_info.rc not in [0] and ('InvalidPermission.Duplicate' not in egress_rule_info.stderr )
+
+- name: Debug Info, Added Egress rule to Security Group
+  when: egress_rule_info.stdout
+  debug:
+    msg:
+      - "egress_rule_info ....................... {{ egress_rule_info.stdout | from_json }}"

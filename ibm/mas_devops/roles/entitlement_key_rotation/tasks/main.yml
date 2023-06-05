@@ -1,0 +1,32 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if cluster_name is not provided"
+  assert:
+    that: cluster_name is defined and cluster_name | length > 0
+    fail_msg: "cluster_name property is required"
+
+# 2. Login to a list of clusters to trigger the entitlement key rotation
+# ---------------------------------------------------------------------------------------------
+- name: "Debug - Entitlement Key Rotation"
+  debug:
+    msg:
+      - "Target Clusters ........................ {{ mas_clusters_entitlement_key_rotation_list }}"
+
+- name: "Rotate entitlement key across targeted clusters"
+  include_tasks: rotate-clusters.yml
+  loop: "{{ mas_clusters_entitlement_key_rotation_list }}"
+  loop_control:
+    loop_var: cluster_item
+
+# 3. Log back into the original cluster before ending to avoid messing with the target context
+# ---------------------------------------------------------------------------------------------
+- name: "Log back into the original cluster: {{ cluster_name }}"
+  include_role:
+    name: ibm.mas_devops.ocp_login
+
+# 4. Summary debug
+# ---------------------------------------------------------------------------------------------
+- name: "Summary: Aggregate all clusters and namespaces where entitlement key was rotated"
+  debug:
+    msg: "{{ cluster_summary_output }}"

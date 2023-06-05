@@ -45,6 +45,13 @@ APIKey to be used by ibmcloud login comand
 - Environment Variable: `IBMCLOUD_APIKEY`
 - Default: None
 
+### ibmcloud_endpoint
+Override the default IBMCloud API endpoint.
+
+- Optional
+- Environment Variable: `IBMCLOUD_ENDPOINT`
+- Default Value: `https://cloud.ibm.com`
+
 
 Role Variables - IBM DevIT Fyre
 ------------------------------

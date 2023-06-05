@@ -1,0 +1,27 @@
+---
+# MAS Entitlement Credentials
+# -----------------------------------------------------------------------------
+artifactory_username: "{{ lookup('env', 'ARTIFACTORY_USERNAME') | lower }}"
+artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
+
+mas_entitlement_username: "{{ lookup('env', 'MAS_ENTITLEMENT_USERNAME') | lower }}"
+mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') }}"
+
+# Target Cluster Details
+# -----------------------------------------------------------------------------
+cluster_name: "{{ lookup('env', 'CLUSTER_NAME')}}"
+mas_clusters_entitlement_key_rotation_list: "{{ lookup('env', 'MAS_CLUSTERS_ENTITLEMENT_KEY_ROTATION_LIST') | default(cluster_name, true) | default([], true) | split(',') }}"
+
+# Target Namespace Details
+# -----------------------------------------------------------------------------
+sls_namespace: "{{ lookup('env', 'SLS_NAMESPACE') | default('ibm-sls', true) }}"
+
+# If 'mas_namespaces_entitlement_key_rotation_list' is not set, we'll auto detect namespaces that are MAS related:
+# Properties below will be used to automatically query MAS related namespaces that holds ibm-entitlement / wiotp-docker-local credentials
+# by default we'll use a query that retrieves all MAS related namespaces:
+# - mas-{{ instance id }}-* : holds 'ibm-entitlement' secret
+# - {{ sls namespace }} : holds 'ibm-entitlement' secret
+# - openshift-marketplace : might hold 'wiotp-docker-local' secret, if artifactory credentials are defined
+mas_namespaces_entitlement_key_rotation_list: "{{ lookup('env', 'MAS_NAMESPACES_ENTITLEMENT_KEY_ROTATION_LIST') | split(',') | select() }}"
+include_namespaces_query_default: "mas-|{{ sls_namespace }}|openshift-marketplace"
+include_namespaces_query: "{{ lookup('env', 'INCLUDE_NAMESPACES_QUERY') | default(include_namespaces_query_default, true) }}"

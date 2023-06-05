@@ -41,7 +41,30 @@
 # By installing the operator first ourselves, we prevent this happening as
 # the operator will already be at the latest version on the channel, and the
 # startingCSV set by AnalyticsProxy will have no effect.
-- name: Install Foundation Services ibm-user-data-services operand request
+
+- name: Get postgres package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: "crunchy-postgres-operator"
+    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+  register: postgres_manifest
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - postgres_manifest is defined
+      - postgres_manifest.resources is defined
+      - postgres_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: crunchy-postgres-operator"
+
+- name: Set the subscription information
+  set_fact:
+    postgres_source: "{{ postgres_manifest.resources[0].status.catalogSource }}"
+    postgres_source_namespace: "{{ postgres_manifest.resources[0].status.catalogSourceNamespace }}"
+    postgres_default_channel: "{{ postgres_manifest.resources[0].status.defaultChannel }}"
+
+- name: Create Crunchy Postgres Subscription
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/crunchy-postgres/subscription.yml') }}"
     wait: yes
@@ -113,7 +136,7 @@
   delay: 120 # 2 minutes
 
 
-# 9. Wait for GenerateKey to be complete
+# 9. Cretae the GenerateKey CR
 # -----------------------------------------------------------------------------
 - name: "Create UDS Generate Key"
   kubernetes.core.k8s:
@@ -140,7 +163,7 @@
 
 # 11. MAS Config
 # -----------------------------------------------------------------------------
-# Note that the MAS config resource still refers to UDS by it's
+# Note that the MAS config resource still refers to UDS by its
 # original name (BAS).  It would be a breaking change to re-name the MAS CRD
 - name: "Create MAS BasCfg resource definition"
   include_tasks: tasks/install/udscfg.yml

@@ -1,0 +1,72 @@
+# # Modified from https://github.com/mongodb/mongodb-kubernetes-operator/blob/v0.7.0/config/manager/manager.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    email: support@mongodb.com
+  labels:
+    owner: mongodb
+  name: mongodb-kubernetes-operator
+  namespace: "{{ mongodb_namespace }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: mongodb-kubernetes-operator
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: mongodb-kubernetes-operator
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - mongodb-kubernetes-operator
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - command:
+        - /usr/local/bin/entrypoint
+        env:
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_NAME
+          value: mongodb-kubernetes-operator
+        - name: AGENT_IMAGE
+          value: quay.io/mongodb/mongodb-agent@sha256:4db6e9c7df3d9421dcc09e98c5b43ba9d95952eae3c2ccbfdb83a49743b3195f # 11.0.5.6963-1
+        - name: VERSION_UPGRADE_HOOK_IMAGE
+          value: quay.io/mongodb/mongodb-kubernetes-operator-version-upgrade-post-start-hook@sha256:da347eb74525715a670280545e78ecee1195ec2630037b3821591c87f7a314ee # 1.0.2
+        - name: READINESS_PROBE_IMAGE
+          value: quay.io/mongodb/mongodb-kubernetes-readinessprobe@sha256:bf5a4ffc8d2d257d6d9eb45d3e521f30b2e049a9b60ddc8e4865448e035502ca # 1.0.4
+        - name: MONGODB_IMAGE
+          value: ibmmas/mongo # Mirror of docker.io/mongo to avoid docker.io rate limiting
+        - name: MONGODB_REPO_URL
+          value: quay.io
+        image: "{{ target_mongo_operator_image_version_map['0.7.0']['image'] }}"  # 0.7.0
+        imagePullPolicy: IfNotPresent
+        name: mongodb-kubernetes-operator
+        resources:
+          limits:
+            cpu: 1100m
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 200Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsUser: 2000
+      serviceAccountName: mongodb-kubernetes-operator
