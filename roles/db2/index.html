@@ -89,6 +89,8 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../ocp_login/">ocp_login</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../ocp_node_config/">ocp_node_config</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../ocp_provision/">ocp_provision</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../ocp_roks_upgrade_registry_storage/">ocp_roks_upgrade_registry_storage</a>
@@ -151,8 +153,6 @@
     <li class="toctree-l3"><a class="reference internal" href="#db2_instance_name">db2_instance_name</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#ibm_entitlement_key">ibm_entitlement_key</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#db2_entitlement_key">db2_entitlement_key</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#db2_dbname">db2_dbname</a>
     </li>
@@ -218,13 +218,21 @@
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#role-variables-node-affinity">Role Variables - Node Affinity</a>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-node-label-affinity">Role Variables - Node Label Affinity</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#db2_node_label">db2_node_label</a>
+    <li class="toctree-l3"><a class="reference internal" href="#db2_affinity_key">db2_affinity_key</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#db2_dedicated_node">db2_dedicated_node</a>
+    <li class="toctree-l3"><a class="reference internal" href="#db2_affinity_value">db2_affinity_value</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#custom_labels">custom_labels</a>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-node-taint-toleration">Role Variables - Node Taint Toleration</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#db2_tolerate_key">db2_tolerate_key</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2_tolerate_value">db2_tolerate_value</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#db2_tolerate_value_1">db2_tolerate_value</a>
     </li>
         </ul>
     </li>
@@ -433,13 +441,6 @@ db2u-db01   Ready   None               29m
 <li>Environment Variable: <code>IBM_ENTITLEMENT_KEY</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="db2_entitlement_key">db2_entitlement_key<a class="headerlink" href="#db2_entitlement_key" title="Permanent link"></a></h3>
-<p>An IBM entitlement key specific for Db2 installation, primarily used to override <code>ibm_entitlement_key</code> in development.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>DB2_ENTITLEMENT_KEY</code></li>
-<li>Default: None</li>
-</ul>
 <h3 id="db2_dbname">db2_dbname<a class="headerlink" href="#db2_dbname" title="Permanent link"></a></h3>
 <p>Name of the database within the instance.</p>
 <ul>
@@ -603,6 +604,12 @@ db2u-db01   Ready   None               29m
 <li>Default: <code>ReadWriteOnce</code></li>
 </ul>
 <h2 id="role-variables-resource-requests">Role Variables - Resource Requests<a class="headerlink" href="#role-variables-resource-requests" title="Permanent link"></a></h2>
+<p>These variables allow you to customize the resources available to the Db2 pod in your cluster.  In most circumstances you will want to set these properties because it's impossible for us to provide a default value that will be appropriate for all users.  We have set defaults that are suitable for deploying Db2 onto a dedicated worker node with 4cpu and 16gb memory.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Note that you must take into account the system overhead on any given node when setting these parameters, if you set the requests equal to the number of CPU or amount of memory on yournode then the scheduler will not be able to schedule the Db2 pod because not 100% of the worker nodes' resource will be available to pod on that node, even if there's only a single pod on it.</p>
+<p>Db2 is sensitive to both CPU and memory issues, particularly memory, we recommennd setting requests and limits to the same values, ensuring the scheduler always reserves the resources that Db2 expects to be available to it.</p>
+</div>
 <h3 id="db2_cpu_requests">db2_cpu_requests<a class="headerlink" href="#db2_cpu_requests" title="Permanent link"></a></h3>
 <p>Define the Kubernetes CPU request for the Db2 pod.</p>
 <ul>
@@ -631,30 +638,47 @@ db2u-db01   Ready   None               29m
 <li>Environment Variable: <code>DB2_MEMORY_LIMITS</code></li>
 <li>Default: <code>16Gi</code></li>
 </ul>
-<h2 id="role-variables-node-affinity">Role Variables - Node Affinity<a class="headerlink" href="#role-variables-node-affinity" title="Permanent link"></a></h2>
-<h3 id="db2_node_label">db2_node_label<a class="headerlink" href="#db2_node_label" title="Permanent link"></a></h3>
-<p>The label used to specify node affinity and tolerations in the db2ucluster CR.</p>
+<h2 id="role-variables-node-label-affinity">Role Variables - Node Label Affinity<a class="headerlink" href="#role-variables-node-label-affinity" title="Permanent link"></a></h2>
+<p>Specify both <code>db2_affinity_key</code> and <code>db2_affinity_value</code> to configure <code>requiredDuringSchedulingIgnoredDuringExecution</code> affinity with appropriately labelled nodes.</p>
+<h3 id="db2_affinity_key">db2_affinity_key<a class="headerlink" href="#db2_affinity_key" title="Permanent link"></a></h3>
+<p>Specify the key of a node label to declare affinity with.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>'DB2_NODE_LABEL</code></li>
+<li>Environment Variable: <code>'DB2_AFFINITY_KEY</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="db2_dedicated_node">db2_dedicated_node<a class="headerlink" href="#db2_dedicated_node" title="Permanent link"></a></h3>
-<p>The name of the worker node to apply the <code>{{ db2_node_label }}</code> taint and label to.</p>
+<h3 id="db2_affinity_value">db2_affinity_value<a class="headerlink" href="#db2_affinity_value" title="Permanent link"></a></h3>
+<p>Specify the value of a node label to declare affinity with.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>'DB2_DEDICATED_NODE</code></li>
+<li>Environment Variable: <code>'DB2_AFFINITY_VALUE</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link"></a></h3>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<h2 id="role-variables-node-taint-toleration">Role Variables - Node Taint Toleration<a class="headerlink" href="#role-variables-node-taint-toleration" title="Permanent link"></a></h2>
+<p>Specify <code>db2_tolerate_key</code>, <code>db2_tolerate_value</code>, and <code>db2_tolerate_effect</code> to configure a toleration policy to allow the db2 instance to be scheduled on nodes with the specified taint.</p>
+<h3 id="db2_tolerate_key">db2_tolerate_key<a class="headerlink" href="#db2_tolerate_key" title="Permanent link"></a></h3>
+<p>Specify the key of the taint that is to be tolerated.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>CUSTOM_LABELS</code></li>
-<li>Default Value: None</li>
+<li>Environment Variable: <code>'DB2_TOLERATE_KEY</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="db2_tolerate_value">db2_tolerate_value<a class="headerlink" href="#db2_tolerate_value" title="Permanent link"></a></h3>
+<p>Specify the value of the taint that is to be tolerated.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>'DB2_TOLERATE_VALUE</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="db2_tolerate_value_1">db2_tolerate_value<a class="headerlink" href="#db2_tolerate_value_1" title="Permanent link"></a></h3>
+<p>Specify the type of taint effect that will be tolerated (<code>NoSchedule</code>, <code>PreferNoSchedule</code>, or <code>NoExecute</code>).</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>'DB2_TOLERATE_EFFECT</code></li>
+<li>Default: None</li>
 </ul>
 <h2 id="role-variables-db2ucluster-database-configuration-settings">Role Variables - DB2UCluster Database Configuration Settings<a class="headerlink" href="#role-variables-db2ucluster-database-configuration-settings" title="Permanent link"></a></h2>
-<p>The following variables will overwrite DB2UCluster default properties for the DB2 configuration sections, in each case when using environment variables provide a semi-colon separated name=value pairs, which will be converted into the appropriate data structure.</p>
+<p>The following variables will overwrite DB2UCluster default properties for the DB2 configuration sections:</p>
 <ul>
 <li><code>spec.environment.database.dbConfig</code></li>
 <li><code>spec.environment.instance.dbmConfig</code></li>
@@ -746,9 +770,7 @@ You can define parameters to be included in this section using semicolon separat
     ibm_entitlement_key: xxxxx
 
     # Configuration for the Db2 cluster
-    db2_version: 11.5.7.0-cn2
     db2_instance_name: db2u-db01
-    db2_dbname: BLUDB
 
     db2_meta_storage_class: &quot;ibmc-file-gold&quot;
     db2_data_storage_class: &quot;ibmc-block-gold&quot;
