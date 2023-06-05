@@ -78,12 +78,19 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    ocp_node_label_keys: label1,label2
-    ocp_node_label_values: value1,value2
+    # Turn this worker node into a dedicated Db2 worker node
+    ocp_node_name: "10.172.168.89"
 
-    ocp_node_taint_keys: taint1,taint2
-    ocp_node_taint_values: value1,value2
-    ocp_node_taint_effects: NoExecute,NoSchedule
+    # Add the label that will be applied to all dedicated Db2 nodes
+    # this will be used to direct Db2 workloads to these nodes
+    ocp_node_label_keys: workload
+    ocp_node_label_values: db2
+
+    # Set a taint preventing anything other than Db2 workloads for masinst1 running
+    # on this node specific Db2 node
+    ocp_node_taint_keys: dedicatedDb2Node
+    ocp_node_taint_values: masinst1
+    ocp_node_taint_effects: NoExecute
 
   roles:
     - ibm.mas_devops.ocp_node_config
