@@ -1,0 +1,52 @@
+---
+apiVersion: mirror.openshift.io/v1alpha2
+kind: ImageSetConfiguration
+mirror:
+{% if mirror_redhat_platform %}
+  platform:
+    channels:
+      - name: stable-{{ ocp_release }}
+{% if ocp_min_version != "" %}
+        minVersion: {{ ocp_min_version }}
+{% endif %}
+{% if ocp_max_version != "" %}
+        maxVersion: {{ ocp_max_version }}
+{% endif %}
+{% if ocp_min_version != "" or ocp_max_version != "" %}
+        shortestPath: true
+{% endif %}
+{% endif %}
+{% if mirror_redhat_operators %}
+  operators:
+    # certified-operators
+    - catalog: registry.redhat.io/redhat/certified-operator-index:v{{ ocp_release }}
+      packages:
+        - name: crunchy-postgres-operator  # Required by ibm.mas_devops.uds role
+        - name: gpu-operator-certified  # Required by ibm.mas_devops.nvidia_gpu role
+        # - name: kubeturbo-certified  # Required by ibm.mas_devops.kubeturbo role
+        #   OCI images are not supported by oc image mirror
+        #   https://access.redhat.com/solutions/6997884
+        #   https://issues.redhat.com/browse/CFE-780
+        #   OCI index found, but accept header does not support OCI indexes
+
+    # community-operators
+    - catalog: registry.redhat.io/redhat/community-operator-index:v{{ ocp_release }}
+      packages:
+        - name: grafana-operator  #  Required by ibm.mas_devops.cluster_monitoring role
+        # - name: opentelemetry-operator  # Required by ibm.mas_devops.cluster_monitoring role
+        #   OCI images are not supported by oc image mirror
+        #   https://access.redhat.com/solutions/6997884
+        #   https://issues.redhat.com/browse/CFE-780
+        #   OCI index found, but accept header does not support OCI indexes
+
+    # redhat-operators
+    - catalog: registry.redhat.io/redhat/redhat-operator-index:v{{ ocp_release }}
+      packages:
+        - name: amq-streams  # Required by ibm.mas_devops.kafka role
+        - name: openshift-pipelines-operator-rh  # Required by installer
+        - name: nfd  # Required by ibm.mas_devops.nvidia_gpu role
+        - name: aws-efs-csi-driver-operator  # Required by ibm.mas_devops.ocp_efs role
+        - name: local-storage-operator  # Required by ibm.mas_devops.ocs role
+        - name: ocs-operator  # Required by ibm.mas_devops.ocs role (OCP 4.10)
+        - name: odf-operator  # Required by ibm.mas_devops.ocs role (OCP 4.11+)
+{% endif %}

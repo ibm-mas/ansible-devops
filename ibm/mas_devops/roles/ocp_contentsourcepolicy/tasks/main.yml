@@ -38,7 +38,16 @@
   register: content_source_policy_result
 
 
-# 5. Wait until the nodes have applied the updates
+# 5. Create Catalog Sources and ContentSourcePolicy
+# -----------------------------------------------------------------------------
+- name: "Create Catalog Sources and ContentSourcePolicy"
+  when: setup_redhat_catalogs
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/redhat-catalogs.yml.j2"
+
+
+# 6. Wait until the nodes have applied the updates
 # -----------------------------------------------------------------------------
 - name: Wait for Machine Configs to update
   when: content_source_policy_result.changed
