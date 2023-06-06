@@ -5,7 +5,7 @@
   assert:
     that:
       - db2_instance_name is defined and db2_instance_name != ""
-      - db2_entitlement_key is defined and db2_entitlement_key != ""
+      - ibm_entitlement_key is defined and ibm_entitlement_key != ""
     fail_msg: "One or more required properties have not been set"
 
 - name: "Fail if required db2_dbname is over 8 characters"
@@ -14,6 +14,7 @@
       - db2_dbname is defined and db2_dbname != ""
       - db2_dbname | length <= 8
     fail_msg: "Property value of db2_dbname is set to '{{ db2_dbname }}' and is greater than 8 character long."
+
 
 # 2. Load default storage classes (if not provided by the user)
 # -----------------------------------------------------------------------------
@@ -30,11 +31,23 @@
 - name: "Debug - MAS"
   debug:
     msg:
+      - "MAS Instance ID ........................ {{ mas_instance_id }}"
+      - "MAS Config directory ................... {{ mas_config_dir }}"
       - "MAS Instance ID ........................ {{ mas_instance_id | default('<undefined>', true) }}"
       - "MAS Workspace ID ....................... {{ mas_workspace_id | default('<undefined>', true) }}"
       - "MAS Application ID ..................... {{ mas_application_id | default('<undefined>', true) }}"
       - "MAS Config Directory ................... {{ mas_config_dir | default('<undefined>', true) }}"
       - "MAS Config Scope ....................... {{ mas_config_scope | default('<undefined>', true) }}"
+
+- name: "Debug - Affinity & Tolerations"
+  debug:
+    msg:
+      - "Affinity key ........................... {{ db2_affinity_key | default('<undefined>', true) }}"
+      - "Affinity value ......................... {{ db2_affinity_value | default('<undefined>', true) }}"
+
+      - "Toleration key ......................... {{ db2_tolerate_key | default('<undefined>', true) }}"
+      - "Toleration value ....................... {{ db2_tolerate_value | default('<undefined>', true) }}"
+      - "Toleration effect ...................... {{ db2_tolerate_effect | default('<undefined>', true) }}"
 
 - name: "Debug - Db2 Instance"
   debug:
@@ -103,10 +116,10 @@
 
 - name: Set 'ibm-registry' secret content
   vars:
-    entitledAuthStr: "{{ registry_user }}:{{ db2_entitlement_key }}"
+    entitledAuthStr: "{{ registry_user }}:{{ ibm_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
-      - "{\"auths\":{\"{{ registry }}/cp/cpd\":{\"username\":\"{{ registry_user }}\",\"password\":\"{{ db2_entitlement_key }}\",\"email\":\"{{ registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
+      - "{\"auths\":{\"{{ registry }}/cp/cpd\":{\"username\":\"{{ registry_user }}\",\"password\":\"{{ ibm_entitlement_key }}\",\"email\":\"{{ registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
       - "}"
       - "}"
   set_fact:
@@ -186,20 +199,8 @@
     definition: "{{ lookup('template', 'templates/certs/certificate.yml.j2') }}"
   register: createCertificate
 
-# 8. Taint and label dedicated node if specified
-# -----------------------------------------------------------------------------
-- name: Taint and label dedicated worker node
-  when:
-    - db2_node_label is defined and db2_node_label != ''
-    - db2_dedicated_node is defined and db2_dedicated_node != ''
-  shell: |
-    oc adm taint node {{ db2_dedicated_node }} database={{ db2_node_label }}:NoSchedule --overwrite
-    oc adm drain {{ db2_dedicated_node }} --ignore-daemonsets --delete-local-data
-    oc label node {{ db2_dedicated_node }} database={{ db2_node_label }} --overwrite
-    oc adm uncordon {{ db2_dedicated_node }}
 
-
-# 9. Wait until the Db2uCluster CRD is available
+# 8. Wait until the Db2uCluster CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Db2uCluster CRD is available"
   kubernetes.core.k8s_info:
@@ -220,7 +221,7 @@
     - db2_crd_info.resources | length > 0
 
 
-# 10. Lookup db2 instance to see if it exists already
+# 9. Lookup db2 instance to see if it exists already
 # -----------------------------------------------------------------------------
 - name: "See if db2u instance already exists"
   kubernetes.core.k8s_info:
@@ -231,7 +232,7 @@
   register: initial_db2_cluster_lookup
 
 
-# 11. Create a Db2 instance
+# 10. Create a Db2 instance
 # -----------------------------------------------------------------------------
 - name: "Create db2 instance"
   kubernetes.core.k8s:
@@ -239,7 +240,7 @@
     definition: "{{ lookup('template', 'templates/db2ucluster.yml.j2') }}"
 
 
-# 12. Wait for the cluster to be ready
+# 11. Wait for the cluster to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for db2u instance to be ready (5m delay)"
   kubernetes.core.k8s_info:
@@ -258,7 +259,7 @@
   delay: 300 # 5 minutes
 
 
-# 13. Configure a public route for Db2
+# 12. Configure a public route for Db2
 # -----------------------------------------------------------------------------
 - name: Lookup db2u Engn Service
   kubernetes.core.k8s_info:
@@ -324,7 +325,8 @@
     namespace: "{{db2_namespace}}"
     state: absent
 
-# 14. Delete db2 pod on intial setup only, to workaround db2 issue
+
+# 13. Delete db2 pod on intial setup only, to workaround db2 issue
 # that was causing TLS connection issues when the pod was first started
 # -----------------------------------------------------------------------------
 - name: Delete db2u pod on initial setup
@@ -337,7 +339,7 @@
   when: initial_db2_cluster_lookup.resources | length == 0
 
 
-# 15. create an LDAP user if db2_ldap_username specified
+# 14. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
 - name: Create LDAP user if username and password is provided
   include_tasks: tasks/create_ldap_user.yml
@@ -352,7 +354,9 @@
     msg:
       - "{{db2_ldap_username}}"
       - "{{db2_rotate_password}}"
-# 16. Rotate db2 ldap password
+
+
+# 15. Rotate db2 ldap password
 # -----------------------------------------------------------------------------
 - name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
   include_tasks: tasks/rotate_ldap_user_password.yml
@@ -361,7 +365,8 @@
     - db2_ldap_username != ""
     - db2_rotate_password == true
 
-# 17. Wait for the statefulset to be ready
+
+# 16. Wait for the statefulset to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Db2 Stateful set to be ready"
   kubernetes.core.k8s_info:
@@ -381,7 +386,7 @@
   delay: 30 # seconds
 
 
-# 18. Generate a JdbcCfg for MAS configuration
+# 17. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/suite_jdbccfg.yml
   when:
