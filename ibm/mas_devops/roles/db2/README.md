@@ -14,8 +14,6 @@ db2u-db01   Ready   None               29m
 
 It typically takes 20-30 minutes from the db2ucluster being created till it is ready. If the db2ucluster is not ready after that period then check that all the PersistentVolumeClaims in the `db2u` namespace are ready and that the pods in the namespace are not stuck in init state. If the `c-<db2_instance_name>-db2u-0` pod is running then you can exec into the pod and check the `/var/log/db2u.log` for any issue.
 
-If the `db2_node_label` and `db2_dedicated_node` variables are defined then role will taint and drain the dedicated node before labeling it using `database={{ db2_node_label }}`. The node is then uncordoned.
-
 If the `mas_instance_id` and `mas_config_dir` are provided then the role will generate the JdbcCfg yaml that can be used to configure MAS to connect to this database. It does not apply the yaml to the cluster but does provide you with the yaml files to apply if needed.
 
 
@@ -260,14 +258,14 @@ Specify both `db2_affinity_key` and `db2_affinity_value` to configure `requiredD
 Specify the key of a node label to declare affinity with.
 
 - Optional
-- Environment Variable: `'DB2_AFFINITY_KEY`
+- Environment Variable: `DB2_AFFINITY_KEY`
 - Default: None
 
 ### db2_affinity_value
 Specify the value of a node label to declare affinity with.
 
 - Optional
-- Environment Variable: `'DB2_AFFINITY_VALUE`
+- Environment Variable: `DB2_AFFINITY_VALUE`
 - Default: None
 
 
@@ -279,21 +277,21 @@ Specify `db2_tolerate_key`, `db2_tolerate_value`, and `db2_tolerate_effect` to c
 Specify the key of the taint that is to be tolerated.
 
 - Optional
-- Environment Variable: `'DB2_TOLERATE_KEY`
+- Environment Variable: `DB2_TOLERATE_KEY`
 - Default: None
 
 ### db2_tolerate_value
 Specify the value of the taint that is to be tolerated.
 
 - Optional
-- Environment Variable: `'DB2_TOLERATE_VALUE`
+- Environment Variable: `DB2_TOLERATE_VALUE`
 - Default: None
 
-### db2_tolerate_value
+### db2_tolerate_effect
 Specify the type of taint effect that will be tolerated (`NoSchedule`, `PreferNoSchedule`, or `NoExecute`).
 
 - Optional
-- Environment Variable: `'DB2_TOLERATE_EFFECT`
+- Environment Variable: `DB2_TOLERATE_EFFECT`
 - Default: None
 
 
