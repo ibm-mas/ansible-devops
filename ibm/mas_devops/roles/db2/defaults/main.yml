@@ -14,28 +14,11 @@ db2_table_org: "{{ lookup('env', 'DB2_TABLE_ORG') | default('ROW', true) }}" # e
 
 # If storage class is OCS or PortWorx then 4k device support should be ON
 db2_4k_device_support: "{{ lookup('env', 'DB2_4K_DEVICE_SUPPORT') | default('ON', true) }}"
-
-db2_node_label: "{{ lookup('env', 'DB2_NODE_LABEL') | default(None, true) }}" # by default there is no node affinity/tolerations
-db2_dedicated_node: "{{ lookup('env', 'DB2_DEDICATED_NODE') | default(None, true) }}" # by default there is no dedicated node
 db2_workload: "{{ lookup('env', 'DB2_WORKLOAD') | default('ANALYTICS', true) }}" # default workload is ANALYTICS, other option is PUREDATA_OLAP
 
-db2_default_config:
-  dbConfig:
-    APPLHEAPSZ: 8192 AUTOMATIC # Recommended heap memory size: https://www.ibm.com/docs/en/mas83/8.3.0?topic=dependencies-configure-database-health
-  registry:
-    DB2AUTH: 'OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD'
-    DB2_4K_DEVICE_SUPPORT: '{{ db2_4k_device_support }}'
-    DB2_FMP_RUN_AS_CONNECTED_USER: 'NO'
-    DB2_WORKLOAD: '{{ db2_workload }}'
 
-db2_database_db_config: "{{ lookup('env', 'DB2_DATABASE_DB_CONFIG') | ibm.mas_devops.db2_overwrite_config | default(db2_default_config.dbConfig, true) }}"
-db2_instance_dbm_config: "{{ lookup('env', 'DB2_INSTANCE_DBM_CONFIG') | ibm.mas_devops.db2_overwrite_config }}"
-db2_instance_registry: "{{ lookup('env', 'DB2_INSTANCE_REGISTRY') | ibm.mas_devops.db2_overwrite_config |  default(db2_default_config.registry, true) }}"
-
-# Support DB2 MPP configurations
-db2_mln_count: "{{ lookup('env', 'DB2_MLN_COUNT') | default(1, true) }}" # by default only specify one logical node (i.e. one db partition)
-db2_num_pods: "{{ lookup('env', 'DB2_NUM_PODS') | default(1, true) }}" # by default only specify one db2 pod
-
+# Storage
+# -----------------------------------------------------------------------------
 # Configure meta storage for db2u
 db2_meta_storage_class: "{{ lookup('env', 'DB2_META_STORAGE_CLASS') }}"
 db2_meta_storage_size: "{{ lookup('env', 'DB2_META_STORAGE_SIZE') | default('20Gi', true) }}"
@@ -61,13 +44,59 @@ db2_temp_storage_class: "{{ lookup('env', 'DB2_TEMP_STORAGE_CLASS') }}"
 db2_temp_storage_size: "{{ lookup('env', 'DB2_TEMP_STORAGE_SIZE') | default('100Gi', true) }}"
 db2_temp_storage_accessmode: "{{ lookup('env', 'DB2_TEMP_STORAGE_ACCESSMODE') | default('ReadWriteOnce', true) }}"
 
+
+# Request/limit defaults
+# -----------------------------------------------------------------------------
+db2_cpu_requests: "{{ lookup('env', 'DB2_CPU_REQUESTS')  | default('3000m', true) }}"
+db2_cpu_limits: "{{ lookup('env', 'DB2_CPU_LIMITS')  | default('3000m', true) }}"
+db2_memory_requests: "{{ lookup('env', 'DB2_MEMORY_REQUESTS')  | default('12Gi', true) }}"
+db2_memory_limits: "{{ lookup('env', 'DB2_MEMORY_LIMITS')  | default('12Gi', true) }}"
+
+
+# Node affinity and tolerations
+# -----------------------------------------------------------------------------
+db2_affinity_key: "{{ lookup('env', 'DB2_AFFINITY_KEY') }}"
+db2_affinity_value: "{{ lookup('env', 'DB2_AFFINITY_VALUE') }}"
+
+db2_tolerate_key: "{{ lookup('env', 'DB2_TOLERATE_KEY') }}"
+db2_tolerate_value: "{{ lookup('env', 'DB2_TOLERATE_VALUE') }}"
+db2_tolerate_effect: "{{ lookup('env', 'DB2_TOLERATE_EFFECT') }}"
+
+
+# Other stuff
+# -----------------------------------------------------------------------------
+# The following settings will overwrite db2ucluster default properties for:
+# spec.environment.database.dbConfig
+# spec.environment.instance.dbmConfig
+# spec.environment.instance.registry
+
+db2_default_config:
+  dbConfig:
+    APPLHEAPSZ: 8192 AUTOMATIC # Recommended heap memory size: https://www.ibm.com/docs/en/mas83/8.3.0?topic=dependencies-configure-database-health
+  dbmConfig:
+    INSTANCE_MEMORY: AUTOMATIC
+  registry:
+    DB2AUTH: 'OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD'
+    DB2_4K_DEVICE_SUPPORT: '{{ db2_4k_device_support }}'
+    DB2_FMP_RUN_AS_CONNECTED_USER: 'NO'
+    DB2_WORKLOAD: '{{ db2_workload }}'
+
+db2_database_db_config: "{{ lookup('env', 'DB2_DATABASE_DB_CONFIG') | ibm.mas_devops.db2_overwrite_config | default(db2_default_config.dbConfig, true) }}"
+db2_instance_dbm_config: "{{ lookup('env', 'DB2_INSTANCE_DBM_CONFIG') | ibm.mas_devops.db2_overwrite_config | default(db2_default_config.dbmConfig, true) }}"
+db2_instance_registry: "{{ lookup('env', 'DB2_INSTANCE_REGISTRY') | ibm.mas_devops.db2_overwrite_config |  default(db2_default_config.registry, true) }}"
+
+# Support DB2 MPP configurations
+db2_mln_count: "{{ lookup('env', 'DB2_MLN_COUNT') | default(1, true) }}" # by default only specify one logical node (i.e. one db partition)
+db2_num_pods: "{{ lookup('env', 'DB2_NUM_PODS') | default(1, true) }}" # by default only specify one db2 pod
+
 # Config ldap user and password
 db2_ldap_username: "{{ lookup('env', 'DB2_LDAP_USERNAME') }}"
 db2_ldap_password: "{{ lookup('env', 'DB2_LDAP_PASSWORD') }}"
 db2_rotate_password: "{{ lookup('env', 'DB2_LDAP_ROTATE_PASSWORD') | default(False, True)}}"
 
+
 # MAS JdbcCfg generation settings
-# -----------------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
@@ -75,21 +104,14 @@ mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE') | default('system', true
 mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}" # Necessary for ws and wsapp scopes
 mas_application_id: "{{ lookup('env', 'MAS_APP_ID') }}" # Necessary for app and wsapp scopes
 
-# Request/limit defaults
-# -----------------------------------------------------------------------------------------------------------------
-db2_cpu_requests: "{{ lookup('env', 'DB2_CPU_REQUESTS')  | default('4000m', true) }}"
-db2_cpu_limits: "{{ lookup('env', 'DB2_CPU_LIMITS')  | default('6000m', true) }}"
-db2_memory_requests: "{{ lookup('env', 'DB2_MEMORY_REQUESTS')  | default('8Gi', true) }}"
-db2_memory_limits: "{{ lookup('env', 'DB2_MEMORY_LIMITS')  | default('16Gi', true) }}"
 
 # Entitlement
-# -----------------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 registry: cp.icr.io
 registry_user: cp
 
 ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
-# We support ENTITLEMENT_KEY for backwards compatability with previous releases
-db2_entitlement_key: "{{ lookup('env', 'DB2_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) | default(lookup('env', 'ENTITLEMENT_KEY'), true) }}"
+
 
 # Custom Labels
 # -----------------------------------------------------------------------------
