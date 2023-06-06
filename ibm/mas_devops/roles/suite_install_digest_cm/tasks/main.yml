@@ -75,23 +75,23 @@
 - name: "Debug stats if the digest image map file exists"
   ansible.builtin.debug:
     msg: "Digest map file will be uploaded since app version does not support OM 1.6"
-  when: digest_file_stats.stat.exists == "true"
+  when: digest_file_stats.stat.exists|bool
 
 - name: "Debug stats if the digest image map file was not provided"
   ansible.builtin.debug:
     msg: "We are going to assume that this app version supports OM 1.6"
-  when: digest_file_stats.stat.exists != "true"
+  when: not digest_file_stats.stat.exists|bool
 
 
 # 4 Setup digest image map file
 # -----------------------------------------------------------------------------
 - name: "Initialize facts (2/2)"
-  when: digest_file_stats.stat.exists == "true"
+  when: digest_file_stats.stat.exists|bool
   set_fact:
     digest_image_map_data: "{{ lookup('file', digest_image_map_file) }}"
 
 - name: "Look for an existing image map"
-  when: digest_file_stats.stat.exists == "true"
+  when: digest_file_stats.stat.exists|bool
   kubernetes.core.k8s_info:
     api_version: v1
     name: "{{ digest_image_map_name }}"
@@ -114,6 +114,6 @@
 # -----------------------------------------------------------------------------
 - name: "Create new image map"
   when:
-    - digest_file_stats.stat.exists == "true"
+    - digest_file_stats.stat.exists|bool
     - (existing_digest_cm.resources is defined and existing_digest_cm.resources | length == 0) or existing_digest_cm.resources is not defined
   include_tasks: actions/new.yml
