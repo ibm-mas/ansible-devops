@@ -18,29 +18,39 @@
     digest_image_map_file: "{{ role_path }}/../../common_vars/digests/{{ case_name }}/{{ case_version }}.yaml"
     digest_image_map_label: "mas.ibm.com/{{ case_name }}-{{ case_version }}"
 
-# Manage v8.4.0-8.4.3, Visual Inspection v8.6.0, optimizer v8.2.0, Safety v8.3.0 all reference the wrong config map name
-- name: "Workaround for bug in ibm-mas-manage v8.4.0-8.4.3"
-  when: case_name == "ibm-mas-manage" and (case_version == "8.4.0" or case_version == "8.4.1" or case_version == "8.4.2" or case_version == "8.4.3")
+# Manage v8.4.0-8.4.5, Visual Inspection v8.6.0, optimizer v8.2.0, Safety v8.3.0 all reference the wrong config map name
+- name: "Workaround for bug in ibm-mas-manage v8.4.0-8.4.5"
+  when:
+    - case_name == "ibm-mas-manage"
+    - (case_version == "8.4.0" or case_version == "8.4.1" or case_version == "8.4.2" or case_version == "8.4.3" or case_version == "8.4.4" or case_version == "8.4.5")
   set_fact:
     digest_image_map_name: "ibm-manage-image-map"
 
 - name: "Workaround for bug in ibm-mas-visualinspection v8.6.0"
-  when: case_name == "ibm-mas-visualinspection" and case_version == "8.6.0"
+  when:
+    - case_name == "ibm-mas-visualinspection"
+    - case_version == "8.6.0"
   set_fact:
     digest_image_map_name: "ibm-visualinspection-image-map"
 
 - name: "Workaround for bug in ibm-mas-optimizer v8.2.0"
-  when: case_name == "ibm-mas-optimizer" and case_version == "8.2.0"
+  when:
+    - case_name == "ibm-mas-optimizer"
+    - case_version == "8.2.0"
   set_fact:
     digest_image_map_name: "ibm-optimizer-image-map"
 
 - name: "Workaround for bug in ibm-mas-safety v8.3.0"
-  when: case_name == "ibm-mas-safety" and case_version == "8.3.0"
+  when:
+    - case_name == "ibm-mas-safety"
+    - case_version == "8.3.0"
   set_fact:
     digest_image_map_name: "ibm-safety-image-map"
 
 - name: "Workaround for bug in ibm-data-dictionary v1.1.3"
-  when: case_name == "ibm-data-dictionary" and case_version == "1.1.3"
+  when:
+    - case_name == "ibm-data-dictionary"
+    - (case_version == "1.1.3" or case_version == "1.1.4")
   set_fact:
     digest_image_map_name: "ibm-mas-add-image-map"
 
@@ -54,11 +64,34 @@
       - "Digest Map Local File .............. {{ digest_image_map_file }}"
       - "Digest Map Label ................... {{ digest_image_map_label }}"
 
+
+# 3. Verify if version supports OM 1.6 or not
+# -----------------------------------------------------------------------------
+- name: "Get stats for the digest image map file"
+  ansible.builtin.stat:
+    path: "{{ digest_image_map_file}}"
+  register: digest_file_stats
+
+- name: "Debug stats if the digest image map file exists"
+  ansible.builtin.debug:
+    msg: "Digest map file will be uploaded since app version does not support OM 1.6"
+  when: digest_file_stats.stat.exists|bool
+
+- name: "Debug stats if the digest image map file was not provided"
+  ansible.builtin.debug:
+    msg: "We are going to assume that this app version supports OM 1.6"
+  when: not digest_file_stats.stat.exists|bool
+
+
+# 4 Setup digest image map file
+# -----------------------------------------------------------------------------
 - name: "Initialize facts (2/2)"
+  when: digest_file_stats.stat.exists|bool
   set_fact:
     digest_image_map_data: "{{ lookup('file', digest_image_map_file) }}"
 
 - name: "Look for an existing image map"
+  when: digest_file_stats.stat.exists|bool
   kubernetes.core.k8s_info:
     api_version: v1
     name: "{{ digest_image_map_name }}"
@@ -67,7 +100,7 @@
   register: existing_digest_cm
 
 
-# 3a. Merge with the existing Digest Image Map
+# 5a. Merge with the existing Digest Image Map
 # -----------------------------------------------------------------------------
 - name: "Merge with existing image map"
   when:
@@ -77,32 +110,10 @@
   include_tasks: actions/merge.yml
 
 
-# 3b. Install the new Digest Image Map
+# 5b. Install the new Digest Image Map
 # -----------------------------------------------------------------------------
 - name: "Create new image map"
-  when: (existing_digest_cm.resources is defined and existing_digest_cm.resources | length == 0) or existing_digest_cm.resources is not defined
+  when:
+    - digest_file_stats.stat.exists|bool
+    - (existing_digest_cm.resources is defined and existing_digest_cm.resources | length == 0) or existing_digest_cm.resources is not defined
   include_tasks: actions/new.yml
-
-
-# 4. Workaround for Manage Workspace Entity Manager Image digest
-#------------------------------------------------------------------------------
-- name: Fix Manage 844 and 845 Workspace image-map.
-  block:
-    - name: "Initialize facts"
-      set_fact:
-        digest_image_map_name: "ibm-manage-image-map"
-        digest_image_map_name_controller: "{{ case_name }}-image-map"
-
-    - name: "Look for the controller image map"
-      kubernetes.core.k8s_info:
-        api_version: v1
-        name: "{{ digest_image_map_name_controller }}"
-        kind: ConfigMap
-        namespace: "{{ digest_image_map_namespace }}"
-      register: existing_digest_cm
-
-    - name: "Create new image map"
-      when: (existing_digest_cm.resources is defined and existing_digest_cm.resources | length == 0) or existing_digest_cm.resources is not defined
-      include_tasks: actions/new.yml
-
-  when: case_name == "ibm-mas-manage" and (case_version == "8.4.4" or case_version == "8.4.5")
