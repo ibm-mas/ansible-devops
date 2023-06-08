@@ -8,9 +8,10 @@ Available Extras
 | Extra        | Versions     | Description                                                                                    |
 | ------------ | ------------ | ---------------------------------------------------------------------------------------------- |
 | catalog      | N/A          | Special extra package for mirroring the IBM Maximo Operator Catalog                            |
-| db2u         | 1.0.0        | Extra container images missing from the ibm-db2operator CASE bundle                            |
-| mongoce      | 4.2.6        | Package containing all images required to use MongoCE Operator in the disconnected environment |
-| uds          | 1.0.0, 1.1.0 | Extra container images missing from the ibm-uds CASE bundle                                    |
+| db2u         | 1.0.0, 1.0.1 | Extra container images missing from the ibm-db2operator CASE bundle                            |
+| mongoce      | 4.2.6, 4.2.23, 4.4.21 | Package containing all images required to use MongoCE Operator in the disconnected environment |
+| uds          | 1.0.0, 1.1.0. 1.2.0 | Extra container images missing from the ibm-uds CASE bundle                                    |
+| wd           | 5.3.1        | Extra container images missing from the ibm-watson-discovery CASE bundle                       |
 
 
 Role Variables
