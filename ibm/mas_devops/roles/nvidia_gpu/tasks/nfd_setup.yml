@@ -1,6 +1,31 @@
 ---
 
-# 1. Provide Debug information
+# 1. Lookup the packagemanifest for gpu-operator-certified
+# -----------------------------------------------------------------------------
+- name: Get nfd package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: nfd
+    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+  register: nfd_manifest
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - nfd_manifest is defined
+      - nfd_manifest.resources is defined
+      - nfd_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: nfd"
+
+- name: Set the subscription information
+  set_fact:
+    nfd_source: "{{ nfd_manifest.resources[0].status.catalogSource }}"
+    nfd_source_namespace: "{{ nfd_manifest.resources[0].status.catalogSourceNamespace }}"
+    nfd_default_channel: "{{ nfd_manifest.resources[0].status.defaultChannel }}"
+
+
+# 2. Provide Debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
@@ -9,7 +34,7 @@
       - "NFD Channel   ...................... {{ nfd_channel }}"
 
 
-# 2. Create NFD project
+# 3. Create NFD project
 # -----------------------------------------------------------------------------
 - name: "Create nfd namespace"
   kubernetes.core.k8s:
@@ -18,7 +43,7 @@
     name: '{{ nfd_namespace }}'
 
 
-# 3. Create NFD operator group and subscription
+# 4. Create NFD operator group and subscription
 # -----------------------------------------------------------------------------
 - name: "Create nfd operator group"
   kubernetes.core.k8s:
@@ -55,7 +80,7 @@
     - nfd_crd_info.resources | length > 0
 
 
-# 4. Create NFD instance
+# 5. Create NFD instance
 # -----------------------------------------------------------------------------
 - name: "Create NodeFeatureDiscovery instance"
   kubernetes.core.k8s:
@@ -63,7 +88,7 @@
     definition: "{{ lookup('template', 'templates/nfd-instance.yml.j2') }}"
 
 
-# 5. Make sure NFD daemonsets have been created and all pods are ready
+# 6. Make sure NFD daemonsets have been created and all pods are ready
 # -----------------------------------------------------------------------------
 # Depending on the version of NFD there may also be a nfd-master DaemonSet, but because
 # newer versions use a combined worker-master model we will only wait for the nfd-worker

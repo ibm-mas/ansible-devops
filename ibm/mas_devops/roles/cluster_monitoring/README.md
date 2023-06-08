@@ -4,7 +4,7 @@ Configures an in-cluster monitoring stack for IBM Maximo Application Suite:
 
 - [OpenShift user defined project monitoring](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/enabling-monitoring-for-user-defined-projects) is enabled (`openshift-monitoring` namespace)
 - [OpenShift monitoring stack](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/index) is configured to use persistent storage (`openshift-monitoring` namespace)
-- [OpenTelemetry operator](https://github.com/open-telemetry/opentelemetry-operator) is installed (`openshift-operators` namespace)
+- [OpenTelemetry operator](https://github.com/open-telemetry/opentelemetry-operator) is installed (optional, `openshift-operators` namespace)
 - [Grafana](https://grafana.com/) installed using the [community grafana operator](https://github.com/grafana-operator/grafana-operator) (`grafana` namespace)
 
 The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route  is created in the grafana namespace to allow access to the grafana UI.
@@ -18,6 +18,13 @@ Inform the role whether to perform an install or an uninstall of cluster monitor
 - Optional
 - Environment Variable: `CLUSTER_MONITORING_ACTION`
 - Default: `install`
+
+### cluster_monitoring_include_opentelemetry
+By default OpenTelemtry is not installed into the cluster, this operator must be enabled by setting this variable to `True`.
+
+- Optional
+- Environment Variable: `CLUSTER_MONITORING_INCLUDE_OPENTELEMETRY`
+- Default: `False`
 
 
 Role Variables - Prometheus
