@@ -44,6 +44,13 @@ Any of these environment variables can be set to `none` to skip the uninstall of
 !!! warning
     Although you could set the actions to `install` and run the playbook it is strongly recommended not to as it runs through the dependencies in the reverse order that they need to be installed in; use the [oneclick-core](oneclick-core.md) playbook to repair a MAS Core installation.
 
+### Optional environment variables
+
+### mas_wipe_mongo_data
+Defines whether Mongo databases should be deleted along with MAS uninstall
+
+- Environment Variable: `MAS_WIPE_MONGO_DATA`
+- Default: `False`
 
 Example
 -------------------------------------------------------------------------------
