@@ -18,12 +18,8 @@
 # 2. Set Primary Storage (Required)
 # -----------------------------------------------------------------------------
 - name: "determine-storage-classes : Default Manage PVC Storage if not set by user"
-  vars:
-    # ROKS, OCS, Azure
-    supported_storage_classes: [ibmc-file-gold-gid, ocs-storagecluster-cephfs, azurefiles-premium]
   set_fact:
-    mas_app_settings_default_pvc_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
-
+    mas_app_settings_default_pvc_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(mas_app_settings_default_manage_supported_storage_classes) }}"
 
 # 3. Debug storage class configuration
 # -----------------------------------------------------------------------------
@@ -31,7 +27,6 @@
   debug:
     msg:
       - "Manage Default PVC Storage class .......... {{ mas_app_settings_default_pvc_storage_class }}"
-
 
 # 4. Auto define storage classes when required
 # -----------------------------------------------------------------------------
@@ -52,3 +47,23 @@
     mas_app_settings_jms_queue_pvc_storage_class: "{{ mas_app_settings_default_pvc_storage_class }}"
   when:
     - mas_app_settings_jms_queue_pvc_storage_class is not defined or mas_app_settings_jms_queue_pvc_storage_class == ""
+
+- name: Assert Manage related storage classes are defined
+  assert:
+    that:
+      - mas_app_settings_doclinks_pvc_storage_class is defined
+      - mas_app_settings_doclinks_pvc_storage_class != ''
+      - mas_app_settings_bim_pvc_storage_class is defined
+      - mas_app_settings_bim_pvc_storage_class != ''
+      - mas_app_settings_jms_queue_pvc_storage_class is defined
+      - mas_app_settings_jms_queue_pvc_storage_class != ''
+    fail_msg:
+      - "Failed! One of more storage classes are not defined for Manage!"
+      - "It was not possible to auto detect a valid storage class as none of the defaulted options were found ....................... {{ mas_app_settings_default_manage_supported_storage_classes }}"
+      - "Storage Classes available in your cluster .................................................................................. {{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
+      - ""
+      - "Please, ensure you define a valid storage class for the following:"
+      - ""
+      - "mas_app_settings_doclinks_pvc_storage_class' property ...................................................................... {{ mas_app_settings_doclinks_pvc_storage_class | default('Undefined!', true )}}"
+      - "mas_app_settings_bim_pvc_storage_class' property ........................................................................... {{ mas_app_settings_bim_pvc_storage_class | default('Undefined!', true )}}"
+      - "mas_app_settings_jms_queue_pvc_storage_class' property ..................................................................... {{ mas_app_settings_jms_queue_pvc_storage_class | default('Undefined!', true )}}"
