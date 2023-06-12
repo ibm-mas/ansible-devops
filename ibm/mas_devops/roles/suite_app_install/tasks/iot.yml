@@ -20,7 +20,6 @@
   when:
     - mas_app_settings_iot_fpl_pvc_storage_class is not defined or mas_app_settings_iot_fpl_pvc_storage_class == ""
     - mas_app_settings_iot_deployment_size != "dev"
-
   vars:
     # ROKS, OCS, AWS, Azure
     supported_storage_classes: [ibmc-block-gold, ocs-storagecluster-ceph-rbd, gp2, managed-premium]
@@ -29,20 +28,35 @@
 
 # 3. Set MQTT Broker Storage (Required)
 # -----------------------------------------------------------------------------
-- name: "determine-storage-classes : Default IoT MQTT Broker PVC Storage if not set by user"
+- name: "determine-storage-classes : Default IoT MQTT Broker PVC Storage (for MessageSight) if not set by user"
   when:
     - mas_app_settings_iot_mqttbroker_pvc_storage_class is not defined or mas_app_settings_iot_mqttbroker_pvc_storage_class == ""
     - mas_app_settings_iot_deployment_size != "dev"
-
   vars:
     # ROKS, OCS, AWS, Azure
     supported_storage_classes: [ibmc-block-gold, ocs-storagecluster-ceph-rbd, gp2, managed-premium]
   set_fact:
     mas_app_settings_iot_mqttbroker_pvc_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
 
+- name: Assert IoT FPL PVC Storage is defined
+  when: mas_app_settings_iot_deployment_size != "dev"
+  assert:
+    that:
+      - mas_app_settings_iot_fpl_pvc_storage_class is defined
+      - mas_app_settings_iot_fpl_pvc_storage_class | length > 0
+    fail_msg: "IoT FPL Storage Class (mas_app_settings_iot_fpl_pvc_storage_class property) must be defined when IoT deployment size = '{{ mas_app_settings_iot_deployment_size }}'."
+
+- name: Assert IoT MQTT Broker PVC Storage (for MessageSight) is defined
+  when: mas_app_settings_iot_deployment_size != "dev"
+  assert:
+    that:
+      - mas_app_settings_iot_mqttbroker_pvc_storage_class is defined
+      - mas_app_settings_iot_mqttbroker_pvc_storage_class | length > 0
+    fail_msg: "IoT MQTT Broker Storage for MessageSight (mas_app_settings_iot_mqttbroker_pvc_storage_class property) must be defined when IoT deployment size = '{{ mas_app_settings_iot_deployment_size }}'."
+
 # 3. Debug storage class configuration
 # -----------------------------------------------------------------------------
-- name: "determine-storage-classes : Debug Manage PVC storage class configuration"
+- name: "determine-storage-classes : Debug IoT PVC storage class configuration"
   debug:
     msg:
       - "IoT Deployment Size ............... {{ mas_app_settings_iot_deployment_size }}"
