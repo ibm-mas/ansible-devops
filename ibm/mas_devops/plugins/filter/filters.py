@@ -264,7 +264,7 @@ def getWSLProjectId(wslProjectLookup, wslProjectName):
   # Project not found
   return ""
 
-def setManagePVC(data, mountPath, pvcName, pvcSize, storageClassName, volumeName = None):
+def setManagePVC(data, mountPath, pvcName, pvcSize, storageClassName, accessMode, volumeName = None):
   """
     filter: setManagePVC
     author: André Marcelino <andrercm@br.ibm.com>
@@ -294,7 +294,7 @@ def setManagePVC(data, mountPath, pvcName, pvcSize, storageClassName, volumeName
   pvc_list = []
 
   persistentVolumes = {  
-    "accessModes": ["ReadWriteMany"],
+    "accessModes": [accessMode],
     "mountPath": mountPath,
     "pvcName": pvcName,
     "size": pvcSize,
