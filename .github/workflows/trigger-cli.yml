@@ -1,0 +1,42 @@
+name: workflow_01
+on:
+  push:
+    branches:
+      - '*'
+      - '!master'
+  workflow_dispatch:
+     inputs:
+      workflow_02:
+        description: 'ًWorkflow 2 which will be triggered'
+        required: true
+        default: 'workflow_02'
+
+      workflow2_github_account:
+        description: 'GitHub Account Owner'
+        required: true
+        default: '${{ secrets.ACTIONS_USERNAME }}'
+
+      workflow2_repo_github:
+        description: 'MAS cli repo'
+        required: true
+        default: ':ibm-mas/cli' 
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      # run: |
+      #     curl -X POST https://api.github.com/repos/:userName/:repoName/dispatches \
+      #     -H 'Accept: application/vnd.github.everest-preview+json' \
+      #     -u ${{ secrets.ACTIONS_KEY }} \
+      #     --data '{"event_type": "Trigger Workflow", "client_payload": { "repository": "'"$GITHUB_REPOSITORY"'" }}'
+
+      - name: Test MAS Cli rebuild
+        run: |
+          curl -XPOST https://api.github.com/repos/${{ secrets.ACTIONS_USERNAME }}/ibm-mas/cli/actions/workflows/build.yaml/dispatches \
+          -H "Accept: application/vnd.github.everest-preview+json" -H "Content-Type: application/json" \
+          -u ${{ secrets.ACTIONS_KEY }} \
+          --data '{"ref": "trigger-cli-rebuild"}'
+      - uses: actions/checkout@v3
