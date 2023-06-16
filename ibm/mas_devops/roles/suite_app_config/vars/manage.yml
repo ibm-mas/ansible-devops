@@ -7,9 +7,9 @@ mas_app_ws_kind: ManageWorkspace
 mas_app_cfg_retries: 60  # ~8 hours
 mas_app_cfg_delay: 480  # ~8 minutes
 
-mas_app_settings_aio_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_AIO_FLAG') | default('true', true)}}"
+mas_app_settings_aio_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_AIO_FLAG') | default('true', true) | bool }}"
 mas_app_settings_db2_schema: "{{ lookup('env', 'MAS_APP_SETTINGS_DB2_SCHEMA') | default('maximo', true)}}"
-mas_app_settings_demodata: "{{ lookup('env', 'MAS_APP_SETTINGS_DEMODATA') | default('false', true) }}"
+mas_app_settings_demodata: "{{ lookup('env', 'MAS_APP_SETTINGS_DEMODATA') | default('false', true) | bool }}"
 
 mas_app_settings_tablespace: "{{ lookup('env', 'MAS_APP_SETTINGS_TABLESPACE') | default('MAXDATA', true)}}"
 mas_app_settings_indexspace: "{{ lookup('env', 'MAS_APP_SETTINGS_INDEXSPACE') | default('MAXINDEX', true)}}"
@@ -17,9 +17,16 @@ mas_app_settings_indexspace: "{{ lookup('env', 'MAS_APP_SETTINGS_INDEXSPACE') | 
 # if mas_app_settings_persistent_volumes_flag is 'true' then it will configure persistent storage for attachments and bim
 # otherwise no persistent storage will be configured at all
 mas_app_settings_persistent_volumes_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG') | default(False, true) | bool }}"
+mas_app_settings_persistent_volumes_default_accessmode: "ReadWriteMany"
+mas_app_settings_default_manage_supported_storage_classes:
+  - ibmc-file-gold-gid
+  - ocs-storagecluster-cephfs
+  - azurefiles-premium
+  - efs
 
 # properties to configure persistent volumes for doclinks i.e attachments
 mas_app_settings_doclinks_pvc_storage_class: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_STORAGE_CLASS') }}" # if not defined by user, it will be automatically defined while setting persistent storage
+mas_app_settings_doclinks_pvc_accessmode: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_ACCESSMODE') | default(mas_app_settings_persistent_volumes_default_accessmode, true) }}"
 mas_app_settings_doclinks_pvc_name: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_NAME') | default('manage-doclinks', true) }}"
 mas_app_settings_doclinks_pvc_size: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_SIZE') | default('20Gi', true) }}"
 mas_app_settings_doclinks_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_MOUNT_PATH') | default('/DOCLINKS', true) }}"
@@ -30,25 +37,27 @@ mas_app_settings_doclinks_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLIN
 # - bim/docs
 # - bim/import
 mas_app_settings_bim_pvc_storage_class: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_PVC_STORAGE_CLASS') }}" # if not defined by user, it will be automatically defined while setting persistent storage
+mas_app_settings_bim_pvc_accessmode: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_PVC_ACCESSMODE') | default(mas_app_settings_persistent_volumes_default_accessmode, true) }}"
 mas_app_settings_bim_pvc_name: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_PVC_NAME') | default('manage-bim', true) }}"
 mas_app_settings_bim_pvc_size: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_PVC_SIZE') | default('20Gi', true) }}"
 mas_app_settings_bim_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_BIM_MOUNT_PATH') | default('/bim', true) }}"
 
 # properties to configure persistent volumes for JMS queues, the below will only be set if 'mas_app_settings_server_bundles_size' = 'jms'
 mas_app_settings_jms_queue_pvc_storage_class: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_STORAGE_CLASS') }}" # if not defined by user, it will be automatically defined while setting persistent storage
+mas_app_settings_jms_queue_pvc_accessmode: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_ACCESSMODE') | default(mas_app_settings_persistent_volumes_default_accessmode, true) }}"
 mas_app_settings_jms_queue_pvc_name: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_NAME') | default('manage-jms', true) }}"
 mas_app_settings_jms_queue_pvc_size: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_PVC_SIZE') | default('20Gi', true) }}"
 mas_app_settings_jms_queue_mount_path: "{{ lookup('env', 'MAS_APP_SETTINGS_JMS_QUEUE_MOUNT_PATH') | default('/jms', true) }}"
 
 mas_app_settings_persistent_volumes_default:
   - accessModes:
-      - ReadWriteMany
+      - "{{ mas_app_settings_doclinks_pvc_accessmode }}"
     mountPath: "{{ mas_app_settings_doclinks_mount_path }}"
     pvcName: "{{ mas_app_settings_doclinks_pvc_name }}"
     size: "{{ mas_app_settings_doclinks_pvc_size }}"
     storageClassName: "{{ mas_app_settings_doclinks_pvc_storage_class }}"
   - accessModes:
-      - ReadWriteMany
+      - "{{ mas_app_settings_bim_pvc_accessmode }}"
     mountPath: "{{ mas_app_settings_bim_mount_path }}"
     pvcName: "{{ mas_app_settings_bim_pvc_name }}"
     size: "{{ mas_app_settings_bim_pvc_size }}"
@@ -76,6 +85,7 @@ server_bundles_jms_add_server_config_content: "{{ lookup('file', '{{ role_path }
 mas_app_settings_server_bundles_size: "{{ lookup('env', 'MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE') | default('dev', true)  }}"
 mas_app_settings_server_bundles:
   dev:
+    serverBundleEarFilename: maximo-all
     serverBundles:
       - bundleType: all
         isDefault: true
@@ -85,6 +95,7 @@ mas_app_settings_server_bundles:
         replica: 1
         routeSubDomain: all
   small:
+    serverBundleEarFilename: maximomea
     serverBundles:
       - bundleType: ui
         isDefault: true
@@ -115,6 +126,7 @@ mas_app_settings_server_bundles:
         replica: 1
         routeSubDomain: cron
   jms:
+    serverBundleEarFilename: maximomea
     serverBundles:
       - additionalServerConfig:
           secretName: "{{ mas_workspace_id }}-{{ mas_app_id }}-d--sb0--asc--sn" # this will store content from 'server_bundles_add_server_config_no_activation_content'
@@ -154,6 +166,27 @@ mas_app_settings_server_bundles:
         routeSubDomain: cron
       - additionalServerConfig:
           secretName: "{{ mas_workspace_id }}-{{ mas_app_id }}-d--sb4--asc--sn" # this will store content from 'server_bundles_jms_add_server_config_content'
+        bundleType: standalonejms
+        isDefault: false
+        isMobileTarget: false
+        isUserSyncTarget: false
+        name: jms
+        replica: 1
+        routeSubDomain: jms
+  snojms:
+    serverBundleEarFilename: maximo-all
+    serverBundles:
+      - additionalServerConfig:
+          secretName: "{{ mas_workspace_id }}-{{ mas_app_id }}-d--sb0--asc--sn" # this will store content from 'server_bundles_add_server_config_content'
+        bundleType: all
+        isDefault: true
+        isMobileTarget: true
+        isUserSyncTarget: true
+        name: all
+        replica: 1
+        routeSubDomain: all
+      - additionalServerConfig:
+          secretName: "{{ mas_workspace_id }}-{{ mas_app_id }}-d--sb1--asc--sn" # this will store content from 'server_bundles_jms_add_server_config_content'
         bundleType: standalonejms
         isDefault: false
         isMobileTarget: false

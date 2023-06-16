@@ -24,21 +24,23 @@ spec:
   version: "{{ db2_version }}"
   size: {{ db2_num_pods }}
 
-{% if db2_node_label is defined and db2_node_label != "" %}
+{% if db2_affinity_key != "" and db2_affinity_value != "" %}
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
         - matchExpressions:
-          - key: database
+          - key: "{{ db2_affinity_key }}"
             operator: In
             values:
-            - {{ db2_node_label }}
+            - "{{ db2_affinity_value }}"
+{% endif %}
+{% if db2_tolerate_key != "" and db2_tolerate_value != "" and db2_tolerate_effect != "" %}
   tolerations:
-  - effect: NoSchedule
-    key: database
+  - effect: "{{ db2_tolerate_effect }}"
+    key: "{{ db2_tolerate_key }}"
     operator: Equal
-    value: "{{ db2_node_label }}"
+    value: "{{ db2_tolerate_value }}"
 {% endif %}
 
   environment:
