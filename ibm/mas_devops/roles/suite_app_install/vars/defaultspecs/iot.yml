@@ -2,9 +2,20 @@
 # Default application spec for IoT
 _settings_messagesight:
   storage:
-    class: "{{ mas_app_settings_iot_mqttbroker_pvc_storage_class }}"
+    class: "{{ mas_app_settings_iot_mqttbroker_pvc_storage_class | default('', true) }}"
     size: "{{ mas_app_settings_iot_mqttbroker_pvc_size }}"
 
+_settings_fpl:
+  functionsexecutor:
+    storage:
+      class: "{{ mas_app_settings_iot_fpl_pvc_storage_class | default('', true) }}"
+      size: "{{ mas_app_settings_iot_fpl_executor_pvc_size }}"
+  pipelinerouter:
+    storage:
+      class: "{{ mas_app_settings_iot_fpl_pvc_storage_class | default('', true) }}"
+      size: "{{ mas_app_settings_iot_fpl_router_pvc_size }}"
+
+# Default IoT spec
 mas_app_spec:
   bindings:
     jdbc: "{{ mas_app_bindings_jdbc }}"
@@ -14,13 +25,5 @@ mas_app_spec:
   settings:
     deployment:
       size: "{{ mas_app_settings_iot_deployment_size }}"
-    messagesight: "{{ (mas_app_settings_iot_deployment_size == 'dev') | ternary(omit, _settings_messagesight) }}"
-    fpl:
-      functionsexecutor:
-        storage:
-          class: "{{ mas_app_settings_iot_fpl_pvc_storage_class }}"
-          size: "{{ mas_app_settings_iot_fpl_executor_pvc_size }}"
-      pipelinerouter:
-        storage:
-          class: "{{ mas_app_settings_iot_fpl_pvc_storage_class }}"
-          size: "{{ mas_app_settings_iot_fpl_router_pvc_size }}"
+    messagesight: "{{ _settings_messagesight }}"
+    fpl: "{{ _settings_fpl }}"

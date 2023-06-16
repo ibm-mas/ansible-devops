@@ -2,7 +2,7 @@
 # Manage specific steps to configure JMS bundle servers
 # ------------------------------------------------------------------------
 - name: "Manage: JMS Configuration"
-  when: mas_app_settings_server_bundles_size == 'jms'
+  when: mas_app_settings_server_bundles_size in ['jms','snojms']
   block:
     - name: "Get ManageWorkspace to lookup existing persistent volumes"
       kubernetes.core.k8s_info:
@@ -17,7 +17,7 @@
 
     - name: Set JMS persistent volumes settings
       set_fact:
-        mas_app_settings_persistent_volumes_jms: "{{ existing_manage_pvcs | default([]) | ibm.mas_devops.setManagePVC(mas_app_settings_jms_queue_mount_path, mas_app_settings_jms_queue_pvc_name, mas_app_settings_jms_queue_pvc_size, mas_app_settings_jms_queue_pvc_storage_class) }}"
+        mas_app_settings_persistent_volumes_jms: "{{ existing_manage_pvcs | default([]) | ibm.mas_devops.setManagePVC(mas_app_settings_jms_queue_mount_path, mas_app_settings_jms_queue_pvc_name, mas_app_settings_jms_queue_pvc_size, mas_app_settings_jms_queue_pvc_storage_class, mas_app_settings_jms_queue_pvc_accessmode ) }}"
 
     # merge with any existing persistent volume defined by other tasks
     - set_fact:
@@ -38,10 +38,13 @@
 
     # check if JMS additional server config secrets are present, if so we skip it to avoid overriding existing content as we just care about having the proper secret name convention and not its content
     - block:
-        - name: "Replace manage-additional-server-config.xml file with jms_internal_endpoint: {{ jms_internal_endpoint }}"
+        - name: "Replace manage-additional-server-config.xml file with jms_internal_endpoint: {{ server_bundle_jms_internal_endpoint }}"
           replace: dest='{{ role_path }}/files/manage/manage-additional-server-config.xml.j2' regexp='server_bundle_jms_internal_endpoint' replace='{{ server_bundle_jms_internal_endpoint }}' backup=no
 
-        - name: "Replace manage-additional-server-config-no-activation.xml file with jms_internal_endpoint: {{ jms_internal_endpoint }}"
+        - name: "Replace manage-additional-server-config.xml file with jmsActivationSpec id: {{ mas_app_settings_server_bundles[mas_app_settings_server_bundles_size]['serverBundleEarFilename'] }}"
+          replace: dest='{{ role_path }}/files/manage/manage-additional-server-config.xml.j2' regexp='serverBundleEarFilename' replace='{{ mas_app_settings_server_bundles[mas_app_settings_server_bundles_size]['serverBundleEarFilename'] }}' backup=no
+
+        - name: "Replace manage-additional-server-config-no-activation.xml file with jms_internal_endpoint: {{ server_bundle_jms_internal_endpoint }}"
           replace: dest='{{ role_path }}/files/manage/manage-additional-server-config-no-activation.xml.j2' regexp='server_bundle_jms_internal_endpoint' replace='{{ server_bundle_jms_internal_endpoint }}' backup=no
 
         - name: "Replace manage-jms-additional-server-config.xml file with mas_app_settings_jms_queue_mount_path: {{ mas_app_settings_jms_queue_mount_path }}"
@@ -49,6 +52,6 @@
 
         - name: Create Manage app JMS additional server config secrets if not present yet
           kubernetes.core.k8s:
-            definition: "{{ lookup('template', 'templates/manage/manage-additional-server-config-secrets.yml.j2') }}"
+            definition: "{{ lookup('template', 'templates/manage/{{mas_app_settings_server_bundles_size}}-manage-additional-server-config-secrets.yml.j2') }}"
 
       when: jms_secret_output.stdout_lines | length == 0

@@ -6,6 +6,7 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `13.14` Add new Manage bundle server config for SNO ([#841](https://github.com/ibm-mas/ansible-devops/pull/841))
 - `13.13` Support OCP node configuration ([#854](https://github.com/ibm-mas/ansible-devops/pull/854))
 - `13.12` Support Kubeturbo for Turbonomics ([#792](https://github.com/ibm-mas/ansible-devops/pull/792))
 - `13.11` Add support for May Catalog Update  ([#838](https://github.com/ibm-mas/ansible-devops/pull/838))

@@ -238,6 +238,34 @@ AWS Route53 contact e-mail. Will be set in the cluster issuer created in order t
 - Environment Variable: `ROUTE53_EMAIL`
 - Default Value: None.
 
+Role Variables - CloudPak for Data
+------------------------------------------------------------
+
+### cpd_instance_namespace
+Namespace where the Cloud Pak for Data is installed and the `cpd` route exists.
+If set, then this role will also attempt to configure public certificates to the CPD route using the DNS provider defined.
+
+- Optional
+- Environment Variable: `CPD_INSTANCE_NAMESPACE`
+- Default Value: None.
+
+### cpd_prod_issuer_name
+Define the certificate issuer responsible for generating the public certificate for your CPD route.
+If not set, then it will use same issuer set for MAS instance.
+
+
+- Optional
+- Environment Variable: `CPD_PROD_ISSUER_NAME`
+- Default Value: Same certificate issuer used for MAS instance.
+
+### cpd_custom_domain
+Define the custom domain for your CPD route.
+If not set, then it will use same domain set for MAS instance.
+
+- Optional
+- Environment Variable: `CPD_CUSTOM_DOMAIN`
+- Default Value: `cp4d.{{ mas_domain }}`.
+
 Example Playbook - CIS or Cloudflare
 ----------------
 
