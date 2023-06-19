@@ -1,4 +1,11 @@
 ---
+- name: "Debug CPD certificate details"
+  debug:
+    msg:
+      - "CPD namespace .................. {{ cpd_instance_namespace }}"
+      - "CPD cluster issuer name ........ {{ cpd_prod_issuer_name }}"
+      - "CPD custom domain .............. cp4d.{{ cpd_custom_domain }}"
+
 - name: "Create certificate to be used for suite cp4d route"
   kubernetes.core.k8s:
     apply: yes
@@ -14,7 +21,7 @@
     api_version: v1
     kind: Secret
     name: "suite-cp4d-certificate"
-    namespace: "{{ cpd_services_namespace }}"
+    namespace: "{{ cpd_instance_namespace }}"
   register: suiteCp4dCrtSecret
   retries: 120 # 5 minutes
   delay: 5 # seconds
@@ -29,7 +36,7 @@
     api_version: v1
     kind: Secret
     name: "external-tls-secret"
-    namespace: "{{ cpd_services_namespace }}"
+    namespace: "{{ cpd_instance_namespace }}"
   register: cp4dCrtSecret
 
 - name: "Lookup default internal CP4D CA certificate if no external-tls-secret"
@@ -37,7 +44,7 @@
     api_version: v1
     kind: Secret
     name: "ibm-nginx-internal-tls-ca"
-    namespace: "{{ cpd_services_namespace }}"
+    namespace: "{{ cpd_instance_namespace }}"
   register: cp4dCrtSecret
   when:
     - cp4dCrtSecret.resources | length == 0
