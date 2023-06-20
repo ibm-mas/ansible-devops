@@ -5,11 +5,12 @@
   assert:
     that:
       - db2_instance_name is defined and db2_instance_name != ""
-    fail_msg: "Db2 instance name has not been provided"
+      - db2_version is defined and db2_version != ""
+    fail_msg: "Some required properties were not provided"
 
 # 1. Lookup common services channel if not provided
 # -----------------------------------------------------------------------------
-- name: Lookup ibm-common-service-operator packagemanifest
+- name: "Lookup ibm-common-service-operator packagemanifest"
   when: common_services_channel is not defined or common_services_channel == ""
   kubernetes.core.k8s_info:
     api_version: packages.operators.coreos.com/v1
@@ -241,7 +242,7 @@
   register: db2_cluster_lookup
   until:
     - db2_cluster_lookup.resources is defined
-    - db2_cluster_lookup.resources | length == 1
+    - db2_cluster_lookup.resources | length > 0
     - db2_cluster_lookup.resources[0].status is defined
     - db2_cluster_lookup.resources[0].status.state is defined
     - db2_cluster_lookup.resources[0].status.state == "Ready"
