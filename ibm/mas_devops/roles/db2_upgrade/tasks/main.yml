@@ -6,7 +6,7 @@
     that:
       - db2_instance_name is defined and db2_instance_name != ""
       - db2_version is defined and db2_version != ""
-    fail_msg: "Some required properties were not provided"
+    fail_msg: "One or more required properties were not provided"
 
 # 1. Lookup common services channel if not provided
 # -----------------------------------------------------------------------------
@@ -45,7 +45,7 @@
 - name: "Debug when no upgrade is needed"
   when: common_services_channel == old_cs_channel
   debug:
-    msg: "No action required for common services, subscription is already on the {{ common_services_channel }} channel"
+    msg: "No action is required. Common Services subscription is already on the {{ common_services_channel }} channel"
 
 
 # 4. Upgrade Subscription otherwise
@@ -139,7 +139,7 @@
 - name: "Debug when no upgrade is needed"
   when: db2_channel == old_db2_channel
   debug:
-    msg: "No action required for db2, subscription is already on the {{ db2_channel }} channel"
+    msg: "No action is required. Db2 subscription is already on the {{ db2_channel }} channel"
 
 
 # 9. Create operand request
@@ -219,6 +219,11 @@
     msg:
       - "Db2ucluster current version ................. {{ db2u_cluster_info.resources[0].spec.version }}"
       - "Db2ucluster update version .................. {{ db2_version }}"
+
+- name: "Debug when db2u instance version updated is not needed"
+  when: db2u_cluster_info.resources[0].spec.version == db2_version
+  debug:
+    msg: "No action is required to updated the version of Db2uCluster instance"
 
 - name: "Update db2u instance with updated version"
   when: db2u_cluster_info.resources[0].spec.version != db2_version
