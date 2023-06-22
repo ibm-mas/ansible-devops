@@ -3,13 +3,25 @@
 - name: "Debug information"
   debug:
     msg:
-    - "DocumentDB Name ............................... {{ docdb_cluster_name }}"
     - "DocumentDB Host:Port .......................... {{ docdb_host }}:{{docdb_port}}"
     - "DocumentDB Master Username .................... {{ docdb_master_username }}"
     - "MAS Instance ID ............................... {{ mas_instance_id }}"
     - "DocumentDB instance credential name ........... {{ docdb_instance_credentials_secret_name }}"
 
-# 1. create docdb user for MAS instance
+# 1. Check for required software
+# -----------------------------------------------------------------------------
+- name: "Test if mongosh is installed"
+  shell: mongosh --version
+  register: mongosh_version
+  ignore_errors: true
+
+- name: "Fail if mongosh is not installed"
+  assert:
+    that: ( mongosh_version.rc == 0 )
+    fail_msg: "mongosh must be installed (https://www.mongodb.com/docs/mongodb-shell/install/)"
+
+
+# 2. create docdb user for MAS instance
 # -----------------------------------------------------------------------------
 - name: set fact for document DB host, port and user name
   # get both from env var
@@ -33,10 +45,10 @@
 
 - name: Create docdb user for MAS instance
   shell: |
-    mongo --ssl --host {{ docdb_host }}:{{ docdb_port }} --sslCAFile /tmp/rds-combined-ca-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/create_user.js
+    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/create_user.js
   register: creating_user_output
 
-# 2. Save docdb user credentials into k8s Secret
+# 3. Save docdb user credentials into k8s Secret
 # -----------------------------------------------------------------------------
 - name: Create k8s Secret for docdb user credentials
   ansible.builtin.template:

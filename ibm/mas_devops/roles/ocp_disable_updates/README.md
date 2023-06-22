@@ -1,7 +1,7 @@
 ocp_disable_updates
 ===================
 
-This role will disable automatic updates in the cluster.  It's use is not recommended.
+This role will disable automatic updates in the cluster.  Its use is not recommended.
 
 Example Playbook
 ----------------

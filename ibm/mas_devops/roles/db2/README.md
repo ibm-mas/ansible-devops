@@ -14,8 +14,6 @@ db2u-db01   Ready   None               29m
 
 It typically takes 20-30 minutes from the db2ucluster being created till it is ready. If the db2ucluster is not ready after that period then check that all the PersistentVolumeClaims in the `db2u` namespace are ready and that the pods in the namespace are not stuck in init state. If the `c-<db2_instance_name>-db2u-0` pod is running then you can exec into the pod and check the `/var/log/db2u.log` for any issue.
 
-If the `db2_node_label` and `db2_dedicated_node` variables are defined then role will taint and drain the dedicated node before labeling it using `database={{ db2_node_label }}`. The node is then uncordoned.
-
 If the `mas_instance_id` and `mas_config_dir` are provided then the role will generate the JdbcCfg yaml that can be used to configure MAS to connect to this database. It does not apply the yaml to the cluster but does provide you with the yaml files to apply if needed.
 
 
@@ -47,13 +45,6 @@ Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/conta
 
 - **Required**
 - Environment Variable: `IBM_ENTITLEMENT_KEY`
-- Default: None
-
-### db2_entitlement_key
-An IBM entitlement key specific for Db2 installation, primarily used to override `ibm_entitlement_key` in development.
-
-- Optional
-- Environment Variable: `DB2_ENTITLEMENT_KEY`
 - Default: None
 
 ### db2_dbname
@@ -111,6 +102,7 @@ Determines if the role should rotate the LDAP password for current LDAP user con
 - Optional
 - Environment Variable: `DB2_LDAP_ROTATE_PASSWORD`
 - Default: False
+
 
 Role Variables - Storage
 -------------------------------------------------------------------------------
@@ -221,7 +213,14 @@ The access mode for the storage.
 
 
 Role Variables - Resource Requests
--------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------
+These variables allow you to customize the resources available to the Db2 pod in your cluster.  In most circumstances you will want to set these properties because it's impossible for us to provide a default value that will be appropriate for all users.  We have set defaults that are suitable for deploying Db2 onto a dedicated worker node with 4cpu and 16gb memory.
+
+!!! tip
+    Note that you must take into account the system overhead on any given node when setting these parameters, if you set the requests equal to the number of CPU or amount of memory on yournode then the scheduler will not be able to schedule the Db2 pod because not 100% of the worker nodes' resource will be available to pod on that node, even if there's only a single pod on it.
+
+    Db2 is sensitive to both CPU and memory issues, particularly memory, we recommennd setting requests and limits to the same values, ensuring the scheduler always reserves the resources that Db2 expects to be available to it.
+
 ### db2_cpu_requests
 Define the Kubernetes CPU request for the Db2 pod.
 
@@ -251,34 +250,54 @@ Define the Kubernetes memory limit for the Db2 pod.
 - Default: `16Gi`
 
 
-Role Variables - Node Affinity
--------------------------------------------------------------------------------
-### db2_node_label
-The label used to specify node affinity and tolerations in the db2ucluster CR.
+Role Variables - Node Label Affinity
+-----------------------------------------------------------------------------------------------------------------
+Specify both `db2_affinity_key` and `db2_affinity_value` to configure `requiredDuringSchedulingIgnoredDuringExecution` affinity with appropriately labelled nodes.
+
+### db2_affinity_key
+Specify the key of a node label to declare affinity with.
 
 - Optional
-- Environment Variable: `'DB2_NODE_LABEL`
+- Environment Variable: `DB2_AFFINITY_KEY`
 - Default: None
 
-### db2_dedicated_node
-The name of the worker node to apply the `{{ db2_node_label }}` taint and label to.
+### db2_affinity_value
+Specify the value of a node label to declare affinity with.
 
 - Optional
-- Environment Variable: `'DB2_DEDICATED_NODE`
+- Environment Variable: `DB2_AFFINITY_VALUE`
 - Default: None
 
 
-### custom_labels
-List of comma separated key=value pairs for setting custom labels on instance specific resources.
+Role Variables - Node Taint Toleration
+-----------------------------------------------------------------------------------------------------------------
+Specify `db2_tolerate_key`, `db2_tolerate_value`, and `db2_tolerate_effect` to configure a toleration policy to allow the db2 instance to be scheduled on nodes with the specified taint.
+
+### db2_tolerate_key
+Specify the key of the taint that is to be tolerated.
 
 - Optional
-- Environment Variable: `CUSTOM_LABELS`
-- Default Value: None
+- Environment Variable: `DB2_TOLERATE_KEY`
+- Default: None
+
+### db2_tolerate_value
+Specify the value of the taint that is to be tolerated.
+
+- Optional
+- Environment Variable: `DB2_TOLERATE_VALUE`
+- Default: None
+
+### db2_tolerate_effect
+Specify the type of taint effect that will be tolerated (`NoSchedule`, `PreferNoSchedule`, or `NoExecute`).
+
+- Optional
+- Environment Variable: `DB2_TOLERATE_EFFECT`
+- Default: None
 
 
 Role Variables - DB2UCluster Database Configuration Settings
--------------------------------------------------------------------------------
-The following variables will overwrite DB2UCluster default properties for the DB2 configuration sections, in each case when using environment variables provide a semi-colon separated name=value pairs, which will be converted into the appropriate data structure.
+-----------------------------------------------------------------------------------------------------------------
+The following variables will overwrite DB2UCluster default properties for the DB2 configuration sections:
 
 - `spec.environment.database.dbConfig`
 - `spec.environment.instance.dbmConfig`
@@ -310,7 +329,7 @@ You can define parameters to be included in this section using semicolon separat
 
 
 Role Variables - MPP System
----------------------------
+----------------------------------------------------------------------------------------------------------
 !!! warning
     Do not use these variables if you intend to use the Db2 instance with IBM Maximo Application Suite; no MAS application supports Db2 MPP
 
@@ -329,8 +348,9 @@ The number of Db2 pods to create in the instance. Note that `db2_num_pods` must 
 - Default: 1
 
 
+
 Role Variables - MAS Configuration
--------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------
 ### mas_instance_id
 Providing this and `mas_config_dir` will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.
 
@@ -368,7 +388,7 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 
 
 Example Playbook
--------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------
 
 ```yaml
 - hosts: localhost
@@ -377,9 +397,7 @@ Example Playbook
     ibm_entitlement_key: xxxxx
 
     # Configuration for the Db2 cluster
-    db2_version: 11.5.7.0-cn2
     db2_instance_name: db2u-db01
-    db2_dbname: BLUDB
 
     db2_meta_storage_class: "ibmc-file-gold"
     db2_data_storage_class: "ibmc-block-gold"

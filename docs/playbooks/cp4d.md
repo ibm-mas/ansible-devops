@@ -6,7 +6,7 @@ You will need a RedHat OpenShift v4.10 cluster with IBM Maximo Application Suite
 ## Overview
 This playbook will add **Cloud Pak for Data 4.x** to an existing cluster installation. It could also install additional CP4D services.
 
-This playbook can be run against any OCP cluster regardless of it's type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
+This playbook can be run against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 - Install CP4D ControlPlane (~1 hour)
 - Install CP4D Services (~30 Minutes - 1 hour for each service)

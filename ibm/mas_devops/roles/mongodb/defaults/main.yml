@@ -11,7 +11,7 @@ mongodb_action: "{{ lookup('env', 'MONGODB_ACTION') | default('install', true) }
 # -----------------------------------------------------------------------------
 
 # Which version of the MongoDb Community Edition operator to use
-mongodb_ce_version: "{{ lookup('env', 'MONGODB_CE_VERSION') | default('0.7.0', true) }}"
+mongodb_ce_version: "{{ lookup('env', 'MONGODB_CE_VERSION') | default('0.7.9', true) }}"
 
 # Where to install the operator and create the mongo instance
 mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
@@ -31,6 +31,24 @@ mongodb_mem_requests: "{{ lookup('env', 'MONGODB_MEM_REQUESTS') | default('1Gi',
 
 # MongoDB Replicas
 mongodb_replicas: "{{ lookup('env', 'MONGODB_REPLICAS') | default(3, True) }}"
+
+# Target MongoDb version and corresponding image. This can't be user defined as we need to upload these versions
+# to our ibmmas quay.io space. To maintain defaults, if the MONGODB_CE_VERSION is 0.7.0 then it will still use 4.2.23
+target_mongodb_version: "4.4.21"
+target_mongodb_image: quay.io/ibmmas/mongo@sha256:e1b43604ed1b54804f15c421de666e8be6c6d1ebf57e5825dff22493f9bd5f1e # 4.4.21
+
+# Map containing the operator image digest to operator version
+# Note: from 0.7.8 onwards this is hosted in ibmmas as the mongodb team and rebuilding there images everyday
+target_mongo_operator_image_version_map:
+  '0.7.0':
+    image: quay.io/mongodb/mongodb-kubernetes-operator@sha256:e19ae43539521f0350fb71684757dc535fc989deb75f3789cd84b782489eda80
+  '0.7.8':
+    image: quay.io/ibmmas/mongodb-kubernetes-operator@sha256:34779add4e076e5182acba1abe7970ec5a07695ea90bcc9dadf00bc86bfb5675
+  '0.7.9':
+    image: quay.io/ibmmas/mongodb-kubernetes-operator@sha256:2d5339dab49c3b9523ca97b53580db0f3a291a671a60f5882c5ed18a66073520
+
+# Indicates if this is controlled upgrade of both the mongo operator and mongo instance
+controlled_upgrade: false
 
 # aws documentdb vars
 # -----------------------------------------------------------------------------

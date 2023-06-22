@@ -10,16 +10,64 @@
       - "MongoDb data capacity ........ {{ mongodb_storage_capacity_data }}"
       - "MongoDb logs capacity ........ {{ mongodb_storage_capacity_logs }}"
       - "MongoDb replicas ............. {{ mongodb_replicas }}"
+      - "MongoDb version .............. {{ target_mongodb_version }}"
       - "MAS instance ID .............. {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS config directory ......... {{ mas_config_dir | default('<undefined>', True)  }}"
+      - "Controlled Upgrade ........... {{ controlled_upgrade }}"
 
+# 2. Check if we need a controlled upgrade
+#  This will be when we have an existing mongodb and mongo operator and neither
+#  version are at the version this role requires.
+# -----------------------------------------------------------------------------
+# - name: Check and start controlled-upgrade if we are not currently doing a controlled upgrade
+#   when: not controlled_upgrade
+#   block:
+
+- name: "community : install : Check for existing mongodb instance"
+  kubernetes.core.k8s_info:
+    api_version: mongodbcommunity.mongodb.com/v1
+    kind: MongoDBCommunity
+    name: mas-mongo-ce
+    namespace: "{{ mongodb_namespace }}"
+  register: existing_mongodb
+
+- name: "community : install : Check for existing mongo operator instance"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    label_selectors:
+      - "name = mongodb-kubernetes-operator"
+    namespace: "{{ mongodb_namespace }}"
+  register: existing_mongo_operator
+
+- name: "community : install : Debug existing resources"
+  debug:
+    msg:
+      - "Existing MongoDb  ........ {{ existing_mongodb }}"
+      - "Existing operator version  {{ existing_mongo_operator }}"
+
+- name: "community : install : begin controlled upgrade process"
+  include_tasks: tasks/providers/community/controlled-upgrade.yml
+  vars:
+    current_mongodb_version: "{{ existing_mongodb.resources[0].spec.version }}"
+    current_mongodb_image: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.template.spec.containers[0].image }}"
+    current_mongo_operator_image: "{{ existing_mongo_operator.resources[0].spec.containers[0].image }}"
+  when:
+    - not controlled_upgrade
+    - existing_mongodb is defined
+    - existing_mongodb.resources[0] is defined
+    - existing_mongodb.resources[0].spec.version is defined
+    - existing_mongodb.resources[0].spec.version != target_mongodb_version
+    - existing_mongo_operator is defined
+    - existing_mongo_operator.resources[0] is defined
+    - existing_mongo_operator.resources[0].spec.containers[0].image != target_mongo_operator_image_version_map[mongodb_ce_version]['image']
 
 # 2. Install the CRD
 # -----------------------------------------------------------------------------
 - name: "community : install : Install MongoDBCommunity CRD"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/crd.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/crd.yml.j2') }}"
 
 
 # 3. Create namespace & install RBAC
@@ -27,7 +75,7 @@
 - name: "community : install : Create namespace & install RBAC"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/rbac.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/rbac.yml.j2') }}"
 
 
 # 4. Configure anyuid permissions in the MongoDb namespace
@@ -48,8 +96,11 @@
 - name: "community : install : Install the MongoDb Operator"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/manager.yml') }}"
-
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/manager.yml.j2') }}"
+    wait: yes
+    wait_condition:
+      status: 'True'
+      type: Available
 
 # 6. Configure TLS using cert manager
 # -----------------------------------------------------------------------------
@@ -144,10 +195,29 @@
 - name: "community : install : Create MongoDb cluster"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml') }}"
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml.j2') }}"
 
+- name: "community : install : Set expected MongoDb version to {{ current_mongodb_version }}"
+  set_fact:
+    expected_mongodb_version: "{{ current_mongodb_version }}"
+  when: controlled_upgrade
+
+- name: "community : install : Set expected MongoDb version to {{ target_mongodb_version }}"
+  set_fact:
+    expected_mongodb_version: "{{ target_mongodb_version }}"
+  when:
+    - not controlled_upgrade
+    - mongodb_ce_version is version('0.7.8', '>=')
+
+- name: "community : install : Set expected MongoDb version to 4.2.23"
+  set_fact:
+    expected_mongodb_version: "4.2.23"
+  when:
+    - not controlled_upgrade
+    - mongodb_ce_version is version('0.7.0', '==')
 
 # 9. Wait for the cluster to be ready
+# status.version on the mongo cr is not available with older mongo operators
 # -----------------------------------------------------------------------------
 - name: "community : install : Wait for stateful set to be ready"
   kubernetes.core.k8s_info:
@@ -164,77 +234,93 @@
     - mongodb_statefulset.resources[0].status.readyReplicas is defined
     - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas|int)
 
+- name: "community : install : Wait for Mongo CR to report corrrect version"
+  kubernetes.core.k8s_info:
+    api_version: mongodbcommunity.mongodb.com/v1
+    kind: MongoDBCommunity
+    name: mas-mongo-ce
+    namespace: "{{ mongodb_namespace }}"
+  register: mongodb_cr
+  retries: 45 # Approx 45 minutes
+  delay: 60 # 1 minute
+  until:
+    - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version is defined) or mongodb_ce_version is version('0.7.0', '==')
+    - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version == expected_mongodb_version) or mongodb_ce_version is version('0.7.0', '==')
 
 # 10. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
 # Lookup the mongo pods
-- name: "community : install : Lookup mongo pods"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Pod
-    namespace: "{{ mongodb_namespace }}"
-    label_selectors:
-      - app=mas-mongo-ce-svc
-  register: mongo_pods_output
+- name: Create the MAS MongoCfg only if we are not in a controlled-upgrade flow
+  when: not controlled_upgrade
+  block:
 
-# List all mongo replicas
-- set_fact:
-    mongo_replicas: "{{ mongo_replicas|default([]) + [item.metadata.name] }}"
-  with_items: "{{ mongo_pods_output.resources }}"
+    - name: "community : install : Lookup mongo pods"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ mongodb_namespace }}"
+        label_selectors:
+          - app=mas-mongo-ce-svc
+      register: mongo_pods_output
 
-# Load mongo-hosts template to dynamically set as many mongo hosts:port as identified
-- set_fact:
-    mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/community/mongo-hosts.yml.j2') }}"
+    # List all mongo replicas
+    - set_fact:
+        mongo_replicas: "{{ mongo_replicas|default([]) + [item.metadata.name] }}"
+      with_items: "{{ mongo_pods_output.resources }}"
 
-# Lookup the admin password that was used
-- name: "community : install : Lookup admin password"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Secret
-    name: mas-mongo-ce-admin-admin
-    namespace: "{{ mongodb_namespace }}"
-  register: admin_password_lookup
-  retries: 30 # 30 * 30 seconds = 30 minutes
-  delay: 30
-  until:
-    - admin_password_lookup.resources | length > 0
-    - admin_password_lookup.resources[0].data.password is defined
+    # Load mongo-hosts template to dynamically set as many mongo hosts:port as identified
+    - set_fact:
+        mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/community/mongo-hosts.yml.j2') }}"
 
-# Lookup the CA PEM
-- name: "community : install : Lookup the ca.pem"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: ConfigMap
-    name: mas-mongo-ce-cert-map
-    namespace: "{{ mongodb_namespace }}"
-  register: mongodb_ca_lookup
+    # Lookup the admin password that was used
+    - name: "community : install : Lookup admin password"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: mas-mongo-ce-admin-admin
+        namespace: "{{ mongodb_namespace }}"
+      register: admin_password_lookup
+      retries: 30 # 30 * 30 seconds = 30 minutes
+      delay: 30
+      until:
+        - admin_password_lookup.resources | length > 0
+        - admin_password_lookup.resources[0].data.password is defined
 
-# Lookup the server certificate
-- name: "community : install : Lookup the server.crt"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Secret
-    name: mongo-server-cert
-    namespace: "{{ mongodb_namespace }}"
-  register: mongodb_crt_lookup
+    # Lookup the CA PEM
+    - name: "community : install : Lookup the ca.pem"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: mas-mongo-ce-cert-map
+        namespace: "{{ mongodb_namespace }}"
+      register: mongodb_ca_lookup
 
-- name: "community : install : Create MAS MongoCfg (debug)"
-  debug:
-    msg: "{{ lookup('template', 'templates/community/suite_mongocfg.yml.j2') }}"
-  vars:
-    mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
-    mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
+    # Lookup the server certificate
+    - name: "community : install : Lookup the server.crt"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: mongo-server-cert
+        namespace: "{{ mongodb_namespace }}"
+      register: mongodb_crt_lookup
 
-- name: "community : install : Create MAS MongoCfg"
-  when:
-    - mas_instance_id is defined
-    - mas_instance_id != ""
-    - mas_config_dir is defined
-    - mas_config_dir != ""
-  ansible.builtin.template:
-    src: community/suite_mongocfg.yml.j2
-    dest: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
-    mode: '664'
-  vars:
-    mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
-    mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
+    - name: "community : install : Create MAS MongoCfg (debug)"
+      debug:
+        msg: "{{ lookup('template', 'templates/community/suite_mongocfg.yml.j2') }}"
+      vars:
+        mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
+        mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
+
+    - name: "community : install : Create MAS MongoCfg"
+      when:
+        - mas_instance_id is defined
+        - mas_instance_id != ""
+        - mas_config_dir is defined
+        - mas_config_dir != ""
+      ansible.builtin.template:
+        src: community/suite_mongocfg.yml.j2
+        dest: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+        mode: '664'
+      vars:
+        mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
+        mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"

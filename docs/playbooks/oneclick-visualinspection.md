@@ -6,7 +6,7 @@ You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite 
 ## Overview
 This playbook will add **Maximo Visual Inspection v8.7** to an existing IBM Maximo Application Suite Core installation.  MVI will be configured to accept automatic security updates and bug fixes, but not new feature releases.
 
-This playbook can be ran against any OpenShift cluster regardless of it's type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
+This playbook can be ran against any OpenShift cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 - Install dependencies:
     - Install NVIDIA Graphical Processing Unit (GPU) (10 minutes)

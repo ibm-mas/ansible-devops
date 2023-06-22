@@ -6,7 +6,24 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `13.4` Support setting trustDefaultCAs in Suite ([#780](https://github.com/ibm-mas/ansible-devops/pull/780))
+- `14.1` Support setting trustDefaultCAs in Suite ([#780](https://github.com/ibm-mas/ansible-devops/pull/780))
+- `14.0` Remove old cert-manager related roles and adds new validations to suite_dns role ([#870](https://github.com/ibm-mas/ansible-devops/pull/870))
+- `13.15` Add support for June Catalog Update ([#860](https://github.com/ibm-mas/ansible-devops/pull/860))
+- `13.14` Add new Manage bundle server config for SNO ([#841](https://github.com/ibm-mas/ansible-devops/pull/841))
+- `13.13` Support OCP node configuration ([#854](https://github.com/ibm-mas/ansible-devops/pull/854))
+- `13.12` Support Kubeturbo for Turbonomics ([#792](https://github.com/ibm-mas/ansible-devops/pull/792))
+- `13.11` Add support for May Catalog Update  ([#838](https://github.com/ibm-mas/ansible-devops/pull/838))
+- `13.10` Add support for AWS Route 53 as DNS provider for MAS installs ([#828](https://github.com/ibm-mas/ansible-devops/pull/828))
+- `13.9` Support for Cloud Pak for Data 4.6.4 ([#790](https://github.com/ibm-mas/ansible-devops/pull/785))
+- `13.8` Multiple Updates:
+    - Support May Catalog Update ([#813](https://github.com/ibm-mas/ansible-devops/pull/813))
+    - Add OpenTelemetry to monitoring stack ([#809](https://github.com/ibm-mas/ansible-devops/pull/809))
+    - Add support for Manual certificate management ([#501](https://github.com/ibm-mas/ansible-devops/pull/501))
+    - Add new SLS license upload mechanism and partly deprecated SLS bootstrap process ([#815](https://github.com/ibm-mas/ansible-devops/pull/815))
+- `13.7` Add support for OCP Ingress tuning ([#798](https://github.com/ibm-mas/ansible-devops/pull/798))
+- `13.6` Update mongodb to 4.4.21 and mongo operator to 0.7.9 ([#790](https://github.com/ibm-mas/ansible-devops/pull/790))
+- `13.5` Allow db2_dbname to be set rather then hardcode to BLUDB ([#784](https://github.com/ibm-mas/ansible-devops/pull/784))
+- `13.4` Add ability to control whether to create Manage JMS topics in Event Streams ([#783](https://github.com/ibm-mas/ansible-devops/pull/783))
 - `13.3` Multiple Updates:
     - Update default DB2 version to s11.5.8.0 ([#770](https://github.com/ibm-mas/ansible-devops/pull/770))
     - Update ocs role to use odf operator for OCP 4.11+ and provide devicePaths option ([#766](https://github.com/ibm-mas/ansible-devops/pull/766))

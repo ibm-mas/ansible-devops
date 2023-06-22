@@ -6,7 +6,7 @@ You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite 
 ## Overview
 This playbook will add **Predict v8.6** to an existing IBM Maximo Application Suite Core installation. It will also install CloudPak for Data + CP4D services.
 
-This playbook can be ran against any OCP cluster regardless of it's type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
+This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 - Install dependencies:
     - Install CP4D (~1 1/2 hours)

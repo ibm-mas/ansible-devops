@@ -72,10 +72,11 @@
       - db_backup_kdb_file != ""
     fail_msg: "db_backup_kdb_file property could not be found in {{ db2_restore_dir }}, .kdb file containing the DB2 master key label from source DB2 instance must be provided for the restore process to work."
 
-- name: Check DB2 backup file timestamp
+- name: Check DB2 backup file timestamp using '^{{ db2_dbname | upper }}.*'
   vars:
     regex: '\d+\d+\d+\d'
-  when: item is regex('^BLUDB.*')
+    when_regex: '^{{ db2_dbname | upper }}.*'
+  when: item is regex(when_regex)
   set_fact:
     db_backup_restore_timestamp: "{{ item | regex_search(regex) }}"
   loop: "{{ db_filenames }}"
@@ -85,7 +86,7 @@
     that:
       - db_backup_restore_timestamp is defined
       - db_backup_restore_timestamp != ""
-    fail_msg: "db_backup_restore_timestamp property has not been set, this means the DB2 backup files were not found in {{ db2_restore_dir }} or it does not have the expected format i.e 'BLUDB.0.db2inst1.DBPART000.202XXXXXXXXXXX.001'"
+    fail_msg: "db_backup_restore_timestamp property has not been set, this means the DB2 backup files were not found in {{ db2_restore_dir }} or it does not have the expected format i.e '{{ db2_dbname | upper }}.0.db2inst1.DBPART000.202XXXXXXXXXXX.001'"
 
 - debug:
     msg: "DB Backup Timestamp is: {{ db_backup_restore_timestamp }}"
@@ -134,9 +135,9 @@
 - debug:
     msg: "{{ copy_output.stdout_lines }}"
 
-- name: "Move backup files from {{ db2_temp_backup_dir }}/ to db2inst1/db_backup/ folder..."
+- name: "Move backup files from {{ db2_temp_backup_dir }}/ to /mnt/blumeta0/home/db2inst1/db_restore/ folder..."
   shell: |
-    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- bash -c "sudo mv /{{ db2_temp_backup_dir }} /mnt/blumeta0/home/db2inst1/ && sudo chown -R db2inst1 {{ db2_db2inst1_backup_dir }}/*"
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- bash -c "sudo mv {{ db2_temp_backup_dir }} /mnt/blumeta0/home/db2inst1/ && sudo chown -R db2inst1 {{ db2_db2inst1_backup_dir }}/*"
   register: apply_output
 
 
@@ -156,10 +157,11 @@
     master_key_label: "{{ item | regex_search(regex) }}"
   with_items: "{{ check_master_label_output.stdout_lines | list }}"
 
-- name: "Add extracted master key label from source into target keystore.p12 ..."
+- name: "Add extracted master key label from source into target keystore.p12, fails with CTGSK3005W if target already contains certificate ..."
   shell: |
     oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "gsk8capicmd_64 -secretkey -add -db '/mnt/blumeta0/db2/keystore/keystore.p12' -stashed -label '{{ master_key_label }}' -format ascii -file {{ db2_db2inst1_backup_dir }}/master_key_label.kdb" db2inst1
   register: extract_master_label_output
+  failed_when: extract_master_label_output.rc != 0 and 'CTGSK3005W' not in extract_master_label_output.stdout_lines[0]
 
 
 # 7. Deactivate Db2 in preparation for restore

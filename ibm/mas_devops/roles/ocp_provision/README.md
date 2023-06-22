@@ -254,7 +254,7 @@ Location of the file containing your Redhat OpenShift pull secret.  This file ca
 - Default Value: None
 
 ### ipi_dir
-The working directory that is used to perform the installation, it will contain the `openshift-install` executable, it's configuration files, & any generated logs.
+The working directory that is used to perform the installation, it will contain the `openshift-install` executable, its configuration files, & any generated logs.
 
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_DIR`
