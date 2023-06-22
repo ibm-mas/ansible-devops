@@ -1,0 +1,87 @@
+---
+# Upgrade Common Services to channel specified or Default channel
+# 1. Lookup common services channel if not provided
+# -----------------------------------------------------------------------------
+- name: "Lookup IBM Common Services Operator packagemanifest"
+  when: common_services_channel is not defined or common_services_channel == ""
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: ibm-common-service-operator
+    namespace: ibm-common-services
+  register: common_services_manifest_info
+
+- name: Set IBM Common Services Operator channel
+  when: common_services_channel is not defined or common_services_channel == ""
+  set_fact:
+    common_services_channel: "{{ common_services_manifest_info.resources[0].status.defaultChannel }}"
+
+
+# 2. Lookup common services channel
+# -----------------------------------------------------------------------------
+- name: "Get the current subscription channel for Common Services"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-common-service-operator"
+    namespace: "ibm-common-services"
+    kind: Subscription
+  register: common_services_subscription_info
+
+- name: "Set old channel for common services"
+  set_fact:
+    old_common_services_channel: "{{ common_services_subscription_info.resources[0].spec.channel }}"
+
+
+# 3. If the current operator channel is the same for the upgrade channel, no upgrade
+# -----------------------------------------------------------------------------
+- name: "Debug when no upgrade is needed"
+  when: common_services_channel == old_common_services_channel
+  debug:
+    msg: "No action is required. Common Services subscription is already on the {{ common_services_channel }} channel"
+
+
+# 4. Upgrade Subscription otherwise
+# -----------------------------------------------------------------------------
+- name: "Update Common Services subscription to {{ common_services_channel }} channel"
+  when: common_services_channel != old_common_services_channel
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-common-service-operator
+    namespace: ibm-common-services
+    kind: Subscription
+    definition:
+      spec:
+        channel: "{{ common_services_channel }}"
+    apply: true
+
+- name: "Pause for 2 minutes before checking upgrade status..."
+  when: common_services_channel != old_common_services_channel
+  pause:
+    minutes: 2
+
+
+# 5. Lookup the updated OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "Lookup the updated OperatorCondition for Common Services"
+  when: common_services_channel != old_common_services_channel
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "ibm-common-services"
+    label_selectors:
+      - "operators.coreos.com/ibm-common-service-operator.ibm-common-services"
+  register: updated_common_services_opcon
+  retries: 10
+  delay: 1 # minutes
+  until:
+    - updated_common_services_opcon.resources is defined
+    - updated_common_services_opcon.resources | length > 0
+    - updated_common_services_opcon.resources[0].metadata.name is defined
+
+- name: "Debug Common Services Operator Version"
+  when: common_services_channel != old_common_services_channel
+  debug:
+    msg:
+      - "Common Services Operator condition ..... {{ updated_common_services_opcon.resources[0].metadata.name }}"
+      - "Previous Common Services Channel ....... {{ old_common_services_channel }}"
+      - "New Common Services Channel (Update) ... {{ common_services_channel }}"
