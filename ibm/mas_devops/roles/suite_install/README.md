@@ -24,9 +24,6 @@ Opitional fact, if not provided the role will use the default cluster subdomain
 ### mas_instance_id
 Defines the instance id to be used for MAS installation
 
-### mas_trust_default_cas
-Defines whether Default CAs are included in MAS trust stores. Can be set by the `MAS_TRUST_DEFAULT_CAS` environment variable
-
 ### mas_icr_cp
 Defines the entitled registry from the images should be pulled from. Set this to `cp.icr.io/cp` when installing release version of MAS or `docker-na-public.artifactory.swg-devops.com/wiotp-docker-local` for dev
 
@@ -77,6 +74,12 @@ Boolean variable that, when set to True, enable manual certificate management.
 - Environment Variable: `MAS_MANUAL_CERT_MGMT`,
 - Default: False
 
+### mas_trust_default_cas
+Boolean variable that defines whether default Certificate Authorities are included in MAS trust stores. This only has an effect with IBM Maximo Application Suite version 8.11 and above
+
+- Optional
+- Environment Variable: `MAS_TRUST_DEFAULT_CAS`,
+- Default: True
 
 Example Playbook
 -------------------------------------------------------------------------------
