@@ -43,7 +43,12 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 - `CPD_URL` CP4D Base URL
 
 !!! warning
-Be sure that your current instance of CP4D has all the dependencies required by Predict: - Install CP4D - Install Watson Studio - Install Watson Machine Learning - Install Spark - Install Openscale
+Be sure that your current instance of CP4D has all the dependencies required by Predict: 
+- Install CP4D 
+- Install Watson Studio 
+- Install Watson Machine Learning 
+- Install Spark 
+- Install Openscale
 
 ## Optional environment variables
 
