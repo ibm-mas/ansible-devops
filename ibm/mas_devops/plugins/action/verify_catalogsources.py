@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-from __future__ import (absolute_import, division, print_function)
-__metaclass__ = type
-
 from ansible_collections.kubernetes.core.plugins.module_utils.common import get_api_client
 
 from ansible.plugins.action import ActionBase
@@ -12,7 +9,6 @@ from ansible.utils.display import Display
 import time
 
 class ActionModule(ActionBase):
-    # Implement ActionBase's run() method
     def run(self, tmp=None, task_vars=None):
         super(ActionModule, self).run(tmp, task_vars)
         display = Display()

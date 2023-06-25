@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-from __future__ import (absolute_import, division, print_function)
-__metaclass__ = type
-
 from ansible_collections.kubernetes.core.plugins.module_utils.common import get_api_client
 
 from ansible.plugins.action import ActionBase
@@ -11,10 +8,7 @@ from ansible.utils.display import Display
 
 import time
 
-display = Display()
-
 class ActionModule(ActionBase):
-    # Implement ActionBase's run() method
     def run(self, tmp=None, task_vars=None):
         super(ActionModule, self).run(tmp, task_vars)
 
@@ -38,6 +32,8 @@ class ActionModule(ActionBase):
         )
 
     def _checkResources(self, resourceAPI, resourceName, retries, delay):
+        display = Display()
+
         display.v(f"Checking {resourceName} are healthy ({retries} retries with a {delay} second delay)")
         resources = resourceAPI.get()
 
