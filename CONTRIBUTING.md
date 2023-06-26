@@ -9,6 +9,21 @@ This will allow you authenticate to this repository and raise pull requests with
 
 Follow this instructions to [build your own MAS Ansible Devops](https://ibm-mas.github.io/ansible-devops/#install-python-ansible) local development environment. Once you have all pre-requisites built, choose your prefered IDE such as Visual Studio, or any text editor of your choice to start contributing with new development code and submitting your changes through a Pull Request.
 
+Here's how you could get started developing within a new working branch:
+
+1. Clone MAS Ansible Devops repository locally:
+```
+git clone git@github.com:ibm-mas/ansible-devops.git
+```
+2. Create your own branch:
+```
+git checkout -b name-your-branch 
+```
+3. Set the new branch as active working branch:
+```
+git checkout name-your-branch 
+```
+
 ## Pull Requests
 
 This repository uses a common build system to enable proper versioning. 
@@ -36,6 +51,24 @@ For `major` and `minor` pull requests mainly, make sure you follow the standard 
 - Ensure a `change log` entry is created in both [ansible-devops/docs/changes.md](docs/changes.md) and in [ansible-devops/ibm/mas_devops/README.md](ibm/mas_devops/README.md).
 - Add your new role relative path to [mkdocs.yml](mkdocs.yml) and [copy-role-docs.sh](build/bin/copy-role-docs.sh). These files are responsible for creating the ansible role documentation that is publicly visible [here](https://ibm-mas.github.io/ansible-devops/).
 - There is an automatic lint tool that applies defaulted lint policies while your pull request is being built in Travis. You’ll be able to see if that fails/passes and that prevents us from merging your PR into master if any flagged lint issues in your changes, therefore make sure you correct them all prior requesting a formal review. If you are using Visual Studio Code you may want to install the `Ansible` extension, it will provide an easy way to format your YAML files and clean up your code for formatting issues.
+
+
+Here's how you could get started with a new pull request from your branch:
+
+1. Create your local commit:
+```
+git commit -m '[minor] - adding my new ansible role'
+```
+2. Stage your code changes locally in order to prepare for remote push
+```
+git add .
+```
+3. Push the staged changes from your local branch to the remote repository:
+```
+git push --set-upstream origin your-new-branch
+```
+
+When pushing a change with the proper tag in the commit, it will trigger the build system and your pull request will undergo with the proper build checks such as documentation build process, linter validations and the actual ansible collection package build. Once they pass all the validations, the PR can be flagged as ready to review.
 
 ## Development Tips
 It is possible to develop the Ansible roles without needing to build the collection at all, this offers the most efficient development loop when authoring new roles or modifying existing ones:
