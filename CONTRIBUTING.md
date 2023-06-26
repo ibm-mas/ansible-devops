@@ -31,15 +31,15 @@ This build system is triggered when including specific tags at the beginning of 
 
 `[major]` - This tag triggers a major pre-release version build out of your branch. Only use this tag when there are breaking or potential disruptive changes being introduced i.e existing ansible roles being removed.
 
-**For example:** Latest MAS Ansible Devops collection version is at `14.0.0`. When submiting a `major` commit/pull request, it will build a pre-release version of MAS Ansible Devops as `15.0.0-pre.your-branch`. When merging it to master branch and releasing a new collection version, it will become `15.0.0` version.
+**For example:** Latest MAS Ansible Devops collection version is at `14.0.0`. When submiting a `[major]` commit/pull request, it will build a pre-release version of MAS Ansible Devops as `15.0.0-pre.your-branch`. When merging it to master branch and releasing a new collection version, it will become `15.0.0` version.
 
 `[minor]` - This tag triggers a minor pre-release version build out of your branch. Use this tag when adding new features to existing roles or creating new ansible roles.
 
-**For example:** Latest MAS Ansible Devops collection version is at `14.0.0`. When submiting a `minor` commit/pull request. It will build a pre-release version of MAS Ansible Devops as `14.1.0-pre.your-branch`. When merging it to master branch and releasing a new collection version, it will become `14.1.0` version.
+**For example:** Latest MAS Ansible Devops collection version is at `14.0.0`. When submiting a `[minor]` commit/pull request. It will build a pre-release version of MAS Ansible Devops as `14.1.0-pre.your-branch`. When merging it to master branch and releasing a new collection version, it will become `14.1.0` version.
 
 `[patch]` - This tag triggers a patch pre-release version build out of your branch. Use this tag when making small changes such as code/documentation fixes and non-disruptive changes.
 
-**For example:** Latest MAS Ansible Devops collection version is at `14.0.0`. When submiting a `patch` commit/pull request, it will build a pre-release version of MAS Ansible Devops as `14.0.1-pre.your-branch`. When merging it to master branch and releasing a new collection version, it will become `14.0.1` version.
+**For example:** Latest MAS Ansible Devops collection version is at `14.0.0`. When submiting a `[patch]` commit/pull request, it will build a pre-release version of MAS Ansible Devops as `14.0.1-pre.your-branch`. When merging it to master branch and releasing a new collection version, it will become `14.0.1` version.
 
 ### Pre-requisites for new pull requests
 
@@ -57,7 +57,7 @@ Here's how you could get started with a new pull request from your branch:
 
 1. Create your local commit:
 ```
-git commit -m '[minor] - adding my new ansible role'
+git commit -m "[minor] - adding my new ansible role"
 ```
 2. Stage your code changes locally in order to prepare for remote push
 ```
@@ -217,6 +217,17 @@ All roles must provide clear feedback about missing required properties that do 
       - mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "One or more required properties are missing"
 ```
+
+## MAS Ansible Devops collection empowering MAS CLI
+
+The MAS Ansible Devops collection contains the ansible roles that are used to automate a particular task in the [MAS CLI](https://ibm-mas.github.io/cli/). For example, when you run `mas install` command via MAS CLI, when the installation begins, a tekton pipeline will be triggered in your cluster, and that will orchestrate the execution of a sequence of automated tasks, each of then invoking a particular MAS Ansible Devops role i.e `suite_install` role will perform the actual MAS installation.
+
+See [`Contributing to MAS command line interface`](https://github.com/ibm-mas/cli/blob/master/CONTRIBUTING.md) for more details.
+
+As MAS CLI relies and embeds MAS Ansible Devops collection in its container, there are certain conditions that triggers the automatic MAS CLI pre-release master image version build process, which happens to help us keep the MAS CLI always containing the latest MAS Ansible Devops collection within its image.
+
+- When MAS Ansible Devops pre-release from master branch is triggered (when new PRs are merged into master), a [Github action workflow](https://github.com/ibm-mas/ansible-devops/blob/master/.github/workflows/ansible.yml#L51) triggers the MAS CLI pre-release master build process, which will automatically rebuild the MAS CLI pre-release master version to contain the most recent pre-release master version of MAS Ansible Devops collection. That way, both side will have the latest and greatest pre-released master versions.
+- The same way, when a new MAS Ansible Devops collection is officially released and a new version is generated, a similar [Github action workflow](https://github.com/ibm-mas/ansible-devops/blob/master/.github/workflows/ansible-publish.yml#L46) also triggers the MAS CLI pre-release master image version build process.
 
 ## Maintain links between MAS documentation and github documentation
 When creating a new ansible role or renaming an existing ansible role, please use the Review Manager button at the top of [internal MAS Knowledge Center](https://ibmdocs-test.mybluemix.net/docs/en/MAS-review_test?topic=installing-ansible-collection) and add a comment to the `Ansible Collection` topic describing the required change.  The idea is to maintain the links between the public MAS documentation and the github docs here.
