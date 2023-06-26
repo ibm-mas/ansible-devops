@@ -35,11 +35,11 @@ class ActionModule(ActionBase):
         display = Display()
 
         display.v(f"Checking {resourceName} are healthy ({retries} retries with a {delay} second delay)")
-        resources = resourceAPI.get()
 
         allResourcesHealthy = False
         attempts = 0
         while attempts < retries and not allResourcesHealthy:
+          resources = resourceAPI.get()
           attempts += 1
           allResourcesHealthyThisLoop = True
           ready = []

@@ -20,11 +20,11 @@ class ActionModule(ActionBase):
 
         display.v(f"Checking Subscriptions are up to date ({retries} retries with a {delay} second delay)")
         subscriptions = dynaClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind='Subscription')
-        subs = subscriptions.get()
 
         allSubscriptionsAtLatest = False
         attempts = 0
         while attempts < retries and not allSubscriptionsAtLatest:
+          subs = subscriptions.get()
           attempts += 1
           allSubscriptionsAtLatestThisLoop = True
           atLatest = []
