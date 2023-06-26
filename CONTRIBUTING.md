@@ -1,4 +1,4 @@
-# Contributing
+# Contributing to MAS Devops Collection
 
 ## Generate a Github SSH key
 
