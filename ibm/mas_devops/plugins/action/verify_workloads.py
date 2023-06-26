@@ -48,15 +48,18 @@ class ActionModule(ActionBase):
 
           for resource in resources.items:
             if resource.status.replicas == 0:
-              display.v(f"* {resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas}/{resource.status.availableReplicas}")
-              disabled.append(f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.availableReplicas} available")
+              msg = f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.availableReplicas} available"
+              display.v(f"[DISABLED] {msg}")
+              disabled.append(msg)
             else:
-              display.v(f"* {resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas}/{resource.status.readyReplicas}/{resource.status.updatedReplicas}/{resource.status.availableReplicas}")
+              msg = f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.readyReplicas} ready/{resource.status.updatedReplicas} updated/{resource.status.availableReplicas} available"
               if resource.status.replicas != resource.status.readyReplicas or resource.status.replicas != resource.status.updatedReplicas or resource.status.replicas != resource.status.availableReplicas:
-                notReady.append(f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.readyReplicas} ready/{resource.status.updatedReplicas} updated/{resource.status.availableReplicas} available")
+                display.v(f"[READY]    {msg}")
+                notReady.append(msg)
                 allResourcesHealthyThisLoop = False
               else:
-                ready.append(f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.readyReplicas} ready/{resource.status.updatedReplicas} updated/{resource.status.availableReplicas} available")
+                display.v(f"[NOTREADY] {msg}")
+                ready.append(msg)
 
           display.vvv(f"Finished loop: allResourcesHealthyThisLoop={allResourcesHealthyThisLoop} delay: {delay}")
           if allResourcesHealthyThisLoop:
