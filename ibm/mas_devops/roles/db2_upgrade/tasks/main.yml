@@ -41,9 +41,9 @@
 - name: Debug Db2 Operator Update
   ansible.builtin.debug:
     msg:
-      - "Current Db2 Channel ................................ {{ old_db2_channel }}"
-      - "Update Db2 Channel ................................. {{ db2_channel }}"
-      - "Update Db2 Engine Version .......................... {{ db2_version }}"
+      - "Current Db2 Channel .................... {{ old_db2_channel }}"
+      - "Update Db2 Channel ..................... {{ db2_channel }}"
+      - "Update Db2 Engine Version .............. {{ db2_version }}"
 
 
 # 3. If the current operator channel is the same for the upgrade, no upgrade
@@ -113,7 +113,7 @@
   when: db2_channel != old_db2_channel
   debug:
     msg:
-      - "Db2u Operator condition ..................... {{ updated_db2_opcon.resources[0].metadata.name }}"
+      - "Db2u Operator condition ................ {{ updated_db2_opcon.resources[0].metadata.name }}"
 
 
 # 7. Get the list of all DB2uCluster instances
@@ -127,27 +127,24 @@
 - name: "Debug list of db2u instances"
   debug:
     msg:
-      - "db2 cluster names ........ {{ db2u_cluster_list.resources | map(attribute='metadata.name') }}"
-      - "db2 cluster namespaces ........ {{ db2u_cluster_list.resources | map(attribute='metadata.namespace') }}"
-      - "db2 cluster versions ........ {{ db2u_cluster_list.resources | map(attribute='spec.version') }}"
+      - "Db2u Cluster Names ...................... {{ db2u_cluster_list.resources | map(attribute='metadata.name') }}"
+      - "Db2u Cluster Namespaces ................. {{ db2u_cluster_list.resources | map(attribute='metadata.namespace') }}"
+      - "Db2u Cluster Versions ................... {{ db2u_cluster_list.resources | map(attribute='spec.version') }}"
 
-- name: "Get and set variables to store the list and namespaces"
+- name: "Get and set variables to store the lists"
   set_fact:
-    db2Cluster_names: "{{ db2u_cluster_list.resources | map(attribute='metadata.name') }}"
-    db2Cluster_namespaces: "{{ db2u_cluster_list.resources | map(attribute='metadata.namespace') }}"
+    db2uCluster_names: "{{ db2u_cluster_list.resources | map(attribute='metadata.name') }}"
+    db2uCluster_namespaces: "{{ db2u_cluster_list.resources | map(attribute='metadata.namespace') }}"
     db2uCluster_versions: "{{ db2u_cluster_list.resources | map(attribute='spec.version') }}"
 
-- name: "Debug list of db2u instances"
-  debug:
-    msg:
-      - "{{ db2Cluster_names }}"
-      - "{{ db2Cluster_namespaces }}"
-      - "{{ db2uCluster_versions }}"
 
-# - name: "Debug when db2u instance version updated is not needed"
-#   when: db2u_cluster_info.resources[0].spec.version == db2_version
-#   debug:
-#     msg: "No action is required to updated the version of Db2uCluster instance"
+# 8. Determine if upgrade and needed and perform it
+# -----------------------------------------------------------------------------
+- name: "Debug when db2u instance version update is not needed for an instance"
+  when: item.2 == db2_version
+  debug:
+    msg: "No action is required for DB2uCluster {{ item.0 }} in namespace {{ item.1 }}. DB2 version {{ item.2 }} already exists"
+  loop: "{{ db2uCluster_names | zip(db2uCluster_namespaces, db2uCluster_versions) | list }}"
 
 # - name: "Update db2u instance with updated version"
 #   when: db2u_cluster_info.resources[0].spec.version != db2_version
