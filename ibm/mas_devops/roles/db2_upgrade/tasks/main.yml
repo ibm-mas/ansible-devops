@@ -146,17 +146,18 @@
     msg: "No action is required for DB2uCluster {{ item.0 }} in namespace {{ item.1 }}. DB2 version {{ item.2 }} already exists"
   loop: "{{ db2uCluster_names | zip(db2uCluster_namespaces, db2uCluster_versions) | list }}"
 
-# - name: "Update db2u instance with updated version"
-#   when: db2u_cluster_info.resources[0].spec.version != db2_version
-#   kubernetes.core.k8s_json_patch:
-#     api_version: db2u.databases.ibm.com/v1
-#     name: "{{ db2_instance_name | lower }}"
-#     namespace: "{{ db2_namespace }}"
-#     kind: Db2uCluster
-#     patch:
-#       - op: replace
-#         path: /spec/version
-#         value: "{{ db2_version }}"
+- name: "Update db2u instance with update version when required"
+  when: item.2 != db2_version
+  kubernetes.core.k8s_json_patch:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ item.0 }}"
+    namespace: "{{ item.1 }}"
+    kind: Db2uCluster
+    patch:
+      - op: replace
+        path: /spec/version
+        value: "{{ db2_version }}"
+  loop: "{{ db2uCluster_names | zip(db2uCluster_namespaces, db2uCluster_versions) | list }}"
 
 # - name: "Wait for db2u instance to be ready (1m delay)"
 #   when: db2u_cluster_info.resources[0].spec.version != db2_version
