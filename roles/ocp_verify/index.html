@@ -103,9 +103,19 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#verify_cluster">verify_cluster</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#verify_catalogsources">verify_catalogsources</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#verify_subscriptions">verify_subscriptions</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#verify_workloads">verify_workloads</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#verify_ingress">verify_ingress</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#cluster_name">cluster_name</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#cluster-ingres-tls-secret-name">cluster ingres tls secret name</a>
+    <li class="toctree-l3"><a class="reference internal" href="#ocp_ingress_tls_secret_name">ocp_ingress_tls_secret_name</a>
     </li>
         </ul>
     </li>
@@ -285,22 +295,63 @@
 <p>This role will verify that the target OCP cluster is ready to be setup for MAS.</p>
 <p>For example, in IBMCloud ROKS we have seen delays of over an hour before the Red Hat Operator catalog is ready to use.  This will cause attempts to install anything from that CatalogSource to fail as the timeouts built into the roles in this collection are designed to catch problems with an install, rather than a half-provisioned cluster that is not properly ready to use yet.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="verify_cluster">verify_cluster<a class="headerlink" href="#verify_cluster" title="Permanent link"></a></h3>
+<p>Enables verification that the cluster is healthy and ready to use.  This check runs against the <code>ClusterVersion</code> resource and expects the <code>Ready</code> condition to be set to true.  If the cluster is not ready within 1 hour the verification will fail.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>VERIFY_CLUSTER</code></li>
+<li>Default Value: <code>True</code></li>
+</ul>
+<h3 id="verify_catalogsources">verify_catalogsources<a class="headerlink" href="#verify_catalogsources" title="Permanent link"></a></h3>
+<p>Enables verification that all installed catalog sources are healthy.  If any <code>CatalogSources</code> are not reporting <code>lastObservedState</code> as <code>READY</code> after 30 minutes then the verification will fail.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>VERIFY_CATALOGSOURCES</code></li>
+<li>Default Value: <code>True</code></li>
+</ul>
+<h3 id="verify_subscriptions">verify_subscriptions<a class="headerlink" href="#verify_subscriptions" title="Permanent link"></a></h3>
+<p>Enables verification that all operator subscriptions are up to date.  If any <code>Subscriptions</code> are not reporting <code>state</code> as <code>AtLatestKnown</code> after 5 hours then the verification will fail.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>VERIFY_SUBSCRIPTIONS</code></li>
+<li>Default Value: <code>True</code></li>
+</ul>
+<h3 id="verify_workloads">verify_workloads<a class="headerlink" href="#verify_workloads" title="Permanent link"></a></h3>
+<p>Enables verification that all operator subscriptions are up to date.  If any <code>Deployments</code> or <code>StatefulSets</code> are not reporting <code>updatedReplicas</code> &amp; <code>availableReplicas</code> equal to <code>replicas</code>after 10 hours then the verification will fail.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>VERIFY_WORKLOADS</code></li>
+<li>Default Value: <code>True</code></li>
+</ul>
+<h3 id="verify_ingress">verify_ingress<a class="headerlink" href="#verify_ingress" title="Permanent link"></a></h3>
+<p>Enables verification that the cluster ingress TLS certificate can be ontained.  This is required by a number of roles in the collection.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>VERIFY_INGRESS</code></li>
+<li>Default Value: <code>True</code></li>
+</ul>
 <h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link"></a></h3>
 <p>Specify the name of the cluster, in some cluster setups this name is required to determine the name of the default router certificate.</p>
 <ul>
-<li>Optional</li>
+<li>Optional, only used when <code>verify_ingress</code> is enabled</li>
 <li>Environment Variable: <code>CLUSTER_NAME</code></li>
 <li>Default Value: None</li>
 </ul>
-<h3 id="cluster-ingres-tls-secret-name">cluster ingres tls secret name<a class="headerlink" href="#cluster-ingres-tls-secret-name" title="Permanent link"></a></h3>
+<h3 id="ocp_ingress_tls_secret_name">ocp_ingress_tls_secret_name<a class="headerlink" href="#ocp_ingress_tls_secret_name" title="Permanent link"></a></h3>
 <p>Specify the name of the cluster's ingres tls secret which contains the default router certificate.</p>
 <ul>
-<li>Optional</li>
+<li>Optional, only used when <code>verify_ingress</code> is enabled</li>
 <li>Environment Variable: <code>OCP_INGRESS_TLS_SECRET_NAME</code></li>
-<li>Default Value: router-certs-default</li>
+<li>Default Value: <code>router-certs-default</code></li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <pre><code class="language-yaml">- hosts: localhost
+  vars:
+    verify_cluster: True
+    verify_catalogsources: True
+    verify_subscriptions: True
+    verify_workloads: True
+    verify_ingress: True
   roles:
     - ibm.mas_devops.ocp_verify
 </code></pre>
