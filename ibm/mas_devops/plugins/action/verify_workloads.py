@@ -54,11 +54,11 @@ class ActionModule(ActionBase):
             else:
               msg = f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.readyReplicas} ready/{resource.status.updatedReplicas} updated/{resource.status.availableReplicas} available"
               if resource.status.replicas != resource.status.readyReplicas or resource.status.replicas != resource.status.updatedReplicas or resource.status.replicas != resource.status.availableReplicas:
-                display.v(f"[READY]    {msg}")
+                display.v(f"[NOTREADY] {msg}")
                 notReady.append(msg)
                 allResourcesHealthyThisLoop = False
               else:
-                display.v(f"[NOTREADY] {msg}")
+                display.v(f"[READY]   {msg}")
                 ready.append(msg)
 
           display.vvv(f"Finished loop: allResourcesHealthyThisLoop={allResourcesHealthyThisLoop} delay: {delay}")
