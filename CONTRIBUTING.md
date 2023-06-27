@@ -11,16 +11,13 @@ Follow this instructions to [build your own MAS Ansible Devops](https://ibm-mas.
 
 Here's how you could get started developing within a new working branch:
 
-1. Clone MAS Ansible Devops repository locally:
+1. Clone MAS CLI repository locally.
+2. Create your own branch.
+3. Set the new branch as active working branch.
+
 ```
 git clone git@github.com:ibm-mas/ansible-devops.git
-```
-2. Create your own branch:
-```
 git checkout -b name-your-branch 
-```
-3. Set the new branch as active working branch:
-```
 git checkout name-your-branch 
 ```
 
@@ -43,7 +40,7 @@ This build system is triggered when including specific tags at the beginning of 
 
 ### Pre-requisites for new pull requests
 
-For `major` and `minor` pull requests mainly, make sure you follow the standard approach new developing new code:
+For `major` and `minor` pull requests mainly, make sure you follow the standard approach while developing new code:
 
 - Ensure you have tested your changes and they do what is supposed to from an "end-to-end" perspective. Attaching screenshots of the end goal in your `pull request` are always welcome so everyone knows what to expect by the change, and that it does not break existing role functionalities around your change (basic regression test).
 - Ensure the new capability is ported over / enabled in the [MAS Command Line Interface](https://github.com/ibm-mas/cli/blob/master/CONTRIBUTING.md) whenever applicable as well, and that a MAS install test runs successfully from an `end-to-end` via cli (basic regression test). See more information about it in [MAS CLI documentation](https://github.com/ibm-mas/cli).
@@ -55,16 +52,13 @@ For `major` and `minor` pull requests mainly, make sure you follow the standard 
 
 Here's how you could get started with a new pull request from your branch:
 
-1. Create your local commit:
+1. Create your local commit.
+2. Stage your code changes locally in order to prepare for remote push.
+3. Push the staged changes from your local branch to the remote repository.
+
 ```
-git commit -m "[minor] - adding my new ansible role"
-```
-2. Stage your code changes locally in order to prepare for remote push
-```
+git commit -m "[minor] - my own changes to ansible-devops"
 git add .
-```
-3. Push the staged changes from your local branch to the remote repository:
-```
 git push --set-upstream origin your-new-branch
 ```
 
