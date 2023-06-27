@@ -1,8 +1,10 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `14.1` Add support for Catalog Update 230627 ([#886](https://github.com/ibm-mas/ansible-devops/pull/886))
-- `14.0` Remove old cert-manager related roles and adds new validations to suite_dns role ([#870](https://github.com/ibm-mas/ansible-devops/pull/870))
+- `14.0` Multiple Updates:
+    - Remove old cert-manager related roles and adds new validations to `suite_dns` role ([#870](https://github.com/ibm-mas/ansible-devops/pull/870))
+    - Add support for Catalog Update 230627 ([#886](https://github.com/ibm-mas/ansible-devops/pull/886))
+    - Support more detailed OCP verification checks ([#882](https://github.com/ibm-mas/ansible-devops/pull/882))
 - `13.15` Add support for June Catalog Update ([#860](https://github.com/ibm-mas/ansible-devops/pull/860))
 - `13.14` Add new Manage bundle server config for SNO ([#841](https://github.com/ibm-mas/ansible-devops/pull/841))
 - `13.13` Support OCP node configuration ([#854](https://github.com/ibm-mas/ansible-devops/pull/854))
