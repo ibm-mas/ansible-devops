@@ -23,6 +23,28 @@
   set_fact:
     db2_channel: "{{ db2u_manifest_info.resources[0].status.defaultChannel }}"
 
+- name: Set db2 version when not provided
+  when: db2_version is not defined or db2_version == ""
+  ansible.builtin.set_fact:
+    db2_version: "{{ db2u_manifest_info.resources[0].status.channels | selectattr('name', 'equalto', db2_channel) | map(attribute='currentCSVDesc') | map(attribute='annotations') | map(attribute='productVersion') | first }}"
+
+
+# Fail if db2_channel and/or version not discovered
+# -----------------------------------------------------------------------------
+- name: "Verify db2_channel and db2_version set"
+  assert:
+    that:
+      - db2_channel is defined and db2_channel != ""
+      - db2_version is defined and db2_version != ""
+    fail_msg: "Unable to determine db2_channel and/or db2_version from catalog"
+
+
+- name: Debug Db2 Universal Operator Install
+  ansible.builtin.debug:
+    msg:
+      - "Db2 Channel ............................ {{ db2_channel }}"
+      - "Db2 Version ............................ {{ db2_version }}"
+
 
 # 2. Lookup current db2u channel
 # -----------------------------------------------------------------------------
