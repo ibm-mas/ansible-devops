@@ -5,7 +5,6 @@
   vars:
     upgrade_core: "{{ lookup('env', 'UPGRADE_CORE') | default ('True', True) | bool  }}"
     upgrade_apps: "{{ lookup('env', 'UPGRADE_APPS') | default ('True', True) | bool }}"
-    upgrade_deps: "{{ lookup('env', 'UPGRADE_DEPS') | default ('True', True) | bool }}"
 
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') }}"
     mas_app_channel_assist: "{{ lookup('env', 'MAS_APP_CHANNEL_ASSIST') }}"
@@ -26,30 +25,8 @@
           - lookup('env', 'MAS_INSTANCE_ID') != ""
         fail_msg: "You must provide the target MAS instance ID"
 
-    - name: Check for required environment variables for dependencies
-      when: upgrade_deps
-      assert:
-        that:
-          - lookup('env', 'DB2_VERSION') != ""
-        fail_msg: "You must provide the target DB2 Version"
-
   roles:
-    # 1. Dependencies
-    # -------------------------------------------------------------------------
-    # 1.1 Common Services
-    - name: ibm.mas_devops.common_services
-      when: upgrade_deps
-      vars:
-        common_services_action: upgrade
-
-    # 1.2 DB2
-    - name: ibm.mas_devops.db2
-      when: upgrade_deps
-      vars:
-        db2_action: upgrade
-
-
-    # 2. Core
+    # 1. Core
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.suite_upgrade
       when: upgrade_core
@@ -57,65 +34,65 @@
       when: upgrade_core
 
 
-    # 3. Applications
+    # 2. Applications
     # -------------------------------------------------------------------------
-    # 3.1 Assist
+    # 2.1 Assist
     - name: ibm.mas_devops.suite_app_upgrade
       when: upgrade_apps
       vars:
         mas_app_id: assist
         mas_app_channel: "{{ mas_app_channel_assist }}"
 
-    # 3.2 HP Utilities
+    # 2.2 HP Utilities
     - name: ibm.mas_devops.suite_app_upgrade
       when: upgrade_apps
       vars:
         mas_app_id: hputilities
         mas_app_channel: "{{ mas_app_channel_hputilities }}"
 
-    # 3.3 IoT
+    # 2.3 IoT
     - name: ibm.mas_devops.suite_app_upgrade
       when: upgrade_apps
       vars:
         mas_app_id: iot
         mas_app_channel: "{{ mas_app_channel_iot }}"
 
-    # 3.4 Manage
+    # 2.4 Manage
     - name: ibm.mas_devops.suite_app_upgrade
       when: upgrade_apps
       vars:
         mas_app_id: manage
         mas_app_channel: "{{ mas_app_channel_manage }}"
 
-    # 3.5 Monitor
+    # 2.5 Monitor
     - name: ibm.mas_devops.suite_app_upgrade
       when: upgrade_apps
       vars:
         mas_app_id: monitor
         mas_app_channel: "{{ mas_app_channel_monitor }}"
 
-    # 3.6 Optimizer
+    # 2.6 Optimizer
     - name: ibm.mas_devops.suite_app_upgrade
       when: upgrade_apps
       vars:
         mas_app_id: optimizer
         mas_app_channel: "{{ mas_app_channel_optimizer }}"
 
-    # 3.7 Predict
+    # 2.7 Predict
     - name: ibm.mas_devops.suite_app_upgrade
       when: upgrade_apps
       vars:
         mas_app_id: predict
         mas_app_channel: "{{ mas_app_channel_predict }}"
 
-    # 3.8 Safety
+    # 2.8 Safety
     - name: ibm.mas_devops.suite_app_upgrade
       when: upgrade_apps
       vars:
         mas_app_id: safety
         mas_app_channel: "{{ mas_app_channel_safety }}"
 
-    # 3.9 Visual Inspection
+    # 2.9 Visual Inspection
     - name: ibm.mas_devops.suite_app_upgrade
       when: upgrade_apps
       vars:
