@@ -245,7 +245,10 @@ Use the following as template for the description:
 
 **Full Changelog**: https://github.com/ibm-mas/ansible-devops/compare/13.15.1...14.0.0
 ```
+5. Mark `Set as the latest release` checkbox.
+6. Then, when the release is ready to be published, click `Publish release`.
 
+**Note**: As part of the release publishing process, the new MAS Ansible Devops Collection artifacts such as corresponding `zip/tar.gz` files will be attached to the new release tag, therefore it will be easy to know the code base associated to a particular release version.
 
 
 ## Maintain links between MAS documentation and github documentation
