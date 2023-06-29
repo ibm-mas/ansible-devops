@@ -223,5 +223,30 @@ As MAS CLI relies and embeds MAS Ansible Devops collection in its container, the
 - When MAS Ansible Devops pre-release from master branch is triggered (when new PRs are merged into master), a [Github action workflow](https://github.com/ibm-mas/ansible-devops/blob/master/.github/workflows/ansible.yml#L51) triggers the MAS CLI pre-release master build process, which will automatically rebuild the MAS CLI pre-release master version to contain the most recent pre-release master version of MAS Ansible Devops collection. That way, both side will have the latest and greatest pre-released master versions.
 - The same way, when a new MAS Ansible Devops collection is officially released and a new version is generated, a similar [Github action workflow](https://github.com/ibm-mas/ansible-devops/blob/master/.github/workflows/ansible-publish.yml#L46) also triggers the MAS CLI pre-release master image version build process.
 
+## Create a new MAS Ansible Devops release
+
+Once the Ansible collection pre-release master build passes [the tests along with daily FVT execution](#testing-a-role), a new MAS Ansible Devops release can be generated to publicly promote new fixes and features.
+
+1. To create a new release, go to [`Releases`](https://github.com/ibm-mas/ansible-devops/releases) and [`Draft a new release`](https://github.com/ibm-mas/ansible-devops/releases/new).
+2. Create a new tag, increasing the latest current release tag, following the example:
+  - For `[major]` releases - Move from tag `1.0.0` to a new release tag `2.0.0`.
+  - For `[minor]` releases - Move from tag `1.0.0` to a new release tag `1.1.0`.
+  - For `[patch]` releases - Move from tag `1.0.0` to a new release tag `1.0.1`.
+3. On `Release title` field, type the new release tag generated above.
+4. **Create the release notes:** Add a `What's Changed` section as description including a list of all the pull requests merged into master branch that will be included as part of the new release. You can easily [compare](https://github.com/ibm-mas/ansible-devops/compare/) the delta PRs and commits that have been added in the new release tag using the current released tag version as base. 
+
+Use the following as template for the description:
+
+```
+## What's Changed
+* [major] My major change https://github.com/ibm-mas/ansible-devops/pull/XXX
+* [minor] My minor change https://github.com/ibm-mas/ansible-devops/pull/YYY
+* [patch] My patch change https://github.com/ibm-mas/ansible-devops/pull/ZZZ
+
+**Full Changelog**: https://github.com/ibm-mas/ansible-devops/compare/13.15.1...14.0.0
+```
+
+
+
 ## Maintain links between MAS documentation and github documentation
 When creating a new ansible role or renaming an existing ansible role, please use the Review Manager button at the top of [internal MAS Knowledge Center](https://ibmdocs-test.mybluemix.net/docs/en/MAS-review_test?topic=installing-ansible-collection) and add a comment to the `Ansible Collection` topic describing the required change.  The idea is to maintain the links between the public MAS documentation and the github docs here.
