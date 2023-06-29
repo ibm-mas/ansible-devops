@@ -229,9 +229,9 @@ Once the Ansible collection pre-release master build passes [the tests along wit
 
 1. To create a new release, go to [`Releases`](https://github.com/ibm-mas/ansible-devops/releases) and [`Draft a new release`](https://github.com/ibm-mas/ansible-devops/releases/new).
 2. Create a new tag, increasing the latest current release tag, following the example:
-  - For `[major]` releases - Move from tag `1.0.0` to a new release tag `2.0.0`.
-  - For `[minor]` releases - Move from tag `1.0.0` to a new release tag `1.1.0`.
-  - For `[patch]` releases - Move from tag `1.0.0` to a new release tag `1.0.1`.
+  - For new `[major]` release, if current release = `1.0.0`, then new release tag = `2.0.0`.
+  - For new `[minor]` release, if current release = `1.0.0`, then new release tag = `1.1.0`.
+  - For new `[patch]` release, if current release = `1.0.0`, then new release tag = `1.0.1`.
 3. On `Release title` field, type the new release tag generated above.
 4. **Create the release notes:** Add a `What's Changed` section as description including a list of all the pull requests merged into master branch that will be included as part of the new release. You can easily [compare](https://github.com/ibm-mas/ansible-devops/compare/) the delta PRs and commits that have been added in the new release tag using the current released tag version as base. 
 
