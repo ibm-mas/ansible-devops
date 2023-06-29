@@ -1,26 +1,22 @@
 ---
 # 1. Check cert-manager installation
 # -----------------------------------------------------------------------------
-- name: Check if cert-manager is installed
+- name: Lookup ibm cert manager installation
   kubernetes.core.k8s_info:
-    api_version: v1
-    name: cert-manager
-    namespace: "cert-manager"
+    api_version: apps/v1
+    name: cert-manager-controller
+    namespace: ibm-common-services
     kind: Deployment
   register: _cert_manager_deployed
 
-# if cert-manager from cert-manager namespace is deployed, then it will be used per default otherwise set ibm-cert-manager from ibm-common-services to be used
-- name: Define which cert-manager to use
-  when: _cert_manager_deployed.resources is defined and _cert_manager_deployed.resources | length == 0
-  set_fact:
-    certManager:
-      namespace: ibm-common-services
-      serviceAccountName: ibm-cert-manager-controller
-
-- debug:
-    msg:
-      - "Cert-manager namespace .................. {{ certManager.namespace }}"
-      - "Cert-manager service account ............ {{ certManager.serviceAccountName }}"
+# Ensure cert manager is installed prior continuing as this role will install
+# v1alpha1.acme.cis.ibm.com apiservice which requires cert manager to be running
+- name: Assert that ibm cert manager is installed
+  assert:
+    that:
+      - _cert_manager_deployed.resources is defined
+      - _cert_manager_deployed.resources | length > 0
+    fail_msg: "Failed! IBM Certificate Manager is not installed in your cluster! Run `cert_manager` role to have it installed prior running `suite_dns` role."
 
 # 2. Run provider task
 # -----------------------------------------------------------------------------
@@ -31,18 +27,17 @@
 # 3. Set custom cp4d route based on the custom cluster issuer
 # -----------------------------------------------------------------------------
 - block:
+    - name: Check if custom CP4D route is already configured # if it is, then we skip it to avoid override
+      kubernetes.core.k8s_info:
+        api_version: v1
+        name: suite-cp4d-route
+        namespace: "{{ cpd_instance_namespace }}"
+        kind: Route
+      register: _suite_cp4d_route
 
-  - name: Check if custom CP4D route is already configured # if it is, then we skip it to avoid override
-    kubernetes.core.k8s_info:
-      api_version: v1
-      name: suite-cp4d-route
-      namespace: "{{ cpd_instance_namespace }}"
-      kind: Route
-    register: _suite_cp4d_route
-
-  - name: "Set up CP4D route under the appsuite domain"
-    include_tasks: tasks/cp4d.yml
-    when: _suite_cp4d_route.resources is defined and _suite_cp4d_route.resources | length == 0
+    - name: "Set up CP4D route under the appsuite domain"
+      include_tasks: tasks/cp4d.yml
+      when: _suite_cp4d_route.resources is defined and _suite_cp4d_route.resources | length == 0
 
   when:
     - dns_provider != ""

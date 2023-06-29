@@ -19,8 +19,6 @@ copyDoc aws_user_creation
 copyDoc aws_vpc
 copyDoc appconnect
 copyDoc cert_manager
-copyDoc cert_manager_upgrade
-copyDoc cert_manager_upgrade_check
 copyDoc cis
 copyDoc cluster_monitoring
 copyDoc convert_to_olm
