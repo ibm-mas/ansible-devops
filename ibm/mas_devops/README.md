@@ -6,6 +6,22 @@
 ## Change Log
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `14.0` Multiple Updates:
+    - Remove old cert-manager related roles and adds new validations to `suite_dns` role ([#870](https://github.com/ibm-mas/ansible-devops/pull/870))
+    - Add support for Catalog Update 230627 ([#886](https://github.com/ibm-mas/ansible-devops/pull/886))
+    - Support more detailed OCP verification checks ([#882](https://github.com/ibm-mas/ansible-devops/pull/882))
+- `13.15` Add support for June Catalog Update ([#860](https://github.com/ibm-mas/ansible-devops/pull/860))
+- `13.14` Add new Manage bundle server config for SNO ([#841](https://github.com/ibm-mas/ansible-devops/pull/841))
+- `13.13` Support OCP node configuration ([#854](https://github.com/ibm-mas/ansible-devops/pull/854))
+- `13.12` Support Kubeturbo for Turbonomics ([#792](https://github.com/ibm-mas/ansible-devops/pull/792))
+- `13.11` Add support for May Catalog Update  ([#838](https://github.com/ibm-mas/ansible-devops/pull/838))
+- `13.10` Add support for AWS Route 53 as DNS provider for MAS installs ([#828](https://github.com/ibm-mas/ansible-devops/pull/828))
+- `13.9` Support for Cloud Pak for Data 4.6.4 ([#790](https://github.com/ibm-mas/ansible-devops/pull/785))
+- `13.8` Multiple Updates:
+    - Support May Catalog Update ([#813](https://github.com/ibm-mas/ansible-devops/pull/813))
+    - Add OpenTelemetry to monitoring stack ([#809](https://github.com/ibm-mas/ansible-devops/pull/809))
+    - Add support for Manual certificate management ([#501](https://github.com/ibm-mas/ansible-devops/pull/501))
+    - Add new SLS license upload mechanism and partly deprecated SLS bootstrap process ([#815](https://github.com/ibm-mas/ansible-devops/pull/815))
 - `13.7` Add support for OCP Ingress tuning ([#798](https://github.com/ibm-mas/ansible-devops/pull/798))
 - `13.6` Update mongodb to 4.4.21 and mongo operator to 0.7.9 ([#790](https://github.com/ibm-mas/ansible-devops/pull/790))
 - `13.5` Allow db2_dbname to be set rather then hardcode to BLUDB ([#784](https://github.com/ibm-mas/ansible-devops/pull/784))

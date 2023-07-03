@@ -1,0 +1,17 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if required properties are not provided"
+  assert:
+    that:
+      - registry_public_url is defined and registry_public_url != ""
+      - mirror_working_dir is defined and mirror_working_dir != ""
+    fail_msg: "One or more required properties are missing"
+
+
+# 2. Perform Mirroring
+# -----------------------------------------------------------------------------
+- name: "Mirror Red Hat content from filesystem to target registry"
+  shell: >
+    DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --dest-skip-tls --from={{ mirror_working_dir }}/mirror_seq1_000000.tar docker://{{ registry_public_url }}
+  register: mirror_result
