@@ -2,11 +2,11 @@
 
 ## Prerequisites
 
-You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.7 already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
+You will need a RedHat OpenShift v4.12 cluster with IBM Maximo Application Suite Core v8.11 already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
 
 ## Overview
 
-This playbook will add **Predict v8.6** to an existing IBM Maximo Application Suite Core installation. It will also install CloudPak for Data + CP4D services.
+This playbook will add **Predict v8.9** to an existing IBM Maximo Application Suite Core installation. It will also install CloudPak for Data + CP4D services.
 
 This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
@@ -52,12 +52,12 @@ Be sure that your current instance of CP4D has all the dependencies required by 
 
 ## Optional environment variables
 
-- `CPD_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster, then set it to "false"
-- `CPD_INSTALL_WSL` True/False - If you HAVE Watson Studio already installed in your cluster, then set it to "false"
-- `CPD_INSTALL_WML` True/False - If you HAVE Watson Machine Learning already installed in your cluster, then set it to "false"
-- `CPD_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster, then set it to "false"
-- `CPD_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster, then set it to "false"
-- `CPD_INSTALL_SPSS` True/False - If you HAVE SPSS Modeler already installed in your cluster, then set it to "false"
+- `CPD_INSTALL_PLATFORM` True/False - If you HAVE CP4D already installed in your cluster you can skip this variable as `False` is set default
+- `CPD_INSTALL_WSL` True/False - If you HAVE Watson Studio already installed in your cluster you can skip this variable as `False` is set default
+- `CPD_INSTALL_WML` True/False - If you HAVE Watson Machine Learning already installed in your cluster you can skip this variable as `False` is set default
+- `CPD_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster you can skip this variable as `False` is set default
+- `CPD_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster you can skip this variable as `False` is set default
+- `CPD_INSTALL_SPSS` True/False - If you HAVE SPSS Modeler already installed in your cluster you can skip this variable as `False` is set default
 - `CPD_WSL_PROJECT_ID` - Ensure a Project ID Text box has a valid Watson Studio project ID. To obtain the project ID, Navigate to Cp4d/Watson Studio and create/Reuse a project. Open the project and look into the Browser URL, obtain the project ID from the URL and update Project ID settings.
 
 ## Usage when you already HAVE CP4D installed
@@ -66,15 +66,7 @@ Be sure that your current instance of CP4D has all the dependencies required by 
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
-
 export CPD_PRODUCT_VERSION="4.6.3"
-export CPD_INSTALL_PLATFORM="false"
-export CPD_INSTALL_WSL="false"
-export CPD_INSTALL_WML="false"
-export CPD_INSTALL_SPARK="false"
-export CPD_INSTALL_OPENSCALE="false"
-export CPD_INSTALL_DISCOVERY="false"
-export CPD_INSTALL_SPSS="false"
 export MAS_APP_CHANNEL="8.9.x"
 export CPD_WML_INSTANCE_ID="openshift"
 export CPD_WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
@@ -93,7 +85,6 @@ ansible-playbook ibm.mas_devops.oneclick_add_predict
 export MAS_INSTANCE_ID=inst1
 export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
-
 export CPD_PRODUCT_VERSION="4.6.3"
 export CPD_INSTALL_PLATFORM="true"
 export CPD_INSTALL_WSL="true"
