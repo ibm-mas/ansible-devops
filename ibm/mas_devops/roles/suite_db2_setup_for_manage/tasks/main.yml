@@ -17,10 +17,6 @@
       - "Db2 namespace .......................... {{ db2_namespace }}"
       - "Db2 instance name ...................... {{ db2_instance_name }}"
       - "Db2 database name ...................... {{ db2_dbname }}"
-      - "Db2 database schema .................... {{ db2_schema }}"
-      - "Db2 database user ...................... {{ db2_username }}"
-      - "Db2 tablespace data size ............... {{ db2_tablespace_data_size }}"
-      - "Db2 tablespace index size .............. {{ db2_tablespace_index_size }}"
 
 
 # 2. Determine which pod to run in
@@ -61,11 +57,6 @@
 
 # 3. Prepare database for use with Maximo TPAE
 # -----------------------------------------------------------------------------
-- name: "Creating MIRRORLOGPATH folder in {{ db2_pod_name }}"
-  shell: |
-    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "rm -rf {{ db2_mirrorlog_path }} ; mkdir -p {{ db2_mirrorlog_path }}" db2inst1
-  register: creating_mirrorlog_folder_output
-
 - name: Create setupdb script in local /tmp
   ansible.builtin.template:
     src: setupdb.sh.j2
@@ -79,28 +70,6 @@
   delay: 30 # seconds
   until: copy_result.rc == 0
 
-- name: Execute db2 restart database
-  shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su - db2inst1 -lc "db2stop"
-    sleep 30
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su - db2inst1 -lc "db2start"
-    sleep 30
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su - db2inst1 -lc "db2 restart database {{ db2_dbname }}"
-    sleep 30
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su - db2inst1 -lc "db2 activate database {{ db2_dbname }}"
-    sleep 30
-  register: db2_restart_database_output
-  ignore_errors: true
-
-- name: "Database db2 restart debug information"
-  debug:
-    msg:
-      - "Result (stdout) ........................ {{ db2_restart_database_output.stdout }}"
-      - "result (stderr) ........................ {{ db2_restart_database_output.stderr }}"
-
-- name: "Pause for 1 minutes ..."
-  pause:
-    minutes: 1
 
 # The log file will also be available inside the pod /tmp/setupdb.log
 # The script will exit early if /tmp/setupdb_complete exists to avoid unnecessarily re-running
