@@ -1,7 +1,7 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `14.1` Support July 230725 Catalog Update
+- `14.1` Support July 230725 Catalog Update ([#897](https://github.com/ibm-mas/ansible-devops/pull/897))
 - `14.0` Multiple Updates:
     - Remove old cert-manager related roles and adds new validations to `suite_dns` role ([#870](https://github.com/ibm-mas/ansible-devops/pull/870))
     - Add support for Catalog Update 230627 ([#886](https://github.com/ibm-mas/ansible-devops/pull/886))
