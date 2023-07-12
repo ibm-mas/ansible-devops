@@ -49,7 +49,7 @@ Subscription channel, this must align with the version of HP Utilities (see tabl
 
 - Optional
 - Environment Variable: `APPCONNECT_CHANNEL`
-- Default Value: `v5.2`
+- Default Value: `v6.2`
 
 
 Role Variables - Configuration
@@ -66,21 +66,21 @@ AppConnect dashboard instance name. Defaults to `dashboard-12040r2` as a referen
 
 - Optional
 - Environment Variable: `APPCONNECT_DASHBOARD_NAME`
-- Default Value: `dashboard-12040r2`
+- Default Value: `dashboard-12060r1`
 
 ### appconnect_dashboard_version
 AppConnect dashboard version, this must align with the License ID used.
 
 - Optional
 - Environment Variable: `APPCONNECT_DASHBOARD_VERSION`
-- Default Value: `12.0.4.0-r2`
+- Default Value: `12.0.6.0-r1`
 
 ### appconnect_license_id
 AppConnect license ID.
 
 - Optional
 - Environment Variable: `APPCONNECT_LICENSE_ID`
-- Default Value: `L-KSBM-C37J2R`
+- Default Value: `L-APEH-CFZE47`
 
 
 Role Variables - MAS Configuration
