@@ -17,9 +17,29 @@
       - "Username ..................... {{ fyre_username }}"
       - "Password ..................... *****************"
 
-# 2. Deprovision
+# 2. Determine whether cluster exists
+# -----------------------------------------------------------------------------
+- name: "quickburn : Check if cluster already exists"
+  uri:
+    url: "https://ocpapi.svl.ibm.com/v1/check_hostname/{{ cluster_name }}"
+    user: "{{ fyre_username }}"
+    password: "{{ fyre_apikey }}"
+    method: GET
+    force_basic_auth: yes
+    validate_certs: false
+  register: _cluster_exist
+  failed_when: _cluster_exist.status == 403
+
+- name: "fyre : Debug cluster lookup"
+  debug:
+    var: _cluster_exist
+
+# 3. Deprovision if cluster exists
 # -----------------------------------------------------------------------------
 - name: "quickburn : Deprovision quick burn cluster"
+  when:
+    - _cluster_exist.json is defined
+    - _cluster_exist.json.owning_user is defined # when there's cluster owner, it means the cluster exists thus we can deprovision it
   uri:
     url: "https://ocpapi.svl.ibm.com/v1/ocp/{{cluster_name}}"
     user: "{{ fyre_username }}"

@@ -1,4 +1,13 @@
 ---
+- name: "cis : lookup cis instances with provided 'cis_crn' value"
+  shell: ibmcloud cis instances | grep {{ cis_crn }} | awk '{print $2}'
+  register: cis_instances_output
+
+- name: "cis : assert provided 'cis_crn' is valid"
+  assert:
+    that: cis_instances_output.stdout_lines | length > 0
+    fail_msg: "There is no CIS instance with the provided 'cis_crn' in the logged IBM Cloud account. Make sure the target CIS instance is deployed in the IBM Cloud account currently in use."
+
 - name: "cis : running standard cis suite dns"
   include_tasks: tasks/providers/cis/cis_suitedns_basic.yml
   when:
