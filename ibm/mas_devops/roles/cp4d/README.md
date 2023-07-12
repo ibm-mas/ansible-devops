@@ -9,6 +9,7 @@ Currently supported Cloud Pak for Data release versions are:
   - 4.5.3
   - 4.6.0
   - 4.6.3
+  - 4.6.4
 
 The role will automatically install or upgrade (if targeted to an existing CPD deployment) the corresponding Zen version associated to the chosen Cloud Pak for Data release, for example:
 

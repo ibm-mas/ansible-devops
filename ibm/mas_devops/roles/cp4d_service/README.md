@@ -5,11 +5,11 @@ Install or upgrade a chosen CloudPak for Data service.
 
 Currently supported Cloud Pak for Data release versions supported are:
 
-  - 4.0.9
   - 4.5.0
-  - 4.5.1
-  - 4.5.2
+  - 4.5.3
   - 4.6.0
+  - 4.6.3
+  - 4.6.4
 
 The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.
 
@@ -23,7 +23,9 @@ These services can be deployed and configured using this role:
 - [Watson Machine Learning](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-machine-learning) required by [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
 - [Analytics Service (Apache Spark)](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-analytics) required by [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
 - [Watson OpenScale](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-openscale) an optional dependency for [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
+- [Watson SPSS Modeler](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=modeler-installing) optional dependency for [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
 - [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-discovery) required by Assist
+- [Cognos Analytics](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=analytics-installing) optional dependency for Manage application.
 
 Upgrade
 ------------------
