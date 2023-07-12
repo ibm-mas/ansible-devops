@@ -1,6 +1,7 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
+- `15.1` Adding support to create EFS storage class at MAS Instance level ([#898](https://github.com/ibm-mas/ansible-devops/pull/898))
 - `15.0` Multiple Updates:
     - Overhaul image mirroring logic ([#900](https://github.com/ibm-mas/ansible-devops/pull/900))
     - Support setting trustDefaultCAs in Suite ([#780](https://github.com/ibm-mas/ansible-devops/pull/780))
