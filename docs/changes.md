@@ -1,7 +1,11 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-- `14.1` Add support to upgrade Common Services and DB2 ([#829](https://github.com/ibm-mas/ansible-devops/pull/829))
+- `15.0` Multiple Updates:
+    - Overhaul image mirroring logic ([#900](https://github.com/ibm-mas/ansible-devops/pull/900))
+    - Support setting trustDefaultCAs in Suite ([#780](https://github.com/ibm-mas/ansible-devops/pull/780))
+    - Support customizable EFS storage ID ([#901](https://github.com/ibm-mas/ansible-devops/pull/901))
+    - Support customizable AWS MSK secret name ([#902](https://github.com/ibm-mas/ansible-devops/pull/902))
 - `14.0` Multiple Updates:
     - Remove old cert-manager related roles and adds new validations to `suite_dns` role ([#870](https://github.com/ibm-mas/ansible-devops/pull/870))
     - Add support for Catalog Update 230627 ([#886](https://github.com/ibm-mas/ansible-devops/pull/886))
