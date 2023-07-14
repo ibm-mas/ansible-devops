@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ibm-mas.github.io/ansible-devops/roles/common_services/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ibm-mas.github.io/ansible-devops/roles/ocp_efs/" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>Common services - MAS Devops Collection</title>
+    <title>ocp_efs - MAS Devops Collection</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/github.min.css" />
@@ -13,9 +13,9 @@
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Common services";
-        var mkdocs_page_input_path = "roles/common_services.md";
-        var mkdocs_page_url = "/ansible-devops/roles/common_services/";
+        var mkdocs_page_name = "ocp_efs";
+        var mkdocs_page_input_path = "roles/ocp_efs.md";
+        var mkdocs_page_url = "/ansible-devops/roles/ocp_efs/";
       </script>
     
     <script src="../../js/jquery-3.6.0.min.js" defer></script>
@@ -78,12 +78,30 @@
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Roles: OCP Mgmt</span></p>
-              <ul>
+              <ul class="current">
                   <li class="toctree-l1"><a class="reference internal" href="../ocp_deprovision/">ocp_deprovision</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../ocp_disable_updates/">ocp_disable_updates</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../ocp_efs/">ocp_efs</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="./">ocp_efs</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#aws_access_key_id">aws_access_key_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#aws_secret_access_key">aws_secret_access_key</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#aws_region">AWS_region</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cluster_name">cluster_name</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#efs_unique_id">efs_unique_id</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
+    </li>
+    </ul>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../ocp_github_oauth/">ocp_github_oauth</a>
                   </li>
@@ -258,9 +276,10 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a> &raquo;</li>
-      <li>Common services</li>
+          <li>Roles: OCP Mgmt &raquo;</li>
+      <li>ocp_efs</li>
     <li class="wy-breadcrumbs-aside">
-          <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/common_services.md" class="icon icon-github"> Edit on GitHub</a>
+          <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/ocp_efs.md" class="icon icon-github"> Edit on GitHub</a>
     </li>
   </ul>
   <hr/>
@@ -268,50 +287,44 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="common_services">common_services<a class="headerlink" href="#common_services" title="Permanent link"></a></h1>
-<p>This role will install the following operators into the <code>ibm-common-services</code> namespace of the target cluster:</p>
-<ul>
-<li><strong>IBM Cloud Pak Foundational Services</strong></li>
-<li><strong>IBM NamespaceScope Operator</strong></li>
-<li><strong>Operand Deployment Lifecycle Manager</strong></li>
-</ul>
-<p>Also, an operator group will be created in the namespace if one does not already exist.</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link"></a></h2>
-<p>To run this role successfully you must have already installed a CatalogSource that contains IBM Cloud Pak Foundational Services, this can be achieved using the <a href="../ibm_catalogs/">ibm_catalogs</a> role in this collection.</p>
-<p>By default a catalog source of <strong>ibm-operator-catalog</strong> will be expected, but this can be customized using the <code>common_services_catalog_source</code> variable.</p>
+                <h1 id="ocp_efs">ocp_efs<a class="headerlink" href="#ocp_efs" title="Permanent link"></a></h1>
+<p>This role provides support to install aws-efs on aws using <code>aws cli</code> and connect that to ROSA using <code>oc</code> CLI. This role create a new inbound rule in the security group of the ec2 instance where rosa is installed and then creates a new EFS instance and adds access points and network mounts to access EFS from ROSA.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<h3 id="common_services_action">common_services_action<a class="headerlink" href="#common_services_action" title="Permanent link"></a></h3>
-<p>Inform the role whether to perform an install or uninstall of IBM Cloud Pak Foundational Services.</p>
+<h3 id="aws_access_key_id">aws_access_key_id<a class="headerlink" href="#aws_access_key_id" title="Permanent link"></a></h3>
+<p>The AWS access key will be used to login to aws cli.</p>
 <ul>
-<li>Optional</li>
-<li>Environment Variable: <code>COMMON_SERVICES_ACTION</code></li>
-<li>Default: <code>install</code></li>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>AWS_ACCESS_KEY_ID</code></li>
+<li>Default: None</li>
 </ul>
-<h3 id="common_services_catalog_source">common_services_catalog_source<a class="headerlink" href="#common_services_catalog_source" title="Permanent link"></a></h3>
-<p>Used to override the operator catalog source used when creating the <code>ibm-common-service-operator</code> subscription.</p>
+<h3 id="aws_secret_access_key">aws_secret_access_key<a class="headerlink" href="#aws_secret_access_key" title="Permanent link"></a></h3>
+<p>The AWS access secret key will be used to login to aws cli.</p>
 <ul>
-<li>Optional</li>
-<li>Environment Variable: <code>COMMON_SERVICES_CATALOG_SOURCE</code></li>
-<li>Default Value: <code>ibm-operator-catalog</code></li>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>AWS_SECRET_ACCESS_KEY</code></li>
+<li>Default: None</li>
 </ul>
-<h3 id="common_services_channel">common_services_channel<a class="headerlink" href="#common_services_channel" title="Permanent link"></a></h3>
-<p>Used to override the operator catalog source used when creating the <code>ibm-common-service-operator</code> subscription.</p>
+<h3 id="aws_region">AWS_region<a class="headerlink" href="#aws_region" title="Permanent link"></a></h3>
+<p>The aws region where you wish to provision the EFS instance.</p>
 <ul>
-<li>Optional</li>
-<li>Environment Variable: <code>COMMON_SERVICES_CHANNEL</code></li>
-<li>Default Value: Role will lookup the default channel from the operator's package manifest.</li>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>AWS_DEFAULT_REGION</code></li>
+<li>Default: <code>eu-west-2</code></li>
 </ul>
-<h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
-<p>After installing the Ansible Collection you can include this role in your own custom playbooks.</p>
-<pre><code class="language-yaml">- hosts: localhost
-  roles:
-    - ibm.mas_devops.ibm_catalogs
-    - ibm.mas_devops.common_services
-</code></pre>
-<h2 id="run-role-playbook">Run Role Playbook<a class="headerlink" href="#run-role-playbook" title="Permanent link"></a></h2>
-<p>After installing the Ansible Collection you can easily run the role standalone using the <code>run_role</code> playbook provided.</p>
-<pre><code class="language-bash">ROLE_NAME=common_services ansible-playbook ibm.mas_devops.run_role
-</code></pre>
+<h3 id="cluster_name">cluster_name<a class="headerlink" href="#cluster_name" title="Permanent link"></a></h3>
+<p>The name of the cluster we are going to attach the EFS storage to.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>CLUSTER_NAME</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="efs_unique_id">efs_unique_id<a class="headerlink" href="#efs_unique_id" title="Permanent link"></a></h3>
+<p>Any unique identifier like mas instance id which will be used as EFS storage class name. If this parameter is not set, then cluster_name will be used</p>
+<ul>
+<li><strong>Optional</strong></li>
+<li>Environment Variable: <code>EFS_UNIQUE_ID</code></li>
+<li>Default: None</li>
+</ul>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>
               
@@ -342,6 +355,10 @@
         </span>
     
     
+      <span><a href="../ocp_disable_updates/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../ocp_github_oauth/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
