@@ -52,6 +52,7 @@ copyDoc nvidia_gpu
 copyDoc ocp_contentsourcepolicy
 copyDoc ocp_deprovision
 copyDoc ocp_disable_updates
+copyDoc ocp_efs
 copyDoc ocp_github_oauth
 copyDoc ocp_ingress
 copyDoc ocp_login
