@@ -12,6 +12,28 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/grafana-operatorgroup.yml.j2') }}"
 
+- name: "install : Get grafana package manifest"
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: grafana-operator
+    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+  register: grafana_manifest
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - grafana_manifest is defined
+      - grafana_manifest.resources is defined
+      - grafana_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: grafana-operator"
+
+- name: "install : Set the subscription information"
+  set_fact:
+    grafana_source: "{{ grafana_manifest.resources[0].status.catalogSource }}"
+    grafana_source_namespace: "{{ grafana_manifest.resources[0].status.catalogSourceNamespace }}"
+    grafana_default_channel: "{{ grafana_manifest.resources[0].status.defaultChannel }}"
+
 - name: "install : grafana : Create Grafana Operator Subscription"
   kubernetes.core.k8s:
     template: templates/grafana-subscription.yml.j2
@@ -137,3 +159,16 @@
     template: templates/grafana-datasource.yml.j2
     wait: yes
     wait_timeout: 120
+
+- name: "install : grafana : Wait for grafana to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: integreatly.org/v1alpha1
+    name: mas-grafana
+    namespace: "{{grafana_namespace}}"
+    kind: Grafana
+  register: grafana_cr_result
+  until:
+    - grafana_cr_result.resources[0].status.message is defined
+    - grafana_cr_result.resources[0].status.message == "success"
+  retries: 10 # approx 50 minutes before we give up
+  delay: 60 # 1 minute

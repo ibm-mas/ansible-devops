@@ -21,8 +21,16 @@
     api_version: packages.operators.coreos.com/v1
     kind: PackageManifest
     name: ibm-data-dictionary
-    namespace: openshift-marketplace
+    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
   register: dd_manifest_info
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - dd_manifest_info is defined
+      - dd_manifest_info.resources is defined
+      - dd_manifest_info.resources | length == 1
+    fail_msg: "PackageManifest not found: ibm-data-dictionary"
 
 - name: "Lookup version of Data Dictionary using the channel"
   set_fact:
@@ -35,17 +43,15 @@
       - "Data Dictionary Version ........... {{ dd_version }}"
 
 
-# 3. Create the Image Digest Map for Data Dictionary v1.1.3
+# 3. Create the Image Digest Map for Data Dictionary
 # -----------------------------------------------------------------------------
 - name: "Create data-dictionary namespace"
-  when: dd_version is version('1.1.3', '==')
   kubernetes.core.k8s:
     api_version: v1
     kind: Namespace
     name: 'mas-{{ mas_instance_id }}-add'
 
 - name: "Create ibm-data-dictionary Image Digest Map"
-  when: dd_version is version('1.1.3', '==')
   include_role:
     name: ibm.mas_devops.suite_install_digest_cm
   vars:

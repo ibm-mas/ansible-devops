@@ -74,6 +74,12 @@ Boolean variable that, when set to True, enable manual certificate management.
 - Environment Variable: `MAS_MANUAL_CERT_MGMT`,
 - Default: False
 
+### mas_trust_default_cas
+Boolean variable that defines whether default Certificate Authorities are included in MAS trust stores. This only has an effect with IBM Maximo Application Suite version 8.11 and above
+
+- Optional
+- Environment Variable: `MAS_TRUST_DEFAULT_CAS`,
+- Default: True
 
 Example Playbook
 -------------------------------------------------------------------------------

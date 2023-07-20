@@ -4,7 +4,32 @@
 - include_tasks: tasks/determine-storage-classes.yml
 
 
-# 2. Delete if the cluster supports 'integreatly.org/v1' for GrafanaDashboards
+# 2. Lookup the packagemanifest for amq-streams
+# -----------------------------------------------------------------------------
+- name: Get amq-streams package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: amq-streams
+    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+  register: amqstreams_manifest
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - amqstreams_manifest is defined
+      - amqstreams_manifest.resources is defined
+      - amqstreams_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: amq-streams"
+
+- name: Set the subscription information
+  set_fact:
+    amqstreams_source: "{{ amqstreams_manifest.resources[0].status.catalogSource }}"
+    amqstreams_source_namespace: "{{ amqstreams_manifest.resources[0].status.catalogSourceNamespace }}"
+    amqstreams_default_channel: "{{ amqstreams_manifest.resources[0].status.defaultChannel }}"
+
+
+# 3. Detect if the cluster supports 'integreatly.org/v1' for GrafanaDashboards
 # -----------------------------------------------------------------------------
 - name: Get cluster info
   kubernetes.core.k8s_cluster_info:
@@ -19,7 +44,8 @@
     - api_status.apis is defined
     - api_status.apis['integreatly.org/v1alpha1'] is defined
 
-# 3. Lookup any existing kafka user in the kafka namespace to use the same password
+
+# 4. Lookup any existing kafka user in the kafka namespace to use the same password
 # -----------------------------------------------------------------------------
 - name: "Lookup any existing Kafka User Secret"
   kubernetes.core.k8s_info:
@@ -36,11 +62,16 @@
     - kafka_user_secret_lookup is defined
     - kafka_user_secret_lookup.resources[0].data.password is defined
 
-# 4. Provide debug
+
+# 5. Provide debug
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
+      - "Catalog source  ....................... {{ amqstreams_source }}"
+      - "Catalog source namespace .............. {{ amqstreams_source_namespace }}"
+      - "Default channel ....................... {{ amqstreams_default_channel }}"
+
       - "AMQ Streams namespace ................. {{ kafka_namespace }}"
       - "AMQ Streams kafka version ............. {{ kafka_version }}"
       - "AMQ Streams cluster name .............. {{ kafka_cluster_name }}"
@@ -52,7 +83,8 @@
       - "AMQ Streams MAS user .................. {{ kafka_user_name }}"
       - "Cluster supports integreatly .......... {{ supports_integreatly_org }}"
 
-# 5. Install AMQ Streams operator
+
+# 6. Install AMQ Streams operator
 # -----------------------------------------------------------------------------
 - name: "Install AMQ Streams Operator"
   kubernetes.core.k8s:
@@ -60,7 +92,7 @@
     template: templates/{{ kafka_provider }}/subscription.yml.j2
 
 
-# 6. Wait until the Kafka CRD is available
+# 7. Wait until the Kafka CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Kafka CRD is available"
   kubernetes.core.k8s_info:
@@ -81,7 +113,7 @@
     - kafka_crd_info.resources | length > 0
 
 
-# 7. Create logging/monitoring configmaps and PodMonitor custom resources
+# 8. Create logging/monitoring configmaps and PodMonitor custom resources
 # -----------------------------------------------------------------------------
 - name: "Create Kafka logging configmap"
   kubernetes.core.k8s:
@@ -98,7 +130,7 @@
     apply: yes
     template: "templates/{{ kafka_provider }}/podmonitor.yml.j2"
 
-# 8. Deploy the cluster
+# 9. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "Create Kafka Cluster"
   kubernetes.core.k8s:
@@ -106,7 +138,7 @@
     template: "templates/{{ kafka_provider }}/clusters/{{ kafka_cluster_size }}.yml.j2"
 
 
-# 9. Wait until the KafkaUser CRD is available
+# 10. Wait until the KafkaUser CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the KafkaUser CRD is available"
   kubernetes.core.k8s_info:
@@ -127,14 +159,15 @@
     - kafkauser_crd_info.resources | length > 0
 
 
-# 10. Create the MAS user
+# 11. Create the MAS user
 # -----------------------------------------------------------------------------
 - name: "Create Kafka User"
   kubernetes.core.k8s:
     apply: yes
     template: templates/{{ kafka_provider }}/masuser.yml.j2
 
-# 11. Create Grafana dashboards for Kafka monitoring
+
+# 12. Create Grafana dashboards for Kafka monitoring
 # -----------------------------------------------------------------------------
 - name: "Create Kafka monitoring dashboards"
   kubernetes.core.k8s:
@@ -145,7 +178,7 @@
   when: supports_integreatly_org
 
 
-# 12. Lookup details
+# 13. Lookup details
 # -----------------------------------------------------------------------------
 # We have seen instances where the Kafka cluster is reported as Ready but
 # the necessary fields in the status resource are not set yet so we retry until
@@ -196,7 +229,7 @@
       - "MAS user password ............ {{ kafka_user_password }}"
 
 
-# 13. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
+# 14. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
 # -----------------------------------------------------------------------------
 - name: Debug KafkaCfg creation properties
   when:

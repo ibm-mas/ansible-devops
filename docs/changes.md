@@ -1,7 +1,22 @@
 ## Changes
 Note that links to pull requests prior to public release of the code (4.0) direct to IBM GitHub Enterprise, and will only be accessible to IBM employees.
 
-
+- `15.0` Multiple Updates:
+    - Overhaul image mirroring logic ([#900](https://github.com/ibm-mas/ansible-devops/pull/900))
+    - Support setting trustDefaultCAs in Suite ([#780](https://github.com/ibm-mas/ansible-devops/pull/780))
+    - Support customizable EFS storage ID ([#901](https://github.com/ibm-mas/ansible-devops/pull/901))
+    - Support customizable AWS MSK secret name ([#902](https://github.com/ibm-mas/ansible-devops/pull/902))
+- `14.0` Multiple Updates:
+    - Remove old cert-manager related roles and adds new validations to `suite_dns` role ([#870](https://github.com/ibm-mas/ansible-devops/pull/870))
+    - Add support for Catalog Update 230627 ([#886](https://github.com/ibm-mas/ansible-devops/pull/886))
+    - Support more detailed OCP verification checks ([#882](https://github.com/ibm-mas/ansible-devops/pull/882))
+- `13.15` Add support for June Catalog Update ([#860](https://github.com/ibm-mas/ansible-devops/pull/860))
+- `13.14` Add new Manage bundle server config for SNO ([#841](https://github.com/ibm-mas/ansible-devops/pull/841))
+- `13.13` Support OCP node configuration ([#854](https://github.com/ibm-mas/ansible-devops/pull/854))
+- `13.12` Support Kubeturbo for Turbonomics ([#792](https://github.com/ibm-mas/ansible-devops/pull/792))
+- `13.11` Add support for May Catalog Update ([#838](https://github.com/ibm-mas/ansible-devops/pull/838))
+- `13.10` Add support for AWS Route 53 as DNS provider for MAS installs ([#828](https://github.com/ibm-mas/ansible-devops/pull/828))
+- `13.9` Support for Cloud Pak for Data 4.6.4 ([#790](https://github.com/ibm-mas/ansible-devops/pull/785))
 - `13.8` Multiple Updates:
     - Support May Catalog Update ([#813](https://github.com/ibm-mas/ansible-devops/pull/813))
     - Add OpenTelemetry to monitoring stack ([#809](https://github.com/ibm-mas/ansible-devops/pull/809))
