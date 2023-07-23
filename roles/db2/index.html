@@ -144,6 +144,8 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables-installation">Role Variables - Installation</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#db2_action">db2_action</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#db2_namespace">db2_namespace</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#db2_channel">db2_channel</a>
@@ -400,16 +402,24 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="db2">db2<a class="headerlink" href="#db2" title="Permanent link"></a></h1>
-<p>This role creates a Db2 Warehouse instance using the Db2u Operator. A namespace called <code>db2u</code> will be created and the db2u operator will be installed into the <code>ibm-common-services</code> namespace to service the <code>db2ucluster</code> requests in <code>db2u</code> namespace. A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the <em>-db2u-engn-svc service). Internal access is via the </em>-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.</p>
-<p>The private root CA certificate and the server certificate are available from the <code>db2u-ca</code> and <code>db2u-certificate</code> secrets in the <code>db2u</code> namespace.  The default user is <code>db2inst1</code> and the password is available in the <code>instancepassword</code> secret in the same namespace.  You can examine the deployed resources in the <code>db2u</code> namespace:</p>
+<p>This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will be installed into the <code>ibm-common-services</code> namespace to service the <code>db2ucluster</code> requests in the namespace. A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the <em>-db2u-engn-svc service). Internal access is via the </em>-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.</p>
+<p>The private root CA certificate and the server certificate are available from the <code>db2u-ca</code> and <code>db2u-certificate</code> secrets in the db2 namespace.  The default user is <code>db2inst1</code> and the password is available in the <code>instancepassword</code> secret in the same namespace.  You can examine the deployed resources in the db2 namespace. This example assumes the default namespace <code>db2u</code>:</p>
 <pre><code class="language-bash">oc -n db2u get db2ucluster
 
 NAME        STATE   MAINTENANCESTATE   AGE
 db2u-db01   Ready   None               29m
 </code></pre>
-<p>It typically takes 20-30 minutes from the db2ucluster being created till it is ready. If the db2ucluster is not ready after that period then check that all the PersistentVolumeClaims in the <code>db2u</code> namespace are ready and that the pods in the namespace are not stuck in init state. If the <code>c-&lt;db2_instance_name&gt;-db2u-0</code> pod is running then you can exec into the pod and check the <code>/var/log/db2u.log</code> for any issue.</p>
+<p>It typically takes 20-30 minutes from the db2ucluster being created till it is ready. If the db2ucluster is not ready after that period then check that all the PersistentVolumeClaims in the db2 namespace are ready and that the pods in the namespace are not stuck in init state. If the <code>c-&lt;db2_instance_name&gt;-db2u-0</code> pod is running then you can exec into the pod and check the <code>/var/log/db2u.log</code> for any issue.</p>
 <p>If the <code>mas_instance_id</code> and <code>mas_config_dir</code> are provided then the role will generate the JdbcCfg yaml that can be used to configure MAS to connect to this database. It does not apply the yaml to the cluster but does provide you with the yaml files to apply if needed.</p>
+<p>When upgrading db2, specify the existing namespace where the <code>db2uCluster</code> instances exist. All the instances under that namespace will be upgraded to the db2 version specified. The version of db2 <strong>must</strong> match the channel of db2 being used for the upgrade.</p>
 <h2 id="role-variables-installation">Role Variables - Installation<a class="headerlink" href="#role-variables-installation" title="Permanent link"></a></h2>
+<h3 id="db2_action">db2_action<a class="headerlink" href="#db2_action" title="Permanent link"></a></h3>
+<p>Inform the role whether to perform an install or upgrade of DB2 Database. This can be set to <code>install</code> or <code>upgrade</code>. When <code>DB2_ACTION</code> is set to upgrade, then all instances in the <code>DB2_NAMESPACE</code> will be upgraded to the <code>DB2_VERSION</code>.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>DB2_ACTION</code></li>
+<li>Default: <code>install</code></li>
+</ul>
 <h3 id="db2_namespace">db2_namespace<a class="headerlink" href="#db2_namespace" title="Permanent link"></a></h3>
 <p>Name of the namespace where Db2 clusters will be created</p>
 <ul>
@@ -450,7 +460,7 @@ db2u-db01   Ready   None               29m
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>DB2_VERSION</code></li>
-<li>Default: <code>11.5.7.0-cn2</code></li>
+<li>Default: <code>s11.5.8.0</code></li>
 </ul>
 <h3 id="db2_4k_device_support">db2_4k_device_support<a class="headerlink" href="#db2_4k_device_support" title="Permanent link"></a></h3>
 <p>Whether 4K device support is turned on or not.</p>
