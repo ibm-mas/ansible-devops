@@ -68,9 +68,9 @@
     msg: "No action is required. Db2 subscription is already on the {{ db2_channel }} channel"
 
 
-# 4. Create operand request
+# 4. Delete old Db2 OperandRequest
 # -----------------------------------------------------------------------------
-- name: "Create Db2 Operand Request"
+- name: "Delete old Db2 OperandRequest"
   when: db2_channel != old_db2_channel
   kubernetes.core.k8s:
     state: absent
@@ -80,12 +80,14 @@
   register: operandrequest_removal
 
 - name: "Wait 2 minutes if we removed an old OperandRequest"
-  when: operandrequest_removal.changed == True
+  when:
+    - db2_channel != old_db2_channel
+    - operandrequest_removal.changed == True
   pause:
     minutes: 2
 
 
-# 5. Upgrade Subscription otherwise
+# 5. Upgrade Subscription
 # -----------------------------------------------------------------------------
 - name: "Update subscription to the new channel"
   when: db2_channel != old_db2_channel
