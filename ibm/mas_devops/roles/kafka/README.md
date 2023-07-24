@@ -321,6 +321,14 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Default Value: None
 
 
+### aws_msk_secret
+AWS MSK Secret name. The secret name must begin with the prefix AmazonMSK_. If this is not set, then default secret name will be AmazonMSK_SECRET_{{kafka_cluster_name}}
+
+- Optional
+- Environment Variable: `AWS_MSK_SECRET`
+- Default Value: `AmazonMSK_SECRET_{{kafka_cluster_name}}'`
+
+
 Example Playbook to install AWS MSK
 ----------------
 
