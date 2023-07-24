@@ -20,7 +20,7 @@ Role Variables
 -------------------------------------------------------------------------------
 
 ### common_services_action
-Inform the role whether to perform an install or uninstall of IBM Cloud Pak Foundational Services.
+Inform the role whether to perform an install, upgrade or uninstall of IBM Cloud Pak Foundational Services.
 
 - Optional
 - Environment Variable: `COMMON_SERVICES_ACTION`
