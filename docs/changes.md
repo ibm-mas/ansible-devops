@@ -3,6 +3,7 @@ Note that links to pull requests prior to public release of the code (4.0) direc
 
 - `15.1` Multiple Updates
     - Support July 230725 Catalog Update ([#897](https://github.com/ibm-mas/ansible-devops/pull/897))
+    - Support 230721 Catalog with UDS 2.0.11 Fix ([#897](https://github.com/ibm-mas/ansible-devops/pull/897))
     - Support Db2u upgrade ([#829](https://github.com/ibm-mas/ansible-devops/pull/829))
 - `15.0` Multiple Updates:
     - Overhaul image mirroring logic ([#900](https://github.com/ibm-mas/ansible-devops/pull/900))
