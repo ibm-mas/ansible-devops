@@ -231,6 +231,11 @@ Platform to create the cluster on.  Technically, any platform supported by `open
 - Environment Variable: `IPI_PLATFORM`
 - Default Value: `aws`
 
+### ipi_rootvolume_size
+The size of root volume in GiB. 
+
+- Optional when `cluster_type = ipi`
+- Environment variable: `IPI_ROOTVOLUME_SIZE`
 
 ### ipi_region
 Platform region where OCP cluster will be created.
@@ -242,7 +247,7 @@ Platform region where OCP cluster will be created.
 ### ipi_base_domain
 Specify the base domain of the cluster that will be provisioned.
 
-- **Required** when `cluster_type = aipi`
+- **Required** when `cluster_type = ipi`
 - Environment Variable: `IPI_BASE_DOMAIN`
 - Default Value: None
 
