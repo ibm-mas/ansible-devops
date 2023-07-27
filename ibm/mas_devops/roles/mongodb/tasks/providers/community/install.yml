@@ -189,6 +189,26 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/admin-password.yml') }}"
 
+# 7.1 Create MongoDb metrics endpoint secret
+# -----------------------------------------------------------------------------
+- name: "community : install : Check for existing metrics endpoint secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mas-mongo-ce-metrics-endpoint-secret
+    namespace: "{{ mongodb_namespace }}"
+  register: metrics_endpoint_secret_info
+  when:
+    - mongodb_ce_version is version('0.7.8', '>=')
+
+- name: "community : install : Create new MongoDb metrics endpoint secret"
+  when:
+    - metrics_endpoint_secret_info.resources is defined
+    - metrics_endpoint_secret_info.resources | length == 0
+    - mongodb_ce_version is version('0.7.8', '>=')
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/metrics-endpoint-secret.yml.j2') }}"
 
 # 8. Deploy the cluster
 # -----------------------------------------------------------------------------
@@ -246,6 +266,48 @@
   until:
     - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version is defined) or mongodb_ce_version is version('0.7.0', '==')
     - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version == expected_mongodb_version) or mongodb_ce_version is version('0.7.0', '==')
+
+# 9.1 Create MongoDb service monitor
+# -----------------------------------------------------------------------------
+- name: "community : install : Check for existing service monitor"
+  kubernetes.core.k8s_info:
+    api_version: monitoring.coreos.com/v1
+    kind: ServiceMonitor
+    name: mas-mongo-ce-service-monitor
+    namespace: "{{ mongodb_namespace }}"
+  register: mongoce_servicemonitor_info
+  when:
+    - mongodb_ce_version is version('0.7.8', '>=')
+
+- name: "community : install : Create new MongoDb service monitor"
+  when:
+    - mongoce_servicemonitor_info.resources is defined
+    - mongoce_servicemonitor_info.resources | length == 0
+    - mongodb_ce_version is version('0.7.8', '>=')
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/servicemonitor.yml.j2') }}"
+
+# 9.2 Create MongoDb Grafana dashboard
+# -----------------------------------------------------------------------------
+- name: "community : install : Check for existing Grafana dashboard"
+  kubernetes.core.k8s_info:
+    api_version: integreatly.org/v1alpha1
+    kind: GrafanaDashboard
+    name: mongodb-overview
+    namespace: "{{ mongodb_namespace }}"
+  register: mongoce_grafana_dashboard_info
+  when:
+    - mongodb_ce_version is version('0.7.8', '>=')
+
+- name: "community : install : Create new MongoDb Grafana dashboard"
+  when:
+    - mongoce_grafana_dashboard_info.resources is defined
+    - mongoce_grafana_dashboard_info.resources | length == 0
+    - mongodb_ce_version is version('0.7.8', '>=')
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/dashboards/mongodb-overview.yml.j2') }}"
 
 # 10. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
