@@ -231,12 +231,6 @@ Platform to create the cluster on.  Technically, any platform supported by `open
 - Environment Variable: `IPI_PLATFORM`
 - Default Value: `aws`
 
-### ipi_rootvolume_size
-The size of root volume in GiB. 
-
-- Optional when `cluster_type = ipi`
-- Environment variable: `IPI_ROOTVOLUME_SIZE`
-
 ### ipi_region
 Platform region where OCP cluster will be created.
 
@@ -301,6 +295,11 @@ The number of worker nodes to provsision in the cluster, providing your compute 
 - Environment Variable: `IPI_COMPUTE_REPLICAS`
 - Default Value: `3`
 
+### ipi_rootvolume_size
+The size of root volume in GiB. 
+
+- Optional when `cluster_type = ipi`
+- Environment variable: `IPI_ROOTVOLUME_SIZE`
 
 Role Variables - AWS
 -------------------------------------------------------------------------------
