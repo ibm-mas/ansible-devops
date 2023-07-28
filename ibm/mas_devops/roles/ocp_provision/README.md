@@ -141,6 +141,20 @@ Number of compute nodes to deploy in the cluster.
 - Environment Variable: `ROSA_COMPUTE_NODES`
 - Default Value: `3`
 
+### rosa_compute_machine_type
+Worker nodes machine
+
+- Optional
+- Environment Variable: `ROSA_COMPUTE_MACHINE_TYPE`
+- Default Value: `m5.4xlarge`
+
+
+### rosa_action
+Number of compute nodes to deploy in the cluster.
+
+- Optional
+- Environment Variable: `ROSA_COMPUTE_MACHINE_TYPE`
+- Default Value: `m5.4xlarge`
 
 Role Variables - FYRE
 -------------------------------------------------------------------------------
