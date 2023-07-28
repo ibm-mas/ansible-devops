@@ -60,6 +60,7 @@
   when:
     - mas_wipe_mongo_data
 
+
 # 3. Delete the Suite CR
 # -----------------------------------------------------------------------------
 - name: "Delete Suite CR"
@@ -92,7 +93,23 @@
   delay: 10
 
 
-# 5. Verify that Suite CR is gone
+# 5. Delete the Truststores
+# -----------------------------------------------------------------------------
+# Not 100% clear why, but sometimes the child Truststores don't get automatically
+# removed when their parent is deleted.
+- name: "Delete Core Truststores"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: truststore-mgr.ibm.com/v1
+    kind: Truststore
+    namespace: "mas-{{ mas_instance_id }}-core"
+    name: "{{ item }}"
+  with_items:
+    - "{{ mas_instance_id }}-coreidp-truststore"
+    - "{{ mas_instance_id }}-truststore"
+
+
+# 6. Verify that Suite CR is gone
 # -----------------------------------------------------------------------------
 - name: "Look for the Suite CR after deletion"
   kubernetes.core.k8s_info:
@@ -108,7 +125,8 @@
       - verify_suite_delete.resources is defined
       - verify_suite_delete.resources | length == 0
 
-# 6. Verify that Truststore CRs are all gone
+
+# 7. Verify that Truststore CRs are all gone
 # -----------------------------------------------------------------------------
 - name: "Look for the Suite CR after deletion"
   kubernetes.core.k8s_info:
@@ -124,7 +142,7 @@
       - verify_truststores_delete.resources | length == 0
 
 
-# 7. Delete Suite Subscription
+# 8. Delete Suite Subscription
 # -----------------------------------------------------------------------------
 # TODO: This would be more reliable if we used a label selector with:
 #         operators.coreos.com/ibm-mas.mas-clitest-core: ""
@@ -156,7 +174,7 @@
       - "operators.coreos.com/ibm-common-service-operator.mas-{{ mas_instance_id }}-core"
 
 
-# 8. Delete CSVs
+# 9. Delete CSVs
 # -----------------------------------------------------------------------------
 - name: "Delete ibm-mas CSV"
   kubernetes.core.k8s:
@@ -186,7 +204,7 @@
       - "operators.coreos.com/ibm-common-service-operator.mas-{{ mas_instance_id }}-core"
 
 
-# 9. Wait for all deployments to be terminated
+# 10. Wait for all deployments to be terminated
 # -----------------------------------------------------------------------------
 - name: "Wait for operator deployments to wind down"
   kubernetes.core.k8s_info:
@@ -201,7 +219,7 @@
   delay: 10
 
 
-# 10. Delete ClusterIssuers
+# 11. Delete ClusterIssuers
 # -----------------------------------------------------------------------------
 # The ClusterIssuers are used by MAS to create Certificates
 - name: "Delete ibm-mas Internal certificate ClusterIssuer"
@@ -231,7 +249,8 @@
     wait: true
     wait_timeout: 600
 
-# 11. Delete Certificates
+
+# 12. Delete Certificates
 # -----------------------------------------------------------------------------
 # The Certificates are created by the Issuers
 # The Certificates are used by the ClusterIssuers to sign Certificates
@@ -256,7 +275,7 @@
     wait_timeout: 600
 
 
-# 12. Delete Issuers
+# 13. Delete Issuers
 # -----------------------------------------------------------------------------
 # The issuers are used to generate the CA certificate used by the ClusterIssuers
 - name: "Delete ibm-mas Internal CA certificate Issuer"
@@ -280,7 +299,7 @@
     wait_timeout: 600
 
 
-# 13. Delete Suite Namespace
+# 14. Delete Suite Namespace
 # -----------------------------------------------------------------------------
 - name: "Delete core namespace"
   kubernetes.core.k8s:
@@ -290,7 +309,7 @@
     name: "mas-{{ mas_instance_id }}-core"
 
 
-# 14. Verify Suite Namespace is gone
+# 15. Verify Suite Namespace is gone
 # -----------------------------------------------------------------------------
 - name: "Wait for namespace to be deleted"
   kubernetes.core.k8s_info:

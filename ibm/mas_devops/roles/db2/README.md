@@ -1,9 +1,9 @@
 db2
 ===============================================================================
 
-This role creates a Db2 Warehouse instance using the Db2u Operator. A namespace called `db2u` will be created and the db2u operator will be installed into the `ibm-common-services` namespace to service the `db2ucluster` requests in `db2u` namespace. A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the *-db2u-engn-svc service). Internal access is via the *-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.
+This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will be installed into the `ibm-common-services` namespace to service the `db2ucluster` requests in the namespace. A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the *-db2u-engn-svc service). Internal access is via the *-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.
 
-The private root CA certificate and the server certificate are available from the `db2u-ca` and `db2u-certificate` secrets in the `db2u` namespace.  The default user is `db2inst1` and the password is available in the `instancepassword` secret in the same namespace.  You can examine the deployed resources in the `db2u` namespace:
+The private root CA certificate and the server certificate are available from the `db2u-ca` and `db2u-certificate` secrets in the db2 namespace.  The default user is `db2inst1` and the password is available in the `instancepassword` secret in the same namespace.  You can examine the deployed resources in the db2 namespace. This example assumes the default namespace `db2u`:
 
 ```bash
 oc -n db2u get db2ucluster
@@ -12,13 +12,22 @@ NAME        STATE   MAINTENANCESTATE   AGE
 db2u-db01   Ready   None               29m
 ```
 
-It typically takes 20-30 minutes from the db2ucluster being created till it is ready. If the db2ucluster is not ready after that period then check that all the PersistentVolumeClaims in the `db2u` namespace are ready and that the pods in the namespace are not stuck in init state. If the `c-<db2_instance_name>-db2u-0` pod is running then you can exec into the pod and check the `/var/log/db2u.log` for any issue.
+It typically takes 20-30 minutes from the db2ucluster being created till it is ready. If the db2ucluster is not ready after that period then check that all the PersistentVolumeClaims in the db2 namespace are ready and that the pods in the namespace are not stuck in init state. If the `c-<db2_instance_name>-db2u-0` pod is running then you can exec into the pod and check the `/var/log/db2u.log` for any issue.
 
 If the `mas_instance_id` and `mas_config_dir` are provided then the role will generate the JdbcCfg yaml that can be used to configure MAS to connect to this database. It does not apply the yaml to the cluster but does provide you with the yaml files to apply if needed.
+
+When upgrading db2, specify the existing namespace where the `db2uCluster` instances exist. All the instances under that namespace will be upgraded to the db2 version specified. The version of db2 **must** match the channel of db2 being used for the upgrade.
 
 
 Role Variables - Installation
 -------------------------------------------------------------------------------
+### db2_action
+Inform the role whether to perform an install or upgrade of DB2 Database. This can be set to `install` or `upgrade`. When `DB2_ACTION` is set to upgrade, then all instances in the `DB2_NAMESPACE` will be upgraded to the `DB2_VERSION`.
+
+- Optional
+- Environment Variable: `DB2_ACTION`
+- Default: `install`
+
 ### db2_namespace
 Name of the namespace where Db2 clusters will be created
 
@@ -59,7 +68,7 @@ Version of the DB2U operator instance to be created.
 
 - Optional
 - Environment Variable: `DB2_VERSION`
-- Default: `11.5.7.0-cn2`
+- Default: `s11.5.8.0`
 
 ### db2_4k_device_support
 Whether 4K device support is turned on or not.
