@@ -30,7 +30,7 @@
     az: "{{ az_info.stdout | from_json | json_query('AvailabilityZones') }}"
 
 - name: "Create Subnets in three availability Zones"
-  include_tasks:  utils/create_subnet.yml
+  include_tasks: utils/create_subnet.yml
   loop:
     - ["{{az[0].ZoneName}}", "{{ aws_ec2_cidr_az1 }}"]
 
@@ -52,10 +52,10 @@
 
 # 4. Read instance user details from secret manager and create K8S secret
 # -----------------------------------------------------------------------------
-- name: Get secret value from SM  
-  shell: aws secretsmanager get-secret-value --secret-id {{secret_name_mongo_instance}} --query 'SecretString' --output text 2> /dev/null 
+- name: Get secret value from SM
+  shell: aws secretsmanager get-secret-value --secret-id {{secret_name_mongo_instance}} --query 'SecretString' --output text 2> /dev/null
   register: get_secret_value
- 
+
 - name: "Debug get_secret_value"
   debug:
     msg:
@@ -90,4 +90,3 @@
   ansible.builtin.template:
     src: docdb_instance_user_credentials_secret.yaml.j2
     dest: "{{ mas_config_dir }}/{{ docdb_instance_credentials_secret_name }}.yml"
-
