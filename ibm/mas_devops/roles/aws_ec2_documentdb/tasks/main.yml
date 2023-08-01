@@ -1,0 +1,101 @@
+---
+- name: "Debug: AWS EC2 + Mongo instance user properties"
+  debug:
+    msg:
+      - "mas_instance_id ........................ {{ mas_instance_id }}"
+      - "docdb_host ............................. {{ docdb_host }}"
+      - "docdb_port ............................. {{ docdb_port }}"
+      - "docdb_master_username .................. {{ docdb_master_username }}"
+      - "docdb_master_password .................. {{ docdb_master_password }}"
+      - "docdb_ingress_cidr ..................... {{ docdb_ingress_cidr }}"
+      - "docdb_egress_cidr ...................... {{ docdb_egress_cidr }}"
+      - "aws_ec2_cidr_az1 ....................... {{ aws_ec2_cidr_az1 }}"
+      - "aws_key_pair_name ...................... {{ aws_key_pair_name }}"
+      - "docdb_cluster_name ..................... {{ docdb_cluster_name }}"
+      - "secret_name_mongo_instance ............. {{ secret_name_mongo_instance }}"
+      - "mas_config_dir ......................... {{ mas_config_dir }}"
+      - "vpc_id ................................. {{ vpc_id }}"
+      - "docdb_security_group_name .............. {{ docdb_security_group_name }}"
+      - "aws_region ............................. {{ aws_region }}"
+      - "docdb_instance_username ................ {{ docdb_instance_username }}"
+      - "docdb_instance_password ................ {{ docdb_instance_password }}"
+      - "temp_docdb_instance_password ................ {{ temp_docdb_instance_password }}"
+      - "temp_secret_name_mongo_instance ................ {{ temp_secret_name_mongo_instance }}"
+      
+      
+
+# 1. Create subnet in VPC in given availability Zone
+# -----------------------------------------------------------------------------
+- name: "Initialize Facts for provisioning"
+  set_fact:
+    subnet_id_list: []
+
+- name: "Fetch availability Zones in VPC Region"
+  shell: aws ec2 describe-availability-zones
+  register: az_info
+
+- name: "Set Fact for availability zones"
+  set_fact:
+    az: "{{ az_info.stdout | from_json | json_query('AvailabilityZones') }}"
+
+- name: "Create Subnets in three availability Zones"
+  include_tasks: utils/create_subnet.yml
+  loop:
+    - ["{{az[0].ZoneName}}", "{{ aws_ec2_cidr_az1 }}"]
+
+- name: "Debug Created Subnet Ids in VPC"
+  debug:
+    msg:
+      - "Subnet Id List ......................... {{ subnet_id_list }}"
+
+
+# 2. Create Security Group and add ingress, egress rules
+# -----------------------------------------------------------------------------
+- name: Create Security Group and add ingress, egress rules
+  ansible.builtin.include_tasks: utils/create_security_group.yml
+
+# 3. Provision EC2 instance, --user-data script will create the instance user and add it to secret manager
+# -----------------------------------------------------------------------------
+- name: Provision EC2 instance, and create user
+  ansible.builtin.include_tasks: utils/ec2.yml
+
+# 4. Read instance user details from secret manager and create K8S secret
+# -----------------------------------------------------------------------------
+- name: Get secret value from SM
+  shell: aws secretsmanager get-secret-value --secret-id {{secret_name_mongo_instance}} --query 'SecretString' --output text 2> /dev/null
+  register: get_secret_value
+
+- name: "Debug get_secret_value"
+  debug:
+    msg:
+      - "get_secret_value ................................. {{ get_secret_value.stdout }}"
+
+- name: "Fail if secret value doesnot have username and password"
+  assert:
+    that:
+      - get_secret_value is defined and get_secret_value != ''
+      - get_secret_value.stdout | from_json | json_query('username')
+      - get_secret_value.stdout | from_json | json_query('password')
+
+- name: "Debug get_secret_value"
+  debug:
+    msg:
+      - "docdb instance username .......................... {{ get_secret_value.stdout | from_json | json_query('username') }}"
+      - "docdb instance password .......................... {{ get_secret_value.stdout | from_json | json_query('password') }}"
+
+- name: "Set Fact, username and password"
+  set_fact:
+    docdb_instance_username: "{{ get_secret_value.stdout | from_json | json_query('username') }}"
+    docdb_instance_password: "{{ get_secret_value.stdout | from_json | json_query('password') }}"
+
+# 5. Save docdb user credentials into k8s Secret
+# -----------------------------------------------------------------------------
+- name: Create k8s Secret for docdb user credentials
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+  ansible.builtin.template:
+    src: docdb_instance_user_credentials_secret.yaml.j2
+    dest: "{{ mas_config_dir }}/{{ docdb_instance_credentials_secret_name }}.yml"
