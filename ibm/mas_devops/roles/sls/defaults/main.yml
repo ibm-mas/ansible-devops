@@ -17,9 +17,10 @@ sls_entitlement_username: "{{ lookup('env', 'SLS_ENTITLEMENT_USERNAME') | defaul
 ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
 sls_entitlement_key: "{{ lookup('env', 'SLS_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
 
+db_provider: "{{ lookup('env', 'DB_PROVIDER') | default('community', true) }}"
 # SLS settings
 sls_mongo_configdb: "admin"
-sls_mongo_retrywrites: true
+sls_mongo_retrywrites: "{{ lookup('env', 'SLS_MONGO_RETRYWRITES') | default('true', true) | string }}"
 
 sls_domain: "{{ lookup('env', 'SLS_DOMAIN') }}"
 sls_auth_enforce: "{{ lookup('env', 'SLS_AUTH_ENFORCE') | default('True', true) | bool }}"
@@ -34,6 +35,9 @@ bootstrap:
   license_file: "{{ lookup('env', 'SLS_LICENSE_FILE') | default(\"\", true) }}"
   registration_key: "{{ lookup('env', 'SLS_REGISTRATION_KEY') | default(\"\", true) }}"
 
+# New mechanism to upload license file in SLS 3.7.0 (instead of the old bootstrap)
+entitlement_file: "{{ lookup('env', 'SLS_ENTITLEMENT_FILE') | default(\"\", true) }}"
+
 # SLSCfg generation
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
@@ -45,12 +49,3 @@ sls_tls_crt_local_file_path: "{{ lookup('env', 'SLS_TLS_CERT_LOCAL_FILE_PATH') }
 
 # Custom Labels
 custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string | ibm.mas_devops.string2dict() }}"
-
-# SLS Custom Workload Scaling configuration
-# ConfigMap name must exists in the cluster
-# Buit-in configMap names for each t-shirt sizes are:
-# small: {{ instanceId }}-wl-cust-small
-# medium: {{ instanceId }}-wl-cust-medium
-# large: {{ instanceId }}-wl-cust-large
-# -----------------------------------------------------------------------------
-sls_customize_scaling: "{{ lookup('env', 'SLS_CUSTOMIZE_SCALING') }}"

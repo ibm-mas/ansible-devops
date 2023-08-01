@@ -1,7 +1,68 @@
-# Contributing
+# Contributing to MAS Devops Collection
 
-Note that during a build the version of the ansible collection is automatically adjusted to the correct version.  For local development will we always target the "next major" as the version, this is just a convenient placeholder string that works for local development; all released collections will automatically set this version to the correct value for the release.
+## Generate a Github SSH key
 
+Follow this instructions to [generate a new SSH key and add it to your Github account to link with this repository](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent).
+This will allow you authenticate to this repository and raise pull requests with your own changes and request review and merge approval for the code owners.
+
+## Building your local development environment
+
+Follow this instructions to [build your own MAS Ansible Devops](https://ibm-mas.github.io/ansible-devops/#install-python-ansible) local development environment. Once you have all pre-requisites built, choose your prefered IDE such as Visual Studio, or any text editor of your choice to start contributing with new development code and submitting your changes through a Pull Request.
+
+Here's how you could get started developing within a new working branch:
+
+1. Clone MAS CLI repository locally.
+2. Create your own branch.
+3. Set the new branch as active working branch.
+
+```
+git clone git@github.com:ibm-mas/ansible-devops.git
+git checkout -b name-your-branch 
+git checkout name-your-branch 
+```
+
+## Pull Requests
+
+This repository uses a common build system to enable proper versioning. 
+This build system is triggered when including specific tags at the beginning of your [commits](https://github.com/ibm-mas/ansible-devops/commits/master) and [pull requests](https://github.com/ibm-mas/ansible-devops/pulls) titles.
+
+`[major]` - This tag triggers a major pre-release version build out of your branch. Only use this tag when there are breaking or potential disruptive changes being introduced i.e existing ansible roles being removed.
+
+**For example:** Latest MAS Ansible Devops collection version is at `14.0.0`. When submiting a `[major]` commit/pull request, it will build a pre-release version of MAS Ansible Devops as `15.0.0-pre.your-branch`. When merging it to master branch and releasing a new collection version, it will become `15.0.0` version.
+
+`[minor]` - This tag triggers a minor pre-release version build out of your branch. Use this tag when adding new features to existing roles or creating new ansible roles.
+
+**For example:** Latest MAS Ansible Devops collection version is at `14.0.0`. When submiting a `[minor]` commit/pull request. It will build a pre-release version of MAS Ansible Devops as `14.1.0-pre.your-branch`. When merging it to master branch and releasing a new collection version, it will become `14.1.0` version.
+
+`[patch]` - This tag triggers a patch pre-release version build out of your branch. Use this tag when making small changes such as code/documentation fixes and non-disruptive changes.
+
+**For example:** Latest MAS Ansible Devops collection version is at `14.0.0`. When submiting a `[patch]` commit/pull request, it will build a pre-release version of MAS Ansible Devops as `14.0.1-pre.your-branch`. When merging it to master branch and releasing a new collection version, it will become `14.0.1` version.
+
+### Pre-requisites for new pull requests
+
+For `major` and `minor` pull requests mainly, make sure you follow the standard approach while developing new code:
+
+- Ensure you have tested your changes and they do what is supposed to from an "end-to-end" perspective. Attaching screenshots of the end goal in your `pull request` are always welcome so everyone knows what to expect by the change, and that it does not break existing role functionalities around your change (basic regression test).
+- Ensure the new capability is ported over / enabled in the [MAS Command Line Interface](https://github.com/ibm-mas/cli/blob/master/CONTRIBUTING.md) whenever applicable as well, and that a MAS install test runs successfully from an `end-to-end` via cli (basic regression test). See more information about it in [MAS CLI documentation](https://github.com/ibm-mas/cli).
+- Ensure any new environments variables and properties derived from the changes are properly documented in the role's readme file. See [`ocp_provision`](ibm/mas_devops/roles/ocp_provision/README.md) README.md as example.
+- Ensure a `change log` entry is created in both [ansible-devops/docs/changes.md](docs/changes.md) and in [ansible-devops/ibm/mas_devops/README.md](ibm/mas_devops/README.md).
+- Add your new role relative path to [mkdocs.yml](mkdocs.yml) and [copy-role-docs.sh](build/bin/copy-role-docs.sh). These files are responsible for creating the ansible role documentation that is publicly visible [here](https://ibm-mas.github.io/ansible-devops/).
+- There is an automatic lint tool that applies defaulted lint policies while your pull request is being built in Travis. You’ll be able to see if that fails/passes and that prevents us from merging your PR into master if any flagged lint issues in your changes, therefore make sure you correct them all prior requesting a formal review. If you are using Visual Studio Code you may want to install the `Ansible` extension, it will provide an easy way to format your YAML files and clean up your code for formatting issues.
+
+
+Here's how you could get started with a new pull request from your branch:
+
+1. Create your local commit.
+2. Stage your code changes locally in order to prepare for remote push.
+3. Push the staged changes from your local branch to the remote repository.
+
+```
+git commit -m "[minor] - my own changes to ansible-devops"
+git add .
+git push --set-upstream origin your-new-branch
+```
+
+When pushing a change with the proper tag in the commit, it will trigger the build system and your pull request will undergo with the proper build checks such as documentation build process, linter validations and the actual ansible collection package build. Once they pass all the validations, the PR can be flagged as ready to review.
 
 ## Development Tips
 It is possible to develop the Ansible roles without needing to build the collection at all, this offers the most efficient development loop when authoring new roles or modifying existing ones:
@@ -27,15 +88,30 @@ You can now run this playbook using `ansible-playbook` to test the changes you m
 
 
 ## Building the collection locally
-- Build and install the collection `make ansible-all` (default action)
-- Build the collection `make ansible-build`
-- Install the already built collection `make ansible-install`
+
+From the root folder, run the following `Make` commands to build/install the Ansible collection locally to compile and run your changes locally.
+
+- Build and install the collection > `make all` (default action)
+- Build the collection > `make build`
+- Install the already built collection > `make install`
 
 
 ### Testing a role
+
+Run the following command to execute an specific ansible role locally:
+
 ```bash
 export ROLE_NAME=ibm_catalogs && make && ansible-playbook ibm.mas_devops.run_role
 ```
+
+MAS development teams also uses pre-release master version of this Ansible Devops collection in a daily functional verification test pipeline, thus all changes merged into master branch are daily tested along with the MAS release development and test process, which is why standardizing and streamlining the new development for this Ansible Devops collection becomes truly important.
+
+This test layer covers:
+
+- Installation Tests (using MAS CLI install pipeline)
+- Integration Verification Tests (Core): exercise integration points between application and MAS Core (e.g. user sync, app points consumption, milestones)
+- Integration Verification Tests (Dependencies): exercise integration points between application and their dependencies (e.g. predict x watson studion, assist x watson discovery, manage x db2)
+- Build Verification Test: functional tests that guarantee application is accessible and basically working
 
 ## Style Guide
 Failure to adhere to the style guide will result in a PR being rejected!
@@ -135,6 +211,45 @@ All roles must provide clear feedback about missing required properties that do 
       - mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "One or more required properties are missing"
 ```
+
+## MAS Ansible Devops collection empowering MAS CLI
+
+The MAS Ansible Devops collection contains the ansible roles that are used to automate a particular task in the [MAS CLI](https://ibm-mas.github.io/cli/). For example, when you run `mas install` command via MAS CLI, when the installation begins, a tekton pipeline will be triggered in your cluster, and that will orchestrate the execution of a sequence of automated tasks, each of then invoking a particular MAS Ansible Devops role i.e `suite_install` role will perform the actual MAS installation.
+
+See [`Contributing to MAS command line interface`](https://github.com/ibm-mas/cli/blob/master/CONTRIBUTING.md) for more details.
+
+As MAS CLI relies and embeds MAS Ansible Devops collection in its container, there are certain conditions that triggers the automatic MAS CLI pre-release master image version build process, which happens to help us keep the MAS CLI always containing the latest MAS Ansible Devops collection within its image.
+
+- When MAS Ansible Devops pre-release from master branch is triggered (when new PRs are merged into master), a [Github action workflow](https://github.com/ibm-mas/ansible-devops/blob/master/.github/workflows/ansible.yml#L51) triggers the MAS CLI pre-release master build process, which will automatically rebuild the MAS CLI pre-release master version to contain the most recent pre-release master version of MAS Ansible Devops collection. That way, both side will have the latest and greatest pre-released master versions.
+- The same way, when a new MAS Ansible Devops collection is officially released and a new version is generated, a similar [Github action workflow](https://github.com/ibm-mas/ansible-devops/blob/master/.github/workflows/ansible-publish.yml#L46) also triggers the MAS CLI pre-release master image version build process.
+
+## Create a new MAS Ansible Devops release
+
+Once the Ansible collection pre-release master build passes [the tests along with daily FVT execution](#testing-a-role), a new MAS Ansible Devops release can be generated to publicly promote new fixes and features.
+
+1. To create a new release, go to [`Releases`](https://github.com/ibm-mas/ansible-devops/releases) and [`Draft a new release`](https://github.com/ibm-mas/ansible-devops/releases/new).
+2. Create a new tag, increasing the latest current release tag, following the example:
+  - For new `[major]` release, if current release = `1.0.0`, then new release tag = `2.0.0`.
+  - For new `[minor]` release, if current release = `1.0.0`, then new release tag = `1.1.0`.
+  - For new `[patch]` release, if current release = `1.0.0`, then new release tag = `1.0.1`.
+3. On `Release title` field, type the new release tag generated above.
+4. **Create the release notes:** Add a `What's Changed` section as description including a list of all the pull requests merged into master branch that will be included as part of the new release. You can easily [compare](https://github.com/ibm-mas/ansible-devops/compare/) the delta PRs and commits that have been added in the new release tag using the current released tag version as base. 
+
+Use the following as template for the description:
+
+```
+## What's Changed
+* [major] My major change https://github.com/ibm-mas/ansible-devops/pull/XXX
+* [minor] My minor change https://github.com/ibm-mas/ansible-devops/pull/YYY
+* [patch] My patch change https://github.com/ibm-mas/ansible-devops/pull/ZZZ
+
+**Full Changelog**: https://github.com/ibm-mas/ansible-devops/compare/13.15.1...14.0.0
+```
+5. Mark `Set as the latest release` checkbox.
+6. Then, when the release is ready to be published, click `Publish release`.
+
+**Note**: As part of the release publishing process, the new MAS Ansible Devops Collection artifacts such as corresponding `zip/tar.gz` files will be attached to the new release tag, therefore it will be easy to know the code base associated to a particular release version.
+
 
 ## Maintain links between MAS documentation and github documentation
 When creating a new ansible role or renaming an existing ansible role, please use the Review Manager button at the top of [internal MAS Knowledge Center](https://ibmdocs-test.mybluemix.net/docs/en/MAS-review_test?topic=installing-ansible-collection) and add a comment to the `Ansible Collection` topic describing the required change.  The idea is to maintain the links between the public MAS documentation and the github docs here.

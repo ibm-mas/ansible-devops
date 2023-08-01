@@ -26,6 +26,12 @@ DB2 Warehouse target instance to restore the backup to.
 - Environment Variable: `DB2_RESTORE_INSTANCE_NAME`
 - Default: None
 
+### db2_dbname
+Name of the database within the instance.
+
+- Optional
+- Environment Variable: `DB2_DBNAME`
+- Default: `BLUDB`
 
 Example Playbook
 ----------------

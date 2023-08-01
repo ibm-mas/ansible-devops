@@ -2,6 +2,11 @@
 # Choose DNS Provider
 # -----------------------------------------------------------------------------
 dns_provider: "{{ lookup('env', 'DNS_PROVIDER') }}"
+supported_dns_providers:
+  - cis
+  - cloudflare
+  - route53
+mas_manual_cert_mgmt: "{{ lookup('env', 'MAS_MANUAL_CERT_MGMT')| default(False, true) }}"
 
 # Certificate Manager
 # -----------------------------------------------------------------------------
@@ -11,6 +16,7 @@ cert_manager_service_account: ibm-cert-manager-controller
 # MAS Domain
 # -----------------------------------------------------------------------------
 mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
 mas_namespace: "mas-{{ mas_instance_id }}-core"
 mas_domain: "{{ lookup('env', 'MAS_DOMAIN') }}"
 
@@ -43,12 +49,12 @@ cis_crn: "{{ lookup('env', 'CIS_CRN') }}"
 cis_subdomain: "{{ lookup('env', 'CIS_SUBDOMAIN') }}"
 cis_enhanced_security: "{{ lookup('env', 'CIS_ENHANCED_SECURITY') | default(false, false) }}"
 
-# Enhanced IBM CIS DNS Integration Secruity
+# Enhanced IBM CIS DNS Integration Security
 # -----------------------------------------------------------------------------
-ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
 cis_waf: "{{ lookup('env', 'CIS_WAF') | default(true, true) }}"
 cis_proxy: "{{ lookup('env', 'CIS_PROXY') | default(false, true) }}"
 cis_service_name: "{{ lookup('env', 'CIS_SERVICE_NAME')}}"
+
 # Update DNS entry if it already exists
 update_dns: "{{ lookup('env', 'UPDATE_DNS_ENTRIES') | default(true, true) }}"
 # Force deletion of wildcard dns entries in cis
@@ -69,8 +75,24 @@ cis_webhook:
     port: 443
   log_level: 1
 
+# AWS Route53 Integration
+# -----------------------------------------------------------------------------
+aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+route53_hosted_zone_name: "{{ lookup('env', 'ROUTE53_HOSTED_ZONE_NAME') }}"
+route53_subdomain: "{{ lookup('env', 'ROUTE53_SUBDOMAIN') }}"
+route53_caller_reference: "{{ lookup('env', 'ROUTE53_CALLER_REFERENCE') | default(ansible_date_time.iso8601_basic_short, true) }}" # sample default: "20170930T132646"
+route53_email: "{{ lookup('env', 'ROUTE53_EMAIL') }}"
+aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-2', True) }}"
+route53_hosted_zone_region: "{{ lookup('env', 'ROUTE53_HOSTED_ZONE_REGION') | default(aws_region, True) }}"
+route53_prod_issuer_name: "{{ mas_instance_id }}-route53-le-prod"
+route53_cname_json_file_path_local: "{{ role_path }}/templates/route53"
+
 # CP4D Integration
 # -----------------------------------------------------------------------------
+cpd_prod_issuer_name_default: "{{ mas_instance_id }}-{{ dns_provider }}-le-prod" # this will be the same production issuer used to setup mas instance
+cpd_prod_issuer_name: "{{ lookup('env', 'CPD_PROD_ISSUER_NAME') | default(cpd_prod_issuer_name_default, true) }}"
+cpd_custom_domain: "{{ lookup('env', 'CPD_CUSTOM_DOMAIN') | default(mas_domain, true) }}" # if not set, we'll use same mas domain
 cpd_instance_namespace: "{{ lookup('env', 'CPD_INSTANCE_NAMESPACE') }}"
 
 # Custom Labels

@@ -34,6 +34,13 @@ The name of the cluster we are going to attach the EFS storage to.
 - Environment Variable: `CLUSTER_NAME`
 - Default: None
 
+### efs_unique_id
+Any unique identifier like mas instance id which will be used as EFS storage class name. If this parameter is not set, then cluster_name will be used
+
+- **Optional**
+- Environment Variable: `EFS_UNIQUE_ID`
+- Default: None
+
 
 License
 -------

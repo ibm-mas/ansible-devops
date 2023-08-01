@@ -1,5 +1,4 @@
 ---
-
 # 1. Failure conditions
 # -----------------------------------------------------------------------------
 - name: "fyre : Fail if required properties are not provided"
@@ -16,7 +15,6 @@
   assert:
     that: fyre_cluster_size is defined and fyre_cluster_size != ""
 
-
 # 2. Debug Info
 # -----------------------------------------------------------------------------
 - name: "fyre : Debug information"
@@ -29,7 +27,7 @@
       - "Username ..................... {{ fyre_username }}"
       - "Fyre product ID .............. {{ fyre_product_id }}"
       - "Fyre Quota Type .............. {{ fyre_quota_type }}"
-      - "fips enabled ................. {{ ocp_fips }}"
+      - "fips enabled ................. {{ ocp_fips_enabled }}"
       # Quickburn specific
       - "Fyre cluster size ............ {{ fyre_cluster_size | default('<undefined>', true) }}"
       # Product Group specific
@@ -37,25 +35,30 @@
       - "Worker CPU ................... {{ fyre_worker_cpu | default('<undefined>', true) }}"
       - "Worker memory ................ {{ fyre_worker_memory | default('<undefined>', true) }}"
 
-
 # 3. Determine whether there is already an environment running
 # -----------------------------------------------------------------------------
 - name: "fyre : Check if cluster already exists"
   uri:
-    url: "https://ocpapi.svl.ibm.com/v1/ocp/{{cluster_name}}"
-    user: "{{fyre_username}}"
-    password: "{{fyre_password}}"
+    url: "https://ocpapi.svl.ibm.com/v1/check_hostname/{{ cluster_name }}"
+    user: "{{ fyre_username }}"
+    password: "{{ fyre_password }}"
     method: GET
     force_basic_auth: yes
     validate_certs: false
   register: _cluster_exist
   failed_when: _cluster_exist.status == 403
 
+- name: "fyre : Debug cluster lookup"
+  debug:
+    var: _cluster_exist
 
 # 4. Deploy the OCP+ cluster
 # -----------------------------------------------------------------------------
+
 - name: "fyre : Create new OCP+ cluster"
-  when: _cluster_exist.json.cluster_count is not defined
+  when:
+    - _cluster_exist.json is defined
+    - _cluster_exist.json.owning_user is not defined # when there's no cluster owner, it means there's no cluster thus we create it
   vars:
     fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
   uri:
@@ -67,7 +70,11 @@
     force_basic_auth: yes
     body_format: json
     validate_certs: false
+  register: _cluster_create
 
+- name: "fyre : Debug cluster provision"
+  debug:
+    var: _cluster_create
 
 # 5. Track the progress of the deployment
 # -----------------------------------------------------------------------------
@@ -82,6 +89,7 @@
   register: _result
   until:
     - _result.json is defined
+    - _result.json.deployed_status is defined
     - _result.json.deployed_status == 'deployed'
   retries: 60 # 60 * 2 minutes = 2 hours
   delay: 120 # Every 2 minutes

@@ -1,0 +1,58 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_config_dir is not provided"
+  assert:
+    that: mas_config_dir != ""
+    fail_msg: "mas_config_dir is required"
+
+- name: "Fail if dns_provider is informed but it is not cis"
+  when: dns_provider is defined and dns_provider not in ["", "cis"]
+  debug:
+    msg: "dns_provider {{ dns_provider }} is not supported in suite_certs role. This role supports cis only (optional use)"
+
+
+# 2. Debug
+# -----------------------------------------------------------------------------
+- name: "Debug manual cert management variables"
+  debug:
+    msg:
+      - "Instance Id ............................ {{ mas_instance_id }}"
+      - "Manual Cert Mgmt ....................... {{ mas_manual_cert_mgmt }}"
+      - "MAS public cert data path .............. {{ mas_suite_certs_dir }}"
+      - "DNS Provider (Optional) ................ {{ dns_provider }}"
+
+# 3. Optionally create or update CNAMES resolution in CIS if dns_provider == cis, otherwise skip
+# -----------------------------------------------------------------------------
+- name: "Create or update CNAMES resolution in CIS if dns_provider == cis and ingress redirection, otherwise skip"
+  when: dns_provider is defined and dns_provider == 'cis'
+  include_tasks: tasks/cis.yml
+
+
+# 4. Create public tls secret of Manual certificate manage mode
+# -----------------------------------------------------------------------------
+- name: Find dirs in the MAS config cert directory
+  find:
+    paths: "{{ mas_suite_certs_dir }}"
+    recurse: no
+    file_type: directory
+  register: certs_dirs
+
+- name: Fail if certs_dirs it not found
+  assert:
+    that: certs_dirs is defined and certs_dirs['files'] | length  > 0
+    fail_msg: "No files or directories found in {{ mas_suite_certs_dir }}"
+
+- name: "Iterate through the list of cert dirs located"
+  include_tasks: tasks/cert_management.yml
+  vars:
+    app_name: "{{ item.path.rsplit('/', 1)[-1] }}"
+    cert_path: "{{ item.path }}"
+  with_items: "{{ certs_dirs.files }}"
+  when: mas_manual_cert_mgmt == True

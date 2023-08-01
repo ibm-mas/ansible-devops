@@ -195,9 +195,12 @@ Provide a description for the cluster.
 - Environment Variable: `FYRE_CLUSTER_DESCRIPTION`
 - Default Value: None
 
+### ocp_fips_enabled
+Set to true to provision a FIPS enabled cluster.
+
 - Optional
-- Environment Variable: `OCP_FIPS`
-- Default Value: false
+- Environment Variable: `OCP_FIPS_ENABLED`
+- Default Value: `false`
 
 ### fyre_cluster_size
 The name of one of Fyre's pre-defined cluster sizes to use for the new cluster.
@@ -265,11 +268,19 @@ Location of the file containing your Redhat OpenShift pull secret.  This file ca
 - Default Value: None
 
 ### ipi_dir
-The working directory that is used to perform the installation, it will contain the `openshift-install` executable, it's configuration files, & any generated logs.
+The working directory that is used to perform the installation, it will contain the `openshift-install` executable, its configuration files, & any generated logs.
 
 - Optional when `cluster_type = ipi`
 - Environment Variable: `IPI_DIR`
 - Default Value: `~/openshift-install`
+
+### sshKey
+Public SSH key value. It will be set in the OCP cluster nodes.
+Can be used to SSH into the OCP cluster nodes using a bastion.
+
+- Optional when `cluster_type = ipi`
+- Environment Variable: `SSH_PUB_KEY`
+
 
 ### ipi_controlplane_type
 Control plane node type.

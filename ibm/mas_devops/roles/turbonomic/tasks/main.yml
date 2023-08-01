@@ -1,0 +1,157 @@
+---
+
+# 1. Check required properties
+# -----------------------------------------------------------------------------
+- assert:
+    that:
+      - turbonomic_server_url is defined and turbonomic_server_url != ""
+      - turbonomic_target_name is defined and turbonomic_target_name != ""
+      - turbonomic_username is defined and turbonomic_username != ""
+      - turbonomic_password is defined and turbonomic_password != ""
+
+
+# 2. Create Kubeturbo namespace
+# -----------------------------------------------------------------------------
+- name: "Create Kubeturbo namespace"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: '{{ kubeturbo_namespace }}'
+
+- name: "Lookup Kubeturbo namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: '{{ kubeturbo_namespace }}'
+  register: kubeturbo_namespace_output
+
+- name: Set kubeturbo_namespace_fsgroup
+  vars:
+    regex: '.+?(?=/)'
+  set_fact:
+    kubeturbo_namespace_fsgroup: "{{ kubeturbo_namespace_output.resources[0].metadata.annotations['openshift.io/sa.scc.uid-range'] | regex_search(regex) }}"
+
+
+# 3. Lookup Kubeturbo package information
+# -----------------------------------------------------------------------------
+- name: Get Kubeturbo package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: "{{ kubeturbo_package_name }}"
+    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+  register: kubeturbo_manifest
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - kubeturbo_manifest is defined
+      - kubeturbo_manifest.resources is defined
+      - kubeturbo_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: {{ kubeturbo_package_name }}"
+
+- name: Set the subscription information
+  set_fact:
+    kubeturbo_source: "{{ kubeturbo_manifest.resources[0].status.catalogSource }}"
+    kubeturbo_source_namespace: "{{ kubeturbo_manifest.resources[0].status.catalogSourceNamespace }}"
+    kubeturbo_default_channel: "{{ kubeturbo_manifest.resources[0].status.defaultChannel }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "Kubeturbo Package Name ................... {{ kubeturbo_package_name }}"
+      - "Kubeturbo Source ......................... {{ kubeturbo_source }}"
+      - "Kubeturbo Source Namespace ............... {{ kubeturbo_source_namespace }}"
+      - "Kubeturbo Namespace ...................... {{ kubeturbo_namespace }}"
+      - "Kubeturbo Channel ........................ {{ kubeturbo_default_channel }}"
+      - "Turbonomic Server URL .................... {{ turbonomic_server_url }}"
+      - "Turbonomic Server Version ................ {{ turbonomic_server_version | default('<undefined>', True) }}"
+      - "Turbonomic Target Name.................... {{ turbonomic_target_name }}"
+
+
+# 4. Create subscription and Operator Group
+# -----------------------------------------------------------------------------
+- name: "Create Kubeturbo operator group"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/kubeturbo-operator-group.yml.j2') }}"
+    wait: yes
+    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
+
+- name: "Create Kubeturbo subscription"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/kubeturbo-subscription.yml.j2') }}"
+    wait: yes
+    wait_timeout: 300
+    wait_condition:
+      type: 'CatalogSourcesUnhealthy'
+      status: "False"
+
+
+# 5. Deploy Kubeturbo CRD
+# -----------------------------------------------------------------------------
+- name: "Wait until the Kubeturbo CRD is available"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "kubeturbos.charts.helm.k8s.io"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: kubeturbo_crd_info
+  retries: 120 # ~approx 10 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - kubeturbo_crd_info.resources is defined
+    - kubeturbo_crd_info.resources | length > 0
+
+
+# 6. Wait until Kubeturbo Operator is ready
+# -----------------------------------------------------------------------------
+- name: "Wait for {{ kubeturbo_sub_name }} to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: "kubeturbo-operator"
+    namespace: "{{ kubeturbo_namespace }}"
+    kind: Deployment
+  register: kubeturbo_operator_deployment
+  until:
+    - kubeturbo_operator_deployment.resources is defined
+    - kubeturbo_operator_deployment.resources | length > 0
+    - kubeturbo_operator_deployment.resources[0].status is defined
+    - kubeturbo_operator_deployment.resources[0].status.replicas is defined
+    - kubeturbo_operator_deployment.resources[0].status.readyReplicas is defined
+    - kubeturbo_operator_deployment.resources[0].status.readyReplicas == kubeturbo_operator_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+
+
+# 7. Create Kubeturbo Custom Resource & Secret
+# -----------------------------------------------------------------------------
+- name: "Create Kubeturbo Custom Resource"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/kubeturbo-cr.yml.j2') }}"
+
+- name: Create the Turbonomic Secret for Kubeturbo
+  no_log: true
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ kubeturbo_namespace }}"
+    template: templates/turbonomic-secret.yml.j2
+
+
+# 8. Wait Kubeturbo Custom Resource to be complete.
+# -----------------------------------------------------------------------------
+- name: "Wait for Kubeturbo Custom Resource to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: charts.helm.k8s.io/v1
+    kind: Kubeturbo
+    name: kubeturbo
+    namespace: "{{ kubeturbo_namespace }}"
+  register: kubeturbo_cr_result
+  until:
+    - kubeturbo_cr_result.resources is defined and kubeturbo_cr_result.resources | length > 0
+  retries: 10 # approx 10 minutes before we give up
+  delay: 60 # 1 minute

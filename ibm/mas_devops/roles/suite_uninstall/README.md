@@ -12,6 +12,13 @@ Defines the MAS instance to be removed from the cluster
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
+### mas_wipe_mongo_data
+Defines whether Mongo databases should be deleted along with MAS uninstall
+
+- **Optional**
+- Environment Variable: `MAS_WIPE_MONGO_DATA`
+- Default: False
+
 
 Example Playbook
 -------------------------------------------------------------------------------

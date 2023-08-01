@@ -1,0 +1,59 @@
+---
+# If you are using IBM® Cloud File Storage (ibmc-file-gold-gid storage class) for Red Hat® OpenShift® Kubernetes Service with Db2®,
+# you must use the cp.icr.io/cp/cpd/norootsquash:3.0-amd64 image to set no_root_squash.
+
+# 1. Set 'cpregistrysecret' secret content
+# -----------------------------------------------------------------------------
+- name: Set 'ibm-registry' secret content
+  vars:
+    entitledAuthStr: "{{ registry_user }}:{{ ibm_entitlement_key }}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - "{\"auths\":{\"{{ registry }}/cp/cpd\":{\"username\":\"{{ registry_user }}\",\"password\":\"{{ ibm_entitlement_key }}\",\"email\":\"{{ registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
+      - "}"
+      - "}"
+  set_fact:
+    new_secret: "{{ content | join('') }}"
+
+
+# 2. Generate 'ibm-registry' secret
+# -----------------------------------------------------------------------------
+- name: "Generate 'ibm-registry' secret"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: ibm-registry
+        namespace: kube-system
+      data:
+        .dockerconfigjson: "{{ new_secret | to_json | b64encode }}"
+  register: secretUpdateResult
+
+
+# 3. Create DaemonSet
+# -----------------------------------------------------------------------------
+- name: Create 'norootsquash' DaemonSet
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/norootsquash_daemonset.yml.j2') }}"
+
+
+# 4. Wait for 'norootsquash' DaemonSet to be running
+# -----------------------------------------------------------------------------
+- name: "Wait for 'norootsquash' DaemonSet to be running on all nodes"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: norootsquash
+    namespace: kube-system
+    kind: DaemonSet
+  register: daemonset_output
+  until:
+    - daemonset_output.resources is defined
+    - daemonset_output.resources | length > 0
+    - daemonset_output.resources[0].status is defined
+    - daemonset_output.resources[0].status.numberReady is defined
+    - daemonset_output.resources[0].status.desiredNumberScheduled is defined
+    - daemonset_output.resources[0].status.numberReady == daemonset_output.resources[0].status.desiredNumberScheduled
+  retries: 60 # approx 60 minutes before we give up
+  delay: 60 # 1 minute
