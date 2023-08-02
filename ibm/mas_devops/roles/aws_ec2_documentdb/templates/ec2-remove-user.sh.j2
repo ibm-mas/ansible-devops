@@ -22,44 +22,20 @@ log "DOCDB_INSTANCE_USERNAME={{docdb_instance_username}} DOCDB_INSTANCE_PASSWORD
     MAS_INSTANCE_ID={{mas_instance_id}} DOCDB_MASTER_USERNAME={{docdb_master_username}} DOCDB_MASTER_PASSWORD={{docdb_master_password}} \n
     DOCDB_HOST={{docdb_host}} DOCDB_PORT={{docdb_port}} "
 
-# create create_user.js
-cat <<EOT >> /tmp/create_user.js
-db.createUser(
-    {
-        user: "{{docdb_instance_username}}",
-        pwd: "{{docdb_instance_password}}",
-        roles:[
-            { "db": "admin", "role": "root" },
-            { "db":"mas_{{mas_instance_id}}_core", "role":"dbOwner" },
-            { "db":"mas_{{mas_instance_id}}_catalog", "role":"dbOwner" },
-            { "db":"mas_{{mas_instance_id}}_adoptionusage", "role":"dbOwner" },
-            { "db":"{{mas_instance_id}}_sls_licensing", "role":"dbOwner" }
-        ]
-    }
-)
-EOT
 
-# create update_user_password.js
-cat <<EOT >> /tmp/update_user_password.js
-db.changeUserPassword("{{docdb_instance_username}}", "{{docdb_instance_password}}")
+cat <<EOT >> /tmp/drop_user.js
+db.dropUser("{{docdb_instance_username}}")
 EOT
 
 
-log "mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/create_user.js"
+log "mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/drop_user.js"
 
-# Create additional user
-log "Create additional user"
-mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/create_user.js
-export retcode=$?
-log "create_user retcode=${retcode}"
+# drop user 
+    log "Drop User"
+    mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/drop_user.js    
 
-# Update user password 
-if [[ ${retcode} -ne 0 ]]; then
-    log "User already exist, Update user password"
-    mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/update_user_password.js
-fi
 export retcode=$?
-log "update_user_password retcode=${retcode}"
+log "Drop User retcode=${retcode}"
 
 log "aws_region={{aws_region}} " 
 log "secret_name_mongo_instance {{secret_name_mongo_instance}} "
@@ -84,5 +60,5 @@ if [[ ${retcode} -eq 0 ]]; then
     fi
 fi
 
-log "Shutting now" 
-shutdown -P "+0"
+log "Shutting in 2 minutes" 
+shutdown -P "+2"
