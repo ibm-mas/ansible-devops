@@ -1,0 +1,44 @@
+---
+# Vars and flags for MAS
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+user_action: "{{ lookup('env', 'USER_ACTION') | default('add', True) }}"
+# defaults vars for docdb
+docdb_instance_credentials_secret_name: "docdb-{{ mas_instance_id }}-instance-credentials"
+
+#docdb
+docdb_host: "{{ lookup('env', 'DOCDB_HOST') }}"
+docdb_port: "{{ lookup('env', 'DOCDB_PORT') }}"
+docdb_master_username: "{{ lookup('env', 'DOCDB_MASTER_USERNAME') }}"
+docdb_master_password: "{{ lookup('env', 'DOCDB_MASTER_PASSWORD') }}"
+
+temp_docdb_instance_username: "masinst_{{ mas_instance_id }}"
+docdb_instance_username: "{{ lookup('env', 'DOCDB_INSTANCE_USERNAME') | default(temp_docdb_instance_username , true) }}"
+temp_docdb_instance_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+docdb_instance_password: "{{ lookup('env', 'DOCDB_INSTANCE_PASSWORD') | default(temp_docdb_instance_password, true) }}"
+
+#ec2 instance
+vpc_id: "{{ lookup('env', 'VPC_ID') }}"
+docdb_ingress_cidr: "{{ lookup('env', 'DOCDB_INGRESS_CIDR') }}"
+docdb_egress_cidr: "{{ lookup('env', 'DOCDB_EGRESS_CIDR') }}"
+docdb_ingress_sec_cidr: "{{ lookup('env', 'DOCDB_INGRESS_SEC_CIDR') }}"
+docdb_egress_sec_cidr: "{{ lookup('env', 'DOCDB_EGRESS_SEC_CIDR') }}"
+aws_ec2_cidr_az1: "{{ lookup('env', 'AWS_EC2_CIDR_AZ1') }}"
+aws_key_pair_name: "{{ lookup('env', 'AWS_KEY_PAIR_NAME') }}"
+
+docdb_cluster_name: "{{ lookup('env', 'DOCDB_CLUSTER_NAME') }}"
+docdb_subnet_group_name: "ec2-docdb-{{ docdb_cluster_name }}"
+docdb_security_group_name: "ec2-docdb-{{ docdb_cluster_name }}"
+ec2_docdb_name: "ec2-docdb-{{ docdb_cluster_name }}"
+aws_region: "{{ lookup('env', 'AWS_REGION') | default('us-east-2', True) }}"
+aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+
+temp_secret_name_mongo_instance: "docdb/{{ mas_instance_id }}"
+secret_name_mongo_instance: "{{ lookup('env', 'SECRET_NAME_MONGO_INSTANCE')  | default( temp_secret_name_mongo_instance , True) }}"
+ec2_instance_type: "{{ lookup('env', 'EC2_INSTANCE_TYPE') | default('t2.micro', True) }}"
+ec2_linux_ami_id: "{{ lookup('env', 'EC2_LINUX_AMI_ID') | default('ami-00c6c849418b7612c', True) }}"
+ec2_storage_root_size: 50
+ec2_storage_disk_size: 50
+subnet_id_list: []

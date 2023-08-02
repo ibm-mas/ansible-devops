@@ -1,0 +1,64 @@
+#!/bin/bash
+exec &>> /tmp/mas-provisioning.log
+
+log() {
+  echo -e "$(date '+%Y-%m-%d %H:%M:%S') $1"
+}
+
+# Install mongosh
+log 'Install mongosh ' 
+wget https://downloads.mongodb.com/compass/mongosh-1.10.1-linux-x64.tgz
+tar -zxvf mongosh-1.10.1-linux-x64.tgz
+cd mongosh-1.10.1-linux-x64
+chmod +x bin/mongosh
+sudo cp bin/mongosh /usr/local/bin/
+
+# Download rds-combined-ca-bundle.pem
+log 'Download rds-combined-ca-bundle.pem ' 
+wget https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem -O /tmp/rds-combined-ca-bundle.pem
+
+
+log "DOCDB_INSTANCE_USERNAME={{docdb_instance_username}} DOCDB_INSTANCE_PASSWORD={{docdb_instance_password}}  \n
+    MAS_INSTANCE_ID={{mas_instance_id}} DOCDB_MASTER_USERNAME={{docdb_master_username}} DOCDB_MASTER_PASSWORD={{docdb_master_password}} \n
+    DOCDB_HOST={{docdb_host}} DOCDB_PORT={{docdb_port}} "
+
+
+cat <<EOT >> /tmp/drop_user.js
+db.dropUser("{{docdb_instance_username}}")
+EOT
+
+
+log "mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/drop_user.js"
+
+# drop user 
+    log "Drop User"
+    mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/drop_user.js    
+
+export retcode=$?
+log "Drop User retcode=${retcode}"
+
+log "aws_region={{aws_region}} " 
+log "secret_name_mongo_instance {{secret_name_mongo_instance}} "
+
+if [[ ${retcode} -eq 0 ]]; then
+    log "retcode="${retcode} 
+    # save username password to aws secret
+    aws configure set aws_access_key_id {{ aws_access_key_id }};
+    aws configure set aws_secret_access_key {{ aws_secret_access_key }};
+    aws configure set output json;
+    aws configure set region {{ aws_region }}
+
+    CURRENT_SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id {{secret_name_mongo_instance}} --output json 2> /dev/null | jq -r .SecretString)
+
+    if [[ "$CURRENT_SECRET_VALUE" == "" ]]; then
+        # Create the secret
+        aws secretsmanager create-secret --name {{secret_name_mongo_instance}} --secret-string "{\"username\": \"{{docdb_instance_username}}\", \"password\": \"{{docdb_instance_password}}\"}"
+        log " Secret {{secret_name_mongo_instance}} created"
+    elif [[ "$SECRET_VALUE" != "$CURRENT_SECRET_VALUE" ]]; then
+        aws secretsmanager update-secret --secret-id {{secret_name_mongo_instance}} --secret-string "{\"username\": \"{{docdb_instance_username}}\", \"password\": \"{{docdb_instance_password}}\"}"
+        log " Secret {{secret_name_mongo_instance}} updated"
+    fi
+fi
+
+log "Shutting in 2 minutes" 
+shutdown -P "+2"

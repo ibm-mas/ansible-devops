@@ -1,0 +1,80 @@
+---
+# Provision EC2 instance, deploy and prepare DB2 instance
+# -----------------------------------------------------------------------------
+
+- name: Create /tmp/ec2-{{user_action}}-user.sh script in local /tmp/
+  ansible.builtin.template:
+    src: ec2-{{user_action}}-user.sh.j2
+    dest: /tmp/ec2-{{user_action}}-user.sh
+
+- name: "Debug information"
+  debug:
+    msg:
+    - "ec2_linux_ami_id ................................... {{ ec2_linux_ami_id }}"
+    - "ec2_instance_type .................................. {{ ec2_instance_type }}"
+    - "aws_key_pair_name .................................. {{ aws_key_pair_name }}"
+    - "sg_id .............................................. {{ sg_id }}"
+    - "Subnet Id List ..................................... {{ subnet_id_list }}"
+    - "subnet_id .......................................... {{ subnet_id }}"
+    - "ec2_storage_root_size .............................. {{ ec2_storage_root_size }}"
+    - "ec2_storage_disk_size .............................. {{ ec2_storage_disk_size }}"
+    - "ec2_docdb_name ..................................... {{ ec2_docdb_name }}"
+
+- name: "Fail if subnet_id / sg_id not created successfully"
+  assert:
+    that:
+      - subnet_id_list[0] is defined and subnet_id_list[0] != ''
+      - sg_id is defined and sg_id != ''
+
+- name: Provision EC2 instance
+  shell: |
+    aws ec2 run-instances \
+        --image-id {{ec2_linux_ami_id}} \
+        --instance-type {{ec2_instance_type}} \
+        --count 1 \
+        --subnet-id {{subnet_id_list[0]}} \
+        --key-name {{aws_key_pair_name}} \
+        --security-group-ids {{sg_id}} \
+        --associate-public-ip-address \
+        --block-device-mappings "[{\"DeviceName\":\"/dev/xvda\",\"Ebs\":{\"VolumeSize\":{{ec2_storage_root_size}},\"DeleteOnTermination\":true}}, \
+                                  {\"DeviceName\":\"/dev/sdb\",\"Ebs\":{\"VolumeSize\":{{ec2_storage_disk_size}},\"DeleteOnTermination\":true}}]" \
+        --tag-specifications 'ResourceType=instance,Tags=[{Key=name,Value={{ ec2_docdb_name }}}]' 'ResourceType=volume,Tags=[{Key=cost-center,Value={{ ec2_docdb_name }}}]' \
+        --user-data file:///tmp/ec2-{{user_action}}-user.sh
+
+  register: create_ec2_instance_info
+
+- name: Debug Information - Provision EC2 instance
+  debug:
+    msg:
+      - "Provision EC2 instance ........................... {{ create_ec2_instance_info.stdout }}"
+      - "Provision EC2 instance ........................... {{ create_ec2_instance_info.stdout | from_json | json_query('Instances[0].InstanceId')}}"
+
+- name: Set fact ec2_instance_id
+  set_fact:
+    ec2_instance_id: "{{ create_ec2_instance_info.stdout | from_json | json_query('Instances[0].InstanceId')   }}"
+
+- name: Wait till instance exists  {{ ec2_instance_id }}
+  command: >
+    aws ec2 wait instance-exists --instance-ids {{ ec2_instance_id }}
+
+- name: Wait till instance running  {{ ec2_instance_id }}
+  command: >
+    aws ec2 wait instance-running --instance-ids {{ ec2_instance_id }}
+
+- name: Wait till instance stopped  {{ ec2_instance_id }}
+  command: >
+    aws ec2 wait instance-stopped --instance-ids {{ ec2_instance_id }} --cli-read-timeout 0 --cli-connect-timeout 0
+
+- name: Terminate instance {{ ec2_instance_id }}
+  command: >
+    aws ec2 terminate-instances --instance-ids {{ ec2_instance_id }}
+
+- name: Create ec2-cleanup-resource.sh script in local /tmp/
+  ansible.builtin.template:
+    src: ec2-cleanup-resource.sh.j2
+    dest: /tmp/ec2-cleanup-resource.sh
+    mode: '777'
+
+- name: Execute clean up resource script
+  shell: |
+    /tmp/ec2-cleanup-resource.sh > /tmp/ec2-cleanup-resource.log
