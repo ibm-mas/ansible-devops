@@ -1,0 +1,51 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Assert that mas_instance_id is defined"
+  assert:
+    that:
+      - mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id is required"
+
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Target Channel ......................... {{ mas_channel | default('No rollback available', True) }}"
+      - "MAS Instance ID ........................ {{ mas_instance_id }}"
+      - "MAS namespace .......................... {{ mas_namespace }}"
+      - "Dry Run? ............................... {{ mas_rollback_dryrun }}"
+
+
+# 3. Check the existing installation
+# -----------------------------------------------------------------------------
+- name: "Suite : Get Suite CR for for ibm-mas"
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_namespace }}"
+    kind: Suite
+  register: current_suite_info
+
+# 4. Rollback
+# -----------------------------------------------------------------------------
+- name: "Execute Core Rollback"
+  when:
+    - mas_channel is defined and mas_channel != ""
+    - current_suite_info is defined and current_suite_info.resources[0].status.versions.reconciled != mas_channel
+    - not mas_rollback_dryrun
+  include_tasks: tasks/rollback.yml
+
+- name: "Debug when we are already on the desired version"
+  when:
+    - mas_channel is defined and mas_channel != ""
+    - current_suite_info is defined and current_suite_info.resources[0].status.versions.reconciled == mas_channel
+  debug:
+    msg: "No action required, core is already on the {{ mas_channel }} version"
+
+- name: "Debug when the version is not supported"
+  when: mas_channel is not defined or mas_channel == ""
+  debug:
+    msg: "No action required, no channel information is available for rollback"
