@@ -13,7 +13,7 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Target Channel ......................... {{ mas_channel | default('No rollback available', True) }}"
+      - "Target Core version .................... {{ mas_core_rollback_version | default('No rollback available', True) }}"
       - "MAS Instance ID ........................ {{ mas_instance_id }}"
       - "MAS namespace .......................... {{ mas_namespace }}"
       - "Dry Run? ............................... {{ mas_rollback_dryrun }}"
@@ -33,19 +33,19 @@
 # -----------------------------------------------------------------------------
 - name: "Execute Core Rollback"
   when:
-    - mas_channel is defined and mas_channel != ""
-    - current_suite_info is defined and current_suite_info.resources[0].status.versions.reconciled != mas_channel
+    - mas_core_rollback_version is defined and mas_core_rollback_version != ""
+    - current_suite_info is defined and current_suite_info.resources[0].status.versions.reconciled != mas_core_rollback_version
     - not mas_rollback_dryrun
   include_tasks: tasks/rollback.yml
 
 - name: "Debug when we are already on the desired version"
   when:
-    - mas_channel is defined and mas_channel != ""
-    - current_suite_info is defined and current_suite_info.resources[0].status.versions.reconciled == mas_channel
+    - mas_core_rollback_version is defined and mas_core_rollback_version != ""
+    - current_suite_info is defined and current_suite_info.resources[0].status.versions.reconciled == mas_core_rollback_version
   debug:
-    msg: "No action required, core is already on the {{ mas_channel }} version"
+    msg: "No action required, core is already on the {{ mas_core_rollback_version }} version"
 
 - name: "Debug when the version is not supported"
-  when: mas_channel is not defined or mas_channel == ""
+  when: mas_core_rollback_version is not defined or mas_core_rollback_version == ""
   debug:
     msg: "No action required, no channel information is available for rollback"
