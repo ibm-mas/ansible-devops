@@ -101,3 +101,17 @@
   ansible.builtin.template:
     src: docdb_instance_user_credentials_secret.yaml.j2
     dest: "{{ mas_config_dir }}/{{ docdb_instance_credentials_secret_name }}.yml"
+
+- name: Terminate instance {{ ec2_instance_id }}
+  command: >
+    aws ec2 terminate-instances --instance-ids {{ ec2_instance_id }}
+
+- name: Create ec2-cleanup-resource.sh script in local /tmp/
+  ansible.builtin.template:
+    src: ec2-cleanup-resource.sh.j2
+    dest: /tmp/ec2-cleanup-resource.sh
+    mode: '777'
+
+- name: Execute clean up resource script
+  shell: |
+    /tmp/ec2-cleanup-resource.sh > /tmp/ec2-cleanup-resource.log
