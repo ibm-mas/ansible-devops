@@ -66,56 +66,56 @@
       - "Templated workspace CR ................. {{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
-# 6. Workspace configuration
-# -----------------------------------------------------------------------------
-- name: Configure application in workspace
-  kubernetes.core.k8s:
-    state: present
-    namespace: "{{ mas_app_namespace }}"
-    definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
+# # 6. Workspace configuration
+# # -----------------------------------------------------------------------------
+# - name: Configure application in workspace
+#   kubernetes.core.k8s:
+#     state: present
+#     namespace: "{{ mas_app_namespace }}"
+#     definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
-# 7. Check if the application is ready
-# -----------------------------------------------------------------------------
-# Workspaces can only be configured when an application is in Ready state.
-#
-# If the application is not in ready state we can fail fast rather than waiting
-# for the workspace to be Ready -- because it never will!
-- name: "Lookup application information"
-  kubernetes.core.k8s_info:
-    api_version: "{{ mas_app_api_version }}"
-    name: "{{ mas_instance_id }}"
-    namespace: "{{ mas_app_namespace }}"
-    kind: "{{ mas_app_kind }}"
-  register: app_cr_result
+# # 7. Check if the application is ready
+# # -----------------------------------------------------------------------------
+# # Workspaces can only be configured when an application is in Ready state.
+# #
+# # If the application is not in ready state we can fail fast rather than waiting
+# # for the workspace to be Ready -- because it never will!
+# - name: "Lookup application information"
+#   kubernetes.core.k8s_info:
+#     api_version: "{{ mas_app_api_version }}"
+#     name: "{{ mas_instance_id }}"
+#     namespace: "{{ mas_app_namespace }}"
+#     kind: "{{ mas_app_kind }}"
+#   register: app_cr_result
 
-- name: "Check that the application is ready to configure a workspace"
-  assert:
-    that:
-      - app_cr_result.resources is defined
-      - app_cr_result.resources | length > 0
-      - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
-    fail_msg: "Workspace {{ mas_workspace_id }} created but application {{ mas_app_id }} is not ready"
+# - name: "Check that the application is ready to configure a workspace"
+#   assert:
+#     that:
+#       - app_cr_result.resources is defined
+#       - app_cr_result.resources | length > 0
+#       - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+#     fail_msg: "Workspace {{ mas_workspace_id }} created but application {{ mas_app_id }} is not ready"
 
 
-# 8. Wait for application workspace to be ready
-# -----------------------------------------------------------------------------
-- name: "Wait for application workspace to be ready ({{ mas_app_cfg_delay }}s delay)"
-  kubernetes.core.k8s_info:
-    api_version: "{{ mas_app_ws_apiversion }}"
-    kind: "{{ mas_app_ws_kind }}"
-    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
-    namespace: "{{ mas_app_namespace }}"
-    wait: yes
-    wait_condition:
-      status: "True"
-      type: Ready
-    wait_sleep: 30
-    wait_timeout: 120 # before we give up and fall back into the retry loop
-  register: app_ws_cr_result
-  retries: "{{ mas_app_cfg_retries }}"
-  delay: "{{ mas_app_cfg_delay }}"
-  until:
-    - app_ws_cr_result.resources is defined
-    - app_ws_cr_result.resources | length > 0
-    - app_ws_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+# # 8. Wait for application workspace to be ready
+# # -----------------------------------------------------------------------------
+# - name: "Wait for application workspace to be ready ({{ mas_app_cfg_delay }}s delay)"
+#   kubernetes.core.k8s_info:
+#     api_version: "{{ mas_app_ws_apiversion }}"
+#     kind: "{{ mas_app_ws_kind }}"
+#     name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+#     namespace: "{{ mas_app_namespace }}"
+#     wait: yes
+#     wait_condition:
+#       status: "True"
+#       type: Ready
+#     wait_sleep: 30
+#     wait_timeout: 120 # before we give up and fall back into the retry loop
+#   register: app_ws_cr_result
+#   retries: "{{ mas_app_cfg_retries }}"
+#   delay: "{{ mas_app_cfg_delay }}"
+#   until:
+#     - app_ws_cr_result.resources is defined
+#     - app_ws_cr_result.resources | length > 0
+#     - app_ws_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1

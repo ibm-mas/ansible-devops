@@ -55,3 +55,26 @@
             definition: "{{ lookup('template', 'templates/manage/{{mas_app_settings_server_bundles_size}}-manage-additional-server-config-secrets.yml.j2') }}"
 
       when: jms_secret_output.stdout_lines | length == 0
+
+# Manage specific steps to configure Customization archive with credentials
+# ------------------------------------------------------------------------
+- name: "Manage: Add customization archive credentials if username/password are defined to download archive file from url"
+  when:
+    - mas_app_settings_customization_archive_username is defined
+    - mas_app_settings_customization_archive_username | length > 0
+    - mas_app_settings_customization_archive_password is defined
+    - mas_app_settings_customization_archive_password | length > 0
+    - mas_app_settings_customization_archive_url is defined
+    - mas_app_settings_customization_archive_url | length > 0
+  block:
+    # when custom archive credentials are defined then we include customizationArchiveCredentials property in mas_app_settings_customization_list
+    - name: "Create secret containing Customization Archive Credentials"
+      kubernetes.core.k8s:
+        definition: "{{ lookup('template', 'templates/manage/custom-archive-credentials.yml.j2') }}"
+
+    - name: "Merge customizationArchiveCredentials property into customizationList"
+      set_fact:
+        mas_app_settings_customization_list: "{{ mas_app_settings_customization_list[0] | combine( mas_app_settings_customization_credentials ) }}"
+
+    - debug:
+        var: mas_app_settings_customization_list
