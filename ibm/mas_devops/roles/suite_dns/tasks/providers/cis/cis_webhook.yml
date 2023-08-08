@@ -1,20 +1,30 @@
 ---
 # 1. Deploy the CIS Webhook
 # =============================================================================
+- name: "cis : Create service account and permissions for CIS webhook"
+  kubernetes.core.k8s:
+    namespace: "{{ cert_manager_namespace }}"
+    state: present
+    template: templates/cis/webhook/rbac.yml.j2
+
+# The below SSC is needed for cert-manager-webhook-ibm-cis service account so that the cert-manager-webhook-ibm-cis deployment/pod is able to run
+- name: "cis : Add Security Context Constraints for CIS webhook service account"
+  shell: |
+    oc adm policy add-scc-to-user anyuid -z cert-manager-webhook-ibm-cis -n {{ cert_manager_namespace }}
+  register: creating_user_output
+
 - name: "cis : Create k8s resources for CIS webhook"
   kubernetes.core.k8s:
     namespace: "{{ cert_manager_namespace }}"
     state: present
     template: "{{ item }}"
   with_items:
-    - templates/cis/webhook/rbac.yml.j2
     - templates/cis/webhook/pki.yml.j2
     - templates/cis/webhook/deployment.yml.j2
     - templates/cis/webhook/apiservice.yml.j2
     - templates/cis/webhook/service.yml.j2
     - templates/cis/webhook/cis-apikey-secret.yml.j2
     - templates/cis/webhook/cis-proxy-route.yml.j2
-
 
 # 2. Create the CIS ClusterIssuers
 # =============================================================================
