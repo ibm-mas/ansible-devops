@@ -44,10 +44,10 @@ class ActionModule(ActionBase):
 
         if versionMatching:
           return dict(
-            message="MAS Core version is matched",
+            message="MAS core version is matched",
             failed=False,
             changed=False,
             version=core_version
           )
         else:
-          raise AnsibleError(f"Error: MAS Core version is not matched")
+          raise AnsibleError(f"Error: MAS core version is not matched")

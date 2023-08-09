@@ -16,7 +16,7 @@
       - "Target Core version .................... {{ mas_core_version | default('No rollback available', True) }}"
       - "MAS Instance ID ........................ {{ mas_instance_id }}"
       - "MAS namespace .......................... {{ mas_namespace }}"
-      - "Dry Run? ............................... {{ mas_core_rollback_dryrun }}"
+      - "Dry Run? ............................... {{ mas_rollback_dryrun }}"
 
 
 # 3. Check the existing installation
@@ -35,25 +35,36 @@
   when:
     - mas_core_version is defined and mas_core_version != ""
     - current_suite_info is defined and current_suite_info.resources[0].status.versions.reconciled != mas_core_version
-    - mas_core_rollback
-    - not mas_core_rollback_dryrun
-  include_tasks: tasks/rollback.yml
+    - rollback_mas_core
+    - not mas_rollback_dryrun
+    - skip_compatibility_check or mas_core_version in current_suite_info.resources[0].status.versions.supported
+  include_tasks: tasks/rollback_mas_core.yml
 
 - name: "Debug when we are already on the desired version"
   when:
+    - rollback_mas_core
     - mas_core_version is defined and mas_core_version != ""
     - current_suite_info is defined and current_suite_info.resources[0].status.versions.reconciled == mas_core_version
   debug:
     msg: "No action required, core is already on the {{ mas_core_version }} version"
 
-- name: "Debug when the version is not supported"
-  when: mas_core_version is not defined or mas_core_version == ""
+- name: "Debug when the version is not defined"
+  when: 
+    - rollback_mas_core
+    - mas_core_version is not defined or mas_core_version == ""
   debug:
-    msg: "No action required, no channel information is available for rollback"
+    msg: "No action required, no version information is available for rollback"
 
-# 5. Verify the core is locked at the specified version
+- name: "Debug when the version is not supported"
+  when: 
+    - rollback_mas_core
+    - skip_compatibility_check is false and mas_core_version is not in current_suite_info.resources[0].status.versions.supported
+  debug:
+    msg: "No action required, version is not supported for rollback"
+
+# 5. Verify the current core version matching with specified version
 # -----------------------------------------------------------------------------
-- name: "Check Core Version"
+- name: "Verify Core Version"
   when: verify_core_version
   ibm.mas_devops.verify_core_version:
     mas_instance_id: "{{ mas_instance_id }}"
