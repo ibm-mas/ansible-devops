@@ -24,16 +24,16 @@
 # -----------------------------------------------------------------------------
 # The following will auto determine storage classes to be used as persistent
 # volumes for Manage attachments/BIM configurations (Manage OOTB features)
-- name: Determine Storage Class for Manage application
+- name: Determine Storage Class for {{ mas_app_id }} application
   when:
-    - mas_app_id == 'manage'
+    - mas_app_id in ['manage','health']
     - mas_app_settings_persistent_volumes_flag or mas_app_settings_server_bundles_size in ['jms','snojms']
   include_tasks: "tasks/determine-storage-classes.yml"
 
 # Build the incredibly complex Manage spec.settings from a set of env vars
-- name: Run Manage specific pre-configuration
+- name: "Run Manage specific pre-configuration"
   when: mas_app_id == 'manage'
-  include_tasks: "tasks/{{ mas_app_id }}.yml"
+  include_tasks: "tasks/manage/main.yml"
 
 # Resolve the WSL project ID that will be used by Predict and HP Utilities
 - name: Lookup Watson Studio Project ID

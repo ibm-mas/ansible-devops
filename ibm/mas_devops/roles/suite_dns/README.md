@@ -105,6 +105,14 @@ Set this to the name of the subdomain under your Cloudflare domain where you wou
 
 Role Variables - IBM Cloud Internet Services DNS Integration
 ------------------------------------------------------------
+
+!!! note
+  When using CIS integration, some resources will be installed in the cluster such as RBACs, API Services and CIS Webhook deployments.
+  In OCP 4.12+, to avoid CIS webhook deployment failure at start up, this role will grant `anyuid` permission to `cert-manager-webhook-ibm-cis` service account so it can fully access the cert-manager-webhook-ibm-cis deployment pod as a workaround:
+  ```
+  oc adm policy add-scc-to-user anyuid -z cert-manager-webhook-ibm-cis -n ibm-common-services
+  ```
+
 ### cis_email
 
 - **Required** if `dns_provider` is set to `cis`
