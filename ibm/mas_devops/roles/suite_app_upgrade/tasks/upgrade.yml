@@ -2,6 +2,20 @@
 
 # 1. Upgrade Subscription
 # -----------------------------------------------------------------------------
+- name: "Lookup subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "{{ mas_app_fqn }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: Subscription
+  register: suite_app_sub
+
+- name: "Assert subscription exists"
+  assert:
+    that:
+      - suite_app_sub.resources is defined
+      - suite_app_sub.resources | length == 1
+
 - name: "Update subscription"
   kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
