@@ -1,6 +1,6 @@
 suite_rollback
 ===============================================================================
-This role validates if a given MAS installation is ready for the core platform to be rolled back to a specific MAS core version, and (as long as dry run mode is not enabled) will execute the rollback.
+This role is to roll back Maximo Application Suite to an earlier version. Rollback is possible only in 8.11 and later. From 8.11 onwards, every version comes with a set of supported versions to which Suite can be rolled back. For example, you can roll back Maximo Application Suite from 8.11.x to 8.11.0. This role validates given MAS installation is ready for the core platform to be rolled back to a specific MAS core version, and (as long as dry run mode is not enabled) will execute the rollback.
 
 - It will validate that the specified version is compatible to rollback from the current version.
 - It will validate that the core is already running at the targetted version.
@@ -43,7 +43,7 @@ The version of the MAS core that you want to rollback to or to validate current 
 When set to `true` will ensure that the role only preforms rollback validation checks and does not make any changes to the target installation.
 
 - Optional
-- Environment Variable: `MAS_ROLEBACK_DRYRUN`
+- Environment Variable: `MAS_ROLLBACK_DRYRUN`
 - Default: `False`
 
 Example Playbook
