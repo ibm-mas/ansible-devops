@@ -1,8 +1,30 @@
 ---
+# 0. Lookup namespace
+# -------------------------------------------------------------------------
+- name: "Lookup Namespace: {{ db2_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ db2_namespace }}"
+  register: _db2_namespace_lookup
+
+- name: Set found_db2_namespace Fact
+  ansible.builtin.set_fact:
+    found_db2_namespace: "{{ _db2_namespace_lookup.resources | length == 1 | default(false, true) }}"
+
+- name: "Namespace Not Found: {{ db2_namespace }}"
+  ansible.builtin.debug:
+    msg: "Done/Success. There was nothing to update for Db2."
+  when:
+    - not found_db2_namespace
+
+
 # 1. Look up the default channel for the db2u-operator package manifest
 # -----------------------------------------------------------------------------
 - name: Lookup db2u-operator packagemanifest
-  when: db2_channel is not defined or db2_channel == ""
+  when:
+    - found_db2_namespace
+    - db2_channel is not defined or db2_channel == ""
   kubernetes.core.k8s_info:
     api_version: packages.operators.coreos.com/v1
     kind: PackageManifest
@@ -11,12 +33,16 @@
   register: db2u_manifest_info
 
 - name: Set db2u-operator update channel to latest default channel if not provided
-  when: db2_channel is not defined or db2_channel == ""
+  when:
+    - found_db2_namespace
+    - db2_channel is not defined or db2_channel == ""
   set_fact:
     db2_channel: "{{ db2u_manifest_info.resources[0].status.defaultChannel }}"
 
 - name: Set db2 version when not provided
-  when: db2_version is not defined or db2_version == ""
+  when:
+    - found_db2_namespace
+    - db2_version is not defined or db2_version == ""
   ansible.builtin.set_fact:
     db2_version: "{{ db2u_manifest_info.resources[0].status.channels | selectattr('name', 'equalto', db2_channel) | map(attribute='currentCSVDesc') | map(attribute='annotations') | map(attribute='productVersion') | first }}"
 
@@ -24,6 +50,8 @@
 # Fail if db2_channel and/or version not discovered
 # -----------------------------------------------------------------------------
 - name: "Verify db2_channel and db2_version set"
+  when:
+    - found_db2_namespace
   assert:
     that:
       - db2_channel is defined and db2_channel != ""
@@ -32,6 +60,8 @@
 
 
 - name: Debug Db2 Universal Operator Install
+  when:
+    - found_db2_namespace
   ansible.builtin.debug:
     msg:
       - "Db2 Channel ............................ {{ db2_channel }}"
@@ -41,6 +71,8 @@
 # 2. Lookup current db2u channel
 # -----------------------------------------------------------------------------
 - name: "Get the current subscription channel for db2"
+  when:
+    - found_db2_namespace
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     name: ibm-db2u-operator
@@ -49,10 +81,14 @@
   register: db2_sub_info
 
 - name: "Set the value for the current channel for db2"
+  when:
+    - found_db2_namespace
   set_fact:
     old_db2_channel: "{{ db2_sub_info.resources[0].spec.channel }}"
 
 - name: Debug Db2 Operator Update
+  when:
+    - found_db2_namespace
   ansible.builtin.debug:
     msg:
       - "Current Db2 Channel .................... {{ old_db2_channel }}"
@@ -63,7 +99,9 @@
 # 3. If the current operator channel is the same for the upgrade, no upgrade
 # -----------------------------------------------------------------------------
 - name: "Debug when no upgrade is needed"
-  when: db2_channel == old_db2_channel
+  when:
+    - found_db2_namespace
+    - db2_channel == old_db2_channel
   debug:
     msg: "No action is required. Db2 subscription is already on the {{ db2_channel }} channel"
 
@@ -71,7 +109,9 @@
 # 4. Delete old Db2 OperandRequest
 # -----------------------------------------------------------------------------
 - name: "Delete old Db2 OperandRequest"
-  when: db2_channel != old_db2_channel
+  when:
+    - found_db2_namespace
+    - db2_channel != old_db2_channel
   kubernetes.core.k8s:
     state: absent
     template: templates/db2u_operandrequest.yml.j2
@@ -81,6 +121,7 @@
 
 - name: "Wait 2 minutes if we removed an old OperandRequest"
   when:
+    - found_db2_namespace
     - db2_channel != old_db2_channel
     - operandrequest_removal.changed == True
   pause:
@@ -90,7 +131,9 @@
 # 5. Upgrade Subscription
 # -----------------------------------------------------------------------------
 - name: "Update subscription to the new channel"
-  when: db2_channel != old_db2_channel
+  when:
+    - found_db2_namespace
+    - db2_channel != old_db2_channel
   kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
     name: ibm-db2u-operator
@@ -102,7 +145,9 @@
     apply: true
 
 - name: "Pause for 2 minutes before checking upgrade status..."
-  when: db2_channel != old_db2_channel
+  when:
+    - found_db2_namespace
+    - db2_channel != old_db2_channel
   pause:
     minutes: 2
 
@@ -110,7 +155,9 @@
 # 6. Lookup the updated OperatorCondition
 # -----------------------------------------------------------------------------
 - name: "Lookup the updated OperatorCondition"
-  when: db2_channel != old_db2_channel
+  when:
+    - found_db2_namespace
+    - db2_channel != old_db2_channel
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v2
     kind: OperatorCondition
@@ -126,7 +173,9 @@
     - updated_db2_opcon.resources[0].metadata.name is defined
 
 - name: "Debug Operator Version"
-  when: db2_channel != old_db2_channel
+  when:
+    - found_db2_namespace
+    - db2_channel != old_db2_channel
   debug:
     msg:
       - "Db2u Operator condition ................ {{ updated_db2_opcon.resources[0].metadata.name }}"
@@ -135,6 +184,8 @@
 # 7. Get the list of all DB2uCluster instances
 # -----------------------------------------------------------------------------
 - name: "Get db2u instance list"
+  when:
+    - found_db2_namespace
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     kind: Db2uCluster
@@ -142,6 +193,8 @@
   register: db2u_cluster_list
 
 - name: "Debug list of db2u instances"
+  when:
+    - found_db2_namespace
   debug:
     msg:
       - "Db2u Cluster Names ...................... {{ db2u_cluster_list.resources | map(attribute='metadata.name') }}"
@@ -149,6 +202,8 @@
       - "Db2u Cluster Versions ................... {{ db2u_cluster_list.resources | map(attribute='spec.version') }}"
 
 - name: "Get and set variables to store the lists"
+  when:
+    - found_db2_namespace
   set_fact:
     db2uCluster_names: "{{ db2u_cluster_list.resources | map(attribute='metadata.name') }}"
     db2uCluster_versions: "{{ db2u_cluster_list.resources | map(attribute='spec.version') }}"
@@ -157,13 +212,17 @@
 # 8. Determine if upgrade is needed and perform it
 # -----------------------------------------------------------------------------
 - name: "Check if Db2 instance is at version {{ db2_version }}"
-  when: item.1 != db2_version
+  when:
+    - found_db2_namespace
+    - item.1 != db2_version
   debug:
     msg: "Upgrade required for DB2uCluster {{ item.0 }} in namespace {{ db2_namespace }}. DB2 version {{ item.1 }} to {{ db2_version }}"
   loop: "{{ db2uCluster_names | zip(db2uCluster_versions) | list }}"
 
 - name: "Update db2u instance version when required"
-  when: item.1 != db2_version
+  when:
+    - found_db2_namespace
+    - item.1 != db2_version
   kubernetes.core.k8s_json_patch:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ item.0 }}"
@@ -176,7 +235,9 @@
   loop: "{{ db2uCluster_names | zip(db2uCluster_versions) | list }}"
 
 - name: "Wait for db2u instance to be ready (1m delay)"
-  when: item.1 != db2_version
+  when:
+    - found_db2_namespace
+    - item.1 != db2_version
   kubernetes.core.k8s_info:
     api_version: db2u.databases.ibm.com/v1
     name: "{{ item.0 }}"
