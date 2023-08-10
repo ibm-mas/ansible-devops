@@ -235,6 +235,18 @@ Optional. Provide the persistent volume storage mount path to be used for JMS qu
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_MOUNT_PATH`
 - Default: `/jms`
 
+### mas_app_settings_customization_archive_url
+Optional. Provide a custom archive/file path to be included as part of Manage deployment.
+
+- Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_URL`
+- Default: None
+
+### mas_app_settings_customization_archive_name
+Optional. Provide a custom archive file name to be associated with the archive/file path provided. Only used when `mas_app_settings_customization_archive_url` is defined. 
+
+- Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
+- Default: `manage-custom-archive`
+
 
 Example Playbook
 -------------------------------------------------------------------------------

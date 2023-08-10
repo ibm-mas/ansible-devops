@@ -1,0 +1,73 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Assert that mas_instance_id is defined"
+  assert:
+    that:
+      - mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id is required"
+
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Target Core version .................... {{ mas_core_version | default('No rollback available', True) }}"
+      - "MAS Instance ID ........................ {{ mas_instance_id }}"
+      - "MAS namespace .......................... {{ mas_namespace }}"
+      - "Dry Run? ............................... {{ mas_rollback_dryrun }}"
+
+
+# 3. Check the existing installation
+# -----------------------------------------------------------------------------
+- name: "Suite : Get Suite CR for for ibm-mas"
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_namespace }}"
+    kind: Suite
+  register: current_suite_info
+
+# 4. Rollback
+# -----------------------------------------------------------------------------
+- name: "Execute Core Rollback"
+  when:
+    - mas_core_version is defined and mas_core_version != ""
+    - current_suite_info is defined and current_suite_info.resources[0].status.versions.reconciled != mas_core_version
+    - rollback_mas_core
+    - not mas_rollback_dryrun
+    - skip_compatibility_check or mas_core_version in current_suite_info.resources[0].status.versions.supported
+  include_tasks: tasks/rollback_mas_core.yml
+
+- name: "Debug when we are already on the desired version"
+  when:
+    - rollback_mas_core
+    - mas_core_version is defined and mas_core_version != ""
+    - current_suite_info is defined and current_suite_info.resources[0].status.versions.reconciled == mas_core_version
+  debug:
+    msg: "No action required, core is already on the {{ mas_core_version }} version"
+
+- name: "Debug when the version is not defined"
+  when:
+    - rollback_mas_core
+    - mas_core_version is not defined or mas_core_version == ""
+  debug:
+    msg: "No action required, no version information is available for rollback"
+
+- name: "Debug when the version is not supported"
+  when:
+    - rollback_mas_core
+    - skip_compatibility_check is false and mas_core_version is not in current_suite_info.resources[0].status.versions.supported
+  debug:
+    msg: "No action required, version is not supported for rollback"
+
+# 5. Verify the current core version matching with specified version
+# -----------------------------------------------------------------------------
+- name: "Verify Core Version"
+  when: verify_core_version
+  ibm.mas_devops.verify_core_version:
+    mas_instance_id: "{{ mas_instance_id }}"
+    core_version: "{{ mas_core_version }}"
+    retries: 5  # Allow up to 5 minutes
+    delay: 60  # 1 minute

@@ -42,7 +42,6 @@ copyDoc gencfg_workspace
 copyDoc ibm_catalogs
 copyDoc install_operator
 copyDoc kafka
-copyDoc kubeturbo
 copyDoc mirror_case_prepare
 copyDoc mirror_extras_prepare
 copyDoc mirror_ocp
@@ -88,6 +87,8 @@ copyDoc suite_mustgather
 copyDoc suite_mustgather_download
 copyDoc suite_switch_to_olm
 copyDoc suite_upgrade
+copyDoc suite_rollback
 copyDoc suite_uninstall
 copyDoc suite_verify
+copyDoc turbonomic
 copyDoc uds

@@ -1,11 +1,18 @@
-# MAS Devops Ansible Collection
+MAS Devops Ansible Collection
+===============================================================================
 
-## MAS Compatability
-The collection supports IBM Maximo Application Suite version 8.6 and above.
+MAS Compatability
+-------------------------------------------------------------------------------
+The collection supports IBM Maximo Application Suite version 8.9 and above.
 
 
-## Usage
+Releases
+-------------------------------------------------------------------------------
+[https://github.com/ibm-mas/ansible-devops/releases](https://github.com/ibm-mas/ansible-devops/releases)
 
+
+Usage
+-------------------------------------------------------------------------------
 ### Run a playbook
 The collection includes a number of playbooks that string together multiple roles, you can directly invoke them after installing the collection:
 
@@ -26,7 +33,8 @@ You can also use the **run_role** playbook:
 ROLE_NAME=cert_manager ansible-playbook ibm.mas_devops.run_role
 ```
 
-## Running in Docker
+Running in Docker
+-------------------------------------------------------------------------------
 The easiest way to use this collection is to take advantage of the [ibmmas/cli](https://quay.io/repository/ibmmas/cli) container image, this negates the need to install anything on your local machine (other than docker - or podman if you prefer).
 
 ```bash
@@ -34,8 +42,8 @@ docker run -ti --rm --pull always quay.io/ibmmas/cli
 ```
 
 
-## Local Install
-
+Local Install
+-------------------------------------------------------------------------------
 ### Install Python & Ansible
 [Python 3.9](https://www.python.org/downloads/) is recommended as it is the most widely used version of Python within our development team, but any in-support 3.x version of Python should work fine.
 
@@ -67,6 +75,7 @@ curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/m
 ibmcloud version`
 ```
 
+
 ### Install the Ansible Collection
 Install the collection direct from [Ansible Galaxy](https://galaxy.ansible.com/ibm/mas_devops)
 
@@ -79,10 +88,15 @@ Optionally, you can also pin the version of the collection that you install, all
 ansible-galaxy collection install ibm.mas_devops:10.6.2
 ```
 
+
+Support
+-------------------------------------------------------------------------------
+This Ansible collection is developed by the IBM Maximo Application Suite development team, customers may raise support tickets via the same routes they would an issue with the product itself, or [raise an issue directly in the GitHub repository](https://github.com/ibm-mas/ansible-devops/issues).
+
+
+<!--
 ## Install via Automation Operator
-You can now install the Maximo Application Suite via a single operator. The operator will run all the MAS ansible in the background for you.  This is a good approach if you do not have extensive MAS experience or do not want to install via other methods.  The operator provides defaults for a straightforward installation.  
+You can now install the Maximo Application Suite via a single operator. The operator will run all the MAS ansible in the background for you.  This is a good approach if you do not have extensive MAS experience or do not want to install via other methods.  The operator provides defaults for a straightforward installation.
 
 To leverage this approach, install the custom catalog into your cluster and simply install and use the operator as any other operator.  More detailed instructions and installation notes can be found [here](https://github.com/cloud-native-toolkit/operator-masauto)
-
-## Support
-This Ansible collection is developed by the IBM Maximo Application Suite development team, customers may raise support tickets via the same routes they would an issue with the product itself, or [raise an issue directly in the GitHub repository](https://github.com/ibm-mas/ansible-devops/issues).
+-->
