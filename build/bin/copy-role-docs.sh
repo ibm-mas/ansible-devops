@@ -87,6 +87,7 @@ copyDoc suite_mustgather
 copyDoc suite_mustgather_download
 copyDoc suite_switch_to_olm
 copyDoc suite_upgrade
+copyDoc suite_rollback
 copyDoc suite_uninstall
 copyDoc suite_verify
 copyDoc turbonomic

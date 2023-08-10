@@ -1,0 +1,33 @@
+---
+# 1. Rollback MAS Core
+# -----------------------------------------------------------------------------
+- name: "Rollback : rollback ibm-mas core to specified version"
+  kubernetes.core.k8s:
+    api_version: core.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_namespace }}"
+    kind: Suite
+    definition:
+      spec:
+        version: "{{ mas_core_version }}"
+    apply: true
+
+
+# 5. Check that the Suite CR meets the required state
+# -----------------------------------------------------------------------------
+- name: "Rollback : Get Suite CR for for ibm-mas"
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_namespace }}"
+    kind: Suite
+  retries: 20 # about 20 minutes
+  delay: 60 # 1 minute
+  until:
+    - updated_suite_info.resources[0].status.versions.reconciled == mas_core_version
+    - updated_suite_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+  register: updated_suite_info
+
+- name: "Rollback : Debug Suite CR"
+  debug:
+    var: updated_suite_info
