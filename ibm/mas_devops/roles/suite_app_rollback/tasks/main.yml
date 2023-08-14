@@ -1,0 +1,113 @@
+---
+# 1. Load variables
+# -----------------------------------------------------------------------------
+# Initialize mas_app_rollback_target_channel so it can be reset within the upcoming runs
+- name: Clear mas_app_rollback_target_channel variable
+  set_fact:
+    mas_app_rollback_target_channel: ""
+
+- name: "{{ mas_app_id }} : Load application compatibility matrix"
+  include_vars: "{{ role_path }}/../../common_vars/compatibility_matrix.yml"
+- name: "Load application information"
+  include_vars: "{{ role_path }}/../../common_vars/application_info.yml"
+
+# Default mas_app_channel based on the latest supported version of the
+# installed MAS core if not provided by the user specifically
+- name: "{{ mas_app_id }} : Get subscription for ibm-mas"
+  when: mas_app_channel is not defined or mas_app_channel == ""
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "ibm-mas-operator"
+    namespace: "{{ mas_namespace }}"
+    kind: Subscription
+  register: core_sub_info
+
+
+# Set mas_app_rollback_target_channel on behalf of mas_app_channel:
+# There's probably a better way to do this but this was the way found to prevent
+# problems due ansible var precedence rule as set_fact on mas_app_channel will always take precedence
+# over what's being passed via var along any playbook that calls this role multiple times
+# so using a different and internal variable name to set the fact for mas_app_channel allows us
+# to receive its value from playbooks such as 'oneclick_upgrade.yml'
+- name: "{{ mas_app_id }} : Set default rollback target based on installed version of MAS core"
+  when:
+    - mas_app_channel is not defined or mas_app_channel == ""
+    - not ( skip_compatibility_check is defined and skip_compatibility_check )
+    - compatibility_matrix[core_sub_info.resources[0].spec.channel][mas_app_id] is defined # avoid undefined when safety as it does not exist post MAS 8.9
+  set_fact:
+    mas_app_rollback_target_channel: "{{ compatibility_matrix[core_sub_info.resources[0].spec.channel][mas_app_id] | last }}"
+
+- name: "{{ mas_app_id }} : Use mas_app_channel internally if needed"
+  set_fact:
+    mas_app_rollback_target_channel: "{{ mas_app_channel }}"
+  when:
+    - mas_app_rollback_target_channel is not defined or mas_app_rollback_target_channel == ""
+
+- name: "{{ mas_app_id }} : Get subscription for {{ mas_app_fqn }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "{{ mas_app_fqn }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: Subscription
+  register: app_sub_info
+
+
+# 2. Check if the app can be rolled back from current version (n-1)
+# -----------------------------------------------------------------------------
+- name: "{{ mas_app_id }} : Check existing application installation"
+  when:
+    - app_sub_info.resources | length > 0
+  include_tasks: tasks/check_app_compatibility.yml
+
+
+# 3. Check if the app is compatible with the version of MAS core platform
+# -----------------------------------------------------------------------------
+- name: "{{ mas_app_id }} : Check MAS core compatability"
+  when:
+    - app_sub_info.resources | length > 0
+  include_tasks: tasks/check_core_compatibility.yml
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Target Core version .................... {{ mas_core_version | default('No rollback available', True) }}"
+      - "MAS Instance ID ........................ {{ mas_instance_id }}"
+      - "MAS namespace .......................... {{ mas_namespace }}"
+      - "Dry Run? ............................... {{ mas_rollback_dryrun }}"
+      - "Target manage app version .............. {{ mas_app_rollback_target_channel }}"
+
+# 4. Rollback
+# -----------------------------------------------------------------------------
+- name: "{{ mas_app_id }} : Execute Channel Rollback"
+  when:
+    - mas_app_rollback_target_channel is defined and mas_app_rollback_target_channel != ""
+    - app_sub_info.resources | length > 0
+    - app_sub_info.resources[0].spec.channel != mas_app_rollback_target_channel
+    - not mas_rollback_dryrun
+    - mas_app_rollback_target_channel in current_suite_info.resources[0].status.versions.supported
+  include_tasks: tasks/rollback.yml
+
+- name: "{{ mas_app_id }} : Debug when we are already on the desired channel"
+  when:
+    - rollback
+    - mas_app_rollback_target_channel is defined and mas_app_rollback_target_channel != ""
+    - app_sub_info.resources | length > 0
+    - app_sub_info.resources[0].spec.channel == mas_app_rollback_target_channel
+  debug:
+    msg: "No action required, subscription is already on the {{ mas_app_rollback_target_channel }} channel"
+
+- name: "{{ mas_app_id }} : Debug when the version is not supported"
+  when:
+    - rollback
+    - mas_app_rollback_target_channel is not in current_suite_info.resources[0].status.versions.supported
+  debug:
+    msg: "No action required, version is not supported for rollback"
+
+- name: "Debug when the channel is not defined"
+  when: 
+    - rollback
+    - mas_app_rollback_target_channel is not defined or mas_app_rollback_target_channel == ""
+  debug:
+    msg: "No action required, no rollback channel is available for application {{ mas_app_id }}"
