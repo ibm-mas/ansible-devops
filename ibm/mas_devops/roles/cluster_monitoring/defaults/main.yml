@@ -1,4 +1,7 @@
 ---
+# Whether to perform an install or an uninstall
+cluster_monitoring_action: "{{ lookup('env', 'CLUSTER_MONITORING_ACTION') | default('install', true) }}"
+
 # --- Prometheous settings --------------------------------------------------------------------------------------------
 # Settings to update openshift monitoring to define a specific storage class for Prometheus logs
 prometheus_retention_period: "{{ lookup('env', 'PROMETHEUS_RETENTION_PERIOD') | default('15d', true) }}"
@@ -12,15 +15,19 @@ prometheus_userworkload_retention_period: "{{ lookup('env', 'PROMETHEUS_USERWORK
 prometheus_userworkload_storage_class: "{{ lookup('env', 'PROMETHEUS_USERWORKLOAD_STORAGE_CLASS') | default(lookup('env', 'PROMETHEUS_STORAGE_CLASS'), true) }}"
 prometheus_userworkload_storage_size: "{{ lookup('env', 'PROMETHEUS_USERWORKLOAD_STORAGE_SIZE') | default('300Gi', true) }}"
 
-# Settings to set grafana to define a specific storage class and size
-grafana_instance_storage_class: "{{ lookup('env', 'GRAFANA_INSTANCE_STORAGE_CLASS') }}"
-grafana_instance_storage_size: "{{ lookup('env', 'GRAFANA_INSTANCE_STORAGE_SIZE') | default('10Gi', true) }}"
+
+# --- Grafana settings ------------------------------------------------------------------------------------------------
+# Grafana is an optional part of the monitoring stack, by default it is disabled.
+cluster_monitoring_include_grafana: "{{ lookup('env', 'CLUSTER_MONITORING_INCLUDE_GRAFANA') | default('False', true) | bool }}"
 
 # Settings to set grafana location
 grafana_namespace: "{{ lookup('env', 'GRAFANA_NAMESPACE') | default('grafana', true) }}"
 
-# Whether to perform an install or an uninstall
-cluster_monitoring_action: "{{ lookup('env', 'CLUSTER_MONITORING_ACTION') | default('install', true) }}"
+# Settings to set grafana to define a specific storage class and size
+grafana_instance_storage_class: "{{ lookup('env', 'GRAFANA_INSTANCE_STORAGE_CLASS') }}"
+grafana_instance_storage_size: "{{ lookup('env', 'GRAFANA_INSTANCE_STORAGE_SIZE') | default('10Gi', true) }}"
 
+
+# --- Open Telemetry settings -----------------------------------------------------------------------------------------
 # OpenTelemetry is an optional part of the monitoring stack, by default it is disabled.
 cluster_monitoring_include_opentelemetry: "{{ lookup('env', 'CLUSTER_MONITORING_INCLUDE_OPENTELEMETRY') | default('False', true) | bool }}"

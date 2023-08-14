@@ -1,0 +1,12 @@
+---
+# Manage specific steps to configure Customization archive with credentials
+# when custom archive credentials are defined then we include customizationArchiveCredentials
+# property in mas_app_settings_customization_list
+# ------------------------------------------------------------------------
+- name: "Create secret containing Customization Archive Credentials"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/manage/custom-archive-credentials.yml.j2') }}"
+
+- name: "Merge customizationArchiveCredentials property into customizationList"
+  set_fact:
+    mas_app_settings_customization_list: "{{ [ mas_app_settings_customization_list[0] | combine( mas_app_settings_customization_credentials ) ] }}"
