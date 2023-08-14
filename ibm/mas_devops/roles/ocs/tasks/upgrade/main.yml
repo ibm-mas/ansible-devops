@@ -1,1 +1,17 @@
 ---
+# 0. Look up OCP version in Cluster and set expected operator and channel
+# -----------------------------------------------------------------------------
+- name: "Look up cluster ocp version"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    name: "version"
+    kind: ClusterVersion
+  register: ocp_version_lookup
+
+- name: "Set ocp version number"
+  when: ocp_version_lookup.resources[0] is defined
+  set_fact:
+    ocp_release: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
+
+# 1. Check if there is ocs or odf installed in the cluster
+# -----------------------------------------------------------------------------
