@@ -8,10 +8,86 @@
     kind: ClusterVersion
   register: ocp_version_lookup
 
-- name: "Set ocp version number"
+- name: "Get ocp version from lookup"
   when: ocp_version_lookup.resources[0] is defined
   set_fact:
-    ocp_release: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
+    ocp_version: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
 
-# 1. Check if there is ocs or odf installed in the cluster
+# 1. Get ocs and odf operators information from the cluster
 # -----------------------------------------------------------------------------
+- name: "Lookup OCS Operator"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: openshift-storage
+    label_selectors:
+      - "operators.coreos.com/ocs-operator.openshift-storage"
+  register: ocs_operator_con
+
+- name: "Lookup ODF Operator"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: openshift-storage
+    label_selectors:
+      - "operators.coreos.com/odf-operator.openshift-storage"
+  register: odf_operator_con
+
+- name: "Get ocs storage version information from the lookup"
+  when:
+    - ocs_operator_con.resources is defined
+    - ocs_operator_con.resources | length == 1
+  set_fact:
+    ocs_version: "{{ ocs_operator_con.resources[0].metadata.name.split('.v')[1]}}"
+
+- name: "Get odf storage version information from the lookup"
+  when:
+    - odf_operator_con.resources is defined
+    - odf_operator_con.resources | length == 1
+  set_fact:
+    odf_version: "{{ odf_operator_con.resources[0].metadata.name.split('.v')[1]}}"
+
+# 2. Determine if upgrade is needed or not
+# -----------------------------------------------------------------------------
+- name: "Determine if upgrade is needed for ocs"
+  when:
+    - ocp_version is version('4.11.0', '<')
+    - ocp_version is not in ocs_version
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ocs-operator
+    namespace: openshift-storage
+    kind: Subscription
+    definition:
+      spec:
+        channel: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+    apply: true
+
+- name: "Determine if upgrade is needed from ocs to odf"
+  when:
+    - ocp_version is version('4.11.0', '>=')
+    - ocp_version is defined
+    - odf_version is not defined
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/storage/subscription.yaml') }}"
+  register: odfSubscription
+  vars:
+    storage_operator: odf
+    storage_operator_channel: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+    storage_operator_source: certified-operators
+    storage_operator_source_namespace: openshift-marketplace
+
+- name: "Determine if upgrade is needed for odf"
+  when:
+    - ocp_version is version('4.11.0', '>=')
+    - ocp_version is not in odf_version
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: odf-operator
+    namespace: openshift-storage
+    kind: Subscription
+    definition:
+      spec:
+        channel: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+    apply: true
