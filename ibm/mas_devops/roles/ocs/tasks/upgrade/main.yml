@@ -51,6 +51,7 @@
 # -----------------------------------------------------------------------------
 - name: "Determine if upgrade is needed for ocs"
   when:
+    - ocs_version is defined
     - ocp_version is version('4.11.0', '<')
     - ocp_version is not in ocs_version
   kubernetes.core.k8s:
@@ -66,7 +67,7 @@
 - name: "Determine if upgrade is needed from ocs to odf"
   when:
     - ocp_version is version('4.11.0', '>=')
-    - ocp_version is defined
+    - ocs_version is defined
     - odf_version is not defined
   kubernetes.core.k8s:
     apply: yes
@@ -80,6 +81,7 @@
 
 - name: "Determine if upgrade is needed for odf"
   when:
+    - odf_version is defined
     - ocp_version is version('4.11.0', '>=')
     - ocp_version is not in odf_version
   kubernetes.core.k8s:
@@ -91,3 +93,10 @@
       spec:
         channel: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
     apply: true
+
+- name: "Display message if the storage operator is not in cluster"
+  when:
+    - ocs_version is not defined
+    - odf_version is not defined
+  debug:
+    msg: "Storage operator is not installed in this cluster. There is no need for upgrade."
