@@ -69,15 +69,38 @@
     - ocp_version is version('4.11.0', '>=')
     - ocs_version is defined
     - odf_version is not defined
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/storage/subscription.yaml') }}"
-  register: odfSubscription
-  vars:
-    storage_operator: odf
-    storage_operator_channel: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
-    storage_operator_source: certified-operators
-    storage_operator_source_namespace: openshift-marketplace
+  block:
+    - name: "Update source in local-storage subscription"
+      kubernetes.core.k8s:
+        api_version: operators.coreos.com/v1alpha1
+        name: local-storage-operator
+        namespace: openshift-local-storage
+        kind: Subscription
+        patch:
+          - op: "replace"
+            path: "/spec/source"
+            value: "redhat-operators"
+
+    - name: "Update source in ocs-operator subscription"
+      kubernetes.core.k8s:
+        api_version: operators.coreos.com/v1alpha1
+        name: ocs-operator
+        namespace: openshift-storage
+        kind: Subscription
+        patch:
+          - op: "replace"
+            path: "/spec/source"
+            value: "redhat-operators"
+        
+    - name: "Install ODF in Cluster"
+      kubernetes.core.k8s:
+        apply: yes
+        definition: "{{ lookup('template', 'templates/storage/subscription.yaml') }}"
+      vars:
+        storage_operator: odf
+        storage_operator_channel: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+        storage_operator_source: "redhat-operators"
+        storage_operator_source_namespace: openshift-marketplace
 
 - name: "Determine if upgrade is needed for odf"
   when:
