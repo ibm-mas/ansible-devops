@@ -47,6 +47,13 @@
   set_fact:
     odf_version: "{{ odf_operator_con.resources[0].metadata.name.split('.v')[1]}}"
 
+- name: "Display gathered information"
+  debug:
+    msg:
+      - "OCP Version ............................ {{ ocp_version }}"
+      - "OCS Version ............................ {{ ocs_version | default('<undefined>') }}"
+      - "ODF Version ............................ {{ odf_version | default('<undefined>') }}"
+
 # 2. Determine if upgrade is needed or not
 # -----------------------------------------------------------------------------
 - name: "Determine if upgrade is needed for ocs"
@@ -54,15 +61,15 @@
     - ocs_version is defined
     - ocp_version is version('4.11.0', '<')
     - ocp_version is not in ocs_version
-  kubernetes.core.k8s:
+  kubernetes.core.k8s_json_patch:
     api_version: operators.coreos.com/v1alpha1
     name: ocs-operator
     namespace: openshift-storage
     kind: Subscription
-    definition:
-      spec:
-        channel: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
-    apply: true
+    patch:
+      - op: "replace"
+        path: "/spec/channel"
+        value: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
 
 - name: "Determine if upgrade is needed from ocs to odf"
   when:
@@ -107,19 +114,19 @@
     - odf_version is defined
     - ocp_version is version('4.11.0', '>=')
     - ocp_version is not in odf_version
-  kubernetes.core.k8s:
+  kubernetes.core.k8s_json_patch:
     api_version: operators.coreos.com/v1alpha1
     name: odf-operator
     namespace: openshift-storage
     kind: Subscription
-    definition:
-      spec:
-        channel: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
-    apply: true
+    patch:
+      - op: "replace"
+        path: "/spec/channel"
+        value: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
 
 - name: "Display message if the storage operator is not in cluster"
   when:
     - ocs_version is not defined
     - odf_version is not defined
   debug:
-    msg: "Storage operator is not installed in this cluster. There is no need for upgrade."
+    msg: "Storage operator is not installed in this cluster. There's nothing to upgrade."
