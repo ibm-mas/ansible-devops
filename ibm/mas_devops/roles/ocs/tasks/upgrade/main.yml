@@ -130,3 +130,52 @@
     - odf_version is not defined
   debug:
     msg: "Storage operator is not installed in this cluster. There's nothing to upgrade."
+
+- name: "Display message if the storage operator is already at the update channel"
+  when: (ocs_version is defined and ocs_version is in ocp_version) or
+        (odf_version is defined and odf_version is in ocp_version)
+  debug:
+    msg: "Storage operator does not need an upgrade. Storage channel is up to date"
+
+# 3. Verify that the storage operator is in good condition and has been updated
+# -----------------------------------------------------------------------------
+- name: "Lookup OCS Operator after upgrade"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: openshift-storage
+    label_selectors:
+      - "operators.coreos.com/ocs-operator.openshift-storage"
+  register: ocs_operator_con_upg
+
+- name: "Lookup ODF Operator after upgrade"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: openshift-storage
+    label_selectors:
+      - "operators.coreos.com/odf-operator.openshift-storage"
+  register: odf_operator_con_upg
+
+- name: "Get ocs storage version information from the lookup after upgrade"
+  when:
+    - ocs_operator_con_upg.resources is defined
+    - ocs_operator_con_upg.resources | length == 1
+  set_fact:
+    ocs_version_upg: "{{ ocs_operator_con_upg.resources[0].metadata.name.split('.v')[1] | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+- name: "Get odf storage version information from the lookup after upgrade"
+  when:
+    - odf_operator_con_upg.resources is defined
+    - odf_operator_con_upg.resources | length == 1
+  set_fact:
+    odf_version_upg: "{{ odf_operator_con_upg.resources[0].metadata.name.split('.v')[1] | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+- name: "Display information"
+  debug:
+    msg:
+      - "OCP Version ............................ {{ ocp_version }}"
+      - "OCS Version Before Upgrade.............. {{ ocs_version | default('<undefined>') }}"
+      - "ODF Version Before Upgrade ............. {{ odf_version | default('<undefined>') }}"
+      - "OCS Version After Upgrade .............. {{ ocs_version_upg | default('<undefined>') }}"
+      - "ODF Version After Upgrade .............. {{ odf_version_upg | default('<undefined>') }}"
