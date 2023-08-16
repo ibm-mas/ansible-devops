@@ -5,6 +5,10 @@
     ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.10', True) }}"
     ocp_fips_enabled: "{{ lookup('env', 'OCP_FIPS_ENABLED') | default('false', true) | bool }}"
 
+    # We update the cipher support on all installs, even though it's only technically
+    # requires for FIPS clusters
+    ocp_apiserver_update_ciphers: True
+
   pre_tasks:
     # For the full set of supported environment variables refer to the playbook documentation
     - name: Check for required environment variables
@@ -24,7 +28,7 @@
     - ibm.mas_devops.ocp_login
     - ibm.mas_devops.ocp_verify
 
-    # 3. check/update the config of OCP 
+    # 3. Update the APIServer to custom for FIPS compatibility
     - ibm.mas_devops.ocp_config
 
     # 4. Install OpenShift Container Storage
