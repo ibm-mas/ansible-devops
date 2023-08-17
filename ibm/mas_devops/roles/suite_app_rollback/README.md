@@ -39,16 +39,17 @@ The version you wish to rollback to.  Built-in validation will ensure that the r
 - Default Value: None
 
 ### mas_app_id
-The name of the Maximo Application Suite Application. This will be used to lookup for application namespace and resources.
+The name of the Maximo Application Suite Application. This will be used to lookup for application namespace and resources. Please be aware that at present, 'manage' is the only supported value for this variable.
 
 - **Required**
 - Environment Variable: `MAS_APP_ID`
-- Default Value: manage
+- Default Value: None 
+
 
 Example Playbook
 -------------------------------------------------------------------------------
 ### Automatic Target Selection
-Running this playbook will rollback Manage Application to the specified version.  If you run this playbook when you are already on the same version it will take no action.
+Running this playbook will rollback Manage Application to the 8.7.1 version. If you run this playbook when you are already on the same version it will take no action.
 
 ```yaml
 - hosts: localhost
