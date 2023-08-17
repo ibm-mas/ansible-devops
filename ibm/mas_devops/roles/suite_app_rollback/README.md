@@ -36,7 +36,7 @@ When set to `true` will ensure that the role checks the current Manage Appliatio
 The subscription channel/version you wish to rollback to.  Built-in validation will ensure that the rollback will only proceed if a supportable rollback path is chosen. It is required when any of the ROLLBACK_MAS_APP and VERIFY_APP_VERSION variables is set to `true`.
 
 - **Required**
-- Environment Variable: `MAS_APP_CHANNEL`
+- Environment Variable: `MAS_APP_VERSION`
 - Default Value: None
 
 Example Playbook
