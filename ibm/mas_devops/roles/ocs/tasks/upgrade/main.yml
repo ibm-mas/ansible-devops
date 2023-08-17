@@ -88,6 +88,10 @@
             path: "/spec/source"
             value: "redhat-operators"
 
+    - name: "Pause for 1 minutes before continuing..."
+      pause:
+        minutes: 1
+
     - name: "Update source in ocs-operator subscription"
       kubernetes.core.k8s_json_patch:
         api_version: operators.coreos.com/v1alpha1
@@ -99,6 +103,10 @@
             path: "/spec/source"
             value: "redhat-operators"
 
+    - name: "Pause for 1 minutes before continuing..."
+      pause:
+        minutes: 1
+
     - name: "Install ODF in Cluster"
       kubernetes.core.k8s:
         apply: yes
@@ -109,20 +117,30 @@
         storage_operator_source: "redhat-operators"
         storage_operator_source_namespace: openshift-marketplace
 
+    - name: "Pause for 5 minutes before continuing..."
+      pause:
+        minutes: 5
+
 - name: "Determine if upgrade is needed for odf"
   when:
     - odf_version is defined
     - ocp_version is version('4.11.0', '>=')
     - odf_version is not in ocp_version
-  kubernetes.core.k8s_json_patch:
-    api_version: operators.coreos.com/v1alpha1
-    name: odf-operator
-    namespace: openshift-storage
-    kind: Subscription
-    patch:
-      - op: "replace"
-        path: "/spec/channel"
-        value: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+  block:
+    - name: "Patch odf subscription"
+      kubernetes.core.k8s_json_patch:
+        api_version: operators.coreos.com/v1alpha1
+        name: odf-operator
+        namespace: openshift-storage
+        kind: Subscription
+        patch:
+          - op: "replace"
+            path: "/spec/channel"
+            value: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+    - name: "Pause for 2 minutes before continuing..."
+      pause:
+        minutes: 2
 
 - name: "Display message if the storage operator is not in cluster"
   when:
