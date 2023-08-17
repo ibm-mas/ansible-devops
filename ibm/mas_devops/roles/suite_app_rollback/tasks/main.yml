@@ -18,7 +18,7 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Target Core version .................... {{ mas_core_version | default('No rollback available', True) }}"
+      - "Target App version ..................... {{ mas_app_version | default('No rollback available', True) }}"
       - "MAS Instance ID ........................ {{ mas_instance_id }}"
       - "MAS App ID ............................. {{ mas_app_id }}"
       - "MAS Namespace .......................... {{ mas_namespace }}"
@@ -37,7 +37,11 @@
 # 5. Verify the current core version matching with specified version
 # -----------------------------------------------------------------------------
 - name: "Verify App Version"
-  when: verify_app_version
+  when:
+    - verify_app_version
+    - not mas_rollback_dryrun
+    - mas_app_version and mas_app_version != ""
+    - mas_app_id and mas_app_id != ""
   ibm.mas_devops.verify_app_version:
     mas_instance_id: "{{ mas_instance_id }}"
     mas_app_id: "{{ mas_app_id }}"

@@ -23,6 +23,7 @@
     apply: true
   when:
     - not mas_rollback_dryrun
+    - mas_app_version and mas_app_version != ""
     - current_app_info is defined and current_app_info.resources[0].status.versions.reconciled != mas_app_version
     - skip_compatibility_check or mas_app_version in current_app_info.resources[0].status.versions.supported
 
@@ -41,6 +42,7 @@
 
 - name: "Debug when the version is not supported"
   when:
+    - mas_app_version and mas_app_version != ""
     - skip_compatibility_check is false and mas_app_version is not in current_app_info.resources[0].status.versions.supported
   debug:
     msg: "No action required, version is not supported for rollback"
@@ -59,6 +61,11 @@
     - updated_app_info.resources[0].status.versions.reconciled == mas_app_version
     - updated_app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
   register: updated_app_info
+  when:
+    - mas_app_version and mas_app_version != ""
+    - not mas_rollback_dryrun
+    - current_app_info is defined and current_app_info.resources[0].status.versions.reconciled != mas_app_version
+    - skip_compatibility_check or mas_app_version in current_app_info.resources[0].status.versions.supported
 
 - name: "Rollback : Debug MAS Manage App"
   debug:
