@@ -181,7 +181,24 @@
     patch:
       - op: "replace"
         path: "/spec/version"
-        value: "{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+        value: "{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}.0"
+  
+- name: "Wait until the updated StorageCluster is ready"
+  when:
+    - storageCluster_version is defined and storageCluster_version != ''
+    - storageCluster_version is not in ocp_version
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: StorageCluster
+    name: "{{ storageCluster_name }}"
+    namespace: openshift-storage
+  register: storageCluster_info_upd
+  retries: 20 # 20 minutes
+  delay: 60 # 1 minutes
+  until:
+    - storageCluster_info_upd.resources is defined
+    - storageCluster_info_upd.resources | length > 0
+    - storageCluster_info_upd.resources[0].status.phase == "Ready"
 
 # 4. Verify that the storage operator is in good condition and has been updated
 # -----------------------------------------------------------------------------
