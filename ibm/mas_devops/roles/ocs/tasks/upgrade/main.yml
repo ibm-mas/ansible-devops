@@ -51,26 +51,11 @@
   debug:
     msg:
       - "OCP Version ............................ {{ ocp_version }}"
-      - "OCS Version ............................ {{ ocs_version | default('<undefined>') }}"
-      - "ODF Version ............................ {{ odf_version | default('<undefined>') }}"
+      - "OCS Version Before Upgrade ............. {{ ocs_version | default('<undefined>') }}"
+      - "ODF Version Before Upgrade ............. {{ odf_version | default('<undefined>') }}"
 
-# 2. Determine if upgrade is needed or not
+# 2. Determine if operator upgrade is needed or not
 # -----------------------------------------------------------------------------
-- name: "Determine if upgrade is needed for ocs"
-  when:
-    - ocs_version is defined
-    - ocp_version is version('4.11.0', '<')
-    - ocs_version is not in ocp_version
-  kubernetes.core.k8s_json_patch:
-    api_version: operators.coreos.com/v1alpha1
-    name: ocs-operator
-    namespace: openshift-storage
-    kind: Subscription
-    patch:
-      - op: "replace"
-        path: "/spec/channel"
-        value: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
-
 - name: "Determine if upgrade is needed from ocs to odf"
   when:
     - ocp_version is version('4.11.0', '>=')
@@ -142,6 +127,21 @@
       pause:
         minutes: 2
 
+    - name: "Update channel in local-storage subscription"
+      kubernetes.core.k8s_json_patch:
+        api_version: operators.coreos.com/v1alpha1
+        name: local-storage-operator
+        namespace: openshift-local-storage
+        kind: Subscription
+        patch:
+          - op: "replace"
+            path: "/spec/channel"
+            value: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+    - name: "Pause for 2 minutes before continuing..."
+      pause:
+        minutes: 2
+
 - name: "Display message if the storage operator is not in cluster"
   when:
     - ocs_version is not defined
@@ -193,7 +193,7 @@
     name: "{{ storageCluster_name }}"
     namespace: openshift-storage
   register: storageCluster_info_upd
-  retries: 10 # 10 minutes
+  retries: 15 # 15 minutes
   delay: 60 # 1 minutes
   until:
     - storageCluster_info_upd.resources is defined
