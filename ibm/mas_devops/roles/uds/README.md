@@ -56,11 +56,25 @@ Local directory to save the generated BasCfg resource definition.  This can be u
 - Default Value: None
 
 ### mas_segment_key
-Override the biult-in segment key used by MAS when communicating with User Data Services.  This variable is only used for the generation of the BASCfg template, and in 99% of use cases you will not need to set this.
+Override the built-in segment key used by MAS when communicating with User Data Services.  This variable is only used for the generation of the BASCfg template, and in 99% of use cases you will not need to set this.
 
 - Optional
 - Environment Variable: `MAS_SEGMENT_KEY`
 - Default Value: None
+
+### mas_workload_scale_class
+This will load a predefined workload scale configuration that is going to be applied to BasCfg CR. Can be set to either Burstable, BestEffort or Guaranteed. The default value is Burstable.
+
+- Optional
+- Environment Variable: `MAS_WORKLOAD_SCALE_CLASS`
+- Default: Burstable
+
+### mas_workload_scale_file
+The path to the custom workload scale configuration file of the user. If this is set then `mas_workload_scale_class` is ignored.
+
+- Optional
+- Environment Variable: `MAS_WORKLOAD_SCALE_FILE`
+- Default: None
 
 ### uds_contact.email
 Sets the Contact e-mail address used by the MAS instance's UDS configuration.
@@ -98,7 +112,7 @@ Sets the UDS TLS CA or Server Certificate used by the MAS instance's UDS configu
 - Default Value: None
 
 ### uds_tls_crt_local_file_path
-The path on the local system to a file containing the TLS CA certiticate of the AnalyticsProxy to be used when the Maximo Application Suite is registered with UDS.  This variable is only used if `uds_tls_crt` has not been set.
+The path on the local system to a file containing the TLS CA certificate of the AnalyticsProxy to be used when the Maximo Application Suite is registered with UDS.  This variable is only used if `uds_tls_crt` has not been set.
 
 - Optional, used to instruct the role to set up MAS for an existing SLS instance.
 - Environment Variable: `UDS_TLS_CERT_LOCAL_FILE`

@@ -9,6 +9,11 @@
       - mas_config_dir is defined and mas_config_dir != ""
     fail_msg: "Missing required properties"
 
+- name: "Fail if mas_workload_scale_class is not set correctly"
+  assert:
+    that: mas_workload_scale_class is in ['BestEffort', 'Burstable', 'Guaranteed']
+    fail_msg: "mas_workload_scale_class must be one of ['BestEffort', 'Burstable', 'Guaranteed']"
+
 # 2. Debug information
 # -----------------------------------------------------------------------------
 - name: Debug Information
@@ -17,6 +22,20 @@
       - "SMTP Type .............................. {{ smtp_type }}"
       - "MAS Instance Id ........................ {{ mas_instance_id }}"
       - "MAS Config Dir ......................... {{ mas_config_dir }}"
+      - "MAS workload scale class ............... {{ mas_workload_scale_file is defined | ternary('Custom', mas_workload_scale_class) }}"
+
+# 2. Workload scale configuration
+# -----------------------------------------------------------------------------
+- name: "Set facts : mas_workload_scale_file"
+  set_fact:
+    mas_workload_scale_file: "{{ role_path }}/../../common_vars/podTemplates/{{ mas_workload_scale_class | lower }}.yml"
+  when:
+    - mas_workload_scale_file is not defined
+    - mas_workload_scale_class != 'Burstable'
+
+- name: Load workload scale configuration file
+  include_vars: "{{ mas_workload_scale_file }}"
+  when: mas_workload_scale_file is defined
 
 # 3. Execute provider specific tasks
 # -----------------------------------------------------------------------------

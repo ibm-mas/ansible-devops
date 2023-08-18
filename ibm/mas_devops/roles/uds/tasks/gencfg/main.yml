@@ -28,6 +28,10 @@
     that: uds_tls_crt is defined and uds_tls_crt|length != 0
     fail_msg: "uds_tls_crt property has not been set"
 
+- name: "Fail if mas_workload_scale_class is not set correctly"
+  assert:
+    that: mas_workload_scale_class is in ['BestEffort', 'Burstable', 'Guaranteed']
+    fail_msg: "mas_workload_scale_class must be one of ['BestEffort', 'Burstable', 'Guaranteed']"
 
 # 3. Provide Debug information
 # -----------------------------------------------------------------------------
@@ -38,9 +42,22 @@
       - "UDS Contact First Name ............. {{ uds_contact.first_name | default('<undefined>', True) }}"
       - "UDS Contact Last Name .............. {{ uds_contact.last_name | default('<undefined>', True) }}"
       - "UDS Contact e-mail ................. {{ uds_contact.email | default('<undefined>', True) }}"
+      - "MAS workload scale class ........... {{ mas_workload_scale_file is defined | ternary('Custom', mas_workload_scale_class) }}"
 
+# 4. Workload scale configuration
+# -----------------------------------------------------------------------------
+- name: "Set facts : mas_workload_scale_file"
+  set_fact:
+    mas_workload_scale_file: "{{ role_path }}/../../common_vars/podTemplates/{{ mas_workload_scale_class | lower }}.yml"
+  when:
+    - mas_workload_scale_file is not defined
+    - mas_workload_scale_class != 'Burstable'
 
-# 4. Generate BASCfg for MAS
+- name: Load workload scale configuration file
+  include_vars: "{{ mas_workload_scale_file }}"
+  when: mas_workload_scale_file is defined
+
+# 5. Generate BASCfg for MAS
 # -----------------------------------------------------------------------------
 - name: "gencfg : Copy BASCfg to filesytem"
   ansible.builtin.template:

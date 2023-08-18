@@ -5,8 +5,14 @@
 - name: "Determine whether this is an airgap environment"
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
 
+# 2. Check for required facts
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_workload_scale_class is not set correctly"
+  assert:
+    that: mas_workload_scale_class is in ['BestEffort', 'Burstable', 'Guaranteed']
+    fail_msg: "mas_workload_scale_class must be one of ['BestEffort', 'Burstable', 'Guaranteed']"
 
-# 2. Load default storage class (if not provided by the user)
+# 3. Load default storage class (if not provided by the user)
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/determine-storage-classes.yml
 
@@ -19,12 +25,25 @@
       - "UDS API Key ........................ Found in 'uds_api_key' secret under 'ibm-common-services' namespace"
       - "MAS Instance ID .................... {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS Config Directory ............... {{ mas_config_dir | default('<undefined>', True) }}"
+      - "MAS workload scale class ........... {{ mas_workload_scale_file is defined | ternary('Custom', mas_workload_scale_class) }}"
       - "UDS Contact First Name ............. {{ uds_contact.first_name | default('<undefined>', True) }}"
       - "UDS Contact Last Name .............. {{ uds_contact.last_name | default('<undefined>', True) }}"
       - "UDS Contact e-mail ................. {{ uds_contact.email | default('<undefined>', True) }}"
 
+# 4. Workload scale configuration
+# -----------------------------------------------------------------------------
+- name: "Set facts : mas_workload_scale_file"
+  set_fact:
+    mas_workload_scale_file: "{{ role_path }}/../../common_vars/podTemplates/{{ mas_workload_scale_class | lower }}.yml"
+  when:
+    - mas_workload_scale_file is not defined
+    - mas_workload_scale_class != 'Burstable'
 
-# 3. Install Crunchy Postgres Operator (Properly)
+- name: Load workload scale configuration file
+  include_vars: "{{ mas_workload_scale_file }}"
+  when: mas_workload_scale_file is defined
+
+# 5. Install Crunchy Postgres Operator (Properly)
 # -----------------------------------------------------------------------------
 # UDS installs the operator with a startingCSV set explicitly to 5.1.0 for some
 # unknown reason, the best case scenario is that we go through needless upgrades,
@@ -71,7 +90,7 @@
     wait_timeout: 120
 
 
-# 4. Wait for Postgres Operator to be Ready
+# 6. Wait for Postgres Operator to be Ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Crunchy Postgres operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -85,7 +104,7 @@
   delay: 60 # 1 minute
 
 
-# 5. Install UDS Operator
+# 7. Install UDS Operator
 # -----------------------------------------------------------------------------
 - name: Install Foundation Services ibm-user-data-services operand request
   kubernetes.core.k8s:
@@ -94,7 +113,7 @@
     wait_timeout: 120
 
 
-# 6. Wait for UDS Operator to be Ready
+# 8. Wait for UDS Operator to be Ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Foundation Services ibm-user-data-services operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -108,7 +127,7 @@
   delay: 60 # 1 minute
 
 
-# 7. Create UDS AnalyticsProxy
+# 9. Create UDS AnalyticsProxy
 # -----------------------------------------------------------------------------
 - name: "Create UDS AnalyticsProxy"
   kubernetes.core.k8s:
@@ -118,7 +137,7 @@
 # For some reason it seems to work anyway.
 
 
-# 8. Wait for the UDS AnalyticsProxy to be ready
+# 10. Wait for the UDS AnalyticsProxy to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for the AnalyticsProxy to be ready"
   kubernetes.core.k8s_info:
@@ -136,14 +155,14 @@
   delay: 120 # 2 minutes
 
 
-# 9. Cretae the GenerateKey CR
+# 11. Cretae the GenerateKey CR
 # -----------------------------------------------------------------------------
 - name: "Create UDS Generate Key"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/foundation-services/generateKey.yaml') }}"
 
 
-# 10. Wait for GenerateKey to be complete
+# 12. Wait for GenerateKey to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for GenerateKey to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -161,7 +180,7 @@
   delay: 60 # 1 minute
 
 
-# 11. MAS Config
+# 13. MAS Config
 # -----------------------------------------------------------------------------
 # Note that the MAS config resource still refers to UDS by its
 # original name (BAS).  It would be a breaking change to re-name the MAS CRD

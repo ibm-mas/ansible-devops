@@ -34,6 +34,20 @@ Local directory to save the generated SmtpCfg resource definition.  This can be 
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
+### mas_workload_scale_class
+This will load a predefined workload scale configuration that is going to be applied to SmtpCfg CR. Can be set to either Burstable, BestEffort or Guaranteed. The default value is Burstable.
+
+- Optional
+- Environment Variable: `MAS_WORKLOAD_SCALE_CLASS`
+- Default: Burstable
+
+### mas_workload_scale_file
+The path to the custom workload scale configuration file of the user. If this is set then `mas_workload_scale_class` is ignored.
+
+- Optional
+- Environment Variable: `MAS_WORKLOAD_SCALE_FILE`
+- Default: None
+
 ### sendgrid_primary_username
 
 - Required.  Username of the existing SendGrid account.  
