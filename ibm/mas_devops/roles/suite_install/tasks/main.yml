@@ -7,10 +7,10 @@
     that: mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "mas_instance_id property is required"
 
-- name: "Fail if mas_workload_scaling_class is not set correctly"
+- name: "Fail if mas_workload_scale_class is not set correctly"
   assert:
-    that: mas_workload_scaling_class is in ['BestEffort', 'Burstable', 'Guaranteed']
-    fail_msg: "mas_workload_scaling_class must be one of ['BestEffort', 'Burstable', 'Guaranteed']"
+    that: mas_workload_scale_class is in ['BestEffort', 'Burstable', 'Guaranteed']
+    fail_msg: "mas_workload_scale_class must be one of ['BestEffort', 'Burstable', 'Guaranteed']"
 
 # 1.b Set facts for mas_annotations_dict, HyperscalerFormat, HyperscalerChannel
 # -----------------------------------------------------------------------------
@@ -120,15 +120,16 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Catalog source ............... {{ mas_catalog_source }}"
-      - "MAS channel .................. {{ mas_channel }}"
-      - "Instance ID .................. {{ mas_instance_id }}"
-      - "MAS namespace ................ {{ mas_namespace }}"
-      - "MAS domain ................... {{ mas_domain }}"
-      - "MAS ICR cp content ........... {{ mas_icr_cp }}"
-      - "MAS ICR cpopen content ....... {{ mas_icr_cpopen }}"
-      - "MAS Cluster Issuer ........... {{ mas_cluster_issuer }}"
-      - "MAS Subcription Upgrade ...... {{ mas_upgrade_strategy }}"
+      - "Catalog source ................ {{ mas_catalog_source }}"
+      - "MAS channel ................... {{ mas_channel }}"
+      - "Instance ID ................... {{ mas_instance_id }}"
+      - "MAS namespace ................. {{ mas_namespace }}"
+      - "MAS domain .................... {{ mas_domain }}"
+      - "MAS ICR cp content ............ {{ mas_icr_cp }}"
+      - "MAS ICR cpopen content ........ {{ mas_icr_cpopen }}"
+      - "MAS Cluster Issuer ............ {{ mas_cluster_issuer }}"
+      - "MAS Subscription Upgrade ...... {{ mas_upgrade_strategy }}"
+      - "MAS workload scale class ...... {{ mas_workload_scale_file is defined | ternary('Custom', mas_workload_scale_class) }}"
 
 
 # 5. Install the operator & create entitlement secret
@@ -207,24 +208,18 @@
   include_tasks: "tasks/install_digest_cm.yml"
 
 
-# 8. Load workload scaling configuration
+# 8. Workload scale configuration
 # -----------------------------------------------------------------------------
-- name: "Load predefined workload scaling configuration"
-  when: mas_workload_scaling_file is not defined
-  block:
-    - name: "Set facts : mas_workload_scaling_file"
-      set_fact:
-        mas_workload_scaling_file: "{{ role_path }}/../../common_vars/podTemplates/{{ mas_workload_scaling_class | lower }}.yml"
-      when: mas_workload_scaling_class is in ['Burstable', 'Guaranteed']
+- name: "Set facts : mas_workload_scale_file"
+  set_fact:
+    mas_workload_scale_file: "{{ role_path }}/../../common_vars/podTemplates/{{ mas_workload_scale_class | lower }}.yml"
+  when:
+    - mas_workload_scale_file is not defined
+    - mas_workload_scale_class != 'Burstable'
 
-    - name: "Set facts : mas_workload_scaling_file"
-      set_fact:
-        mas_workload_scaling_file: "{{ role_path }}/../../common_vars/podTemplates//best-effort.yml"
-      when: mas_workload_scaling_class == "BestEffort"
-
-- name: Load workload scaling configuration
-  include_vars: "{{ mas_workload_scaling_file }}"
-
+- name: Load workload scale configuration file
+  include_vars: "{{ mas_workload_scale_file }}"
+  when: mas_workload_scale_file is defined
 
 # 9. Suite installation
 # -----------------------------------------------------------------------------
