@@ -612,11 +612,18 @@ The product version (also known as operand version) of this service to install.
 - Default Value: 4.0.9
 
 ### cpd_service_storage_class
-This is used to set `spec.storageClass` in all CPD v3.5 services, and many - but not all - CP4D v4.0 services.
+This is used to set `spec.storageClass` in all CPD services.
 
 - **Required**, unless IBMCloud storage classes are available.
 - Environment Variable: `CPD_SERVICE_STORAGE_CLASS`
-- Default Value: `ibmc-file-gold-gid` if the storage class is available.
+- Default Value: Auto determined if default storage classes are provided and available by your cloud provider. i.e `ibmc-file` for IBM Cloud, `efs` for AWS.
+
+### cpd_service_block_storage_class
+This is used to set `spec.blockStorageClass` in CPD services as Watson Studio, Watson Discovery and Cognos Analytics.
+
+- **Required**, unless IBMCloud storage classes are available.
+- Environment Variable: `CPD_SERVICE_BLOCK_STORAGE_CLASS`
+- Default Value: Auto determined if default storage classes are provided and available by your cloud provider. i.e `ibmc-block` for IBM Cloud, `gp2` for AWS.
 
 ### cpd_instance_namespace
 Namespace where the CP4D instance is deployed.

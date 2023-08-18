@@ -1,5 +1,106 @@
 ---
-# 1. Wait for CCS CR to be ready
+# 1. Wait for ccs-cr to be created
+- name: "wait-ccs : Wait for ccs-cr to be created"
+  kubernetes.core.k8s_info:
+    api_version: ccs.cpd.ibm.com/v1beta1
+    name: ccs-cr
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: CCS
+  register: ccscr_output
+  until:
+    - ccscr_output.resources is defined
+    - ccscr_output.resources | length > 0
+  retries: 60 # approx 30 minutes before we give up
+  delay: 30 # seconds
+
+# 2. Apply the patch per recommendation from CP4D team
+# https://github.ibm.com/NGP-TWC/ml-planning/issues/32683
+
+# wdp-couchdb pods default resources:
+
+# containers:
+#   - resources:
+#       limits:
+#         cpu: '8'
+#         ephemeral-storage: 1Gi
+#         memory: 6Gi
+#       requests:
+#         cpu: 750m
+#         ephemeral-storage: 10Mi
+#         memory: 256Mi
+
+# wdp-couchdb pod resources after patch to increase resources:
+# containers:
+#     - resources:
+#         limits:
+#           cpu: '16'
+#           memory: 16Gi
+#         requests:
+#           cpu: '3'
+#           memory: 256Mi
+
+- name: "wait-ccs : Patch ccs-cr to increase resource limits"
+  kubernetes.core.k8s:
+    api_version: ccs.cpd.ibm.com/v1beta1
+    name: ccs-cr
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: CCS
+    definition:
+      spec:
+        couchdb_resources:
+          limits:
+            cpu: "16"
+            ephemeral-storage: 1Gi
+            memory: 16Gi
+          requests:
+            cpu: "3"
+            ephemeral-storage: 10Mi
+            memory: 256Mi
+        couchdb_search_resources:
+          limits:
+            cpu: "4"
+            memory: 6Gi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+    apply: true
+
+# 3. Delete ccs-operator pod to force the reconcile from the beginning after ccs-cr is patched.
+- name: "wait-ccs : : Scale down ccs-operator"
+  kubernetes.core.k8s:
+    api_version: apps/v1
+    name: ibm-cpd-ccs-operator
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: Deployment
+    definition:
+      spec:
+        replicas: 0
+    apply: true
+
+- name: "wait-ccs : : Scale down ccs-operator"
+  kubernetes.core.k8s:
+    api_version: apps/v1
+    name: ibm-cpd-ccs-operator
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: Deployment
+    definition:
+      spec:
+        replicas: 1
+    apply: true
+
+# 4. Wait for ccs operator ...
+- name: "wait-ccs : Wait for ccs-operator to be ready again (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-cpd-ccs-operator
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: Deployment
+  register: ccs_operator_lookup
+  until: ccs_operator_lookup.resources[0].status.availableReplicas is defined
+  retries: 20 # Approximately 20 minutes before we give up
+  delay: 60 # 1 minute
+
+# 5. Wait for CCS CR to be ready
 # -----------------------------------------------------------------------------
 # Note: We can't fail early when we see Failed status, as the operator will
 # report failed multiple times during initial reconcile.
