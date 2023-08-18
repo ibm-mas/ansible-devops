@@ -257,6 +257,35 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Default Value: None
 
 
+
+### sls_workload_scale_class
+This will load a predefined workload scale configuration that is going to be applied to LicenseService CR. Can be set to either Burstable, BestEffort or Guaranteed. The default value is Burstable.
+
+- Optional
+- Environment Variable: `SLS_WORKLOAD_SCALE_CLASS`
+- Default: Burstable
+
+### sls_workload_scale_file
+The path to the custom workload scale configuration file of the user. If this is set then `sls_workload_scale_class` is ignored.
+
+- Optional
+- Environment Variable: `SLS_WORKLOAD_SCALE_FILE`
+- Default: None
+
+### mas_workload_scale_class
+Same as sls_workload_scale_class but it is going to be applied to SlsCfg Cr.
+
+- Optional
+- Environment Variable: `MAS_WORKLOAD_SCALE_CLASS`
+- Default: Burstable
+
+### mas_workload_scale_file
+Same as sls_workload_scale_file but it is going to be applied to SlsCfg Cr.
+
+- Optional
+- Environment Variable: `MAS_WORKLOAD_SCALE_FILE`
+- Default: None
+
 Example Playbook
 -------------------------------------------------------------------------------
 

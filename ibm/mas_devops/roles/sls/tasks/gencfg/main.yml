@@ -26,6 +26,11 @@
     that: sls_tls_crt is defined and sls_tls_crt != ""
     fail_msg: "sls_tls_crt property has not been set"
 
+- name: "Fail if mas_workload_scale_class is not set correctly"
+  assert:
+    that: mas_workload_scale_class is in ['BestEffort', 'Burstable', 'Guaranteed']
+    fail_msg: "mas_workload_scale_class must be one of ['BestEffort', 'Burstable', 'Guaranteed']"
+
 # 3. Provide Debug for no-op mode
 # -----------------------------------------------------------------------------
 # Important: mas_instance_id and mas_config_dir are not required, calling this role
@@ -37,7 +42,20 @@
     msg: "mas_instance_id and/or mas_config_dir are not set, so the SLSCfg will not be generated"
   when: (mas_instance_id is not defined or mas_instance_id == "") or (mas_config_dir is not defined or mas_config_dir == "")
 
-# 4. Generate SLSCfg for MAS
+# 4. Workload scale configuration
+# -----------------------------------------------------------------------------
+- name: "Set facts : mas_workload_scale_file"
+  set_fact:
+    mas_workload_scale_file: "{{ role_path }}/../../common_vars/podTemplates/{{ mas_workload_scale_class | lower }}.yml"
+  when:
+    - mas_workload_scale_file is not defined
+    - mas_workload_scale_class != 'Burstable'
+
+- name: Load workload scale configuration file
+  include_vars: "{{ mas_workload_scale_file }}"
+  when: mas_workload_scale_file is defined
+
+# 5. Generate SLSCfg for MAS
 # -----------------------------------------------------------------------------
 - name: Copy SLSCfg to filesytem
   ansible.builtin.template:

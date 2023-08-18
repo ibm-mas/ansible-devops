@@ -21,6 +21,11 @@
     fail_msg: "Review provided MongoDb details, it is missing required elements"
   when: sls_mongodb is defined
 
+- name: "Fail if sls_workload_scale_class is not set correctly"
+  assert:
+    that: sls_workload_scale_class is in ['BestEffort', 'Burstable', 'Guaranteed']
+    fail_msg: "sls_workload_scale_class must be one of ['BestEffort', 'Burstable', 'Guaranteed']"
+
 # 2. Check for valid combinations for bootstrap and new upload mechanism (3.7.0)
 # -----------------------------------------------------------------------------
 - name: "Fail if bootstrap.license_file and entitlement_file are both set"
@@ -85,8 +90,22 @@
       - "SLS Bootstrap registrationKey .......... {{ bootstrap.registration_key | default('<undefined>', True) }}"
       - "SLS entitlement file ................... {{ entitlement_file }}"
       - "SLS Mongo Retry Writes ................. {{ sls_mongo_retrywrites }}"
+      - "SLS workload scale class ............... {{ sls_workload_scale_file is defined | ternary('Custom', sls_workload_scale_class) }}"
 
-# 4. Create the namespace for SLS
+# 4. Workload scale configuration
+# -----------------------------------------------------------------------------
+- name: "Set facts : sls_workload_scale_file"
+  set_fact:
+    sls_workload_scale_file: "{{ role_path }}/../../common_vars/podTemplates/{{ sls_workload_scale_class | lower }}.yml"
+  when:
+    - sls_workload_scale_file is not defined
+    - sls_workload_scale_class != 'Burstable'
+
+- name: Load workload scale configuration file
+  include_vars: "{{ sls_workload_scale_file }}"
+  when: sls_workload_scale_file is defined
+
+# 5. Create the namespace for SLS
 # -----------------------------------------------------------------------------
 - name: "Create SLS Namespace"
   kubernetes.core.k8s:
@@ -96,7 +115,7 @@
       metadata:
         name: "{{ sls_namespace }}"
 
-# 5. Set up the domain name for SLS
+# 6. Set up the domain name for SLS
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
   kubernetes.core.k8s_info:
@@ -110,7 +129,7 @@
     sls_domain: "{{ sls_namespace }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
   when: not sls_domain
 
-# 6. Install Operator & create entitlement
+# 7. Install Operator & create entitlement
 # -----------------------------------------------------------------------------
 - name: "Install SLS Operator"
   ansible.builtin.include_role:
@@ -123,7 +142,7 @@
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
-# 7. Wait until the LicenseService CRD is available
+# 8. Wait until the LicenseService CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the LicenseService CRD is available"
   kubernetes.core.k8s_info:
@@ -143,7 +162,7 @@
     - sls_crd_info.resources is defined
     - sls_crd_info.resources | length > 0
 
-# 8. Create Mongo Secret
+# 9. Create Mongo Secret
 # -----------------------------------------------------------------------------
 - name: Read MongoDb config file
   ansible.builtin.set_fact:
@@ -186,7 +205,7 @@
     namespace: "{{ sls_namespace }}"
     template: templates/mongo-secret.yml.j2
 
-# 9. Bootstrap the license service
+# 10. Bootstrap the license service
 # -----------------------------------------------------------------------------
 - name: Initialize Bootstrap
   when: bootstrap_mode
@@ -230,7 +249,7 @@
         entitlement: "{{ lookup('file', entitlement_file) }}"
   when: entitlement_file is defined and entitlement_file != ''
 
-# 10. Integrated Airgap support
+# 11. Integrated Airgap support
 # -----------------------------------------------------------------------------
 # Before we create the CR we will set up the Airgap Image Map
 # We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
@@ -241,7 +260,7 @@
   ansible.builtin.include_tasks: "tasks/install/install_digest_cm.yml"
   when: airgap_install
 
-# 11. Create the license service CR
+# 12. Create the license service CR
 # -----------------------------------------------------------------------------
 - name: Create the sls.ibm.com/v1.LicenseService
   kubernetes.core.k8s:
@@ -250,15 +269,15 @@
     template: templates/licenseservice.yml.j2
   register: sls_cr_result
 
-# 12. Wait for it to hit Ready
+# 13. Wait for it to hit Ready
 # -----------------------------------------------------------------------------
 - name: Verify LicenseService CR
   ansible.builtin.include_tasks: "tasks/install/sls-verify.yml"
 
-# 13. Generate SLSCfg
+# 14. Generate SLSCfg
 # -----------------------------------------------------------------------------
 # The SLSCfg resource is not generated as part of this role anymore, a dedicated
-# role exists to generate the configuraion file (gencfg_sls), this role will set
+# role exists to generate the configuration file (gencfg_sls), this role will set
 # up all the properties required by that role before calling it
 # - sls_registration_key
 # - sls_url
