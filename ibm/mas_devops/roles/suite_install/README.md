@@ -81,6 +81,20 @@ Boolean variable that defines whether default Certificate Authorities are includ
 - Environment Variable: `MAS_TRUST_DEFAULT_CAS`,
 - Default: True
 
+### mas_workload_scaling_class
+This will load a predefined workload scaling configuration that is going to be applied to Suite CR. Can be set to either Burstable, BestEffort or Guaranteed. The default value is Burstable.
+
+- Optional
+- Environment Variable: `MAS_WORKLOAD_SCALING_CLASS`
+- Default: Burstable
+
+### mas_workload_scaling_file
+The path to the custom workload scaling configuration file of the user. If this is set then `mas_workload_scaling_class` is ignored.
+
+- Optional
+- Environment Variable: `MAS_WORKLOAD_SCALING_FILE`
+- Default: None
+
 Example Playbook
 -------------------------------------------------------------------------------
 
