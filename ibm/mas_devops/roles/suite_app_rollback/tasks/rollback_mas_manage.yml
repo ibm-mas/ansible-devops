@@ -1,0 +1,72 @@
+---
+# 1. Check the existing installation
+# -----------------------------------------------------------------------------
+- name: "Manage : Get CR for Manage"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: ManageApp
+  register: current_app_info
+
+# 2. Rollback MAS Manage
+# -----------------------------------------------------------------------------
+- name: "Rollback : rollback MAS manage to specified version"
+  kubernetes.core.k8s:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: ManageApp
+    definition:
+      spec:
+        version: "{{ mas_app_version }}"
+    apply: true
+  when:
+    - not mas_rollback_dryrun
+    - mas_app_version and mas_app_version != ""
+    - current_app_info is defined and current_app_info.resources[0].status.versions.reconciled != mas_app_version
+    - skip_compatibility_check or mas_app_version in current_app_info.resources[0].status.versions.supported
+
+- name: "Debug when we are already on the desired version"
+  when:
+    - mas_app_version is defined and mas_app_version != ""
+    - current_app_info is defined and current_app_info.resources[0].status.versions.reconciled == mas_app_version
+  debug:
+    msg: "No action required, manage app is already on the {{ mas_app_version }} version"
+
+- name: "Debug when the version is not defined"
+  when:
+    - mas_app_version is not defined or mas_app_version == ""
+  debug:
+    msg: "No action required, no version information is available for rollback"
+
+- name: "Debug when the version is not supported"
+  when:
+    - mas_app_version and mas_app_version != ""
+    - skip_compatibility_check is false and mas_app_version is not in current_app_info.resources[0].status.versions.supported
+  debug:
+    msg: "No action required, version is not supported for rollback"
+
+# 3. Check that the Manage CR meets the required state
+# -----------------------------------------------------------------------------
+- name: "Rollback : Get MAS Manage App CR"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: ManageApp
+  retries: 20 # about 20 minutes
+  delay: 60 # 1 minute
+  until:
+    - updated_app_info.resources[0].status.versions.reconciled == mas_app_version
+    - updated_app_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+  register: updated_app_info
+  when:
+    - mas_app_version and mas_app_version != ""
+    - not mas_rollback_dryrun
+    - current_app_info is defined and current_app_info.resources[0].status.versions.reconciled != mas_app_version
+    - skip_compatibility_check or mas_app_version in current_app_info.resources[0].status.versions.supported
+
+- name: "Rollback : Debug MAS Manage App"
+  debug:
+    var: updated_app_info
