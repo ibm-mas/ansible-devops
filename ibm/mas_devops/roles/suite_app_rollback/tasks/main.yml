@@ -1,0 +1,50 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Assert that mas_instance_id is defined"
+  assert:
+    that:
+      - mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id is required"
+
+- name: "Assert that mas_app_id is defined"
+  assert:
+    that:
+      - mas_app_id is defined and mas_app_id != ""
+    fail_msg: "mas_app_id is required"
+
+# 2. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Debug information"
+  debug:
+    msg:
+      - "Target App version ..................... {{ mas_app_version | default('No rollback available', True) }}"
+      - "MAS Instance ID ........................ {{ mas_instance_id }}"
+      - "MAS App ID ............................. {{ mas_app_id }}"
+      - "MAS Namespace .......................... {{ mas_namespace }}"
+      - "MAS App Namespace ...................... {{ mas_app_namespace }}"
+      - "Dry Run? ............................... {{ mas_rollback_dryrun }}"
+
+
+# 4. Rollback MAS Manage App
+# -----------------------------------------------------------------------------
+- name: "Execute MAS Manage Rollback"
+  when:
+    - mas_app_id is defined and mas_app_id == "manage"
+    - rollback_mas_app
+  include_tasks: tasks/rollback_mas_manage.yml
+
+# 5. Verify the current core version matching with specified version
+# -----------------------------------------------------------------------------
+- name: "Verify App Version"
+  when:
+    - verify_app_version
+    - not mas_rollback_dryrun
+    - mas_app_version and mas_app_version != ""
+    - mas_app_id and mas_app_id != ""
+  ibm.mas_devops.verify_app_version:
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_app_id: "{{ mas_app_id }}"
+    mas_app_version: "{{ mas_app_version }}"
+    retries: 5  # Allow up to 5 minutes
+    delay: 60  # 1 minute
