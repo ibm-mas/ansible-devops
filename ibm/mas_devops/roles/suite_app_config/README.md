@@ -248,7 +248,7 @@ Optional. Provide a custom archive file name to be associated with the archive/f
 - Default: `manage-custom-archive`
 
 ### mas_appws_bindings_health_wsl
-Optional. When defined, indicates Watson Studio must be installed and bound to Health.
+Optional. Set as `system` to indicate Watson Studio must be installed and bound to Heath
 
 - Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL`
 - Default: None
