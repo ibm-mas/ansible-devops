@@ -1,11 +1,20 @@
 ---
-
 # 1.a Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
   assert:
     that: mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "mas_instance_id property is required"
+
+- name: "Fail if mas_instance_id does not meet requirements"
+  assert:
+    that: mas_instance_id is match ('^[a-z][a-z0-9-]{1,10}[a-z0-9]$')
+    fail_msg:
+      - "mas_instance_id does not meet requirements"
+      - "Must be 3-12 characters long"
+      - "Must only use lowercase letters, numbers, and hypen (-) symbol"
+      - "Must start with a lowercase letter"
+      - "Must end with a lowercase letter or a number"
 
 # 1.b Set facts for mas_annotations_dict, HyperscalerFormat, HyperscalerChannel
 # -----------------------------------------------------------------------------
@@ -100,11 +109,9 @@
   set_fact:
     mas_domain: "{{ mas_instance_id }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
-
 # 3. Determine version of cert-manager in use on the cluster
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/detect-cert-manager.yml
-
 
 # 4. Provide debug information
 # -----------------------------------------------------------------------------
@@ -124,7 +131,6 @@
       - "MAS ICR cpopen content ....... {{ mas_icr_cpopen }}"
       - "MAS Cluster Issuer ........... {{ mas_cluster_issuer }}"
       - "MAS Subcription Upgrade ...... {{ mas_upgrade_strategy }}"
-
 
 # 5. Install the operator & create entitlement secret
 # -----------------------------------------------------------------------------
@@ -168,7 +174,6 @@
           spec:
             approved: true
 
-
 # 6. Wait until the Suite CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Suite CRD is available"
@@ -189,7 +194,6 @@
     - suite_crd_info.resources is defined
     - suite_crd_info.resources | length > 0
 
-
 # 7. Integrated Airgap support
 # -----------------------------------------------------------------------------
 # Before we create the CR we will set up the Airgap Image Map
@@ -201,7 +205,6 @@
   when: airgap_install
   include_tasks: "tasks/install_digest_cm.yml"
 
-
 # 8. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
@@ -211,7 +214,6 @@
     state: present
     namespace: "{{ mas_namespace }}"
     template: templates/core_v1_suite.yml.j2
-
 
 # 9. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
 # -----------------------------------------------------------------------------
