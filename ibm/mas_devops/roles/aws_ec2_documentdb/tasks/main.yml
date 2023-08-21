@@ -61,16 +61,24 @@
 
 # 4. Read instance user details from secret manager and create K8S secret
 # -----------------------------------------------------------------------------
-- name: Get secret value from SM
+- name: Get secret value from SM when user_action is 'remove'
   shell: aws secretsmanager get-secret-value --secret-id {{secret_name_mongo_instance}} --query 'SecretString' --output text 2> /dev/null
   register: get_secret_value
+  failed_when: get_secret_value.rc not in [254]
+  when: user_action == 'remove'
+
+- name: Get secret value from SM when user_action is 'add'
+  shell: aws secretsmanager get-secret-value --secret-id {{secret_name_mongo_instance}} --query 'SecretString' --output text 2> /dev/null
+  register: get_secret_value
+  when: user_action == 'add'
 
 - name: "Debug get_secret_value"
   debug:
     msg:
-      - "get_secret_value ................................. {{ get_secret_value.stdout }}"
+      - "get_secret_value ................................. {{ get_secret_value.stdout  | default('<undefined>', true) }}"
 
 - name: "Fail if secret value doesnot have username and password"
+  when: user_action == 'add'
   assert:
     that:
       - get_secret_value is defined and get_secret_value != ''
@@ -78,12 +86,14 @@
       - get_secret_value.stdout | from_json | json_query('password')
 
 - name: "Debug get_secret_value"
+  when: user_action == 'add'
   debug:
     msg:
       - "docdb instance username .......................... {{ get_secret_value.stdout | from_json | json_query('username') }}"
       - "docdb instance password .......................... {{ get_secret_value.stdout | from_json | json_query('password') }}"
 
 - name: "Set Fact, username and password"
+  when: user_action == 'add'
   set_fact:
     docdb_instance_username: "{{ get_secret_value.stdout | from_json | json_query('username') }}"
     docdb_instance_password: "{{ get_secret_value.stdout | from_json | json_query('password') }}"
@@ -96,6 +106,7 @@
     - mas_instance_id != ""
     - mas_config_dir is defined
     - mas_config_dir != ""
+    - user_action == 'add'
   ansible.builtin.template:
     src: docdb_instance_user_credentials_secret.yaml.j2
     dest: "{{ mas_config_dir }}/{{ docdb_instance_credentials_secret_name }}.yml"
