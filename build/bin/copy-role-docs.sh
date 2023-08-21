@@ -28,7 +28,6 @@ copyDoc cos
 copyDoc cos_bucket
 copyDoc cp4d
 copyDoc cp4d_admin_pwd_update
-copyDoc cp4d_hack_worker_nodes
 copyDoc cp4d_service
 copyDoc cp4d_upgrade
 copyDoc db2
@@ -48,18 +47,17 @@ copyDoc mirror_ocp
 copyDoc mirror_images
 copyDoc mongodb
 copyDoc nvidia_gpu
+copyDoc ocp_config
 copyDoc ocp_contentsourcepolicy
 copyDoc ocp_deprovision
 copyDoc ocp_disable_updates
 copyDoc ocp_efs
 copyDoc ocp_github_oauth
-copyDoc ocp_ingress
 copyDoc ocp_login
 copyDoc ocp_node_config
 copyDoc ocp_provision
 copyDoc ocp_roks_upgrade_registry_storage
 copyDoc ocp_simulate_disconnected_network
-copyDoc ocp_update_apiserver
 copyDoc ocp_upgrade
 copyDoc ocp_verify
 copyDoc ocs
@@ -68,6 +66,7 @@ copyDoc sls
 copyDoc suite_app_config
 copyDoc suite_app_install
 copyDoc suite_app_upgrade
+copyDoc suite_app_rollback
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
 copyDoc suite_dns
@@ -87,6 +86,7 @@ copyDoc suite_mustgather
 copyDoc suite_mustgather_download
 copyDoc suite_switch_to_olm
 copyDoc suite_upgrade
+copyDoc suite_rollback
 copyDoc suite_uninstall
 copyDoc suite_verify
 copyDoc turbonomic
