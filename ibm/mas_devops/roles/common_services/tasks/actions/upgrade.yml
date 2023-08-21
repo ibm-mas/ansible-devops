@@ -33,7 +33,7 @@
 - name: "Set old channel for common services"
   when:
     - common_services_subscription_info.resources is defined
-    - common_services_subscription_info.resources != []
+    - common_services_subscription_info.resources[0] is defined and common_services_subscription_info.resources[0] != ''
   set_fact:
     old_common_services_channel: "{{ common_services_subscription_info.resources[0].spec.channel }}"
 
@@ -48,11 +48,10 @@
   debug:
     msg: "No action is required. Common Services subscription is already on the {{ common_services_channel }} channel"
 
-- name: "Display if subscription or manifest is not found"
-  when: common_services_channel is not defined or
-        old_common_services_channel is not defined
+- name: "Display if subscription is not found"
+  when: old_common_services_channel is not defined
   debug:
-    msg: "Common Services manifest or subscription could not be found in the cluster. There's nothing to upgrade"
+    msg: "Common Services subscription was not found in the cluster. There's nothing to upgrade"
 
 
 # 4. Upgrade Subscription otherwise
