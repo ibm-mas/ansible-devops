@@ -19,10 +19,14 @@ Required. AWS Account Secret Access Key
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 
 ### aws_region
-Required. AWS Region where DocumentDB and other resources will be created
+Required. AWS Region where DocumentDB and other resources was created
 
 - Environment Variable: `AWS_REGION`
-- Default Value: `us-east-2`
+
+### ec2_linux_ami_id
+Required. Amazon Linux AMI Id specific to AWS region where DocumentDB was created
+
+- Environment Variable: `EC2_LINUX_AMI_ID`
 
 ### vpc_id
 Required. VPC ID where the document DB was installed
@@ -99,7 +103,6 @@ Optional. User action, possible values - add, remove
 - Environment Variable: `USER_ACTION`
 - Default Value: add
 
-
 ### mas_config_dir
 Local directory to save the generated K8S secret.  This can be used to manually configure a MAS instance to connect to the Mongo cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a K8S secret template.
 
@@ -115,9 +118,10 @@ Local directory to save the generated K8S secret.  This can be used to manually 
     aws_access_key_id: ***
     aws_secret_access_key: ***
     aws_region: us-east-2
+    ec2_linux_ami_id: ami-0ccabb5f82d4c9af5
     vpc_id: vpc-123dx***
     docdb_host: test1.aws-01....
-    docdb_port: 27017    
+    docdb_port: 27017
     docdb_master_username: test-user
     docdb_master_password: test-pass-***
     docdb_instance_username: masinst_masinst1
