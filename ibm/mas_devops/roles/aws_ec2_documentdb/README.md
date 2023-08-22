@@ -1,6 +1,6 @@
 aws_documentdb_user
 -----------------------
-This role creates an EC2 instance in the same vpc where Document DB was installed and then create additional docdb user for the MAS instance. The role also stores the additional docdb username and password in AWS secret manager along with creating k8 Secret in specified config directory
+This role creates an EC2 instance in the same vpc where Document DB was installed and then creates / removes additional docdb user for the MAS instance based on the user action variable. The role also stores / removes additional docdb username and password in AWS secret manager based on user action variable. It along creates k8 Secret file in specified config directory if user action is add
 
 ## Prerequisites
 To run this role with providers you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
@@ -19,10 +19,14 @@ Required. AWS Account Secret Access Key
 - Environment Variable: `AWS_SECRET_ACCESS_KEY`
 
 ### aws_region
-Required. AWS Region where DocumentDB and other resources will be created
+Required. AWS Region where DocumentDB and other resources was created
 
 - Environment Variable: `AWS_REGION`
-- Default Value: `us-east-2`
+
+### ec2_linux_ami_id
+Required. Amazon Linux AMI Id specific to AWS region where DocumentDB was created
+
+- Environment Variable: `EC2_LINUX_AMI_ID`
 
 ### vpc_id
 Required. VPC ID where the document DB was installed
@@ -93,6 +97,12 @@ Optional. AWS DocumentDB Instance Password
 
 - Environment Variable: `DOCDB_INSTANCE_PASSWORD`
 
+### user_action
+Optional. User action, possible values - add, remove
+
+- Environment Variable: `USER_ACTION`
+- Default Value: add
+
 ### mas_config_dir
 Local directory to save the generated K8S secret.  This can be used to manually configure a MAS instance to connect to the Mongo cluster, or used as an input to the [suite_config](suite_config.md) role. If this or `mas_instance_id` are not set then the role will not generate a K8S secret template.
 
@@ -103,15 +113,19 @@ Local directory to save the generated K8S secret.  This can be used to manually 
 - hosts: localhost
   any_errors_fatal: true
   vars:
+    user-action: add
     mas_instance_id: masinst1
     aws_access_key_id: ***
     aws_secret_access_key: ***
     aws_region: us-east-2
+    ec2_linux_ami_id: ami-0ccabb5f82d4c9af5
     vpc_id: vpc-123dx***
     docdb_host: test1.aws-01....
-    docdb_port: 27017    
+    docdb_port: 27017
     docdb_master_username: test-user
     docdb_master_password: test-pass-***
+    docdb_instance_username: masinst_masinst1
+    docdb_instance_password: ***
     docdb_ingress_cidr: 10.1.0.0/23
     docdb_egress_cidr: 10.1.0.0/23
     aws_ec2_cidr_az1: 10.1.1.96/27

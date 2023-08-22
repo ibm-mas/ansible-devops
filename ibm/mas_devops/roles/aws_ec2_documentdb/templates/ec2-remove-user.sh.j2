@@ -1,5 +1,5 @@
 #!/bin/bash
-exec &>> /tmp/mas-provisioning.log
+exec &>> /tmp/ec2-provisioning.log
 
 log() {
   echo -e "$(date '+%Y-%m-%d %H:%M:%S') $1"
@@ -22,17 +22,15 @@ log "DOCDB_INSTANCE_USERNAME={{docdb_instance_username}} DOCDB_INSTANCE_PASSWORD
     MAS_INSTANCE_ID={{mas_instance_id}} DOCDB_MASTER_USERNAME={{docdb_master_username}} DOCDB_MASTER_PASSWORD={{docdb_master_password}} \n
     DOCDB_HOST={{docdb_host}} DOCDB_PORT={{docdb_port}} "
 
-
 cat <<EOT >> /tmp/drop_user.js
 db.dropUser("{{docdb_instance_username}}")
 EOT
 
 
 log "mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/drop_user.js"
-
-# drop user 
-    log "Drop User"
-    mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/drop_user.js    
+# drop user
+log "Drop User"
+mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/drop_user.js
 
 export retcode=$?
 log "Drop User retcode=${retcode}"
@@ -47,17 +45,9 @@ if [[ ${retcode} -eq 0 ]]; then
     aws configure set aws_secret_access_key {{ aws_secret_access_key }};
     aws configure set output json;
     aws configure set region {{ aws_region }}
-
-    CURRENT_SECRET_VALUE=$(aws secretsmanager get-secret-value --secret-id {{secret_name_mongo_instance}} --output json 2> /dev/null | jq -r .SecretString)
-
-    if [[ "$CURRENT_SECRET_VALUE" == "" ]]; then
-        # Create the secret
-        aws secretsmanager create-secret --name {{secret_name_mongo_instance}} --secret-string "{\"username\": \"{{docdb_instance_username}}\", \"password\": \"{{docdb_instance_password}}\"}"
-        log " Secret {{secret_name_mongo_instance}} created"
-    elif [[ "$SECRET_VALUE" != "$CURRENT_SECRET_VALUE" ]]; then
-        aws secretsmanager update-secret --secret-id {{secret_name_mongo_instance}} --secret-string "{\"username\": \"{{docdb_instance_username}}\", \"password\": \"{{docdb_instance_password}}\"}"
-        log " Secret {{secret_name_mongo_instance}} updated"
-    fi
+    log "delete-secret : secret_name_mongo_instance {{secret_name_mongo_instance}} "
+    aws secretsmanager delete-secret --force-delete-without-recovery --secret-id {{secret_name_mongo_instance}}
+    
 fi
 
 log "Shutting in 2 minutes" 
