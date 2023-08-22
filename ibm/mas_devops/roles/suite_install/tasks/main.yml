@@ -95,6 +95,19 @@
   with_dict:
     - "{{  mas_annotations_dict  }}"
 
+# 1.f Check if hyperscalerFormat is set to saas incase if hyperscalerTier is set with valid values
+# -----------------------------------------------------------------------------
+- name: "Fail if hyperscalerTier is set with valid value but hyperscalerFormat is other than saas"
+  when:
+    - mas_annotations_dict is defined and item.key == 'mas.ibm.com/hyperscalerTier'
+  assert:
+    that:
+      - input_hyperscalerFormat == 'saas'
+    fail_msg: "Assertion Failed! Annotation {{item.key}}={{item.value}} is not valid as mas.ibm.com/hyperscalerFormat is not set to saas (instead set to {{input_hyperscalerFormat}} ) "
+    success_msg: "Assertion Passed!  Annotation {{item.key}}={{item.value}} is valid as mas.ibm.com/hyperscalerFormat is set to {{input_hyperscalerFormat}}"
+  with_dict:
+    - "{{  mas_annotations_dict  }}"
+
 # 2. Set up the domain name for MAS
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
