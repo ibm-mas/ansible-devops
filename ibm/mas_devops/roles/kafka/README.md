@@ -1,7 +1,7 @@
 kafka
 =====
 
-This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet), IBM Event Streams or AWS MSK and generate configuration that can be directly applied to Maximo Application Suite.
+This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet), [IBM Event Streams](https://www.ibm.com/cloud/event-streams) or [AWS MSK](https://aws.amazon.com/msk/) and generate configuration that can be directly applied to Maximo Application Suite.
 
 > The Red Hat AMQ streams component is a massively scalable, distributed, and high-performance data streaming platform based on the Apache Kafka project. It offers a distributed backbone that allows microservices and other applications to share data with high throughput and low latency.
 >
@@ -9,6 +9,7 @@ This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams
 >
 > The AMQ streams component is part of the Red Hat AMQ family, which also includes the AMQ broker, a longtime innovation leader in Java™ Message Service (JMS) and polyglot messaging, as well as the AMQ interconnect router, a wide-area, peer-to-peer messaging solution.
 
+**Note:** The MAS license does not include entitlement for AMQ streams. The MAS Devops Collection supports this Kafka deployment as an example only.
 
 !!! tip
     The role will generate a yaml file containing the definition of a Secret and KafkaCfg resource that can be used to configure the deployed cluster as the MAS system Kafka.

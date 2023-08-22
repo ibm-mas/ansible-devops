@@ -3,7 +3,7 @@ ocp_config
 This role can perform the following configuration:
 
 - Tune the `IngressController` to avoid request failures due to timeout for long running requests
-- Update `APIServer` to set a custom `tlsSecurityProfile` to accommodate ciphers supported by IBM Java Semeru runtime. This is required for allowing the Java applications using Semeru runtime to run in FIPS mode.  The following cipers will be enabled:
+- Update `APIServer` and `IngressController` to set a custom `tlsSecurityProfile` to accommodate ciphers supported by IBM Java Semeru runtime. This is required for allowing the Java applications using Semeru runtime to run in FIPS mode.  The following cipers will be enabled:
     - `TLS_AES_128_GCM_SHA256`
     - `TLS_AES_256_GCM_SHA384`
     - `TLS_CHACHA20_POLY1305_SHA256`
@@ -26,11 +26,11 @@ This role can perform the following configuration:
 
 Role Variables - API Server
 -------------------------------------------------------------------------------
-### ocp_apiserver_update_ciphers
-Set to `True` if you want to configure the API Server to use a custome set of ciphers that is FIPS compliant.
+### ocp_update_ciphers_for_semeru
+Set to `True` if you want to configure the API Server and Ingress Controller to use a custom set of ciphers that are compatible with IBM Java Semeru in FIPS mode.
 
 - Optional
-- Environment Variable: `OCP_APISERVER_UPDATE_CIPHERS`
+- Environment Variable: `OCP_UPDATE_CIPHERS_FOR_SEMERU`
 - Default Value: `False`
 
 
@@ -77,7 +77,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    ocp_apiserver_update_ciphers: True
+    ocp_update_ciphers_for_semeru: True
     ocp_ingress_update_timeouts: True
     ocp_ingress_client_timeout: 30s
     ocp_ingress_server_timeout: 30s
