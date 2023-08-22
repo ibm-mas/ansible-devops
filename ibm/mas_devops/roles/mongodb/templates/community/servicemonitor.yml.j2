@@ -1,0 +1,36 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mas-mongo-ce-service-monitor
+  namespace: "{{ mongodb_namespace }}"
+spec:
+  endpoints:
+  - basicAuth:
+      password:
+        key: password
+        name: mas-mongo-ce-metrics-endpoint-secret
+      username:
+        key: username
+        name: mas-mongo-ce-metrics-endpoint-secret
+
+    # This port matches what we created in our MongoDB Service.
+    port: prometheus
+
+    # If using HTTPS enabled endpoint, change scheme to https
+    scheme: http
+
+    # Configure different TLS related settings. For more information, see:
+    # https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/apis/monitoring/v1/types.go#L909
+    # tlsConfig:
+    #    insecureSkipVerify: true
+
+  # What namespace to watch
+  namespaceSelector:
+    matchNames:
+    - "{{ mongodb_namespace }}"
+
+  # Service labels to match
+  selector:
+    matchLabels:
+      app: mas-mongo-ce-svc
