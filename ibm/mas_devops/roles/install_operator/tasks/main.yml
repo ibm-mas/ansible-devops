@@ -1,22 +1,19 @@
 ---
-
 # 1. Create namespace we will deploy to
 # -----------------------------------------------------------------------------
 - name: "Create namespace"
   kubernetes.core.k8s:
     api_version: v1
     kind: Namespace
-    name: '{{ namespace }}'
-
+    name: "{{ namespace }}"
 
 - name: Add custom labels to namespace
   when: custom_labels is defined and custom_labels | length > 0
   kubernetes.core.k8s:
     state: patched
     kind: Namespace
-    name: '{{ namespace }}'
+    name: "{{ namespace }}"
     definition: "{{ lookup('template', 'templates/custom_labels.json.j2') }}"
-
 
 # 2. Create an image pull secret for the pre-release catalog
 # -----------------------------------------------------------------------------
@@ -25,9 +22,9 @@
     msg:
       - "Target Namespace ....................... {{ namespace }}"
       - "Artifactory Username ................... {{ artifactory_username | default('<undefined>', true) }}"
-      - "Artifactory Password ................... {{ artifactory_token | default('<undefined>', true) }}"
+      - "Artifactory Password ................... {{ '************' if (artifactory_token is defined) else '<undefined>' }}"
       - "ICR Username ........................... {{ icr_username | default('<undefined>', true) }}"
-      - "ICR Password ........................... {{ icr_password | default('<undefined>', true) }}"
+      - "ICR Password ........................... {{ '************' if (icr_password is defined) else '<undefined>' }}"
 
 - name: "Create ibm-entitlement secret"
   kubernetes.core.k8s:
@@ -37,10 +34,9 @@
       type: kubernetes.io/dockerconfigjson
       metadata:
         name: ibm-entitlement
-        namespace: '{{ namespace }}'
+        namespace: "{{ namespace }}"
       data:
         .dockerconfigjson: "{{ lookup('template', 'templates/ibm-entitlement-with-artifactory.json.j2') | to_json | b64encode }}"
-
 
 # 3. Patch the default service account for pre-release build access
 # -----------------------------------------------------------------------------
@@ -56,10 +52,9 @@
       kind: ServiceAccount
       metadata:
         name: default
-        namespace: '{{ namespace }}'
+        namespace: "{{ namespace }}"
       imagePullSecrets:
         - name: ibm-entitlement
-
 
 # 4. Create the operator group that will scope the operator
 # -----------------------------------------------------------------------------
@@ -69,7 +64,6 @@
     wait: yes
     wait_timeout: 60 # subsequent tasks will fail if the group isn't fully created
 
-
 # 5. Create the subscription for the operator
 # -----------------------------------------------------------------------------
 - name: "Create subscription"
@@ -78,5 +72,5 @@
     wait: yes
     wait_timeout: 300
     wait_condition:
-      type: 'CatalogSourcesUnhealthy'
+      type: "CatalogSourcesUnhealthy"
       status: "False"

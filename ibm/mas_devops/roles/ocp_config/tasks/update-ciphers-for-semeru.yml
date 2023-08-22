@@ -1,0 +1,72 @@
+---
+# 1. update : APISever to custom tlsprofile to include semeru ciphers for fips support
+# -----------------------------------------------------------------------------
+- name: "update : APISever to custom"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: config.openshift.io/v1
+      kind: APIServer
+      metadata:
+        name: cluster
+      spec:
+        tlsSecurityProfile:
+          custom:
+            ciphers:
+              - TLS_AES_128_GCM_SHA256
+              - TLS_AES_256_GCM_SHA384
+              - TLS_CHACHA20_POLY1305_SHA256
+              - ECDHE-ECDSA-AES128-GCM-SHA256
+              - ECDHE-RSA-AES128-GCM-SHA256
+              - ECDHE-ECDSA-AES256-GCM-SHA384
+              - ECDHE-RSA-AES256-GCM-SHA384
+              - ECDHE-ECDSA-CHACHA20-POLY1305
+              - ECDHE-RSA-CHACHA20-POLY1305
+              - DHE-RSA-AES128-GCM-SHA256
+              - DHE-RSA-AES256-GCM-SHA384
+              - ECDHE-RSA-AES128-SHA256
+              - ECDHE-RSA-AES128-SHA
+              - ECDHE-RSA-AES256-SHA
+          type: Custom
+  register: _changed_apiserver
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "APIServer Changed ............... {{ _changed_apiserver.changed }}"
+
+# 2. update : IngressController to custom tlsprofile to include semeru ciphers for fips support
+# -----------------------------------------------------------------------------
+- name: "update : IngressController to custom"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: operator.openshift.io/v1
+      kind: IngressController
+      metadata:
+        name: default
+        namespace: openshift-ingress-operator
+      spec:
+        tlsSecurityProfile:
+          custom:
+            ciphers:
+              - TLS_AES_128_GCM_SHA256
+              - TLS_AES_256_GCM_SHA384
+              - TLS_CHACHA20_POLY1305_SHA256
+              - ECDHE-ECDSA-AES128-GCM-SHA256
+              - ECDHE-RSA-AES128-GCM-SHA256
+              - ECDHE-ECDSA-AES256-GCM-SHA384
+              - ECDHE-RSA-AES256-GCM-SHA384
+              - ECDHE-ECDSA-CHACHA20-POLY1305
+              - ECDHE-RSA-CHACHA20-POLY1305
+              - DHE-RSA-AES128-GCM-SHA256
+              - DHE-RSA-AES256-GCM-SHA384
+              - ECDHE-RSA-AES128-SHA256
+              - ECDHE-RSA-AES128-SHA
+              - ECDHE-RSA-AES256-SHA
+            minTLSVersion: VersionTLS12
+          type: Custom
+  register: _changed_ingresscontroller
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "IngressController Changed ............... {{ _changed_ingresscontroller.changed }}"

@@ -20,6 +20,7 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 
 To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
 
+This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [cluster_monitoring role](https://ibm-mas.github.io/ansible-devops/roles/cluster_monitoring/) previously. If you did not run the [cluster_monitoring role](https://ibm-mas.github.io/ansible-devops/roles/cluster_monitoring/) then the GrafanaDashboard won't be installed.
 
 Common Role Variables for all providers 
 ----------------------------------------
