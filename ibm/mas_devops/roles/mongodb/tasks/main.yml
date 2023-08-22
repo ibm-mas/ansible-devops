@@ -10,9 +10,15 @@
 - name: "Fail if catalog_tag is not provided"
   assert:
     that: catalog_tag is defined and catalog_tag != ""
-    fail_msg: "catalog_tag property is required"
 
-# 2. Load default settings
+# 2. Debug Properties
+# -----------------------------------------------------------------------------
+- name: "Initial Debug properties"
+  debug:
+    msg:
+      - "MongoDb provider ....................... {{ mongodb_provider }}"
+
+# 3. Load default settings
 # -----------------------------------------------------------------------------
 - name: Load CASE bundle versions
   include_vars:
@@ -30,15 +36,25 @@
     target_mongo_operator_image_registry: "{{ extra_images | selectattr('name', 'equalto', 'ibmmas/mongodb-kubernetes-operator') | map(attribute='registry') | first }}"
     target_mongo_operator_image_digest: "{{ extra_images | selectattr('name', 'equalto', 'ibmmas/mongodb-kubernetes-operator') | map(attribute='digest') | first }}"
     target_mongo_operator_image_tag: "{{ extra_images | selectattr('name', 'equalto', 'ibmmas/mongodb-kubernetes-operator') | map(attribute='tag') | first }}"
-    target_mongo_operator_image: "{{ target_mongo_operator_image_registry }}/ibmmas/mongodb-kubernetes-operator@{{ target_mongo_operator_image_digest }}"
     target_mongodb_image_registry: "{{ extra_images | selectattr('name', 'equalto', 'ibmmas/mongo') | map(attribute='registry') | first }}"
     target_mongodb_image_digest: "{{ extra_images | selectattr('name', 'equalto', 'ibmmas/mongo') | map(attribute='digest') | first }}"
     target_mongodb_image_tag: "{{ extra_images | selectattr('name', 'equalto', 'ibmmas/mongo') | map(attribute='tag' | first }}"
+
+- name: set more facts
+  when:
+    - mongodb_provider == "community"
+  set_fact:
+    target_mongo_operator_image: "{{ target_mongo_operator_image_registry }}/ibmmas/mongodb-kubernetes-operator@{{ target_mongo_operator_image_digest }}"
     target_mongodb_image: "{{ target_mongodb_image_registry }}/ibmmas/mongo@{{ target_mongodb_image_digest }}"
     mongodb_ce_version: "{{ target_mongo_operator_image_tag }}"
+
+- name: set even more facts
+  when:
+    - mongodb_provider == "community"
+  set_fact:
     target_mongo_operator_image_version_map[mongodb_ce_version]['image']: "{{ target_mongo_operator_image }}"
 
-# 1. Debug Properties
+# 4. Debug Properties
 # -----------------------------------------------------------------------------
 - name: "Debug properties"
   when:
@@ -50,14 +66,14 @@
       - "MongoDb version ........................ {{ target_mongodb_version }}"
       - "MongoDb image .......................... {{ target_mongodb_image }}"
 
-# 3. Load default storage classes (if not provided by the user)
+# 5. Load default storage classes (if not provided by the user)
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
   when:
     - mongodb_provider == "community"
     - mongodb_action != "none"
 
-# 4. Run the install / uninstall for specified provider
+# 6. Run the install / uninstall for specified provider
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/providers/{{ mongodb_provider }}/{{ mongodb_action }}.yml"
   when:
