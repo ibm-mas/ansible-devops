@@ -1,6 +1,58 @@
 ---
 
-# 1. Debug Properties
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if catalog_tag is not provided"
+  assert:
+    that: catalog_tag is defined and catalog_tag != ""
+
+# 3. Load default settings
+# -----------------------------------------------------------------------------
+- name: Load CASE bundle versions
+  include_vars:
+    file: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
+
+- name: Load mongo defaults
+  include_vars:
+    file: "{{ role_path }}/../mirror_extras_prepare/vars/mongoce_{{ mongo_extras_version }}.yml"
+
+- name: set facts
+  set_fact:
+    mongodb_operator: 'mongodb/mongodb-kubernetes-operator'
+    mongodb_operator_version_upgrade_post_start_hook: 'mongodb/mongodb-kubernetes-operator-version-upgrade-post-start-hook'
+    mongodb_agent: 'mongodb/mongodb-agent'
+    mongodb_readinessprobe: 'mongodb/mongodb-kubernetes-readinessprobe'
+    mongodb: 'ibmmas/mongo'
+
+- name: set facts
+  set_fact:
+    mongodb_operator_image_registry: "{{ extra_images | selectattr('name', 'equalto', mongodb_operator) | map(attribute='registry') | first }}"
+    mongodb_operator_image_digest: "{{ extra_images | selectattr('name', 'equalto', mongodb_operator) | map(attribute='digest') | first }}"
+    mongodb_operator_image_tag: "{{ extra_images | selectattr('name', 'equalto', mongodb_operator) | map(attribute='tag') | first }}"
+    mongodb_operator_version_upgrade_post_start_hook_image_registry: "{{ extra_images | selectattr('name', 'equalto', mongodb_operator_version_upgrade_post_start_hook) | map(attribute='registry') | first }}"
+    mongodb_operator_version_upgrade_post_start_hook_image_digest: "{{ extra_images | selectattr('name', 'equalto', mongodb_operator_version_upgrade_post_start_hook) | map(attribute='digest') | first }}"
+    mongodb_operator_version_upgrade_post_start_hook_image_tag: "{{ extra_images | selectattr('name', 'equalto', mongodb_operator_version_upgrade_post_start_hook) | map(attribute='tag') | first }}"
+    mongodb_agent_image_registry: "{{ extra_images | selectattr('name', 'equalto', mongodb_agent) | map(attribute='registry') | first }}"
+    mongodb_agent_image_digest: "{{ extra_images | selectattr('name', 'equalto', mongodb_agent) | map(attribute='digest') | first }}"
+    mongodb_agent_image_tag: "{{ extra_images | selectattr('name', 'equalto', mongodb_agent) | map(attribute='tag') | first }}"
+    mongodb_readinessprobe_image_registry: "{{ extra_images | selectattr('name', 'equalto', mongodb_readinessprobe) | map(attribute='registry') | first }}"
+    mongodb_readinessprobe_image_digest: "{{ extra_images | selectattr('name', 'equalto', mongodb_readinessprobe) | map(attribute='digest') | first }}"
+    mongodb_readinessprobe_image_tag: "{{ extra_images | selectattr('name', 'equalto', mongodb_readinessprobe) | map(attribute='tag') | first }}"
+    mongodb_image_registry: "{{ extra_images | selectattr('name', 'equalto', mongodb) | map(attribute='registry') | first }}"
+    mongodb_image_digest: "{{ extra_images | selectattr('name', 'equalto', mongodb) | map(attribute='digest') | first }}"
+    mongodb_image_tag: "{{ extra_images | selectattr('name', 'equalto', mongodb) | map(attribute='tag') | first }}"
+
+- name: set more facts
+  set_fact:
+    target_mongodb_version: "{{ mongo_extras_version }}"
+    mongodb_ce_version: "{{ mongodb_operator_image_tag }}"
+    target_mongodb_operator_image: "{{ mongodb_operator_image_registry }}{{ mongodb_operator }}@{{ mongodb_operator_image_digest }}"
+    target_mongodb_operator_version_upgrade_post_start_hook_image: "{{ mongodb_operator_version_upgrade_post_start_hook_image_registry }}{{ mongodb_operator_version_upgrade_post_start_hook }}@{{ mongodb_operator_version_upgrade_post_start_hook_image_digest }}"
+    target_mongodb_agent_image: "{{ mongodb_agent_image_registry }}{{ mongodb_agent }}@{{ mongodb_agent_image_digest }}"
+    target_mongodb_readinessprobe_image: "{{ mongodb_readinessprobe_image_registry }}{{ mongodb_readinessprobe }}@{{ mongodb_readinessprobe_image_digest }}"
+    target_mongodb_image: "{{ mongodb_image_registry }}{{ mongodb }}@{{ mongodb_image_digest }}"
+
+# 4. Debug Properties
 # -----------------------------------------------------------------------------
 - name: "community : install : Debug properties"
   debug:
@@ -60,9 +112,9 @@
     - existing_mongodb.resources[0].spec.version != target_mongodb_version
     - existing_mongo_operator is defined
     - existing_mongo_operator.resources[0] is defined
-    - existing_mongo_operator.resources[0].spec.containers[0].image != target_mongo_operator_image_version_map[mongodb_ce_version]['image']
+    - existing_mongo_operator.resources[0].spec.containers[0].image != target_mongodb_operator_image
 
-# 2. Install the CRD
+# 5. Install the CRD
 # -----------------------------------------------------------------------------
 - name: "community : install : Install MongoDBCommunity CRD"
   kubernetes.core.k8s:
@@ -70,7 +122,7 @@
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/crd.yml.j2') }}"
 
 
-# 3. Create namespace & install RBAC
+# 6. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
 - name: "community : install : Create namespace & install RBAC"
   kubernetes.core.k8s:
@@ -78,7 +130,7 @@
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/rbac.yml.j2') }}"
 
 
-# 4. Configure anyuid permissions in the MongoDb namespace
+# 7. Configure anyuid permissions in the MongoDb namespace
 # -----------------------------------------------------------------------------
 - name: "community : install : Configure anyuid permissions in the MongoDb namespace"
   shell: |
@@ -91,7 +143,7 @@
     oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-database
 
 
-# 5. Install the operator
+# 8. Install the operator
 # -----------------------------------------------------------------------------
 - name: "community : install : Install the MongoDb Operator"
   kubernetes.core.k8s:
@@ -102,7 +154,7 @@
       status: 'True'
       type: Available
 
-# 6. Configure TLS using cert manager
+# 9. Configure TLS using cert manager
 # -----------------------------------------------------------------------------
 - name: "Create a issuer  in {{ mongodb_namespace }}"
   kubernetes.core.k8s:
@@ -171,7 +223,7 @@
     definition: "{{ lookup('template', 'templates/community/tls.yml') }}"
 
 
-# 7. Create MongoDb admin user credentials secret
+# 10. Create MongoDb admin user credentials secret
 # -----------------------------------------------------------------------------
 - name: "community : install : Check for existing user password secret"
   kubernetes.core.k8s_info:
@@ -190,7 +242,7 @@
     definition: "{{ lookup('template', 'templates/community/admin-password.yml') }}"
 
 
-# 8. Deploy the cluster
+# 11. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "community : install : Create MongoDb cluster"
   kubernetes.core.k8s:
@@ -216,7 +268,7 @@
     - not controlled_upgrade
     - mongodb_ce_version is version('0.7.0', '==')
 
-# 9. Wait for the cluster to be ready
+# 12. Wait for the cluster to be ready
 # status.version on the mongo cr is not available with older mongo operators
 # -----------------------------------------------------------------------------
 - name: "community : install : Wait for stateful set to be ready"
@@ -247,7 +299,7 @@
     - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version is defined) or mongodb_ce_version is version('0.7.0', '==')
     - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version == expected_mongodb_version) or mongodb_ce_version is version('0.7.0', '==')
 
-# 10. Create MAS MongoCfg
+# 13. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
 # Lookup the mongo pods
 - name: Create the MAS MongoCfg only if we are not in a controlled-upgrade flow
