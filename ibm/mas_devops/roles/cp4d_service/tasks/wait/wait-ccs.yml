@@ -49,11 +49,12 @@
 
 # check if ccs cr is already patched
 - set_fact:
-    is_ccs_already_patched: "{{ ccscr_output.resources[0].spec.couchdb_resources is defined }}"
+    is_ccs_already_patched: "{{ ccscr_output.resources[0].spec.couchdb_resources is defined and ccscr_output.resources[0].spec.blockStorageClass is defined }}"
 
 - debug:
     msg:
-      - "Already patched? ..................... {{ is_ccs_already_patched }}"
+      - "CCS CR already patched? .............. {{ is_ccs_already_patched }}"
+      - "CCS Block Storage Class .............. {{ ccscr_output.resources[0].spec.blockStorageClass | default('<undefined>', true) }}"
 
 # only run following block if is_ccs_already_patched == False
 - block:
@@ -66,6 +67,8 @@
         kind: CCS
         definition:
           spec:
+            blockStorageClass: "{{ cpd_block_service_storage_class }}"
+            fileStorageClass: "{{ cpd_service_storage_class }}"
             couchdb_resources:
               limits:
                 cpu: "16"
