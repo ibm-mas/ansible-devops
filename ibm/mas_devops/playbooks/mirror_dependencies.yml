@@ -241,6 +241,26 @@
       vars:
         manifest_name: ibm-cp-datacore
         manifest_version: "{{ cp4d_platform_version }}"
+    
+    # workaround for platform version 1.19.4
+    # cpfs/icpd-requisite at runtime does not match the version that was mirrored by common services
+    - name: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_cp4d
+        - cp4d_platform_version == "1.19.4"
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: cp4d
+        extras_version: "{{ cp4d_platform_version }}"
+
+    - name: ibm.mas_devops.mirror_images
+      when:
+        - mirror_cp4d
+        - cp4d_platform_version == "1.19.4"
+      vars:
+        manifest_name: extras_cp4d
+        manifest_version: "{{ cp4d_platform_version }}"
+
 
     # 7.1 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
     - name: ibm.mas_devops.mirror_case_prepare
