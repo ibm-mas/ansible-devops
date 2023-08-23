@@ -1,0 +1,230 @@
+---
+# 0. Look up OCP version in Cluster and set expected operator and channel
+# -----------------------------------------------------------------------------
+- name: "Look up cluster ocp version"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    name: "version"
+    kind: ClusterVersion
+  register: ocp_version_lookup
+
+- name: "Get ocp version from lookup"
+  when: ocp_version_lookup.resources[0] is defined
+  set_fact:
+    ocp_version: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
+
+# 1. Get ocs and odf operators information from the cluster
+# -----------------------------------------------------------------------------
+- name: "Lookup OCS Operator"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: openshift-storage
+    label_selectors:
+      - "operators.coreos.com/ocs-operator.openshift-storage"
+  register: ocs_operator_con
+
+- name: "Lookup ODF Operator"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: openshift-storage
+    label_selectors:
+      - "operators.coreos.com/odf-operator.openshift-storage"
+  register: odf_operator_con
+
+- name: "Get ocs storage version information from the lookup"
+  when:
+    - ocs_operator_con.resources is defined
+    - ocs_operator_con.resources | length == 1
+  set_fact:
+    ocs_version: "{{ ocs_operator_con.resources[0].metadata.name.split('.v')[1] | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+- name: "Get odf storage version information from the lookup"
+  when:
+    - odf_operator_con.resources is defined
+    - odf_operator_con.resources | length == 1
+  set_fact:
+    odf_version: "{{ odf_operator_con.resources[0].metadata.name.split('.v')[1] | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+- name: "Display gathered information"
+  debug:
+    msg:
+      - "OCP Version ............................ {{ ocp_version }}"
+      - "OCS Version Before Upgrade ............. {{ ocs_version | default('<undefined>') }}"
+      - "ODF Version Before Upgrade ............. {{ odf_version | default('<undefined>') }}"
+
+# 2. Determine if operator upgrade is needed or not
+# -----------------------------------------------------------------------------
+- name: "Determine if upgrade is needed from ocs to odf"
+  when:
+    - ocp_version is version('4.11.0', '>=')
+    - ocs_version is defined
+    - odf_version is not defined
+  block:
+    - name: "Update source in local-storage subscription"
+      kubernetes.core.k8s_json_patch:
+        api_version: operators.coreos.com/v1alpha1
+        name: local-storage-operator
+        namespace: openshift-local-storage
+        kind: Subscription
+        patch:
+          - op: "replace"
+            path: "/spec/source"
+            value: "redhat-operators"
+
+    - name: "Pause for 1 minutes before continuing..."
+      pause:
+        minutes: 1
+
+    - name: "Update source in ocs-operator subscription"
+      kubernetes.core.k8s_json_patch:
+        api_version: operators.coreos.com/v1alpha1
+        name: ocs-operator
+        namespace: openshift-storage
+        kind: Subscription
+        patch:
+          - op: "replace"
+            path: "/spec/source"
+            value: "redhat-operators"
+
+    - name: "Pause for 1 minutes before continuing..."
+      pause:
+        minutes: 1
+
+    - name: "Install ODF in Cluster"
+      kubernetes.core.k8s:
+        apply: yes
+        definition: "{{ lookup('template', 'templates/storage/subscription.yaml') }}"
+      vars:
+        storage_operator: odf
+        storage_operator_channel: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+        storage_operator_source: "redhat-operators"
+        storage_operator_source_namespace: openshift-marketplace
+
+    - name: "Pause for 5 minutes before continuing..."
+      pause:
+        minutes: 5
+
+- name: "Determine if upgrade is needed for odf"
+  when:
+    - odf_version is defined
+    - ocp_version is version('4.11.0', '>=')
+    - odf_version is not in ocp_version
+  block:
+    - name: "Patch odf subscription"
+      kubernetes.core.k8s_json_patch:
+        api_version: operators.coreos.com/v1alpha1
+        name: odf-operator
+        namespace: openshift-storage
+        kind: Subscription
+        patch:
+          - op: "replace"
+            path: "/spec/channel"
+            value: "stable-{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+    - name: "Pause for 2 minutes before continuing..."
+      pause:
+        minutes: 2
+
+- name: "Display message if the storage operator is not in cluster"
+  when:
+    - ocs_version is not defined
+    - odf_version is not defined
+  debug:
+    msg: "Storage operator is not installed in this cluster. There's nothing to upgrade."
+
+- name: "Display message if the storage operator is already at the update channel"
+  when: (ocs_version is defined and ocs_version is in ocp_version) or
+        (odf_version is defined and odf_version is in ocp_version)
+  debug:
+    msg: "Storage operator does not need an upgrade. Storage channel is up to date"
+
+# 3. Update the storageCluster version
+# -----------------------------------------------------------------------------
+- name: "Lookup Storage Cluster"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: StorageCluster
+    namespace: openshift-storage
+  register: storage_cluster_info
+
+- name: "Save the Storage Cluster Info"
+  when:
+    - storage_cluster_info.resources is defined
+    - storage_cluster_info.resources | length > 0
+  set_fact:
+    storageCluster_name: "{{ storage_cluster_info.resources[0].metadata.name }}"
+    storageCluster_version: "{{ storage_cluster_info.resources[0].spec.version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+- name: "Update the storage cluster version if needed"
+  when:
+    - storageCluster_version is defined and storageCluster_version != ''
+    - storageCluster_version is not in ocp_version
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: StorageCluster
+    namespace: openshift-storage
+    name: "{{ storageCluster_name }}"
+    patch:
+      - op: "replace"
+        path: "/spec/version"
+        value: "{{ ocp_version | regex_search('^([0-9]+)\\.([0-9]+)') }}.0"
+
+- name: "Wait until the updated StorageCluster is ready"
+  when:
+    - storageCluster_version is defined and storageCluster_version != ''
+    - storageCluster_version is not in ocp_version
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: StorageCluster
+    name: "{{ storageCluster_name }}"
+    namespace: openshift-storage
+  register: storageCluster_info_upd
+  retries: 15 # 15 minutes
+  delay: 60 # 1 minutes
+  until:
+    - storageCluster_info_upd.resources is defined
+    - storageCluster_info_upd.resources | length > 0
+    - storageCluster_info_upd.resources[0].status.phase == "Ready"
+
+# 4. Verify that the storage operator is in good condition and has been updated
+# -----------------------------------------------------------------------------
+- name: "Lookup OCS Operator after upgrade"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: openshift-storage
+    label_selectors:
+      - "operators.coreos.com/ocs-operator.openshift-storage"
+  register: ocs_operator_con_upg
+
+- name: "Lookup ODF Operator after upgrade"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: openshift-storage
+    label_selectors:
+      - "operators.coreos.com/odf-operator.openshift-storage"
+  register: odf_operator_con_upg
+
+- name: "Get ocs storage version information from the lookup after upgrade"
+  when:
+    - ocs_operator_con_upg.resources is defined
+    - ocs_operator_con_upg.resources | length == 1
+  set_fact:
+    ocs_version_upg: "{{ ocs_operator_con_upg.resources[0].metadata.name.split('.v')[1] | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+- name: "Get odf storage version information from the lookup after upgrade"
+  when:
+    - odf_operator_con_upg.resources is defined
+    - odf_operator_con_upg.resources | length == 1
+  set_fact:
+    odf_version_upg: "{{ odf_operator_con_upg.resources[0].metadata.name.split('.v')[1] | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+- name: "Display information"
+  debug:
+    msg:
+      - "OCP Version ............................ {{ ocp_version }}"
+      - "OCS Version After Upgrade .............. {{ ocs_version_upg | default('<undefined>') }}"
+      - "ODF Version After Upgrade .............. {{ odf_version_upg | default('<undefined>') }}"
