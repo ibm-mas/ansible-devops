@@ -1,7 +1,7 @@
 ocs
 ===
 
-This role provides support to install OpenShift Data Foundation Operator (ODF) (formerly called Openshift Container Storage (OCS)) and the Local Storage Operator (LSO). This role is not used by default when setting up IBM Cloud ROKS clusters because they are automatically provisioned with their own storage plugin already.
+This role provides support to install/update OpenShift Data Foundation Operator (ODF) (formerly called Openshift Container Storage (OCS)) and the Local Storage Operator (LSO). This role is not used by default when setting up IBM Cloud ROKS clusters because they are automatically provisioned with their own storage plugin already.
 
 The OCP Version is autodetected and if it is found to be at version `4.10` or less then the `ocs` operator is used, else the `odf` operator is used.
 
@@ -15,6 +15,12 @@ Set this value with your actual local disk filepath to be used in the LocalVolum
 
 - Environment Variable: `LSO_DEVICE_PATH`
 - Default Value: `/dev/vdb`
+
+### ocs_action
+Set this value to the required action for `install` or `upgrade`. If set to install, the local storage and OCF/ODF storage operators will be installed with their storage cluster. If set to upgrade, the operators and storage cluster will be updated based on the ocp version in the cluster.
+
+- Environment Variable: `OCS_ACTION`
+- Default Value: `install`
 
 
 Example Playbook

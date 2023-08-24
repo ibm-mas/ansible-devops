@@ -247,6 +247,12 @@ Optional. Provide a custom archive file name to be associated with the archive/f
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
 - Default: `manage-custom-archive`
 
+### mas_appws_bindings_health_wsl
+Optional. Set as `system` to indicate Watson Studio must be installed and bound to Heath
+
+- Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL`
+- Default: None
+
 
 Example Playbook
 -------------------------------------------------------------------------------
