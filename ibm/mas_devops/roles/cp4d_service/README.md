@@ -612,14 +612,14 @@ The product version (also known as operand version) of this service to install.
 - Default Value: 4.0.9
 
 ### cpd_service_storage_class
-This is used to set `spec.storageClass` in all CPD services.
+This is used to set `spec.storageClass` in all CPD services that uses file storage class (read-write-many).
 
 - **Required**, unless IBMCloud storage classes are available.
 - Environment Variable: `CPD_SERVICE_STORAGE_CLASS`
 - Default Value: Auto determined if default storage classes are provided and available by your cloud provider. i.e `ibmc-file` for IBM Cloud, `efs` for AWS.
 
 ### cpd_service_block_storage_class
-This is used to set `spec.blockStorageClass` in CPD services as Watson Studio, Watson Discovery and Cognos Analytics.
+This is used to set `spec.blockStorageClass` in all CPD services that uses block storage class (read-write-only).
 
 - **Required**, unless IBMCloud storage classes are available.
 - Environment Variable: `CPD_SERVICE_BLOCK_STORAGE_CLASS`
@@ -653,6 +653,13 @@ The CP4D Admin User password to call CP4D API to provision Discovery Instance. I
 - Environment Variable: `CPD_ADMIN_PASSWORD`
 - Default Value: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
 
+### cpd_service_scale_config
+Adjust and scale the resources for your Cloud Pak for Data services to increase processing capacity.
+For more information, refer to [Managing resources](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=services-manually-scaling) in IBM Cloud Pak for Data documentation.
+
+- Optional
+- Environment Variable: `CPD_SERVICE_SCALE_CONFIG`
+- Default Value: `small`
 
 Role Variables - Watson Studio
 ------------------------------
