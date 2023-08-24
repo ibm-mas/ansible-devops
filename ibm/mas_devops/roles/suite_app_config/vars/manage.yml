@@ -4,8 +4,8 @@ mas_app_ws_apiversion: apps.mas.ibm.com/v1
 mas_app_ws_kind: ManageWorkspace
 
 # Depending on the number of components being used the time to configure Manage can grow significantly
-mas_app_cfg_retries: 60  # ~8 hours
-mas_app_cfg_delay: 480  # ~8 minutes
+mas_app_cfg_delay: "{{ lookup('env', 'MAS_APP_CFG_DELAY') | default(480, true)}}" # ~8 minutes
+mas_app_cfg_retries: "{{ lookup('env', 'MAS_APP_CFG_RETRIES') | default(60, true)}}" # ~8 hours
 
 mas_app_settings_aio_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_AIO_FLAG') | default('true', true) | bool }}"
 mas_app_settings_db2_schema: "{{ lookup('env', 'MAS_APP_SETTINGS_DB2_SCHEMA') | default('maximo', true)}}"
@@ -209,3 +209,22 @@ mas_app_settings_customization_credentials_secret_name: "{{ mas_workspace_id }}-
 mas_app_settings_customization_credentials:
   customizationArchiveCredentials:
     secretName: "{{ mas_app_settings_customization_credentials_secret_name }}"
+
+# -------------------
+# Manage/Health Bindings
+# -------------------
+
+mas_appws_bindings_health_wsl: "{{ lookup('env', 'MAS_APPWS_BINDINGS_HEALTH_WSL') }}"
+
+# Bindins will be like this
+mas_app_bindings_jdbc:
+  jdbc: "{{ mas_appws_bindings_jdbc | default( 'system' , true) }}"
+
+# ... or this, depending on
+mas_app_bindings_jdbc_wsl:
+  jdbc: "{{ mas_appws_bindings_jdbc | default( 'system' , true) }}"
+  watsonstudio: "{{ mas_appws_bindings_health_wsl | default( 'system' , true) }}"
+
+mas_app_bindings: "{{ mas_app_bindings_jdbc_wsl if mas_appws_bindings_health_wsl is defined else mas_app_bindings_jdbc }}"
+
+# -------------------

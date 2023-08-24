@@ -189,6 +189,26 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/admin-password.yml') }}"
 
+# 7.1 Create MongoDb metrics endpoint secret
+# -----------------------------------------------------------------------------
+- name: "community : install : Check for existing metrics endpoint secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: mas-mongo-ce-metrics-endpoint-secret
+    namespace: "{{ mongodb_namespace }}"
+  register: metrics_endpoint_secret_info
+  when:
+    - mongodb_ce_version is version('0.7.8', '>=')
+
+- name: "community : install : Create new MongoDb metrics endpoint secret"
+  when:
+    - metrics_endpoint_secret_info.resources is defined
+    - metrics_endpoint_secret_info.resources | length == 0
+    - mongodb_ce_version is version('0.7.8', '>=')
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/metrics-endpoint-secret.yml.j2') }}"
 
 # 8. Deploy the cluster
 # -----------------------------------------------------------------------------
@@ -247,6 +267,62 @@
     - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version is defined) or mongodb_ce_version is version('0.7.0', '==')
     - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version == expected_mongodb_version) or mongodb_ce_version is version('0.7.0', '==')
 
+# 9.1 Create MongoDb service monitor
+# -----------------------------------------------------------------------------
+- name: "community : install : Check for existing service monitor"
+  kubernetes.core.k8s_info:
+    api_version: monitoring.coreos.com/v1
+    kind: ServiceMonitor
+    name: mas-mongo-ce-service-monitor
+    namespace: "{{ mongodb_namespace }}"
+  register: mongoce_servicemonitor_info
+  when:
+    - mongodb_ce_version is version('0.7.8', '>=')
+
+- name: "community : install : Create new MongoDb service monitor"
+  when:
+    - mongoce_servicemonitor_info.resources is defined
+    - mongoce_servicemonitor_info.resources | length == 0
+    - mongodb_ce_version is version('0.7.8', '>=')
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/servicemonitor.yml.j2') }}"
+
+# 9.2 Create MongoDb Grafana dashboard
+# -----------------------------------------------------------------------------
+- name: Get cluster info
+  kubernetes.core.k8s_cluster_info:
+  register: api_status
+  no_log: true
+
+- name: Determine cluster capabilities
+  set_fact:
+    supports_integreatly_org: True # Default is 'False'
+  when:
+    - api_status is defined
+    - api_status.apis is defined
+    - api_status.apis['integreatly.org/v1alpha1'] is defined
+
+- name: "community : install : Check for existing Grafana dashboard"
+  kubernetes.core.k8s_info:
+    api_version: integreatly.org/v1alpha1
+    kind: GrafanaDashboard
+    name: mongodb-overview
+    namespace: "{{ mongodb_namespace }}"
+  register: mongoce_grafana_dashboard_info
+  when:
+    - mongodb_ce_version is version('0.7.8', '>=')
+    - supports_integreatly_org
+
+- name: "community : install : Create new MongoDb Grafana dashboard"
+  when:
+    - mongoce_grafana_dashboard_info.resources is defined
+    - mongoce_grafana_dashboard_info.resources | length == 0
+    - mongodb_ce_version is version('0.7.8', '>=')
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/dashboards/mongodb-overview.yml.j2') }}"
+
 # 10. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
 # Lookup the mongo pods
@@ -303,13 +379,6 @@
         name: mongo-server-cert
         namespace: "{{ mongodb_namespace }}"
       register: mongodb_crt_lookup
-
-    - name: "community : install : Create MAS MongoCfg (debug)"
-      debug:
-        msg: "{{ lookup('template', 'templates/community/suite_mongocfg.yml.j2') }}"
-      vars:
-        mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
-        mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
 
     - name: "community : install : Create MAS MongoCfg"
       when:
