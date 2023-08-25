@@ -6,7 +6,7 @@
   assert:
     that: catalog_tag is defined and catalog_tag != ""
 
-# 3. Load default settings
+# 2. Load default settings
 # -----------------------------------------------------------------------------
 - name: Load CASE bundle versions
   include_vars:
@@ -16,7 +16,7 @@
   include_vars:
     file: "{{ role_path }}/../mirror_extras_prepare/vars/mongoce_{{ mongo_extras_version }}.yml"
 
-- name: set facts 4
+- name: Retrieve image setting parts
   set_fact:
     mongodb_operator_image_name: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-operator$') | map(attribute='name') | first }}"
     mongodb_operator_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-operator$') | map(attribute='registry') | first }}"
@@ -25,21 +25,17 @@
     mongodb_operator_version_upgrade_post_start_hook_image_name: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-operator-version-upgrade-post-start-hook$') | map(attribute='name') | first }}"
     mongodb_operator_version_upgrade_post_start_hook_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-operator-version-upgrade-post-start-hook$') | map(attribute='registry') | first }}"
     mongodb_operator_version_upgrade_post_start_hook_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-operator-version-upgrade-post-start-hook$') | map(attribute='digest') | first }}"
-    mongodb_operator_version_upgrade_post_start_hook_image_tag: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-operator-version-upgrade-post-start-hook$') | map(attribute='tag') | first }}"
     mongodb_agent_image_name: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-agent$') | map(attribute='name') | first }}"
     mongodb_agent_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-agent$') | map(attribute='registry') | first }}"
     mongodb_agent_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-agent$') | map(attribute='digest') | first }}"
-    mongodb_agent_image_tag: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-agent$') | map(attribute='tag') | first }}"
     mongodb_readinessprobe_image_name: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-readinessprobe$') | map(attribute='name') | first }}"
     mongodb_readinessprobe_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-readinessprobe$') | map(attribute='registry') | first }}"
     mongodb_readinessprobe_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-readinessprobe$') | map(attribute='digest') | first }}"
-    mongodb_readinessprobe_image_tag: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-readinessprobe$') | map(attribute='tag') | first }}"
     mongodb_image_name: "{{ extra_images | selectattr('name', 'match', '.*/mongo$') | map(attribute='name') | first }}"
     mongodb_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/mongo$') | map(attribute='registry') | first }}"
     mongodb_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/mongo$') | map(attribute='digest') | first }}"
-    mongodb_image_tag: "{{ extra_images | selectattr('name', 'match', '.*/mongo$') | map(attribute='tag') | first }}"
 
-- name: set more facts
+- name: Construct image full image settings
   set_fact:
     target_mongodb_version: "{{ mongo_extras_version }}"
     mongodb_ce_version: "{{ mongodb_operator_image_tag }}"
@@ -49,7 +45,7 @@
     target_mongodb_readinessprobe_image: "{{ mongodb_readinessprobe_image_registry }}/{{ mongodb_readinessprobe_image_name }}@{{ mongodb_readinessprobe_image_digest }}"
     target_mongodb_image: "{{ mongodb_image_registry }}/{{ mongodb_image_name }}@{{ mongodb_image_digest }}"
 
-# 4. Debug Properties
+# 3. Debug Properties
 # -----------------------------------------------------------------------------
 - name: "community : install : Debug properties"
   debug:
@@ -72,6 +68,8 @@
 #   when: not controlled_upgrade
 #   block:
 
+# 4. Check for Controlled Upgrade
+# -----------------------------------------------------------------------------
 - name: "community : install : Check for existing mongodb instance"
   kubernetes.core.k8s_info:
     api_version: mongodbcommunity.mongodb.com/v1
