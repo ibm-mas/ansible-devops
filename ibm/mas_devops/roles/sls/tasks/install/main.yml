@@ -97,12 +97,14 @@
   set_fact:
     sls_workload_scale_file: "{{ role_path }}/../../common_vars/podTemplates/{{ sls_workload_scale_class | lower }}.yml"
   when:
-    - sls_workload_scale_file is not defined
+    - (sls_workload_scale_file is not defined) or (sls_workload_scale_file is defined and sls_workload_scale_file == '')
     - sls_workload_scale_class != 'Burstable'
 
 - name: Load workload scale configuration file
   include_vars: "{{ sls_workload_scale_file }}"
-  when: sls_workload_scale_file is defined
+  when:
+    - sls_workload_scale_file is defined
+    - sls_workload_scale_file != ''
 
 # 5. Create the namespace for SLS
 # -----------------------------------------------------------------------------
