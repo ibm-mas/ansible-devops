@@ -1,0 +1,59 @@
+---
+# 1. Look up the default channel for the db2u-operator package manifest
+# -----------------------------------------------------------------------------
+- block:
+    - name: Lookup db2u-operator packagemanifest
+      kubernetes.core.k8s_info:
+        api_version: packages.operators.coreos.com/v1
+        kind: PackageManifest
+        name: db2u-operator
+        namespace: "{{ ibm_common_services_namespace }}"
+      register: db2u_manifest_info
+
+    - name: Set db2u-operator update channel to latest default channel if not provided
+      set_fact:
+        db2_channel: "{{ db2u_manifest_info.resources[0].status.defaultChannel }}"
+  when: db2_channel is not defined or db2_channel == ""
+
+# Fail if db2_channel and/or version not discovered
+# -----------------------------------------------------------------------------
+- name: "Verify db2_channel set"
+  assert:
+    that:
+      - db2_channel is defined and db2_channel != ""
+    fail_msg: "Unable to determine db2_channel from catalog"
+
+- name: Debug Db2 Universal Operator Install
+  ansible.builtin.debug:
+    msg:
+      - "Db2 Channel ............................ {{ db2_channel }}"
+
+# 2. Lookup current db2u channel
+# -----------------------------------------------------------------------------
+- name: "Get the current subscription channel for db2"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-db2u-operator
+    namespace: "{{ ibm_common_services_namespace }}"
+    kind: Subscription
+  register: db2_sub_info
+
+- name: "Set the value for the current channel for db2"
+  set_fact:
+    old_db2_channel: "{{ db2_sub_info.resources[0].spec.channel }}"
+    old_db2_csv: "{{ db2_sub_info.resources[0].status.currentCSV }}"
+
+- debug:
+    msg:
+      - "Current db2 channel .......... {{ old_db2_channel }}"
+      - "Current db2 csv .............. {{ old_db2_csv }}"
+
+# 3. If the current operator channel is the same for the upgrade, no upgrade
+# -----------------------------------------------------------------------------
+- name: "Debug when no upgrade is needed"
+  when: db2_channel == old_db2_channel
+  debug:
+    msg: "No action is required. Db2 subscription is already on the {{ db2_channel }} channel"
+
+- include_tasks: "tasks/upgrade/run-db2-subscription-upgrade.yml"
+  when: db2_channel != old_db2_channel
