@@ -62,15 +62,8 @@ Override the built-in segment key used by MAS when communicating with User Data 
 - Environment Variable: `MAS_SEGMENT_KEY`
 - Default Value: None
 
-### mas_workload_scale_class
-This will load a predefined workload scale configuration that is going to be applied to BasCfg CR. Can be set to either Burstable, BestEffort or Guaranteed. The default value is Burstable.
-
-- Optional
-- Environment Variable: `MAS_WORKLOAD_SCALE_CLASS`
-- Default: Burstable
-
 ### mas_workload_scale_file
-The path to the custom workload scale configuration file of the user. If this is set then `mas_workload_scale_class` is ignored.
+The path to the mas workload scale configuration file.
 
 - Optional
 - Environment Variable: `MAS_WORKLOAD_SCALE_FILE`

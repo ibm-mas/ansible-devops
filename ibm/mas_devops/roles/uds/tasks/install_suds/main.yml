@@ -5,29 +5,15 @@
   debug:
     msg: "Configuring for SUDS deploy"
 
-# 2. Check for required variable(s)
+# 2. Workload scale configuration
 # -----------------------------------------------------------------------------
-- name: "Fail if mas_workload_scale_class is not set correctly"
-  assert:
-    that: mas_workload_scale_class is in ['BestEffort', 'Burstable', 'Guaranteed']
-    fail_msg: "mas_workload_scale_class must be one of ['BestEffort', 'Burstable', 'Guaranteed']"
-
-# 3. Workload scale configuration
-# -----------------------------------------------------------------------------
-- name: "Set facts : mas_workload_scale_file"
-  set_fact:
-    mas_workload_scale_file: "{{ role_path }}/../../common_vars/podTemplates/{{ mas_workload_scale_class | lower }}.yml"
-  when:
-    - (mas_workload_scale_file is not defined) or (mas_workload_scale_file is defined and mas_workload_scale_file == '')
-    - mas_workload_scale_class != 'Burstable'
-
 - name: Load workload scale configuration file
   include_vars: "{{ mas_workload_scale_file }}"
   when:
     - mas_workload_scale_file is defined
     - mas_workload_scale_file != ''
 
-# 4. Generate BASCfg for MAS
+# 3. Generate BASCfg for MAS
 # All we need to do is create the relevant config, the BASCfg entity manager will
 # install SUDS as a result.
 # Note that the MAS config resource still refers to UDS by its

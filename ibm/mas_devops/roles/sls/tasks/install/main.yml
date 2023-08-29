@@ -21,11 +21,6 @@
     fail_msg: "Review provided MongoDb details, it is missing required elements"
   when: sls_mongodb is defined
 
-- name: "Fail if sls_workload_scale_class is not set correctly"
-  assert:
-    that: sls_workload_scale_class is in ['BestEffort', 'Burstable', 'Guaranteed']
-    fail_msg: "sls_workload_scale_class must be one of ['BestEffort', 'Burstable', 'Guaranteed']"
-
 # 2. Check for valid combinations for bootstrap and new upload mechanism (3.7.0)
 # -----------------------------------------------------------------------------
 - name: "Fail if bootstrap.license_file and entitlement_file are both set"
@@ -93,13 +88,6 @@
 
 # 4. Workload scale configuration
 # -----------------------------------------------------------------------------
-- name: "Set facts : sls_workload_scale_file"
-  set_fact:
-    sls_workload_scale_file: "{{ role_path }}/../../common_vars/podTemplates/{{ sls_workload_scale_class | lower }}.yml"
-  when:
-    - (sls_workload_scale_file is not defined) or (sls_workload_scale_file is defined and sls_workload_scale_file == '')
-    - sls_workload_scale_class != 'Burstable'
-
 - name: Load workload scale configuration file
   include_vars: "{{ sls_workload_scale_file }}"
   when:
