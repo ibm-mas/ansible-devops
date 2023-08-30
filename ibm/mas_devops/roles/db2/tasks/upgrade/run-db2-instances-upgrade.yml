@@ -1,4 +1,4 @@
-# 7. Get the list of all DB2uCluster instances
+# 1. Get the list of all DB2uCluster instances
 # -----------------------------------------------------------------------------
 - name: "Get db2u instance list"
   kubernetes.core.k8s_info:
@@ -19,8 +19,37 @@
     db2uCluster_names: "{{ db2u_cluster_list.resources | map(attribute='metadata.name') }}"
     db2uCluster_versions: "{{ db2u_cluster_list.resources | map(attribute='spec.version') }}"
 
-# 8. Determine if upgrade is needed and perform it
+# 2. Determine if upgrade is needed and perform it
 # -----------------------------------------------------------------------------
+# if db2_version is not set, then we define it based on the latest version supported by the db2u-license-keys secret
+- block:
+    - name: "Wait until the db2u-license-keys secret is available"
+      no_log: true
+      kubernetes.core.k8s_info:
+        api_version: v1
+        name: db2u-license-keys
+        namespace: "{{ ibm_common_services_namespace }}"
+        kind: Secret
+      register: db2_license_info
+      retries: 20 # ~approx 10 minutes before we give up waiting for the CRD to be created
+      delay: 30 # seconds
+      until:
+        - db2_license_info.resources is defined
+        - db2_license_info.resources | length > 0
+        - db2_license_info.resources[0].data is defined
+        - db2_license_info.resources[0].data | length > 0
+
+    - name: Set db2u-license-keys secret content
+      no_log: true
+      set_fact:
+        db2_license_content: "{{ db2_license_info.resources[0].data.json | b64decode }}"
+
+    - name: Set db2 version
+      ansible.builtin.set_fact:
+        db2_version: "{{ db2_license_content.db2wh | last }}"
+
+  when: db2_version is not defined or db2_version == ""
+
 - name: "Check if Db2 instance is at version {{ db2_version }}"
   when: item.1 != db2_version
   debug:

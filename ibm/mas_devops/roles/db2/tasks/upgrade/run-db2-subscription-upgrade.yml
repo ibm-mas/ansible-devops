@@ -1,5 +1,5 @@
 ---
-# 4. Delete old Db2 OperandRequest
+# 1. Delete old Db2 OperandRequest
 # -----------------------------------------------------------------------------
 - name: "Delete old Db2 OperandRequest"
   kubernetes.core.k8s:
@@ -14,7 +14,7 @@
   pause:
     minutes: 2
 
-# 5. Upgrade Subscription
+# 2. Upgrade Subscription
 # -----------------------------------------------------------------------------
 - name: "Update db2 subscription to the new channel"
   kubernetes.core.k8s:
@@ -69,7 +69,7 @@
   pause:
     minutes: 1
 
-# 6. Lookup the updated OperatorCondition
+# 3. Lookup the updated OperatorCondition
 # -----------------------------------------------------------------------------
 - name: "Lookup the updated OperatorCondition"
   kubernetes.core.k8s_info:
@@ -90,41 +90,3 @@
   debug:
     msg:
       - "Db2u Operator condition ................ {{ updated_db2_opcon.resources[0].metadata.name }}"
-
-# if db2_version is not set, then we define it based on the latest version supported by the db2u-license-keys secret
-- block:
-    - name: "Wait until the db2u-license-keys secret is available"
-      no_log: true
-      kubernetes.core.k8s_info:
-        api_version: v1
-        name: db2u-license-keys
-        namespace: "{{ ibm_common_services_namespace }}"
-        kind: Secret
-      register: db2_license_info
-      retries: 20 # ~approx 10 minutes before we give up waiting for the CRD to be created
-      delay: 30 # seconds
-      until:
-        - db2_license_info.resources is defined
-        - db2_license_info.resources | length > 0
-        - db2_license_info.resources[0].data is defined
-        - db2_license_info.resources[0].data | length > 0
-
-    - name: Set db2u-license-keys secret content
-      no_log: true
-      set_fact:
-        db2_license_content: "{{ db2_license_info.resources[0].data.json | b64decode }}"
-
-    - name: Set db2 version
-      ansible.builtin.set_fact:
-        db2_version: "{{ db2_license_content.db2wh | last }}"
-
-  when: db2_version is not defined or db2_version == ""
-
-- name: Debug target DB2 channel and engine version
-  ansible.builtin.debug:
-    msg:
-      - "Current Db2 Channel .................... {{ old_db2_channel }}"
-      - "Target Db2 Channel ..................... {{ db2_channel }}"
-      - "Target Db2 Engine Version .............. {{ db2_version }}"
-
-- include_tasks: "tasks/upgrade/run-db2-instances-upgrade.yml"

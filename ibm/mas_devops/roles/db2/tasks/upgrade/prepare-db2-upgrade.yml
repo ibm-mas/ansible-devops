@@ -48,7 +48,7 @@
       - "Current db2 channel .......... {{ old_db2_channel }}"
       - "Current db2 csv .............. {{ old_db2_csv }}"
 
-# 3. If the current operator channel is the same for the upgrade, no upgrade
+# 3. If the current operator channel is the same for the upgrade, no subscription upgrade
 # -----------------------------------------------------------------------------
 - name: "Debug when no upgrade is needed"
   when: db2_channel == old_db2_channel
@@ -57,3 +57,14 @@
 
 - include_tasks: "tasks/upgrade/run-db2-subscription-upgrade.yml"
   when: db2_channel != old_db2_channel
+
+- name: Debug target DB2 channel and engine version
+  ansible.builtin.debug:
+    msg:
+      - "Current Db2 Channel .................... {{ old_db2_channel }}"
+      - "Target Db2 Channel ..................... {{ db2_channel }}"
+      - "Target Db2 Engine Version .............. {{ db2_version }}"
+
+# 4. Run Db2 instance upgrade
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/upgrade/run-db2-instances-upgrade.yml"
