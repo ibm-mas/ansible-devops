@@ -129,6 +129,13 @@ URL to access WML service (same as Cloud Pak for Data URL).
 
 Role Variables - Manage Workspace
 -------------------------------------------------------------------------------
+
+### mas_appws_bindings_health_wsl_flag
+Optional. Boolean value indicating if Watson Studio must be bound to Manage. It is expected a system level WatsonStudioCfg applied in the cluster.
+
+- Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG`
+- Default: `false`
+
 ### mas_app_settings_aio_flag
 Optional. Flag indicating if Asset Investment Optimization (AIO) resource must be loaded or not. It can be loaded only when Optimizer application is installed.
 
