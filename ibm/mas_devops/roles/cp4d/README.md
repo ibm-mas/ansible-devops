@@ -17,6 +17,7 @@ The role will automatically install or upgrade (if targeted to an existing CPD d
 - Cloud Pak for Data release version `4.5.3` installs Zen/Control Plane version [`4.7.1`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.3.yml#L62).
 - Cloud Pak for Data release version `4.6.0` installs Zen/Control Plane version [`4.8.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.0.yml#L65).
 - Cloud Pak for Data release version `4.6.3` installs Zen/Control Plane version [`4.8.1`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.3.yml#L65).
+- Cloud Pak for Data release version `4.6.4` installs Zen/Control Plane version [`4.8.2`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.4.yml#L65).
 
 For more information about CPD versioning, see [IBM Cloud Pak for Data Operator and operand versions](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=planning-operator-operand-versions)
 
@@ -147,6 +148,14 @@ Namespace that the Cloud Pak for Data operators will be configured to watch.
 - Optional
 - Environment Variable: `CPD_INSTANCE_NAMESPACE`
 - Default Value: `ibm-cpd`
+
+### cpd_scale_config
+Adjust and scale the resources for your Cloud Pak for Data instance to increase processing capacity.
+For more information, refer to [Managing resources](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=services-manually-scaling#reference_mkn_x4g_wpb__control-plane-scale) in IBM Cloud Pak for Data documentation.
+
+- Optional
+- Environment Variable: `CPD_SCALE_CONFIG`
+- Default Value: `medium`
 
 
 Example Playbook
