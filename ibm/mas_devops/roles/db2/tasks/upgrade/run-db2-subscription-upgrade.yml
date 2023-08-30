@@ -94,6 +94,7 @@
 # if db2_version is not set, then we define it based on the latest version supported by the db2u-license-keys secret
 - block:
     - name: "Wait until the db2u-license-keys secret is available"
+      no_log: true
       kubernetes.core.k8s_info:
         api_version: v1
         name: db2u-license-keys
@@ -108,7 +109,9 @@
         - db2_license_info.resources[0].data is defined
         - db2_license_info.resources[0].data | length > 0
 
-    - set_fact:
+    - name: Set db2u-license-keys secret content
+      no_log: true
+      set_fact:
         db2_license_content: "{{ db2_license_info.resources[0].data.json | b64decode }}"
 
     - name: Set db2 version
