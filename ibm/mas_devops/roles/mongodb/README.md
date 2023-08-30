@@ -64,13 +64,11 @@ Community MongoDB Role Variables
 Role Variables
 -------------------------------------------------------------------------------
 
-### mongodb_ce_version
-Set the version of the MongoDb Community Edition Operator to install in the namespace. Supported options are `0.7.0`, `0.7.8` and `0.7.9`. Selecting `0.7.0` will deploy the MongoDb version of `4.2.23`, deploying `0.7.8` or `0.7.9` will result in MongoDb version `4.4.21` being used. Upgrading upwards with these versions is supported, so if you previously deployed using `0.7.0` you can run this role again with the `0.7.9` option (which is also the default) and the MongoDb Community Edition Operator will be upgraded as well as the underlying MongoDb replicaset without lose of service.
+### catalog_tag
+Set the MAS Catalog Version to indicate the version of MongoDb Community Edition to install.  Catalog versions can be found in common_vars/casebundles, for example v8-230725-amd64.  The role can be rerun with an upgraded catalog version.  Upgrading upwards is supported.  The MongoDb Community Edition Operator will be upgraded as well as the underlying MongoDb replicaset without lose of service.
 
-- Optional
-- Environment Variable: `MONGODB_CE_VERSION`
-- Default: `0.7.9`
-
+- Environment Variable: `MAS_CATALOG_VERSION`
+- Default: `v8-230725-amd64`
 
 ### mongodb_namespace
 The namespace where the operator and MongoDb cluster will be deployed.
