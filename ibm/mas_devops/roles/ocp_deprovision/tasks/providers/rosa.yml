@@ -109,22 +109,22 @@
 - block:
   when: efs_id != ""
 
-  - name: "rosa : Get-mountId : MountId"
-    shell: aws efs describe-mount-targets --file-system-id {{ efs_id  }} --query "MountTargets[*].MountTargetId"
-    register: mount_id_op
+    - name: "rosa : Get-mountId : MountId"
+      shell: aws efs describe-mount-targets --file-system-id {{ efs_id  }} --query "MountTargets[*].MountTargetId"
+      register: mount_id_op
 
-  - name: "rosa : Filter-mountId : MountId"
-    set_fact:
-      mount_id: "{{ mount_id_op.stdout|from_json|json_query(\"[0]\") }}"
+    - name: "rosa : Filter-mountId : MountId"
+      set_fact:
+        mount_id: "{{ mount_id_op.stdout|from_json|json_query(\"[0]\") }}"
 
-  - name: "rosa : Delete-MountId : Mount Id"
-    shell: aws efs delete-mount-target --mount-target-id {{ mount_id }}
+    - name: "rosa : Delete-MountId : Mount Id"
+      shell: aws efs delete-mount-target --mount-target-id {{ mount_id }}
 
-  - name: "rosa : Wait For Delete"
-    ansible.builtin.pause:
-      seconds: 30
+    - name: "rosa : Wait For Delete"
+      ansible.builtin.pause:
+        seconds: 30
 
-  # 12. Delete EFS
-  # -----------------------------------------------------------------------------
-  - name: "rosa : Delete-EFS : Delete EFS"
-    shell: aws efs delete-file-system --file-system-id {{ efs_id }}
+    # 12. Delete EFS
+    # -----------------------------------------------------------------------------
+    - name: "rosa : Delete-EFS : Delete EFS"
+      shell: aws efs delete-file-system --file-system-id {{ efs_id }}
