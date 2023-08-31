@@ -33,6 +33,7 @@
 # -----------------------------------------------------------------------------
 - name: "rosa : Login"
   shell: rosa login --token {{ rosa_token }}
+  no_log: true
 
 - name: "rosa : Validate login"
   shell: rosa whoami
@@ -81,9 +82,11 @@
 # -----------------------------------------------------------------------------
 - name: "rosa : Clean up operator roles"
   shell: "rosa delete operator-roles -c {{ (rosa_cluster_lookup_result.stdout | from_json).id }} -m auto --yes"
+  when: rosa_cluster_lookup_result.rc != 1
 
 - name: "rosa : Clean up OIDC provider"
   shell: "rosa delete oidc-provider -c {{ (rosa_cluster_lookup_result.stdout | from_json).id }} -m auto --yes"
+  when: rosa_cluster_lookup_result.rc != 1
 
 # 9. AWS Login To Remove File Storage
 # -----------------------------------------------------------------------------
