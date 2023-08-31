@@ -149,13 +149,6 @@ Worker nodes machine
 - Default Value: `m5.4xlarge`
 
 
-### rosa_action
-Number of compute nodes to deploy in the cluster.
-
-- Optional
-- Environment Variable: `ROSA_COMPUTE_MACHINE_TYPE`
-- Default Value: `m5.4xlarge`
-
 Role Variables - FYRE
 -------------------------------------------------------------------------------
 The following variables are only used when `cluster_type = fyre`.
