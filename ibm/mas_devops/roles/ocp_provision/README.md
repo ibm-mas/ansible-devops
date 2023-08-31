@@ -128,9 +128,9 @@ Token to authenticate to the ROSA service.  To obtain your API token login to th
 - Default Value: None
 
 ### rosa_cluster_admin_password
-Password to set up for the `cluster-admin` user account on the OCP instance.  You will need this to log onto the cluster after it is provisioned.
+Password to set up for the `cluster-admin` user account on the OCP instance.  You will need this to log onto the cluster after it is provisioned. If this is not set then a password is auto-generated.
 
-- **Required** if `cluster_type = rosa`.
+- **Optional** if `cluster_type = rosa`.
 - Environment Variable: `ROSA_CLUSTER_ADMIN_PASSWORD`
 - Default Value: None
 

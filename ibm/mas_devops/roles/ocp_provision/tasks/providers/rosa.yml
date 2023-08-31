@@ -102,9 +102,18 @@
 
 - name: "rosa/provision : Create cluster-admin user"
   when:
+    - rosa_cluster_admin_password is defined and rosa_cluster_admin_password != ""
     - rosa_admin_check.stderr_lines | length > 0
     - rosa_admin_check.stderr_lines[0] == "WARN: There is no admin on cluster '" ~ cluster_name ~ "'. To create it run the following command:"
   shell: rosa create admin --cluster {{ cluster_name }} --password {{ rosa_cluster_admin_password }}
+  register: rosa_admin_create
+
+- name: "rosa/provision : Create cluster-admin user with auto-generated password"
+  when:
+    - rosa_cluster_admin_password is not defined or rosa_cluster_admin_password == ""
+    - rosa_admin_check.stderr_lines | length > 0
+    - rosa_admin_check.stderr_lines[0] == "WARN: There is no admin on cluster '" ~ cluster_name ~ "'. To create it run the following command:"
+  shell: rosa create admin --cluster {{ cluster_name }}
   register: rosa_admin_create
 
 - name: "rosa/provision : Debug cluster admin creation"
