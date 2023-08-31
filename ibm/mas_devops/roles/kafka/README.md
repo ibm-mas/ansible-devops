@@ -1,15 +1,15 @@
 kafka
 =====
 
-This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet), [IBM Event Streams](https://www.ibm.com/cloud/event-streams) or [AWS MSK](https://aws.amazon.com/msk/) and generate configuration that can be directly applied to Maximo Application Suite.
+This role provides support to install a Kafka Cluster using [Strimzi](https://strimzi.io/), [Red Hat AMQ Streams](https://www.redhat.com/en/resources/amq-streams-datasheet), [IBM Event Streams](https://www.ibm.com/cloud/event-streams) or [AWS MSK](https://aws.amazon.com/msk/) and generate configuration that can be directly applied to Maximo Application Suite.
 
-> The Red Hat AMQ streams component is a massively scalable, distributed, and high-performance data streaming platform based on the Apache Kafka project. It offers a distributed backbone that allows microservices and other applications to share data with high throughput and low latency.
+> Both Strimzi and Red Hat AMQ streams component are massively scalable, distributed, and high-performance data streaming platform based on the Apache Kafka project. Both offer a distributed backbone that allows microservices and other applications to share data with high throughput and low latency.
 >
 > As more applications move to Kubernetes and Red Hat OpenShift, it is increasingly important to be able to run the communication infrastructure on the same platform. Red Hat OpenShift, as a highly scalable platform, is a natural fit for messaging technologies such as Kafka. The AMQ streams component makes running and managing Apache Kafka OpenShift native through the use of powerful operators that simplify the deployment, configuration, management, and use of Apache Kafka on Red Hat OpenShift.
 >
-> The AMQ streams component is part of the Red Hat AMQ family, which also includes the AMQ broker, a longtime innovation leader in Java™ Message Service (JMS) and polyglot messaging, as well as the AMQ interconnect router, a wide-area, peer-to-peer messaging solution.
+> The AMQ streams component is part of the Red Hat AMQ family, which also includes the AMQ broker, a longtime innovation leader in Java™ Message Service (JMS) and polyglot messaging, as well as the AMQ interconnect router, a wide-area, peer-to-peer messaging solution. Under the covers, AMQ streams leverages Strimzi's architecture, resources and configurations.
 
-**Note:** The MAS license does not include entitlement for AMQ streams. The MAS Devops Collection supports this Kafka deployment as an example only.
+**Note:** The MAS license does not include entitlement for AMQ streams. The MAS Devops Collection supports this Kafka deployment as an example only. Therefore, we recommend the use of Strimzi for an opensource Kafka provider.
 
 !!! tip
     The role will generate a yaml file containing the definition of a Secret and KafkaCfg resource that can be used to configure the deployed cluster as the MAS system Kafka.
@@ -18,19 +18,32 @@ This role provides support to install a Kafka Cluster using [Red Hat AMQ Streams
 
 Role Variables
 --------------
+### kafka_action
+Action to be performed by Kafka role. Valid values are `install` or `uninstall`.
 
+- Environment Variable: `KAFKA_ACTION`
+- Default Value: `install`
+
+### kafka_provider
+Valid kafka providers are `strimzi` (opensource), `redhat` (installs AMQ Streams which requires a license that is not included with MAS entitlement), `ibm` (provisions a paid Event Streams instance in IBM Cloud account) and `aws` (provisions a paid MSK instance in AWS account).
+
+- Environment Variable: `KAFKA_PROVIDER`
+- Default Value: `strimzi`
+
+Red Hat AMQ Streams & Strimzi Role Variables
+-------------------------------------
 ### kafka_version
 The version of Kafka to deploy by the operator. Before changing the kafka_version make the version is supported
-by the [amq-streams operator version](https://access.redhat.com/documentation/en-us/red_hat_amq_streams).
+by the [amq-streams operator version](https://access.redhat.com/documentation/en-us/red_hat_amq_streams) or [strimzi operator version](https://strimzi.io/downloads/).
 
 - Environment Variable: `KAFKA_VERSION`
-- Default Value: `3.3.1`
+- Default Value: `3.3.1` for AMQ Streams and `3.5.1` for Strimzi.
 
 ### kafka_namespace
 The namespace where the operator and Kafka cluster will be deployed.
 
 - Environment Variable: `KAFKA_NAMESPACE`
-- Default Value: `amq-streams`
+- Default Value: `amq-streams` for AMQ Streams and `strimzi` for Strimzi.
 
 ### kafka_cluster_name
 The name of the Kafka cluster that will be created
@@ -194,20 +207,8 @@ AWS MSK Role Variables
 To run this role successfully you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
 
-### kafka_action
-Action to be performed by Kafka role. Valid values are `install` or `uninstall`. To install AWS MSK kafka cluster, set this variable as `install`. To uninstall an existing AWS MSK kafka cluster, set this variable as `uninstall`.
-
-- Environment Variable: `KAFKA_ACTION`
-- Default Value: `install`
-
-### kafka_provider
-Valid kafka providers are `redhat`, `ibm` and `aws`. To install or uninstall AWS MSK kafka cluster, set this variable as `aws`
-
-- Environment Variable: `KAFKA_PROVIDER`
-- Default Value: `redhat`
-
 ### kafka_version
-The version of Kafka to deploy.
+The version of Kafka to deploy for AWS MSK.
 
 - Environment Variable: `KAFKA_VERSION`
 - Default Value: `2.7.0`

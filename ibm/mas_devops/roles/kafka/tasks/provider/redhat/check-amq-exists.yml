@@ -1,0 +1,36 @@
+---
+# Avoid installing Strimzi in a cluster that already have AMQ Streams as standalone kafka service
+# If AMQ Streams subscription is not installed on the default kafka namespaces
+# then allow Strimzi installation
+
+- name: "Lookup for existing AMQ Streams subscriptions in {{ kafka_defaults['redhat'].namespace }} namespace"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "amq-streams"
+    kind: Subscription
+    namespace: "{{ kafka_defaults['redhat'].namespace }}"
+  register: existing_amq_sub_info
+
+- debug:
+    var: existing_amq_sub_info
+
+- set_fact:
+    amq_exists: "{{ existing_amq_sub_info.resources is defined and existing_amq_sub_info.resources | length > 0 }}"
+
+- name: "Lookup for existing AMQ Streams subscriptions in {{ kafka_namespace }} namespace"
+  when: not amq_exists
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "amq-streams"
+    kind: Subscription
+    namespace: "{{ kafka_namespace }}"
+  register: existing_amq_sub_info2
+
+- set_fact:
+    amq_exists: "{{ existing_amq_sub_info2.resources is defined and existing_amq_sub_info2.resources | length > 0 }}"
+  when: not amq_exists
+
+- name: "Debug: Skip Strimzi install if AMQ Streams is installed"
+  debug:
+    msg:
+      - "Is AMQ Streams currently installed ................... {{ amq_exists }}"
