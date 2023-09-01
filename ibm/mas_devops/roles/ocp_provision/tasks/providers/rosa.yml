@@ -144,15 +144,16 @@
 # There doesn't appear to be a way to check other than to wait
 - name: "rosa : Pause for 10 minutes while the cluster-admin account is created"
   when:
-    - rosa_admin_recheck.rc is defined
-    - rosa_admin_recheck.rc == 0
+    - rosa_admin_create.rc is defined
+    - rosa_admin_create.rc == 0
   pause:
     minutes: 10
 
 - name: "rosa : Build rosa-details.yaml"
   when:
     - rosa_config_dir is defined and rosa_config_dir != ''
-    - rosa_admin_create is defined
+    - rosa_admin_create.rc is defined
+    - rosa_admin_create.rc == 0
   ansible.builtin.template:
     src: rosa/rosa-details.yml.j2
     dest: "{{ rosa_config_dir }}/rosa-{{cluster_name}}-details.yaml"
