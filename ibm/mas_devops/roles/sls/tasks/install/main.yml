@@ -86,13 +86,28 @@
       - "SLS entitlement file ................... {{ entitlement_file }}"
       - "SLS Mongo Retry Writes ................. {{ sls_mongo_retrywrites }}"
 
-# 4. Workload scale configuration
+# 4. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
-- name: Load workload scale configuration file
-  include_vars: "{{ sls_workload_scale_file }}"
+- name: Load podTemplates configuration
+  vars:
+    config_file_name: "ibm-sls.yml"
   when:
-    - sls_workload_scale_file is defined
-    - sls_workload_scale_file != ''
+    - mas_pod_templates_dir is defined
+    - mas_pod_templates_dir != ''
+  block:
+    - name: Check whether configuration exists
+      ansible.builtin.stat:
+        path: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+      register: pod_templates_file_lookup
+
+    - name: Load podTemplates configuration
+      ansible.builtin.include_vars: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+      when: pod_templates_file_lookup.stat.exists
+
+    - name: Failed to find configuration
+      ansible.builtin.debug:
+        msg: "Could not find '{{ mas_pod_templates_dir }}/{{ config_file_name }}' - Skipping"
+      when: not pod_templates_file_lookup.stat.exists
 
 # 5. Create the namespace for SLS
 # -----------------------------------------------------------------------------

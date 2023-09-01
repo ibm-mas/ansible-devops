@@ -62,13 +62,6 @@ Override the built-in segment key used by MAS when communicating with User Data 
 - Environment Variable: `MAS_SEGMENT_KEY`
 - Default Value: None
 
-### mas_workload_scale_file
-The path to the mas workload scale configuration file.
-
-- Optional
-- Environment Variable: `MAS_WORKLOAD_SCALE_FILE`
-- Default: None
-
 ### uds_contact.email
 Sets the Contact e-mail address used by the MAS instance's UDS configuration.
 
@@ -125,6 +118,14 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Environment Variable: `CUSTOM_LABELS`
 - Default Value: None
 
+### mas_pod_templates_dir
+Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named `ibm-mas.yaml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the BasCfg spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`.
+
+For examples refer to the [BestEfforts reference configuration in the MAS CLI](https://blahblahblah/bestefforts/ibm-mas.yaml), for full documentation of the supported options refer to the [Customizing Pod Templates](https://link) in the product documentation.
+
+- Optional
+- Environment Variable: `MAS_POD_TEMPLATES_DIR`
+- Default: None
 
 Example Playbook
 -------------------------------------------------------------------------------

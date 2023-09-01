@@ -34,11 +34,13 @@ Local directory to save the generated SmtpCfg resource definition.  This can be 
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
-### mas_workload_scale_file
-The path to the mas workload scale configuration file.
+### mas_pod_templates_dir
+Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named `ibm-mas.yaml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the SmtpCfg spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`.
+
+For examples refer to the [BestEfforts reference configuration in the MAS CLI](https://blahblahblah/bestefforts/ibm-mas.yaml), for full documentation of the supported options refer to the [Customizing Pod Templates](https://link) in the product documentation.
 
 - Optional
-- Environment Variable: `MAS_WORKLOAD_SCALE_FILE`
+- Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
 
 ### sendgrid_primary_username

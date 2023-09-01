@@ -5,13 +5,28 @@
   debug:
     msg: "Configuring for SUDS deploy"
 
-# 2. Workload scale configuration
+# 2. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
-- name: Load workload scale configuration file
-  include_vars: "{{ mas_workload_scale_file }}"
+- name: Load podTemplates configuration
+  vars:
+    config_file_name: "ibm-mas.yml"
   when:
-    - mas_workload_scale_file is defined
-    - mas_workload_scale_file != ''
+    - mas_pod_templates_dir is defined
+    - mas_pod_templates_dir != ''
+  block:
+    - name: Check whether configuration exists
+      ansible.builtin.stat:
+        path: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+      register: pod_templates_file_lookup
+
+    - name: Load podTemplates configuration
+      ansible.builtin.include_vars: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+      when: pod_templates_file_lookup.stat.exists
+
+    - name: Failed to find configuration
+      ansible.builtin.debug:
+        msg: "Could not find '{{ mas_pod_templates_dir }}/{{ config_file_name }}' - Skipping"
+      when: not pod_templates_file_lookup.stat.exists
 
 # 3. Generate BASCfg for MAS
 # All we need to do is create the relevant config, the BASCfg entity manager will
@@ -19,7 +34,7 @@
 # Note that the MAS config resource still refers to UDS by its
 # original name (BAS).
 # -----------------------------------------------------------------------------
-- name: "install_suds : Copy SUDS BASCfg to filesytem"
+- name: "install_suds : Copy SUDS BASCfg to filesystem"
   ansible.builtin.template:
     src: bascfg-suds.yml.j2
     dest: "{{ mas_config_dir }}/uds.yml"
