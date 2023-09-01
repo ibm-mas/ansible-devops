@@ -148,6 +148,13 @@ Worker nodes machine
 - Environment Variable: `ROSA_COMPUTE_MACHINE_TYPE`
 - Default Value: `m5.4xlarge`
 
+### rosa_config_dir
+Config directory to hold the rosa-{{cluster_name}}-details.yaml file that contains the api endpoint and cluster-admin details
+
+- Optional
+- Environment Variable: `ROSA_CONFIG_DIR`
+- Default Value: None
+
 
 Role Variables - FYRE
 -------------------------------------------------------------------------------
