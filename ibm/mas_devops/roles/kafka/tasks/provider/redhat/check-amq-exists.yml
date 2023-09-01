@@ -30,7 +30,11 @@
     amq_exists: "{{ existing_amq_sub_info2.resources is defined and existing_amq_sub_info2.resources | length > 0 }}"
   when: not amq_exists
 
-- name: "Debug: Skip Strimzi install if AMQ Streams is installed"
-  debug:
-    msg:
-      - "Is AMQ Streams currently installed ................... {{ amq_exists }}"
+- name: "Assert: Stop Strimzi install if AMQ Streams is already installed"
+  when: kafka_provider == 'strimzi'
+  assert:
+    that: not amq_exists
+    fail_msg: 
+      - "Red Hat AMQ Streams subscription was identified as installed operator in this cluster under namespace: {{ existing_amq_sub_info.resources[0].metadata.namespace | default(existing_amq_sub_info2.resources[0].metadata.namespace, true) }}"
+      - "Strimzi cannot be installed because it conflicts with AMQ Streams service APIs. Please, uninstall AMQ Streams before installing Strimzi."
+      - "If uninstalling AMQ Streams is not an option, then set 'kafka_provider: redhat' to continue using AMQ Streams as your Kafka provider."
