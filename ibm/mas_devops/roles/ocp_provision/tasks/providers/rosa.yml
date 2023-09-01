@@ -135,3 +135,16 @@
     - "'There is an admin on cluster' in rosa_admin_recheck.stdout_lines[0]"
   retries: 20 # approx 20 minutes before we give up
   delay: 60 # 1 minute
+
+# 10. Wait for cluster and admin to be ready
+# -----------------------------------------------------------------------------
+# We want to try to ensure the account is ready to use by the time the
+# script completes, so we will delay for 5 minutes if the return code
+# indicates that the account was created when we ran the previous command.
+# There doesn't appear to be a way to check other than to wait
+- name: "rosa : Pause for 10 minutes while the cluster-admin account is created"
+  when:
+    - rosa_admin_recheck.rc is defined
+    - rosa_admin_recheck.rc == 0
+  pause:
+    minutes: 10
