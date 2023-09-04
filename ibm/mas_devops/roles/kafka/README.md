@@ -211,25 +211,14 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 The version of Kafka to deploy for AWS MSK.
 
 - Environment Variable: `KAFKA_VERSION`
-- Default Value: `2.7.0`
+- Default Value: `3.3.1`
 
 ### kafka_cluster_name
+The name of the Kafka cluster that will be created
 
 - Required
 - Environment Variable: `KAFKA_CLUSTER_NAME`
-- Default Value: None
-
-### aws_access_key_id
-
-- Required
-- Environment Variable: `AWS_ACCESS_KEY_ID`
-- Default Value: None
-
-### aws_secret_access_key
-
-- Required
-- Environment Variable: `AWS_SECRET_ACCESS_KEY`
-- Default Value: None
+- Default Value: `maskafka`
 
 ### aws_region
 
@@ -238,66 +227,77 @@ The version of Kafka to deploy for AWS MSK.
 - Default Value: None
 
 ### vpc_id
+The AWS Virtual Private Cloud identifier (VPC ID) where the MSK instance will be hosted.
 
 - Required
 - Environment Variable: `VPC_ID`
 - Default Value: None
 
 ### aws_msk_cidr_az1
+The CIDR address for the first Availability Zone subnet. This information is found in the subnet details under your VPC.
 
 - Required
 - Environment Variable: `AWS_MSK_CIDR_AZ1`
 - Default Value: None
 
 ### aws_msk_cidr_az2
+The CIDR address for the second Availability Zone subnet. This information is found in the subnet details under your VPC.
 
 - Required
 - Environment Variable: `AWS_MSK_CIDR_AZ2`
 - Default Value: None
 
 ### aws_msk_cidr_az3
+The CIDR address for the third Availability Zone subnet. This information is found in the subnet details under your VPC.
 
 - Required
 - Environment Variable: `AWS_MSK_CIDR_AZ3`
 - Default Value: None
 
 ### aws_msk_ingress_cidr
+The IPv4 CIDR address for ingress connection. This information is found in the subnet details under your VPC.
 
 - Required
 - Environment Variable: `AWS_MSK_INGRESS_CIDR`
 - Default Value: None
 
 ### aws_msk_egress_cidr
+The IPv4 CIDR address for egress connection. This information is found in the subnet details under your VPC.
 
 - Required
 - Environment Variable: `AWS_MSK_EGRESS_CIDR`
 - Default Value: None
 
 ### aws_kafka_user_name
+The name of the user to setup in the cluster for MAS.
 
 - Required
 - Environment Variable: `AWS_KAFKA_USER_NAME`
 - Default Value: None
 
 ### aws_kafka_user_password
+The password of the user to setup in the cluster for MAS.
 
 - Optional
 - Environment Variable: `AWS_KAFKA_USER_PASSWORD`
 - Default Value: None
 
 ### aws_msk_instance_type
+The type/flavor of your MSK instance.
 
 - Optional
 - Environment Variable: `AWS_MSK_INSTANCE_TYPE`
 - Default Value: `kafka.m5.large`
 
 ### aws_msk_volume_size
+The storage/volume size of your MSK instance.
 
 - Optional
 - Environment Variable: `AWS_MSK_VOLUME_SIZE`
 - Default Value: `100`
 
 ### aws_msk_instance_number
+The number of broker/instances of your MSK instance.
 
 - Optional
 - Environment Variable: `AWS_MSK_INSTANCE_NUMBER`
@@ -322,14 +322,12 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Environment Variable: `CUSTOM_LABELS`
 - Default Value: None
 
-
 ### aws_msk_secret
 AWS MSK Secret name. The secret name must begin with the prefix AmazonMSK_. If this is not set, then default secret name will be AmazonMSK_SECRET_{{kafka_cluster_name}}
 
 - Optional
 - Environment Variable: `AWS_MSK_SECRET`
 - Default Value: `AmazonMSK_SECRET_{{kafka_cluster_name}}'`
-
 
 Example Playbook to install AWS MSK
 ----------------
@@ -341,7 +339,7 @@ Example Playbook to install AWS MSK
     aws_region: ca-central-1
     aws_access_key_id: *****
     aws_secret_access_key: *****
-    kafka_version: 2.8.1
+    kafka_version: 3.3.1
     kafka_provider: aws
     kafka_action: install
     kafka_cluster_name: msk-abcd0zyxw
