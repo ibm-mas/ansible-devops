@@ -17,6 +17,7 @@
   include_vars: "/tmp/{{ mas_config_scope }}.yml"
 
 - name: Lookup db2u instance password
+  no_log: true
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
@@ -25,11 +26,13 @@
   register: _db2_instance_password
 
 - name: Set Facts for JdbcCfg
+  no_log: true
   set_fact:
     jdbc_instance_password: "{{ _db2_instance_password.resources[0].data.password | b64decode }}"
     jdbc_url: "jdbc:db2://c-{{db2_instance_name | lower}}-db2u-engn-svc.{{ db2_namespace }}.svc:{{db2_tls_serviceport}}/{{db2_dbname}}:sslConnection=true;sslVersion={{ tls_version }};"
 
 - name: Set facts for db2_jdbc_username and jdbc_instance_password
+  no_log: true
   set_fact:
     db2_jdbc_username: "{{ db2_ldap_username }}"
     jdbc_instance_password: "{{ db2_ldap_password }}"

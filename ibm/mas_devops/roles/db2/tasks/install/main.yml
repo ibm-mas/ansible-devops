@@ -88,7 +88,7 @@
     api_version: packages.operators.coreos.com/v1
     kind: PackageManifest
     name: db2u-operator
-    namespace: ibm-common-services
+    namespace: "{{ ibm_common_services_namespace }}"
   register: db2u_manifest_info
   until: db2u_manifest_info.resources[0].status.defaultChannel is defined
   retries: 60 # Approximately 30 minutes before we give up
@@ -101,29 +101,19 @@
     db2_channel: "{{ db2u_manifest_info.resources[0].status.defaultChannel }}"
   when: db2_channel is not defined or db2_channel == ""
 
-- name: Set db2 version
-  ansible.builtin.set_fact:
-    db2_version: "{{ db2u_manifest_info.resources[0].status.channels | selectattr('name', 'equalto', db2_channel) | map(attribute='currentCSVDesc') | map(attribute='annotations') | map(attribute='productVersion') | first }}"
-  when: db2_version is not defined or db2_version == ""
-
-
 # Fail if required parameters are not set
 # -----------------------------------------------------------------------------
-- name: "Verify db2_channel and db2_version set"
+- name: "Verify db2_channel is set"
   assert:
     that:
       - db2_channel is defined and db2_channel != ""
-      - db2_version is defined and db2_version != ""
-    fail_msg: "Unable to determine db2_channel and/or db2_version from catalog"
+    fail_msg: "Unable to determine db2_channel from catalog"
 
 
-- name: Debug Db2 Universal Operator Install
+- name: Debug DB2 upgrade channel
   ansible.builtin.debug:
     msg:
       - "Db2 Channel ............................ {{ db2_channel }}"
-      - "Db2 Version ............................ {{ db2_version }}"
-
-
 # 5. Install a Db2u Operator
 # -----------------------------------------------------------------------------
 - name: "Create db2u Namespace"
@@ -133,6 +123,7 @@
   register: _db2_namespace_result
 
 - name: Set 'ibm-registry' secret content
+  no_log: true
   vars:
     entitledAuthStr: "{{ registry_user }}:{{ ibm_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
@@ -144,6 +135,7 @@
     new_secret: "{{ content | join('') }}"
 
 - name: "Generate 'ibm-registry' secret"
+  no_log: true
   kubernetes.core.k8s:
     definition:
       apiVersion: v1
@@ -237,6 +229,51 @@
   until:
     - db2_crd_info.resources is defined
     - db2_crd_info.resources | length > 0
+
+# if db2_version is not set, then we define it based on the latest version supported by the db2u-license-keys secret
+- block:
+    - name: "Wait until the db2u-license-keys secret is available"
+      no_log: true
+      kubernetes.core.k8s_info:
+        api_version: v1
+        name: db2u-license-keys
+        namespace: "{{ ibm_common_services_namespace }}"
+        kind: Secret
+      register: db2_license_info
+      retries: 20 # ~approx 10 minutes before we give up waiting for the CRD to be created
+      delay: 30 # seconds
+      until:
+        - db2_license_info.resources is defined
+        - db2_license_info.resources | length > 0
+        - db2_license_info.resources[0].data is defined
+        - db2_license_info.resources[0].data | length > 0
+
+    - name: Set db2u-license-keys secret content
+      no_log: true
+      set_fact:
+        db2_license_content: "{{ db2_license_info.resources[0].data.json | b64decode }}"
+
+    - name: Set db2 version
+      ansible.builtin.set_fact:
+        db2_version: "{{ db2_license_content.db2wh | last }}"
+
+  when: db2_version is not defined or db2_version == ""
+
+# Fail if required parameters are not set
+# -----------------------------------------------------------------------------
+- name: "Verify db2_channel and db2_version set"
+  assert:
+    that:
+      - db2_channel is defined and db2_channel != ""
+      - db2_version is defined and db2_version != ""
+    fail_msg: "Unable to determine db2_channel and/or db2_version"
+
+
+- name: Debug DB2 upgrade channel and version
+  ansible.builtin.debug:
+    msg:
+      - "Db2 Channel ............................ {{ db2_channel }}"
+      - "Db2 Version ............................ {{ db2_version }}"
 
 
 # 9. Lookup db2 instance to see if it exists already
