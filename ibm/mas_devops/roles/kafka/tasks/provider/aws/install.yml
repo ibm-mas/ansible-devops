@@ -24,7 +24,7 @@
       - "aws_msk_ingress_cidr ................... {{ aws_msk_ingress_cidr}}"
       - "aws_msk_egress_cidr .................... {{ aws_msk_egress_cidr}}"
       - "aws_kafka_user_name .................... {{ aws_kafka_user_name}}"
-      - "aws_kafka_user_password ................ {{ aws_kafka_user_password}}"
+      - "aws_kafka_user_password ................ {{ '************' if (aws_kafka_user_password is defined) else '<undefined>' }}"
       - "aws_msk_instance_type .................. {{ aws_msk_instance_type}}"
       - "aws_msk_volume_size .................... {{ aws_msk_volume_size}}"
       - "aws_msk_instance_number ................ {{ aws_msk_instance_number}}"
@@ -85,6 +85,7 @@
   failed_when: aws_msk_secret_result.rc not in [0] and ('ResourceExistsException' not in aws_msk_secret_result.stderr )
 
 - name: "Get {{aws_msk_secret}} arn from AWS Secrets Manager"
+  no_log: true
   shell: aws secretsmanager get-secret-value --secret-id "{{aws_msk_secret}}"
   register: aws_msk_secret_result
   failed_when: aws_msk_secret_result.rc not in [0]
@@ -103,7 +104,6 @@
 - name: "Debug aws_msk_secret_result"
   debug:
     msg:
-      - "aws_msk_secret_manager ................. {{ aws_msk_secret_result  }}"
       - "aws_msk_secret_manager ARN ............. {{ secret_arn }}"
 
 # 6. Create Security Group and add ingress ,egress rules
