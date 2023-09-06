@@ -25,7 +25,7 @@ Action to be performed by Kafka role. Valid values are `install` or `uninstall`.
 - Default Value: `install`
 
 ### kafka_provider
-Valid kafka providers are `strimzi` (opensource), `redhat` (installs AMQ Streams which requires a license that is not included with MAS entitlement), `ibm` (provisions a paid Event Streams instance in IBM Cloud account) and `aws` (provisions a paid MSK instance in AWS account).
+Valid kafka providers are `strimzi` (opensource), `redhat` (installs AMQ Streams which requires a license that is not included with MAS entitlement), `ibm` (provisions a paid Event Streams instance in the target IBM Cloud account) and `aws` (provisions a paid MSK instance in the target AWS account).
 
 - Environment Variable: `KAFKA_PROVIDER`
 - Default Value: `strimzi`
