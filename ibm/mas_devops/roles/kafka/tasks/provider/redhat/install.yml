@@ -1,14 +1,7 @@
 ---
-# Avoid installing Strimzi in a cluster that already have AMQ Streams.
-# This is to prevent potential existing MAS Kafka configurations
-# to get overriden due the introduction of Strimzi as default kafka provider
+# Check if there are any cluster scope kafka already installed
 # -------------------------------------------------------------------
+- include_tasks: tasks/provider/redhat/check-kafka-exists.yml
 
-# If installing Strimzi, first we'll check if AMQ Streams is already
-# installed in the defaulted namespaces
-- include_tasks: tasks/provider/redhat/check-amq-exists.yml
-  when: kafka_provider == 'strimzi'
-
-# Only run the install if kafka provider is AMQ;
-# Or if provider is Strimzi, AMQ standalone must NOT be installed previously
+# Run the install if there's no previous cluster scope kafka installed
 - include_tasks: tasks/provider/redhat/install-kafka.yml
