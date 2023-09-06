@@ -4,6 +4,7 @@
 - name: "Pre-validation mandatory parameter"
   include_tasks: tasks/provider/aws/utils/validate.yml
 
+
 # 2. Generate Kafka username / password if missing
 # -----------------------------------------------------------------------------
 - name: "Generate kafka password"
@@ -23,7 +24,7 @@
       - "aws_msk_ingress_cidr ................... {{ aws_msk_ingress_cidr}}"
       - "aws_msk_egress_cidr .................... {{ aws_msk_egress_cidr}}"
       - "aws_kafka_user_name .................... {{ aws_kafka_user_name}}"
-      - "aws_kafka_user_password ................ {{ '************' if (aws_kafka_user_password is defined) else '<undefined>' }}"
+      - "aws_kafka_user_password ................ {{ aws_kafka_user_password}}"
       - "aws_msk_instance_type .................. {{ aws_msk_instance_type}}"
       - "aws_msk_volume_size .................... {{ aws_msk_volume_size}}"
       - "aws_msk_instance_number ................ {{ aws_msk_instance_number}}"
@@ -32,10 +33,12 @@
       - "aws_msk_secret ......................... {{ aws_msk_secret}}"
       - "aws_msk_kms_key ........................ {{ aws_msk_kms_key}}"
 
+
 # 3. Generate AWS MSK Key
 # -----------------------------------------------------------------------------
 - name: "Pre-validation mandatory parameter"
   include_tasks: tasks/provider/aws/utils/create-msk-key.yml
+
 
 # 4. Create three subnets in VPC
 # -----------------------------------------------------------------------------
@@ -82,7 +85,6 @@
   failed_when: aws_msk_secret_result.rc not in [0] and ('ResourceExistsException' not in aws_msk_secret_result.stderr )
 
 - name: "Get {{aws_msk_secret}} arn from AWS Secrets Manager"
-  no_log: true
   shell: aws secretsmanager get-secret-value --secret-id "{{aws_msk_secret}}"
   register: aws_msk_secret_result
   failed_when: aws_msk_secret_result.rc not in [0]
@@ -101,6 +103,7 @@
 - name: "Debug aws_msk_secret_result"
   debug:
     msg:
+      - "aws_msk_secret_manager ................. {{ aws_msk_secret_result  }}"
       - "aws_msk_secret_manager ARN ............. {{ secret_arn }}"
 
 # 6. Create Security Group and add ingress ,egress rules
@@ -218,7 +221,7 @@
       - "msk_cluster_arn ........................ {{ msk_cluster_arn }}"
 
 # Wait for cluster status to return to "normal"
-- name: "Wait until MSK cluster is ready"
+- name: "Wait until MSK cluster  is ready"
   shell: aws kafka describe-cluster --cluster-arn {{msk_cluster_arn }} --output json
   register: describe_msk_cluster_lookup_output
   until:
@@ -283,4 +286,4 @@
     - mas_config_dir != ""
   ansible.builtin.template:
     src: aws/mskcfg.yml.j2
-    dest: "{{ mas_config_dir }}/aws-msk-{{ kafka_cluster_name }}-kafkacfg.yml"
+    dest: "{{ mas_config_dir }}/kafka-{{ kafka_cluster_name }}-{{ kafka_namespace }}.yml"

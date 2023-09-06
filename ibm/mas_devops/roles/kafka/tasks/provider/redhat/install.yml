@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
+
 # 2. Lookup the packagemanifest for amq-streams
 # -----------------------------------------------------------------------------
 - name: Get amq-streams package manifest
@@ -10,7 +11,7 @@
     api_version: packages.operators.coreos.com/v1
     kind: PackageManifest
     name: amq-streams
-    namespace: openshift-marketplace # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
   register: amqstreams_manifest
 
 - name: Assert that PackageManifest exists
@@ -27,6 +28,7 @@
     amqstreams_source_namespace: "{{ amqstreams_manifest.resources[0].status.catalogSourceNamespace }}"
     amqstreams_default_channel: "{{ amqstreams_manifest.resources[0].status.defaultChannel }}"
 
+
 # 3. Detect if the cluster supports 'integreatly.org/v1' for GrafanaDashboards
 # -----------------------------------------------------------------------------
 - name: Get cluster info
@@ -41,6 +43,7 @@
     - api_status is defined
     - api_status.apis is defined
     - api_status.apis['integreatly.org/v1alpha1'] is defined
+
 
 # 4. Lookup any existing kafka user in the kafka namespace to use the same password
 # -----------------------------------------------------------------------------
@@ -58,6 +61,7 @@
   when:
     - kafka_user_secret_lookup is defined
     - kafka_user_secret_lookup.resources[0].data.password is defined
+
 
 # 5. Provide debug
 # -----------------------------------------------------------------------------
@@ -79,12 +83,14 @@
       - "AMQ Streams MAS user .................. {{ kafka_user_name }}"
       - "Cluster supports integreatly .......... {{ supports_integreatly_org }}"
 
+
 # 6. Install AMQ Streams operator
 # -----------------------------------------------------------------------------
 - name: "Install AMQ Streams Operator"
   kubernetes.core.k8s:
     apply: yes
     template: templates/{{ kafka_provider }}/subscription.yml.j2
+
 
 # 7. Wait until the Kafka CRD is available
 # -----------------------------------------------------------------------------
@@ -105,6 +111,7 @@
   until:
     - kafka_crd_info.resources is defined
     - kafka_crd_info.resources | length > 0
+
 
 # 8. Create logging/monitoring configmaps and PodMonitor custom resources
 # -----------------------------------------------------------------------------
@@ -130,6 +137,7 @@
     apply: yes
     template: "templates/{{ kafka_provider }}/clusters/{{ kafka_cluster_size }}.yml.j2"
 
+
 # 10. Wait until the KafkaUser CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the KafkaUser CRD is available"
@@ -150,12 +158,14 @@
     - kafkauser_crd_info.resources is defined
     - kafkauser_crd_info.resources | length > 0
 
+
 # 11. Create the MAS user
 # -----------------------------------------------------------------------------
 - name: "Create Kafka User"
   kubernetes.core.k8s:
     apply: yes
     template: templates/{{ kafka_provider }}/masuser.yml.j2
+
 
 # 12. Create Grafana dashboards for Kafka monitoring
 # -----------------------------------------------------------------------------
@@ -166,6 +176,7 @@
   with_fileglob:
     - "templates/{{ kafka_provider }}/dashboards/*.yml.j2"
   when: supports_integreatly_org
+
 
 # 13. Lookup details
 # -----------------------------------------------------------------------------
@@ -217,6 +228,7 @@
       - "  Bootstrap cert ............... {{ kafka_int_bootstrap_cert }}"
       - "MAS user password ............ {{ kafka_user_password }}"
 
+
 # 14. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
 # -----------------------------------------------------------------------------
 - name: Debug KafkaCfg creation properties
@@ -239,4 +251,4 @@
   ansible.builtin.template:
     src: redhat/kafkacfg.yml.j2
     dest: "{{ mas_config_dir }}/kafka-{{ kafka_cluster_name }}-{{ kafka_namespace }}.yml"
-    mode: "664"
+    mode: '664'
