@@ -17,6 +17,8 @@
   ansible.builtin.debug:
     msg: "The registry namespace does not exist on this cluster. Check and try again."
 
+# 1. Proceed with cleanup if namespace is present
+# -------------------------------------------------------------------------
 - name: "Cleanup the registry"
   when: found_registry_namespace
   block:
@@ -24,55 +26,22 @@
       kubernetes.core.k8s:
         state: absent
         template: 'templates/deployment.yml.j2'
-
-    - name: "Verify that deployment has been deleted"
-      kubernetes.core.k8s_info:
-        kind: Deployment
-        apiVersion: v1
-        namespace: "{{ registry_namespace }}"
-        name: airgap-registry
-      register: registry_deployment_info
-      retries: 60 # ~approx 5 minutes before we give up
-      delay: 5 # seconds
-      until:
-        - registry_deployment_info.resources is defined
-        - registry_deployment_info.resources | length == 0
+        wait: yes
+        wait_timeout: 600
 
     - name: "Delete the PVC from the cluster"
       kubernetes.core.k8s:
         state: absent
         template: 'templates/pvc.yml.j2'
-
-    - name: "Verify that PVC has been deleted"
-      kubernetes.core.k8s_info:
-        kind: PersistentVolumeClaim
-        apiVersion: v1
-        namespace: "{{ registry_namespace }}"
-        name: airgap-registry-storage
-      register: registry_pvc_info
-      retries: 60 # ~approx 5 minutes before we give up
-      delay: 5 # seconds
-      until:
-        - registry_pvc_info.resources is defined
-        - registry_pvc_info.resources | length == 0
+        wait: yes
+        wait_timeout: 600
 
     - name: "Delete the registry Namespace"
       kubernetes.core.k8s:
         state: absent
         template: 'templates/namespace.yml.j2'
-
-    - name: "Verify that the registry namespace has been deleted"
-      kubernetes.core.k8s_info:
-        kind: PersistentVolumeClaim
-        apiVersion: v1
-        namespace: "{{ registry_namespace }}"
-        name: airgap-registry-storage
-      register: registry_pvc_info
-      retries: 60 # ~approx 5 minutes before we give up
-      delay: 5 # seconds
-      until:
-        - registry_pvc_info.resources is defined
-        - registry_pvc_info.resources | length == 0
+        wait: yes
+        wait_timeout: 600
 
     - name: "Display message when finished successfully"
       ansible.builtin.debug:
