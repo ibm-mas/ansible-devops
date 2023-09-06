@@ -102,3 +102,21 @@ mas_app_settings_server_bundles:
         name: jms
         replica: 1
         routeSubDomain: jms
+
+# -------------------
+# Manage/Health Bindings
+# -------------------
+
+mas_appws_bindings_health_wsl_flag: "{{ lookup('env', 'MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG') | default('false', true) | bool }}"
+
+# Bindins will be like this
+mas_app_bindings_jdbc:
+  jdbc: "{{ mas_appws_bindings_jdbc | default( 'system' , true) }}"
+# ... or this, depending on
+mas_app_bindings_jdbc_wsl:
+  jdbc: "{{ mas_appws_bindings_jdbc | default( 'system' , true) }}"
+  watsonstudio: system # cp4d_service role creates WatsonStudioCfg as system, no other option today
+
+mas_app_bindings: "{{ mas_app_bindings_jdbc_wsl if mas_appws_bindings_health_wsl_flag else mas_app_bindings_jdbc }}"
+
+# -------------------
