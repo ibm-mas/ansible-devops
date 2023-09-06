@@ -171,9 +171,9 @@ Defines the MongoDb Password.
 - Default: None
 
 ### mas_pod_templates_dir
-Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named `ibm-sls.yaml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the LicenseService spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`.
+Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named `ibm-sls.yml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the LicenseService spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`.
 
-For examples refer to the [BestEfforts reference configuration in the MAS CLI](https://blahblahblah/bestefforts/ibm-sls.yaml), for full documentation of the supported options refer to the [Customizing Pod Templates](https://link) in the product documentation.
+For examples refer to the [BestEfforts reference configuration in the MAS CLI](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-sls.yml), for full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=sls-supported-pods-workload-customization-in-suite-license-service) in the product documentation.
 
 - Optional
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
@@ -266,9 +266,9 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Default Value: None
 
 ### mas_pod_templates_dir
-Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named `ibm-mas.yaml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the SlsCfg spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`.
+Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named `ibm-mas.yml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the SlsCfg spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`.
 
-For examples refer to the [BestEfforts reference configuration in the MAS CLI](https://blahblahblah/bestefforts/ibm-mas.yaml), for full documentation of the supported options refer to the [Customizing Pod Templates](https://link) in the product documentation.
+For examples refer to the [BestEfforts reference configuration in the MAS CLI](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas.yml), for full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
 
 - Optional
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
