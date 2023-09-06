@@ -1,7 +1,7 @@
 registry
 =======
 
-Create a Docker Registry running on RedHat OpenShift cluster.  The registry will be backed by persistant storage, and accessible via either a clusterIP or loadbalancer service.
+Create a Docker Registry running on RedHat OpenShift cluster.  The registry will be backed by persistant storage, and accessible via either a clusterIP or loadbalancer service. This role can also be used to cleanup the registry or remove the registry so that it can be recreated and have a clean start.
 
 
 Usage
@@ -48,6 +48,13 @@ sudo service docker restart
 
 Role Variables
 --------------
+
+### registry_action
+The action to perform with this role. Can be set to `tear-down` to remove an existing registry and its namespace. Default is `setup`
+
+- Optional
+- Environment Variable: `REGISTRY_ACTION`
+- Default Value: `setup`
 
 ### registry_namespace
 The namespace where the registry to run
