@@ -294,6 +294,13 @@ Optional. Set this to `true` if you want to override existing Manage database en
 - Environment Variable: `MAS_APP_SETTINGS_OVERRIDE_ENCRYPTION_SECRETS_FLAG`
 - Default: `False`
 
+### mas_app_settings_default_jms
+Optional. Set this to `true` if you want to have JMS continuous queues configured
+
+- Environment Variable: `mas_app_settings_default_jms`
+- Default: `false`
+
+
 Example Playbook
 -------------------------------------------------------------------------------
 
