@@ -45,6 +45,14 @@ sudo echo "$CACERT" > /etc/docker/certs.d/localhost\:9000/ca.crt
 sudo service docker restart
 ```
 
+Usage for tear-down action
+--------------------------
+This role can also be used to remove a mirror registry from a given cluster by setting the `registry_action` to `tear-down` and specifying the corresponding `registry_namespace`, if not using the default value.
+
+Note that the tear-down action will delete the registry completely including the PVC storage and the registry namespace. To start up the registry again, the role needs to be run again with the registry_action on default or `setup`. Images previously stored in the registry before the tear-down will no longer be available and will need to be mirrored again once the registry setup has been completed. Take precaution when using this function and expect that images cannot be accessed from the registry that is being torn down. Also, take note that recreating the registry will also create a new ca cert for the new registry.
+
+A good time to use this tear-down function is when the registry has too many images that are not being used or when there has been a shift to support newer versions but images of older versions are clogging the registry. The tear-down function allows for a fresh clean start with only the images that are needed. It is a good way to remove images that will no longer be needed from the registry and helps to save disc space.
+
 
 Role Variables
 --------------
