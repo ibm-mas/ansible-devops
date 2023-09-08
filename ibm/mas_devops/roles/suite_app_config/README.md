@@ -297,7 +297,7 @@ Optional. Set this to `true` if you want to override existing Manage database en
 ### mas_app_settings_default_jms
 Optional. Set this to `true` if you want to have JMS continuous queues configured
 
-- Environment Variable: `mas_app_settings_default_jms`
+- Environment Variable: `MAS_APP_SETTINGS_DEFAULT_JMS`
 - Default: `false`
 
 
