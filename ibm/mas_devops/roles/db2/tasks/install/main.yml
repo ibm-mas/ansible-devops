@@ -60,7 +60,6 @@
   debug:
     msg:
       - "Database Name .......................... {{ db2_dbname }}"
-      - "4K Device Support ...................... {{ db2_4k_device_support }}"
       - "Table Organization ..................... {{ db2_table_org }}"
       - "TLS Version ............................ {{ tls_version }}"
       - "Workload ............................... {{ db2_workload }}"
@@ -515,6 +514,14 @@
     - fail: msg="Failed to execute the script /db2u/scripts/apply-db2cfg-settings.sh on DB2 instance"
       when:
         - prepare_cmds_status.rc != 0
+
+    - name: Run script twice to ensure make changes take effect
+      shell: oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/db2u/scripts/apply-db2cfg-settings.sh | tee /tmp/apply-db2cfg-settings.log' db2inst1
+      register: prepare_cmds_status_twice
+
+    - fail: msg="Failed to execute the script /db2u/scripts/apply-db2cfg-settings.sh on DB2 instance twice"
+      when:
+        - prepare_cmds_status_twice.rc != 0
 
   when:
     - db2_enforce_config == True
