@@ -1,0 +1,48 @@
+---
+# 0. Lookup namespace
+# -------------------------------------------------------------------------
+- name: "Lookup Namespace: {{ registry_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ registry_namespace }}"
+  register: registry_namespace_lookup
+
+- name: Set found_registry_namespace Fact
+  ansible.builtin.set_fact:
+    found_registry_namespace: "{{ registry_namespace_lookup.resources | length == 1 | default(false, true) }}"
+
+- name: "Namespace Not Found: {{ registry_namespace }}"
+  when: not found_registry_namespace
+  ansible.builtin.debug:
+    msg: "The registry namespace does not exist on this cluster. Check and try again."
+
+# 1. Proceed with cleanup if namespace is present
+# -------------------------------------------------------------------------
+- name: "Cleanup the registry"
+  when: found_registry_namespace
+  block:
+    - name: "Delete the registry deployment"
+      kubernetes.core.k8s:
+        state: absent
+        template: 'templates/deployment.yml.j2'
+        wait: yes
+        wait_timeout: 600
+
+    - name: "Delete the PVC from the cluster"
+      kubernetes.core.k8s:
+        state: absent
+        template: 'templates/pvc.yml.j2'
+        wait: yes
+        wait_timeout: 600
+
+    - name: "Delete the registry Namespace: {{ registry_namespace }}"
+      kubernetes.core.k8s:
+        state: absent
+        template: 'templates/namespace.yml.j2'
+        wait: yes
+        wait_timeout: 600
+
+    - name: "Display message when finished successfully"
+      ansible.builtin.debug:
+        msg: "The registry has successfully been removed from the cluster. Now, the registry can be recreated and have a clean start."
