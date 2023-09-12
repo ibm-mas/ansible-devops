@@ -101,21 +101,13 @@
 # 8. Wait for application workspace to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application workspace to be ready ({{ mas_app_cfg_delay }}s delay)"
-  kubernetes.core.k8s_info:
-    api_version: "{{ mas_app_ws_apiversion }}"
-    kind: "{{ mas_app_ws_kind }}"
-    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
-    namespace: "{{ mas_app_namespace }}"
-    wait: yes
-    wait_condition:
-      status: "True"
-      type: Ready
-    wait_sleep: 30
-    wait_timeout: 120 # before we give up and fall back into the retry loop
-  register: app_ws_cr_result
-  retries: "{{ mas_app_cfg_retries }}"
-  delay: "{{ mas_app_cfg_delay }}"
-  until:
-    - app_ws_cr_result.resources is defined
-    - app_ws_cr_result.resources | length > 0
-    - app_ws_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+  vars:
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_workspace_id: "{{ mas_workspace_id }}"
+    mas_app_ws_apiversion: "{{ mas_app_ws_apiversion }}"
+    mas_app_ws_kind: "{{ mas_app_ws_kind }}"
+    mas_app_namespace: "{{ mas_app_namespace }}"
+    mas_app_cfg_retries: "{{ mas_app_cfg_retries }}"
+    mas_app_cfg_delay: "{{ mas_app_cfg_delay }}"
+  include_role:
+    name: ibm.mas_devops.suite_app_verify
