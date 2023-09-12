@@ -139,6 +139,14 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#kafka_action">kafka_action</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#kafka_provider">kafka_provider</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#red-hat-amq-streams-strimzi-role-variables">Red Hat AMQ Streams &amp; Strimzi Role Variables</a>
+        <ul>
     <li class="toctree-l3"><a class="reference internal" href="#kafka_version">kafka_version</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#kafka_namespace">kafka_namespace</a>
@@ -197,17 +205,9 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#kafka_action">kafka_action</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#kafka_provider">kafka_provider</a>
-    </li>
     <li class="toctree-l3"><a class="reference internal" href="#kafka_version_1">kafka_version</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#kafka_cluster_name_1">kafka_cluster_name</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#aws_access_key_id">aws_access_key_id</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#aws_secret_access_key">aws_secret_access_key</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#aws_region">aws_region</a>
     </li>
@@ -377,31 +377,44 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="kafka">kafka<a class="headerlink" href="#kafka" title="Permanent link"></a></h1>
-<p>This role provides support to install a Kafka Cluster using <a href="https://www.redhat.com/en/resources/amq-streams-datasheet">Red Hat AMQ Streams</a>, <a href="https://www.ibm.com/cloud/event-streams">IBM Event Streams</a> or <a href="https://aws.amazon.com/msk/">AWS MSK</a> and generate configuration that can be directly applied to Maximo Application Suite.</p>
+<p>This role provides support to install a Kafka Cluster using <a href="https://strimzi.io/">Strimzi</a>, <a href="https://www.redhat.com/en/resources/amq-streams-datasheet">Red Hat AMQ Streams</a>, <a href="https://www.ibm.com/cloud/event-streams">IBM Event Streams</a> or <a href="https://aws.amazon.com/msk/">AWS MSK</a> and generate configuration that can be directly applied to Maximo Application Suite.</p>
 <blockquote>
-<p>The Red Hat AMQ streams component is a massively scalable, distributed, and high-performance data streaming platform based on the Apache Kafka project. It offers a distributed backbone that allows microservices and other applications to share data with high throughput and low latency.</p>
+<p>Both Strimzi and Red Hat AMQ streams component are massively scalable, distributed, and high-performance data streaming platform based on the Apache Kafka project. Both offer a distributed backbone that allows microservices and other applications to share data with high throughput and low latency.</p>
 <p>As more applications move to Kubernetes and Red Hat OpenShift, it is increasingly important to be able to run the communication infrastructure on the same platform. Red Hat OpenShift, as a highly scalable platform, is a natural fit for messaging technologies such as Kafka. The AMQ streams component makes running and managing Apache Kafka OpenShift native through the use of powerful operators that simplify the deployment, configuration, management, and use of Apache Kafka on Red Hat OpenShift.</p>
-<p>The AMQ streams component is part of the Red Hat AMQ family, which also includes the AMQ broker, a longtime innovation leader in Java™ Message Service (JMS) and polyglot messaging, as well as the AMQ interconnect router, a wide-area, peer-to-peer messaging solution.</p>
+<p>The AMQ streams component is part of the Red Hat AMQ family, which also includes the AMQ broker, a longtime innovation leader in Java™ Message Service (JMS) and polyglot messaging, as well as the AMQ interconnect router, a wide-area, peer-to-peer messaging solution. Under the covers, AMQ streams leverages Strimzi's architecture, resources and configurations.</p>
 </blockquote>
-<p><strong>Note:</strong> The MAS license does not include entitlement for AMQ streams. The MAS Devops Collection supports this Kafka deployment as an example only.</p>
+<p><strong>Note:</strong> The MAS license does not include entitlement for AMQ streams. The MAS Devops Collection supports this Kafka deployment as an example only. Therefore, we recommend the use of Strimzi for an opensource Kafka provider.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>The role will generate a yaml file containing the definition of a Secret and KafkaCfg resource that can be used to configure the deployed cluster as the MAS system Kafka.</p>
 <p>This file can be directly applied using <code>oc apply -f $MAS_CONFIG_DIR/kafkacfg-amqstreams-system.yaml</code> or used in conjunction with the <a href="../suite_config/">suite_config</a> role.</p>
 </div>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
+<h3 id="kafka_action">kafka_action<a class="headerlink" href="#kafka_action" title="Permanent link"></a></h3>
+<p>Action to be performed by Kafka role. Valid values are <code>install</code> or <code>uninstall</code>.</p>
+<ul>
+<li>Environment Variable: <code>KAFKA_ACTION</code></li>
+<li>Default Value: <code>install</code></li>
+</ul>
+<h3 id="kafka_provider">kafka_provider<a class="headerlink" href="#kafka_provider" title="Permanent link"></a></h3>
+<p>Valid kafka providers are <code>strimzi</code> (opensource), <code>redhat</code> (installs AMQ Streams which requires a license that is not included with MAS entitlement), <code>ibm</code> (provisions a paid Event Streams instance in the target IBM Cloud account) and <code>aws</code> (provisions a paid MSK instance in the target AWS account).</p>
+<ul>
+<li>Environment Variable: <code>KAFKA_PROVIDER</code></li>
+<li>Default Value: <code>strimzi</code></li>
+</ul>
+<h2 id="red-hat-amq-streams-strimzi-role-variables">Red Hat AMQ Streams &amp; Strimzi Role Variables<a class="headerlink" href="#red-hat-amq-streams-strimzi-role-variables" title="Permanent link"></a></h2>
 <h3 id="kafka_version">kafka_version<a class="headerlink" href="#kafka_version" title="Permanent link"></a></h3>
 <p>The version of Kafka to deploy by the operator. Before changing the kafka_version make the version is supported
-by the <a href="https://access.redhat.com/documentation/en-us/red_hat_amq_streams">amq-streams operator version</a>.</p>
+by the <a href="https://access.redhat.com/documentation/en-us/red_hat_amq_streams">amq-streams operator version</a> or <a href="https://strimzi.io/downloads/">strimzi operator version</a>.</p>
 <ul>
 <li>Environment Variable: <code>KAFKA_VERSION</code></li>
-<li>Default Value: <code>3.3.1</code></li>
+<li>Default Value: <code>3.3.1</code> for AMQ Streams and <code>3.5.1</code> for Strimzi.</li>
 </ul>
 <h3 id="kafka_namespace">kafka_namespace<a class="headerlink" href="#kafka_namespace" title="Permanent link"></a></h3>
 <p>The namespace where the operator and Kafka cluster will be deployed.</p>
 <ul>
 <li>Environment Variable: <code>KAFKA_NAMESPACE</code></li>
-<li>Default Value: <code>amq-streams</code></li>
+<li>Default Value: <code>amq-streams</code> for AMQ Streams and <code>strimzi</code> for Strimzi.</li>
 </ul>
 <h3 id="kafka_cluster_name">kafka_cluster_name<a class="headerlink" href="#kafka_cluster_name" title="Permanent link"></a></h3>
 <p>The name of the Kafka cluster that will be created</p>
@@ -555,41 +568,18 @@ by the <a href="https://access.redhat.com/documentation/en-us/red_hat_amq_stream
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link"></a></h2>
 <p>To run this role successfully you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
 Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
-<h3 id="kafka_action">kafka_action<a class="headerlink" href="#kafka_action" title="Permanent link"></a></h3>
-<p>Action to be performed by Kafka role. Valid values are <code>install</code> or <code>uninstall</code>. To install AWS MSK kafka cluster, set this variable as <code>install</code>. To uninstall an existing AWS MSK kafka cluster, set this variable as <code>uninstall</code>.</p>
-<ul>
-<li>Environment Variable: <code>KAFKA_ACTION</code></li>
-<li>Default Value: <code>install</code></li>
-</ul>
-<h3 id="kafka_provider">kafka_provider<a class="headerlink" href="#kafka_provider" title="Permanent link"></a></h3>
-<p>Valid kafka providers are <code>redhat</code>, <code>ibm</code> and <code>aws</code>. To install or uninstall AWS MSK kafka cluster, set this variable as <code>aws</code></p>
-<ul>
-<li>Environment Variable: <code>KAFKA_PROVIDER</code></li>
-<li>Default Value: <code>redhat</code></li>
-</ul>
 <h3 id="kafka_version_1">kafka_version<a class="headerlink" href="#kafka_version_1" title="Permanent link"></a></h3>
-<p>The version of Kafka to deploy.</p>
+<p>The version of Kafka to deploy for AWS MSK.</p>
 <ul>
 <li>Environment Variable: <code>KAFKA_VERSION</code></li>
-<li>Default Value: <code>2.7.0</code></li>
+<li>Default Value: <code>3.3.1</code></li>
 </ul>
 <h3 id="kafka_cluster_name_1">kafka_cluster_name<a class="headerlink" href="#kafka_cluster_name_1" title="Permanent link"></a></h3>
+<p>The name of the Kafka cluster that will be created</p>
 <ul>
 <li>Required</li>
 <li>Environment Variable: <code>KAFKA_CLUSTER_NAME</code></li>
-<li>Default Value: None</li>
-</ul>
-<h3 id="aws_access_key_id">aws_access_key_id<a class="headerlink" href="#aws_access_key_id" title="Permanent link"></a></h3>
-<ul>
-<li>Required</li>
-<li>Environment Variable: <code>AWS_ACCESS_KEY_ID</code></li>
-<li>Default Value: None</li>
-</ul>
-<h3 id="aws_secret_access_key">aws_secret_access_key<a class="headerlink" href="#aws_secret_access_key" title="Permanent link"></a></h3>
-<ul>
-<li>Required</li>
-<li>Environment Variable: <code>AWS_SECRET_ACCESS_KEY</code></li>
-<li>Default Value: None</li>
+<li>Default Value: <code>maskafka</code></li>
 </ul>
 <h3 id="aws_region">aws_region<a class="headerlink" href="#aws_region" title="Permanent link"></a></h3>
 <ul>
@@ -598,66 +588,77 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
 <li>Default Value: None</li>
 </ul>
 <h3 id="vpc_id">vpc_id<a class="headerlink" href="#vpc_id" title="Permanent link"></a></h3>
+<p>The AWS Virtual Private Cloud identifier (VPC ID) where the MSK instance will be hosted.</p>
 <ul>
 <li>Required</li>
 <li>Environment Variable: <code>VPC_ID</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="aws_msk_cidr_az1">aws_msk_cidr_az1<a class="headerlink" href="#aws_msk_cidr_az1" title="Permanent link"></a></h3>
+<p>The CIDR address for the first Availability Zone subnet. This information is found in the subnet details under your VPC.</p>
 <ul>
 <li>Required</li>
 <li>Environment Variable: <code>AWS_MSK_CIDR_AZ1</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="aws_msk_cidr_az2">aws_msk_cidr_az2<a class="headerlink" href="#aws_msk_cidr_az2" title="Permanent link"></a></h3>
+<p>The CIDR address for the second Availability Zone subnet. This information is found in the subnet details under your VPC.</p>
 <ul>
 <li>Required</li>
 <li>Environment Variable: <code>AWS_MSK_CIDR_AZ2</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="aws_msk_cidr_az3">aws_msk_cidr_az3<a class="headerlink" href="#aws_msk_cidr_az3" title="Permanent link"></a></h3>
+<p>The CIDR address for the third Availability Zone subnet. This information is found in the subnet details under your VPC.</p>
 <ul>
 <li>Required</li>
 <li>Environment Variable: <code>AWS_MSK_CIDR_AZ3</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="aws_msk_ingress_cidr">aws_msk_ingress_cidr<a class="headerlink" href="#aws_msk_ingress_cidr" title="Permanent link"></a></h3>
+<p>The IPv4 CIDR address for ingress connection. This information is found in the subnet details under your VPC.</p>
 <ul>
 <li>Required</li>
 <li>Environment Variable: <code>AWS_MSK_INGRESS_CIDR</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="aws_msk_egress_cidr">aws_msk_egress_cidr<a class="headerlink" href="#aws_msk_egress_cidr" title="Permanent link"></a></h3>
+<p>The IPv4 CIDR address for egress connection. This information is found in the subnet details under your VPC.</p>
 <ul>
 <li>Required</li>
 <li>Environment Variable: <code>AWS_MSK_EGRESS_CIDR</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="aws_kafka_user_name">aws_kafka_user_name<a class="headerlink" href="#aws_kafka_user_name" title="Permanent link"></a></h3>
+<p>The name of the user to setup in the cluster for MAS.</p>
 <ul>
 <li>Required</li>
 <li>Environment Variable: <code>AWS_KAFKA_USER_NAME</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="aws_kafka_user_password">aws_kafka_user_password<a class="headerlink" href="#aws_kafka_user_password" title="Permanent link"></a></h3>
+<p>The password of the user to setup in the cluster for MAS.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>AWS_KAFKA_USER_PASSWORD</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="aws_msk_instance_type">aws_msk_instance_type<a class="headerlink" href="#aws_msk_instance_type" title="Permanent link"></a></h3>
+<p>The type/flavor of your MSK instance.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>AWS_MSK_INSTANCE_TYPE</code></li>
 <li>Default Value: <code>kafka.m5.large</code></li>
 </ul>
 <h3 id="aws_msk_volume_size">aws_msk_volume_size<a class="headerlink" href="#aws_msk_volume_size" title="Permanent link"></a></h3>
+<p>The storage/volume size of your MSK instance.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>AWS_MSK_VOLUME_SIZE</code></li>
 <li>Default Value: <code>100</code></li>
 </ul>
 <h3 id="aws_msk_instance_number">aws_msk_instance_number<a class="headerlink" href="#aws_msk_instance_number" title="Permanent link"></a></h3>
+<p>The number of broker/instances of your MSK instance.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>AWS_MSK_INSTANCE_NUMBER</code></li>
@@ -696,7 +697,7 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
     aws_region: ca-central-1
     aws_access_key_id: *****
     aws_secret_access_key: *****
-    kafka_version: 2.8.1
+    kafka_version: 3.3.1
     kafka_provider: aws
     kafka_action: install
     kafka_cluster_name: msk-abcd0zyxw
