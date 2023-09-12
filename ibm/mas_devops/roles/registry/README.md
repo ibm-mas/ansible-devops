@@ -1,7 +1,7 @@
 registry
 =======
 
-Create a Docker Registry running on RedHat OpenShift cluster.  The registry will be backed by persistant storage, and accessible via either a clusterIP or loadbalancer service.
+Create a Docker Registry running on RedHat OpenShift cluster.  The registry will be backed by persistant storage, and accessible via either a clusterIP or loadbalancer service. This role can also be used to delete a docker registry on a cluster for a clean start. See usage below for more information.
 
 
 Usage
@@ -45,9 +45,26 @@ sudo echo "$CACERT" > /etc/docker/certs.d/localhost\:9000/ca.crt
 sudo service docker restart
 ```
 
+Usage for tear-down action
+--------------------------
+This role can also be used to permanently delete a mirror registry from a given cluster by setting the `registry_action` to `tear-down` and specifying the corresponding `registry_namespace`, if not using the default value.
+
+Note that the tear-down action deletes the registry completely including the PVC storage and the registry namespace. To start up the registry again, the role needs to be run again with the registry_action on default or `setup`. Images previously stored in the registry before the tear-down will no longer be available and will need to be mirrored again once the registry setup has completed. Take precaution when using this function and expect that images can no longer be accessed from the registry that has been torn down. 
+
+**Note:** Recreating the registry will also create a new ca cert for the new registry.
+
+An appropriate time to use this tear-down function is when the registry has too many images that are not being used or when there has been a shift to support newer versions but images of older versions are clogging the registry. The tear-down function frees the disk space and allows for a new registry to be setup.
+
 
 Role Variables
 --------------
+
+### registry_action
+The action to perform with this role. Can be set to `tear-down` to remove an existing registry and its namespace. Default is `setup`
+
+- Optional
+- Environment Variable: `REGISTRY_ACTION`
+- Default Value: `setup`
 
 ### registry_namespace
 The namespace where the registry to run
