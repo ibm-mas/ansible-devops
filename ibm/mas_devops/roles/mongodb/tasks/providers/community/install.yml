@@ -1,16 +1,42 @@
 ---
 
-# 1. Check for undefined properties that do not have a default
+# 1. Get the IBM Catalog if available
 # -----------------------------------------------------------------------------
-- name: "Fail if catalog_tag is not provided"
-  assert:
-    that: catalog_tag is defined and catalog_tag != ""
+- name: "Lookup ibm-operator-catalog"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-operator-catalog2
+    namespace: openshift-marketplace
+    kind: CatalogSource
+  register: catalog_lookup
+
+- set_fact:
+    catalog_tag: "{{ catalog_lookup.resources[0].spec.displayName.split('(')[1].split(')')[0].split(' ')[0] }}"
+  when:
+    - catalog_lookup.resources[0].spec.displayName is defined
+
+- name: "Catalog Version"
+  debug:
+    msg:
+      - "Catalog Version ............................ {{ catalog_tag }}"
+  when: catalog_tag is defined
 
 # 2. Load default settings
 # -----------------------------------------------------------------------------
 - name: Load CASE bundle versions
   include_vars:
     file: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
+  when: catalog_tag is defined and catalog_tag != ""
+
+- name: Set mongo version to default value when no catalog
+  set_fact:
+    mongo_extras_version: "{{ mongo_extras_version_default }}"
+  when: mongo_extras_version is not defined
+
+- name: "Mongo Version"
+  debug:
+    msg:
+      - "Mongo Version ............................ {{ mongo_extras_version }}"
 
 - name: Load mongo defaults
   include_vars:
