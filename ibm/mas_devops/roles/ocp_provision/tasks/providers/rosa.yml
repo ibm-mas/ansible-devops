@@ -110,13 +110,39 @@
 
 - name: "rosa/provision : Debug cluster admin creation"
   when:
-    - rosa_cluster_admin_password is defined and rosa_cluster_admin_password != ""
-    - rosa_admin_check.stderr_lines | length > 0
-    - rosa_admin_check.stderr_lines[0] == "WARN: There is no admin on cluster '" ~ cluster_name ~ "'. To create it run the following command:"
     - rosa_admin_create.stdout_lines is defined
     - rosa_admin_create.stdout_lines | length > 0
   debug:
     msg: "{{ rosa_admin_create.stdout_lines }}"
+
+- name: "rosa/provision : Recheck for cluster-admin user"
+  when:
+    - rosa_admin_create.stdout_lines is defined
+    - rosa_admin_create.stdout_lines | length > 0
+  shell: rosa describe admin --cluster {{ cluster_name }}
+  register: rosa_admin_recheck
+  until:
+    - rosa_admin_recheck.stdout_lines | length > 0
+    - "'There is an admin on cluster' in rosa_admin_recheck.stdout_lines[0]"
+  retries: 20 # approx 20 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "rosa : Pause for 10 minutes while the cluster-admin account is created"
+  when:
+    - rosa_admin_create.rc is defined
+    - rosa_admin_create.rc == 0
+  pause:
+    minutes: 10
+
+- name: "rosa : Build rosa-details.yaml"
+  when:
+    - rosa_config_dir is defined and rosa_config_dir != ''
+    - rosa_admin_create.rc is defined
+    - rosa_admin_create.rc == 0
+  ansible.builtin.template:
+    src: rosa/rosa-details.yml.j2
+    dest: "{{ rosa_config_dir }}/rosa-{{cluster_name}}-details.yaml"
+    mode: '644'
 
 - name: "rosa/provision : Create cluster-admin user with auto-generated password"
   when:
@@ -128,9 +154,6 @@
 
 - name: "rosa/provision : Debug cluster admin creation with auto-generated password"
   when:
-    - rosa_cluster_admin_password is not defined or rosa_cluster_admin_password == ""
-    - rosa_admin_check.stderr_lines | length > 0
-    - rosa_admin_check.stderr_lines[0] == "WARN: There is no admin on cluster '" ~ cluster_name ~ "'. To create it run the following command:"
     - rosa_admin_create.stdout_lines is defined
     - rosa_admin_create.stdout_lines | length > 0
   debug:
@@ -141,6 +164,9 @@
 # We want to try to ensure the account is ready to use by the time the
 # script completes
 - name: "rosa/provision : Recheck for cluster-admin user"
+  when:
+    - rosa_admin_create.stdout_lines is defined
+    - rosa_admin_create.stdout_lines | length > 0
   shell: rosa describe admin --cluster {{ cluster_name }}
   register: rosa_admin_recheck
   until:
