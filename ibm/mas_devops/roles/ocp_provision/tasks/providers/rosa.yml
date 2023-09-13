@@ -91,6 +91,13 @@
 
 # 8. Set up cluster-admin user
 # -----------------------------------------------------------------------------
+# Generate rosa cluster admin password
+- name: Generate rosa cluster admin password
+  no_log: true
+  set_fact:
+    rosa_cluster_admin_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+  when: rosa_cluster_admin_password is undefined or rosa_cluster_admin_password == ""
+
 - name: "rosa/provision : Check for existing cluster-admin user"
   shell: rosa describe admin --cluster {{ cluster_name }}
   register: rosa_admin_check
@@ -102,7 +109,6 @@
 
 - name: "rosa/provision : Create cluster-admin user"
   when:
-    - rosa_cluster_admin_password is defined and rosa_cluster_admin_password != ""
     - rosa_admin_check.stderr_lines | length > 0
     - rosa_admin_check.stderr_lines[0] == "WARN: There is no admin on cluster '" ~ cluster_name ~ "'. To create it run the following command:"
   shell: rosa create admin --cluster {{ cluster_name }} --password {{ rosa_cluster_admin_password }} --output json
@@ -110,25 +116,6 @@
 
 - name: "rosa/provision : Debug cluster admin creation"
   when:
-    - rosa_cluster_admin_password is defined and rosa_cluster_admin_password != ""
-    - rosa_admin_check.stderr_lines | length > 0
-    - rosa_admin_check.stderr_lines[0] == "WARN: There is no admin on cluster '" ~ cluster_name ~ "'. To create it run the following command:"
-    - rosa_admin_create.stdout_lines is defined
-    - rosa_admin_create.stdout_lines | length > 0
-  debug:
-    msg: "{{ rosa_admin_create.stdout_lines }}"
-
-- name: "rosa/provision : Create cluster-admin user with auto-generated password"
-  when:
-    - rosa_cluster_admin_password is not defined or rosa_cluster_admin_password == ""
-    - rosa_admin_check.stderr_lines | length > 0
-    - rosa_admin_check.stderr_lines[0] == "WARN: There is no admin on cluster '" ~ cluster_name ~ "'. To create it run the following command:"
-  shell: rosa create admin --cluster {{ cluster_name }} --output json
-  register: rosa_admin_create
-
-- name: "rosa/provision : Debug cluster admin creation with auto-generated password"
-  when:
-    - rosa_cluster_admin_password is not defined or rosa_cluster_admin_password == ""
     - rosa_admin_check.stderr_lines | length > 0
     - rosa_admin_check.stderr_lines[0] == "WARN: There is no admin on cluster '" ~ cluster_name ~ "'. To create it run the following command:"
     - rosa_admin_create.stdout_lines is defined
