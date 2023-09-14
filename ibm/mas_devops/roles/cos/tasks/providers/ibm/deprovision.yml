@@ -4,10 +4,31 @@
     that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
     fail_msg: "ibmcloud_apikey property is required"
 
-- name: "Fail if ibmcos_instance_name is not provided"
-  assert:
-    that: ibmcos_instance_name is defined and ibmcos_instance_name != ""
-    fail_msg: "ibmcos_instance_name property is required"
+# 1. Determine the instance name
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Customize CoS Instance Name using mas_instance_id variables
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - ibmcos_instance_name is not defined or ibmcos_instance_name == ""
+  set_fact:
+    ibmcos_instance_name: "Object Storage for MAS - {{ mas_instance_id }}"
+
+- name: Fallback to default CoS Instance Name
+  when:
+    - ibmcos_instance_name is not defined or ibmcos_instance_name == ""
+  set_fact:
+    ibmcos_instance_name: "Object Storage for MAS"
+
+- name: "ibm : Debug general info"
+  debug:
+    msg:
+      - "IBM COS Resource Group ............. {{ ibmcos_resourcegroup }}"
+      - "IBM COS url ........................ {{ ibmcos_url }}"
+      - "IBM COS username/accesskey ......... {{ ibmcos_username }}"
+      - "IBM COS instance name .............. {{ ibmcos_instance_name }}"
+      - "IBM COS location info .............. {{ ibmcos_location_info }}"
+      - "IBM COS plan type .................. {{ ibmcos_plan_type }}"
 
 # 1. Lookup IBM Cloud Resource Group GUID
 # ---------------------------------------------------------------------------------------------------------------------
