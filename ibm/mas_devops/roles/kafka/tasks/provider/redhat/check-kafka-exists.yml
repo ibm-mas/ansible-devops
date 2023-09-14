@@ -1,0 +1,40 @@
+---
+# If installing Strimzi, we'll check if AMQ Streams is already installed
+- set_fact:
+    lookup_kafka_provider_name: "{{ kafka_defaults['redhat'].alias_name }}"
+    lookup_kafka_provider: "redhat"
+    kafka_provider_name: "{{ kafka_defaults[kafka_provider].alias_name }}"
+  when: kafka_provider == "strimzi"
+
+# The same way, if installing AMQ Streams, we'll check if Strimzi is already installed
+- set_fact:
+    lookup_kafka_provider_name: "{{ kafka_defaults['strimzi'].alias_name }}"
+    lookup_kafka_provider: "strimzi"
+    kafka_provider_name: "{{ kafka_defaults[kafka_provider].alias_name }}"
+  when: kafka_provider == "redhat"
+
+# Lookup the Kafka OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "Lookup the {{ lookup_kafka_provider_name }} OperatorCondition"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    label_selectors:
+      - "operators.coreos.com/{{ kafka_defaults[lookup_kafka_provider].operator_name }}.{{ kafka_defaults[lookup_kafka_provider].namespace }}"
+  register: kafka_opcondition_output
+
+- name: "Debug {{ lookup_kafka_provider_name }} OperatorCondition"
+  debug:
+    msg:
+      - "{{ lookup_kafka_provider_name }} operator condition ................ {{ kafka_opcondition_output.resources }}"
+
+- set_fact:
+    lookup_kafka_provider_exists: "{{ kafka_opcondition_output.resources is defined and kafka_opcondition_output.resources | length > 0 }}"
+
+- name: "Assert: Stop {{ kafka_provider_name }} install if {{ lookup_kafka_provider_name }} is already installed"
+  assert:
+    that: not lookup_kafka_provider_exists
+    fail_msg:
+      - "An existing {{ lookup_kafka_provider_name }} installation was identified in this cluster under namespace: {{ kafka_defaults[lookup_kafka_provider].namespace | default('<undefined namespace>', true )}}"
+      - "{{ kafka_provider_name }} cannot be installed because it conflicts with {{ lookup_kafka_provider_name }} service APIs. Please, uninstall {{ lookup_kafka_provider_name }} before installing {{ kafka_provider_name }}."
+      - "If uninstalling {{ lookup_kafka_provider_name }} is not an option, then set 'kafka_provider: {{ lookup_kafka_provider }}' to continue using {{ lookup_kafka_provider_name }} as this is the current installed Kafka provider."
