@@ -4,10 +4,23 @@
     that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
     fail_msg: "ibmcloud_apikey property is required"
 
-- name: "Fail if eventstreams_name is not provided"
-  assert:
-    that: eventstreams_name is defined and eventstreams_name != ""
-    fail_msg: "eventstreams_name property is required"
+# Determine the instance name
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Customize Event Streams Instance Name using mas_instance_id variables
+  when:
+    - mas_instance_id is defined
+    - mas_instance_id != ""
+    - mas_config_dir is defined
+    - mas_config_dir != ""
+    - eventstreams_name is not defined or eventstreams_name == ""
+  set_fact:
+    eventstreams_name: "Event Streams for MAS - {{ mas_instance_id }}"
+
+- name: Fallback to default Event Streams Instance Name
+  when:
+    - eventstreams_name is not defined or eventstreams_name == ""
+  set_fact:
+    eventstreams_name: "Event Streams for MAS"
 
 # 1. Delete IBM Cloud Eventstreams
 # -----------------------------------------------------------------------------
