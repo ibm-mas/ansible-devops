@@ -108,7 +108,32 @@
   with_dict:
     - "{{  mas_annotations_dict  }}"
 
-# 2. Set up the domain name for MAS
+# 2. Load PodTemplates configuration
+# -----------------------------------------------------------------------------
+- name: Load podTemplates configuration
+  vars:
+    config_file_name: "ibm-mas-suite.yml"
+  when:
+    - mas_pod_templates_dir is defined
+    - mas_pod_templates_dir != ''
+  block:
+    - name: Check whether configuration exists
+      ansible.builtin.stat:
+        path: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+      register: pod_templates_file_lookup
+
+    - name: Load podTemplates configuration
+      ansible.builtin.include_vars:
+        file: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+        name: ibm_mas_suite_pod_templates
+      when: pod_templates_file_lookup.stat.exists
+
+    - name: Failed to find configuration
+      ansible.builtin.debug:
+        msg: "Could not find '{{ mas_pod_templates_dir }}/{{ config_file_name }}' - Skipping"
+      when: not pod_templates_file_lookup.stat.exists
+
+# 3. Set up the domain name for MAS
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
   kubernetes.core.k8s_info:
@@ -122,11 +147,11 @@
   set_fact:
     mas_domain: "{{ mas_instance_id }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
-# 3. Determine version of cert-manager in use on the cluster
+# 4. Determine version of cert-manager in use on the cluster
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/detect-cert-manager.yml
 
-# 4. Provide debug information
+# 5. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
@@ -135,17 +160,17 @@
 - name: "Debug information"
   debug:
     msg:
-      - "Catalog source ............... {{ mas_catalog_source }}"
-      - "MAS channel .................. {{ mas_channel }}"
-      - "Instance ID .................. {{ mas_instance_id }}"
-      - "MAS namespace ................ {{ mas_namespace }}"
-      - "MAS domain ................... {{ mas_domain }}"
-      - "MAS ICR cp content ........... {{ mas_icr_cp }}"
-      - "MAS ICR cpopen content ....... {{ mas_icr_cpopen }}"
-      - "MAS Cluster Issuer ........... {{ mas_cluster_issuer }}"
-      - "MAS Subcription Upgrade ...... {{ mas_upgrade_strategy }}"
+      - "Catalog source ................ {{ mas_catalog_source }}"
+      - "MAS channel ................... {{ mas_channel }}"
+      - "Instance ID ................... {{ mas_instance_id }}"
+      - "MAS namespace ................. {{ mas_namespace }}"
+      - "MAS domain .................... {{ mas_domain }}"
+      - "MAS ICR cp content ............ {{ mas_icr_cp }}"
+      - "MAS ICR cpopen content ........ {{ mas_icr_cpopen }}"
+      - "MAS Cluster Issuer ............ {{ mas_cluster_issuer }}"
+      - "MAS Subscription Upgrade ...... {{ mas_upgrade_strategy }}"
 
-# 5. Install the operator & create entitlement secret
+# 6. Install the operator & create entitlement secret
 # -----------------------------------------------------------------------------
 - name: "Install MAS Operator"
   include_role:
@@ -187,7 +212,7 @@
           spec:
             approved: true
 
-# 6. Wait until the Suite CRD is available
+# 7. Wait until the Suite CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Suite CRD is available"
   kubernetes.core.k8s_info:
@@ -207,7 +232,7 @@
     - suite_crd_info.resources is defined
     - suite_crd_info.resources | length > 0
 
-# 7. Integrated Airgap support
+# 8. Integrated Airgap support
 # -----------------------------------------------------------------------------
 # Before we create the CR we will set up the Airgap Image Map
 # We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
@@ -218,7 +243,7 @@
   when: airgap_install
   include_tasks: "tasks/install_digest_cm.yml"
 
-# 8. Suite installation
+# 9. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
   vars:
@@ -228,7 +253,7 @@
     namespace: "{{ mas_namespace }}"
     template: templates/core_v1_suite.yml.j2
 
-# 9. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
+# 10. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
 # -----------------------------------------------------------------------------
 # ibm-common-services operators deployed by MAS will inherit the inherit MAS upgrade strategy
 # when its set to Manual, we need to interate those to ensure we do approve the first install plan
