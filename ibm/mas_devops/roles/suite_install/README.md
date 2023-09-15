@@ -81,6 +81,15 @@ Boolean variable that defines whether default Certificate Authorities are includ
 - Environment Variable: `MAS_TRUST_DEFAULT_CAS`,
 - Default: True
 
+### mas_pod_templates_dir
+Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named `ibm-mas-suite.yml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the Suite spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`.
+
+For examples refer to the [BestEfforts reference configuration in the MAS CLI](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-suite.yml), for full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
+
+- Optional
+- Environment Variable: `MAS_POD_TEMPLATES_DIR`
+- Default: None
+
 Example Playbook
 -------------------------------------------------------------------------------
 
