@@ -27,7 +27,7 @@
   ansible.builtin.include_tasks: "{{ role_path }}/../../common_tasks/get_operator_channel_version.yml"
   vars:
     op_pm_name: "ibm-sls"
-    op_channel_name: "{{ SLS_CHANNEL }}"
+    op_channel_name: "{{ sls_channel }}"
 
 - name: Set after_sls_380
   ansible.builtin.set_fact:
@@ -59,14 +59,19 @@
     msg: "WARNING: SLS_LICENSE_FILE and SLS_LICENSE_ID have been deprecated since SLS 3.7.0. Please use SLS_ENTITLEMENT_FILE instead."
   when:
     - after_sls_370
-    - (bootstrap.license_file is defined) or (bootstrap.license_id is defined)
+    - (bootstrap.license_file is defined and bootstrap.license_file != "" ) or
+      (bootstrap.license_id is defined and bootstrap.license_id != "")
+
+- name: Clear bootstrap_mode
+  ansible.builtin.set_fact:
+    bootstrap_mode: false
 
 - name: Set bootstrap_mode
   ansible.builtin.set_fact:
-    bootstrap_mode: >
-      {{ (bootstrap.license_id is defined and bootstrap.license_id != '') or
-      (bootstrap.license_file is defined and bootstrap.license_file != '') or
-      (bootstrap.registration_key is defined and bootstrap.registration_key != '') }}
+    bootstrap_mode: true
+  when: (bootstrap.license_id is defined and bootstrap.license_id != '') or
+        (bootstrap.license_file is defined and bootstrap.license_file != '') or
+        (bootstrap.registration_key is defined and bootstrap.registration_key != '')
 
 # 4. Provide general debug information
 # -----------------------------------------------------------------------------
