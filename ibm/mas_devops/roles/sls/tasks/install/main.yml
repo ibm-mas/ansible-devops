@@ -43,37 +43,62 @@
 
 # 3. Determine Bootstrap
 # -----------------------------------------------------------------------------
+# This is needed because if only partial variables are defined
+# then the entire bootstrap array in defaults is overridden
+- name: Set bootstrap variables
+  ansible.builtin.set_fact:
+    bootstrap:
+      license_file: "{{ bootstrap.license_file | default('') }}"
+      license_id: "{{ bootstrap.license_id | default('') }}"
+      registration_key: "{{ bootstrap.registration_key | default('') }}"
+  when: bootstrap.license_file is defined or
+        bootstrap.license_id is defined or
+        bootstrap.registration_key is defined
+
 - name: "Fail if bootstrap.license_id is not set when bootstrap.license_file is set"
   ansible.builtin.assert:
-    that: bootstrap.license_id != ""
+    that:
+      - bootstrap.license_id is defined
+      - bootstrap.license_id != ""
     fail_msg: "In SLS 3.6.0 or below, when using SLS_LICENSE_FILE you must set SLS_LICENSE_ID."
   when:
     - before_sls_370
+    - bootstrap.license_file is defined
     - bootstrap.license_file != ""
 
 - name: "Fail if bootstrap.license_file is not set when bootstrap.license_id or bootstrap.registration_key is set"
   ansible.builtin.assert:
-    that: bootstrap.license_file != ""
+    that:
+      - bootstrap.license_file is defined
+      - bootstrap.license_file != ""
     fail_msg: "In SLS 3.6.0 or below, when using SLS_LICENSE_ID or SLS_REGISTRATION_KEY you must set SLS_LICENSE_FILE."
   when:
     - before_sls_370
-    - bootstrap.license_id != "" or bootstrap.registration_key != ""
+    - (bootstrap.license_id is defined and bootstrap.license_id != "") or
+      (bootstrap.registration_key is defined and bootstrap.registration_key != "")
 
 - name: "Fail if entitlement_file is set when bootstrap.license_file and bootstrap.license_id are not set"
   ansible.builtin.assert:
-    that: entitlement_file == ""
+    that:
+      - entitlement_file is defined
+      - entitlement_file == ""
     fail_msg: "SLS_ENTITLEMENT_FILE is only supported in SLS 3.7.0 and higher. Use SLS_LICENSE_FILE and SLS_LICENSE_ID instead or upgrade SLS."
   when:
     - before_sls_370
-    - bootstrap.license_file == "" or bootstrap.license_id == ""
+    - (bootstrap.license_file is defined and bootstrap.license_file == "") or
+      (bootstrap.license_id is defined and bootstrap.license_id == "")
 
 - name: "Fail if bootstrap.license_id is not set when bootstrap.license_file is set"
   ansible.builtin.assert:
-    that: bootstrap.license_id != ""
+    that:
+      - bootstrap.license_id is defined
+      - bootstrap.license_id != ""
     fail_msg: "When using SLS_LICENSE_FILE you must set SLS_LICENSE_ID. Otherwise, in SLS 3.7.0 and higher use only SLS_ENTITLEMENT_FILE instead."
   when:
     - after_sls_370
+    - bootstrap.license_file is defined
     - bootstrap.license_file != ""
+    - entitlement_file is defined
     - entitlement_file == ""
 
 - name: Print deprecation warning
@@ -81,30 +106,27 @@
     msg: "WARNING: SLS_LICENSE_FILE and SLS_LICENSE_ID have been deprecated since SLS 3.7.0. Please use only SLS_ENTITLEMENT_FILE instead."
   when:
     - after_sls_370
-    - bootstrap.license_file != "" or bootstrap.license_id != ""
+    - (bootstrap.license_file is defined and bootstrap.license_file != "") or
+      (bootstrap.license_id is defined and bootstrap.license_id != "")
 
 - name: Clear bootstrap_mode
   ansible.builtin.set_fact:
     bootstrap_mode: false
-    bootstrap_special_case: false
+    bootstrap_old_way: false
 
+# All possible combinations for post and pre SLS 3.7.0 to initiate old bootstrap process
 - name: Set bootstrap_mode
   ansible.builtin.set_fact:
     bootstrap_mode: true
-  when: (after_sls_370  and bootstrap.license_file != "" and bootstrap.license_id != "" and bootstrap.registration_key != "" and entitlement_file == "") or
-        (after_sls_370  and bootstrap.license_file != "" and bootstrap.license_id != "" and bootstrap.registration_key == "" and entitlement_file == "") or
-        (after_sls_370  and bootstrap.license_file == "" and bootstrap.license_id == "" and bootstrap.registration_key != "" and entitlement_file != "") or
-        (after_sls_370  and bootstrap.license_file != "" and bootstrap.license_id != "" and bootstrap.registration_key != "" and entitlement_file != "") or
-        (before_sls_370 and bootstrap.license_file != "" and bootstrap.license_id != "" and bootstrap.registration_key == "") or
-        (before_sls_370 and bootstrap.license_file != "" and bootstrap.license_id != "" and bootstrap.registration_key != "") or
-        (before_sls_370 and bootstrap.license_file == "" and bootstrap.license_id == "" and bootstrap.registration_key != "")
+  when: (after_sls_370  and (bootstrap.registration_key is defined and bootstrap.registration_key != "")) or
+        (before_sls_370 and ((bootstrap.license_file is defined and bootstrap.license_file != "") or (bootstrap.registration_key is defined and bootstrap.registration_key != "")))
 
 # When user has provided all bootstrap vars and entitlement_file and we are on SLS 3.7.0 or higher
 # we only want to add registration_key to bootstrap secret and use entitlement_file to upload the license file
-- name: Set bootstrap_special_case
+- name: Set bootstrap_old_way
   ansible.builtin.set_fact:
-    bootstrap_special_case: true
-  when: (after_sls_370 and bootstrap.license_file != "" and bootstrap.license_id != "" and bootstrap.registration_key != "" and entitlement_file != "")
+    bootstrap_old_way: true
+  when: before_sls_370 or (after_sls_370 and entitlement_file == "")
 
 # 4. Provide general debug information
 # -----------------------------------------------------------------------------
@@ -261,8 +283,9 @@
       ansible.builtin.set_fact:
         license_file_loaded: "{{ lookup('file', bootstrap.license_file) }}"
       when:
+        - bootstrap.license_file is defined
         - bootstrap.license_file != ""
-        - bootstrap_special_case == false
+        - bootstrap_old_way
 
     - name: Assert that license file is not empty
       ansible.builtin.assert:
@@ -280,9 +303,9 @@
             name: "{{ sls_instance_name }}-bootstrap"
             namespace: "{{ sls_namespace }}"
           stringData:
-            licensingId: "{{ (bootstrap_special_case == false and bootstrap.license_id != '') | ternary(bootstrap.license_id, omit) }}"
+            licensingId: "{{ (bootstrap_old_way and bootstrap.license_id is defined and bootstrap.license_id != '') | ternary(bootstrap.license_id, omit) }}"
             licensingKey: "{{ license_file_loaded is defined | ternary(license_file_loaded, omit) }}"
-            registrationKey: "{{ bootstrap.registration_key != '' | ternary(bootstrap.registration_key, omit) }}"
+            registrationKey: "{{ (bootstrap.registration_key is defined and bootstrap.registration_key != '') | ternary(bootstrap.registration_key, omit) }}"
 
 # For SLS 3.7.0 and higher
 - name: Create SLS Entitlement Secret
