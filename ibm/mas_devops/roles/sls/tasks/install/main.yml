@@ -45,22 +45,24 @@
 # -----------------------------------------------------------------------------
 - name: "Fail if bootstrap.license_id is not set when bootstrap.license_file is set"
   ansible.builtin.assert:
-    that:
-      - bootstrap.license_id is defined
-      - bootstrap.license_id != ""
+    that: bootstrap.license_id != ""
     fail_msg: "When using SLS_LICENSE_FILE you must set SLS_LICENSE_ID."
   when:
     - before_sls_370
-    - bootstrap.license_file is defined
     - bootstrap.license_file != ""
 
-- name: Print deprecation warning
+- name: "Fail if entitlement_file is set when installing SLS 3.6.0 or lower"
+  ansible.builtin.assert:
+    that: entitlement_file == ""
+    fail_msg: "SLS_ENTITLEMENT_FILE is only supported in SLS 3.7.0 and higher."
+  when: before_sls_370
+
+- name: Print SLS 3.7.0+ deprecation warning
   ansible.builtin.debug:
     msg: "WARNING: SLS_LICENSE_FILE and SLS_LICENSE_ID have been deprecated since SLS 3.7.0. Please use SLS_ENTITLEMENT_FILE instead."
   when:
     - after_sls_370
-    - (bootstrap.license_file is defined and bootstrap.license_file != "" ) or
-      (bootstrap.license_id is defined and bootstrap.license_id != "")
+    - bootstrap.license_file != "" or bootstrap.license_id != ""
 
 - name: Clear bootstrap_mode
   ansible.builtin.set_fact:
@@ -69,9 +71,7 @@
 - name: Set bootstrap_mode
   ansible.builtin.set_fact:
     bootstrap_mode: true
-  when: (bootstrap.license_id is defined and bootstrap.license_id != '') or
-        (bootstrap.license_file is defined and bootstrap.license_file != '') or
-        (bootstrap.registration_key is defined and bootstrap.registration_key != '')
+  when: bootstrap.license_id != "" or bootstrap.license_file != "" or bootstrap.registration_key != ""
 
 # 4. Provide general debug information
 # -----------------------------------------------------------------------------
@@ -227,11 +227,11 @@
     - name: Load License File
       ansible.builtin.set_fact:
         license_file_loaded: "{{ lookup('file', bootstrap.license_file) }}"
-      when: bootstrap.license_file is defined and bootstrap.license_file != ''
+      when: bootstrap.license_file != ""
 
     - name: Assert that license file is not empty
       ansible.builtin.assert:
-        that: license_file_loaded != ''
+        that: license_file_loaded != ""
         fail_msg: "The license file loaded is empty!"
       when: license_file_loaded is defined
 
@@ -245,9 +245,9 @@
             name: "{{ sls_instance_name }}-bootstrap"
             namespace: "{{ sls_namespace }}"
           stringData:
-            licensingId: "{{ (bootstrap.license_id is defined and bootstrap.license_id != '') | ternary(bootstrap.license_id, omit) }}"
-            licensingKey: "{{ (license_file_loaded is defined) | ternary(license_file_loaded, omit) }}"
-            registrationKey: "{{ (bootstrap.registration_key is defined and bootstrap.registration_key != '') | ternary(bootstrap.registration_key, omit) }}"
+            licensingId: "{{ bootstrap.license_id != '' | ternary(bootstrap.license_id, omit) }}"
+            licensingKey: "{{ license_file_loaded is defined | ternary(license_file_loaded, omit) }}"
+            registrationKey: "{{ bootstrap.registration_key != '' | ternary(bootstrap.registration_key, omit) }}"
 
 # For SLS 3.7.0 and higher
 - name: Create SLS Entitlement Secret
@@ -263,7 +263,6 @@
         entitlement: "{{ lookup('file', entitlement_file) }}"
   when:
     - after_sls_370
-    - entitlement_file is defined
     - entitlement_file != ""
 
 # 12. Integrated Airgap support
