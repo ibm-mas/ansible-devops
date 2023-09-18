@@ -23,10 +23,16 @@
 
 # 2. Load default settings
 # -----------------------------------------------------------------------------
+- name: Check if file exists in casebundles
+  stat:
+    path: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
+  register: stat_result
+  when: catalog_tag is defined and catalog_tag != ""
+
 - name: Load CASE bundle versions
   include_vars:
     file: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
-  when: catalog_tag is defined and catalog_tag != ""
+  when: stat_result is defined and stat_result.stat.exists
 
 - name: Set mongo version to default value when no catalog
   set_fact:
