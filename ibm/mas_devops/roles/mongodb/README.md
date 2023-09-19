@@ -64,12 +64,6 @@ Community MongoDB Role Variables
 Role Variables
 -------------------------------------------------------------------------------
 
-### catalog_tag
-Set the MAS Catalog Version to indicate the version of MongoDb Community Edition to install.  Catalog versions can be found in common_vars/casebundles, for example v8-230725-amd64.  The role can be rerun with an upgraded catalog version.  Upgrading upwards is supported.  The MongoDb Community Edition Operator will be upgraded as well as the underlying MongoDb replicaset without lose of service.
-
-- Environment Variable: `MAS_CATALOG_VERSION`
-- Default: `v8-230725-amd64`
-
 ### mongodb_namespace
 The namespace where the operator and MongoDb cluster will be deployed.
 
