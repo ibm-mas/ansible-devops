@@ -103,7 +103,7 @@
 
 - name: Print deprecation warning
   ansible.builtin.debug:
-    msg: "WARNING: SLS_LICENSE_FILE and SLS_LICENSE_ID have been deprecated since SLS 3.7.0. Please use only SLS_ENTITLEMENT_FILE instead."
+    msg: "WARNING: SLS_LICENSE_FILE and SLS_LICENSE_ID have been deprecated since SLS 3.7.0. Use only SLS_ENTITLEMENT_FILE instead."
   when:
     - after_sls_370
     - (bootstrap.license_file is defined and bootstrap.license_file != "") or
@@ -119,6 +119,7 @@
   ansible.builtin.set_fact:
     bootstrap_mode: true
   when: (after_sls_370  and (bootstrap.registration_key is defined and bootstrap.registration_key != "")) or
+        (after_sls_370  and (bootstrap.license_file is defined and bootstrap.license_file != "") and (entitlement_file is defined and entitlement_file == "")) or
         (before_sls_370 and ((bootstrap.license_file is defined and bootstrap.license_file != "") or (bootstrap.registration_key is defined and bootstrap.registration_key != "")))
 
 # When user has provided all bootstrap vars and entitlement_file and we are on SLS 3.7.0 or higher
@@ -145,7 +146,7 @@
       - "SLS Bootstrap license file ............. {{ bootstrap.license_file | default('<undefined>', True) }}"
       - "SLS Bootstrap license id ............... {{ bootstrap.license_id | default('<undefined>', True) }}"
       - "SLS Bootstrap registrationKey .......... {{ bootstrap.registration_key | default('<undefined>', True) }}"
-      - "SLS entitlement file ................... {{ entitlement_file }}"
+      - "SLS entitlement file ................... {{ entitlement_file | default('<undefined>', True) }}"
       - "SLS Mongo Retry Writes ................. {{ sls_mongo_retrywrites }}"
 
 # 5. Load PodTemplates configuration
