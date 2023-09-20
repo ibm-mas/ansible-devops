@@ -76,15 +76,15 @@ Define the namespace where sls must be installed.
 - Environment Variable: `SLS_NAMESPACE`
 - Default: `ibm-sls`
 
-### sls_icr_cp
-The container registry source for all container images deployed by the SLS operator. Override to use development images
+### sls_icr_cp [Deprecated in SLS 3.8.0]
+The container registry source for all container images deployed by the SLS operator. The api-licensing container image has moved to `cpopen` in SLS 3.8.0. Set this variable for SLS 3.7.0 and lower. Override to use development images.
 
 - Optional
 - Environment Variable: `SLS_ICR_CP`
 - Default: `cp.icr.io/cp`
 
 ### sls_icr_cpopen
-The container registry source for the SLS operator container image. Override to use development image
+The container registry source for all container images deployed by the SLS operator. From SLS 3.8.0 onwards this will be the only variable to set the registry. Override to use development images.
 
 - Optional
 - Environment Variable: `SLS_ICR_CPOPEN`
