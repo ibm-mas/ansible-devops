@@ -3,7 +3,7 @@
   any_errors_fatal: true
 
   vars:
-    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-230627-amd64', True) }}"
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-230829-amd64', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
 
     # 1. Catalog
@@ -59,9 +59,18 @@
     mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('False', True) | bool }}"
 
   pre_tasks:
+    - name: "Get stats for the catalog file"
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
+      register: catalog_file_stats
+
+    - name: "Debug stats if the digest image map file exists"
+      ansible.builtin.set_fact:
+        file_catalog_tag: "{{ (catalog_file_stats.stat.exists|bool) | ternary('catalog_tag', 'v8-230829-amd64') }}"
+
     - name: Load CASE bundle versions
       include_vars:
-        file: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
+        file: "{{ playbook_dir }}/../common_vars/casebundles/{{ file_catalog_tag }}.yml"
 
   roles:
     # 1. IBM Maximo Operator Catalog
@@ -194,7 +203,7 @@
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-sls
-        case_version: "{{ sls_version }}"
+        case_version: "{{ lookup('env', 'SLS_VERSION') | default (sls_version, True) }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
@@ -202,7 +211,7 @@
       when: mirror_sls
       vars:
         manifest_name: ibm-sls
-        manifest_version: "{{ sls_version }}"
+        manifest_version: "{{ lookup('env', 'SLS_VERSION') | default (sls_version, True) }}"
 
 
     # 6. IBM Truststore Manager
@@ -213,7 +222,7 @@
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-truststore-mgr
-        case_version: "{{ tsm_version }}"
+        case_version: "{{ lookup('env', 'TSM_VERSION') | default (tsm_version, True) }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
@@ -221,7 +230,7 @@
       when: mirror_tsm
       vars:
         manifest_name: ibm-truststore-mgr
-        manifest_version: "{{ tsm_version }}"
+        manifest_version: "{{ lookup('env', 'TSM_VERSION') | default (tsm_version, True) }}"
 
 
     # 7. CP4D
