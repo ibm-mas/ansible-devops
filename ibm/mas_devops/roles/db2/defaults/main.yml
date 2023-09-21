@@ -19,7 +19,8 @@ tls_version: "{{ lookup('env', 'TLS_VERSION') | default('TLSv1.2', true) }}"
 db2_table_org: "{{ lookup('env', 'DB2_TABLE_ORG') | default('ROW', true) }}" # e.g ROW or COLUMN
 
 # If storage class is OCS or PortWorx then 4k device support should be ON
-db2_workload: "{{ lookup('env', 'DB2_WORKLOAD') | default('MAXIMO', true) }}" # default workload is ANALYTICS, other option is PUREDATA_OLAP
+db2_4k_device_support: "{{ lookup('env', 'DB2_4K_DEVICE_SUPPORT') | default('ON', true) }}"
+db2_workload: "{{ lookup('env', 'DB2_WORKLOAD') | default('ANALYTICS', true) }}" # default workload is ANALYTICS, other option is PUREDATA_OLAP
 
 
 # Storage
@@ -77,70 +78,16 @@ db2_tolerate_effect: "{{ lookup('env', 'DB2_TOLERATE_EFFECT') }}"
 
 db2_default_config:
   dbConfig:
-    CHNGPGS_THRESH: '40'
-    DFT_QUERYOPT: '5'
-    LOGBUFSZ: '1024'
-    LOCKLIST: 'AUTOMATIC'
-    MAXFILOP: '61440'
-    NUM_IOCLEANERS: 'AUTOMATIC'
-    NUM_IOSERVERS: 'AUTOMATIC'
-    STMTHEAP: '20000'
-    CUR_COMMIT: 'ON'
-    AUTO_REVAL: 'DEFERRED'
-    DEC_TO_CHAR_FMT: 'NEW'
-    DATABASE_MEMORY: 'AUTOMATIC'
-    PCKCACHESZ: 'AUTOMATIC'
-    DBHEAP: 'AUTOMATIC'
-    STAT_HEAP_SZ: 'AUTOMATIC'
-    SOFTMAX: '0'
-    CATALOGCACHE_SZ: '800'
-    LOCKTIMEOUT: '300'
-    LOGPRIMARY: '100'
-    LOGSECOND: '156'
-    LOGFILSIZ: '32768'
-    LOGARCHMETH1: 'DISK:/mnt/bludata0/db2/archive_log/'
-    MIRRORLOGPATH: '/mnt/backup/MIRRORLOGPATH'
-    STMT_CONC: 'LITERALS'
-    DDL_CONSTRAINT_DEF: 'YES'
-    TRACKMOD: 'YES'
-    AUTO_DEL_REC_OBJ: 'ON'
-    REC_HIS_RETENTN: '60'
-    NUM_DB_BACKUPS: '60'
-    DFT_TABLE_ORG: 'ROW'
-    AUTO_MAINT: 'ON'
-    AUTO_TBL_MAINT: 'ON'
-    AUTO_RUNSTATS: 'ON'
-    AUTO_REORG: 'OFF'
-    AUTO_DB_BACKUP: 'OFF'
-    WLM_ADMISSION_CTRL: 'NO'
-    SHEAPTHRES_SHR: 'automatic'
-    SORTHEAP: 'automatic'
-  dbmConfig:
-    AGENT_STACK_SZ: '1024'
-    RQRIOBLK: '65535'
-    HEALTH_MON: 'OFF'
-    MON_HEAP_SZ: 'AUTOMATIC'
-    KEEPFENCED: 'NO'
-    FENCED_POOL: '50'
+    APPLHEAPSZ: 8192 AUTOMATIC # Recommended heap memory size: https://www.ibm.com/docs/en/mas83/8.3.0?topic=dependencies-configure-database-health
   registry:
+    DB2AUTH: 'OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD'
+    DB2_4K_DEVICE_SUPPORT: '{{ db2_4k_device_support }}'
+    DB2_FMP_RUN_AS_CONNECTED_USER: 'NO'
     DB2_WORKLOAD: '{{ db2_workload }}'
-    DB2_CDE_REDUCED_LOGGING: 'REDUCED_REDO:NO'
-    DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH: '/mnt/backup/staging'
-    DB2_BCKP_PAGE_VERIFICATION: 'TRUE'
-    DB2_SKIPINSERTED: 'ON'
-    DB2_INLIST_TO_NLJN: 'YES'
-    DB2_MINIMIZE_LISTPREFETCH: 'Y'
-    DB2_EVALUNCOMMITTED: 'YES'
-    DB2_SKIPDELETED: 'ON'
-    DB2_FMP_COMM_HEAPSZ: '65536'
-    DB2_USE_ALTERNATE_PAGE_CLEANING: 'ON'
 
 db2_database_db_config: "{{ lookup('env', 'DB2_DATABASE_DB_CONFIG') | ibm.mas_devops.db2_overwrite_config | default(db2_default_config.dbConfig, true) }}"
-db2_instance_dbm_config: "{{ lookup('env', 'DB2_INSTANCE_DBM_CONFIG') | ibm.mas_devops.db2_overwrite_config | default(db2_default_config.dbmConfig, true) }}"
+db2_instance_dbm_config: "{{ lookup('env', 'DB2_INSTANCE_DBM_CONFIG') | ibm.mas_devops.db2_overwrite_config | default('', true) }}"
 db2_instance_registry: "{{ lookup('env', 'DB2_INSTANCE_REGISTRY') | ibm.mas_devops.db2_overwrite_config |  default(db2_default_config.registry, true) }}"
-
-# The flag to control execute the app cfg scirpt on DB2 instance pod, it will make above configs take effect, will cause downtime
-db2_enforce_config: "{{ lookup('env', 'DB2_ENFORCE_CONFIG') | default(True, True) }}"
 
 # Support DB2 MPP configurations
 db2_mln_count: "{{ lookup('env', 'DB2_MLN_COUNT') | default(1, true) }}" # by default only specify one logical node (i.e. one db partition)
