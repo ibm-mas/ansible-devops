@@ -23,10 +23,10 @@
     configure_external_db: "{{ lookup('env', 'CONFIGURE_EXTERNAL_DB') | default('False', true) | bool }}"
 
     # Manage components and server bundle configurations
-    mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE') | default('system', true) }}" # Supported values are "system", "ws", "app", or "wsapp"
+    mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE') }}" # Supported values are "system", "ws", "app", or "wsapp"
     mas_appws_bindings_jdbc: "{{ lookup('env', 'MAS_APPWS_BINDINGS_JDBC') }}"
-    mas_appws_components: "{{ lookup('env', 'MAS_APPWS_COMPONENTS') | default('base=latest', true) }}"
-    mas_app_settings_server_bundles_size: "{{ lookup('env', 'MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE') | default('dev', true)  }}"
+    mas_appws_components: "{{ lookup('env', 'MAS_APPWS_COMPONENTS') | ibm.mas_devops.appws_components | default('{}', true) }}" # e.g export MAS_APPWS_COMPONENTS='base=latest,health=latest'
+    mas_app_settings_server_bundles_size: "{{ lookup('env', 'MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE') }}"
 
     # Check if SSL is enabled
     ssl_enabled: "{{ lookup('env', 'SSL_ENABLED') | default('True', true) | bool }}"
@@ -42,8 +42,8 @@
     install_cp4d_wsl: "{{ lookup('env', 'CP4D_INSTALL_WSL') | default('False', true) | bool }}"
 
     # Control which Manage configurations to apply by the default
-    configure_attachments: "{{ lookup('env', 'MANAGE_CONFIGURE_ATTACHMENTS') | default('True', true) | bool }}"
-    configure_bim: "{{ lookup('env', 'MANAGE_CONFIGURE_BIM') | default('True', true) | bool }}"
+    configure_manage_attachments: "{{ lookup('env', 'CONFIGURE_MANAGE_ATTACHMENTS') | default('True', true) | bool }}"
+    configure_manage_bim: "{{ lookup('env', 'CONFIGURE_MANAGE_BIM') | default('True', true) | bool }}"
 
 
     # Cloud Pak for Data Configuration
@@ -86,9 +86,16 @@
     # Check if Manage Attachments or BIM configurations are enabled, if so, enable also default PVCs to be setup
     # If you want to customize Manage PVCs settings, review `suite_app_config` readme
     - name: Check if Manage Attachments or BIM configurations should be enabled
-      when: configure_manage_attachments || configure_manage_bim
+      when: configure_manage_attachments or configure_manage_bim
       set_fact:
-        - mas_app_settings_persistent_volumes_flag: true
+        mas_app_settings_persistent_volumes_flag: true
+
+    - name: "Debug Manage post-install configurations to be enabled"
+      debug:
+        msg:
+          - "Attachments ............................. {{ configure_manage_attachments }}"
+          - "Building Information Models ............. {{ configure_manage_bim }}"
+          - "Enable PVCs ............................. {{ mas_app_settings_persistent_volumes_flag }}"
 
     - include_role:
       # Cloud Pak for Data Platform (~1 1/2 hours)
@@ -108,16 +115,16 @@
         cpd_service_name: wsl
 
   roles:
-    - name: ibm.mas_devops.db2
-      when: configure_external_db == false
-    - name: ibm.mas_devops.suite_db2_setup_for_manage
-      when: configure_external_db == false
-    - name: ibm.mas_devops.gencfg_jdbc
-      when: configure_external_db == true
-    - ibm.mas_devops.suite_config
-    - ibm.mas_devops.suite_app_install
+    # - name: ibm.mas_devops.db2
+    #   when: configure_external_db == false
+    # - name: ibm.mas_devops.suite_db2_setup_for_manage
+    #   when: configure_external_db == false
+    # - name: ibm.mas_devops.gencfg_jdbc
+    #   when: configure_external_db == true
+    # - ibm.mas_devops.suite_config
+    # - ibm.mas_devops.suite_app_install
     - ibm.mas_devops.suite_app_config
-    - name: ibm.mas_devops.suite_manage_attachments
-      when: configure_attachments
-    - name: ibm.mas_devops.suite_manage_bim
-      when: configure_bim
+    - name: ibm.mas_devops.suite_manage_attachments_config
+      when: configure_manage_attachments
+    - name: ibm.mas_devops.suite_manage_bim_config
+      when: configure_manage_bim

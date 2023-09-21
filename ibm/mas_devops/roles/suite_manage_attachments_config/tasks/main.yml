@@ -31,135 +31,52 @@
       - mas_app_id is in ['manage', 'health']
     fail_msg: "mas_app_id property is required and must be set to either 'manage' or 'health'"
 
-# Configure COS bucket for Manage attachments
+# Lookup if Manage attachments configmap is present
 # -----------------------------------------------------------------------------
-- when: mas_manage_attachments_provider in ['ibm', 'aws']
-  block:
-
-    - name: 'Configure {{ mas_manage_attachments_provider }} cos bucket for Manage attachments'
-      include_role:
-        name: ibm.mas_devops.cos_bucket
-      vars:
-        cos_type: "{{ mas_manage_attachments_provider }}"
-
-    - name: "Setup AWS S3 bucket policies, users and access points"
-      vars:
-        aws_bucket_name: "{{ cos_bucket_name }}"
-        aws_bucket_region: "{{ cos_bucket_region }}"
-        cos_type: "{{ mas_manage_attachments_provider }}"
-      include_tasks: "tasks/providers/aws/setup_bucket_permissions.yml"
-      when: mas_manage_attachments_provider == 'aws'
-
-    - name: 'Retrieve {{ mas_manage_attachments_provider }} cos certificates'
-      include_tasks: "tasks/retrieve-cos-certs.yml"
-      vars:
-        cos_type: "{{ mas_manage_attachments_provider }}"
-
-    - name: "Add the {{ cos_type | upper }} COS certificates in ManageWorkspace CR"
-      import_role:
-        name: ibm.mas_devops.suite_manage_import_certs_config
-      vars:
-        manage_certificates: "{{ cos_tls_crt }}"
-        manage_certificates_alias_prefix: "{{ cos_cert_alias_prefix }}"
-
-# 6. Update Manage database with COS information
-# ---------------------------------------------------------------------------------------------------------------------
-- name: Lookup {{ mas_app_id | capitalize }} Route
-  kubernetes.core.k8s_info:
-    api_version: route.openshift.io/v1
-    kind: Route
-    name: "{{ mas_instance_id}}-{{ mas_app_id }}-{{ mas_workspace_id }}"
-    namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
-  register: manage_route
-
-- name: Assert {{ mas_app_id | capitalize }} Route is valid
-  assert:
-    that: "{{ manage_route.resources | length > 0 }}"
-    fail_msg: "Failed! Manage Route {{ mas_instance_id}}-{{ mas_app_id }}-{{ mas_workspace_id }} not found..."
-
-- name: Set {{ mas_app_id | capitalize }} Route variable
-  set_fact:
-    manage_url: "{{ manage_route.resources[0].spec.host }}"
-
-- debug:
-    msg: "{{ manage_url }}"
-
-- name: "Lookup {{ mas_app_id | capitalize }} app DB2 instance {{ db2_instance_name }} in {{ db2_namespace }} namespace"
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: "{{ db2_namespace }}"
-    label_selectors:
-      - type=engine
-      - app={{ db2_instance_name }}
-  register: db2_pod
-  failed_when:
-    - db2_pod.resources is not defined
-    - db2_pod.resources | length = 0
-
-- name: Assert DB2 instance is valid
-  assert:
-    that: "{{ db2_pod.resources | length > 0 }}"
-    fail_msg: "Failed! DB2 instance name {{ db2_instance_name }} not found in {{ db2_namespace }} namespace..."
-
-- name: Set {{ mas_app_id | capitalize }} app DB2 pod name variable
-  set_fact:
-    db2_pod_name: "{{ db2_pod.resources[0].metadata.name if (db2_pod.resources is defined) else 'Undefined' }}"
-
-- name: Create SQL script to update {{ mas_app_id | capitalize }} DB2 with storage provider information
-  ansible.builtin.template:
-    src: '{{ mas_manage_attachments_provider_template_file_config[mas_manage_attachments_provider] }}'
-    dest: '/tmp/{{ mas_manage_attachments_provider }}_attachment_config.sh'
-    mode: '777'
-
-- name: Copy the SQL script into the {{ mas_app_id | capitalize }} app DB2 pod {{ db2_pod_name }}
-  shell: "oc cp /tmp/{{ mas_manage_attachments_provider }}_attachment_config.sh {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/{{ mas_manage_attachments_provider }}_attachment_config.sh"
-
-- name: Run SQL script on {{ mas_app_id | capitalize }} app DB2 pod {{ db2_pod_name }} as db2inst username... (this can take several minutes)
-  shell: oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc '/tmp/{{ mas_manage_attachments_provider }}_attachment_config.sh | tee /tmp/{{ mas_manage_attachments_provider }}_attachment_config.log' db2inst1
-  register: setup_attachment_output
-  failed_when: setup_attachment_output.rc != 0
-
-- debug:
-    msg: "{{ setup_attachment_output.stdout_lines }}"
-
-# 7. Restart Manage bundle pods to pick up the storage provider configuration
-# ---------------------------------------------------------------------------------------------------------------------
-- name: "Lookup {{ mas_app_id | capitalize }} bundle pods"
+- name: "Lookup attachments configmap"
   kubernetes.core.k8s_info:
     api_version: v1
-    kind: Pod
-    label_selectors: mas.ibm.com/appType=serverBundle
+    kind: ConfigMap
+    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-manage-attachments-configmap"
     namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
-  register: manage_bundle_output
+  register: manage_attach_cm_output
 
-- name: "List {{ mas_app_id | capitalize }} bundle pods"
-  vars:
-    list: []
-  set_fact:
-    list: "{{ list + [item.metadata.name] }}"
-  with_items: "{{ manage_bundle_output.resources }}"
-  no_log: true
+# either set the var with the current attachment provider or set this to false
+- set_fact:
+    mas_manage_attachments_provider_current: "{{ manage_attach_cm_output.resources[0].data.mas_manage_attachments_provider | default(false, true )}}"
+    # mas_manage_attachments_cm_exists: "{{ manage_attach_cm_output.resources is not defined or manage_attach_cm_output.resources | length == 0 }}"
+
+# - debug:
+#     var: mas_manage_attachments_cm_exists
 
 - debug:
-    msg: "Restarting the following {{ mas_app_id | capitalize }} bundle pods: {{ list }}"
+    msg:
+      - "existing provider .............. {{ mas_manage_attachments_provider_current }}"
+      - "attachments provider ........... {{ mas_manage_attachments_provider}}"
 
-- name: "Restart {{ mas_app_id | capitalize }} bundle pods to apply the attachments configuration"
-  failed_when:
-    - manage_bundle_output.resources | length == 0
+# when manage attachments provider is false means config map does not exist, thus we create one the cm - that will hold the current manage attachment provider in use
+- name: "Create attachments configmap if not present"
   kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: Pod
-    name: "{{ item.metadata.name }}"
-    label_selectors: mas.ibm.com/appType=serverBundle
-    namespace: "mas-{{ mas_instance_id }}-manage"
-  with_items: "{{ manage_bundle_output.resources  }}"
-  loop_control:
-    label: "Restarting bundle pod: {{ item.metadata.name }}..."
+    apply: yes
+    template: "templates/configmap.yml.j2"
+  when: not mas_manage_attachments_provider_current
 
-- name: "Pause for 1 minute before checking bundle pods..."
-  pause:
-    seconds: 60
+# - set_fact:
+#     mas_manage_attachments_provider_current: "{{ manage_attach_cm_output.resources[0].data.mas_manage_attachments_provider | default('none', true )}}"
+#   when:
+#     - mas_manage_attachments_cm_exists
+#     - manage_attach_cm_output.resources[0].data is defined
+#     - manage_attach_cm_output.resources[0].data.mas_manage_attachments_provider is defined
 
-- name: "Wait {{ mas_app_id | capitalize }} bundle pods to be ready"
-  include_tasks: tasks/wait_bundle_pods.yml
+# only configure Manage attachments if this was not configured before or Manage attachments provider has not changed
+- when: not mas_manage_attachments_provider_current or (mas_manage_attachments_provider_current != mas_manage_attachments_provider)
+  block:
+    # Configure COS bucket for Manage attachments, not needed when using pvc/filestorage
+    - when: mas_manage_attachments_provider in ['ibm', 'aws']
+      include_tasks: "configure-buckets.yml"
+
+    # Update Manage database with COS information
+    - include_tasks: "configure-database.yml"
+
+    # Restart Manage bundle pods to pick up the storage provider configuration
+    - include_tasks: "restart-manage-server.yml"
