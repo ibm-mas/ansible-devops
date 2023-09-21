@@ -44,32 +44,15 @@
 # either set the var with the current attachment provider or set this to false
 - set_fact:
     mas_manage_attachments_provider_current: "{{ manage_attach_cm_output.resources[0].data.mas_manage_attachments_provider | default(false, true )}}"
-    # mas_manage_attachments_cm_exists: "{{ manage_attach_cm_output.resources is not defined or manage_attach_cm_output.resources | length == 0 }}"
-
-# - debug:
-#     var: mas_manage_attachments_cm_exists
 
 - debug:
     msg:
-      - "existing provider .............. {{ mas_manage_attachments_provider_current }}"
-      - "attachments provider ........... {{ mas_manage_attachments_provider}}"
-
-# when manage attachments provider is false means config map does not exist, thus we create one the cm - that will hold the current manage attachment provider in use
-- name: "Create attachments configmap if not present"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/configmap.yml.j2"
-  when: not mas_manage_attachments_provider_current
-
-# - set_fact:
-#     mas_manage_attachments_provider_current: "{{ manage_attach_cm_output.resources[0].data.mas_manage_attachments_provider | default('none', true )}}"
-#   when:
-#     - mas_manage_attachments_cm_exists
-#     - manage_attach_cm_output.resources[0].data is defined
-#     - manage_attach_cm_output.resources[0].data.mas_manage_attachments_provider is defined
+      - "Chosen Manage attachments provider ................ {{ mas_manage_attachments_provider }}"
+      - "Existing Manage attachments provider .............. {{ mas_manage_attachments_provider_current | default('<Unknown>') }}"
+      - "{{ (mas_manage_attachments_provider_current == mas_manage_attachments_provider) | ternary('Manage attachments provider has not changed, therefore skipping as there is no further actions needed','Manage attachments provider has either changed or never configured, therefore it will be configured now...') }}"
 
 # only configure Manage attachments if this was not configured before or Manage attachments provider has not changed
-- when: not mas_manage_attachments_provider_current or (mas_manage_attachments_provider_current != mas_manage_attachments_provider)
+- when: mas_manage_attachments_provider_current != mas_manage_attachments_provider
   block:
     # Configure COS bucket for Manage attachments, not needed when using pvc/filestorage
     - when: mas_manage_attachments_provider in ['ibm', 'aws']
@@ -80,3 +63,9 @@
 
     # Restart Manage bundle pods to pick up the storage provider configuration
     - include_tasks: "restart-manage-server.yml"
+
+    # Once everything is successful, create the configmap to store the manage attachments provider so the role is idempotent and we can determine if this was already configured
+    - name: "Store manage attachments provider in configmap"
+      kubernetes.core.k8s:
+        apply: yes
+        template: "templates/configmap.yml.j2"
