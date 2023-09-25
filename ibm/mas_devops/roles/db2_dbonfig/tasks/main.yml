@@ -1,0 +1,98 @@
+---
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if db2_instance_name is not provided"
+  when: db2_instance_name is not defined or db2_instance_name == ""
+  fail:
+    msg: "db2_instance_name property is required"
+
+- name: "Create sre namespace"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: '{{ sre_namespace }}'
+
+- name: Set DB2 ConfigMap name
+  set_fact:
+    db2_config_name: "{{db2_instance_name | lower}}-enforce-config"
+
+- name: Verify if DB2 is already enforced
+  set_fact:
+    db2_cfg: "{{  query('k8s', kind='ConfigMap', api_version='v1', resource_name=db2_config_name, namespace=sre_namespace) }}"
+
+- name: Set configured DB2 version
+  set_fact:
+    db2_configured_version: "{{ db2_cfg | first | json_query('data.version') }}"
+  when:
+  - db2_cfg | length > 0
+
+- include_tasks: tasks/apply-db2-config-version.yml
+  when:
+  - db2_config_version is defined
+  - db2_config_version != ""
+  - db2_cfg | length == 0 or db2_configured_version != db2_config_version
+
+- include_tasks: tasks/apply-db2-config-settings.yml
+  when:
+  - enforce_db2_config is defined
+  - enforce_db2_config
+
+# 3. Remove legacy-server port from db2wh Engn Service
+# -----------------------------------------------------------------------------
+- name: Set the name of db2wh Engn Service
+  set_fact:
+    db2wh_engn_svc_name: "c-{{ db2_instance_name | lower }}-db2u-engn-svc"
+
+- name: Pause 5 minutes to wait for db2 reconcile
+  pause:
+    minutes: 5
+
+- name: Lookup db2wh Engn Service
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Service
+    name: "{{ db2wh_engn_svc_name }}"
+    namespace: "{{ db2_namespace }}"
+  register: _db2u_instance_engn_svc
+  until:
+    - _db2u_instance_engn_svc.resources[0] is defined
+  retries: 15 # approx 5 minutes before we give up
+  delay: 20
+
+
+
+- name: Remove legacy-server port from db2wh Engn Service
+  block:
+    - name: List the origianl ports of db2wh Engn Service
+      debug: var=_db2u_instance_engn_svc.resources[0].spec.ports
+
+    - name: Find the legacy-server port in db2wh Engn Service
+      set_fact:
+        legacy_server_port_mapping: "{{ item }}"
+      when: "{{item.name == 'legacy-server'}}"
+      loop:
+        "{{ _db2u_instance_engn_svc.resources[0].spec.ports }}"
+
+    - name: Remove the legacy-server port in db2wh Engn Service
+      block:
+        - debug: var=legacy_server_port_mapping
+
+        - name: Add ports from db2wh Engn Service to var updated_engn_svc_ports, excluding legacy-server
+          set_fact:
+            updated_engn_svc_ports: "{{ (updated_engn_svc_ports | default([])) | union([ item ]) }}"
+          when: "{{ item.name != 'legacy-server' }}"
+          loop:
+            "{{ _db2u_instance_engn_svc.resources[0].spec.ports }}"
+
+        - debug: var=updated_engn_svc_ports
+
+        - name: Execute oc patch command against db2wh Engn Service to remove legacy-server port
+          shell: |
+            oc patch service "{{ db2wh_engn_svc_name }}" -n "{{ db2_namespace }}" --type='json' -p='[{ "op": "replace", "path": "/spec/ports", "value": {{ updated_engn_svc_ports | to_json }} }]'
+          register: _patch_engn_svc_result
+
+        - debug: var=_patch_engn_svc_result
+
+      when: legacy_server_port_mapping is defined and legacy_server_port_mapping != []
+
+  when: _db2u_instance_engn_svc.resources[0] is defined
