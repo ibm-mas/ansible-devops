@@ -129,6 +129,13 @@ URL to access WML service (same as Cloud Pak for Data URL).
 
 Role Variables - Manage Workspace
 -------------------------------------------------------------------------------
+
+### mas_appws_bindings_health_wsl_flag
+Optional. Boolean value indicating if Watson Studio must be bound to Manage. It is expected a system level WatsonStudioCfg applied in the cluster.
+
+- Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG`
+- Default: `false`
+
 ### mas_app_settings_aio_flag
 Optional. Flag indicating if Asset Investment Optimization (AIO) resource must be loaded or not. It can be loaded only when Optimizer application is installed.
 
@@ -246,6 +253,52 @@ Optional. Provide a custom archive file name to be associated with the archive/f
 
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
 - Default: `manage-custom-archive`
+
+### mas_appws_bindings_health_wsl
+Optional. Set as `system` to indicate Watson Studio must be installed and bound to Heath
+
+- Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL`
+- Default: None
+
+### mas_app_settings_crypto_key
+Optional. This defines the `MXE_SECURITY_CRYPTO_KEY` value if you want to customize your Manage database encryption keys.
+For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
+
+- Environment Variable: `MAS_APP_SETTINGS_CRYPTO_KEY`
+- Default: Auto-generated
+
+### mas_app_settings_cryptox_key
+Required if `mas_app_settings_crypto_key` is set. This defines the `MXE_SECURITY_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
+For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
+
+- Environment Variable: `MAS_APP_SETTINGS_CRYPTOX_KEY`
+- Default: Auto-generated
+
+### mas_app_settings_old_crypto_key
+Optional. This defines the `MXE_SECURITY_OLD_CRYPTO_KEY` value if you want to customize your Manage database encryption keys.
+For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
+
+- Environment Variable: `MAS_APP_SETTINGS_OLD_CRYPTO_KEY`
+- Default: None
+
+### mas_app_settings_cryptox_key
+Required if `mas_app_settings_old_crypto_key` is set. This defines the `MXE_SECURITY_OLD_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
+For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
+
+- Environment Variable: `MAS_APP_SETTINGS_OLD_CRYPTOX_KEY`
+- Default: None
+
+### mas_app_settings_override_encryption_secrets_flag
+Optional. Set this to `true` if you want to override existing Manage database encryption keys i.e Manage database reencryption scenario. A backup of the secret holding the original encryption keys will be taken prior overriding it with the new defined keys. If set to `false`, then the database encryption keys will only be created with the defined keys if no existing database encryption keys are found under the target Manage instance i.e new Manage installations.
+
+- Environment Variable: `MAS_APP_SETTINGS_OVERRIDE_ENCRYPTION_SECRETS_FLAG`
+- Default: `False`
+
+### mas_app_settings_default_jms
+Optional. Set this to `true` if you want to have JMS continuous queues configured
+
+- Environment Variable: `MAS_APP_SETTINGS_DEFAULT_JMS`
+- Default: `false`
 
 
 Example Playbook

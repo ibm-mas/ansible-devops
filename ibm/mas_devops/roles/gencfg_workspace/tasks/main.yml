@@ -1,5 +1,4 @@
 ---
-
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Assert that mas_instance_id has been provided"
@@ -17,6 +16,14 @@
     that: mas_workspace_name is defined and mas_workspace_name != ""
     fail_msg: "mas_workspace_name property has not been set"
 
+- name: "Fail if mas_workspace_id does not meet requirements"
+  assert:
+    that: mas_workspace_id is match ('^[a-z][a-z0-9]{2,11}$')
+    fail_msg:
+      - "mas_workspace_id does not meet requirements"
+      - "Must be 3-12 characters long"
+      - "Must only use lowercase letters and numbers"
+      - "Must start with a lowercase letter"
 
 # 2. Generate Workspace for MAS
 # -----------------------------------------------------------------------------
@@ -24,4 +31,4 @@
   ansible.builtin.template:
     src: workspace.yml.j2
     dest: "{{ mas_config_dir }}/workspace-{{ mas_workspace_id }}.yml"
-    mode: '664'
+    mode: "664"

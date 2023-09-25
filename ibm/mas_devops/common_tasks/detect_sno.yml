@@ -1,0 +1,21 @@
+---
+
+# 1. Verify if the cluster is single node
+
+- name: "detect-sno : Get the number of nodes"
+  shell:
+    oc get nodes --no-headers | wc -l
+  register: nodes_count
+
+- debug:
+    var: nodes_count
+
+- name: "detect-sno : Set sno_mode Environment variable"
+  set_fact:
+    sno_mode: true
+  when:
+    nodes_count is defined and nodes_count.stdout|int == 1
+
+- name: "detect-sno : Debug sno detection"
+  debug:
+    msg: "Sno environment .................... {{ sno_mode }}"
