@@ -38,13 +38,6 @@ Flag to indicate restart the DB2 instance or not, the enhanced DB2 parameters re
 - Environment Variable: `ENFORCE_DB2_CONFIG`
 - Default: `True`
 
-### sre_namespace
-Name of the namespace where DB2 enforce ConfigMap created, the ConfigMap stored the applied version of the enhanced DB2 parameters, it means the DB2 instance already applied the version if the ConfigMap exists.
-
-- Optional
-- Environment Variable: `SRE_NAMESPACE`
-- Default: `ibm-aiapps-sre-pipelines`
-
 
 Example Playbook
 -----------------------------------------------------------------------------------------------
