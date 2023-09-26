@@ -62,26 +62,7 @@
 
 # 6. Write src=dest mapping for image mirroring
 # -----------------------------------------------------------------------------
-# Workaround for older versions of truststore manager
-- name: "{{ case_name }} : Generate manifest using the related images from the CSV file (Trust Store Mgr<1.5.1)"
-  when: case_name == "ibm-truststore-mgr" and case_version is version('1.5.1','<')
-  ansible.builtin.lineinfile:
-    path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
-    create: true
-    line: "{{ (item.image | regex_replace('cpopen/ibm-truststore-mgr/worker', 'ibm-truststore-mgr/worker')) + '=' + registry_public_url + '/' + (item.name | regex_replace('cpopen/ibm-truststore-mgr/worker', 'ibm-truststore-mgr/worker')) }}"
-  loop: "{{ (lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-dev-with-digest-bundle/operators/{{ case_name }}/config/manifests/bases/{{ case_name }}.clusterserviceversion.yaml') | from_yaml).spec.relatedImages }}"
-
-# Workaround to save image in cpopen/ibm-truststore-mgr/worker in the registry
 - name: "{{ case_name }} : Generate manifest using the related images from the CSV file"
-  when: case_name == "ibm-truststore-mgr" and case_version is version('1.5.1','>=')
-  ansible.builtin.lineinfile:
-    path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
-    create: true
-    line: "{{ item.image + '=' + registry_public_url + '/' + (item.name | regex_replace('ibm-truststore-mgr/worker', 'cpopen/ibm-truststore-mgr/worker')) }}"
-  loop: "{{ (lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-dev-with-digest-bundle/operators/{{ case_name }}/config/manifests/bases/{{ case_name }}.clusterserviceversion.yaml') | from_yaml).spec.relatedImages }}"
-
-- name: "{{ case_name }} : Generate manifest using the related images from the CSV file"
-  when: case_name != "ibm-truststore-mgr"
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
     create: true
@@ -98,9 +79,6 @@
   register: operator_bundle_with_digest
   vars:
     operator_bundle: "cpopen/{{ case_name }}-operator-bundle-with-digest:{{ case_version }}"
-
-- debug:
-    msg: "Bundle image with digest .............. {{ operator_bundle_with_digest.stdout }}"
 
 - name: "{{ case_name }} : Add operator bundle to manifest file"
   ansible.builtin.lineinfile:
