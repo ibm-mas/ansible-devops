@@ -1,0 +1,24 @@
+---
+# 1. Lookup Kafka namespace
+# -------------------------------------------------------------------------
+- name: "Lookup Namespace: {{ kafka_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ kafka_namespace }}"
+  register: _kafka_namespace_lookup
+
+- name: Set found_kafka_namespace Fact
+  ansible.builtin.set_fact:
+    found_kafka_namespace: "{{ _kafka_namespace_lookup.resources | length == 1 | default(false, true) }}"
+
+- name: "Namespace Not Found: {{ kafka_namespace }}"
+  ansible.builtin.debug:
+    msg: "Done/Success. There was nothing to update for Kafka."
+  when:
+    - not found_kafka_namespace
+
+
+# If Kafka namespace exists, then we prepare for the upgrade
+- include_tasks: tasks/provider/redhat/prepare-kafka-upgrade.yml
+  when: found_kafka_namespace

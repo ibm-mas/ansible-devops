@@ -1,0 +1,120 @@
+---
+# 1. Get the list of all KafkaCluster instances
+# -----------------------------------------------------------------------------
+- name: "Get kafka instance info"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    name: "{{ kafka_cluster_name }}"
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+  register: kafka_current_info
+
+- name: "Get kafka version from lookup"
+  when: kafka_current_info.resources[0] is defined
+  set_fact:
+    kafka_current_version: "{{ kafka_current_info.resources[0].spec.kafka.version }}"
+
+# 2. Lookup the packagemanifest for amq-streams / strimzi
+# -----------------------------------------------------------------------------
+- name: Get {{ kafka_operator_name }} package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: "{{ kafka_operator_name }}"
+    namespace: openshift-marketplace # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+  register: kafka_manifest
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - kafka_manifest is defined
+      - kafka_manifest.resources is defined
+      - kafka_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: {{ kafka_operator_name }}"
+
+- name: Set the subscription information
+  set_fact:
+    kafka_source: "{{ kafka_manifest.resources[0].status.catalogSource }}"
+    kafka_source_namespace: "{{ kafka_manifest.resources[0].status.catalogSourceNamespace }}"
+    kafka_default_channel: "{{ kafka_manifest.resources[0].status.defaultChannel }}"
+    kafka_channels: "{{ kafka_manifest.resources[0].status.channels }}"
+
+- name: Retrieve current CSV Desc
+  set_fact:
+    kafka_channels_default: "{{ kafka_channels | selectattr('name', 'equalto', kafka_default_channel) }}"
+
+# 3. Debug Properties
+# -----------------------------------------------------------------------------
+- name: "Display gathered information"
+  debug:
+    msg:
+      - "Catalog source  ....................... {{ kafka_source }}"
+      - "Catalog source namespace .............. {{ kafka_source_namespace }}"
+      - "Current Kafka Version ................. {{ kafka_current_version }}"
+      - "Target Kafka Version .................. {{ kafka_version }} "
+
+# 4. Determine if upgrade is needed and perform it
+# -----------------------------------------------------------------------------
+- name: "Check if Kafka instance is at version {{ kafka_version }}"
+  when: kafka_current_version != kafka_version
+  debug:
+    msg: "Upgrade required for Kafka {{ kafka_cluster_name }} in namespace {{ kafka_namespace }}. Kafka version {{ kafka_current_version }} to {{ kafka_version }}"
+
+- name: "Update kafka instance version when required"
+  when: kafka_current_version != kafka_version
+  kubernetes.core.k8s_json_patch:
+    api_version: kafka.strimzi.io/v1beta2
+    name: "{{ kafka_cluster_name }}"
+    namespace: "{{ kafka_namespace }}"
+    kind: Kafka
+    patch:
+      - op: replace
+        path: /spec/kafka/version
+        value: "{{ kafka_version }}"
+      - op: replace
+        path: /spec/kafka/config/log.message.format.version
+        value: "{{ kafka_version }}"
+
+- name: "Wait for kafka instance to be ready (1m delay)"
+  when:
+    - kafka_current_version != kafka_version
+    - kafka_provider == "strimzi"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    name: "{{ kafka_cluster_name }}"
+    namespace: "{{ kafka_namespace }}"
+    kind: Kafka
+  register: kafka_lookup
+  until:
+    - kafka_lookup.resources is defined
+    - kafka_lookup.resources | length > 0
+    - kafka_lookup.resources[0].status is defined
+    - kafka_lookup.resources[0].status.kafkaVersion is defined
+    - kafka_lookup.resources[0].status.kafkaVersion == kafka_version
+    - kafka_lookup.resources[0].status.conditions is defined
+    - kafka_lookup.resources[0].status.conditions | length > 0
+    - kafka_lookup.resources[0].status.conditions[0].type == "Ready"
+    - kafka_lookup.resources[0].status.conditions[0].status == "True"
+  retries: 30 # Approximately 30 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Wait for kafka instance to be ready (1m delay)"
+  when:
+    - kafka_current_version != kafka_version
+    - kafka_provider != "strimzi"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    name: "{{ kafka_cluster_name }}"
+    namespace: "{{ kafka_namespace }}"
+    kind: Kafka
+  register: kafka_lookup
+  until:
+    - kafka_lookup.resources is defined
+    - kafka_lookup.resources | length > 0
+    - kafka_lookup.resources[0].status is defined
+    - kafka_lookup.resources[0].status.conditions is defined
+    - kafka_lookup.resources[0].status.conditions | length > 0
+    - kafka_lookup.resources[0].status.conditions[0].type == "Ready"
+    - kafka_lookup.resources[0].status.conditions[0].status == "True"
+  retries: 30 # Approximately 30 minutes before we give up
+  delay: 60 # 1 minute
