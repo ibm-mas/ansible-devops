@@ -61,7 +61,7 @@ Version of the enhanced DB2 parameters, currently support `1.0.0`
 
 - **Required**
 - Environment Variable: `DB2_CONFIG_VERSION`
-- Default: None
+- Default: `1.0.0`
 
 ### enforce_db2_config
 Flag to indicate restart the DB2 instance or not, the enhanced DB2 parameters required restart DB2 instance, this will cause downtime, should execute during customer maintenance window or newly created DB2 instance if set to `True`
