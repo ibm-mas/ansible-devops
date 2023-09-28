@@ -1,5 +1,5 @@
 ---
-# 2. Upgrade Subscription
+# 1. Upgrade Subscription
 # -----------------------------------------------------------------------------
 - name: "Update kafka subscription to the new channel"
   kubernetes.core.k8s_json_patch:
@@ -45,9 +45,14 @@
     - kafka_operator_deployment.resources is defined
     - kafka_operator_deployment.resources | length > 0
     - kafka_operator_deployment.resources[0].status is defined
+    - kafka_operator_deployment.resources[0].status.unavailableReplicas is not defined
     - kafka_operator_deployment.resources[0].status.replicas is defined
     - kafka_operator_deployment.resources[0].status.readyReplicas is defined
     - kafka_operator_deployment.resources[0].status.readyReplicas == kafka_operator_deployment.resources[0].status.replicas
+    - kafka_operator_deployment.resources[0].status.availableReplicas is defined
+    - kafka_operator_deployment.resources[0].status.availableReplicas == kafka_operator_deployment.resources[0].status.replicas
+    - kafka_operator_deployment.resources[0].status.updatedReplicas is defined
+    - kafka_operator_deployment.resources[0].status.updatedReplicas == kafka_operator_deployment.resources[0].status.replicas
   retries: 30 # Approximately 15 minutes before we give up
   delay: 30 # 30 seconds
 
@@ -55,7 +60,7 @@
   pause:
     seconds: 30
 
-# 3. Lookup the updated OperatorCondition
+# 2. Lookup the updated OperatorCondition
 # -----------------------------------------------------------------------------
 - name: "Lookup the updated OperatorCondition"
   kubernetes.core.k8s_info:

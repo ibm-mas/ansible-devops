@@ -75,9 +75,13 @@
         path: /spec/kafka/config/log.message.format.version
         value: "{{ kafka_version }}"
 
-- name: "Wait for kafka instance to be ready (1m delay)"
+- name: "Pause for 60 seconds before checking status..."
+  when: kafka_current_version != kafka_version
+  pause:
+    seconds: 60
+
+- name: "Wait for kafka instance to be ready (60s delay)"
   when:
-    - kafka_current_version != kafka_version
     - kafka_provider == "strimzi"
   kubernetes.core.k8s_info:
     api_version: kafka.strimzi.io/v1beta2
@@ -96,25 +100,10 @@
     - kafka_lookup.resources[0].status.conditions[0].type == "Ready"
     - kafka_lookup.resources[0].status.conditions[0].status == "True"
   retries: 30 # Approximately 30 minutes before we give up
-  delay: 60 # 1 minute
+  delay: 60 # seconds
 
-- name: "Wait for kafka instance to be ready (1m delay)"
+- name: "Wait for kafka podsets to be ready"
   when:
-    - kafka_current_version != kafka_version
-    - kafka_provider != "strimzi"
-  kubernetes.core.k8s_info:
-    api_version: kafka.strimzi.io/v1beta2
-    name: "{{ kafka_cluster_name }}"
-    namespace: "{{ kafka_namespace }}"
-    kind: Kafka
-  register: kafka_lookup
-  until:
-    - kafka_lookup.resources is defined
-    - kafka_lookup.resources | length > 0
-    - kafka_lookup.resources[0].status is defined
-    - kafka_lookup.resources[0].status.conditions is defined
-    - kafka_lookup.resources[0].status.conditions | length > 0
-    - kafka_lookup.resources[0].status.conditions[0].type == "Ready"
-    - kafka_lookup.resources[0].status.conditions[0].status == "True"
-  retries: 30 # Approximately 30 minutes before we give up
-  delay: 60 # 1 minute
+    - kafka_provider == "redhat"
+  include_tasks: tasks/provider/redhat/check-kafka-instances-upgrade.yml
+  with_sequence: count=20
