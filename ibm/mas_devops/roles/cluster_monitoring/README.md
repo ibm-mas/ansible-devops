@@ -48,7 +48,7 @@ Adjust the size of the volume used to store metrics, only used when both `promet
 
 - Optional
 - Environment Variable: `PROMETHEUS_STORAGE_SIZE`
-- Default Value: `300Gi`
+- Default Value: `20Gi`
 
 ### prometheus_alertmgr_storage_class
 Declare the storage class for AlertManager's persistent volume.
@@ -83,7 +83,7 @@ Adjust the size of the volume used to store User Workload metrics.
 
 - Optional
 - Environment Variable: `PROMETHEUS_USERWORKLOAD_STORAGE_SIZE`
-- Default Value: `300Gi`
+- Default Value: `20Gi`
 
 
 Role Variables - Grafana
