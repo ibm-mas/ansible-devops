@@ -1,18 +1,24 @@
 ---
-
 # 1. Wait for CCS
 # -----------------------------------------------------------------------------
 - name: "Wait for CCS"
   include_tasks: "wait-ccs.yml"
 
-
-# 2. Wait for WML CR to be ready
+# 2. Patch the default service account in ibm-cpd namespace to add ibm-entitlement-key
 # -----------------------------------------------------------------------------
-# We can't exit early if the status goes to Failed because the reconcile will
-# report failure multiple times during initial install due to timeouts (CCS takes
-# a very long time to install because it's single threaded)
-#
-# https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3480
+# This service account is used by spss-modeler pods
+- name: "wait-spss : Patch the default service account"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: default
+    namespace: "{{ cpd_instance_namespace }}"
+    definition:
+      imagePullSecrets:
+        - name: ibm-entitlement-key
+
+# 3. Wait for CP4D service CR to be ready
+# -----------------------------------------------------------------------------
 - name: "wait-spss : Wait for spssStatus 'Completed' (5m interval)"
   kubernetes.core.k8s_info:
     api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
@@ -28,8 +34,3 @@
     - cpd_cr_lookup.resources[0].status.spssmodelerStatus == "Completed" #  or cpd_cr_lookup.resources[0].status.spssStatus == "Failed"
   retries: 30 # Up to 2.5 hours
   delay: 300 # Every 5 minutes
-
-- name: "wait-spss : Check that the spssmodelerStatus is 'Completed'"
-  assert:
-    that: cpd_cr_lookup.resources[0].status.spssmodelerStatus == "Completed"
-    fail_msg: "SPSS Modeler install failed (spssmodelerStatus)"
