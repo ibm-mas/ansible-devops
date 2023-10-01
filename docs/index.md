@@ -3,7 +3,7 @@ MAS Devops Ansible Collection
 
 MAS Compatability
 -------------------------------------------------------------------------------
-The collection supports IBM Maximo Application Suite version 8.9 and above.
+The collection supports IBM Maximo Application Suite version 8.10 and above.
 
 
 Releases
