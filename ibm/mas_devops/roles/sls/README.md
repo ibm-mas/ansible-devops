@@ -20,27 +20,6 @@ Role Variables - Installation
 -------------------------------------------------------------------------------
 If `sls_url` is set then the role will skip the installation of an SLS instance and simply generate the SLSCfg resource for the SLS instance defined.
 
-### ibm_entitlement_key
-Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary).
-
-- **Required** unless `sls_url` is provided
-- Environment Variable: `IBM_ENTITLEMENT_KEY`
-- Default: None
-
-### sls_entitlement_username
-Username for entitled registry. This username will be used to create the image pull secret.
-
-- Optional
-- Environment Variable: `SLS_ENTITLEMENT_USERNAME`
-- Default: `cp`
-
-### sls_entitlement_key
-An IBM entitlement key specific for SLS installation, primarily used to override `ibm_entitlement_key` in development.
-
-- Optional
-- Environment Variable: `SLS_ENTITLEMENT_KEY`
-- Default: None
-
 ### artifactory_username
 Provide your artifactory username, primarily used to update the image pull secret in development.
 
@@ -76,13 +55,6 @@ Define the namespace where sls must be installed.
 - Environment Variable: `SLS_NAMESPACE`
 - Default: `ibm-sls`
 
-### sls_icr_cp [Deprecated in SLS 3.8.0]
-The container registry source for all container images deployed by the SLS operator. The api-licensing container image has moved to `cpopen` in SLS 3.8.0. Set this variable for SLS 3.7.0 and lower. Override to use development images.
-
-- Optional
-- Environment Variable: `SLS_ICR_CP`
-- Default: `cp.icr.io/cp`
-
 ### sls_icr_cpopen
 The container registry source for all container images deployed by the SLS operator. From SLS 3.8.0 onwards this will be the only variable to set the registry. Override to use development images.
 
@@ -96,6 +68,34 @@ Defines the instance ID to be used for SLS installation.
 - Optional
 - Environment Variable: `SLS_INSTANCE_NAME`
 - Default: `sls`
+
+### sls_icr_cp [Deprecated in SLS 3.8.0]
+The container registry source for all container images deployed by the SLS operator. The api-licensing container image has moved to `icr.io/cpopen` in SLS 3.8.0. Set this variable for SLS 3.7.0 and lower. Override to use development images.
+
+- Optional
+- Environment Variable: `SLS_ICR_CP`
+- Default: `cp.icr.io/cp`
+
+### ibm_entitlement_key [Deprecated in SLS 3.8.0]
+Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary). This is now deprecated in SLS 3.8.0. Provide this only for versions up to 3.7.0.
+
+- **Required** unless `sls_url` is provided
+- Environment Variable: `IBM_ENTITLEMENT_KEY`
+- Default: None
+
+### sls_entitlement_username [Deprecated in SLS 3.8.0]
+Username for entitled registry. This username will be used to create the image pull secret. This is now deprecated in SLS 3.8.0. Provide this only for versions up to 3.7.0.
+
+- Optional
+- Environment Variable: `SLS_ENTITLEMENT_USERNAME`
+- Default: `cp`
+
+### sls_entitlement_key [Deprecated in SLS 3.8.0]
+An IBM entitlement key specific for SLS installation, primarily used to override `ibm_entitlement_key` in development. This is now deprecated in SLS 3.8.0. Provide this only for versions up to 3.7.0.
+
+- Optional
+- Environment Variable: `SLS_ENTITLEMENT_KEY`
+- Default: None
 
 
 Role Variables - Configuration
@@ -180,6 +180,17 @@ For examples refer to the [BestEfforts reference configuration in the MAS CLI](h
 - Default: None
 
 
+Role Variables - Bootstrap [SLS 3.7.0 and higher]
+-------------------------------------------------------------------------------
+
+### entitlement_file
+Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on.
+
+- Optional
+- Environment Variable: `SLS_ENTITLEMENT_FILE`
+- Default: None
+
+
 Role Variables - Bootstrap [Partly deprecated in SLS 3.7.0]
 -------------------------------------------------------------------------------
 ### bootstrap.license_file [Deprecated in SLS 3.7.0]
@@ -201,16 +212,6 @@ Defines the Registration Key to be used to bootstrap SLS. Don't set if you wish 
 
 - Optional
 - Environment Variable: `SLS_REGISTRATION_KEY`
-- Default: None
-
-Role Variables - Upload License file [SLS 3.7.0 and higher]
--------------------------------------------------------------------------------
-
-### entitlement_file
-Defines the License File to be used to bootstrap SLS. Don't set if you wish to setup entitlement later on. Note: use this variable with SLS version 3.7.0 and higher. Do not set `bootstrap.license_id` as this will be extracted automatically from the license file. Do not set deprecated `bootstrap.license_file` as this will cause conflict.
-
-- Optional
-- Environment Variable: `SLS_ENTITLEMENT_FILE`
 - Default: None
 
 
@@ -296,12 +297,25 @@ Example Playbook
     - ibm.mas_devops.sls
 ```
 
-### Install and upload license file [from SLS 3.7.0]
+### Install and upload license file [SLS 3.7.0]
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
     ibm_entitlement_key: xxxx
+    mas_instance_id: inst1
+    sls_mongodb_cfg_file: "/etc/mas/mongodb.yml"
+    entitlement_file: "/etc/mas/entitlement.lic"
+
+  roles:
+    - ibm.mas_devops.sls
+```
+
+### Install and upload license file [from SLS 3.8.0]
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
     mas_instance_id: inst1
     sls_mongodb_cfg_file: "/etc/mas/mongodb.yml"
     entitlement_file: "/etc/mas/entitlement.lic"
