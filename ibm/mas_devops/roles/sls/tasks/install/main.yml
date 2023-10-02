@@ -1,10 +1,35 @@
 ---
-# 1. Check for missing properties that do not have defaults
+# 1. Check SLS version and define version aware vars
+# -----------------------------------------------------------------------------
+- name: Check SLS version
+  ansible.builtin.include_tasks: "{{ role_path }}/../../common_tasks/get_version_from_channel.yml"
+  vars:
+    op_pm_name: "ibm-sls"
+    op_channel_name: "{{ sls_channel }}"
+
+- name: Set after_sls_380
+  ansible.builtin.set_fact:
+    after_sls_380: "{{ op_version is version('3.8.0', '>=') }}"
+
+- name: Set before_sls_380
+  ansible.builtin.set_fact:
+    before_sls_380: "{{ op_version is version('3.8.0', '<') }}"
+
+- name: Set after_sls_370
+  ansible.builtin.set_fact:
+    after_sls_370: "{{ op_version is version('3.7.0', '>=') }}"
+
+- name: Set before_sls_370
+  ansible.builtin.set_fact:
+    before_sls_370: "{{ op_version is version('3.7.0', '<') }}"
+
+# 2. Check for missing properties that do not have defaults
 # -----------------------------------------------------------------------------
 - name: "Fail if sls_entitlement_key has not been provided"
   ansible.builtin.assert:
     that: sls_entitlement_key is defined and sls_entitlement_key != ""
     fail_msg: "sls_entitlement_key property has not been set"
+  when: before_sls_380
 
 - name: "Fail if no MongoDb config is provided"
   ansible.builtin.assert:
@@ -20,26 +45,6 @@
       - sls_mongodb.password is defined
     fail_msg: "Review provided MongoDb details, it is missing required elements"
   when: sls_mongodb is defined
-
-# 2. Check SLS version and define version aware vars
-# -----------------------------------------------------------------------------
-- name: Check SLS version
-  ansible.builtin.include_tasks: "{{ role_path }}/../../common_tasks/get_version_from_channel.yml"
-  vars:
-    op_pm_name: "ibm-sls"
-    op_channel_name: "{{ sls_channel }}"
-
-- name: Set after_sls_380
-  ansible.builtin.set_fact:
-    after_sls_380: "{{ op_version is version('3.8.0', '>=') }}"
-
-- name: Set after_sls_370
-  ansible.builtin.set_fact:
-    after_sls_370: "{{ op_version is version('3.7.0', '>=') }}"
-
-- name: Set before_sls_370
-  ansible.builtin.set_fact:
-    before_sls_370: "{{ op_version is version('3.7.0', '<') }}"
 
 # 3. Determine Bootstrap
 # -----------------------------------------------------------------------------
@@ -205,8 +210,8 @@
     name: ibm.mas_devops.install_operator
   vars:
     namespace: "{{ sls_namespace }}"
-    icr_username: "{{ sls_entitlement_username }}"
-    icr_password: "{{ sls_entitlement_key }}"
+    icr_username: "{{ before_sls_380 | ternary(sls_entitlement_username, '') }}"
+    icr_password: "{{ before_sls_380 | ternary(sls_entitlement_key, '') }}"
     catalog_source: "{{ sls_catalog_source }}"
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
