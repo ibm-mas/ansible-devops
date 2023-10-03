@@ -19,7 +19,7 @@ This role provides support to install a Kafka Cluster using [Strimzi](https://st
 Role Variables
 --------------
 ### kafka_action
-Action to be performed by Kafka role. Valid values are `install`, `upgrade` or `uninstall`.
+Action to be performed by Kafka role. Valid values are `install`, `upgrade` or `uninstall`.  The `upgrade` action applies only to the `strimzi` and `redhat` providers.
 
 - Environment Variable: `KAFKA_ACTION`
 - Default Value: `install`
