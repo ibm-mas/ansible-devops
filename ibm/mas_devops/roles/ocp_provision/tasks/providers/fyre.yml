@@ -28,6 +28,8 @@
       - "Fyre product ID .............. {{ fyre_product_id }}"
       - "Fyre Quota Type .............. {{ fyre_quota_type }}"
       - "fips enabled ................. {{ ocp_fips_enabled }}"
+      - "IPv6 test......................{{ ipv6_test }}"
+      - "Fyre Site......................{{ fyre_site }}"
       # Quickburn specific
       - "Fyre cluster size ............ {{ fyre_cluster_size | default('<undefined>', true) }}"
       # Product Group specific
@@ -93,3 +95,53 @@
     - _result.json.deployed_status == 'deployed'
   retries: 60 # 60 * 2 minutes = 2 hours
   delay: 120 # Every 2 minutes
+
+# 6. For IPv6 testing, confirm OVN-Kubernetes network plugin is the default network provider
+#- name: "fyre : For IPv6 testing get network type"
+#  when:
+#    - ipv6_test==true
+#  shell: |
+#    oc describe network
+#  register: network_output
+#  assert:
+#    - network_output is defined
+#    - network_output.status is defined
+#    - network_output.status.'Network Type' is defined
+#    - network_output.status.'Network Type'=='OVN-Kubernetes'
+
+# 6. For IPv6 testing, lookup network
+- name: Lookup network for IPv6 testing
+  kubernetes.core.k8s_info:
+    api_version:  config.openshift.io/v1
+    kind: Network
+    name: "cluster"
+  register: network
+  when:
+    - ipv6_test==true
+
+# 7.For IPv6 testing, check network type
+- name: For IPv6, check the network type
+  assert:
+    that:
+      - network.status.'Network Type' == 'OVN-Kubernetes'
+  when:
+    - ipv6_test==true
+
+# 8. For IPv6 testing, enable dual stack
+- name: "Enable dual stack"
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition:
+      apiVersion: config.openshift.io/v1
+      kind: Network
+      - op: add
+        path: /spec/clusterNetwork/-
+        value:
+          cidr: fd01::/48
+          hostPrefix: 64
+      - op: add
+        path: /spec/serviceNetwork/-
+        value: fd02::/112
+  register: _dualstackNetworkAddr
+  when:
+    - ipv6_test==true
