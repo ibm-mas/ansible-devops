@@ -1,10 +1,35 @@
 ---
-# 1. Check for missing properties that do not have defaults
+# 1. Check SLS version and define version aware vars
+# -----------------------------------------------------------------------------
+- name: Check SLS version
+  ansible.builtin.include_tasks: "{{ role_path }}/../../common_tasks/get_version_from_channel.yml"
+  vars:
+    op_pm_name: "ibm-sls"
+    op_channel_name: "{{ sls_channel }}"
+
+- name: Set after_sls_380
+  ansible.builtin.set_fact:
+    after_sls_380: "{{ op_version is version('3.8.0', '>=') }}"
+
+- name: Set before_sls_380
+  ansible.builtin.set_fact:
+    before_sls_380: "{{ op_version is version('3.8.0', '<') }}"
+
+- name: Set after_sls_370
+  ansible.builtin.set_fact:
+    after_sls_370: "{{ op_version is version('3.7.0', '>=') }}"
+
+- name: Set before_sls_370
+  ansible.builtin.set_fact:
+    before_sls_370: "{{ op_version is version('3.7.0', '<') }}"
+
+# 2. Check for missing properties that do not have defaults
 # -----------------------------------------------------------------------------
 - name: "Fail if sls_entitlement_key has not been provided"
   ansible.builtin.assert:
     that: sls_entitlement_key is defined and sls_entitlement_key != ""
     fail_msg: "sls_entitlement_key property has not been set"
+  when: before_sls_380
 
 - name: "Fail if no MongoDb config is provided"
   ansible.builtin.assert:
@@ -20,26 +45,6 @@
       - sls_mongodb.password is defined
     fail_msg: "Review provided MongoDb details, it is missing required elements"
   when: sls_mongodb is defined
-
-# 2. Check SLS version and define version aware vars
-# -----------------------------------------------------------------------------
-- name: Check SLS version
-  ansible.builtin.include_tasks: "{{ role_path }}/../../common_tasks/get_version_from_channel.yml"
-  vars:
-    op_pm_name: "ibm-sls"
-    op_channel_name: "{{ sls_channel }}"
-
-- name: Set after_sls_380
-  ansible.builtin.set_fact:
-    after_sls_380: "{{ op_version is version('3.8.0', '>=') }}"
-
-- name: Set after_sls_370
-  ansible.builtin.set_fact:
-    after_sls_370: "{{ op_version is version('3.7.0', '>=') }}"
-
-- name: Set before_sls_370
-  ansible.builtin.set_fact:
-    before_sls_370: "{{ op_version is version('3.7.0', '<') }}"
 
 # 3. Determine Bootstrap
 # -----------------------------------------------------------------------------
@@ -174,17 +179,7 @@
         msg: "Could not find '{{ mas_pod_templates_dir }}/{{ config_file_name }}' - Skipping"
       when: not pod_templates_file_lookup.stat.exists
 
-# 6. Create the namespace for SLS
-# -----------------------------------------------------------------------------
-- name: "Create SLS Namespace"
-  kubernetes.core.k8s:
-    definition:
-      apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: "{{ sls_namespace }}"
-
-# 7. Set up the domain name for SLS
+# 6. Set up the domain name for SLS
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
   kubernetes.core.k8s_info:
@@ -198,20 +193,20 @@
     sls_domain: "{{ sls_namespace }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
   when: not sls_domain
 
-# 8. Install Operator & create entitlement
+# 7. Install Operator & create entitlement
 # -----------------------------------------------------------------------------
 - name: "Install SLS Operator"
   ansible.builtin.include_role:
     name: ibm.mas_devops.install_operator
   vars:
     namespace: "{{ sls_namespace }}"
-    icr_username: "{{ sls_entitlement_username }}"
-    icr_password: "{{ sls_entitlement_key }}"
+    icr_username: "{{ before_sls_380 | ternary(sls_entitlement_username, '') }}"
+    icr_password: "{{ before_sls_380 | ternary(sls_entitlement_key, '') }}"
     catalog_source: "{{ sls_catalog_source }}"
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
-# 9. Wait until the LicenseService CRD is available
+# 8. Wait until the LicenseService CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the LicenseService CRD is available"
   kubernetes.core.k8s_info:
@@ -231,7 +226,7 @@
     - sls_crd_info.resources is defined
     - sls_crd_info.resources | length > 0
 
-# 10. Create Mongo Secret
+# 9. Create Mongo Secret
 # -----------------------------------------------------------------------------
 - name: Read MongoDb config file
   ansible.builtin.set_fact:
@@ -275,7 +270,7 @@
     namespace: "{{ sls_namespace }}"
     template: templates/mongo-secret.yml.j2
 
-# 11. Bootstrap the license service
+# 10. Bootstrap the license service
 # -----------------------------------------------------------------------------
 - name: Initialize Bootstrap
   when: bootstrap_mode
@@ -324,7 +319,7 @@
     - after_sls_370
     - entitlement_file != ""
 
-# 12. Integrated Airgap support
+# 11. Integrated Airgap support
 # -----------------------------------------------------------------------------
 # Before we create the CR we will set up the Airgap Image Map
 # We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
@@ -335,7 +330,7 @@
   ansible.builtin.include_tasks: "tasks/install/install_digest_cm.yml"
   when: airgap_install
 
-# 13. Create the license service CR
+# 12. Create the license service CR
 # -----------------------------------------------------------------------------
 - name: Create the sls.ibm.com/v1.LicenseService
   kubernetes.core.k8s:
@@ -344,12 +339,12 @@
     template: templates/licenseservice.yml.j2
   register: sls_cr_result
 
-# 14. Wait for it to hit Ready
+# 13. Wait for it to hit Ready
 # -----------------------------------------------------------------------------
 - name: Verify LicenseService CR
   ansible.builtin.include_tasks: "tasks/install/sls-verify.yml"
 
-# 15. Generate SLSCfg
+# 14. Generate SLSCfg
 # -----------------------------------------------------------------------------
 # The SLSCfg resource is not generated as part of this role anymore, a dedicated
 # role exists to generate the configuration file (gencfg_sls), this role will set
