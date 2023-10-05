@@ -1,0 +1,71 @@
+---
+# 1. Look up the default channel for the kafka-operator package manifest
+# -----------------------------------------------------------------------------
+- block:
+    - name: Get {{ kafka_operator_name }} package manifest
+      kubernetes.core.k8s_info:
+        api_version: packages.operators.coreos.com/v1
+        kind: PackageManifest
+        name: "{{ kafka_operator_name }}"
+        namespace: openshift-marketplace
+      register: kafka_manifest
+
+    - name: Assert that PackageManifest exists
+      assert:
+        that:
+          - kafka_manifest is defined
+          - kafka_manifest.resources is defined
+          - kafka_manifest.resources | length == 1
+        fail_msg: "PackageManifest not found: {{ kafka_operator_name }}"
+
+    - name: Set kafka-operator update channel to latest default channel if not provided
+      set_fact:
+        kafka_default_channel: "{{ kafka_manifest.resources[0].status.defaultChannel }}"
+  when: kafka_default_channel is not defined or kafka_default_channel == ""
+
+# Fail if kafka_default_channel and/or version not discovered
+# -----------------------------------------------------------------------------
+- name: "Verify kafka_default_channel set"
+  assert:
+    that:
+      - kafka_default_channel is defined and kafka_default_channel != ""
+    fail_msg: "Unable to determine kafka_default_channel from catalog"
+
+- name: Debug Kafka Universal Operator Install
+  debug:
+    msg:
+      - "Kafka Default Channel ..................... {{ kafka_default_channel }}"
+
+# 2. Lookup current kafka channel
+# -----------------------------------------------------------------------------
+- name: "Get the current subscription channel for kafka"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "{{ kafka_operator_name }}"
+    namespace: "{{ kafka_namespace }}"
+    kind: Subscription
+  register: kafka_sub_info
+
+- name: "Set the value for the current channel for kafka"
+  set_fact:
+    old_kafka_channel: "{{ kafka_sub_info.resources[0].spec.channel }}"
+    old_kafka_csv: "{{ kafka_sub_info.resources[0].status.currentCSV }}"
+
+- debug:
+    msg:
+      - "Current kafka channel .......... {{ old_kafka_channel }}"
+      - "Current kafka csv .............. {{ old_kafka_csv }}"
+
+# 3. If the current operator channel is the same for the upgrade, no subscription upgrade
+# -----------------------------------------------------------------------------
+- name: "Debug when no upgrade is needed"
+  when: kafka_default_channel == old_kafka_channel
+  debug:
+    msg: "No action is required. Kafka subscription is already on the {{ kafka_default_channel }} channel"
+
+- include_tasks: "tasks/provider/redhat/run-kafka-subscription-upgrade.yml"
+  when: kafka_default_channel != old_kafka_channel
+
+# 4. Run Kafka instance upgrade
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/provider/redhat/run-kafka-instances-upgrade.yml"
