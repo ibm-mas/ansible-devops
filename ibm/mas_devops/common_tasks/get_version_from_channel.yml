@@ -1,0 +1,58 @@
+---
+# This task can be used to find the version that is going to be installed for a given channel and operator.
+# Params:
+#   op_pm_name: The name of the PackageManifest
+#   op_channel_name: The channel to be used for the Subscription
+# Return:
+#   op_version: The version that is going to get deployed according to the channel
+# Usage:
+# - name: Check App version
+#   ansible.builtin.include_tasks: "{{ role_path }}/../../common_tasks/get_version_from_channel.yml"
+#   vars:
+#     op_pm_name: "ibm-mas"
+#     op_channel_name: "{{ mas_channel }}"
+
+- name: "Lookup PackageManifest: {{ op_pm_name }}"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PackageManifest
+    name: "{{ op_pm_name }}"
+    namespace: openshift-marketplace
+  register: op_pm_lookup
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - op_pm_lookup is defined
+      - op_pm_lookup.resources is defined
+      - op_pm_lookup.resources | length == 1
+    fail_msg: "PackageManifest not found: {{ op_pm_name }}"
+
+- name: Get channels list from PackageManifest
+  ansible.builtin.set_fact:
+    op_channels_in_pm: "{{ op_pm_lookup.resources[0].status.channels | default([], true) }}"
+
+- name: Find app channel index in channels list
+  ansible.builtin.set_fact:
+    op_channel_idx_in_pm: "{{ lookup('ansible.utils.index_of', data=op_channels_in_pm, test='eq', value=op_channel_name, key='name') }}"
+
+- name: Set app channel object from channels list
+  ansible.builtin.set_fact:
+    op_channel_in_pm: "{{ op_channels_in_pm[op_channel_idx_in_pm | int] | default([], true) }}"
+
+- name: Set op_version fact
+  ansible.builtin.set_fact:
+    op_version: "{{ op_channel_in_pm['currentCSV'] | default('', true) | regex_search('([0-9]+)\\.([0-9]+)\\.([0-9]+)') }}"
+
+- name: Assert that op_version is defined
+  ansible.builtin.assert:
+    that:
+      - op_version is defined
+      - op_version != ''
+    fail_msg: "Could not find 'currentCSV' in  from PackageManifest for {{ op_pm_name }}"
+
+- name: "Debug operator version in channel"
+  ansible.builtin.debug:
+    msg:
+      - "Operator name ............................ {{ op_pm_name }}"
+      - "Operator version ......................... {{ op_version }}"

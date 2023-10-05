@@ -1,0 +1,96 @@
+# 1. Get the list of all DB2uCluster instances
+# -----------------------------------------------------------------------------
+- name: "Get db2u instance list"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uCluster
+    namespace: "{{ db2_namespace }}"
+  register: db2u_cluster_list
+
+- name: "Debug list of db2u instances"
+  debug:
+    msg:
+      - "Db2u Cluster Names ...................... {{ db2u_cluster_list.resources | map(attribute='metadata.name') }}"
+      - "Db2u Cluster Namespace .................. {{ db2_namespace }}"
+      - "Db2u Cluster Versions ................... {{ db2u_cluster_list.resources | map(attribute='spec.version') }}"
+
+- name: "Get and set variables to store the lists"
+  set_fact:
+    db2uCluster_names: "{{ db2u_cluster_list.resources | map(attribute='metadata.name') }}"
+    db2uCluster_versions: "{{ db2u_cluster_list.resources | map(attribute='spec.version') }}"
+
+# 2. Determine if upgrade is needed and perform it
+# -----------------------------------------------------------------------------
+# if db2_version is not set, then we define it based on the latest version supported by the db2u-license-keys secret
+- block:
+    - name: "Wait until the db2u-license-keys secret is available"
+      no_log: true
+      kubernetes.core.k8s_info:
+        api_version: v1
+        name: db2u-license-keys
+        namespace: "{{ ibm_common_services_namespace }}"
+        kind: Secret
+      register: db2_license_info
+      retries: 20 # ~approx 10 minutes before we give up waiting for the CRD to be created
+      delay: 30 # seconds
+      until:
+        - db2_license_info.resources is defined
+        - db2_license_info.resources | length > 0
+        - db2_license_info.resources[0].data is defined
+        - db2_license_info.resources[0].data | length > 0
+
+    - name: Set db2u-license-keys secret content
+      no_log: true
+      set_fact:
+        db2_license_content: "{{ db2_license_info.resources[0].data.json | b64decode }}"
+
+    - name: Set db2 version
+      ansible.builtin.set_fact:
+        db2_version: "{{ db2_license_content.db2wh | last }}"
+
+  when: db2_version is not defined or db2_version == ""
+
+- name: Debug target DB2 channel and engine version
+  ansible.builtin.debug:
+    msg:
+      - "Current Db2 Channel .................... {{ old_db2_channel }}"
+      - "Target Db2 Channel ..................... {{ db2_channel }}"
+      - "Target Db2 Engine Version .............. {{ db2_version }}"
+
+- name: "Check if Db2 instance is at version {{ db2_version }}"
+  when: item.1 != db2_version
+  debug:
+    msg: "Upgrade required for DB2uCluster {{ item.0 }} in namespace {{ db2_namespace }}. DB2 version {{ item.1 }} to {{ db2_version }}"
+  loop: "{{ db2uCluster_names | zip(db2uCluster_versions) | list }}"
+
+- name: "Update db2u instance version when required"
+  when: item.1 != db2_version
+  kubernetes.core.k8s_json_patch:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ item.0 }}"
+    namespace: "{{ db2_namespace }}"
+    kind: Db2uCluster
+    patch:
+      - op: replace
+        path: /spec/version
+        value: "{{ db2_version }}"
+  loop: "{{ db2uCluster_names | zip(db2uCluster_versions) | list }}"
+
+- name: "Wait for db2u instance to be ready (1m delay)"
+  when: item.1 != db2_version
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    name: "{{ item.0 }}"
+    namespace: "{{ db2_namespace }}"
+    kind: Db2uCluster
+  register: db2_cluster_lookup
+  until:
+    - db2_cluster_lookup.resources is defined
+    - db2_cluster_lookup.resources | length > 0
+    - db2_cluster_lookup.resources[0].status is defined
+    - db2_cluster_lookup.resources[0].status.state is defined
+    - db2_cluster_lookup.resources[0].status.state == "Ready"
+    - db2_cluster_lookup.resources[0].status.version == db2_version
+  retries: 30 # Approximately 30 minutes before we give up
+  delay: 60 # 1 minute
+  loop: "{{ db2uCluster_names | zip(db2uCluster_versions) | list }}"

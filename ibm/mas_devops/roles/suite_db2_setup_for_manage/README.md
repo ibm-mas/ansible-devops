@@ -56,6 +56,19 @@ The size of the tablespace indexes in the database.
 - Environment Variable: DB2_TABLESPACE_INDEX_SIZE
 - Default Value: `5000 M`
 
+### db2_config_version
+Version of the enhanced DB2 parameters, currently support `1.0.0`
+
+- **Required**
+- Environment Variable: `DB2_CONFIG_VERSION`
+- Default: `1.0.0`
+
+### enforce_db2_config
+Flag to indicate restart the DB2 instance or not, the enhanced DB2 parameters required restart DB2 instance, this will cause downtime, should execute during customer maintenance window or newly created DB2 instance if set to `True`
+
+- **Required**
+- Environment Variable: `ENFORCE_DB2_CONFIG`
+- Default: `True`
 
 Example Playbook
 ----------------
@@ -65,6 +78,12 @@ Example Playbook
   any_errors_fatal: true
   vars:
     db2_instancename: mydb2
+
+    db2_namespace: db2u
+    db2_config_version: "1.0.0"
+
+    # It will cause downtime if set to true, please be careful.
+    enforce_db2_config: true
   roles:
     - ibm.mas_devops.suite_db2_setup_for_manage
 ```
