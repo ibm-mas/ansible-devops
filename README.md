@@ -1,5 +1,5 @@
 # Ansible DevOps Collection for IBM Maximo Application Suite
-![Ansible Galaxy Release](https://img.shields.io/badge/dynamic/json?style=flat&label=galaxy&prefix=v&url=https://galaxy.ansible.com/api/v2/collections/ibm/mas_devops/&query=latest_version.version)
+![Ansible Galaxy Release](https://img.shields.io/badge/dynamic/json?style=flat&label=galaxy&prefix=v&url=https://old-galaxy.ansible.com/api/v2/collections/ibm/mas_devops/&query=latest_version.version)
 
 
 ## Installation
