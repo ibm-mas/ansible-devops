@@ -1,5 +1,4 @@
 ---
-
 # 1. Get the IBM Catalog if available
 # -----------------------------------------------------------------------------
 - name: "Lookup ibm-operator-catalog"
@@ -63,9 +62,9 @@
     mongodb_readinessprobe_image_name: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-readinessprobe$') | map(attribute='name') | first }}"
     mongodb_readinessprobe_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-readinessprobe$') | map(attribute='registry') | first }}"
     mongodb_readinessprobe_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-kubernetes-readinessprobe$') | map(attribute='digest') | first }}"
-    mongodb_image_name: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-community-server$') | map(attribute='name') | first }}"
-    mongodb_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-community-server$') | map(attribute='registry') | first }}"
-    mongodb_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/mongodb-community-server$') | map(attribute='digest') | first }}"
+    mongodb_image_name: "{{ extra_images | selectattr('name', 'match', '.*/mongo$') | map(attribute='name') | first }}"
+    mongodb_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/mongo$') | map(attribute='registry') | first }}"
+    mongodb_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/mongo$') | map(attribute='digest') | first }}"
 
 - name: Construct image full image settings
   set_fact:
@@ -148,14 +147,12 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/crd.yml.j2') }}"
 
-
 # 6. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
 - name: "community : install : Create namespace & install RBAC"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/rbac.yml.j2') }}"
-
 
 # 7. Configure anyuid permissions in the MongoDb namespace
 # -----------------------------------------------------------------------------
@@ -169,7 +166,6 @@
   shell: |
     oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-database
 
-
 # 8. Install the operator
 # -----------------------------------------------------------------------------
 - name: "community : install : Install the MongoDb Operator"
@@ -178,7 +174,7 @@
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/manager.yml.j2') }}"
     wait: yes
     wait_condition:
-      status: 'True'
+      status: "True"
       type: Available
 
 # 9. Configure TLS using cert manager
@@ -189,7 +185,7 @@
     definition: "{{ lookup('template', 'templates/community/issuer.yml') }}"
     wait: yes
     wait_condition:
-      status: 'True'
+      status: "True"
       type: Ready
 
 - name: "Create a ca certificate in {{ mongodb_namespace }}"
@@ -198,7 +194,7 @@
     definition: "{{ lookup('template', 'templates/community/ca-cert.yml') }}"
     wait: yes
     wait_condition:
-      status: 'True'
+      status: "True"
       type: Ready
 
 - name: "Create a Issuer for server certificate  in {{ mongodb_namespace }}"
@@ -207,7 +203,7 @@
     definition: "{{ lookup('template', 'templates/community/server-cert-issuer.yml') }}"
     wait: yes
     wait_condition:
-      status: 'True'
+      status: "True"
       type: Ready
 
 - name: "Create a server certificate in {{ mongodb_namespace }}"
@@ -216,7 +212,7 @@
     definition: "{{ lookup('template', 'templates/community/server-cert.yml') }}"
     wait: yes
     wait_condition:
-      status: 'True'
+      status: "True"
       type: Ready
 
 # Taking ca.crt value in a variable
@@ -248,7 +244,6 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/tls.yml') }}"
-
 
 # 10. Create MongoDb admin user credentials secret
 # -----------------------------------------------------------------------------
@@ -333,7 +328,7 @@
     - mongodb_statefulset.resources[0].status.readyReplicas is defined
     - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas|int)
 
-- name: "community : install : Wait for Mongo CR to report corrrect version"
+- name: "community : install : Wait for Mongo CR to report correct version"
   kubernetes.core.k8s_info:
     api_version: mongodbcommunity.mongodb.com/v1
     kind: MongoDBCommunity
@@ -408,7 +403,6 @@
 - name: Create the MAS MongoCfg only if we are not in a controlled-upgrade flow
   when: not controlled_upgrade
   block:
-
     - name: "community : install : Lookup mongo pods"
       kubernetes.core.k8s_info:
         api_version: v1
@@ -468,7 +462,7 @@
       ansible.builtin.template:
         src: community/suite_mongocfg.yml.j2
         dest: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
-        mode: '664'
+        mode: "664"
       vars:
         mongodb_ca_pem: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] }}"
         mongodb_admin_password: "{{ admin_password_lookup.resources[0].data.password | b64decode }}"
