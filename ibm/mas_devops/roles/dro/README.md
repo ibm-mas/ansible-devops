@@ -94,7 +94,6 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    dro_storage_class: ibmc-block-bronze
     mas_instance_id: masinst1
     mas_config_dir: ~/masconfig
 
@@ -107,3 +106,4 @@ Example Playbook
 ```
 License
 -------------------------------------------------------------------------------
+EPL-2.0

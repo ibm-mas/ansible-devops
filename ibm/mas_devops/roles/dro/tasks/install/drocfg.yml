@@ -12,7 +12,7 @@
 
 # 1. Lookup the endpoint route
 # -----------------------------------------------------------------------------
-- name: get ibm-data-reporter route
+- name: "drocfg : Get ibm-data-reporter route"
   k8s_info:
     api_version: route.openshift.io/v1
     kind: Route
@@ -20,7 +20,7 @@
     namespace: redhat-marketplace
   register: dro_route
 
-- name: Assert that ibm-data-reporter route exists
+- name: "drocfg : Assert that ibm-data-reporter route exists"
   ansible.builtin.assert:
     that:
       - dro_route is defined
@@ -35,7 +35,7 @@
 
 # 2. Lookup the DRO API key
 # -----------------------------------------------------------------------------
-- name: "Create ibm-data-reporter-operator-api SA token secret"
+- name: "drocfg : Create ibm-data-reporter-operator-api SA token secret"
   k8s:
     state: present
     definition:
@@ -50,7 +50,7 @@
             kubernetes.io/service-account.name: ibm-data-reporter-operator-api
       type: kubernetes.io/service-account-token 
 
-- name: get ibm-data-reporter-operator-api secret
+- name: "drocfg : Get ibm-data-reporter-operator-api secret"
   k8s_info:
     kind: Secret
     name: ibm-data-reporter-operator-api-token
@@ -59,7 +59,31 @@
       - secret-owner = ibm-data-reporter-operator-api
   register: token_secret_info
 
-- name: set dro token api for bascfg
+- name: "drocfg : Set dro token api for bascfg"
   set_fact:
     dro_api_key: "{{ token_secret_info.resources[0].data.token | b64decode }}"
   when: (token_secret_info.resources | length != 0)
+
+
+
+# 3. Lookup the certificates
+# -----------------------------------------------------------------------------
+- name: "drocfg : Lookup the default cluster ingress secret"
+  include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
+
+# Break up the certificate into an array
+- name: "udscfg : Set UDS cert variable"
+  set_fact:
+    dro_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+
+# 4. Debug
+# -----------------------------------------------------------------------------
+- name: "udscfg : Debug generated config"
+  debug:
+    msg:
+      - "DRO URL ............................ {{ dro_endpoint_url }}"
+      - "Cluster Ingress TLS Certificate .... {{ cluster_ingress_tls_crt | default('<undefined>', True) }}"
+      - "DRO TLS Certificate ................ {{ dro_tls_crt }}"
+      - "DRO Contact First Name ............. {{ dro_contact.first_name | default('<undefined>', True) }}"
+      - "DRO Contact Last Name .............. {{ dro_contact.last_name | default('<undefined>', True) }}"
+      - "DRO Contact e-mail ................. {{ dro_contact.email | default('<undefined>', True) }}"

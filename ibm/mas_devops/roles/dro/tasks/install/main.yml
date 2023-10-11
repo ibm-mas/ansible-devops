@@ -6,15 +6,12 @@
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
 
 
-# 2. Load default storage class (if not provided by the user)
+# 2. Display DRO deployment details
 # -----------------------------------------------------------------------------
-- include_tasks: tasks/install/determine-storage-classes.yml
-
 - name: "DRO Deployment details"
   debug:
     msg:
       - "DRO Namespace ...................... redhat-marketplace"
-      - "DRO Storage Class .................. {{ dro_storage_class }}"
       - "DRO Pull Secret Token............... Can get from https://marketplace.redhat.com/en-us/account/keys"
       - "DRO CSV Version..................... {{ dro_version }}"
       - "MAS Instance ID .................... {{ mas_instance_id | default('<undefined>', True) }}"
@@ -48,16 +45,45 @@
     namespace: redhat-marketplace
   register: rm_sec
 
-- name: check pull secret
+- name: Check marketplace secret
   ansible.builtin.assert:
     that:
       - dro_pull_secret_token is defined
       - dro_pull_secret_token | length != 0
     fail_msg: "Provide correct redhat marketplace Pull Secret Token, Can get from https://marketplace.redhat.com/en-us/account/keys"
+  when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
 - name: "Create Secret redhat-marketplace-pull-secret"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/rhm-pull-secret.yml.j2') }}"
+  when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
+
+
+# 3.1 Load PodTemplates configuration
+# -----------------------------------------------------------------------------
+- name: Load podTemplates configuration
+  vars:
+    config_file_name: "ibm-mas-bascfg.yml"
+  when:
+    - mas_pod_templates_dir is defined
+    - mas_pod_templates_dir != ''
+  block:
+    - name: Check whether configuration exists
+      ansible.builtin.stat:
+        path: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+      register: pod_templates_file_lookup
+
+    - name: Load podTemplates configuration
+      ansible.builtin.include_vars:
+        file: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+        name: ibm_mas_bascfg_pod_templates
+      when: pod_templates_file_lookup.stat.exists
+
+    - name: Failed to find configuration
+      ansible.builtin.debug:
+        msg: "Could not find '{{ mas_pod_templates_dir }}/{{ config_file_name }}' - Skipping"
+      when: not pod_templates_file_lookup.stat.exists
+
 
 # 4. Install DRO
 # -----------------------------------------------------------------------------
@@ -137,13 +163,13 @@
     dro_source_namespace: "{{ dro_manifest.resources[0].status.catalogSourceNamespace }}"
     dro_default_channel: "{{ dro_manifest.resources[0].status.defaultChannel }}"
 
-- name: set DRO default startingCSV
+- name: Set DRO default startingCSV
   set_fact:
     dro_csv: "{{ item.currentCSV }}"
   with_items: "{{ dro_manifest.resources[0].status.channels }}"
   when: (dro_manifest.resources is defined) and (item.name == dro_default_channel) and (dro_version|length  == 0)
 
-- name: set DRO custom startingCSV
+- name: Set DRO custom startingCSV
   set_fact:
     dro_csv: "ibm-data-reporter-operator.v{{ dro_version }}"
   when: (dro_version|length != 0)
@@ -200,7 +226,7 @@
 
 # Accept License
 # -----------------------------------------------------------------------------
-- name: get MarketplaceConfig
+- name: Get MarketplaceConfig
   kubernetes.core.k8s_info:
     api_version: marketplace.redhat.com/v1alpha1
     kind: MarketplaceConfig
