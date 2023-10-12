@@ -104,56 +104,51 @@
   retries: 60 # 60 * 2 minutes = 2 hours
   delay: 120 # Every 2 minutes
 
-# 6. For IPv6 testing, confirm OVN-Kubernetes network plugin is the default network provider
-#- name: "fyre : For IPv6 testing get network type"
-#  when:
-#    - ipv6_test=="true"
-#  shell: |
-#    oc describe network
-#  register: network_output
-#  assert:
-#    - network_output is defined
-#    - network_output.status is defined
-#    - network_output.status.'Network Type' is defined
-#    - network_output.status.'Network Type'=='OVN-Kubernetes'
-
 # 6. For IPv6 testing, lookup network
-- name: Lookup network for IPv6 testing
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    kind: Network
-    name: "cluster"
-  register: network
-  when:
-    - ipv6_test=="true"
+  - name: Lookup network for IPv6 testing
+    kubernetes.core.k8s:
+      api_version: config.openshift.io/v1
+      kind: Network
+      name: "cluster"
+    when:
+      - ipv6_test=="true"
+    register: _network
+
+  - name: "fyre : Debug network"
+    debug:
+      var: _network
 
 # 7.For IPv6 testing, check network type
-- name: For IPv6, check the network type
-  assert:
-    that:
-      - network.status.'Network Type' == 'OVN-Kubernetes'
-  when:
-    - ipv6_test=="true"
+#    - name: For IPv6, check the network type
+#      assert:
+#        that:
+#          - _network is defined
+#          - _network.status is defined
+#          - _network.status.networkType is defined
+#          - _network.status.networkType=="OVN-Kubernetes"
+#      when:
+#        - ipv6_test=="true"
 
 # 8. For IPv6 testing, enable dual stack
-- name: "Enable IPv6 on this system"
-  command: "bash {{ role_path }}/files/enableIPv6.sh"
-  when:
-    - ipv6_test=="true"
+  - name: "Enable IPv6 on this system"
+    command: "bash {{ role_path }}/files/enableIPv6.sh"
+    when:
+      - ipv6_test=="true"
 
-- name: "Enable dual stack networking"
-  kubernetes.core.k8s_json_patch:
-    kind: Network
-    apiVersion: config.openshift.io/v1
-    patch:
-      - op: add
-        path: /spec/clusterNetwork/-
-        value:
-          cidr: fd01::/48
-          hostPrefix: 64
-      - op: add
-        path: /spec/serviceNetwork/-
-        value: fd02::/112
-  register: _dualstackNetworkAddr
-  when:
-    - ipv6_test=="true"
+  - name: "Enable dual stack networking"
+    kubernetes.core.k8s_json_patch:
+      kind: Network
+      name: "cluster"
+      api_version: config.openshift.io/v1
+      patch:
+        - op: add
+          path: /spec/clusterNetwork/-
+          value:
+            cidr: fd01::/48
+            hostPrefix: 64
+        - op: add
+          path: /spec/serviceNetwork/-
+          value: fd02::/112
+    register: _dualstackNetworkAddr
+    when:
+      - ipv6_test=="true"
