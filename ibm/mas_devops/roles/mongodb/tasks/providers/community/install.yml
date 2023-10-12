@@ -41,7 +41,7 @@
   debug:
     msg:
       - "Last Catalog Version ............................ {{ last_catalog_tag }}"
-  when: last_catalog_tag is defined
+  when: last_catalog_tag is defined and last_catalog_tag != ""
 
 # 1. Get the IBM Catalog if available
 # -----------------------------------------------------------------------------
@@ -64,26 +64,26 @@
       stat:
         path: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
       register: file_exists_result
-      when: catalog_tag is defined
+      when: catalog_tag is defined and catalog_tag != ""
 
     # use last_catalog_tag if the casebundles file does not exist
     - set_fact:
         catalog_tag: last_catalog_tag
       when:
         - not file_exists_result.stat.exists
-        - last_catalog_tag is defined
+        - last_catalog_tag is defined and last_catalog_tag != ""
 
   rescue:
     # use the last_catalog_tag when the catalog_tag cannot be determined from the displayName
     - set_fact:
         catalog_tag: last_catalog_tag
-      when: last_catalog_tag is defined
+      when: last_catalog_tag is defined and last_catalog_tag != ""
 
 - name: "Catalog Version"
   debug:
     msg:
       - "Catalog Version ............................ {{ catalog_tag }}"
-  when: catalog_tag is defined
+  when: catalog_tag is defined and catalog_tag != ""
 
 # 2. Load default settings
 # -----------------------------------------------------------------------------
@@ -91,7 +91,7 @@
   stat:
     path: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
   register: stat_result
-  when: catalog_tag is defined
+  when: catalog_tag is defined and catalog_tag != ""
 
 - name: Load CASE bundle versions
   include_vars:
