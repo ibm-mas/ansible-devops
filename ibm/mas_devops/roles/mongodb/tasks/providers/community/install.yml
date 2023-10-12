@@ -1,13 +1,13 @@
 ---
 
-# The MongoDB version is based on the chosen ibm-operator-catalog.  However the 
-# ibm-operator-catalog does not explicitly include information about the mongo version.  
+# The MongoDB version is based on the chosen ibm-operator-catalog.  However the
+# ibm-operator-catalog does not explicitly include information about the mongo version.
 #
-# The configuration files in common_vars/casebundles do specify the MongoDB 
-# version for each of the MAS published ibm-operator-catalog catalogs.  
+# The configuration files in common_vars/casebundles do specify the MongoDB
+# version for each of the MAS published ibm-operator-catalog catalogs.
 #
-# To determine which common_vars/casebundles configuration file to use, this role 
-# extracts the catalog_tag from the ibm-operator-catalog's displayName.  
+# To determine which common_vars/casebundles configuration file to use, this role
+# extracts the catalog_tag from the ibm-operator-catalog's displayName.
 #
 # For example:
 #   displayName: IBM Maximo Operators (v8-230926-amd64)
@@ -15,12 +15,12 @@
 # catalog_tag is v8-230926-amd64
 # MongoDB version will be determined by loading common_vars/casebundles/v8-230926-amd64.yml
 #
-# And FINALLY... 
+# And FINALLY...
 #   If the MongoDB version cannot be determined from the above logic,
-#   the MongoDB version will be determined by the last configuration file in 
+#   the MongoDB version will be determined by the last configuration file in
 #   common_vars/casebundles/
 #
-#   And if still it cannot be determined because perhaps its not specified in the 
+#   And if still it cannot be determined because perhaps its not specified in the
 #   configuration file, a default value will be used.
 
 # List the common_vars/casebundle configuration files
@@ -34,7 +34,7 @@
 # Determine the last configuration file in the list just in case we need it later
 - set_fact:
     last_catalog_tag: "{{ find_result['files'] | map(attribute='path') | map('regex_replace', '^.*/(.*).yml$', '\\1') | last }}"
-  when find_result is defined
+  when: find_result is defined
 
 # Display the Last Catalog Version
 - name: "Display the Last Catalog Version"
@@ -62,12 +62,12 @@ block:
     stat:
       path: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
     register: file_exists_result
-    when catalog_tag is defined
+    when: catalog_tag is defined
 
   # use last_catalog_tag if the casebundles file does not exist
   - set_fact:
       catalog_tag: last_catalog_tag
-    when: 
+    when:
       - not file_exists_result.stat.exists
       - last_catalog_tag is defined
 
@@ -75,14 +75,14 @@ rescue:
   # use the last_catalog_tag when the catalog_tag cannot be determined from the displayName
   - set_fact:
       catalog_tag: last_catalog_tag
-    when last_catalog_tag is defined
+    when: last_catalog_tag is defined
 
 # check again if the file exists to be certain we have a valid catalog_tag
 - name: Check again if file exists in casebundles
   stat:
     path: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
   register: stat_result
-  when catalog_tag is defined
+  when: catalog_tag is defined
 
 - name: "Catalog Version"
   debug:
