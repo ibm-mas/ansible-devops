@@ -58,13 +58,13 @@
     # extract the catalog tag from displayName
     - set_fact:
         catalog_tag: "{{ catalog_lookup.resources[0].spec.displayName.split('(')[1].split(')')[0].split(' ')[0] }}"
-      when: 
+      when:
         - catalog_lookup is defined
         - catalog_lookup.resources is defined
         - catalog_lookup.resources | length > 0
         - catalog_lookup.resources[0].spec is defined
         - catalog_lookup.resources[0].spec.displayName is defined
-        - "(" in catalog_lookup.resources[0].spec.displayName
+        - '"(" in catalog_lookup.resources[0].spec.displayName'
 
     - name: Check if file exists in casebundles
       stat:
@@ -76,7 +76,17 @@
     - set_fact:
         catalog_tag: "{{ last_catalog_tag }}"
       when:
+        - file_exists_result is defined
+        - file_exists_result.stat is defined
+        - file_exists_result.stat.exists is defined
         - not file_exists_result.stat.exists
+        - last_catalog_tag is defined and last_catalog_tag != ""
+
+    # use last_catalog_tag if unable to get catalog_tag from displayName
+    - set_fact:
+        catalog_tag: "{{ last_catalog_tag }}"
+      when:
+        - catalog_tag is not defined
         - last_catalog_tag is defined and last_catalog_tag != ""
 
   rescue:
