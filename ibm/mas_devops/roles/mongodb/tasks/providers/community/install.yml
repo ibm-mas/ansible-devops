@@ -58,7 +58,13 @@
     # extract the catalog tag from displayName
     - set_fact:
         catalog_tag: "{{ catalog_lookup.resources[0].spec.displayName.split('(')[1].split(')')[0].split(' ')[0] }}"
-      when: catalog_lookup is defined
+      when: 
+        - catalog_lookup is defined
+        - catalog_lookup.resources is defined
+        - catalog_lookup.resources | length > 0
+        - catalog_lookup.resources[0].spec is defined
+        - catalog_lookup.resources[0].spec.displayName is defined
+        - "(" in catalog_lookup.resources[0].spec.displayName
 
     - name: Check if file exists in casebundles
       stat:
