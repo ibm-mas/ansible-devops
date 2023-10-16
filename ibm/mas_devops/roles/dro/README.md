@@ -13,11 +13,12 @@ Inform the role whether to perform an install or uninstall of Data Reporter Oper
 - Environment Variable: `DRO_ACTION`
 - Default: `install`
 
-### dro_pull_secret_token
-Create RedHat Marketplace Pull Secret Token https://marketplace.redhat.com/en-us/account/keys
+### ibm_entitlement_key
+Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary).
 
-- Required
-- Environment Variable: `DRO_PULL_SECRET_TOKEN`
+- **Required**
+- Environment Variable: `IBM_ENTITLEMENT_KEY`
+- Default: None
 
 ### dro_version
 Provide particular StartingCSV version of DRO. Default value is picked from Stable channel.
@@ -40,13 +41,6 @@ Local directory to save the generated BasCfg resource definition.  This can be u
 
 - Optional
 - Environment Variable: `MAS_CONFIG_DIR`
-- Default Value: None
-
-### mas_segment_key
-Override the built-in segment key used by MAS when communicating with User Data Services.  This variable is only used for the generation of the BASCfg template, and in 99% of use cases you will not need to set this.
-
-- Optional
-- Environment Variable: `MAS_SEGMENT_KEY`
 - Default Value: None
 
 ### dro_contact.email
