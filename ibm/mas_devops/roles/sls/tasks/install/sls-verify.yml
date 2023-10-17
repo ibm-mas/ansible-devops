@@ -67,7 +67,7 @@
         - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Server ID') | map(attribute='status') | list | first == "True"
       retries: 20 # 10 minutes before we give up
       delay: 30 # seconds
-      when: bootstrap.license_id is defined and bootstrap.license_id != ''
+      when: bootstrap.license_id is defined and bootstrap.license_id != '' and before_sls_370
 
     - name: "Wait for License key bootstrap (30s delay)"
       kubernetes.core.k8s_info:
@@ -84,7 +84,7 @@
         - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Bootstrap License Key File') | map(attribute='status') | list | first == "True"
       retries: 20 # 10 minutes before we give up
       delay: 30 # seconds
-      when: bootstrap.license_file is defined and bootstrap.license_file != ''
+      when: bootstrap.license_file is defined and bootstrap.license_file != '' and before_sls_370
 
     - name: "Wait for License File & ID Upload (30s delay)"
       kubernetes.core.k8s_info:
@@ -103,7 +103,7 @@
         - sls_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'License Server ID Upload') | map(attribute='status') | list | first == "True"
       retries: 20 # 10 minutes before we give up
       delay: 30 # seconds
-      when: entitlement_file is defined and entitlement_file != ''
+      when: ((entitlement_file is defined and entitlement_file != '') or ((bootstrap.license_id is defined and bootstrap.license_id != '') and (bootstrap.license_file is defined and bootstrap.license_file != '')) and (after_sls_370))
 
     - name: "Verify registrationKey matches"
       when: bootstrap.registration_key is defined and bootstrap.registration_key != ''

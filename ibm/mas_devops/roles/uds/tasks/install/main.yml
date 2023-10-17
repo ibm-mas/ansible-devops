@@ -13,6 +13,7 @@
 - name: "UDS Deployment details"
   debug:
     msg:
+      - "UDS Action ......................... {{uds_action}}"
       - "UDS Namespace ...................... ibm-common-services"
       - "UDS Storage Class .................. {{ uds_storage_class }}"
       - "UDS Event Scheduler Frequency ...... {{ uds_event_scheduler_frequency }}"
@@ -24,7 +25,33 @@
       - "UDS Contact e-mail ................. {{ uds_contact.email | default('<undefined>', True) }}"
 
 
-# 3. Install Crunchy Postgres Operator (Properly)
+# 3. Load PodTemplates configuration
+# -----------------------------------------------------------------------------
+- name: Load podTemplates configuration
+  vars:
+    config_file_name: "ibm-mas-bascfg.yml"
+  when:
+    - mas_pod_templates_dir is defined
+    - mas_pod_templates_dir != ''
+  block:
+    - name: Check whether configuration exists
+      ansible.builtin.stat:
+        path: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+      register: pod_templates_file_lookup
+
+    - name: Load podTemplates configuration
+      ansible.builtin.include_vars:
+        file: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+        name: ibm_mas_bascfg_pod_templates
+      when: pod_templates_file_lookup.stat.exists
+
+    - name: Failed to find configuration
+      ansible.builtin.debug:
+        msg: "Could not find '{{ mas_pod_templates_dir }}/{{ config_file_name }}' - Skipping"
+      when: not pod_templates_file_lookup.stat.exists
+
+
+# 4. Install Crunchy Postgres Operator (Properly)
 # -----------------------------------------------------------------------------
 # UDS installs the operator with a startingCSV set explicitly to 5.1.0 for some
 # unknown reason, the best case scenario is that we go through needless upgrades,
@@ -71,7 +98,7 @@
     wait_timeout: 120
 
 
-# 4. Wait for Postgres Operator to be Ready
+# 5. Wait for Postgres Operator to be Ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Crunchy Postgres operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -85,7 +112,7 @@
   delay: 60 # 1 minute
 
 
-# 5. Install UDS Operator
+# 6. Install UDS Operator
 # -----------------------------------------------------------------------------
 - name: Install Foundation Services ibm-user-data-services operand request
   kubernetes.core.k8s:
@@ -94,7 +121,7 @@
     wait_timeout: 120
 
 
-# 6. Wait for UDS Operator to be Ready
+# 7. Wait for UDS Operator to be Ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Foundation Services ibm-user-data-services operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -108,7 +135,7 @@
   delay: 60 # 1 minute
 
 
-# 7. Create UDS AnalyticsProxy
+# 8. Create UDS AnalyticsProxy
 # -----------------------------------------------------------------------------
 - name: "Create UDS AnalyticsProxy"
   kubernetes.core.k8s:
@@ -118,7 +145,7 @@
 # For some reason it seems to work anyway.
 
 
-# 8. Wait for the UDS AnalyticsProxy to be ready
+# 9. Wait for the UDS AnalyticsProxy to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for the AnalyticsProxy to be ready"
   kubernetes.core.k8s_info:
@@ -136,14 +163,14 @@
   delay: 120 # 2 minutes
 
 
-# 9. Cretae the GenerateKey CR
+# 10. Cretae the GenerateKey CR
 # -----------------------------------------------------------------------------
 - name: "Create UDS Generate Key"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/foundation-services/generateKey.yaml') }}"
 
 
-# 10. Wait for GenerateKey to be complete
+# 11. Wait for GenerateKey to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for GenerateKey to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -161,7 +188,7 @@
   delay: 60 # 1 minute
 
 
-# 11. MAS Config
+# 12. MAS Config
 # -----------------------------------------------------------------------------
 # Note that the MAS config resource still refers to UDS by its
 # original name (BAS).  It would be a breaking change to re-name the MAS CRD
