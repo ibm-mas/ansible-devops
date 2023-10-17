@@ -1,0 +1,201 @@
+- name: "mcsp : Fail if required vars are not provided"
+  assert:
+    that:
+      - cluster_name is defined and cluster_name != ""
+      - ocp_version is defined and ocp_version != ""
+      - mcsp_control_plane_api is defined and mcsp_control_plane_api != ""
+      - mcsp_control_plane_token is defined and mcsp_control_plane_token != ""
+      - mcsp_region is defined and mcsp_region != ""
+      - mcsp_platform is defined and mcsp_platform is in ["aws"]
+      - mcsp_platform_account_secret_name is defined and mcsp_platform_account_secret_name != ""
+      - mcsp_control_plane_namespace is defined and mcsp_control_plane_namespace != ""
+      - mcsp_worker_count is defined and mcsp_worker_count != ""
+      - mcsp_worker_flavor is defined and mcsp_worker_flavor != ""
+      - mcsp_argocd_api is defined and mcsp_argocd_api != ""
+      - mcsp_argocd_secret_name is defined and mcsp_argocd_secret_name != ""
+      - mcsp_argocd_project_name is defined and mcsp_argocd_project_name != ""
+      - mcsp_idpverify_enabled is defined and mcsp_idpverify_enabled is in [true, false]
+      - mcsp_idpverify_secret_verify_name is defined and mcsp_idpverify_secret_verify_name != ""
+      - mcsp_security_enabled is defined and mcsp_security_enabled is in [true, false]
+      - mcsp_logforwarder_enabled is defined and mcsp_logforwarder_enabled is in [true, false]
+      - mcsp_logforwarder_secret_dlc_name is defined and mcsp_logforwarder_secret_dlc_name != ""
+      - mcsp_logforwarder_secret_sf_name is defined and mcsp_logforwarder_secret_sf_name != ""
+
+
+- name: "mcsp : Set derived facts"
+  set_fact:
+    mcsp_cluster_name: "{{ mcsp_control_plane_namespace }}-{{ cluster_name }}"
+    mcsp_cluster_vpc_name: "{{ mcsp_control_plane_namespace }}-{{ cluster_name }}-vpc"
+
+- name: "mcsp : Debug information"
+  debug:
+    msg:
+      - "Cluster name ........................... {{ cluster_name }}"
+      - "OCP version ............................ {{ ocp_version }}"
+      - "Qualified cluster name ................. {{ mcsp_cluster_name }}"
+      - "VPC name ............................... {{ mcsp_cluster_vpc_name }}"
+      - ""
+      - "Platform ............................... {{ mcsp_platform }}"
+      - "Region ................................. {{ mcsp_region }}"
+      - "Control Plane API ...................... {{ mcsp_control_plane_api }}"
+      - "Control Plane namespace ................ {{ mcsp_control_plane_namespace }}"
+      - "Platform account secret name ........... {{ mcsp_platform_account_secret_name }}"
+      - ""
+      - "Worker Count ........................... {{ mcsp_worker_count }}"
+      - "Worker Flavor .......................... {{ mcsp_worker_flavor }}"
+      - ""
+      - "ArgoCD API ............................. {{ mcsp_argocd_api }}"
+      - "ArgoCD secret name...................... {{ mcsp_argocd_secret_name }}"
+      - "ArgoCD project name..................... {{ mcsp_argocd_project_name }}"
+      - ""
+      - "idpverify addon enabled? ............... {{ mcsp_idpverify_enabled }}"
+      - "verify secret name ..................... {{ mcsp_idpverify_secret_verify_name }}"
+      - ""
+      - "security addon enabled? ................ {{ mcsp_security_enabled }}"
+      - ""
+      - "logforwarder addon enabled? ............ {{ mcsp_logforwarder_enabled }}"
+      - "dlc-cert secret name ................... {{ mcsp_logforwarder_secret_dlc_name }}"
+      - "syslog-forwarder secret name ........... {{ mcsp_logforwarder_secret_sf_name }}"
+
+
+- name: "mcsp : Login to MCSP Control Plane"
+  shell: >
+    oc login --token={{ mcsp_control_plane_token }} --server={{ mcsp_control_plane_api }}
+
+
+
+- name: "mcsp : Lookup {{ mcsp_platform_account_secret_name }} secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ mcsp_control_plane_namespace }}"
+    name: "{{ mcsp_platform_account_secret_name }}"
+  register: _mcsp_platform_account_secret_name
+- name: "mcsp : Fail if {{ mcsp_platform_account_secret_name }} secret does not exist"
+  fail:
+    msg: "The required {{ mcsp_platform_account_secret_name }} secret does not exist. We must create this secret manually once per MCSP environment. See https://pages.github.ibm.com/maximoappsuite/saas/mcsp/"
+  when: _mcsp_platform_account_secret_name.resources | length == 0
+
+- name: "mcsp : Lookup {{ mcsp_argocd_secret_name }} secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ mcsp_control_plane_namespace }}"
+    name: "{{ mcsp_argocd_secret_name }}"
+  register: _mcsp_argocd_secret_name
+- name: "mcsp : Fail if {{ mcsp_argocd_secret_name }} secret does not exist"
+  fail:
+    msg: "The required {{ mcsp_argocd_secret_name }} secret does not exist. We must create this secret manually once per MCSP environment. See https://pages.github.ibm.com/maximoappsuite/saas/mcsp/"
+  when: _mcsp_argocd_secret_name.resources | length == 0
+
+- name: "mcsp : Lookup {{ mcsp_idpverify_secret_verify_name }} secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ mcsp_control_plane_namespace }}"
+    name: "{{ mcsp_idpverify_secret_verify_name }}"
+  register: _mcsp_idpverify_secret_verify_name
+- name: "mcsp : Fail if {{ mcsp_idpverify_secret_verify_name }} secret does not exist"
+  fail:
+    msg: "The required {{ mcsp_idpverify_secret_verify_name }} secret does not exist. This should have been setup by the MCSP team during onboarding. See https://pages.github.ibm.com/maximoappsuite/saas/mcsp/"
+  when: _mcsp_idpverify_secret_verify_name.resources | length == 0
+
+- name: "mcsp : Lookup {{ mcsp_logforwarder_secret_dlc_name }} secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ mcsp_control_plane_namespace }}"
+    name: "{{ mcsp_logforwarder_secret_dlc_name }}"
+  register: _mcsp_logforwarder_secret_dlc_name
+- name: "mcsp : Fail if {{ mcsp_logforwarder_secret_dlc_name }} secret does not exist"
+  fail:
+    msg: "The required {{ mcsp_logforwarder_secret_dlc_name }} secret does not exist. This should have been setup by the MCSP team during onboarding. See https://pages.github.ibm.com/maximoappsuite/saas/mcsp/"
+  when: _mcsp_logforwarder_secret_dlc_name.resources | length == 0
+
+- name: "mcsp : Lookup {{ mcsp_logforwarder_secret_sf_name }} secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ mcsp_control_plane_namespace }}"
+    name: "{{ mcsp_logforwarder_secret_sf_name }}"
+  register: _mcsp_logforwarder_secret_sf_name
+- name: "mcsp : Fail if {{ mcsp_logforwarder_secret_sf_name }} secret does not exist"
+  fail:
+    msg: "The required {{ mcsp_logforwarder_secret_sf_name }} secret does not exist. This should have been setup by the MCSP team during onboarding. See https://pages.github.ibm.com/maximoappsuite/saas/mcsp/"
+  when: _mcsp_logforwarder_secret_sf_name.resources | length == 0
+
+
+
+# NOTE: field_selectors like below not supported
+#     field_selectors:
+#       - spec.sos.issos = true
+#       - location = {{ mcsp_region }}
+# Instead, we have to get all VPCs and loop through them to look for a matching SoS VPC
+
+- name: "mcsp : Lookup VPCs in order verify that SoS VPC is present and correct for {{ mcsp_region }}"
+  kubernetes.core.k8s_info:
+    api_version: automation.ibm.com/v1alpha1
+    kind: CloudRockVpc
+    namespace: "{{ mcsp_control_plane_namespace }}"
+  register: _vpcs
+
+- name: "mcsp : Look for VPC with spec.sos.issos=true and spec.location={{ mcsp_region }}"
+  set_fact:
+    sos_vpc_name: "{{
+        _vpcs.resources
+        | selectattr('spec.sos.issos', 'defined')
+        | selectattr('spec.sos.issos', 'equalto', true)
+        | selectattr('spec.location', 'defined')
+        | selectattr('spec.location', 'equalto', mcsp_region)
+        | map(attribute='metadata.name')
+        | first
+        | default('')
+      }}"
+
+- name: "mcsp : Fail if SoS VPC is absent"
+  assert:
+    that:
+    - sos_vpc_name is defined
+    - sos_vpc_name != ""
+
+- name: "mcsp : Verify that {{ sos_vpc_name }} is ready"
+  kubernetes.core.k8s_info:
+    api_version: automation.ibm.com/v1alpha1
+    kind: CloudRockVpc
+    namespace: "{{ mcsp_control_plane_namespace }}"
+    wait: yes
+    wait_condition:
+      type: Ready
+      status: 'True' 
+    wait_timeout: 5
+
+
+- name: "mcsp : Ensure CloudRockCluster CR is present"
+  kubernetes.core.k8s:
+    state: present
+    template: 'templates/mcsp/cloudrockcluster.yaml.j2'
+
+    # In case this is an update, wait for the controller to acknowledge the update
+    wait: yes
+    wait_sleep: 5
+    wait_timeout: 60
+    wait_condition:
+      type: Ready
+      status: 'False'
+      reason: 'ForceReconcile'
+
+# Now wait for the status to transition to (or back to, in case of an update) Ready=True
+- name: "mcsp : Wait for CloudRockCluster CR to be ready"
+  kubernetes.core.k8s_info:
+    api_version: automation.ibm.com/v1alpha1
+    kind: CloudRockCluster
+    namespace: "{{ mcsp_control_plane_namespace }}"
+    name: "{{ mcsp_cluster_name }}"
+    wait: yes
+    wait_sleep: 60
+    wait_timeout: 3600 # can take up to 60 minutes
+    wait_condition:
+      type: Ready
+      status: 'True'
+  ignore_errors: true
+
