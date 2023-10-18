@@ -130,11 +130,20 @@ URL to access WML service (same as Cloud Pak for Data URL).
 Role Variables - Manage Workspace
 -------------------------------------------------------------------------------
 
+### Manage - Health Integration variables
+---
+
 ### mas_appws_bindings_health_wsl_flag
 Optional. Boolean value indicating if Watson Studio must be bound to Manage. It is expected a system level WatsonStudioCfg applied in the cluster.
 
 - Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG`
 - Default: `false`
+
+### mas_appws_bindings_health_wsl
+Optional. Set as `system` to indicate Watson Studio must be installed and bound to Health
+
+- Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL`
+- Default: None
 
 ### mas_app_settings_aio_flag
 Optional. Flag indicating if Asset Investment Optimization (AIO) resource must be loaded or not. It can be loaded only when Optimizer application is installed.
@@ -142,6 +151,9 @@ Optional. Flag indicating if Asset Investment Optimization (AIO) resource must b
 - Only supported when Optimizer application is installed.
 - Environment Variable: `MAS_APP_SETTINGS_AIO_FLAG`
 - Default: `true`
+
+### Manage - DB2 settings variables
+---
 
 ### mas_app_settings_db2_schema
 Optional. Name of the schema where Manage database lives in.
@@ -167,6 +179,9 @@ Optional. Name of the Manage database indexspace
 - Environment Variable: `MAS_APP_SETTINGS_INDEXSPACE`
 - Default: `MAXINDEX`
 
+### Manage - Persistent Volumes variables
+---
+
 ### mas_app_settings_persistent_volumes_flag
 Optional. Flag indicating if persistent volumes should be configured by default during Manage Workspace activation.
 There are two defaulted File Storage Persistent Volumes Claim resources that will be created out of the box for Manage if this flag is set to `true`:
@@ -176,43 +191,9 @@ There are two defaulted File Storage Persistent Volumes Claim resources that wil
 
 - Environment Variable: `MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG`
 - Default: `false`
+### JMS queues
 
-### mas_app_settings_base_language
-Optional. Provide the base language for Manage application.
-For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
-
-- Environment Variable: `MAS_APP_SETTINGS_BASE_LANG`
-- Default: `EN` (English)
-
-### mas_app_settings_secondary_languages
-Optional. Provide a list of additional secondary languages for Manage application.
-
-Note: The more languages you add, the longer Manage will take to install and activate.
-
-Export the `MAS_APP_SETTINGS_SECONDARY_LANGS` variable with the language codes as comma-separated values.
-For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
-
-- Environment Variable: `MAS_APP_SETTINGS_SECONDARY_LANGS`
-- Default: None
-
- For example, use the following to enable Manage application with Arabic, Deutsch and Japanese as secondary languages:
-`export MAS_APP_SETTINGS_SECONDARY_LANGS='AR,DE,JA'`
-
-### mas_app_settings_server_bundles_size
-Optional. Provides different flavors of server bundle configuration to handle workload for Manage application.
-For more details about Manage application server bundle configuration, refer to [Setting the server bundles for Manage application](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=manage-setting-server-bundles).
-
-Currently supported server bundle sizes are:
-
-- `dev` - Deploys Manage with the default server bundle configuration.
-  - i.e just 1 bundle pod handling `all` Manage application workload.
-- `small` - Deploys Manage with the most common deployment configuration.
-  - i.e 4 bundle pods, each one handling workload for each main capabilities: `mea`, `cron`, `report` and `ui`
-- `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod.
-  - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path.
-
-- Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
-- Default: `dev`
+The following properties can be defined to customize the persistent volumes for the JMS queues setup for Manage.
 
 ### mas_app_settings_jms_queue_pvc_storage_class
 Optional. Provide the persistent volume storage class to be used for JMS queue configuration.
@@ -242,6 +223,133 @@ Optional. Provide the persistent volume storage mount path to be used for JMS qu
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_MOUNT_PATH`
 - Default: `/jms`
 
+### mas_app_settings_jms_queue_pvc_accessmode
+Optional. Provide the persistent volume storage access-mode to be used for JMS queue configuration.
+Typically you would either choose between `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class).
+
+- Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_ACCESSMODE`
+- Default: `ReadWriteMany`
+
+### mas_app_settings_default_jms
+Optional. Set this to `true` if you want to have JMS continuous queues configured
+
+- Environment Variable: `MAS_APP_SETTINGS_DEFAULT_JMS`
+- Default: `false`
+
+
+### Doclinks/Attachments
+
+The following properties can be defined to customize the persistent volumes for the Doclinks/Attachments setup for Manage.
+
+### mas_app_settings_doclinks_pvc_storage_class
+Optional. Provide the persistent volume storage class to be used for doclinks/attachments configuration.
+
+- Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_STORAGE_CLASS`
+- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
+
+### mas_app_settings_doclinks_pvc_name
+Optional. Provide the persistent volume claim name to be used for doclinks/attachments configuration.
+
+- Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_NAME`
+- Default: `manage-doclinks`
+
+### mas_app_settings_doclinks_pvc_size
+Optional. Provide the persistent volume claim size to be used for doclinks/attachments configuration.
+
+- Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_SIZE`
+- Default: `20Gi`
+
+### mas_app_settings_doclinks_mount_path
+Optional. Provide the persistent volume storage mount path to be used for doclinks/attachments configuration.
+
+- Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_MOUNT_PATH`
+- Default: `/DOCLINKS`
+
+### mas_app_settings_doclinks_pvc_accessmode
+Optional. Provide the persistent volume storage access-mode to be used for doclinks/attachments configuration.
+Typically you would either choose between `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class).
+
+- Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_ACCESSMODE`
+- Default: `ReadWriteMany`
+
+## BIM (Building Information Models)
+
+The following properties can be defined to customize the persistent volumes for the Building Information Models setup for Manage.
+
+### mas_app_settings_bim_pvc_storage_class
+Optional. Provide the persistent volume storage class to be used for Building Information Models configuration.
+
+- Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_STORAGE_CLASS`
+- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
+
+### mas_app_settings_bim_pvc_name
+Optional. Provide the persistent volume claim name to be used for Building Information Models configuration.
+
+- Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_NAME`
+- Default: `manage-bim`
+
+### mas_app_settings_bim_pvc_size
+Optional. Provide the persistent volume claim size to be used for Building Information Models configuration.
+
+- Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_SIZE`
+- Default: `20Gi`
+
+### mas_app_settings_bim_mount_path
+Optional. Provide the persistent volume storage mount path to be used for Building Information Models configuration.
+
+- Environment Variable: `MAS_APP_SETTINGS_BIM_MOUNT_PATH`
+- Default: `/bim`
+
+### mas_app_settings_bim_pvc_accessmode
+Optional. Provide the persistent volume storage access-mode to be used for Building Information Models configuration.
+Typically you would either choose between `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class).
+
+- Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_ACCESSMODE`
+- Default: `ReadWriteMany`
+
+### Manage - Supported languages variables
+---
+### mas_app_settings_base_language
+Optional. Provide the base language for Manage application.
+For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
+
+- Environment Variable: `MAS_APP_SETTINGS_BASE_LANG`
+- Default: `EN` (English)
+
+### mas_app_settings_secondary_languages
+Optional. Provide a list of additional secondary languages for Manage application.
+
+Note: The more languages you add, the longer Manage will take to install and activate.
+
+Export the `MAS_APP_SETTINGS_SECONDARY_LANGS` variable with the language codes as comma-separated values.
+For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
+
+- Environment Variable: `MAS_APP_SETTINGS_SECONDARY_LANGS`
+- Default: None
+
+ For example, use the following to enable Manage application with Arabic, Deutsch and Japanese as secondary languages:
+`export MAS_APP_SETTINGS_SECONDARY_LANGS='AR,DE,JA'`
+
+### Manage - Server Bundle configuration variables
+---
+### mas_app_settings_server_bundles_size
+Optional. Provides different flavors of server bundle configuration to handle workload for Manage application.
+For more details about Manage application server bundle configuration, refer to [Setting the server bundles for Manage application](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=manage-setting-server-bundles).
+
+Currently supported server bundle sizes are:
+
+- `dev` - Deploys Manage with the default server bundle configuration.
+  - i.e just 1 bundle pod handling `all` Manage application workload.
+- `small` - Deploys Manage with the most common deployment configuration.
+  - i.e 4 bundle pods, each one handling workload for each main capabilities: `mea`, `cron`, `report` and `ui`
+- `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod.
+  - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path.
+
+- Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
+- Default: `dev`
+
+### Manage - Customization Archive settings variables
+---
 ### mas_app_settings_customization_archive_url
 Optional. Provide a custom archive/file path to be included as part of Manage deployment.
 
@@ -254,11 +362,8 @@ Optional. Provide a custom archive file name to be associated with the archive/f
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
 - Default: `manage-custom-archive`
 
-### mas_appws_bindings_health_wsl
-Optional. Set as `system` to indicate Watson Studio must be installed and bound to Heath
-
-- Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL`
-- Default: None
+### Manage - Database encryption settings variables
+---
 
 ### mas_app_settings_crypto_key
 Optional. This defines the `MXE_SECURITY_CRYPTO_KEY` value if you want to customize your Manage database encryption keys.

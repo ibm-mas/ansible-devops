@@ -3,14 +3,23 @@
   any_errors_fatal: true
 
   vars:
-    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-230829-amd64', True) }}"
-    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.10.x', True) }}"
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-231004-amd64', True) }}"
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.11.x', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
 
   pre_tasks:
+    - name: "Get stats for the catalog file"
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
+      register: catalog_file_stats
+
+    - name: "Debug stats if the digest image map file exists"
+      ansible.builtin.set_fact:
+        file_catalog_tag: "{{ (catalog_file_stats.stat.exists|bool) | ternary(catalog_tag, 'v8-231004-amd64') }}"
+
     - name: Load CASE bundle versions
       include_vars:
-        file: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
+        file: "{{ playbook_dir }}/../common_vars/casebundles/{{ file_catalog_tag }}.yml"
 
   roles:
     # 1. IBM Maximo Predict
@@ -19,11 +28,11 @@
       when: mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-mas-predict
-        case_version: "{{ mas_predict_version[mas_channel] }}"
+        case_version: "{{ lookup('env', 'MAS_PREDICT_VERSION') | default (mas_predict_version[mas_channel], True) }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
     - name: ibm.mas_devops.mirror_images
       vars:
         manifest_name: ibm-mas-predict
-        manifest_version: "{{ mas_predict_version[mas_channel] }}"
+        manifest_version: "{{ lookup('env', 'MAS_PREDICT_VERSION') | default (mas_predict_version[mas_channel], True) }}"
