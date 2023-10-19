@@ -58,10 +58,10 @@ class ActionModule(ActionBase):
                 notReady.append(msg)
                 allResourcesHealthyThisLoop = False
               else:
-                display.v(f"[READY]   {msg}")
+                display.vvv(f"[READY]   {msg}")
                 ready.append(msg)
 
-          display.vvv(f"Finished loop: allResourcesHealthyThisLoop={allResourcesHealthyThisLoop} delay: {delay}")
+          display.v(f"Finished loop: allResourcesHealthyThisLoop={allResourcesHealthyThisLoop} delay: {delay}")
           if allResourcesHealthyThisLoop:
             allResourcesHealthy = True
           else:
@@ -69,7 +69,7 @@ class ActionModule(ActionBase):
             time.sleep(delay)
 
         if allResourcesHealthy:
-          display.vvv(f"Success: allResourcesHealthy={allResourcesHealthy}")
+          display.v(f"Success: allResourcesHealthy={allResourcesHealthy}")
           return dict(
             message=f"All {resourceName} are healthy",
             failed=False,
@@ -81,5 +81,5 @@ class ActionModule(ActionBase):
             )
           )
         else:
-          display.vvv(f"Failure: allResourcesHealthy={allResourcesHealthy}")
+          display.v(f"Failure: allResourcesHealthy={allResourcesHealthy}")
           raise AnsibleError(f"Error: One or more {resourceName} are not healthy")
