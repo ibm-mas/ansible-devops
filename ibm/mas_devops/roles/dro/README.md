@@ -1,5 +1,9 @@
-dro
+dro [Data Reporter Operator]
 ===============================================================================
+DRO will be supported on the following MAS versions
+- MAS 8.10.6 +
+- MAS 8.11.2 +
+- MAS 9.0 +
 
 Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-marketplace-operator/tree/develop/datareporter/v2) in the `redhat-marketplace` namespace.  If `mas_instance_id` and the others associated parameters are provided then the role will also generate a configuration file that can be directly applied to IBM Maximo Application Suite.
 
