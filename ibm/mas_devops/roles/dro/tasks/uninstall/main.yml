@@ -1,7 +1,18 @@
 ---
 # 1. Delete CR, CSV and Subscription
 # -----------------------------------------------------------------------------
-# Delete the MarketplaceConfig
+# IMO
+
+- name: Get ibm-metrics-operator Subscription
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "ibm-metrics-operator"
+    namespace: openshift-marketplace
+    label_selectors:
+    - managed-by=mas
+  register: imo_subscription
+
 - name: "uninstall : Delete the MarketplaceConfig"
   kubernetes.core.k8s:
     state: absent
@@ -11,8 +22,19 @@
     name: marketplaceconfig
     wait: yes
     wait_timeout: 600
+  when: (imo_subscription.resources is defined) and (imo_subscription.resources| lenght == 1)
 
-# IMO
+- name: "uninstall : Delete the MeterBase"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: marketplace.redhat.com/v1alpha1
+    kind: MeterBase
+    namespace: redhat-marketplace
+    name: rhm-marketplaceconfig-meterbase
+    wait: yes
+    wait_timeout: 600
+  when: (imo_subscription.resources is defined) and (imo_subscription.resources| lenght == 1)
+
 - name: "uninstall : Delete ibm-metrics-operator CSV"
   kubernetes.core.k8s:
     state: absent
@@ -23,6 +45,7 @@
       - "operators.coreos.com/ibm-metrics-operator.redhat-marketplace"
     wait: yes
     wait_timeout: 300
+  when: (imo_subscription.resources is defined) and (imo_subscription..resources| lenght == 1)
 
 - name: "uninstall : Delete ibm-metrics-operator Subscription"
   kubernetes.core.k8s:
@@ -35,70 +58,16 @@
     wait_timeout: 300
 
 # DRO
-- name: "uninstall : Delete  ibm-data-reporter-operator CSV"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    namespace: redhat-marketplace
-    label_selectors:
-      - "operators.coreos.com/ibm-data-reporter-operator.redhat-marketplace"
-    wait: yes
-    wait_timeout: 300
 
-- name: "uninstall : Delete ibm-data-reporter-operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
+- name: Get ibm-data-operator Subscription
+  kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
-    name: ibm-data-reporter-operator
-    namespace: redhat-marketplace
-    wait: yes
-    wait_timeout: 300
-
-
-# RMO
-- name: "uninstall : Delete  redhat-marketplace-operator CSV"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    namespace: redhat-marketplace
+    name: "ibm-data-reporter-operator"
+    namespace: openshift-marketplace
     label_selectors:
-      - "operators.coreos.com/redhat-marketplace-operator.redhat-marketplace"
-    wait: yes
-    wait_timeout: 300
-
-- name: "uninstall : Delete redhat-marketplace-operator Subscription"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: redhat-marketplace-operator
-    namespace: redhat-marketplace
-    wait: yes
-    wait_timeout: 300
-
-# Delete CRs
-- name: "uninstall : Delete the MarketplaceConfig"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: marketplace.redhat.com/v1alpha1
-    kind: MarketplaceConfig
-    namespace: redhat-marketplace
-    name: marketplaceconfig
-    wait: yes
-    wait_timeout: 600
-
-- name: "uninstall : Delete the MeterBase"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: marketplace.redhat.com/v1alpha1
-    kind: MeterBase
-    namespace: redhat-marketplace
-    name: rhm-marketplaceconfig-meterbase
-    wait: yes
-    wait_timeout: 600
+    - managed-by=mas
+  register: dro_subscription
 
 - name: "uninstall : Delete the DataReporterConfig"
   kubernetes.core.k8s:
@@ -109,6 +78,68 @@
     name: datareporterconfig
     wait: yes
     wait_timeout: 600
+  when: (dro_subscription.resources is defined) and (dro_subscription.resources| lenght == 1)
+
+
+- name: "uninstall : Delete  ibm-data-reporter-operator CSV"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: redhat-marketplace
+    label_selectors:
+      - "operators.coreos.com/ibm-data-reporter-operator.redhat-marketplace"
+    wait: yes
+    wait_timeout: 300
+  when: (dro_subscription.resources is defined) and (dro_subscription.resources| lenght == 1)
+
+- name: "uninstall : Delete ibm-data-reporter-operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: ibm-data-reporter-operator
+    namespace: redhat-marketplace
+    wait: yes
+    wait_timeout: 300
+  when: (dro_subscription.resources is defined) and (dro_subscription.resources| lenght == 1)
+
+
+# RMO
+
+- name: Get ibm-metrics-operator Subscription
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "redhat-marketplace-operator"
+    namespace: openshift-marketplace
+    label_selectors:
+    - managed-by=mas
+  register: rmo_subscription
+
+
+- name: "uninstall : Delete  redhat-marketplace-operator CSV"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: redhat-marketplace
+    label_selectors:
+      - "operators.coreos.com/redhat-marketplace-operator.redhat-marketplace"
+    wait: yes
+    wait_timeout: 300
+  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources| lenght == 1)
+
+- name: "uninstall : Delete redhat-marketplace-operator Subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: redhat-marketplace-operator
+    namespace: redhat-marketplace
+    wait: yes
+    wait_timeout: 300
+  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources| lenght == 1)
 
 # Delete secrets
 - name: "uninstall : Delete the ibm-data-reporter-operator-api SA token secret"
@@ -118,12 +149,3 @@
     kind: Secret
     namespace: redhat-marketplace
     name: ibm-data-reporter-operator-api-token
-
-- name: "uninstall : Delete the marketplace secret"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: Secret
-    namespace: redhat-marketplace
-    name: redhat-marketplace-pull-secret
-

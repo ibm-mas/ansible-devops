@@ -16,7 +16,7 @@
     # Workspace Configuration
     mas_workspace_name: "{{ lookup('env', 'MAS_WORKSPACE_NAME') | default('MAS Development', true) }}"
     mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') | default('masdev', true) }}"
-    bas_action: "{{ lookup('env', 'BAS_ACTION') | default('UDS', True) }}"
+    bas_provider: "{{ lookup('env', 'BAS_PROVIDER') | default('UDS', True) }}"
 
   pre_tasks:
     # For the full set of supported environment variables refer to the playbook documentation
@@ -34,7 +34,7 @@
         fail_msg: "One or more required environment variables are not defined"
 
     - name: Check for required environment variables for UDS
-      when: (bas_action =='UDS')
+      when: (bas_provider =='UDS')
       assert:
         that:
           - lookup('env', 'UDS_CONTACT_EMAIL') != ""
@@ -44,7 +44,7 @@
 
 
     - name: Check for required environment variables for DRO
-      when: (bas_action =='DRO')
+      when: (bas_provider =='DRO')
       assert:
         that:
           - lookup('env', 'DRO_CONTACT_EMAIL') != ""
@@ -72,11 +72,11 @@
     # Set uds_endpoint_url, uds_tls_crt_local_file_path, uds_api_key variables to skip install and set up BASCfg for
     # an existing installation of UDS
     - role: ibm.mas_devops.uds
-      when: (bas_action == 'UDS')
+      when: (bas_provider | upper == 'UDS')
 
     # 4.1 Install DRO
     - role: ibm.mas_devops.dro
-      when: (bas_action == 'DRO')
+      when: (bas_provider | upper == 'DRO')
 
     # 5. Generate a Workspace
     - ibm.mas_devops.gencfg_workspace

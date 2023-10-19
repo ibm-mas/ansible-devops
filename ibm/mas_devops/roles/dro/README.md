@@ -1,7 +1,7 @@
 dro
 ===============================================================================
 
-Installs [Data Reporter Operator](https://www.ibm.com/docs/en/cpfs?topic=services-enabling-user-data) in the `redhat-marketplace` namespace.  If `mas_instance_id` and the others associated parameters are provided then the role will also generate a configuration file that can be directly applied to IBM Maximo Application Suite.
+Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-marketplace-operator/tree/develop/datareporter/v2) in the `redhat-marketplace` namespace.  If `mas_instance_id` and the others associated parameters are provided then the role will also generate a configuration file that can be directly applied to IBM Maximo Application Suite.
 
 
 Role Variables - Installation

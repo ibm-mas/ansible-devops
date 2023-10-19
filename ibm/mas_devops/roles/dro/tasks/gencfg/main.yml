@@ -1,34 +1,99 @@
 ---
-# 1. Set dro_tls_crt
+# 1. Prep variables for bascfg
 # -----------------------------------------------------------------------------
-- name: "gencfg : Set dro_tls_crt fact for BasCfg when using existing dro"
-  when:
-    - dro_tls_crt is not defined or dro_tls_crt == ""
-    - dro_tls_crt_local_file_path is defined and dro_tls_crt_local_file_path != ""
-  set_fact:
-    dro_tls_crt: "{{ lookup('file', dro_tls_crt_local_file_path) | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
-  no_log: true
 
-# 2. Check for required facts
+# Check dro contact info
+- name: "drocfg : Fail if DRO contact information has not been provided"
+  assert:
+    that:
+      - dro_contact.email is defined and dro_contact.email != ""
+      - dro_contact.first_name is defined and dro_contact.first_name != ""
+      - dro_contact.last_name is defined and dro_contact.last_name != ""
+    fail_msg: "One or more required environment variables are not defined [DRO_CONTACT_EMAIL, DRO_CONTACT_FIRSTNAME, DRO_CONTACT_LASTNAME]"
+
+# 1. Lookup the endpoint route
 # -----------------------------------------------------------------------------
+- name: "drocfg : Get ibm-data-reporter route"
+  k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: ibm-data-reporter
+    namespace: redhat-marketplace
+  register: dro_route
+
+- name: "drocfg : Assert that ibm-data-reporter route exists"
+  ansible.builtin.assert:
+    that:
+      - dro_route is defined
+      - dro_route.resources is defined
+      - dro_route.resources | length == 1
+    fail_msg: "Route not found: ibm-data-reporter"
+
+- name: set dro route for bascfg
+  set_fact:
+    dro_endpoint_url: "https://{{ dro_route.resources[0].spec.host }}"
+  when: (dro_route.resources | length == 1)
+
+# 2. Lookup the DRO API key
+# -----------------------------------------------------------------------------
+- name: "drocfg : Create ibm-data-reporter-operator-api SA token secret"
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: ibm-data-reporter-operator-api-token
+        namespace: redhat-marketplace
+        labels:
+          secret-owner: ibm-data-reporter-operator-api
+        annotations:
+            kubernetes.io/service-account.name: ibm-data-reporter-operator-api
+      type: kubernetes.io/service-account-token
+
+- name: "drocfg : Get ibm-data-reporter-operator-api secret"
+  k8s_info:
+    kind: Secret
+    name: ibm-data-reporter-operator-api-token
+    namespace: redhat-marketplace
+    label_selectors:
+      - secret-owner = ibm-data-reporter-operator-api
+  register: token_secret_info
+
+- name: "drocfg : Set dro token api for bascfg"
+  set_fact:
+    dro_api_key: "{{ token_secret_info.resources[0].data.token | b64decode }}"
+  when: (token_secret_info.resources | length != 0)
+
+# 3. Lookup the certificates
+# -----------------------------------------------------------------------------
+- name: "drocfg : Lookup the default cluster ingress secret"
+  include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
+
+# Break up the certificate into an array
+- name: "udscfg : Set UDS cert variable"
+  set_fact:
+    dro_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+
 - name: "gencfg : Fail if dro_tls_crt has not been provided"
   assert:
     that: dro_tls_crt is defined and dro_tls_crt|length != 0
     fail_msg: "dro_tls_crt property has not been set"
 
 
-# 3. Provide Debug information
+# 4.Provide Debug information
 # -----------------------------------------------------------------------------
-- name: "gencfg : Debug information"
+- name: "udscfg : Debug generated config"
   debug:
     msg:
       - "DRO URL ............................ {{ dro_endpoint_url }}"
+      - "Cluster Ingress TLS Certificate .... {{ cluster_ingress_tls_crt | default('<undefined>', True) }}"
+      - "DRO TLS Certificate ................ {{ dro_tls_crt }}"
       - "DRO Contact First Name ............. {{ dro_contact.first_name | default('<undefined>', True) }}"
       - "DRO Contact Last Name .............. {{ dro_contact.last_name | default('<undefined>', True) }}"
       - "DRO Contact e-mail ................. {{ dro_contact.email | default('<undefined>', True) }}"
 
-
-# 4. Generate BASCfg for MAS
+# 5. Generate BASCfg for MAS
 # -----------------------------------------------------------------------------
 - name: "gencfg : Copy BASCfg to filesystem"
   ansible.builtin.template:
