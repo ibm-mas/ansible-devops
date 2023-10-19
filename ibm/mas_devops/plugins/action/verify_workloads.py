@@ -34,8 +34,6 @@ class ActionModule(ActionBase):
     def _checkResources(self, resourceAPI, resourceName, retries, delay):
         display = Display()
 
-        display.v(f"Checking {resourceName} are healthy ({retries} retries with a {delay} second delay)")
-
         allResourcesHealthy = False
         attempts = 0
         while attempts < retries and not allResourcesHealthy:
@@ -45,6 +43,7 @@ class ActionModule(ActionBase):
           ready = []
           notReady = []
           disabled = []
+          display.v(f"Checking {resourceName} are healthy ({attempts}/{retries} retries with a {delay} second delay)")
 
           for resource in resources.items:
             if resource.status.replicas == 0:
@@ -61,11 +60,12 @@ class ActionModule(ActionBase):
                 display.vvv(f"[READY]   {msg}")
                 ready.append(msg)
 
-          display.v(f"Finished loop: allResourcesHealthyThisLoop={allResourcesHealthyThisLoop} delay: {delay}")
+          display.vvv(f"Finished check: allResourcesHealthyThisLoop={allResourcesHealthyThisLoop} delay: {delay}")
           if allResourcesHealthyThisLoop:
+            display.v(f"Finished check: All workloads are healthy")
             allResourcesHealthy = True
           else:
-            display.vvv(f"Delaying {delay} seconds before next check")
+            display.v(f"Finished check: Delaying {delay} seconds before next check")
             time.sleep(delay)
 
         if allResourcesHealthy:
