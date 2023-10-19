@@ -97,31 +97,35 @@
 # 7. Save the manifests to our working directory
 # -----------------------------------------------------------------------------
 # Team messed up the release and the version we will get back is 8.7.0+20230925.114420 rather than 8.7.0
+#
+# Note: We use _manifest_version to avoid conflict with manifest_version that is used as an input to
+# the mirror_images role.  If we set a manifest_version fact it will override the value passed into all
+# mirror_image roles invoked in a playbook.
 - name: "Set manifest version"
   set_fact:
-    manifest_version: "{{ case_version }}"
+    _manifest_version: "{{ case_version }}"
 
 - name: "Workaround for ibm-mas-manage 8.7.0"
   when:
     - case_name == "ibm-mas-manage"
     - case_version == "8.7.0+20230925.114420"
   set_fact:
-    manifest_version: "8.7.0"
+    _manifest_version: "8.7.0"
 
 - name: "{{ case_name }} : Copy images-mapping-to-filesystem"
   ansible.builtin.copy:
     src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping-to-filesystem.txt
-    dest: "{{ mirror_working_dir }}/manifests/to-filesystem/{{ case_name }}_{{ manifest_version }}.txt"
+    dest: "{{ mirror_working_dir }}/manifests/to-filesystem/{{ case_name }}_{{ _manifest_version }}.txt"
 
 - name: "{{ case_name }} : Copy images-mapping-from-filesystem"
   ansible.builtin.copy:
     src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping-from-filesystem.txt
-    dest: "{{ mirror_working_dir }}/manifests/from-filesystem/{{ case_name }}_{{ manifest_version }}.txt"
+    dest: "{{ mirror_working_dir }}/manifests/from-filesystem/{{ case_name }}_{{ _manifest_version }}.txt"
 
 - name: "{{ case_name }} : Copy images-mapping"
   ansible.builtin.copy:
     src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping.txt
-    dest: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ manifest_version }}.txt"
+    dest: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ _manifest_version }}.txt"
 
 
 # 7. IBM SLS 3.5.0 Bad Digest Hack
