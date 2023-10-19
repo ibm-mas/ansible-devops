@@ -1,29 +1,61 @@
 ---
-
 # 1. Check if using a private or signed ingress cert
 # -----------------------------------------------------------------------------
-- name: "Check private root CA"
-  shell: |
-    oc get configmap -n openshift-config $(oc get proxy/cluster -o yaml -o custom-columns=":.spec.trustedCA.name" --no-headers) -o yaml -o custom-columns=":.data.ca-bundle\.crt" --no-headers
-  register: private_root_ca
+- name: Clear private_root_ca_name fact
+  ansible.builtin.set_fact:
+    private_root_ca_name: ""
+
+- name: "Lookup Proxy: cluster"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Proxy
+    name: cluster
+  register: cluster_proxy_lookup
+
+- name: Set private_root_ca_name fact
+  ansible.builtin.set_fact:
+    private_root_ca_name: "{{ cluster_proxy_lookup.resources[0].spec.trustedCA.name }}"
+  when:
+    - cluster_proxy_lookup is defined
+    - cluster_proxy_lookup.resources | length == 1
+    - cluster_proxy_lookup.resources[0].spec.trustedCA.name is defined
 
 # 2. If no private CA is found then run the get_signed_ingress task
 # -----------------------------------------------------------------------------
 - name: "Get signed ingress certificates (no private CA found)"
-  when: private_root_ca.stdout_lines[0] == "<none>"
-  include_tasks: "get_signed_ingress_cert.yml"
-
+  ansible.builtin.include_tasks: "get_signed_ingress_cert.yml"
+  when: private_root_ca_name == ""
 
 # 3. If private CA is found then run then use it instead of a signed one
 # -----------------------------------------------------------------------------
-# Break up the certificate into an array
-- name: "Get private ingress certificate (full)"
-  when: private_root_ca.stdout_lines[0] != "<none>"
-  set_fact:
-    cluster_ingress_tls_crt_full: "{{ private_root_ca.stdout | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+- name: Private Root CA name is defined
+  when: private_root_ca_name != ""
+  block:
+    - name: "Lookup ConfigMap: {{ private_root_ca_name }}"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: "{{ private_root_ca_name }}"
+        namespace: openshift-config
+      register: private_root_ca_lookup
 
-# We only want the first part of this certificate, I don't know why, but this is what works
-- name: "Get private ingress certificate"
-  when: private_root_ca.stdout_lines[0] != "<none>"
-  set_fact:
-    cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt_full[0] }}"
+    - name: "Check ca-bundle.crt is defined"
+      ansible.builtin.assert:
+        that:
+          - private_root_ca_lookup.resources[0].data['ca-bundle.crt'] is defined
+          - private_root_ca_lookup.resources[0].data['ca-bundle.crt'] != ""
+        fail_msg: "Private Root CA ConfigMap {{ private_root_ca_name }} does not have 'ca-bundle.crt' defined"
+
+    - name: Set private_root_ca_bundle_crt fact
+      ansible.builtin.set_fact:
+        private_root_ca_bundle_crt: "{{ private_root_ca_lookup.resources[0].data['ca-bundle.crt'] }}"
+
+    # Break up the certificate into an array
+    - name: "Get private ingress certificate (full)"
+      ansible.builtin.set_fact:
+        cluster_ingress_tls_crt_full: "{{ private_root_ca_bundle_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+
+    # We only want the first part of this certificate, I don't know why, but this is what works
+    - name: "Get private ingress certificate"
+      ansible.builtin.set_fact:
+        cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt_full[0] }}"
