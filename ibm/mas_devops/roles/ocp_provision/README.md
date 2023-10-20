@@ -1,7 +1,7 @@
 ocp_provision
 ===============================================================================
 
-Provision OCP cluster on DevIT Fyre or IBM Cloud ROKS.
+Provision OCP cluster on DevIT Fyre, IBM Cloud ROKS, ROSA or MCSP.
 
 Role Variables
 -------------------------------------------------------------------------------
@@ -346,6 +346,142 @@ GCP project id in which the cluster will be deployed.
 - **Required** when `cluster_type = ipi` and `ipi_platform = gcp`
 - Environment Variable: `GOOGLE_PROJECTID`
 - Default Value: None
+
+
+Role Variables - MCSP
+-------------------------------------------------------------------------------
+The following variables are only used when `cluster_type = mcsp`.
+NOTE: This is only intended for internal use within IBM.
+
+### mcsp_control_plane_api
+
+OCP API URL of the Control Plane for the targeted MCSP environment. See https://pages.github.ibm.com/ibm-saas-platform/MultiCloud-SaaS-Framework/MCSP_Overview/mcsp_clusters/
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_CONTROL_PLANE_API`
+- Default Value: None
+
+### mcsp_control_plane_token
+Temporary; will be replaced with the credentials for a functional ID. See https://ibm-watson-iot.slack.com/archives/C04E0SN54KW/p1697543955467329. In the meantime, if you want to use this role, log in to the MCSP Control Plane OCP using your IBM ID and request a token via the "Copy Login Command" feature.
+
+### mcsp_region
+MCSP region within which to create the cluster. Supported values will vary depending on the MCSP environment that is being targeted. See https://pages.github.ibm.com/ibm-saas-platform/MultiCloud-SaaS-Framework/MCSP_Overview/mcsp_clusters/
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_REGION`
+- Default Value: None
+
+### mcsp_platform
+
+Hyperscaler platform to target. Currently supports `aws` only.
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_PLATFORM`
+- Default Value: `aws`
+
+### mcsp_platform_account_secret_name
+
+Name of the secret in the MCSP Control Plane OCP containing details necessary to authenticate with MAS's account in the targeted hyperscaler platform. This should already have been configured as part of the MAS onboarding process.
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_PLATFORM_ACCOUNT_SECRET_NAME`
+- Default Value: `aws-account`
+
+### mcsp_control_plane_namespace
+The namespace assigned to MAS in the MCSP Control Plane OCP.
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_CONTROL_PLANE_NAMESPACE`
+- Default Value: `mas`
+
+### mcsp_worker_count
+
+Number of worker nodes for the cluster
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_WORKER_COUNT`
+- Default Value: `3`
+
+### mcsp_worker_flavor
+
+The hardware to use for each worker. See https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_WORKER_FLAVOR`
+- Default Value: `r5a.xlarge`
+
+### mcsp_argocd_api
+
+API URL of the ArgoCD worker for the targeted MCSP environment/region. See https://pages.github.ibm.com/ibm-saas-platform/CICD-Playbook/continuous-delivery/Overview
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_ARGOCD_API`
+- Default Value: None
+
+### mcsp_argocd_secret_name
+
+Name of the secret in the MCSP Control Plane OCP containing details necessary to authenticate with the targeted ArgoCD worker. This should already have been configured as part of the MAS onboarding process.
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_ARGOCD_SECRET_NAME`
+- Default Value: `argo`
+
+### mcsp_argocd_project_name
+
+Name of the ArgoCD project which will contain the Applications that will be deployed to this cluster by ArgoCD.
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_ARGOCD_PROJECT_NAME`
+- Default Value: `mas`
+
+### mcsp_idpverify_enabled
+
+Whether or not to enable the MCSP idpverify addon for this cluster. See https://pages.github.ibm.com/ibm-saas-platform/CP-Playbook/Addons/Addon%20List/idpverify/
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_IDPVERIFY_ENABLED`
+- Default Value: true
+
+### mcsp_idpverify_secret_verify_name
+
+Name of the secret in the MCSP Control Plane OCP containing details used by the idpverify addon. This should already have been configured by the MCSP team as part of the MAS onboarding process.
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_IDPVERIFY_SECRET_VERIFY_NAME`
+- Default Value: `verify`
+
+### mcsp_security_enabled
+
+Whether or not to enable the MCSP security addon for this cluster. See https://pages.github.ibm.com/ibm-saas-platform/CP-Playbook/Addons/Addon%20List/security/
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: ``MCSP_SECURITY_ENABLED``
+- Default Value: true
+
+### mcsp_logforwarder_enabled
+
+Whether or not to enable the MCSP security addon for this cluster. See https://pages.github.ibm.com/ibm-saas-platform/CP-Playbook/Addons/Addon%20List/logforwarder/
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: ``MCSP_LOGFORWARDER_ENABLED``
+- Default Value: true
+
+
+### mcsp_logforwarder_secret_dlc_name
+
+Name of a secret in the MCSP Control Plane OCP containing details necessary used by the logforwarder addon. This should already have been configured by the MCSP team as part of the MAS onboarding process.
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_LOGFORWARDER_SECRET_DLC_NAME`
+- Default Value: `dlc-cert`
+
+### mcsp_logforwarder_secret_sf_name
+
+Name of a secret in the MCSP Control Plane OCP containing details necessary used by the logforwarder addon. This should already have been configured by the MCSP team as part of the MAS onboarding process.
+
+- **Required** when `cluster_type = mcsp`
+- Environment Variable: `MCSP_LOGFORWARDER_SECRET_SF_NAME`
+- Default Value: `syslog-forwarder`
 
 Example Playbook
 -------------------------------------------------------------------------------
