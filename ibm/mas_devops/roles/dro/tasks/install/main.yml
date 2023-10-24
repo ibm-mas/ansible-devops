@@ -1,0 +1,299 @@
+---
+
+# 1. Check for MAS ImageContentSourcePolicy
+# -----------------------------------------------------------------------------
+- name: "Determine whether this is an airgap environment"
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
+
+
+# 2. Display DRO deployment details
+# -----------------------------------------------------------------------------
+- name: "DRO Deployment details"
+  debug:
+    msg:
+      - "DRO Namespace ...................... redhat-marketplace"
+      - "DRO Pull Secret Token............... Can get from https://marketplace.redhat.com/en-us/account/keys"
+      - "DRO CSV Version..................... {{ dro_version }}"
+      - "MAS Instance ID .................... {{ mas_instance_id | default('<undefined>', True) }}"
+      - "MAS Config Directory ............... {{ mas_config_dir | default('<undefined>', True) }}"
+      - "DRO Contact First Name ............. {{ dro_contact.first_name | default('<undefined>', True) }}"
+      - "DRO Contact Last Name .............. {{ dro_contact.last_name | default('<undefined>', True) }}"
+      - "DRO Contact e-mail ................. {{ dro_contact.email | default('<undefined>', True) }}"
+
+
+# 3. Install DRO Prerequisites
+# -----------------------------------------------------------------------------
+
+# Check redhat-marketplace operator exists
+# -----------------------------------------------------------------------------
+- name: Check if operator group is present in redhat-marketplace already
+  kubernetes.core.k8s_info:
+    namespace: redhat-marketplace
+    kind: OperatorGroup
+  register: og_info
+
+- name: "Create OperatorGroup in redhat-marketplace namespace if not exist"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/operatorgroup.yml.j2') }}"
+
+# Create Marketplace Pull Secret
+- name: Get marketplace secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "redhat-marketplace-pull-secret"
+    namespace: redhat-marketplace
+  register: rm_sec
+
+- name: Check IBM Entitlement Key
+  ansible.builtin.assert:
+    that:
+      - ibm_entitlement_key is defined
+      - ibm_entitlement_key | length != 0
+    fail_msg: "Provide IBM Entitlement Key, Access https://myibm.ibm.com/products-services/containerlibrary using your IBMId to access your entitlement key"
+  when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
+
+- name: "Create Secret redhat-marketplace-pull-secret"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/rhm-pull-secret.yml.j2') }}"
+  when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
+
+
+# 3.1 Load PodTemplates configuration
+# -----------------------------------------------------------------------------
+- name: Load podTemplates configuration
+  vars:
+    config_file_name: "ibm-mas-bascfg.yml"
+  when:
+    - mas_pod_templates_dir is defined
+    - mas_pod_templates_dir != ''
+  block:
+    - name: Check whether configuration exists
+      ansible.builtin.stat:
+        path: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+      register: pod_templates_file_lookup
+
+    - name: Load podTemplates configuration
+      ansible.builtin.include_vars:
+        file: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+        name: ibm_mas_bascfg_pod_templates
+      when: pod_templates_file_lookup.stat.exists
+
+    - name: Failed to find configuration
+      ansible.builtin.debug:
+        msg: "Could not find '{{ mas_pod_templates_dir }}/{{ config_file_name }}' - Skipping"
+      when: not pod_templates_file_lookup.stat.exists
+
+
+# 4. Install DRO
+# -----------------------------------------------------------------------------
+
+# Install ibm-metrics-operator
+# -----------------------------------------------------------------------------
+- name: Get ibm-metrics-operator Subscription
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "ibm-metrics-operator"
+    namespace: openshift-marketplace
+  register: imo_subscription
+
+- name: Get ibm-metrics-operator package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: "ibm-metrics-operator"
+    namespace: openshift-marketplace
+  register: imo_manifest
+  when: (imo_subscription.resources is defined) and (imo_subscription.resources | length == 0)
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - imo_manifest is defined
+      - imo_manifest.resources is defined
+      - imo_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: ibm-metrics-operator"
+  when: (imo_subscription.resources is defined) and (imo_subscription.resources | length == 0)
+
+- name: Set the subscription information ibm-metrics-operator
+  set_fact:
+    imo_source: "{{ imo_manifest.resources[0].status.catalogSource }}"
+    imo_source_namespace: "{{ imo_manifest.resources[0].status.catalogSourceNamespace }}"
+    imo_default_channel: "{{ imo_manifest.resources[0].status.defaultChannel }}"
+  when: (imo_subscription.resources is defined) and (imo_subscription.resources | length == 0)
+
+- name: Create Subscription ibm_metrics_operator
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/subscription/imo_subscription.yml') }}"
+    wait: yes
+    wait_timeout: 60
+  when: (imo_subscription.resources is defined) and (imo_subscription.resources | length == 0)
+
+
+# Install ibm-data-reporter-operator
+# -----------------------------------------------------------------------------
+- name: Get ibm-data-operator Subscription
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "ibm-data-reporter-operator"
+    namespace: openshift-marketplace
+  register: dro_subscription
+
+- name: Get ibm-data-reporter-operator package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: "ibm-data-reporter-operator"
+    namespace: openshift-marketplace
+  register: dro_manifest
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - dro_manifest is defined
+      - dro_manifest.resources is defined
+      - dro_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: ibm-data-reporter-operator"
+
+- name: Set the subscription information ibm-data-reporter-operator
+  set_fact:
+    dro_source: "{{ dro_manifest.resources[0].status.catalogSource }}"
+    dro_source_namespace: "{{ dro_manifest.resources[0].status.catalogSourceNamespace }}"
+    dro_default_channel: "{{ dro_manifest.resources[0].status.defaultChannel }}"
+
+- name: Set DRO default startingCSV
+  set_fact:
+    dro_csv: "{{ item.currentCSV }}"
+  with_items: "{{ dro_manifest.resources[0].status.channels }}"
+  when: (dro_manifest.resources is defined) and (item.name == dro_default_channel) and (dro_version|length  == 0)
+
+- name: Set DRO custom startingCSV
+  set_fact:
+    dro_csv: "ibm-data-reporter-operator.v{{ dro_version }}"
+  when: (dro_version|length != 0)
+
+- name: "Create Subscription ibm-data-reporter-operator"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/subscription/dro_subscription.yml') }}"
+    wait: yes
+    wait_timeout: 60
+  when: (dro_subscription.resources is defined) and (dro_subscription.resources | length == 0)
+
+# Install redhat-marketplace-operator
+# -----------------------------------------------------------------------------
+
+- name: Get ibm-metrics-operator Subscription
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "redhat-marketplace-operator"
+    namespace: openshift-marketplace
+  register: rmo_subscription
+
+- name: Get redhat-marketplace-operator package manifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: "redhat-marketplace-operator"
+    namespace: openshift-marketplace
+  register: rmo_manifest
+  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - rmo_manifest is defined
+      - rmo_manifest.resources is defined
+      - rmo_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: redhat-marketplace-operator"
+  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
+
+- name: Set the subscription information redhat-marketplace-operator
+  set_fact:
+    rmo_source: "{{ rmo_manifest.resources[0].status.catalogSource }}"
+    rmo_source_namespace: "{{ rmo_manifest.resources[0].status.catalogSourceNamespace }}"
+    rmo_default_channel: "{{ rmo_manifest.resources[0].status.defaultChannel }}"
+  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
+
+- name: "Create Subscription redhat-marketplace-operator"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/subscription/rmo_subscription.yml') }}"
+    wait: yes
+    wait_timeout: 120
+  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
+
+# Accept License
+# -----------------------------------------------------------------------------
+- name: Get MarketplaceConfig
+  kubernetes.core.k8s_info:
+    api_version: marketplace.redhat.com/v1alpha1
+    kind: MarketplaceConfig
+    namespace: redhat-marketplace
+    name: marketplaceconfig
+  register: marketplacecfg
+  until:
+  - "{{ marketplacecfg.resources|length > 0 }}"
+  retries: 20
+  delay: 20
+
+- name: "Accept marketplaceconfig license"
+  kubernetes.core.k8s_json_patch:
+    api_version: marketplace.redhat.com/v1alpha1
+    kind: MarketplaceConfig
+    namespace: redhat-marketplace
+    name: marketplaceconfig
+    patch:
+      - op: "replace"
+        path: "/spec/license/accept"
+        value: true
+
+
+# 4. Set Disconnected
+# -----------------------------------------------------------------------------
+- name: "Patch marketplaceconfig for airgap install"
+  kubernetes.core.k8s_json_patch:
+    api_version: marketplace.redhat.com/v1alpha1
+    kind: MarketplaceConfig
+    namespace: redhat-marketplace
+    name: marketplaceconfig
+    patch:
+      - op: "replace"
+        path: "/spec/isDisconnected"
+        value: "{{ airgap_install }}"
+    wait_timeout: 60
+    wait: yes
+  when: airgap_install
+
+# 5. Check deployment status
+# -----------------------------------------------------------------------------
+- name: "Wait for the rhm-data-service to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: rhm-data-service
+    namespace: redhat-marketplace
+    kind: StatefulSet
+  register: rds_sts
+  until:
+    - rds_sts.resources is defined and rds_sts.resources | length == 1
+    - rds_sts.resources[0].status is defined
+    - rds_sts.resources[0].status.readyReplicas is defined
+    - rds_sts.resources[0].status.readyReplicas == 3
+  retries: 30
+  delay: 20
+
+- name: "Wait for the ibm-data-reporter-operator-controller-manager to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-data-reporter-operator-controller-manager
+    namespace: redhat-marketplace
+    kind: Deployment
+  register: dro_deploy
+  until:
+    - dro_deploy.resources is defined and dro_deploy.resources | length == 1
+    - dro_deploy.resources[0].status is defined
+    - dro_deploy.resources[0].status.readyReplicas is defined
+    - dro_deploy.resources[0].status.readyReplicas == 1
+  retries: 30
+  delay: 20

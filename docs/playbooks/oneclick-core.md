@@ -48,9 +48,14 @@ The other values can be left at their defaults.  Finally, click **Generate** and
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `SLS_LICENSE_ID` The license ID must match the license file available in `SLS_LICENSE_FILE`
 - `SLS_LICENSE_FILE` The path to the location of the license file.
-- `UDS_CONTACT_EMAIL` Defines the email for person to contact for UDS
-- `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for UDS
-- `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for UDS
+- `BAS_PROVIDER` Defines UDS or DRO operator to install. Default: UDS [Values: DRO, UDS]
+- `UDS_CONTACT_EMAIL` Defines the email for person to contact for UDS [Required if BAS_PROVIDER is UDS]
+- `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for UDS [Required if BAS_PROVIDER is UDS]
+- `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for UDS [Required if BAS_PROVIDER is UDS]
+- `DRO_CONTACT_EMAIL` Defines the email for person to contact for DRO [Required if BAS_PROVIDER is DRO]
+- `DRO_CONTACT_FIRSTNAME` Defines the first name of the person to contact for DRO [Required if BAS_PROVIDER is DRO]
+- `DRO_CONTACT_LASTNAME` Defines the last name of the person to contact for DRO [Required if BAS_PROVIDER is DRO]
+
 
 ### Storage Class Configuraton
 Storage class configuration is built into the collection and the playbook will auto-select the appropriate storage classes when it detects the presence of certain storage classes in your cluster (IBM Cloud Storage or OpenShift Container Storage).  If you are running the install on a cluster that does not have these storage classes then you will also must configure the following environment variables:
