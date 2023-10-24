@@ -31,9 +31,12 @@
     file_type: "file"
   register: find_result
 
+- debug:
+    var: find_result
+
 # Determine the last configuration file in the list just in case we need it later
 - set_fact:
-    last_catalog_tag: "{{ find_result['files'] | map(attribute='path') | map('regex_replace', '^.*/(.*).yml$', '\\1') | last }}"
+    last_catalog_tag: "{{ find_result['files'] | map(attribute='path') | map('regex_replace', '^.*/(.*).yml$', '\\1') | sort |last }}"
   when: find_result is defined
 
 # Display the Last Catalog Version
@@ -204,6 +207,20 @@
     msg:
       - "Existing MongoDb  ........ {{ existing_mongodb }}"
       - "Existing operator version  {{ existing_mongo_operator }}"
+
+- name: "community : install : upgrade details"
+  debug:
+    msg:
+      - "Existing MongoDb version ........ {{ existing_mongodb.resources[0].spec.version | default('Not found', true) }}"
+      - "Target MongoDb version .......... {{ target_mongodb_version }}"
+
+# Validate if upgrade has been issued by user
+# Only needed when there is an existing mongo instance and its version does not match with the target version to be installed
+- name: "community : install : validate upgrade process"
+  include_tasks: tasks/providers/community/validate-upgrade.yml
+  when: 
+    - existing_mongodb.resources[0].spec.version is defined
+    - existing_mongodb.resources[0].spec.version != target_mongodb_version
 
 - name: "community : install : begin controlled upgrade process"
   include_tasks: tasks/providers/community/controlled-upgrade.yml
