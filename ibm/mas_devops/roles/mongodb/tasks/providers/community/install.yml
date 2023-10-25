@@ -1,5 +1,4 @@
 ---
-
 # The MongoDB version is based on the chosen ibm-operator-catalog.  However the
 # ibm-operator-catalog does not explicitly include information about the mongo version.
 #
@@ -27,7 +26,7 @@
 - name: "List yml files in common_vars/casebundles folder"
   find:
     paths: "{{ role_path }}/../../common_vars/casebundles"
-    patterns: '*.yml'
+    patterns: "*.yml"
     file_type: "file"
   register: find_result
 
@@ -153,6 +152,7 @@
 - name: Construct image full image settings
   set_fact:
     target_mongodb_version: "{{ mongo_extras_version }}"
+    mongodb_feature_compatibility_version: "{{ mongo_extras_version | regex_search('(?<=)(.*)(?=...)') }}"
     mongodb_ce_version: "{{ mongodb_operator_image_tag }}"
     target_mongodb_operator_image: "{{ mongodb_operator_image_registry }}/{{ mongodb_operator_image_name }}@{{ mongodb_operator_image_digest }}"
     target_mongodb_operator_version_upgrade_post_start_hook_image: "{{ mongodb_operator_version_upgrade_post_start_hook_image_registry }}/{{ mongodb_operator_version_upgrade_post_start_hook_image_name }}@{{ mongodb_operator_version_upgrade_post_start_hook_image_digest }}"
@@ -165,15 +165,16 @@
 - name: "community : install : Debug properties"
   debug:
     msg:
-      - "MongoDb namespace ............ {{ mongodb_namespace }}"
-      - "MongoDb operator version ..... {{ mongodb_ce_version }}"
-      - "MongoDb data capacity ........ {{ mongodb_storage_capacity_data }}"
-      - "MongoDb logs capacity ........ {{ mongodb_storage_capacity_logs }}"
-      - "MongoDb replicas ............. {{ mongodb_replicas }}"
-      - "MongoDb version .............. {{ target_mongodb_version }}"
-      - "MAS instance ID .............. {{ mas_instance_id | default('<undefined>', True) }}"
-      - "MAS config directory ......... {{ mas_config_dir | default('<undefined>', True)  }}"
-      - "Controlled Upgrade ........... {{ controlled_upgrade }}"
+      - "MongoDb namespace ......................... {{ mongodb_namespace }}"
+      - "MongoDb operator version .................. {{ mongodb_ce_version }}"
+      - "MongoDb data capacity ..................... {{ mongodb_storage_capacity_data }}"
+      - "MongoDb logs capacity ..................... {{ mongodb_storage_capacity_logs }}"
+      - "MongoDb replicas .......................... {{ mongodb_replicas }}"
+      - "MongoDb version ........................... {{ target_mongodb_version }}"
+      - "MongoDb feature compatibility version ..... {{ mongodb_feature_compatibility_version }}"
+      - "MAS instance ID ........................... {{ mas_instance_id | default('<undefined>', True) }}"
+      - "MAS config directory ...................... {{ mas_config_dir | default('<undefined>', True)  }}"
+      - "Controlled Upgrade ........................ {{ controlled_upgrade }}"
 
 # 2. Check if we need a controlled upgrade
 #  This will be when we have an existing mongodb and mongo operator and neither
@@ -218,7 +219,7 @@
 # Only needed when there is an existing mongo instance and its version does not match with the target version to be installed
 - name: "community : install : validate upgrade process"
   include_tasks: tasks/providers/community/validate-upgrade.yml
-  when: 
+  when:
     - existing_mongodb.resources[0].spec.version is defined
     - existing_mongodb.resources[0].spec.version != target_mongodb_version
 
