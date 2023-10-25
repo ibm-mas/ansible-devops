@@ -9,7 +9,7 @@
     kind: Subscription
     namespace: redhat-marketplace
     label_selectors:
-      - "instance = imo"
+      - "app.kubernetes.io/name = imo"
   register: imo_subscription
 
 - name: "uninstall : Delete the MarketplaceConfig"
@@ -65,20 +65,8 @@
     kind: Subscription
     namespace: redhat-marketplace
     label_selectors:
-      - "instance = dro"
+      - "app.kubernetes.io/name = dro"
   register: dro_subscription
-
-- name: "uninstall : Delete the DataReporterConfig"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: marketplace.redhat.com/v1alpha1
-    kind: DataReporterConfig
-    namespace: redhat-marketplace
-    name: datareporterconfig
-    wait: yes
-    wait_timeout: 600
-  when: (dro_subscription.resources is defined) and (dro_subscription.resources| length == 1)
-
 
 - name: "uninstall : Delete  ibm-data-reporter-operator CSV"
   kubernetes.core.k8s:
@@ -103,6 +91,16 @@
     wait_timeout: 300
   when: (dro_subscription.resources is defined) and (dro_subscription.resources| length == 1)
 
+- name: "uninstall : Delete the DataReporterConfig"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: marketplace.redhat.com/v1alpha1
+    kind: DataReporterConfig
+    namespace: redhat-marketplace
+    name: datareporterconfig
+    wait: yes
+    wait_timeout: 600
+  when: (dro_subscription.resources is defined) and (dro_subscription.resources| length == 1)
 
 # RMO
 
@@ -112,7 +110,7 @@
     kind: Subscription
     namespace: redhat-marketplace
     label_selectors:
-      - "instance = rmo"
+      - "app.kubernetes.io/name = rmo"
   register: rmo_subscription
 
 
