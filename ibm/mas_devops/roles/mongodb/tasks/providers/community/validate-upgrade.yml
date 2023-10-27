@@ -1,15 +1,6 @@
 ---
-# holds the existing mongo instance version
-- set_fact:
-    existing_mongo_version: "{{ existing_mongodb.resources[0].spec.version }}"
-
-# holds the existing mongo instance minor version
-- set_fact:
-    existing_mongo_minor_version: "{{ existing_mongo_version | regex_search('(?<=)(.*)(?=...)') }}"
-
-# holds the expected target mongo version that is feature compatible with the existing mongo instance version
-- set_fact:
-    mongo_compatible_target_version: "{{ mongo_upgrade_matrix[existing_mongo_minor_version].compatible_target_version }}"
+- name: "community : install : Check if mongo exists"
+  include_tasks: tasks/providers/community/check-mongo-exists.yml
 
 - name: "community : validate-upgrade : debug"
   debug:
@@ -17,7 +8,7 @@
       - "Target MongoDb version .................... {{ target_mongodb_version }}"
       - "Compatible Target MongoDb version ......... {{ mongo_compatible_target_version }}"
       - "Existing MongoDb version .................. {{ existing_mongo_version }}"
-      - "Minor mongo version ....................... {{ mongo_minor_version }}"
+      - "Minor mongo version ....................... {{ existing_mongo_minor_version }}"
 
 # Only allow Mongo upgrades, prevent downgrades from happening
 - name: Assert no Mongo downgrade operations
@@ -27,29 +18,21 @@
 
 # Only allow Mongo upgrades to be next compatible minor version
 - name: Assert Mongo upgrade compatibility
+  when: existing_mongo_minor_version != '4.2' # will skip this assertion if mongo v4.2 as we'll assist in the auto upgrade to v4.4 and v5 in a single run
   assert:
     that: target_mongodb_version == mongo_compatible_target_version
     fail_msg:
       - "You have an existing Mongo database instance that is running on version {{ existing_mongo_version }}, which cannot be directly upgraded to version {{ target_mongodb_version }}."
       - "In order to upgrade your current instance to {{ target_mongodb_version }}, you must first upgrade your Mongo instance version to {{ mongo_compatible_target_version }}."
 
-# Only allow Mongo upgrade if user has explictly asked for the specific Mongo version upgrade
-- name: "Assert that the Mongo v4 upgrade has been triggered"
-  when: mongo_minor_version == '4.2'
-  assert:
-    that: mongo_v4_upgrade # this would validate that we only upgrade to v4.4 if current mongo is v4.2
-    fail_msg:
-      - "You have an existing Mongo database instance that is running on version {{ existing_mongo_version }}."
-      - "In order to upgrade your current instance to {{ target_mongodb_version }}, you must set 'mongo_v4_upgrade': true"
-
 - name: "Assert that the Mongo v5 upgrade has been triggered"
-  when: mongo_minor_version == '4.4'
+  when: existing_mongo_minor_version in ['4.2','4.4']
   assert:
-    that: mongo_v5_upgrade # this would validate that we only upgrade to v5.0 if current mongo is v4.4
-    fail_msg: "Your current mongo version is {{ existing_mongodb.resources[0].spec.version }}, in order to upgrade to version {{ mongo_compatible_target_version }}, you must set 'mongo_v5_upgrade': true"
+    that: mongo_v5_upgrade # this would validate that we only upgrade to v5.0 if current mongo is either v4.2 or v4.4
+    fail_msg: "Your current mongo version is {{ existing_mongo_version }}, in order to upgrade to version {{ mongo_compatible_target_version }}, you must set 'mongo_v5_upgrade': true"
 
 - name: "Assert that the Mongo v6 upgrade has been triggered"
-  when: mongo_minor_version == '5.0'
+  when: existing_mongo_minor_version == '5.0'
   assert:
     that: mongo_v6_upgrade # this would validate that we only upgrade to v6.0 if current mongo is v5.0
-    fail_msg: "Your current mongo version is {{ existing_mongodb.resources[0].spec.version }}, in order to upgrade to version {{ mongo_compatible_target_version }}, you must set 'mongo_v6_upgrade': true"
+    fail_msg: "Your current mongo version is {{ existing_mongo_version }}, in order to upgrade to version {{ mongo_compatible_target_version }}, you must set 'mongo_v6_upgrade': true"

@@ -36,9 +36,7 @@ controlled_upgrade: false
 supports_integreatly_org: false
 
 # Version of Mongo installed when the IBM Catalog does is not installed or the corresponding CaseBundle does not exist
-mongo_extras_version_default: 5.0.21
-
-mongo_extras_version: "{{ lookup('env', 'MONGODB_VERSION') | default(mongo_extras_version_default, True) }}"
+mongo_extras_version: "{{ lookup('env', 'MONGODB_VERSION') }}"
 
 # aws documentdb vars
 # -----------------------------------------------------------------------------
@@ -111,15 +109,14 @@ docdb_master_password: "{{ lookup('env', 'DOCDB_MASTER_PASSWORD') }}"
 # Custom Labels
 custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string | ibm.mas_devops.string2dict() }}"
 
-# upgrade
-mongo_v4_upgrade: "{{ lookup('env', 'MONGO_V4_UPGRADE') | default(false, true) | bool }}"
+# Mongo upgrade flags
+# If identified that there's an existing Mongo that might lead to a v5 or v6 upgrade
+# the following flags just be set to confirm the upgrades otherwise the role will fail
+# and not proceed with the upgrade.
 mongo_v5_upgrade: "{{ lookup('env', 'MONGO_V5_UPGRADE') | default(false, true) | bool }}"
 mongo_v6_upgrade: "{{ lookup('env', 'MONGO_V6_UPGRADE') | default(false, true) | bool }}"
 
-mongo_upgrade_matrix:
-  "4.2":
-    compatible_target_version: "4.4.21"
-  "4.4":
-    compatible_target_version: "5.0.21"
-  "5.0":
-    compatible_target_version: "6.0.21"
+mongo_feature_compatibility_matrix:
+  "4.2": "4.4.21"
+  "4.4": "5.0.21"
+  "5.0": "6.0.10"
