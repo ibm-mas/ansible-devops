@@ -33,6 +33,7 @@ copyDoc cp4d_upgrade
 copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
+copyDoc dro
 copyDoc entitlement_key_rotation
 copyDoc gencfg_jdbc
 copyDoc gencfg_mongo
@@ -65,6 +66,7 @@ copyDoc registry
 copyDoc sls
 copyDoc suite_app_config
 copyDoc suite_app_install
+copyDoc suite_app_uninstall
 copyDoc suite_app_upgrade
 copyDoc suite_app_rollback
 copyDoc suite_config
