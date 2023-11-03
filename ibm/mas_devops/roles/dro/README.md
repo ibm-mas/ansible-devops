@@ -31,6 +31,13 @@ Provide particular StartingCSV version of DRO. Default value is picked from Stab
 - Environment Variable: `DRO_VERSION`
 - Default Value: None
 
+### dro_storage_class
+Default Storage class. Set this variable if there's no storage class with default annotation.
+
+- Optional
+- Environment Variable: `DRO_STORAGE_CLASS`
+- Default Value: None
+
 Role Variables - BASCfg Generation
 -------------------------------------------------------------------------------
 ### mas_instance_id

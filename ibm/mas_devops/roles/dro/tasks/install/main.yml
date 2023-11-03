@@ -6,13 +6,17 @@
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
 
 
-# 2. Display DRO deployment details
+# 2. Load default storage class (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/install/determine-storage-classes.yml
+
+# 3. Display DRO deployment details
 # -----------------------------------------------------------------------------
 - name: "DRO Deployment details"
   debug:
     msg:
       - "DRO Namespace ...................... redhat-marketplace"
-      - "IBM entitlement key............... Can get from https://myibm.ibm.com/products-services/containerlibrary"
+      - "IBM entitlement key................. Can get from https://myibm.ibm.com/products-services/containerlibrary"
       - "DRO CSV Version..................... {{ dro_version }}"
       - "MAS Instance ID .................... {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS Config Directory ............... {{ mas_config_dir | default('<undefined>', True) }}"
@@ -21,7 +25,7 @@
       - "DRO Contact e-mail ................. {{ dro_contact.email | default('<undefined>', True) }}"
 
 
-# 3. Install DRO Prerequisites
+# 4. Install DRO Prerequisites
 # -----------------------------------------------------------------------------
 
 # Check redhat-marketplace operator exists
@@ -59,7 +63,7 @@
   when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
 
-# 3.1 Load PodTemplates configuration
+# 4.1 Load PodTemplates configuration
 # -----------------------------------------------------------------------------
 - name: Load podTemplates configuration
   vars:
@@ -85,7 +89,7 @@
       when: not pod_templates_file_lookup.stat.exists
 
 
-# 4. Install DRO
+# 5. Install DRO
 # -----------------------------------------------------------------------------
 
 # Install ibm-metrics-operator
@@ -250,7 +254,7 @@
         value: true
 
 
-# 4. Set Disconnected
+# 6. Set Disconnected
 # -----------------------------------------------------------------------------
 - name: "Patch marketplaceconfig for airgap install"
   kubernetes.core.k8s_json_patch:
@@ -266,7 +270,7 @@
     wait: yes
   when: airgap_install
 
-# 5. Check deployment status
+# 7. Check deployment status
 # -----------------------------------------------------------------------------
 - name: "Wait for the rhm-data-service to be ready"
   kubernetes.core.k8s_info:
