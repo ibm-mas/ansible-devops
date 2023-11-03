@@ -238,12 +238,8 @@
                   </li>
                   <li class="toctree-l1 current"><a class="reference internal current" href="./">gencfg_jdbc</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-data-source">Role Variables - Data Source</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#mas_instance_id">mas_instance_id</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#mas_workspace_id">mas_workspace_id</a>
-    </li>
     <li class="toctree-l3"><a class="reference internal" href="#db_instance_id">db_instance_id</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#db_username">db_username</a>
@@ -253,6 +249,22 @@
     <li class="toctree-l3"><a class="reference internal" href="#jdbc_url">jdbc_url</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#db_pem_file">db_pem_file</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-mas-configuration">Role Variables - MAS Configuration</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_config_scope">mas_config_scope</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_config_dir">mas_config_dir</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_instance_id">mas_instance_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_workspace_id">mas_workspace_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_application_id">mas_application_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#ssl_enabled">ssl_enabled</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#custom_labels">custom_labels</a>
     </li>
@@ -300,51 +312,94 @@
               
                 <h1 id="gencfg_jdbc">gencfg_jdbc<a class="headerlink" href="#gencfg_jdbc" title="Permanent link"></a></h1>
 <p>This role is used to configure database in Maximo Application Suite. It will use the database SSL certificate if ssl_enabled flag is true. The<code>db_pem-file</code> defines the location of the pem file used for JDBC connection in MAS installation.</p>
-<h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
-<p>Providing this and <code>mas_config_dir</code> will instruct the role to generate a JdbcCfg template that can be used to configure MAS to connect to this database.</p>
-<ul>
-<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default: None</li>
-<li></li>
-</ul>
-<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link"></a></h3>
-<p>This is only used when both <code>mas_config_dir</code> and <code>mas_instance_id</code> are set, and <code>mas_config_scope</code> is set to either <code>ws</code> or <code>wsapp</code></p>
-<ul>
-<li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
-<li>Default: None</li>
-</ul>
+<h2 id="role-variables-data-source">Role Variables - Data Source<a class="headerlink" href="#role-variables-data-source" title="Permanent link"></a></h2>
 <h3 id="db_instance_id">db_instance_id<a class="headerlink" href="#db_instance_id" title="Permanent link"></a></h3>
 <p>Defines the instance id that is used for the db configure in MAS installation</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>DB_INSTANCE_ID</code></li>
 <li>Default: <code>dbinst</code></li>
 </ul>
 <h3 id="db_username">db_username<a class="headerlink" href="#db_username" title="Permanent link"></a></h3>
 <p>Defines the username that is used for the db configure in MAS installation</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_JDBC_USER</code></li>
 <li>Default: None</li>
-<li></li>
 </ul>
 <h3 id="jdbc_instance_password">jdbc_instance_password<a class="headerlink" href="#jdbc_instance_password" title="Permanent link"></a></h3>
 <p>Defines the password that is used to connect to db in MAS installation</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_JDBC_PASSWORD</code></li>
 <li>Default: None</li>
-<li></li>
 </ul>
 <h3 id="jdbc_url">jdbc_url<a class="headerlink" href="#jdbc_url" title="Permanent link"></a></h3>
-<p>Defines the jdbc url  that is used to connect to db in MAS installation , Append ;sslConnection=true to the URL so that it has the form jdbc:db2://hostname:port/database_name:sslConnection=true .</p>
+<p>Defines the jdbc URL that is used to connect to db in MAS installation:</p>
 <ul>
+<li><strong>Required</strong></li>
 <li>Environment Variable: <code>MAS_JDBC_URL</code></li>
 <li>Default: None</li>
-<li></li>
 </ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Example URL strings:</p>
+<ul>
+<li>IBM Db2 (insecure): <code>jdbc:db2://dbserverxx:50000/maxdbxx</code></li>
+<li>IBM Db2 (secure): <code>jdbc:db2://dbserverxx:50000/maxdbxx:sslConnection=true</code></li>
+<li>Oracle Database: <code>jdbc:oracle:thin:@dbserverxx:1521:maximo</code></li>
+<li>Microsoft SQL Server (insecure): <code>jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=false;trustServerCertificate=false;</code></li>
+<li>Microsoft SQL Server (secure): <code>jdbc:sqlserver://;serverName=dbserverxx;portNumber=1433;databaseName=msdbxx;integratedSecurity=false;sendStringParametersAsUnicode=false;selectMethod=cursor;encrypt=true;trustServerCertificate=true;</code></li>
+</ul>
+</div>
 <h3 id="db_pem_file">db_pem_file<a class="headerlink" href="#db_pem_file" title="Permanent link"></a></h3>
 <p>Defines the location of the pem file used for JDBC connection in MAS installation</p>
 <ul>
+<li>Optional</li>
 <li>Environment Variable: <code>MAS_JDBC_CERT_LOCAL_FILE</code></li>
+<li>Default: None</li>
+</ul>
+<h2 id="role-variables-mas-configuration">Role Variables - MAS Configuration<a class="headerlink" href="#role-variables-mas-configuration" title="Permanent link"></a></h2>
+<h3 id="mas_config_scope">mas_config_scope<a class="headerlink" href="#mas_config_scope" title="Permanent link"></a></h3>
+<p>Configure whether to generate a binding suitable for System, Workspace, Application, or Workspace-Application use within MAS (<code>system</code>, <code>ws</code>, <code>app</code>, or <code>wsapp</code>).</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MAS_CONFIG_SCOPE</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link"></a></h3>
+<p>Configure the destination directory for the generated yaml file.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
+<p>MAS Instance ID we are generating a configuration for.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link"></a></h3>
+<p>Set the workspace ID when generating a configuration for workspace or workspace-application scope.</p>
+<ul>
+<li><strong>Required</strong> if <code>mas_config_scope</code> is set to either <code>ws</code> or <code>wsapp</code></li>
+<li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="mas_application_id">mas_application_id<a class="headerlink" href="#mas_application_id" title="Permanent link"></a></h3>
+<p>Set the application ID when generating a configuration for application or workspace-application scope.</p>
+<ul>
+<li><strong>Required</strong> if <code>mas_config_scope</code> is set to either <code>app</code> or <code>wsapp</code></li>
+<li>Environment Variable: <code>MAS_APP_ID</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="ssl_enabled">ssl_enabled<a class="headerlink" href="#ssl_enabled" title="Permanent link"></a></h3>
+<p>Some applications in MAS are unable to determine whether SSL is enabled or disable via the JDBC string, and require this additional setting.  Make sure to set this to match the setting in <code>jdbc_url</code>.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>SSL_ENABLED</code></li>
 <li>Default: None</li>
 </ul>
 <h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link"></a></h3>
@@ -358,7 +413,7 @@
 <pre><code class="language-yaml">---
 
 - hosts: localhost
-  any_errors_fatal: true  
+  any_errors_fatal: true
   roles:
     - ibm.mas_devops.gencfg_jdbc
 </code></pre>
