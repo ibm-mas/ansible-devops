@@ -31,7 +31,7 @@ Provide particular StartingCSV version of DRO. Default value is picked from Stab
 - Environment Variable: `DRO_VERSION`
 - Default Value: None
 
-### dro_version
+### dro_storage_class
 Default Storage class. Set this variable if there's no storage class with default annotation.
 
 - Optional
