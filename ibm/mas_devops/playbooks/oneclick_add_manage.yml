@@ -24,7 +24,7 @@
 
     # Manage components and server bundle configurations
     mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE') | default('system', true) }}" # Supported values are "system", "ws", "app", or "wsapp"
-    mas_appws_bindings_jdbc: "{{ lookup('env', 'MAS_APPWS_BINDINGS_JDBC') }}"
+    mas_appws_bindings_jdbc: "{{ lookup('env', 'MAS_APPWS_BINDINGS_JDBC') | default('system', true) }}"
 
     # Check if SSL is enabled
     ssl_enabled: "{{ lookup('env', 'SSL_ENABLED') | default('True', true) | bool }}"
@@ -37,7 +37,7 @@
     # Control what elements of CPD are installed
     install_cp4d_platform: "{{ lookup('env', 'CPD_INSTALL_PLATFORM') | default('False', true) | bool }}"
     install_cp4d_cognos_analytics: "{{ lookup('env', 'CPD_INSTALL_COGNOS') | default('False', true) | bool }}"
-    install_cp4d_wsl: "{{ lookup('env', 'CP4D_INSTALL_WSL') | default('False', true) | bool }}"
+    install_cp4d_wsl: "{{ lookup('env', 'CPD_INSTALL_WSL') | default('False', true) | bool }}"
 
     # Control which Manage configurations to apply by the default (Attachments & Building Information Models)
     configure_manage_attachments: "{{ lookup('env', 'CONFIGURE_MANAGE_ATTACHMENTS') | default('False', true) | bool }}"
@@ -94,33 +94,36 @@
           - "Attachments ............................. {{ configure_manage_attachments }}"
           - "Building Information Models ............. {{ configure_manage_bim }}"
 
-    - include_role:
-      # Cloud Pak for Data Platform (~1 1/2 hours)
-        name: ibm.mas_devops.cp4d
+
+  roles:
+    # Optional Cloud Pak for Data Install
+    - name: ibm.mas_devops.cp4d
       when: install_cp4d_platform == true
-    - include_role:
-      # Cognos Analytics (~1 hour)
-        name: ibm.mas_devops.cp4d_service
+    - name: ibm.mas_devops.cp4d_service
       when: install_cp4d_cognos_analytics == true
       vars:
         cpd_service_name: ca
-    - include_role:
-      # Watson Studio for Health
-        name: ibm.mas_devops.cp4d_service
+    - name: ibm.mas_devops.cp4d_service
       when: install_cp4d_wsl == true
       vars:
         cpd_service_name: wsl
 
-  roles:
+    # Db2 Install
     - name: ibm.mas_devops.db2
       when: configure_external_db == false
     - name: ibm.mas_devops.suite_db2_setup_for_manage
       when: configure_external_db == false
+
+    # Bring Your Own Database
     - name: ibm.mas_devops.gencfg_jdbc
       when: configure_external_db == true
+
+    # Install Manage
     - ibm.mas_devops.suite_config
     - ibm.mas_devops.suite_app_install
     - ibm.mas_devops.suite_app_config
+
+    # Configure Manage
     - name: ibm.mas_devops.suite_manage_attachments_config
       when: configure_manage_attachments
     - name: ibm.mas_devops.suite_manage_bim_config
