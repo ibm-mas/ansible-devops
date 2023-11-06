@@ -177,45 +177,6 @@
       - "MAS config directory ...................... {{ mas_config_dir | default('<undefined>', True)  }}"
       - "Controlled Upgrade ........................ {{ controlled_upgrade }}"
 
-# 2. Check if we need a controlled upgrade
-#  This will be when we have an existing mongodb and mongo operator and neither
-#  version are at the version this role requires.
-# -----------------------------------------------------------------------------
-# - name: Check and start controlled-upgrade if we are not currently doing a controlled upgrade
-#   when: not controlled_upgrade
-#   block:
-
-# 4. Check for Controlled Upgrade
-# -----------------------------------------------------------------------------
-# - name: "community : install : Check for existing mongodb instance"
-#   kubernetes.core.k8s_info:
-#     api_version: mongodbcommunity.mongodb.com/v1
-#     kind: MongoDBCommunity
-#     name: mas-mongo-ce
-#     namespace: "{{ mongodb_namespace }}"
-#   register: existing_mongodb
-
-# - name: "community : install : Check for existing mongo operator instance"
-#   kubernetes.core.k8s_info:
-#     api_version: v1
-#     kind: Pod
-#     label_selectors:
-#       - "name = mongodb-kubernetes-operator"
-#     namespace: "{{ mongodb_namespace }}"
-#   register: existing_mongo_operator
-
-# - name: "community : install : Debug existing resources"
-#   debug:
-#     msg:
-#       - "Existing MongoDb  ........ {{ existing_mongodb }}"
-#       - "Existing operator version  {{ existing_mongo_operator }}"
-
-# - name: "community : install : upgrade details"
-#   debug:
-#     msg:
-#       - "Existing MongoDb version ........ {{ existing_mongodb.resources[0].spec.version | default('Not found', true) }}"
-#       - "Target MongoDb version .......... {{ target_mongodb_version }}"
-
 # Validate if upgrade has been issued by user
 # Only needed when there is an existing mongo instance and its version does not match with the target version to be installed
 - name: "community : install : validate upgrade process"
@@ -420,8 +381,8 @@
     name: mas-mongo-ce
     namespace: "{{ mongodb_namespace }}"
   register: mongodb_statefulset
-  retries: 45 # Approx 45 minutes
-  delay: 60 # 1 minute
+  retries: 45 # Approx 90 minutes
+  delay: 120 # 2 minutes
   until:
     - mongodb_statefulset.resources is defined
     - mongodb_statefulset.resources | length > 0
