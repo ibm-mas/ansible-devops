@@ -95,6 +95,9 @@
 
 # 4. Check that the Application CR meets the required state
 # -----------------------------------------------------------------------------
+# We've noticed that Inspection application will sometimes fail the Ready assertion
+# so this step will wait for up to 10 minutes for the application to get into the
+# desired state before giving up and failing the upgrade.
 - name: "{{ mas_app_id }} : Get Application CR for for {{ mas_app_fqn }}"
   when: app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
   kubernetes.core.k8s_info:
@@ -102,6 +105,12 @@
     name: "{{ mas_instance_id }}"
     namespace: "{{ mas_app_namespace }}"
     kind: "{{ app_info[mas_app_id].kind }}"
+    wait: yes
+    wait_sleep: 20
+    wait_timeout: 600 # 10 minutes until we give up waiting for the application to get into the expected state
+    wait_condition:
+      type: Ready
+      reason: "Ready"
   register: app_cr_lookup
 
 - name: "{{ mas_app_id }} : Debug Application CR"
