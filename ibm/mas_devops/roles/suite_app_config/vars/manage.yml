@@ -4,8 +4,8 @@ mas_app_ws_apiversion: apps.mas.ibm.com/v1
 mas_app_ws_kind: ManageWorkspace
 
 # Depending on the number of components being used the time to configure Manage can grow significantly
-mas_app_cfg_retries: 60  # ~8 hours
-mas_app_cfg_delay: 480  # ~8 minutes
+mas_app_cfg_delay: "{{ lookup('env', 'MAS_APP_CFG_DELAY') | default(480, true)}}" # ~8 minutes
+mas_app_cfg_retries: "{{ lookup('env', 'MAS_APP_CFG_RETRIES') | default(60, true)}}" # ~8 hours
 
 mas_app_settings_aio_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_AIO_FLAG') | default('true', true) | bool }}"
 mas_app_settings_db2_schema: "{{ lookup('env', 'MAS_APP_SETTINGS_DB2_SCHEMA') | default('maximo', true)}}"
@@ -68,6 +68,9 @@ mas_app_settings_persistent_volumes: "{{ mas_app_settings_persistent_volumes_def
 # properties to configure supported languages
 mas_app_settings_base_language: "{{ lookup('env', 'MAS_APP_SETTINGS_BASE_LANG') | default( 'EN', true) }}"
 mas_app_settings_secondary_languages: "{{ lookup('env', 'MAS_APP_SETTINGS_SECONDARY_LANGS') | default([], true) }}"
+
+# property to confifure jms queues
+mas_app_settings_default_jms: "{{ lookup('env', 'MAS_APP_SETTINGS_DEFAULT_JMS') | default('false', true) | bool }}"
 
 # properties to configure bundle servers
 server_bundle_jms_internal_endpoint: "{{ mas_instance_id }}-{{ mas_workspace_id }}-jms.mas-{{ mas_instance_id }}-manage.svc:7276" # maspreivt89-main-jms.mas-maspreivt89-manage.svc:7276
@@ -198,7 +201,40 @@ mas_app_settings_server_bundles:
 # these settings will define the customization archive
 mas_app_settings_customization_archive_url: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_URL') }}"
 mas_app_settings_customization_archive_name: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME') | default('manage-custom-archive', true) }}"
+mas_app_settings_customization_archive_username: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_USERNAME') }}"
+mas_app_settings_customization_archive_password: "{{ lookup('env', 'MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_PASSWORD') }}"
 
 mas_app_settings_customization_list:
   - customizationArchiveName: "{{ mas_app_settings_customization_archive_name }}"
     customizationArchiveUrl: "{{ mas_app_settings_customization_archive_url }}"
+
+mas_app_settings_customization_credentials_secret_name: "{{ mas_workspace_id }}-{{ mas_app_id }}-cl0--cac--sn"
+mas_app_settings_customization_credentials:
+  customizationArchiveCredentials:
+    secretName: "{{ mas_app_settings_customization_credentials_secret_name }}"
+
+# these settings will define the manage db encryption secrets
+mas_app_settings_crypto_key: "{{ lookup('env', 'MAS_APP_SETTINGS_CRYPTO_KEY') }}"
+mas_app_settings_cryptox_key: "{{ lookup('env', 'MAS_APP_SETTINGS_CRYPTOX_KEY') }}"
+mas_app_settings_old_crypto_key: "{{ lookup('env', 'MAS_APP_SETTINGS_OLD_CRYPTO_KEY') }}"
+mas_app_settings_old_cryptox_key: "{{ lookup('env', 'MAS_APP_SETTINGS_OLD_CRYPTOX_KEY') }}"
+mas_app_settings_override_encryption_secrets_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_OVERRIDE_ENCRYPTION_SECRETS_FLAG') | default('False', true) | bool }}"
+mas_app_settings_encryption_default_secret_name: "{{ mas_workspace_id }}-{{ mas_app_id }}-encryptionsecret"
+
+# -------------------
+# Manage/Health Bindings
+# -------------------
+
+mas_appws_bindings_health_wsl_flag: "{{ lookup('env', 'MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG') | default('false', true) | bool }}"
+
+# Bindins will be like this
+mas_app_bindings_jdbc:
+  jdbc: "{{ mas_appws_bindings_jdbc | default( 'system' , true) }}"
+# ... or this, depending on
+mas_app_bindings_jdbc_wsl:
+  jdbc: "{{ mas_appws_bindings_jdbc | default( 'system' , true) }}"
+  watsonstudio: system # cp4d_service role creates WatsonStudioCfg as system, no other option today
+
+mas_app_bindings: "{{ mas_app_bindings_jdbc_wsl if mas_appws_bindings_health_wsl_flag else mas_app_bindings_jdbc }}"
+
+# -------------------

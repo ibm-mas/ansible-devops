@@ -9,17 +9,23 @@ Four actions are supported:
 - `from-filesystem` Mirror content from the local filesystem to your target registry
 - `install-catalogs` Install CatalogSources for the mirrored content.
 
-Three **CatalogSources** are created by the `install-catalogs` action in the `openshift-marketplace` namespace, containing the following content:
+Two **CatalogSources** are created by the `install-catalogs` action in the `openshift-marketplace` namespace, containing the following content:
 
 ### certified-operator-index
 - crunchy-postgres-operator (required by ibm.mas_devops.uds role)
 
-### community-operator-index
-- grafana-operator (required by ibm.mas_devops.cluster_monitoring role)
-
 ### redhat-operator-index
 - amq-streams (required by ibm.mas_devops.kafka role)
 - openshift-pipelines-operator-rh (required by the MAS CLI)
+
+!!! note
+    We are limited to the content we can support mirroring for today due to bug with Red Hat's support for OCI images, this prevents the mirroring of the following packages (which are all optional dependencies):
+
+    - **kubeturbo-certified**
+    - **grafana-operator**
+    - **opentelemetry-operator**
+
+    For more information refer to [solution 6997884](https://access.redhat.com/solutions/6997884) and [CFE 780](https://issues.redhat.com/browse/CFE-780).
 
 
 Requirements

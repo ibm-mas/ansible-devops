@@ -21,6 +21,13 @@ When upgrading db2, specify the existing namespace where the `db2uCluster` insta
 
 Role Variables - Installation
 -------------------------------------------------------------------------------
+### common_services_namespace
+Namespace where IBM Common Services is installed.
+
+- Optional
+- Environment Variable: `COMMON_SERVICES_NAMESPACE`
+- Default Value: `ibm-common-services`
+
 ### db2_action
 Inform the role whether to perform an install or upgrade of DB2 Database. This can be set to `install` or `upgrade`. When `DB2_ACTION` is set to upgrade, then all instances in the `DB2_NAMESPACE` will be upgraded to the `DB2_VERSION`.
 
@@ -64,11 +71,11 @@ Name of the database within the instance.
 - Default: `BLUDB`
 
 ### db2_version
-Version of the DB2U operator instance to be created.
+Version of the DB2 engine to be used while creating/upgrading the DB2 instances.
 
 - Optional
 - Environment Variable: `DB2_VERSION`
-- Default: `s11.5.8.0`
+- Default: The default db2 engine version will be automatically defined to the latest version supported by the installed DB2 operator if this is not set. The DB2 engine versions supported by the installed DB2 operator are stored in `db2u-license-keys` secret under `ibm-common-services` namespace.
 
 ### db2_4k_device_support
 Whether 4K device support is turned on or not.

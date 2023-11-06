@@ -28,6 +28,12 @@
     - registry_password != ""
   include_tasks: "tasks/update-pull-secret.yml"
 
+- name: Update default image pull secret (dev)
+  when:
+    - artifactory_username != ""
+    - artifactory_token != ""
+  include_tasks: "tasks/update-pull-secret-dev.yml"
+
 
 # 4. Create ImageContentSourcePolicy for MAS & dependencies
 # -----------------------------------------------------------------------------
@@ -45,6 +51,12 @@
   kubernetes.core.k8s:
     apply: yes
     template: "templates/redhat-catalogs.yml.j2"
+
+- name: "Create ContentSourcePolicy for OCP release"
+  when: setup_redhat_release
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/redhat-release.yml.j2"
 
 
 # 6. Wait until the nodes have applied the updates

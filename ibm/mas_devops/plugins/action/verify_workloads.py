@@ -34,8 +34,6 @@ class ActionModule(ActionBase):
     def _checkResources(self, resourceAPI, resourceName, retries, delay):
         display = Display()
 
-        display.v(f"Checking {resourceName} are healthy ({retries} retries with a {delay} second delay)")
-
         allResourcesHealthy = False
         attempts = 0
         while attempts < retries and not allResourcesHealthy:
@@ -45,6 +43,7 @@ class ActionModule(ActionBase):
           ready = []
           notReady = []
           disabled = []
+          display.v(f"Checking {resourceName} are healthy ({attempts}/{retries} retries with a {delay} second delay)")
 
           for resource in resources.items:
             if resource.status.replicas == 0:
@@ -58,18 +57,19 @@ class ActionModule(ActionBase):
                 notReady.append(msg)
                 allResourcesHealthyThisLoop = False
               else:
-                display.v(f"[READY]   {msg}")
+                display.vvv(f"[READY]   {msg}")
                 ready.append(msg)
 
-          display.vvv(f"Finished loop: allResourcesHealthyThisLoop={allResourcesHealthyThisLoop} delay: {delay}")
+          display.vvv(f"Finished check: allResourcesHealthyThisLoop={allResourcesHealthyThisLoop} delay: {delay}")
           if allResourcesHealthyThisLoop:
+            display.v(f"Finished check: All workloads are healthy")
             allResourcesHealthy = True
           else:
-            display.vvv(f"Delaying {delay} seconds before next check")
+            display.v(f"Finished check: Delaying {delay} seconds before next check")
             time.sleep(delay)
 
         if allResourcesHealthy:
-          display.vvv(f"Success: allResourcesHealthy={allResourcesHealthy}")
+          display.v(f"Success: allResourcesHealthy={allResourcesHealthy}")
           return dict(
             message=f"All {resourceName} are healthy",
             failed=False,
@@ -81,5 +81,5 @@ class ActionModule(ActionBase):
             )
           )
         else:
-          display.vvv(f"Failure: allResourcesHealthy={allResourcesHealthy}")
+          display.v(f"Failure: allResourcesHealthy={allResourcesHealthy}")
           raise AnsibleError(f"Error: One or more {resourceName} are not healthy")

@@ -1,0 +1,92 @@
+---
+# 1. Delete old Db2 OperandRequest
+# -----------------------------------------------------------------------------
+- name: "Delete old Db2 OperandRequest"
+  kubernetes.core.k8s:
+    state: absent
+    template: templates/db2u_operandrequest.yml.j2
+    wait: yes
+    wait_timeout: 120
+  register: operandrequest_removal
+
+- name: "Wait 2 minutes if we removed an old OperandRequest"
+  when: operandrequest_removal.changed == True
+  pause:
+    minutes: 2
+
+# 2. Upgrade Subscription
+# -----------------------------------------------------------------------------
+- name: "Update db2 subscription to the new channel"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-db2u-operator
+    namespace: "{{ ibm_common_services_namespace }}"
+    kind: Subscription
+    definition:
+      spec:
+        channel: "{{ db2_channel }}"
+    apply: true
+
+- name: "Pause for a minute before checking subscription status..."
+  pause:
+    minutes: 1
+
+- name: "Wait db2 subscription to update installedCSV"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-db2u-operator
+    namespace: "{{ ibm_common_services_namespace }}"
+    kind: Subscription
+  register: db2_updated_sub_info
+  retries: 20
+  delay: 30 # Retry for approx 20 minutes (30s * 20 attempts) before giving up
+  until:
+    - db2_updated_sub_info.resources is defined
+    - db2_updated_sub_info.resources | length > 0
+    - db2_updated_sub_info.resources[0].status is defined
+    - db2_updated_sub_info.resources[0].status.installedCSV is defined
+    - db2_updated_sub_info.resources[0].status.currentCSV is defined
+    - db2_updated_sub_info.resources[0].status.currentCSV == db2_updated_sub_info.resources[0].status.installedCSV
+
+- name: "Wait for ibm-db2u-operator to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: db2u-operator-manager
+    namespace: "{{ ibm_common_services_namespace }}"
+    kind: Deployment
+  register: db2u_operator_deployment
+  until:
+    - db2u_operator_deployment.resources is defined
+    - db2u_operator_deployment.resources | length > 0
+    - db2u_operator_deployment.resources[0].status is defined
+    - db2u_operator_deployment.resources[0].status.replicas is defined
+    - db2u_operator_deployment.resources[0].status.readyReplicas is defined
+    - db2u_operator_deployment.resources[0].status.readyReplicas == db2u_operator_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 15 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: "Pause for a minute before continuing upgrade process..."
+  pause:
+    minutes: 1
+
+# 3. Lookup the updated OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "Lookup the updated OperatorCondition"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ ibm_common_services_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/db2u-operator.{{ ibm_common_services_namespace }}"
+  register: updated_db2_opcon
+  retries: 10
+  delay: 60 # 1 minute
+  until:
+    - updated_db2_opcon.resources is defined
+    - updated_db2_opcon.resources | length == 1
+    - updated_db2_opcon.resources[0].metadata.name is defined
+
+- name: "Debug Operator Version"
+  debug:
+    msg:
+      - "Db2u Operator condition ................ {{ updated_db2_opcon.resources[0].metadata.name }}"

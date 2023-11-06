@@ -22,7 +22,9 @@
     # Check if external database is provided instead of the default DB2
     configure_external_db: "{{ lookup('env', 'CONFIGURE_EXTERNAL_DB') | default('False', true) | bool }}"
 
+    # Manage components and server bundle configurations
     mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE') | default('system', true) }}" # Supported values are "system", "ws", "app", or "wsapp"
+    mas_appws_bindings_jdbc: "{{ lookup('env', 'MAS_APPWS_BINDINGS_JDBC') | default('system', true) }}"
 
     # Check if SSL is enabled
     ssl_enabled: "{{ lookup('env', 'SSL_ENABLED') | default('True', true) | bool }}"
@@ -35,6 +37,12 @@
     # Control what elements of CPD are installed
     install_cp4d_platform: "{{ lookup('env', 'CPD_INSTALL_PLATFORM') | default('False', true) | bool }}"
     install_cp4d_cognos_analytics: "{{ lookup('env', 'CPD_INSTALL_COGNOS') | default('False', true) | bool }}"
+    install_cp4d_wsl: "{{ lookup('env', 'CPD_INSTALL_WSL') | default('False', true) | bool }}"
+
+    # Control which Manage configurations to apply by the default (Attachments & Building Information Models)
+    configure_manage_attachments: "{{ lookup('env', 'CONFIGURE_MANAGE_ATTACHMENTS') | default('False', true) | bool }}"
+    configure_manage_bim: "{{ lookup('env', 'CONFIGURE_MANAGE_BIM') | default('False', true) | bool }}"
+
 
     # Cloud Pak for Data Configuration
     # -------------------------------------------------------------------------
@@ -73,24 +81,50 @@
           - lookup('env', 'MAS_JDBC_CERT_LOCAL_FILE') != ""
         fail_msg: "JDBC SSL certificate file name is not defined for external database"
 
-    - include_role:
-      # Cloud Pak for Data Platform (~1 1/2 hours)
-        name: ibm.mas_devops.cp4d
+    # Check if Manage Attachments or Building Information Models configurations are enabled, if so, enable also default PVCs to be used
+    # If you want to customize Manage PVCs settings, review `suite_app_config` readme
+    - name: Check if Manage Attachments or BIM configurations should be enabled
+      when: configure_manage_attachments or configure_manage_bim
+      set_fact:
+        mas_app_settings_persistent_volumes_flag: true
+
+    - name: "Debug Manage post-install configurations to be enabled"
+      debug:
+        msg:
+          - "Attachments ............................. {{ configure_manage_attachments }}"
+          - "Building Information Models ............. {{ configure_manage_bim }}"
+
+
+  roles:
+    # Optional Cloud Pak for Data Install
+    - name: ibm.mas_devops.cp4d
       when: install_cp4d_platform == true
-    - include_role:
-      # Cognos Analytics (~1 hour)
-        name: ibm.mas_devops.cp4d_service
+    - name: ibm.mas_devops.cp4d_service
       when: install_cp4d_cognos_analytics == true
       vars:
         cpd_service_name: ca
+    - name: ibm.mas_devops.cp4d_service
+      when: install_cp4d_wsl == true
+      vars:
+        cpd_service_name: wsl
 
-  roles:
+    # Db2 Install
     - name: ibm.mas_devops.db2
       when: configure_external_db == false
     - name: ibm.mas_devops.suite_db2_setup_for_manage
       when: configure_external_db == false
+
+    # Bring Your Own Database
     - name: ibm.mas_devops.gencfg_jdbc
       when: configure_external_db == true
+
+    # Install Manage
     - ibm.mas_devops.suite_config
     - ibm.mas_devops.suite_app_install
     - ibm.mas_devops.suite_app_config
+
+    # Configure Manage
+    - name: ibm.mas_devops.suite_manage_attachments_config
+      when: configure_manage_attachments
+    - name: ibm.mas_devops.suite_manage_bim_config
+      when: configure_manage_bim

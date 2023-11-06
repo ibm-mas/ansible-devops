@@ -1,0 +1,83 @@
+---
+# 1. Upgrade Subscription
+# -----------------------------------------------------------------------------
+- name: "Update kafka subscription to the new channel"
+  kubernetes.core.k8s_json_patch:
+    api_version: operators.coreos.com/v1alpha1
+    name: "{{ kafka_operator_name }}"
+    namespace: "{{ kafka_namespace }}"
+    kind: Subscription
+    patch:
+      - op: "replace"
+        path: "/spec/channel"
+        value: "{{ kafka_default_channel }}"
+
+- name: "Pause for 30 seconds before checking subscription status..."
+  pause:
+    seconds: 30
+
+- name: "Wait kafka subscription to update installedCSV"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: "{{ kafka_operator_name }}"
+    namespace: "{{ kafka_namespace }}"
+    kind: Subscription
+  register: kafka_updated_sub_info
+  retries: 20
+  delay: 30 # Retry for approx 10 minutes (30s * 20 attempts) before giving up
+  until:
+    - kafka_updated_sub_info.resources is defined
+    - kafka_updated_sub_info.resources | length > 0
+    - kafka_updated_sub_info.resources[0].status is defined
+    - kafka_updated_sub_info.resources[0].status.installedCSV is defined
+    - kafka_updated_sub_info.resources[0].status.currentCSV is defined
+    - kafka_updated_sub_info.resources[0].status.currentCSV == kafka_updated_sub_info.resources[0].status.installedCSV
+
+- name: "Wait for {{ kafka_operator_name }} to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ kafka_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ kafka_operator_name }}.{{ kafka_namespace }}"
+  register: kafka_operator_deployment
+  until:
+    - kafka_operator_deployment.resources is defined
+    - kafka_operator_deployment.resources | length > 0
+    - kafka_operator_deployment.resources[0].status is defined
+    - kafka_operator_deployment.resources[0].status.unavailableReplicas is not defined
+    - kafka_operator_deployment.resources[0].status.replicas is defined
+    - kafka_operator_deployment.resources[0].status.readyReplicas is defined
+    - kafka_operator_deployment.resources[0].status.readyReplicas == kafka_operator_deployment.resources[0].status.replicas
+    - kafka_operator_deployment.resources[0].status.availableReplicas is defined
+    - kafka_operator_deployment.resources[0].status.availableReplicas == kafka_operator_deployment.resources[0].status.replicas
+    - kafka_operator_deployment.resources[0].status.updatedReplicas is defined
+    - kafka_operator_deployment.resources[0].status.updatedReplicas == kafka_operator_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 15 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: "Pause for 30 seconds before continuing upgrade process..."
+  pause:
+    seconds: 30
+
+# 2. Lookup the updated OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "Lookup the updated OperatorCondition"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ kafka_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ kafka_operator_name }}.{{ kafka_namespace }}"
+  register: updated_kafka_opcon
+  retries: 10
+  delay: 60 # seconds
+  until:
+    - updated_kafka_opcon.resources is defined
+    - updated_kafka_opcon.resources | length == 1
+    - updated_kafka_opcon.resources[0].metadata.name is defined
+
+- name: "Debug Operator Version"
+  debug:
+    msg:
+      - "Kafka Operator condition ................ {{ updated_kafka_opcon.resources[0].metadata.name }}"

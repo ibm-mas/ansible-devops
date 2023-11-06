@@ -20,6 +20,7 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 
 To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
 
+This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [cluster_monitoring role](https://ibm-mas.github.io/ansible-devops/roles/cluster_monitoring/) previously. If you did not run the [cluster_monitoring role](https://ibm-mas.github.io/ansible-devops/roles/cluster_monitoring/) then the GrafanaDashboard won't be installed.
 
 Common Role Variables for all providers 
 ----------------------------------------
@@ -62,14 +63,6 @@ Community MongoDB Role Variables
 ---------------------------------
 Role Variables
 -------------------------------------------------------------------------------
-
-### mongodb_ce_version
-Set the version of the MongoDb Community Edition Operator to install in the namespace. Supported options are `0.7.0`, `0.7.8` and `0.7.9`. Selecting `0.7.0` will deploy the MongoDb version of `4.2.23`, deploying `0.7.8` or `0.7.9` will result in MongoDb version `4.4.21` being used. Upgrading upwards with these versions is supported, so if you previously deployed using `0.7.0` you can run this role again with the `0.7.9` option (which is also the default) and the MongoDb Community Edition Operator will be upgraded as well as the underlying MongoDb replicaset without lose of service.
-
-- Optional
-- Environment Variable: `MONGODB_CE_VERSION`
-- Default: `0.7.9`
-
 
 ### mongodb_namespace
 The namespace where the operator and MongoDb cluster will be deployed.

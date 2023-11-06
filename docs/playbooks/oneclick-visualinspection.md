@@ -21,6 +21,10 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 
+## Optional environment variables
+- `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_CLASS` Defines a custom file storage class for Visual Inspection application. If none provided, then a default storage class will be auto defined accordingly to your cluster's availability i.e `ibmc-file-gold` for IBM Cloud or `azurefiles-premium` for Azure clusters.
+- `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_SIZE` Defines persistent storage size for Visual Inspection application. If not provided, default is `100Gi`.
+
 ## Usage
 ```bash
 export MAS_INSTANCE_ID=inst1

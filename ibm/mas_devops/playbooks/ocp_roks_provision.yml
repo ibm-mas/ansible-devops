@@ -3,7 +3,7 @@
   any_errors_fatal: true
   vars:
     cluster_type: roks
-    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.10_openshift', True) }}"
+    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.12_openshift', True) }}"
     prometheus_storage_class: ibmc-block-gold
     prometheus_alertmgr_storage_class: ibmc-file-gold-gid
 
@@ -23,13 +23,9 @@
     # 2. Login to the cluster
     - ibm.mas_devops.ocp_login
 
-    # 3. Reboot worker nodes to install an IBM Entitlement key as a global image pull secret
-    - name: ibm.mas_devops.cp4d_hack_worker_nodes
-      when: lookup('env', 'REBOOT_WORKER_NODES') == "true"
-
-    # 4. Upgrade the cluster's image registry to 400Gb
+    # 3. Upgrade the cluster's image registry to 400Gb
     - name: ibm.mas_devops.ocp_roks_upgrade_registry_storage
       when: lookup('env', 'UPGRADE_IMAGE_REGISTRY_STORAGE') == "true"
 
-    # 5. Verify the cluster is ready to use
+    # 4. Verify the cluster is ready to use
     - ibm.mas_devops.ocp_verify

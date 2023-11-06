@@ -1,0 +1,85 @@
+---
+- name: "Lookup db2 Pod"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - type=engine
+      - app={{ db2_instance_name }}
+    wait: yes
+    wait_sleep: 30
+    wait_timeout: 300 # 5 mins until we give up waiting for the pod to get into the expected state
+    wait_condition:
+      type: Ready
+      status: "True"
+  register: db2_pod
+
+- name: Configure facts
+  set_fact:
+    db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
+
+- name: "Debug information - part 2"
+  debug:
+    msg:
+      - "Pod name ............................... {{ db2_pod_name }}"
+
+- name: "Creating MIRRORLOGPATH folder in {{ db2_pod_name }}"
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/backup/MIRRORLOGPATH" db2inst1
+  register: creating_mirrorlog_folder_output
+
+- fail: msg="Failed to create path for MIRRORLOGPATH"
+  when:
+    - creating_mirrorlog_folder_output.rc != 0
+
+- name: "Creating LOGARCHMETH1 folder in {{ db2_pod_name }}"
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/bludata0/db2/archive_log/" db2inst1
+  register: creating_logarchmeth1_folder_output
+
+- fail: msg="Failed to create path for LOGARCHMETH1"
+  when:
+    - creating_logarchmeth1_folder_output.rc != 0
+
+- name: "Creating DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH folder in {{ db2_pod_name }}"
+  shell: |
+    oc exec -it -n {{ db2_namespace }} {{ db2_pod_name }} -- su -lc "mkdir -p /mnt/backup/staging" db2inst1
+  register: creating_stagingpath_folder_output
+
+- fail: msg="Failed to create path for DB2_OBJECT_STORAGE_LOCAL_STAGING_PATH"
+  when:
+    - creating_stagingpath_folder_output.rc != 0
+
+- name: Lookup db2ucluster instance
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Db2uCluster
+    name: "{{db2_instance_name | lower}}"
+    namespace: "{{db2_namespace}}"
+  register: _db2_instance_engn_svc
+  until:
+    - _db2_instance_engn_svc.resources[0] is defined
+  retries: 15 # approx 5 minutes before we give up
+  delay: 20 # seconds
+
+- include_vars: vars/main.yml
+
+- name: Update DB2 configmaps
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition:
+      apiVersion: v1
+      kind: Db2uCluster
+      metadata:
+        name: "{{db2_instance_name | lower}}"
+        namespace: "{{ db2_namespace }}"
+      spec: "{{ spec | from_yaml }}"
+  vars:
+    spec: |
+      {{db2_configs[db2_config_version]}}
+
+- name: Create k8s configmaps for DB2 config version
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ db2_namespace }}"
+    definition: "{{ lookup('template', 'templates/db2_enforce_config.yaml.j2') | from_yaml }}"

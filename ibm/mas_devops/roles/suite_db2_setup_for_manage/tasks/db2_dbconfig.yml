@@ -1,0 +1,30 @@
+---
+- name: "Fail if db2_instance_name is not provided"
+  when: db2_instance_name is not defined or db2_instance_name == ""
+  fail:
+    msg: "db2_instance_name property is required"
+
+- name: Set DB2 ConfigMap name
+  set_fact:
+    db2_config_name: "{{db2_instance_name | lower}}-enforce-config"
+
+- name: Verify if DB2 is already enforced
+  set_fact:
+    db2_cfg: "{{  query('k8s', kind='ConfigMap', api_version='v1', resource_name=db2_config_name, namespace=db2_namespace) }}"
+
+- name: Set configured DB2 version
+  set_fact:
+    db2_configured_version: "{{ db2_cfg | first | json_query('data.version') }}"
+  when:
+  - db2_cfg | length > 0
+
+- include_tasks: tasks/apply-db2-config-version.yml
+  when:
+  - db2_config_version is defined
+  - db2_config_version != ""
+  - db2_cfg | length == 0 or db2_configured_version != db2_config_version
+
+- include_tasks: tasks/apply-db2-config-settings.yml
+  when:
+  - enforce_db2_config is defined
+  - enforce_db2_config
