@@ -66,6 +66,7 @@ copyDoc registry
 copyDoc sls
 copyDoc suite_app_config
 copyDoc suite_app_install
+copyDoc suite_app_uninstall
 copyDoc suite_app_upgrade
 copyDoc suite_app_rollback
 copyDoc suite_config

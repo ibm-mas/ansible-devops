@@ -1,0 +1,142 @@
+---
+
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that:
+      - mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "MAS Instance Id is not set"
+
+- name: "Fail if mas_app_id is not provided"
+  assert:
+    that:
+      - mas_app_id is defined and mas_app_id != ""
+    fail_msg: "MAS App ID is not set"
+
+- name: "Fail if mas_app_id is not known"
+  assert:
+    that:
+      - mas_app_id in supported_app_ids
+    fail_msg: "MAS App ID {{ mas_app_id }} is not known, please choose one of {{ supported_app_ids }}"
+
+# 2. Load var files
+# -----------------------------------------------------------------------------
+- name: Load Application Workspace variables
+  include_vars: "{{ role_path }}/../suite_app_config/vars/{{ mas_app_id }}.yml"
+
+- name: Load Application variables
+  include_vars: "{{ role_path }}/../suite_app_install/vars/{{ mas_app_id }}.yml"
+
+# 3. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "Configure namespace"
+  set_fact:
+    mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "Instance ID ................ {{ mas_instance_id }}"
+      - "Application ID ............. {{ mas_app_id }}"
+      - "MAS app namespace .......... {{ mas_app_namespace }}"
+      - "MAS app namespace .......... {{ mas_app_namespace }}"
+
+# 4. Run Application Specific Pre-Uninstall Tasks if there are any
+# -----------------------------------------------------------------------------
+- name: Run application specific pre-uninstall tasks
+  vars:
+    app_pre_uninstall_tasks_relative_file: "app_specific/tasks/pre/{{ mas_app_id }}.yml"
+    app_pre_uninstall_tasks_absolute_file: "{{ role_path }}/{{ app_pre_uninstall_tasks_relative_file }}"
+  when:
+    - app_pre_uninstall_tasks_absolute_file is file
+  include_tasks: "{{ app_pre_uninstall_tasks_relative_file }}"
+
+# 4. Delete Application Workspaces
+# -----------------------------------------------------------------------------
+- name: "Get all {{ mas_app_id }} Workspaces"
+  when:
+    - mas_app_ws_apiversion is defined
+    - mas_app_ws_kind is defined
+  kubernetes.core.k8s_info:
+    api_version: "{{ mas_app_ws_apiversion }}"
+    kind: "{{ mas_app_ws_kind }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: app_workspace_lookup
+
+- name: "Delete all {{ mas_app_id }} Workspaces"
+  when:
+    - mas_app_ws_apiversion is defined
+    - mas_app_ws_kind is defined
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.metadata.namespace }}"
+    name: "{{ item.metadata.name }}"
+    wait: true
+    wait_timeout: 600 # 10 minutes
+  loop: "{{ app_workspace_lookup.resources }}"
+
+# 4. Delete Application Custom Resource
+# -----------------------------------------------------------------------------
+- name: "Get the {{ mas_app_id }} Custom Resource"
+  when:
+    - mas_app_api_version is defined
+    - mas_app_kind is defined
+  kubernetes.core.k8s_info:
+    api_version: "{{ mas_app_api_version }}"
+    kind: "{{ mas_app_kind }}"
+    namespace: "{{ mas_app_namespace }}"
+    name: "{{ mas_instance_id }}"
+  register: app_cr_lookup
+
+- name: "Delete the {{ mas_app_id }} Custom Resource"
+  when:
+    - mas_app_api_version is defined
+    - mas_app_kind is defined
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.metadata.namespace }}"
+    name: "{{ item.metadata.name }}"
+    wait: true
+    wait_timeout: 600 # 10 minutes
+  loop: "{{ app_cr_lookup.resources }}"
+
+# 4. Delete Application Operator Subscription
+# -----------------------------------------------------------------------------
+- name: "Delete the {{ mas_app_id }} Operator Subscription"
+  when:
+    - mas_app_api_version is defined
+    - mas_app_kind is defined
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ mas_app_namespace }}"
+    name: "{{ mas_instance_id }}"
+    wait: true
+    wait_timeout: 600 # 10 minutes
+
+# 4. Delete Application Namespace
+# -----------------------------------------------------------------------------
+- name: "Delete {{ mas_app_id }} namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ mas_app_namespace }}"
+    wait: true
+    wait_timeout: 300 # 5 minutes
+
+# 4. Run Application Specific Post-Uninstall Tasks if there are any
+# -----------------------------------------------------------------------------
+- name: Run application specific post-uninstall tasks
+  vars:
+    app_post_uninstall_tasks_relative_file: "app_specific/tasks/post/{{ mas_app_id }}.yml"
+    app_post_uninstall_tasks_absolute_file: "{{ role_path }}/{{ app_post_uninstall_tasks_relative_file }}"
+  when:
+    - app_post_uninstall_tasks_absolute_file is file
+  include_tasks: "{{ app_post_uninstall_tasks_relative_file }}"
