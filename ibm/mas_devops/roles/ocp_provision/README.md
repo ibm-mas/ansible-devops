@@ -174,6 +174,13 @@ The Product ID that the cluster will be associated with for accounting purposes.
 - Environment Variable: `FYRE_PRODUCT_ID`
 - Default Value: None
 
+### fyre_site
+Provide a site in Fyre where cluster will be provisioned
+
+- Optional
+- Environment Variable: `FYRE_SITE`
+- Default Value: `svl`
+
 ### fyre_cluster_description
 Provide a description for the cluster.
 
