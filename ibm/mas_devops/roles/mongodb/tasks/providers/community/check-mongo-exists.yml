@@ -1,0 +1,48 @@
+---
+- name: "community : check-mongo-exists : Check for existing mongodb instance"
+  kubernetes.core.k8s_info:
+    api_version: mongodbcommunity.mongodb.com/v1
+    kind: MongoDBCommunity
+    name: mas-mongo-ce
+    namespace: "{{ mongodb_namespace }}"
+  register: existing_mongodb
+
+- name: "community : check-mongo-exists : Check for existing mongo operator instance"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    label_selectors:
+      - "name = mongodb-kubernetes-operator"
+    namespace: "{{ mongodb_namespace }}"
+  register: existing_mongo_operator
+
+- name: "community : check-mongo-exists : Debug existing resources"
+  debug:
+    msg:
+      - "Existing MongoDb  ........ {{ existing_mongodb.resources[0] | default('Not Found', true) }}"
+      - "Existing operator version  {{ existing_mongo_operator.resources[0] | default('Not Found', true)  }}"
+
+- name: "community : check-mongo-exists : upgrade details"
+  debug:
+    msg:
+      - "Existing MongoDb version ........ {{ existing_mongodb.resources[0].spec.version | default('Not found', true) }}"
+
+- block:
+    # holds the existing mongo instance version
+    - name: Set existing_mongo_version
+      set_fact:
+        existing_mongo_version: "{{ existing_mongodb.resources[0].spec.version }}"
+
+    # holds the existing mongo instance minor version
+    - name: Set existing_mongo_minor_version
+      set_fact:
+        existing_mongo_minor_version: "{{ existing_mongo_version | regex_search('(?<=)(.*)(?=...)') }}"
+
+    # holds the expected target mongo version that is feature compatible with the existing mongo instance version
+    - name: Set mongo_compatible_target_version
+      set_fact:
+        mongo_compatible_target_version: "{{ mongo_feature_compatibility_matrix[existing_mongo_minor_version] }}"
+
+  when:
+    - existing_mongodb.resources[0].spec.version is defined
+    - existing_mongodb.resources[0].spec.version | length > 0
