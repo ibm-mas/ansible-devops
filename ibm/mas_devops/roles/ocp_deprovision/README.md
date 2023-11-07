@@ -55,6 +55,13 @@ API key to authenticate with the Fyre API.
 - Environment Variable: `FYRE_APIKEY`
 - Default Value: None
 
+### fyre_site
+Site in Fyre where cluster had been provisioned
+
+- Optional
+- Environment Variable: `FYRE_SITE`
+- Default Value: `svl`
+
 
 Role Variables - IPI
 -------------------------------------------------------------------------------

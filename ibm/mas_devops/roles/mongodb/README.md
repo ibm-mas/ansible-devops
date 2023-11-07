@@ -70,6 +70,13 @@ The namespace where the operator and MongoDb cluster will be deployed.
 - Environment Variable: `MONGODB_NAMESPACE`
 - Default Value: `mongoce`
 
+### mongodb_version
+Defines the specific mongo version to be used.
+
+- Optional
+- Environment Variable: `MONGODB_VERSION`
+- Default Value: Automatically defined by the mongo version specified in the [latest MAS case bundle available](https://github.com/ibm-mas/ansible-devops/tree/master/ibm/mas_devops/common_vars/casebundles).
+
 ### mongodb_storage_class
 Required.  The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster.
 
@@ -124,6 +131,19 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Environment Variable: `CUSTOM_LABELS`
 - Default Value: None
 
+### mongodb_v5_upgrade
+Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 4.2 or 4.4 to version 5.
+
+- Optional
+- Environment Variable: `MONGODB_V5_UPGRADE`
+- Default Value: `false`
+
+### mongodb_v6_upgrade
+Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 5 to version 6.
+
+- Optional
+- Environment Variable: `MONGODB_V5_UPGRADE`
+- Default Value: `false`
 
 Example Playbook
 -------------------------------------------------------------------------------

@@ -14,7 +14,7 @@ The name of the cluster to login to.  This will be used to lookup the actual log
 - Environment Variable: `CLUSTER_NAME`
 - Default: None
 
-###
+### cluster_type
 The type of cluster to login to (`roks`, `fyre`, or `rosa`)
 
 - **Required** unless `ocp_server` and `ocp_token` are set
@@ -67,6 +67,14 @@ Your FYRE API Key
 - **Required** when `cluster_type` is `fyre`
 - Environment Variable: `FYRE_APIKEY`
 - Default: None
+
+### fyre_site
+Site where cluster had been provisioned in Fyre
+
+- Optional
+- Environment Variable: `FYRE_SITE`
+- Default Value: `svl`
+
 
 Role Variables - AWS ROSA
 -------------------------
