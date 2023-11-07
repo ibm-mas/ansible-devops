@@ -23,6 +23,11 @@ Required.  Specify the version of OCP to install.  The exact format of this will
 - Environment Variable: `OCP_VERSION`
 - Default Value: None
 
+### enable_ipv6
+Enable IPv6 
+
+- Environment Variable: `ENABLE_IPV6`
+- Default: False
 
 Role Variables - GPU Node Support
 -------------------------------------------------------------------------------
