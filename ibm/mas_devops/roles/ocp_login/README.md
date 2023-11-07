@@ -68,7 +68,6 @@ Your FYRE API Key
 - Environment Variable: `FYRE_APIKEY`
 - Default: None
 
-
 Role Variables - AWS ROSA
 -------------------------
 ### rosa_token
@@ -85,6 +84,10 @@ The password for the `cluster-admin` account (created when the cluster was provi
 - Environment Variable: `ROSA_CLUSTER_ADMIN_PASSWORD`
 - Default: None
 
+### enable_ipv6
+Enable IPv6 
+- Environment Variable: `ENABLE_IPV6`
+- Default: False
 
 Example Playbooks
 ----------------
