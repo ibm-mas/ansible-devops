@@ -11,11 +11,16 @@ Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-m
 Role Variables - Installation
 -------------------------------------------------------------------------------
 ### dro_action
-Inform the role whether to perform an install or uninstall of Data Reporter Operator. Supported values are `install`, `uninstall`
+Inform the role whether to perform an install or uninstall of Data Reporter Operator. Supported values are `install-dro` and `uninstall`.
 
 - Optional
 - Environment Variable: `DRO_ACTION`
-- Default: `install`
+- Default: `install-dro`
+
+!!! note
+    The install verb for `dro_action` is chosen to avoid conflict with the existing `uds_action` variable from the `uds` role (`install`) to ease migration from UDS to DRO, this allows the value of `uds_action` and `dro_action` to be set once and provide clarity around which dependency should be installed.
+
+    The `uninstall` action works across both `uds` and `dro` roles.
 
 ### ibm_entitlement_key
 Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary).
