@@ -13,6 +13,8 @@
     # 2. MongoCE
     # -------------------------------------------------------------------------
     mirror_mongoce: "{{ lookup('env', 'MIRROR_MONGOCE') | default ('True', True) | bool }}"
+    mirror_mongoce_v5: "{{ lookup('env', 'MIRROR_MONGOCE_V5') | default ('False', True) | bool }}"
+
 
     # 3. CPFS
     # -------------------------------------------------------------------------
@@ -105,6 +107,23 @@
         manifest_name: extras_mongoce
         manifest_version: "{{ mongo_extras_version }}"
 
+    # Mirror Mongo v6 when requested
+    - name: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_mongoce
+        - mirror_mode != "from-filesystem"
+        - mirror_mongoce_v6 == 'true'
+      vars:
+        extras_name: mongoce
+        extras_version: "{{ mongo_extras_version_6 }}"
+
+    - name: ibm.mas_devops.mirror_images
+      when: 
+        - mirror_mongoce
+        - mirror_mongoce_v6 == 'true'
+      vars:
+        manifest_name: extras_mongoce
+        manifest_version: "{{ mongo_extras_version_6 }}"
 
     # 3. IBM Cloud Pak Foundation Services
     # -------------------------------------------------------------------------
