@@ -1,4 +1,7 @@
 ---
+# Important: Treat dro_action and uds_action as an alias for the same thing
+# Thus dro_action = "install" doesn't mean "install DRO", it means "install UDS"
+
 # 1. Install DRO
 # -----------------------------------------------------------------------------
 # If the user has provided dro_endpoint_url then it means they don't want to install
@@ -6,14 +9,14 @@
 # the input variables
 - include_tasks: "tasks/{{ dro_action }}/main.yml"
   when:
-    - dro_action != "none"
+    - dro_action in ["install-dro", "uninstall"]
     - dro_endpoint_url is not defined or dro_endpoint_url == ""
+
 
 # 2. Generate the DRO configuration for MAS
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/gencfg/main.yml
   when:
-    - dro_action != "none"
-    - dro_action != "uninstall"
+    - dro_action == "install-dro"
     - mas_instance_id is defined and mas_instance_id != ""
     - mas_config_dir is defined and mas_config_dir != ""

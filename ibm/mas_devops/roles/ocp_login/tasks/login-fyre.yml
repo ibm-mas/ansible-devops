@@ -37,3 +37,36 @@
     login_server: "https://{{ api_host }}:6443"
   shell: |
     oc login -u kubeadmin -p {{ login_password }} --server={{ login_server }} --insecure-skip-tls-verify=true
+
+# 6. For IPv6 testing, lookup network
+- name: Lookup network for IPv6 testing
+  kubernetes.core.k8s:
+    api_version: config.openshift.io/v1
+    kind: Network
+    name: "cluster"
+  when:
+    - enable_ipv6 ==true
+  register: _network
+
+- name: "fyre : Debug network"
+  debug:
+    var: _network
+
+# 7. For IPv6 testing, enable dual stack networking
+- name: "Enable dual stack networking"
+  kubernetes.core.k8s_json_patch:
+    kind: Network
+    name: "cluster"
+    api_version: config.openshift.io/v1
+    patch:
+      - op: add
+        path: /spec/clusterNetwork/-
+        value:
+          cidr: fd01::/48
+          hostPrefix: 64
+      - op: add
+        path: /spec/serviceNetwork/-
+        value: fd02::/112
+  register: _dualstackNetworkAddr
+  when:
+    - enable_ipv6==true
