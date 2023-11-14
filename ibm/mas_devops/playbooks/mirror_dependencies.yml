@@ -13,7 +13,9 @@
     # 2. MongoCE
     # -------------------------------------------------------------------------
     mirror_mongoce: "{{ lookup('env', 'MIRROR_MONGOCE') | default ('True', True) | bool }}"
+    mirror_mongoce_v4: "{{ lookup('env', 'MIRROR_MONGOCE_V4') | default ('False', True) | bool }}"
     mirror_mongoce_v5: "{{ lookup('env', 'MIRROR_MONGOCE_V5') | default ('False', True) | bool }}"
+    mirror_mongoce_v6: "{{ lookup('env', 'MIRROR_MONGOCE_V6') | default ('False', True) | bool }}"
 
 
     # 3. CPFS
@@ -107,20 +109,47 @@
         manifest_name: extras_mongoce
         manifest_version: "{{ mongo_extras_version }}"
 
+    # Mirror Mongo v4 when requested
+    - name: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_mode != "from-filesystem"
+        - mirror_mongoce_v4
+      vars:
+        extras_name: mongoce
+        extras_version: "{{ mongo_extras_version_4 }}"
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_mongoce_v4
+      vars:
+        manifest_name: extras_mongoce
+        manifest_version: "{{ mongo_extras_version_4 }}"
+
+    # Mirror Mongo v5 when requested
+    - name: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_mode != "from-filesystem"
+        - mirror_mongoce_v5
+      vars:
+        extras_name: mongoce
+        extras_version: "{{ mongo_extras_version_5 }}"
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_mongoce_v5
+      vars:
+        manifest_name: extras_mongoce
+        manifest_version: "{{ mongo_extras_version_5 }}"
+
     # Mirror Mongo v6 when requested
     - name: ibm.mas_devops.mirror_extras_prepare
       when:
-        - mirror_mongoce
         - mirror_mode != "from-filesystem"
-        - mirror_mongoce_v6 == 'true'
+        - mirror_mongoce_v6
       vars:
         extras_name: mongoce
         extras_version: "{{ mongo_extras_version_6 }}"
 
     - name: ibm.mas_devops.mirror_images
-      when: 
-        - mirror_mongoce
-        - mirror_mongoce_v6 == 'true'
+      when: mirror_mongoce_v6
       vars:
         manifest_name: extras_mongoce
         manifest_version: "{{ mongo_extras_version_6 }}"
