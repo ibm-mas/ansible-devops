@@ -27,28 +27,10 @@
 
 # 3. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
-- name: Load podTemplates configuration
+- name: "Load podTemplates configuration"
+  include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
   vars:
-    config_file_name: "ibm-mas-bascfg.yml"
-  when:
-    - mas_pod_templates_dir is defined
-    - mas_pod_templates_dir != ''
-  block:
-    - name: Check whether configuration exists
-      ansible.builtin.stat:
-        path: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
-      register: pod_templates_file_lookup
-
-    - name: Load podTemplates configuration
-      ansible.builtin.include_vars:
-        file: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
-        name: ibm_mas_bascfg_pod_templates
-      when: pod_templates_file_lookup.stat.exists
-
-    - name: Failed to find configuration
-      ansible.builtin.debug:
-        msg: "Could not find '{{ mas_pod_templates_dir }}/{{ config_file_name }}' - Skipping"
-      when: not pod_templates_file_lookup.stat.exists
+    config_files: ["ibm-mas-bascfg.yml"]
 
 
 # 4. Install Crunchy Postgres Operator (Properly)

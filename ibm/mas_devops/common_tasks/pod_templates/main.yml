@@ -1,0 +1,28 @@
+---
+- name: Run podTemplates configuration
+  when:
+    - mas_pod_templates_dir is defined
+    - mas_pod_templates_dir != ''
+  block:
+    - name: Get and set podTemplates configuration
+      ansible.builtin.include_tasks: "get_pod_templates.yml"
+      loop: "{{ config_files }}"
+
+    - name: Combine podTemplates
+      vars:
+        merged_pod_templates_list: []
+      when:
+        - combine_into is defined
+        - combine_into is defined != ''
+      block:
+        - name: Get and combine podTemplates
+          ansible.builtin.set_fact:
+              merged_pod_templates_list: "{{ merged_pod_templates_list | default([]) + item_list }}"
+          vars:
+            item_name: "{{ item | splitext | first | replace('-', '_') }}_pod_templates"
+            item_list: "{{ lookup('ansible.builtin.vars', item_name, default='') | default([], true) }}"
+          with_items: "{{ config_files }}"
+
+        - name: Set combine_into fact
+          ansible.builtin.set_fact:
+            "{{ combine_into | splitext | first | replace('-', '_') }}_pod_templates": "{{ merged_pod_templates_list }}"
