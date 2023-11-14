@@ -90,6 +90,13 @@ For examples refer to the [BestEfforts reference configuration in the MAS CLI](h
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
 
+### enable_IPv6
+Boolean variable that inciates whether it is to install in an IPv6-enabled environment.  If it is true, the suite CR will have the PreferDualStack for ipFamilyPolicy and ["IPv6", "IPv4"] for ipFamilies.  These ipFamily properties will be populated to all the services. This is currently available only in internal fyre clusters at the RTP site for testing purpose.
+
+- Optional
+- Environment Variable: `ENABLE_IPv6`,
+- Default: False
+
 Example Playbook
 -------------------------------------------------------------------------------
 
