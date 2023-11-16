@@ -7,7 +7,7 @@ Installs [IBM User Data Services](https://www.ibm.com/docs/en/cpfs?topic=service
 Role Variables - Installation
 -------------------------------------------------------------------------------
 ### uds_action
-Inform the role whether to perform an install or uninstall of IBM User Data Services or the Slim User Data Services. Supported values are `install`, `uninstall`, `install_suds` or `uninstall_suds`
+Inform the role whether to perform an install or uninstall of IBM User Data Services or the Slim User Data Services. Supported values are `install`, `uninstall`, `install-suds` or `uninstall-suds`
 
 - Optional
 - Environment Variable: `UDS_ACTION`
