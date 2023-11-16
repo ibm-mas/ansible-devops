@@ -59,4 +59,9 @@
     # We only want the first part of this certificate, I don't know why, but this is what works - if needed, set include_cluster_ingress_cert_chain == true to have entire cert chain
     - name: "Get private ingress certificate"
       ansible.builtin.set_fact:
-        cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt_full[0] if include_cluster_ingress_cert_chain == false else cluster_ingress_tls_crt_full }}"
+        cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt_full if (include_cluster_ingress_cert_chain) else cluster_ingress_tls_crt_full[0] }}"
+
+    - name: "Format to list all certificates in the chain"
+      ansible.builtin.set_fact:
+        cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt | join('') }}"
+      when: cluster_ingress_tls_crt | type_debug == 'list' and cluster_ingress_tls_crt | length > 0
