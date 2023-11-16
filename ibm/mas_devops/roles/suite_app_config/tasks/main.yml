@@ -19,6 +19,36 @@
 - name: Load mas_app variables
   include_vars: "{{ role_path }}/../suite_app_install/vars/{{ mas_app_id }}.yml"
 
+# 2.2 Load PodTemplates configuration
+# -----------------------------------------------------------------------------
+- name: Load podTemplates configuration
+  vars:
+    config_file_name: "ibm-mas-{{ mas_app_id }}-ws.yml"
+  when:
+    - mas_pod_templates_dir is defined
+    - mas_pod_templates_dir != ''
+  block:
+    - name: Check whether configuration exists
+      ansible.builtin.stat:
+        path: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+      register: pod_templates_file_lookup
+
+    - name: Load podTemplates configuration
+      ansible.builtin.include_vars:
+        file: "{{ mas_pod_templates_dir }}/{{ config_file_name }}"
+        name: "ibm_mas_{{ mas_app_id }}_ws"
+      when: pod_templates_file_lookup.stat.exists
+
+    - name: Failed to find configuration
+      ansible.builtin.debug:
+        msg: "Could not find '{{ mas_pod_templates_dir }}/{{ config_file_name }}' - Skipping"
+      when: not pod_templates_file_lookup.stat.exists
+
+# 2.3 Load default application spec, if none is provided by user
+- name: Load default application spec
+  when: mas_app_spec is not defined or mas_app_spec == ""
+  include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
+
 
 # 3. Run Application Specific Pre-configuration
 # -----------------------------------------------------------------------------
