@@ -51,7 +51,7 @@ Determines which action needs to be performed w.r.t mongodb for a specfied `prov
   ```
   Following Providers supports below mentioned MONGODB_ACTION values:
   1. Provider : community 
-  Supported MONGODB_ACTION values : install,uninstall,upgrade
+  Supported MONGODB_ACTION values : install,uninstall
   2. Provider: aws
   Supported MONGODB_ACTION values : install,uninstall,docdb_secret_rotate
   3. Provider: ibm

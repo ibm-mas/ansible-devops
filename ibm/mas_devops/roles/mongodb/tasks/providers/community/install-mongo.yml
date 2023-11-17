@@ -190,10 +190,7 @@
   vars:
     current_mongodb_version: "{{ existing_mongodb.resources[0].spec.version }}"
     current_mongodb_image: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.template.spec.containers[0].image }}"
-    current_mongodb_storage_class_data: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates | selectattr('metadata.name', 'equalto', 'data-volume') | map(attribute='spec.storageClassName') | first }}"
-    current_mongodb_storage_class_logs: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates | selectattr('metadata.name', 'equalto', 'logs-volume') | map(attribute='spec.storageClassName') | first }}"
-    current_mongodb_storage_capacity_data: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates | selectattr('metadata.name', 'equalto', 'data-volume') | map(attribute='spec.resources.requests.storage') | first }}"
-    current_mongodb_storage_capacity_logs: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates | selectattr('metadata.name', 'equalto', 'logs-volume') | map(attribute='spec.resources.requests.storage') | first }}"
+    current_mongodb_storage_class: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplate[0].spec.storageClassName }}"
     current_mongo_operator_image: "{{ existing_mongo_operator.resources[0].spec.containers[0].image }}"
   when:
     - not controlled_upgrade
@@ -355,6 +352,22 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml.j2') }}"
+  when:
+    - not controlled_upgrade
+
+- name: "community : install : Update MongoDb version"
+  kubernetes.core.k8s_json_patch:
+    api_version: mongodbcommunity.mongodb.com/v1
+    name: "mas-mongo-ce"
+    namespace: "{{ mongodb_namespace }}"
+    kind: MongoDBCommunity
+    patch:
+      - op: replace
+        path: /spec/statefulSet/spec/template/spec/containers[0]/image
+        value: "{{ target_mongodb_image }}"
+  when: 
+    - controlled_upgrade
+    - target_mongodb_version != current_mongodb_version
 
 - name: "community : install : Set expected MongoDb version to {{ current_mongodb_version }}"
   set_fact:
