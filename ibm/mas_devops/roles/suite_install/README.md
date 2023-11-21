@@ -19,7 +19,7 @@ Required when using this role for development versions of MAS
 Defines which channel of MAS to subscribe to
 
 ### mas_domain
-Opitional fact, if not provided the role will use the default cluster subdomain
+Optional fact, if not provided the role will use the default cluster subdomain
 
 ### mas_instance_id
 Defines the instance id to be used for MAS installation
@@ -82,7 +82,7 @@ Boolean variable that defines whether default Certificate Authorities are includ
 - Default: True
 
 ### mas_pod_templates_dir
-Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named `ibm-mas-suite.yml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the Suite spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`.
+Provide the directory where supported pod templates configuration files are defined. This role will look for a configuration files named `ibm-mas-suite.yml`, `ibm-mas-coreidp.yml` and `ibm-data-dictionary-assetdatadictionary.yml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the Suite spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`. For ibm-data-dictionary the podTemplates will be inserted into the Suite spec under `settings->dataDictionary->podTemplates`. The ibm-mas-suite operator will then pass this on to the AssetDataDictionary CR when available.
 
 For examples refer to the [BestEfforts reference configuration in the MAS CLI](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-suite.yml), for full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
 
@@ -91,7 +91,7 @@ For examples refer to the [BestEfforts reference configuration in the MAS CLI](h
 - Default: None
 
 ### enable_IPv6
-Boolean variable that inciates whether it is to install in an IPv6-enabled environment.  If it is true, the suite CR will have the PreferDualStack for ipFamilyPolicy and ["IPv6", "IPv4"] for ipFamilies.  These ipFamily properties will be populated to all the services. This is currently available only in internal fyre clusters at the RTP site for testing purpose.
+Boolean variable that indicates whether it is to install in an IPv6-enabled environment.  If it is true, the suite CR will have the PreferDualStack for ipFamilyPolicy and ["IPv6", "IPv4"] for ipFamilies.  These ipFamily properties will be populated to all the services. This is currently available only in internal fyre clusters at the RTP site for testing purpose.
 
 - Optional
 - Environment Variable: `ENABLE_IPv6`,
