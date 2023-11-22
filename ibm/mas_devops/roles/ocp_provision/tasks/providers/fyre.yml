@@ -29,6 +29,8 @@
       - "Fyre product ID .............. {{ fyre_product_id }}"
       - "Fyre Quota Type .............. {{ fyre_quota_type }}"
       - "fips enabled ................. {{ ocp_fips_enabled }}"
+      - "IPv6 enabled ..................{{ enable_ipv6 }}"
+      - "Fyre Site......................{{ fyre_site }}"
       # Quickburn specific
       - "Fyre cluster size ............ {{ fyre_cluster_size | default('<undefined>', true) }}"
       # Product Group specific
@@ -55,6 +57,14 @@
 
 # 4. Deploy the OCP+ cluster
 # -----------------------------------------------------------------------------
+- name: "fyre : Debug cluster provision json body"
+  when:
+    - _cluster_exist.json is defined
+    - _cluster_exist.json.owning_user is not defined # when there's no cluster owner, it means there's no cluster thus we create it
+  vars:
+    fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
+  debug:
+    msg: "{{ lookup('template', fyre_template_name) }}"
 
 - name: "fyre : Create new OCP+ cluster"
   when:

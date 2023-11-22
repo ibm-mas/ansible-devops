@@ -1,0 +1,29 @@
+- name: Get and set podTemplates configuration
+  block:
+    - name: Check whether configuration exists
+      ansible.builtin.stat:
+        path: "{{ mas_pod_templates_dir }}/{{ item }}"
+      register: pod_templates_file_lookup
+
+    - name: Set podTemplates configuration
+      when: pod_templates_file_lookup.stat.exists
+      block:
+        - name: Load podTemplates configuration and set fact
+          ansible.builtin.include_vars:
+            file: "{{ mas_pod_templates_dir }}/{{ item }}"
+            name: pod_template_file
+
+        - name: Assert that 'podTemplates' key exists
+          ansible.builtin.assert:
+            that: "'podTemplates' in pod_template_file"
+            fail_msg: "Could not find 'podTemplates' key in {{ item }}"
+            success_msg: "Found 'podTemplates' key in {{ item }}"
+
+        - name: Set podTemplates fact
+          ansible.builtin.set_fact:
+            "{{ item | splitext | first | replace('-', '_') }}_pod_templates": "{{ pod_template_file['podTemplates'] }}"
+
+    - name: Failed to find configuration
+      ansible.builtin.debug:
+        msg: "Could not find '{{ mas_pod_templates_dir }}/{{ item }}' - Skipping"
+      when: not pod_templates_file_lookup.stat.exists
