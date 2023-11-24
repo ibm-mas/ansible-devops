@@ -56,6 +56,7 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 - `CPD_INSTALL_SPARK` True/False - If you HAVE Spark already installed in your cluster you can skip this variable as `False` is set default
 - `CPD_INSTALL_OPENSCALE` True/False - If you HAVE Openscale already installed in your cluster you can skip this variable as `False` is set default
 - `CPD_INSTALL_SPSS` True/False - If you HAVE SPSS Modeler already installed in your cluster you can skip this variable as `False` is set default
+- `CPD_WOS_DATAMART_ID` - Ensure a Datamart ID Text box has a valid IBM Watson OpenScale instance database schema in following format `00000000-0000-0000-0000-1692782854779995`
 
 
 ## Usage
