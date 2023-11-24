@@ -29,7 +29,7 @@ The namespace where the NVIDIA GPU operator will be deployed. For version 1.8.x,
 The channel to subscribe to for the gpu operator installation and updates. Available channels may be found in the package manifest of gpu-operator-certified operator in openshift.
 
 - Environment Variable: `GPU_CHANNEL`
-- Default Value: `v1.11`
+- Default Value: `v23.3`
 
 ### gpu_driver_version
 The gpu driver version image that needs to be pulled from the gpu driver repository. It is recommended that the right version of GPU driver is used depending on the OS version. The default versions are shown below. See the attached links for more information and to decide which driver version to use.
