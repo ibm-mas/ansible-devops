@@ -190,7 +190,6 @@
   vars:
     current_mongodb_version: "{{ existing_mongodb.resources[0].spec.version }}"
     current_mongodb_image: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.template.spec.containers[0].image }}"
-    current_mongodb_storage_class: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplate[0].spec.storageClassName }}"
     current_mongo_operator_image: "{{ existing_mongo_operator.resources[0].spec.containers[0].image }}"
   when:
     - not controlled_upgrade
@@ -365,6 +364,9 @@
       - op: replace
         path: /spec/statefulSet/spec/template/spec/containers[0]/image
         value: "{{ target_mongodb_image }}"
+      - op: replace
+        path: /spec/version
+        value: "{{ target_mongodb_version }}"
   when:
     - controlled_upgrade
     - target_mongodb_version != current_mongodb_version
