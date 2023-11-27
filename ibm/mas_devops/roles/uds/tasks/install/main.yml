@@ -1,10 +1,8 @@
 ---
-
 # 1. Check for MAS ImageContentSourcePolicy
 # -----------------------------------------------------------------------------
 - name: "Determine whether this is an airgap environment"
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
-
 
 # 2. Load default storage class (if not provided by the user)
 # -----------------------------------------------------------------------------
@@ -24,14 +22,12 @@
       - "UDS Contact Last Name .............. {{ uds_contact.last_name | default('<undefined>', True) }}"
       - "UDS Contact e-mail ................. {{ uds_contact.email | default('<undefined>', True) }}"
 
-
 # 3. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
 - name: "Load podTemplates configuration"
   include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
   vars:
     config_files: ["ibm-mas-bascfg.yml"]
-
 
 # 4. Install Crunchy Postgres Operator (Properly)
 # -----------------------------------------------------------------------------
@@ -56,7 +52,7 @@
     api_version: packages.operators.coreos.com/v1
     kind: PackageManifest
     name: "crunchy-postgres-operator"
-    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+    namespace: openshift-marketplace # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
   register: postgres_manifest
 
 - name: Assert that PackageManifest exists
@@ -79,7 +75,6 @@
     wait: yes
     wait_timeout: 120
 
-
 # 5. Wait for Postgres Operator to be Ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Crunchy Postgres operator to be ready (60s delay)"
@@ -93,7 +88,6 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-
 # 6. Install UDS Operator
 # -----------------------------------------------------------------------------
 - name: Install Foundation Services ibm-user-data-services operand request
@@ -101,7 +95,6 @@
     definition: "{{ lookup('template', 'templates/foundation-services/ibm-user-data-services.yml') }}"
     wait: yes
     wait_timeout: 120
-
 
 # 7. Wait for UDS Operator to be Ready
 # -----------------------------------------------------------------------------
@@ -116,7 +109,6 @@
   retries: 90 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-
 # 8. Create UDS AnalyticsProxy
 # -----------------------------------------------------------------------------
 - name: "Create UDS AnalyticsProxy"
@@ -125,7 +117,6 @@
 
 # Note that the AnalyticsProxy references a 'uds-images-pull-secret', but we do not create this.
 # For some reason it seems to work anyway.
-
 
 # 9. Wait for the UDS AnalyticsProxy to be ready
 # -----------------------------------------------------------------------------
@@ -144,13 +135,11 @@
   retries: 30 # approx 1 hour (!!) before we give up waiting for status.phase to be Ready
   delay: 120 # 2 minutes
 
-
-# 10. Cretae the GenerateKey CR
+# 10. Create the GenerateKey CR
 # -----------------------------------------------------------------------------
 - name: "Create UDS Generate Key"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/foundation-services/generateKey.yaml') }}"
-
 
 # 11. Wait for GenerateKey to be complete
 # -----------------------------------------------------------------------------
@@ -168,7 +157,6 @@
     - uds_gk_result.resources[0].status.phase == 'Ready'
   retries: 30 # approx 30 minutes before we give up
   delay: 60 # 1 minute
-
 
 # 12. MAS Config
 # -----------------------------------------------------------------------------

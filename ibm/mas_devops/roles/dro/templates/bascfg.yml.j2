@@ -37,16 +37,12 @@ spec:
       lastName: "{{ dro_contact.last_name }}"
     credentials:
       secretName: dro-apikey
-  certificates:
-    - alias: part1
-      crt: |
-        {{ dro_tls_crt[0] | indent(8) }}
-{% if dro_tls_crt | length > 1 %}
-    - alias: part2
-      crt: |
-        {{ dro_tls_crt[1] | indent(8) }}
-{% endif %}
-    - alias: isrg-root-x1 # default root certificate used by Let's Encrypt
+{% if dro_certs is defined and dro_certs | length > 0 %}
+  certificates: 
+    {{ dro_certs | indent(width=4, first=False) }}
+{%- endif %}
+{% if dro_certs is defined and dro_certs | length > 0 and dro_include_isrg_root_cert == true %}
+    - alias: isrgrootx1 # default root certificate used by Let's Encrypt
       crt: |
         -----BEGIN CERTIFICATE-----
         MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
@@ -79,6 +75,7 @@ spec:
         mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
         emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
         -----END CERTIFICATE-----
+{%- endif %}
 {% if ibm_mas_bascfg_pod_templates is defined %}
   podTemplates: {{ ibm_mas_bascfg_pod_templates }}
 {% endif %}

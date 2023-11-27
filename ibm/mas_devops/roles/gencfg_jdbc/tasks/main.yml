@@ -1,5 +1,4 @@
 ---
-
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
@@ -39,7 +38,6 @@
     fail_msg: "db_pem_file property is required"
   when: ssl_enabled == true
 
-
 # 2. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
@@ -68,7 +66,7 @@
     - mas_config_dir is defined
     - mas_config_dir != ""
   template: src=vars/jdbccfg/{{ mas_config_scope }}.yml.j2
-            dest=/tmp/{{ mas_config_scope }}.yml
+    dest=/tmp/{{ mas_config_scope }}.yml
 
 # 4. Load JDBCCfg yml definition
 # -----------------------------------------------------------------------------
@@ -83,11 +81,17 @@
 # 5. Read file information
 # -----------------------------------------------------------------------------
 - name: Read DB Certificate file
-  set_fact:
-    db_pem: "{{ lookup('file', db_pem_file) }}"
   when:
     - db_pem_file is defined
     - ssl_enabled == true
+  set_fact:
+    jdbc_tls_crt: "{{ lookup('file', db_pem_file) | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+  no_log: true
+
+# Load jdbc_certs template to dynamically set as many jdbc certificates as identified
+- set_fact:
+    jdbc_certs: "{{ lookup('ansible.builtin.template', 'templates/jdbc-certs.yml.j2') }}"
+  when: jdbc_tls_crt | length > 0
 
 # 6. Generate JDBCcfg for MAS configuration
 # -----------------------------------------------------------------------------
@@ -98,4 +102,4 @@
   ansible.builtin.template:
     src: jdbccfg.yml.j2
     dest: "{{ mas_config_dir }}/jdbc.yml"
-    mode: '664'
+    mode: "664"
