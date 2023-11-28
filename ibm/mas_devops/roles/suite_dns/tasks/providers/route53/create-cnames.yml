@@ -20,14 +20,24 @@
     route53_lb_dnsname_output: "{{ aws_hosted_zone_loadbalancer_output.stdout }}"
 
 - set_fact:
-    route53_lb_dnsname: "{{ route53_lb_dnsname_output | first }}"
+    route53_lb_dnsname: "{{ route53_lb_dnsname_output | first | regex_search('^.*(?=.$)') }}" # removes a dot at the end that aws cli command adds
+
+- name: "aws-route53 : Lookup Load Balancer's zone id" # this finds the load balancer host id based on the load balancer dns name
+  shell: |
+    aws elb describe-load-balancers |
+    jq --arg name {{ route53_lb_dnsname }} \
+    -r '.LoadBalancerDescriptions | .[] | select(.CanonicalHostedZoneName=="\($name)") | .CanonicalHostedZoneNameID'
+  register: aws_hosted_zone_id_loadbalancer_output
+
+- set_fact:
+    route53_lb_zone_id: "{{ aws_hosted_zone_id_loadbalancer_output.stdout }}"
 
 - name: "Assert Load Balancer DNS Name for cluster {{ cluster_ingress }} exists"
   assert:
     that: route53_lb_dnsname is defined and route53_lb_dnsname != ""
     fail_msg: "There is no Load Balancer DNS Name found for {{ cluster_ingress }}. Verify your AWS Route53 hosted zone '{{ route53_hosted_zone_name }}' and ensure there's an 'A type' entry for your cluster and a corresponding load balancer associated to it."
 
-- name: "aws-route53 : Generate CNAME json file for {{ route53_lb_dnsname }}"
+- name: "aws-route53 : Generate CNAME json file in: {{ route53_cname_json_file_path_local }}/{{ mas_instance_id }}-{{ route53_hosted_zone_name }}-cnames.json"
   ansible.builtin.template:
     src: "{{ route53_cname_json_file_path_local }}/create-cnames.json.j2"
     dest: "{{ route53_cname_json_file_path_local }}/{{ mas_instance_id }}-{{ route53_hosted_zone_name }}-cnames.json"
@@ -37,4 +47,7 @@
   shell: |
     aws route53 change-resource-record-sets --hosted-zone-id {{ route53_hosted_zone_id }} --change-batch file://{{ route53_cname_json_file_path_local }}/{{ mas_instance_id }}-{{ route53_hosted_zone_name }}-cnames.json
   register: aws_hosted_zone_loadbalancer_output
-  failed_when: aws_hosted_zone_loadbalancer_output.rc > 0 and ('it already exists' not in aws_hosted_zone_loadbalancer_output.stderr )
+  failed_when: aws_hosted_zone_loadbalancer_output.rc > 0 and ('it already exists' in aws_hosted_zone_loadbalancer_output.stderr )
+
+- debug:
+    var: aws_hosted_zone_loadbalancer_output
