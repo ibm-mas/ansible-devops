@@ -26,8 +26,8 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_SIZE` Defines persistent storage size for Visual Inspection application. If not provided, default is `100Gi`.
 - `MAS_APP_SETTINGS_VISUALINSPECTION_OBJECT_STORAGE_ENABLED` If set to `true`, enables [Object Storage integration with Visual Inspection](https://www.ibm.com/docs/en/mas-cd/maximo-vi/continuous-delivery?topic=managing-object-storage).
 - `MAS_APP_SETTINGS_VISUALINSPECTION_OBJECT_STORAGE_WORKSPACE` Defines the Object Storage bucket name to be used for Visual Inspection integration.
-- `CONFIGURE_COS` If set to `true`, an Object Storage will be configured as MAS system scope configuration which will be used for Visual Inspection integration. See [cos](../../ibm/mas_devops/roles/cos/README.md) role for detailed information.
-- `CONFIGURE_COS_BUCKET` If set to `true`, an Object Storage bucket will be configured to be used for Visual Inspection application. See [cos_bucket](../../ibm/mas_devops/roles/cos_bucket/README.md) role for detailed information.
+- `CONFIGURE_COS` If set to `true`, an Object Storage will be configured as MAS system scope configuration which will be used for Visual Inspection integration. See [cos](https://ibm-mas.github.io/ansible-devops/roles/cos/) role documentation for detailed information.
+- `CONFIGURE_COS_BUCKET` If set to `true`, an Object Storage bucket will be configured to be used for Visual Inspection application. See [cos_bucket](https://ibm-mas.github.io/ansible-devops/roles/cos_bucket/) role documentation for detailed information.
 
 
 ## Usage
