@@ -223,7 +223,7 @@ The amount of memory to assign to each worker node (maximum value supported by F
 - Default Value: `64`
 
 ### enable_ipv6
-Enable IPv6. This is for Fyre at RPT site only.
+Enable IPv6. This is for Fyre at RTP site only.
 
 - Environment Variable: `ENABLE_IPV6`
 - Default: False
