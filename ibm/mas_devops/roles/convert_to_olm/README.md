@@ -20,7 +20,7 @@ The instance ID of Maximo Application Suite. This will be used to lookup for app
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default: None
 
-### mas_catalog_source 
+### mas_catalog_source
 Defines the catalog to be used to install MAS channel subscription.
 
 - Optional
@@ -62,12 +62,6 @@ Username for entitled registry. This username will be used to create the image p
 - Environment Variable: `MAS_ENTITLEMENT_KEY`
 - Default: None
 
-### mas_upgrade_strategy
-The Upgrade strategy for MAS Operator.
-
-- Optional
-- Environment Variable: `MAS_UPGRADE_STRATEGY`
-- Default: `Manual`
 
 Example Playbook
 ----------------
