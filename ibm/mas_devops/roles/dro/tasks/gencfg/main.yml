@@ -74,12 +74,17 @@
 - name: "udscfg : Set UDS cert variable"
   set_fact:
     dro_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+  no_log: true
+
+# Load uds_certs template to dynamically set as many uds certificates as identified
+- set_fact:
+    dro_certs: "{{ lookup('ansible.builtin.template', 'templates/dro-certs.yml.j2') }}"
+  when: dro_tls_crt | length > 0
 
 - name: "gencfg : Fail if dro_tls_crt has not been provided"
   assert:
     that: dro_tls_crt is defined and dro_tls_crt|length != 0
     fail_msg: "dro_tls_crt property has not been set"
-
 
 # 4.Provide Debug information
 # -----------------------------------------------------------------------------
@@ -99,5 +104,5 @@
   ansible.builtin.template:
     src: bascfg.yml.j2
     dest: "{{ mas_config_dir }}/dro.yml"
-    mode: '664'
+    mode: "664"
   when: mas_instance_id is defined

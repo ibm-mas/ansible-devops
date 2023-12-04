@@ -6,8 +6,10 @@ This role currently supports provisioning of mongodb in three different provider
  - aws (documentdb)
  - ibm
 
+!!! important
+    According to the [MongoDB Software Lifecycle Schedules](https://www.mongodb.com/support-policy/lifecycles) MongoDB 4.4 will reach end of life in February of 2024. Given this fact it is encouraged that either MongoDB 5 or 6 be used for MAS Deployments. The MAS Devops Ansible Collection can be used to install or upgrade MongoDB when the selected service provider is `community`. If the MonogDB instance used by MAS is hosted by a third party please consult the applicable documentation with respect to MongoDB 5 or 6 options. If the MongoDB instance is hosted on premises please review the appropriate MongoDB documentation related to upgrading. As a best practice it is advised perform MongoDB backups on a regular basis. This is especially important before any upgrade of MongoDB.
 
-If selected provider is `community` [MongoDb CE operator](https://github.com/mongodb/mongodb-kubernetes-operator) will be installed into the specified namespace, a 3 node cluster cluster will be created.  The cluster will bind six PVCs, these provide persistence for the data and system logs across the three nodes.  Currently there is no support built-in for customizing the cluster beyond this configuration.
+If the selected provider is `community` then the [MongoDB Community Kubernetes Operator](https://github.com/mongodb/mongodb-kubernetes-operator) will be configured and deployed into the specified namespace. By default a three member MongoDB replica set will be created.  The cluster will bind six PVCs, these provide persistence for the data and system logs across the three nodes.  Currently there is no support built-in for customizing the cluster beyond this configuration.
 
 !!! tip
     The role will generate a yaml file containing the definition of a Secret and MongoCfg resource that can be used to configure the deployed instance as the MAS system MongoDb.
@@ -70,6 +72,16 @@ The namespace where the operator and MongoDb cluster will be deployed.
 - Environment Variable: `MONGODB_NAMESPACE`
 - Default Value: `mongoce`
 
+### mongodb_version
+Defines the specific mongo version to be used. Best practice would be to use the version associated with the current Maximo Application Suite catalog. However, this value can currently be overridden to 4.4.21, 5.0.21 or 6.0.10.
+
+!!! important
+    It is advised to never attempt a downgrade a MongoDB instance managed by the MAS Devops Ansible Collection. Also best practices should include creating scheduled backups of any MongoDB instance. 
+
+- Optional
+- Environment Variable: `MONGODB_VERSION`
+- Default Value: Automatically defined by the mongo version specified in the [latest MAS case bundle available](https://github.com/ibm-mas/ansible-devops/tree/master/ibm/mas_devops/common_vars/casebundles).
+
 ### mongodb_storage_class
 Required.  The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster.
 
@@ -124,6 +136,19 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Environment Variable: `CUSTOM_LABELS`
 - Default Value: None
 
+### mongodb_v5_upgrade
+Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 4.2 or 4.4 to version 5.
+
+- Optional
+- Environment Variable: `MONGODB_V5_UPGRADE`
+- Default Value: `false`
+
+### mongodb_v6_upgrade
+Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 5 to version 6.
+
+- Optional
+- Environment Variable: `MONGODB_V5_UPGRADE`
+- Default Value: `false`
 
 Example Playbook
 -------------------------------------------------------------------------------

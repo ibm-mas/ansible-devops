@@ -1,0 +1,41 @@
+---
+# This task finds podTemplates config files in MAS_POD_TEMPLATES_DIR and sets their corresponding facts
+# Params:
+#   config_files: (Required) List of config files that contain podTemplates
+#   combine_into: (Optional) Name of config file to combine all podTemplates
+# Usage:
+# - name: "Load podTemplates configuration"
+#   include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
+#   vars:
+#     config_files:
+#       - "ibm-mas-suite.yml"
+#       - "ibm-mas-coreidp.yml"
+#     combine_into: "ibm-mas-suite.yml"
+
+- name: Run podTemplates configuration
+  when:
+    - mas_pod_templates_dir is defined
+    - mas_pod_templates_dir != ''
+  block:
+    - name: Get and set podTemplates configuration
+      ansible.builtin.include_tasks: "get_pod_templates.yml"
+      loop: "{{ config_files }}"
+
+    - name: Combine podTemplates
+      vars:
+        merged_pod_templates_list: []
+      when:
+        - combine_into is defined
+        - combine_into is defined != ''
+      block:
+        - name: Get and combine podTemplates
+          ansible.builtin.set_fact:
+            merged_pod_templates_list: "{{ merged_pod_templates_list | default([]) + item_list }}"
+          vars:
+            item_name: "{{ item | splitext | first | replace('-', '_') }}_pod_templates"
+            item_list: "{{ lookup('ansible.builtin.vars', item_name, default='') | default([], true) }}"
+          with_items: "{{ config_files }}"
+
+        - name: Set combine_into fact
+          ansible.builtin.set_fact:
+            "{{ combine_into | splitext | first | replace('-', '_') }}_pod_templates": "{{ merged_pod_templates_list }}"

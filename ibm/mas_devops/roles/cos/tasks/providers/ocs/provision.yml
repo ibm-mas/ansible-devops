@@ -23,7 +23,6 @@
     msg:
       - "OCS Cluster is available .... {{ ocsavailable }}"
 
-
 # 2. Create the object store
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Create objectstore in OSC Cluster"
@@ -31,7 +30,6 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/ocs/object.yaml') }}"
-
 
 # 3. Create the object User
 # -----------------------------------------------------------------------------
@@ -52,10 +50,9 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-
 # 4. Set up the domain name for object storage route
 # -----------------------------------------------------------------------------
-- name: "ocs/objectstorage :Get cluster subdomain"
+- name: "ocs/objectstorage : Get cluster subdomain"
   when: ocsavailable is defined and ocsavailable
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
@@ -63,11 +60,10 @@
     name: cluster
   register: _cluster_subdomain
 
-- name: "ocs/objectstorage :Configure domain"
+- name: "ocs/objectstorage : Configure domain"
   when: ocsavailable is defined and ocsavailable
   set_fact:
     cos_domain: "rgw-openshift-storage.{{ _cluster_subdomain.resources[0].spec.domain }}"
-
 
 # 5. Create route for cos
 # -----------------------------------------------------------------------------
@@ -77,10 +73,9 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/ocs/rgw.yaml') }}"
 
-
 # 6. Query the object User crdential
 # -----------------------------------------------------------------------------
-- name: "ocs/objectstorage :Lookup if cos user secret is there"
+- name: "ocs/objectstorage : Lookup if cos user secret is there"
   when: ocsavailable is defined and ocsavailable
   kubernetes.core.k8s_info:
     api_version: v1
@@ -88,7 +83,6 @@
     name: "rook-ceph-object-user-object-object"
     namespace: "openshift-storage"
   register: objectuserSecret
-
 
 # 7. Query the tls for object route
 # -----------------------------------------------------------------------------
@@ -100,9 +94,14 @@
 # is necessary :)
 - name: "ocs/objectstorage : Set COS cert variable"
   set_fact:
-    ocscos_certs: "{{ cluster_ingress_tls_crt | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+    ocscos_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
 
-- name: "ocs/objectstorage :Query cos secret based on existing secret/cm"
+# Load uds_certs template to dynamically set as many uds certificates as identified
+- set_fact:
+    ocscos_certs: "{{ lookup('ansible.builtin.template', 'templates/ocs/ocs-certs.yml.j2') }}"
+  when: ocscos_tls_crt | length > 0
+
+- name: "ocs/objectstorage : Query cos secret based on existing secret/cm"
   when:
     - ocsavailable is defined and ocsavailable
     - objectuserSecret.resources| length != 0
@@ -110,7 +109,6 @@
     ocscos_url: "https://{{ cos_domain }}"
     ocscos_username: "{{ objectuserSecret.resources[0]['data']['AccessKey']| b64decode }}"
     ocscos_password: "{{ objectuserSecret.resources[0]['data']['SecretKey']| b64decode }}"
-
 
 # 8. Provide debug information and create coscfg.yml
 # -----------------------------------------------------------------------------
@@ -127,7 +125,6 @@
       fail:
         msg: "we didn't get the cos info here in ocs cluster."
 
-
 # 9. Write ObjectStorageCfg to disk
 # -----------------------------------------------------------------------------
 - name: "ocs/objectstorage : Copy objectstorageCfg to filesytem"
@@ -139,4 +136,4 @@
   ansible.builtin.template:
     src: ocs/objectstoragecfg.yml.j2
     dest: "{{ mas_config_dir }}/cos-ocs-system.yml"
-    mode: '664'
+    mode: "664"

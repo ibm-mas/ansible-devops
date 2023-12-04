@@ -1,7 +1,6 @@
 suite_install
 ===============================================================================
-
-This role install Maximo Application Suite. It internally resolve the namespace based on the `mas_instance_id` as `mas-{mas_instance_id}-core`. By default this role install MAS Operator using Manual Upgrade Strategy. Set `MAS_UPGRADE_STRATEGY` environment variable to Automatic to override it. In the `Manual` upgrade mode, IBM Common Services operators requested by MAS will inherit the upgrade strategy from MAS and their pending install plans approved.
+This role install Maximo Application Suite. It internally resolve the namespace based on the `mas_instance_id` as `mas-{mas_instance_id}-core`.
 
 
 Role Variables
@@ -19,7 +18,7 @@ Required when using this role for development versions of MAS
 Defines which channel of MAS to subscribe to
 
 ### mas_domain
-Opitional fact, if not provided the role will use the default cluster subdomain
+Optional fact, if not provided the role will use the default cluster subdomain
 
 ### mas_instance_id
 Defines the instance id to be used for MAS installation
@@ -41,9 +40,6 @@ Directory containing configuration files (`*.yaml` and `*.yml`) to be applied to
 
 ### certManager.namespace
 The namespace containing the cert-manager to be used by MAS
-
-### mas_upgrade_strategy
-The Upgrade strategy for MAS Operator. Default is set to Automatic
 
 ### mas_annotations
 Provide a list of comma-separated key=value pairs which will be applied as labels on all resources created.  This variable takes a comma separated list of annotations. For example, to deploy your suite in non production mode, set this to `mas.ibm.com/operationalMode=nonproduction`
@@ -82,13 +78,20 @@ Boolean variable that defines whether default Certificate Authorities are includ
 - Default: True
 
 ### mas_pod_templates_dir
-Provide the directory where supported pod templates configuration files are defined.  This role will look for a configuration file named `ibm-mas-suite.yml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the Suite spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`.
+Provide the directory where supported pod templates configuration files are defined. This role will look for a configuration files named `ibm-mas-suite.yml`, `ibm-mas-coreidp.yml` and `ibm-data-dictionary-assetdatadictionary.yml` in the named directory.  The content of the configuration file should be the yaml block that you wish to be inserted into the Suite spec under a top level `podTemplates` element, e.g. `podTemplates: {object}`. For ibm-data-dictionary the podTemplates will be inserted into the Suite spec under `settings->dataDictionary->podTemplates`. The ibm-mas-suite operator will then pass this on to the AssetDataDictionary CR when available.
 
 For examples refer to the [BestEfforts reference configuration in the MAS CLI](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-suite.yml), for full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
 
 - Optional
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
+
+### enable_IPv6
+Boolean variable that indicates whether it is to install in an IPv6-enabled environment.  If it is true, the suite CR will have the PreferDualStack for ipFamilyPolicy and ["IPv6", "IPv4"] for ipFamilies.  These ipFamily properties will be populated to all the services. This is currently available only in internal fyre clusters at the RTP site for testing purpose.
+
+- Optional
+- Environment Variable: `ENABLE_IPv6`,
+- Default: False
 
 Example Playbook
 -------------------------------------------------------------------------------
