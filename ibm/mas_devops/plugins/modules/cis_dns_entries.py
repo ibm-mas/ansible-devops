@@ -159,7 +159,7 @@ def main():
         elif len(zones) == 0:
             module.fail_json(msg = f"No DNS zones found, aborting...")
 
-        url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records?per_page=1000"
+        url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records?per_page=3500"
 
         payload={}
         headers = {

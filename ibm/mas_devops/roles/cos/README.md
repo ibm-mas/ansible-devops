@@ -94,6 +94,12 @@ List of comma separated key=value pairs for setting custom labels on instance sp
 - Environment Variable: `CUSTOM_LABELS`
 - Default Value: None
 
+### include_cluster_ingress_cert_chain
+Optional. When set to `True`, includes the complete certificates chain in the generated MAS configuration, when a trusted certificate authority is found in your cluster's ingress.
+
+- Optional
+- Environment Variable: `INCLUDE_CLUSTER_INGRESS_CERT_CHAIN`
+- Default: `False`
 
 Example Playbook
 ----------------
