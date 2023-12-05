@@ -18,10 +18,23 @@
     msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
 
 
-# 2. Set Storage (Required)
-# -----------------------------------------------------------------------------
-- name: Default Storage for ROKS if not set by user
-  when: dro_storage_class is not defined or dro_storage_class == ""
+- name: "get available default storage classes"
+  set_fact:
+    default_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.checkDefaultStorageClassAnnotation }}"
+
+- name: "Debug available default storage classes"
+  debug:
+    msg: "{{ default_storage_class }}"
+
+# # 2. Set Storage (Required)
+# # -----------------------------------------------------------------------------
+- name: Using available default Storage 
+  when: (default_storage_class is defined) and (default_storage_class | length != 0)
+  set_fact:
+    dro_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+
+- name: Get default Storage for ROKS if not available
+  when: (default_storage_class is defined) and (default_storage_class | length == 0) and (dro_storage_class is not defined or dro_storage_class == "")
   set_fact:
     dro_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
 
@@ -41,6 +54,7 @@
 # 3. Check if storage class have default annotation
 # -----------------------------------------------------------------------------
 - name: add default annotation to DRO storageclass
+  when: (default_storage_class is defined) and (default_storage_class | length == 0)
   kubernetes.core.k8s:
     state: patched
     api_version: storage.k8s.io/v1
