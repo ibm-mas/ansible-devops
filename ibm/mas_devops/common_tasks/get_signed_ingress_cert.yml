@@ -59,7 +59,6 @@
     cluster_ingress_secret_name: "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
     cluster_ingress_tls_crt: "{{ cluster_ingress_secret.resources[0].data['tls.crt'] | b64decode }}"
 
-
 # 3. Lookup for secret based on the cluster name
 # -----------------------------------------------------------------------------
 # ROSA, TechZone, and some IPI Installs use this convention
@@ -93,6 +92,31 @@
   loop_control:
     label: "{{ item.metadata.name }}"
 
+# Break up the certificate into an array
+- name: "Extract certificate chain into a variable"
+  set_fact:
+    cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+  no_log: true
+
+# Filter DST Root CA X3 issuer certificate if present
+- name: "Check if DST Root CA X3 issuer certificate is present"
+  vars:
+    dst_root_x3: "Dfvp7OOGAN6dEOM4+qR9sdjoSYKEBpsr6GtPAQw4dy753ec5" # if DST Root CA X3 issuer certificate is present, we'll filter from the MAS config
+  no_log: true
+  set_fact:
+    cluster_ingress_tls_crt_remove_it: "{{ cluster_ingress_tls_crt_remove_it|default([]) + [item] }}"
+  when:
+    - (dst_root_x3 in item)
+  with_items:
+    - "{{ cluster_ingress_tls_crt }}"
+
+- name: "Filter DST Root CA X3 issuer certificate if present"
+  no_log: true
+  set_fact:
+    cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt | difference(cluster_ingress_tls_crt_remove_it) | list }}"
+  when:
+    - cluster_ingress_tls_crt is defined
+    - cluster_ingress_tls_crt | length > 0
 
 # 4. Log which (if any) secret was found
 # -----------------------------------------------------------------------------
