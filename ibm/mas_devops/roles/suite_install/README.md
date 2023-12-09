@@ -1,7 +1,6 @@
 suite_install
 ===============================================================================
-
-This role install Maximo Application Suite. It internally resolve the namespace based on the `mas_instance_id` as `mas-{mas_instance_id}-core`. By default this role install MAS Operator using Manual Upgrade Strategy. Set `MAS_UPGRADE_STRATEGY` environment variable to Automatic to override it. In the `Manual` upgrade mode, IBM Common Services operators requested by MAS will inherit the upgrade strategy from MAS and their pending install plans approved.
+This role install Maximo Application Suite. It internally resolve the namespace based on the `mas_instance_id` as `mas-{mas_instance_id}-core`.
 
 
 Role Variables
@@ -41,9 +40,6 @@ Directory containing configuration files (`*.yaml` and `*.yml`) to be applied to
 
 ### certManager.namespace
 The namespace containing the cert-manager to be used by MAS
-
-### mas_upgrade_strategy
-The Upgrade strategy for MAS Operator. Default is set to Automatic
 
 ### mas_annotations
 Provide a list of comma-separated key=value pairs which will be applied as labels on all resources created.  This variable takes a comma separated list of annotations. For example, to deploy your suite in non production mode, set this to `mas.ibm.com/operationalMode=nonproduction`

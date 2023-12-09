@@ -1,5 +1,4 @@
 ---
-
 # 1. Set uds_tls_crt
 # -----------------------------------------------------------------------------
 - name: "gencfg : Set uds_tls_crt fact for BasCfg when using existing UDS"
@@ -10,6 +9,10 @@
     uds_tls_crt: "{{ lookup('file', uds_tls_crt_local_file_path) | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
   no_log: true
 
+# Load uds_certs template to dynamically set as many uds certificates as identified
+- set_fact:
+    uds_certs: "{{ lookup('ansible.builtin.template', 'templates/bas-certs.yml.j2') }}"
+  when: uds_tls_crt | length > 0
 
 # 2. Check for required facts
 # -----------------------------------------------------------------------------
@@ -28,7 +31,6 @@
     that: uds_tls_crt is defined and uds_tls_crt|length != 0
     fail_msg: "uds_tls_crt property has not been set"
 
-
 # 3. Provide Debug information
 # -----------------------------------------------------------------------------
 - name: "gencfg : Debug information"
@@ -39,12 +41,11 @@
       - "UDS Contact Last Name .............. {{ uds_contact.last_name | default('<undefined>', True) }}"
       - "UDS Contact e-mail ................. {{ uds_contact.email | default('<undefined>', True) }}"
 
-
 # 4. Generate BASCfg for MAS
 # -----------------------------------------------------------------------------
 - name: "gencfg : Copy BASCfg to filesystem"
   ansible.builtin.template:
     src: bascfg.yml.j2
     dest: "{{ mas_config_dir }}/uds.yml"
-    mode: '664'
+    mode: "664"
   when: mas_instance_id is defined

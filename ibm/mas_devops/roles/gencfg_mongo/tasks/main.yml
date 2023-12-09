@@ -66,11 +66,16 @@
 
 # 5. Read file information
 # -----------------------------------------------------------------------------
-- name: Read Mongo CA PEM file
+- name: Read Mongo Certificate file
+  when: mongodb_ca_pem_local_file
   set_fact:
-    mongo_ca_pem: "{{ lookup('file', mongodb_ca_pem_local_file) }}"
-  when:
-    - mongodb_ca_pem_local_file is defined
+    mongo_tls_crt: "{{ lookup('file', mongodb_ca_pem_local_file) | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+  no_log: true
+
+# Load mongo_certs template to dynamically set as many mongo certificates as identified
+- set_fact:
+    mongo_certs: "{{ lookup('ansible.builtin.template', 'templates/mongo-certs.yml.j2') }}"
+  when: mongo_tls_crt | length > 0
 
 - name: "Create MAS MongoCfg"
   when:

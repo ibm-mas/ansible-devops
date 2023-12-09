@@ -34,14 +34,12 @@ spec:
     url:  "{{ ocscos_url }}"
     credentials:
       secretName: ocscos-credentials-system
-  certificates:
-    - alias: cospart1
-      crt: |
-        {{ ocscos_certs[0] | indent(8) }}
-    - alias: cospart2
-      crt: |
-        {{ ocscos_certs[1] | indent(8) }}
-    - alias: isrg-root-x1 # default root certificate used by Let's Encrypt
+{% if ocscos_certs is defined and ocscos_certs | length > 0 %}
+  certificates: 
+    {{ ocscos_certs | indent(width=4, first=False) }}
+{%- endif %}
+{% if ocscos_certs is defined and ocscos_certs | length > 0 and ibmcos_include_isrg_root_cert == true %}
+    - alias: isrgrootx1 # default root certificate used by Let's Encrypt
       crt: |
         -----BEGIN CERTIFICATE-----
         MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
@@ -74,3 +72,4 @@ spec:
         mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
         emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
         -----END CERTIFICATE-----
+{%- endif %}

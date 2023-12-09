@@ -4,6 +4,7 @@
 - name: Clear private_root_ca_name fact
   ansible.builtin.set_fact:
     private_root_ca_name: ""
+    include_cluster_ingress_cert_chain: "{{ lookup('env', 'INCLUDE_CLUSTER_INGRESS_CERT_CHAIN') | default('false', True) | bool }}"
 
 - name: "Lookup Proxy: cluster"
   kubernetes.core.k8s_info:
@@ -55,7 +56,12 @@
       ansible.builtin.set_fact:
         cluster_ingress_tls_crt_full: "{{ private_root_ca_bundle_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
 
-    # We only want the first part of this certificate, I don't know why, but this is what works
+    # We only want the first part of this certificate, I don't know why, but this is what works - if needed, set include_cluster_ingress_cert_chain == true to have entire cert chain
     - name: "Get private ingress certificate"
       ansible.builtin.set_fact:
-        cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt_full[0] }}"
+        cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt_full if (include_cluster_ingress_cert_chain) else cluster_ingress_tls_crt_full[0] }}"
+
+    - name: "Format to list all certificates in the chain"
+      ansible.builtin.set_fact:
+        cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt | join('') }}"
+      when: cluster_ingress_tls_crt | type_debug == 'list' and cluster_ingress_tls_crt | length > 0
