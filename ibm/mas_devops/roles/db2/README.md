@@ -75,7 +75,7 @@ Version of the DB2 engine to be used while creating/upgrading the DB2 instances.
 
 - Optional
 - Environment Variable: `DB2_VERSION`
-- Default: The default db2 engine version will be automatically defined to the latest version supported by the installed DB2 operator if this is not set. The DB2 engine versions supported by the installed DB2 operator are stored in `db2u-license-keys` secret under `ibm-common-services` namespace.
+- Default: The default db2 engine version will be automatically defined to the latest version supported by the installed DB2 operator if this is not set. The DB2 engine versions supported by the installed DB2 operator are stored in `db2u-release` configmap under `ibm-common-services` namespace.
 
 ### db2_4k_device_support
 Whether 4K device support is turned on or not.
