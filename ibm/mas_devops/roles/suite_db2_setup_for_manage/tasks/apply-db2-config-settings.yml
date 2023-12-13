@@ -40,13 +40,14 @@
 
 - fail: msg="Failed to execute the script /db2u/scripts/apply-db2cfg-settings.sh --setting all on DB2 instance(s11.5.8.0-cn3 and newer))"
   when:
+    - prepare_cmds_status is defined
     - prepare_cmds_status.rc != 0
 
 
 # TODO remove this when s11.5.8.0-cn2 and older no longer supported
 # added duplicate block to make removal easy.
 - name: Check DB2 cfg is take effect
-  when: old_prepare_cmds_status == 0
+  when: old_prepare_cmds_status.rc == 0
   shell: |
     oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/db2u/scripts/apply-db2cfg-settings.sh | tee /tmp/apply-db2cfg-settings.log' db2inst1
     oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2 get db cfg for {{ db2_dbname }} | grep "(CHNGPGS_THRESH) = 40"' db2inst1
@@ -57,7 +58,9 @@
 
 # Run script twice for DB2 standalone
 - name: Check DB2 cfg is take effect
-  when: prepare_cmds_status == 0
+  when: 
+    - prepare_cmds_status is defined
+    - prepare_cmds_status.rc == 0
   shell: |
     oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/db2u/scripts/apply-db2cfg-settings.sh --setting all | tee /tmp/apply-db2cfg-settings.log' db2inst1
     oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2 get db cfg for {{ db2_dbname }} | grep "(CHNGPGS_THRESH) = 40"' db2inst1
