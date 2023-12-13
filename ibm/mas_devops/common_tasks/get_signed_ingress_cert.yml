@@ -74,6 +74,10 @@
       - type=kubernetes.io/tls
   register: cluster_primary_secrets
 
+# This will lookup for cluster's ingress secret name that matches a given label
+# Depending on the cluster's provider, it will try to use substrings to find the
+# exact secret's name i.e for ARO clusters, the cluster's ingress secret name 
+# will end with '-ingress'
 - name: "Find Cluster Primary Secret"
   when:
     - found_router_default_secret is not defined
@@ -82,6 +86,7 @@
     - cluster_primary_secrets.resources is defined
     - cluster_primary_secrets.resources | length > 0
     - (item.metadata.name.endswith("-primary-cert-bundle-secret")) or
+      (item.metadata.name.endswith("-ingress")) or
       (item.metadata.name == "letsencrypt-certs")
   set_fact:
     found_cluster_primary_secret: true
