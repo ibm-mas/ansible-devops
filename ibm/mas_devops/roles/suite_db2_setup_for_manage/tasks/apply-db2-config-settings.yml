@@ -27,6 +27,8 @@
   pause:
     minutes: 1
 
+# TODO remove this when s11.5.8.0-cn2 and older no longer supported
+# removed pipe tee in command here to capture the right rc command.
 - name: Run script (for db2 operator s11.5.8.0-cn2 and older) to make changes take effect
   shell: oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/db2u/scripts/apply-db2cfg-settings.sh' db2inst1
   register: old_prepare_cmds_status
@@ -40,7 +42,9 @@
   when:
     - prepare_cmds_status.rc != 0
 
-# Run script twice for DB2 standalone
+
+# TODO remove this when s11.5.8.0-cn2 and older no longer supported
+# added duplicate block to make removal easy.
 - name: Check DB2 cfg is take effect
   when: old_prepare_cmds_status == 0
   shell: |
@@ -51,6 +55,7 @@
   retries: 5
   delay: 30 # seconds
 
+# Run script twice for DB2 standalone
 - name: Check DB2 cfg is take effect
   when: prepare_cmds_status == 0
   shell: |
