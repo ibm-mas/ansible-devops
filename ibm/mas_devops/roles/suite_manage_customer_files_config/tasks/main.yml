@@ -18,6 +18,11 @@
       - cos_type is defined and cos_type in cos_type_supported
     fail_msg: "cos_type property is required and must be set to one of the supported storage providers: {{ cos_type_supported }}"
 
+- name: "set facts : suite_manage_customer_files_config"
+  set_fact:
+    gitops: "{{ gitops }}"
+    manage_config_dir: "{{ manage_config_dir }}"
+
 # Configure Manage Doclinks
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "Running {{ cos_type }} logging configuration for Manage application"
@@ -54,3 +59,5 @@
     - app_cr_result.resources is defined
     - app_cr_result.resources | length > 0
     - app_cr_result.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
+  when:
+    - gitops == False

@@ -76,6 +76,8 @@
   vars:
     manage_certificates: "{{ cos_tls_crt }}"
     manage_certificates_alias_prefix: "{{ cos_cert_alias_prefix }}"
+    gitops: "{{ gitops }}"
+    manage_config_dir: "{{ manage_config_dir }}"
 
 # Configure Server bundle properties into Manage Workspace
 # -----------------------------------------------------------------------------
@@ -93,8 +95,25 @@
             serverBundles: |
               {{ serverBundles }}
   register: managews_sb_output
+  when:
+    - gitops == False
 
 - name: "Debug information"
   debug:
     msg:
       - "ManageWorkspace Changed ............... {{ managews_sb_output.changed }}"
+  when:
+    - gitops == False
+
+- name: "Create target directories : {{ manage_config_dir }}"
+  file:
+    path: "{{ manage_config_dir }}"
+    state: directory
+  when: gitops == True
+
+- name: "Add the Server Bundle birt properties to filesytem"
+  ansible.builtin.template:
+    src: templates/manage-doclinks-server-bundles.yml.j2
+    dest: "{{ manage_config_dir }}/mas-{{ mas_instance_id }}-manage-doclinks-server-bundles.yml"
+  when:
+    - gitops == True

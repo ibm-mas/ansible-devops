@@ -21,6 +21,22 @@
   set_fact:
     manage_workspace_cr_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
 
+- name: "Fail if manage_config_dir is not provided when gitops is True"
+  assert:
+    that:
+      - manage_config_dir is defined and manage_config_dir != ""
+    fail_msg: "manage_config_dir property is required when gitops is True"
+  when:
+    - gitops == True
+
+- name: "gitops : Debug"
+  debug:
+    msg:
+      - "GITOPS (Optional) ................................. {{ gitops | default('<Undefined>') }}"
+      - "manage_config_dir (required when gitops is true) .. {{ manage_config_dir | default('<Undefined>') }}"
+  when:
+    - gitops == True
+
 - name: "Lookup ManageWorkspace CR to retrieve existing imported certificates"
   no_log: true
   kubernetes.core.k8s_info:
@@ -61,6 +77,21 @@
           deployment:
             importedCerts: |-
               {{ lookup('template', 'imported-certs.yml.j2') | from_yaml }}
+  when:
+    - gitops == False
+
+- name: "Create target directories : {{ manage_config_dir }}"
+  file:
+    path: "{{ manage_config_dir }}"
+    state: directory
+  when: gitops == True
+
+- name: "Add the new certificates in ManageWorkspace CR to filesytem"
+  ansible.builtin.template:
+    src: templates/imported-certs.yml.j2
+    dest: "{{ manage_config_dir }}/{{ mas_instance_id }}.{{ mas_workspace_id }}.manage-imported-certs.yml"
+  when:
+    - gitops == True
 
 - name: "Reset variables"
   set_fact:

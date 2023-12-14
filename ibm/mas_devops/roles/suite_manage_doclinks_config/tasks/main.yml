@@ -18,6 +18,20 @@
       - cos_type is defined and cos_type in cos_type_supported
     fail_msg: "cos_type property is required and must be set to one of the supported storage providers: {{ cos_type_supported }}"
 
+- name: "Fail if manage_config_dir is not provided when gitops is True"
+  assert:
+    that:
+      - manage_config_dir is defined and manage_config_dir != ""
+    fail_msg: "manage_config_dir property is required when gitops is True"
+  when:
+    - gitops == True
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "GITOPS (Optional) ................................. {{ gitops | default('<Undefined>') }}"
+      - "manage_config_dir (required when gitops is true) ..... {{ manage_config_dir | default('<Undefined>') }}"
+
 - name: Set manage_workspace_cr_name
   when: manage_workspace_cr_name is not defined or manage_workspace_cr_name == ''
   set_fact:
@@ -57,6 +71,8 @@
     - app_cr_result.resources is defined
     - app_cr_result.resources | length > 0
     - app_cr_result.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
+  when:
+    - gitops == False
 
 # Restart Manage bundle pods to pick up the COS configuration
 # ---------------------------------------------------------------------------------------------------------------------

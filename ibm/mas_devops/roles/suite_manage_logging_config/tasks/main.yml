@@ -24,6 +24,27 @@
       - cos_type is defined and cos_type in cos_type_supported
     fail_msg: "cos_type property is required and must be set to one of the supported storage providers: {{ cos_type_supported }}"
 
+- name: "Fail if manage_config_dir is not provided when gitops is True"
+  assert:
+    that:
+      - manage_config_dir is defined and manage_config_dir != ""
+    fail_msg: "manage_config_dir property is required when gitops is True"
+  when:
+    - gitops == True
+
+- name: "set facts suite_manage_logging_config"
+  set_fact:
+    gitops: "{{ gitops }}"
+    manage_config_dir: "{{ manage_config_dir }}"
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "GITOPS (Optional) ................................. {{ gitops | default('<Undefined>') }}"
+      - "manage_config_dir (required when gitops is true) .. {{ manage_config_dir | default('<Undefined>') }}"
+  when:
+    - gitops == True
+
 # Check if logging is already setup for ManageWorkspace
 - name: "Lookup ManageWorkspace CR to check if logging is already setup"
   no_log: true

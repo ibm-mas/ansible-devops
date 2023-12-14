@@ -11,6 +11,24 @@
     that: mas_workspace_id is defined and mas_workspace_id != ""
     fail_msg: "mas_workspace_id property is required"
 
+- name: "Fail if manage_config_dir is not provided when gitops is True"
+  assert:
+    that:
+      - manage_config_dir is defined and manage_config_dir != ""
+    fail_msg: "manage_config_dir property is required when gitops is True"
+  when:
+    - gitops == True
+
+- name: "set facts : suite_manage_birt_report_config"
+  set_fact:
+    gitops: "{{ gitops }}"
+    manage_config_dir: "{{ manage_config_dir }}"
+
+- debug:
+    msg:
+      - "GITOPS (Optional) ................................ {{ gitops | default('<Undefined>') }}"
+      - "manage_config_dir (required when gitops is true) . {{ manage_config_dir | default('<Undefined>') }}"
+
 - name: Set manage_workspace_cr_name
   when: manage_workspace_cr_name is not defined or manage_workspace_cr_name == ''
   set_fact:
@@ -51,3 +69,5 @@
     - app_cr_result.resources is defined
     - app_cr_result.resources | length > 0
     - app_cr_result.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1
+  when:
+    - gitops == False

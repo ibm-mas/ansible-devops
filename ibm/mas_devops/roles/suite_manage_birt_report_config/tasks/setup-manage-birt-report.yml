@@ -58,11 +58,28 @@
             serverBundles: |
               {{ birtServerBundles }}
   register: managews_sb_output
+  when:
+    - gitops == False
 
 - name: "Debug information"
   debug:
     msg:
       - "ManageWorkspace Changed ............... {{ managews_sb_output.changed }}"
+  when:
+    - gitops == False
+
+- name: "Create target directories : {{ manage_config_dir }}"
+  file:
+    path: "{{ manage_config_dir }}"
+    state: directory
+  when: gitops == True
+
+- name: "Add the Server Bundle birt properties to filesytem {{ manage_config_dir }}/mas-{{ mas_instance_id }}-birt-server-bundles.yml"
+  ansible.builtin.template:
+    src: templates/birt-server-bundles.yml.j2
+    dest: "{{ manage_config_dir }}/mas-{{ mas_instance_id }}-birt-server-bundles.yml"
+  when:
+    - gitops == True
 
 # # ######## SRE CODE:
 

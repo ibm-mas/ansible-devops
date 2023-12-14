@@ -31,6 +31,7 @@
       - mas_app_id is in ['manage', 'health']
     fail_msg: "mas_app_id property is required and must be set to either 'manage' or 'health'"
 
+
 # Lookup if Manage attachments configmap is present
 # -----------------------------------------------------------------------------
 - name: "Lookup attachments configmap"
@@ -42,14 +43,19 @@
   register: manage_attach_cm_output
 
 # either set the var with the current attachment provider or set this to false
-- set_fact:
+- name: "Lookup attachments configmap"
+  set_fact:
     mas_manage_attachments_provider_current: "{{ manage_attach_cm_output.resources[0].data.mas_manage_attachments_provider | default(false, true )}}"
+    gitops: "{{ gitops }}"
+    manage_config_dir: "{{ manage_config_dir }}"
 
 - debug:
     msg:
       - "Chosen Manage attachments provider ................ {{ mas_manage_attachments_provider }}"
       - "Existing Manage attachments provider .............. {{ mas_manage_attachments_provider_current | default('<Unknown>') }}"
       - "{{ (mas_manage_attachments_provider_current == mas_manage_attachments_provider) | ternary('Manage attachments provider has not changed, therefore skipping as there is no further actions needed','Manage attachments provider has either changed or never configured, therefore it will be configured now...') }}"
+      - "GITOPS (Optional) ................................. {{ gitops | default('<Undefined>') }}"
+      - "manage_config_dir ................................. {{ manage_config_dir | default('<Undefined>') }}"
 
 # only configure Manage attachments if this was not configured before or Manage attachments provider has not changed
 - when: mas_manage_attachments_provider_current != mas_manage_attachments_provider
@@ -63,9 +69,11 @@
 
     # Restart Manage bundle pods to pick up the storage provider configuration
     - include_tasks: "restart-manage-server.yml"
+      when: gitops == False
 
     # Once everything is successful, create the configmap to store the manage attachments provider so the role is idempotent and we can determine if this was already configured
     - name: "Store manage attachments provider in configmap"
       kubernetes.core.k8s:
         apply: yes
         template: "templates/configmap.yml.j2"
+      when: gitops == False

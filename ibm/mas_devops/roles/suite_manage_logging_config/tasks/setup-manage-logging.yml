@@ -16,6 +16,21 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/logging-bucket-creds.yml.j2')}}"
+  when:
+    - gitops == False
+
+- name: "Create target directories : {{ manage_config_dir }}"
+  file:
+    path: "{{ manage_config_dir }}"
+    state: directory
+  when: gitops == True
+
+- name: "Add s3secretkey secret in Manage namespace to filesytem"
+  ansible.builtin.template:
+    src: templates/logging-bucket-creds.yml.j2
+    dest: "{{ manage_config_dir }}/mas-{{ mas_instance_id }}-logging-bucket-creds.yml"
+  when:
+    - gitops == True
 
 - name: "Retrieve {{ cos_type }} certificates"
   include_tasks: "tasks/retrieve-cos-certs.yml"
@@ -57,6 +72,8 @@
   vars:
     manage_certificates: "{{ cos_tls_crt }}"
     manage_certificates_alias_prefix: "{{ cos_cert_alias_prefix }}"
+    gitops: "{{ gitops }}"
+    manage_config_dir: "{{ manage_config_dir }}"
 
 - name: "Add the `loggingS3Destination` in ManageWorkspace CR"
   kubernetes.core.k8s:
@@ -75,3 +92,12 @@
               endpointURL: "{{ cos_url }}"
               secretKey:
                 secretName: "s3secretkey"
+  when:
+    - gitops == False
+
+- name: "Add the `loggingS3Destination` in ManageWorkspace CR to filesystem"
+  ansible.builtin.template:
+    src: templates/logging-s3-destination.yml.j2
+    dest: "{{ manage_config_dir }}/mas-{{ mas_instance_id }}-logging-s3-destination.yml"
+  when:
+    - gitops == True
