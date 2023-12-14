@@ -11,7 +11,6 @@
     that: ( ibmpak_version_result['rc'] == 0 )
     fail_msg: "ibm-pak tool must be installed."
 
-
 # 2. Debug
 # -----------------------------------------------------------------------------
 
@@ -33,7 +32,6 @@
       - "Skip Dependencies ...................... {{ ibmpak_skip_dependencies }}"
       - "IBM Pak Flags .......................... {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}"
 
-
 # 3. Get the CASE bundle
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Get the CASE bundle"
@@ -47,7 +45,6 @@
     - case_version == "8.7.0"
   set_fact:
     case_version: "8.7.0+20230925.114420"
-
 
 # 4. Remove excluded images
 # -----------------------------------------------------------------------------
@@ -63,31 +60,29 @@
   register: excludeImagesResult
   loop: "{{ exclude_images }}"
 
-
 # 5. Generate mirror-manifest
 # -----------------------------------------------------------------------------
 - name: Generate mirror-manifest with image group filter
   block:
-  - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
-    shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ case_version }} --filter {{ image_group_filter }}"
-    register: ibmpak_gen1_result
+    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
+      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ case_version }} --filter {{ image_group_filter }}"
+      register: ibmpak_gen1_result
 
-  - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
-    shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ case_version }} --final-registry {{ registry_public_url }} --filter {{ image_group_filter }}"
-    register: ibmpak_gen2_result
+    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
+      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ case_version }} --final-registry {{ registry_public_url }} --filter {{ image_group_filter }}"
+      register: ibmpak_gen2_result
   when: image_group_filter is defined
 
 - name: Generate mirror-manifest without image group filter
   block:
-  - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
-    shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ case_version }}"
-    register: ibmpak_gen1_result
+    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
+      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ case_version }}"
+      register: ibmpak_gen1_result
 
-  - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
-    shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ case_version }} --final-registry {{ registry_public_url }}"
-    register: ibmpak_gen2_result
+    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
+      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ case_version }} --final-registry {{ registry_public_url }}"
+      register: ibmpak_gen2_result
   when: image_group_filter is not defined
-
 
 # 6. Collect generated files
 # -----------------------------------------------------------------------------
@@ -105,7 +100,6 @@
   file:
     path: "{{ mirror_working_dir }}/manifests/from-filesystem"
     state: directory
-
 
 # 7. Save the manifests to our working directory
 # -----------------------------------------------------------------------------
@@ -140,14 +134,12 @@
     src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping.txt
     dest: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ _manifest_version }}.txt"
 
-
 # 7. IBM SLS 3.5.0 Bad Digest Hack
 # -----------------------------------------------------------------------------
 # The SLS CASE bundle for 3.5.0 has the wrong image digest in it ... not really sure why TBH
 - name: "IBM SLS 3.5.0 workaround"
   when: case_name == "ibm-sls" and case_version == "3.5.0"
   include_tasks: "tasks/sls-350-fix.yml"
-
 
 # 8. IBM UDS Entitled Image Hacks
 # -----------------------------------------------------------------------------
@@ -165,7 +157,6 @@
 - name: "IBM UDS 2.0.10 workaround"
   when: case_name == "ibm-uds" and case_version == "2.0.10"
   include_tasks: "tasks/uds-2010-fix.yml"
-
 
 # 9. IBM Maximo IoT Hacks
 # -----------------------------------------------------------------------------
