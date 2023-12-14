@@ -204,17 +204,17 @@
     wait_timeout: 120
   when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
 
-# Create a PVC using the Chosen Storage Class 
+# Create a PVC using the Chosen Storage Class
 # ----------------------------------------------------------------------------
-- name: "DRO Deployment details"
+- name: "Debug User Provided DRO Storage Class"
   debug:
     msg:
-      - "DRO CSV Version..................... {{ dro_version }}"
-  when: (dro_storage_class | length > 0)
+      - "User Provided DRO Storage Class Name..................... {{ dro_storage_class }}"
+  when: dro_storage_class is defined and (dro_storage_class | length > 0)
 
 - name: Determine Storage Class
   include_tasks: tasks/install-dro/determine-storage-classes.yml
-  when: (dro_storage_class | length == 0)
+  when: dro_storage_class is not defined or dro_storage_class == ""
 
 - name: Create DRO PVC
   kubernetes.core.k8s:
