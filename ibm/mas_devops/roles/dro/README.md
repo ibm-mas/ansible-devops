@@ -37,7 +37,7 @@ Provide particular StartingCSV version of DRO. Default value is picked from Stab
 - Default Value: None
 
 ### dro_storage_class
-Default Storage class. Set this variable if there's no storage class with default annotation.
+Required. Storage class where DRO will be installed. MAS ansible playbooks will automatically try determine a rwo (Read Write Once) storage class from a cluster if DRO_STORAGE_CLASS is not supplied. If a cluster is setup with a customize storage solution, please provide a valid rwo storage class name using DRO_STORAGE_CLASS
 
 - Optional
 - Environment Variable: `DRO_STORAGE_CLASS`
@@ -107,6 +107,31 @@ Example Playbook
 -------------------------------------------------------------------------------
 
 ### Install in-cluster and generate MAS configuration
+
+To install DRO
+```
+export IBM_ENTITLEMENT_KEY=<valid ibm entitlement key>
+export DRO_CONTACT_EMAIL=xxx@xxx.com
+export DRO_CONTACT_FIRSTNAME=xxx
+export DRO_CONTACT_LASTNAME=xxx 
+export DRO_ACTION=install-dro
+export MAS_CONFIG_DIR=<valid local path to the config folder>
+export MAS_INSTANCE_ID=<valid mas instance id>
+export DRO_STORAGE_CLASS=<valid storage class name>
+export ROLE_NAME='dro'
+
+ansible-playbook playbooks/run_role.yml
+```
+
+To uninstall DRO
+```
+export DRO_ACTION=uninstall
+export ROLE_NAME='dro'
+
+ansible-playbook playbooks/run_role.yml
+
+```
+
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
