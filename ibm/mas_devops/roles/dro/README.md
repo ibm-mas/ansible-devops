@@ -37,7 +37,7 @@ Provide particular StartingCSV version of DRO. Default value is picked from Stab
 - Default Value: None
 
 ### dro_storage_class
-Required. Storage class where DRO will be installed. MAS ansible playbooks will automatically try determine a rwo (Read Write Once) storage class from a cluster if DRO_STORAGE_CLASS is not supplied. If a cluster is setup with a customize storage solution, please provide a valid rwo storage class name using DRO_STORAGE_CLASS
+Required. Storage class where DRO will be installed. MAS ansible playbooks will automatically try to determine a rwo (Read Write Once) storage class from a cluster if DRO_STORAGE_CLASS is not supplied. If a cluster is setup with a customize storage solution, please provide a valid rwo storage class name using DRO_STORAGE_CLASS
 
 - Optional
 - Environment Variable: `DRO_STORAGE_CLASS`
