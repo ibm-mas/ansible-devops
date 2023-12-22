@@ -1,0 +1,185 @@
+---
+# This will result in the following operators being installed in the cert-manager namespace
+# - IBM Cert Manager
+
+# 1. Check whether IBM Certificate Manager cert-manager is installed
+# -----------------------------------------------------------------------------
+- name: Check if IBM Certificate Manager is already installed
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1alpha1
+    name: common-service
+    namespace: "ibm-common-services"
+    kind: OperandRequest
+  register: cs_operand_lookup
+
+- set_fact:
+    cpfs_cm_installed: "{{ cs_operand_lookup.resources[0].spec.requests[0].operands[0].name == 'ibm-cert-manager-operator'}}"
+  when:
+    - cs_operand_lookup.resources[0].spec.requests[0].operands[0].name is defined
+
+- debug:
+    msg: "IBM Certificate Manager installed .................... {{ cpfs_cm_installed | default(false, true) | bool }}"
+
+# 2. Disable IBM Cert Manager OperandRequest
+# -----------------------------------------------------------------------------
+# This step will configure ibm-cert-manager-operator to make use of a self managed CNCF cert-manager, so that no additional operands are installed.
+# Add deployCSCertManagerOperands: "false" to the data.
+# Using 'merge' just in case the configmap is already present
+- name: "Disable IBM Cert Manager OperandRequest via ibm-ccp-config"
+  kubernetes.core.k8s:
+    merge_type: merge
+    template: "{{ role_path }}/../common_services/templates/ibm-cpp-configmap.yml.j2"
+    wait: yes
+    wait_timeout: 120 # 2 minutes
+
+# If IBM Certificate Manager is installed, set configmap to know migration to Red Hat Cert Manager is needed
+# This will help if something fails in the middle of the migration and need to rerun the automation
+- name: "Patch ibm-cpp-config to define migration is needed"
+  kubernetes.core.k8s:
+    merge_type: merge
+    api_version: v1
+    kind: ConfigMap
+    name: ibm-cpp-config
+    namespace: ibm-common-services
+    definition:
+      data:
+        cert_manager_cluster_resource_namespace: ibm-common-services
+  when: cpfs_cm_installed is true
+
+# Delete IBM CertManager resources - OperandRequest
+- name: "Delete IBM Cert-Manager OperandRequest"
+  kubernetes.core.k8s:
+    state: absent
+    template: "templates/cpfs/ibm-cert-manager.yml"
+    wait: yes
+    wait_timeout: 600
+
+# Delete IBM CertManager resources - Default custom resource
+# this will delete all IBM Cert Manager pods 
+# but will keep the ibm-cert-manager operator (still going to be needed)
+- name: "Delete the IBM Cert-Manager default Custom Resource"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "operator.ibm.com/v1alpha1"
+    kind: "CertManager"
+    name: "default"
+    wait: true
+    wait_timeout: 600 # 10 minutes
+
+- name: "Wait for cert-manager-webhook deployment to be terminated"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-webhook
+    namespace: ibm-common-services
+    kind: Deployment
+  register: certmanager_webhook_deployment
+  until:
+    - certmanager_webhook_deployment.resources is defined
+    - certmanager_webhook_deployment.resources | length == 0
+  retries: 10
+  delay: 30 # seconds
+
+# 3. Install Red Hat Certificate Manager
+# -----------------------------------------------------------------------------
+- name: "Check if operator group is present in {{ cert_manager_operator_namespace }} already"
+  kubernetes.core.k8s_info:
+    namespace: "{{ cert_manager_operator_namespace }}"
+    kind: OperatorGroup
+  register: og_info
+
+- name: Install Red Hat Certificate Manager subscription
+  kubernetes.core.k8s:
+    template: "templates/redhat/subscription.yml"
+    wait: yes
+    wait_timeout: 120
+
+- name: "Wait for Red Hat cert-manager-operator-controller-manager to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-operator-controller-manager
+    namespace: "{{ cert_manager_operator_namespace }}"
+    kind: Deployment
+  register: certmanager_deployment
+  until:
+    - certmanager_deployment.resources is defined
+    - certmanager_deployment.resources | length > 0
+    - certmanager_deployment.resources[0].status is defined
+    - certmanager_deployment.resources[0].status.replicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas == certmanager_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+
+- name: "Wait for CertManager Cluster Custom Resource to be created"
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1alpha1
+    name: cluster
+    kind: CertManager
+  register: certmanager_cluster_cr
+  until:
+    - certmanager_cluster_cr.resources is defined
+    - certmanager_cluster_cr.resources | length > 0
+  retries: 10 # Approximately 5 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: Lookup ibm-cpp-config configmap
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: ibm-cpp-config
+    namespace: ibm-common-services
+    kind: ConfigMap
+  register: configmap_output
+
+# - debug:
+#     var: configmap_output.resources[0].data
+#   when: configmap_output.resources is defined and configmap_output.resources | length > 0
+
+- name: Set Certificate Manager Cluster Resource Namespace from ibm-ccp-config"
+  set_fact:
+    cert_manager_cluster_resource_namespace: "{{ configmap_output.resources[0].data.cert_manager_cluster_resource_namespace }}"
+  when: configmap_output.resources[0].data.cert_manager_cluster_resource_namespace is defined
+
+- debug:
+    msg: "Certificate Manager Cluster Resource Namespace .............. {{ cert_manager_cluster_resource_namespace | default('Not Applicable', true )}}"
+
+# The ClusterIssuer resource is cluster scoped. This means that when referencing a secret via the secretName field
+# secrets will be looked for in the Cluster Resource Namespace. By default, this namespace is cert-manager
+# however it can be changed via a flag on the cert-manager-controller
+- name: Patch CertManager CR to define Cluster Resource Namespace
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition: "{{ lookup('template', 'templates/redhat/cert-manager-cluster.yml.j2') }}"
+
+- name: "Wait for Red Hat cert-manager-operator to be up again (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager
+    namespace: "{{ cert_manager_namespace }}"
+    kind: Deployment
+  register: certmanager_deployment
+  until:
+    - certmanager_deployment.resources is defined
+    - certmanager_deployment.resources | length > 0
+    - certmanager_deployment.resources[0].status is defined
+    - certmanager_deployment.resources[0].status.replicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas == certmanager_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+
+- name: "Wait for Red Hat cert-manager-webhook deployment to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-webhook
+    namespace: "{{ cert_manager_namespace }}"
+    kind: Deployment
+  register: certmanager_webhook_deployment
+  until:
+    - certmanager_webhook_deployment.resources is defined
+    - certmanager_webhook_deployment.resources | length > 0
+    - certmanager_webhook_deployment.resources[0].status is defined
+    - certmanager_webhook_deployment.resources[0].status.replicas is defined
+    - certmanager_webhook_deployment.resources[0].status.readyReplicas is defined
+    - certmanager_webhook_deployment.resources[0].status.readyReplicas == certmanager_webhook_deployment.resources[0].status.replicas
+  retries: 60 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
