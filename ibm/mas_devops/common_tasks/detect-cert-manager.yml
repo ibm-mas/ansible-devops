@@ -1,5 +1,10 @@
 ---
-# 1. Check if and where cert-manager is installed
+# This task is currently being used by the following roles:
+#
+# - suite-dns (to lookup which namespace Certificate Manager is installed so that CIS webhook is installed in the same namespace)
+# - suite_install (to lookup which namespace Certificate Manager is installed so that Suite CR is set to point to the same namespace)
+#
+# 1. Check if and where Certificate Manager is installed
 # -----------------------------------------------------------------------------
 # oc get pods -A | grep cert-manager-cainjector| awk '{print $1}' should return the namespace where the cert-manager instance is running i.e cert-manager-operator
 - name: Lookup Certificate Manager installations
@@ -14,13 +19,15 @@
 - name: Assert there is just one Certificate Manager running
   assert:
     that: cert_manager_webhook_lookup.stdout_lines | length == 1
-    fail_msg: 
+    fail_msg:
       - "There are multiple instances of Certificate Manager running in the cluster."
       - "Make sure you just have one Certificate Manager instance running."
       - "Certificate Manager namespaces identified: {{ cert_manager_webhook_lookup.stdout_lines }}"
 
 # 2. Check if Certificate Manager Cluster Resource Namespace is defined
 # -----------------------------------------------------------------------------
+# Namespace to setup ClusterIssuers when referencing a secret via the secretName field
+# ClusterIssuers' secrets will be looked for in the Cluster Resource Namespace defined
 - name: "Lookup CertManager CR"
   kubernetes.core.k8s_info:
     api_version: operator.openshift.io/v1alpha1
@@ -40,10 +47,7 @@
     cert_manager_cluster_resource_namespace: "{{ item | regex_search(regex) }}"
   with_items: "{{ cert_manager_args }}"
 
-# - debug:
-#     var: cert_manager_cluster_resource_namespace
-
-# 3. Set cert-manager variables
+# 3. Set Certificate Manager variables
 # -----------------------------------------------------------------------------
 - name: Set Certificate Manager namespace
   set_fact:

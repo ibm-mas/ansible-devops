@@ -27,7 +27,7 @@
 
 # 2. Disable IBM Cert Manager OperandRequest
 # -----------------------------------------------------------------------------
-# This step will configure ibm-cert-manager-operator to make use of a 
+# This step will configure ibm-cert-manager-operator to make use of a
 # self managed CNCF cert-manager, so that no additional operands are installed.
 # Add deployCSCertManagerOperands: "false" to the data.
 # Using 'merge' just in case the configmap is already present
@@ -46,7 +46,7 @@
 # -----------------------------------------------------------------------------
 - name: "install: Prepare migration to Red Hat Certificate Manager"
   include_tasks: prereqs-migration.yml
-  when: 
+  when:
     - cpfs_cm_installed is defined
     - cpfs_cm_installed is true
 
@@ -101,7 +101,7 @@
     kind: ConfigMap
   register: configmap_output
 
-- name: "install: Set Certificate Manager Cluster Resource Namespace from ibm-ccp-config"
+- name: "install: Set Certificate Manager Cluster Resource Namespace from ibm-ccp-config configmap data"
   set_fact:
     cert_manager_cluster_resource_namespace: "{{ configmap_output.resources[0].data.cert_manager_cluster_resource_namespace }}"
   when: configmap_output.resources[0].data.cert_manager_cluster_resource_namespace is defined
@@ -111,7 +111,7 @@
 
 # The ClusterIssuer resource is cluster scoped. This means that when referencing a secret via the secretName field
 # secrets will be looked for in the Cluster Resource Namespace. By default, this namespace is cert-manager
-# however it can be changed via a flag on the cert-manager-controller
+# however it can be changed via '--cluster-resource-namespace' on the cert-manager-controller
 - name: "install: Patch CertManager CR to define Cluster Resource Namespace"
   kubernetes.core.k8s:
     merge_type: merge
