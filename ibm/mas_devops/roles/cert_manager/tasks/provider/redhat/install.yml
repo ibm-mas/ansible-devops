@@ -156,3 +156,26 @@
     - certmanager_webhook_deployment.resources[0].status.readyReplicas == certmanager_webhook_deployment.resources[0].status.replicas
   retries: 60 # Approximately 1/2 hour before we give up
   delay: 60 # 1 minute
+
+# 5. Update IBM CIS Webhook Cluster Role Binding to point to Red Hat Certificate Manager
+# -----------------------------------------------------------------------------
+# Assuming IBM Certificate Manager is being migrated to Red Hat Certificate Manager, 
+# if cert-manager-webhook-ibm-cis pod is running as part of the CIS configuration (suite_dns role)
+# then Cluster Role Binding 'cert-manager-webhook-ibm-cis:domain-solver' needs to be updated to
+# lookup to the new Red Hat Certificate Manager service account and namespace
+# otherwise the Red Hat Certificate Manager won't have enough permissions to resolve DNS domains due the following error:
+#
+# cis.acme.cis.ibm.com is forbidden: User "system:serviceaccount:cert-manager:cert-manager" cannot create resource "cis" in API group "acme.cis.ibm.com" at the cluster scope
+#
+# The following step will allow Red Hat Certificate Manager to work with CIS webhook seamlessly after migration (if that's already configured in the target cluster)
+- name: "install: Check if cert-manager-webhook-ibm-cis is running"
+  shell: oc get pods -A | grep cert-manager-webhook-ibm-cis | awk '{print $1}' # should return the namespace where the cert-manager-webhook-ibm-cis is running i.e ibm-common-services
+  register: cert_manager_webhook_cis_lookup
+
+- name: "install: Update cert-manager-webhook-ibm-cis cluster role binding to point to Red Hat Certificate Manager install"
+  vars:
+    cert_manager_service_account: cert-manager
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition: "{{ lookup('template', 'templates/redhat/cert-manager-webhook-ibm-cis-crb.yml.j2') }}"
+  when: cert_manager_webhook_cis_lookup.stdout_lines | length > 0
