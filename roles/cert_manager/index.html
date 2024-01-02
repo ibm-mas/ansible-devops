@@ -114,14 +114,28 @@
                   <li class="toctree-l1 current"><a class="reference internal current" href="./">cert_manager</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ibm-certificate-manager">IBM Certificate Manager</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#red-hat-certificate-manager">Red Hat Certificate Manager</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#cert_manager_action">cert_manager_action</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cert_manager_provider">cert_manager_provider</a>
+    </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ibm-certificate-manager_1">IBM Certificate Manager</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#red-hat-certificate-manager_1">Red Hat Certificate Manager</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#run-role-playbook">Run Role Playbook</a>
     </li>
@@ -289,23 +303,50 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="cert_manager">cert_manager<a class="headerlink" href="#cert_manager" title="Permanent link"></a></h1>
-<p>Deploy the <strong>IBM Certificate Manager Operator</strong> into the target OCP cluster in the <code>ibm-common-services</code> namespace.</p>
+<p>Deploy <strong>IBM Certificate Manager Operator</strong> or <strong>**Red Hat Certificate Manager Operator</strong> into the target OCP cluster.</p>
+<ul>
+<li>IBM Certificate Manager Operator and Operand will be installed into the <code>ibm-common-services</code> namespace</li>
+<li>Red Hat Certificate Manager Operatos will be installed into the <code>cert-manager-operator</code> namespace and the Operand will be created in the <code>cert-manager</code> namespace.</li>
+</ul>
+<p>The role supports migrtation from an existing IBM Certificate Manager install to the Red Hat Certificate Manager, and will configure the cluster resources namespace to <code>ibm-common-services</code> in this case to ensure compatibility with all existing <code>ClusterIssuers</code>.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link"></a></h2>
-<p>To run this role successfully you must have already installed a CatalogSource that contains IBM Certificate Manager and installed the <strong>IBM Cloud Pak Foundational Services Operator</strong>.  These tasks can be achieved using the <a href="../ibm_catalogs/">ibm_catalogs</a> and <a href="../common_services/">common_services</a> roles in this collection.</p>
+<h3 id="ibm-certificate-manager">IBM Certificate Manager<a class="headerlink" href="#ibm-certificate-manager" title="Permanent link"></a></h3>
+<p>You must have already installed a CatalogSource that contains IBM Certificate Manager and installed the <strong>IBM Cloud Pak Foundational Services Operator</strong>.  These tasks can be achieved using the <a href="../ibm_catalogs/">ibm_catalogs</a> and <a href="../common_services/">common_services</a> roles in this collection.</p>
+<h3 id="red-hat-certificate-manager">Red Hat Certificate Manager<a class="headerlink" href="#red-hat-certificate-manager" title="Permanent link"></a></h3>
+<p>You must have already installed the <strong>Red Hat Operators</strong> CatalogSource.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
 <h3 id="cert_manager_action">cert_manager_action<a class="headerlink" href="#cert_manager_action" title="Permanent link"></a></h3>
-<p>Inform the role whether to perform an install or an uninstall of IBM Certificate Manager.</p>
+<p>Inform the role whether to perform an <code>install</code> or an <code>uninstall</code> the Certificate Manager service, action can also be set to <code>none</code> to instruct the role to take no action.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>CERT_MANAGER_ACTION</code></li>
 <li>Default: <code>install</code></li>
 </ul>
+<h3 id="cert_manager_provider">cert_manager_provider<a class="headerlink" href="#cert_manager_provider" title="Permanent link"></a></h3>
+<p>Choose which flavour of Certificate Manager to install; IBM (<code>ibm</code>), or Red Hat (<code>redhat</code>)</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>CERT_MANAGER_PROVIDER</code></li>
+<li>Default: <code>ibm</code></li>
+</ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
 <p>After installing the Ansible Collection you can include this role in your own custom playbooks.</p>
+<h3 id="ibm-certificate-manager_1">IBM Certificate Manager<a class="headerlink" href="#ibm-certificate-manager_1" title="Permanent link"></a></h3>
 <pre><code class="language-yaml">- hosts: localhost
+  vars:
+    - cert_manager_action: install
+    - cert_manager_provider: ibm
   roles:
     - ibm.mas_devops.ibm_catalogs
     - ibm.mas_devops.common_services
+    - ibm.mas_devops.cert_manager
+</code></pre>
+<h3 id="red-hat-certificate-manager_1">Red Hat Certificate Manager<a class="headerlink" href="#red-hat-certificate-manager_1" title="Permanent link"></a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  vars:
+    - cert_manager_action: install
+    - cert_manager_provider: redhat
+  roles:
     - ibm.mas_devops.cert_manager
 </code></pre>
 <h2 id="run-role-playbook">Run Role Playbook<a class="headerlink" href="#run-role-playbook" title="Permanent link"></a></h2>
