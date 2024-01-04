@@ -1,22 +1,11 @@
 ---
 # 1. Check cert-manager installation
 # -----------------------------------------------------------------------------
-- name: Lookup ibm cert manager installation
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    name: cert-manager-controller
-    namespace: ibm-common-services
-    kind: Deployment
-  register: _cert_manager_deployed
-
 # Ensure cert manager is installed prior continuing as this role will install
 # v1alpha1.acme.cis.ibm.com apiservice which requires cert manager to be running
-- name: Assert that ibm cert manager is installed
-  assert:
-    that:
-      - _cert_manager_deployed.resources is defined
-      - _cert_manager_deployed.resources | length > 0
-    fail_msg: "Failed! IBM Certificate Manager is not installed in your cluster! Run `cert_manager` role to have it installed prior running `suite_dns` role."
+- name: Detect Certificate Manager installation
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+  when: cert_manager_namespace is not defined or cert_manager_namespace | length == 0
 
 # 2. Run provider task
 # -----------------------------------------------------------------------------
