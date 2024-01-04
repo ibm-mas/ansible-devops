@@ -1,0 +1,32 @@
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: mas-grafana
+  namespace: "{{ grafana_namespace }}"
+spec:
+  config:
+    auth:
+      disable_login_form: false
+      disable_signout_menu: true
+    auth.anonymous:
+      enabled: true
+    log:
+      level: warn
+      mode: console
+  dashboardLabelSelector:
+  - matchExpressions:
+    - key: app
+      operator: In
+      values:
+      - grafana
+  dataStorage:
+    accessModes:
+    - ReadWriteOnce
+    class: "{{ grafana_instance_storage_class }}"
+    size: "{{ grafana_instance_storage_size }}"
+  deployment:
+    strategy:
+      type: Recreate
+  ingress:
+    enabled: true
