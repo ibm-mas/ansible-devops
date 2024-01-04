@@ -15,16 +15,13 @@
       - db2_dbname | length <= 8
     fail_msg: "Property value of db2_dbname is set to '{{ db2_dbname }}' and is greater than 8 character long."
 
-
 # 2. Load default storage classes (if not provided by the user)
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/determine-storage-classes.yml
 
-
 # 3. Setup the norootsquash daemonsets for db2u pods to work with NFS backed storage
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/setup_norootsquash.yml
-
 
 # 4. Provide debug information to the user
 # -----------------------------------------------------------------------------
@@ -81,6 +78,13 @@
       - "Logs ................................... {{ db2_logs_storage_class }} - {{ db2_logs_storage_size }} @ {{ db2_logs_storage_accessmode }}"
       - "Temp ................................... {{ db2_temp_storage_class }} - {{ db2_temp_storage_size }} @ {{ db2_temp_storage_accessmode }}"
 
+# Lookup db2 operator group
+- name: "Check if operator group is present in {{ db2_namespace }} namespace already"
+  kubernetes.core.k8s_info:
+    namespace: "{{ db2_namespace }}"
+    kind: OperatorGroup
+  register: db2_og_info
+
 # Look up the default channel for the db2u-operator package manifest
 - name: Lookup db2u-operator packagemanifest
   kubernetes.core.k8s_info:
@@ -92,8 +96,7 @@
   until: db2u_manifest_info.resources[0].status.defaultChannel is defined
   retries: 60 # Approximately 30 minutes before we give up
   delay: 30 # seconds
-  when: db2_channel is not defined or db2_channel == "" or
-        db2_version is not defined or db2_version == ""
+  when: db2_channel is not defined or db2_channel == "" or db2_version is not defined or db2_version == ""
 
 - name: Set db2u-operator channel
   ansible.builtin.set_fact:
@@ -108,11 +111,11 @@
       - db2_channel is defined and db2_channel != ""
     fail_msg: "Unable to determine db2_channel from catalog"
 
-
 - name: Debug DB2 upgrade channel
   ansible.builtin.debug:
     msg:
       - "Db2 Channel ............................ {{ db2_channel }}"
+
 # 5. Install a Db2u Operator
 # -----------------------------------------------------------------------------
 - name: "Create db2u Namespace"
@@ -147,25 +150,63 @@
         .dockerconfigjson: "{{ new_secret | to_json | b64encode }}"
   register: secretUpdateResult
 
-- name: "Delete old Db2 OperandRequest"
-  kubernetes.core.k8s:
-    state: absent
-    template: templates/db2u_operandrequest.yml.j2
-    wait: yes
-    wait_timeout: 120
-  register: operandrequest_removal
+# Check if Operand Deployment Lifecycle Manager is installed
+# If Operand Deployment Lifecycle Manager is not installed
+# then no point on disabling Db2 OperandRequest
+- name: "Check if ODLM is installed"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: "{{ ibm_common_services_namespace }}"
+    kind: Deployment
+  register: odlm_lookup
 
-- name: "Wait 2 minutes if we removed an old OperandRequest"
-  when: operandrequest_removal.changed == True
-  pause:
-    minutes: 2
+- name: "Clean up old Db2 from {{ ibm_common_services_namespace }} namespace"
+  when:
+    - odlm_lookup.resources is defined
+    - odlm_lookup.resources | length > 0
+  block:
+    - name: "Delete old Db2 OperandRequest from {{ db2_namespace }} namespace"
+      kubernetes.core.k8s:
+        state: absent
+        template: templates/db2u_operandrequest.yml.j2
+        wait: yes
+        wait_timeout: 120
+      register: db2_operandrequest_removal
 
-- name: "Create Db2 Universal Operator Subscription"
+    - name: "Delete old Db2 subscription from {{ ibm_common_services_namespace }} namespace"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: ibm-db2u-operator
+        namespace: "{{ ibm_common_services_namespace }}"
+        wait: yes
+        wait_timeout: 120
+      register: db2_sub_removal
+
+    - name: "Delete old Db2 CSV from {{ ibm_common_services_namespace }} namespace"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: "{{ ibm_common_services_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/db2u-operator.{{ db2_namespace }}"
+        wait: yes
+        wait_timeout: 120
+      register: db2_csv_removal
+
+    - name: "Wait 2 minutes if we removed an old Db2"
+      when: db2_operandrequest_removal.changed == True or db2_sub_removal.changed == True or db2_csv_removal.changed == True
+      pause:
+        minutes: 2
+
+- name: "Create Db2 Universal Operator Subscription in {{ db2_namespace }} namespace"
   kubernetes.core.k8s:
     template: templates/db2u_subscription.yml.j2
     wait: yes
     wait_timeout: 120
-
 
 # 6. Get the cluster subdomain to be used for the certificate and route creation
 # -----------------------------------------------------------------------------
@@ -175,7 +216,6 @@
     kind: Ingress
     name: cluster
   register: _cluster_subdomain
-
 
 # 7. Create self-signed certificate for Db2u SSL
 # -----------------------------------------------------------------------------
@@ -208,7 +248,6 @@
     definition: "{{ lookup('template', 'templates/certs/certificate.yml.j2') }}"
   register: createCertificate
 
-
 # 8. Wait until the Db2uCluster CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Db2uCluster CRD is available"
@@ -237,7 +276,7 @@
       kubernetes.core.k8s_info:
         api_version: v1
         name: db2u-release
-        namespace: "{{ ibm_common_services_namespace }}"
+        namespace: "{{ db2_namespace }}"
         kind: ConfigMap
       register: db2_release_info
       retries: 20 # ~approx 10 minutes before we give up waiting for the CRD to be created
@@ -268,13 +307,11 @@
       - db2_version is defined and db2_version != ""
     fail_msg: "Unable to determine db2_channel and/or db2_version"
 
-
 - name: Debug DB2 upgrade channel and version
   ansible.builtin.debug:
     msg:
       - "Db2 Channel ............................ {{ db2_channel }}"
       - "Db2 Version ............................ {{ db2_version }}"
-
 
 # 9. Lookup db2 instance to see if it exists already
 # -----------------------------------------------------------------------------
@@ -286,14 +323,12 @@
     kind: Db2uCluster
   register: initial_db2_cluster_lookup
 
-
 # 10. Create a Db2 instance
 # -----------------------------------------------------------------------------
 - name: "Create db2 instance"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/db2ucluster.yml.j2') }}"
-
 
 # 11. Wait for the cluster to be ready
 # -----------------------------------------------------------------------------
@@ -312,7 +347,6 @@
     - db2_cluster_lookup.resources[0].status.state == "Ready"
   retries: 24 # Approximately 2 hours before we give up
   delay: 300 # 5 minutes
-
 
 # 12. Configure a public route for Db2
 # -----------------------------------------------------------------------------
@@ -349,8 +383,7 @@
   set_fact:
     db2_tls_serviceport: "{{item.targetPort}}"
   when: "item.name == 'ssl-server'"
-  loop:
-    "{{_db2_instance_engn_svc.resources[0].spec.ports}}"
+  loop: "{{_db2_instance_engn_svc.resources[0].spec.ports}}"
 
 - name: "Create dedicated route: db2u-{{ db2_instance_name }}-tls-route"
   kubernetes.core.k8s:
@@ -380,7 +413,6 @@
     namespace: "{{db2_namespace}}"
     state: absent
 
-
 # 13. Delete db2 pod on intial setup only, to workaround db2 issue
 # that was causing TLS connection issues when the pod was first started
 # -----------------------------------------------------------------------------
@@ -392,7 +424,6 @@
     namespace: "{{db2_namespace}}"
     state: absent
   when: initial_db2_cluster_lookup.resources | length == 0
-
 
 # 14. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
@@ -410,7 +441,6 @@
       - "{{db2_ldap_username}}"
       - "{{db2_rotate_password}}"
 
-
 # 15. Rotate db2 ldap password
 # -----------------------------------------------------------------------------
 - name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
@@ -419,7 +449,6 @@
     - db2_ldap_username is defined
     - db2_ldap_username != ""
     - db2_rotate_password == true
-
 
 # 16. Wait for the statefulset to be ready
 # -----------------------------------------------------------------------------
@@ -439,7 +468,6 @@
     - db2_sts.resources[0].status.readyReplicas == db2_sts.resources[0].status.replicas
   retries: 20 # approx 10 minutes before we give up
   delay: 30 # seconds
-
 
 # 17. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
