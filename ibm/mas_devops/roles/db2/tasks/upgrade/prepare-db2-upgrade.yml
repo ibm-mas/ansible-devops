@@ -30,11 +30,37 @@
 
 # 2. Lookup current db2u channel
 # -----------------------------------------------------------------------------
+# This step was added to check in which namespace db2 sub/operator is running
+# since now it might be running in namespaces other than in ibm-common-services namespace
+- name: Find out which namespace db2 operator is running
+  shell: oc get subs -A | grep ibm-db2u-operator | awk '{print $1}'
+  register: db2_operator_namespace_lookup
+
+- name: Assert db2 operator is installed
+  assert:
+    that: db2_operator_namespace_lookup.stdout_lines | length > 0
+    fail_msg: "DB2 operator was not found in the cluster. Aborting DB2 upgrade."
+
+- name: Assert there is just one db2 operator running
+  assert:
+    that: db2_operator_namespace_lookup.stdout_lines | length == 1
+    fail_msg:
+      - "There are multiple subscriptions for DB2 in the cluster."
+      - "Make sure you just have one DB2 operator running."
+      - "DB2 operator namespaces identified: {{ db2_operator_namespace_lookup.stdout_lines }}"
+
+- name: Define db2_operator_namespace based on the lookup
+  set_fact:
+    current_db2_operator_namespace: "{{ db2_operator_namespace_lookup.stdout }}"
+
+- debug:
+    msg: "DB2 subscription/operator is currently running in '{{ current_db2_operator_namespace }}' namespace"
+
 - name: "Get the current subscription channel for db2"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     name: ibm-db2u-operator
-    namespace: "{{ ibm_common_services_namespace }}"
+    namespace: "{{ current_db2_operator_namespace }}"
     kind: Subscription
   register: db2_sub_info
 
