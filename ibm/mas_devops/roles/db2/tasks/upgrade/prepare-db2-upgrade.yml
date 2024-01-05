@@ -71,8 +71,15 @@
 
 - debug:
     msg:
-      - "Current db2 channel .......... {{ old_db2_channel }}"
-      - "Current db2 csv .............. {{ old_db2_csv }}"
+
+- name: Debug DB2 upgrade subscription status
+  ansible.builtin.debug:
+    msg:
+      - "Current Db2 Subscription namespace ............... {{ current_db2_operator_namespace }}"
+      - "Current Db2 Channel .............................. {{ old_db2_channel }}"
+      - "Current Db2 csv .................................. {{ old_db2_csv }}"
+      - "Target Db2 Subscription namespace ................ {{ db2_namespace }}"
+      - "Target Db2 Channel ............................... {{ db2_channel }}"
 
 # 3. If the current operator channel is the same for the upgrade, no subscription upgrade
 # -----------------------------------------------------------------------------
@@ -81,8 +88,11 @@
   debug:
     msg: "No action is required. Db2 subscription is already on the {{ db2_channel }} channel"
 
+# Run the DB2 subscription upgrade if there's a new db2 channel to be upgraded
+# or if DB2 subscription/operator is currently running in different namespaces from the DB2 instances
+# in that case, the task will perform the DB2 subscription migration to the db2_namespace
 - include_tasks: "tasks/upgrade/run-db2-subscription-upgrade.yml"
-  when: db2_channel != old_db2_channel
+  when: db2_channel != old_db2_channel or current_db2_operator_namespace != db2_namespace
 
 # 4. Run Db2 instance upgrade
 # -----------------------------------------------------------------------------
