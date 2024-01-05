@@ -27,25 +27,11 @@
 
 # 2. Disable IBM Cert Manager OperandRequest
 # -----------------------------------------------------------------------------
-# Check if Operand Deployment Lifecycle Manager is installed
-# If Operand Deployment Lifecycle Manager is not installed
-# then no point on disabling IBM cert manager OperandRequest
-- name: "install : Check if ODLM is installed"
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    name: operand-deployment-lifecycle-manager
-    namespace: "ibm-common-services"
-    kind: Deployment
-  register: odlm_lookup
-
 # This step will configure ibm-cert-manager-operator to make use of a
 # self managed CNCF cert-manager, so that no additional operands are installed.
 # Add deployCSCertManagerOperands: "false" to the data.
 # Using 'merge' just in case the configmap is already present
 - name: "install: Disable IBM Cert Manager OperandRequest via ibm-ccp-config"
-  when:
-    - odlm_lookup.resources is defined
-    - odlm_lookup.resources | length > 0
   kubernetes.core.k8s:
     merge_type: merge
     template: "templates/{{ cert_manager_provider }}/ibm-cpp-configmap.yml.j2"
