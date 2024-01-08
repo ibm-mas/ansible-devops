@@ -34,13 +34,13 @@
   register: api_status
   no_log: true
 
-- name: Determine cluster capabilities
+- name: Determine cluster grafana capabilities
   set_fact:
-    supports_integreatly_org: True # Default is 'False'
+    supports_grafanav4: "{{ api_status.apis['integreatly.org/v1alpha1'] is defined }}"
+    supports_grafanav5: "{{ api_status.apis['grafana.integreatly.org/v1beta1'] is defined }}"
   when:
     - api_status is defined
     - api_status.apis is defined
-    - api_status.apis['integreatly.org/v1alpha1'] is defined
 
 # 4. Lookup any existing kafka user in the kafka namespace to use the same password
 # -----------------------------------------------------------------------------
@@ -77,7 +77,8 @@
       - "Kafka zookeeper storage class ......... {{ zookeeper_storage_class }}"
       - "Kafka zookeeper storage size .......... {{ zookeeper_storage_size }}"
       - "Kafka MAS user ........................ {{ kafka_user_name }}"
-      - "Cluster supports integreatly .......... {{ supports_integreatly_org }}"
+      - "Cluster supports grafana v4 ........... {{ supports_grafanav4 }}"
+      - "Cluster supports grafana v5 ........... {{ supports_grafanav5 }}"
 
 # 6. Install Kafka operator
 # -----------------------------------------------------------------------------
@@ -165,7 +166,15 @@
     template: "{{ item }}"
   with_fileglob:
     - "templates/redhat/dashboards/*.yml.j2"
-  when: supports_integreatly_org
+  when: supports_grafanav4
+
+- name: "Create Kafka monitoring dashboards"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ item }}"
+  with_fileglob:
+    - "templates/redhat/dashboards-v5/*.yml.j2"
+  when: supports_grafanav5
 
 # 13. Lookup details
 # -----------------------------------------------------------------------------
