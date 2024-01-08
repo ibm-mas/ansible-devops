@@ -134,7 +134,7 @@
     prometheus_token: "{{ prometheus_token_secret.resources[0].data.token | b64decode }}"
   no_log: true
 
-- name: "install : grafana : Get Thanos Querier route in opernshift-monitoring namespace"
+- name: "install : grafana : Get Thanos Querier route in openshift-monitoring namespace"
   kubernetes.core.k8s_info:
     api: v1
     kind: Route
@@ -162,13 +162,15 @@
 
 - name: "install : grafana : Wait for grafana to be ready (60s delay)"
   kubernetes.core.k8s_info:
-    api_version: integreatly.org/v1alpha1
+    api_version: grafana.integreatly.org/v1beta1
     name: mas-grafana
     namespace: "{{grafana_namespace}}"
     kind: Grafana
   register: grafana_cr_result
   until:
-    - grafana_cr_result.resources[0].status.message is defined
-    - grafana_cr_result.resources[0].status.message == "success"
+    - grafana_cr_result.resources[0].status.stage is defined
+    - grafana_cr_result.resources[0].status.stageStatus is defined
+    - grafana_cr_result.resources[0].status.stage == "complete"
+    - grafana_cr_result.resources[0].status.stageStatus == "success"
   retries: 10 # approx 50 minutes before we give up
   delay: 60 # 1 minute
