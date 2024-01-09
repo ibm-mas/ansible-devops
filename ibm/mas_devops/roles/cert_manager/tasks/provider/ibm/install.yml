@@ -2,32 +2,30 @@
 # This will result in the following operators being installed in the ibm-common-services namespace
 # - IBM Cert Manager
 
-# 1. Check whether JetStack cert-manager is installed
+# 1. Check whether Certificate Manager is installed
 # -----------------------------------------------------------------------------
-- name: Check if Cert Manager is already installed
+- name: Check if Certificate Manager is already installed
   kubernetes.core.k8s_info:
     api_version: v1
     name: cert-manager
     namespace: "cert-manager"
     kind: Deployment
-  register: jetstack_lookup
+  register: certmanager_lookup
 
-
-# 2. Prevent installation of IBM Certificate Manager if JetStack installed
+# 2. Prevent installation of IBM Certificate Manager if already installed
 # -----------------------------------------------------------------------------
-- name: "Check that JetStack Cert Manager is not installed"
+- name: "Check that Certificate Manager not installed"
   assert:
     that:
-      - jetstack_lookup.resources is defined
-      - jetstack_lookup.resources | length == 0
-    fail_msg: "JetStack Certificate Manager is already installed in the cert-manager namespace.  Installing IBM Certificate Manager on the same cluster will create a conflict"
-
+      - certmanager_lookup.resources is defined
+      - certmanager_lookup.resources | length == 0
+    fail_msg: "Certificate Manager is already installed in the cert-manager namespace. Installing IBM Certificate Manager on the same cluster will create a conflict"
 
 # 3. Install IBM Certificate Manager
 # -----------------------------------------------------------------------------
 - name: Install Foundation Services ibm-cert-manager operand request
   kubernetes.core.k8s:
-    template: 'templates/ibm-cert-manager.yml'
+    template: "templates/{{ cert_manager_provider }}/ibm-cert-manager.yml"
     wait: yes
     wait_timeout: 120
 
@@ -67,6 +65,6 @@
 
 - name: Increase common service cpu limit to account for increased cert privateKey sizings
   kubernetes.core.k8s:
-    template: 'templates/ibm-cert-manager-common-service.yml'
+    template: "templates/{{ cert_manager_provider }}/ibm-cert-manager-common-service.yml"
     wait: yes
     wait_timeout: 120

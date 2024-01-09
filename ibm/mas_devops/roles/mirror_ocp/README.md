@@ -7,25 +7,29 @@ Four actions are supported:
 - `direct` Directly mirror content to your target registry
 - `to-filesystem` Mirror content to the local filesystem
 - `from-filesystem` Mirror content from the local filesystem to your target registry
-- `install-catalogs` Install CatalogSources for the mirrored content.
 
-Two **CatalogSources** are created by the `install-catalogs` action in the `openshift-marketplace` namespace, containing the following content:
+Three **Catalogs** are mirrored, containing the following content:
 
 ### certified-operator-index
 - crunchy-postgres-operator (required by ibm.mas_devops.uds role)
+- gpu-operator-certified (required by ibm.mas_devops.nvidia_gpu role)
+- kubeturbo-certified (required by ibm.mas_devops.kubeturbo role)
+- ibm-metrics-operator (required by ibm.mas_devops.dro role)
+- ibm-data-reporter-operator (required by ibm.mas_devops.dro role)
+- redhat-marketplace-operator (required by ibm.mas_devops.dro role)
+
+### community-operator-index
+- grafana-operator (required by ibm.mas_devops.cluster_monitoring role)
+- opentelemetry-operator (required by ibm.mas_devops.cluster_monitoring role)
+- strimzi-kafka-operator (required by ibm.mas_devops.kafka role)
 
 ### redhat-operator-index
 - amq-streams (required by ibm.mas_devops.kafka role)
 - openshift-pipelines-operator-rh (required by the MAS CLI)
-
-!!! note
-    We are limited to the content we can support mirroring for today due to bug with Red Hat's support for OCI images, this prevents the mirroring of the following packages (which are all optional dependencies):
-
-    - **kubeturbo-certified**
-    - **grafana-operator**
-    - **opentelemetry-operator**
-
-    For more information refer to [solution 6997884](https://access.redhat.com/solutions/6997884) and [CFE 780](https://issues.redhat.com/browse/CFE-780).
+- nfd (required by ibm.mas_devops.nvidia_gpu role)
+- aws-efs-csi-driver-operator (required by ibm.mas_devops.ocp_efs role)
+- local-storage-operator (required by ibm.mas_devops.ocs role)
+- odf-operator (required by ibm.mas_devops.ocs role)
 
 
 Requirements
@@ -136,9 +140,9 @@ Example Playbook
 ```yaml
 - hosts: localhost
   vars:
-    registry_public_host: myocp-5f1320191125833da1cac8216c06779e-0000.us-south.containers.appdomain.cloud
-    registry_public_port: 32500
-    registry_username: admin
+    registry_public_host: myregistry.mycompany.com
+    registry_public_port: 5000
+    registry_username: user1
     registry_password: 8934jk77s862!  # Not a real password, don't worry security folks
 
     mirror_mode: direct

@@ -1,24 +1,10 @@
 ---
-
-# 1. Delete the cs-ca-certificate Certificate
-# -----------------------------------------------------------------------------
-- name: "uninstall : Delete cs-ca-certificate Certificate"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: cert-manager.io/v1
-    kind: Certificate
-    name: cs-ca-certificate
-    namespace: ibm-common-services
-    wait: yes
-    wait_timeout: 600
-
-
-# 2. Delete the Cert-Manager OperandRequest
+# 1. Delete the Cert-Manager OperandRequest
 # -----------------------------------------------------------------------------
 - name: "uninstall : Delete Cert-Manager OperandRequest"
   kubernetes.core.k8s:
     state: absent
-    template: "templates/ibm-cert-manager.yml"
+    template: "templates/{{ cert_manager_provider }}/ibm-cert-manager.yml"
     wait: yes
     wait_timeout: 600
 
@@ -47,7 +33,6 @@
     - certmanager_webhook_deployment.resources | length == 0
   retries: 10
   delay: 30 # seconds
-
 
 # 3. Delete the cs-ca and cs ss Issuers
 # -----------------------------------------------------------------------------
