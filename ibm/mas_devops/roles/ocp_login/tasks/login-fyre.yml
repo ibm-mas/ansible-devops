@@ -39,34 +39,32 @@
     oc login -u kubeadmin -p {{ login_password }} --server={{ login_server }} --insecure-skip-tls-verify=true
 
 # 6. For IPv6 testing
-- block:
-  - name: "Enable dual stack networking"
-    kubernetes.core.k8s_json_patch:
-      kind: Network
-      name: "cluster"
-      api_version: config.openshift.io/v1
-      patch:
-        - op: add
-          path: /spec/clusterNetwork/-
-          value:
-            cidr: fd01::/48
-            hostPrefix: 64
-        - op: add
-          path: /spec/serviceNetwork/-
-          value: fd02::/112
-    register: _dualstackNetworkAddr
+- name: Enable IPv6
+  when: enable_ipv6==true
+  block:
+    - name: "Enable dual stack networking"
+      kubernetes.core.k8s_json_patch:
+        kind: Network
+        name: "cluster"
+        api_version: config.openshift.io/v1
+        patch:
+          - op: add
+            path: /spec/clusterNetwork/-
+            value:
+              cidr: fd01::/48
+              hostPrefix: 64
+          - op: add
+            path: /spec/serviceNetwork/-
+            value: fd02::/112
 
-  - name: Install sshpass
-    hosts: localhost 
-    become: yes  
-    tasks:
-      - name: Install sshpass package
-        package:
-          name: sshpass
-          state: present
+    - name: Install sshpass
+      hosts: localhost 
+      become: yes  
+      tasks:
+        - name: Install sshpass package
+          package:
+            name: sshpass
+            state: present
 
-  - name: Run the script on inf node
-    include_tasks: run_enable_ipv6_script.yml
-
-  when:
-    - enable_ipv6==true
+    - name: Run the script on inf node
+      include_tasks: run_enable_ipv6_script.yml
