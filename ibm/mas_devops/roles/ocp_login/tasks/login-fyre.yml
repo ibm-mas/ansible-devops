@@ -38,35 +38,56 @@
   shell: |
     oc login -u kubeadmin -p {{ login_password }} --server={{ login_server }} --insecure-skip-tls-verify=true
 
-# 6. For IPv6 testing, lookup network
-- name: Lookup network for IPv6 testing
-  kubernetes.core.k8s:
-    api_version: config.openshift.io/v1
-    kind: Network
-    name: "cluster"
-  when:
-    - enable_ipv6 ==true
-  register: _network
+# 6. For IPv6 testing
+- name: Enable IPv6
+  when: enable_ipv6==true
+  block:
+    - name: "Enable dual stack networking"
+      kubernetes.core.k8s_json_patch:
+        kind: Network
+        name: "cluster"
+        api_version: config.openshift.io/v1
+        patch:
+          - op: add
+            path: /spec/clusterNetwork/-
+            value:
+              cidr: fd01::/48
+              hostPrefix: 64
+          - op: add
+            path: /spec/serviceNetwork/-
+            value: fd02::/112
 
-- name: "fyre : Debug network"
-  debug:
-    var: _network
+#    - name: Install sshpass
+#      become: yes
+#      tasks:
+#        - name: Install sshpass package
+#          package:
+#            name: sshpass
+#            state: present
 
-# 7. For IPv6 testing, enable dual stack networking
-- name: "Enable dual stack networking"
-  kubernetes.core.k8s_json_patch:
-    kind: Network
-    name: "cluster"
-    api_version: config.openshift.io/v1
-    patch:
-      - op: add
-        path: /spec/clusterNetwork/-
-        value:
-          cidr: fd01::/48
-          hostPrefix: 64
-      - op: add
-        path: /spec/serviceNetwork/-
-        value: fd02::/112
-  register: _dualstackNetworkAddr
-  when:
-    - enable_ipv6==true
+#    - name: Update hosts file to include inf node
+#      block:
+#        - name: Add group header
+#          lineinfile:
+#            path: /etc/ansible/hosts  # Adjust path if needed
+#            line: '[infra_nodes]'
+#            state: present
+
+#        - name: Add host entry
+#          lineinfile:
+#            path: /etc/ansible/hosts
+#            line: '{{ api_host }} ansible_user=root ansible_password={{ fyre_root_password }}'
+#            state: present
+
+#        - name: Print hosts file using shell
+#          shell: cat /etc/ansible/hosts  # Adjust path if needed
+#          register: hosts_file_contents
+
+#        - name: Display hosts file contents
+#          debug:
+#            var: hosts_file_contents.stdout
+
+#      become: yes  # Necessary for modifying system-level files
+
+#    - name: Run the script on inf node
+#      include_tasks: run_enable_ipv6_script.yml
