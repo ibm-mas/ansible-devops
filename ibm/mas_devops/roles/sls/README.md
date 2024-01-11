@@ -239,7 +239,7 @@ The URL of the LicenseService to be called when the Maximo Application Suite is 
 - Default Value: None
 
 ### mas_license_sync_frequency
-The user license sync cronjob sync frequency between MAS and SLS.
+The sync frequency of user license sync cronjob between Maximo Application Suite and SLS.
 
 - Optional
 - Environment Variable: `MAS_LICENSE_SYNC_FREQUENCY`
