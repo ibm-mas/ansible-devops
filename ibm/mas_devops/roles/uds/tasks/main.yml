@@ -9,17 +9,17 @@
   debug:
     msg:
       - "dro_migration Flag is set to ..................... {{ dro_migration }}"
-  
+
 - name: UDS to DRO migration (mas update scenario)
-  set_fact: 
-    uds_action: "uninstall"
-  when: 
-    - dro_migration is defined and dro_migration == "true"
+  include_tasks: "tasks/uninstall/main.yml"
+  when:
+    - dro_migration != "" and dro_migration == "true"
 
 - include_tasks: "tasks/{{ uds_action }}/main.yml"
   when:
     - uds_action in ["install", "install-suds", "uninstall", "uninstall-suds"]
     - uds_endpoint_url is not defined or uds_endpoint_url == ""
+    - dro_migration == ""
 
 # 2. Generate the UDS configuration for MAS
 # -----------------------------------------------------------------------------
