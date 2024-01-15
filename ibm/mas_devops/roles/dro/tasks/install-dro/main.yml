@@ -5,11 +5,6 @@
 - name: "Determine whether this is an airgap environment"
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
 
-
-# 2. Load default storage class (if not provided by the user)
-# -----------------------------------------------------------------------------
-- include_tasks: tasks/install-dro/determine-storage-classes.yml
-
 # 3. Display DRO deployment details
 # -----------------------------------------------------------------------------
 - name: "DRO Deployment details"
@@ -29,7 +24,7 @@
 # -----------------------------------------------------------------------------
 
 # Check redhat-marketplace operator exists
-# -----------------------------------------------------------------------------
+# --------------------------------------g---------------------------------------
 - name: Check if operator group is present in redhat-marketplace already
   kubernetes.core.k8s_info:
     namespace: redhat-marketplace
@@ -39,6 +34,22 @@
 - name: "Create OperatorGroup in redhat-marketplace namespace if not exist"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/operatorgroup.yml.j2') }}"
+
+# Create a PVC using the Chosen Storage Class
+# ----------------------------------------------------------------------------
+- name: "Debug User Provided DRO Storage Class"
+  debug:
+    msg:
+      - "User Provided DRO Storage Class Name..................... {{ dro_storage_class }}"
+  when: dro_storage_class is defined and (dro_storage_class | length > 0)
+
+- name: Determine Storage Class
+  include_tasks: tasks/install-dro/determine-storage-classes.yml
+  when: dro_storage_class is not defined or dro_storage_class == ""
+
+- name: Create DRO PVC
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/dro-pvc.yml.j2') }}"
 
 # Create Marketplace Pull Secret
 - name: Get marketplace secret

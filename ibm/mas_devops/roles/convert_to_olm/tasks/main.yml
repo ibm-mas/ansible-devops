@@ -54,7 +54,6 @@
           - "MAS Instance ID ........ '{{ mas_instance_id }}'"
           - "MAS App ID ............. '{{ mas_app_id }}'"
           - "MAS App Namespace ...... '{{ mas_app_namespace }}'"
-          - "MAS Upgrade Strategy ... '{{ mas_upgrade_strategy }}'"
 
 # 2. Check App and Determine if OLM conversion is possible
 # -----------------------------------------------------------------------------
@@ -360,56 +359,7 @@
         operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
         subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
-    # 3.5. Approve InstallPlan(s) when in Manual subscription
-    # -------------------------------------------------------------------------
-    - name: "Lookup and Approve Subscription: {{ supported_apps[mas_app_id]['name'] }}"
-      when: mas_upgrade_strategy == 'Manual'
-      block:
-        - name: Lookup Operator install plan
-          kubernetes.core.k8s_info:
-            api_version: operators.coreos.com/v1alpha1
-            kind: InstallPlan
-            namespace: "{{ mas_app_namespace }}"
-            label_selectors:
-              - "operators.coreos.com/{{ supported_apps[mas_app_id]['csv_name'] }}.{{ mas_app_namespace }}"
-          register: _mas_install_plan
-          retries: 40
-          delay: 30 # 40 x 30 seconds = 20 minutes
-          until: _mas_install_plan.resources | length > 0
-
-        - name: Approve the subscription install plan
-          when:
-            - _mas_install_plan is defined
-            - _mas_install_plan.resources is defined
-            - _mas_install_plan.resources | length > 0
-            - _mas_install_plan.resources[0].status is defined
-            - _mas_install_plan.resources[0].status.phase is defined
-            - _mas_install_plan.resources[0].status.phase != "Complete"
-          kubernetes.core.k8s:
-            definition:
-              apiVersion: operators.coreos.com/v1alpha1
-              kind: InstallPlan
-              metadata:
-                name: "{{ _mas_install_plan.resources[0].metadata.name }}"
-                namespace: "{{ mas_app_namespace }}"
-              spec:
-                approved: true
-
-    # 3.6. Handle IBM Common Services Install plan approvals when
-    #      upgrade strategy is set to Manual
-    # -------------------------------------------------------------------------
-    # ibm-common-services operators deployed by MAS will inherit the inherit
-    # MAS upgrade strategy when its set to Manual, we need to iterate those to
-    # ensure we do approve the first install plan otherwise MAS installation
-    # won't succeed.
-    - name: Handle IBM Common Services InstallPlan approvals
-      ansible.builtin.include_tasks: tasks/ibm-common-services.yml
-      when:
-        - mas_upgrade_strategy == 'Manual'
-        - mas_app_id == 'core'
-      loop: "{{ ibm_common_services_subscription_labels }}"
-
-    # 3.7. Verify the (main + TM) operator pods are running and ready
+    # 3.5. Verify the (main + TM) operator pods are running and ready
     # -------------------------------------------------------------------------
     - name: "Check if operator is ready: {{ supported_apps[mas_app_id]['op_name'] }}"
       kubernetes.core.k8s_info:

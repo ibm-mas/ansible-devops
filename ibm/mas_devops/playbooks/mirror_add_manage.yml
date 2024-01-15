@@ -3,9 +3,10 @@
   any_errors_fatal: true
 
   vars:
-    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-231031-amd64', True) }}"
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-231228-amd64', True) }}"
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.11.x', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
+    mirror_icd: "{{ lookup('env', 'MIRROR_MAS_ICD') }}"
 
   pre_tasks:
     - name: "Get stats for the catalog file"
@@ -15,7 +16,7 @@
 
     - name: "Debug stats if the digest image map file exists"
       ansible.builtin.set_fact:
-        file_catalog_tag: "{{ (catalog_file_stats.stat.exists|bool) | ternary(catalog_tag, 'v8-231031-amd64') }}"
+        file_catalog_tag: "{{ (catalog_file_stats.stat.exists|bool) | ternary(catalog_tag, 'v8-231228-amd64') }}"
 
     - name: Load CASE bundle versions
       include_vars:
@@ -30,6 +31,7 @@
         case_name: ibm-mas-manage
         case_version: "{{ lookup('env', 'MAS_MANAGE_VERSION') | default (mas_manage_version[mas_channel], True) }}"
         exclude_images: []
+        image_group_filter: "{{ (mirror_icd == 'true') | ternary ('ibmmasManage,ibmMasManage,ibmmasMaximoIT', 'ibmmasManage,ibmMasManage') }}"
 
     - name: ibm.mas_devops.mirror_images
       vars:

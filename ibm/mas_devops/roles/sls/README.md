@@ -238,6 +238,13 @@ The URL of the LicenseService to be called when the Maximo Application Suite is 
 - Environment Variable: `SLS_URL`
 - Default Value: None
 
+### mas_license_sync_frequency
+The sync frequency of user license sync cronjob between Maximo Application Suite and SLS.
+
+- Optional
+- Environment Variable: `MAS_LICENSE_SYNC_FREQUENCY`
+- Default Value: `*/30 * * * *`
+
 ### sls_tls_crt
 The TLS CA certificate of the LicenseService to be used when the Maximo Application Suite is registered with SLS.  Takes precedence over  `sls_tls_crt_local_file_path`.
 
