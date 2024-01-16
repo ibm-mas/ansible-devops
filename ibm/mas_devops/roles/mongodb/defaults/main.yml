@@ -111,15 +111,16 @@ custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string
 
 # Mongo upgrade flags
 # If identified that there's an existing Mongo that might lead to a v5 or v6 upgrade
-# the following flags just be set to confirm the upgrades otherwise the role will fail
-# and not proceed with the upgrade.
+# the following flags must be set to confirm the upgrades otherwise the role will fail and not proceed with the upgrade.
 mongodb_v5_upgrade: "{{ lookup('env', 'MONGODB_V5_UPGRADE') | default(false, true) | bool }}"
 mongodb_v6_upgrade: "{{ lookup('env', 'MONGODB_V6_UPGRADE') | default(false, true) | bool }}"
 
-# This matrix will define the mongodb upgrade compatibility mapping version.
+# This matrix will define and validate the mongodb upgrade compatibility mapping version.
 # Therefore this must be updated whenever a new mongodb version is supported.
 # Only allow Mongo upgrades to be next compatible minor (or patch) version.
-# Example: If `existing_mongo_version: 4.4.21` then the `target_mongodb_version` must be `5.0.21` or `5.0.23`.
+# Example: 
+# If `existing_mongo_version: 4.4.21` then the `target_mongodb_version` must be `5.0.21` or `5.0.23`.
+# Otherwise the code will validate there is an incompatibility in the version to be upgraded and it will fail prior starting the upgrade process.
 mongo_compatible_target_version:
   "4.2.23":
     - "4.4.21"
