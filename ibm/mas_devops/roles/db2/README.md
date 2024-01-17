@@ -1,7 +1,7 @@
 db2
 ===============================================================================
 
-This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will be installed into the `ibm-common-services` namespace to service the `db2ucluster` requests in the namespace. A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the *-db2u-engn-svc service). Internal access is via the *-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.
+This role creates or upgrades a Db2 instance using the Db2u Operator. When installing db2, the db2u operator will now be installed into the same namespace as the db2 instance (`db2ucluster`). If you already have db2 operator and db2 instances running in separate namespaces, this role will take care of migrating (by deleting & reinstalling) the db2 operators from `ibm-common-services` to the namespace defined by `db2_namespace` property (in case of a new role execution for a db2 install or db2 upgrade). A private root CA certificate is created and is used to secure the TLS connections to the database. A Db2 Warehouse cluster will be created along with a public TLS encrypted route to allow external access to the cluster (access is via the ssl-server nodeport port on the *-db2u-engn-svc service). Internal access is via the *-db2u-engn-svc service and port 50001. Both the external route and the internal service use the same server certificate.
 
 The private root CA certificate and the server certificate are available from the `db2u-ca` and `db2u-certificate` secrets in the db2 namespace.  The default user is `db2inst1` and the password is available in the `instancepassword` secret in the same namespace.  You can examine the deployed resources in the db2 namespace. This example assumes the default namespace `db2u`:
 
@@ -36,7 +36,7 @@ Inform the role whether to perform an install or upgrade of DB2 Database. This c
 - Default: `install`
 
 ### db2_namespace
-Name of the namespace where Db2 clusters will be created
+Name of the namespace where Db2 operators and Db2 instances (DB2UCluster custom resources) will be created
 
 - Optional
 - Environment Variable: `DB2_NAMESPACE`
