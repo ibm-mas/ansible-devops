@@ -11,12 +11,6 @@
       - dro_contact.last_name is defined and dro_contact.last_name != ""
     fail_msg: "One or more required environment variables are not defined [DRO_CONTACT_EMAIL, DRO_CONTACT_FIRSTNAME, DRO_CONTACT_LASTNAME]"
 
-# check dro_existing
-- name: "Debug dro_existing Flag"
-  debug:
-    msg:
-      - "dro_existing Flag is set to ..................... {{ dro_existing }}"
-
 - name: DRO bascfg for new instance
   when:
     - dro_existing != "" and dro_existing == "false"
@@ -74,6 +68,11 @@
         dro_api_key: "{{ token_secret_info.resources[0].data.token | b64decode }}"
       when: (token_secret_info.resources | length != 0)
 
+    # 3. Lookup the certificates
+    # -----------------------------------------------------------------------------
+    - name: "drocfg : Lookup the default cluster ingress secret"
+      include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
+
 - name: DRO bascfg for existing instance
   when:
     - dro_existing != "" and dro_existing == "true"
@@ -83,12 +82,36 @@
         that:
           - dro_endpoint_url is defined and dro_endpoint_url != ""
           - dro_api_key is defined and dro_api_key != ""
+          - dro_crt_path is defined and dro_crt_path != ""
         fail_msg: "One or more required environment variables are not defined [DRO_ENDPOINT_URL, DRO_APIKEY]"
 
-# 3. Lookup the certificates
-# -----------------------------------------------------------------------------
-- name: "drocfg : Lookup the default cluster ingress secret"
-  include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
+    - name: "drocfg : Set dro_ca_crt fact"
+      ansible.builtin.set_fact:
+        private_root_ca_bundle_crt: "{{ lookup('ansible.builtin.file', dro_crt_path ) }}"
+
+    # Break up the DRO certificate into an array
+    - name: "drocfg : Get private ingress certificate (full)"
+      ansible.builtin.set_fact:
+        cluster_ingress_tls_crt: "{{ private_root_ca_bundle_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+
+    - name: "drocfg : Fail if DRO certificate is empty"
+      assert:
+        that:
+          - cluster_ingress_tls_crt  != ""
+        fail_msg: "Incorrect DRO certificate path OR DRO certificate is empty"
+
+    # When the certificate content is retrieved as a list, need to ensure its content is not treated as a list of characters
+    - name: "drocfg : Format all certificates in the chain (from list)"
+      ansible.builtin.set_fact:
+        cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt | join('') }}"
+      when: cluster_ingress_tls_crt and cluster_ingress_tls_crt | type_debug == 'list' and cluster_ingress_tls_crt | length > 0
+
+    # When the certificate content is retrieved as a string, need to filter its content into valid certificates and map them into a list
+    - name: "drocfg : Format all certificates in the chain (from text/string)"
+      ansible.builtin.set_fact:
+        cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+      when: cluster_ingress_tls_crt and cluster_ingress_tls_crt | type_debug != 'list'
+
 
 # Break up the certificate into an array
 - name: "udscfg : Set UDS cert variable"
@@ -127,7 +150,9 @@
     src: bascfg.yml.j2
     dest: "{{ mas_config_dir }}/dro.yml"
     mode: "664"
-  when: mas_instance_id is defined
+  when:
+    - mas_instance_id is defined
+    - dro_migration != "true"
 
 # 6. DRO Migration: Clean BASCfg of UDS
 # -----------------------------------------------------------------------------
@@ -136,6 +161,8 @@
     api_version: config.mas.ibm.com/v1
     kind: BasCfg
   register: udscfgs
+  when:
+    - dro_migration != "" and dro_migration == "true"
 
 - name: CleanUp UDS BASCfgs and Create DRO BASCfgs
   include_tasks: "tasks/gencfg/migrate.yml"
