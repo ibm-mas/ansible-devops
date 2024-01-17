@@ -11,59 +11,79 @@
       - dro_contact.last_name is defined and dro_contact.last_name != ""
     fail_msg: "One or more required environment variables are not defined [DRO_CONTACT_EMAIL, DRO_CONTACT_FIRSTNAME, DRO_CONTACT_LASTNAME]"
 
-# 1. Lookup the endpoint route
-# -----------------------------------------------------------------------------
-- name: "drocfg : Get ibm-data-reporter route"
-  k8s_info:
-    api_version: route.openshift.io/v1
-    kind: Route
-    name: ibm-data-reporter
-    namespace: redhat-marketplace
-  register: dro_route
+# check dro_existing
+- name: "Debug dro_existing Flag"
+  debug:
+    msg:
+      - "dro_existing Flag is set to ..................... {{ dro_existing }}"
 
-- name: "drocfg : Assert that ibm-data-reporter route exists"
-  ansible.builtin.assert:
-    that:
-      - dro_route is defined
-      - dro_route.resources is defined
-      - dro_route.resources | length == 1
-    fail_msg: "Route not found: ibm-data-reporter"
+- name: DRO bascfg for new instance
+  when:
+    - dro_existing != "" and dro_existing == "false"
+  block:
+    # 1. Lookup the endpoint route
+    # -----------------------------------------------------------------------------
+    - name: "drocfg : Get ibm-data-reporter route"
+      k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: ibm-data-reporter
+        namespace: redhat-marketplace
+      register: dro_route
 
-- name: set dro route for bascfg
-  set_fact:
-    dro_endpoint_url: "https://{{ dro_route.resources[0].spec.host }}"
-  when: (dro_route.resources | length == 1)
+    - name: "drocfg : Assert that ibm-data-reporter route exists"
+      ansible.builtin.assert:
+        that:
+          - dro_route is defined
+          - dro_route.resources is defined
+          - dro_route.resources | length == 1
+        fail_msg: "Route not found: ibm-data-reporter"
 
-# 2. Lookup the DRO API key
-# -----------------------------------------------------------------------------
-- name: "drocfg : Create ibm-data-reporter-operator-api SA token secret"
-  k8s:
-    state: present
-    definition:
-      apiVersion: v1
-      kind: Secret
-      metadata:
+    - name: set dro route for bascfg
+      set_fact:
+        dro_endpoint_url: "https://{{ dro_route.resources[0].spec.host }}"
+      when: (dro_route.resources | length == 1)
+
+    # 2. Lookup the DRO API key
+    - name: "drocfg : Create ibm-data-reporter-operator-api SA token secret"
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: ibm-data-reporter-operator-api-token
+            namespace: redhat-marketplace
+            labels:
+              secret-owner: ibm-data-reporter-operator-api
+            annotations:
+              kubernetes.io/service-account.name: ibm-data-reporter-operator-api
+          type: kubernetes.io/service-account-token
+
+    - name: "drocfg : Get ibm-data-reporter-operator-api secret"
+      k8s_info:
+        kind: Secret
         name: ibm-data-reporter-operator-api-token
         namespace: redhat-marketplace
-        labels:
-          secret-owner: ibm-data-reporter-operator-api
-        annotations:
-          kubernetes.io/service-account.name: ibm-data-reporter-operator-api
-      type: kubernetes.io/service-account-token
+        label_selectors:
+          - secret-owner = ibm-data-reporter-operator-api
+      register: token_secret_info
 
-- name: "drocfg : Get ibm-data-reporter-operator-api secret"
-  k8s_info:
-    kind: Secret
-    name: ibm-data-reporter-operator-api-token
-    namespace: redhat-marketplace
-    label_selectors:
-      - secret-owner = ibm-data-reporter-operator-api
-  register: token_secret_info
+    - name: "drocfg : Set dro token api for bascfg"
+      set_fact:
+        dro_api_key: "{{ token_secret_info.resources[0].data.token | b64decode }}"
+      when: (token_secret_info.resources | length != 0)
 
-- name: "drocfg : Set dro token api for bascfg"
-  set_fact:
-    dro_api_key: "{{ token_secret_info.resources[0].data.token | b64decode }}"
-  when: (token_secret_info.resources | length != 0)
+- name: DRO bascfg for existing instance
+  when:
+    - dro_existing != "" and dro_existing == "true"
+  block:
+    - name: "drocfg : Fail if existing DRO information has not been provided"
+      assert:
+        that:
+          - dro_endpoint_url is defined and dro_endpoint_url != ""
+          - dro_api_key is defined and dro_api_key != ""
+        fail_msg: "One or more required environment variables are not defined [DRO_ENDPOINT_URL, DRO_APIKEY]"
 
 # 3. Lookup the certificates
 # -----------------------------------------------------------------------------
@@ -108,3 +128,17 @@
     dest: "{{ mas_config_dir }}/dro.yml"
     mode: "664"
   when: mas_instance_id is defined
+
+# 6. DRO Migration: Clean BASCfg of UDS
+# -----------------------------------------------------------------------------
+- name: "gencfg: get existing UDS BASCfg"
+  k8s_info:
+    api_version: config.mas.ibm.com/v1
+    kind: BasCfg
+  register: udscfgs
+
+- name: CleanUp UDS BASCfgs and Create DRO BASCfgs
+  include_tasks: "tasks/gencfg/migrate.yml"
+  loop: "{{ udscfgs.resources }}"
+  when:
+    - dro_migration != "" and dro_migration == "true"

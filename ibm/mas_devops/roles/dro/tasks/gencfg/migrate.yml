@@ -1,0 +1,42 @@
+---
+# TODO: ADD MAS VERSION CHECK
+#
+- name: "gencfg-migrate : debug UDS BASCfgs"
+  debug:
+    msg:
+      - "name:        {{item.metadata.name}}"
+      - "secretName:  {{item.spec.config.credentials.secretName}}"
+      - "instanceID:  {{item.metadata.labels['mas.ibm.com/instanceId']}}"
+
+# CHECK VERSION OF MAS INSTANCE
+
+# THIS TASK: REMOVE UDS-BASCFG ONLY IF MAS IS COMPATIBLE
+- name: "gencfg-migrate : remove UDS BAscfgs"
+  when: item.spec.config.credentials.secretName == "uds-apikey"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: config.mas.ibm.com/v1
+    kind: BasCfg
+    namespace: "{{item.metadata.namespace}}"
+    name: "{{item.metadata.name}}"
+
+# THIS TASK: REMOVE UDS_SECRET ONLY IF MAS IS COMPATIBLE
+- name: "gencfg-migrate : remove uds-apikey secret from masinstances"
+  when: item.spec.config.credentials.secretName == "uds-apikey"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    namespace: "{{item.metadata.namespace}}"
+    name: "uds-apikey"
+
+- name: "gencfg-migrate : set mas_instance_id"
+  set_fact:
+    mas_instance_id: "{{item.metadata.labels['mas.ibm.com/instanceId']}}"
+
+# THIS TASK: Create DRO-BASCFG ONLY IF MAS IS COMPATIBLE
+- name: "gencfg-migrate : Create BASCfg for {{mas_instance_id}}"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/bascfg.yml.j2') }}"
+    wait: yes
+    wait_timeout: 10
