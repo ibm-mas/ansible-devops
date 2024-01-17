@@ -1,0 +1,52 @@
+---
+# Check if Operand Deployment Lifecycle Manager is installed
+# If Operand Deployment Lifecycle Manager is not installed
+# then no point on disabling Db2 OperandRequest
+- name: "Check if ODLM is installed"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: "{{ ibm_common_services_namespace }}"
+    kind: Deployment
+  register: odlm_lookup
+
+- name: "Clean up old Db2 from {{ ibm_common_services_namespace }} namespace"
+  when:
+    - odlm_lookup.resources is defined
+    - odlm_lookup.resources | length > 0
+  block:
+    - name: "Delete old Db2 OperandRequest from {{ db2_namespace }} namespace"
+      kubernetes.core.k8s:
+        state: absent
+        template: templates/db2u_operandrequest.yml.j2
+        wait: yes
+        wait_timeout: 120
+      register: db2_operandrequest_removal
+
+    - name: "Delete old Db2 subscription from {{ ibm_common_services_namespace }} namespace"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: ibm-db2u-operator
+        namespace: "{{ ibm_common_services_namespace }}"
+        wait: yes
+        wait_timeout: 120
+      register: db2_sub_removal
+
+    - name: "Delete old Db2 CSV from {{ ibm_common_services_namespace }} namespace"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: "{{ ibm_common_services_namespace }}"
+        label_selectors:
+          - "operators.coreos.com/db2u-operator.{{ ibm_common_services_namespace }}"
+        wait: yes
+        wait_timeout: 120
+      register: db2_csv_removal
+
+    - name: "Wait 2 minutes if we removed an old Db2"
+      when: db2_operandrequest_removal.changed == True or db2_sub_removal.changed == True or db2_csv_removal.changed == True
+      pause:
+        minutes: 2
