@@ -1,0 +1,16 @@
+# TODO: Need to find a way to get login credentials to run this command, for now we hard code the cluster creds https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3269
+# This works only for ROKS: ibmcloud oc cluster config -c $CLUSTER_NAME --admin --output yaml > /$HOME/cpd-cli-workspace/olm-utils-workspace/work/.olm-utils/.kubeconfig
+# - name: "cpd-cli: Run Step 1/10 - Login to target cluster"
+#   shell: cpd-cli manage login-to-ocp {{ cpd_oc_login }} 2>&1 | tee {{ role_path }}/logs/step1_cpd_login_output.log
+#   register: cpd_login_output
+#   failed_when: cpd_login_output.rc > 0 or ('login-to-ocp command ran successfully' not in cpd_login_output.stdout)
+
+- name: "cpd-cli: Run - Login to target cluster"
+  when: cluster_type == 'roks'
+  shell: ibmcloud oc cluster config -c {{ cluster_name }} --admin --output yaml > {{ cpd_work_dir }}/.olm-utils/.kubeconfig 2>&1 | tee {{ role_path }}/logs/{{ cpd_log_filename }}.log
+  register: cpd_login_output
+  failed_when: cpd_login_output.rc > 0
+
+- name: "Debug - Login to target cluster"
+  debug:
+    msg: "{{ cpd_login_output.stdout }}"

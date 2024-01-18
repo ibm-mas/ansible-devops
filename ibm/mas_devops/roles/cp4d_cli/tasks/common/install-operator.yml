@@ -1,0 +1,33 @@
+---
+# This task runs 'cpd-cli manage apply-olm' command which is responsible for installing CPD related catalog sources and subscriptions
+- name: "cpd-cli: Debug Cloud Pak for Data components to be installed"
+  debug:
+    msg:
+      - "Release ......................... {{ cpd_product_version }}"
+      - "Components ...................... {{ cpd_components }} "
+
+# Set command to be executed
+- name: "cpd-cli : Set command : Install Cloud Pak for Data operators"
+  set_fact:
+    cpd_cmd_apply_olm: 
+      cpd-cli manage apply-olm \
+        --release={{ cpd_product_version }} \
+        --cpd_operator_ns={{ cpd_operators_namespace }} \
+        --components={{ cpd_components }} 2>&1 | tee {{ role_path }}/logs/{{ cpd_log_filename }}.log
+
+# Debug command to be executed
+- name: "cpd-cli: Debug command : Install Cloud Pak for Data operators"
+  debug:
+    msg:
+      - "{{ cpd_cmd_apply_olm | regex_replace(' \\\\', '') }}"
+
+# Execute command to install corresponding custom resource
+- name: "cpd-cli: Running command: Install Cloud Pak for Data operators (up to 30 minutes)"
+  shell: "{{ cpd_cmd_apply_olm }}"
+  register: cpd_install_operator_output
+  failed_when: cpd_install_operator_output.rc > 0 or ('apply-olm command ran successfully' not in cpd_install_operator_output.stdout)
+
+# Debug command output
+- name: "cpd-cli: Debug command output: Install Cloud Pak for Data operators"
+  debug:
+    msg: "{{ cpd_install_operator_output.stdout }}"

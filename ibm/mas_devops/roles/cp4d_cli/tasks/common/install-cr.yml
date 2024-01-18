@@ -1,0 +1,36 @@
+---
+# This task runs 'cpd-cli manage apply-cr' command which is responsible for installing CPD related custom resources
+- name: "cpd-cli: Debug Cloud Pak for Data components to be installed"
+  debug:
+    msg:
+      - "Release ......................... {{ cpd_product_version }}"
+      - "Components ...................... {{ cpd_components }} "
+
+# Set command to be executed
+- name: "cpd-cli : Set command : Install Cloud Pak for Data custom resources"
+  set_fact:
+    cpd_cmd_apply_cr: 
+      cpd-cli manage apply-cr \
+        --release={{ cpd_product_version }} \
+        --cpd_instance_ns={{ cpd_instance_namespace }}  \
+        --components={{ cpd_components }} \
+        --block_storage_class={{ cpd_metadata_storage_class }} \
+        --file_storage_class={{ cpd_primary_storage_class }} \
+        --license_acceptance=true 2>&1 | tee {{ role_path }}/logs/{{ cpd_log_filename }}.log
+
+# Debug command to be executed
+- name: "cpd-cli: Debug command : Install Cloud Pak for Data custom resource"
+  debug:
+    msg:
+      - "{{ cpd_cmd_apply_cr | regex_replace(' \\\\', '') }}"
+
+# Execute command to install corresponding custom resource
+- name: "cpd-cli: Running command: Install Cloud Pak for Data custom resource (up to 90 minutes)"
+  shell: "{{ cpd_cmd_apply_cr }}"
+  register: cpd_install_cr_output
+  failed_when: cpd_install_cr_output.rc > 0 or ('apply-cr command ran successfully' not in cpd_install_cr_output.stdout)
+
+# Debug command output
+- name: "cpd-cli: Debug command output: Cloud Pak for Data {{ cpd_service_name }} service custom resource"
+  debug:
+    msg: "{{ cpd_install_cr_output.stdout }}"
