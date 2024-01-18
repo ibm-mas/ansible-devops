@@ -1,0 +1,79 @@
+# Start cpd-cli
+# -----------------------------------------------------------------------------
+- name: "cpd-cli: Run Step 1/3 - Login to target cluster"
+  when: cluster_type == 'roks'
+  shell: ibmcloud oc cluster config -c {{ cluster_name }} --admin --output yaml > {{ cpd_work_dir }}/.olm-utils/.kubeconfig 2>&1 | tee {{ role_path }}/logs/step1_cpd_login_output.log
+  register: cpd_login_output
+  failed_when: cpd_login_output.rc > 0
+
+- name: "cpd-cli: Debug Step 1/3 - Login to target cluster"
+  debug:
+    msg: "{{ cpd_login_output.stdout }}"
+
+# - Creates catalog sources: cpd-platform
+# - Installs service operator
+- name: "cpd-cli: Running Step 2/3 - Install Cloud Pak for Data operator for {{ cpd_service_name }}... (+-30 minutes)"
+  shell: |
+    cpd-cli manage apply-olm \
+    --release={{ cpd_product_version }} \
+    --cpd_operator_ns={{ cpd_operators_namespace }} \
+    --components={{ cpd_service_name }} --upgrade={{ cpd_upgrade_flag }} 2>&1 | tee {{ role_path }}/logs/step11_cpd_install_operator_{{ cpd_service_name }}_output.log
+  register: cpd_service_install_operator_output
+  failed_when: cpd_service_install_operator_output.rc > 0 or ('apply-olm command ran successfully' not in cpd_service_install_operator_output.stdout)
+
+- name: "cpd-cli: Debug Step 2/3 - Install Cloud Pak for Data operator for {{ cpd_service_name }}"
+  debug:
+    msg: "{{ cpd_service_install_operator_output.stdout }}"
+
+# Apply CPD CR
+- name: "cpd-cli: Running Step 3/3 - Install Cloud Pak for Data custom resource for {{ cpd_service_name }}... (+-60 minutes)"
+  shell: |
+    cpd-cli manage apply-cr \
+    --release={{ cpd_product_version }} \
+    --cpd_instance_ns={{ cpd_instance_namespace }}  \
+    --components={{ cpd_service_name }} \
+    --block_storage_class={{ cpd_metadata_storage_class }} \
+    --file_storage_class={{ cpd_primary_storage_class }} \
+    --license_acceptance=true --upgrade={{ cpd_upgrade_flag }} 2>&1 | tee {{ role_path }}/logs/step12_cpd_install_cr_{{ cpd_service_name }}_output.log
+  register: cpd_service_install_cr_output
+  failed_when: cpd_service_install_cr_output.rc > 0 or ('apply-cr command ran successfully' not in cpd_service_install_cr_output.stdout)
+
+- name: "cpd-cli: Debug Step 3/2 - Install Cloud Pak for Data custom resource for {{ cpd_service_name }}"
+  debug:
+    msg: "{{ cpd_service_install_cr_output.stdout }}"
+
+# Lookup CPD credentials
+# -----------------------------------------------------------------------------
+- name: "cpd-cli: Lookup Cloud Pak for Data admin username"
+  shell: |
+    oc get secret ibm-iam-bindinfo-platform-auth-idp-credentials -n {{ cpd_instance_namespace }} -o json | jq -r '.data.admin_username' | base64 -d
+  register: cpd_admin_username_output
+  failed_when: cpd_admin_username_output.stdout | length == 0
+
+- name: "cpd-cli: Lookup Cloud Pak for Data admin password"
+  shell: |
+    oc get secret ibm-iam-bindinfo-platform-auth-idp-credentials -n {{ cpd_instance_namespace }} -o json | jq -r '.data.admin_password' | base64 -d
+  register: cpd_admin_password_output
+  failed_when: cpd_admin_password_output.stdout | length == 0
+
+- name: "cpd-cli: Lookup Cloud Pak for Data admin url"
+  shell: |
+    oc get ZenService lite-cr -o jsonpath="{.status.url}{'\n'}" -n {{ cpd_instance_namespace }}
+  register: cpd_admin_url_output
+  failed_when: cpd_admin_url_output.stdout | length == 0
+
+- set_fact:
+    cpd_admin_username: "{{ cpd_admin_username_output.stdout }}"
+    cpd_admin_password: "{{ cpd_admin_password_output.stdout }}"
+    cpd_admin_url: "{{ cpd_admin_url_output.stdout }}"
+
+# Debug Cloud Pak for Data installation details
+# -----------------------------------------------------------------------------
+- name: "cpd-cli: Debug Cloud Pak for Data {{ cpd_service_name }} {{ cpd_product_version }} details"
+  debug:
+    msg:
+      - "CP4D Dashboard ......................... https://{{ cpd_admin_url }}"
+      - "CP4D Admin Username .................... {{ cpd_admin_username }}"
+      # - "CP4D Admin Password .................... Found in 'ibm-iam-bindinfo-platform-auth-idp-credentials' secret under '{{ cpd_instance_namespace }}' namespace"
+      - "CP4D Admin Password .................... {{ cpd_admin_password }}"
+

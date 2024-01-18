@@ -1,4 +1,7 @@
 ---
+# The following playbook is an attempt to automate the CP4D 4.0 / 4.5 steps documented here:
+# https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
+
 # Validate properties are provided
 # -----------------------------------------------------------------------------
 - name: "Check that CPD release version has been provided"
@@ -18,6 +21,14 @@
     that: cpd_entitlement_key is defined and cpd_entitlement_key != ""
     fail_msg: "ibm_entitlement_key or cpd_entitlement_key override must be provided"
 
+- name: "Check that CPD service is supported"
+  when:
+    - cpd_service_name is defined
+    - cpd_service_name != ""
+  assert:
+    that: cpd_service_name in cpd_service_name_supported_list
+    fail_msg: "Cloud Pak for Data Service '{{ cpd_service_name}}' is not supported by role. The supported services are: {{ cpd_service_name_supported_list }}"
+
 # - name: "Run pre-req check"
 #   include_tasks: "tasks/prereq-check.yml"
 
@@ -29,203 +40,28 @@
 # - name: "Install IBM Entitlement Key"
 #   include_tasks: "tasks/entitlement.yml"
 
-# Start cpd-cli
-# -----------------------------------------------------------------------------
-# TODO: Need to find a way to get login credentials to run this command, for now we hard code the cluster creds
-- name: "cpd-cli: Run Step 1/10 - Login to target cluster"
-  shell: cpd-cli manage login-to-ocp {{ cpd_oc_login }} 2>&1 | tee {{ role_path }}/logs/step1_cpd_login_output.log
-  register: cpd_login_output
-  failed_when: cpd_login_output.rc > 0 or ('login-to-ocp command ran successfully' not in cpd_login_output.stdout)
-
-- name: "cpd-cli: Debug Step 1/10 - Login to target cluster"
-  debug:
-    msg: "{{ cpd_login_output.stdout }}"
-
-# Use the appropriate cpd-cli manage command to create or update
-# the global image pull secret with the appropriate credentials
-- name: "cpd-cli: Run Step 2/10 - Configure cpd image pull secret"
-  shell: |
-    cpd-cli manage add-icr-cred-to-global-pull-secret \
-    --entitled_registry_key={{ cpd_entitlement_key }} 2>&1 | tee {{ role_path }}/logs/step2_cpd_config_image_pull_secret_output.log
-  register: cpd_config_image_pull_secret_output
-  failed_when: cpd_config_image_pull_secret_output.rc > 0 or ('exit status 1' in cpd_config_image_pull_secret_output.stdout)
-
-- name: "cpd-cli: Debug Step 2/10 - Configure cpd image pull secret"
-  debug:
-    msg: "{{ cpd_config_image_pull_secret_output.stdout }}"
-
-# The command:
-# - Creates nss-managed-role-from-ibm-cpd-operators role
-#   and rolebinding for ibm-namespace-scope-operator service account
-# - Creates the specified projects if they don't already exist.
-# - Creates the NamespaceScope operator in the operators project.
-# - Applies the require role to the operands project and any tethered projects.
-# - Binds the applied role to the service account of the NamespaceScope operator.
-- name: "cpd-cli: Run Step 3/10 - Configure cpd namespaces"
-  shell: |
-    cpd-cli manage authorize-instance-topology \
-    --cpd_operator_ns={{ cpd_operators_namespace }} \
-    --cpd_instance_ns={{ cpd_instance_namespace }} 2>&1 | tee {{ role_path }}/logs/step3_cpd_config_namespaces_output.log
-  register: cpd_config_namespaces_output
-  failed_when: cpd_config_namespaces_output.rc > 0 or ('exit status 1' in cpd_config_namespaces_output.stdout)
-
-- name: "cpd-cli: Debug Step 3/10 - Configure cpd namespaces"
-  debug:
-    msg: "{{ cpd_config_namespaces_output.stdout }}"
-
-# Assign the user the role in the operators project for the instance:
-- name: Create cpd service account and cluster role binding
-  kubernetes.core.k8s:
-    apply: yes
-    template: 'templates/rbac.yml.j2'
-
-- name: "cpd-cli: Lookup logged user to grant access to cpd"
-  shell: oc whoami
-  register: cpd_whoami
-  failed_when: cpd_whoami.stdout | length == 0
-
-- set_fact:
-    cpd_user_access: "{{ cpd_whoami.stdout }}"
-
-# TODO: Test a way to grant logged user the access to CPD
-- name: "cpd-cli: Run Step 4/10 - Assign admin user the role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-rbac"
-  shell: |
-    oc adm policy add-role-to-user admin {{ cpd_user_access }} \
-    --namespace={{ cpd_operators_namespace }} \
-    --rolebinding-name="cpd-instance-admin-rbac" 2>&1 | tee {{ role_path }}/logs/step4_cpd_assign_permission_operators_ns_output.log
-  register: cpd_assign_permission_operators_ns_output
-  failed_when: cpd_assign_permission_operators_ns_output.rc > 0 or ('clusterrole.rbac.authorization.k8s.io/admin added' not in cpd_assign_permission_operators_ns_output.stdout)
-
-- name: "cpd-cli: Debug Step 4/10 - Assign admin user the role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-rbac"
-  debug:
-    msg: "{{ cpd_assign_permission_operators_ns_output.stdout }}"
-
-- name: "cpd-cli: Run Step 5/10 - Assign admin user the role in the {{ cpd_instance_namespace }} operands project for cpd-instance-admin-rbac"
-  shell: |
-    oc adm policy add-role-to-user admin {{ cpd_user_access }} \
-    --namespace={{ cpd_instance_namespace }} \
-    --rolebinding-name="cpd-instance-admin-rbac" 2>&1 | tee {{ role_path }}/logs/step5_cpd_assign_permission_operands_ns_output.log
-  register: cpd_assign_permission_operands_ns_output
-  failed_when: cpd_assign_permission_operands_ns_output.rc > 0 or ('clusterrole.rbac.authorization.k8s.io/admin added' not in cpd_assign_permission_operands_ns_output.stdout)
-
-- name: "cpd-cli: Debug Step 5/10 - Assign admin user the role in the {{ cpd_instance_namespace }} operands project for cpd-instance-admin-rbac"
-  debug:
-    msg: "{{ cpd_assign_permission_operands_ns_output.stdout }}"
-
-- name: "cpd-cli: Run Step 6/10 - Assign cpd-instance-admin-apply-olm user the role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
-  shell: |
-    oc adm policy add-role-to-user cpd-instance-admin-apply-olm {{ cpd_user_access }} \
-    --namespace={{ cpd_operators_namespace }} \
-    --role-namespace={{ cpd_operators_namespace }}  \
-    --rolebinding-name="cpd-instance-admin-apply-olm-rbac" 2>&1 | tee {{ role_path }}/logs/step6_cpd_assign_permission_apply_olm_output.log
-  register: cpd_assign_permission_apply_olm_output
-  failed_when: cpd_assign_permission_apply_olm_output.rc > 0 or ('role.rbac.authorization.k8s.io/cpd-instance-admin-apply-olm added' not in cpd_assign_permission_apply_olm_output.stdout)
-
-- name: "cpd-cli: Debug Step 6/10 - Assign cpd-instance-admin-apply-olm user the role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
-  debug:
-    msg: "{{ cpd_assign_permission_apply_olm_output.stdout }}"
-
-# Install IBM Licensing and check where Certificate Manager is installed
-- name: Detect Certificate Manager installation
-  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
-  when: cert_manager_namespace is not defined or cert_manager_namespace | length == 0
-
-- name: "cpd-cli: Run Step 7/10 - Install Cloud Pak for Data dependency: IBM Licensing"
-  shell: |
-    cpd-cli manage apply-cluster-components \
-    --release={{ cpd_product_version }} \
-    --license_acceptance=true \
-    --skip_components=ibm-cert-manager \
-    --cert_manager_ns={{ cert_manager_namespace }} \
-    --licensing_ns={{ cpd_ibm_licensing_namespace }} 2>&1 | tee {{ role_path }}/logs/step7_cpd_install_ibm_licensing_output.log
-  register: cpd_install_ibm_licensing_output
-  failed_when: cpd_install_ibm_licensing_output.rc > 0 or ('apply-cluster-components command ran successfully' not in cpd_install_ibm_licensing_output.stdout)
-
-- name: "cpd-cli: Debug Step 7/10 - Install Cloud Pak for Data dependency: IBM Licensing"
-  debug:
-    msg: "{{ cpd_install_ibm_licensing_output.stdout }}"
-
-# - Creates catalog sources: opencloud-operators and cloud-native-postgresql-catalog
-# - Installs Foundational Services v4.3 (Scaling CPFS size to small), IBM Namespace Scope operator v4.2, Operand Deployment Lifecycle Manager v4.2
-- name: "cpd-cli: Run Step 8/10 - Install Cloud Pak for Data dependency: Foundational Services"
-  shell: |
-    cpd-cli manage setup-instance-topology \
-    --release={{ cpd_product_version }} \
-    --cpd_operator_ns={{ cpd_operators_namespace }} \
-    --cpd_instance_ns={{ cpd_instance_namespace }}  \
-    --license_acceptance=true \
-    --block_storage_class={{ cpd_metadata_storage_class }} 2>&1 | tee {{ role_path }}/logs/step8_cpd_install_cpfs_output.log
-  register: cpd_install_cpfs_output
-  failed_when: cpd_install_cpfs_output.rc > 0 or ('setup-instance-topology command ran successfully' not in cpd_install_cpfs_output.stdout)
-
-- name: "cpd-cli: Debug Step 8/10 - Install Cloud Pak for Data dependency: Foundational Services"
-  debug:
-    msg: "{{ cpd_install_cpfs_output.stdout }}"
-
-# - Creates catalog sources: cpd-platform
-# - Installs CPD operator
-- name: "cpd-cli: Running Step 9/10 - Install Cloud Pak for Data operator... (+-30 minutes)"
-  shell: |
-    cpd-cli manage apply-olm \
-    --release={{ cpd_product_version }} \
-    --cpd_operator_ns={{ cpd_operators_namespace }} \
-    --components={{ cpd_components }} 2>&1 | tee {{ role_path }}/logs/step9_cpd_install_operator_output.log
-  register: cpd_install_operator_output
-  failed_when: cpd_install_operator_output.rc > 0 or ('apply-olm command ran successfully' not in cpd_install_operator_output.stdout)
-
-- name: "cpd-cli: Debug Step 9/10 - Install Cloud Pak for Data operator"
-  debug:
-    msg: "{{ cpd_install_operator_output.stdout }}"
-
-# Apply CPD CR
-- name: "cpd-cli: Running Step 10/10 - Install Cloud Pak for Data custom resource... (+-60 minutes)"
-  shell: |
-    cpd-cli manage apply-cr \
-    --release={{ cpd_product_version }} \
-    --cpd_instance_ns={{ cpd_instance_namespace }}  \
-    --components={{ cpd_components }} \
-    --block_storage_class={{ cpd_metadata_storage_class }} \
-    --file_storage_class={{ cpd_primary_storage_class }} \
-    --license_acceptance=true 2>&1 | tee {{ role_path }}/logs/step10_cpd_install_cr_output.log
-  register: cpd_install_cr_output
-  failed_when: cpd_install_cr_output.rc > 0 or ('apply-cr command ran successfully' not in cpd_install_cr_output.stdout)
-
-- name: "cpd-cli: Debug Step 10/10 - Install Cloud Pak for Data custom resource"
-  debug:
-    msg: "{{ cpd_install_cr_output.stdout }}"
-
-# Lookup CPD credentials
-# -----------------------------------------------------------------------------
-- name: "cpd-cli: Lookup Cloud Pak for Data admin username"
-  shell: |
-    oc get secret ibm-iam-bindinfo-platform-auth-idp-credentials -n {{ cpd_instance_namespace }} -o json | jq -r '.data.admin_username' | base64 -d
-  register: cpd_admin_username_output
-  failed_when: cpd_admin_username_output.stdout | length == 0
-
-- name: "cpd-cli: Lookup Cloud Pak for Data admin password"
-  shell: |
-    oc get secret ibm-iam-bindinfo-platform-auth-idp-credentials -n {{ cpd_instance_namespace }} -o json | jq -r '.data.admin_password' | base64 -d
-  register: cpd_admin_password_output
-  failed_when: cpd_admin_password_output.stdout | length == 0
-
-- name: "cpd-cli: Lookup Cloud Pak for Data admin url"
-  shell: |
-    oc get ZenService lite-cr -o jsonpath="{.status.url}{'\n'}" -n {{ cpd_instance_namespace }}
-  register: cpd_admin_url_output
-  failed_when: cpd_admin_url_output.stdout | length == 0
-
-- set_fact:
-    cpd_admin_username: "{{ cpd_admin_username_output.stdout }}"
-    cpd_admin_password: "{{ cpd_admin_password_output.stdout }}"
-    cpd_admin_url: "{{ cpd_admin_url_output.stdout }}"
+# At this stage:
+# - The two namespaces (ibm-cpd and ibm-cpd-operators) will be created
+# - OperatorGroup will have been created in the ibm-cpd-operators namespace
+# - Cloud Pak for Data Platform Operator (cpd-platform-operator-manager) v2.0 will be installed in ibm-cpd-operators namespace
+# - IBM Cloud Pak Foundational Services (ibm-common-service-operator) v3 will be installed in ibm-cpd-operators namespace
+# - IBM NamespaceScope Operator (ibm-namespace-scope-operator) v3 will be installed in ibm-cpd-operators namespace
+# - A NamespaceScope will have been created in the ibm-cpd-operators namespace
+# - Nothing will exist in the ibm-cpd namespace yet except the entitlement key we just created
 
 # Debug Cloud Pak for Data installation details
 # -----------------------------------------------------------------------------
 - name: "cpd-cli: Debug Cloud Pak for Data {{ cpd_product_version }} details"
   debug:
     msg:
-      - "CP4D Dashboard ......................... https://{{ cpd_admin_url }}"
-      - "CP4D Admin Username .................... {{ cpd_admin_username }}"
-      # - "CP4D Admin Password .................... Found in 'ibm-iam-bindinfo-platform-auth-idp-credentials' secret under '{{ cpd_instance_namespace }}' namespace"
-      - "CP4D Admin Password .................... {{ cpd_admin_password }}"
+      - "CP4D release ......................... {{ cpd_product_version }}"
+      - "CP4D platform install ................ {{ install_cpd_platform }}"
+      - "CP4D services install ................ {{ cpd_service_name if (cpd_service_name != '') else false }}"
 
+- name: "Run install-cp4d task"
+  include_tasks: "tasks/install-cp4d.yml"
+  when: install_cpd_platform
+
+- name: "Run install-cp4d-services task"
+  include_tasks: "tasks/install-cp4d-services.yml"
+  when: cpd_service_name in cpd_service_name_supported_list
