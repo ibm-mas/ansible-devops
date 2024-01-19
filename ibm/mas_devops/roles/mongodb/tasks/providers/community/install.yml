@@ -1,7 +1,7 @@
 ---
 # 1. Check for existing MongoDb install
 # -----------------------------------------------------------------------------
-- name: "community : install : Check mongo exists"
+- name: "community : install : Lookup existing mongo install"
   include_tasks: tasks/providers/community/check-mongo-exists.yml
 
 
@@ -34,10 +34,11 @@
 
 # 3. Perform upgrade from 4.2 to 4.4 if necessary
 # -----------------------------------------------------------------------------
-- name: "community : install : Call install-mongo to upgrade from v4.2 to v4.4"
+# We will ALWAYS upgrade from 4.2 to 4.4, no matter what.  v4.4 is the minimum version everyone should be running at
+- name: "community : install : Upgrade from v4.2 to v4.4"
   include_tasks: tasks/providers/community/install-mongo.yml
   vars:
-    mongo_extras_version: 4.4.21  # when identified that existing mongo is running on mongo v4.2, we first upgrade it to v4.4
+    mongo_extras_version: 4.4.21
   when:
     - existing_mongo_minor_version is defined
     - existing_mongo_minor_version == '4.2'
@@ -45,11 +46,11 @@
 
 # 4. Check for existing MongoDb install (again)
 # -----------------------------------------------------------------------------
-- name: "community : install : Lookup existing mongo version"
+- name: "community : install : Lookup existing mongo install (again)"
   include_tasks: tasks/providers/community/check-mongo-exists.yml
 
 
-# 5. Perform upgrade from 4.2 to 4.4 if necessary
+# 5. Install the selected MongoDb version
 # -----------------------------------------------------------------------------
-- name: "community : install : Call install-mongo to install/upgrade to mongo v5 or v6"
-  include_tasks: tasks/providers/community/install-mongo.yml  # at this point we expect existing mongo to be ready to be upgraded to v5 or v6
+- name: "community : install : Install/upgrade to chosen mongo version"
+  include_tasks: tasks/providers/community/install-mongo.yml
