@@ -12,9 +12,14 @@ yq -yi ".version=\"${VERSION}\"" $GITHUB_WORKSPACE/ibm/mas_devops/galaxy.yml
 cat $GITHUB_WORKSPACE/ibm/mas_devops/galaxy.yml
 
 
-# Update all the placeholders in the doc source
-# Make sure not to commit these changes if you run this script locally
+# Update all the placeholders in the playbooks
 find ibm/mas_devops/playbooks -type f -name '*.yml' -exec sed -i \
+  -e 's/@@MAS_PREVIOUS_CATALOG@@/v8-231228-amd64/g' \
+  -e 's/@@MAS_LATEST_CATALOG@@/v8-240130-amd64/g' \
+  {} \;
+
+# Update all the placeholders in the docs
+find docs/playbooks -type f -name '*.md' -exec sed -i \
   -e 's/@@MAS_PREVIOUS_CATALOG@@/v8-231228-amd64/g' \
   -e 's/@@MAS_LATEST_CATALOG@@/v8-240130-amd64/g' \
   {} \;
