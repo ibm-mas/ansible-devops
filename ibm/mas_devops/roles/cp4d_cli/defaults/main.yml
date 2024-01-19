@@ -2,11 +2,18 @@
 cluster_name: "{{ lookup('env', 'CLUSTER_NAME')}}"
 cluster_type: "{{ lookup('env', 'CLUSTER_TYPE')}}"
 
-cpd_oc_login: "{{ lookup('env', 'CPD_OC_LOGIN') }}"
-cpd_work_dir: "{{ lookup('env', 'CPD_WORK_DIR') }}"
+# ------ CPD login ----------------------------------------------------------------------------------------------
+# Option 1 - Use ocp_server and ocp_token: 
+# For already provisioned clusters set token and server to log directly into rather than cluster type (ROKS/Fyre) specific login
+ocp_token: "{{ lookup('env', 'OCP_TOKEN') }}"
+ocp_server: "{{ lookup('env', 'OCP_SERVER') }}"
 
-install_cpd_platform: "{{ lookup('env', 'INSTALL_CPD_PLATFORM') | default('true', true) | bool }}"
-cpd_upgrade_flag: "{{ lookup('env', 'CPD_UPGRADE_FLAG') | default('false', true) | bool }}" # if true, then we'll perform cpd upgrade
+# Option 2: (ROKS only) Use 'ibmcloud oc cluster config' command to lookup kubeconfig for the target cluster to set the context in '{{ cpd_work_dir }}/.olm-utils/.kubeconfig' directly
+cpd_work_dir: "{{ lookup('env', 'CPD_WORK_DIR') }}" # full path of your 'cpd-cli-workspace/olm-utils-workspace/work' directory i.e '$HOME/cpd-cli-workspace/olm-utils-workspace/work';
+
+# ------ CPD install flag options ----------------------------------------------------------------------------------------------
+install_cpd_platform: "{{ lookup('env', 'INSTALL_CPD_PLATFORM') | default('true', true) | bool }}" # if true will install cpd platform first, if false cpd platform install will be skipped
+# cpd_upgrade_flag: "{{ lookup('env', 'CPD_UPGRADE_FLAG') | default('false', true) | bool }}" # if true, then we'll perform cpd upgrade
 
 # ------ CPD storage classes ------------------------------------------------------------------------------------------
 cpd_primary_storage_class: "{{ lookup('env', 'CPD_PRIMARY_STORAGE_CLASS') }}"
@@ -48,9 +55,14 @@ cpd_supported_versions: ['4.8.0', '4.8.1']
 cpd_ibm_licensing_namespace: ibm-licensing
 
 # ------ CPD component -----------------------------------------------------------------------------------------------
-cpd_components: "ibm-licensing,cpfs,cpd_platform" # minimum that must be installed to have cpd running
-cpd_service_name: "{{ lookup('env', 'CPD_SERVICE_NAME') }}"
-cpd_service_name_supported_list:
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-installing-cloud-pak
+# You can choose up to 4 components to be installed at the same time
+# cpd_service_name: "{{ lookup('env', 'CPD_SERVICE_NAME') }}"
+cpd_components: "{{ lookup('env', 'CPD_COMPONENTS') | default('cpd_platform', true) }}" # minimum that must be installed to have cpd running is 'cpd_platform'
+cpd_components_list: "{{ cpd_components | split(',') }}"
+
+cpd_components_supported_list:
+  - cpd_platform
   - analyticsengine
   - cognos_analytics
   - openscale

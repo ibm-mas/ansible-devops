@@ -21,13 +21,19 @@
     that: cpd_entitlement_key is defined and cpd_entitlement_key != ""
     fail_msg: "ibm_entitlement_key or cpd_entitlement_key override must be provided"
 
-- name: "Check that CPD service is supported"
+# - set_fact:
+#     cpd_components_list: "{{ cpd_components | split(',') }}"
+
+- name: "Check that CPD components are supported"
   when:
-    - cpd_service_name is defined
-    - cpd_service_name != ""
+    - cpd_components_list is defined
   assert:
-    that: cpd_service_name in cpd_service_name_supported_list
-    fail_msg: "Cloud Pak for Data Service '{{ cpd_service_name}}' is not supported by role. The supported services are: {{ cpd_service_name_supported_list }}"
+    that:
+      - cpd_components_list | length > 0
+      - cpd_components_supported_list | intersect(cpd_components_list) == cpd_components_list
+    fail_msg: 
+      - "Cloud Pak for Data Service {{ cpd_components_list | difference(cpd_components_supported_list) }} is not supported by this role."
+      - "The supported components are: {{ cpd_components_supported_list }}"
 
 # - name: "Run pre-req check"
 #   include_tasks: "tasks/prereq-check.yml"
@@ -54,14 +60,12 @@
 - name: "cpd-cli: Debug Cloud Pak for Data {{ cpd_product_version }} details"
   debug:
     msg:
-      - "CP4D release ......................... {{ cpd_product_version }}"
-      - "CP4D platform install ................ {{ install_cpd_platform }}"
-      - "CP4D services install ................ {{ cpd_service_name if (cpd_service_name != '') else false }}"
+      - "CP4D components  ................ {{ cpd_components_list }}"
 
 - name: "Run install-cp4d task"
   include_tasks: "tasks/install-cp4d.yml"
-  when: install_cpd_platform
+  # when: install_cpd_platform
 
-- name: "Run install-cp4d-services task"
-  include_tasks: "tasks/install-cp4d-services.yml"
-  when: cpd_service_name in cpd_service_name_supported_list
+# - name: "Run install-cp4d-services task"
+#   include_tasks: "tasks/install-cp4d-services.yml"
+#   when: cpd_service_name in cpd_service_name_supported_list

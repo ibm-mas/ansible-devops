@@ -1,13 +1,15 @@
 ---
 # This task runs 'cpd-cli manage apply-olm' command which is responsible for installing CPD related catalog sources and subscriptions
-- name: "cpd-cli: Debug Cloud Pak for Data components to be installed"
+
+# Debug components to be installed
+- name: "cpd-cli : Debug Cloud Pak for Data components to be installed"
   debug:
     msg:
       - "Release ......................... {{ cpd_product_version }}"
-      - "Components ...................... {{ cpd_components }} "
+      - "Components ...................... {{ cpd_components_list }}"
 
-# Set command to be executed
-- name: "cpd-cli : Set command : Install Cloud Pak for Data operators"
+# Set cpd-cli command to be executed
+- name: "cpd-cli : Set command : Install Cloud Pak for Data operators : {{ cpd_components }}"
   set_fact:
     cpd_cmd_apply_olm: 
       cpd-cli manage apply-olm \
@@ -15,19 +17,20 @@
         --cpd_operator_ns={{ cpd_operators_namespace }} \
         --components={{ cpd_components }} 2>&1 | tee {{ role_path }}/logs/{{ cpd_log_filename }}.log
 
-# Debug command to be executed
-- name: "cpd-cli: Debug command : Install Cloud Pak for Data operators"
+# Debug cpd-cli command to be executed
+# The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
+- name: "cpd-cli : Debug command : Install Cloud Pak for Data operators : {{ cpd_components }}"
   debug:
     msg:
       - "{{ cpd_cmd_apply_olm | regex_replace(' \\\\', '') }}"
 
-# Execute command to install corresponding custom resource
-- name: "cpd-cli: Running command: Install Cloud Pak for Data operators (up to 30 minutes)"
+# Execute cpd-cli command to install corresponding custom resource
+- name: "cpd-cli : Running command: Install Cloud Pak for Data operators : {{ cpd_components }} (up to 30 minutes)"
   shell: "{{ cpd_cmd_apply_olm }}"
   register: cpd_install_operator_output
   failed_when: cpd_install_operator_output.rc > 0 or ('apply-olm command ran successfully' not in cpd_install_operator_output.stdout)
 
-# Debug command output
-- name: "cpd-cli: Debug command output: Install Cloud Pak for Data operators"
+# Debug cpd-cli command output
+- name: "cpd-cli : Debug command output: Install Cloud Pak for Data operators : {{ cpd_components }}"
   debug:
     msg: "{{ cpd_install_operator_output.stdout }}"

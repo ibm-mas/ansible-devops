@@ -1,19 +1,19 @@
 ---
 # Lookup CPD credentials
 # -----------------------------------------------------------------------------
-- name: "cpd-cli: Lookup Cloud Pak for Data admin username"
+- name: "cpd-cli : Lookup Cloud Pak for Data admin username"
   shell: |
     oc get secret ibm-iam-bindinfo-platform-auth-idp-credentials -n {{ cpd_instance_namespace }} -o json | jq -r '.data.admin_username' | base64 -d
   register: cpd_admin_username_output
   failed_when: cpd_admin_username_output.stdout | length == 0
 
-- name: "cpd-cli: Lookup Cloud Pak for Data admin password"
+- name: "cpd-cli : Lookup Cloud Pak for Data admin password"
   shell: |
     oc get secret ibm-iam-bindinfo-platform-auth-idp-credentials -n {{ cpd_instance_namespace }} -o json | jq -r '.data.admin_password' | base64 -d
   register: cpd_admin_password_output
   failed_when: cpd_admin_password_output.stdout | length == 0
 
-- name: "cpd-cli: Lookup Cloud Pak for Data admin url"
+- name: "cpd-cli : Lookup Cloud Pak for Data admin url"
   shell: |
     oc get ZenService lite-cr -o jsonpath="{.status.url}{'\n'}" -n {{ cpd_instance_namespace }}
   register: cpd_admin_url_output
@@ -26,10 +26,12 @@
 
 # Debug Cloud Pak for Data installation details
 # -----------------------------------------------------------------------------
-- name: "cpd-cli: Debug Cloud Pak for Data {{ cpd_product_version }} details"
+- name: "cpd-cli : Debug : Cloud Pak for Data {{ cpd_product_version }} details"
   debug:
     msg:
       - "CP4D Dashboard ......................... https://{{ cpd_admin_url }}"
       - "CP4D Admin Username .................... {{ cpd_admin_username }}"
       - "CP4D Admin Password .................... {{ cpd_admin_password }}"
+      - "CP4D Components ........................ {{ cpd_components }} "
+
       # - "CP4D Admin Password .................... Found in 'ibm-iam-bindinfo-platform-auth-idp-credentials' secret under '{{ cpd_instance_namespace }}' namespace"
