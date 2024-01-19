@@ -2,14 +2,14 @@
 # This task runs 'cpd-cli manage apply-cr' command which is responsible for installing CPD related custom resources
 
 # Debug components to be installed
-- name: "cpd-cli : Debug Cloud Pak for Data components to be installed"
+- name: "install-cr : Debug Cloud Pak for Data components to be installed"
   debug:
     msg:
       - "Release ......................... {{ cpd_product_version }}"
       - "Components ...................... {{ cpd_components_list }}"
 
 # Set cpd-cli command to be executed
-- name: "cpd-cli : Set command : Install Cloud Pak for Data custom resources : {{ cpd_components }}"
+- name: "install-cr : Set command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}"
   set_fact:
     cpd_cmd_apply_cr: 
       cpd-cli manage apply-cr \
@@ -19,22 +19,22 @@
         --block_storage_class={{ cpd_metadata_storage_class }} \
         --file_storage_class={{ cpd_primary_storage_class }} \
         --parallel_num={{ cpd_components_list | length }} \
-        --license_acceptance=true 2>&1 | tee {{ role_path }}/logs/{{ cpd_log_filename }}.log
+        --license_acceptance=true 2>&1 | tee {{ role_path }}/logs/cpd_components_install_cr.log
 
 # Debug cpd-cli command to be executed
 # The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
-- name: "cpd-cli: Debug command : Install Cloud Pak for Data custom resources : {{ cpd_components }}"
+- name: "install-cr : Debug command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}"
   debug:
     msg:
       - "{{ cpd_cmd_apply_cr | regex_replace(' \\\\', '') }}"
 
-# Execute cpd-cli command to install corresponding custom resource
-- name: "cpd-cli: Running command : Install Cloud Pak for Data custom resources : {{ cpd_components }} (up to 90 minutes)"
+# Execute cpd-cli command to install corresponding custom resources
+- name: "install-cr : Running command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }} (+- 90 minutes)"
   shell: "{{ cpd_cmd_apply_cr }}"
   register: cpd_install_cr_output
   failed_when: cpd_install_cr_output.rc > 0 or ('apply-cr command ran successfully' not in cpd_install_cr_output.stdout)
 
 # Debug cpd-cli command output
-- name: "cpd-cli: Debug command output : Install Cloud Pak for Data custom resources : {{ cpd_components }}"
+- name: "install-cr : Debug command output : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}"
   debug:
     msg: "{{ cpd_install_cr_output.stdout }}"

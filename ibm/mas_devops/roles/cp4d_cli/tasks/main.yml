@@ -21,16 +21,14 @@
     that: cpd_entitlement_key is defined and cpd_entitlement_key != ""
     fail_msg: "ibm_entitlement_key or cpd_entitlement_key override must be provided"
 
-# - set_fact:
-#     cpd_components_list: "{{ cpd_components | split(',') }}"
-
+# assert that the component list provided is contained within the supported component list
 - name: "Check that CPD components are supported"
   when:
     - cpd_components_list is defined
   assert:
     that:
       - cpd_components_list | length > 0
-      - cpd_components_supported_list | intersect(cpd_components_list) == cpd_components_list # assert that the component list provided is contained within the supported component list
+      - cpd_components_supported_list | intersect(cpd_components_list) == cpd_components_list
     fail_msg: 
       - "Cloud Pak for Data Service {{ cpd_components_list | difference(cpd_components_supported_list) }} is not supported by this role."
       - "The supported components are: {{ cpd_components_supported_list }}"
@@ -64,8 +62,3 @@
 
 - name: "Run install-cp4d task"
   include_tasks: "tasks/install-cp4d.yml"
-  # when: install_cpd_platform
-
-# - name: "Run install-cp4d-services task"
-#   include_tasks: "tasks/install-cp4d-services.yml"
-#   when: cpd_service_name in cpd_service_name_supported_list

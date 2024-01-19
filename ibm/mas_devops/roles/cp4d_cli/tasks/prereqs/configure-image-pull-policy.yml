@@ -1,0 +1,30 @@
+---
+# About this task:
+# Use the appropriate cpd-cli manage command to create or update
+# the global image pull secret with the appropriate credentials
+
+# More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=cluster-updating-global-image-pull-secret
+
+# Run the appropriate command to update the global image pull secret
+# Might be deleted:
+# - name: "cpd-cli : prereqs : Running command : Update global image pull secret"
+#   shell: |
+#     cpd-cli manage add-icr-cred-to-global-pull-secret \
+#     --entitled_registry_key={{ cpd_entitlement_key }} 2>&1 | tee {{ role_path }}/logs/cpd_platform_step2_cpd_config_image_pull_secret_output.log
+#   register: cpd_config_image_pull_secret_output
+#   failed_when: cpd_config_image_pull_secret_output.rc > 0 or ('add-icr-cred-to-global-pull-secret command ran successfully' not in cpd_config_image_pull_secret_output.stdout)
+
+# - name: "cpd-cli: prereqs : Debug command output : Update global image pull secret"
+#   debug:
+#     msg: "{{ cpd_config_image_pull_secret_output.stdout }}"
+
+# cpd services require that some of their service accounts to have ibm-entitlement-key set imagePullPolicy
+- name: "configure-image-pull-policy : Pre-create Cloud Pak for Data serviceAccounts with ibm-entitlement-key in imagePullSecret"
+  kubernetes.core.k8s:
+    apply: yes
+    template: templates/cpd_platform/serviceAccounts.yml.j2
+  register: cpd_sa_create
+  retries: 2
+  delay: 15 # seconds
+  until: cpd_sa_create.error is not defined # The error field will be set to 409 if there was a conflict
+
