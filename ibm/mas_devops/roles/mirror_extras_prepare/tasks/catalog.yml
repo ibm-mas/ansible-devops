@@ -11,6 +11,7 @@
       --creds "{{ artifactory_username }}:{{ artifactory_token }}" \
       --no-tags)| jq -r '.Digest' \
   register: catalog_lookup
+  no_log: true
 
 - name: "catalog : Set value for dev catalog digest"
   when:
@@ -18,6 +19,7 @@
     - artifactory_token is defined and artifactory_token != ""
   set_fact:
     catalog_digest: "{{ catalog_lookup.stdout }}"
+
 
 # 1. Check for additional required properties
 # -----------------------------------------------------------------------------
@@ -27,7 +29,6 @@
       - catalog_tag is defined and catalog_tag != ""
       - catalog_digest is defined and catalog_digest != ""
     fail_msg: "One or more required properties are missing"
-
 
 - name: "catalog : Load variables"
   include_vars:

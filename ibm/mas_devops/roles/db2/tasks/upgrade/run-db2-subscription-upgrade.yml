@@ -1,30 +1,42 @@
 ---
+# This task will perform the following (if identified the need):
+# 1. Detach DB2 operators (db2u-day2-ops-controller-manager and db2u-operator-manager) from ibm-common-services namespaces
+# by deleting the existing DB2 operand request, subscription and reinstalling them in the same namespace as the DB2UClusters instances
+# 2. If both DB2 operators and DB2UClusters are already running in the same namespace
+# then this task will just upgrade the current DB2 subscription channel to a newer version
+
 # 1. Delete old Db2 OperandRequest
 # -----------------------------------------------------------------------------
-- name: "Delete old Db2 OperandRequest"
-  kubernetes.core.k8s:
-    state: absent
-    template: templates/db2u_operandrequest.yml.j2
-    wait: yes
-    wait_timeout: 120
-  register: operandrequest_removal
-
-- name: "Wait 2 minutes if we removed an old OperandRequest"
-  when: operandrequest_removal.changed == True
-  pause:
-    minutes: 2
+# Leverage that we're upgrading DB2 and check if need to delete db2 operator from ibm-common-services namespace
+- name: "Delete old db2 subscription, operand request and csv from {{ ibm_common_services_namespace }} namespace"
+  include_tasks: "tasks/delete_db2_operand_request.yml"
 
 # 2. Upgrade Subscription
 # -----------------------------------------------------------------------------
-- name: "Update db2 subscription to the new channel"
+# Lookup db2 operator group
+- name: "Check if operator group is present in {{ db2_namespace }} namespace already"
+  kubernetes.core.k8s_info:
+    namespace: "{{ db2_namespace }}"
+    kind: OperatorGroup
+  register: db2_og_info
+
+# - name: "Update db2 subscription to the new channel"
+#   kubernetes.core.k8s:
+#     api_version: operators.coreos.com/v1alpha1
+#     name: ibm-db2u-operator
+#     namespace: "{{ db2_operator_namespace }}"
+#     kind: Subscription
+#     definition:
+#       spec:
+#         channel: "{{ db2_channel }}"
+#     apply: true
+
+# Leverage that we're upgrading DB2 and check if need to migrate db2 operator from ibm-common-services namespace
+- name: "Update db2 subscription to the new channel in {{ db2_namespace }} namespace"
   kubernetes.core.k8s:
-    api_version: operators.coreos.com/v1alpha1
-    name: ibm-db2u-operator
-    namespace: "{{ ibm_common_services_namespace }}"
-    kind: Subscription
-    definition:
-      spec:
-        channel: "{{ db2_channel }}"
+    template: templates/db2u_subscription.yml.j2
+    wait: yes
+    wait_timeout: 120
     apply: true
 
 - name: "Pause for a minute before checking subscription status..."
@@ -35,7 +47,7 @@
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     name: ibm-db2u-operator
-    namespace: "{{ ibm_common_services_namespace }}"
+    namespace: "{{ db2_namespace }}"
     kind: Subscription
   register: db2_updated_sub_info
   retries: 20
@@ -52,7 +64,7 @@
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: db2u-operator-manager
-    namespace: "{{ ibm_common_services_namespace }}"
+    namespace: "{{ db2_namespace }}"
     kind: Deployment
   register: db2u_operator_deployment
   until:
@@ -75,9 +87,9 @@
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v2
     kind: OperatorCondition
-    namespace: "{{ ibm_common_services_namespace }}"
+    namespace: "{{ db2_namespace }}"
     label_selectors:
-      - "operators.coreos.com/db2u-operator.{{ ibm_common_services_namespace }}"
+      - "operators.coreos.com/db2u-operator.{{ db2_namespace }}"
   register: updated_db2_opcon
   retries: 10
   delay: 60 # 1 minute
