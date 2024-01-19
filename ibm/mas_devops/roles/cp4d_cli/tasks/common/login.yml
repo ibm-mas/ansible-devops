@@ -5,7 +5,9 @@
 - name: "cpd-cli: Run - Login to target {{ cluster_type }} cluster via login-to-ocp"
   when:
     - ocp_server is defined
+    - ocp_server != ''
     - ocp_token is defined
+    - ocp_token != ''
   shell: cpd-cli manage login-to-ocp --server={{ ocp_server }} --token={{ ocp_token }} 2>&1 | tee {{ role_path }}/logs/{{ cpd_log_filename }}.log
   register: cpd_login_output
   failed_when: cpd_login_output.rc > 0 or ('login-to-ocp command ran successfully' not in cpd_login_output.stdout)
@@ -22,4 +24,4 @@
 
 - name: "Debug - Login to target cluster"
   debug:
-    msg: "{{ cpd_login_output.stdout | default(ibmcloud_login_output.stdout) }}"
+    msg: "{{ cpd_login_output.stdout | default('logged to {{ cluster_type }} cluster') }}"

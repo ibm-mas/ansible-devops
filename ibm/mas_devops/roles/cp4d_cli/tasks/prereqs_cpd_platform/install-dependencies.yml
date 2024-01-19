@@ -1,0 +1,36 @@
+# Install IBM Licensing and check where Certificate Manager is installed
+- name: Detect Certificate Manager installation
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+  when: cert_manager_namespace is not defined or cert_manager_namespace | length == 0
+
+- name: "cpd-cli: Run Step 7/10 - Install Cloud Pak for Data dependency: IBM Licensing"
+  shell: |
+    cpd-cli manage apply-cluster-components \
+    --release={{ cpd_product_version }} \
+    --license_acceptance=true \
+    --skip_components=ibm-cert-manager \
+    --cert_manager_ns={{ cert_manager_namespace }} \
+    --licensing_ns={{ cpd_ibm_licensing_namespace }} 2>&1 | tee {{ role_path }}/logs/cpd_platform_step7_cpd_install_ibm_licensing_output.log
+  register: cpd_install_ibm_licensing_output
+  failed_when: cpd_install_ibm_licensing_output.rc > 0 or ('apply-cluster-components command ran successfully' not in cpd_install_ibm_licensing_output.stdout)
+
+- name: "cpd-cli: Debug Step 7/10 - Install Cloud Pak for Data dependency: IBM Licensing"
+  debug:
+    msg: "{{ cpd_install_ibm_licensing_output.stdout }}"
+
+# - Creates catalog sources: opencloud-operators and cloud-native-postgresql-catalog
+# - Installs Foundational Services v4.3 (Scaling CPFS size to small), IBM Namespace Scope operator v4.2, Operand Deployment Lifecycle Manager v4.2
+- name: "cpd-cli: Run Step 8/10 - Install Cloud Pak for Data dependency: Foundational Services"
+  shell: |
+    cpd-cli manage setup-instance-topology \
+    --release={{ cpd_product_version }} \
+    --cpd_operator_ns={{ cpd_operators_namespace }} \
+    --cpd_instance_ns={{ cpd_instance_namespace }}  \
+    --license_acceptance=true \
+    --block_storage_class={{ cpd_metadata_storage_class }} 2>&1 | tee {{ role_path }}/logs/cpd_platform_step8_cpd_install_cpfs_output.log
+  register: cpd_install_cpfs_output
+  failed_when: cpd_install_cpfs_output.rc > 0 or ('setup-instance-topology command ran successfully' not in cpd_install_cpfs_output.stdout)
+
+- name: "cpd-cli: Debug Step 8/10 - Install Cloud Pak for Data dependency: Foundational Services"
+  debug:
+    msg: "{{ cpd_install_cpfs_output.stdout }}"

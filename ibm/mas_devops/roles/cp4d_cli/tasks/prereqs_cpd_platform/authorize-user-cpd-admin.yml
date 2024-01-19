@@ -1,0 +1,99 @@
+---
+# About this task:
+# If a user other than the cluster administrator will install IBM Cloud Pak for Data, you must give 
+# a Red Hat® OpenShift® Container Platform user the required roles to install the Cloud Pak for Data software in the instance projects.
+# When do you need to complete this task?
+# This task is required in some situations.
+# Skip this task if the cluster administrator will install the Cloud Pak for Data software in the instance projects.
+# Complete this task only if a user other than the cluster administrator will install IBM Cloud Pak for Data.
+# Repeat as needed If you plan to install multiple instances of Cloud Pak for Data, you must repeat this task for each instance that you plan to install.
+# More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-authorizing-instance-administrator
+
+# Create the cpd-instance-admin-apply-olm role in the operators project for the instance
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-authorizing-instance-administrator
+# ---------------------------------------------------------------------------------------------------
+- name: Create cpd-instance-admin-apply-olm role
+  kubernetes.core.k8s:
+    apply: yes
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: cpd-instance-admin-apply-olm
+        namespace: "{{ cpd_operators_namespace }}"
+      rules:
+      - apiGroups:
+        - operators.coreos.com
+        resources:
+        - operatorgroups
+        verbs:
+        - create
+        - get
+        - list
+        - patch
+        - update
+      - apiGroups:
+        - operators.coreos.com
+        resources:
+        - catalogsources
+        verbs:
+        - create
+        - get
+        - list
+
+# Lookup logged user that will be granted cpd admin permissions
+# ---------------------------------------------------------------------------------------------------
+- name: "cpd-cli: Lookup logged user to grant admin access to cpd instance"
+  shell: oc whoami
+  register: cpd_whoami
+  failed_when: cpd_whoami.stdout | length == 0
+
+- name: Set cpd_user_access property
+  set_fact:
+    cpd_user_access: "{{ cpd_whoami.stdout }}"
+
+# Assign the user the role in the operators project for the instance:
+# ---------------------------------------------------------------------------------------------------
+- name: "cpd-cli: Run Assign user the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
+  shell: |
+    oc adm policy add-role-to-user admin {{ cpd_user_access }} \
+    --namespace={{ cpd_operators_namespace }} \
+    --rolebinding-name="cpd-instance-admin-rbac" 2>&1 | tee {{ role_path }}/logs/cpd_platform_step4_cpd_assign_permission_operators_ns_output.log
+  register: cpd_assign_permission_operators_ns_output
+  failed_when: cpd_assign_permission_operators_ns_output.rc > 0 or ('clusterrole.rbac.authorization.k8s.io/admin added' not in cpd_assign_permission_operators_ns_output.stdout)
+
+# Debug
+- name: "cpd-cli: Debug Assign user the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
+  debug:
+    msg: "{{ cpd_assign_permission_operators_ns_output.stdout }}"
+
+# Assign the user the admin role in the operands project for the instance:
+# ---------------------------------------------------------------------------------------------------
+- name: "cpd-cli: Run Assign user the admin role in the  {{ cpd_instance_namespace }} operands project for the cpd instance"
+  shell: |
+    oc adm policy add-role-to-user admin {{ cpd_user_access }} \
+    --namespace={{ cpd_instance_namespace }} \
+    --rolebinding-name="cpd-instance-admin-rbac" 2>&1 | tee {{ role_path }}/logs/cpd_platform_step5_cpd_assign_permission_operands_ns_output.log
+  register: cpd_assign_permission_operands_ns_output
+  failed_when: cpd_assign_permission_operands_ns_output.rc > 0 or ('clusterrole.rbac.authorization.k8s.io/admin added' not in cpd_assign_permission_operands_ns_output.stdout)
+
+# Debug
+- name: "cpd-cli: Debug Assign user the admin role in the  {{ cpd_instance_namespace }} operands project for the cpd instance"
+  debug:
+    msg: "{{ cpd_assign_permission_operands_ns_output.stdout }}"
+
+# Assign the user the role in the operators project for the instance
+# ---------------------------------------------------------------------------------------------------
+- name: "cpd-cli: Run Assign the user the role in any tethered projects for the instance"
+  shell: |
+    oc adm policy add-role-to-user cpd-instance-admin-apply-olm {{ cpd_user_access }} \
+    --namespace={{ cpd_operators_namespace }} \
+    --role-namespace={{ cpd_operators_namespace }}  \
+    --rolebinding-name="cpd-instance-admin-apply-olm-rbac" 2>&1 | tee {{ role_path }}/logs/cpd_platform_step6_cpd_assign_permission_apply_olm_output.log
+  register: cpd_assign_permission_apply_olm_output
+  failed_when: cpd_assign_permission_apply_olm_output.rc > 0 or ('role.rbac.authorization.k8s.io/cpd-instance-admin-apply-olm added' not in cpd_assign_permission_apply_olm_output.stdout)
+
+# Debug
+- name: "cpd-cli: Debug Step 6/10 - Assign cpd-instance-admin-apply-olm user the role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
+  debug:
+    msg: "{{ cpd_assign_permission_apply_olm_output.stdout }}"

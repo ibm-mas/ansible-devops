@@ -5,9 +5,14 @@
   vars:
     cpd_log_filename: "cpd_platform_step1_login_cluster"
 
-# Install and configure cpd pre-reqs for cpd_platform
-- include_tasks: "tasks/common/install-prereqs.yml"
-  when: ('cpd_platform' in cpd_components_list)
+# # Install and configure cpd_platform pre-reqs
+# - include_tasks: "tasks/prereqs_cpd_platform/main.yml"
+#   when: ('cpd_platform' in cpd_components_list)
+
+# Configure pre-reqs for cpd services depending on ccs
+# If any of the components to be installed are part of the intersect list, then need to run the prereq for ccs
+- include_tasks: "tasks/prereqs_cpd_services/ccs.yml"
+  when: cpd_components_list | intersect(cpd_components_depending_ccs_list) | length > 0
 
 # Install cpd-platform operator
 - include_tasks: "tasks/common/install-operator.yml"
