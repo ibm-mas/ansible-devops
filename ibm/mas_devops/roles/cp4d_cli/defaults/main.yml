@@ -1,9 +1,10 @@
 ---
+# ------ Cluster parameters ----------------------------------------------------------------------------------------------
 cluster_name: "{{ lookup('env', 'CLUSTER_NAME')}}"
 cluster_type: "{{ lookup('env', 'CLUSTER_TYPE')}}"
 
 # ------ CPD login ----------------------------------------------------------------------------------------------
-# Option 1 - Use ocp_server and ocp_token: 
+# Option 1 - Use ocp_server and ocp_token:
 # For already provisioned clusters set token and server to log directly into rather than cluster type (ROKS/Fyre) specific login
 ocp_token: "{{ lookup('env', 'OCP_TOKEN') }}"
 ocp_server: "{{ lookup('env', 'OCP_SERVER') }}"
@@ -20,46 +21,22 @@ cpd_primary_storage_class: "{{ lookup('env', 'CPD_PRIMARY_STORAGE_CLASS') }}"
 cpd_metadata_storage_class: "{{ lookup('env', 'CPD_METADATA_STORAGE_CLASS') }}"
 cpd_scale_config: "{{ lookup('env', 'CPD_SCALE_CONFIG') | default('medium', true) }}"
 
-
 # ------ CPD entitlement ----------------------------------------------------------------------------------------------
 cpd_entitlement_username: "{{ lookup('env', 'CPD_ENTITLEMENT_USERNAME') | default('cp', true) }}"
 ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
 cpd_entitlement_key: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
 
-# ------ CPD namespaces -----------------------------------------------------------------------------------------------
-
-# Specialized installations
-# -------------------------
-#
-# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=planning-architecture#architecture__deployment-architecture
-#
-# A specialized installation allows a user with project administrator permissions to install the software after
-# a cluster administrator completes the initial cluster setup.
-# A specialized installation also facilitates strict division between Red Hat OpenShift Container Platform
-# projects (Kubernetes namespaces).
-# In a specialized installation, the IBM Cloud Pak foundational services operators are installed in the
-# ibm-common-services project and the Cloud Pak for Data operators are installed in a separate project
-# (typically cpd-operators). Each project has a dedicated:
-#
-# - Operator group, which specifies the OwnNamespace installation mode
-# - NamespaceScope Operator, which allows the operators in the project to manage operators
-#   and service workloads in specific projects
-#
-# In this way, you can specify different settings for the IBM Cloud Pak foundational services and
-# for the Cloud Pak for Data operators.
-# common_services_channel: "{{ lookup('env', 'COMMON_SERVICES_CHANNEL') | default('', true) }}"
+# ------ CPD config parameters -----------------------------------------------------------------------------------------------
 cpd_operators_namespace: "{{ lookup('env', 'CPD_OPERATORS_NAMESPACE') | default('ibm-cpd-operators', true) }}"
 cpd_instance_namespace: "{{ lookup('env', 'CPD_INSTANCE_NAMESPACE') | default('ibm-cpd', true) }}"
 cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
-cpd_supported_versions: ['4.8.0', '4.8.1']
+cpd_supported_versions: ["4.8.0", "4.8.1"]
 cpd_ibm_licensing_namespace: ibm-licensing
 
 # ------ CPD component -----------------------------------------------------------------------------------------------
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-installing-cloud-pak
-# You can choose up to 4 components to be installed at the same time
-# cpd_service_name: "{{ lookup('env', 'CPD_SERVICE_NAME') }}"
 cpd_components: "{{ lookup('env', 'CPD_COMPONENTS') | default('cpd_platform', true) | lower }}" # minimum that must be installed to have cpd running is 'cpd_platform'
-cpd_components_list: "{{ cpd_components | split(',') }}"
+cpd_components_list: "{{ cpd_components | split(',') }}" # this will parse the 'cpd_components' string into a list to be used internally in the role
 
 cpd_components_supported_list:
   - cpd_platform
@@ -72,12 +49,9 @@ cpd_components_supported_list:
   - wml
 
 cpd_components_depending_ccs_list:
-    - cognos_analytics
-    - ws
-    - wml
-    - spss
+  - cognos_analytics
+  - ws
+  - wml
+  - spss
 
 cpd_service_scale_config: "{{ lookup('env', 'CPD_SERVICE_SCALE_CONFIG') | default('small', true) }}"
-
-# ------ CPD service account -----------------------------------------------------------------------------------------------
-cpd_admin_service_account: cpd-admin-sa
