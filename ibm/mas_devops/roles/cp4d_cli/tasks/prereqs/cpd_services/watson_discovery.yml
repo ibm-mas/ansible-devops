@@ -1,0 +1,37 @@
+---
+# About this task:
+# Several IBM Cloud Pak for Data services require Multicloud Object Gateway.
+# If you plan to install watsonx Assistant, Watson™ Discovery, or Watson Speech services
+# you might need to install and configure Multicloud Object Gateway.
+
+# More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=software-installing-multicloud-object-gateway
+
+#  Configure pre-requisites for Watson Discovery
+# ---------------------------------------------------------------------------------------------------
+# Set cpd-cli command to be executed
+- name: "prereqs : watson_discovery : Set command : Configure pre-requisites for Watson Discovery"
+  set_fact:
+    cpd_cmd_setup_mcg: cpd-cli manage setup-mcg \
+      --components=watson_discovery \
+      --cpd_instance_ns={{ cpd_instance_namespace }} \
+      --noobaa_ns={{ cpd_instance_namespace }} \
+      --noobaa_account_secret=noobaa-admin \
+      --noobaa_cert_secret=noobaa-s3-serving-cert 2>&1 | tee {{ role_path }}/logs/cpd_service_prereq_watson_discovery_output.log
+
+# Debug cpd-cli command to be executed
+# The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
+- name: "prereqs : watson_discovery : Debug command : Configure pre-requisites for Watson Discovery"
+  debug:
+    msg:
+      - "{{ cpd_cmd_setup_mcg | regex_replace(' \\\\', '') }}"
+
+# Execute cpd-cli command to configure Watson Discovery dependencies
+- name: "prereqs : watson_discovery : Running command : Configure pre-requisites for Watson Discovery (+- 60 minutes)"
+  shell: "{{ cpd_cmd_setup_mcg }}"
+  register: cpd_config_wd_prereqs_output
+  failed_when: cpd_config_wd_prereqs_output.rc > 0 or ('setup-mcg command ran successfully' not in cpd_config_wd_prereqs_output.stdout)
+
+# Debug cpd-cli command output
+- name: "prereqs : watson_discovery : Debug command output : Configure pre-requisites for Watson Discovery"
+  debug:
+    msg: "{{ cpd_config_wd_prereqs_output.stdout }}"
