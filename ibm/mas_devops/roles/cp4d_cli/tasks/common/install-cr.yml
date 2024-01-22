@@ -11,15 +11,14 @@
 # Set cpd-cli command to be executed
 - name: "install-cr : Set command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}"
   set_fact:
-    cpd_cmd_apply_cr: 
-      cpd-cli manage apply-cr \
-        --release={{ cpd_product_version }} \
-        --cpd_instance_ns={{ cpd_instance_namespace }}  \
-        --components={{ cpd_components }} \
-        --block_storage_class={{ cpd_metadata_storage_class }} \
-        --file_storage_class={{ cpd_primary_storage_class }} \
-        --parallel_num={{ cpd_components_list | length }} \
-        --license_acceptance=true 2>&1 | tee {{ role_path }}/logs/cpd_components_install_cr.log
+    cpd_cmd_apply_cr: cpd-cli manage apply-cr \
+      --release={{ cpd_product_version }} \
+      --cpd_instance_ns={{ cpd_instance_namespace }}  \
+      --components={{ cpd_components }} \
+      --block_storage_class={{ cpd_metadata_storage_class }} \
+      --file_storage_class={{ cpd_primary_storage_class }} \
+      --parallel_num={{ cpd_components_list | length }} \
+      --license_acceptance=true 2>&1 | tee {{ role_path }}/logs/cpd_components_install_cr.log
 
 # Debug cpd-cli command to be executed
 # The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
@@ -28,13 +27,24 @@
     msg:
       - "{{ cpd_cmd_apply_cr | regex_replace(' \\\\', '') }}"
 
-# Execute cpd-cli command to install corresponding custom resources
-- name: "install-cr : Running command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }} (+- 90 minutes)"
+# Execute async cpd-cli command to install corresponding custom resources
+- name: "install-cr : Running command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }} (up to 120 minutes)"
+  async: 7200 # 120 minutes
+  poll: 0
   shell: "{{ cpd_cmd_apply_cr }}"
   register: cpd_install_cr_output
-  failed_when: cpd_install_cr_output.rc > 0 or ('apply-cr command ran successfully' not in cpd_install_cr_output.stdout)
+
+# Wait async cpd-cli command to install corresponding custom resources
+- name: "install-cr : Waiting command execution : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}..."
+  async_status:
+    jid: "{{ cpd_install_cr_output.ansible_job_id }}"
+  register: cpd_install_cr_async_output
+  until: cpd_install_cr_async_output.finished
+  retries: 120 # wait up to 2 hours
+  delay: 60
+  failed_when: cpd_install_cr_async_output.rc > 0 or ('apply-cr command ran successfully' not in cpd_install_cr_async_output.stdout)
 
 # Debug cpd-cli command output
 - name: "install-cr : Debug command output : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}"
   debug:
-    msg: "{{ cpd_install_cr_output.stdout }}"
+    msg: "{{ cpd_install_cr_async_output.stdout }}"

@@ -5,20 +5,57 @@
 
 # More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=cluster-updating-global-image-pull-secret
 
-# Run the appropriate command to update the global image pull secret
-# Might be deleted:
-# - name: "cpd-cli : prereqs : Running command : Update global image pull secret"
-#   shell: |
-#     cpd-cli manage add-icr-cred-to-global-pull-secret \
-#     --entitled_registry_key={{ cpd_entitlement_key }} 2>&1 | tee {{ role_path }}/logs/cpd_platform_step2_cpd_config_image_pull_secret_output.log
-#   register: cpd_config_image_pull_secret_output
-#   failed_when: cpd_config_image_pull_secret_output.rc > 0 or ('add-icr-cred-to-global-pull-secret command ran successfully' not in cpd_config_image_pull_secret_output.stdout)
+# At this stage:
+# - The ibm-entitlement-key secret will be created in ibm-cpd namespace
+# - The service accounts used by CP4D services will be pre-created to include the ibm-entitlement-key in its imagePullSecrets
 
-# - name: "cpd-cli: prereqs : Debug command output : Update global image pull secret"
-#   debug:
-#     msg: "{{ cpd_config_image_pull_secret_output.stdout }}"
+# Install ibm-entitlement-key in ibm-cpd namespace
+# Nothing in the cp4d base platform requires entitlement, but the services that we want to enable in CP4D do.
+# The image pull secret is needed in the main CPD instance namespace
+- name: "configure-image-pull-policy : Create ibm-entitlement-key secret in {{ cpd_instance_namespace }} namespace"
+  vars:
+    entitledAuthStr: "{{ cpd_entitlement_username }}:{{ cpd_entitlement_key }}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"cp.icr.io/cp": {"username":"{{ cpd_entitlement_username }}","password":"{{ cpd_entitlement_key }}","auth":"{{ entitledAuth }}"}'
+      - '}'
+      - '}'
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: "ibm-entitlement-key"
+        namespace: "{{ cpd_instance_namespace }}"
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
 
-# cpd services require that some of their service accounts to have ibm-entitlement-key set imagePullPolicy
+# Watson Discovery - for some unkown reason - creates ONE POD that references an ImagePullSecret named "prod-cred".  Unless this secret is created
+# that pod will not be able to start up reliably, Kubernetes will sometimes ignore the image pull secrets assigned the service account that owns the pod.
+# It doesn't make any sense why it sometimes works and sometimes doesn't, but this is CP4D after-all:)
+- name: "configure-image-pull-policy : Create prod-cred secret in {{ cpd_instance_namespace }} namespace (for Watson Discovery)"
+  vars:
+    entitledAuthStr: "{{ cpd_entitlement_username }}:{{ cpd_entitlement_key }}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"cp.icr.io/cp": {"username":"{{ cpd_entitlement_username }}","password":"{{ cpd_entitlement_key }}","auth":"{{ entitledAuth }}"}'
+      - '}'
+      - '}'
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: "prod-cred"
+        namespace: "{{ cpd_instance_namespace }}"
+      stringData:
+        # Only way I could get three consecutive "}" into a string :)
+        .dockerconfigjson: "{{ content | join('') | string }}"
+
+# CP4D services require that some of their service accounts to have ibm-entitlement-key set imagePullPolicy
 - name: "configure-image-pull-policy : Pre-create Cloud Pak for Data serviceAccounts with ibm-entitlement-key in imagePullSecret"
   kubernetes.core.k8s:
     apply: yes
@@ -27,4 +64,3 @@
   retries: 2
   delay: 15 # seconds
   until: cpd_sa_create.error is not defined # The error field will be set to 409 if there was a conflict
-

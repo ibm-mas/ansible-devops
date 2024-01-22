@@ -1,7 +1,7 @@
 # TODO: Need to find a way to make login work out off 'ocp_login' role or implement a solution that sets the target cluster into cpd-cli container's context https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3269
 # This works only for ROKS: ibmcloud oc cluster config -c $CLUSTER_NAME --admin --output yaml > /$HOME/cpd-cli-workspace/olm-utils-workspace/work/.olm-utils/.kubeconfig
 
-# Login option 1: using 'ocp_server' and 'ocp_token' properties 
+# Login option 1: using 'ocp_server' and 'ocp_token' properties
 - name: "cpd-cli: Run - Login to target {{ cluster_type }} cluster via login-to-ocp"
   when:
     - ocp_server is defined
@@ -14,7 +14,9 @@
 
 # Login option 2 (ROKS only): using 'ibmcloud oc cluster config' command to lookup kubeconfig for the target cluster and set the context in {{ cpd_work_dir }}/.olm-utils/.kubeconfig
 - name: "cpd-cli: Run - Login to target {{ cluster_name }} cluster via kubeconfig "
-  when: 
+  when:
+    - ocp_server is not defined
+    - ocp_password is not defined
     - cluster_type == 'roks'
     - cluster_name is defined
     - not cpd_login_output.changed
@@ -22,6 +24,9 @@
   register: ibmcloud_login_output
   failed_when: ibmcloud_login_output.rc > 0
 
+- debug:
+    var: ibmcloud_login_output
+
 - name: "Debug - Login to target cluster"
   debug:
-    msg: "{{ cpd_login_output.stdout | default('logged to {{ cluster_type }} cluster') }}"
+    msg: "{{ cpd_login_output.stdout | default(ibmcloud_login_output, true) | default('logged to {{ cluster_type }} cluster') }}"

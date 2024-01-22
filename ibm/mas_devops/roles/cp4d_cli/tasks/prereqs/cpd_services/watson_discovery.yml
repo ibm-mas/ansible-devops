@@ -4,28 +4,23 @@
 # If you plan to install watsonx Assistant, Watson™ Discovery, or Watson Speech services
 # you might need to install and configure Multicloud Object Gateway.
 
-# More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=software-installing-multicloud-object-gateway
+# Use the setup-mcg command to create secrets for one or more of the following services:
+
+# watsonx Assistant
+# Watson Discovery
+# Watson Speech services
+# The secrets enable the services to access the following secrets in the openshift-storage project:
+
+# The secret that contains the NooBaa account credentials.
+# The secret that contains the NooBaa account certificate.
+
+# More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=piicpd-creating-secrets-services-that-use-multicloud-object-gateway
 
 #  Configure pre-requisites for Watson Discovery
 # ---------------------------------------------------------------------------------------------------
-# If you plan to install services with a dependency on Multicloud Object Gateway in this instance of IBM Cloud Pak for Data, 
-# you must create the secrets that the services use to communicate with Multicloud Object Gateway.
-# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=piicpd-creating-secrets-services-that-use-multicloud-object-gateway
-# - name: "prereqs : watson_discovery : Create fake noobaa-admin secret"
-#   kubernetes.core.k8s:
-#     apply: yes
-#     definition:
-#       kind: Secret
-#       apiVersion: v1
-#       metadata:
-#         name: noobaa-admin
-#         namespace: "{{ cpd_instance_namespace }}"
-#       data:
-#         test: 'test'
-#       type: Opaque
 
 # Set cpd-cli command to be executed
-- name: "prereqs : watson_discovery : Set command : Configure pre-requisites for Watson Discovery"
+- name: "prereqs : watson_discovery : Set command : Watson Discovery pre-reqs : Create secrets for services that use Multicloud Object Gateway"
   set_fact:
     cpd_cmd_setup_mcg: cpd-cli manage setup-mcg \
       --components=watson_discovery \
@@ -36,18 +31,18 @@
 
 # Debug cpd-cli command to be executed
 # The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
-- name: "prereqs : watson_discovery : Debug command : Configure pre-requisites for Watson Discovery"
+- name: "prereqs : watson_discovery : Debug command : Watson Discovery pre-reqs : Create secrets for services that use Multicloud Object Gateway"
   debug:
     msg:
       - "{{ cpd_cmd_setup_mcg | regex_replace(' \\\\', '') }}"
 
 # Execute cpd-cli command to configure Watson Discovery dependencies
-- name: "prereqs : watson_discovery : Running command : Configure pre-requisites for Watson Discovery (+- 60 minutes)"
+- name: "prereqs : watson_discovery : Running command : Watson Discovery pre-reqs : Create secrets for services that use Multicloud Object Gateway"
   shell: "{{ cpd_cmd_setup_mcg }}"
   register: cpd_config_wd_prereqs_output
   failed_when: cpd_config_wd_prereqs_output.rc > 0 or ('setup-mcg command ran successfully' not in cpd_config_wd_prereqs_output.stdout)
 
 # Debug cpd-cli command output
-- name: "prereqs : watson_discovery : Debug command output : Configure pre-requisites for Watson Discovery"
+- name: "prereqs : watson_discovery : Debug command output : Watson Discovery pre-reqs : Create secrets for services that use Multicloud Object Gateway"
   debug:
     msg: "{{ cpd_config_wd_prereqs_output.stdout }}"
