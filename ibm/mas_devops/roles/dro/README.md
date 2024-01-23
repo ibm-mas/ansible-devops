@@ -59,6 +59,27 @@ Local directory to save the generated BasCfg resource definition.  This can be u
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
+### dro_endpoint_url
+  DRO url from ibm-data-reporter route found in redhat-marketplace namespace, this variable is needed if you wish to connect to an existing DRO instance.
+
+- Optional
+- Environment Variable: `DRO_ENDPOINT_URL`
+- Default Value: None
+
+### dro_api_key
+  DRO api_key is a token obtained from ibm-data-reporter-operator-api-token secret found in redhat-marketplace namespace, this variable is needed if you wish to connect to an existing DRO instance.
+
+- Optional
+- Environment Variable: `DRO_APIKEY`
+- Default Value: None
+
+### dro_crt_path
+  DRO uses default OCP cluster ingress certificates. these can be obtained from either router-certs-default secret found in openshift-ingress namespace or trustedCA config map found in openshift-config namespace, copy the contents of tls.crt into a .pem file and provide the filepath of the .pem file to `DRO_CERTIFICATE_PATH`, this variable is needed if you wish to connect to an existing DRO instance.
+
+- Optional
+- Environment Variable: `DRO_CERTIFICATE_PATH`
+- Default Value: None
+
 ### dro_contact.email
 Sets the Contact e-mail address used by the MAS instance's DRO configuration.
 
@@ -120,6 +141,24 @@ export MAS_INSTANCE_ID=<valid mas instance id>
 export DRO_STORAGE_CLASS=<valid storage class name>
 export ROLE_NAME='dro'
 
+ansible-playbook playbooks/run_role.yml
+```
+
+To connect to an existing DRO
+
+```
+export DRO_ENDPOINT_URL=<valid DRO url>
+export DRO_APIKEY=<valid DRO apikey>
+export DRO_CERTIFICATE_PATH=/temp/cert.pem
+export IBM_ENTITLEMENT_KEY=<valid ibm entitlement key>
+export DRO_CONTACT_EMAIL=xxx@xxx.com
+export DRO_CONTACT_FIRSTNAME=xxx
+export DRO_CONTACT_LASTNAME=xxx 
+export MAS_CONFIG_DIR=<valid local path to the config folder>
+export MAS_INSTANCE_ID=<valid mas instance id>
+
+export DRO_ACTION=install-dro
+export ROLE_NAME='dro'
 ansible-playbook playbooks/run_role.yml
 ```
 
