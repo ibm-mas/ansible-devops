@@ -88,12 +88,26 @@ Adjust the size of the volume used to store User Workload metrics.
 
 Role Variables - Grafana
 -------------------------------------------------------------------------------
+### grafana_major_version
+Sets the major version of the grafana operator to install
+
+- Optional
+- Environment Variable: `GRAFANA_MAJOR_VERSION`
+- Default Value: `4`
+
 ### grafana_namespace
-Sets the namespace to install the grafana operator and grafana instance
+Sets the namespace to install the grafana operator V4 and grafana instance
 
 - Optional
 - Environment Variable: `GRAFANA_NAMESPACE`
 - Default Value: `grafana`
+
+### grafana_v5_namespace
+Sets the namespace to install the grafana operator V5 and grafana instance
+
+- Optional
+- Environment Variable: `GRAFANA_V5_NAMESPACE`
+- Default Value: `grafanav5`
 
 ### grafana_instance_storage_class
 Declare the storage class for Grafana Instance user data persistent volume.
