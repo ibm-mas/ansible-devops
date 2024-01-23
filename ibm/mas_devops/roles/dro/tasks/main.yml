@@ -18,17 +18,24 @@
     msg:
       - "dro_migration Flag is set to ..................... {{ dro_migration }}"
 
+- name: "Debug dro_existing Flag"
+  debug:
+    msg:
+      - "dro_existing Flag is set to ..................... {{ dro_existing }}"
+
 # Default installation (DRO_ACTION set to install-dro)
 - include_tasks: "tasks/{{ dro_action }}/main.yml"
   when:
     - dro_action in ["install-dro", "uninstall"]
     - dro_migration == "" or dro_migration == "false"
+    - dro_existing != "" and dro_existing == "false"
 
 # Migration from UDS to DRO (DRO_ACTION not set, DRO_MIGRATION set yo true by cli)
 - name: UDS to DRO migration (mas update scenario)
   include_tasks: "tasks/install-dro/main.yml"
   when:
     - dro_migration != "" and dro_migration == "true"
+    - dro_existing == "false"
 
 # 2. Generate the DRO configuration for MAS
 # -----------------------------------------------------------------------------
