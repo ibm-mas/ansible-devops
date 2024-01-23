@@ -9,7 +9,7 @@ This playbook will install and configure IBM Maximo Application Suite Core along
 4. [Configure Cluster Monitoring](../roles/cluster_monitoring.md) (1 minute)
 5. [Install Mongodb Operator and Create a Cluster](../roles/mongodb.md) (10 minutes)
 6. [Install and bootstrap IBM Suite License Service](../roles/sls.md) (10 minutes)
-7. [Install IBM User Data Services](../roles/uds.md) (30 minutes)
+7. [Install IBM Data Reporter Operator](../roles/dro.md) (30 minutes)
 8. [Generate a MAS Workspace Configuration](../roles/gencfg_workspace.md) (1 minute)
 9. [Configure Cloud Internet Services Integration for Maximo Application Suite](../roles/suite_dns.md) (Optional, 1 minute)
 10. [Install Maximo Application Suite Core Services](../roles/suite_install.md) (1 minute)
@@ -68,7 +68,7 @@ Usually fulfilled by file storage classes:
 - `PROMETHEUS_USERWORKLOAD_STORAGE_CLASS`
 - `GRAFANA_INSTANCE_STORAGE_CLASS`
 - `MONGODB_STORAGE_CLASS`
-- `UDS_STORAGE_CLASS`
+- `DRO_STORAGE_CLASS`
 
 
 ## Examples
@@ -84,9 +84,9 @@ export MAS_CONFIG_DIR=~/masconfig
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 
-export UDS_CONTACT_EMAIL=xxx@xxx.com
-export UDS_CONTACT_FIRSTNAME=xxx
-export UDS_CONTACT_LASTNAME=xxx
+export DRO_CONTACT_EMAIL=xxx@xxx.com
+export DRO_CONTACT_FIRSTNAME=xxx
+export DRO_CONTACT_LASTNAME=xxx
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_core
@@ -117,9 +117,9 @@ export MAS_CHANNEL=rp1dev88
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 
-export UDS_CONTACT_EMAIL=xxx@xxx.com
-export UDS_CONTACT_FIRSTNAME=xxx
-export UDS_CONTACT_LASTNAME=xxx
+export DRO_CONTACT_EMAIL=xxx@xxx.com
+export DRO_CONTACT_FIRSTNAME=xxx
+export DRO_CONTACT_LASTNAME=xxx
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_core
