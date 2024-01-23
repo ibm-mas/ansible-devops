@@ -68,11 +68,6 @@
     fail_msg: "Provide IBM Entitlement Key, Access https://myibm.ibm.com/products-services/containerlibrary using your IBMId to access your entitlement key"
   when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
-- name: "Create Secret redhat-marketplace-pull-secret"
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/rhm-pull-secret.yml.j2') }}"
-  when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
-
 
 # 4.1 Load PodTemplates configuration
 # -----------------------------------------------------------------------------
@@ -220,47 +215,17 @@
     wait_timeout: 120
   when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
 
-# Accept License
+# Apply MarketplaceConfig CR
 # -----------------------------------------------------------------------------
-- name: Get MarketplaceConfig
-  kubernetes.core.k8s_info:
-    api_version: marketplace.redhat.com/v1alpha1
-    kind: MarketplaceConfig
-    namespace: redhat-marketplace
-    name: marketplaceconfig
-  register: marketplacecfg
-  until:
-    - "{{ marketplacecfg.resources|length > 0 }}"
-  retries: 20
-  delay: 20 # seconds
+- name: Create MarketplaceConfig CR
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/MarketplaceConfig-cr.yml.j2') }}"
 
-- name: "Accept marketplaceconfig license"
-  kubernetes.core.k8s_json_patch:
-    api_version: marketplace.redhat.com/v1alpha1
-    kind: MarketplaceConfig
-    namespace: redhat-marketplace
-    name: marketplaceconfig
-    patch:
-      - op: "replace"
-        path: "/spec/license/accept"
-        value: true
-
-
-# 6. Set Disconnected
-# -----------------------------------------------------------------------------
-- name: "Patch marketplaceconfig for airgap install"
-  kubernetes.core.k8s_json_patch:
-    api_version: marketplace.redhat.com/v1alpha1
-    kind: MarketplaceConfig
-    namespace: redhat-marketplace
-    name: marketplaceconfig
-    patch:
-      - op: "replace"
-        path: "/spec/isDisconnected"
-        value: "{{ airgap_install }}"
-    wait_timeout: 60
-    wait: yes
-  when: airgap_install
+# Create DRO Pull Secret
+- name: "Create Secret redhat-marketplace-pull-secret"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/rhm-pull-secret.yml.j2') }}"
+  when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
 # 7. Check deployment status
 # -----------------------------------------------------------------------------
