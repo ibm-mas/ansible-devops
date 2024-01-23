@@ -33,13 +33,24 @@
     msg:
       - "{{ cpd_cmd_auth_instance_topology | regex_replace(' \\\\', '') }}"
 
-# Execute cpd-cli command to configure namespaces
+# Execute async cpd-cli command to configure namespaces
 - name: "configure-namespaces : Running command : Configure Cloud Pak for Data namespaces (+- 15 minutes)"
+  async: 900 # 15 minutes
+  poll: 0
   shell: "{{ cpd_cmd_auth_instance_topology }}"
   register: cpd_config_namespaces_output
-  failed_when: cpd_config_namespaces_output.rc > 0 or ('authorize-instance-topology command ran successfully' not in cpd_config_namespaces_output.stdout)
+
+# Wait async cpd-cli cpd-cli command to configure namespaces
+- name: "configure-namespaces : Waiting command execution : Configure Cloud Pak for Data namespaces..."
+  async_status:
+    jid: "{{ cpd_config_namespaces_output.ansible_job_id }}"
+  register: cpd_config_namespaces_async_output
+  until: cpd_config_namespaces_async_output.finished
+  retries: 15 # wait up to 15 minutes
+  delay: 60
+  failed_when: cpd_config_namespaces_async_output.rc > 0 or ('authorize-instance-topology command ran successfully' not in cpd_config_namespaces_async_output.stdout)
 
 # Debug cpd-cli command output
 - name: "configure-namespaces : Debug command output: Configure Cloud Pak for Data namespaces"
   debug:
-    msg: "{{ cpd_config_namespaces_output.stdout }}"
+    msg: "{{ cpd_config_namespaces_async_output.stdout }}"
