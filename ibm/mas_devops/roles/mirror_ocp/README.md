@@ -16,7 +16,6 @@ Three **Catalogs** are mirrored, containing the following content:
 - kubeturbo-certified (required by ibm.mas_devops.kubeturbo role)
 - ibm-metrics-operator (required by ibm.mas_devops.dro role)
 - ibm-data-reporter-operator (required by ibm.mas_devops.dro role)
-- redhat-marketplace-operator (required by ibm.mas_devops.dro role)
 
 ### community-operator-index
 - grafana-operator (required by ibm.mas_devops.cluster_monitoring role)
