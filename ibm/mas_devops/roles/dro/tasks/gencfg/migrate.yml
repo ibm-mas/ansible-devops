@@ -6,57 +6,63 @@
       - "secretName:  {{item.spec.config.credentials.secretName}}"
       - "instanceID:  {{item.metadata.labels['mas.ibm.com/instanceId']}}"
 
-- name: "gencfg-migrate : remove UDS BAscfgs"
-  when: item.spec.config.credentials.secretName == "uds-apikey"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: config.mas.ibm.com/v1
-    kind: BasCfg
-    namespace: "{{item.metadata.namespace}}"
-    name: "{{item.metadata.name}}"
-
-- name: "gencfg-migrate : remove uds-apikey secret from masinstances"
-  when: item.spec.config.credentials.secretName == "uds-apikey"
-  kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: Secret
-    namespace: "{{item.metadata.namespace}}"
-    name: "uds-apikey"
-
 - name: "gencfg-migrate : set mas_instance_id"
   set_fact:
+    secret_name: "{{item.spec.config.credentials.secretName}}"
     mas_instance_id: "{{item.metadata.labels['mas.ibm.com/instanceId']}}"
 
+- name: "gencfg-migrate : Remove UDS BASCFG and Apply DRO BASCFG"
+  when:
+    - secret_name == "uds-apikey"
+  block:
+    - name: "gencfg-migrate : remove UDS BAscfgs"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: config.mas.ibm.com/v1
+        kind: BasCfg
+        namespace: "{{item.metadata.namespace}}"
+        name: "{{item.metadata.name}}"
 
-- name: "gencfg-migrate : Apply BASCFG"
-  debug:
-    msg: "Applying {{ mas_instance_id }}-bas-system to {{mas_instance_id}}"
+    - name: "gencfg-migrate : remove uds-apikey secret from masinstances"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: Secret
+        namespace: "{{item.metadata.namespace}}"
+        name: "uds-apikey"
 
-- name: "gencfg-migrate : Create BASCfg for {{mas_instance_id}}"
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/bascfg.yml.j2') }}"
-    wait: yes
-    wait_timeout: 10
+    - name: "gencfg-migrate : set mas_instance_id"
+      set_fact:
+        mas_instance_id: "{{item.metadata.labels['mas.ibm.com/instanceId']}}"
 
-# Verify BASCFG
-- name: "gencfg-migrate : Verify created BASCfg of {{mas_instance_id}}"
-  kubernetes.core.k8s_info:
-    kind: BasCfg
-    namespace: "mas-{{ mas_instance_id }}-core"
-    name: "{{ mas_instance_id }}-bas-system"
-    label_selectors:
-      - "mas.ibm.com/instanceId = {{ mas_instance_id }}"
-  register: bas_cfg
-  until:
-    - bas_cfg.resources is defined
-    - bas_cfg.resources | length > 0
-    - bas_cfg.resources[0].status is defined
-    - bas_cfg.resources[0].status.conditions | selectattr('type', 'equalto', 'BASIntegrationReady') | map(attribute='status') | list | length > 0
-    - bas_cfg.resources[0].status.conditions | selectattr('type', 'equalto', 'BASIntegrationReady') | map(attribute='status') | list | first == "True"
-  retries: 10
-  delay: 60
+    - name: "gencfg-migrate : Apply BASCFG"
+      debug:
+        msg: "Applying {{ mas_instance_id }}-bas-system to {{mas_instance_id}}"
 
-- name: "gencfg-migrate : Applied BASCFG successfully"
-  debug:
-    msg: "Applied {{ mas_instance_id }}-bas-system to {{mas_instance_id}} successfully"
+    - name: "gencfg-migrate : Create BASCfg for {{mas_instance_id}}"
+      kubernetes.core.k8s:
+        definition: "{{ lookup('template', 'templates/bascfg.yml.j2') }}"
+        wait: yes
+        wait_timeout: 10
+
+    # Verify BASCFG
+    - name: "gencfg-migrate : Verify created BASCfg of {{mas_instance_id}}"
+      kubernetes.core.k8s_info:
+        kind: BasCfg
+        namespace: "mas-{{ mas_instance_id }}-core"
+        name: "{{ mas_instance_id }}-bas-system"
+        label_selectors:
+          - "mas.ibm.com/instanceId = {{ mas_instance_id }}"
+      register: bas_cfg
+      until:
+        - bas_cfg.resources is defined
+        - bas_cfg.resources | length > 0
+        - bas_cfg.resources[0].status is defined
+        - bas_cfg.resources[0].status.conditions | selectattr('type', 'equalto', 'BASIntegration') | map(attribute='status') | list | length > 0
+        - bas_cfg.resources[0].status.conditions | selectattr('type', 'equalto', 'BASIntegration') | map(attribute='status') | list | first == "True"
+      retries: 10
+      delay: 60
+
+    - name: "gencfg-migrate : Applied BASCFG successfully"
+      debug:
+        msg: "Applied {{ mas_instance_id }}-bas-system to {{mas_instance_id}} successfully"
