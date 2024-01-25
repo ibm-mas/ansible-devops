@@ -3,17 +3,17 @@
   debug:
     msg:
       - "name:        {{item.metadata.name}}"
-      - "secretName:  {{item.spec.config.credentials.secretName}}"
+      - "endpointURL:  {{item.spec.config.url}}"
       - "instanceID:  {{item.metadata.labels['mas.ibm.com/instanceId']}}"
 
 - name: "gencfg-migrate : set mas_instance_id"
   set_fact:
-    secret_name: "{{item.spec.config.credentials.secretName}}"
+    endpointURL: "{{item.spec.config.url}}"
     mas_instance_id: "{{item.metadata.labels['mas.ibm.com/instanceId']}}"
 
 - name: "gencfg-migrate : Remove UDS BASCFG and Apply DRO BASCFG"
   when:
-    - secret_name == "uds-apikey"
+    - endpointURL is search('uds-endpoint')
   block:
     - name: "gencfg-migrate : remove UDS BAscfgs"
       kubernetes.core.k8s:
