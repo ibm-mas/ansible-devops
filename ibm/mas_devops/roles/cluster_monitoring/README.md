@@ -13,7 +13,7 @@ The credentials for the grafana admin user are stored in `grafana-admin-credenti
 Role Variables
 -------------------------------------------------------------------------------
 ### cluster_monitoring_action
-Inform the role whether to perform an install or an uninstall of cluster monitoring.
+Inform the role whether to perform an install or an uninstall of cluster monitoring. Can also be set to update_grafana to update the Grafana Operator from V4 to V5.
 
 - Optional
 - Environment Variable: `CLUSTER_MONITORING_ACTION`
@@ -93,7 +93,7 @@ Sets the major version of the grafana operator to install
 
 - Optional
 - Environment Variable: `GRAFANA_MAJOR_VERSION`
-- Default Value: `4`
+- Default Value: `5`
 
 ### grafana_namespace
 Sets the namespace to install the grafana operator V4 and grafana instance
@@ -137,6 +137,15 @@ Example Playbook
     - ibm.mas_devops.cluster_monitoring
 ```
 
+To Upgrade from Grafana Operator from V4 to V5
+
+```yaml
+- hosts: localhost
+  vars:
+    cluster_monitoring_action: "update_grafana"
+  roles:
+    - ibm.mas_devops.cluster_monitoring
+```
 
 License
 -------------------------------------------------------------------------------
