@@ -29,17 +29,23 @@
       - "Existing MongoDb version ........ {{ existing_mongodb.resources[0].spec.version | default('Not found', true) }}"
 
 - block:
-    - name: Set existing_mongo_storage_class
+    # Note: this step assumes that the data volume is always defined before the logs volume.  We could/should improve this TBH.
+    - name: Set existing_mongo_storage_class & capacity
       set_fact:
         existing_mongo_storage_class: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName }}"
+        existing_mongodb_storage_capacity_data: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage }}"
+        existing_mongodb_storage_capacity_logs: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[1].spec.resources.requests.storage }}"
 
     - name: Set existing_mongo_version
       set_fact:
         existing_mongo_version: "{{ existing_mongodb.resources[0].spec.version }}"
 
+    # MongoDb version strings are (currently) always in the format {single_digit}.{single_digit} so
+    # we can avoid the regex problems seen previously by using a simple substring function to
+    # get the minor version string from the first three characters of the full version string
     - name: Set existing_mongo_minor_version
       set_fact:
-        existing_mongo_minor_version: "{{ existing_mongo_version | regex_search('(?<=)(.*)(?=...)') }}"
+        existing_mongo_minor_version: "{{ existing_mongo_version[:3] }}"
 
     - include_tasks: tasks/determine-ibmcatalog-tag.yml
 

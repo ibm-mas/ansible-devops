@@ -31,6 +31,16 @@
       - "The selected storage class {{ mongodb_storage_class }} does not match the existing storage class in use {{ existing_mongo_storage_class }}"
       - "This role is unable to modify the storage used by an existing MongoDb installation"
 
+# Also, override default/selected storage capacity based on what is currently selected
+# The storage capacity used in the statefulset can not be changed
+- name: Use existing storage capacity
+  when:
+    - existing_mongodb_storage_capacity_data is defined
+    - existing_mongodb_storage_capacity_logs is defined
+  set_fact:
+    mongodb_storage_capacity_data: "{{ existing_mongodb_storage_capacity_data }}"
+    mongodb_storage_capacity_logs: "{{ existing_mongodb_storage_capacity_logs }}"
+
 
 # 3. Perform upgrade from 4.2 to 4.4 if necessary
 # -----------------------------------------------------------------------------
