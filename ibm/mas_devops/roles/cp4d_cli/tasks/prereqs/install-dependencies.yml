@@ -34,21 +34,21 @@
       - "{{ cpd_cmd_apply_cluster_components | regex_replace(' \\\\', '') }}"
 
 # Execute cpd-cli command to install IBM licensing
-- name: "install-dependencies : Running command : Install Cloud Pak for Data dependency : IBM Licensing (+- 20 minutes)"
-  async: 1200 # 20 minutes
+- name: "install-dependencies : Running command : Install Cloud Pak for Data dependency : IBM Licensing (up to 15 minutes)"
+  async: 900 # 15 minutes
   poll: 0
   shell: "{{ cpd_cmd_apply_cluster_components }}"
   register: cpd_install_ibm_licensing_output
 
 # Wait async cpd-cli cpd-cli command to install IBM licensing
-- name: "install-dependencies : Waiting command execution : Install Cloud Pak for Data dependency : IBM Foundational Services (+- 20 minutes)"
+- name: "install-dependencies : Waiting command execution : Install Cloud Pak for Data dependency : IBM Licensing... (60s delay)"
   async_status:
     jid: "{{ cpd_install_ibm_licensing_output.ansible_job_id }}"
   register: cpd_install_ibm_licensing_async_output
   until: cpd_install_ibm_licensing_async_output.finished
   retries: 15 # wait up to 15 minutes
   delay: 60
-  failed_when: ('authorize-instance-topology command ran successfully' not in cpd_install_ibm_licensing_async_output.stdout)
+  failed_when: ('apply-cluster-components command ran successfully' not in cpd_install_ibm_licensing_async_output.stdout)
 
 # Debug cpd-cli command output
 - name: "install-cr : Debug command output : Install Cloud Pak for Data dependency : IBM Licensing"
@@ -81,21 +81,21 @@
       - "{{ cpd_cmd_setup_instance_topology | regex_replace(' \\\\', '') }}"
 
 # Execute cpd-cli command to install IBM Foundational Services
-- name: "install-dependencies : Running command : Install Cloud Pak for Data dependency : IBM Foundational Services (+- 20 minutes)"
-  async: 1200 # 20 minutes
+- name: "install-dependencies : Running command : Install Cloud Pak for Data dependency : IBM Foundational Services (up to 15 minutes)"
+  async: 900 # 15 minutes
   poll: 0
   shell: "{{ cpd_cmd_setup_instance_topology }}"
   register: cpd_install_cpfs_output
 
 # Wait async cpd-cli cpd-cli command to install IBM Foundational Services
-- name: "install-dependencies : Waiting command execution : Install Cloud Pak for Data dependency : IBM Foundational Services (+- 20 minutes)"
+- name: "install-dependencies : Waiting command execution : Install Cloud Pak for Data dependency : IBM Foundational Services... (60s delay)"
   async_status:
     jid: "{{ cpd_install_cpfs_output.ansible_job_id }}"
   register: cpd_install_cpfs_async_output
   until: cpd_install_cpfs_async_output.finished
   retries: 15 # wait up to 15 minutes
   delay: 60
-  failed_when: ('authorize-instance-topology command ran successfully' not in cpd_install_cpfs_async_output.stdout)
+  failed_when: ('setup-instance-topology command ran successfully' not in cpd_install_cpfs_async_output.stdout)
 
 # Debug cpd-cli command output
 - name: "install-dependencies : Debug command output : Install Cloud Pak for Data dependency : IBM Foundational Services"

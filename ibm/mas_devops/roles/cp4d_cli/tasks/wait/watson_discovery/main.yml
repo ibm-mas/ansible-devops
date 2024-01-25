@@ -1,0 +1,162 @@
+---
+# The service accounts related to some WD dependencies cannot be patched to include
+# the ibm-entitlement-key secret, because these will eventually get overriden and the required secret
+# will be pulled off from the imagePullSecrets, thus the solution found was to patch the corresponding
+# StatefulSets directly for the following WD dependencies:
+
+# - wd-rabbitmq-discovery
+# - wd-discovery-etcd
+
+# We need to watch for these to be created, patch the
+# statefulsets, and then ensure we delete any pods stuck in ImagePullBackOff.
+#
+# It's really messy, but it's the only way to get this service deployed without
+# injecting the IBM entitlement as a default cluster image pull secret.
+
+# 1.0. Wait for Discovery custom resource to be created
+# -----------------------------------------------------------------------------
+- name: "wait-wd : Wait for the wd custom resource to appear"
+  kubernetes.core.k8s_info:
+    api_version: discovery.watson.ibm.com/v1
+    kind: WatsonDiscovery
+    name: wd
+    namespace: "{{ cpd_instance_namespace }}"
+  register: discovery_cr_lookup
+  retries: 10 # Up to 10 minutes
+  delay: 60 # Every 1 minute
+  until:
+    - discovery_cr_lookup.resources is defined
+    - discovery_cr_lookup.resources | length > 0
+
+# 1.1. Wait for Discovery wd-rabbitmq-discovery statefulset to be created
+# -----------------------------------------------------------------------------
+- name: "wait-wd : Wait for the wd-rabbitmq-discovery statefulset to appear"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: wd-rabbitmq-discovery
+    namespace: "{{ cpd_instance_namespace }}"
+  register: discovery_rabbitmq_ss_lookup
+  retries: 60 # Up to 2 hours
+  delay: 120 # Every 2 minutes
+  until:
+    - discovery_rabbitmq_ss_lookup.resources is defined
+    - discovery_rabbitmq_ss_lookup.resources | length > 0
+
+# 1.2. Patch the Discovery wd-rabbitmq-discovery statefulset in ibm-cpd namespace to add ibm-entitlement-key
+# -----------------------------------------------------------------------------
+- name: "wait-wd : Patch the wd-rabbitmq-discovery statefulset to include right imagePullPolicy"
+  kubernetes.core.k8s:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: wd-rabbitmq-discovery
+    namespace: "{{ cpd_instance_namespace }}"
+    apply: yes
+    definition:
+      spec:
+        template:
+          spec:
+            imagePullSecrets:
+              - name: ibm-entitlement-key
+
+# 1.3. Wait for Discovery wd-discovery-etcd statefulset to be created
+# -----------------------------------------------------------------------------
+- name: "wait-wd : Wait for the wd-discovery-etcd statefulset to appear"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: wd-discovery-etcd
+    namespace: "{{ cpd_instance_namespace }}"
+  register: discovery_etcd_ss_lookup
+  retries: 60 # Up to 2 hours
+  delay: 120 # Every 2 minutes
+  until:
+    - discovery_etcd_ss_lookup.resources is defined
+    - discovery_etcd_ss_lookup.resources | length > 0
+
+# 1.4. Patch the Discovery wd-discovery-etcd statefulset in ibm-cpd namespace to add ibm-entitlement-key
+# -----------------------------------------------------------------------------
+- name: "wait-wd : Patch the wd-discovery-etcd statefulset to include right imagePullPolicy"
+  kubernetes.core.k8s:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: wd-discovery-etcd
+    namespace: "{{ cpd_instance_namespace }}"
+    apply: yes
+    definition:
+      spec:
+        template:
+          spec:
+            imagePullSecrets:
+              - name: ibm-entitlement-key
+
+# 2. Spend 30 minutes looking for pods stuck in ImagePullBackoff state
+# -----------------------------------------------------------------------------
+# If we look for pods in image pull backoff too early then we won't know which ones to
+# boot so that they pick up the image pull secret as it takes a while for pods to get
+# into "ImagePullBackOff" or "ErrImagePull" state
+- name: "wait/watson_discovery : Catch any pods caughts in ImgPullBackOff (1)"
+  include_tasks: tasks/wait/watson_discovery/detectimagepullbackoff.yml
+
+- name: "wait/watson_discovery: Catch any pods caughts in ImgPullBackOff (2)"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  include_tasks: tasks/wait/watson_discovery/detectimagepullbackoff.yml
+
+- name: "wait/watson_discovery : Catch any pods caughts in ImgPullBackOff (3)"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  include_tasks: tasks/wait/watson_discovery/detectimagepullbackoff.yml
+
+- name: "wait/watson_discovery : Catch any pods caughts in ImgPullBackOff (4)"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  include_tasks: tasks/wait/watson_discovery/detectimagepullbackoff.yml
+
+- name: "wait/watson_discovery : Catch any pods caughts in ImgPullBackOff (5)"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  include_tasks: tasks/wait/watson_discovery/detectimagepullbackoff.yml
+
+- name: "wait/watson_discovery : Catch any pods caughts in ImgPullBackOff (6)"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  include_tasks: tasks/wait/watson_discovery/detectimagepullbackoff.yml
+
+# 4. Wait for CP4D service CR to be ready
+# -----------------------------------------------------------------------------
+- name: "wait/watson_discovery : Wait for watsonDiscoveryStatus 'Completed' (5m interval)"
+  kubernetes.core.k8s_info:
+    api_version: "discovery.watson.ibm.com/v1"
+    kind: "WatsonDiscovery"
+    name: "wd"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: wd_cr_lookup
+  until:
+    - wd_cr_lookup.resources is defined
+    - wd_cr_lookup.resources | length == 1
+    - wd_cr_lookup.resources[0].status is defined
+    - wd_cr_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - wd_cr_lookup.resources[0].status.watsonDiscoveryStatus == "Completed"
+  retries: 60 # Up to 5 (yes, FIVE !!) hours
+  delay: 300 # Every 5 minutes

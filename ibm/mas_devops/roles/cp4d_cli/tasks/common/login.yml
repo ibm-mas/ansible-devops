@@ -1,32 +1,63 @@
 # TODO: Need to find a way to make login work out off 'ocp_login' role or implement a solution that sets the target cluster into cpd-cli container's context https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3269
 # This works only for ROKS: ibmcloud oc cluster config -c $CLUSTER_NAME --admin --output yaml > /$HOME/cpd-cli-workspace/olm-utils-workspace/work/.olm-utils/.kubeconfig
 
+# CP4D services require that some of their service accounts to have ibm-entitlement-key set imagePullPolicy
+- name: "login : Lookup cpd-admin-sa-token secret name"
+  shell: oc get secrets -n default | grep {{ cpd_admin_login_sa }}-token | awk '{print $1}'
+  register: cpd_admin_token_secret_name
+  
+- when: cpd_admin_token_secret_name.stdout | length == 0
+  block:
+    - name: "login : Create cpd-admin-sa serviceAccount"
+      kubernetes.core.k8s:
+        apply: yes
+        template: templates/cpd_platform/cpd-admin-sa-rbac.yml.j2
+      register: cpd_sa_create
+      retries: 2
+      delay: 15 # seconds
+      until: cpd_admin_sa_create.error is not defined # The error field will be set to 409 if there was a conflict
+
+- name: "login : Lookup {{ cpd_admin_login_sa }}-token secret name"
+  shell: oc get secrets -n default | grep {{ cpd_admin_login_sa }}-token | awk '{print $1}'
+  register: cpd_admin_token_secret_name
+  failed_when: cpd_admin_token_secret_name.stdout | length == 0
+
+- name: "login : Lookup {{ cpd_admin_login_sa }}-token secret content"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ cpd_admin_token_secret_name.stdout }}"
+    namespace: default
+  register: cpd_admin_secret_output
+
+- name: "login : Set ocp_token property from {{ cpd_admin_login_sa }}-token secret content"
+  set_fact:
+    ocp_token: "{{ cpd_admin_secret_output.resources[0].data.token | b64decode }}"
+
+- name: "login : Lookup logged ocp server"
+  shell: oc whoami --show-server
+  register: cpd_admin_server_output
+  failed_when: cpd_admin_server_output.stdout | length == 0
+
+- name: "login : Set ocp_server property"
+  set_fact:
+    ocp_server: "{{ cpd_admin_server_output.stdout  }}"
+
+- name: "login : Assert ocp login and token are provided"
+  assert:
+    that:
+      - ocp_server is defined
+      - ocp_server != ''
+      - ocp_token is defined
+      - ocp_token != ''
+    fail_msg: "'ocp_server' and/or 'ocp_token' are not provided, thus it will not be possible to proceed."
+
 # Login option 1: using 'ocp_server' and 'ocp_token' properties
-- name: "cpd-cli: Run - Login to target {{ cluster_type }} cluster via login-to-ocp"
-  when:
-    - ocp_server is defined
-    - ocp_server != ''
-    - ocp_token is defined
-    - ocp_token != ''
+- name: "login: Run - Login to target cluster via login-to-ocp"
   shell: cpd-cli manage login-to-ocp --server={{ ocp_server }} --token={{ ocp_token }} 2>&1 | tee {{ role_path }}/logs/cpd_platform_login_output.log
   register: cpd_login_output
   failed_when: ('login-to-ocp command ran successfully' not in cpd_login_output.stdout)
 
-# Login option 2 (ROKS only): using 'ibmcloud oc cluster config' command to lookup kubeconfig for the target cluster and set the context in {{ cpd_work_dir }}/.olm-utils/.kubeconfig
-- name: "cpd-cli: Run - Login to target {{ cluster_name }} cluster via kubeconfig "
-  when:
-    - ocp_server is not defined
-    - ocp_password is not defined
-    - cluster_type == 'roks'
-    - cluster_name is defined
-    - not cpd_login_output.changed
-  shell: ibmcloud oc cluster config -c {{ cluster_name }} --admin --output yaml > {{ cpd_work_dir }}/.olm-utils/.kubeconfig 2>&1 | tee {{ role_path }}/logs/cpd_platform_login_output.log
-  register: ibmcloud_login_output
-  failed_when: ibmcloud_login_output.rc > 0
-
-- debug:
-    var: ibmcloud_login_output
-
-- name: "Debug - Login to target cluster"
+- name: "login : debug"
   debug:
-    msg: "{{ cpd_login_output.stdout | default(ibmcloud_login_output, true) | default('logged to {{ cluster_type }} cluster') }}"
+    msg: "{{ cpd_login_output.stdout }}"
