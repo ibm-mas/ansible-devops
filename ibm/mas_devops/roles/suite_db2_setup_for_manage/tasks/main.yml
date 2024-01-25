@@ -81,6 +81,11 @@
   delay: 30 # seconds
   until: prepare_cmds_status.rc == 0
 
+- name: "Print setupdb.sh return code"
+  debug:
+    msg:
+      - "SetupDB return code (rc) ........................ {{ prepare_cmds_status.rc }}"
+
 - name: "Database setup debug information"
   debug:
     msg:
@@ -89,8 +94,11 @@
 
 - name: Assert that manage tablespace or bufferpools are not created
   assert:
-    that: prepare_cmds_status.rc is defined and prepare_cmds_status.rc != 0
+    that:
+      - prepare_cmds_status.rc is defined
+      - prepare_cmds_status.rc == 0
     fail_msg: "setupdb.sh failed for Manage Maxinst -  tablespace or bufferpools may not have been created"
+    success_msg: "Manage DB setup ran successfully"
 
 
 # 4. Execute DB2 config enforcement
