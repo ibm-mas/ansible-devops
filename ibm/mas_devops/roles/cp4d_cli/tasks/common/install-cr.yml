@@ -8,16 +8,6 @@
       - "Release ......................... {{ cpd_product_version }}"
       - "Components ...................... {{ cpd_components_list }}"
 
-# CP4D services require that some of their service accounts to have ibm-entitlement-key set imagePullPolicy
-- name: "configure-image-pull-policy : Pre-create Cloud Pak for Data serviceAccounts with ibm-entitlement-key in imagePullSecret"
-  kubernetes.core.k8s:
-    apply: yes
-    template: templates/cpd_platform/cpd-service-accounts.yml.j2
-  register: cpd_sa_create
-  retries: 2
-  delay: 15 # seconds
-  until: cpd_sa_create.error is not defined # The error field will be set to 409 if there was a conflict
-
 # Set cpd-cli command to be executed
 - name: "install-cr : Set command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}"
   set_fact:
@@ -44,11 +34,20 @@
   shell: "{{ cpd_cmd_apply_cr }}"
   register: cpd_install_cr_output
 
+- debug:
+    msg:
+      - "{{ cpd_components_list | intersect(cpd_components_depending_ccs_list) | length > 0 }}"
+
+# Install and configure cpd services pre-reqs depending on ccs
+# if some of the cpd components to be installed depends on ccs, then run the wait/ccs task
+- name: "install-cr : Follow up on CCS installation..."
+  include_tasks: "tasks/wait/ccs/main.yml"
+  when: cpd_components_list | intersect(cpd_components_depending_ccs_list) | length > 0
+
 # In some cases, we'll have to intervene while a given service is being installed
-- name: "install-cr : Monitoring WD installation..."
-  include_tasks: "tasks/wait/{{ item }}/main.yml"
+- name: "install-cr : Follow on WD installation..."
+  include_tasks: "tasks/wait/watson_discovery/main.yml"
   when: ('watson_discovery' in cpd_components_list)
-  with_items: "{{ cpd_components_list }}"
 
 # Wait async cpd-cli command to install corresponding custom resources
 - name: "install-cr : Waiting command execution : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}... (60s delay)"

@@ -1,0 +1,129 @@
+---
+# The service accounts related to some CCS dependencies cannot be patched to include
+# the ibm-entitlement-key secret, because these will eventually get overriden and the required secret
+# will be pulled off from the imagePullSecrets, thus the solution found was to patch the corresponding
+# custom resource directly for the following CCS dependencies:
+
+# - elasticsearch-master
+
+# We need to watch for these to be created, patch the
+# custom resources, and then ensure we delete any pods stuck in ImagePullBackOff.
+#
+# It's really messy, but it's the only way to get this service deployed without
+# injecting the IBM entitlement as a default cluster image pull secret.
+
+
+# 1. Wait for CCS custom resource to be created
+# -----------------------------------------------------------------------------
+- name: "wait/ccs : Wait for the CCS custom resource to appear"
+  kubernetes.core.k8s_info:
+    api_version: ccs.cpd.ibm.com/v1beta1
+    kind: CCS
+    name: ccs-cr
+    namespace: "{{ cpd_instance_namespace }}"
+  register: ccs_cr_lookup
+  retries: 10 # Up to 10 minutes
+  delay: 60 # Every 1 minute
+  until:
+    - ccs_cr_lookup.resources is defined
+    - ccs_cr_lookup.resources | length > 0
+
+# 2. Wait for elasticsearch-master custom resource to be created
+# -----------------------------------------------------------------------------
+- name: "wait/ccs : Wait for the Elasticsearch-master custom resource to appear"
+  kubernetes.core.k8s_info:
+    api_version: elasticsearch.opencontent.ibm.com/v1
+    kind: ElasticsearchCluster
+    name: elasticsearch-master
+    namespace: "{{ cpd_instance_namespace }}"
+  register: elasticsearch_cr_lookup
+  retries: 10 # Up to 10 minutes
+  delay: 60 # Every 1 minute
+  until:
+    - elasticsearch_cr_lookup.resources is defined
+    - elasticsearch_cr_lookup.resources | length > 0
+
+# check if elasticsearch cr is already patched
+- set_fact:
+    is_elasticsearch_already_patched: "{{ elasticsearch_cr_lookup.resources[0].spec.imagePullSecret is defined and elasticsearch_cr_lookup.resources[0].spec.imagePullSecret != '' }}"
+
+- debug:
+    msg:
+      - "ElasticSearch Already patched? ..................... {{ is_elasticsearch_already_patched }}"
+
+# 3. Only patch elasticsearch cr with ibm-entitlement-key if is_elasticsearch_already_patched == False
+# -----------------------------------------------------------------------------
+- block:
+    - name: "wait-css : Patch the elasticsearch-master custom resource to include right imagePullPolicy"
+      kubernetes.core.k8s:
+        api_version: elasticsearch.opencontent.ibm.com/v1
+        kind: ElasticsearchCluster
+        name: elasticsearch-master
+        namespace: "{{ cpd_instance_namespace }}"
+        apply: yes
+        definition:
+          spec:
+            imagePullSecret: ibm-entitlement-key
+
+    # Delete Elastic Search operator to force reconcile
+    - name: "wait/ccs : Scale down ibm-elasticsearch-operator"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        name: ibm-elasticsearch-operator-ibm-es-controller-manager
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+        definition:
+          spec:
+            replicas: 0
+        apply: true
+
+    # Scale up Elastic Search operator again to force reconcile
+    - name: "wait/ccs : Scale up ibm-elasticsearch-operator to force reconcile"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        name: ibm-elasticsearch-operator-ibm-es-controller-manager
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+        definition:
+          spec:
+            replicas: 1
+        apply: true
+
+    # 2.5 Wait for Elastic Search operator to be ready
+    - name: "wait/ccs : Wait for ibm-elasticsearch-operator to be ready again (60s delay)"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        name: ibm-elasticsearch-operator-ibm-es-controller-manager
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+      register: es_operator_lookup
+      until: es_operator_lookup.resources[0].status.availableReplicas is defined
+      retries: 20 # Approximately 20 minutes before we give up
+      delay: 60 # 1 minute
+
+  when: not is_elasticsearch_already_patched
+
+# 5. Wait for CCS CR to be ready
+# -----------------------------------------------------------------------------
+# Note: We can't fail early when we see Failed status, as the operator will
+# report failed multiple times during initial reconcile.
+- name: "wait-ccs : Wait for ccsStatus 'Completed' (5m interval)"
+  kubernetes.core.k8s_info:
+    api_version: "ccs.cpd.ibm.com/v1beta1"
+    kind: CCS
+    name: "ccs-cr"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: ccs_cr_lookup
+  until:
+    - ccs_cr_lookup.resources is defined
+    - ccs_cr_lookup.resources | length == 1
+    - ccs_cr_lookup.resources[0].status is defined
+    - ccs_cr_lookup.resources[0].status.ccsStatus is defined
+    - ccs_cr_lookup.resources[0].status.ccsStatus == "Completed" #  or ccs_cr_lookup.resources[0].status.wmlStatus == "Failed"
+  retries: 50 # Just over 4 hours
+  delay: 300 # Every 5 minutes
+
+- name: "wait-ccs : Check that the CCS ccsStatus is 'Completed'"
+  assert:
+    that: ccs_cr_lookup.resources[0].status.ccsStatus == "Completed"
+    fail_msg: "CCS install failed (ccsStatus)"
