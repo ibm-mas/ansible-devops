@@ -31,13 +31,3 @@
       stringData:
         # Only way I could get three consecutive "}" into a string :)
         .dockerconfigjson: "{{ content | join('') | string }}"
-
-# CP4D services require that some of their service accounts to have ibm-entitlement-key set imagePullPolicy
-- name: "configure-image-pull-policy : Pre-create Cloud Pak for Data serviceAccounts with ibm-entitlement-key in imagePullSecret"
-  kubernetes.core.k8s:
-    apply: yes
-    template: templates/cpd_platform/cpd-service-accounts.yml.j2
-  register: cpd_sa_create
-  retries: 2
-  delay: 15 # seconds
-  until: cpd_sa_create.error is not defined # The error field will be set to 409 if there was a conflict

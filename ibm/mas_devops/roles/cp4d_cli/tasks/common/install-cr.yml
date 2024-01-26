@@ -8,6 +8,17 @@
       - "Release ......................... {{ cpd_product_version }}"
       - "Components ...................... {{ cpd_components_list }}"
 
+# CP4D services require that some of their service accounts to have ibm-entitlement-key set imagePullPolicy
+# Invoke this task with the custom resource install as service accounts might get deleted if the service is uninstalled
+- name: "install-cr : Pre-create Cloud Pak for Data serviceAccounts with ibm-entitlement-key in imagePullSecret"
+  kubernetes.core.k8s:
+    apply: yes
+    template: templates/cpd_platform/cpd-service-accounts.yml.j2
+  register: cpd_sa_create
+  retries: 2
+  delay: 15 # seconds
+  until: cpd_sa_create.error is not defined # The error field will be set to 409 if there was a conflict
+
 # Set cpd-cli command to be executed
 - name: "install-cr : Set command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}"
   set_fact:
@@ -28,8 +39,8 @@
       - "{{ cpd_cmd_apply_cr | regex_replace(' \\\\', '') }}"
 
 # Execute async cpd-cli command to install corresponding custom resources
-- name: "install-cr : Running command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }} (up to 120 minutes)"
-  async: 7200 # 120 minutes
+- name: "install-cr : Running command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }} (up to 180 minutes)"
+  async: 10800 # 180 minutes
   poll: 0
   shell: "{{ cpd_cmd_apply_cr }}"
   register: cpd_install_cr_output
@@ -55,7 +66,7 @@
     jid: "{{ cpd_install_cr_output.ansible_job_id }}"
   register: cpd_install_cr_async_output
   until: cpd_install_cr_async_output.finished
-  retries: 120 # wait up to 2 hours
+  retries: 180 # wait up to 3 hours
   delay: 60
   failed_when: ('apply-cr command ran successfully' not in cpd_install_cr_async_output.stdout)
 
