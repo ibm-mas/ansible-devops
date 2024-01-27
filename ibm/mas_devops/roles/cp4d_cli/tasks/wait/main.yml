@@ -1,0 +1,17 @@
+---
+# Install and configure cpd services pre-reqs depending on ccs
+# if some of the cpd components to be installed depends on ccs, then run the wait/ccs task
+- name: "install-cr : Follow up on CPD platform installation..."
+  include_tasks: "tasks/wait/cpd_platform.yml"
+  when: ('cpd_platform' in cpd_components_list)
+
+# Install and configure cpd services pre-reqs depending on ccs
+# if some of the cpd components to be installed depends on ccs, then run the wait/ccs task
+- name: "install-cr : Follow up on CCS installation..."
+  include_tasks: "tasks/wait/ccs.yml"
+  when: cpd_components_list | intersect(cpd_components_depending_ccs_list) | length > 0
+
+# In some cases, we'll have to intervene while a given service is being installed
+- name: "install-cr : Follow on WD installation..."
+  include_tasks: "tasks/wait/watson_discovery.yml"
+  when: ('watson_discovery' in cpd_components_list)

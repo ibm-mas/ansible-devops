@@ -12,7 +12,6 @@
 # It's really messy, but it's the only way to get this service deployed without
 # injecting the IBM entitlement as a default cluster image pull secret.
 
-
 # 1. Wait for CCS custom resource to be created
 # -----------------------------------------------------------------------------
 - name: "wait/ccs : Wait for the CCS custom resource to appear"
@@ -54,16 +53,6 @@
 # 3. Only patch elasticsearch cr with ibm-entitlement-key if is_elasticsearch_already_patched == False
 # -----------------------------------------------------------------------------
 - block:
-    - name: "wait-css : Patch the elasticsearch-master custom resource to include right imagePullPolicy"
-      kubernetes.core.k8s:
-        api_version: elasticsearch.opencontent.ibm.com/v1
-        kind: ElasticsearchCluster
-        name: elasticsearch-master
-        namespace: "{{ cpd_instance_namespace }}"
-        apply: yes
-        definition:
-          spec:
-            imagePullSecret: ibm-entitlement-key
 
     # Delete Elastic Search operator to force reconcile
     - name: "wait/ccs : Scale down ibm-elasticsearch-operator"
@@ -76,6 +65,34 @@
           spec:
             replicas: 0
         apply: true
+
+    - name: "wait/ccs : Delete elasticsearch-master-create-snapshot-repo-job so next time it recreates with right imagePullPolicy"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: batch/v1
+        kind: Job
+        name: "elasticsearch-master-ibm-elasticsearch-create-snapshot-repo-job"
+        namespace: "{{ cpd_instance_namespace }}"
+    
+    - name: "wait/ccs : Delete elasticsearch-server-esnodes statefulset so next time it recreates with right imagePullPolicy"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: apps/v1
+        kind: StatefulSet
+        namespace: "{{ cpd_instance_namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/instance=elasticsearch-master"
+
+    - name: "wait-css : Patch the elasticsearch-master custom resource to include right imagePullPolicy"
+      kubernetes.core.k8s:
+        api_version: elasticsearch.opencontent.ibm.com/v1
+        kind: ElasticsearchCluster
+        name: elasticsearch-master
+        namespace: "{{ cpd_instance_namespace }}"
+        apply: yes
+        definition:
+          spec:
+            imagePullSecret: ibm-entitlement-key
 
     # Scale up Elastic Search operator again to force reconcile
     - name: "wait/ccs : Scale up ibm-elasticsearch-operator to force reconcile"
