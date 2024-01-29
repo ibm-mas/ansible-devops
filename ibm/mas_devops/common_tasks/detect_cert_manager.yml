@@ -12,20 +12,28 @@
   register: cert_manager_webhook_lookup
 
 - debug:
-    var: cert_manager_webhook_lookup
+    var: cert_manager_webhook_lookup.stdout_lines
+
+- name: Set list of namespaces where Certificate Manager is running."
+  set_fact:
+    cert_manager_namespace_list: "{{ cert_manager_webhook_lookup.stdout_lines | unique }}" # only interested in distinct namespaces where cert-manager might be installed
 
 - name: Assert Certificate Manager is installed
   assert:
-    that: cert_manager_webhook_lookup.stdout_lines | length > 0
+    that: cert_manager_namespace_list | length > 0
     fail_msg: "Certificate Manager was not found in the cluster. Make sure you install it by running 'cert_manager' role before trying to setup Maximo Application Suite instance."
 
 - name: Assert there is just one Certificate Manager running
   assert:
-    that: cert_manager_webhook_lookup.stdout_lines | length == 1
+    that: cert_manager_namespace_list | length == 1
     fail_msg:
       - "There are multiple instances of Certificate Manager running in the cluster."
       - "Make sure you just have one Certificate Manager instance running."
-      - "Certificate Manager namespaces identified: {{ cert_manager_webhook_lookup.stdout_lines }}"
+      - "Certificate Manager namespaces identified: {{ cert_manager_namespace_list }}"
+
+- name: Set Certificate Manager namespace
+  set_fact:
+    cert_manager_namespace: "{{ cert_manager_namespace_list | first }}"
 
 # 2. Check if Certificate Manager Cluster Resource Namespace is defined
 # -----------------------------------------------------------------------------
@@ -52,10 +60,6 @@
 
 # 3. Set Certificate Manager variables
 # -----------------------------------------------------------------------------
-- name: Set Certificate Manager namespace
-  set_fact:
-    cert_manager_namespace: "{{ cert_manager_webhook_lookup.stdout }}"
-
 # If 'cert_manager_cluster_resource_namespace' is not yet defined then set it to same value as 'cert_manager_namespace'
 - name: Set Certificate Manager Cluster Resource namespace (if not set)
   set_fact:
