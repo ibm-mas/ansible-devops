@@ -1,0 +1,23 @@
+# 1. Verify Package and Determine Catalog Source
+# ---------------------------------------------------------------------------------------------------------------------
+- name: Get PackageManifest
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: "{{ eck_package }}"
+    namespace: openshift-marketplace
+  register: eck_manifest
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - eck_manifest is defined
+      - eck_manifest.resources is defined
+      - eck_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: {{ eck_package }}"
+
+- name: Set the subscription information
+  set_fact:
+    eck_source: "{{ eck_manifest.resources[0].status.catalogSource }}"
+    eck_source_namespace: "{{ eck_manifest.resources[0].status.catalogSourceNamespace }}"
+    eck_default_channel: "{{ eck_manifest.resources[0].status.defaultChannel }}"
