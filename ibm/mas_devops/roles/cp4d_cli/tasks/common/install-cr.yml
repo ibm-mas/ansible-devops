@@ -39,8 +39,8 @@
       - "{{ cpd_cmd_apply_cr | regex_replace(' \\\\', '') }}"
 
 # Execute async cpd-cli command to install corresponding custom resources
-- name: "install-cr : Running command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }} (up to 180 minutes)"
-  async: 10800 # 180 minutes
+- name: "install-cr : Running command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }} (up to 360 minutes)"
+  async: 21600 # 360 minutes
   poll: 0
   shell: "{{ cpd_cmd_apply_cr }}"
   register: cpd_install_cr_output
@@ -58,7 +58,7 @@
     jid: "{{ cpd_install_cr_output.ansible_job_id }}"
   register: cpd_install_cr_async_output
   until: cpd_install_cr_async_output.finished
-  retries: 180 # wait up to 3 hours
+  retries: 360 # wait up to 6 hours
   delay: 60
   failed_when: ('apply-cr command ran successfully' not in cpd_install_cr_async_output.stdout)
 
