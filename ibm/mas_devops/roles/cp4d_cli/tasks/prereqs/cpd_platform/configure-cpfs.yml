@@ -1,0 +1,64 @@
+---
+# About this task:
+# Before you install IBM Cloud Pak for Data, you must install the
+# IBM Cloud Pak foundational services, Certificate manager and License Service.
+# This task will install only IBM Cloud Pak Foundational Services and License Service
+# and will verify if Certificate Manager have been installed.
+# Certificate Manager should have been installed at this point using 'cert_manager' role.
+
+# More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=cluster-installing-shared-components
+
+#  Install Cloud Pak for Data dependency: IBM Foundational Services
+# ---------------------------------------------------------------------------------------------------
+# Creates CPFS related catalog sources: opencloud-operators and cloud-native-postgresql-catalog
+# Includes following subscriptions in operators namespace:
+# - Foundational Services (Scaling CPFS size to small)
+# - IBM Namespace Scope operator
+# - Operand Deployment Lifecycle Manager
+
+# Clean up cpd-platform operators prior upgrading to v4
+# This is needed because when ibm-common-service operator subscription is updated to v4.3
+# It won't process the upgrade because it will complain that the cpd-platform subscription is using it
+- include_tasks: "tasks/common/uninstall-operator.yml"
+  when: cpd_action == 'upgrade'
+  vars:
+    cpd_subs_item: "cpd-platform"
+
+# Set cpd-cli command to be executed
+- name: "install-dependencies : Set command : Install Cloud Pak for Data dependency : IBM Foundational Services"
+  set_fact:
+    cpd_cmd_setup_instance_topology: cpd-cli manage setup-instance-topology \
+      --release={{ cpd_product_version }} \
+      --cpd_operator_ns={{ cpd_operators_namespace }} \
+      --cpd_instance_ns={{ cpd_instance_namespace }}  \
+      --license_acceptance=true \
+      --block_storage_class={{ cpd_metadata_storage_class }} 2>&1 | tee {{ role_path }}/logs/cpd_platform_step8_cpd_install_cpfs_output.log
+
+# Debug cpd-cli command to be executed
+# The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
+- name: "install-dependencies : Debug command : Install Cloud Pak for Data dependency : IBM Foundational Services"
+  debug:
+    msg:
+      - "{{ cpd_cmd_setup_instance_topology | regex_replace(' \\\\', '') }}"
+
+# Execute cpd-cli command to install IBM Foundational Services
+- name: "install-dependencies : Running command : Install Cloud Pak for Data dependency : IBM Foundational Services (up to 30 minutes)"
+  async: 1800 # 30 minutes
+  poll: 0
+  shell: "{{ cpd_cmd_setup_instance_topology }}"
+  register: cpd_install_cpfs_output
+
+# Wait async cpd-cli cpd-cli command to install IBM Foundational Services
+- name: "install-dependencies : Waiting command execution : Install Cloud Pak for Data dependency : IBM Foundational Services... (60s delay)"
+  async_status:
+    jid: "{{ cpd_install_cpfs_output.ansible_job_id }}"
+  register: cpd_install_cpfs_async_output
+  until: cpd_install_cpfs_async_output.finished
+  retries: 30 # wait up to 30 minutes
+  delay: 60
+  failed_when: ('setup-instance-topology command ran successfully' not in cpd_install_cpfs_async_output.stdout)
+
+# Debug cpd-cli command output
+- name: "install-dependencies : Debug command output : Install Cloud Pak for Data dependency : IBM Foundational Services"
+  debug:
+    msg: "{{ cpd_install_cpfs_async_output.stdout }}"

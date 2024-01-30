@@ -1,0 +1,65 @@
+---
+# This task runs 'cpd-cli manage apply-olm' command which is responsible for installing CPD related catalog sources and subscriptions
+
+# Debug components to be installed
+- name: "cpd-cli : Debug operators to be uninstalled"
+  debug:
+    msg:
+      - "Operator ......................... {{ cpd_subs_item }}"
+
+# Lookup subscription
+- name: "uninstall-operator: Lookup operators.coreos.com/{{ cpd_subs_item }}-operator.{{ cpd_operators_namespace }} subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - operators.coreos.com/{{ cpd_subs_item }}-operator.{{ cpd_operators_namespace }}
+  register: cpd_sub_lookup
+
+# Delete subscription
+- name: "uninstall-operator : Delete operators.coreos.com/{{ cpd_subs_item }}-operator.{{ cpd_operators_namespace }} subscription"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ cpd_sub_lookup.resources[0].metadata.name }}"
+    namespace: "{{ cpd_operators_namespace }}"
+  register: cpd_sub_delete
+  when: 
+    - cpd_sub_lookup.resources is defined
+    - cpd_sub_lookup.resources[0].metadata is defined
+    - cpd_sub_lookup.resources[0].metadata.name is defined
+
+- name: "uninstall-operator : Debug - Delete operators.coreos.com/{{ cpd_subs_item }}-operator.{{ cpd_operators_namespace }} subscription"
+  debug: 
+    var: cpd_sub_lookup
+
+# Lookup csv
+- name: "uninstall-operator: Lookup operators.coreos.com/{{ cpd_subs_item }}-operator.{{ cpd_operators_namespace }} csv"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - operators.coreos.com/{{ cpd_subs_item }}-operator.{{ cpd_operators_namespace }}
+  register: cpd_csv_lookup
+
+# Delete csv
+- name: "uninstall-operator : Delete operators.coreos.com/{{ cpd_subs_item }}-operator.{{ cpd_operators_namespace }} csv"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - operators.coreos.com/{{ cpd_subs_item }}-operator.{{ cpd_operators_namespace }}
+  register: cpd_csv_delete
+  when: 
+    - cpd_csv_lookup.resources is defined
+    - cpd_csv_lookup.resources[0].metadata is defined
+    - cpd_csv_lookup.resources[0].metadata.name is defined
+
+- name: "uninstall-operator : Debug - Delete operators.coreos.com/{{ cpd_subs_item }}-operator.{{ cpd_operators_namespace }} csv"
+  debug: 
+    var: cpd_csv_delete

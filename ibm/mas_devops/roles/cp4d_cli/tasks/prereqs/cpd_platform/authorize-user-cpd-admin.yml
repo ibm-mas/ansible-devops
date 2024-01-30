@@ -12,34 +12,10 @@
 # Create the cpd-instance-admin-apply-olm role in the operators project for the instance
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-authorizing-instance-administrator
 # ---------------------------------------------------------------------------------------------------
-- name: "authorize-user-cpd-admin : Create cpd-instance-admin-apply-olm role"
+- name: "authorize-user-cpd-admin : Create cpd-instance-admin-apply-olm and cpd-instance-admin-read-catsrc roles"
   kubernetes.core.k8s:
     apply: yes
-    definition:
-      apiVersion: rbac.authorization.k8s.io/v1
-      kind: Role
-      metadata:
-        name: cpd-instance-admin-apply-olm
-        namespace: "{{ cpd_operators_namespace }}"
-      rules:
-        - apiGroups:
-            - operators.coreos.com
-          resources:
-            - operatorgroups
-          verbs:
-            - create
-            - get
-            - list
-            - patch
-            - update
-        - apiGroups:
-            - operators.coreos.com
-          resources:
-            - catalogsources
-          verbs:
-            - create
-            - get
-            - list
+    definition: "{{ lookup('template', 'templates/cpd_platform/rbac.yml.j2') }}"
 
 # Assign the user the role in the operators project for the instance:
 # ---------------------------------------------------------------------------------------------------
@@ -51,77 +27,103 @@
     - ('Error' in cpd_ns_output.stdout)
 
 # Set command to be executed
-- name: "authorize-user-cpd-admin : Set command : Assign user the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
+- name: "authorize-user-cpd-admin : Set command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
   set_fact:
     cpd_cmd_adm_policy_to_user_operators: oc adm policy add-role-to-user admin -z {{ cpd_admin_login_sa }} --namespace={{ cpd_operators_namespace }} --rolebinding-name=cpd-instance-admin-rbac 2>&1 | tee {{ role_path }}/logs/cpd_platform_assign_user_admin_permission_to_operators_ns_output.log
 
 # Debug
-- name: "authorize-user-cpd-admin : Debug command : Assign user the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
+- name: "authorize-user-cpd-admin : Debug command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
   debug:
     msg: "{{ cpd_cmd_adm_policy_to_user_operators | regex_replace(' \\\\', '') }}"
 
 # Execute command
-- name: "authorize-user-cpd-admin : Running command : Assign user the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
+- name: "authorize-user-cpd-admin : Running command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
   shell: "{{ cpd_cmd_adm_policy_to_user_operators }}"
   register: cpd_assign_permission_operators_ns_output
   failed_when:
-    - ('clusterrole.rbac.authorization.k8s.io/admin added' not in cpd_assign_permission_operators_ns_output.stdout)
-    - ('not found' in cpd_assign_permission_operators_ns_output.stdout)
-    - ('Error' in cpd_assign_permission_operators_ns_output.stdout)
+    - ('clusterrole.rbac.authorization.k8s.io/admin added' not in cpd_assign_permission_operators_ns_output.stdout) or
+      ('not found' in cpd_assign_permission_operators_ns_output.stdout) or
+      ('Error' in cpd_assign_permission_operators_ns_output.stdout)
 
 # Debug
-- name: "authorize-user-cpd-admin : Debug command output : Assign user the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
+- name: "authorize-user-cpd-admin : Debug command output : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
   debug:
     msg: "{{ cpd_assign_permission_operators_ns_output.stdout }}"
 
 # Assign the user the admin role in the operands project for the instance:
 # ---------------------------------------------------------------------------------------------------
 # Set command to be executed
-- name: "authorize-user-cpd-admin : Set command : Assign user the admin role in the {{ cpd_instance_namespace }} operands project for the cpd instance"
+- name: "authorize-user-cpd-admin : Set command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_instance_namespace }} operands project for the cpd instance"
   set_fact:
     cpd_cmd_adm_policy_to_user_operands: oc adm policy add-role-to-user admin -z {{ cpd_admin_login_sa }} --namespace={{ cpd_instance_namespace }} --rolebinding-name=cpd-instance-admin-rbac 2>&1 | tee {{ role_path }}/logs/cpd_platform_assign_user_admin_permission_to_operands_ns_output.log
 
 # Debug command
-- name: "authorize-user-cpd-admin : Debug command : Assign user the admin role in the {{ cpd_operators_namespace }} operands project for the cpd instance"
+- name: "authorize-user-cpd-admin : Debug command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_instance_namespace }} operands project for the cpd instance"
   debug:
     msg: "{{ cpd_cmd_adm_policy_to_user_operands | regex_replace(' \\\\', '') }}"
 
 # Execute command
-- name: "authorize-user-cpd-admin : Run Assign user the admin role in the {{ cpd_instance_namespace }} operands project for the cpd instance"
+- name: "authorize-user-cpd-admin : Running command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_instance_namespace }} operands project for the cpd instance"
   shell: "{{ cpd_cmd_adm_policy_to_user_operands }}"
   register: cpd_assign_permission_operands_ns_output
   failed_when:
-    - ('clusterrole.rbac.authorization.k8s.io/admin added' not in cpd_assign_permission_operands_ns_output.stdout)
-    - ('not found' in cpd_assign_permission_operands_ns_output.stdout)
-    - ('Error' in cpd_assign_permission_operands_ns_output.stdout)
+    - ('clusterrole.rbac.authorization.k8s.io/admin added' not in cpd_assign_permission_operands_ns_output.stdout) or
+      ('not found' in cpd_assign_permission_operands_ns_output.stdout) or
+      ('Error' in cpd_assign_permission_operands_ns_output.stdout)
 
 # Debug command output
-- name: "authorize-user-cpd-admin : Debug Assign user the admin role in the  {{ cpd_instance_namespace }} operands project for the cpd instance"
+- name: "authorize-user-cpd-admin : Debug command output : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_instance_namespace }} operands project for the cpd instance"
   debug:
     msg: "{{ cpd_assign_permission_operands_ns_output.stdout }}"
 
 # Assign the user the role in the operators project for the instance
 # ---------------------------------------------------------------------------------------------------
 # Set command to be executed
-- name: "authorize-user-cpd-admin : Set command : Assign cpd-instance-admin-apply-olm user the role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
+- name: "authorize-user-cpd-admin : Set command : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-apply-olm role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
   set_fact:
     cpd_cmd_adm_policy_cpd_admin_apply_olm: oc adm policy add-role-to-user cpd-instance-admin-apply-olm -z {{ cpd_admin_login_sa }} --namespace={{ cpd_operators_namespace }} --role-namespace={{ cpd_operators_namespace }} --rolebinding-name=cpd-instance-admin-apply-olm-rbac 2>&1 | tee {{ role_path }}/logs/cpd_platform_assign_user_cpdrole_permission_to_operators_ns_output.log
 
 # Debug command
-- name: "authorize-user-cpd-admin : Debug command : Assign the user the cpd-instance-admin-apply-olm role in the operators project for the instance"
+- name: "authorize-user-cpd-admin : Debug command : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-apply-olm role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
   debug:
     msg: "{{ cpd_cmd_adm_policy_cpd_admin_apply_olm | regex_replace(' \\\\', '') }}"
 
 # Execute command
-- name: "authorize-user-cpd-admin : Run Assign the user the cpd-instance-admin-apply-olm role in the operators project for the instance"
+- name: "authorize-user-cpd-admin : Running command: Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-apply-olm role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
   shell: "{{ cpd_cmd_adm_policy_cpd_admin_apply_olm }}"
   register: cpd_assign_permission_apply_olm_output
   failed_when:
-    - ('role.rbac.authorization.k8s.io/cpd-instance-admin-apply-olm added' not in cpd_assign_permission_apply_olm_output.stdout)
-    - ('not found' in cpd_assign_permission_apply_olm_output.stdout)
-    - ('Error' in cpd_assign_permission_apply_olm_output.stdout)
+    - ('role.rbac.authorization.k8s.io/cpd-instance-admin-apply-olm added' not in cpd_assign_permission_apply_olm_output.stdout) or
+      ('not found' in cpd_assign_permission_apply_olm_output.stdout) or
+      ('Error' in cpd_assign_permission_apply_olm_output.stdout)
 
 # Debug command output
-- name: "authorize-user-cpd-admin : Debug Assign cpd-instance-admin-apply-olm user the role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
+- name: "authorize-user-cpd-admin : Debug command output : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-apply-olm role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
   debug:
     msg: "{{ cpd_assign_permission_apply_olm_output.stdout }}"
+
+# Assign the user the role in the openshift-marketplace project for the instance
+# ---------------------------------------------------------------------------------------------------
+# Set command to be executed
+- name: "authorize-user-cpd-admin : Set command : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-read-catsrc role in the openshift-marketplace project for the instance"
+  set_fact:
+    cpd_cmd_adm_policy_cpd_admin_catsrc: oc adm policy add-role-to-user cpd-instance-admin-apply-olm -z {{ cpd_admin_login_sa }} --namespace={{ cpd_operators_namespace }} --role-namespace={{ cpd_operators_namespace }} --rolebinding-name=cpd-instance-admin-apply-olm-rbac 2>&1 | tee {{ role_path }}/logs/cpd_platform_assign_user_cpdrole_permission_to_operators_ns_output.log
+
+# Debug command
+- name: "authorize-user-cpd-admin : Debug command : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-read-catsrc role in the openshift-marketplace project for the instance"
+  debug:
+    msg: "{{ cpd_cmd_adm_policy_cpd_admin_catsrc | regex_replace(' \\\\', '') }}"
+
+# Execute command
+- name: "authorize-user-cpd-admin : Running command : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-read-catsrc role in the openshift-marketplace project for the instance"
+  shell: "{{ cpd_cmd_adm_policy_cpd_admin_catsrc }}"
+  register: cpd_assign_permission_catsrc_output
+  failed_when:
+    - ('role.rbac.authorization.k8s.io/cpd-instance-admin-apply-olm added' not in cpd_assign_permission_catsrc_output.stdout) or
+      ('not found' in cpd_assign_permission_catsrc_output.stdout) or
+      ('Error' in cpd_assign_permission_catsrc_output.stdout)
+
+# Debug command output
+- name: "authorize-user-cpd-admin : Debug command output : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-read-catsrc role in the openshift-marketplace project for the instance"
+  debug:
+    msg: "{{ cpd_assign_permission_catsrc_output.stdout }}"
