@@ -7,6 +7,7 @@
     msg:
       - "Release ......................... {{ cpd_product_version }}"
       - "Components ...................... {{ cpd_components_list }}"
+      - "Action .......................... {{ cpd_action }}"
 
 # CP4D services require that some of their service accounts to have ibm-entitlement-key set imagePullPolicy
 # Invoke this task with the custom resource install as service accounts might get deleted if the service is uninstalled
@@ -30,7 +31,7 @@
       --file_storage_class={{ cpd_primary_storage_class }} \
       --parallel_num={{ cpd_components_list | length }} \
       --license_acceptance=true \
-      --upgrade={{ cpd_upgrade_flag | lower }} 2>&1 | tee {{ role_path }}/logs/cpd_components_install_cr.log
+      --upgrade={{ cpd_upgrade_flag }} 2>&1 | tee {{ role_path }}/logs/cpd_components_install_cr.log
 
 # Debug cpd-cli command to be executed
 # The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
@@ -40,8 +41,8 @@
       - "{{ cpd_cmd_apply_cr | regex_replace(' \\\\', '') }}"
 
 # Execute async cpd-cli command to install corresponding custom resources
-- name: "install-cr : Running command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }} (up to 360 minutes)"
-  async: 21600 # 360 minutes
+- name: "install-cr : Running command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }} (up to {{ cpd_deployment_wait_time }} minutes)"
+  async: "{{ cpd_deployment_wait_time * 60 }}" # 360 minutes
   poll: 0
   shell: "{{ cpd_cmd_apply_cr }}"
   register: cpd_install_cr_output
@@ -59,7 +60,7 @@
     jid: "{{ cpd_install_cr_output.ansible_job_id }}"
   register: cpd_install_cr_async_output
   until: cpd_install_cr_async_output.finished
-  retries: 360 # wait up to 6 hours
+  retries: "{{ cpd_deployment_wait_time }}" # wait up to 7 hours
   delay: 60
   failed_when: ('apply-cr command ran successfully' not in cpd_install_cr_async_output.stdout)
 

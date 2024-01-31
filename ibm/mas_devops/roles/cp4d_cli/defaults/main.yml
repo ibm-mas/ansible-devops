@@ -8,13 +8,10 @@ cpd_admin_login_sa: "mas-cpd-cluster-admin-sa"
 
 # ------ CPD install flag options ----------------------------------------------------------------------------------------------
 cpd_action: "{{ lookup('env', 'CPD_ACTION') | default('install', true) }}"
-cpd_upgrade_flag: "{{ (cpd_action == 'upgrade') | ternary(true, false) }}"
+cpd_upgrade_flag: "{{ (cpd_action == 'upgrade') | ternary('true', 'false') }}"
 skip_cpd_prereqs: "{{ lookup('env', 'SKIP_CPD_PREREQS') | default('false', true) | bool }}"
 skip_cpd_operators: "{{ lookup('env', 'SKIP_CPD_OPERATORS') | default('false', true) | bool }}"
 skip_cpd_operands: "{{ lookup('env', 'SKIP_CPD_OPERANDS') | default('false', true) | bool }}"
-
-    record_name: "{{ (cloudflare_subdomain == '') | ternary(record_name_without_subdomain, record_name_with_subdomain) }}"
-
 
 # ------ CPD storage classes ------------------------------------------------------------------------------------------
 cpd_primary_storage_class: "{{ lookup('env', 'CPD_PRIMARY_STORAGE_CLASS') }}"
@@ -40,6 +37,7 @@ cpd_ibm_licensing_namespace: ibm-licensing
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-installing-cloud-pak
 cpd_components: "{{ lookup('env', 'CPD_COMPONENTS') | default('cpd_platform', true) | lower }}" # minimum that must be installed to have cpd running is 'cpd_platform'
 cpd_components_list: "{{ cpd_components | split(',') | sort }}" # this will parse the 'cpd_components' string into a list to be used internally in the role
+cpd_deployment_wait_time: "{{ cpd_components_list | length * 60 }}" # add up an hour for each service that will be installed/upgraded
 
 # List of CPD components/services that can be installed through this role
 cpd_components_supported_list:
