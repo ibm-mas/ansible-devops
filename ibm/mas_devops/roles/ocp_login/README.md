@@ -75,6 +75,10 @@ Site where cluster had been provisioned in Fyre
 - Environment Variable: `FYRE_SITE`
 - Default Value: `svl`
 
+### enable_ipv6
+Enable IPv6.  This is for Fyre at RTP site only
+- Environment Variable: `ENABLE_IPV6`
+- Default: False
 
 Role Variables - AWS ROSA
 -------------------------
@@ -91,7 +95,6 @@ The password for the `cluster-admin` account (created when the cluster was provi
 - **Required** when `cluster_type` is `rosa`
 - Environment Variable: `ROSA_CLUSTER_ADMIN_PASSWORD`
 - Default: None
-
 
 Example Playbooks
 ----------------

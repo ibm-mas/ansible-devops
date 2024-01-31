@@ -61,14 +61,14 @@ else
 
     PATCH_COUNT=`grep -ciF '[patch]' $GITHUB_WORKSPACE/.changelog`
     echo "Patch commits : ${PATCH_COUNT}"
-  fi
 
-  if [ "$MAJOR_COUNT" -gt "0" ]; then
-    SEMVER_RELEASE_LEVEL="major"
-  elif [ "$MINOR_COUNT" -gt "0" ]; then
-    SEMVER_RELEASE_LEVEL="minor"
-  elif [ "$PATCH_COUNT" -gt "0" ]; then
-    SEMVER_RELEASE_LEVEL="patch"
+    if [ "$MAJOR_COUNT" -gt "0" ]; then
+      SEMVER_RELEASE_LEVEL="major"
+    elif [ "$MINOR_COUNT" -gt "0" ]; then
+      SEMVER_RELEASE_LEVEL="minor"
+    elif [ "$PATCH_COUNT" -gt "0" ]; then
+      SEMVER_RELEASE_LEVEL="patch"
+    fi
   fi
 
   echo "RELEASE LEVEL = ${SEMVER_RELEASE_LEVEL}"
@@ -82,7 +82,8 @@ else
     semver bump ${SEMVER_RELEASE_LEVEL} ${SEMVER_LAST_TAG} > $VERSION_FILE
     echo "Configuring semver for ${SEMVER_RELEASE_LEVEL} bump from ${SEMVER_LAST_TAG} to $(cat $VERSION_FILE)"
   else
-    semver bump build build.$GITHUB_RUN_ID > $VERSION_FILE
+    # Default to a patch revision
+    semver bump patch ${SEMVER_LAST_TAG} > $VERSION_FILE
     echo "Configuring semver for rebuild of ${SEMVER_LAST_TAG}: $(cat $VERSION_FILE)"
   fi
 fi

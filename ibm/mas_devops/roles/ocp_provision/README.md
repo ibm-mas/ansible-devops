@@ -23,7 +23,6 @@ Required.  Specify the version of OCP to install.  The exact format of this will
 - Environment Variable: `OCP_VERSION`
 - Default Value: None
 
-
 Role Variables - GPU Node Support
 -------------------------------------------------------------------------------
 ### ocp_provision_gpu
@@ -223,6 +222,11 @@ The amount of memory to assign to each worker node (maximum value supported by F
 - Environment Variable: `FYRE_WORKER_MEMORY`
 - Default Value: `64`
 
+### enable_ipv6
+Enable IPv6. This is for Fyre at RTP site only.
+
+- Environment Variable: `ENABLE_IPV6`
+- Default: False
 
 Role Variables - IPI
 -------------------------------------------------------------------------------

@@ -1,0 +1,72 @@
+---
+# This task is currently being used by the following roles:
+#
+# - suite-dns (to lookup which namespace Certificate Manager is installed so that CIS webhook is installed in the same namespace)
+# - suite_install (to lookup which namespace Certificate Manager is installed so that Suite CR is set to point to the same namespace)
+#
+# 1. Check if and where Certificate Manager is installed
+# -----------------------------------------------------------------------------
+# oc get pods -A | grep cert-manager-cainjector| awk '{print $1}' should return the namespace where the cert-manager instance is running i.e cert-manager-operator
+- name: Lookup Certificate Manager installations
+  shell: oc get pods -A | grep cert-manager-cainjector | awk '{print $1}'
+  register: cert_manager_webhook_lookup
+
+- debug:
+    var: cert_manager_webhook_lookup.stdout_lines
+
+- name: Set list of namespaces where Certificate Manager is running."
+  set_fact:
+    cert_manager_namespace_list: "{{ cert_manager_webhook_lookup.stdout_lines | unique }}" # only interested in distinct namespaces where cert-manager might be installed
+
+- name: Assert Certificate Manager is installed
+  assert:
+    that: cert_manager_namespace_list | length > 0
+    fail_msg: "Certificate Manager was not found in the cluster. Make sure you install it by running 'cert_manager' role before trying to setup Maximo Application Suite instance."
+
+- name: Assert there is just one Certificate Manager running
+  assert:
+    that: cert_manager_namespace_list | length == 1
+    fail_msg:
+      - "There are multiple instances of Certificate Manager running in the cluster."
+      - "Make sure you just have one Certificate Manager instance running."
+      - "Certificate Manager namespaces identified: {{ cert_manager_namespace_list }}"
+
+- name: Set Certificate Manager namespace
+  set_fact:
+    cert_manager_namespace: "{{ cert_manager_namespace_list | first }}"
+
+# 2. Check if Certificate Manager Cluster Resource Namespace is defined
+# -----------------------------------------------------------------------------
+# Namespace to setup ClusterIssuers when referencing a secret via the secretName field
+# ClusterIssuers' secrets will be looked for in the Cluster Resource Namespace defined
+- name: "Lookup CertManager CR"
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1alpha1
+    name: cluster
+    kind: CertManager
+  register: certmanager_cr
+
+- set_fact:
+    cert_manager_args: "{{ certmanager_cr.resources[0].spec.unsupportedConfigOverrides.controller.args }}"
+  when: certmanager_cr.resources[0].spec.unsupportedConfigOverrides.controller.args is defined
+
+- name: Set cert_manager_cluster_resource_namespace from CertManager CR
+  when: cert_manager_args is defined and item | regex_search(regex)
+  vars:
+    regex: '(?<=\--cluster-resource-namespace=).*'
+  set_fact:
+    cert_manager_cluster_resource_namespace: "{{ item | regex_search(regex) }}"
+  with_items: "{{ cert_manager_args }}"
+
+# 3. Set Certificate Manager variables
+# -----------------------------------------------------------------------------
+# If 'cert_manager_cluster_resource_namespace' is not yet defined then set it to same value as 'cert_manager_namespace'
+- name: Set Certificate Manager Cluster Resource namespace (if not set)
+  set_fact:
+    cert_manager_cluster_resource_namespace: "{{ cert_manager_namespace }}"
+  when: cert_manager_cluster_resource_namespace is not defined or cert_manager_cluster_resource_namespace == ''
+
+- debug:
+    msg:
+      - "Certificate Manager namespace ............................... {{ cert_manager_namespace }}"
+      - "Certificate Manager cluster resource namespace .............. {{ cert_manager_cluster_resource_namespace }}"

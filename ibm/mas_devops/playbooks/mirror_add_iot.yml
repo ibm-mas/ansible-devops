@@ -3,7 +3,7 @@
   any_errors_fatal: true
 
   vars:
-    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('v8-231031-amd64', True) }}"
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('@@MAS_LATEST_CATALOG@@', True) }}"
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default ('8.11.x', True) }}"
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
 
@@ -15,7 +15,7 @@
 
     - name: "Debug stats if the digest image map file exists"
       ansible.builtin.set_fact:
-        file_catalog_tag: "{{ (catalog_file_stats.stat.exists|bool) | ternary(catalog_tag, 'v8-231031-amd64') }}"
+        file_catalog_tag: "{{ (catalog_file_stats.stat.exists|bool) | ternary(catalog_tag, '@@MAS_LATEST_CATALOG@@') }}"
 
     - name: Load CASE bundle versions
       include_vars:
@@ -35,3 +35,20 @@
       vars:
         manifest_name: ibm-mas-iot
         manifest_version: "{{ lookup('env', 'MAS_IOT_VERSION') | default (mas_iot_version[mas_channel], True) }}"
+
+
+    # 2. Eclipse Amlen
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - amlen_extras_version is defined
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: amlen
+        extras_version: "{{ amlen_extras_version }}"
+
+    - name: ibm.mas_devops.mirror_images
+      when: amlen_extras_version is defined
+      vars:
+        manifest_name: extras_amlen
+        manifest_version: "{{ amlen_extras_version }}"
