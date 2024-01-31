@@ -4,6 +4,7 @@
 - name: "Configure {{ cos_type }} bucket for Manage doclinks"
   include_role:
     name: ibm.mas_devops.cos_bucket
+  when: cos_type != 'filestorage'
 
 - name: "Setup AWS S3 bucket policies, users and access points"
   vars:
@@ -14,6 +15,7 @@
 
 - name: "Retrieve {{ cos_type }} certificates"
   include_tasks: "tasks/retrieve-cos-certs.yml"
+  when: cos_type != 'filestorage'
 
 # Configure Manage bundle servers
 # -----------------------------------------------------------------------------
@@ -52,10 +54,18 @@
     bucketEndpoint:
       aws: 'https://s3.{{ cos_bucket_region }}.amazonaws.com'
       ibm: 'https://s3.private.{{ cos_bucket_region }}.cloud-object-storage.appdomain.cloud'
+  when: cos_type != 'filestorage'
 
-- name: Set Manage bundle server properties
+- name: Set Manage bundle server properties for aws/ibm
   set_fact:
     serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setManageDoclinksProperties(doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint[cos_type]) }}"
+  when: cos_type != 'filestorage'
+
+- name: Set Manage bundle server properties for filestorage
+  set_fact:
+    doclinkPath01: "https://{{ manage_url }}/maximo/oslc/cosdoclink"
+    serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setManageFsDoclinksProperties(doclinkPath01, manage_url) }}"
+  when: cos_type = 'filestorage'
 
 - debug:
     msg:
@@ -64,6 +74,7 @@
       - "accessKey: {{ accessKey }}"
       - "secretAccesskey: {{ secretAccesskey }}"
       - "bucketEndpoint: {{ bucketEndpoint }}"
+  when: cos_type != 'filestorage'
 
 - debug:
     var: serverBundles
@@ -76,6 +87,7 @@
   vars:
     manage_certificates: "{{ cos_tls_crt }}"
     manage_certificates_alias_prefix: "{{ cos_cert_alias_prefix }}"
+  when: cos_type != 'filestorage'
 
 # Configure Server bundle properties into Manage Workspace
 # -----------------------------------------------------------------------------
