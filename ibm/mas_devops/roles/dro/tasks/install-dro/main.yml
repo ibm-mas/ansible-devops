@@ -12,7 +12,6 @@
     msg:
       - "DRO Namespace ...................... redhat-marketplace"
       - "IBM entitlement key................. Can get from https://myibm.ibm.com/products-services/containerlibrary"
-      - "DRO CSV Version..................... {{ dro_version }}"
       - "MAS Instance ID .................... {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS Config Directory ............... {{ mas_config_dir | default('<undefined>', True) }}"
       - "DRO Contact First Name ............. {{ dro_contact.first_name | default('<undefined>', True) }}"
@@ -153,17 +152,6 @@
     dro_source: "{{ dro_manifest.resources[0].status.catalogSource }}"
     dro_source_namespace: "{{ dro_manifest.resources[0].status.catalogSourceNamespace }}"
     dro_default_channel: "{{ dro_manifest.resources[0].status.defaultChannel }}"
-
-- name: Set DRO default startingCSV
-  set_fact:
-    dro_csv: "{{ item.currentCSV }}"
-  with_items: "{{ dro_manifest.resources[0].status.channels }}"
-  when: (dro_manifest.resources is defined) and (item.name == dro_default_channel) and (dro_version|length  == 0)
-
-- name: Set DRO custom startingCSV
-  set_fact:
-    dro_csv: "ibm-data-reporter-operator.v{{ dro_version }}"
-  when: (dro_version|length != 0)
 
 - name: "Create Subscription ibm-data-reporter-operator"
   kubernetes.core.k8s:
