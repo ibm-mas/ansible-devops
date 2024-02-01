@@ -9,19 +9,41 @@
 
 # More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-detaching-instance-from-shared-operators
 
-#  Configure Cloud Pak for Data namespaces
-# ---------------------------------------------------------------------------------------------------
-- name: "detach-shared-operators : Set command : Detach Cloud Pak for Data instance from shared operators"
-  kubernetes.core.k8s:
-    state: absent
+
+# Backup and delete existing common-service-maps, it will be recreated during the cpd upgrade process
+- name: "detach-shared-operators : Lookup existing common-service-maps configmap"
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
     namespace: "kube-public"
     name: "common-service-maps"
-  register: common_service_maps_delete
+  register: common_service_maps_lookup
 
 - debug:
-    var: common_service_maps_delete
+    var: common_service_maps_lookup
+
+- when:
+    - common_service_maps_lookup.resources is defined
+    - common_service_maps_lookup.resources | length == 1
+  block:
+    - name: "detach-shared-operators : Backup existing common-service-maps configmap"
+      vars:
+        data: "{{ common_service_maps_lookup.resources[0] }}"
+      kubernetes.core.k8s:
+        state: present
+        namespace: "kube-public"
+        definition: "{{ lookup('template', 'templates/cpd_platform/common-service-maps-configmap-blank.yml.j2') }}"
+
+    - name: "detach-shared-operators : Delete existing common-service-maps configmap"
+      kubernetes.core.k8s:
+        state: absent
+        kind: ConfigMap
+        namespace: "kube-public"
+        name: "common-service-maps"
+      register: common_service_maps_delete
+
+    - debug:
+        var: common_service_maps_delete
 
 # Set cpd-cli command to be executed
 - name: "detach-shared-operators : Set command : Detach Cloud Pak for Data instance from shared operators"
@@ -30,7 +52,7 @@
       --cpfs_operator_ns={{ cpd_cpfs_namespace }} \
       --control_ns={{ cpd_cs_control_namespace }} \
       --specialized_operator_ns={{ cpd_operators_namespace }} \
-      --cpd_instance_ns={{ cpd_instance_namespace }} 2>&1 | tee {{ role_path }}/logs/cpd_platform_detach_shared_operators_output.log
+      --cpd_instance_ns={{ cpd_instance_namespace }} 2>&1 | tee {{ cpd_logs_dir }}/cpd_platform_detach_shared_operators_output.log
 
 # Debug cpd-cli command to be executed
 # The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
