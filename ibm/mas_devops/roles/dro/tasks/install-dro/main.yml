@@ -160,49 +160,6 @@
     wait_timeout: 60
   when: (dro_subscription.resources is defined) and (dro_subscription.resources | length == 0)
 
-# Install redhat-marketplace-operator
-# -----------------------------------------------------------------------------
-
-- name: Get ibm-metrics-operator Subscription
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: "redhat-marketplace-operator"
-    namespace: redhat-marketplace
-  register: rmo_subscription
-
-- name: Get redhat-marketplace-operator package manifest
-  kubernetes.core.k8s_info:
-    api_version: packages.operators.coreos.com/v1
-    kind: PackageManifest
-    name: "redhat-marketplace-operator"
-    namespace: redhat-marketplace
-  register: rmo_manifest
-  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
-
-- name: Assert that PackageManifest exists
-  ansible.builtin.assert:
-    that:
-      - rmo_manifest is defined
-      - rmo_manifest.resources is defined
-      - rmo_manifest.resources | length == 1
-    fail_msg: "PackageManifest not found: redhat-marketplace-operator"
-  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
-
-- name: Set the subscription information redhat-marketplace-operator
-  set_fact:
-    rmo_source: "{{ rmo_manifest.resources[0].status.catalogSource }}"
-    rmo_source_namespace: "{{ rmo_manifest.resources[0].status.catalogSourceNamespace }}"
-    rmo_default_channel: "{{ rmo_manifest.resources[0].status.defaultChannel }}"
-  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
-
-- name: "Create Subscription redhat-marketplace-operator"
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/subscription/rmo_subscription.yml') }}"
-    wait: yes
-    wait_timeout: 120
-  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
-
 # Wait until the marketplaceconfigs CRD is available
 - name: "Wait until the marketplaceconfigs CRD is available"
   kubernetes.core.k8s_info:
