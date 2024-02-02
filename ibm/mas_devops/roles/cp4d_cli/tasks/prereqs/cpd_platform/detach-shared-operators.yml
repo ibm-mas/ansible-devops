@@ -1,84 +1,115 @@
 ---
 # About this task:
-# Before you can upgrade an instance of IBM Cloud Pak for Data to Version 4.8, 
+# Before you can upgrade an instance of IBM Cloud Pak for Data to Version 4.8,
 # you must detach the instance from the shared operators.
 
 # When you detach an instance from the shared operators, the shared operators stop watching the custom resources in:
 # The project where the Cloud Pak for Data control plane is installed.
 # Any projects that are tethered to the project where the control plane is installed.
 
+# This is required to migrade Cloud Pak Foundational Services from v3 to v4 as this will prepare the instance to work in isolated mode.
+# If Cloud Pak Foundational Services instance in Cloud Pak for Data operators namespace is already running
+# on v4 channel and above, then this task will be skipped
+
 # More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-detaching-instance-from-shared-operators
 
+# Check whether IBM Common Services are already installed
+- name:
+  include_tasks: "tasks/common/check-cpfs-installed.yml"
 
-# Backup and delete existing common-service-maps, it will be recreated during the cpd upgrade process
-- name: "detach-shared-operators : Lookup existing common-service-maps configmap"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: ConfigMap
-    namespace: "kube-public"
-    name: "common-service-maps"
-  register: common_service_maps_lookup
+# if CPFS versions is v4+ then skip detach-cpd-instance, as it has been detached already
+- block:
+    - debug:
+        msg:
+          - "The IBM Cloud Pak Foundation Services currently installed in {{ cpd_operators_namespace }} namespace is already running on a version v{{ cpd_cpfs_minimum_csv_version }} or higher, skipping 'detach-shared-operators' task..."
 
-- debug:
-    var: common_service_maps_lookup
+    - name: Pause for 15 seconds
+      pause:
+        seconds: 15
+  
+  when: current_cpfs_installed_csv is version_compare(cpd_cpfs_minimum_csv_version, '>=')
 
-- when:
-    - common_service_maps_lookup.resources is defined
-    - common_service_maps_lookup.resources | length == 1
+# if CPFS version is lower than v3 then run detach-cpd-instance to isolate CPFS and prepare for upgrade
+- when: current_cpfs_installed_csv is version_compare(cpd_cpfs_minimum_csv_version, '<')
   block:
-    - name: "detach-shared-operators : Backup existing common-service-maps configmap"
-      vars:
-        data: "{{ common_service_maps_lookup.resources[0] }}"
-      kubernetes.core.k8s:
-        state: present
-        namespace: "kube-public"
-        definition: "{{ lookup('template', 'templates/cpd_platform/common-service-maps-configmap-blank.yml.j2') }}"
+    - debug:
+        msg:
+          - "Will run 'detach-cpd-instance' command as current IBM Cloud Pak Foundation Services version installed in {{ cpd_operators_namespace }} namespace is {{ current_cpfs_installed_csv }}."
+          - "For IBM Cloud Pak Foundation Services version {{ cpd_cpfs_minimum_csv_version }} and above, 'detach-cpd-instance' task is required... More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-detaching-instance-from-shared-operators"
 
-    - name: "detach-shared-operators : Delete existing common-service-maps configmap"
-      kubernetes.core.k8s:
-        state: absent
+    - name: Pause for 15 seconds
+      pause:
+        seconds: 15
+
+    # Backup and delete existing common-service-maps, it will be recreated during the cpd upgrade process
+    - name: "detach-shared-operators : Lookup existing common-service-maps configmap"
+      kubernetes.core.k8s_info:
+        api_version: v1
         kind: ConfigMap
         namespace: "kube-public"
         name: "common-service-maps"
-      register: common_service_maps_delete
+      register: common_service_maps_lookup
 
     - debug:
-        var: common_service_maps_delete
+        var: common_service_maps_lookup
 
-# Set cpd-cli command to be executed
-- name: "detach-shared-operators : Set command : Detach Cloud Pak for Data instance from shared operators"
-  set_fact:
-    cpd_cmd_detach_instance: cpd-cli manage detach-cpd-instance \
-      --cpfs_operator_ns={{ cpd_cpfs_namespace }} \
-      --control_ns={{ cpd_cs_control_namespace }} \
-      --specialized_operator_ns={{ cpd_operators_namespace }} \
-      --cpd_instance_ns={{ cpd_instance_namespace }} 2>&1 | tee {{ cpd_logs_dir }}/cpd_platform_detach_shared_operators_output.log
+    - when:
+        - common_service_maps_lookup.resources is defined
+        - common_service_maps_lookup.resources | length == 1
+      block:
+        - name: "detach-shared-operators : Backup existing common-service-maps configmap"
+          vars:
+            data: "{{ common_service_maps_lookup.resources[0] }}"
+          kubernetes.core.k8s:
+            state: present
+            namespace: "kube-public"
+            definition: "{{ lookup('template', 'templates/cpd_platform/common-service-maps-configmap-blank.yml.j2') }}"
 
-# Debug cpd-cli command to be executed
-# The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
-- name: "detach-shared-operators : Debug command : Detach Cloud Pak for Data instance from shared operators"
-  debug:
-    msg:
-      - "{{ cpd_cmd_detach_instance | regex_replace(' \\\\', '') }}"
+        - name: "detach-shared-operators : Delete existing common-service-maps configmap"
+          kubernetes.core.k8s:
+            state: absent
+            kind: ConfigMap
+            namespace: "kube-public"
+            name: "common-service-maps"
+          register: common_service_maps_delete
 
-# Execute async cpd-cli command to configure namespaces
-- name: "detach-shared-operators : Running command : Detach Cloud Pak for Data instance from shared operators (up to 30 minutes)"
-  async: 1800 # 30 minutes
-  poll: 0
-  shell: "{{ cpd_cmd_detach_instance }}"
-  register: cpd_detach_operators_output
+        - debug:
+            var: common_service_maps_delete
 
-# Wait async cpd-cli cpd-cli command to configure namespaces
-- name: "detach-shared-operators : Waiting command execution : Detach Cloud Pak for Data instance from shared operators... (60s delay)"
-  async_status:
-    jid: "{{ cpd_detach_operators_output.ansible_job_id }}"
-  register: cpd_detach_operators_async_output
-  until: cpd_detach_operators_async_output.finished
-  retries: 30 # wait up to 30 minutes
-  delay: 60
-  failed_when: ('detach-cpd-instance command ran successfully' not in cpd_detach_operators_async_output.stdout)
+    # Set cpd-cli command to be executed
+    - name: "detach-shared-operators : Set command : Detach Cloud Pak for Data instance from shared operators"
+      set_fact:
+        cpd_cmd_detach_instance: cpd-cli manage detach-cpd-instance \
+          --cpfs_operator_ns={{ cpd_cpfs_namespace }} \
+          --control_ns={{ cpd_cs_control_namespace }} \
+          --specialized_operator_ns={{ cpd_operators_namespace }} \
+          --cpd_instance_ns={{ cpd_instance_namespace }} 2>&1 | tee {{ cpd_logs_dir }}/cpd_platform_detach_shared_operators_output.log
 
-# Debug cpd-cli command output
-- name: "detach-shared-operators : Debug command output: Detach Cloud Pak for Data instance from shared operators"
-  debug:
-    msg: "{{ cpd_detach_operators_async_output.stdout }}"
+    # Debug cpd-cli command to be executed
+    # The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
+    - name: "detach-shared-operators : Debug command : Detach Cloud Pak for Data instance from shared operators"
+      debug:
+        msg:
+          - "{{ cpd_cmd_detach_instance | regex_replace(' \\\\', '') }}"
+
+    # Execute async cpd-cli command to configure namespaces
+    - name: "detach-shared-operators : Running command : Detach Cloud Pak for Data instance from shared operators (up to 30 minutes)"
+      async: 1800 # 30 minutes
+      poll: 0
+      shell: "{{ cpd_cmd_detach_instance }}"
+      register: cpd_detach_operators_output
+
+    # Wait async cpd-cli cpd-cli command to configure namespaces
+    - name: "detach-shared-operators : Waiting command execution : Detach Cloud Pak for Data instance from shared operators... (60s delay)"
+      async_status:
+        jid: "{{ cpd_detach_operators_output.ansible_job_id }}"
+      register: cpd_detach_operators_async_output
+      until: cpd_detach_operators_async_output.finished
+      retries: 30 # wait up to 30 minutes
+      delay: 60
+      failed_when: ('detach-cpd-instance command ran successfully' not in cpd_detach_operators_async_output.stdout)
+
+    # Debug cpd-cli command output
+    - name: "detach-shared-operators : Debug command output: Detach Cloud Pak for Data instance from shared operators"
+      debug:
+        msg: "{{ cpd_detach_operators_async_output.stdout }}"

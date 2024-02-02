@@ -42,7 +42,7 @@
 
 # Execute async cpd-cli command to install corresponding custom resources
 - name: "install-cr : Running command : Install Cloud Pak for Data custom resources : {{ cpd_components_list }} (up to {{ cpd_deployment_wait_time }} minutes)"
-  async: "{{ cpd_deployment_wait_time * 60 }}" # 360 minutes
+  async: "{{ cpd_deployment_wait_time * 60 }}" # in seconds
   poll: 0
   shell: "{{ cpd_cmd_apply_cr }}"
   register: cpd_install_cr_output
@@ -55,13 +55,13 @@
 - include_tasks: "tasks/wait/main.yml"
 
 # Wait async cpd-cli command to install corresponding custom resources
-- name: "install-cr : Waiting command execution : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}... (60s delay)"
+- name: "install-cr : Waiting command execution : Install Cloud Pak for Data custom resources : {{ cpd_components_list }}... (5 minutes delay)"
   async_status:
     jid: "{{ cpd_install_cr_output.ansible_job_id }}"
   register: cpd_install_cr_async_output
   until: cpd_install_cr_async_output.finished
-  retries: "{{ cpd_deployment_wait_time }}" # wait up to 7 hours
-  delay: 60
+  retries: "{{ cpd_deployment_wait_time / 5 }}" # wait up to 8 hours
+  delay: 300
   failed_when: ('apply-cr command ran successfully' not in cpd_install_cr_async_output.stdout)
 
 # Debug cpd-cli command output
