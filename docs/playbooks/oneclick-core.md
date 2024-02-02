@@ -9,7 +9,7 @@ This playbook will install and configure IBM Maximo Application Suite Core along
 4. [Configure Cluster Monitoring](../roles/cluster_monitoring.md) (1 minute)
 5. [Install Mongodb Operator and Create a Cluster](../roles/mongodb.md) (10 minutes)
 6. [Install and bootstrap IBM Suite License Service](../roles/sls.md) (10 minutes)
-7. [Install IBM Data Reporter Operator](../roles/dro.md) (30 minutes)
+7. [Install IBM User Data Services](../roles/uds.md) (30 minutes)
 8. [Generate a MAS Workspace Configuration](../roles/gencfg_workspace.md) (1 minute)
 9. [Configure Cloud Internet Services Integration for Maximo Application Suite](../roles/suite_dns.md) (Optional, 1 minute)
 10. [Install Maximo Application Suite Core Services](../roles/suite_install.md) (1 minute)
@@ -48,9 +48,13 @@ The other values can be left at their defaults.  Finally, click **Generate** and
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `SLS_LICENSE_ID` The license ID must match the license file available in `SLS_LICENSE_FILE`
 - `SLS_LICENSE_FILE` The path to the location of the license file.
-- `DRO_CONTACT_EMAIL` Defines the email for person to contact for DRO 
-- `DRO_CONTACT_FIRSTNAME` Defines the first name of the person to contact for DRO 
-- `DRO_CONTACT_LASTNAME` Defines the last name of the person to contact for DRO 
+- `BAS_PROVIDER` Defines UDS or DRO operator to install. Default: UDS [Values: DRO, UDS]
+- `UDS_CONTACT_EMAIL` Defines the email for person to contact for UDS [Required if BAS_PROVIDER is UDS]
+- `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for UDS [Required if BAS_PROVIDER is UDS]
+- `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for UDS [Required if BAS_PROVIDER is UDS]
+- `DRO_CONTACT_EMAIL` Defines the email for person to contact for DRO [Required if BAS_PROVIDER is DRO]
+- `DRO_CONTACT_FIRSTNAME` Defines the first name of the person to contact for DRO [Required if BAS_PROVIDER is DRO]
+- `DRO_CONTACT_LASTNAME` Defines the last name of the person to contact for DRO [Required if BAS_PROVIDER is DRO]
 
 
 ### Storage Class Configuraton
@@ -68,7 +72,7 @@ Usually fulfilled by file storage classes:
 - `PROMETHEUS_USERWORKLOAD_STORAGE_CLASS`
 - `GRAFANA_INSTANCE_STORAGE_CLASS`
 - `MONGODB_STORAGE_CLASS`
-- `DRO_STORAGE_CLASS`
+- `UDS_STORAGE_CLASS`
 
 
 ## Examples
@@ -84,9 +88,9 @@ export MAS_CONFIG_DIR=~/masconfig
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 
-export DRO_CONTACT_EMAIL=xxx@xxx.com
-export DRO_CONTACT_FIRSTNAME=xxx
-export DRO_CONTACT_LASTNAME=xxx
+export UDS_CONTACT_EMAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_core
@@ -117,9 +121,9 @@ export MAS_CHANNEL=rp1dev88
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 
-export DRO_CONTACT_EMAIL=xxx@xxx.com
-export DRO_CONTACT_FIRSTNAME=xxx
-export DRO_CONTACT_LASTNAME=xxx
+export UDS_CONTACT_EMAIL=xxx@xxx.com
+export UDS_CONTACT_FIRSTNAME=xxx
+export UDS_CONTACT_LASTNAME=xxx
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_core
