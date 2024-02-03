@@ -13,43 +13,56 @@
 # - IBM Namespace Scope operator
 # - Operand Deployment Lifecycle Manager
 
-# Clean up cpd-platform operators prior upgrading to v4
-# This is needed because when ibm-common-service operator subscription is updated to v4.3
-# It won't process the upgrade because it will complain that the cpd-platform subscription is using it
-
-# Check whether IBM Common Services are already installed
-- name:
-  include_tasks: "tasks/common/check-cpfs-installed.yml"
-
-- block:
-    - debug:
-        msg:
-          - "The IBM Cloud Pak Foundation Services currently installed in {{ cpd_operators_namespace }} namespace is already running on a version v{{ cpd_cpfs_minimum_csv_version }} or higher, skip IBM Cloud Pak Foundational Services install task..."
-
-    - name: Pause for 15 seconds
-      pause:
-        seconds: 15
-
-  when: current_cpfs_installed_csv is version_compare(cpd_cpfs_minimum_csv_version, '>=')
-
-- when: current_cpfs_installed_csv is version_compare(cpd_cpfs_minimum_csv_version, '<')
+# this block will check whether cpfs is already installed and if it needs to be upgraded
+- when: cpd_action == 'upgrade'
   block:
-    - debug:
-        msg:
-          - "Will install/upgrade IBM Cloud Pak Foundational Services as current version installed in {{ cpd_operators_namespace }} namespace is {{ current_cpfs_installed_csv }}."
-          - "It is required IBM Cloud Pak Foundation Services version {{ cpd_cpfs_minimum_csv_version }} and above to install Cloud Pak for Data v4.8.x... More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=cluster-installing-shared-components"
+    # check whether IBM Common Services are already installed, and fail if not installed yet as it is required to exist for the cpd upgrade
+    - name:
+      include_tasks: "tasks/common/check-cpfs-installed.yml"
 
+    # condition 1:
+    # if current cpfs installed version is older than v4, then set 'run_cpfs_upgrade' == 'true' as this will have to be installed or upgraded
+    - when:
+      - current_cpfs_installed_csv is defined
+      - current_cpfs_installed_csv is version_compare(cpd_cpfs_minimum_csv_version, '<')
+      block:
+        - debug:
+            msg:
+              - "Proceeding with IBM Cloud Pak Foundational Services upgrade as current version installed in {{ cpd_operators_namespace }} namespace is {{ current_cpfs_installed_csv }}."
+              - "It is required IBM Cloud Pak Foundation Services version {{ cpd_cpfs_minimum_csv_version }} and above to upgrade Cloud Pak for Data v4.8.x... More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=cluster-installing-shared-components"
+
+        # Clean up cpd-platform operators prior upgrading to v4
+        # This is needed because when ibm-common-service operator subscription is updated to v4.3
+        # It won't process the upgrade because it will complain that the cpd-platform subscription is using it
+        - include_tasks: "tasks/common/uninstall-operator.yml"
+          vars:
+            cpd_subs_item: "cpd-platform"
+
+        - set_fact:
+            run_cpfs_upgrade: true | bool
+
+    # condition 2:
+    # if current cpfs installed version is v4 or higher, then we can skip cpfs install by setting 'run_cpfs_upgrade' == 'false'
+    - when: 
+      - current_cpfs_installed_csv is defined 
+      - current_cpfs_installed_csv is version_compare(cpd_cpfs_minimum_csv_version, '>=')
+      block:
+        - debug:
+            msg:
+              - "The IBM Cloud Pak Foundation Services currently installed in {{ cpd_operators_namespace }} namespace is already running on a version v{{ cpd_cpfs_minimum_csv_version }} or higher, skipping..."
+
+        - set_fact:
+            run_cpfs_upgrade: false | bool
+    
     - name: Pause for 15 seconds
       pause:
         seconds: 15
 
-    - include_tasks: "tasks/common/uninstall-operator.yml"
-      when: cpd_action == 'upgrade'
-      vars:
-        cpd_subs_item: "cpd-platform"
-
+# Install/Upgrade CPFS
+- when: cpd_action == 'install' or run_cpfs_upgrade == true | bool
+  block:
     # Set cpd-cli command to be executed
-    - name: "install-dependencies : Set command : Install Cloud Pak for Data dependency : IBM Foundational Services"
+    - name: "configure-cpfs : Set command : Install Cloud Pak for Data dependency : IBM Foundational Services"
       set_fact:
         cpd_cmd_setup_instance_topology:
           cpd-cli manage setup-instance-topology \
@@ -61,20 +74,20 @@
 
     # Debug cpd-cli command to be executed
     # The output can be copied/pasted in terminal in order to re-run cpd-cli command directly for troubleshooting purposes
-    - name: "install-dependencies : Debug command : Install Cloud Pak for Data dependency : IBM Foundational Services"
+    - name: "configure-cpfs : Debug command : Install Cloud Pak for Data dependency : IBM Foundational Services"
       debug:
         msg:
           - "{{ cpd_cmd_setup_instance_topology | regex_replace(' \\\\', '') }}"
 
     # Execute cpd-cli command to install IBM Foundational Services
-    - name: "install-dependencies : Running command : Install Cloud Pak for Data dependency : IBM Foundational Services (up to 30 minutes)"
+    - name: "configure-cpfs : Running command : Install Cloud Pak for Data dependency : IBM Foundational Services (up to 30 minutes)"
       async: 1800 # 30 minutes
       poll: 0
       shell: "{{ cpd_cmd_setup_instance_topology }}"
       register: cpd_install_cpfs_output
 
     # Wait async cpd-cli cpd-cli command to install IBM Foundational Services
-    - name: "install-dependencies : Waiting command execution : Install Cloud Pak for Data dependency : IBM Foundational Services... (60s delay)"
+    - name: "configure-cpfs : Waiting command execution : Install Cloud Pak for Data dependency : IBM Foundational Services... (60s delay)"
       async_status:
         jid: "{{ cpd_install_cpfs_output.ansible_job_id }}"
       register: cpd_install_cpfs_async_output
@@ -84,6 +97,6 @@
       failed_when: ('setup-instance-topology command ran successfully' not in cpd_install_cpfs_async_output.stdout)
 
     # Debug cpd-cli command output
-    - name: "install-dependencies : Debug command output : Install Cloud Pak for Data dependency : IBM Foundational Services"
+    - name: "configure-cpfs : Debug command output : Install Cloud Pak for Data dependency : IBM Foundational Services"
       debug:
         msg: "{{ cpd_install_cpfs_async_output.stdout }}"
