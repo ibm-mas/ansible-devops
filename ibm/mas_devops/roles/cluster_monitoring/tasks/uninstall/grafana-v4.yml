@@ -7,8 +7,9 @@
     state: absent
     api_version: integreatly.org/v1alpha1
     kind: GrafanaDataSource
-    namespace: "{{ grafana_namespace }}"
+    namespace: "{{ grafana_v4_namespace }}"
     name: mas-prom-grafanadatasource
+  ignore_errors: true # in case the api_version doesn't exist
 
 
 # 2. Delete Grafana Instance
@@ -16,9 +17,10 @@
 - name: "uninstall : grafana : Delete Grafana Instance"
   kubernetes.core.k8s:
     state: absent
-    template: templates/grafana.yml.j2
+    template: templates/grafana/v4/grafana.yml.j2
     wait: yes
     wait_timeout: 300
+  ignore_errors: true # in case the api_version doesn't exist
 
 
 # 3. Delete Grafana's ClusterRole and ClusterRoleBinding
@@ -26,7 +28,7 @@
 - name: "uninstall : grafana : Delete Grafana's ClusterRole and ClusterRoleBinding"
   kubernetes.core.k8s:
     state: absent
-    template: templates/grafana-rbac.yml.j2
+    template: templates/grafana/v4/grafana-rbac.yml.j2
 
 
 # 4. Delete Grafana Namespace
@@ -34,4 +36,4 @@
 - name: "uninstall : grafana : Delete Grafana namespace"
   kubernetes.core.k8s:
     state: absent
-    definition: "{{ lookup('template', 'templates/grafana-namespace.yml.j2') }}"
+    definition: "{{ lookup('template', 'templates/grafana/v4/grafana-namespace.yml.j2') }}"
