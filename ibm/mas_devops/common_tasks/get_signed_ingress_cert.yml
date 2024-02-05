@@ -6,7 +6,7 @@
     ocp_ingress_tls_secret_name: "{{ lookup('env', 'OCP_INGRESS_TLS_SECRET_NAME') | default('router-certs-default', True) }}"
   when: ocp_ingress_tls_secret_name is not defined
 
-- name: "1st attempt: Lookup for {{ ocp_ingress_tls_secret_name }} secret"
+- name: "1st attempt : Lookup for {{ ocp_ingress_tls_secret_name }} secret"
   no_log: true
   k8s_info:
     api_version: v1
@@ -42,7 +42,7 @@
         name: cluster
       register: cluster_subdomain
 
-    - name: "2nd attempt : Lookup for cluster ingress secret based on Ingress/cluster"
+    - name: "2nd attempt : Lookup for cluster ingress secret based on Ingress cluster"
       when:
         - cluster_subdomain.resources is defined
         - cluster_subdomain.resources | length > 0
@@ -73,7 +73,7 @@
     - cluster_ingress_secret_name is not defined or
       cluster_ingress_tls_crt is not defined
   block:
-    - name: "3rd attempt: Lookup for cluster ingress secret based on IngressController default"
+    - name: "3rd attempt : Lookup for cluster ingress secret based on IngressController default"
       kubernetes.core.k8s_info:
         api_version: operator.openshift.io/v1
         kind: IngressController
@@ -130,7 +130,7 @@
     # Depending on the cluster's provider, it will try to use substrings to find the
     # exact secret's name i.e for ARO clusters, the cluster's ingress secret name
     # will end with '-ingress'
-    - name: "4th attempt: Lookup for cluster ingress secret based on ROSA, TechZone, and some IPI Installs name convention"
+    - name: "4th attempt : Lookup for cluster ingress secret based on ROSA, TechZone, and some IPI Installs name convention"
       when:
         - cluster_primary_secrets is defined
         - cluster_primary_secrets.resources is defined
