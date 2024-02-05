@@ -1,21 +1,21 @@
 ---
 # Configure COS bucket for Manage doclinks
 # -----------------------------------------------------------------------------
-- name: "Configure {{ cos_type }} bucket for Manage doclinks"
+- name: "Configure {{ mas_manage_doclinks_provider }} bucket for Manage doclinks"
   include_role:
     name: ibm.mas_devops.cos_bucket
-  when: cos_type != 'filestorage'
+  when: mas_manage_doclinks_provider != 'filestorage'
 
 - name: "Setup AWS S3 bucket policies, users and access points"
   vars:
     aws_bucket_name: "{{ cos_bucket_name }}"
     aws_bucket_region: "{{ cos_bucket_region }}"
   include_tasks: "tasks/providers/aws/setup_bucket_permissions.yml"
-  when: cos_type == 'aws'
+  when: mas_manage_doclinks_provider == 'aws'
 
-- name: "Retrieve {{ cos_type }} certificates"
+- name: "Retrieve {{ mas_manage_doclinks_provider }} certificates"
   include_tasks: "tasks/retrieve-cos-certs.yml"
-  when: cos_type != 'filestorage'
+  when: mas_manage_doclinks_provider != 'filestorage'
 
 # Configure Manage bundle servers
 # -----------------------------------------------------------------------------
@@ -54,18 +54,18 @@
     bucketEndpoint:
       aws: 'https://s3.{{ cos_bucket_region }}.amazonaws.com'
       ibm: 'https://s3.private.{{ cos_bucket_region }}.cloud-object-storage.appdomain.cloud'
-  when: cos_type != 'filestorage'
+  when: mas_manage_doclinks_provider != 'filestorage'
 
 - name: Set Manage bundle server properties for aws/ibm
   set_fact:
-    serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setManageDoclinksProperties(doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint[cos_type]) }}"
-  when: cos_type != 'filestorage'
+    serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setManageDoclinksProperties(doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint[mas_manage_doclinks_provider]) }}"
+  when: mas_manage_doclinks_provider != 'filestorage'
 
 - name: Set Manage bundle server properties for filestorage
   set_fact:
     doclinkPath01: "https://{{ manage_url }}/maximo/oslc/cosdoclink"
     serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setManageFsDoclinksProperties(doclinkPath01, manage_url) }}"
-  when: cos_type = 'filestorage'
+  when: mas_manage_doclinks_provider = 'filestorage'
 
 - debug:
     msg:
@@ -74,20 +74,20 @@
       - "accessKey: {{ accessKey }}"
       - "secretAccesskey: {{ secretAccesskey }}"
       - "bucketEndpoint: {{ bucketEndpoint }}"
-  when: cos_type != 'filestorage'
+  when: mas_manage_doclinks_provider != 'filestorage'
 
 - debug:
     var: serverBundles
 
 # Configure COS bucket's certificates into Manage Workspace
 # -----------------------------------------------------------------------------
-- name: "Add the {{ cos_type | upper }} COS certificates in ManageWorkspace CR"
+- name: "Add the {{ mas_manage_doclinks_provider | upper }} COS certificates in ManageWorkspace CR"
   import_role:
     name: ibm.mas_devops.suite_manage_import_certs_config
   vars:
     manage_certificates: "{{ cos_tls_crt }}"
     manage_certificates_alias_prefix: "{{ cos_cert_alias_prefix }}"
-  when: cos_type != 'filestorage'
+  when: mas_manage_doclinks_provider != 'filestorage'
 
 # Configure Server bundle properties into Manage Workspace
 # -----------------------------------------------------------------------------
