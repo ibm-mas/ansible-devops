@@ -5,12 +5,12 @@
 - name: "install : grafana : Create Grafana namespace"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/grafana-namespace.yml.j2') }}"
+    definition: "{{ lookup('template', 'templates/grafana/v5/grafana-namespace.yml.j2') }}"
 
 - name: "install : grafana : Create Grafana operatorgroup"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/grafana-operatorgroup.yml.j2') }}"
+    definition: "{{ lookup('template', 'templates/grafana/v5/grafana-operatorgroup.yml.j2') }}"
 
 - name: "install : Get grafana package manifest"
   kubernetes.core.k8s_info:
@@ -36,7 +36,7 @@
 
 - name: "install : grafana : Create Grafana Operator Subscription"
   kubernetes.core.k8s:
-    template: templates/grafana-subscription.yml.j2
+    template: templates/grafana/v5/grafana-subscription.yml.j2
     wait: yes
     wait_timeout: 120
 
@@ -44,9 +44,9 @@
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: InstallPlan
-    namespace: "{{ grafana_namespace }}"
+    namespace: "{{ grafana_v5_namespace }}"
     label_selectors:
-      - operators.coreos.com/grafana-operator.{{ grafana_namespace }}
+      - operators.coreos.com/grafana-operator.{{ grafana_v5_namespace }}
   register: grafana_installplan_info
   retries: 30
   delay: 60 # Retry for approx 30 minutes (60s * 30 attempts) before giving up
@@ -59,7 +59,7 @@
     api_version: operators.coreos.com/v1alpha1
     kind: InstallPlan
     name: "{{ grafana_installplan_info.resources[0].metadata.name }}"
-    namespace: "{{ grafana_namespace }}"
+    namespace: "{{ grafana_v5_namespace }}"
   register: grafana_installplan_info
   retries: 20
   delay: 30 # Retry for approx 10 minutes (20s * 30 attempts) before giving up
@@ -73,7 +73,7 @@
 # See https://github.com/grafana-operator/grafana-operator/blob/master/documentation/multi_namespace_support.md
 - name: "install : grafana : Apply Cluster Role and Role Binding"
   kubernetes.core.k8s:
-    template: templates/grafana-rbac.yml.j2
+    template: templates/grafana/v5/grafana-rbac.yml.j2
     wait: yes
     wait_timeout: 120
 
@@ -82,7 +82,7 @@
 # -------------------------------------------------------------------------------------
 - name: "install : grafana : Create Grafana Instance"
   kubernetes.core.k8s:
-    template: templates/grafana.yml.j2
+    template: templates/grafana/v5/grafana.yml.j2
     wait: yes
     wait_timeout: 300
 
@@ -134,7 +134,7 @@
     prometheus_token: "{{ prometheus_token_secret.resources[0].data.token | b64decode }}"
   no_log: true
 
-- name: "install : grafana : Get Thanos Querier route in opernshift-monitoring namespace"
+- name: "install : grafana : Get Thanos Querier route in openshift-monitoring namespace"
   kubernetes.core.k8s_info:
     api: v1
     kind: Route
@@ -156,19 +156,21 @@
 
 - name: "install : grafana : Create Grafana Datasource"
   kubernetes.core.k8s:
-    template: templates/grafana-datasource.yml.j2
+    template: templates/grafana/v5/grafana-datasource.yml.j2
     wait: yes
     wait_timeout: 120
 
 - name: "install : grafana : Wait for grafana to be ready (60s delay)"
   kubernetes.core.k8s_info:
-    api_version: integreatly.org/v1alpha1
+    api_version: grafana.integreatly.org/v1beta1
     name: mas-grafana
-    namespace: "{{grafana_namespace}}"
+    namespace: "{{grafana_v5_namespace}}"
     kind: Grafana
   register: grafana_cr_result
   until:
-    - grafana_cr_result.resources[0].status.message is defined
-    - grafana_cr_result.resources[0].status.message == "success"
+    - grafana_cr_result.resources[0].status.stage is defined
+    - grafana_cr_result.resources[0].status.stageStatus is defined
+    - grafana_cr_result.resources[0].status.stage == "complete"
+    - grafana_cr_result.resources[0].status.stageStatus == "success"
   retries: 10 # approx 50 minutes before we give up
   delay: 60 # 1 minute
