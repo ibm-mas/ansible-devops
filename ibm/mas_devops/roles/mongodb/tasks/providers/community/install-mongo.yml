@@ -353,15 +353,24 @@
   register: api_status
   no_log: true
 
-- name: Determine cluster capabilities
+- name: Determine cluster grafana capabilities
   set_fact:
-    supports_integreatly_org: True # Default is 'False'
-  when:
-    - api_status is defined
-    - api_status.apis is defined
-    - api_status.apis['integreatly.org/v1alpha1'] is defined
+    supports_grafanav4: "{{
+      api_status is defined and
+      api_status.apis is defined and
+      api_status.apis['integreatly.org/v1alpha1'] is defined }}"
+    supports_grafanav5: "{{
+      api_status is defined and
+      api_status.apis is defined and
+      api_status.apis['grafana.integreatly.org/v1beta1'] is defined }}"
 
-- name: "community : install : Check for existing Grafana dashboard"
+- name: "Debug information"
+  debug:
+    msg:
+      - "Cluster supports grafana v4 ........... {{ supports_grafanav4 }}"
+      - "Cluster supports grafana v5 ........... {{ supports_grafanav5 }}"
+
+- name: "community : install : Check for existing Grafana v4 dashboard"
   kubernetes.core.k8s_info:
     api_version: integreatly.org/v1alpha1
     kind: GrafanaDashboard
@@ -370,16 +379,38 @@
   register: mongoce_grafana_dashboard_info
   when:
     - mongodb_ce_version is version('0.7.8', '>=')
-    - supports_integreatly_org
+    - supports_grafanav4
 
-- name: "community : install : Create new MongoDb Grafana dashboard"
+- name: "community : install : Create new MongoDb Grafana v4 dashboard"
   when:
+    - supports_grafanav4
     - mongoce_grafana_dashboard_info.resources is defined
     - mongoce_grafana_dashboard_info.resources | length == 0
     - mongodb_ce_version is version('0.7.8', '>=')
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/dashboards/mongodb-overview.yml.j2') }}"
+
+- name: "community : install : Check for existing Grafana v5 dashboard"
+  kubernetes.core.k8s_info:
+    api_version: grafana.integreatly.org/v1beta1
+    kind: GrafanaDashboard
+    name: mongodb-overview-v5
+    namespace: "{{ mongodb_namespace }}"
+  register: mongoce_grafana_dashboard_v5__info
+  when:
+    - mongodb_ce_version is version('0.7.8', '>=')
+    - supports_grafanav5
+
+- name: "community : install : Create new MongoDb Grafana v5 dashboard"
+  when:
+    - supports_grafanav5
+    - mongoce_grafana_dashboard_v5__info.resources is defined
+    - mongoce_grafana_dashboard_v5__info.resources | length == 0
+    - mongodb_ce_version is version('0.7.8', '>=')
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/dashboards/mongodb-overview-v5.yml.j2') }}"
 
 # 13. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
