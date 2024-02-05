@@ -7,13 +7,14 @@ Configures an in-cluster monitoring stack for IBM Maximo Application Suite:
 - [OpenTelemetry operator](https://github.com/open-telemetry/opentelemetry-operator) is installed (optional, `openshift-operators` namespace)
 - [Grafana](https://grafana.com/) installed using the [community grafana operator](https://github.com/grafana-operator/grafana-operator) (`grafana` namespace)
 
-The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route  is created in the grafana namespace to allow access to the grafana UI.
+The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route is created in the grafana namespace to allow access to the grafana UI.
 
 
 Role Variables
 -------------------------------------------------------------------------------
 ### cluster_monitoring_action
-Inform the role whether to perform an install or an uninstall of cluster monitoring. Can also be set to `update_grafana` to update the Grafana Operator from V4 to V5. Note that `update_grafana` will change the Grafana web address and admin password.
+Inform the role whether to perform an install or an uninstall of cluster monitoring. 
+Can also be set to `update_grafana` to update the Grafana Operator from V4 to V5. Note that when Grafana v5 is installed it will have a new URL and will not inherit the user database from the old v4 installation, the admin password will be new, and user accounts set up in the v4 instance will need to be recreated in the v5 instance.
 
 - Optional
 - Environment Variable: `CLUSTER_MONITORING_ACTION`
@@ -137,7 +138,7 @@ Example Playbook
     - ibm.mas_devops.cluster_monitoring
 ```
 
-To Upgrade from Grafana Operator from V4 to V5. Note that the web address and admin password for V5 Grafana will be different to V4.
+To Upgrade from Grafana Operator from V4 to V5. Note that the URL and admin password for V5 Grafana will be different to V4, user accounts will need to be recreated.
 
 ```yaml
 - hosts: localhost
