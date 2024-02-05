@@ -1,30 +1,30 @@
 ---
 # 1. Load default storage classes (if not provided by the user)
 # -----------------------------------------------------------------------------
-- name: "update_grafanav4 : Determine storage classes"
+- name: "update_grafana : Determine storage classes"
   include_tasks: tasks/install/determine-storage-classes.yml
 
 # 2. Install and configure Grafana v5
 # -----------------------------------------------------------------------------
-- name: "update_grafanav4 : Install Grafana Operator V5"
+- name: "update_grafana : Install Grafana Operator V5"
   include_tasks: "tasks/install/grafana-v5.yml"
 
 # 3. Convert grafana dashboards
 # -----------------------------------------------------------------------------
-- name: "update_grafanav4 : Get v4 dashboards"
+- name: "update_grafana : Get v4 dashboards"
   kubernetes.core.k8s_info:
     api_version: integreatly.org/v1alpha1
     kind: GrafanaDashboard
   register: v4Dashboards
 
-- name: Create new V5 Dashboards
+- name: "update_grafana: Create new V5 Dashboards"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/grafana/v5/grafana-dashboard-v5-update.yml.j2') }}"
   loop: "{{ v4Dashboards.resources }}"
   loop_control:
     label: "{{ item.metadata.name }}.{{ item.metadata.namespace }}"
 
-- name: Check that the dashboards have been processed by the new Grafana
+- name: "update_grafana: Check that the dashboards have been processed by the new Grafana"
   kubernetes.core.k8s_info:
     api_version: grafana.integreatly.org/v1beta1
     kind: Grafana
@@ -45,5 +45,5 @@
 
 # 4. Uninstall Grafana v4
 # -----------------------------------------------------------------------------
-- name: "update_grafanav4 : Uninstall Grafana Operator v4"
+- name: "update_grafana: Uninstall Grafana Operator v4"
   include_tasks: "tasks/uninstall_grafanav4/main.yml"
