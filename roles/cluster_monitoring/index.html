@@ -119,6 +119,10 @@
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#cluster_monitoring_action">cluster_monitoring_action</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cluster_monitoring_include_prometheus">cluster_monitoring_include_prometheus</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#cluster_monitoring_include_grafana">cluster_monitoring_include_grafana</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#cluster_monitoring_include_opentelemetry">cluster_monitoring_include_opentelemetry</a>
     </li>
         </ul>
@@ -145,7 +149,11 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#role-variables-grafana">Role Variables - Grafana</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#grafana_namespace">grafana_namespace</a>
+    <li class="toctree-l3"><a class="reference internal" href="#grafana_major_version">grafana_major_version</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#grafana_v4_namespace">grafana_v4_namespace</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#grafana_v5_namespace">grafana_v5_namespace</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#grafana_instance_storage_class">grafana_instance_storage_class</a>
     </li>
@@ -322,19 +330,37 @@
 <li><a href="https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/enabling-monitoring-for-user-defined-projects">OpenShift user defined project monitoring</a> is enabled (<code>openshift-monitoring</code> namespace)</li>
 <li><a href="https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/index">OpenShift monitoring stack</a> is configured to use persistent storage (<code>openshift-monitoring</code> namespace)</li>
 <li><a href="https://github.com/open-telemetry/opentelemetry-operator">OpenTelemetry operator</a> is installed (optional, <code>openshift-operators</code> namespace)</li>
-<li><a href="https://grafana.com/">Grafana</a> installed using the <a href="https://github.com/grafana-operator/grafana-operator">community grafana operator</a> (<code>grafana</code> namespace)</li>
+<li><a href="https://grafana.com/">Grafana</a> installed using the <a href="https://github.com/grafana-operator/grafana-operator">community grafana operator</a> (<code>grafana</code> or <code>grafana5</code> namespace)</li>
 </ul>
 <p>The credentials for the grafana admin user are stored in <code>grafana-admin-credentials</code> secret in the grafana namespace. A route  is created in the grafana namespace to allow access to the grafana UI.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
 <h3 id="cluster_monitoring_action">cluster_monitoring_action<a class="headerlink" href="#cluster_monitoring_action" title="Permanent link"></a></h3>
-<p>Inform the role whether to perform an install or an uninstall of cluster monitoring.</p>
+<p>Inform the role whether to perform an <code>install</code> or an <code>uninstall</code> of the cluster monitoring stack. Can also be set to <code>update_grafana</code> to update the Grafana Operator from V4 to V5.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When using this role to upgrade from Grafana 4 to 5, the Grafana 5 instance will have a new URL and will not inherit the user database from the old v4 installation, the admin password will be new, and user accounts set up in the v4 instance will need to be recreated in the v5 instance.</p>
+</div>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>CLUSTER_MONITORING_ACTION</code></li>
 <li>Default: <code>install</code></li>
 </ul>
+<h3 id="cluster_monitoring_include_prometheus">cluster_monitoring_include_prometheus<a class="headerlink" href="#cluster_monitoring_include_prometheus" title="Permanent link"></a></h3>
+<p>By default this role will reconfigure Prometheus to enable persistent storage and user workload monitoring, this can be disabled by setting this variable to <code>False</code>.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>CLUSTER_MONITORING_INCLUDE_PROMETHEUS</code></li>
+<li>Default: <code>True</code></li>
+</ul>
+<h3 id="cluster_monitoring_include_grafana">cluster_monitoring_include_grafana<a class="headerlink" href="#cluster_monitoring_include_grafana" title="Permanent link"></a></h3>
+<p>By default Grafana is included in the monitoring stack, this can be disabled by setting this variable to <code>False</code>.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>CLUSTER_MONITORING_INCLUDE_GRAFANA</code></li>
+<li>Default: <code>True</code></li>
+</ul>
 <h3 id="cluster_monitoring_include_opentelemetry">cluster_monitoring_include_opentelemetry<a class="headerlink" href="#cluster_monitoring_include_opentelemetry" title="Permanent link"></a></h3>
-<p>By default OpenTelemtry is not installed into the cluster, this operator must be enabled by setting this variable to <code>True</code>.</p>
+<p>By default OpenTelemtry is <strong>not</strong> included in the monitoring stack, this can be enabled by setting this variable to <code>True</code>.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>CLUSTER_MONITORING_INCLUDE_OPENTELEMETRY</code></li>
@@ -398,12 +424,26 @@
 <li>Default Value: <code>20Gi</code></li>
 </ul>
 <h2 id="role-variables-grafana">Role Variables - Grafana<a class="headerlink" href="#role-variables-grafana" title="Permanent link"></a></h2>
-<h3 id="grafana_namespace">grafana_namespace<a class="headerlink" href="#grafana_namespace" title="Permanent link"></a></h3>
-<p>Sets the namespace to install the grafana operator and grafana instance</p>
+<h3 id="grafana_major_version">grafana_major_version<a class="headerlink" href="#grafana_major_version" title="Permanent link"></a></h3>
+<p>Sets the major version of the grafana operator to install. <code>4</code> or <code>5</code></p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>GRAFANA_MAJOR_VERSION</code></li>
+<li>Default Value: <code>4</code></li>
+</ul>
+<h3 id="grafana_v4_namespace">grafana_v4_namespace<a class="headerlink" href="#grafana_v4_namespace" title="Permanent link"></a></h3>
+<p>Sets the namespace to install the grafana operator V4 and grafana instance</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>GRAFANA_NAMESPACE</code></li>
 <li>Default Value: <code>grafana</code></li>
+</ul>
+<h3 id="grafana_v5_namespace">grafana_v5_namespace<a class="headerlink" href="#grafana_v5_namespace" title="Permanent link"></a></h3>
+<p>Sets the namespace to install the grafana operator V5 and grafana instance</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>GRAFANA_V5_NAMESPACE</code></li>
+<li>Default Value: <code>grafana5</code></li>
 </ul>
 <h3 id="grafana_instance_storage_class">grafana_instance_storage_class<a class="headerlink" href="#grafana_instance_storage_class" title="Permanent link"></a></h3>
 <p>Declare the storage class for Grafana Instance user data persistent volume.</p>
@@ -425,6 +465,13 @@
     prometheus_storage_class: &quot;ibmc-block-gold&quot;
     prometheus_alertmgr_storage_class: &quot;ibmc-file-gold-gid&quot;
     grafana_instance_storage_class: &quot;ibmc-file-gold-gid&quot;
+  roles:
+    - ibm.mas_devops.cluster_monitoring
+</code></pre>
+<p>To Upgrade from Grafana Operator from V4 to V5</p>
+<pre><code class="language-yaml">- hosts: localhost
+  vars:
+    cluster_monitoring_action: &quot;update-grafana&quot;
   roles:
     - ibm.mas_devops.cluster_monitoring
 </code></pre>
