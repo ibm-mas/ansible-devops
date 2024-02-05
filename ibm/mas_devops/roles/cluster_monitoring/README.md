@@ -5,23 +5,39 @@ Configures an in-cluster monitoring stack for IBM Maximo Application Suite:
 - [OpenShift user defined project monitoring](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/enabling-monitoring-for-user-defined-projects) is enabled (`openshift-monitoring` namespace)
 - [OpenShift monitoring stack](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/index) is configured to use persistent storage (`openshift-monitoring` namespace)
 - [OpenTelemetry operator](https://github.com/open-telemetry/opentelemetry-operator) is installed (optional, `openshift-operators` namespace)
-- [Grafana](https://grafana.com/) installed using the [community grafana operator](https://github.com/grafana-operator/grafana-operator) (`grafana` namespace)
+- [Grafana](https://grafana.com/) installed using the [community grafana operator](https://github.com/grafana-operator/grafana-operator) (`grafana` or `grafana5` namespace)
 
-The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route is created in the grafana namespace to allow access to the grafana UI.
+The credentials for the grafana admin user are stored in `grafana-admin-credentials` secret in the grafana namespace. A route  is created in the grafana namespace to allow access to the grafana UI.
 
 
 Role Variables
 -------------------------------------------------------------------------------
 ### cluster_monitoring_action
-Inform the role whether to perform an install or an uninstall of cluster monitoring. 
-Can also be set to `update_grafana` to update the Grafana Operator from V4 to V5. Note that when Grafana v5 is installed it will have a new URL and will not inherit the user database from the old v4 installation, the admin password will be new, and user accounts set up in the v4 instance will need to be recreated in the v5 instance.
+Inform the role whether to perform an `install` or an `uninstall` of the cluster monitoring stack. Can also be set to `update_grafana` to update the Grafana Operator from V4 to V5.
+
+!!! note
+    When using this role to upgrade from Grafana 4 to 5, the Grafana 5 instance will have a new URL and will not inherit the user database from the old v4 installation, the admin password will be new, and user accounts set up in the v4 instance will need to be recreated in the v5 instance.
 
 - Optional
 - Environment Variable: `CLUSTER_MONITORING_ACTION`
 - Default: `install`
 
+### cluster_monitoring_include_prometheus
+By default this role will reconfigure Prometheus to enable persistent storage and user workload monitoring, this can be disabled by setting this variable to `False`.
+
+- Optional
+- Environment Variable: `CLUSTER_MONITORING_INCLUDE_PROMETHEUS`
+- Default: `True`
+
+### cluster_monitoring_include_grafana
+By default Grafana is included in the monitoring stack, this can be disabled by setting this variable to `False`.
+
+- Optional
+- Environment Variable: `CLUSTER_MONITORING_INCLUDE_GRAFANA`
+- Default: `True`
+
 ### cluster_monitoring_include_opentelemetry
-By default OpenTelemtry is not installed into the cluster, this operator must be enabled by setting this variable to `True`.
+By default OpenTelemtry is **not** included in the monitoring stack, this can be enabled by setting this variable to `True`.
 
 - Optional
 - Environment Variable: `CLUSTER_MONITORING_INCLUDE_OPENTELEMETRY`
@@ -100,7 +116,7 @@ Sets the major version of the grafana operator to install. `4` or `5`
 Sets the namespace to install the grafana operator V4 and grafana instance
 
 - Optional
-- Environment Variable: `GRAFANA_NAMESPACE`
+- Environment Variable: `GRAFANA_V4_NAMESPACE`
 - Default Value: `grafana`
 
 ### grafana_v5_namespace
@@ -108,7 +124,7 @@ Sets the namespace to install the grafana operator V5 and grafana instance
 
 - Optional
 - Environment Variable: `GRAFANA_V5_NAMESPACE`
-- Default Value: `grafanav5`
+- Default Value: `grafana5`
 
 ### grafana_instance_storage_class
 Declare the storage class for Grafana Instance user data persistent volume.
@@ -138,12 +154,12 @@ Example Playbook
     - ibm.mas_devops.cluster_monitoring
 ```
 
-To Upgrade from Grafana Operator from V4 to V5. Note that the URL and admin password for V5 Grafana will be different to V4, user accounts will need to be recreated.
+To Upgrade from Grafana Operator from V4 to V5
 
 ```yaml
 - hosts: localhost
   vars:
-    cluster_monitoring_action: "update_grafana"
+    cluster_monitoring_action: "update-grafana"
   roles:
     - ibm.mas_devops.cluster_monitoring
 ```
