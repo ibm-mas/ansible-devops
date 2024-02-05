@@ -6,7 +6,7 @@
     ocp_ingress_tls_secret_name: "{{ lookup('env', 'OCP_INGRESS_TLS_SECRET_NAME') | default('router-certs-default', True) }}"
   when: ocp_ingress_tls_secret_name is not defined
 
-- name: "Lookup for {{ ocp_ingress_tls_secret_name }} secret"
+- name: "1st attempt: Lookup for {{ ocp_ingress_tls_secret_name }} secret"
   no_log: true
   k8s_info:
     api_version: v1
@@ -24,76 +24,139 @@
     cluster_ingress_secret_name: "{{ ocp_ingress_tls_secret_name }}"
     cluster_ingress_tls_crt: "{{ router_certs_default_secret.resources[0].data['tls.crt'] | b64decode }}"
 
+- debug:
+    msg:
+      - "Cluster Ingress Cert Secret Name ...... {{ cluster_ingress_secret_name if (cluster_ingress_secret_name is defined) else '1st attempt missed' }}"
+
 # 2. Lookup for secret named after cluster ingress
 # -----------------------------------------------------------------------------
-- name: Get cluster subdomain
-  when: found_router_default_secret is not defined
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    kind: Ingress
-    name: cluster
-  register: cluster_subdomain
+- when:
+    - cluster_ingress_secret_name is not defined or
+      cluster_ingress_tls_crt is not defined
+  block:
+    - name: Get cluster subdomain
+      when: found_router_default_secret is not defined
+      kubernetes.core.k8s_info:
+        api_version: config.openshift.io/v1
+        kind: Ingress
+        name: cluster
+      register: cluster_subdomain
 
-- name: Lookup for cluster ingress secret
-  when:
-    - found_router_default_secret is not defined
-    - cluster_subdomain.resources is defined
-    - cluster_subdomain.resources | length > 0
-  no_log: true
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
-    namespace: openshift-ingress
-  register: cluster_ingress_secret
+    - name: "2nd attempt : Lookup for cluster ingress secret based on Ingress/cluster"
+      when:
+        - cluster_subdomain.resources is defined
+        - cluster_subdomain.resources | length > 0
+      no_log: true
+      k8s_info:
+        api_version: v1
+        kind: Secret
+        name: "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*') }}fdsfdsfsd"
+        namespace: openshift-ingress
+      register: cluster_ingress_secret
 
-- name: "Record that we have found the cluster ingress cert secret"
-  when:
-    - found_router_default_secret is not defined
-    - cluster_ingress_secret is defined
-    - cluster_ingress_secret.resources | length > 0
-  set_fact:
-    found_cluster_ingress_secret: true
-    cluster_ingress_secret_name: "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
-    cluster_ingress_tls_crt: "{{ cluster_ingress_secret.resources[0].data['tls.crt'] | b64decode }}"
+    - name: "Record that we have found the cluster ingress cert secret"
+      when:
+        - cluster_ingress_secret is defined
+        - cluster_ingress_secret.resources | length > 0
+      set_fact:
+        found_cluster_ingress_secret: true
+        cluster_ingress_secret_name: "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*')  }}"
+        cluster_ingress_tls_crt: "{{ cluster_ingress_secret.resources[0].data['tls.crt'] | b64decode }}"
 
-# 3. Lookup for secret based on the cluster name
+    - debug:
+        msg:
+          - "Cluster Ingress Cert Secret Name ...... {{ cluster_ingress_secret_name if (cluster_ingress_secret_name is defined) else '2nd attempt missed' }}"
+
+# 3. If still not found, lookup for cluster ingress secret based on ingresscontroller
+# -----------------------------------------------------------------------------
+- when:
+    - cluster_ingress_secret_name is not defined or
+      cluster_ingress_tls_crt is not defined
+  block:
+    - name: "3rd attempt: Lookup for cluster ingress secret based on IngressController default"
+      kubernetes.core.k8s_info:
+        api_version: operator.openshift.io/v1
+        kind: IngressController
+        name: default
+        namespace: openshift-ingress-operator
+      register: cluster_ingresscontroller_lookup
+
+    - when:
+        - cluster_ingresscontroller_lookup.resources is defined and cluster_ingresscontroller_lookup.resources | length > 0
+        - cluster_ingresscontroller_lookup.resources[0].spec.defaultCertificate.name
+      block:
+        - name: Set default secret name containing cluster's ingress certificate based on IngressController default
+          set_fact:
+            cluster_ingress_secret_name: "{{ cluster_ingresscontroller_lookup.resources[0].spec.defaultCertificate.name }}"
+
+        - name: Lookup default secret name containing cluster's ingress certificate based on IngressController default
+          when: cluster_ingress_secret_name is defined and cluster_ingress_secret_name | length > 0
+          k8s_info:
+            api_version: v1
+            kind: Secret
+            name: "{{ cluster_ingress_secret_name }}"
+            namespace: openshift-ingress
+          register: cluster_ingress_default_secret
+
+        - name: "Record that we have found the default cluster ingress cert secret"
+          when:
+            - cluster_ingress_default_secret.resources is defined
+            - cluster_ingress_default_secret.resources | length > 0
+          set_fact:
+            found_cluster_ingress_secret: true
+            cluster_ingress_tls_crt: "{{ cluster_ingress_default_secret.resources[0].data['tls.crt'] | b64decode }}"
+
+        - debug:
+            msg:
+              - "Cluster Ingress Cert Secret Name ...... {{ cluster_ingress_secret_name if (cluster_ingress_secret_name is defined) else '3rd attempt missed' }}"
+
+# 4. Lookup for secret based on the cluster name
 # -----------------------------------------------------------------------------
 # ROSA, TechZone, and some IPI Installs use this convention
-- name: Get all TLS secrets
-  when:
-    - found_router_default_secret is not defined
-    - found_cluster_ingress_secret is not defined
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    namespace: openshift-ingress
-    field_selectors:
-      - type=kubernetes.io/tls
-  register: cluster_primary_secrets
+- when:
+    - cluster_ingress_secret_name is not defined or
+      cluster_ingress_tls_crt is not defined
+  block:
+    - name: Get all TLS secrets
+      k8s_info:
+        api_version: v1
+        kind: Secret
+        namespace: openshift-ingress
+        field_selectors:
+          - type=kubernetes.io/tls
+      register: cluster_primary_secrets
 
-# This will lookup for cluster's ingress secret name that matches a given label
-# Depending on the cluster's provider, it will try to use substrings to find the
-# exact secret's name i.e for ARO clusters, the cluster's ingress secret name
-# will end with '-ingress'
-- name: "Find Cluster Primary Secret"
-  when:
-    - found_router_default_secret is not defined
-    - found_cluster_ingress_secret is not defined
-    - cluster_primary_secrets is defined
-    - cluster_primary_secrets.resources is defined
-    - cluster_primary_secrets.resources | length > 0
-    - (item.metadata.name.endswith("-primary-cert-bundle-secret")) or
-      (item.metadata.name.endswith("-ingress")) or
-      (item.metadata.name == "letsencrypt-certs")
-  set_fact:
-    found_cluster_primary_secret: true
-    cluster_ingress_secret_name: "{{ item.metadata.name }}"
-    cluster_ingress_tls_crt: "{{ item.data['tls.crt'] | b64decode }}"
-  with_items:
-    - "{{ cluster_primary_secrets.resources }}"
-  loop_control:
-    label: "{{ item.metadata.name }}"
+    # This will lookup for cluster's ingress secret name that matches a given label
+    # Depending on the cluster's provider, it will try to use substrings to find the
+    # exact secret's name i.e for ARO clusters, the cluster's ingress secret name
+    # will end with '-ingress'
+    - name: "4th attempt: Lookup for cluster ingress secret based on ROSA, TechZone, and some IPI Installs name convention"
+      when:
+        - cluster_primary_secrets is defined
+        - cluster_primary_secrets.resources is defined
+        - cluster_primary_secrets.resources | length > 0
+        - (item.metadata.name.endswith("-primary-cert-bundle-secret")) or
+          (item.metadata.name.endswith("-ingress")) or
+          (item.metadata.name == "letsencrypt-certs")
+      set_fact:
+        found_cluster_primary_secret: true
+        cluster_ingress_secret_name: "{{ item.metadata.name }}"
+        cluster_ingress_tls_crt: "{{ item.data['tls.crt'] | b64decode }}"
+      with_items:
+        - "{{ cluster_primary_secrets.resources }}"
+      loop_control:
+        label: "{{ item.metadata.name }}"
+
+    - debug:
+        msg:
+          - "Cluster Ingress Cert Secret Name ...... {{ cluster_ingress_secret_name if (cluster_ingress_secret_name is defined) else '4th attempt missed' }}"
+
+- name: "Assert one way or another cluster ingress secret has been found"
+  assert:
+    that:
+      - cluster_ingress_secret_name is defined
+      - cluster_ingress_tls_crt is defined
+    fail_msg: "Cluster ingress secret was not automatically found, please 'export OCP_INGRESS_TLS_SECRET_NAME' to point to the secret name in 'openshift-ingress' namespace that contains cluster ingress TLS certificates."
 
 # Break up the certificate into an array
 - name: "Extract certificate chain into a variable"
@@ -125,7 +188,7 @@
     - cluster_ingress_tls_crt is defined
     - cluster_ingress_tls_crt | length > 0
 
-# 4. Log which (if any) secret was found
+# 5. Log which (if any) secret was found
 # -----------------------------------------------------------------------------
 # If at least one of the secrets exist, then all good.  If none of the
 # secrets are found, then fail with a message
