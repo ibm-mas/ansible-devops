@@ -89,11 +89,11 @@ Adjust the size of the volume used to store User Workload metrics.
 Role Variables - Grafana
 -------------------------------------------------------------------------------
 ### grafana_major_version
-Sets the major version of the grafana operator to install
+Sets the major version of the grafana operator to install. `4` or `5`
 
 - Optional
 - Environment Variable: `GRAFANA_MAJOR_VERSION`
-- Default Value: `5`
+- Default Value: `4`
 
 ### grafana_namespace
 Sets the namespace to install the grafana operator V4 and grafana instance
