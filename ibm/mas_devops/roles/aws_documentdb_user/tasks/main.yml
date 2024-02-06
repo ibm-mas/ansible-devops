@@ -43,10 +43,22 @@
     src: create_user.js.j2
     dest: "/tmp/create_user.js"
 
+- name: create js file from template
+  template:
+    src: update_user_password.js.j2
+    dest: "/tmp/update_user_password.js"
+
 - name: Create docdb user for MAS instance
   shell: |
     mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/global-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/create_user.js
   register: creating_user_output
+  failed_when: creating_user_output.rc not in [0] and ('User already exists' not in creating_user_output.stderr )
+
+- name: Update docdb user password for MAS instance
+  shell: |
+    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/global-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/update_user_password.js
+  register: update_user_password_output
+  when: creating_user_output.rc not in [0] and ('User already exists' in creating_user_output.stderr )  
 
 # 3. Save docdb user credentials into k8s Secret
 # -----------------------------------------------------------------------------
