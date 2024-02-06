@@ -34,9 +34,9 @@
     docdb_instance_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
   when: docdb_instance_password is undefined or docdb_instance_password == ""
 
-- name: "Download Amazon DocumentDB Certificate Authority (CA) certificate"
+- name: "Download Amazon DocumentDB public key"
   shell: |
-    wget https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem -O /tmp/rds-combined-ca-bundle.pem
+    wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -O /tmp/global-bundle.pem
 
 - name: create js file from template
   template:
@@ -45,7 +45,7 @@
 
 - name: Create docdb user for MAS instance
   shell: |
-    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/create_user.js
+    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/global-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/create_user.js
   register: creating_user_output
 
 # 3. Save docdb user credentials into k8s Secret
