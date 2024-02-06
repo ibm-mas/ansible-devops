@@ -197,3 +197,17 @@
 - name: "roks: Debug final cluster state"
   debug:
     msg: "{{ roks_cluster_completion.stdout | from_json }}"
+
+
+# 10. Enable Openshift Data Foundation
+# -----------------------------------------------------------------------------
+- when: roks_odf_enabled
+  block:
+    - name: "roks : Enable Openshift Data Foundation and MultiCloud Object Gateway"
+      shell: |
+        ibmcloud ks cluster addon enable openshift-data-foundation --cluster {{ cluster_name }} -f --param osdStorageClassName=localblock --param autoDiscoverDevices=true --param ignoreNoobaa=false
+      register: roks_cluster_odf_enable
+
+    - name: "roks: Debug Enable Openshift Data Foundation state"
+      debug:
+        msg: "{{ roks_cluster_odf_enable.stdout | from_json }}"
