@@ -13,10 +13,9 @@ cd mongosh-1.10.1-linux-x64
 chmod +x bin/mongosh
 sudo cp bin/mongosh /usr/local/bin/
 
-# Download rds-combined-ca-bundle.pem
-log 'Download rds-combined-ca-bundle.pem ' 
-wget https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem -O /tmp/rds-combined-ca-bundle.pem
-
+# Download Amazon DocumentDB public key
+log 'Download global-bundle.pem '
+wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -O /tmp/global-bundle.pem
 
 log "DOCDB_INSTANCE_USERNAME={{docdb_instance_username}} DOCDB_INSTANCE_PASSWORD={{docdb_instance_password}}  \n
     MAS_INSTANCE_ID={{mas_instance_id}} DOCDB_MASTER_USERNAME={{docdb_master_username}} DOCDB_MASTER_PASSWORD={{docdb_master_password}} \n
@@ -45,18 +44,18 @@ db.changeUserPassword("{{docdb_instance_username}}", "{{docdb_instance_password}
 EOT
 
 
-log "mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/create_user.js"
+log "mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/global-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/create_user.js"
 
 # Create additional user
 log "Create additional user"
-mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/create_user.js
+mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/global-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/create_user.js
 export retcode=$?
 log "create_user retcode=${retcode}"
 
 # Update user password 
 if [[ ${retcode} -ne 0 ]]; then
     log "User already exist, Update user password"
-    mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/update_user_password.js
+    mongosh --tls --host {{docdb_host}}:{{docdb_port}} --tlsCAFile /tmp/global-bundle.pem --username {{docdb_master_username}} --password {{docdb_master_password}} /tmp/update_user_password.js
 fi
 export retcode=$?
 log "update_user_password retcode=${retcode}"
