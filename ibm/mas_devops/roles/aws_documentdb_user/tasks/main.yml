@@ -43,26 +43,39 @@
     src: create_user.js.j2
     dest: "/tmp/create_user.js"
 
-- name: create js file from template
+- name: create change_user_password js file from template
   template:
-    src: update_user_password.js.j2
-    dest: "/tmp/update_user_password.js"
+    src: change_user_password.js.j2
+    dest: "/tmp/change_user_password.js"
+
+- name: create drop_user js file from template
+  template:
+    src: drop_user.js.j2
+    dest: "/tmp/drop_user.js"
 
 - name: Create docdb user for MAS instance
   shell: |
     mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/global-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/create_user.js
   register: creating_user_output
+  when: user_action == 'add'
   failed_when: creating_user_output.rc not in [0] and ('User already exists' not in creating_user_output.stderr )
 
-- name: Update docdb user password for MAS instance
+- name: Change docdb user password for MAS instance
   shell: |
-    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/global-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/update_user_password.js
-  register: update_user_password_output
-  when: creating_user_output.rc not in [0] and ('User already exists' in creating_user_output.stderr )
+    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/global-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/change_user_password.js
+  register: change_user_password_output
+  when: user_action == 'add' and creating_user_output.rc not in [0] and ('User already exists' in creating_user_output.stderr )
+
+- name: Drop docdb user of MAS instance 
+  shell: |
+    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/global-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/drop_user.js
+  register: drop_user_password_output
+  when: user_action == 'remove'
 
 # 3. Save docdb user credentials into k8s Secret
 # -----------------------------------------------------------------------------
 - name: Create k8s Secret for docdb user credentials
+  when: user_action == 'add'
   ansible.builtin.template:
     src: docdb_instance_user_credentials_secret.yaml.j2
     dest: "{{ mas_config_dir }}/{{ docdb_instance_credentials_secret_name }}.yml"
