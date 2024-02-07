@@ -52,13 +52,6 @@ Local directory to save the generated BasCfg resource definition.  This can be u
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
-### dro_existing
-If you have a DRO instance running on a different cluster and you wish to configure this existing DRO to your MAS instance, Set `EXISTING_DRO` flag to true and pass on `DRO_ENDPOINT_URL` `DRO_APIKEY`  `DRO_CERTIFICATE_PATH` values to configure MAS. By Default `EXISTING_DRO` is set to false, and the dro role will always try to install into your current cluster. If DRO already exists on the current cluster, the ansible role will simply skip over the task and generate a bascfg to apply to your MAS instance. 
-
-- Optional
-- Environment Variable: `EXISTING_DRO`
-- Default Value: false
-
 ### dro_endpoint_url
   DRO url from ibm-data-reporter route found in redhat-marketplace namespace, this variable is needed if you wish to connect to an existing DRO instance.
 
@@ -147,7 +140,6 @@ ansible-playbook playbooks/run_role.yml
 To connect to an existing DRO
 
 ```
-export EXISTING_DRO=true
 export DRO_ENDPOINT_URL=<valid DRO url>
 export DRO_APIKEY=<valid DRO apikey>
 export DRO_CERTIFICATE_PATH=/temp/cert.pem
