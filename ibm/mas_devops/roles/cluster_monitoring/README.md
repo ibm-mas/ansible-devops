@@ -110,7 +110,7 @@ Sets the major version of the grafana operator to install. `4` or `5`
 
 - Optional
 - Environment Variable: `GRAFANA_MAJOR_VERSION`
-- Default Value: `4`
+- Default Value: `5`
 
 ### grafana_v4_namespace
 Sets the namespace to install the grafana operator V4 and grafana instance
