@@ -33,7 +33,7 @@ cpd_cpfs_namespace: ibm-common-services
 cpd_cpfs_minimum_csv_version: "4.0.0" # minimum cpfs version required for cpd 4.8
 
 cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
-cpd_supported_versions: ["4.8.0", "4.8.1","4.8.2"]
+cpd_supported_versions: ["4.8.0", "4.8.1"]
 cpd_ibm_licensing_namespace: ibm-licensing
 
 # ------ CPD component -----------------------------------------------------------------------------------------------
@@ -59,3 +59,23 @@ cpd_components_depending_ccs_list:
   - ws
   - wml
   - spss
+
+# MAS Configuration
+# ---------------------------------------------------------------------------------------------------------------------
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+# CPD Watson Studio default properties
+# ---------------------------------------------------------------------------------------------------------------------
+cpd_default_wsl_project_name: "wsl-mas-{{ mas_instance_id }}-hputilities"
+cpd_wsl_project_name: "{{ lookup('env', 'CPD_WSL_PROJECT_NAME') | default(cpd_default_wsl_project_name, true) }}" # default must be the same expected by suite_app_config role
+cpd_wsl_project_description: "{{ lookup('env', 'CPD_WSL_PROJECT_DESCRIPTION') | default('Watson Studio Project for Maximo Application Suite', true) }}"
+cpd_wsl_project_storage_guid: "{{ 1000 | random | to_uuid | lower }}"
+
+# CPD Watson Discovery default properties
+# ---------------------------------------------------------------------------------------------------------------------
+# A Watson Discovery instance will be set up for Assist per MAS instance
+# Note: This is only used when mas_instance_id and mas_config_dir are not empty string
+cpd_default_wd_instance_name: "wd-mas-{{ mas_instance_id }}-assist"
+cpd_wd_instance_name: "{{ lookup('env', 'CPD_WD_INSTANCE_NAME') | default(cpd_default_wd_instance_name, true) }}"
+cpd_wd_deployment_type: "{{ lookup('env', 'CPD_WD_DEPLOYMENT_TYPE') | default('Starter', true) }}" # Default is "Starter" which creates 1 replica of each pod, "Production" creates at least 2 replicas of each pod, this cannot be changed in the future, and if you upgrade wd, you should use same type.
