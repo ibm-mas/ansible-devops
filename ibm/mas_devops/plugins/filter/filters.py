@@ -386,5 +386,6 @@ class FilterModule(object):
       'setManagePVC': setManagePVC,
       'setManageBirtProperties': setManageBirtProperties,
       'setManageDoclinksProperties': setManageDoclinksProperties,
+      'setManageFsDoclinksProperties': setManageFsDoclinksProperties,
       'setSystemProperties': _setSystemProperties,
     }
