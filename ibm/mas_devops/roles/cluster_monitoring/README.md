@@ -159,7 +159,7 @@ To Upgrade from Grafana Operator from V4 to V5
 ```yaml
 - hosts: localhost
   vars:
-    cluster_monitoring_action: "update-grafana"
+    cluster_monitoring_action: "update_grafana"
   roles:
     - ibm.mas_devops.cluster_monitoring
 ```
