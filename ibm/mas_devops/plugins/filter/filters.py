@@ -350,9 +350,9 @@ def setManageFsDoclinksProperties(data, manage_url):
   for sb in data:
     if 'bundleLevelProperties' in sb:
       if 'mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties'] and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties'] and 'mxe.doclink.path01' not in sb['bundleLevelProperties'] and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']:
-        sb['bundleLevelProperties']+=f"mxe.doclink.doctypes.topLevelPaths=/DOCLINKS \nmxe.doclink.doctypes.defpath=/DOCLINKS/default \nmxe.doclink.path01=/DOCLINKS=https://{manage_url}/maximo/oslc/doclinks \nmxe.doclink.securedAttachment=true \nmxe.report.AttachDoc.validateURL=0"
+        sb['bundleLevelProperties']+=f"mxe.doclink.doctypes.topLevelPaths=/DOCLINKS\nmxe.doclink.doctypes.defpath=/DOCLINKS/default\nmxe.doclink.path01=/DOCLINKS=https://{manage_url}/maximo/oslc/doclinks\nmxe.doclink.securedAttachment=true\nmxe.report.AttachDoc.validateURL=0"
     else:
-      sb['bundleLevelProperties']=   f"mxe.doclink.doctypes.topLevelPaths=/DOCLINKS \nmxe.doclink.doctypes.defpath=/DOCLINKS/default \nmxe.doclink.path01=/DOCLINKS=https://{manage_url}/maximo/oslc/doclinks \nmxe.doclink.securedAttachment=true \nmxe.report.AttachDoc.validateURL=0"
+      sb['bundleLevelProperties']=   f"mxe.doclink.doctypes.topLevelPaths=/DOCLINKS\nmxe.doclink.doctypes.defpath=/DOCLINKS/default\nmxe.doclink.path01=/DOCLINKS=https://{manage_url}/maximo/oslc/doclinks\nmxe.doclink.securedAttachment=true\nmxe.report.AttachDoc.validateURL=0"
     sb_list.append(sb)
   return sb_list
 
