@@ -12,7 +12,8 @@ Required. Defines the storage provider type to be used to store Manage applicati
 Currently available options are:
 
   - `ibm`: Configures IBM Cloud Object Storage as storage system for Manage attachments. 
-  - `aws`: Configures Amazon S3 buckets as storage system for Manage attachments. 
+  - `aws`: Configures Amazon S3 buckets as storage system for Manage attachments.
+  - `filestorage`: Configures the local file system/PV for Manage attachments.
   
   **Note:** If using `ibm` or `aws` as attachments provider, the [`cos_bucket`](../roles/cos_bucket.md) role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments.
 
