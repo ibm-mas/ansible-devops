@@ -1,0 +1,49 @@
+---
+- name: "wait-wd-detectimagepullbackoff : Check for watsonDiscoveryStatus 'Completed'"
+  kubernetes.core.k8s_info:
+    api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
+    kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
+    name: "{{ cpd_service_info[cpd_service_name].cr_name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: cpd_cr_wait_lookup
+
+- name: "wait-wd-detectimagepullbackoff : Pause for 5 minutes to allow pods that may have started before we patched the SA to get into ImgPullBackOff"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  pause:
+    minutes: 5
+
+- name: "wait-wd-detectimagepullbackoff: Lookup pods in CPD instance namespace"
+  when:
+    - cpd_cr_wait_lookup.resources is defined
+    - cpd_cr_wait_lookup.resources | length == 1
+    - cpd_cr_wait_lookup.resources[0].status is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
+    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ cpd_instance_namespace }}"
+  register: discovery_pod_lookup
+
+- name: "wait-wd-detectimagepullbackoff : Delete pod if it's in ImagePullBackoff"
+  when:
+    - discovery_pod_lookup.resources is defined
+    - discovery_pod_lookup.resources | length > 0
+    - item.status.containerStatuses[0].state is defined
+    - item.status.containerStatuses[0].state.waiting is defined
+    - item.status.containerStatuses[0].state.waiting.reason is defined
+    - item.status.containerStatuses[0].state.waiting.reason is in ["ImagePullBackOff", "ErrImagePull"]
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Pod
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  with_items: "{{ discovery_pod_lookup.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"

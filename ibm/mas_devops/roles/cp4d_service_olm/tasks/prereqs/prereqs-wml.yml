@@ -1,0 +1,14 @@
+---
+# This shouldn't be necessary
+# Ref: https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3481#issuecomment-44648280
+- name: "prereqs-wml : Pre-create CCS ServiceAccounts with the right ImagePullSecret"
+  kubernetes.core.k8s:
+    apply: yes
+    template: templates/ccs/serviceAccounts.yml.j2
+  register: wml_ccs_sa_create
+  retries: 2
+  delay: 15 # seconds
+  until: wml_ccs_sa_create.error is not defined # The error field will be set to 409 if there was a conflict
+
+# Note regarding retry logic:
+# If we are installing WML and WSL at exactly the same time then this task my fail with an AlreadyExists error because CCS is a common component
