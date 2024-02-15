@@ -7,7 +7,7 @@ This role extends support for configuring S3 / Cloud Object Storage to store **M
 
 You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage or AWS S3 information to use it as storage for Manage application doclinks.
 
-To switch from one provider to the other, `serverBundleProperties` in manageWorkspace CR shoudld be reset before running this role again.
+To switch from one provider to the other, `serverBundleProperties` in manageWorkspace CR must be reset before running this role again.
 
 Role Variables
 --------------
