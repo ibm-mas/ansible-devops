@@ -1,0 +1,41 @@
+---
+# 1. Wait for zenStatus
+# -----------------------------------------------------------------------------
+# oc get ZenService lite-cr -o jsonpath="{.status.zenStatus}{'\n'}"
+- name: "wait/cpd_platform: Wait for zenStatus to be ready to be 'Completed' (2m delay)"
+  kubernetes.core.k8s_info:
+    api_version: zen.cpd.ibm.com/v1
+    name: lite-cr
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: ZenService
+  register: zenservice_lookup
+  until:
+    - zenservice_lookup.resources[0].status.zenStatus is defined
+    - zenservice_lookup.resources[0].status.zenStatus == "Completed" or zenservice_lookup.resources[0].status.zenStatus == "Failed"
+  retries: 60 # Approximately 2 hours before we give up
+  delay: 120 # 2 minutes
+
+# 2. Wait for controlPlaneStatus
+# -----------------------------------------------------------------------------
+# need to lookup the ibmcpd cr name because in 4.6.x it is named 'ibmcpd' but in 4.8.x it is 'ibmcpd-cr' - go figure
+- name: "wait/cpd_platform: Lookup existing ibmcpd custom resource name (2m delay)"
+  shell: oc get Ibmcpd -n {{ cpd_instance_namespace }} | grep ibmcpd | awk '{print $1}'
+  register: ibmcpd_cr_name_lookup
+  failed_when: ibmcpd_cr_name_lookup.stdout | length == 0
+
+- debug:
+    var: ibmcpd_cr_name_lookup.stdout
+
+- name: "wait/cpd_platform: Wait for controlPlaneStatus to be 'Completed' (2m delay)"
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    name: "{{ ibmcpd_cr_name_lookup.stdout }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: Ibmcpd
+  register: ibmcpd_lookup
+  until:
+    - ibmcpd_lookup.resources[0].status.controlPlaneStatus is defined
+    - ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Completed"
+  retries: 60 # Approximately 2 hours before we give up
+  delay: 120 # 2 minutes
+

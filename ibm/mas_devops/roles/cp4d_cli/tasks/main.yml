@@ -1,0 +1,71 @@
+---
+# The following playbook is an attempt to automate the CP4D 4.0 / 4.5 steps documented here:
+# https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
+
+# Validate properties are provided
+# -----------------------------------------------------------------------------
+- name: "Check that CPD release version has been provided"
+  assert:
+    that:
+      - cpd_product_version is defined and cpd_product_version != ""
+    fail_msg: "CPD version (cpd_product_version) is a required parameter to run this role"
+
+- name: "Check that provided CPD version is supported"
+  assert:
+    that:
+      - cpd_product_version in cpd_supported_versions
+    fail_msg: "CPD version ({{ cpd_product_version }}) is not a supported CPD version. Supported CPD versions are: {{ cpd_supported_versions }}."
+
+- name: Check that an entitlement key has been provided
+  assert:
+    that: cpd_entitlement_key is defined and cpd_entitlement_key != ""
+    fail_msg: "ibm_entitlement_key or cpd_entitlement_key override must be provided"
+
+# Assert that the component list provided is contained within the supported component list
+# -----------------------------------------------------------------------------
+- name: "Check that CPD components are supported"
+  when:
+    - cpd_components_list is defined
+  assert:
+    that:
+      - cpd_components_list | length > 0
+      - cpd_components_supported_list | sort | intersect(cpd_components_list) == cpd_components_list
+    fail_msg:
+      - "Cloud Pak for Data Service {{ cpd_components_list | difference(cpd_components_supported_list) }} is not supported by this role."
+      - "The supported components are: {{ cpd_components_supported_list }}"
+
+# Check if and where Certificate Manager is installed
+# -----------------------------------------------------------------------------
+- name: "Detect Certificate Manager installation"
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+  when: cert_manager_namespace is not defined or cert_manager_namespace | length == 0
+
+# At this point we expect Red Hat certificate manager to be installed in the cluster, we'll block CPD 4.8 install if IBM certificate manager is installed
+- name: "Assert that Red Hat certificate manager is installed"
+  assert:
+    that:
+      - cert_manager_namespace is defined
+      - cert_manager_namespace == 'cert-manager'
+    fail_msg: "Red Hat Certificate Manager was not found in the cluster. Make sure you install/migrate to it by running 'cert_manager' role before trying to install/upgrade IBM Cloud Pak for Data {{ cpd_product_version }} instance."
+
+# Debug Cloud Pak for Data installation details
+# -----------------------------------------------------------------------------
+- name: "Debug Cloud Pak for Data {{ cpd_product_version }} details"
+  debug:
+    msg:
+      - "CP4D action ..................... {{ cpd_action }}"
+      - "CP4D components  ................ {{ cpd_components_list }}"
+
+- name: "Run cp4d-deploy task"
+  include_tasks: "tasks/cp4d-deploy.yml"
+
+# Generate MAS Config
+# -----------------------------------------------------------------------------
+# Only Watson Studio and Watson Discovery generate a configuration in config folder for later usage
+- name: "Generate MAS Config into {{ mas_config_dir }} folder"
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+    - item is in ['ws','watson_discovery']
+  include_tasks: "gencfg/{{ item }}.yml"
+  with_items: "{{ cpd_components_list }}"

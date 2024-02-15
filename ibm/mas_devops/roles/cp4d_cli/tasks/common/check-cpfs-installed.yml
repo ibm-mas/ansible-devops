@@ -1,0 +1,30 @@
+---
+# This task will be called only when we're upgrading CPD, as CPFS instance must exist in Cloud Pak for Data operators namespace.
+# Check whether IBM Common Services are already installed
+- name: "check-cpfs-installed : Check if ibm-common-services-operator is installed"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - operators.coreos.com/ibm-common-service-operator.{{ cpd_operators_namespace }}
+  register: common_services_sub_lookup
+
+- name: "check-cpfs-installed : Assert that IBM Cloud Pak Foundational Services is installed"
+  assert:
+    that:
+      - common_services_sub_lookup.resources is defined
+      - common_services_sub_lookup.resources | length > 0
+      - common_services_sub_lookup.resources[0].status is defined
+      - common_services_sub_lookup.resources[0].status.installedCSV is defined
+    fail_msg: "Failed! IBM Cloud Pak Foundation Services is not installed in {{ cpd_operators_namespace }} namespace thus we cannot proceed with upgrading to CloudPak for Data version {{ cpd_product_version }}"
+
+# extract CPFS installedCSV
+- set_fact:
+    current_cpfs_installed_csv: "{{ common_services_sub_lookup.resources[0].status.installedCSV | regex_search(regex) }}"
+  vars:
+    regex: "(?<=ibm-common-service-operator.v)(.*)"
+
+- debug:
+    msg:
+      - "installedCSV for ibm-common-service-operator  .............. {{ current_cpfs_installed_csv }}"

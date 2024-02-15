@@ -1,0 +1,21 @@
+---
+
+# Get CP4D Beaker token to enable Watson API authentication
+# -----------------------------------------------------------------------------
+- name: "Authorize the CP4D (get Bearer token)"
+  uri:
+    url: "{{ cpd_admin_url }}/icp4d-api/v1/authorize"
+    validate_certs: no
+    method: POST
+    headers:
+      cache-control: "no-cache"
+    body_format: "json"
+    body: "{\"username\":\"{{ cpd_admin_username }}\",\"password\":\"{{ cpd_admin_password }}\"}"
+    status_code: 200
+    timeout: 30
+  register: cpd_authorization
+
+- name: "Get the CP4D Bearer token"
+  no_log: true
+  set_fact:
+    cpd_bearer_token: "{{ cpd_authorization.json.token }}"

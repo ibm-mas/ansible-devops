@@ -1,0 +1,136 @@
+---
+# - Check if analytics project with informed name already exists
+# - If it does, look for its id
+# - If it does not, create a new project and get its id
+# - Write out WatsonStudioCfg into MAS Config Directory with Studio details for a later binding
+# - Write out analytics project id into MAS Config Directory to be consumed by other roles (suite_app_config in this case, for hputilities)
+
+# 1. Watson Studio Project Installation Summary
+# -----------------------------------------------------------------------------
+- name: "gencfg/ws : Watson Studio Project Installation Summary"
+  debug:
+    msg:
+      - "CP4D Dashboard ......................... {{ cpd_admin_url }}"
+      - "CP4D Admin Username .................... {{ cpd_admin_username }}"
+      - "CP4D Admin Password .................... {{ cpd_admin_password_text }}"
+      - "CP4D WSL Project Name .................. {{ cpd_wsl_project_name }}"
+      - "MAS config directory ................... {{ mas_config_dir }}"
+
+# 2. Get CP4D Beaker token to enable Watson API authentication
+# -----------------------------------------------------------------------------
+- name: "gencfg/ws : Authorize the CP4D (get Bearer token)"
+  include_tasks: "tasks/gencfg/get-bearer-token.yml"
+
+# 3. Look for a project with informed name and retrieve its id
+# -----------------------------------------------------------------------------
+- name: "gencfg/ws : Look for a project with name {{ cpd_wsl_project_name }} (cpd_wsl_project_name)"
+  uri:
+    url: "{{ cpd_admin_url }}/v2/projects"
+    validate_certs: no
+    method: GET
+    headers:
+      Authorization: "Bearer {{ cpd_bearer_token }}"
+      cache-control: "no-cache"
+      Content-Type: "application/json"
+    status_code: 200,404
+    timeout: 30
+  register: lookup_wsl_project_list
+
+- name: "gencfg/ws : Look for wsl default project among project list"
+  set_fact:
+    wsl_project_id: "{{ lookup_wsl_project_list.json.resources | ibm.mas_devops.getWSLProjectId(cpd_wsl_project_name) }}"
+
+
+# 4. Communication to User regarding project search
+# -----------------------------------------------------------------------------
+- name: "gencfg/ws : Debug wsl_project_id"
+  when:
+    - wsl_project_id is not defined or wsl_project_id == ""
+  debug:
+    msg: "No project exists with name = {{ cpd_wsl_project_name }}, therefore a new project will be created"
+- name: "gencfg/ws : Debug wsl_project_id"
+  when:
+    - wsl_project_id is defined and wsl_project_id != ""
+  debug:
+    msg: "Project named {{ cpd_wsl_project_name }} has been found: {{ wsl_project_id }}"
+
+
+# 5. Create new analytics project if necessary
+# -----------------------------------------------------------------------------
+- name: "gencfg/ws : Debug data needed to create a new analytics project"
+  when:
+    - wsl_project_id is not defined or wsl_project_id == ""
+  debug:
+    msg:
+      - "Project Name ................... {{ cpd_wsl_project_name }}"
+      - "Project Description ............ {{ cpd_wsl_project_description }}"
+      - "Project Storage Guid ........... {{ cpd_wsl_project_storage_guid }}"
+      - "CPD Admin User Name ............ {{ cpd_admin_username }}"
+
+- name: "gencfg/ws : Guarantee that admin user has permission to create projects, if needed"
+  when:
+    - wsl_project_id is not defined or wsl_project_id == ""
+  uri:
+    url: "{{ cpd_admin_url }}/usermgmt/v1/role/zen_administrator_role"
+    validate_certs: no
+    method: PUT
+    headers:
+      Authorization: "Bearer {{ cpd_bearer_token }}"
+      cache-control: "no-cache"
+      Content-Type: "application/json"
+    body_format: "json"
+    body: "{\"role_name\":\"Administrator\",\"description\":\"Administrator role\",\"permissions\":[\"administrator\",\"can_provision\",\"manage_catalog\",\"create_space\",\"create_project\"]}"
+    status_code: 200
+    timeout: 30
+
+- name: "gencfg/ws : Create a analytics project if one is needed"
+  when:
+    - wsl_project_id is not defined or wsl_project_id == ""
+  uri:
+    url: "{{ cpd_admin_url }}/transactional/v2/projects"
+    validate_certs: no
+    method: POST
+    headers:
+      Authorization: "Bearer {{ cpd_bearer_token }}"
+      cache-control: "no-cache"
+      Content-Type: "application/json"
+    body_format: "json"
+    body: "{{ lookup('template','templates/cpd_services/ws/create_wsl_project.json.j2') }}"
+    status_code: 201,409
+    timeout: 30
+  register: create_wsl_project_output
+
+- name: "gencfg/ws : Extract wsl_project_id when it's created via rest api"
+  vars:
+    regex: '[^/]*$'
+  when:
+    - create_wsl_project_output.status is defined
+    - create_wsl_project_output.status == 201
+  set_fact:
+    wsl_project_id: "{{ create_wsl_project_output.json.location | regex_search(regex) }}"
+
+
+# 6. Write out the config to the local filesystem
+# -----------------------------------------------------------------------------
+- name: "Debug final Analytics Project details"
+  debug:
+    msg:
+      - "Project Name ................... {{ cpd_wsl_project_name }}"
+      - "Project Id ..................... {{ wsl_project_id }}"
+
+- name: "gencfg/ws : Write out WatsonStudioCfg into MAS Configuration Directory"
+  no_log: true
+  when:
+    - mas_instance_id is defined and mas_instance_id != ""
+    - mas_config_dir is defined and mas_config_dir != ""
+  ansible.builtin.template:
+    src: cpd_services/ws/watsonstudiocfg.yml.j2
+    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-watsonstudio-system.yml"
+    mode: '664'
+
+- name: "gencfg/ws : Write our wsl_project_id into MAS Configuration Directory"
+  copy:
+    dest: "{{ mas_config_dir }}/{{ cpd_wsl_project_name }}.id"
+    content: |
+      {{ wsl_project_id }}
+    mode: '664'

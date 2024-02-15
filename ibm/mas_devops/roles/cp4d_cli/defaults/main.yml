@@ -1,0 +1,81 @@
+---
+# ------ CPD login ----------------------------------------------------------------------------------------------
+# Option 1 - Use ocp_server and ocp_token:
+# For already provisioned clusters set token and server to log directly into rather than cluster type (ROKS/Fyre) specific login
+ocp_token: "{{ lookup('env', 'OCP_TOKEN') }}"
+ocp_server: "{{ lookup('env', 'OCP_SERVER') }}"
+cpd_admin_login_sa: "mas-cpd-cluster-admin-sa"
+cpd_logs_dir_default: "{{ role_path }}/logs"
+cpd_logs_dir: "{{ lookup('env', 'CPD_LOGS_DIR') | default(cpd_logs_dir_default, true) }}"
+
+# ------ CPD install flag options ----------------------------------------------------------------------------------------------
+cpd_action: "{{ lookup('env', 'CPD_ACTION') | default('install', true) }}"
+cpd_upgrade_flag: "{{ (cpd_action == 'upgrade') | ternary('true', 'false') }}"
+skip_cpd_prereqs: "{{ lookup('env', 'SKIP_CPD_PREREQS') | default('false', true) | bool }}"
+skip_cpd_operators: "{{ lookup('env', 'SKIP_CPD_OPERATORS') | default('false', true) | bool }}"
+skip_cpd_operands: "{{ lookup('env', 'SKIP_CPD_OPERANDS') | default('false', true) | bool }}"
+
+# ------ CPD storage classes ------------------------------------------------------------------------------------------
+cpd_primary_storage_class: "{{ lookup('env', 'CPD_PRIMARY_STORAGE_CLASS') }}"
+cpd_metadata_storage_class: "{{ lookup('env', 'CPD_METADATA_STORAGE_CLASS') }}"
+cpd_scale_config: "{{ lookup('env', 'CPD_SCALE_CONFIG') | default('medium', true) }}"
+
+# ------ CPD entitlement ----------------------------------------------------------------------------------------------
+cpd_entitlement_username: "{{ lookup('env', 'CPD_ENTITLEMENT_USERNAME') | default('cp', true) }}"
+ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
+cpd_entitlement_key: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
+
+# ------ CPD config parameters -----------------------------------------------------------------------------------------------
+cpd_operators_namespace: "{{ lookup('env', 'CPD_OPERATORS_NAMESPACE') | default('ibm-cpd-operators', true) }}"
+cpd_instance_namespace: "{{ lookup('env', 'CPD_INSTANCE_NAMESPACE') | default('ibm-cpd', true) }}"
+cpd_cs_control_namespace: cs-control
+cpd_cpfs_namespace: ibm-common-services
+cpd_cpfs_minimum_csv_version: "4.0.0" # minimum cpfs version required for cpd 4.8
+
+cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
+cpd_supported_versions: ["4.8.0", "4.8.1"]
+cpd_ibm_licensing_namespace: ibm-licensing
+
+# ------ CPD component -----------------------------------------------------------------------------------------------
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-installing-cloud-pak
+cpd_components: "{{ lookup('env', 'CPD_COMPONENTS') | default('cpd_platform', true) | lower }}" # minimum that must be installed to have cpd running is 'cpd_platform'
+cpd_components_list: "{{ cpd_components | split(',') | sort }}" # this will parse the 'cpd_components' string into a list to be used internally in the role
+cpd_deployment_wait_time: "{{ cpd_components_list | length * 60 }}" # add up an hour for each service that will be installed/upgraded
+
+# List of CPD components/services that can be installed through this role
+cpd_components_supported_list:
+  - cpd_platform
+  - analyticsengine
+  - cognos_analytics
+  - openscale
+  - spss
+  - watson_discovery
+  - ws
+  - wml
+
+# List of CPD services that depend on CCS to be installed
+cpd_components_depending_ccs_list:
+  - cognos_analytics
+  - ws
+  - wml
+  - spss
+
+# MAS Configuration
+# ---------------------------------------------------------------------------------------------------------------------
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
+
+# CPD Watson Studio default properties
+# ---------------------------------------------------------------------------------------------------------------------
+cpd_default_wsl_project_name: "wsl-mas-{{ mas_instance_id }}-hputilities"
+cpd_wsl_project_name: "{{ lookup('env', 'CPD_WSL_PROJECT_NAME') | default(cpd_default_wsl_project_name, true) }}" # default must be the same expected by suite_app_config role
+cpd_wsl_project_description: "{{ lookup('env', 'CPD_WSL_PROJECT_DESCRIPTION') | default('Watson Studio Project for Maximo Application Suite', true) }}"
+cpd_wsl_project_storage_guid: "{{ 1000 | random | to_uuid | lower }}"
+
+# CPD Watson Discovery default properties
+# ---------------------------------------------------------------------------------------------------------------------
+# A Watson Discovery instance will be set up for Assist per MAS instance
+# Note: This is only used when mas_instance_id and mas_config_dir are not empty string
+cpd_default_wd_instance_name: "wd-mas-{{ mas_instance_id }}-assist"
+cpd_wd_instance_name: "{{ lookup('env', 'CPD_WD_INSTANCE_NAME') | default(cpd_default_wd_instance_name, true) }}"
+cpd_wd_deployment_type: "{{ lookup('env', 'CPD_WD_DEPLOYMENT_TYPE') | default('Starter', true) }}" # Default is "Starter" which creates 1 replica of each pod, "Production" creates at least 2 replicas of each pod, this cannot be changed in the future, and if you upgrade wd, you should use same type.
