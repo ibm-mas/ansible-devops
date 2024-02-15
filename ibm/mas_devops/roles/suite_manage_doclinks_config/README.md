@@ -2,12 +2,12 @@ suite_manage_doclinks_config
 ===
 The role `suite_manage_attachments_config` is deprecated and getting replaced by this one.
 
-To switch from one provider to the other, `serverBundleProperties` in manageWorkspace CR shoudld be reset before running this role again.
-
 This role extends support for configuring S3 / Cloud Object Storage to store **Manage** application doclinks.
 **Note:** This role should be executed **after** Manage application is deployed and activated as it needs Manage up and running prior configuring doclinks features.
 
 You can run `cos` role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage or AWS S3 information to use it as storage for Manage application doclinks.
+
+To switch from one provider to the other, `serverBundleProperties` in manageWorkspace CR shoudld be reset before running this role again.
 
 Role Variables
 --------------
