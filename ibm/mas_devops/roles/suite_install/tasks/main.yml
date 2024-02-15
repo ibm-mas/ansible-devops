@@ -140,7 +140,11 @@
 
 # 4. Determine version of cert-manager in use on the cluster
 # -----------------------------------------------------------------------------
-- include_tasks: tasks/detect-cert-manager.yml
+# if cert_manager_cluster_resource_namespace is not set then
+# run 'detect_cert_manager' task to set it as this will be needed to be set in Suite CR
+- name: Detect Certificate Manager installation
+  include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
+  when: cert_manager_cluster_resource_namespace is not defined or cert_manager_cluster_resource_namespace == ''
 
 # 5. Provide debug information
 # -----------------------------------------------------------------------------
@@ -158,8 +162,8 @@
       - "MAS domain .................... {{ mas_domain }}"
       - "MAS ICR cp content ............ {{ mas_icr_cp }}"
       - "MAS ICR cpopen content ........ {{ mas_icr_cpopen }}"
+      - "Cert Manager namespace ........ {{ cert_manager_cluster_resource_namespace }}"
       - "MAS Cluster Issuer ............ {{ mas_cluster_issuer }}"
-      - "MAS Subscription Upgrade ...... {{ mas_upgrade_strategy }}"
       - "IPv6 Enabled .................. {{ enable_ipv6 }}"
 
 # 6. Install the operator & create entitlement secret
@@ -174,35 +178,6 @@
     catalog_source: "{{ mas_catalog_source }}"
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
-
-- name: Lookup and Approve MAS Subscription
-  when: mas_upgrade_strategy == 'Manual'
-  block:
-    - name: Lookup Operator install plan
-      kubernetes.core.k8s_info:
-        api_version: operators.coreos.com/v1alpha1
-        kind: InstallPlan
-        namespace: "{{ mas_namespace }}"
-        label_selectors:
-          - "operators.coreos.com/ibm-mas.{{ mas_namespace }}"
-      register: mas_install_plan
-      retries: 20
-      delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
-      until: mas_install_plan.resources | length > 0
-
-    - name: Approve the subscription install plan
-      when:
-        - mas_install_plan.resources | length > 0
-        - mas_install_plan.resources[0].status.phase != "Complete"
-      kubernetes.core.k8s:
-        definition:
-          apiVersion: operators.coreos.com/v1alpha1
-          kind: InstallPlan
-          metadata:
-            name: "{{ mas_install_plan.resources[0].metadata.name }}"
-            namespace: "{{ mas_namespace }}"
-          spec:
-            approved: true
 
 # 7. Wait until the Suite CRD is available
 # -----------------------------------------------------------------------------
@@ -249,12 +224,3 @@
 - name: debug suiteResult
   debug:
     msg: "{{ suiteResult }}"
-
-# 10. Handle IBM Common Services Install plan approvals when upgrade strategy is set to Manual
-# -----------------------------------------------------------------------------
-# ibm-common-services operators deployed by MAS will inherit the inherit MAS upgrade strategy
-# when its set to Manual, we need to iterate those to ensure we do approve the first install plan
-# otherwise MAS installation wont succeed.
-- include_tasks: tasks/ibm-common-services.yml
-  when: mas_upgrade_strategy == 'Manual'
-  loop: "{{ibm_common_services_subscription_labels}}"

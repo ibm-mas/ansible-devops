@@ -131,3 +131,9 @@ ansible-playbook ibm.mas_devops.oneclick_core
 
 !!! tip
     If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`
+
+!!! tip
+    Enable login for Maximo Application Suite self-signed certificates. <br>
+    If you are using self-signed certificates in a development or test environment, you must manually enable login by using either of the following methods: <br>
+    Download the certificates from the cluster and add them to your local certificate manager. <br>
+    In your browser, go to the Maximo Application Suite API URL: "https://api.mas_domain/" and then accept the certificate security risks. After you accept the risks, an AIUC01999E error is displayed. This message is expected. You can now continue with the setup process.

@@ -1,0 +1,20 @@
+# - if IBM Certificate Manager is present, while migrating to red hat cert manager, add '--cluster-resource-namespace' to CertManager CR
+# so that it keeps watching for cluster issuer's secrets in 'ibm-common-services' namespace (existing MAS instances)
+# - if IBM Certificate Manager is not present, then don't customize '--cluster-resource-namespace' in CertManager CR
+# as the default will be $POD_NAMESPACE which will end up being the namespace where Red Hat Certificate Manager operator is located ('cert-manager-operator)
+---
+apiVersion: operator.openshift.io/v1alpha1
+kind: CertManager
+metadata:
+  name: "cluster"
+spec:
+  controllerConfig:
+    overrideArgs:
+      - "--dns01-recursive-nameservers-only"
+      - "--dns01-recursive-nameservers=8.8.8.8:53,1.1.1.1:53"
+{% if cert_manager_cluster_resource_namespace is defined and cert_manager_cluster_resource_namespace | length > 0 %}
+  unsupportedConfigOverrides:
+    controller:
+      args:
+        - "--cluster-resource-namespace={{ cert_manager_cluster_resource_namespace }}"
+{% endif %}

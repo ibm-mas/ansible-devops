@@ -29,15 +29,8 @@ Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/conta
 - Environment Variable: `IBM_ENTITLEMENT_KEY`
 - Default: None
 
-### dro_version
-Provide particular StartingCSV version of DRO. Default value is picked from Stable channel.
-
-- Optional
-- Environment Variable: `DRO_VERSION`
-- Default Value: None
-
 ### dro_storage_class
-Default Storage class. Set this variable if there's no storage class with default annotation.
+Required. Storage class where DRO will be installed. MAS ansible playbooks will automatically try to determine a rwo (Read Write Once) storage class from a cluster if DRO_STORAGE_CLASS is not supplied. If a cluster is setup with a customize storage solution, please provide a valid rwo storage class name using DRO_STORAGE_CLASS
 
 - Optional
 - Environment Variable: `DRO_STORAGE_CLASS`
@@ -57,6 +50,27 @@ Local directory to save the generated BasCfg resource definition.  This can be u
 
 - Optional
 - Environment Variable: `MAS_CONFIG_DIR`
+- Default Value: None
+
+### dro_endpoint_url
+  DRO url from ibm-data-reporter route found in redhat-marketplace namespace, this variable is needed if you wish to connect to an existing DRO instance.
+
+- Optional
+- Environment Variable: `DRO_ENDPOINT_URL`
+- Default Value: None
+
+### dro_api_key
+  DRO api_key is a token obtained from ibm-data-reporter-operator-api-token secret found in redhat-marketplace namespace, this variable is needed if you wish to connect to an existing DRO instance.
+
+- Optional
+- Environment Variable: `DRO_APIKEY`
+- Default Value: None
+
+### dro_crt_path
+  DRO uses default OCP cluster ingress certificates. these can be obtained from either router-certs-default secret found in openshift-ingress namespace or trustedCA config map found in openshift-config namespace, copy the contents of tls.crt into a .pem file and provide the filepath of the .pem file to `DRO_CERTIFICATE_PATH`, this variable is needed if you wish to connect to an existing DRO instance.
+
+- Optional
+- Environment Variable: `DRO_CERTIFICATE_PATH`
 - Default Value: None
 
 ### dro_contact.email
@@ -96,10 +110,60 @@ For examples refer to the [BestEfforts reference configuration in the MAS CLI](h
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
 
+### include_cluster_ingress_cert_chain
+Optional. When set to `True`, includes the complete certificates chain in the generated MAS configuration, when a trusted certificate authority is found in your cluster's ingress.
+
+- Optional
+- Environment Variable: `INCLUDE_CLUSTER_INGRESS_CERT_CHAIN`
+- Default: `False`
+
 Example Playbook
 -------------------------------------------------------------------------------
 
 ### Install in-cluster and generate MAS configuration
+
+To install DRO
+```
+export IBM_ENTITLEMENT_KEY=<valid ibm entitlement key>
+export DRO_CONTACT_EMAIL=xxx@xxx.com
+export DRO_CONTACT_FIRSTNAME=xxx
+export DRO_CONTACT_LASTNAME=xxx 
+export DRO_ACTION=install-dro
+export MAS_CONFIG_DIR=<valid local path to the config folder>
+export MAS_INSTANCE_ID=<valid mas instance id>
+export DRO_STORAGE_CLASS=<valid storage class name>
+export ROLE_NAME='dro'
+
+ansible-playbook playbooks/run_role.yml
+```
+
+To connect to an existing DRO
+
+```
+export DRO_ENDPOINT_URL=<valid DRO url>
+export DRO_APIKEY=<valid DRO apikey>
+export DRO_CERTIFICATE_PATH=/temp/cert.pem
+export IBM_ENTITLEMENT_KEY=<valid ibm entitlement key>
+export DRO_CONTACT_EMAIL=xxx@xxx.com
+export DRO_CONTACT_FIRSTNAME=xxx
+export DRO_CONTACT_LASTNAME=xxx 
+export MAS_CONFIG_DIR=<valid local path to the config folder>
+export MAS_INSTANCE_ID=<valid mas instance id>
+
+export DRO_ACTION=install-dro
+export ROLE_NAME='dro'
+ansible-playbook playbooks/run_role.yml
+```
+
+To uninstall DRO
+```
+export DRO_ACTION=uninstall
+export ROLE_NAME='dro'
+
+ansible-playbook playbooks/run_role.yml
+
+```
+
 ```yaml
 - hosts: localhost
   any_errors_fatal: true

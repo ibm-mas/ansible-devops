@@ -19,8 +19,9 @@
 - name: "community : check-mongo-exists : Debug existing resources"
   debug:
     msg:
-      - "Existing MongoDb  ........ {{ existing_mongodb.resources[0] | default('Not Found', true) }}"
-      - "Existing operator version  {{ existing_mongo_operator.resources[0] | default('Not Found', true)  }}"
+      - "Existing MongoDb  ............... {{ existing_mongodb.resources[0] | default('Not Found', true) }}"
+      - "Existing operator version ....... {{ existing_mongo_operator.resources[0] | default('Not Found', true)  }}"
+      - "Existing MongoDb storage class .. {{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName | default('Not Found', true) }}"
 
 - name: "community : check-mongo-exists : upgrade details"
   debug:
@@ -28,20 +29,36 @@
       - "Existing MongoDb version ........ {{ existing_mongodb.resources[0].spec.version | default('Not found', true) }}"
 
 - block:
-    # holds the existing mongo instance version
+    # Note: this step assumes that the data volume is always defined before the logs volume.  We could/should improve this TBH.
+    - name: Set existing_mongo_storage_class & capacity
+      set_fact:
+        existing_mongo_storage_class: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName }}"
+        existing_mongodb_storage_capacity_data: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage }}"
+        existing_mongodb_storage_capacity_logs: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[1].spec.resources.requests.storage }}"
+
     - name: Set existing_mongo_version
       set_fact:
         existing_mongo_version: "{{ existing_mongodb.resources[0].spec.version }}"
 
-    # holds the existing mongo instance minor version
+    # MongoDb version strings are (currently) always in the format {single_digit}.{single_digit} so
+    # we can avoid the regex problems seen previously by using a simple substring function to
+    # get the minor version string from the first three characters of the full version string
     - name: Set existing_mongo_minor_version
       set_fact:
-        existing_mongo_minor_version: "{{ existing_mongo_version | regex_search('(?<=)(.*)(?=...)') }}"
+        existing_mongo_minor_version: "{{ existing_mongo_version[:3] }}"
 
-    # holds the expected target mongo version that is feature compatible with the existing mongo instance version
-    - name: Set mongo_compatible_target_version
-      set_fact:
-        mongo_compatible_target_version: "{{ mongo_feature_compatibility_matrix[existing_mongo_minor_version] }}"
+    - include_tasks: tasks/determine-ibmcatalog-tag.yml
+
+    - name: Check if file exists in casebundles
+      stat:
+        path: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
+      register: stat_result
+      when: catalog_tag is defined and catalog_tag != ""
+
+    - name: Load CASE bundle versions
+      include_vars:
+        file: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
+      when: stat_result is defined and stat_result.stat.exists
 
   when:
     - existing_mongodb.resources[0].spec.version is defined

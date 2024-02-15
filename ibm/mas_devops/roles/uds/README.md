@@ -127,6 +127,13 @@ For examples refer to the [BestEfforts reference configuration in the MAS CLI](h
 - Environment Variable: `MAS_POD_TEMPLATES_DIR`
 - Default: None
 
+### include_cluster_ingress_cert_chain
+Optional. When set to `True`, includes the complete certificates chain in the generated MAS configuration, when a trusted certificate authority is found in your cluster's ingress.
+
+- Optional
+- Environment Variable: `INCLUDE_CLUSTER_INGRESS_CERT_CHAIN`
+- Default: `False`
+
 Example Playbook
 -------------------------------------------------------------------------------
 
