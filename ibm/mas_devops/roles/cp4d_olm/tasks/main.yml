@@ -61,53 +61,55 @@
 - name: "Install CP4D"
   include_tasks: "tasks/install-cp4d.yml"
 
-# # At this stage:
-# # - IBM Zen Operator will be installed into the ibm-common-services namespace
-# # - IBM Cert Manager Operator will be installed into the ibm-common-services namespace
-# # - Multiple deployments will be put into the ibm-cp4d namespace:
-# #     - ibm-nginx
-# #     - usermgmt
-# #     - zen-audit
-# #     - zen-core
-# #     - zen-core-api
-# #     - zen-data-sorcerer
-# #     - zen-watchdog
-# #     - zen-watcher
+# At this stage:
+# - IBM Zen Operator will be installed into the ibm-common-services namespace
+# - IBM Cert Manager Operator will be installed into the ibm-common-services namespace
+# - Multiple deployments will be put into the ibm-cp4d namespace:
+#     - ibm-nginx
+#     - usermgmt
+#     - zen-audit
+#     - zen-core
+#     - zen-core-api
+#     - zen-data-sorcerer
+#     - zen-watchdog
+#     - zen-watcher
 
-# # Wait for ZenService service accounts to be created
-# - name: "Wait for the zen service accounts to appear"
-#   kubernetes.core.k8s_info:
-#     api_version: v1
-#     kind: ServiceAccount
-#     name: "{{ item }}"
-#     namespace: "{{ cpd_instance_namespace }}"
-#   register: zen_sa_lookup
-#   retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
-#   delay: 5 # seconds
-#   until:
-#     - zen_sa_lookup.resources is defined
-#     - zen_sa_lookup.resources | length > 0
-#   with_items:
-#     - zen-admin-sa
-#     - zen-editor-sa
-#     - zen-norbac-sa
-#     - zen-runtime-sa
-#     - zen-viewer-sa
+# Wait for ZenService service accounts to be created
+- name: "Wait for the zen service accounts to appear"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: zen_sa_lookup
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - zen_sa_lookup.resources is defined
+    - zen_sa_lookup.resources | length > 0
+  with_items:
+    - default
+    - zen-admin-sa
+    - zen-editor-sa
+    - zen-norbac-sa
+    - zen-runtime-sa
+    - zen-viewer-sa
 
-# # Patch the zen service accounts in ibm-cpd namespace to add ibm-entitlement-key
-# - name: "Patch the zen service accounts"
-#   kubernetes.core.k8s:
-#     api_version: v1
-#     kind: ServiceAccount
-#     name: "{{ item }}"
-#     namespace: "{{ cpd_instance_namespace }}"
-#     apply: true
-#     definition:
-#       imagePullSecrets:
-#         - name: ibm-entitlement-key
-#   with_items:
-#     - zen-admin-sa
-#     - zen-editor-sa
-#     - zen-norbac-sa
-#     - zen-runtime-sa
-#     - zen-viewer-sa
+# Patch the zen service accounts in ibm-cpd namespace to add ibm-entitlement-key
+- name: "Patch the zen service accounts"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ServiceAccount
+    name: "{{ item }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    apply: true
+    definition:
+      imagePullSecrets:
+        - name: ibm-entitlement-key
+  with_items:
+    - default
+    - zen-admin-sa
+    - zen-editor-sa
+    - zen-norbac-sa
+    - zen-runtime-sa
+    - zen-viewer-sa
