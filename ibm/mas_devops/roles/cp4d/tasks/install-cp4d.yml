@@ -156,26 +156,36 @@
 
 # 5. Lookup CPD credentials
 # -----------------------------------------------------------------------------
-# If 'ibm-iam-bindinfo-platform-auth-idp-credentials' does not exist then it means CPD 4.8 likely is not installed
-# Then, lookup in 'admin-user-details' secret which should be present if CPD 4.6 is installed or has been upgraded to 4.8
+# If 'ibm-iam-bindinfo-platform-auth-idp-credentials' exists, then CPD 4.8 has been installed/upgraded
+# If 'admin-user-details' secret exists, then CPD 4.6 has been installed/upgraded
+
+# Lookup CPD Admin username
+# -----------------------------------------------------------------------------
+- name: "Lookup Cloud Pak for Data admin username"
+  shell: |
+    oc get secret ibm-iam-bindinfo-platform-auth-idp-credentials -n {{ cpd_instance_namespace }} -o json | jq -r '.data.admin_username' | base64 -d
+  register: cpd_admin_username_output
+
+- name: "Set Cloud Pak for Data admin username"
+  set_fact:
+    cpd_admin_username: "{{ (cpd_admin_username_output.stdout | length > 0) | ternary('cpadmin','admin') }}"
+
+# Lookup CPD Admin password
+# -----------------------------------------------------------------------------
 - set_fact:
-    cpd_admin_password_cmd: "{{ (cpd_admin_username_output.stdout | length > 0) | ternary(cpd48_admin_password_cmd, cpd46_admin_password_cmd) }}"
-    cpd_admin_password_text: "{{ (cpd_admin_username_output.stdout | length > 0) | ternary(cpd48_admin_password_text, cpd46_admin_password_text) }}"
+    cpd_admin_password_cmd: "oc get secret {{ cpd_admin_secret_name }} -n {{ cpd_instance_namespace }} -o json | jq -r '.data.{{ cpd_admin_password_property }}' | base64 -d"
+    cpd_admin_password_text: "Found in '{{ cpd_admin_secret_name }}' secret under '{{ cpd_instance_namespace }}' namespace"
   vars:
-    cpd46_admin_password_cmd: "oc get secret admin-user-details -n {{ cpd_instance_namespace }} -o json | jq -r '.data.initial_admin_password' | base64 -d"
-    cpd48_admin_password_cmd: "oc get secret ibm-iam-bindinfo-platform-auth-idp-credentials -n {{ cpd_instance_namespace }} -o json | jq -r '.data.admin_password' | base64 -d"
-    cpd46_admin_password_text: "Found in 'admin_user_details' secret under '{{ cpd_instance_namespace }}' namespace"
-    cpd48_admin_password_text: "Found in 'ibm-iam-bindinfo-platform-auth-idp-credentials' secret under '{{ cpd_instance_namespace }}' namespace"
+    cpd_admin_secret_name: "{{ (cpd_admin_username == 'cpadmin') | ternary('ibm-iam-bindinfo-platform-auth-idp-credentials', 'admin-user-details') }}"
+    cpd_admin_password_property: "{{ (cpd_admin_username == 'cpadmin') | ternary('admin_password', 'initial_admin_password') }}"
 
 - name: "Lookup Cloud Pak for Data admin password"
   shell: "{{ cpd_admin_password_cmd }}"
   register: cpd_admin_password_output
 
-- assert:
-    that: 
-      - cpd_admin_password_output.stdout is defined
-      - cpd_admin_password_output.stdout | length > 0
-    fail_msg: "CPD admin credentials were not found, please check your Cloud Pak For Data instance health!"
+- name: "Set Cloud Pak for Data admin password"
+  set_fact:
+    cpd_admin_password: "{{ cpd_admin_password_output.stdout }}"
 
 # Lookup CPD URL
 # -----------------------------------------------------------------------------
@@ -185,10 +195,18 @@
   register: cpd_admin_url_output
   failed_when: cpd_admin_url_output.stdout | length == 0
 
-# Set CPD admin username, password and url
+# Set CPD Admin url
 # -----------------------------------------------------------------------------
-- name: "Set Cloud Pak for Data deployment details"
+- name: "Set Cloud Pak for Data admin url"
   set_fact:
-    cpd_admin_username: "{{ (cpd_admin_username_output.stdout | length > 0) | ternary('cpadmin','admin') }}"
-    cpd_admin_password: "{{ cpd_admin_password_output.stdout }}"
     cpd_admin_url: "https://{{ cpd_admin_url_output.stdout }}"
+
+- assert:
+    that:
+      - cpd_admin_username is defined
+      - cpd_admin_username | length > 0
+      - cpd_admin_url is defined
+      - cpd_admin_url | length > 0
+      - cpd_admin_password is defined
+      - cpd_admin_password | length > 0
+    fail_msg: "CPD admin username/password/url details are missing, please check your Cloud Pak For Data instance health!"

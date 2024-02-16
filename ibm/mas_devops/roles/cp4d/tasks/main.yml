@@ -21,34 +21,46 @@
     that: cpd_entitlement_key is defined and cpd_entitlement_key != ""
     fail_msg: "ibm_entitlement_key or cpd_entitlement_key override must be provided"
 
+# Create required namespaces
+# -----------------------------------------------------------------------------
 - name: "Create Cloud Pak for Data Namespaces"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/cpd_platform/namespaces.yml.j2"
 
-# Install ibm-entitlement-key in ibm-cpd namespace
+# Install ibm-entitlement-key in the required namespaces
+# -----------------------------------------------------------------------------
 # Nothing in the cp4d base platform requires entitlement, but the services that we want to enable in CP4D do.
 - name: "Install IBM Entitlement Key"
   include_tasks: "tasks/entitlement.yml"
 
+# Install olm-utils config map
+# -----------------------------------------------------------------------------
 - name: "Create olm-utils config map"
   include_tasks: "tasks/create-olm-utils.yml"
 
-# Assert ibm-operator-catalog is installed
-# Assert IBM Foundational Services is installed and that the version is compatible (for CPD 4.6)
-# Assert Red Hat Certificate Manager is installed
+# Run pre-checks
+# -----------------------------------------------------------------------------
+# - Assert ibm-operator-catalog is installed
+# - Assert IBM Foundational Services is installed and that the version is compatible (only when CPD 4.6)
+# - Assert Red Hat Certificate Manager is installed
 - name: "Check Cloud Pak for Data pre-requisites"
   include_tasks: "tasks/prereq-check/main.yml"
 
+# Auto determine Cloud Pak for Data file and block storage classes
+# -----------------------------------------------------------------------------
 - name: "Determine storage classes"
   include_tasks: "tasks/determine-storage-classes.yml"
 
-# Authorizing a user to act as an IBM Cloud Pak for Data instance administrator
+# CPD 4.8 and above only: Authorizing a user to act as an IBM Cloud Pak for Data instance administrator
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-authorizing-instance-administrator
+# -----------------------------------------------------------------------------
 - name: "Grant permissions to {{ cpd_admin_login_sa }} service account in Cloud Pak For Data namespaces"
   include_tasks: "tasks/authorize-user-cpd-admin.yml"
   when: cpd_minor_version is version('4.8', '>=') # this is only needed in CPD 4.8 and above
 
+# CPD 4.8 and above only: Install specific catalog sources
+# -----------------------------------------------------------------------------
 # TODO : For now, we will need to install specific catalog sources
 # for Cloud Pak for Data (cpd-platform), Foundational Services and NamespaceScope (opencloud-operators)
 # until they're all into ibm-operator-catalog
@@ -65,7 +77,7 @@
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/prereqs/install-ibm-namespace-scope.yml"
 
-# Install IBM Licensing and Foundational Services when CPD 4.8+
+# CPD 4.8 and above only: Install IBM Licensing and Foundational Services
 # -----------------------------------------------------------------------------
 - when: cpd_minor_version is version('4.8','>=')
   block:
@@ -86,9 +98,13 @@
 # - A NamespaceScope will have been created in the ibm-cpd-operators namespace
 # - Nothing will exist in the ibm-cpd namespace yet except the entitlement key we just created
 
+# Install Cloud Pak for Data instance
+# -----------------------------------------------------------------------------
 - name: "Install Cloud Pak For Data"
   include_tasks: "tasks/install-cp4d.yml"
 
+# Patch Cloud Pak For Data service accounts with ibm-entitlement-key
+# -----------------------------------------------------------------------------
 - name: "Patch Cloud Pak For Data service accounts with proper imagePullSecrets"
   include_tasks: "tasks/patch-zen-service-accounts.yml"
 
