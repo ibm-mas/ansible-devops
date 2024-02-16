@@ -2,11 +2,10 @@
 # 1. Create CloudPak for Data CR
 # -----------------------------------------------------------------------------
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=installing-cloud-pak-data
-
 - name: "install-cp4d : Install CloudPak for Data {{ cpd_product_version }}"
   kubernetes.core.k8s:
     apply: yes
-    template: 'templates/ibmcpd.yml.j2'
+    template: 'templates/cpd_platform/ibmcpd.yml.j2'
 
 # 2. Patch ZenService lite-cr to set the zen version and increase resource limits
 # ----------------------------------------------------------------------------------------------
@@ -15,7 +14,7 @@
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: ibm-zen-operator
-    namespace: ibm-common-services
+    namespace: "{{ zen_operator_namespace }}"
     kind: Deployment
   register: zen_operator_lookup
   until: zen_operator_lookup.resources[0].status.availableReplicas is defined
@@ -48,7 +47,8 @@
       - "Already patched? ..................... {{ is_zen_already_patched }}"
 
 # only run following block if is_zen_already_patched == False or if there's a version upgrade
-- block:
+- when: not is_zen_already_patched or existing_zen_cr_version != zen_cr_version
+  block:
 
     # 2.3 Apply the patch per recommendation from CP4D team
     - name: "install-cp4d : Patch ZenService lite-cr to set the zen version and increase resource limits"
@@ -87,7 +87,7 @@
       kubernetes.core.k8s:
         api_version: apps/v1
         name: ibm-zen-operator
-        namespace: ibm-common-services
+        namespace: "{{ zen_operator_namespace }}"
         kind: Deployment
         definition:
           spec:
@@ -98,7 +98,7 @@
       kubernetes.core.k8s:
         api_version: apps/v1
         name: ibm-zen-operator
-        namespace: ibm-common-services
+        namespace: "{{ zen_operator_namespace }}"
         kind: Deployment
         definition:
           spec:
@@ -110,33 +110,14 @@
       kubernetes.core.k8s_info:
         api_version: apps/v1
         name: ibm-zen-operator
-        namespace: ibm-common-services
+        namespace: "{{ zen_operator_namespace }}"
         kind: Deployment
       register: zen_operator_lookup
       until: zen_operator_lookup.resources[0].status.availableReplicas is defined
       retries: 20 # Approximately 20 minutes before we give up
       delay: 60 # 1 minute
 
-  when: not is_zen_already_patched or existing_zen_cr_version != zen_cr_version
-
-# 3. Wait for controlPlaneStatus
-# -----------------------------------------------------------------------------
-# oc get Ibmcpd ibmcpd-cr -o jsonpath="{.status.controlPlaneStatus}{'\n'}"
-- name: "install-cp4d : Wait for controlPlaneStatus to be 'Completed' (2m delay)"
-  kubernetes.core.k8s_info:
-    api_version: cpd.ibm.com/v1
-    name: ibmcpd
-    namespace: "{{ cpd_instance_namespace }}"
-    kind: Ibmcpd
-  register: ibmcpd_lookup
-  until:
-    - ibmcpd_lookup.resources[0].status.controlPlaneStatus is defined
-    - ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Completed"
-  retries: 60 # Approximately 2 hours before we give up
-  delay: 120 # 2 minutes
-
-
-# 4. Wait for zenStatus
+# 3. Wait for zenStatus
 # -----------------------------------------------------------------------------
 # oc get ZenService lite-cr -o jsonpath="{.status.zenStatus}{'\n'}"
 - name: "install-cp4d : Wait for zenStatus to be ready to be 'Completed' (2m delay)"
@@ -157,12 +138,57 @@
     that: zenservice_lookup.resources[0].status.zenStatus == "Completed"
     fail_msg: "IBM CloudPak for Data install failed (zenStatus)"
 
-
-# 5. Provide CP4D dashboard URL
+# 4. Wait for controlPlaneStatus
 # -----------------------------------------------------------------------------
-- name: "install-cp4d : Obtain CP4D dashboard URL"
-  debug:
-    msg:
-      - "CP4D Dashboard ......................... https://{{zenservice_lookup.resources[0].status.url}}"
-      - "CP4D Username .......................... admin"
-      - "CP4D Password .......................... Found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
+# oc get Ibmcpd ibmcpd-cr -o jsonpath="{.status.controlPlaneStatus}{'\n'}"
+- name: "install-cp4d : Wait for controlPlaneStatus to be 'Completed' (2m delay)"
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    name: ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: Ibmcpd
+  register: ibmcpd_lookup
+  until:
+    - ibmcpd_lookup.resources[0].status.controlPlaneStatus is defined
+    - ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Completed"
+  retries: 60 # Approximately 2 hours before we give up
+  delay: 120 # 2 minutes
+
+# 5. Lookup CPD credentials
+# -----------------------------------------------------------------------------
+# If 'ibm-iam-bindinfo-platform-auth-idp-credentials' does not exist then it means CPD 4.8 likely is not installed
+# Then, lookup in 'admin-user-details' secret which should be present if CPD 4.6 is installed or has been upgraded to 4.8
+- set_fact:
+    cpd_admin_password_cmd: "{{ (cpd_admin_username_output.stdout | length > 0) | ternary(cpd48_admin_password_cmd, cpd46_admin_password_cmd) }}"
+    cpd_admin_password_text: "{{ (cpd_admin_username_output.stdout | length > 0) | ternary(cpd48_admin_password_text, cpd46_admin_password_text) }}"
+  vars:
+    cpd46_admin_password_cmd: "oc get secret admin-user-details -n {{ cpd_instance_namespace }} -o json | jq -r '.data.initial_admin_password' | base64 -d"
+    cpd48_admin_password_cmd: "oc get secret ibm-iam-bindinfo-platform-auth-idp-credentials -n {{ cpd_instance_namespace }} -o json | jq -r '.data.admin_password' | base64 -d"
+    cpd46_admin_password_text: "Found in 'admin_user_details' secret under '{{ cpd_instance_namespace }}' namespace"
+    cpd48_admin_password_text: "Found in 'ibm-iam-bindinfo-platform-auth-idp-credentials' secret under '{{ cpd_instance_namespace }}' namespace"
+
+- name: "Lookup Cloud Pak for Data admin password"
+  shell: "{{ cpd_admin_password_cmd }}"
+  register: cpd_admin_password_output
+
+- assert:
+    that: 
+      - cpd_admin_password_output.stdout is defined
+      - cpd_admin_password_output.stdout | length > 0
+    fail_msg: "CPD admin credentials were not found, please check your Cloud Pak For Data instance health!"
+
+# Lookup CPD URL
+# -----------------------------------------------------------------------------
+- name: "Lookup Cloud Pak for Data admin url"
+  shell: |
+    oc get ZenService lite-cr -o jsonpath="{.status.url}{'\n'}" -n {{ cpd_instance_namespace }}
+  register: cpd_admin_url_output
+  failed_when: cpd_admin_url_output.stdout | length == 0
+
+# Set CPD admin username, password and url
+# -----------------------------------------------------------------------------
+- name: "Set Cloud Pak for Data deployment details"
+  set_fact:
+    cpd_admin_username: "{{ (cpd_admin_username_output.stdout | length > 0) | ternary('cpadmin','admin') }}"
+    cpd_admin_password: "{{ cpd_admin_password_output.stdout }}"
+    cpd_admin_url: "https://{{ cpd_admin_url_output.stdout }}"
