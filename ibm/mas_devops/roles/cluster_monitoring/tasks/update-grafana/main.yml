@@ -1,0 +1,49 @@
+---
+# 1. Load default storage classes (if not provided by the user)
+# -----------------------------------------------------------------------------
+- name: "update_grafana : Determine storage classes"
+  include_tasks: tasks/install/determine-storage-classes.yml
+
+# 2. Install and configure Grafana v5
+# -----------------------------------------------------------------------------
+- name: "update_grafana : Install Grafana Operator V5"
+  include_tasks: "tasks/install/grafana-v5.yml"
+
+# 3. Convert grafana dashboards
+# -----------------------------------------------------------------------------
+- name: "update_grafana : Get v4 dashboards"
+  kubernetes.core.k8s_info:
+    api_version: integreatly.org/v1alpha1
+    kind: GrafanaDashboard
+  register: v4Dashboards
+
+- name: "update_grafana: Create new V5 Dashboards"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/grafana/v5/grafana-dashboard-v5-update.yml.j2') }}"
+  loop: "{{ v4Dashboards.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}.{{ item.metadata.namespace }}"
+
+- name: "update_grafana: Check that the dashboards have been processed by the new Grafana"
+  kubernetes.core.k8s_info:
+    api_version: grafana.integreatly.org/v1beta1
+    kind: Grafana
+    name: mas-grafana
+    namespace: "{{ grafana_v5_namespace }}"
+  register: v5GrafanaInstance
+  until:
+     - v5GrafanaInstance.resources is defined
+     - v5GrafanaInstance.resources | length > 0
+     - v5GrafanaInstance.resources[0].status is defined
+     - v5GrafanaInstance.resources[0].status.dashboards is defined
+     - v5GrafanaInstance.resources[0].status.dashboards | length >= v4Dashboards.resources | length
+  retries: 20 # Approximately 10 minutes
+  delay: 30 # seconds
+
+- debug:
+    msg: "Grafana V5 dashboards registered .. {{ v5GrafanaInstance.resources[0].status.dashboards }}"
+
+# 4. Uninstall Grafana v4
+# -----------------------------------------------------------------------------
+- name: "update_grafana: Uninstall Grafana Operator v4"
+  include_tasks: "tasks/uninstall_grafanav4/main.yml"

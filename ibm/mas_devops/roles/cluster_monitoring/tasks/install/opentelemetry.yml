@@ -1,52 +1,18 @@
 ---
 
-# 1. Install OpenTelemetry Operator
-# -------------------------------------------------------------------------------------
-- name: "install : opentelemetry : Get grafana package manifest"
-  kubernetes.core.k8s_info:
-    api_version: packages.operators.coreos.com/v1
-    kind: PackageManifest
-    name: opentelemetry-operator
-    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
-  register: opentelemetry_manifest
-
-- name: Assert that PackageManifest exists
-  ansible.builtin.assert:
-    that:
-      - opentelemetry_manifest is defined
-      - opentelemetry_manifest.resources is defined
-      - opentelemetry_manifest.resources | length == 1
-    fail_msg: "PackageManifest not found: opentelemetry-operator"
-
-- name: "install : opentelemetry : Set the subscription information"
-  set_fact:
-    opentelemetry_source: "{{ opentelemetry_manifest.resources[0].status.catalogSource }}"
-    opentelemetry_source_namespace: "{{ opentelemetry_manifest.resources[0].status.catalogSourceNamespace }}"
-    opentelemetry_default_channel: "{{ opentelemetry_manifest.resources[0].status.defaultChannel }}"
-
-- name: "install : opentelemetry: Create OpenTelemetry Operator Subscription"
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/opentelemetry-subscription.yaml') }}"
-    wait: yes
-    wait_timeout: 120
+# 1. Create OpenTelemetry Subscription
+# -----------------------------------------------------------------------------
+- name: "install : opentelemetry : Create OpenTelemetry Subscription"
+  include_tasks: "{{ role_path }}/../../common_tasks/create_subscription.yml"
+  vars:
+    package_name: opentelemetry-operator
+    channel_name: alpha
+    subscription_namespace: openshift-operators
 
 
 # 2. Wait until the OpenTelemetryCollector CRD is available
 # -----------------------------------------------------------------------------
 - name: "install : opentelemetry : Wait until the OpenTelemetryCollector CRD is available"
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    kind: CustomResourceDefinition
-    name: "opentelemetrycollectors.opentelemetry.io"
-    wait: yes
-    wait_sleep: 10
-    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
-    wait_condition:
-      type: NamesAccepted
-      status: "True"
-  register: otelcollector_crd_info
-  retries: 60 # ~approx 10 minutes before we give up waiting for the CRD to be created
-  delay: 10 # seconds
-  until:
-    - otelcollector_crd_info.resources is defined
-    - otelcollector_crd_info.resources | length > 0
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: "opentelemetrycollectors.opentelemetry.io"

@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
+
 # 2. Lookup the packagemanifest for amq-streams / strimzi
 # -----------------------------------------------------------------------------
 - name: Get {{ kafka_operator_name }} package manifest
@@ -27,23 +28,28 @@
     kafka_source_namespace: "{{ kafka_manifest.resources[0].status.catalogSourceNamespace }}"
     kafka_default_channel: "{{ kafka_manifest.resources[0].status.defaultChannel }}"
 
-# 3. Detect if the cluster supports 'integreatly.org/v1' for GrafanaDashboards
-# -----------------------------------------------------------------------------
+
+# 3. Detect if the cluster supports GrafanaDashboards
+# ---------------------------------------------------
 - name: Get cluster info
   kubernetes.core.k8s_cluster_info:
   register: api_status
   no_log: true
 
-- name: Determine cluster capabilities
+- name: Determine cluster grafana capabilities
   set_fact:
-    supports_integreatly_org: True # Default is 'False'
-  when:
-    - api_status is defined
-    - api_status.apis is defined
-    - api_status.apis['integreatly.org/v1alpha1'] is defined
+    supports_grafanav4: "{{
+      api_status is defined and
+      api_status.apis is defined and
+      api_status.apis['integreatly.org/v1alpha1'] is defined }}"
+    supports_grafanav5: "{{
+      api_status is defined and
+      api_status.apis is defined and
+      api_status.apis['grafana.integreatly.org/v1beta1'] is defined }}"
+
 
 # 4. Lookup any existing kafka user in the kafka namespace to use the same password
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------
 - name: "Lookup any existing Kafka User Secret"
   kubernetes.core.k8s_info:
     api_version: v1
@@ -58,6 +64,7 @@
   when:
     - kafka_user_secret_lookup is defined
     - kafka_user_secret_lookup.resources[0].data.password is defined
+
 
 # 5. Provide debug
 # -----------------------------------------------------------------------------
@@ -77,7 +84,9 @@
       - "Kafka zookeeper storage class ......... {{ zookeeper_storage_class }}"
       - "Kafka zookeeper storage size .......... {{ zookeeper_storage_size }}"
       - "Kafka MAS user ........................ {{ kafka_user_name }}"
-      - "Cluster supports integreatly .......... {{ supports_integreatly_org }}"
+      - "Cluster supports grafana v4 ........... {{ supports_grafanav4 }}"
+      - "Cluster supports grafana v5 ........... {{ supports_grafanav5 }}"
+
 
 # 6. Install Kafka operator
 # -----------------------------------------------------------------------------
@@ -86,25 +95,14 @@
     apply: yes
     template: templates/redhat/subscription.yml.j2
 
+
 # 7. Wait until the Kafka CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Kafka CRD is available"
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    name: "kafkas.kafka.strimzi.io"
-    kind: CustomResourceDefinition
-    wait: yes
-    wait_sleep: 10
-    wait_timeout: 600 # 10 mins until we give up waiting for the CRD to get into the expected state
-    wait_condition:
-      type: NamesAccepted
-      status: "True"
-  register: kafka_crd_info
-  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
-  delay: 5 # seconds
-  until:
-    - kafka_crd_info.resources is defined
-    - kafka_crd_info.resources | length > 0
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: kafkas.kafka.strimzi.io
+
 
 # 8. Create logging/monitoring configmaps and PodMonitor custom resources
 # -----------------------------------------------------------------------------
@@ -123,6 +121,7 @@
     apply: yes
     template: "templates/redhat/podmonitor.yml.j2"
 
+
 # 9. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "Create Kafka Cluster"
@@ -130,25 +129,14 @@
     apply: yes
     template: "templates/redhat/clusters/{{ kafka_cluster_size }}.yml.j2"
 
+
 # 10. Wait until the KafkaUser CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the KafkaUser CRD is available"
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    name: "kafkausers.kafka.strimzi.io"
-    kind: CustomResourceDefinition
-    wait: yes
-    wait_sleep: 10
-    wait_timeout: 600 # 10 mins until we give up waiting for the CRD to get into the expected state
-    wait_condition:
-      type: NamesAccepted
-      status: "True"
-  register: kafkauser_crd_info
-  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
-  delay: 5 # seconds
-  until:
-    - kafkauser_crd_info.resources is defined
-    - kafkauser_crd_info.resources | length > 0
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: kafkausers.kafka.strimzi.io
+
 
 # 11. Create the MAS user
 # -----------------------------------------------------------------------------
@@ -156,6 +144,7 @@
   kubernetes.core.k8s:
     apply: yes
     template: templates/redhat/masuser.yml.j2
+
 
 # 12. Create Grafana dashboards for Kafka monitoring
 # -----------------------------------------------------------------------------
@@ -165,7 +154,16 @@
     template: "{{ item }}"
   with_fileglob:
     - "templates/redhat/dashboards/*.yml.j2"
-  when: supports_integreatly_org
+  when: supports_grafanav4
+
+- name: "Create Kafka monitoring dashboards"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "{{ item }}"
+  with_fileglob:
+    - "templates/redhat/dashboards-v5/*.yml.j2"
+  when: supports_grafanav5
+
 
 # 13. Lookup details
 # -----------------------------------------------------------------------------
@@ -216,6 +214,7 @@
       - "  Bootstrap host ............... {{ kafka_int_bootstrap_host }}"
       - "  Bootstrap cert ............... {{ kafka_int_bootstrap_cert }}"
       - "MAS user password ............ {{ kafka_user_password }}"
+
 
 # 14. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
 # -----------------------------------------------------------------------------
