@@ -1,5 +1,5 @@
 ---
-# 1.a Check for undefined properties that do not have a default
+# 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_instance_id is not provided"
   assert:
@@ -16,7 +16,8 @@
       - "Must start with a lowercase letter"
       - "Must end with a lowercase letter or a number"
 
-# 1.b Set facts for mas_annotations_dict, HyperscalerFormat, HyperscalerChannel
+
+# 2. Set facts for mas_annotations_dict, HyperscalerFormat, HyperscalerChannel
 # -----------------------------------------------------------------------------
 - name: "Set facts : mas_annotations_dict"
   set_fact:
@@ -54,7 +55,8 @@
       - "Hyperscaler Format ..................... {{ input_hyperscalerFormat | default('<undefined>', true) }}"
       - "mas_annotations_dict ................... {{ mas_annotations_dict }}"
 
-# 1.c Validate annotations: Check for Hyperscaler flag partially set
+
+# 3. Validate annotations: Check for Hyperscaler flag partially set
 # -----------------------------------------------------------------------------
 - name: "Check for Hyperscaler flag partially set"
   when:
@@ -65,7 +67,8 @@
     fail_msg: "Assertion Failed! Invalid HyperScalerFlag combination in {{mas_annotations}} "
     success_msg: "Assertion Passed!  Valid HyperScalerFlag combination in {{mas_annotations}} "
 
-# 1.d Validate annotations: Check if mas_annotations has valid allowed values
+
+# 4. Validate annotations: Check if mas_annotations has valid allowed values
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_annotations value is invalid"
   when:
@@ -79,7 +82,8 @@
   with_dict:
     - "{{  mas_annotations_dict  }}"
 
-# 1.e Check if mas_annotations value has invalid combinations
+
+# 5. Check if mas_annotations value has invalid combinations
 # -----------------------------------------------------------------------------
 - name: "Fail if mas_annotations value has invalid combinations"
   when:
@@ -95,7 +99,8 @@
   with_dict:
     - "{{  mas_annotations_dict  }}"
 
-# 1.f Check if hyperscalerFormat is set to saas incase if hyperscalerTier is set with valid values
+
+# 6. Check if hyperscalerFormat is set to saas incase if hyperscalerTier is set with valid values
 # -----------------------------------------------------------------------------
 - name: "Fail if hyperscalerTier is set with valid value but hyperscalerFormat is other than saas"
   when:
@@ -108,7 +113,8 @@
   with_dict:
     - "{{  mas_annotations_dict  }}"
 
-# 2. Load PodTemplates configuration
+
+# 7. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
 - name: "Load podTemplates configuration"
   include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
@@ -124,7 +130,8 @@
     config_files:
       - "ibm-data-dictionary-assetdatadictionary.yml"
 
-# 3. Set up the domain name for MAS
+
+# 8. Set up the domain name for MAS
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
   kubernetes.core.k8s_info:
@@ -138,7 +145,8 @@
   set_fact:
     mas_domain: "{{ mas_instance_id }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
 
-# 4. Determine version of cert-manager in use on the cluster
+
+# 9. Determine version of cert-manager in use on the cluster
 # -----------------------------------------------------------------------------
 # if cert_manager_cluster_resource_namespace is not set then
 # run 'detect_cert_manager' task to set it as this will be needed to be set in Suite CR
@@ -146,7 +154,8 @@
   include_tasks: "{{ role_path }}/../../common_tasks/detect_cert_manager.yml"
   when: cert_manager_cluster_resource_namespace is not defined or cert_manager_cluster_resource_namespace == ''
 
-# 5. Provide debug information
+
+# 10. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
@@ -166,7 +175,8 @@
       - "MAS Cluster Issuer ............ {{ mas_cluster_issuer }}"
       - "IPv6 Enabled .................. {{ enable_ipv6 }}"
 
-# 6. Install the operator & create entitlement secret
+
+# 11. Install the operator & create entitlement secret
 # -----------------------------------------------------------------------------
 - name: "Install MAS Operator"
   include_role:
@@ -179,27 +189,16 @@
     operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
 
-# 7. Wait until the Suite CRD is available
+
+# 12. Wait until the Suite CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Suite CRD is available"
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    name: "suites.core.mas.ibm.com"
-    kind: CustomResourceDefinition
-    wait: yes
-    wait_sleep: 10
-    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
-    wait_condition:
-      type: NamesAccepted
-      status: "True"
-  register: suite_crd_info
-  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
-  delay: 5 # seconds
-  until:
-    - suite_crd_info.resources is defined
-    - suite_crd_info.resources | length > 0
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: suites.core.mas.ibm.com
 
-# 8. Integrated Airgap support
+
+# 13. Integrated Airgap support
 # -----------------------------------------------------------------------------
 # Before we create the CR we will set up the Airgap Image Map
 # We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
@@ -210,7 +209,8 @@
   when: airgap_install
   include_tasks: "tasks/install_digest_cm.yml"
 
-# 9. Suite installation
+
+# 14. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
   vars:
