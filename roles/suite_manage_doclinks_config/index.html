@@ -197,8 +197,6 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_install_digest_cm/">suite_install_digest_cm</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../suite_manage_attachments_config/">suite_manage_attachments_config</a>
-                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_manage_birt_report_config/">suite_manage_birt_report_config</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../suite_manage_bim_config/">suite_manage_bim_config</a>
@@ -209,7 +207,7 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#cos_type">cos_type</a>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_manage_doclinks_provider">mas_manage_doclinks_provider</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#mas_instance_id">mas_instance_id</a>
     </li>
@@ -291,22 +289,25 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="suite_manage_doclinks_config">suite_manage_doclinks_config<a class="headerlink" href="#suite_manage_doclinks_config" title="Permanent link"></a></h1>
+<p>The role <code>suite_manage_attachments_config</code> is deprecated and getting replaced by this one.</p>
 <p>This role extends support for configuring S3 / Cloud Object Storage to store <strong>Manage</strong> application doclinks.
 <strong>Note:</strong> This role should be executed <strong>after</strong> Manage application is deployed and activated as it needs Manage up and running prior configuring doclinks features.</p>
 <p>You can run <code>cos</code> role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage or AWS S3 information to use it as storage for Manage application doclinks.</p>
+<p>To switch from one provider to the other, <code>serverBundleProperties</code> in manageWorkspace CR must be reset before running this role again.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<h3 id="cos_type">cos_type<a class="headerlink" href="#cos_type" title="Permanent link"></a></h3>
+<h3 id="mas_manage_doclinks_provider">mas_manage_doclinks_provider<a class="headerlink" href="#mas_manage_doclinks_provider" title="Permanent link"></a></h3>
 <p>Required. Defines the storage provider type to be used to store Manage application's doclinks.
 Currently available options are:</p>
 <ul>
 <li><code>ibm</code>: Configures IBM Cloud Object Storage as storage system for Manage attachments. </li>
-<li><code>aws</code>: Configures Amazon S3 buckets as storage system for Manage attachments. </li>
+<li><code>aws</code>: Configures Amazon S3 buckets as storage system for Manage attachments.</li>
+<li><code>filestorage</code>: Configures the local file system/PV for Manage attachments.</li>
 </ul>
 <p><strong>Note:</strong> If using <code>ibm</code> or <code>aws</code> as attachments provider, the <a href="../cos_bucket/"><code>cos_bucket</code></a> role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments.</p>
 <p>To run this role successfully for AWS S3 buckets, you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
 Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
 <ul>
-<li>Environment Variable: <code>COS_TYPE</code></li>
+<li>Environment Variable: <code>MAS_MANAGE_DOCLINKS_PROVIDER</code></li>
 <li>Default Value: None.</li>
 </ul>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
@@ -334,7 +335,7 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
   vars:
     mas_instance_id: masinst1
     mas_workspace_id: masdev
-    cos_type: ibm
+    mas_manage_doclinks_provider: ibm
     cos_instance_name: cos-masinst1
     ibmcos_bucket_name: manage-doclinks-bucket
     ibmcloud_apikey: xxxx
@@ -348,7 +349,7 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
     mas_instance_id: masinst1
     mas_workspace_id: masdev
     db2_instance_name: db2w-manage
-    cos_type: ibm
+    mas_manage_doclinks_provider: ibm
     cos_instance_name: cos-masinst1
     ibmcos_bucket_name: ibm-manage-doclinks-bucket
     ibmcloud_apikey: xxxx
@@ -362,7 +363,7 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
   vars:
     mas_instance_id: masinst1
     mas_workspace_id: masdev
-    cos_type: aws
+    mas_manage_doclinks_provider: aws
     aws_bucket_name: s3-manage-doclinks-bucket
   roles:
     - ibm.mas_devops.suite_manage_doclinks_config
