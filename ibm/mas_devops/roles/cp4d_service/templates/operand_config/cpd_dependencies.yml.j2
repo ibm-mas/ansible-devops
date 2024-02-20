@@ -38,7 +38,7 @@ metadata:
   namespace: "{{ cpd_operators_namespace }}"
 spec:
   operators:
-    - channel: "{{ cpd_service_info.ca.rabbitmq.channel_name }}"
+    - channel: "{{ cpd_components_meta.opencontent_rabbitmq.sub_channel }}"
       installPlanApproval: Automatic
       name: rabbitmq-operator
       namespace: "{{ cpd_operators_namespace }}"
@@ -53,7 +53,7 @@ metadata:
   namespace: "{{ cpd_operators_namespace }}"
 spec:
   operators:
-    - channel: "{{ cpd_service_info.ca.elasticsearch.channel_name }}"
+    - channel: "{{ cpd_components_meta.opencontent_elasticsearch.sub_channel }}"
       installPlanApproval: Automatic
       name: elasticsearch-operator
       namespace: "{{ cpd_operators_namespace }}"
@@ -102,55 +102,3 @@ spec:
   services:
     - name: elasticsearch-operator
       spec: {}
-# Custom Subscriptions
-# -----------------------------------------------------------------------------
----
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: ibm-cpd-ccs-operator
-  namespace: "{{ cpd_operators_namespace }}"
-spec:
-  channel: "{{ cpd_components_meta.ccs.sub_channel }}"
-  installPlanApproval: Automatic
-  name: ibm-cpd-ccs
-  source: ibm-operator-catalog # ibm-cpd-ccs-operator-catalog
-  sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
----
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: ibm-cpd-datarefinery-operator
-  namespace: "{{ cpd_operators_namespace }}"
-spec:
-  channel: "{{ cpd_components_meta.datarefinery.sub_channel }}"
-  installPlanApproval: Automatic
-  name: ibm-cpd-datarefinery
-  source: ibm-operator-catalog # ibm-cpd-datarefinery-operator-catalog
-  sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
----
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: ibm-elasticsearch-operator-v1.1-ibm-operator-catalog-openshift-marketplace
-  namespace: "{{ cpd_operators_namespace }}"
-spec:
-  channel: "{{ cpd_components_meta.opencontent_elasticsearch.sub_channel }}"
-  installPlanApproval: Automatic
-  name: ibm-elasticsearch-operator
-  source: ibm-operator-catalog # ibm-elasticsearch-catalog
-  sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
----
-{% if cpd_service_name in ['ca'] and cpd_minor_version == '4.8' %}
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: ibm-cpd-canvasbase-operator-catalog-subscription # needed only by spss
-  namespace: "{{ cpd_operators_namespace }}"
-spec:
-  channel: "{{ cpd_components_meta.canvasbase.sub_channel }}"
-  installPlanApproval: Automatic
-  name: ibm-cpd-canvasbase
-  source: ibm-operator-catalog # ibm-canvasbase-catalog
-  sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
-{% endif %}

@@ -47,10 +47,29 @@
   retries: 20 # Approximately 20 minutes before we give up
   delay: 60 # 1 minute
 
-- name: "Install IBM Foundational Services Custom Resource"
+- name: "Wait for CommonService instance to be present in {{ cpd_operators_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v3
+    name: common-service
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: CommonService
+  register: commonservices_operators_lookup
+  until:
+    - commonservices_operators_lookup.resources is defined
+    - commonservices_operators_lookup.resources | length > 0
+  retries: 60 # approx 30 minutes before we give up
+  delay: 30 # seconds
+
+- name: "Patch CommonService instance to size {{ cpfs_size }} "
   kubernetes.core.k8s:
+    api_version: operator.ibm.com/v3
+    name: common-service
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: CommonService
     apply: yes
-    template: 'templates/cpfs/cr.yml.j2'
+    definition:
+      spec:
+        size: "{{ cpfs_size }}"
 
 - name: "Wait for CommonService instance to be ready in {{ cpd_operators_namespace }}"
   kubernetes.core.k8s_info:
@@ -64,21 +83,6 @@
     - commonservices_operators_output.resources | length > 0
     - commonservices_operators_output.resources[0].status.overallStatus is defined
     - commonservices_operators_output.resources[0].status.overallStatus == "Succeeded"
-    - commonservices_operators_output.resources[0].status.phase is defined
-    - commonservices_operators_output.resources[0].status.phase == "Succeeded"
-  retries: 60 # approx 30 minutes before we give up
-  delay: 30 # seconds
-
-- name: "Wait for CommonService instance to be ready in {{ cpd_instance_namespace }}"
-  kubernetes.core.k8s_info:
-    api_version: operator.ibm.com/v3
-    name: common-service
-    namespace: "{{ cpd_instance_namespace }}"
-    kind: CommonService
-  register: commonservices_operators_output
-  until:
-    - commonservices_operators_output.resources is defined
-    - commonservices_operators_output.resources | length > 0
     - commonservices_operators_output.resources[0].status.phase is defined
     - commonservices_operators_output.resources[0].status.phase == "Succeeded"
   retries: 60 # approx 30 minutes before we give up
