@@ -48,22 +48,9 @@
 # 3. Wait until the LocalVolume CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the LocalVolume CRD is available"
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    kind: CustomResourceDefinition
-    name: "localvolumes.local.storage.openshift.io"
-    wait: yes
-    wait_sleep: 10
-    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
-    wait_condition:
-      type: NamesAccepted
-      status: "True"
-  register: localvolume_crd_info
-  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
-  delay: 5 # seconds
-  until:
-    - localvolume_crd_info.resources is defined
-    - localvolume_crd_info.resources | length > 0
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: localvolumes.local.storage.openshift.io
 
 
 # 4. Label all worker nodes as suitable for storage
