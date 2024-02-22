@@ -60,7 +60,7 @@
 # -----------------------------------------------------------------------------
 - name: "Grant permissions to {{ cpd_admin_login_sa }} service account in Cloud Pak For Data namespaces"
   include_tasks: "tasks/authorize-user-cpd-admin.yml"
-  when: cpd_minor_version is version('4.8', '>=') # this is only needed in CPD 4.8 and above
+  when: cpd_48_or_higher # this is only needed in CPD 4.8 and above
 
 # CPD 4.8 and above only: Install specific catalog sources
 # -----------------------------------------------------------------------------
@@ -68,7 +68,7 @@
 # for Cloud Pak for Data (cpd-platform), Foundational Services and NamespaceScope (opencloud-operators)
 # until they're all into ibm-operator-catalog
 - name: "Apply custom catalog sources for CPD and CPFS"
-  when: (cpd_minor_version is version('4.8','>='))
+  when: (cpd_48_or_higher)
   kubernetes.core.k8s:
     apply: yes
     template: "templates/catalog_sources/{{ item }}-{{ cpd_product_version }}.yml.j2"
@@ -82,7 +82,7 @@
 
 # CPD 4.8 and above only: Install IBM Licensing and Foundational Services
 # -----------------------------------------------------------------------------
-- when: cpd_minor_version is version('4.8','>=')
+- when: cpd_48_or_higher
   block:
     - include_tasks: "tasks/prereqs/install-ibm-licensing.yml"
     - include_tasks: "tasks/prereqs/install-cpfs.yml"
@@ -106,10 +106,11 @@
 - name: "Install Cloud Pak For Data"
   include_tasks: "tasks/install-cp4d.yml"
 
-# Patch Cloud Pak For Data service accounts with ibm-entitlement-key
-# -----------------------------------------------------------------------------
-- name: "Patch Cloud Pak For Data service accounts with proper imagePullSecrets"
-  include_tasks: "tasks/patch-zen-service-accounts.yml"
+# COMMENTING THIS PIECE JUST TO TEST IF NEEDED
+# # Patch Cloud Pak For Data service accounts with ibm-entitlement-key
+# # -----------------------------------------------------------------------------
+# - name: "Patch Cloud Pak For Data service accounts with proper imagePullSecrets"
+#   include_tasks: "tasks/patch-zen-service-accounts.yml"
 
 # Debug Cloud Pak for Data installation details
 # -----------------------------------------------------------------------------
