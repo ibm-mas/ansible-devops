@@ -4,8 +4,9 @@
 
 # Validate properties are provided
 # -----------------------------------------------------------------------------
-- name: "Load supported Cloud Pak for Data information"
-  include_vars: "{{ role_path }}/../../common_vars/cp4d_supported_versions.yml"
+# Lookup default Cloud Pak for Data version based on MAS catalog
+- include_tasks: "{{ role_path }}/../../common_tasks/determine-ibmcatalog-tag.yml"
+  when: cpd_product_version is not defined or cpd_product_version | length == 0
 
 - name: "Check that Cloud Pak for Data release version has been provided"
   assert:
@@ -13,11 +14,19 @@
       - cpd_product_version is defined and cpd_product_version != ""
     fail_msg: "Cloud Pak for Data version (cpd_product_version) is a required parameter to run this role"
 
+- name: "Load supported Cloud Pak for Data information"
+  include_vars: "{{ role_path }}/../../common_vars/cp4d_supported_versions.yml"
+
 - name: "Check that provided Cloud Pak for Data version is supported for MAS"
   assert:
     that:
       - cpd_product_version in cpd_supported_versions
     fail_msg: "Cloud Pak for Data version ({{ cpd_product_version }}) is not a supported version for MAS. Supported Cloud Pak for Data versions for MAS are: {{ cpd_supported_versions }}"
+
+# Load Cloud Pak for Data casebundle definitions 
+# for additional catalog sources: cpd-platform & opencloud-operators
+- include_tasks: "tasks/load-casebundle-definitions.yml"
+  when: cpd_48_or_higher
 
 - name: Check that an entitlement key has been provided
   assert:
