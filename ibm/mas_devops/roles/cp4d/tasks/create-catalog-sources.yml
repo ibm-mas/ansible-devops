@@ -1,0 +1,29 @@
+---
+- name: "Apply 'cpd-platform' and 'opencloud-operators' catalog sources"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/catalog_sources/{{ apply_catalog_source_item }}-{{ cpd_product_version }}.yml.j2"
+  loop: "{{ cpd_custom_catalog_sources }}"
+  loop_control:
+    loop_var: apply_catalog_source_item
+
+- name: "Wait catalog sources to be ready"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    name: "{{ lookup_catalog_source_item }}"
+    namespace: "{{ cpd_catalog_source_namespace }}"
+  register: catsrc_lookup
+  until:
+    - catsrc_lookup.resources is defined
+    - catsrc_lookup.resources | length > 0
+    - catsrc_lookup.resources[0].status is defined
+    - catsrc_lookup.resources[0].status.connectionState is defined
+    - catsrc_lookup.resources[0].status.connectionState.lastObservedState is defined
+    - catsrc_lookup.resources[0].status.connectionState.lastObservedState == 'READY'
+  retries: 60 # approx 30 minutes before we give up
+  delay: 30 # seconds
+  loop: "{{ cpd_custom_catalog_sources }}"
+  loop_control:
+    loop_var: lookup_catalog_source_item
+    label: "Waiting '{{ lookup_catalog_source_item }}' catalog source to be ready..."

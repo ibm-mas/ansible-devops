@@ -60,32 +60,28 @@
 # -----------------------------------------------------------------------------
 - name: "Grant permissions to {{ cpd_admin_login_sa }} service account in Cloud Pak For Data namespaces"
   include_tasks: "tasks/authorize-user-cpd-admin.yml"
-  when: cpd_48_or_higher # this is only needed in CPD 4.8 and above
+  when: cpd_48_or_higher
 
 # CPD 4.8 and above only: Install specific catalog sources
 # -----------------------------------------------------------------------------
 # TODO : For now, we will need to install specific catalog sources
 # for Cloud Pak for Data (cpd-platform), Foundational Services and NamespaceScope (opencloud-operators)
-# until they're all into ibm-operator-catalog
-- name: "Apply custom catalog sources for CPD and CPFS"
-  when: (cpd_48_or_higher)
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/catalog_sources/{{ item }}-{{ cpd_product_version }}.yml.j2"
-  with_items:
-    - "cpd-platform"
-    - "opencloud-operators"
+- include_tasks: "tasks/create-catalog-sources.yml"
+  when: cpd_48_or_higher
 
 # Install NamespaceScope
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/prereqs/install-ibm-namespace-scope.yml"
 
-# CPD 4.8 and above only: Install IBM Licensing and Foundational Services
+# CPD 4.8 and above only: Install IBM Licensing
 # -----------------------------------------------------------------------------
-- when: cpd_48_or_higher
-  block:
-    - include_tasks: "tasks/prereqs/install-ibm-licensing.yml"
-    - include_tasks: "tasks/prereqs/install-cpfs.yml"
+- include_tasks: "tasks/prereqs/install-ibm-licensing.yml"
+  when: cpd_48_or_higher
+
+# CPD 4.8 and above only: Install Cloud Pak Foundational Services
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/prereqs/install-cpfs.yml"
+  when: cpd_48_or_higher
 
 # Install Cloud Pak for Data subscription/operator
 # -----------------------------------------------------------------------------
