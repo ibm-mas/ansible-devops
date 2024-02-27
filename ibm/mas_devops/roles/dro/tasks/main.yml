@@ -22,13 +22,13 @@
 - include_tasks: "tasks/{{ dro_action }}/main.yml"
   when:
     - dro_action in ["install-dro", "uninstall"]
-    - dro_migration == "" or dro_migration == "false"
+    - dro_migration == "" or dro_migration | lower == "false"
 
 # Migration from UDS to DRO (DRO_ACTION not set, DRO_MIGRATION set yo true by cli)
 - name: UDS to DRO migration (mas update scenario)
   include_tasks: "tasks/install-dro/main.yml"
   when:
-    - dro_migration != "" and dro_migration == "true"
+    - dro_migration != "" and dro_migration | lower == "true"
 
 # Generate the DRO configuration for MAS
 - name: gencfg for new installation
@@ -39,6 +39,7 @@
 
 # Uninstall UDS when DRO_MIGRATION flag is set to True
 - name: Uninstall UDS after DRO migration (mas update scenario)
-  include_tasks: "{{ role_path }}/../../uds/tasks/uninstall/main.yml"
+  include_role:
+    name: ibm.mas_devops.uds
   when:
-    - dro_migration != "" and dro_migration == "true"
+    - dro_migration != "" and dro_migration | lower == "true"
