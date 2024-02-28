@@ -18,6 +18,14 @@
       - "Unable to upgrade existing Mongo instance to {{ target_mongodb_version }} in namespace {{ mongodb_namespace }} because it is not in 'Running' state."
       - "Current Mongo Status: {{ existing_mongodb.resources[0].status.phase }}"
 
+# Only allow Mongo upgrades if existing instance is in Running state
+- name: "Assert existing Mongo is running"
+  assert:
+    that: existing_mongodb.resources[0].status.phase == 'Running'
+    fail_msg:
+      - "Unable to upgrade existing Mongo instance to {{ target_mongodb_version }} in namespace {{ mongodb_namespace }} because it is not in 'Running' state."
+      - "Current Mongo Status: {{ existing_mongodb.resources[0].status.phase }}"
+
 # Only allow Mongo upgrades, prevent downgrades from happening
 - name: Assert no Mongo downgrade operations
   assert:
