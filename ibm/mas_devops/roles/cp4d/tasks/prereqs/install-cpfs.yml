@@ -24,10 +24,59 @@
     that: cpfs_available_channel is version(cpfs_channel, '>=')
     fail_msg: "The channel available in ibm-common-service-operator package manifest (cpfs_available_channel) is older than the minimum required version {{ cpfs_channel }} needed by Cloud Pak for Data {{ cpd_product_version }}!"
 
+# Backup and delete existing common-service-maps
+- name: "Lookup existing common-service-maps configmap"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    namespace: "kube-public"
+    name: "common-service-maps"
+  register: common_service_maps_lookup
+
+- debug:
+    var: common_service_maps_lookup
+
+- when:
+    - common_service_maps_lookup.resources is defined
+    - common_service_maps_lookup.resources | length == 1
+  block:
+    - name: "Backup existing common-service-maps configmap"
+      vars:
+        data: "{{ common_service_maps_lookup.resources[0] }}"
+      kubernetes.core.k8s:
+        state: present
+        namespace: "kube-public"
+        definition: "{{ lookup('template', 'templates/cpfs/common-service-maps-cm-blank.yml.j2') }}"
+
+    - name: "Delete existing common-service-maps configmap"
+      kubernetes.core.k8s:
+        state: absent
+        kind: ConfigMap
+        namespace: "kube-public"
+        name: "common-service-maps"
+      register: common_service_maps_delete
+
+    - debug:
+        var: common_service_maps_delete
+
+# Backup and delete existing common-service-maps
 - name: "Install common-services-maps configmap"
   kubernetes.core.k8s:
     apply: yes
     template: 'templates/cpfs/common-service-maps-cm.yml.j2'
+
+# Clean up old ibm-common-service and cpd-platform operators
+# -----------------------------------------------------------------------------
+- name: "Clean up old ibm-common-service and cpd-platform operator subscriptions from {{ cpd_operators_namespace }}"
+  vars:
+    operator_name: "{{ cpd_subs_item }}"
+    operator_namespace: "{{ cpd_operators_namespace }}"
+  include_tasks: "tasks/prereqs/uninstall-operator.yml"
+  loop:
+    - cpd-platform-operator
+    - ibm-common-service-operator
+  loop_control:
+    loop_var: cpd_subs_item
 
 - name: "Install IBM Foundational Services Subscription"
   kubernetes.core.k8s:

@@ -25,6 +25,7 @@
 
 # Load Cloud Pak for Data casebundle definitions 
 # for additional catalog sources: cpd-platform & opencloud-operators
+# -----------------------------------------------------------------------------
 - name: "Load Cloud Pak for Data extra casebundle properties for version {{ cpd_product_version }}"
   include_tasks: "tasks/load-casebundle-definitions.yml"
   when: cpd_48_or_higher
@@ -60,6 +61,14 @@
 - name: "Check Cloud Pak for Data pre-requisites"
   include_tasks: "tasks/prereq-check/main.yml"
 
+# Check CPFS v3 is installed, if so disable it to allow installing CPD 4.8+ (and CPFS v4)
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/prereqs/disable-cpfs-v3.yml"
+  when: 
+    - cpd_48_or_higher
+    - cpfs_installed_version is defined
+    - cpfs_installed_version is version(cpd_cpfs_minimum_csv_version, '<=') # this is true if CPFS v3 is installed
+
 # Auto determine Cloud Pak for Data file and block storage classes
 # -----------------------------------------------------------------------------
 - name: "Determine storage classes"
@@ -79,13 +88,6 @@
 - include_tasks: "tasks/create-catalog-sources.yml"
   when: cpd_48_or_higher
 
-# Check CPFS v3 is installed, if so disable it to allow installing CPD 4.8+ (and CPFS v4)
-# -----------------------------------------------------------------------------
-- include_tasks: "tasks/prereqs/disable-cpfs-v3.yml"
-  when: 
-    - cpd_48_or_higher
-    - cpfs_installed_version is version(cpd_cpfs_minimum_csv_version, '<=') # this is true if CPFS v3 is installed
-
 # Install NamespaceScope
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/prereqs/install-ibm-namespace-scope.yml"
@@ -98,7 +100,9 @@
 # CPD 4.8 and above only: Install Cloud Pak Foundational Services
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/prereqs/install-cpfs.yml"
-  when: cpd_48_or_higher
+  when: 
+    - cpd_48_or_higher
+    - cpfs_installed_version is not defined or cpfs_installed_version != cpfs_version
 
 # Install Cloud Pak for Data subscription/operator
 # -----------------------------------------------------------------------------
@@ -121,7 +125,7 @@
 
 # Pre-create Cloud Pak for Data service accounts including ibm-entitlement-key in imagePullSecrets
 # -----------------------------------------------------------------------------
-- include_tasks: "tasks/patch-cpd-service-accounts.yml"
+- include_tasks: "tasks/create-cpd-service-accounts.yml"
 
 # Debug Cloud Pak for Data installation details
 # -----------------------------------------------------------------------------

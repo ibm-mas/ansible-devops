@@ -20,6 +20,8 @@
 - set_fact:
     cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
     cpd_assembly_name: "{{ cpd_service_info[cpd_service_name].assembly_name }}"
+    cpd_service_package_name: "{{ cpd_service_info[cpd_service_name].package_name }}"
+    cpd_service_csv_name: "{{ cpd_service_info[cpd_service_name].csv_name }}"
 
 - name: "Set {{ cpd_service_name }} versions for cr, csv and sub_channel"
   set_fact:
@@ -42,7 +44,8 @@
       - "CPD Service Block storage class ........ {{ cpd_service_block_storage_class | default('N/A', true) }}"
       - "CPD Service Version .................... {{ cpd_service_cr_version }}"
       - "CPD Service Subscription channel ....... {{ cpd_service_channel }}"
-      - "CPD Service CSV ........................ {{ cpd_service_csv_version }}"
+      - "CPD Service CSV name ................... {{ cpd_service_csv_name }}"
+      - "CPD Service CSV version ................ {{ cpd_service_csv_version }}"
 
 # 3. Run Pre-req task
 # -----------------------------------------------------------------------------
@@ -51,7 +54,6 @@
   when:
     - cpd_service_name is in ['wd']
     - cpd_minor_version is version('4.8','<')
-
   include_tasks: "prereqs/prereqs-{{ cpd_service_name }}.yml"
 
 # 3.1 Install Operand Configs and Operand Registries
@@ -65,28 +67,24 @@
     template: "templates/operand_config/cpd_dependencies.yml.j2"
   when: cpd_service_name is in ['wd', 'wsl', 'ca', 'spss']
 
-# TODO: DELETE THIS COMMENTED CODE BELOW
-# # CP4D services require that some of their service accounts to have ibm-entitlement-key set imagePullPolicy
-# # Invoke this task with the custom resource install as service accounts might get deleted if the service is uninstalled
-# - name: "Pre-create Cloud Pak for Data serviceAccounts with ibm-entitlement-key in imagePullSecret"
-#   kubernetes.core.k8s:
-#     apply: yes
-#     template: templates/service-accounts.yml.j2
-#   register: cpd_sa_create
-#   retries: 2
-#   delay: 15 # seconds
-#   until: cpd_sa_create.error is not defined # The error field will be set to 409 if there was a conflict
-
 # Pre-create Cloud Pak for Data service accounts including ibm-entitlement-key in imagePullSecrets
 # -----------------------------------------------------------------------------
-- include_tasks: "{{ role_path }}/../cp4d/tasks/patch-cpd-service-accounts.yml"
+- include_tasks: "{{ role_path }}/../cp4d/tasks/create-cpd-service-accounts.yml"
+
+# TODO: Add code to check if existing sub cvs is different from the olm-utils, if so then delete sub otherwise skip sub deletion
+# Clean up old ibm-common-service operator
+- name: "Clean up existing CP4D Service 'cpd-{{ cpd_service_name }}-operator' csv from {{ cpd_operators_namespace }}"
+  vars:
+    operator_name: "{{ cpd_service_package_name }}"
+    operator_namespace: "{{ cpd_operators_namespace }}"
+  include_tasks: "{{ role_path }}/../cp4d/tasks/prereqs/uninstall-operator.yml"
 
 # 4. Install CP4D Service Subscriptions
 # -----------------------------------------------------------------------------
 - name: "Install CP4D Service Subscription"
   vars:
     cpd_service_subscription_name: "cpd-{{ cpd_service_name }}-operator"
-    cpd_service_package_name: "{{ cpd_service_info[cpd_service_name].package_name }}"
+    cpd_service_package_name: "{{ cpd_service_package_name }}"
     cpd_service_channel_name: "{{ cpd_service_channel }}"
     cpd_service_catalog_source: "{{ cpd_service_info[cpd_service_name].catalog_source }}"
   kubernetes.core.k8s:

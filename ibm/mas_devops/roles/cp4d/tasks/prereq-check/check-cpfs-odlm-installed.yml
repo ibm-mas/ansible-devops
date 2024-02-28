@@ -6,14 +6,14 @@
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
     name: ibm-common-service-operator
-    namespace: ibm-common-services
+    namespace: "{{ search_cpfs_namespace }}"
   register: common_services_sub_info
 
 - name: "prereq-check : Check if ODLM is installed"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: operand-deployment-lifecycle-manager
-    namespace: "ibm-common-services"
+    namespace: "{{ search_cpfs_namespace }}"
     kind: Deployment
   register: odlm_lookup
 
@@ -40,6 +40,11 @@
     cpfs_installed_version: "{{ common_services_sub_info.resources[0].status.installedCSV | regex_search(regex) }}"
   vars:
     regex: "(?<=ibm-common-service-operator.v)(.*)"
+  when:
+    - common_services_sub_info.resources is defined
+    - common_services_sub_info.resources | length > 0
+    - common_services_sub_info.resources[0].status is defined
+    - common_services_sub_info.resources[0].status.installedCSV is defined 
 
 - debug:
     msg:
