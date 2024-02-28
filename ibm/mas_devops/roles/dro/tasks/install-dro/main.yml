@@ -70,6 +70,15 @@
         name: ibm-entitlement-key
         namespace: ibm-common-services
       register: ent_sec
+    
+    - name: Fall back to MAS core to look up ibm entitlement secret if ibm-common-services does not have it
+      when:  ent_sec.resources | length == 0
+      k8s_info:
+        api_version: v1
+        kind: Secret
+        name: ibm-entitlement-key
+        namespace: mas-{{ mas_instance_id }}-core
+      register: ent_sec
 
     - name: set fact
       when: ent_sec.resources is defined and ent_sec.resources | length != 0
