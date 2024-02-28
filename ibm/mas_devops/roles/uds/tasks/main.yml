@@ -9,6 +9,7 @@
   when:
     - uds_action in ["install", "install-suds", "uninstall", "uninstall-suds"]
     - uds_endpoint_url is not defined or uds_endpoint_url == ""
+    - dro_migration | lower != "true"
 
 # 2. Generate the UDS configuration for MAS
 # -----------------------------------------------------------------------------
@@ -17,3 +18,10 @@
     - uds_action == "install"
     - mas_instance_id is defined and mas_instance_id != ""
     - mas_config_dir is defined and mas_config_dir != ""
+    - dro_migration | lower != "true"
+
+# 3. Uninstall uds when dro_migration is true
+- include_tasks: "tasks/uninstall/main.yml"
+  when:
+    - dro_migration is defined
+    - dro_migration | lower == "true"

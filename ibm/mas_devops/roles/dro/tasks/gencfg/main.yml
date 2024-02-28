@@ -4,6 +4,7 @@
 
 # Check dro contact info
 - name: "drocfg : Fail if DRO contact information has not been provided"
+  when: dro_migration | lower != "true"
   assert:
     that:
       - dro_contact.email is defined and dro_contact.email != ""
@@ -109,7 +110,7 @@
     mode: "664"
   when:
     - mas_instance_id is defined
-    - dro_migration != "true"
+    - dro_migration | lower != "true"
 
 # 6. DRO Migration: Clean BASCfg of UDS
 # -----------------------------------------------------------------------------
@@ -119,10 +120,10 @@
     kind: BasCfg
   register: udscfgs
   when:
-    - dro_migration != "" and dro_migration == "true"
+    - dro_migration != "" and dro_migration | lower == "true"
 
 - name: CleanUp UDS BASCfgs and Create DRO BASCfgs
   include_tasks: "tasks/gencfg/migrate.yml"
   loop: "{{ udscfgs.resources }}"
   when:
-    - dro_migration != "" and dro_migration == "true"
+    - dro_migration != "" and dro_migration | lower == "true"
