@@ -29,6 +29,23 @@
     apply: yes
     template: 'templates/namespacescope/subscription.yml.j2'
 
+- name: "Wait ibm-namespace-scope-operator subscription installedCSV version at {{ namespace_scope_channel }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - operators.coreos.com/ibm-namespace-scope-operator.{{ cpd_operators_namespace }}
+  register: ns_sub_info
+  retries: 20
+  delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+  until:
+    - ns_sub_info.resources is defined
+    - ns_sub_info.resources | length > 0
+    - ns_sub_info.resources[0].status is defined
+    - ns_sub_info.resources[0].status.installedCSV is defined
+    - namespace_scope_channel in ns_sub_info.resources[0].status.installedCSV
+
 - name: "Wait for ibm-namespace-scope-operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: apps/v1

@@ -79,6 +79,13 @@
 - include_tasks: "tasks/create-catalog-sources.yml"
   when: cpd_48_or_higher
 
+# Check CPFS v3 is installed, if so disable it to allow installing CPD 4.8+ (and CPFS v4)
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/prereqs/disable-cpfs-v3.yml"
+  when: 
+    - cpd_48_or_higher
+    - cpfs_installed_version is version(cpd_cpfs_minimum_csv_version, '<=') # this is true if CPFS v3 is installed
+
 # Install NamespaceScope
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/prereqs/install-ibm-namespace-scope.yml"
@@ -111,6 +118,10 @@
 # -----------------------------------------------------------------------------
 - name: "Install Cloud Pak For Data"
   include_tasks: "tasks/install-cp4d.yml"
+
+# Pre-create Cloud Pak for Data service accounts including ibm-entitlement-key in imagePullSecrets
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/patch-cpd-service-accounts.yml"
 
 # Debug Cloud Pak for Data installation details
 # -----------------------------------------------------------------------------
