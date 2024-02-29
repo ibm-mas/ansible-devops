@@ -1,0 +1,63 @@
+---
+
+# 1. Setup namespaces for OCS
+# -----------------------------------------------------------------------------
+- name: "ocs/storage : Create Namespaces for OCS"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/storage/namespace.yaml') }}"
+  register: localNamespace
+
+
+# 2. Install the Operator
+# -----------------------------------------------------------------------------
+- name: "ocs/storage : Create Openshift Container Storage Operator Group"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/storage/operatorgroup.yaml') }}"
+  register: ocsGroup
+
+- name: "ocs/storage : Openshift Container Storage Operator Subscription"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/storage/subscription.yaml') }}"
+  register: ocsSubscription
+
+
+# 3. Wait until the StorageCluster CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the StorageCluster CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: storageclusters.ocs.openshift.io
+
+
+# 4. Create the storage cluster
+# -----------------------------------------------------------------------------
+- name: "ocs/storage : Create OSC Cluster"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/storage/storagecluster.yaml'
+
+- name: "Wait until the StorageCluster is available (2 minute interval)"
+  kubernetes.core.k8s_info:
+    api_version: ocs.openshift.io/v1
+    kind: StorageCluster
+    name: ocs-storagecluster
+    namespace: openshift-storage
+  register: storagecluster_info
+  retries: 30 # 1 hour
+  delay: 120 # 2 minutes
+  until:
+    - storagecluster_info.resources is defined
+    - storagecluster_info.resources | length > 0
+    - storagecluster_info.resources | json_query('[*].status.conditions[?type==`Available`][].status') | select ('match','True') | list | length == 1
+
+
+# 4. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "ocs/storage : Debug information"
+  debug:
+    msg:
+      - "OperatorGroup changed ........ {{ ocsGroup.changed }}"
+      - "Subscription changed ......... {{ ocsSubscription.changed }}"
