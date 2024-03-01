@@ -1,0 +1,53 @@
+---
+apiVersion: odf.openshift.io/v1alpha1
+kind: StorageSystem
+metadata:
+  name: ocs-storagecluster-storagesystem
+  namespace: openshift-storage
+spec:
+  kind: storagecluster.ocs.openshift.io/v1
+  name: ocs-storagecluster
+  namespace: openshift-storage
+---
+apiVersion: ocs.openshift.io/v1
+kind: StorageCluster
+metadata:
+  name: ocs-storagecluster
+  namespace: openshift-storage
+spec:
+  arbiter: {}
+  encryption:
+    kms: {}
+  externalStorage: {}
+  managedResources:
+    cephObjectStoreUsers: {}
+    cephCluster: {}
+    cephBlockPools: {}
+    cephNonResilientPools: {}
+    cephObjectStores: {}
+    cephFilesystems: {}
+    cephRBDMirror: {}
+    cephToolbox: {}
+    cephDashboard: {}
+    cephConfig: {}
+  mirroring: {}
+  multiCloudGateway:
+    dbStorageClassName: "{{ cpd_service_block_storage_class }}"
+    reconcileStrategy: standalone
+---
+apiVersion: noobaa.io/v1alpha1
+kind: BackingStore
+metadata:
+  name: noobaa-default-backing-store
+  namespace: openshift-storage
+  labels:
+    app: noobaa
+spec:
+  pvPool:
+    numVolumes: 1
+    resources:
+      requests:
+        storage: 150Gi
+    secret: {}
+    storageClass: "{{ cpd_service_block_storage_class }}"
+  type: pv-pool
