@@ -15,10 +15,11 @@
       - "Catalog source namespace .................. {{ cpd_catalog_source_namespace }}"
 
 # Clean up old cpd-platform operator
-- name: "Clean up any cpd-platform-operator subscription from {{ cpd_operators_namespace }}"
+- name: "Clean up any {{ cpd_platform_operator_name }} subscription from {{ cpd_operators_namespace }}"
   vars:
-    operator_name: cpd-platform-operator
+    operator_name: "{{ cpd_platform_operator_name }}"
     operator_namespace: "{{ cpd_operators_namespace }}"
+    operator_expected_csv: "{{ cpd_platform_operator_name }}.v{{ cpd_csv_version }}"
   include_tasks: "tasks/prereqs/uninstall-operator.yml"
 
 # cpd 4.8 will install cloud-native-postgresql.v1.18.7, but cluster with WD will have cloud-native-postgresql.v1.18.6 so it will conflict during upgrade...
@@ -38,10 +39,10 @@
     apply: yes
     template: 'templates/cpd_platform/subscription.yml.j2'
 
-- name: "create-subscriptions : Wait for cpd-platform-operator-manager to be ready (60s delay)"
+- name: "create-subscriptions : Wait for {{ cpd_platform_operator_name }}-manager to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: apps/v1
-    name: cpd-platform-operator-manager
+    name: "{{ cpd_platform_operator_name }}-manager"
     namespace: "{{ cpd_operators_namespace }}"
     kind: Deployment
   register: cpd_subscription
@@ -55,7 +56,7 @@
 # With this, we ensure the new cpd service csv version operator is up and running with the new cr version before we check the cpd cr status
 - name: "Wait CP4D subscription installedCSV version at {{ expected_installed_csv }}"
   vars:
-    expected_installed_csv: "cpd-platform-operator.v{{ cpd_csv_version }}"
+    expected_installed_csv: "{{ cpd_platform_operator_name }}.v{{ cpd_csv_version }}"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
@@ -70,10 +71,3 @@
     - cpd_sub_info.resources[0].status is defined
     - cpd_sub_info.resources[0].status.installedCSV is defined
     - cpd_sub_info.resources[0].status.installedCSV == expected_installed_csv
-
-# TODO: Delete this if tests passes, NamespaceScope will be installed earlier
-# # 2.3 Enabling services to use namespace scoping with third-party operators
-# - name: "create-subscriptions : Create NamespaceScope for CP4D Operators"
-#   kubernetes.core.k8s:
-#     apply: yes
-#     template: 'templates/namespaceScope.yml.j2'
