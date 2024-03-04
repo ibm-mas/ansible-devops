@@ -57,6 +57,7 @@
 # 2.1. Patch the Discovery etcd service accounts in ibm-cpd namespace to add ibm-entitlement-key
 # -----------------------------------------------------------------------------
 - name: "wait-wd : Patch the wd service accounts"
+  when: not skip_sa_patch
   kubernetes.core.k8s:
     apply: yes
     api_version: v1
@@ -73,7 +74,9 @@
     loop_var: wd_sa_item
 
 - include_tasks: "tasks/wait/wait-wd-etcd.yml"
-  when: cpd_48_or_higher # elastic search operator was just introduced with cpd 4.8
+  when: 
+    - cpd_48_or_higher # elastic search operator was just introduced with cpd 4.8
+    - not skip_sa_patch
 
 # 3. Spend 30 minutes looking for pods stuck in ImagePullBackoff state
 # -----------------------------------------------------------------------------
@@ -127,19 +130,6 @@
     - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
     - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
   include_tasks: wait-wd-detectimagepullbackoff.yml
-
-# Adding this in an attempt to have WD installs completing successfully in a consistent way
-# in few occasions wd-discovery-ranker-rest pod fails to start up due some other WD pods not running properly
-# thus this forces all wd pods to be rebooted with the hopes that it does the trick to have them all up and running
-- name: "wait-wd : Restart all wd pods to prevent intermitent failures with wd-discovery-ranker-rest"
-  when:
-    - cpd_cr_wait_lookup.resources is defined
-    - cpd_cr_wait_lookup.resources | length == 1
-    - cpd_cr_wait_lookup.resources[0].status is defined
-    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
-    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
-  shell: "oc get pods -n {{ cpd_instance_namespace }} | awk '{print $1}'| grep wd- | xargs oc delete pod -n {{ cpd_instance_namespace }}"
-  ignore_errors: true # don't care if the pods are not found, just force the restart really
 
 # 4. Wait for CP4D service CR to be ready
 # -----------------------------------------------------------------------------

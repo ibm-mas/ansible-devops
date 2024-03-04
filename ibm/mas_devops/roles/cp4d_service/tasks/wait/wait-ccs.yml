@@ -49,7 +49,7 @@
 
 # check if ccs cr is already patched
 - set_fact:
-    is_ccs_already_patched: "{{ ccscr_output.resources[0].spec.couchdb_resources is defined and ccscr_output.resources[0].spec.blockStorageClass is defined }}"
+    is_ccs_already_patched: "{{ ccscr_output.resources[0].spec.couchdb_resources is defined and ccscr_output.resources[0].spec.blockStorageClass is defined and ccscr_output.resources[0].spec.imagePullSecret is defined }}"
 
 - debug:
     msg:
@@ -67,6 +67,7 @@
         kind: CCS
         definition:
           spec:
+            imagePullSecret: "{{ ibm_entitlement_key_secret }}"
             blockStorageClass: "{{ cpd_service_block_storage_class }}"
             fileStorageClass: "{{ cpd_service_storage_class }}"
             couchdb_resources:
@@ -123,7 +124,9 @@
   when: not is_ccs_already_patched
 
 - include_tasks: "tasks/wait/wait-elasticsearch.yml"
-  when: cpd_minor_version == '4.8' # elastic search operator was just introduced with cpd 4.8
+  when: 
+    - cpd_48_or_higher # elastic search operator was just introduced with cpd 4.8
+    # - not skip_sa_patch # eventually we hope to be able to skip patching the elastic search cr with image pull secret, but not for now
 
 # 5. Wait for CCS CR to be ready
 # -----------------------------------------------------------------------------
