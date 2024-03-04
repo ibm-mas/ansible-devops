@@ -1,7 +1,27 @@
 ---
-# this step is only needed for ROKS classic clusters
-- name: Disable ocs webhook to allow installing ODF operator
-  shell: oc scale --replicas=0 deployment managed-storage-validation-webhooks -n ibm-odf-validation-webhook
-  ignore_errors: yes
+# Lookup Noobaa/Multicloud Gateway secrets, if they're present than use default configured ODF/Backing storage for Watson Discovery install
+# otherwise install Multicloud Gateway standalone using available block storage.
 
-- include_tasks: "tasks/prereqs/ocs/main.yml"
+- name: "Lookup BackingStorage noobaa-default-backing-store"
+  kubernetes.core.k8s_info:
+    api_version: noobaa.io/v1alpha1
+    kind: BackingStore
+    name: noobaa-default-backing-store
+    namespace: openshift-storage
+  register: backingstore_default_lookup
+
+- set_fact:
+    backingstore_default_installed: "{{ backingstore_default_lookup.resources is defined and backingstore_default_lookup.resources | json_query('[*].status.conditions[?type==`Available`][].status') | select ('match','True') | list | length == 1 }}"
+
+- debug:
+    msg:
+      - "Backing Store 'noobaa-default-backing-store' installed ...................... {{ backingstore_default_installed }}"
+
+- when:
+    - not backingstore_default_installed
+  block:
+    - debug:
+        msg:
+          - "There's no default BackingStore available, therefore Multicloud Gateway standalone will be installed..."
+
+    - include_tasks: "tasks/prereqs/odf/main.yml"

@@ -21,17 +21,17 @@
       - "Operator expected csv ............ {{ operator_expected_csv | default('Not informed', true) }}"
       - "Operator installed csv ........... {{ cpd_sub_by_label_output.resources[0].status.installedCSV | default('Not found') }}"
 
-# when installed cvs exists and is different than expected, delete existing sub
-- debug:
-    msg:
-      - "{{ (operator_expected_csv is not defined or operator_expected_csv != cpd_sub_by_label_output.resources[0].status.installedCSV) | ternary('Will try to delete subscription...','Skip subscription deletion...') }}"
-
 - when:
     - cpd_sub_by_label_output.resources is defined
     - cpd_sub_by_label_output.resources | length > 0
-    - cpd_sub_by_label_output.resources[0].status.installedCSV
+    - cpd_sub_by_label_output.resources[0].status.installedCSV is defined
     - operator_expected_csv is not defined or operator_expected_csv != cpd_sub_by_label_output.resources[0].status.installedCSV
   block:
+    # When installed cvs exists and is different than expected, delete existing sub
+    - debug:
+        msg:
+          - "Will try to delete subscription {{ operator_name }} as installed cvs is different from the expected csv..."
+
     # Delete subscription
     - name: "uninstall-operator : Delete operators.coreos.com/{{ operator_name }}.{{ operator_namespace }} subscription"
       kubernetes.core.k8s:

@@ -1,7 +1,14 @@
 ---
-# 0. Look up OCP version in Cluster and set expected operator and channel
+
+# 1. Disable webhook to allow installing ODF operator - This step is only needed for ROKS classic clusters
 # -----------------------------------------------------------------------------
-- name: "Look up cluster ocp version"
+- name: Disable webhook to allow installing ODF operator
+  shell: oc scale --replicas=0 deployment managed-storage-validation-webhooks -n ibm-odf-validation-webhook
+  ignore_errors: yes
+
+# 2. Look up OCP version in Cluster and set expected operator and channel
+# -----------------------------------------------------------------------------
+- name: "Lookup cluster ocp version"
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     name: "version"
@@ -41,7 +48,7 @@
     storage_operator_source_namespace: "{{ storage_operator_manifest.resources[0].status.catalogSourceNamespace }}"
     storage_operator_default_channel: "{{ storage_operator_manifest.resources[0].status.defaultChannel }}"
 
-# 1. Debug configuration
+# 3. Debug configuration
 # -----------------------------------------------------------------------------
 - name: "Debug ocs role configuration"
   debug:
@@ -50,6 +57,6 @@
       - "Storage Operator ....................... {{ storage_operator }}"
       - "Storage Operator channel ............... {{ storage_operator_channel }}"
 
-# 2. Configure ODF or OCS backed by local-storage
+# 4. Configure ODF or OCS backed by block storage
 # -----------------------------------------------------------------------------
-- include_tasks: tasks/prereqs/ocs/storage.yml
+- include_tasks: tasks/prereqs/odf/storage.yml
