@@ -246,19 +246,9 @@
 - set_fact:
     docdb_hosts: "{{ lookup('ansible.builtin.template', 'templates/aws/docdb-hosts.yml.j2') }}"
 
-
-# 5. Download DocDB CA Cert from AWS and Create DocDB creds Secret and MongoCfg
-# -----------------------------------------------------------------------------
-- name: "Download Amazon DocumentDB Certificate Authority (CA) certificates"
-  shell: |
-    wget https://s3.amazonaws.com/rds-downloads/rds-ca-2019-root.pem -O /tmp/rds-ca-2019-root.pem
-    wget https://s3.amazonaws.com/rds-downloads/rds-ca-2019-{{aws_region}}.pem -O /tmp/rds-ca-2019-{{aws_region}}.pem
-
 - name: Set DocumentDB certificates
   set_fact:
-    docdb_master_root_cert: "{{ lookup('file', '/tmp/rds-ca-2019-root.pem') }}"
-    docdb_master_cert: "{{ lookup('file', '/tmp/rds-ca-2019-{{aws_region}}.pem') }}"
-
+    docdb_g1rootca_cert: "{{ lookup('file', '{{role_path}}/files/providers/aws/ca/root-ca-rsa2048-{{aws_region}}.pem') }}"
 - name: "Generate MongoCfg with DocDB details mongo-{{ mongodb_namespace }}.yml"
   ansible.builtin.template:
     src: aws/suite_mongocfg.yml.j2
