@@ -14,7 +14,21 @@ cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
 cpd_admin_username: "{{ lookup('env', 'CPD_ADMIN_USERNAME') }}"
 cpd_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
 ibm_entitlement_key_secret: ibm-entitlement-key
-skip_sa_patch: "{{ lookup('env', 'SKIP_SA_PATCH') | default('true', true) | bool }}"
+skip_ibm_entitlement_injection: "{{ lookup('env', 'skip_ibm_entitlement_injection') | default('false', true) | bool }}"
+
+# following list of service accounts needs ibm-entitlement-key in imagePullSecret
+cpd_sa_patch_list_zen:
+  - default
+  - zen-admin-sa
+  - zen-editor-sa
+  - zen-norbac-sa
+  - zen-runtime-sa
+  - zen-viewer-sa
+  - runtime-assemblies-operator # owned by ccs-cr
+  - runtime-manager-api # owned by ccs-cr
+  - cognos-analytics-sp-sa # owned by ca-addon-cr (cognos analytics)
+  - wd-discovery-etcd-serviceaccount # owned by wd (watson discovery)
+  - wd-discovery-cn-postgres # owned by wd (watson discovery)
 
 # ------ CPD namespaces -----------------------------------------------------------------------------------------------
 
@@ -51,6 +65,12 @@ cpd_services_supporting_block_storage_class: # these services can leverage both 
   - "wsl"
   - "wml"
   - "aiopenscale"
+
+cpd_services_requiring_ccs:
+  - "wsl"
+  - "wml"
+  - "spss"
+  - "ca"
 
 cpd_service_installplan_approval: Automatic
 cpd_service_scale_config: "{{ lookup('env', 'CPD_SERVICE_SCALE_CONFIG') | default('small', true) }}"
