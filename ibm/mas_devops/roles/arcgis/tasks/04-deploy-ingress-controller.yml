@@ -39,3 +39,17 @@
 #                VERBOSE=${VERBOSE} \
 #                \"${deploy_script}\" ${CUSTOM_PROPERTIES}" "Deploy Ingress controller yaml"
 # }
+
+- name: Create Certs
+  vars:
+    ingress_tls_secret_name: "changeit"
+    base_name: ingress-controller
+    temp_key_file: "{{ mas_config_dir }}/{{ base_name }}.keyfile.key.$$.tmp"
+    temp_crt_file: "{{ mas_config_dir }}/{{ base_name }}.certificate.crt.$$.tmp"
+    temp_interpod_pfx_file: "{{ mas_config_dir }}/{{ base_name }}.interpod.pfx.$$.tmp"
+  shell: |
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout \"{{ temp_key_file }}\" -out \"{{ temp_crt_file }}\" -sha256 -days 3650 -subj \"/CN=*.{{ arcgis_namespace }}.{{ arcgis_k8s_cluster_dns_suffix }}\"
+  register: openssl_1st_cmd
+
+- debug:
+    var: openssl_1st_cmd
