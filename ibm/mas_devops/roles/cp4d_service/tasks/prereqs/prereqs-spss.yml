@@ -1,0 +1,18 @@
+---
+# sometimes during the cpd upgrade, zen-watchdog pod crashes and requires deployment to be deleted and recreated...
+- name: "Delete existing spss-modeler-flow deployment if exists"
+  when: 
+    - cpd_48_or_higher
+    - spss_deployment_item.changed is not defined
+  kubernetes.core.k8s:
+    state: absent
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ cpd_instance_namespace }}"
+    name: "{{ spss_deployment_item }}"
+  register: spss_modeler_deployment_delete
+  loop:
+    - spss-modeler-flow-ui
+    - spss-modeler-flow-api
+  loop_control:
+    loop_var: spss_deployment_item
