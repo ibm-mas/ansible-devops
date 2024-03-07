@@ -1,0 +1,230 @@
+---
+# Configuration properties for ArcGIS Enterprise on Kubernetes deployment
+#
+# ------------------------------------
+# DEPLOYMENT PLATFORM
+# ------------------------------------
+#
+# Ingress controller service type
+#
+# Possible values for INGRESS_TYPE:
+#
+#   NodePort        - Exposes the Service on each Node's IP at a static port (the NodePort). 
+#                     You'll be able to contact the NodePort Service, from outside the cluster, 
+#                     by requesting <NodeIP>:<NodePort>.
+#   LoadBalancer    - Exposes the Service externally using a cloud provider's load balancer.
+#                     The load balancer is created and configured automatically as a part of 
+#                     the deployment.
+#
+argcis_ingress_type: "NodePort"
+#
+# Possible values for LOAD_BALANCER_TYPE (must choose one if INGRESS_TYPE="LoadBalancer", else 
+# leave it blank):
+#
+#   azure-external   - Azure Load Balancer (External)
+#   azure-internal   - Azure Load Balancer (Internal)
+#   aws-nlb-external - AWS Network Load Balancer (External)
+#   aws-nlb-internal - AWS Network Load Balancer (Internal)
+#   gcp-external     - Google Cloud Platform TCP Load Balancer (External)
+#   gcp-internal     - Google Cloud Platform TCP Load Balancer (Internal)
+#
+# LOAD_BALANCER_TYPE=""
+#
+# Set INGRESS_SERVICE_USE_CLUSTER_IP to true if you plan to use a cluster-level ingress
+# controller or OpenShift route for incoming traffic (formerly USE_OPENSHIFT_ROUTE).
+argcis_ingress_service_use_cluster_ip: true
+#
+# Use a pre-configured static public IP address and DNS label with the load balancer
+# (optional).
+#
+# LOAD_BALANCER_IP=""
+#
+# NodePort value in the range 30000-32767 (optional). 
+# Leave it blank if you want Kubernetes Control Plane to assign an available port. 
+#
+# NODE_PORT_HTTPS=""
+
+# ------------------------------------
+# NAMESPACE
+# ------------------------------------
+#
+# The Kubernetes cluster namespace where ArcGIS Enterprise on Kubernetes will be deployed.
+#
+arcgis_namespace: "{{ lookup('env', 'ARCGIS_NAMESPACE') | default('arcgis', true) }}"
+
+# ------------------------------------
+# SITENAME
+# ------------------------------------
+#
+# Do not edit the following property
+#
+arcgis_sitename: "arcgis"
+
+# ------------------------------------
+# ENCRYPTION KEYFILE
+# ------------------------------------
+# The encryption keyfile is a plain text file used for AES-256 encryption/decryption
+# of passwords. The contents of this file is arbitrary plain text and SHOULD NOT
+# contain any passwords. This file should remain in a fixed location and the contents
+# should not change.
+arcgis_encryption_file: "/Users/andremarcelino/Documents/arcgis/keyfile.txt"
+
+# ------------------------------------
+# CONTAINER REGISTRY
+# ------------------------------------
+#
+# The registry host used to log into the container registry (Docker Hub).
+#
+arcgis_registry_host: "{{ lookup('env', 'ARCGIS_REGISTRY_HOST') | default('docker-na.artifactory.swg-devops.com/wiotp-docker-local/esridocker', true) }}"
+#
+arcgis_registry_repo: "arcgis-11.2"
+#
+# Full registry path to pull images.
+#
+# CONTAINER_REGISTRY="${REGISTRY_HOST}/${REGISTRY_REPO}"
+arcgis_container_registry: "{{ arcgis_registry_host }}/{{ arcgis_registry_repo }}"
+#
+# Set USE_DOCKER_CONFIG_FILE_AS_REGISTRY_SECRET=true to create the registry secret based on the
+# credentials stored in current user's $HOME/.docker/config file instead of those
+# defined below.  If the environment variable DOCKER_CONFIG is set then that filename
+# will be used instead of $HOME/.docker/config.
+#
+# USE_DOCKER_CONFIG_FILE_AS_REGISTRY_SECRET=false
+#
+# Registry username for an account with permissions to pull from the Registry URL specified above.
+# This will be used to create a registry secret.
+#
+# CONTAINER_REGISTRY_USERNAME="xxxxx@us.ibm.com"
+arcgis_container_registry_username: "{{ lookup('env', 'ARCGIS_CONTAINER_REGISTRY_USERNAME') }}"
+
+#
+# Registry password for the username specified above.
+# This will be used to create a registry secret.
+#
+# NOTE: This password is AES-256 encrypted using the ENCRYPTION_KEYFILE specified above.
+#
+# To create an AES-256 encrypted password:
+#
+#    % echo "my.registry.password" | tools/password-encrypt/password-encrypt.sh -f /path/to/keyfile.txt
+#    % echo "PMQ@ibm.com" | tools/password-encrypt/password-encrypt.sh -f $ENCRYPTION_KEYFILE
+
+#
+# That command will output an encrypted string.  Set CONTAINER_REGISTRY_PASSWORD to that encrypted value.
+#
+# CONTAINER_REGISTRY_PASSWORD=will need to check how to generate it
+
+#
+# Registry secret name for container credentials.
+#
+arcgis_container_image_pull_secret_name: "{{ arcgis_sitename }}-container-registry"
+# CONTAINER_IMAGE_PULL_SECRET_NAME="${ARCGIS_SITENAME}-container-registry"
+
+#	
+# The default version tag for pulling images.	
+#
+# VERSION_TAG="${VERSION_TAG:-11.2.0.5207}"
+arcgis_version_tag: "11.2.0.5207"
+
+# ------------------------------------
+# FULLY QUALIFIED DOMAIN NAME
+# ------------------------------------
+#
+# The fully qualified domain name (FQDN) to access ArcGIS Enterprise on Kubernetes. 
+# This FQDN points to a load balancer, reverse proxy, edge router, or other web front-end
+# configured to route traffic to the ingress controller.
+# For example: <hostname>.<Domain>.com
+#
+# ARCGIS_ENTERPRISE_FQDN="arcgis.apps.hpdevops.cp.fyre.ibm.com"
+# ARCGIS_ENTERPRISE_FQDN="${K8S_NAMESPACE}.apps.hpdevops.cp.fyre.ibm.com"
+
+arcgis_cluster_ingress: "apps.hpdevops.cp.fyre.ibm.com" # TODO: get this from cluster's ingress
+arcgis_enterprise_fqdn: "{{ arcgis_namespace }}.{{ arcgis_cluster_ingress }}"
+
+#
+# Enter the context path to be used in the URL for ArcGIS Enterprise on Kubernetes. 
+# For example, the context path of 'https://<FQDN>/arcgis/admin' would be 'arcgis'. 
+# The path needs to be single level; more than one level is not supported.
+#
+# CONTEXT="arcgis"
+arcgis_context: "arcgis" 
+#
+# URL with the specified reverse proxy or load balancer with the site context.
+#
+# ROOT_ORG_BASE_URL="https://${ARCGIS_ENTERPRISE_FQDN}/${CONTEXT}/"
+arcgis_root_org_base_url: "https://{{ arcgis_enterprise_fqdn }}/{{ arcgis_context }}"
+
+# ------------------------------------
+# TLS CERTIFICATE
+# ------------------------------------
+#
+# Choose one of the options below to enable HTTPS communication to the ingress 
+# controller using Transport Layer Security (TLS). Unused options in this section 
+# should be defined with empty quotes "". 
+#
+# Option 1: Use an existing Kubernetes TLS secret that contains a private key and a certificate.
+# Enter the name of the existing TLS secret:
+#
+# INGRESS_SERVER_TLS_SECRET=""
+#
+# Option 2: Use a .pfx file that contains the private key and certificate. Enter the full path 
+# and password of the .pfx file:
+#
+# NOTE: This password is AES-256 encrypted using the ENCRYPTION_KEYFILE specified above
+# INGRESS_SERVER_TLS_PFX_FILE=""
+# INGRESS_SERVER_TLS_PFX_PSSWD=""
+#
+# Option 3: Use PEM format private Key (.key file) and certificate (.crt file). Enter the full
+# path of the .key and .crt files:
+#
+# INGRESS_SERVER_TLS_KEY_FILE=""
+# INGRESS_SERVER_TLS_CRT_FILE=""
+#
+# Option 4: Generate a self-signed certificate. Enter the common name for the self-signed 
+# certificate:
+#
+# INGRESS_SERVER_TLS_SELF_SIGN_CN="*.apps.hpdevops.cp.fyre.ibm.com"
+argcis_ingress_server_tls_self_sign_cn: "*.{{ arcgis_cluster_ingress }}"
+
+# ------------------------------------
+# ADDITIONAL PROPERTIES
+# ------------------------------------
+#
+# If you cannot run a privileged container, you can set the value to false and you
+# will need to manually increase vm.max_map_count to 262144 by running the
+# "sysctl -w vm.max_map_count=262144" command as root on each kubernetes node.
+# ALLOWED_PRIVILEGED_CONTAINERS=true
+
+# Each container has a property called ImagePullPolicy which defines the
+# behavior of pulling images from the container registry while starting a
+# container. The default value is "IfNotPresent" which means the image is
+# pulled only if it is not already present locally.
+# CONTAINER_IMAGE_PULL_POLICY="Always"
+arcgis_container_image_pull_policy: Always
+
+# HTTP Strict Transport Security
+# INGRESS_HSTS_ENABLED=false
+arcgis_ingress_hsts_enabled: false
+
+# TLS protocol supported
+# INGRESS_SSL_PROTOCOLS="TLSv1.2 TLSv1.3"
+arcgis_ingress_ssl_protocols: "TLSv1.2 TLSv1.3"
+
+# Supported Cipher Suites
+# INGRESS_SSL_CIPHERS="ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-RSA-CHACHA20-POLY1305:AES256-GCM-SHA384:AES256-SHA256:AES256-SHA:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:AES128-GCM-SHA256:AES128-SHA256:AES128-SHA:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA"
+arcgis_ingress_ssl_ciphers: "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-RSA-CHACHA20-POLY1305:AES256-GCM-SHA384:AES256-SHA256:AES256-SHA:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:AES128-GCM-SHA256:AES128-SHA256:AES128-SHA:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA"
+
+# If your Kubernetes cluster has a domain name other than cluster.local, use this
+# property to specify the domain name
+# K8S_CLUSTER_DOMAIN="cluster.local"
+arcgis_k8s_cluster_domain: "cluster.local"
+
+# If you are deploying ArcGIS Enterprise on Kubernetes and your 
+# Kubernetes cluster spans three or more availability zones, update 
+# 'kubernetes.io/hostname' to 'topology.kubernetes.io/zone'
+# K8S_AVAILABILITY_TOPOLOGY_KEY="kubernetes.io/hostname"
+arcgis_k8s_availability_topology_key: "kubernetes.io/hostname"
+
+# ------------------------------------
+# ADD CUSTOM VARIABLES HERE
+# ------------------------------------
+#
