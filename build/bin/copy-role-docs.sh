@@ -21,7 +21,6 @@ copyDoc appconnect
 copyDoc cert_manager
 copyDoc cis
 copyDoc cluster_monitoring
-copyDoc convert_to_olm
 copyDoc common_services
 copyDoc configure_manage_eventstreams
 copyDoc cos
@@ -74,7 +73,6 @@ copyDoc suite_db2_setup_for_manage
 copyDoc suite_dns
 copyDoc suite_certs
 copyDoc suite_install
-copyDoc suite_install_digest_cm
 copyDoc suite_manage_bim_config
 copyDoc suite_manage_birt_report_config
 copyDoc suite_manage_customer_files_config
@@ -83,8 +81,6 @@ copyDoc suite_manage_import_certs_config
 copyDoc suite_manage_load_dbc_scripts
 copyDoc suite_manage_logging_config
 copyDoc suite_manage_pvc_config
-copyDoc suite_mustgather
-copyDoc suite_mustgather_download
 copyDoc suite_switch_to_olm
 copyDoc suite_upgrade
 copyDoc suite_rollback
