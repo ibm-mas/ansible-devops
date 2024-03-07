@@ -117,6 +117,19 @@
       retries: 20 # Approximately 20 minutes before we give up
       delay: 60 # 1 minute
 
+# sometimes during the cpd upgrade, zen-watchdog pod crashes and requires deployment to be deleted and recreated...
+- name: "Delete existing zen-watchdog deployment if exists"
+  when: 
+    - cpd_48_or_higher
+    - zen_watchdog_delete.changed is not defined
+  kubernetes.core.k8s:
+    state: absent
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ cpd_instance_namespace }}"
+    name: "zen-watchdog"
+  register: zen_watchdog_delete
+
 # 3. Wait for zenStatus
 # -----------------------------------------------------------------------------
 # oc get ZenService lite-cr -o jsonpath="{.status.zenStatus}{'\n'}"
@@ -129,7 +142,7 @@
   register: zenservice_lookup
   until:
     - zenservice_lookup.resources[0].status.zenStatus is defined
-    - zenservice_lookup.resources[0].status.zenStatus == "Completed" or zenservice_lookup.resources[0].status.zenStatus == "Failed"
+    - zenservice_lookup.resources[0].status.zenStatus == "Completed"
     - zenservice_lookup.resources[0].status.currentVersion is defined
     - zenservice_lookup.resources[0].spec.version == zenservice_lookup.resources[0].status.currentVersion
   retries: 60 # Approximately 2 hours before we give up
