@@ -40,16 +40,116 @@
 #                \"${deploy_script}\" ${CUSTOM_PROPERTIES}" "Deploy Ingress controller yaml"
 # }
 
-- name: Create Certs
-  vars:
-    ingress_tls_secret_name: "changeit"
-    base_name: ingress-controller
-    temp_key_file: "{{ mas_config_dir }}/{{ base_name }}.keyfile.key.$$.tmp"
-    temp_crt_file: "{{ mas_config_dir }}/{{ base_name }}.certificate.crt.$$.tmp"
-    temp_interpod_pfx_file: "{{ mas_config_dir }}/{{ base_name }}.interpod.pfx.$$.tmp"
+- set_fact:
+    ingress_controller_temp_key_file: "{{ mas_config_dir }}/{{ ingress_controller_base_name }}.keyfile.key.{{ arcgis_sitename }}.tmp"
+    ingress_controller_temp_crt_file: "{{ mas_config_dir }}/{{ ingress_controller_base_name }}.certificate.crt.{{ arcgis_sitename }}.tmp"
+    ingress_controller_temp_interpod_pfx_file: "{{ mas_config_dir }}/{{ ingress_controller_base_name }}.interpod.pfx.{{ arcgis_sitename }}.tmp"
+    tls_config_temp_file: "{{ mas_config_dir }}/{{ ingress_controller_base_name }}.tls.conf.{{ arcgis_sitename }}.tmp"
+
+- debug:
+    msg:
+      - "ingress_controller_temp_key_file ......................... {{ ingress_controller_temp_key_file }}"
+      - "ingress_controller_temp_crt_file ......................... {{ ingress_controller_temp_crt_file }}"
+      - "ingress_controller_temp_interpod_pfx_file ................ {{ ingress_controller_temp_interpod_pfx_file }}"
+
+
+# Create Ingress Controller temp key and crt files
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Create ingress controller key and crt temp files"
   shell: |
-    openssl req -x509 -newkey rsa:2048 -nodes -keyout \"{{ temp_key_file }}\" -out \"{{ temp_crt_file }}\" -sha256 -days 3650 -subj \"/CN=*.{{ arcgis_namespace }}.{{ arcgis_k8s_cluster_dns_suffix }}\"
+    mktemp {{ ingress_controller_temp_key_file }}
+    mktemp {{ ingress_controller_temp_crt_file }}
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "{{ ingress_controller_temp_key_file }}" -out "{{ ingress_controller_temp_crt_file }}" -sha256 -days 3650 -subj "/CN=*.{{ arcgis_namespace }}.{{ arcgis_k8s_cluster_dns_suffix }}"
   register: openssl_1st_cmd
 
 - debug:
-    var: openssl_1st_cmd
+    var: openssl_1st_cmd.stdout_lines
+
+# Create arcgis-interpod-cert-pem secret
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Create '{{ arcgis_interpod_cert_pem_secret_name }}' secret with pem files"
+  ignore_errors: true
+  shell: |
+    oc create secret tls {{ arcgis_interpod_cert_pem_secret_name }} \
+      --cert={{ ingress_controller_temp_crt_file }} --key={{ ingress_controller_temp_key_file }} -n {{ arcgis_namespace }}
+    oc label secret {{ arcgis_interpod_cert_pem_secret_name }} -n {{ arcgis_namespace }} arcgis/siteName={{ arcgis_sitename }}
+    oc label secret {{ arcgis_interpod_cert_pem_secret_name }} -n {{ arcgis_namespace }} arcgis/tier=config
+  register: openssl_2nd_cmd
+
+- debug:
+    var: openssl_2nd_cmd.stdout_lines
+
+# Create arcgis-interpod-cert-pfx secret
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Create ingress controller pfx temp file"
+  shell: |
+    mktemp {{ ingress_controller_temp_interpod_pfx_file }}
+    openssl pkcs12 -export -out {{ ingress_controller_temp_interpod_pfx_file }} -inkey "{{ ingress_controller_temp_key_file }}" -in "{{ ingress_controller_temp_crt_file }}" -password pass:changeit
+  register: openssl_3rd_cmd
+
+- debug:
+    var: openssl_3rd_cmd.stdout_lines
+
+- name: "Create '{{ arcgis_interpod_cert_pfx_secret_name }}' secret with pfx file"
+  ignore_errors: true
+  shell: |
+    oc create secret generic {{ arcgis_interpod_cert_pfx_secret_name }} \
+      --from-file=default-pfx={{ ingress_controller_temp_interpod_pfx_file }} -n {{ arcgis_namespace }}
+    oc label secret {{ arcgis_interpod_cert_pfx_secret_name }} -n {{ arcgis_namespace }} arcgis/siteName={{ arcgis_sitename }}
+    oc label secret {{ arcgis_interpod_cert_pfx_secret_name }} -n {{ arcgis_namespace }} arcgis/tier=config
+  register: openssl_4th_cmd
+
+- debug:
+    var: openssl_4th_cmd.stdout_lines
+
+# Create arcgis-ingress-cert-pem secret
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: Generate tls config file
+  shell: |
+    cat << EOF > "{{ tls_config_temp_file }}"
+    [req]
+    distinguished_name = dn
+    x509_extensions = v3_req
+    prompt = no
+    [dn]
+    O = ArcGISEnterprise
+    CN = {{ argcis_ingress_server_tls_self_sign_cn }}
+    [v3_req]
+    keyUsage = digitalSignature, keyEncipherment, dataEncipherment
+    extendedKeyUsage = serverAuth
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = {{ argcis_ingress_server_tls_self_sign_cn }}
+    EOF
+
+- name: "Create {{ tls_config_temp_file }} tls config file"
+  shell: |
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "{{ ingress_controller_temp_key_file }}" -out "{{ ingress_controller_temp_crt_file }}" -sha256 -config {{ tls_config_temp_file }} -nodes
+  register: openssl_5th_cmd
+
+- debug:
+    var: openssl_5th_cmd.stdout_lines
+
+- name: "Create '{{ arcgis_default_ingress_server_tls_secret_name }}' default ingress tls secret"
+  ignore_errors: true
+  shell: |
+    oc create secret tls {{ arcgis_default_ingress_server_tls_secret_name }} \
+      --cert={{ ingress_controller_temp_crt_file }} --key={{ ingress_controller_temp_key_file }} -n {{ arcgis_namespace }}
+    oc label secret {{ arcgis_default_ingress_server_tls_secret_name }} -n {{ arcgis_namespace }} arcgis/siteName={{ arcgis_sitename }}
+  register: openssl_6th_cmd
+
+- debug:
+    var: openssl_6th_cmd.stdout_lines
+
+- name: Lookup all required secrets
+  shell: oc get secrets -n {{ arcgis_namespace }} | grep cert-p | awk '{ print $1}'
+  register: arcgis_required_cert_secrets
+
+- assert:
+    that: item is in arcgis_required_cert_secrets.stdout_lines
+    fail_msg: "Secret '{{ item }}' was not found in '{{ arcgis_namespace }}' namespace!"
+  with_items:
+    - "{{ arcgis_interpod_cert_pem_secret_name }}"
+    - "{{ arcgis_interpod_cert_pfx_secret_name }}"
+    - "{{ arcgis_default_ingress_server_tls_secret_name }}"
+    

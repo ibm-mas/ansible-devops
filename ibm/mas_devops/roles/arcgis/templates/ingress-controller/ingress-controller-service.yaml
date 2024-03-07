@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    ## Azure Load Balancer (Internal)
+    ## @AZURE_LB_INTERNAL@
+    #service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+
+    ## AWS Network Load Balancer (External)
+    ## @AWS_NLB_EXTERNAL@
+    #service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    #service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    #service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+
+    ## AWS Network Load Balancer (Internal)
+    ## @AWS_NLB_INTERNAL@
+    #service.beta.kubernetes.io/aws-load-balancer-scheme: "internal"
+    #service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    #service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+
+    ## GKE Internal Load balancer
+    ## @GKE_INTERNAL@
+    #networking.gke.io/load-balancer-type: "Internal"
+
+  name: ${K8S_NAME_ING_CNTRLR_SERVICE}
+  namespace: "{{ arcgis_namespace }}"
+  labels:
+    arcgis/app: ingress-nginx
+    arcgis/siteName: "{{ arcgis_sitename }}"
+spec:
+  type: ${INGRESS_TYPE}
+  loadBalancerIP: ${LOAD_BALANCER_IP}
+  ports:
+    - name: https
+      port: 443
+      nodePort: ${NODE_PORT_HTTPS}
+      protocol: TCP
+  selector:
+    arcgis/app: ingress-nginx
+    arcgis/siteName: "{{ arcgis_sitename }}"
+    arcgis/instanceName: ${SELECTOR_INSTANCE_NAME}
+
+

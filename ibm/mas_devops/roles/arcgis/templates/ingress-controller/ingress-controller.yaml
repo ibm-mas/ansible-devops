@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${K8S_NAME_ING_CNTRLR_DEPLOYMENT}
+  namespace: "{{ arcgis_namespace }}"
+  labels:
+    arcgis/app: ingress-nginx
+    arcgis/siteName: "{{ arcgis_sitename }}"
+    arcgis/instanceName: ${SELECTOR_INSTANCE_NAME}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      arcgis/app: ingress-nginx
+      arcgis/siteName: "{{ arcgis_sitename }}"
+      arcgis/instanceName: ${SELECTOR_INSTANCE_NAME}
+  template:
+    metadata:
+      labels:
+        arcgis/app: ingress-nginx
+        arcgis/siteName: "{{ arcgis_sitename }}"
+        arcgis/instanceName: ${SELECTOR_INSTANCE_NAME}
+        arcgis/restartTimestamp: "000"
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    arcgis/app: ingress-nginx
+                    arcgis/siteName: "{{ arcgis_sitename }}"
+                    arcgis/instanceName: ${SELECTOR_INSTANCE_NAME}
+                topologyKey: ${K8S_AVAILABILITY_TOPOLOGY_KEY}
+      # wait up to five minutes for the drain of connections
+      terminationGracePeriodSeconds: 300
+      serviceAccountName: "{{ arcgis_ingress_controller_service_account }}"
+      # User running container also needs to run with arcgis group id
+      securityContext:
+        supplementalGroups: [${SUPPLEMENTAL_GROUP_ID}]
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: main-container
+          image: ${CONTAINER_IMAGE_URL_INGRESS_CONTROLLER}
+          imagePullPolicy: ${CONTAINER_IMAGE_PULL_POLICY}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+          resources:
+            requests:
+              cpu: "${RESOURCE_CPU_MIN_INGRESS}"
+              memory: "${RESOURCE_MEMORY_MIN_INGRESS}"
+            limits:
+              cpu: "${RESOURCE_CPU_MAX_INGRESS}"
+              memory: "${RESOURCE_MEMORY_MAX_INGRESS}"
+          args:
+            - /nginx-ingress-controller
+            - --configmap=$(POD_NAMESPACE)/"{{ arcgis_ingress_controller_nginx_config_map }}"
+            - --election-id={{ arcgis_ingress_controller_election_id }}
+            - --tcp-services-configmap=$(POD_NAMESPACE)/"{{ arcgis_ingress_controller_tcp_services_config_map }}"
+            - --udp-services-configmap=$(POD_NAMESPACE)/"{{ arcgis_ingress_controller_udp_services_config_map }}"
+            - --publish-service=$(POD_NAMESPACE)/${K8S_NAME_ING_CNTRLR_SERVICE}
+            - --annotations-prefix=nginx.ingress.kubernetes.io
+            - --watch-namespace=$(POD_NAMESPACE)
+            - --ingress-class=${INGRESS_CLASS}
+            - --update-status=false
+            - --update-status-on-shutdown=false
+            - --disable-sync-events
+            - --default-ssl-certificate=${K8S_NAMESPACE}/${INGRESS_TLS_SECRET_NAME}
+            # - --v=5 # for debug logs
+            # https://kubernetes.github.io/ingress-nginx/user-guide/multiple-ingress/
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: https
+              containerPort: 443
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command: [
+                  "sh", "-c",
+                  # Introduce a delay to the shutdown sequence to wait for the
+                  # pod eviction event to propagate. Then, gracefully shutdown
+                  # nginx.
+                  "sleep 5 && nginx -s quit",
+                ]
+          volumeMounts:
+          - mountPath: /etc/ingress-controller/auth
+            name: auth
+          - mountPath: /etc/ingress-controller/ssl
+            name: ssl
+      imagePullSecrets:
+      - name: ${CONTAINER_IMAGE_PULL_SECRET_NAME}
+      volumes:
+      - name: auth
+        emptyDir: {}
+      - name: ssl
+        emptyDir: {}
