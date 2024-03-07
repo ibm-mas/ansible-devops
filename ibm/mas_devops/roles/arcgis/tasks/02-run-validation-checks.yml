@@ -8,3 +8,37 @@
 # Validating kubectl user...
 # Validating encryption keyfile...
 # Validating registry host...
+
+# validation_check()
+# {
+#   header "Running Validation Checks..."
+#   validate_property_names
+#   validate_property_values
+#   validate_sitename
+#   validate_namespace
+#   validate_kubectl_user
+#   validate_encryption
+#   validate_registry_host
+#   validate_load_balancer_type
+#   validate_load_balancer_ip
+
+#   draw_line
+
+#   echo ""
+# }
+
+- name: "Assert that required arcgis properties are provided"
+  assert:
+    that:
+      - prop_item is defined and prop_item != ''
+    fail_msg: "{{ prop_item }} property is not provided"
+  loop:
+    - arcgis_namespace
+    - arcgis_container_registry_username
+    - arcgis_container_registry_password
+  loop_var: prop_item
+
+- name: "Create '{{ arcgis_namespace }}' namespace"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/namespaces.yml.j2"
