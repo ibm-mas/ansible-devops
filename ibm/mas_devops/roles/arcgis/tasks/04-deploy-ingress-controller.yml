@@ -153,3 +153,66 @@
     - "{{ arcgis_interpod_cert_pfx_secret_name }}"
     - "{{ arcgis_default_ingress_server_tls_secret_name }}"
     
+# Create arcgis-ingress-controller configmaps
+# ------------------------------------------------------------------------------------------------------------------------------
+# configmap/arcgis-ingress-controller-nginx-config created
+# configmap/arcgis-ingress-controller-tcp-services created
+# configmap/arcgis-ingress-controller-udp-services created
+
+- name: Create arcgis-ingress-controller configmaps
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/ingress-controller/base-config.yml.j2'
+
+# Create arcgis-ingress-controller RBACs
+# ------------------------------------------------------------------------------------------------------------------------------
+# lease.coordination.k8s.io/arcgis-ingress-controller-leader created
+# serviceaccount/arcgis-ingress-serviceaccount created
+# role.rbac.authorization.k8s.io/arcgis-ingress-role created
+# rolebinding.rbac.authorization.k8s.io/arcgis-ingress-rolebinding created
+
+- name: Create arcgis-ingress-controller rbacs
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/ingress-controller/rbac-config.yml.j2'
+
+# TODO: We need to set cluster-admin permissions to these service accounts
+# ideally we'd need to find a more restrictive permission policy
+- name: Create additional cluster-admin role bindings
+  kubernetes.core.k8s:
+    definition:
+      kind: RoleBinding
+      apiVersion: rbac.authorization.k8s.io/v1
+      metadata:
+        name: "cluster-admin-{{ additional_rb_item }}-binding"
+        namespace: "{{ arcgis_namespace }}"
+      subjects:
+        - kind: ServiceAccount
+          name: "{{ additional_rb_item }}-serviceaccount"
+          namespace: "{{ arcgis_namespace }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: cluster-admin
+  loop:
+    - arcgis-admin
+    - arcgis-elastic
+    - arcgis-ingress
+    - arcgis-prometheus
+    - arcgis-queue
+  loop_control:
+    loop_var: additional_rb_item
+
+# Create arcgis-ingress-controller deployment
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Create '{{ arcgis_ingress_controller_deployment_name }}' deployment"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/ingress-controller/ingress-controller.yml.j2'
+
+# Create arcgis-ingress-controller service
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Create '{{ arcgis_ingress_controller_service_name }}' service"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/ingress-controller/ingress-controller-service.yml.j2'

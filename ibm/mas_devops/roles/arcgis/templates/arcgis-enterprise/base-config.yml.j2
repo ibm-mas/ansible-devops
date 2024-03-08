@@ -1,0 +1,110 @@
+---
+apiVersion: v1
+data:
+  logsettings: '{"logLevel":"VERBOSE"}'
+  arcgis_log_dir: "/arcgisusr/logs/"
+  arcgis_log_settings: "/arcgisusr/adminProperties/logsettings"
+kind: ConfigMap
+metadata:
+  labels:
+    arcgis/siteName: "{{ arcgis_sitename }}"
+    arcgis/tier: config
+  name: "{{ arcgis_admin_log_settings_config_map }}"
+  namespace: "{{ arcgis_namespace }}"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    arcgis/siteName: "{{ arcgis_sitename }}"
+    arcgis/tier: config
+  name: "{{ arcgis_spatiotemporal_index_store_info_secret_name }}"
+  namespace: "{{ arcgis_namespace }}"
+type: Opaque
+stringData:
+  ELASTICSEARCH_SERVICE_NAME: "{{ arcgis_elasticsearch_service_name }}"
+  HTTP_SCHEME: https
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    arcgis/siteName: "{{ arcgis_sitename }}"
+    arcgis/tier: config
+  name: "{{ arcgis_env_variables_secret_name }}"
+  namespace: "{{ arcgis_namespace }}"
+type: Opaque
+stringData:
+  env-variables.json: |-
+    ${ENV_VARIABLES}
+---
+#site-info Object
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    arcgis/siteName: "{{ arcgis_sitename }}"
+    arcgis/tier: config
+  name: "{{ arcgis_site_info_secret_name }}"
+  namespace: "{{ arcgis_namespace }}"
+type: Opaque
+stringData:
+  site-status: '{
+  }'
+---
+#server-context Object
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    arcgis/siteName: "{{ arcgis_sitename }}"
+    arcgis/tier: config
+  name: "{{ arcgis_server_context_secret_name }}"
+  namespace: "{{ arcgis_namespace }}"
+type: Opaque
+stringData:
+  server-context: '{
+  }'
+---
+# ConfigLastModified Object
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: "{{ arcgis_config_last_modified_config_map }}"
+  namespace: "{{ arcgis_namespace }}"
+  labels:
+    arcgis/siteName: "{{ arcgis_sitename }}"
+    arcgis/tier: config
+data:
+  config-last-modified: '{
+  }'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "{{ arcgis_queue_config_map }}"
+  namespace: "{{ arcgis_namespace }}"
+data:
+  enabled_plugins: |
+    [rabbitmq_federation,rabbitmq_peer_discovery_k8s,rabbitmq_management,rabbitmq_prometheus].
+  rabbitmq.conf: |
+    loopback_users.guest = none 
+    listeners.tcp.default = 5672
+    listeners.ssl.default = 5671
+    
+    ssl_options.certfile   =  /config/tls.crt
+    ssl_options.keyfile    =  /config/tls.key
+    ssl_options.verify     = verify_none
+    ssl_options.fail_if_no_peer_cert = false
+    
+    management.ssl.port       = 15671
+    management.ssl.certfile   = /config/tls.crt
+    management.ssl.keyfile    = /config/tls.key
+
+    cluster_formation.peer_discovery_backend  = rabbit_peer_discovery_k8s
+    cluster_formation.k8s.host = kubernetes.default.${K8S_SERVICE_DNS_SUFFIX}
+    cluster_formation.k8s.address_type = hostname
+    cluster_formation.node_cleanup.only_log_warning = true
+    cluster_partition_handling = autoheal
+  advanced.config: |
+    [{kernel, [{net_ticktime,  120}]}].  
