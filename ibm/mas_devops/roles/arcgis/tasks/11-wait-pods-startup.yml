@@ -29,3 +29,82 @@
 # Use this URL to access ArcGIS Enterprise 11.2 on Kubernetes help:
 
 #     https://arcgis.apps.hpdevops.cp.fyre.ibm.com/arcgis/help/en/
+
+- name: 'Wait until all arcgis pods are ready'
+  block:
+    - name: "wait : Set the retry count"
+      set_fact:
+        arcgis_pods_retry_count: "{{ 0 if arcgis_pods_retry_count is undefined else arcgis_pods_retry_count|int + 1 }}"
+        arcgis_pods_count: 0
+        ready_arcgis_pods_count: 0
+
+    - name: "wait : Lookup arcgis pods"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        label_selectors: arcgis/siteName={{ arcgis_sitename }}
+        namespace: "{{ arcgis_namespace }}"
+      register: arcgis_pods_lookup
+      until:
+        - arcgis_pods_lookup.resources is defined
+        - arcgis_pods_lookup.resources | length > 0
+        - arcgis_pods_lookup.resources[0].status is defined
+        - arcgis_pods_lookup.resources[0].status | length > 0
+
+    - name: "wait : Check if arcgis pods are ready..."
+      set_fact:
+        arcgis_pods_count: "{{ arcgis_pods_count|int + 1 }}"
+        ready_arcgis_pods_count: "{{ ready_arcgis_pods_count|int + 1 if (item | json_query('status.conditions[?type==`ContainersReady`][].status') | select ('match','True')) else ready_arcgis_pods_count|int}}"
+      with_items: "{{ arcgis_pods_lookup.resources }}"
+      loop_control:
+        label: "{{ item.metadata.name }} pod status = {{ 'READY!' if (item | json_query('status.conditions[?type==`ContainersReady`][].status') | select ('match','True')) else 'Not Ready' }}"
+
+    - name: "wait : Fail if one or more arcgis pods are pending to be ready..."
+      assert:
+        that: ready_arcgis_pods_count == arcgis_pods_count
+        fail_msg: "[{{ arcgis_pods_retry_count }}/60] {{ ready_arcgis_pods_count }} of {{ arcgis_pods_count }} bundle pods are ready"
+
+    # reset retry count
+    - set_fact:
+        arcgis_pods_retry_count: 0
+      when: ready_arcgis_pods_count == arcgis_pods_count
+  rescue:
+    - name: "wait : Give up after 60 attempts (approx 30 minutes)"
+      assert:
+        that: arcgis_pods_retry_count|int < 60
+        fail_msg: Timed out waiting for Manage bundle pods to become ready!
+
+    - name: "wait : Wait for 30 seconds before checking again"
+      pause:
+        seconds: 30
+
+    - include_tasks: tasks/11-wait-pods-startup.yml
+
+# Provide Arcgis Manager dashboard URL
+# -----------------------------------------------------------------------------
+- name: "Lookup '{{ arcgis_manager_ingress_name }}' route"
+  kubernetes.core.k8s_info:
+    kind: Route
+    api_version: route.openshift.io/v1
+    name: "{{ arcgis_ingress_controller_service_name }}"
+    namespace: "{{ arcgis_namespace }}"
+  register: arcgis_manager_route_lookup
+
+- assert:
+    that:
+      - arcgis_manager_route_lookup.resources is defined
+      - arcgis_manager_route_lookup.resources | length > 0
+      - arcgis_manager_route_lookup.resources[0].spec is defined
+      - arcgis_manager_route_lookup.resources[0].spec.host is defined
+    fail_msg: "Route '{{ arcgis_ingress_controller_service_name }}' was not found under '{{ arcgis_namespace }}' namespace!"
+
+- set_fact:
+    arcgis_manager_route: "https://{{ arcgis_manager_route_lookup.resources[0].spec.host }}"
+
+
+- name: "Arcgis installation finished successfully!"
+  debug:
+    msg:
+      - "Use the following URL to access the ArcGIS Enterprise 11.2 on Openshift and configure your organization:"
+      - ""
+      - "{{ arcgis_manager_route }}/arcgis/manager"

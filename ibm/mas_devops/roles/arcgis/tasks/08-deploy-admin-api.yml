@@ -19,6 +19,46 @@
 # ingress.networking.k8s.io/arcgis-ingress-rest-administrator-api created
 # [SUCCESS]
 
-- name: "Load admin API variables"
-  include_vars: "templates/arcgis-enterprise/properties.yml.j2"
+- name: "Load arcgis container image properties"
+  include_vars: "vars/container-image-properties.yml.j2"
 
+- name: "Load arcgis deployment resource properties"
+  include_vars: "vars/deployment-resource-properties.yml.j2"
+
+# Create arcgis-enterprise configmaps and secrets
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Create arcgis-enterprise configmaps and secrets"
+  vars:
+    env_vars_json: 'templates/arcgis-enterprise/env-variables.json.j2'
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/arcgis-enterprise/base-config.yml.j2'
+
+
+# Create arcgis-ingress-controller RBACs
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Create arcgis-enterprise rbacs"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/arcgis-enterprise/rbac-config.yml.j2'
+
+# Create  arcgis-ingress-controller deployment
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Create '{{ arcgis_admin_deployment_name }}' deployment"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/arcgis-enterprise/arcgis-enterprise.yml.j2'
+
+# Create  arcgis-ingress-controller ingress
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Create '{{ arcgis_admin_service_name }}' service"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/arcgis-enterprise/arcgis-enterprise-service.yml.j2'
+  
+# Create  arcgis-ingress-controller service
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Create '{{ arcgis_admin_ingress_name }}' ingress"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/arcgis-enterprise/arcgis-enterprise-ingress.yml.j2'

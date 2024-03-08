@@ -1,0 +1,32 @@
+---
+# Ingress - for exposing the app with the /manager context via
+# a Ingress controller (Nginx).
+
+# NOTE: Keep below Ingress spec in sync with java/enterprise-admin/enterprise-admin-core/
+# src/main/resources/spec/k8s/framework/manager/enterprise-manager.yaml
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ arcgis_manager_ingress_name }}"
+  namespace: "{{ arcgis_namespace }}"
+  labels:
+    arcgis/app: enterprise-manager
+    arcgis/siteName: "{{ arcgis_sitename }}"
+  annotations:
+    kubernetes.io/ingress.class: "{{ arcgis_ingress_class }}"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /manager/$1
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/configuration-snippet: rewrite ({{ arcgis_context }}/)$|(manager)$ manager/  permanent;
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /{{ arcgis_context }}/manager(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: "{{ arcgis_manager_service_name }}"
+            port:
+              number: 8443

@@ -9,7 +9,7 @@ metadata:
   labels:
     arcgis/siteName: "{{ arcgis_sitename }}"
     arcgis/tier: config
-  name: "{{ arcgis_admin_log_settings_config_map }}"
+  name: "{{ arcgis_log_settings_config_map }}"
   namespace: "{{ arcgis_namespace }}"
 ---
 apiVersion: v1
@@ -25,7 +25,7 @@ stringData:
   ELASTICSEARCH_SERVICE_NAME: "{{ arcgis_elasticsearch_service_name }}"
   HTTP_SCHEME: https
 ---
-apiVersion: v1
+{# apiVersion: v1
 kind: Secret
 metadata:
   labels:
@@ -36,7 +36,18 @@ metadata:
 type: Opaque
 stringData:
   env-variables.json: |-
-    ${ENV_VARIABLES}
+    ${ENV_VARIABLES} #}
+kind: Secret
+apiVersion: v1
+metadata:
+  name: "{{ arcgis_env_variables_secret_name }}"
+  namespace: "{{ arcgis_namespace }}"
+  labels:
+    arcgis/siteName: "{{ arcgis_sitename }}"
+    arcgis/tier: config
+data:
+  env-variables.json: "{{ lookup('template', env_vars_json) | to_json | b64encode }}"
+type: Opaque
 ---
 #site-info Object
 apiVersion: v1

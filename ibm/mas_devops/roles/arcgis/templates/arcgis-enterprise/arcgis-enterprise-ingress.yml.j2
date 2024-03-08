@@ -1,0 +1,30 @@
+---
+# Ingress - for exposing the app with the /enterpriseadmin context via
+# a Ingress controller (Nginx).
+
+# NOTE: Keep below Ingress spec in sync with java/enterprise-admin/enterprise-admin-core/
+# src/main/resources/spec/k8s/framework/admin/enterprise-admin.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ arcgis_admin_ingress_name }}"
+  namespace: "{{ arcgis_namespace }}"
+  labels:
+    arcgis/app: rest-administrator-api
+    arcgis/siteName: "{{ arcgis_sitename }}"
+  annotations:
+    kubernetes.io/ingress.class: "{{ arcgis_ingress_class }}"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /admin/$1
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /{{ arcgis_context }}/admin(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: "{{ arcgis_admin_service_name }}"
+            port:
+              number: 8443

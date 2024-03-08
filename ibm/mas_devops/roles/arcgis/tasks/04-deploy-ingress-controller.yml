@@ -104,31 +104,32 @@
 
 # Create arcgis-ingress-cert-pem secret
 # ------------------------------------------------------------------------------------------------------------------------------
-- name: Generate tls config file
-  shell: |
-    cat << EOF > "{{ tls_config_temp_file }}"
-    [req]
-    distinguished_name = dn
-    x509_extensions = v3_req
-    prompt = no
-    [dn]
-    O = ArcGISEnterprise
-    CN = {{ argcis_ingress_server_tls_self_sign_cn }}
-    [v3_req]
-    keyUsage = digitalSignature, keyEncipherment, dataEncipherment
-    extendedKeyUsage = serverAuth
-    subjectAltName = @alt_names
-    [alt_names]
-    DNS.1 = {{ argcis_ingress_server_tls_self_sign_cn }}
-    EOF
+# Not sure if used at all so commenting for now... it has an issue to generate ibm cloud self-signed certs as ingress is too long
+# - name: Generate tls config file
+#   shell: |
+#     cat << EOF > "{{ tls_config_temp_file }}"
+#     [req]
+#     distinguished_name = dn
+#     x509_extensions = v3_req
+#     prompt = no
+#     [dn]
+#     O = ArcGISEnterprise
+#     CN = {{ argcis_ingress_server_tls_self_sign_cn }}
+#     [v3_req]
+#     keyUsage = digitalSignature, keyEncipherment, dataEncipherment
+#     extendedKeyUsage = serverAuth
+#     subjectAltName = @alt_names
+#     [alt_names]
+#     DNS.1 = {{ argcis_ingress_server_tls_self_sign_cn }}
+#     EOF
 
-- name: "Create {{ tls_config_temp_file }} tls config file"
-  shell: |
-    openssl req -x509 -newkey rsa:2048 -nodes -keyout "{{ ingress_controller_temp_key_file }}" -out "{{ ingress_controller_temp_crt_file }}" -sha256 -config {{ tls_config_temp_file }} -nodes
-  register: openssl_5th_cmd
+# - name: "Create {{ tls_config_temp_file }} tls config file"
+#   shell: |
+#     openssl req -x509 -newkey rsa:2048 -nodes -keyout "{{ ingress_controller_temp_key_file }}" -out "{{ ingress_controller_temp_crt_file }}" -sha256 -config {{ tls_config_temp_file }} -nodes
+#   register: openssl_5th_cmd
 
-- debug:
-    var: openssl_5th_cmd.stdout_lines
+# - debug:
+#     var: openssl_5th_cmd.stdout_lines
 
 - name: "Create '{{ arcgis_default_ingress_server_tls_secret_name }}' default ingress tls secret"
   ignore_errors: true

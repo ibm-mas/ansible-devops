@@ -13,3 +13,30 @@
 #     Checking for arcgis-enterprise yaml ............................... OK
 #     Checking for OpenSSL .............................................. OK
 #     Checking for OS ................................................... OK
+
+- name: Lookup cluster ingress url
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: cluster_subdomain
+
+- assert:
+    that:
+      - cluster_subdomain.resources is defined
+      - cluster_subdomain.resources[0].spec.domain is defined
+      - cluster_subdomain.resources[0].spec.domain | length > 0
+    fail_msg: "Failed to retrieve cluster's ingress information, make sure your cluster is healthy!"
+
+- name: "Set 'arcgis_cluster_ingress' property based on ingress: {{ cluster_subdomain.resources[0].spec.domain }}"
+  set_fact:
+    arcgis_cluster_ingress: "{{ cluster_subdomain.resources[0].spec.domain }}"
+
+- name: "Set 'arcgis_enterprise_fqdn' property based on namespace and ingress"
+  set_fact:
+    arcgis_enterprise_fqdn: "{{ arcgis_namespace }}.{{ arcgis_cluster_ingress }}"
+
+- debug:
+    msg:
+      - "arcgis_cluster_ingress .................... {{ arcgis_cluster_ingress }}"
+      - "arcgis_enterprise_fqdn .................... {{ arcgis_enterprise_fqdn }}"
