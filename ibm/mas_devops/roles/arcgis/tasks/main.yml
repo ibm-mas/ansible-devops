@@ -184,3 +184,32 @@
 
 - name: "Waiting for pods to startup (11/11)"
   include_tasks: "tasks/11-wait-pods-startup.yml"
+
+# Provide Arcgis Manager dashboard URL
+# -----------------------------------------------------------------------------
+- name: "Lookup '{{ arcgis_manager_ingress_name }}' route"
+  kubernetes.core.k8s_info:
+    kind: Route
+    api_version: route.openshift.io/v1
+    name: "{{ arcgis_ingress_controller_service_name }}"
+    namespace: "{{ arcgis_namespace }}"
+  register: arcgis_manager_route_lookup
+
+- assert:
+    that:
+      - arcgis_manager_route_lookup.resources is defined
+      - arcgis_manager_route_lookup.resources | length > 0
+      - arcgis_manager_route_lookup.resources[0].spec is defined
+      - arcgis_manager_route_lookup.resources[0].spec.host is defined
+    fail_msg: "Route '{{ arcgis_ingress_controller_service_name }}' was not found under '{{ arcgis_namespace }}' namespace!"
+
+- set_fact:
+    arcgis_manager_route: "https://{{ arcgis_manager_route_lookup.resources[0].spec.host }}"
+
+
+- name: "Arcgis installation finished successfully!"
+  debug:
+    msg:
+      - "Use the following URL to access the ArcGIS Enterprise 11.2 on Openshift and configure your organization:"
+      - ""
+      - "{{ arcgis_manager_route }}/arcgis/manager"
