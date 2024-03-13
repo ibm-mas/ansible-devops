@@ -1,19 +1,19 @@
 suite_health_load_dbc_scripts
 ================
 
-This role allows to load and execute one or more ad-hoc DBC script files into Manage server. Only `dbc` format files will be accepted. 
-The role will assert if each script executed successfully and fail in case of errors while locating the DBC scripts or executing them against the Manage server.
+This role allows to load and execute one or more ad-hoc DBC script files into Health server. Only `dbc` format files will be accepted. 
+The role will assert if each script executed successfully and fail in case of errors while locating the DBC scripts or executing them against the Health server.
 
 Role Variables
 --------------
 
 ### mas_instance_id
-Required. Defines the instance id that was used for the MAS installation. It is used to lookup the Manage namespace.
+Required. Defines the instance id that was used for the MAS installation. It is used to lookup the Health namespace.
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default Value: None
 
 ### dbc_script_path_local
-Optional. Defines the local path/folder where the DBC script files should be located in order to be loaded onto the Manage server.
+Optional. Defines the local path/folder where the DBC script files should be located in order to be loaded onto the Health server.
 
 - Environment Variable: `DBC_SCRIPT_PATH_LOCAL`
 - Default Value: `suite_health_load_dbc_scripts/files`
