@@ -1,4 +1,4 @@
-suite_manage_load_dbc_scripts
+suite_health_load_dbc_scripts
 ================
 
 This role allows to load and execute one or more ad-hoc DBC script files into Manage server. Only `dbc` format files will be accepted. 
