@@ -1,9 +1,10 @@
 ---
-- include_tasks: "tasks/prereqs/prereqs-wd-{{ wd_deps }}.yml"
+- name: "Install Watson Discovery pre-reqs: {{ wd_deps}}"
+  include_tasks: "tasks/prereqs/prereqs-wd-{{ wd_deps }}.yml"
   vars:
     wd_deps: "{{ (cpd_46_or_lower) | ternary('edb','mcg') }}"
 
-# This is a nasty hack that we need to do until Watson Gateway issue is resolved https://github.ibm.com/watson-foundation-services/watson-platform-hybrid-cloud/issues/359
+# Below is a nasty hack that we need to do until Watson Gateway issue is resolved https://github.ibm.com/watson-foundation-services/watson-platform-hybrid-cloud/issues/359
 # The issue is that in CPD 4.7+, Watson Gateway lookups for IbmCpd custom resource name hardcoded to `ibmcpd-cr` and we've always use `ibmcpd` instead
 # So in order to successfully provision WD instances, we need to create a temporary IbmCpd resource called `ibmcpd-cr` if it's not yet created and then delete it after Watson Discovery is fully installed
 # We hope to get rid of this workaround by CPD 4.8.5 patch release, which is when it is supposed to have a fix that allows customizing the IbmCpd CR name
@@ -11,7 +12,8 @@
     msg:
       - "IbmCpd custom resource name: {{ cpd_platform_cr_name }}"
 
-- when:
+- name: "Install temporary IbmCpd ibmcpd-cr for Watson Gateway workaround"
+  when:
     - cpd_48_or_higher
-    - cpd_platform_cr_name == 'ibmcpd'
+    - cpd_platform_cr_name != 'ibmcpd-cr'
   include_tasks: "tasks/prereqs/prereqs-wd-gateway-workaround.yml"

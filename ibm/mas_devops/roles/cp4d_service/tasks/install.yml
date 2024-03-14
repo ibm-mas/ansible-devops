@@ -153,12 +153,22 @@
 - name: "Wait for the service to be ready"
   include_tasks: "wait/wait-{{ cpd_service_name }}.yml"
 
-# 8. Provide CP4D dashboard URL
+# 8. Run post-install task
+# -----------------------------------------------------------------------------
+# Only Watson Discovery 4.8+ has special post install workaround needed
+- name: Run Post Install task for "{{ cpd_service_name }}"
+  when:
+    - cpd_service_name is in ['wd']
+    - cpd_48_or_higher
+    - cpd_platform_cr_name != 'ibmcpd-cr'
+  include_tasks: "postinstall/postinstall-wd-gateway-workaround.yml"
+
+# 9. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------
 - name: "Lookup admin credentials if they haven't been provided already"
   include_tasks: "{{ role_path }}/../cp4d/tasks/lookup-admin-credentials.yml"
 
-# Debug Cloud Pak for Data installation details
+# 10. Debug Cloud Pak for Data installation details
 # -----------------------------------------------------------------------------
 - name: "Debug : Cloud Pak for Data {{ cpd_product_version }} details"
   debug:
@@ -168,7 +178,7 @@
       - "CP4D Admin Password .................... {{ cpd_admin_password_text }}"
       - "CP4D Service Installed ................. {{ cpd_service_name }}"
 
-# 10. Generate MAS Config
+# 11. Generate MAS Config
 # -----------------------------------------------------------------------------
 # Only Watson Studio and Watson Discovery generate a configuration in config
 # folder for later usage
@@ -178,12 +188,3 @@
     - mas_config_dir is defined and mas_config_dir != ""
     - cpd_service_name is in ['wsl','wd']
   include_tasks: "gencfg/gencfg-{{ cpd_service_name }}.yml"
-
-# 11. Run post-install task
-# -----------------------------------------------------------------------------
-# Only Watson Discovery has special post install workaround needed
-- name: Run Post Install task for "{{ cpd_service_name }}"
-  when:
-    - cpd_service_name is in ['wd']
-    - cpd_48_or_higher
-  include_tasks: "postinstall/postinstall-wd-gateway-workaround.yml"
