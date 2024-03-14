@@ -298,19 +298,7 @@
     - entitlement_file != ""
 
 
-# 11. Integrated Airgap support
-# -----------------------------------------------------------------------------
-# Before we create the CR we will set up the Airgap Image Map
-# We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
-- name: "Determine whether this is an airgap environment"
-  ansible.builtin.include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
-
-- name: "Enable use of image digests"
-  ansible.builtin.include_tasks: "tasks/install/install_digest_cm.yml"
-  when: airgap_install
-
-
-# 12. Create the license service CR
+# 11. Create the license service CR
 # -----------------------------------------------------------------------------
 - name: Create the sls.ibm.com/v1.LicenseService
   kubernetes.core.k8s:
@@ -320,13 +308,13 @@
   register: sls_cr_result
 
 
-# 13. Wait for it to hit Ready
+# 12. Wait for it to hit Ready
 # -----------------------------------------------------------------------------
 - name: Verify LicenseService CR
   ansible.builtin.include_tasks: "tasks/install/sls-verify.yml"
 
 
-# 14. Generate SLSCfg
+# 13. Generate SLSCfg
 # -----------------------------------------------------------------------------
 # The SLSCfg resource is not generated as part of this role anymore, a dedicated
 # role exists to generate the configuration file (gencfg_sls), this role will set
