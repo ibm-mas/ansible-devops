@@ -32,7 +32,7 @@ Choose which flavour of Certificate Manager to install; IBM (`ibm`), or Red Hat 
 
 - Optional
 - Environment Variable: `CERT_MANAGER_PROVIDER`
-- Default: `ibm`
+- Default: `redhat`
 
 
 Example Playbook
