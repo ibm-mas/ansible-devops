@@ -1,0 +1,64 @@
+---
+# This is a nasty hack that we need to do until Watson Gateway issue is resolved https://github.ibm.com/watson-foundation-services/watson-platform-hybrid-cloud/issues/359
+# The issue is that in CPD 4.7+, Watson Gateway lookups for IbmCpd custom resource name hardcoded to `ibmcpd-cr` and we've always use `ibmcpd` instead
+# So in order to successfully provision WD instances, we need to create a temporary IbmCpd resource called `ibmcpd-cr` if it's not yet created and then delete it after Watson Discovery is fully installed
+# We hope to get rid of this workaround by CPD 4.8.5 patch release, which is when it is supposed to have a fix that allows customizing the IbmCpd CR name
+
+# Check hack is in place - check #1 : ibmcpd cr name is 'ibmcpd-cr'
+- name: "Lookup for 'ibmcpd-cr' custom resource"
+  kubernetes.core.k8s_info:
+    apiVersion: cpd.ibm.com/v1
+    kind: Ibmcpd
+    name: ibmcpd-cr
+    namespace: "{{ cpd_instance_namespace }}"
+  register: wg_ibmcpd_lookup
+
+- when:
+    - wg_ibmcpd_lookup.resources is defined
+    - wg_ibmcpd_lookup | length > 0
+    - wg_ibmcpd_lookup.resources[0].spec.license.accept != 'true' # if false means the hack is in place
+  set_fact:
+    wg_ibmcpd_cr_hack: true
+
+# Check hack is in place - check #2 : mas-ibmcpd-cr-watson-gateway-hack configmap flag is set
+- name: "Lookup for 'mas-ibmcpd-cr-watson-gateway-hack' configmap"
+  kubernetes.core.k8s_info:
+    apiVersion: v1
+    kind: ConfigMap
+    name: mas-ibmcpd-cr-watson-gateway-hack
+    namespace: "{{ cpd_instance_namespace }}"
+  register: wg_hack_configmap_lookup
+
+- when:
+    - wg_hack_configmap_lookup.resources is defined
+    - wg_hack_configmap_lookup | length > 0
+    - wg_hack_configmap_lookup.resources[0].data.wg_hack is defined # if set means the hack is in place
+  set_fact:
+    wg_ibmcpd_configmap_hack: true
+
+- debug:
+    msg:
+      - "wg_ibmcpd_cr_hack ..................... {{ wg_ibmcpd_cr_hack | default('Undefined', true )}}"
+      - "wg_ibmcpd_configmap_hack .............. {{ wg_ibmcpd_configmap_hack | default('Undefined', true )}}"
+
+# When the two hack checks are successful, then we safely delete the hacked resources
+- when:
+    - wg_ibmcpd_cr_hack
+    - wg_ibmcpd_configmap_hack
+  block:
+
+    - name: "Delete temporary 'ibmcpd-cr' custom resource"
+      kubernetes.core.k8s_info:
+        state: absent
+        api_version: cpd.ibm.com/v1
+        kind: Ibmcpd
+        name: ibmcpd-cr
+        namespace: "{{ cpd_instance_namespace }}"
+
+    - name: "Delete 'mas-ibmcpd-cr-watson-gateway-hack' configmap"
+      kubernetes.core.k8s_info:
+        state: absent
+        api_version: v1
+        kind: ConfigMap
+        name: mas-ibmcpd-cr-watson-gateway-hack
+        namespace: "{{ cpd_instance_namespace }}"
