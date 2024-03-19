@@ -21,10 +21,18 @@
 
 # 2. Set Storage (Required)
 # -----------------------------------------------------------------------------
-- name: Default Storage for ROKS if not set by user
-  when: dro_storage_class is not defined or dro_storage_class == ""
-  set_fact:
-    dro_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+- name: set storagclass if not provided
+  when: dro_storage_class is defined and dro_storage_class == ""
+  block:
+    - name: Default Storage for ROKS if not set by user
+      when: dro_storage_class is not defined or dro_storage_class == ""
+      set_fact:
+        dro_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+
+    - name: Default annotated storage if not found in default list
+      when: dro_storage_class is not defined or dro_storage_class == ""
+      set_fact:
+        dro_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.getDefaultStorageClass() }}"
 
 - name: Assert that storage class has been defined
   assert:

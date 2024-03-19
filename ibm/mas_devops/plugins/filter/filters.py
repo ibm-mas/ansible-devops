@@ -240,6 +240,30 @@ def defaultStorageClass(storageClassLookup, storageClassOptions):
   # We couldn't find a suitable storage class
   return ""
 
+def getDefaultStorageClass(storageClassLookup):
+  """
+    filter: defaultStorageClass
+    author: Yuvraj Vansure <yuvraj.vansure1@ibm.com>
+    version_added: 10.0
+    short_description: Return a storage class with default annotation
+    description:
+        - This filter returns the name of an available storage class with default annotation
+    options:
+      _storageClassLookup:
+        description: list of storageclass resources
+        required: True
+    notes:
+      - limited error handling, will not handle unexpected data currently
+  """
+  for storageClass in storageClassLookup["resources"]:
+    # print(storageClass)
+    print("---------------------------------")
+    if storageClass['metadata'].get('annotations') is not None:
+      if storageClass['metadata'].get('annotations').get('storageclass.kubernetes.io/is-default-class') == "true":
+        return storageClass['metadata'].get('name')
+  # We couldn't find a storage class with default annotation
+  return ""
+
 def getWSLProjectId(wslProjectLookup, wslProjectName):
   """
     filter: getWSLProjectId
@@ -382,6 +406,7 @@ class FilterModule(object):
       'getAnnotations': getAnnotations,
       'getResourceNames': getResourceNames,
       'defaultStorageClass': defaultStorageClass,
+      'getDefaultStorageClass': getDefaultStorageClass,
       'getWSLProjectId': getWSLProjectId,
       'setManagePVC': setManagePVC,
       'setManageBirtProperties': setManageBirtProperties,
