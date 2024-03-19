@@ -26,6 +26,11 @@
   set_fact:
     uds_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
 
+- name: Default annotated storage if not found in default list
+  when: uds_storage_class is not defined or uds_storage_class == ""
+  set_fact:
+    uds_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.getDefaultStorageClass() }}"
+
 - name: Assert that storage class has been defined
   assert:
     that: uds_storage_class is defined and uds_storage_class != ""
