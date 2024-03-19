@@ -58,9 +58,8 @@
     var: existing_cpd_service_cr_version
 
 - name: Check if this is a new install or upgrade
-  when: existing_cpd_service_cr_version is defined
   set_fact:
-    is_cpd_service_upgrade: "{{ (existing_cpd_service_cr_version is version(cpd_service_cr_version, '<')) | ternary(true, false) | bool }}"
+    is_cpd_service_upgrade: "{{ (existing_cpd_service_cr_version is defined and existing_cpd_service_cr_version is version(cpd_service_cr_version, '<')) | ternary(true, false) | bool }}"
 
 # 1. Load default storage classes and debug
 # -----------------------------------------------------------------------------
@@ -75,7 +74,7 @@
       - "CPD Service Name ....................... {{ cpd_service_name }}"
       - "CPD Service File storage class ......... {{ cpd_service_storage_class }}"
       - "CPD Service Block storage class ........ {{ cpd_service_block_storage_class | default('N/A', true) }}"
-      - "CPD Service Action ..................... {{ (is_cpd_service_upgrade) | ternary('Upgrading from version '+existing_cpd_service_cr_version, 'New Install') }}"
+      - "CPD Service Action ..................... {{ (is_cpd_service_upgrade) | ternary('Upgrading from version '+existing_cpd_service_cr_version | default('N/A', true), 'New Install') }}"
       - "CPD Service Version .................... {{ cpd_service_cr_version }}"
       - "CPD Service Subscription channel ....... {{ cpd_service_channel }}"
       - "CPD Service CSV name ................... {{ cpd_service_csv_name }}"

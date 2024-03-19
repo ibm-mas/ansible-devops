@@ -55,11 +55,9 @@
   debug:
     var: existing_zen_cr_version
 
-#
 - name: Check if this is a new install or upgrade
-  when: existing_zen_cr_version is defined
   set_fact:
-    is_cpd_upgrade: "{{ (existing_zen_cr_version is version(zen_cr_version, '<')) | ternary(true, false) | bool }}"
+    is_cpd_upgrade: "{{ (existing_zen_cr_version is defined and existing_zen_cr_version is version(zen_cr_version, '<')) | ternary(true, false) | bool }}"
 
 - name: "Debug Cloud Pak for data version details"
   debug:
@@ -69,7 +67,7 @@
       - "CPD release version ....................... {{ cpd_product_version }}"
       - "CPD subscription channel .................. {{ cpd_channel }}"
       - "CPD csv version ........................... {{ cpd_csv_version }}"
-      - "Zen action ................................ {{ (is_cpd_upgrade) | ternary('Upgrading from version '+existing_zen_cr_version, 'New Install') }}"
+      - "Zen action ................................ {{ (is_cpd_upgrade) | ternary('Upgrading from version '+existing_zen_cr_version | default('N/A', true), 'New Install') }}"
       - "Zen/control plane version ................. {{ zen_cr_version }}"
       - "IBM Foundational Services channel ......... {{ cpfs_channel }}"
       - "IBM Foundational Services version ......... {{ cpfs_version }}"
