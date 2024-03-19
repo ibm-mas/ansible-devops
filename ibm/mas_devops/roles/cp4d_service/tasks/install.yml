@@ -22,6 +22,9 @@
     cpd_assembly_name: "{{ cpd_service_info[cpd_service_name].assembly_name }}"
     cpd_service_package_name: "{{ cpd_service_info[cpd_service_name].package_name }}"
     cpd_service_csv_name: "{{ cpd_service_info[cpd_service_name].csv_name }}"
+    cpd_service_kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
+    cpd_service_cr_name: "{{ cpd_service_info[cpd_service_name].cr_name }}"
+    cpd_service_api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
 
 - name: "Set {{ cpd_service_name }} versions for cr, csv and sub_channel"
   set_fact:
@@ -29,12 +32,42 @@
     cpd_service_csv_version: "{{ cpd_components_meta[cpd_assembly_name].csv_version }}"
     cpd_service_channel: "{{ cpd_components_meta[cpd_assembly_name].sub_channel | default(cpd_service_info[cpd_service_name].sub_channel, true) }}" # search sub_channel in olm-utils-cm, if does not exist then use the default
 
+## Debug upgrade or new install
+- name: "Lookup existing {{ cpd_service_kind }} CR named '{{ cpd_service_cr_name }}'"
+  kubernetes.core.k8s_info:
+    api_version: "{{ cpd_service_api_version }}"
+    name: "{{ cpd_service_cr_name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: "{{ cpd_service_kind }}"
+  register: existing_cpd_service_lookup
+
+- name: Set existing '{{ cpd_service_cr_name }}' version if needed
+  when:
+    - existing_cpd_service_lookup.resources is defined
+    - existing_cpd_service_lookup.resources | length > 0
+    - existing_cpd_service_lookup.resources[0].status is defined
+    - existing_cpd_service_lookup.resources[0].status.versions is defined or existing_cpd_service_lookup.resources[0].status.version # spss has status.version...
+    - existing_cpd_service_lookup.resources[0].status.versions.reconciled is defined or existing_cpd_service_lookup.resources[0].status.version
+  set_fact:
+    existing_cpd_service_cr_version: "{{ existing_cpd_service_lookup.resources[0].status.versions.reconciled | default(existing_cpd_service_lookup.resources[0].status.version, true) }}"
+    existing_cpd_service_minor_version: "{{ existing_cpd_service_lookup.resources[0].status.versions.reconciled | default(existing_cpd_service_lookup.resources[0].status.version, true) | regex_search('(?<=)(.*)(?=..)') }}"
+
+- name: "Debug existing {{ cpd_service_name }} installed version"
+  when: existing_cpd_service_cr_version is defined
+  debug:
+    var: existing_cpd_service_cr_version
+
+- name: Check if this is a new install or upgrade
+  when: existing_cpd_service_cr_version is defined
+  set_fact:
+    is_cpd_service_upgrade: "{{ (existing_cpd_service_cr_version is version(cpd_service_cr_version, '<')) | ternary(true, false) | bool }}"
+
 # 1. Load default storage classes and debug
 # -----------------------------------------------------------------------------
 - name: "Determine storage classes"
   include_tasks: "determine-storage-classes.yml"
 
-- name: "Cloud Pak for Data service '{{ cpd_service_name }} {{ cpd_product_version }}' : Debug information"
+- name: "Debug: Cloud Pak for Data service '{{ cpd_service_name }}' - version {{ cpd_product_version }} : Debug information"
   debug:
     msg:
       - "CPD Operator Namespace ................. {{ cpd_operators_namespace }}"
@@ -42,6 +75,7 @@
       - "CPD Service Name ....................... {{ cpd_service_name }}"
       - "CPD Service File storage class ......... {{ cpd_service_storage_class }}"
       - "CPD Service Block storage class ........ {{ cpd_service_block_storage_class | default('N/A', true) }}"
+      - "CPD Service Action ..................... {{ (is_cpd_service_upgrade) | ternary('Upgrading from version '+existing_cpd_service_cr_version, 'New Install') }}"
       - "CPD Service Version .................... {{ cpd_service_cr_version }}"
       - "CPD Service Subscription channel ....... {{ cpd_service_channel }}"
       - "CPD Service CSV name ................... {{ cpd_service_csv_name }}"

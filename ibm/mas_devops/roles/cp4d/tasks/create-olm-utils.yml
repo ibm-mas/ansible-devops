@@ -33,6 +33,34 @@
     cpfs_channel: "{{ cpd_components_meta.cpfs.sub_channel }}"
     cpfs_version: "{{ cpd_components_meta.cpfs.csv_version }}"
 
+## Debug upgrade or new install
+- name: "Lookup existing ZenService CR named '{{ zen_cr_name }}'"
+  kubernetes.core.k8s_info:
+    api_version: zen.cpd.ibm.com/v1
+    name: "{{ zen_cr_name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: ZenService
+  register: existing_zen_lookup
+
+- name: Set existing zen version if found
+  when:
+    - existing_zen_lookup.resources is defined
+    - existing_zen_lookup.resources | length > 0
+    - existing_zen_lookup.resources[0].status.currentVersion is defined
+  set_fact:
+    existing_zen_cr_version: "{{ existing_zen_lookup.resources[0].status.currentVersion }}"
+
+- name: "Debug existing {{ zen_cr_name }} installed version"
+  when: existing_zen_cr_version is defined
+  debug:
+    var: existing_zen_cr_version
+
+#
+- name: Check if this is a new install or upgrade
+  when: existing_zen_cr_version is defined
+  set_fact:
+    is_cpd_upgrade: "{{ (existing_zen_cr_version is version(zen_cr_version, '<')) | ternary(true, false) | bool }}"
+
 - name: "Debug Cloud Pak for data version details"
   debug:
     msg:
@@ -41,6 +69,7 @@
       - "CPD release version ....................... {{ cpd_product_version }}"
       - "CPD subscription channel .................. {{ cpd_channel }}"
       - "CPD csv version ........................... {{ cpd_csv_version }}"
+      - "Zen action ................................ {{ (is_cpd_upgrade) | ternary('Upgrading from version '+existing_zen_cr_version, 'New Install') }}"
       - "Zen/control plane version ................. {{ zen_cr_version }}"
       - "IBM Foundational Services channel ......... {{ cpfs_channel }}"
       - "IBM Foundational Services version ......... {{ cpfs_version }}"
