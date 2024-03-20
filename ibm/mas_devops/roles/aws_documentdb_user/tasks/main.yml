@@ -34,23 +34,48 @@
     docdb_instance_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
   when: docdb_instance_password is undefined or docdb_instance_password == ""
 
-- name: "Download Amazon DocumentDB Certificate Authority (CA) certificate"
+- name: "Download Amazon DocumentDB public key"
   shell: |
-    wget https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem -O /tmp/rds-combined-ca-bundle.pem
+    wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -O /tmp/global-bundle.pem
 
 - name: create js file from template
   template:
     src: create_user.js.j2
     dest: "/tmp/create_user.js"
 
+- name: create change_user_password js file from template
+  template:
+    src: change_user_password.js.j2
+    dest: "/tmp/change_user_password.js"
+
+- name: create drop_user js file from template
+  template:
+    src: drop_user.js.j2
+    dest: "/tmp/drop_user.js"
+
 - name: Create docdb user for MAS instance
   shell: |
-    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/rds-combined-ca-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/create_user.js
+    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/global-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/create_user.js
   register: creating_user_output
+  when: user_action == 'add'
+  failed_when: creating_user_output.rc not in [0] and ('User already exists' not in creating_user_output.stderr )
+
+- name: Change docdb user password for MAS instance
+  shell: |
+    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/global-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/change_user_password.js
+  register: change_user_password_output
+  when: user_action == 'add' and creating_user_output.rc not in [0] and ('User already exists' in creating_user_output.stderr )
+
+- name: Drop docdb user of MAS instance
+  shell: |
+    mongosh --tls --host {{ docdb_host }}:{{ docdb_port }} --tlsCAFile /tmp/global-bundle.pem --username {{ docdb_master_username }}  --password {{ docdb_master_password }} /tmp/drop_user.js
+  register: drop_user_password_output
+  when: user_action == 'remove'
 
 # 3. Save docdb user credentials into k8s Secret
 # -----------------------------------------------------------------------------
 - name: Create k8s Secret for docdb user credentials
+  when: user_action == 'add'
   ansible.builtin.template:
     src: docdb_instance_user_credentials_secret.yaml.j2
     dest: "{{ mas_config_dir }}/{{ docdb_instance_credentials_secret_name }}.yml"
