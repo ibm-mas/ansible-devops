@@ -25,51 +25,60 @@
 - debug:
     msg: "IBM Certificate Manager installed .................... {{ cpfs_cm_installed | default(false, true) | bool }}"
 
+
 # 2. Disable IBM Cert Manager OperandRequest
 # -----------------------------------------------------------------------------
+# Check if Operand Deployment Lifecycle Manager is installed
+# If Operand Deployment Lifecycle Manager is not installed
+# then no point on disabling IBM cert manager OperandRequest
+- name: "install : Check if ODLM is installed"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: "ibm-common-services"
+    kind: Deployment
+  register: odlm_lookup
+
 # This step will configure ibm-cert-manager-operator to make use of a
 # self managed CNCF cert-manager, so that no additional operands are installed.
 # Add deployCSCertManagerOperands: "false" to the data.
 # Using 'merge' just in case the configmap is already present
 - name: "install: Disable IBM Cert Manager OperandRequest via ibm-ccp-config"
+  when:
+    - odlm_lookup.resources is defined
+    - odlm_lookup.resources | length > 0
   kubernetes.core.k8s:
     merge_type: merge
     template: "templates/{{ cert_manager_provider }}/ibm-cpp-configmap.yml.j2"
     wait: yes
     wait_timeout: 120 # 2 minutes
 
+
 # 3. If IBM Certificate Manager is installed, run pre-requisite steps to migrate to Red Hat Certificate Manager
+# -----------------------------------------------------------------------------
 # - Set 'cert_manager_cluster_resource_namespace: ibm-common-services' in CertManager CR
 # - Delete IBM Certificate Manager OperandRequest
 # - Delete IBM Certificate Manager Custom Resource
 # - Wait IBM Certificate Manager deployment to be gone
-# -----------------------------------------------------------------------------
 - name: "install: Prepare migration to Red Hat Certificate Manager"
   include_tasks: prereqs-migration.yml
   when:
     - cpfs_cm_installed is defined
     - cpfs_cm_installed is true
 
-# 4. Install Red Hat Certificate Manager
+
+# 4. Create RHCM Subscription
 # -----------------------------------------------------------------------------
-- name: "install: Check if operator group is present in {{ cert_manager_operator_namespace }} already"
-  kubernetes.core.k8s_info:
-    namespace: "{{ cert_manager_operator_namespace }}"
-    kind: OperatorGroup
-  register: og_info
+- name: "install : Create Red Hat Certificate Manager Subscription"
+  include_tasks: "{{ role_path }}/../../common_tasks/create_subscription.yml"
+  vars:
+    subscription_namespace: "{{ cert_manager_operator_namespace }}"
+    package_name: openshift-cert-manager-operator
+    channel_name: stable-v1
 
-- name: "install: Create Red Hat Certificate Manager operator namespace"
-  kubernetes.core.k8s:
-    template: "templates/redhat/namespace.yml.j2"
-    wait: yes
-    wait_timeout: 120
 
-- name: "install: Install Red Hat Certificate Manager subscription"
-  kubernetes.core.k8s:
-    template: "templates/redhat/subscription.yml.j2"
-    wait: yes
-    wait_timeout: 120
-
+# 5. Wait for Subscription to be processed
+# -----------------------------------------------------------------------------
 - name: "install: Wait for Red Hat cert-manager-operator-controller-manager to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: apps/v1
@@ -87,6 +96,9 @@
   retries: 30 # Approximately 1/2 hour before we give up
   delay: 60 # 1 minute
 
+
+# 6. Create the CertManager instance
+# -----------------------------------------------------------------------------
 - name: "install: Wait for CertManager Cluster Custom Resource to be created"
   kubernetes.core.k8s_info:
     api_version: operator.openshift.io/v1alpha1
@@ -156,6 +168,7 @@
     - certmanager_webhook_deployment.resources[0].status.readyReplicas == certmanager_webhook_deployment.resources[0].status.replicas
   retries: 60 # Approximately 1/2 hour before we give up
   delay: 60 # 1 minute
+
 
 # 5. Update IBM CIS Webhook Cluster Role Binding to point to Red Hat Certificate Manager
 # -----------------------------------------------------------------------------

@@ -75,7 +75,6 @@ copyDoc suite_dns
 copyDoc suite_certs
 copyDoc suite_install
 copyDoc suite_install_digest_cm
-copyDoc suite_manage_attachments_config
 copyDoc suite_manage_bim_config
 copyDoc suite_manage_birt_report_config
 copyDoc suite_manage_customer_files_config

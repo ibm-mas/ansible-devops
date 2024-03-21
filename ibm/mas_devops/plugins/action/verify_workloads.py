@@ -34,6 +34,15 @@ class ActionModule(ActionBase):
     def _checkResources(self, resourceAPI, resourceName, retries, delay):
         display = Display()
 
+        # We will ignore any issues with these deployments/statefulsets when assessing the health of the cluster
+        # Consider carefully the impact of adding anything here - only add things that are utterly broken
+        # AND out of our control to fix!
+        ignoredResources = [
+          # Watson Discovery is an unreliable product in general, particularly this deployment, which will often be found in this state indefinitely:
+          # [NOTREADY] ibm-cpd/wd-discovery-ranker-rest = 1 replicas/None ready/1 updated/None available
+          "wd-discovery-ranker-rest"
+        ]
+
         allResourcesHealthy = False
         attempts = 0
         while attempts < retries and not allResourcesHealthy:
@@ -43,10 +52,15 @@ class ActionModule(ActionBase):
           ready = []
           notReady = []
           disabled = []
+          ignored = []
           display.v(f"Checking {resourceName} are healthy ({attempts}/{retries} retries with a {delay} second delay)")
 
           for resource in resources.items:
-            if resource.status.replicas == 0:
+            if resource.metadata.name in ignoredResources:
+              msg = f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.availableReplicas} available"
+              display.v(f"[IGNORED] {msg}")
+              ignored.append(msg)
+            elif resource.status.replicas == 0:
               msg = f"{resource.metadata.namespace}/{resource.metadata.name} = {resource.status.replicas} replicas/{resource.status.availableReplicas} available"
               display.v(f"[DISABLED] {msg}")
               disabled.append(msg)
@@ -77,7 +91,8 @@ class ActionModule(ActionBase):
             resources=dict(
               ready=ready,
               notReady=notReady,
-              disabled=disabled
+              disabled=disabled,
+              ignored=ignored
             )
           )
         else:

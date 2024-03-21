@@ -103,6 +103,13 @@ Optional. Defines what plan will be used in application install.
 - Application Support:
   - Optimizer v8.2+: `full` and `limited` are supported, defaults to `full`
 
+### mas_pod_templates_dir
+Provide the directory where supported pod templates configuration files are defined. For application specifics read the information for `mas_pod_templates_dir`` below.
+
+- Optional
+- Environment Variable: `MAS_POD_TEMPLATES_DIR`
+- Default: None
+
 
 Role Variables - Visual Inspection Configuration
 -------------------------------------------------------------------------------
@@ -168,6 +175,33 @@ Optional. The persistent volume size used by the iot mqtt broker (messagesight)
 - Default: 100Gi.
 - Application Support:
   - IoT 8.3+
+
+### mas_pod_templates_dir
+This role will look for a configuration files named:
+
+- `ibm-mas-iot-iot.yml`
+- `ibm-mas-iot-actions.yml`
+- `ibm-mas-iot-auth.yml`
+- `ibm-mas-iot-datapower.yml`
+- `ibm-mas-iot-devops.yml`
+- `ibm-mas-iot-dm.yml`
+- `ibm-mas-iot-dsc.yml`
+- `ibm-mas-iot-edgeconfig.yml`
+- `ibm-mas-iot-fpl.yml`
+- `ibm-mas-iot-guardian.yml`
+- `ibm-mas-iot-mbgx.yml`
+- `ibm-mas-iot-mfgx.yml`
+- `ibm-mas-iot-monitor.yml`
+- `ibm-mas-iot-orgmgmt.yml`
+- `ibm-mas-iot-provision.yml`
+- `ibm-mas-iot-registry.yml`
+- `ibm-mas-iot-state.yml`
+- `ibm-mas-iot-webui.yml`
+
+The content of the configuration file should be the yaml block that you wish to be inserted into the IoT CR. `ibm-mas-iot-iot.yml` will be inserted into the main IoT CR `spec -> podTemplates` whereas the component ones e.g, `ibm-mas-iot-actions.yml` will be under `spec -> components -> {componentName} -> podTemplates`. The ibm-mas-iot operator will then pass this on to the corresponding component CR when available.
+
+This is an example of one of the components (actions) - refer to the [BestEfforts reference configuration in the MAS CLI](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-iot-actions.yml).
+For full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
 
 
 Role Variables - Monitor Configuration

@@ -11,26 +11,25 @@ Four actions are supported:
 Three **Catalogs** are mirrored, containing the following content:
 
 ### certified-operator-index
-- crunchy-postgres-operator (required by ibm.mas_devops.uds role)
-- gpu-operator-certified (required by ibm.mas_devops.nvidia_gpu role)
-- kubeturbo-certified (required by ibm.mas_devops.kubeturbo role)
-- ibm-metrics-operator (required by ibm.mas_devops.dro role)
-- ibm-data-reporter-operator (required by ibm.mas_devops.dro role)
-- redhat-marketplace-operator (required by ibm.mas_devops.dro role)
+1. crunchy-postgres-operator (required by ibm.mas_devops.uds role)
+2. gpu-operator-certified (required by ibm.mas_devops.nvidia_gpu role)
+3. kubeturbo-certified (required by ibm.mas_devops.kubeturbo role)
+4. ibm-metrics-operator (required by ibm.mas_devops.dro role)
+5. ibm-data-reporter-operator (required by ibm.mas_devops.dro role)
 
 ### community-operator-index
-- grafana-operator (required by ibm.mas_devops.cluster_monitoring role)
-- opentelemetry-operator (required by ibm.mas_devops.cluster_monitoring role)
-- strimzi-kafka-operator (required by ibm.mas_devops.kafka role)
+1. grafana-operator (required by ibm.mas_devops.cluster_monitoring role)
+2. opentelemetry-operator (required by ibm.mas_devops.cluster_monitoring role)
+3. strimzi-kafka-operator (required by ibm.mas_devops.kafka role)
 
 ### redhat-operator-index
-- amq-streams (required by ibm.mas_devops.kafka role)
-- openshift-pipelines-operator-rh (required by the MAS CLI)
-- nfd (required by ibm.mas_devops.nvidia_gpu role)
-- aws-efs-csi-driver-operator (required by ibm.mas_devops.ocp_efs role)
-- local-storage-operator (required by ibm.mas_devops.ocs role)
-- odf-operator (required by ibm.mas_devops.ocs role)
-
+1. amq-streams (required by ibm.mas_devops.kafka role)
+2. openshift-pipelines-operator-rh (required by the MAS CLI)
+3. nfd (required by ibm.mas_devops.nvidia_gpu role)
+4. aws-efs-csi-driver-operator (required by ibm.mas_devops.ocp_efs role)
+5. local-storage-operator (required by ibm.mas_devops.ocs role)
+6. odf-operator (required by ibm.mas_devops.ocs role)
+7. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
 
 Requirements
 -------------------------------------------------------------------------------
