@@ -191,6 +191,7 @@ There are two defaulted File Storage Persistent Volumes Claim resources that wil
 
 - Environment Variable: `MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG`
 - Default: `false`
+
 ### JMS queues
 
 The following properties can be defined to customize the persistent volumes for the JMS queues setup for Manage.
@@ -322,7 +323,7 @@ Optional. Provide a list of additional secondary languages for Manage applicatio
 Note: The more languages you add, the longer Manage will take to install and activate.
 
 Export the `MAS_APP_SETTINGS_SECONDARY_LANGS` variable with the language codes as comma-separated values.
-For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
+For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery?topic=deploy-language-support) documentation.
 
 - Environment Variable: `MAS_APP_SETTINGS_SECONDARY_LANGS`
 - Default: None
@@ -398,6 +399,15 @@ Optional. Set this to `true` if you want to override existing Manage database en
 
 - Environment Variable: `MAS_APP_SETTINGS_OVERRIDE_ENCRYPTION_SECRETS_FLAG`
 - Default: `False`
+
+### Manage - Server Timezone setting variable
+---
+
+### mas_app_settings_server_timezone
+Optional. Sets the Manage server timezone.
+
+- Environment Variable: `MAS_APP_SETTINGS_SERVER_TIMEZONE`
+- Default: `GMT`
 
 Example Playbook
 -------------------------------------------------------------------------------
