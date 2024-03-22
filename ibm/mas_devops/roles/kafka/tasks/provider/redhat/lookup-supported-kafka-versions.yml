@@ -13,20 +13,25 @@
     kind: Subscription
     label_selectors:
       - operators.coreos.com/{{ kafka_operator_name }}.{{ kafka_namespace }}
-  register: kafka_subscription
+  register: kafka_subscription_lookup
+  retries: 10 # will wait for up to 5 minutes
+  delay: 30 # seconds
+  until:
+    - kafka_subscription_lookup.resources is defined
+    - kafka_subscription_lookup.resources | length > 0
 
-- name: "Assert that {{ kafka_operator }} operator is installed"
+- name: "Assert that {{ kafka_operator_name }} operator is installed"
   assert:
     that:
-      - kafka_subscription.resources is defined
-      - kafka_subscription.resources | length > 0
-      - kafka_subscription.resources[0].status is defined
-      - kafka_subscription.resources[0].status.installedCSV is defined
+      - kafka_subscription_lookup.resources is defined
+      - kafka_subscription_lookup.resources | length > 0
+      - kafka_subscription_lookup.resources[0].status is defined
+      - kafka_subscription_lookup.resources[0].status.installedCSV is defined
     fail_msg: "Failed! {{ kafka_operator_name }} operator/subscription not found in {{ kafka_namespace }} namespace."
 
 - name: "Set installed kafka operator csv"
   set_fact:
-    kafka_csv_version: "{{ kafka_subscription.resources[0].status.installedCSV | regex_search(regex) }}"
+    kafka_csv_version: "{{ kafka_subscription_lookup.resources[0].status.installedCSV | regex_search(regex) }}"
   vars:
     regex: "(?<=strimzi-cluster-operator.v)(.*)"
 
@@ -35,30 +40,35 @@
     var: kafka_csv_version
 
 - name: Get html page content
+  ignore_errors: yes
   shell: wget https://strimzi.io/downloads -q -O -
   register: strimzi_page_content
 
-- name: Read html page content
-  set_fact:
-    file_lines: "{{ strimzi_page_content.stdout.split('\n') }}"
+# When website is available and content is found, try to retrieve the supported kafka versions
+# If website is not reachable, then skip it
+- when: strimzi_page_content.rc == 0
+  block:
+    - name: Read html page content
+      set_fact:
+        file_lines: "{{ strimzi_page_content.stdout.split('\n') }}"
 
-- name: "Creating dictionary while looping over page content"
-  ignore_errors: true
-  vars:
-    key: "{{file_lines[my_idx+3] | replace('<td class=\"version\">','') | replace('</td>','') | regex_replace('<td class.*','') | regex_replace('^\\s*','') | regex_replace(' ', '') | split(',') }}"
-  set_fact:
-    kafka_supported_versions: "{{ result | default([]) + key }}"
-  when: '''td class="description"><a href="https://github.com/strimzi/strimzi-kafka-operator/releases/tag/{{ kafka_csv_version }}'' in line_item'
-  loop: "{{ file_lines }}"
-  loop_control:
-    loop_var: line_item
-    index_var: my_idx
+    - name: "Creating dictionary while looping over page content"
+      ignore_errors: true
+      vars:
+        key: "{{file_lines[my_idx+3] | replace('<td class=\"version\">','') | replace('</td>','') | regex_replace('<td class.*','') | regex_replace('^\\s*','') | regex_replace(' ', '') | split(',') }}"
+      set_fact:
+        kafka_supported_versions: "{{ result | default([]) + key }}"
+      when: '''td class="description"><a href="https://github.com/strimzi/strimzi-kafka-operator/releases/tag/{{ kafka_csv_version }}'' in line_item'
+      loop: "{{ file_lines }}"
+      loop_control:
+        loop_var: line_item
+        index_var: my_idx
 
 # Check if kafka_version run against any of the supported versions
 - name: "Debug Kafka supported versions"
   debug:
     msg:
-      - "Supported kafka versions ................... {{ kafka_supported_versions | default('Undefined') }}"
+      - "Supported kafka versions ................... {{ kafka_supported_versions | default('Not available') }}"
       - "Current kafka version defined .............. {{ kafka_version }}"
 
 - name: "Set latest supported kafka version if current kafka version is unsupported"
