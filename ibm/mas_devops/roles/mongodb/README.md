@@ -164,11 +164,22 @@ Example Playbook
     - ibm.mas_devops.mongodb
 ```
 
+Troubleshooting
+-------------------------------------------------------------------------------
+
+!!! important
+    Please be cautious while performing any of the troubleshooting steps outlined below. It is important to understand that the MongoDB Community operator persists data within Persistent Volume Claims. These claims should not be removed inadvertent deletion of the `mongoce` namespace could result in data loss.
+
+### MongoDB Replica Set Pods Will Not Start
+
+MongoDB 5 has introduced new platform specific requirements. Please consult the [Platform Support Notes](https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64) for detailed information. 
+
+
+### CA Certificate Renewal
+
 !!! warning
     If the MongoDB CA Certificate expires the MongoDB replica set will become unusable. Replica set members will not be able to communicate with each other and client applications (i.e. Maximo Application Suite components) will not be to connect.
 
-CA Certificate Renewal
--------------------------------------------------------------------------------
 
 In order to renew the CA Certificate used by the MongoDB replica set the following steps must be taken:
 
@@ -184,15 +195,24 @@ The following steps illustrate the process required to renew the CA Certificate,
 The first step is to stop the Mongo replica set and MongoDb CE Operator pod.
 
 ```bash
-#!/bin/bash
-
 oc project mongoce
-
 oc delete deployment mongodb-kubernetes-operator
-oc delete statefulset mas-mongo-ce
 ```
-Make sure all pods in the `mongoce` namespace have terminated and then execute the following to remove
-the old Mongo configuration:
+
+!!! important
+    Make sure the MongoDB Community operator pod has terminated before proceeding.
+
+
+```bash
+oc delete statefulset mas-mongo-ce
+
+```
+
+!!! important
+    Make sure all pods in the `mongoce` namespace have terminated before proceeding
+
+
+Remove expired CA Certificate and Server Certificate resources. Clean up MongoDB Community configuration and then run the `mongodb` role.
 
 ```bash
 oc delete certificate mongo-ca-crt
