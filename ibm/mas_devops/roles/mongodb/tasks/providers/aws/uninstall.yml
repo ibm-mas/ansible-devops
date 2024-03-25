@@ -40,6 +40,9 @@
       --db-instance-identifier '{{ docdb_instance_identifier_prefix }}'-'{{ item }}'
   register: docdb_delete_info
   with_sequence: start=1 end={{docdb_instance_number}}
+  until: ('DBInstanceNotFound' in docdb_delete_info.stderr)
+  retries: 30
+  delay: 60 # seconds
   failed_when: docdb_delete_info.rc not in [0] and ('DBInstanceNotFound' not in docdb_delete_info.stderr ) and ('InvalidDBInstanceState' not in docdb_delete_info.stderr)
 
 - name: Delete DocDB Cluster
@@ -48,6 +51,9 @@
     --db-cluster-identifier '{{ docdb_cluster_name }}'
     --skip-final-snapshot
   register: docdb_cluster_delete_info
+  until: ('DBClusterNotFoundFault' in docdb_cluster_delete_info.stderr)
+  retries: 30
+  delay: 60 # seconds
   failed_when: docdb_cluster_delete_info.rc not in [0] and ('DBClusterNotFoundFault' not in docdb_cluster_delete_info.stderr )
 
 # 2. Wait untill DocDB instances are deleted and then Delete Subnet Group
@@ -58,7 +64,7 @@
     --db-subnet-group-name '{{ docdb_subnet_group_name }}'
   register: subnet_group_delete_info
   until: ('DBSubnetGroupNotFoundFault' in subnet_group_delete_info.stderr) or (subnet_group_delete_info is defined and subnet_group_delete_info.stderr == "")
-  retries: 15
+  retries: 30
   delay: 60 # seconds
   failed_when: subnet_group_delete_info.rc not in [0] and ('DBSubnetGroupNotFoundFault' not in subnet_group_delete_info.stderr )
 
@@ -87,6 +93,7 @@
       --subnet-id '{{ item[0].SubnetId }}'
   register: subnet_delete_info
   when: item | length > 0
+  failed_when: subnet_delete_info.rc not in [0] and ('DependencyViolation' not in subnet_delete_info.stderr )
 
 # 4. Delete Security Group
 # -----------------------------------------------------------------------------
@@ -106,3 +113,4 @@
     aws ec2 delete-security-group \
     --group-id '{{ sg_group_id }}'
   register: sg_delete_info
+  failed_when: sg_delete_info.rc not in [0] and ('DependencyViolation' not in sg_delete_info.stderr )
