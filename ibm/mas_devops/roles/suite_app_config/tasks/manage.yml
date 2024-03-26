@@ -1,0 +1,29 @@
+---
+
+- name: "Load podTemplates configuration"
+  include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
+  vars:
+    config_files:
+      - "ibm-mas-manage-manageworkspace.yml"
+      - "ibm-mas-manage-civil.yml"
+      - "ibm-mas-manage-icd.yml"
+      - "ibm-mas-manage-health.yml"
+      - "ibm-mas-manage-acm.yml"
+      - "ibm-mas-manage-aviation.yml"
+
+- name: set fact manage workspace components obj"
+  set_fact:
+    manageWorkspaceComponents : "{{ mas_appws_components | to_json | from_json }}"
+
+- name: debug
+  debug:
+    msg: "manageWorkspaceComponents ..... {{ manageWorkspaceComponents }}"
+
+- name: Load mas app component configurations
+  set_fact:
+    "mas_app_components_{{ mas_app_id }}": "{{ lookup('ansible.builtin.template', 'vars/customspecs/{{ mas_app_id }}_components.yml.j2') | from_yaml }}"
+  when: mas_app_spec is not defined
+
+- name: debug
+  debug:
+    msg: "mas_app_components_manage ..... {{ mas_app_components_manage }}"
