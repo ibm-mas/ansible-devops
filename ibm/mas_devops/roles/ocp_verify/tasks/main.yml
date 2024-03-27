@@ -9,38 +9,34 @@
     kind: ClusterVersion
   register: ocp_info
   retries: 60 # ~approx 1 hour before we give up
-  delay: 60  # 1 minute
+  delay: 60 # 1 minute
   until:
     - ocp_info.resources is defined
     - ocp_info.resources | json_query('[*].status.conditions[?type==`Available`][].status') | select ('match','True') | list | length == 1
-
 
 # 2. Wait for all catalogsources to be healthy
 # -----------------------------------------------------------------------------
 - name: Check CatalogSource Status
   when: verify_catalogsources
   ibm.mas_devops.verify_catalogsources:
-    retries: 30  # Allow up to 30 minutes
-    delay: 60  # 1 minute
-
+    retries: 30 # Allow up to 30 minutes
+    delay: 60 # 1 minute
 
 # 3. Wait for all subscriptions in all namespaces to get into AtLatestKnown state
 # -----------------------------------------------------------------------------
 - name: Check Subscription Status
   when: verify_subscriptions
   ibm.mas_devops.verify_subscriptions:
-    retries: 60  # Allow up to 5 hours
-    delay: 300  # 5 minutes
-
+    retries: 60 # Allow up to 5 hours
+    delay: 300 # 5 minutes
 
 # 4. Wait for all deployments & statefulsets in all namespaces to be healthy
 # -----------------------------------------------------------------------------
 - name: Check Deployment & StatefulSet Status
   when: verify_workloads
   ibm.mas_devops.verify_workloads:
-    retries: 200  # Allow up to 10 hours
-    delay: 300  # 5 minutes
-
+    retries: 200 # Allow up to 10 hours
+    delay: 300 # 5 minutes
 
 # 5. Check for router and ingress secrets
 # -----------------------------------------------------------------------------
