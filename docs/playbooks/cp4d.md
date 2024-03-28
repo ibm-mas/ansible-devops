@@ -11,7 +11,7 @@ This playbook can be run against any OCP cluster regardless of its type; whether
 - Install CP4D ControlPlane (~1 hour)
 - Install CP4D Services (~30 Minutes - 1 hour for each service)
 
-All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook. 
+All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.
 
 ## Required environment variables
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
@@ -47,7 +47,7 @@ export CPD_ENTITLEMENT_USERNAME=xxx
 export CPD_ADMIN_USERNAME="admin"
 export CPD_ADMIN_PASSWORD="xxx"
 export CPD_URL="https://mycp4durl"
-export CPD_PRODUCT_VERSION="4.6.3"
+export CPD_PRODUCT_VERSION="4.6.6"
 
 
 oc login --token=xxxx --server=https://myocpserver
@@ -62,7 +62,7 @@ export CPD_ENTITLEMENT_KEY=xxx
 export CPD_ENTITLEMENT_USERNAME=xxx
 
 export CPD_INSTALL_PLATFORM="true"
-export CPD_PRODUCT_VERSION="4.6.3"
+export CPD_PRODUCT_VERSION="4.6.6"
 
 ## To install additional CP4D services, add one or many of these environment variables:
 export CPD_INSTALL_COGNOS="true"
