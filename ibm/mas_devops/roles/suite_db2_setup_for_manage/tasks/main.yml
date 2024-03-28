@@ -74,6 +74,9 @@
 # The log file will also be available inside the pod /tmp/setupdb.log
 # The script will exit early if /tmp/setupdb_complete exists to avoid unnecessarily re-running
 # the setup, however this file will be lost after pod restarts.
+#
+# "set -o pipefail" prevents errors in a pipeline from being masked. This will ensure that the RC of the command that fails will be returned.
+
 - name: Run setupdb to prepare Db2 for use with Maximo TPAE
   shell: |
     set -o pipefail
@@ -87,7 +90,8 @@
   when: prepare_cmds_status.rc is defined
   debug:
     msg:
-      - "SetupDB return code (rc) ........................ {{ prepare_cmds_status.rc }}"
+      - "SetupDB return code (rc) .......................... {{ prepare_cmds_status.rc }}"
+      - "SetupDB Registered Status  ........................ {{ prepare_cmds_status }}"
 
 - name: "Database setup debug information"
   debug:
