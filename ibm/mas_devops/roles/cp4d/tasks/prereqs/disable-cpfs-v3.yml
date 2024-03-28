@@ -1,0 +1,41 @@
+---
+# This task is important during CPD 4.6 > 4.8 upgrade as 4.8 version requires CPFS v4 in isolated mode (running in ibm-cpd-operators namespace)
+
+# This task will disable CPFS v3 if detected:
+
+# - Scale down ibm-common-service-operator, operand-deployment-lifecycle-manager and ibm-zen-operator deployments from ibm-common-services namespace (will be recreated when CPFS/ODLM v4 is installed)
+# - Delete common-service operandconfig and operandregistry (will be recreated when ODLM v4 is installed)
+# - Delete all namespace scope instances from ibm-common-services namespace (will be recreated when NamespaceScope v4 is installed)
+
+# For further reference: https://www.ibm.com/docs/en/cloud-paks/foundational-services/4.4?topic=4x-isolated-migration#migrate-using-manual-steps
+
+- name: Disable v3 operators from {{ cpd_cpfs_namespace }} namespace
+  ignore_errors: yes
+  shell: |
+    oc scale deployment {{ deployment_item }} -n {{ cpd_cpfs_namespace }} --replicas=0
+  loop:
+    - ibm-common-service-operator
+    - operand-deployment-lifecycle-manager
+    - ibm-zen-operator
+  loop_control:
+    loop_var: deployment_item
+
+- name: Delete common-service operandregistry and operandconfig from {{ cpd_cpfs_namespace }} namespace
+  shell: |
+    oc delete {{ operand_item }} -n {{ cpd_cpfs_namespace }} --ignore-not-found common-service
+  loop:
+    - operandregistry
+    - operandconfig
+  loop_control:
+    loop_var: operand_item
+
+- name: Delete {{ nss_item }} namespace scope instance from {{ cpd_cpfs_namespace }} namespace
+  shell: |
+    oc delete namespacescopes.operator.ibm.com {{ nss_item }} -n {{ cpd_cpfs_namespace }} --ignore-not-found
+  loop:
+    - nss-managedby-odlm
+    - odlm-scope-managedby-odlm
+    - nss-odlm-scope
+    - common-service
+  loop_control:
+    loop_var: nss_item

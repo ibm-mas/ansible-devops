@@ -1,0 +1,40 @@
+---
+- name: "prereqs-wd : Create EDB Operand Request"
+  kubernetes.core.k8s:
+    apply: yes
+    template: templates/wd/operandRequest-edb.yml.j2
+
+# oc get opreq common-service-edb -n ${PROJECT_CPFS_OPS} -o jsonpath='{.status.phase}  {"\n"}'
+- name: "prereqs-wd : Wait for operand request to be processed"
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1alpha1
+    kind: OperandRequest
+    name: common-service-edb
+    namespace: ibm-common-services
+  register: cpd_cr_lookup
+  until:
+    - cpd_cr_lookup.resources is defined
+    - cpd_cr_lookup.resources | length == 1
+    - cpd_cr_lookup.resources[0].status is defined
+    - cpd_cr_lookup.resources[0].status.phase is defined
+    - cpd_cr_lookup.resources[0].status.phase == "Running"
+  retries: 30 # Up to 1 hour
+  delay: 120 # Every 2 minutes
+
+# oc get pod -n ${PROJECT_CPFS_OPS} -l app.kubernetes.io/name=cloud-native-postgresql -o jsonpath='{.items[0].status.phase} {"\n"}'
+- name: "prereqs-wd : Wait for postgres operator to be running"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    label_selectors:
+      - "app.kubernetes.io/name = cloud-native-postgresql"
+    namespace: ibm-common-services
+  register: cpd_pod_lookup
+  until:
+    - cpd_pod_lookup.resources is defined
+    - cpd_pod_lookup.resources | length == 1
+    - cpd_pod_lookup.resources[0].status is defined
+    - cpd_pod_lookup.resources[0].status.phase is defined
+    - cpd_pod_lookup.resources[0].status.phase == "Running"
+  retries: 30 # Up to 1 hour
+  delay: 120 # Every 2 minutes

@@ -1,0 +1,38 @@
+---
+- include_vars:
+    file: "{{ role_path }}/../mirror_extras_prepare/vars/cp4d_{{ cpd_product_version }}.yml"
+
+- name: Retrieve image setting parts
+  set_fact:
+    cpd_platform_catalog_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*cpd-platform$') | map(attribute='catalog_name') | first }}"
+    cpd_platform_catalog_display_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*cpd-platform$') | map(attribute='catalog_display_name') | first }}"
+    cpd_platform_catalog_operator_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*cpd-platform$') | map(attribute='operator_catalog_name') | first }}"
+    cpd_platform_digest: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*cpd-platform$') | map(attribute='digest') | first }}"
+    cpd_platform_registry: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*cpd-platform$') | map(attribute='registry') | first }}"
+    opencloud_catalog_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*opencloud-operators$') | map(attribute='catalog_name') | first }}"
+    opencloud_catalog_display_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*opencloud-operators$') | map(attribute='catalog_display_name') | first }}"
+    opencloud_catalog_operator_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*opencloud-operators$') | map(attribute='operator_catalog_name') | first }}"
+    opencloud_digest: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*opencloud-operators$') | map(attribute='digest') | first }}"
+    opencloud_registry: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*opencloud-operators$') | map(attribute='registry') | first }}"
+
+# 3. Debug Properties
+# -----------------------------------------------------------------------------
+- name: "Debug Cloud Pak for Data version {{ cpd_product_version }} extra casebundle properties"
+  debug:
+    msg:
+      - "cpd-platform catalog name ............................ {{ cpd_platform_catalog_name}}"
+      - "cpd-platform catalog display name .................... {{ cpd_platform_catalog_display_name }}"
+      - "cpd-platform catalog operator name ................... {{ cpd_platform_catalog_operator_name }}"
+      - "cpd-platform catalog digest .......................... {{ cpd_platform_digest }}"
+      - "cpd-platform catalog registry ........................ {{ cpd_platform_registry }}"
+      - "opencloud-operators catalog name ..................... {{ opencloud_catalog_name }}"
+      - "opencloud-operators catalog display name ............. {{ opencloud_catalog_display_name }}"
+      - "opencloud-operators catalog operator name ............ {{ opencloud_catalog_operator_name }}"
+      - "opencloud-operators catalog digest ................... {{ opencloud_digest }}"
+      - "opencloud-operators catalog registry ................. {{ opencloud_registry }}"
+
+- name: "Debug Cloud Pak for Data version {{ cpd_product_version }} extra casebundle image properties"
+  debug:
+    msg:
+      - "cpd-platform image ................................... {{ cpd_platform_registry }}/{{ cpd_platform_catalog_operator_name }}@{{ cpd_platform_digest }}"
+      - "opencloud-operators image ............................ {{ opencloud_registry }}/{{ opencloud_catalog_operator_name }}@{{ opencloud_digest }}"

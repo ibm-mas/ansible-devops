@@ -1,0 +1,78 @@
+# This task installs IBM NamespaceScope operator which is needed for CPD 4.6/4.8 installs
+---
+- name: Check if operator group is present in {{ cpd_operators_namespace }} already
+  kubernetes.core.k8s_info:
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: OperatorGroup
+  register: og_cpd_operators_info
+
+- name: "Lookup ibm-namespace-scope-operator packagemanifest"
+  k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: ibm-namespace-scope-operator
+    namespace: "{{ cpfs_catalog_source_namespace }}"
+  register: namespace_scope_manifest_info
+
+# If CPD 4.8 or higher, we'll get the latest channel available in packagemanifest, else, we'll get the default channel
+- name: Set ibm-namespace-scope-operator channel
+  set_fact:
+    namespace_scope_channel: "{{ (cpd_46_or_lower) | ternary(namespace_scope_manifest_info.resources[0].status.defaultChannel, namespace_scope_manifest_info.resources[0].status.channels | map(attribute='name') | last) }}"
+
+- debug:
+    msg:
+      - "IBM Namespace Scope channel ..................... {{ namespace_scope_channel }}"
+      - "Catalog source name ............................. {{ cpfs_catalog_source_name }}"
+      - "Catalog source namespace ........................ {{ cpfs_catalog_source_namespace }}"
+
+- name: "Install ibm-namespace-scope-operator subscription"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/namespacescope/subscription.yml.j2'
+
+- name: "Wait ibm-namespace-scope-operator subscription installedCSV version at {{ namespace_scope_channel }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ cpd_operators_namespace }}"
+    label_selectors:
+      - operators.coreos.com/ibm-namespace-scope-operator.{{ cpd_operators_namespace }}
+  register: ns_sub_info
+  retries: 20
+  delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
+  until:
+    - ns_sub_info.resources is defined
+    - ns_sub_info.resources | length > 0
+    - ns_sub_info.resources[0].status is defined
+    - ns_sub_info.resources[0].status.installedCSV is defined
+
+- name: "Wait for ibm-namespace-scope-operator to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-namespace-scope-operator
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: Deployment
+  register: ns_operator_lookup
+  until: ns_operator_lookup.resources[0].status.availableReplicas is defined
+  retries: 20 # Approximately 20 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Install ibm-namespace-scope custom resource"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/namespacescope/cr.yml.j2'
+
+- name: "Wait for ibm-namespace-scope instance to be ready"
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1
+    name: common-service
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: NamespaceScope
+  register: ns_cr_lookup
+  until:
+    - ns_cr_lookup.resources is defined
+    - ns_cr_lookup.resources | length > 0
+    - ns_cr_lookup.resources[0].status.validatedMembers is defined
+    - ns_cr_lookup.resources[0].status.validatedMembers | length > 1
+  retries: 60 # approx 30 minutes before we give up
+  delay: 30 # seconds
