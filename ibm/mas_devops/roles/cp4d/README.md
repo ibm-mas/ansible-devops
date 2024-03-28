@@ -107,6 +107,13 @@ Defines the IBM Cloud Pak for Data release version to be installed.
 - Environment Variable: `CPD_PRODUCT_VERSION`
 - Default: None
 
+### mas_catalog_version
+Version of the IBM Maximo Operator Catalog to install. This is used for choosing the Zen operators in CPD 4.6.6.
+
+- **Required** for CPD 4.6.6, Optional for other versions.
+- Environment Variable: `MAS_CATALOG_VERSION`
+- Default Value: `v8-amd64`
+
 ### ibm_entitlement_key
 Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary).
 
