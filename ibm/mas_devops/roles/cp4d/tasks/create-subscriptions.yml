@@ -22,6 +22,54 @@
 # This will be used by the CPD operators to automatically set the target versions
 # to be installed/upgraded
 # -----------------------------------------------------------------------------
+
+- name: "Lookup the catalog used when CP4D product version is 4.6.6 to determine Zen CR version"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-operator-catalog
+    namespace: openshift-marketplace
+    kind: CatalogSource
+  register: catalog_lookup
+  when: cpd_product_version == '4.6.6'
+
+- name: "Determine catalog version from catalog displayName"
+  when: cpd_product_version == '4.6.6'
+  block:
+    # extract the catalog tag from displayName
+    - set_fact:
+        catalog_tag: "{{ catalog_lookup.resources[0].spec.displayName.split('(')[1].split(')')[0].split(' ')[0] }}"
+      when:
+        - catalog_lookup is defined
+        - catalog_lookup.resources is defined
+        - catalog_lookup.resources | length > 0
+        - catalog_lookup.resources[0].spec is defined
+        - catalog_lookup.resources[0].spec.displayName is defined
+        - '"(" in catalog_lookup.resources[0].spec.displayName'
+  rescue:
+    # fallback to default dynamic catalog
+    - set_fact:
+        catalog_tag: "v8-amd64"
+
+- name: "Set catalog_tag to default if not defined still"
+  set_fact:
+    catalog_tag: "v8-amd64"
+  when:
+    - cpd_product_version == '4.6.6'
+    - catalog_tag is not defined
+
+- name: "Catalog Version"
+  debug:
+    msg:
+      - "Catalog Version ............................ {{ catalog_tag }}"
+  when: 
+    - cpd_product_version == '4.6.6'
+    - catalog_tag is defined and catalog_tag != ""
+
+- name: show olm-utils-cm templating result
+  debug:
+    msg: "{{ lookup('template', 'templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2') }}"
+
+# catalog_tag is used here for cpd 4.6.6
 - name: "install-cp4d : Create olm-utils-cm config map for cpd release {{ cpd_product_version }}"
   kubernetes.core.k8s:
     apply: yes
