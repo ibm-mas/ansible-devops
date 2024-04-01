@@ -6,12 +6,27 @@
     config_files:
       - "ibm-mas-manage-manageworkspace.yml"
       - "ibm-mas-manage-civil.yml"
-      - "ibm-mas-manage-icd.yml"
+      #- "ibm-mas-manage-icd.yml"
       #- "ibm-mas-manage-health.yml"
 
-- name: set fact manage workspace components obj"
+- name: Set manage workspace components and server bundle object"
   set_fact:
     manageWorkspaceComponents : "{{ mas_appws_components | to_json | from_json }}"
+    manageServerBundleData: "{{ mas_app_settings_server_bundles[mas_app_settings_server_bundles_size]['serverBundles'] }}"
+
+- name: Get available server bundle name
+  set_fact:
+    manageAvailableServerBundle: "{{ manageServerBundleData | json_query(serverBundleQuery) }}"
+  vars:
+    serverBundleQuery: "[*].name"
+
+- name: Merge manage workspace podTemplates containers
+  set_fact:
+    manageWSAvailablePodTemplatesContainers: "{{ manageAvailableServerBundle + manage_workspace_default_podTemplates_containers}}"
+
+- name: Filter podTemplates from manage workspace available podTemplates containers
+  set_fact:
+    ibm_mas_manage_manageworkspace_pod_templates: "{{ ibm_mas_manage_manageworkspace_pod_templates | selectattr('name' , 'in' , manageWSAvailablePodTemplatesContainers) | list }}"
 
 - name: Load mas app component configurations
   set_fact:
