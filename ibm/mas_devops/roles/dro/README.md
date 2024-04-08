@@ -22,6 +22,12 @@ Inform the role whether to perform an install or uninstall of Data Reporter Oper
 
     The `uninstall` action works across both `uds` and `dro` roles.
 
+### dro_migration
+To migrate from `IBM User Data Services` to `ibm-data-reporter`, set `DRO_MIGRATION` variable to `True`.
+
+- Environment Variable: `DRO_MIGRATION`
+- Default Value: False
+
 ### ibm_entitlement_key
 Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary).
 
@@ -127,7 +133,7 @@ To install DRO
 export IBM_ENTITLEMENT_KEY<=valid ibm entitlement key>
 export DRO_CONTACT_EMAIL=xxx@xxx.com
 export DRO_CONTACT_FIRSTNAME=xxx
-export DRO_CONTACT_LASTNAME=xxx 
+export DRO_CONTACT_LASTNAME=xxx
 export DRO_ACTION=install-dro
 export MAS_CONFIG_DIR<=valid local path to the config folder>
 export MAS_INSTANCE_ID<=valid mas instance id>
@@ -146,9 +152,9 @@ export DRO_CERTIFICATE_PATH=/temp/cert.pem
 export IBM_ENTITLEMENT_KEY<=valid ibm entitlement key>
 export DRO_CONTACT_EMAIL=xxx@xxx.com
 export DRO_CONTACT_FIRSTNAME=xxx
-export DRO_CONTACT_LASTNAME=xxx 
-export MAS_CONFIG_DIR<=valid local path to the config folder>
-export MAS_INSTANCE_ID<=valid mas instance id>
+export DRO_CONTACT_LASTNAME=xxx
+export MAS_CONFIG_DIR=<valid local path to the config folder>
+export MAS_INSTANCE_ID=<valid mas instance id>
 
 export DRO_ACTION=install-dro
 export ROLE_NAME='dro'
