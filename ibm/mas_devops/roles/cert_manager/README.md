@@ -34,6 +34,7 @@ Choose which flavour of Certificate Manager to install; IBM (`ibm`), or Red Hat 
 - Environment Variable: `CERT_MANAGER_PROVIDER`
 - Default: `redhat`
 
+**Note:** Certificate Manager is a cluster-wide dependency, therefore be really careful when uninstalling it as this might be used by several applications and dependencies installed in the cluster.
 
 Example Playbook
 -------------------------------------------------------------------------------
