@@ -130,14 +130,14 @@ Example Playbook
 
 To install DRO
 ```
-export IBM_ENTITLEMENT_KEY<=valid ibm entitlement key>
+export IBM_ENTITLEMENT_KEY=<valid ibm entitlement key>
 export DRO_CONTACT_EMAIL=xxx@xxx.com
 export DRO_CONTACT_FIRSTNAME=xxx
 export DRO_CONTACT_LASTNAME=xxx
 export DRO_ACTION=install-dro
-export MAS_CONFIG_DIR<=valid local path to the config folder>
-export MAS_INSTANCE_ID<=valid mas instance id>
-export DRO_STORAGE_CLASS<=valid storage class name>
+export MAS_CONFIG_DIR=<valid local path to the config folder>
+export MAS_INSTANCE_ID=<valid mas instance id>
+export DRO_STORAGE_CLASS=<valid storage class name>
 export ROLE_NAME='dro'
 
 ansible-playbook playbooks/run_role.yml
@@ -146,10 +146,10 @@ ansible-playbook playbooks/run_role.yml
 To connect to an existing DRO
 
 ```
-export DRO_ENDPOINT_URL<=valid DRO url>
-export DRO_APIKEY<=valid DRO apikey>
+export DRO_ENDPOINT_URL=<valid DRO url>
+export DRO_APIKEY=<valid DRO apikey>
 export DRO_CERTIFICATE_PATH=/temp/cert.pem
-export IBM_ENTITLEMENT_KEY<=valid ibm entitlement key>
+export IBM_ENTITLEMENT_KEY=<valid ibm entitlement key>
 export DRO_CONTACT_EMAIL=xxx@xxx.com
 export DRO_CONTACT_FIRSTNAME=xxx
 export DRO_CONTACT_LASTNAME=xxx
