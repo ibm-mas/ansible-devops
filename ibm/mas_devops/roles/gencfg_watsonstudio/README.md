@@ -30,10 +30,10 @@ Defines the password that is used to connect to WatsonStudio in MAS installation
 - Environment Variable: `CPD_ADMIN_PASSWORD`
 - Default: None
 - 
-### CPD_URL
+### CPD_ADMIN_URL
 Defines the url that is used to connect to WatsonStudio in MAS installation
 
-- Environment Variable: `CPD_URL`
+- Environment Variable: `CPD_ADMIN_URL`
 - Default: None
 - 
 
