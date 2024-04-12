@@ -7,26 +7,29 @@ Four actions are supported:
 - `direct` Directly mirror content to your target registry
 - `to-filesystem` Mirror content to the local filesystem
 - `from-filesystem` Mirror content from the local filesystem to your target registry
-- `install-catalogs` Install CatalogSources for the mirrored content.
 
-Two **CatalogSources** are created by the `install-catalogs` action in the `openshift-marketplace` namespace, containing the following content:
+Three **Catalogs** are mirrored, containing the following content:
 
 ### certified-operator-index
-- crunchy-postgres-operator (required by ibm.mas_devops.uds role)
+1. crunchy-postgres-operator (required by ibm.mas_devops.uds role)
+2. gpu-operator-certified (required by ibm.mas_devops.nvidia_gpu role)
+3. kubeturbo-certified (required by ibm.mas_devops.kubeturbo role)
+4. ibm-metrics-operator (required by ibm.mas_devops.dro role)
+5. ibm-data-reporter-operator (required by ibm.mas_devops.dro role)
+
+### community-operator-index
+1. grafana-operator (required by ibm.mas_devops.cluster_monitoring role)
+2. opentelemetry-operator (required by ibm.mas_devops.cluster_monitoring role)
+3. strimzi-kafka-operator (required by ibm.mas_devops.kafka role)
 
 ### redhat-operator-index
-- amq-streams (required by ibm.mas_devops.kafka role)
-- openshift-pipelines-operator-rh (required by the MAS CLI)
-
-!!! note
-    We are limited to the content we can support mirroring for today due to bug with Red Hat's support for OCI images, this prevents the mirroring of the following packages (which are all optional dependencies):
-
-    - **kubeturbo-certified**
-    - **grafana-operator**
-    - **opentelemetry-operator**
-
-    For more information refer to [solution 6997884](https://access.redhat.com/solutions/6997884) and [CFE 780](https://issues.redhat.com/browse/CFE-780).
-
+1. amq-streams (required by ibm.mas_devops.kafka role)
+2. openshift-pipelines-operator-rh (required by the MAS CLI)
+3. nfd (required by ibm.mas_devops.nvidia_gpu role)
+4. aws-efs-csi-driver-operator (required by ibm.mas_devops.ocp_efs role)
+5. local-storage-operator (required by ibm.mas_devops.ocs role)
+6. odf-operator (required by ibm.mas_devops.ocs role)
+7. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
 
 Requirements
 -------------------------------------------------------------------------------
@@ -136,9 +139,9 @@ Example Playbook
 ```yaml
 - hosts: localhost
   vars:
-    registry_public_host: myocp-5f1320191125833da1cac8216c06779e-0000.us-south.containers.appdomain.cloud
-    registry_public_port: 32500
-    registry_username: admin
+    registry_public_host: myregistry.mycompany.com
+    registry_public_port: 5000
+    registry_username: user1
     registry_password: 8934jk77s862!  # Not a real password, don't worry security folks
 
     mirror_mode: direct
@@ -146,7 +149,7 @@ Example Playbook
     mirror_redhat_platform: false
     mirror_redhat_operators: true
 
-    ocp_release: 4.12
+    ocp_release: 4.14
     redhat_pullsecret: ~/pull-secret.json
 
   roles:

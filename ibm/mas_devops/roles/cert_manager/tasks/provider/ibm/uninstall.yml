@@ -1,0 +1,59 @@
+---
+# 1. Delete the Cert-Manager OperandRequest
+# -----------------------------------------------------------------------------
+- name: "uninstall : Delete Cert-Manager OperandRequest"
+  kubernetes.core.k8s:
+    state: absent
+    template: "templates/{{ cert_manager_provider }}/ibm-cert-manager.yml"
+    wait: yes
+    wait_timeout: 600
+
+- name: "uninstall : Wait for ibm-cert-manager-operator to be terminated"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-cert-manager-operator
+    namespace: ibm-common-services
+    kind: Deployment
+  register: certmanager_deployment
+  until:
+    - certmanager_deployment.resources is defined
+    - certmanager_deployment.resources | length == 0
+  retries: 10
+  delay: 30 # seconds
+
+- name: "uninstall : Wait for cert-manager-webhook deployment to be terminated"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-webhook
+    namespace: ibm-common-services
+    kind: Deployment
+  register: certmanager_webhook_deployment
+  until:
+    - certmanager_webhook_deployment.resources is defined
+    - certmanager_webhook_deployment.resources | length == 0
+  retries: 10
+  delay: 30 # seconds
+
+# 3. Delete the cs-ca and cs ss Issuers
+# -----------------------------------------------------------------------------
+# We have to delete these after deleting the operator, otherwise they are
+# automatically recreated
+- name: "uninstall : Delete cs-ca-certificate Certificate"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cert-manager.io/v1
+    kind: Issuer
+    name: cs-ca-issuer
+    namespace: ibm-common-services
+    wait: yes
+    wait_timeout: 600
+
+- name: "uninstall : Delete cs-ca-certificate Certificate"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cert-manager.io/v1
+    kind: Issuer
+    name: cs-ss-issuer
+    namespace: ibm-common-services
+    wait: yes
+    wait_timeout: 600

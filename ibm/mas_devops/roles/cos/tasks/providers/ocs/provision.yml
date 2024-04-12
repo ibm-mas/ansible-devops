@@ -94,12 +94,14 @@
 # is necessary :)
 - name: "ocs/objectstorage : Set COS cert variable"
   set_fact:
-    ocscos_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+    ocscos_tls_crt: "{{ cluster_ingress_tls_crt }}"
 
 # Load uds_certs template to dynamically set as many uds certificates as identified
 - set_fact:
     ocscos_certs: "{{ lookup('ansible.builtin.template', 'templates/ocs/ocs-certs.yml.j2') }}"
-  when: ocscos_tls_crt | length > 0
+  when:
+    - ocscos_tls_crt is defined
+    - ocscos_tls_crt | length > 0
 
 - name: "ocs/objectstorage : Query cos secret based on existing secret/cm"
   when:

@@ -7,7 +7,7 @@
 - name: "Create olm-utils-cm config map for cpd release {{ cpd_product_version }}"
   kubernetes.core.k8s:
     apply: yes
-    template: '{{ role_path }}/../cp4d/templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2'
+    definition: "{{ lookup('template', '{{ role_path }}/../cp4d/templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2') }}"
 
 - name: "Lookup olm-utils-cm config map to know which CPD service version to install/upgrade for release {{ cpd_product_version }}"
   kubernetes.core.k8s_info:
@@ -89,22 +89,10 @@
 # 5. Wait until the Service CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the {{ cpd_service_info[cpd_service_name].crd_name }} CRD is available"
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    name: "{{ cpd_service_info[cpd_service_name].crd_name }}"
-    kind: CustomResourceDefinition
-    wait: yes
-    wait_sleep: 10
-    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
-    wait_condition:
-      type: NamesAccepted
-      status: "True"
-  register: service_crd_info
-  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
-  delay: 5 # seconds
-  until:
-    - service_crd_info.resources is defined
-    - service_crd_info.resources | length > 0
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: "{{ cpd_service_info[cpd_service_name].crd_name }}"
+
 
 # 6.  Pause for 3 minutes for Watson Discovery to come up
 # -----------------------------------------------------------------------------

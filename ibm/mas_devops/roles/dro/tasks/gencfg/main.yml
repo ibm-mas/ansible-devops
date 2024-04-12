@@ -4,12 +4,14 @@
 
 # Check dro contact info
 - name: "drocfg : Fail if DRO contact information has not been provided"
+  when: dro_migration | lower != "true"
   assert:
     that:
       - dro_contact.email is defined and dro_contact.email != ""
       - dro_contact.first_name is defined and dro_contact.first_name != ""
       - dro_contact.last_name is defined and dro_contact.last_name != ""
     fail_msg: "One or more required environment variables are not defined [DRO_CONTACT_EMAIL, DRO_CONTACT_FIRSTNAME, DRO_CONTACT_LASTNAME]"
+
 
 # 1. Lookup the endpoint route
 # -----------------------------------------------------------------------------
@@ -35,7 +37,6 @@
   when: (dro_route.resources | length == 1)
 
 # 2. Lookup the DRO API key
-# -----------------------------------------------------------------------------
 - name: "drocfg : Create ibm-data-reporter-operator-api SA token secret"
   k8s:
     state: present
@@ -73,13 +74,15 @@
 # Break up the certificate into an array
 - name: "udscfg : Set UDS cert variable"
   set_fact:
-    dro_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+    dro_tls_crt: "{{ cluster_ingress_tls_crt }}"
   no_log: true
 
 # Load uds_certs template to dynamically set as many uds certificates as identified
 - set_fact:
     dro_certs: "{{ lookup('ansible.builtin.template', 'templates/dro-certs.yml.j2') }}"
-  when: dro_tls_crt | length > 0
+  when:
+    - dro_tls_crt is defined
+    - dro_tls_crt | length > 0
 
 - name: "gencfg : Fail if dro_tls_crt has not been provided"
   assert:
@@ -105,4 +108,22 @@
     src: bascfg.yml.j2
     dest: "{{ mas_config_dir }}/dro.yml"
     mode: "664"
-  when: mas_instance_id is defined
+  when:
+    - mas_instance_id is defined
+    - dro_migration | lower != "true"
+
+# 6. DRO Migration: Clean BASCfg of UDS
+# -----------------------------------------------------------------------------
+- name: "gencfg: get existing UDS BASCfg"
+  k8s_info:
+    api_version: config.mas.ibm.com/v1
+    kind: BasCfg
+  register: udscfgs
+  when:
+    - dro_migration != "" and dro_migration | lower == "true"
+
+- name: CleanUp UDS BASCfgs and Create DRO BASCfgs
+  include_tasks: "tasks/gencfg/migrate.yml"
+  loop: "{{ udscfgs.resources }}"
+  when:
+    - dro_migration != "" and dro_migration | lower == "true"

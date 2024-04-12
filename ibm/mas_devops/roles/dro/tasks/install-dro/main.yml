@@ -6,18 +6,13 @@
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
 
 
-# 2. Load default storage class (if not provided by the user)
-# -----------------------------------------------------------------------------
-- include_tasks: tasks/install-dro/determine-storage-classes.yml
-
-# 3. Display DRO deployment details
+# 2. Display DRO deployment details
 # -----------------------------------------------------------------------------
 - name: "DRO Deployment details"
   debug:
     msg:
       - "DRO Namespace ...................... redhat-marketplace"
       - "IBM entitlement key................. Can get from https://myibm.ibm.com/products-services/containerlibrary"
-      - "DRO CSV Version..................... {{ dro_version }}"
       - "MAS Instance ID .................... {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS Config Directory ............... {{ mas_config_dir | default('<undefined>', True) }}"
       - "DRO Contact First Name ............. {{ dro_contact.first_name | default('<undefined>', True) }}"
@@ -25,11 +20,8 @@
       - "DRO Contact e-mail ................. {{ dro_contact.email | default('<undefined>', True) }}"
 
 
-# 4. Install DRO Prerequisites
-# -----------------------------------------------------------------------------
-
-# Check redhat-marketplace operator exists
-# -----------------------------------------------------------------------------
+# 3. Check redhat-marketplace operator exists
+# ----------------------------------------------------------------------------
 - name: Check if operator group is present in redhat-marketplace already
   kubernetes.core.k8s_info:
     namespace: redhat-marketplace
@@ -40,7 +32,26 @@
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/operatorgroup.yml.j2') }}"
 
-# Create Marketplace Pull Secret
+
+# 4. Create a PVC using the Chosen Storage Class
+# ----------------------------------------------------------------------------
+- name: "Debug User Provided DRO Storage Class"
+  debug:
+    msg:
+      - "User Provided DRO Storage Class Name ..................... {{ dro_storage_class }}"
+  when: dro_storage_class is defined and (dro_storage_class | length > 0)
+
+- name: Determine Storage Class
+  include_tasks: tasks/install-dro/determine-storage-classes.yml
+  when: dro_storage_class is not defined or dro_storage_class == ""
+
+- name: Create DRO PVC
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/dro-pvc.yml.j2') }}"
+
+
+# 5. Create Marketplace Pull Secret
+# ----------------------------------------------------------------------------
 - name: Get marketplace secret
   kubernetes.core.k8s_info:
     api_version: v1
@@ -48,6 +59,32 @@
     name: "redhat-marketplace-pull-secret"
     namespace: redhat-marketplace
   register: rm_sec
+
+- name: get IBM Entitlement Key while Migration
+  when: dro_migration is defined and dro_migration | lower == "true"
+  block:
+    - name: Lookup ibm entitlement secret
+      k8s_info:
+        api_version: v1
+        kind: Secret
+        name: ibm-entitlement-key
+        namespace: ibm-common-services
+      register: ent_sec
+
+    - name: set fact
+      when: ent_sec.resources is defined and ent_sec.resources | length != 0
+      set_fact:
+        ibment: "{{ent_sec.resources[0].data['.dockerconfigjson'] |b64decode |from_json}}"
+
+    - name: set ibm-entitlement-key for cp.icr.io/cp
+      set_fact:
+        ibm_entitlement_key: "{{ibment.auths['cp.icr.io/cp'].password}}"
+      when: ibment is defined and ibment.auths['cp.icr.io/cp'] is defined
+
+    - name: set ibm-entitlement-key for artifactory
+      set_fact:
+        ibm_entitlement_key: "{{ibment.auths['docker-na-public.artifactory.swg-devops.com/wiotp-docker-local'].password}}"
+      when: ibment is defined and ibment.auths['docker-na-public.artifactory.swg-devops.com/wiotp-docker-local'] is defined
 
 - name: Check IBM Entitlement Key
   ansible.builtin.assert:
@@ -57,23 +94,16 @@
     fail_msg: "Provide IBM Entitlement Key, Access https://myibm.ibm.com/products-services/containerlibrary using your IBMId to access your entitlement key"
   when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
-- name: "Create Secret redhat-marketplace-pull-secret"
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/rhm-pull-secret.yml.j2') }}"
-  when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
-
-# 4.1 Load PodTemplates configuration
+# 6. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
 - name: "Load podTemplates configuration"
   include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
   vars:
     config_files: ["ibm-mas-bascfg.yml"]
 
-# 5. Install DRO
-# -----------------------------------------------------------------------------
 
-# Install ibm-metrics-operator
+# 7. Install ibm-metrics-operator
 # -----------------------------------------------------------------------------
 - name: Get ibm-metrics-operator Subscription
   kubernetes.core.k8s_info:
@@ -116,7 +146,7 @@
   when: (imo_subscription.resources is defined) and (imo_subscription.resources | length == 0)
 
 
-# Install ibm-data-reporter-operator
+# 8. Install ibm-data-reporter-operator
 # -----------------------------------------------------------------------------
 - name: Get ibm-data-operator Subscription
   kubernetes.core.k8s_info:
@@ -148,17 +178,6 @@
     dro_source_namespace: "{{ dro_manifest.resources[0].status.catalogSourceNamespace }}"
     dro_default_channel: "{{ dro_manifest.resources[0].status.defaultChannel }}"
 
-- name: Set DRO default startingCSV
-  set_fact:
-    dro_csv: "{{ item.currentCSV }}"
-  with_items: "{{ dro_manifest.resources[0].status.channels }}"
-  when: (dro_manifest.resources is defined) and (item.name == dro_default_channel) and (dro_version|length  == 0)
-
-- name: Set DRO custom startingCSV
-  set_fact:
-    dro_csv: "ibm-data-reporter-operator.v{{ dro_version }}"
-  when: (dro_version|length != 0)
-
 - name: "Create Subscription ibm-data-reporter-operator"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/subscription/dro_subscription.yml') }}"
@@ -166,92 +185,31 @@
     wait_timeout: 60
   when: (dro_subscription.resources is defined) and (dro_subscription.resources | length == 0)
 
-# Install redhat-marketplace-operator
+
+# 9. Wait until the marketplaceconfigs CRD is available
 # -----------------------------------------------------------------------------
+- name: "Wait until the marketplaceconfigs CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: marketplaceconfigs.marketplace.redhat.com
 
-- name: Get ibm-metrics-operator Subscription
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: "redhat-marketplace-operator"
-    namespace: redhat-marketplace
-  register: rmo_subscription
 
-- name: Get redhat-marketplace-operator package manifest
-  kubernetes.core.k8s_info:
-    api_version: packages.operators.coreos.com/v1
-    kind: PackageManifest
-    name: "redhat-marketplace-operator"
-    namespace: redhat-marketplace
-  register: rmo_manifest
-  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
-
-- name: Assert that PackageManifest exists
-  ansible.builtin.assert:
-    that:
-      - rmo_manifest is defined
-      - rmo_manifest.resources is defined
-      - rmo_manifest.resources | length == 1
-    fail_msg: "PackageManifest not found: redhat-marketplace-operator"
-  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
-
-- name: Set the subscription information redhat-marketplace-operator
-  set_fact:
-    rmo_source: "{{ rmo_manifest.resources[0].status.catalogSource }}"
-    rmo_source_namespace: "{{ rmo_manifest.resources[0].status.catalogSourceNamespace }}"
-    rmo_default_channel: "{{ rmo_manifest.resources[0].status.defaultChannel }}"
-  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
-
-- name: "Create Subscription redhat-marketplace-operator"
+# 10. Apply MarketplaceConfig CR
+# -----------------------------------------------------------------------------
+- name: Create MarketplaceConfig CR
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/subscription/rmo_subscription.yml') }}"
-    wait: yes
-    wait_timeout: 120
-  when: (rmo_subscription.resources is defined) and (rmo_subscription.resources | length == 0)
+    definition: "{{ lookup('template', 'templates/MarketplaceConfig-cr.yml.j2') }}"
 
-# Accept License
+
+# 11. Create DRO Pull Secret
 # -----------------------------------------------------------------------------
-- name: Get MarketplaceConfig
-  kubernetes.core.k8s_info:
-    api_version: marketplace.redhat.com/v1alpha1
-    kind: MarketplaceConfig
-    namespace: redhat-marketplace
-    name: marketplaceconfig
-  register: marketplacecfg
-  until:
-    - "{{ marketplacecfg.resources|length > 0 }}"
-  retries: 20
-  delay: 20 # seconds
-
-- name: "Accept marketplaceconfig license"
-  kubernetes.core.k8s_json_patch:
-    api_version: marketplace.redhat.com/v1alpha1
-    kind: MarketplaceConfig
-    namespace: redhat-marketplace
-    name: marketplaceconfig
-    patch:
-      - op: "replace"
-        path: "/spec/license/accept"
-        value: true
+- name: "Create Secret redhat-marketplace-pull-secret"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/rhm-pull-secret.yml.j2') }}"
+  when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
 
-# 6. Set Disconnected
-# -----------------------------------------------------------------------------
-- name: "Patch marketplaceconfig for airgap install"
-  kubernetes.core.k8s_json_patch:
-    api_version: marketplace.redhat.com/v1alpha1
-    kind: MarketplaceConfig
-    namespace: redhat-marketplace
-    name: marketplaceconfig
-    patch:
-      - op: "replace"
-        path: "/spec/isDisconnected"
-        value: "{{ airgap_install }}"
-    wait_timeout: 60
-    wait: yes
-  when: airgap_install
-
-# 7. Check deployment status
+# 12. Check deployment status
 # -----------------------------------------------------------------------------
 - name: "Wait for the rhm-data-service to be ready"
   kubernetes.core.k8s_info:

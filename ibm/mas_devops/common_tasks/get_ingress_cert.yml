@@ -61,7 +61,14 @@
       ansible.builtin.set_fact:
         cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt_full if (include_cluster_ingress_cert_chain) else cluster_ingress_tls_crt_full[0] }}"
 
-    - name: "Format to list all certificates in the chain"
+    # When the certificate content is retrieved as a list, need to ensure its content is not treated as a list of characters
+    - name: "Format all certificates in the chain (from list)"
       ansible.builtin.set_fact:
         cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt | join('') }}"
-      when: cluster_ingress_tls_crt | type_debug == 'list' and cluster_ingress_tls_crt | length > 0
+      when: cluster_ingress_tls_crt and cluster_ingress_tls_crt | type_debug == 'list' and cluster_ingress_tls_crt | length > 0
+
+    # When the certificate content is retrieved as a string, need to filter its content into valid certificates and map them into a list
+    - name: "Format all certificates in the chain (from text/string)"
+      ansible.builtin.set_fact:
+        cluster_ingress_tls_crt: "{{ cluster_ingress_tls_crt | regex_findall('(?s)(-----BEGIN .+?-----.+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+      when: cluster_ingress_tls_crt and cluster_ingress_tls_crt | type_debug != 'list'

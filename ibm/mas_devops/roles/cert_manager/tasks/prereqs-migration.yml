@@ -1,0 +1,50 @@
+---
+# 1. If IBM Certificate Manager is installed, store configmap know that migration to Red Hat Cert Manager is needed
+# This will help if something fails in the middle of the migration and need to rerun the automation
+# but IBM Certificate Manager might have been gone already
+# -----------------------------------------------------------------------------
+- name: "prereqs-migration: Patch mas-rh-cert-manager-config to define migration is needed"
+  kubernetes.core.k8s:
+    merge_type: merge
+    api_version: v1
+    kind: ConfigMap
+    name: mas-rh-cert-manager-config
+    namespace: ibm-common-services
+    definition:
+      data:
+        cert_manager_cluster_resource_namespace: ibm-common-services
+
+# 2. Delete IBM Certificate Manager resources - Default custom resource
+# This will delete all IBM Certificate Manager pods but will keep the ibm-cert-manager-operator (still going to be needed to delegate requests to Red Hat Certificate Manager)
+# Delete CertManager CR prior deleting OperandRequest otherwise both might end up stuck in terminating status
+# -----------------------------------------------------------------------------
+- name: "prereqs-migration: Delete the IBM Cert-Manager default Custom Resource"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "operator.ibm.com/v1alpha1"
+    kind: "CertManager"
+    name: "default"
+    wait: true
+    wait_timeout: 600 # 10 minutes
+
+# 3. Delete IBM Certificate Manager resources - OperandRequest
+# -----------------------------------------------------------------------------
+- name: "prereqs-migration: Delete IBM Cert-Manager OperandRequest"
+  kubernetes.core.k8s:
+    state: absent
+    template: "templates/ibm/ibm-cert-manager.yml"
+    wait: yes
+    wait_timeout: 600 # 10 minutes
+
+- name: "prereqs-migration: Wait for cert-manager-webhook deployment to be terminated"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-webhook
+    namespace: ibm-common-services
+    kind: Deployment
+  register: certmanager_webhook_deployment
+  until:
+    - certmanager_webhook_deployment.resources is defined
+    - certmanager_webhook_deployment.resources | length == 0
+  retries: 10
+  delay: 30 # seconds

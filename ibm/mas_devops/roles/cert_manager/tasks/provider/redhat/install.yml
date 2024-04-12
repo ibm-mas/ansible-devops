@@ -1,0 +1,194 @@
+---
+# The following Red Hat Certificate subscription/operator will be installed in the 'cert-manager-operator' namespace:
+# - cert-manager-operator-controller-manager
+#
+# The following Red Hat Certificate deployment and pods will be installed in the 'cert-manager' namespace:
+# - cert-manager
+# - cert-manager-cainjector
+# - cert-manager-webhook
+
+# 1. Check whether IBM Certificate Manager cert-manager is installed
+# -----------------------------------------------------------------------------
+- name: "install: Check if IBM Certificate Manager is already installed"
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1alpha1
+    name: common-service
+    namespace: "ibm-common-services"
+    kind: OperandRequest
+  register: cs_operand_lookup
+
+- set_fact:
+    cpfs_cm_installed: "{{ cs_operand_lookup.resources[0].spec.requests[0].operands[0].name == 'ibm-cert-manager-operator'}}"
+  when:
+    - cs_operand_lookup.resources[0].spec.requests[0].operands[0].name is defined
+
+- debug:
+    msg: "IBM Certificate Manager installed .................... {{ cpfs_cm_installed | default(false, true) | bool }}"
+
+
+# 2. Disable IBM Cert Manager OperandRequest
+# -----------------------------------------------------------------------------
+# Check if Operand Deployment Lifecycle Manager is installed
+# If Operand Deployment Lifecycle Manager is not installed
+# then no point on disabling IBM cert manager OperandRequest
+- name: "install : Check if ODLM is installed"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: "ibm-common-services"
+    kind: Deployment
+  register: odlm_lookup
+
+# This step will configure ibm-cert-manager-operator to make use of a
+# self managed CNCF cert-manager, so that no additional operands are installed.
+# Add deployCSCertManagerOperands: "false" to the data.
+# Using 'merge' just in case the configmap is already present
+- name: "install: Disable IBM Cert Manager OperandRequest via ibm-ccp-config"
+  when:
+    - odlm_lookup.resources is defined
+    - odlm_lookup.resources | length > 0
+  kubernetes.core.k8s:
+    merge_type: merge
+    template: "templates/{{ cert_manager_provider }}/ibm-cpp-configmap.yml.j2"
+    wait: yes
+    wait_timeout: 120 # 2 minutes
+
+
+# 3. If IBM Certificate Manager is installed, run pre-requisite steps to migrate to Red Hat Certificate Manager
+# -----------------------------------------------------------------------------
+# - Set 'cert_manager_cluster_resource_namespace: ibm-common-services' in CertManager CR
+# - Delete IBM Certificate Manager OperandRequest
+# - Delete IBM Certificate Manager Custom Resource
+# - Wait IBM Certificate Manager deployment to be gone
+- name: "install: Prepare migration to Red Hat Certificate Manager"
+  include_tasks: prereqs-migration.yml
+  when:
+    - cpfs_cm_installed is defined
+    - cpfs_cm_installed is true
+
+
+# 4. Create RHCM Subscription
+# -----------------------------------------------------------------------------
+- name: "install : Create Red Hat Certificate Manager Subscription"
+  include_tasks: "{{ role_path }}/../../common_tasks/create_subscription.yml"
+  vars:
+    subscription_namespace: "{{ cert_manager_operator_namespace }}"
+    package_name: openshift-cert-manager-operator
+    channel_name: stable-v1
+
+
+# 5. Wait for Subscription to be processed
+# -----------------------------------------------------------------------------
+- name: "install: Wait for Red Hat cert-manager-operator-controller-manager to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-operator-controller-manager
+    namespace: "{{ cert_manager_operator_namespace }}"
+    kind: Deployment
+  register: certmanager_deployment
+  until:
+    - certmanager_deployment.resources is defined
+    - certmanager_deployment.resources | length > 0
+    - certmanager_deployment.resources[0].status is defined
+    - certmanager_deployment.resources[0].status.replicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas == certmanager_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+
+
+# 6. Create the CertManager instance
+# -----------------------------------------------------------------------------
+- name: "install: Wait for CertManager Cluster Custom Resource to be created"
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1alpha1
+    name: cluster
+    kind: CertManager
+  register: certmanager_cluster_cr
+  until:
+    - certmanager_cluster_cr.resources is defined
+    - certmanager_cluster_cr.resources | length > 0
+  retries: 10 # Approximately 5 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: "install: Lookup mas-rh-cert-manager-config configmap"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: mas-rh-cert-manager-config
+    namespace: ibm-common-services
+    kind: ConfigMap
+  register: configmap_output
+
+- name: "install: Set Certificate Manager Cluster Resource Namespace from ibm-ccp-config configmap data"
+  set_fact:
+    cert_manager_cluster_resource_namespace: "{{ configmap_output.resources[0].data.cert_manager_cluster_resource_namespace }}"
+  when: configmap_output.resources[0].data.cert_manager_cluster_resource_namespace is defined
+
+- debug:
+    msg: "Certificate Manager Cluster Resource Namespace .............. {{ cert_manager_cluster_resource_namespace | default(cert_manager_namespace, true )}}"
+
+# The ClusterIssuer resource is cluster scoped. This means that when referencing a secret via the secretName field
+# secrets will be looked for in the Cluster Resource Namespace. By default, this namespace is cert-manager
+# however it can be changed via '--cluster-resource-namespace' on the cert-manager-controller
+- name: "install: Patch CertManager CR to define Cluster Resource Namespace"
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition: "{{ lookup('template', 'templates/redhat/cert-manager-cluster.yml.j2') }}"
+
+- name: "install: Wait for Red Hat cert-manager-operator to be up again (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager
+    namespace: "{{ cert_manager_namespace }}"
+    kind: Deployment
+  register: certmanager_deployment
+  until:
+    - certmanager_deployment.resources is defined
+    - certmanager_deployment.resources | length > 0
+    - certmanager_deployment.resources[0].status is defined
+    - certmanager_deployment.resources[0].status.replicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas is defined
+    - certmanager_deployment.resources[0].status.readyReplicas == certmanager_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+
+- name: "install: Wait for Red Hat cert-manager-webhook deployment to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: cert-manager-webhook
+    namespace: "{{ cert_manager_namespace }}"
+    kind: Deployment
+  register: certmanager_webhook_deployment
+  until:
+    - certmanager_webhook_deployment.resources is defined
+    - certmanager_webhook_deployment.resources | length > 0
+    - certmanager_webhook_deployment.resources[0].status is defined
+    - certmanager_webhook_deployment.resources[0].status.replicas is defined
+    - certmanager_webhook_deployment.resources[0].status.readyReplicas is defined
+    - certmanager_webhook_deployment.resources[0].status.readyReplicas == certmanager_webhook_deployment.resources[0].status.replicas
+  retries: 60 # Approximately 1/2 hour before we give up
+  delay: 60 # 1 minute
+
+
+# 5. Update IBM CIS Webhook Cluster Role Binding to point to Red Hat Certificate Manager
+# -----------------------------------------------------------------------------
+# Assuming IBM Certificate Manager is being migrated to Red Hat Certificate Manager,
+# if cert-manager-webhook-ibm-cis pod is running as part of the CIS configuration (suite_dns role)
+# then Cluster Role Binding 'cert-manager-webhook-ibm-cis:domain-solver' needs to be updated to
+# lookup to the new Red Hat Certificate Manager service account and namespace
+# otherwise the Red Hat Certificate Manager won't have enough permissions to resolve DNS domains due the following error:
+#
+# cis.acme.cis.ibm.com is forbidden: User "system:serviceaccount:cert-manager:cert-manager" cannot create resource "cis" in API group "acme.cis.ibm.com" at the cluster scope
+#
+# The following step will allow Red Hat Certificate Manager to work with CIS webhook seamlessly after migration (if that's already configured in the target cluster)
+- name: "install: Check if cert-manager-webhook-ibm-cis is running"
+  shell: oc get pods -A | grep cert-manager-webhook-ibm-cis | awk '{print $1}' # should return the namespace where the cert-manager-webhook-ibm-cis is running i.e ibm-common-services
+  register: cert_manager_webhook_cis_lookup
+
+- name: "install: Update cert-manager-webhook-ibm-cis cluster role binding to point to Red Hat Certificate Manager install"
+  vars:
+    cert_manager_service_account: cert-manager
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition: "{{ lookup('template', 'templates/redhat/cert-manager-webhook-ibm-cis-crb.yml.j2') }}"
+  when: cert_manager_webhook_cis_lookup.stdout_lines | length > 0

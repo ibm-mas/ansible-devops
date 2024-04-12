@@ -1,0 +1,22 @@
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
+  name: "{{ v4_dashboard.metadata.name }}"
+  namespace: "{{ v4_dashboard.metadata.namespace }}"
+{% if v4_dashboard.metadata.labels is defined %}
+  labels:
+{% for key, value in v4_dashboard.metadata.labels.items() %}
+    "{{ key }}": "{{ value }}"  
+{% endfor %}
+{% endif %}    
+spec:
+{% if v4_dashboard.spec.name is defined %}
+  name: "{{ v4_dashboard.spec.name }}"
+{% endif %}  
+  allowCrossNamespaceImport: true
+  instanceSelector:
+    matchLabels:
+      dashboards: "grafanav5"
+  json: |-
+    {{ v4_dashboard.spec.json | from_json | to_nice_json | indent(4)}}

@@ -7,7 +7,7 @@
 - name: "Load default storage class information"
   include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
 
-- name: Lookup storage dro
+- name: Lookup storage classes
   kubernetes.core.k8s_info:
     api_version: storage.k8s.io/v1
     kind: StorageClass
@@ -15,7 +15,8 @@
 
 - name: "Debug available storage classes"
   debug:
-    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
+    msg:
+      - "Available storage classes .................. {{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
 
 
 # 2. Set Storage (Required)
@@ -28,7 +29,7 @@
 - name: Assert that storage class has been defined
   assert:
     that: dro_storage_class is defined and dro_storage_class != ""
-    fail_msg: "dro_storage_class must be defined"
+    fail_msg: "Unable to auto determine dro_storage_class"
 
 
 # 3. Debug storage class configuration
@@ -36,17 +37,4 @@
 - name: "Debug DRO storage class configuration"
   debug:
     msg:
-      - "Storage class (dro) .................... {{ dro_storage_class }}"
-
-# 3. Check if storage class have default annotation
-# -----------------------------------------------------------------------------
-- name: add default annotation to DRO storageclass
-  kubernetes.core.k8s:
-    state: patched
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-    name: "{{ dro_storage_class }}"
-    definition:
-      metadata:
-        annotations:
-          storageclass.kubernetes.io/is-default-class: 'true'
+      - "Auto Detected Storage class for DRO .................... {{ dro_storage_class }}"
