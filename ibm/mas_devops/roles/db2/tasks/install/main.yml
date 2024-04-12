@@ -15,11 +15,9 @@
       - db2_dbname | length <= 8
     fail_msg: "Property value of db2_dbname is set to '{{ db2_dbname }}' and is greater than 8 character long."
 
-
 # 2. Load default storage classes (if not provided by the user)
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/determine-storage-classes.yml
-
 
 # 3. Setup the norootsquash daemonsets for db2u pods to work with NFS backed storage
 # -----------------------------------------------------------------------------
@@ -122,7 +120,6 @@
     msg:
       - "Db2 Channel ............................ {{ db2_channel }}"
 
-
 # 6. Install a Db2u Operator
 # -----------------------------------------------------------------------------
 - name: "Create db2u Namespace"
@@ -137,7 +134,7 @@
     entitledAuthStr: "{{ registry_user }}:{{ ibm_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
-      - "{\"auths\":{\"{{ registry }}/cp/cpd\":{\"username\":\"{{ registry_user }}\",\"password\":\"{{ ibm_entitlement_key }}\",\"email\":\"{{ registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
+      - '{"auths":{"{{ registry }}/cp/cpd":{"username":"{{ registry_user }}","password":"{{ ibm_entitlement_key }}","email":"{{ registry_user }}","auth":"{{ entitledAuth }}"}'
       - "}"
       - "}"
   set_fact:
@@ -167,8 +164,6 @@
     package_name: db2u-operator
     channel_name: "{{ db2_channel }}"
 
-
-
 # 7. Get the cluster subdomain to be used for the certificate and route creation
 # -----------------------------------------------------------------------------
 - name: "Get cluster subdomain"
@@ -177,7 +172,6 @@
     kind: Ingress
     name: cluster
   register: _cluster_subdomain
-
 
 # 8. Create self-signed certificate for Db2u SSL
 # -----------------------------------------------------------------------------
@@ -210,14 +204,12 @@
     definition: "{{ lookup('template', 'templates/certs/certificate.yml.j2') }}"
   register: createCertificate
 
-
 # 9. Wait until the Db2uCluster CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the Db2uCluster CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: "db2uclusters.db2u.databases.ibm.com"
-
 
 # 10. Get information from the db2u-release ConfigMap
 # -----------------------------------------------------------------------------
@@ -251,7 +243,6 @@
 
   when: db2_version is not defined or db2_version == ""
 
-
 # 11. Fail if required parameters are not set
 # -----------------------------------------------------------------------------
 - name: "Verify db2_channel and db2_version set"
@@ -267,7 +258,6 @@
       - "Db2 Channel ............................ {{ db2_channel }}"
       - "Db2 Version ............................ {{ db2_version }}"
 
-
 # 12. Lookup db2 instance to see if it exists already
 # -----------------------------------------------------------------------------
 - name: "See if db2u instance already exists"
@@ -278,14 +268,12 @@
     kind: Db2uCluster
   register: initial_db2_cluster_lookup
 
-
 # 13. Create a Db2 instance
 # -----------------------------------------------------------------------------
 - name: "Create db2 instance"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/db2ucluster.yml.j2') }}"
-
 
 # 14. Wait for the cluster to be ready
 # -----------------------------------------------------------------------------
@@ -304,7 +292,6 @@
     - db2_cluster_lookup.resources[0].status.state == "Ready"
   retries: 24 # Approximately 2 hours before we give up
   delay: 300 # 5 minutes
-
 
 # 15. Configure a public route for Db2
 # -----------------------------------------------------------------------------
@@ -371,7 +358,6 @@
     namespace: "{{db2_namespace}}"
     state: absent
 
-
 # 16. Delete db2 pod on intial setup only, to workaround db2 issue
 # that was causing TLS connection issues when the pod was first started
 # -----------------------------------------------------------------------------
@@ -383,7 +369,6 @@
     namespace: "{{db2_namespace}}"
     state: absent
   when: initial_db2_cluster_lookup.resources | length == 0
-
 
 # 17. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
@@ -401,7 +386,6 @@
       - "{{db2_ldap_username}}"
       - "{{db2_rotate_password}}"
 
-
 # 18. Rotate db2 ldap password
 # -----------------------------------------------------------------------------
 - name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
@@ -410,7 +394,6 @@
     - db2_ldap_username is defined
     - db2_ldap_username != ""
     - db2_rotate_password == true
-
 
 # 19. Wait for the statefulset to be ready
 # -----------------------------------------------------------------------------
@@ -430,7 +413,6 @@
     - db2_sts.resources[0].status.readyReplicas == db2_sts.resources[0].status.replicas
   retries: 20 # approx 10 minutes before we give up
   delay: 30 # seconds
-
 
 # 20. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
