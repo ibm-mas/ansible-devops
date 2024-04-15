@@ -369,6 +369,15 @@ def _setSystemProperties(data, meaweb_value, oslc_rest_value, webapp_value, rest
     sb_list.append(sb)
   return sb_list
 
+def format_pre_version_with_plus(data):
+  """
+  Versions in format 9.0.0-pre.stable-3757 cannot be used to compare with the version
+  reconciled by operators, which is in format 9.0.0-pre.stable+3757. This function is to
+  format version to make it comparable (replacing last "-" by "+")
+  """
+  if "pre" not in data or data.count("-") < 2:
+    return data
+  return data[::-1].replace("-", "+", 1)[::-1]
 
 class FilterModule(object):
   def filters(self):
@@ -388,4 +397,5 @@ class FilterModule(object):
       'setManageDoclinksProperties': setManageDoclinksProperties,
       'setManageFsDoclinksProperties': setManageFsDoclinksProperties,
       'setSystemProperties': _setSystemProperties,
+      'format_pre_version_with_plus': format_pre_version_with_plus
     }
