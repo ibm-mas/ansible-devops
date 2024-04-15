@@ -1,0 +1,140 @@
+# This task installs Cloud Pak Foundational Services v4 into ibm-cpd-operators namespace in isolated mode.
+# This won't install CPFS v3 as we will continue to have separate role for that (common_service).
+---
+- name: Lookup ibm-common-service packagemanifest
+  k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: ibm-common-service-operator
+    namespace: "{{ cpfs_catalog_source_namespace }}"
+  register: common_service_manifest_info
+
+# If CPD 4.8 or higher, we'll get the latest channel available in packagemanifest, else, we'll get the default channel
+- name: Set ibm-common-service-operator channel
+  set_fact:
+    cpfs_available_channel: "{{ common_service_manifest_info.resources[0].status.channels | map(attribute='name') | last }}"
+
+- debug:
+    msg:
+      - "IBM Foundational Services channel in package manifest ............ {{ cpfs_available_channel }}"
+      - "IBM Foundational Services channel ................................ {{ cpfs_channel }}"
+      - "IBM Foundational Services version ................................ {{ cpfs_version }}"
+      - "Catalog source name .............................................. {{ cpfs_catalog_source_name }}"
+      - "Catalog source namespace ......................................... {{ cpfs_catalog_source_namespace }}"
+
+- assert:
+    that: cpfs_available_channel is version(cpfs_channel, '>=')
+    fail_msg: "The channel available in ibm-common-service-operator package manifest (cpfs_available_channel) is older than the minimum required version {{ cpfs_channel }} needed by Cloud Pak for Data {{ cpd_product_version }}!"
+
+# Backup and delete existing common-service-maps
+- name: "Lookup existing common-service-maps configmap"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    namespace: "kube-public"
+    name: "common-service-maps"
+  register: common_service_maps_lookup
+
+- debug:
+    var: common_service_maps_lookup
+
+- when:
+    - common_service_maps_lookup.resources is defined
+    - common_service_maps_lookup.resources | length == 1
+  block:
+    - name: "Backup existing common-service-maps configmap"
+      vars:
+        data: "{{ common_service_maps_lookup.resources[0] }}"
+      kubernetes.core.k8s:
+        state: present
+        namespace: "kube-public"
+        definition: "{{ lookup('template', 'templates/cpfs/common-service-maps-cm-blank.yml.j2') }}"
+
+    - name: "Delete existing common-service-maps configmap"
+      kubernetes.core.k8s:
+        state: absent
+        kind: ConfigMap
+        namespace: "kube-public"
+        name: "common-service-maps"
+      register: common_service_maps_delete
+
+    - debug:
+        var: common_service_maps_delete
+
+# Backup and delete existing common-service-maps
+- name: "Install common-services-maps configmap"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/cpfs/common-service-maps-cm.yml.j2'
+
+# Clean up old ibm-common-service and cpd-platform operators
+# -----------------------------------------------------------------------------
+- name: "Clean up old ibm-common-service and cpd-platform operator subscriptions from {{ cpd_operators_namespace }}"
+  vars:
+    operator_name: "{{ cpd_subs_item }}"
+    operator_namespace: "{{ cpd_operators_namespace }}"
+  include_tasks: "tasks/prereqs/uninstall-operator.yml"
+  loop:
+    - cpd-platform-operator
+    - ibm-common-service-operator
+  loop_control:
+    loop_var: cpd_subs_item
+
+- name: "Install IBM Foundational Services Subscription"
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/cpfs/subscription.yml.j2'
+
+# 2. Patch ZenService lite-cr to set the zen version and increase resource limits
+# ----------------------------------------------------------------------------------------------
+- name: "Wait for ibm-common-service-operator to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-common-service-operator
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: Deployment
+  register: cpfs_operator_lookup
+  until: cpfs_operator_lookup.resources[0].status.availableReplicas is defined
+  retries: 20 # Approximately 20 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Wait for CommonService instance to be present in {{ cpd_operators_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v3
+    name: common-service
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: CommonService
+  register: commonservices_operators_lookup
+  until:
+    - commonservices_operators_lookup.resources is defined
+    - commonservices_operators_lookup.resources | length > 0
+  retries: 60 # approx 30 minutes before we give up
+  delay: 30 # seconds
+
+- name: "Patch CommonService instance to size {{ cpfs_size }} "
+  kubernetes.core.k8s:
+    api_version: operator.ibm.com/v3
+    name: common-service
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: CommonService
+    apply: yes
+    definition:
+      spec:
+        size: "{{ cpfs_size }}"
+
+- name: "Wait for CommonService instance to be ready in {{ cpd_operators_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v3
+    name: common-service
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: CommonService
+  register: commonservices_operators_output
+  until:
+    - commonservices_operators_output.resources is defined
+    - commonservices_operators_output.resources | length > 0
+    - commonservices_operators_output.resources[0].status.overallStatus is defined
+    - commonservices_operators_output.resources[0].status.overallStatus == "Succeeded"
+    - commonservices_operators_output.resources[0].status.phase is defined
+    - commonservices_operators_output.resources[0].status.phase == "Succeeded"
+  retries: 60 # approx 30 minutes before we give up
+  delay: 30 # seconds
