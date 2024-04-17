@@ -164,7 +164,9 @@ To Upgrade from Grafana Operator from V4 to V5
   roles:
     - ibm.mas_devops.cluster_monitoring
 ```
-note that the upgraded v5 grafana inherits the storage class and size from the v4 configuration unless hey are defined as environment variables.
+
+!!! note
+    note that the upgraded v5 grafana inherits the storage class and size from the v4 configuration unless they are defined as environment variables.
 
 License
 -------------------------------------------------------------------------------
