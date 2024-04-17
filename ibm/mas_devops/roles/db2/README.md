@@ -84,6 +84,13 @@ Type of the DB2 instance. Available options are `db2wh` and `db2oltp`.
 - Environment Variable: `DB2_TYPE`
 - Default: `db2wh`
 
+### db2_timezone
+Server timezone code of the DB2 instance. If you want to align the same timezone with Manage's DB2 database, you also need to must also set `MAS_APP_SETTINGS_SERVER_TIMEZONE` variable to the same value.
+
+- Optional
+- Environment Variable: `DB2_TIMEZONE`
+- Default: `GMT`
+
 ### db2_4k_device_support
 Whether 4K device support is turned on or not.
 

@@ -406,7 +406,7 @@ Optional. Set this to `true` if you want to override existing Manage database en
 ---
 
 ### mas_app_settings_server_timezone
-Optional. Sets the Manage server timezone.
+Optional. Sets the Manage server timezone. If you also want to have the Manage's DB2 database aligned with the same timezone, you must set `DB2_TIMEZONE` while provisioning the corresponding DB2 instance using `db2` role.
 
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_TIMEZONE`
 - Default: `GMT`
