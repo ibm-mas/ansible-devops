@@ -12,7 +12,7 @@
   register: grafana_cr_result
 
 - name: "install : determine-storage-classes : Set the Grafana storage class and size"
-  when: grafana_cr_result.resources[0].spec.persistentVolumeClaim is defined 
+  when: grafana_cr_result.resources[0].spec.persistentVolumeClaim is defined
   set_fact:
     grafana_instance_storage_class: "{{ grafana_cr_result.resources[0].spec.persistentVolumeClaim.spec.storageClassName }}"
     grafana_instance_storage_size: "{{ grafana_cr_result.resources[0].spec.persistentVolumeClaim.spec.resources.requests.storage }}"
@@ -30,15 +30,15 @@
   register: grafana_cr_result
 
 - name: "install : determine-storage-classes : Set the Grafana storage class and size"
-  when: 
+  when:
     - grafana_instance_storage_class is not defined or grafana_instance_storage_class == ""
-    - grafana_cr_result.resources[0].spec.dataStorage is defined 
+    - grafana_cr_result.resources[0].spec.dataStorage is defined
   set_fact:
     grafana_instance_storage_class: "{{ grafana_cr_result.resources[0].spec.dataStorage.class }}"
     grafana_instance_storage_size: "{{ grafana_cr_result.resources[0].spec.dataStorage.size }}"
 
 
-# 3. Set Default Grafana Instance Storage Class if not already determined 
+# 3. Set Default Grafana Instance Storage Class if not already determined
 # -----------------------------------------------------------------------------
 - name: "install : determine-storage-classes : Load default storage class information"
   when: grafana_instance_storage_class is not defined or grafana_instance_storage_class == ""
@@ -57,7 +57,7 @@
     grafana_instance_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
 
 
-# 4. Fail if Grafana Storage Class has not been set 
+# 4. Fail if Grafana Storage Class has not been set
 # -----------------------------------------------------------------------------
 - name: "install : determine-storage-classes : Assert that Grafana Instance storage class has been defined"
   assert:
