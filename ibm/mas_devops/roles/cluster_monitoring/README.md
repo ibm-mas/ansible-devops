@@ -150,6 +150,7 @@ Example Playbook
     prometheus_storage_class: "ibmc-block-gold"
     prometheus_alertmgr_storage_class: "ibmc-file-gold-gid"
     grafana_instance_storage_class: "ibmc-file-gold-gid"
+    grafana_instance_storage_class: "15Gi"
   roles:
     - ibm.mas_devops.cluster_monitoring
 ```
@@ -163,6 +164,9 @@ To Upgrade from Grafana Operator from V4 to V5
   roles:
     - ibm.mas_devops.cluster_monitoring
 ```
+
+!!! note
+    note that the upgraded v5 grafana inherits the storage class and size from the v4 configuration unless they are defined as environment variables.
 
 License
 -------------------------------------------------------------------------------
