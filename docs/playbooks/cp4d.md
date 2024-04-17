@@ -24,7 +24,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ## These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
 - `CPD_ADMIN_USERNAME` CP4D Username
 - `CPD_ADMIN_PASSWORD` CP4D Password
-- `CPD_URL` CP4D Base URL
+- `CPD_ADMIN_URL` CP4D Base URL
 
 ## Optional environment variables
 - `CPD_INSTALL_COGNOS` True/False - Set to true to install Cognos Analytics

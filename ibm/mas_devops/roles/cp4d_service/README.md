@@ -5,11 +5,11 @@ Install or upgrade a chosen CloudPak for Data service.
 
 Currently supported Cloud Pak for Data release versions supported are:
 
-  - 4.5.0
-  - 4.5.3
   - 4.6.0
   - 4.6.3
   - 4.6.4
+  - 4.6.6
+  - 4.8.0
 
 The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.
 
@@ -19,29 +19,31 @@ Services Supported
 ------------------
 These services can be deployed and configured using this role:
 
-- [Watson Studio](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-studio) required by [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict) and [Health & Predict Utilities](https://www.ibm.com/docs/en/mas87/8.7.0?topic=solutions-maximo-health-predict-utilities)
-- [Watson Machine Learning](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-machine-learning) required by [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
-- [Analytics Service (Apache Spark)](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-analytics) required by [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
-- [Watson OpenScale](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-openscale) an optional dependency for [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
-- [Watson SPSS Modeler](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=modeler-installing) optional dependency for [Predict](https://www.ibm.com/docs/en/mas87/8.7.0?topic=applications-maximo-predict)
-- [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=services-watson-discovery) required by Assist
-- [Cognos Analytics](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=analytics-installing) optional dependency for Manage application.
+- [Watson Studio](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-studio) required by [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
+- [Watson Machine Learning](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-machine-learning) required by [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
+- [Analytics Services (Apache Spark)](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-analytics) required by [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
+- [Watson OpenScale](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-openscale) an optional dependency for [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
+- [SPSS Modeler](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=modeler-installing) optional dependency for [Predict](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery)
+- [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-discovery) required by [Assist](https://www.ibm.com/docs/en/mas-cd/maximo-assist)
+- [Cognos Analytics](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=analytics-installing) optional dependency for [Manage application](https://www.ibm.com/docs/en/mas-cd/maximo-manage)
 
 Upgrade
 ------------------
-This role also supports seamlessly CPD services minor version upgrades (CPD 4.0.9 -> CPD 4.5.x -> CPD 4.6.x), as well as patch version upgrades.
+This role also supports seamlessly CPD services minor version upgrades (CPD 4.6.x -> CPD 4.8.x), as well as patch version upgrades (CPD 4.8.0 -> CPD 4.8.1), with the exception of [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=u-upgrading-from-version-46-2).
+
 All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role for a particular CPD service.
 It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.
 
-For more information about IBM Cloud Pak for Data upgrade process, refer to the [CPD official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=upgrading).
+For more information about IBM Cloud Pak for Data upgrade process, refer to the [CPD official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=upgrading).
 
 !!! info "Application Support"
-    For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mhmpmh-and-p-u/8.2.0?topic=started-getting-data-scientists)
+    For more information on how Predict and HP Utilities make use of Watson Studio, refer to [Predict/HP Utilities documentation](https://www.ibm.com/docs/en/mas-cd/mhmpmh-and-p-u/continuous-delivery?topic=administering-products)
 
 
 !!! warning
     The reconcile of many CP4D resources will be marked as Failed multiple times during initial installation, these are **misleading status updates**, the install is just really slow and the operators can not properly handle this.  For example, if you are watching the install of CCS you will see that each **rabbitmq-ha** pod takes 10-15 minutes to start up and it looks like there is a problem because the pod log will just stop at a certain point.  If you see something like this as the last message in the pod log `WAL: ra_log_wal init, open tbls: ra_log_open_mem_tables, closed tbls: ra_log_closed_mem_tables` be assured that there's nothing wrong, it's just there's a long delay between that message and the next (`starting system coordination`) being logged.
 
+  **Note**: Watson Discovery 4.8.x introduces breaking changes that blocks seamless upgrade from 4.6.x. It requires backing up your data, uninstall 4.6.x, install 4.8.x and restoring Watson Discovery data. Thus, this action requires additional steps that are not covered by this automation. For detailed steps about upgrading WD 4.6 -> 4.8, read [Upgrading Watson Discovery from version 4.6 to 4.8](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=u-upgrading-from-version-46-2).
 
 ### Watson Studio
 Subscriptions related to Watson Studio:
@@ -609,7 +611,7 @@ The product version (also known as operand version) of this service to install.
 
 - **Required**
 - Environment Variable: `CPD_PRODUCT_VERSION`
-- Default Value: 4.0.9
+- Default Value: Defined by the installed MAS catalog version
 
 ### cpd_service_storage_class
 This is used to set `spec.storageClass` in all CPD services that uses file storage class (read-write-many).
@@ -644,14 +646,18 @@ The CP4D Admin username to authenticate with CP4D APIs. If you didn't change the
 
 - Optional
 - Environment Variable: `CPD_ADMIN_USERNAME`
-- Default Value: `admin`
+- Default Value: 
+  - `admin` (CPD 4.6)
+  - `cpadmin` (CPD 4.8) 
 
 ### cpd_admin_password
-The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` will be used.
+The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` or `cpdamin` will be used.
 
 - Optional
 - Environment Variable: `CPD_ADMIN_PASSWORD`
-- Default Value: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
+- Default Value: 
+    - CPD 4.6: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
+    - CPD 4.8: Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
 
 ### cpd_service_scale_config
 Adjust and scale the resources for your Cloud Pak for Data services to increase processing capacity.
