@@ -191,6 +191,7 @@ There are two defaulted File Storage Persistent Volumes Claim resources that wil
 
 - Environment Variable: `MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG`
 - Default: `false`
+
 ### JMS queues
 
 The following properties can be defined to customize the persistent volumes for the JMS queues setup for Manage.
@@ -344,6 +345,8 @@ Currently supported server bundle sizes are:
   - i.e 4 bundle pods, each one handling workload for each main capabilities: `mea`, `cron`, `report` and `ui`
 - `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod.
   - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path.
+- `snojms` - Can be used for Manage 8.4 and above. Includes `all` and `jms` bundle pods.
+  - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path.
 
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
 - Default: `dev`
@@ -398,6 +401,15 @@ Optional. Set this to `true` if you want to override existing Manage database en
 
 - Environment Variable: `MAS_APP_SETTINGS_OVERRIDE_ENCRYPTION_SECRETS_FLAG`
 - Default: `False`
+
+### Manage - Server Timezone setting variable
+---
+
+### mas_app_settings_server_timezone
+Optional. Sets the Manage server timezone. If you also want to have the Manage's DB2 database aligned with the same timezone, you must set `DB2_TIMEZONE` while provisioning the corresponding DB2 instance using `db2` role.
+
+- Environment Variable: `MAS_APP_SETTINGS_SERVER_TIMEZONE`
+- Default: `GMT`
 
 Example Playbook
 -------------------------------------------------------------------------------
