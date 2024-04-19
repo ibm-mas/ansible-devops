@@ -25,7 +25,7 @@
   when:
     - db2_meta_storage_class is defined
     - db2_data_storage_class is defined
-    - '"ibmc-file" in db2_data_storage_class or "ibmc-file" in db2_meta_storage_class'
+    - '"ibmc-file" in db2_data_storage_class or "ibmc-file" in db2_meta_storage_class or "ibmc-vpc-file" in db2_data_storage_class or "ibmc-vpc-file" in db2_meta_storage_class'
 
 # 4. Provide debug information to the user
 # -----------------------------------------------------------------------------
@@ -274,6 +274,12 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/db2ucluster.yml.j2') }}"
+
+- name: "Set db2 instance timezone"
+  include_tasks: "tasks/install/setup_timezone.yml"
+  when:
+    - db2_timezone is defined
+    - db2_timezone != ""
 
 # 14. Wait for the cluster to be ready
 # -----------------------------------------------------------------------------
