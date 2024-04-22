@@ -8,7 +8,14 @@
   shell:
     cmd: "openssl s_client -servername {{ es_host_name }} -connect {{ es_host_name }}:{{ es_port }} -showcerts </dev/null  2>/dev/null"
   register: get_certs_r
-  ignore_errors: true
+  #ignore_errors: true
+  failed_when: get_certs_r.rc != 0
+  retries: 5
+  delay: 10
+  until: get_certs_r.rc == 0
+- debug:
+    msg:
+      - "Openssl command output .................... {{ get_certs_r.stdout }}"
 
 - name: "Extract IBM Event Streams certificate content"
   set_fact:

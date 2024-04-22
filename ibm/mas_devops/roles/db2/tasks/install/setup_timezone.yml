@@ -1,0 +1,30 @@
+---
+- name: "Wait for db2u statefulset to be created (2m delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    namespace: "{{ db2_namespace }}"
+    kind: StatefulSet
+    label_selectors:
+      - app={{ db2_instance_name | lower }}
+      - formation_id={{ db2_instance_name | lower }}
+      - type=engine
+      - component={{ db2_type }}
+      - role=db
+  register: db2_ss_lookup
+  until:
+    - db2_ss_lookup.resources is defined
+    - db2_ss_lookup.resources | length > 0
+  retries: 30 # Approximately 1 hour before we give up
+  delay: 60 # 2 minutes
+
+- name: "Set timezone variable in db2u statefulset"
+  shell: "oc set env sts {{ db2_ss_lookup.resources[0].metadata.name }} TZ={{ db2_timezone }} -n {{ db2_namespace }}"
+  register: db2_set_timezone_output
+
+- debug:
+    var: db2_set_timezone_output.stdout_lines
+
+- when: db2_set_timezone_output.rc == 0
+  debug:
+    msg:
+      - "DB2 timezone has been set to '{{ db2_timezone }}' for '{{ db2_instance_name }}' instance"
