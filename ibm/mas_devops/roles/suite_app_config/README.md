@@ -58,6 +58,19 @@ Defines the app components and versions to configure in the application workspac
 - Environment Variable: `MAS_APPWS_COMPONENTS`
 - Default: Application specific
 
+### mas_pod_templates_dir
+This role will look for a configuration files named:
+
+- `ibm-mas-manage-manageworkspace.yml`
+- `ibm-mas-manage-civil.yml`
+- `ibm-mas-manage-icd.yml`
+- `ibm-mas-manage-health.yml`
+
+The content of the configuration file should be the yaml block that you wish to be inserted into the ManageWorkspace CR. `ibm-mas-manage-manageworkspace.yml` will be inserted into the ManageWorkspace CR `spec -> podTemplates` whereas the component ones e.g, `ibm-mas-manage-civil.yml` will be under `spec -> components -> civil -> podTemplates`. The ibm-mas-manage-ws operator will then pass this on to the corresponding component CR when available.
+
+This is an example of one of the components (civil) - refer to the [BestEfforts reference configuration in the MAS CLI](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-manage-civil.yml).
+For full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
+
 
 Role Variables - Predict Configuration
 -------------------------------------------------------------------------------
@@ -360,7 +373,7 @@ Optional. Provide a custom archive/file path to be included as part of Manage de
 - Default: None
 
 ### mas_app_settings_customization_archive_name
-Optional. Provide a custom archive file name to be associated with the archive/file path provided. Only used when `mas_app_settings_customization_archive_url` is defined. 
+Optional. Provide a custom archive file name to be associated with the archive/file path provided. Only used when `mas_app_settings_customization_archive_url` is defined.
 
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
 - Default: `manage-custom-archive`
