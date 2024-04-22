@@ -11,7 +11,7 @@ This playbook can be run against any OCP cluster regardless of its type; whether
 - Install CP4D ControlPlane (~1 hour)
 - Install CP4D Services (~30 Minutes - 1 hour for each service)
 
-All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook. 
+All timings are estimates, see the individual pages for each of these playbooks for more information.  Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.
 
 ## Required environment variables
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
@@ -24,7 +24,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 ## These variables are required only if you set CP4D_INSTALL_WSL to false in optional varibles, otherwise don't set it.
 - `CPD_ADMIN_USERNAME` CP4D Username
 - `CPD_ADMIN_PASSWORD` CP4D Password
-- `CPD_URL` CP4D Base URL
+- `CPD_ADMIN_URL` CP4D Base URL
 
 ## Optional environment variables
 - `CPD_INSTALL_COGNOS` True/False - Set to true to install Cognos Analytics
@@ -47,7 +47,7 @@ export CPD_ENTITLEMENT_USERNAME=xxx
 export CPD_ADMIN_USERNAME="admin"
 export CPD_ADMIN_PASSWORD="xxx"
 export CPD_URL="https://mycp4durl"
-export CPD_PRODUCT_VERSION="4.6.3"
+export CPD_PRODUCT_VERSION="4.6.6"
 
 
 oc login --token=xxxx --server=https://myocpserver
@@ -62,7 +62,7 @@ export CPD_ENTITLEMENT_KEY=xxx
 export CPD_ENTITLEMENT_USERNAME=xxx
 
 export CPD_INSTALL_PLATFORM="true"
-export CPD_PRODUCT_VERSION="4.6.3"
+export CPD_PRODUCT_VERSION="4.6.6"
 
 ## To install additional CP4D services, add one or many of these environment variables:
 export CPD_INSTALL_COGNOS="true"
