@@ -2,18 +2,29 @@
 - include_vars:
     file: "{{ role_path }}/../mirror_extras_prepare/vars/cp4d_{{ cpd_product_version }}.yml"
 
-- name: Retrieve image setting parts
+- name: Retrieve image setting parts for cpd-platform catalog
+  when: 
+    - item.catalog_name is defined
+    - item.catalog_name == 'cpd-platform'
   set_fact:
-    cpd_platform_catalog_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*cpd-platform$') | map(attribute='catalog_name') | first }}"
-    cpd_platform_catalog_display_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*cpd-platform$') | map(attribute='catalog_display_name') | first }}"
-    cpd_platform_catalog_operator_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*cpd-platform$') | map(attribute='operator_catalog_name') | first }}"
-    cpd_platform_digest: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*cpd-platform$') | map(attribute='digest') | first }}"
-    cpd_platform_registry: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*cpd-platform$') | map(attribute='registry') | first }}"
-    opencloud_catalog_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*opencloud-operators$') | map(attribute='catalog_name') | first }}"
-    opencloud_catalog_display_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*opencloud-operators$') | map(attribute='catalog_display_name') | first }}"
-    opencloud_catalog_operator_name: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*opencloud-operators$') | map(attribute='operator_catalog_name') | first }}"
-    opencloud_digest: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*opencloud-operators$') | map(attribute='digest') | first }}"
-    opencloud_registry: "{{ extra_catalog_images | selectattr('catalog_name', 'match', '.*opencloud-operators$') | map(attribute='registry') | first }}"
+    cpd_platform_catalog_name: "{{ item.catalog_name }}"
+    cpd_platform_catalog_display_name: "{{ item.catalog_display_name }}"
+    cpd_platform_catalog_operator_name: "{{ item.name }}"
+    cpd_platform_digest: "{{ item.digest }}"
+    cpd_platform_registry: "{{ item.registry }}"
+  loop: "{{ extra_images }}"
+
+- name: Retrieve image setting parts for opencloud catalog
+  when: 
+    - item.catalog_name is defined
+    - item.catalog_name == 'opencloud-operators'
+  set_fact:
+    opencloud_catalog_name: "{{ item.catalog_name }}"
+    opencloud_catalog_display_name: "{{ item.catalog_display_name }}"
+    opencloud_catalog_operator_name: "{{ item.name }}"
+    opencloud_digest: "{{ item.digest }}"
+    opencloud_registry: "{{ item.registry }}"
+  loop: "{{ extra_images }}"
 
 # 3. Debug Properties
 # -----------------------------------------------------------------------------
