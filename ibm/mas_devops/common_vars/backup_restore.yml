@@ -1,0 +1,76 @@
+---
+# Common variables
+# -----------------------------------------------------------------------------
+# No confirmations will be displayed in silence mode
+masbr_silence: "{{ lookup('env', 'MASBR_SILENCE') | default(false, true) | bool }}"
+
+# Copy file timeout in seconds
+masbr_copy_timeout_sec: "{{ lookup('env', 'MASBR_COPY_TIMEOUT_SEC') | default(3600, true) | int }}"
+
+
+# Storage variables
+# -----------------------------------------------------------------------------
+# Local temp folder for backup/restore
+masbr_temp_folder: "{{ lookup('env', 'MASBR_TEMP_FOLDER') | default('/tmp/masbr', true) }}"
+
+# Supported storage locations: 'local', 'pvc' and 'cloud'
+masbr_storage_type:  "{{ lookup('env', 'MASBR_STORAGE_TYPE') }}"
+
+# local storage location
+masbr_storage_local_folder: "{{ lookup('env', 'MASBR_STORAGE_LOCAL_FOLDER') }}"
+
+# pvc storage location
+masbr_storage_pvc_name: "{{ lookup('env', 'MASBR_STORAGE_PVC_NAME') }}"
+masbr_storage_pvc_path: "{{ lookup('env', 'MASBR_STORAGE_PVC_PATH') | default('masbr', true) }}"
+
+# cloud storage location
+masbr_storage_cloud_config: "{{ lookup('env', 'MASBR_STORAGE_CLOUD_CONFIG') }}"
+masbr_storage_cloud_bucket: "{{ lookup('env', 'MASBR_STORAGE_CLOUD_BUCKET') }}"
+
+
+# Backup variables
+# -----------------------------------------------------------------------------
+# Supported backup types: 'full' and 'incr'
+masbr_backup_type: "{{ lookup('env', 'MASBR_BACKUP_TYPE') | default('full', true) }}"
+
+# The name of the backup to create incremental backup based on
+masbr_backup_from: "{{ lookup('env', 'MASBR_BACKUP_FROM') | default('', true) }}"
+
+# Cron expression for scheduled backup
+masbr_backup_schedule: "{{ lookup('env', 'MASBR_BACKUP_SCHEDULE') | default('', true) }}"
+
+# Whether to allow multiple backup jobs to run simultaneously
+masbr_backup_allow_multi_jobs: "{{ lookup('env', 'MASBR_BACKUP_ALLOW_MULTI_JOBS') | default(false, true) | bool }}"
+
+
+# Restore variables
+# -----------------------------------------------------------------------------
+# The name of the backup to be restored from
+masbr_restore_from: "{{ lookup('env', 'MASBR_RESTORE_FROM') }}"
+
+# Whether to allow multiple restore jobs to run simultaneously
+# (Only for debugging, should not allow running multiple retore jobs simultaneously)
+masbr_restore_allow_multi_jobs: "{{ lookup('env', 'MASBR_RESTORE_ALLOW_MULTI_JOBS') | default(false, true) | bool }}"
+
+
+# Notification variables
+# -----------------------------------------------------------------------------
+# Supported notification levels:
+#   - 'info': send notifications when job in the phase 'InProgress', 'Completed', 'Failed', 'PartiallyFailed'
+#   - 'failure': sent notifications only when job in the phase 'Failed', 'PartiallyFailed'
+masbr_notification_levels:
+  info:
+    - "InProgress"
+    - "Completed"
+    - "Failed"
+    - "PartiallyFailed"
+  failure:
+    - "Failed"
+    - "PartiallyFailed"
+
+# Slack notification
+masbr_slack_enabled: "{{ lookup('env', 'MASBR_SLACK_ENABLED') | default(false, true) | bool }}"
+masbr_slack_level: "{{ lookup('env', 'MASBR_SLACK_LEVEL') | default('info', true) }}"
+masbr_slack_token: "{{ lookup('env', 'MASBR_SLACK_TOKEN') }}"
+masbr_slack_channel: "{{ lookup('env', 'MASBR_SLACK_CHANNEL') }}"
+masbr_slack_user: "{{ lookup('env', 'MASBR_SLACK_USER') | default('ansible', true) }}"

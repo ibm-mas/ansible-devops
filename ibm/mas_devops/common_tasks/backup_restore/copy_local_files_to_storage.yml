@@ -1,0 +1,45 @@
+---
+# Copy local job files to local storage
+# -----------------------------------------------------------------------------
+- name: "Copy local job files to local storage"
+  when: masbr_use_local_storage
+  block:
+    - name: "Set fact: storage job folder"
+      set_fact:
+        masbr_storage_job_folder: "{{ masbr_storage_local_folder }}/{{ masbr_job_type }}s/{{ masbr_job_name }}"
+      
+    - name: "Debug: storage job folder"
+      debug:
+        msg: "Local storage job folder .......... {{ masbr_storage_job_folder }}"
+
+    - name: "Copy local job files to local storage job folder"
+      copy:
+        src: "{{ masbr_local_job_folder }}/{{ item }}"
+        dest: "{{ masbr_storage_job_folder }}/"
+      loop: "{{ masbr_cp_paths }}"
+
+
+# Copy local job files to cloud storage
+# -----------------------------------------------------------------------------
+- name: "Copy local job files to cloud storage"
+  when: masbr_use_cloud_storage
+  block:
+    - name: "Set fact: storage job folder"
+      set_fact:
+        masbr_storage_job_folder: >- 
+          {{ masbr_storage_cloud_config }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_job_type }}s/{{ masbr_job_name }}
+      
+    - name: "Debug: storage job folder"
+      debug:
+        msg: "Cloud storage job folder .......... {{ masbr_storage_job_folder }}"
+
+    - name: "Copy local job files to cloud storage job folder"
+      shell: >
+        rclone --links --progress --no-check-certificate copy 
+        {{ masbr_local_job_folder }}/{{ item }} {{ masbr_storage_job_folder }}
+      register: _rclone_copy_output
+      loop: "{{ masbr_cp_paths }}"
+
+
+# Copy local job files to pvc storage
+# -----------------------------------------------------------------------------

@@ -1,0 +1,70 @@
+---
+# Create folders in pod
+# -----------------------------------------------------------------------------
+- name: "Create folders in pod"
+  shell: >
+    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c 
+    'mkdir -p {{ masbr_cp_dest_folder }}; mkdir -p {{ masbr_cp_config_folder }}'
+
+
+# Copy backup files from local storage to pod
+# -----------------------------------------------------------------------------
+- name: "Copy backup files from local storage to pod"
+  when: masbr_use_local_storage
+  block:
+    - name: "Set fact: local storage job folder"
+      set_fact:
+        masbr_storage_job_folder: "{{ masbr_storage_local_folder }}/backups/{{ masbr_restore_from_completed }}"
+      
+    - name: "Debug: local storage job folder"
+      debug:
+        msg: "Local storage job folder .......... {{ masbr_storage_job_folder }}"
+
+    - name: "Copy backup files from local storage to pod"
+      shell: >
+        oc cp --retries=50 -c {{ masbr_cp_container_name }} {{ masbr_storage_job_folder }}/{{ item }} 
+        {{ masbr_cp_namespace }}/{{ masbr_cp_pod_name }}:{{ masbr_cp_dest_folder }}/{{ item | basename }} 
+      register: _oc_cp_output
+      loop: "{{ masbr_cp_src_files }}"
+
+
+# Copy backup files from cloud storage to pod
+# -----------------------------------------------------------------------------
+- name: "Copy backup files from cloud storage to pod"
+  when: masbr_use_cloud_storage
+  block:
+    # Define cloud storage job folder
+    - name: "Set fact: cloud storage job folder"
+      set_fact:
+        masbr_storage_job_folder: >-
+          {{ masbr_storage_cloud_config }}:{{ masbr_storage_cloud_bucket }}/backups/{{ masbr_restore_from_completed }}
+      
+    - name: "Debug: cloud storage job folder"
+      debug:
+        msg: "Cloud storage job folder .......... {{ masbr_storage_job_folder }}"
+    
+    # Define copy file command
+    - name: "Set fact: copy file command"
+      set_fact:
+        masbr_cp_cmds: >-
+          {{ masbr_cp_cmds | default('') }} 
+          rclone --links --progress --no-check-certificate --config {{ masbr_cp_config_folder }}/rclone.conf 
+          copy {{ masbr_storage_job_folder }}/{{ item }} {{ masbr_cp_dest_folder }}; 
+      loop: "{{ masbr_cp_src_files }}"
+
+    - name: "Debug: copy file command"
+      debug:
+        msg: "Copy file command ................. {{ masbr_cp_cmds }}"
+
+    # Create copy file job
+    - name: "Create copy file job"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_copy_file_job.yml"
+
+  always:
+    # Delete copy file Job
+    - name: "Delete copy file Job"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/delete_copy_file_job.yml"
+
+
+# Copy files from pod to pvc storage
+# -----------------------------------------------------------------------------

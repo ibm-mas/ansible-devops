@@ -1,0 +1,90 @@
+---
+- name: "Set fact: mongodb variables"
+  set_fact:
+    mongodb_pod_name: mas-mongo-ce-0
+    mongodb_container_name: mongod
+
+
+# Get mongodb version and status
+# -----------------------------------------------------------------------------
+- name: "Get MongoDBCommunity"
+  kubernetes.core.k8s_info:
+    api_version: mongodbcommunity.mongodb.com/v1
+    kind: MongoDBCommunity
+    name: mas-mongo-ce
+    namespace: "{{ mongodb_namespace }}"
+  register: _mongodbcommunity_output
+
+- name: "Set fact: mongodb version"
+  set_fact:
+    mongodb_version: "{{ _mongodbcommunity_output.resources[0].spec.version }}"
+  when:
+    - _mongodbcommunity_output is defined
+    - _mongodbcommunity_output.resources[0] is defined
+    - _mongodbcommunity_output.resources[0].spec.version is defined
+
+- name: "Set fact: mongodb running status"
+  set_fact:
+    mongodb_running: true
+  when:
+    - _mongodbcommunity_output is defined
+    - _mongodbcommunity_output.resources[0] is defined
+    - _mongodbcommunity_output.resources[0].status is defined
+    - _mongodbcommunity_output.resources[0].status.phase is defined
+    - _mongodbcommunity_output.resources[0].status.phase == "Running"
+
+
+# Get mongodb admin password
+# -----------------------------------------------------------------------------
+- name: "Get mongodb admin password"
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: mas-mongo-ce-admin-password
+    namespace: "{{ mongodb_namespace }}"
+  register: _mongodb_password_output
+
+- name: "Set fact: mongodb admin password"
+  set_fact:
+    mongodb_password: "{{ _mongodb_password_output.resources[0].data.password | b64decode }}"
+  when:
+    - _mongodb_password_output is defined
+    - _mongodb_password_output.resources[0] is defined
+    - _mongodb_password_output.resources[0].data.password is defined
+
+
+# Get mongodb ca file location
+# -----------------------------------------------------------------------------
+- name: "Get mongodb ca file"
+  changed_when: false
+  shell: >
+    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c 
+    'ls /var/lib/tls/ca/*.pem | head -n 1'
+  register: _mongodb_ca_file_output
+
+- name: "Set fact: mongodb ca file"
+  set_fact:
+    mongodb_ca_file: "{{ _mongodb_ca_file_output.stdout }}"
+  when:
+    - _mongodb_ca_file_output.rc == 0
+    - '"No such file or directory" not in _mongodb_ca_file_output.stdout'
+
+
+# Get mongodb primary host
+# -----------------------------------------------------------------------------
+- name: "Get mongodb server information"
+  changed_when: false
+  shell: >
+    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c 
+    'mongo --quiet --host={{ mongodb_pod_name }}.mas-mongo-ce-svc.mongoce.svc.cluster.local:27017 
+    --username=admin --password={{ mongodb_password }} --authenticationDatabase=admin 
+    --tls --tlsCAFile={{ mongodb_ca_file }} admin 
+    --eval="print(JSON.stringify(db.runCommand({hello:1})))"'
+  register: _mongodb_info_output
+
+- name: "Set fact: mongodb primary host"
+  set_fact:
+    mongodb_primary_host: "{{ _mongodb_info_output.stdout | from_json | json_query('primary') }}"
+
+- name: "Debug: mongodb primary host"
+  debug:
+    msg: "MongoDB primary host .................. {{ mongodb_primary_host }}"

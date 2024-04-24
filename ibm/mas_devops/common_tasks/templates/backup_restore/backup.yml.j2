@@ -1,0 +1,28 @@
+---
+kind: Backup
+name: "{{ masbr_job_name }}"
+version: "{{ masbr_job_version }}"
+type: "{{ masbr_backup_type }}"
+from: "{{ masbr_backup_from }}"
+source:
+  domain: "{{ masbr_cluster_domain }}"
+{% if masbr_job_component is defined and masbr_job_component.items() %}
+component:
+{% for key, value in masbr_job_component.items() %}
+  {{ key }}: "{{ value }}"
+{% endfor %}
+{% endif %}
+{% if masbr_job_data_list is defined and masbr_job_data_list | length > 0 %}
+data:
+{% for job_data in masbr_job_data_list %}
+  - seq: {{ job_data.seq }}
+    type: "{{ job_data.type }}"
+    phase: "{{ job_data.phase | default('New', true) }}"
+{% endfor %}
+{% endif %}
+schedule: "{{ masbr_backup_schedule | default('', true) }}"
+status:
+  phase: "{{ masbr_job_status.phase | default('New', true) }}"
+  startTimestamp: "{{ masbr_job_status.startTimestamp | default('', true) }}"
+  completionTimestamp: "{{ masbr_job_status.completionTimestamp | default('', true) }}"
+  sentAlerts: []

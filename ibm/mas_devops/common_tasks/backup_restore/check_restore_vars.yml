@@ -1,0 +1,28 @@
+---
+# Check common variables
+# -----------------------------------------------------------------------------
+- name: "Check common variables"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/check_common_vars.yml"
+
+
+# Check restore variables
+# -----------------------------------------------------------------------------
+- name: "Fail if masbr_restore_from is not provided"
+  assert:
+    that: masbr_restore_from is defined and masbr_restore_from != ""
+    fail_msg: "masbr_restore_from is required for running restore job"
+
+- name: "Set fact: the Completed backup job name for masbr_restore_from"
+  set_fact:
+    masbr_restore_from_completed: "{{ masbr_restore_from }}-Completed"
+
+- name: "Check the existence of the backup job specified by masbr_restore_from_completed"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
+  vars:
+    - masbr_job_type: "backup"
+    - masbr_ls_grep: "{{ masbr_restore_from_completed }}"
+
+- name: "Fail if not found a Completed backup job specified by masbr_restore_from_completed"
+  assert:
+    that: masbr_ls_results is defined and masbr_ls_results | length == 1
+    fail_msg: "Not found the backup job folder: {{ masbr_storage_job_type_folder }}/{{ masbr_restore_from_completed }}"

@@ -1,0 +1,49 @@
+---
+# Rename the job folder in local storage
+# -----------------------------------------------------------------------------
+- name: "Rename the job folder in local storage"
+  when: masbr_use_local_storage
+  block:
+    - name: "Set fact: local storage job folder"
+      set_fact:
+        masbr_storage_job_folder_src: "{{ masbr_storage_local_folder }}/{{ masbr_job_type }}s/{{ masbr_job_name_src }}"
+        masbr_storage_job_folder: "{{ masbr_storage_local_folder }}/{{ masbr_job_type }}s/{{ masbr_job_name_dest }}"
+      
+    - name: "Debug: rename local storage job folder"
+      debug:
+        msg:
+          - "Source job folder .................. {{ masbr_storage_job_folder_src }}"
+          - "Dest job folder .................... {{ masbr_storage_job_folder }}"
+
+    - name: "Rename the job folder in local storage"
+      command: mv {{ masbr_storage_job_folder_src }} {{ masbr_storage_job_folder }}
+      args:
+        removes: "{{ masbr_storage_job_folder_src }}"
+        creates: "{{ masbr_storage_job_folder }}"
+
+
+# Rename the job folder in cloud storage
+# -----------------------------------------------------------------------------
+- name: "Rename the job folder in cloud storage"
+  when: masbr_use_cloud_storage
+  block:
+    - name: "Set fact: cloud storage job folder"
+      set_fact:
+        masbr_storage_job_folder_src: >- 
+          {{ masbr_storage_cloud_config }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_job_type }}s/{{ masbr_job_name_src }}
+        masbr_storage_job_folder: >-
+          {{ masbr_storage_cloud_config }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_job_type }}s/{{ masbr_job_name_dest }}
+
+    - name: "Debug: rename cloud storage job folder"
+      debug:
+        msg:
+          - "Source job folder .................. {{ masbr_storage_job_folder_src }}"
+          - "Dest job folder .................... {{ masbr_storage_job_folder }}"
+
+    - name: "Rename the job folder in cloud storage"
+      shell: >
+        rclone move {{ masbr_storage_job_folder_src }} {{ masbr_storage_job_folder }}
+
+
+# Rename the job folder in pvc storage
+# -----------------------------------------------------------------------------

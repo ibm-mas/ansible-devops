@@ -1,0 +1,49 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ masbr_cp_name }}"
+  namespace: "{{ masbr_cp_namespace }}"
+spec:
+  parallelism: 1    
+  completions: 1    
+  backoffLimit: 6   
+  template:         
+    metadata:
+      name: "{{ masbr_cp_name }}"
+    labels:
+      masbr-job-name: "{{ masbr_job_name }}"
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: statefulset.kubernetes.io/pod-name
+                operator: In
+                values:
+                - "{{ masbr_cp_pod_name }}"
+            topologyKey: kubernetes.io/hostname
+      serviceAccountName: "{{ masbr_cp_service_account_name }}"
+      serviceAccount: "{{ masbr_cp_service_account }}"
+      securityContext: {{ masbr_cp_security_context }}
+      containers:
+        - name: "{{ masbr_cp_name }}"
+          image: rclone/rclone:1.62.2
+          command:
+            - sh
+            - '-c'
+            - >-
+              {{ masbr_cp_cmds }}
+          volumeMounts:
+            - name: data-volume
+              mountPath: "{{ masbr_cp_pvc_path }}"
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+      restartPolicy: OnFailure    
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: "{{ masbr_cp_pvc_name }}"

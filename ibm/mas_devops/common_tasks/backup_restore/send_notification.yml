@@ -1,0 +1,30 @@
+---
+# Define the notification message
+# -----------------------------------------------------------------------------
+- name: "Set fact: notification message"
+  set_fact:
+    masbr_notification_msg: |
+      {{ masbr_job_type | capitalize }} {{ masbr_job_component.name }} is {{ masbr_job_status.phase }}!
+      Job name: `{{ masbr_job_name }}`
+      Job folder: `{{ masbr_storage_job_folder }}`
+
+
+# Send Slack notification
+# -----------------------------------------------------------------------------
+- name: "Send Slack notification"
+  when: masbr_slack_enabled and masbr_job_status.phase in masbr_notification_levels[masbr_slack_level]
+  block:
+    - name: "Set fact: Slack message color"
+      set_fact:
+        slack_color: >-
+          {% if masbr_job_status.phase == 'InProgress' %} warning  
+          {% elif masbr_job_status.phase == 'Completed' %} good 
+          {% elif masbr_job_status.phase in ['Failed', 'PartiallyFailed'] %} danger 
+          {% endif %}
+    
+    - name: "Send Slack message"
+      community.general.slack:
+        token: "{{ masbr_slack_token }}"
+        channel: "{{ masbr_slack_channel }}"
+        msg: "{{ masbr_notification_msg }}"
+        color: "{{ slack_color | trim }}"

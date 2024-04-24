@@ -1,0 +1,38 @@
+---
+# Create local job folder if not exists
+# -----------------------------------------------------------------------------
+- name: "Create local job folder if not exists"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_local_job_folder.yml"
+
+
+# Create job file
+# -----------------------------------------------------------------------------
+- name: "Create updated job file"
+  template:
+    src: "{{ role_path }}/../../common_tasks/templates/backup_restore/{{ masbr_job_type }}.yml.j2"
+    dest: "{{ masbr_local_job_folder }}/{{ masbr_job_type }}.yml"
+
+
+# Copy local job files to specified storage location
+# -----------------------------------------------------------------------------
+- name: "Copy local job files to specified storage location"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
+  vars:
+    masbr_cp_paths:
+      - "{{ masbr_job_type }}.yml"
+
+
+# Append job final status to the job folder name
+# -----------------------------------------------------------------------------
+- name: "Append job final status to the job folder name"
+  when: masbr_job_status.phase in ['Completed', 'PartiallyFailed', 'Failed', 'FailedValidation']
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/rename_storage_job_folder.yml"
+  vars:
+    masbr_job_name_src: "{{ masbr_job_name }}"
+    masbr_job_name_dest: "{{ masbr_job_name }}-{{masbr_job_status.phase}}"
+
+
+# Send notification
+# -----------------------------------------------------------------------------
+- name: "Send notification"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/send_notification.yml"
