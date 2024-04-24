@@ -136,6 +136,8 @@ Determines if the role should rotate the LDAP password for current LDAP user con
 
 Role Variables - Storage
 -------------------------------------------------------------------------------
+We recommend reviewing the Db2 documentation about the certified storage options for Db2 on Red Hat OpenShift. Please ensure your storage class meets the specified deployment requirements for Db2. https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options
+
 ### db2_meta_storage_class
 Storage class used for metadata. This must support ReadWriteMany
 

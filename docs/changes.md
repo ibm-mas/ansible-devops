@@ -1,0 +1,1 @@
+update the db2 role documenation to add a link to the db2 documentation for reference for the storage classes.
