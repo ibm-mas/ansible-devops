@@ -37,7 +37,7 @@
     # -------------------------------------------------------------------------
     cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('False', True) | bool }}"
-    cpd_product_version_not_defined_or_lower_than_48: "{{ cpd_product_version is not defined or (cpd_product_version is defined and cpd_product_version is version('4.8.0','<')) | bool }}"
+    cpd_48_or_higher: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','>=') | bool }}"
 
     # 8. Watson Discovery
     # -------------------------------------------------------------------------
@@ -157,11 +157,10 @@
 
     # 3. IBM Cloud Pak Foundation Services
     # -------------------------------------------------------------------------
-    # Just mirror IBM Cloud Pak Foundation Services images if CP4D 4.8 is NOT being installed
+    # Just mirror IBM Cloud Pak Foundation Services images 'mirror_common_svcs' is set, or if CPD 4.8+ is being mirrored
     - name: ibm.mas_devops.mirror_case_prepare
       when:
-        - cpd_product_version_not_defined_or_lower_than_48
-        - mirror_common_svcs
+        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-cp-common-services
@@ -175,9 +174,7 @@
         ibmpak_skip_dependencies: false
 
     - name: ibm.mas_devops.mirror_images
-      when:
-        - cpd_product_version_not_defined_or_lower_than_48
-        - mirror_common_svcs
+      when: mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
       vars:
         manifest_name: ibm-cp-common-services
         manifest_version: "{{ common_svcs_version }}"
@@ -185,7 +182,6 @@
     # Mirroring another version for Cloud Pak Foundation Services
     - name: ibm.mas_devops.mirror_case_prepare
       when:
-        - cpd_product_version_not_defined_or_lower_than_48
         - mirror_common_svcs
         - mirror_mode != "from-filesystem"
         - common_svcs_version_1 is defined
@@ -203,7 +199,6 @@
 
     - name: ibm.mas_devops.mirror_images
       when:
-        - cpd_product_version_not_defined_or_lower_than_48
         - mirror_common_svcs
         - common_svcs_version_1 is defined
         - common_svcs_version_1 != ""
@@ -303,12 +298,33 @@
         manifest_name: ibm-cp-datacore
         manifest_version: "{{ cp4d_platform_version }}"
 
+    # 7.1 CP4D - IBM Licensing dependency
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - cpd_48_or_higher
+        - mirror_cp4d
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-licensing
+        case_version: "{{ ibm_licensing_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: true
+
+    - name: ibm.mas_devops.mirror_images
+      when:
+        - cpd_48_or_higher
+        - mirror_cp4d
+        - mirror_mode != "from-filesystem"
+      vars:
+        manifest_name: ibm-licensing
+        manifest_version: "{{ ibm_licensing_version }}"
+
     # 7. CP4D 4.8.x and above - Extra Images
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_extras_prepare
       when:
-        - cpd_product_version is defined
-        - cpd_product_version is version('4.8.0','>=')
+        - cpd_48_or_higher
         - mirror_cp4d
         - mirror_mode != "from-filesystem"
       vars:
@@ -317,8 +333,7 @@
 
     - name: ibm.mas_devops.mirror_images
       when:
-        - cpd_product_version is defined
-        - cpd_product_version is version('4.8.0','>=')
+        - cpd_48_or_higher
         - mirror_cp4d
       vars:
         manifest_name: extras_cp4d
