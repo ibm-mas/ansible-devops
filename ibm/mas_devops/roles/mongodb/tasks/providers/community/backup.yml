@@ -37,7 +37,7 @@
 - name: "Set fact: exec command in mongodb pod"
   set_fact:
     mongodb_exec_in_pod: >-
-      oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c 
+      oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
 
 # Check if an exiting mongodb backup job is running
 # -----------------------------------------------------------------------------
@@ -45,7 +45,7 @@
   when: not masbr_backup_allow_multi_jobs
   changed_when: false
   shell: >
-    {{ mongodb_exec_in_pod }} 
+    {{ mongodb_exec_in_pod }}
     '[ -f {{ mongodb_backup_folder }}/{{ mongodb_lock_file }} ] && echo exist; exit 0'
   register: _get_lock_file_output
 
@@ -66,7 +66,7 @@
 # -----------------------------------------------------------------------------
 - name: "Set fact: variables for backup.yml file"
   set_fact:
-    masbr_job_component: 
+    masbr_job_component:
       name: "mongodb"
       version: "{{ mongodb_version }}"
       provider: "{{ mongodb_provider }}"
@@ -100,21 +100,24 @@
   block:
     # Create backup lock file in pod
     - name: "Create backup lock file in pod"
+      changed_when: true
       shell: >
-        {{ mongodb_exec_in_pod }} 
-        'mkdir -p {{ mongodb_backup_folder }}/{{ masbr_job_name }}; 
+        {{ mongodb_exec_in_pod }}
+        'mkdir -p {{ mongodb_backup_folder }}/{{ masbr_job_name }};
         touch {{ mongodb_backup_folder }}/{{ mongodb_lock_file }}'
       register: _create_backup_lock_output
 
     # Take a full backup of mongodb databases
-    - when: masbr_backup_type == "full"
+    - name: "Take a full backup of mongodb databases"
+      when: masbr_backup_type == "full"
       block:
         # mongodump
         - name: "Take a full backup of mongodb databases"
+          changed_when: true
           shell: >
-            {{ mongodb_exec_in_pod }} 
-            'mongodump --host={{ mongodb_primary_host }} --username={{ mongodb_user }} --password={{ mongodb_password }} 
-            --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }} 
+            {{ mongodb_exec_in_pod }}
+            'mongodump --host={{ mongodb_primary_host }} --username={{ mongodb_user }} --password={{ mongodb_password }}
+            --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
             --oplog --out={{ mongodb_backup_folder }}/{{ masbr_job_name }}'
           register: _mongodump_output
 
@@ -124,10 +127,11 @@
 
         # Get the timestamp of current backup
         - name: "Dump oplog.bson file"
+          changed_when: true
           shell: >
-            {{ mongodb_exec_in_pod }} 
-            'bsondump --quiet {{ mongodb_backup_folder }}/{{ masbr_job_name }}/oplog.bson | head -n 1 > 
-            {{ mongodb_backup_folder }}/{{ masbr_job_name }}/oplog.json && 
+            {{ mongodb_exec_in_pod }}
+            'bsondump --quiet {{ mongodb_backup_folder }}/{{ masbr_job_name }}/oplog.bson | head -n 1 >
+            {{ mongodb_backup_folder }}/{{ masbr_job_name }}/oplog.json &&
             cat {{ mongodb_backup_folder }}/{{ masbr_job_name }}/oplog.json'
           register: _bsondump_output
 
@@ -136,7 +140,8 @@
             msg: "{{ _bsondump_output.stdout_lines }}"
 
     # Take an incremental backup of mongodb databases
-    - when: masbr_backup_type == "incr"
+    - name: "Take an incremental backup of mongodb databases"
+      when: masbr_backup_type == "incr"
       block:
         # Get timestamp of the backup file specified by masbr_backup_from_completed
         - name: "Get oplog.json from specified backup job"
@@ -147,6 +152,7 @@
               - "{{ masbr_job_data_list[0].type }}/oplog.json"
 
         - name: "Get timestamp from oplog.json"
+          changed_when: false
           shell: >
             cat {{ masbr_local_job_folder }}/oplog.json | tail -1 | jq -c .ts
           register: _get_oplog_ts_output
@@ -156,15 +162,17 @@
           copy:
             dest: "{{ masbr_local_job_folder }}/query.json"
             content: "{{ mongodb_query | to_json }}"
+            mode: preserve
           vars:
             mongodb_query:
               ts:
                 $gt: "{{ _get_oplog_ts_output.stdout | from_json }}"
 
         - name: "Copy mongodump query file to pod"
+          changed_when: true
           shell: >
-            oc cp --retries=50 -c {{ mongodb_container_name }} {{ masbr_local_job_folder }}/query.json 
-            {{ mongodb_namespace }}/{{ mongodb_pod_name }}:{{ mongodb_backup_folder }}/{{ masbr_job_name }}/query.json && 
+            oc cp --retries=50 -c {{ mongodb_container_name }} {{ masbr_local_job_folder }}/query.json
+            {{ mongodb_namespace }}/{{ mongodb_pod_name }}:{{ mongodb_backup_folder }}/{{ masbr_job_name }}/query.json &&
             {{ mongodb_exec_in_pod }} 'cat {{ mongodb_backup_folder }}/{{ masbr_job_name }}/query.json'
           register: _cp_query_file_output
 
@@ -174,11 +182,12 @@
 
         # mongodump
         - name: "Take an incremental backup of mongodb databases"
+          changed_when: true
           shell: >
-            {{ mongodb_exec_in_pod }} 
-            'mongodump --host={{ mongodb_primary_host }} --username={{ mongodb_user }} --password={{ mongodb_password }} 
-            --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }} 
-            --db=local --collection=oplog.rs --queryFile={{ mongodb_backup_folder }}/{{ masbr_job_name }}/query.json 
+            {{ mongodb_exec_in_pod }}
+            'mongodump --host={{ mongodb_primary_host }} --username={{ mongodb_user }} --password={{ mongodb_password }}
+            --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
+            --db=local --collection=oplog.rs --queryFile={{ mongodb_backup_folder }}/{{ masbr_job_name }}/query.json
             --out={{ mongodb_backup_folder }}/{{ masbr_job_name }}'
           register: _mongodump_output
 
@@ -188,10 +197,11 @@
 
         # Get the timestamp of current backup
         - name: "Dump oplog.rs.bson file"
+          changed_when: true
           shell: >
-            {{ mongodb_exec_in_pod }} 
-            'bsondump --quiet {{ mongodb_backup_folder }}/{{ masbr_job_name }}/local/oplog.rs.bson | head -n 1 >  
-            {{ mongodb_backup_folder }}/{{ masbr_job_name }}/oplog.json && 
+            {{ mongodb_exec_in_pod }}
+            'bsondump --quiet {{ mongodb_backup_folder }}/{{ masbr_job_name }}/local/oplog.rs.bson | head -n 1 >
+            {{ mongodb_backup_folder }}/{{ masbr_job_name }}/oplog.json &&
             cat {{ mongodb_backup_folder }}/{{ masbr_job_name }}/oplog.json'
           register: _bsondump_output
 
@@ -201,16 +211,17 @@
 
     # Create a tar file
     - name: "Create a tar file"
+      changed_when: true
       shell: >
-        {{ mongodb_exec_in_pod }} 
-        'tar -czf {{ mongodb_backup_folder }}/{{ masbr_job_name }}.tar.gz 
-        -C {{ mongodb_backup_folder }}/{{ masbr_job_name }} . && 
+        {{ mongodb_exec_in_pod }}
+        'tar -czf {{ mongodb_backup_folder }}/{{ masbr_job_name }}.tar.gz
+        -C {{ mongodb_backup_folder }}/{{ masbr_job_name }} . &&
         du -h {{ mongodb_backup_folder }}/{{ masbr_job_name }}.tar.gz'
       register: _du_tar_file_output
-    
+
     - name: "Debug: size of tar file"
       debug:
-        msg: "{{ _du_tar_file_output.stdout | regex_replace('\t', '  ')}}"
+        msg: "{{ _du_tar_file_output.stdout }}"
 
     # Copy backup files from pod to specified storage location
     - name: "Copy backup files from pod to specified storage location"
@@ -271,10 +282,11 @@
   always:
     # Clean up
     - name: "Delete backup files from mongodb pod"
+      changed_when: true
       shell: >
-        {{ mongodb_exec_in_pod }} 
-        'rm -f {{ mongodb_backup_folder }}/{{ mongodb_lock_file }}; 
-        rm -rf {{ mongodb_backup_folder }}/{{ masbr_job_name }}; 
+        {{ mongodb_exec_in_pod }}
+        'rm -f {{ mongodb_backup_folder }}/{{ mongodb_lock_file }};
+        rm -rf {{ mongodb_backup_folder }}/{{ masbr_job_name }};
         rm -f {{ mongodb_backup_folder }}/{{ masbr_job_name }}.tar.gz'
       register: _delete_pod_files_output
 

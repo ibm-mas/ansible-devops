@@ -38,7 +38,7 @@
 - name: "Set fact: exec command in mongodb pod"
   set_fact:
     mongodb_exec_in_pod: >-
-      oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c 
+      oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
 
 
 # Check if an exiting mongodb restore job is running
@@ -47,7 +47,7 @@
   when: not masbr_restore_allow_multi_jobs
   changed_when: false
   shell: >
-    {{ mongodb_exec_in_pod }} 
+    {{ mongodb_exec_in_pod }}
     '[ -f {{ mongodb_restore_folder }}/{{ mongodb_lock_file }} ] && echo exist; exit 0'
   register: _get_lock_file_output
 
@@ -68,7 +68,7 @@
 # -----------------------------------------------------------------------------
 - name: "Set fact: variables for restore.yml file"
   set_fact:
-    masbr_job_component: 
+    masbr_job_component:
       name: "mongodb"
       version: "{{ mongodb_version }}"
       provider: "{{ mongodb_provider }}"
@@ -102,9 +102,10 @@
   block:
     # Create restore lock file in pod
     - name: "Create restore lock file in pod"
+      changed_when: true
       shell: >
-        {{ mongodb_exec_in_pod }} 
-        'mkdir -p {{ mongodb_restore_folder }}; 
+        {{ mongodb_exec_in_pod }}
+        'mkdir -p {{ mongodb_restore_folder }};
         touch {{ mongodb_restore_folder }}/{{ mongodb_lock_file }}'
       register: _create_restore_lock_output
 
@@ -118,23 +119,25 @@
         masbr_cp_pvc_name: "data-volume-{{ mongodb_pod_name }}"
         masbr_cp_pvc_path: "/data"
         masbr_cp_config_folder: "{{ mongodb_restore_folder }}/{{ masbr_restore_from }}"
-        masbr_cp_src_files: 
+        masbr_cp_src_files:
           - "{{ masbr_job_data_list[0].type }}/{{ masbr_restore_from }}.tar.gz"
         masbr_cp_dest_folder: "{{ mongodb_restore_folder }}"
 
     # Extract the tar file
     - name: "Extract the tar file"
+      changed_when: true
       shell: >
-        {{ mongodb_exec_in_pod }} 
-        'tar -xzf {{ mongodb_restore_folder }}/{{ masbr_restore_from }}.tar.gz 
+        {{ mongodb_exec_in_pod }}
+        'tar -xzf {{ mongodb_restore_folder }}/{{ masbr_restore_from }}.tar.gz
         -C {{ mongodb_restore_folder }}/{{ masbr_restore_from }} .'
 
     # Restore mongodb databases
     - name: "Restore mongodb databases"
+      changed_when: true
       shell: >
-        {{ mongodb_exec_in_pod }} 
-        'mongorestore --host={{ mongodb_primary_host }} --username={{ mongodb_user }} --password={{ mongodb_password }} 
-        --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }} 
+        {{ mongodb_exec_in_pod }}
+        'mongorestore --host={{ mongodb_primary_host }} --username={{ mongodb_user }} --password={{ mongodb_password }}
+        --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
         --drop --oplogReplay --dir={{ mongodb_restore_folder }}/{{ masbr_restore_from }}'
       register: _mongorestore_output
 
@@ -186,13 +189,13 @@
   always:
     # Clean up
     - name: "Delete restore files from mongodb pod"
+      changed_when: true
       shell: >
-        {{ mongodb_exec_in_pod }} 
-        'rm -f {{ mongodb_restore_folder }}/{{ mongodb_lock_file }}; 
-        rm -rf {{ mongodb_restore_folder }}/{{ masbr_restore_from }}; 
+        {{ mongodb_exec_in_pod }}
+        'rm -f {{ mongodb_restore_folder }}/{{ mongodb_lock_file }};
+        rm -rf {{ mongodb_restore_folder }}/{{ masbr_restore_from }};
         rm -f {{ mongodb_restore_folder }}/{{ masbr_restore_from }}.tar.gz'
       register: _delete_pod_files_output
 
     - name: "Delete local job folder if exists"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/delete_local_job_folder.yml"
-  

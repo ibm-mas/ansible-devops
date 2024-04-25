@@ -4,11 +4,11 @@
 - name: "Copy backup files from pod to local storage"
   when: masbr_use_local_storage
   block:
-    # Create target folder 
+    # Create target folder
     - name: "Set fact: local storage dest folder"
       set_fact:
         masbr_storage_dest_folder: "{{ masbr_storage_local_folder }}/backups/{{ masbr_job_name }}/{{ masbr_cp_dest_folder }}"
-      
+
     - name: "Debug: local storage dest folder"
       debug:
         msg: "Local storage dest folder ......... {{ masbr_storage_dest_folder }}"
@@ -21,8 +21,8 @@
     # Copy files
     - name: "Copy backup files from pod to local storage"
       shell: >
-        oc cp --retries=50 -c {{ masbr_cp_container_name }} {{ masbr_cp_namespace }}/{{ masbr_cp_pod_name }}:{{ item }} 
-        {{ masbr_storage_dest_folder }}/{{ item | basename }} 
+        oc cp --retries=50 -c {{ masbr_cp_container_name }} {{ masbr_cp_namespace }}/{{ masbr_cp_pod_name }}:{{ item }}
+        {{ masbr_storage_dest_folder }}/{{ item | basename }}
       register: _oc_cp_output
       loop: "{{ masbr_cp_src_files }}"
 
@@ -37,18 +37,18 @@
       set_fact:
         masbr_storage_dest_folder: >-
           {{ masbr_storage_cloud_config }}:{{ masbr_storage_cloud_bucket }}/backups/{{ masbr_job_name }}/{{ masbr_cp_dest_folder }}
-      
+
     - name: "Debug: cloud storage dest folder"
       debug:
         msg: "Cloud storage dest folder ......... {{ masbr_storage_dest_folder }}"
-    
+
     # Define copy file command
     - name: "Set fact: copy file command"
       set_fact:
         masbr_cp_cmds: >-
-          {{ masbr_cp_cmds | default('') }} 
-          rclone --links --progress --no-check-certificate --config {{ masbr_cp_config_folder }}/rclone.conf 
-          copy {{ item }} {{ masbr_storage_dest_folder }}; 
+          {{ masbr_cp_cmds | default('') }}
+          rclone --links --progress --no-check-certificate --config {{ masbr_cp_config_folder }}/rclone.conf
+          copy {{ item }} {{ masbr_storage_dest_folder }};
       loop: "{{ masbr_cp_src_files }}"
 
     - name: "Debug: copy file command"

@@ -10,18 +10,19 @@
 - name: "Get mongodb role '{{ mongodb_role }}'"
   changed_when: false
   shell: >
-    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c 
-    'mongo --quiet --host={{ mongodb_primary_host }} --username=admin --password={{ mongodb_password }} 
-    --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin 
+    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
+    'mongo --quiet --host={{ mongodb_primary_host }} --username=admin --password={{ mongodb_password }}
+    --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin
     --eval="db.getRole( \"{{mongodb_role}}\" )"'
   register: _mongodb_get_role_output
 
 - name: "Create mongodb role '{{ mongodb_role }}'"
   when: _mongodb_get_role_output.stdout == "null"
+  changed_when: true
   shell: >
-    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c 
-    'mongo --quiet --host={{ mongodb_primary_host }} --username=admin --password={{ mongodb_password }} 
-    --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin 
+    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
+    'mongo --quiet --host={{ mongodb_primary_host }} --username=admin --password={{ mongodb_password }}
+    --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin
     --eval="db.createRole({ role: \"{{mongodb_role}}\", roles: [], privileges: [{ resource: {anyResource: true}, actions: [\"anyAction\"] }]})"'
   register: _mongodb_create_role_output
 
@@ -36,18 +37,19 @@
 - name: "Get mongodb user '{{ mongodb_user }}'"
   changed_when: false
   shell: >
-    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c 
-    'mongo --quiet --host={{ mongodb_primary_host }} --username=admin --password={{ mongodb_password }} 
-    --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin 
+    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
+    'mongo --quiet --host={{ mongodb_primary_host }} --username=admin --password={{ mongodb_password }}
+    --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin
     --eval="db.getUser( \"{{mongodb_user}}\" )"'
   register: _mongodb_get_user_output
 
 - name: "Create mongodb user '{{ mongodb_user }}'"
   when: _mongodb_get_user_output.stdout == "null"
-  shell: > 
-    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c 
-    'mongo --quiet --host={{ mongodb_primary_host }} --username=admin --password={{ mongodb_password }} 
-    --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin 
+  changed_when: true
+  shell: >
+    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
+    'mongo --quiet --host={{ mongodb_primary_host }} --username=admin --password={{ mongodb_password }}
+    --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin
     --eval="db.createUser({ user: \"{{ mongodb_user }}\", pwd: \"{{ mongodb_password }}\", roles: [ \"{{ mongodb_role }}\" ]})"'
   register: _mongodb_create_user_output
 
