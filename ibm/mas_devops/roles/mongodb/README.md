@@ -53,7 +53,7 @@ Determines which action needs to be performed w.r.t mongodb for a specfied `prov
   ```
   Following Providers supports below mentioned MONGODB_ACTION values:
   1. Provider : community 
-  Supported MONGODB_ACTION values : install,uninstall
+  Supported MONGODB_ACTION values : install,uninstall,backup,restore
   2. Provider: aws
   Supported MONGODB_ACTION values : install,uninstall,docdb_secret_rotate
   3. Provider: ibm
@@ -263,6 +263,92 @@ If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replic
 ```
 
 Once the CA certificate has been updated for the MongoCfg and LicenseService CRs several pods in the core and SLS namespaces might need to be restarted to pick up the changes. This would include but is not limited to coreidp, coreapi, api-licensing.
+
+
+Community MongoDB Backup and Restore Role Variables
+-----------------------------------------------------
+### masbr_silence
+Required. Whether display confirmations during the backup/restore process.
+
+- Environment Variable: `MASBR_SILENCE`
+- Default Value: `false`
+
+### masbr_copy_timeout_sec
+Optional. Sets the waiting time in seconds for copying backup files between cluster and specified storage locaiton.
+
+- Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
+- Default Value: `3600`
+
+### masbr_storage_type
+Required. Types of storage location for saving backup files.  
+Supported storage locations: `local`, `cloud`
+
+- Environment Variable: `MASBR_STORAGE_TYPE`
+- Default Value: None
+
+### masbr_storage_local_folder
+Required only if `masbr_storage_type` is `local`. The folder name in local storage system.
+
+- Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
+- Default Value: None
+
+### masbr_storage_cloud_config
+Required only if `masbr_storage_type` is `cloud`. The rclone configuration name.
+
+- Environment Variable: `MASBR_STORAGE_CLOUD_CONFIG`
+- Default Value: None
+
+### masbr_storage_cloud_bucket
+Required only if `masbr_storage_type` is `cloud`. The bucket name used for saving backup files.
+
+- Environment Variable: `MASBR_STORAGE_CLOUD_BUCKET`
+- Default Value: None
+
+### masbr_backup_type
+Required only if `mongodb_action` is `backup`. Sets backup type for full backup or incremental backup.  
+Supported backup types: `full` and `incr` 
+
+- Environment Variable: `MASBR_BACKUP_TYPE`
+- Default Value: `full`
+
+### masbr_backup_from
+Required only if `mongodb_action` is `backup` and `masbr_backup_type` is `incr`. The name of the backup to create incremental backup based on.
+
+- Environment Variable: `MASBR_BACKUP_FROM`
+- Default Value: None
+
+### masbr_restore_from
+Required only if `mongodb_action` is `restore`. The name of the backup to be restored from.
+
+- Environment Variable: `MASBR_RESTORE_FROM`
+- Default Value: None
+
+### masbr_slack_enabled
+Optional. Whether to enable sending backup/resore progress notifications via Slack messages.
+
+- Environment Variable: `MASBR_SLACK_ENABLED`
+- Default Value: `false`
+
+### masbr_slack_level
+Required only if `masbr_slack_enabled` is `true`. Supported notification levels:   
+`info`: send notifications when job in the phase `InProgress`, `Completed`, `Failed`, `PartiallyFailed`    
+`failure`: sent notifications only when job in the phase `Failed`, `PartiallyFailed`
+
+- Environment Variable: `MASBR_SLACK_LEVEL`
+- Default Value: `info`
+
+### masbr_slack_token
+Required only if `masbr_slack_enabled` is `true`. Slack integration token, this authenticates you to the slack service.  
+
+- Environment Variable: `MASBR_SLACK_TOKEN`
+- Default Value: None
+
+### masbr_slack_channel
+Required only if `masbr_slack_enabled` is `true`. Slack channel to send the message to.
+
+- Environment Variable: `MASBR_SLACK_CHANNEL`
+- Default Value: None
+
 
 IBM Cloud MongoDB Role Variables
 ----------------------------------
