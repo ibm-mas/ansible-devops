@@ -14,14 +14,24 @@ spec:
     log:
       level: warn
       mode: console
-  dataStorage:
-    accessModes:
-    - ReadWriteOnce
-    class: "{{ grafana_instance_storage_class }}"
-    size: "{{ grafana_instance_storage_size }}"
+  persistentVolumeClaim:
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: "{{ grafana_instance_storage_size }}"
+      storageClassName: "{{ grafana_instance_storage_class }}"
   deployment:
-    strategy:
-      type: Recreate
+    spec:
+      template:
+        spec:
+          volumes:
+            - name: grafana-data
+              persistentVolumeClaim:
+                claimName: mas-grafana-pvc
+      strategy:
+        type: Recreate
   # An empty route spec is enough to signal the creation of a default
   # route to the operator. This can also be used to override defaults
   # in the route spec.

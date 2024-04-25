@@ -77,6 +77,20 @@ Version of the DB2 engine to be used while creating/upgrading the DB2 instances.
 - Environment Variable: `DB2_VERSION`
 - Default: The default db2 engine version will be automatically defined to the latest version supported by the installed DB2 operator if this is not set. The DB2 engine versions supported by the installed DB2 operator are stored in `db2u-release` configmap under `ibm-common-services` namespace.
 
+### db2_type
+Type of the DB2 instance. Available options are `db2wh` and `db2oltp`.
+
+- Optional
+- Environment Variable: `DB2_TYPE`
+- Default: `db2wh`
+
+### db2_timezone
+Server timezone code of the DB2 instance. If you want to align the same timezone with Manage's DB2 database, you also need to must also set `MAS_APP_SETTINGS_SERVER_TIMEZONE` variable to the same value.
+
+- Optional
+- Environment Variable: `DB2_TIMEZONE`
+- Default: `GMT`
+
 ### db2_4k_device_support
 Whether 4K device support is turned on or not.
 
