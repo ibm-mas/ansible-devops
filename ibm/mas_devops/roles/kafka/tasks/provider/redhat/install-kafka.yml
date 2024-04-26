@@ -3,7 +3,6 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
-
 # 2. Lookup the packagemanifest for amq-streams / strimzi
 # -----------------------------------------------------------------------------
 - name: Get {{ kafka_operator_name }} package manifest
@@ -28,7 +27,6 @@
     kafka_source_namespace: "{{ kafka_manifest.resources[0].status.catalogSourceNamespace }}"
     kafka_default_channel: "{{ kafka_manifest.resources[0].status.defaultChannel }}"
 
-
 # 3. Detect if the cluster supports GrafanaDashboards
 # ---------------------------------------------------
 - name: Get cluster info
@@ -47,7 +45,6 @@
       api_status.apis is defined and
       api_status.apis['grafana.integreatly.org/v1beta1'] is defined }}"
 
-
 # 4. Lookup any existing kafka user in the kafka namespace to use the same password
 # ---------------------------------------------------------------------------------
 - name: "Lookup any existing Kafka User Secret"
@@ -64,7 +61,6 @@
   when:
     - kafka_user_secret_lookup is defined
     - kafka_user_secret_lookup.resources[0].data.password is defined
-
 
 # 5. Provide debug
 # -----------------------------------------------------------------------------
@@ -87,14 +83,12 @@
       - "Cluster supports grafana v4 ........... {{ supports_grafanav4 }}"
       - "Cluster supports grafana v5 ........... {{ supports_grafanav5 }}"
 
-
 # 6. Install Kafka operator
 # -----------------------------------------------------------------------------
 - name: "Install {{ kafka_operator_name }} subscription"
   kubernetes.core.k8s:
     apply: yes
     template: templates/redhat/subscription.yml.j2
-
 
 # 7. Wait until the Kafka CRD is available
 # -----------------------------------------------------------------------------
@@ -103,8 +97,13 @@
   vars:
     crd_name: kafkas.kafka.strimzi.io
 
+# 8. Lookup Kafka supported versions based upon the Kafka provider operator version
+# -----------------------------------------------------------------------------
+- name: "Lookup Kafka supported versions based upon the Kafka provider operator version"
+  include_tasks: "tasks/provider/redhat/lookup-supported-kafka-versions.yml"
+  when: kafka_provider == 'strimzi'
 
-# 8. Create logging/monitoring configmaps and PodMonitor custom resources
+# 9. Create logging/monitoring configmaps and PodMonitor custom resources
 # -----------------------------------------------------------------------------
 - name: "Create Kafka logging configmap"
   kubernetes.core.k8s:
@@ -121,32 +120,28 @@
     apply: yes
     template: "templates/redhat/podmonitor.yml.j2"
 
-
-# 9. Deploy the cluster
+# 10. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "Create Kafka Cluster"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/redhat/clusters/{{ kafka_cluster_size }}.yml.j2"
 
-
-# 10. Wait until the KafkaUser CRD is available
+# 11. Wait until the KafkaUser CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the KafkaUser CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: kafkausers.kafka.strimzi.io
 
-
-# 11. Create the MAS user
+# 12. Create the MAS user
 # -----------------------------------------------------------------------------
 - name: "Create Kafka User"
   kubernetes.core.k8s:
     apply: yes
     template: templates/redhat/masuser.yml.j2
 
-
-# 12. Create Grafana dashboards for Kafka monitoring
+# 13. Create Grafana dashboards for Kafka monitoring
 # -----------------------------------------------------------------------------
 - name: "Create Kafka monitoring dashboards"
   kubernetes.core.k8s:
@@ -164,8 +159,7 @@
     - "templates/redhat/dashboards-v5/*.yml.j2"
   when: supports_grafanav5
 
-
-# 13. Lookup details
+# 14. Lookup details
 # -----------------------------------------------------------------------------
 # We have seen instances where the Kafka cluster is reported as Ready but
 # the necessary fields in the status resource are not set yet so we retry until
@@ -215,8 +209,7 @@
       - "  Bootstrap cert ............... {{ kafka_int_bootstrap_cert }}"
       - "MAS user password ............ {{ kafka_user_password }}"
 
-
-# 14. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
+# 15. Create KafkaCfg for MAS (if mas_instance_id & mas_config_dir are set)
 # -----------------------------------------------------------------------------
 - name: Debug KafkaCfg creation properties
   when:

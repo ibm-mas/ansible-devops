@@ -1,0 +1,77 @@
+---
+- debug:
+    msg:
+      - "IBM Licensing channel ..................... {{ cpd_ibm_licensing_channel }}"
+      - "IBM Licensing version ..................... {{ cpd_ibm_licensing_version }}"
+      - "Catalog source name ....................... {{ cpd_ibm_licensing_catalog_source_name }}"
+      - "Catalog source namespace .................. {{ cpd_ibm_licensing_catalog_source_namespace }}"
+
+- name: Lookup ibm-licensing-operator-app packagemanifest
+  k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    namespace: "{{ cpd_ibm_licensing_catalog_source_namespace }}"
+    label_selectors:
+      - app.kubernetes.io/instance=ibm-licensing-operator
+      - catalog={{ cpd_ibm_licensing_catalog_source_name }}
+  register: licensing_manifest_info
+
+# we'll get the latest channel available in packagemanifest
+- name: Set ibm-licensing-operator-app channel
+  set_fact:
+    ibm_licensing_available_channel: "{{ licensing_manifest_info.resources[0].status.channels | map(attribute='name') | last }}"
+
+- debug:
+    msg:
+      - "IBM Licensing channel in package manifest ..................... {{ ibm_licensing_available_channel }}"
+
+- assert:
+    that: ibm_licensing_available_channel is version(cpd_ibm_licensing_channel, '>=')
+    fail_msg: "The channel available in ibm-licensing-operator-app package manifest ({{ ibm_licensing_available_channel }}) is older than the minimum required version {{ cpd_ibm_licensing_channel }} needed by Cloud Pak for Data {{ cpd_product_version }}!"
+
+- name: "Install IBM Licensing Subscription"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/licensing/subscription.yml.j2"
+
+- name: "Wait for ibm-licensing-operator to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-licensing-operator
+    namespace: "{{ cpd_cs_control_namespace }}"
+    kind: Deployment
+  register: licensing_operator_lookup
+  until: licensing_operator_lookup.resources[0].status.availableReplicas is defined
+  retries: 20 # Approximately 20 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Install IBM Licensing Custom Resource"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/licensing/cr.yml.j2"
+
+- name: "Wait for IBMLicensing instance to be created"
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v1alpha1
+    name: instance
+    namespace: "{{ cpd_cpfs_namespace }}"
+    kind: IBMLicensing
+  register: licensingcr_output
+  until:
+    - licensingcr_output.resources is defined
+    - licensingcr_output.resources | length > 0
+    - licensingcr_output.resources[0].status.state is defined
+    - licensingcr_output.resources[0].status.state == "ACTIVE"
+  retries: 60 # approx 30 minutes before we give up
+  delay: 30 # seconds
+
+- name: "Wait for ibm-licensing-service-instance to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: ibm-licensing-service-instance
+    namespace: "{{ cpd_cs_control_namespace }}"
+    kind: Deployment
+  register: licensing_instance_deployment_lookup
+  until: licensing_instance_deployment_lookup.resources[0].status.availableReplicas is defined
+  retries: 20 # Approximately 20 minutes before we give up
+  delay: 60 # 1 minute
