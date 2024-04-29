@@ -209,9 +209,9 @@ Role Variables - Manage Configuration
 ### mas_pod_templates_dir
 This role will look for a configuration files named for manage:
 
-- `ibm-mas-manage-manage.yml`
+- `ibm-mas-manage-manageapp.yml`
 
-The content of the configuration file should be the yaml block that you wish to be inserted into the ManageApp CR. `ibm-mas-manage-manage.yml` will be inserted into the ManageApp CR `spec -> podTemplates`. The ibm-mas-manage operator will then pass this on to the corresponding deployments when available.
+The content of the configuration file should be the yaml block that you wish to be inserted into the ManageApp CR. `ibm-mas-manage-manageapp.yml` will be inserted into the ManageApp CR `spec -> podTemplates`. The ibm-mas-manage operator will then pass this on to the corresponding deployments when available.
 
 For full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
 
