@@ -1,100 +1,104 @@
 ---
-# 1. Look up the default channel for the db2u-operator package manifest
+# This task will perform the following (if identified the need):
+# 1. Detach DB2 operators (db2u-day2-ops-controller-manager and db2u-operator-manager) from ibm-common-services namespaces
+# by deleting the existing DB2 operand request, subscription and reinstalling them in the same namespace as the DB2UClusters instances
+# 2. If both DB2 operators and DB2UClusters are already running in the same namespace
+# then this task will just upgrade the current DB2 subscription channel to a newer version
+
+# 1. Delete old Db2 OperandRequest
 # -----------------------------------------------------------------------------
-- block:
-    - name: Lookup db2u-operator packagemanifest
-      kubernetes.core.k8s_info:
-        api_version: packages.operators.coreos.com/v1
-        kind: PackageManifest
-        name: db2u-operator
-        namespace: "{{ ibm_common_services_namespace }}"
-      register: db2u_manifest_info
+# Leverage that we're upgrading DB2 and check if need to delete db2 operator from ibm-common-services namespace
+- name: "Delete old db2 subscription, operand request and csv from {{ ibm_common_services_namespace }} namespace"
+  include_tasks: "tasks/delete_db2_operand_request.yml"
 
-    - name: Set db2u-operator update channel to latest default channel if not provided
-      set_fact:
-        db2_channel: "{{ db2u_manifest_info.resources[0].status.defaultChannel }}"
-  when: db2_channel is not defined or db2_channel == ""
-
-# Fail if db2_channel and/or version not discovered
+# 2. Upgrade Subscription
 # -----------------------------------------------------------------------------
-- name: "Verify db2_channel set"
-  assert:
-    that:
-      - db2_channel is defined and db2_channel != ""
-    fail_msg: "Unable to determine db2_channel from catalog"
+# Lookup db2 operator group
+- name: "Check if operator group is present in {{ db2_namespace }} namespace already"
+  kubernetes.core.k8s_info:
+    namespace: "{{ db2_namespace }}"
+    kind: OperatorGroup
+  register: db2_og_info
 
-- name: Debug Db2 Universal Operator Install
-  ansible.builtin.debug:
-    msg:
-      - "Db2 Channel ............................ {{ db2_channel }}"
+# - name: "Update db2 subscription to the new channel"
+#   kubernetes.core.k8s:
+#     api_version: operators.coreos.com/v1alpha1
+#     name: ibm-db2u-operator
+#     namespace: "{{ db2_operator_namespace }}"
+#     kind: Subscription
+#     definition:
+#       spec:
+#         channel: "{{ db2_channel }}"
+#     apply: true
 
-# 2. Lookup current db2u channel
-# -----------------------------------------------------------------------------
-# This step was added to check in which namespace db2 sub/operator is running
-# since now it might be running in namespaces other than in ibm-common-services namespace
-- name: Find out which namespace db2 operator is running
-  shell: oc get subs -A | grep db2u-operator | awk '{print $1}'
-  register: db2_operator_namespace_lookup
+# Leverage that we're upgrading DB2 and check if need to migrate db2 operator from ibm-common-services namespace
+- name: "Update db2 subscription to the new channel in {{ db2_namespace }} namespace"
+  kubernetes.core.k8s:
+    template: templates/db2u_subscription.yml.j2
+    wait: yes
+    wait_timeout: 120
+    apply: true
 
-- name: Assert db2 operator is installed
-  assert:
-    that: db2_operator_namespace_lookup.stdout_lines | length > 0
-    fail_msg: "DB2 operator was not found in the cluster. Aborting DB2 upgrade."
+- name: "Pause for a minute before checking subscription status..."
+  pause:
+    minutes: 1
 
-- name: Assert there is just one db2 operator running
-  assert:
-    that: db2_operator_namespace_lookup.stdout_lines | length == 1
-    fail_msg:
-      - "There are multiple subscriptions for DB2 in the cluster."
-      - "Make sure you just have one DB2 operator running."
-      - "DB2 operator namespaces identified: {{ db2_operator_namespace_lookup.stdout_lines }}"
-
-- name: Define db2_operator_namespace based on the lookup
-  set_fact:
-    current_db2_operator_namespace: "{{ db2_operator_namespace_lookup.stdout }}"
-
-- debug:
-    msg: "DB2 subscription/operator is currently running in '{{ current_db2_operator_namespace }}' namespace"
-
-- name: "Get the current subscription channel for db2 in {{ current_db2_operator_namespace }} namespace"
+- name: "Wait db2 subscription to update installedCSV"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
-    namespace: "{{ current_db2_operator_namespace }}"
+    name: ibm-db2u-operator
+    namespace: "{{ db2_namespace }}"
     kind: Subscription
+  register: db2_updated_sub_info
+  retries: 20
+  delay: 30 # Retry for approx 20 minutes (30s * 20 attempts) before giving up
+  until:
+    - db2_updated_sub_info.resources is defined
+    - db2_updated_sub_info.resources | length > 0
+    - db2_updated_sub_info.resources[0].status is defined
+    - db2_updated_sub_info.resources[0].status.installedCSV is defined
+    - db2_updated_sub_info.resources[0].status.currentCSV is defined
+    - db2_updated_sub_info.resources[0].status.currentCSV == db2_updated_sub_info.resources[0].status.installedCSV
+
+- name: "Wait for ibm-db2u-operator to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: db2u-operator-manager
+    namespace: "{{ db2_namespace }}"
+    kind: Deployment
+  register: db2u_operator_deployment
+  until:
+    - db2u_operator_deployment.resources is defined
+    - db2u_operator_deployment.resources | length > 0
+    - db2u_operator_deployment.resources[0].status is defined
+    - db2u_operator_deployment.resources[0].status.replicas is defined
+    - db2u_operator_deployment.resources[0].status.readyReplicas is defined
+    - db2u_operator_deployment.resources[0].status.readyReplicas == db2u_operator_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 15 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: "Pause for a minute before continuing upgrade process..."
+  pause:
+    minutes: 1
+
+# 3. Lookup the updated OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "Lookup the updated OperatorCondition"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ db2_namespace }}"
     label_selectors:
-      - operators.coreos.com/db2u-operator.{{ current_db2_operator_namespace }}
-  register: db2_sub_info
+      - "operators.coreos.com/db2u-operator.{{ db2_namespace }}"
+  register: updated_db2_opcon
+  retries: 10
+  delay: 60 # 1 minute
+  until:
+    - updated_db2_opcon.resources is defined
+    - updated_db2_opcon.resources | length == 1
+    - updated_db2_opcon.resources[0].metadata.name is defined
 
-- name: "Set the value for the current channel for db2"
-  set_fact:
-    old_db2_channel: "{{ db2_sub_info.resources[0].spec.channel }}"
-    old_db2_csv: "{{ db2_sub_info.resources[0].status.currentCSV }}"
-
-- debug:
-    msg:
-
-- name: Debug DB2 upgrade subscription status
-  ansible.builtin.debug:
-    msg:
-      - "Current Db2 Subscription namespace ............... {{ current_db2_operator_namespace }}"
-      - "Current Db2 Channel .............................. {{ old_db2_channel }}"
-      - "Current Db2 csv .................................. {{ old_db2_csv }}"
-      - "Target Db2 Subscription namespace ................ {{ db2_namespace }}"
-      - "Target Db2 Channel ............................... {{ db2_channel }}"
-
-# 3. If the current operator channel is the same for the upgrade, no subscription upgrade
-# -----------------------------------------------------------------------------
-- name: "Debug when no upgrade is needed"
-  when: db2_channel == old_db2_channel
+- name: "Debug Operator Version"
   debug:
-    msg: "No action is required. Db2 subscription is already on the {{ db2_channel }} channel"
-
-# Run the DB2 subscription upgrade if there's a new db2 channel to be upgraded
-# or if DB2 subscription/operator is currently running in different namespaces from the DB2 instances
-# in that case, the task will perform the DB2 subscription migration to the db2_namespace
-- include_tasks: "tasks/upgrade/run-db2-subscription-upgrade.yml"
-  when: db2_channel != old_db2_channel or current_db2_operator_namespace != db2_namespace
-
-# 4. Run Db2 instance upgrade
-# -----------------------------------------------------------------------------
-- include_tasks: "tasks/upgrade/run-db2-instances-upgrade.yml"
+    msg:
+      - "Db2u Operator condition ................ {{ updated_db2_opcon.resources[0].metadata.name }}"
