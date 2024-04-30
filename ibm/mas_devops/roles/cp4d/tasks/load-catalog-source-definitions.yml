@@ -1,30 +1,39 @@
 ---
-- include_vars:
-    file: "{{ role_path }}/../mirror_extras_prepare/vars/cp4d_{{ cpd_product_version }}.yml"
+# This task will load additional catalog source definitions based on the Cloud Pak for Data version defined
+# which will be responsible for feeding subscription for the following operators:
+# - cpd-operator
+# - ibm-common-service-operator
+# - ibm-zen-operator
+# - operand-deployment-lifecycle-manager
+# - ibm-idp-config-ui-operator
+# - ibm-mongodb-operator
+# - ibm-commonui-operator
+# - ibm-iam-operator
+# - ibm-namespace-scope-operator
+
+- include_vars: "templates/catalog_sources/{{ cpd_product_version }}.yml"
+
+- set_fact:
+    cpd_platform_catsrc: "{{ catsrc_info.cpd_platform }}"
+    cpfs_catsrc: "{{ catsrc_info.cpfs }}"
 
 - name: Retrieve image setting parts for cpd-platform catalog
-  when: 
-    - item.catalog_name is defined
-    - item.catalog_name == 'cpd-platform'
   set_fact:
     cpd_platform_catalog_name: "{{ item.catalog_name }}"
     cpd_platform_catalog_display_name: "{{ item.catalog_display_name }}"
     cpd_platform_catalog_operator_name: "{{ item.name }}"
     cpd_platform_digest: "{{ item.digest }}"
     cpd_platform_registry: "{{ item.registry }}"
-  loop: "{{ extra_images }}"
+  loop: "{{ cpd_platform_catsrc }}"
 
 - name: Retrieve image setting parts for opencloud catalog
-  when: 
-    - item.catalog_name is defined
-    - item.catalog_name == 'opencloud-operators'
   set_fact:
     opencloud_catalog_name: "{{ item.catalog_name }}"
     opencloud_catalog_display_name: "{{ item.catalog_display_name }}"
     opencloud_catalog_operator_name: "{{ item.name }}"
     opencloud_digest: "{{ item.digest }}"
     opencloud_registry: "{{ item.registry }}"
-  loop: "{{ extra_images }}"
+  loop: "{{ cpfs_catsrc }}"
 
 # 3. Debug Properties
 # -----------------------------------------------------------------------------
