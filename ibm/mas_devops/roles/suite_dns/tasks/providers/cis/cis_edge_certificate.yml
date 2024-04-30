@@ -1,8 +1,4 @@
 ---
-- name: "Pause for 2 minutes before continuing..."
-  pause:
-    minutes: 2
-
 - name: "cis : Ensure IBMCloud CIS is installed"
   ansible.builtin.shell: |
     ibmcloud plugin install cis -f
@@ -50,10 +46,6 @@
     ibmcloud cis certificates {{ _cis_domain_id }} -i {{ cis_service_name }} -o json
   register: _cis_certificates
 
-- name: "Pause for 2 minutes before continuing..."
-  pause:
-    minutes: 2
-
 - name: "cis : Verify if is there a dedicated certificate already"
   set_fact:
     hasDedicated: "{{ _cis_certificates.stdout | from_json | selectattr('hosts', 'search', mas_instance_id) | map(attribute='id') | list | length > 0 }}"
@@ -88,7 +80,3 @@
     ibmcloud cis certificate-order {{ _cis_domain_id }} --hostnames {{ edge_cert_routes|join(',') }} -i {{ cis_service_name }}
   when:
     - not hasDedicated or _deleted_certificate is defined
-
-- name: "Pause for 2 minutes before continuing..."
-  pause:
-    minutes: 2
