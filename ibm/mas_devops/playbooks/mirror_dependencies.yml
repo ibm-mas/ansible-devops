@@ -55,11 +55,15 @@
     # -------------------------------------------------------------------------
     mirror_spark: "{{ lookup('env', 'MIRROR_SPARK') | default ('False', True) | bool }}"
 
-    # 12. Db2u
+    # 12. Cgonos Analytics
+    # -------------------------------------------------------------------------
+    mirror_cognos: "{{ lookup('env', 'MIRROR_COGNOS') | default ('False', True) | bool }}"
+
+    # 13. Db2u
     # -------------------------------------------------------------------------
     mirror_db2u: "{{ lookup('env', 'MIRROR_DB2U') | default ('False', True) | bool }}"
 
-    # 13. App Connect
+    # 14. App Connect
     # -------------------------------------------------------------------------
     mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('False', True) | bool }}"
 
@@ -320,26 +324,7 @@
         manifest_name: ibm-licensing
         manifest_version: "{{ ibm_licensing_version }}"
 
-    # 7. CP4D 4.8.x and above - Extra Images
-    # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_extras_prepare
-      when:
-        - cpd_48_or_higher
-        - mirror_cp4d
-        - mirror_mode != "from-filesystem"
-      vars:
-        extras_name: cp4d
-        extras_version: "{{ cpd_product_version }}"
-
-    - name: ibm.mas_devops.mirror_images
-      when:
-        - cpd_48_or_higher
-        - mirror_cp4d
-      vars:
-        manifest_name: extras_cp4d
-        manifest_version: "{{ cpd_product_version }}"
-
-    # 7.1 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
+    # 7.2 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl or mirror_wml
@@ -356,7 +341,7 @@
         manifest_name: ibm-ccs
         manifest_version: "{{ wsl_version }}"
 
-    # 7.2 IBM Watson Studio dependency - ibm-datarefinery
+    # 7.3 IBM Watson Studio dependency - ibm-datarefinery
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl
@@ -373,7 +358,7 @@
         manifest_name: ibm-datarefinery
         manifest_version: "{{ wsl_version }}"
 
-    # 7.3 IBM Watson Studio dependency - ibm-wsl-runtimes
+    # 7.4 IBM Watson Studio dependency - ibm-wsl-runtimes
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl
@@ -390,7 +375,7 @@
         manifest_name: ibm-wsl-runtimes
         manifest_version: "{{ wsl_version }}"
 
-    # 7.4 IBM Watson Discovery dependency - ibm-model-train-operator
+    # 7.5 IBM Watson Discovery dependency - ibm-model-train-operator
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wd
@@ -407,7 +392,7 @@
         manifest_name: ibm-model-train-operator
         manifest_version: "{{ model_train_version }}"
 
-    # 7.5 IBM Watson Discovery dependency - ibm-elasticsearch-operator
+    # 7.6 IBM Watson Discovery dependency - ibm-elasticsearch-operator
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wd
@@ -514,7 +499,25 @@
         manifest_version: "{{ spark_version }}"
 
 
-    # 12. IBM Db2u
+    # 12. Cognos Analytics
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_cognos
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-cognos-analytics-prod
+        case_version: "{{ cognos_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_cognos
+      vars:
+        manifest_name: ibm-cognos-analytics-prod
+        manifest_version: "{{ cognos_version }}"
+
+    # 13. IBM Db2u
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -546,7 +549,7 @@
         manifest_version: "{{ db2u_extras_version }}"
 
 
-    # 13. App connect
+    # 14. App connect
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -565,7 +568,7 @@
         manifest_version: "{{ appconnect_version }}"
 
 
-    # 14. IBM MAS Assist dependency - ibm-couchdb
+    # 15. IBM MAS Assist dependency - ibm-couchdb
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
