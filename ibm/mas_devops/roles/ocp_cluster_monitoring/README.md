@@ -1,10 +1,9 @@
-cluster_monitoring
+ocp_cluster_monitoring
 ===============================================================================
-Configures an in-cluster monitoring stack for IBM Maximo Application Suite:
+Configures the OpenShift Container Platform Cluster Monitoring enabling two settings:
 
 - [OpenShift user defined project monitoring](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/enabling-monitoring-for-user-defined-projects) is enabled (`openshift-monitoring` namespace)
 - [OpenShift monitoring stack](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.12/html/monitoring/index) is configured to use persistent storage (`openshift-monitoring` namespace)
-- [OpenTelemetry operator](https://github.com/open-telemetry/opentelemetry-operator) is installed (optional, `openshift-operators` namespace)
 
 
 Role Variables
@@ -16,30 +15,6 @@ Inform the role whether to perform an `install` or an `uninstall` of the cluster
 - Environment Variable: `CLUSTER_MONITORING_ACTION`
 - Default: `install`
 
-### cluster_monitoring_include_prometheus
-By default this role will reconfigure Prometheus to enable persistent storage and user workload monitoring, this can be disabled by setting this variable to `False`.
-
-- Optional
-- Environment Variable: `CLUSTER_MONITORING_INCLUDE_PROMETHEUS`
-- Default: `True`
-
-### cluster_monitoring_include_grafana
-By default Grafana is included in the monitoring stack, this can be disabled by setting this variable to `False`.
-
-- Optional
-- Environment Variable: `CLUSTER_MONITORING_INCLUDE_GRAFANA`
-- Default: `True`
-
-### cluster_monitoring_include_opentelemetry
-By default OpenTelemtry is **not** included in the monitoring stack, this can be enabled by setting this variable to `True`.
-
-- Optional
-- Environment Variable: `CLUSTER_MONITORING_INCLUDE_OPENTELEMETRY`
-- Default: `False`
-
-
-Role Variables - Prometheus
--------------------------------------------------------------------------------
 ### prometheus_retention_period
 Adjust the retention period for Prometheus metrics, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
 
@@ -106,7 +81,7 @@ Example Playbook
     prometheus_storage_class: "ibmc-block-gold"
     prometheus_alertmgr_storage_class: "ibmc-file-gold-gid"
   roles:
-    - ibm.mas_devops.cluster_monitoring
+    - ibm.mas_devops.ocp_cluster_monitoring
 ```
 
 

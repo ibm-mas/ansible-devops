@@ -20,7 +20,6 @@ copyDoc aws_vpc
 copyDoc appconnect
 copyDoc cert_manager
 copyDoc cis
-copyDoc cluster_monitoring
 copyDoc common_services
 copyDoc configure_manage_eventstreams
 copyDoc cos
@@ -48,6 +47,7 @@ copyDoc mirror_ocp
 copyDoc mirror_images
 copyDoc mongodb
 copyDoc nvidia_gpu
+copyDoc ocp_cluster_monitoring
 copyDoc ocp_config
 copyDoc ocp_contentsourcepolicy
 copyDoc ocp_deprovision
