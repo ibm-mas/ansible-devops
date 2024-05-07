@@ -1,5 +1,4 @@
 ---
-
 # 1. Setup namespaces for OCS
 # -----------------------------------------------------------------------------
 - name: "ocs/storage : Create Namespaces for OCS"
@@ -45,7 +44,7 @@
 - name: "ocs/storage : Create StorageCluster"
   kubernetes.core.k8s:
     apply: yes
-    template: 'templates/wd/storage/storagecluster.yaml'
+    template: "templates/wd/storage/storagecluster.yaml"
 
 - name: "Wait until the StorageCluster is available (60s delay)"
   kubernetes.core.k8s_info:
@@ -75,7 +74,29 @@
     - backingstore_info.resources | length > 0
     - backingstore_info.resources | json_query('[*].status.conditions[?type==`Available`][].status') | select ('match','True') | list | length == 1
 
-# 4. Provide debug information
+# This is needed because sometimes the noobaa-default-backing-store-noobaa-pod does not get started correctly
+# so restarting all corresponding backing store operators/pods seems to do the trick
+- name: "Restart all pods from openshift-storage namespace"
+  shell: oc delete pods --all -n openshift-storage
+
+- name: "Wait until the noobaa-default-backing-store-noobaa-pod is available (30s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: openshift-storage
+    label_selectors:
+      - app=noobaa
+      - pool=noobaa-default-backing-store
+  register: default_backingstore_pod
+  retries: 10 # 5 minutes
+  delay: 30 # 30 seconds
+  until:
+    - default_backingstore_pod.resources is defined
+    - default_backingstore_pod.resources | length > 0
+    - default_backingstore_pod.resources[0].status is defined
+    - default_backingstore_pod.resources[0].status.phase == "Running"
+
+# 5. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "ocs/storage : Debug information"
   debug:
