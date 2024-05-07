@@ -75,9 +75,33 @@
     - backingstore_info.resources | json_query('[*].status.conditions[?type==`Available`][].status') | select ('match','True') | list | length == 1
 
 # This is needed because sometimes the noobaa-default-backing-store-noobaa-pod does not get started correctly
-# so restarting all corresponding backing store operators/pods seems to do the trick
-- name: "Restart all pods from openshift-storage namespace"
-  shell: oc delete pods --all -n openshift-storage
+# so restarting noobaa operator seems to do the trick
+- name: "Restart noobaa-operator pod from openshift-storage namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Pod
+    namespace: "openshift-storage"
+    label_selectors:
+      - app=noobaa
+      - noobaa-operator=deployment
+
+- name: "Wait until the noobaa-operator is available (30s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: openshift-storage
+    label_selectors:
+      - app=noobaa
+      - noobaa-operator=deployment
+  register: noobaa_operator_pod
+  retries: 10 # 5 minutes
+  delay: 30 # 30 seconds
+  until:
+    - noobaa_operator_pod.resources is defined
+    - noobaa_operator_pod.resources | length > 0
+    - noobaa_operator_pod.resources[0].status is defined
+    - noobaa_operator_pod.resources[0].status.phase == "Running"
 
 - name: "Wait until the noobaa-default-backing-store-noobaa-pod is available (30s delay)"
   kubernetes.core.k8s_info:
