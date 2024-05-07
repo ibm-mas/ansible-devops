@@ -38,6 +38,7 @@ copyDoc gencfg_jdbc
 copyDoc gencfg_mongo
 copyDoc gencfg_watsonstudio
 copyDoc gencfg_workspace
+copyDoc grafana
 copyDoc ibm_catalogs
 copyDoc install_operator
 copyDoc kafka
