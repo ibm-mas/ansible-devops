@@ -60,7 +60,7 @@ We recommend using the latest version of ansible-core at all times (at time of w
 If you do not already have the `oc` command line tool, you can download it as below:
 
 ```
-wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.7/openshift-install-linux.tar.gz
+wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.7/openshift-client-linux-4.14.7.tar.gz
 tar -zxf openshift-client-linux.tar.gz
 mv oc kubectl /usr/local/bin/
 rm -rf openshift-client-linux.tar.gz
