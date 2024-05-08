@@ -1,4 +1,36 @@
 ---
+# Set variables for restore job
+# -----------------------------------------------------------------------------
+- name: "Set fact: restore job variables"
+  set_fact:
+    masbr_job_component:
+      name: "mongodb"
+      namespace: "{{ mongodb_namespace }}"
+    masbr_job_data_list:
+      - seq: "1"
+        type: "database"
+
+- name: "Set fact: mongodb variables"
+  set_fact:
+    mongodb_pod_name: mas-mongo-ce-0
+    mongodb_container_name: mongod
+    mongodb_restore_folder: /tmp/restore
+    mongodb_lock_file: restore.lock
+
+- name: "Set fact: exec command in mongodb pod"
+  set_fact:
+    mongodb_exec_in_pod: >-
+      oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
+
+- name: "Set fact: copy file variables"
+  set_fact:
+    masbr_cf_namespace: "{{ mongodb_namespace }}"
+    masbr_cf_pod_name: "{{ mongodb_pod_name }}"
+    masbr_cf_container_name: "{{ mongodb_container_name }}"
+    masbr_cf_pvc_name: "data-volume-{{ mongodb_pod_name }}"
+    masbr_cf_pvc_mount_path: "/data"
+
+
 # Check restore variables
 # -----------------------------------------------------------------------------
 - name: "Check restore variables"
@@ -11,191 +43,121 @@
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/confirm_cluster_info.yml"
 
 
-# Check if mongodb is installed and running
-# (Currently only support restoring backup files to an existing deployment)
+# Create k8s Job to run restore tasks
 # -----------------------------------------------------------------------------
-- name: "Get mongodb running information"
-  include_tasks: "tasks/providers/{{ mongodb_provider }}/get-mongo-info.yml"
-
-- name: "Fail if mongodb does not exists"
-  assert:
-    that: mongodb_version is defined
-    fail_msg: "Mongodb does not exists!"
-
-- name: "Fail if mongodb is not running"
-  assert:
-    that: mongodb_running is defined and mongodb_running
-    fail_msg: "Mongodb is not running!"
-
-
-# Set mongodb backup variables
-# -----------------------------------------------------------------------------
-- name: "Set fact: mongodb restore folder"
-  set_fact:
-    mongodb_restore_folder: /data/restore
-    mongodb_lock_file: restore.lock
-
-- name: "Set fact: exec command in mongodb pod"
-  set_fact:
-    mongodb_exec_in_pod: >-
-      oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
+- name: "Create k8s Job to run restore tasks"
+  when: masbr_create_task_job
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_task_job.yml"
+  vars:
+    _rt_role_env:
+      - name: "ROLE_NAME"
+        value: "mongodb"
+      - name: "MONGODB_PROVIDER"
+        value: "{{ mongodb_provider }}"
+      - name: "MONGODB_ACTION"
+        value: "{{ mongodb_action }}"
 
 
-# Check if an exiting mongodb restore job is running
-# -----------------------------------------------------------------------------
-- name: "Try to find restore lock file in pod"
-  when: not masbr_restore_allow_multi_jobs
-  changed_when: false
-  shell: >
-    {{ mongodb_exec_in_pod }}
-    '[ -f {{ mongodb_restore_folder }}/{{ mongodb_lock_file }} ] && echo exist; exit 0'
-  register: _get_lock_file_output
-
-- name: "Fail if found restore lock file in pod"
-  when: not masbr_restore_allow_multi_jobs
-  assert:
-    that: _get_lock_file_output.stdout != "exist"
-    fail_msg: "A mongodb restore job is running now, please try to run restore later!"
-
-
-# Create mongodb role and user for running restore job
-# -----------------------------------------------------------------------------
-- name: "Create mongodb role and user for running restore job"
-  include_tasks: "tasks/providers/{{ mongodb_provider }}/create-role-user.yml"
-
-
-# Set restore variables
-# -----------------------------------------------------------------------------
-- name: "Set fact: variables for restore.yml file"
-  set_fact:
-    masbr_job_component:
-      name: "mongodb"
-      version: "{{ mongodb_version }}"
-      provider: "{{ mongodb_provider }}"
-    masbr_job_data_list:
-      - seq: 1
-        type: "database"
-        phase: "InProgress"
-    masbr_job_status:
-      phase: "InProgress"
-      startTimestamp: "{{ '%Y-%m-%dT%H:%M:%S' | strftime }}"
-
-- name: "Set fact: job variables"
-  set_fact:
-    masbr_job_type: "restore"
-    masbr_job_version: "{{ ansible_date_time.iso8601_basic }}"
-
-- name: "Set fact: job name"
-  set_fact:
-    masbr_job_name: "{{ masbr_restore_from }}-{{ masbr_job_version }}"
-
-
-# Update restore job status: InProgress
-# -----------------------------------------------------------------------------
-- name: "Update restore job status: InProgress"
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
-
-
-# Run mongodb restore job
-# -----------------------------------------------------------------------------
-- name: "Run mongodb restore job"
+- name: "Run restore tasks"
+  when: not masbr_create_task_job
   block:
-    # Create restore lock file in pod
+    # Update restore job status: New
+    # -------------------------------------------------------------------------
+    - name: "Update restore job status: New"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "1"
+            phase: "New"
+
+    # Check if mongodb is installed and running
+    # -------------------------------------------------------------------------
+    - name: "Get mongodb running information"
+      include_tasks: "tasks/providers/{{ mongodb_provider }}/get-mongo-info.yml"
+
+    - name: "Fail if mongodb does not exists"
+      assert:
+        that: mongodb_version is defined
+        fail_msg: "Mongodb does not exists!"
+
+    - name: "Fail if mongodb is not running"
+      assert:
+        that: mongodb_running is defined and mongodb_running
+        fail_msg: "Mongodb is not running!"
+
+
+    # Check if an exiting restore job is running
+    # -------------------------------------------------------------------------
+    - name: "Try to find restore lock file in pod"
+      when: not masbr_restore_allow_multi_jobs
+      changed_when: false
+      shell: >
+        {{ mongodb_exec_in_pod }}
+        '[ -f {{ mongodb_restore_folder }}/{{ mongodb_lock_file }} ] && echo exist; exit 0'
+      register: _get_lock_file_output
+
+    - name: "Fail if found restore lock file in pod"
+      when: not masbr_restore_allow_multi_jobs
+      assert:
+        that: _get_lock_file_output.stdout != "exist"
+        fail_msg: "A mongodb restore job is running now, please try to run restore later!"
+
     - name: "Create restore lock file in pod"
       changed_when: true
       shell: >
         {{ mongodb_exec_in_pod }}
-        'mkdir -p {{ mongodb_restore_folder }};
+        'mkdir -p {{ mongodb_restore_folder }}/{{ masbr_job_name }};
         touch {{ mongodb_restore_folder }}/{{ mongodb_lock_file }}'
       register: _create_restore_lock_output
 
-    # Copy backup files from specified storage location to pod
-    - name: "Copy backup files from specified storage location to pod"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_pod.yml"
-      vars:
-        masbr_cp_namespace: "{{ mongodb_namespace }}"
-        masbr_cp_pod_name: "{{ mongodb_pod_name }}"
-        masbr_cp_container_name: "{{ mongodb_container_name }}"
-        masbr_cp_pvc_name: "data-volume-{{ mongodb_pod_name }}"
-        masbr_cp_pvc_path: "/data"
-        masbr_cp_config_folder: "{{ mongodb_restore_folder }}/{{ masbr_restore_from }}"
-        masbr_cp_src_files:
-          - "{{ masbr_job_data_list[0].type }}/{{ masbr_restore_from }}.tar.gz"
-        masbr_cp_dest_folder: "{{ mongodb_restore_folder }}"
 
-    # Extract the tar file
-    - name: "Extract the tar file"
-      changed_when: true
+    # Check free disk space in pod
+    # -------------------------------------------------------------------------
+    - name: "Get free disk space in pod"
+      changed_when: false
       shell: >
         {{ mongodb_exec_in_pod }}
-        'tar -xzf {{ mongodb_restore_folder }}/{{ masbr_restore_from }}.tar.gz
-        -C {{ mongodb_restore_folder }}/{{ masbr_restore_from }} .'
+        'df -h {{ mongodb_restore_folder }}'
+      register: _df_output
 
-    # Restore mongodb databases
-    - name: "Restore mongodb databases"
-      changed_when: true
-      shell: >
-        {{ mongodb_exec_in_pod }}
-        'mongorestore --host={{ mongodb_primary_host }} --username={{ mongodb_user }} --password={{ mongodb_password }}
-        --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
-        --drop --oplogReplay --dir={{ mongodb_restore_folder }}/{{ masbr_restore_from }}'
-      register: _mongorestore_output
-
-    - name: "Debug: mongorestore output"
+    - name: "Debug: free disk space in pod"
       debug:
-        var: _mongorestore_output.stderr_lines
+        msg: "{{ _df_output.stdout_lines }}"
 
-    # Update restore job status: Completed
-    - name: "Update fact: restore status"
-      ansible.utils.update_fact:
-        updates:
-          - path: masbr_job_data_list[0].phase
-            value: "Completed"
-          - path: masbr_job_status.phase
-            value: "Completed"
-          - path: masbr_job_status.completionTimestamp
-            value: "{{ '%Y-%m-%dT%H:%M:%S' | strftime }}"
-      register: _updated_facts
 
-    - name: "Set fact: updated facts"
-      set_fact:
-        masbr_job_data_list: "{{ _updated_facts.masbr_job_data_list }}"
-        masbr_job_status: "{{ _updated_facts.masbr_job_status }}"
-
-    - name: "Update restore job status: Completed"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+    # Run restore tasks for each data type
+    # -------------------------------------------------------------------------
+    - name: "Run restore tasks for each data type"
+      include_tasks: "tasks/providers/{{ mongodb_provider }}/restore-{{ job_data_item.type }}.yml"
+      vars:
+        masbr_job_data_seq: "{{ job_data_item.seq }}"
+        masbr_job_data_type: "{{ job_data_item.type }}"
+      loop: "{{ masbr_job_data_list }}"
+      loop_control:
+        loop_var: job_data_item
 
   rescue:
-    # Update restore job status: Failed
-    - name: "Update fact: restore status"
-      ansible.utils.update_fact:
-        updates:
-          - path: masbr_job_data_list[0].phase
-            value: "Failed"
-          - path: masbr_job_status.phase
-            value: "Failed"
-          - path: masbr_job_status.completionTimestamp
-            value: "{{ '%Y-%m-%dT%H:%M:%S' | strftime }}"
-      register: _updated_facts
-
-    - name: "Set fact: updated facts"
-      set_fact:
-        masbr_job_data_list: "{{ _updated_facts.masbr_job_data_list }}"
-        masbr_job_status: "{{ _updated_facts.masbr_job_status }}"
-
-    - name: "Update restore job status: Failed"
+    # Update restore status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database restore status: Failed"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_status:
+          phase: "Failed"
 
   always:
     # Clean up
+    # -------------------------------------------------------------------------
     - name: "Delete restore files from mongodb pod"
       changed_when: true
       shell: >
         {{ mongodb_exec_in_pod }}
         'rm -f {{ mongodb_restore_folder }}/{{ mongodb_lock_file }};
-        rm -rf {{ mongodb_restore_folder }}/{{ masbr_restore_from }};
-        rm -f {{ mongodb_restore_folder }}/{{ masbr_restore_from }}.tar.gz'
+        rm -rf {{ mongodb_restore_folder }}/{{ masbr_job_name }}'
       register: _delete_pod_files_output
 
-    - name: "Delete local job folder if exists"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/delete_local_job_folder.yml"
+
+    # After run tasks
+    # -------------------------------------------------------------------------
+    - name: "After run tasks"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/after_run_tasks.yml"

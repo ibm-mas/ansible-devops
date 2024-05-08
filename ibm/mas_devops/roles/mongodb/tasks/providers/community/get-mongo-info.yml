@@ -1,10 +1,4 @@
 ---
-- name: "Set fact: mongodb variables"
-  set_fact:
-    mongodb_pod_name: mas-mongo-ce-0
-    mongodb_container_name: mongod
-
-
 # Get mongodb version and status
 # -----------------------------------------------------------------------------
 - name: "Get MongoDBCommunity"
@@ -57,9 +51,13 @@
 - name: "Get mongodb ca file"
   changed_when: false
   shell: >
-    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
+    {{ mongodb_exec_in_pod }}
     'ls /var/lib/tls/ca/*.pem | head -n 1'
   register: _mongodb_ca_file_output
+
+- name: "Debug: get mongodb ca file"
+  debug:
+    msg: "{{ _mongodb_ca_file_output.stdout }}"
 
 - name: "Set fact: mongodb ca file"
   set_fact:
@@ -74,7 +72,7 @@
 - name: "Get mongodb server information"
   changed_when: false
   shell: >
-    oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
+    {{ mongodb_exec_in_pod }}
     'mongo --quiet --host={{ mongodb_pod_name }}.mas-mongo-ce-svc.mongoce.svc.cluster.local:27017
     --username=admin --password={{ mongodb_password }} --authenticationDatabase=admin
     --tls --tlsCAFile={{ mongodb_ca_file }} admin
@@ -83,7 +81,7 @@
 
 - name: "Set fact: mongodb primary host"
   set_fact:
-    mongodb_primary_host: "{{ _mongodb_info_output.stdout | from_json | json_query('primary') }}"
+    mongodb_primary_host: "{{ _mongodb_info_output.stdout_lines[-1] | from_json | json_query('primary') }}"
 
 - name: "Debug: mongodb primary host"
   debug:

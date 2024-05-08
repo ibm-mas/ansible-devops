@@ -1,0 +1,212 @@
+---
+# Update database backup status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update database backup status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_component:
+      version: "{{ mongodb_version }}"
+      provider: "{{ mongodb_provider }}"
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "InProgress"
+
+
+- name: "Backup mongodb databases"
+  block:
+    # Create mongodb role and user for backing up databases
+    # -------------------------------------------------------------------------
+    - name: "Create mongodb role and user for backing up databases"
+      include_tasks: "tasks/providers/{{ mongodb_provider }}/create-role-user.yml"
+
+
+    # Prepare mongodb database backup folders
+    # -------------------------------------------------------------------------
+    - name: "Set fact: mongodb database backup variables"
+      set_fact:
+        mongodb_db_backup_folder: >-
+          {{ mongodb_backup_folder }}/{{ masbr_job_name }}/{{ masbr_job_data_type }}
+
+    - name: "Create mongodb database backup folder in pod"
+      changed_when: true
+      shell: >
+        {{ mongodb_exec_in_pod }} 'mkdir -p {{ mongodb_db_backup_folder }}'
+
+
+    # Take a full backup of mongodb databases
+    # -------------------------------------------------------------------------
+    - name: "Take a full backup of mongodb databases"
+      when: masbr_backup_type == "full"
+      block:
+        # mongodump
+        - name: "Take a full backup of mongodb databases"
+          changed_when: true
+          shell: >
+            {{ mongodb_exec_in_pod }}
+            'mongodump --host={{ mongodb_primary_host }}
+            --username={{ mongodb_user }} --password={{ mongodb_password }}
+            --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
+            --oplog --out={{ mongodb_db_backup_folder }}/mongodump
+            |& tee {{ mongodb_db_backup_folder }}/mongodump.log'
+          register: _mongodump_output
+
+        - name: "Debug: mongodump output"
+          debug:
+            var: _mongodump_output.stdout_lines
+
+        # Get the timestamp of current backup
+        - name: "Dump oplog.bson file"
+          changed_when: true
+          shell: >
+            {{ mongodb_exec_in_pod }}
+            'bsondump --quiet {{ mongodb_db_backup_folder }}/mongodump/oplog.bson
+            | head -n 1 > {{ mongodb_db_backup_folder }}/oplog.json;
+            cat {{ mongodb_db_backup_folder }}/oplog.json'
+          register: _bsondump_output
+
+        - name: "Debug: bsondump output"
+          debug:
+            msg: "{{ _bsondump_output.stdout_lines }}"
+
+
+    # Take an incremental backup of mongodb databases
+    # -------------------------------------------------------------------------
+    - name: "Take an incremental backup of mongodb databases"
+      when: masbr_backup_type == "incr"
+      block:
+        # Get timestamp of the backup file specified by masbr_backup_from_completed
+        - name: "Get oplog.json from specified backup job"
+          include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_local.yml"
+          vars:
+            masbr_cf_job_type: "{{ masbr_job_type }}"
+            masbr_cf_job_name: "{{ masbr_backup_from_completed }}"
+            masbr_cf_paths:
+              - src_file: "{{ masbr_job_data_type }}/oplog.json"
+                dest_folder: "{{ masbr_job_data_type }}"
+
+        - name: "Get timestamp from oplog.json"
+          changed_when: false
+          shell: >
+            cat {{ masbr_local_job_folder }}/{{ masbr_job_data_type }}/oplog.json | tail -1 | jq -c .ts
+          register: _get_oplog_ts_output
+
+        - name: "Debug: timestamp in oplog.json"
+          debug:
+            msg: "Oplog timestamp ............... {{ _get_oplog_ts_output.stdout }}"
+
+        # Create a query file used by mongodump
+        - name: "Create mongodump query file"
+          copy:
+            dest: "{{ masbr_local_job_folder }}/{{ masbr_job_data_type }}/query.json"
+            content: "{{ mongodb_query | to_json }}"
+            mode: preserve
+          vars:
+            mongodb_query:
+              ts:
+                $gt: "{{ _get_oplog_ts_output.stdout | from_json }}"
+
+        - name: "Copy mongodump query file to pod"
+          changed_when: true
+          shell: >
+            oc cp --retries=50 -c {{ mongodb_container_name }}
+            {{ masbr_local_job_folder }}/{{ masbr_job_data_type }}/query.json
+            {{ mongodb_namespace }}/{{ mongodb_pod_name }}:{{ mongodb_db_backup_folder }}/query.json &&
+            {{ mongodb_exec_in_pod }} 'cat {{ mongodb_db_backup_folder }}/query.json'
+          register: _cp_query_file_output
+
+        - name: "Debug: mongodump query file content"
+          debug:
+            msg: "Query file content ............ {{ _cp_query_file_output.stdout }}"
+
+        # mongodump
+        - name: "Take an incremental backup of mongodb databases"
+          changed_when: true
+          shell: >
+            {{ mongodb_exec_in_pod }}
+            'mongodump --host={{ mongodb_primary_host }}
+            --username={{ mongodb_user }} --password={{ mongodb_password }}
+            --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
+            --db=local --collection=oplog.rs --queryFile={{ mongodb_db_backup_folder }}/query.json
+            --out={{ mongodb_db_backup_folder }}/mongodump
+            |& tee {{ mongodb_db_backup_folder }}/mongodump.log'
+          register: _mongodump_output
+
+        - name: "Debug: mongodump output"
+          debug:
+            msg: "{{ _mongodump_output.stdout_lines }}"
+
+        # Get the timestamp of current backup
+        - name: "Dump oplog.rs.bson file"
+          changed_when: true
+          shell: >
+            {{ mongodb_exec_in_pod }}
+            'bsondump --quiet {{ mongodb_db_backup_folder }}/mongodump/local/oplog.rs.bson
+            | head -n 1 > {{ mongodb_db_backup_folder }}/oplog.json &&
+            cat {{ mongodb_db_backup_folder }}/oplog.json'
+          register: _bsondump_output
+
+        - name: "Debug: bsondump output"
+          debug:
+            msg: "{{ _bsondump_output.stdout_lines }}"
+
+
+    # Create a tar.gz archive of database backup
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of database backup"
+      changed_when: true
+      shell: >
+        {{ mongodb_exec_in_pod }}
+        'tar -czf {{ mongodb_db_backup_folder }}/mongodump-log.tar.gz
+        -C {{ mongodb_db_backup_folder }} mongodump.log &&
+        tar -czf {{ mongodb_db_backup_folder }}/{{ masbr_job_name }}.tar.gz
+        -C {{ mongodb_db_backup_folder }}/mongodump . &&
+        du -h {{ mongodb_db_backup_folder }}/{{ masbr_job_name }}.tar.gz'
+      register: _du_tar_file_output
+
+    - name: "Debug: size of tar file"
+      debug:
+        msg: "{{ _du_tar_file_output.stdout_lines }}"
+
+
+    # Copy backup files from pod to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Copy backup files from pod to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_pod_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "{{ masbr_job_type }}"
+        masbr_cf_job_name: "{{ masbr_job_name }}"
+        masbr_cf_paths:
+          - src_file: "{{ mongodb_db_backup_folder }}/{{ masbr_job_name }}.tar.gz"
+            dest_folder: "{{ masbr_job_data_type }}"
+          - src_file: "{{ mongodb_db_backup_folder }}/oplog.json"
+            dest_folder: "{{ masbr_job_data_type }}"
+          - src_file: "{{ mongodb_db_backup_folder }}/mongodump-log.tar.gz"
+            dest_folder: "log"
+
+
+    # Update database backup status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update database backup status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Completed"
+
+  rescue:
+    # Update database backup status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database backup status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Failed"
+
+  always:
+    # Clean up
+    - name: "Delete database backup files from mongodb pod"
+      changed_when: true
+      shell: >
+        {{ mongodb_exec_in_pod }} 'rm -rf {{ mongodb_db_backup_folder }}'
+      register: _delete_pod_files_output

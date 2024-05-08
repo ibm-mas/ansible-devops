@@ -267,11 +267,11 @@ Once the CA certificate has been updated for the MongoCfg and LicenseService CRs
 
 Community MongoDB Backup and Restore Role Variables
 -----------------------------------------------------
-### masbr_silence
-Required. Whether display confirmations during the backup/restore process.
+### masbr_confirm_cluster
+Optional. Whether to confirm the currently connected cluster before perform the backup/restore job.
 
-- Environment Variable: `MASBR_SILENCE`
-- Default Value: `false`
+- Environment Variable: `MASBR_CONFIRM_CLUSTER`
+- Default Value: `true`
 
 ### masbr_copy_timeout_sec
 Optional. Sets the waiting time in seconds for copying backup files between cluster and specified storage locaiton.
@@ -292,10 +292,16 @@ Required only if `masbr_storage_type` is `local`. The folder name in local stora
 - Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
 - Default Value: None
 
-### masbr_storage_cloud_config
+### masbr_storage_cloud_rclone_file
+Required only if `masbr_storage_type` is `cloud`. The rclone configuration file path.
+
+- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_FILE`
+- Default Value: None
+
+### masbr_storage_cloud_rclone_name
 Required only if `masbr_storage_type` is `cloud`. The rclone configuration name.
 
-- Environment Variable: `MASBR_STORAGE_CLOUD_CONFIG`
+- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_NAME`
 - Default Value: None
 
 ### masbr_storage_cloud_bucket
@@ -315,6 +321,20 @@ Supported backup types: `full` and `incr`
 Required only if `mongodb_action` is `backup` and `masbr_backup_type` is `incr`. The name of the backup to create incremental backup based on.
 
 - Environment Variable: `MASBR_BACKUP_FROM`
+- Default Value: None
+
+### masbr_backup_schedule
+Optional. Cron expression for scheduled backup.  
+https://en.wikipedia.org/wiki/Cron
+
+- Environment Variable: `MASBR_BACKUP_SCHEDULE`
+- Default Value: None
+
+### masbr_backup_timezone
+Optional. Time zone for scheduled backup.  
+https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
+- Environment Variable: `MASBR_BACKUP_TIMEZONE`
 - Default Value: None
 
 ### masbr_restore_from

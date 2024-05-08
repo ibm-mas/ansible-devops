@@ -1,0 +1,133 @@
+---
+# Update database restore status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update database restore status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_component:
+      version: "{{ mongodb_version }}"
+      provider: "{{ mongodb_provider }}"
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "InProgress"
+
+
+- name: "Restore mongodb databases"
+  block:
+    # Create mongodb role and user for backing up databases
+    # -------------------------------------------------------------------------
+    - name: "Create mongodb role and user for backing up databases"
+      include_tasks: "tasks/providers/{{ mongodb_provider }}/create-role-user.yml"
+
+
+    # Prepare mongodb database restore folders
+    # -------------------------------------------------------------------------
+    - name: "Set fact: mongodb database restore variables"
+      set_fact:
+        mongodb_db_restore_folder: >-
+          {{ mongodb_restore_folder }}/{{ masbr_job_name }}/{{ masbr_job_data_type }}
+
+    - name: "Create mongodb database restore folder in pod"
+      changed_when: true
+      shell: >
+        {{ mongodb_exec_in_pod }} 'mkdir -p {{ mongodb_db_restore_folder }}'
+
+    - name: "Debug: mongodb database restore folder in pod"
+      debug:
+        msg: "Database restore folder ........... {{ mongodb_db_restore_folder }}"
+
+
+    # Copy backup files from specified storage location to pod
+    # -------------------------------------------------------------------------
+    - name: "Copy backup files from specified storage location to pod"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_pod.yml"
+      vars:
+        masbr_cf_job_type: "backup"
+        masbr_cf_job_name: "{{ masbr_restore_from_completed }}"
+        masbr_cf_paths:
+          - src_file: "{{ masbr_job_data_type }}/{{ masbr_restore_from }}.tar.gz"
+            dest_folder: "{{ mongodb_db_restore_folder }}"
+
+
+    # Extract the tar.gz file
+    # -------------------------------------------------------------------------
+    - name: "Extract the tar.gz file"
+      changed_when: true
+      shell: >
+        {{ mongodb_exec_in_pod }}
+        'mkdir -p {{ mongodb_db_restore_folder }}/mongorestore &&
+        tar -xzf {{ mongodb_db_restore_folder }}/{{ masbr_restore_from }}.tar.gz
+        -C {{ mongodb_db_restore_folder }}/mongorestore . &&
+        ls -lA {{ mongodb_db_restore_folder }}/mongorestore'
+      register: _extract_output
+
+    - name: "Debug: extracted files"
+      debug:
+        msg:
+          - "Extract output folder .............. {{ mongodb_db_restore_folder }}/mongorestore"
+          - "{{ _extract_output.stdout_lines }}"
+
+
+    # Restore mongodb databases
+    # -------------------------------------------------------------------------
+    - name: "Restore mongodb databases"
+      changed_when: true
+      shell: >
+        {{ mongodb_exec_in_pod }}
+        'mongorestore --host={{ mongodb_primary_host }}
+        --username={{ mongodb_user }} --password={{ mongodb_password }}
+        --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
+        --drop --oplogReplay --dir={{ mongodb_db_restore_folder }}/mongorestore
+        |& tee {{ mongodb_db_restore_folder }}/mongorestore.log'
+      register: _mongorestore_output
+
+    - name: "Debug: mongorestore output"
+      debug:
+        var: _mongorestore_output.stdout_lines
+
+
+    # Copy mongorestore log file from pod to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of mongorestore log"
+      changed_when: true
+      shell: >
+        {{ mongodb_exec_in_pod }}
+        'tar -czf {{ mongodb_db_restore_folder }}/mongorestore-log.tar.gz
+        -C {{ mongodb_db_restore_folder }} mongorestore.log'
+
+    - name: "Copy mongorestore log file from pod to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_pod_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "{{ masbr_job_type }}"
+        masbr_cf_job_name: "{{ masbr_job_name }}"
+        masbr_cf_paths:
+          - src_file: "{{ mongodb_db_restore_folder }}/mongorestore-log.tar.gz"
+            dest_folder: "log"
+
+
+    # Update database restore status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update database restore status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Completed"
+
+  rescue:
+    # Update database restore status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database restore status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Failed"
+
+  always:
+    # Clean up
+    - name: "Delete database restore files from mongodb pod"
+      changed_when: true
+      shell: >
+        {{ mongodb_exec_in_pod }} 'rm -rf {{ mongodb_db_restore_folder }}'
+      register: _delete_pod_files_output

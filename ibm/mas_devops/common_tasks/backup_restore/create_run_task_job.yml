@@ -1,0 +1,118 @@
+---
+# Set job variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: job variables"
+  set_fact:
+    # Format '<job_type>-<job_version>-<timestamp>'
+    # - Job name must be no more than 63 characters and in lower case:
+    #   'backup-20240508151053-20240424210110'
+    #   'restore-20240508151704-20240424210110'
+    # - CronJob name must be no longer than 52 characters and in lower case:
+    #   'schedule-20240508151053-20240424210110'
+    masbr_rt_k8s_name: >-
+      {{ masbr_job_type }}-{{ masbr_job_version }}-{{ '%Y%m%d%H%M%S' | strftime }}
+    masbr_rt_namespace: "{{ masbr_job_component.namespace }}"
+    masbr_rt_cmds: >
+      ansible-playbook ibm.mas_devops.run_role
+
+- name: "Debug: run task Job name"
+  debug:
+    msg:
+      - "Run task Job name ..................... {{ masbr_rt_k8s_name }}"
+
+- name: "Set fact: add common env variables"
+  set_fact:
+    masbr_rt_common_env: >-
+      {{ masbr_rt_common_env | default([
+        {'name': 'ANSIBLE_LOG_PATH', 'value': '/tmp/ansible.log'},
+        {'name': 'MASBR_CONFIRM_CLUSTER', 'value': 'false'},
+        {'name': 'MASBR_CREATE_TASK_JOB', 'value': 'false'},
+        {'name': 'MASBR_RUNNING_IN_JOB', 'value': 'true'}
+      ]) + [item] }}
+  with_items: >-
+    {{ ansible_env |
+    ansible.utils.keep_keys(target=['MASBR_'], matching_parameter='starts_with') |
+    dict2items(key_name='name', value_name='value') }}
+  # Exclude below env vars because we will override them
+  when: >-
+    item.name not in [
+      'MASBR_CONFIRM_CLUSTER',
+      'MASBR_CREATE_TASK_JOB',
+      'MASBR_RUNNING_IN_JOB',
+      'MASBR_STORAGE_CLOUD_RCLONE_FILE'
+    ]
+
+- name: "Set fact: add role specific env variables"
+  set_fact:
+    masbr_rt_env: "{{ masbr_rt_common_env + _rt_role_env | default([]) }}"
+
+
+# Create configmap to save rclone config
+# -----------------------------------------------------------------------------
+- name: "Create configmap to save rclone config"
+  when: masbr_use_cloud_storage
+  block:
+    # rclone config
+    - name: "Get rclone config"
+      shell: >
+        cat {{ masbr_storage_cloud_rclone_file }}
+      register: _rclone_config_content
+
+    - name: "Create configmap to save rclone config"
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: "{{ masbr_rt_k8s_name }}"
+            namespace: "{{ masbr_rt_namespace }}"
+          data:
+            rclone.conf: "{{ _rclone_config_content.stdout }}"
+        wait: true
+
+    - name: "Set fact: add rclone config file to env variables"
+      set_fact:
+        masbr_rt_env: >-
+          {{ masbr_rt_env + [
+            {'name': 'MASBR_STORAGE_CLOUD_RCLONE_FILE', 'value': '/mnt/configmap/rclone.conf'}
+          ] }}
+
+
+# Create Job
+# -----------------------------------------------------------------------------
+- name: "Create Job"
+  kubernetes.core.k8s:
+    template: "{{ role_path }}/../../common_tasks/templates/backup_restore/run_task_job.yml.j2"
+    state: present
+    wait: true
+  register: _create_job_output
+
+
+# ONLY FOR DEV
+# -----------------------------------------------------------------------------
+- name: "Run tasks in docker"
+  when: __masbr_dev
+  block:
+    - name: "Create env file"
+      shell: >
+        rm -f /tmp/run_task_job.env;
+        touch /tmp/run_task_job.env
+
+    - name: "Write env file"
+      shell: >
+        echo "{{ item.name }}={{ item.value }}" >> /tmp/run_task_job.env
+      loop: "{{ masbr_rt_env }}"
+
+    - name: "Get OCP login command"
+      shell: >
+        echo "oc login --server=$(oc whoami --show-server) --token=$(oc whoami --show-token)"
+      register: _oc_login_output
+
+    - name: "Run docker command"
+      debug:
+        msg:
+          - >-
+            Step 1: podman run -ti -v {{ masbr_storage_cloud_rclone_file | dirname }}:/mnt/configmap
+            --env-file=/tmp/run_task_job.env quay.io/ibmmas/cli:local
+          - "Step 2: {{ _oc_login_output.stdout }}"
+          - "Step 3: ansible-playbook ibm.mas_devops.run_role"

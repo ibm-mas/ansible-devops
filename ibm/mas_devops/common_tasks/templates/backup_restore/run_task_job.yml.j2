@@ -1,0 +1,106 @@
+{% if masbr_use_cloud_storage %}
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "{{ masbr_rt_k8s_name }}"
+  namespace: "{{ masbr_rt_namespace }}"
+labels:
+  masbr-job-name: "{{ masbr_job_name }}"
+spec:
+  podSelector:
+    matchLabels:
+      job-name: "{{ masbr_rt_k8s_name }}"
+  egress:
+    - {}
+  policyTypes:
+    - Egress
+{% endif %}
+
+{% if masbr_job_type in ['backup', 'restore'] %}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ masbr_rt_k8s_name }}"
+  namespace: "{{ masbr_rt_namespace }}"
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      name: "{{ masbr_rt_k8s_name }}"
+    labels:
+      masbr-job-name: "{{ masbr_job_name }}"
+    spec:
+      containers:
+        - name: main
+          image: quay.io/ibmmas/cli
+          command:
+            - sh
+            - '-c'
+            - >-
+              {{ masbr_rt_cmds }}
+{% if masbr_rt_env is defined and masbr_rt_env | length > 0 %}
+          env: {{ masbr_rt_env }}
+{% endif %}
+{% if masbr_use_cloud_storage %}
+          volumeMounts:
+            - name: cm-volume
+              readOnly: true
+              mountPath: /mnt/configmap
+{% endif %}
+      restartPolicy: Never
+{% if masbr_use_cloud_storage %}
+      volumes:
+        - name: cm-volume
+          configMap:
+            name: "{{ masbr_rt_k8s_name }}"
+{% endif %}
+{% endif %}
+
+{% if masbr_job_type == 'schedule' %}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: "{{ masbr_rt_k8s_name }}"
+  namespace: "{{ masbr_rt_namespace }}"
+spec:
+  schedule: "{{ masbr_backup_schedule }}"
+{% if masbr_backup_timezone is defined and masbr_backup_timezone | length > 0 %}
+  timeZone: "{{ masbr_backup_timezone }}"
+{% endif %}
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          name: "{{ masbr_rt_k8s_name }}"
+        labels:
+          masbr-job-name: "{{ masbr_job_name }}"
+        spec:
+          containers:
+            - name: main
+              image: quay.io/ibmmas/cli
+              command:
+                - sh
+                - '-c'
+                - >-
+                  {{ masbr_rt_cmds }}
+{% if masbr_rt_env is defined and masbr_rt_env | length > 0 %}
+              env: {{ masbr_rt_env }}
+{% endif %}
+{% if masbr_use_cloud_storage %}
+              volumeMounts:
+                - name: cm-volume
+                  readOnly: true
+                  mountPath: /mnt/configmap
+{% endif %}
+          restartPolicy: Never
+{% if masbr_use_cloud_storage %}
+          volumes:
+            - name: cm-volume
+              configMap:
+                name: "{{ masbr_rt_k8s_name }}"
+{% endif %}
+{% endif %}

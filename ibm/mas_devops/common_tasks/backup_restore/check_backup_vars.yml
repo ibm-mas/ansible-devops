@@ -7,6 +7,23 @@
 
 # Check backup variables
 # -----------------------------------------------------------------------------
+- name: "Fail if masbr_job_component is not provided"
+  assert:
+    that:
+      - masbr_job_component is defined
+      - ('name' in masbr_job_component)
+      - ('namespace' in masbr_job_component)
+    fail_msg:
+      - "masbr_job_component.name is required"
+      - "masbr_job_component.namespace is required"
+
+- name: "Fail if masbr_job_data_list is not provided"
+  assert:
+    that:
+      - masbr_job_data_list is defined
+      - masbr_job_data_list | length > 0
+    fail_msg: "masbr_job_data_list is required"
+
 - name: "Checks for incremental backup"
   when: masbr_backup_type == "incr"
   block:
@@ -22,10 +39,44 @@
     - name: "Check the existence of the backup job specified by masbr_backup_from_completed"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
       vars:
-        - masbr_job_type: "backup"
+        - masbr_ls_job_type: "backup"
         - masbr_ls_grep: "{{ masbr_backup_from_completed }}"
 
     - name: "Fail if not found a Completed backup job specified by masbr_backup_from_completed"
       assert:
         that: masbr_ls_results is defined and masbr_ls_results | length == 1
         fail_msg: "Not found the backup job folder: {{ masbr_storage_job_type_folder }}/{{ masbr_backup_from_completed }}"
+
+- name: "Checks for scheduled backup"
+  when: masbr_backup_schedule is defined and masbr_backup_schedule | length > 0
+  block:
+    - name: "Fail if try to run scheduled backup not in a Job"
+      assert:
+        that: masbr_create_task_job is defined and masbr_create_task_job|bool == true
+        fail_msg: "Only support running scheduled backup in a Job"
+
+    - name: "Set fact: job type"
+      set_fact:
+        masbr_job_type: "schedule"
+
+
+# Set backup variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: job type"
+  when: masbr_job_type is not defined
+  set_fact:
+    masbr_job_type: "backup"
+
+- name: "Set fact: job version"
+  set_fact:
+    masbr_job_version: "{{ '%Y%m%d%H%M%S' | strftime }}"
+
+- name: "Set fact: job name"
+  set_fact:
+    masbr_job_name: "{{ masbr_job_component.name }}-{{ masbr_backup_type }}-{{ masbr_job_version }}"
+
+- name: "Debug: job information"
+  debug:
+    msg:
+      - "Backup job name ....................... {{ masbr_job_name }}"
+      - "Backup type ........................... {{ masbr_backup_type }}"

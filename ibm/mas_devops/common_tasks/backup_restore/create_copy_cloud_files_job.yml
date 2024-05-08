@@ -1,0 +1,120 @@
+---
+# Get pod information
+# -----------------------------------------------------------------------------
+- name: "Get pod information"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    name: "{{ masbr_cf_pod_name }}"
+    namespace: "{{ masbr_cf_namespace }}"
+  register: _pod_info
+
+- name: "Set fact: pod infomation"
+  set_fact:
+    masbr_cf_service_account_name: "{{ _pod_info.resources[0].spec.serviceAccountName }}"
+    masbr_cf_service_account: "{{ _pod_info.resources[0].spec.serviceAccount }}"
+    masbr_cf_security_context: "{{ _pod_info.resources[0].spec.securityContext }}"
+
+
+# Set job variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: copy file Job name"
+  set_fact:
+    # must be no more than 63 characters and in lower case
+    # format 'copy-<job_version>-<timestamp>', e.g.
+    #   'copy-20240424210110-20240424210110'
+    masbr_cf_k8s_name: >-
+      copy-{{ masbr_job_version }}-{{ '%Y%m%d%H%M%S' | strftime }}
+
+- name: "Debug: copy file Job name"
+  debug:
+    msg:
+      - "Copy file Job name ..................... {{ masbr_cf_k8s_name }}"
+
+
+# Create ConfigMap
+# -----------------------------------------------------------------------------
+- name: "Get rclone config"
+  shell: >
+    cat {{ masbr_storage_cloud_rclone_file }}
+  register: _rclone_config_content
+
+- name: "Create configmap to save rclone config"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ masbr_cf_k8s_name }}"
+        namespace: "{{ masbr_cf_namespace }}"
+      data:
+        rclone.conf: "{{ _rclone_config_content.stdout }}"
+    wait: true
+
+- name: "Set fact: add rclone config file to env variables"
+  set_fact:
+    masbr_cf_env: >-
+      {{ masbr_cf_env | default([])  + [
+        {'name': 'MASBR_STORAGE_CLOUD_RCLONE_FILE', 'value': '/mnt/configmap/rclone.conf'}
+      ] }}
+
+
+# Create Job
+# -----------------------------------------------------------------------------
+- name: "Create copy file Job"
+  kubernetes.core.k8s:
+    template: "{{ role_path }}/../../common_tasks/templates/backup_restore/copy_cloud_files_job.yml.j2"
+    state: present
+    wait: true
+
+
+# Save Job log
+# -----------------------------------------------------------------------------
+- name: "Save copy file Job log"
+  block:
+    - name: "Wait for Job to be completed (10s delay)"
+      kubernetes.core.k8s_info:
+        api_version: batch/v1
+        kind: Job
+        name: "{{ masbr_cf_k8s_name }}"
+        namespace: "{{ masbr_cf_namespace }}"
+      register: _job_info
+      until:
+        - _job_info.resources is defined
+        - _job_info.resources | length > 0
+        - _job_info.resources | json_query('[*].status.conditions[?type==`Complete`][].status') | select ('match','True') | list | length == 1
+      retries: "{{ (masbr_copy_timeout_sec|int // 10) | int  }}"
+      delay: 10
+
+  always:
+    - name: "Get copy file Job log files"
+      shell: >-
+        mkdir -p {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }} &&
+        oc cp --retries=50 -c {{ masbr_cf_container_name }}
+        {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ masbr_cf_pvc_job_folder }}/rclone.log
+        {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/rclone.log &&
+        pod_name=$(oc get pod -n {{ masbr_cf_namespace }} --no-headers=true -l job-name={{ masbr_cf_k8s_name }} | awk '{print $1}') &&
+        oc logs -n {{ masbr_cf_namespace }} ${pod_name} > {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/${pod_name}-log.txt &&
+        oc describe -n {{ masbr_cf_namespace }} pod ${pod_name} > {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/${pod_name}-describe.txt &&
+        ls -lA {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}
+      register: _get_log_files_output
+
+    - name: "Debug: files in local job log folder"
+      debug:
+        msg:
+          - "Local job log folder ............... {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}"
+          - "{{ _get_log_files_output.stdout_lines }}"
+
+    - name: "Create a tar.gz archive of all log files"
+      shell: >-
+        tar -czf {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}-log.tar.gz
+        -C {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }} .
+
+    - name: "Copy log file from local to storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "{{ masbr_job_type }}"
+        masbr_cf_job_name: "{{ masbr_job_name }}"
+        masbr_cf_paths:
+          - src_file: "log/{{ masbr_cf_k8s_name }}-log.tar.gz"
+            dest_folder: "log"

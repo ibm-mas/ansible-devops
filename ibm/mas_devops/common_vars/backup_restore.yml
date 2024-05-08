@@ -1,8 +1,8 @@
 ---
 # Common variables
 # -----------------------------------------------------------------------------
-# No confirmations will be displayed in silence mode
-masbr_silence: "{{ lookup('env', 'MASBR_SILENCE') | default(false, true) | bool }}"
+# Whether to confirm the currently connected cluster before run tasks
+masbr_confirm_cluster: "{{ lookup('env', 'MASBR_CONFIRM_CLUSTER') | default(true, true) | bool }}"
 
 # Copy file timeout in seconds
 masbr_copy_timeout_sec: "{{ lookup('env', 'MASBR_COPY_TIMEOUT_SEC') | default(3600, true) | int }}"
@@ -13,18 +13,19 @@ masbr_copy_timeout_sec: "{{ lookup('env', 'MASBR_COPY_TIMEOUT_SEC') | default(36
 # Local temp folder for backup/restore
 masbr_temp_folder: "{{ lookup('env', 'MASBR_TEMP_FOLDER') | default('/tmp/masbr', true) }}"
 
-# Supported storage locations: 'local', 'pvc' and 'cloud'
-masbr_storage_type:  "{{ lookup('env', 'MASBR_STORAGE_TYPE') }}"
+# <Required>
+masbr_storage_type: "{{ lookup('env', 'MASBR_STORAGE_TYPE') }}"
 
-# local storage location
+# <Required> when masbr_storage_type='local'
 masbr_storage_local_folder: "{{ lookup('env', 'MASBR_STORAGE_LOCAL_FOLDER') }}"
 
-# pvc storage location
+# <Required> when masbr_storage_type='pvc'
 masbr_storage_pvc_name: "{{ lookup('env', 'MASBR_STORAGE_PVC_NAME') }}"
 masbr_storage_pvc_path: "{{ lookup('env', 'MASBR_STORAGE_PVC_PATH') | default('masbr', true) }}"
 
-# cloud storage location
-masbr_storage_cloud_config: "{{ lookup('env', 'MASBR_STORAGE_CLOUD_CONFIG') }}"
+# <Required> when masbr_storage_type='cloud'
+masbr_storage_cloud_rclone_file: "{{ lookup('env', 'MASBR_STORAGE_CLOUD_RCLONE_FILE') }}"
+masbr_storage_cloud_rclone_name: "{{ lookup('env', 'MASBR_STORAGE_CLOUD_RCLONE_NAME') }}"
 masbr_storage_cloud_bucket: "{{ lookup('env', 'MASBR_STORAGE_CLOUD_BUCKET') }}"
 
 
@@ -34,10 +35,16 @@ masbr_storage_cloud_bucket: "{{ lookup('env', 'MASBR_STORAGE_CLOUD_BUCKET') }}"
 masbr_backup_type: "{{ lookup('env', 'MASBR_BACKUP_TYPE') | default('full', true) }}"
 
 # The name of the backup to create incremental backup based on
+# <Required> when masbr_backup_type='incr'
 masbr_backup_from: "{{ lookup('env', 'MASBR_BACKUP_FROM') | default('', true) }}"
 
 # Cron expression for scheduled backup
+# https://en.wikipedia.org/wiki/Cron
 masbr_backup_schedule: "{{ lookup('env', 'MASBR_BACKUP_SCHEDULE') | default('', true) }}"
+
+# Time zone for scheduled backup
+# https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+masbr_backup_timezone: "{{ lookup('env', 'MASBR_BACKUP_TIMEZONE') | default('', true) }}"
 
 # Whether to allow multiple backup jobs to run simultaneously
 masbr_backup_allow_multi_jobs: "{{ lookup('env', 'MASBR_BACKUP_ALLOW_MULTI_JOBS') | default(false, true) | bool }}"
@@ -46,10 +53,11 @@ masbr_backup_allow_multi_jobs: "{{ lookup('env', 'MASBR_BACKUP_ALLOW_MULTI_JOBS'
 # Restore variables
 # -----------------------------------------------------------------------------
 # The name of the backup to be restored from
+# <Required>
 masbr_restore_from: "{{ lookup('env', 'MASBR_RESTORE_FROM') }}"
 
 # Whether to allow multiple restore jobs to run simultaneously
-# (Only for debugging, should not allow running multiple retore jobs simultaneously)
+# (Should only set it to true for debugging, normally not allow running multiple retore jobs simultaneously)
 masbr_restore_allow_multi_jobs: "{{ lookup('env', 'MASBR_RESTORE_ALLOW_MULTI_JOBS') | default(false, true) | bool }}"
 
 

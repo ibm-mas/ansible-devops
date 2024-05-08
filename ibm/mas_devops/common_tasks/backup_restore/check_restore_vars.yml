@@ -19,10 +19,27 @@
 - name: "Check the existence of the backup job specified by masbr_restore_from_completed"
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
   vars:
-    - masbr_job_type: "backup"
+    - masbr_ls_job_type: "backup"
     - masbr_ls_grep: "{{ masbr_restore_from_completed }}"
 
 - name: "Fail if not found a Completed backup job specified by masbr_restore_from_completed"
   assert:
     that: masbr_ls_results is defined and masbr_ls_results | length == 1
     fail_msg: "Not found the backup job folder: {{ masbr_storage_job_type_folder }}/{{ masbr_restore_from_completed }}"
+
+
+# Set restore variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: restore variables"
+  set_fact:
+    masbr_job_type: "restore"
+    masbr_job_version: "{{ '%Y%m%d%H%M%S' | strftime }}"
+
+- name: "Set fact: job name"
+  set_fact:
+    masbr_job_name: "{{ masbr_restore_from }}-{{ masbr_job_version }}"
+
+- name: "Debug: job name"
+  debug:
+    msg:
+      - "Restore job name ....................... {{ masbr_job_name }}"

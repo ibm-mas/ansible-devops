@@ -1,0 +1,72 @@
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "{{ masbr_cf_k8s_name }}"
+  namespace: "{{ masbr_cf_namespace }}"
+labels:
+  masbr-job-name: "{{ masbr_job_name }}"
+spec:
+  podSelector:
+    matchLabels:
+      job-name: "{{ masbr_cf_k8s_name }}"
+  egress:
+    - {}
+  policyTypes:
+    - Egress
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ masbr_cf_k8s_name }}"
+  namespace: "{{ masbr_cf_namespace }}"
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      name: "{{ masbr_cf_k8s_name }}"
+    labels:
+      masbr-job-name: "{{ masbr_job_name }}"
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: statefulset.kubernetes.io/pod-name
+                operator: In
+                values:
+                  - "{{ masbr_cf_pod_name }}"
+            topologyKey: kubernetes.io/hostname
+      serviceAccountName: "{{ masbr_cf_service_account_name }}"
+      serviceAccount: "{{ masbr_cf_service_account }}"
+      securityContext: {{ masbr_cf_security_context }}
+      containers:
+        - name: main
+          image: rclone/rclone:1.62.2
+          command:
+            - sh
+            - '-c'
+            - >-
+              {{ masbr_cf_cmds }}
+{% if masbr_cf_env is defined and masbr_cf_env | length > 0 %}
+          env: {{ masbr_cf_env }}
+{% endif %}
+          volumeMounts:
+            - name: data-volume
+              mountPath: "{{ masbr_cf_pvc_mount_path }}"
+            - name: cm-volume
+              mountPath: /mnt/configmap
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+      restartPolicy: Never    
+      volumes:
+        - name: data-volume
+          persistentVolumeClaim:
+            claimName: "{{ masbr_cf_pvc_name }}"
+        - name: cm-volume
+          configMap:
+            name: "{{ masbr_cf_k8s_name }}"
