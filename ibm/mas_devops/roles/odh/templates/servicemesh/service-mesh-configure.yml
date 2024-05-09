@@ -1,0 +1,13 @@
+---
+- name: Wait for Service Mesh Operator to be ready
+  k8s:
+    state: present
+    definition:
+      kind: Deployment
+      api_version: apps/v1
+      namespace: "{{ serviceMeshNamespace }}"
+      label_selector: name=service-mesh-operator
+  register: operator_deployment_info
+  until: operator_deployment_info.resources | length > 0 and operator_deployment_info.resources[0].status.readyReplicas == operator_deployment_info.resources[0].status.replicas
+  retries: 10
+  delay: 30
