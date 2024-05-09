@@ -116,3 +116,18 @@
             --env-file=/tmp/run_task_job.env quay.io/ibmmas/cli:local
           - "Step 2: {{ _oc_login_output.stdout }}"
           - "Step 3: ansible-playbook ibm.mas_devops.run_role"
+
+
+# Display information of the created task
+# -----------------------------------------------------------------------------
+- name: "Get OCP URL"
+  shell: >-
+    pod_name=$(oc get pod -n {{ masbr_rt_namespace }} --no-headers=true -l job-name={{ masbr_rt_k8s_name }} | awk '{print $1}') &&
+    echo "$(oc whoami --show-console)/k8s/ns/{{ masbr_rt_namespace }}/pods/${pod_name}/logs"
+  register: _oc_url_output
+
+- name: "Summary"
+  debug:
+    msg:
+      - "Job name ........................... {{ masbr_job_name }}"
+      - "Job logs ........................... {{ _oc_url_output.stdout }}"

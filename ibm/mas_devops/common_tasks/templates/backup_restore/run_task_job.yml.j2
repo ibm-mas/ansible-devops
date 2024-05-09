@@ -1,3 +1,24 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: "masbr-sa"
+  namespace: "{{ masbr_rt_namespace }}"
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: "masbr-crb"
+subjects:
+  - kind: ServiceAccount
+    name: "masbr-sa"
+    namespace: "{{ masbr_rt_namespace }}"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+
 {% if masbr_use_cloud_storage %}
 ---
 kind: NetworkPolicy
@@ -19,8 +40,8 @@ spec:
 
 {% if masbr_job_type in ['backup', 'restore'] %}
 ---
-apiVersion: batch/v1
 kind: Job
+apiVersion: batch/v1
 metadata:
   name: "{{ masbr_rt_k8s_name }}"
   namespace: "{{ masbr_rt_namespace }}"
@@ -32,9 +53,10 @@ spec:
     labels:
       masbr-job-name: "{{ masbr_job_name }}"
     spec:
+      serviceAccountName: masbr-sa
       containers:
         - name: main
-          image: quay.io/ibmmas/cli
+          image: quay.io/ibmmas/cli:{{ masbr_mascli_image_tag }}
           command:
             - sh
             - '-c'
@@ -60,8 +82,8 @@ spec:
 
 {% if masbr_job_type == 'schedule' %}
 ---
-apiVersion: batch/v1
 kind: CronJob
+apiVersion: batch/v1
 metadata:
   name: "{{ masbr_rt_k8s_name }}"
   namespace: "{{ masbr_rt_namespace }}"
@@ -79,9 +101,10 @@ spec:
         labels:
           masbr-job-name: "{{ masbr_job_name }}"
         spec:
+          serviceAccountName: masbr-sa
           containers:
             - name: main
-              image: quay.io/ibmmas/cli
+              image: quay.io/ibmmas/cli:{{ masbr_mascli_image_tag }}
               command:
                 - sh
                 - '-c'
