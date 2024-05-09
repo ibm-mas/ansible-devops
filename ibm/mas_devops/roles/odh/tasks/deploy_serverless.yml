@@ -1,18 +1,30 @@
 ---
-- name: Create openshift-serverless subscription
-  k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/serverless/subscription.yml') }}"
-    namespace: "{{ serverlessNamespace }}"
+# Install Operator & create entitlement openshift-serverless
+# -----------------------------------------------------------------------------
+- name: "Install Openshift Serverless Operator"
+  ansible.builtin.include_role:
+    name: ibm.mas_devops.install_operator
+  vars:
+    namespace: "{{ serverless_namespace }}"
+    icr_username: "{{ ibm_entitlement_username }}"
+    icr_password: "{{ ibm_entitlement_key }}"
+    catalog_source: "{{ serverless_catalog_source }}"
+    operator_group: "{{ lookup('template', 'templates/serverless/operator-group.yml.j2') }}"
+    subscription: "{{ lookup('template', 'templates/serverless/subscription.yml.j2') }}"
+# - name: Create openshift-serverless subscription
+#   k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/serverless/subscription.yml.j2') }}"
+#     namespace: "{{ serverlessNamespace }}"
 
-- name: Create openshift-serverless operator
-  k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/serverless/operator-group.yml') }}"
-    namespace: "{{ serverlessNamespace }}"
+# - name: Create openshift-serverless operator
+#   k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/serverless/operator-group.yml') }}"
+#     namespace: "{{ serverlessNamespace }}"
 
-- name: Deploy openshift-serverless operator
-  k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/serverless/knative-openshift-deployment.yml') }}"
-    namespace: "{{ serverlessNamespace }}"
+# - name: Deploy openshift-serverless operator
+#   k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/serverless/knative-openshift-deployment.yml') }}"
+#     namespace: "{{ serverlessNamespace }}"
