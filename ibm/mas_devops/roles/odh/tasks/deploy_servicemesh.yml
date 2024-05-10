@@ -1,18 +1,32 @@
 ---
-- name: Create Service Mesh subscription
-  k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/servicemesh/subscription.yml') }}"
-    namespace: "{{ serviceMeshNamespace }}"
+# Install Operator & create entitlement openshift-service-mesh
+# -----------------------------------------------------------------------------
+- name: "Install Openshift ServiceMesh Operator"
+  ansible.builtin.include_role:
+    name: ibm.mas_devops.install_operator
+  vars:
+    namespace: "{{ service_mesh_namespace }}"
+    icr_username: "{{ ibm_entitlement_username }}"
+    icr_password: "{{ ibm_entitlement_key }}"
+    catalog_source: "{{ service_mesh_catalog_source }}"
+    operator_group: "{{ lookup('template', 'templates/servicemesh/operator-group.yml.j2') }}"
+    subscription: "{{ lookup('template', 'templates/servicemesh/subscription.yml.j2') }}"
+
+# ---
+# - name: Create Service Mesh subscription
+#   k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/servicemesh/subscription.yml') }}"
+#     namespace: "{{ serviceMeshNamespace }}"
 
 - name: Create Service Account for Service Mesh
   k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/servicemesh/service-account.yml') }}"
-    namespace: "{{ serviceMeshNamespace }}"
+    definition: "{{ lookup('template', 'templates/servicemesh/service-account.yml.j2') }}"
+    namespace: "{{ service_mesh_namespace }}"
 
 - name: Deploy service mash operator
   k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/servicemesh/service-mesh-deployment.yml') }}"
-    namespace: "{{ serviceMeshNamespace }}"
+    definition: "{{ lookup('template', 'templates/servicemesh/service-mesh-deployment.yml.j2') }}"
+    namespace: "{{ service_mesh_namespace }}"
