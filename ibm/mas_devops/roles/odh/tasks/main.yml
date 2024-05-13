@@ -9,6 +9,28 @@
 - include_tasks: tasks/deploy_authorino.yml
 - include_tasks: tasks/deploy_odh.yml
 
+# Create DSCInitialization instance
+# -----------------------------------------------------------------------------
+- name: "Create DSCInitialization instance"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/odh/default-dsci.yml.j2') }}"
+
+- name: "Wait for the DSCInitialization instance to be ready"
+  kubernetes.core.k8s_info:
+    api_version: dscinitialization.opendatahub.io/v1
+    name: default-dsci
+    namespace: opendatahub
+    kind: DSCInitialization
+  register: dsci_lookup
+  until:
+    - dsci_lookup.resources is defined and dsci_lookup.resources | length == 1
+    - dsci_lookup.resources[0].status is defined
+    - dsci_lookup.resources[0].status.phase is defined
+    - dsci_lookup.resources[0].status.phase == 'Ready'
+  retries: 10
+  delay: 30
+
 # Create Data Science Cluster
 - name: "Create Data Science Cluster"
   kubernetes.core.k8s:
