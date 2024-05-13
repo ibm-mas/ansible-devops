@@ -2,9 +2,21 @@
 - name: Load variables (main)
   include_vars: "vars/main.yml"
 
-# Deploy OpenShift Serverless
+# Deploy OpenShift Serverless operators
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/deploy_serverless.yml
 - include_tasks: tasks/deploy_servicemesh.yml
 - include_tasks: tasks/deploy_authorino.yml
 - include_tasks: tasks/deploy_odh.yml
+
+# Create Data Science Cluster
+- name: "Create Data Science Cluster"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/odh/data-science-cluster.yml.j2') }}"
+
+# Create Data Science Pipelines Applications
+- name: "Create Create Data Science Pipelines Applications CR"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/odh/dspa-local-dev.yml.j2') }}"
