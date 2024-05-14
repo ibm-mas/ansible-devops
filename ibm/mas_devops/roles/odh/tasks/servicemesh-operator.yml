@@ -1,0 +1,20 @@
+---
+# Install Operator & create entitlement openshift-service-mesh
+# -----------------------------------------------------------------------------
+- name: "Install Openshift ServiceMesh Operator"
+  ansible.builtin.include_role:
+    name: ibm.mas_devops.install_operator
+  vars:
+    namespace: "{{ service_mesh_namespace }}"
+    icr_username: "{{ ibm_entitlement_username }}"
+    icr_password: "{{ ibm_entitlement_key }}"
+    catalog_source: "{{ service_mesh_catalog_source }}"
+    operator_group: "{{ lookup('template', 'templates/servicemesh/operator-group.yml.j2') }}"
+    subscription: "{{ lookup('template', 'templates/servicemesh/subscription.yml.j2') }}"
+
+# Wait until the ServiceMesh CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the ServiceMesh CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: servicemeshcontrolplanes.maistra.io
