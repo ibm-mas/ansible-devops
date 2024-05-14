@@ -1,7 +1,7 @@
 ---
-# Set variables for backup job
+# Set common backup job variables
 # -----------------------------------------------------------------------------
-- name: "Set fact: backup job variables"
+- name: "Set fact: common backup job variables"
   set_fact:
     masbr_job_component:
       name: "mongodb"
@@ -10,37 +10,14 @@
       - seq: "1"
         type: "database"
 
-- name: "Set fact: mongodb variables"
-  set_fact:
-    mongodb_pod_name: mas-mongo-ce-0
-    mongodb_container_name: mongod
-    mongodb_backup_folder: /tmp/backup
-    mongodb_lock_file: backup.lock
 
-- name: "Set fact: exec command in mongodb pod"
-  set_fact:
-    mongodb_exec_in_pod: >-
-      oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c
-
-- name: "Set fact: copy file variables"
-  set_fact:
-    masbr_cf_namespace: "{{ mongodb_namespace }}"
-    masbr_cf_pod_name: "{{ mongodb_pod_name }}"
-    masbr_cf_container_name: "{{ mongodb_container_name }}"
-    masbr_cf_pvc_name: "data-volume-{{ mongodb_pod_name }}"
-    masbr_cf_pvc_mount_path: "/data"
-
-
-# Check backup variables
-# -----------------------------------------------------------------------------
-- name: "Check backup variables"
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/check_backup_vars.yml"
-
-
-# Confirm cluster information
-# -----------------------------------------------------------------------------
-- name: "Confirm the currently connected cluster information"
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/confirm_cluster_info.yml"
+# Before run tasks
+# -------------------------------------------------------------------------
+- name: "Before run tasks"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
+  vars:
+    _job_type: "backup"
+    _component_info_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/get-mongo-info.yml"
 
 
 # Create k8s Job to run backup tasks
@@ -71,61 +48,6 @@
             phase: "New"
 
 
-    # Check if mongodb is installed and running
-    # -------------------------------------------------------------------------
-    - name: "Get mongodb running information"
-      include_tasks: "tasks/providers/{{ mongodb_provider }}/get-mongo-info.yml"
-
-    - name: "Fail if mongodb does not exists"
-      assert:
-        that: mongodb_version is defined
-        fail_msg: "Mongodb does not exists!"
-
-    - name: "Fail if mongodb is not running"
-      assert:
-        that: mongodb_running is defined and mongodb_running
-        fail_msg: "Mongodb is not running!"
-
-
-    # Check if an exiting backup job is running
-    # -------------------------------------------------------------------------
-    - name: "Try to find backup lock file in pod"
-      when: not masbr_backup_allow_multi_jobs
-      changed_when: false
-      shell: >
-        {{ mongodb_exec_in_pod }}
-        '[ -f {{ mongodb_backup_folder }}/{{ mongodb_lock_file }} ] && echo exist; exit 0'
-      register: _get_lock_file_output
-
-    - name: "Fail if found backup lock file in pod"
-      when: not masbr_backup_allow_multi_jobs
-      assert:
-        that: _get_lock_file_output.stdout != "exist"
-        fail_msg: "A mongodb backup job is running now, please try to run backup later!"
-
-    - name: "Create backup lock file in pod"
-      changed_when: true
-      shell: >
-        {{ mongodb_exec_in_pod }}
-        'mkdir -p {{ mongodb_backup_folder }}/{{ masbr_job_name }};
-        touch {{ mongodb_backup_folder }}/{{ mongodb_lock_file }}'
-      register: _create_backup_lock_output
-
-
-    # Check free disk space in pod
-    # -------------------------------------------------------------------------
-    - name: "Get free disk space in pod"
-      changed_when: false
-      shell: >
-        {{ mongodb_exec_in_pod }}
-        'df -h {{ mongodb_backup_folder }}'
-      register: _df_output
-
-    - name: "Debug: free disk space in pod"
-      debug:
-        msg: "{{ _df_output.stdout_lines }}"
-
-
     # Run backup tasks for each data type
     # -------------------------------------------------------------------------
     - name: "Run backup tasks for each data type"
@@ -147,17 +69,6 @@
           phase: "Failed"
 
   always:
-    # Clean up
-    # -------------------------------------------------------------------------
-    - name: "Delete backup files from mongodb pod"
-      changed_when: true
-      shell: >
-        {{ mongodb_exec_in_pod }}
-        'rm -f {{ mongodb_backup_folder }}/{{ mongodb_lock_file }};
-        rm -rf {{ mongodb_backup_folder }}/{{ masbr_job_name }}'
-      register: _delete_pod_files_output
-
-
     # After run tasks
     # -------------------------------------------------------------------------
     - name: "After run tasks"

@@ -17,6 +17,11 @@
     - _mongodbcommunity_output.resources[0] is defined
     - _mongodbcommunity_output.resources[0].spec.version is defined
 
+- name: "Fail if mongodb does not exists"
+  assert:
+    that: mongodb_version is defined
+    fail_msg: "Mongodb does not exists!"
+
 - name: "Set fact: mongodb running status"
   set_fact:
     mongodb_running: true
@@ -26,6 +31,33 @@
     - _mongodbcommunity_output.resources[0].status is defined
     - _mongodbcommunity_output.resources[0].status.phase is defined
     - _mongodbcommunity_output.resources[0].status.phase == "Running"
+
+- name: "Fail if mongodb is not running"
+  assert:
+    that: mongodb_running is defined and mongodb_running
+    fail_msg: "Mongodb is not running!"
+
+
+# Set mongodb pod variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: mongodb pod variables"
+  set_fact:
+    mongodb_pod_name: mas-mongo-ce-0
+    mongodb_container_name: mongod
+
+- name: "Set fact: exec command in mongodb pod"
+  set_fact:
+    exec_in_pod_begin: >-
+      oc exec {{ mongodb_pod_name }} -c {{ mongodb_container_name }} -n {{ mongodb_namespace }} -- bash -c '
+    exec_in_pod_end: "'"
+
+- name: "Set fact: copy file variables"
+  set_fact:
+    masbr_cf_namespace: "{{ mongodb_namespace }}"
+    masbr_cf_pod_name: "{{ mongodb_pod_name }}"
+    masbr_cf_container_name: "{{ mongodb_container_name }}"
+    masbr_cf_pvc_name: "data-volume-{{ mongodb_pod_name }}"
+    masbr_cf_pvc_mount_path: "/data"
 
 
 # Get mongodb admin password
@@ -51,13 +83,10 @@
 - name: "Get mongodb ca file"
   changed_when: false
   shell: >
-    {{ mongodb_exec_in_pod }}
-    'ls /var/lib/tls/ca/*.pem | head -n 1'
+    {{ exec_in_pod_begin }}
+    ls /var/lib/tls/ca/*.pem | head -n 1
+    {{ exec_in_pod_end }}
   register: _mongodb_ca_file_output
-
-- name: "Debug: get mongodb ca file"
-  debug:
-    msg: "{{ _mongodb_ca_file_output.stdout }}"
 
 - name: "Set fact: mongodb ca file"
   set_fact:
@@ -72,17 +101,26 @@
 - name: "Get mongodb server information"
   changed_when: false
   shell: >
-    {{ mongodb_exec_in_pod }}
-    'mongo --quiet --host={{ mongodb_pod_name }}.mas-mongo-ce-svc.mongoce.svc.cluster.local:27017
+    {{ exec_in_pod_begin }}
+    mongo --quiet --host={{ mongodb_pod_name }}.mas-mongo-ce-svc.mongoce.svc.cluster.local:27017
     --username=admin --password={{ mongodb_password }} --authenticationDatabase=admin
     --tls --tlsCAFile={{ mongodb_ca_file }} admin
-    --eval="print(JSON.stringify(db.runCommand({hello:1})))"'
+    --eval="print(JSON.stringify(db.runCommand({hello:1})))"
+    {{ exec_in_pod_end }}
   register: _mongodb_info_output
 
 - name: "Set fact: mongodb primary host"
   set_fact:
     mongodb_primary_host: "{{ _mongodb_info_output.stdout_lines[-1] | from_json | json_query('primary') }}"
 
-- name: "Debug: mongodb primary host"
+
+# Output mongodb information
+# -----------------------------------------------------------------------------
+- name: "Debug: mongodb information"
   debug:
-    msg: "MongoDB primary host .................. {{ mongodb_primary_host }}"
+    msg:
+      - "MongoDB version ............................ {{ mongodb_version }}"
+      - "MongoDB is running ......................... {{ mongodb_running }}"
+      - "MongoDB pod name ........................... {{ mongodb_pod_name }}"
+      - "MongoDB primary host ....................... {{ mongodb_primary_host }}"
+      - "MongoDB ca file ............................ {{ mongodb_ca_file }}"

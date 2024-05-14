@@ -11,9 +11,21 @@
 
 - name: "Set fact: pod infomation"
   set_fact:
-    masbr_cf_service_account_name: "{{ _pod_info.resources[0].spec.serviceAccountName }}"
-    masbr_cf_service_account: "{{ _pod_info.resources[0].spec.serviceAccount }}"
-    masbr_cf_security_context: "{{ _pod_info.resources[0].spec.securityContext }}"
+    masbr_cf_service_account_name: "{{ _pod_info.resources[0].spec.serviceAccountName | default('') }}"
+    masbr_cf_service_account: "{{ _pod_info.resources[0].spec.serviceAccount | default('') }}"
+    masbr_cf_pod_security_context: "{{ _pod_info.resources[0].spec.securityContext }}"
+    masbr_cf_container_security_context: >-
+      {{ _pod_info.resources[0] | json_query('spec.containers[?name==`' + masbr_cf_container_name + '`].securityContext') | first }}
+
+
+- name: "Debug: pod information"
+  debug:
+    msg:
+      - "Pod service account .................... {{ masbr_cf_service_account }}"
+      - "Pod service account name ............... {{ masbr_cf_service_account_name }}"
+      - "Pod security context ................... {{ masbr_cf_pod_security_context }}"
+      - "Container name ......................... {{ masbr_cf_container_name }}"
+      - "Container security context ............. {{ masbr_cf_container_security_context }}"
 
 
 # Set job variables

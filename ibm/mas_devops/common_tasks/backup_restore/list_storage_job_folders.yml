@@ -12,12 +12,12 @@
       debug:
         msg:
           - "Search folder ...................... {{ masbr_storage_job_type_folder }}"
-          - "Search filter ...................... {{ masbr_ls_grep | default('<undefined>', true) }}"
+          - "Search filter ...................... {{ masbr_ls_filter | default('<undefined>', true) }}"
 
     - name: "List job folders in local storage"
       changed_when: false
-      shell: >
-        ls {{ masbr_storage_job_type_folder }} | grep "{{ masbr_ls_grep | default('-', true) }}";
+      shell: >-
+        ls {{ masbr_storage_job_type_folder }} {{ masbr_ls_filter | default('') }};
         exit 0
       register: _ls_output
 
@@ -44,13 +44,13 @@
       debug:
         msg:
           - "Search folder ...................... {{ masbr_storage_job_type_folder }}"
-          - "Search filter ...................... {{ masbr_ls_grep | default('<undefined>', true) }}"
+          - "Search filter ...................... {{ masbr_ls_filter | default('<undefined>', true) }}"
 
     - name: "List job folders in cloud storage"
       changed_when: false
       shell: >-
-        rclone lsd --no-check-certificate --config {{ masbr_storage_cloud_rclone_file }} {{ masbr_storage_job_type_folder }}
-        | awk '{print $5}' | grep "{{ masbr_ls_grep | default('-', true) }}";
+        rclone lsd --no-check-certificate --config {{ masbr_storage_cloud_rclone_file }}
+        {{ masbr_storage_job_type_folder }} | awk '{print $5}' {{ masbr_ls_filter | default('') }};
         exit 0
       register: _ls_output
 

@@ -43,7 +43,7 @@
     - name: "Set fact: job folder in pvc"
       set_fact:
         masbr_cf_pvc_job_folder: >-
-          {{ [masbr_cf_pvc_mount_path, 'backup', masbr_cf_job_name] | path_join }}
+          {{ [masbr_cf_pvc_mount_path, masbr_cf_job_type, masbr_cf_job_name] | path_join }}
 
     - name: "Debug: job folder in pvc"
       debug:
@@ -52,8 +52,8 @@
     - name: "Copy files to mounted pvc folder"
       shell: >-
         oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c
-        'mkdir -p {{ masbr_cf_pvc_job_folder }};
-        cp -f {{ item.src_file }} {{ masbr_cf_pvc_job_folder }};
+        'mkdir -p {{ masbr_cf_pvc_job_folder }} &&
+        cp -f {{ item.src_file }} {{ masbr_cf_pvc_job_folder }} &&
         ls -lA {{ masbr_cf_pvc_job_folder }}'
       loop: "{{ masbr_cf_paths }}"
       register: _pvc_copy_output

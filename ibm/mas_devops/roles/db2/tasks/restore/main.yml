@@ -1,11 +1,20 @@
 ---
-# Set common restore job variables
+# Check db2 restore required variables
 # -----------------------------------------------------------------------------
-- name: "Set fact: common restore job variables"
+- name: "Fail if db2_restore_instance_name is not provided"
+  assert:
+    that: db2_restore_instance_name is defined and db2_restore_instance_name != ""
+    fail_msg: "db2_restore_instance_name is required"
+
+
+# Set common restore variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: common restore variables"
   set_fact:
     masbr_job_component:
-      name: "mongodb"
-      namespace: "{{ mongodb_namespace }}"
+      name: "db2"
+      namespace: "{{ db2_namespace }}"
+      instance: "{{ db2_restore_instance_name }}"
     masbr_job_data_list:
       - seq: "1"
         type: "database"
@@ -17,7 +26,7 @@
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
   vars:
     _job_type: "restore"
-    _component_info_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/get-mongo-info.yml"
+    _component_info_task_path: "{{ role_path }}/tasks/get-db2-info.yml"
 
 
 # Create k8s Job to run restore tasks
@@ -28,11 +37,9 @@
   vars:
     _rt_role_env:
       - name: "ROLE_NAME"
-        value: "mongodb"
-      - name: "MONGODB_PROVIDER"
-        value: "{{ mongodb_provider }}"
-      - name: "MONGODB_ACTION"
-        value: "{{ mongodb_action }}"
+        value: "db2"
+      - name: "DB2_ACTION"
+        value: "{{ db2_action }}"
 
 
 - name: "Run restore tasks"
@@ -47,6 +54,7 @@
           - seq: "1"
             phase: "New"
 
+
     # Get the backup job information specified by masbr_restore_from
     # -------------------------------------------------------------------------
     - name: "Get the backup job information specified by masbr_restore_from"
@@ -56,7 +64,7 @@
     # Run restore tasks for each data type
     # -------------------------------------------------------------------------
     - name: "Run restore tasks for each data type"
-      include_tasks: "tasks/providers/{{ mongodb_provider }}/restore-{{ job_data_item.type }}.yml"
+      include_tasks: "{{ role_path }}/tasks/restore/restore-{{ job_data_item.type }}.yml"
       vars:
         masbr_job_data_seq: "{{ job_data_item.seq }}"
         masbr_job_data_type: "{{ job_data_item.type }}"

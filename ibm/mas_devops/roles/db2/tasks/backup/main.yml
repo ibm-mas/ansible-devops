@@ -1,11 +1,20 @@
 ---
-# Set common restore job variables
+# Check db2 backup required variables
 # -----------------------------------------------------------------------------
-- name: "Set fact: common restore job variables"
+- name: "Fail if db2_backup_instance_name is not provided"
+  assert:
+    that: db2_backup_instance_name is defined and db2_backup_instance_name != ""
+    fail_msg: "db2_backup_instance_name is required"
+
+
+# Set common backup job variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: common backup job variables"
   set_fact:
     masbr_job_component:
-      name: "mongodb"
-      namespace: "{{ mongodb_namespace }}"
+      name: "db2"
+      namespace: "{{ db2_namespace }}"
+      instance: "{{ db2_backup_instance_name }}"
     masbr_job_data_list:
       - seq: "1"
         type: "database"
@@ -16,47 +25,40 @@
 - name: "Before run tasks"
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
   vars:
-    _job_type: "restore"
-    _component_info_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/get-mongo-info.yml"
+    _job_type: "backup"
+    _component_info_task_path: "{{ role_path }}/tasks/get-db2-info.yml"
 
 
-# Create k8s Job to run restore tasks
+# Create k8s Job to run backup tasks
 # -----------------------------------------------------------------------------
-- name: "Create k8s Job to run restore tasks"
+- name: "Create k8s Job to run backup tasks"
   when: masbr_create_task_job
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_task_job.yml"
   vars:
     _rt_role_env:
       - name: "ROLE_NAME"
-        value: "mongodb"
-      - name: "MONGODB_PROVIDER"
-        value: "{{ mongodb_provider }}"
-      - name: "MONGODB_ACTION"
-        value: "{{ mongodb_action }}"
+        value: "db2"
+      - name: "DB2_ACTION"
+        value: "{{ db2_action }}"
 
 
-- name: "Run restore tasks"
+- name: "Run backup tasks"
   when: not masbr_create_task_job
   block:
-    # Update restore job status: New
+    # Update backup job status: New
     # -------------------------------------------------------------------------
-    - name: "Update restore job status: New"
+    - name: "Update backup job status: New"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
       vars:
         _job_data_list:
           - seq: "1"
             phase: "New"
 
-    # Get the backup job information specified by masbr_restore_from
-    # -------------------------------------------------------------------------
-    - name: "Get the backup job information specified by masbr_restore_from"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/get_restore_from_job.yml"
 
-
-    # Run restore tasks for each data type
+    # Run backup tasks for each data type
     # -------------------------------------------------------------------------
-    - name: "Run restore tasks for each data type"
-      include_tasks: "tasks/providers/{{ mongodb_provider }}/restore-{{ job_data_item.type }}.yml"
+    - name: "Run backup tasks for each data type"
+      include_tasks: "{{ role_path }}/tasks/backup/backup-{{ job_data_item.type }}.yml"
       vars:
         masbr_job_data_seq: "{{ job_data_item.seq }}"
         masbr_job_data_type: "{{ job_data_item.type }}"
@@ -65,9 +67,9 @@
         loop_var: job_data_item
 
   rescue:
-    # Update restore status: Failed
+    # Update backup status: Failed
     # -------------------------------------------------------------------------
-    - name: "Update database restore status: Failed"
+    - name: "Update database backup status: Failed"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
       vars:
         _job_status:

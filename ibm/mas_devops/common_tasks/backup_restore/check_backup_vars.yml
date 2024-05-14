@@ -24,29 +24,6 @@
       - masbr_job_data_list | length > 0
     fail_msg: "masbr_job_data_list is required"
 
-- name: "Checks for incremental backup"
-  when: masbr_backup_type == "incr"
-  block:
-    - name: "Fail if masbr_backup_from is not provided for incremental backup"
-      assert:
-        that: masbr_backup_from is defined and masbr_backup_from != ""
-        fail_msg: "masbr_backup_from is required for incremental backup"
-
-    - name: "Set fact: the Completed backup job name for masbr_backup_from"
-      set_fact:
-        masbr_backup_from_completed: "{{ masbr_backup_from }}-Completed"
-
-    - name: "Check the existence of the backup job specified by masbr_backup_from_completed"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
-      vars:
-        - masbr_ls_job_type: "backup"
-        - masbr_ls_grep: "{{ masbr_backup_from_completed }}"
-
-    - name: "Fail if not found a Completed backup job specified by masbr_backup_from_completed"
-      assert:
-        that: masbr_ls_results is defined and masbr_ls_results | length == 1
-        fail_msg: "Not found the backup job folder: {{ masbr_storage_job_type_folder }}/{{ masbr_backup_from_completed }}"
-
 - name: "Checks for scheduled backup"
   when: masbr_backup_schedule is defined and masbr_backup_schedule | length > 0
   block:
@@ -55,14 +32,11 @@
         that: masbr_create_task_job is defined and masbr_create_task_job|bool == true
         fail_msg: "Only support running scheduled backup in a Job"
 
-    - name: "Set fact: job type"
+    - name: "Set fact: job type (schedule)"
       set_fact:
         masbr_job_type: "schedule"
 
-
-# Set backup variables
-# -----------------------------------------------------------------------------
-- name: "Set fact: job type"
+- name: "Set fact: job type (backup)"
   when: masbr_job_type is not defined
   set_fact:
     masbr_job_type: "backup"
@@ -71,12 +45,77 @@
   set_fact:
     masbr_job_version: "{{ '%Y%m%d%H%M%S' | strftime }}"
 
-- name: "Set fact: job name"
+- name: "Set fact: job name include instance"
+  when: masbr_job_component.instance is defined and masbr_job_component.instance | length > 0
   set_fact:
-    masbr_job_name: "{{ masbr_job_component.name }}-{{ masbr_backup_type }}-{{ masbr_job_version }}"
+    # Format '<job_component>-<job_instance>-<backup_type>-<job_version>'
+    #   'db2-mas-main-masdev-manage-full-20240509130354'
+    #   'manage-ivt90x-01-full-20240509130354'
+    masbr_job_name_prefix: >-
+      {{ masbr_job_component.name }}-{{ masbr_job_component.instance }}
 
-- name: "Debug: job information"
+- name: "Set fact: job name without instance"
+  when: masbr_job_component.instance is undefined or masbr_job_component.instance | length == 0
+  set_fact:
+    # Format '<job_component>-<backup_type>-<job_version>'
+    #   'mongodb-full-20240509130354'
+    masbr_job_name_prefix: "{{ masbr_job_component.name }}"
+
+- name: "Set fact: backup job name"
+  set_fact:
+    masbr_job_name: "{{ masbr_job_name_prefix }}-{{ masbr_backup_type }}-{{ masbr_job_version }}"
+
+- name: "Checks for incremental backup"
+  when: masbr_backup_type == "incr"
+  block:
+    - name: "Check the existence of specified masbr_backup_from"
+      when: masbr_backup_from is defined and masbr_backup_from | length > 0
+      block:
+        - name: "Fail if the specified masbr_backup_from is not a Full backup"
+          assert:
+            that: ("-full-" in masbr_backup_from)
+            fail_msg: "masbr_backup_from must be a Full backup when taking an incremental backup"
+
+        - name: "Set fact: the Completed backup job name for masbr_backup_from"
+          set_fact:
+            masbr_backup_from_completed: "{{ masbr_backup_from }}-Completed"
+
+        - name: "Check the existence of the backup job specified by masbr_backup_from_completed"
+          include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
+          vars:
+            - masbr_ls_job_type: "backup"
+            - masbr_ls_filter: "| grep {{ masbr_backup_from_completed }}"
+
+        - name: "Fail if not found a Completed backup job specified by masbr_backup_from_completed"
+          assert:
+            that: masbr_ls_results is defined and masbr_ls_results | length == 1
+            fail_msg: "Not found the backup job folder: {{ masbr_storage_job_type_folder }}/{{ masbr_backup_from_completed }}"
+
+    - name: "Get the latest Completed Full backup job name when masbr_backup_from not provided"
+      when: masbr_backup_from is not defined or masbr_backup_from | length == 0
+      block:
+        - name: "Get the latest Completed backup job name when masbr_backup_from not provided"
+          include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
+          vars:
+            - masbr_ls_job_type: "backup"
+            - masbr_ls_filter: "| grep '^{{ masbr_job_name_prefix }}-full-.*-Completed$' | sort -r | head -1"
+
+        - name: "Fail if not found any previous Completed Full backup job"
+          assert:
+            that: masbr_ls_results is defined and masbr_ls_results | length == 1
+            fail_msg: "Not found any previous Completed Full backup job, please take a Completed Full backup first!"
+
+        - name: "Set fact: backup from"
+          set_fact:
+            masbr_backup_from_completed: "{{ masbr_ls_results[0] }}"
+            masbr_backup_from: "{{ masbr_ls_results[0] | replace('-Completed', '') }}"
+
+
+# Show backup job information
+# -----------------------------------------------------------------------------
+- name: "Debug: backup job information"
   debug:
     msg:
       - "Backup job name ....................... {{ masbr_job_name }}"
       - "Backup type ........................... {{ masbr_backup_type }}"
+      - "Backup from ........................... {{ masbr_backup_from | default('<undefined>', true) }}"

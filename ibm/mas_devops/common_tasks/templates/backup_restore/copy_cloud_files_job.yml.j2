@@ -39,9 +39,15 @@ spec:
                 values:
                   - "{{ masbr_cf_pod_name }}"
             topologyKey: kubernetes.io/hostname
+{% if masbr_cf_service_account_name is defined and masbr_cf_service_account_name | length > 0 %}
       serviceAccountName: "{{ masbr_cf_service_account_name }}"
+{% endif %}
+{% if masbr_cf_service_account is defined and masbr_cf_service_account | length > 0 %}
       serviceAccount: "{{ masbr_cf_service_account }}"
-      securityContext: {{ masbr_cf_security_context }}
+{% endif %}
+{% if masbr_cf_pod_security_context is defined and masbr_cf_pod_security_context | length > 0 %}
+      securityContext: {{ masbr_cf_pod_security_context }}
+{% endif %}
       containers:
         - name: main
           image: rclone/rclone:{{ masbr_rclone_image_tag }}
@@ -58,10 +64,9 @@ spec:
               mountPath: "{{ masbr_cf_pvc_mount_path }}"
             - name: cm-volume
               mountPath: /mnt/configmap
-          securityContext:
-            privileged: false
-            readOnlyRootFilesystem: false
-            allowPrivilegeEscalation: false
+{% if masbr_cf_container_security_context is defined and masbr_cf_container_security_context | length > 0 %}
+          securityContext: {{ masbr_cf_container_security_context }}
+{% endif %}
       restartPolicy: Never    
       volumes:
         - name: data-volume

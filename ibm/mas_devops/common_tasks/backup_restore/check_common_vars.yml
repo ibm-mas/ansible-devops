@@ -7,13 +7,21 @@
 - name: "Set fact: internal used common variables"
   set_fact:
     # ONLY FOR DEV
-    __masbr_dev: "{{ lookup('env', '__MASBR_DEV') | default(false, true) | bool }}"
+    __masbr_dev_create_env_file: "{{ lookup('env', '__MASBR_DEV_CREATE_ENV_FILE') | default(false, true) | bool }}"
 
+    # docker image tag
     masbr_mascli_image_tag: "{{ lookup('env', 'MASBR_MASCLI_IMAGE_TAG') | default('latest', true) }}"
     masbr_rclone_image_tag: "{{ lookup('env', 'MASBR_RCLONE_IMAGE_TAG') | default('latest', true) }}"
 
     # Whether the tasks are already running in a k8s Job/CronJob
     masbr_running_in_job: "{{ lookup('env', 'MASBR_RUNNING_IN_JOB') | default(false, true) | bool }}"
+
+    # Temp folder in the Pod for backup/restore
+    masbr_pod_temp_folder: "/tmp/masbr"
+
+- name: "Set fact: job lock file"
+  set_fact:
+    masbr_pod_lock_file: "{{masbr_pod_temp_folder}}/running.lock"
 
 
 # Storage location
