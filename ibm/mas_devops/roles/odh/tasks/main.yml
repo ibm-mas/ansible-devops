@@ -17,9 +17,9 @@
 
 # Create Storage class
 # -----------------------------------------------------------------------------
-- name: "Create Storage class"
-  kubernetes.core.k8s:
-    template: "templates/aibroker/storage-class.yml.j2"
+# - name: "Create Storage class"
+#   kubernetes.core.k8s:
+#     template: "templates/aibroker/storage-class.yml.j2"
 
 # Create DSCInitialization instance
 # -----------------------------------------------------------------------------
@@ -49,8 +49,27 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/odh/data-science-cluster.yml.j2') }}"
 
+- name: "Wait for the DSC to be ready"
+  kubernetes.core.k8s_info:
+    api_version: datasciencecluster.opendatahub.io/v1
+    name: default-dsc
+    kind: DataScienceCluster
+  register: dsc_lookup
+  until:
+    - dsc_lookup.resources is defined and dsci_lookup.resources | length == 1
+    - dsc_lookup.resources[0].status is defined
+    - dsc_lookup.resources[0].status.phase is defined
+    - dsc_lookup.resources[0].status.phase == 'Ready'
+  retries: 10
+  delay: 30
+
 # Create Data Science Pipelines Applications
 - name: "Create Create Data Science Pipelines Applications CR"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/odh/dspa-local-dev.yml.j2') }}"
+  register: dspa_lookup
+
+- name: "debug dspa"
+  debug:
+    msg: "{{ dspa_lookup }}"
