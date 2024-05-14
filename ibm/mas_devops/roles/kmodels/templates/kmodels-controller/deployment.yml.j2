@@ -1,0 +1,57 @@
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: km-controller
+  namespace: mas-{{ mas_instance_id }}-aibroker
+  labels:
+    app: km-controller
+    component: controller
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: km-controller
+  template:
+    metadata:
+      labels:
+        app: km-controller
+        component: controller
+    spec:
+      serviceAccountName: km-controller
+      securityContext:
+        fsGroup: 1001
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: km-controller-pvc
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: controller
+          image: 'icr.io/mas-accelerators/kmodels/controller:1.0.0'
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+            - name: https
+              containerPort: 8443
+          env:
+            - name: KMODELS_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KMODELS_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          envFrom:
+            - configMapRef:
+                name: km-controller
+            - secretRef:
+                name: km-s3-secret
+          volumeMounts:
+            - name: storage
+              mountPath: "/storage"

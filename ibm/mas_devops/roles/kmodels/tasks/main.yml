@@ -1,0 +1,51 @@
+---
+- name: Load variables (main)
+  include_vars: "vars/main.yml"
+
+# Create Aibroker Namespace
+# -----------------------------------------------------------------------------
+- name: "Create Aibroker Namespace"
+  kubernetes.core.k8s:
+    template: 'templates/namespace.yml.j2'
+
+# Create Secrets
+# -----------------------------------------------------------------------------
+- name: "Create regcred secret"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: regcred
+        namespace: mas-{{ mas_instance_id }}-aibroker
+      data:
+        .dockerconfigjson: "{{ lookup('template', 'templates/regcred-secret.json.j2') | to_nice_json | b64encode }}"
+
+- name: "Create km-s3-secret secret"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: Opaque
+      metadata:
+        name: km-s3-secret
+        namespace: mas-{{ mas_instance_id }}-aibroker
+      data:
+        AWS_ACCESS_KEY_ID: "{{ aws_access_key_id | b64encode }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key | b64encode }}"
+        S3_ACCESS_KEY: "{{ s3_access_key | b64encode }}"
+        S3_HOST: "{{ s3_host | b64encode }}"
+        S3_PORT: "{{ s3_port | b64encode }}"
+        S3_REGION: "{{ s3_region | b64encode }}"
+        S3_SECRET_KEY: "{{ s3_secret_key | b64encode }}"
+        S3_SSL: "{{ s3_ssl | b64encode }}"
+
+# Deploy Kmodels
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/controller.yml
+- include_tasks: tasks/istio.yml
+- include_tasks: tasks/networkpolicies.yml
+- include_tasks: tasks/routes.yml
+- include_tasks: tasks/store.yml
+- include_tasks: tasks/watcher.yml
