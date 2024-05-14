@@ -63,13 +63,34 @@
 - name: get IBM Entitlement Key while Migration
   when: dro_migration is defined and dro_migration | lower == "true"
   block:
-    - name: Lookup ibm entitlement secret
+    - name: Lookup ibm entitlement secret in ibm-common-services
       k8s_info:
         api_version: v1
         kind: Secret
         name: ibm-entitlement-key
         namespace: ibm-common-services
       register: ent_sec
+
+    - name: Lookup ibm entitlement secret in core namespace
+      when: ent_sec.resources is defined and ent_sec.resources | length == 0
+      block:
+        - name: get core namespace
+          k8s_info:
+            api_version: config.mas.ibm.com/v1
+            kind: BasCfg
+          register: udscfgs
+
+        - name: set instance namespace
+          set_fact:
+            ent_ns: "{{ udscfgs.resources[0].metadata.namespace }}"
+
+        - name: Lookup ibm entitlement secret in core namesapce
+          k8s_info:
+            api_version: v1
+            kind: Secret
+            name: ibm-entitlement
+            namespace: "{{ ent_ns }}"
+          register: ent_sec
 
     - name: set fact
       when: ent_sec.resources is defined and ent_sec.resources | length != 0
