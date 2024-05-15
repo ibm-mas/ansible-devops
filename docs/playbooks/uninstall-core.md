@@ -17,10 +17,10 @@ When using this playbook be sure that nothing else in your cluster is using any 
 
 !!! warning
     This playbook will try to gracefully uninstall a target MAS instance by removing MAS related resources in the expected order.
-    Therefore, make sure your MAS operator is up and running in a healthy state, and no errors are reported in your `Suite` custom resource.  
-    
-    If there are any error reported in the logs of your MAS operator pod, or in your `Suite` custom resource, the uninstall process might get stuck and not complete successfully. In this case, you will need to debug and fix what is preventing your MAS operator to properly process the uninstall, or ultimately, forcibly uninstall MAS instance. 
-    
+    Therefore, make sure your MAS operator is up and running in a healthy state, and no errors are reported in your `Suite` custom resource.
+
+    If there are any error reported in the logs of your MAS operator pod, or in your `Suite` custom resource, the uninstall process might get stuck and not complete successfully. In this case, you will need to debug and fix what is preventing your MAS operator to properly process the uninstall, or ultimately, forcibly uninstall MAS instance.
+
     For more information regarding MAS uninstall process, refer to [Uninstalling Maximo Application Suite](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=uninstalling) documentation.
 
 
@@ -30,10 +30,10 @@ Usage
 
 - `MAS_INSTANCE_ID` Declare the instance ID of MAS to remove
 
-### Required environment variables
+### Optional environment variables
 Any of these environment variables can be set to `none` to skip the uninstall of the associated dependency, this can be useful if you have multiple MAS instances installed on a single cluster for example.
 
-- `CLUSTER_MONITORING_ACTION`
+- `GRAFANA_ACTION`
 - `SLS_ACTION`
 - `MONGODB_ACTION`
 - `UDS_ACTION`
@@ -43,8 +43,6 @@ Any of these environment variables can be set to `none` to skip the uninstall of
 
 !!! warning
     Although you could set the actions to `install` and run the playbook it is strongly recommended not to as it runs through the dependencies in the reverse order that they need to be installed in; use the [oneclick-core](oneclick-core.md) playbook to repair a MAS Core installation.
-
-### Optional environment variables
 
 ### mas_wipe_mongo_data
 Defines whether Mongo databases should be deleted along with MAS uninstall
