@@ -9,14 +9,15 @@ metadata:
     opendatahub.io/managed: 'true'
   annotations:
     opendatahub.io/connection-type: s3
-    openshift.io/display-name: Minio Data Connection
+    openshift.io/display-name: AWS S3 Connection
 stringData:
   # The following keys are needed while https://github.com/kubeflow/pipelines/issues/9689 is open
-  accesskey: "{{ minio_instance_accesskey }}"
-  secretkey: "{{ minio_instance_secretkey }}"
+  accesskey: "{{ storage_accesskey }}"
+  secretkey: "{{ storage_secretkey }}"
   # Added for kmodels deployment script
-  host: minio-service.minio.svc.cluster.local
-  port: "9000"
+  host: "{{ storage_host }}"
+  region: "{{ storage_region }}"
+  ssl: 'true'
 ---
 apiVersion: datasciencepipelinesapplications.opendatahub.io/v1alpha1
 kind: DataSciencePipelinesApplication
@@ -24,16 +25,17 @@ metadata:
   name: instance
   namespace: aibroker
 spec:
+  dspVersion: v1
   database:
     disableHealthCheck: true
   objectStorage:
+    disableHealthCheck: true
     externalStorage:
-      host: minio-service.minio.svc.cluster.local
-      port: "9000"
-      bucket: mlpipeline
-      # region: us-east-2
+      host: "{{ storage_host }}"
+      region: "{{ storage_region }}"
+      bucket: km-pipeline-test
       s3CredentialsSecret:
         accessKey: accesskey
         secretKey: secretkey
         secretName: ds-pipeline-s3-instance
-      scheme: http
+      scheme: https
