@@ -19,3 +19,25 @@
   vars:
     crd_name: knativeservings.operator.knative.dev
 # TODO: add wait for operator success
+
+- name: "Wait for all operators to be Succeeded"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    namespace: openshift-operators
+    #name: authorino-operator.v0.11.1
+    #name: opendatahub-operator.v2.12.0
+    #name: serverless-operator.v1.32.1
+    #name: servicemeshoperator.v2.5.1
+    kind: ClusterServiceVersion
+  register: odh_lookup
+  until:
+    - odh_lookup.resources is defined and odh_lookup.resources | length == 1
+    # - odh_lookup.resources[0].status is defined
+    # - odh_lookup.resources[0].status.phase is defined
+    - odh_lookup.resources[0].status.phase == 'Succeeded'
+  retries: 20
+  delay: 30
+
+- name: "debug operators"
+  debug:
+    msg: "{{ odh_lookup.resources[0].status.phase }}"
