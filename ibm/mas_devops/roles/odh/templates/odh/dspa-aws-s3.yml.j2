@@ -1,0 +1,41 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ds-pipeline-s3-instance
+  namespace: aibroker
+  labels:
+    opendatahub.io/dashboard: 'false'
+    opendatahub.io/managed: 'true'
+  annotations:
+    opendatahub.io/connection-type: s3
+    openshift.io/display-name: AWS S3 Connection
+stringData:
+  # The following keys are needed while https://github.com/kubeflow/pipelines/issues/9689 is open
+  accesskey: "{{ s3_instance_accesskey }}"
+  secretkey: "{{ s3_instance_secretkey }}"
+  # Added for kmodels deployment script
+  host: s3.us-east-2.amazonaws.com
+  region: us-east-2
+  ssl: 'true'
+---
+apiVersion: datasciencepipelinesapplications.opendatahub.io/v1alpha1
+kind: DataSciencePipelinesApplication
+metadata:
+  name: instance
+  namespace: aibroker
+spec:
+  dspVersion: v1
+  database:
+    disableHealthCheck: true
+  objectStorage:
+    disableHealthCheck: true
+    externalStorage:
+      host: s3.us-east-2.amazonaws.com
+      region: us-east-2
+      bucket: km-pipeline-test
+      s3CredentialsSecret:
+        accessKey: accesskey
+        secretKey: secretkey
+        secretName: ds-pipeline-s3-instance
+      scheme: https
