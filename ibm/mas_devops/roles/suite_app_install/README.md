@@ -34,13 +34,6 @@ Defines which channel of the MAS application to subscribe to
 - Environment Variable: `MAS_APP_CHANNEL`
 - Default: None
 
-### mas_app_upgrade_strategy
-Defines the Upgrade strategy for the MAS Application Operator. Default is set to Automatic
-
-- Optional
-- Environment Variable: `MAS_APP_UPGRADE_STRATEGY`
-- Default: None
-
 ### custom_labels
 Optional. List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
@@ -204,18 +197,6 @@ This is an example of one of the components (actions) - refer to the [BestEffort
 For full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
 
 
-Role Variables - Manage Configuration
--------------------------------------------------------------------------------
-### mas_pod_templates_dir
-This role will look for a configuration files named for manage:
-
-- `ibm-mas-manage-manageapp.yml`
-
-The content of the configuration file should be the yaml block that you wish to be inserted into the ManageApp CR. `ibm-mas-manage-manageapp.yml` will be inserted into the ManageApp CR `spec -> podTemplates`. The ibm-mas-manage operator will then pass this on to the corresponding deployments when available.
-
-For full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
-
-
 Role Variables - Monitor Configuration
 -------------------------------------------------------------------------------
 ### mas_app_settings_monitor_deployment_size
@@ -249,9 +230,6 @@ Example Playbook
 
     # MAS application configuration
     mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
-
-    # Determine MAS Operator Upgrade Strategy Manual | Automatic
-    mas_app_upgrade_strategy: "{{ lookup('env', 'MAS_APP_UPGRADE_STRATEGY') | default('Manual', true) }}"
 
     # Application Configuration - Spec
     mas_app_spec:
