@@ -58,7 +58,6 @@ Defines the app components and versions to configure in the application workspac
 - Environment Variable: `MAS_APPWS_COMPONENTS`
 - Default: Application specific
 
-
 Role Variables - Predict Configuration
 -------------------------------------------------------------------------------
 ### mas_appws_settings_deployment_size
@@ -360,7 +359,7 @@ Optional. Provide a custom archive/file path to be included as part of Manage de
 - Default: None
 
 ### mas_app_settings_customization_archive_name
-Optional. Provide a custom archive file name to be associated with the archive/file path provided. Only used when `mas_app_settings_customization_archive_url` is defined. 
+Optional. Provide a custom archive file name to be associated with the archive/file path provided. Only used when `mas_app_settings_customization_archive_url` is defined.
 
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
 - Default: `manage-custom-archive`
