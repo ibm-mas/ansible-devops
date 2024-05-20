@@ -22,9 +22,9 @@ Also, you need to have AWS user credentials configured via `aws configure` comma
 
 To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you must have already installed the [Mongo Shell](https://www.mongodb.com/docs/mongodb-shell/install/).
 
-This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [cluster_monitoring role](https://ibm-mas.github.io/ansible-devops/roles/cluster_monitoring/) previously. If you did not run the [cluster_monitoring role](https://ibm-mas.github.io/ansible-devops/roles/cluster_monitoring/) then the GrafanaDashboard won't be installed.
+This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) previously. If you did not run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) then the GrafanaDashboard won't be installed.
 
-Common Role Variables for all providers 
+Common Role Variables for all providers
 ----------------------------------------
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a MongoCfg template.
@@ -39,7 +39,7 @@ Local directory to save the generated MongoCfg resource definition.  This can be
 - Default Value: None
 
 ### mongodb_provider
-MongoDB provider 
+MongoDB provider
 
 - Environment variable: `MONGODB_PROVIDER`
 - Defult Value: `community`
@@ -52,14 +52,14 @@ Determines which action needs to be performed w.r.t mongodb for a specfied `prov
 - Default Value: `install`
   ```
   Following Providers supports below mentioned MONGODB_ACTION values:
-  1. Provider : community 
+  1. Provider : community
   Supported MONGODB_ACTION values : install,uninstall
   2. Provider: aws
   Supported MONGODB_ACTION values : install,uninstall,docdb_secret_rotate
   3. Provider: ibm
   Supported MONGODB_ACTION values : install,uninstall,backup,restore,create-mongo-service-credentials
   ```
- 
+
 
 Community MongoDB Role Variables
 ---------------------------------
@@ -76,7 +76,7 @@ The namespace where the operator and MongoDb cluster will be deployed.
 Defines the specific mongo version to be used. Best practice would be to use the version associated with the current Maximo Application Suite catalog. However, this value can currently be overridden to 4.4.21, 5.0.21, 5.0.23, 6.0.10 or 6.0.12
 
 !!! important
-    It is advised to never attempt a downgrade a MongoDB instance managed by the MAS Devops Ansible Collection. Also best practices should include creating scheduled backups of any MongoDB instance. 
+    It is advised to never attempt a downgrade a MongoDB instance managed by the MAS Devops Ansible Collection. Also best practices should include creating scheduled backups of any MongoDB instance.
 
 - Optional
 - Environment Variable: `MONGODB_VERSION`
@@ -172,7 +172,7 @@ Troubleshooting
 
 ### MongoDB Replica Set Pods Will Not Start
 
-MongoDB 5 has introduced new platform specific requirements. Please consult the [Platform Support Notes](https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64) for detailed information. 
+MongoDB 5 has introduced new platform specific requirements. Please consult the [Platform Support Notes](https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64) for detailed information.
 
 It is of particular importance to confirm that the AVX instruction set is exposed or available to the MongoDB workloads. This can easily be determined by entering any running pod on the same OpenShift cluster where MongoDB replica set members are failing to start. Once inside of a running pod the following command can be executed to confirm if the AVX instruction set is available:
 
@@ -180,7 +180,7 @@ It is of particular importance to confirm that the AVX instruction set is expose
 cat /proc/cpuinfo | grep flags | grep avx
 ```
 
-If `avx` is not found in the available `flags` then either the physical processor hosting the OpenShift cluster does not provide the AVX instruction set or the virtual host configuration is not exposing the AVX instruction set. If the latter is suspected the virtual hosting documentation should be referenced for details on how to expose the AVX instruction set.  
+If `avx` is not found in the available `flags` then either the physical processor hosting the OpenShift cluster does not provide the AVX instruction set or the virtual host configuration is not exposing the AVX instruction set. If the latter is suspected the virtual hosting documentation should be referenced for details on how to expose the AVX instruction set.
 
 ### CA Certificate Renewal
 
