@@ -1,0 +1,128 @@
+---
+# 1. Setup namespaces for OCS
+# -----------------------------------------------------------------------------
+- name: "ocs/storage : Create Namespaces for OCS"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/wd/storage/namespace.yaml') }}"
+  register: localNamespace
+
+# 2. Install the Operator
+# -----------------------------------------------------------------------------
+
+- name: Check if operator group is present in openshift-storage already
+  kubernetes.core.k8s_info:
+    namespace: "openshift-storage"
+    kind: OperatorGroup
+  register: og_ocs_operators_info
+
+- name: "ocs/storage : Openshift Container Storage Operator Subscription"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/wd/storage/subscription.yml.j2') }}"
+  register: ocsSubscription
+
+# 3. Wait until the StorageCluster CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the StorageCluster CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: storageclusters.ocs.openshift.io
+
+- name: "Wait until the StorageSystem CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: storagesystems.odf.openshift.io
+
+- name: "Wait until the BackingStore CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: backingstores.noobaa.io
+
+# 4. Create the storage cluster
+# -----------------------------------------------------------------------------
+- name: "ocs/storage : Create StorageCluster"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/wd/storage/storagecluster.yaml"
+
+- name: "Wait until the StorageCluster is available (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: ocs.openshift.io/v1
+    kind: StorageCluster
+    name: ocs-storagecluster-mcg
+    namespace: openshift-storage
+  register: storagecluster_info
+  retries: 20 # minutes
+  delay: 60 # 1 minute
+  until:
+    - storagecluster_info.resources is defined
+    - storagecluster_info.resources | length > 0
+    - storagecluster_info.resources | json_query('[*].status.conditions[?type==`Available`][].status') | select ('match','True') | list | length == 1
+
+- name: "Wait until the BackingStore is available (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: noobaa.io/v1alpha1
+    kind: BackingStore
+    name: noobaa-default-backing-store
+    namespace: openshift-storage
+  register: backingstore_info
+  retries: 20 # minutes
+  delay: 60 # 1 minute
+  until:
+    - backingstore_info.resources is defined
+    - backingstore_info.resources | length > 0
+    - backingstore_info.resources | json_query('[*].status.conditions[?type==`Available`][].status') | select ('match','True') | list | length == 1
+
+# This is needed because sometimes the noobaa-default-backing-store-noobaa-pod does not get started correctly
+# so restarting noobaa operator seems to do the trick
+- name: "Restart noobaa-operator pod from openshift-storage namespace"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Pod
+    namespace: "openshift-storage"
+    label_selectors:
+      - app=noobaa
+      - noobaa-operator=deployment
+
+- name: "Wait until the noobaa-operator is available (30s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: openshift-storage
+    label_selectors:
+      - app=noobaa
+      - noobaa-operator=deployment
+  register: noobaa_operator_pod
+  retries: 10 # 5 minutes
+  delay: 30 # 30 seconds
+  until:
+    - noobaa_operator_pod.resources is defined
+    - noobaa_operator_pod.resources | length > 0
+    - noobaa_operator_pod.resources[0].status is defined
+    - noobaa_operator_pod.resources[0].status.phase == "Running"
+
+- name: "Wait until the noobaa-default-backing-store-noobaa-pod is available (30s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: openshift-storage
+    label_selectors:
+      - app=noobaa
+      - pool=noobaa-default-backing-store
+  register: default_backingstore_pod
+  retries: 10 # 5 minutes
+  delay: 30 # 30 seconds
+  until:
+    - default_backingstore_pod.resources is defined
+    - default_backingstore_pod.resources | length > 0
+    - default_backingstore_pod.resources[0].status is defined
+    - default_backingstore_pod.resources[0].status.phase == "Running"
+
+# 5. Provide debug information
+# -----------------------------------------------------------------------------
+- name: "ocs/storage : Debug information"
+  debug:
+    msg:
+      - "Subscription changed ......... {{ ocsSubscription.changed }}"

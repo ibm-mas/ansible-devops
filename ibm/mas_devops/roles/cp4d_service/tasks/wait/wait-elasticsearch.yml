@@ -1,0 +1,92 @@
+---
+# 2. Wait for elasticsearch-master custom resource to be created
+# -----------------------------------------------------------------------------
+- name: "wait/ccs : Wait for the Elasticsearch-master custom resource to appear (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: elasticsearch.opencontent.ibm.com/v1
+    kind: ElasticsearchCluster
+    name: elasticsearch-master
+    namespace: "{{ cpd_instance_namespace }}"
+  register: elasticsearch_cr_lookup
+  retries: 30 # Up to 30 minutes
+  delay: 60 # Every 1 minute
+  until:
+    - elasticsearch_cr_lookup.resources is defined
+    - elasticsearch_cr_lookup.resources | length > 0
+
+# check if elasticsearch cr is already patched
+- set_fact:
+    is_elasticsearch_already_patched: "{{ elasticsearch_cr_lookup.resources[0].spec.imagePullSecret is defined and elasticsearch_cr_lookup.resources[0].spec.imagePullSecret != '' }}"
+
+- debug:
+    msg:
+      - "ElasticSearch Already patched? ..................... {{ is_elasticsearch_already_patched }}"
+
+# 3. Only patch elasticsearch cr with ibm-entitlement-key if is_elasticsearch_already_patched == False
+# -----------------------------------------------------------------------------
+- block:
+    # Delete Elastic Search operator to force reconcile
+    - name: "wait/ccs : Scale down ibm-elasticsearch-operator"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        name: ibm-elasticsearch-operator-ibm-es-controller-manager
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+        definition:
+          spec:
+            replicas: 0
+        apply: true
+
+    - name: "wait/ccs : Delete elasticsearch-master-create-snapshot-repo-job so next time it recreates with right imagePullPolicy"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: batch/v1
+        kind: Job
+        name: "elasticsearch-master-ibm-elasticsearch-create-snapshot-repo-job"
+        namespace: "{{ cpd_instance_namespace }}"
+
+    - name: "wait/ccs : Delete elasticsearch-server-esnodes statefulset so next time it recreates with right imagePullPolicy"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: apps/v1
+        kind: StatefulSet
+        namespace: "{{ cpd_instance_namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/instance=elasticsearch-master"
+
+    - name: "wait-css : Patch the elasticsearch-master custom resource to include right imagePullPolicy"
+      kubernetes.core.k8s:
+        api_version: elasticsearch.opencontent.ibm.com/v1
+        kind: ElasticsearchCluster
+        name: elasticsearch-master
+        namespace: "{{ cpd_instance_namespace }}"
+        apply: yes
+        definition:
+          spec:
+            imagePullSecret: ibm-entitlement-key
+
+    # Scale up Elastic Search operator again to force reconcile
+    - name: "wait/ccs : Scale up ibm-elasticsearch-operator to force reconcile"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        name: ibm-elasticsearch-operator-ibm-es-controller-manager
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+        definition:
+          spec:
+            replicas: 1
+        apply: true
+
+    # 2.5 Wait for Elastic Search operator to be ready
+    - name: "wait/ccs : Wait for ibm-elasticsearch-operator to be ready again (60s delay)"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        name: ibm-elasticsearch-operator-ibm-es-controller-manager
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+      register: es_operator_lookup
+      until: es_operator_lookup.resources[0].status.availableReplicas is defined
+      retries: 20 # Approximately 20 minutes before we give up
+      delay: 60 # 1 minute
+
+  when: not is_elasticsearch_already_patched

@@ -1,0 +1,37 @@
+---
+# Look up the default channel for the ibm-common-service-operator package manifest
+# The way ODLM works (which we have to use) means that when an istance of MAS Core
+# is installed in the cluster, the ODLM framework will automatically upgdate the installed
+# version of the IBM common service operator to whatever is set as the default channel.
+#
+# This can cause the subsequent installation of the Licensing Operator to fail in
+# horrible ways, setting the subscription channel correctly here will hopefully avoid
+# this problem.
+- name: Set ibm-common-services-operator channel if needed
+  when: common_services_channel is not defined or common_services_channel == ""
+  block:
+
+    - name: Lookup ibm-common-service-operator packagemanifest
+      k8s_info:
+        api_version: packages.operators.coreos.com/v1
+        kind: PackageManifest
+        name: ibm-common-service-operator
+        namespace: ibm-common-services
+      register: common_services_manifest_info
+
+    - name: Set ibm-common-services-operator channel
+      set_fact:
+        common_services_channel: "{{ common_services_manifest_info.resources[0].status.defaultChannel }}"
+
+- name: "Assert that IBM Cloud Pak Foundational Services is compatible with Cloud Pak for Data version {{ cpd_product_version }}"
+  assert:
+    that: cpfs_installed_version is version_compare(cpfs_version, '>=')
+    fail_msg: "Failed! You have incompatible IBM Foundation Services version v{{ cpfs_installed_version }} installed. You must have version v{{ cpfs_version }} or above."
+
+- name: Debug IBM Cloud Pak Foundational Services Install
+  debug:
+    msg:
+      - "Subscription Channel defined ............................................................. {{ common_services_channel }}"
+      - "Catalog Source ........................................................................... ibm-operator-catalog"
+      - "Current installed version ................................................................ v{{ cpfs_installed_version }}"
+      - "Expected compatible version with CloudPak for Data {{ cpd_product_version }} ................................. v{{ cpfs_version }}+"

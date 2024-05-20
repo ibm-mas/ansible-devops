@@ -3,12 +3,17 @@
 cpd_primary_storage_class: "{{ lookup('env', 'CPD_PRIMARY_STORAGE_CLASS') }}"
 cpd_metadata_storage_class: "{{ lookup('env', 'CPD_METADATA_STORAGE_CLASS') }}"
 cpd_scale_config: "{{ lookup('env', 'CPD_SCALE_CONFIG') | default('medium', true) }}"
-
+cpd_iam_integration: false # this is implicitly defaulted to false in cpd 4.6, but needs to be explicitly set in cpd 4.8
 
 # ------ CPD entitlement ----------------------------------------------------------------------------------------------
 cpd_entitlement_username: "{{ lookup('env', 'CPD_ENTITLEMENT_USERNAME') | default('cp', true) }}"
 ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
 cpd_entitlement_key: "{{ lookup('env', 'CPD_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
+ibm_entitlement_key_secret: ibm-entitlement-key
+skip_ibm_entitlement_injection: "{{ lookup('env', 'SKIP_IBM_ENTITLEMENT_INJECTION') | default('false', true) | bool }}" # if true, will skip service accounts to be patched with ibm-entitlement-key
+# if true, then skip ibm-entitlement-key check, useful for upgrade scenarios when the entitlement secret is already present
+# this check is used by `mas update` function in mas cli
+skip_entitlement_key_flag: "{{ lookup('env', 'SKIP_ENTITLEMENT_KEY_FLAG') | default('false', true) | bool }}"
 
 # ------ CPD namespaces -----------------------------------------------------------------------------------------------
 
@@ -35,4 +40,38 @@ common_services_channel: "{{ lookup('env', 'COMMON_SERVICES_CHANNEL') | default(
 cpd_operators_namespace: "{{ lookup('env', 'CPD_OPERATORS_NAMESPACE') | default('ibm-cpd-operators', true) }}"
 cpd_instance_namespace: "{{ lookup('env', 'CPD_INSTANCE_NAMESPACE') | default('ibm-cpd', true) }}"
 cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
-cpd_supported_versions: ['4.5.0', '4.5.3', '4.6.0', '4.6.3', '4.6.4', '4.6.6']
+cpd_platform_cr_name: "{{ lookup('env', 'CPD_PLATFORM_CR_NAME') | default('ibmcpd-cr', true) }}"
+zen_cr_name: "lite-cr"
+zen_operator_namespace: "{{ (cpd_46_or_lower) | ternary('ibm-common-services', cpd_operators_namespace) }}" # depending on the cpd version, zen operator will exist in a different namespace
+
+# ------ CPD 4.8+ specific -----------------------------------------------------------------------------------------------
+cpd_cs_control_namespace: "{{ lookup('env', 'CPD_CS_CONTROL_NAMESPACE') | default('cs-control', true) }}"
+cpd_cpfs_namespace: ibm-common-services
+cpd_ibm_licensing_namespace: ibm-licensing
+cpd_cpfs_minimum_csv_version: "4.0.0" # minimum cpfs version required for cpd 4.8
+cpd_admin_login_sa: "mas-cpd-cluster-admin-sa"
+cpfs_size: small
+
+# These catalog sources will be responsible for feeding subscription for the following operators:
+# - cpd-operator
+# - ibm-common-service-operator
+# - ibm-zen-operator
+# - operand-deployment-lifecycle-manager
+# - ibm-idp-config-ui-operator
+# - ibm-mongodb-operator
+# - ibm-commonui-operator
+# - ibm-iam-operator
+# - ibm-namespace-scope-operator
+cpd_custom_catalog_sources:
+  - "cpd-platform"
+  - "opencloud-operators"
+
+cpd_platform_operator_name: cpd-platform-operator
+cpd_catalog_source_name: "{{ (cpd_46_or_lower) | ternary('ibm-operator-catalog', 'cpd-platform') }}"
+cpd_catalog_source_namespace: "{{ (cpd_46_or_lower) | ternary('openshift-marketplace', cpd_operators_namespace) }}"
+
+cpfs_catalog_source_name: "{{ (cpd_46_or_lower) | ternary('ibm-operator-catalog', 'opencloud-operators') }}"
+cpfs_catalog_source_namespace: "{{ (cpd_46_or_lower) | ternary('openshift-marketplace', cpd_operators_namespace) }}"
+
+cpd_ibm_licensing_catalog_source_name: ibm-operator-catalog
+cpd_ibm_licensing_catalog_source_namespace: openshift-marketplace
