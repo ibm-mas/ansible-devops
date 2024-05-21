@@ -25,5 +25,7 @@ The default exclusions are:
 - icr.io
 - cp.icr.io
 - docker-na-public.artifactory.swg-devops.com
+- docker-na-proxy-svl.artifactory.swg-devops.com
+- docker-na-proxy-rtp.artifactory.swg-devops.com
 
 These can be changed by setting `airgap_network_exclusions` explicitly.
