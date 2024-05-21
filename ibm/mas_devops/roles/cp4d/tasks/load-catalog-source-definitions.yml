@@ -1,0 +1,58 @@
+---
+# This task will load additional catalog source definitions based on the Cloud Pak for Data version defined
+# which will be responsible for feeding subscription for the following operators:
+# - cpd-operator
+# - ibm-common-service-operator
+# - ibm-zen-operator
+# - operand-deployment-lifecycle-manager
+# - ibm-idp-config-ui-operator
+# - ibm-mongodb-operator
+# - ibm-commonui-operator
+# - ibm-iam-operator
+# - ibm-namespace-scope-operator
+
+- include_vars: "templates/catalog_sources/{{ cpd_product_version }}.yml"
+
+- set_fact:
+    cpd_platform_catsrc: "{{ catsrc_info.cpd_platform }}"
+    cpfs_catsrc: "{{ catsrc_info.cpfs }}"
+
+- name: Retrieve image setting parts for cpd-platform catalog
+  set_fact:
+    cpd_platform_catalog_name: "{{ item.catalog_name }}"
+    cpd_platform_catalog_display_name: "{{ item.catalog_display_name }}"
+    cpd_platform_catalog_operator_name: "{{ item.name }}"
+    cpd_platform_digest: "{{ item.digest }}"
+    cpd_platform_registry: "{{ item.registry }}"
+  loop: "{{ cpd_platform_catsrc }}"
+
+- name: Retrieve image setting parts for opencloud catalog
+  set_fact:
+    opencloud_catalog_name: "{{ item.catalog_name }}"
+    opencloud_catalog_display_name: "{{ item.catalog_display_name }}"
+    opencloud_catalog_operator_name: "{{ item.name }}"
+    opencloud_digest: "{{ item.digest }}"
+    opencloud_registry: "{{ item.registry }}"
+  loop: "{{ cpfs_catsrc }}"
+
+# 3. Debug Properties
+# -----------------------------------------------------------------------------
+- name: "Debug Cloud Pak for Data version {{ cpd_product_version }} extra casebundle properties"
+  debug:
+    msg:
+      - "cpd-platform catalog name ............................ {{ cpd_platform_catalog_name}}"
+      - "cpd-platform catalog display name .................... {{ cpd_platform_catalog_display_name }}"
+      - "cpd-platform catalog operator name ................... {{ cpd_platform_catalog_operator_name }}"
+      - "cpd-platform catalog digest .......................... {{ cpd_platform_digest }}"
+      - "cpd-platform catalog registry ........................ {{ cpd_platform_registry }}"
+      - "opencloud-operators catalog name ..................... {{ opencloud_catalog_name }}"
+      - "opencloud-operators catalog display name ............. {{ opencloud_catalog_display_name }}"
+      - "opencloud-operators catalog operator name ............ {{ opencloud_catalog_operator_name }}"
+      - "opencloud-operators catalog digest ................... {{ opencloud_digest }}"
+      - "opencloud-operators catalog registry ................. {{ opencloud_registry }}"
+
+- name: "Debug Cloud Pak for Data version {{ cpd_product_version }} extra casebundle image properties"
+  debug:
+    msg:
+      - "cpd-platform image ................................... {{ cpd_platform_registry }}/{{ cpd_platform_catalog_operator_name }}@{{ cpd_platform_digest }}"
+      - "opencloud-operators image ............................ {{ opencloud_registry }}/{{ opencloud_catalog_operator_name }}@{{ opencloud_digest }}"
