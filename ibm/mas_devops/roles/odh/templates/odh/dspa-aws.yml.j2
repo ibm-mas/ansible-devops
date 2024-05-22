@@ -28,13 +28,31 @@ spec:
   dspVersion: v1
   database:
     disableHealthCheck: true
+    mariaDB:
+      deploy: true
+      image: registry.redhat.io/rhel8/mariadb-103:1-188
+      username: mlpipeline
+      pipelineDBName: randomDBName
+      pvcSize: 20Gi
+      storageClassName: "{{ cpd_primary_storage_class }}"
+      resources:
+        requests:
+          cpu: 300m
+          memory: 800Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+      # requires this configmap to be created before hand,
+      # otherwise operator will not deploy DSPA
+      passwordSecret:
+        name: ds-pipeline-s3-instance
+        key: secretkey
   objectStorage:
     disableHealthCheck: true
     externalStorage:
       host: "{{ storage_host }}"
       region: "{{ storage_region }}"
       bucket: km-pipeline-test
-      storageClassName: "{{ cpd_primary_storage_class }}"
       s3CredentialsSecret:
         accessKey: accesskey
         secretKey: secretkey
