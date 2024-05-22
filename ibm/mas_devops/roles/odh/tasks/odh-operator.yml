@@ -1,9 +1,4 @@
 ---
-- name: Try to delete install plan
-  block:
-    - name: Delete all install plans
-      shell: oc delete installplan --all -n openshift-operators
-
 # Install Operator & create entitlement openshift-odh
 # -----------------------------------------------------------------------------
 - name: "Install Openshift odh Operator"
@@ -17,16 +12,28 @@
     operator_group: "{{ lookup('template', 'templates/odh/operator-group.yml.j2') }}"
     subscription: "{{ lookup('template', 'templates/odh/subscription.yml.j2') }}"
 
+- name: Gather facts about Install Plans
+  k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: "{{ openshift_namespace }}"
+  register: install_plan_facts
+
+- name: Extract Install Plans with specific clusterServiceVersionNames
+  set_fact:
+    relevant_install_plans: "{{ relevant_install_plans | default([]) + [item.metadata.name] }}"
+  loop: "{{ install_plan_facts.resources }}"
+  when: odh_operator_version in item.spec.clusterServiceVersionNames
+  no_log: true
+
+- name: Display relevant Install Plans
+  debug:
+    msg: "Install Plans with '{{ odh_operator_version }}' clusterServiceVersionNames: {{ relevant_install_plans }}"
+
 - name: Approve install plan for Opendatahub operator
   block:
-    - name: Lookup install plan to approve
-      shell: oc get installplan -n openshift-operators | awk 'NR>1 {print $1}'
-      register: installPlan
-    - name: debug
-      debug:
-        msg: "{{ installPlan.stdout }}"
     - name: Approve install plan to approve
-      shell: oc patch installplan {{ installPlan.stdout_lines[0] }} -n openshift-operators --type merge --patch '{"spec":{"approved":true}}'
+      shell: oc patch installplan {{ relevant_install_plans | first }} -n openshift-operators --type merge --patch '{"spec":{"approved":true}}'
 
 # Wait until the Opendata Hub CRD is available
 # -----------------------------------------------------------------------------
