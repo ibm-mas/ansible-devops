@@ -24,11 +24,11 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
   - Install application (~15 Minutes)
   - Configure workspace (~30 Minutes)
 
-All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing any MAS application, just customize the application install and configure stages at the end of the playbook.
+All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing application, just customize the application install and configure stages at the end of the playbook.
 
 ## Required environment variables
 
-- `MAS_INSTANCE_ID` Declare the instance ID for the MAS install
+- `MAS_INSTANCE_ID` Declare the instance ID for the AI Broker install
 - `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 - `IBM_ENTITLEMENT_USERNAME` Your IBM Entitlement user to access the IBM Container Registry
 - `STORAGE_ACCESSKEY` Your strage provider access key
