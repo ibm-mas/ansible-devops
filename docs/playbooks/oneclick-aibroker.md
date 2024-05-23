@@ -17,12 +17,12 @@ This playbook will add **AI Broker v1.0.x** to an existing IBM Maximo Applicatio
 This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 - Install dependencies:
-  - Install ibm operator catalog (~20 minutes)
-  - Install ibm common services (~20 minutes)
-  - Install cert-manager (~20 minutes)
+  - Install ibm operator catalog (~10 minutes)
+  - Install ibm common services (~210 minutes)
+  - Install cert-manager (~10 minutes)
 - Install AI broker application:
   - Install application (~15 Minutes)
-  - Configure workspace (~30 Minutes)
+  - Configure AI Broker (kmodels, tenant, etc) (~10 Minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing application, just customize the application install and configure stages at the end of the playbook.
 
