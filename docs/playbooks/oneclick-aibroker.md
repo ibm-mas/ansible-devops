@@ -38,11 +38,14 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `STORAGE_PROVIDER` Your storage provider name
 - `ICR_PASSWORD` Your ICR registry password
 - `ICR_USERNAME` Your ICR registry user name
+- `STORAGE_PIPELINES_BUCKET` Your piplines bucket
+- `STORAGE_TENANTS_BUCKET` Your tenants bucket
 
 ## Optional environment variables
 
 - `MAS_APP_CHANNEL` Your custom AI broker application channel
 - `MAS_CATALOG_VERSION` Your custom AI broker catalog version
+- `STORAGE_PROVIDER` Your custom storage provider (aws, minio)
 
 ## Usage
 
@@ -62,6 +65,8 @@ export STORAGE_REGION="<storage provider region>"
 export STORAGE_PROVIDER="<storage provider name>"
 export ICR_USERNAME="<irc username>"
 export ICR_PASSWORD="<icr password>"
+export STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
+export STORAGE_TENANTS_BUCKET="<tenants bucket name>"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_aibroker
