@@ -27,6 +27,25 @@ metadata:
 spec:
   database:
     disableHealthCheck: true
+    mariaDB:
+      deploy: true
+      image: registry.redhat.io/rhel8/mariadb-103:1-188
+      username: mlpipeline
+      pipelineDBName: randomDBName
+      pvcSize: 20Gi
+      storageClassName: "{{ cpd_primary_storage_class }}"
+      resources:
+        requests:
+          cpu: 300m
+          memory: 800Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+      # requires this configmap to be created before hand,
+      # otherwise operator will not deploy DSPA
+      passwordSecret:
+        name: ds-pipeline-s3-instance
+        key: secretkey
   objectStorage:
     externalStorage:
       host: "{{ storage_host }}"
