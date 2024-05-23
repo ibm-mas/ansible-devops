@@ -38,6 +38,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `STORAGE_PROVIDER` Your storage provider name
 - `ICR_PASSWORD` Your ICR registry password
 - `ICR_USERNAME` Your ICR registry user name
+- `TENANT_NAME` Your Aibroker tenant name
 - `STORAGE_PIPELINES_BUCKET` Your piplines bucket
 - `STORAGE_TENANTS_BUCKET` Your tenants bucket
 
