@@ -66,6 +66,7 @@ export STORAGE_REGION="<storage provider region>"
 export STORAGE_PROVIDER="<storage provider name>"
 export ICR_USERNAME="<irc username>"
 export ICR_PASSWORD="<icr password>"
+export TENANT_NAME="user"
 export STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
 export STORAGE_TENANTS_BUCKET="<tenants bucket name>"
 
