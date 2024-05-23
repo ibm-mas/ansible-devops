@@ -1,0 +1,29 @@
+---
+
+# 1. Load default storage classes (if not provided by the user)
+# -----------------------------------------------------------------------------
+- name: "install : Determine storage classes"
+  include_tasks: tasks/install/determine-storage-classes.yml
+
+
+# 2. Ensure User Workload Monitoring is Enabled
+# -----------------------------------------------------------------------------
+- name: "install : Get User Workload Monitoring Token"
+  kubernetes.core.k8s_info:
+    api: v1
+    kind: Secret
+    name: prometheus-user-workload-token
+    namespace: openshift-user-workload-monitoring
+  register: uwm_secret_lookup
+  no_log: true
+
+- name: "install : Configure User Workload Monitoring"
+  when: uwm_secret_lookup.resources | length == 0
+  kubernetes.core.k8s:
+    template: templates/cluster-monitoring-config.yml.j2
+
+
+# 3. Install and configure Grafana
+# -----------------------------------------------------------------------------
+- name: "install : Install Grafana"
+  include_tasks: "tasks/install/grafana-v{{grafana_major_version}}.yml"

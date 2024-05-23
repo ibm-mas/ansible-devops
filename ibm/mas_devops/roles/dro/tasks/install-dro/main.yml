@@ -5,14 +5,14 @@
 - name: "Determine whether this is an airgap environment"
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
 
-# 3. Display DRO deployment details
+
+# 2. Display DRO deployment details
 # -----------------------------------------------------------------------------
 - name: "DRO Deployment details"
   debug:
     msg:
       - "DRO Namespace ...................... redhat-marketplace"
       - "IBM entitlement key................. Can get from https://myibm.ibm.com/products-services/containerlibrary"
-      - "DRO CSV Version..................... {{ dro_version }}"
       - "MAS Instance ID .................... {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS Config Directory ............... {{ mas_config_dir | default('<undefined>', True) }}"
       - "DRO Contact First Name ............. {{ dro_contact.first_name | default('<undefined>', True) }}"
@@ -20,11 +20,8 @@
       - "DRO Contact e-mail ................. {{ dro_contact.email | default('<undefined>', True) }}"
 
 
-# 4. Install DRO Prerequisites
-# -----------------------------------------------------------------------------
-
-# Check redhat-marketplace operator exists
-# --------------------------------------g---------------------------------------
+# 3. Check redhat-marketplace operator exists
+# ----------------------------------------------------------------------------
 - name: Check if operator group is present in redhat-marketplace already
   kubernetes.core.k8s_info:
     namespace: redhat-marketplace
@@ -35,12 +32,13 @@
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/operatorgroup.yml.j2') }}"
 
-# Create a PVC using the Chosen Storage Class
+
+# 4. Create a PVC using the Chosen Storage Class
 # ----------------------------------------------------------------------------
 - name: "Debug User Provided DRO Storage Class"
   debug:
     msg:
-      - "User Provided DRO Storage Class Name..................... {{ dro_storage_class }}"
+      - "User Provided DRO Storage Class Name ..................... {{ dro_storage_class }}"
   when: dro_storage_class is defined and (dro_storage_class | length > 0)
 
 - name: Determine Storage Class
@@ -51,7 +49,9 @@
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/dro-pvc.yml.j2') }}"
 
-# Create Marketplace Pull Secret
+
+# 5. Create Marketplace Pull Secret
+# ----------------------------------------------------------------------------
 - name: Get marketplace secret
   kubernetes.core.k8s_info:
     api_version: v1
@@ -59,6 +59,53 @@
     name: "redhat-marketplace-pull-secret"
     namespace: redhat-marketplace
   register: rm_sec
+
+- name: get IBM Entitlement Key while Migration
+  when: dro_migration is defined and dro_migration | lower == "true"
+  block:
+    - name: Lookup ibm entitlement secret in ibm-common-services
+      k8s_info:
+        api_version: v1
+        kind: Secret
+        name: ibm-entitlement-key
+        namespace: ibm-common-services
+      register: ent_sec
+
+    - name: Lookup ibm entitlement secret in core namespace
+      when: ent_sec.resources is defined and ent_sec.resources | length == 0
+      block:
+        - name: get core namespace
+          k8s_info:
+            api_version: config.mas.ibm.com/v1
+            kind: BasCfg
+          register: udscfgs
+
+        - name: set instance namespace
+          set_fact:
+            ent_ns: "{{ udscfgs.resources[0].metadata.namespace }}"
+
+        - name: Lookup ibm entitlement secret in core namesapce
+          k8s_info:
+            api_version: v1
+            kind: Secret
+            name: ibm-entitlement
+            namespace: "{{ ent_ns }}"
+          register: ent_sec
+
+    - name: set fact
+      when: ent_sec.resources is defined and ent_sec.resources | length != 0
+      set_fact:
+        ibment: "{{ent_sec.resources[0].data['.dockerconfigjson'] |b64decode |from_json}}"
+
+    - name: set ibm-entitlement-key for cp.icr.io/cp
+      set_fact:
+        ibm_entitlement_key: "{{ibment.auths['cp.icr.io/cp'].password}}"
+      when: ibment is defined and ibment.auths['cp.icr.io/cp'] is defined
+
+    - name: set ibm-entitlement-key for artifactory
+      set_fact:
+        ibm_entitlement_key: "{{ibment.auths['docker-na-public.artifactory.swg-devops.com/wiotp-docker-local'].password}}"
+      when: ibment is defined and ibment.auths['docker-na-public.artifactory.swg-devops.com/wiotp-docker-local'] is defined
 
 - name: Check IBM Entitlement Key
   ansible.builtin.assert:
@@ -69,17 +116,15 @@
   when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
 
-# 4.1 Load PodTemplates configuration
+# 6. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
 - name: "Load podTemplates configuration"
   include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
   vars:
     config_files: ["ibm-mas-bascfg.yml"]
 
-# 5. Install DRO
-# -----------------------------------------------------------------------------
 
-# Install ibm-metrics-operator
+# 7. Install ibm-metrics-operator
 # -----------------------------------------------------------------------------
 - name: Get ibm-metrics-operator Subscription
   kubernetes.core.k8s_info:
@@ -122,7 +167,7 @@
   when: (imo_subscription.resources is defined) and (imo_subscription.resources | length == 0)
 
 
-# Install ibm-data-reporter-operator
+# 8. Install ibm-data-reporter-operator
 # -----------------------------------------------------------------------------
 - name: Get ibm-data-operator Subscription
   kubernetes.core.k8s_info:
@@ -154,17 +199,6 @@
     dro_source_namespace: "{{ dro_manifest.resources[0].status.catalogSourceNamespace }}"
     dro_default_channel: "{{ dro_manifest.resources[0].status.defaultChannel }}"
 
-- name: Set DRO default startingCSV
-  set_fact:
-    dro_csv: "{{ item.currentCSV }}"
-  with_items: "{{ dro_manifest.resources[0].status.channels }}"
-  when: (dro_manifest.resources is defined) and (item.name == dro_default_channel) and (dro_version|length  == 0)
-
-- name: Set DRO custom startingCSV
-  set_fact:
-    dro_csv: "ibm-data-reporter-operator.v{{ dro_version }}"
-  when: (dro_version|length != 0)
-
 - name: "Create Subscription ibm-data-reporter-operator"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/subscription/dro_subscription.yml') }}"
@@ -172,38 +206,31 @@
     wait_timeout: 60
   when: (dro_subscription.resources is defined) and (dro_subscription.resources | length == 0)
 
-# Wait until the marketplaceconfigs CRD is available
-- name: "Wait until the marketplaceconfigs CRD is available"
-  kubernetes.core.k8s_info:
-    api_version: apiextensions.k8s.io/v1
-    name: "marketplaceconfigs.marketplace.redhat.com"
-    kind: CustomResourceDefinition
-    wait: yes
-    wait_sleep: 10
-    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
-    wait_condition:
-      type: NamesAccepted
-      status: "True"
-  register: mpc_crd_info
-  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
-  delay: 5 # seconds
-  until:
-    - mpc_crd_info.resources is defined
-    - mpc_crd_info.resources | length > 0
 
-# Apply MarketplaceConfig CR
+# 9. Wait until the marketplaceconfigs CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the marketplaceconfigs CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: marketplaceconfigs.marketplace.redhat.com
+
+
+# 10. Apply MarketplaceConfig CR
 # -----------------------------------------------------------------------------
 - name: Create MarketplaceConfig CR
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/MarketplaceConfig-cr.yml.j2') }}"
 
-# Create DRO Pull Secret
+
+# 11. Create DRO Pull Secret
+# -----------------------------------------------------------------------------
 - name: "Create Secret redhat-marketplace-pull-secret"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/rhm-pull-secret.yml.j2') }}"
   when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
-# 7. Check deployment status
+
+# 12. Check deployment status
 # -----------------------------------------------------------------------------
 - name: "Wait for the rhm-data-service to be ready"
   kubernetes.core.k8s_info:

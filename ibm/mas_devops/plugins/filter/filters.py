@@ -339,9 +339,20 @@ def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secr
   for sb in data:
     if 'bundleLevelProperties' in sb:
       if 'mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties'] and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties'] and 'mxe.doclink.path01' not in sb['bundleLevelProperties'] and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']:
-        sb['bundleLevelProperties']+=f"  mxe.doclink.doctypes.topLevelPaths=cos:doclinks  mxe.doclink.doctypes.defpath=cos:doclinks/default  mxe.doclink.path01=cos:doclinks={doclinkPath01}  mxe.doclink.securedAttachment=true  mxe.cosbucketname={bucketName}  mxe.cosaccesskey={accessKey}  mxe.cossecretkey={secretAccesskey}  mxe.cosendpointuri={bucketEndpoint}  mxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+        sb['bundleLevelProperties']+=f"\nmxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
     else:
-      sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks  mxe.doclink.doctypes.defpath=cos:doclinks/default  mxe.doclink.path01=cos:doclinks={doclinkPath01}  mxe.doclink.securedAttachment=true  mxe.cosbucketname={bucketName}  mxe.cosaccesskey={accessKey}  mxe.cossecretkey={secretAccesskey}  mxe.cosendpointuri={bucketEndpoint}  mxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+      sb['bundleLevelProperties']=f"mxe.doclink.doctypes.topLevelPaths=cos:doclinks\nmxe.doclink.doctypes.defpath=cos:doclinks/default\nmxe.doclink.path01=cos:doclinks={doclinkPath01}\nmxe.doclink.securedAttachment=true\nmxe.cosbucketname={bucketName}\nmxe.cosaccesskey={accessKey}\nmxe.cossecretkey={secretAccesskey}\nmxe.cosendpointuri={bucketEndpoint}\nmxe.attachmentstorage=com.ibm.tivoli.maximo.oslc.provider.COSAttachmentStorage"
+    sb_list.append(sb)
+  return sb_list
+
+def setManageFsDoclinksProperties(data, manage_url):
+  sb_list = []
+  for sb in data:
+    if 'bundleLevelProperties' in sb:
+      if 'mxe.doclink.doctypes.topLevelPaths' not in sb['bundleLevelProperties'] and 'mxe.doclink.doctypes.defpath' not in sb['bundleLevelProperties'] and 'mxe.doclink.path01' not in sb['bundleLevelProperties'] and 'mxe.doclink.securedAttachment' not in sb['bundleLevelProperties']:
+        sb['bundleLevelProperties']+=f"\nmxe.doclink.doctypes.topLevelPaths=/DOCLINKS\nmxe.doclink.doctypes.defpath=/DOCLINKS/default\nmxe.doclink.path01=/DOCLINKS=https://{manage_url}/maximo/oslc/doclinks\nmxe.doclink.securedAttachment=true\nmxe.report.AttachDoc.validateURL=0\nmxe.attachmentstorage=null"
+    else:
+      sb['bundleLevelProperties']=   f"mxe.doclink.doctypes.topLevelPaths=/DOCLINKS\nmxe.doclink.doctypes.defpath=/DOCLINKS/default\nmxe.doclink.path01=/DOCLINKS=https://{manage_url}/maximo/oslc/doclinks\nmxe.doclink.securedAttachment=true\nmxe.report.AttachDoc.validateURL=0\nmxe.attachmentstorage=null"
     sb_list.append(sb)
   return sb_list
 
@@ -358,6 +369,25 @@ def _setSystemProperties(data, meaweb_value, oslc_rest_value, webapp_value, rest
     sb_list.append(sb)
   return sb_list
 
+def format_pre_version_with_plus(data):
+  """
+  Versions in format 9.0.0-pre.stable-3757 cannot be used to compare with the version
+  reconciled by suite operator, which is in format 9.0.0-pre.stable+3757. This function is to
+  format version to make it comparable (replacing last "-" by "+")
+  """
+  if "pre" not in data or data.count("-") < 2:
+    return data
+  return data[::-1].replace("-", "+", 1)[::-1]
+
+def format_pre_version_without_buildid(data):
+  """
+  Versions in format 9.0.0-pre.stable-3757 cannot be used to compare with the version
+  reconciled by application operators, which is in format 9.0.0-pre.stable+3757. This function is to
+  format version to make it comparable (removing build id part at the end)
+  """
+  if "pre" not in data or data.count("-") < 2:
+    return data
+  return data[:data.rfind("-")]
 
 class FilterModule(object):
   def filters(self):
@@ -375,5 +405,8 @@ class FilterModule(object):
       'setManagePVC': setManagePVC,
       'setManageBirtProperties': setManageBirtProperties,
       'setManageDoclinksProperties': setManageDoclinksProperties,
+      'setManageFsDoclinksProperties': setManageFsDoclinksProperties,
       'setSystemProperties': _setSystemProperties,
+      'format_pre_version_with_plus': format_pre_version_with_plus,
+      'format_pre_version_without_buildid': format_pre_version_without_buildid
     }

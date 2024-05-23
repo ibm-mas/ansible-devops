@@ -1,0 +1,80 @@
+---
+# This tasks allows you to delete a specific operator's subscription including its cluster service version
+# It will lookup to see if the subscription exists, and you have the option to provide a comparing csv
+# if that matches with the current installed csv, then subscription won't be deleted.
+# This task is useful specially when performing a operator subscription upgrade and sometimes there's a conflict with existing installed csvs
+
+# Lookup subscription
+- name: "uninstall-operator: Lookup operators.coreos.com/{{ operator_name }}.{{ operator_namespace }} subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ operator_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ operator_name }}.{{ operator_namespace }}"
+  register: cpd_sub_by_label_output
+
+- name: "cpd-cli : Debug operators to be cleaned up"
+  debug:
+    msg:
+      - "Operator ......................... {{ operator_name }}"
+      - "Operator expected csv ............ {{ operator_expected_csv | default('Not informed', true) }}"
+      - "Operator installed csv ........... {{ cpd_sub_by_label_output.resources[0].status.installedCSV | default('Not found') }}"
+
+- when:
+    - cpd_sub_by_label_output.resources is defined
+    - cpd_sub_by_label_output.resources | length > 0
+    - cpd_sub_by_label_output.resources[0].status.installedCSV is defined
+    - operator_expected_csv is not defined or operator_expected_csv != cpd_sub_by_label_output.resources[0].status.installedCSV
+  block:
+    # When installed cvs exists and is different than expected, delete existing sub
+    - debug:
+        msg:
+          - "Will try to delete subscription {{ operator_name }} as installed cvs is different from the expected csv..."
+
+    # Delete subscription
+    - name: "uninstall-operator : Delete operators.coreos.com/{{ operator_name }}.{{ operator_namespace }} subscription"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: "{{ cpd_sub_by_label_output.resources[0].metadata.name }}"
+        namespace: "{{ operator_namespace }}"
+      register: cpd_sub_delete
+      when:
+        - cpd_sub_by_label_output.resources is defined
+        - cpd_sub_by_label_output.resources[0].metadata is defined
+        - cpd_sub_by_label_output.resources[0].metadata.name is defined
+
+    - name: "uninstall-operator : Debug - Delete operators.coreos.com/{{ operator_name }}.{{ operator_namespace }} subscription"
+      debug:
+        var: cpd_sub_delete
+
+    # Lookup csv
+    - name: "uninstall-operator: Lookup operators.coreos.com/{{ operator_name }}.{{ operator_namespace }} csv"
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: "{{ operator_namespace }}"
+        label_selectors:
+          - operators.coreos.com/{{ operator_name }}.{{ operator_namespace }}
+      register: cpd_csv_lookup
+
+    # Delete csv
+    - name: "uninstall-operator : Delete operators.coreos.com/{{ operator_name }}.{{ operator_namespace }} csv"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: "{{ operator_namespace }}"
+        label_selectors:
+          - operators.coreos.com/{{ operator_name }}.{{ operator_namespace }}
+      register: cpd_csv_delete
+      when:
+        - cpd_csv_lookup.resources is defined
+        - cpd_csv_lookup.resources[0].metadata is defined
+        - cpd_csv_lookup.resources[0].metadata.name is defined
+
+    - name: "uninstall-operator : Debug - Delete operators.coreos.com/{{ operator_name }}.{{ operator_namespace }} csv"
+      debug:
+        var: cpd_csv_delete

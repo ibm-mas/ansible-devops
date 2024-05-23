@@ -1,0 +1,125 @@
+---
+# About this task:
+# If a user other than the cluster administrator will install IBM Cloud Pak for Data, you must give
+# a Red Hat® OpenShift® Container Platform user the required roles to install the Cloud Pak for Data software in the instance projects.
+# When do you need to complete this task?
+# This task is required in some situations.
+# Skip this task if the cluster administrator will install the Cloud Pak for Data software in the instance projects.
+# Complete this task only if a user other than the cluster administrator will install IBM Cloud Pak for Data.
+# Repeat as needed If you plan to install multiple instances of Cloud Pak for Data, you must repeat this task for each instance that you plan to install.
+# More details: https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-authorizing-instance-administrator
+
+# Create the cpd-instance-admin-apply-olm role in the operators project for the instance
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-authorizing-instance-administrator
+# ---------------------------------------------------------------------------------------------------
+- name: "authorize-user-cpd-admin : Create Cloud Pak for Data required roles"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/cpd_platform/rbac.yml.j2') }}"
+
+# Assign the user the role in the operators project for the instance:
+# ---------------------------------------------------------------------------------------------------
+- name: "authorize-user-cpd-admin : Set context to {{ cpd_instance_namespace }} namespace"
+  shell: "oc project {{ cpd_instance_namespace }}"
+  register: cpd_ns_output
+  failed_when:
+    - ('not found' in cpd_ns_output.stdout)
+    - ('Error' in cpd_ns_output.stdout)
+
+# Set command to be executed
+- name: "authorize-user-cpd-admin : Set command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
+  set_fact:
+    cpd_cmd_adm_policy_to_user_operators: oc adm policy add-role-to-user admin -z {{ cpd_admin_login_sa }} --namespace={{ cpd_operators_namespace }} --rolebinding-name=cpd-instance-admin-rbac
+
+# Debug
+- name: "authorize-user-cpd-admin : Debug command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
+  debug:
+    msg: "{{ cpd_cmd_adm_policy_to_user_operators | regex_replace(' \\\\', '') }}"
+
+# Execute command
+- name: "authorize-user-cpd-admin : Running command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
+  shell: "{{ cpd_cmd_adm_policy_to_user_operators }}"
+  register: cpd_assign_permission_operators_ns_output
+  until: ('clusterrole.rbac.authorization.k8s.io/admin added' in cpd_assign_permission_operators_ns_output.stdout)
+  retries: 6 # Just over 1 minute
+  delay: 10 # Every 10 seconds
+
+
+# Debug
+- name: "authorize-user-cpd-admin : Debug command output : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_operators_namespace }} operators project for the cpd instance"
+  debug:
+    msg: "{{ cpd_assign_permission_operators_ns_output.stdout }}"
+
+# Assign the user the admin role in the operands project for the instance:
+# ---------------------------------------------------------------------------------------------------
+# Set command to be executed
+- name: "authorize-user-cpd-admin : Set command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_instance_namespace }} operands project for the cpd instance"
+  set_fact:
+    cpd_cmd_adm_policy_to_user_operands: oc adm policy add-role-to-user admin -z {{ cpd_admin_login_sa }} --namespace={{ cpd_instance_namespace }} --rolebinding-name=cpd-instance-admin-rbac
+# Debug command
+- name: "authorize-user-cpd-admin : Debug command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_instance_namespace }} operands project for the cpd instance"
+  debug:
+    msg: "{{ cpd_cmd_adm_policy_to_user_operands | regex_replace(' \\\\', '') }}"
+
+# Execute command
+- name: "authorize-user-cpd-admin : Running command : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_instance_namespace }} operands project for the cpd instance"
+  shell: "{{ cpd_cmd_adm_policy_to_user_operands }}"
+  register: cpd_assign_permission_operands_ns_output
+  until: ('clusterrole.rbac.authorization.k8s.io/admin added' in cpd_assign_permission_operands_ns_output.stdout)
+  retries: 6 # Just over 1 minute
+  delay: 10 # Every 10 seconds
+
+# Debug command output
+- name: "authorize-user-cpd-admin : Debug command output : Assign {{ cpd_admin_login_sa }} service account the admin role in the {{ cpd_instance_namespace }} operands project for the cpd instance"
+  debug:
+    msg: "{{ cpd_assign_permission_operands_ns_output.stdout }}"
+
+# Assign the user the role in the operators project for the instance
+# ---------------------------------------------------------------------------------------------------
+# Set command to be executed
+- name: "authorize-user-cpd-admin : Set command : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-apply-olm role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
+  set_fact:
+    cpd_cmd_adm_policy_cpd_admin_apply_olm: oc adm policy add-role-to-user cpd-instance-admin-apply-olm -z {{ cpd_admin_login_sa }} --namespace={{ cpd_operators_namespace }} --role-namespace={{ cpd_operators_namespace }} --rolebinding-name=cpd-instance-admin-apply-olm-rbac
+
+# Debug command
+- name: "authorize-user-cpd-admin : Debug command : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-apply-olm role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
+  debug:
+    msg: "{{ cpd_cmd_adm_policy_cpd_admin_apply_olm | regex_replace(' \\\\', '') }}"
+
+# Execute command
+- name: "authorize-user-cpd-admin : Running command: Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-apply-olm role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
+  shell: "{{ cpd_cmd_adm_policy_cpd_admin_apply_olm }}"
+  register: cpd_assign_permission_apply_olm_output
+  until: ('role.rbac.authorization.k8s.io/cpd-instance-admin-apply-olm added' in cpd_assign_permission_apply_olm_output.stdout)
+  retries: 6 # Just over 1 minute
+  delay: 10 # Every 10 seconds
+
+# Debug command output
+- name: "authorize-user-cpd-admin : Debug command output : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-apply-olm role in the {{ cpd_operators_namespace }} operators project for cpd-instance-admin-apply-olm-rbac"
+  debug:
+    msg: "{{ cpd_assign_permission_apply_olm_output.stdout }}"
+
+# Assign the user the role in the openshift-marketplace project for the instance
+# ---------------------------------------------------------------------------------------------------
+# Set command to be executed
+- name: "authorize-user-cpd-admin : Set command : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-read-catsrc role in the openshift-marketplace project for the instance"
+  set_fact:
+    cpd_cmd_adm_policy_cpd_admin_catsrc: oc adm policy add-role-to-user cpd-instance-admin-apply-olm -z {{ cpd_admin_login_sa }} --namespace={{ cpd_operators_namespace }} --role-namespace={{ cpd_operators_namespace }} --rolebinding-name=cpd-instance-admin-apply-olm-rbac
+
+# Debug command
+- name: "authorize-user-cpd-admin : Debug command : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-read-catsrc role in the openshift-marketplace project for the instance"
+  debug:
+    msg: "{{ cpd_cmd_adm_policy_cpd_admin_catsrc | regex_replace(' \\\\', '') }}"
+
+# Execute command
+- name: "authorize-user-cpd-admin : Running command : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-read-catsrc role in the openshift-marketplace project for the instance"
+  shell: "{{ cpd_cmd_adm_policy_cpd_admin_catsrc }}"
+  register: cpd_assign_permission_catsrc_output
+  until: ('role.rbac.authorization.k8s.io/cpd-instance-admin-apply-olm added' in cpd_assign_permission_catsrc_output.stdout)
+  retries: 6 # Just over 1 minute
+  delay: 10 # Every 10 seconds
+
+# Debug command output
+- name: "authorize-user-cpd-admin : Debug command output : Assign {{ cpd_admin_login_sa }} service account the cpd-instance-admin-read-catsrc role in the openshift-marketplace project for the instance"
+  debug:
+    msg: "{{ cpd_assign_permission_catsrc_output.stdout }}"

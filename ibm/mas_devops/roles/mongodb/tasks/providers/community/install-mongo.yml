@@ -163,7 +163,7 @@
 
 # 9. Configure TLS using cert manager
 # -----------------------------------------------------------------------------
-- name: "Create a issuer  in {{ mongodb_namespace }}"
+- name: "Create a issuer in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/issuer.yml') }}"
@@ -172,7 +172,7 @@
       status: "True"
       type: Ready
 
-- name: "Create a ca certificate in {{ mongodb_namespace }}"
+- name: "Create a ca certificate in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/ca-cert.yml') }}"
@@ -181,7 +181,7 @@
       status: "True"
       type: Ready
 
-- name: "Create a Issuer for server certificate  in {{ mongodb_namespace }}"
+- name: "Create a Issuer for server certificate in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/server-cert-issuer.yml') }}"
@@ -190,7 +190,7 @@
       status: "True"
       type: Ready
 
-- name: "Create a server certificate in {{ mongodb_namespace }}"
+- name: "Create a server certificate in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/server-cert.yml') }}"
@@ -297,7 +297,48 @@
 # 12. Wait for the cluster to be ready
 # status.version on the mongo cr is not available with older mongo operators
 # -----------------------------------------------------------------------------
-- name: "community : install : Wait for stateful set to be ready"
+- name: Delete existing mongo statefulsets if running mongo upgrade
+  when:
+    - existing_mongodb.resources[0].status.version is defined
+    - target_mongodb_version is defined
+    - existing_mongodb.resources[0].status.version is version(target_mongodb_version, '<') # when upgrade to happen, delete statefulsets to ensure recreation with right image digests
+    - not controlled_upgrade # we don't need to run that twice during controlled upgrade
+  block:
+    - debug:
+        msg:
+          - "Existing mongo version .................... {{ existing_mongodb.resources[0].status.version }}"
+          - "Target mongo version ...................... {{ target_mongodb_version }}"
+          - "Deleting existing mongo statefulsets while performing mongo upgrade to ensure recreation with right image digests..."
+
+    - name: "community : install : Scale down mongodb-kubernetes-operator"
+      shell: oc patch deployment mongodb-kubernetes-operator --subresource='scale' --type='merge' -p '{"spec":{"replicas":0}}' -n {{ mongodb_namespace }}
+      register: scale_down_mongo_deployment_output
+
+    - debug:
+        var: scale_down_mongo_deployment_output.stdout
+
+    - name: "community : install : Delete mas-mongo-ce statefulset so next time it recreates with right image"
+      shell: oc delete statefulset mas-mongo-ce -n {{ mongodb_namespace }}
+      register: delete_mongo_ss_output
+
+    - debug:
+        var: delete_mongo_ss_output.stdout
+
+    - name: "community : install : Delete mas-mongo-ce-arb statefulset so next time it recreates with right image"
+      shell: oc delete statefulset mas-mongo-ce-arb -n {{ mongodb_namespace }}
+      register: delete_mongo_ss_arb_output
+
+    - debug:
+        var: delete_mongo_ss_arb_output.stdout
+
+    - name: "community : install : Scale up mongodb-kubernetes-operator"
+      shell: oc patch deployment mongodb-kubernetes-operator --subresource='scale' --type='merge' -p '{"spec":{"replicas":1}}' -n {{ mongodb_namespace }}
+      register: scale_up_mongo_deployment_output
+
+    - debug:
+        var: scale_up_mongo_deployment_output.stdout
+
+- name: "community : install : Wait for mas-mongo-ce stateful set to be ready"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet
@@ -311,6 +352,22 @@
     - mongodb_statefulset.resources | length > 0
     - mongodb_statefulset.resources[0].status.readyReplicas is defined
     - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas|int)
+
+- name: "community : install : Wait for mas-mongo-ce-arb stateful set to be ready"
+  when: target_mongodb_version is version('4.4.0','>=') # this statefulset will only exist in Mongo v4.4+
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: mas-mongo-ce-arb
+    namespace: "{{ mongodb_namespace }}"
+  register: mongodb_arb_statefulset
+  retries: 45 # Approx 90 minutes
+  delay: 120 # 2 minutes
+  until:
+    - mongodb_arb_statefulset.resources is defined
+    - mongodb_arb_statefulset.resources | length > 0
+    - mongodb_arb_statefulset.resources[0].status.availableReplicas is defined
+    - mongodb_arb_statefulset.resources[0].status.availableReplicas == 0
 
 - name: "community : install : Wait for Mongo CR to report expected version {{ expected_mongodb_version }}"
   kubernetes.core.k8s_info:
@@ -353,15 +410,24 @@
   register: api_status
   no_log: true
 
-- name: Determine cluster capabilities
+- name: Determine cluster grafana capabilities
   set_fact:
-    supports_integreatly_org: True # Default is 'False'
-  when:
-    - api_status is defined
-    - api_status.apis is defined
-    - api_status.apis['integreatly.org/v1alpha1'] is defined
+    supports_grafanav4: "{{
+      api_status is defined and
+      api_status.apis is defined and
+      api_status.apis['integreatly.org/v1alpha1'] is defined }}"
+    supports_grafanav5: "{{
+      api_status is defined and
+      api_status.apis is defined and
+      api_status.apis['grafana.integreatly.org/v1beta1'] is defined }}"
 
-- name: "community : install : Check for existing Grafana dashboard"
+- name: "Debug information"
+  debug:
+    msg:
+      - "Cluster supports grafana v4 ........... {{ supports_grafanav4 }}"
+      - "Cluster supports grafana v5 ........... {{ supports_grafanav5 }}"
+
+- name: "community : install : Check for existing Grafana v4 dashboard"
   kubernetes.core.k8s_info:
     api_version: integreatly.org/v1alpha1
     kind: GrafanaDashboard
@@ -370,16 +436,38 @@
   register: mongoce_grafana_dashboard_info
   when:
     - mongodb_ce_version is version('0.7.8', '>=')
-    - supports_integreatly_org
+    - supports_grafanav4
 
-- name: "community : install : Create new MongoDb Grafana dashboard"
+- name: "community : install : Create new MongoDb Grafana v4 dashboard"
   when:
+    - supports_grafanav4
     - mongoce_grafana_dashboard_info.resources is defined
     - mongoce_grafana_dashboard_info.resources | length == 0
     - mongodb_ce_version is version('0.7.8', '>=')
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/dashboards/mongodb-overview.yml.j2') }}"
+
+- name: "community : install : Check for existing Grafana v5 dashboard"
+  kubernetes.core.k8s_info:
+    api_version: grafana.integreatly.org/v1beta1
+    kind: GrafanaDashboard
+    name: mongodb-overview-v5
+    namespace: "{{ mongodb_namespace }}"
+  register: mongoce_grafana_dashboard_v5__info
+  when:
+    - mongodb_ce_version is version('0.7.8', '>=')
+    - supports_grafanav5
+
+- name: "community : install : Create new MongoDb Grafana v5 dashboard"
+  when:
+    - supports_grafanav5
+    - mongoce_grafana_dashboard_v5__info.resources is defined
+    - mongoce_grafana_dashboard_v5__info.resources | length == 0
+    - mongodb_ce_version is version('0.7.8', '>=')
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/dashboards/mongodb-overview-v5.yml.j2') }}"
 
 # 13. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
@@ -397,12 +485,16 @@
       register: mongo_pods_output
 
     # List all mongo replicas
-    - set_fact:
+    - name: Set a list containing mongo replica pod names
+      set_fact:
         mongo_replicas: "{{ mongo_replicas|default([]) + [item.metadata.name] }}"
       with_items: "{{ mongo_pods_output.resources }}"
+      when: mongo_pods_output.resources is defined
+      no_log: true
 
     # Load mongo-hosts template to dynamically set as many mongo hosts:port as identified
-    - set_fact:
+    - name: Load mongo-hosts template to dynamically set as many mongo 'hosts:port' as identified
+      set_fact:
         mongo_hosts: "{{ lookup('ansible.builtin.template', 'templates/community/mongo-hosts.yml.j2') }}"
 
     # Lookup the admin password that was used

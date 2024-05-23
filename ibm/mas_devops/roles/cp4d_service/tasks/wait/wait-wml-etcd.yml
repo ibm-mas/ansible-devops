@@ -1,0 +1,86 @@
+---
+# This task just deletes wml-cpd-etcd statefulset due a conflict while upgrading wml
+# It will be recreated during the upgrade process
+
+# 1. Wait for wmlbase custom resource to be created
+# -----------------------------------------------------------------------------
+- name: "wait/wml : Wait for the WmLBase custom resource to appear (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: wml.cpd.ibm.com/v1beta1
+    kind: WmlBase
+    name: wml-cr
+    namespace: "{{ cpd_instance_namespace }}"
+  register: wml_cr_lookup
+  retries: 30 # Up to 10 minutes
+  delay: 60 # Every 1 minute
+  until:
+    - wml_cr_lookup.resources is defined
+    - wml_cr_lookup.resources | length > 0
+
+# 2. Lookup for wml-cpd-etcd stateful to be created
+# -----------------------------------------------------------------------------
+- name: "wait/wml : Wait for the wml-cpd-etcd statefulset to appear (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: wml-cpd-etcd
+    namespace: "{{ cpd_instance_namespace }}"
+  register: wml_cpd_etcd_lookup
+
+# 3. Delete wml-cpd-etcd stateful if present so the wml operator
+# can recreate it properly during upgrade
+# -----------------------------------------------------------------------------
+- block:
+    # Scale down wml operator to force reconcile
+    - name: "wait/wml : Scale down ibm-cpd-wml-operator"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        name: ibm-cpd-wml-operator
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+        definition:
+          spec:
+            replicas: 0
+        apply: true
+
+    # Delete wml-cpd-etcd statefulset so next time it recreates with proper upgrade specs
+    - name: "wait/wml : Delete wml-cpd-etcd statefulset so next time it recreates with proper upgrade specs"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: apps/v1
+        kind: StatefulSet
+        name: wml-cpd-etcd
+        namespace: "{{ cpd_instance_namespace }}"
+
+    # Scale up ibm-cpd-wml-operator again to force reconcile
+    - name: "wait/wml : Scale up ibm-cpd-wml-operator to force reconcile"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        name: ibm-cpd-wml-operator
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+        definition:
+          spec:
+            replicas: 1
+        apply: true
+
+    # Wait for ibm-cpd-wml-operator to be ready
+    - name: "wait/ccs : Wait for ibm-cpd-wml-operator to be ready again (60s delay)"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        name: ibm-cpd-wml-operator
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+      register: wml_operator_lookup
+      until: wml_operator_lookup.resources[0].status.availableReplicas is defined
+      retries: 20 # Approximately 20 minutes before we give up
+      delay: 60 # 1 minute
+  when:
+    - wml_cpd_etcd_lookup.resources is defined
+    - wml_cpd_etcd_lookup.resources | length > 0
+
+- debug:
+    msg:
+      - "wml-cpd-etcd statefulset not present in {{ cpd_instance_namespace }}, thus wml upgrade will redeploy it"
+  when:
+    - wml_cpd_etcd_lookup.resources is not defined or wml_cpd_etcd_lookup.resources | length == 0

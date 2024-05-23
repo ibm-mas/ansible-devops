@@ -2,14 +2,16 @@
 # Default application spec for Manage
 mas_appws_spec:
   bindings: "{{ mas_app_bindings }}"
-  components: "{{ mas_appws_components | default({'base':{'version':'latest'}}, true) }}"
+  podTemplates: "{{ ((ibm_mas_manage_manageworkspace_pod_templates is defined) and (ibm_mas_manage_manageworkspace_pod_templates | length != 0)) | ternary(ibm_mas_manage_manageworkspace_pod_templates, []) }}"
+  components: "{{ ((mas_app_components_manage is defined) and (mas_app_components_manage | length != 0)) | ternary(mas_app_components_manage, {'base':{'version':'latest'}}) }}"
   settings:
     deployment:
       persistentVolumes: "{{ mas_app_settings_persistent_volumes }}"
       serverBundles: "{{ mas_app_settings_server_bundles[mas_app_settings_server_bundles_size]['serverBundles'] }}"
       defaultJMS: "{{ mas_app_settings_default_jms }}"
+      serverTimezone: "{{ mas_app_settings_server_timezone }}"
     languages:
-      baseLang: "{{ mas_app_settings_base_language | default( 'EN' , true) }}"
+      baseLang: "{{ mas_app_settings_base_language | default('EN' , true) }}"
       secondaryLangs: "{{ mas_app_settings_secondary_languages.split(',') if (mas_app_settings_secondary_languages is defined and mas_app_settings_secondary_languages | length > 0) else [] }}"
     aio:
       install: "{{ mas_app_settings_aio_flag | bool  }}"

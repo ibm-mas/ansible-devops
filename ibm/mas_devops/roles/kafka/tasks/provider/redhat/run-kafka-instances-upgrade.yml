@@ -1,70 +1,49 @@
 ---
 # 1. Get the list of all KafkaCluster instances
 # -----------------------------------------------------------------------------
-- name: "Get kafka instance info"
+
+- name: "Get kafka instance list"
   kubernetes.core.k8s_info:
     api_version: kafka.strimzi.io/v1beta2
-    name: "{{ kafka_cluster_name }}"
     kind: Kafka
     namespace: "{{ kafka_namespace }}"
-  register: kafka_current_info
+  register: kafka_cluster_list
 
-- name: "Get kafka version from lookup"
-  when: kafka_current_info.resources[0] is defined
-  set_fact:
-    kafka_current_version: "{{ kafka_current_info.resources[0].spec.kafka.version }}"
-
-# 2. Lookup the packagemanifest for amq-streams / strimzi
+# 2. Debug Properties
 # -----------------------------------------------------------------------------
-- name: Get {{ kafka_operator_name }} package manifest
-  kubernetes.core.k8s_info:
-    api_version: packages.operators.coreos.com/v1
-    kind: PackageManifest
-    name: "{{ kafka_operator_name }}"
-    namespace: openshift-marketplace # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
-  register: kafka_manifest
-
-- name: Assert that PackageManifest exists
-  ansible.builtin.assert:
-    that:
-      - kafka_manifest is defined
-      - kafka_manifest.resources is defined
-      - kafka_manifest.resources | length == 1
-    fail_msg: "PackageManifest not found: {{ kafka_operator_name }}"
-
-- name: Set the subscription information
-  set_fact:
-    kafka_source: "{{ kafka_manifest.resources[0].status.catalogSource }}"
-    kafka_source_namespace: "{{ kafka_manifest.resources[0].status.catalogSourceNamespace }}"
-    kafka_default_channel: "{{ kafka_manifest.resources[0].status.defaultChannel }}"
-    kafka_channels: "{{ kafka_manifest.resources[0].status.channels }}"
-
-- name: Retrieve current CSV Desc
-  set_fact:
-    kafka_channels_default: "{{ kafka_channels | selectattr('name', 'equalto', kafka_default_channel) }}"
-
-# 3. Debug Properties
-# -----------------------------------------------------------------------------
-- name: "Display gathered information"
+- name: "Debug list of kafka instances"
   debug:
     msg:
-      - "Catalog source  ....................... {{ kafka_source }}"
-      - "Catalog source namespace .............. {{ kafka_source_namespace }}"
-      - "Current Kafka Version ................. {{ kafka_current_version }}"
-      - "Target Kafka Version .................. {{ kafka_version }}"
+      - "Kafka Cluster Names ...................... {{ kafka_cluster_list.resources | map(attribute='metadata.name') }}"
+      - "Kafka Cluster Namespace .................. {{ kafka_namespace }}"
+      - "Kafka Cluster Versions ................... {{ kafka_cluster_list.resources | map(attribute='spec.kafka.version') }}"
+  when: kafka_cluster_list.resources is defined
 
-# 4. Determine if upgrade is needed and perform it
+
+- name: "Get and set variables to store the lists"
+  set_fact:
+    kafkaCluster_names: "{{ kafka_cluster_list.resources | map(attribute='metadata.name') }}"
+    kafkaCluster_versions: "{{ kafka_cluster_list.resources | map(attribute='spec.kafka.version') }}"
+  when: kafka_cluster_list.resources is defined
+
+# 3. Determine if upgrade is needed and perform it
 # -----------------------------------------------------------------------------
+
 - name: "Check if Kafka instance is at version {{ kafka_version }}"
-  when: kafka_current_version != kafka_version
+  when:
+    - kafka_cluster_list.resources is defined
+    - item.1 != kafka_version
   debug:
-    msg: "Upgrade required for Kafka {{ kafka_cluster_name }} in namespace {{ kafka_namespace }}. Kafka version {{ kafka_current_version }} to {{ kafka_version }}"
+    msg: "Upgrade required for Kafka {{ item.0 }} in namespace {{ kafka_namespace }}. Kafka version {{ item.1 }} to {{ kafka_version }}"
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
 
 - name: "Update kafka instance version when required"
-  when: kafka_current_version != kafka_version
+  when:
+    - kafka_cluster_list.resources is defined
+    - item.1 != kafka_version
   kubernetes.core.k8s_json_patch:
     api_version: kafka.strimzi.io/v1beta2
-    name: "{{ kafka_cluster_name }}"
+    name: "{{ item.0 }}"
     namespace: "{{ kafka_namespace }}"
     kind: Kafka
     patch:
@@ -74,18 +53,20 @@
       - op: replace
         path: /spec/kafka/config/log.message.format.version
         value: "{{ kafka_version }}"
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
 
-- name: "Pause for 60 seconds before checking status..."
-  when: kafka_current_version != kafka_version
+- name: "Pause for 45 seconds before checking status..."
   pause:
-    seconds: 60
+    seconds: 45
 
 - name: "Wait for kafka instance to be ready (60s delay)"
   when:
+    - kafka_cluster_list.resources is defined
     - kafka_provider == "strimzi"
+    - item.1 != kafka_version
   kubernetes.core.k8s_info:
     api_version: kafka.strimzi.io/v1beta2
-    name: "{{ kafka_cluster_name }}"
+    name: "{{ item.0 }}"
     namespace: "{{ kafka_namespace }}"
     kind: Kafka
   register: kafka_lookup
@@ -101,9 +82,10 @@
     - kafka_lookup.resources[0].status.conditions[0].status == "True"
   retries: 30 # Approximately 30 minutes before we give up
   delay: 60 # seconds
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
 
 - name: "Wait for kafka podsets to be ready"
   when:
+    - kafka_cluster_list.resources is defined
     - kafka_provider == "redhat"
   include_tasks: tasks/provider/redhat/check-kafka-instances-upgrade.yml
-  with_sequence: count=20

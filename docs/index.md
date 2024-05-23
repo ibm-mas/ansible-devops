@@ -60,7 +60,7 @@ We recommend using the latest version of ansible-core at all times (at time of w
 If you do not already have the `oc` command line tool, you can download it as below:
 
 ```
-wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.8.35/openshift-client-linux.tar.gz
+wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.7/openshift-client-linux-4.14.7.tar.gz
 tar -zxf openshift-client-linux.tar.gz
 mv oc kubectl /usr/local/bin/
 rm -rf openshift-client-linux.tar.gz
@@ -85,7 +85,7 @@ ansible-galaxy collection install ibm.mas_devops
 
 Optionally, you can also pin the version of the collection that you install, allowing you to control exactly what version of the collection is in use in your automation:
 ```
-ansible-galaxy collection install ibm.mas_devops:10.6.2
+ansible-galaxy collection install ibm.mas_devops:18.10.4
 ```
 
 
