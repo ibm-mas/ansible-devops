@@ -39,6 +39,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `ICR_PASSWORD` Your ICR registry password
 - `ICR_USERNAME` Your ICR registry user name
 - `TENANT_NAME` Your Aibroker tenant name
+- `APP_DOMAIN` Your app domain for example: ```apps.dev.cp.fyre.ibm.com```
 - `STORAGE_PIPELINES_BUCKET` Your piplines bucket
 - `STORAGE_TENANTS_BUCKET` Your tenants bucket
 
