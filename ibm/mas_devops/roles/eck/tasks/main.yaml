@@ -1,6 +1,6 @@
 # 1. Verify Package and Determine Catalog Source
-# ---------------------------------------------------------------------------------------------------------------------
-- name: Get PackageManifest
+# -----------------------------------------------------------------------------
+- name: "install : Get PackageManifest"
   kubernetes.core.k8s_info:
     api_version: packages.operators.coreos.com/v1
     kind: PackageManifest
@@ -8,7 +8,7 @@
     namespace: openshift-marketplace
   register: eck_manifest
 
-- name: Assert that PackageManifest exists
+- name: "install : Assert that PackageManifest exists"
   ansible.builtin.assert:
     that:
       - eck_manifest is defined
@@ -16,8 +16,65 @@
       - eck_manifest.resources | length == 1
     fail_msg: "PackageManifest not found: {{ eck_package }}"
 
-- name: Set the subscription information
+- name: "install : Set the subscription information"
   set_fact:
     eck_source: "{{ eck_manifest.resources[0].status.catalogSource }}"
     eck_source_namespace: "{{ eck_manifest.resources[0].status.catalogSourceNamespace }}"
     eck_default_channel: "{{ eck_manifest.resources[0].status.defaultChannel }}"
+
+
+# 2. Subscription (openshift-operators)
+# -----------------------------------------------------------------------------
+- name: "install : Create the subscription"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/subscription.yml.j2"
+
+
+# 3. Namespace (ECK)
+# -----------------------------------------------------------------------------
+- name: "install : Create the namespace"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/namespace.yml.j2"
+
+
+# 4. Elasticsearch
+# -----------------------------------------------------------------------------
+- name: "install : Create the elasticsearch instance"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/elasticsearch.yml.j2"
+
+
+# 5. Logstash
+# -----------------------------------------------------------------------------
+- name: "install : Create the logstash instance"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/logstash.yml.j2"
+
+
+# 6. Kibana
+# -----------------------------------------------------------------------------
+- name: "install : Create the kibana instance"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/kibana.yml.j2"
+
+
+# 7. Filebeat
+# -----------------------------------------------------------------------------
+- name: "install : Create ServiceAccount"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/sa-filebeat.yml.j2"
+
+- name: "install : Configure anyuid permissions for Filebeat"
+  shell: |
+    oc adm policy add-scc-to-user privileged -z filebeat -n {{ es_namespace }}
+
+- name: "install : Create the kibana instance"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/filebeat.yml.j2"
