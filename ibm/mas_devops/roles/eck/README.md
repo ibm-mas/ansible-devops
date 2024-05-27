@@ -1,12 +1,19 @@
 eck
 =====
 
-This role provides support to install Elastic Cluster for Kubernetes (ECK)
+This role provides support to install [Elastic Cloud on Kubernetes](https://www.elastic.co/guide/en/cloud-on-k8s/master/index.html) (ECK).
+
+Elasticsearch is configured with a default user named `elastic`, you can obtain the password for this user by running the following command:
+
+```
+oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base64decode}}'
+```
+
 
 Role Variables
 --------------
-### kafka_action
-Action to be performed by Kafka role. Valid values are `install`, `upgrade` or `uninstall`.  The `upgrade` action applies only to the `strimzi` and `redhat` providers.
+### eck_action
+Action to be performed by the role. Valid values are `install` and `uninstall`.
 
 - Environment Variable: `KAFKA_ACTION`
 - Default Value: `install`
@@ -20,14 +27,8 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    # Set storage class suitable for use on IBM Cloud ROKS
-    kafka_storage_class: ibmc-block-gold
-
-    # Generate a KafkaCfg template
-    mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig
   roles:
-    - ibm.mas_devops.kafka
+    - ibm.mas_devops.eck
 ```
 
 

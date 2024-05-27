@@ -39,15 +39,38 @@
     template: "templates/elastic/namespace.yml.j2"
 
 
-# 4. Elasticsearch
+# 4. LetsEncrypt Issuer
 # -----------------------------------------------------------------------------
+- name: "install : Create the letsencrypt issuer"
+  when:
+    - es_domain is defined and es_domain != ""
+    - letsencrypt_email is defined and letsencrypt_email != ""
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/issuer-letsencrypt.yml.j2"
+    wait: yes
+    wait_timeout: 60
+
+
+# 5. Elasticsearch
+# -----------------------------------------------------------------------------
+- name: "install : Create the elasticsearch certificate"
+  when:
+    - es_domain is defined and es_domain != ""
+    - letsencrypt_email is defined and letsencrypt_email != ""
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/cert-elasticsearch.yml.j2"
+    wait: yes
+    wait_timeout: 300
+
 - name: "install : Create the elasticsearch instance"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/elastic/elasticsearch.yml.j2"
 
 
-# 5. Logstash
+# 6. Logstash
 # -----------------------------------------------------------------------------
 - name: "install : Create the logstash instance"
   kubernetes.core.k8s:
@@ -55,15 +78,25 @@
     template: "templates/elastic/logstash.yml.j2"
 
 
-# 6. Kibana
+# 7. Kibana
 # -----------------------------------------------------------------------------
+- name: "install : Create the kibana certificate"
+  when:
+    - kibana_domain is defined and kibana_domain != ""
+    - letsencrypt_email is defined and letsencrypt_email != ""
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/cert-kibana.yml.j2"
+    wait: yes
+    wait_timeout: 300
+
 - name: "install : Create the kibana instance"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/elastic/kibana.yml.j2"
 
 
-# 7. Filebeat
+# 8. Filebeat
 # -----------------------------------------------------------------------------
 - name: "install : Create ServiceAccount"
   kubernetes.core.k8s:
@@ -78,3 +111,18 @@
   kubernetes.core.k8s:
     apply: yes
     template: "templates/elastic/filebeat.yml.j2"
+
+
+# 9. Routes
+# -----------------------------------------------------------------------------
+- name: "install : Create the elasticsearch route"
+  when: es_domain is defined and es_domain != ""
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/route-elasticsearch.yml.j2"
+
+- name: "install : Create the kibana route"
+  when: kibana_domain is defined and kibana_domain != ""
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/route-kibana.yml.j2"
