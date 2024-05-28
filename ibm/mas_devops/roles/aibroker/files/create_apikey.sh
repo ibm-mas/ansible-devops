@@ -19,7 +19,7 @@ if [ -z ${TENANT} ]; then
     #exit 1
 fi
 
-aibrokerapikey=$(python3 ../roles/aibroker_config/files/generate_api_key.py)
+aibrokerapikey=$(python3 ../roles/aibroker/files/generate_api_key.py)
 echo "aibrokerapikey=$aibrokerapikey"
 
 echo "Creating apikey secret"
