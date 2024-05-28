@@ -11,7 +11,7 @@
 - name: "DRO Deployment details"
   debug:
     msg:
-      - "DRO Namespace ...................... redhat-marketplace"
+      - "DRO Namespace ...................... "{{ dro_namespace }}""
       - "IBM entitlement key................. Can get from https://myibm.ibm.com/products-services/containerlibrary"
       - "MAS Instance ID .................... {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS Config Directory ............... {{ mas_config_dir | default('<undefined>', True) }}"
@@ -20,15 +20,15 @@
       - "DRO Contact e-mail ................. {{ dro_contact.email | default('<undefined>', True) }}"
 
 
-# 3. Check redhat-marketplace operator exists
+# 3. Check "{{ dro_namespace }}" operator exists
 # ----------------------------------------------------------------------------
-- name: Check if operator group is present in redhat-marketplace already
+- name: Check if operator group is present in "{{ dro_namespace }}" already
   kubernetes.core.k8s_info:
-    namespace: redhat-marketplace
+    namespace: "{{ dro_namespace }}"
     kind: OperatorGroup
   register: og_info
 
-- name: "Create OperatorGroup in redhat-marketplace namespace if not exist"
+- name: "Create OperatorGroup in "{{ dro_namespace }}" namespace if not exist"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/operatorgroup.yml.j2') }}"
 
@@ -57,7 +57,7 @@
     api_version: v1
     kind: Secret
     name: "redhat-marketplace-pull-secret"
-    namespace: redhat-marketplace
+    namespace: "{{ dro_namespace }}"
   register: rm_sec
 
 - name: get IBM Entitlement Key while Migration
@@ -131,7 +131,7 @@
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
     name: "ibm-metrics-operator"
-    namespace: redhat-marketplace
+    namespace: "{{ dro_namespace }}"
   register: imo_subscription
 
 - name: Get ibm-metrics-operator package manifest
@@ -174,7 +174,7 @@
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
     name: "ibm-data-reporter-operator"
-    namespace: redhat-marketplace
+    namespace: "{{ dro_namespace }}"
   register: dro_subscription
 
 - name: Get ibm-data-reporter-operator package manifest
@@ -236,7 +236,7 @@
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: rhm-data-service
-    namespace: redhat-marketplace
+    namespace: "{{ dro_namespace }}"
     kind: StatefulSet
   register: rds_sts
   until:
@@ -251,7 +251,7 @@
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: ibm-data-reporter-operator-controller-manager
-    namespace: redhat-marketplace
+    namespace: "{{ dro_namespace }}"
     kind: Deployment
   register: dro_deploy
   until:
