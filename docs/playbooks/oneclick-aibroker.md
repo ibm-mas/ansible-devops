@@ -42,6 +42,9 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `APP_DOMAIN` Your app domain for example: `apps.dev.cp.fyre.ibm.com`
 - `STORAGE_PIPELINES_BUCKET` Your piplines bucket
 - `STORAGE_TENANTS_BUCKET` Your tenants bucket
+- `WATSONXAI_APIKEY` You WatsonX AI api key
+- `WATSONXAI_URL` You WatsonX AI url
+- `WATSONXAI_PROJECT_ID` You WatsonX projedt Id
 
 ## Optional environment variables
 
@@ -57,6 +60,8 @@ If you do not want to set up all the dependencies on your local system, you can 
 ### AI broker deployment steps
 
 ```bash
+export ARTIFACTORY_USERNAME="<artifactory user>"
+export ARTIFACTORY_TOKEN="<artifactory token>"
 export IBM_ENTITLEMENT_USERNAME="<user>"
 export IBM_ENTITLEMENT_KEY="<token>"
 export MAS_INSTANCE_ID="aibroker"
@@ -71,7 +76,20 @@ export TENANT_NAME="user"
 export STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
 export STORAGE_TENANTS_BUCKET="<tenants bucket name>"
 export APP_DOMAIN="<app domain>"
+export WATSONXAI_APIKEY="<watsonx AI api key>"
+export WATSONXAI_URL="<watsonx AI url>"
+export WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_aibroker
+```
+
+### WatsonX AI dependencies
+
+#### install python module (use python environment)
+
+```
+python3 -m venv /tmp/venv
+source /tmp/venv/bin/activate
+python3 -m pip install ibm-watson-machine-learning
 ```
