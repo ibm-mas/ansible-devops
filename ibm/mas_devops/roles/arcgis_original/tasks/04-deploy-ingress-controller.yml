@@ -59,7 +59,7 @@
   shell: |
     mktemp {{ ingress_controller_temp_key_file }}
     mktemp {{ ingress_controller_temp_crt_file }}
-    openssl req -x509 -newkey rsa:2048 -nodes -keyout "{{ ingress_controller_temp_key_file }}" -out "{{ ingress_controller_temp_crt_file }}" -sha256 -days 3650 -subj "/CN=*.{{ arcgis_namespace }}.{{ arcgis_k8s_cluster_dns_suffix }}"
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout "{{ ingress_controller_temp_key_file }}" -out "{{ ingress_controller_temp_crt_file }}" -sha256 -days 3650 -subj "/CN=*.{{ mas_arcgis_namespace }}.{{ arcgis_k8s_cluster_dns_suffix }}"
   register: openssl_1st_cmd
 
 - debug:
@@ -71,9 +71,9 @@
   ignore_errors: true
   shell: |
     oc create secret tls {{ arcgis_interpod_cert_pem_secret_name }} \
-      --cert={{ ingress_controller_temp_crt_file }} --key={{ ingress_controller_temp_key_file }} -n {{ arcgis_namespace }}
-    oc label secret {{ arcgis_interpod_cert_pem_secret_name }} -n {{ arcgis_namespace }} arcgis/siteName={{ arcgis_sitename }}
-    oc label secret {{ arcgis_interpod_cert_pem_secret_name }} -n {{ arcgis_namespace }} arcgis/tier=config
+      --cert={{ ingress_controller_temp_crt_file }} --key={{ ingress_controller_temp_key_file }} -n {{ mas_arcgis_namespace }}
+    oc label secret {{ arcgis_interpod_cert_pem_secret_name }} -n {{ mas_arcgis_namespace }} arcgis/siteName={{ arcgis_sitename }}
+    oc label secret {{ arcgis_interpod_cert_pem_secret_name }} -n {{ mas_arcgis_namespace }} arcgis/tier=config
   register: openssl_2nd_cmd
 
 - debug:
@@ -94,9 +94,9 @@
   ignore_errors: true
   shell: |
     oc create secret generic {{ arcgis_interpod_cert_pfx_secret_name }} \
-      --from-file=default-pfx={{ ingress_controller_temp_interpod_pfx_file }} -n {{ arcgis_namespace }}
-    oc label secret {{ arcgis_interpod_cert_pfx_secret_name }} -n {{ arcgis_namespace }} arcgis/siteName={{ arcgis_sitename }}
-    oc label secret {{ arcgis_interpod_cert_pfx_secret_name }} -n {{ arcgis_namespace }} arcgis/tier=config
+      --from-file=default-pfx={{ ingress_controller_temp_interpod_pfx_file }} -n {{ mas_arcgis_namespace }}
+    oc label secret {{ arcgis_interpod_cert_pfx_secret_name }} -n {{ mas_arcgis_namespace }} arcgis/siteName={{ arcgis_sitename }}
+    oc label secret {{ arcgis_interpod_cert_pfx_secret_name }} -n {{ mas_arcgis_namespace }} arcgis/tier=config
   register: openssl_4th_cmd
 
 - debug:
@@ -135,20 +135,20 @@
   ignore_errors: true
   shell: |
     oc create secret tls {{ arcgis_default_ingress_server_tls_secret_name }} \
-      --cert={{ ingress_controller_temp_crt_file }} --key={{ ingress_controller_temp_key_file }} -n {{ arcgis_namespace }}
-    oc label secret {{ arcgis_default_ingress_server_tls_secret_name }} -n {{ arcgis_namespace }} arcgis/siteName={{ arcgis_sitename }}
+      --cert={{ ingress_controller_temp_crt_file }} --key={{ ingress_controller_temp_key_file }} -n {{ mas_arcgis_namespace }}
+    oc label secret {{ arcgis_default_ingress_server_tls_secret_name }} -n {{ mas_arcgis_namespace }} arcgis/siteName={{ arcgis_sitename }}
   register: openssl_6th_cmd
 
 - debug:
     var: openssl_6th_cmd.stdout_lines
 
 - name: Lookup all required secrets
-  shell: oc get secrets -n {{ arcgis_namespace }} | grep cert-p | awk '{ print $1}'
+  shell: oc get secrets -n {{ mas_arcgis_namespace }} | grep cert-p | awk '{ print $1}'
   register: arcgis_required_cert_secrets
 
 - assert:
     that: item is in arcgis_required_cert_secrets.stdout_lines
-    fail_msg: "Secret '{{ item }}' was not found in '{{ arcgis_namespace }}' namespace!"
+    fail_msg: "Secret '{{ item }}' was not found in '{{ mas_arcgis_namespace }}' namespace!"
   with_items:
     - "{{ arcgis_interpod_cert_pem_secret_name }}"
     - "{{ arcgis_interpod_cert_pfx_secret_name }}"
@@ -186,11 +186,11 @@
       apiVersion: rbac.authorization.k8s.io/v1
       metadata:
         name: "cluster-admin-arcgis-default-binding"
-        namespace: "{{ arcgis_namespace }}"
+        namespace: "{{ mas_arcgis_namespace }}"
       subjects:
         - kind: ServiceAccount
           name: "default"
-          namespace: "{{ arcgis_namespace }}"
+          namespace: "{{ mas_arcgis_namespace }}"
       roleRef:
         apiGroup: rbac.authorization.k8s.io
         kind: ClusterRole
@@ -203,11 +203,11 @@
       apiVersion: rbac.authorization.k8s.io/v1
       metadata:
         name: "cluster-admin-{{ additional_rb_item }}-binding"
-        namespace: "{{ arcgis_namespace }}"
+        namespace: "{{ mas_arcgis_namespace }}"
       subjects:
         - kind: ServiceAccount
           name: "{{ additional_rb_item }}-serviceaccount"
-          namespace: "{{ arcgis_namespace }}"
+          namespace: "{{ mas_arcgis_namespace }}"
       roleRef:
         apiGroup: rbac.authorization.k8s.io
         kind: ClusterRole
