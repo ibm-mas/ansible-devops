@@ -51,6 +51,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_APP_CHANNEL` Your custom AI broker application channel
 - `MAS_CATALOG_VERSION` Your custom AI broker catalog version
 - `STORAGE_PROVIDER` Your custom storage provider (aws, minio)
+- `TENANT_ACTION` Whether to install or uninstall tenant (default value is: install)
 
 ## Usage
 
