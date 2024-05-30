@@ -199,28 +199,35 @@ The name of one of Fyre's pre-defined cluster sizes to use for the new cluster.
 
 - **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
 - Environment Variable: `FYRE_CLUSTER_SIZE`
-- Default Value: `large`
+- Default Value: `medium`
 
 ### fyre_worker_count
 The number of worker nodes to provision in the cluster.
 
-- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = product_group`.
 - Environment Variable: `FYRE_WORKER_COUNT`
-- Default Value: `3`
+- Default Value: `2`
 
 ### fyre_worker_cpu
 The amount of CPU to assign to each worker node (maximum value supported by FYRE 16).
 
-- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = product_group`.
 - Environment Variable: `FYRE_WORKER_CPU`
-- Default Value: `16`
+- Default Value: `8`
 
 ### fyre_worker_memory
 The amount of memory to assign to each worker node (maximum value supported by FYRE 64).
 
-- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = product_group`.
 - Environment Variable: `FYRE_WORKER_MEMORY`
-- Default Value: `64`
+- Default Value: `32`
+
+### fyre_worker_additional_disk
+The size of additional disk in Gb added to each worker node. Default is 0 which does not create additional disks. The default value should be used when you plan to install NFS storage class later in the Openshift cluster. NFS does not need additional disks.
+
+- **Required** to set at least the value of 400 if later is planned to install ODF storage classes in the cluster.
+- Environment Variable: `FYRE_WORKER_ADDITIONAL_DISK`
+- Default Value: `0`
 
 ### enable_ipv6
 Enable IPv6. This is for Fyre at RTP site only.
