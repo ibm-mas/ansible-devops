@@ -2,37 +2,96 @@
 apiVersion: logstash.k8s.elastic.co/v1alpha1
 kind: Logstash
 metadata:
-  name: logstash
-  namespace: "{{ es_namespace }}"
+  name: "{{ logstash_name }}"
+  namespace: "{{ logstash_namespace }}"
 spec:
-  # Create a minimal Logstash deployment that will listen to a Beats agent or Elastic Agent configured to send to Logstash on port 5044
-  # Create the service and write the output to an Elasticsearch cluster named "es name"
-  count: 1
+  count: {{ logstash_replicas }}
+
+{% if eck_enable_elasticsearch %}
   elasticsearchRefs:
-    - name: "{{ es_name }}"
-      clusterName: MAS
+    - clusterName: mas
+      name: {{ es_name }}
+      namespace:  {{ es_namespace }}
+{% endif %}
+
   version: {{ eck_version }}
+
+  podTemplate:
+    spec:
+      serviceAccountName: logstash
+
   pipelines:
     - pipeline.id: main
       config.string: |
         input {
           beats {
             port => 5044
+            include_codec_tag => false
           }
         }
+
+        filter {
+          # MAS Python Log Format
+          # -------------------------------------------------------------------
+          if [fields][type] == "python-log" {
+            grok {
+              match => [
+                "message", "%{TIMESTAMP_ISO8601:timestamp}\s+%{DATA:source}\s+%{DATA:level}\s+%{GREEDYDATA:message}",
+                "message", "^%{DATA:level}:%{DATA:user}:%{DATA:message}$"
+              ]
+              overwrite => ["message"]
+            }
+
+            date {
+              match => [ "timestamp", "YYYY-MM-dd HH:mm:ss,SSS" ]
+              remove_field => [ "timestamp" ]
+            }
+          }
+
+          # Ensure level is always set
+          # -------------------------------------------------------------------
+          if !([level]) {
+            mutate {
+              add_field => { "level" => "UNKNOWN" }
+            }
+          }
+          mutate {
+              copy => ["level", "[@metadata][level_lc]"]
+          }
+          mutate {
+              lowercase => ["[@metadata][level_lc]"]
+          }
+        }
+
         output {
+          # For debugging purposes
+          # stdout { }
+
+{% if eck_elasticsearch_hosts is defined and eck_elasticsearch_user is defined and eck_elasticsearch_password is defined %}
           elasticsearch {
-            hosts => [ "${QS_ES_HOSTS}" ]
-            user => "${QS_ES_USER}"
-            password => "${QS_ES_PASSWORD}"
-            ssl_certificate_authorities => "${QS_ES_SSL_CERTIFICATE_AUTHORITY}"
+            hosts => {{ eck_elasticsearch_hosts | to_yaml() }}
+            user => {{ eck_elasticsearch_user }}
+            password => {{ eck_elasticsearch_password }}
+            ssl_enabled => true
+            ssl_verification_mode => none
+            index => "mas-%{[@metadata][level_lc]}-%{+YYYY.MM.dd}"
           }
+{% elif eck_enable_elasticsearch %}
+          elasticsearch {
+            hosts => [ "${MAS_ES_HOSTS}" ]
+            user => "${MAS_ES_USER}"
+            password => "${MAS_ES_PASSWORD}"
+            ssl_certificate_authorities => "${MAS_ES_SSL_CERTIFICATE_AUTHORITY}"
+            index => "mas-%{[@metadata][level_lc]}-%{+YYYY.MM.dd}"
+          }
+{% endif %}
         }
+
   services:
     - name: beats
       service:
         spec:
-          type: NodePort
+          type: ClusterIP
           ports:
             - port: 5044
               name: "filebeat"

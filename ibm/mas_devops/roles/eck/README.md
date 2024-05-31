@@ -6,7 +6,7 @@ This role provides support to install [Elastic Cloud on Kubernetes](https://www.
 Elasticsearch is configured with a default user named `elastic`, you can obtain the password for this user by running the following command:
 
 ```
-oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base64decode}}'
+oc -n eck get secret mas-es-elastic-user -o go-template='{{.data.elastic | base64decode}}'; echo
 ```
 
 
