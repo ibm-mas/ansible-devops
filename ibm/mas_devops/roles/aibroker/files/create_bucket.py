@@ -38,29 +38,29 @@ if len(sys.argv) == 5 and sys.argv[1] is not None and sys.argv[2] is not None:
 else:
     exit()
 
-if YOUR_BUCKET_NAME is None:
-    print(
-        "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
-    )
-    exit()
+# if YOUR_BUCKET_NAME is None:
+#     print(
+#         "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
+#     )
+#     exit()
 
-if region is None:
-    print(
-        "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
-    )
-    exit()
+# if region is None:
+#     print(
+#         "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
+#     )
+#     exit()
 
-if access_key is None:
-    print(
-        "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
-    )
-    exit()
+# if access_key is None:
+#     print(
+#         "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
+#     )
+#     exit()
 
-if secret_key is None:
-    print(
-        "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
-    )
-    exit()
+# if secret_key is None:
+#     print(
+#         "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
+#     )
+#     exit()
 
 
 credentials = {"aws_access_key_id": access_key, "aws_secret_access_key": secret_key}

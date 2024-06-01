@@ -85,6 +85,16 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_aibroker
 ```
 
+#### S3
+
+#### install python module (use python environment)
+
+```
+python3 -m venv /tmp/venv
+source /tmp/venv/bin/activate
+python3 -m pip install boto3
+```
+
 ### WatsonX AI dependencies
 
 #### install python module (use python environment)
