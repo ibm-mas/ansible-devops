@@ -48,7 +48,7 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
 ## Optional environment variables
 
-- `MAS_APP_CHANNEL` Your custom AI broker application channel
+- `MAS_AIBROKER_CHANNEL` Your custom AI broker application channel
 - `MAS_CATALOG_VERSION` Your custom AI broker catalog version
 - `STORAGE_PROVIDER` Your custom storage provider (aws, minio)
 - `TENANT_ACTION` Whether to install or remove tenant (default value is: install)
@@ -62,6 +62,28 @@ All timings are estimates, see the individual pages for each of these playbooks 
 If you do not want to set up all the dependencies on your local system, you can run the playbook from inside the CLI container image: `docker run -ti --pull always quay.io/ibmmas/cli`
 
 ### AI broker deployment steps
+
+#### Notice: For S3 manage please make sure you have deployed dependencies
+
+##### install boto3 python module (use python environment)
+
+```
+python3 -m venv /tmp/venv
+source /tmp/venv/bin/activate
+python3 -m pip install boto3
+```
+
+#### Notice: For WatsonX AI manage please make sure you have deployed dependencies
+
+##### install ibm-watson-machine-learning python module (use python environment)
+
+```
+python3 -m venv /tmp/venv
+source /tmp/venv/bin/activate
+python3 -m pip install ibm-watson-machine-learning
+```
+
+#### Run playbooks
 
 ```bash
 export ARTIFACTORY_USERNAME="<artifactory user>"
@@ -86,24 +108,4 @@ export WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_aibroker
-```
-
-#### S3
-
-#### install python module (use python environment)
-
-```
-python3 -m venv /tmp/venv
-source /tmp/venv/bin/activate
-python3 -m pip install boto3
-```
-
-### WatsonX AI dependencies
-
-#### install python module (use python environment)
-
-```
-python3 -m venv /tmp/venv
-source /tmp/venv/bin/activate
-python3 -m pip install ibm-watson-machine-learning
 ```
