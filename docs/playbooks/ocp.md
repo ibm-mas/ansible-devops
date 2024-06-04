@@ -48,6 +48,7 @@ export OCP_VERSION=4.14
 export FYRE_USERNAME=xxx
 export FYRE_APIKEY=xxx
 export FYRE_PRODUCT_ID=xxx
+export FYRE_SITE=[svl|rtp]
 
 ansible-playbook ibm.mas_devops.ocp_fyre_provision
 ```
@@ -70,6 +71,7 @@ ansible-playbook ibm.mas_devops.ocp_roks_deprovision
 export CLUSTER_NAME=masinst1
 export FYRE_USERNAME=xxx
 export FYRE_APIKEY=xxx
+export FYRE_SITE=[svl|rtp]
 
 ansible-playbook ibm.mas_devops.ocp_fyre_deprovision
 ```

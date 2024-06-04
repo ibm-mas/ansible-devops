@@ -71,9 +71,9 @@ Your FYRE API Key
 ### fyre_site
 Site where cluster had been provisioned in Fyre
 
-- Optional
+- **Required** when `cluster_type` is `fyre`
 - Environment Variable: `FYRE_SITE`
-- Default Value: `svl`
+- Default Value: None
 
 ### enable_ipv6
 Enable IPv6.  This is for Fyre at RTP site only

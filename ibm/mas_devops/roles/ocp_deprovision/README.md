@@ -44,23 +44,23 @@ Role Variables - FYRE
 ### fyre_username
 Username to authenticate with the Fyre API.
 
-- **Required** if `cluster_type = quickburn`.
+- **Required** if `cluster_type = fyre`.
 - Environment Variable: `FYRE_USERNAME`
 - Default Value: None
 
 ### fyre_apikey
 API key to authenticate with the Fyre API.
 
-- **Required** if `cluster_type = quickburn`.
+- **Required** if `cluster_type = fyre`.
 - Environment Variable: `FYRE_APIKEY`
 - Default Value: None
 
 ### fyre_site
 Site in Fyre where cluster had been provisioned
 
-- Optional
+- **Required** if `cluster_type = fyre`.
 - Environment Variable: `FYRE_SITE`
-- Default Value: `svl`
+- Default Value: None
 
 
 Role Variables - IPI

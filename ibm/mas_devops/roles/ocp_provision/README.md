@@ -176,9 +176,9 @@ The Product ID that the cluster will be associated with for accounting purposes.
 ### fyre_site
 Provide a site in Fyre where cluster will be provisioned
 
-- Optional
+- **Required** if `cluster_type = fyre`.
 - Environment Variable: `FYRE_SITE`
-- Default Value: `svl`
+- Default Value: None
 
 ### fyre_cluster_description
 Provide a description for the cluster.
