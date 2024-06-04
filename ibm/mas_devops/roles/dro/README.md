@@ -145,6 +145,7 @@ export MAS_CONFIG_DIR=<valid local path to the config folder>
 export MAS_INSTANCE_ID=<valid mas instance id>
 export DRO_STORAGE_CLASS=<valid storage class name>
 export ROLE_NAME='dro'
+export DRO_NAMESPACE=ibm-dro
 
 ansible-playbook playbooks/run_role.yml
 ```
