@@ -24,10 +24,11 @@ Optional fact, if not provided the role will use the default cluster subdomain
 Defines the instance id to be used for MAS installation
 
 ### mas_icr_cp
-Defines the entitled registry from the images should be pulled from. Set this to `cp.icr.io/cp` when installing release version of MAS or `docker-na-public.artifactory.swg-devops.com/wiotp-docker-local` for dev
+Defines the entitled registry from the images should be pulled from. Set this to `cp.icr.io/cp` when installing release version of MAS, `docker-na-public.artifactory.swg-devops.com/wiotp-docker-local` for dev
+unless when on fyre in which case use 'docker-na-proxy-svl.artifactory.swg-devops.com/wiotp-docker-local' or 'docker-na-proxy-rtp.artifactory.swg-devops.com/wiotp-docker-local' as appropriate
 
 ### mas_icr_cpopen
-Defines the registry for non entitled images, such as operators. Set this to `icr.io/cpopen` when installing release version of MAS or `docker-na-public.artifactory.swg-devops.com/wiotp-docker-local/cpopen` for dev
+Defines the registry for non entitled images, such as operators. Set this to `icr.io/cpopen` when installing release version of MAS or `docker-na-public.artifactory.swg-devops.com/wiotp-docker-local/cpopen` for dev (or corresponding fyre proxies as appropriate)
 
 ### mas_entitlement_username
 Username for entitled registry. This username will be used to create the image pull secret. Set to `cp` when installing release or use your `w3Id` for dev.

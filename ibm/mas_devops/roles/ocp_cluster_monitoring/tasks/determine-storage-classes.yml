@@ -1,0 +1,63 @@
+---
+
+# Provide intelligent storage class selection to minimize required user knowledge
+
+# 1. Lookup storage class availabiity
+# -----------------------------------------------------------------------------
+- name: "install : determine-storage-classes : Load default storage class information"
+  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
+
+- name: Lookup storage classes
+  kubernetes.core.k8s_info:
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+  register: lookup_storageclasses
+
+
+# 2. Prometheus Storage (Required)
+# -----------------------------------------------------------------------------
+- name: "install : determine-storage-classes : Default Prometheus Storage if not set by user"
+  when: prometheus_storage_class is not defined or prometheus_storage_class == ""
+  set_fact:
+    prometheus_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+
+- name: Assert that Prometheus storage class has been defined
+  assert:
+    that: prometheus_storage_class is defined and prometheus_storage_class != ""
+    fail_msg: "prometheus_storage_class must be defined"
+
+
+# 3. Prometheus Alert Manager Storage (Required)
+# -----------------------------------------------------------------------------
+- name: "install : determine-storage-classes : Default Prometheus Alert Manager Storage if not set by user"
+  when: prometheus_alertmgr_storage_class is not defined or prometheus_alertmgr_storage_class == ""
+  set_fact:
+    prometheus_alertmgr_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
+
+- name: "install : determine-storage-classes : Assert that Prometheus Alert Manager storage class has been defined"
+  assert:
+    that: prometheus_alertmgr_storage_class is defined and prometheus_alertmgr_storage_class != ""
+    fail_msg: "prometheus_alertmgr_storage_class must be defined"
+
+
+# 4. Prometheus User Workload Monitoring Storage (Required)
+# -----------------------------------------------------------------------------
+- name: "install : determine-storage-classes : Default Prometheus User Workload Monitoring Storage if not set by user"
+  when: prometheus_userworkload_storage_class is not defined or prometheus_userworkload_storage_class == ""
+  set_fact:
+    prometheus_userworkload_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+
+- name: "install : determine-storage-classes : Assert that Prometheus User Workload Monitoring storage class has been defined"
+  assert:
+    that: prometheus_userworkload_storage_class is defined and prometheus_userworkload_storage_class != ""
+    fail_msg: "prometheus_userworkload_storage_class must be defined"
+
+
+# 5. Debug storage class configuration
+# -----------------------------------------------------------------------------
+- name: "install : determine-storage-classes : Debug cluster monitoring storage class configuration"
+  debug:
+    msg:
+      - "Storage class (prometheus) ............. {{ prometheus_storage_class }}"
+      - "Storage class (alert manager) .......... {{ prometheus_alertmgr_storage_class }}"
+      - "Storage class (user workload) .......... {{ prometheus_userworkload_storage_class }}"

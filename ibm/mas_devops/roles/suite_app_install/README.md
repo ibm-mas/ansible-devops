@@ -34,13 +34,6 @@ Defines which channel of the MAS application to subscribe to
 - Environment Variable: `MAS_APP_CHANNEL`
 - Default: None
 
-### mas_app_upgrade_strategy
-Defines the Upgrade strategy for the MAS Application Operator. Default is set to Automatic
-
-- Optional
-- Environment Variable: `MAS_APP_UPGRADE_STRATEGY`
-- Default: None
-
 ### custom_labels
 Optional. List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
@@ -249,9 +242,6 @@ Example Playbook
 
     # MAS application configuration
     mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
-
-    # Determine MAS Operator Upgrade Strategy Manual | Automatic
-    mas_app_upgrade_strategy: "{{ lookup('env', 'MAS_APP_UPGRADE_STRATEGY') | default('Manual', true) }}"
 
     # Application Configuration - Spec
     mas_app_spec:

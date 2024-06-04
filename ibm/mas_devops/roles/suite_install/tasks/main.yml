@@ -198,19 +198,7 @@
     crd_name: suites.core.mas.ibm.com
 
 
-# 13. Integrated Airgap support
-# -----------------------------------------------------------------------------
-# Before we create the CR we will set up the Airgap Image Map
-# We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
-- name: "Determine whether this is an airgap environment"
-  include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
-
-- name: "Enable use of image digests"
-  when: airgap_install
-  include_tasks: "tasks/install_digest_cm.yml"
-
-
-# 14. Suite installation
+# 13. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
   vars:
@@ -224,3 +212,10 @@
 - name: debug suiteResult
   debug:
     msg: "{{ suiteResult }}"
+
+# 14. Set up OCP ConsoleLink for MAS Admin Dashboard
+# -----------------------------------------------------------------------------
+- name: Create ConsoleLink for MAS Admin Dashbord
+  kubernetes.core.k8s:
+    state: present
+    template: templates/consolelink.yml.j2
