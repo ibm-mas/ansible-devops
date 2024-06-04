@@ -1,0 +1,63 @@
+---
+# Get workspace pv spec
+# -----------------------------------------------------------------------------
+- name: "Set fact: workspace pv spec"
+  set_fact:
+    manage_ws_pvs: "{{ _ws_output.resources[0].spec.settings.deployment.persistentVolumes }}"
+
+- name: "Debug: workspace pv spec"
+  debug:
+    msg: "{{ manage_ws_pvs }}"
+
+
+# Get maxinst pod information
+# -------------------------------------------------------------------------
+- name: "Get maxinst pod information"
+  when: manage_ws_pvs | length > 0
+  block:
+    - name: "Get maxinst pod information"
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ mas_app_namespace }}"
+        label_selectors:
+          - mas.ibm.com/appType=maxinstudb
+          - mas.ibm.com/workspaceId={{ mas_workspace_id }}
+      register: _maxinst_pod_output
+      failed_when:
+        - _maxinst_pod_output.resources is not defined
+        - _maxinst_pod_output.resources | length == 0
+
+    - name: "Set fact: copy pvc file variables"
+      set_fact:
+        masbr_cf_pod_name: "{{ _maxinst_pod_output.resources[0].metadata.name }}"
+        masbr_cf_container_name: "{{ _maxinst_pod_output.resources[0].spec.containers[0].name }}"
+        masbr_cf_affinity: false
+
+    - name: "Debug: maxinst pod information"
+      debug:
+        msg:
+          - "maxinst pod name ................... {{ masbr_cf_pod_name }}"
+          - "maxinst container name ............. {{ masbr_cf_container_name }}"
+
+    - name: "Set fact: reset mas_app_pv_list"
+      set_fact:
+        mas_app_pv_list: []
+
+    - name: "Set fact: mas_app_pv_list"
+      set_fact:
+        mas_app_pv_list: >-
+          {{ mas_app_pv_list + [{
+            'volume_name': item.pvcName,
+            'mount_path': item.mountPath,
+            'pvc_name': _maxinst_pod_output.resources[0].spec.volumes | json_query(
+              '[?name==`' + item.pvcName + '`].persistentVolumeClaim.claimName') | first,
+            'backup_paths': [{
+              'src_folder': item.mountPath,
+              'dest_folder': 'pv/' + item.pvcName
+            }],
+            'restore_paths': [{
+              'src_folder': 'pv/' + item.pvcName,
+              'dest_folder': item.mountPath
+            }],
+          }] }}
+      loop: "{{ manage_ws_pvs }}"

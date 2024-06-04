@@ -1,10 +1,10 @@
 ---
 # Check db2 restore required variables
 # -----------------------------------------------------------------------------
-- name: "Fail if db2_restore_instance_name is not provided"
+- name: "Fail if db2_instance_name is not provided"
   assert:
-    that: db2_restore_instance_name is defined and db2_restore_instance_name != ""
-    fail_msg: "db2_restore_instance_name is required"
+    that: db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: "db2_instance_name is required"
 
 
 # Set common restore variables
@@ -14,7 +14,7 @@
     masbr_job_component:
       name: "db2"
       namespace: "{{ db2_namespace }}"
-      instance: "{{ db2_restore_instance_name }}"
+      instance: "{{ db2_instance_name }}"
     masbr_job_data_list:
       - seq: "1"
         type: "database"
@@ -26,20 +26,22 @@
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
   vars:
     _job_type: "restore"
-    _component_info_task_path: "{{ role_path }}/tasks/get-db2-info.yml"
+    _component_before_task_path: "{{ role_path }}/tasks/before-backup-restore.yml"
 
 
 # Create k8s Job to run restore tasks
 # -----------------------------------------------------------------------------
 - name: "Create k8s Job to run restore tasks"
   when: masbr_create_task_job
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_task_job.yml"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
   vars:
-    _rt_role_env:
+    _rt_env:
       - name: "ROLE_NAME"
         value: "db2"
       - name: "DB2_ACTION"
         value: "{{ db2_action }}"
+      - name: "DB2_INSTANCE_NAME"
+        value: "{{ db2_instance_name }}"
 
 
 - name: "Run restore tasks"
@@ -53,12 +55,6 @@
         _job_data_list:
           - seq: "1"
             phase: "New"
-
-
-    # Get the backup job information specified by masbr_restore_from
-    # -------------------------------------------------------------------------
-    - name: "Get the backup job information specified by masbr_restore_from"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/get_restore_from_job.yml"
 
 
     # Run restore tasks for each data type
@@ -86,3 +82,5 @@
     # -------------------------------------------------------------------------
     - name: "After run tasks"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/after_run_tasks.yml"
+      vars:
+        _component_after_task_path: "{{ role_path }}/tasks/after-backup-restore.yml"

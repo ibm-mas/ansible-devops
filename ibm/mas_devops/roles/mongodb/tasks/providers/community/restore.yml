@@ -1,4 +1,16 @@
 ---
+# Check mongodb restore required variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: "
+  set_fact:
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id is required"
+
+
 # Set common restore job variables
 # -----------------------------------------------------------------------------
 - name: "Set fact: common restore job variables"
@@ -6,6 +18,7 @@
     masbr_job_component:
       name: "mongodb"
       namespace: "{{ mongodb_namespace }}"
+      instance: "{{ mas_instance_id }}"
     masbr_job_data_list:
       - seq: "1"
         type: "database"
@@ -17,22 +30,24 @@
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
   vars:
     _job_type: "restore"
-    _component_info_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/get-mongo-info.yml"
+    _component_before_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/before-backup-restore.yml"
 
 
 # Create k8s Job to run restore tasks
 # -----------------------------------------------------------------------------
 - name: "Create k8s Job to run restore tasks"
   when: masbr_create_task_job
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_task_job.yml"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
   vars:
-    _rt_role_env:
+    _rt_env:
       - name: "ROLE_NAME"
         value: "mongodb"
       - name: "MONGODB_PROVIDER"
         value: "{{ mongodb_provider }}"
       - name: "MONGODB_ACTION"
         value: "{{ mongodb_action }}"
+      - name: "MAS_INSTANCE_ID"
+        value: "{{ mas_instance_id }}"
 
 
 - name: "Run restore tasks"
@@ -46,11 +61,6 @@
         _job_data_list:
           - seq: "1"
             phase: "New"
-
-    # Get the backup job information specified by masbr_restore_from
-    # -------------------------------------------------------------------------
-    - name: "Get the backup job information specified by masbr_restore_from"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/get_restore_from_job.yml"
 
 
     # Run restore tasks for each data type
@@ -78,3 +88,5 @@
     # -------------------------------------------------------------------------
     - name: "After run tasks"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/after_run_tasks.yml"
+      vars:
+        _component_after_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/after-backup-restore.yml"

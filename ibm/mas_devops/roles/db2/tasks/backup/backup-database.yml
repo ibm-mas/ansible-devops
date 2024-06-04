@@ -4,8 +4,6 @@
 - name: "Update db2 database backup status: InProgress"
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
   vars:
-    _job_component:
-      version: "{{ db2_version }}"
     _job_data_list:
       - seq: "{{ masbr_job_data_seq }}"
         phase: "InProgress"
@@ -17,25 +15,30 @@
     # -------------------------------------------------------------------------
     - name: "Set fact: db2 database backup folder"
       set_fact:
-        db2_backup_folder: >-
-          {{ masbr_pod_temp_folder }}/{{ masbr_job_name }}/{{ masbr_job_data_type }}
+        # We should use Db2 backup pvc to save the temporary backup files, the db2 pod
+        # ephemeral local storage has a limits up to 4Gi by default.
+        db2_backup_folder: "{{ db2_pvc_temp_folder }}/{{ masbr_job_data_type }}"
 
     - name: "Set fact: db2 database backup log"
       set_fact:
         db2_backup_log: "{{ db2_backup_folder }}/db2-backup.log"
 
-    - name: "Create db2 database backup folder in pod"
+    - name: "Create db2 database backup folder"
       changed_when: true
       shell: >
         {{ exec_in_pod_begin }}
         mkdir -p {{ db2_backup_folder }}
         {{ exec_in_pod_end }}
 
+    - name: "Debug: db2 database backup folder"
+      debug:
+        msg: "Db2 database backup folder ........ {{ db2_backup_folder }}"
+
 
     # Take a backup of db2 database
     # https://www.ibm.com/docs/en/db2/11.5?topic=commands-backup-database
     # -------------------------------------------------------------------------
-    - name: "Take a {{ 'Full' if masbr_backup_type == 'full' else 'Incremental' }} backup of db2 database"
+    - name: "Take {{ 'Full' if masbr_backup_type == 'full' else 'Incremental' }} backup of db2 database"
       changed_when: true
       shell: >
         {{ exec_in_pod_begin }}
@@ -102,8 +105,6 @@
       changed_when: true
       shell: >
         {{ exec_in_pod_begin }}
-        tar -czf {{ db2_backup_folder }}/db2-backup-log.tar.gz
-        -C {{ db2_backup_folder }} db2-backup.log &&
         tar -czf {{ db2_backup_folder }}/{{ masbr_job_name }}.tar.gz
         -C {{ db2_backup_folder }}/db2backup . &&
         du -h {{ db2_backup_folder }}/*
@@ -120,13 +121,12 @@
     - name: "Copy backup files from pod to specified storage location"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_pod_files_to_storage.yml"
       vars:
-        masbr_cf_job_type: "{{ masbr_job_type }}"
+        masbr_cf_job_type: "backup"
         masbr_cf_job_name: "{{ masbr_job_name }}"
+        masbr_cf_are_pvc_paths: true
         masbr_cf_paths:
           - src_file: "{{ db2_backup_folder }}/{{ masbr_job_name }}.tar.gz"
             dest_folder: "{{ masbr_job_data_type }}"
-          - src_file: "{{ db2_backup_folder }}/db2-backup-log.tar.gz"
-            dest_folder: "log"
 
 
     # Update database backup status: Completed
@@ -149,14 +149,21 @@
             phase: "Failed"
 
   always:
-    # Clean up
-    - name: "Delete database backup files from db2 pod"
+    # Copy db2 backup log file from pod to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of db2 backup log"
       changed_when: true
-      when:
-        - db2_backup_folder is defined
-        - db2_backup_folder | length > 0
       shell: >
         {{ exec_in_pod_begin }}
-        rm -rf {{ db2_backup_folder }}
+        tar -czf {{ db2_backup_folder }}/db2-backup-log.tar.gz
+        -C {{ db2_backup_folder }} db2-backup.log
         {{ exec_in_pod_end }}
-      register: _delete_pod_files_output
+
+    - name: "Copy db2 backup log file from pod to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_pod_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "{{ masbr_job_type }}"
+        masbr_cf_job_name: "{{ masbr_job_name_final }}"
+        masbr_cf_paths:
+          - src_file: "{{ db2_backup_folder }}/db2-backup-log.tar.gz"
+            dest_folder: "log"

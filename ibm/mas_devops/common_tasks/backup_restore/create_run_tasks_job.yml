@@ -1,34 +1,61 @@
 ---
-# Set job variables
+# Input parameters:
+#   _rt_playbook_name
+#   _rt_role_name
+#   _rt_env
+
+
+# Set task variables
 # -----------------------------------------------------------------------------
-- name: "Set fact: job variables"
+- name: "Set fact: task variables"
   set_fact:
-    # Format '<job_type>-<job_version>-<timestamp>'
+    # Format '<task_type>-<job_version>-<timestamp>'
     # - Job name must be no more than 63 characters and in lower case:
     #     'backup-20240508151053-20240424210110'
     #     'restore-20240508151704-20240424210110'
     # - CronJob name must be no longer than 52 characters and in lower case:
     #     'schedule-20240508151053-20240424210110'
     masbr_rt_k8s_name: >-
-      {{ masbr_job_type }}-{{ masbr_job_version }}-{{ '%Y%m%d%H%M%S' | strftime }}
+      {{ masbr_task_type }}-{{ masbr_job_version }}-{{ '%Y%m%d%H%M%S' | strftime }}
     masbr_rt_namespace: "{{ masbr_job_component.namespace }}"
-    masbr_rt_cmds: >
-      ansible-playbook ibm.mas_devops.run_role
 
 - name: "Debug: run task Job name"
   debug:
-    msg:
-      - "Run task Job name ..................... {{ masbr_rt_k8s_name }}"
+    msg: "{{ masbr_rt_k8s_name }}"
 
-- name: "Set fact: add common env variables"
+# masbr_rt_cmds
+- name: "Set fact: run playbook command"
+  when: _rt_playbook_name is defined and _rt_playbook_name | length > 0
   set_fact:
-    masbr_rt_common_env: >-
-      {{ masbr_rt_common_env | default([
-        {'name': 'ANSIBLE_LOG_PATH', 'value': '/tmp/ansible.log'},
-        {'name': 'MASBR_CONFIRM_CLUSTER', 'value': 'false'},
-        {'name': 'MASBR_CREATE_TASK_JOB', 'value': 'false'},
-        {'name': 'MASBR_RUNNING_IN_JOB', 'value': 'true'}
-      ]) + [item] }}
+    masbr_rt_cmds: >
+      ansible-playbook ibm.mas_devops.{{ _rt_playbook_name }}
+
+- name: "Set fact: run role command"
+  when: _rt_role_name is defined and _rt_role_name | length > 0
+  set_fact:
+    masbr_rt_cmds: >
+      ROLE_NAME={{ _rt_role_name }} ansible-playbook ibm.mas_devops.run_role
+
+- name: "Debug: run task Job command"
+  debug:
+    msg: "{{ masbr_rt_cmds }}"
+
+# masbr_rt_env
+- name: "Set fact: default common env variables"
+  set_fact:
+    masbr_rt_common_env:
+      - name: "ANSIBLE_LOG_PATH"
+        value: "/tmp/ansible.log"
+      - name: "MASBR_CONFIRM_CLUSTER"
+        value: "false"
+      - name: "MASBR_CREATE_TASK_JOB"
+        value: "false"
+      - name: "MASBR_RUNNING_IN_TASK_JOB"
+        value: "true"
+
+- name: "Set fact: add additional common env variables (staring with 'MASBR_')"
+  set_fact:
+    masbr_rt_common_env: "{{ masbr_rt_common_env + [item] }}"
   with_items: >-
     {{ ansible_env |
     ansible.utils.keep_keys(target=['MASBR_'], matching_parameter='starts_with') |
@@ -38,13 +65,17 @@
     item.name not in [
       'MASBR_CONFIRM_CLUSTER',
       'MASBR_CREATE_TASK_JOB',
-      'MASBR_RUNNING_IN_JOB',
+      'MASBR_RUNNING_IN_TASK_JOB',
       'MASBR_STORAGE_CLOUD_RCLONE_FILE'
     ]
 
 - name: "Set fact: add role specific env variables"
   set_fact:
-    masbr_rt_env: "{{ masbr_rt_common_env + _rt_role_env | default([]) }}"
+    masbr_rt_env: "{{ masbr_rt_common_env + _rt_env | default([]) }}"
+
+- name: "Debug: run task Job env"
+  debug:
+    msg: "{{ masbr_rt_env }}"
 
 
 # Create configmap to save rclone config
@@ -115,7 +146,7 @@
             Step 1: podman run -ti -v {{ masbr_storage_cloud_rclone_file | dirname }}:/mnt/configmap
             --env-file=/tmp/run_task_job.env quay.io/ibmmas/cli:local
           - "Step 2: {{ _oc_login_output.stdout }}"
-          - "Step 3: ansible-playbook ibm.mas_devops.run_role"
+          - "Step 3: {{ masbr_rt_cmds }}"
 
 
 # Display information of the created task

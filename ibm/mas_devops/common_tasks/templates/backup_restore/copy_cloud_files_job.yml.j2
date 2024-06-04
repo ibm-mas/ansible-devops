@@ -29,6 +29,7 @@ spec:
     labels:
       masbr-job-name: "{{ masbr_job_name }}"
     spec:
+{% if masbr_cf_affinity is defined and masbr_cf_affinity %}
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -39,6 +40,7 @@ spec:
                 values:
                   - "{{ masbr_cf_pod_name }}"
             topologyKey: kubernetes.io/hostname
+{% endif %}
 {% if masbr_cf_service_account_name is defined and masbr_cf_service_account_name | length > 0 %}
       serviceAccountName: "{{ masbr_cf_service_account_name }}"
 {% endif %}
@@ -62,6 +64,9 @@ spec:
           volumeMounts:
             - name: data-volume
               mountPath: "{{ masbr_cf_pvc_mount_path }}"
+{% if masbr_cf_pvc_sub_path is defined and masbr_cf_pvc_sub_path | length > 0 %}
+              subPath: "{{ masbr_cf_pvc_sub_path }}"
+{% endif %}
             - name: cm-volume
               mountPath: /mnt/configmap
 {% if masbr_cf_container_security_context is defined and masbr_cf_container_security_context | length > 0 %}

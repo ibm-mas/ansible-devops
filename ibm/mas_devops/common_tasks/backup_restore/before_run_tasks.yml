@@ -11,49 +11,8 @@
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/confirm_cluster_info.yml"
 
 
-# Get component information
+# Before backup/restore component
 # -------------------------------------------------------------------------
-- name: "Get {{ masbr_job_component.name }} information"
-  include_tasks: "{{ _component_info_task_path }}"
-
-
-# Check if an exiting job is running
-# -------------------------------------------------------------------------
-- name: "Try to find job lock file in pod"
-  when: not masbr_allow_multi_jobs
-  changed_when: false
-  shell: >
-    {{ exec_in_pod_begin }}
-    [ -f {{ masbr_pod_lock_file }} ] && echo exist; exit 0
-    {{ exec_in_pod_end }}
-  register: _get_lock_file_output
-
-- name: "Fail if found job lock file in pod"
-  when: not masbr_allow_multi_jobs
-  assert:
-    that: _get_lock_file_output.stdout != "exist"
-    fail_msg: "A backup/restore job is running now, please try to run job later!"
-
-- name: "Create job lock file in pod"
-  changed_when: true
-  shell: >
-    {{ exec_in_pod_begin }}
-    mkdir -p {{ masbr_pod_temp_folder }}/{{ masbr_job_name }};
-    touch {{ masbr_pod_lock_file }}
-    {{ exec_in_pod_end }}
-  register: _create_restore_lock_output
-
-
-# Check free disk space in pod
-# -------------------------------------------------------------------------
-- name: "Get free disk space in pod"
-  changed_when: false
-  shell: >
-    {{ exec_in_pod_begin }}
-    df -h {{ masbr_pod_temp_folder }}
-    {{ exec_in_pod_end }}
-  register: _df_output
-
-- name: "Debug: free disk space in pod"
-  debug:
-    msg: "{{ _df_output.stdout_lines }}"
+- name: "Before {{ _job_type }} {{ masbr_job_component.name }}"
+  when: _component_before_task_path is defined and _component_before_task_path | length > 0
+  include_tasks: "{{ _component_before_task_path }}"

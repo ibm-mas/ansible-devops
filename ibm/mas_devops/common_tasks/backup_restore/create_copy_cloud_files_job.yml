@@ -1,4 +1,22 @@
 ---
+# Create k8s job to copy files between pod and cloud storage
+# Related facts (name staring with 'masbr_cf_'):
+#   masbr_cf_job_type
+#   masbr_cf_job_name
+#   masbr_cf_from_job_name
+#   masbr_cf_namespace
+#   masbr_cf_are_pvc_paths: true|false
+#   masbr_cf_pod_name: only used when masbr_cf_are_pvc_paths=false
+#   masbr_cf_container_name: only used when masbr_cf_are_pvc_paths=false
+#   masbr_cf_affinity: true|false
+#   masbr_cf_pvc_name
+#   masbr_cf_pvc_mount_path
+#   masbr_cf_pvc_sub_path
+#   masbr_cf_paths
+#   masbr_cf_delete_dest: true|false, only used when coping files from cloud storage to pvc
+#   masbr_cf_apply_changes: only used when restoring from incremental backup
+
+
 # Get pod information
 # -----------------------------------------------------------------------------
 - name: "Get pod information"
@@ -63,17 +81,22 @@
         rclone.conf: "{{ _rclone_config_content.stdout }}"
     wait: true
 
+- name: "Set fact: reset masbr_cf_env"
+  set_fact:
+    masbr_cf_env: []
+
 - name: "Set fact: add rclone config file to env variables"
   set_fact:
     masbr_cf_env: >-
-      {{ masbr_cf_env | default([])  + [
-        {'name': 'MASBR_STORAGE_CLOUD_RCLONE_FILE', 'value': '/mnt/configmap/rclone.conf'}
+      {{ masbr_cf_env + [
+        {'name': 'MASBR_STORAGE_CLOUD_RCLONE_FILE', 'value': '/mnt/configmap/rclone.conf'},
+        {'name': 'RCLONE_VERBOSE', 'value': '2'}
       ] }}
 
 
 # Create Job
 # -----------------------------------------------------------------------------
-- name: "Create copy file Job"
+- name: "Create Job for copying '{{ masbr_job_component.name }} {{ masbr_job_data_type }}'"
   kubernetes.core.k8s:
     template: "{{ role_path }}/../../common_tasks/templates/backup_restore/copy_cloud_files_job.yml.j2"
     state: present
@@ -99,34 +122,34 @@
       delay: 10
 
   always:
-    - name: "Get copy file Job log files"
+    - name: "Get Job log files"
       shell: >-
-        mkdir -p {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }} &&
-        oc cp --retries=50 -c {{ masbr_cf_container_name }}
-        {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ masbr_cf_pvc_job_folder }}/rclone.log
-        {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/rclone.log &&
-        pod_name=$(oc get pod -n {{ masbr_cf_namespace }} --no-headers=true -l job-name={{ masbr_cf_k8s_name }} | awk '{print $1}') &&
-        oc logs -n {{ masbr_cf_namespace }} ${pod_name} > {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/${pod_name}-log.txt &&
-        oc describe -n {{ masbr_cf_namespace }} pod ${pod_name} > {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/${pod_name}-describe.txt &&
+        mkdir -p {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }};
+        pod_name=$(oc get pod -n {{ masbr_cf_namespace }} --no-headers=true -l job-name={{ masbr_cf_k8s_name }} | awk '{print $1}');
+        oc logs -n {{ masbr_cf_namespace }} ${pod_name} > {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/${pod_name}-log.txt;
+        oc describe -n {{ masbr_cf_namespace }} pod ${pod_name} > {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/${pod_name}-describe.txt;
         ls -lA {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}
       register: _get_log_files_output
 
-    - name: "Debug: files in local job log folder"
+    - name: "Debug: list Job log files"
       debug:
         msg:
           - "Local job log folder ............... {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}"
           - "{{ _get_log_files_output.stdout_lines }}"
 
+    - name: "Set fact: copy file Job log name"
+      set_fact:
+        masbr_cf_log_file_name: >-
+          {{ masbr_cf_k8s_name }}-{{ masbr_job_component.name }}-{{ masbr_job_data_type }}-log.tar.gz
+
     - name: "Create a tar.gz archive of all log files"
       shell: >-
-        tar -czf {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}-log.tar.gz
+        tar -czf {{ masbr_local_job_folder }}/log/{{ masbr_cf_log_file_name }}
         -C {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }} .
 
     - name: "Copy log file from local to storage location"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
       vars:
-        masbr_cf_job_type: "{{ masbr_job_type }}"
-        masbr_cf_job_name: "{{ masbr_job_name }}"
         masbr_cf_paths:
-          - src_file: "log/{{ masbr_cf_k8s_name }}-log.tar.gz"
+          - src_file: "log/{{ masbr_cf_log_file_name }}"
             dest_folder: "log"
