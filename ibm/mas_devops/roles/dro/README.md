@@ -22,6 +22,12 @@ Inform the role whether to perform an install or uninstall of Data Reporter Oper
 
     The `uninstall` action works across both `uds` and `dro` roles.
 
+### dro_namespace
+DRO can be installed on a different namespace, on certain type of OCP clusters where redhat* namespaces have restricted access, User can configure and install DRO on a custom namespace of their choosing by supplying a name using `DRO_NAMESPACE`
+
+- Environment Variable: `DRO_NAMESPACE`
+- Default Value: redhat-marketplace
+
 ### dro_migration
 To migrate from `IBM User Data Services` to `ibm-data-reporter`, set `DRO_MIGRATION` variable to `True`.
 
