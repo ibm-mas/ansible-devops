@@ -52,6 +52,9 @@ All timings are estimates, see the individual pages for each of these playbooks 
 - `MAS_CATALOG_VERSION` Your custom AI broker catalog version
 - `STORAGE_PROVIDER` Your custom storage provider (aws, minio)
 - `TENANT_ACTION` Whether to install or remove tenant (default value is: install)
+- `APIKEY_ACTION` Whether to install or remove or update apikey (default value is: install)
+- `WATSONX_ACTION` Whether to install or remove watsonx secret (default value is: install)
+- `S3_ACTION` Whether to install or remove s3 (default value is: install)
 
 ## Usage
 

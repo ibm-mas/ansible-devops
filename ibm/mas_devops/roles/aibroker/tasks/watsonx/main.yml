@@ -1,14 +1,14 @@
 ---
-- name: "Check if WatsonX AI API key secret exists in namespace: {{ aibroker_namespace }}"
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ tenantNamespace }}----wx-secret"
-    namespace: "{{ aibroker_namespace }}"
-  register: wx_apikey_secret_info
+- name: "Watsonx: Debug properties"
+  debug:
+    msg:
+      - "Watsonx action ........................ {{ watsonx_action }}"
 
-- name: Create WatsonX AI API Key
-  script: "{{ role_path }}/files/create_wx.sh {{ tenantNamespace }} {{ aibroker_namespace }} {{ watsonxai_apikey }} {{ watsonxai_url }} {{ watsonxai_project_id }}"
+# 1. Perform the selected action
+# -----------------------------------------------------------------------------
+# Two actions are supported:
+# - install
+# - remove
+- include_tasks: "watsonx/{{ watsonx_action }}/main.yml"
   when:
-    - wx_apikey_secret_info.resources | length == 0
-  register: script_output
+    - watsonx_action != "none"

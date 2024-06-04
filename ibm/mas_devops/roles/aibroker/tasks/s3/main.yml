@@ -1,14 +1,14 @@
 ---
-- name: "Check if S3 key secret exists in namespace: {{ aibroker_namespace }}"
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ tenantNamespace }}----s3-secret"
-    namespace: "{{ aibroker_namespace }}"
-  register: s3_apikey_secret_info
+- name: "S3: Debug properties"
+  debug:
+    msg:
+      - "S3 action ........................ {{ s3_action }}"
 
-- name: Create S3 API Key
-  script: "{{ role_path }}/files/create_s3.sh {{ tenantNamespace }} {{ aibroker_namespace }} {{ storage_host }} {{ storage_accesskey }} {{ storage_secretkey }} {{ storage_region }}"
+# 1. Perform the selected action
+# -----------------------------------------------------------------------------
+# Two actions are supported:
+# - install
+# - remove
+- include_tasks: "s3/{{ s3_action }}/main.yml"
   when:
-    - s3_apikey_secret_info.resources | length == 0
-  register: script_output
+    - s3_action != "none"

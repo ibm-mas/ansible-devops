@@ -1,0 +1,22 @@
+---
+- name: "Check if WatsonX AI API key secret exists in namespace: {{ aibroker_namespace }}"
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ tenantNamespace }}----wx-secret"
+    namespace: "{{ aibroker_namespace }}"
+  register: wx_apikey_secret_info
+
+- name: verify watsonx
+  debug:
+    var: wx_apikey_secret_info
+
+- name: Create WatsonX AI API Key
+  script: "{{ role_path }}/files/create_wx.sh {{ tenantNamespace }} {{ aibroker_namespace }} {{ watsonxai_apikey }} {{ watsonxai_url }} {{ watsonxai_project_id }}"
+  when:
+    - wx_apikey_secret_info.resources | length == 0
+  register: script_output
+
+- name: verify watsonx
+  debug:
+    var: script_output
