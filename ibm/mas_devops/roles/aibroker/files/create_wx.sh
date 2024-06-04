@@ -60,9 +60,9 @@ if [ $? -eq 0 ]; then
     echo "Successfully executed script"
     echo "Creating watsonx secret in k8s"
     oc create secret generic ${TENANT}----wx-secret -n ${AIBROKER} \
-        --from-literal=WATSONXAI_APIKEY=${WATSONXAI_APIKEY} \
-        --from-literal=WATSONXAI_URL=${WATSONXAI_URL} \
-        --from-literal=WATSONXAI_PROJECT_ID=${WATSONXAI_PROJECT_ID}
+        --from-literal=wx_apikey=${WATSONXAI_APIKEY} \
+        --from-literal=wx_url=${WATSONXAI_URL} \
+        --from-literal=wx_project_id=${WATSONXAI_PROJECT_ID}
     echo "Created watsonx secret successfully in k8s."
 else
     # Redirect stdout from echo command to stderr.
