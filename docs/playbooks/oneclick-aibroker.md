@@ -104,5 +104,5 @@ export WATSONXAI_URL="<watsonx AI url>"
 export WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_aibroker
+ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
