@@ -58,9 +58,6 @@ All timings are estimates, see the individual pages for each of these playbooks 
 
 ## Usage
 
-!!! tip
-If you do not want to set up all the dependencies on your local system, you can run the playbook from inside the CLI container image: `docker run -ti --pull always quay.io/ibmmas/cli`
-
 ### AI broker deployment steps
 
 #### Notice: For S3 manage please make sure you have deployed dependencies
