@@ -172,6 +172,7 @@ To uninstall DRO
 ```
 export DRO_ACTION=uninstall
 export ROLE_NAME='dro'
+export DRO_NAMESPACE=ibm-dro
 
 ansible-playbook playbooks/run_role.yml
 
