@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Usage ./create_apikey.sh tenant_name_in_lower_case"
+# echo "Usage ./create_apikey.sh tenant_name_in_lower_case"
 
 TENANT=$1
 AIBROKER=$2
