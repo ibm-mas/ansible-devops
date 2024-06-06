@@ -1,0 +1,55 @@
+---
+
+# Ansible can't support block retries, this is a relatively simple workaround
+# to achieve the same thing
+# https://github.com/ansible/ansible/issues/46203#issuecomment-556013701
+
+- name: 'Wait until all {{ mas_app_id | capitalize }} bundle pods are ready'
+  block:
+    - name: "wait : Set the retry count"
+      set_fact:
+        bundle_retry_count: "{{ 0 if bundle_retry_count is undefined else bundle_retry_count|int + 1 }}"
+        bundle_count: 0
+        ready_bundle_count: 0
+
+    - name: "wait : Lookup {{ mas_app_id | capitalize }} bundle pods"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        label_selectors: mas.ibm.com/appType=serverBundle
+        namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+      register: manage_bundle_lookup
+      until:
+        - manage_bundle_lookup.resources is defined
+        - manage_bundle_lookup.resources | length > 0
+        - manage_bundle_lookup.resources[0].status is defined
+        - manage_bundle_lookup.resources[0].status | length > 0
+
+    - name: "wait : Check if bundle pods are ready..."
+      set_fact:
+        bundle_count: "{{ bundle_count|int + 1 }}"
+        ready_bundle_count: "{{ ready_bundle_count|int + 1 if (item | json_query('status.conditions[?type==`ContainersReady`][].status') | select ('match','True')) else ready_bundle_count|int}}"
+      with_items: "{{ manage_bundle_lookup.resources }}"
+      loop_control:
+        label: "{{ item.metadata.name }} pod status = {{ 'READY!' if (item | json_query('status.conditions[?type==`ContainersReady`][].status') | select ('match','True')) else 'Not Ready' }}"
+
+    - name: "wait : Fail if one or more {{ mas_app_id | capitalize }} bundle pods are pending to be ready..."
+      assert:
+        that: ready_bundle_count == bundle_count
+        fail_msg: "[{{ bundle_retry_count }}/60] {{ ready_bundle_count }} of {{ bundle_count }} bundle pods are ready"
+
+    # reset retry count
+    - set_fact:
+        bundle_retry_count: 0
+      when: ready_bundle_count == bundle_count
+  rescue:
+    - name: "wait : Give up after 60 attempts (approx 30 minutes)"
+      assert:
+        that: bundle_retry_count|int < 60
+        fail_msg: Timed out waiting for Manage bundle pods to become ready!
+
+    - name: "wait : Wait for 30 seconds before checking again"
+      pause:
+        seconds: 30
+
+    - include_tasks: wait_bundle_pods.yml
