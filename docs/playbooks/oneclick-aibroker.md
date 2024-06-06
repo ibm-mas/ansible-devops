@@ -64,9 +64,6 @@ AI Broker supports **AWS** and **Minio** storage providers.
 
 ## Usage
 
-!!! tip
-If you do not want to set up all the dependencies on your local system, you can run the playbook from inside the CLI container image: `docker run -ti --pull always quay.io/ibmmas/cli`
-
 ### AI broker deployment steps
 
 #### Notice: For S3 manage please make sure you have deployed dependencies
@@ -113,5 +110,5 @@ export WATSONXAI_URL="<watsonx AI url>"
 export WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_aibroker
+ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
