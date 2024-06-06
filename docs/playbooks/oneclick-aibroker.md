@@ -26,6 +26,12 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
 
 All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing application, just customize the application install and configure stages at the end of the playbook.
 
+## Storage providers
+
+**Notice !!!**
+
+AI Broker supports **AWS** and **Minio** storage providers.
+
 ## Required environment variables
 
 - `MAS_INSTANCE_ID` Declare the instance ID for the AI Broker install
