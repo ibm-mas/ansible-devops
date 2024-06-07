@@ -2,13 +2,11 @@
 
 ## Prerequisites
 
-You will need a RedHat OpenShift v4.12 cluster with IBM Maximo Application Suite Core v8.11 already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up. AI Broker can be also installed on cluster without IBM Maximo Application Suite Core. However with stanadlone AI Broker there are few dependences. This playbook will check if needed components exists on cluster. If playbooks finds that some components are missing - playbook will install all missing dependencies
+You will need a RedHat OpenShift v4.12 cluster with IBM Maximo Application Suite Core v9.x already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
 
 ### Dependencies:
 
-- ibm-operator-catalog
-- ibm-common-services
-- cert-manager
+- IBM Maximo Application Suite Core v9.x
 
 ## Overview
 
@@ -17,9 +15,7 @@ This playbook will add **AI Broker v1.0.x** to an existing IBM Maximo Applicatio
 This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 - Install dependencies:
-  - Install ibm operator catalog (~10 minutes)
-  - Install ibm common services (~10 minutes)
-  - Install cert-manager (~10 minutes)
+  - Install IBM Maximo Application Suite Core v9.x
 - Install AI broker application:
   - Install application (~10 Minutes)
   - Configure AI Broker (kmodels, tenant, etc) (~10 Minutes)
