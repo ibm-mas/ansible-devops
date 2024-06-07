@@ -55,7 +55,7 @@ WATSONXAI_PROJECT_ID=$5
 # fi
 
 # Add testing code to make sure the watsonx apikey works
-python3 ../roles/aibroker/files/access_wx.py $WATSONXAI_APIKEY $WATSONXAI_URL $WATSONXAI_PROJECT_ID
+# python3 ../roles/aibroker/files/access_wx.py $WATSONXAI_APIKEY $WATSONXAI_URL $WATSONXAI_PROJECT_ID
 if [ $? -eq 0 ]; then
     echo "Successfully executed script"
     echo "Creating watsonx secret in k8s"
