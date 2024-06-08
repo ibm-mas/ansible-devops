@@ -50,34 +50,33 @@ spec:
 
           # Ensure level is always set
           # -------------------------------------------------------------------
-          # This can not be enabled yet as some logging is not in the correct format
-          # if !([level]) {
-          #   mutate {
-          #     add_field => { "level" => "UNKNOWN" }
-          #   }
-          # }
-          # mutate {
-          #     copy => ["level", "[@metadata][level_lc]"]
-          # }
-          # mutate {
-          #     lowercase => ["[@metadata][level_lc]"]
-          # }
+          if [level] not in ["DEBUG", "INFO", "WARNING", "AUDIT"] {
+            mutate {
+              add_field => { "[@metadata][level_lc]" => "unknown" }
+            }
+          }
+          else {
+            mutate {
+                copy => ["level", "[@metadata][level_lc]"]
+            }
+            mutate {
+                lowercase => ["[@metadata][level_lc]"]
+            }
+          }
         }
 
         output {
           # For debugging purposes
           # stdout { }
 
-{% if eck_elasticsearch_hosts is defined and eck_elasticsearch_user is defined and eck_elasticsearch_password is defined %}
+{% if eck_remote_es_hosts is defined and eck_remote_es_username is defined and eck_remote_es_password is defined %}
           elasticsearch {
-            hosts => {{ eck_elasticsearch_hosts | to_yaml() }}
-            user => {{ eck_elasticsearch_user }}
-            password => {{ eck_elasticsearch_password }}
+            hosts => {{ eck_remote_es_hosts | to_yaml() }}
+            user => {{ eck_remote_es_username }}
+            password => {{ eck_remote_es_password }}
             ssl_enabled => true
             ssl_verification_mode => none
-            # This can not be enabled yet as some logging is not in the correct format
-            # index => "mas-%{[@metadata][level_lc]}-%{+YYYY.MM.dd}"
-            index => "mas-%{+YYYY.MM.dd}"
+            index => "mas-%{[@metadata][level_lc]}-%{+YYYY.MM.dd}"
           }
 {% elif eck_enable_elasticsearch %}
           elasticsearch {
@@ -85,9 +84,7 @@ spec:
             user => "${MAS_ES_USER}"
             password => "${MAS_ES_PASSWORD}"
             ssl_certificate_authorities => "${MAS_ES_SSL_CERTIFICATE_AUTHORITY}"
-            # This can not be enabled yet as some logging is not in the correct format
-            # index => "mas-%{[@metadata][level_lc]}-%{+YYYY.MM.dd}"
-            index => "mas-%{+YYYY.MM.dd}"
+            index => "mas-%{[@metadata][level_lc]}-%{+YYYY.MM.dd}"
           }
 {% endif %}
         }
