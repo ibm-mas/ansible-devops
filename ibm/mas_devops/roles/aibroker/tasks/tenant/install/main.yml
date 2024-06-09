@@ -15,31 +15,12 @@
   when:
     - namespace_info.resources | length == 0
 
-- name: "Check if secret exists in namespace: {{ tenantNamespace }}"
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: km-s3-secret
-    namespace: "{{ tenantNamespace }}"
-  register: kms3_secret_info
-
-- name: "Check if secret exists in namespace: {{ tenantNamespace }}"
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: regcred
-    namespace: "{{ tenantNamespace }}"
-  register: regcred_secret_info
-
 # Copy secrets to tenant namespace
 - name: "Copy secrets to namespace: {{ tenantNamespace }}"
-  shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply -f -'
+  shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply --force -f -'
   with_items:
     - km-s3-secret
-    - regcred
-  when:
-    - kms3_secret_info.resources | length == 0
-    - regcred_secret_info.resources | length == 0
+    - ibm-entitlement
 
 # Adding inference server runtimes
 - name: "Create config map for connector config"
