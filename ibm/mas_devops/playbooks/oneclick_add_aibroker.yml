@@ -6,7 +6,7 @@
   vars:
     # Application Installation
     mas_app_id: aibroker
-    mas_app_channel: "{{ lookup('env', 'MAS_AIBROKER_CHANNEL') | default('1.0.x-dev', true) }}"
+    mas_app_channel: "{{ lookup('env', 'MAS_AIBROKER_CHANNEL') | default('9.0.x-dev', true) }}"
     artifactory_username: "{{ lookup('env', 'ARTIFACTORY_USERNAME') }}"
     artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
 
@@ -22,63 +22,6 @@
           - lookup('env', 'ARTIFACTORY_USERNAME') != ""
           - lookup('env', 'ARTIFACTORY_TOKEN') != ""
         fail_msg: "One or more required environment variables are not defined"
-
-    # Check if IBM Catalogs is already installed
-    - name: Check if the ibm_catalogs is installed
-      k8s_info:
-        api_version: operators.coreos.com/v1alpha1
-        kind: CatalogSource
-        name: ibm-operator-catalog
-        namespace: openshift-marketplace
-      register: catalog_info
-
-    # Install IBM Catalogs only if it is not already installed
-    - name: Install IBM Catalogs
-      ansible.builtin.include_role:
-        name: ibm.mas_devops.ibm_catalogs
-      when:
-        - catalog_info.resources | length == 0
-
-    # Check if Common Services is already installed
-    - name: Check if the common services is installed
-      k8s_info:
-        api_version: operators.coreos.com/v1alpha1
-        kind: Subscription
-        name: ibm-common-service-operator
-        namespace: ibm-common-services
-      register: common_services_info
-
-    # Install Common Services only if it is not already installed
-    - name: Install Common Services
-      ansible.builtin.include_role:
-        name: ibm.mas_devops.common_services
-      when:
-        - common_services_info.resources | length == 0
-
-    # Check if Certificate Manager is already installed
-    - name: Check if Certificate Manager is already installed
-      k8s_info:
-        api_version: v1
-        name: cert-manager
-        namespace: "cert-manager"
-        kind: Deployment
-      register: certmanager_lookup
-
-    # Check if Certificate Manager is already installed
-    - name: "Check if IBM Certificate Manager is already installed"
-      kubernetes.core.k8s_info:
-        api_version: operator.ibm.com/v1alpha1
-        name: common-service
-        namespace: "ibm-common-services"
-        kind: OperandRequest
-      register: cs_operand_lookup
-
-    # Install Certificate Manager only if it is not already installed
-    - name: Install Certificate Manager
-      ansible.builtin.include_role:
-        name: ibm.mas_devops.cert_manager
-      when:
-        - certmanager_lookup.resources | length == 0 and cs_operand_lookup.resources | length == 0
 
   roles:
     - ibm.mas_devops.odh
