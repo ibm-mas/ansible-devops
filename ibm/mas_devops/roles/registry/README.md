@@ -102,7 +102,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    registry_storage_class: ibmc-block-gold
+    registry_storage_class: ibmc-block-bronze
     registry_storage_capacity: 500Gb
     registry_service_type: loadbalancer
   roles:
