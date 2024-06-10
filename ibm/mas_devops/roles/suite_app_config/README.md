@@ -58,6 +58,19 @@ Defines the app components and versions to configure in the application workspac
 - Environment Variable: `MAS_APPWS_COMPONENTS`
 - Default: Application specific
 
+### mas_pod_templates_dir
+This role will look for a configuration files named:
+
+- `ibm-mas-manage-manageworkspace.yml`
+- `ibm-mas-manage-imagestitching.yml`
+- `ibm-mas-manage-slackproxy.yml`
+- `ibm-mas-manage-healthextworkspace.yml`
+
+The content of the configuration file should be the yaml block that you wish to be inserted into the ManageWorkspace CR. `ibm-mas-manage-manageworkspace.yml` will be inserted into the ManageWorkspace CR `spec -> podTemplates` whereas the component ones e.g, `ibm-mas-manage-imagestitching.yml` will be under `spec -> components -> civil -> podTemplates`. The ibm-mas-manage-ws operator will then pass this on to the corresponding component CR when available.
+
+This is an example of one of the components (civil) - refer to the [BestEfforts reference configuration in the MAS CLI](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-manage-imagestitching.yml).
+For full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
+
 
 Role Variables - Predict Configuration
 -------------------------------------------------------------------------------
@@ -191,6 +204,7 @@ There are two defaulted File Storage Persistent Volumes Claim resources that wil
 
 - Environment Variable: `MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG`
 - Default: `false`
+
 ### JMS queues
 
 The following properties can be defined to customize the persistent volumes for the JMS queues setup for Manage.
@@ -344,6 +358,8 @@ Currently supported server bundle sizes are:
   - i.e 4 bundle pods, each one handling workload for each main capabilities: `mea`, `cron`, `report` and `ui`
 - `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod.
   - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path.
+- `snojms` - Can be used for Manage 8.4 and above. Includes `all` and `jms` bundle pods.
+  - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path.
 
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
 - Default: `dev`
@@ -357,7 +373,7 @@ Optional. Provide a custom archive/file path to be included as part of Manage de
 - Default: None
 
 ### mas_app_settings_customization_archive_name
-Optional. Provide a custom archive file name to be associated with the archive/file path provided. Only used when `mas_app_settings_customization_archive_url` is defined. 
+Optional. Provide a custom archive file name to be associated with the archive/file path provided. Only used when `mas_app_settings_customization_archive_url` is defined.
 
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
 - Default: `manage-custom-archive`
@@ -398,6 +414,15 @@ Optional. Set this to `true` if you want to override existing Manage database en
 
 - Environment Variable: `MAS_APP_SETTINGS_OVERRIDE_ENCRYPTION_SECRETS_FLAG`
 - Default: `False`
+
+### Manage - Server Timezone setting variable
+---
+
+### mas_app_settings_server_timezone
+Optional. Sets the Manage server timezone. If you also want to have the Manage's DB2 database aligned with the same timezone, you must set `DB2_TIMEZONE` while provisioning the corresponding DB2 instance using `db2` role.
+
+- Environment Variable: `MAS_APP_SETTINGS_SERVER_TIMEZONE`
+- Default: `GMT`
 
 Example Playbook
 -------------------------------------------------------------------------------

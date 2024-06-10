@@ -1,0 +1,94 @@
+---
+# 1. Get storage classes, the same as used in Grafana v4 if they are not provided
+# -------------------------------------------------------------------------------
+- name: "update : Determine storage configuration"
+  include_tasks: tasks/update/determine-storage-config.yml
+  when: grafana_instance_storage_class is not defined or grafana_instance_storage_class == ""
+
+
+# 2. Install and configure Grafana v5
+# -----------------------------------------------------------------------------
+- name: "update : Install Grafana Operator V5"
+  include_tasks: "tasks/install/grafana-v5.yml"
+
+
+# 3. Convert grafana dashboards
+# -----------------------------------------------------------------------------
+- name: "update : Get v4 dashboards"
+  kubernetes.core.k8s_info:
+    api_version: integreatly.org/v1alpha1
+    kind: GrafanaDashboard
+  register: v4Dashboards
+  no_log: true # The GrafanaDashboards are large
+
+- name: "update: Create new V5 Dashboards"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/grafana/v5/grafana-dashboard-v5-update.yml.j2') }}"
+  loop: "{{ v4Dashboards.resources }}"
+  loop_control:
+    loop_var: v4_dashboard
+    label: "{{ v4_dashboard.metadata.name }}.{{ v4_dashboard.metadata.namespace }}"
+    # pause: 5 # seconds to avoid race conditions with MAS operators
+  no_log: true # The GrafanaDashboards are large
+
+- name: "update: Check that the dashboards have been processed by the new Grafana"
+  kubernetes.core.k8s_info:
+    api_version: grafana.integreatly.org/v1beta1
+    kind: Grafana
+    name: mas-grafana
+    namespace: "{{ grafana_v5_namespace }}"
+  register: v5GrafanaInstance
+  until:
+    - v5GrafanaInstance.resources is defined
+    - v5GrafanaInstance.resources | length > 0
+    - v5GrafanaInstance.resources[0].status is defined
+    - v5GrafanaInstance.resources[0].status.dashboards is defined
+    - v5GrafanaInstance.resources[0].status.dashboards | length >= v4Dashboards.resources | length
+  retries: 9 # give grafana up to 5 minutes to register dashboards
+  delay: 30 # seconds
+  ignore_errors: true
+  when: v4Dashboards.resources is defined
+
+
+# 4. Display the registered grafana dashboards
+# -----------------------------------------------------------------------------
+- name: "update: Fetch list of registered dashboards"
+  kubernetes.core.k8s_info:
+    api_version: grafana.integreatly.org/v1beta1
+    kind: Grafana
+    name: mas-grafana
+    namespace: "{{ grafana_v5_namespace }}"
+  register: v5GrafanaInstance
+
+- name: "update : Debug Properties"
+  debug:
+    msg: "Grafana V5 dashboards registered .. {{ v5GrafanaInstance.resources[0].status.dashboards }}"
+  when:
+    - v5GrafanaInstance.resources is defined
+    - v5GrafanaInstance.resources | length > 0
+    - v5GrafanaInstance.resources[0].status is defined
+    - v5GrafanaInstance.resources[0].status.dashboards is defined
+
+- name: "update: Print the registered v4 dashboards"
+  debug:
+    msg: "{{ v4_dashboard.metadata.name }}.{{ v4_dashboard.metadata.namespace }} - v4 dashboard converted and registered in v5"
+  when: lookup('ansible.utils.index_of', v5GrafanaInstance.resources[0].status.dashboards, 'regex', v4_dashboard.metadata.namespace + '/' + v4_dashboard.metadata.name, wantlist=True ) | length > 0
+  loop: "{{ v4Dashboards.resources }}"
+  loop_control:
+    loop_var: v4_dashboard
+    label: "{{ v4_dashboard.metadata.name }}.{{ v4_dashboard.metadata.namespace }}"
+
+- name: "update: Print the non-registered v4 dashboards"
+  debug:
+    msg: "** {{ v4_dashboard.metadata.name }}.{{ v4_dashboard.metadata.namespace }} - v4 dashboard converted but IS NOT registered in v5 **"
+  when: lookup('ansible.utils.index_of', v5GrafanaInstance.resources[0].status.dashboards, 'regex', v4_dashboard.metadata.namespace + '/' + v4_dashboard.metadata.name, wantlist=True ) | length == 0
+  loop: "{{ v4Dashboards.resources }}"
+  loop_control:
+    loop_var: v4_dashboard
+    label: "{{ v4_dashboard.metadata.name }}.{{ v4_dashboard.metadata.namespace }}"
+
+
+# 5. Uninstall Grafana v4
+# -----------------------------------------------------------------------------
+- name: "update: Uninstall Grafana Operator v4"
+  include_tasks: "tasks/uninstall_grafanav4/main.yml"
