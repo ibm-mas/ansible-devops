@@ -108,3 +108,105 @@ export WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
+## How to create tenant
+
+### Prerequisites
+
+- IBM AI Broker Application
+
+#### Run playbooks
+
+```bash
+export MAS_INSTANCE_ID="aibroker"
+export TENANT_NAME="<Tenant Name>"
+export TENANT_ACTION="install"
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.aibroker
+```
+
+## How to delete tenant
+
+### Prerequisites
+
+- Tenant installed in a cluster
+
+#### Run playbooks
+
+```bash
+export TENANT_NAME="<Tenant Name>"
+export TENANT_ACTION="remove"
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.aibroker
+```
+
+## How to create S3
+
+### Prerequisites
+
+- IBM AI Broker Application
+
+#### Run playbooks
+
+```bash
+export MAS_INSTANCE_ID="aibroker"
+export TENANT_NAME="<Tenant Name>"
+export STORAGE_ACCESSKEY="<storage provider access key>"
+export STORAGE_SECRETKEY="<storage provider secret key>"
+export STORAGE_HOST="<storage provider host>"
+export STORAGE_REGION="<storage provider region>"
+export S3_ACTION="install"
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.aibroker
+```
+
+## How to delete S3
+
+### Prerequisites
+
+- S3 created in a cluster
+
+#### Run playbooks
+
+```bash
+export MAS_INSTANCE_ID="aibroker"
+export TENANT_NAME="<Tenant Name>"
+export STORAGE_ACCESSKEY="<storage provider access key>"
+export STORAGE_SECRETKEY="<storage provider secret key>"
+export STORAGE_HOST="<storage provider host>"
+export STORAGE_REGION="<storage provider region>"
+export S3_ACTION="remove"
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.aibroker
+```
+
+## How to create API Key
+
+### Prerequisites
+
+- IBM AI Broker Application
+
+#### Run playbooks
+
+```bash
+export MAS_INSTANCE_ID="aibroker"
+export TENANT_NAME="<Tenant Name>"
+export APIKEY_ACTION="install"
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.aibroker
+```
+
+## How to delete API Key
+
+### Prerequisites
+
+- API Key created in a cluster
+
+#### Run playbooks
+
+```bash
+export MAS_INSTANCE_ID="aibroker"
+export TENANT_NAME="<Tenant Name>"
+export APIKEY_ACTION="remove"
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook ibm.mas_devops.aibroker
+```
