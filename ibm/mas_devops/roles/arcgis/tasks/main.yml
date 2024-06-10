@@ -109,6 +109,84 @@
   debug:
     msg: "{{ arcgisWSResult }}"
 
+# Wait ArcGIS pods to be ready
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Wait ArcGIS Ingress Controller deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    label_selectors:
+      - arcgis/siteName={{ mas_arcgis_sitename }}
+      - arcgis/app=ingress-nginx
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: arcgis_ic_nginx_lookup
+  until:
+    - arcgis_ic_nginx_lookup.resources is defined
+    - arcgis_ic_nginx_lookup.resources | length > 0
+    - arcgis_ic_nginx_lookup.resources[0].status is defined
+    - arcgis_ic_nginx_lookup.resources[0].status | length > 0
+    - arcgis_ic_nginx_lookup.resources[0].status.readyReplicas is defined
+    - arcgis_ic_nginx_lookup.resources[0].status.replicas == arcgis_ic_nginx_lookup.resources[0].status.readyReplicas
+  retries: 10 # approx 5 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: "Wait ArcGIS Help deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    label_selectors:
+      - arcgis/siteName={{ mas_arcgis_sitename }}
+      - arcgis/app=help
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: arcgis_help_lookup
+  until:
+    - arcgis_help_lookup.resources is defined
+    - arcgis_help_lookup.resources | length > 0
+    - arcgis_help_lookup.resources[0].status is defined
+    - arcgis_help_lookup.resources[0].status | length > 0
+    - arcgis_help_lookup.resources[0].status.readyReplicas is defined
+    - arcgis_help_lookup.resources[0].status.replicas == arcgis_help_lookup.resources[0].status.readyReplicas
+  retries: 10 # approx 5 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: "Wait ArcGIS Rest Administrator API deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    label_selectors:
+      - arcgis/siteName={{ mas_arcgis_sitename }}
+      - arcgis/app=rest-administrator-api
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: arcgis_admin_lookup
+  until:
+    - arcgis_admin_lookup.resources is defined
+    - arcgis_admin_lookup.resources | length > 0
+    - arcgis_admin_lookup.resources[0].status is defined
+    - arcgis_admin_lookup.resources[0].status | length > 0
+    - arcgis_admin_lookup.resources[0].status.readyReplicas is defined
+    - arcgis_admin_lookup.resources[0].status.replicas == arcgis_admin_lookup.resources[0].status.readyReplicas
+  retries: 10 # approx 5 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: "Wait ArcGIS Enterprise Manager deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    label_selectors:
+      - arcgis/siteName={{ mas_arcgis_sitename }}
+      - arcgis/app=enterprise-manager
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: arcgis_manager_lookup
+  until:
+    - arcgis_manager_lookup.resources is defined
+    - arcgis_manager_lookup.resources | length > 0
+    - arcgis_manager_lookup.resources[0].status is defined
+    - arcgis_manager_lookup.resources[0].status | length > 0
+    - arcgis_manager_lookup.resources[0].status.readyReplicas is defined
+    - arcgis_manager_lookup.resources[0].status.replicas == arcgis_manager_lookup.resources[0].status.readyReplicas
+  retries: 10 # approx 5 minutes before we give up
+  delay: 30 # 30 seconds
+
 # 8. Wait IBM Maximo Location Services custom resource to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for ArcGISWorkspace custom resource to be ready (60s delay)"
