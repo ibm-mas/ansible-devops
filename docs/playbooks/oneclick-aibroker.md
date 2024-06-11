@@ -118,8 +118,9 @@ ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```bash
 export TENANT_NAME="<Tenant Name>"
 export TENANT_ACTION="install"
+export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.aibroker
+ansible-playbook playbooks/run_role.yml
 ```
 
 ## How to delete tenant
@@ -133,8 +134,9 @@ ansible-playbook ibm.mas_devops.aibroker
 ```bash
 export TENANT_NAME="<Tenant Name>"
 export TENANT_ACTION="remove"
+export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.aibroker
+ansible-playbook playbooks/run_role.yml
 ```
 
 ## How to create S3
@@ -153,8 +155,9 @@ export STORAGE_SECRETKEY="<storage provider secret key>"
 export STORAGE_HOST="<storage provider host>"
 export STORAGE_REGION="<storage provider region>"
 export S3_ACTION="install"
+export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.aibroker
+ansible-playbook playbooks/run_role.yml
 ```
 
 ## How to delete S3
@@ -173,8 +176,9 @@ export STORAGE_SECRETKEY="<storage provider secret key>"
 export STORAGE_HOST="<storage provider host>"
 export STORAGE_REGION="<storage provider region>"
 export S3_ACTION="remove"
+export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.aibroker
+ansible-playbook playbooks/run_role.yml
 ```
 
 ## How to create API Key
@@ -189,8 +193,9 @@ ansible-playbook ibm.mas_devops.aibroker
 export MAS_INSTANCE_ID="<instanceId>"
 export TENANT_NAME="<Tenant Name>"
 export APIKEY_ACTION="install"
+export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.aibroker
+ansible-playbook playbooks/run_role.yml
 ```
 
 ## How to delete API Key
@@ -205,6 +210,7 @@ ansible-playbook ibm.mas_devops.aibroker
 export MAS_INSTANCE_ID="<instanceId>"
 export TENANT_NAME="<Tenant Name>"
 export APIKEY_ACTION="remove"
+export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.aibroker
+ansible-playbook playbooks/run_role.yml
 ```
