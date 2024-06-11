@@ -6,7 +6,7 @@ You will need a RedHat OpenShift v4.12 cluster with IBM Maximo Application Suite
 
 ### Dependencies:
 
-- IBM Maximo Application Suite Core v9.x
+* IBM Maximo Application Suite Core v9.x
 
 ## Overview
 
@@ -14,11 +14,11 @@ This playbook will add **AI Broker v1.0.x** to an existing IBM Maximo Applicatio
 
 This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
-- Install dependencies:
-  - Install IBM Maximo Application Suite Core v9.x
-- Install AI broker application:
-  - Install application (~10 Minutes)
-  - Configure AI Broker (kmodels, tenant, etc) (~10 Minutes)
+* Install dependencies:
+  + Install IBM Maximo Application Suite Core v9.x
+* Install AI broker application:
+  + Install application (~10 Minutes)
+  + Configure AI Broker (kmodels, tenant, etc) (~10 Minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing application, just customize the application install and configure stages at the end of the playbook.
 
@@ -30,33 +30,33 @@ AI Broker supports **AWS** and **Minio** storage providers.
 
 ## Required environment variables
 
-- `MAS_INSTANCE_ID` Declare the instance ID for the AI Broker install
-- `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
-- `IBM_ENTITLEMENT_USERNAME` Your IBM Entitlement user to access the IBM Container Registry
-- `STORAGE_ACCESSKEY` Your strage provider access key
-- `STORAGE_SECRETKEY` Your storage provider secret key
-- `STORAGE_HOST` Your storage provider host
-- `STORAGE_REGION` Your storage provider region
-- `STORAGE_PROVIDER` Your storage provider name
-- `ICR_PASSWORD` Your ICR registry password
-- `ICR_USERNAME` Your ICR registry user name
-- `TENANT_NAME` Your Aibroker tenant name
-- `APP_DOMAIN` Your app domain for example: `apps.dev.cp.fyre.ibm.com`
-- `STORAGE_PIPELINES_BUCKET` Your piplines bucket
-- `STORAGE_TENANTS_BUCKET` Your tenants bucket
-- `WATSONXAI_APIKEY` You WatsonX AI api key
-- `WATSONXAI_URL` You WatsonX AI url
-- `WATSONXAI_PROJECT_ID` You WatsonX projedt Id
+* `MAS_INSTANCE_ID` Declare the instance ID for the AI Broker install
+* `ARTIFACTORY_USERNAME` Your artifactory user name to access
+* `ARTIFACTORY_TOKEN` Your artifactory token for user to access
+* `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
+* `IBM_ENTITLEMENT_USERNAME` Your IBM Entitlement user to access the IBM Container Registry
+* `STORAGE_ACCESSKEY` Your strage provider access key
+* `STORAGE_SECRETKEY` Your storage provider secret key
+* `STORAGE_HOST` Your storage provider host
+* `STORAGE_REGION` Your storage provider region
+* `STORAGE_PROVIDER` Your storage provider name
+* `TENANT_NAME` Your Aibroker tenant name
+* `APP_DOMAIN` Your app domain for example: `apps.dev.cp.fyre.ibm.com`
+* `STORAGE_PIPELINES_BUCKET` Your piplines bucket
+* `STORAGE_TENANTS_BUCKET` Your tenants bucket
+* `WATSONXAI_APIKEY` You WatsonX AI api key
+* `WATSONXAI_URL` You WatsonX AI url
+* `WATSONXAI_PROJECT_ID` You WatsonX projedt Id
 
 ## Optional environment variables
 
-- `MAS_AIBROKER_CHANNEL` Your custom AI broker application channel
-- `MAS_CATALOG_VERSION` Your custom AI broker catalog version
-- `STORAGE_PROVIDER` Your custom storage provider (aws, minio)
-- `TENANT_ACTION` Whether to install or remove tenant (default value is: install)
-- `APIKEY_ACTION` Whether to install or remove or update apikey (default value is: install)
-- `WATSONX_ACTION` Whether to install or remove watsonx secret (default value is: install)
-- `S3_ACTION` Whether to install or remove s3 (default value is: install)
+* `MAS_AIBROKER_CHANNEL` Your custom AI broker application channel
+* `MAS_CATALOG_VERSION` Your custom AI broker catalog version
+* `STORAGE_PROVIDER` Your custom storage provider (aws, minio) (default value is: aws)
+* `TENANT_ACTION` Whether to install or remove tenant (default value is: install)
+* `APIKEY_ACTION` Whether to install or remove or update apikey (default value is: install)
+* `WATSONX_ACTION` Whether to install or remove watsonx secret (default value is: install)
+* `S3_ACTION` Whether to install or remove s3 (default value is: install)
 
 ## Usage
 
@@ -89,14 +89,12 @@ export ARTIFACTORY_USERNAME="<artifactory user>"
 export ARTIFACTORY_TOKEN="<artifactory token>"
 export IBM_ENTITLEMENT_USERNAME="<user>"
 export IBM_ENTITLEMENT_KEY="<token>"
-export MAS_INSTANCE_ID="aibroker"
+export MAS_INSTANCE_ID="<instanceId>"
 export STORAGE_ACCESSKEY="<storage provider access key>"
 export STORAGE_SECRETKEY="<storage provider secret key>"
 export STORAGE_HOST="<storage provider host>"
 export STORAGE_REGION="<storage provider region>"
 export STORAGE_PROVIDER="<storage provider name>"
-export ICR_USERNAME="<irc username>"
-export ICR_PASSWORD="<icr password>"
 export TENANT_NAME="user"
 export STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
 export STORAGE_TENANTS_BUCKET="<tenants bucket name>"
@@ -108,16 +106,16 @@ export WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
+
 ## How to create tenant
 
 ### Prerequisites
 
-- IBM AI Broker Application
+* IBM AI Broker Application
 
 #### Run playbooks
 
 ```bash
-export MAS_INSTANCE_ID="aibroker"
 export TENANT_NAME="<Tenant Name>"
 export TENANT_ACTION="install"
 oc login --token=xxxx --server=https://myocpserver
@@ -128,7 +126,7 @@ ansible-playbook ibm.mas_devops.aibroker
 
 ### Prerequisites
 
-- Tenant installed in a cluster
+* Tenant installed in a cluster
 
 #### Run playbooks
 
@@ -143,12 +141,12 @@ ansible-playbook ibm.mas_devops.aibroker
 
 ### Prerequisites
 
-- IBM AI Broker Application
+* IBM AI Broker Application
 
 #### Run playbooks
 
 ```bash
-export MAS_INSTANCE_ID="aibroker"
+export MAS_INSTANCE_ID="<instanceId>"
 export TENANT_NAME="<Tenant Name>"
 export STORAGE_ACCESSKEY="<storage provider access key>"
 export STORAGE_SECRETKEY="<storage provider secret key>"
@@ -163,12 +161,12 @@ ansible-playbook ibm.mas_devops.aibroker
 
 ### Prerequisites
 
-- S3 created in a cluster
+* S3 created in a cluster
 
 #### Run playbooks
 
 ```bash
-export MAS_INSTANCE_ID="aibroker"
+export MAS_INSTANCE_ID="<instanceId>"
 export TENANT_NAME="<Tenant Name>"
 export STORAGE_ACCESSKEY="<storage provider access key>"
 export STORAGE_SECRETKEY="<storage provider secret key>"
@@ -183,12 +181,12 @@ ansible-playbook ibm.mas_devops.aibroker
 
 ### Prerequisites
 
-- IBM AI Broker Application
+* IBM AI Broker Application
 
 #### Run playbooks
 
 ```bash
-export MAS_INSTANCE_ID="aibroker"
+export MAS_INSTANCE_ID="<instanceId>"
 export TENANT_NAME="<Tenant Name>"
 export APIKEY_ACTION="install"
 oc login --token=xxxx --server=https://myocpserver
@@ -199,12 +197,12 @@ ansible-playbook ibm.mas_devops.aibroker
 
 ### Prerequisites
 
-- API Key created in a cluster
+* API Key created in a cluster
 
 #### Run playbooks
 
 ```bash
-export MAS_INSTANCE_ID="aibroker"
+export MAS_INSTANCE_ID="<instanceId>"
 export TENANT_NAME="<Tenant Name>"
 export APIKEY_ACTION="remove"
 oc login --token=xxxx --server=https://myocpserver
