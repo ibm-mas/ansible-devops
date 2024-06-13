@@ -15,7 +15,7 @@ This playbook will add **AI Broker v1.0.x** to an existing IBM Maximo Applicatio
 This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
 * Install dependencies:
-  + Install IBM Maximo Application Suite Core v9.x
+  + Install IBM Maximo Application Suite Core v9.x (~60 Minutes)
 * Install AI broker application:
   + Install application (~10 Minutes)
   + Configure AI Broker (kmodels, tenant, etc) (~10 Minutes)
