@@ -74,10 +74,6 @@
     template: templates/arcgisapp.yml.j2
   register: arcgisAppResult
 
-- name: debug arcgisAppResult
-  debug:
-    msg: "{{ arcgisAppResult }}"
-
 # 8. Wait IBM Maximo Location Services custom resource to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for ArcGISApp custom resource to be ready (60s delay)"
@@ -104,10 +100,6 @@
     namespace: "{{ mas_arcgis_namespace }}"
     template: templates/arcgisws.yml.j2
   register: arcgisWSResult
-
-- name: debug arcgisWSResult
-  debug:
-    msg: "{{ arcgisWSResult }}"
 
 # Wait ArcGIS pods to be ready
 # ------------------------------------------------------------------------------------------------------------------------------
@@ -202,6 +194,11 @@
     - arcgisws_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
+
+- include_tasks: "lookup_trusted_certs.yml"
+  when:
+    - mas_config_dir is defined
+    - mas_config_dir | length > 0
 
 # 9. Retrieve ArcGIS dashboard route
 # -----------------------------------------------------------------------------
