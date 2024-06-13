@@ -23,6 +23,14 @@ options:
         description: MAS instance ID.
         required: true
         type: str
+    mongo_username:
+        description: mongo username
+        required: optional
+        type: str
+    mongo_password:
+        description: mongo password
+        required: optional
+        type: str
     mongo_uri:
         description: Mongo URI.
         required: true
@@ -59,6 +67,15 @@ def main():
             no_log = True,
         ),
 
+        mongo_username = dict(
+            type = "str",
+            no_log = True,
+        ),
+
+        mongo_password = dict(
+            type = "str",
+            no_log = True,
+        ),
         config = dict(
             type = "dict",
             required_if = [
@@ -82,13 +99,19 @@ def main():
                 ),
                 username = dict(
                     type = "str",
-                    required = True,
+                    required = False,
                     no_log = True,
                 ),
                 password = dict(
                     type = "str",
-                    required = True,
+                    required = False,
                     no_log = True,
+                ),
+                retryWrites = dict(
+                    type = "bool",
+                    required = False,
+                    no_log = True,
+                    default = True
                 ),
                 configDb = dict(
                     type = "str",
@@ -137,7 +160,11 @@ def main():
         mongo_uri = 'mongodb://'
 
         # Add creds
-        mongo_uri += f"{params_config['username']}:{params_config['password']}@"
+        if params_config['username'] is not None and params_config['password'] is not None:
+            mongo_uri += f"{params_config['username']}:{params_config['password']}@"
+        elif module.params.get('mongo_username') is not None and module.params.get('mongo_password') is not None:
+            mongo_uri += f"{module.params.get('mongo_username')}:{module.params.get('mongo_password')}@"
+
 
         # Add hosts
         nodes = []
@@ -174,7 +201,8 @@ def main():
                 mongo_uri,
                 tls = True,
                 tlsCAFile = ca_file.name if ca_file is not None else None,
-                tlsAllowInvalidCertificates = False
+                tlsAllowInvalidCertificates = False,
+                retryWrites = params_config['retryWrites']
             )
         except Exception as ex:
             module.fail_json(msg = f"Unable to initialize mongo client: {str(ex)}")
