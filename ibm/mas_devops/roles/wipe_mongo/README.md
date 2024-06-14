@@ -33,15 +33,14 @@ Mongo URI
 - Default Value: None
 
 ### config
-Path to the mas config directory. 
+Mongo Config, please refer to the below example playbook section for details
 
 - **Required**
 - Environment Variable: `CONFIG`
 - Default Value: None
 
 ### certificates
-Boolean flag to indicate whether to run role in gitops mode. True means that no openshift resources
-are created on the cluster. 
+Mongo Certificates, please refer to the below example playbook section for details
 
 - **Required**
 - Environment Variable: `CERTIFICATES`
@@ -87,8 +86,6 @@ Example Playbook
     - ibm.mas_devops.wipe_mongo
 
 ```
-
-
 
 License
 -------
