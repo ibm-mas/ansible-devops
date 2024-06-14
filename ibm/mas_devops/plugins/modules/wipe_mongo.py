@@ -70,11 +70,13 @@ def main():
         mongo_username = dict(
             type = "str",
             no_log = True,
+            required = True,
         ),
 
         mongo_password = dict(
             type = "str",
             no_log = True,
+            required = True,
         ),
         config = dict(
             type = "dict",
@@ -97,16 +99,6 @@ def main():
                     ),
                     required = True
                 ),
-                username = dict(
-                    type = "str",
-                    required = False,
-                    no_log = True,
-                ),
-                password = dict(
-                    type = "str",
-                    required = False,
-                    no_log = True,
-                ),
                 retryWrites = dict(
                     type = "bool",
                     required = False,
@@ -122,6 +114,16 @@ def main():
                     choices = ['DEFAULT', 'PLAIN'],
                     required = False,
                     default = "DEFAULT",
+                ),
+                credentials = dict(
+                    type = "dict",
+                    options = dict(
+                        secretName = dict(
+                            type = "str",
+                            required = False
+                        )
+                    ),
+                    required = False
                 ),
             )
         ),
@@ -160,11 +162,7 @@ def main():
         mongo_uri = 'mongodb://'
 
         # Add creds
-        if params_config['username'] is not None and params_config['password'] is not None:
-            mongo_uri += f"{params_config['username']}:{params_config['password']}@"
-        elif module.params.get('mongo_username') is not None and module.params.get('mongo_password') is not None:
-            mongo_uri += f"{module.params.get('mongo_username')}:{module.params.get('mongo_password')}@"
-
+        mongo_uri += f"{module.params.get('mongo_username')}:{module.params.get('mongo_password')}@"
 
         # Add hosts
         nodes = []
@@ -184,7 +182,6 @@ def main():
             mongo_uri += f"authSource={auth_source}"
     else:
         mongo_uri = module.params['mongo_uri']
-
 
     ca_file = None
     mongo_client = None
@@ -206,7 +203,6 @@ def main():
             )
         except Exception as ex:
             module.fail_json(msg = f"Unable to initialize mongo client: {str(ex)}")
-
 
         try:
             inst_id = module.params['instance_id']
@@ -260,14 +256,12 @@ def main():
                     else:
                         db_status['dropped'] = False
 
-
             # report failure iff at least one database failed to drop
             failed = False
             for db_status in db_statuses:
                 if db_status.get('error') is not None:
                     failed = True
                     break
-
 
             if failed:
                 module.fail_json(
