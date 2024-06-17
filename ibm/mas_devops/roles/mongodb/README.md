@@ -271,7 +271,7 @@ Community MongoDB Backup and Restore Role Variables
 Optional. Whether to confirm the currently connected cluster before perform the backup/restore job.
 
 - Environment Variable: `MASBR_CONFIRM_CLUSTER`
-- Default Value: `true`
+- Default Value: `false`
 
 ### masbr_copy_timeout_sec
 Optional. Sets the waiting time in seconds for copying backup files between cluster and specified storage locaiton.
@@ -317,10 +317,10 @@ Supported backup types: `full` and `incr`
 - Environment Variable: `MASBR_BACKUP_TYPE`
 - Default Value: `full`
 
-### masbr_backup_from
-Required only if `mongodb_action` is `backup` and `masbr_backup_type` is `incr`. The name of the backup to create incremental backup based on.
+### masbr_backup_from_version
+Required only if `mongodb_action` is `backup` and `masbr_backup_type` is `incr`. The version of the backup to create incremental backup based on.
 
-- Environment Variable: `MASBR_BACKUP_FROM`
+- Environment Variable: `MASBR_BACKUP_FROM_VERSION`
 - Default Value: None
 
 ### masbr_backup_schedule
@@ -337,10 +337,10 @@ https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 - Environment Variable: `MASBR_BACKUP_TIMEZONE`
 - Default Value: None
 
-### masbr_restore_from
-Required only if `mongodb_action` is `restore`. The name of the backup to be restored from.
+### masbr_restore_from_version
+Required only if `mongodb_action` is `restore`. The version of the backup to be restored from.
 
-- Environment Variable: `MASBR_RESTORE_FROM`
+- Environment Variable: `MASBR_RESTORE_FROM_VERSION`
 - Default Value: None
 
 ### masbr_slack_enabled
