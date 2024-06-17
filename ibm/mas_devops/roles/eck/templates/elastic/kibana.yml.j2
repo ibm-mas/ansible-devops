@@ -1,0 +1,21 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: {{ kibana_name }}
+  namespace: {{ kibana_namespace }}
+spec:
+  version: {{ eck_version }}
+  count: {{ kibana_replicas }}
+
+  elasticsearchRef:
+    name: {{ es_name }}
+
+# https://www.elastic.co/guide/en/kibana/8.13/settings.html#server-publicBaseUrl
+# server.publicBaseUrl
+
+{% if kibana_domain is defined and kibana_domain != "" %}
+  http:
+    tls:
+      certificate:
+        secretName: kibana-le-prod-tls
+{% endif %}

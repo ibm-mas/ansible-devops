@@ -32,6 +32,7 @@ copyDoc db2
 copyDoc db2_backup
 copyDoc db2_restore
 copyDoc dro
+copyDoc eck
 copyDoc entitlement_key_rotation
 copyDoc gencfg_jdbc
 copyDoc gencfg_mongo

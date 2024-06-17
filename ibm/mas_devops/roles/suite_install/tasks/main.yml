@@ -198,7 +198,27 @@
     crd_name: suites.core.mas.ibm.com
 
 
-# 13. Suite installation
+# 13. Before we install the suite create the optional filebeat and superuser secrets
+# -----------------------------------------------------------------------------
+# Note that this will have no effect on older version of MAS, but will do no harm
+- name: Configure Filebeat for Logstash
+  when: eck_enable_logstash
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ mas_namespace }}"
+    template: templates/secret-filebeat-output.yml.j2
+
+- name: Configure MAS Superuser account
+  when:
+    - mas_superuser_username is defined and mas_superuser_username != ""
+    - mas_superuser_password is defined and mas_superuser_password != ""
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ mas_namespace }}"
+    template: templates/secret-superuser.yml.j2
+
+
+# 14. Suite installation
 # -----------------------------------------------------------------------------
 - name: Create suite.ibm.com/v1 CR
   vars:
@@ -213,7 +233,8 @@
   debug:
     msg: "{{ suiteResult }}"
 
-# 14. Set up OCP ConsoleLink for MAS Admin Dashboard
+
+# 15. Set up OCP ConsoleLink for MAS Admin Dashboard
 # -----------------------------------------------------------------------------
 - name: Create ConsoleLink for MAS Admin Dashbord
   kubernetes.core.k8s:
