@@ -22,6 +22,12 @@ Inform the role whether to perform an install or uninstall of Data Reporter Oper
 
     The `uninstall` action works across both `uds` and `dro` roles.
 
+### dro_namespace
+DRO can be installed on a different namespace, on certain type of OCP clusters where redhat* namespaces have restricted access, User can configure and install DRO on a custom namespace of their choosing by supplying a name using `DRO_NAMESPACE`
+
+- Environment Variable: `DRO_NAMESPACE`
+- Default Value: redhat-marketplace
+
 ### dro_migration
 To migrate from `IBM User Data Services` to `ibm-data-reporter`, set `DRO_MIGRATION` variable to `True`.
 
@@ -139,6 +145,7 @@ export MAS_CONFIG_DIR=<valid local path to the config folder>
 export MAS_INSTANCE_ID=<valid mas instance id>
 export DRO_STORAGE_CLASS=<valid storage class name>
 export ROLE_NAME='dro'
+export DRO_NAMESPACE=ibm-dro
 
 ansible-playbook playbooks/run_role.yml
 ```
@@ -165,6 +172,7 @@ To uninstall DRO
 ```
 export DRO_ACTION=uninstall
 export ROLE_NAME='dro'
+export DRO_NAMESPACE=ibm-dro
 
 ansible-playbook playbooks/run_role.yml
 
