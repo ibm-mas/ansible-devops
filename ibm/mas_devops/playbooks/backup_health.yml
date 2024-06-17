@@ -1,4 +1,4 @@
-- name: "Backup Visual Inspection"
+- name: "Backup Health"
   hosts: localhost
   any_errors_fatal: true
 
@@ -9,6 +9,7 @@
       set_fact:
         mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
         mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
+        db2_instance_id: "{{ lookup('env', 'DB2_INSTANCE_NAME') }}"
 
     - name: "Fail if mas_instance_id is not provided"
       assert:
@@ -20,6 +21,11 @@
         that: mas_workspace_id is defined and mas_workspace_id != ""
         fail_msg: "mas_workspace_id is required"
 
+    - name: "Fail if db2_instance_id is not provided"
+      assert:
+        that: db2_instance_id is defined and db2_instance_id != ""
+        fail_msg: "db2_instance_id is required"
+
 
     # Set job variables
     # -------------------------------------------------------------------------
@@ -27,9 +33,9 @@
       set_fact:
         masbr_job_version: "{{ '%Y%m%d%H%M%S' | strftime }}"
         masbr_job_component:
-          name: "visualinspection"
+          name: "health"
           instance: "{{ mas_instance_id }}"
-          namespace: "mas-{{ mas_instance_id }}-visualinspection"
+          namespace: "mas-{{ mas_instance_id }}-manage"
 
 
     # Common checks before run tasks
@@ -60,6 +66,8 @@
             value: "{{ mas_instance_id }}"
           - name: "MAS_WORKSPACE_ID"
             value: "{{ mas_workspace_id }}"
+          - name: "DB2_INSTANCE_NAME"
+            value: "{{ db2_instance_id }}"
 
 
     # Run backup tasks in k8s Job or local workstation
@@ -72,7 +80,13 @@
             name: ibm.mas_devops.mongodb
           vars:
             mongodb_action: "backup"
-            mas_app_id: "visualinspection"
+            mas_app_id: "health"
+
+        - name: "Backup Db2"
+          include_role:
+            name: ibm.mas_devops.db2
+          vars:
+            db2_action: "backup"
 
         - name: "Backup MAS Core namespace"
           include_role:
@@ -80,9 +94,16 @@
           vars:
             masbr_action: "backup"
 
-        - name: "Backup Visual Inspection namespace"
+        - name: "Backup Manage namespace"
           include_role:
             name: ibm.mas_devops.suite_app_backup_restore
           vars:
             masbr_action: "backup"
-            mas_app_id: "visualinspection"
+            mas_app_id: "manage"
+
+        - name: "Backup Health namespace"
+          include_role:
+            name: ibm.mas_devops.suite_app_backup_restore
+          vars:
+            masbr_action: "backup"
+            mas_app_id: "health"

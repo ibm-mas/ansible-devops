@@ -53,23 +53,34 @@
 
 # Restore mongodb databases
 # -------------------------------------------------------------------------
+- name: "Set fact: mongodb ns instance"
+  set_fact:
+    mongodb_ns_instance: "{{ mas_instance_id }}"
+
+- name: "Set fact: rename mongodb ns"
+  when: masbr_restore_to_diff_instance
+  set_fact:
+    mongodb_ns_rename: >-
+      --nsFrom="*_{{ masbr_restore_from_yaml.source.instance }}_*.*" --nsTo="*_{{ mas_instance_id }}_*.*"
+    mongodb_ns_instance: "{{ masbr_restore_from_yaml.source.instance }}"
+
 - name: "Set fact: mongodb ns filters (Only for restoring from Full backup)"
   when: _job_type == "full"
   set_fact:
-    # Exclude these collections because they should be populated by MAS deployment
-    mongodb_ns_filters: >-
-      --nsExclude='mas_{{ mas_instance_id }}_adoptionusage.*'
-      --nsExclude='mas_{{ mas_instance_id }}_catalog.*'
-      --nsExclude='mas_{{ mas_instance_id }}_core.OauthClient'
-      --nsExclude='mas_{{ mas_instance_id }}_core.OauthToken'
-      --nsExclude='mas_{{ mas_instance_id }}_core.bindings'
-      --nsExclude='mas_{{ mas_instance_id }}_core.graphiteconfigtool.*'
-      --nsExclude='mas_{{ mas_instance_id }}_core.workspaces'
+    # Exclude these collections because they should be populated by MAS installation
+    mongodb_ns_filter: >-
+      --nsExclude="mas_{{ mongodb_ns_instance }}_adoptionusage.*"
+      --nsExclude="mas_{{ mongodb_ns_instance }}_catalog.*"
+      --nsExclude="mas_{{ mongodb_ns_instance }}_core.OauthClient"
+      --nsExclude="mas_{{ mongodb_ns_instance }}_core.OauthToken"
+      --nsExclude="mas_{{ mongodb_ns_instance }}_core.bindings"
+      --nsExclude="mas_{{ mongodb_ns_instance }}_core.graphiteconfigtool.*"
+      --nsExclude="mas_{{ mongodb_ns_instance }}_core.workspaces"
 
 - name: "Debug: mongodb ns filters (Only for restoring from Full backup)"
   when: _job_type == "full"
   debug:
-    msg: "{{ mongodb_ns_filters }}"
+    msg: "{{ mongodb_ns_filter }}"
 
 - name: "Restore mongodb databases"
   changed_when: true
@@ -79,7 +90,8 @@
     --username={{ mongodb_user }} --password={{ mongodb_password }}
     --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
     {{ '--oplogReplay' if _job_type == 'incr' }}
-    {{ mongodb_ns_filters if _job_type == 'full' }}
+    {{ mongodb_ns_filter if _job_type == 'full' }}
+    {{ mongodb_ns_rename if masbr_restore_to_diff_instance }}
     --drop --dir={{ mongodb_restore_folder }}/{{ _job_name }}
     |& tee -a {{ mongodb_restore_log }}
     {{ exec_in_pod_end }}

@@ -1,8 +1,15 @@
 ---
-# Check common variables
-# -----------------------------------------------------------------------------
-- name: "Check common variables"
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/check_common_vars.yml"
+# Set below common job facts:
+#   masbr_task_type, masbr_job_type
+#   masbr_job_version, masbr_job_name, masbr_job_name_final
+#
+# Set below restore job facts:
+#   masbr_restore_from, masbr_restore_from_completed
+#   masbr_restore_ancestor, masbr_restore_ancestor_completed
+#   masbr_restore_from_yaml
+#   masbr_restore_from_incr: true|false
+#   masbr_restore_to_diff_domain: true|false
+#   masbr_restore_to_diff_instance: true|false
 
 
 # Restore environment variables
@@ -130,17 +137,27 @@
       - src_file: "backup.yml"
         dest_folder: "from"
 
-- name: "Set fact: restore-from job information"
+- name: "Set fact: restore-from job yaml"
   set_fact:
     masbr_restore_from_yaml: "{{ lookup('file', masbr_local_job_folder + '/from/backup.yml') | from_yaml }}"
 
-- name: "Debug: restore-from job information"
+- name: "Debug: restore-from job yaml"
   debug:
     msg: "{{ masbr_restore_from_yaml }}"
 
-- name: "Set fact: if this is an incremental backup"
+- name: "Set fact: restore-from job variables"
   set_fact:
+    # Whether restore from an incremental backup
     masbr_restore_from_incr: "{{ true if masbr_restore_from_yaml.type == 'incr' else false }}"
+
+    # Whether restore to different domain (Disaster Recovery)
+    masbr_restore_to_diff_domain: >-
+      {{ true if masbr_restore_from_yaml.source.domain != masbr_cluster_domain else false }}
+
+    # Whether restore to different mas instance (Data Migration)
+    masbr_restore_to_diff_instance: >-
+      {{ true if (masbr_job_component.instance is defined and masbr_job_component.instance | length > 0 and
+      masbr_restore_from_yaml.source.instance != masbr_job_component.instance) else false }}
 
 
 # Trying to restore from an incremental backup, also need to check the existance of the ancestor full backup
@@ -181,3 +198,6 @@
       - "Restore from ........................... {{ masbr_restore_from }}"
       - "Restore component ...................... {{ masbr_job_component }}"
       - "Restore data ........................... {{ masbr_job_data_list }}"
+      - "Restore from incremental backup ........ {{ masbr_restore_from_incr }}"
+      - "Restore to different domain ............ {{ masbr_restore_to_diff_domain }}"
+      - "Restore to different instance .......... {{ masbr_restore_to_diff_instance }}"
