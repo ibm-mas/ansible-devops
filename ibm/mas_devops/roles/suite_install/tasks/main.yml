@@ -198,16 +198,24 @@
     crd_name: suites.core.mas.ibm.com
 
 
-# 13. Integrated Airgap support
+# 13. Before we install the suite create the optional filebeat and superuser secrets
 # -----------------------------------------------------------------------------
-# Before we create the CR we will set up the Airgap Image Map
-# We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
-- name: "Determine whether this is an airgap environment"
-  include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
+# Note that this will have no effect on older version of MAS, but will do no harm
+- name: Configure Filebeat for Logstash
+  when: eck_enable_logstash
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ mas_namespace }}"
+    template: templates/secret-filebeat-output.yml.j2
 
-- name: "Enable use of image digests"
-  when: airgap_install
-  include_tasks: "tasks/install_digest_cm.yml"
+- name: Configure MAS Superuser account
+  when:
+    - mas_superuser_username is defined and mas_superuser_username != ""
+    - mas_superuser_password is defined and mas_superuser_password != ""
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ mas_namespace }}"
+    template: templates/secret-superuser.yml.j2
 
 
 # 14. Suite installation
@@ -224,3 +232,11 @@
 - name: debug suiteResult
   debug:
     msg: "{{ suiteResult }}"
+
+
+# 15. Set up OCP ConsoleLink for MAS Admin Dashboard
+# -----------------------------------------------------------------------------
+- name: Create ConsoleLink for MAS Admin Dashbord
+  kubernetes.core.k8s:
+    state: present
+    template: templates/consolelink.yml.j2
