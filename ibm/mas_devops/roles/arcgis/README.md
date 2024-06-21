@@ -6,8 +6,7 @@ Installs **IBM Maximo Location Services for Esri**.
 This dependency is an alternative solution if you are planning to leverage geospatial and map features with Maximo Spatial.
 The biggest benefit of using it is that you could have both IBM Maximo Location Services for Esri and Maximo Spatial deployed and running into the same cluster, which improves significantly your overall networking performance.
 
-**Note:** It is required to have valid well-known public certificates so that IBM Maximo Location Services for Esri is properly installed. You might use [suite_dns](../suite_dns/README.md) to setup cluster issuer and public certificates for your MAS instances, which are automatically reused for `IBM Maximo Location Services for Esri`. 
-The installation `will not` work for self-signed certificates type of deployment.
+**Note:** IBM Maximo Location Services for Esri will make use of MAS cluster issuers while managing internal and public certificates thus, you while using [suite_dns](../suite_dns/README.md) to setup cluster issuer and public certificates for your MAS instances, these are automatically reused for your instance of `IBM Maximo Location Services for Esri`. 
 
 ### Deployment details
 
