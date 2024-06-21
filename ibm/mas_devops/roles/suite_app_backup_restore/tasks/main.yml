@@ -63,6 +63,8 @@
   vars:
     _rt_role_name: "suite_app_backup_restore"
     _rt_env:
+      - name: "MASBR_JOB_VERSION"
+        value: "{{ masbr_job_version }}"
       - name: "MAS_INSTANCE_ID"
         value: "{{ mas_instance_id }}"
       - name: "MAS_WORKSPACE_ID"
@@ -83,14 +85,13 @@
           - seq: "1"
             phase: "New"
 
-
     # Run backup/restore tasks for each data type
     # -------------------------------------------------------------------------
     - name: "Run {{ masbr_action }} tasks for each data type"
       include_tasks: "{{ _include_tasks_folder }}/{{ masbr_action }}-{{ job_data_item.type }}.yml"
       vars:
         _include_tasks_folder: >-
-          {{ 'tasks' if job_data_item.type in ['namespace', 'pv'] else 'tasks/' + mas_app_id }}
+          {{ role_path }}/{{ 'tasks' if job_data_item.type in ['namespace', 'pv'] else 'tasks/' + mas_app_id }}
         masbr_job_data_seq: "{{ job_data_item.seq }}"
         masbr_job_data_type: "{{ job_data_item.type }}"
       loop: "{{ masbr_job_data_list }}"

@@ -1,4 +1,4 @@
-- name: "Restore Optimizer"
+- name: "Restore Db2"
   hosts: localhost
   any_errors_fatal: true
 
@@ -7,19 +7,7 @@
     # -------------------------------------------------------------------------
     - name: "Get required environment variables"
       set_fact:
-        mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-        mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
         db2_instance_id: "{{ lookup('env', 'DB2_INSTANCE_NAME') }}"
-
-    - name: "Fail if mas_instance_id is not provided"
-      assert:
-        that: mas_instance_id is defined and mas_instance_id != ""
-        fail_msg: "mas_instance_id is required"
-
-    - name: "Fail if mas_workspace_id is not provided"
-      assert:
-        that: mas_workspace_id is defined and mas_workspace_id != ""
-        fail_msg: "mas_workspace_id is required"
 
     - name: "Fail if db2_instance_id is not provided"
       assert:
@@ -29,13 +17,17 @@
 
     # Set job variables
     # -------------------------------------------------------------------------
+    - name: "Set fact: default variables"
+      set_fact:
+        db2_namespace: "{{ lookup('env', 'DB2_NAMESPACE') | default('db2u', true) }}"
+
     - name: "Set fact: restore job variables"
       set_fact:
         masbr_job_version: "{{ lookup('env', 'MASBR_JOB_VERSION') | default('%Y%m%d%H%M%S' | strftime, true) }}"
         masbr_job_component:
-          name: "optimizer"
-          instance: "{{ mas_instance_id }}"
-          namespace: "mas-{{ mas_instance_id }}-optimizer"
+          name: "db2"
+          instance: "{{ db2_instance_id }}"
+          namespace: "{{ db2_namespace }}"
 
 
     # Common checks before run tasks
@@ -60,16 +52,14 @@
       when: masbr_create_task_job
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
       vars:
-        _rt_playbook_name: "restore_manage"
+        _rt_playbook_name: "restore_db2"
         _rt_env:
           - name: "MASBR_JOB_VERSION"
             value: "{{ masbr_job_version }}"
-          - name: "MAS_INSTANCE_ID"
-            value: "{{ mas_instance_id }}"
-          - name: "MAS_WORKSPACE_ID"
-            value: "{{ mas_workspace_id }}"
           - name: "DB2_INSTANCE_NAME"
             value: "{{ db2_instance_id }}"
+          - name: "DB2_NAMESPACE"
+            value: "{{ db2_namespace }}"
 
 
     # Run restore tasks in k8s Job or local workstation
@@ -77,35 +67,8 @@
     - name: "Run restore tasks"
       when: not masbr_create_task_job
       block:
-        - name: "Restore MongoDB"
-          include_role:
-            name: ibm.mas_devops.mongodb
-          vars:
-            mongodb_action: "restore"
-            mas_app_id: "optimizer"
-
         - name: "Restore Db2"
           include_role:
             name: ibm.mas_devops.db2
           vars:
-            db2_action: "restore"
-
-        - name: "Restore MAS Core namespace"
-          include_role:
-            name: ibm.mas_devops.suite_backup_restore
-          vars:
-            masbr_action: "restore"
-
-        - name: "Restore Manage namespace"
-          include_role:
-            name: ibm.mas_devops.suite_app_backup_restore
-          vars:
-            masbr_action: "restore"
-            mas_app_id: "manage"
-
-        - name: "Restore Optimizer namespace"
-          include_role:
-            name: ibm.mas_devops.suite_app_backup_restore
-          vars:
-            masbr_action: "restore"
-            mas_app_id: "optimizer"
+            mongodb_action: "restore"

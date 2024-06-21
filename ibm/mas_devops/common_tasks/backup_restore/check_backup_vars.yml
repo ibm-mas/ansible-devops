@@ -1,7 +1,7 @@
 ---
 # Set below common job facts:
 #   masbr_task_type, masbr_job_type
-#   masbr_job_version, masbr_job_name, masbr_job_name_final
+#   masbr_job_name, masbr_job_name_final
 #
 # Set below backup job facts:
 #   masbr_backup_from, masbr_backup_from_completed
@@ -85,19 +85,12 @@
         masbr_job_data_list: "{{ masbr_job_data_init }}"
 
 
-# Check 'masbr_task_type'
+# Set 'masbr_task_type'
 # -----------------------------------------------------------------------------
-- name: "Checks for scheduled backup"
+- name: "Set fact: running task type (schedule)"
   when: masbr_backup_schedule is defined and masbr_backup_schedule | length > 0
-  block:
-    - name: "Fail if try to run scheduled backup not in a Job"
-      assert:
-        that: masbr_create_task_job is defined and masbr_create_task_job|bool == true
-        fail_msg: "Only support running scheduled backup in a Job"
-
-    - name: "Set fact: running task type (schedule)"
-      set_fact:
-        masbr_task_type: "schedule"
+  set_fact:
+    masbr_task_type: "schedule"
 
 - name: "Set fact: running task type (backup)"
   when: masbr_task_type is not defined
@@ -110,7 +103,6 @@
 - name: "Set fact: backup job variables"
   set_fact:
     masbr_job_type: "backup"
-    masbr_job_version: "{{ masbr_job_version | default('%Y%m%d%H%M%S'|strftime, true) }}"
 
 - name: "Set fact: job name include instance"
   when: masbr_job_component.instance is defined and masbr_job_component.instance | length > 0

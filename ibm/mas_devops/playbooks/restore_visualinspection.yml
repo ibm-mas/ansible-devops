@@ -25,7 +25,7 @@
     # -------------------------------------------------------------------------
     - name: "Set fact: restore job variables"
       set_fact:
-        masbr_job_version: "{{ '%Y%m%d%H%M%S' | strftime }}"
+        masbr_job_version: "{{ lookup('env', 'MASBR_JOB_VERSION') | default('%Y%m%d%H%M%S' | strftime, true) }}"
         masbr_job_component:
           name: "visualinspection"
           instance: "{{ mas_instance_id }}"
@@ -56,6 +56,8 @@
       vars:
         _rt_playbook_name: "backup_core"
         _rt_env:
+          - name: "MASBR_JOB_VERSION"
+            value: "{{ masbr_job_version }}"
           - name: "MAS_INSTANCE_ID"
             value: "{{ mas_instance_id }}"
           - name: "MAS_WORKSPACE_ID"

@@ -153,12 +153,24 @@
 # -----------------------------------------------------------------------------
 - name: "Get OCP URL"
   shell: >-
-    pod_name=$(oc get pod -n {{ masbr_rt_namespace }} --no-headers=true -l job-name={{ masbr_rt_k8s_name }} | awk '{print $1}') &&
-    echo "$(oc whoami --show-console)/k8s/ns/{{ masbr_rt_namespace }}/pods/${pod_name}/logs"
+    echo "$(oc whoami --show-console)/k8s/ns/{{ masbr_rt_namespace }}/{{ 'cronjobs'
+    if masbr_task_type == 'schedule' else 'jobs' }}/{{ masbr_rt_k8s_name }}"
   register: _oc_url_output
 
-- name: "Summary"
+- name: "Summary of backup job"
+  when: masbr_job_type == "backup"
   debug:
     msg:
-      - "Job name ........................... {{ masbr_job_name }}"
-      - "Job logs ........................... {{ _oc_url_output.stdout }}"
+      - "Backup name ........................ {{ masbr_job_name }}"
+      - "Backup from ........................ {{ masbr_backup_from | default('<none>', true) }}"
+      - "Job name ........................... {{ masbr_rt_k8s_name }}"
+      - "Job link ........................... {{ _oc_url_output.stdout }}"
+
+- name: "Summary of restore job"
+  when: masbr_job_type == "restore"
+  debug:
+    msg:
+      - "Restore name ....................... {{ masbr_job_name }}"
+      - "Restore from ....................... {{ masbr_restore_from | default('<none>', true) }}"
+      - "Job name ........................... {{ masbr_rt_k8s_name }}"
+      - "Job link ........................... {{ _oc_url_output.stdout }}"
