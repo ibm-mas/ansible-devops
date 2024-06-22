@@ -63,6 +63,10 @@
     # -------------------------------------------------------------------------
     mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('False', True) | bool }}"
 
+    # 14. IBM CouchDB (Reqd for Assist)
+    # -------------------------------------------------------------------------
+    mirror_couchdb: "{{ lookup('env', 'MIRROR_COUCHDB') | default ('False', True) | bool }}"
+
   pre_tasks:
     - name: "Get stats for the catalog file"
       ansible.builtin.stat:
@@ -494,3 +498,21 @@
       vars:
         manifest_name: ibm-appconnect
         manifest_version: "{{ appconnect_version }}"
+
+    # 14. IBM MAS Assist dependency - ibm-couchdb
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_couchdb
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-couchdb
+        case_version: "{{ couchdb_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_couchdb
+      vars:
+        manifest_name: ibm-couchdb
+        manifest_version: "{{ couchdb_version }}"
