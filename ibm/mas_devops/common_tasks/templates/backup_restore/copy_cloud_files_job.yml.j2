@@ -4,12 +4,12 @@ apiVersion: networking.k8s.io/v1
 metadata:
   name: "{{ masbr_cf_k8s_name }}"
   namespace: "{{ masbr_cf_namespace }}"
-labels:
-  masbr-job-name: "{{ masbr_job_name }}"
+  labels:
+    mas.ibm.com/masbr: ""
 spec:
   podSelector:
     matchLabels:
-      job-name: "{{ masbr_cf_k8s_name }}"
+      masbr-job-name: "{{ masbr_job_name }}"
   egress:
     - {}
   policyTypes:
@@ -21,13 +21,16 @@ kind: Job
 metadata:
   name: "{{ masbr_cf_k8s_name }}"
   namespace: "{{ masbr_cf_namespace }}"
+  labels:
+    mas.ibm.com/masbr: ""
 spec:
   backoffLimit: 1
   template:
     metadata:
       name: "{{ masbr_cf_k8s_name }}"
-    labels:
-      masbr-job-name: "{{ masbr_job_name }}"
+      labels:
+        mas.ibm.com/masbr: ""
+        masbr-job-name: "{{ masbr_job_name }}"
     spec:
 {% if masbr_cf_affinity is defined and masbr_cf_affinity %}
       affinity:
@@ -53,6 +56,9 @@ spec:
       containers:
         - name: main
           image: rclone/rclone:{{ masbr_rclone_image_tag }}
+{% if masbr_rclone_image_pull_policy is defined and masbr_rclone_image_pull_policy | length > 0 %}
+          imagePullPolicy: "{{ masbr_rclone_image_pull_policy }}"
+{% endif %}
           command:
             - sh
             - '-c'

@@ -4,7 +4,6 @@ apiVersion: v1
 metadata:
   name: "masbr-sa"
   namespace: "{{ masbr_rt_namespace }}"
-
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -26,12 +25,12 @@ apiVersion: networking.k8s.io/v1
 metadata:
   name: "{{ masbr_rt_k8s_name }}"
   namespace: "{{ masbr_rt_namespace }}"
-labels:
-  masbr-job-name: "{{ masbr_job_name }}"
+  labels:
+    mas.ibm.com/masbr: ""
 spec:
   podSelector:
     matchLabels:
-      job-name: "{{ masbr_rt_k8s_name }}"
+      masbr-job-name: "{{ masbr_job_name }}"
   egress:
     - {}
   policyTypes:
@@ -45,19 +44,24 @@ apiVersion: batch/v1
 metadata:
   name: "{{ masbr_rt_k8s_name }}"
   namespace: "{{ masbr_rt_namespace }}"
+  labels:
+    mas.ibm.com/masbr: ""
 spec:
   backoffLimit: 1
   template:
     metadata:
       name: "{{ masbr_rt_k8s_name }}"
-    labels:
-      masbr-job-name: "{{ masbr_job_name }}"
+      labels:
+        mas.ibm.com/masbr: ""
+        masbr-job-name: "{{ masbr_job_name }}"
     spec:
       serviceAccountName: masbr-sa
       containers:
         - name: main
           image: quay.io/ibmmas/cli:{{ masbr_mascli_image_tag }}
-          imagePullPolicy: "{{ masbr_mascli_image_pull_policy | default('Always', true) }}"
+{% if masbr_mascli_image_pull_policy is defined and masbr_mascli_image_pull_policy | length > 0 %}
+          imagePullPolicy: "{{ masbr_mascli_image_pull_policy }}"
+{% endif %}
           command:
             - sh
             - '-c'
@@ -88,6 +92,8 @@ apiVersion: batch/v1
 metadata:
   name: "{{ masbr_rt_k8s_name }}"
   namespace: "{{ masbr_rt_namespace }}"
+  labels:
+    mas.ibm.com/masbr: ""
 spec:
   schedule: "{{ masbr_backup_schedule }}"
 {% if masbr_backup_timezone is defined and masbr_backup_timezone | length > 0 %}
@@ -99,14 +105,17 @@ spec:
       template:
         metadata:
           name: "{{ masbr_rt_k8s_name }}"
-        labels:
-          masbr-job-name: "{{ masbr_job_name }}"
+          labels:
+            mas.ibm.com/masbr: ""
+            masbr-job-name: "{{ masbr_job_name }}"
         spec:
           serviceAccountName: masbr-sa
           containers:
             - name: main
               image: quay.io/ibmmas/cli:{{ masbr_mascli_image_tag }}
-              imagePullPolicy: "{{ masbr_mascli_image_pull_policy | default('Always', true) }}"
+{% if masbr_mascli_image_pull_policy is defined and masbr_mascli_image_pull_policy | length > 0 %}
+              imagePullPolicy: "{{ masbr_mascli_image_pull_policy }}"
+{% endif %}
               command:
                 - sh
                 - '-c'
