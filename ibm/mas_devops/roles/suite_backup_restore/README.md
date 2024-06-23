@@ -1,113 +1,66 @@
-Suite Backup and Restore
+Backup and Restore MAS Core
 ===============================================================================
 
-Backup and resotre the k8s resources in MAS Core namespace.
+Overview
+-------------------------------------------------------------------------------
+This role supports backing up and restoring MAS Core namespace resources.
+
+Before running the role, you must set several environment variables to indicate this role where to save and retrieve the backup files. Please refer to [this doc](../playbooks/masbr-storage.md) to understand how to configure the storage system and related environment variables.
+
+This role supports creating on-demand or scheduled backup jobs for taking full or incremental backups, please refer to [this doc](../playbooks/masbr-vars.md#backup) for more information about the backup related environment variables.
+
+This role supports creating jobs for running the restore process, please refer to [this doc](../playbooks/masbr-vars.md#restore) for more information about the restore related environment variables.
+
+!!! important
+    Before you run this role, please make sure the MAS Core are installed and running properly on the target cluster.
+
+!!! important
+    The `MAS_INSTANCE_ID` in the target environment must be same as the values in the backup files which you taken from the source cluster.
 
 
-Role Variables - Backup and Restore
------------------------------------------------------------------------------------------------------------------
-### masbr_action
-Required. Types of backup/restore job.  
-Supported values: `backup`, `restore`
+Environment variables
+-------------------------------------------------------------------------------
+!!! tip
+    You also need to set some other common environment variables for creating backup/restore jobs, please refer to [this doc](../playbooks/masbr-vars.md) for details.
 
-- Environment Variable: `MASBR_ACTION`
-- Default Value: None
+Below environment variables are required for this role:
 
-### mas_instance_id
-Required. Defines the instance id that was used for the MAS backup/restore
+- `MASBR_ACTION`: Set `backup` or `restore` to indicate the role to create a backup or restore job.
 
-- Environment Variable: `MAS_INSTANCE_ID`
-- Default Value: None
+- `MAS_INSTANCE_ID`: This role only supports backing up data belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this role multiple times with different value of this environment variable.
 
-### masbr_confirm_cluster
-Optional. Whether to confirm the currently connected cluster before perform the backup/restore job.
 
-- Environment Variable: `MASBR_CONFIRM_CLUSTER`
-- Default Value: `false`
+Example
+-------------------------------------------------------------------------------
+!!! important
+    Before you proceed with the following steps, please refer to [this doc](../playbooks/prepare-env.md) to prepare the testing environment.
 
-### masbr_copy_timeout_sec
-Optional. Sets the waiting time in seconds for copying backup files between cluster and specified storage locaiton.
+This role back up and restore the supported MAS applications in a similar way. In this example, we will use Manage to demonstrate how to:
 
-- Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
-- Default Value: `3600`
+- Back up MAS Core namespace resources
+- Restore MAS Core namespace resources
 
-### masbr_storage_type
-Required. Types of storage location for saving backup files.  
-Supported storage locations: `local`, `cloud`
+### Back up MAS Core namespace resources
+Run below command in the container to take a backup of MAS Core namespace resources:
 
-- Environment Variable: `MASBR_STORAGE_TYPE`
-- Default Value: None
+```shell
+$ export MASBR_ACTION=backup
+$ export MAS_INSTANCE_ID=main
 
-### masbr_storage_local_folder
-Required only if `masbr_storage_type` is `local`. The folder name in local storage system.
+$ ROLE_NAME=suite_backup_restore ansible-playbook ibm.mas_devops.run_role
+```
 
-- Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
-- Default Value: None
+### Restore MAS Core namespace resources
+Run below command in the container to restore MAS Core namespace resources:
 
-### masbr_storage_cloud_rclone_file
-Required only if `masbr_storage_type` is `cloud`. The rclone configuration file path.
+```shell
+$ export MASBR_RESTORE_FROM_VERSION=20240621021316
 
-- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_FILE`
-- Default Value: None
+$ export MASBR_ACTION=restore
+$ export MAS_INSTANCE_ID=main
 
-### masbr_storage_cloud_rclone_name
-Required only if `masbr_storage_type` is `cloud`. The rclone configuration name.
-
-- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_NAME`
-- Default Value: None
-
-### masbr_storage_cloud_bucket
-Required only if `masbr_storage_type` is `cloud`. The bucket name used for saving backup files.
-
-- Environment Variable: `MASBR_STORAGE_CLOUD_BUCKET`
-- Default Value: None
-
-### masbr_backup_schedule
-Optional. Cron expression for scheduled backup.  
-https://en.wikipedia.org/wiki/Cron
-
-- Environment Variable: `MASBR_BACKUP_SCHEDULE`
-- Default Value: None
-
-### masbr_backup_timezone
-Optional. Time zone for scheduled backup.  
-https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-
-- Environment Variable: `MASBR_BACKUP_TIMEZONE`
-- Default Value: None
-
-### masbr_restore_from_version
-Required only if `masbr_action` is `restore`. The version of the backup to be restored from.
-
-- Environment Variable: `MASBR_RESTORE_FROM_VERSION`
-- Default Value: None
-
-### masbr_slack_enabled
-Optional. Whether to enable sending backup/resore progress notifications via Slack messages.
-
-- Environment Variable: `MASBR_SLACK_ENABLED`
-- Default Value: `false`
-
-### masbr_slack_level
-Required only if `masbr_slack_enabled` is `true`. Supported notification levels:   
-`info`: send notifications when job in the phase `InProgress`, `Completed`, `Failed`, `PartiallyFailed`    
-`failure`: sent notifications only when job in the phase `Failed`, `PartiallyFailed`
-
-- Environment Variable: `MASBR_SLACK_LEVEL`
-- Default Value: `info`
-
-### masbr_slack_token
-Required only if `masbr_slack_enabled` is `true`. Slack integration token, this authenticates you to the slack service.  
-
-- Environment Variable: `MASBR_SLACK_TOKEN`
-- Default Value: None
-
-### masbr_slack_channel
-Required only if `masbr_slack_enabled` is `true`. Slack channel to send the message to.
-
-- Environment Variable: `MASBR_SLACK_CHANNEL`
-- Default Value: None
-
+$ ROLE_NAME=suite_backup_restore ansible-playbook ibm.mas_devops.run_role
+```
 
 License
 -------------------------------------------------------------------------------
