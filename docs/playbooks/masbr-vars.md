@@ -6,11 +6,11 @@ Environment Variables for MAS Backup and Restore
 | MASBR_CONFIRM_CLUSTER | No | false | Whether to confirm the currently connected cluster before run tasks |
 | [MASBR_CREATE_TASK_JOB](#masbr_create_task_job) | No | true | Whether to run backup/restore process in k8s Job |
 | [MASBR_COPY_TIMEOUT_SEC](#masbr_copy_timeout_sec) | No | 3600 | Copying file timeout in seconds |
-| [MASBR_STORAGE_TYPE](storage.md#saving-backup-files) | Yes | | Type of storage system for saving the backup files |
-| [MASBR_STORAGE_LOCAL_FOLDER](storage.md#use-local-folder) | Yes only if `MASBR_STORAGE_TYPE=local` | | Local path for saving backup files |
-| [MASBR_STORAGE_CLOUD_RCLONE_FILE](storage.md#use-cloud-object-storage) | Yes only if `MASBR_STORAGE_TYPE=cloud` | | The path of rclone.conf file |
-| [MASBR_STORAGE_CLOUD_RCLONE_NAME](storage.md#use-cloud-object-storage) | Yes only if `MASBR_STORAGE_TYPE=cloud` | | The config name defined in rclone.conf file |
-| [MASBR_STORAGE_CLOUD_BUCKET](storage.md#use-cloud-object-storage) | Yes only if `MASBR_STORAGE_TYPE=cloud` | | Object storage bucket for saving backup files |
+| [MASBR_STORAGE_TYPE](masbr-storage.md#saving-backup-files) | Yes | | Type of storage system for saving the backup files |
+| [MASBR_STORAGE_LOCAL_FOLDER](masbr-storage.md#use-local-folder) | Yes only if `MASBR_STORAGE_TYPE=local` | | Local path for saving backup files |
+| [MASBR_STORAGE_CLOUD_RCLONE_FILE](masbr-storage.md#use-cloud-object-storage) | Yes only if `MASBR_STORAGE_TYPE=cloud` | | The path of rclone.conf file |
+| [MASBR_STORAGE_CLOUD_RCLONE_NAME](masbr-storage.md#use-cloud-object-storage) | Yes only if `MASBR_STORAGE_TYPE=cloud` | | The config name defined in rclone.conf file |
+| [MASBR_STORAGE_CLOUD_BUCKET](masbr-storage.md#use-cloud-object-storage) | Yes only if `MASBR_STORAGE_TYPE=cloud` | | Object storage bucket for saving backup files |
 | MASBR_LOCAL_TEMP_FOLDER | No | "/tmp/masbr" | Local temp folder for backup/restore |
 | [MASBR_BACKUP_TYPE](#masbr_backup_type) | No | "full" | Take a full backup or incremental backup |
 | [MASBR_BACKUP_DATA](#masbr_backup_data) | No | | Data types to be backed up |

@@ -199,7 +199,7 @@ Please refer to the [example](#example) on how to use this playbook.
 Example
 -------------------------------------------------------------------------------
 !!! important
-    Before you proceed with the following steps, please refer to [this doc](prepare-env.md) to prepare the testing environment.
+    Before you proceed with the following steps, please refer to [this doc](masbr-prepare.md) to prepare the testing environment.
 
 All above playbooks support the [common environment variables](masbr-vars.md) to restore the MAS components in a similar way. In this example, we will use Manage to demonstrate how to:
 

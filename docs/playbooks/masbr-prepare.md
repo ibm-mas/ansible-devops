@@ -238,7 +238,7 @@ MASBR_STORAGE_CLOUD_RCLONE_NAME=masbr
 MASBR_STORAGE_CLOUD_BUCKET=mas-backup
 ```
 
-For more information about these environment variables, please refer to [this doc](storage.md#use-cloud-object-storage).
+For more information about these environment variables, please refer to [this doc](masbr-storage.md#use-cloud-object-storage).
 
 Run MAS CLI docker container:
 ```

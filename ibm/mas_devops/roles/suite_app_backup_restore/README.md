@@ -44,7 +44,7 @@ Below environment variables are required for this role:
 Example
 -------------------------------------------------------------------------------
 !!! important
-    Before you proceed with the following steps, please refer to [this doc](../playbooks/prepare-env.md) to prepare the testing environment.
+    Before you proceed with the following steps, please refer to [this doc](../playbooks/masbr-prepare.md) to prepare the testing environment.
 
 This role back up and restore the supported MAS applications in a similar way. In this example, we will use Manage to demonstrate how to:
 

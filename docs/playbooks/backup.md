@@ -191,7 +191,7 @@ Please refer to the [example](#example) on how to use this playbook.
 Example
 -------------------------------------------------------------------------------
 !!! important
-    Before you proceed with the following steps, please refer to [this doc](prepare-env.md) to prepare the testing environment.
+    Before you proceed with the following steps, please refer to [this doc](masbr-prepare.md) to prepare the testing environment.
 
 All above playbooks support the [common environment variables](masbr-vars.md) to back up the MAS components in a similar way. In this example, we will use Manage to demonstrate how to:
 
@@ -261,7 +261,7 @@ You will get the output similar to the following:
 
 ### Taking an incremental backup
 !!! tip
-    For more information about incremental backup, please refer to the doc for [MASBR_BACKUP_TYPE](vars.md#masbr_backup_type) and [MASBR_BACKUP_FROM_VERSION](vars.md#masbr_backup_from_version).
+    For more information about incremental backup, please refer to the doc for [MASBR_BACKUP_TYPE](masbr-vars.md#masbr_backup_type) and [MASBR_BACKUP_FROM_VERSION](masbr-vars.md#masbr_backup_from_version).
 
 In the MAS CLI container, run below command to take an incremental backup based on the latest full backup:
 ```shell
@@ -340,7 +340,7 @@ status:
 
 ### Creating a scheduled backup job
 !!! tip
-    For more information about scheduled backup, please refer to the doc for [MASBR_BACKUP_SCHEDULE](vars.md#masbr_backup_schedule) and [MASBR_BACKUP_TIMEZONE](vars.md#masbr_backup_timezone).
+    For more information about scheduled backup, please refer to the doc for [MASBR_BACKUP_SCHEDULE](masbr-vars.md#masbr_backup_schedule) and [MASBR_BACKUP_TIMEZONE](masbr-vars.md#masbr_backup_timezone).
 
 In below example, we will create a scheduled backup job to run at 1:00 a.m. Monday through Friday:
 ```shell
