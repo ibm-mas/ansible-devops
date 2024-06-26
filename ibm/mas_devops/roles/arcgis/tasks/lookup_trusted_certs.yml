@@ -1,0 +1,26 @@
+---
+# For now, it will be required to include ca.crt and tls.crt into ArcGIS Trusted Certificates
+# in order for it to work well, thus we're using this automation to generate the tls files
+- name: "Lookup {{ mas_instance_id }}-internal-arcgis-tls"
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ mas_instance_id }}-internal-arcgis-tls"
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: internal_tls_secret
+
+- name: Set internal crt variables
+  no_log: true
+  set_fact:
+    internal_ca_crt: "{{ (internal_tls_secret.resources[0].data['ca.crt'] | b64decode) }}"
+    internal_tls_crt: "{{ (internal_tls_secret.resources[0].data['tls.crt'] | b64decode) }}"
+
+- name: Generate ca.crt file
+  ansible.builtin.copy:
+    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-ca.crt"
+    content: "{{ internal_ca_crt }}"
+
+- name: Generate tls.crt file
+  ansible.builtin.copy:
+    dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-tls.crt"
+    content: "{{ internal_tls_crt }}"
