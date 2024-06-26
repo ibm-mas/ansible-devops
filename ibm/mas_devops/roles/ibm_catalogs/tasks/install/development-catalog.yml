@@ -9,6 +9,8 @@
     artifactoryAuth: "{{ artifactoryAuthStr | b64encode }}"
     content:
       - '{"auths":{"docker-na-public.artifactory.swg-devops.com/wiotp-docker-local": {"username":"{{artifactory_username}}","password":"{{artifactory_token}}","auth":"{{artifactoryAuth}}"}'
+      - ',"docker-na-proxy-svl.artifactory.swg-devops.com/wiotp-docker-local": {"username":"{{artifactory_username}}","password":"{{artifactory_token}}","auth":"{{artifactoryAuth}}"}'
+      - ',"docker-na-proxy-rtp.artifactory.swg-devops.com/wiotp-docker-local": {"username":"{{artifactory_username}}","password":"{{artifactory_token}}","auth":"{{artifactoryAuth}}"}'
       - '}'
       - '}'
   kubernetes.core.k8s:
@@ -36,6 +38,9 @@
       apiVersion: v1
       kind: ServiceAccount
       metadata:
+        labels:
+          # This label is required in OCP 4.15+ otherwise the catalog source doesn't become READY
+          olm.managed: 'true'
         name: "{{ item }}"
         namespace: openshift-marketplace
       imagePullSecrets:
