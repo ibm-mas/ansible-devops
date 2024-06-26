@@ -107,6 +107,33 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
 
+## NOTICE: playbook oneclick_add_aibroker.yml will run three roles: 
+
+### Role: odh
+
+* Install Red Hat OpenShift Serverless Operator
+* Install Red Hat OpenShift Service Mesh Operator
+* Install Authorino Operator
+* Install Open Data Hub Operator
+* Create DSCInitialization instance
+* Create Data Science Cluster
+* Create Create Data Science Pipelines Application
+
+### Role: kmodels
+
+* Install Kmodel controller
+* Install istio
+* Install Kmodel store
+* Install Kmodel watcher
+
+### Role: aibroker
+
+* Install AI Broker api application
+* Create, delete AI Broker tenant
+* Create, delete AI Broker API Key
+* Create, delete AWS S3 API Key
+* Create, delete WatsonX AI API Key
+
 ## How to create tenant
 
 ### Prerequisites
@@ -214,3 +241,36 @@ export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
+
+## How to create WatsonX API Key
+
+### Prerequisites
+
+* IBM AI Broker Application
+
+#### Run playbooks
+
+```bash
+export MAS_INSTANCE_ID="<instanceId>"
+export TENANT_NAME="<Tenant Name>"
+export WATSONX_ACTION="install"
+export ROLE_NAME="aibroker"
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook playbooks/run_role.yml
+```
+
+## How to WatsonX API Key
+
+### Prerequisites
+
+* WatsonX API Key created in a cluster
+
+#### Run playbooks
+
+```bash
+export MAS_INSTANCE_ID="<instanceId>"
+export TENANT_NAME="<Tenant Name>"
+export WATSONX_ACTION="remove"
+export ROLE_NAME="aibroker"
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook playbooks/run_role.yml
