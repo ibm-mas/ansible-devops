@@ -11,14 +11,14 @@
 
 - name: "Extract COS certificate content"
   set_fact:
-    cos_tls_crt: "{{ get_certs_r.stdout | regex_findall('(-----BEGIN .+?-----(?s).+?-----END .+?-----)', multiline=True, ignorecase=True) }}"
+    cos_tls_crt: '{{ get_certs_r.stdout | regex_findall("(-----BEGIN .+?-----[\s\S]*?-----END .*?-----)", multiline=True, ignorecase=True) }}'
 
 - name: "Assert IBM COS certificate content exists - if applicable"
-  when: mas_manage_doclinks_provider == 'ibm'
+  when: cos_type == 'ibm'
   assert:
-    that: "{{ cos_tls_crt | length > 1 }}" # must contain at least leaf and intermediate cert
+    that: "{{ cos_tls_crt | length > 1 }}"  # must contain at least leaf and intermediate cert
 
 - name: "Assert AWS certificate content exists - if applicable"
-  when: mas_manage_doclinks_provider == 'aws'
+  when: cos_type == 'aws'
   assert:
     that: "{{ cos_tls_crt | length == 4 }}"
