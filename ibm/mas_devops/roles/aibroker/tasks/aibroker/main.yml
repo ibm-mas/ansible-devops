@@ -48,6 +48,33 @@
     template: templates/aibroker/aibrokerapp.yml.j2
   register: aibrokerAppResult
 
+# Wait until the pipeline-runner-instance service account is available
+# -----------------------------------------------------------------------------
+- name: "Wait for the pipeline-runner-instance service account to appear (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: pipeline-runner-instance
+    namespace: "{{ aibroker_namespace }}"
+  register: pipelinerunner_sa_lookup
+  retries: 10 # Up to 10 minutes
+  delay: 60 # Every 1 minute
+  until:
+    - pipelinerunner_sa_lookup.resources is defined
+    - pipelinerunner_sa_lookup.resources | length > 0
+
+- name: "Patch the pipeline-runner-instance service account to include right imagePullPolicy"
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: pipeline-runner-instance
+        namespace: "{{ aibroker_namespace }}"
+      imagePullSecrets:
+        - name: "{{ pullSecretName }}"
+
 # Wait IBM Maximo AI Broker custom resource to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for AiBrokerApp custom resource to be ready (60s delay)"
