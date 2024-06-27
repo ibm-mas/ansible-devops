@@ -1,23 +1,14 @@
 ---
-# Configure COS bucket for Manage doclinks
+# Lookup ManageWorkspace CR
 # -----------------------------------------------------------------------------
-- name: "Configure {{ mas_manage_doclinks_provider }} bucket for Manage doclinks"
-  include_role:
-    name: ibm.mas_devops.cos_bucket
-  vars:
-    cos_type: "{{ mas_manage_doclinks_provider }}"
-  when: mas_manage_doclinks_provider != 'filestorage'
-
-- name: "Setup AWS S3 bucket policies, users and access points"
-  vars:
-    aws_bucket_name: "{{ cos_bucket_name }}"
-    aws_bucket_region: "{{ cos_bucket_region }}"
-  include_tasks: "tasks/providers/aws/setup_bucket_permissions.yml"
-  when: mas_manage_doclinks_provider == 'aws'
-
-- name: "Retrieve {{ mas_manage_doclinks_provider }} certificates"
-  include_tasks: "tasks/retrieve-cos-certs.yml"
-  when: mas_manage_doclinks_provider != 'filestorage'
+- name: "Lookup ManageWorkspace CR"
+  no_log: true
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ManageWorkspace
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+  register: managews_output
 
 # Configure Manage bundle servers
 # -----------------------------------------------------------------------------
@@ -56,18 +47,18 @@
     bucketEndpoint:
       aws: 'https://s3.{{ cos_bucket_region }}.amazonaws.com'
       ibm: 'https://s3.{{ cos_bucket_region }}.cloud-object-storage.appdomain.cloud'
-  when: mas_manage_doclinks_provider != 'filestorage'
+  when: mas_manage_attachments_provider != 'filestorage'
 
 - name: Set Manage bundle server properties for aws/ibm
   set_fact:
-    serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setManageDoclinksProperties(doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint[mas_manage_doclinks_provider]) }}"
-  when: mas_manage_doclinks_provider != 'filestorage'
+    serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setManageDoclinksProperties(doclinkPath01, bucketName, accessKey, secretAccesskey, bucketEndpoint[mas_manage_attachments_provider]) }}"
+  when: mas_manage_attachments_provider != 'filestorage'
 
 - name: Set Manage bundle server properties for filestorage
   set_fact:
     doclinkPath01: "https://{{ manage_url }}/maximo/oslc/cosdoclink"
     serverBundles: "{{ managews_output.resources[0].spec.settings.deployment.serverBundles | ibm.mas_devops.setManageFsDoclinksProperties(manage_url) }}"
-  when: mas_manage_doclinks_provider == 'filestorage'
+  when: mas_manage_attachments_provider == 'filestorage'
 
 - debug:
     msg:
@@ -76,20 +67,10 @@
       - "accessKey: {{ accessKey }}"
       - "secretAccesskey: {{ secretAccesskey }}"
       - "bucketEndpoint: {{ bucketEndpoint }}"
-  when: mas_manage_doclinks_provider != 'filestorage'
+  when: mas_manage_attachments_provider != 'filestorage'
 
 - debug:
     var: serverBundles
-
-# Configure COS bucket's certificates into Manage Workspace
-# -----------------------------------------------------------------------------
-- name: "Add the {{ mas_manage_doclinks_provider | upper }} COS certificates in ManageWorkspace CR"
-  import_role:
-    name: ibm.mas_devops.suite_manage_import_certs_config
-  vars:
-    manage_certificates: "{{ cos_tls_crt }}"
-    manage_certificates_alias_prefix: "{{ cos_cert_alias_prefix }}"
-  when: mas_manage_doclinks_provider != 'filestorage'
 
 # Configure Server bundle properties into Manage Workspace
 # -----------------------------------------------------------------------------
@@ -112,3 +93,26 @@
   debug:
     msg:
       - "ManageWorkspace Changed ............... {{ managews_sb_output.changed }}"
+
+
+# Wait for ManageWorkspace CR to reconcile and to be ready
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Wait for ManageWorkspace to be ready (120s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    name: "{{ manage_workspace_cr_name }}"
+    namespace: "mas-{{mas_instance_id}}-manage"
+    kind: "ManageWorkspace"
+    wait: true
+    wait_condition:
+      status: "True"
+      type: Ready
+    wait_sleep: 30
+    wait_timeout: 200 # before we give up and fall back into the retry loop
+  register: app_cr_result
+  retries: 60
+  delay: 120 # 2 minutes
+  until:
+    - app_cr_result.resources is defined
+    - app_cr_result.resources | length > 0
+    - app_cr_result.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('match','Successful') | list | length == 1

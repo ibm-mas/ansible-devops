@@ -1,0 +1,24 @@
+---
+# Manage post-configuration: Debug
+- name: "Run Manage post-configuration: Debug"
+  debug:
+    msg:
+      - "Attachment Config Mode ................. {{ mas_manage_attachment_configuration_mode }}"
+      - "Attachment Provider .................... {{ mas_manage_attachments_provider }}"
+      - "Instance ID ............................ {{ mas_instance_id }}"
+      - "Workspace ID ........................... {{ mas_workspace_id }}"
+      - "Manage DB2 Scope ....................... {{ mas_appws_bindings_jdbc }}"
+      - "DB2 Namespace .......................... {{ db2_namespace }}"
+      - "COS Instance Name ...................... {{ cos_instance_name }}"
+      - "COS Bucket Name ........................ {{ cos_bucket_name }}"
+      - "IBM Cloud Resource Group ............... {{ ibmcloud_resourcegroup }}"
+
+# Manage post-configuration: Attachments
+- name: "Run Manage post-configuration: Set up attachments"
+  when:
+    - mas_manage_attachment_configuration_mode in ["db", "cr"]
+    - mas_manage_attachments_provider in ["filestorage", "ibm", "aws"]
+  include_role:
+    name: suite_manage_attachments_config
+  vars:
+    db2_instance_name: "{{ ibm.mas_devops.get_db2_instance_name(mas_appws_bindings_jdbc, mas_instance_id, mas_workspace_id, 'manage') }}"

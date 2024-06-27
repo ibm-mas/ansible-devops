@@ -1,0 +1,20 @@
+---
+
+# Configure COS bucket for Manage attachments, not needed when using pvc/filestorage
+- name: Configure COS/S3 Buckets if required
+  include_tasks: "tasks/common/configure-bucket.yml"
+  when: mas_manage_attachments_provider in ['ibm', 'aws']
+
+# db: Update Manage database with attachments properties (db config mode)
+- name: Update Manage database with attachments properties
+  include_tasks: "configure-database.yml"
+  when: mas_manage_attachment_configuration_mode == 'db'
+
+# cr: Update Bundles with attachments properties (cr config mode)
+- name: Configure Server Bundles
+  include_tasks: "configure-bundles.yml"
+  when: mas_manage_attachment_configuration_mode == 'cr'
+
+# Restart Manage bundle pods to pick up the storage provider configuration
+- name: Restart Manage bundles to pick up the storage provider configuration
+  include_tasks: "tasks/common/restart-manage-server.yml"
