@@ -390,18 +390,15 @@ def format_pre_version_without_buildid(data):
   return data[:data.rfind("-")]
 
 def get_db2_instance_name(binding_scope, mas_instance_id, mas_workspace_id, mas_application_id):
-  match binding_scope:
-    case "system":
-      db2_instance_jame = f'{mas_instance_id}-jdbc-system'
-    case "app":
-      db2_instance_jame = f'{mas_instance_id}-jdbc-app-{mas_application_id}'
-    case "ws":
-      db2_instance_jame = f'{mas_instance_id}-jdbc-ws-{mas_workspace_id}'
-    case "wsapp":
-      db2_instance_jame = f'{mas_instance_id}-jdbc-wsapp-{mas_workspace_id}-{mas_application_id}'
-    case _:
-      db2_instance_jame = ""
-  return db2_instance_jame
+  if binding_scope == "":
+    return ""
+  jdbc_instance_names = {
+    "system": f'{mas_instance_id}-jdbc-system',
+    "app": f'{mas_instance_id}-jdbc-app-{mas_application_id}',
+    "ws": f'{mas_instance_id}-jdbc-ws-{mas_workspace_id}',
+    "wsapp": f'{mas_instance_id}-jdbc-wsapp-{mas_workspace_id}-{mas_application_id}'
+  }
+  return jdbc_instance_names[binding_scope]
 
 class FilterModule(object):
   def filters(self):
