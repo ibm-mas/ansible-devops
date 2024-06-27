@@ -26,10 +26,6 @@
     # https://en.wikipedia.org/wiki/Cron
     masbr_backup_schedule: "{{ lookup('env', 'MASBR_BACKUP_SCHEDULE') | default('', true) }}"
 
-    # Time zone for scheduled backup
-    # https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-    masbr_backup_timezone: "{{ lookup('env', 'MASBR_BACKUP_TIMEZONE') | default('', true) }}"
-
 
 # Check 'masbr_job_component'
 # -----------------------------------------------------------------------------
@@ -91,6 +87,8 @@
   when: masbr_backup_schedule is defined and masbr_backup_schedule | length > 0
   set_fact:
     masbr_task_type: "schedule"
+    # Always create a new Job version for each run of the CronJob
+    masbr_job_version: "{{ '%Y%m%d%H%M%S' | strftime }}"
 
 - name: "Set fact: running task type (backup)"
   when: masbr_task_type is not defined

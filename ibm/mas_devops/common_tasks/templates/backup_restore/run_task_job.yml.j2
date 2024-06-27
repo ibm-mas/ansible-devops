@@ -4,11 +4,16 @@ apiVersion: v1
 metadata:
   name: "masbr-sa"
   namespace: "{{ masbr_rt_namespace }}"
+  labels:
+    mas.ibm.com/masbr: ""
+
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: "masbr-crb"
+  name: "masbr-{{ masbr_rt_namespace }}"
+  labels:
+    mas.ibm.com/masbr: ""
 subjects:
   - kind: ServiceAccount
     name: "masbr-sa"
@@ -23,14 +28,14 @@ roleRef:
 kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
-  name: "{{ masbr_rt_k8s_name }}"
+  name: "masbr-task"
   namespace: "{{ masbr_rt_namespace }}"
   labels:
     mas.ibm.com/masbr: ""
 spec:
   podSelector:
     matchLabels:
-      masbr-job-name: "{{ masbr_job_name }}"
+      masbr-job: "task"
   egress:
     - {}
   policyTypes:
@@ -46,6 +51,7 @@ metadata:
   namespace: "{{ masbr_rt_namespace }}"
   labels:
     mas.ibm.com/masbr: ""
+    masbr-job: "task"
 spec:
   backoffLimit: 1
   template:
@@ -53,7 +59,7 @@ spec:
       name: "{{ masbr_rt_k8s_name }}"
       labels:
         mas.ibm.com/masbr: ""
-        masbr-job-name: "{{ masbr_job_name }}"
+        masbr-job: "task"
     spec:
       serviceAccountName: masbr-sa
       containers:
@@ -94,10 +100,11 @@ metadata:
   namespace: "{{ masbr_rt_namespace }}"
   labels:
     mas.ibm.com/masbr: ""
+    masbr-job: "task"
 spec:
   schedule: "{{ masbr_backup_schedule }}"
-{% if masbr_backup_timezone is defined and masbr_backup_timezone | length > 0 %}
-  timeZone: "{{ masbr_backup_timezone }}"
+{% if masbr_job_timezone is defined and masbr_job_timezone | length > 0 %}
+  timeZone: "{{ masbr_job_timezone }}"
 {% endif %}
   jobTemplate:
     spec:
@@ -107,7 +114,7 @@ spec:
           name: "{{ masbr_rt_k8s_name }}"
           labels:
             mas.ibm.com/masbr: ""
-            masbr-job-name: "{{ masbr_job_name }}"
+            masbr-job: "task"
         spec:
           serviceAccountName: masbr-sa
           containers:

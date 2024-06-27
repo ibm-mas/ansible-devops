@@ -1,0 +1,35 @@
+namespace={{ masbr_cleanup_namespace }}
+ttl=${MASBR_CLEANUP_TTL_SEC}
+
+current_time=$(date +%Y-%m-%dT%H:%M:%SZ)
+current_ts=$(date +%s)
+
+echo "Start running cleanup job"
+echo "Current time: ${current_time}"
+echo "Current ts: ${current_ts}"
+echo "TTL: ${ttl}s"
+
+job_names=($(oc get job -n ${namespace} --no-headers=true -l 'masbr-job in (task,copy)' | awk '{print $1}'))
+
+for job_name in ${job_names[@]}; do
+    echo ""
+    echo "Getting job ${job_name} ..."
+    job_yaml=$(oc get job/${job_name} -n ${namespace} -o yaml)
+    job_complete=$(echo "${job_yaml}" | yq '.status.conditions.[] | select(.type == "Complete") | .status')
+
+    if [[ ${job_complete} == "True" ]]; then
+        job_complete_time=$(echo "${job_yaml}" | yq '.status.completionTime')
+        job_complete_ts=$(date +%s -d "${job_complete_time}")
+        echo "Job completion time: ${job_complete_time} (${job_complete_ts})"
+        
+        delta=$((current_ts - job_complete_ts))
+        if [ ${delta} -gt ${ttl} ]; then
+            echo "Job exceed TTL (+$((delta - ttl))s)"
+            oc delete job/${job_name} -n ${namespace}
+        else
+            echo "Job not exceed TTL (-$((ttl - delta))s)"
+        fi
+    else
+        echo "Job not complete"
+    fi
+done
