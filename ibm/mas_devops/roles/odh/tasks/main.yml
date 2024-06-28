@@ -54,16 +54,50 @@
     kind: DataScienceCluster
   register: dsc_lookup
   until:
-    - dsc_lookup.resources is defined and dsci_lookup.resources | length == 1
+    - dsc_lookup.resources is defined and dsc_lookup.resources | length == 1
     - dsc_lookup.resources[0].status is defined
     - dsc_lookup.resources[0].status.phase is defined
     - dsc_lookup.resources[0].status.phase == 'Ready'
   retries: 10
   delay: 30
 
-# Create Data Science Pipelines Applications
-- name: "Create Create Data Science Pipelines Applications CR"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/odh/dspa-{{ storage_provider }}.yml.j2') }}"
+- name: "Wait for the DSPA to be ready"
+  kubernetes.core.k8s_info:
+    api_version: datasciencepipelinesapplications.opendatahub.io/v1alpha1
+    name: instance
+    kind: DataSciencePipelinesApplication
+    namespace: "{{ aibroker_namespace }}"
   register: dspa_lookup
+  until:
+    - dspa_lookup.resources is defined
+    - dspa_lookup.resources | length > 0
+    - dspa_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+  retries: 10
+  delay: 30
+
+# Wait until the pipeline-runner-instance service account is available
+# -----------------------------------------------------------------------------
+- name: "Wait for the pipeline-runner-instance service account to appear (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ServiceAccount
+    name: pipeline-runner-instance
+    namespace: "{{ aibroker_namespace }}"
+  register: pipelinerunner_sa_lookup
+  retries: 10 # Up to 10 minutes
+  delay: 60 # Every 1 minute
+  until:
+    - pipelinerunner_sa_lookup.resources is defined
+    - pipelinerunner_sa_lookup.resources | length > 0
+
+- name: "Patch the pipeline-runner-instance service account to include right imagePullPolicy"
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: pipeline-runner-instance
+        namespace: "{{ aibroker_namespace }}"
+      imagePullSecrets:
+        - name: "{{ pullSecretName }}"
