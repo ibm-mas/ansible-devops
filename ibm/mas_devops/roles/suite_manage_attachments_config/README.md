@@ -85,7 +85,7 @@ The following sample can be used to configure COS for an existing Manage applica
     mas_instance_id: masinst1
     mas_workspace_id: masdev
     cos_instance_name: cos-masinst1
-    ibmcos_bucket_name: manage-attachments-bucket
+    cos_bucket_name: manage-attachments-bucket
     ibmcloud_apikey: xxxx
     mas_manage_attachments_provider: ibm
   roles:
@@ -103,7 +103,7 @@ The following sample playbook can be used to provision COS in IBM Cloud and conf
     mas_workspace_id: masdev
     db2_instance_name: db2w-manage
     cos_instance_name: cos-masinst1
-    ibmcos_bucket_name: manage-attachments-bucket
+    cos_bucket_name: manage-attachments-bucket
     ibmcloud_apikey: xxxx
     mas_manage_attachments_provider: ibm
   roles:
