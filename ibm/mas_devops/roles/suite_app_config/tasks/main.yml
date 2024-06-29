@@ -68,11 +68,11 @@
 
 # 6. Workspace configuration
 # -----------------------------------------------------------------------------
-# - name: Configure application in workspace
-#   kubernetes.core.k8s:
-#     state: present
-#     namespace: "{{ mas_app_namespace }}"
-#     definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
+- name: Configure application in workspace
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ mas_app_namespace }}"
+    definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
 # 7. Check if the application is ready
@@ -81,27 +81,27 @@
 #
 # If the application is not in ready state we can fail fast rather than waiting
 # for the workspace to be Ready -- because it never will!
-# - name: "Lookup application information"
-#   kubernetes.core.k8s_info:
-#     api_version: "{{ mas_app_api_version }}"
-#     name: "{{ mas_instance_id }}"
-#     namespace: "{{ mas_app_namespace }}"
-#     kind: "{{ mas_app_kind }}"
-#   register: app_cr_result
+- name: "Lookup application information"
+  kubernetes.core.k8s_info:
+    api_version: "{{ mas_app_api_version }}"
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_app_namespace }}"
+    kind: "{{ mas_app_kind }}"
+  register: app_cr_result
 
-# - name: "Check that the application is ready to configure a workspace"
-#   assert:
-#     that:
-#       - app_cr_result.resources is defined
-#       - app_cr_result.resources | length > 0
-#       - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
-#     fail_msg: "Workspace {{ mas_workspace_id }} created but application {{ mas_app_id }} is not ready"
+- name: "Check that the application is ready to configure a workspace"
+  assert:
+    that:
+      - app_cr_result.resources is defined
+      - app_cr_result.resources | length > 0
+      - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+    fail_msg: "Workspace {{ mas_workspace_id }} created but application {{ mas_app_id }} is not ready"
 
 
 # 8. Wait for application workspace to be ready
 # -----------------------------------------------------------------------------
-# - ansible.builtin.include_role:
-#     name: ibm.mas_devops.suite_app_verify
+- ansible.builtin.include_role:
+    name: ibm.mas_devops.suite_app_verify
 
 
 # 9. Run Application Specific Post-configuration
