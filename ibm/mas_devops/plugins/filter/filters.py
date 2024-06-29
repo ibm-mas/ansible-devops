@@ -393,10 +393,10 @@ def get_db2_instance_name(binding_scope, mas_instance_id, mas_workspace_id, mas_
   if binding_scope == "":
     return ""
   jdbc_instance_names = {
-    "system": f'{mas_instance_id}-jdbc-system',
-    "app": f'{mas_instance_id}-jdbc-app-{mas_application_id}',
-    "ws": f'{mas_instance_id}-jdbc-ws-{mas_workspace_id}',
-    "wsapp": f'{mas_instance_id}-jdbc-wsapp-{mas_workspace_id}-{mas_application_id}'
+    "system": f'mas-{mas_instance_id}-system',
+    "app": f'mas-{mas_instance_id}-{mas_application_id}',
+    "ws": f'mas-{mas_instance_id}-{mas_workspace_id}',
+    "wsapp": f'mas-{mas_instance_id}-{mas_workspace_id}-{mas_application_id}'
   }
   return jdbc_instance_names[binding_scope]
 
