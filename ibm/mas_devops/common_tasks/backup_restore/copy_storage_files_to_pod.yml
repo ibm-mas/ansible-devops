@@ -75,6 +75,19 @@
       debug:
         msg: "Cloud storage job folder .......... {{ masbr_storage_job_folder }}"
 
+    # Cloud storage from job folder
+    # (only used for restoring from incremental backup 'src_folder -> dest_folder')
+    - name: "Set fact: cloud storage from job folder"
+      when: masbr_cf_from_job_name is defined and masbr_cf_from_job_name | length > 0
+      set_fact:
+        masbr_storage_from_job_folder: >-
+          {{ masbr_storage_cloud_rclone_name }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_from_job_name }}
+
+    - name: "Debug: cloud storage from job folder"
+      when: masbr_cf_from_job_name is defined and masbr_cf_from_job_name | length > 0
+      debug:
+        msg: "Cloud storage from job folder ......... {{ masbr_storage_from_job_folder }}"
+
     - name: "Set fact: pvc paths"
       set_fact:
         # Copy to PVC paths by default
@@ -156,6 +169,22 @@
         msg: "{{ masbr_cf_paths_to_pvc }}"
 
 
+    # Set job variables
+    # -----------------------------------------------------------------------------
+    - name: "Set fact: copy file Job name"
+      set_fact:
+        # must be no more than 63 characters and in lower case
+        # format 'copy-<job_version>-<timestamp>', e.g.
+        #   'copy-20240424210110-20240424210110'
+        masbr_cf_k8s_name: >-
+          copy-{{ masbr_job_version }}-{{ masbr_timestamp_format | strftime }}
+
+    - name: "Debug: copy file Job name"
+      debug:
+        msg:
+          - "Copy file Job name ..................... {{ masbr_cf_k8s_name }}"
+
+
     # Set copy file commands: cloud storage -> mounted pvc
     # -------------------------------------------------------------------------
     - name: "Set fact: dest paths in pvc"
@@ -165,10 +194,24 @@
 
     - name: "Set fact: initial rclone copy file command"
       set_fact:
-        masbr_cf_cmds: "rclone version"
+        masbr_cf_cmds: >-
+          mkdir -p /tmp/logs;
+          rclone version 2>&1 | tee /tmp/logs/rclone-version.log
 
     # Condition 1. src_folder -> dest_folder: copy src_folder/* to dest_folder/*
-    - name: "Set fact: copy files from cloud storage folder to pvc folder"
+    # When restoring from a full backup: use 'rclone sync'
+    # When restoring from an incremental backup:
+    #   1. use 'rclone copy' to copy full backup, use 'rclone check' to create 'missing-on-src-full.txt'
+    #   2. use 'rclone copy' to copy incremental backup, use 'rclone check' to create 'missing-on-src-incr.txt'
+    #   3. create 'masbr-deletions.txt' based on 'masbr-changes.txt' and the intersect lines in
+    #     'missing-on-src-full.txt' and 'missing-on-src-incr.txt'
+    #   4. 'rclone delete' based on 'masbr-deletions.txt'
+    - name: "Set fact: type of the restoring backup"
+      set_fact:
+        _restoring_type: >-
+          {{ 'incr' if (masbr_cf_from_job_name is defined and masbr_cf_from_job_name | length > 0) else 'full' }}
+
+    - name: "Set fact: command for copying files from cloud storage folder to pvc folder ({{ _restoring_type }})"
       when:
         - item.src_folder is defined and item.src_folder | length > 0
         - item.dest_folder is defined and item.dest_folder | length > 0
@@ -177,26 +220,65 @@
         masbr_cf_cmds: >-
           {{ masbr_cf_cmds }};
           mkdir -p {{ item.dest_folder }};
-          {{ 'rm -rf ' + item.dest_folder + '/*;' if masbr_cf_delete_dest }}
+          {{ 'rm -rf ' + item.dest_folder + '/*;' if masbr_cf_delete_dest is defined and masbr_cf_delete_dest }}
           rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
-          copy --no-traverse
+          {{ 'copy --no-traverse' if (masbr_cf_from_job_name is defined and masbr_cf_from_job_name | length > 0)
+          else 'sync' }}
           {{ [masbr_storage_job_folder, item.src_folder] | path_join }} {{ item.dest_folder }}
+          2>&1 | tee /tmp/logs/rclone-copy-{{ _restoring_type }}.log
       loop: "{{ masbr_cf_paths_to_pvc }}"
 
-    - name: "Set fact: delete files based on 'masbr-changes.txt' for incremental backup"
+    - name: "Set fact: command for copying files from cloud storage folder to pvc folder (full)"
       when:
         - item.src_folder is defined and item.src_folder | length > 0
         - item.dest_folder is defined and item.dest_folder | length > 0
-        - masbr_cf_apply_changes is defined and masbr_cf_apply_changes
+        - masbr_cf_from_job_name is defined and masbr_cf_from_job_name | length > 0
+      set_fact:
+        masbr_cf_dest_folders: "{{ masbr_cf_dest_folders + [item.dest_folder] }}"
+        masbr_cf_cmds: >-
+          {{ masbr_cf_cmds }};
+          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
+          copy --no-traverse
+          {{ [masbr_storage_from_job_folder, item.src_folder] | path_join }} {{ item.dest_folder }}
+          2>&1 | tee /tmp/logs/rclone-copy-full.log
+      loop: "{{ masbr_cf_paths_to_pvc }}"
+
+    - name: "Set fact: command for creating changes file"
+      when:
+        - item.src_folder is defined and item.src_folder | length > 0
+        - item.dest_folder is defined and item.dest_folder | length > 0
+        - masbr_cf_from_job_name is defined and masbr_cf_from_job_name | length > 0
       set_fact:
         masbr_cf_cmds: >-
           {{ masbr_cf_cmds }};
-          mv {{ [item.dest_folder, 'masbr-changes.txt'] | path_join }} /tmp/masbr-changes.txt;
-          cat /tmp/masbr-changes.txt | grep "^-" | awk '{print $2}' > /tmp/masbr-deletions.txt;
+          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
+          check {{ [masbr_storage_job_folder, item.src_folder] | path_join }} {{ item.dest_folder }}
+          --missing-on-src /tmp/logs/missing-on-src-incr.txt
+          2>&1 | tee /tmp/logs/rclone-check-incr.log;
+          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
+          check {{ [masbr_storage_from_job_folder, item.src_folder] | path_join }} {{ item.dest_folder }}
+          --missing-on-src /tmp/logs/missing-on-src-full.txt
+          2>&1 | tee /tmp/logs/rclone-check-full.log
+      loop: "{{ masbr_cf_paths_to_pvc }}"
+
+    - name: "Set fact: command for deleting files"
+      when:
+        - item.src_folder is defined and item.src_folder | length > 0
+        - item.dest_folder is defined and item.dest_folder | length > 0
+        - masbr_cf_from_job_name is defined and masbr_cf_from_job_name | length > 0
+      set_fact:
+        masbr_cf_cmds: >-
+          {{ masbr_cf_cmds }};
+          mv {{ [item.dest_folder, 'masbr-changes.txt'] | path_join }} /tmp/logs/masbr-changes.txt;
+          cat /tmp/logs/masbr-changes.txt | grep "^-" | awk '{print $2}' > /tmp/logs/masbr-deletions.txt;
+          sort /tmp/logs/missing-on-src-full.txt /tmp/logs/missing-on-src-incr.txt
+          | uniq -d >> /tmp/logs/masbr-deletions.txt;
           rclone --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
-          delete {{ item.dest_folder }} --files-from /tmp/masbr-deletions.txt;
+          delete {{ item.dest_folder }} --files-from /tmp/logs/masbr-deletions.txt
+          2>&1 | tee /tmp/logs/rclone-delete.log;
           rclone --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
           rmdirs {{ item.dest_folder }} --leave-root
+          2>&1 | tee /tmp/logs/rclone-rmdirs.log
       loop: "{{ masbr_cf_paths_to_pvc }}"
 
     # Condition 2. src_file -> dest_folder: copy src_file to dest_folder/src_file
@@ -212,6 +294,7 @@
           rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
           copy --no-traverse
           {{ [masbr_storage_job_folder, item.src_file] | path_join }} {{ item.dest_folder }}
+          2>&1 | tee /tmp/logs/rclone-copy.log
       loop: "{{ masbr_cf_paths_to_pvc }}"
 
     # Condition 3. src_file -> dest_file
@@ -226,7 +309,18 @@
           mkdir -p {{ item.dest_file | dirname }};
           rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
           copyto {{ [masbr_storage_job_folder, item.src_file] | path_join }} {{ item.dest_file }}
+          2>&1 | tee /tmp/logs/rclone-copyto.log
       loop: "{{ masbr_cf_paths_to_pvc }}"
+
+    - name: "Set fact: command for copying logs"
+      set_fact:
+        masbr_cf_cmds: >-
+          {{ masbr_cf_cmds }};
+          ls -lA /tmp/logs;
+          tar -czf /tmp/{{ masbr_cf_k8s_name }}-log.tar.gz -C /tmp/logs .;
+          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
+          copy /tmp/{{ masbr_cf_k8s_name }}-log.tar.gz
+          {{ masbr_storage_cloud_rclone_name }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_job_type }}s/{{ masbr_job_name_final }}/log
 
     - name: "Debug: rclone copy file command"
       debug:

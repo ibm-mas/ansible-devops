@@ -42,27 +42,25 @@
       include_tasks: "{{ role_path }}/tasks/restore/copy-db2-backup-file.yml"
       vars:
         _job_name: "{{ masbr_restore_from }}"
-        _job_completed_name: "{{ masbr_restore_from_completed }}"
 
     - name: "Set fact: Db2 backup file timestamp"
       set_fact:
         masbr_restore_from_timestamp: "{{ db2_backup_timestamp }}"
 
 
-    # This is an incremental backup, we also need to copy the ancestor full backup file
+    # This is an incremental backup, we also need to copy the based on full backup file
     # -------------------------------------------------------------------------
-    - name: "This is an incremental backup, we also need to copy the ancestor full backup file"
+    - name: "This is an incremental backup, we also need to copy the based on full backup file"
       when: masbr_restore_from_incr
       block:
-        - name: "Copy ancestor full backup file from specified storage location to pod"
+        - name: "Copy based on full backup file from specified storage location to pod"
           include_tasks: "{{ role_path }}/tasks/restore/copy-db2-backup-file.yml"
           vars:
-            _job_name: "{{ masbr_restore_ancestor }}"
-            _job_completed_name: "{{ masbr_restore_ancestor_completed }}"
+            _job_name: "{{ masbr_restore_basedon }}"
 
         - name: "Set fact: Db2 backup file timestamp"
           set_fact:
-            masbr_restore_ancestor_timestamp: "{{ db2_backup_timestamp }}"
+            masbr_restore_basedon_timestamp: "{{ db2_backup_timestamp }}"
 
 
     # Add Db2 keystore master key
@@ -175,9 +173,9 @@
             logtarget {{ db2_restore_folder }}/{{ masbr_restore_from }}
             replace existing without prompting | tee -a {{ db2_restore_log }};
             db2 -v restore db {{ db2_dbname }} incremental
-            from {{ db2_restore_folder }}/{{ masbr_restore_ancestor }}
-            taken at {{ masbr_restore_ancestor_timestamp }} into {{ db2_dbname }}
-            logtarget {{ db2_restore_folder }}/{{ masbr_restore_ancestor }}
+            from {{ db2_restore_folder }}/{{ masbr_restore_basedon }}
+            taken at {{ masbr_restore_basedon_timestamp }} into {{ db2_dbname }}
+            logtarget {{ db2_restore_folder }}/{{ masbr_restore_basedon }}
             replace existing without prompting | tee -a {{ db2_restore_log }};
             db2 -v restore db {{ db2_dbname }} incremental
             from {{ db2_restore_folder }}/{{ masbr_restore_from }}

@@ -1,10 +1,11 @@
 ---
 # Set below common job facts:
-#   masbr_task_type, masbr_job_type
+#   masbr_task_type: backup, restore, schedule
+#   masbr_job_type: backup, restore
 #   masbr_job_name, masbr_job_name_final
 #
 # Set below backup job facts:
-#   masbr_backup_from, masbr_backup_from_completed
+#   masbr_backup_from
 #   masbr_backup_from_yaml
 
 
@@ -87,8 +88,13 @@
   when: masbr_backup_schedule is defined and masbr_backup_schedule | length > 0
   set_fact:
     masbr_task_type: "schedule"
-    # Always create a new Job version for each run of the CronJob
-    masbr_job_version: "{{ '%Y%m%d%H%M%S' | strftime }}"
+
+- name: "Set fact: always create a new Job version for each Job of the CronJob"
+  when:
+    - masbr_backup_schedule is defined and masbr_backup_schedule | length > 0
+    - masbr_included_before_run_tasks is not defined
+  set_fact:
+    masbr_job_version: "{{ masbr_timestamp_format | strftime }}"
 
 - name: "Set fact: running task type (backup)"
   when: masbr_task_type is not defined
@@ -135,44 +141,40 @@
 
 # Check incremental backup
 # -----------------------------------------------------------------------------
-# This will set below two facts:
-#   - 'masbr_backup_from': find the latest full backup if not specified
-#   - 'masbr_backup_from_completed'
 - name: "Checks for incremental backup"
   when: masbr_backup_type == "incr"
   block:
-    # when 'masbr_backup_from_version' is not specified
-    - name: "Get the latest Completed Full backup job name when masbr_backup_from_version not provided"
+    # when 'masbr_backup_from_version' is not specified: find the latest full backup
+    - name: "Get the latest Full backup job name when masbr_backup_from_version not provided"
       when: masbr_backup_from_version is not defined or masbr_backup_from_version | length == 0
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
       vars:
         - masbr_ls_job_type: "backup"
-        - masbr_ls_filter: "| grep '^{{ masbr_job_name_prefix }}-full-.*-Completed$' | sort -r | head -1"
+        - masbr_ls_filter: "| grep -P '^{{ masbr_job_name_prefix }}-full-.*(?<!Failed)$' | sort -r | head -1"
 
     # when 'masbr_backup_from_version' is specified
-    - name: "Get the Completed Full backup job name by specified masbr_backup_from_version"
+    - name: "Get the Full backup job name by specified masbr_backup_from_version"
       when: masbr_backup_from_version is defined and masbr_backup_from_version | length > 0
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
       vars:
         - masbr_ls_job_type: "backup"
-        - masbr_ls_filter: "| grep '^{{ masbr_job_name_prefix }}-full-{{ masbr_backup_from_version }}-Completed$' | sort -r | head -1"
+        - masbr_ls_filter: "| grep '^{{ masbr_job_name_prefix }}-full-{{ masbr_backup_from_version }}$' | sort -r | head -1"
 
-    - name: "Fail if not found any previous Completed Full backup job"
+    - name: "Fail if not found any previous Full backup job"
       assert:
         that: masbr_ls_results is defined and masbr_ls_results | length == 1
-        fail_msg: "Not found any previous Completed Full backup job, please take a Completed Full backup first!"
+        fail_msg: "Not found any previous Full backup job, please take a Full backup first!"
 
     - name: "Set fact: backup from job name"
       set_fact:
-        masbr_backup_from_completed: "{{ masbr_ls_results[0] }}"
-        masbr_backup_from: "{{ masbr_ls_results[0] | replace('-Completed', '') }}"
+        masbr_backup_from: "{{ masbr_ls_results[0] }}"
 
     # Get backup from job information
     - name: "Get backup from job information"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_local.yml"
       vars:
         masbr_cf_job_type: "backup"
-        masbr_cf_job_name: "{{ masbr_backup_from_completed }}"
+        masbr_cf_job_name: "{{ masbr_backup_from }}"
         masbr_cf_paths:
           - src_file: "backup.yml"
             dest_folder: "from"
@@ -184,6 +186,12 @@
     - name: "Debug: backup from job information"
       debug:
         msg: "{{ masbr_backup_from_yaml }}"
+
+    # The backup from should be Completed
+    - name: "Fail if the backup from is not Completed"
+      assert:
+        that: masbr_backup_from_yaml.status.phase == "Completed"
+        fail_msg: "The specified backup job is not Completed, please specify a Completed backup job."
 
     # The backup from job should has the same component and data as current job
     - name: "Fail if the component name of backup from job is not same as current job"

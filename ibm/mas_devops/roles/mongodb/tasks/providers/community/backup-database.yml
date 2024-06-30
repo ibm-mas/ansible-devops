@@ -27,7 +27,7 @@
 
     - name: "Set fact: mongodb database backup log"
       set_fact:
-        mongodb_backup_log: "{{ mongodb_backup_folder }}/mongodb-backup.log"
+        mongodb_backup_log: "{{ mongodb_backup_folder }}/{{ masbr_job_name }}-backup.log"
 
     - name: "Create mongodb database backup folder"
       changed_when: true
@@ -148,7 +148,7 @@
           include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_pod.yml"
           vars:
             masbr_cf_job_type: "backup"
-            masbr_cf_job_name: "{{ masbr_backup_from_completed }}"
+            masbr_cf_job_name: "{{ masbr_backup_from }}"
             masbr_cf_paths:
               - src_file: "{{ masbr_job_data_type }}/query.json"
                 dest_folder: "{{ mongodb_backup_folder }}/from"
@@ -302,8 +302,8 @@
       changed_when: true
       shell: >
         {{ exec_in_pod_begin }}
-        tar -czf {{ mongodb_backup_folder }}/mongodb-backup-log.tar.gz
-        -C {{ mongodb_backup_folder }} mongodb-backup.log
+        tar -czf {{ mongodb_backup_folder }}/{{ masbr_job_name }}-backup-log.tar.gz
+        -C {{ mongodb_backup_folder }} {{ masbr_job_name }}-backup.log
         {{ exec_in_pod_end }}
 
     - name: "Copy mongodb backup log file from pod to specified storage location"
@@ -313,7 +313,7 @@
         masbr_cf_job_type: "backup"
         masbr_cf_job_name: "{{ masbr_job_name_final }}"
         masbr_cf_paths:
-          - src_file: "{{ mongodb_backup_folder }}/mongodb-backup-log.tar.gz"
+          - src_file: "{{ mongodb_backup_folder }}/{{ masbr_job_name }}-backup-log.tar.gz"
             dest_folder: "log"
 
     - name: "Downlaod and copy backup log file to specified storage location"
@@ -323,8 +323,8 @@
           changed_when: true
           shell: >
             oc cp --retries=50 -c {{ mongodb_container_name }}
-            {{ mongodb_namespace }}/{{ mongodb_pod_name }}:{{ mongodb_backup_folder }}/mongodb-backup-log.tar.gz
-            {{ masbr_local_job_folder }}/log/mongodb-backup-log.tar.gz
+            {{ mongodb_namespace }}/{{ mongodb_pod_name }}:{{ mongodb_backup_folder }}/{{ masbr_job_name }}-backup-log.tar.gz
+            {{ masbr_local_job_folder }}/log/{{ masbr_job_name }}-backup-log.tar.gz
 
         - name: "Copy backup log file from local to specified storage location"
           include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
@@ -332,5 +332,5 @@
             masbr_cf_job_type: "backup"
             masbr_cf_job_name: "{{ masbr_job_name_final }}"
             masbr_cf_paths:
-              - src_file: "log/mongodb-backup-log.tar.gz"
+              - src_file: "log/{{ masbr_job_name }}-backup-log.tar.gz"
                 dest_folder: "log"

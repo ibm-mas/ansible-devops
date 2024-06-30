@@ -27,7 +27,7 @@
 
     - name: "Set fact: mongodb database restore log"
       set_fact:
-        mongodb_restore_log: "{{ mongodb_restore_folder }}/mongodb-restore.log"
+        mongodb_restore_log: "{{ mongodb_restore_folder }}/{{ masbr_job_name }}-restore.log"
 
     - name: "Create mongodb database restore folder in pod"
       changed_when: true
@@ -42,17 +42,16 @@
         msg: "Database restore folder ........... {{ mongodb_restore_folder }}"
 
 
-    # This is an incremental backup, need to restore ancestor full backup first
+    # This is an incremental backup, need to restore based on full backup first
     # -------------------------------------------------------------------------
-    - name: "Restore ancestor full backup"
+    - name: "Restore based on full backup"
       when: masbr_restore_from_incr
       block:
-        - name: "Copy ancestor full backup file from specified storage location to pod"
+        - name: "Copy based on full backup file from specified storage location to pod"
           include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/restore-database-perform.yml"
           vars:
             _job_type: "full"
-            _job_name: "{{ masbr_restore_ancestor }}"
-            _job_completed_name: "{{ masbr_restore_ancestor_completed }}"
+            _job_name: "{{ masbr_restore_basedon }}"
 
 
     # Restore databases from the specified Full or Incremental backup
@@ -62,7 +61,6 @@
       vars:
         _job_type: "{{ 'incr' if masbr_restore_from_incr else 'full' }}"
         _job_name: "{{ masbr_restore_from }}"
-        _job_completed_name: "{{ masbr_restore_from_completed }}"
 
 
     # Do some post restoration tasks
@@ -97,8 +95,8 @@
       changed_when: true
       shell: >
         {{ exec_in_pod_begin }}
-        tar -czf {{ mongodb_restore_folder }}/mongodb-restore-log.tar.gz
-        -C {{ mongodb_restore_folder }} mongodb-restore.log
+        tar -czf {{ mongodb_restore_folder }}/{{ masbr_job_name }}-restore-log.tar.gz
+        -C {{ mongodb_restore_folder }} {{ masbr_job_name }}-restore.log
         {{ exec_in_pod_end }}
 
     - name: "Copy mongodb restore log file from pod to specified storage location"
@@ -108,7 +106,7 @@
         masbr_cf_job_type: "restore"
         masbr_cf_job_name: "{{ masbr_job_name_final }}"
         masbr_cf_paths:
-          - src_file: "{{ mongodb_restore_folder }}/mongodb-restore-log.tar.gz"
+          - src_file: "{{ mongodb_restore_folder }}/{{ masbr_job_name }}-restore-log.tar.gz"
             dest_folder: "log"
 
     - name: "Downlaod and copy restore log file to specified storage location"
@@ -118,8 +116,8 @@
           changed_when: true
           shell: >
             oc cp --retries=50 -c {{ mongodb_container_name }}
-            {{ mongodb_namespace }}/{{ mongodb_pod_name }}:{{ mongodb_restore_folder }}/mongodb-restore-log.tar.gz
-            {{ masbr_local_job_folder }}/log/mongodb-restore-log.tar.gz
+            {{ mongodb_namespace }}/{{ mongodb_pod_name }}:{{ mongodb_restore_folder }}/{{ masbr_job_name }}-restore-log.tar.gz
+            {{ masbr_local_job_folder }}/log/{{ masbr_job_name }}-restore-log.tar.gz
 
         - name: "Copy restore log file from local to specified storage location"
           include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
@@ -127,5 +125,5 @@
             masbr_cf_job_type: "restore"
             masbr_cf_job_name: "{{ masbr_job_name_final }}"
             masbr_cf_paths:
-              - src_file: "log/mongodb-restore-log.tar.gz"
+              - src_file: "log/{{ masbr_job_name }}-restore-log.tar.gz"
                 dest_folder: "log"

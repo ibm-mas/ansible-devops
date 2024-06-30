@@ -2,14 +2,14 @@
 kind: NetworkPolicy
 apiVersion: networking.k8s.io/v1
 metadata:
-  name: "masbr-copy"
+  name: "masbr-network-policy"
   namespace: "{{ masbr_cf_namespace }}"
   labels:
     mas.ibm.com/masbr: ""
 spec:
   podSelector:
     matchLabels:
-      masbr-job: "copy"
+      mas.ibm.com/masbr: ""
   egress:
     - {}
   policyTypes:
@@ -23,7 +23,8 @@ metadata:
   namespace: "{{ masbr_cf_namespace }}"
   labels:
     mas.ibm.com/masbr: ""
-    masbr-job: "copy"
+    masbr-type: "copy"
+    masbr-job: "{{ masbr_job_name }}"
 spec:
   backoffLimit: 1
   template:
@@ -31,7 +32,8 @@ spec:
       name: "{{ masbr_cf_k8s_name }}"
       labels:
         mas.ibm.com/masbr: ""
-        masbr-job: "copy"
+        masbr-type: "copy"
+        masbr-job: "{{ masbr_job_name }}"
     spec:
 {% if masbr_cf_affinity is defined and masbr_cf_affinity %}
       affinity:
@@ -69,6 +71,8 @@ spec:
           env: {{ masbr_cf_env }}
 {% endif %}
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
             - name: data-volume
               mountPath: "{{ masbr_cf_pvc_mount_path }}"
 {% if masbr_cf_pvc_sub_path is defined and masbr_cf_pvc_sub_path | length > 0 %}
@@ -81,6 +85,8 @@ spec:
 {% endif %}
       restartPolicy: Never    
       volumes:
+        - name: tmp
+          emptyDir: {}
         - name: data-volume
           persistentVolumeClaim:
             claimName: "{{ masbr_cf_pvc_name }}"

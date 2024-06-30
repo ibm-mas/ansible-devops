@@ -45,40 +45,21 @@
       set_fact:
         masbr_cf_job_type: "backup"
         masbr_cf_namespace: "{{ mas_app_namespace }}"
-        masbr_cf_job_name: "{{ masbr_restore_from_completed }}"
+        masbr_cf_job_name: "{{ masbr_restore_from }}"
         masbr_cf_are_pvc_paths: true
 
-    # Trying to restore from an incremental backup, need to restore ancestor full backup first
-    - name: "Set fact: "
+    - name: "Set fact: restore from an incremental backup"
       when: masbr_restore_from_incr
       set_fact:
-        masbr_cf_job_name: "{{ masbr_restore_ancestor_completed }}"
+        masbr_cf_from_job_name: "{{ masbr_restore_basedon }}"
 
-    # Restore pv data from a full backup
-    - name: "Restore pv data from a full backup"
+    - name: "Copy pv data from specified storage location"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_pod.yml"
       vars:
         masbr_cf_pvc_name: "{{ mas_app_pv_item.pvc_name }}"
         masbr_cf_pvc_mount_path: "{{ mas_app_pv_item.mount_path }}"
         masbr_cf_pvc_sub_path: "{{ mas_app_pv_item.sub_path | default('') }}"
         masbr_cf_paths: "{{ mas_app_pv_item.restore_paths }}"
-        masbr_cf_delete_dest: true
-      loop: "{{ mas_app_pv_list }}"
-      loop_control:
-        loop_var: mas_app_pv_item
-
-    # Restore pv data from an incremental backup
-    - name: "Restore pv data from an incremental backup"
-      when: masbr_restore_from_incr
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_pod.yml"
-      vars:
-        masbr_cf_job_name: "{{ masbr_restore_from_completed }}"
-        masbr_cf_pvc_name: "{{ mas_app_pv_item.pvc_name }}"
-        masbr_cf_pvc_mount_path: "{{ mas_app_pv_item.mount_path }}"
-        masbr_cf_pvc_sub_path: "{{ mas_app_pv_item.sub_path | default('') }}"
-        masbr_cf_paths: "{{ mas_app_pv_item.restore_paths }}"
-        masbr_cf_delete_dest: false
-        masbr_cf_apply_changes: true
       loop: "{{ mas_app_pv_list }}"
       loop_control:
         loop_var: mas_app_pv_item

@@ -14,7 +14,6 @@
 #   masbr_cf_pvc_sub_path
 #   masbr_cf_paths
 #   masbr_cf_delete_dest: true|false, only used when coping files from cloud storage to pvc
-#   masbr_cf_apply_changes: only used when restoring from incremental backup
 
 
 # Get pod information
@@ -44,22 +43,6 @@
       - "Pod security context ................... {{ masbr_cf_pod_security_context }}"
       - "Container name ......................... {{ masbr_cf_container_name }}"
       - "Container security context ............. {{ masbr_cf_container_security_context }}"
-
-
-# Set job variables
-# -----------------------------------------------------------------------------
-- name: "Set fact: copy file Job name"
-  set_fact:
-    # must be no more than 63 characters and in lower case
-    # format 'copy-<job_version>-<timestamp>', e.g.
-    #   'copy-20240424210110-20240424210110'
-    masbr_cf_k8s_name: >-
-      copy-{{ masbr_job_version }}-{{ '%Y%m%d%H%M%S' | strftime }}
-
-- name: "Debug: copy file Job name"
-  debug:
-    msg:
-      - "Copy file Job name ..................... {{ masbr_cf_k8s_name }}"
 
 
 # Create ConfigMap
@@ -96,7 +79,7 @@
 
 # Create Job
 # -----------------------------------------------------------------------------
-- name: "Create Job for copying '{{ masbr_job_component.name }} {{ masbr_job_data_type }}'"
+- name: "Create copying file Job"
   kubernetes.core.k8s:
     template: "{{ role_path }}/../../common_tasks/templates/backup_restore/copy_cloud_files_job.yml.j2"
     state: present
@@ -107,7 +90,7 @@
 # -----------------------------------------------------------------------------
 - name: "Save copy file Job log"
   block:
-    - name: "Wait for Job to be completed (10s delay)"
+    - name: "Wait for Job to be Completed or Failed (10s delay)"
       kubernetes.core.k8s_info:
         api_version: batch/v1
         kind: Job
@@ -117,17 +100,18 @@
       until:
         - _job_info.resources is defined
         - _job_info.resources | length > 0
-        - _job_info.resources | json_query('[*].status.conditions[?type==`Complete`][].status') | select ('match','True') | list | length == 1
+        - (_job_info.resources | json_query('[*].status.conditions[?type==`Complete`][].status') | select ('match','True') | list | length == 1) or
+          (_job_info.resources | json_query('[*].status.conditions[?type==`Failed`][].status') | select ('match','True') | list | length == 1)
       retries: "{{ (masbr_copy_timeout_sec|int // 10) | int  }}"
       delay: 10
 
   always:
-    - name: "Get Job log files"
+    - name: "Get Job pod information"
       shell: >-
         mkdir -p {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }};
-        pod_name=$(oc get pod -n {{ masbr_cf_namespace }} --no-headers=true -l job-name={{ masbr_cf_k8s_name }} | awk '{print $1}');
-        oc logs -n {{ masbr_cf_namespace }} ${pod_name} > {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/${pod_name}-log.txt;
+        pod_name=$(oc get pod -n {{ masbr_cf_namespace }} --no-headers=true -l job-name={{ masbr_cf_k8s_name }} | awk '{print $1}' | head -n 1);
         oc describe -n {{ masbr_cf_namespace }} pod ${pod_name} > {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/${pod_name}-describe.txt;
+        oc get -n {{ masbr_cf_namespace }} pod ${pod_name} -o yaml > {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}/${pod_name}.yaml;
         ls -lA {{ masbr_local_job_folder }}/log/{{ masbr_cf_k8s_name }}
       register: _get_log_files_output
 
@@ -140,7 +124,7 @@
     - name: "Set fact: copy file Job log name"
       set_fact:
         masbr_cf_log_file_name: >-
-          {{ masbr_cf_k8s_name }}-{{ masbr_job_component.name }}-{{ masbr_job_data_type }}-log.tar.gz
+          {{ masbr_cf_k8s_name }}-describe.tar.gz
 
     - name: "Create a tar.gz archive of all log files"
       shell: >-

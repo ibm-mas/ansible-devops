@@ -9,15 +9,34 @@
 # -----------------------------------------------------------------------------
 - name: "Set fact: task variables"
   set_fact:
-    # Format '<task_type>-<job_version>-<timestamp>'
-    # - Job name must be no more than 63 characters and in lower case:
-    #     'backup-20240508151053-20240424210110'
-    #     'restore-20240508151704-20240424210110'
-    # - CronJob name must be no longer than 52 characters and in lower case:
-    #     'schedule-20240508151053-20240424210110'
-    masbr_rt_k8s_name: >-
-      {{ masbr_task_type }}-{{ masbr_job_version }}-{{ '%Y%m%d%H%M%S' | strftime }}
     masbr_rt_namespace: "{{ masbr_job_component.namespace }}"
+
+- name: "Set fact: task name (backup)"
+  when: masbr_task_type == "backup"
+  set_fact:
+    # Format '<task_type>-<backup_type>-<job_version>'
+    # - Job name must be no more than 63 characters and in lower case:
+    #     'backup-full-20240508151053'
+    masbr_rt_k8s_name: >-
+      {{ masbr_task_type }}-{{ masbr_backup_type }}-{{ masbr_job_version }}
+
+- name: "Set fact: task name (schedule)"
+  when: masbr_task_type == "schedule"
+  set_fact:
+    # Format '<task_type>-<backup_type>-<timestamp>'
+    # - CronJob name must be no longer than 52 characters and in lower case:
+    #     'schedule-incr-20240424210110'
+    masbr_rt_k8s_name: >-
+      {{ masbr_task_type }}-{{ masbr_backup_type }}-{{ masbr_timestamp_format | strftime }}
+
+- name: "Set fact: task name (restore)"
+  when: masbr_task_type == "restore"
+  set_fact:
+    # Format '<task_type>-<restore_from_type>-<restore_from_version>-<job_version>'
+    # - Job name must be no more than 63 characters and in lower case:
+    #     'restore-full-20240508151704'
+    masbr_rt_k8s_name: >-
+      {{ masbr_task_type }}-{{ masbr_restore_from_yaml.type }}-{{ masbr_restore_from_version }}-{{ masbr_job_version }}
 
 - name: "Debug: run task Job name"
   debug:
@@ -52,6 +71,10 @@
         value: "false"
       - name: "MASBR_RUNNING_IN_TASK_JOB"
         value: "true"
+      - name: "MASBR_TASK_JOB_NAMESPACE"
+        value: "{{ masbr_rt_namespace }}"
+      - name: "MASBR_TASK_JOB_NAME"
+        value: "{{ masbr_rt_k8s_name }}"
 
 - name: "Set fact: add additional common env variables (staring with 'MASBR_')"
   set_fact:
@@ -60,12 +83,14 @@
     {{ ansible_env |
     ansible.utils.keep_keys(target=['MASBR_'], matching_parameter='starts_with') |
     dict2items(key_name='name', value_name='value') }}
-  # Exclude below env vars because we will override them
+  # Exclude below 'MASBR_' env vars because we will override them
   when: >-
     item.name not in [
       'MASBR_CONFIRM_CLUSTER',
       'MASBR_CREATE_TASK_JOB',
       'MASBR_RUNNING_IN_TASK_JOB',
+      'MASBR_TASK_JOB_NAMESPACE',
+      'MASBR_TASK_JOB_NAME',
       'MASBR_STORAGE_CLOUD_RCLONE_FILE'
     ]
 
