@@ -1,6 +1,87 @@
 Restoring MAS
 ===============================================================================
 
+Work in progress refactoring
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+| [MASBR_RESTORE_FROM_VERSION](#masbr_restore_from_version)                    | Yes only for restore job | The version of the backup to be restored from |
+| [MASBR_RESTORE_DATA](#masbr_restore_data)                                    | No                       | Data types to be restored |
+
+
+### Environment Variables: Restore
+##### MASBR_RESTORE_FROM_VERSION
+You must specify the environment variable `MASBR_RESTORE_FROM_VERSION` to indicate which version of the backup files to use in the restore action.
+
+The playbook/role will first try to find all the backup folders which has the same backup version you specified by `MASBR_RESTORE_FROM_VERSION` on the specified backup storage location. For each found backup folder, the playbook/role will get the backup information from the backup folder and determine whether it is trying to restore from an incremental backup or not. If so, the playbook/role will retrieve and restore the corresponding full backup first and then continue to restore the incremental backup.
+
+For example, we are going to restore MAS Core from an incremental backup with the version `20240622040201`. Because when you run playbook to back up MAS Core, it will back up the MongoDB and MAS Core namespace resources in order. So there should be two backup folders that have the same backup version `20240622040201` on the spedified backup storage:
+```
+           0 2000-01-01 00:00:00        -1 mongodb-main-incr-20240622040201-Completed
+           0 2000-01-01 00:00:00        -1 core-main-incr-20240622040201-Completed
+```
+
+After we set `MASBR_RESTORE_FROM_VERSION=20240622040201` and run the playbook `ibm.mas_devops.restore_core` to restore MAS Core from this incremental backup version, the playbook will first find the backup folder `mongodb-main-incr-20240622040201-Completed`, and get the `backup.yml` file in it:
+
+```yaml
+kind: Backup
+name: "mongodb-main-incr-20240622040201"
+version: "20240622040201"
+type: "incr"
+from: "mongodb-main-full-20240621122530"
+source:
+  domain: "lubanbj5.cdl.ibm.com"
+  suite: ""
+  instance: "main"
+  workspace: ""
+component:
+  name: "mongodb"
+  instance: "main"
+  app: "core"
+  namespace: "mongoce"
+  provider: "community"
+  version: "5.0.23"
+data:
+  - seq: "1"
+    type: "database"
+    phase: "Completed"
+status:
+  phase: "Completed"
+  startTimestamp: "2024-06-22T04:03:30"
+  completionTimestamp: "2024-06-22T04:04:48"
+  sentNotifications:
+    - type: "Slack"
+      channel: "#ansible-slack-dev"
+      timestamp: "2024-06-22T04:03:43"
+      phase: "InProgress"
+    - type: "Slack"
+      channel: "#ansible-slack-dev"
+      timestamp: "2024-06-22T04:04:50"
+      phase: "Completed"
+```
+
+In the above `backup.yml` file, it has a field `from: "mongodb-main-full-20240621122530"` that indicate this incremental backup is based on the full backup `mongodb-main-full-20240621122530`. So the playbook will first try to find this full backup from the specified backup storage and restore it. After the playbook restored this full backup successfully, it will continue to restore the current incremental backup `mongodb-main-incr-20240622040201`.
+
+Next, the playbook will perform similar steps as above to restore MAS Core namespace resources from the full backup folder `core-main-full-20240621122530-Completed` and the incremental backup folder `core-main-incr-20240622040201-Completed`
+
+##### MASBR_RESTORE_DATA
+!!! important
+    This environment variable is only valid for restoring a component by running a single role. Please do not set this variable when running a playbook to restore multiple components at once.
+
+A restore role will perform the restore tasks for all types of data used by a component by default. For example, when we using `suite_app_backup_restore` to restore Manage, it will restore the following data in order:
+
+- Manage namespace resources
+- Persistent volume data used by Manage
+
+If you only want to restore certain types of data, you can set this environment variable. The value of this environment variable is the data types separated by commas. For example,
+
+- `MASBR_RESTORE_DATA=namespace,pv`: this will indicate the role to restore `namespace` and `pv` data
+- `MASBR_RESTORE_DATA=pv`: this will indicate the role to only restore `pv` data
+
+The data types supported by each restore role are defined in the role document, please refer to corresponding role document for more details.
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 Overview
 -------------------------------------------------------------------------------
 MAS Devops Collection includes playbooks for restoring the following MAS components and their dependencies:
@@ -212,7 +293,7 @@ First, run below command to get all MAS Core backup jobs from the object storage
 $ rclone --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE} lsd ${MASBR_STORAGE_CLOUD_RCLONE_NAME}:${MASBR_STORAGE_CLOUD_BUCKET}/backups | grep core
 ```
 
-You will get a list of backup job folders stored on the object storage, the output is similar to the following: 
+You will get a list of backup job folders stored on the object storage, the output is similar to the following:
 ```text
            0 2000-01-01 00:00:00        -1 core-main-full-20240621122530-Completed
            0 2000-01-01 00:00:00        -1 core-main-incr-20240622040201-Completed
@@ -237,7 +318,7 @@ ok: [localhost] =>
   - Job link ........................... https://console-openshift-console.apps.lubanbj5.cdl.ibm.com/k8s/ns/mas-main-core/jobs/restore-20240622075501-20240622075523
 ```
 
-Copy above job link and open it in the web browser to check the restore progress.  
+Copy above job link and open it in the web browser to check the restore progress.
 
 After the restore job is completed, you can login to the object storage web console to check the restore job information, or run below rclone commands in the container to have some checks:
 
@@ -298,7 +379,7 @@ status:
   completionTimestamp: "2024-06-22T08:04:33"
 ```
 
-Reference 
+Reference
 -------------------------------------------------------------------------------
 
 - [Restoring and validating Maximo Application Suite](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=suite-restoring-validating-maximo-application)

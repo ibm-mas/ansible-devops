@@ -86,7 +86,7 @@
           changed_when: false
           shell: >-
             {{ exec_in_pod_begin }}
-            mongo --quiet --host={{ mongodb_primary_host }}
+            {{ mongodb_shell }} --quiet --host={{ mongodb_primary_host }}
             --username={{ mongodb_user }} --password={{ mongodb_password }}
             --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin
             --eval="JSON.stringify(db.adminCommand({
@@ -226,10 +226,10 @@
           - src_file: "{{ mongodb_backup_folder }}/{{ masbr_job_name }}.tar.gz"
             dest_folder: "{{ masbr_job_data_type }}"
 
-    - name: "Downlaod and copy backup files to specified storage location"
+    - name: "Download and copy backup files to specified storage location"
       when: not _mongodb_cf_in_server
       block:
-        - name: "Downlaod backup files from pod to local"
+        - name: "Download backup files from pod to local"
           changed_when: true
           shell: >
             oc cp --retries=50 -c {{ mongodb_container_name }}
@@ -316,10 +316,10 @@
           - src_file: "{{ mongodb_backup_folder }}/{{ masbr_job_name }}-backup-log.tar.gz"
             dest_folder: "log"
 
-    - name: "Downlaod and copy backup log file to specified storage location"
+    - name: "Download and copy backup log file to specified storage location"
       when: not _mongodb_cf_in_server
       block:
-        - name: "Downlaod backup log file from pod to local"
+        - name: "Download backup log file from pod to local"
           changed_when: true
           shell: >
             oc cp --retries=50 -c {{ mongodb_container_name }}
