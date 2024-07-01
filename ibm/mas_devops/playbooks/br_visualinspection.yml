@@ -1,15 +1,27 @@
-- name: "Restore Visual Inspection"
+- name: "Backup/Restore Maximo Visual Inspection"
   hosts: localhost
   any_errors_fatal: true
+
+  vars:
+    # Define the target for backup/restore
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
+
+    # Define what action to perform
+    masbr_action: "{{ lookup('env', 'MASBR_ACTION') }}"
+
+    # Define what to backup/restore
+    masbr_job_component:
+      name: "visualinspection"
+      instance: "{{ mas_instance_id }}"
+      namespace: "mas-{{ mas_instance_id }}-visualinspection"
+
+    # Configure path to backup_restore tasks
+    role_path: "{{ [playbook_dir, '../common_tasks/backup_restore'] | path_join }}"
 
   pre_tasks:
     # Check for required environment variables
     # -------------------------------------------------------------------------
-    - name: "Get required environment variables"
-      set_fact:
-        mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
-        mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
-
     - name: "Fail if mas_instance_id is not provided"
       assert:
         that: mas_instance_id is defined and mas_instance_id != ""
@@ -20,41 +32,30 @@
         that: mas_workspace_id is defined and mas_workspace_id != ""
         fail_msg: "mas_workspace_id is required"
 
-
-    # Set job variables
-    # -------------------------------------------------------------------------
-    - name: "Set fact: restore job variables"
-      set_fact:
-        masbr_job_component:
-          name: "visualinspection"
-          instance: "{{ mas_instance_id }}"
-          namespace: "mas-{{ mas_instance_id }}-visualinspection"
+    - name: "Fail if masbr_action is not set to backup|restore"
+      assert:
+        that: masbr_action in ["backup", "restore"]
+        fail_msg: "masbr_action is required and must be set to 'backup' or 'restore'"
 
 
     # Common checks before run tasks
     # -------------------------------------------------------------------------
-    - name: "Set fact: override role_path based on playbook_dir"
-      set_fact:
-        role_path: "{{ [playbook_dir, '../common_tasks/backup_restore'] | path_join }}"
-
-    - name: "Debug: role_path"
-      debug:
-        var: role_path
-
     - name: "Before run tasks"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
       vars:
-        _job_type: "restore"
+        _job_type: "{{ masbr_action }}"
 
   tasks:
-    # Create k8s Job to run restore tasks
+    # Create k8s Job to run backup/restore tasks
     # -------------------------------------------------------------------------
-    - name: "Create k8s Job to run restore tasks"
+    - name: "Create k8s Job to run {{ masbr_action }} tasks"
       when: masbr_create_task_job
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
       vars:
-        _rt_playbook_name: "restore_visualinspection"
+        _rt_playbook_name: "br_visualinspection"
         _rt_env:
+          - name: "MASBR_ACTION"
+            value: "{{ masbr_action }}"
           - name: "MASBR_JOB_VERSION"
             value: "{{ masbr_job_version }}"
           - name: "MAS_INSTANCE_ID"
@@ -63,27 +64,24 @@
             value: "{{ mas_workspace_id }}"
 
 
-    # Run restore tasks in k8s Job or local workstation
+    # Run backup/restore tasks locally
     # -------------------------------------------------------------------------
-    - name: "Run restore tasks"
+    - name: "Run {{ masbr_action }} tasks"
       when: not masbr_create_task_job
       block:
-        - name: "Restore MongoDB"
+        - name: "MongoDB: {{ masbr_action }}"
           include_role:
             name: ibm.mas_devops.mongodb
           vars:
-            mongodb_action: "restore"
+            mongodb_action: "{{ masbr_action }}"
             mas_app_id: "visualinspection"
 
-        - name: "Restore MAS Core namespace"
+        - name: "MAS Core namespace: {{ masbr_action }}"
           include_role:
             name: ibm.mas_devops.suite_backup_restore
-          vars:
-            masbr_action: "restore"
 
-        - name: "Restore Visual Inspection namespace"
+        - name: "Visual Inspection namespace: {{ masbr_action }}"
           include_role:
             name: ibm.mas_devops.suite_app_backup_restore
           vars:
-            masbr_action: "restore"
             mas_app_id: "visualinspection"

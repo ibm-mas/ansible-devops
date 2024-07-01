@@ -3,7 +3,7 @@
   any_errors_fatal: true
 
   vars:
-    # Define the target for backup
+    # Define the target for backup/restore
     mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
     mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
     mongodb_provider: "{{ lookup('env', 'MONGODB_PROVIDER') | default('community', true) }}"
@@ -34,6 +34,7 @@
         that: masbr_action in ["backup", "restore"]
         fail_msg: "masbr_action is required and must be set to 'backup' or 'restore'"
 
+
     # Common checks before run tasks
     # -------------------------------------------------------------------------
     - name: "Before run tasks"
@@ -42,7 +43,7 @@
         _job_type: "{{ masbr_action }}"
 
   tasks:
-    # Create k8s Job to run backup tasks
+    # Create k8s Job to run backup/restore tasks
     # -------------------------------------------------------------------------
     - name: "Create k8s Job to run {{ masbr_action }} tasks"
       when: masbr_create_task_job
@@ -63,12 +64,13 @@
           - name: "MONGODB_NAMESPACE"
             value: "{{ mongodb_namespace }}"
 
-    # Run backup tasks locally
+
+    # Run backup/restore tasks locally
     # -------------------------------------------------------------------------
     - name: "Run {{ masbr_action }} tasks"
       when: not masbr_create_task_job
       block:
-        - name: "MongoDB {{ masbr_action }}"
+        - name: "MongoDB: {{ masbr_action }}"
           include_role:
             name: ibm.mas_devops.mongodb
           vars:
