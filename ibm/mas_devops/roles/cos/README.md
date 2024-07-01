@@ -30,28 +30,28 @@ Required.  Which action you want to run for the COS instance. You can either `pr
 - Environment Variable: `COS_ACTION`
 - Default Value: `provision`
 
-### ibmcos_instance_name
+### cos_instance_name
 Provide an optional name for the Object Storage instance.  This is only used when cos_type is set to `ibm` for IBM Cloud Object Storage.
 
 - Environment Variable: `COS_INSTANCE_NAME`
 - Default Value: `Object Storage for MAS`, if `mas_instance_id` is set the MAS instance ID will be appended to this name.
 
-### ibmcos_location_info
+### cos_location_info
 Required. The location where the instance available
   - Environment Variable: `COS_LOCATION`
   - Default Value: `global`
 
-### ibmcos_plan_type
+### cos_plan_type
 Required (For Provisioning). The plan type of the service
   - Environment Variable: `COS_PLAN`
   - Default Value: `standard`
 
-### ibmcos_url
+### cos_url
 Required (For Provisioning). The COS region location url endpoint. Needed to generage a system-scoped ObjectStorageCfg resource configuration file for MAS.
   - Environment Variable: `COS_REGION_LOCATION_URL`
   - Default Value: `https://s3.us.cloud-object-storage.appdomain.cloud`
 
-### ibmcos_resource_key_iam_role
+### cos_resource_key_iam_role
 Provide an optional role when cos service credential is getting created during COS provisioning.
   - Environment Variable: `COS_RESOURCE_KEY_IAM_ROLE`
   - Default Value: `Manager` 
