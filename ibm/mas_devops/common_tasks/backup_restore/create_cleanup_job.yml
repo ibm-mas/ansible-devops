@@ -1,0 +1,65 @@
+---
+# Check if cleanup Job exists
+# -----------------------------------------------------------------------------
+- name: "Get cleanup Job"
+  kubernetes.core.k8s_info:
+    api_version: batch/v1
+    kind: CronJob
+    name: masbr-cleanup
+    namespace: "{{ masbr_cleanup_namespace }}"
+  register: _cleanup_job_info
+
+- name: "Set fact: cleanup Job exists"
+  when:
+    - _cleanup_job_info is defined
+    - _cleanup_job_info.resources is defined
+    - _cleanup_job_info.resources | length == 1
+  set_fact:
+    masbr_cleanup_job_exists: true
+
+
+# Create script configmap if cleanup Job not exists
+# -----------------------------------------------------------------------------
+- name: "Create script configmap if cleanup Job not exists"
+  when: masbr_cleanup_job_exists is not defined
+  block:
+    - name: "Create cleanup script"
+      template:
+        src: "{{ role_path }}/../../common_tasks/templates/backup_restore/cleanup_job.sh.j2"
+        dest: "{{ masbr_local_job_folder }}/cleanup_job.sh"
+
+    - name: "Get cleanup script content"
+      shell: >
+        cat {{ masbr_local_job_folder }}/cleanup_job.sh
+      register: _cleanup_sh_content
+
+    - name: "Create configmap to save cleanup script"
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: masbr-cleanup
+            namespace: "{{ masbr_cleanup_namespace }}"
+          data:
+            script: "{{ _cleanup_sh_content.stdout }}"
+        wait: true
+
+
+# Create or update cleanup Job
+# -----------------------------------------------------------------------------
+- name: "Set fact: cleanup Job variables"
+  set_fact:
+    masbr_cleanup_env:
+      - name: "MASBR_CLEANUP_TTL_SEC"
+        value: "{{ masbr_cleanup_ttl_sec }}"
+    masbr_cleanup_cmds: >-
+      oc get cm/masbr-cleanup -n {{ masbr_cleanup_namespace }} -o yaml | yq '.data.script' > /tmp/masbr-cleanup.sh &&
+      chmod +x /tmp/masbr-cleanup.sh &&
+      /tmp/masbr-cleanup.sh
+
+- name: "Create or update cleanup Job"
+  kubernetes.core.k8s:
+    apply: true
+    template: "{{ role_path }}/../../common_tasks/templates/backup_restore/cleanup_job.yml.j2"
+    state: present

@@ -1,0 +1,181 @@
+---
+# Update job variables
+# -----------------------------------------------------------------------------
+# Update 'masbr_job_component'
+- name: "Update fact: masbr_job_component"
+  when: _job_component is defined
+  set_fact:
+    masbr_job_component: "{{ masbr_job_component | combine(_job_component) }}"
+
+# Update 'masbr_job_data_list'
+- name: "Update fact: masbr_job_data_list"
+  when:
+    - _job_data_list is defined
+    - _job_data_list | length > 0
+  block:
+    - name: "Update fact: masbr_job_data_list"
+      ansible.utils.update_fact:
+        updates:
+          - path: masbr_job_data_list[{{ item.seq|int -1 }}].phase
+            value: "{{ item.phase }}"
+      loop: "{{ _job_data_list }}"
+      register: _job_data_list_updated
+
+    - name: "Set fact: masbr_job_data_list"
+      set_fact:
+        masbr_job_data_list: "{{ _job_data_list_updated.results[-1].masbr_job_data_list }}"
+
+# Get specified 'masbr_job_status.phase'
+- name: "Get specified masbr_job_status.phase"
+  when:
+    - _job_status is defined
+    - _job_status.phase is defined
+  set_fact:
+    _job_status_:
+      phase: "{{ _job_status.phase }}"
+
+# Determine 'masbr_job_status.phase' based on 'masbr_job_data_list'
+- name: "Determine masbr_job_status.phase based on masbr_job_data_list"
+  when: _job_status is not defined
+  block:
+    - name: "Get unique phases of all job data types"
+      set_fact:
+        masbr_job_data_phases: "{{ masbr_job_data_list | map(attribute='phase') | unique }}"
+
+    - name: "Debug: unique phases of all job data types"
+      debug:
+        msg: "Job data phases ................... {{ masbr_job_data_phases }}"
+
+    # masbr_job_data_phases: ['New']
+    - name: "Set fact: masbr_job_status_phase ('New')"
+      when:
+        - ("New" in masbr_job_data_phases)
+        - masbr_job_data_phases | length == 1
+      set_fact:
+        _job_status_:
+          phase: "New"
+
+    # masbr_job_data_phases: ['InProgress'], ['InProgress', 'New'], ['Completed', 'InProgress', 'New']
+    - name: "Set fact: masbr_job_status_phase ('InProgress')"
+      when:
+        - ("InProgress" in masbr_job_data_phases)
+        - ("Failed" not in masbr_job_data_phases)
+      set_fact:
+        _job_status_:
+          phase: "InProgress"
+
+    # masbr_job_data_phases: ['Completed']
+    - name: "Set fact: masbr_job_status_phase ('Completed')"
+      when:
+        - ("Completed" in masbr_job_data_phases)
+        - masbr_job_data_phases | length == 1
+      set_fact:
+        _job_status_:
+          phase: "Completed"
+
+    # masbr_job_data_phases: ['Failed', 'InProgress', 'New']
+    - name: "Set fact: masbr_job_status_phase ('PartiallyFailed')"
+      when:
+        - ("Failed" in masbr_job_data_phases)
+        - masbr_job_data_phases | length > 1
+      set_fact:
+        _job_status_:
+          phase: "PartiallyFailed"
+
+    # masbr_job_data_phases: ['Failed']
+    - name: "Set fact: masbr_job_status_phase ('Failed')"
+      when:
+        - ("Failed" in masbr_job_data_phases)
+        - masbr_job_data_phases | length == 1
+      set_fact:
+        _job_status_:
+          phase: "Failed"
+
+# When Job status is "New"
+- name: "Update fact: masbr_job_status.phase ('New')"
+  when:
+    - _job_status_ is defined
+    - _job_status_.phase is defined
+    - _job_status_.phase == "New"
+  set_fact:
+    masbr_job_status:
+      phase: "New"
+      startTimestamp: "{{ '%Y-%m-%dT%H:%M:%S' | strftime }}"
+
+# When Job status is "InProgress"
+- name: "Update fact: masbr_job_status.phase ('InProgress')"
+  when:
+    - _job_status_ is defined
+    - _job_status_.phase is defined
+    - _job_status_.phase == "InProgress"
+  set_fact:
+    masbr_job_status: "{{ masbr_job_status | combine(_job_status_) }}"
+
+# When Job status is "Completed", "Failed" or "PartiallyFailed"
+- name: "Update fact: masbr_job_status.phase ('Completed', 'Failed', 'PartiallyFailed')"
+  when:
+    - _job_status_ is defined
+    - _job_status_.phase is defined
+    - _job_status_.phase in ['Completed', 'Failed', 'PartiallyFailed']
+  set_fact:
+    masbr_job_status: >-
+      {{ masbr_job_status | combine({
+        'phase': _job_status_.phase,
+        'completionTimestamp': '%Y-%m-%dT%H:%M:%S' | strftime
+      }) }}
+
+
+# Send notification
+# -----------------------------------------------------------------------------
+- name: "Send notification"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/send_notification.yml"
+
+- name: "Update fact: masbr_job_status.sentNotifications"
+  when:
+    - masbr_sent_notifications is defined
+    - masbr_sent_notifications | length > 0
+  block:
+    - name: "Update fact: masbr_job_status.sentNotifications"
+      ansible.utils.update_fact:
+        updates:
+          - path: masbr_job_status.sentNotifications
+            value: "{{ masbr_sent_notifications }}"
+      register: _job_status_updated
+
+    - name: "Set fact: masbr_job_status.sentNotifications"
+      set_fact:
+        masbr_job_status: "{{ _job_status_updated.masbr_job_status }}"
+
+
+# Create job file
+# -----------------------------------------------------------------------------
+- name: "Debug: update job variables"
+  debug:
+    msg:
+      - "masbr_job_component .................... {{ masbr_job_component }}"
+      - "masbr_job_data_list .................... {{ masbr_job_data_list }}"
+      - "masbr_job_status ....................... {{ masbr_job_status }}"
+
+- name: "Create updated job file"
+  template:
+    src: "{{ role_path }}/../../common_tasks/templates/backup_restore/{{ masbr_job_type }}.yml.j2"
+    dest: "{{ masbr_local_job_folder }}/{{ masbr_job_type }}.yml"
+
+
+# Copy local job files to specified storage location
+# -----------------------------------------------------------------------------
+- name: "Copy local job files to specified storage location"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
+  vars:
+    masbr_cf_job_type: "{{ masbr_job_type }}"
+    masbr_cf_job_name: "{{ masbr_job_name }}"
+    masbr_cf_paths:
+      - src_file: "{{ masbr_job_type }}.yml"
+        dest_folder: ""
+
+
+# Append job final status to the job folder name
+# -----------------------------------------------------------------------------
+- name: "Append job final status to the job folder name"
+  when: masbr_job_status.phase in ['PartiallyFailed', 'Failed']
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/rename_storage_job_folder.yml"

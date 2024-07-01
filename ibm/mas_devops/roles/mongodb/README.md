@@ -52,8 +52,8 @@ Determines which action needs to be performed w.r.t mongodb for a specfied `prov
 - Default Value: `install`
   ```
   Following Providers supports below mentioned MONGODB_ACTION values:
-  1. Provider : community
-  Supported MONGODB_ACTION values : install,uninstall
+  1. Provider : community 
+  Supported MONGODB_ACTION values : install,uninstall,backup,restore
   2. Provider: aws
   Supported MONGODB_ACTION values : install,uninstall,docdb_secret_rotate
   3. Provider: ibm
@@ -263,6 +263,30 @@ If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replic
 ```
 
 Once the CA certificate has been updated for the MongoCfg and LicenseService CRs several pods in the core and SLS namespaces might need to be restarted to pick up the changes. This would include but is not limited to coreidp, coreapi, api-licensing.
+
+
+Community MongoDB Backup and Restore Role Variables
+-----------------------------------------------------
+
+!!! tip
+    You need to set some other common environment variables for creating backup/restore jobs, please refer to [this doc](../playbooks/masbr-vars.md) for details.
+
+Below environment variables are for this role:
+
+### mas_instance_id
+Required. This role only supports backing up MongoDB databases belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this role multiple times with different value of this environment variable.
+
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
+
+### mas_app_id
+Optional. By default, this role will backup all databases belong to the specified MAS instance. You can back up the databases only belong to a specific MAS application by setting this environment variable.
+
+- Environment Variable: `MAS_APP_ID`
+- Default Value: None
+
+Please refer to the playbooks `backup_mongodb` and `restore_mongodb` to learn how to use this role.
+
 
 IBM Cloud MongoDB Role Variables
 ----------------------------------

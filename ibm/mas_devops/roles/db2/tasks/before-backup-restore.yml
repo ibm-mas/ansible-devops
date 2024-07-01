@@ -1,0 +1,152 @@
+---
+# Get db2 version and status
+# -----------------------------------------------------------------------------
+- name: "Get Db2uCluster"
+  kubernetes.core.k8s_info:
+    api_version: db2u.databases.ibm.com/v1
+    kind: Db2uCluster
+    name: "{{ masbr_job_component.instance }}"
+    namespace: "{{ db2_namespace }}"
+  register: _db2ucluster_output
+
+- name: "Set fact: db2 version"
+  set_fact:
+    db2_version: "{{ _db2ucluster_output.resources[0].spec.version }}"
+  when:
+    - _db2ucluster_output is defined
+    - _db2ucluster_output.resources[0] is defined
+    - _db2ucluster_output.resources[0].spec.version is defined
+
+- name: "Fail if db2 does not exists"
+  assert:
+    that: db2_version is defined
+    fail_msg: "Db2 does not exists!"
+
+- name: "Set fact: db2 running status"
+  set_fact:
+    db2_running: true
+  when:
+    - _db2ucluster_output is defined
+    - _db2ucluster_output.resources[0] is defined
+    - _db2ucluster_output.resources[0].status is defined
+    - _db2ucluster_output.resources[0].status.state is defined
+    - _db2ucluster_output.resources[0].status.state == "Ready"
+
+- name: "Fail if db2 is not running"
+  assert:
+    that: db2_running is defined and db2_running
+    fail_msg: "Db2 is not running!"
+
+
+# Get db2 pod name
+# -----------------------------------------------------------------------------
+- name: "Get db2 pod name"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - type=engine
+      - app={{ masbr_job_component.instance }}
+  register: _db2_pod_output
+  failed_when:
+    - _db2_pod_output.resources is not defined
+    - _db2_pod_output.resources | length == 0
+
+- name: "Set fact: db2 pod name"
+  set_fact:
+    db2_pod_name: "{{ _db2_pod_output.resources[0].metadata.name }}"
+    db2_container_name: db2u
+
+- name: "Set fact: exec command in db2 pod"
+  set_fact:
+    exec_in_pod_begin: >-
+      oc exec {{ db2_pod_name }} -c {{ db2_container_name }} -n {{ db2_namespace }} -- su -lc '
+    exec_in_pod_end: "' {{ db2_jdbc_username }}"
+
+
+# Set db2 backup/restore variables
+# -------------------------------------------------------------------------
+- name: "Set fact: db2 pod copy file variables"
+  set_fact:
+    masbr_cf_namespace: "{{ db2_namespace }}"
+    masbr_cf_pod_name: "{{ db2_pod_name }}"
+    masbr_cf_container_name: "{{ db2_container_name }}"
+    masbr_cf_pvc_name: "c-{{ db2_instance_name if masbr_job_type == 'restore' else db2_instance_name }}-backup"
+    masbr_cf_pvc_mount_path: "/mnt/backup"
+    masbr_cf_pvc_sub_path: ""
+    masbr_cf_are_pvc_paths: true
+    masbr_cf_affinity: false
+
+- name: "Set fact: temporary folders"
+  set_fact:
+    db2_pod_temp_folder: "{{ masbr_pod_temp_folder }}/{{ masbr_job_name }}"
+    db2_pvc_temp_folder: "{{ masbr_cf_pvc_mount_path }}/{{ masbr_job_name }}"
+
+- name: "Set fact: db2 keystore folder"
+  set_fact:
+    db2_keystore_folder: "/mnt/blumeta0/db2/keystore"
+
+
+# Output db2 information
+# -----------------------------------------------------------------------------
+- name: "Debug: db2 information"
+  debug:
+    msg:
+      - "Db2 version ............................ {{ db2_version }}"
+      - "Db2 is running ......................... {{ db2_running }}"
+      - "Db2 pod name ........................... {{ db2_pod_name }}"
+
+
+# Check if an exiting job is running
+# -------------------------------------------------------------------------
+- name: "Try to find job lock file in pod"
+  when: not masbr_allow_multi_jobs
+  changed_when: false
+  shell: >
+    {{ exec_in_pod_begin }}
+    [ -f {{ masbr_pod_lock_file }} ] && echo exist; exit 0
+    {{ exec_in_pod_end }}
+  register: _get_lock_file_output
+
+- name: "Fail if found job lock file in pod"
+  when: not masbr_allow_multi_jobs
+  assert:
+    that: _get_lock_file_output.stdout != "exist"
+    fail_msg: "A backup/restore job is running now, please try to run job later!"
+
+- name: "Create job lock file in pod"
+  changed_when: true
+  shell: >-
+    {{ exec_in_pod_begin }}
+    mkdir -p {{ masbr_pod_lock_file | dirname }};
+    touch {{ masbr_pod_lock_file }}
+    {{ exec_in_pod_end }}
+
+
+# Check storage usage
+# -------------------------------------------------------------------------
+- name: "Get storage usage of pod temporary folder"
+  changed_when: false
+  shell: >
+    {{ exec_in_pod_begin }}
+    mkdir -p {{ db2_pod_temp_folder }};
+    df -h {{ db2_pod_temp_folder }}
+    {{ exec_in_pod_end }}
+  register: _df_temp_output
+
+- name: "Debug: storage usage of pod temporary folder"
+  debug:
+    msg: "{{ _df_temp_output.stdout_lines }}"
+
+- name: "Get storage usage of pvc temporary folder"
+  changed_when: false
+  shell: >
+    {{ exec_in_pod_begin }}
+    mkdir -p {{ db2_pvc_temp_folder }};
+    df -h {{ db2_pvc_temp_folder }}
+    {{ exec_in_pod_end }}
+  register: _df_pvc_output
+
+- name: "Debug: storage usage of pvc temporary folder"
+  debug:
+    msg: "{{ _df_pvc_output.stdout_lines }}"

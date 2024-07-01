@@ -1,0 +1,56 @@
+---
+# Scenario 1 - when running a playbook:
+#   1. playbook include this task
+#   2. roles include this task
+# Scenario 2 - when running a role:
+#   1. the role include this task
+
+
+# Check common variables
+# -----------------------------------------------------------------------------
+- name: "Check common variables"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/check_common_vars.yml"
+
+
+# Confirm cluster information
+# -----------------------------------------------------------------------------
+- name: "Confirm the currently connected cluster information"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/confirm_cluster_info.yml"
+
+
+# Check common backup/restore variables
+# -----------------------------------------------------------------------------
+- name: "Check common {{ _job_type }} variables"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/check_{{ _job_type }}_vars.yml"
+
+
+# Add labels to current Job
+# -----------------------------------------------------------------------------
+- name: "Add lables to current Job"
+  when:
+    - masbr_running_in_task_job
+    - masbr_task_type == "schedule"
+    - masbr_included_before_run_tasks is not defined
+  shell: >-
+    job_name=$(oc get job -n {{ _job_namespace }} --sort-by=.metadata.creationTimestamp --no-headers
+    | grep {{ _job_name }} | awk '{print $1}' | tail -n 1);
+    oc label job ${job_name} -n {{ _job_namespace }} masbr-job={{ masbr_job_name }};
+    pod_name=$(oc get pod -n {{ _job_namespace }} -l job-name=${job_name} --no-headers | awk '{print $1}');
+    oc label pod ${pod_name} -n {{ _job_namespace }} masbr-job={{ masbr_job_name }}
+  vars:
+    _job_namespace: "{{ lookup('env', 'MASBR_TASK_JOB_NAMESPACE') }}"
+    _job_name: "{{ lookup('env', 'MASBR_TASK_JOB_NAME') }}"
+
+
+# Before backup/restore component
+# -------------------------------------------------------------------------
+- name: "Before {{ _job_type }} {{ masbr_job_component.name }}"
+  when: _component_before_task_path is defined and _component_before_task_path | length > 0
+  include_tasks: "{{ _component_before_task_path }}"
+
+
+# Set a flag to indicate these tasks are included
+# -----------------------------------------------------------------------------
+- name: "Set fact: already included these tasks"
+  set_fact:
+    masbr_included_before_run_tasks: true

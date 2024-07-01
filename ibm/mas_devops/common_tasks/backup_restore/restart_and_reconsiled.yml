@@ -1,0 +1,23 @@
+---
+- name: "Restart {{ _pod_keywords }} pod"
+  shell: >
+    oc get pods -n {{ _pod_namespace }} --no-headers=true | grep "{{ _pod_keywords }}" | awk '{print $1}'
+    | xargs oc delete pod -n {{ _pod_namespace }}
+
+- name: "Wait for {{ _pod_keywords }} pod to be ready (10s delay)"
+  shell: >
+    oc get pods -n {{ _pod_namespace }} --no-headers=true | grep "{{ _pod_keywords }}"
+    | grep -Evi "1/1|2/2|3/3|4/4|5/5|6/6|7/7|8/8|9/9|complete" | wc -l
+  register: _is_not_ready
+  until: _is_not_ready.stdout|int == 0
+  retries: 30
+  delay: 10
+
+- name: "Wait for {{ _pod_keywords }} pod to be reconsiled (10s delay)"
+  shell: >
+    oc get pods -n {{ _pod_namespace }} --no-headers=true | grep "{{ _pod_keywords }}" | awk '{print $1}'
+    | xargs oc logs -c {{ _container_name }} -n {{ _pod_namespace }} | grep "ok=" | wc -l
+  register: _is_reconsiled
+  until: _is_reconsiled.stdout|int == 1
+  retries: 60
+  delay: 10

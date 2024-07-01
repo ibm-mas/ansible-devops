@@ -1,0 +1,111 @@
+---
+- name: "Load mas app information"
+  include_vars: "{{ role_path }}/../../common_vars/application_info.yml"
+
+- name: "Set fact: mas app information"
+  when: mas_app_id != "health"
+  set_fact:
+    mas_app_kind: "{{ app_info[mas_app_id].kind }}"
+    mas_ws_kind: "{{ app_info[mas_app_id].ws_kind }}"
+    mas_api_version: "{{ app_info[mas_app_id].api_version }}"
+
+- name: "Get health app information"
+  when: mas_app_id == "health"
+  include_tasks: "tasks/health/get-app-info.yml"
+
+
+# Get app version and status
+# -----------------------------------------------------------------------------
+- name: "Set fact: application CRD instance name"
+  set_fact:
+    mas_app_cr_name: "{{ mas_instance_id }}"
+
+- name: "Get {{ mas_app_kind }}/{{ mas_app_cr_name }}"
+  kubernetes.core.k8s_info:
+    api_version: "{{ mas_api_version }}"
+    kind: "{{ mas_app_kind }}"
+    name: "{{ mas_app_cr_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: _app_output
+
+- name: "Set fact: {{ mas_app_kind }}/{{ mas_app_cr_name }} version"
+  set_fact:
+    mas_app_version: "{{ _app_output.resources[0].status.versions.reconciled }}"
+  when:
+    - _app_output is defined
+    - (_app_output.resources | length > 0)
+    - _app_output.resources[0].status.versions.reconciled is defined
+
+- name: "Fail if {{ mas_app_kind }}/{{ mas_app_cr_name }} does not exists"
+  assert:
+    that: mas_app_version is defined
+    fail_msg: "{{ mas_app_kind }}/{{ mas_app_cr_name }} does not exists!"
+
+- name: "Set fact: {{ mas_app_kind }}/{{ mas_app_cr_name }} status"
+  set_fact:
+    mas_app_ready: true
+  when:
+    - _app_output.resources is defined
+    - (_app_output.resources | length > 0)
+    - _app_output.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+
+# When performing restore, we shouldn't care about the status of app.
+- name: "Fail if {{ mas_app_kind }}/{{ mas_app_cr_name }} is not ready"
+  when: false
+  assert:
+    that: mas_app_ready is defined and mas_app_ready
+    fail_msg: "{{ mas_app_kind }}/{{ mas_app_cr_name }} is not ready!"
+
+
+# Get workspace version and status
+# -----------------------------------------------------------------------------
+- name: "Set fact: workspace CRD instance name"
+  set_fact:
+    mas_ws_cr_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+
+- name: "Get {{ mas_ws_kind }}/{{ mas_ws_cr_name }}"
+  kubernetes.core.k8s_info:
+    api_version: "{{ mas_api_version }}"
+    kind: "{{ mas_ws_kind }}"
+    name: "{{ mas_ws_cr_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: _ws_output
+
+- name: "Set fact: {{ mas_ws_kind }}/{{ mas_ws_cr_name }} version"
+  set_fact:
+    mas_ws_version: "{{ _ws_output.resources[0].status.versions.reconciled }}"
+  when:
+    - _ws_output is defined
+    - (_ws_output.resources | length > 0)
+    - _ws_output.resources[0].status.versions.reconciled is defined
+
+- name: "Fail if {{ mas_ws_kind }}/{{ mas_ws_cr_name }} does not exists"
+  assert:
+    that: mas_ws_version is defined
+    fail_msg: "{{ mas_ws_kind }}/{{ mas_ws_cr_name }} does not exists!"
+
+- name: "Set fact: {{ mas_ws_kind }}/{{ mas_ws_cr_name }} status"
+  set_fact:
+    mas_ws_ready: true
+  when:
+    - _ws_output.resources is defined
+    - (_ws_output.resources | length > 0)
+    - _ws_output.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+
+# When performing restore, we shouldn't care about the status of app.
+- name: "Fail if {{ mas_ws_kind }}/{{ mas_ws_cr_name }} is not ready"
+  when: false
+  assert:
+    that: mas_ws_ready is defined and mas_ws_ready
+    fail_msg: "{{ mas_ws_kind }}/{{ mas_ws_cr_name }} is not ready!"
+
+
+# Output app information
+# -----------------------------------------------------------------------------
+- name: "Debug: {{ mas_app_id | capitalize }} information"
+  debug:
+    msg:
+      - "{{ mas_app_kind }}/{{ mas_app_cr_name }} version ............ {{ mas_app_version }}"
+      - "{{ mas_app_kind }}/{{ mas_app_cr_name }} is ready ........... {{ mas_app_ready | default(false, true) }}"
+      - "{{ mas_ws_kind }}/{{ mas_ws_cr_name }} version .......... {{ mas_ws_version }}"
+      - "{{ mas_ws_kind }}/{{ mas_ws_cr_name }} is ready ......... {{ mas_ws_ready | default(false, true) }}"

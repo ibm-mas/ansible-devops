@@ -1,0 +1,223 @@
+---
+# Set below common job facts:
+#   masbr_task_type: backup, restore, schedule
+#   masbr_job_type: backup, restore
+#   masbr_job_name, masbr_job_name_final
+#
+# Set below backup job facts:
+#   masbr_backup_from
+#   masbr_backup_from_yaml
+
+
+# Backup environment variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: backup environment variables"
+  set_fact:
+    # Supported backup types: 'full', 'incr', 'delta' (Not support 'delta' by now)
+    masbr_backup_type: "{{ lookup('env', 'MASBR_BACKUP_TYPE') | default('full', true) }}"
+
+    # Data type string separated by commas: e.g.'namespace,pv'
+    masbr_backup_data: "{{ lookup('env', 'MASBR_BACKUP_DATA') | default('', true) }}"
+
+    # The version of the backup to create incremental backup based on
+    # only used when masbr_backup_type='incr'
+    masbr_backup_from_version: "{{ lookup('env', 'MASBR_BACKUP_FROM_VERSION') | default('', true) }}"
+
+    # Cron expression for scheduled backup
+    # https://en.wikipedia.org/wiki/Cron
+    masbr_backup_schedule: "{{ lookup('env', 'MASBR_BACKUP_SCHEDULE') | default('', true) }}"
+
+
+# Check 'masbr_job_component'
+# -----------------------------------------------------------------------------
+- name: "Fail if masbr_job_component is not provided"
+  assert:
+    that:
+      - masbr_job_component is defined
+      - ('name' in masbr_job_component)
+      - ('namespace' in masbr_job_component)
+    fail_msg:
+      - "masbr_job_component.name is required"
+      - "masbr_job_component.namespace is required"
+
+
+# Check 'masbr_job_data_list'
+# -----------------------------------------------------------------------------
+- name: "Set fact: init masbr_job_data_list"
+  set_fact:
+    masbr_job_data_list: "{{ masbr_job_data_list | default([], true) }}"
+
+- name: "Set fact: specified backup data"
+  when: masbr_backup_data is defined and masbr_backup_data | length > 0
+  block:
+    - name: "Set fact: reset masbr_job_data_specified"
+      set_fact:
+        masbr_job_data_specified: []
+
+    - name: "Get specified backup data"
+      set_fact:
+        masbr_job_data_specified: "{{ masbr_job_data_specified + [{ 'seq': (idx+1)|int, 'type': item|trim }] }}"
+      loop: "{{ masbr_backup_data | split(',') }}"
+      loop_control:
+        index_var: idx
+
+    - name: "Set fact: override the default masbr_job_data_list"
+      set_fact:
+        masbr_job_data_list: "{{ masbr_job_data_specified }}"
+
+- name: "Set fact: set default phase to each backup data"
+  when: masbr_job_data_list is defined and masbr_job_data_list | length > 0
+  block:
+    - name: "Set fact: reset masbr_job_data_init"
+      set_fact:
+        masbr_job_data_init: []
+
+    - name: "Set fact: set default phase to each backup data"
+      set_fact:
+        masbr_job_data_init: "{{ masbr_job_data_init + [ item | combine({ 'phase': 'New' }) ] }}"
+      loop: "{{ masbr_job_data_list }}"
+
+    - name: "Set fact: backup data with default phase"
+      set_fact:
+        masbr_job_data_list: "{{ masbr_job_data_init }}"
+
+
+# Set 'masbr_task_type'
+# -----------------------------------------------------------------------------
+- name: "Set fact: running task type (schedule)"
+  when: masbr_backup_schedule is defined and masbr_backup_schedule | length > 0
+  set_fact:
+    masbr_task_type: "schedule"
+
+- name: "Set fact: always create a new Job version for each Job of the CronJob"
+  when:
+    - masbr_backup_schedule is defined and masbr_backup_schedule | length > 0
+    - masbr_included_before_run_tasks is not defined
+  set_fact:
+    masbr_job_version: "{{ masbr_timestamp_format | strftime }}"
+
+- name: "Set fact: running task type (backup)"
+  when: masbr_task_type is not defined
+  set_fact:
+    masbr_task_type: "backup"
+
+
+# Set backup job variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: backup job variables"
+  set_fact:
+    masbr_job_type: "backup"
+
+- name: "Set fact: job name include instance"
+  when: masbr_job_component.instance is defined and masbr_job_component.instance | length > 0
+  set_fact:
+    # Format '<job_component>-<job_instance>-<backup_type>-<job_version>'
+    #   'mongodb-main-incr-20240509130354'
+    #   'db2-mas-main-masdev-manage-full-20240509130354'
+    #   'manage-ivt90x-01-full-20240509130354'
+    masbr_job_name_prefix: >-
+      {{ masbr_job_component.name }}-{{ masbr_job_component.instance }}
+
+- name: "Set fact: job name without instance"
+  when: masbr_job_component.instance is undefined or masbr_job_component.instance | length == 0
+  set_fact:
+    masbr_job_name_prefix: "{{ masbr_job_component.name }}"
+
+- name: "Set fact: backup job name"
+  set_fact:
+    masbr_job_name: "{{ masbr_job_name_prefix }}-{{ masbr_backup_type }}-{{ masbr_job_version }}"
+
+- name: "Set fact: final backup job name"
+  set_fact:
+    # At this point, set it as the same value of masbr_job_name
+    masbr_job_name_final: "{{ masbr_job_name }}"
+
+
+# Create local job folder
+# -----------------------------------------------------------------------------
+- name: "Create local job folder"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_local_job_folder.yml"
+
+
+# Check incremental backup
+# -----------------------------------------------------------------------------
+- name: "Checks for incremental backup"
+  when: masbr_backup_type == "incr"
+  block:
+    # when 'masbr_backup_from_version' is not specified: find the latest full backup
+    - name: "Get the latest Full backup job name when masbr_backup_from_version not provided"
+      when: masbr_backup_from_version is not defined or masbr_backup_from_version | length == 0
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
+      vars:
+        - masbr_ls_job_type: "backup"
+        - masbr_ls_filter: "| grep -P '^{{ masbr_job_name_prefix }}-full-.*(?<!Failed)$' | sort -r | head -1"
+
+    # when 'masbr_backup_from_version' is specified
+    - name: "Get the Full backup job name by specified masbr_backup_from_version"
+      when: masbr_backup_from_version is defined and masbr_backup_from_version | length > 0
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
+      vars:
+        - masbr_ls_job_type: "backup"
+        - masbr_ls_filter: "| grep '^{{ masbr_job_name_prefix }}-full-{{ masbr_backup_from_version }}$' | sort -r | head -1"
+
+    - name: "Fail if not found any previous Full backup job"
+      assert:
+        that: masbr_ls_results is defined and masbr_ls_results | length == 1
+        fail_msg: "Not found any previous Full backup job, please take a Full backup first!"
+
+    - name: "Set fact: backup from job name"
+      set_fact:
+        masbr_backup_from: "{{ masbr_ls_results[0] }}"
+
+    # Get backup from job information
+    - name: "Get backup from job information"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_local.yml"
+      vars:
+        masbr_cf_job_type: "backup"
+        masbr_cf_job_name: "{{ masbr_backup_from }}"
+        masbr_cf_paths:
+          - src_file: "backup.yml"
+            dest_folder: "from"
+
+    - name: "Set fact: backup from job information"
+      set_fact:
+        masbr_backup_from_yaml: "{{ lookup('file', masbr_local_job_folder + '/from/backup.yml') | from_yaml }}"
+
+    - name: "Debug: backup from job information"
+      debug:
+        msg: "{{ masbr_backup_from_yaml }}"
+
+    # The backup from should be Completed
+    - name: "Fail if the backup from is not Completed"
+      assert:
+        that: masbr_backup_from_yaml.status.phase == "Completed"
+        fail_msg: "The specified backup job is not Completed, please specify a Completed backup job."
+
+    # The backup from job should has the same component and data as current job
+    - name: "Fail if the component name of backup from job is not same as current job"
+      assert:
+        that: masbr_backup_from_yaml.component.name == masbr_job_component.name
+        fail_msg: "The component name of backup from job is not same as current job"
+
+    - name: "Set fact: data list difference"
+      set_fact:
+        masbr_job_data_list_differ: >-
+          {{ masbr_job_data_list | map(attribute='type') |
+          difference(masbr_backup_from_yaml.data | map(attribute='type')) }}
+
+    - name: "Fail if the data list of backup from job does not cover current job"
+      assert:
+        that: masbr_job_data_list_differ | length == 0
+        fail_msg: "The data list of backup from job does not cover current job: {{ masbr_job_data_list_differ }}"
+
+
+# Show backup job information
+# -----------------------------------------------------------------------------
+- name: "Debug: backup job information"
+  debug:
+    msg:
+      - "Backup job name ....................... {{ masbr_job_name }}"
+      - "Backup type ........................... {{ masbr_backup_type }}"
+      - "Backup from ........................... {{ masbr_backup_from | default('<undefined>', true) }}"
+      - "Backup component ...................... {{ masbr_job_component }}"
+      - "Backup data ........................... {{ masbr_job_data_list }}"

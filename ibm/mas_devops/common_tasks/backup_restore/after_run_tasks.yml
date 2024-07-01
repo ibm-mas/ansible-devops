@@ -1,0 +1,57 @@
+---
+# After backup/restore component
+# -------------------------------------------------------------------------
+- name: "After {{ masbr_job_type }} {{ masbr_job_component.name }}"
+  when: _component_after_task_path is defined and _component_after_task_path | length > 0
+  include_tasks: "{{ _component_after_task_path }}"
+
+
+# Copy Ansible log file to storage location
+# -----------------------------------------------------------------------------
+- name: "Set fact: Ansible log path"
+  set_fact:
+    masbr_ansible_log_path: "{{ lookup('env', 'ANSIBLE_LOG_PATH') }}"
+    masbr_ansible_log_name: "{{ masbr_job_name }}-ansible"
+
+- name: "Copy Ansible log file to storage location"
+  when:
+    - masbr_ansible_log_path is defined
+    - masbr_ansible_log_path | length > 0
+  block:
+    - name: "Debug: Ansbile log path"
+      debug:
+        msg: "Ansible log path .................. {{ masbr_ansible_log_path }}"
+
+    - name: "Create a tar.gz archive of Ansible log file"
+      shell: >-
+        mkdir -p {{ masbr_local_job_folder }}/log &&
+        cp -f {{ masbr_ansible_log_path }} {{ masbr_local_job_folder }}/log/{{ masbr_ansible_log_name }}.log &&
+        tar -czf {{ masbr_local_job_folder }}/log/{{ masbr_ansible_log_name }}-log.tar.gz
+        -C {{ masbr_local_job_folder }}/log {{ masbr_ansible_log_name }}.log
+
+    - name: "Copy Ansible log file from local to storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "{{ masbr_job_type }}"
+        masbr_cf_job_name: "{{ masbr_job_name_final }}"
+        masbr_cf_paths:
+          - src_file: "log/{{ masbr_ansible_log_name }}-log.tar.gz"
+            dest_folder: "log"
+
+
+# Delete local job folder
+# -----------------------------------------------------------------------------
+- name: "Delete local job folder"
+  file:
+    path: "{{ masbr_local_job_folder }}"
+    state: absent
+
+
+# Display summary of the running task results
+# -----------------------------------------------------------------------------
+- name: "Summary"
+  debug:
+    msg:
+      - "Job name ........................... {{ masbr_job_name }}"
+      - "Job status ......................... {{ masbr_job_status.phase }}"
+      - "Job storage location ............... {{ masbr_storage_job_folder_final | default(masbr_storage_job_folder, true) }}"

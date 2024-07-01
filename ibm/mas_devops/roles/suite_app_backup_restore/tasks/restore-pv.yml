@@ -1,0 +1,85 @@
+---
+# Update pv data restore status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update pv data restore status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "InProgress"
+
+
+# Get app pv information
+# -----------------------------------------------------------------------------
+- name: "Set fact: mas_app_pv_list"
+  set_fact:
+    mas_app_pv_list: []
+
+- name: "Get {{ mas_app_id }} pv information"
+  when: mas_app_id in ['manage', 'visualinspection']
+  include_tasks: "tasks/{{ mas_app_id }}/pv-info.yml"
+
+- name: "Debug: {{ mas_app_id }} pv information"
+  debug:
+    msg: "{{ mas_app_pv_list }}"
+
+
+# Not found pv need to be restored, skip this task.
+# (TODO: should set the status to 'Skip')
+# -------------------------------------------------------------------------
+- name: "Update pv data restore status: Completed"
+  when: mas_app_pv_list | length == 0
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "Completed"
+
+
+- name: "Restoe pv data"
+  when: mas_app_pv_list | length > 0
+  block:
+    # Copy pv data from specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Set fact: copy file variables"
+      set_fact:
+        masbr_cf_job_type: "backup"
+        masbr_cf_namespace: "{{ mas_app_namespace }}"
+        masbr_cf_job_name: "{{ masbr_restore_from }}"
+        masbr_cf_are_pvc_paths: true
+
+    - name: "Set fact: restore from an incremental backup"
+      when: masbr_restore_from_incr
+      set_fact:
+        masbr_cf_from_job_name: "{{ masbr_restore_basedon }}"
+
+    - name: "Copy pv data from specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_pod.yml"
+      vars:
+        masbr_cf_pvc_name: "{{ mas_app_pv_item.pvc_name }}"
+        masbr_cf_pvc_mount_path: "{{ mas_app_pv_item.mount_path }}"
+        masbr_cf_pvc_sub_path: "{{ mas_app_pv_item.sub_path | default('') }}"
+        masbr_cf_paths: "{{ mas_app_pv_item.restore_paths }}"
+      loop: "{{ mas_app_pv_list }}"
+      loop_control:
+        loop_var: mas_app_pv_item
+
+
+    # Update pv data restore status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update pv data restore status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Completed"
+
+  rescue:
+    # Update pv data restore status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update pv data restore status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Failed"
