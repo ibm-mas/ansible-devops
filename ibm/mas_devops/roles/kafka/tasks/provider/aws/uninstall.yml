@@ -98,29 +98,11 @@
 
 # 3. Delete AWS KMS Key, SecretManager
 # -----------------------------------------------------------------------------
-- name: "Look for AWS msk_kms_key"
-  shell: aws kms describe-key --key-id alias/{{aws_msk_kms_key}}
-  register: msk_kms_key_query
-
-- name: "Debug AWS msk_kms_key_query"
-  debug:
-    msg:
-      - "msk_kms_key_query ...................... {{ msk_kms_key_query }}"
-
-- name: "Extract AWS msk_kms_key id and state"
-  set_fact:
-    msk_kms_key_id: "{{ msk_kms_key_query.stdout | from_json | json_query('KeyMetadata.KeyId') }}"
-    msk_kms_key_state: "{{ msk_kms_key_query.stdout | from_json | json_query('KeyMetadata.KeyState') }}"
-
-- name: "Debug AWS MSK kafka arn"
-  debug:
-    msg:
-      - "msk_kms_key_id ......................... {{ msk_kms_key_id }}"
-      - "msk_kms_key_state ...................... {{ msk_kms_key_state }}"
-
-- name: "Schedule Deletion AWS msk_kms_key_id"
-  shell: aws kms schedule-key-deletion --region {{ aws_region }} --key-id {{msk_kms_key_id}} --pending-window-in-days 10
-  when: msk_kms_key_id != "" and msk_kms_key_state != 'PendingDeletion'
+- name: "Delete AWS msk_kms_key_id"
+  shell: aws kms delete-alias --alias-name alias/{{aws_msk_kms_key}}
+  when: aws_msk_kms_key != ""
+  register: key_arn
+  failed_when: key_arn.rc not in [0] and ('NotFoundException' not in key_arn.stderr )
 
 - name: "Delete Secretsmanager {{aws_msk_secret}}"
   shell: aws secretsmanager delete-secret --secret-id {{aws_msk_secret}} --force-delete-without-recovery

@@ -37,6 +37,7 @@
     api_version: v1
     kind: Namespace
     name: "mas-{{ mas_instance_id }}-{{ app_name }}"
+  when: gitops == False
 
 # 3. Set facts with size of the files to be used in template.
 # Note: We should not include attributes with empty files in the secret with risk to break TrustStore Worker job (i.g. it breaks when ca.crt is empty)
@@ -71,3 +72,28 @@
     definition: "{{ lookup('template', 'templates/public-cert-secret.yml.j2') }}"
     wait: yes
     wait_timeout: 60
+  when: gitops == False
+
+- name: "{{ app_name }} : Create target directories"
+  file:
+    path: "{{ mas_config_dir }}/app/certs/{{ app_name }}"
+    state: directory
+  when: gitops == True
+
+- name: "{{ app_name }} : Save public-cert-ca.yml to filesytem"
+  ansible.builtin.template:
+    src: public-cert-ca.yml.j2
+    dest: "{{ mas_config_dir }}/app/certs/{{ app_name }}/public-cert-ca.yml"
+  when: gitops == True
+
+- name: "{{ app_name }} : Save public-cert-tls.yml to filesytem"
+  ansible.builtin.template:
+    src: public-cert-tls.yml.j2
+    dest: "{{ mas_config_dir }}/app/certs/{{ app_name }}/public-cert-tls.yml"
+  when: gitops == True
+
+- name: "{{ app_name }} : Save public-tls-key.yml to filesytem"
+  ansible.builtin.template:
+    src: public-tls-key.yml.j2
+    dest: "{{ mas_config_dir }}/app/certs/{{ app_name }}/public-tls-key.yml"
+  when: gitops == True
