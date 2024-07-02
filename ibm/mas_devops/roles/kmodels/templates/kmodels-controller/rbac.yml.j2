@@ -1,0 +1,37 @@
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: km-controller-role
+rules:
+  - verbs:
+      - '*'
+    apiGroups:
+      - '*'
+    resources:
+      - '*'
+  - verbs:
+      - '*'
+    nonResourceURLs:
+      - '*'
+---
+# KModels controller required permissions
+#  - create jobs / cronjobs in user namespace
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: km-controller-binding
+subjects:
+  - kind: ServiceAccount
+    name: km-controller
+    namespace: mas-{{ mas_instance_id }}-aibroker
+roleRef:
+  kind: ClusterRole
+  name: km-controller-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: km-controller
+  namespace: mas-{{ mas_instance_id }}-aibroker

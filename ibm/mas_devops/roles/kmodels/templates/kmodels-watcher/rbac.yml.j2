@@ -1,0 +1,64 @@
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: km-watcher-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - daemonsets
+      - deployments
+      - events
+      - namespaces
+      - persistentvolumes
+      - pods
+      - replicasets
+    verbs:
+      - list
+      - watch
+      - get
+  - apiGroups:
+      - apps
+    resources:
+      - daemonsets
+      - deployments
+      - deployments/scale
+      - replicasets
+      - replicasets/scale
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - batch
+    resources:
+      - cronjobs
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+---
+# KModels watcher required permissions
+#  - Listen to events in kubeflow namespace
+#  - Listen to events in user namespace
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: km-watcher-binding
+subjects:
+  - kind: ServiceAccount
+    name: km-watcher
+    namespace: mas-{{ mas_instance_id }}-aibroker
+roleRef:
+  kind: ClusterRole
+  name: km-watcher-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: km-watcher
+  namespace: mas-{{ mas_instance_id }}-aibroker
