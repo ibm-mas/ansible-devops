@@ -26,7 +26,7 @@ The tenant name for AI Broker role.
 * Environment Variable: `TENANT_NAME`
 * Default Value: `user`
 
-### appDomain
+### app_domain
 
 The application domain for AI Broker role. Valid values is domain string `apps.domain`
 
