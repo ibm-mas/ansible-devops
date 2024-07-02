@@ -324,12 +324,6 @@ MongoDB Service Endpoints type can be either public or private
 - Environment Variable: `IBM_MONGO_SERVICE_ENDPOINTS`
 - Default Value: `public`
 
-### ibm_mongo_name
-Specify MongoDB Service Instance Name
-
-- Environment Variable: `IBM_MONGO_NAME`
-- Default Value: mongo-`mas_instance_id`
-
 ### ibm_mongo_version
 Specify MongoDB version to be deployed
 
