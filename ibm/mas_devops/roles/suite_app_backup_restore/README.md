@@ -64,7 +64,7 @@ Example Playbook
 -------------------------------------------------------------------------------
 
 ### Backup
-Backup Manage namespace resources, note that this does not include backup of any data in Db2, see the [db2_backup](db2_backup.md) role.
+Backup Manage namespace resources, note that this does not include backup of any data in Db2, see the `backup` action of the [db2](db2.md) role.
 
 ```yaml
 - hosts: localhost
@@ -79,7 +79,7 @@ Backup Manage namespace resources, note that this does not include backup of any
 ```
 
 ### Restore
-Restore Manage namespace resources, note that this does not include restore of any data in Db2, see the [db2_restore](db2_restore.md) role.
+Restore Manage namespace resources, note that this does not include restore of any data in Db2, see the `restore` action of the [db2](db2.md) role.
 
 ```yaml
 - hosts: localhost

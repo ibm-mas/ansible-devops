@@ -29,8 +29,6 @@ copyDoc cp4d_admin_pwd_update
 copyDoc cp4d_service
 copyDoc cp4d_upgrade
 copyDoc db2
-copyDoc db2_backup
-copyDoc db2_restore
 copyDoc dro
 copyDoc eck
 copyDoc entitlement_key_rotation
