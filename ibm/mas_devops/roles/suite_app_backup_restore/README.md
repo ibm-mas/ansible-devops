@@ -12,74 +12,88 @@ This role supports backing up and restoring the data for below MAS applications:
 - `optimizer`: Optimizer namespace resources
 - `visualinspection`: Visual Inspection namespace resources, persistent volume data
 
-Before running the role, you must set several environment variables to indicate this role where to save and retrieve the backup files. Please refer to [this doc](../playbooks/masbr-storage.md) to understand how to configure the storage system and related environment variables.
 
-This role supports creating on-demand or scheduled backup jobs for taking full or incremental backups, please refer to [this doc](../playbooks/masbr-vars.md#backup) for more information about the backup related environment variables.
-
-This role supports creating jobs for running the restore process, please refer to [this doc](../playbooks/masbr-vars.md#restore) for more information about the restore related environment variables.
+Supports creating on-demand or scheduled backup jobs for taking full or incremental backups, and optionally creating Kubernetes jobs for running the backup/restore process
 
 !!! important
-    Before you run this role, please make sure the MAS components are installed and running properly on the target cluster.
-
-!!! important
-    The `MAS_INSTANCE_ID` and `MAS_WORKSPACE_ID` in the target environment must be same as the values in the backup files which you taken from the source cluster.
+    An application backup can only be restored to an instance with the same MAS instance ID.
 
 
-Environment variables
+Role Variables - General
 -------------------------------------------------------------------------------
-!!! tip
-    You also need to set some other common environment variables for creating backup/restore jobs, please refer to [this doc](../playbooks/masbr-vars.md) for details.
+### masbr_action
+Set `backup` or `restore` to indicate the role to create a backup or restore job
 
-Below environment variables are required for this role:
+- **Required**
+- Environment Variable: `MAS_BR_ACTION`
+- Default: None
 
-- `MASBR_ACTION`: Set `backup` or `restore` to indicate the role to create a backup or restore job.
+### masbr_restore_from_version
+Set the backup version to use in the restore, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`)
 
-- `MAS_APP_ID`: This role will backup or restore the data for the MAS application specified by this environment variable.
+- **Required**
+- Environment Variable: `MASBR_RESTORE_FROM_VERSION`
+- Default: None
 
-- `MAS_INSTANCE_ID`: This role only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this role multiple times with different value of this environment variable.
+### mas_instance_id
+Defines the instance ID for the backup or restore action
 
-- `MAS_WORKSPACE_ID`: This role only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this role multiple times with different value of this environment variable.
+- **Required**
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default: None
+
+### mas_app_id
+Defines the MAS application ID for the backup or restore action (`manage`, `iot`, `monitor`, `optimizer`, or `visualinspection`):
+
+- **Required**
+- Environment Variable: `MAS_APP_ID`
+- Default: None
+
+### mas_workspace_id
+Defines the MAS workspace ID for the backup or restore action:
+
+- **Required**
+- Environment Variable: `MAS_WORKSPACE_ID`
+- Default: None
 
 
-Example
+// TODO: Add all othe vars in the format above (role docs should be standalone from playbook docs)
+
+
+Example Playbook
 -------------------------------------------------------------------------------
-!!! important
-    Before you proceed with the following steps, please refer to [this doc](../playbooks/masbr-prepare.md) to prepare the testing environment.
 
-This role back up and restore the supported MAS applications in a similar way. In this example, we will use Manage to demonstrate how to:
+### Backup
+Backup Manage namespace resources, note that this does not include backup of any data in Db2, see the [db2_backup](db2_backup.md) role.
 
-- Back up PV data used by Manage
-- Restore PV data for Manage
-
-### Back up PV data used by Manage
-Run below command in the container to take a full backup for PV data:
-
-```shell
-$ export MASBR_ACTION=backup
-$ export MAS_APP_ID=manage
-$ export MASBR_BACKUP_DATA=pv
-
-$ export MAS_INSTANCE_ID=main
-$ export MAS_WORKSPACE_ID=masdev
-
-$ ROLE_NAME=suite_app_backup_restore ansible-playbook ibm.mas_devops.run_role
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    masbr_action: backup
+    mas_instance_id: main
+    mas_workspace_id: ws1
+    mas_app_id: manage
+  roles:
+    - ibm.mas_devops.suite_app_backup_restore
 ```
 
-### Restore PV data for Manage
-Run below command in the container to only restore the PV data from backup files:
+### Restore
+Restore Manage namespace resources, note that this does not include restore of any data in Db2, see the [db2_restore](db2_restore.md) role.
 
-```shell
-$ export MASBR_RESTORE_FROM_VERSION=20240621021316
-
-$ export MASBR_ACTION=restore
-$ export MAS_APP_ID=manage
-$ export MASBR_RESTORE_DATA=pv
-
-$ export MAS_INSTANCE_ID=main
-$ export MAS_WORKSPACE_ID=masdev
-
-$ ROLE_NAME=suite_app_backup_restore ansible-playbook ibm.mas_devops.run_role
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    masbr_action: restore
+    masbr_restore_from_version: 20240621021316
+    mas_instance_id: main
+    mas_workspace_id: ws1
+    mas_app_id: manage
+  roles:
+    - ibm.mas_devops.suite_app_backup_restore
 ```
+
 
 License
 -------------------------------------------------------------------------------

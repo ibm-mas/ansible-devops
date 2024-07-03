@@ -3,64 +3,61 @@ Backup and Restore MAS Core
 
 Overview
 -------------------------------------------------------------------------------
-This role supports backing up and restoring MAS Core namespace resources.
-
-Before running the role, you must set several environment variables to indicate this role where to save and retrieve the backup files. Please refer to [this doc](../playbooks/masbr-storage.md) to understand how to configure the storage system and related environment variables.
-
-This role supports creating on-demand or scheduled backup jobs for taking full or incremental backups, please refer to [this doc](../playbooks/masbr-vars.md#backup) for more information about the backup related environment variables.
-
-This role supports creating jobs for running the restore process, please refer to [this doc](../playbooks/masbr-vars.md#restore) for more information about the restore related environment variables.
+This role supports backing up and restoring MAS Core namespace resources; supports creating on-demand or scheduled backup jobs for taking full or incremental backups, and optionally creating Kubernetes jobs for running the backup/restore process.
 
 !!! important
-    Before you run this role, please make sure the MAS Core are installed and running properly on the target cluster.
-
-!!! important
-    The `MAS_INSTANCE_ID` in the target environment must be same as the values in the backup files which you taken from the source cluster.
+    A backup can only be restored to an instance with the same MAS instance ID.
 
 
-Environment variables
+Role Variables - General
 -------------------------------------------------------------------------------
-!!! tip
-    You also need to set some other common environment variables for creating backup/restore jobs, please refer to [this doc](../playbooks/masbr-vars.md) for details.
+### masbr_action
+Set `backup` or `restore` to indicate the role to create a backup or restore job
 
-Below environment variables are required for this role:
+- **Required**
+- Environment Variable: `MAS_BR_ACTION`
+- Default: None
 
-- `MASBR_ACTION`: Set `backup` or `restore` to indicate the role to create a backup or restore job.
+### mas_instance_id
+Defines the instance ID for the backup or restore action
 
-- `MAS_INSTANCE_ID`: This role only supports backing up data belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this role multiple times with different value of this environment variable.
+- **Required**
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default: None
+
+// TODO: Add all othe vars in the format above (role docs should be standalone from playbook docs)
 
 
-Example
+Example Playbook
 -------------------------------------------------------------------------------
-!!! important
-    Before you proceed with the following steps, please refer to [this doc](../playbooks/masbr-prepare.md) to prepare the testing environment.
 
-This role back up and restore the supported MAS applications in a similar way. In this example, we will use Manage to demonstrate how to:
+### Backup
+Backup MAS Core namespace resources, note that this does not include backup of any data in MongoDb, see the `backup` action in the[mongodb](mongodb.md) role.
 
-- Back up MAS Core namespace resources
-- Restore MAS Core namespace resources
-
-### Back up MAS Core namespace resources
-Run below command in the container to take a backup of MAS Core namespace resources:
-
-```shell
-$ export MASBR_ACTION=backup
-$ export MAS_INSTANCE_ID=main
-
-$ ROLE_NAME=suite_backup_restore ansible-playbook ibm.mas_devops.run_role
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    masbr_action: backup
+    mas_instance_id: main
+  roles:
+    - ibm.mas_devops.suite_backup_restore
 ```
 
-### Restore MAS Core namespace resources
-Run below command in the container to restore MAS Core namespace resources:
+### Restore
+Restore MAS Core namespace resources, note that this does not include backup of any data in MongoDb, see the `restore` action in the [mongodb](mongodb.md) role.
 
-```shell
-$ export MASBR_RESTORE_FROM_VERSION=20240621021316
-
-$ export MASBR_ACTION=restore
-$ export MAS_INSTANCE_ID=main
-
-$ ROLE_NAME=suite_backup_restore ansible-playbook ibm.mas_devops.run_role
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    masbr_action: restore
+    masbr_restore_from_version: 20240621021316
+    mas_instance_id: main
+  roles:
+    - ibm.mas_devops.suite_backup_restore
 ```
+
 
 License
 -------------------------------------------------------------------------------
