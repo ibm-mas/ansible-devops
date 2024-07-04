@@ -12,21 +12,30 @@ yq -yi ".version=\"${VERSION}\"" $GITHUB_WORKSPACE/ibm/mas_devops/galaxy.yml
 cat $GITHUB_WORKSPACE/ibm/mas_devops/galaxy.yml
 
 
+# Update this when we have new catalog
+MAS_PREVIOUS_CATALOG='v8-240528-amd64'
+MAS_LATEST_CATALOG='v9-240625-amd64'
+
+
 # Update all the placeholders in the playbooks
 find ibm/mas_devops/playbooks -type f -name '*.yml' -exec sed -i \
-  -e 's/@@MAS_PREVIOUS_CATALOG@@/v8-240528-amd64/g' \
-  -e 's/@@MAS_LATEST_CATALOG@@/v9-240625-amd64/g' \
+  -e "s/@@MAS_PREVIOUS_CATALOG@@/$MAS_PREVIOUS_CATALOG/g" \
+  -e "s/@@MAS_LATEST_CATALOG@@/$MAS_LATEST_CATALOG/g" \
   {} \;
 
 # Update all the placeholders in the docs
 find docs/playbooks -type f -name '*.md' -exec sed -i \
-  -e 's/@@MAS_PREVIOUS_CATALOG@@/v8-240528-amd64/g' \
-  -e 's/@@MAS_LATEST_CATALOG@@/v9-240625-amd64/g' \
+  -e "s/@@MAS_PREVIOUS_CATALOG@@/$MAS_PREVIOUS_CATALOG/g" \
+  -e "s/@@MAS_LATEST_CATALOG@@/$MAS_LATEST_CATALOG/g" \
   {} \;
 
-# Update default catalog
-find ibm/mas_devops/roles/ibm_catalogs/defaults -type f -name '*.yml' -exec sed -i \
-  -e 's/@@MAS_LATEST_CATALOG@@/v9-240625-amd64/g' \
+# Update defaults in ibm_catalog role
+find ibm/mas_devops/roles/ibm_catalogs/defaults -type f -name 'main.yml' -exec sed -i \
+  -e "s/@@MAS_LATEST_CATALOG@@/$MAS_LATEST_CATALOG/g" \
+  {} \;
+# update ibm_catalog role README
+find ibm/mas_devops/roles/ibm_catalogs -type f -name 'README.md' -exec sed -i \
+  -e "s/@@MAS_LATEST_CATALOG@@/$MAS_LATEST_CATALOG/g" \
   {} \;
 
 cd $GITHUB_WORKSPACE/ibm/mas_devops
