@@ -201,7 +201,7 @@ def main():
                     # Updating DNS entry
                     url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records/{dnsId}"
                     # proxied = True
-                    if cisProxy and 'reportdb' not in entryName:
+                    if cisProxy and 'reportdb' not in entryName and 'messaging.iot' not in entryName:
                         payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"    
                     else:
                         payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"    
@@ -221,7 +221,7 @@ def main():
             else:
                 # Adding DNS entry
                 url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/dns_records"
-                if cisProxy and 'reportdb' not in entryName:
+                if cisProxy and 'reportdb' not in entryName and 'messaging.iot' not in entryName:
                     payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": true \n}"    
                 else:
                     payload="{\n    \"name\": \"" + entryName + "\",\n    \"type\": \"CNAME\",\n    \"content\": \"" + openshiftIngress  + "\",\n    \"proxied\": false \n}"    
