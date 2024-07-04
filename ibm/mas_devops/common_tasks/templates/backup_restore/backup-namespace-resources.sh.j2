@@ -1,0 +1,65 @@
+#!/bin/bash
+
+BACKUP_FOLDER="{{ masbr_ns_backup_folder }}"
+LOG_FILE="{{ masbr_ns_backup_log }}"
+
+
+function backupSingleResource {
+    local RESOURCE_NAMESPACE=$1
+    local RESOURCE_KIND=$2
+    local RESOURCE_NAME=$3
+
+    echo "Backing up $RESOURCE_KIND/$RESOURCE_NAME in the $RESOURCE_NAMESPACE namespace..." | tee -a $LOG_FILE
+
+    if [[ "$(oc get $RESOURCE_KIND/$RESOURCE_NAME -n $RESOURCE_NAMESPACE --ignore-not-found=true --no-headers=true | wc -l)" == "0" ]]; then
+        echo "Not found $RESOURCE_KIND/$RESOURCE_NAME in the $RESOURCE_NAMESPACE namespace!" | tee -a $LOG_FILE
+
+    else
+        local resourceYaml=$(oc get $RESOURCE_KIND/$RESOURCE_NAME -n $RESOURCE_NAMESPACE -o yaml)
+        hasCredentials=$(echo "$resourceYaml" | yq '.spec.config.credentials | has("secretName")')
+
+        if [ "$hasCredentials" == "true" ]; then
+            credentialsName=`(echo "$resourceYaml" | yq .spec.config.credentials.secretName)`
+            echo "The credentials $credentialsName will be backed up for the resource $RESOURCE_NAME" | tee -a $LOG_FILE
+            backupSingleResource $RESOURCE_NAMESPACE Secret $credentialsName
+        fi
+
+        echo "$resourceYaml" | yq 'del(.metadata.creationTimestamp, .metadata.ownerReferences, .metadata.generation, .metadata.resourceVersion, .metadata.uid, .metadata.annotations["kubectl.kubernetes.io/last-applied-configuration"], .status)' > $BACKUP_FOLDER/$RESOURCE_KIND-$RESOURCE_NAME.yaml | tee -a $LOG_FILE
+        echo "Saved $RESOURCE_KIND/$RESOURCE_NAME to $BACKUP_FOLDER/$RESOURCE_KIND-$RESOURCE_NAME.yaml" | tee -a $LOG_FILE
+    fi
+}
+
+function backupResources {
+    local RESOURCE_NAMESPACE=$1
+    local RESOURCE_KIND=$2
+    local RESOURCE_KEYWORDS=$3
+
+    if [[ $RESOURCE_KEYWORDS == "" ]]; then
+        echo "Backing up all $RESOURCE_KIND resources in the $RESOURCE_NAMESPACE namespace..." | tee -a $LOG_FILE
+        resourceNames=($(oc get $RESOURCE_KIND -n $RESOURCE_NAMESPACE --no-headers=true | awk '{print $1}'))
+    else
+        echo "Backing up $RESOURCE_KIND resources containing keywords \"$RESOURCE_KEYWORDS\" in the $RESOURCE_NAMESPACE namespace..." | tee -a $LOG_FILE
+        resourceNames=($(oc get $RESOURCE_KIND -n $RESOURCE_NAMESPACE --no-headers=true | awk '{print $1}' | grep "$RESOURCE_KEYWORDS"))
+    fi
+
+    for resourceName in ${resourceNames[@]}; do
+        backupSingleResource $RESOURCE_NAMESPACE $RESOURCE_KIND $resourceName
+    done
+}
+
+
+{% if masbr_ns_backup_resources is defined and masbr_ns_backup_resources | length > 0 %}
+{% for ns_resources in masbr_ns_backup_resources %}
+
+{% for resource in ns_resources.resources %}
+
+{% if resource.name is not defined or resource.name == "*" %}
+backupResources "{{ ns_resources.namespace }}" "{{ resource.kind }}" "{{ resource.keywords|default('') }}"
+{% else %}
+backupSingleResource "{{ ns_resources.namespace }}" "{{ resource.kind }}" "{{ resource.name }}"
+{% endif %}
+
+{% endfor %} # ns_resources.resources
+
+{% endfor %} # masbr_ns_backup_resources
+{% endif %}

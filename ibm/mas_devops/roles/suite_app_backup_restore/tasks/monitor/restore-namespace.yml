@@ -1,0 +1,88 @@
+---
+- name: "Set fact: instance and workspace id in the resource file name"
+  set_fact:
+    masbr_restore_from_instance: "{{ masbr_restore_from_yaml.component.instance }}"
+    masbr_restore_from_workspace: "{{ masbr_restore_from_yaml.component.workspace }}"
+
+
+# Restore namespace resources for monitor
+# -------------------------------------------------------------------------
+- name: "Replace mas instance in the resource files"
+  when: masbr_restore_to_diff_instance
+  changed_when: true
+  shell: >
+    yq -i 'with(.metadata;
+    .namespace="{{ mas_app_namespace }}" |
+    .name="{{ mas_instance_id }}-{{ mas_workspace_id }}-datadictionaryworkspace-workspace-binding"
+    )' {{ masbr_ns_restore_folder }}/Secret-{{ masbr_restore_from_instance }}-{{ masbr_restore_from_workspace }}-datadictionaryworkspace-workspace-binding.yaml;
+
+    yq -i 'with(.metadata;
+    .namespace="{{ mas_app_namespace }}"
+    )' {{ masbr_ns_restore_folder }}/Secret-monitor-kitt.yaml;
+
+- name: "Apply secret yaml files"
+  kubernetes.core.k8s:
+    apply: true
+    src: "{{ masbr_ns_restore_folder }}/{{ _ns_resource_file_name }}"
+  loop:
+    - "Secret-{{ masbr_restore_from_instance }}-{{ masbr_restore_from_workspace }}-datadictionaryworkspace-workspace-binding.yaml"
+    - "Secret-monitor-kitt.yaml"
+  loop_control:
+    loop_var: _ns_resource_file_name
+
+
+# Restore namespace resources for add
+# -------------------------------------------------------------------------
+- name: "Replace mas instance in the resource files"
+  when: masbr_restore_to_diff_instance
+  changed_when: true
+  shell: >
+    yq -i 'with(.metadata;
+    .namespace="mas-{{ mas_instance_id }}-add" |
+    .name="datadictionary-{{ mas_workspace_id }}"
+    )' {{ masbr_ns_restore_folder }}/Secret-datadictionary-{{ masbr_restore_from_workspace }}.yaml;
+
+    yq -i 'with(.metadata;
+    .namespace="mas-{{ mas_instance_id }}-add"
+    )' {{ masbr_ns_restore_folder }}/Secret-instance-admin.yaml;
+
+- name: "Apply secret yaml files"
+  kubernetes.core.k8s:
+    apply: true
+    src: "{{ masbr_ns_restore_folder }}/{{ _ns_resource_file_name }}"
+  loop:
+    - "Secret-datadictionary-{{ masbr_restore_from_workspace }}.yaml"
+    - "Secret-instance-admin.yaml"
+  loop_control:
+    loop_var: _ns_resource_file_name
+
+
+# Restart pods
+# -------------------------------------------------------------------------
+- name: "Delete pods in mas-{{ mas_instance_id }}-add"
+  changed_when: true
+  shell: >-
+    oc get pod -n mas-{{ mas_instance_id }}-add | grep "{{ _del_pod_name }}" | awk '{print $1}' |
+    xargs oc delete pod -n mas-{{ mas_instance_id }}-add
+  loop:
+    - "user-store"
+    - "series-store"
+    - "graph-store"
+  loop_control:
+    loop_var: _del_pod_name
+  register: _del_pods_output
+
+- name: "Debug: delete pods in {{ mas_app_namespace }}"
+  debug:
+    msg: "{{ _del_pods_output | json_query('results[*].stdout_lines') }}"
+
+- name: "Delete pods in {{ mas_app_namespace }}"
+  changed_when: true
+  shell: >-
+    oc get pod -n mas-{{ mas_instance_id }}-monitor | grep "{{ mas_instance_id }}" | awk '{print $1}' |
+    xargs oc delete pod -n mas-{{ mas_instance_id }}-monitor
+  register: _del_pods_output
+
+- name: "Debug: delete pods in {{ mas_app_namespace }}"
+  debug:
+    msg: "{{ _del_pods_output.stdout_lines }}"

@@ -1,0 +1,91 @@
+---
+# Check db2 restore required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if db2_instance_name is not provided"
+  assert:
+    that: db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: "db2_instance_name is required"
+
+
+# Set common restore variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: common restore variables"
+  set_fact:
+    masbr_job_component:
+      name: "db2"
+      instance: "{{ db2_instance_name }}"
+      namespace: "{{ db2_namespace }}"
+    masbr_job_data_list:
+      - seq: "1"
+        type: "database"
+
+
+# Before run tasks
+# -------------------------------------------------------------------------
+- name: "Before run tasks"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
+  vars:
+    _job_type: "restore"
+    _component_before_task_path: "{{ role_path }}/tasks/before-backup-restore.yml"
+
+
+# Create k8s Job to run restore tasks
+# -----------------------------------------------------------------------------
+- name: "Create k8s Job to run restore tasks"
+  when: masbr_create_task_job
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
+  vars:
+    _rt_role_name: "db2"
+    _rt_env:
+      - name: "MASBR_JOB_VERSION"
+        value: "{{ masbr_job_version }}"
+      - name: "DB2_ACTION"
+        value: "{{ db2_action }}"
+      - name: "DB2_INSTANCE_NAME"
+        value: "{{ db2_instance_name }}"
+      - name: "DB2_NAMESPACE"
+        value: "{{ db2_namespace }}"
+      - name: "MAS_INSTANCE_ID"
+        value: "{{ mas_instance_id }}"
+
+
+- name: "Run restore tasks"
+  when: not masbr_create_task_job
+  block:
+    # Update restore job status: New
+    # -------------------------------------------------------------------------
+    - name: "Update restore job status: New"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "1"
+            phase: "New"
+
+
+    # Run restore tasks for each data type
+    # -------------------------------------------------------------------------
+    - name: "Run restore tasks for each data type"
+      include_tasks: "{{ role_path }}/tasks/restore/restore-{{ job_data_item.type }}.yml"
+      vars:
+        masbr_job_data_seq: "{{ job_data_item.seq }}"
+        masbr_job_data_type: "{{ job_data_item.type }}"
+      loop: "{{ masbr_job_data_list }}"
+      loop_control:
+        loop_var: job_data_item
+
+  rescue:
+    # Update restore status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database restore status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_status:
+          phase: "Failed"
+
+  always:
+    # After run tasks
+    # -------------------------------------------------------------------------
+    - name: "After run tasks"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/after_run_tasks.yml"
+      vars:
+        _component_after_task_path: "{{ role_path }}/tasks/after-backup-restore.yml"
