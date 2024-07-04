@@ -29,7 +29,7 @@ Namespace where IBM Common Services is installed.
 - Default Value: `ibm-common-services`
 
 ### db2_action
-Inform the role whether to perform an install, upgrade, bakcup or restore of DB2 Database. This can be set to `install`, `upgrade`, `backup` or `restore`. When `DB2_ACTION` is set to upgrade, then all instances in the `DB2_NAMESPACE` will be upgraded to the `DB2_VERSION`.
+Inform the role whether to perform an install, upgrade, backup or restore of DB2 Database. This can be set to `install`, `upgrade`, `backup` or `restore`. When `DB2_ACTION` is set to upgrade, then all instances in the `DB2_NAMESPACE` will be upgraded to the `DB2_VERSION`.
 
 - Optional
 - Environment Variable: `DB2_ACTION`
@@ -478,7 +478,7 @@ Set the object storage bucket name for saving the backup files
 - Default: None
 
 ### masbr_slack_enabled
-Set `true` or `false` to indicate whether this role will send Slack notification messages of the backup and restore progress.  
+Set `true` or `false` to indicate whether this role will send Slack notification messages of the backup and restore progress.
 
 - Optional
 - Environment Variable: `MASBR_SLACK_ENABLED`
@@ -498,7 +498,7 @@ Set `failure`, `info` or `verbose` to indicate this role to send Slack notificat
 - Default: `info`
 
 ### masbr_slack_token
-The Slack integration token.  
+The Slack integration token.
 
 - **Required** only when `MASBR_SLACK_ENABLED=true`
 - Environment Variable: `MASBR_SLACK_TOKEN`
