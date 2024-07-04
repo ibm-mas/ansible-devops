@@ -323,6 +323,20 @@
     </li>
         </ul>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#aws-documentdb-destroy-data-action-variables">AWS DocumentDB destroy-data action Variables</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#mas_instance_id_1">mas_instance_id</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mongo_username">mongo_username</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#mongo_password">mongo_password</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#config">config</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#certificates">certificates</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbooks">Example Playbooks</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#install-ce-operator">Install (CE Operator)</a>
@@ -336,6 +350,8 @@
     <li class="toctree-l3"><a class="reference internal" href="#install-aws-documentdb">Install (AWS DocumentDB)</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#aws-documentdb-secret-rotation">AWS DocumentDb Secret Rotation</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#aws-documentdb-destroy-data-action">AWS DocumentDb destroy-data action</a>
     </li>
         </ul>
     </li>
@@ -509,7 +525,7 @@ Also, you need to have AWS user credentials configured via <code>aws configure</
 </ul>
 <p>Each provider supports a different set of actions:
 - <strong>community</strong>: <code>install</code>, <code>uninstall</code>, <code>backup</code>, <code>restore</code>
-- <strong>aws</strong>: <code>install</code>, <code>uninstall</code>, <code>docdb_secret_rotate</code>
+- <strong>aws</strong>: <code>install</code>, <code>uninstall</code>, <code>docdb_secret_rotate</code>, <code>destroy-data</code>
 - <strong>ibm</strong>: <code>install</code>, <code>uninstall</code>, <code>backup</code>, <code>restore</code>, <code>create-mongo-service-credentials</code></p>
 <h2 id="role-variables-ce-operator">Role Variables - CE Operator<a class="headerlink" href="#role-variables-ce-operator" title="Permanent link"></a></h2>
 <h3 id="mongodb_namespace">mongodb_namespace<a class="headerlink" href="#mongodb_namespace" title="Permanent link"></a></h3>
@@ -975,6 +991,40 @@ e.g Provide IPv4 CIDR address of VPC where ROSA cluster is installed</p>
 <ul>
 <li>Environment variable: <code>DOCDB_MASTER_USERNAME</code></li>
 </ul>
+<h2 id="aws-documentdb-destroy-data-action-variables">AWS DocumentDB destroy-data action Variables<a class="headerlink" href="#aws-documentdb-destroy-data-action-variables" title="Permanent link"></a></h2>
+<h3 id="mas_instance_id_1">mas_instance_id<a class="headerlink" href="#mas_instance_id_1" title="Permanent link"></a></h3>
+<p>The specified MAS instance ID</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="mongo_username">mongo_username<a class="headerlink" href="#mongo_username" title="Permanent link"></a></h3>
+<p>Mongo Username</p>
+<ul>
+<li>Environment Variable: <code>MONGO_USERNAME</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="mongo_password">mongo_password<a class="headerlink" href="#mongo_password" title="Permanent link"></a></h3>
+<p>Mongo password</p>
+<ul>
+<li>Environment Variable: <code>MONGO_PASSWORD</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="config">config<a class="headerlink" href="#config" title="Permanent link"></a></h3>
+<p>Mongo Config, please refer to the below example playbook section for details</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>CONFIG</code></li>
+<li>Default Value: None</li>
+</ul>
+<h3 id="certificates">certificates<a class="headerlink" href="#certificates" title="Permanent link"></a></h3>
+<p>Mongo Certificates, please refer to the below example playbook section for details</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>CERTIFICATES</code></li>
+<li>Default Value: None</li>
+</ul>
 <h2 id="example-playbooks">Example Playbooks<a class="headerlink" href="#example-playbooks" title="Permanent link"></a></h2>
 <h3 id="install-ce-operator">Install (CE Operator)<a class="headerlink" href="#install-ce-operator" title="Permanent link"></a></h3>
 <pre><code class="language-yaml">- hosts: localhost
@@ -1064,6 +1114,44 @@ e.g Provide IPv4 CIDR address of VPC where ROSA cluster is installed</p>
 
   roles:
     - ibm.mas_devops.mongodb
+</code></pre>
+<h3 id="aws-documentdb-destroy-data-action">AWS DocumentDb destroy-data action<a class="headerlink" href="#aws-documentdb-destroy-data-action" title="Permanent link"></a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mongodb_provider: aws
+    mongodb_action: destroy-data
+    mongo_username: pqradmin
+    mongo_password: xyzabc
+    config:
+      configDb: admin
+      authMechanism: DEFAULT
+      retryWrites: false
+      hosts:
+        - host: abc-0.pqr.databases.appdomain.cloud
+          port: 32250
+        - host: abc-1.pqr.databases.appdomain.cloud
+          port: 32250
+        - host: abc-2.pqr.databases.appdomain.cloud
+          port: 32250
+    certificates:
+      - alias: ca
+        crt: |
+          -----BEGIN CERTIFICATE-----
+          MIIDDzCCAfegAwIBAgIJANEH58y2/kzHMA0GCSqGSIb3DQEBCwUAMB4xHDAaBgNV
+          BAMME0lCTSBDbG91ZCBEYXRhYmFzZXMwHhcNMTgwNjI1MTQyOTAwWhcNMjgwNjIy
+          MTQyOTAwWjAeMRwwGgYDVQQDDBNJQk0gQ2xvdWQgRGF0YWJhc2VzMIIBIjANBgkq
+          1eKI2FLzYKpoKBe5rcnrM7nHgNc/nCdEs5JecHb1dHv1QfPm6pzIxwIDAQABo1Aw
+          TjAdBgNVHQ4EFgQUK3+XZo1wyKs+DEoYXbHruwSpXjgwHwYDVR0jBBgwFoAUK3+X
+          Zo1wyKs+DEoYXbHruwSpXjgwDAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQsFAAOC
+          doqqgGIZ2nxCkp5/FXxF/TMb55vteTQwfgBy60jVVkbF7eVOWCv0KaNHPF5hrqbN
+          i+3XjJ7/peF3xMvTMoy35DcT3E2ZeSVjouZs15O90kI3k2daS2OHJABW0vSj4nLz
+          +PQzp/B9cQmOO8dCe049Q3oaUA==
+          -----END CERTIFICATE-----
+  roles:
+    - ibm.mas_devops.mongodb
+
 </code></pre>
 <h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link"></a></h2>
 <div class="admonition important">
