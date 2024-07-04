@@ -64,38 +64,42 @@
   debug:
     msg: 'Created tenant .... {{ post_info.stdout_lines }}'
 
-- name: "Wait for Route km-controller"
-  kubernetes.core.k8s_info:
-    api_version: route.openshift.io/v1
-    name: km-controller
-    namespace: "{{ aibroker_namespace }}"
-    kind: Route
-  register: km_controller_route_info
+- name: Verify if kmodels routes exists and remove
+  block:
+    - name: "Wait for Route km-controller"
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        name: km-controller
+        namespace: "{{ aibroker_namespace }}"
+        kind: Route
+      ignore_errors: true
+      register: km_controller_route_info
 
-- name: "Removing km-controller route if exists and meets condition"
-  when:
-    - ({{ km_controller_route_info.resources }}|length > 0)
-  kubernetes.core.k8s:
-    state: absent
-    kind: Route
-    api_version: "route.openshift.io/v1"
-    namespace: "{{ aibroker_namespace }}"
-    name: km-controller
+    - name: "Removing km-controller route if exists and meets condition"
+      when:
+        - (km_controller_route_info.resources | length > 0)
+      kubernetes.core.k8s:
+        state: absent
+        kind: Route
+        api_version: "route.openshift.io/v1"
+        namespace: "{{ aibroker_namespace }}"
+        name: km-controller
 
-- name: "Wait for Route km-store"
-  kubernetes.core.k8s_info:
-    api_version: route.openshift.io/v1
-    name: km-store
-    namespace: "{{ aibroker_namespace }}"
-    kind: Route
-  register: km_store_route_info
+    - name: "Wait for Route km-store"
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        name: km-store
+        namespace: "{{ aibroker_namespace }}"
+        kind: Route
+      ignore_errors: true
+      register: km_store_route_info
 
-- name: "Removing km-store route if exists and meets condition"
-  when:
-    - ({{ km_store_route_info.resources }}|length > 0)
-  kubernetes.core.k8s:
-    state: absent
-    kind: Route
-    api_version: "route.openshift.io/v1"
-    namespace: "{{ aibroker_namespace }}"
-    name: km-store
+    - name: "Removing km-store route if exists and meets condition"
+      when:
+        - (km_store_route_info.resources | length > 0)
+      kubernetes.core.k8s:
+        state: absent
+        kind: Route
+        api_version: "route.openshift.io/v1"
+        namespace: "{{ aibroker_namespace }}"
+        name: km-store
