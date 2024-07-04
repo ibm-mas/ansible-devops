@@ -192,7 +192,7 @@ Role Variables - Restore
 ### masbr_restore_from_version
 Set the backup version to use in the restore, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`)
 
-- **Required**
+- **Required** only when `MAS_BR_ACTION=restore`
 - Environment Variable: `MASBR_RESTORE_FROM_VERSION`
 - Default: None
 
@@ -237,6 +237,8 @@ Backup Manage namespace resources, note that this does not include backup of any
     mas_instance_id: main
     mas_workspace_id: ws1
     mas_app_id: manage
+    masbr_storage_type: local
+    masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.suite_app_backup_restore
 ```
@@ -253,6 +255,8 @@ Restore Manage namespace resources, note that this does not include restore of a
     mas_instance_id: main
     mas_workspace_id: ws1
     mas_app_id: manage
+    masbr_storage_type: local
+    masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.suite_app_backup_restore
 ```
