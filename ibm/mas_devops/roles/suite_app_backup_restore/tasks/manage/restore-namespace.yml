@@ -1,0 +1,28 @@
+---
+- name: "Set fact: workspace id in the resource file name"
+  set_fact:
+    masbr_restore_from_workspace: "{{ masbr_restore_from_yaml.component.workspace }}"
+
+- name: "Replace mas instance in the resource files"
+  when: masbr_restore_to_diff_instance
+  changed_when: true
+  shell: >
+    yq -i 'with(.metadata;
+    .namespace="{{ mas_app_namespace }}" |
+    .name="{{ mas_workspace_id }}-manage-encryptionsecret"
+    )' {{ masbr_ns_restore_folder }}/Secret-{{ masbr_restore_from_workspace }}-manage-encryptionsecret.yaml;
+
+    yq -i 'with(.metadata;
+    .namespace="{{ mas_app_namespace }}" |
+    .name="{{ mas_workspace_id }}-manage-encryptionsecret-operator"
+    )' {{ masbr_ns_restore_folder }}/Secret-{{ masbr_restore_from_workspace }}-manage-encryptionsecret-operator.yaml;
+
+- name: "Apply encryption secret yaml files"
+  kubernetes.core.k8s:
+    apply: true
+    src: "{{ masbr_ns_restore_folder }}/{{ _ns_resource_file_name }}"
+  loop:
+    - "Secret-{{ masbr_restore_from_workspace }}-manage-encryptionsecret.yaml"
+    - "Secret-{{ masbr_restore_from_workspace }}-manage-encryptionsecret-operator.yaml"
+  loop_control:
+    loop_var: _ns_resource_file_name

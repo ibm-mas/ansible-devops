@@ -1,0 +1,79 @@
+---
+- name: "Debug: cluster information"
+  debug:
+    msg:
+      - "Source cluster ................... {{ masbr_restore_from_yaml.source.domain }}"
+      - "Target cluster ................... {{ masbr_cluster_domain }}"
+
+
+# Because we will not restore the OauthClient collection, disable below patches for now.
+- name: "Update domain in 'mas_{{ mas_instance_id }}_core.OauthClient' collection"
+  when: masbr_restore_to_diff_domain and false
+  block:
+    # Get Suite version
+    # -----------------------------------------------------------------------------
+    - name: "Set fact: mas core namespace name"
+      set_fact:
+        mas_core_namespace: "mas-{{ mas_instance_id }}-core"
+
+    - name: "Get Suite"
+      kubernetes.core.k8s_info:
+        api_version: core.mas.ibm.com/v1
+        kind: Suite
+        name: "{{ mas_instance_id }}"
+        namespace: "{{ mas_core_namespace }}"
+      register: _suite_output
+
+    - name: "Set fact: Suite version"
+      set_fact:
+        mas_core_version: "{{ _suite_output.resources[0].status.versions.reconciled }}"
+      when:
+        - _suite_output is defined
+        - (_suite_output.resources | length > 0)
+        - _suite_output.resources[0].status.versions.reconciled is defined
+
+    - name: "Debug: Suite version"
+      debug:
+        msg: "Suite version ..................... {{ mas_core_version }}"
+
+
+    - name: "This fix only for MAS 8.x"
+      when: mas_core_version is match("^8.")
+      block:
+        # Run oidcclientreg job
+        # ---------------------------------------------------------------------
+        - name: "Run oidcclientreg job"
+          changed_when: true
+          shell: >
+            oc get job {{ mas_instance_id }}-oidcclientreg -n {{ mas_core_namespace }} -o yaml
+            | yq 'del(.spec.selector)' | yq 'del(.spec.template.metadata.labels)'
+            | oc replace --force -f -
+          register: _run_job_output
+
+        - name: "Debug: run oidcclientreg job"
+          debug:
+            msg: "{{ _run_job_output.stdout_lines }}"
+
+        - name: "Wait for oidcclientreg job to be completed (10s delay)"
+          kubernetes.core.k8s_info:
+            api_version: batch/v1
+            kind: Job
+            name: "{{ mas_instance_id }}-oidcclientreg"
+            namespace: "{{ mas_core_namespace }}"
+          register: _job_result
+          until:
+            - _job_result.resources is defined
+            - _job_result.resources | length > 0
+            - _job_result.resources | json_query('[*].status.conditions[?type==`Complete`][].status') | select ('match','True') | list | length == 1
+          retries: 30
+          delay: 10
+
+
+        # Restart entitymgr-ws pod
+        # ---------------------------------------------------------------------
+        - name: "Restart entitymgr-ws pod"
+          include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/restart_and_reconsiled.yml"
+          vars:
+            _pod_namespace: "{{ mas_core_namespace }}"
+            _pod_keywords: "entitymgr-ws"
+            _container_name: "manager"

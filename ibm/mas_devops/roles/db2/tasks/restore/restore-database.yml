@@ -1,0 +1,300 @@
+---
+# Update db2 database restore status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update db2 database restore status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "InProgress"
+
+
+- name: "Restore db2 database"
+  block:
+    # Prepare db2 database restore folder
+    # -------------------------------------------------------------------------
+    - name: "Set fact: db2 database restore variables"
+      set_fact:
+        # We should use Db2 backup pvc to save the temporary backup files, the db2 pod
+        # ephemeral local storage has a limits up to 4Gi by default.
+        db2_restore_folder: "{{ db2_pvc_temp_folder }}/{{ masbr_job_data_type }}"
+
+    - name: "Set fact: db2 database restore log"
+      set_fact:
+        db2_restore_log: "{{ db2_restore_folder }}/db2-restore.log"
+
+    - name: "Create db2 database restore folder"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        mkdir -p {{ db2_restore_folder }} &&
+        chmod a+w {{ db2_restore_folder }}
+        {{ exec_in_pod_end }}
+
+    - name: "Debug: db2 database restore folder"
+      debug:
+        msg: "Db2 database restore folder ....... {{ db2_restore_folder }}"
+
+
+    # Copy backup file from specified storage location to pod
+    # -------------------------------------------------------------------------
+    - name: "Copy backup file from specified storage location to pod"
+      include_tasks: "{{ role_path }}/tasks/restore/copy-db2-backup-file.yml"
+      vars:
+        _job_name: "{{ masbr_restore_from }}"
+
+    - name: "Set fact: Db2 backup file timestamp"
+      set_fact:
+        masbr_restore_from_timestamp: "{{ db2_backup_timestamp }}"
+
+
+    # This is an incremental backup, we also need to copy the based on full backup file
+    # -------------------------------------------------------------------------
+    - name: "This is an incremental backup, we also need to copy the based on full backup file"
+      when: masbr_restore_from_incr
+      block:
+        - name: "Copy based on full backup file from specified storage location to pod"
+          include_tasks: "{{ role_path }}/tasks/restore/copy-db2-backup-file.yml"
+          vars:
+            _job_name: "{{ masbr_restore_basedon }}"
+
+        - name: "Set fact: Db2 backup file timestamp"
+          set_fact:
+            masbr_restore_basedon_timestamp: "{{ db2_backup_timestamp }}"
+
+
+    # Add Db2 keystore master key
+    # https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
+    # -------------------------------------------------------------------------
+    - name: "Check master key label from source keystore.p12"
+      changed_when: false
+      shell: >
+        {{ exec_in_pod_begin }}
+        gsk8capicmd_64 -cert -list all -db {{ db2_restore_folder }}/{{ masbr_restore_from }}/keystore.p12 -stashed
+        {{ exec_in_pod_end }}
+      register: _check_master_label_output
+
+    - name: "Get master key label from source keystore.p12"
+      vars:
+        regex: '\DB2(.*)'
+      when: item is regex('\DB2(.*)')
+      set_fact:
+        db2_master_key_label: "{{ item | regex_search(regex) }}"
+      with_items: "{{ _check_master_label_output.stdout_lines | list }}"
+
+    - name: "Add master key to target keystore.p12"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        gsk8capicmd_64 -secretkey -add -db {{ db2_keystore_folder }}/keystore.p12 -stashed
+        -label {{ db2_master_key_label }} -format ascii
+        -file {{ db2_restore_folder }}/{{ masbr_restore_from }}/master_key_label.kdb
+        {{ exec_in_pod_end }}
+      register: _add_master_key_output
+      failed_when:
+        - _add_master_key_output.rc != 0
+        - ('CTGSK3005W' not in _add_master_key_output.stdout)
+
+
+    # Deactivate Db2 in preparation for restore
+    # https://www.ibm.com/docs/en/db2/11.5?topic=r-restoring-db2-from-online-backup-using-commands
+    # -------------------------------------------------------------------------
+    - name: "Deactivate Db2 in preparation for restore"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        echo "1. Temporarily disable the built-in HA" | tee -a {{ db2_restore_log }};
+        sudo wvcli system disable -m "Disable HA before Db2 maintenance" | tee -a {{ db2_restore_log }};
+        echo "2. Connect to the database" | tee -a {{ db2_restore_log }};
+        db2 -v connect to {{ db2_dbname }} | tee -a {{ db2_restore_log }};
+        echo "3. Disconnect all the applications that are connected to Db2" | tee -a {{ db2_restore_log }};
+        db2 -v list applications | tee -a {{ db2_restore_log }};
+        db2 -v force application all | tee -a {{ db2_restore_log }};
+        echo "4. Terminate the database" | tee -a {{ db2_restore_log }};
+        db2 -v terminate | tee -a {{ db2_restore_log }};
+        echo "5. Stop the database" | tee -a {{ db2_restore_log }};
+        db2stop force | tee -a {{ db2_restore_log }};
+        echo "6. Ensure that all Db2 interprocess communications are cleaned for the instance" | tee -a {{ db2_restore_log }};
+        ipclean -a | tee -a {{ db2_restore_log }};
+        echo "7. Turn off all communications to the database by setting the value of the DB2COMM variable to null" | tee -a {{ db2_restore_log }};
+        db2set -null DB2COMM | tee -a {{ db2_restore_log }};
+        echo "8. Restart the database in restricted access mode" | tee -a {{ db2_restore_log }};
+        db2start admin mode restricted access | tee -a {{ db2_restore_log }}
+        {{ exec_in_pod_end }}
+      register: _pre_restore_output
+
+    - name: "Debug: deactivate Db2 in preparation for restore"
+      debug:
+        msg: "{{ _pre_restore_output.stdout_lines }}"
+
+
+    - name: "Run Db2 restore commands"
+      block:
+        # Run Db2 full restore command
+        # https://www.ibm.com/docs/en/db2/11.5?topic=commands-restore-database
+        # -------------------------------------------------------------------------
+        - name: "Restore Db2 from a full backup"
+          when: not masbr_restore_from_incr
+          changed_when: true
+          shell: >
+            {{ exec_in_pod_begin }}
+            echo "9. Restore Db2 from a full backup" | tee -a {{ db2_restore_log }};
+            db2 -v restore db {{ db2_dbname }}
+            from {{ db2_restore_folder }}/{{ masbr_restore_from }}
+            taken at {{ masbr_restore_from_timestamp }} into {{ db2_dbname }}
+            logtarget {{ db2_restore_folder }}/{{ masbr_restore_from }}
+            replace existing without prompting | tee -a {{ db2_restore_log }}
+            {{ exec_in_pod_end }}
+          register: _run_full_restore_output
+          failed_when:
+            - _run_full_restore_output.rc != 0
+            # SQL2581N: this Db2 error code means something went wrong in restore command
+            # - ('SQL2581N' in _run_full_restore_output.stdout)
+
+        - name: "Debug: restore Db2 from a full backup"
+          when: not masbr_restore_from_incr
+          debug:
+            msg: "{{ _run_full_restore_output.stdout_lines }}"
+
+
+        # Run Db2 incremental restore command
+        # https://www.ibm.com/docs/en/db2/11.5?topic=commands-restore-database
+        # -------------------------------------------------------------------------
+        - name: "Restore Db2 from an incremental backup"
+          when: masbr_restore_from_incr
+          changed_when: true
+          shell: >
+            {{ exec_in_pod_begin }}
+            echo "9. Restore Db2 from an incremental backup" | tee -a {{ db2_restore_log }};
+            db2ckrst -d BLUDB -t {{ masbr_restore_from_timestamp }} | tee -a {{ db2_restore_log }};
+            db2 -v restore db {{ db2_dbname }} incremental
+            from {{ db2_restore_folder }}/{{ masbr_restore_from }}
+            taken at {{ masbr_restore_from_timestamp }} into {{ db2_dbname }}
+            logtarget {{ db2_restore_folder }}/{{ masbr_restore_from }}
+            replace existing without prompting | tee -a {{ db2_restore_log }};
+            db2 -v restore db {{ db2_dbname }} incremental
+            from {{ db2_restore_folder }}/{{ masbr_restore_basedon }}
+            taken at {{ masbr_restore_basedon_timestamp }} into {{ db2_dbname }}
+            logtarget {{ db2_restore_folder }}/{{ masbr_restore_basedon }}
+            replace existing without prompting | tee -a {{ db2_restore_log }};
+            db2 -v restore db {{ db2_dbname }} incremental
+            from {{ db2_restore_folder }}/{{ masbr_restore_from }}
+            taken at {{ masbr_restore_from_timestamp }} into {{ db2_dbname }}
+            logtarget {{ db2_restore_folder }}/{{ masbr_restore_from }}
+            replace existing without prompting | tee -a {{ db2_restore_log }}
+            {{ exec_in_pod_end }}
+          register: _run_incr_restore_output
+          failed_when:
+            - _run_incr_restore_output.rc != 0
+            # SQL2581N: this Db2 error code means something went wrong in restore command
+            # - ('SQL2581N' in _run_incr_restore_output.stdout)
+
+        - name: "Debug: run Db2 restore command"
+          when: masbr_restore_from_incr
+          debug:
+            msg: "{{ _run_incr_restore_output.stdout_lines }}"
+
+      always:
+        # Run Db2 rollforward command regardless of whether Db2 restore success or not,
+        # otherwise the Db2 will be in pending status.
+        # https://www.ibm.com/docs/en/db2/11.5?topic=commands-rollforward-database
+        # -------------------------------------------------------------------------
+        - name: "Check Db2 rollforward status"
+          changed_when: false
+          shell: >
+            {{ exec_in_pod_begin }}
+            echo "10. Check Db2 rollforward status" | tee -a {{ db2_restore_log }};
+            db2 -v rollforward db {{ db2_dbname }} query status | tee -a {{ db2_restore_log }}
+            {{ exec_in_pod_end }}
+          register: _query_rollforward_output
+
+        - name: "Debug: check Db2 rollforward status"
+          debug:
+            msg: "{{ _query_rollforward_output.stdout_lines }}"
+
+        - name: "Run Db2 rollforward command"
+          changed_when: true
+          shell: >
+            {{ exec_in_pod_begin }}
+            echo "11. Run Db2 rollforward command" | tee -a {{ db2_restore_log }};
+            db2 -v "rollforward db {{ db2_dbname }} to end of backup and complete
+            overflow log path ({{ db2_restore_folder }}/{{ masbr_restore_from }}) noretrieve" | tee -a {{ db2_restore_log }}
+            {{ exec_in_pod_end }}
+          register: _run_rollforward_output
+          failed_when:
+            - _run_rollforward_output.rc != 0
+            # SQL1119N: this Db2 error code means something went wrong in rollforward command
+            # - ('SQL1119N' in _run_rollforward_output.stdout)
+
+        - name: "Debug: run Db2 rollforward command"
+          debug:
+            msg: "{{ _run_rollforward_output.stdout_lines }}"
+
+
+        # Active Db2 after successful rollforward
+        # https://www.ibm.com/docs/en/db2/11.5?topic=r-restoring-db2-from-online-backup-using-commands
+        # -------------------------------------------------------------------------
+        - name: "Active Db2 after successful rollforward"
+          changed_when: true
+          shell: >
+            {{ exec_in_pod_begin }}
+            echo "12. Stop the database" | tee -a {{ db2_restore_log }};
+            db2stop force | tee -a {{ db2_restore_log }};
+            echo "13. Ensure that all Db2 interprocess communications are cleaned for the instance" | tee -a {{ db2_restore_log }};
+            ipclean -a | tee -a {{ db2_restore_log }};
+            echo "14. Reinitialize the Db2 communication manager to accept database connections" | tee -a {{ db2_restore_log }};
+            db2set DB2COMM=TCPIP,SSL | tee -a {{ db2_restore_log }};
+            echo "15. Restart the database for normal operation" | tee -a {{ db2_restore_log }};
+            db2start | tee -a {{ db2_restore_log }};
+            echo "16. Activate the database" | tee -a {{ db2_restore_log }};
+            db2 activate db {{ db2_dbname }} | tee -a {{ db2_restore_log }};
+            echo "17. Re-enable the Wolverine high availability monitoring process" | tee -a {{ db2_restore_log }};
+            wvcli system enable -m "Enable HA after Db2 maintenance" | tee -a {{ db2_restore_log }};
+            echo "18. Connect to the database" | tee -a {{ db2_restore_log }};
+            db2 connect to {{ db2_dbname }} | tee -a {{ db2_restore_log }}
+            {{ exec_in_pod_end }}
+          register: _post_restore_output
+
+        - name: "Debug: active Db2 after successfull rollforward"
+          debug:
+            msg: "{{ _post_restore_output.stdout_lines }}"
+
+
+    # Update database restore status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update database restore status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Completed"
+
+  rescue:
+    # Update database restore status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database restore status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Failed"
+
+  always:
+    # Copy db2 restore log file from pod to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of db2 restore log"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        tar -czf {{ db2_restore_folder }}/db2-restore-log.tar.gz
+        -C {{ db2_restore_folder }} db2-restore.log
+        {{ exec_in_pod_end }}
+
+    - name: "Copy db2 restore log file from pod to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_pod_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "restore"
+        masbr_cf_job_name: "{{ masbr_job_name_final }}"
+        masbr_cf_paths:
+          - src_file: "{{ db2_restore_folder }}/db2-restore-log.tar.gz"
+            dest_folder: "log"
