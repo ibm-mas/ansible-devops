@@ -71,6 +71,8 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../playbooks/uninstall-core/">Uninstall Core</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../playbooks/backup-restore/">Backup & Restore</a>
+                  </li>
               </ul>
               <p class="caption"><span class="caption-text">Roles: OCP Mgmt</span></p>
               <ul>
@@ -265,15 +267,57 @@
     </li>
         </ul>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#role-variables-backup-and-restore">Role Variables - Backup and Restore</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_confirm_cluster">masbr_confirm_cluster</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_copy_timeout_sec">masbr_copy_timeout_sec</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_job_timezone">masbr_job_timezone</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_storage_type">masbr_storage_type</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_storage_local_folder">masbr_storage_local_folder</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_storage_cloud_rclone_file">masbr_storage_cloud_rclone_file</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_storage_cloud_rclone_name">masbr_storage_cloud_rclone_name</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_storage_cloud_bucket">masbr_storage_cloud_bucket</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_slack_enabled">masbr_slack_enabled</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_slack_level">masbr_slack_level</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_slack_token">masbr_slack_token</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_slack_channel">masbr_slack_channel</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_slack_user">masbr_slack_user</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_backup_type">masbr_backup_type</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_backup_from_version">masbr_backup_from_version</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_backup_schedule">masbr_backup_schedule</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#masbr_restore_from_version">masbr_restore_from_version</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#install-db2">Install Db2</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#backup-db2">Backup Db2</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#restore-db2">Restore Db2</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
     </li>
     </ul>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../db2_backup/">db2_backup</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../db2_restore/">db2_restore</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../dro/">dro</a>
                   </li>
@@ -422,7 +466,7 @@ db2u-db01   Ready   None               29m
 <li>Default Value: <code>ibm-common-services</code></li>
 </ul>
 <h3 id="db2_action">db2_action<a class="headerlink" href="#db2_action" title="Permanent link"></a></h3>
-<p>Inform the role whether to perform an install or upgrade of DB2 Database. This can be set to <code>install</code> or <code>upgrade</code>. When <code>DB2_ACTION</code> is set to upgrade, then all instances in the <code>DB2_NAMESPACE</code> will be upgraded to the <code>DB2_VERSION</code>.</p>
+<p>Inform the role whether to perform an install, upgrade, backup or restore of DB2 Database. This can be set to <code>install</code>, <code>upgrade</code>, <code>backup</code> or <code>restore</code>. When <code>DB2_ACTION</code> is set to upgrade, then all instances in the <code>DB2_NAMESPACE</code> will be upgraded to the <code>DB2_VERSION</code>.</p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>DB2_ACTION</code></li>
@@ -793,7 +837,150 @@ You can define parameters to be included in this section using semicolon separat
 <li>Environment Variable: <code>'MAS_APP_ID</code></li>
 <li>Default: None</li>
 </ul>
+<h2 id="role-variables-backup-and-restore">Role Variables - Backup and Restore<a class="headerlink" href="#role-variables-backup-and-restore" title="Permanent link"></a></h2>
+<h3 id="masbr_confirm_cluster">masbr_confirm_cluster<a class="headerlink" href="#masbr_confirm_cluster" title="Permanent link"></a></h3>
+<p>Set <code>true</code> or <code>false</code> to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_CONFIRM_CLUSTER</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<h3 id="masbr_copy_timeout_sec">masbr_copy_timeout_sec<a class="headerlink" href="#masbr_copy_timeout_sec" title="Permanent link"></a></h3>
+<p>Set the transfer files timeout in seconds.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_COPY_TIMEOUT_SEC</code></li>
+<li>Default: <code>43200</code> (12 hours)</li>
+</ul>
+<h3 id="masbr_job_timezone">masbr_job_timezone<a class="headerlink" href="#masbr_job_timezone" title="Permanent link"></a></h3>
+<p>Set the <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">time zone</a> for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_JOB_TIMEZONE</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_storage_type">masbr_storage_type<a class="headerlink" href="#masbr_storage_type" title="Permanent link"></a></h3>
+<p>Set <code>local</code> or <code>cloud</code> to indicate this role to save the backup files to local file system or cloud object storage.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MASBR_STORAGE_TYPE</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_storage_local_folder">masbr_storage_local_folder<a class="headerlink" href="#masbr_storage_local_folder" title="Permanent link"></a></h3>
+<p>Set local path to save the backup files.</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_STORAGE_TYPE=local</code></li>
+<li>Environment Variable: <code>MASBR_STORAGE_LOCAL_FOLDER</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_storage_cloud_rclone_file">masbr_storage_cloud_rclone_file<a class="headerlink" href="#masbr_storage_cloud_rclone_file" title="Permanent link"></a></h3>
+<p>Set the path of <code>rclone.conf</code> file.</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_STORAGE_TYPE=cloud</code></li>
+<li>Environment Variable: <code>MASBR_STORAGE_CLOUD_RCLONE_FILE</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_storage_cloud_rclone_name">masbr_storage_cloud_rclone_name<a class="headerlink" href="#masbr_storage_cloud_rclone_name" title="Permanent link"></a></h3>
+<p>Set the configuration name defined in <code>rclone.conf</code> file.</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_STORAGE_TYPE=cloud</code></li>
+<li>Environment Variable: <code>MASBR_STORAGE_CLOUD_RCLONE_NAME</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_storage_cloud_bucket">masbr_storage_cloud_bucket<a class="headerlink" href="#masbr_storage_cloud_bucket" title="Permanent link"></a></h3>
+<p>Set the object storage bucket name for saving the backup files</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_STORAGE_TYPE=cloud</code></li>
+<li>Environment Variable: <code>MASBR_STORAGE_CLOUD_BUCKET</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_slack_enabled">masbr_slack_enabled<a class="headerlink" href="#masbr_slack_enabled" title="Permanent link"></a></h3>
+<p>Set <code>true</code> or <code>false</code> to indicate whether this role will send Slack notification messages of the backup and restore progress.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_SLACK_ENABLED</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<h3 id="masbr_slack_level">masbr_slack_level<a class="headerlink" href="#masbr_slack_level" title="Permanent link"></a></h3>
+<p>Set <code>failure</code>, <code>info</code> or <code>verbose</code> to indicate this role to send Slack notification messages in which backup and resore phases:</p>
+<table>
+<thead>
+<tr>
+<th>Slack level</th>
+<th>Backup/Restore phases</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>failure</td>
+<td><code>Failed</code>, <code>PartiallyFailed</code></td>
+</tr>
+<tr>
+<td>info</td>
+<td><code>Completed</code>, <code>Failed</code>, <code>PartiallyFailed</code></td>
+</tr>
+<tr>
+<td>verbose</td>
+<td><code>InProgress</code>, <code>Completed</code>, <code>Failed</code>, <code>PartiallyFailed</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_SLACK_LEVEL</code></li>
+<li>Default: <code>info</code></li>
+</ul>
+<h3 id="masbr_slack_token">masbr_slack_token<a class="headerlink" href="#masbr_slack_token" title="Permanent link"></a></h3>
+<p>The Slack integration token.</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_SLACK_ENABLED=true</code></li>
+<li>Environment Variable: <code>MASBR_SLACK_TOKEN</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_slack_channel">masbr_slack_channel<a class="headerlink" href="#masbr_slack_channel" title="Permanent link"></a></h3>
+<p>The Slack channel to send the notification messages to.</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_SLACK_ENABLED=true</code></li>
+<li>Environment Variable: <code>MASBR_SLACK_CHANNEL</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_slack_user">masbr_slack_user<a class="headerlink" href="#masbr_slack_user" title="Permanent link"></a></h3>
+<p>The sender of the Slack notification message.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_SLACK_USER</code></li>
+<li>Default: <code>MASBR</code></li>
+</ul>
+<h3 id="masbr_backup_type">masbr_backup_type<a class="headerlink" href="#masbr_backup_type" title="Permanent link"></a></h3>
+<p>Set <code>full</code> or <code>incr</code> to indicate the role to create a full backup or incremental backup.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_BACKUP_TYPE</code></li>
+<li>Default: <code>full</code></li>
+</ul>
+<h3 id="masbr_backup_from_version">masbr_backup_from_version<a class="headerlink" href="#masbr_backup_from_version" title="Permanent link"></a></h3>
+<p>Set the full backup version to use in the incremental backup, this will be in the format of a <code>YYYMMDDHHMMSS</code> timestamp (e.g. <code>20240621021316</code>). This variable is only valid when <code>MASBR_BACKUP_TYPE=incr</code>. If not set a value for this variable, this role will try to find the latest full backup version from the specified storage location.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_BACKUP_FROM_VERSION</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_backup_schedule">masbr_backup_schedule<a class="headerlink" href="#masbr_backup_schedule" title="Permanent link"></a></h3>
+<p>Set <a href="ttps://en.wikipedia.org/wiki/Cron">Cron expression</a> to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_BACKUP_SCHEDULE</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_restore_from_version">masbr_restore_from_version<a class="headerlink" href="#masbr_restore_from_version" title="Permanent link"></a></h3>
+<p>Set the backup version to use in the restore, this will be in the format of a <code>YYYMMDDHHMMSS</code> timestamp (e.g. <code>20240621021316</code>)</p>
+<ul>
+<li><strong>Required</strong> only when <code>DB2_ACTION=restore</code></li>
+<li>Environment Variable: <code>MASBR_RESTORE_FROM_VERSION</code></li>
+<li>Default: None</li>
+</ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
+<h3 id="install-db2">Install Db2<a class="headerlink" href="#install-db2" title="Permanent link"></a></h3>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
@@ -811,6 +998,29 @@ You can define parameters to be included in this section using semicolon separat
     # Create the MAS JdbcCfg &amp; Secret resource definitions
     mas_instance_id: inst1
     mas_config_dir: /home/david/masconfig
+  roles:
+    - ibm.mas_devops.db2
+</code></pre>
+<h3 id="backup-db2">Backup Db2<a class="headerlink" href="#backup-db2" title="Permanent link"></a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: backup
+    db2_instance_name: db2u-db01
+    masbr_storage_type: local
+    masbr_storage_local_folder: /tmp/masbr
+  roles:
+    - ibm.mas_devops.db2
+</code></pre>
+<h3 id="restore-db2">Restore Db2<a class="headerlink" href="#restore-db2" title="Permanent link"></a></h3>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: restore
+    db2_instance_name: db2u-db01
+    masbr_restore_from_version: 20240621021316
+    masbr_storage_type: local
+    masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.db2
 </code></pre>
@@ -847,7 +1057,7 @@ You can define parameters to be included in this section using semicolon separat
       <span><a href="../cp4d_service/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../db2_backup/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../dro/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

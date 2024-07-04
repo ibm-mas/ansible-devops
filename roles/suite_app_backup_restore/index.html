@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ibm-mas.github.io/ansible-devops/roles/db2_restore/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ibm-mas.github.io/ansible-devops/roles/suite_app_backup_restore/" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>db2_restore - MAS Devops Collection</title>
+    <title>Backup and Restore MAS Applications - MAS Devops Collection</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
@@ -13,9 +13,9 @@
     
       <script>
         // Current page data
-        var mkdocs_page_name = "db2_restore";
-        var mkdocs_page_input_path = "roles/db2_restore.md";
-        var mkdocs_page_url = "/ansible-devops/roles/db2_restore/";
+        var mkdocs_page_name = "Backup and Restore MAS Applications";
+        var mkdocs_page_input_path = "roles/suite_app_backup_restore.md";
+        var mkdocs_page_url = "/ansible-devops/roles/suite_app_backup_restore/";
       </script>
     
     <!--[if lt IE 9]>
@@ -71,6 +71,8 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../playbooks/uninstall-core/">Uninstall Core</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../playbooks/backup-restore/">Backup & Restore</a>
+                  </li>
               </ul>
               <p class="caption"><span class="caption-text">Roles: OCP Mgmt</span></p>
               <ul>
@@ -98,7 +100,7 @@
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Roles: Dependency Mgmt</span></p>
-              <ul class="current">
+              <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../appconnect/">appconnect</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../aws_bucket_access_point/">aws_bucket_access_point</a>
@@ -132,26 +134,6 @@
                   <li class="toctree-l1"><a class="reference internal" href="../cp4d_service/">cp4d_service</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../db2/">db2</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../db2_backup/">db2_backup</a>
-                  </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">db2_restore</a>
-    <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#role-variables">Role Variables</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#db2_restore_dir">db2_restore_dir</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#db2_restore_instance_name">db2_restore_instance_name</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#db2_dbname">db2_dbname</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#example-playbook">Example Playbook</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
-    </li>
-    </ul>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../dro/">dro</a>
                   </li>
@@ -269,10 +251,9 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
-          <li class="breadcrumb-item">Roles: Dependency Mgmt</li>
-      <li class="breadcrumb-item active">db2_restore</li>
+      <li class="breadcrumb-item active">Backup and Restore MAS Applications</li>
     <li class="wy-breadcrumbs-aside">
-          <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/db2_restore.md" class="icon icon-github"> Edit on GitHub</a>
+          <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/suite_app_backup_restore.md" class="icon icon-github"> Edit on GitHub</a>
     </li>
   </ul>
   <hr/>
@@ -280,49 +261,327 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="db2_restore">db2_restore<a class="headerlink" href="#db2_restore" title="Permanent link"></a></h1>
-<p>This role runs a restore procedure onto a Db2uCluster instance.  In order to begin the restore process, you must have the required files to run a successful restore process in the chosen <code>db2_restore_dir</code>:</p>
+                <h1 id="backup-and-restore-mas-applications">Backup and Restore MAS Applications<a class="headerlink" href="#backup-and-restore-mas-applications" title="Permanent link"></a></h1>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link"></a></h2>
+<p>This role supports backing up and restoring the data for below MAS applications:</p>
 <ul>
-<li>DB2 backup files i.e <code>BLUDB.0.db2inst1.DBPART000.202XXXXXXXXXXX.001</code></li>
-<li>DB2 keystore files (.p12 and .sth)</li>
-<li>DB2 instance master key label file (.kdb)</li>
+<li><code>manage</code>: Manage namespace resources, persistent volume data (e.g. attachments)</li>
+<li><code>iot</code>: IoT namespace resources</li>
+<li><code>monitor</code>: Monitor namespace resources</li>
+<li><code>health</code>: Health namespace resources, Watson Studio project asset</li>
+<li><code>optimizer</code>: Optimizer namespace resources</li>
+<li><code>visualinspection</code>: Visual Inspection namespace resources, persistent volume data (e.g. image datasets, models)</li>
 </ul>
-<p>Note: These files are generated automatically if you run <code>ibm.mas_devops.db2_backup</code> role. If any of the above files are not found in the directory specified by <code>db2_restore_dir</code> the restore process will fail.</p>
-<h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
-<h3 id="db2_restore_dir">db2_restore_dir<a class="headerlink" href="#db2_restore_dir" title="Permanent link"></a></h3>
-<p>Local directory that stores the backup files to be used in the DB2 Warehouse restore process</p>
+<p>Supports creating on-demand or scheduled backup jobs for taking full or incremental backups, and optionally creating Kubernetes jobs for running the backup/restore process.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>An application backup can only be restored to an instance with the same MAS instance ID.</p>
+</div>
+<h2 id="role-variables-general">Role Variables - General<a class="headerlink" href="#role-variables-general" title="Permanent link"></a></h2>
+<h3 id="masbr_action">masbr_action<a class="headerlink" href="#masbr_action" title="Permanent link"></a></h3>
+<p>Set <code>backup</code> or <code>restore</code> to indicate the role to create a backup or restore job.</p>
 <ul>
 <li><strong>Required</strong></li>
-<li>Environment Variable: <code>DB2WH_RESTORE_DIR</code></li>
+<li>Environment Variable: <code>MAS_BR_ACTION</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="db2_restore_instance_name">db2_restore_instance_name<a class="headerlink" href="#db2_restore_instance_name" title="Permanent link"></a></h3>
-<p>DB2 Warehouse target instance to restore the backup to.</p>
+<h3 id="mas_app_id">mas_app_id<a class="headerlink" href="#mas_app_id" title="Permanent link"></a></h3>
+<p>Defines the MAS application ID (<code>manage</code>, <code>iot</code>, <code>monitor</code>, <code>health</code>, <code>optimizer</code>, or <code>visualinspection</code>) for the backup or restore action.</p>
 <ul>
 <li><strong>Required</strong></li>
-<li>Environment Variable: <code>DB2_RESTORE_INSTANCE_NAME</code></li>
+<li>Environment Variable: <code>MAS_APP_ID</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="db2_dbname">db2_dbname<a class="headerlink" href="#db2_dbname" title="Permanent link"></a></h3>
-<p>Name of the database within the instance.</p>
+<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link"></a></h3>
+<p>Defines the MAS instance ID for the backup or restore action.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link"></a></h3>
+<p>Defines the MAS workspace ID for the backup or restore action.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_confirm_cluster">masbr_confirm_cluster<a class="headerlink" href="#masbr_confirm_cluster" title="Permanent link"></a></h3>
+<p>Set <code>true</code> or <code>false</code> to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>DB2_DBNAME</code></li>
-<li>Default: <code>BLUDB</code></li>
+<li>Environment Variable: <code>MASBR_CONFIRM_CLUSTER</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<h3 id="masbr_copy_timeout_sec">masbr_copy_timeout_sec<a class="headerlink" href="#masbr_copy_timeout_sec" title="Permanent link"></a></h3>
+<p>Set the transfer files timeout in seconds.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_COPY_TIMEOUT_SEC</code></li>
+<li>Default: <code>43200</code> (12 hours)</li>
+</ul>
+<h3 id="masbr_job_timezone">masbr_job_timezone<a class="headerlink" href="#masbr_job_timezone" title="Permanent link"></a></h3>
+<p>Set the <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">time zone</a> for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_JOB_TIMEZONE</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_storage_type">masbr_storage_type<a class="headerlink" href="#masbr_storage_type" title="Permanent link"></a></h3>
+<p>Set <code>local</code> or <code>cloud</code> to indicate this role to save the backup files to local file system or cloud object storage.</p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>MASBR_STORAGE_TYPE</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_storage_local_folder">masbr_storage_local_folder<a class="headerlink" href="#masbr_storage_local_folder" title="Permanent link"></a></h3>
+<p>Set local path to save the backup files.</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_STORAGE_TYPE=local</code></li>
+<li>Environment Variable: <code>MASBR_STORAGE_LOCAL_FOLDER</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_storage_cloud_rclone_file">masbr_storage_cloud_rclone_file<a class="headerlink" href="#masbr_storage_cloud_rclone_file" title="Permanent link"></a></h3>
+<p>Set the path of <code>rclone.conf</code> file.</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_STORAGE_TYPE=cloud</code></li>
+<li>Environment Variable: <code>MASBR_STORAGE_CLOUD_RCLONE_FILE</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_storage_cloud_rclone_name">masbr_storage_cloud_rclone_name<a class="headerlink" href="#masbr_storage_cloud_rclone_name" title="Permanent link"></a></h3>
+<p>Set the configuration name defined in <code>rclone.conf</code> file.</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_STORAGE_TYPE=cloud</code></li>
+<li>Environment Variable: <code>MASBR_STORAGE_CLOUD_RCLONE_NAME</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_storage_cloud_bucket">masbr_storage_cloud_bucket<a class="headerlink" href="#masbr_storage_cloud_bucket" title="Permanent link"></a></h3>
+<p>Set the object storage bucket name for saving the backup files</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_STORAGE_TYPE=cloud</code></li>
+<li>Environment Variable: <code>MASBR_STORAGE_CLOUD_BUCKET</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_slack_enabled">masbr_slack_enabled<a class="headerlink" href="#masbr_slack_enabled" title="Permanent link"></a></h3>
+<p>Set <code>true</code> or <code>false</code> to indicate whether this role will send Slack notification messages of the backup and restore progress.  </p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_SLACK_ENABLED</code></li>
+<li>Default: <code>false</code></li>
+</ul>
+<h3 id="masbr_slack_level">masbr_slack_level<a class="headerlink" href="#masbr_slack_level" title="Permanent link"></a></h3>
+<p>Set <code>failure</code>, <code>info</code> or <code>verbose</code> to indicate this role to send Slack notification messages in which backup and resore phases:</p>
+<table>
+<thead>
+<tr>
+<th>Slack level</th>
+<th>Backup/Restore phases</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>failure</td>
+<td><code>Failed</code>, <code>PartiallyFailed</code></td>
+</tr>
+<tr>
+<td>info</td>
+<td><code>Completed</code>, <code>Failed</code>, <code>PartiallyFailed</code></td>
+</tr>
+<tr>
+<td>verbose</td>
+<td><code>InProgress</code>, <code>Completed</code>, <code>Failed</code>, <code>PartiallyFailed</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_SLACK_LEVEL</code></li>
+<li>Default: <code>info</code></li>
+</ul>
+<h3 id="masbr_slack_token">masbr_slack_token<a class="headerlink" href="#masbr_slack_token" title="Permanent link"></a></h3>
+<p>The Slack integration token.  </p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_SLACK_ENABLED=true</code></li>
+<li>Environment Variable: <code>MASBR_SLACK_TOKEN</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_slack_channel">masbr_slack_channel<a class="headerlink" href="#masbr_slack_channel" title="Permanent link"></a></h3>
+<p>The Slack channel to send the notification messages to.</p>
+<ul>
+<li><strong>Required</strong> only when <code>MASBR_SLACK_ENABLED=true</code></li>
+<li>Environment Variable: <code>MASBR_SLACK_CHANNEL</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_slack_user">masbr_slack_user<a class="headerlink" href="#masbr_slack_user" title="Permanent link"></a></h3>
+<p>The sender of the Slack notification message.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_SLACK_USER</code></li>
+<li>Default: <code>MASBR</code></li>
+</ul>
+<h2 id="role-variables-backup">Role Variables - Backup<a class="headerlink" href="#role-variables-backup" title="Permanent link"></a></h2>
+<h3 id="masbr_backup_type">masbr_backup_type<a class="headerlink" href="#masbr_backup_type" title="Permanent link"></a></h3>
+<p>Set <code>full</code> or <code>incr</code> to indicate the role to create a full backup or incremental backup. Only supports creating incremental backup for persistent volume data, this role will always create a full backup for other type of data regardless of whether this variable be set to <code>incr</code>.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_BACKUP_TYPE</code></li>
+<li>Default: <code>full</code></li>
+</ul>
+<h3 id="masbr_backup_data">masbr_backup_data<a class="headerlink" href="#masbr_backup_data" title="Permanent link"></a></h3>
+<p>Set the types of data to be backed up, multiple data types are separated by commas (e.g. <code>namespace,pv</code>). If not set a value for this variable, this role will back up all types of data that supported by the specified MAS application. The data types supported by each MAS applications:</p>
+<table>
+<thead>
+<tr>
+<th>MAS App Name</th>
+<th>MAS App ID</th>
+<th>Data types</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Manage</td>
+<td><code>manage</code></td>
+<td><code>namespace</code>, <code>pv</code></td>
+</tr>
+<tr>
+<td>IoT</td>
+<td><code>iot</code></td>
+<td><code>namespace</code></td>
+</tr>
+<tr>
+<td>Monitor</td>
+<td><code>monitor</code></td>
+<td><code>namespace</code></td>
+</tr>
+<tr>
+<td>Health</td>
+<td><code>health</code></td>
+<td><code>namespace</code>, <code>wsl</code></td>
+</tr>
+<tr>
+<td>Optimizer</td>
+<td><code>optimizer</code></td>
+<td><code>namespace</code></td>
+</tr>
+<tr>
+<td>Visual Inspection</td>
+<td><code>visualinspection</code></td>
+<td><code>namespace</code>, <code>pv</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_BACKUP_DATA</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_backup_from_version">masbr_backup_from_version<a class="headerlink" href="#masbr_backup_from_version" title="Permanent link"></a></h3>
+<p>Set the full backup version to use in the incremental backup, this will be in the format of a <code>YYYMMDDHHMMSS</code> timestamp (e.g. <code>20240621021316</code>). This variable is only valid when <code>MASBR_BACKUP_TYPE=incr</code>. If not set a value for this variable, this role will try to find the latest full backup version from the specified storage location.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_BACKUP_FROM_VERSION</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_backup_schedule">masbr_backup_schedule<a class="headerlink" href="#masbr_backup_schedule" title="Permanent link"></a></h3>
+<p>Set <a href="ttps://en.wikipedia.org/wiki/Cron">Cron expression</a> to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_BACKUP_SCHEDULE</code></li>
+<li>Default: None</li>
+</ul>
+<h2 id="role-variables-restore">Role Variables - Restore<a class="headerlink" href="#role-variables-restore" title="Permanent link"></a></h2>
+<h3 id="masbr_restore_from_version">masbr_restore_from_version<a class="headerlink" href="#masbr_restore_from_version" title="Permanent link"></a></h3>
+<p>Set the backup version to use in the restore, this will be in the format of a <code>YYYMMDDHHMMSS</code> timestamp (e.g. <code>20240621021316</code>)</p>
+<ul>
+<li><strong>Required</strong> only when <code>MAS_BR_ACTION=restore</code></li>
+<li>Environment Variable: <code>MASBR_RESTORE_FROM_VERSION</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="masbr_restore_data">masbr_restore_data<a class="headerlink" href="#masbr_restore_data" title="Permanent link"></a></h3>
+<p>Set the types of data to be restored, multiple data types are separated by commas (e.g. <code>namespace,pv</code>). If not set a value for this variable, this role will restore all types of data that supported by the specified MAS application. The data types supported by each MAS applications:</p>
+<table>
+<thead>
+<tr>
+<th>MAS App Name</th>
+<th>MAS App ID</th>
+<th>Data types</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Manage</td>
+<td><code>manage</code></td>
+<td><code>namespace</code>, <code>pv</code></td>
+</tr>
+<tr>
+<td>IoT</td>
+<td><code>iot</code></td>
+<td><code>namespace</code></td>
+</tr>
+<tr>
+<td>Monitor</td>
+<td><code>monitor</code></td>
+<td><code>namespace</code></td>
+</tr>
+<tr>
+<td>Health</td>
+<td><code>health</code></td>
+<td><code>namespace</code>, <code>wsl</code></td>
+</tr>
+<tr>
+<td>Optimizer</td>
+<td><code>optimizer</code></td>
+<td><code>namespace</code></td>
+</tr>
+<tr>
+<td>Visual Inspection</td>
+<td><code>visualinspection</code></td>
+<td><code>namespace</code>, <code>pv</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_RESTORE_DATA</code></li>
+<li>Default: None</li>
+</ul>
+<h2 id="role-variables-manage">Role Variables - Manage<a class="headerlink" href="#role-variables-manage" title="Permanent link"></a></h2>
+<h3 id="masbr_manage_pvc_paths">masbr_manage_pvc_paths<a class="headerlink" href="#masbr_manage_pvc_paths" title="Permanent link"></a></h3>
+<p>Set the Manage PVC paths to use in backup and restore. The PVC path is in the format of <code>&lt;pvcName&gt;:&lt;mountPath&gt;/&lt;subPath&gt;</code>. Multiple PVC paths are separated by commas (e.g. <code>pvc-docs:/doclinks/attachments,pvc-maxlogs:/maxlogs</code>). If not set a value for this variable, this role will not backup and restore persistent valumne data for Manage.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MASBR_MANAGE_PVC_PATHS</code></li>
+<li>Default: None</li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link"></a></h2>
+<h3 id="backup">Backup<a class="headerlink" href="#backup" title="Permanent link"></a></h3>
+<p>Backup Manage namespace resources, note that this does not include backup of any data in Db2, see the <code>backup</code> action in the <a href="../db2/">db2</a> role.</p>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
-    # Backup mydb1 and restore it to mydb2
-    db2_backup_dir: &quot;/tmp/db2backup&quot;
-    db2_backup_instance_name: &quot;mydb1&quot;
-
-    db2_restore_dir: &quot;/tmp/db2backup&quot;
-    db2_restore_instance_name: &quot;mydb2&quot;
+    masbr_action: backup
+    mas_instance_id: main
+    mas_workspace_id: ws1
+    mas_app_id: manage
+    masbr_storage_type: local
+    masbr_storage_local_folder: /tmp/masbr
   roles:
-    - ibm.mas_devops.db2_backup
-    - ibm.mas_devops.db2_restore
+    - ibm.mas_devops.suite_app_backup_restore
+</code></pre>
+<h3 id="restore">Restore<a class="headerlink" href="#restore" title="Permanent link"></a></h3>
+<p>Restore Manage namespace resources, note that this does not include restore of any data in Db2, see the <code>restore</code> action in the <a href="../db2/">db2</a> role.</p>
+<pre><code class="language-yaml">- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    masbr_action: restore
+    masbr_restore_from_version: 20240621021316
+    mas_instance_id: main
+    mas_workspace_id: ws1
+    mas_app_id: manage
+    masbr_storage_type: local
+    masbr_storage_local_folder: /tmp/masbr
+  roles:
+    - ibm.mas_devops.suite_app_backup_restore
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link"></a></h2>
 <p>EPL-2.0</p>
@@ -354,10 +613,6 @@
         </span>
     
     
-      <span><a href="../db2_backup/" style="color: #fcfcfc">&laquo; Previous</a></span>
-    
-    
-      <span><a href="../dro/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
