@@ -422,23 +422,13 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 Role Variables - Backup and Restore
 -----------------------------------------------------------------------------------------------------------------
 
-!!! tip
-    You need to set some other common environment variables for creating backup/restore jobs, please refer to [this doc](../playbooks/masbr-vars.md) for details.
-
-Below environment variables are for this role:
-
-### db2_instance_name
-Required. This role only supports backing up specific Db2 instance at a time. If you want to back up all Db2 instances in the Db2 cluster, you need to run this role multiple times with different value of this environment variable.
-
-- Environment Variable: `DB2_INSTANCE_NAME`
-- Default Value: None
-
-Please refer to the playbooks `backup_db2` and `restore_db2` to learn how to use this role.
+// TODO: Add variables that are specific to backup and restore here, don't need to reproduce vars already mentioned in previous sections
 
 
 Example Playbook
 -----------------------------------------------------------------------------------------------
 
+### Install Db2
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -460,6 +450,12 @@ Example Playbook
   roles:
     - ibm.mas_devops.db2
 ```
+
+### Backup Db2
+// TODO: Add example playbook
+
+### Restore Db2
+// TODO: Add example playbook
 
 License
 -------------------------------------------------------------------------------
