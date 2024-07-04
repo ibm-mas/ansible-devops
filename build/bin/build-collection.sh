@@ -25,7 +25,7 @@ find docs/playbooks -type f -name '*.md' -exec sed -i \
   {} \;
 
 # Update default catalog
-find ibm/mas_devops/roles/ibm_catalogs -type f -name 'main.yml' -o -name 'README.md' -exec sed -i \
+find ibm/mas_devops/roles/ibm_catalogs -type f -name '*.yml' -o -name '*.md' -exec sed -i \
   -e 's/@@MAS_LATEST_CATALOG@@/v9-240625-amd64/g' \
   {} \;
 
