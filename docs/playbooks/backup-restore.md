@@ -5,19 +5,22 @@ Overview
 -------------------------------------------------------------------------------
 MAS Devops Collection includes playbooks for backup and restore of the following MAS components and their dependencies:
 
-- [MongoDB](#backing-up-mongodb)
-- [Db2](#backing-up-db2)
-- [MAS Core](#backing-up-mas-core)
-- [Manage](#backing-up-manage)
-- [IoT](#backing-up-iot)
-- [Monitor](#backing-up-monitor)
-- [Optimizer](#backing-up-optimizer)
-- [Visual Inspection](#backing-up-visual-inspection)
+- [MongoDB](#backuprestore-for-mongodb)
+- [Db2](#backuprestore-for-db2)
+- [MAS Core](#backuprestore-for-mas-core)
+- [Manage](#backuprestore-for-manage)
+- [IoT](#backuprestore-for-iot)
+- [Monitor](#backuprestore-for-monitor)
+- [Optimizer](#backuprestore-for-optimizer)
+- [Visual Inspection](#backuprestore-for-visual-inspection)
 
-The creations of both full and incremental backups are supported.  Backup and restore actions can be executed locally, or by generating on-demand or scheduled jobs that will allow the work to be performed on your OpenShift cluster using the [MAS CLI container image](https://github.ibm.com/ibm-mas/cli).
+Creation of both full and incremental backups are supported.  Backup and restore actions can be executed locally, or by generating on-demand or scheduled jobs that will allow the work to be performed on your OpenShift cluster using the [MAS CLI container image](https://github.ibm.com/ibm-mas/cli).
 
 !!! tip
     The backup and restore Ansible roles can also be used individually, allowing you to build your own customized backup and restore playbook covering exactly what you need.
+
+
+For more information about backup and restore for Maximo Application Suite refer to [Restoring and validating Maximo Application Suite](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=suite-restoring-validating-maximo-application) in the product documentation.
 
 
 Configuration
@@ -99,6 +102,13 @@ For example, set below value to create a scheduled backup job that will run at 1
 `MASBR_BACKUP_SCHEDULE="0 1 * * 1-5"`
 
 By default, the k8s CronJob use UTC time zone, so maybe you want to set the Cron expression based on your local [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). You can set the environment variable `MASBR_BACKUP_TIMEZONE` for this.
+
+
+### Restore
+The playbooks are switched to restore mode by setting `MASBR_ACTION` to `restore`.  You **must** specify the `MASBR_RESTORE_FROM_VERSION` environment variable to indicate which version of the backup files to use.
+
+In the case of restoring from an incremental backup, the corresponding full backup will be restored first before continuing to restore the incremental backup.
+
 
 ### Storage
 You need to set the environment variable `MASBR_STORAGE_TYPE` before you perform a backup or restore job. This variable indicates what type of storage systems that you are using for saving the backup files. Currently, it supports below types:
@@ -184,14 +194,14 @@ This playbook `ibm.mas_devops.backup_core` will backup the following components 
 
 ### Examples
 ```bash
-# Full backup all data for the dev1 instance
+# Full backup all core data for the dev1 instance
 export MASBR_ACTION=backup
 export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MAS_INSTANCE_ID=dev1
 ansible-playbook ibm.mas_devops.br_core
 
-# Incremental backup all data for the dev1 instance
+# Incremental backup all core data for the dev1 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
 export MASBR_STORAGE_TYPE=local
@@ -199,7 +209,7 @@ export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MAS_INSTANCE_ID=dev1
 ansible-playbook ibm.mas_devops.br_core
 
-# Restore all data for the dev1 instance
+# Restore all core data for the dev1 instance
 export MASBR_ACTION=restore
 export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
@@ -226,6 +236,48 @@ This playbook `ibm.mas_devops.backup_manage` will backup the following component
 - `MAS_INSTANCE_ID` **Required** This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `MAS_WORKSPACE_ID` **Required** This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `DB2_INSTANCE_NAME` **Required** This playbook will backup the the Db2 instance used by Manage, you need to set the correct Db2 instance name for this environment variable.
+
+### Examples
+
+```bash
+# Full backup all manage data for the dev1 instance
+export MASBR_ACTION=backup
+export MASBR_STORAGE_TYPE=local
+export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
+export MAS_INSTANCE_ID=dev1
+export MAS_WORKSPACE_ID=ws1
+export DB2_INSTANCE_NAME=mas-main-masdev-manage
+ansible-playbook ibm.mas_devops.br_manage
+
+# Incremental backup all manage data for the dev1 instance
+export MASBR_ACTION=backup
+export MASBR_BACKUP_TYPE=incr
+export MASBR_STORAGE_TYPE=local
+export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
+export MAS_INSTANCE_ID=dev1
+export MAS_WORKSPACE_ID=ws1
+export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
+ansible-playbook ibm.mas_devops.br_manage
+
+# Restore all manage data for the dev1 instance
+export MASBR_ACTION=restore
+export MASBR_STORAGE_TYPE=local
+export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
+export MASBR_RESTORE_FROM_VERSION=20240630132439
+export MAS_INSTANCE_ID=dev1
+export MAS_WORKSPACE_ID=ws1
+export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
+ansible-playbook ibm.mas_devops.br_manage
+
+# Create a scheduled backup of all manage data for the dev1 instance
+# This will run at 01:00, Monday through Friday
+export MASBR_BACKUP_SCHEDULE="0 1 * * 1-5"
+export MASBR_BACKUP_TYPE=incr
+export MAS_INSTANCE_ID=dev1
+export MAS_WORKSPACE_ID=ws1
+export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
+ansible-playbook ibm.mas_devops.backup_manage
+```
 
 
 Backup/Restore for IoT
