@@ -1,0 +1,34 @@
+---
+# Get certificate from KafkaCfg CR
+- name: "Get KafkaCfg CR"
+  kubernetes.core.k8s_info:
+    api_version: config.mas.ibm.com/v1
+    kind: KafkaCfg
+    name: "{{mas_instance_id | lower}}-kafka-system"
+    namespace: "mas-{{mas_instance_id}}-core"
+  register: kafkacfg_cr
+
+- name: "Debug CR"
+  debug:
+    msg:
+      - "kafkacfg_cr....... {{ kafkacfg_cr }}"
+  when: kafkacfg_cr is defined
+
+- name: "Get certificate from KafkaCfg CR"
+  set_fact:
+    kafkaCert: "{{ kafkacfg_cr | mas.util.getCfgCerts }}"
+  when: kafkacfg_cr is defined
+
+- name: "Debug certificate"
+  debug:
+    msg:
+      - "kafkaCert....... {{ kafkaCert }}"
+  when: kafkaCert is defined
+
+- name: "Add kafka certificate into mas_app_settings_imported_certificate"
+  set_fact:
+    mas_app_settings_imported_certificate: "{{ mas_app_settings_imported_certificate + kafkaCert }}"
+  when:
+    - mas_app_settings_imported_certificate is defined
+    - kafkacfg_cr is defined
+    - kafkaCert is defined
