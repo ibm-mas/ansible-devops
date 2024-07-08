@@ -1,0 +1,83 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: "masbr-sa"
+  namespace: "{{ masbr_cleanup_namespace }}"
+  labels:
+    mas.ibm.com/masbr: ""
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: "masbr-{{ masbr_cleanup_namespace }}"
+  labels:
+    mas.ibm.com/masbr: ""
+subjects:
+  - kind: ServiceAccount
+    name: "masbr-sa"
+    namespace: "{{ masbr_cleanup_namespace }}"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "masbr-network-policy"
+  namespace: "{{ masbr_cleanup_namespace }}"
+  labels:
+    mas.ibm.com/masbr: ""
+spec:
+  podSelector:
+    matchLabels:
+      mas.ibm.com/masbr: ""
+  egress:
+    - {}
+  policyTypes:
+    - Egress
+
+---
+kind: CronJob
+apiVersion: batch/v1
+metadata:
+  name: "masbr-cleanup"
+  namespace: "{{ masbr_cleanup_namespace }}"
+  labels:
+    mas.ibm.com/masbr: ""
+    masbr-type: "cleanup"
+spec:
+  schedule: "{{ masbr_cleanup_schedule }}"
+{% if masbr_job_timezone is defined and masbr_job_timezone | length > 0 %}
+  timeZone: "{{ masbr_job_timezone }}"
+{% endif %}
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          name: "masbr-cleanup"
+          labels:
+            mas.ibm.com/masbr: ""
+            masbr-type: "cleanup"
+        spec:
+          serviceAccountName: "masbr-sa"
+          containers:
+            - name: main
+              image: quay.io/ibmmas/cli:{{ masbr_mascli_image_tag }}
+{% if masbr_mascli_image_pull_policy is defined and masbr_mascli_image_pull_policy | length > 0 %}
+              imagePullPolicy: "{{ masbr_mascli_image_pull_policy }}"
+{% endif %}
+              command:
+                - sh
+                - '-c'
+                - >-
+                  {{ masbr_cleanup_cmds }}
+{% if masbr_cleanup_env is defined and masbr_cleanup_env | length > 0 %}
+              env: {{ masbr_cleanup_env }}
+{% endif %}
+          restartPolicy: Never

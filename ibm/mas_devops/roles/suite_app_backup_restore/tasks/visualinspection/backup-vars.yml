@@ -1,0 +1,27 @@
+---
+- name: "Set fact: default backup job data list"
+  set_fact:
+    masbr_job_data_list:
+      - seq: "1"
+        type: "namespace"
+      - seq: "2"
+        type: "pv"
+
+- name: "Set fact: namespace backup resources"
+  set_fact:
+    masbr_ns_backup_resources:
+      - namespace: "{{ mas_app_namespace }}"
+        resources:
+          - kind: Subscription
+            name: ibm-mas-visualinspection
+          - kind: OperatorGroup
+            name: mas-{{ mas_instance_id }}-visualinspection-operator-group
+          - kind: Secret
+            name: ibm-entitlement
+          # https://www.ibm.com/docs/en/mas-cd/maximo-vi/continuous-delivery?topic=managing-workload-scale-customization
+          - kind: ConfigMap
+            keywords: ^custom-.*-config$
+          - kind: HorizontalPodAutoscaler
+          # apps.mas.ibm.com
+          - kind: VisualInspectionApp
+          - kind: VisualInspectionAppWorkspace

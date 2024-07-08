@@ -1,0 +1,210 @@
+---
+# Set below common job facts:
+#   masbr_task_type, masbr_job_type
+#   masbr_job_name, masbr_job_name_final
+#
+# Set below restore job facts:
+#   masbr_restore_from
+#   masbr_restore_basedon
+#   masbr_restore_from_yaml
+#   masbr_restore_from_incr: true|false
+#   masbr_restore_to_diff_domain: true|false
+#   masbr_restore_to_diff_instance: true|false
+
+
+# Restore environment variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: restore environment variables"
+  set_fact:
+    # The information of the backup to be restored from
+    # <Required>
+    masbr_restore_from_version: "{{ lookup('env', 'MASBR_RESTORE_FROM_VERSION') }}"
+
+    # Data type string separated by commas: e.g.'namespace,pv'
+    masbr_restore_data: "{{ lookup('env', 'MASBR_RESTORE_DATA') | default('', true) }}"
+
+    # Also will restore the based on full backup when trying to restore from an incremental backup
+    # (Not used by now)
+    masbr_restore_include_basedon: "{{ lookup('env', 'MASBR_RESTORE_INCLUDE_BASEDON') | default(true, true) }}"
+
+- name: "Fail if masbr_restore_from_version is not provided"
+  assert:
+    that: masbr_restore_from_version is defined and masbr_restore_from_version != ""
+    fail_msg: "masbr_restore_from_version is required for running restore job"
+
+
+# Check 'masbr_job_component'
+# -----------------------------------------------------------------------------
+- name: "Fail if masbr_job_component is not provided"
+  assert:
+    that:
+      - masbr_job_component is defined
+      - ('name' in masbr_job_component)
+      - ('namespace' in masbr_job_component)
+    fail_msg:
+      - "masbr_job_component.name is required"
+      - "masbr_job_component.namespace is required"
+
+
+# Check 'masbr_job_data_list'
+# -----------------------------------------------------------------------------
+- name: "Set fact: init masbr_job_data_list"
+  set_fact:
+    masbr_job_data_list: "{{ masbr_job_data_list | default([], true) }}"
+
+- name: "Set fact: specified restore data"
+  when: masbr_restore_data is defined and masbr_restore_data | length > 0
+  block:
+    - name: "Set fact: reset masbr_job_data_specified"
+      set_fact:
+        masbr_job_data_specified: []
+
+    - name: "Get specified restore data"
+      set_fact:
+        masbr_job_data_specified: "{{ masbr_job_data_specified + [{ 'seq': (idx+1)|int, 'type': item|trim }] }}"
+      loop: "{{ masbr_restore_data | split(',') }}"
+      loop_control:
+        index_var: idx
+
+    - name: "Set fact: override the default masbr_job_data_list"
+      set_fact:
+        masbr_job_data_list: "{{ masbr_job_data_specified }}"
+
+- name: "Set fact: set default phase to each restore data"
+  when: masbr_job_data_list is defined and masbr_job_data_list | length > 0
+  block:
+    - name: "Set fact: reset masbr_job_data_init"
+      set_fact:
+        masbr_job_data_init: []
+
+    - name: "Set fact: set default phase to each restore data"
+      set_fact:
+        masbr_job_data_init: "{{ masbr_job_data_init + [ item | combine({ 'phase': 'New' }) ] }}"
+      loop: "{{ masbr_job_data_list }}"
+
+    - name: "Set fact: restore data with default phase"
+      set_fact:
+        masbr_job_data_list: "{{ masbr_job_data_init }}"
+
+
+# Find restore-from job name
+# -----------------------------------------------------------------------------
+- name: "Find the restore-from job name"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
+  vars:
+    - masbr_ls_job_type: "backup"
+    - masbr_ls_filter: "| grep '^{{ masbr_job_component.name }}-.*-{{ masbr_restore_from_version }}$'"
+
+- name: "Fail if not found the restore-from job name"
+  assert:
+    that: masbr_ls_results is defined and masbr_ls_results | length == 1
+    fail_msg: "Not found the job name specified by MASBR_RESTORE_FROM_VERSION"
+
+- name: "Set fact: restore-from job name"
+  set_fact:
+    masbr_restore_from: "{{ masbr_ls_results[0] }}"
+
+
+# Set restore job variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: restore job variables"
+  set_fact:
+    masbr_task_type: "restore"
+    masbr_job_type: "restore"
+
+- name: "Set fact: restore job name"
+  set_fact:
+    masbr_job_name: "{{ masbr_restore_from }}-{{ masbr_job_version }}"
+
+- name: "Set fact: final restore job name"
+  set_fact:
+    # At this point, set it as the same value of masbr_job_name
+    masbr_job_name_final: "{{ masbr_job_name }}"
+
+
+# Create local job folder
+# -----------------------------------------------------------------------------
+- name: "Create local job folder"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_local_job_folder.yml"
+
+
+# Get restore-from job information
+# -----------------------------------------------------------------------------
+- name: "Get restore-from job information"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_local.yml"
+  vars:
+    masbr_cf_job_type: "backup"
+    masbr_cf_job_name: "{{ masbr_restore_from }}"
+    masbr_cf_paths:
+      - src_file: "backup.yml"
+        dest_folder: "from"
+
+- name: "Set fact: restore-from job yaml"
+  set_fact:
+    masbr_restore_from_yaml: "{{ lookup('file', masbr_local_job_folder + '/from/backup.yml') | from_yaml }}"
+
+- name: "Debug: restore-from job yaml"
+  debug:
+    msg: "{{ masbr_restore_from_yaml }}"
+
+# The restore-from job should be Completed
+- name: "Fail if the restore-from job is not Completed"
+  assert:
+    that: masbr_restore_from_yaml.status.phase == "Completed"
+    fail_msg: "The specified backup job is not Completed, please specify a Completed Full backup job."
+
+- name: "Set fact: restore-from job variables"
+  set_fact:
+    # Whether restore from an incremental backup
+    masbr_restore_from_incr: "{{ true if masbr_restore_from_yaml.type == 'incr' else false }}"
+
+    # Whether restore to different domain (Disaster Recovery)
+    masbr_restore_to_diff_domain: >-
+      {{ true if masbr_restore_from_yaml.source.domain != masbr_cluster_domain else false }}
+
+    # Whether restore to different mas instance (Data Migration)
+    masbr_restore_to_diff_instance: >-
+      {{ true if (masbr_job_component.instance is defined and masbr_job_component.instance | length > 0 and
+      masbr_restore_from_yaml.source.instance != masbr_job_component.instance) else false }}
+
+
+# Trying to restore from an incremental backup, also need to check the existance of the based on full backup
+# -----------------------------------------------------------------------------
+- name: "Check the existence of the based on full backup job"
+  when: masbr_restore_from_incr
+  block:
+    - name: "Fail if not found 'from' specified in this incremental backup job information"
+      assert:
+        that: masbr_restore_from_yaml.from is defined and masbr_restore_from_yaml.from | length > 0
+        fail_msg: "Not found 'from' specified in this incremental backup job information"
+
+    - name: "Set fact: the based on full backup job name"
+      set_fact:
+        masbr_restore_basedon: "{{ masbr_restore_from_yaml.from }}"
+
+    - name: "Check the existence of the based on full backup job"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
+      vars:
+        - masbr_ls_job_type: "backup"
+        - masbr_ls_filter: "| grep {{ masbr_restore_basedon }}"
+
+    - name: "Fail if not found the based on full backup job"
+      assert:
+        that: masbr_ls_results is defined and masbr_ls_results | length == 1
+        fail_msg: >-
+          Not found the based on full backup job folder:
+          {{ masbr_storage_job_type_folder }}/{{ masbr_restore_basedon }}
+
+
+# Show restore job information
+# -----------------------------------------------------------------------------
+- name: "Debug: restore job information"
+  debug:
+    msg:
+      - "Restore job name ....................... {{ masbr_job_name }}"
+      - "Restore from ........................... {{ masbr_restore_from }}"
+      - "Restore component ...................... {{ masbr_job_component }}"
+      - "Restore data ........................... {{ masbr_job_data_list }}"
+      - "Restore from incremental backup ........ {{ masbr_restore_from_incr }}"
+      - "Restore to different domain ............ {{ masbr_restore_to_diff_domain }}"
+      - "Restore to different instance .......... {{ masbr_restore_to_diff_instance }}"
