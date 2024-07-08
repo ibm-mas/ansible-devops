@@ -216,7 +216,29 @@ Set the types of data to be restored, multiple data types are separated by comma
 Role Variables - Manage
 -------------------------------------------------------------------------------
 ### masbr_manage_pvc_paths
-Set the Manage PVC paths to use in backup and restore. The PVC path is in the format of `<pvcName>:<mountPath>/<subPath>`. Multiple PVC paths are separated by commas (e.g. `pvc-docs:/doclinks/attachments,pvc-maxlogs:/maxlogs`). If not set a value for this variable, this role will not backup and restore persistent valumne data for Manage.
+Set the Manage PVC paths to use in backup and restore. The PVC path is in the format of `<pvcName>:<mountPath>/<subPath>`. Multiple PVC paths are separated by commas (e.g. `manage-doclinks1-pvc:/mnt/doclinks1/attachments,manage-doclinks2-pvc:/mnt/doclinks2`). 
+
+The `<pvcName>` and `<mountPath>` are defined in the `ManageWorkspace` CRD instance `spec.settings.deployment.persistentVolumes`:
+```
+persistentVolumes:
+  - accessModes:
+      - ReadWriteMany
+    mountPath: /mnt/doclinks1
+    pvcName: manage-doclinks1-pvc
+    size: '20'
+    storageClassName: ocs-storagecluster-cephfs
+    volumeName: ''
+  - accessModes:
+      - ReadWriteMany
+    mountPath: /mnt/doclinks2
+    pvcName: manage-doclinks2-pvc
+    size: '20'
+    storageClassName: ocs-storagecluster-cephfs
+    volumeName: ''
+```
+
+If not set a value for this variable, this role will not backup and restore persistent valumne data for Manage.
+
 
 - Optional
 - Environment Variable: `MASBR_MANAGE_PVC_PATHS`
@@ -227,7 +249,7 @@ Example Playbook
 -------------------------------------------------------------------------------
 
 ### Backup
-Backup Manage namespace resources, note that this does not include backup of any data in Db2, see the `backup` action in the [db2](db2.md) role.
+Backup Manage attachments, note that this does not include backup of any data in Db2, see the `backup` action in the [db2](db2.md) role.
 
 ```yaml
 - hosts: localhost
@@ -237,6 +259,8 @@ Backup Manage namespace resources, note that this does not include backup of any
     mas_instance_id: main
     mas_workspace_id: ws1
     mas_app_id: manage
+    masbr_backup_data: pv
+    masbr_manage_pvc_paths: "manage-doclinks1-pvc:/mnt/doclinks1"
     masbr_storage_type: local
     masbr_storage_local_folder: /tmp/masbr
   roles:
@@ -244,7 +268,7 @@ Backup Manage namespace resources, note that this does not include backup of any
 ```
 
 ### Restore
-Restore Manage namespace resources, note that this does not include restore of any data in Db2, see the `restore` action in the [db2](db2.md) role.
+Restore Manage attachments, note that this does not include restore of any data in Db2, see the `restore` action in the [db2](db2.md) role.
 
 ```yaml
 - hosts: localhost
@@ -255,6 +279,8 @@ Restore Manage namespace resources, note that this does not include restore of a
     mas_instance_id: main
     mas_workspace_id: ws1
     mas_app_id: manage
+    masbr_backup_data: pv
+    masbr_manage_pvc_paths: "manage-doclinks1-pvc:/mnt/doclinks1"
     masbr_storage_type: local
     masbr_storage_local_folder: /tmp/masbr
   roles:
