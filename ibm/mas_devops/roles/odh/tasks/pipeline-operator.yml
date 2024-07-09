@@ -1,0 +1,32 @@
+---
+- name: "Lookup pipeline subscription"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: openshift-pipelines-operator-rh
+    namespace: "{{ openshift_namespace }}"
+    kind: Subscription
+  register: pipeline_sub
+
+# Install Operator Openshift-pipelines
+# -----------------------------------------------------------------------------
+- name: "Install Openshift pipelines"
+  ansible.builtin.include_role:
+    name: ibm.mas_devops.install_operator
+  vars:
+    namespace: "{{ openshift_namespace }}"
+    icr_username: "{{ mas_entitlement_username }}"
+    icr_password: "{{ mas_entitlement_key }}"
+    catalog_source: "{{ pipeline_catalog_source }}"
+    operator_group: "{{ lookup('template', 'templates/pipelines/operator-group.yml.j2') }}"
+    subscription: "{{ lookup('template', 'templates/pipelines/subscription.yml.j2') }}"
+  when:
+    - pipeline_sub.resources | length == 0
+
+# Wait until the role_path CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the Pipelines CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: pipelines.tekton.dev
+  when: 
+    - pipeline_sub.resources | length == 0
