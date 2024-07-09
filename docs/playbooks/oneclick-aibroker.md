@@ -31,10 +31,8 @@ AI Broker supports **AWS** and **Minio** storage providers.
 ## Required environment variables
 
 * `MAS_INSTANCE_ID` Declare the instance ID for the AI Broker install
-* `ARTIFACTORY_USERNAME` Your artifactory user name to access
-* `ARTIFACTORY_TOKEN` Your artifactory token for user to access
-* `IBM_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
-* `IBM_ENTITLEMENT_USERNAME` Your IBM Entitlement user to access the IBM Container Registry
+* `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
+* `MAS_ENTITLEMENT_USERNAME` Your IBM Entitlement user to access the IBM Container Registry
 * `STORAGE_ACCESSKEY` Your strage provider access key
 * `STORAGE_SECRETKEY` Your storage provider secret key
 * `STORAGE_HOST` Your storage provider host
@@ -51,8 +49,11 @@ AI Broker supports **AWS** and **Minio** storage providers.
 ## Optional environment variables
 
 * `MAS_AIBROKER_CHANNEL` Your custom AI broker application channel
+* `MAS_ICR_CP` Provide custom registry for AI Broker applications
+* `MAS_ICR_CPOPEN` Provide custom registry for AI Broker operator
 * `MAS_CATALOG_VERSION` Your custom AI broker catalog version
-* `STORAGE_PROVIDER` Your custom storage provider (aws, minio) (default value is: aws)
+* `ARTIFACTORY_USERNAME` Your artifactory user name to access - this is needed if user deploy from custom registry for example `docker-na-public.artifactory.swg-devops.com`
+* `ARTIFACTORY_TOKEN` Your artifactory token for user to access - this is needed if user deploy from custom registry for example `docker-na-public.artifactory.swg-devops.com`
 * `TENANT_ACTION` Whether to install or remove tenant (default value is: install)
 * `APIKEY_ACTION` Whether to install or remove or update apikey (default value is: install)
 * `WATSONX_ACTION` Whether to install or remove watsonx secret (default value is: install)
@@ -82,13 +83,36 @@ source /tmp/venv/bin/activate
 python3 -m pip install ibm-watson-machine-learning
 ```
 
-#### Run playbooks
+#### Run playbooks for deploy AI Broker from internal registry ex. `docker-na-public.artifactory.swg-devops.com`
 
 ```bash
 export ARTIFACTORY_USERNAME="<artifactory user>"
 export ARTIFACTORY_TOKEN="<artifactory token>"
-export IBM_ENTITLEMENT_USERNAME="<user>"
-export IBM_ENTITLEMENT_KEY="<token>"
+export MAS_ICR_CP="<internal redistry for aibroker applications>"
+export MAS_ICR_CPOPEN="<internal redistry for aibroker operator>"
+export MAS_INSTANCE_ID="<instanceId>"
+export STORAGE_ACCESSKEY="<storage provider access key>"
+export STORAGE_SECRETKEY="<storage provider secret key>"
+export STORAGE_HOST="<storage provider host>"
+export STORAGE_REGION="<storage provider region>"
+export STORAGE_PROVIDER="<storage provider name>"
+export TENANT_NAME="user"
+export STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
+export STORAGE_TENANTS_BUCKET="<tenants bucket name>"
+export APP_DOMAIN="<app domain>"
+export WATSONXAI_APIKEY="<watsonx AI api key>"
+export WATSONXAI_URL="<watsonx AI url>"
+export WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
+
+oc login --token=xxxx --server=https://myocpserver
+ansible-playbook playbooks/oneclick_add_aibroker.yml
+```
+
+#### Run playbooks for deploy AI Broker from public registry ex. `icr.io`
+
+```bash
+export MAS_ENTITLEMENT_USERNAME="<user>"
+export MAS_ENTITLEMENT_KEY="<token>"
 export MAS_INSTANCE_ID="<instanceId>"
 export STORAGE_ACCESSKEY="<storage provider access key>"
 export STORAGE_SECRETKEY="<storage provider secret key>"
