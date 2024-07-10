@@ -140,7 +140,14 @@ Set this to `true` to confirm you want to upgrade your existing Mongo instance f
 Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 5 to version 6.
 
 - Optional
-- Environment Variable: `MONGODB_V5_UPGRADE`
+- Environment Variable: `MONGODB_V6_UPGRADE`
+- Default Value: `false`
+
+### mongodb_v7_upgrade
+Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 5 to version 6.
+
+- Optional
+- Environment Variable: `MONGODB_V7_UPGRADE`
 - Default Value: `false`
 
 ### masbr_confirm_cluster
