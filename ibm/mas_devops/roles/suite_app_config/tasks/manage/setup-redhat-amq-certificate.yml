@@ -1,0 +1,37 @@
+---
+# Get certificate from KafkaCfg CR
+- name: "Get KafkaCfg CR"
+  kubernetes.core.k8s_info:
+    api_version: config.mas.ibm.com/v1
+    kind: KafkaCfg
+    name: "{{mas_instance_id | lower}}-kafka-system"
+    namespace: "mas-{{mas_instance_id}}-core"
+  register: kafkacfg_cr
+
+- name: "Debug CR"
+  debug:
+    msg:
+      - "kafkacfg_cr....... {{ kafkacfg_cr }}"
+  when: kafkacfg_cr is defined
+
+# patch manageworkspace CR with AMQ certificate
+- name: "Add the new certificates in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    state: patched
+    api_version: apps.mas.ibm.com/v1
+    kind: "{{ mas_app_ws_kind }}"
+    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+    namespace: "mas-{{ mas_instance_id }}-manage"
+    definition:
+      spec:
+        settings:
+          deployment:
+            importedCerts: |-
+              {{ lookup('template', 'templates/manage/redhat-amq-cert.yml.j2') | from_yaml }}
+  when:
+    - kafkacfg_cr is defined
+    - kafkacfg_cr.resources is defined
+    - kafkacfg_cr.resources | length > 0
+    - kafkacfg_cr.resources[0].spec is defined
+    - kafkacfg_cr.resources[0].spec.certificates is defined
+    - kafkacfg_cr.resources[0].spec.certificates | length > 0
