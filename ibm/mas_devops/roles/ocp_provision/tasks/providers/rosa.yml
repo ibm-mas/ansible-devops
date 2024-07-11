@@ -136,6 +136,22 @@
   pause:
     minutes: 10
 
+# 10. Wait for cluster lookup result
+# -----------------------------------------------------------------------------
+- name: "rosa/provision : Wait until the ROSA cluster is deployed"
+  shell: rosa describe cluster -c {{ cluster_name }} -o json
+  register: rosa_cluster_lookup_result
+  until:
+    - rosa_cluster_lookup_result.rc == 0
+    - (rosa_cluster_lookup_result.stdout | from_json).state == 'ready'
+    - (rosa_cluster_lookup_result.stdout | from_json).api.url != ""
+  retries: 60
+  delay: 60 # 1 minute
+
+- name: "rosa/provision : Debug status"
+  debug:
+    msg: "Cluster API URL ....................... {{ (rosa_cluster_lookup_result.stdout | from_json).api.url }}"
+
 - name: "rosa : Build rosa-details.yaml"
   when:
     - rosa_config_dir is defined and rosa_config_dir != ''
