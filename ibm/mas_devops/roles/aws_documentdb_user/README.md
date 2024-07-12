@@ -24,7 +24,8 @@ AWS DocumentDB Port Address, Required if docdb_hosts is not set
 - Environment Variable: `DOCDB_PORT`
 
 ### docdb_hosts
-AWS DocumentDB Instance Host Address & Port Address, Required if both docdb_host & docdb_port are not set
+AWS DocumentDB Instance Host Address & Port Address, Required if both docdb_host & docdb_port are not set.
+docdb_hosts takes precedence if both docdb_hosts and (docdb_host & docdb_port) are set
 
 - Environment Variable: `DOCDB_HOSTS`
 
