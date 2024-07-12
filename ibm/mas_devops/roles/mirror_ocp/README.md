@@ -118,6 +118,12 @@ The public port number for the target registry
 - Environment Variable: `REGISTRY_PUBLIC_PORT`
 - Default: None
 
+### registry_prefix
+The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: {host}:{port}/{prefix}/{reponame}
+
+- Environment Variable: `REGISTRY_PREFIX`
+- Default: CurrentDate (In the form of yy-MM-dd)
+
 ### registry_username
 The username for the target registry.
 
@@ -141,6 +147,7 @@ Example Playbook
   vars:
     registry_public_host: myregistry.mycompany.com
     registry_public_port: 5000
+    registry_prefix: projectName
     registry_username: user1
     registry_password: 8934jk77s862!  # Not a real password, don't worry security folks
 
