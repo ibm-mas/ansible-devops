@@ -389,6 +389,16 @@ def format_pre_version_without_buildid(data):
     return data
   return data[:data.rfind("-")]
 
+def get_db2_instance_name(binding_scope, mas_instance_id, mas_workspace_id, mas_application_id):
+  if binding_scope == "":
+    return ""
+  # Only system and workspace-application are possible values here as per CLI
+  jdbc_instance_names = {
+    "system": f'mas-{mas_instance_id}-system',
+    "workspace-application": f'mas-{mas_instance_id}-{mas_workspace_id}-{mas_application_id}'
+  }
+  return jdbc_instance_names[binding_scope]
+
 class FilterModule(object):
   def filters(self):
     return {
@@ -408,5 +418,6 @@ class FilterModule(object):
       'setManageFsDoclinksProperties': setManageFsDoclinksProperties,
       'setSystemProperties': _setSystemProperties,
       'format_pre_version_with_plus': format_pre_version_with_plus,
-      'format_pre_version_without_buildid': format_pre_version_without_buildid
+      'format_pre_version_without_buildid': format_pre_version_without_buildid,
+      'get_db2_instance_name': get_db2_instance_name
     }

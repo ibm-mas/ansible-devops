@@ -65,7 +65,7 @@ The following sample can be used to configure COS for an existing Manage applica
     cos_type: ibm
     db2_instance_name: db2w-manage
     cos_instance_name: cos-masinst1
-    ibmcos_bucket_name: manage-logs-bucket
+    cos_bucket_name: manage-logs-bucket
     ibmcloud_apikey: xxxx
   roles:
     - ibm.mas_devops.suite_manage_logging_config
@@ -101,7 +101,7 @@ The following sample playbook can be used to provision COS in IBM Cloud and conf
     db2_instance_name: db2w-manage
     cos_type: ibm
     cos_instance_name: cos-masinst1
-    ibmcos_bucket_name: manage-logs-bucket
+    cos_bucket_name: manage-logs-bucket
     ibmcloud_apikey: xxxx
   roles:
     - ibm.mas_devops.cos

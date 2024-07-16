@@ -1,0 +1,169 @@
+---
+# Update db2 database backup status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update db2 database backup status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "InProgress"
+
+
+- name: "Backup db2 database"
+  block:
+    # Prepare db2 database backup folder
+    # -------------------------------------------------------------------------
+    - name: "Set fact: db2 database backup folder"
+      set_fact:
+        # We should use Db2 backup pvc to save the temporary backup files, the db2 pod
+        # ephemeral local storage has a limits up to 4Gi by default.
+        db2_backup_folder: "{{ db2_pvc_temp_folder }}/{{ masbr_job_data_type }}"
+
+    - name: "Set fact: db2 database backup log"
+      set_fact:
+        db2_backup_log: "{{ db2_backup_folder }}/db2-backup.log"
+
+    - name: "Create db2 database backup folder"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        mkdir -p {{ db2_backup_folder }}
+        {{ exec_in_pod_end }}
+
+    - name: "Debug: db2 database backup folder"
+      debug:
+        msg: "Db2 database backup folder ........ {{ db2_backup_folder }}"
+
+
+    # Take a backup of db2 database
+    # https://www.ibm.com/docs/en/db2/11.5?topic=commands-backup-database
+    # -------------------------------------------------------------------------
+    - name: "Take {{ 'Full' if masbr_backup_type == 'full' else 'Incremental' }} backup of db2 database"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        mkdir -p {{ db2_backup_folder }}/db2backup &&
+        db2 -v connect to {{ db2_dbname }} | tee -a {{ db2_backup_log }} &&
+        db2 -v backup db {{ db2_dbname }} on all dbpartitionnums online
+        {{ "incremental" if masbr_backup_type == "incr" }}
+        to {{ db2_backup_folder }}/db2backup
+        compress UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a {{ db2_backup_log }}
+        {{ exec_in_pod_end }}
+      register: _db2backup_output
+
+    - name: "Debug: db2 backup output"
+      debug:
+        msg: "{{ _db2backup_output.stdout_lines }}"
+
+
+    # Extract Db2 keystore master key
+    # https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
+    # -------------------------------------------------------------------------
+    - name: "Check master key label from keystore.p12"
+      changed_when: false
+      shell: >
+        {{ exec_in_pod_begin }}
+        gsk8capicmd_64 -cert -list all -db {{ db2_keystore_folder }}/keystore.p12 -stashed
+        {{ exec_in_pod_end }}
+      register: _check_master_label_output
+
+    - name: "Get master key label from keystore.p12"
+      vars:
+        regex: '\DB2(.*)'
+      when: item is regex('\DB2(.*)')
+      set_fact:
+        db2_master_key_label: "{{ item | regex_search(regex) }}"
+      with_items: "{{ _check_master_label_output.stdout_lines | list }}"
+
+    - name: "Extract master key from keystore.p12"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        gsk8capicmd_64 -secretkey -extract -db {{ db2_keystore_folder }}/keystore.p12 -stashed
+        -label {{ db2_master_key_label }} -format ascii
+        -target {{ db2_backup_folder }}/db2backup/master_key_label.kdb
+        {{ exec_in_pod_end }}
+      register: _extract_master_key_output
+
+    - name: "Copy keystore files to db2 backup folder"
+      changed_when: false
+      shell: >
+        {{ exec_in_pod_begin }}
+        cp -rf {{ db2_keystore_folder }}/* {{ db2_backup_folder }}/db2backup &&
+        ls -lA {{ db2_backup_folder }}/db2backup
+        {{ exec_in_pod_end }}
+      register: _copy_keystore_output
+
+    - name: "Debug: files in db2 backup folder"
+      debug:
+        msg: "{{ _copy_keystore_output.stdout_lines }}"
+
+
+    # Create tar.gz archives of database backup files
+    # -------------------------------------------------------------------------
+    - name: "Create tar.gz archives of database backup files"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        tar -czf {{ db2_backup_folder }}/{{ masbr_job_name }}.tar.gz
+        -C {{ db2_backup_folder }}/db2backup . &&
+        du -h {{ db2_backup_folder }}/*
+        {{ exec_in_pod_end }}
+      register: _du_files_output
+
+    - name: "Debug: size of backup files"
+      debug:
+        msg: "{{ _du_files_output.stdout_lines }}"
+
+
+    # Copy backup files from pod to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Copy backup files from pod to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_pod_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "backup"
+        masbr_cf_job_name: "{{ masbr_job_name }}"
+        masbr_cf_are_pvc_paths: true
+        masbr_cf_paths:
+          - src_file: "{{ db2_backup_folder }}/{{ masbr_job_name }}.tar.gz"
+            dest_folder: "{{ masbr_job_data_type }}"
+
+
+    # Update database backup status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update database backup status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Completed"
+
+  rescue:
+    # Update database backup status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database backup status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Failed"
+
+  always:
+    # Copy db2 backup log file from pod to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of db2 backup log"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        tar -czf {{ db2_backup_folder }}/db2-backup-log.tar.gz
+        -C {{ db2_backup_folder }} db2-backup.log
+        {{ exec_in_pod_end }}
+
+    - name: "Copy db2 backup log file from pod to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_pod_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "{{ masbr_job_type }}"
+        masbr_cf_job_name: "{{ masbr_job_name_final }}"
+        masbr_cf_paths:
+          - src_file: "{{ db2_backup_folder }}/db2-backup-log.tar.gz"
+            dest_folder: "log"

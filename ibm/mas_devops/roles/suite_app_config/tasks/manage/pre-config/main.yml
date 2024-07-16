@@ -1,0 +1,38 @@
+---
+# Manage pre-configuration: pod templates
+- name: "Run Manage specific pre-configuration: Pod Templates"
+  include_tasks: "tasks/manage/pre-config/setup-pod-templates.yml"
+
+# Manage pre-configuration: components
+- name: "Run Manage specific pre-configuration: Load components"
+  when: mas_appws_spec is not defined
+  set_fact:
+    "mas_app_components_{{ mas_app_id }}": "{{ lookup('ansible.builtin.template', 'vars/customspecs/{{ mas_app_id }}_components.yml.j2') | from_yaml }}"
+
+# Build the incredibly complex Manage spec.settings from a set of env vars
+# ------------------------------------------------------------------------
+
+# Manage pre-configuration: JMS setup
+- name: "Run Manage specific pre-configuration: Set jms server"
+  when: mas_app_settings_server_bundles_size in ['jms','snojms']
+  include_tasks: "tasks/manage/pre-config/setup-jms.yml"
+
+# Manage pre-configuration: Customization archive setup
+- name: "Run Manage specific pre-configuration: Set custom archive credentials"
+  when:
+    - mas_app_settings_customization_archive_username is defined
+    - mas_app_settings_customization_archive_username | length > 0
+    - mas_app_settings_customization_archive_password is defined
+    - mas_app_settings_customization_archive_password | length > 0
+    - mas_app_settings_customization_archive_url is defined
+    - mas_app_settings_customization_archive_url | length > 0
+  include_tasks: "tasks/manage/pre-config/setup-custom-archive.yml"
+
+# Manage pre-configuration: Database encryption setup
+- name: "Run Manage specific pre-configuration: Set database encryption keys"
+  when: >
+    mas_app_settings_crypto_key is defined and mas_app_settings_crypto_key != '' and
+    mas_app_settings_cryptox_key is defined and mas_app_settings_cryptox_key != '' or
+    mas_app_settings_old_crypto_key is defined and mas_app_settings_old_crypto_key != '' and
+    mas_app_settings_old_cryptox_key is defined and mas_app_settings_old_cryptox_key != ''
+  include_tasks: "tasks/manage/pre-config/setup-encryption-secret.yml"

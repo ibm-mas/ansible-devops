@@ -6,9 +6,6 @@ This role currently supports provisioning of mongodb in three different provider
  - aws (documentdb)
  - ibm
 
-!!! important
-    According to the [MongoDB Software Lifecycle Schedules](https://www.mongodb.com/support-policy/lifecycles) MongoDB 4.4 will reach end of life in February of 2024. Given this fact it is encouraged that either MongoDB 5 or 6 be used for MAS Deployments. The MAS Devops Ansible Collection can be used to install or upgrade MongoDB when the selected service provider is `community`. If the MonogDB instance used by MAS is hosted by a third party please consult the applicable documentation with respect to MongoDB 5 or 6 options. If the MongoDB instance is hosted on premises please review the appropriate MongoDB documentation related to upgrading. As a best practice it is advised perform MongoDB backups on a regular basis. This is especially important before any upgrade of MongoDB.
-
 If the selected provider is `community` then the [MongoDB Community Kubernetes Operator](https://github.com/mongodb/mongodb-kubernetes-operator) will be configured and deployed into the specified namespace. By default a three member MongoDB replica set will be created.  The cluster will bind six PVCs, these provide persistence for the data and system logs across the three nodes.  Currently there is no support built-in for customizing the cluster beyond this configuration.
 
 !!! tip
@@ -16,7 +13,9 @@ If the selected provider is `community` then the [MongoDB Community Kubernetes O
 
     This file can be directly applied using `oc apply -f $MAS_CONFIG_DIR/mongocfg-mongoce-system.yaml` or used in conjunction with the [suite_config](suite_config.md) role.
 
-## Prerequisites
+
+Prerequisites
+-------------------------------------------------------------------------------
 To run this role with providers as `ibm` or `aws` you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
 Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role when provider is either `ibm` or `aws`.
 
@@ -24,8 +23,9 @@ To run the `docdb_secret_rotate` MONGODB_ACTION when the provider is `aws` you m
 
 This role will install a GrafanaDashboard used for monitoring the MongoDB instance when the provided is `community` and you have run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) previously. If you did not run the [grafana role](https://ibm-mas.github.io/ansible-devops/roles/grafana/) then the GrafanaDashboard won't be installed.
 
-Common Role Variables for all providers
-----------------------------------------
+
+Role Variables - Common
+-------------------------------------------------------------------------------
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the MongoCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a MongoCfg template.
 
@@ -39,33 +39,26 @@ Local directory to save the generated MongoCfg resource definition.  This can be
 - Default Value: None
 
 ### mongodb_provider
-MongoDB provider
+MongoDB provider, choose whether to use the MongoDb Community Edition Operator (`community`), IBM Cloud Database for MongoDb (`ibm`), or AWS DocumentDb (`aws`).
 
 - Environment variable: `MONGODB_PROVIDER`
-- Defult Value: `community`
-- Supported providers: `community`,`aws`,`ibm`
+- Default Value: `community`
+
 
 ### mongodb_action
-Determines which action needs to be performed w.r.t mongodb for a specfied `provider`
+Determines which action to perform w.r.t mongodb for a specified provider:
 
 - Environment variable: `MONGODB_ACTION`
 - Default Value: `install`
-  ```
-  Following Providers supports below mentioned MONGODB_ACTION values:
-  1. Provider : community
-  Supported MONGODB_ACTION values : install,uninstall
-  2. Provider: aws
-  Supported MONGODB_ACTION values : install,uninstall,docdb_secret_rotate
-  3. Provider: ibm
-  Supported MONGODB_ACTION values : install,uninstall,backup,restore,create-mongo-service-credentials
-  ```
+
+Each provider supports a different set of actions:
+- **community**: `install`, `uninstall`, `backup`, `restore`
+- **aws**: `install`, `uninstall`, `docdb_secret_rotate`, `destroy-data`
+- **ibm**: `install`, `uninstall`, `backup`, `restore`, `create-mongo-service-credentials`
 
 
-Community MongoDB Role Variables
----------------------------------
-Role Variables
+Role Variables - CE Operator
 -------------------------------------------------------------------------------
-
 ### mongodb_namespace
 The namespace where the operator and MongoDb cluster will be deployed.
 
@@ -150,122 +143,134 @@ Set this to `true` to confirm you want to upgrade your existing Mongo instance f
 - Environment Variable: `MONGODB_V5_UPGRADE`
 - Default Value: `false`
 
-Example Playbook
+### masbr_confirm_cluster
+Set `true` or `false` to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.
+
+- Optional
+- Environment Variable: `MASBR_CONFIRM_CLUSTER`
+- Default: `false`
+
+### masbr_copy_timeout_sec
+Set the transfer files timeout in seconds.
+
+- Optional
+- Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
+- Default: `43200` (12 hours)
+
+### masbr_job_timezone
+Set the [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.
+
+- Optional
+- Environment Variable: `MASBR_JOB_TIMEZONE`
+- Default: None
+
+### masbr_storage_type
+Set `local` or `cloud` to indicate this role to save the backup files to local file system or cloud object storage.
+
+- **Required**
+- Environment Variable: `MASBR_STORAGE_TYPE`
+- Default: None
+
+### masbr_storage_local_folder
+Set local path to save the backup files.
+
+- **Required** only when `MASBR_STORAGE_TYPE=local`
+- Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
+- Default: None
+
+### masbr_storage_cloud_rclone_file
+Set the path of `rclone.conf` file.
+
+- **Required** only when `MASBR_STORAGE_TYPE=cloud`
+- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_FILE`
+- Default: None
+
+### masbr_storage_cloud_rclone_name
+Set the configuration name defined in `rclone.conf` file.
+
+- **Required** only when `MASBR_STORAGE_TYPE=cloud`
+- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_NAME`
+- Default: None
+
+### masbr_storage_cloud_bucket
+Set the object storage bucket name for saving the backup files
+
+- **Required** only when `MASBR_STORAGE_TYPE=cloud`
+- Environment Variable: `MASBR_STORAGE_CLOUD_BUCKET`
+- Default: None
+
+### masbr_slack_enabled
+Set `true` or `false` to indicate whether this role will send Slack notification messages of the backup and restore progress.  
+
+- Optional
+- Environment Variable: `MASBR_SLACK_ENABLED`
+- Default: `false`
+
+### masbr_slack_level
+Set `failure`, `info` or `verbose` to indicate this role to send Slack notification messages in which backup and resore phases:
+
+| Slack level | Backup/Restore phases                                   |
+| ----------- | ------------------------------------------------------- |
+| failure     | `Failed`, `PartiallyFailed`                             |
+| info        | `Completed`, `Failed`, `PartiallyFailed`                |
+| verbose     | `InProgress`, `Completed`, `Failed`, `PartiallyFailed`  |
+
+- Optional
+- Environment Variable: `MASBR_SLACK_LEVEL`
+- Default: `info`
+
+### masbr_slack_token
+The Slack integration token.  
+
+- **Required** only when `MASBR_SLACK_ENABLED=true`
+- Environment Variable: `MASBR_SLACK_TOKEN`
+- Default: None
+
+### masbr_slack_channel
+The Slack channel to send the notification messages to.
+
+- **Required** only when `MASBR_SLACK_ENABLED=true`
+- Environment Variable: `MASBR_SLACK_CHANNEL`
+- Default: None
+
+### masbr_slack_user
+The sender of the Slack notification message.
+
+- Optional
+- Environment Variable: `MASBR_SLACK_USER`
+- Default: `MASBR`
+
+### masbr_backup_type
+Set `full` or `incr` to indicate the role to create a full backup or incremental backup.
+
+- Optional
+- Environment Variable: `MASBR_BACKUP_TYPE`
+- Default: `full`
+
+### masbr_backup_from_version
+Set the full backup version to use in the incremental backup, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`). This variable is only valid when `MASBR_BACKUP_TYPE=incr`. If not set a value for this variable, this role will try to find the latest full backup version from the specified storage location.
+
+- Optional
+- Environment Variable: `MASBR_BACKUP_FROM_VERSION`
+- Default: None
+
+### masbr_backup_schedule
+Set [Cron expression](ttps://en.wikipedia.org/wiki/Cron) to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.
+
+- Optional
+- Environment Variable: `MASBR_BACKUP_SCHEDULE`
+- Default: None
+
+### masbr_restore_from_version
+Set the backup version to use in the restore, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`)
+
+- **Required** only when `MONGODB_ACTION=restore`
+- Environment Variable: `MASBR_RESTORE_FROM_VERSION`
+- Default: None
+
+
+Role Variables - IBM Cloud
 -------------------------------------------------------------------------------
-
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mongodb_storage_class: ibmc-block-gold
-    mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig
-  roles:
-    - ibm.mas_devops.mongodb
-```
-
-Troubleshooting
--------------------------------------------------------------------------------
-
-!!! important
-    Please be cautious while performing any of the troubleshooting steps outlined below. It is important to understand that the MongoDB Community operator persists data within Persistent Volume Claims. These claims should not be removed inadvertent deletion of the `mongoce` namespace could result in data loss.
-
-### MongoDB Replica Set Pods Will Not Start
-
-MongoDB 5 has introduced new platform specific requirements. Please consult the [Platform Support Notes](https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64) for detailed information.
-
-It is of particular importance to confirm that the AVX instruction set is exposed or available to the MongoDB workloads. This can easily be determined by entering any running pod on the same OpenShift cluster where MongoDB replica set members are failing to start. Once inside of a running pod the following command can be executed to confirm if the AVX instruction set is available:
-
-```bash
-cat /proc/cpuinfo | grep flags | grep avx
-```
-
-If `avx` is not found in the available `flags` then either the physical processor hosting the OpenShift cluster does not provide the AVX instruction set or the virtual host configuration is not exposing the AVX instruction set. If the latter is suspected the virtual hosting documentation should be referenced for details on how to expose the AVX instruction set.
-
-### CA Certificate Renewal
-
-!!! warning
-    If the MongoDB CA Certificate expires the MongoDB replica set will become unusable. Replica set members will not be able to communicate with each other and client applications (i.e. Maximo Application Suite components) will not be to connect.
-
-
-In order to renew the CA Certificate used by the MongoDB replica set the following steps must be taken:
-
-- Delete the CA Certificate resource
-- Delete the MongoDB server Certificate resource
-- Delete the Secrets resources associated with both the CA Certificate and Server Certificate
-- Delete the Secret resource which contains the MongoDB configuration parameters
-- Delete the ConfigMap resources which contains the CA certificate
-- Delete the Secret resource which contains the sever certificate and private key
-
-The following steps illustrate the process required to renew the CA Certificate, sever certificate and reconfigure the MongoDB replica set with the new CA and server certificates.
-
-The first step is to stop the Mongo replica set and MongoDb CE Operator pod.
-
-```bash
-oc project mongoce
-oc delete deployment mongodb-kubernetes-operator
-```
-
-!!! important
-    Make sure the MongoDB Community operator pod has terminated before proceeding.
-
-
-```bash
-oc delete statefulset mas-mongo-ce
-
-```
-
-!!! important
-    Make sure all pods in the `mongoce` namespace have terminated before proceeding
-
-
-Remove expired CA Certificate and Server Certificate resources. Clean up MongoDB Community configuration and then run the `mongodb` role.
-
-```bash
-oc delete certificate mongo-ca-crt
-oc delete certificate mongo-server
-oc delete secret mongo-ca-secret
-oc delete secret mongo-server-cert
-
-oc delete secret mas-mongo-ce-config
-oc delete configmap  mas-mongo-ce-cert-map
-oc delete secret mas-mongo-ce-server-certificate-key
-
-export ROLE_NAME=mongodb
-ansible-playbook ibm.mas_devops.run_role
-```
-
-Once the `mongodb` role has completed the MongoDb CE Operator pod and Mongo replica set should be configured.
-
-After the CA and server Certificates have been renewed you must ensure that that MongoCfg Suite CR is updated with the new CA Certificate. First obtain the CA Certificate from the Secret resource `mongo-ca-secret`. Then edit the Suite MongoCfg CR in the Maximo Application Suite core namespace. This is done by updating the appropriate certificate under `.spec.certificates` in the MongoCfg CR:
-
-```yaml
-  spec:
-    certificates:
-    - alias: ca
-      crt: |
-        -----BEGIN CERTIFICATE-----
-
-        -----END CERTIFICATE-----
-
-```
-
-If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be updated to reflect the new MongoDB CA. This can be added to the `.spec.mongo.certificates` section of the LicenseService CR.
-
-```yaml
-    mongo:
-      certificates:
-      - alias: mongoca
-        crt: |
-          -----BEGIN CERTIFICATE-----
-
-          -----END CERTIFICATE-----
-```
-
-Once the CA certificate has been updated for the MongoCfg and LicenseService CRs several pods in the core and SLS namespaces might need to be restarted to pick up the changes. This would include but is not limited to coreidp, coreapi, api-licensing.
-
-IBM Cloud MongoDB Role Variables
-----------------------------------
 ### ibm_mongo_name
 Required. IBM Cloud Mongo database instance name.
 
@@ -316,7 +321,6 @@ Plan name for this IBMCloud Service.
 IBMCloud Offering name for MongoDB Database
 
 - Value: `databases-for-mongodb`
-
 
 ### ibm_mongo_service_endpoints
 MongoDB Service Endpoints type can be either public or private
@@ -370,24 +374,9 @@ Required only If `is_restore` is `True`.MongoDB Service Name
 
 - Environment Variable: `RESTORED_MONGODB_SERVICE_NAME`
 
-Example Playbook
-----------------
 
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig
-    mongodb_provider: ibm
-    ibmcloud_apikey: apikey****
-    ibmcloud_resource_group: mas-test
-  roles:
-    - ibm.mas_devops.mongodb
-```
-
-AWS DocumentDB Role Variables
-----------------------------------
+Role Variables - AWS DocumentDB
+-------------------------------------------------------------------------------
 
 ### aws_access_key_id
 Required.AWS Account Access Key Id
@@ -489,34 +478,6 @@ Required. Provide IPv4 CIDR address for the subnet to be created in one of the 3
 
 - Environment variable: `DOCDB_CIDR_AZ3`
 
-
-Example Playbook
-----------------
-
-```yaml
-- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mas_instance_id: masinst1
-    mas_config_dir: ~/masconfig
-    mongodb_provider: aws
-    mongodb_action: provision
-    docdb_size: ~/docdb-config.yml
-    docdb_cluster_name: test-db
-    docdb_ingress_cidr: 10.0.0.0/16
-    docdb_egress_cidr: 10.0.0.0/16
-    docdb_cidr_az1: 10.0.0.0/26
-    docdb_cidr_az2: 10.0.0.64/26
-    docdb_cidr_az3: 10.0.0.128/26
-    docdb_instance_identifier_prefix: test-db-instance
-    vpc_id: test-vpc-id
-    aws_access_key_id: aws-key
-    aws_secret_access_key: aws-access-key
-
-  roles:
-    - ibm.mas_devops.mongodb
-```
-
 AWS DocumentDB Secret Rotate role Variables
 ----------------------------------
 ### docdb_mongo_instance_name
@@ -554,9 +515,125 @@ Required. DocumentDB Master Password
 
 - Environment variable: `DOCDB_MASTER_USERNAME`
 
+AWS DocumentDB destroy-data action Variables
+----------------------------------
+### mas_instance_id
+The specified MAS instance ID
 
-Example Playbook
-----------------
+- **Required**
+- Environment Variable: `MAS_INSTANCE_ID`
+- Default Value: None
+
+### mongo_username
+Mongo Username
+
+- Environment Variable: `MONGO_USERNAME`
+- Default Value: None
+
+### mongo_password
+Mongo password
+
+- Environment Variable: `MONGO_PASSWORD`
+- Default Value: None
+
+### config
+Mongo Config, please refer to the below example playbook section for details
+
+- **Required**
+- Environment Variable: `CONFIG`
+- Default Value: None
+
+### certificates
+Mongo Certificates, please refer to the below example playbook section for details
+
+- **Required**
+- Environment Variable: `CERTIFICATES`
+- Default Value: None
+
+
+
+Example Playbooks
+-------------------------------------------------------------------------------
+
+### Install (CE Operator)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_storage_class: ibmc-block-gold
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Backup (CE Operator)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: backup
+    mas_instance_id: masinst1
+    masbr_storage_type: local
+    masbr_storage_local_folder: /tmp/masbr
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Restore (CE Operator)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mongodb_action: restore
+    mas_instance_id: masinst1
+    masbr_restore_from_version: 20240621021316
+    masbr_storage_type: local
+    masbr_storage_local_folder: /tmp/masbr
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Install (IBM Cloud)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
+    mongodb_provider: ibm
+    ibmcloud_apikey: apikey****
+    ibmcloud_resource_group: mas-test
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### Install (AWS DocumentDB)
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mas_config_dir: ~/masconfig
+    mongodb_provider: aws
+    mongodb_action: provision
+    docdb_size: ~/docdb-config.yml
+    docdb_cluster_name: test-db
+    docdb_ingress_cidr: 10.0.0.0/16
+    docdb_egress_cidr: 10.0.0.0/16
+    docdb_cidr_az1: 10.0.0.0/26
+    docdb_cidr_az2: 10.0.0.64/26
+    docdb_cidr_az3: 10.0.0.128/26
+    docdb_instance_identifier_prefix: test-db-instance
+    vpc_id: test-vpc-id
+    aws_access_key_id: aws-key
+    aws_secret_access_key: aws-access-key
+
+  roles:
+    - ibm.mas_devops.mongodb
+```
+
+### AWS DocumentDb Secret Rotation
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -578,6 +655,147 @@ Example Playbook
   roles:
     - ibm.mas_devops.mongodb
 ```
+
+### AWS DocumentDb destroy-data action
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    mongodb_provider: aws
+    mongodb_action: destroy-data
+    mongo_username: pqradmin
+    mongo_password: xyzabc
+    config:
+      configDb: admin
+      authMechanism: DEFAULT
+      retryWrites: false
+      hosts:
+        - host: abc-0.pqr.databases.appdomain.cloud
+          port: 32250
+        - host: abc-1.pqr.databases.appdomain.cloud
+          port: 32250
+        - host: abc-2.pqr.databases.appdomain.cloud
+          port: 32250
+    certificates:
+      - alias: ca
+        crt: |
+          -----BEGIN CERTIFICATE-----
+          MIIDDzCCAfegAwIBAgIJANEH58y2/kzHMA0GCSqGSIb3DQEBCwUAMB4xHDAaBgNV
+          BAMME0lCTSBDbG91ZCBEYXRhYmFzZXMwHhcNMTgwNjI1MTQyOTAwWhcNMjgwNjIy
+          MTQyOTAwWjAeMRwwGgYDVQQDDBNJQk0gQ2xvdWQgRGF0YWJhc2VzMIIBIjANBgkq
+          1eKI2FLzYKpoKBe5rcnrM7nHgNc/nCdEs5JecHb1dHv1QfPm6pzIxwIDAQABo1Aw
+          TjAdBgNVHQ4EFgQUK3+XZo1wyKs+DEoYXbHruwSpXjgwHwYDVR0jBBgwFoAUK3+X
+          Zo1wyKs+DEoYXbHruwSpXjgwDAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQsFAAOC
+          doqqgGIZ2nxCkp5/FXxF/TMb55vteTQwfgBy60jVVkbF7eVOWCv0KaNHPF5hrqbN
+          i+3XjJ7/peF3xMvTMoy35DcT3E2ZeSVjouZs15O90kI3k2daS2OHJABW0vSj4nLz
+          +PQzp/B9cQmOO8dCe049Q3oaUA==
+          -----END CERTIFICATE-----
+  roles:
+    - ibm.mas_devops.mongodb
+
+```
+
+Troubleshooting
+-------------------------------------------------------------------------------
+
+!!! important
+    Please be cautious while performing any of the troubleshooting steps outlined below. It is important to understand that the MongoDB Community operator persists data within Persistent Volume Claims. These claims should not be removed inadvertent deletion of the `mongoce` namespace could result in data loss.
+
+### MongoDB Replica Set Pods Will Not Start
+
+MongoDB 5 has introduced new platform specific requirements. Please consult the [Platform Support Notes](https://www.mongodb.com/docs/manual/administration/production-notes/#x86_64) for detailed information.
+
+It is of particular importance to confirm that the AVX instruction set is exposed or available to the MongoDB workloads. This can easily be determined by entering any running pod on the same OpenShift cluster where MongoDB replica set members are failing to start. Once inside of a running pod the following command can be executed to confirm if the AVX instruction set is available:
+
+```bash
+cat /proc/cpuinfo | grep flags | grep avx
+```
+
+If `avx` is not found in the available `flags` then either the physical processor hosting the OpenShift cluster does not provide the AVX instruction set or the virtual host configuration is not exposing the AVX instruction set. If the latter is suspected the virtual hosting documentation should be referenced for details on how to expose the AVX instruction set.
+
+### CA Certificate Renewal
+
+!!! warning
+    If the MongoDB CA Certificate expires the MongoDB replica set will become unusable. Replica set members will not be able to communicate with each other and client applications (i.e. Maximo Application Suite components) will not be to connect.
+
+
+In order to renew the CA Certificate used by the MongoDB replica set the following steps must be taken:
+
+- Delete the CA Certificate resource
+- Delete the MongoDB server Certificate resource
+- Delete the Secrets resources associated with both the CA Certificate and Server Certificate
+- Delete the Secret resource which contains the MongoDB configuration parameters
+- Delete the ConfigMap resources which contains the CA certificate
+- Delete the Secret resource which contains the sever certificate and private key
+
+The following steps illustrate the process required to renew the CA Certificate, sever certificate and reconfigure the MongoDB replica set with the new CA and server certificates.
+
+The first step is to stop the Mongo replica set and MongoDb CE Operator pod.
+
+```bash
+oc project mongoce
+oc delete deployment mongodb-kubernetes-operator
+```
+
+!!! important
+    Make sure the MongoDB Community operator pod has terminated before proceeding.
+
+
+```bash
+oc delete statefulset mas-mongo-ce
+
+```
+
+!!! important
+    Make sure all pods in the `mongoce` namespace have terminated before proceeding
+
+
+Remove expired CA Certificate and Server Certificate resources. Clean up MongoDB Community configuration and then run the `mongodb` role.
+
+```bash
+oc delete certificate mongo-ca-crt
+oc delete certificate mongo-server
+oc delete secret mongo-ca-secret
+oc delete secret mongo-server-cert
+
+oc delete secret mas-mongo-ce-config
+oc delete configmap  mas-mongo-ce-cert-map
+oc delete secret mas-mongo-ce-server-certificate-key
+
+export ROLE_NAME=mongodb
+ansible-playbook ibm.mas_devops.run_role
+```
+
+Once the `mongodb` role has completed the MongoDb CE Operator pod and Mongo replica set should be configured.
+
+After the CA and server Certificates have been renewed you must ensure that that MongoCfg Suite CR is updated with the new CA Certificate. First obtain the CA Certificate from the Secret resource `mongo-ca-secret`. Then edit the Suite MongoCfg CR in the Maximo Application Suite core namespace. This is done by updating the appropriate certificate under `.spec.certificates` in the MongoCfg CR:
+
+```yaml
+  spec:
+    certificates:
+    - alias: ca
+      crt: |
+        -----BEGIN CERTIFICATE-----
+
+        -----END CERTIFICATE-----
+
+```
+
+If an IBM Suite Licensing Service (SLS) is also connecting to the MongoDB replica set the LicenseService CR must also be updated to reflect the new MongoDB CA. This can be added to the `.spec.mongo.certificates` section of the LicenseService CR.
+
+```yaml
+    mongo:
+      certificates:
+      - alias: mongoca
+        crt: |
+          -----BEGIN CERTIFICATE-----
+
+          -----END CERTIFICATE-----
+```
+
+Once the CA certificate has been updated for the MongoCfg and LicenseService CRs several pods in the core and SLS namespaces might need to be restarted to pick up the changes. This would include but is not limited to coreidp, coreapi, api-licensing.
 
 
 License

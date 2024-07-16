@@ -1,0 +1,33 @@
+---
+# Get cluster domain
+# -----------------------------------------------------------------------------
+- name: "Get cluster domain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: DNS
+    name: cluster
+  register: _cluster_dns
+
+- name: "Set fact: cluster domain"
+  set_fact:
+    masbr_cluster_domain: "{{ _cluster_dns.resources[0].spec.baseDomain }}"
+
+- name: "Debug: cluster domain"
+  debug:
+    msg: "Cluster domain ........................ {{ masbr_cluster_domain }}"
+
+
+# Confirm the cluster information
+# -----------------------------------------------------------------------------
+- name: "Confirm the connected cluster information"
+  when: masbr_confirm_cluster
+  block:
+    - name: "Get user input"
+      pause:
+        prompt: "\nCurrently connected to cluster:\n  {{ masbr_cluster_domain }}\nProceed on this cluster? [yes/no]"
+      register: _confirm_cluster_info
+
+    - name: "Cancel task"
+      when: not _confirm_cluster_info.user_input | bool
+      fail:
+        msg: "User chooses to cancel task"

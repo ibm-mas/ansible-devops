@@ -1,0 +1,80 @@
+---
+# Input parameters:
+#   _wsl_log
+
+
+# Get watson studio information
+# -----------------------------------------------------------------------------
+- name: "Set fact: watson studio secret"
+  set_fact:
+    wsl_secret_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-healthext-watsonstudio-secret"
+
+- name: "Get watson studio secret"
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: "{{ wsl_secret_name }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: _wsl_secret_output
+
+- name: "Set fact: mongodb admin password"
+  set_fact:
+    cpd_endpoint: "{{ _wsl_secret_output.resources[0].data.endpoint | b64decode }}"
+    cpd_username: "{{ _wsl_secret_output.resources[0].data.username | b64decode }}"
+    cpd_password: "{{ _wsl_secret_output.resources[0].data.password | b64decode }}"
+    cpd_project_id: "{{ _wsl_secret_output.resources[0].data.projectid | b64decode }}"
+  when:
+    - _wsl_secret_output is defined
+    - _wsl_secret_output.resources is defined
+    - _wsl_secret_output.resources | length > 0
+
+- name: "Debug: watson studio information"
+  debug:
+    msg:
+      - "CPD endpoint ........................... {{ cpd_endpoint }}"
+      - "CPD username ........................... {{ cpd_username }}"
+      - "CPD project ............................ {{ cpd_project_id }}"
+
+
+# Generate a CPD API Key
+# -----------------------------------------------------------------------------
+- name: "Generate CPD API Key"
+  changed_when: false
+  shell: >-
+    echo "Call {{ cpd_endpoint }}/icp4d-api/v1/authorize" >> {{ _wsl_log }};
+    CPD_API_RESP=$(curl -k -X POST -H "Content-Type: application/json"
+    -d "{\"username\":\"{{ cpd_username }}\",\"password\":\"{{ cpd_password }}\"}"
+    "{{ cpd_endpoint }}/icp4d-api/v1/authorize");
+    echo "${CPD_API_RESP}" >> {{ _wsl_log }};
+    CPD_TOKEN=$(echo "${CPD_API_RESP}" | jq -r '.token');
+    echo "Call {{ cpd_endpoint }}/usermgmt/v1/user/apiKey" >> {{ _wsl_log }};
+    CPD_API_RESP=$(curl -k -X GET "{{ cpd_endpoint }}/usermgmt/v1/user/apiKey" -H "Accept: application/json"
+    -H "Authorization: Bearer ${CPD_TOKEN}");
+    echo "${CPD_API_RESP}" >> {{ _wsl_log }};
+    CPD_API_KEY=$(echo "${CPD_API_RESP}" | jq -r '.apiKey');
+    echo "${CPD_API_KEY}"
+  register: _cpd_apikey_output
+
+- name: "Set fact: CPD API Key"
+  set_fact:
+    cpd_apikey: "{{ _cpd_apikey_output.stdout }}"
+
+
+# Check if cpd-cli installed
+# -----------------------------------------------------------------------------
+- name: "Get cpd-cli information"
+  changed_when: false
+  shell: >
+    cpd-cli version
+  register: _cpd_cli_output
+
+- name: "Download cpd-cli"
+  when: _cpd_cli_output.rc != 0
+  changed_when: true
+  shell: >-
+    cd /tmp;
+    curl -L https://github.com/IBM/cpd-cli/releases/download/v13.1.5r1/cpd-cli-linux-EE-13.1.5.tgz -o cpd-cli-linux.tgz;
+    tar -xf cpd-cli-linux.tgz;
+
+- name: "Set fact: cpd-cli command"
+  set_fact:
+    cpd_cli_cmd: "{{ '/tmp/cpd-cli-linux-EE-13.1.5-242/cpd-cli' if _cpd_cli_output.rc != 0 else 'cpd-cli' }}"

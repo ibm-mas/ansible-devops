@@ -1,0 +1,96 @@
+---
+# Get workspace pv spec
+# -----------------------------------------------------------------------------
+
+# ~~ Sample workspace pv spec ~~
+# persistentVolumes:
+#   - accessModes:
+#       - ReadWriteMany
+#     mountPath: /mnt/doclinks1
+#     pvcName: manage-doclinks1-pvc
+#     size: '20'
+#     storageClassName: ocs-storagecluster-cephfs
+#     volumeName: ''
+#   - accessModes:
+#       - ReadWriteMany
+#     mountPath: /mnt/doclinks2
+#     pvcName: manage-doclinks2-pvc
+#     size: '20'
+#     storageClassName: ocs-storagecluster-cephfs
+#     volumeName: ''
+
+- name: "Set fact: workspace pv spec"
+  set_fact:
+    manage_ws_pvs: "{{ _ws_output.resources[0].spec.settings.deployment.persistentVolumes }}"
+
+- name: "Debug: workspace pv spec"
+  debug:
+    msg: "{{ manage_ws_pvs }}"
+
+
+# Only go on processing when manage has pv defined
+# -----------------------------------------------------------------------------
+- name: "Only go on processing when manage has pv defined"
+  when: manage_ws_pvs | length > 0
+  block:
+    # Get maxinst pod information
+    - name: "Get maxinst pod information"
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: "{{ mas_app_namespace }}"
+        label_selectors:
+          - mas.ibm.com/appType=maxinstudb
+          - mas.ibm.com/workspaceId={{ mas_workspace_id }}
+      register: _maxinst_pod_output
+      failed_when:
+        - _maxinst_pod_output.resources is not defined
+        - _maxinst_pod_output.resources | length == 0
+
+    - name: "Set fact: copy pvc file variables"
+      set_fact:
+        masbr_cf_pod_name: "{{ _maxinst_pod_output.resources[0].metadata.name }}"
+        masbr_cf_container_name: "{{ _maxinst_pod_output.resources[0].spec.containers[0].name }}"
+        masbr_cf_affinity: false
+
+    - name: "Debug: maxinst pod information"
+      debug:
+        msg:
+          - "maxinst pod name ................... {{ masbr_cf_pod_name }}"
+          - "maxinst container name ............. {{ masbr_cf_container_name }}"
+
+    - name: "Set fact: reset mas_app_pv_list"
+      set_fact:
+        mas_app_pv_list: []
+        _manage_pvc_paths: []
+
+    # Set '_manage_pvc_paths' based on 'masbr_manage_pvc_paths'
+    - name: "Get specified pvc backup/restore paths"
+      when: masbr_manage_pvc_paths is defined and masbr_manage_pvc_paths | length > 0
+      block:
+        - name: "Set fact: _manage_pvc_paths"
+          set_fact:
+            _manage_pvc_paths: >-
+              {{ _manage_pvc_paths + [{
+                'pvcName': item | split(':') | first | trim,
+                'pvcPath': item | split(':') | last | trim
+              }] }}
+          loop: "{{ masbr_manage_pvc_paths | split(',') }}"
+
+        - name: "Set fact: mas_app_pv_list"
+          set_fact:
+            mas_app_pv_list: >-
+              {{ mas_app_pv_list + [{
+                'mount_path': manage_ws_pvs | json_query(
+                  '[?pvcName==`' + item.pvcName + '`].mountPath') | first,
+                'pvc_name': _maxinst_pod_output.resources[0].spec.volumes | json_query(
+                  '[?name==`' + item.pvcName + '`].persistentVolumeClaim.claimName') | first,
+                'backup_paths': [{
+                  'src_folder': item.pvcPath,
+                  'dest_folder': 'pv/' + item.pvcName + item.pvcPath
+                }],
+                'restore_paths': [{
+                  'src_folder': 'pv/' + item.pvcName + item.pvcPath,
+                  'dest_folder': item.pvcPath
+                }],
+              }] }}
+          loop: "{{ _manage_pvc_paths }}"

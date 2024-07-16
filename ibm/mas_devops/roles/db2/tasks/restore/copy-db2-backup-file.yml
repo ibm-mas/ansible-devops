@@ -1,0 +1,109 @@
+---
+# Copy backup file from specified storage location
+# -------------------------------------------------------------------------
+- name: "Copy backup file from specified storage location"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_pod.yml"
+  vars:
+    masbr_cf_job_type: "backup"
+    masbr_cf_job_name: "{{ _job_name }}"
+    masbr_cf_paths:
+      - src_file: "{{ masbr_job_data_type }}/{{ _job_name }}.tar.gz"
+        dest_folder: "{{ db2_restore_folder }}"
+
+
+# Extract the tar.gz file
+# -------------------------------------------------------------------------
+- name: "Extract the tar.gz file"
+  changed_when: true
+  shell: >
+    {{ exec_in_pod_begin }}
+    mkdir -p {{ db2_restore_folder }}/{{ _job_name }} &&
+    tar -xzf {{ db2_restore_folder }}/{{ _job_name }}.tar.gz
+    -C {{ db2_restore_folder }}/{{ _job_name }} . &&
+    ls {{ db2_restore_folder }}/{{ _job_name }}
+    {{ exec_in_pod_end }}
+  register: _extract_output
+
+- name: "Debug: list extracted files"
+  debug:
+    msg:
+      - "Extract output folder .............. {{ db2_restore_folder }}/{{ _job_name }}"
+      - "{{ _extract_output.stdout_lines }}"
+
+
+# Validate extracted files
+# -------------------------------------------------------------------------
+- name: "Set fact: extracted file names"
+  set_fact:
+    db2_restore_filenames: "{{ _extract_output.stdout_lines }}"
+
+- name: "Set fact: Db2 keystore .p12 file"
+  vars:
+    regex: '.+?(?=.p12)'
+  when: item is regex(regex)
+  set_fact:
+    db2_keystore_p12_file: "{{ item }}"
+  loop: "{{ db2_restore_filenames }}"
+
+- name: "Fail if Db2 keystore .p12 file was not found"
+  assert:
+    that:
+      - db2_keystore_p12_file is defined
+      - db2_keystore_p12_file | length > 0
+    fail_msg: "Db2 keystore .p12 file from source Db2 instance must be provided for the restore process to work."
+
+- name: "Set fact: Db2 keystore .sth file"
+  vars:
+    regex: '.+?(?=.sth)'
+  when: item is regex(regex)
+  set_fact:
+    db2_keystore_sth_file: "{{ item }}"
+  loop: "{{ db2_restore_filenames }}"
+
+- name: "Fail if Db2 keystore .sth file was not found"
+  assert:
+    that:
+      - db2_keystore_sth_file is defined
+      - db2_keystore_sth_file | length > 0
+    fail_msg: "Db2 keystore .sth file from source Db2 instance must be provided for the restore process to work."
+
+- name: "Set fact: Db2 keystore .kdb file"
+  vars:
+    regex: '.+?(?=.kdb)'
+  when: item is regex(regex)
+  set_fact:
+    db2_keystore_kdb_file: "{{ item }}"
+  loop: "{{ db2_restore_filenames }}"
+
+- name: "Fail if Db2 keystore .kdb file was not found"
+  assert:
+    that:
+      - db2_keystore_kdb_file is defined
+      - db2_keystore_kdb_file | length > 0
+    fail_msg: "Db2 keystore .kdb file from source Db2 instance must be provided for the restore process to work."
+
+- name: "Set fact: Db2 backup file timestamp"
+  vars:
+    regex: '\d+\d+\d+\d'
+    when_regex: '^{{ db2_dbname | upper }}.*'
+  when: item is regex(when_regex)
+  set_fact:
+    db2_backup_timestamp: "{{ item | regex_search(regex) }}"
+  loop: "{{ db2_restore_filenames }}"
+
+- name: "Fail if Db2 backup file timestamp was not found"
+  assert:
+    that:
+      - db2_backup_timestamp is defined
+      - db2_backup_timestamp != ""
+    fail_msg: >-
+      Db2 backup files were not found or it does not have the expected format
+      i.e '{{ db2_dbname | upper }}.0.db2inst1.DBPART000.202XXXXXXXXXXX.001'
+
+- name: "Debug: Db2 backup file timestamp"
+  debug:
+    msg:
+      - "Db2 keystore .p12 file ............. {{ db2_keystore_p12_file }}"
+      - "Db2 keystore .sth file ............. {{ db2_keystore_sth_file }}"
+      - "Db2 keystore .kdb file ............. {{ db2_keystore_kdb_file }}"
+      - "Db2 backup file timestamp .......... {{ db2_backup_timestamp }}"
