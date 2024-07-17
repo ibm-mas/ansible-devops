@@ -42,6 +42,7 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `APP_DOMAIN` Your app domain for example: `apps.dev.cp.fyre.ibm.com`
 * `STORAGE_PIPELINES_BUCKET` Your piplines bucket
 * `STORAGE_TENANTS_BUCKET` Your tenants bucket
+* STORAGE_TEMPLATES_BUCKET
 * `WATSONXAI_APIKEY` You WatsonX AI api key
 * `WATSONXAI_URL` You WatsonX AI url
 * `WATSONXAI_PROJECT_ID` You WatsonX projedt Id
@@ -94,11 +95,12 @@ export MAS_INSTANCE_ID="<instanceId>"
 export STORAGE_ACCESSKEY="<storage provider access key>"
 export STORAGE_SECRETKEY="<storage provider secret key>"
 export STORAGE_HOST="<storage provider host>"
-export STORAGE_REGION="<storage provider region>"
+export STORAGE_REGION="<storage provider region - only for aws>"
 export STORAGE_PROVIDER="<storage provider name>"
-export TENANT_NAME="user"
+export STORAGE_PORT="<storage provider port - only for minio>"
 export STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
 export STORAGE_TENANTS_BUCKET="<tenants bucket name>"
+export STORAGE_TEMPLATES_BUCKET="<templates bucket name>"
 export APP_DOMAIN="<app domain>"
 export WATSONXAI_APIKEY="<watsonx AI api key>"
 export WATSONXAI_URL="<watsonx AI url>"
@@ -117,11 +119,12 @@ export MAS_INSTANCE_ID="<instanceId>"
 export STORAGE_ACCESSKEY="<storage provider access key>"
 export STORAGE_SECRETKEY="<storage provider secret key>"
 export STORAGE_HOST="<storage provider host>"
-export STORAGE_REGION="<storage provider region>"
+export STORAGE_REGION="<storage provider region - only for aws>"
 export STORAGE_PROVIDER="<storage provider name>"
-export TENANT_NAME="user"
+export STORAGE_PORT="<storage provider port - only for minio>"
 export STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
 export STORAGE_TENANTS_BUCKET="<tenants bucket name>"
+export STORAGE_TEMPLATES_BUCKET="<templates bucket name>"
 export APP_DOMAIN="<app domain>"
 export WATSONXAI_APIKEY="<watsonx AI api key>"
 export WATSONXAI_URL="<watsonx AI url>"
@@ -130,6 +133,8 @@ export WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
+### 
+
 
 ## NOTICE: playbook oneclick_add_aibroker.yml will run three roles: 
 
@@ -153,42 +158,10 @@ ansible-playbook playbooks/oneclick_add_aibroker.yml
 ### Role: aibroker
 
 * Install AI Broker api application
-* Create, delete AI Broker tenant
+* Create AI Broker tenant
 * Create, delete AI Broker API Key
 * Create, delete AWS S3 API Key
 * Create, delete WatsonX AI API Key
-
-## How to create tenant
-
-### Prerequisites
-
-* IBM AI Broker Application
-
-#### Run playbooks
-
-```bash
-export TENANT_NAME="<Tenant Name>"
-export TENANT_ACTION="install"
-export ROLE_NAME="aibroker"
-oc login --token=xxxx --server=https://myocpserver
-ansible-playbook playbooks/run_role.yml
-```
-
-## How to delete tenant
-
-### Prerequisites
-
-* Tenant installed in a cluster
-
-#### Run playbooks
-
-```bash
-export TENANT_NAME="<Tenant Name>"
-export TENANT_ACTION="remove"
-export ROLE_NAME="aibroker"
-oc login --token=xxxx --server=https://myocpserver
-ansible-playbook playbooks/run_role.yml
-```
 
 ## How to create S3
 
@@ -200,7 +173,6 @@ ansible-playbook playbooks/run_role.yml
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
-export TENANT_NAME="<Tenant Name>"
 export STORAGE_ACCESSKEY="<storage provider access key>"
 export STORAGE_SECRETKEY="<storage provider secret key>"
 export STORAGE_HOST="<storage provider host>"
@@ -221,7 +193,6 @@ ansible-playbook playbooks/run_role.yml
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
-export TENANT_NAME="<Tenant Name>"
 export STORAGE_ACCESSKEY="<storage provider access key>"
 export STORAGE_SECRETKEY="<storage provider secret key>"
 export STORAGE_HOST="<storage provider host>"
@@ -242,7 +213,6 @@ ansible-playbook playbooks/run_role.yml
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
-export TENANT_NAME="<Tenant Name>"
 export APIKEY_ACTION="install"
 export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
@@ -259,7 +229,6 @@ ansible-playbook playbooks/run_role.yml
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
-export TENANT_NAME="<Tenant Name>"
 export APIKEY_ACTION="remove"
 export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
@@ -276,7 +245,6 @@ ansible-playbook playbooks/run_role.yml
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
-export TENANT_NAME="<Tenant Name>"
 export WATSONX_ACTION="install"
 export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
@@ -293,7 +261,6 @@ ansible-playbook playbooks/run_role.yml
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
-export TENANT_NAME="<Tenant Name>"
 export WATSONX_ACTION="remove"
 export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver

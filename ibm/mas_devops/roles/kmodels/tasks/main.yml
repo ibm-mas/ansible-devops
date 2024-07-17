@@ -13,20 +13,6 @@
   kubernetes.core.k8s:
     template: "templates/namespace.yml.j2"
 
-# Create Secrets
-# -----------------------------------------------------------------------------
-# - name: "Create regcred secret"
-#   kubernetes.core.k8s:
-#     definition:
-#       apiVersion: v1
-#       kind: Secret
-#       type: kubernetes.io/dockerconfigjson
-#       metadata:
-#         name: regcred
-#         namespace: mas-{{ mas_instance_id }}-aibroker
-#       data:
-#         .dockerconfigjson: "{{ lookup('template', 'templates/regcred-secret.json.j2') | to_nice_json | b64encode }}"
-
 - name: "Create km-s3-secret secret"
   kubernetes.core.k8s:
     definition:
@@ -72,9 +58,11 @@
     - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-usehttps'] | default('')) != "1"
     # - kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-usehttps'] != "1"
 
-- name: "Update secret with annotation if region is null "
-  shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-region={{ storage_region }}
-  when: storage_region == ""
+# - name: "Update secret with annotation if region is null"
+#   shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-region={{ storage_region }}
+#   when:
+#     - storage_provider == "aws"
+#     - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-region'] | default('')) == ""
 
 # Load default storage class (if not provided by the user)
 # -----------------------------------------------------------------------------

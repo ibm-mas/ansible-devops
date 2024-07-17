@@ -53,59 +53,8 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/tenant/kserve-xgbserver.yml.j2') }}"
 
-# - name: create tenant using KModels API
-#   shell: |
-#     curl -k POST https://km-controller-mas-{{ mas_instance_id }}-aibroker.{{ app_domain }}/api/v1/tenant?id={{ tenantNamespace }} \
-#     -H 'accept: */*' -H 'Content-Type: application/json' \
-#     -d '{"name": "{{ tenantNamespace }}","public": true, "max_models": 10}'
-#   register: post_info
-
-# - name: Debug created tenant
-#   debug:
-#     msg: 'Created tenant .... {{ post_info.stdout_lines }}'
-
 # Applay RBAC roles
 - name: 'Apply RBAC for tenant'
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/tenant/rbac.yml.j2') }}"
-
-# - name: Verify if kmodels routes exists and remove
-#   block:
-#     - name: "Wait for Route km-controller"
-#       kubernetes.core.k8s_info:
-#         api_version: route.openshift.io/v1
-#         name: km-controller
-#         namespace: "{{ aibroker_namespace }}"
-#         kind: Route
-#       ignore_errors: true
-#       register: km_controller_route_info
-
-#     - name: "Removing km-controller route if exists and meets condition"
-#       when:
-#         - (km_controller_route_info.resources | length > 0)
-#       kubernetes.core.k8s:
-#         state: absent
-#         kind: Route
-#         api_version: "route.openshift.io/v1"
-#         namespace: "{{ aibroker_namespace }}"
-#         name: km-controller
-
-#     - name: "Wait for Route km-store"
-#       kubernetes.core.k8s_info:
-#         api_version: route.openshift.io/v1
-#         name: km-store
-#         namespace: "{{ aibroker_namespace }}"
-#         kind: Route
-#       ignore_errors: true
-#       register: km_store_route_info
-
-#     - name: "Removing km-store route if exists and meets condition"
-#       when:
-#         - (km_store_route_info.resources | length > 0)
-#       kubernetes.core.k8s:
-#         state: absent
-#         kind: Route
-#         api_version: "route.openshift.io/v1"
-#         namespace: "{{ aibroker_namespace }}"
-#         name: km-store
