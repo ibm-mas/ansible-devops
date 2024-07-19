@@ -10,7 +10,7 @@ You will need a RedHat OpenShift v4.14 or above with IBM Maximo Application Suit
 
 ## Overview
 
-This playbook will add **AI Broker v1.0.x** to an existing IBM Maximo Application Suite Core installation or as standalone instance.
+This playbook will add **AI Broker v1.0.x** to an existing IBM Maximo Application Suite Core installation.
 
 This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
@@ -42,7 +42,7 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `APP_DOMAIN` Your app domain for example: `apps.dev.cp.fyre.ibm.com`
 * `STORAGE_PIPELINES_BUCKET` Your piplines bucket
 * `STORAGE_TENANTS_BUCKET` Your tenants bucket
-* STORAGE_TEMPLATES_BUCKET
+* `STORAGE_TEMPLATES_BUCKET` Your templates bucket
 * `WATSONXAI_APIKEY` You WatsonX AI api key
 * `WATSONXAI_URL` You WatsonX AI url
 * `WATSONXAI_PROJECT_ID` You WatsonX projedt Id
