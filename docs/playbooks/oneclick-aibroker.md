@@ -38,6 +38,7 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `STORAGE_HOST` Your storage provider host
 * `STORAGE_REGION` Your storage provider region
 * `STORAGE_PROVIDER` Your storage provider name
+* `STORAGE_SSL` Your storage ssl (true/false)
 * `TENANT_NAME` Your Aibroker tenant name
 * `APP_DOMAIN` Your app domain for example: `apps.dev.cp.fyre.ibm.com`
 * `STORAGE_PIPELINES_BUCKET` Your piplines bucket
@@ -95,6 +96,7 @@ export MAS_INSTANCE_ID="<instanceId>"
 export STORAGE_ACCESSKEY="<storage provider access key>"
 export STORAGE_SECRETKEY="<storage provider secret key>"
 export STORAGE_HOST="<storage provider host>"
+export STORAGE_SSL="true or false"
 export STORAGE_REGION="<storage provider region - only for aws>"
 export STORAGE_PROVIDER="<storage provider name>"
 export STORAGE_PORT="<storage provider port - only for minio>"
@@ -119,6 +121,7 @@ export MAS_INSTANCE_ID="<instanceId>"
 export STORAGE_ACCESSKEY="<storage provider access key>"
 export STORAGE_SECRETKEY="<storage provider secret key>"
 export STORAGE_HOST="<storage provider host>"
+export STORAGE_SSL="true or false"
 export STORAGE_REGION="<storage provider region - only for aws>"
 export STORAGE_PROVIDER="<storage provider name>"
 export STORAGE_PORT="<storage provider port - only for minio>"

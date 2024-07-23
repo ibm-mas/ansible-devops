@@ -15,7 +15,7 @@ stringData:
   secretkey: "{{ storage_secretkey }}"
   host: "{{ storage_host }}"
   region: "{{ storage_region }}"
-  ssl: 'true'
+  ssl: "{{ storage_ssl }}"
 ---
 apiVersion: datasciencepipelinesapplications.opendatahub.io/v1alpha1
 kind: DataSciencePipelinesApplication
@@ -26,23 +26,15 @@ spec:
   dspVersion: v1
   database:
     disableHealthCheck: true
-    mariaDB:
-      deploy: true
-      image: registry.redhat.io/rhel8/mariadb-103:1-188
-      username: mlpipeline
-      pipelineDBName: randomDBName
-      pvcSize: 20Gi
-      storageClassName: "{{ primary_storage_class }}"
-      resources:
-        requests:
-          cpu: 300m
-          memory: 800Mi
-        limits:
-          cpu: "1"
-          memory: 1Gi
+    customExtraParams: '{"tls":"false"}'
+    externalDB:
+      host: "{{ db_host }}"
+      port: "{{ db_port }}"
+      username: "{{ db_user }}"
+      pipelineDBName: "{{ db_database }}"
       passwordSecret:
-        name: ds-pipeline-s3-instance
-        key: secretkey
+        name: "{{ db_secret_name }}"
+        key: password
   objectStorage:
     disableHealthCheck: true
     externalStorage:

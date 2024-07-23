@@ -43,26 +43,33 @@
 # (https://kserve.github.io/website/0.11/modelserving/storage/s3/s3/#create-service-account)
 - name: "Update secret with annotation"
   shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-endpoint="{{ storage_host }}"
-  when: kms3_secret_info.resources[0].metadata.annotations is not defined
+  when: 
+    - storage_provider == "aws"
+    - kms3_secret_info.resources[0].metadata.annotations is not defined
+  
+- name: "Update secret with annotation"
+  shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-endpoint="{{ storage_host }}:{{ storage_port }}"
+  when: 
+    - storage_provider == "minio"
+    - kms3_secret_info.resources[0].metadata.annotations is not defined
 
 - name: "Update secret with annotation if SSL is false"
   shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-usehttps="0"
   when:
     - storage_ssl == 'false'
-    - kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-usehttps'] != "0"
+    - kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-usehttps'] | default('')) != "0"
 
 - name: "Update secret with annotation if SSL is true"
   shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-usehttps="1"
   when:
     - storage_ssl == 'true'
     - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-usehttps'] | default('')) != "1"
-    # - kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-usehttps'] != "1"
 
-# - name: "Update secret with annotation if region is null"
-#   shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-region={{ storage_region }}
-#   when:
-#     - storage_provider == "aws"
-#     - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-region'] | default('')) == ""
+- name: "Update secret with annotation if region is null"
+  shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-region={{ storage_region }}
+  when:
+    # - storage_provider == "aws"
+    - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-region'] | default('')) == ""
 
 # Load default storage class (if not provided by the user)
 # -----------------------------------------------------------------------------
