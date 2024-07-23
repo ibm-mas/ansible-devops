@@ -392,11 +392,10 @@ def format_pre_version_without_buildid(data):
 def get_db2_instance_name(binding_scope, mas_instance_id, mas_workspace_id, mas_application_id):
   if binding_scope == "":
     return ""
+  # Only system and workspace-application are possible values here as per CLI
   jdbc_instance_names = {
     "system": f'mas-{mas_instance_id}-system',
-    "app": f'mas-{mas_instance_id}-{mas_application_id}',
-    "ws": f'mas-{mas_instance_id}-{mas_workspace_id}',
-    "wsapp": f'mas-{mas_instance_id}-{mas_workspace_id}-{mas_application_id}'
+    "workspace-application": f'mas-{mas_instance_id}-{mas_workspace_id}-{mas_application_id}'
   }
   return jdbc_instance_names[binding_scope]
 
