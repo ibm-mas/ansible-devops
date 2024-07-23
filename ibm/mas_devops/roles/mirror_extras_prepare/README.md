@@ -48,7 +48,7 @@ The public port for the target registry.  The images will not be mirrored to the
 The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: {host}:{port}/{prefix}/{reponame}
 
 - Environment Variable: `REGISTRY_PREFIX`
-- Default: CurrentDate (In the form of yy-MM-dd)
+- Default: None
 
 
 Example Playbook
