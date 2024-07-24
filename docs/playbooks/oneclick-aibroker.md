@@ -6,6 +6,10 @@ You will need a RedHat OpenShift v4.14 or above with IBM Maximo Application Suit
 
 ### Dependencies:
 
+* Object Storage
+  + Minio ( if customer does not use AWS S3 )
+  + AWS S3 ( if customer owns AWS S3 bucket )
+* MariaDB database (installed in cluster where aibroker instance)
 * IBM Maximo Application Suite Core v9.x
 
 ## Overview
@@ -16,6 +20,8 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
 
 * Install dependencies:
   + Install IBM Maximo Application Suite Core v9.x (~30 Minutes)
+  + Install MariaDB (~5 minutes)
+  + Install Minio (~5 minutes)
 * Install AI broker application:
   + Install application (~10 Minutes)
   + Configure AI Broker (kmodels, tenant, etc) (~5 Minutes)
@@ -36,17 +42,21 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `STORAGE_ACCESSKEY` Your strage provider access key
 * `STORAGE_SECRETKEY` Your storage provider secret key
 * `STORAGE_HOST` Your storage provider host
-* `STORAGE_REGION` Your storage provider region
+* `STORAGE_REGION` Your storage provider region - only when use AWS S3 instance
 * `STORAGE_PROVIDER` Your storage provider name
 * `STORAGE_SSL` Your storage ssl (true/false)
-* `TENANT_NAME` Your Aibroker tenant name
-* `APP_DOMAIN` Your app domain for example: `apps.dev.cp.fyre.ibm.com`
 * `STORAGE_PIPELINES_BUCKET` Your piplines bucket
 * `STORAGE_TENANTS_BUCKET` Your tenants bucket
 * `STORAGE_TEMPLATES_BUCKET` Your templates bucket
 * `WATSONXAI_APIKEY` You WatsonX AI api key
 * `WATSONXAI_URL` You WatsonX AI url
 * `WATSONXAI_PROJECT_ID` You WatsonX projedt Id
+* `DB_HOST` Your database instance host
+* `DB_PORT` Your database instance port
+* `DB_USER` Your database instance user
+* `DB_DATABASE` Your database instance datbase name
+* `DB_SECRET_NAME` Your database instance secret name
+* `DB_SECRET_VALUE` Your database instance password
 
 ## Optional environment variables
 
@@ -75,16 +85,6 @@ source /tmp/venv/bin/activate
 python3 -m pip install boto3
 ```
 
-#### Notice: For WatsonX AI manage please make sure you have deployed dependencies
-
-##### install ibm-watson-machine-learning python module (use python environment)
-
-```
-python3 -m venv /tmp/venv
-source /tmp/venv/bin/activate
-python3 -m pip install ibm-watson-machine-learning
-```
-
 #### Run playbooks for deploy AI Broker from internal registry ex. `docker-na-public.artifactory.swg-devops.com`
 
 ```bash
@@ -107,6 +107,12 @@ export APP_DOMAIN="<app domain>"
 export WATSONXAI_APIKEY="<watsonx AI api key>"
 export WATSONXAI_URL="<watsonx AI url>"
 export WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
+export DB_HOST="<database instance host>"
+export DB_PORT="<database instance port>"
+export DB_USER="<database instance user>"
+export DB_DATABASE="<database instance datbase name>"
+export DB_SECRET_NAME="<database instance secret name>"
+export DB_SECRET_VALUE="<database instance password>"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
@@ -132,12 +138,18 @@ export APP_DOMAIN="<app domain>"
 export WATSONXAI_APIKEY="<watsonx AI api key>"
 export WATSONXAI_URL="<watsonx AI url>"
 export WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
+export DB_HOST="<database instance host>"
+export DB_PORT="<database instance port>"
+export DB_USER="<database instance user>"
+export DB_DATABASE="<database instance datbase name>"
+export DB_SECRET_NAME="<database instance secret name>"
+export DB_SECRET_VALUE="<database instance password>"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
-### 
 
+### 
 
 ## NOTICE: playbook oneclick_add_aibroker.yml will run three roles: 
 
