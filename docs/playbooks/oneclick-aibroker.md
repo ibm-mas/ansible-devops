@@ -7,8 +7,8 @@ You will need a RedHat OpenShift v4.14 or above with IBM Maximo Application Suit
 ### Dependencies:
 
 * Object Storage
-  + Minio ( if customer does not use AWS S3 )
-  + AWS S3 ( if customer owns AWS S3 bucket )
+  + Minio ( if customer does not want to use AWS S3 bucket)
+  + AWS S3 ( if customer use AWS S3 bucket bucket)
 * MariaDB database (installed in cluster where aibroker instance)
 * IBM Maximo Application Suite Core v9.x
 
@@ -22,7 +22,7 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
   + Install IBM Maximo Application Suite Core v9.x (~30 Minutes)
   + Install MariaDB (~5 minutes)
   + Install Minio (~5 minutes)
-* Install AI broker application:
+* Install AI broker application (using playbook):
   + Install application (~10 Minutes)
   + Configure AI Broker (kmodels, tenant, etc) (~5 Minutes)
 
