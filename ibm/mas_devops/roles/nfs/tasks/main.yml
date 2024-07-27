@@ -1,64 +1,142 @@
 ---
-
-# 1. Setup the EFS we will use in the cluster
+# 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
-- include_tasks: "tasks/efs-setup.yml"
+- name: "Fail if fyre_inf_node_private_ip is not provided or fyre_username and fyre_password are not provided"
+  assert:
+    that: (fyre_inf_node_private_ip is defined and fyre_inf_node_private_ip != "") || (fyre_username is defined and fyre_username != "" and fyre_password is defined and fyre_password != "")
+    fail_msg: "fyre_inf_node_private_ip property is required when fyre_username and fyre_password are not defined"
+
+- name: "Fail if cluster_name is not provided"
+  assert:
+    that: cluster_name is defined and cluster_name != ""
+    fail_msg: "cluster_name property is required"
 
 
-# 2. Install AWS EFS CSI Operator
+# 2. Obtain Private IP, if not provided, but Fyre credentials are
 # -----------------------------------------------------------------------------
-- name: Get aws-efs-csi-driver-operator package manifest
-  kubernetes.core.k8s_info:
-    api_version: packages.operators.coreos.com/v1
-    kind: PackageManifest
-    name: aws-efs-csi-driver-operator
-    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
-  register: aws_efs_manifest
+- block:
+    - name: "Get Cluster Details and obtain Private IP"
+      uri:
+        url: https://ocpapi.svl.ibm.com/v1/ocp/{{ cluster_name }}
+        user: "{{ fyre_username }}"
+        password: "{{ fyre_apikey }}"
+        method: GET
+        force_basic_auth: yes
+        validate_certs: false
+      register: _cluster_details
 
-- name: Assert that PackageManifest exists
-  ansible.builtin.assert:
-    that:
-      - aws_efs_manifest is defined
-      - aws_efs_manifest.resources is defined
-      - aws_efs_manifest.resources | length == 1
-    fail_msg: "PackageManifest not found: nfd"
+    - name: debug
+      debug:
+        var: _cluster_details.json
 
-- name: Set the subscription information
-  set_fact:
-    aws_efs_source: "{{ aws_efs_manifest.resources[0].status.catalogSource }}"
-    aws_efs_source_namespace: "{{ aws_efs_manifest.resources[0].status.catalogSourceNamespace }}"
-    aws_efs_default_channel: "{{ aws_efs_manifest.resources[0].status.defaultChannel }}"
+    - set_fact:
+        fyre_inf_node_private_ip: "{{ _cluster_details.json.clusters[0].vms | json_query('[?contains(hostname, `api`)].ips[*].address') | last }}"
 
-- name: "Install CSI Drivers Operator Group"
+    - name: debug
+      debug:
+        var: fyre_inf_node_private_ip
+  when: (fyre_username is defined and fyre_username != "") and (fyre_apikey is defined and fyre_apikey != "") and (fyre_inf_node_private_ip is not defined or fyre_inf_node_private_ip == "")
+
+
+# 3. Delete Image Registry
+# -----------------------------------------------------------------------------
+- name: Disable Image Registry Operator
+  k8s:
+    api_version: apps/v1
+    kind: Deployment
+    name: cluster-image-registry-operator
+    namespace: openshift-image-registry
+    state: absent
+
+- name: Disable Image Registry
+  k8s:
+    api_version: apps/v1
+    kind: Deployment
+    name: image-registry
+    namespace: openshift-image-registry
+    state: absent
+
+- name: Delete Image Registry PVC
+  k8s:
+    api_version: v1
+    kind: PersistentVolumeClaim
+    name: image-registry-storage
+    namespace: openshift-image-registry
+    state: absent
+
+- name: Delete Image Registry PV
+  k8s:
+    api_version: v1
+    kind: PersistentVolume
+    name: registry-storage
+    state: absent
+
+
+# 4. Create namespace we will deploy to
+# -----------------------------------------------------------------------------
+- name: "Create namespace"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "external-storage-nfs"
+
+
+# 5. Configure rbac
+# -----------------------------------------------------------------------------
+- name: "Configure rbac"
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/operator-group.yml.j2"
-
-- name: "Install AWS EFS CSI Operator Subscription"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/efs-csi-subscription.yml.j2"
+    definition: "{{ lookup('template', 'templates/rbac.yml') }}"
 
 
-# 3. Add AWS credentials to OpenShift secrets
+# 6. Configure service account
 # -----------------------------------------------------------------------------
-- name: "Create Secret"
-  kubernetes.core.k8s:
-    apply: yes
-    template: "templates/aws-secret.yml.j2"
+- name: "Configure service account"
+  shell: |
+    oc adm policy add-scc-to-user hostmount-anyuid system:serviceaccount:external-storage-nfs:nfs-client-provisioner
 
 
-# 4. Install AWS EFS CSI DRIVER
+# 7. Configure class
 # -----------------------------------------------------------------------------
-- name: "Install AWS EFS CSI Driver"
+- name: "Configure class"
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/efs-csi-driver.yml.j2"
+    definition: "{{ lookup('template', 'templates/class.yml') }}"
 
 
-# 5. Create a Storage Class for aws efs
+# 8. Configure deployment
 # -----------------------------------------------------------------------------
-- name: "Create a Storage Class for aws efs"
+- name: "Configure deployment"
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/efs-csi-storage-class.yml.j2"
+    definition: "{{ lookup('template', 'templates/deployment.yml') }}"    
+
+
+# 9. Set storageclass nfs-client as default
+# -----------------------------------------------------------------------------
+- name: "Set storageclass nfs-client as the default"
+  shell: |
+    oc patch storageclass nfs-client -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+
+
+# 10. Create image registry storage
+# -----------------------------------------------------------------------------
+- name: "Create Image Registry Storage"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/image_registry_storage.yml') }}"    
+
+- name: "Wait 10 seconds"
+  shell: |
+    sleep 10
+
+
+# 11. Scale up image registry and Operator
+# -----------------------------------------------------------------------------
+- name: "Wait 10 seconds"
+  shell: |
+    oc -n openshift-image-registry scale deploy cluster-image-registry-operator --replicas=1
+    sleep 5
+    oc -n openshift-image-registry scale deploy image-registry --replicas=1
+    sleep 5
+
