@@ -98,4 +98,5 @@ class ActionModule(ActionBase):
           )
         else:
           display.v(f"Failure: allResourcesHealthy={allResourcesHealthy}")
-          raise AnsibleError(f"Error: One or more {resourceName} are not healthy")
+          raise AnsibleError(f"Error: Below {resourceName} are not healthy:
+                             {notReady}")
