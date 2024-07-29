@@ -6,6 +6,8 @@ STORAGE_HOST=$3
 STORAGE_ACCESSKEY=$4
 STORAGE_SECRETKEY=$5
 STORAGE_REGION=$6
+STORAGE_PROVIDER=$7
+STORAGE_PORT=$8
 
 if [ -z ${TENANT} ]; then
   echo "using default tenant name=aibrokeruser"
@@ -78,11 +80,23 @@ else
   echo "The credentail of S3 is valid. The bucketname $bucketname is created successfully."
   # Add storage secrets
   echo "Creating S3 secret in k8s"
-  oc create secret generic ${TENANT}----s3-secret -n ${AIBROKER} \
-    --from-literal=ACCESS-KEY=${STORAGE_ACCESSKEY} \
-    --from-literal=SECRET-KEY=${STORAGE_SECRETKEY} \
-    --from-literal=URL=${STORAGE_HOST} \
-    --from-literal=REGION=${STORAGE_REGION} \
-    --from-literal=BUCKET-NAME=${bucketname}
-  echo "Created S3 secret in k8s successfully"
+  if [[ "$STORAGE_PROVIDER" == "aws" ]]; then
+    oc create secret generic ${TENANT}----s3-secret -n ${AIBROKER} \
+      --from-literal=ACCESS-KEY=${STORAGE_ACCESSKEY} \
+      --from-literal=SECRET-KEY=${STORAGE_SECRETKEY} \
+      --from-literal=URL=${STORAGE_HOST} \
+      --from-literal=REGION=${STORAGE_REGION} \
+      --from-literal=BUCKET-NAME=${bucketname}
+    echo "Created S3 secret in k8s successfully"
+  elif [[ "$STORAGE_PROVIDER" == "minio" ]]; then
+    oc create secret generic ${TENANT}----s3-secret -n ${AIBROKER} \
+      --from-literal=ACCESS-KEY=${STORAGE_ACCESSKEY} \
+      --from-literal=SECRET-KEY=${STORAGE_SECRETKEY} \
+      --from-literal=URL=${STORAGE_HOST}:${STORAGE_PORT} \
+      --from-literal=REGION=${STORAGE_REGION} \
+      --from-literal=BUCKET-NAME=${bucketname}
+    echo "Created S3 secret in k8s successfully"
+  else 
+    echo "Provide storage provider not supported"
+  fi
 fi
