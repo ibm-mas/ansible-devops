@@ -1,45 +1,56 @@
-ocp_efs
+nfs
 ===============================================================================
 
-This role provides support to install aws-efs on aws using `aws cli` and connect that to ROSA using `oc` CLI. This role create a new inbound rule in the security group of the ec2 instance where rosa is installed and then creates a new EFS instance and adds access points and network mounts to access EFS from ROSA.
+This role provides support to install NFS on Fyre IT only. It is not recommended to run this job in existent Fyre Openshift clusters with applications already installed and using the Image Registry PVC. The role must delete the current image registry that comes defined by default when a Fyre Openshift cluster is provisioned. If you already installed NFS and is running this role again along with other roles through playbooks, you can set the variable recreate_image_registry to false to prevent the deletion and recreation of the PVC, impacting on existent applications using it. 
+
+The NFS installation requires the information of the Fyre Infrastructure Node Private IP. If you do not provide that by defining the value of the variable fyre_inf_node_private_ip, you must define the variables fyre_username, fyre_password and cluster_name so the Fyre Infrastructure Nnode Private IP is obtained through a Fyre API call.
 
 Role Variables
 -------------------------------------------------------------------------------
 
-### aws_access_key_id
-The AWS access key will be used to login to aws cli.
+### fyre_inf_node_private_ip
+Required if fyre_username, fyre_password and cluster_name are not provided.
 
-- **Required**
-- Environment Variable: `AWS_ACCESS_KEY_ID`
-- Default: None
+- Environment Variable: `FYRE_INF_NODE_PRIVATE_IP`
+- Default Value: None
 
-### aws_secret_access_key
-The AWS access secret key will be used to login to aws cli.
+### fyre_username
+Required if fyre_inf_node_private_ip is not provided.
 
-- **Required**
-- Environment Variable: `AWS_SECRET_ACCESS_KEY`
-- Default: None
+- Environment Variable: `FYRE_USERNAME`
+- Default Value: None
 
-### AWS_region
-The aws region where you wish to provision the EFS instance.
+### fyre_password
+Required if fyre_inf_node_private_ip is not provided.
 
-- **Required**
-- Environment Variable: `AWS_DEFAULT_REGION`
-- Default: `eu-west-2`
+- Environment Variable: `FYRE_APIKEY`
+- Default Value: None
 
 ### cluster_name
-The name of the cluster we are going to attach the EFS storage to.
+Required if fyre_inf_node_private_ip is not provided.
+
+- Environment Variable: `CLUSTER_NAME`
+- Default Value: None
+
+### cluster_type
+Type the value of the CLUSTER_TYPE, which must be fyre.
 
 - **Required**
-- Environment Variable: `CLUSTER_NAME`
+- Environment Variable: `CLUSTER_TYPE`
 - Default: None
 
-### efs_unique_id
-Any unique identifier like mas instance id which will be used as EFS storage class name. If this parameter is not set, then cluster_name will be used
+### recreate_image_registry
+Required to set false when you are running this job through a playbook to perform other actions instead installing NFS and considering it was already previously installed. When set as true, the Image Registry PVC is going to be deleted and recreated while configuring the NFS storage class.
 
-- **Optional**
-- Environment Variable: `EFS_UNIQUE_ID`
-- Default: None
+- Environment Variable: `RECREATE_IMAGE_REGISTRY`
+- Default Value: `true`
+
+### nfs_storage_size
+Defines the storage size of NFS.
+
+- **Required**
+- Environment Variable: `NFS_STORAGE_SIZE`
+- Default: `100Gi`
 
 
 License

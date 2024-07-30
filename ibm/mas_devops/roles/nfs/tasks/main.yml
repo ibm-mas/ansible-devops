@@ -11,132 +11,24 @@
     that: cluster_name is defined and cluster_name != ""
     fail_msg: "cluster_name property is required"
 
+- name: "Fail if cluster_type is not provided"
+  assert:
+    that: cluster_type is defined and cluster_type != "fyre"
+    fail_msg: "cluster_type property is required and must be set to fyre"
+
 
 # 2. Obtain Private IP, if not provided, but Fyre credentials are
 # -----------------------------------------------------------------------------
-- block:
-    - name: "Get Cluster Details and obtain Private IP"
-      uri:
-        url: https://ocpapi.svl.ibm.com/v1/ocp/{{ cluster_name }}
-        user: "{{ fyre_username }}"
-        password: "{{ fyre_apikey }}"
-        method: GET
-        force_basic_auth: yes
-        validate_certs: false
-      register: _cluster_details
-
-    - name: debug
-      debug:
-        var: _cluster_details.json
-
-    - set_fact:
-        fyre_inf_node_private_ip: "{{ _cluster_details.json.clusters[0].vms | json_query('[?contains(hostname, `api`)].ips[*].address') | last }}"
-
-    - name: debug
-      debug:
-        var: fyre_inf_node_private_ip
+- include_tasks: get_private_ip.yml
   when: (fyre_username is defined and fyre_username != "") and (fyre_apikey is defined and fyre_apikey != "") and (fyre_inf_node_private_ip is not defined or fyre_inf_node_private_ip == "")
 
 
-# 3. Delete Image Registry
+# 3. Configure NFS
 # -----------------------------------------------------------------------------
-- name: Disable Image Registry Operator
-  k8s:
-    api_version: apps/v1
-    kind: Deployment
-    name: cluster-image-registry-operator
-    namespace: openshift-image-registry
-    state: absent
+- when: recreate_image_registry is defined and recreate_image_registry is true
+  block:
+    - include_tasks: delete_image_registry.yml
 
-- name: Disable Image Registry
-  k8s:
-    api_version: apps/v1
-    kind: Deployment
-    name: image-registry
-    namespace: openshift-image-registry
-    state: absent
+    - include_tasks: configure_nfs.yml
 
-- name: Delete Image Registry PVC
-  k8s:
-    api_version: v1
-    kind: PersistentVolumeClaim
-    name: image-registry-storage
-    namespace: openshift-image-registry
-    state: absent
-
-- name: Delete Image Registry PV
-  k8s:
-    api_version: v1
-    kind: PersistentVolume
-    name: registry-storage
-    state: absent
-
-
-# 4. Create namespace we will deploy to
-# -----------------------------------------------------------------------------
-- name: "Create namespace"
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: Namespace
-    name: "external-storage-nfs"
-
-
-# 5. Configure rbac
-# -----------------------------------------------------------------------------
-- name: "Configure rbac"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/rbac.yml') }}"
-
-
-# 6. Configure service account
-# -----------------------------------------------------------------------------
-- name: "Configure service account"
-  shell: |
-    oc adm policy add-scc-to-user hostmount-anyuid system:serviceaccount:external-storage-nfs:nfs-client-provisioner
-
-
-# 7. Configure class
-# -----------------------------------------------------------------------------
-- name: "Configure class"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/class.yml') }}"
-
-
-# 8. Configure deployment
-# -----------------------------------------------------------------------------
-- name: "Configure deployment"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/deployment.yml') }}"    
-
-
-# 9. Set storageclass nfs-client as default
-# -----------------------------------------------------------------------------
-- name: "Set storageclass nfs-client as the default"
-  shell: |
-    oc patch storageclass nfs-client -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
-
-
-# 10. Create image registry storage
-# -----------------------------------------------------------------------------
-- name: "Create Image Registry Storage"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/image_registry_storage.yml') }}"    
-
-- name: "Wait 10 seconds"
-  shell: |
-    sleep 10
-
-
-# 11. Scale up image registry and Operator
-# -----------------------------------------------------------------------------
-- name: "Wait 10 seconds"
-  shell: |
-    oc -n openshift-image-registry scale deploy cluster-image-registry-operator --replicas=1
-    sleep 5
-    oc -n openshift-image-registry scale deploy image-registry --replicas=1
-    sleep 5
-
+    - include_tasks: create_image_registry.yml
