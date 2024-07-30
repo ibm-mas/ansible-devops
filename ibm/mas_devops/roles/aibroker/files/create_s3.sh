@@ -5,9 +5,26 @@ AIBROKER=$2
 STORAGE_HOST=$3
 STORAGE_ACCESSKEY=$4
 STORAGE_SECRETKEY=$5
-STORAGE_REGION=$6
-STORAGE_PROVIDER=$7
-STORAGE_PORT=$8
+STORAGE_PROVIDER=$6
+
+if [[ "$STORAGE_PROVIDER" == "minio" ]]; then
+  STORAGE_PORT=$7
+  STORAGE_REGION=$8
+fi
+
+if [[ "$STORAGE_PROVIDER" == "aws" ]]; then
+  STORAGE_PORT=$8
+  STORAGE_REGION=$7
+fi
+
+echo $TENANT
+echo $AIBROKER
+echo $STORAGE_HOST
+echo $STORAGE_ACCESSKEY
+echo $STORAGE_SECRETKEY
+echo $STORAGE_PROVIDER
+echo $STORAGE_PORT
+echo $STORAGE_REGION
 
 if [ -z ${TENANT} ]; then
   echo "using default tenant name=aibrokeruser"
@@ -80,11 +97,26 @@ else
   echo "The credentail of S3 is valid. The bucketname $bucketname is created successfully."
   # Add storage secrets
   echo "Creating S3 secret in k8s"
-  oc create secret generic ${TENANT}----s3-secret -n ${AIBROKER} \
-    --from-literal=ACCESS-KEY=${STORAGE_ACCESSKEY} \
-    --from-literal=SECRET-KEY=${STORAGE_SECRETKEY} \
-    --from-literal=URL=${STORAGE_HOST} \
-    --from-literal=REGION=${STORAGE_REGION} \
-    --from-literal=BUCKET-NAME=${bucketname}
-  echo "Created S3 secret in k8s successfully"
+  echo ${STORAGE_PROVIDER}
+  if [ "$STORAGE_PROVIDER" == "aws" ]; then
+    # Create a Kubernetes secret with the AWS S3 credentials
+    oc create secret generic ${TENANT}----s3-secret -n ${AIBROKER} \
+      --from-literal=ACCESS-KEY=${STORAGE_ACCESSKEY} \
+      --from-literal=SECRET-KEY=${STORAGE_SECRETKEY} \
+      --from-literal=URL=${STORAGE_HOST} \
+      --from-literal=REGION=${STORAGE_REGION} \
+      --from-literal=BUCKET-NAME=${bucketname}
+  # Check if the storage provider is Minio
+  elif [ "$STORAGE_PROVIDER" == "minio" ]; then
+    # Create a Kubernetes secret with the Minio credentials
+    oc create secret generic ${TENANT}----s3-secret -n ${AIBROKER} \
+      --from-literal=ACCESS-KEY=${STORAGE_ACCESSKEY} \
+      --from-literal=SECRET-KEY=${STORAGE_SECRETKEY} \
+      --from-literal=URL=http://${STORAGE_HOST}:${STORAGE_PORT} \
+      --from-literal=REGION=${STORAGE_REGION} \
+      --from-literal=BUCKET-NAME=${bucketname}
+  else
+    echo "Invalid storage provider specified."
+    exit 1
+  fi
 fi
