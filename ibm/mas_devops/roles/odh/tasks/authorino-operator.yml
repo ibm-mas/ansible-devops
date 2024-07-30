@@ -1,0 +1,20 @@
+---
+# Install Operator & create entitlement openshift-authorino
+# -----------------------------------------------------------------------------
+- name: "Install Openshift authorino Operator"
+  ansible.builtin.include_role:
+    name: ibm.mas_devops.install_operator
+  vars:
+    namespace: "{{ openshift_namespace }}"
+    icr_username: "{{ mas_entitlement_username }}"
+    icr_password: "{{ mas_entitlement_key }}"
+    catalog_source: "{{ serverless_catalog_source }}"
+    operator_group: "{{ lookup('template', 'templates/authorino/operator-group.yml.j2') }}"
+    subscription: "{{ lookup('template', 'templates/authorino/subscription.yml.j2') }}"
+
+# Wait until the Authorino CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the Authorino CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: authorinos.operator.authorino.kuadrant.io

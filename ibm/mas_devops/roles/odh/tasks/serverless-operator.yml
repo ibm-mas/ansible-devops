@@ -1,0 +1,20 @@
+---
+# Install Operator & create entitlement openshift-serverless
+# -----------------------------------------------------------------------------
+- name: "Install Openshift Serverless Operator"
+  ansible.builtin.include_role:
+    name: ibm.mas_devops.install_operator
+  vars:
+    namespace: "{{ serverless_namespace }}"
+    icr_username: "{{ mas_entitlement_username }}"
+    icr_password: "{{ mas_entitlement_key }}"
+    catalog_source: "{{ serverless_catalog_source }}"
+    operator_group: "{{ lookup('template', 'templates/serverless/operator-group.yml.j2') }}"
+    subscription: "{{ lookup('template', 'templates/serverless/subscription.yml.j2') }}"
+
+# Wait until the Serverless CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the Serverless CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: knativeservings.operator.knative.dev
