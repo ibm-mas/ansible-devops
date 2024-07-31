@@ -42,13 +42,14 @@ Type the value of the CLUSTER_TYPE, which must be fyre.
 ### recreate_image_registry
 Required to set false when you are running this job through a playbook to perform other actions instead installing NFS and considering it was already previously installed. When set as true, the Image Registry PVC is going to be deleted and recreated while configuring the NFS storage class.
 
+- Optional.
 - Environment Variable: `RECREATE_IMAGE_REGISTRY`
 - Default Value: `true`
 
 ### nfs_storage_size
 Defines the storage size of NFS.
 
-- **Required**
+- Optional.
 - Environment Variable: `NFS_STORAGE_SIZE`
 - Default: `100Gi`
 
