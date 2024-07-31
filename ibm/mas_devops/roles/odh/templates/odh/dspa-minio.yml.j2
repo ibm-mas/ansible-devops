@@ -1,0 +1,66 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ds-pipeline-s3-instance
+  namespace: mas-{{ mas_instance_id }}-aibroker
+  labels:
+    opendatahub.io/dashboard: 'false'
+    opendatahub.io/managed: 'true'
+  annotations:
+    opendatahub.io/connection-type: s3
+    openshift.io/display-name: Minio Data Connection
+stringData:
+  accesskey: "{{ storage_accesskey }}"
+  secretkey: "{{ storage_secretkey }}"
+  host: "{{ storage_host }}"
+  port: "{{ storage_port }}"
+  ssl: "{{ storage_ssl }}"
+---
+apiVersion: datasciencepipelinesapplications.opendatahub.io/v1alpha1
+kind: DataSciencePipelinesApplication
+metadata:
+  name: instance
+  namespace: mas-{{ mas_instance_id }}-aibroker
+spec:
+  dspVersion: v1
+  database:
+    disableHealthCheck: true
+    customExtraParams: '{"tls":"false"}'
+    externalDB:
+      host: "{{ db_host }}"
+      port: "{{ db_port }}"
+      username: "{{ db_user }}"
+      pipelineDBName: "{{ db_database }}"
+      passwordSecret:
+        name: "{{ db_secret_name }}"
+        key: password
+    # mariaDB:
+    #   deploy: true
+    #   image: registry.redhat.io/rhel8/mariadb-103:1-188
+    #   username: mlpipeline
+    #   pipelineDBName: randomDBName
+    #   pvcSize: 20Gi
+    #   storageClassName: "{{ primary_storage_class }}"
+    #   resources:
+    #     requests:
+    #       cpu: 300m
+    #       memory: 800Mi
+    #     limits:
+    #       cpu: "1"
+    #       memory: 1Gi
+    #   passwordSecret:
+    #     name: ds-pipeline-s3-instance
+    #     key: secretkey
+  objectStorage:
+    disableHealthCheck: true
+    externalStorage:
+      host: "{{ storage_host }}"
+      port: "{{ storage_port }}"
+      bucket: "{{ storage_piplines_bucket }}"
+      storageClassName: "{{ primary_storage_class }}"
+      s3CredentialsSecret:
+        accessKey: accesskey
+        secretKey: secretkey
+        secretName: ds-pipeline-s3-instance
+      scheme: http
