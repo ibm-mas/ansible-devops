@@ -1,7 +1,7 @@
 ocp_provision
 ===============================================================================
 
-Provision OCP cluster on DevIT Fyre or IBM Cloud ROKS.
+Provision OCP cluster on DevIT Fyre, IBM Cloud ROKS or ROSA.
 
 Role Variables
 -------------------------------------------------------------------------------
@@ -127,9 +127,9 @@ Token to authenticate to the ROSA service.  To obtain your API token login to th
 - Default Value: None
 
 ### rosa_cluster_admin_password
-Password to set up for the `cluster-admin` user account on the OCP instance.  You will need this to log onto the cluster after it is provisioned.
+Password to set up for the `cluster-admin` user account on the OCP instance.  You will need this to log onto the cluster after it is provisioned. If this is not set then a password is auto-generated.
 
-- **Required** if `cluster_type = rosa`.
+- **Optional** if `cluster_type = rosa`.
 - Environment Variable: `ROSA_CLUSTER_ADMIN_PASSWORD`
 - Default Value: None
 
@@ -139,6 +139,20 @@ Number of compute nodes to deploy in the cluster.
 - Optional
 - Environment Variable: `ROSA_COMPUTE_NODES`
 - Default Value: `3`
+
+### rosa_compute_machine_type
+Worker nodes machine
+
+- Optional
+- Environment Variable: `ROSA_COMPUTE_MACHINE_TYPE`
+- Default Value: `m5.4xlarge`
+
+### rosa_config_dir
+Config directory to hold the rosa-{{cluster_name}}-details.yaml file that contains the api endpoint and cluster-admin details
+
+- Optional
+- Environment Variable: `ROSA_CONFIG_DIR`
+- Default Value: None
 
 
 Role Variables - FYRE
@@ -347,6 +361,7 @@ GCP project id in which the cluster will be deployed.
 - **Required** when `cluster_type = ipi` and `ipi_platform = gcp`
 - Environment Variable: `GOOGLE_PROJECTID`
 - Default Value: None
+
 
 Example Playbook
 -------------------------------------------------------------------------------

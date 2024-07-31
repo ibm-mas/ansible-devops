@@ -1,0 +1,77 @@
+---
+# Job management
+# -----------------------------------------------------------------------------
+# Whether to confirm the currently connected cluster before run tasks
+masbr_confirm_cluster: "{{ lookup('env', 'MASBR_CONFIRM_CLUSTER') | default(false, true) | bool }}"
+
+# Copy file timeout in seconds (default timeout is 12 hours: 3600 * 12)
+masbr_copy_timeout_sec: "{{ lookup('env', 'MASBR_COPY_TIMEOUT_SEC') | default(43200, true) | int }}"
+
+# Whether to allow multiple backup/restore jobs to run simultaneously
+masbr_allow_multi_jobs: "{{ lookup('env', 'MASBR_ALLOW_MULTI_JOBS') | default(true, true) | bool }}"
+
+# Cron expression of cleanup Job (default to run at 1:00 every day)
+# https://en.wikipedia.org/wiki/Cron
+masbr_cleanup_schedule: "{{ lookup('env', 'MASBR_CLEANUP_SCHEDULE') | default('0 1 * * *', true) }}"
+
+# The completed Jobs that exceed this time-to-live in seconds will be deleted (default ttl is 1 week: 3600 * 24 * 7)
+masbr_cleanup_ttl_sec: "{{ lookup('env', 'MASBR_CLEANUP_TTL_SEC') | default('604800', true) }}"
+
+# Time zone of CronJob
+# https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+masbr_job_timezone: "{{ lookup('env', 'MASBR_JOB_TIMEZONE') | default('', true) }}"
+
+
+# Docker image tag
+# -----------------------------------------------------------------------------
+masbr_mascli_image_tag: "{{ lookup('env', 'MASBR_MASCLI_IMAGE_TAG') | default('latest', true) }}"
+masbr_mascli_image_pull_policy: "{{ lookup('env', 'MASBR_MASCLI_IMAGE_PULL_POLICY') | default('', true) }}"
+
+
+# Storage variables
+# -----------------------------------------------------------------------------
+# Local temp folder for backup/restore
+masbr_local_temp_folder: "{{ lookup('env', 'MASBR_LOCAL_TEMP_FOLDER') | default('/tmp/masbr', true) }}"
+
+# <Required>
+masbr_storage_type: "{{ lookup('env', 'MASBR_STORAGE_TYPE') }}"
+
+# <Required> when masbr_storage_type='local'
+masbr_storage_local_folder: "{{ lookup('env', 'MASBR_STORAGE_LOCAL_FOLDER') }}"
+
+# <Required> when masbr_storage_type='pvc'
+masbr_storage_pvc_name: "{{ lookup('env', 'MASBR_STORAGE_PVC_NAME') }}"
+masbr_storage_pvc_path: "{{ lookup('env', 'MASBR_STORAGE_PVC_PATH') | default('masbr', true) }}"
+
+# <Required> when masbr_storage_type='cloud'
+masbr_storage_cloud_rclone_file: "{{ lookup('env', 'MASBR_STORAGE_CLOUD_RCLONE_FILE') }}"
+masbr_storage_cloud_rclone_name: "{{ lookup('env', 'MASBR_STORAGE_CLOUD_RCLONE_NAME') }}"
+masbr_storage_cloud_bucket: "{{ lookup('env', 'MASBR_STORAGE_CLOUD_BUCKET') }}"
+
+
+# Notification variables
+# -----------------------------------------------------------------------------
+# Supported notification levels:
+#   - 'verbose': send notifications when job in all phases 'InProgress', 'Completed', 'Failed', 'PartiallyFailed'
+#   - 'info': send job final results 'Completed', 'Failed', 'PartiallyFailed'
+#   - 'failure': sent notifications only when job in the phase 'Failed', 'PartiallyFailed'
+masbr_notification_levels:
+  verbose:
+    - "InProgress"
+    - "Completed"
+    - "Failed"
+    - "PartiallyFailed"
+  info:
+    - "Completed"
+    - "Failed"
+    - "PartiallyFailed"
+  failure:
+    - "Failed"
+    - "PartiallyFailed"
+
+# Slack notification
+masbr_slack_enabled: "{{ lookup('env', 'MASBR_SLACK_ENABLED') | default(false, true) | bool }}"
+masbr_slack_level: "{{ lookup('env', 'MASBR_SLACK_LEVEL') | default('info', true) }}"
+masbr_slack_token: "{{ lookup('env', 'MASBR_SLACK_TOKEN') }}"
+masbr_slack_channel: "{{ lookup('env', 'MASBR_SLACK_CHANNEL') }}"
+masbr_slack_user: "{{ lookup('env', 'MASBR_SLACK_USER') | default('MASBR', true) }}"

@@ -1,0 +1,64 @@
+namespace={{ masbr_cleanup_namespace }}
+ttl=${MASBR_CLEANUP_TTL_SEC}
+
+current_time=$(date +%Y-%m-%dT%H:%M:%SZ)
+current_ts=$(date +%s)
+
+echo "Start running cleanup job"
+echo "Current time: ${current_time}"
+echo "Current ts: ${current_ts}"
+echo "TTL: ${ttl}s"
+
+
+# Cleanup Jobs
+job_names=($(oc get job -n ${namespace} --ignore-not-found=true --no-headers=true -l 'masbr-type in (backup,restore,schedule,copy)' | awk '{print $1}'))
+
+for job_name in ${job_names[@]}; do
+    echo ""
+    echo "Checking Job [ ${job_name} ] ..."
+    job_yaml=$(oc get job/${job_name} -n ${namespace} -o yaml)
+    job_complete=$(echo "${job_yaml}" | yq '.status.conditions.[] | select(.type == "Complete") | .status')
+
+    if [[ "${job_complete}" == "True" ]]; then
+        job_complete_time=$(echo "${job_yaml}" | yq '.status.completionTime')
+        job_complete_ts=$(date +%s -d "${job_complete_time}")
+        echo "Job completion time: ${job_complete_time} (${job_complete_ts})"
+        
+        delta=$((current_ts - job_complete_ts))
+        if [ ${delta} -gt ${ttl} ]; then
+            echo "Job exceed TTL (+$((delta - ttl))s)"
+            oc delete job/${job_name} -n ${namespace}
+        else
+            echo "Job not exceed TTL (-$((ttl - delta))s)"
+        fi
+    else
+        echo "Job not complete"
+    fi
+done
+
+
+# Cleanup ConfigMaps
+cm_names=($(oc get cm -n ${namespace} --ignore-not-found=true --no-headers=true -l 'masbr-type in (backup,restore,schedule,copy)' | awk '{print $1}'))
+for cm_name in ${cm_names[@]}; do
+    echo ""
+    echo "Checking ConfigMap [ ${cm_name} ] ..."
+    cm_yaml=$(oc get cm/${cm_name} -n ${namespace} -o yaml)
+    masbr_type=$(echo "${cm_yaml}" | yq '.metadata.labels.masbr-type')
+
+    if [[ "${masbr_type}" == "schedule" ]]; then
+        if [[ "$(oc get cronjob -n ${namespace} --ignore-not-found=true --no-headers=true | grep ${cm_name} | wc -l)" == "0" ]]; then
+            echo "Not found related CronJob"
+            oc delete cm/${cm_name} -n ${namespace}
+        else
+            echo "Found related CronJob"
+        fi
+
+    else
+        if [[ "$(oc get job -n ${namespace} --ignore-not-found=true --no-headers=true | grep ${cm_name} | wc -l)" == "0" ]]; then
+            echo "Not found related Job"
+            oc delete cm/${cm_name} -n ${namespace}
+        else
+            echo "Found related Job"
+        fi
+    fi
+done

@@ -1,0 +1,24 @@
+---
+# Retrieve COS certificate chain
+# -----------------------------------------------------------------------------
+- name: Retrieve COS certificates using openssl
+  vars:
+    cos_host_name: "{{ cos_url | regex_replace('https://', '''') }}" # remove https if needed
+  shell:
+    cmd: "openssl s_client -servername {{ cos_host_name }} -connect {{ cos_host_name }}:443 -showcerts </dev/null  2>/dev/null"
+  register: get_certs_r
+  ignore_errors: true
+
+- name: "Extract COS certificate content"
+  set_fact:
+    cos_tls_crt: '{{ get_certs_r.stdout | regex_findall("(-----BEGIN .+?-----[\s\S]*?-----END .*?-----)", multiline=True, ignorecase=True) }}'
+
+- name: "Assert IBM COS certificate content exists - if applicable"
+  when: cos_type == 'ibm'
+  assert:
+    that: "{{ cos_tls_crt | length > 1 }}"  # must contain at least leaf and intermediate cert
+
+- name: "Assert AWS certificate content exists - if applicable"
+  when: cos_type == 'aws'
+  assert:
+    that: "{{ cos_tls_crt | length == 4 }}"

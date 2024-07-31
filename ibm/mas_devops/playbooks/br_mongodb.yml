@@ -1,0 +1,77 @@
+- name: "Backup/Restore MongoDB for MAS"
+  hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    # Define the target for backup/restore
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
+    mongodb_provider: "{{ lookup('env', 'MONGODB_PROVIDER') | default('community', true) }}"
+    mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', true) }}"
+
+    # Define what action to perform
+    masbr_action: "{{ lookup('env', 'MASBR_ACTION') }}"
+
+    # Define what to backup/restore
+    masbr_job_component:
+      name: "mongodb"
+      instance: "{{ mas_instance_id }}"
+      namespace: "{{ mongodb_namespace }}"
+
+    # Configure path to backup_restore tasks
+    role_path: "{{ [playbook_dir, '../common_tasks/backup_restore'] | path_join }}"
+
+  pre_tasks:
+    # Check for required environment variables
+    # -------------------------------------------------------------------------
+    - name: "Fail if mas_instance_id is not provided"
+      assert:
+        that: mas_instance_id is defined and mas_instance_id != ""
+        fail_msg: "mas_instance_id is required"
+
+    - name: "Fail if masbr_action is not set to backup|restore"
+      assert:
+        that: masbr_action in ["backup", "restore"]
+        fail_msg: "masbr_action is required and must be set to 'backup' or 'restore'"
+
+
+    # Common checks before run tasks
+    # -------------------------------------------------------------------------
+    - name: "Before run tasks"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
+      vars:
+        _job_type: "{{ masbr_action }}"
+
+  tasks:
+    # Create k8s Job to run backup/restore tasks
+    # -------------------------------------------------------------------------
+    - name: "Create k8s Job to run {{ masbr_action }} tasks"
+      when: masbr_create_task_job
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
+      vars:
+        _rt_playbook_name: "br_mongodb"
+        _rt_env:
+          - name: "MASBR_ACTION"
+            value: "{{ masbr_action }}"
+          - name: "MASBR_JOB_VERSION"
+            value: "{{ masbr_job_version }}"
+          - name: "MAS_INSTANCE_ID"
+            value: "{{ mas_instance_id }}"
+          - name: "MAS_APP_ID"
+            value: "{{ mas_app_id }}"
+          - name: "MONGODB_PROVIDER"
+            value: "{{ mongodb_provider }}"
+          - name: "MONGODB_NAMESPACE"
+            value: "{{ mongodb_namespace }}"
+
+
+    # Run backup/restore tasks locally
+    # -------------------------------------------------------------------------
+    - name: "Run {{ masbr_action }} tasks"
+      when: not masbr_create_task_job
+      block:
+        - name: "MongoDB: {{ masbr_action }}"
+          include_role:
+            name: ibm.mas_devops.mongodb
+          vars:
+            mongodb_action: "{{ masbr_action }}"

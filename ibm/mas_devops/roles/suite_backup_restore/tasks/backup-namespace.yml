@@ -1,0 +1,113 @@
+---
+# Update namespace resource backup status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update namespace resource backup status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "InProgress"
+
+
+- name: "Backup namespace resources"
+  block:
+    # Prepare namespace resource backup folder
+    # -------------------------------------------------------------------------
+    - name: "Set fact: namespace resource backup folder"
+      set_fact:
+        masbr_ns_backup_folder: "{{ masbr_local_job_folder }}/{{ masbr_job_data_type }}"
+        masbr_ns_backup_name: "{{ masbr_job_name }}-{{ masbr_job_data_type }}"
+
+    - name: "Set fact: namespace resource backup log"
+      set_fact:
+        masbr_ns_backup_log: "{{ masbr_local_job_folder }}/{{ masbr_ns_backup_name }}.log"
+
+    - name: "Create local backup folder for saving namespace resoruces"
+      changed_when: true
+      shell: >
+        mkdir -p {{ masbr_ns_backup_folder }} &&
+        touch {{ masbr_ns_backup_log }}
+
+
+    # Run backup namespace resource script
+    # -------------------------------------------------------------------------
+    - name: "Create backup namespace resource script"
+      template:
+        src: "{{ role_path }}/../../common_tasks/templates/backup_restore/backup-namespace-resources.sh.j2"
+        dest: "{{ masbr_local_job_folder }}/backup-namespace-resources.sh"
+        mode: "777"
+
+    - name: "Run backup namespace resource script"
+      changed_when: true
+      shell: >
+        {{ masbr_local_job_folder }}/backup-namespace-resources.sh
+      register: _script_output
+
+    - name: "Debug: run backup namespace resource script"
+      debug:
+        msg: "{{ _script_output.stdout_lines }}"
+
+
+    # Create tar.gz archives of namespace resource backup files
+    # -------------------------------------------------------------------------
+    - name: "Create tar.gz archives of namespace resource backup files"
+      changed_when: true
+      shell: >
+        tar -czf {{ masbr_local_job_folder }}/{{ masbr_ns_backup_name }}.tar.gz
+        -C {{ masbr_ns_backup_folder }} . &&
+        ls -lA {{ masbr_ns_backup_folder }}
+      register: _list_files_output
+
+    - name: "Debug: list of namespace resource backup files"
+      debug:
+        msg: "{{ _list_files_output.stdout_lines }}"
+
+
+    # Copy backup files to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Copy backup files to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "backup"
+        masbr_cf_job_name: "{{ masbr_job_name }}"
+        masbr_cf_paths:
+          - src_file: "{{ masbr_ns_backup_name }}.tar.gz"
+            dest_folder: "{{ masbr_job_data_type }}"
+
+
+    # Update namespace resource backup status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update namespace resource backup status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Completed"
+
+  rescue:
+    # Update namespace resource backup status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update namespace resource backup status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Failed"
+
+  always:
+    # Copy namespace resource backup log file to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of namespace resource backup log"
+      changed_when: true
+      shell: >
+        tar -czf {{ masbr_local_job_folder }}/{{ masbr_ns_backup_name }}-log.tar.gz
+        -C {{ masbr_local_job_folder }} {{ masbr_ns_backup_name }}.log
+
+    - name: "Copy namespace resource backup log file to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "backup"
+        masbr_cf_job_name: "{{ masbr_job_name_final }}"
+        masbr_cf_paths:
+          - src_file: "{{ masbr_local_job_folder }}/{{ masbr_ns_backup_name }}-log.tar.gz"
+            dest_folder: "log"
