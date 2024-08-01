@@ -20,7 +20,7 @@ class ActionModule(ActionBase):
         deployments = dynaClient.resources.get(api_version="v1", kind='Deployment')
         sts = dynaClient.resources.get(api_version="v1", kind='StatefulSet')
 
-        depResult = self._checkResources(deployments, "Deployments", retries, delay)
+        depResult = self._checkResources(deployments, "Deployments", 3, 60)
         stsResult = self._checkResources(sts, "StatefulSets", retries, delay)
 
         return dict(
@@ -52,6 +52,7 @@ class ActionModule(ActionBase):
           allResourcesHealthyThisLoop = True
           ready = []
           notReady = []
+          notReadyResources = []
           disabled = []
           ignored = []
           display.v(f"Checking {resourceName} are healthy ({attempts}/{retries} retries with a {delay} second delay)")
@@ -70,6 +71,7 @@ class ActionModule(ActionBase):
               if resource.status.replicas != resource.status.readyReplicas or resource.status.replicas != resource.status.updatedReplicas or resource.status.replicas != resource.status.availableReplicas:
                 display.v(f"[NOTREADY] {msg}")
                 notReady.append(msg)
+                notReadyResources.append(f"{resource.metadata.namespace}/{resource.metadata.name}")
                 allResourcesHealthyThisLoop = False
               else:
                 display.vvv(f"[READY]   {msg}")
@@ -98,5 +100,6 @@ class ActionModule(ActionBase):
           )
         else:
           display.v(f"Failure: allResourcesHealthy={allResourcesHealthy}")
-          errorMsg = f"Error: Below {resourceName} are not healthy: {'\n'.join(notReady)}"
-          raise AnsibleError(errorMsg)
+          
+          notReadyMsg = ', '.join(notReadyResources)
+          raise AnsibleError(f"Error: These {resourceName} are not healthy: {notReadyMsg}")
