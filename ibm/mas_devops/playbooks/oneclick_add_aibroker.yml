@@ -1,0 +1,49 @@
+---
+# Add AiBroker application
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    # Application Installation
+    mas_app_id: aibroker
+    mas_app_channel: "{{ lookup('env', 'MAS_AIBROKER_CHANNEL') | default('9.0.x', true) }}"
+    mas_icr_cp: "{{ lookup('env', 'MAS_ICR_CP') | default('cp.icr.io/cp', true) }}"
+    mas_icr_cpopen: "{{ lookup('env', 'MAS_ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
+
+    # MAS Entitlement
+    # -----------------------------------------------------------------------------
+    mas_entitlement_username: "{{ lookup('env', 'MAS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
+    ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
+    mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
+
+  pre_tasks:
+    # For the full set of supported environment variables refer to the playbook documentation
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'MAS_ENTITLEMENT_KEY') != ""
+          - lookup('env', 'MAS_INSTANCE_ID') != ""
+          - lookup('env', 'STORAGE_ACCESSKEY') != ""
+          - lookup('env', 'STORAGE_SECRETKEY') != ""
+          - lookup('env', 'STORAGE_HOST') != ""
+          - lookup('env', 'STORAGE_SSL') != ""
+          - lookup('env', 'STORAGE_PROVIDER') != ""
+          - lookup('env', 'STORAGE_PIPELINES_BUCKET') != ""
+          - lookup('env', 'STORAGE_TENANTS_BUCKET') != ""
+          - lookup('env', 'STORAGE_TEMPLATES_BUCKET') != ""
+          - lookup('env', 'WATSONXAI_PROJECT_ID') != ""
+          - lookup('env', 'WATSONXAI_APIKEY') != ""
+          - lookup('env', 'WATSONXAI_URL') != ""
+          - lookup('env', 'WATSONXAI_PROJECT_ID') != ""
+          - lookup('env', 'DB_HOST') != ""
+          - lookup('env', 'DB_PORT') != ""
+          - lookup('env', 'DB_USER') != ""
+          - lookup('env', 'DB_DATABASE') != ""
+          - lookup('env', 'DB_SECRET_NAME') != ""
+          - lookup('env', 'DB_SECRET_VALUE') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    - ibm.mas_devops.odh
+    - ibm.mas_devops.kmodels
+    - ibm.mas_devops.aibroker
