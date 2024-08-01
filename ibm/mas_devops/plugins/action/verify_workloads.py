@@ -20,7 +20,7 @@ class ActionModule(ActionBase):
         deployments = dynaClient.resources.get(api_version="v1", kind='Deployment')
         sts = dynaClient.resources.get(api_version="v1", kind='StatefulSet')
 
-        depResult = self._checkResources(deployments, "Deployments", 3, 60)
+        depResult = self._checkResources(deployments, "Deployments", retries, delay)
         stsResult = self._checkResources(sts, "StatefulSets", retries, delay)
 
         return dict(
