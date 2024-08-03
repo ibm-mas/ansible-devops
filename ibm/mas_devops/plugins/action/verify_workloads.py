@@ -52,6 +52,7 @@ class ActionModule(ActionBase):
           allResourcesHealthyThisLoop = True
           ready = []
           notReady = []
+          notReadyResources = []
           disabled = []
           ignored = []
           display.v(f"Checking {resourceName} are healthy ({attempts}/{retries} retries with a {delay} second delay)")
@@ -70,6 +71,7 @@ class ActionModule(ActionBase):
               if resource.status.replicas != resource.status.readyReplicas or resource.status.replicas != resource.status.updatedReplicas or resource.status.replicas != resource.status.availableReplicas:
                 display.v(f"[NOTREADY] {msg}")
                 notReady.append(msg)
+                notReadyResources.append(f"{resource.metadata.namespace}/{resource.metadata.name}")
                 allResourcesHealthyThisLoop = False
               else:
                 display.vvv(f"[READY]   {msg}")
@@ -98,4 +100,6 @@ class ActionModule(ActionBase):
           )
         else:
           display.v(f"Failure: allResourcesHealthy={allResourcesHealthy}")
-          raise AnsibleError(f"Error: One or more {resourceName} are not healthy")
+          
+          notReadyMsg = ', '.join(notReadyResources)
+          raise AnsibleError(f"Error: These {resourceName} are not healthy: {notReadyMsg}")
