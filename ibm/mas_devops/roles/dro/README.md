@@ -5,7 +5,10 @@ DRO will be supported on the following MAS versions
 - MAS 8.11.2 +
 - MAS 9.0 +
 
-Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-marketplace-operator/tree/develop/datareporter/v2) in the `redhat-marketplace` namespace.  If `mas_instance_id` and the others associated parameters are provided then the role will also generate a configuration file that can be directly applied to IBM Maximo Application Suite.
+Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-marketplace-operator/tree/develop/datareporter/v2) in the `ibm-software-central` namespace.  If `mas_instance_id` and the others associated parameters are provided then the role will also generate a configuration file that can be directly applied to IBM Maximo Application Suite.
+
+!!! note
+    From v2.16.0, The default namespace DRO has been changed to `ibm-software-central`. all prior releases of DRO used `redhat-marketplace`. If you have installed MAS or DRO prior to June 17th 2024, Your DRO install can be found in `redhat-marketplace` and this will continue to run within the same namespace with out any downtime. Only new DRO Installs made after June 17th 2024 will use `ibm-software-central`.
 
 
 Role Variables - Installation
@@ -26,7 +29,7 @@ Inform the role whether to perform an install or uninstall of Data Reporter Oper
 DRO can be installed on a different namespace, on certain type of OCP clusters where redhat* namespaces have restricted access, User can configure and install DRO on a custom namespace of their choosing by supplying a name using `DRO_NAMESPACE`
 
 - Environment Variable: `DRO_NAMESPACE`
-- Default Value: redhat-marketplace
+- Default Value: ibm-software-central
 
 ### dro_migration
 To migrate from `IBM User Data Services` to `ibm-data-reporter`, set `DRO_MIGRATION` variable to `True`.
@@ -65,14 +68,14 @@ Local directory to save the generated BasCfg resource definition.  This can be u
 - Default Value: None
 
 ### dro_endpoint_url
-  DRO url from ibm-data-reporter route found in redhat-marketplace namespace, this variable is needed if you wish to connect to an existing DRO instance.
+  DRO url from ibm-data-reporter route found in ibm-software-central namespace, this variable is needed if you wish to connect to an existing DRO instance.
 
 - Optional
 - Environment Variable: `DRO_ENDPOINT_URL`
 - Default Value: None
 
 ### dro_api_key
-  DRO api_key is a token obtained from ibm-data-reporter-operator-api-token secret found in redhat-marketplace namespace, this variable is needed if you wish to connect to an existing DRO instance.
+  DRO api_key is a token obtained from ibm-data-reporter-operator-api-token secret found in ibm-software-central namespace, this variable is needed if you wish to connect to an existing DRO instance.
 
 - Optional
 - Environment Variable: `DRO_APIKEY`
@@ -192,6 +195,29 @@ ansible-playbook playbooks/run_role.yml
   roles:
   - ibm.mas_devops.dro
 ```
+
+Verify DRO Install Status
+-------------------------------------------------------------------------------
+
+### DRO status API
+
+Get Token & Host
+```
+oc project ibm-software-central
+export DRTOKEN=$(oc create token ibm-data-reporter-operator-api --namespace ibm-software-central --duration 1h)
+export DRHOST=$(oc get route ibm-data-reporter --template='{{ .spec.host }}')
+```
+
+Get the Status
+```
+curl -k -H "Authorization: Bearer ${DRTOKEN}" https://${DRHOST}/v1/status 
+```
+
+Expected response
+```
+{"Name":"Data Reporter Operator","Version":"2.16.0"}      
+```
+
 License
 -------------------------------------------------------------------------------
 EPL-2.0
