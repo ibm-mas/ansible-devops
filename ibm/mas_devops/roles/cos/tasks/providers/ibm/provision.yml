@@ -91,31 +91,35 @@
 
 # 4. Create authentication credentials for the instance
 # ---------------------------------------------------------------------------------------------------------------------
-- name: "ibm : Create a cos service credential for this MAS instance"
+- name: "ibm : Create a cos service credential with HMAC for this MAS instance"
   ibm.cloudcollection.ibm_resource_key:
     name: "{{ mas_instance_id }}-key"
     role: "{{ cos_resource_key_iam_role }}"
     resource_instance_id: "{{ cos_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    parameters:
+      HMAC: true  # Enable HMAC
 
-- name: "ibm : Retrieve cos service credential for this MAS instance"
+- name: "ibm : Retrieve cos service credential with HMAC for this MAS instance"
   ibm.cloudcollection.ibm_resource_key_info:
     name: "{{ mas_instance_id }}-key"
     resource_instance_id: "{{ cos_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
   register: cos_key_info
 
-- name: "ibm : Debug COS Key Resource"
+- name: "ibm : Debug COS Key Resource with HMAC"
   debug:
     msg:
       - "COS Key resource ... {{ cos_key_info.resource }}"
+      - "COS HMAC Access Key ... {{ cos_key_info.resource.credentials.cos_hmac_keys.access_key_id }}"
+      - "COS HMAC Secret Key ... {{ cos_key_info.resource.credentials.cos_hmac_keys.secret_access_key }}"
 
-- name: "ibm : Set cos_password variable"
+- name: "ibm : Set cos_password variable with HMAC"
   when: cos_key_info.resource.credentials is defined
   set_fact:
     cos_password: "{{ cos_key_info.resource.credentials.apikey }};{{ cos_key_info.resource.credentials.resource_instance_id }}"
-
-
+    cos_hmac_access_key: "{{ cos_key_info.resource.credentials.cos_hmac_keys.access_key_id }}"
+    cos_hmac_secret_key: "{{ cos_key_info.resource.credentials.cos_hmac_keys.secret_access_key }}"
 # 5. Save the ObjectStorageCfg to local disk
 # ---------------------------------------------------------------------------------------------------------------------
 - name: Copy objectstorageCfg to filesytem
