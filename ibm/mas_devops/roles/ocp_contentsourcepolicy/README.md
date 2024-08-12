@@ -1,9 +1,9 @@
-ocp_contentsourcepolicies
+ocp_contentsourcepolicy
 ===============================================================================
 Installs an ImageContentSourcePolicy for IBM Maximo Application Suite's Maximo Operator Catalog.  Optionally can also install a second ContentSourcePolicy suitable for the Red Hat Operator Catalogs created by [mirror_ocp](mirror_ocp.md).
 
 !!! warning
-   This role doesn't work on IBMCloud ROKS.  IBM Cloud RedHat OpenShift Service does not implement support for `ImageContentSourcePolicies`.  If you want to use image mirroring you must manually configure each worker node individually using the IBM Cloud command line tool.
+    This role doesn't work on IBMCloud ROKS.  IBM Cloud RedHat OpenShift Service does not implement support for `ImageContentSourcePolicies`.  If you want to use image mirroring you must manually configure each worker node individually using the IBM Cloud command line tool.
 
 IBM Maximo Operator Catalog Content
 -------------------------------------------------------------------------------
