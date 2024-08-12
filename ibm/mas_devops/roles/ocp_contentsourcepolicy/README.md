@@ -1,9 +1,58 @@
 ocp_contentsourcepolicies
-=========================
+===============================================================================
 Installs an ImageContentSourcePolicy for IBM Maximo Application Suite's Maximo Operator Catalog.  Optionally can also install a second ContentSourcePolicy suitable for the Red Hat Operator Catalogs created by [mirror_ocp](mirror_ocp.md).
 
 !!! warning
-   This doesn't work on IBMCloud ROKS.  IBM Cloud RedHat OpenShift Service does not implement support for `ImageContentSourcePolicies`.  If you want to use image mirroring you must manually configure each worker node individually using the IBM Cloud command line tool.
+   This role doesn't work on IBMCloud ROKS.  IBM Cloud RedHat OpenShift Service does not implement support for `ImageContentSourcePolicies`.  If you want to use image mirroring you must manually configure each worker node individually using the IBM Cloud command line tool.
+
+IBM Maximo Operator Catalog Content
+-------------------------------------------------------------------------------
+All content used in the MAS install is sourced from three registries: **icr.io**, **cp.icr.io**, & **quay.io**:
+
+- **icr.io/cpopen** All IBM operators
+- **icr.io/ibm-truststore-mgr** IBM truststore manager worker image
+- **icr.io/ibm-sls** IBM SLS content
+- **icr.io/ibm-uds** IBM UDS content
+- **icr.io/db2u** IBM Db2 Universal operator content
+- **cp.icr.io/cp** All IBM entitled container images
+- **quay.io/opencloudio** IBM common services
+- **quay.io/mongodb** MongoDb Community Edition Operator & associated container images
+- **quay.io/amlen** Eclipse Amlen - Message Broker for IoT/Mobile/Web
+- **quay.io/ibmmas** Non-product IBM Maximo Application Suite images (e.g. MAS CLI)
+
+Red Hat Operator Catalog Content
+-------------------------------------------------------------------------------
+All content from the subset of the Red Hat operator catalogs supported by [mirror_ocp](mirror_ocp.md) is sourced from eight registries: **icr.io**, **docker.io**, **quay.io**, **gcr.io**, **ghcr.io**, **nvcr.io**, **registry.connect.redhat.com**, and **registry.redhat.io**:
+
+- **icr.io/cpopen**
+- **docker.io/grafana**
+- **quay.io/community-operator-pipeline-prod**
+- **quay.io/operator-pipeline-prod**
+- **quay.io/openshift-community-operators**
+- **quay.io/strimzi**
+- **quay.io/rh-marketplace**
+- **gcr.io/kubebuilder**
+- **ghcr.io/grafana**
+- **ghcr.io/open-telemetry**
+- **nvcr.io/nvidia**
+- **registry.connect.redhat.com/crunchydata**
+- **registry.connect.redhat.com/nvidia**
+- **registry.connect.redhat.com/turbonomic**
+- **registry.connect.redhat.com/rh-marketplace**
+- **registry.redhat.io/openshift4**
+- **registry.redhat.io/source-to-image**
+- **registry.redhat.io/odf4**
+- **registry.redhat.io/cert-manager**
+- **registry.redhat.io/rhceph**
+- **registry.redhat.io/amq-streams**
+- **registry.redhat.io/ubi8**
+- **registry.redhat.io/openshift-pipelines**
+- **registry.redhat.io/openshift-serverless-1**
+
+!!! note
+    A content source policy for this content is only configured when **setup_redhat_catalogs** is set to `True`.
+
+If you are managing the Red Hat Operator Catalogs yourself the content therein may well be different depending how you have configured mirroring.
 
 
 Role Variables
@@ -23,7 +72,7 @@ Instruct the role to setup **CatalogSources** and **ContentSourcePolicy** for th
 - Default: `False`
 
 ### ocp_release
-The Red Hat release you are configuring an image content source policy for, e.g. `4.12`.
+The Red Hat release you are configuring an image content source policy for, e.g. `4.15`.
 
 - **Required** if `setup_redhat_catalogs` is enabled (not required if only `setup_redhat_release` is used)
 - Environment Variable: `OCP_RELEASE`
@@ -92,16 +141,3 @@ License
 -------------------------------------------------------------------------------
 
 EPL-2.0
-
-# Get Registry facts from environment variables if they have not been passed to the role
-registry_private_host: "{{ lookup('env', 'REGISTRY_PRIVATE_HOST') }}"
-registry_private_port: "{{ lookup('env', 'REGISTRY_PRIVATE_PORT') }}"
-registry_private_url: "{{ registry_private_host }}:{{ registry_private_port }}"
-
-registry_private_ca_file: "{{ lookup('env', 'REGISTRY_PRIVATE_CA_FILE') }}"
-
-registry_username: "{{ lookup('env', 'REGISTRY_USERNAME') }}"
-registry_password: "{{ lookup('env', 'REGISTRY_PASSWORD') }}"
-registry_auth: "{{ registry_username }}:{{ registry_password }}"
-
-setup_redhat_catalogs: "{{ lookup('env', 'SETUP_REDHAT_CATALOGS') | default('False', true) | bool }}"
