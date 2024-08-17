@@ -91,6 +91,12 @@ When set to `true` will result in the creation of `filebeat-output` Secret in th
 - Environment Variable: `ECK_ENABLE_LOGSTASH`
 - Default: `false`
 
+### mas_enable_walkme
+Boolean variable that indicates whether to enable guided tour.
+
+- Optional
+- Environment Variable: `MAS_ENABLE_WALKME`
+- Default: `true`
 
 Role Variables - Superuser Account
 -------------------------------------------------------------------------------
