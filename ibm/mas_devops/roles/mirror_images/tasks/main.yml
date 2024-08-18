@@ -65,11 +65,21 @@
 - name: "Remove any container images with a tag ending in '-{arch}'"
   when: mirror_single_arch in ["amd64", "ppc64le", "s390x"]
   ansible.builtin.lineinfile:
-    path: "{{ mirror_working_dir }}/manifests/to-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt"
+    path: "{{ mirror_working_dir }}/manifests/{{ mirror_mode }}/{{ manifest_name }}_{{ manifest_version }}.txt"
     state: absent
     regexp: '-{{ item }}$'
     backup: true
   with_items: "{{ exclude_arch }}"
+
+# Special case for Db2u
+# https://github.com/ibm-mas/ansible-devops/issues/1075
+- name: "Remove CP4D Db2u images (11.5.8.0)"
+  when: manifest_name == "ibm-db2uoperator"
+  ansible.builtin.lineinfile:
+    path: "{{ mirror_working_dir }}/manifests/{{ mirror_mode }}/{{ manifest_name }}_{{ manifest_version }}.txt"
+    state: absent
+    regexp: '11.5.8.0'
+    backup: true
 
 
 # 4A. Execute the mirror (to filesystem)
