@@ -10,6 +10,16 @@
       - mirror_working_dir is defined and mirror_working_dir != ""
     fail_msg: "One or more required properties are missing"
 
+- name: "{{ manifest_name }} : Debug"
+  debug:
+    msg:
+      - "Manifest Name .......................... {{ manifest_name }}"
+      - "Manifest Version ....................... {{ manifest_version }}"
+      - "Mirror Single Architecture ............. {{ mirror_single_arch | default('<not set>', True) }}"
+      - "Working Directory ...................... {{ mirror_working_dir }}"
+      - "Mode ................................... {{ mirror_mode }}"
+      - "Auth File .............................. {{ auth_file }}"
+
 
 # 2. Set up auth secret
 # -----------------------------------------------------------------------------
@@ -24,17 +34,55 @@
     dest: "{{ auth_file }}"
   no_log: true
 
-- name: "{{ manifest_name }} : Debug"
-  debug:
-    msg:
-      - "Manifest Name .......................... {{ manifest_name }}"
-      - "Manifest Version ....................... {{ manifest_version }}"
-      - "Working Directory ...................... {{ mirror_working_dir }}"
-      - "Mode ................................... {{ mirror_mode }}"
-      - "Auth File .............................. {{ auth_file }}"
+
+# 3. Modify the manifest
+# -----------------------------------------------------------------------------
+- name: Validate that mirror_single_arch is correctly set
+  assert:
+    that: mirror_single_arch in ["", "amd64", "ppc64le", "s390x"]
+
+- name: Set up exclusion rules for amd64
+  when: mirror_single_arch == "amd64"
+  set_fact:
+    exclude_arch:
+      - s390x
+      - ppc64le
+
+- name: Set up exclusion rules for ppc64le
+  when: mirror_single_arch == "ppc64le"
+  set_fact:
+    exclude_arch:
+      - s390x
+      - amd64
+
+- name: Set up exclusion rules for s390x
+  when: mirror_single_arch == "s390x"
+  set_fact:
+    exclude_arch:
+      - amd64
+      - ppc64le
+
+- name: "Remove any container images with a tag ending in '-{arch}'"
+  when: mirror_single_arch in ["amd64", "ppc64le", "s390x"]
+  ansible.builtin.lineinfile:
+    path: "{{ mirror_working_dir }}/manifests/{{ mirror_mode }}/{{ manifest_name }}_{{ manifest_version }}.txt"
+    state: absent
+    regexp: '-{{ item }}$'
+    backup: true
+  with_items: "{{ exclude_arch }}"
+
+# Special case for Db2u
+# https://github.com/ibm-mas/ansible-devops/issues/1075
+- name: "Remove CP4D Db2u images (11.5.8.0)"
+  when: manifest_name == "ibm-db2uoperator"
+  ansible.builtin.lineinfile:
+    path: "{{ mirror_working_dir }}/manifests/{{ mirror_mode }}/{{ manifest_name }}_{{ manifest_version }}.txt"
+    state: absent
+    regexp: '11.5.8.0'
+    backup: true
 
 
-# 3A. Execute the mirror (to filesystem)
+# 4A. Execute the mirror (to filesystem)
 # -----------------------------------------------------------------------------
 - name: "{{ manifest_name }} : Mirror Images to local filesystem"
   when: mirror_mode == "to-filesystem"
@@ -65,7 +113,7 @@
         fail_msg: "Image mirroring failed (see debug information above)."
 
 
-# 3B. Execute the mirror (from filesystem)
+# 4B. Execute the mirror (from filesystem)
 # -----------------------------------------------------------------------------
 - name: "{{ manifest_name }} : Mirror Images from local filesystem"
   when: mirror_mode == "from-filesystem"
@@ -96,7 +144,7 @@
         fail_msg: "Image mirroring failed (see debug information above)."
 
 
-# 3C. Execute the mirror (direct)
+# 4C. Execute the mirror (direct)
 # -----------------------------------------------------------------------------
 - name: "Mirror Images directly"
   when: mirror_mode == "direct"
