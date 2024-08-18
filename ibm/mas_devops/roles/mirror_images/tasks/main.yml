@@ -42,21 +42,21 @@
     that: mirror_single_arch in ["", "amd64", "ppc64le", "s390x"]
 
 - name: Set up exclusion rules for amd64
-  when: mirror_single_arch == amd64
+  when: mirror_single_arch == "amd64"
   set_fact:
     exclude_arch:
       - s390x
       - ppc64le
 
 - name: Set up exclusion rules for ppc64le
-  when: mirror_single_arch == ppc64le
+  when: mirror_single_arch == "ppc64le"
   set_fact:
     exclude_arch:
       - s390x
       - amd64
 
 - name: Set up exclusion rules for s390x
-  when: mirror_single_arch == s390x
+  when: mirror_single_arch == "s390x"
   set_fact:
     exclude_arch:
       - amd64
@@ -67,7 +67,7 @@
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/to-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt"
     state: absent
-    regexp: '-{{ arch }}$'
+    regexp: '-{{ item }}$'
     backup: true
   with_items: "{{ exclude_arch }}"
 
