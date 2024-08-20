@@ -87,8 +87,7 @@
   when: cos_info.resource.id is defined
   set_fact:
     cos_resource_id: "{{ cos_info.resource.id }}"
-    use_hmac: "{{mas_config_scope=='app' | ternary(true,false)}}"
-
+    
 # 4. Create authentication credentials for the instance
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "ibm : Create a cos service credential for this MAS instance"
@@ -116,6 +115,10 @@
   when: cos_key_info.resource.credentials is defined
   set_fact:
     cos_password: "{{ cos_key_info.resource.credentials.apikey }};{{ cos_key_info.resource.credentials.resource_instance_id }}"
+    
+- name: "ibm : Set cos_hmac_access_key and cos_hmac_secret_key variable"
+  when: cos_key_info.resource.credentials is defined and use_hmac is defined and use_hmac
+  set_fact:
     cos_hmac_access_key: "{{ cos_key_info.resource.credentials.cos_hmac_keys.access_key_id }}"
     cos_hmac_secret_key: "{{ cos_key_info.resource.credentials.cos_hmac_keys.secret_access_key }}"
 
