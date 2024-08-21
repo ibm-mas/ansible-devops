@@ -8,19 +8,37 @@
 
 # 2. Ensure User Workload Monitoring is Enabled
 # -----------------------------------------------------------------------------
-- name: "install : Get User Workload Monitoring Token"
-  kubernetes.core.k8s_info:
-    api: v1
-    kind: Secret
-    name: prometheus-user-workload-token
-    namespace: openshift-user-workload-monitoring
-  register: uwm_secret_lookup
-  no_log: true
+- block:
+  - name: "install : Check User Workload Monitoring Workspace"
+    kubernetes.core.k8s_info:
+      api: v1
+      kind: namespace
+      name: openshift-user-workload-monitoring
+      namespace: openshift-user-workload-monitoring
+    register: uwm_workspace
 
-- name: "install : Configure User Workload Monitoring"
-  when: uwm_secret_lookup.resources | length == 0
-  kubernetes.core.k8s:
-    template: templates/cluster-monitoring-config.yml.j2
+  - name: "install : Configure User Workload Monitoring"
+    when: uwm_workspace.resources | length == 0
+    kubernetes.core.k8s:
+      template: templates/cluster-monitoring-config.yml.j2
+
+  - name: "install : Confirm User Workload Monitoring Workspace"
+    kubernetes.core.k8s_info:
+      api: v1
+      kind: namespace
+      name: openshift-user-workload-monitoring
+      namespace: openshift-user-workload-monitoring
+    register: uwm_workspace
+    until:
+      - uwm_workspace.resources | length > 0
+    retries: 10
+    delay: 60
+
+  rescue:
+    - fail:
+      msg: >
+        openshift-user-workload-monitoring namespace not found
+        clustermonitoring may not be configured correctly
 
 
 # 3. Install and configure Grafana
