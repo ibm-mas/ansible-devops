@@ -180,6 +180,11 @@ Optional. Flag indicating if manage demodata should be loaded or not.
 - Environment Variable: `MAS_APP_SETTINGS_DEMODATA`
 - Default: `false` (do not load demodata)
 
+### "{{ mas_app_settings_db2vargraphic | bool }}"
+Optional. Flag indicating if VARGRAPHIC (if true) or VARCHAR (if false) is used.
+
+- Default: `true` (use VARGRAPHIC)
+
 ### mas_app_settings_tablespace
 Optional. Name of the Manage database tablespace
 
