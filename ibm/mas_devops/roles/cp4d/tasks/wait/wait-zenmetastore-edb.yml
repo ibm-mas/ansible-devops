@@ -22,19 +22,19 @@
   retries: 40 # Give 20 minutes for the pods to become ready
   delay: 30
   until: >-
-    zenmetastoreCluster.resources[0].spec.instances is defined 
-    and zenmetastoreCluster.resources[0].status.readyInstances is defined 
+    zenmetastoreCluster.resources[0].spec.instances is defined
+    and zenmetastoreCluster.resources[0].status.readyInstances is defined
     and zenmetastoreCluster.resources[0].spec.instances == zenmetastoreCluster.resources[0].status.readyInstances
   #ignore-errors: true # If this fails then we restart pending pods below
   failed_when: false
-  
+
 # 2. Restart any ZenMetastore pods that are still Pending
 # -----------------------------------------------------------------------------
 - set_fact:
     is_zenmetastore_ready: true
   when:
-    zenmetastoreCluster.resources[0].spec.instances is defined 
-    and zenmetastoreCluster.resources[0].status.readyInstances is defined 
+    zenmetastoreCluster.resources[0].spec.instances is defined
+    and zenmetastoreCluster.resources[0].status.readyInstances is defined
     and zenmetastoreCluster.resources[0].spec.instances == zenmetastoreCluster.resources[0].status.readyInstances
 
 - name: "wait-zenmetastore-edb : Detecting and restarting pending ZenMetastore Pods"
@@ -62,7 +62,7 @@
         state: absent
         api_version: v1
         kind: Pod
-        namespace: "{{ cpd_instance_namespace }}" 
+        namespace: "{{ cpd_instance_namespace }}"
         name: "{{ item }}"
       loop: "{{ pending_pod_names }}"
 
@@ -77,13 +77,13 @@
       retries: 40 # Give another 20 minutes for the pods to become ready
       delay: 30
       until: >-
-        zenmetastoreCluster.resources[0].spec.instances is defined 
-        and zenmetastoreCluster.resources[0].status.readyInstances is defined 
+        zenmetastoreCluster.resources[0].spec.instances is defined
+        and zenmetastoreCluster.resources[0].status.readyInstances is defined
         and zenmetastoreCluster.resources[0].spec.instances == zenmetastoreCluster.resources[0].status.readyInstances
       failed_when: false # We handle and log the failure below.
 
     - name: "wait-zenmetastore-edb : Fail if ZenMetastore pods are not ready"
-      block: 
+      block:
         - name: "install-cp4d : Get Pending ZenMetastore Pods"
           kubernetes.core.k8s_info:
             api_version: v1
@@ -99,6 +99,5 @@
             msg:
               - "ZenMetastore pods are not ready Instances required: {{ zenmetastoreCluster.resources[0].spec.instances }}, ready: {{ zenmetastoreCluster.resources[0].status.readyInstances }}"
               - "Pending ZenMetastore Pods: {{ pending_pod_lookup.resources | map(attribute='metadata.name') }}"
-      when: 
+      when:
         zenmetastoreCluster.resources[0].spec.instances != zenmetastoreCluster.resources[0].status.readyInstances
-

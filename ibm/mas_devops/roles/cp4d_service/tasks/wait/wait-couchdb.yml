@@ -14,7 +14,7 @@
     and couchdbStatefulSet.resources[0].status.replicas is defined
     and couchdbStatefulSet.resources[0].status.replicas == 0 )
     or ( couchdbStatefulSet.resources[0].status is defined
-    and couchdbStatefulSet.resources[0].status.updatedReplicas is defined 
+    and couchdbStatefulSet.resources[0].status.updatedReplicas is defined
     and couchdbStatefulSet.resources[0].status.replicas == couchdbStatefulSet.resources[0].status.updatedReplicas ))
 
 
@@ -29,17 +29,17 @@
   retries: 10 # Give 5 minutes for the pods to become ready
   delay: 30
   until: >-
-    couchdbStatefulSet.resources[0].status.readyReplicas is defined 
+    couchdbStatefulSet.resources[0].status.readyReplicas is defined
     and couchdbStatefulSet.resources[0].status.replicas == couchdbStatefulSet.resources[0].status.readyReplicas
   #ignore-errors: true # If this fails then we restart pending pods below
   failed_when: false
-  
+
 # 2. Restart any couchDB pods that are still Pending
 # -----------------------------------------------------------------------------
 - set_fact:
     is_couchdb_ready: true
   when:
-    couchdbStatefulSet.resources[0].status.readyReplicas is defined 
+    couchdbStatefulSet.resources[0].status.readyReplicas is defined
     and couchdbStatefulSet.resources[0].status.replicas == couchdbStatefulSet.resources[0].status.readyReplicas
 
 - name: "wait-couchdb: Detecting and restarting pending CouchDB Pods"
@@ -66,7 +66,7 @@
         state: absent
         api_version: v1
         kind: Pod
-        namespace: "{{ cpd_instance_namespace }}" 
+        namespace: "{{ cpd_instance_namespace }}"
         name: "{{ item }}"
       loop: "{{ pending_pod_names }}"
 
@@ -81,12 +81,12 @@
       retries: 10 # Give another 5 minutes for the pods to become ready
       delay: 30
       until: >-
-        couchdbStatefulSet.resources[0].status.readyReplicas is defined 
+        couchdbStatefulSet.resources[0].status.readyReplicas is defined
         and couchdbStatefulSet.resources[0].status.replicas == couchdbStatefulSet.resources[0].status.readyReplicas
       failed_when: false # We handle and log the failure below.
 
     - name: "wait-couchdb: Fail if CouchDB pods are not ready"
-      block: 
+      block:
         - name: "install-cp4d : Get Pending CouchDB Pods"
           kubernetes.core.k8s_info:
             api_version: v1
@@ -102,7 +102,7 @@
             msg:
               - "CouchDB pods are not ready {{ couchdbStatefulSet.resources[0].status }}"
               - "Pending CouchDB Pods: {{ pending_pod_lookup.resources | map(attribute='metadata.name') }}"
-      when: 
+      when:
         couchdbStatefulSet.resources[0].status.replicas != couchdbStatefulSet.resources[0].status.readyReplicas
 
   when: is_couchdb_ready is not defined
