@@ -30,6 +30,7 @@ Three **Catalogs** are mirrored, containing the following content:
 5. local-storage-operator (required by ibm.mas_devops.ocs role)
 6. odf-operator (required by ibm.mas_devops.ocs role)
 7. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
+8. lvms-operator (not directly used, but often used in SNO environments)
 
 Requirements
 -------------------------------------------------------------------------------
