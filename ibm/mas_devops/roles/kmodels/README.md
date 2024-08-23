@@ -16,21 +16,21 @@ Role Variables
 
 The tenant name for Kmodels role.
 
-* Environment Variable: `TENANT_NAME`
+* Environment Variable: `MAS_AIBROKER_TENANT_NAME`
 * Default Value: `user`
 
 ### storage_piplines_bucket
 
 The storage piplines bucket for Kmodels role.
 
-* Environment Variable: `STORAGE_PIPELINES_BUCKET`
+* Environment Variable: `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`
 * Default Value: ``
 
 ### storage_tenants_bucket
 
 The storage tenants bucket for Kmodels role.
 
-* Environment Variable: `STORAGE_TENANTS_BUCKET`
+* Environment Variable: `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`
 * Default Value: ``
 
 ## License

@@ -23,7 +23,7 @@ Action to be performed by AI Broker role. Valid values are `install` or `remove`
 
 The tenant name for AI Broker role.
 
-* Environment Variable: `TENANT_NAME`
+* Environment Variable: `MAS_AIBROKER_TENANT_NAME`
 * Default Value: `user`
 
 ### app_domain
@@ -33,67 +33,67 @@ The application domain for AI Broker role. Valid values is domain string `apps.d
 * Environment Variable: `APP_DOMAIN`
 * Default Value: ``
 
-### s3_action
+### mas_aibroker_s3_action
 
 Action to be performed by AI Broker role. Valid values are `install` or `remove`
 
-* Environment Variable: `S3_ACTION`
+* Environment Variable: `MAS_AIBROKER_S3_ACTION`
 * Default Value: `install`
 
-### storage_host
+### mas_aibroker_storage_host
 
 The storge host for AI Broker role.
 
-* Environment Variable: `STORAGE_HOST`
+* Environment Variable: `MAS_AIBROKER_STORAGE_HOST`
 * Default Value: ``
 
-### storage_accesskey
+### mas_aibroker_storage_accesskey
 
 The storage accesskey for AI Broker role.
 
-* Environment Variable: `STORAGE_ACCESSKEY`
+* Environment Variable: `MAS_AIBROKER_STORAGE_ACCESSKEY`
 * Default Value: ``
 
-### storage_secretkey
+### mas_aibroker_storage_secretkey
 
 The storage secretkey for AI Broker role. 
 
-* Environment Variable: `STORAGE_SECRETKEY`
+* Environment Variable: `MAS_AIBROKER_STORAGE_SECRETKEY`
 * Default Value: ``
 
-### storage_region
+### mas_aibroker_storage_region
 
 The storage region for AI Broker role.
 
-* Environment Variable: `STORAGE_REGION`
+* Environment Variable: `MAS_AIBROKER_STORAGE_REGION`
 * Default Value: ``
 
-### watsonx_action
+### mas_aibroker_watsonx_action
 
 Action to be performed by AI Broker role. Valid values are `install` or `remove`
 
-* Environment Variable: `WATSONX_ACTION`
+* Environment Variable: `MAS_AIBROKER_WATSONX_ACTION`
 * Default Value: `install`
 
-### watsonxai_apikey
+### mas_aibroker_watsonxai_apikey
 
 The watsonxai apikey for AI Broker role.
 
-* Environment Variable: `WATSONXAI_APIKEY`
+* Environment Variable: `MAS_AIBROKER_WATSONXAI_APIKEY`
 * Default Value: ``
 
-### watsonxai_url
+### mas_aibroker_watsonxai_url
 
 The watsonxai url for AI Broker role.
 
-* Environment Variable: `WATSONXAI_URL`
+* Environment Variable: `MAS_AIBROKER_WATSONXAI_URL`
 * Default Value: ``
 
-### watsonxai_project_id
+### mas_aibroker_watsonxai_project_id
 
 The watsonxai project id for AI Broker role.
 
-* Environment Variable: `WATSONXAI_PROJECT_ID`
+* Environment Variable: `MAS_AIBROKER_WATSONXAI_PROJECT_ID`
 * Default Value: ``
 
 License

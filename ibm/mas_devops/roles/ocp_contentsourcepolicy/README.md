@@ -48,6 +48,7 @@ All content from the subset of the Red Hat operator catalogs supported by [mirro
 - **registry.redhat.io/ubi8**
 - **registry.redhat.io/openshift-pipelines**
 - **registry.redhat.io/openshift-serverless-1**
+- **registry.redhat.io/lvms4**
 
 !!! note
     A content source policy for this content is only configured when **setup_redhat_catalogs** is set to `True`.
