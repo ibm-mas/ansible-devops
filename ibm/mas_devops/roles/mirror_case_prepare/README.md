@@ -37,6 +37,12 @@ The public port for the target registry.  The images will not be mirrored to the
 - Environment Variable: `REGISTRY_PUBLIC_PORT`
 - Default: None
 
+### registry_prefix
+The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: {host}:{port}/{prefix}/{reponame}
+
+- Environment Variable: `REGISTRY_PREFIX`
+- Default: None
+
 ### exclude_images
 A list of child CASE bundles to exclude from the mirroring process.
 
@@ -87,6 +93,7 @@ Example Playbook
 
     registry_public_host: myregistry.com
     registry_public_port: 32500
+    registry_prefix: projectName
 
   roles:
     - ibm.mas_devops.mirror_case_prepare
