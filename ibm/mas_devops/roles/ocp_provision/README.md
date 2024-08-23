@@ -18,8 +18,12 @@ Required.  Specify the name of the cluster
 - Default Value: None
 
 ### ocp_version
-Required.  Specify the version of OCP to install.  The exact format of this will vary depending on `cluster_type`.  For ROKS clusters the format is `4.6_openshift`, `4.8_openshift`, for Fyre it is `4.6.16`.
+Required.  
 
+- Supported Values:
+  - Specific version of OCP to install.  The exact format of this will vary depending on `cluster_type`.  For ROKS clusters the format is `4.6_openshift`, `4.8_openshift`, for Fyre it is `4.6.16`. For Fyre and Roks the patch version is optional eg for fyre `4.15` will install the latest supported 4.15 patch version.
+  - `default` - uses the version that has been deemed the default, typically the most recently supported version
+  - `rotate` - chooses a version based on the day of the week 
 - Environment Variable: `OCP_VERSION`
 - Default Value: None
 
