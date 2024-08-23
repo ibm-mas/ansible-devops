@@ -169,9 +169,9 @@ Optional. Flag indicating if Asset Investment Optimization (AIO) resource must b
 ---
 
 ### mas_app_settings_db_schema
-Optional. Name of the schema where Manage database lives in. Code also supports legacy mas_app_settings_db2_schema variable name.
+Optional. Name of the schema where Manage database lives in. Code also supports deprecated `mas_app_settings_db2_schema` variable name.
 
-- Environment Variable: MAS_APP_SETTINGS_DB_SCHEMA') |
+- Environment Variable: `MAS_APP_SETTINGS_DB_SCHEMA`
 - Default: `maximo`
 
 ### mas_app_settings_demodata
