@@ -185,7 +185,7 @@ Storage class used for backup. This must support ReadWriteMany
 
 - Optional
 - Environment Variable: `DB2_BACKUP_STORAGE_CLASS`
-- Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster. Set to `""` will drop the backup storage on DB2ucluster CR.
+- Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster. Set to `None` will drop the backup storage on DB2ucluster CR.
 
 ### db2_backup_storage_size
 Size of backup persistent volume.
@@ -206,7 +206,7 @@ Storage class used for transaction logs. This must support ReadWriteOnce
 
 - Optional
 - Environment Variable: `DB2_LOGS_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `""` will drop the logs storage on DB2ucluster CR.
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the logs storage on DB2ucluster CR.
 
 ### db2_logs_storage_size
 Size of transaction logs persistent volume.
@@ -227,7 +227,7 @@ Storage class used for temporary data. This must support ReadWriteOnce
 
 - Optional
 - Environment Variable: `DB2_TEMP_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `""` will drop the tempts storage on DB2ucluster CR.
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on DB2ucluster CR.
 
 ### db2_temp_storage_size
 Size of temporary persistent volume.
