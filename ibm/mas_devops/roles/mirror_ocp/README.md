@@ -123,7 +123,7 @@ The public port number for the target registry
 The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: {host}:{port}/{prefix}/{reponame}
 
 - Environment Variable: `REGISTRY_PREFIX`
-- Default: CurrentDate (In the form of yy-MM-dd)
+- Default: None
 
 ### registry_username
 The username for the target registry.
