@@ -6,27 +6,29 @@ Provision OCP cluster on DevIT Fyre, IBM Cloud ROKS or ROSA.
 Role Variables
 -------------------------------------------------------------------------------
 ### cluster_type
-Required.  Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `ipi`.
+Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `ipi`.
 
+- **Required**
 - Environment Variable: `CLUSTER_TYPE`
 - Default Value: None
 
 ### cluster_name
-Required.  Specify the name of the cluster
+Specify the name of the cluster
 
+- **Required**
 - Environment Variable: `CLUSTER_NAME`
 - Default Value: None
 
 ### ocp_version
-Required.  
+The version of OCP to use.  A specific version can be set, minor and patch level versions can be used, e.g. `4.15`, or `4.15.16`.  Additionally, two version aliases are available; `default` will auto-select the newest version of OCP currently supported by IBM Maximo Application Suite, `rotate` will auto-select a predetermined version of OCP currently supported by IBM Maximo Application Suite based on the day of the week.  This latter option is primarily useful for testing purposes.
 
-- Supported Values:
-  - Specific version of OCP to install.  The exact format of this will vary depending on `cluster_type`.  For ROKS clusters the format is `4.6_openshift`, `4.8_openshift`, for Fyre it is `4.6.16`. For Fyre and Roks the patch version is optional eg for fyre `4.15` will install the latest supported 4.15 patch version.
-  - `default` - uses the version that has been deemed the default, typically the most recently supported version
-  - `rotate` - chooses a version based on the day of the week 
+- **Required**
 - Environment Variable: `OCP_VERSION`
 - Default Value: None
 
+!!! note
+    When using the IBMCloud Red Hat OpenShift Service (ROKS) the version must be followed by `_openshift`, e.g. **4.15_openshift** or **4.15.16_openshift**
+    
 Role Variables - GPU Node Support
 -------------------------------------------------------------------------------
 ### ocp_provision_gpu
@@ -38,24 +40,28 @@ Flag that determines if GPU worker nodes should be added during cluster creation
 ### gpu_workerpool_name
 The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal.
 
+- Optional
 - Environment Variable: `GPU_WORKERPOOL_NAME`
 - Default Value: `gpu`
 
 ### gpu_workers
 The number of GPU worker nodes that will be deploy in the cluster. The node created will have mg4c.32x384.2xp100-GPU flavor. This variable depends on `ocp_provision_gpu` and is currently supported on ROKS clusters only.
 
+- Optional
 - Environment Variable: `GPU_WORKERS`
 - Default Value: `1`
 
 ### compute_node_count
 The number of compute nodes (i.e. worker nodes) allocate to the OCP cluster.
 
+- Optional
 - Environment Variable: `COMPUTE_NODE_COUNT`
 - Default Value: `3`
 
 ### controlplane_node_count
 The number of control plane nodes (i.e. master nodes) allocate to the OCP cluster.
 
+- Optional
 - Environment Variable: `CONTROLPLANE_NODE_COUNT`
 - Default Value: `3`
 
@@ -71,8 +77,9 @@ Role Variables - ROKS
 The following variables are only used when `cluster_type = roks`.
 
 ### ibmcloud_apikey
-Required if `cluster_type = roks`.  The APIKey to be used by ibmcloud login comand.
+The APIKey to be used by ibmcloud login comand.
 
+- **Required** if `cluster_type = roks`
 - Environment Variable: `IBMCLOUD_APIKEY`
 - Default Value: None
 
