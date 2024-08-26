@@ -30,6 +30,7 @@ Three **Catalogs** are mirrored, containing the following content:
 5. local-storage-operator (required by ibm.mas_devops.ocs role)
 6. odf-operator (required by ibm.mas_devops.ocs role)
 7. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
+8. lvms-operator (not directly used, but often used in SNO environments)
 
 Requirements
 -------------------------------------------------------------------------------
@@ -118,6 +119,12 @@ The public port number for the target registry
 - Environment Variable: `REGISTRY_PUBLIC_PORT`
 - Default: None
 
+### registry_prefix
+The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: {host}:{port}/{prefix}/{reponame}
+
+- Environment Variable: `REGISTRY_PREFIX`
+- Default: None
+
 ### registry_username
 The username for the target registry.
 
@@ -141,6 +148,7 @@ Example Playbook
   vars:
     registry_public_host: myregistry.mycompany.com
     registry_public_port: 5000
+    registry_prefix: projectName
     registry_username: user1
     registry_password: 8934jk77s862!  # Not a real password, don't worry security folks
 
@@ -149,7 +157,7 @@ Example Playbook
     mirror_redhat_platform: false
     mirror_redhat_operators: true
 
-    ocp_release: 4.14
+    ocp_release: 4.15
     redhat_pullsecret: ~/pull-secret.json
 
   roles:

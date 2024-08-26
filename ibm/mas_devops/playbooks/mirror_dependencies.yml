@@ -155,6 +155,7 @@
         manifest_name: extras_mongoce
         manifest_version: "{{ mongo_extras_version_6 }}"
 
+
     # Mirror Mongo v7 specifically when requested
     - name: ibm.mas_devops.mirror_extras_prepare
       when:
@@ -220,6 +221,7 @@
       vars:
         manifest_name: ibm-cp-common-services
         manifest_version: "{{ common_svcs_version_1 }}"
+
 
     # 4. IBM User Data Services
     # -------------------------------------------------------------------------
@@ -294,6 +296,7 @@
       vars:
         manifest_name: ibm-truststore-mgr
         manifest_version: "{{ lookup('env', 'TSM_VERSION') | default (tsm_version, True) }}"
+
 
     # 7. CP4D
     # -------------------------------------------------------------------------
@@ -386,7 +389,24 @@
         manifest_name: ibm-wsl-runtimes
         manifest_version: "{{ wsl_version }}"
 
-    # 9. IBM Watson Studio
+    # 7.5 IBM Watson Studio dependency - ibm-elasticsearch-operator
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-elasticsearch-operator
+        case_version: "{{ elasticsearch_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_wsl
+      vars:
+        manifest_name: ibm-elasticsearch-operator
+        manifest_version: "{{ elasticsearch_version }}"
+
+    # 8. IBM Watson Studio
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -459,6 +479,7 @@
       vars:
         manifest_name: "ibm-db2uoperator"
         manifest_version: "{{ db2u_version }}"
+        mirror_single_arch: amd64
 
     - name: ibm.mas_devops.mirror_extras_prepare
       when:
@@ -473,6 +494,7 @@
       vars:
         manifest_name: extras_db2u
         manifest_version: "{{ db2u_extras_version }}"
+
 
     # 12. Cognos Analytics
     # -------------------------------------------------------------------------
@@ -491,6 +513,7 @@
       vars:
         manifest_name: ibm-cognos-analytics-prod
         manifest_version: "{{ cognos_version }}"
+
 
     # 13. App Connect
     # -------------------------------------------------------------------------

@@ -1,0 +1,66 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ds-pipeline-s3-instance
+  namespace: mas-{{ mas_instance_id }}-aibroker
+  labels:
+    opendatahub.io/dashboard: 'false'
+    opendatahub.io/managed: 'true'
+  annotations:
+    opendatahub.io/connection-type: s3
+    openshift.io/display-name: Minio Data Connection
+stringData:
+  accesskey: "{{ mas_aibroker_storage_accesskey }}"
+  secretkey: "{{ mas_aibroker_storage_secretkey }}"
+  host: "{{ mas_aibroker_storage_host }}"
+  port: "{{ mas_aibroker_storage_port }}"
+  ssl: "{{ mas_aibroker_storage_ssl }}"
+---
+apiVersion: datasciencepipelinesapplications.opendatahub.io/v1alpha1
+kind: DataSciencePipelinesApplication
+metadata:
+  name: instance
+  namespace: mas-{{ mas_instance_id }}-aibroker
+spec:
+  dspVersion: v1
+  database:
+    disableHealthCheck: true
+    customExtraParams: '{"tls":"false"}'
+    externalDB:
+      host: "{{ mas_aibroker_db_host }}"
+      port: "{{ mas_aibroker_db_port }}"
+      username: "{{ mas_aibroker_db_user }}"
+      pipelineDBName: "{{ mas_aibroker_db_database }}"
+      passwordSecret:
+        name: "{{ mas_aibroker_db_secret_name }}"
+        key: password
+    # mariaDB:
+    #   deploy: true
+    #   image: registry.redhat.io/rhel8/mariadb-103:1-188
+    #   username: mlpipeline
+    #   pipelineDBName: randomDBName
+    #   pvcSize: 20Gi
+    #   storageClassName: "{{ primary_storage_class }}"
+    #   resources:
+    #     requests:
+    #       cpu: 300m
+    #       memory: 800Mi
+    #     limits:
+    #       cpu: "1"
+    #       memory: 1Gi
+    #   passwordSecret:
+    #     name: ds-pipeline-s3-instance
+    #     key: secretkey
+  objectStorage:
+    disableHealthCheck: true
+    externalStorage:
+      host: "{{ mas_aibroker_storage_host }}"
+      port: "{{ mas_aibroker_storage_port }}"
+      bucket: "{{ mas_aibroker_storage_pipelines_bucket }}"
+      storageClassName: "{{ primary_storage_class }}"
+      s3CredentialsSecret:
+        accessKey: accesskey
+        secretKey: secretkey
+        secretName: ds-pipeline-s3-instance
+      scheme: http

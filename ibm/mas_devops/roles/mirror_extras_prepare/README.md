@@ -44,6 +44,12 @@ The public port for the target registry.  The images will not be mirrored to the
 - Environment Variable: `REGISTRY_PUBLIC_PORT`
 - Default: None
 
+### registry_prefix
+The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: {host}:{port}/{prefix}/{reponame}
+
+- Environment Variable: `REGISTRY_PREFIX`
+- Default: None
+
 
 Example Playbook
 -------------------------------------------------------------------------------
@@ -56,6 +62,7 @@ Example Playbook
 
     registry_public_host: myocp-5f1320191125833da1cac8216c06779e-0000.us-south.containers.appdomain.cloud
     registry_public_port: 32500
+    registry_prefix: projectName
 
   roles:
     - ibm.mas_devops.mirror_extras_prepare
