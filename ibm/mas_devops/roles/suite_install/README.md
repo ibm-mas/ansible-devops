@@ -85,7 +85,7 @@ Boolean variable that indicates whether it is to install in an IPv6-enabled envi
 - Default: False
 
 ### mas_special_characters
-Specifies whether MAS will permit special characters in user IDs and usernames. The suite configuration record (CR) will include a property named `userDataValidation` with the option `allowSpecialChars` configured.
+Set this to `true` to permit special characters in user IDs and usernames. The suite configuration record (CR) will include a property named `userDataValidation` with the option `allowSpecialChars` configured.
 
 - Optional
 - Environment Variable: `MAS_SPECIAL_CHARACTERS`
