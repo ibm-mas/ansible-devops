@@ -4,9 +4,16 @@
 - name: "Fail if fyre_inf_node_private_ip is not provided and fyre_username and fyre_password are not provided too"
   assert:
     that:
-      - fyre_inf_node_private_ip is not defined or fyre_inf_node_private_ip = "" 
-      - fyre_username is not defined or fyre_username = "" and fyre_password is not defined or fyre_password != ""
+      - fyre_username is defined and fyre_username != ""
+      - fyre_password is defined and fyre_password != ""
+    fail_msg: "fyre_username and fyre_password are required when fyre_inf_node_private_ip is not defined"
+  when: fyre_inf_node_private_ip is not defined or fyre_inf_node_private_ip = ""
+
+- name: "Fail if fyre_username and fyre_password are not provided and fyre_inf_node_private_ip is not provided too"
+  assert:
+    that: fyre_inf_node_private_ip is defined and fyre_inf_node_private_ip != ""
     fail_msg: "fyre_inf_node_private_ip property is required when fyre_username and fyre_password are not defined"
+  when: fyre_username is not defined or fyre_username = "" and fyre_password is not defined or fyre_password = ""
 
 - name: "Fail if cluster_name is not provided"
   assert:
