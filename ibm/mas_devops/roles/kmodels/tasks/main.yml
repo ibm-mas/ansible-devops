@@ -23,14 +23,14 @@
         name: km-s3-secret
         namespace: mas-{{ mas_instance_id }}-aibroker
       data:
-        AWS_ACCESS_KEY_ID: "{{ storage_accesskey | b64encode }}"
-        AWS_SECRET_ACCESS_KEY: "{{ storage_secretkey | b64encode }}"
-        S3_ACCESS_KEY: "{{ storage_accesskey | b64encode }}"
-        S3_SECRET_KEY: "{{ storage_secretkey | b64encode }}"
-        S3_HOST: "{{ storage_host | b64encode }}"
-        S3_PORT: "{{ storage_port | b64encode }}" # add only for minio
-        S3_REGION: "{{ storage_region | b64encode }}"
-        S3_SSL: "{{ storage_ssl | b64encode }}"
+        AWS_ACCESS_KEY_ID: "{{ mas_aibroker_storage_accesskey | b64encode }}"
+        AWS_SECRET_ACCESS_KEY: "{{ mas_aibroker_storage_secretkey | b64encode }}"
+        S3_ACCESS_KEY: "{{ mas_aibroker_storage_accesskey | b64encode }}"
+        S3_SECRET_KEY: "{{ mas_aibroker_storage_secretkey | b64encode }}"
+        S3_HOST: "{{ mas_aibroker_storage_host | b64encode }}"
+        S3_PORT: "{{ mas_aibroker_storage_port | b64encode }}" # add only for minio
+        S3_REGION: "{{ mas_aibroker_storage_region | b64encode }}"
+        S3_SSL: "{{ mas_aibroker_storage_ssl | b64encode }}"
 
 - name: "Check if km-s3-secret secret exists "
   k8s_info:
@@ -42,33 +42,33 @@
 
 # (https://kserve.github.io/website/0.11/modelserving/storage/s3/s3/#create-service-account)
 - name: "Update secret with annotation"
-  shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-endpoint="{{ storage_host }}"
+  shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-endpoint="{{ mas_aibroker_storage_host }}"
   when:
-    - storage_provider == "aws"
+    - mas_aibroker_storage_provider == "aws"
     - kms3_secret_info.resources[0].metadata.annotations is not defined
 
 - name: "Update secret with annotation"
-  shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-endpoint="{{ storage_host }}:{{ storage_port }}"
+  shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-endpoint="{{ mas_aibroker_storage_host }}:{{ mas_aibroker_storage_port }}"
   when:
-    - storage_provider == "minio"
+    - mas_aibroker_storage_provider == "minio"
     - kms3_secret_info.resources[0].metadata.annotations is not defined
 
 - name: "Update secret with annotation if SSL is false"
   shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-usehttps="0"
   when:
-    - storage_ssl == 'false'
+    - mas_aibroker_storage_ssl == 'false'
     - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-usehttps'] | default('')) != "0"
 
 - name: "Update secret with annotation if SSL is true"
   shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-usehttps="1"
   when:
-    - storage_ssl == 'true'
+    - mas_aibroker_storage_ssl == 'true'
     - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-usehttps'] | default('')) != "1"
 
 - name: "Update secret with annotation if region is null"
-  shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-region={{ storage_region }}
+  shell: oc annotate secret -n mas-{{ mas_instance_id }}-aibroker km-s3-secret serving.kserve.io/s3-region={{ mas_aibroker_storage_region }}
   when:
-    - storage_provider == "minio"
+    - mas_aibroker_storage_provider == "minio"
     - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-region'] | default('')) == ""
   ignore_errors: true
 
