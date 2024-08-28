@@ -323,7 +323,7 @@ Typically you would either choose between `ReadWriteOnce` (if using a block stor
 
 ### Manage - Supported languages variables
 ---
-### mas_app_settings_base_language
+### mas_app_settings_base_lang
 Optional. Provide the base language for Manage application.
 For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
 
