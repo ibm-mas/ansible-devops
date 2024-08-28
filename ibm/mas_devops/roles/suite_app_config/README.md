@@ -355,7 +355,7 @@ For a full list of supported languages for Manage application and its correspond
 - Environment Variable: `MAS_APP_SETTINGS_BASE_LANG`
 - Default: `EN` (English)
 
-### mas_app_settings_secondary_languages
+### mas_app_settings_secondary_langs
 Provide a list of additional secondary languages for Manage application.
 
 Note: The more languages you add, the longer Manage will take to install and activate.
