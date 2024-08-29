@@ -1,7 +1,7 @@
 ---
 # 1. Obtain Private IP, if not provided, but Fyre credentials are
 # -----------------------------------------------------------------------------
-- name: "Get Cluster Details and obtain Private IP"
+- name: "Get Cluster Details"
   uri:
     url: "{{ fyre_api_get_cluster_info }}"
     user: "{{ fyre_username }}"
@@ -11,12 +11,10 @@
     validate_certs: false
   register: _cluster_details
 
-- name: debug
-  debug:
-    var: _cluster_details.json
-
-- set_fact:
-    fyre_inf_node_private_ip: "{{ _cluster_details.json.clusters[0].vms | json_query('[?contains(hostname, `api`)].ips[-1].address') }}"
+- name: "Get Private IP"
+  shell:
+    echo {{ _cluster_details }} | jq -cr '.clusters[].vms[] | select (.hostname | contains("api")) | .ips[] | select (.type | contains("private")) | .address'
+  register: fyre_inf_node_private_ip
 
 - name: debug
   debug:
