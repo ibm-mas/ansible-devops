@@ -11,11 +11,9 @@
     validate_certs: false
   register: _cluster_details
 
-- name: "Get Private IP"
-  shell:
-    echo "{{ _cluster_details }}" | jq -cr '.json.clusters[].vms[] | select (.hostname | contains("api")) | .ips[] | select (.type | contains("private")) | .address'
-  register: fyre_inf_node_private_ip
-
+- set_fact:
+    fyre_inf_node_private_ip: "{{ _cluster_details.json.clusters[0].vms | json_query('[?contains(hostname, `api`)].ips[-1].address') }}"
+  
 - name: debug
   debug:
     var: fyre_inf_node_private_ip
