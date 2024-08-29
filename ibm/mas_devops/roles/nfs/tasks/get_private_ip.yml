@@ -12,7 +12,12 @@
   register: _cluster_details
 
 - set_fact:
-    fyre_inf_node_private_ip: "{{ _cluster_details.json.clusters[0].vms | json_query('[?contains(hostname, `api`)].ips[-1].address') }}"
+    private_ip: "{{ _cluster_details.json.clusters[0].vms | json_query('[?contains(hostname, `api`)].ips[-1].address') }}"
+
+- name: "Obtain Private IP of the Fyre Infrastructure Node"
+  shell:
+    echo {{ private_ip }} | grep -oE '\b([0-9]{1,3}.){3}[0-9]{1,3}\b'
+  register: fyre_inf_node_private_ip
 
 - name: debug
   debug:
