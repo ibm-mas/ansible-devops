@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Secret
 type: Opaque
 metadata:
-  name: ibmcos-credentials-system
+  name: ibmcos-credentials-{{ mas_config_scope | default('system') }}
   namespace: "mas-{{ mas_instance_id }}-core"
 {% if custom_labels is defined and custom_labels.items() %}
   labels:
@@ -14,14 +14,18 @@ metadata:
 data:
   username: "{{ 'ibmcloud-iam-apikey' | b64encode }}"
   password: "{{ cos_password | b64encode }}"
+{% if cos_hmac_access_key is defined and cos_hmac_secret_key is defined %}
+  accesskey: "{{ cos_hmac_access_key | b64encode }}"
+  secretkey: "{{ cos_hmac_secret_key | b64encode }}"
+{% endif %}
 ---
 apiVersion: config.mas.ibm.com/v1
 kind: ObjectStorageCfg
 metadata:
-  name: "{{ mas_instance_id }}-objectstorage-system"
+  name: "{{ mas_instance_id }}-objectstorage-{{ mas_config_scope | default('system') }}"
   namespace: "mas-{{ mas_instance_id }}-core"
   labels:
-    mas.ibm.com/configScope: system
+    mas.ibm.com/configScope: "{{ mas_config_scope | default('system') }}"
     mas.ibm.com/instanceId: "{{ mas_instance_id }}"
 {% if custom_labels is defined and custom_labels.items() %}
 {% for key, value in custom_labels.items() %}
@@ -34,7 +38,7 @@ spec:
   config:
     url:  "{{ cos_url }}"
     credentials:
-      secretName: ibmcos-credentials-system
+      secretName: ibmcos-credentials-{{ mas_config_scope | default('system') }}
   certificates:
     - alias: ibmcos.intermediate.cert
       crt: |
