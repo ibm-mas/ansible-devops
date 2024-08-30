@@ -1,20 +1,46 @@
 ---
-# 1. Obtain Private IP, if not provided, but Fyre credentials are
+# 1. Check for undefined properties that do not have a default
+# -----------------------------------------------------------------------------
+- name: "Fail if cluster_type is not provided"
+  assert:
+    that: cluster_type is defined and cluster_type == "fyre"
+    fail_msg: "cluster_type property is required and must be set to fyre"
+
+- name: "Fail if fyre_inf_node_private_ip is not provided and fyre_username and fyre_password are not provided too"
+  assert:
+    that:
+      - fyre_username is defined and fyre_username != ""
+      - fyre_password is defined and fyre_password != ""
+    fail_msg: "fyre_username and fyre_password are required when fyre_inf_node_private_ip is not defined"
+  when: fyre_inf_node_private_ip is not defined or fyre_inf_node_private_ip == ""
+
+- name: "Fail if fyre_username and fyre_password are not provided and fyre_inf_node_private_ip is not provided too"
+  assert:
+    that: fyre_inf_node_private_ip is defined and fyre_inf_node_private_ip != ""
+    fail_msg: "fyre_inf_node_private_ip property is required when fyre_username and fyre_password are not defined"
+  when: fyre_username is not defined or fyre_username == "" and fyre_password is not defined or fyre_password == ""
+
+- name: "Fail if cluster_name is not provided"
+  assert:
+    that: cluster_name is defined and cluster_name != ""
+    fail_msg: "cluster_name property is required"
+
+# 2. Obtain Private IP, if not provided, but Fyre credentials are
 # -----------------------------------------------------------------------------
 - include_tasks: get_private_ip.yml
   when: fyre_username is defined and fyre_username != "" and fyre_password is defined and fyre_password != ""
 
-# 2. Delete Image Registry
+# 3. Delete Image Registry
 # -----------------------------------------------------------------------------
 - name: "Delete image registry"
   include_tasks: delete_image_registry.yml
 
-# 3. Configure NFS
+# 4. Configure NFS
 # -----------------------------------------------------------------------------
 - name: "Configure NFS"
   include_tasks: configure_nfs.yml
 
-# 4. Recreate Image Registry now configured for NFS
+# 5. Recreate Image Registry now configured for NFS
 # -----------------------------------------------------------------------------
 - name: "Recreate image registry now configured for NFS"
   include_tasks: create_image_registry.yml
