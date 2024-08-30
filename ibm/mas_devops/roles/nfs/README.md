@@ -46,11 +46,11 @@ Required to set false when you are running this job through a playbook to perfor
 - Environment Variable: `RECREATE_IMAGE_REGISTRY`
 - Default Value: `true`
 
-### nfs_storage_size
-Defines the storage size of NFS.
+### image_registry_storage_size
+Defines the image registry storage size when configured to use NFS. The size allocated cannot be superior of storage available in the Fyre Infrastructure node.
 
 - Optional.
-- Environment Variable: `NFS_STORAGE_SIZE`
+- Environment Variable: `IMAGE_REGISTRY_STORAGE_SIZE`
 - Default: `100Gi`
 
 

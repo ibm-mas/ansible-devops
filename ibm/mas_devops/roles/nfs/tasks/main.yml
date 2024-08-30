@@ -1,6 +1,11 @@
 ---
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
+- name: "Fail if cluster_type is not provided"
+  assert:
+    that: cluster_type is defined and cluster_type == "fyre"
+    fail_msg: "cluster_type property is required and must be set to fyre"
+
 - name: "Fail if fyre_inf_node_private_ip is not provided and fyre_username and fyre_password are not provided too"
   assert:
     that:
@@ -20,11 +25,6 @@
     that: cluster_name is defined and cluster_name != ""
     fail_msg: "cluster_name property is required"
 
-- name: "Fail if cluster_type is not provided"
-  assert:
-    that: cluster_type is defined and cluster_type == "fyre"
-    fail_msg: "cluster_type property is required and must be set to fyre"
-
 
 # 2. Obtain Private IP, if not provided, but Fyre credentials are
 # -----------------------------------------------------------------------------
@@ -32,12 +32,7 @@
   when: fyre_username is defined and fyre_username != "" and fyre_password is defined and fyre_password != ""
 
 
-# 3. Configure NFS
+# 3. Install NFS
 # -----------------------------------------------------------------------------
-- when: recreate_image_registry is defined and recreate_image_registry is true
-  block:
-    - include_tasks: delete_image_registry.yml
-
-    - include_tasks: configure_nfs.yml
-
-    - include_tasks: create_image_registry.yml
+- when: recreate_image_registry
+  include_tasks: install-nfs.yml
