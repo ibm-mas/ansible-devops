@@ -1,33 +1,10 @@
 ---
 # 1. Delete Image Registry
 # -----------------------------------------------------------------------------
-- name: Disable Image Registry Operator
-  k8s:
-    api_version: apps/v1
-    kind: Deployment
-    name: cluster-image-registry-operator
-    namespace: openshift-image-registry
-    state: absent
-
-- name: Disable Image Registry
-  k8s:
-    api_version: apps/v1
-    kind: Deployment
-    name: image-registry
-    namespace: openshift-image-registry
-    state: absent
-
-- name: Delete Image Registry PVC
-  k8s:
-    api_version: v1
-    kind: PersistentVolumeClaim
-    name: image-registry-storage
-    namespace: openshift-image-registry
-    state: absent
-
-- name: Delete Image Registry PV
-  k8s:
-    api_version: v1
-    kind: PersistentVolume
-    name: registry-storage
-    state: absent
+- name: Delete image registry
+  shell: |
+    oc -n openshift-image-registry scale deploy cluster-image-registry-operator --replicas=0
+    oc -n openshift-image-registry scale deploy image-registry --replicas=0
+    oc -n openshift-image-registry delete pvc image-registry-storage
+    oc delete pv registry-storage
+    sleep 15
