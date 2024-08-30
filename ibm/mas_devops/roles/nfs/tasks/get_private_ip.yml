@@ -1,7 +1,7 @@
 ---
 # 1. Obtain Private IP, if not provided, but Fyre credentials are
 # -----------------------------------------------------------------------------
-- name: "Get Infrastructure Node Private IP"
+- name: "Get Fyre Openshift cluster details"
   uri:
     url: "{{ fyre_api_get_cluster_info }}"
     user: "{{ fyre_username }}"
@@ -11,14 +11,17 @@
     validate_certs: false
   register: _cluster_details
 
-- set_fact:
+- name: "Obtain Private IP of Infrastructure Node from cluster details info"
+  set_fact:
     extract_ip: "{{ _cluster_details.json.clusters[0].vms | json_query('[?contains(hostname, `api`)].ips[-1].address') }}"
 
-- shell:
+- name: "Clean and extract Private IP value"
+  shell:
     echo {{ extract_ip }} | grep -oE '\b([0-9]{1,3}.){3}[0-9]{1,3}\b'
   register: private_ip
 
-- set_fact:
+- name: "Add Private IP value to fyre_inf_node_private_ip"
+  set_fact:
     fyre_inf_node_private_ip: "{{ private_ip.stdout }}"
 
 - name: "Fail if fyre_inf_node_private_ip was not obtained"
