@@ -88,6 +88,7 @@
   set_fact:
     cos_resource_id: "{{ cos_info.resource.id }}"
 
+
 # 4. Create authentication credentials for the instance
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "ibm : Create a cos service credential for this MAS instance"
@@ -95,15 +96,13 @@
     name: "{{ mas_instance_id }}-key"
     role: "{{ cos_resource_key_iam_role }}"
     resource_instance_id: "{{ cos_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
-    parameters:
-      HMAC: "{{ use_hmac }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
 
 - name: "ibm : Retrieve cos service credential for this MAS instance"
   ibm.cloudcollection.ibm_resource_key_info:
     name: "{{ mas_instance_id }}-key"
     resource_instance_id: "{{ cos_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
   register: cos_key_info
 
 - name: "ibm : Debug COS Key Resource"
@@ -116,20 +115,10 @@
   set_fact:
     cos_password: "{{ cos_key_info.resource.credentials.apikey }};{{ cos_key_info.resource.credentials.resource_instance_id }}"
 
-- name: "ibm : Set cos_hmac_access_key and cos_hmac_secret_key variable"
-  when:
-    - cos_key_info.resource.credentials is defined
-    - cos_key_info.resource.credentials['cos_hmac_keys.access_key_id'] is defined
-    - cos_key_info.resource.credentials['cos_hmac_keys.secret_access_key'] is defined
-    - use_hmac is defined
-    - use_hmac
-  set_fact:
-    cos_hmac_access_key: "{{ cos_key_info.resource.credentials['cos_hmac_keys.access_key_id'] }}"
-    cos_hmac_secret_key: "{{ cos_key_info.resource.credentials['cos_hmac_keys.secret_access_key'] }}"
 
 # 5. Save the ObjectStorageCfg to local disk
 # ---------------------------------------------------------------------------------------------------------------------
-- name: Copy objectstorageCfg to filesystem
+- name: Copy objectstorageCfg to filesytem
   when:
     - mas_instance_id is defined
     - mas_instance_id != ""
@@ -137,5 +126,5 @@
     - mas_config_dir != ""
   ansible.builtin.template:
     src: ibm/objectstoragecfg.yml.j2
-    dest: "{{ mas_config_dir }}/cos-ibm-{{ mas_config_scope | default('system') }}.yml"
+    dest: "{{ mas_config_dir }}/cos-ibm-system.yml"
     mode: '664'
