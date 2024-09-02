@@ -19,7 +19,7 @@ Role Variables
 
 The tenant name for odh role.
 
-* Environment Variable: `TENANT_NAME`
+* Environment Variable: `MAS_AIBROKER_TENANT_NAME`
 * Default Value: `user`
 
 ### serverless_catalog_source
