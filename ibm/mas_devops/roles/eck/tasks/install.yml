@@ -1,0 +1,195 @@
+# 1. Verify Package and Determine Catalog Source
+# -----------------------------------------------------------------------------
+- name: "install : Get PackageManifest"
+  kubernetes.core.k8s_info:
+    api_version: packages.operators.coreos.com/v1
+    kind: PackageManifest
+    name: "{{ eck_package }}"
+    namespace: openshift-marketplace
+  register: eck_manifest
+
+- name: "install : Assert that PackageManifest exists"
+  ansible.builtin.assert:
+    that:
+      - eck_manifest is defined
+      - eck_manifest.resources is defined
+      - eck_manifest.resources | length == 1
+    fail_msg: "PackageManifest not found: {{ eck_package }}"
+
+- name: "install : Set the subscription information"
+  set_fact:
+    eck_source: "{{ eck_manifest.resources[0].status.catalogSource }}"
+    eck_source_namespace: "{{ eck_manifest.resources[0].status.catalogSourceNamespace }}"
+    eck_default_channel: "{{ eck_manifest.resources[0].status.defaultChannel }}"
+
+
+# 2. Subscription (openshift-operators)
+# -----------------------------------------------------------------------------
+- name: "install : Create the subscription"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/subscription.yml.j2"
+
+
+# 3. Namespace (ECK)
+# -----------------------------------------------------------------------------
+- name: "install : Create the namespace"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/namespace.yml.j2"
+
+
+# 4. LetsEncrypt Issuer
+# -----------------------------------------------------------------------------
+- name: "install : Create the letsencrypt issuer"
+  when:
+    - es_domain is defined and es_domain != ""
+    - letsencrypt_email is defined and letsencrypt_email != ""
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/issuer-letsencrypt.yml.j2"
+    wait: yes
+    wait_timeout: 60
+
+
+# 5. Elasticsearch
+# -----------------------------------------------------------------------------
+- name: "install: Wait until the Elasticsearch CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: elasticsearches.elasticsearch.k8s.elastic.co
+
+- name: "install : Create the elasticsearch certificate"
+  when:
+    - eck_enable_elasticsearch
+    - es_domain is defined and es_domain != ""
+    - letsencrypt_email is defined and letsencrypt_email != ""
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/cert-elasticsearch.yml.j2"
+    wait: yes
+    wait_timeout: 300
+
+- name: "install : Create the elasticsearch roles secret"
+  when: eck_enable_elasticsearch
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/secret-elasticsearch-roles.yml.j2"
+
+- name: "install : Create the elasticsearch instance"
+  when: eck_enable_elasticsearch
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/elasticsearch.yml.j2"
+
+
+# 6. Kibana
+# -----------------------------------------------------------------------------
+- name: "install : Create the kibana certificate"
+  when:
+    - eck_enable_kibana
+    - kibana_domain is defined and kibana_domain != ""
+    - letsencrypt_email is defined and letsencrypt_email != ""
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/cert-kibana.yml.j2"
+    wait: yes
+    wait_timeout: 300
+
+- name: "install : Create the kibana instance"
+  when: eck_enable_kibana
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/kibana.yml.j2"
+
+
+# 7. Logstash
+# -----------------------------------------------------------------------------
+- name: "install : Create ServiceAccount"
+  when: eck_enable_logstash
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/sa-logstash.yml.j2"
+
+- name: "install : Configure anyuid permissions for logstash"
+  when: eck_enable_logstash
+  shell: |
+    oc adm policy add-scc-to-user anyuid -z logstash -n {{ logstash_namespace }}
+    oc adm policy add-scc-to-user hostaccess -z logstash -n {{ logstash_namespace }}
+
+- name: "install : Debug logstash settings"
+  debug:
+    msg:
+      - "eck_enable_logstash ..................... {{ eck_enable_logstash }}"
+      - "eck_enable_elasticsearch ................ {{ eck_enable_elasticsearch }}"
+      - "eck_elasticsearch_hosts ................. {{ eck_remote_es_hosts | default('<undefined>', true) }}"
+      - "eck_elasticsearch_username .............. {{ eck_remote_es_username | default('<undefined>', true) }}"
+      - "logstash_replicas ....................... {{ logstash_replicas }}"
+
+- name: "install : Create the logstash instance"
+  when: eck_enable_logstash
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/logstash.yml.j2"
+
+- name: "Wait for Logstash be ready (60s delay)"
+  when: eck_enable_logstash
+  kubernetes.core.k8s_info:
+    api_version: logstash.k8s.elastic.co/v1alpha1
+    kind: Logstash
+    name: mas
+    namespace: "{{ logstash_namespace }}"
+  register: _logstash
+  until:
+    - _logstash.resources is defined
+    - _logstash.resources | length == 1
+    - _logstash.resources[0].status is defined
+    - _logstash.resources[0].status.health is defined
+    - _logstash.resources[0].status.expectedNodes is defined
+    - _logstash.resources[0].status.availableNodes is defined
+    - _logstash.resources[0].status.version is defined
+    - _logstash.resources[0].status.health == "green"
+    - _logstash.resources[0].status.availableNodes == _logstash.resources[0].status.availableNodes
+    - _logstash.resources[0].status.version == "{{ eck_version }}"
+
+  retries: 30 # Approximately 30 minutes before we give up
+  delay: 60 # 1 minute
+
+
+# 8. Filebeat
+# -----------------------------------------------------------------------------
+- name: "install : Create ServiceAccount"
+  when: eck_enable_filebeat
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/sa-filebeat.yml.j2"
+
+- name: "install : Configure anyuid permissions for Filebeat"
+  when: eck_enable_filebeat
+  shell: |
+    oc adm policy add-scc-to-user privileged -z filebeat -n {{ es_namespace }}
+
+- name: "install : Create the filebeat daemonset"
+  when: eck_enable_filebeat
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/filebeat.yml.j2"
+
+
+# 9. Routes
+# -----------------------------------------------------------------------------
+- name: "install : Create the elasticsearch route"
+  when:
+    - eck_enable_elasticsearch
+    - es_domain is defined and es_domain != ""
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/route-elasticsearch.yml.j2"
+
+- name: "install : Create the kibana route"
+  when:
+    - eck_enable_kibana
+    - kibana_domain is defined and kibana_domain != ""
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/elastic/route-kibana.yml.j2"

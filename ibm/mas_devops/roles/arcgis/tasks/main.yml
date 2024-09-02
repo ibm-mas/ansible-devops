@@ -1,0 +1,230 @@
+---
+# 1. Check for required facts
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id has not been provided"
+  assert:
+    that:
+      - mas_instance_id is defined
+      - mas_instance_id != ""
+    fail_msg: "mas_instance_id property has not been set"
+
+# 2. Check if required operator catalog is installed and ready
+# -----------------------------------------------------------------------------
+- name: "Lookup ibm-operator-catalog"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-operator-catalog
+    namespace: openshift-marketplace
+    kind: CatalogSource
+  register: catalog_lookup
+
+- name: "Assert that ibm-operator-catalog is available"
+  assert:
+    that:
+      - catalog_lookup.resources is defined
+      - catalog_lookup.resources | length == 1
+      - catalog_lookup.resources[0].status.connectionState.lastObservedState is defined
+      - catalog_lookup.resources[0].status.connectionState.lastObservedState == "READY"
+    fail_msg: "The ibm-operator-catalog is not installed, or is not ready to use.  Run the ibm.mas_devops.ibm_catalogs role, or install the CatalogSource manually."
+
+# 3. Provide Debug information
+# -----------------------------------------------------------------------------
+- name: "Debug information - IBM Maximo Location Services for Esri "
+  debug:
+    msg:
+      - "Namespace ...................... {{ mas_arcgis_namespace }}"
+      - "Channel ........................ {{ mas_arcgis_channel }}"
+      - "MAS Instance Id ................ {{ mas_instance_id }}"
+
+# 4. Create IBM Maximo Location Services project
+# -----------------------------------------------------------------------------
+- name: "Create IBM Maximo Location Services for Esri namespace"
+  kubernetes.core.k8s:
+    state: present
+    template: templates/namespace.yml.j2
+
+# 5. Install the operator & create entitlement secret
+# -----------------------------------------------------------------------------
+- name: "Install IBM Maximo Location Services for Esri Operator"
+  include_role:
+    name: ibm.mas_devops.install_operator
+  vars:
+    namespace: "{{ mas_arcgis_namespace }}"
+    icr_username: "{{ mas_entitlement_username }}"
+    icr_password: "{{ mas_entitlement_key }}"
+    catalog_source: "{{ mas_catalog_source }}"
+    operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
+    subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
+
+# 6. Wait until the IBM Maximo Location Services CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the IBM Maximo Location Services for Esri CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: arcgisapps.apps.mas.ibm.com
+
+# 7. IBM Maximo Location Services installation
+# -----------------------------------------------------------------------------
+- name: Create ArcGISApp apps.mas.ibm.com/v1 CR
+  vars:
+    annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ mas_arcgis_namespace }}"
+    template: templates/arcgisapp.yml.j2
+  register: arcgisAppResult
+
+# 8. Wait IBM Maximo Location Services custom resource to be complete
+# -----------------------------------------------------------------------------
+- name: "Wait for ArcGISApp custom resource to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_arcgis_namespace }}"
+    kind: ArcGISApp
+  register: arcgisapp_cr_result
+  until:
+    - arcgisapp_cr_result.resources is defined and arcgisapp_cr_result.resources | length == 1
+    - arcgisapp_cr_result.resources[0].status is defined
+    - arcgisapp_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
+  retries: 45 # approx 45 minutes before we give up
+  delay: 60 # 1 minute
+
+# 9. IBM Maximo Location Services workspace configuration
+# -----------------------------------------------------------------------------
+- name: Create ArcGISWorkspace apps.mas.ibm.com/v1 CR
+  vars:
+    annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ mas_arcgis_namespace }}"
+    template: templates/arcgisws.yml.j2
+  register: arcgisWSResult
+
+# Wait ArcGIS pods to be ready
+# ------------------------------------------------------------------------------------------------------------------------------
+- name: "Wait ArcGIS Ingress Controller deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    label_selectors:
+      - arcgis/siteName={{ mas_arcgis_sitename }}
+      - arcgis/app=ingress-nginx
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: arcgis_ic_nginx_lookup
+  until:
+    - arcgis_ic_nginx_lookup.resources is defined
+    - arcgis_ic_nginx_lookup.resources | length > 0
+    - arcgis_ic_nginx_lookup.resources[0].status is defined
+    - arcgis_ic_nginx_lookup.resources[0].status | length > 0
+    - arcgis_ic_nginx_lookup.resources[0].status.readyReplicas is defined
+    - arcgis_ic_nginx_lookup.resources[0].status.replicas == arcgis_ic_nginx_lookup.resources[0].status.readyReplicas
+  retries: 10 # approx 5 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: "Wait ArcGIS Help deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    label_selectors:
+      - arcgis/siteName={{ mas_arcgis_sitename }}
+      - arcgis/app=help
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: arcgis_help_lookup
+  until:
+    - arcgis_help_lookup.resources is defined
+    - arcgis_help_lookup.resources | length > 0
+    - arcgis_help_lookup.resources[0].status is defined
+    - arcgis_help_lookup.resources[0].status | length > 0
+    - arcgis_help_lookup.resources[0].status.readyReplicas is defined
+    - arcgis_help_lookup.resources[0].status.replicas == arcgis_help_lookup.resources[0].status.readyReplicas
+  retries: 10 # approx 5 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: "Wait ArcGIS Rest Administrator API deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    label_selectors:
+      - arcgis/siteName={{ mas_arcgis_sitename }}
+      - arcgis/app=rest-administrator-api
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: arcgis_admin_lookup
+  until:
+    - arcgis_admin_lookup.resources is defined
+    - arcgis_admin_lookup.resources | length > 0
+    - arcgis_admin_lookup.resources[0].status is defined
+    - arcgis_admin_lookup.resources[0].status | length > 0
+    - arcgis_admin_lookup.resources[0].status.readyReplicas is defined
+    - arcgis_admin_lookup.resources[0].status.replicas == arcgis_admin_lookup.resources[0].status.readyReplicas
+  retries: 10 # approx 5 minutes before we give up
+  delay: 30 # 30 seconds
+
+- name: "Wait ArcGIS Enterprise Manager deployment to be ready"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    label_selectors:
+      - arcgis/siteName={{ mas_arcgis_sitename }}
+      - arcgis/app=enterprise-manager
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: arcgis_manager_lookup
+  until:
+    - arcgis_manager_lookup.resources is defined
+    - arcgis_manager_lookup.resources | length > 0
+    - arcgis_manager_lookup.resources[0].status is defined
+    - arcgis_manager_lookup.resources[0].status | length > 0
+    - arcgis_manager_lookup.resources[0].status.readyReplicas is defined
+    - arcgis_manager_lookup.resources[0].status.replicas == arcgis_manager_lookup.resources[0].status.readyReplicas
+  retries: 10 # approx 5 minutes before we give up
+  delay: 30 # 30 seconds
+
+# 8. Wait IBM Maximo Location Services custom resource to be complete
+# -----------------------------------------------------------------------------
+- name: "Wait for ArcGISWorkspace custom resource to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_arcgis_namespace }}"
+    kind: ArcGISWorkspace
+  register: arcgisws_cr_result
+  until:
+    - arcgisws_cr_result.resources is defined and arcgisws_cr_result.resources | length == 1
+    - arcgisws_cr_result.resources[0].status is defined
+    - arcgisws_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+  retries: 45 # approx 45 minutes before we give up
+  delay: 60 # 1 minute
+
+- include_tasks: "lookup_trusted_certs.yml"
+  when:
+    - mas_config_dir is defined
+    - mas_config_dir | length > 0
+
+# 9. Retrieve ArcGIS dashboard route
+# -----------------------------------------------------------------------------
+- name: "Lookup '{{ arcgis_ingress_controller_service_name }}' route"
+  kubernetes.core.k8s_info:
+    kind: Route
+    api_version: route.openshift.io/v1
+    name: "{{ arcgis_ingress_controller_service_name }}"
+    namespace: "{{ mas_arcgis_namespace }}"
+  register: arcgis_manager_route_lookup
+  retries: 10
+  delay: 30 # Retry for approx 5 minutes (30s * 10 attempts) before giving up
+  until: arcgis_manager_route_lookup.resources | length > 0
+
+- assert:
+    that:
+      - arcgis_manager_route_lookup.resources is defined
+      - arcgis_manager_route_lookup.resources | length > 0
+      - arcgis_manager_route_lookup.resources[0].spec is defined
+      - arcgis_manager_route_lookup.resources[0].spec.host is defined
+    fail_msg: "Route '{{ arcgis_ingress_controller_service_name }}' was not found under '{{ mas_arcgis_namespace }}' namespace!"
+
+- set_fact:
+    arcgis_manager_route: "https://{{ arcgis_manager_route_lookup.resources[0].spec.host }}"
+
+- name: "Debug : IBM Maximo Location Services for Esri details"
+  debug:
+    msg:
+      - "ArcGIS Enterprise Manager URL .................. {{ arcgis_manager_route }}/arcgis/manager"

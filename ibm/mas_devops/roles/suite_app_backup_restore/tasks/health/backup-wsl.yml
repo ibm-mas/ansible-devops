@@ -1,0 +1,97 @@
+---
+# Update watson studio project backup status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update watson studio project backup status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "InProgress"
+
+
+- name: "Backup watson studio project"
+  block:
+    # Prepare watson studio project backup folder
+    # -------------------------------------------------------------------------
+    - name: "Set fact: watson studio project backup name"
+      set_fact:
+        masbr_wsl_backup_name: "{{ masbr_job_name }}-{{ masbr_job_data_type }}"
+
+    - name: "Set fact: watson studio project backup log"
+      set_fact:
+        masbr_wsl_backup_log: "{{ masbr_local_job_folder }}/{{ masbr_wsl_backup_name }}.log"
+
+    - name: "Create watson studio project backup folder"
+      changed_when: true
+      shell: >
+        touch {{ masbr_wsl_backup_log }}
+
+
+    # Get watson studio information
+    # -----------------------------------------------------------------------------
+    - name: "Get watson studio information"
+      include_tasks: "tasks/health/get-wsl-info.yml"
+      vars:
+        _wsl_log: "{{ masbr_wsl_backup_log }}"
+
+
+    # Export watson studio project asset
+    # -----------------------------------------------------------------------------
+    - name: "Export watson studio project asset"
+      changed_when: true
+      shell: >-
+        {{ cpd_cli_cmd }} config users set cpd-user --username={{ cpd_username }} --apikey={{ cpd_apikey }};
+        {{ cpd_cli_cmd }} config profiles set cpd-profile --user=cpd-user --url={{ cpd_endpoint }};
+        {{ cpd_cli_cmd }} asset export start --profile=cpd-profile --project-id={{ cpd_project_id }}
+        --name={{ masbr_job_name }} --assets='{"all_assets": true}'
+        --output-file={{ masbr_local_job_folder }}/{{ masbr_wsl_backup_name }}.tgz >> {{ masbr_wsl_backup_log }}
+
+
+    # Copy backup files to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Copy backup files to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "backup"
+        masbr_cf_job_name: "{{ masbr_job_name }}"
+        masbr_cf_paths:
+          - src_file: "{{ masbr_wsl_backup_name }}.tgz"
+            dest_folder: "{{ masbr_job_data_type }}"
+
+
+    # Update watson studio project backup status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update watson studio project backup status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Completed"
+
+  rescue:
+    # Update watson studio project backup status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update watson studio project backup status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Failed"
+
+  always:
+    # Copy watson studio project backup log file to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of watson studio project backup log"
+      changed_when: true
+      shell: >
+        tar -czf {{ masbr_local_job_folder }}/{{ masbr_wsl_backup_name }}-log.tar.gz
+        -C {{ masbr_local_job_folder }} {{ masbr_wsl_backup_name }}.log
+
+    - name: "Copy watson studio project backup log file to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "backup"
+        masbr_cf_job_name: "{{ masbr_job_name_final }}"
+        masbr_cf_paths:
+          - src_file: "{{ masbr_local_job_folder }}/{{ masbr_wsl_backup_name }}-log.tar.gz"
+            dest_folder: "log"

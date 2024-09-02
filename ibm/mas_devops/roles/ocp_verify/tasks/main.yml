@@ -14,6 +14,79 @@
     - ocp_info.resources is defined
     - ocp_info.resources | json_query('[*].status.conditions[?type==`Available`][].status') | select ('match','True') | list | length == 1
 
+# 1b.  Patch the ibmcloud-block-storage-driver DaemonSet image if necessary
+# fix for issue https://github.ibm.com/alchemy-containers/armada-storage/issues/6503
+# v2.5.12 needs updating to v2.5.14
+# v2.4.23 needs updating to v2.4.25
+# This task can be removed once OCP provision no longer installs ibmcloud-block-storage-driver v2.5.12 or v2.4.23
+# -------------------------------------------------------------------------------------
+- name: Lookup ibmcloud-block-storage-driver image
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: DaemonSet
+    name: ibmcloud-block-storage-driver
+    namespace: kube-system
+  register: lookup_storage_driver
+
+- name: "Get Driver Image"
+  set_fact:
+    driver_image: "{{ lookup_storage_driver.resources[0].spec.template.spec.containers[0].image }}"
+  when:
+    - lookup_storage_driver.resources is defined
+    - lookup_storage_driver.resources | length == 1
+    - lookup_storage_driver.resources[0].spec.template.spec.containers[0].image is defined
+
+- name: "Determine New Driver Image"
+  set_fact:
+    new_driver_image: "{{ upgrade_image[driver_image] }}"
+  when:
+    - driver_image is defined
+    - upgrade_image[driver_image] is defined
+
+- debug:
+    msg: "Storage Driver {{ driver_image }} doesn't need to be replaced."
+  when:
+    - driver_image is defined
+    - new_driver_image is not defined
+
+- name: Update ibmcloud-block-storage-driver image
+  when: new_driver_image is defined
+  block:
+    - debug:
+        msg: "Driver {{ driver_image }} to be replaced with {{ new_driver_image }}."
+
+    - name: Update ibmcloud-block-storage-driver image
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        kind: DaemonSet
+        name: ibmcloud-block-storage-driver
+        namespace: kube-system
+        definition:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: ibmcloud-block-storage-driver-container
+                    image: "{{ new_driver_image }}"
+
+
+    - name: Wait for the ibmcloud-block-storage-driver DaemonSet to update
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: DaemonSet
+        name: ibmcloud-block-storage-driver
+        namespace: kube-system
+      register: lookup_storage_driver
+      until:
+        - lookup_storage_driver.resources is defined
+        - lookup_storage_driver.resources | length > 0
+        - lookup_storage_driver.resources[0].status is defined
+        - lookup_storage_driver.resources[0].status.updatedNumberScheduled is defined
+        - lookup_storage_driver.resources[0].status.desiredNumberScheduled is defined
+        - lookup_storage_driver.resources[0].status.updatedNumberScheduled == lookup_storage_driver.resources[0].status.desiredNumberScheduled
+      retries: 30 # approx 10 minutes before we give up
+      delay: 20 # 1 minute
+
 # 2. Wait for all catalogsources to be healthy
 # -----------------------------------------------------------------------------
 - name: Check CatalogSource Status
@@ -27,7 +100,7 @@
 - name: Check Subscription Status
   when: verify_subscriptions
   ibm.mas_devops.verify_subscriptions:
-    retries: 60 # Allow up to 5 hours
+    retries: 25 # Allow up to 2 hours
     delay: 300 # 5 minutes
 
 # 4. Wait for all deployments & statefulsets in all namespaces to be healthy
@@ -35,7 +108,7 @@
 - name: Check Deployment & StatefulSet Status
   when: verify_workloads
   ibm.mas_devops.verify_workloads:
-    retries: 200 # Allow up to 10 hours
+    retries: 40 # Allow up to 3 hours
     delay: 300 # 5 minutes
 
 # 5. Check for router and ingress secrets

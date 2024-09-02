@@ -29,7 +29,7 @@ Namespace where IBM Common Services is installed.
 - Default Value: `ibm-common-services`
 
 ### db2_action
-Inform the role whether to perform an install or upgrade of DB2 Database. This can be set to `install` or `upgrade`. When `DB2_ACTION` is set to upgrade, then all instances in the `DB2_NAMESPACE` will be upgraded to the `DB2_VERSION`.
+Inform the role whether to perform an install, upgrade, backup or restore of DB2 Database. This can be set to `install`, `upgrade`, `backup` or `restore`. When `DB2_ACTION` is set to upgrade, then all instances in the `DB2_NAMESPACE` will be upgraded to the `DB2_VERSION`.
 
 - Optional
 - Environment Variable: `DB2_ACTION`
@@ -185,7 +185,7 @@ Storage class used for backup. This must support ReadWriteMany
 
 - Optional
 - Environment Variable: `DB2_BACKUP_STORAGE_CLASS`
-- Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster.
+- Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster. Set to `None` will drop the backup storage on DB2ucluster CR.
 
 ### db2_backup_storage_size
 Size of backup persistent volume.
@@ -206,7 +206,7 @@ Storage class used for transaction logs. This must support ReadWriteOnce
 
 - Optional
 - Environment Variable: `DB2_LOGS_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the logs storage on DB2ucluster CR.
 
 ### db2_logs_storage_size
 Size of transaction logs persistent volume.
@@ -227,7 +227,7 @@ Storage class used for temporary data. This must support ReadWriteOnce
 
 - Optional
 - Environment Variable: `DB2_TEMP_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on DB2ucluster CR.
 
 ### db2_temp_storage_size
 Size of temporary persistent volume.
@@ -419,9 +419,138 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 - Default: None
 
 
+Role Variables - Backup and Restore
+-----------------------------------------------------------------------------------------------------------------
+### masbr_confirm_cluster
+Set `true` or `false` to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.
+
+- Optional
+- Environment Variable: `MASBR_CONFIRM_CLUSTER`
+- Default: `false`
+
+### masbr_copy_timeout_sec
+Set the transfer files timeout in seconds.
+
+- Optional
+- Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
+- Default: `43200` (12 hours)
+
+### masbr_job_timezone
+Set the [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.
+
+- Optional
+- Environment Variable: `MASBR_JOB_TIMEZONE`
+- Default: None
+
+### masbr_storage_type
+Set `local` or `cloud` to indicate this role to save the backup files to local file system or cloud object storage.
+
+- **Required**
+- Environment Variable: `MASBR_STORAGE_TYPE`
+- Default: None
+
+### masbr_storage_local_folder
+Set local path to save the backup files.
+
+- **Required** only when `MASBR_STORAGE_TYPE=local`
+- Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
+- Default: None
+
+### masbr_storage_cloud_rclone_file
+Set the path of `rclone.conf` file.
+
+- **Required** only when `MASBR_STORAGE_TYPE=cloud`
+- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_FILE`
+- Default: None
+
+### masbr_storage_cloud_rclone_name
+Set the configuration name defined in `rclone.conf` file.
+
+- **Required** only when `MASBR_STORAGE_TYPE=cloud`
+- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_NAME`
+- Default: None
+
+### masbr_storage_cloud_bucket
+Set the object storage bucket name for saving the backup files
+
+- **Required** only when `MASBR_STORAGE_TYPE=cloud`
+- Environment Variable: `MASBR_STORAGE_CLOUD_BUCKET`
+- Default: None
+
+### masbr_slack_enabled
+Set `true` or `false` to indicate whether this role will send Slack notification messages of the backup and restore progress.
+
+- Optional
+- Environment Variable: `MASBR_SLACK_ENABLED`
+- Default: `false`
+
+### masbr_slack_level
+Set `failure`, `info` or `verbose` to indicate this role to send Slack notification messages in which backup and resore phases:
+
+| Slack level | Backup/Restore phases                                   |
+| ----------- | ------------------------------------------------------- |
+| failure     | `Failed`, `PartiallyFailed`                             |
+| info        | `Completed`, `Failed`, `PartiallyFailed`                |
+| verbose     | `InProgress`, `Completed`, `Failed`, `PartiallyFailed`  |
+
+- Optional
+- Environment Variable: `MASBR_SLACK_LEVEL`
+- Default: `info`
+
+### masbr_slack_token
+The Slack integration token.
+
+- **Required** only when `MASBR_SLACK_ENABLED=true`
+- Environment Variable: `MASBR_SLACK_TOKEN`
+- Default: None
+
+### masbr_slack_channel
+The Slack channel to send the notification messages to.
+
+- **Required** only when `MASBR_SLACK_ENABLED=true`
+- Environment Variable: `MASBR_SLACK_CHANNEL`
+- Default: None
+
+### masbr_slack_user
+The sender of the Slack notification message.
+
+- Optional
+- Environment Variable: `MASBR_SLACK_USER`
+- Default: `MASBR`
+
+### masbr_backup_type
+Set `full` or `incr` to indicate the role to create a full backup or incremental backup.
+
+- Optional
+- Environment Variable: `MASBR_BACKUP_TYPE`
+- Default: `full`
+
+### masbr_backup_from_version
+Set the full backup version to use in the incremental backup, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`). This variable is only valid when `MASBR_BACKUP_TYPE=incr`. If not set a value for this variable, this role will try to find the latest full backup version from the specified storage location.
+
+- Optional
+- Environment Variable: `MASBR_BACKUP_FROM_VERSION`
+- Default: None
+
+### masbr_backup_schedule
+Set [Cron expression](ttps://en.wikipedia.org/wiki/Cron) to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.
+
+- Optional
+- Environment Variable: `MASBR_BACKUP_SCHEDULE`
+- Default: None
+
+### masbr_restore_from_version
+Set the backup version to use in the restore, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`)
+
+- **Required** only when `DB2_ACTION=restore`
+- Environment Variable: `MASBR_RESTORE_FROM_VERSION`
+- Default: None
+
+
 Example Playbook
 -----------------------------------------------------------------------------------------------
 
+### Install Db2
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -440,6 +569,33 @@ Example Playbook
     # Create the MAS JdbcCfg & Secret resource definitions
     mas_instance_id: inst1
     mas_config_dir: /home/david/masconfig
+  roles:
+    - ibm.mas_devops.db2
+```
+
+### Backup Db2
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: backup
+    db2_instance_name: db2u-db01
+    masbr_storage_type: local
+    masbr_storage_local_folder: /tmp/masbr
+  roles:
+    - ibm.mas_devops.db2
+```
+
+### Restore Db2
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: restore
+    db2_instance_name: db2u-db01
+    masbr_restore_from_version: 20240621021316
+    masbr_storage_type: local
+    masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.db2
 ```

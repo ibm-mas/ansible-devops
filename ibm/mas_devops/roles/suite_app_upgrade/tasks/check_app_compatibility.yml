@@ -42,7 +42,7 @@
     - not ( skip_compatibility_check is defined and skip_compatibility_check )
     - app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
   assert:
-    that: app_sub_info.resources[0].spec.channel == upgrade_requirement[mas_app_upgrade_target_channel]
+    that: app_sub_info.resources[0].spec.channel == upgrade_requirement[mas_app_id][mas_app_upgrade_target_channel]
     fail_msg: "Unable to upgrade from {{ app_sub_info.resources[0].spec.channel }} to {{ mas_app_upgrade_target_channel }}"
 
 - name: "{{ mas_app_id }} : Check that install plan approvals are set to 'Automatic'"
@@ -162,5 +162,4 @@
   assert:
     that:
       - app_ws_cr_lookup.resources is defined
-      - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == app_ws_cr_lookup.resources | length
       - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length

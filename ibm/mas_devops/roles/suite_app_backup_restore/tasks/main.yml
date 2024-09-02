@@ -1,0 +1,115 @@
+---
+# Check mas app backup/restore required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id is required"
+
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id is required"
+
+- name: "Fail if mas_app_id is not provided"
+  assert:
+    that: mas_app_id is defined and mas_app_id != ""
+    fail_msg: "mas_app_id is required"
+
+- name: "Fail if masbr_action is not provided"
+  assert:
+    that: masbr_action is defined and masbr_action != ""
+    fail_msg: "masbr_action is required"
+
+- name: "Set fact: namespace name for {{ mas_app_id }}"
+  set_fact:
+    mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
+
+
+# Get mas app information
+# -----------------------------------------------------------------------------
+- name: "Get {{ mas_app_id }} information"
+  include_tasks: "tasks/get-app-info.yml"
+
+
+# Set common job variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: common job variables"
+  set_fact:
+    masbr_job_component:
+      name: "{{ mas_app_id }}"
+      instance: "{{ mas_instance_id }}"
+      workspace: "{{ mas_workspace_id }}"
+      namespace: "{{ mas_app_namespace }}"
+
+- name: "Load mas app variables"
+  include_tasks: "tasks/{{ mas_app_id }}/{{ masbr_action }}-vars.yml"
+
+
+# Before run tasks
+# -----------------------------------------------------------------------------
+- name: "Before run tasks"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
+  vars:
+    _job_type: "{{ masbr_action }}"
+
+
+# Create k8s Job to run backup/restore tasks
+# -----------------------------------------------------------------------------
+- name: "Create k8s Job to run {{ masbr_action }} tasks"
+  when: masbr_create_task_job
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
+  vars:
+    _rt_role_name: "suite_app_backup_restore"
+    _rt_env:
+      - name: "MASBR_JOB_VERSION"
+        value: "{{ masbr_job_version }}"
+      - name: "MAS_INSTANCE_ID"
+        value: "{{ mas_instance_id }}"
+      - name: "MAS_WORKSPACE_ID"
+        value: "{{ mas_workspace_id }}"
+      - name: "MAS_APP_ID"
+        value: "{{ mas_app_id }}"
+
+
+- name: "Run {{ masbr_action }} tasks"
+  when: not masbr_create_task_job
+  block:
+    # Update job status: New
+    # -------------------------------------------------------------------------
+    - name: "Update job status: New"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "1"
+            phase: "New"
+
+
+    # Run backup/restore tasks for each data type
+    # TODO: check and ignore unsupported data type
+    # -------------------------------------------------------------------------
+    - name: "Run {{ masbr_action }} tasks for each data type"
+      include_tasks: "{{ _include_tasks_folder }}/{{ masbr_action }}-{{ job_data_item.type }}.yml"
+      vars:
+        _include_tasks_folder: >-
+          {{ role_path }}/{{ 'tasks' if job_data_item.type in ['namespace', 'pv'] else 'tasks/' + mas_app_id }}
+        masbr_job_data_seq: "{{ job_data_item.seq }}"
+        masbr_job_data_type: "{{ job_data_item.type }}"
+      loop: "{{ masbr_job_data_list }}"
+      loop_control:
+        loop_var: job_data_item
+
+  rescue:
+    # Update job status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update job status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_status:
+          phase: "Failed"
+
+  always:
+    # After run tasks
+    # -------------------------------------------------------------------------
+    - name: "After run tasks"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/after_run_tasks.yml"

@@ -35,7 +35,9 @@
 
     # 7. CP4D
     # -------------------------------------------------------------------------
+    cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('False', True) | bool }}"
+    cpd_48_or_higher: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','>=') | bool }}"
 
     # 8. Watson Studio Local
     # -------------------------------------------------------------------------
@@ -53,7 +55,11 @@
     # -------------------------------------------------------------------------
     mirror_db2u: "{{ lookup('env', 'MIRROR_DB2U') | default ('False', True) | bool }}"
 
-    # 12. App Connect
+    # 12. Cognos Analytics
+    # -------------------------------------------------------------------------
+    mirror_cognos: "{{ lookup('env', 'MIRROR_COGNOS') | default ('False', True) | bool }}"
+
+    # 13. App Connect
     # -------------------------------------------------------------------------
     mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('False', True) | bool }}"
 
@@ -149,11 +155,13 @@
         manifest_name: extras_mongoce
         manifest_version: "{{ mongo_extras_version_6 }}"
 
+
     # 3. IBM Cloud Pak Foundation Services
     # -------------------------------------------------------------------------
+    # Just mirror IBM Cloud Pak Foundation Services images 'mirror_common_svcs' is set, or if CPD 4.8+ is being mirrored
     - name: ibm.mas_devops.mirror_case_prepare
       when:
-        - mirror_common_svcs
+        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-cp-common-services
@@ -167,11 +175,10 @@
         ibmpak_skip_dependencies: false
 
     - name: ibm.mas_devops.mirror_images
-      when: mirror_common_svcs
+      when: mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
       vars:
         manifest_name: ibm-cp-common-services
         manifest_version: "{{ common_svcs_version }}"
-
 
     # Mirroring another version for Cloud Pak Foundation Services
     - name: ibm.mas_devops.mirror_case_prepare
@@ -294,8 +301,29 @@
         manifest_name: ibm-cp-datacore
         manifest_version: "{{ cp4d_platform_version }}"
 
+    # 7.1 CP4D - IBM Licensing dependency
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - cpd_48_or_higher
+        - mirror_cp4d
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-licensing
+        case_version: "{{ ibm_licensing_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: true
 
-    # 7.1 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
+    - name: ibm.mas_devops.mirror_images
+      when:
+        - cpd_48_or_higher
+        - mirror_cp4d
+        - mirror_mode != "from-filesystem"
+      vars:
+        manifest_name: ibm-licensing
+        manifest_version: "{{ ibm_licensing_version }}"
+
+    # 7.2 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl or mirror_wml
@@ -312,7 +340,7 @@
         manifest_name: ibm-ccs
         manifest_version: "{{ wsl_version }}"
 
-    # 7.2 IBM Watson Studio dependency - ibm-datarefinery
+    # 7.3 IBM Watson Studio dependency - ibm-datarefinery
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl
@@ -329,7 +357,7 @@
         manifest_name: ibm-datarefinery
         manifest_version: "{{ wsl_version }}"
 
-    # 7.3 IBM Watson Studio dependency - ibm-wsl-runtimes
+    # 7.4 IBM Watson Studio dependency - ibm-wsl-runtimes
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl
@@ -346,6 +374,22 @@
         manifest_name: ibm-wsl-runtimes
         manifest_version: "{{ wsl_version }}"
 
+    # 7.5 IBM Watson Studio dependency - ibm-elasticsearch-operator
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-elasticsearch-operator
+        case_version: "{{ elasticsearch_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_wsl
+      vars:
+        manifest_name: ibm-elasticsearch-operator
+        manifest_version: "{{ elasticsearch_version }}"
 
     # 8. IBM Watson Studio
     # -------------------------------------------------------------------------
@@ -420,6 +464,7 @@
       vars:
         manifest_name: "ibm-db2uoperator"
         manifest_version: "{{ db2u_version }}"
+        mirror_single_arch: amd64
 
     - name: ibm.mas_devops.mirror_extras_prepare
       when:
@@ -436,7 +481,26 @@
         manifest_version: "{{ db2u_extras_version }}"
 
 
-    # 12. App connect
+    # 12. Cognos Analytics
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_cognos
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-cognos-analytics-prod
+        case_version: "{{ cognos_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_cognos
+      vars:
+        manifest_name: ibm-cognos-analytics-prod
+        manifest_version: "{{ cognos_version }}"
+
+
+    # 13. App Connect
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:

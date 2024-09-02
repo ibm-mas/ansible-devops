@@ -15,7 +15,7 @@ Playbook Content
 7. [Configure MAS to use BYO database](../roles/gencfg_jdbc.md) (optional, set `CONFIGURE_EXTERNAL_DB`)
 8. [Install Maximo Manage Application](../roles/suite_app_install.md)
 9. [Configure Maximo Manage Workspace](../roles/suite_app_config.md)
-10. [Configure Manage Attachments](../roles/suite_manage_doclinks_config.md) (optional, set `CONFIGURE_MANAGE_ATTACHMENTS`)
+10. [Configure Manage Attachments](../roles/suite_manage_attachments_config.md) (optional, set `CONFIGURE_MANAGE_ATTACHMENTS`)
 11. [Configure Manage Building Information Models](../roles/suite_manage_bim_config.md) (optional, set `CONFIGURE_MANAGE_BIM`)
 
 See the individual pages for each of these roles for more information and full details of all configuration options available in this playbook.
@@ -84,7 +84,7 @@ export MAS_JDBC_USER=maximo
 export MAS_JDBC_PASSWORD=xxx
 export MAS_JDBC_URL=xxx
 
-export MAS_APP_SETTINGS_DB2_SCHEMA=maximo
+export MAS_APP_SETTINGS_DB_SCHEMA=maximo
 export MAS_APP_SETTINGS_TABLESPACE=maxdata
 export MAS_APP_SETTINGS_INDEXSPACE=maxindex
 

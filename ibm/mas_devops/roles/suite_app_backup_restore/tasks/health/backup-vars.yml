@@ -1,0 +1,34 @@
+---
+- name: "Set fact: default backup job data list"
+  set_fact:
+    masbr_job_data_list:
+      - seq: "1"
+        type: "namespace"
+      - seq: "2"
+        type: "wsl"
+
+- name: "Set fact: health standalone namespace backup resources"
+  when: mas_health_standalone
+  set_fact:
+    masbr_ns_backup_resources:
+      - namespace: "{{ mas_app_namespace }}"
+        resources:
+          - kind: Subscription
+            name: ibm-mas-manage
+          - kind: OperatorGroup
+            name: ibm-health-operatorgroup
+          - kind: Secret
+            name: ibm-entitlement
+          # apps.mas.ibm.com
+          - kind: HealthApp
+          - kind: HealthWorkspace
+
+- name: "Set fact: health ext namespace backup resources"
+  when: not mas_health_standalone
+  set_fact:
+    masbr_ns_backup_resources:
+      - namespace: "{{ mas_app_namespace }}"
+        resources:
+          # apps.mas.ibm.com
+          - kind: HealthextWorkspace
+          - kind: HealthextAccelerator

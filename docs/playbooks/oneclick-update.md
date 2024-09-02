@@ -15,10 +15,7 @@ Playbook Content
 
 Preparation
 -------------------------------------------------------------------------------
-You will need to determine the version of the IBM Maximo Operator Catalog that you wish to update to.  Generally speaking, you should update the most recent catalog available.  The following catalogs are available at time of writing:
-
-- **v8-220805-amd64**
-- **v8-220717-amd64**
+You will need to determine the version of the IBM Maximo Operator Catalog that you wish to update to.  Generally speaking, you should update the most recent catalog available.
 
 !!! important
     If you are using a private/mirror registry it is **critical** that you mirror the images from the updated catalog **before** you run this playbook, otherwise you will see numerous containers in **ImagePullBackoff** as the updates are rolled out automatically after the catalog has been updated.

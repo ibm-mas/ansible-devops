@@ -1,0 +1,129 @@
+---
+# Update database restore status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update database restore status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "InProgress"
+
+
+- name: "Restore mongodb databases"
+  block:
+    # Create mongodb role and user for backing up databases
+    # -------------------------------------------------------------------------
+    - name: "Create mongodb role and user for backing up databases"
+      include_tasks: "tasks/providers/{{ mongodb_provider }}/create-role-user.yml"
+
+
+    # Prepare mongodb database restore folders
+    # -------------------------------------------------------------------------
+    - name: "Set fact: mongodb database restore variables"
+      set_fact:
+        # We should use mongodb pod ephemeral local storage to save the temporary files,
+        # the mongodb data pvc size is not big enough.
+        mongodb_restore_folder: "{{ mongodb_pod_temp_folder }}/{{ masbr_job_data_type }}"
+
+    - name: "Set fact: mongodb database restore log"
+      set_fact:
+        mongodb_restore_log: "{{ mongodb_restore_folder }}/{{ masbr_job_name }}-restore.log"
+
+    - name: "Create mongodb database restore folder in pod"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        mkdir -p {{ mongodb_restore_folder }};
+        chmod a+w {{ mongodb_restore_folder }}
+        {{ exec_in_pod_end }}
+
+    - name: "Debug: mongodb database restore folder in pod"
+      debug:
+        msg: "Database restore folder ........... {{ mongodb_restore_folder }}"
+
+
+    # This is an incremental backup, need to restore based on full backup first
+    # -------------------------------------------------------------------------
+    - name: "Restore based on full backup"
+      when: masbr_restore_from_incr
+      block:
+        - name: "Copy based on full backup file from specified storage location to pod"
+          include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/restore-database-perform.yml"
+          vars:
+            _job_type: "full"
+            _job_name: "{{ masbr_restore_basedon }}"
+
+
+    # Restore databases from the specified Full or Incremental backup
+    # -------------------------------------------------------------------------
+    - name: "Restore databases from the specified {{ 'Incremental' if masbr_restore_from_incr else 'Full' }} backup"
+      include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/restore-database-perform.yml"
+      vars:
+        _job_type: "{{ 'incr' if masbr_restore_from_incr else 'full' }}"
+        _job_name: "{{ masbr_restore_from }}"
+
+
+    # Do some post restoration tasks
+    # -------------------------------------------------------------------------
+    - name: "Do some post restoration tasks "
+      include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/restore-database-patch.yml"
+
+
+    # Update database restore status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update database restore status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Completed"
+
+  rescue:
+    # Update database restore status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database restore status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Failed"
+
+  always:
+    # Copy mongodb restore log file to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of mongodb restore log"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        tar -czf {{ mongodb_restore_folder }}/{{ masbr_job_name }}-restore-log.tar.gz
+        -C {{ mongodb_restore_folder }} {{ masbr_job_name }}-restore.log
+        {{ exec_in_pod_end }}
+
+    - name: "Copy mongodb restore log file from pod to specified storage location"
+      when: _mongodb_cf_in_server
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_pod_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "restore"
+        masbr_cf_job_name: "{{ masbr_job_name_final }}"
+        masbr_cf_paths:
+          - src_file: "{{ mongodb_restore_folder }}/{{ masbr_job_name }}-restore-log.tar.gz"
+            dest_folder: "log"
+
+    - name: "Download and copy restore log file to specified storage location"
+      when: not _mongodb_cf_in_server
+      block:
+        - name: "Download restore log file from pod to local"
+          changed_when: true
+          shell: >
+            oc cp --retries=50 -c {{ mongodb_container_name }}
+            {{ mongodb_namespace }}/{{ mongodb_pod_name }}:{{ mongodb_restore_folder }}/{{ masbr_job_name }}-restore-log.tar.gz
+            {{ masbr_local_job_folder }}/log/{{ masbr_job_name }}-restore-log.tar.gz
+
+        - name: "Copy restore log file from local to specified storage location"
+          include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
+          vars:
+            masbr_cf_job_type: "restore"
+            masbr_cf_job_name: "{{ masbr_job_name_final }}"
+            masbr_cf_paths:
+              - src_file: "log/{{ masbr_job_name }}-restore-log.tar.gz"
+                dest_folder: "log"
