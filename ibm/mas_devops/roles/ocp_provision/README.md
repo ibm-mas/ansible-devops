@@ -1,7 +1,9 @@
 ocp_provision
 ===============================================================================
+Provision OCP cluster on IBM Cloud ROKS, ROSA, or DevIT Fyre.
 
-Provision OCP cluster on DevIT Fyre, IBM Cloud ROKS or ROSA.
+Fyre clusters will be automatically reconfigured to enable NFS storage.  By default this is made available via the `nfs-client` storage class and supports both `ReadWriteOnce` and `ReadWriteMany` access modes.  The `image-registry-storage` PVC used by the OpenShift image registry component will also be reconfigured to use this storage class.
+
 
 Role Variables
 -------------------------------------------------------------------------------
@@ -28,7 +30,8 @@ The version of OCP to use.  A specific version can be set, minor and patch level
 
 !!! note
     When using the IBMCloud Red Hat OpenShift Service (ROKS) the version must be followed by `_openshift`, e.g. **4.15_openshift** or **4.15.16_openshift**
-    
+
+
 Role Variables - GPU Node Support
 -------------------------------------------------------------------------------
 ### ocp_provision_gpu
@@ -224,28 +227,49 @@ The name of one of Fyre's pre-defined cluster sizes to use for the new cluster.
 
 - **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
 - Environment Variable: `FYRE_CLUSTER_SIZE`
-- Default Value: `large`
+- Default Value: `medium`
 
 ### fyre_worker_count
 The number of worker nodes to provision in the cluster.
 
-- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = product_group`.
 - Environment Variable: `FYRE_WORKER_COUNT`
-- Default Value: `3`
+- Default Value: `2`
 
 ### fyre_worker_cpu
 The amount of CPU to assign to each worker node (maximum value supported by FYRE 16).
 
-- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = product_group`.
 - Environment Variable: `FYRE_WORKER_CPU`
-- Default Value: `16`
+- Default Value: `8`
 
 ### fyre_worker_memory
 The amount of memory to assign to each worker node (maximum value supported by FYRE 64).
 
-- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = product_group`.
 - Environment Variable: `FYRE_WORKER_MEMORY`
-- Default Value: `64`
+- Default Value: `32`
+
+### fyre_worker_additional_disks
+The size of additional disks in Gb added to each worker node, defined in a comma-seperated list, e.g. `400,400` will add two 400gb disks to each worker node. By default no additional disks will be attached.
+
+- Optional
+- Environment Variable: `FYRE_WORKER_ADDITIONAL_DISKS`
+- Default Value: `None`
+
+### fyre_nfs_setup
+Enables the use of NFS storage classes in the Fyre cluster. When enabled, the existing image registry PVC will be deleted and recreated configured to use the newly available NFS storage class.
+
+- Optional
+- Environment Variable: `FYRE_NFS_SETUP`
+- Default Value: `true`
+
+### fyre_nfs_image_registry_size
+Defines the image registry storage size when configured to use NFS. The size allocated cannot be superior of storage available in the Fyre Infrastructure node.
+
+- Optional
+- Environment Variable: `FYRE_NFS_IMAGE_REGISTRY_SIZE`
+- Default: `100Gi`
 
 ### enable_ipv6
 Enable IPv6. This is for Fyre at RTP site only.
@@ -332,7 +356,7 @@ The number of worker nodes to provsision in the cluster, providing your compute 
 - Default Value: `3`
 
 ### ipi_rootvolume_size
-The size of root volume in GiB. 
+The size of root volume in GiB.
 
 - Optional when `cluster_type = ipi`
 - Environment variable: `IPI_ROOTVOLUME_SIZE`
