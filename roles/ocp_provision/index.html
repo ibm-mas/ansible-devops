@@ -174,6 +174,12 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#fyre_worker_memory">fyre_worker_memory</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fyre_worker_additional_disks">fyre_worker_additional_disks</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fyre_nfs_setup">fyre_nfs_setup</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fyre_nfs_image_registry_size">fyre_nfs_image_registry_size</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#enable_ipv6">enable_ipv6</a>
     </li>
         </ul>
@@ -401,7 +407,8 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="ocp_provision">ocp_provision<a class="headerlink" href="#ocp_provision" title="Permanent link"></a></h1>
-<p>Provision OCP cluster on DevIT Fyre, IBM Cloud ROKS or ROSA.</p>
+<p>Provision OCP cluster on IBM Cloud ROKS, ROSA, or DevIT Fyre.</p>
+<p>Fyre clusters will be automatically reconfigured to enable NFS storage.  By default this is made available via the <code>nfs-client</code> storage class and supports both <code>ReadWriteOnce</code> and <code>ReadWriteMany</code> access modes.  The <code>image-registry-storage</code> PVC used by the OpenShift image registry component will also be reconfigured to use this storage class.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link"></a></h2>
 <h3 id="cluster_type">cluster_type<a class="headerlink" href="#cluster_type" title="Permanent link"></a></h3>
 <p>Specify the cluster type, supported values are <code>fyre</code>, <code>roks</code>, <code>rosa</code>, and <code>ipi</code>.</p>
@@ -613,28 +620,49 @@
 <ul>
 <li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = quick_burn</code>.</li>
 <li>Environment Variable: <code>FYRE_CLUSTER_SIZE</code></li>
-<li>Default Value: <code>large</code></li>
+<li>Default Value: <code>medium</code></li>
 </ul>
 <h3 id="fyre_worker_count">fyre_worker_count<a class="headerlink" href="#fyre_worker_count" title="Permanent link"></a></h3>
 <p>The number of worker nodes to provision in the cluster.</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = quick_burn</code>.</li>
+<li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = product_group</code>.</li>
 <li>Environment Variable: <code>FYRE_WORKER_COUNT</code></li>
-<li>Default Value: <code>3</code></li>
+<li>Default Value: <code>2</code></li>
 </ul>
 <h3 id="fyre_worker_cpu">fyre_worker_cpu<a class="headerlink" href="#fyre_worker_cpu" title="Permanent link"></a></h3>
 <p>The amount of CPU to assign to each worker node (maximum value supported by FYRE 16).</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = quick_burn</code>.</li>
+<li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = product_group</code>.</li>
 <li>Environment Variable: <code>FYRE_WORKER_CPU</code></li>
-<li>Default Value: <code>16</code></li>
+<li>Default Value: <code>8</code></li>
 </ul>
 <h3 id="fyre_worker_memory">fyre_worker_memory<a class="headerlink" href="#fyre_worker_memory" title="Permanent link"></a></h3>
 <p>The amount of memory to assign to each worker node (maximum value supported by FYRE 64).</p>
 <ul>
-<li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = quick_burn</code>.</li>
+<li><strong>Required</strong> when <code>cluster_type = fyre</code> and <code>fyre_quota_type = product_group</code>.</li>
 <li>Environment Variable: <code>FYRE_WORKER_MEMORY</code></li>
-<li>Default Value: <code>64</code></li>
+<li>Default Value: <code>32</code></li>
+</ul>
+<h3 id="fyre_worker_additional_disks">fyre_worker_additional_disks<a class="headerlink" href="#fyre_worker_additional_disks" title="Permanent link"></a></h3>
+<p>The size of additional disks in Gb added to each worker node, defined in a comma-seperated list, e.g. <code>400,400</code> will add two 400gb disks to each worker node. By default no additional disks will be attached.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>FYRE_WORKER_ADDITIONAL_DISKS</code></li>
+<li>Default Value: <code>None</code></li>
+</ul>
+<h3 id="fyre_nfs_setup">fyre_nfs_setup<a class="headerlink" href="#fyre_nfs_setup" title="Permanent link"></a></h3>
+<p>Enables the use of NFS storage classes in the Fyre cluster. When enabled, the existing image registry PVC will be deleted and recreated configured to use the newly available NFS storage class.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>FYRE_NFS_SETUP</code></li>
+<li>Default Value: <code>true</code></li>
+</ul>
+<h3 id="fyre_nfs_image_registry_size">fyre_nfs_image_registry_size<a class="headerlink" href="#fyre_nfs_image_registry_size" title="Permanent link"></a></h3>
+<p>Defines the image registry storage size when configured to use NFS. The size allocated cannot be superior of storage available in the Fyre Infrastructure node.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>FYRE_NFS_IMAGE_REGISTRY_SIZE</code></li>
+<li>Default: <code>100Gi</code></li>
 </ul>
 <h3 id="enable_ipv6">enable_ipv6<a class="headerlink" href="#enable_ipv6" title="Permanent link"></a></h3>
 <p>Enable IPv6. This is for Fyre at RTP site only.</p>
@@ -719,7 +747,7 @@ Can be used to SSH into the OCP cluster nodes using a bastion.</p>
 <li>Default Value: <code>3</code></li>
 </ul>
 <h3 id="ipi_rootvolume_size">ipi_rootvolume_size<a class="headerlink" href="#ipi_rootvolume_size" title="Permanent link"></a></h3>
-<p>The size of root volume in GiB. </p>
+<p>The size of root volume in GiB.</p>
 <ul>
 <li>Optional when <code>cluster_type = ipi</code></li>
 <li>Environment variable: <code>IPI_ROOTVOLUME_SIZE</code></li>
