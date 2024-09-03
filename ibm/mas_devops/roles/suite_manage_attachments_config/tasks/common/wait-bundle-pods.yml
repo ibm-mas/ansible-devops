@@ -24,6 +24,8 @@
         - manage_bundle_lookup.resources | length > 0
         - manage_bundle_lookup.resources[0].status is defined
         - manage_bundle_lookup.resources[0].status | length > 0
+      retries: 60
+      delay: 30
 
     - name: "wait : Check if bundle pods are ready..."
       set_fact:
@@ -37,19 +39,18 @@
       assert:
         that: ready_bundle_count == bundle_count
         fail_msg: "[{{ bundle_retry_count }}/60] {{ ready_bundle_count }} of {{ bundle_count }} bundle pods are ready"
+      when: ready_bundle_count != bundle_count and bundle_retry_count|int >= 60
 
     # reset retry count
     - set_fact:
         bundle_retry_count: 0
       when: ready_bundle_count == bundle_count
-  rescue:
-    - name: "wait : Give up after 60 attempts (approx 30 minutes)"
-      assert:
-        that: bundle_retry_count|int < 60
-        fail_msg: Timed out waiting for Manage bundle pods to become ready!
 
     - name: "wait : Wait for 30 seconds before checking again"
       pause:
         seconds: 30
+      when: ready_bundle_count != bundle_count and bundle_retry_count|int < 60
 
-    - include_tasks: "tasks/common/wait-bundle-pods.yml"
+    - name: "wait : Include task If bundle retry count not exceeded "
+      include_tasks: "tasks/common/wait-bundle-pods.yml"
+      when: ready_bundle_count != bundle_count and bundle_retry_count|int < 60
