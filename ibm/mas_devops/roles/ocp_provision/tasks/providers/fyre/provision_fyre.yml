@@ -41,6 +41,7 @@
       - "Worker count ................. {{ fyre_worker_count | default('<undefined>', true) }}"
       - "Worker CPU ................... {{ fyre_worker_cpu | default('<undefined>', true) }}"
       - "Worker memory ................ {{ fyre_worker_memory | default('<undefined>', true) }}"
+      - "Worker additional disks ...... {{ fyre_worker_additional_disks | default('<undefined>', true) }}"
 
 
 # 3. Determine whether there is already an environment running
@@ -120,3 +121,10 @@
     - _result.json.deployed_status == 'deployed'
   retries: 60 # 60 * 2 minutes = 2 hours
   delay: 120 # Every 2 minutes
+
+
+# 6. Reconfigure the cluster for NFS
+# -----------------------------------------------------------------------------
+- name: "Install NFS"
+  include_tasks: "tasks/providers/fyre/nfs/install_nfs.yml"
+  when: fyre_nfs_setup
