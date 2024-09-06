@@ -66,7 +66,7 @@ The namespace where the operator and MongoDb cluster will be deployed.
 - Default Value: `mongoce`
 
 ### mongodb_version
-Defines the specific mongo version to be used. Best practice would be to use the version associated with the current Maximo Application Suite catalog. However, this value can currently be overridden to 4.4.21, 5.0.21, 5.0.23, 6.0.10 or 6.0.12
+Defines the specific mongo version to be used. Best practice would be to use the version associated with the current Maximo Application Suite catalog. However, this value can currently be overridden to 4.4.21, 5.0.21, 5.0.23, 6.0.10, 6.0.12, 7.0.12
 
 !!! important
     It is advised to never attempt a downgrade a MongoDB instance managed by the MAS Devops Ansible Collection. Also best practices should include creating scheduled backups of any MongoDB instance.
@@ -140,7 +140,14 @@ Set this to `true` to confirm you want to upgrade your existing Mongo instance f
 Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 5 to version 6.
 
 - Optional
-- Environment Variable: `MONGODB_V5_UPGRADE`
+- Environment Variable: `MONGODB_V6_UPGRADE`
+- Default Value: `false`
+
+### mongodb_v7_upgrade
+Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 6 to version 7.
+
+- Optional
+- Environment Variable: `MONGODB_V7_UPGRADE`
 - Default Value: `false`
 
 ### masbr_confirm_cluster
