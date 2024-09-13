@@ -80,10 +80,10 @@ Local directory to save the generated ObjectStorageCfg resource definition.  Thi
 - Environment Variable: `MAS_CONFIG_DIR`
 - Default Value: None
 
-### use_hmac
+### cos_use_hmac
 Supported values are true and false, this is used when ibm cloud-cos to be setup with hmac encrypted credentials.
 
-- Environment Variable: USE_HMAC
+- Environment Variable: COS_USE_HMAC
 - Default: false
 
 ### cluster ingres tls secret name
