@@ -68,6 +68,18 @@ Only used when cos_type is set to `ibm`.  Provide the name of the resource group
 - Environment Variable: `IBMCLOUD_RESOURCEGROUP`
 - Default Value: `Default`
 
+### cos_apikey
+Required if cos_type is set to `ibm`.  Provide your IBM Cloud API Key to be used for provisioning/deprovisioning COS.
+
+- Environment Variable: `COS_APIKEY`
+- Default Value: ibmcloud_apikey
+
+### cos_resourcegroup
+Only used when cos_type is set to `ibm`.  Provide the name of the resource group which will own the COS instance.
+
+- Environment Variable: `COS_RESOURCEGROUP`
+- Default Value: ibmcloud_resourcegroup
+
 ### mas_instance_id
 The instance ID of Maximo Application Suite that the ObjectStorageCfg configuration will target.  If this or `mas_config_dir` are not set then the role will not generate a ObjectStorageCfg template.
 
