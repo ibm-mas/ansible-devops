@@ -90,6 +90,12 @@ Only used when cos_type is set to `ibm`.  Provide the name of the resource group
 - Environment Variable: `IBMCLOUD_RESOURCEGROUP`
 - Default Value: `Default`
 
+### cos_apikey
+Required if cos_type is set to `ibm`.  Provide your IBM Cloud API Key to be used for cos.
+
+- Environment Variable: `COS_APIKEY`
+- Default Value: ibmcloud_apikey
+
 Role Variables - AWS S3 Buckets
 --------------
 

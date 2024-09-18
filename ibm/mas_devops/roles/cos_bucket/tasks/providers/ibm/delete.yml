@@ -1,9 +1,9 @@
 ---
 # ibmcloud_apikey is required in order to be able to lookup cos resources
-- name: "Fail if ibmcloud_apikey is not provided"
+- name: "Fail if either cos_apikey or ibmcloud_apikey is not provided"
   assert:
-    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
-    fail_msg: "ibmcloud_apikey property is required"
+    that: cos_apikey is defined and cos_apikey != ""
+    fail_msg: "cos_apikey or ibmcloud_apikey property is required"
 
 # cos_instance_name is required in order to be able to create cos resources i.e credentials and buckets
 - name: "Fail if cos_instance_name is not provided"
@@ -29,7 +29,7 @@
 - name: "ibm : Retrieve resource group guid"
   ibm.cloudcollection.ibm_resource_group_info:
     name: "{{ ibmcloud_resourcegroup }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    ibmcloud_api_key: "{{ cos_apikey }}"
   register: rg_info
 
 - name: "ibm : Debug group GUID"
@@ -51,7 +51,7 @@
     resource_group_id: "{{ resourceGID }}"
     service: "cloud-object-storage"
     location: "{{ cos_location_info }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
   register: cos_info
 
 - name: "Set resource instance id variable"
@@ -64,7 +64,7 @@
 - name: "Lookup IBM COS bucket named '{{ cos_bucket_name }}' in COS instance '{{ cos_instance_name }}'"
   ibm.cloudcollection.ibm_cos_bucket_info:
     resource_instance_id: "{{ cos_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
     bucket_name: "{{ cos_bucket_name }}"
     bucket_type: "{{ cos_bucket_region_location_type }}"
     bucket_region: "{{ cos_bucket_region_location }}"
@@ -94,7 +94,7 @@
   ibm.cloudcollection.ibm_cos_bucket:
     resource_instance_id: "{{ cos_bucket_resource_instance_id }}"
     id: "{{ cos_bucket_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
     bucket_name: "{{ cos_bucket_name }}"
     state: absent
   register: cos_bucket_delete_output
