@@ -71,13 +71,21 @@
     wait: yes
     wait_timeout: 300
 
-# 7. Configure Grafana Datasource
+# 7. Install service account and role to use promethesus
+# -------------------------------------------------------------------------------------
+- name: "install : Create Prometheus Service Account and Role"
+  kubernetes.core.k8s:
+    template: "templates/grafana/v{{grafana_major_version}}/grafana-prometheus-serviceaccount.yml.j2"
+    wait: yes
+    wait_timeout: 300
+
+# 8. Configure Grafana Datasource
 # -------------------------------------------------------------------------------------
 # As per https://docs.openshift.com/container-platform/4.8/monitoring/enabling-monitoring-for-user-defined-projects.html#enabling-monitoring-for-user-defined-projects
 # use the external thanos url
 
-- name: Create the prometheus-user-workload token
-  shell: "oc create token prometheus-user-workload -n openshift-user-workload-monitoring"
+- name: Create the prometheus token
+  shell: "oc create token prometheus-serviceaccount -n {{ grafana_namespace }}"
   register: prometheus_token_resp
   retries: 10
   delay: 30 # seconds
@@ -113,7 +121,7 @@
     wait: yes
     wait_timeout: 120
 
-# 8. Wait for Grafana to be ready
+# 9. Wait for Grafana to be ready
 # -------------------------------------------------------------------------------------
 - name: "install : Wait for grafana v5 to be ready (60s delay)"
   kubernetes.core.k8s_info:
