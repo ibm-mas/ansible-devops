@@ -16,52 +16,53 @@
     mirror_mongoce_v4: "{{ lookup('env', 'MIRROR_MONGOCE_V4') | default ('False', True) | bool }}"
     mirror_mongoce_v5: "{{ lookup('env', 'MIRROR_MONGOCE_V5') | default ('False', True) | bool }}"
     mirror_mongoce_v6: "{{ lookup('env', 'MIRROR_MONGOCE_V6') | default ('False', True) | bool }}"
+    mirror_mongoce_v7: "{{ lookup('env', 'MIRROR_MONGOCE_V7') | default ('False', True) | bool }}"
 
     # 3. CPFS
     # -------------------------------------------------------------------------
     mirror_common_svcs: "{{ lookup('env', 'MIRROR_COMMONSERVICES') | default ('True', True) | bool }}"
 
-    # 4. UDS
-    # -------------------------------------------------------------------------
-    mirror_uds: "{{ lookup('env', 'MIRROR_UDS') | default ('True', True) | bool }}"
-
-    # 5. SLS
+    # 4. SLS
     # -------------------------------------------------------------------------
     mirror_sls: "{{ lookup('env', 'MIRROR_SLS') | default ('True', True) | bool }}"
 
-    # 6. TSM
+    # 5. TSM
     # -------------------------------------------------------------------------
     mirror_tsm: "{{ lookup('env', 'MIRROR_TRUSTSTOREMGR') | default ('True', True) | bool }}"
 
-    # 7. CP4D
+    # 6. CP4D
     # -------------------------------------------------------------------------
     cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('False', True) | bool }}"
     cpd_48_or_higher: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','>=') | bool }}"
 
-    # 8. Watson Studio Local
+    # 7. Watson Studio Local
     # -------------------------------------------------------------------------
     mirror_wsl: "{{ lookup('env', 'MIRROR_WSL') | default ('False', True) | bool }}"
 
-    # 9. Watson Machine Learning
+    # 8. Watson Machine Learning
     # -------------------------------------------------------------------------
     mirror_wml: "{{ lookup('env', 'MIRROR_WML') | default ('False', True) | bool }}"
 
-    # 10. Analytics Engine (Spark)
+    # 9. Analytics Engine (Spark)
     # -------------------------------------------------------------------------
     mirror_spark: "{{ lookup('env', 'MIRROR_SPARK') | default ('False', True) | bool }}"
 
-    # 11. Db2u
+    # 10. Db2u
     # -------------------------------------------------------------------------
     mirror_db2u: "{{ lookup('env', 'MIRROR_DB2U') | default ('False', True) | bool }}"
 
-    # 12. Cognos Analytics
+    # 11. Cognos Analytics
     # -------------------------------------------------------------------------
     mirror_cognos: "{{ lookup('env', 'MIRROR_COGNOS') | default ('False', True) | bool }}"
 
-    # 13. App Connect
+    # 12. App Connect
     # -------------------------------------------------------------------------
     mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('False', True) | bool }}"
+
+    # 14. ODF
+    # -------------------------------------------------------------------------
+    mirror_odf: "{{ lookup('env', 'MIRROR_ODF') | default ('False', True) | bool }}"
 
   pre_tasks:
     - name: "Get stats for the catalog file"
@@ -155,6 +156,22 @@
         manifest_name: extras_mongoce
         manifest_version: "{{ mongo_extras_version_6 }}"
 
+
+    # Mirror Mongo v7 specifically when requested
+    - name: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_mode != "from-filesystem"
+        - mirror_mongoce_v7
+      vars:
+        extras_name: mongoce
+        extras_version: "{{ mongo_extras_version_7 }}"
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_mongoce_v7
+      vars:
+        manifest_name: extras_mongoce
+        manifest_version: "{{ mongo_extras_version_7 }}"
+
     # 3. IBM Cloud Pak Foundation Services
     # -------------------------------------------------------------------------
     # Just mirror IBM Cloud Pak Foundation Services images 'mirror_common_svcs' is set, or if CPD 4.8+ is being mirrored
@@ -206,44 +223,8 @@
         manifest_name: ibm-cp-common-services
         manifest_version: "{{ common_svcs_version_1 }}"
 
-    # 4. IBM User Data Services
-    # -------------------------------------------------------------------------
-    # 4.1 UDS
-    - name: ibm.mas_devops.mirror_case_prepare
-      when:
-        - mirror_uds
-        - mirror_mode != "from-filesystem"
-      vars:
-        case_name: ibm-uds
-        case_version: "{{ uds_version }}"
-        exclude_images: []
-        ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
-      when: mirror_uds
-      vars:
-        manifest_name: ibm-uds
-        manifest_version: "{{ uds_version }}"
-
-    # 4.2 IBM Events Operator (Used by UDS)
-    # The CASE bundle for this operator is broken, so we will manually mirror the images
-    # Based on UDS version - see catalog version for details
-    - name: ibm.mas_devops.mirror_extras_prepare
-      when:
-        - mirror_uds
-        - mirror_mode != "from-filesystem"
-      vars:
-        extras_name: uds
-        extras_version: "{{ uds_extras_version }}"
-
-    - name: ibm.mas_devops.mirror_images
-      when: mirror_uds
-      vars:
-        manifest_name: extras_uds
-        manifest_version: "{{ uds_extras_version }}"
-
-
-    # 5. IBM Suite License Service
+    # 4. IBM Suite License Service
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -262,7 +243,7 @@
         manifest_version: "{{ lookup('env', 'SLS_VERSION') | default (sls_version, True) }}"
 
 
-    # 6. IBM Truststore Manager
+    # 5. IBM Truststore Manager
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -280,7 +261,8 @@
         manifest_name: ibm-truststore-mgr
         manifest_version: "{{ lookup('env', 'TSM_VERSION') | default (tsm_version, True) }}"
 
-    # 7. CP4D
+
+    # 6.1 CP4D Platform
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -298,7 +280,8 @@
         manifest_name: ibm-cp-datacore
         manifest_version: "{{ cp4d_platform_version }}"
 
-    # 7.1 CP4D - IBM Licensing dependency
+
+    # 6.2 CP4D Platform - IBM Licensing dependency
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -320,7 +303,9 @@
         manifest_name: ibm-licensing
         manifest_version: "{{ ibm_licensing_version }}"
 
-    # 7.2 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
+
+    # 6.3 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
+    # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl or mirror_wml
@@ -337,7 +322,9 @@
         manifest_name: ibm-ccs
         manifest_version: "{{ wsl_version }}"
 
-    # 7.3 IBM Watson Studio dependency - ibm-datarefinery
+
+    # 7.1 IBM Watson Studio dependency - ibm-datarefinery
+    # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl
@@ -354,7 +341,8 @@
         manifest_name: ibm-datarefinery
         manifest_version: "{{ wsl_version }}"
 
-    # 7.4 IBM Watson Studio dependency - ibm-wsl-runtimes
+    # 7.2 IBM Watson Studio dependency - ibm-wsl-runtimes
+    # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl
@@ -371,7 +359,25 @@
         manifest_name: ibm-wsl-runtimes
         manifest_version: "{{ wsl_version }}"
 
-    # 9. IBM Watson Studio
+    # 7.3 IBM Watson Studio dependency - ibm-elasticsearch-operator
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_wsl
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-elasticsearch-operator
+        case_version: "{{ elasticsearch_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - name: ibm.mas_devops.mirror_images
+      when: mirror_wsl
+      vars:
+        manifest_name: ibm-elasticsearch-operator
+        manifest_version: "{{ elasticsearch_version }}"
+
+    # 7.4 IBM Watson Studio
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -390,7 +396,7 @@
         manifest_version: "{{ wsl_version }}"
 
 
-    # 9. IBM Watson Machine Learning
+    # 8. IBM Watson Machine Learning
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -409,7 +415,7 @@
         manifest_version: "{{ wml_version }}"
 
 
-    # 10. Analytics Engine (Spark)
+    # 9. Analytics Engine (Spark)
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -428,7 +434,7 @@
         manifest_version: "{{ spark_version }}"
 
 
-    # 11. IBM Db2u
+    # 10. IBM Db2u
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -460,7 +466,8 @@
         manifest_name: extras_db2u
         manifest_version: "{{ db2u_extras_version }}"
 
-    # 12. Cognos Analytics
+
+    # 11. Cognos Analytics
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -478,7 +485,8 @@
         manifest_name: ibm-cognos-analytics-prod
         manifest_version: "{{ cognos_version }}"
 
-    # 13. App Connect
+
+    # 12. App Connect
     # -------------------------------------------------------------------------
     - name: ibm.mas_devops.mirror_case_prepare
       when:
@@ -495,3 +503,13 @@
       vars:
         manifest_name: ibm-appconnect
         manifest_version: "{{ appconnect_version }}"
+
+    # 14. odf - some extras needed
+    # -------------------------------------------------------------------------
+    - name: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_odf
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: odf
+        extras_version: 4.15

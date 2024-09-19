@@ -117,6 +117,13 @@ The password for the target registry.
 - Environment Variable: `REGISTRY_PASSWORD`
 - Default: None
 
+### redhat_catalogs_prefix
+The prefix amended to the catalog sources names. E.g: With a `redhat_catalogs_prefix` of "ibm-mas" then `redhat/certified-operator-index` would instead be created as `redhat/ibm-mas-certified-operator-index`
+
+- Optional
+- Environment Variable: `REDHAT_CATALOGS_PREFIX`
+- Default: None
+
 
 Example Playbook
 -------------------------------------------------------------------------------
