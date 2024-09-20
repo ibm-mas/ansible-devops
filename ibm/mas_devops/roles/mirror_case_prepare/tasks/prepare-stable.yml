@@ -39,6 +39,7 @@
       - "Registry Prefix ........................ {{ registry_prefix }}"
 
 # 3. Download the dev with digest bundle from artifactory
+# https://github.ibm.com/maximoappsuite/build-system/blob/master/bin/case-publish.sh#L143
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Download the case icr bundle"
   ansible.builtin.get_url:
@@ -90,4 +91,4 @@
 - name: "{{ case_name }} : Add operator bundle to manifest file"
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
-    line: '{{ operator_bundle_digest.stdout + "=" +registry_public_url + "/cpopen/" + case_name + "-operator-bundle" }}'
+    line: '{{ (operator_bundle_digest.stdout | replace(artifactory_image_repo, icr_image_repo)) + "=" +registry_public_url + "/cpopen/" + case_name + "-operator-bundle" }}'
