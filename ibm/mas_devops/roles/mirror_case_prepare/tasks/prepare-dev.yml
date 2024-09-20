@@ -12,10 +12,6 @@
     that: ( skopeo_version_result['rc'] == 0 )
     fail_msg: "skopeo tool must be installed."
 
-- name: "{{ case_name }} : Get Build Number from case_version"
-  ansible.builtin.set_fact:
-    case_build_number: "{{ case_version.split('_').1 }}"
-
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Fail if required properties are not provided for dev access"
@@ -23,27 +19,24 @@
     that:
       - artifactory_username is defined and artifactory_username != ""
       - artifactory_token is defined and artifactory_token != ""
-      - case_build_number is defined and case_build_number !=""
     fail_msg: "One or more required properties are missing"
-      
+
 # 2. Debug
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Airgap setup configuration"
   debug:
     msg:
       - "Case Name .............................. {{ case_name }}"
-      - "Case Version ........................... {{ case_version.split('_').0 }}"
-      - "Case Build Number ...................... {{ case_build_number }}"
+      - "Case Version ........................... {{ case_version }}"
       - "Registry Public Host ................... {{ registry_public_host }}"
       - "Registry Public Port ................... {{ registry_public_port }}"
       - "Registry Prefix ........................ {{ registry_prefix }}"
 
 # 3. Download the dev with digest bundle from artifactory
-# https://github.ibm.com/maximoappsuite/build-system/blob/master/bin/case-publish.sh#L143
 # -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Download the case icr bundle"
+- name: "{{ case_name }} : Download the dev with digest bundle"
   ansible.builtin.get_url:
-    url: "{{ artifactory_bundle_url }}/{{ case_name }}/{{ case_version.split('_').0 }}/case-icr-{{ case_name }}-bundle_{{ case_build_number }}-{{ case_version.split('_').0 }}.tgz"
+    url: "{{ artifactory_bundle_url }}/{{ case_name }}/{{ case_version }}/{{ case_name }}-dev-with-digest-bundle-{{ case_version }}.tgz"
     username: "{{ artifactory_username }}"
     password: "{{ artifactory_token }}"
     dest: "{{ mirror_working_dir }}"
@@ -75,20 +68,20 @@
     path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
     create: true
     line: "{{ item.image + '=' + registry_public_url + '/' + item.name }}"
-  loop: "{{ (lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-bundle/operators/{{ case_name }}/config/manifests/bases/{{ case_name }}.clusterserviceversion.yaml') | from_yaml).spec.relatedImages }}"
+  loop: "{{ (lookup('file', '{{ mirror_working_dir }}/{{ case_name }}-dev-with-digest-bundle/operators/{{ case_name }}/config/manifests/bases/{{ case_name }}.clusterserviceversion.yaml') | from_yaml).spec.relatedImages }}"
 
 # 7. Add operator bundle with digest to the list
 # -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Get digest of operator bundle"
+- name: "{{ case_name }} : Get digest of operator bundle with digest"
   shell: |
     (skopeo inspect "docker://{{ artifactory_image_repo }}/{{ operator_bundle }}" \
       --creds "{{ artifactory_username }}:{{ artifactory_token }}" \
       --no-tags)| jq -r '[.Name, .Digest] | join("@")' \
-  register: operator_bundle_digest
+  register: operator_bundle_with_digest
   vars:
-    operator_bundle: "cpopen/{{ case_name }}-operator-bundle:{{ case_version }}"
+    operator_bundle: "cpopen/{{ case_name }}-operator-bundle-with-digest:{{ case_version }}"
 
 - name: "{{ case_name }} : Add operator bundle to manifest file"
   ansible.builtin.lineinfile:
     path: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ case_version }}.txt"
-    line: '{{ (operator_bundle_digest.stdout | replace(artifactory_image_repo, icr_image_repo)) + "=" +registry_public_url + "/cpopen/" + case_name + "-operator-bundle" }}'
+    line: '{{ operator_bundle_with_digest.stdout + "=" +registry_public_url + "/cpopen/" + case_name + "-operator-bundle-with-digest" }}'
