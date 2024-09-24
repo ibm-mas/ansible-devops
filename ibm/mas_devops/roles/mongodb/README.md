@@ -722,6 +722,10 @@ cat /proc/cpuinfo | grep flags | grep avx
 
 If `avx` is not found in the available `flags` then either the physical processor hosting the OpenShift cluster does not provide the AVX instruction set or the virtual host configuration is not exposing the AVX instruction set. If the latter is suspected the virtual hosting documentation should be referenced for details on how to expose the AVX instruction set.
 
+### LDAP Authentication
+
+If authenticating via LDAP with PLAIN specified for `authMechanism` then `configDb` must be set to `$external` in the MongoCfg. The field `configDb` in the MongoCfg refers to the authentication database. 
+
 ### CA Certificate Renewal
 
 !!! warning
