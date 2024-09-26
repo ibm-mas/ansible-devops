@@ -94,8 +94,7 @@ List of preserved settings
 - mongodb_storage_class
 - mongodb_storage_capacity_data
 - mongodb_storage_capacity_logs
-
-
+- mongodb_replicas
 
 ### mongodb_storage_class
 Required.  The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster.
