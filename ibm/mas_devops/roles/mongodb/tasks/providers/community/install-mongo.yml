@@ -99,6 +99,7 @@
       - "MAS instance ID ........................... {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS config directory ...................... {{ mas_config_dir | default('<undefined>', True)  }}"
       - "Controlled Upgrade ........................ {{ controlled_upgrade }}"
+      - "Override Spec over existing MongoDB ....... {{ mongodb_override_spec }}"
 
 # Validate if upgrade has been issued by user
 # Only needed when there is an existing mongo instance and its version does not match with the target version to be installed
@@ -275,7 +276,7 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml.j2') }}"
   when:
-    - existing_mongodb.resources[0].status.version is not defined
+    - mongodb_override_spec or existing_mongodb.resources[0].status.version is not defined
 
 - name: "community : install : Preserving existing settings if Mongo already installed"
   vars:
@@ -292,6 +293,7 @@
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml.j2') }}"
   when:
     - existing_mongodb.resources[0].status.version is defined
+    - not mongodb_override_spec
 
 - name: "community : install : Set expected MongoDb version to {{ current_mongodb_version }}"
   set_fact:
