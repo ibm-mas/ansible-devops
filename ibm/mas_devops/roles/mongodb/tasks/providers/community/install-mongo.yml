@@ -99,6 +99,7 @@
       - "MAS instance ID ........................... {{ mas_instance_id | default('<undefined>', True) }}"
       - "MAS config directory ...................... {{ mas_config_dir | default('<undefined>', True)  }}"
       - "Controlled Upgrade ........................ {{ controlled_upgrade }}"
+      - "Override Spec over existing MongoDB ....... {{ mongodb_override_spec }}"
 
 # Validate if upgrade has been issued by user
 # Only needed when there is an existing mongo instance and its version does not match with the target version to be installed
@@ -270,10 +271,29 @@
 
 # 11. Deploy the cluster
 # -----------------------------------------------------------------------------
-- name: "community : install : Create MongoDb cluster"
+- name: "community : install : Install new MongoDB cluster CR"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml.j2') }}"
+  when:
+    - mongodb_override_spec or existing_mongodb.resources[0].status.version is not defined
+
+- name: "community : install : Preserving existing settings if Mongo already installed"
+  vars:
+    mongodb_cpu_limits: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu }}"
+    mongodb_mem_limits: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.template.spec.containers[0].resources.limits.memory }}"
+    mongodb_cpu_requests: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu }}"
+    mongodb_mem_requests: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.template.spec.containers[0].resources.requests.memory }}"
+    mongodb_storage_class: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName }}"
+    mongodb_storage_capacity_data: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage }}"
+    mongodb_storage_capacity_logs: "{{ existing_mongodb.resources[0].spec.statefulSet.spec.volumeClaimTemplates[1].spec.resources.requests.storage }}"
+    mongodb_replicas: "{{ existing_mongodb.resources[0].spec.members }}"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml.j2') }}"
+  when:
+    - existing_mongodb.resources[0].status.version is defined
+    - not mongodb_override_spec
 
 - name: "community : install : Set expected MongoDb version to {{ current_mongodb_version }}"
   set_fact:
@@ -344,6 +364,8 @@
     kind: StatefulSet
     name: mas-mongo-ce
     namespace: "{{ mongodb_namespace }}"
+  vars:
+    mongodb_replicas_check: "{{ existing_mongodb.resources[0].spec.members | default(mongodb_replicas|int) }}"
   register: mongodb_statefulset
   retries: 45 # Approx 90 minutes
   delay: 120 # 2 minutes
@@ -351,7 +373,7 @@
     - mongodb_statefulset.resources is defined
     - mongodb_statefulset.resources | length > 0
     - mongodb_statefulset.resources[0].status.readyReplicas is defined
-    - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas|int)
+    - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas_check|int)
 
 - name: "community : install : Wait for mas-mongo-ce-arb stateful set to be ready"
   when: target_mongodb_version is version('4.4.0','>=') # this statefulset will only exist in Mongo v4.4+
