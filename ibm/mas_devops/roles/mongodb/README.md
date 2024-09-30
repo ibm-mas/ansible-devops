@@ -75,6 +75,27 @@ Defines the specific mongo version to be used. Best practice would be to use the
 - Environment Variable: `MONGODB_VERSION`
 - Default Value: Automatically defined by the mongo version specified in the [latest MAS case bundle available](https://github.com/ibm-mas/ansible-devops/tree/master/ibm/mas_devops/common_vars/casebundles).
 
+### mongodb_override_spec
+This forces the deploy to use the environment variables instead of maintaining spec settings for the existing installed MongoDB. By default this is False and if you upgrade or reinstall Mongo your existing settings will be preserved.
+
+!!! important
+    It is advised you check your existing Mongo installation before using this. If you do not set the environment variables to match what you have in the spec or you use defaults you may find your members, memory, and cpu reset to the default values specified in this README. Unknown settings are not preserved in the spec.
+
+- Optional
+- Environment Variable: `MONGODB_OVERRIDE_SPEC`
+- Default Value: `false`
+
+List of preserved settings
+
+- mongodb_cpu_limits
+- mongodb_mem_limits
+- mongodb_cpu_requests
+- mongodb_mem_requests
+- mongodb_storage_class
+- mongodb_storage_capacity_data
+- mongodb_storage_capacity_logs
+- mongodb_replicas
+
 ### mongodb_storage_class
 Required.  The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster.
 
