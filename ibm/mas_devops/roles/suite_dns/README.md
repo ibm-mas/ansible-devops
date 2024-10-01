@@ -67,6 +67,13 @@ Role Variables - General
 - Environment Variable: `OCP_INGRESS`
 - Default: None
 
+### cert_manager_namespace
+Namespace where Certificate Manager is installed.
+
+- Optional
+- Environment Variable: `CERT_MANAGER_NAMESPACE`
+- Default: None
+
 ### custom_labels
 List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
