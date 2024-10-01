@@ -84,17 +84,17 @@
 # As per https://docs.openshift.com/container-platform/4.8/monitoring/enabling-monitoring-for-user-defined-projects.html#enabling-monitoring-for-user-defined-projects
 # use the external thanos url
 
+- name: Get prometheus secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: prometheus-serviceaccount-token
+    namespace: "{{ grafana_v5_namespace }}"
+  register: prometheus_secret
 
-- name: Create the prometheus token
-  shell: "oc create token prometheus-serviceaccount -n {{ grafana_namespace }}"
-  register: prometheus_token_resp
-  retries: 10
-  delay: 30 # seconds
-  until: prometheus_token_resp.rc == 0
-
-- name: Get prometheus token
+- name: Get prometheus secret
   set_fact:
-    prometheus_token: "{{prometheus_token_resp.stdout_lines | first}}"
+    prometheus_token: "{{ prometheus_secret.resources[0].data.token |  b64decode }}"
 
 - name: "install : Get Thanos Querier route in openshift-monitoring namespace"
   kubernetes.core.k8s_info:
