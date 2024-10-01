@@ -11,7 +11,92 @@
   delay: 30
   until: zenmetastoreCluster.resources[0].status is defined
 
-# 2. Wait for zen metastore replica pods to become ready
+# 2. For V4.8, We need to patch the postgres licensing job acccording to https://www.ibm.com/support/pages/node/7158524
+- name: "wait-zenmetastore-edb : Check and display the create-postgres-license-config license expiry date"
+  when: cpd_48
+  block:
+    - name: "wait-zenmetastore-edb : Fetch the license expiry date"
+      kubernetes.core.k8s_info:
+        kind: Cluster
+        namespace: "{{ cpd_instance_namespace }}"
+        name: "zen-metastore-edb"
+      register: zenmetastoreCluster
+      until:
+        zenmetastoreCluster.resources[0].spec.instances is defined
+        and zenmetastoreCluster.resources[0].status.licenseStatus.licenseStatus is defined
+      retries: 40 # Give 20 minutes
+      delay: 30
+    - debug:
+        msg:
+          - "License Expiration .. {{ zenmetastoreCluster.resources[0].status.licenseStatus.licenseExpiration | default ('') }}"
+          - "License Status ...... {{ zenmetastoreCluster.resources[0].status.licenseStatus.licenseStatus}}"
+
+- name: "wait-zenmetastore-edb : Update create-postgres-license-config job"
+  when:
+    - cpd_48
+    - zenmetastoreCluster.resources[0].status.licenseStatus.licenseExpiration is not defined
+  block:
+    - name: "wait-zenmetastore-edb : Wait for create-postgres-license-config Job to be Completed or Failed (10s delay)"
+      kubernetes.core.k8s_info:
+        api_version: batch/v1
+        kind: Job
+        name: "create-postgres-license-config"
+        namespace: "{{ cpd_operators_namespace }}"
+      register: _job_info
+      until:
+        - _job_info.resources is defined
+        - _job_info.resources | length > 0
+        - (_job_info.resources | json_query('[*].status.conditions[?type==`Complete`][].status') | select ('match','True') | list | length == 1) or
+          (_job_info.resources | json_query('[*].status.conditions[?type==`Failed`][].status') | select ('match','True') | list | length == 1)
+      retries: 30
+      delay: 10
+
+    - name: "wait-zenmetastore-edb : Recreate the job with up to date license image"
+      shell: >-
+        oc get job create-postgres-license-config -n {{ cpd_operators_namespace }} -o yaml | \
+        sed -e 's/operator.ibm.com\/opreq-control: "true"/operator.ibm.com\/opreq-control: "false"/' \
+        -e 's|\(image: \).*|\1"cp.icr.io/cp/cpd/edb-postgres-license-provider@sha256:c1670e7dd93c1e65a6659ece644e44aa5c2150809ac1089e2fd6be37dceae4ce"|' \
+        -e '/controller-uid:/d' | \
+        oc replace --force -f -
+      register: _job_recreate_output
+
+    - debug:
+        msg: "Recreate the job: {{ _job_recreate_output }}"
+
+    - name: "wait-zenmetastore-edb : wait-zenmetastore-edb : Wait for create-postgres-license-config Job to be Completed or Failed (10s delay)"
+      kubernetes.core.k8s_info:
+        api_version: batch/v1
+        kind: Job
+        name: "create-postgres-license-config"
+        namespace: "{{ cpd_operators_namespace }}"
+      register: _job_info
+      until:
+        - _job_info.resources is defined
+        - _job_info.resources | length > 0
+        - (_job_info.resources | json_query('[*].status.conditions[?type==`Complete`][].status') | select ('match','True') | list | length == 1) or
+          (_job_info.resources | json_query('[*].status.conditions[?type==`Failed`][].status') | select ('match','True') | list | length == 1)
+      retries: 30
+      delay: 10
+
+    - name: "wait-zenmetastore-edb : Check and display the license expiry date"
+      kubernetes.core.k8s_info:
+        kind: Cluster
+        namespace: "{{ cpd_instance_namespace }}"
+        name: "zen-metastore-edb"
+      register: newzenmetastoreCluster
+      until:
+        newzenmetastoreCluster.resources[0].spec.instances is defined
+        and newzenmetastoreCluster.resources[0].status.licenseStatus.licenseStatus is defined
+        and "Valid license" in newzenmetastoreCluster.resources[0].status.licenseStatus.licenseStatus
+      retries: 40 # Give 20 minutes
+      delay: 30
+
+    - debug:
+        msg:
+          - "License Expiration .. {{ newzenmetastoreCluster.resources[0].status.licenseStatus.licenseExpiration | default ('') }}"
+          - "License Status ...... {{ newzenmetastoreCluster.resources[0].status.licenseStatus.licenseStatus  | default ('')}}"
+
+# 3. Wait for zen metastore replica pods to become ready
 # -----------------------------------------------------------------------------
 - name: "wait-zenmetastore-edb : Wait for ZenMetastore pods to be become ready"
   k8s_info:
@@ -25,79 +110,3 @@
     zenmetastoreCluster.resources[0].spec.instances is defined
     and zenmetastoreCluster.resources[0].status.readyInstances is defined
     and zenmetastoreCluster.resources[0].spec.instances == zenmetastoreCluster.resources[0].status.readyInstances
-  #ignore-errors: true # If this fails then we restart pending pods below
-  failed_when: false
-
-# 2. Restart any ZenMetastore pods that are still Pending
-# -----------------------------------------------------------------------------
-- set_fact:
-    is_zenmetastore_ready: true
-  when:
-    zenmetastoreCluster.resources[0].spec.instances is defined
-    and zenmetastoreCluster.resources[0].status.readyInstances is defined
-    and zenmetastoreCluster.resources[0].spec.instances == zenmetastoreCluster.resources[0].status.readyInstances
-
-- name: "wait-zenmetastore-edb : Detecting and restarting pending ZenMetastore Pods"
-  when: is_zenmetastore_ready is not defined
-  block:
-    - name: "install-cp4d : Get pending ZenMetastore Pods"
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: Pod
-        label_selectors:
-          - "app.kubernetes.io/component=zen-metastore-edb"
-        field_selectors:
-          - "status.phase=Pending"
-        namespace: "{{ cpd_instance_namespace }}"
-      register: pending_pod_lookup
-
-    - set_fact:
-        pending_pod_names: "{{ pending_pod_lookup.resources | map(attribute='metadata.name') }}"
-
-    - debug:
-        msg: "Restarting pending ZenMetastore Pods: {{ pending_pod_names }}"
-
-    - name: "wait-zenmetastore-edb : Restarting pending ZenMetastore Pods"
-      kubernetes.core.k8s:
-        state: absent
-        api_version: v1
-        kind: Pod
-        namespace: "{{ cpd_instance_namespace }}"
-        name: "{{ item }}"
-      loop: "{{ pending_pod_names }}"
-
-    # 3. Wait again zenmetastore replica pods to become ready
-    # -----------------------------------------------------------------------------
-    - name: "wait-zenmetastore-edb : Wait for ZenMetastore pods to be become ready"
-      k8s_info:
-        kind: Cluster
-        namespace: "{{ cpd_instance_namespace }}"
-        name: "zen-metastore-edb"
-      register: zenmetastoreCluster
-      retries: 40 # Give another 20 minutes for the pods to become ready
-      delay: 30
-      until: >-
-        zenmetastoreCluster.resources[0].spec.instances is defined
-        and zenmetastoreCluster.resources[0].status.readyInstances is defined
-        and zenmetastoreCluster.resources[0].spec.instances == zenmetastoreCluster.resources[0].status.readyInstances
-      failed_when: false # We handle and log the failure below.
-
-    - name: "wait-zenmetastore-edb : Fail if ZenMetastore pods are not ready"
-      block:
-        - name: "install-cp4d : Get Pending ZenMetastore Pods"
-          kubernetes.core.k8s_info:
-            api_version: v1
-            kind: Pod
-            label_selectors:
-              - "app.kubernetes.io/component=zen-metastore-edb"
-            field_selectors:
-              - "status.phase=Pending"
-            namespace: "{{ cpd_instance_namespace }}"
-          register: pending_pod_lookup
-
-        - fail:
-            msg:
-              - "ZenMetastore pods are not ready Instances required: {{ zenmetastoreCluster.resources[0].spec.instances }}, ready: {{ zenmetastoreCluster.resources[0].status.readyInstances }}"
-              - "Pending ZenMetastore Pods: {{ pending_pod_lookup.resources | map(attribute='metadata.name') }}"
-      when:
-        zenmetastoreCluster.resources[0].spec.instances != zenmetastoreCluster.resources[0].status.readyInstances
