@@ -29,7 +29,7 @@
     - debug:
         msg:
           - "License Expiration .. {{ zenmetastoreCluster.resources[0].status.licenseStatus.licenseExpiration | default ('') }}"
-          - "License Status ...... {{ zenmetastoreCluster.resources[0].status.licenseStatus.licenseStatus}}"  
+          - "License Status ...... {{ zenmetastoreCluster.resources[0].status.licenseStatus.licenseStatus}}"
 
 - name: "wait-zenmetastore-edb : Update create-postgres-license-config job"
   when:
@@ -57,7 +57,7 @@
         sed -e 's/operator.ibm.com\/opreq-control: "true"/operator.ibm.com\/opreq-control: "false"/' \
         -e 's|\(image: \).*|\1"cp.icr.io/cp/cpd/edb-postgres-license-provider@sha256:c1670e7dd93c1e65a6659ece644e44aa5c2150809ac1089e2fd6be37dceae4ce"|' \
         -e '/controller-uid:/d' | \
-        oc replace --force -f - 
+        oc replace --force -f -
       register: _job_recreate_output
 
     - debug:
@@ -76,7 +76,7 @@
         - (_job_info.resources | json_query('[*].status.conditions[?type==`Complete`][].status') | select ('match','True') | list | length == 1) or
           (_job_info.resources | json_query('[*].status.conditions[?type==`Failed`][].status') | select ('match','True') | list | length == 1)
       retries: 30
-      delay: 10      
+      delay: 10
 
     - name: "wait-zenmetastore-edb : Check and display the license expiry date"
       kubernetes.core.k8s_info:
