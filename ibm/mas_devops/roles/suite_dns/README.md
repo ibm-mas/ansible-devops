@@ -68,6 +68,7 @@ Role Variables - General
 - Default: None
 
 ### cert_manager_namespace
+Namespace where Certificate Manager is installed.
 
 - Optional
 - Environment Variable: `CERT_MANAGER_NAMESPACE`
