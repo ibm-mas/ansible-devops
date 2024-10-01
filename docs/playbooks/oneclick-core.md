@@ -56,12 +56,12 @@ The other values can be left at their defaults.  Finally, click **Generate** and
 Storage class configuration is built into the collection and the playbook will auto-select the appropriate storage classes when it detects the presence of certain storage classes in your cluster (IBM Cloud Storage or OpenShift Container Storage).  If you are running the install on a cluster that does not have these storage classes then you will also must configure the following environment variables:
 
 #### ReadWriteMany Access Mode
-Usually fulfilled by block storage classes:
+Usually fulfilled by file storage classes:
 
 - `PROMETHEUS_ALERTMGR_STORAGE_CLASS`
 
 #### ReadWriteOnce Access Mode
-Usually fulfilled by file storage classes:
+Usually fulfilled by block storage classes:
 
 - `PROMETHEUS_STORAGE_CLASS`
 - `PROMETHEUS_USERWORKLOAD_STORAGE_CLASS`
