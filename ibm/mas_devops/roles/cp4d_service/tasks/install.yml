@@ -40,19 +40,17 @@
     namespace: "{{ cpd_instance_namespace }}"
     kind: "{{ cpd_service_kind }}"
   register: existing_cpd_service_lookup
-  retries: 10 # ~approx 5 minutes before we give up waiting for the CR to define the spec.version
-  delay: 30 # seconds
-  until:
-    - existing_cpd_service_lookup.resources is defined
-    - existing_cpd_service_lookup.resources | length > 0
-    - existing_cpd_service_lookup.resources[0].spec.version is defined
-    - existing_cpd_service_lookup.resources[0].spec.version != ""
 
 - debug:
     var: existing_cpd_service_lookup
 
 # This is needed to understand existing and target versions for the upgrade
 - name: Set existing '{{ cpd_service_cr_name }}' version if needed
+  when:
+    - existing_cpd_service_lookup.resources is defined
+    - existing_cpd_service_lookup.resources | length > 0
+    - existing_cpd_service_lookup.resources[0].spec.version is defined
+    - existing_cpd_service_lookup.resources[0].spec.version != ""
   set_fact:
     existing_cpd_service_cr_version: "{{ existing_cpd_service_lookup.resources[0].spec.version }}"
     existing_cpd_service_minor_version: "{{ existing_cpd_service_lookup.resources[0].spec.version | regex_search('(?<=)(.*)(?=..)') }}"
