@@ -47,6 +47,24 @@
     that: mongo_hosts_dict is defined and mongo_hosts_dict|length>0
     fail_msg: "mongo_hosts_dict is empty"
 
+- name: "Fail if mongodb_authentication_mechanism is not DEFAULT or PLAIN"
+  assert:
+    that:
+      - mongodb_authentication_mechanism is defined
+      - mongodb_authentication_mechanism == "DEFAULT" or mongodb_authentication_mechanism == "PLAIN"
+    fail_msg: "mongodb_authentication_mechanism may only be defined as DEFAULT or PLAIN"
+
+- name: "Fail if mongodb_authentication_database is not provided"
+  assert:
+    that: mongodb_authentication_database is defined and mongodb_authentication_database != ""
+    fail_msg: "mongodb_authentication_database property is required"
+
+- name: "Fail if mongodb_authentication_mechanism is PLAIN and mongodb_authentication_database is not $external"
+  assert:
+    that: mongodb_authentication_database == "$external"
+    fail_msg: "mongodb_authentication_database must be set to $external when mongodb_authentication_mechanism is set to PLAIN"
+  when: mongodb_authentication_mechanism == "PLAIN"
+
 - name: "Debug information"
   debug:
     msg:
@@ -54,6 +72,8 @@
       - "MAS Config Dir.......................... {{ mas_config_dir }}"
       - "Mongo Admin username.................... {{ mongodb_admin_username }}"
       - "Mongo Admin password.................... {{ mongodb_admin_password }}"
+      - "Mongo Authentication Mechanism.......... {{ mongodb_authentication_mechanism }}"
+      - "Mongo Authentication Database........... {{ mongodb_authentication_database }}"
       - "Mongo hosts ID.......................... {{ mongodb_hosts }}"
       - "Mongo CA PEM............................ {{ mongodb_ca_pem_local_file }}"
       - "Mongo Namespace......................... {{ mongodb_namespace }}"

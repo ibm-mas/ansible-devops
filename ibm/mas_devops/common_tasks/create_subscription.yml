@@ -123,3 +123,19 @@
   until:
     - _installplan_info.resources[0].status.phase is defined
     - _installplan_info.resources[0].status.phase == "Complete"
+
+# 5. Wait for Subscription to complete
+# -----------------------------------------------------------------------------
+- name: "create_subscription : Wait for Subscription state to become 'AtLatestKnown'"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ subscription_namespace }}"
+    name: "{{ package_name }}"
+  register: _subscription_info
+  retries: 30
+  delay: 30 # Retry for approx 15 minutes (30s * 30 attempts) before giving up
+  until:
+    - _subscription_info.resources | length > 0
+    - _subscription_info.resources[0].status.state is defined
+    - _subscription_info.resources[0].status.state == "AtLatestKnown"

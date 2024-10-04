@@ -24,7 +24,7 @@ All timings are estimates, see the individual pages for each of these roles for 
 Access [Container Software Library](https://myibm.ibm.com/products-services/containerlibrary) using your IBMId to access your entitlement key
 
 ### 2. MAS License File
-Access [IBM License Key Center](https://licensing.subscribenet.com/control/ibmr/login), on the **Get Keys** menu select **IBM AppPoint Suites**.  Select `IBM MAXIMO APPLICATION SUITE AppPOINT LIC` and on the next page fill in the information as below:
+Access [IBM License Key Center](https://licensing.flexnetoperations.com/), on the **Get Keys** menu select **IBM AppPoint Suites**.  Select `IBM MAXIMO APPLICATION SUITE AppPOINT LIC` and on the next page fill in the information as below:
 
 | Field            | Content                                           |
 | ---------------- | ------------------------------------------------- |
@@ -56,12 +56,12 @@ The other values can be left at their defaults.  Finally, click **Generate** and
 Storage class configuration is built into the collection and the playbook will auto-select the appropriate storage classes when it detects the presence of certain storage classes in your cluster (IBM Cloud Storage or OpenShift Container Storage).  If you are running the install on a cluster that does not have these storage classes then you will also must configure the following environment variables:
 
 #### ReadWriteMany Access Mode
-Usually fulfilled by block storage classes:
+Usually fulfilled by file storage classes:
 
 - `PROMETHEUS_ALERTMGR_STORAGE_CLASS`
 
 #### ReadWriteOnce Access Mode
-Usually fulfilled by file storage classes:
+Usually fulfilled by block storage classes:
 
 - `PROMETHEUS_STORAGE_CLASS`
 - `PROMETHEUS_USERWORKLOAD_STORAGE_CLASS`

@@ -66,7 +66,7 @@ The namespace where the operator and MongoDb cluster will be deployed.
 - Default Value: `mongoce`
 
 ### mongodb_version
-Defines the specific mongo version to be used. Best practice would be to use the version associated with the current Maximo Application Suite catalog. However, this value can currently be overridden to 4.4.21, 5.0.21, 5.0.23, 6.0.10 or 6.0.12
+Defines the specific mongo version to be used. Best practice would be to use the version associated with the current Maximo Application Suite catalog. However, this value can currently be overridden to 4.4.21, 5.0.21, 5.0.23, 6.0.10, 6.0.12, 7.0.12
 
 !!! important
     It is advised to never attempt a downgrade a MongoDB instance managed by the MAS Devops Ansible Collection. Also best practices should include creating scheduled backups of any MongoDB instance.
@@ -74,6 +74,27 @@ Defines the specific mongo version to be used. Best practice would be to use the
 - Optional
 - Environment Variable: `MONGODB_VERSION`
 - Default Value: Automatically defined by the mongo version specified in the [latest MAS case bundle available](https://github.com/ibm-mas/ansible-devops/tree/master/ibm/mas_devops/common_vars/casebundles).
+
+### mongodb_override_spec
+This forces the deploy to use the environment variables instead of maintaining spec settings for the existing installed MongoDB. By default this is False and if you upgrade or reinstall Mongo your existing settings will be preserved.
+
+!!! important
+    It is advised you check your existing Mongo installation before using this. If you do not set the environment variables to match what you have in the spec or you use defaults you may find your members, memory, and cpu reset to the default values specified in this README. Unknown settings are not preserved in the spec.
+
+- Optional
+- Environment Variable: `MONGODB_OVERRIDE_SPEC`
+- Default Value: `false`
+
+List of preserved settings
+
+- mongodb_cpu_limits
+- mongodb_mem_limits
+- mongodb_cpu_requests
+- mongodb_mem_requests
+- mongodb_storage_class
+- mongodb_storage_capacity_data
+- mongodb_storage_capacity_logs
+- mongodb_replicas
 
 ### mongodb_storage_class
 Required.  The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster.
@@ -140,7 +161,14 @@ Set this to `true` to confirm you want to upgrade your existing Mongo instance f
 Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 5 to version 6.
 
 - Optional
-- Environment Variable: `MONGODB_V5_UPGRADE`
+- Environment Variable: `MONGODB_V6_UPGRADE`
+- Default Value: `false`
+
+### mongodb_v7_upgrade
+Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 6 to version 7.
+
+- Optional
+- Environment Variable: `MONGODB_V7_UPGRADE`
 - Default Value: `false`
 
 ### masbr_confirm_cluster
@@ -714,6 +742,10 @@ cat /proc/cpuinfo | grep flags | grep avx
 ```
 
 If `avx` is not found in the available `flags` then either the physical processor hosting the OpenShift cluster does not provide the AVX instruction set or the virtual host configuration is not exposing the AVX instruction set. If the latter is suspected the virtual hosting documentation should be referenced for details on how to expose the AVX instruction set.
+
+### LDAP Authentication
+
+If authenticating via LDAP with PLAIN specified for `authMechanism` then `configDb` must be set to `$external` in the MongoCfg. The field `configDb` in the MongoCfg refers to the authentication database. 
 
 ### CA Certificate Renewal
 
