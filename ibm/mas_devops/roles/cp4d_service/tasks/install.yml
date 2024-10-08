@@ -49,12 +49,11 @@
   when:
     - existing_cpd_service_lookup.resources is defined
     - existing_cpd_service_lookup.resources | length > 0
-    - existing_cpd_service_lookup.resources[0].status is defined
-    - existing_cpd_service_lookup.resources[0].status.versions is defined or existing_cpd_service_lookup.resources[0].status.version is defined # spss has status.version...
-    - existing_cpd_service_lookup.resources[0].status.versions.reconciled is defined or existing_cpd_service_lookup.resources[0].status.version is defined
+    - existing_cpd_service_lookup.resources[0].spec.version is defined
+    - existing_cpd_service_lookup.resources[0].spec.version != ""
   set_fact:
-    existing_cpd_service_cr_version: "{{ existing_cpd_service_lookup.resources[0].status.versions.reconciled | default(existing_cpd_service_lookup.resources[0].status.version, true) }}"
-    existing_cpd_service_minor_version: "{{ existing_cpd_service_lookup.resources[0].status.versions.reconciled | default(existing_cpd_service_lookup.resources[0].status.version, true) | regex_search('(?<=)(.*)(?=..)') }}"
+    existing_cpd_service_cr_version: "{{ existing_cpd_service_lookup.resources[0].spec.version }}"
+    existing_cpd_service_minor_version: "{{ existing_cpd_service_lookup.resources[0].spec.version | regex_search('(?<=)(.*)(?=..)') }}"
 
 - name: "Debug existing {{ cpd_service_name }} installed version"
   when: existing_cpd_service_cr_version is defined
