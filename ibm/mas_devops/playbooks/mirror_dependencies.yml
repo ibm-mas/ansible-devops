@@ -36,6 +36,7 @@
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('False', True) | bool }}"
     cpd_48_or_higher: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','>=') | bool }}"
     cpd_48: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','==') | bool }}"
+    cpd_50_or_higher: "{{ cpd_product_version is defined and cpd_product_version is version('5.0.0','>=') | bool }}"
 
     # 7. Watson Studio Local
     # -------------------------------------------------------------------------
@@ -218,6 +219,27 @@
         manifest_name: ibm-cp-common-services
         manifest_version: "4.8.0"
 
+    - name: ibm.mas_devops.mirror_case_prepare
+      when:
+        - cpd_50_or_higher and mirror_cp4d
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-zen
+        case_version: "6.0.1"
+        exclude_images:
+          - ibm-auditlogging
+          - ibm-cpp
+          - ibm-cs-healthcheck
+          - ibm-cs-monitoring
+          - ibm-events-operator
+        ibmpak_skip_dependencies: false
+
+    - name: ibm.mas_devops.mirror_images
+      when: cpd_50_or_higher and mirror_cp4d
+      vars:
+        manifest_name: ibm-zen
+        manifest_version: "6.0.1"
+        
     # Mirroring another version for Cloud Pak Foundation Services
     - name: ibm.mas_devops.mirror_case_prepare
       when:
