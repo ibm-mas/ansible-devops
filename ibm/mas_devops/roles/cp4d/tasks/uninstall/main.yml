@@ -1,0 +1,31 @@
+---
+# Lookup existing CloudPak for Data CR
+# -----------------------------------------------------------------------------
+# If IbmCpd platform custom resource is already named 'ibmcpd', use that as 'cpd_platform_cr_name'
+# otherwise stick with new default name 'ibmcpd-cr'
+- name: "uninstall-cp4d : Lookup existing CloudPak for Data CR named 'ibmcpd'"
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    name: ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: Ibmcpd
+  register: existing_ibmcpd_lookup
+
+- when:
+    - existing_ibmcpd_lookup.resources is defined
+    - existing_ibmcpd_lookup.resources | length > 0
+  set_fact:
+    cpd_platform_cr_name: "ibmcpd"
+
+- debug:
+    msg:
+      - "IbmCpd custom resource name: {{ cpd_platform_cr_name }}"
+
+# 1. Delete CloudPak for Data CR
+# -----------------------------------------------------------------------------
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=installing-cloud-pak-data
+- name: "install-cp4d : Install CloudPak for Data {{ cpd_product_version }} custom resource (Ibmcpd)"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/cpd_platform/ibmcpd.yml.j2"
+    state: absent
