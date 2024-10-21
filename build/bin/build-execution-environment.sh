@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
-echo_h1 "Ansible Execution Environment Build"
-
 if [ "$DEV_MODE" != "true" ]; then
   source ${GITHUB_WORKSPACE}/build/bin/.env.sh
   source ${GITHUB_WORKSPACE}/build/bin/.functions.sh
   install_yq_farah
   install_ansible_builder
 fi
+
+echo_h1 "Ansible Execution Environment Build"
 
 yq -i "(.collections.[] | select(.name == \"ibm.mas_devops\") | .version)=\"${VERSION}\"" $GITHUB_WORKSPACE/build/ee/requirements.yml
 yq -i "(.options.tags.[] |= sub(\"VERSION\"; env(VERSION)))" $GITHUB_WORKSPACE/build/ee/execution-environment.yml
