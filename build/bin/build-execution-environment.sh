@@ -4,7 +4,6 @@ set -e
 if [ "$DEV_MODE" != "true" ]; then
   source ${GITHUB_WORKSPACE}/build/bin/.env.sh
   source ${GITHUB_WORKSPACE}/build/bin/.functions.sh
-  install_yq_farah
   install_ansible_builder
 fi
 
