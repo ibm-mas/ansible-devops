@@ -11,7 +11,7 @@ rm mongodb-mongosh-shared-openssl3-2.2.9.x86_64.rpm
 
 # Install Mongo Tools
 curl "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-rhel90-x86_64-100.9.5.tgz" -o mongodb-database-tools-rhel90-x86_64-100.9.5.tgz
-tar --no-same-owner -xvfz mongodb-database-tools-rhel90-x86_64-100.9.5.tgz
+tar xvfz mongodb-database-tools-rhel90-x86_64-100.9.5.tgz
 
 mv mongodb-database-tools-rhel90-x86_64-100.9.5/bin/* /usr/local/bin/
 rm -rf mongodb-database-tools-rhel90-x86_64-100.9.5
