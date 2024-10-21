@@ -50,12 +50,6 @@ function install_yq() {
   python -m pip install yq || exit 1
 }
 
-function install_yq_farah() {
-  curl -L  "https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64"  > /usr/bin/yq
-  chmod 755 /usr/bin/yq
-  yq --version || exit 1
-}
-
 # Install ansible-builder
 # ----------
 function install_ansible_builder() {

@@ -1,5 +1,9 @@
 name: Build Ansible Execution Environment Image
 on:
+  workflow_run:
+    workflows: ["Build Ansible Collection","Publish Ansible Collection"]
+    types: 
+      - completed
   push:
     branches:
       - '**'
@@ -24,7 +28,8 @@ jobs:
       - name: Build the Ansible execution environment
         uses: mikefarah/yq@v4.44.3
         with:
-          cmd: |
+          run: |
+            chmod u+x $GITHUB_WORKSPACE/build/bin/*.sh
             $GITHUB_WORKSPACE/build/bin/build-execution-environment.sh
 
       - name: Push the container image
