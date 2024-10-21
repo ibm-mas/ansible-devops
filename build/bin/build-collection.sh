@@ -4,10 +4,10 @@ set -e
 if [ "$DEV_MODE" != "true" ]; then
   source ${GITHUB_WORKSPACE}/build/bin/.env.sh
   source ${GITHUB_WORKSPACE}/build/bin/.functions.sh
-  install_yq
+  install_yq_farah
 fi
 
-yq -yi ".version=\"${VERSION}\"" $GITHUB_WORKSPACE/ibm/mas_devops/galaxy.yml
+yq -i ".version=\"${VERSION}\"" $GITHUB_WORKSPACE/ibm/mas_devops/galaxy.yml
 
 cat $GITHUB_WORKSPACE/ibm/mas_devops/galaxy.yml
 
