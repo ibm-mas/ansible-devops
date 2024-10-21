@@ -27,4 +27,5 @@ echo
 echo_h2 "execution-environment.yml:"
 cat $GITHUB_WORKSPACE/build/ee/execution-environment.yml
 
-ansible-build build --file build/ee/execution-environment.yml
+echo_h2 "Building execution environment:"
+ansible-builder build --file build/ee/execution-environment.yml
