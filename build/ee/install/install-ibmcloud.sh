@@ -5,7 +5,7 @@ set -e
 
 CLI_VERSION=2.26.1
 wget -q https://download.clis.cloud.ibm.com/ibm-cloud-cli/${CLI_VERSION}/IBM_Cloud_CLI_${CLI_VERSION}_amd64.tar.gz
-tar -xzf IBM_Cloud_CLI_${CLI_VERSION}_amd64.tar.gz
+tar --no-same-owner -xzf IBM_Cloud_CLI_${CLI_VERSION}_amd64.tar.gz
 mv Bluemix_CLI/bin/ibmcloud /usr/local/bin/
 rm -rf Bluemix_CLI IBM_Cloud_CLI_${CLI_VERSION}_amd64.tar.gz
 ibmcloud plugin repo-plugins -r 'IBM Cloud'
