@@ -11,6 +11,11 @@ fi
 echo_h1 "Ansible Execution Environment Build"
 
 yq -i "(.collections.[] | select(.name == \"ibm.mas_devops\") | .version)=\"${VERSION}\"" $GITHUB_WORKSPACE/build/ee/requirements.yml
+if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+  yq -i "(.collections.[] | select(.name == \"ibm.mas_devops\") | .type)=\"file\"" $GITHUB_WORKSPACE/build/ee/requirements.yml
+  yq -i "(.collections.[] | select(.name == \"ibm.mas_devops\") | .name)=\"${GITHUB_WORKSPACE}/ibm/mas_devops/ibm-mas_devops.tar.gz\"" $GITHUB_WORKSPACE/build/ee/requirements.yml
+fi
+
 yq -i "(.options.tags.[] |= sub(\"VERSION\"; env(VERSION)))" $GITHUB_WORKSPACE/build/ee/execution-environment.yml
 
 if [ "${GITHUB_REF_NAME}" == "master" ]; then

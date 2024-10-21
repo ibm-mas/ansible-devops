@@ -48,6 +48,19 @@ jobs:
           cp $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops.tar.gz
           $GITHUB_WORKSPACE/build/bin/artifactory-release.sh $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops.tar.gz
 
+      - name: Build the Ansible execution environment
+        run: |
+          docker login --username "${{ secrets.REDHAT_USERNAME }}" --password "${{ secrets.REDHAT_PASSWORD }}" registry.redhat.io
+          $GITHUB_WORKSPACE/build/bin/build-execution-environment.sh
+
+      - name: Push the container image
+        id: docker-push
+        run: |
+          docker tag ibmmas/ansible-devops-ee quay.io/ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }}
+          docker images
+          docker login --username "${{ secrets.QUAYIO_USERNAME }}" --password "${{ secrets.QUAYIO_PASSWORD }}" quay.io
+          docker push quay.io/ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }}
+
       - name: Trigger ibm-mas/cli rebuild on Ansible Collection master build
         if: github.ref == 'refs/heads/master'
         run: |
