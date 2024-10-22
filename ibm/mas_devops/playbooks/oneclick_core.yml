@@ -23,18 +23,19 @@
       assert:
         that:
           # IBM
-          - lookup('env', 'IBM_ENTITLEMENT_KEY') != ""
+          - lookup('env', 'IBM_ENTITLEMENT_KEY') != "" or ibm_entitlement_key is defined
           # MAS
-          - lookup('env', 'MAS_INSTANCE_ID') != ""
-          - lookup('env', 'MAS_CONFIG_DIR') != ""
+          - lookup('env', 'MAS_INSTANCE_ID') != "" or mas_instance_id is defined
+          - lookup('env', 'MAS_CONFIG_DIR') != "" or mas_config_dir is defined
           # SLS
-          - (lookup('env', 'SLS_LICENSE_ID') != "" and lookup('env', 'SLS_LICENSE_FILE') != "") or
-            (lookup('env', 'SLS_ENTITLEMENT_FILE') != "")
+          - ((lookup('env', 'SLS_LICENSE_ID') != "" and lookup('env', 'SLS_LICENSE_FILE') != "") or 
+            sls_license_id is defined and sls_license_file is defined) or
+            (lookup('env', 'SLS_ENTITLEMENT_FILE') != "" or sls_entitlement_file is defined)
           # DRO
-          - lookup('env', 'DRO_CONTACT_EMAIL') != ""
-          - lookup('env', 'DRO_CONTACT_FIRSTNAME') != ""
-          - lookup('env', 'DRO_CONTACT_LASTNAME') != ""
-        fail_msg: "One or more required environment variables are not defined"
+          - lookup('env', 'DRO_CONTACT_EMAIL') != "" or dro_contact_email is defined
+          - lookup('env', 'DRO_CONTACT_FIRSTNAME') != "" or dro_contact_firstname is defined
+          - lookup('env', 'DRO_CONTACT_LASTNAME') != "" or dro_contact_lastname is defined
+        fail_msg: "One or more required environment variables or ansible variables are not defined"
 
   roles:
     # 1. Install cluster-scoped dependencies (e.g. Cert-Manager, Operator Catalogs) & Grafana
