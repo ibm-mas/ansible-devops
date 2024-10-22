@@ -51,17 +51,17 @@ jobs:
       # Execution environment
       - name: Build the Ansible execution environment
         run: |
-          docker login --username "${{ secrets.REDHAT_USERNAME }}" --password "${{ secrets.REDHAT_PASSWORD }}" registry.redhat.io
+          podman login --username "${{ secrets.REDHAT_USERNAME }}" --password "${{ secrets.REDHAT_PASSWORD }}" registry.redhat.io
           $GITHUB_WORKSPACE/build/bin/build-execution-environment.sh
 
       - name: Push the Ansible execution environment container image
         id: docker-push
         run: |
           podman images
-          docker tag ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }} quay.io/ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }}
-          docker images
-          docker login --username "${{ secrets.QUAYIO_USERNAME }}" --password "${{ secrets.QUAYIO_PASSWORD }}" quay.io
-          docker push quay.io/ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }}
+          podman tag ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }} quay.io/ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }}
+          podman images
+          podman login --username "${{ secrets.QUAYIO_USERNAME }}" --password "${{ secrets.QUAYIO_PASSWORD }}" quay.io
+          podman push quay.io/ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }}
 
       - name: Trigger ibm-mas/cli rebuild on Ansible Collection master build
         if: github.ref == 'refs/heads/master'

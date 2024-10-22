@@ -46,27 +46,26 @@ jobs:
       # Execution environment
       - name: Build the Ansible execution environment
         run: |
-          docker login --username "${{ secrets.REDHAT_USERNAME }}" --password "${{ secrets.REDHAT_PASSWORD }}" registry.redhat.io
+          podman login --username "${{ secrets.REDHAT_USERNAME }}" --password "${{ secrets.REDHAT_PASSWORD }}" registry.redhat.io
           $GITHUB_WORKSPACE/build/bin/build-execution-environment.sh
 
       - name: Push the Ansible execution environment container image (master)
         id: docker-push-master
         if: github.ref == 'refs/heads/master'
         run: |
-          docker tag ibmmas/ansible-devops-ee:master quay.io/ibmmas/ansible-devops-ee:master
-          docker images
-          docker login --username "${{ secrets.QUAYIO_USERNAME }}" --password "${{ secrets.QUAYIO_PASSWORD }}" quay.io
-          docker push quay.io/ibmmas/ansible-devops-ee:master
+          podman tag ibmmas/ansible-devops-ee:master quay.io/ibmmas/ansible-devops-ee:master
+          podman images
+          podman login --username "${{ secrets.QUAYIO_USERNAME }}" --password "${{ secrets.QUAYIO_PASSWORD }}" quay.io
+          podman push quay.io/ibmmas/ansible-devops-ee:master
 
       - name: Push the Ansible execution environment container image (latest)
         id: docker-push-latest
         if: github.event_name == 'release'
         run: |
-          docker tag ibmmas/ansible-devops-ee quay.io/ibmmas/ansible-devops-ee:latest
-          docker images
-          docker login --username "${{ secrets.QUAYIO_USERNAME }}" --password "${{ secrets.QUAYIO_PASSWORD }}" quay.io
-          docker push quay.io/ibmmas/ansible-devops-ee:latest
-            --enableRetired
+          podman tag ibmmas/ansible-devops-ee quay.io/ibmmas/ansible-devops-ee:latest
+          podman images
+          podman login --username "${{ secrets.QUAYIO_USERNAME }}" --password "${{ secrets.QUAYIO_PASSWORD }}" quay.io
+          podman push quay.io/ibmmas/ansible-devops-ee:latest
 
       - name: Trigger ibm-mas/cli rebuild on Ansible Collection release
         run: |
