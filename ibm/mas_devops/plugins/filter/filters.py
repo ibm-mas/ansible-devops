@@ -430,5 +430,6 @@ class FilterModule(object):
       'setSystemProperties': _setSystemProperties,
       'format_pre_version_with_plus': format_pre_version_with_plus,
       'format_pre_version_without_buildid': format_pre_version_without_buildid,
+      'format_pre_version_with_buildid': format_pre_version_with_buildid,
       'get_db2_instance_name': get_db2_instance_name
     }
