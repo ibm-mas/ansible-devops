@@ -389,6 +389,17 @@ def format_pre_version_without_buildid(data):
     return data
   return data[:data.rfind("-")]
 
+def format_pre_version_with_buildid(data):
+  """
+  Versions in format 9.0.0-pre.stable-3757 cannot be used to compare with the version
+  reconciled by application operators, which is in format 9.0.0-pre.stable+3757. This function is to
+  format version to make it comparable
+  """
+  if "pre" not in data or data.count("-") < 2:
+    return data
+  build_id_idx = data.rfind('-')
+  return f"{data[:build_id_idx]}{(data[build_id_idx:]).replace('-', '+')}"
+
 def get_db2_instance_name(binding_scope, mas_instance_id, mas_workspace_id, mas_application_id):
   if binding_scope == "":
     return ""
@@ -419,5 +430,6 @@ class FilterModule(object):
       'setSystemProperties': _setSystemProperties,
       'format_pre_version_with_plus': format_pre_version_with_plus,
       'format_pre_version_without_buildid': format_pre_version_without_buildid,
+      'format_pre_version_with_buildid': format_pre_version_with_buildid,
       'get_db2_instance_name': get_db2_instance_name
     }
