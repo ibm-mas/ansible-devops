@@ -43,6 +43,24 @@
     that: stitching_storage_mode is defined and stitching_storage_mode != ""
     fail_msg: "stitching_storage_mode property is required"
 
+- name: "Get MAS instance domain"
+  kubernetes.core.k8s_info:
+    api_version: "core.mas.ibm.com/v1"
+    kind: "Suite"
+    name: "{{ mas_instance_id }}"
+    namespace: "mas-{{mas_instance_id}}-core"
+  register: suite_cr_result
+  retries: 3
+  delay: 0
+  until:
+    - suite_cr_result.resources[0].spec.domain is defined
+    - suite_cr_result.resources[0].spec.domain | length > 0
+
+- name: Set MAS domain
+  set_fact:
+    mas_domain: "{{ suite_cr_result.resources[0].spec.domain }}"
+  when: mas_domain is not defined or mas_domain == ""
+
 - name: "Run Manage image stitching post-configuration: Debug"
   debug:
     msg:

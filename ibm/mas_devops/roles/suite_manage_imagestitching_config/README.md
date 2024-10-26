@@ -54,7 +54,7 @@ Required. The workspace ID of Maximo Application Suite. This will be used to loo
 Required. The domain name for the Manage cluster
 
 - Environment Variable: `MAS_DOMAIN`
-- Default Value: None
+- Default Value: Discovered from Suite CR
 
 Example Playbook
 ----------------
