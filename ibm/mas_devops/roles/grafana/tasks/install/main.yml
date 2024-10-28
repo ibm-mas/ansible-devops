@@ -71,25 +71,34 @@
     wait: yes
     wait_timeout: 300
 
-# 7. Configure Grafana Datasource
+# 7. Install service account and role to use promethesus
+# -------------------------------------------------------------------------------------
+- name: "install : Create Prometheus Service Account and Role"
+  kubernetes.core.k8s:
+    template: "templates/grafana/v{{grafana_major_version}}/grafana-prometheus-serviceaccount.yml.j2"
+    wait: yes
+    wait_timeout: 300
+
+# 8. Configure Grafana Datasource
 # -------------------------------------------------------------------------------------
 # As per https://docs.openshift.com/container-platform/4.8/monitoring/enabling-monitoring-for-user-defined-projects.html#enabling-monitoring-for-user-defined-projects
 # use the external thanos url
 
-- name: Create the prometheus-user-workload token
-  shell: "oc create token prometheus-user-workload -n openshift-user-workload-monitoring"
-  register: prometheus_token_resp
-  retries: 10
-  delay: 30 # seconds
-  until: prometheus_token_resp.rc == 0
+- name: Get prometheus secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: prometheus-serviceaccount-token
+    namespace: "{{ grafana_v5_namespace }}"
+  register: prometheus_secret
 
-- name: Get prometheus token
+- name: Decode and retrieve prometheus token from secret
   set_fact:
-    prometheus_token: "{{prometheus_token_resp.stdout_lines | first}}"
+    prometheus_token: "{{ prometheus_secret.resources[0].data.token |  b64decode }}"
 
 - name: "install : Get Thanos Querier route in openshift-monitoring namespace"
   kubernetes.core.k8s_info:
-    api: v1
+    api_version: route.openshift.io/v1
     kind: Route
     name: thanos-querier
     namespace: openshift-monitoring
@@ -113,7 +122,7 @@
     wait: yes
     wait_timeout: 120
 
-# 8. Wait for Grafana to be ready
+# 9. Wait for Grafana to be ready
 # -------------------------------------------------------------------------------------
 - name: "install : Wait for grafana v5 to be ready (60s delay)"
   kubernetes.core.k8s_info:
