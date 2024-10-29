@@ -41,6 +41,19 @@ Any unique identifier like mas instance id which will be used as EFS storage cla
 - Environment Variable: `EFS_UNIQUE_ID`
 - Default: None
 
+### creation_token_prefix
+CreationTokens associated for AWS resources are built by concatenating creation_token_prefix and efs_unique_id.
+
+- **Optional**
+- Environment Variable: `CREATION_TOKEN_PREFIX`
+- Default: 'mas_devops.'
+
+### create_storage_class
+If true, a StorageClass for the EFS instance named `efs<efs_unique_id>` will be automatically created in the cluster.
+
+- **Optional**
+- Environment Variable: `CREATE_STORAGE_CLASS`. Unset implies `true`, otherwise Ansible's `bool` filter is used to interpret the value as a boolean.
+- Default: true
 
 License
 -------
