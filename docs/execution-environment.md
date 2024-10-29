@@ -19,7 +19,7 @@ An Organization is a logical collection of Users, Teams, Projects, and Inventori
 ![org](images/organization.png)
 
 ### Inventory
-An Inventory is a collection of hosts against which jobs may be launched, the same as an Ansible inventory file. The `ibm.mas_devops` collection runs against localhost so an Inventory of hosts is not that important for those roles but this might be important for any other roles you might want to execute outside of this collection but within this organization. Create an initial inventory if one doesn't exist yet:
+An Inventory is a collection of hosts against which jobs may be launched, the same as an Ansible inventory file. The `ibm.mas_devops` collection runs against localhost so an Inventory of hosts just requires the one host of `localhost` to be added but this might be important for any other roles you might want to execute outside of this collection but within this organization. Create an initial inventory if one doesn't exist yet:
 
 ![Inventory](images/inventory.png)
 
