@@ -1,0 +1,37 @@
+version: 3
+dependencies:
+  galaxy: requirements.yml
+  system: bindep.txt
+images:
+  base_image:
+    name: registry.redhat.io/ansible-automation-platform-24/ee-supported-rhel9:latest
+    # Custom package manager path for the RHEL based images
+options:
+  package_manager_path: /usr/bin/microdnf
+  tags:
+    - ibmmas/ansible-devops-ee:VERSION
+
+additional_build_files:
+  - src: install
+    dest: install
+  - src: ../../ibm/mas_devops
+    dest: mas_devops
+additional_build_steps:
+  prepend_base:
+    - RUN echo This is a prepend base command!
+    - COPY _build/install /tmp/install
+    - COPY _build/mas_devops /tmp/mas_devops
+  prepend_final: |
+    RUN whoami
+    RUN cat /etc/os-release
+  append_final: |
+    RUN echo This is a post-install command!
+    RUN ls -la /etc
+    RUN umask 0002 && bash /tmp/install/install-oc.sh
+    RUN umask 0002 && bash /tmp/install/install-ibmpak.sh
+    RUN umask 0002 && bash /tmp/install/install-ibmcloud.sh
+    RUN umask 0002 && bash /tmp/install/install-aws.sh
+    RUN umask 0002 && bash /tmp/install/install-mongo-tools.sh
+    RUN umask 0002 && bash /tmp/install/install-yq.sh
+    RUN umask 0002 && bash /tmp/install/install-rosa.sh
+    RUN umask 0002 && bash /tmp/install/install-rclone.sh
