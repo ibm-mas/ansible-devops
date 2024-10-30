@@ -19,7 +19,7 @@
 
 - name: "efs-setup : Query to Filter the Cluster VPC Id from the list of VPCs"
   vars:
-    query: "Vpcs[?(Tags[?contains(Value,'{{ cluster_name }}' )])].VpcId"
+    query: "Vpcs[?(Tags[?contains(Value,'{{ cluster_name }}-' )])].VpcId"
   set_fact:
     vpcid: "{{ vpc_ids.stdout|from_json|json_query(query) }}"
 
@@ -67,7 +67,7 @@
 # -----------------------------------------------------------------------------
 # rc 0 indicates success, 254 indicated duplicate (already exists)
 - name: "efs-setup : Create EFS (Elastic File System)"
-  shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value={{ efs_unique_id }}-efs --creation-token mas_devops.{{ efs_unique_id }}
+  shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value={{ efs_unique_id }}-efs --creation-token {{ creation_token_prefix }}{{ efs_unique_id }}
   register: efs_creds
   failed_when: efs_creds.rc not in [0, 254]
 
@@ -78,7 +78,7 @@
 
 - name: "efs-setup : Lookup EFS (Elastic File System)"
   when: efs_creds.rc == 254
-  shell: aws efs describe-file-systems --creation-token mas_devops.{{ efs_unique_id }}
+  shell: aws efs describe-file-systems --creation-token {{ creation_token_prefix }}{{ efs_unique_id }}
   register: efs_lookup
   failed_when:
   - efs_lookup.rc != 0
@@ -92,7 +92,7 @@
 - name: "efs-setup : Debug EFS Info"
   debug:
     msg:
-    - "EFS Creation Token ..................... mas_devops.{{ efs_unique_id }}"
+    - "EFS Creation Token ..................... {{ creation_token_prefix }}{{ efs_unique_id }}"
     - "EFS ID ................................. {{ efs_id }}"
 
 - name: "efs-availability : Check the EFS availability"
@@ -140,7 +140,7 @@
 # - aws efs delete-access-point
 
 - name: "efs-setup : Add Client Access, Permissions to Owner and Posix User"
-  shell: aws efs create-access-point --file-system-id {{ efs_id }} --client-token mas_devops.{{ efs_unique_id }} --posix-user Uid=10022,Gid=20000 --root-directory Path='/rosa-{{ efs_unique_id }},CreationInfo={OwnerUid=10011,OwnerGid=10000,Permissions=0755}'
+  shell: aws efs create-access-point --file-system-id {{ efs_id }} --client-token {{ creation_token_prefix }}{{ efs_unique_id }} --posix-user Uid=10022,Gid=20000 --root-directory Path='/rosa-{{ efs_unique_id }},CreationInfo={OwnerUid=10011,OwnerGid=10000,Permissions=0755}'
   register: client_access_info
   failed_when: client_access_info.rc not in [0, 254]
 

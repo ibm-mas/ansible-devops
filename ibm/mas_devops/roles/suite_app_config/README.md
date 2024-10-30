@@ -185,6 +185,11 @@ Flag indicating if manage demodata should be loaded or not.
 - Environment Variable: `MAS_APP_SETTINGS_DEMODATA`
 - Default: `false` (do not load demodata)
 
+### mas_app_settings_db2vargraphic
+Optional. Flag indicating if VARGRAPHIC (if true) or VARCHAR (if false) is used. Details: https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=deploy-language-support
+
+- Default: `true`
+
 ### mas_app_settings_tablespace
 Name of the Manage database tablespace
 
