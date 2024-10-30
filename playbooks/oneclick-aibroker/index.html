@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://ibm-mas.github.io/ansible-devops/playbooks/oneclick-aibroker/" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>Install AI Broker Application - MAS Devops Collection</title>
+    <title>Add AIBroker - MAS Devops Collection</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
@@ -13,7 +13,7 @@
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Install AI Broker Application";
+        var mkdocs_page_name = "Add AIBroker";
         var mkdocs_page_input_path = "playbooks/oneclick-aibroker.md";
         var mkdocs_page_url = "/ansible-devops/playbooks/oneclick-aibroker/";
       </script>
@@ -45,13 +45,121 @@
                 <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
                 </li>
               </ul>
-              <p class="caption"><span class="caption-text">Playbooks</span></p>
               <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../execution-environment/">Execution Environment</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Playbooks</span></p>
+              <ul class="current">
                   <li class="toctree-l1"><a class="reference internal" href="../ocp/">OCP</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../cp4d/">Install Cloud Pak For Data</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../oneclick-core/">Install Core</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Add AIBroker</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#dependencies">Dependencies:</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#storage-providers">Storage providers</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#required-environment-variables">Required environment variables</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#optional-environment-variables">Optional environment variables</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#ai-broker-deployment-steps">AI broker deployment steps</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#notice-for-s3-manage-please-make-sure-you-have-deployed-dependencies">Notice: For S3 manage please make sure you have deployed dependencies</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#run-playbooks-for-deploy-ai-broker-from-internal-registry-ex-docker-na-publicartifactoryswg-devopscom">Run playbooks for deploy AI Broker from internal registry ex. docker-na-public.artifactory.swg-devops.com</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#run-playbooks-for-deploy-ai-broker-from-public-registry-ex-icrio">Run playbooks for deploy AI Broker from public registry ex. icr.io</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#_1"></a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#notice-playbook-oneclick_add_aibrokeryml-will-run-three-roles">NOTICE: playbook oneclick_add_aibroker.yml will run three roles:</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#role-odh">Role: odh</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#role-kmodels">Role: kmodels</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#role-aibroker">Role: aibroker</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#how-to-create-s3">How to create S3</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#prerequisites_1">Prerequisites</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#run-playbooks">Run playbooks</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#how-to-delete-s3">How to delete S3</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#prerequisites_2">Prerequisites</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#run-playbooks_1">Run playbooks</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#how-to-create-api-key">How to create API Key</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#prerequisites_3">Prerequisites</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#run-playbooks_2">Run playbooks</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#how-to-delete-api-key">How to delete API Key</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#prerequisites_4">Prerequisites</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#run-playbooks_3">Run playbooks</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#how-to-create-watsonx-api-key">How to create WatsonX API Key</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#prerequisites_5">Prerequisites</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#run-playbooks_4">Run playbooks</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#how-to-watsonx-api-key">How to WatsonX API Key</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#prerequisites_6">Prerequisites</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#run-playbooks_5">Run playbooks</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    </ul>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../oneclick-iot/">Add IoT</a>
                   </li>
@@ -136,6 +244,8 @@
                   <li class="toctree-l1"><a class="reference internal" href="../../roles/db2/">db2</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../roles/dro/">dro</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../roles/eck/">eck</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../roles/grafana/">grafana</a>
                   </li>
@@ -255,7 +365,8 @@
         <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
-      <li class="breadcrumb-item active">Install AI Broker Application</li>
+          <li class="breadcrumb-item">Playbooks</li>
+      <li class="breadcrumb-item active">Add AIBroker</li>
     <li class="wy-breadcrumbs-aside">
           <a href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/playbooks/oneclick-aibroker.md" class="icon icon-github"> Edit on GitHub</a>
     </li>
@@ -528,6 +639,10 @@ ansible-playbook playbooks/run_role.yml</p>
         </span>
     
     
+      <span><a href="../oneclick-core/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../oneclick-iot/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
