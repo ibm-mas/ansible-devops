@@ -255,7 +255,7 @@ Use the following as template for the description:
 When creating a new ansible role or renaming an existing ansible role, please use the Review Manager button at the top of [internal MAS Knowledge Center](https://ibmdocs-test.mybluemix.net/docs/en/MAS-review_test?topic=installing-ansible-collection) and add a comment to the `Ansible Collection` topic describing the required change.  The idea is to maintain the links between the public MAS documentation and the github docs here.
 
 ## Building the execution environment
-The execution environment is a container image that is built using RedHats `ansible-automation-platform-24/ee-supported-rhel9:latest` image, to be used in a RedHat Ansible Automation Platform instance. More details of this can be found in the documentation here: {TODO}
+The execution environment is a container image that is built using RedHats `ansible-automation-platform-24/ee-supported-rhel9:latest` image, to be used in a RedHat Ansible Automation Platform instance. More details of this can be found in the documentation [here](https://ibm-mas.github.io/ansible-devops/execution-environment.md)
 
 To build the image locally ensure the following:
 - You have [podman](https://podman.io/) installed and running
