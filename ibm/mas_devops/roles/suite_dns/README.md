@@ -122,7 +122,7 @@ Role Variables - IBM Cloud Internet Services DNS Integration
 
 ### cis_email
 
-- **Required** if `dns_provider` is set to `cis`
+- **Required** if `dns_provider` is set to `cis`. This is the e-mail that will be used in the Cluster Issuer resource, created by this role, to connect with the certificate manager (i.e. Let's Encrypt).
 - Environment Variable: `CIS_EMAIL`
 - Default: None
 
