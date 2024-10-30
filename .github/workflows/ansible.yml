@@ -50,12 +50,14 @@ jobs:
 
       # Execution environment
       - name: Build the Ansible execution environment
+        if: env.VERSION != ''
         run: |
           podman login --username "${{ secrets.REDHAT_USERNAME }}" --password "${{ secrets.REDHAT_PASSWORD }}" registry.redhat.io
           $GITHUB_WORKSPACE/build/bin/build-execution-environment.sh
 
       - name: Push the Ansible execution environment container image
         id: docker-push
+        if: env.DOCKER_TAG != ''
         run: |
           podman images
           podman tag ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }} quay.io/ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }}
