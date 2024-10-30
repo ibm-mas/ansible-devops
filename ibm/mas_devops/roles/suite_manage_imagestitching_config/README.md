@@ -30,7 +30,7 @@ Required. The size of the persistent volume claim.
 Required. The access mode for the PVC.
 
 - Environment Variable: `IMAGESTITCHING_STORAGE_MODE`
-- Default Value: ReadWriteMany
+- Default Value: ReadWriteOnce
 
 ### stitching_storage_mountpath
 Required. The mount path of the Persistent Volume.
@@ -70,7 +70,7 @@ The following sample will configure image stitching for an existing Manage appli
     stitching_pvcname: manage-imagestitching
     stitching_storage_class: nfs-client
     stitching_storage_size: 20Gi
-    stitching_storage_mode: ReadWriteMany
+    stitching_storage_mode: ReadWriteOnce
     stitching_storage_mountpath: imagestitching
   roles:
     - ibm.mas_devops.suite_manage_imagestitching_config
