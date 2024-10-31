@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}</title>
+
+    <!-- Pure CSS (https://pure-css.github.io/) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css" integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ 'css/theme.css' | url }}">
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha256-3edrmyuQ0w65f8gfBsqowzjJe2iM6n0nKciPUp8y+7E=" crossorigin="anonymous"></script>
+    <script src="{{ 'js/theme.js' | url }}"></script>
+
+    <!-- Carbon theme zones (white, g10, g90, g100) -->
+    <link rel="stylesheet" href="https://1.www.s81c.com/common/carbon/web-components/tag/latest/themes.css" />
+
+    <!-- The Carbon web-components/framework -->
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.15.0/ui-shell.min.js"></script>
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.15.0/breadcrumb.min.js"></script>
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.15.0/select.min.js"></script>
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.15.0/tabs.min.js"></script>
+    <script type="module" src="https://1.www.s81c.com/common/carbon/web-components/version/v2.15.0/search.min.js"></script>
+
+    <!-- HighlightJS code formatting support -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+    <script>hljs.highlightAll();</script>
+
+    <!-- Required by MkDocs search -->
+    <script>var base_url = {{ base_url | tojson }};</script>
+
+    <!-- User defined extras -->
+    {% block extrahead %}
+    {% endblock %}
+
+    {% for path in config.extra_css %}
+    <link href="{{ path | url }}" rel="stylesheet">
+    {% endfor %}
+
+    {% for script in config.extra_javascript %}
+    {{ script | script_tag }}
+    {% endfor %}
+  </head>
+
+  <body>
+    <cds-header aria-label="{{ config.site_name }}" class="cds-theme-zone-{{ config.theme.theme_header }}">
+      <cds-header-menu-button button-label-active="Close menu" button-label-inactive="Open menu"></cds-header-menu-button>
+      <cds-header-name href="{{ base_url }}" prefix="{{ config.theme.prefix }}">{{ config.site_name }}</cds-header-name>
+
+      {%- if config.theme.header_nav_items and config.theme.header_nav_items | length > 0 %}
+      <cds-header-nav menu-bar-label="{{ config.theme.prefix }} {{ config.site_name }}">
+        {%- for nav_item in config.theme.header_nav_items %}
+          <cds-header-nav-item {{ 'is-active' if nav_item.active }} target="{{ nav_item.target }}" href="{{ nav_item.url }}">{{ nav_item.title }}</cds-header-nav-item>
+        {%- endfor %}
+      </cds-header-nav>
+      {%- endif %}
+
+      <div class="cds--header__global">
+        <cds-search id="header-search" label-text="Search" cds-search-input="search-event" expandable></cds-search>
+      </div>
+      <script>
+        var el = document.getElementById("header-search");
+        el.addEventListener("cds-search-input", function (ev) {
+          console.info(ev.detail.value)
+          document.getElementById("header-search-value").setAttribute("value", ev.detail.value);
+        });
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter') {
+            location.href="{{ base_url }}/search.html?q=" + document.querySelector("#header-search").shadowRoot.querySelector("#input").value;
+          }
+        });
+      </script>
+    </cds-header>
+
+    <cds-side-nav aria-label="Side navigation" class="cds-theme-zone-{{ config.theme.theme_sidenav }}" expanded>
+      <cds-side-nav-items>
+        {% for nav_item in nav %}
+          {% include "nav.html.j2" %}
+        {% endfor %}
+      </cds-side-nav-items>
+    </cds-side-nav>
+
+    <div id="breadcrumbs" class="rst-content">
+      {%- include "breadcrumbs.html.j2" %}
+    </div>
+
+    <div id="main-content" class="rst-content">
+      {% block content %}
+      {{ page.content }}
+      {% endblock %}
+    </div>
+    <!-- <div id="footer" class="rst-content">
+      Built with mkdocs v{{ mkdocs_version}} ({{ build_date_utc }})
+    </div> -->
+  </body>
+</html>
