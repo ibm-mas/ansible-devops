@@ -88,6 +88,12 @@ Optionally, you can also pin the version of the collection that you install, all
 ansible-galaxy collection install ibm.mas_devops:18.10.4
 ```
 
+Ansible Automation Platform
+-------------------------------------------------------------------------------
+If you wish to use Ansible Automation Platform then a Automation Execution Environment image is available at [quay.io/ibmmas/ansible-devops-ee](https://quay.io/repository/ibmmas/ansible-devops-ee?tab=tags&tag=latest) that contains the `ibm.mas_devops` collection at the same release level, plus required client packages and access to the automation content collections supported by Red Hat.
+
+More details on how to use the ansible-devops execution environment can be found [here](execution-environment.md)
+
 
 Support
 -------------------------------------------------------------------------------
