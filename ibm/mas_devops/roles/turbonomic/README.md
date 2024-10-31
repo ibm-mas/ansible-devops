@@ -6,52 +6,17 @@ Installs [kubeturbo](https://github.com/turbonomic/kubeturbo) from any available
     The **Turbonomic Kubernetes Operator** does not support disconnected installation.  The **kubeturbo** deployment will be created using a tag rather than a digest, which prevents the use of an ImageContentSourcePolicy to configure a mirror registry for this image.
 
 
-Role Variables - KubeTurbo Configuration
+Role Variables
 -------------------------------------------------------------------------------
-### kubeturbo_namespace
-Set the namespace where the KubeTurbo operator will be installed.
 
-- Optional
-- Environment Variable: `KUBETURBO_NAMESPACE`
-- Default: `kubeturbo`
-
-
-Role Variables - Turbonomic Server Configuration
--------------------------------------------------------------------------------
-### turbonomic_target_name
-The cluster name is required to install Kubeturbo. The agent component is deployed onto target Kubernetes and OpenShift cluster which then send data to the Turbonomic ARM server.
-
-- **Required**
-- Environment Variable: `TURBONOMIC_TARGET_NAME`
-- Default: None
-
-### turbonomic_server_url
-The route is required to access the Turbonomics instance. Kubeturbo communicates with the Turbo Server using the supplied turbonomic route as the Turbonomic Server endpoint while configuring kubeturbo.
-
-- **Required**
-- Environment Variable: `TURBONOMIC_SERVER_URL`
-- Default: None
-
-### turbonomic_server_version
-The version of the Turbonomic server you are connecting to.
-
-- Optional
-- Environment Variable: `TURBONOMIC_SERVER_VERSION`
-- Default: None
-
-### turbonomic_username
-The username to authenticate with the Turbonomic server.
-
-- **Required**
-- Environment Variable: `TURBONOMIC_USERNAME`
-- Default: None
-
-### turbonomic_password
-The password to authenticate with the Turbonomic server.
-
-- **Required**
-- Environment Variable: `TURBONOMIC_PASSWORD`
-- Default: None
+| Variable       | Environment Variable | Default | Description |
+| :------------- | :------------------- | :------ | :---------- |
+| kubeturbo_namespace | `KUBETURBO_NAMESPACE` | `kubeturbo` | Optional.  Set the namespace where the KubeTurbo operator will be installed. |
+| turbonomic_target_name | `TURBONOMIC_TARGET_NAME` | None | Required.  This is the name of the cluster as it will be seen in Turbonomic. |
+| turbonomic_server_url | `TURBONOMIC_SERVER_URL` | None | Required.  The route is required to access the Turbonomics instance. Kubeturbo communicates with the Turbo Server using the supplied turbonomic route as the Turbonomic Server endpoint while configuring kubeturbo. |
+| turbonomic_server_version | `TURBONOMIC_SERVER_VERSION` | None | Optional.  The version of the Turbonomic server you are connecting to. |
+| turbonomic_username | `TURBONOMIC_USERNAME` | None | Required.  The username to authenticate with the Turbonomic server. |
+| turbonomic_password | `TURBONOMIC_PASSWORD` | None | Required.  The password to authenticate with the Turbonomic server. |
 
 
 Example Playbook
