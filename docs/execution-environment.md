@@ -1,6 +1,6 @@
 Execution Environment
 ===============================================================================
-Details on the Red Hat Ansible Automation Platform Execution Environment for ansible-devops.
+Details on the [Red Hat Ansible Automation Platform](https://www.redhat.com/en/technologies/management/ansible) Execution Environment for the **ibm.mas_devops** Ansible Collection.
 
 
 Execution Environment Image
@@ -228,7 +228,7 @@ If you need to set an environment variable then you can do this in the playbook 
     ocp_version: 4.14.35
     rosa_compute_nodes: 3
 
-  environment: 
+  environment:
     AWS_DEFAULT_REGION: us-east-1
     AWS_ACCESS_KEY_ID: "{{ aws_access_key_id }}"
     AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
@@ -296,12 +296,12 @@ This playbook requires the following survey questions to be setup:
 
   pre_tasks:
     - name: "Asserts aws_access_key_id secret defined"
-      assert: 
+      assert:
         that: aws_access_key_id is defined
         fail_msg: "aws_access_key_id not defined"
-    
+
     - name: "Asserts aws_secret_access_key secret defined"
-      assert: 
+      assert:
         that: aws_secret_access_key is defined
         fail_msg: "aws_secret_access_key not defined"
 
@@ -332,7 +332,7 @@ This playbook requires the following survey questions to be setup:
     # -------------------------------------------------------------------------
     - name: "Create k8s Job to run {{ masbr_action }} tasks"
       when: masbr_create_task_job
-      include_tasks: 
+      include_tasks:
         file: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
       vars:
         _rt_playbook_name: "br_core"
@@ -347,7 +347,7 @@ This playbook requires the following survey questions to be setup:
         masbr_storage_cloud_rclone_file: rclone.conf
         masbr_storage_cloud_rclone_name: masbr
         masbr_storage_cloud_bucket: mas-backup
-  
+
     # Run backup/restore tasks locally
     # -------------------------------------------------------------------------
     - name: "Run {{ masbr_action }} tasks"
@@ -460,7 +460,7 @@ Example setting role vars:
         kafka_version: 3.7.0
 ```
 
-One caveat to the above is the `backup/restore` tasks as these use a combination of ansible vars and expecting environment variables to be set in the `ansible_env` variable. In order to work with `the backup/restore` tasks you need to set both `environment` and role/task vars (not play vars). 
+One caveat to the above is the `backup/restore` tasks as these use a combination of ansible vars and expecting environment variables to be set in the `ansible_env` variable. In order to work with `the backup/restore` tasks you need to set both `environment` and role/task vars (not play vars).
 
 Example, showing `environment` and task vars set. See [backup exmaple](#examples-of-playbooks) for more complete play:
 ```yaml
