@@ -50,6 +50,17 @@ function install_yq() {
   python -m pip install yq || exit 1
 }
 
+function install_yq_farah() {
+  curl -L  "https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64"  > yq
+  chmod 755 yq
+  yq --version || exit 1
+}
+
+# Install ansible-builder
+# ----------
+function install_ansible_builder() {
+  python -m pip install ansible-builder || exit 1
+}
 
 # These should be loaded already, but just incase!
 # ------------------------------------------------

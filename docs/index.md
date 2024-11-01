@@ -1,26 +1,18 @@
-MAS Devops Ansible Collection
+MAS DevOps Ansible Collection
 ===============================================================================
-
-MAS Compatability
--------------------------------------------------------------------------------
-The collection supports IBM Maximo Application Suite version 8.10 and above.
-
-
-Releases
--------------------------------------------------------------------------------
-[https://github.com/ibm-mas/ansible-devops/releases](https://github.com/ibm-mas/ansible-devops/releases)
+The **ibm.mas_devops** Ansible Collection is published on [Ansible Galaxy](https://galaxy.ansible.com/ui/repo/published/ibm/mas_devops/) and works with all supported releases of IBM Maximo Application Suite.  Release information for the collection can be found in [GitHub](https://github.com/ibm-mas/ansible-devops/releases).
 
 
 Usage
 -------------------------------------------------------------------------------
-### Run a playbook
+### Run a Playbook
 The collection includes a number of playbooks that string together multiple roles, you can directly invoke them after installing the collection:
 
 ```bash
 ansible-playbook ibm.mas_devops.lite_core_roks
 ```
 
-### Run a role
+### Run a Role
 If you only want to perform a single action, you can directly invoke one of our roles from the command line without the need to build a playbook:
 
 ```bash
@@ -75,7 +67,6 @@ curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/m
 ibmcloud version`
 ```
 
-
 ### Install the Ansible Collection
 Install the collection direct from [Ansible Galaxy](https://galaxy.ansible.com/ibm/mas_devops)
 
@@ -88,15 +79,13 @@ Optionally, you can also pin the version of the collection that you install, all
 ansible-galaxy collection install ibm.mas_devops:18.10.4
 ```
 
+Ansible Automation Platform
+-------------------------------------------------------------------------------
+If you wish to use [Red Hat Ansible Automation Platform](https://www.redhat.com/en/technologies/management/ansible) then a Automation Execution Environment image is available at [quay.io/ibmmas/ansible-devops-ee](https://quay.io/repository/ibmmas/ansible-devops-ee?tab=tags&tag=latest) that contains the `ibm.mas_devops` collection at the same release level, plus required client packages and access to the automation content collections supported by Red Hat.
+
+More details on how to use the ansible-devops execution environment can be found [here](execution-environment.md)
+
 
 Support
 -------------------------------------------------------------------------------
 This Ansible collection is developed by the IBM Maximo Application Suite development team, customers may raise support tickets via the same routes they would an issue with the product itself, or [raise an issue directly in the GitHub repository](https://github.com/ibm-mas/ansible-devops/issues).
-
-
-<!--
-## Install via Automation Operator
-You can now install the Maximo Application Suite via a single operator. The operator will run all the MAS ansible in the background for you.  This is a good approach if you do not have extensive MAS experience or do not want to install via other methods.  The operator provides defaults for a straightforward installation.
-
-To leverage this approach, install the custom catalog into your cluster and simply install and use the operator as any other operator.  More detailed instructions and installation notes can be found [here](https://github.com/cloud-native-toolkit/operator-masauto)
--->
