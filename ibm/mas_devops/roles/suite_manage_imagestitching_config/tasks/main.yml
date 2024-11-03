@@ -12,11 +12,11 @@
   debug:
     msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
 
-- name: Storage class if not set by user (ReadWriteMany)
+- name: Storage class if not set by user (ReadWriteOnce)
   when: stitching_storage_class is not defined or stitching_storage_class == ""
   vars:
   set_fact:
-    stitching_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
+    stitching_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
 
 - name: Assert that a storage class has been defined
   assert:
@@ -173,3 +173,29 @@
   include_tasks: tasks/set-imagestitching-properties.yml
   when:
     - civilEnabled
+
+- name: Wait 30 mins for image stitching deployment to complete
+  ignore_errors: true
+  when: civilEnabled
+  kubernetes.core.k8s_info:
+    api_version: v1
+    label_selectors: mas.ibm.com/appType=serverBundle
+    namespace: "{{ manage_namespace }}"
+    kind: Pod
+  register: managePodCheck
+  retries: 60
+  delay: 30 # Retry for approx 30 minutes
+  until:
+    - managePodCheck.resources | length > 0
+    - managePodCheck.resources[0].spec.containers | length > 0
+    - managePodCheck.resources[0].spec.containers[0].volumeMounts | selectattr('mountPath', 'contains', stitching_storage_mountpath) | length > 0
+
+- name: Get stitching status
+  when: civilEnabled
+  set_fact:
+    stitchingDeployed: "{{ managePodCheck.resources | length > 0 and managePodCheck.resources[0].spec.containers | length > 0 and managePodCheck.resources[0].spec.containers[0].volumeMounts | selectattr('mountPath', 'contains', stitching_storage_mountpath) | length > 0 }}"
+
+- name: Debug
+  when: civilEnabled
+  debug:
+    msg: "Stitching deployed successfully: {{ stitchingDeployed }}"

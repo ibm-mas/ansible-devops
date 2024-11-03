@@ -30,7 +30,7 @@ Required. The size of the persistent volume claim.
 Required. The access mode for the PVC.
 
 - Environment Variable: `IMAGESTITCHING_STORAGE_MODE`
-- Default Value: ReadWriteMany
+- Default Value: ReadWriteOnce
 
 ### stitching_storage_mountpath
 Required. The mount path of the Persistent Volume.
