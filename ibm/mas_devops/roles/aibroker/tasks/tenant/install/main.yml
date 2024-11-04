@@ -58,3 +58,18 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/tenant/rbac.yml.j2') }}"
+
+- name: debug domain 
+  debug:
+    msg: "Domain name ......... {{ domain }}"
+
+- name: Remove prefix from domain
+      set_fact:
+        hostname: "{{ domain | regex_replace('^[^.]+\\.', '') }}"
+
+- name: Apply Kmodel api
+  shell: |
+    curl -k -X POST "https://controller-mas-{{ mas_instance_id }}-aibroker.{{ hostname }}/api/v1/tenant?id={{ tenantNamespace }}" \
+    --header 'accept: */*' \
+    --header 'Content-Type: application/json' \
+    --data '{"name": "string","public": true,"max_models": 10}'
