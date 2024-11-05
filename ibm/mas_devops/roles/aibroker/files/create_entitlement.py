@@ -77,8 +77,7 @@ ct = datetime.datetime.now()
 array = {ibm_db.SQL_ATTR_AUTOCOMMIT: ibm_db.SQL_AUTOCOMMIT_OFF}
 
 # use certificate to connect to DB2
-conn = ibm_db.pconnect(f"Security=SSL;SSLServerCertificate=/tmp/db2-certificate.pem;DATABASE={db_name};HOSTNAME={db_host};PORT={db_port};PROTOCOL=TCPIP;UID={db_username};PWD={db_
-password};", "", "", array)
+conn = ibm_db.pconnect(f"Security=SSL;SSLServerCertificate=/tmp/db2-certificate.pem;DATABASE={db_name};HOSTNAME={db_host};PORT={db_port};PROTOCOL=TCPIP;UID={db_username};PWD={db_password};", "", "", array)
 
 #statement_entitlement_string = "INSERT INTO AIBROKER.AIBROKER_ENTITLEMENT_TYPE (ENTITLEMENT_TYPE, MODEL_TYPE, ALLOWED_NUMBER_OF_MODEL_TRAINING_PER_MONTH, ALLOWED_NUMBER_OF_DEPLOYED_MODEL_INSTANCE, ALLOWED_NUMBER_OF_CONCURRENT_TRAINING, ALLOWED_NUMBER_OF_INPUT,ALLOWED_NUMBER_OF_WATSONX_CALL, ALLOWED_FILE_SIZE, CREATION_TIMESTAMP, UPDATED_TIMESTAMP) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?,?);"
 
