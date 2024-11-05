@@ -75,7 +75,6 @@ assert db_password != None, "db_password env variable not found."
 ct = datetime.datetime.now()
 
 array = {ibm_db.SQL_ATTR_AUTOCOMMIT: ibm_db.SQL_AUTOCOMMIT_OFF}
-#conn = ibm_db.pconnect("DATABASE=BLUDB;HOSTNAME=api.ivt811.cp.fyre.ibm.com;PORT=8890;PROTOCOL=TCPIP;UID=db2inst1;PWD=IQg1fAtVOyOQZVA;", "", "", array)
 
 # use certificate to connect to DB2
 conn = ibm_db.pconnect(f"Security=SSL;SSLServerCertificate=/tmp/db2-certificate.pem;DATABASE={db_name};HOSTNAME={db_host};PORT={db_port};PROTOCOL=TCPIP;UID={db_username};PWD={db_
