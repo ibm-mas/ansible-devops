@@ -45,17 +45,7 @@ assert db_password != None, "db_password env variable not found."
 
 array = {ibm_db.SQL_ATTR_AUTOCOMMIT: ibm_db.SQL_AUTOCOMMIT_OFF}
 conn = ibm_db.pconnect(f"Security=SSL;SSLServerCertificate=/tmp/db2-certificate.pem;DATABASE={db_name};HOSTNAME={db_host};PORT={db_port};PROTOCOL=TCPIP;UID={db_username};PWD={db_password};", "", "", array)
-#conn = ibm_db.pconnect(f"DATABASE={db_name};HOSTNAME={db_host};PORT={db_port};PROTOCOL=TCPIP;UID={db_username};PWD={db_password};", "", "", array)
 
-
-# Retrirving entitlement_type id using entitlement_type and model_type
-
-# --------------------------------------------------------------------------------------------------------------------------------
-# - 
-# - Retrirving entitlement_type id using entitlement_type and model_type
-# - 
-# --------------------------------------------------------------------------------------------------------------------------------
-#entitlement_type_string = f"SELECT ID FROM {schema}.AIBROKER_ENTITLEMENT_TYPE WHERE ENTITLEMENT_TYPE = ? AND MODEL_TYPE = ?;"
 entitlement_type_string = f"SELECT ID FROM \"{schema_uppercase}\".AIBROKER_ENTITLEMENT_TYPE WHERE ENTITLEMENT_TYPE = ? AND MODEL_TYPE = ?;"
 print(entitlement_type_string)
 stmt = ibm_db.prepare(conn, entitlement_type_string)
