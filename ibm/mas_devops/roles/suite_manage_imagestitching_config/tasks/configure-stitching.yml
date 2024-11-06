@@ -83,6 +83,14 @@
     kind: ManageWorkspace
   register: manageWorkspace
 
+- name: Retrieve Manage workspace CR
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_ws_cr_name }}"
+    namespace: "{{ manage_namespace }}"
+    kind: ManageWorkspace
+  register: workspaceCR
+  
 - name: Retrieve Image Stitching CR if available
   kubernetes.core.k8s_info:
     api_version: apps.mas.ibm.com/v1
@@ -169,7 +177,7 @@
 - name: Set system properties for stitching
   include_tasks: tasks/set-imagestitching-properties.yml
 
-- name: Wait 60 mins for image stitching deployment to complete
+- name: Wait 90 mins for image stitching deployment to complete
   ignore_errors: true
   kubernetes.core.k8s_info:
     api_version: v1
@@ -177,8 +185,8 @@
     namespace: "{{ manage_namespace }}"
     kind: Pod
   register: managePodCheck
-  retries: 60
-  delay: 60
+  retries: 90
+  delay: 90
   until:
     - managePodCheck.resources | length > 0
     - managePodCheck.resources[0].spec.containers | length > 0
