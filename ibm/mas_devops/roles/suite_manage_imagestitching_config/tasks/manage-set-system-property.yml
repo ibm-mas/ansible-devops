@@ -1,0 +1,56 @@
+---
+- name: Set Manage API endpoint
+  set_fact:
+    manage_endpoint_get: "https://{{ mas_instance_id }}-{{ mas_workspace_id }}.mas-{{ mas_instance_id }}-manage.svc/maximo/api/service/system?action=wsmethod:getProperty&ccm=1&propName={{ property_to_set.name }}"
+    manage_endpoint_set: "https://{{ mas_instance_id }}-{{ mas_workspace_id }}.mas-{{ mas_instance_id }}-manage.svc/maximo/api/service/system?action=wsmethod:setProperty&ccm=1"
+
+- name: System Property to set
+  debug:
+    msg:
+      - "manage_endpoint_set: .............. {{ manage_endpoint_set }}"
+      - "System property: ........... {{ property_to_set }}"
+
+- name: Call the Manage API to get current system property value
+  ignore_errors: True
+  uri:
+    method: GET
+    url: "{{ manage_endpoint_get }}"
+    validate_certs: no
+    client_key: "{{ client_key_file }}"
+    client_cert: "{{ client_cert_file }}"
+    force_basic_auth: no
+    return_content: yes
+    status_code:
+      - 200
+      - 404
+      - -1
+    timeout: 10
+  register: get_system_prop_result
+
+- name: Set current 'current_property_value' Fact
+  set_fact:
+    current_property_value: "{{ get_system_prop_result.json.return | default('') }}"
+
+- name: Current property value
+  debug:
+    msg:
+      - "Value: .............. {{ current_property_value }}"
+
+- name: Call the Manage API to set system property if it was not set
+  when:
+    - property_to_set.value != '' and ( current_property_value == '' or current_property_value != property_to_set.value )
+  ignore_errors: True
+  uri:
+    method: POST
+    url: "{{ manage_endpoint_set }}"
+    body: "{ 'serverName': 'COMMON', 'propName': '{{ property_to_set.name }}', 'propValue': '{{ property_to_set.value }}' }"
+    body_format: json
+    validate_certs: no
+    client_key: "{{ client_key_file }}"
+    client_cert: "{{ client_cert_file }}"
+    force_basic_auth: no
+    return_content: yes
+    status_code:
+      - 200
+      - 404
+      - -1

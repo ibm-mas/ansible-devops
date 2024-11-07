@@ -1,0 +1,53 @@
+---
+- name: Stitching system properties to be set
+  set_fact:
+    system_properties_to_set:
+      - name: "mci.imagestitching.apiurl"
+        value: "http://{{ mas_instance_id }}-{{ mas_workspace_id }}-imagestitching.mas-{{ mas_instance_id }}-manage.svc:8080/maximo/stitching"
+      - name: "imagestitching.dataInputPath"
+        value: "/{{ stitching_storage_mountpath }}"
+
+- name: Stitching system Properties to set
+  debug:
+    msg:
+      - "Stitching system properties: ....... {{ system_properties_to_set }}"
+
+- name: Retrieve manage certificate secret
+  kubernetes.core.k8s_info:
+    api: v1
+    kind: Secret
+    namespace: "{{ manage_namespace }}"
+    name: "{{ mas_instance_id }}-internal-manage-tls"
+  register: managecerts
+
+- name: Extract cert and key
+  when:
+    - managecerts is defined and managecerts.resources | length > 0
+  set_fact:
+    manage_client_cert: "{{ managecerts.resources[0].data['tls.crt'] | b64decode }}"
+    manage_client_key: "{{ managecerts.resources[0].data['tls.key'] | b64decode }}"
+
+- name: Save key to temp file
+  when:
+    - manage_client_key is defined
+  ansible.builtin.copy:
+    dest: "/tmp/{{ mas_workspace_id }}-stitching-tls.key"
+    content: "{{ manage_client_key }}"
+
+- name: Save cert to temp file
+  when:
+    - manage_client_cert is defined
+  ansible.builtin.copy:
+    dest: "/tmp/{{ mas_workspace_id }}-stitching-tls.crt"
+    content: "{{ manage_client_cert }}"
+
+- name: Set System Properties in Manage
+  when:
+    - manage_client_key is defined
+    - manage_client_cert is defined
+  vars:
+    property_to_set: "{{ item }}"
+    client_key_file: "/tmp/{{ mas_workspace_id }}-stitching-tls.key"
+    client_cert_file: "/tmp/{{ mas_workspace_id }}-stitching-tls.crt"
+  include_tasks: manage-set-system-property.yml
+  with_items: "{{ system_properties_to_set }}"
