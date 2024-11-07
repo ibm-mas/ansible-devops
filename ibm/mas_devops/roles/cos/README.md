@@ -62,6 +62,12 @@ Required if cos_type is set to `ibm`.  Provide your IBM Cloud API Key.
 - Environment Variable: `IBMCLOUD_APIKEY`
 - Default Value: None
 
+### cos_apikey
+Required if cos_type is set to `ibm`.  Provide your less priviledged IBM Cloud API Key for COS only
+
+- Environment Variable: `COS_APIKEY`
+- Default Value: `ibmcloud_apikey`
+
 ### ibmcloud_resourcegroup
 Only used when cos_type is set to `ibm`.  Provide the name of the resource group which will own the COS instance.
 
