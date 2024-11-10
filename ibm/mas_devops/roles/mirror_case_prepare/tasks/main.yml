@@ -51,13 +51,15 @@
   shell: oc ibm-pak get {{ case_name }} --version {{ case_version }} {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}
   register: ibmpak_get_result
 
-# Team messed up the release and the version we will get back is 8.7.0+20230925.114420 rather than 8.7.0
-- name: "Workaround for ibm-mas-manage 8.7.0"
-  when:
-    - case_name == "ibm-mas-manage"
-    - case_version == "8.7.0"
+- name: "{{ case_name }} : Get Build from output"
   set_fact:
-    case_version: "8.7.0+20230925.114420"
+    build_version: "{{ ibmpak_get_result.stdout | regex_search(regex,'\\1') | first }}"
+  vars:
+    regex: 'version: ([0-9\+\.]*) is complete'
+
+- name: "{{ case_name }} : Debug build version"
+  debug:
+    var: build_version
 
 # 5. Remove excluded images
 # -----------------------------------------------------------------------------
@@ -66,7 +68,7 @@
   when:
     - exclude_images is defined
     - exclude_images | length > 0
-  shell: rm ~/.ibm-pak/data/cases/{{ case_name }}/{{ case_version }}/{{ item }}-*-images.csv
+  shell: rm ~/.ibm-pak/data/cases/{{ case_name }}/{{ build_version }}/{{ item }}-*-images.csv
   # We ignore errors, because if we can't delete something that isn't there it
   # doesn't really matter, e.g. removing ibm-mas-safety which isn't present since MAS v8.8
   ignore_errors: true
@@ -78,22 +80,22 @@
 - name: Generate mirror-manifest with image group filter
   block:
     - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ case_version }} --filter {{ image_group_filter }}"
+      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ build_version }} --filter {{ image_group_filter }}"
       register: ibmpak_gen1_result
 
     - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ case_version }} --final-registry {{ registry_public_url }} --filter {{ image_group_filter }}"
+      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ build_version }} --final-registry {{ registry_public_url }} --filter {{ image_group_filter }}"
       register: ibmpak_gen2_result
   when: image_group_filter is defined
 
 - name: Generate mirror-manifest without image group filter
   block:
     - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ case_version }}"
+      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ build_version }}"
       register: ibmpak_gen1_result
 
     - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ case_version }} --final-registry {{ registry_public_url }}"
+      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ build_version }} --final-registry {{ registry_public_url }}"
       register: ibmpak_gen2_result
   when: image_group_filter is not defined
 
@@ -125,26 +127,19 @@
   set_fact:
     _manifest_version: "{{ case_version }}"
 
-- name: "Workaround for ibm-mas-manage 8.7.0"
-  when:
-    - case_name == "ibm-mas-manage"
-    - case_version == "8.7.0+20230925.114420"
-  set_fact:
-    _manifest_version: "8.7.0"
-
 - name: "{{ case_name }} : Copy images-mapping-to-filesystem"
   ansible.builtin.copy:
-    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping-to-filesystem.txt
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping-to-filesystem.txt
     dest: "{{ mirror_working_dir }}/manifests/to-filesystem/{{ case_name }}_{{ _manifest_version }}.txt"
 
 - name: "{{ case_name }} : Copy images-mapping-from-filesystem"
   ansible.builtin.copy:
-    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping-from-filesystem.txt
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping-from-filesystem.txt
     dest: "{{ mirror_working_dir }}/manifests/from-filesystem/{{ case_name }}_{{ _manifest_version }}.txt"
 
 - name: "{{ case_name }} : Copy images-mapping"
   ansible.builtin.copy:
-    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping.txt
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping.txt
     dest: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ _manifest_version }}.txt"
 
 # 9. IBM SLS 3.5.0 Bad Digest Hack
