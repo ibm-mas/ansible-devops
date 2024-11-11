@@ -18,7 +18,8 @@ echo $cwd
 mkdir -p certs
 
 echo "creating SLS registration, please wait....."
-instanceIdentifier=`python3 {{ role_path }}/files/alm_sample_sls_use.py $3 $4`
+# instanceIdentifier=`python3 {{ role_path }}/files/alm_sample_sls_use.py $3 $4`
+instanceIdentifier=$(python3 ../roles/aibroker/files/alm_sample_sls_use.py $3 $4)
 echo "SLS registration is created successfully."
 
 registrationKey=$4
