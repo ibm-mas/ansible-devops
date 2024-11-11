@@ -83,8 +83,18 @@
 #   debug:
 #     msg: "{{ create_sls_secret_output }}"
 
+- name: "Check if SLS key secret exists in namespace: {{ aibroker_namespace }}"
+  k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ tenantNamespace }}----sls-secret"
+    namespace: "{{ aibroker_namespace }}"
+  register: sls_secret_info
+
 - name: Create SLS secret
   script: "{{ role_path }}/files/create_sls_secret.sh {{ tenantNamespace }} {{ mas_instance_id }} {{ mas_aibroker_sls_url }} {{ mas_aibroker_sls_registration_key }}"
+  when:
+    - sls_secret_info.resources | length == 0
   register: sls_secret_output
 
 - name: Debug Create sls secret for AI Broker
