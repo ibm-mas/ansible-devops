@@ -47,7 +47,7 @@ Required. Storage class where DRO will be installed. MAS ansible playbooks will 
 - Optional
 - Environment Variable: `DRO_STORAGE_CLASS`
 - Default Value: None
-- *Note*: The storage class must support the RWO(Read Write Once) access Mode
+- **Note**: The storage class must support the RWO(Read Write Once) access Mode
 
 Role Variables - BASCfg Generation
 -------------------------------------------------------------------------------

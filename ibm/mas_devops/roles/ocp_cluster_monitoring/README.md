@@ -42,7 +42,7 @@ Declare the storage class for AlertManager's persistent volume.
 - **Required** if one of the known supported storage classes is not installed in the cluster.
 - Environment Variable: `PROMETHEUS_ALERTMGR_STORAGE_CLASS`
 - Default Value: `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium` (if available)
-- **NOte**: Storage class must support ReadWriteMany(RWX) access mode.
+- **Note**: Storage class must support ReadWriteMany(RWX) access mode.
 
 ### prometheus_alertmgr_storage_size
 Adjust the size of the volume used by AlertManager, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
