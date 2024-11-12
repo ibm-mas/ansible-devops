@@ -49,7 +49,7 @@ Usage for tear-down action
 --------------------------
 This role can also be used to permanently delete a mirror registry from a given cluster by setting the `registry_action` to `tear-down` and specifying the corresponding `registry_namespace`, if not using the default value.
 
-Note that the tear-down action deletes the registry completely including the PVC storage and the registry namespace. To start up the registry again, the role needs to be run again with the registry_action on default or `setup`. Images previously stored in the registry before the tear-down will no longer be available and will need to be mirrored again once the registry setup has completed. Take precaution when using this function and expect that images can no longer be accessed from the registry that has been torn down. 
+Note that the tear-down action deletes the registry completely including the PVC storage and the registry namespace. To start up the registry again, the role needs to be run again with the registry_action on default or `setup`. Images previously stored in the registry before the tear-down will no longer be available and will need to be mirrored again once the registry setup has completed. Take precaution when using this function and expect that images can no longer be accessed from the registry that has been torn down.
 
 **Note:** Recreating the registry will also create a new ca cert for the new registry.
 
@@ -74,7 +74,7 @@ The namespace where the registry to run
 - Default Value: `airgap-registry`
 
 ### registry_storage_class
-Required.  The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster.
+**Required**:  The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster. Storage class must support ReadWriteOnce(RWO) access mode.
 
 - **Required**, unless running in IBM Cloud ROKS, where the storage class will default to `ibmc-block-gold`.
 - Environment Variable: `REGISTRY_STORAGE_CLASS`
