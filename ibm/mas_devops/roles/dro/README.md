@@ -42,11 +42,12 @@ Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/conta
 - Default: None
 
 ### dro_storage_class
-Required. Storage class where DRO will be installed. MAS ansible playbooks will automatically try to determine a rwo (Read Write Once) storage class from a cluster if DRO_STORAGE_CLASS is not supplied. If a cluster is setup with a customize storage solution, please provide a valid rwo storage class name using DRO_STORAGE_CLASS
+Required. Storage class where DRO will be installed. MAS ansible playbooks will automatically try to determine a RWO (Read Write Once) storage class from a cluster if DRO_STORAGE_CLASS is not supplied. If a cluster is setup with a customized storage solution, please provide a valid RWO storage class name using DRO_STORAGE_CLASS.
 
 - Optional
 - Environment Variable: `DRO_STORAGE_CLASS`
 - Default Value: None
+- **Note**: The storage class must support the RWO(Read Write Once) access Mode
 
 Role Variables - BASCfg Generation
 -------------------------------------------------------------------------------
