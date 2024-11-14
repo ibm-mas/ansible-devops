@@ -15,43 +15,43 @@ Required. The postfix for the PVC created for image stitching. The ManageWorkspa
 - Default Value: manage-imagestitching
 
 ### stitching_storage_class
-Optional. The storage class used for the PVC. If not specified the default value will be found by discovery
+**Optional**: The storage class used for the PVC. If not specified the default value will be found by discovery. The storage class must support ReadWriteMany(RWX) access mode.
 
 - Environment Variable: `IMAGESTITCHING_STORAGE_CLASS`
 - Default Value: None
 
 ### stitching_storage_size
-Required. The size of the persistent volume claim.
+**Required**: The size of the persistent volume claim.
 
 - Environment Variable: `IMAGESTITCHING_STORAGE_SIZE`
 - Default Value: 20 Gi
 
 ### stitching_storage_mode
-Required. The access mode for the PVC.
+**Required**: The access mode for the PVC.
 
 - Environment Variable: `IMAGESTITCHING_STORAGE_MODE`
 - Default Value: ReadWriteMany
 
 ### stitching_storage_mountpath
-Required. The mount path of the Persistent Volume.
+**Required**: The mount path of the Persistent Volume.
 
 - Environment Variable: `IMAGESTITCHING_STORAGE_MOUNTPATH`
 - Default Value: imagestitching
 
 ### mas_instance_id
-Required. The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
+**Required**:. The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
 
 - Environment Variable: `MAS_INSTANCE_ID`
 - Default Value: None
 
 ### mas_workspace_id
-Required. The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
+**Required**:. The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.
 
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default Value: None
 
 ### mas_domain
-Required. The domain name for the Manage cluster
+**Required**: The domain name for the Manage cluster
 
 - Environment Variable: `MAS_DOMAIN`
 - Default Value: Discovered from Suite CR

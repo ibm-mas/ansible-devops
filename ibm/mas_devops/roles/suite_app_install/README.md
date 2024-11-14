@@ -89,7 +89,7 @@ Set the binding scope for the application's JDBC binding (`system` or `applicati
 - Default: `system`
 
 ### mas_app_plan
-Optional. Defines what plan will be used in application install.
+**Optional**: Defines what plan will be used in application install.
 
 - Environment Variable: `MAS_APP_PLAN`
 - Default: Application-specific, see details below.
@@ -107,13 +107,13 @@ Provide the directory where supported pod templates configuration files are defi
 Role Variables - Visual Inspection Configuration
 -------------------------------------------------------------------------------
 ### mas_app_settings_visualinspection_storage_class
-Optional - Storage class used for user data. This must support ReadWriteMany
+**Optional**: Storage class used for user data. This must support ReadWriteMany(RWX).
 
 - Environment Variable: `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_CLASS`
 - Default: Auto-selected from storage classes installed in the cluster.
 
 ### mas_app_settings_visualinspection_storage_size
-Optional. Size of data persistent volume.
+**Optional**: Size of data persistent volume.
 
 - Environment Variable: `MAS_APP_SETTINGS_VISUALINSPECTION_STORAGE_SIZE`
 - Default: `100Gi`
@@ -122,7 +122,7 @@ Optional. Size of data persistent volume.
 Role Variables - IoT Configuration
 -------------------------------------------------------------------------------
 ### mas_app_settings_iot_deployment_size
-Optional, The IoT deployment size, one of `dev`, `small` or `large`.
+**Optional**: The IoT deployment size, one of `dev`, `small` or `large`.
 
 - Environment Variable: `MAS_APP_SETTINGS_IOT_DEPLOYMENT_SIZE`
 - Default: `small`
@@ -130,15 +130,15 @@ Optional, The IoT deployment size, one of `dev`, `small` or `large`.
   - IoT 8.6+
 
 ### mas_app_settings_iot_fpl_pvc_storage_class
-Optional. The persistent volume storage class used by the iot fpl component for transient state storage
-
+**Optional**: The persistent volume storage class used by the iot fpl component for transient state storage.
+The storage class can be used to dynamically provision a persistent volume with access mode RWO (ReadWriteOnce).
 - Environment Variable: `MAS_APP_SETTINGS_IOT_FPL_PVC_STORAGE_CLASS`
 - Default: Auto-selected from storage classes installed in the cluster.
 - Application Support:
   - IoT 8.6+
 
 ### mas_app_settings_iot_fpl_router_pvc_size
-Optional. The persistent volume size used by the iot fpl pipeline router for transient state storage
+**Optional**: The persistent volume size used by the iot fpl pipeline router for transient state storage
 
 - Environment Variable: `MAS_APP_SETTINGS_IOT_FPL_ROUTER_PVC_SIZE`
 - Default: 100Gi.
@@ -146,7 +146,7 @@ Optional. The persistent volume size used by the iot fpl pipeline router for tra
   - IoT 8.6+
 
 ### mas_app_settings_iot_fpl_executor_pvc_size
-Optional. The persistent volume size used by the iot fpl pipeline router for transient state storage
+**Optional**: The persistent volume size used by the iot fpl pipeline router for transient state storage
 
 - Environment Variable: `MAS_APP_SETTINGS_IOT_FPL_EXECUTOR_PVC_SIZE`
 - Default: 100Gi.
@@ -154,15 +154,15 @@ Optional. The persistent volume size used by the iot fpl pipeline router for tra
   - IoT 8.6+
 
 ### mas_app_settings_iot_mqttbroker_pvc_storage_class
-Optional. The persistent volume storage class used by the iot mqtt broker (messagesight)
-
+**Optional**: The persistent volume storage class used by the iot mqtt broker (messagesight)
+The storage class can be used to dynamically provision a persistent volume with access mode RWO (ReadWriteOnce).
 - Environment Variable: `MAS_APP_SETTINGS_IOT_MQTTBROKER_PVC_STORAGE_CLASS`
 - Default: Auto-selected from storage classes installed in the cluster, if a default compatible one is found.
 - Application Support:
   - IoT 8.3+
 
 ### mas_app_settings_iot_mqttbroker_pvc_size
-Optional. The persistent volume size used by the iot mqtt broker (messagesight)
+**Optional**: The persistent volume size used by the iot mqtt broker (messagesight)
 
 - Environment Variable: `MAS_APP_SETTINGS_IOT_MQTTBROKER_PVC_SIZE`
 - Default: 100Gi.

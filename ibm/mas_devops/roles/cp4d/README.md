@@ -174,7 +174,6 @@ statefulset.apps/zen-metastoredb   3/3     68m
 
 
 
-
 Role Variables
 --------------
 ### cpd_product_version
@@ -199,14 +198,17 @@ An IBM entitlement key specific for Cloud Pak for Data installation, primarily u
 - Default: None
 
 ### cpd_primary_storage_class
-Primary storage class for Cloud Pak for Data.
+Primary storage class for Cloud Pak for Data. For more details please read the [Storage Considerations for IBM Cloud Pak for Data](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.6.x?topic=planning-storage-considerations).
+According to the mentioned documentation, Cloud Pak for Data uses the following access modes for storage classes:
+ - RWX file storage: ocs-storagecluster-cephfs
+ - RWX file storage: ibmc-file-gold-gid
 
 - **Required** if one of the known supported storage classes is not installed in the cluster.
 - Environment Variable: `CPD_PRIMARY_STORAGE_CLASS`
 - Default Value: `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium` (if available)
 
 ### cpd_metadata_storage_class
-Storage class for the Cloud Pak for Data Zen meta database.
+Storage class for the Cloud Pak for Data Zen meta database. This must support ReadWriteOnce (RWO access) access mode.
 
 - **Required** if one of the known supported storage classes is not installed in the cluster.
 - Environment Variable: `CPD_METADATA_STORAGE_CLASS`
@@ -239,16 +241,16 @@ The CP4D Admin username to authenticate with CP4D APIs. If you didn't change the
 
 - Optional
 - Environment Variable: `CPD_ADMIN_USERNAME`
-- Default Value: 
+- Default Value:
   - `admin` (CPD 4.6)
-  - `cpadmin` (CPD 4.8) 
+  - `cpadmin` (CPD 4.8)
 
 ### cpd_admin_password
 The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` or `cpdamin` will be used.
 
 - Optional
 - Environment Variable: `CPD_ADMIN_PASSWORD`
-- Default Value: 
+- Default Value:
     - CPD 4.6: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
     - CPD 4.8: Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
 

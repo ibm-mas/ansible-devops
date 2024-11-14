@@ -614,14 +614,14 @@ The product version (also known as operand version) of this service to install.
 - Default Value: Defined by the installed MAS catalog version
 
 ### cpd_service_storage_class
-This is used to set `spec.storageClass` in all CPD services that uses file storage class (read-write-many).
+This is used to set `spec.storageClass` in all CPD services that uses file storage class (read-write-many RWX).
 
 - **Required**, unless IBMCloud storage classes are available.
 - Environment Variable: `CPD_SERVICE_STORAGE_CLASS`
 - Default Value: Auto determined if default storage classes are provided and available by your cloud provider. i.e `ibmc-file` for IBM Cloud, `efs` for AWS.
 
 ### cpd_service_block_storage_class
-This is used to set `spec.blockStorageClass` in all CPD services that uses block storage class (read-write-only).
+This is used to set `spec.blockStorageClass` in all CPD services that uses block storage class (read-write-only RWO).
 
 - **Required**, unless IBMCloud storage classes are available.
 - Environment Variable: `CPD_SERVICE_BLOCK_STORAGE_CLASS`
@@ -646,16 +646,16 @@ The CP4D Admin username to authenticate with CP4D APIs. If you didn't change the
 
 - Optional
 - Environment Variable: `CPD_ADMIN_USERNAME`
-- Default Value: 
+- Default Value:
   - `admin` (CPD 4.6)
-  - `cpadmin` (CPD 4.8) 
+  - `cpadmin` (CPD 4.8)
 
 ### cpd_admin_password
 The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` or `cpdamin` will be used.
 
 - Optional
 - Environment Variable: `CPD_ADMIN_PASSWORD`
-- Default Value: 
+- Default Value:
     - CPD 4.6: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
     - CPD 4.8: Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
 
@@ -694,7 +694,7 @@ Stores the name of the CP4D Watson Discovery Instance that can be used to config
 - Default Value: `wd-mas-${mas_instance_id}-assist`
 
 ### cpd_wd_deployment_type
-Defines the CP4D Watson Discovery deployment type: 
+Defines the CP4D Watson Discovery deployment type:
 
 - `Starter`: One replica pod for each wd service/component, uses fewer resources in your cluster.
 - `Production`: Multiple replica pods for each Watson Discovery service/component, recommended for production deployments to increase workload capacity however consumes more cluster resources. 
