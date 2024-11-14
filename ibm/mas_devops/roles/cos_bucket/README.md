@@ -142,7 +142,7 @@ Create the IBM Cloud Object storage bucket.
     cos_type: ibm
     cos_bucket_action: create
     cos_bucket_name: my-ibm-bucket
-    cos_instance_name: my-cos-instance-name
+    cos_instance_name: my-ibmcos-instance-name
     ibmcloud_apikey: my-ibm-cloud-apikey
   roles:
     - ibm.mas_devops.cos_bucket
