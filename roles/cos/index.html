@@ -699,7 +699,15 @@
     <cds-select id="breadcrumbs-toc" class="cds-theme-zone-g10" inline placeholder="..." oninput="changeAnchor(this.value)">
     
     
-      <cds-select-item value="#role-variables">Role Variables</cds-select-item>
+      <cds-select-item value="#role-variables-general">Role Variables - General</cds-select-item>
+    
+      <cds-select-item value="#role-variables-ibm-cos">Role Variables - IBM COS</cds-select-item>
+    
+      <cds-select-item value="#role-variables-mas-configuration">Role Variables - MAS Configuration</cds-select-item>
+    
+      <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
+    
+      <cds-select-item value="#license">License</cds-select-item>
     
   </cds-select>
   </cds-breadcrumb-item>
@@ -709,24 +717,20 @@
     <div id="main-content" class="rst-content">
       
       <h1 id="cos">cos<a class="headerlink" href="#cos" title="Permanent link">¤</a></h1>
-<p>This role provides support for:
-- Provisioning and Configuring Cloud Object Storage in MAS. It currently supports two providers:</p>
+<p>This role provides support for:</p>
 <ul>
+<li>Provisioning and Configuring Cloud Object Storage in MAS. It currently supports two providers:<ul>
 <li>In-cluster Ceph Object Storage leveraging OpenShift Container Storage</li>
-<li>
-<p>IBM Cloud Object Storage</p>
+<li>IBM Cloud Object Storage</li>
+</ul>
 </li>
-<li>
-<p>Deprovision Cloud Object Store. It currently supports one provider:</p>
-<ul>
+<li>Deprovision Cloud Object Store. It currently supports one provider:<ul>
 <li>IBM Cloud Object Storage</li>
 </ul>
 </li>
 </ul>
 <p>Currently this role only supports generating a system-scoped ObjectStorageCfg resource, but the generated file can be modified if you wish to use other scopes.</p>
-<h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
-<h1 id="ibm-cloud-object-storage-ibm">IBM Cloud Object Storage (ibm)<a class="headerlink" href="#ibm-cloud-object-storage-ibm" title="Permanent link">¤</a></h1>
-<h1 id="-">---------------------------------------------------------------------------------------------------------------------<a class="headerlink" href="#-" title="Permanent link">¤</a></h1>
+<h2 id="role-variables-general">Role Variables - General<a class="headerlink" href="#role-variables-general" title="Permanent link">¤</a></h2>
 <h3 id="cos_type">cos_type<a class="headerlink" href="#cos_type" title="Permanent link">¤</a></h3>
 <p>Required.  Which COS provider to use; can be set to either <code>ibm</code> for IBM Cloud Object Storage or <code>ocs</code> for OpenShift Container Storage</p>
 <ul>
@@ -739,6 +743,27 @@
 <li>Environment Variable: <code>COS_ACTION</code></li>
 <li>Default Value: <code>provision</code></li>
 </ul>
+<h3 id="cos_use_hmac">cos_use_hmac<a class="headerlink" href="#cos_use_hmac" title="Permanent link">¤</a></h3>
+<p>Supported values are true and false, this is used when ibm cloud-cos to be setup with hmac encrypted credentials.</p>
+<ul>
+<li>Environment Variable: COS_USE_HMAC</li>
+<li>Default: false</li>
+</ul>
+<h3 id="cluster-ingres-tls-secret-name">cluster ingres tls secret name<a class="headerlink" href="#cluster-ingres-tls-secret-name" title="Permanent link">¤</a></h3>
+<p>Specify the name of the cluster's ingres tls secret which contains the default router certificate.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>OCP_INGRESS_TLS_SECRET_NAME</code></li>
+<li>Default Value: router-certs-default</li>
+</ul>
+<h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
+<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>CUSTOM_LABELS</code></li>
+<li>Default Value: None</li>
+</ul>
+<h2 id="role-variables-ibm-cos">Role Variables - IBM COS<a class="headerlink" href="#role-variables-ibm-cos" title="Permanent link">¤</a></h2>
 <h3 id="cos_instance_name">cos_instance_name<a class="headerlink" href="#cos_instance_name" title="Permanent link">¤</a></h3>
 <p>Provide an optional name for the Object Storage instance.  This is only used when cos_type is set to <code>ibm</code> for IBM Cloud Object Storage.</p>
 <ul>
@@ -760,19 +785,32 @@
 <h3 id="cos_resource_key_iam_role">cos_resource_key_iam_role<a class="headerlink" href="#cos_resource_key_iam_role" title="Permanent link">¤</a></h3>
 <p>Provide an optional role when cos service credential is getting created during COS provisioning.
   - Environment Variable: <code>COS_RESOURCE_KEY_IAM_ROLE</code>
-  - Default Value: <code>Manager</code> </p>
+  - Default Value: <code>Manager</code></p>
+<h3 id="cos_apikey">cos_apikey<a class="headerlink" href="#cos_apikey" title="Permanent link">¤</a></h3>
+<p>Required if cos_type is set to <code>ibm</code>.  Provide your less priviledged IBM Cloud API Key for COS only</p>
+<ul>
+<li>Environment Variable: <code>COS_APIKEY</code></li>
+<li>Default Value: <code>ibmcloud_apikey</code></li>
+</ul>
 <h3 id="ibmcloud_apikey">ibmcloud_apikey<a class="headerlink" href="#ibmcloud_apikey" title="Permanent link">¤</a></h3>
-<p>Required if cos_type is set to <code>ibm</code>.  Provide your IBM Cloud API Key.</p>
+<p>Required if cos_type is set to <code>ibm</code>.  Provide your IBM Cloud API Key that will be used as the default API Key across multiple roles in this collection.</p>
 <ul>
 <li>Environment Variable: <code>IBMCLOUD_APIKEY</code></li>
 <li>Default Value: None</li>
 </ul>
-<h3 id="ibmcloud_resourcegroup">ibmcloud_resourcegroup<a class="headerlink" href="#ibmcloud_resourcegroup" title="Permanent link">¤</a></h3>
+<h3 id="cos_resourcegroup">cos_resourcegroup<a class="headerlink" href="#cos_resourcegroup" title="Permanent link">¤</a></h3>
 <p>Only used when cos_type is set to <code>ibm</code>.  Provide the name of the resource group which will own the COS instance.</p>
+<ul>
+<li>Environment Variable: <code>COS_RESOURCEGROUP</code></li>
+<li>Default Value: <code>ibmcloud_resourcegroup</code></li>
+</ul>
+<h3 id="ibmcloud_resourcegroup">ibmcloud_resourcegroup<a class="headerlink" href="#ibmcloud_resourcegroup" title="Permanent link">¤</a></h3>
+<p>Only used when cos_type is set to <code>ibm</code>.  Provide the name of the default resource group used across multiple roles in this collection.</p>
 <ul>
 <li>Environment Variable: <code>IBMCLOUD_RESOURCEGROUP</code></li>
 <li>Default Value: <code>Default</code></li>
 </ul>
+<h2 id="role-variables-mas-configuration">Role Variables - MAS Configuration<a class="headerlink" href="#role-variables-mas-configuration" title="Permanent link">¤</a></h2>
 <h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
 <p>The instance ID of Maximo Application Suite that the ObjectStorageCfg configuration will target.  If this or <code>mas_config_dir</code> are not set then the role will not generate a ObjectStorageCfg template.</p>
 <ul>
@@ -783,26 +821,6 @@
 <p>Local directory to save the generated ObjectStorageCfg resource definition.  This can be used to manually configure a MAS instance to connect to the Kafka cluster, or used as an input to the <a href="../suite_config/">suite_config</a> role. If this or <code>mas_instance_id</code> are not set then the role will not generate a ObjectStorageCfg template.</p>
 <ul>
 <li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
-<li>Default Value: None</li>
-</ul>
-<h3 id="cos_use_hmac">cos_use_hmac<a class="headerlink" href="#cos_use_hmac" title="Permanent link">¤</a></h3>
-<p>Supported values are true and false, this is used when ibm cloud-cos to be setup with hmac encrypted credentials.</p>
-<ul>
-<li>Environment Variable: COS_USE_HMAC</li>
-<li>Default: false</li>
-</ul>
-<h3 id="cluster-ingres-tls-secret-name">cluster ingres tls secret name<a class="headerlink" href="#cluster-ingres-tls-secret-name" title="Permanent link">¤</a></h3>
-<p>Specify the name of the cluster's ingres tls secret which contains the default router certificate.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>OCP_INGRESS_TLS_SECRET_NAME</code></li>
-<li>Default Value: router-certs-default</li>
-</ul>
-<h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
-<p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
-<ul>
-<li>Optional</li>
-<li>Environment Variable: <code>CUSTOM_LABELS</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="include_cluster_ingress_cert_chain">include_cluster_ingress_cert_chain<a class="headerlink" href="#include_cluster_ingress_cert_chain" title="Permanent link">¤</a></h3>
@@ -839,7 +857,7 @@
       
     </div>
     <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v1.6.1 (2024-11-14 11:05:09.694851+00:00)
+      Built with mkdocs v1.6.1 (2024-11-14 19:22:18.208627+00:00)
     </div> -->
   <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": false, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
 </script></body>
