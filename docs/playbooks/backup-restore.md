@@ -23,56 +23,13 @@ For more information about backup and restore for Maximo Application Suite, plea
 
 Configuration - Storage
 -------------------------------------------------------------------------------
-
-| Envrionment variable                 | Required (Default Value)               | Description |
-| ------------------------------------ | -------------------------------------- | ----------- |
-| MASBR_STORAGE_TYPE                   | **Yes**                                | Type of storage system for saving the backup files |
-| MASBR_STORAGE_LOCAL_FOLDER           | **Yes**, if `MASBR_STORAGE_TYPE=local` | The local path to save the backup files |
-| MASBR_STORAGE_CLOUD_RCLONE_FILE      | **Yes**, if `MASBR_STORAGE_TYPE=cloud` | The path of `rclone.conf` file |
-| MASBR_STORAGE_CLOUD_RCLONE_NAME      | **Yes** if `MASBR_STORAGE_TYPE=cloud`  | The configuration name defined in `rclone.conf` file |
-| MASBR_STORAGE_CLOUD_BUCKET           | **Yes**, if `MASBR_STORAGE_TYPE=cloud` | Object storage bucket for saving backup files |
-| MASBR_LOCAL_TEMP_FOLDER              | No (`/tmp/masbr`)                      | Local folder for saving the temporary backup/restore data, the data in this folder will be deleted after the backup/restore job completed. |
-
-You need to set the environment variable `MASBR_STORAGE_TYPE` before you perform a backup or restore job. This variable indicates what type of storage systems that you are using for saving the backup files. Currently, it supports below types:
-
-- `local`: use the local file system, e.g. a folder on your laptop or workstation.
-- `cloud`: use the cloud object storage, such as IBM Cloud Object Storage, AWS S3, etc.
-
-### Local Storage
 You can save the backup files to a folder on your local file system by setting the following environment variables:
 
-```
-MASBR_STORAGE_TYPE=local
-MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-```
-- `MASBR_STORAGE_LOCAL_FOLDER`: the path for saving the backup files
+| Envrionment variable                 | Required (Default Value)   | Description |
+| ------------------------------------ | -------------------------- | ----------- |
+| MASBR_STORAGE_LOCAL_FOLDER           | **Yes**                    | The local path to save the backup files |
+| MASBR_LOCAL_TEMP_FOLDER              | No (`/tmp/masbr`)          | Local folder for saving the temporary backup/restore data, the data in this folder will be deleted after the backup/restore job completed. |
 
-### Cloud Object Storage
-The backup playbooks use [Rclone](https://rclone.org/) to copy backup files from data stores to cloud object storage. It requires a Rclone configuration file which you can either create it manually, or you can install the Rclone tool and create the configuration file by running the `rclone config` command. For more information about the rclone config command and configuration file format, please refer to the [Rclone documentation](https://rclone.org/s3/#configuration).
-
-Below is a sample Rclone configuration file that using MinIO object storage:
-```
-[masbr]
-type = s3
-provider = Minio
-endpoint = http://minio-api.apps.mydomain.com
-access_key_id = Qfx9YGnykJapxL7pzUyA
-secret_access_key = qKRGSnxsJ7z6pIA74sVxJ6fkEh4Fq5m4fo0inDuJ
-region = minio
-```
-
-Set the following environment variables to indicate the playbooks to use cloud object storage for saving backup files:
-
-- `MASBR_STORAGE_CLOUD_RCLONE_FILE`: the path where your rclone.conf file is located
-- `MASBR_STORAGE_CLOUD_RCLONE_NAME`: the Rclone configuration name (`[masbr]` from above sample) defined in the rclone.conf file
-- `MASBR_STORAGE_CLOUD_BUCKET`: the bucket name you created on the object storage for saving the backup files
-
-```
-MASBR_STORAGE_TYPE=cloud
-MASBR_STORAGE_CLOUD_RCLONE_FILE=/mnt/configmap/rclone.conf
-MASBR_STORAGE_CLOUD_RCLONE_NAME=masbr
-MASBR_STORAGE_CLOUD_BUCKET=mas-backup
-```
 
 Configuration - Backup
 -------------------------------------------------------------------------------
@@ -145,30 +102,26 @@ This playbook supports backing up and restoring databases for an in-cluster Mong
 ```bash
 # Full backup all MongoDB data for the dev1 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_mongodb
 
 # Incremental backup all MongoDB data for the dev1 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_mongodb
 
 # Restore all MongoDB data for the dev1 instance
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_mongodb
 
 # Backup just the IoT MongoDB data for the dev2 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MAS_INSTANCE_ID=dev2
 export MAS_APP_ID=iot
@@ -188,7 +141,6 @@ This playbook `ibm.mas_devops.br_db2` will invoke the role [db2](../roles/db2.md
 ```bash
 # Full backup for the db2w-shared Db2 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_db2
@@ -196,14 +148,12 @@ ansible-playbook ibm.mas_devops.br_db2
 # Incremental backup for the db2w-shared Db2 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_db2
 
 # Restore for the db2w-shared Db2 instance
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
 export DB2_INSTANCE_NAME=db2w-shared
@@ -228,25 +178,22 @@ This playbook `ibm.mas_devops.br_core` will backup the following components that
 ```bash
 # Full backup all core data for the dev1 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_core
 
 # Incremental backup all core data for the dev1 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_core
 
 # Restore all core data for the dev1 instance
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_core
 ```
 
@@ -274,9 +221,8 @@ This playbook `ibm.mas_devops.br_manage` will backup the following components th
 ```bash
 # Full backup all manage data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_manage
@@ -284,19 +230,17 @@ ansible-playbook ibm.mas_devops.br_manage
 # Incremental backup all manage data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_manage
 
 # Restore all manage data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_manage
@@ -325,9 +269,8 @@ This playbook `ibm.mas_devops.br_iot` will backup the following components that 
 ```bash
 # Full backup all iot data for the dev1 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_iot
@@ -335,19 +278,17 @@ ansible-playbook ibm.mas_devops.br_iot
 # Incremental backup all iot data for the dev1 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_iot
 
 # Restore all iot data for the dev1 instance
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_iot
@@ -379,9 +320,8 @@ This playbook `ibm.mas_devops.br_monitor` will backup the following components t
 ```bash
 # Full backup all monitor data for the dev1 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_monitor
@@ -389,19 +329,17 @@ ansible-playbook ibm.mas_devops.br_monitor
 # Incremental backup all monitor data for the dev1 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_monitor
 
 # Restore all monitor data for the dev1 instance
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_monitor
@@ -431,9 +369,8 @@ This playbook `ibm.mas_devops.br_health` will backup the following components th
 ```bash
 # Full backup all health data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_health
@@ -441,19 +378,17 @@ ansible-playbook ibm.mas_devops.br_health
 # Incremental backup all health data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_health
 
 # Restore all health data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_health
@@ -483,9 +418,8 @@ This playbook `ibm.mas_devops.br_optimizer` will backup the following components
 ```bash
 # Full backup all optimizer data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_optimizer
@@ -493,19 +427,17 @@ ansible-playbook ibm.mas_devops.br_optimizer
 # Incremental backup all optimizer data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_optimizer
 
 # Restore all optimizer data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_optimizer
@@ -532,27 +464,24 @@ This playbook `ibm.mas_devops.br_visualinspection` will backup the following com
 ```bash
 # Full backup all visual inspection data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 ansible-playbook ibm.mas_devops.br_visualinspection
 
 # Incremental backup all visual inspection data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 ansible-playbook ibm.mas_devops.br_visualinspection
 
 # Restore all visual inspection data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 ansible-playbook ibm.mas_devops.br_visualinspection
 ```

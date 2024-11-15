@@ -442,39 +442,11 @@ Set the [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 - Environment Variable: `MASBR_JOB_TIMEZONE`
 - Default: None
 
-### masbr_storage_type
-Set `local` or `cloud` to indicate this role to save the backup files to local file system or cloud object storage.
-
-- **Required**
-- Environment Variable: `MASBR_STORAGE_TYPE`
-- Default: None
-
 ### masbr_storage_local_folder
 Set local path to save the backup files.
 
-- **Required** only when `MASBR_STORAGE_TYPE=local`
+- **Required**
 - Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
-- Default: None
-
-### masbr_storage_cloud_rclone_file
-Set the path of `rclone.conf` file.
-
-- **Required** only when `MASBR_STORAGE_TYPE=cloud`
-- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_FILE`
-- Default: None
-
-### masbr_storage_cloud_rclone_name
-Set the configuration name defined in `rclone.conf` file.
-
-- **Required** only when `MASBR_STORAGE_TYPE=cloud`
-- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_NAME`
-- Default: None
-
-### masbr_storage_cloud_bucket
-Set the object storage bucket name for saving the backup files
-
-- **Required** only when `MASBR_STORAGE_TYPE=cloud`
-- Environment Variable: `MASBR_STORAGE_CLOUD_BUCKET`
 - Default: None
 
 ### masbr_slack_enabled
@@ -580,7 +552,6 @@ Example Playbook
   vars:
     db2_action: backup
     db2_instance_name: db2u-db01
-    masbr_storage_type: local
     masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.db2
@@ -594,7 +565,6 @@ Example Playbook
     db2_action: restore
     db2_instance_name: db2u-db01
     masbr_restore_from_version: 20240621021316
-    masbr_storage_type: local
     masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.db2
