@@ -31,7 +31,6 @@
         that: masbr_action in ["backup", "restore"]
         fail_msg: "masbr_action is required and must be set to 'backup' or 'restore'"
 
-
     # Common checks before run tasks
     # -------------------------------------------------------------------------
     - name: "Before run tasks"
@@ -40,34 +39,13 @@
         _job_type: "{{ masbr_action }}"
 
   tasks:
-    # Create k8s Job to run backup/restore tasks
-    # -------------------------------------------------------------------------
-    - name: "Create k8s Job to run {{ masbr_action }} tasks"
-      when: masbr_create_task_job
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
+    - name: "MongoDB: {{ masbr_action }}"
+      include_role:
+        name: ibm.mas_devops.mongodb
       vars:
-        _rt_playbook_name: "br_core"
-        _rt_env:
-          - name: "MASBR_ACTION"
-            value: "{{ masbr_action }}"
-          - name: "MASBR_JOB_VERSION"
-            value: "{{ masbr_job_version }}"
-          - name: "MAS_INSTANCE_ID"
-            value: "{{ mas_instance_id }}"
+        mongodb_action: "{{ masbr_action }}"
+        mas_app_id: "core"
 
-
-    # Run backup/restore tasks locally
-    # -------------------------------------------------------------------------
-    - name: "Run {{ masbr_action }} tasks"
-      when: not masbr_create_task_job
-      block:
-        - name: "MongoDB: {{ masbr_action }}"
-          include_role:
-            name: ibm.mas_devops.mongodb
-          vars:
-            mongodb_action: "{{ masbr_action }}"
-            mas_app_id: "core"
-
-        - name: "MAS Core namespace: {{ masbr_action }}"
-          include_role:
-            name: ibm.mas_devops.suite_backup_restore
+    - name: "MAS Core namespace: {{ masbr_action }}"
+      include_role:
+        name: ibm.mas_devops.suite_backup_restore
