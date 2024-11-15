@@ -15,6 +15,7 @@
     --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin
     --eval="db.getRole( \"{{ mongodb_role }}\" )"'
   register: _mongodb_get_role_output
+  no_log: true
 
 - name: "Debug: get mongodb role result"
   debug:
@@ -31,6 +32,7 @@
         --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin
         --eval="db.createRole({ role: \"{{ mongodb_role }}\", roles: [], privileges: [{ resource: {anyResource: true}, actions: [\"anyAction\"] }]})"'
       register: _mongodb_create_role_output
+      no_log: true
 
     - name: "Debug: create mongodb role result"
       debug:
@@ -47,10 +49,7 @@
     --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin
     --eval="db.getUser( \"{{ mongodb_user }}\" )"'
   register: _mongodb_get_user_output
-
-- name: "Debug: get mongodb user result"
-  debug:
-    msg: "Get mongodb user result ............... {{ _mongodb_get_user_output.stdout_lines }}"
+  no_log: true
 
 - name: "Create mongodb user '{{ mongodb_user }}'"
   when: _mongodb_get_user_output.stdout_lines[-1] == "null"
@@ -63,6 +62,7 @@
         --authenticationDatabase=admin --tls --tlsCAFile={{ mongodb_ca_file }} admin
         --eval="db.createUser({ user: \"{{ mongodb_user }}\", pwd: \"{{ mongodb_password }}\", roles: [ \"{{ mongodb_role }}\" ]})"'
       register: _mongodb_create_user_output
+      no_log: true
 
     - name: "Debug: create mongodb user result"
       debug:
