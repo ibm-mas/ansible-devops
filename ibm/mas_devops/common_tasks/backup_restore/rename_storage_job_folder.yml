@@ -6,50 +6,19 @@
 
 # Rename the job folder in local storage
 # -----------------------------------------------------------------------------
+- name: "Set fact: local storage job folder"
+  set_fact:
+    masbr_storage_job_folder: "{{ masbr_storage_local_folder }}/{{ masbr_job_type }}s/{{ masbr_job_name }}"
+    masbr_storage_job_folder_final: "{{ masbr_storage_local_folder }}/{{ masbr_job_type }}s/{{ masbr_job_name_final }}"
+
+- name: "Debug: rename local storage job folder"
+  debug:
+    msg:
+      - "Source job folder .................. {{ masbr_storage_job_folder }}"
+      - "Dest job folder .................... {{ masbr_storage_job_folder_final }}"
+
 - name: "Rename the job folder in local storage"
-  when: masbr_use_local_storage
-  block:
-    - name: "Set fact: local storage job folder"
-      set_fact:
-        masbr_storage_job_folder: "{{ masbr_storage_local_folder }}/{{ masbr_job_type }}s/{{ masbr_job_name }}"
-        masbr_storage_job_folder_final: "{{ masbr_storage_local_folder }}/{{ masbr_job_type }}s/{{ masbr_job_name_final }}"
-
-    - name: "Debug: rename local storage job folder"
-      debug:
-        msg:
-          - "Source job folder .................. {{ masbr_storage_job_folder }}"
-          - "Dest job folder .................... {{ masbr_storage_job_folder_final }}"
-
-    - name: "Rename the job folder in local storage"
-      command: mv {{ masbr_storage_job_folder }} {{ masbr_storage_job_folder_final }}
-      args:
-        removes: "{{ masbr_storage_job_folder }}"
-        creates: "{{ masbr_storage_job_folder_final }}"
-
-
-# Rename the job folder in cloud storage
-# -----------------------------------------------------------------------------
-- name: "Rename the job folder in cloud storage"
-  when: masbr_use_cloud_storage
-  block:
-    - name: "Set fact: cloud storage job folder"
-      set_fact:
-        masbr_storage_job_folder: >-
-          {{ masbr_storage_cloud_rclone_name }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_job_type }}s/{{ masbr_job_name }}
-        masbr_storage_job_folder_final: >-
-          {{ masbr_storage_cloud_rclone_name }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_job_type }}s/{{ masbr_job_name_final }}
-
-    - name: "Debug: rename cloud storage job folder"
-      debug:
-        msg:
-          - "Source job folder .................. {{ masbr_storage_job_folder }}"
-          - "Dest job folder .................... {{ masbr_storage_job_folder_final }}"
-
-    - name: "Rename the job folder in cloud storage"
-      shell: >-
-        rclone --config {{ masbr_storage_cloud_rclone_file }}
-        move --no-traverse {{ masbr_storage_job_folder }} {{ masbr_storage_job_folder_final }}
-
-
-# Rename the job folder in pvc storage
-# -----------------------------------------------------------------------------
+  command: mv {{ masbr_storage_job_folder }} {{ masbr_storage_job_folder_final }}
+  args:
+    removes: "{{ masbr_storage_job_folder }}"
+    creates: "{{ masbr_storage_job_folder_final }}"

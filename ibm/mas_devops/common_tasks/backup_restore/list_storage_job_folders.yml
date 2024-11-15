@@ -1,67 +1,27 @@
 ---
 # List job folders in local storage
 # -----------------------------------------------------------------------------
+- name: "Set fact: local storage job type folder"
+  set_fact:
+    masbr_storage_job_type_folder: "{{ masbr_storage_local_folder }}/{{ masbr_ls_job_type }}s"
+
+- name: "Debug: list job folders variables"
+  debug:
+    msg:
+      - "Search folder ...................... {{ masbr_storage_job_type_folder }}"
+      - "Search filter ...................... {{ masbr_ls_filter | default('<undefined>', true) }}"
+
 - name: "List job folders in local storage"
-  when: masbr_use_local_storage
-  block:
-    - name: "Set fact: local storage job type folder"
-      set_fact:
-        masbr_storage_job_type_folder: "{{ masbr_storage_local_folder }}/{{ masbr_ls_job_type }}s"
+  changed_when: false
+  shell: >-
+    ls {{ masbr_storage_job_type_folder }} {{ masbr_ls_filter | default('') }};
+    exit 0
+  register: _ls_output
 
-    - name: "Debug: list job folders variables"
-      debug:
-        msg:
-          - "Search folder ...................... {{ masbr_storage_job_type_folder }}"
-          - "Search filter ...................... {{ masbr_ls_filter | default('<undefined>', true) }}"
+- name: "Set fact: results of list job folders"
+  set_fact:
+    masbr_ls_results: "{{ _ls_output.stdout_lines }}"
 
-    - name: "List job folders in local storage"
-      changed_when: false
-      shell: >-
-        ls {{ masbr_storage_job_type_folder }} {{ masbr_ls_filter | default('') }};
-        exit 0
-      register: _ls_output
-
-    - name: "Set fact: results of list job folders"
-      set_fact:
-        masbr_ls_results: "{{ _ls_output.stdout_lines }}"
-
-    - name: "Debug: results of list job folders"
-      debug:
-        msg: "Results of list job folders ....... {{ masbr_ls_results }}"
-
-
-# List job folders in cloud storage
-# -----------------------------------------------------------------------------
-- name: "List job folders in cloud storage"
-  when: masbr_use_cloud_storage
-  block:
-    - name: "Set fact: cloud storage job type folder"
-      set_fact:
-        masbr_storage_job_type_folder: >-
-          {{ masbr_storage_cloud_rclone_name }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_ls_job_type }}s
-
-    - name: "Debug: list job folders variables"
-      debug:
-        msg:
-          - "Search folder ...................... {{ masbr_storage_job_type_folder }}"
-          - "Search filter ...................... {{ masbr_ls_filter | default('<undefined>', true) }}"
-
-    - name: "List job folders in cloud storage"
-      changed_when: false
-      shell: >-
-        rclone lsd --no-check-certificate --config {{ masbr_storage_cloud_rclone_file }}
-        {{ masbr_storage_job_type_folder }} | awk '{print $5}' {{ masbr_ls_filter | default('') }};
-        exit 0
-      register: _ls_output
-
-    - name: "Set fact: results of list job folders"
-      set_fact:
-        masbr_ls_results: "{{ _ls_output.stdout_lines }}"
-
-    - name: "Debug: results of list job folders"
-      debug:
-        msg: "Results of list job folders ....... {{ masbr_ls_results }}"
-
-
-# List job folders in pvc storage
-# -----------------------------------------------------------------------------
+- name: "Debug: results of list job folders"
+  debug:
+    msg: "Results of list job folders ....... {{ masbr_ls_results }}"

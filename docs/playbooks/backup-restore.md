@@ -70,23 +70,6 @@ The playbooks are switched to restore mode by setting `MASBR_ACTION` to `restore
 In the case of restoring from an incremental backup, the corresponding full backup will be restored first before continuing to restore the incremental backup.
 
 
-Configuration - Notifications
--------------------------------------------------------------------------------
-| Envrionment variable                 | Required (Default Value)           | Description |
-| ------------------------------------ | ---------------------------------- | ----------- |
-| MASBR_SLACK_ENABLED                  | No (`false`)                       | Set `true` or `false` to indicate whether the playbook will send Slack notification messages of the backup and restore progress |
-| MASBR_SLACK_LEVEL                    | No (`info`)                        | Set `failure`, `info` or `verbose` to indicate the playbook to send Slack notification messages in which backup and resore phases            |
-| MASBR_SLACK_TOKEN                    | Yes, if `MASBR_SLACK_ENABLED=true` | Slack integration token             |
-| MASBR_SLACK_CHANNEL                  | Yes, if `MASBR_SLACK_ENABLED=true` | Channel to send the message to      |
-| MASBR_SLACK_USER                     | No (`MASBR`)                       | Sender of the message               |
-
-Integration with Slack is supported with below notification levels:
-
-- `verbose`: send notifications when job in the phase `InProgress`, `Completed`, `Failed` or `PartiallyFailed`.
-- `info`: send notifications when job in the phase `Completed`, `Failed` or `PartiallyFailed`.
-- `failure`: send notifications only when job in the phase `Failed` or `PartiallyFailed`
-
-
 Backup/Restore for MongoDB
 -------------------------------------------------------------------------------
 This playbook `ibm.mas_devops.br_mongodb` will invoke the role [mongodb](../roles/mongodb.md) to backup/restore the MongoDB databases.
@@ -94,7 +77,7 @@ This playbook `ibm.mas_devops.br_mongodb` will invoke the role [mongodb](../role
 This playbook supports backing up and restoring databases for an in-cluster MongoDB CE instance. If you are using other MongoDB venders, such as IBM Cloud Databases for MongoDB, Amazon DocumentDB or MongoDB Altas Database, please refer to the corresponding vender's documentation for more information about their provided backup/restore service.
 
 ### Environment Variables
-
+- `MONGODB_NAMESPACE`: By default the backup and restore processes will use a namespace of `mongoce`, if you have customized the install of MongoDb CE you must set this environment variable to the appropriate namespace you wish to backup from/restore to.
 - `MAS_INSTANCE_ID`: **Required**. This playbook supports backup/restore MongoDB databases that belong to a specific MAS instance, call the playbook multiple times with different values for `MAS_INSTANCE_ID` if you wish to back up multiple MAS instances that use the same MongoDB CE instance.
 - `MAS_APP_ID`: **Optional**. By default, this playbook will backup all databases belonging to the specified MAS instance. You can backup the databases only belong to a specific MAS application by setting this environment variable to a supported MAS application id `core`, `manage`, `iot`, `monitor`, `health`, `optimizer` or `visualinspection`.
 

@@ -1,41 +1,15 @@
 ---
 # Delete the job folder from local storage
 # -----------------------------------------------------------------------------
+- name: "Set fact: local storage job folder"
+  set_fact:
+    masbr_storage_job_folder: "{{ masbr_storage_local_folder }}/{{ masbr_job_type }}s/{{ masbr_job_name }}"
+
+- name: "Debug: local storage job folder"
+  debug:
+    msg: "Local storage job folder .......... {{ masbr_storage_job_folder }}"
+
 - name: "Delete the job folder from local storage"
-  when: masbr_use_local_storage
-  block:
-    - name: "Set fact: local storage job folder"
-      set_fact:
-        masbr_storage_job_folder: "{{ masbr_storage_local_folder }}/{{ masbr_job_type }}s/{{ masbr_job_name }}"
-
-    - name: "Debug: local storage job folder"
-      debug:
-        msg: "Local storage job folder .......... {{ masbr_storage_job_folder }}"
-
-    - name: "Delete the job folder from local storage"
-      command: rm -rf {{ masbr_storage_job_folder }}
-      args:
-        removes: "{{ masbr_storage_job_folder }}"
-
-
-# Delete the job folder from cloud storage
-# -----------------------------------------------------------------------------
-- name: "Delete the job folder from cloud storage"
-  when: masbr_use_cloud_storage
-  block:
-    - name: "Set fact: cloud storage job folder"
-      set_fact:
-        masbr_storage_job_folder: >-
-          {{ masbr_storage_cloud_rclone_name }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_job_type }}s/{{ masbr_job_name }}
-
-    - name: "Debug: cloud storage job folder"
-      debug:
-        msg: "Cloud storage job folder .......... {{ masbr_storage_job_folder }}"
-
-    - name: "Delete the job folder from cloud storage"
-      shell: >
-        rclone --config {{ masbr_storage_cloud_rclone_file }} delete {{ masbr_storage_job_folder }}
-
-
-# Delete the job folder from pvc storage
-# -----------------------------------------------------------------------------
+  command: rm -rf {{ masbr_storage_job_folder }}
+  args:
+    removes: "{{ masbr_storage_job_folder }}"
