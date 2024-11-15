@@ -18,17 +18,6 @@
   set_fact:
     ocp_version_num: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
 
-- name: "Set gpu driver version default for ocp 4.10+"
-  when: ocp_version_num is version('4.10.0', '>')
-  set_fact:
-    gpu_driver_version: "{{ (_gpu_driver_version is defined and _gpu_driver_version != '') | ternary(_gpu_driver_version, rhel8_driver_version) }}"
-
-- name: "Set gpu driver version for other ocp versions"
-  when: ocp_version_num is version('4.10.0', '<')
-  set_fact:
-    gpu_driver_version: "{{ (_gpu_driver_version is defined and _gpu_driver_version != '') | ternary(_gpu_driver_version, rhel7_driver_version) }}"
-
-
 # 2. Lookup the packagemanifest for gpu-operator-certified
 # -----------------------------------------------------------------------------
 - name: Get gpu-operator-certified package manifest
@@ -62,18 +51,20 @@
       - "OCP Release Version ................ {{ ocp_version_num }}"
       - "GPU Namespace ...................... {{ gpu_namespace }}"
       - "GPU Channel   ...................... {{ gpu_channel }}"
-      - "GPU Driver Version ................. {{ gpu_driver_version }}"
-      - "GPU Driver Repo Path ............... {{ gpu_driver_repository_path }}"
-
 
 # 3. Check if GPU operator is already installed
 # -----------------------------------------------------------------------------
-- name: Check if NFD operator is already installed
+- name: Check if GPU operator is already installed
   kubernetes.core.k8s_info:
     api_version: nvidia.com/v1
     name: "gpu-cluster-policy"
     kind: ClusterPolicy
-  register: gpu_cr_result
+  register: gpu_clusterpolicy_result
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "gpu_clusterpolicy_result ...................... {{ gpu_clusterpolicy_result }}"
 
 # 4. Install GPU operator if not already installed
 # -----------------------------------------------------------------------------
@@ -112,11 +103,17 @@
 
   # 4.3 Create GPU Cluster Policy
   # -----------------------------------------------------------------------------
-  - name: "Create Cluster Policy instance for ocp 4.10+"
-    when: ocp_version_num is version('4.10', '>')
+  - name: "Create Cluster Policy instance using latest driver"
+    when: gpu_driver_version is not defined
     kubernetes.core.k8s:
       apply: yes
       definition: "{{ lookup('template', 'templates/clusterpolicy-v2.yml.j2') }}"
+
+  - name: "Create Cluster Policy instance using custom driver"
+    when: gpu_driver_version is defined
+    kubernetes.core.k8s:
+      apply: yes
+      definition: "{{ lookup('template', 'templates/clusterpolicy-customversion.yml.j2') }}"
 
   # 4.4. Wait for Cluster Policy to be ready
   # -----------------------------------------------------------------------------
@@ -134,5 +131,6 @@
     retries: 30 # approx 30 minutes before we give up
     delay: 60 # 1 minute
   when:
-    - gpu_cr_result.resources is not defined
+    - gpu_clusterpolicy_result.resources | length == 0
+    - gpu_clusterpolicy_result.resources[0].status is not defined
 
