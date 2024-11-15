@@ -23,11 +23,11 @@ Adjust the retention period for Prometheus metrics, only used when both `prometh
 - Default Value: `15d`
 
 ### prometheus_storage_class
-Declare the storage class for Prometheus' metrics data persistent volume.
+Declare the storage class for Prometheus' metrics data persistent volume. Storage class must support ReadWriteOnce(RWO) access mode.
 
 - **Required** if one of the known supported storage classes is not installed in the cluster.
 - Environment Variable: `PROMETHEUS_STORAGE_CLASS`
-- Default Value: `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium` (if available)
+- Default Value: `ibmc-block-gold`, `ocs-storagecluster-ceph-rbd`, or `managed-premium` (if available)
 
 ### prometheus_storage_size
 Adjust the size of the volume used to store metrics, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
@@ -42,6 +42,7 @@ Declare the storage class for AlertManager's persistent volume.
 - **Required** if one of the known supported storage classes is not installed in the cluster.
 - Environment Variable: `PROMETHEUS_ALERTMGR_STORAGE_CLASS`
 - Default Value: `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium` (if available)
+- **Note**: Storage class must support ReadWriteMany(RWX) access mode.
 
 ### prometheus_alertmgr_storage_size
 Adjust the size of the volume used by AlertManager, only used when both `prometheus_storage_class` and `prometheus_alertmgr_storage_class` are set.
@@ -58,7 +59,7 @@ Adjust the retention period for User Workload Prometheus metrics, this parameter
 - Default Value: `15d`
 
 ### prometheus_userworkload_storage_class
-Declare the storage class for User Workload Prometheus' metrics data persistent volume.
+Declare the storage class for User Workload Prometheus' metrics data persistent volume. Storage class must support ReadWriteOnce(RWO) access mode.
 
 - Optional
 - Environment Variable: `PROMETHEUS_USERWORKLOAD_STORAGE_CLASS`

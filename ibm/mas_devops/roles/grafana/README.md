@@ -42,7 +42,7 @@ Sets the namespace to install the grafana operator V5 and grafana instance
 ### grafana_instance_storage_class
 Declare the storage class for Grafana Instance user data persistent volume.
 
-- **Required** if one of the known supported storage classes is not installed in the cluster.
+- **Required** if one of the known supported storage classes is not installed in the cluster. Storage classes must support ReadWriteOnce (RWO) access mode.
 - Environment Variable: `GRAFANA_INSTANCE_STORAGE_CLASS`
 - Default Value: `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium` (if available)
 
