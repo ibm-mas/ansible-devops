@@ -4,6 +4,12 @@
     that: cos_apikey is defined and cos_apikey != ""
     fail_msg: "cos_apikey property is required"
 
+# 1. Generate a random 8 char string
+# ---------------------------------------------------------------------------------------------------------------------
+- name: "Set fact: Set a random 8 char string"
+  set_fact:
+    random_uuid: "{{ query('community.general.random_string', upper=false, numbers=false, special=false, length=8) }}"
+
 # 1. Determine the instance name
 # ---------------------------------------------------------------------------------------------------------------------
 - name: Customize CoS Instance Name using mas_instance_id variables
@@ -14,7 +20,7 @@
     - mas_config_dir != ""
     - cos_instance_name is not defined or cos_instance_name == ""
   set_fact:
-    cos_instance_name: "Object Storage for MAS - {{ mas_instance_id }}"
+    cos_instance_name: "Object Storage for MAS - {{ mas_instance_id }}_{{ random_uuid }}"
 
 - name: Fallback to default CoS Instance Name
   when:
