@@ -34,64 +34,82 @@
       - "NFD Channel   ...................... {{ nfd_channel }}"
 
 
-# 3. Create NFD project
+# 3. Check if NFD operator is already installed
 # -----------------------------------------------------------------------------
-- name: "Create nfd namespace"
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: Namespace
-    name: '{{ nfd_namespace }}'
-
-
-# 4. Create NFD operator group and subscription
-# -----------------------------------------------------------------------------
-- name: "Create nfd operator group"
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/nfd-operatorgroup.yml.j2') }}"
-    wait: yes
-    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
-
-- name: "Create nfd subscription"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/nfd-subscription.yml.j2') }}"
-    wait: yes
-    wait_timeout: 300
-    wait_condition:
-      type: 'CatalogSourcesUnhealthy'
-      status: "False"
-
-- name: "Wait until NodeFeatureDiscoveries CRD is available"
-  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
-  vars:
-    crd_name: nodefeaturediscoveries.nfd.openshift.io
-
-
-# 5. Create NFD instance
-# -----------------------------------------------------------------------------
-- name: "Create NodeFeatureDiscovery instance"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/nfd-instance.yml.j2') }}"
-
-
-# 6. Make sure NFD daemonsets have been created and all pods are ready
-# -----------------------------------------------------------------------------
-# Depending on the version of NFD there may also be a nfd-master DaemonSet, but because
-# newer versions use a combined worker-master model we will only wait for the nfd-worker
-# DaemonSet so that this will work regardless of the version of OCP/NFD that is being used.
-
-- name: "Wait for 'nfd-worker' DaemonSet pods to be ready"
+- name: Check if NFD operator is already installed
   kubernetes.core.k8s_info:
     api_version: apps/v1
     name: nfd-worker
     namespace: "{{nfd_namespace}}"
     kind: DaemonSet
-  register: nfd_worker_daemonset
-  until:
-    - nfd_worker_daemonset.resources is defined
-    - nfd_worker_daemonset.resources | length > 0
-    - nfd_worker_daemonset.resources[0].status.numberReady > 0
-    - nfd_worker_daemonset.resources[0].status.numberReady == nfd_worker_daemonset.resources[0].status.desiredNumberScheduled
-  retries: 30 # approx 30 minutes before we give up
-  delay: 60 # 1 minute
+  register: nfd_worker_daemonset_result
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "nfd_worker_daemonset_result ...................... {{ nfd_worker_daemonset_result }}"
+
+# 4. Install NFD operator if not already installed
+# -----------------------------------------------------------------------------
+- name: Install NFD operator if not already installed
+  block:
+  # 4.1 Create NFD project
+  # -----------------------------------------------------------------------------
+  - name: "Create nfd namespace"
+    kubernetes.core.k8s:
+      api_version: v1
+      kind: Namespace
+      name: '{{ nfd_namespace }}'
+
+  # 4.2 Create NFD operator group and subscription
+  # -----------------------------------------------------------------------------
+  - name: "Create nfd operator group"
+    kubernetes.core.k8s:
+      definition: "{{ lookup('template', 'templates/nfd-operatorgroup.yml.j2') }}"
+      wait: yes
+      wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
+
+  - name: "Create nfd subscription"
+    kubernetes.core.k8s:
+      apply: yes
+      definition: "{{ lookup('template', 'templates/nfd-subscription.yml.j2') }}"
+      wait: yes
+      wait_timeout: 300
+      wait_condition:
+        type: 'CatalogSourcesUnhealthy'
+        status: "False"
+
+  - name: "Wait until NodeFeatureDiscoveries CRD is available"
+    include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+    vars:
+      crd_name: nodefeaturediscoveries.nfd.openshift.io
+
+  # 4.3 Create NFD instance
+  # -----------------------------------------------------------------------------
+  - name: "Create NodeFeatureDiscovery instance"
+    kubernetes.core.k8s:
+      apply: yes
+      definition: "{{ lookup('template', 'templates/nfd-instance.yml.j2') }}"
+
+  # 4.4. Make sure NFD daemonsets have been created and all pods are ready
+  # -----------------------------------------------------------------------------
+  # Depending on the version of NFD there may also be a nfd-master DaemonSet, but because
+  # newer versions use a combined worker-master model we will only wait for the nfd-worker
+  # DaemonSet so that this will work regardless of the version of OCP/NFD that is being used.
+
+  - name: "Wait for 'nfd-worker' DaemonSet pods to be ready"
+    kubernetes.core.k8s_info:
+      api_version: apps/v1
+      name: nfd-worker
+      namespace: "{{nfd_namespace}}"
+      kind: DaemonSet
+    register: nfd_worker_daemonset
+    until:
+      - nfd_worker_daemonset.resources is defined
+      - nfd_worker_daemonset.resources | length > 0
+      - nfd_worker_daemonset.resources[0].status.numberReady > 0
+      - nfd_worker_daemonset.resources[0].status.numberReady == nfd_worker_daemonset.resources[0].status.desiredNumberScheduled
+    retries: 30 # approx 30 minutes before we give up
+    delay: 60 # 1 minute
+  when:
+    - nfd_worker_daemonset_result.resources | length == 0
