@@ -1,53 +1,38 @@
 ---
-
-# Provide intelligent storage class selection to minimize required user knowledge
-
 # 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-- name: "Load default storage class information"
-  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
-
-- name: "determine-storage-classes : Lookup storage classes"
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-  register: lookup_storageclasses
-
-- name: "Debug available storage classes"
-  debug:
-    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
+- name: "determine-storage-classes : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
 
-# 2. Set Primary Storage (Required)
+# 2. Set default storage classes
 # -----------------------------------------------------------------------------
-- name: "determine-storage-classes : Default Primary Storage if not set by user"
-  when: cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
+- name: "determine-storage-classes : Set default File Storage if not set by user"
+  when:
+    - defaultStorageClasses.success
+    - cpd_primary_storage_class is not defined or cpd_primary_storage_class == ""
   set_fact:
-    cpd_primary_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
+    cpd_primary_storage_class: "{{ defaultStorageClasses.rwx }}"
 
-- name: "determine-storage-classes : Assert that primary storage class has been defined"
+- name: "determine-storage-classes : Set default Block Storage if not set by user"
+  when:
+    - defaultStorageClasses.success
+    - cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
+  set_fact:
+    cpd_metadata_storage_class: "{{ defaultStorageClasses.rwo }}"
+
+- name: "determine-storage-classes : Assert that primary storage class has been defined (RWX)"
   assert:
     that: cpd_primary_storage_class is defined and cpd_primary_storage_class != ""
     fail_msg: "cpd_primary_storage_class must be defined"
 
-
-# 2. Set Metadata Storage (Required)
-# -----------------------------------------------------------------------------
-- name: "determine-storage-classes : Default Metadata Storage if not set by user"
-  when: cpd_metadata_storage_class is not defined or cpd_metadata_storage_class == ""
-  set_fact:
-    cpd_metadata_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
-
-- name: "determine-storage-classes : Assert that metadata storage class has been defined"
+- name: "determine-storage-classes : Assert that metadata storage class has been defined (RWO)"
   assert:
     that: cpd_metadata_storage_class is defined and cpd_metadata_storage_class != ""
     fail_msg: "cpd_metadata_storage_class must be defined"
 
-
-# 3. Debug storage class configuration
-# -----------------------------------------------------------------------------
 - name: "determine-storage-classes : Debug CP4D storage class configuration"
   debug:
     msg:
-      - "Storage class (primary) .......... {{ cpd_primary_storage_class }}"
-      - "Storage class (metadata) ......... {{ cpd_metadata_storage_class }}"
+      - "Primary Storage class (RWX) ............ {{ cpd_primary_storage_class }}"
+      - "Metadata Storage class (RWO) ........... {{ cpd_metadata_storage_class }}"
