@@ -9,3 +9,25 @@
 # Deploy Minio operators
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/minio-operator.yml
+
+# Create Minio instance
+# -----------------------------------------------------------------------------
+- name: "Create Minio cluster instance"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/minio-deployment.yml.j2') }}"
+
+- name: "Wait for the Minio cluster instance to be ready"
+  kubernetes.core.k8s_info:
+    api_version: minio.opencontent.ibm.com/v1alpha1
+    name: ibm-minio-instance
+    namespace: openshift-operators
+    kind: MinioCluster
+  register: minio_cluster_lookup
+  until:
+    - minio_cluster_lookup.resources is defined and minio_cluster_lookup.resources | length == 1
+    - minio_cluster_lookup.resources[0].status is defined
+    - minio_cluster_lookup.resources[0].status.phase is defined
+    - minio_cluster_lookup.resources[0].status.phase == 'Ready'
+  retries: 10
+  delay: 30
