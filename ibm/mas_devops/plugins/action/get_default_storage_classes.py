@@ -19,7 +19,7 @@ class ActionModule(ActionBase):
                 success=False,
                 failed=True,
                 changed=False,
-                **storageClasses
+                **vars(storageClasses)
             )
 
         return dict(
@@ -27,5 +27,5 @@ class ActionModule(ActionBase):
             success=True,
             failed=False,
             changed=False,
-            **storageClasses
+            **vars(storageClasses)
         )
