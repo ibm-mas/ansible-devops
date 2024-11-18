@@ -23,6 +23,7 @@ class ActionModule(ActionBase):
         if catalogData is None:
             return dict(
                 message=f"Failed to load catalog information for {catalogId}",
+                success=False,
                 failed=True,
                 changed=False,
                 id=catalogId,
@@ -31,6 +32,7 @@ class ActionModule(ActionBase):
 
         return dict(
             message=f"Successfully loaded catalog information for {catalogId}",
+            success=True,
             failed=False,
             changed=False,
             id=catalogId,
