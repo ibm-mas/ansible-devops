@@ -32,9 +32,7 @@
 
 - name: "Display the Last Catalog Version"
   debug:
-    msg:
-      - "Catalog Info Lookup ............................. {{ _newest_catalog | default('N/A') }}"
-      - "Last Catalog Version ............................ {{ last_catalog_tag | default('<Unknown>') }}"
+    msg: "Last Catalog Version ................... {{ last_catalog_tag | default('<unknown>') }}"
 
 
 # 1. Get the IBM Catalog if available
@@ -48,48 +46,33 @@
   register: catalog_lookup
 
 - name: "Determine catalog version from catalog displayName"
-  block:
-    # extract the catalog tag from displayName
-    - set_fact:
-        catalog_tag: "{{ catalog_lookup.resources[0].spec.displayName.split('(')[1].split(')')[0].split(' ')[0] }}"
-      when:
-        - catalog_lookup is defined
-        - catalog_lookup.resources is defined
-        - catalog_lookup.resources | length > 0
-        - catalog_lookup.resources[0].spec is defined
-        - catalog_lookup.resources[0].spec.displayName is defined
-        - '"(" in catalog_lookup.resources[0].spec.displayName'
+  when:
+    - catalog_lookup is defined
+    - catalog_lookup.resources is defined
+    - catalog_lookup.resources | length > 0
+    - catalog_lookup.resources[0].spec is defined
+    - catalog_lookup.resources[0].spec.displayName is defined
+    - '"(" in catalog_lookup.resources[0].spec.displayName'
+  set_fact:
+    catalog_tag: "{{ catalog_lookup.resources[0].spec.displayName.split('(')[1].split(')')[0].split(' ')[0] }}"
 
-    - name: "Check if catalog is known"
-      when: catalog_tag is defined and catalog_tag != ""
-      ibm.mas_devops.get_catalog_info:
-        mas_catalog_version: "{{ catalog_tag }}"
-      register: catalog_metadata
+- name: "Lookup catalog metadata"
+  when: catalog_tag is defined and catalog_tag != ""
+  ibm.mas_devops.get_catalog_info:
+    mas_catalog_version: "{{ catalog_tag }}"
+  register: catalog_metadata
+  ignore_error: true
 
-    # use last_catalog_tag if the casebundles file does not exist
-    - name: "Detault to the newest catalog (1)"
-      when:
-        - catalog_metadata.failed
-        - last_catalog_tag is defined and last_catalog_tag != ""
-      set_fact:
-        catalog_tag: "{{ last_catalog_tag }}"
 
-    # use last_catalog_tag if unable to get catalog_tag from displayName
-    - name: "Default to the newest catalog (2)"
-      when:
-        - catalog_tag is not defined
-        - last_catalog_tag is defined and last_catalog_tag != ""
-      set_fact:
-        catalog_tag: "{{ last_catalog_tag }}"
-
-  rescue:
-    # use the last_catalog_tag when the catalog_tag cannot be determined from the displayName
-    - name: "Default to the newest catalog (3)"
-      when: last_catalog_tag is defined and last_catalog_tag != ""
-      set_fact:
-        catalog_tag: "{{ last_catalog_tag }}"
-
+# 2. Fallback to the most recent catalog tag
+# -----------------------------------------------------------------------------
+- name: "Default to the newest catalog metadata"
+  when:
+    - catalog_tag is not defined or catalog_tag == "" or catalog_metadata.failed
+    - last_catalog_tag is defined and last_catalog_tag != ""
+  set_fact:
+    catalog_tag: "{{ last_catalog_tag }}"
 
 - name: "Catalog Version (Final)"
   debug:
-    msg: "Catalog Version ............................ {{ catalog_tag | default('<Unknown>')}}"
+    msg: "Catalog Version ........................ {{ catalog_tag | default('<unknown>')}}"
