@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 
 from ansible.plugins.action import ActionBase
-from ansible.errors import AnsibleError
 
 from mas.devops.data import getCatalog
 
 class ActionModule(ActionBase):
+    """
+    Usage Example
+    -------------
+    tasks:
+      - name: "Load catalog metadata"
+        ibm.mas_devops.get_catalog_info:
+          mas_catalog_version: "{{ catalog_tag }}"
+        register: mas_catalog_metadata
+    """
     def run(self, tmp=None, task_vars=None):
         super(ActionModule, self).run(tmp, task_vars)
 
-        # Initialize DynamicClient and grab the task args
         catalogId = self._task.args['mas_catalog_version']
         catalogData = getCatalog(catalogId)
 
