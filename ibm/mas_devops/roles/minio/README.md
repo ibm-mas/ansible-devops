@@ -8,12 +8,40 @@ This role provides support to install and configure Minio Storage
 Role Variables
 --------------
 
-### minio_action
+### minio_namespace
+Action to be performed by minio role. Valid values are `string`.
 
-Action to be performed by AI Broker role. Valid values are `install` or `remove` .
+* Environment Variable: `MINIO_NAMESPACE`
+* Default Value: `minio`
+
+### minio_instance_name
+Action to be performed by minio role. Valid values are `string`.
+
+* Environment Variable: `MINIO_INSTANCE_NAME`
+* Default Value: `minio`
+
+### minio_root_user
+Action to be performed by minio role. Valid values are `string`.
+
+* Environment Variable: `MINIO_ROOT_USER`
+* Default Value: `minio`
+
+### minio_root_password
+Action to be performed by minio role. Valid values are `string`.
   
-* Environment Variable: `MINIO_ACTION`
-* Default Value: `install`
+* Environment Variable: `MINIO_ROOT_PASSWORD`
+* Default Value: ``
+
+Example Playbook
+----------------
+
+```yaml
+---
+- hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - ibm.mas_devops.minio
+```
 
 License
 -------

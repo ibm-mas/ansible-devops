@@ -1,19 +1,54 @@
-# Minio
+# Mariadb
 =====
 
-This role provides support to install and configure Minio Storage
+This role provides support to install and configure MariaDB 
 
-* Install Minio storage
+* Install MariaDB
 
 Role Variables
 --------------
 
-### minio_action
+### mariadb_namespace
+Action to be performed by minio role. Valid values are `string`.
 
-Action to be performed by AI Broker role. Valid values are `install` or `remove` .
+* Environment Variable: `MARIADB_NAMESPACE`
+* Default Value: `mariadb`
+
+### mariadb_instance_name
+Action to be performed by minio role. Valid values are `string`.
+
+* Environment Variable: `MARIADB_INSTANCE_NAME`
+* Default Value: `mariadb-instance`
+
+### mariadb_user
+Action to be performed by minio role. Valid values are `string`.
+
+* Environment Variable: `MARIADB_USER`
+* Default Value: `mariadb`
+
+### mariadb_password
+Action to be performed by minio role. Valid values are `string`.
   
-* Environment Variable: `MINIO_ACTION`
-* Default Value: `install`
+* Environment Variable: `MARIADB_PASSWORD`
+* Default Value: ``
+
+### mariadb_database
+Action to be performed by minio role. Valid values are `string`.
+  
+* Environment Variable: `MARIADB_DATABASE`
+* Default Value: `kmpipeline`
+
+
+Example Playbook
+----------------
+
+```yaml
+---
+- hosts: localhost
+  any_errors_fatal: true
+  roles:
+    - ibm.mas_devops.mariadb
+```
 
 License
 -------
