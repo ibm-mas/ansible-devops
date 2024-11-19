@@ -715,7 +715,7 @@
 <li>4.6.4</li>
 <li>4.6.6</li>
 <li>4.8.0</li>
-<li>5.0.0 (Install only, currently upgrade from 4.8 is not supported)</li>
+<li>5.0.0</li>
 </ul>
 <p>The role will automatically install or upgrade (if targeted to an existing CPD deployment) the corresponding Zen version associated to the chosen Cloud Pak for Data release, for example:</p>
 <ul>
@@ -731,7 +731,7 @@
 <p>Introduced with 4.8.x support, users can still choose to install an specific version of Cloud Pak for Data by setting <code>CPD_PRODUCT_VERSION</code> variable. However, by default, now it will possible to install an specific version of Cloud Pak for Data that is compatible with an specific version of MAS catalog (ibm-operator-catalog).
 If <code>CPD_PRODUCT_VERSION</code> variable is not defined, then the automation will try to find the installed MAS catalog (ibm-operator-catalog) in the target cluster, and lookup the corresponding default Cloud Pak for Data version that is mapped with the retrieved MAS catalog version. If still not able to find the MAS catalog, then by default, the Cloud Pak for Data version will be defined by the version supported by the latest released MAS catalog.</p>
 <h2 id="upgrade">Upgrade<a class="headerlink" href="#upgrade" title="Permanent link">¤</a></h2>
-<p>This role also supports seamlessly CPD control plane (or also called <code>Zen</code> service) minor version upgrades (CPD 4.6.x &gt; CPD 4.8.x), and patch version upgrades (i.e CPD 4.8.0 -&gt; CPD 4.8.1).
+<p>This role also supports seamlessly CPD control plane (or also called <code>Zen</code> service) minor version upgrades (CPD 4.6.x &gt; CPD 4.8.0 or CPD 4.8.0 &gt; CPD 5.0.0), and patch version upgrades (i.e CPD 4.6.0 -&gt; CPD 4.6.6).
 All you need to do is to define <code>cpd_product_version</code> variable to the version you target to upgrade and run this role against an existing CPD instance.</p>
 <p>For more information about IBM Cloud Pak for Data upgrade process, refer to the <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=upgrading">Cloud Pak for Data official documentation</a>.</p>
 <p>The role assumes that you have already installed the IBM Operator Catalog and configured IBM Cloud Pak Foundational services (only a must have if installing CPD 4.6.x) in the target cluster. These actions are performed by the <a href="../ibm_catalogs/">ibm_catalogs</a> <a href="../common_services/">common_services</a> roles in this collection.</p>
@@ -747,6 +747,58 @@ All you need to do is to define <code>cpd_product_version</code> variable to the
 <p>In this way, you can specify different settings for the IBM Cloud Pak foundational services and for the Cloud Pak for Data operators.</p>
 </div>
 <h2 id="cloud-pak-for-data-deployment-details">Cloud Pak for Data deployment details<a class="headerlink" href="#cloud-pak-for-data-deployment-details" title="Permanent link">¤</a></h2>
+<h3 id="50x-version">5.0.x version:<a class="headerlink" href="#50x-version" title="Permanent link">¤</a></h3>
+<p>Cloud Pak for Data 5.0.x leverages Cloud Pak Foundational Services v4, which runs its deployments in isolated/dedicated scope model, that means that its dependencies will be grouped and installed within the Cloud Pak for Data related projects/namespaces. There are only two namespaces that will be used: CPD instance namespace (e.g <code>ibm-cpd</code>) and CPD operators namespace (e.g <code>ibm-cpd-operators</code>).</p>
+<p>In the <strong>ibm-cpd-operators</strong> namespace:</p>
+<pre><code class="language-bash">oc -n ibm-cpd-operators get deployments
+
+NAME                                            READY   UP-TO-DATE   AVAILABLE   AGE
+cpd-platform-operator-manager                   1/1     1            1           17h
+ibm-common-service-operator                     1/1     1            1           17h
+ibm-namespace-scope-operator                    1/1     1            1           17h
+ibm-zen-operator                                1/1     1            1           17h
+meta-api-deploy                                 1/1     1            1           17h
+operand-deployment-lifecycle-manager            1/1     1            1           17h
+postgresql-operator-controller-manager-1-18-7   1/1     1            1           17h
+</code></pre>
+<p>In the <strong>ibm-cpd</strong> namespace:</p>
+<pre><code class="language-bash">oc -n ibm-cpd get zenservice,ibmcpd,deployments,sts,pvc
+
+NAME                                 VERSION   STATUS      AGE
+zenservice.zen.cpd.ibm.com/lite-cr   6.0.1     Completed   17h
+
+NAME                           AGE
+ibmcpd.cpd.ibm.com/ibmcpd-cr   17h
+
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/ibm-mcs-hubwork     1/1     1            1           17h
+deployment.apps/ibm-mcs-placement   1/1     1            1           17h
+deployment.apps/ibm-mcs-storage     1/1     1            1           17h
+deployment.apps/ibm-nginx           3/3     3            3           16h
+deployment.apps/ibm-nginx-tester    1/1     1            1           16h
+deployment.apps/usermgmt            3/3     3            3           16h
+deployment.apps/zen-audit           2/2     2            2           16h
+deployment.apps/zen-core            3/3     3            3           16h
+deployment.apps/zen-core-api        3/3     3            3           16h
+deployment.apps/zen-watchdog        2/2     2            2           16h
+deployment.apps/zen-watcher         1/1     1            1           16h
+
+NAME                         READY   AGE
+statefulset.apps/zen-minio   3/3     17h
+
+NAME                                                   STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
+persistentvolumeclaim/export-zen-minio-0               Bound    pvc-b2a2a729-13c1-4e7f-b672-0b5efc6aa40a   20Gi       RWO            ibmc-block-gold   17h
+persistentvolumeclaim/export-zen-minio-1               Bound    pvc-7e772a3a-8849-4291-8e14-501f49e79182   20Gi       RWO            ibmc-block-gold   17h
+persistentvolumeclaim/export-zen-minio-2               Bound    pvc-e0dd31dc-916d-4b15-9d9c-351db0a2b47f   20Gi       RWO            ibmc-block-gold   17h
+persistentvolumeclaim/ibm-cs-postgres-backup           Bound    pvc-ef788b99-784f-4531-a1b3-12611f112551   20Gi       RWO            ibmc-block-gold   16h
+persistentvolumeclaim/ibm-zen-objectstore-backup-pvc   Bound    pvc-d5e61dcf-65a3-4930-9cbf-ab80d04dda00   20Gi       RWO            ibmc-block-gold   16h
+persistentvolumeclaim/zen-metastore-edb-1              Bound    pvc-19d44f17-05ab-4dc0-bb5d-1b5f15ffd201   20Gi       RWO            ibmc-block-gold   17h
+persistentvolumeclaim/zen-metastore-edb-2              Bound    pvc-741ea444-b6f0-44ff-a123-bb4615d97381   20Gi       RWO            ibmc-block-gold   17h
+</code></pre>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>You can retrieve the Initial Cloud Pak for Data password from the <strong>admin-user-details</strong> secret: <code>oc -n ibm-cpd get secret admin-user-details -o jsonpath="{.data.initial_admin_password}" | base64 -d</code></p>
+</div>
 <h3 id="48x-version">4.8.x version:<a class="headerlink" href="#48x-version" title="Permanent link">¤</a></h3>
 <p>Cloud Pak for Data 4.8.x leverages Cloud Pak Foundational Services v4, which runs its deployments in isolated/dedicated scope model, that means that its dependencies will be grouped and installed within the Cloud Pak for Data related projects/namespaces. Differently from CPD 4.6.x, there are only two namespaces that will be used: CPD instance namespace (e.g <code>ibm-cpd</code>) and CPD operators namespace (e.g <code>ibm-cpd-operators</code>).</p>
 <p>In the <strong>ibm-cpd-operators</strong> namespace:</p>
@@ -950,7 +1002,7 @@ For more information, refer to <a href="https://www.ibm.com/docs/en/cloud-paks/c
       
     </div>
     <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v1.6.1 (2024-11-19 14:45:24.175649+00:00)
+      Built with mkdocs v1.6.1 (2024-11-19 16:42:02.708655+00:00)
     </div> -->
   <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": false, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
 </script></body>
