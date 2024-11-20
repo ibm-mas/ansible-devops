@@ -5,36 +5,59 @@ metadata:
   name: gpu-cluster-policy
 spec:
   driver:
-    repository: "{{ gpu_driver_repository_path }}"
-    image: driver
-    imagePullSecrets: []
-    licensingConfig:
-      configMapName: ''
-      nlsEnabled: false
-    version: "{{ gpu_driver_version }}"
     enabled: true
+    repository: "{{ gpu_driver_repository_path }}"
+    version: "{{ gpu_driver_version }}"
+    image: driver
+    upgradePolicy:
+      autoUpgrade: true
+      drain:
+        deleteEmptyDir: false
+        enable: false
+        force: false
+        timeoutSeconds: 300
+      maxParallelUpgrades: 1
+      maxUnavailable: 25%
+      podDeletion:
+        deleteEmptyDir: false
+        force: false
+        timeoutSeconds: 300
+      waitForCompletion:
+        timeoutSeconds: 0
+    repoConfig:
+      configMapName: ''
+    certConfig:
+      name: ''
+    licensingConfig:
+      nlsEnabled: false
+      configMapName: ''
+    virtualTopology:
+      config: ''
+    kernelModuleConfig:
+      name: ''
   vgpuDeviceManager:
-    config:
-      default: default
-      name: vgpu-devices-config
     enabled: true
   migManager:
     enabled: true
   operator:
     defaultRuntime: crio
     initContainer: {}
-    runtimeClass: nvidia
     use_ocp_driver_toolkit: true
   dcgm:
     enabled: true
-  gfd: {}
+  gfd:
+    enabled: true
   dcgmExporter:
     config:
       name: ''
+    enabled: true
+    serviceMonitor:
+      enabled: true
   devicePlugin:
     config:
       default: ''
       name: ''
+    enabled: true
   mig:
     strategy: single
   sandboxDevicePlugin:
@@ -46,16 +69,18 @@ spec:
           value: 'true'
   nodeStatusExporter:
     enabled: true
-  daemonsets: {}
+  daemonsets:
+    rollingUpdate:
+      maxUnavailable: '1'
+    updateStrategy: RollingUpdate
   sandboxWorkloads:
     defaultWorkload: container
     enabled: false
+  gds:
+    enabled: false
   vgpuManager:
-    enabled: true
+    enabled: false
   vfioManager:
     enabled: true
   toolkit:
     enabled: true
-    image: container-toolkit
-    repository: nvcr.io/nvidia/k8s
-    version: 1.6.0-ubi8

@@ -97,7 +97,7 @@ List of preserved settings
 - mongodb_replicas
 
 ### mongodb_storage_class
-Required.  The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster.
+**Required**: The name of the storage class to configure the MongoDb operator to use for persistent storage in the MongoDb cluster. Storage class must support ReadWriteOnce(RWO) access mode.
 
 - Environment Variable: `MONGODB_STORAGE_CLASS`
 - Default Value: None
