@@ -3,7 +3,7 @@
 
 # 1. Set Grafana Instance Storage Class and Size from existing V5 Operator
 # -----------------------------------------------------------------------------
-- name: "update : determine-storage-classes : Get V5 Grafana Instance"
+- name: "update : determine-storage-config : Get V5 Grafana Instance"
   kubernetes.core.k8s_info:
     api_version: grafana.integreatly.org/v1beta1
     name: mas-grafana
@@ -11,7 +11,7 @@
     kind: Grafana
   register: grafana_cr_result
 
-- name: "update : determine-storage-classes : Set the Grafana storage class and size"
+- name: "update : determine-storage-config : Set the Grafana storage class and size"
   when: grafana_cr_result.resources[0].spec.persistentVolumeClaim is defined
   set_fact:
     grafana_instance_storage_class: "{{ grafana_cr_result.resources[0].spec.persistentVolumeClaim.spec.storageClassName }}"
@@ -20,7 +20,7 @@
 
 # 2. Set Grafana Instance Storage Class and Size from existing V4 Operator
 # -----------------------------------------------------------------------------
-- name: "update : determine-storage-classes : Get V4 Grafana Instance"
+- name: "update : determine-storage-config : Get V4 Grafana Instance"
   when: grafana_instance_storage_class is not defined or grafana_instance_storage_class == ""
   kubernetes.core.k8s_info:
     api_version: integreatly.org/v1alpha1
@@ -29,7 +29,7 @@
     kind: Grafana
   register: grafana_cr_result
 
-- name: "update : determine-storage-classes : Set the Grafana storage class and size"
+- name: "update : determine-storage-config : Set the Grafana storage class and size"
   when:
     - grafana_instance_storage_class is not defined or grafana_instance_storage_class == ""
     - grafana_cr_result.resources[0].spec.dataStorage is defined
@@ -40,26 +40,18 @@
 
 # 3. Set Default Grafana Instance Storage Class if not already determined
 # -----------------------------------------------------------------------------
-- name: "update : determine-storage-classes : Load default storage class information"
-  when: grafana_instance_storage_class is not defined or grafana_instance_storage_class == ""
-  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
+- name: "update : determine-storage-config : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
-- name: "update : Lookup storage classes"
-  when: grafana_instance_storage_class is not defined or grafana_instance_storage_class == ""
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-  register: lookup_storageclasses
-
-- name: "update : determine-storage-classes : Default Grafana Instance Storage if still not set"
+- name: "update : determine-storage-config : Default Grafana Instance Storage if still not set"
   when: grafana_instance_storage_class is not defined or grafana_instance_storage_class == ""
   set_fact:
-    grafana_instance_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+    grafana_instance_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 
 # 4. Fail if Grafana Storage Class has not been set
 # -----------------------------------------------------------------------------
-- name: "update : determine-storage-classes : Assert that Grafana Instance storage class has been defined"
+- name: "update : determine-storage-config : Assert that Grafana Instance storage class has been defined"
   assert:
     that: grafana_instance_storage_class is defined and grafana_instance_storage_class != ""
     fail_msg: "grafana_instance_storage_class cannot be determined"
@@ -67,7 +59,7 @@
 
 # 5. Debug storage class configuration
 # -----------------------------------------------------------------------------
-- name: "update : determine-storage-classes : Debug grafana storage class configuration"
+- name: "update : determine-storage-config : Debug grafana storage class configuration"
   debug:
     msg:
       - "Storage class (grafana instance) ....... {{ grafana_instance_storage_class }}"

@@ -66,30 +66,26 @@
     mirror_odf: "{{ lookup('env', 'MIRROR_ODF') | default ('False', True) | bool }}"
 
   pre_tasks:
-    - name: "Get stats for the catalog file"
-      ansible.builtin.stat:
-        path: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
-      register: catalog_file_stats
+    - name: "Load Catalog Metadata"
+      ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: mas_catalog_metadata
 
-    - name: "Debug stats if the digest image map file exists"
-      ansible.builtin.set_fact:
-        file_catalog_tag: "{{ (catalog_file_stats.stat.exists|bool) | ternary(catalog_tag, '@@MAS_LATEST_CATALOG@@') }}"
-
-    - name: Load CASE bundle versions
-      include_vars:
-        file: "{{ playbook_dir }}/../common_vars/casebundles/{{ file_catalog_tag }}.yml"
+    - name: "Check that the catalog is a know catalog"
+      assert:
+        that: mas_catalog_metadata.failed == false
 
   roles:
     # 1. IBM Maximo Operator Catalog
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_extras_prepare
+    - role: ibm.mas_devops.mirror_extras_prepare
       when:
         - mirror_catalog
         - mirror_mode != "from-filesystem"
       vars:
         extras_name: catalog
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_catalog
       vars:
         manifest_name: catalog
@@ -98,91 +94,91 @@
 
     # 2. MongoDb Community Edition
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_extras_prepare
+    - role: ibm.mas_devops.mirror_extras_prepare
       when:
         - mirror_mongoce
         - mirror_mode != "from-filesystem"
       vars:
         extras_name: mongoce
-        extras_version: "{{ mongo_extras_version }}"
+        extras_version: "{{ mas_catalog_metadata.mongo_extras_version }}"
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_mongoce
       vars:
         manifest_name: extras_mongoce
-        manifest_version: "{{ mongo_extras_version }}"
+        manifest_version: "{{ mas_catalog_metadata.mongo_extras_version }}"
 
     # Mirror Mongo v4 specifically when requested
-    - name: ibm.mas_devops.mirror_extras_prepare
+    - role: ibm.mas_devops.mirror_extras_prepare
       when:
         - mirror_mode != "from-filesystem"
         - mirror_mongoce_v4
       vars:
         extras_name: mongoce
-        extras_version: "{{ mongo_extras_version_4 }}"
+        extras_version: "{{ mas_catalog_metadata.mongo_extras_version_4 }}"
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_mongoce_v4
       vars:
         manifest_name: extras_mongoce
-        manifest_version: "{{ mongo_extras_version_4 }}"
+        manifest_version: "{{ mas_catalog_metadata.mongo_extras_version_4 }}"
 
     # Mirror Mongo v5 specifically when requested
-    - name: ibm.mas_devops.mirror_extras_prepare
+    - role: ibm.mas_devops.mirror_extras_prepare
       when:
         - mirror_mode != "from-filesystem"
         - mirror_mongoce_v5
       vars:
         extras_name: mongoce
-        extras_version: "{{ mongo_extras_version_5 }}"
+        extras_version: "{{ mas_catalog_metadata.mongo_extras_version_5 }}"
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_mongoce_v5
       vars:
         manifest_name: extras_mongoce
-        manifest_version: "{{ mongo_extras_version_5 }}"
+        manifest_version: "{{ mas_catalog_metadata.mongo_extras_version_5 }}"
 
     # Mirror Mongo v6 specifically when requested
-    - name: ibm.mas_devops.mirror_extras_prepare
+    - role: ibm.mas_devops.mirror_extras_prepare
       when:
         - mirror_mode != "from-filesystem"
         - mirror_mongoce_v6
       vars:
         extras_name: mongoce
-        extras_version: "{{ mongo_extras_version_6 }}"
+        extras_version: "{{ mas_catalog_metadata.mongo_extras_version_6 }}"
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_mongoce_v6
       vars:
         manifest_name: extras_mongoce
-        manifest_version: "{{ mongo_extras_version_6 }}"
+        manifest_version: "{{ mas_catalog_metadata.mongo_extras_version_6 }}"
 
 
     # Mirror Mongo v7 specifically when requested
-    - name: ibm.mas_devops.mirror_extras_prepare
+    - role: ibm.mas_devops.mirror_extras_prepare
       when:
         - mirror_mode != "from-filesystem"
         - mirror_mongoce_v7
       vars:
         extras_name: mongoce
-        extras_version: "{{ mongo_extras_version_7 }}"
+        extras_version: "{{ mas_catalog_metadata.mongo_extras_version_7 }}"
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_mongoce_v7
       vars:
         manifest_name: extras_mongoce
-        manifest_version: "{{ mongo_extras_version_7 }}"
+        manifest_version: "{{mas_catalog_metadata.mongo_extras_version_7 }}"
 
     # 3. IBM Cloud Pak Foundation Services
     # -------------------------------------------------------------------------
     # Just mirror IBM Cloud Pak Foundation Services images 'mirror_common_svcs' is set, or if CPD 4.8+ is being mirrored
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-cp-common-services
-        case_version: "{{ common_svcs_version }}"
+        case_version: "{{ mas_catalog_metadata.common_svcs_version }}"
         exclude_images:
           - ibm-auditlogging
           - ibm-cpp
@@ -191,20 +187,20 @@
           - ibm-events-operator
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
       vars:
         manifest_name: ibm-cp-common-services
-        manifest_version: "{{ common_svcs_version }}"
+        manifest_version: "{{ mas_catalog_metadata.common_svcs_version }}"
 
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_cp4d
-        - ibm_zen_version is defined
+        - mas_catalog_metadata.ibm_zen_version is defined
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-zen
-        case_version: "{{ ibm_zen_version }}"
+        case_version: "{{ mas_catalog_metadata.ibm_zen_version }}"
         exclude_images:
           - ibm-auditlogging
           - ibm-cpp
@@ -213,24 +209,24 @@
           - ibm-events-operator
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when:
         - mirror_cp4d
-        - ibm_zen_version is defined
+        - mas_catalog_metadata.ibm_zen_version is defined
       vars:
         manifest_name: ibm-zen
-        manifest_version: "{{ ibm_zen_version }}"
+        manifest_version: "{{ mas_catalog_metadata.ibm_zen_version }}"
 
     # Mirroring another version for Cloud Pak Foundation Services
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_common_svcs
         - mirror_mode != "from-filesystem"
-        - common_svcs_version_1 is defined
-        - common_svcs_version_1 != ""
+        - mas_catalog_metadata.common_svcs_version_1 is defined
+        - mas_catalog_metadata.common_svcs_version_1 != ""
       vars:
         case_name: ibm-cp-common-services
-        case_version: "{{ common_svcs_version_1 }}"
+        case_version: "{{ mas_catalog_metadata.common_svcs_version_1 }}"
         exclude_images:
           - ibm-auditlogging
           - ibm-cpp
@@ -239,67 +235,67 @@
           - ibm-events-operator
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when:
         - mirror_common_svcs
-        - common_svcs_version_1 is defined
-        - common_svcs_version_1 != ""
+        - mas_catalog_metadata.common_svcs_version_1 is defined
+        - mas_catalog_metadata.common_svcs_version_1 != ""
       vars:
         manifest_name: ibm-cp-common-services
-        manifest_version: "{{ common_svcs_version_1 }}"
+        manifest_version: "{{ mas_catalog_metadata.common_svcs_version_1 }}"
 
 
     # 4. IBM Suite License Service
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_sls
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-sls
-        case_version: "{{ lookup('env', 'SLS_VERSION') | default (sls_version, True) }}"
+        case_version: "{{ lookup('env', 'SLS_VERSION') | default (mas_catalog_metadata.sls_version, True) }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_sls
       vars:
         manifest_name: ibm-sls
-        manifest_version: "{{ lookup('env', 'SLS_VERSION') | default (sls_version, True) }}"
+        manifest_version: "{{ lookup('env', 'SLS_VERSION') | default (mas_catalog_metadata.sls_version, True) }}"
 
 
     # 5. IBM Truststore Manager
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_tsm
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-truststore-mgr
-        case_version: "{{ lookup('env', 'TSM_VERSION') | default (tsm_version, True) }}"
+        case_version: "{{ lookup('env', 'TSM_VERSION') | default (mas_catalog_metadata.tsm_version, True) }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_tsm
       vars:
         manifest_name: ibm-truststore-mgr
-        manifest_version: "{{ lookup('env', 'TSM_VERSION') | default (tsm_version, True) }}"
+        manifest_version: "{{ lookup('env', 'TSM_VERSION') | default (mas_catalog_metadata.tsm_version, True) }}"
 
 
     # 6.1 CP4D Platform
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_cp4d
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-cp-datacore
-        case_version: "{{ cp4d_platform_version }}"
+        case_version: "{{ mas_catalog_metadata.cp4d_platform_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: true
 
-    - name: ibm.mas_devops.mirror_extras_prepare
+    - role: ibm.mas_devops.mirror_extras_prepare
       when:
         - mirror_cp4d
         - cpd_48
@@ -308,7 +304,7 @@
         extras_name: cp4d
         extras_version: "4.8.0"
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when:
         - mirror_cp4d
         - cpd_48
@@ -316,238 +312,239 @@
         manifest_name: extras_cp4d
         manifest_version: "4.8.0"
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_cp4d
       vars:
         manifest_name: ibm-cp-datacore
-        manifest_version: "{{ cp4d_platform_version }}"
+        manifest_version: "{{ mas_catalog_metadata.cp4d_platform_version }}"
 
     # 6.2 CP4D Platform - IBM Licensing dependency
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - cpd_48_or_higher
         - mirror_cp4d
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-licensing
-        case_version: "{{ ibm_licensing_version }}"
+        case_version: "{{ mas_catalog_metadata.ibm_licensing_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: true
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when:
         - cpd_48_or_higher
         - mirror_cp4d
         - mirror_mode != "from-filesystem"
       vars:
         manifest_name: ibm-licensing
-        manifest_version: "{{ ibm_licensing_version }}"
+        manifest_version: "{{ mas_catalog_metadata.ibm_licensing_version }}"
 
 
     # 6.3 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl or mirror_wml
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-ccs
-        case_version: "{{ wsl_version }}"
+        case_version: "{{ mas_catalog_metadata.wsl_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_wsl or mirror_wml
       vars:
         manifest_name: ibm-ccs
-        manifest_version: "{{ wsl_version }}"
+        manifest_version: "{{ mas_catalog_metadata.wsl_version }}"
 
 
     # 7.1 IBM Watson Studio dependency - ibm-datarefinery
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-datarefinery
-        case_version: "{{ wsl_version }}"
+        case_version: "{{ mas_catalog_metadata.wsl_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_wsl
       vars:
         manifest_name: ibm-datarefinery
-        manifest_version: "{{ wsl_version }}"
+        manifest_version: "{{ mas_catalog_metadata.wsl_version }}"
 
     # 7.2 IBM Watson Studio dependency - ibm-wsl-runtimes
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-wsl-runtimes
-        case_version: "{{ wsl_version }}"
+        case_version: "{{ mas_catalog_metadata.wsl_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_wsl
       vars:
         manifest_name: ibm-wsl-runtimes
-        manifest_version: "{{ wsl_version }}"
+        manifest_version: "{{ mas_catalog_metadata.wsl_version }}"
 
     # 7.3 IBM Watson Studio dependency - ibm-elasticsearch-operator
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-elasticsearch-operator
-        case_version: "{{ elasticsearch_version }}"
+        case_version: "{{ mas_catalog_metadata.elasticsearch_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_wsl
       vars:
         manifest_name: ibm-elasticsearch-operator
-        manifest_version: "{{ elasticsearch_version }}"
+        manifest_version: "{{ mas_catalog_metadata.elasticsearch_version }}"
 
     # 7.4 IBM Watson Studio
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wsl
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-wsl
-        case_version: "{{ wsl_version }}"
+        case_version: "{{ mas_catalog_metadata.wsl_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: true
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_wsl
       vars:
         manifest_name: ibm-wsl
-        manifest_version: "{{ wsl_version }}"
+        manifest_version: "{{ mas_catalog_metadata.wsl_version }}"
 
 
     # 8. IBM Watson Machine Learning
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_wml
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-wml-cpd
-        case_version: "{{ wml_version }}"
+        case_version: "{{ mas_catalog_metadata.wml_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: true
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_wml
       vars:
         manifest_name: ibm-wml-cpd
-        manifest_version: "{{ wml_version }}"
+        manifest_version: "{{ mas_catalog_metadata.wml_version }}"
 
 
     # 9. Analytics Engine (Spark)
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_spark
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-analyticsengine
-        case_version: "{{ spark_version }}"
+        case_version: "{{ mas_catalog_metadata.spark_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_spark
       vars:
         manifest_name: ibm-analyticsengine
-        manifest_version: "{{ spark_version }}"
+        manifest_version: "{{ mas_catalog_metadata.spark_version }}"
 
 
     # 10. IBM Db2u
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_db2u
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-db2uoperator
-        case_version: "{{ db2u_version }}"
+        case_version: "{{ mas_catalog_metadata.db2u_version }}"
         exclude_images: []
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_db2u
       vars:
         manifest_name: "ibm-db2uoperator"
-        manifest_version: "{{ db2u_version }}"
+        manifest_version: "{{ mas_catalog_metadata.db2u_version }}"
         mirror_single_arch: amd64
 
-    - name: ibm.mas_devops.mirror_extras_prepare
+    - role: ibm.mas_devops.mirror_extras_prepare
       when:
         - mirror_db2u
         - mirror_mode != "from-filesystem"
       vars:
         extras_name: db2u
-        extras_version: "{{ db2u_extras_version }}"
+        extras_version: "{{ mas_catalog_metadata.db2u_extras_version }}"
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_db2u
       vars:
         manifest_name: extras_db2u
-        manifest_version: "{{ db2u_extras_version }}"
+        manifest_version: "{{ mas_catalog_metadata.db2u_extras_version }}"
 
 
     # 11. Cognos Analytics
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_cognos
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-cognos-analytics-prod
-        case_version: "{{ cognos_version }}"
+        case_version: "{{ mas_catalog_metadata.cognos_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_cognos
       vars:
         manifest_name: ibm-cognos-analytics-prod
-        manifest_version: "{{ cognos_version }}"
+        manifest_version: "{{ mas_catalog_metadata.cognos_version }}"
 
 
     # 12. App Connect
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_appconnect
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-appconnect
-        case_version: "{{ appconnect_version }}"
+        case_version: "{{ mas_catalog_metadata.appconnect_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       when: mirror_appconnect
       vars:
         manifest_name: ibm-appconnect
-        manifest_version: "{{ appconnect_version }}"
+        manifest_version: "{{ mas_catalog_metadata.appconnect_version }}"
 
-    # 14. odf - some extras needed
+
+    # 13. ODF - some extras needed
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_extras_prepare
+    - role: ibm.mas_devops.mirror_extras_prepare
       when:
         - mirror_odf
         - mirror_mode != "from-filesystem"
