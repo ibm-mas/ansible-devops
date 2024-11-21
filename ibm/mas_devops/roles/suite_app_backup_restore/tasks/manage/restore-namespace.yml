@@ -17,12 +17,29 @@
     .name="{{ mas_workspace_id }}-manage-encryptionsecret-operator"
     )' {{ masbr_ns_restore_folder }}/Secret-{{ masbr_restore_from_workspace }}-manage-encryptionsecret-operator.yaml;
 
-- name: "Apply encryption secret yaml files"
+# Restore namespace resoruces
+# -------------------------------------------------------------------------
+# Loop through the folder
+- name: "Get the list of files from restore directory"
+  find:
+    paths: "{{ masbr_ns_restore_folder }}"
+    patterns: '*.yml,*.yaml'
+    recurse: no
+  register: find_result
+
+- name: "Apply configs"
   kubernetes.core.k8s:
-    apply: true
-    src: "{{ masbr_ns_restore_folder }}/{{ _ns_resource_file_name }}"
-  loop:
-    - "Secret-{{ masbr_restore_from_workspace }}-manage-encryptionsecret.yaml"
-    - "Secret-{{ masbr_restore_from_workspace }}-manage-encryptionsecret-operator.yaml"
-  loop_control:
-    loop_var: _ns_resource_file_name
+    state: present
+    definition: "{{ lookup('template', item.path) }}"
+  with_items: "{{ find_result.files }}"
+  when: find_result is defined
+
+# - name: "Apply encryption secret yaml files"
+#   kubernetes.core.k8s:
+#     apply: true
+#     src: "{{ masbr_ns_restore_folder }}/{{ _ns_resource_file_name }}"
+#   loop:
+#     - "Secret-{{ masbr_restore_from_workspace }}-manage-encryptionsecret.yaml"
+#     - "Secret-{{ masbr_restore_from_workspace }}-manage-encryptionsecret-operator.yaml"
+#   loop_control:
+#     loop_var: _ns_resource_file_name
