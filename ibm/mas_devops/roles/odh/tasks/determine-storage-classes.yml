@@ -1,30 +1,22 @@
-# Lookup storage class availabiity
+---
+# 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-- name: "Load default storage class information"
-  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
+- name: "determine-storage-classes : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
-- name: "determine-storage-classes : Lookup storage classes"
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-  register: lookup_storageclasses
 
-- name: "Debug available storage classes"
-  debug:
-    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
-
-# Set Primary Storage (Required)
+# 2. Set Primary Storage (Required)
 # -----------------------------------------------------------------------------
 - name: "determine-storage-classes : Default Primary Storage if not set by user"
   when: primary_storage_class is not defined or primary_storage_class == ""
   set_fact:
-    primary_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
+    primary_storage_class: "{{ defaultStorageClasses.rwx }}"
 
 - name: "determine-storage-classes : Assert that primary storage class has been defined"
   assert:
     that: primary_storage_class is defined and primary_storage_class != ""
     fail_msg: "primary_storage_class must be defined"
 
-- name: Set primary StorageClass
+- name: "determine-storage-classes : Debug"
   debug:
-    msg: "Primary storage class ...... {{ primary_storage_class }}"
+    msg: "Primary storage class ................. {{ primary_storage_class }}"

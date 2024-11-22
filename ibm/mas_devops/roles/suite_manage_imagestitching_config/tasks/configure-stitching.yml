@@ -1,22 +1,16 @@
 ---
-- name: "Load default storage class information"
-  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
+# 1. Lookup storage class availabiity
+# -----------------------------------------------------------------------------
+- name: "configure-stitching : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
-- name: Lookup storage classes
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-  register: lookup_storageclasses
 
-- name: "Debug available storage classes"
-  debug:
-    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
-
+# 2. Set Defaults
+# -----------------------------------------------------------------------------
 - name: Storage class if not set by user (ReadWriteMany)
   when: stitching_storage_class is not defined or stitching_storage_class == ""
-  vars:
   set_fact:
-    stitching_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
+    stitching_storage_class: "{{ defaultStorageClasses.rwx }}"
 
 - name: Assert that a storage class has been defined
   assert:
@@ -64,16 +58,16 @@
 - name: "Run Manage image stitching post-configuration: Debug"
   debug:
     msg:
-      - "Stitching PVC name ......................... {{ stitching_pvcname }}"
-      - "Stitching storage class .................... {{ stitching_storage_class }}"
-      - "Stitching storage size ..................... {{ stitching_storage_size }}"
-      - "Stitching storage mode ..................... {{ stitching_storage_mode }}"
-      - "Stitching storage mountpath ................ {{ stitching_storage_mountpath }}"
-      - "Instance ID ................................ {{ mas_instance_id }}"
-      - "Workspace ID ............................... {{ mas_workspace_id }}"
-      - "Manage namespace ........................... {{ manage_namespace }}"
-      - "MAS domain ................................. {{ mas_domain }}"
-      - "MAS workspace CR name ...................... {{ mas_ws_cr_name }}"
+      - "Stitching PVC name ..................... {{ stitching_pvcname }}"
+      - "Stitching storage class ................ {{ stitching_storage_class }}"
+      - "Stitching storage size ................. {{ stitching_storage_size }}"
+      - "Stitching storage mode ................. {{ stitching_storage_mode }}"
+      - "Stitching storage mountpath ............ {{ stitching_storage_mountpath }}"
+      - "Instance ID ............................ {{ mas_instance_id }}"
+      - "Workspace ID ........................... {{ mas_workspace_id }}"
+      - "Manage namespace ....................... {{ manage_namespace }}"
+      - "MAS domain ............................. {{ mas_domain }}"
+      - "MAS workspace CR name .................. {{ mas_ws_cr_name }}"
 
 - name: Retrieve Manage workspace CR
   kubernetes.core.k8s_info:

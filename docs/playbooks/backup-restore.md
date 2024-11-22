@@ -197,7 +197,7 @@ This playbook `ibm.mas_devops.br_manage` will backup the following components th
 
 - `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
-- `DB2_INSTANCE_NAME` **Required**. This playbook will backup the the Db2 instance used by Manage, you need to set the correct Db2 instance name for this environment variable.
+- `DB2_INSTANCE_NAME` **Optional**. When defined, this playbook will backup the Db2 instance used by Manage. DB2 role is skipped when environment variable is not defined..
 
 ### Examples
 
@@ -207,7 +207,7 @@ export MASBR_ACTION=backup
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
+export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
 ansible-playbook ibm.mas_devops.br_manage
 
 # Incremental backup all manage data for the dev1 instance and ws1 workspace
@@ -216,7 +216,7 @@ export MASBR_BACKUP_TYPE=incr
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
+export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
 ansible-playbook ibm.mas_devops.br_manage
 
 # Restore all manage data for the dev1 instance and ws1 workspace
@@ -225,7 +225,7 @@ export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
 export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
+export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
 ansible-playbook ibm.mas_devops.br_manage
 ```
 
