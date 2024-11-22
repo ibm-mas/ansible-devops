@@ -701,7 +701,11 @@
     
       <cds-select-item value="#overview">Overview</cds-select-item>
     
-      <cds-select-item value="#configuration">Configuration</cds-select-item>
+      <cds-select-item value="#configuration-storage">Configuration - Storage</cds-select-item>
+    
+      <cds-select-item value="#configuration-backup">Configuration - Backup</cds-select-item>
+    
+      <cds-select-item value="#configuration-restore">Configuration - Restore</cds-select-item>
     
       <cds-select-item value="#backuprestore-for-mongodb">Backup/Restore for MongoDB</cds-select-item>
     
@@ -744,14 +748,10 @@
 <li><a href="#backuprestore-for-optimizer">Optimizer</a></li>
 <li><a href="#backuprestore-for-visual-inspection">Visual Inspection</a></li>
 </ul>
-<p>Creation of both <strong>full</strong> and <strong>incremental</strong> backups are supported. Backup and restore actions can be executed locally, or by generating <strong>on-demand</strong> or <strong>scheduled</strong> jobs that will allow the work to be performed on your OpenShift cluster using the <a href="https://github.ibm.com/ibm-mas/cli">MAS CLI container image</a>.</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>The backup and restore Ansible roles can also be used individually, allowing you to build your own customized backup and restore playbook covering exactly what you need. For example, you can only <a href="../../roles/suite_app_backup_restore/">backup/restore Manage attachments</a>.</p>
-</div>
+<p>Creation of both <strong>full</strong> and <strong>incremental</strong> backups are supported.  The backup and restore Ansible roles can also be used individually, allowing you to build your own customized backup and restore playbook covering exactly what you need. For example, you can only <a href="../../roles/suite_app_backup_restore/">backup/restore Manage attachments</a>.</p>
 <p>For more information about backup and restore for Maximo Application Suite, please refer to <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=administering-backing-up-restoring-maximo-application-suite">Backing up and restoring Maximo Application Suite</a> in the product documentation.</p>
-<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">¤</a></h2>
-<h3 id="storage">Storage<a class="headerlink" href="#storage" title="Permanent link">¤</a></h3>
+<h2 id="configuration-storage">Configuration - Storage<a class="headerlink" href="#configuration-storage" title="Permanent link">¤</a></h2>
+<p>You can save the backup files to a folder on your local file system by setting the following environment variables:</p>
 <table>
 <thead>
 <tr>
@@ -762,29 +762,9 @@
 </thead>
 <tbody>
 <tr>
-<td>MASBR_STORAGE_TYPE</td>
-<td><strong>Yes</strong></td>
-<td>Type of storage system for saving the backup files</td>
-</tr>
-<tr>
 <td>MASBR_STORAGE_LOCAL_FOLDER</td>
-<td><strong>Yes</strong>, if <code>MASBR_STORAGE_TYPE=local</code></td>
+<td><strong>Yes</strong></td>
 <td>The local path to save the backup files</td>
-</tr>
-<tr>
-<td>MASBR_STORAGE_CLOUD_RCLONE_FILE</td>
-<td><strong>Yes</strong>, if <code>MASBR_STORAGE_TYPE=cloud</code></td>
-<td>The path of <code>rclone.conf</code> file</td>
-</tr>
-<tr>
-<td>MASBR_STORAGE_CLOUD_RCLONE_NAME</td>
-<td><strong>Yes</strong> if <code>MASBR_STORAGE_TYPE=cloud</code></td>
-<td>The configuration name defined in <code>rclone.conf</code> file</td>
-</tr>
-<tr>
-<td>MASBR_STORAGE_CLOUD_BUCKET</td>
-<td><strong>Yes</strong>, if <code>MASBR_STORAGE_TYPE=cloud</code></td>
-<td>Object storage bucket for saving backup files</td>
 </tr>
 <tr>
 <td>MASBR_LOCAL_TEMP_FOLDER</td>
@@ -793,106 +773,7 @@
 </tr>
 </tbody>
 </table>
-<p>You need to set the environment variable <code>MASBR_STORAGE_TYPE</code> before you perform a backup or restore job. This variable indicates what type of storage systems that you are using for saving the backup files. Currently, it supports below types:</p>
-<ul>
-<li><code>local</code>: use the local file system, e.g. a folder on your laptop or workstation.</li>
-<li><code>cloud</code>: use the cloud object storage, such as IBM Cloud Object Storage, AWS S3, etc.</li>
-</ul>
-<h6 id="use-local-folder">Use Local Folder<a class="headerlink" href="#use-local-folder" title="Permanent link">¤</a></h6>
-<p>You can save the backup files to a folder on your local file system by setting the following environment variables: </p>
-<pre><code>MASBR_STORAGE_TYPE=local
-MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-</code></pre>
-<ul>
-<li><code>MASBR_STORAGE_LOCAL_FOLDER</code>: the path for saving the backup files</li>
-</ul>
-<h6 id="use-cloud-object-storage">Use Cloud Object Storage<a class="headerlink" href="#use-cloud-object-storage" title="Permanent link">¤</a></h6>
-<p>The backup playbooks use <a href="https://rclone.org/">Rclone</a> to copy backup files from data stores to cloud object storage. It requires a Rclone configuration file which you can either create it manually, or you can install the Rclone tool and create the configuration file by running the <code>rclone config</code> command. For more information about the rclone config command and configuration file format, please refer to the <a href="https://rclone.org/s3/#configuration">Rclone documentation</a>. </p>
-<p>Below is a sample Rclone configuration file that using MinIO object storage:</p>
-<pre><code>[masbr]
-type = s3
-provider = Minio
-endpoint = http://minio-api.apps.mydomain.com
-access_key_id = Qfx9YGnykJapxL7pzUyA
-secret_access_key = qKRGSnxsJ7z6pIA74sVxJ6fkEh4Fq5m4fo0inDuJ
-region = minio
-</code></pre>
-<p>Set the following environment variables to indicate the playbooks to use cloud object storage for saving backup files:</p>
-<pre><code>MASBR_STORAGE_TYPE=cloud
-MASBR_STORAGE_CLOUD_RCLONE_FILE=/mnt/configmap/rclone.conf
-MASBR_STORAGE_CLOUD_RCLONE_NAME=masbr
-MASBR_STORAGE_CLOUD_BUCKET=mas-backup
-</code></pre>
-<ul>
-<li><code>MASBR_STORAGE_CLOUD_RCLONE_FILE</code>: the path where your rclone.conf file is located</li>
-<li><code>MASBR_STORAGE_CLOUD_RCLONE_NAME</code>: the Rclone configuration name (<code>[masbr]</code> from above sample) defined in the rclone.conf file</li>
-<li><code>MASBR_STORAGE_CLOUD_BUCKET</code>: the bucket name you created on the object storage for saving the backup files</li>
-</ul>
-<h3 id="kubernetes-jobs">Kubernetes Jobs<a class="headerlink" href="#kubernetes-jobs" title="Permanent link">¤</a></h3>
-<table>
-<thead>
-<tr>
-<th>Envrionment variable</th>
-<th>Required (Default Value)</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MASBR_CONFIRM_CLUSTER</td>
-<td>No (<code>false</code>)</td>
-<td>Set <code>true</code> or <code>false</code> to indicate the playbook whether to confirm the currently connected cluster before running the backup or restore job</td>
-</tr>
-<tr>
-<td>MASBR_CREATE_TASK_JOB</td>
-<td>No (<code>true</code>)</td>
-<td>Whether to run backup/restore process in kubernetes Job</td>
-</tr>
-<tr>
-<td>MASBR_COPY_TIMEOUT_SEC</td>
-<td>No (<code>43200</code>)</td>
-<td>The transfer files timeout in seconds, default timeout value is 12 hours.</td>
-</tr>
-<tr>
-<td>MASBR_JOB_TIMEZONE</td>
-<td>No</td>
-<td>The <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">time zone</a> for creating scheduled job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled job.</td>
-</tr>
-<tr>
-<td>MASBR_CLEANUP_SCHEDULE</td>
-<td>No (<code>0 1 * * *</code>)</td>
-<td>Cron expression of cleanup Job (default to run at 1:00 every day)</td>
-</tr>
-<tr>
-<td>MASBR_CLEANUP_TTL_SEC</td>
-<td>No (<code>604800</code>)</td>
-<td>All completed jobs that exceed this TTL(time-to-live) in seconds will be deleted (default TTL is 1 week: 3600 * 24 * 7)</td>
-</tr>
-<tr>
-<td>MASBR_MASCLI_IMAGE_TAG</td>
-<td>No (<code>latest</code>)</td>
-<td>MAS CLI docker image tag</td>
-</tr>
-<tr>
-<td>MASBR_MASCLI_IMAGE_PULL_POLICY</td>
-<td>No</td>
-<td>MAS CLI docker <a href="https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting">image pull policy</a></td>
-</tr>
-</tbody>
-</table>
-<p>When the playbook starts running, it will first perform some checks, such as checking the required environment variables, get the source or target cluster information, etc. Then, depending on the value of <code>MASBR_CREATE_TASK_JOB</code>, the remaining backup/restore process can be ran in different ways:</p>
-<ul>
-<li><code>MASBR_CREATE_TASK_JOB=false</code>, run backup/restore process in your current terminal, and you can view the terminal output to get the progress of the backup/restore.</li>
-<li><code>MASBR_CREATE_TASK_JOB=true</code>, a new kubernetes Job will be created to run the backup/restore process in the cluster, then you can check the log of the created kubernetes Job in the cluster to monitor the backup/restore progress. </li>
-</ul>
-<p>The environment variable <code>MASBR_CREATE_TASK_JOB</code> is only valid when using cloud object storage (<code>MASBR_STORAGE_TYPE=cloud</code>). The playbooks will always run backup/restore process in your local terminal when using local storage system (<code>MASBR_STORAGE_TYPE=local</code>).</p>
-<p>During the backup/restore process, the playbook will copy backup files between different data stores and specified backup storage systems. Set a suitable value for the environment variable <code>MASBR_COPY_TIMEOUT_SEC</code> to avoid the playbook entering a waiting state due to some errors, such as the specified storage system network speed is too slow or cannot be connected.</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Set a suitable value for <code>MASBR_COPY_TIMEOUT_SEC</code> based on the estimated size of the backup/restore data and the network conditions, setting it too low can result in the data copying process being interrupted.</p>
-</div>
-<p>The playbook will create an additional CronJob <code>masbr-cleanup</code> for each namespace that has backup/restore jobs created. This cleanup CronJob will periodically delete the completed jobs that exceed a certain priod of time which specified by <code>MASBR_CLEANUP_TTL_SEC</code>. You can also specify when to run the cleanup CronJob by setting Cron expression for <code>MASBR_CLEANUP_SCHEDULE</code>. </p>
-<h3 id="backups">Backups<a class="headerlink" href="#backups" title="Permanent link">¤</a></h3>
+<h2 id="configuration-backup">Configuration - Backup<a class="headerlink" href="#configuration-backup" title="Permanent link">¤</a></h2>
 <table>
 <thead>
 <tr>
@@ -917,18 +798,13 @@ MASBR_STORAGE_CLOUD_BUCKET=mas-backup
 <td>No</td>
 <td>Set the full backup version to use in the incremental backup, this will be in the format of a <code>YYYMMDDHHMMSS</code> timestamp (e.g. <code>20240621021316</code>).</td>
 </tr>
-<tr>
-<td>MASBR_BACKUP_SCHEDULE</td>
-<td>No</td>
-<td>Set <a href="ttps://en.wikipedia.org/wiki/Cron">Cron expression</a> to create a scheduled backup. If not set a value for this varialbe, the playbook will create an on-demand backup.</td>
-</tr>
 </tbody>
 </table>
 <p>The playbooks are switched to backup mode by setting <code>MASBR_ACTION</code> to <code>backup</code>.</p>
-<h6 id="full-backups">Full Backups<a class="headerlink" href="#full-backups" title="Permanent link">¤</a></h6>
-<p>If you set environment variable <code>MASBR_BACKUP_TYPE=full</code> or do not specify a value for this variable, the playbook will take a full backup. </p>
-<h6 id="incremental-backups">Incremental Backups<a class="headerlink" href="#incremental-backups" title="Permanent link">¤</a></h6>
-<p>You can set environment variable <code>MASBR_BACKUP_TYPE=incr</code> to indicate the playbook to take an incremental backup. </p>
+<h3 id="full-backups">Full Backups<a class="headerlink" href="#full-backups" title="Permanent link">¤</a></h3>
+<p>If you set environment variable <code>MASBR_BACKUP_TYPE=full</code> or do not specify a value for this variable, the playbook will take a full backup.</p>
+<h3 id="incremental-backups">Incremental Backups<a class="headerlink" href="#incremental-backups" title="Permanent link">¤</a></h3>
+<p>You can set environment variable <code>MASBR_BACKUP_TYPE=incr</code> to indicate the playbook to take an incremental backup.</p>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>Only supports creating incremental backup for MonogDB, Db2 and persistent volume data. The playbook will always create a full backup for other type of data regardless of whether this variable be set to <code>incr</code>.</p>
@@ -938,23 +814,7 @@ MASBR_STORAGE_CLOUD_BUCKET=mas-backup
 <p class="admonition-title">Important</p>
 <p>The backup files you specified by <code>MASBR_BACKUP_FROM_VERSION</code> must be a Full backup. And the component name and data types in the specified Full backup file must be same as the current incremental backup job.</p>
 </div>
-<h6 id="scheduled-backups">Scheduled Backups<a class="headerlink" href="#scheduled-backups" title="Permanent link">¤</a></h6>
-<p>In addition to create an on-demand backup job, you can also set environment variable <code>MASBR_BACKUP_SCHEDULE</code> to indicate the playbook to create a kubernetes CronJob to run the backup process periodically.</p>
-<p>The value of <code>MASBR_BACKUP_SCHEDULE</code> is a <a href="https://en.wikipedia.org/wiki/Cron">Cron expression</a>:</p>
-<pre><code> ┌───────────── minute (0–59)
- │ ┌───────────── hour (0–23)
- │ │ ┌───────────── day of the month (1–31)
- │ │ │ ┌───────────── month (1–12)
- │ │ │ │ ┌───────────── day of the week (0–6) (Sunday to Saturday;
- │ │ │ │ │                                   7 is also Sunday on some systems)
- │ │ │ │ │
- │ │ │ │ │
- * * * * *
-</code></pre>
-<p>For example, set below value to create a scheduled backup job that will run at 1:00 a.m. from Monday to Friday:<br />
-<code>MASBR_BACKUP_SCHEDULE="0 1 * * 1-5"</code></p>
-<p>By default, the kubernetes CronJob use UTC time zone, so maybe you want to set environment variable <code>MASBR_JOB_TIMEZONE</code> with the Cron expression based on your local <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">time zone</a></p>
-<h3 id="restore">Restore<a class="headerlink" href="#restore" title="Permanent link">¤</a></h3>
+<h2 id="configuration-restore">Configuration - Restore<a class="headerlink" href="#configuration-restore" title="Permanent link">¤</a></h2>
 <table>
 <thead>
 <tr>
@@ -978,93 +838,38 @@ MASBR_STORAGE_CLOUD_BUCKET=mas-backup
 </table>
 <p>The playbooks are switched to restore mode by setting <code>MASBR_ACTION</code> to <code>restore</code>. You <strong>must</strong> specify the <code>MASBR_RESTORE_FROM_VERSION</code> environment variable to indicate which version of the backup files to use.</p>
 <p>In the case of restoring from an incremental backup, the corresponding full backup will be restored first before continuing to restore the incremental backup.</p>
-<h3 id="slack-notifications">Slack Notifications<a class="headerlink" href="#slack-notifications" title="Permanent link">¤</a></h3>
-<table>
-<thead>
-<tr>
-<th>Envrionment variable</th>
-<th>Required (Default Value)</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>MASBR_SLACK_ENABLED</td>
-<td>No (<code>false</code>)</td>
-<td>Set <code>true</code> or <code>false</code> to indicate whether the playbook will send Slack notification messages of the backup and restore progress</td>
-</tr>
-<tr>
-<td>MASBR_SLACK_LEVEL</td>
-<td>No (<code>info</code>)</td>
-<td>Set <code>failure</code>, <code>info</code> or <code>verbose</code> to indicate the playbook to send Slack notification messages in which backup and resore phases</td>
-</tr>
-<tr>
-<td>MASBR_SLACK_TOKEN</td>
-<td>Yes, if <code>MASBR_SLACK_ENABLED=true</code></td>
-<td>Slack integration token</td>
-</tr>
-<tr>
-<td>MASBR_SLACK_CHANNEL</td>
-<td>Yes, if <code>MASBR_SLACK_ENABLED=true</code></td>
-<td>Channel to send the message to</td>
-</tr>
-<tr>
-<td>MASBR_SLACK_USER</td>
-<td>No (<code>MASBR</code>)</td>
-<td>Sender of the message</td>
-</tr>
-</tbody>
-</table>
-<p>Integration with Slack is supported with below notification levels:</p>
-<ul>
-<li><code>verbose</code>: send notifications when job in the phase <code>InProgress</code>, <code>Completed</code>, <code>Failed</code> or <code>PartiallyFailed</code>.</li>
-<li><code>info</code>: send notifications when job in the phase <code>Completed</code>, <code>Failed</code> or <code>PartiallyFailed</code>.</li>
-<li><code>failure</code>: send notifications only when job in the phase <code>Failed</code> or <code>PartiallyFailed</code></li>
-</ul>
 <h2 id="backuprestore-for-mongodb">Backup/Restore for MongoDB<a class="headerlink" href="#backuprestore-for-mongodb" title="Permanent link">¤</a></h2>
 <p>This playbook <code>ibm.mas_devops.br_mongodb</code> will invoke the role <a href="../../roles/mongodb/">mongodb</a> to backup/restore the MongoDB databases.</p>
 <p>This playbook supports backing up and restoring databases for an in-cluster MongoDB CE instance. If you are using other MongoDB venders, such as IBM Cloud Databases for MongoDB, Amazon DocumentDB or MongoDB Altas Database, please refer to the corresponding vender's documentation for more information about their provided backup/restore service.</p>
 <h3 id="environment-variables">Environment Variables<a class="headerlink" href="#environment-variables" title="Permanent link">¤</a></h3>
 <ul>
+<li><code>MONGODB_NAMESPACE</code>: By default the backup and restore processes will use a namespace of <code>mongoce</code>, if you have customized the install of MongoDb CE you must set this environment variable to the appropriate namespace you wish to backup from/restore to.</li>
 <li><code>MAS_INSTANCE_ID</code>: <strong>Required</strong>. This playbook supports backup/restore MongoDB databases that belong to a specific MAS instance, call the playbook multiple times with different values for <code>MAS_INSTANCE_ID</code> if you wish to back up multiple MAS instances that use the same MongoDB CE instance.</li>
 <li><code>MAS_APP_ID</code>: <strong>Optional</strong>. By default, this playbook will backup all databases belonging to the specified MAS instance. You can backup the databases only belong to a specific MAS application by setting this environment variable to a supported MAS application id <code>core</code>, <code>manage</code>, <code>iot</code>, <code>monitor</code>, <code>health</code>, <code>optimizer</code> or <code>visualinspection</code>.</li>
 </ul>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">¤</a></h3>
 <pre><code class="language-bash"># Full backup all MongoDB data for the dev1 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_mongodb
 
 # Incremental backup all MongoDB data for the dev1 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
-ansible-playbook ibm.mas_devops.br_mongodb
-
-# Create a scheduled backup Job for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_SCHEDULE=&quot;50 0 * * *&quot;
-export MASBR_JOB_TIMEZONE=&quot;Asia/Shanghai&quot;
-export MASBR_STORAGE_TYPE=local
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_mongodb
 
 # Restore all MongoDB data for the dev1 instance
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_mongodb
 
 # Backup just the IoT MongoDB data for the dev2 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MAS_INSTANCE_ID=dev2
 export MAS_APP_ID=iot
@@ -1079,7 +884,6 @@ ansible-playbook ibm.mas_devops.br_mongodb
 <h3 id="examples_1">Examples<a class="headerlink" href="#examples_1" title="Permanent link">¤</a></h3>
 <pre><code class="language-bash"># Full backup for the db2w-shared Db2 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_db2
@@ -1087,23 +891,12 @@ ansible-playbook ibm.mas_devops.br_db2
 # Incremental backup for the db2w-shared Db2 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_db2
-
-# Create a scheduled backup Job for the db2w-shared Db2 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_SCHEDULE=&quot;50 0 * * *&quot;
-export MASBR_JOB_TIMEZONE=&quot;Asia/Shanghai&quot;
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_db2
 
 # Restore for the db2w-shared Db2 instance
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
 export DB2_INSTANCE_NAME=db2w-shared
@@ -1139,34 +932,22 @@ ansible-playbook ibm.mas_devops.br_db2
 <h3 id="examples_2">Examples<a class="headerlink" href="#examples_2" title="Permanent link">¤</a></h3>
 <pre><code class="language-bash"># Full backup all core data for the dev1 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_core
 
 # Incremental backup all core data for the dev1 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
-ansible-playbook ibm.mas_devops.br_core
-
-# Create a scheduled backup Job for the dev1 instance
-export MASBR_ACTION=backup
-export MASBR_BACKUP_SCHEDULE=&quot;50 0 * * *&quot;
-export MASBR_JOB_TIMEZONE=&quot;Asia/Shanghai&quot;
-export MASBR_STORAGE_TYPE=local
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_core
 
 # Restore all core data for the dev1 instance
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 ansible-playbook ibm.mas_devops.br_core
 </code></pre>
 <h2 id="backuprestore-for-manage">Backup/Restore for Manage<a class="headerlink" href="#backuprestore-for-manage" title="Permanent link">¤</a></h2>
@@ -1211,9 +992,8 @@ ansible-playbook ibm.mas_devops.br_core
 <h3 id="examples_3">Examples<a class="headerlink" href="#examples_3" title="Permanent link">¤</a></h3>
 <pre><code class="language-bash"># Full backup all manage data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
 ansible-playbook ibm.mas_devops.br_manage
@@ -1221,32 +1001,17 @@ ansible-playbook ibm.mas_devops.br_manage
 # Incremental backup all manage data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
 ansible-playbook ibm.mas_devops.br_manage
 
 # Restore all manage data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 restore role
-ansible-playbook ibm.mas_devops.br_manage
-
-# Create a scheduled backup of all manage data for the dev1 instance and ws1 workspace
-# This will run at 01:00, Monday through Friday
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_BACKUP_SCHEDULE=&quot;0 1 * * 1-5&quot;
-export MASBR_JOB_TIMEZONE=&quot;Asia/Shanghai&quot;
-export MASBR_STORAGE_TYPE=local
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage # set this to execute db2 backup role
 ansible-playbook ibm.mas_devops.br_manage
@@ -1293,9 +1058,8 @@ ansible-playbook ibm.mas_devops.br_manage
 <h3 id="examples_4">Examples<a class="headerlink" href="#examples_4" title="Permanent link">¤</a></h3>
 <pre><code class="language-bash"># Full backup all iot data for the dev1 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_iot
@@ -1303,35 +1067,21 @@ ansible-playbook ibm.mas_devops.br_iot
 # Incremental backup all iot data for the dev1 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_iot
 
 # Restore all iot data for the dev1 instance
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_iot
 
-# Create a scheduled backup of all iot data for the dev1 instance
-# This will run at 01:00, Monday through Friday
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_BACKUP_SCHEDULE=&quot;0 1 * * 1-5&quot;
-export MASBR_JOB_TIMEZONE=&quot;Asia/Shanghai&quot;
-export MASBR_STORAGE_TYPE=local
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_iot
 </code></pre>
 <h2 id="backuprestore-for-monitor">Backup/Restore for Monitor<a class="headerlink" href="#backuprestore-for-monitor" title="Permanent link">¤</a></h2>
 <p>This playbook <code>ibm.mas_devops.br_monitor</code> will backup the following components that Monitor depends on in order:</p>
@@ -1380,9 +1130,8 @@ ansible-playbook ibm.mas_devops.br_iot
 <h3 id="examples_5">Examples<a class="headerlink" href="#examples_5" title="Permanent link">¤</a></h3>
 <pre><code class="language-bash"># Full backup all monitor data for the dev1 instance
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_monitor
@@ -1390,32 +1139,17 @@ ansible-playbook ibm.mas_devops.br_monitor
 # Incremental backup all monitor data for the dev1 instance
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_monitor
 
 # Restore all monitor data for the dev1 instance
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=db2w-shared
-ansible-playbook ibm.mas_devops.br_monitor
-
-# Create a scheduled backup of all monitor data for the dev1 instance
-# This will run at 01:00, Monday through Friday
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_BACKUP_SCHEDULE=&quot;0 1 * * 1-5&quot;
-export MASBR_JOB_TIMEZONE=&quot;Asia/Shanghai&quot;
-export MASBR_STORAGE_TYPE=local
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_monitor
@@ -1467,9 +1201,8 @@ ansible-playbook ibm.mas_devops.br_monitor
 <h3 id="examples_6">Examples<a class="headerlink" href="#examples_6" title="Permanent link">¤</a></h3>
 <pre><code class="language-bash"># Full backup all health data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_health
@@ -1477,32 +1210,17 @@ ansible-playbook ibm.mas_devops.br_health
 # Incremental backup all health data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_health
 
 # Restore all health data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_health
-
-# Create a scheduled backup of all health data for the dev1 instance and ws1 workspace
-# This will run at 01:00, Monday through Friday
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_BACKUP_SCHEDULE=&quot;0 1 * * 1-5&quot;
-export MASBR_JOB_TIMEZONE=&quot;Asia/Shanghai&quot;
-export MASBR_STORAGE_TYPE=local
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_health
@@ -1554,9 +1272,8 @@ ansible-playbook ibm.mas_devops.br_health
 <h3 id="examples_7">Examples<a class="headerlink" href="#examples_7" title="Permanent link">¤</a></h3>
 <pre><code class="language-bash"># Full backup all optimizer data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_optimizer
@@ -1564,32 +1281,17 @@ ansible-playbook ibm.mas_devops.br_optimizer
 # Incremental backup all optimizer data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_optimizer
 
 # Restore all optimizer data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
-export MAS_WORKSPACE_ID=ws1
-export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
-ansible-playbook ibm.mas_devops.br_optimizer
-
-# Create a scheduled backup of all optimizer data for the dev1 instance and ws1 workspace
-# This will run at 01:00, Monday through Friday
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_BACKUP_SCHEDULE=&quot;0 1 * * 1-5&quot;
-export MASBR_JOB_TIMEZONE=&quot;Asia/Shanghai&quot;
-export MASBR_STORAGE_TYPE=local
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 export DB2_INSTANCE_NAME=mas-dev1-ws1-manage
 ansible-playbook ibm.mas_devops.br_optimizer
@@ -1630,39 +1332,24 @@ ansible-playbook ibm.mas_devops.br_optimizer
 <h3 id="examples_8">Examples<a class="headerlink" href="#examples_8" title="Permanent link">¤</a></h3>
 <pre><code class="language-bash"># Full backup all visual inspection data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 ansible-playbook ibm.mas_devops.br_visualinspection
 
 # Incremental backup all visual inspection data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 ansible-playbook ibm.mas_devops.br_visualinspection
 
 # Restore all visual inspection data for the dev1 instance and ws1 workspace
 export MASBR_ACTION=restore
-export MASBR_STORAGE_TYPE=local
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
-export MAS_INSTANCE_ID=dev1
-export MAS_WORKSPACE_ID=ws1
-ansible-playbook ibm.mas_devops.br_visualinspection
-
-# Create a scheduled backup of all visual inspection data for the dev1 instance and ws1 workspace
-# This will run at 01:00, Monday through Friday
-export MASBR_ACTION=backup
-export MASBR_BACKUP_TYPE=incr
-export MASBR_BACKUP_SCHEDULE=&quot;0 1 * * 1-5&quot;
-export MASBR_JOB_TIMEZONE=&quot;Asia/Shanghai&quot;
-export MASBR_STORAGE_TYPE=local
-export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
-export MAS_INSTANCE_ID=dev1
+export MAS_INSTANCE_ID=dev
 export MAS_WORKSPACE_ID=ws1
 ansible-playbook ibm.mas_devops.br_visualinspection
 </code></pre>
@@ -1772,7 +1459,7 @@ status:
       
     </div>
     <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v1.6.1 (2024-11-22 12:40:04.975333+00:00)
+      Built with mkdocs v1.6.1 (2024-11-22 16:03:34.895818+00:00)
     </div> -->
   <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": false, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
 </script></body>
