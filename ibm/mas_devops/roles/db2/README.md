@@ -139,7 +139,7 @@ Role Variables - Storage
 We recommend reviewing the Db2 documentation about the certified storage options for Db2 on Red Hat OpenShift. Please ensure your storage class meets the specified deployment requirements for Db2. [https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options](https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options)
 
 ### db2_meta_storage_class
-Storage class used for metadata. This must support ReadWriteMany
+Storage class used for metadata. This must support ReadWriteMany(RWX) access mode.
 
 - **Required**
 - Environment Variable: `DB2_META_STORAGE_CLASS`
@@ -160,7 +160,7 @@ The access mode for the storage.
 - Default: `ReadWriteMany`
 
 ### db2_data_storage_class
-Storage class used for user data. This must support ReadWriteOnce
+Storage class used for user data. This must support ReadWriteMany(RWX) access mode.
 
 - **Required**
 - Environment Variable: `DB2_DATA_STORAGE_CLASS`
@@ -181,7 +181,7 @@ The access mode for the storage.
 - Default: `ReadWriteOnce`
 
 ### db2_backup_storage_class
-Storage class used for backup. This must support ReadWriteMany
+Storage class used for backup. This must support ReadWriteMany(RWX) access mode.
 
 - Optional
 - Environment Variable: `DB2_BACKUP_STORAGE_CLASS`
@@ -202,7 +202,7 @@ The access mode for the storage.
 - Default: `ReadWriteMany`
 
 ### db2_logs_storage_class
-Storage class used for transaction logs. This must support ReadWriteOnce
+Storage class used for transaction logs. This must support ReadWriteMany(RWX) access mode.
 
 - Optional
 - Environment Variable: `DB2_LOGS_STORAGE_CLASS`
@@ -223,7 +223,7 @@ The access mode for the storage.
 - Default: `ReadWriteOnce`
 
 ### db2_temp_storage_class
-Storage class used for temporary data. This must support ReadWriteOnce
+Storage class used for temporary data. This must support ReadWriteMany(RWX) access mode.
 
 - Optional
 - Environment Variable: `DB2_TEMP_STORAGE_CLASS`
@@ -237,7 +237,7 @@ Size of temporary persistent volume.
 - Default: `100Gi`
 
 ### db2_temp_storage_accessmode
-The access mode for the storage.
+The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
 
 - Optional
 - Environment Variable: `DB2_TEMP_STORAGE_ACCESSMODE`
@@ -249,9 +249,9 @@ Role Variables - Resource Requests
 These variables allow you to customize the resources available to the Db2 pod in your cluster.  In most circumstances you will want to set these properties because it's impossible for us to provide a default value that will be appropriate for all users.  We have set defaults that are suitable for deploying Db2 onto a dedicated worker node with 4cpu and 16gb memory.
 
 !!! tip
-    Note that you must take into account the system overhead on any given node when setting these parameters, if you set the requests equal to the number of CPU or amount of memory on yournode then the scheduler will not be able to schedule the Db2 pod because not 100% of the worker nodes' resource will be available to pod on that node, even if there's only a single pod on it.
+    Note that you must take into account the system overhead on any given node when setting these parameters, if you set the requests equal to the number of CPU or amount of memory on your node then the scheduler will not be able to schedule the Db2 pod because not 100% of the worker nodes' resource will be available to pod on that node, even if there's only a single pod on it.
 
-    Db2 is sensitive to both CPU and memory issues, particularly memory, we recommennd setting requests and limits to the same values, ensuring the scheduler always reserves the resources that Db2 expects to be available to it.
+    Db2 is sensitive to both CPU and memory issues, particularly memory, we recommend setting requests and limits to the same values, ensuring the scheduler always reserves the resources that Db2 expects to be available to it.
 
 ### db2_cpu_requests
 Define the Kubernetes CPU request for the Db2 pod.
@@ -442,81 +442,12 @@ Set the [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 - Environment Variable: `MASBR_JOB_TIMEZONE`
 - Default: None
 
-### masbr_storage_type
-Set `local` or `cloud` to indicate this role to save the backup files to local file system or cloud object storage.
-
-- **Required**
-- Environment Variable: `MASBR_STORAGE_TYPE`
-- Default: None
-
 ### masbr_storage_local_folder
 Set local path to save the backup files.
 
-- **Required** only when `MASBR_STORAGE_TYPE=local`
+- **Required**
 - Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
 - Default: None
-
-### masbr_storage_cloud_rclone_file
-Set the path of `rclone.conf` file.
-
-- **Required** only when `MASBR_STORAGE_TYPE=cloud`
-- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_FILE`
-- Default: None
-
-### masbr_storage_cloud_rclone_name
-Set the configuration name defined in `rclone.conf` file.
-
-- **Required** only when `MASBR_STORAGE_TYPE=cloud`
-- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_NAME`
-- Default: None
-
-### masbr_storage_cloud_bucket
-Set the object storage bucket name for saving the backup files
-
-- **Required** only when `MASBR_STORAGE_TYPE=cloud`
-- Environment Variable: `MASBR_STORAGE_CLOUD_BUCKET`
-- Default: None
-
-### masbr_slack_enabled
-Set `true` or `false` to indicate whether this role will send Slack notification messages of the backup and restore progress.
-
-- Optional
-- Environment Variable: `MASBR_SLACK_ENABLED`
-- Default: `false`
-
-### masbr_slack_level
-Set `failure`, `info` or `verbose` to indicate this role to send Slack notification messages in which backup and resore phases:
-
-| Slack level | Backup/Restore phases                                   |
-| ----------- | ------------------------------------------------------- |
-| failure     | `Failed`, `PartiallyFailed`                             |
-| info        | `Completed`, `Failed`, `PartiallyFailed`                |
-| verbose     | `InProgress`, `Completed`, `Failed`, `PartiallyFailed`  |
-
-- Optional
-- Environment Variable: `MASBR_SLACK_LEVEL`
-- Default: `info`
-
-### masbr_slack_token
-The Slack integration token.
-
-- **Required** only when `MASBR_SLACK_ENABLED=true`
-- Environment Variable: `MASBR_SLACK_TOKEN`
-- Default: None
-
-### masbr_slack_channel
-The Slack channel to send the notification messages to.
-
-- **Required** only when `MASBR_SLACK_ENABLED=true`
-- Environment Variable: `MASBR_SLACK_CHANNEL`
-- Default: None
-
-### masbr_slack_user
-The sender of the Slack notification message.
-
-- Optional
-- Environment Variable: `MASBR_SLACK_USER`
-- Default: `MASBR`
 
 ### masbr_backup_type
 Set `full` or `incr` to indicate the role to create a full backup or incremental backup.
@@ -580,7 +511,6 @@ Example Playbook
   vars:
     db2_action: backup
     db2_instance_name: db2u-db01
-    masbr_storage_type: local
     masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.db2
@@ -594,7 +524,6 @@ Example Playbook
     db2_action: restore
     db2_instance_name: db2u-db01
     masbr_restore_from_version: 20240621021316
-    masbr_storage_type: local
     masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.db2

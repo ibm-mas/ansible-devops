@@ -60,6 +60,7 @@ Storage class where AppConnect will be installed - for IBM Cloud clusters, `ibmc
 - **Required**
 - Environment Variable: `APPCONNECT_STORAGE_CLASS`
 - Default Value: None
+- **Note**: The App Connect Dashboard requires a file-based storage class with ReadWriteMany (RWX) capability.
 
 ### appconnect_dashboard_name
 AppConnect dashboard instance name. Defaults to `dashboard-12040r2` as a reference to AppConnect Dashboard version `12.0.4.0-r2` that is compatible with the default subscription channel and license ID.

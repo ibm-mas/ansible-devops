@@ -14,30 +14,26 @@
     mirror_mode: "{{ lookup('env', 'MIRROR_MODE') | default ('direct', True) }}"
 
   pre_tasks:
-    - name: "Get stats for the catalog file"
-      ansible.builtin.stat:
-        path: "{{ playbook_dir }}/../common_vars/casebundles/{{ catalog_tag }}.yml"
-      register: catalog_file_stats
+    - name: "Load Catalog Metadata"
+      ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: mas_catalog_metadata
 
-    - name: "Debug stats if the digest image map file exists"
-      ansible.builtin.set_fact:
-        file_catalog_tag: "{{ (catalog_file_stats.stat.exists|bool) | ternary(catalog_tag, '@@MAS_LATEST_CATALOG@@') }}"
-
-    - name: Load CASE bundle versions
-      include_vars:
-        file: "{{ playbook_dir }}/../common_vars/casebundles/{{ file_catalog_tag }}.yml"
+    - name: "Check that the catalog is a know catalog"
+      assert:
+        that: mas_catalog_metadata.failed == false
 
   roles:
     # 1. IBM Maximo Visual Inspection
     # -------------------------------------------------------------------------
-    - name: ibm.mas_devops.mirror_case_prepare
+    - role: ibm.mas_devops.mirror_case_prepare
       when: mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-mas-visualinspection
-        case_version: "{{ lookup('env', 'MAS_VISUALINSPECTION_VERSION') | default (mas_visualinspection_version[mas_channel], True) }}"
+        case_version: "{{ lookup('env', 'MAS_VISUALINSPECTION_VERSION') | default (mas_catalog_metadata.mas_visualinspection_version[mas_channel], True) }}"
         exclude_images: []
 
-    - name: ibm.mas_devops.mirror_images
+    - role: ibm.mas_devops.mirror_images
       vars:
         manifest_name: ibm-mas-visualinspection
-        manifest_version: "{{ lookup('env', 'MAS_VISUALINSPECTION_VERSION') | default (mas_visualinspection_version[mas_channel], True) }}"
+        manifest_version: "{{ lookup('env', 'MAS_VISUALINSPECTION_VERSION') | default (mas_catalog_metadata.mas_visualinspection_version[mas_channel], True) }}"

@@ -22,16 +22,18 @@
 - name: "Set fact: workspace pv spec"
   set_fact:
     manage_ws_pvs: "{{ _ws_output.resources[0].spec.settings.deployment.persistentVolumes }}"
+  when: masbr_manage_pvc_paths is defined and masbr_manage_pvc_paths | length > 0
 
 - name: "Debug: workspace pv spec"
   debug:
     msg: "{{ manage_ws_pvs }}"
+  when: manage_ws_pvs is defined
 
 
 # Only go on processing when manage has pv defined
 # -----------------------------------------------------------------------------
 - name: "Only go on processing when manage has pv defined"
-  when: manage_ws_pvs | length > 0
+  when: manage_ws_pvs is defined and manage_ws_pvs | length > 0
   block:
     # Get maxinst pod information
     - name: "Get maxinst pod information"

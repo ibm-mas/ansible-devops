@@ -9,9 +9,6 @@
     # ONLY FOR DEV
     __masbr_dev_create_env_file: "{{ lookup('env', '__MASBR_DEV_CREATE_ENV_FILE') | default(false, true) | bool }}"
 
-    # Whether the tasks are already running in a k8s Job/CronJob
-    masbr_running_in_task_job: "{{ lookup('env', 'MASBR_RUNNING_IN_TASK_JOB') | default(false, true) | bool }}"
-
     # Temp folder in the Pod for backup/restore
     masbr_pod_temp_folder: "/tmp/masbr"
 
@@ -34,132 +31,12 @@
 
 # Storage location
 # -----------------------------------------------------------------------------
-- name: "Set fact: default values of storage location variables"
-  set_fact:
-    masbr_use_local_storage: false
-    masbr_use_pvc_storage: false
-    masbr_use_cloud_storage: false
-
-# Must specified supported storage location type
-- name: "Fail if masbr_storage_type is not provided"
+- name: "Fail if masbr_storage_local_folder is not provided"
   assert:
-    that: masbr_storage_type is defined and masbr_storage_type != ""
-    fail_msg: "masbr_storage_type is required"
+    that: masbr_storage_local_folder is defined and masbr_storage_local_folder != ""
+    fail_msg: "masbr_storage_local_folder is required"
 
-- name: "Fail if masbr_storage_type is not supported"
-  assert:
-    that: masbr_storage_type in ['local', 'pvc', 'cloud']
-    fail_msg: "masbr_storage_type must be one of the supported value: local, pvc, cloud"
-
-# Specified local storage location
-- name: "Check variables for local backup storage"
-  when: masbr_storage_type == "local"
-  block:
-    - name: "Fail if masbr_storage_local_folder is not provided"
-      assert:
-        that: masbr_storage_local_folder is defined and masbr_storage_local_folder != ""
-        fail_msg: "masbr_storage_local_folder is required"
-
-    - name: "Set fact: use local backup storage"
-      set_fact:
-        masbr_use_local_storage: true
-        # Not support creating k8s Job/CronJob to run tasks when using local storage
-        masbr_create_task_job: false
-
-    - name: "Debug: variables for local backup storage"
-      debug:
-        msg:
-          - "Use local storage .................. {{ masbr_use_local_storage }}"
-          - "Local storage folder ............... {{ masbr_storage_local_folder }}"
-          - "Run tasks in k8s Job ............... {{ masbr_create_task_job }}"
-
-# Specified pvc storage location
-- name: "Check variables for pvc backup storage"
-  when: masbr_storage_type == "pvc"
-  block:
-    - name: "Fail if masbr_storage_pvc_name is not provided"
-      assert:
-        that: masbr_storage_pvc_name is defined and masbr_storage_pvc_name != ""
-        fail_msg: "masbr_storage_pvc_name is required"
-
-    - name: "Fail if masbr_storage_pvc_path is not provided"
-      assert:
-        that: masbr_storage_pvc_path is defined and masbr_storage_pvc_path != ""
-        fail_msg: "masbr_storage_pvc_path is required"
-
-    - name: "Set fact: use pvc backup storage"
-      set_fact:
-        masbr_use_pvc_storage: true
-        # By default, we will create k8s Job/CronJob to run tasks when using pvc storage
-        # You can set 'MASBR_CREATE_TASK_JOB' to 'false' when developing and running tasks on local workstation
-        masbr_create_task_job: "{{ lookup('env', 'MASBR_CREATE_TASK_JOB') | default(true, true) | bool }}"
-
-    - name: "Debug: variables for pvc backup storage"
-      debug:
-        msg:
-          - "Use PVC storage .................... {{ masbr_use_pvc_storage }}"
-          - "PVC name ........................... {{ masbr_storage_pvc_name }}"
-          - "PVC mount path ..................... {{ masbr_storage_pvc_path }}"
-          - "Run tasks in k8s Job ............... {{ masbr_create_task_job }}"
-
-# Specified cloud storage location
-- name: "Check variables for cloud backup storage"
-  when: masbr_storage_type == "cloud"
-  block:
-    - name: "Fail if masbr_storage_cloud_rclone_file is not provided"
-      assert:
-        that: masbr_storage_cloud_rclone_file is defined and masbr_storage_cloud_rclone_file != ""
-        fail_msg: "masbr_storage_cloud_rclone_file is required"
-
-    - name: "Fail if masbr_storage_cloud_rclone_name is not provided"
-      assert:
-        that: masbr_storage_cloud_rclone_name is defined and masbr_storage_cloud_rclone_name != ""
-        fail_msg: "masbr_storage_cloud_rclone_name is required"
-
-    - name: "Fail if masbr_storage_cloud_bucket is not provided"
-      assert:
-        that: masbr_storage_cloud_bucket is defined and masbr_storage_cloud_bucket != ""
-        fail_msg: "masbr_storage_cloud_bucket is required"
-
-    - name: "Set fact: use cloud backup storage"
-      set_fact:
-        masbr_use_cloud_storage: true
-        # By default, we will create k8s Job/CronJob to run tasks when using cloud storage
-        # You can set 'MASBR_CREATE_TASK_JOB' to 'false' when developing and running tasks on local workstation
-        masbr_create_task_job: "{{ lookup('env', 'MASBR_CREATE_TASK_JOB') | default(true, true) | bool }}"
-
-    - name: "Debug: variables for cloud backup storage"
-      debug:
-        msg:
-          - "Use cloud storage .................. {{ masbr_use_cloud_storage }}"
-          - "Rclone config file ................. {{ masbr_storage_cloud_rclone_file }}"
-          - "Rclone config name ................. {{ masbr_storage_cloud_rclone_name }}"
-          - "Bucket name ........................ {{ masbr_storage_cloud_bucket }}"
-          - "Run tasks in k8s Job ............... {{ masbr_create_task_job }}"
-
-
-# Sending notification
-# -----------------------------------------------------------------------------
-- name: "Check variables for Slack"
-  when: masbr_slack_enabled
-  block:
-    - name: "Fail if masbr_slack_token is not provided"
-      assert:
-        that: masbr_slack_token is defined and masbr_slack_token != ""
-        fail_msg: "masbr_slack_token is required when masbr_slack_enabled set to true"
-
-    - name: "Fail if masbr_slack_channel is not provided"
-      assert:
-        that: masbr_slack_channel is defined and masbr_slack_channel != ""
-        fail_msg: "masbr_slack_channel is required when masbr_slack_enabled set to true"
-
-    - name: "Debug: variables for sending Slack notification"
-      debug:
-        msg:
-          - "Slack channel ...................... {{ masbr_slack_channel }}"
-          - "Slack user ......................... {{ masbr_slack_user }}"
-          - "Notification level ................. {{ masbr_slack_level }} ({{ masbr_notification_levels[masbr_slack_level] | join(',') }})"
-
-    - name: "Set fact: reset masbr_sent_notifications"
-      set_fact:
-        masbr_sent_notifications: []
+- name: "Debug: variables for local backup storage"
+  debug:
+    msg:
+      - "Local storage folder ............... {{ masbr_storage_local_folder }}"

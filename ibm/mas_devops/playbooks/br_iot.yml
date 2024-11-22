@@ -53,51 +53,25 @@
         _job_type: "{{ masbr_action }}"
 
   tasks:
-    # Create k8s Job to run backup/restore tasks
-    # -------------------------------------------------------------------------
-    - name: "Create k8s Job to run {{ masbr_action }} tasks"
-      when: masbr_create_task_job
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
+    - name: "MongoDB: {{ masbr_action }}"
+      include_role:
+        name: ibm.mas_devops.mongodb
       vars:
-        _rt_playbook_name: "br_iot"
-        _rt_env:
-          - name: "MASBR_ACTION"
-            value: "{{ masbr_action }}"
-          - name: "MASBR_JOB_VERSION"
-            value: "{{ masbr_job_version }}"
-          - name: "MAS_INSTANCE_ID"
-            value: "{{ mas_instance_id }}"
-          - name: "MAS_WORKSPACE_ID"
-            value: "{{ mas_workspace_id }}"
-          - name: "DB2_INSTANCE_NAME"
-            value: "{{ db2_instance_id }}"
-          - name: "DB2_NAMESPACE"
-            value: "{{ db2_namespace }}"
+        mongodb_action: "{{ masbr_action }}"
+        mas_app_id: "iot"
 
-    # Run backup/restore tasks locally
-    # -------------------------------------------------------------------------
-    - name: "Run {{ masbr_action }} tasks"
-      when: not masbr_create_task_job
-      block:
-        - name: "MongoDB: {{ masbr_action }}"
-          include_role:
-            name: ibm.mas_devops.mongodb
-          vars:
-            mongodb_action: "{{ masbr_action }}"
-            mas_app_id: "iot"
+    - name: "Db2: {{ masbr_action }}"
+      include_role:
+        name: ibm.mas_devops.db2
+      vars:
+        db2_action: "{{ masbr_action }}"
 
-        - name: "Db2: {{ masbr_action }}"
-          include_role:
-            name: ibm.mas_devops.db2
-          vars:
-            db2_action: "{{ masbr_action }}"
+    - name: "MAS Core namespace: {{ masbr_action }}"
+      include_role:
+        name: ibm.mas_devops.suite_backup_restore
 
-        - name: "MAS Core namespace: {{ masbr_action }}"
-          include_role:
-            name: ibm.mas_devops.suite_backup_restore
-
-        - name: "IoT namespace: {{ masbr_action }}"
-          include_role:
-            name: ibm.mas_devops.suite_app_backup_restore
-          vars:
-            mas_app_id: "iot"
+    - name: "IoT namespace: {{ masbr_action }}"
+      include_role:
+        name: ibm.mas_devops.suite_app_backup_restore
+      vars:
+        mas_app_id: "iot"

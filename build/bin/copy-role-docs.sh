@@ -10,14 +10,16 @@ function copyDoc() {
   cp $SRC_DIR/$ROLE/README.md $TO_DIR/$ROLE.md
 }
 
+copyDoc aibroker
 copyDoc ansible_version_check
+copyDoc appconnect
+copyDoc arcgis
 copyDoc aws_bucket_access_point
 copyDoc aws_documentdb_user
 copyDoc aws_policy
 copyDoc aws_route53
 copyDoc aws_user_creation
 copyDoc aws_vpc
-copyDoc appconnect
 copyDoc cert_manager
 copyDoc cis
 copyDoc common_services
@@ -27,7 +29,6 @@ copyDoc cos_bucket
 copyDoc cp4d
 copyDoc cp4d_admin_pwd_update
 copyDoc cp4d_service
-copyDoc cp4d_upgrade
 copyDoc db2
 copyDoc dro
 copyDoc eck
@@ -38,8 +39,11 @@ copyDoc gencfg_watsonstudio
 copyDoc gencfg_workspace
 copyDoc grafana
 copyDoc ibm_catalogs
+copyDoc ibmcloud_resource_key
 copyDoc install_operator
 copyDoc kafka
+copyDoc key_rotation
+copyDoc kmodels
 copyDoc mirror_case_prepare
 copyDoc mirror_extras_prepare
 copyDoc mirror_ocp
@@ -50,7 +54,6 @@ copyDoc ocp_cluster_monitoring
 copyDoc ocp_config
 copyDoc ocp_contentsourcepolicy
 copyDoc ocp_deprovision
-copyDoc ocp_disable_updates
 copyDoc ocp_efs
 copyDoc ocp_github_oauth
 copyDoc ocp_login
@@ -61,14 +64,18 @@ copyDoc ocp_simulate_disconnected_network
 copyDoc ocp_upgrade
 copyDoc ocp_verify
 copyDoc ocs
+copyDoc odh
+copyDoc opentelemetry
 copyDoc registry
 copyDoc sls
+copyDoc smtp
 copyDoc suite_app_backup_restore
 copyDoc suite_app_config
 copyDoc suite_app_install
 copyDoc suite_app_uninstall
 copyDoc suite_app_upgrade
 copyDoc suite_app_rollback
+copyDoc suite_app_verify
 copyDoc suite_backup_restore
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
@@ -79,11 +86,11 @@ copyDoc suite_manage_bim_config
 copyDoc suite_manage_birt_report_config
 copyDoc suite_manage_customer_files_config
 copyDoc suite_manage_attachments_config
+copyDoc suite_manage_imagestitching_config
 copyDoc suite_manage_import_certs_config
 copyDoc suite_manage_load_dbc_scripts
 copyDoc suite_manage_logging_config
 copyDoc suite_manage_pvc_config
-copyDoc suite_switch_to_olm
 copyDoc suite_upgrade
 copyDoc suite_rollback
 copyDoc suite_uninstall
