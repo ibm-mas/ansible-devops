@@ -38,6 +38,7 @@
     name: mas-mongo-ce-admin-password
     namespace: "{{ mongodb_namespace }}"
   register: _mongodb_password_output
+  no_log: true
 
 - name: "Set fact: mongodb admin password"
   set_fact:
@@ -46,6 +47,7 @@
     - _mongodb_password_output is defined
     - _mongodb_password_output.resources[0] is defined
     - _mongodb_password_output.resources[0].data.password is defined
+  no_log: true
 
 
 # Get mongodb ca file location
@@ -72,12 +74,13 @@
   changed_when: false
   shell: >
     {{ exec_in_pod_begin }}
-    {{ mongodb_shell }} --quiet --host={{ mongodb_pod_name }}.mas-mongo-ce-svc.mongoce.svc.cluster.local:27017
+    {{ mongodb_shell }} --quiet --host={{ mongodb_pod_name }}.mas-mongo-ce-svc.{{ mongodb_namespace }}.svc.cluster.local:27017
     --username=admin --password={{ mongodb_password }} --authenticationDatabase=admin
     --tls --tlsCAFile={{ mongodb_ca_file }} admin
     --eval="print(JSON.stringify(db.runCommand({hello:1})))"
     {{ exec_in_pod_end }}
   register: _mongodb_info_output
+  no_log: true
 
 - name: "Set fact: mongodb primary host"
   set_fact:

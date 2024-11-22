@@ -192,81 +192,12 @@ Set the [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 - Environment Variable: `MASBR_JOB_TIMEZONE`
 - Default: None
 
-### masbr_storage_type
-Set `local` or `cloud` to indicate this role to save the backup files to local file system or cloud object storage.
-
-- **Required**
-- Environment Variable: `MASBR_STORAGE_TYPE`
-- Default: None
-
 ### masbr_storage_local_folder
 Set local path to save the backup files.
 
-- **Required** only when `MASBR_STORAGE_TYPE=local`
+- **Required**
 - Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
 - Default: None
-
-### masbr_storage_cloud_rclone_file
-Set the path of `rclone.conf` file.
-
-- **Required** only when `MASBR_STORAGE_TYPE=cloud`
-- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_FILE`
-- Default: None
-
-### masbr_storage_cloud_rclone_name
-Set the configuration name defined in `rclone.conf` file.
-
-- **Required** only when `MASBR_STORAGE_TYPE=cloud`
-- Environment Variable: `MASBR_STORAGE_CLOUD_RCLONE_NAME`
-- Default: None
-
-### masbr_storage_cloud_bucket
-Set the object storage bucket name for saving the backup files
-
-- **Required** only when `MASBR_STORAGE_TYPE=cloud`
-- Environment Variable: `MASBR_STORAGE_CLOUD_BUCKET`
-- Default: None
-
-### masbr_slack_enabled
-Set `true` or `false` to indicate whether this role will send Slack notification messages of the backup and restore progress.  
-
-- Optional
-- Environment Variable: `MASBR_SLACK_ENABLED`
-- Default: `false`
-
-### masbr_slack_level
-Set `failure`, `info` or `verbose` to indicate this role to send Slack notification messages in which backup and resore phases:
-
-| Slack level | Backup/Restore phases                                   |
-| ----------- | ------------------------------------------------------- |
-| failure     | `Failed`, `PartiallyFailed`                             |
-| info        | `Completed`, `Failed`, `PartiallyFailed`                |
-| verbose     | `InProgress`, `Completed`, `Failed`, `PartiallyFailed`  |
-
-- Optional
-- Environment Variable: `MASBR_SLACK_LEVEL`
-- Default: `info`
-
-### masbr_slack_token
-The Slack integration token.  
-
-- **Required** only when `MASBR_SLACK_ENABLED=true`
-- Environment Variable: `MASBR_SLACK_TOKEN`
-- Default: None
-
-### masbr_slack_channel
-The Slack channel to send the notification messages to.
-
-- **Required** only when `MASBR_SLACK_ENABLED=true`
-- Environment Variable: `MASBR_SLACK_CHANNEL`
-- Default: None
-
-### masbr_slack_user
-The sender of the Slack notification message.
-
-- Optional
-- Environment Variable: `MASBR_SLACK_USER`
-- Default: `MASBR`
 
 ### masbr_backup_type
 Set `full` or `incr` to indicate the role to create a full backup or incremental backup.
@@ -602,7 +533,6 @@ Example Playbooks
   vars:
     mongodb_action: backup
     mas_instance_id: masinst1
-    masbr_storage_type: local
     masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.mongodb
@@ -616,7 +546,6 @@ Example Playbooks
     mongodb_action: restore
     mas_instance_id: masinst1
     masbr_restore_from_version: 20240621021316
-    masbr_storage_type: local
     masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.mongodb
@@ -745,7 +674,7 @@ If `avx` is not found in the available `flags` then either the physical processo
 
 ### LDAP Authentication
 
-If authenticating via LDAP with PLAIN specified for `authMechanism` then `configDb` must be set to `$external` in the MongoCfg. The field `configDb` in the MongoCfg refers to the authentication database. 
+If authenticating via LDAP with PLAIN specified for `authMechanism` then `configDb` must be set to `$external` in the MongoCfg. The field `configDb` in the MongoCfg refers to the authentication database.
 
 ### CA Certificate Renewal
 

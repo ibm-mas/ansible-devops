@@ -14,7 +14,7 @@
     # Create mongodb role and user for backing up databases
     # -------------------------------------------------------------------------
     - name: "Create mongodb role and user for backing up databases"
-      include_tasks: "tasks/providers/{{ mongodb_provider }}/create-role-user.yml"
+      include_tasks: "tasks/providers/{{ mongodb_provider }}/backup-restore/create-role-user.yml"
 
 
     # Prepare mongodb database backup folder
@@ -96,6 +96,7 @@
               }))" | tee -a {{ mongodb_backup_log }}
             {{ exec_in_pod_end }}
           register: _mongodb_db_names_output
+          no_log: true
 
         - name: "Set fact: database names"
           set_fact:
@@ -132,6 +133,7 @@
             {{ exec_in_pod_end }}
           loop: "{{ mongodb_db_names }}"
           register: _mongodump_output
+          no_log: true
 
         - name: "Debug: mongodump output"
           debug:
@@ -191,6 +193,7 @@
             |& tee -a {{ mongodb_backup_log }}
             {{ exec_in_pod_end }}
           register: _mongodump_output
+          no_log: true
 
         - name: "Debug: mongodump output"
           debug:
@@ -254,7 +257,7 @@
         content: "{{ mongodb_query | from_yaml | to_json }}"
         mode: preserve
       vars:
-        mongodb_query: "{{ lookup('template', '../../../templates/community/mongo-query.yml.j2') }}"
+        mongodb_query: "{{ lookup('template', 'templates/community/mongo-query.yml.j2') }}"
 
     - name: "Get query file content"
       changed_when: false

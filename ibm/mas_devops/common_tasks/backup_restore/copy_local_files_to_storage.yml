@@ -1,59 +1,24 @@
 ---
 # Copy local job files to local storage
 # -----------------------------------------------------------------------------
-- name: "Copy local job files to local storage"
-  when: masbr_use_local_storage
-  block:
-    - name: "Set fact: local storage job folder"
-      set_fact:
-        masbr_storage_job_folder: >-
-          {{ masbr_storage_local_folder }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_job_name }}
+- name: "Set fact: local storage job folder"
+  set_fact:
+    masbr_storage_job_folder: >-
+      {{ masbr_storage_local_folder }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_job_name }}
 
-    - name: "Debug: local storage job folder"
-      debug:
-        msg: "Local storage job folder .......... {{ masbr_storage_job_folder }}"
+- name: "Debug: local storage job folder"
+  debug:
+    msg: "Local storage job folder .......... {{ masbr_storage_job_folder }}"
 
-    - name: "Copy local job files to local storage job folder"
-      shell: >-
-        mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
-        cp -rf {{ [masbr_local_job_folder, item.src_file] | path_join }}
-        {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
-        ls -lA {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
-      loop: "{{ masbr_cf_paths }}"
-      register: _local_copy_output
+- name: "Copy local job files to local storage job folder"
+  shell: >-
+    mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
+    cp -rf {{ [masbr_local_job_folder, item.src_file] | path_join }}
+    {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
+    ls -lA {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
+  loop: "{{ masbr_cf_paths }}"
+  register: _local_copy_output
 
-    - name: "Debug: copy local job files to local storage job folder"
-      debug:
-        msg: "{{ _local_copy_output | json_query('results[*].stdout_lines') }}"
-
-
-# Copy local job files to cloud storage
-# -----------------------------------------------------------------------------
-- name: "Copy local job files to cloud storage"
-  when: masbr_use_cloud_storage
-  block:
-    - name: "Set fact: cloud storage job folder"
-      set_fact:
-        masbr_storage_job_folder: >-
-          {{ masbr_storage_cloud_rclone_name }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_job_name }}
-
-    - name: "Debug: cloud storage job folder"
-      debug:
-        msg: "Cloud storage job folder .......... {{ masbr_storage_job_folder }}"
-
-    - name: "Copy local job files to cloud storage job folder"
-      shell: >-
-        rclone --links --progress --no-check-certificate --config {{ masbr_storage_cloud_rclone_file }}
-        copy --no-traverse
-        {{ [masbr_local_job_folder, item.src_file] | path_join }}
-        {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
-      loop: "{{ masbr_cf_paths }}"
-      register: _rclone_copy_output
-
-    - name: "Debug: copy local job files to cloud storage job folder"
-      debug:
-        msg: "{{ _rclone_copy_output | json_query('results[*].stdout_lines') }}"
-
-
-# Copy local job files to pvc storage
-# -----------------------------------------------------------------------------
+- name: "Debug: copy local job files to local storage job folder"
+  debug:
+    msg: "{{ _local_copy_output | json_query('results[*].stdout_lines') }}"
