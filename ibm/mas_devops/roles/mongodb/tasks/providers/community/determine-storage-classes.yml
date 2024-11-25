@@ -1,21 +1,11 @@
 ---
-
 # Provide intelligent storage class selection to minimize required user knowledge
+
 
 # 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
 - name: "Load default storage class information"
-  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
-
-- name: Lookup storage classes
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-  register: lookup_storageclasses
-
-- name: "Debug available storage classes"
-  debug:
-    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
 
 # 2. Set Storage (Required)
@@ -23,7 +13,7 @@
 - name: Default Storage if not set by user
   when: mongodb_storage_class is not defined or mongodb_storage_class == ""
   set_fact:
-    mongodb_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+    mongodb_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 - name: Assert that storage class has been defined
   assert:
@@ -36,4 +26,4 @@
 - name: "Debug MongoDb storage class configuration"
   debug:
     msg:
-      - "Storage class (mongodb) ...... {{ mongodb_storage_class }}"
+      - "Storage class (mongodb) ................ {{ mongodb_storage_class }}"

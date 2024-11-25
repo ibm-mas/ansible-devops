@@ -1,21 +1,8 @@
 ---
-
-# Provide intelligent storage class selection to minimize required user knowledge
-
 # 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-- name: "Load default storage class information"
-  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
-
-- name: Lookup storage classes
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-  register: lookup_storageclasses
-
-- name: "Debug available storage classes"
-  debug:
-    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
+- name: "determine-storage-classes : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
 
 # 2. Set Storage (Required)
@@ -23,7 +10,7 @@
 - name: Default Kafka Storage for ROKS if not set by user
   when: kafka_storage_class is not defined or kafka_storage_class == ""
   set_fact:
-    kafka_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+    kafka_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 - name: Assert that kafka storage class has been defined
   assert:
@@ -33,17 +20,18 @@
 - name: Default Zookeeper Storage for ROKS if not set by user
   when: zookeeper_storage_class is not defined or zookeeper_storage_class == ""
   set_fact:
-    zookeeper_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+    zookeeper_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 - name: Assert that zookeeper storage class has been defined
   assert:
     that: zookeeper_storage_class is defined and zookeeper_storage_class != ""
     fail_msg: "zookeeper_storage_class must be defined"
 
+
 # 3. Debug storage class configuration
 # -----------------------------------------------------------------------------
 - name: "Debug Kafka storage classes configuration"
   debug:
     msg:
-      - "Storage class (kafka) ...... {{ kafka_storage_class }}"
-      - "Storage class (zookeeper) .. {{ zookeeper_storage_class }}"
+      - "Storage class (kafka) .................. {{ kafka_storage_class }}"
+      - "Storage class (zookeeper) .............. {{ zookeeper_storage_class }}"

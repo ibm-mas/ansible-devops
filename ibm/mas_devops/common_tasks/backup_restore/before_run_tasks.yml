@@ -24,24 +24,6 @@
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/check_{{ _job_type }}_vars.yml"
 
 
-# Add labels to current Job
-# -----------------------------------------------------------------------------
-- name: "Add lables to current Job"
-  when:
-    - masbr_running_in_task_job
-    - masbr_task_type == "schedule"
-    - masbr_included_before_run_tasks is not defined
-  shell: >-
-    job_name=$(oc get job -n {{ _job_namespace }} --sort-by=.metadata.creationTimestamp --no-headers
-    | grep {{ _job_name }} | awk '{print $1}' | tail -n 1);
-    oc label job ${job_name} -n {{ _job_namespace }} masbr-job={{ masbr_job_name }};
-    pod_name=$(oc get pod -n {{ _job_namespace }} -l job-name=${job_name} --no-headers | awk '{print $1}');
-    oc label pod ${pod_name} -n {{ _job_namespace }} masbr-job={{ masbr_job_name }}
-  vars:
-    _job_namespace: "{{ lookup('env', 'MASBR_TASK_JOB_NAMESPACE') }}"
-    _job_name: "{{ lookup('env', 'MASBR_TASK_JOB_NAME') }}"
-
-
 # Before backup/restore component
 # -------------------------------------------------------------------------
 - name: "Before {{ _job_type }} {{ masbr_job_component.name }}"

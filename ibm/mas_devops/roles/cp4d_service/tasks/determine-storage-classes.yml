@@ -1,48 +1,38 @@
 ---
-# Provide intelligent storage class selection to minimize required user knowledge
-
 # 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-- name: "Load default storage class information"
-  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
+- name: "determine-storage-classes : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
-- name: Lookup storage classes
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-  register: lookup_storageclasses
 
-- name: "Debug available storage classes"
-  debug:
-    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
-
-# 2. Set Storage (Required)
+# 2. Debug storage class configuration
 # -----------------------------------------------------------------------------
-# - name: Default Metadata Storage if not set by user
-#   when:
-#     # - cpd_service_name not in cpd_services_supporting_block_storage_class # if not installing one of the services, then we just need a file storage
-#     - cpd_service_storage_class is not defined or cpd_service_storage_class == ""
-#   set_fact:
-#     cpd_service_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
-
-- name: Set default File and Block Storage if not set by user
+- name: "determine-storage-classes : Lookup & use default file storage class (if needed)"
   when:
-    # - cpd_service_name in cpd_services_supporting_block_storage_class # if installing one of the services, then we need both block and file storage
+    - defaultStorageClasses.success
     - cpd_service_storage_class is not defined or cpd_service_storage_class == ""
+  set_fact:
+    cpd_service_storage_class: "{{ defaultStorageClasses.rwx }}"
+
+- name: "determine-storage-classes : Lookup & use default block storage class (if needed)"
+  when:
+    - defaultStorageClasses.success
     - cpd_service_block_storage_class is not defined or cpd_service_block_storage_class == ""
   set_fact:
-    cpd_service_storage_class: "{{ (cpd_minor_version is version_compare('4.6', '>=')) | ternary(lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx), lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo)) }}" # if cpd 4.6+ then we need RWX as SC, otherwise it will be RWO.
-    cpd_service_block_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+    cpd_service_block_storage_class: "{{ defaultStorageClasses.rwo }}"
 
-- name: Assert that service storage class has been defined
+- name: Assert that service storage class has been defined (RWX)
   assert:
     that: cpd_service_storage_class is defined and cpd_service_storage_class != ""
     fail_msg: "cpd_service_storage_class must be defined"
 
-# 3. Debug storage class configuration
-# -----------------------------------------------------------------------------
+- name: Assert that service storage class has been defined (RWO)
+  assert:
+    that: cpd_service_block_storage_class is defined and cpd_service_block_storage_class != ""
+    fail_msg: "cpd_service_block_storage_class must be defined"
+
 - name: "Debug CP4D service {{ cpd_service_name }} storage class configuration"
   debug:
     msg:
-      - "Storage class (CP4D service {{ cpd_service_name }}) ............................ {{ cpd_service_storage_class }}"
-      - "Block Storage class (CP4D service {{ cpd_service_name }}) ...................... {{ cpd_service_block_storage_class | default('N/A',true) }}"
+      - "Storage Class (RWX) .................... {{ cpd_service_storage_class }}"
+      - "Block Storage Class (RWO) .............. {{ cpd_service_block_storage_class }}"

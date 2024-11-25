@@ -1,17 +1,8 @@
 ---
-
-# Provide intelligent storage class selection to minimize required user knowledge
-
 # 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-- name: "install : determine-storage-classes : Load default storage class information"
-  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
-
-- name: Lookup storage classes
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-  register: lookup_storageclasses
+- name: "Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
 
 # 2. Prometheus Storage (Required)
@@ -19,7 +10,7 @@
 - name: "install : determine-storage-classes : Default Prometheus Storage if not set by user"
   when: prometheus_storage_class is not defined or prometheus_storage_class == ""
   set_fact:
-    prometheus_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+    prometheus_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 - name: Assert that Prometheus storage class has been defined
   assert:
@@ -32,7 +23,7 @@
 - name: "install : determine-storage-classes : Default Prometheus Alert Manager Storage if not set by user"
   when: prometheus_alertmgr_storage_class is not defined or prometheus_alertmgr_storage_class == ""
   set_fact:
-    prometheus_alertmgr_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
+    prometheus_alertmgr_storage_class: "{{ defaultStorageClasses.rwx }}"
 
 - name: "install : determine-storage-classes : Assert that Prometheus Alert Manager storage class has been defined"
   assert:
@@ -45,7 +36,7 @@
 - name: "install : determine-storage-classes : Default Prometheus User Workload Monitoring Storage if not set by user"
   when: prometheus_userworkload_storage_class is not defined or prometheus_userworkload_storage_class == ""
   set_fact:
-    prometheus_userworkload_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+    prometheus_userworkload_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 - name: "install : determine-storage-classes : Assert that Prometheus User Workload Monitoring storage class has been defined"
   assert:
