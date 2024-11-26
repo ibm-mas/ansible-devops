@@ -23,6 +23,12 @@ The role will automatically install or upgrade (if targeted to an existing CPD d
 
 For more information about CPD versioning, see [IBM Cloud Pak for Data Operator and operand versions 4.9.x](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=planning-operator-operand-versions) or [IBM Cloud Pak for Data Operator and operand versions 5.0.x](https://www.ibm.com/docs/en/cloud-paks/cp-data/5.0.x?topic=planning-operator-operand-versions)
 
+!!! info
+    - Install CP4D ControlPlane (~1 hour)
+    - Install CP4D Services (~30 Minutes - 1 hour for each service)
+
+    All timings are estimates.
+
 Cloud Pak for Data version mapping to MAS Catalog
 ====
 
