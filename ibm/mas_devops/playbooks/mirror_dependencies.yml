@@ -75,6 +75,12 @@
       assert:
         that: mas_catalog_metadata.failed == false
 
+    # If the CPD_PRODUCT_VERSION environment variable wasn't set, then use the default from the catalog metadata
+    - name: "Set default cpd_product_version (if necessary)"
+      when: cpd_product_version == ""
+      set_fact:
+        cpd_product_version: "{{ mas_catalog_metadata.cpd_product_version_default }}"
+
   roles:
     # 1. IBM Maximo Operator Catalog
     # -------------------------------------------------------------------------
@@ -84,6 +90,7 @@
         - mirror_mode != "from-filesystem"
       vars:
         extras_name: catalog
+        catalog_digest: "{{ mas_catalog_metadata.catalog_digest }}"
 
     - role: ibm.mas_devops.mirror_images
       when: mirror_catalog
@@ -100,13 +107,13 @@
         - mirror_mode != "from-filesystem"
       vars:
         extras_name: mongoce
-        extras_version: "{{ mas_catalog_metadata.mongo_extras_version }}"
+        extras_version: "{{ mas_catalog_metadata.mongo_extras_version_default }}"
 
     - role: ibm.mas_devops.mirror_images
       when: mirror_mongoce
       vars:
         manifest_name: extras_mongoce
-        manifest_version: "{{ mas_catalog_metadata.mongo_extras_version }}"
+        manifest_version: "{{ mas_catalog_metadata.mongo_extras_version_default }}"
 
     # Mirror Mongo v4 specifically when requested
     - role: ibm.mas_devops.mirror_extras_prepare
