@@ -28,6 +28,12 @@ These services can be deployed and configured using this role:
 - [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=services-watson-discovery) required by [Assist](https://www.ibm.com/docs/en/mas-cd/maximo-assist) - Not supported with CPD 5.0
 - [Cognos Analytics](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=analytics-installing) optional dependency for [Manage application](https://www.ibm.com/docs/en/mas-cd/maximo-manage)
 
+!!! info
+    - Install CP4D Services (~30 Minutes - 1 hour for each service)
+
+    All timings are estimates.
+
+
 Upgrade
 ------------------
 This role also supports seamlessly CPD services minor version upgrades (CPD 4.6.x > CPD 4.8.0 or CPD 4.8.0 > CPD 5.0.0), as well as patch version upgrades (e.g. CPD 4.6.0 -> CPD 4.6.6), with the exception of [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=u-upgrading-from-version-46-2).
