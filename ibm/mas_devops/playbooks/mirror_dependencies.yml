@@ -179,22 +179,13 @@
     # 3. IBM Cloud Pak Foundation Services
     # -------------------------------------------------------------------------
     # Just mirror IBM Cloud Pak Foundation Services images 'mirror_common_svcs' is set, or if CPD 4.8+ is being mirrored
-    - role: debug common_svcs_version
-      debug:
-        var: "{{ mas_catalog_metadata.common_svcs_version }}"
-
-    - role: debug common_svcs_version list
-      debug:
-        var: "{{ item }}"
-      loop: "{{ query('mas_catalog_metadata.common_svcs_version','all') }}"
-
     - role: ibm.mas_devops.mirror_case_prepare
       when:
         - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-cp-common-services
-        case_version: "{{ item }}"
+        case_version: "{{ mas_catalog_metadata.common_svcs_version }}"
         exclude_images:
           - ibm-auditlogging
           - ibm-cpp
@@ -202,14 +193,12 @@
           - ibm-cs-monitoring
           - ibm-events-operator
         ibmpak_skip_dependencies: false
-      loop: "{{ query('mas_catalog_metadata.common_svcs_version','all') }}"
 
     - role: ibm.mas_devops.mirror_images
       when: mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
       vars:
         manifest_name: ibm-cp-common-services
-        manifest_version: "{{ item }}"
-      loop: "{{ query('mas_catalog_metadata.common_svcs_version','all') }}"
+        manifest_version: "{{ mas_catalog_metadata.common_svcs_version }}"
 
     - role: ibm.mas_devops.mirror_case_prepare
       when:
@@ -244,7 +233,7 @@
         - mas_catalog_metadata.common_svcs_version_1 != ""
       vars:
         case_name: ibm-cp-common-services
-        case_version: "{{ item }}"
+        case_version: "{{ mas_catalog_metadata.common_svcs_version_1 }}"
         exclude_images:
           - ibm-auditlogging
           - ibm-cpp
@@ -252,7 +241,6 @@
           - ibm-cs-monitoring
           - ibm-events-operator
         ibmpak_skip_dependencies: false
-      loop: "{{ query('mas_catalog_metadata.common_svcs_version_1','all') }}"
 
     - role: ibm.mas_devops.mirror_images
       when:
@@ -261,9 +249,38 @@
         - mas_catalog_metadata.common_svcs_version_1 != ""
       vars:
         manifest_name: ibm-cp-common-services
-        manifest_version: "{{ item }}"
-      loop: "{{ query('mas_catalog_metadata.common_svcs_version_1','all') }}"
+        manifest_version: "{{ mas_catalog_metadata.common_svcs_version_1 }}"
 
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+        - mirror_mode != "from-filesystem"
+        - mas_catalog_metadata.common_svcs_version_2 is defined
+        - mas_catalog_metadata.common_svcs_version_2 != ""
+      vars:
+        case_name: ibm-cp-common-services
+        case_version: "{{ mas_catalog_metadata.common_svcs_version_2 }}"
+        exclude_images:
+          - ibm-auditlogging
+          - ibm-cpp
+          - ibm-cs-healthcheck
+          - ibm-cs-monitoring
+          - ibm-events-operator
+        ibmpak_skip_dependencies: false
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_common_svcs
+        - mas_catalog_metadata.common_svcs_version_1 is defined
+        - mas_catalog_metadata.common_svcs_version_1 != ""
+      vars:
+        manifest_name: ibm-cp-common-services
+        manifest_version: "{{ mas_catalog_metadata.common_svcs_version_2 }}"
+
+
+    # 4. IBM Suite License Service
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
 
     # 4. IBM Suite License Service
     # -------------------------------------------------------------------------
