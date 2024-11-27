@@ -42,7 +42,7 @@ class ActionModule(ActionBase):
         # Initialize DynamicClient, ensure the namespace exists, and create/update the entitlement secret
         dynClient = get_api_client()
         createNamespace(dynClient, namespace)
-        secret = updateIBMEntitlementKey(dynClient, "default", icrUsername, icrPassword, artifactoryUsername, artifactoryPassword, secretName)
+        secret = updateIBMEntitlementKey(dynClient, namespace, icrUsername, icrPassword, artifactoryUsername, artifactoryPassword, secretName)
 
         return dict(
             message=f"Successfully updated IBM entitlement in {namespace}: {secret.metadata.name}",
