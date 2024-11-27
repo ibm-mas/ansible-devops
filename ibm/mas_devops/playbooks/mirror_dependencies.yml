@@ -244,12 +244,38 @@
 
     - role: ibm.mas_devops.mirror_images
       when:
-        - mirror_common_svcs
+        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
         - mas_catalog_metadata.common_svcs_version_1 is defined
         - mas_catalog_metadata.common_svcs_version_1 != ""
       vars:
         manifest_name: ibm-cp-common-services
         manifest_version: "{{ mas_catalog_metadata.common_svcs_version_1 }}"
+
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+        - mirror_mode != "from-filesystem"
+        - mas_catalog_metadata.common_svcs_version_2 is defined
+        - mas_catalog_metadata.common_svcs_version_2 != ""
+      vars:
+        case_name: ibm-cp-common-services
+        case_version: "{{ mas_catalog_metadata.common_svcs_version_2 }}"
+        exclude_images:
+          - ibm-auditlogging
+          - ibm-cpp
+          - ibm-cs-healthcheck
+          - ibm-cs-monitoring
+          - ibm-events-operator
+        ibmpak_skip_dependencies: false
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+        - mas_catalog_metadata.common_svcs_version_1 is defined
+        - mas_catalog_metadata.common_svcs_version_1 != ""
+      vars:
+        manifest_name: ibm-cp-common-services
+        manifest_version: "{{ mas_catalog_metadata.common_svcs_version_2 }}"
 
 
     # 4. IBM Suite License Service
