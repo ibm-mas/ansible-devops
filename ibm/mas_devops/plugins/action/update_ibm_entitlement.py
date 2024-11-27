@@ -23,7 +23,7 @@ class ActionModule(ActionBase):
           icr_username: "{{ icr_username }}"
           icr_password: "{{ icr_password }}"
           artifactory_username: "{{ artifactory_username }}"
-          artifactory_password: "{{ artifactory_password }}"
+          artifactory_password: "{{ artifactory_token }}"
         register: secret
     """
     def run(self, tmp=None, task_vars=None):
