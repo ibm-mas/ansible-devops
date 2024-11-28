@@ -36,6 +36,7 @@
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('False', True) | bool }}"
     cpd_48_or_higher: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','>=') | bool }}"
     cpd_48: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','==') | bool }}"
+    cpd_50: "{{ cpd_product_version is defined and cpd_product_version is version('5.0.0','==') | bool }}"
 
     # 7. Watson Studio Local
     # -------------------------------------------------------------------------
@@ -336,6 +337,15 @@
       vars:
         extras_name: cp4d
         extras_version: "4.8.0"
+
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_cp4d
+        - cpd_50
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: cp4d
+        extras_version: "5.0.0"
 
     - role: ibm.mas_devops.mirror_images
       when:
