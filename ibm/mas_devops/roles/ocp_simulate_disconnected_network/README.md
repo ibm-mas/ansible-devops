@@ -17,6 +17,7 @@ sh-4.4# more /host/etc/hosts
 
 
 The default exclusions are:
+
 - quay.io
 - registry.redhat.io
 - registry.connect.redhat.com

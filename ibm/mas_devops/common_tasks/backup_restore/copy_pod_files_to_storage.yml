@@ -1,323 +1,47 @@
 ---
 # Copy files from pod to local storage
 # -----------------------------------------------------------------------------
-- name: "Copy files from pod to local storage"
-  when: masbr_use_local_storage
-  block:
-    # Local storage job folder
-    - name: "Set fact: local storage job folder"
-      set_fact:
-        masbr_storage_job_folder: >-
-          {{ masbr_storage_local_folder }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_job_name }}
+- name: "Set fact: local storage job folder"
+  set_fact:
+    masbr_storage_job_folder: >-
+      {{ masbr_storage_local_folder }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_job_name }}
 
-    - name: "Debug: local storage job folder"
-      debug:
-        msg: "Local storage job folder ......... {{ masbr_storage_job_folder }}"
+- name: "Debug: local storage job folder"
+  debug:
+    msg: "Local storage job folder ......... {{ masbr_storage_job_folder }}"
 
-    # Condition 1. src_folder -> dest_folder: copy src_folder/* to dest_folder/*
-    - name: "Copy files from pod folder to local storage folder"
-      when:
-        - item.src_folder is defined and item.src_folder | length > 0
-        - item.dest_folder is defined and item.dest_folder | length > 0
-      shell: >-
-        mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
-        oc cp --retries=50 -c {{ masbr_cf_container_name }}
-        {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_folder }}
-        {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
-      loop: "{{ masbr_cf_paths }}"
+# Condition 1. src_folder -> dest_folder: copy src_folder/* to dest_folder/*
+- name: "Copy files from pod folder to local storage folder"
+  when:
+    - item.src_folder is defined and item.src_folder | length > 0
+    - item.dest_folder is defined and item.dest_folder | length > 0
+  shell: >-
+    mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
+    oc cp --retries=50 -c {{ masbr_cf_container_name }}
+    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_folder }}
+    {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
+  loop: "{{ masbr_cf_paths }}"
 
-    # Condition 2. src_file -> dest_folder: copy src_file to dest_folder/src_file
-    - name: "Copy file from pod to local storage folder"
-      when:
-        - item.src_file is defined and item.src_file | length > 0
-        - item.dest_folder is defined and item.dest_folder | length > 0
-      shell: >-
-        mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
-        oc cp --retries=50 -c {{ masbr_cf_container_name }}
-        {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_file }}
-        {{ [masbr_storage_job_folder, item.dest_folder, item.src_file|basename] | path_join }}
-      loop: "{{ masbr_cf_paths }}"
+# Condition 2. src_file -> dest_folder: copy src_file to dest_folder/src_file
+- name: "Copy file from pod to local storage folder"
+  when:
+    - item.src_file is defined and item.src_file | length > 0
+    - item.dest_folder is defined and item.dest_folder | length > 0
+  shell: >-
+    mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
+    oc cp --retries=50 -c {{ masbr_cf_container_name }}
+    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_file }}
+    {{ [masbr_storage_job_folder, item.dest_folder, item.src_file|basename] | path_join }}
+  loop: "{{ masbr_cf_paths }}"
 
-    # Condition 3. src_file -> dest_file
-    - name: "Copy file from pod to local storage file"
-      when:
-        - item.src_file is defined and item.src_file | length > 0
-        - item.dest_file is defined and item.dest_file | length > 0
-      shell: >-
-        mkdir -p {{ [masbr_storage_job_folder, item.dest_file|dirname] | path_join }} &&
-        oc cp --retries=50 -c {{ masbr_cf_container_name }}
-        {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_file }}
-        {{ [masbr_storage_job_folder, item.dest_file] | path_join }}
-      loop: "{{ masbr_cf_paths }}"
-
-
-# Copy files from pod to cloud storage
-# -----------------------------------------------------------------------------
-- name: "Copy files from pod to cloud storage"
-  when: masbr_use_cloud_storage
-  block:
-    # Cloud storage job folder
-    - name: "Set fact: cloud storage job folder"
-      set_fact:
-        masbr_storage_job_folder: >-
-          {{ masbr_storage_cloud_rclone_name }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_job_name }}
-
-    - name: "Debug: cloud storage job folder"
-      debug:
-        msg: "Cloud storage job folder ......... {{ masbr_storage_job_folder }}"
-
-    # Cloud storage from job folder
-    # (only used for incremental backup 'src_folder -> dest_folder')
-    - name: "Set fact: cloud storage from job folder"
-      when: masbr_cf_from_job_name is defined and masbr_cf_from_job_name | length > 0
-      set_fact:
-        masbr_storage_from_job_folder: >-
-          {{ masbr_storage_cloud_rclone_name }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_from_job_name }}
-
-    - name: "Debug: cloud storage from job folder"
-      when: masbr_cf_from_job_name is defined and masbr_cf_from_job_name | length > 0
-      debug:
-        msg: "Cloud storage from job folder ......... {{ masbr_storage_from_job_folder }}"
-
-    # The source paths are not located in pvc, so we need to copy files to mounted pvc job folder first,
-    # then create a Job pod to mount the same pvc and copy files from pvc to cloud storage folder.
-    - name: "Copy files to mounted pvc job folder"
-      when: masbr_cf_are_pvc_paths is not defined or not masbr_cf_are_pvc_paths
-      block:
-        # pvc job folder
-        - name: "Set fact: pvc job folder"
-          set_fact:
-            masbr_cf_paths_from_pvc: []
-            masbr_cf_pvc_job_folder: >-
-              {{ [masbr_cf_pvc_mount_path, masbr_cf_job_name] | path_join }}
-
-        - name: "Debug: pvc job folder"
-          debug:
-            msg: "PVC job folder .................... {{ masbr_cf_pvc_job_folder }}"
-
-        - name: "Set fact: list dest files in pvc"
-          set_fact:
-            masbr_cf_ls_dest_files: []
-
-        # Condition 1. src_folder -> dest_folder: copy src_folder/* to dest_folder/*
-        - name: "Copy files from pod folder to pvc job folder"
-          when:
-            - item.src_folder is defined and item.src_folder | length > 0
-            - item.dest_folder is defined and item.dest_folder | length > 0
-          shell: >-
-            oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c
-            'mkdir -p {{ [masbr_cf_pvc_job_folder, item.dest_folder|basename] | path_join }} &&
-            cp -rf {{ item.src_folder }}/* {{ [masbr_cf_pvc_job_folder, item.dest_folder|basename] | path_join }} &&
-            ls -lA {{ [masbr_cf_pvc_job_folder, item.dest_folder|basename] | path_join }}'
-          loop: "{{ masbr_cf_paths }}"
-          register: _ls_output
-
-        - name: "Set fact: append dest files in pvc"
-          set_fact:
-            masbr_cf_ls_dest_files: "{{ masbr_cf_ls_dest_files + _ls_output | json_query('results[*].stdout_lines') }}"
-
-        - name: "Set fact: change source paths based on pvc job folder"
-          when:
-            - item.src_folder is defined and item.src_folder | length > 0
-            - item.dest_folder is defined and item.dest_folder | length > 0
-          set_fact:
-            masbr_cf_paths_from_pvc: >-
-              {{ masbr_cf_paths_from_pvc + [{
-                'src_folder': [masbr_cf_pvc_job_folder, item.dest_folder|basename] | path_join,
-                'dest_folder': item.dest_folder
-              }] }}
-          loop: "{{ masbr_cf_paths }}"
-
-        # Condition 2. src_file -> dest_folder: copy src_file to dest_folder/src_file
-        - name: "Copy file from pod to pvc job folder"
-          when:
-            - item.src_file is defined and item.src_file | length > 0
-            - item.dest_folder is defined and item.dest_folder | length > 0
-          shell: >-
-            oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c
-            'mkdir -p {{ [masbr_cf_pvc_job_folder, item.dest_folder|basename] | path_join }} &&
-            cp -f {{ item.src_file }} {{ [masbr_cf_pvc_job_folder, item.dest_folder|basename] | path_join }} &&
-            ls -lA {{ [masbr_cf_pvc_job_folder, item.dest_folder|basename] | path_join }}'
-          loop: "{{ masbr_cf_paths }}"
-          register: _ls_output
-
-        - name: "Set fact: append dest files in pvc"
-          set_fact:
-            masbr_cf_ls_dest_files: "{{ masbr_cf_ls_dest_files + _ls_output | json_query('results[*].stdout_lines') }}"
-
-        - name: "Set fact: change source paths based on pvc job folder"
-          when:
-            - item.src_file is defined and item.src_file | length > 0
-            - item.dest_folder is defined and item.dest_folder | length > 0
-          set_fact:
-            masbr_cf_paths_from_pvc: >-
-              {{ masbr_cf_paths_from_pvc + [{
-                'src_file': [masbr_cf_pvc_job_folder, item.dest_folder|basename, item.src_file|basename] | path_join,
-                'dest_folder': item.dest_folder
-              }] }}
-          loop: "{{ masbr_cf_paths }}"
-
-        # Condition 3. src_file -> dest_file
-        - name: "Copy file from pod to pvc job file"
-          when:
-            - item.src_file is defined and item.src_file | length > 0
-            - item.dest_file is defined and item.dest_file | length > 0
-          shell: >-
-            oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c
-            'mkdir -p {{ [masbr_cf_pvc_job_folder, item.dest_file|dirname] | path_join }} &&
-            cp -f {{ item.src_file }} {{ [masbr_cf_pvc_job_folder, item.dest_file|dirname] | path_join }} &&
-            ls -lA {{ [masbr_cf_pvc_job_folder, item.dest_file|dirname] | path_join }}'
-          loop: "{{ masbr_cf_paths }}"
-          register: _ls_output
-
-        - name: "Set fact: append dest files in pvc"
-          set_fact:
-            masbr_cf_ls_dest_files: "{{ masbr_cf_ls_dest_files + _ls_output | json_query('results[*].stdout_lines') }}"
-
-        - name: "Set fact: change source paths based on pvc job folder"
-          when:
-            - item.src_file is defined and item.src_file | length > 0
-            - item.dest_file is defined and item.dest_file | length > 0
-          set_fact:
-            masbr_cf_paths_from_pvc: >-
-              {{ masbr_cf_paths_from_pvc + [{
-                'src_file': [masbr_cf_pvc_job_folder, item.dest_file|dirname, item.src_file|basename] | path_join,
-                'dest_file': item.dest_file
-              }] }}
-          loop: "{{ masbr_cf_paths }}"
-
-        - name: "Debug: list files in pvc paths"
-          debug:
-            msg: "{{ masbr_cf_ls_dest_files }}"
-
-    - name: "Set fact: file paths in pvc job folder"
-      when: masbr_cf_are_pvc_paths is defined and masbr_cf_are_pvc_paths
-      set_fact:
-        masbr_cf_paths_from_pvc: "{{ masbr_cf_paths }}"
-
-    - name: "Debug: file paths in pvc job folder"
-      debug:
-        msg: "{{ masbr_cf_paths_from_pvc }}"
-
-
-    # Set job variables
-    # -----------------------------------------------------------------------------
-    - name: "Set fact: copy file Job name"
-      set_fact:
-        # must be no more than 63 characters and in lower case
-        # format 'copy-<job_version>-<timestamp>', e.g.
-        #   'copy-20240424210110-20240424210110'
-        masbr_cf_k8s_name: >-
-          copy-{{ masbr_job_version }}-{{ masbr_timestamp_format | strftime }}
-
-    - name: "Debug: copy file Job name"
-      debug:
-        msg:
-          - "Copy file Job name ..................... {{ masbr_cf_k8s_name }}"
-
-
-    # Set copy file commands: mounted pvc -> cloud storage
-    # -------------------------------------------------------------------------
-    # Copy files from mounted pvc folder to cloud storage
-    - name: "Set fact: initial rclone copy file command"
-      set_fact:
-        masbr_cf_cmds: >-
-          mkdir -p /tmp/logs;
-          rclone version 2>&1 | tee /tmp/logs/rclone-version.log
-
-    # Condition 1. src_folder -> dest_folder: copy src_folder/* to dest_folder/*
-    - name: "Set fact: copy all files from pvc folder to cloud storage folder (full)"
-      when:
-        - item.src_folder is defined and item.src_folder | length > 0
-        - item.dest_folder is defined and item.dest_folder | length > 0
-        - masbr_cf_from_job_name is not defined or masbr_cf_from_job_name | length == 0
-      set_fact:
-        masbr_cf_cmds: >-
-          {{ masbr_cf_cmds }} &&
-          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
-          copy --no-traverse
-          {{ item.src_folder }} {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
-          2>&1 | tee /tmp/logs/rclone-copy.log
-      loop: "{{ masbr_cf_paths_from_pvc }}"
-
-    - name: "Set fact: copy changed files from pvc folder to cloud storage folder (incremental)"
-      when:
-        - item.src_folder is defined and item.src_folder | length > 0
-        - item.dest_folder is defined and item.dest_folder | length > 0
-        - masbr_cf_from_job_name is defined and masbr_cf_from_job_name | length > 0
-      set_fact:
-        masbr_cf_cmds: >-
-          {{ masbr_cf_cmds }} &&
-          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
-          sync {{ item.src_folder }} {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
-          --compare-dest {{ [masbr_storage_from_job_folder, item.dest_folder] | path_join }}
-          2>&1 | tee /tmp/logs/rclone-sync.log;
-          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
-          check {{ item.src_folder }} {{ [masbr_storage_from_job_folder, item.dest_folder] | path_join }}
-          --combined /tmp/masbr-changes.txt
-          2>&1 | tee /tmp/logs/rclone-check.log;
-          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
-          copy /tmp/masbr-changes.txt {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
-          2>&1 | tee /tmp/logs/rclone-copy.log
-      loop: "{{ masbr_cf_paths_from_pvc }}"
-
-    # Condition 2. src_file -> dest_folder: copy src_file to dest_folder/src_file
-    - name: "Set fact: copy file from pvc to cloud storage folder"
-      when:
-        - item.src_file is defined and item.src_file | length > 0
-        - item.dest_folder is defined and item.dest_folder | length > 0
-      set_fact:
-        masbr_cf_cmds: >-
-          {{ masbr_cf_cmds }} &&
-          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
-          copy --no-traverse
-          {{ item.src_file }} {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
-          2>&1 | tee /tmp/logs/rclone-copy.log
-      loop: "{{ masbr_cf_paths_from_pvc }}"
-
-    # Condition 3. src_file -> dest_file
-    - name: "Set fact: copy file from pvc to cloud storage file"
-      when:
-        - item.src_file is defined and item.src_file | length > 0
-        - item.dest_file is defined and item.dest_file | length > 0
-      set_fact:
-        masbr_cf_cmds: >-
-          {{ masbr_cf_cmds }} &&
-          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
-          copyto {{ item.src_file }} {{ [masbr_storage_job_folder, item.dest_file] | path_join }}
-          2>&1 | tee /tmp/logs/rclone-copyto.log
-      loop: "{{ masbr_cf_paths_from_pvc }}"
-
-    - name: "Set fact: command for copying logs"
-      set_fact:
-        masbr_cf_cmds: >-
-          {{ masbr_cf_cmds }};
-          ls -lA /tmp/logs;
-          tar -czf /tmp/{{ masbr_cf_k8s_name }}-log.tar.gz -C /tmp/logs .;
-          rclone --links --progress --no-check-certificate --config ${MASBR_STORAGE_CLOUD_RCLONE_FILE}
-          copy /tmp/{{ masbr_cf_k8s_name }}-log.tar.gz
-          {{ masbr_storage_cloud_rclone_name }}:{{ masbr_storage_cloud_bucket }}/{{ masbr_job_type }}s/{{ masbr_job_name_final }}/log
-
-    - name: "Debug: rclone copy file command"
-      debug:
-        msg: "{{ masbr_cf_cmds }}"
-
-
-    # Create copy file Job: mounted pvc -> cloud storage
-    # -------------------------------------------------------------------------
-    #   1. The Job pod will mount the PVC where the files will be copied from
-    #   2. Use rclone to copy files from PVC to COS
-    - name: "Create copy file Job"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_copy_cloud_files_job.yml"
-
-  always:
-    # Clean up
-    - name: "Delete pvc job folder"
-      when: masbr_cf_pvc_job_folder is defined and masbr_cf_pvc_job_folder | length > 0
-      shell: >-
-        oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c
-        'rm -rf {{ masbr_cf_pvc_job_folder }}'
-
-
-# Copy files from pod to pvc storage
-# -----------------------------------------------------------------------------
+# Condition 3. src_file -> dest_file
+- name: "Copy file from pod to local storage file"
+  when:
+    - item.src_file is defined and item.src_file | length > 0
+    - item.dest_file is defined and item.dest_file | length > 0
+  shell: >-
+    mkdir -p {{ [masbr_storage_job_folder, item.dest_file|dirname] | path_join }} &&
+    oc cp --retries=50 -c {{ masbr_cf_container_name }}
+    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_file }}
+    {{ [masbr_storage_job_folder, item.dest_file] | path_join }}
+  loop: "{{ masbr_cf_paths }}"
