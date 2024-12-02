@@ -3,10 +3,27 @@
 # when custom archive credentials are defined then we include customizationArchiveCredentials
 # property in mas_app_settings_customization_list
 # ------------------------------------------------------------------------
+
+# This tasks creates a Kubernetes secret for each archive defined in the suite_app_config_custom_list.
+# If uses a Jinja2 template ('custom-archive_credentials.yml.j2') to generate the definition of the secret.
+# which includes sensitive customization archive credentials (such as 'secretName', 'archive_name' and 'archive_url').
+# The loop iterates over each item in suite_app_config_custom_list, applying the template for each archive.
 - name: "Create secret containing Customization Archive Credentials"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/manage/custom-archive-credentials.yml.j2') }}"
+  loop: "{{ suite_app_config_custom_list }}"
 
-- name: "Merge customizationArchiveCredentials property into customizationList"
+- name: Create mas_app_settings_customization_list property
   set_fact:
-    mas_app_settings_customization_list: "{{ [ mas_app_settings_customization_list[0] | combine( mas_app_settings_customization_credentials ) ] }}"
+    mas_app_settings_customization_list: >
+      - {{ mas_app_settings_customization_list +
+          [{
+            'customizationArchiveName': item.archive_name,
+            'customizationArchiveUrl': item.archive_url,
+            'customizationArchiveCredentials':
+              {
+                'secretName': mas_workspace_id + '-' + mas_app_id + '-' + item.archive_name
+              }
+          }]
+        }}
+  loop: "{{ suite_app_config_custom_list }}"
