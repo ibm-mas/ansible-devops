@@ -1,18 +1,8 @@
 ---
-
-# Provide intelligent storage class selection to minimize required user knowledge
-
 # 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-- name: "determine-storage-classes : Lookup storage classes"
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-  register: lookup_storageclasses
-
-- name: "Debug available storage classes"
-  debug:
-    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
+- name: "determine-storage-classes : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
 
 # 2. Set FPL Storage (Required)
@@ -21,11 +11,8 @@
   when:
     - mas_app_settings_iot_fpl_pvc_storage_class is not defined or mas_app_settings_iot_fpl_pvc_storage_class == ""
     - mas_app_settings_iot_deployment_size != "dev"
-  vars:
-    # ROKS, OCS, AWS, Azure
-    supported_storage_classes: [ibmc-block-gold, ocs-storagecluster-ceph-rbd, gp3-csi, managed-premium]
   set_fact:
-    mas_app_settings_iot_fpl_pvc_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
+    mas_app_settings_iot_fpl_pvc_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 
 # 3. Set MQTT Broker Storage (Required)
@@ -34,11 +21,8 @@
   when:
     - mas_app_settings_iot_mqttbroker_pvc_storage_class is not defined or mas_app_settings_iot_mqttbroker_pvc_storage_class == ""
     - mas_app_settings_iot_deployment_size != "dev"
-  vars:
-    # ROKS, OCS, AWS, Azure
-    supported_storage_classes: [ibmc-block-gold, ocs-storagecluster-ceph-rbd, gp3-csi, managed-premium]
   set_fact:
-    mas_app_settings_iot_mqttbroker_pvc_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(supported_storage_classes) }}"
+    mas_app_settings_iot_mqttbroker_pvc_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 - name: Assert IoT FPL PVC Storage is defined
   when: mas_app_settings_iot_deployment_size != "dev"
@@ -57,20 +41,20 @@
     fail_msg: "IoT MQTT Broker Storage for MessageSight (mas_app_settings_iot_mqttbroker_pvc_storage_class property) must be defined when IoT deployment size = '{{ mas_app_settings_iot_deployment_size }}'."
 
 
-# 3. Debug storage class configuration
+# 4. Debug storage class configuration
 # -----------------------------------------------------------------------------
 - name: "determine-storage-classes : Debug IoT PVC storage class configuration"
   debug:
     msg:
-      - "IoT Deployment Size ............... {{ mas_app_settings_iot_deployment_size }}"
-      - "IoT FPL PVC Storage Class ......... {{ mas_app_settings_iot_fpl_pvc_storage_class }}"
-      - "IoT FPL PVC Router Size ........... {{ mas_app_settings_iot_fpl_router_pvc_size }}"
-      - "IoT FPL PVC Executor Size ......... {{ mas_app_settings_iot_fpl_executor_pvc_size }}"
-      - "IoT MQTT Broker PVC Storage Class . {{ mas_app_settings_iot_mqttbroker_pvc_storage_class }}"
-      - "IoT MQTT Broker PVC Size .......... {{ mas_app_settings_iot_mqttbroker_pvc_size }}"
+      - "IoT Deployment Size .................... {{ mas_app_settings_iot_deployment_size }}"
+      - "IoT FPL PVC Storage Class .............. {{ mas_app_settings_iot_fpl_pvc_storage_class }}"
+      - "IoT FPL PVC Router Size ................ {{ mas_app_settings_iot_fpl_router_pvc_size }}"
+      - "IoT FPL PVC Executor Size .............. {{ mas_app_settings_iot_fpl_executor_pvc_size }}"
+      - "IoT MQTT Broker PVC Storage Class ...... {{ mas_app_settings_iot_mqttbroker_pvc_storage_class }}"
+      - "IoT MQTT Broker PVC Size ............... {{ mas_app_settings_iot_mqttbroker_pvc_size }}"
 
 
-# 4. Load PodTemplates configuration
+# 5. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
 - name: "Load podTemplates configuration"
   include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"

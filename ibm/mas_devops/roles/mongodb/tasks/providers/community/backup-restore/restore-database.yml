@@ -14,7 +14,7 @@
     # Create mongodb role and user for backing up databases
     # -------------------------------------------------------------------------
     - name: "Create mongodb role and user for backing up databases"
-      include_tasks: "tasks/providers/{{ mongodb_provider }}/create-role-user.yml"
+      include_tasks: "tasks/providers/{{ mongodb_provider }}/backup-restore/create-role-user.yml"
 
 
     # Prepare mongodb database restore folders
@@ -48,7 +48,7 @@
       when: masbr_restore_from_incr
       block:
         - name: "Copy based on full backup file from specified storage location to pod"
-          include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/restore-database-perform.yml"
+          include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/restore-database-perform.yml"
           vars:
             _job_type: "full"
             _job_name: "{{ masbr_restore_basedon }}"
@@ -57,7 +57,7 @@
     # Restore databases from the specified Full or Incremental backup
     # -------------------------------------------------------------------------
     - name: "Restore databases from the specified {{ 'Incremental' if masbr_restore_from_incr else 'Full' }} backup"
-      include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/restore-database-perform.yml"
+      include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/restore-database-perform.yml"
       vars:
         _job_type: "{{ 'incr' if masbr_restore_from_incr else 'full' }}"
         _job_name: "{{ masbr_restore_from }}"
@@ -66,7 +66,7 @@
     # Do some post restoration tasks
     # -------------------------------------------------------------------------
     - name: "Do some post restoration tasks "
-      include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/restore-database-patch.yml"
+      include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/restore-database-patch.yml"
 
 
     # Update database restore status: Completed

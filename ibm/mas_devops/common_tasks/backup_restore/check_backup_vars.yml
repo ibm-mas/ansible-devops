@@ -1,6 +1,6 @@
 ---
 # Set below common job facts:
-#   masbr_task_type: backup, restore, schedule
+#   masbr_task_type: backup, restore
 #   masbr_job_type: backup, restore
 #   masbr_job_name, masbr_job_name_final
 #
@@ -22,10 +22,6 @@
     # The version of the backup to create incremental backup based on
     # only used when masbr_backup_type='incr'
     masbr_backup_from_version: "{{ lookup('env', 'MASBR_BACKUP_FROM_VERSION') | default('', true) }}"
-
-    # Cron expression for scheduled backup
-    # https://en.wikipedia.org/wiki/Cron
-    masbr_backup_schedule: "{{ lookup('env', 'MASBR_BACKUP_SCHEDULE') | default('', true) }}"
 
 
 # Check 'masbr_job_component'
@@ -87,28 +83,9 @@
 
 # Set 'masbr_task_type'
 # -----------------------------------------------------------------------------
-- name: "Set fact: running task type (schedule)"
-  when: masbr_backup_schedule is defined and masbr_backup_schedule | length > 0
-  set_fact:
-    masbr_task_type: "schedule"
-
-- name: "Set fact: always create a new Job version for each Job of the CronJob"
-  when:
-    - masbr_backup_schedule is defined and masbr_backup_schedule | length > 0
-    - masbr_included_before_run_tasks is not defined
-  set_fact:
-    masbr_job_version: "{{ masbr_timestamp_format | strftime }}"
-
-- name: "Set fact: running task type (backup)"
-  when: masbr_task_type is not defined
-  set_fact:
-    masbr_task_type: "backup"
-
-
-# Set backup job variables
-# -----------------------------------------------------------------------------
 - name: "Set fact: backup job variables"
   set_fact:
+    masbr_task_type: "backup"
     masbr_job_type: "backup"
 
 - name: "Set fact: job name include instance"

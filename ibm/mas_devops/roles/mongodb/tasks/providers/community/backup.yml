@@ -10,7 +10,7 @@
 # Get mongodb information
 # -------------------------------------------------------------------------
 - name: "Get mongodb information"
-  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/get-mongo-info.yml"
+  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/get-mongo-info.yml"
 
 
 # Set common backup job variables
@@ -36,31 +36,10 @@
   vars:
     _ignore_masbr_backup_data: true
     _job_type: "backup"
-    _component_before_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/before-backup-restore.yml"
+    _component_before_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/before-backup-restore.yml"
 
 
-# Create k8s Job to run backup tasks
-# -----------------------------------------------------------------------------
-- name: "Create k8s Job to run backup tasks"
-  when: masbr_create_task_job
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_run_tasks_job.yml"
-  vars:
-    _rt_role_name: "mongodb"
-    _rt_env:
-      - name: "MASBR_JOB_VERSION"
-        value: "{{ masbr_job_version }}"
-      - name: "MONGODB_PROVIDER"
-        value: "{{ mongodb_provider }}"
-      - name: "MONGODB_ACTION"
-        value: "{{ mongodb_action }}"
-      - name: "MAS_INSTANCE_ID"
-        value: "{{ mas_instance_id }}"
-      - name: "MAS_APP_ID"
-        value: "{{ mas_app_id }}"
-
-
-- name: "Run backup tasks"
-  when: not masbr_create_task_job
+- name: "Perform backup"
   block:
     # Update backup job status: New
     # -------------------------------------------------------------------------
@@ -71,11 +50,10 @@
           - seq: "1"
             phase: "New"
 
-
     # Run backup tasks for each data type
     # -------------------------------------------------------------------------
     - name: "Run backup tasks for each data type"
-      include_tasks: "tasks/providers/{{ mongodb_provider }}/backup-{{ job_data_item.type }}.yml"
+      include_tasks: "tasks/providers/{{ mongodb_provider }}/backup-restore/backup-{{ job_data_item.type }}.yml"
       vars:
         masbr_job_data_seq: "{{ job_data_item.seq }}"
         masbr_job_data_type: "{{ job_data_item.type }}"
@@ -98,4 +76,4 @@
     - name: "After run tasks"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/after_run_tasks.yml"
       vars:
-        _component_after_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/after-backup-restore.yml"
+        _component_after_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/after-backup-restore.yml"
