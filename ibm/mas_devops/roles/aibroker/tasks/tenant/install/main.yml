@@ -67,12 +67,12 @@
 #   set_fact:
 #     hostname: "{{ domain | regex_replace('^[^.]+\\.', '') }}"
 
-- name: Apply Kmodel api
-  shell: |
-    curl -k -X POST "https://controller-mas-{{ mas_instance_id }}-aibroker.{{ mas_aibroker_domain }}/api/v1/tenant?id={{ tenantNamespace }}" \
-    --header 'accept: */*' \
-    --header 'Content-Type: application/json' \
-    --data '{"name": "string","public": true,"max_models": 10}'
+# - name: Apply Kmodel api
+#   shell: |
+#     curl -k -X POST "https://controller-mas-{{ mas_instance_id }}-aibroker.{{ mas_aibroker_domain }}/api/v1/tenant?id={{ tenantNamespace }}" \
+#     --header 'accept: */*' \
+#     --header 'Content-Type: application/json' \
+#     --data '{"name": "string","public": true,"max_models": 10}'
 
 # - name: Create sls secret sample for AI Broker
 #   command: python3 {{ role_path }}/files/alm_sample_sls_use.py {{ mas_aibroker_sls_url }} {{ mas_aibroker_sls_registration_key }}
@@ -115,6 +115,38 @@
   debug:
     msg: "{{ dro_token_output }}"
 
+
+# - name: "Create tenant {{ tenantNamespace }} and add to db2 for saas"
+#   shell: |
+#     curl -k -X POST "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenant" \
+#     --header 'apikey: {{ provision_tenant_api_key }}' \
+#     --header 'accept: */*' \
+#     --header 'Content-Type: application/json' \
+#     --header 'tenantid: provision-tenant' \
+#     --data ' {"tenant_name": "{{ tenantNamespace }}", "sls_url": "{{ mas_aibroker_sls_url }}", "dro_url": "{{ mas_aibroker_dro_url }}"}'
+#   register: add_tenant_to_db2
+
+- name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
+  uri:
+    url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenant"
+    validate_certs: no
+    method: POST
+    headers:
+      apikey: "{{ provision_tenant_api_key }}"
+      accept: "*/*"
+      Content-Type: "application/json"
+      tenantid: "provision-tenant"
+    body_format: "json"
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"sls_url\": \"{{ mas_aibroker_sls_url }}\", \"dro_url\": \"{{ mas_aibroker_dro_url }}\"}"
+    status_code: [200]
+    timeout: 30
+  register: add_tenant_to_db2
+
+- name: Debug tenant #TODO: remove on finall commit
+  debug:
+    msg: "{{ add_tenant_to_db2 }}"
+
+
 # - name: Create tenant entitlement
 #   command: python3 {{ role_path }}/files/create_tenant_entitlement.py {{ tenantNamespace }} standard pcc 2024-01-01 2027-01-01
 #   register: create_tenant_entitlement
@@ -123,3 +155,33 @@
 # - name: Debug Create tenant entitlement
 #   debug:
 #     msg: "{{ create_tenant_entitlement }}"
+
+# - name: "Create tenantEntitlements {{ tenantNamespace }} and add to db2 for saas"
+#   shell: |
+#     curl -k -X POST "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements" \
+#     --header 'apikey: {{ provision_tenant_api_key }}' \
+#     --header 'accept: */*' \
+#     --header 'Content-Type: application/json' \
+#     --header 'tenantid: provision-tenant' \
+#     --data '{"tenant_name": "{{ tenantNamespace }}", "entitlement_type": "standard", "model_type": "similarity", "entitlement_start_date": "2024-01-01", "entitlement_end_date": "2025-01-01"}'
+#   register: add_tenant_entitlements_to_db2
+
+- name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
+  uri:
+    url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
+    validate_certs: no
+    method: POST
+    headers:
+      apikey: "{{ provision_tenant_api_key }}"
+      accept: "*/*"
+      Content-Type: "application/json"
+      tenantid: "provision-tenant"
+    body_format: "json"
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"similarity\", \"entitlement_start_date\": \"2024-01-01\", \"entitlement_end_date\": \"2025-01-01\"}"
+    status_code: [200]
+    timeout: 30
+  register: add_tenant_entitlements_to_db2
+
+- name: Debug tenant entitlement #TODO: remove on finall commit
+  debug:
+    msg: "{{ add_tenant_entitlements_to_db2 }}"
