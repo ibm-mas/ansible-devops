@@ -1,30 +1,19 @@
 ---
-
-# Provide intelligent storage class selection to minimize required user knowledge
-
 # 1. Lookup storage class availabiity
 # -----------------------------------------------------------------------------
-- name: "Load default storage class information"
-  include_vars: "{{ role_path }}/../../common_vars/default_storage_classes.yml"
-
-- name: Lookup storage classes
-  kubernetes.core.k8s_info:
-    api_version: storage.k8s.io/v1
-    kind: StorageClass
-  register: lookup_storageclasses
-
-- name: "Debug available storage classes"
-  debug:
-    msg: "{{ lookup_storageclasses | ibm.mas_devops.getResourceNames }}"
+- name: "determine-storage-classes : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
 
 
 # 2. Data Storage (Required)
 # -----------------------------------------------------------------------------
 - name: Default Data Storage for ROKS if not set by user (ReadWriteOnce)
-  when: db2_data_storage_class is not defined or db2_data_storage_class == ""
+  when:
+    - db2_data_storage_class is not defined or db2_data_storage_class == ""
+    - defaultStorageClasses.success
   vars:
   set_fact:
-    db2_data_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+    db2_data_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 - name: Assert that a data storage class has been defined
   assert:
@@ -35,9 +24,11 @@
 # 3. Meta Storage (Required)
 # -----------------------------------------------------------------------------
 - name: Default Meta Storage for ROKS if not set by user (ReadWriteMany)
-  when: db2_meta_storage_class is not defined or db2_meta_storage_class == ""
+  when:
+    - db2_meta_storage_class is not defined or db2_meta_storage_class == ""
+    - defaultStorageClasses.success
   set_fact:
-    db2_meta_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
+    db2_meta_storage_class: "{{ defaultStorageClasses.rwx }}"
 
 - name: Assert that a meta storage class has been defined
   assert:
@@ -48,9 +39,11 @@
 # 4. Logs Storage (Optional)
 # -----------------------------------------------------------------------------
 - name: Default Logs Storage for ROKS if not set by user (ReadWriteOnce)
-  when: db2_logs_storage_class is not defined or db2_logs_storage_class == ""
+  when:
+    - db2_logs_storage_class is not defined or db2_logs_storage_class == ""
+    - defaultStorageClasses.success
   set_fact:
-    db2_logs_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+    db2_logs_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 
 # 5. Backup Storage (Optional)
@@ -58,15 +51,17 @@
 - name: Default Backup Storage for ROKS if not set by user (ReadWriteMany)
   when: db2_backup_storage_class is not defined or db2_backup_storage_class == ""
   set_fact:
-    db2_backup_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwx) }}"
+    db2_backup_storage_class: "{{ defaultStorageClasses.rwx }}"
 
 
 # 6. Temp Storage (Optional)
 # -----------------------------------------------------------------------------
 - name: Default Temp Storage for ROKS if not set by user (ReadWriteOnce)
-  when: db2_temp_storage_class is not defined or db2_temp_storage_class == ""
+  when:
+    - db2_temp_storage_class is not defined or db2_temp_storage_class == ""
+    - defaultStorageClasses.success
   set_fact:
-    db2_temp_storage_class: "{{ lookup_storageclasses | ibm.mas_devops.defaultStorageClass(default_storage_classes_rwo) }}"
+    db2_temp_storage_class: "{{ defaultStorageClasses.rwo }}"
 
 
 # 7. Debug storage class configuration
@@ -74,8 +69,8 @@
 - name: "Debug DB2U storage class configuration"
   debug:
     msg:
-      - "Storage class (meta) ......... {{ db2_meta_storage_class }}"
-      - "Storage class (data) ......... {{ db2_data_storage_class }}"
-      - "Storage class (backup) ....... {{ db2_backup_storage_class }}"
-      - "Storage class (logs) ......... {{ db2_logs_storage_class }}"
-      - "Storage class (temp) ......... {{ db2_temp_storage_class }}"
+      - "Storage class (meta) ................... {{ db2_meta_storage_class }}"
+      - "Storage class (data) ................... {{ db2_data_storage_class }}"
+      - "Storage class (backup) ................. {{ db2_backup_storage_class | default('<undefined>', true) }}"
+      - "Storage class (logs) ................... {{ db2_logs_storage_class | default('<undefined>', true) }}"
+      - "Storage class (temp) ................... {{ db2_temp_storage_class | default('<undefined>', true) }}"

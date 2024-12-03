@@ -43,18 +43,25 @@
     state: present
     template: templates/namespace.yml.j2
 
+
 # 5. Install the operator & create entitlement secret
 # -----------------------------------------------------------------------------
-- name: "Install IBM Maximo Location Services for Esri Operator"
-  include_role:
-    name: ibm.mas_devops.install_operator
-  vars:
+- name: "Create IBM Entitlement Key"
+  ibm.mas_devops.update_ibm_entitlement:
     namespace: "{{ mas_arcgis_namespace }}"
     icr_username: "{{ mas_entitlement_username }}"
     icr_password: "{{ mas_entitlement_key }}"
+    artifactory_username: "{{ artifactory_username }}"
+    artifactory_password: "{{ artifactory_token }}"
+
+- name: "Create ibm-mas-arcgis Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ mas_arcgis_namespace }}"
+    package_name: ibm-mas-arcgis
+    package_channel: "{{ mas_arcgis_channel }}"
     catalog_source: "{{ mas_catalog_source }}"
-    operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
-    subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
+  register: subscription
+
 
 # 6. Wait until the IBM Maximo Location Services CRD is available
 # -----------------------------------------------------------------------------

@@ -1,0 +1,21 @@
+---
+- name: Retrieve Manage workspace CR
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ mas_ws_cr_name }}"
+    namespace: "{{ manage_namespace }}"
+    kind: ManageWorkspace
+  register: workspaceCR
+  retries: 3
+  delay: 10
+  until:
+    - workspaceCR.resources | length > 0
+
+- name: Check if Civil is enabled and image stitching is available
+  set_fact:
+    stitchingAvailable: "{{ workspaceCR.resources[0].status.components.civil is defined and workspaceCR.resources[0].status.components.civil.enabled and workspaceCR.resources[0].status.components.civil.deployimagestitching is defined }}"
+
+- name: Configure stitching
+  include_tasks: tasks/configure-stitching.yml
+  when:
+    - stitchingAvailable

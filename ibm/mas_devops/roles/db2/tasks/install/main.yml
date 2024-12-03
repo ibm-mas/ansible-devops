@@ -157,12 +157,14 @@
 - name: "Delete old db2 subscription, operand request and csv from {{ ibm_common_services_namespace }}"
   include_tasks: "tasks/delete_db2_operand_request.yml"
 
+
 - name: "Create Db2 Universal Operator Subscription in {{ db2_namespace }} namespace"
-  include_tasks: "{{ role_path }}/../../common_tasks/create_subscription.yml"
-  vars:
-    subscription_namespace: "{{ db2_namespace }}"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ db2_namespace }}"
     package_name: db2u-operator
-    channel_name: "{{ db2_channel }}"
+    package_channel: "{{ db2_channel }}"
+  register: subscription
+
 
 # 7. Get the cluster subdomain to be used for the certificate and route creation
 # -----------------------------------------------------------------------------
@@ -317,7 +319,7 @@
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
-    name: "db2u-certificate"
+    name: "db2u-certificate-{{db2_instance_name}}"
     namespace: "{{db2_namespace}}"
   register: _db2_instance_certificates
 

@@ -2,49 +2,38 @@
 # The MongoDB version is based on the chosen ibm-operator-catalog.  However the
 # ibm-operator-catalog does not explicitly include information about the mongo version.
 #
-# The configuration files in common_vars/casebundles do specify the MongoDB
-# version for each of the MAS published ibm-operator-catalog catalogs.
-#
-# To determine which common_vars/casebundles configuration file to use, this role
+# To determine which catalog metadata to use, this role
 # extracts the catalog_tag from the ibm-operator-catalog's displayName.
 #
 # For example:
 #   displayName: IBM Maximo Operators (v9-240625-amd64)
 #
 # catalog_tag is v9-240625-amd64
-# MongoDB version will be determined by loading common_vars/casebundles/v9-240625-amd64.yml
+# MongoDB version will be determined from the catalog metadata (get_catalog_info.py)
 #
 # And FINALLY...
 #   If the MongoDB version cannot be determined from the above logic,
-#   the MongoDB version will be determined by the last configuration file in
-#   common_vars/casebundles/
+#   the MongoDB version will be determined by the most recent catalog data
+#   available (get_newest_catalog_tag.py)
 #
 #   And if still it cannot be determined because perhaps its not specified in the
 #   configuration file, a default value will be used.
 
-# List the common_vars/casebundle configuration files if last_catalog_tag is not defined
-- block:
-    - name: "List yml files in common_vars/casebundles folder"
-      find:
-        paths: "{{ role_path }}/../../common_vars/casebundles"
-        patterns: "*.yml"
-        file_type: "file"
-      register: find_result
-
-    - debug:
-        var: find_result
-
-    # Determine the last configuration file in the list just in case we need it later
-    - set_fact:
-        last_catalog_tag: "{{ find_result['files'] | map(attribute='path') | map('regex_replace', '^.*/(.*).yml$', '\\1') | sort |last }}"
-      when: find_result is defined
+- name: "Lookup the latest version of the Maximo Operator Catalog"
   when: last_catalog_tag is not defined or last_catalog_tag == ""
+  block:
+    - name: "Get newest operator catalog tag"
+      ibm.mas_devops.get_newest_catalog_tag:
+        arch: amd64
+      register: _newest_catalog
+    - name: "Store tag in last_catalog_tag"
+      set_fact:
+        last_catalog_tag: "{{ _newest_catalog.result }}"
 
-# Display the Last Catalog Version
 - name: "Display the Last Catalog Version"
   debug:
-    msg:
-      - "Last Catalog Version ............................ {{ last_catalog_tag }}"
+    msg: "Last Catalog Version ................... {{ last_catalog_tag | default('<unknown>') }}"
+
 
 # 1. Get the IBM Catalog if available
 # -----------------------------------------------------------------------------
@@ -57,49 +46,32 @@
   register: catalog_lookup
 
 - name: "Determine catalog version from catalog displayName"
-  block:
-    # extract the catalog tag from displayName
-    - set_fact:
-        catalog_tag: "{{ catalog_lookup.resources[0].spec.displayName.split('(')[1].split(')')[0].split(' ')[0] }}"
-      when:
-        - catalog_lookup is defined
-        - catalog_lookup.resources is defined
-        - catalog_lookup.resources | length > 0
-        - catalog_lookup.resources[0].spec is defined
-        - catalog_lookup.resources[0].spec.displayName is defined
-        - '"(" in catalog_lookup.resources[0].spec.displayName'
+  when:
+    - catalog_lookup is defined
+    - catalog_lookup.resources is defined
+    - catalog_lookup.resources | length > 0
+    - catalog_lookup.resources[0].spec is defined
+    - catalog_lookup.resources[0].spec.displayName is defined
+    - '"(" in catalog_lookup.resources[0].spec.displayName'
+  set_fact:
+    catalog_tag: "{{ catalog_lookup.resources[0].spec.displayName.split('(')[1].split(')')[0].split(' ')[0] }}"
 
-    - name: Check if file exists in casebundles
-      stat:
-        path: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
-      register: file_exists_result
-      when: catalog_tag is defined and catalog_tag != ""
-
-    # use last_catalog_tag if the casebundles file does not exist
-    - set_fact:
-        catalog_tag: "{{ last_catalog_tag }}"
-      when:
-        - file_exists_result is defined
-        - file_exists_result.stat is defined
-        - file_exists_result.stat.exists is defined
-        - not file_exists_result.stat.exists
-        - last_catalog_tag is defined and last_catalog_tag != ""
-
-    # use last_catalog_tag if unable to get catalog_tag from displayName
-    - set_fact:
-        catalog_tag: "{{ last_catalog_tag }}"
-      when:
-        - catalog_tag is not defined
-        - last_catalog_tag is defined and last_catalog_tag != ""
-
-  rescue:
-    # use the last_catalog_tag when the catalog_tag cannot be determined from the displayName
-    - set_fact:
-        catalog_tag: "{{ last_catalog_tag }}"
-      when: last_catalog_tag is defined and last_catalog_tag != ""
-
-- name: "Catalog Version"
-  debug:
-    msg:
-      - "Catalog Version ............................ {{ catalog_tag }}"
+- name: "Lookup catalog metadata"
   when: catalog_tag is defined and catalog_tag != ""
+  ibm.mas_devops.get_catalog_info:
+    mas_catalog_version: "{{ catalog_tag }}"
+  register: catalog_metadata
+
+
+# 2. Fallback to the most recent catalog tag
+# -----------------------------------------------------------------------------
+- name: "Default to the newest catalog metadata"
+  when:
+    - catalog_tag is not defined or catalog_tag == "" or not catalog_metadata.success
+    - last_catalog_tag is defined and last_catalog_tag != ""
+  set_fact:
+    catalog_tag: "{{ last_catalog_tag }}"
+
+- name: "Catalog Version (Final)"
+  debug:
+    msg: "Catalog Version ........................ {{ catalog_tag | default('<unknown>')}}"

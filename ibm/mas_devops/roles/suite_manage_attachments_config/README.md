@@ -18,7 +18,7 @@ Available options are:
   - `ibm`: Configures IBM Cloud Object Storage as storage system for Manage attachments. 
   - `aws`: Configures Amazon S3 buckets as storage system for Manage attachments.
   
-  **Note:** If using `ibm` or `aws` as attachments provider, the [`cos_bucket`](../roles/cos_bucket.md) role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments, i.e. `IBMCLOUD_APIKEY` and `COS_INSTANCE_NAME`.
+  **Note:** If using `ibm` or `aws` as attachments provider, the [`cos_bucket`](../roles/cos_bucket.md) role will be executed to setup a new or existing targeted COS bucket to be used to store Manage attachments, therefore make sure you set the expected variables to customize your COS bucket for Manage attachments, i.e. `COS_APIKEY` and `COS_INSTANCE_NAME`.
 
   **Note about S3:** To run this role successfully for AWS s3 buckets, you must have already installed the [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).Also, you need to have AWS user credentials configured via `aws configure` command or simply export `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables with your corresponding AWS username credentials prior running this role.
 

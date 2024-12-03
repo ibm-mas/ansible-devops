@@ -223,7 +223,7 @@ There are two defaulted File Storage Persistent Volumes Claim resources that wil
 The following properties can be defined to customize the persistent volumes for the JMS queues setup for Manage.
 
 ### mas_app_settings_jms_queue_pvc_storage_class
-Provide the persistent volume storage class to be used for JMS queue configuration.
+Provide the persistent volume storage class to be used for JMS queue configuration. Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) access modes are supported.
 **Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
 
 - Optional
@@ -276,6 +276,7 @@ The following properties can be defined to customize the persistent volumes for 
 
 ### mas_app_settings_doclinks_pvc_storage_class
 Provide the persistent volume storage class to be used for doclinks/attachments configuration.
+Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
 
 - Optional
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_STORAGE_CLASS`
@@ -316,7 +317,7 @@ The following properties can be defined to customize the persistent volumes for 
 
 ### mas_app_settings_bim_pvc_storage_class
 Provide the persistent volume storage class to be used for Building Information Models configuration.
-
+Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
 - Optional
 - Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_STORAGE_CLASS`
 - Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.

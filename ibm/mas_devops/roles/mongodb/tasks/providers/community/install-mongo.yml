@@ -1,53 +1,27 @@
 ---
-# The MongoDB version is based on the chosen ibm-operator-catalog.  However the
-# ibm-operator-catalog does not explicitly include information about the mongo version.
-#
-# The configuration files in common_vars/casebundles do specify the MongoDB
-# version for each of the MAS published ibm-operator-catalog catalogs.
-#
-# To determine which common_vars/casebundles configuration file to use, this role
-# extracts the catalog_tag from the ibm-operator-catalog's displayName.
-#
-# For example:
-#   displayName: IBM Maximo Operators (v9-240625-amd64)
-#
-# catalog_tag is v9-240625-amd64
-# MongoDB version will be determined by loading common_vars/casebundles/v9-240625-amd64.yml
-#
-# And FINALLY...
-#   If the MongoDB version cannot be determined from the above logic,
-#   the MongoDB version will be determined by the last configuration file in
-#   common_vars/casebundles/
-#
-#   And if still it cannot be determined because perhaps its not specified in the
-#   configuration file, a default value will be used.
-
-# 1. Get the IBM Catalog if available
+# 1. Load default settings
 # -----------------------------------------------------------------------------
+- name: "Determine Version of Maximo Operator Catalog"
+  include_tasks: tasks/determine-ibmcatalog-tag.yml
 
-- include_tasks: tasks/determine-ibmcatalog-tag.yml
-
-# 2. Load default settings
-# -----------------------------------------------------------------------------
-- name: Check again if file exists in casebundles
-  stat:
-    path: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
-  register: stat_result
-  when: catalog_tag is defined and catalog_tag != ""
-
-- name: Load CASE bundle versions
-  include_vars:
-    file: "{{ role_path }}/../../common_vars/casebundles/{{ catalog_tag }}.yml"
-  when: stat_result is defined and stat_result.stat.exists
-
-- name: Set mongo version to default value when no catalog
-  set_fact:
-    mongo_extras_version: "{{ mongo_extras_version_default }}"
-  when: mongo_extras_version is not defined
+- name: Load Catalog Metadata
+  when:
+    - mongo_extras_version is not defined or mongo_extras_version == ""
+    - catalog_tag is defined and catalog_tag != ""
+  block:
+    - ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: _mas_catalog
+    - debug:
+        var: _mas_catalog
+    - name: "Set mongo version to default value if not explicitly set"
+      set_fact:
+        mongo_extras_version: "{{ _mas_catalog.mongo_extras_version_default }}"
 
 - name: "Mongo Version"
   debug:
     msg:
+      - "Maximo Operator Catalog .................. {{ catalog_tag }}"
       - "Mongo Version ............................ {{ mongo_extras_version }}"
 
 - name: Load mongo defaults
@@ -84,7 +58,8 @@
     target_mongodb_readinessprobe_image: "{{ mongodb_readinessprobe_image_registry }}/{{ mongodb_readinessprobe_image_name }}@{{ mongodb_readinessprobe_image_digest }}"
     target_mongodb_image: "{{ mongodb_image_registry }}/{{ mongodb_image_name }}@{{ mongodb_image_digest }}"
 
-# 3. Debug Properties
+
+# 2. Debug Properties
 # -----------------------------------------------------------------------------
 - name: "community : install : Debug properties"
   debug:
@@ -125,21 +100,24 @@
     - existing_mongo_operator.resources[0] is defined
     - existing_mongo_operator.resources[0].spec.containers[0].image != target_mongodb_operator_image
 
-# 5. Install the CRD
+
+# 3. Install the CRD
 # -----------------------------------------------------------------------------
 - name: "community : install : Install MongoDBCommunity CRD"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/crd.yml.j2') }}"
 
-# 6. Create namespace & install RBAC
+
+# 4. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
 - name: "community : install : Create namespace & install RBAC"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/rbac.yml.j2') }}"
 
-# 7. Configure anyuid permissions in the MongoDb namespace
+
+# 5. Configure anyuid permissions in the MongoDb namespace
 # -----------------------------------------------------------------------------
 - name: "community : install : Configure anyuid permissions in the MongoDb namespace"
   shell: |
@@ -151,7 +129,8 @@
   shell: |
     oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-database
 
-# 8. Install the operator
+
+# 6. Install the operator
 # -----------------------------------------------------------------------------
 - name: "community : install : Install the MongoDb Operator"
   kubernetes.core.k8s:
@@ -162,7 +141,8 @@
       status: "True"
       type: Available
 
-# 9. Configure TLS using cert manager
+
+# 7. Configure TLS using cert manager
 # -----------------------------------------------------------------------------
 - name: "Create a issuer in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
@@ -230,7 +210,8 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/tls.yml') }}"
 
-# 10. Create MongoDb admin user credentials secret
+
+# 8. Create MongoDb admin user credentials secret
 # -----------------------------------------------------------------------------
 - name: "community : install : Check for existing user password secret"
   kubernetes.core.k8s_info:
@@ -248,7 +229,8 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/admin-password.yml') }}"
 
-# 10.1 Create MongoDb metrics endpoint secret
+
+# 9. Create MongoDb metrics endpoint secret
 # -----------------------------------------------------------------------------
 - name: "community : install : Check for existing metrics endpoint secret"
   kubernetes.core.k8s_info:
@@ -269,7 +251,8 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/metrics-endpoint-secret.yml.j2') }}"
 
-# 11. Deploy the cluster
+
+# 10. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "community : install : Install new MongoDB cluster CR"
   kubernetes.core.k8s:
@@ -314,7 +297,8 @@
     - not controlled_upgrade
     - mongodb_ce_version is version('0.7.0', '==')
 
-# 12. Wait for the cluster to be ready
+
+# 11. Wait for the cluster to be ready
 # status.version on the mongo cr is not available with older mongo operators
 # -----------------------------------------------------------------------------
 - name: Delete existing mongo statefulsets if running mongo upgrade
@@ -404,7 +388,8 @@
     - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version is defined) or mongodb_ce_version is version('0.7.0', '==')
     - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version == expected_mongodb_version) or mongodb_ce_version is version('0.7.0', '==')
 
-# 12.1 Create MongoDb service monitor
+
+# 12. Create MongoDb service monitor
 # -----------------------------------------------------------------------------
 - name: "community : install : Check for existing service monitor"
   kubernetes.core.k8s_info:
@@ -425,7 +410,8 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/servicemonitor.yml.j2') }}"
 
-# 12.2 Create MongoDb Grafana dashboard
+
+# 13. Create MongoDb Grafana dashboard
 # -----------------------------------------------------------------------------
 - name: Get cluster info
   kubernetes.core.k8s_cluster_info:
@@ -491,7 +477,8 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/dashboards/mongodb-overview-v5.yml.j2') }}"
 
-# 13. Create MAS MongoCfg
+
+# 14. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
 # Lookup the mongo pods
 - name: Create the MAS MongoCfg only if we are not in a controlled-upgrade flow

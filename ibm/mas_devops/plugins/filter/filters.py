@@ -8,6 +8,7 @@
 import yaml
 import re
 
+
 def private_vlan(vlans):
   """
     filter: private_vlan
@@ -49,6 +50,7 @@ def public_vlan(vlans):
   public_vlan = [x['id'] for x in vlans if x['type'] == 'public'][0]
   return public_vlan
 
+
 def appws_components(components):
   """
       filter: appws_components
@@ -74,6 +76,7 @@ def appws_components(components):
       components_yaml[split_component[0]] = {'version': split_component[1]}
 
     return components_yaml
+
 
 def db2_overwrite_config(components):
   """
@@ -101,6 +104,7 @@ def db2_overwrite_config(components):
       components_yaml[split_component[0]] = split_component[1]
 
     return components_yaml
+
 
 def string2dict(_string = None):
   """
@@ -130,6 +134,7 @@ def string2dict(_string = None):
       _dict = {}
   return _dict
 
+
 def getAnnotations(annotations = None):
   """
   filter: getAnnotations
@@ -157,6 +162,7 @@ def getAnnotations(annotations = None):
         print("Annotation block processing failed, set the annotation_dict blank")
         annotation_dict =	{}
   return annotation_dict
+
 
 def addAnnotationBlock(cr_definition,annotation_block = None):
   """
@@ -195,6 +201,7 @@ def addAnnotationBlock(cr_definition,annotation_block = None):
 
   return cr_definition
 
+
 def getResourceNames(resourceList):
   """
     filter: getResourceNames
@@ -215,30 +222,6 @@ def getResourceNames(resourceList):
     resourceNames.append(resource['metadata']['name'])
   return resourceNames
 
-def defaultStorageClass(storageClassLookup, storageClassOptions):
-  """
-    filter: defaultStorageClass
-    author: David Parker <parkerda@uk.ibm.com>
-    version_added: 10.0
-    short_description: Return a dict of known storage classes
-    description:
-        - This filter returns the name of an available storage class from the list of options provided
-    options:
-      _storageClassLookup:
-        description: list of storageclass resources
-        required: True
-      _storageClassOptions:
-        description: list of storageclasses that are supported, the first one found in the results will be used
-        required: True
-    notes:
-      - limited error handling, will not handle unexpected data currently
-  """
-  for classOptionName in storageClassOptions:
-    for storageClass in storageClassLookup["resources"]:
-      if storageClass['metadata']['name'] == classOptionName:
-        return classOptionName
-  # We couldn't find a suitable storage class
-  return ""
 
 def getWSLProjectId(wslProjectLookup, wslProjectName):
   """
@@ -263,6 +246,7 @@ def getWSLProjectId(wslProjectLookup, wslProjectName):
       return wslProject['metadata']['guid']
   # Project not found
   return ""
+
 
 def setManagePVC(data, mountPath, pvcName, pvcSize, storageClassName, accessMode, volumeName = None):
   """
@@ -293,7 +277,7 @@ def setManagePVC(data, mountPath, pvcName, pvcSize, storageClassName, accessMode
   """
   pvc_list = []
 
-  persistentVolumes = {  
+  persistentVolumes = {
     "accessModes": [accessMode],
     "mountPath": mountPath,
     "pvcName": pvcName,
@@ -307,6 +291,7 @@ def setManagePVC(data, mountPath, pvcName, pvcSize, storageClassName, accessMode
   for pvc in data:
     pvc_list.append(pvc)
   return pvc_list
+
 
 def setManageBirtProperties(data, rptRoute, rptServerBundleName):
   sb_list = []
@@ -345,6 +330,7 @@ def setManageDoclinksProperties(data, doclinkPath01, bucketName, accessKey, secr
     sb_list.append(sb)
   return sb_list
 
+
 def setManageFsDoclinksProperties(data, manage_url):
   sb_list = []
   for sb in data:
@@ -355,6 +341,7 @@ def setManageFsDoclinksProperties(data, manage_url):
       sb['bundleLevelProperties']=   f"mxe.doclink.doctypes.topLevelPaths=/DOCLINKS\nmxe.doclink.doctypes.defpath=/DOCLINKS/default\nmxe.doclink.path01=/DOCLINKS=https://{manage_url}/maximo/oslc/doclinks\nmxe.doclink.securedAttachment=true\nmxe.report.AttachDoc.validateURL=0\nmxe.attachmentstorage=null"
     sb_list.append(sb)
   return sb_list
+
 
 def _setSystemProperties(data, meaweb_value, oslc_rest_value, webapp_value, rest_webapp_value):
 
@@ -369,6 +356,7 @@ def _setSystemProperties(data, meaweb_value, oslc_rest_value, webapp_value, rest
     sb_list.append(sb)
   return sb_list
 
+
 def format_pre_version_with_plus(data):
   """
   Versions in format 9.0.0-pre.stable-3757 cannot be used to compare with the version
@@ -378,6 +366,7 @@ def format_pre_version_with_plus(data):
   if "pre" not in data or data.count("-") < 2:
     return data
   return data[::-1].replace("-", "+", 1)[::-1]
+
 
 def format_pre_version_without_buildid(data):
   """
@@ -389,6 +378,7 @@ def format_pre_version_without_buildid(data):
     return data
   return data[:data.rfind("-")]
 
+
 def get_db2_instance_name(binding_scope, mas_instance_id, mas_workspace_id, mas_application_id):
   if binding_scope == "":
     return ""
@@ -398,6 +388,7 @@ def get_db2_instance_name(binding_scope, mas_instance_id, mas_workspace_id, mas_
     "workspace-application": f'mas-{mas_instance_id}-{mas_workspace_id}-{mas_application_id}'
   }
   return jdbc_instance_names[binding_scope]
+
 
 class FilterModule(object):
   def filters(self):
@@ -410,7 +401,6 @@ class FilterModule(object):
       'string2dict': string2dict,
       'getAnnotations': getAnnotations,
       'getResourceNames': getResourceNames,
-      'defaultStorageClass': defaultStorageClass,
       'getWSLProjectId': getWSLProjectId,
       'setManagePVC': setManagePVC,
       'setManageBirtProperties': setManageBirtProperties,

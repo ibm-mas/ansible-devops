@@ -1,8 +1,8 @@
 ---
-- name: "Fail if ibmcloud_apikey is not provided"
+- name: "Fail if cos_apikey is not provided"
   assert:
-    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
-    fail_msg: "ibmcloud_apikey property is required"
+    that: cos_apikey is defined and cos_apikey != ""
+    fail_msg: "cos_apikey property is required"
 
 # 1. Determine the instance name
 # ---------------------------------------------------------------------------------------------------------------------
@@ -39,7 +39,7 @@
 - name: Fetch IBM Cloud Resource Group Id
   ibm.cloudcollection.ibm_resource_group_info:
     name: "{{ cos_resourcegroup }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    ibmcloud_api_key: "{{ cos_apikey }}"
   register: rg_info
 
 - name: Fetch IBM COS Information
@@ -48,7 +48,7 @@
     resource_group_id: "{{ rg_info.resource.id }}"
     service: "{{ cos_service }}"
     location: "{{ cos_location_info }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
   register: cos_info
   failed_when: cos_info.rc != 0 and "No resource instance found" not in cos_info.stderr
 
@@ -77,7 +77,7 @@
         service: "cloud-object-storage"
         plan: "{{ cos_plan_type }}"
         location: "{{ cos_location_info }}"
-        ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+        ibmcloud_api_key: "{{ cos_apikey  }}"
         state: absent
       register: cos_deprovision_output
 

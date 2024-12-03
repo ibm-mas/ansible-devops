@@ -1,8 +1,8 @@
 ---
-- name: "Fail if ibmcloud_apikey is not provided"
+- name: "Fail if cos_apikey is not provided"
   assert:
-    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
-    fail_msg: "ibmcloud_apikey property is required"
+    that: cos_apikey is defined and cos_apikey != ""
+    fail_msg: "cos_apikey property is required"
 
 # 1. Determine the instance name
 # ---------------------------------------------------------------------------------------------------------------------
@@ -37,7 +37,7 @@
 - name: "ibm : Retrieve resource group guid"
   ibm.cloudcollection.ibm_resource_group_info:
     name: "{{ cos_resourcegroup }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    ibmcloud_api_key: "{{ cos_apikey }}"
   register: rg_info
 
 - name: "ibm : Debug group GUID"
@@ -61,10 +61,10 @@
     service: "{{ cos_service }}"
     plan: "{{ cos_plan_type }}"
     location: "{{ cos_location_info }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
   register: cos_output
 
-- name: "Fail if IBMCOS resource ID not found"
+- name: "Fail if COS resource ID not found"
   assert:
     that:
       - not cos_output.failed
@@ -76,14 +76,14 @@
     resource_group_id: "{{ resourceGID }}"
     service: "{{ cos_service }}"
     location: "{{ cos_location_info }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
   register: cos_info
 
-- name: "ibm : Debug IBMCOS resource ID"
+- name: "ibm : Debug COS resource ID"
   debug:
     msg: "COS Instance resource ID ... {{ cos_info.resource.id }}"
 
-- name: "ibmcos: Set resource instance id variable"
+- name: "cos: Set resource instance id variable"
   when: cos_info.resource.id is defined
   set_fact:
     cos_resource_id: "{{ cos_info.resource.id }}"
@@ -96,7 +96,7 @@
     name: "{{ mas_instance_id }}-key"
     role: "{{ cos_resource_key_iam_role }}"
     resource_instance_id: "{{ cos_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    ibmcloud_api_key: "{{ cos_apikey }}"
     parameters:
       HMAC: "{{ cos_use_hmac }}"
 
@@ -104,7 +104,7 @@
   ibm.cloudcollection.ibm_resource_key_info:
     name: "{{ mas_instance_id }}-key"
     resource_instance_id: "{{ cos_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    ibmcloud_api_key: "{{ cos_apikey }}"
   register: cos_key_info
 
 - name: "ibm : Debug COS Key Resource"

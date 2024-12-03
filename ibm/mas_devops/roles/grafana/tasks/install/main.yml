@@ -17,11 +17,29 @@
   register: uwm_secret_lookup
   no_log: true
 
+- name: "install : Check for existing user workload monitoring configmap"
+  kubernetes.core.k8s_info:
+    api: v1
+    kind: ConfigMap
+    name: cluster-monitoring-config
+    namespace: openshift-monitoring
+  register: cluster_monitoring_configmap
+
+# If the monitoring config doesn't exist we just create a new configmap with just the enableUserWorkload added
+- name: "install : Creating a new configmap for user workload monitoring"
+  when: cluster_monitoring_configmap.resources | length == 0
+  set_fact:
+    cluster_monitoring_data: "{{ {'enableUserWorkload': True} }}"
+
+# If the monitoring config does exist, we can just grap the existing yaml and override the enableUserWorkload value
+- name: "update : extracting existing data from configmap"
+  when: cluster_monitoring_configmap.resources | length > 0
+  set_fact:
+    cluster_monitoring_data: "{{ cluster_monitoring_configmap.resources[0].data['config.yaml'] | from_yaml | combine({'enableUserWorkload': True}) }}"
+
 - name: "install : Configure User Workload Monitoring"
-  when: uwm_secret_lookup.resources | length == 0
   kubernetes.core.k8s:
     template: templates/cluster-monitoring-config.yml.j2
-
 
 - name: "Debug version"
   debug:
@@ -42,17 +60,18 @@
 # 4. Create Grafana Subscription
 # -----------------------------------------------------------------------------
 - name: "install : Create Grafana v{{grafana_major_version}} Subscription"
-  include_tasks: "{{ role_path }}/../../common_tasks/create_subscription.yml"
-  vars:
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ grafana_namespace }}"
     package_name: grafana-operator
-    channel_name: "v{{grafana_major_version}}"
-    subscription_namespace: "{{ grafana_namespace }}"
-    subscription_config:
+    package_channel: "v{{grafana_major_version}}"
+    config:
       env:
         - name: "WATCH_NAMESPACE"
           value: ""
         - name: "DASHBOARD_NAMESPACES_ALL"
           value: "true"
+  register: subscription
+
 
 # 5. Configure Grafana Operator so it can scan all namespaces for dashboards
 # -------------------------------------------------------------------------------------

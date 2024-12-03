@@ -40,7 +40,6 @@ copyDoc gencfg_workspace
 copyDoc grafana
 copyDoc ibm_catalogs
 copyDoc ibmcloud_resource_key
-copyDoc install_operator
 copyDoc kafka
 copyDoc key_rotation
 copyDoc kmodels
@@ -86,6 +85,7 @@ copyDoc suite_manage_bim_config
 copyDoc suite_manage_birt_report_config
 copyDoc suite_manage_customer_files_config
 copyDoc suite_manage_attachments_config
+copyDoc suite_manage_imagestitching_config
 copyDoc suite_manage_import_certs_config
 copyDoc suite_manage_load_dbc_scripts
 copyDoc suite_manage_logging_config
