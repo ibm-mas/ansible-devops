@@ -11,11 +11,10 @@ Four actions are supported:
 Three **Catalogs** are mirrored, containing the following content:
 
 ### certified-operator-index
-1. crunchy-postgres-operator (required by ibm.mas_devops.uds role)
-2. gpu-operator-certified (required by ibm.mas_devops.nvidia_gpu role)
-3. kubeturbo-certified (required by ibm.mas_devops.kubeturbo role)
-4. ibm-metrics-operator (required by ibm.mas_devops.dro role)
-5. ibm-data-reporter-operator (required by ibm.mas_devops.dro role)
+1. gpu-operator-certified (required by ibm.mas_devops.nvidia_gpu role)
+2. kubeturbo-certified (required by ibm.mas_devops.kubeturbo role)
+3. ibm-metrics-operator (required by ibm.mas_devops.dro role)
+4. ibm-data-reporter-operator (required by ibm.mas_devops.dro role)
 
 ### community-operator-index
 1. grafana-operator (required by ibm.mas_devops.grafana role)
