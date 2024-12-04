@@ -15,8 +15,12 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 slsUrl = sys.argv[1]
 slsRegistrationKey = sys.argv[2]
-#print(slsUrl)
-#print(slsRegistrationKey)
+
+caCertificateForSSL = sys.argv[3]
+print('slsUrl='+slsUrl)
+print(slsRegistrationKey)
+print("caCertificateForSSL")
+print(caCertificateForSSL)
 # --------------------------------------------------------------------------------------------------------------------------------
 # - 
 # - Configuration section - you need to complete steps 1-5
@@ -37,17 +41,17 @@ offeringName = "aibroker"
 # 2: Provide am identifier for your instance. This should be pseudounique, so chances of collisions are low. For example, based on the cluster 
 #    identity, or a pseudo unique UUID created at initial installation time
 
-instanceIdentifier = generate_api_key()
+instanceIdentifier = generate_api_key() #"xxxx"
 #print("id")
 print(instanceIdentifier)
 
 # 3: Provide the SLS instance URL (SRE will give you this)
 
-
+#slsUrl = "https://sls.ibm-sls.ibm-sls.apps.xxx.cp.fyre.ibm.com"
 
 # 4: Provide the SLS registration key (SRE will give you this)
 
-
+#slsRegistrationKey = "xxxx"
 
 # 5: Decide if you want the demonstration to tear down your client afterwards (as you would do in a deprovision). If not, the client
 #    will remain registered for you to experiment with.
@@ -90,11 +94,12 @@ else:
     pass
 
     # Make initial registration request
+    print("will use certificate for client provisioning ")
     data = {'clientId': slsClientId, 'description': 'ALM sample client registration', 'role': 'manage'} # TODO: Rawa - Swagger docs incorrectly state 'id' rather than 'clientId'
     headers = {'X-Registration-Key': slsRegistrationKey} # TODO: Rawa - Swagger docs don't document the need for this critical header
 
     #print ("Making initial registration request for client "+slsClientId)
-    response = requests.post(slsUrl+"/api/registrations",verify=False,json=data, headers=headers )     
+    response = requests.post(slsUrl+"/api/registrations",verify=caCertificateForSSL,json=data, headers=headers )     
     response.raise_for_status()
 
     registrationId = response.json()['registrationId']
@@ -106,10 +111,10 @@ else:
     provisioningWaiting = True
     while provisioningWaiting:
         headers = {'X-Registration-Key': slsRegistrationKey}
-        response = requests.get(slsUrl+"/api/registrations/"+registrationId,verify=False,headers=headers )     
+        response = requests.get(slsUrl+"/api/registrations/"+registrationId,verify=caCertificateForSSL,headers=headers )     
         response.raise_for_status()
         status = response.json()['state']
-        #print("Waiting for client provisioning to be completed. Current status: %s" %status)
+        print("Waiting for client provisioning to be completed. Current status: %s" %status)
         if status=="AWAITING_CONFIRMATION":
                 # We are now ready to proceed; client certs are available
                 #print ("Extracting client certificates")
@@ -128,12 +133,12 @@ else:
     # The next step is to confirm the client. Poll status until complete.
     confirmationWaiting = True
     while confirmationWaiting:      
-        response = requests.get(slsUrl+"/api/clients/"+slsClientId,verify=False, cert=(clientTlsCrtPath,clientTlsKeyPath))  
+        response = requests.get(slsUrl+"/api/clients/"+slsClientId,verify=caCertificateForSSL, cert=(clientTlsCrtPath,clientTlsKeyPath))  
         #print (response)
         status = response.json()['state']
         #print("Waiting for client registration to be confirmed. Current status: %s" %status)
         if status=="REGISTERED":
-            #print ("Client registration confirmed.")
+            print ("Client registration confirmed.")
             confirmationWaiting = False        
         time.sleep(1)
 
@@ -147,12 +152,12 @@ else:
 def spendAppPoints(quantity):
     #print ("Let's spend "+str(quantity)+" AppPoints")
     data = {'validity': 86400, 'quantity': quantity} 
-    response = requests.put(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=False,json=data,headers = {'Content-type': 'application/json','X-Product-Version': "1.0" },cert=(clientTlsCrtPath,clientTlsKeyPath))     
+    response = requests.put(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=caCertificateForSSL,json=data,headers = {'Content-type': 'application/json','X-Product-Version': "1.0" },cert=(clientTlsCrtPath,clientTlsKeyPath))     
     response.raise_for_status()
 
 # String representation of AppPoint usage by your client. TODO: SLS will shortly be providing an update to correctly report usage for your client. At present, it returns the overall usage across all clients.
 def getUsage():
-    response = requests.get(slsUrl+"/api/tokens/",verify=False,params={"owner":slsClientId},cert=(clientTlsCrtPath,clientTlsKeyPath))     # This will require an SLS update to return usage specific to your owner
+    response = requests.get(slsUrl+"/api/tokens/",verify=caCertificateForSSL,params={"owner":slsClientId},cert=(clientTlsCrtPath,clientTlsKeyPath))     # This will require an SLS update to return usage specific to your owner
     response.raise_for_status()
     j = json.loads(response.content.decode('utf-8'))
     return j[0]['used']
@@ -178,7 +183,7 @@ def getUsage():
 # SIMPLE "single shot"
 # --------------------
 #   - Report AppPoint usage in one go. 
-#   - This means a single, consistent licenseeId at the instance level - for example, licenseeId="", i.e. reusing the SLS clientId is convenient.
+#   - This means a single, consistent licenseeId at the instance level - for example, licenseeId="eis-126745fvabv", i.e. reusing the SLS clientId is convenient.
 #   - Set the quantity to be 25+10 = 35
 #
 #
@@ -187,8 +192,8 @@ def getUsage():
 #   - Report AppPoint usage as a sequence of updates, per capability
 #   - Enables you to use SLS as a way to understand unequivocally breakdown of AppPoint usage by capability
 #   - Each capability has its own licenseeId - for example:
-#           - example:  licenseeId="",quantity=25
-#                       licenseeId="",quantity=10
+#           - example:  licenseeId="eis-126745fvabv-users",quantity=25
+#                       licenseeId="eis-126745fvabv-iopoints",quantity=10
 #  
 # In this code example, we'll do a single shot for simplicity and clarity
 
@@ -235,12 +240,12 @@ if deprovision:
 
 # At deprovision, return your licenses and unregister the client
     print ("Preparing for deprovision: returning any AppPoints to the pool")
-    response = requests.delete(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=False,cert=(clientTlsCrtPath,clientTlsKeyPath))     
+    response = requests.delete(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=caCertificateForSSL,cert=(clientTlsCrtPath,clientTlsKeyPath))     
     response.raise_for_status()
     print("Usage after deprovisioning: "+str(getUsage()))
 
     print ("Preparing for deprovision: unregistering the SLS client")
-    response = requests.delete(slsUrl+"/api/clients/"+slsClientId,verify=False,cert=(clientTlsCrtPath,clientTlsKeyPath))     
+    response = requests.delete(slsUrl+"/api/clients/"+slsClientId,verify=caCertificateForSSL,cert=(clientTlsCrtPath,clientTlsKeyPath))     
     response.raise_for_status()
     #print ("Deleting redundant client certificates")
     os.remove(clientTlsCrtPath)

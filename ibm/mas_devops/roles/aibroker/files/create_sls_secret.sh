@@ -6,7 +6,7 @@ instance_id=$2
 if [ -z ${TENANT} ]; then
   #echo "❌ Missing tenant name"
   #exit 1
-  echo "Usage ./create_sls_secret.sh tenant-name aibroker-instance-id-from-CustomResourceDefinitions sls-url-from-sls-routes slsRegistrationKey-from-sls-api-pod-Environment"
+  echo "Usage ./create_sls_secret.sh tenant-name aibroker-instance-id-from-CustomResourceDefinitions sls-url-from-sls-routes slsRegistrationKey-from-sls-api-pod-Environment path_to_the_ca_crt"
   echo "for example"
   echo "./create_sls_secret.sh aibroker-user aibdev https://sls.ibm-sls.xxx.ibm.com xxxx-xxxx-xxxx-xxx"
   exit 1
@@ -19,7 +19,7 @@ mkdir -p certs
 
 echo "creating SLS registration, please wait....."
 # instanceIdentifier=`python3 {{ role_path }}/files/alm_sample_sls_use.py $3 $4`
-instanceIdentifier=$(python3 ../roles/aibroker/files/alm_sample_sls_use.py $3 $4)
+instanceIdentifier=$(python3 ../roles/aibroker/files/alm_sample_sls_use.py $3 $4 $5)
 echo "SLS registration is created successfully."
 
 registrationKey=$4
