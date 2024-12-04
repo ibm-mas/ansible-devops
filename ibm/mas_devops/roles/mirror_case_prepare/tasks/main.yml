@@ -75,31 +75,7 @@
   register: excludeImagesResult
   loop: "{{ exclude_images }}"
 
-# 6. Generate mirror-manifest
-# -----------------------------------------------------------------------------
-- name: Generate mirror-manifest with image group filter
-  block:
-    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ build_version }} --filter {{ image_group_filter }}"
-      register: ibmpak_gen1_result
-
-    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ build_version }} --final-registry {{ registry_public_url }} --filter {{ image_group_filter }}"
-      register: ibmpak_gen2_result
-  when: image_group_filter is defined
-
-- name: Generate mirror-manifest without image group filter
-  block:
-    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ build_version }}"
-      register: ibmpak_gen1_result
-
-    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ build_version }} --final-registry {{ registry_public_url }}"
-      register: ibmpak_gen2_result
-  when: image_group_filter is not defined
-
-# 7. Collect generated files
+# 6. Prepare for mirror-manifest
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Create target directories (direct)"
   file:
@@ -116,16 +92,26 @@
     path: "{{ mirror_working_dir }}/manifests/from-filesystem"
     state: directory
 
-# 8. Save the manifests to our working directory
-# -----------------------------------------------------------------------------
-# Team messed up the release and the version we will get back is 8.7.0+20230925.114420 rather than 8.7.0
-#
-# Note: We use _manifest_version to avoid conflict with manifest_version that is used as an input to
-# the mirror_images role.  If we set a manifest_version fact it will override the value passed into all
-# mirror_image roles invoked in a playbook.
 - name: "Set manifest version"
   set_fact:
     _manifest_version: "{{ case_version }}"
+
+# 7. Generate mirror-manifest direct
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
+  shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ build_version }} {% if image_group_filter is defined %} --filter {{ image_group_filter }} {% endif %}"
+  register: ibmpak_gen1_result
+
+- name: "{{ case_name }} : Copy images-mapping"
+  ansible.builtin.copy:
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping.txt
+    dest: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ _manifest_version }}.txt"
+
+# 8. Generate mirror-manifest indirect
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
+  shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ build_version }} --final-registry {{ registry_public_url }} {% if image_group_filter is defined %} --filter {{ image_group_filter }} {% endif %}"
+  register: ibmpak_gen2_result
 
 - name: "{{ case_name }} : Copy images-mapping-to-filesystem"
   ansible.builtin.copy:
@@ -137,10 +123,6 @@
     src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping-from-filesystem.txt
     dest: "{{ mirror_working_dir }}/manifests/from-filesystem/{{ case_name }}_{{ _manifest_version }}.txt"
 
-- name: "{{ case_name }} : Copy images-mapping"
-  ansible.builtin.copy:
-    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping.txt
-    dest: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ _manifest_version }}.txt"
 
 # 9. IBM SLS 3.5.0 Bad Digest Hack
 # -----------------------------------------------------------------------------
