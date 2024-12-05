@@ -73,7 +73,7 @@ Instruct the role to setup **CatalogSources** and **ContentSourcePolicy** for th
 - Default: `False`
 
 ### ocp_release
-The Red Hat release you are configuring an image content source policy for, e.g. `4.15`.
+The Red Hat release you are configuring an image content source policy for, e.g. `4.16`.
 
 - **Required** if `setup_redhat_catalogs` is enabled (not required if only `setup_redhat_release` is used)
 - Environment Variable: `OCP_RELEASE`

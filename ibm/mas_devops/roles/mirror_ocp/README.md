@@ -156,7 +156,7 @@ Example Playbook
     mirror_redhat_platform: false
     mirror_redhat_operators: true
 
-    ocp_release: 4.15
+    ocp_release: 4.16
     redhat_pullsecret: ~/pull-secret.json
 
   roles:
