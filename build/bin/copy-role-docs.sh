@@ -40,7 +40,6 @@ copyDoc gencfg_workspace
 copyDoc grafana
 copyDoc ibm_catalogs
 copyDoc ibmcloud_resource_key
-copyDoc install_operator
 copyDoc kafka
 copyDoc key_rotation
 copyDoc kmodels
