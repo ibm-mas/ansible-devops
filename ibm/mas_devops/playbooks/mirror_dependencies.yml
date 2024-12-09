@@ -36,6 +36,7 @@
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('False', True) | bool }}"
     cpd_48_or_higher: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','>=') | bool }}"
     cpd_48: "{{ cpd_product_version is defined and cpd_product_version is version('4.8.0','==') | bool }}"
+    cpd_50: "{{ cpd_product_version is defined and cpd_product_version is version('5.0.0','==') | bool }}"
 
     # 7. Watson Studio Local
     # -------------------------------------------------------------------------
@@ -227,7 +228,7 @@
     # Mirroring another version for Cloud Pak Foundation Services
     - role: ibm.mas_devops.mirror_case_prepare
       when:
-        - mirror_common_svcs
+        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
         - mirror_mode != "from-filesystem"
         - mas_catalog_metadata.common_svcs_version_1 is defined
         - mas_catalog_metadata.common_svcs_version_1 != ""
@@ -244,12 +245,38 @@
 
     - role: ibm.mas_devops.mirror_images
       when:
-        - mirror_common_svcs
+        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
         - mas_catalog_metadata.common_svcs_version_1 is defined
         - mas_catalog_metadata.common_svcs_version_1 != ""
       vars:
         manifest_name: ibm-cp-common-services
         manifest_version: "{{ mas_catalog_metadata.common_svcs_version_1 }}"
+
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+        - mirror_mode != "from-filesystem"
+        - mas_catalog_metadata.common_svcs_version_2 is defined
+        - mas_catalog_metadata.common_svcs_version_2 != ""
+      vars:
+        case_name: ibm-cp-common-services
+        case_version: "{{ mas_catalog_metadata.common_svcs_version_2 }}"
+        exclude_images:
+          - ibm-auditlogging
+          - ibm-cpp
+          - ibm-cs-healthcheck
+          - ibm-cs-monitoring
+          - ibm-events-operator
+        ibmpak_skip_dependencies: false
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_common_svcs or (cpd_48_or_higher and mirror_cp4d)
+        - mas_catalog_metadata.common_svcs_version_1 is defined
+        - mas_catalog_metadata.common_svcs_version_1 != ""
+      vars:
+        manifest_name: ibm-cp-common-services
+        manifest_version: "{{ mas_catalog_metadata.common_svcs_version_2 }}"
 
 
     # 4. IBM Suite License Service
@@ -311,6 +338,7 @@
         extras_name: cp4d
         extras_version: "4.8.0"
 
+
     - role: ibm.mas_devops.mirror_images
       when:
         - mirror_cp4d
@@ -324,6 +352,40 @@
       vars:
         manifest_name: ibm-cp-datacore
         manifest_version: "{{ mas_catalog_metadata.cp4d_platform_version }}"
+
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_cp4d
+        - cpd_50
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: spark
+        extras_version: "3.3.4"
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_cp4d
+        - cpd_50
+      vars:
+        manifest_name: extras_spark
+        manifest_version: "3.3.4"
+
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_cp4d
+        - cpd_50
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: spark
+        extras_version: "3.4.2"
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_cp4d
+        - cpd_50
+      vars:
+        manifest_name: extras_spark
+        manifest_version: "3.4.2"
 
     # 6.2 CP4D Platform - IBM Licensing dependency
     # -------------------------------------------------------------------------
