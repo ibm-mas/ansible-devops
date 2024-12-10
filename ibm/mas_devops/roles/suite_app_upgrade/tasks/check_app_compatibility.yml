@@ -14,9 +14,10 @@
 - name: "{{ mas_app_id }} : Get subscription for {{ mas_app_fqn }}"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
-    name: "{{ mas_app_fqn }}"
-    namespace: "{{ mas_app_namespace }}"
     kind: Subscription
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ mas_app_fqn }}.{{ mas_app_namespace }}"
   register: app_sub_info
 
 - name: "{{ mas_app_id }} : Debug existing Subscription"
@@ -46,7 +47,9 @@
     fail_msg: "Unable to upgrade from {{ app_sub_info.resources[0].spec.channel }} to {{ mas_app_upgrade_target_channel }}"
 
 - name: "{{ mas_app_id }} : Check that install plan approvals are set to 'Automatic'"
-  when: app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
+  when:
+    - app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
+    - app_sub_info.resources[0].spec.installPlanApproval is defined
   assert:
     that: app_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
     fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"
