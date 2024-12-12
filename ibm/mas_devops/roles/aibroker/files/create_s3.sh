@@ -79,7 +79,7 @@ fi
 #   exit 1
 # fi
 
-bucketpostfix='----training-bucket'
+bucketpostfix='-training-bucket'
 if [[ $STORAGE_HOST == *"amazonaws"* ]]; then
   echo 'it is Amazon AWS'
   bucketname=$(python3 ../roles/aibroker/files/create_bucket.py ${TENANT} ${STORAGE_ACCESSKEY} ${STORAGE_SECRETKEY} ${STORAGE_REGION})
