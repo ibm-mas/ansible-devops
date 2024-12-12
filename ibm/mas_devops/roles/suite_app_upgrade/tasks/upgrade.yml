@@ -5,9 +5,10 @@
 - name: "Lookup subscription"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
-    name: "{{ mas_app_fqn }}"
-    namespace: "{{ mas_app_namespace }}"
     kind: Subscription
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ mas_app_fqn }}.{{ mas_app_namespace }}"
   register: suite_app_sub
 
 - name: "Assert subscription exists"
@@ -25,6 +26,9 @@
     definition:
       spec:
         channel: "{{ mas_app_upgrade_target_channel }}"
+        name: "{{ app_sub_info.resources[0].spec.name }}"
+        source: "{{ app_sub_info.resources[0].spec.source }}"
+        sourceNamespace: "{{ app_sub_info.resources[0].spec.sourceNamespace }}"
     apply: true
 
 - name: "Pause for 5 minutes before checking upgrade status..."
