@@ -2,7 +2,7 @@
 # Get Registry facts from environment variables if they have not been passed to the role
 registry_private_host: "{{ lookup('env', 'REGISTRY_PRIVATE_HOST') }}"
 registry_private_port: "{{ lookup('env', 'REGISTRY_PRIVATE_PORT') }}"
-registry_private_url: "{{ registry_private_host }}:{{ registry_private_port }}"
+registry_private_url: "{{ registry_private_host }}{% if registry_private_port != '' %}:{{ registry_private_port }}{% endif %}"
 
 registry_private_ca_file: "{{ lookup('env', 'REGISTRY_PRIVATE_CA_FILE') }}"
 
@@ -12,7 +12,6 @@ registry_auth: "{{ registry_username }}:{{ registry_password }}"
 
 setup_redhat_catalogs: "{{ lookup('env', 'SETUP_REDHAT_CATALOGS') | default('False', true) | bool }}"
 setup_redhat_release: "{{ lookup('env', 'SETUP_REDHAT_RELEASE') | default('False', true) | bool }}"
-ocp_release: "{{ lookup('env', 'OCP_RELEASE') }}"
 
 # Only used in development to add an extra entry to the pull secret enabling pulls
 # from a second mirror registry
@@ -21,10 +20,12 @@ artifactory_username: "{{ lookup('env', 'ARTIFACTORY_USERNAME') }}"
 artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
 artifactory_auth: "{{ artifactory_username }}:{{ artifactory_token }}"
 
-#Optional redhat catalog prefix settings
-env_redhat_catalogs_prefix: "{{ lookup('env', 'REDHAT_CATALOGS_PREFIX') | default('', true) }}"
-redhat_catalogs_prefix: "{% if env_redhat_catalogs_prefix|length > 0 %}{{ env_redhat_catalogs_prefix }}-{% endif %}" # If the prefix is not empty then add a dash
+# Optional Red Hat CatalogSource prefix
+# -----------------------------------------------------------------------------
+redhat_catalogs_prefix: "{{ lookup('env', 'REDHAT_CATALOGS_PREFIX') | default('', true) }}"
 
-#Optional redhat registry prefix settings
-env_registry_prefix: "{{ lookup('env', 'REGISTRY_PREFIX') | default('', true) }}"
-registry_prefix: "{% if env_registry_prefix|length > 0 %}{{ env_registry_prefix }}/{% endif %}" # If the prefix is not empty then add a slash
+# Optional registry prefix
+# -----------------------------------------------------------------------------
+registry_prefix: "{{ lookup('env', 'REGISTRY_PREFIX') | default('', true) }}"
+registry_private_url_with_path: "{{ registry_private_url }}{% if registry_prefix | length > 0 %}/{{ registry_prefix }}{% endif %}"
+idms_suffix: "{% if registry_prefix | length > 0 %}-{{ registry_prefix }}{% endif %}"
