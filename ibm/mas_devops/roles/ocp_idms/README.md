@@ -73,13 +73,6 @@ Instruct the role to setup **CatalogSources** and **ImageDigestMirrorSet** for t
 - Environment Variable: `SETUP_REDHAT_CATALOGS`
 - Default: `False`
 
-### ocp_release
-The Red Hat release you are configuring an image content source policy for, e.g. `4.16`.
-
-- **Required** if `setup_redhat_catalogs` is enabled (not required if only `setup_redhat_release` is used)
-- Environment Variable: `OCP_RELEASE`
-- Default: None
-
 
 Role Variables - Target Registry
 -------------------------------------------------------------------------------
@@ -116,6 +109,20 @@ The password for the target registry.
 
 - **Required**
 - Environment Variable: `REGISTRY_PASSWORD`
+- Default: None
+
+### registry_prefix
+Optional additional path prefixed to all image repositories related to the IBM Maximo Operator Catalog in the target registry.  We recommend the use of the catalog datestamp for this prefix to organize your registry, e.g. `mas-241107`, `mas-241205`.  This should match the value used when you mirrored the images with [mirror_images](mirror_images.md).
+
+- Optional
+- Environment Variable: `REGISTRY_PREFIX`
+- Default: None
+
+### registry_prefix_redhat
+Optional additional path prefixed to all image repositories related to the Red Hat Release and Operator Catalogs in the target registry.  We recommend the use of the OpenShift release for this prefix to organize your registry, e.g. `ocp-412`, `ocp-414`.  This should match the value used when you mirrored the images with [mirror_ocp](mirror_ocp.md).
+
+- **Required**
+- Environment Variable: `REGISTRY_PREFIX_REDHAT`
 - Default: None
 
 ### redhat_catalogs_prefix

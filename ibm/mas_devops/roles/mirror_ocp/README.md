@@ -118,10 +118,11 @@ The public port number for the target registry
 - Environment Variable: `REGISTRY_PUBLIC_PORT`
 - Default: None
 
-### registry_prefix
-The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: {host}:{port}/{prefix}/{reponame}
+### registry_prefix_redhat
+The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: `{host}[:{port}]/{prefix}/{reponame}`
 
-- Environment Variable: `REGISTRY_PREFIX`
+- Optional
+- Environment Variable: `REGISTRY_PREFIX_REDHAT`
 - Default: None
 
 ### registry_username
@@ -147,7 +148,7 @@ Example Playbook
   vars:
     registry_public_host: myregistry.mycompany.com
     registry_public_port: 5000
-    registry_prefix: projectName
+    registry_prefix_redhat: "ocp416"
     registry_username: user1
     registry_password: 8934jk77s862!  # Not a real password, don't worry security folks
 
