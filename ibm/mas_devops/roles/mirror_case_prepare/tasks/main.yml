@@ -8,7 +8,7 @@
       - case_name is defined and case_name != ""
       - case_version is defined and case_version != ""
       - mirror_working_dir is defined and mirror_working_dir != ""
-      - registry_public_url is defined and registry_public_url != ":"
+      - registry_public_url_with_path is defined and registry_public_url_with_path != ":"
     fail_msg: "One or more required properties are missing"
 
 # 2. Check for required software
@@ -51,13 +51,15 @@
   shell: oc ibm-pak get {{ case_name }} --version {{ case_version }} {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}
   register: ibmpak_get_result
 
-# Team messed up the release and the version we will get back is 8.7.0+20230925.114420 rather than 8.7.0
-- name: "Workaround for ibm-mas-manage 8.7.0"
-  when:
-    - case_name == "ibm-mas-manage"
-    - case_version == "8.7.0"
+- name: "{{ case_name }} : Get Build from output"
   set_fact:
-    case_version: "8.7.0+20230925.114420"
+    build_version: "{{ ibmpak_get_result.stdout | regex_search(regex,'\\1') | first }}"
+  vars:
+    regex: 'version: ([a-zA-Z0-9\+\.\-]*) is complete'
+
+- name: "{{ case_name }} : Debug build version"
+  debug:
+    var: build_version
 
 # 5. Remove excluded images
 # -----------------------------------------------------------------------------
@@ -66,38 +68,14 @@
   when:
     - exclude_images is defined
     - exclude_images | length > 0
-  shell: rm ~/.ibm-pak/data/cases/{{ case_name }}/{{ case_version }}/{{ item }}-*-images.csv
+  shell: rm ~/.ibm-pak/data/cases/{{ case_name }}/{{ build_version }}/{{ item }}-*-images.csv
   # We ignore errors, because if we can't delete something that isn't there it
   # doesn't really matter, e.g. removing ibm-mas-safety which isn't present since MAS v8.8
   ignore_errors: true
   register: excludeImagesResult
   loop: "{{ exclude_images }}"
 
-# 6. Generate mirror-manifest
-# -----------------------------------------------------------------------------
-- name: Generate mirror-manifest with image group filter
-  block:
-    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ case_version }} --filter {{ image_group_filter }}"
-      register: ibmpak_gen1_result
-
-    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ case_version }} --final-registry {{ registry_public_url }} --filter {{ image_group_filter }}"
-      register: ibmpak_gen2_result
-  when: image_group_filter is defined
-
-- name: Generate mirror-manifest without image group filter
-  block:
-    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ case_version }}"
-      register: ibmpak_gen1_result
-
-    - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
-      shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ case_version }} --final-registry {{ registry_public_url }}"
-      register: ibmpak_gen2_result
-  when: image_group_filter is not defined
-
-# 7. Collect generated files
+# 6. Prepare for mirror-manifest
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Create target directories (direct)"
   file:
@@ -114,38 +92,37 @@
     path: "{{ mirror_working_dir }}/manifests/from-filesystem"
     state: directory
 
-# 8. Save the manifests to our working directory
-# -----------------------------------------------------------------------------
-# Team messed up the release and the version we will get back is 8.7.0+20230925.114420 rather than 8.7.0
-#
-# Note: We use _manifest_version to avoid conflict with manifest_version that is used as an input to
-# the mirror_images role.  If we set a manifest_version fact it will override the value passed into all
-# mirror_image roles invoked in a playbook.
 - name: "Set manifest version"
   set_fact:
     _manifest_version: "{{ case_version }}"
 
-- name: "Workaround for ibm-mas-manage 8.7.0"
-  when:
-    - case_name == "ibm-mas-manage"
-    - case_version == "8.7.0+20230925.114420"
-  set_fact:
-    _manifest_version: "8.7.0"
+# 7. Generate mirror-manifest direct
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
+  shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url_with_path }} --version {{ build_version }} {% if image_group_filter is defined %} --filter {{ image_group_filter }} {% endif %}"
+  register: ibmpak_gen1_result
+
+- name: "{{ case_name }} : Copy images-mapping"
+  ansible.builtin.copy:
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping.txt
+    dest: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ _manifest_version }}.txt"
+
+# 8. Generate mirror-manifest indirect
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
+  shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ build_version }} --final-registry {{ registry_public_url_with_path }} {% if image_group_filter is defined %} --filter {{ image_group_filter }} {% endif %}"
+  register: ibmpak_gen2_result
 
 - name: "{{ case_name }} : Copy images-mapping-to-filesystem"
   ansible.builtin.copy:
-    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping-to-filesystem.txt
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping-to-filesystem.txt
     dest: "{{ mirror_working_dir }}/manifests/to-filesystem/{{ case_name }}_{{ _manifest_version }}.txt"
 
 - name: "{{ case_name }} : Copy images-mapping-from-filesystem"
   ansible.builtin.copy:
-    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping-from-filesystem.txt
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping-from-filesystem.txt
     dest: "{{ mirror_working_dir }}/manifests/from-filesystem/{{ case_name }}_{{ _manifest_version }}.txt"
 
-- name: "{{ case_name }} : Copy images-mapping"
-  ansible.builtin.copy:
-    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ case_version }}/images-mapping.txt
-    dest: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ _manifest_version }}.txt"
 
 # 9. IBM SLS 3.5.0 Bad Digest Hack
 # -----------------------------------------------------------------------------
@@ -153,23 +130,6 @@
 - name: "IBM SLS 3.5.0 workaround"
   when: case_name == "ibm-sls" and case_version == "3.5.0"
   include_tasks: "tasks/sls-350-fix.yml"
-
-# 10. IBM UDS Entitled Image Hacks
-# -----------------------------------------------------------------------------
-# The UDS CASE bundle includes one entitled image - cp/uds/uds-submodule:2.0.8
-- name: "IBM UDS 2.0.8 workaround"
-  when: case_name == "ibm-uds" and case_version == "2.0.8"
-  include_tasks: "tasks/uds-208-fix.yml"
-
-# The UDS CASE bundle includes one entitled image - cp/uds/uds-submodule:2.0.9
-- name: "IBM UDS 2.0.9 workaround"
-  when: case_name == "ibm-uds" and case_version == "2.0.9"
-  include_tasks: "tasks/uds-209-fix.yml"
-
-# The UDS CASE bundle includes one entitled image - cp/uds/uds-submodule:2.0.10
-- name: "IBM UDS 2.0.10 workaround"
-  when: case_name == "ibm-uds" and case_version == "2.0.10"
-  include_tasks: "tasks/uds-2010-fix.yml"
 
 # 11. IBM Maximo IoT Hacks
 # -----------------------------------------------------------------------------

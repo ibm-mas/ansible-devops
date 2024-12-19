@@ -14,25 +14,21 @@ Currently this role only supports generating a system-scoped ObjectStorageCfg re
 Role Variables - General
 -------------------------------------------------------------------------------
 ### cos_type
-Required.  Which COS provider to use; can be set to either `ibm` for IBM Cloud Object Storage or `ocs` for OpenShift Container Storage
+Which COS provider to use; can be set to either `ibm` for IBM Cloud Object Storage or `ocs` for OpenShift Container Storage
 
+- **Required**
 - Environment Variable: `COS_TYPE`
 - Default Value: None
 
 ### cos_action
-Required.  Which action you want to run for the COS instance. You can either `provision` or `deprovision` a COS instance in your IBM Cloud account.
+Which action you want to run for the COS instance. You can either `provision` or `deprovision` a COS instance in your IBM Cloud account.
 
+- **Required**
 - Environment Variable: `COS_ACTION`
 - Default Value: `provision`
 
-### cos_use_hmac
-Supported values are true and false, this is used when ibm cloud-cos to be setup with hmac encrypted credentials.
-
-- Environment Variable: COS_USE_HMAC
-- Default: false
-
-### cluster ingres tls secret name
-Specify the name of the cluster's ingres tls secret which contains the default router certificate.
+### ocp_ingress_tls_secret_name
+This can be set to the name of the cluster default router certificate's secret, for use in rare cases where the role is unable to determine the secret name automatically.
 
 - Optional
 - Environment Variable: `OCP_INGRESS_TLS_SECRET_NAME`
@@ -73,6 +69,13 @@ Required (For Provisioning). The COS region location url endpoint. Needed to gen
 Provide an optional role when cos service credential is getting created during COS provisioning.
   - Environment Variable: `COS_RESOURCE_KEY_IAM_ROLE`
   - Default Value: `Manager`
+
+### cos_use_hmac
+Set to false to disable the use of HMAC encrypted credentials, however doing so will prevent use of this COS instance with Maximo Application Suite.
+
+- Optional
+- Environment Variable: `COS_USE_HMAC`
+- Default: `true`
 
 ### cos_apikey
 Required if cos_type is set to `ibm`.  Provide your less priviledged IBM Cloud API Key for COS only

@@ -24,27 +24,27 @@
       when: mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-mas-iot
-        case_version: "{{ lookup('env', 'MAS_IOT_VERSION') | default (mas_catalog_metadata.mas_iot_version[mas_channel], True) }}"
+        case_version: "{{ lookup('env', 'MAS_IOT_VERSION') | default (mas_catalog_metadata.mas_iot_version[mas_channel], True)  | replace('_', '.') }}"
         exclude_images: []
 
     - role: ibm.mas_devops.mirror_images
       vars:
         manifest_name: ibm-mas-iot
-        manifest_version: "{{ lookup('env', 'MAS_IOT_VERSION') | default (mas_catalog_metadata.mas_iot_version[mas_channel], True) }}"
+        manifest_version: "{{ lookup('env', 'MAS_IOT_VERSION') | default (mas_catalog_metadata.mas_iot_version[mas_channel], True)  | replace('_', '.') }}"
 
 
     # 2. Eclipse Amlen
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_extras_prepare
       when:
-        - amlen_extras_version is defined
+        - mas_catalog_metadata.amlen_extras_version is defined
         - mirror_mode != "from-filesystem"
       vars:
         extras_name: amlen
         extras_version: "{{ mas_catalog_metadata.amlen_extras_version }}"
 
     - role: ibm.mas_devops.mirror_images
-      when: amlen_extras_version is defined
+      when: mas_catalog_metadata.amlen_extras_version is defined
       vars:
         manifest_name: extras_amlen
         manifest_version: "{{ mas_catalog_metadata.amlen_extras_version }}"
