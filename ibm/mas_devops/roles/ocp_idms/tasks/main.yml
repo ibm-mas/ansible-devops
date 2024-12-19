@@ -1,0 +1,135 @@
+---
+# Configure the Cluster to pull images from the mirror
+# - Configure the Image Content Source Policy
+# - wait for nodes to restart
+
+
+# 1. Param check
+# -----------------------------------------------------------------------------
+- name: "Check for required parameters"
+  assert:
+    that:
+      - registry_private_host is defined and registry_private_host != ""
+      - registry_private_ca_file is defined and registry_private_ca_file != ""
+
+- name: "Settings"
+  debug:
+    msg:
+      - "Registry Private Host ..................... {{ registry_private_host }}"
+      - "Registry Private Port ..................... {{ registry_private_port | default('<undefined>') }}"
+      - "Registry Private URL ...................... {{ registry_private_url }}"
+      - "Registry Prefix (IBM) ..................... {{ registry_prefix }}"
+      - "Registry (IBM) ............................ {{ registry_private_url_with_path }}"
+      - "Registry Prefix (Red Hat) ................. {{ registry_prefix_redhat }}"
+      - "Registry (Red Hat) ........................ {{ registry_private_url_with_path_redhat }}"
+
+
+# 2. Configure CA trust
+# -----------------------------------------------------------------------------
+- name: Set up trust for the registry
+  include_tasks: "tasks/trust.yml"
+
+
+# 3. Update default image pull secret
+# -----------------------------------------------------------------------------
+- name: Update default image pull secret
+  when:
+    - registry_username != ""
+    - registry_password != ""
+  include_tasks: "tasks/update-pull-secret.yml"
+
+- name: Update default image pull secret (dev)
+  when:
+    - fvt_image_registry != ""
+    - artifactory_username != ""
+    - artifactory_token != ""
+  include_tasks: "tasks/update-pull-secret-dev.yml"
+
+
+# 4. IBM Maximo Operator Catalog
+# -----------------------------------------------------------------------------
+- name: Create ImageDigestMirrorSet
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/idms/mas-ibm-catalog.yml.j2'
+  register: idms_result
+
+
+# 5. Red Hat Operator Catalogs
+# -----------------------------------------------------------------------------
+- name: "Look up cluster version"
+  when: setup_redhat_catalogs
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    name: "version"
+    kind: ClusterVersion
+  register: version_info
+
+- name: "Assert that we can obtain cluster version information"
+  when: setup_redhat_catalogs
+  assert:
+    that: version_info.resources[0] is defined
+    fail_msg: "Unable to determine OCP version information"
+
+- name: "Set OCP release"
+  when: setup_redhat_catalogs
+  set_fact:
+    ocp_version: "{{ version_info.resources[0].status.desired.version }}"
+    ocp_release: "{{ version_info.resources[0].status.desired.version | regex_search('^([0-9]+)\\.([0-9]+)') }}"
+
+- name: "Debug OCP release"
+  when: setup_redhat_catalogs
+  debug:
+    msg:
+      - "OCP Version ............................ {{ ocp_version }}"
+      - "OCP Release ............................ {{ ocp_release }}"
+
+- name: "Create Catalog Sources and ImageDigestMirrorSet"
+  when: setup_redhat_catalogs
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/idms/mas-redhat-catalogs.yml.j2"
+
+
+# 6. Red Hat Release Catalog
+# -----------------------------------------------------------------------------
+- name: "Create ImageDigestMirrorSet for OCP release"
+  when: setup_redhat_release
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/idms/mas-redhat-release.yml.j2"
+
+
+# 7. Delete the old ICSPs
+# -----------------------------------------------------------------------------
+- name: Delete old ibm-mas-and-dependencies ImageContentSourcePolicy
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.openshift.io/v1alpha1
+    kind: ImageContentSourcePolicy
+    name: ibm-mas-and-dependencies
+    wait: true
+    wait_timeout: 600 # 10 minutes
+- name: Delete old ibm-mas-redhat-catalogs ImageContentSourcePolicy
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.openshift.io/v1alpha1
+    kind: ImageContentSourcePolicy
+    name: ibm-mas-redhat-catalogs
+    wait: true
+    wait_timeout: 600 # 10 minutes
+- name: Delete old ibm-mas-redhat-release ImageContentSourcePolicy
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operator.openshift.io/v1alpha1
+    kind: ImageContentSourcePolicy
+    name: ibm-mas-redhat-release
+    wait: true
+    wait_timeout: 600 # 10 minutes
+
+
+# 7. Wait until the nodes have applied the updates
+# -----------------------------------------------------------------------------
+- name: Wait for Machine Configs to update
+  when: idms_result.changed
+  include_tasks: "{{ role_path }}/../../common_tasks/wait-machine-config-update.yml"
