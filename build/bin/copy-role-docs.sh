@@ -51,7 +51,7 @@ copyDoc mongodb
 copyDoc nvidia_gpu
 copyDoc ocp_cluster_monitoring
 copyDoc ocp_config
-copyDoc ocp_contentsourcepolicy
+copyDoc ocp_idms
 copyDoc ocp_deprovision
 copyDoc ocp_efs
 copyDoc ocp_github_oauth
