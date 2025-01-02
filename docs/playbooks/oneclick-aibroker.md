@@ -7,9 +7,9 @@ You will need a RedHat OpenShift v4.14 or above with IBM Maximo Application Suit
 ### Dependencies:
 
 * Object Storage
-  + Minio ( if customer does not want to use AWS S3 bucket)
-  + AWS S3 ( if customer use AWS S3 bucket bucket)
-* MariaDB database (installed in cluster where aibroker instance)
+  + Minio (installed on the same cluster what aibroker)
+  + AWS S3 (if customer use AWS S3 bucket bucket) buckets needs to have unique names
+* MariaDB database (installed in cluster where aibroker instance) or in AWS
 * IBM Maximo Application Suite Core v9.x
 
 ## Overview
@@ -174,7 +174,7 @@ export MAS_CONFIG_DIR="config_path_location"
 export MAS_AIBROKER_SAAS="true"
 export MAS_AIBROKER_DOMAIN="apps.domain"
 export MAS_AIBROKER_SLS_URL="https://sls.ibm-sls.ibm-sls."${MAS_AIBROKER_DOMAIN}
-export MAS_AIBROKER_SLS_REGISTRATION_KEY="xxxxxxx"
+export MAS_AIBROKER_SLS_REGISTRATION_KEY="xxxxxxx" 
 export MAS_AIBROKER_DRO_URL="https://ibm-data-reporter-redhat-marketplace."${MAS_AIBROKER_DOMAIN}
 export MAS_AIBROKER_DRO_TOKEN="xxx"
 export DB2_INSTANCE_NAME="aibroker"
