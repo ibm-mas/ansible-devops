@@ -1,4 +1,36 @@
-# 1. Delete ManageDeployment CR
+# 1. Delete ManageServerBundle CR
+# -----------------------------------------------------------------------------
+- name: "Get ManageServerBundle CR"
+  kubernetes.core.k8s_info:
+    api_version: "apps.mas.ibm.com/v1"
+    kind: "ManageServerBundle"
+    namespace: "{{ mas_app_namespace }}"
+  register: app_serverbundle_lookup
+
+- name: "Delete ManageServerBundle CR"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ item.metadata.namespace }}"
+    name: "{{ item.metadata.name }}"
+    wait: true
+    wait_timeout: 600 # 20 minutes
+  loop: "{{ app_serverbundle_lookup.resources }}"
+
+- name: Wait for ManageServerBundle CR to be deleted
+  k8s_info:
+    kind: '{{ item.kind }}'
+    api_version: "{{ item.apiVersion }}"
+    name: '{{ item.metadata.name }}'
+    namespace: "{{ item.metadata.namespace }}"
+  register: bundle_destroy
+  until: bundle_destroy.resources == []
+  retries: 120
+  delay: 10
+  loop: "{{ app_serverbundle_lookup.resources }}"
+
+# 2. Delete ManageDeployment CR
 # -----------------------------------------------------------------------------
 - name: "Get ManageDeployment CR"
   kubernetes.core.k8s_info:
@@ -15,5 +47,19 @@
     namespace: "{{ item.metadata.namespace }}"
     name: "{{ item.metadata.name }}"
     wait: true
-    wait_timeout: 1200 # 20 minutes
+    wait_timeout: 600 # 20 minutes
+    wait_condition:
+      
+  loop: "{{ app_deployment_lookup.resources }}"
+
+- name: Wait for ManageDeployment CR to be deleted
+  k8s_info:
+    kind: '{{ item.kind }}'
+    api_version: "{{ item.apiVersion }}"
+    name: '{{ item.metadata.name }}'
+    namespace: "{{ item.metadata.namespace }}"
+  register: deployment_destroy
+  until: deployment_destroy.resources == []
+  retries: 120
+  delay: 10
   loop: "{{ app_deployment_lookup.resources }}"
