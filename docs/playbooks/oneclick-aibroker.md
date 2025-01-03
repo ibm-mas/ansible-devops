@@ -202,6 +202,10 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
 
+- `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
+- `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
+
+
 ## NOTICE: playbook oneclick_add_aibroker.yml will run three roles: 
 
 ### Role: odh
