@@ -101,6 +101,7 @@ python3 -m pip install boto3
 #### Run playbooks for deploy AI Broker from internal registry ex. `docker-na-public.artifactory.swg-devops.com`
 
 ```bash
+export MAS_CATALOG_VERSION="<operator catalog>"
 export ARTIFACTORY_USERNAME="<artifactory user>"
 export ARTIFACTORY_TOKEN="<artifactory token>"
 export MAS_ICR_CP="<internal redistry for aibroker applications>"
@@ -134,6 +135,7 @@ ansible-playbook playbooks/oneclick_add_aibroker.yml
 #### Run playbooks for deploy AI Broker from public registry ex. `icr.io`
 
 ```bash
+export MAS_CATALOG_VERSION="<operator catalog>"
 export MAS_ENTITLEMENT_USERNAME="<user>"
 export MAS_ENTITLEMENT_KEY="<token>"
 export MAS_INSTANCE_ID="<instanceId>"
@@ -165,6 +167,7 @@ ansible-playbook playbooks/oneclick_add_aibroker.yml
 #### Run playbooks for deploy AI Broker on SAAS
 
 ```bash
+export MAS_CATALOG_VERSION="v9-master-amd64"
 export MAS_ENTITLEMENT_USERNAME="<user>"
 export MAS_ENTITLEMENT_KEY="<token>"
 export IBM_ENTITLEMENT_KEY=${MAS_ENTITLEMENT_KEY}
