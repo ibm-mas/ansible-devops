@@ -13,6 +13,15 @@
   kubernetes.core.k8s:
     template: "templates/namespace.yml.j2"
 
+- name: "Delete km-s3-secret secret if it exists"
+  kubernetes.core.k8s:
+    apiVersion: v1
+    kind: Secret
+    name: km-s3-secret
+    namespace: mas-{{ mas_instance_id }}-aibroker
+    state: absent
+  ignore_errors: true  
+
 - name: "Create km-s3-secret secret"
   kubernetes.core.k8s:
     definition:
@@ -32,13 +41,13 @@
         S3_REGION: "{{ mas_aibroker_storage_region | b64encode }}"
         S3_SSL: "{{ mas_aibroker_storage_ssl | b64encode }}"
 
-- name: "Check if km-s3-secret secret exists "
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Secret
-    name: km-s3-secret
-    namespace: mas-{{ mas_instance_id }}-aibroker
-  register: kms3_secret_info
+# - name: "Check if km-s3-secret secret exists "
+#   kubernetes.core.k8s_info:
+#     api_version: v1
+#     kind: Secret
+#     name: km-s3-secret
+#     namespace: mas-{{ mas_instance_id }}-aibroker
+#   register: kms3_secret_info
 
 # (https://kserve.github.io/website/0.11/modelserving/storage/s3/s3/#create-service-account)
 - name: "Update secret with annotation"
