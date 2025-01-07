@@ -13,6 +13,8 @@ if [ -z ${TENANT} ]; then
 fi
 
 cwd=$(pwd)
+echo "#####"
+echo "location pwd in script create secret "
 echo $cwd
 
 mkdir -p certs

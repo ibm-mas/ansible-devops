@@ -69,6 +69,8 @@ deprovision=False
 # Prepare the SLS clientId to use, and prepare for storing client certificates that are generated at registration time.
 slsClientId=offeringName+"-"+instanceIdentifier
 certs_dir=f"{os.getcwd()}/certs"
+print("xxxxxxx")
+print(certs_dir)
 clientCaCrtPath=certs_dir+"/"+slsClientId+"-ca.crt"
 clientTlsCrtPath=certs_dir+"/"+slsClientId+"-tls.crt"
 clientTlsKeyPath=certs_dir+"/"+slsClientId+"-tls.key"
