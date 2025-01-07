@@ -20,18 +20,18 @@ mkdir -p certs
 echo "creating SLS registration, please wait....."
 # instanceIdentifier=`python3 {{ role_path }}/files/alm_sample_sls_use.py $3 $4`
 instanceIdentifier=$(python3 ../roles/aibroker/files/alm_sample_sls_use.py $3 $4 $5)
-echo "SLS registration is created successfully."
+# echo "SLS registration is created successfully."
 
 registrationKey=$4
 
-echo "----------"
-echo $instanceIdentifier
-echo "----------"
+# echo "----------"
+# echo $instanceIdentifier
+# echo "----------"
 # Set variables
 # Need to change
 NAMESPACE=mas-${instance_id}-aibroker
 slsClientId="aibroker"-$instanceIdentifier
-echo $slsClientId
+# echo $slsClientId
 
 SECRET_NAME=${TENANT}----sls-secret
 CA_FILE_PATH=$cwd/certs/aibroker-${instanceIdentifier}-ca.crt
