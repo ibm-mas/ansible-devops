@@ -39,6 +39,11 @@ SECRET_NAME=${TENANT}----sls-secret
 CA_FILE_PATH=$cwd/certs/aibroker-${instanceIdentifier}-ca.crt
 TLS_FILE_PATH=$cwd/certs/aibroker-${instanceIdentifier}-tls.crt
 KEY_FILE_PATH=$cwd/certs/aibroker-${instanceIdentifier}-tls.key
+echo "#####"
+echo $SECRET_NAME
+echo $CA_FILE_PATH
+echo $TLS_FILE_PATH
+echo $KEY_FILE_PATH
 
 # Create the secret
 oc create secret generic $SECRET_NAME -n $NAMESPACE \
