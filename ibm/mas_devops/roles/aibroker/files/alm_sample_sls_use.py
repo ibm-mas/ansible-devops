@@ -99,7 +99,7 @@ else:
     headers = {'X-Registration-Key': slsRegistrationKey} # TODO: Rawa - Swagger docs don't document the need for this critical header
 
     #print ("Making initial registration request for client "+slsClientId)
-    response = requests.post(slsUrl+"/api/registrations",verify=caCertificateForSSL,json=data, headers=headers )     
+    response = requests.post(slsUrl+"/api/registrations",verify=False,json=data, headers=headers )     
     response.raise_for_status()
 
     registrationId = response.json()['registrationId']
@@ -111,7 +111,7 @@ else:
     provisioningWaiting = True
     while provisioningWaiting:
         headers = {'X-Registration-Key': slsRegistrationKey}
-        response = requests.get(slsUrl+"/api/registrations/"+registrationId,verify=caCertificateForSSL,headers=headers )     
+        response = requests.get(slsUrl+"/api/registrations/"+registrationId,verify=False,headers=headers )     
         response.raise_for_status()
         status = response.json()['state']
         print("Waiting for client provisioning to be completed. Current status: %s" %status)
@@ -133,7 +133,7 @@ else:
     # The next step is to confirm the client. Poll status until complete.
     confirmationWaiting = True
     while confirmationWaiting:      
-        response = requests.get(slsUrl+"/api/clients/"+slsClientId,verify=caCertificateForSSL, cert=(clientTlsCrtPath,clientTlsKeyPath))  
+        response = requests.get(slsUrl+"/api/clients/"+slsClientId,verify=False, cert=(clientTlsCrtPath,clientTlsKeyPath))  
         #print (response)
         status = response.json()['state']
         #print("Waiting for client registration to be confirmed. Current status: %s" %status)
@@ -152,12 +152,12 @@ else:
 def spendAppPoints(quantity):
     #print ("Let's spend "+str(quantity)+" AppPoints")
     data = {'validity': 86400, 'quantity': quantity} 
-    response = requests.put(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=caCertificateForSSL,json=data,headers = {'Content-type': 'application/json','X-Product-Version': "1.0" },cert=(clientTlsCrtPath,clientTlsKeyPath))     
+    response = requests.put(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=False,json=data,headers = {'Content-type': 'application/json','X-Product-Version': "1.0" },cert=(clientTlsCrtPath,clientTlsKeyPath))     
     response.raise_for_status()
 
 # String representation of AppPoint usage by your client. TODO: SLS will shortly be providing an update to correctly report usage for your client. At present, it returns the overall usage across all clients.
 def getUsage():
-    response = requests.get(slsUrl+"/api/tokens/",verify=caCertificateForSSL,params={"owner":slsClientId},cert=(clientTlsCrtPath,clientTlsKeyPath))     # This will require an SLS update to return usage specific to your owner
+    response = requests.get(slsUrl+"/api/tokens/",verify=False,params={"owner":slsClientId},cert=(clientTlsCrtPath,clientTlsKeyPath))     # This will require an SLS update to return usage specific to your owner
     response.raise_for_status()
     j = json.loads(response.content.decode('utf-8'))
     return j[0]['used']
@@ -240,12 +240,12 @@ if deprovision:
 
 # At deprovision, return your licenses and unregister the client
     print ("Preparing for deprovision: returning any AppPoints to the pool")
-    response = requests.delete(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=caCertificateForSSL,cert=(clientTlsCrtPath,clientTlsKeyPath))     
+    response = requests.delete(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=False,cert=(clientTlsCrtPath,clientTlsKeyPath))     
     response.raise_for_status()
     print("Usage after deprovisioning: "+str(getUsage()))
 
     print ("Preparing for deprovision: unregistering the SLS client")
-    response = requests.delete(slsUrl+"/api/clients/"+slsClientId,verify=caCertificateForSSL,cert=(clientTlsCrtPath,clientTlsKeyPath))     
+    response = requests.delete(slsUrl+"/api/clients/"+slsClientId,verify=False,cert=(clientTlsCrtPath,clientTlsKeyPath))     
     response.raise_for_status()
     #print ("Deleting redundant client certificates")
     os.remove(clientTlsCrtPath)
