@@ -116,7 +116,7 @@ else:
         response = requests.get(slsUrl+"/api/registrations/"+registrationId,verify=False,headers=headers )     
         response.raise_for_status()
         status = response.json()['state']
-        print("Waiting for client provisioning to be completed. Current status: %s" %status)
+        # print("Waiting for client provisioning to be completed. Current status: %s" %status)
         if status=="AWAITING_CONFIRMATION":
                 # We are now ready to proceed; client certs are available
                 # print ("Extracting client certificates")
@@ -141,7 +141,7 @@ else:
         status = response.json()['state']
         #print("Waiting for client registration to be confirmed. Current status: %s" %status)
         if status=="REGISTERED":
-            print ("Client registration confirmed.")
+            # print ("Client registration confirmed.")
             confirmationWaiting = False        
         time.sleep(1)
 
