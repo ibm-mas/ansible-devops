@@ -117,7 +117,8 @@ else:
         print("Waiting for client provisioning to be completed. Current status: %s" %status)
         if status=="AWAITING_CONFIRMATION":
                 # We are now ready to proceed; client certs are available
-                #print ("Extracting client certificates")
+                print ("Extracting client certificates")
+                print(clientTlsCrtPath)
                 clientTlskey= base64.b64decode(response.json()['certs']['tls.key'])
                 clientTlscrt= base64.b64decode(response.json()['certs']['tls.crt'])
                 clientCacrt= base64.b64decode(response.json()['certs']['ca.crt'])
