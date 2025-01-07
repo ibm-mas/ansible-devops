@@ -17,10 +17,10 @@ slsUrl = sys.argv[1]
 slsRegistrationKey = sys.argv[2]
 
 caCertificateForSSL = sys.argv[3]
-print('slsUrl='+slsUrl)
-print(slsRegistrationKey)
-print("caCertificateForSSL")
-print(caCertificateForSSL)
+# print('slsUrl='+slsUrl)
+# print(slsRegistrationKey)
+# print("caCertificateForSSL")
+# print(caCertificateForSSL)
 # --------------------------------------------------------------------------------------------------------------------------------
 # - 
 # - Configuration section - you need to complete steps 1-5
@@ -69,8 +69,8 @@ deprovision=False
 # Prepare the SLS clientId to use, and prepare for storing client certificates that are generated at registration time.
 slsClientId=offeringName+"-"+instanceIdentifier
 certs_dir=f"{os.getcwd()}/certs"
-print("xxxxxxx")
-print(certs_dir)
+# print("xxxxxxx")
+# print(certs_dir)
 clientCaCrtPath=certs_dir+"/"+slsClientId+"-ca.crt"
 clientTlsCrtPath=certs_dir+"/"+slsClientId+"-tls.crt"
 clientTlsKeyPath=certs_dir+"/"+slsClientId+"-tls.key"
@@ -96,7 +96,7 @@ else:
     pass
 
     # Make initial registration request
-    print("will use certificate for client provisioning ")
+    # print("will use certificate for client provisioning ")
     data = {'clientId': slsClientId, 'description': 'ALM sample client registration', 'role': 'manage'} # TODO: Rawa - Swagger docs incorrectly state 'id' rather than 'clientId'
     headers = {'X-Registration-Key': slsRegistrationKey} # TODO: Rawa - Swagger docs don't document the need for this critical header
 
@@ -119,8 +119,8 @@ else:
         print("Waiting for client provisioning to be completed. Current status: %s" %status)
         if status=="AWAITING_CONFIRMATION":
                 # We are now ready to proceed; client certs are available
-                print ("Extracting client certificates")
-                print(clientTlsCrtPath)
+                # print ("Extracting client certificates")
+                # print(clientTlsCrtPath)
                 clientTlskey= base64.b64decode(response.json()['certs']['tls.key'])
                 clientTlscrt= base64.b64decode(response.json()['certs']['tls.crt'])
                 clientCacrt= base64.b64decode(response.json()['certs']['ca.crt'])

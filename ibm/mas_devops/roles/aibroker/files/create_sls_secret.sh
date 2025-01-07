@@ -29,6 +29,7 @@ registrationKey=$4
 
 echo "----------"
 echo $instanceIdentifier
+echo "----------"
 # Set variables
 # Need to change 
 NAMESPACE=mas-${instance_id}-aibroker
