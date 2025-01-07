@@ -27,7 +27,7 @@ echo "SLS registration is created successfully."
 registrationKey=$4
 
 
-
+echo "----------"
 echo $instanceIdentifier
 # Set variables
 # Need to change 
