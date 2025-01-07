@@ -13,9 +13,7 @@ if [ -z ${TENANT} ]; then
 fi
 
 cwd=$(pwd)
-echo "#####"
 echo "location pwd in script create secret "
-echo $cwd
 
 mkdir -p certs
 
@@ -26,12 +24,11 @@ echo "SLS registration is created successfully."
 
 registrationKey=$4
 
-
 echo "----------"
 echo $instanceIdentifier
 echo "----------"
 # Set variables
-# Need to change 
+# Need to change
 NAMESPACE=mas-${instance_id}-aibroker
 slsClientId="aibroker"-$instanceIdentifier
 echo $slsClientId
@@ -40,15 +37,10 @@ SECRET_NAME=${TENANT}----sls-secret
 CA_FILE_PATH=$cwd/certs/aibroker-${instanceIdentifier}-ca.crt
 TLS_FILE_PATH=$cwd/certs/aibroker-${instanceIdentifier}-tls.crt
 KEY_FILE_PATH=$cwd/certs/aibroker-${instanceIdentifier}-tls.key
-echo "#####"
-echo $SECRET_NAME
-echo $CA_FILE_PATH
-echo $TLS_FILE_PATH
-echo $KEY_FILE_PATH
 
 # Create the secret
 oc create secret generic $SECRET_NAME -n $NAMESPACE \
-  --from-file=$CA_FILE_PATH  \
+  --from-file=$CA_FILE_PATH \
   --from-file=$TLS_FILE_PATH \
   --from-file=$KEY_FILE_PATH \
   --from-literal=SLS_CLIENT_ID=${slsClientId} \
