@@ -17,10 +17,10 @@ slsUrl = sys.argv[1]
 slsRegistrationKey = sys.argv[2]
 
 caCertificateForSSL = sys.argv[3]
-print('slsUrl='+slsUrl)
-print(slsRegistrationKey)
-print("caCertificateForSSL")
-print(caCertificateForSSL)
+# print('slsUrl='+slsUrl)
+# print(slsRegistrationKey)
+# print("caCertificateForSSL")
+# print(caCertificateForSSL)
 # --------------------------------------------------------------------------------------------------------------------------------
 # - 
 # - Configuration section - you need to complete steps 1-5
@@ -69,6 +69,8 @@ deprovision=False
 # Prepare the SLS clientId to use, and prepare for storing client certificates that are generated at registration time.
 slsClientId=offeringName+"-"+instanceIdentifier
 certs_dir=f"{os.getcwd()}/certs"
+# print("xxxxxxx")
+# print(certs_dir)
 clientCaCrtPath=certs_dir+"/"+slsClientId+"-ca.crt"
 clientTlsCrtPath=certs_dir+"/"+slsClientId+"-tls.crt"
 clientTlsKeyPath=certs_dir+"/"+slsClientId+"-tls.key"
@@ -94,12 +96,12 @@ else:
     pass
 
     # Make initial registration request
-    print("will use certificate for client provisioning ")
+    # print("will use certificate for client provisioning ")
     data = {'clientId': slsClientId, 'description': 'ALM sample client registration', 'role': 'manage'} # TODO: Rawa - Swagger docs incorrectly state 'id' rather than 'clientId'
     headers = {'X-Registration-Key': slsRegistrationKey} # TODO: Rawa - Swagger docs don't document the need for this critical header
 
     #print ("Making initial registration request for client "+slsClientId)
-    response = requests.post(slsUrl+"/api/registrations",verify=caCertificateForSSL,json=data, headers=headers )     
+    response = requests.post(slsUrl+"/api/registrations",verify=False,json=data, headers=headers )     
     response.raise_for_status()
 
     registrationId = response.json()['registrationId']
@@ -111,13 +113,14 @@ else:
     provisioningWaiting = True
     while provisioningWaiting:
         headers = {'X-Registration-Key': slsRegistrationKey}
-        response = requests.get(slsUrl+"/api/registrations/"+registrationId,verify=caCertificateForSSL,headers=headers )     
+        response = requests.get(slsUrl+"/api/registrations/"+registrationId,verify=False,headers=headers )     
         response.raise_for_status()
         status = response.json()['state']
-        print("Waiting for client provisioning to be completed. Current status: %s" %status)
+        # print("Waiting for client provisioning to be completed. Current status: %s" %status)
         if status=="AWAITING_CONFIRMATION":
                 # We are now ready to proceed; client certs are available
-                #print ("Extracting client certificates")
+                # print ("Extracting client certificates")
+                # print(clientTlsCrtPath)
                 clientTlskey= base64.b64decode(response.json()['certs']['tls.key'])
                 clientTlscrt= base64.b64decode(response.json()['certs']['tls.crt'])
                 clientCacrt= base64.b64decode(response.json()['certs']['ca.crt'])
@@ -133,12 +136,12 @@ else:
     # The next step is to confirm the client. Poll status until complete.
     confirmationWaiting = True
     while confirmationWaiting:      
-        response = requests.get(slsUrl+"/api/clients/"+slsClientId,verify=caCertificateForSSL, cert=(clientTlsCrtPath,clientTlsKeyPath))  
+        response = requests.get(slsUrl+"/api/clients/"+slsClientId,verify=False, cert=(clientTlsCrtPath,clientTlsKeyPath))  
         #print (response)
         status = response.json()['state']
         #print("Waiting for client registration to be confirmed. Current status: %s" %status)
         if status=="REGISTERED":
-            print ("Client registration confirmed.")
+            # print ("Client registration confirmed.")
             confirmationWaiting = False        
         time.sleep(1)
 
@@ -152,12 +155,12 @@ else:
 def spendAppPoints(quantity):
     #print ("Let's spend "+str(quantity)+" AppPoints")
     data = {'validity': 86400, 'quantity': quantity} 
-    response = requests.put(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=caCertificateForSSL,json=data,headers = {'Content-type': 'application/json','X-Product-Version': "1.0" },cert=(clientTlsCrtPath,clientTlsKeyPath))     
+    response = requests.put(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=False,json=data,headers = {'Content-type': 'application/json','X-Product-Version': "1.0" },cert=(clientTlsCrtPath,clientTlsKeyPath))     
     response.raise_for_status()
 
 # String representation of AppPoint usage by your client. TODO: SLS will shortly be providing an update to correctly report usage for your client. At present, it returns the overall usage across all clients.
 def getUsage():
-    response = requests.get(slsUrl+"/api/tokens/",verify=caCertificateForSSL,params={"owner":slsClientId},cert=(clientTlsCrtPath,clientTlsKeyPath))     # This will require an SLS update to return usage specific to your owner
+    response = requests.get(slsUrl+"/api/tokens/",verify=False,params={"owner":slsClientId},cert=(clientTlsCrtPath,clientTlsKeyPath))     # This will require an SLS update to return usage specific to your owner
     response.raise_for_status()
     j = json.loads(response.content.decode('utf-8'))
     return j[0]['used']
@@ -240,12 +243,12 @@ if deprovision:
 
 # At deprovision, return your licenses and unregister the client
     print ("Preparing for deprovision: returning any AppPoints to the pool")
-    response = requests.delete(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=caCertificateForSSL,cert=(clientTlsCrtPath,clientTlsKeyPath))     
+    response = requests.delete(slsUrl+"/api/products/"+productId+"/licensees/"+licenseeId,verify=False,cert=(clientTlsCrtPath,clientTlsKeyPath))     
     response.raise_for_status()
     print("Usage after deprovisioning: "+str(getUsage()))
 
     print ("Preparing for deprovision: unregistering the SLS client")
-    response = requests.delete(slsUrl+"/api/clients/"+slsClientId,verify=caCertificateForSSL,cert=(clientTlsCrtPath,clientTlsKeyPath))     
+    response = requests.delete(slsUrl+"/api/clients/"+slsClientId,verify=False,cert=(clientTlsCrtPath,clientTlsKeyPath))     
     response.raise_for_status()
     #print ("Deleting redundant client certificates")
     os.remove(clientTlsCrtPath)
