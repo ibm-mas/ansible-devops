@@ -92,7 +92,21 @@
   retries: 120 # 20 minutes
   delay: 10
 
-# 7. Delete Application Custom Resource
+# 7. For manage only, Check for ManageWorkspace CR status
+# -----------------------------------------------------------------------------
+- name: Wait for ManageWorkspace CR to be deleted
+  when:
+    - mas_app_id == "manage"
+  kubernetes.core.k8s_info:
+    kind: "ManageWorkspace"
+    api_version: "apps.mas.ibm.com/v1"
+    namespace: "{{ mas_app_namespace }}"
+  register: deployment_destroy
+  until: deployment_destroy.resources == []
+  retries: 120 # 20 minutes
+  delay: 10
+
+# 8. Delete Application Custom Resource
 # -----------------------------------------------------------------------------
 - name: "Get the {{ mas_app_id }} Custom Resource"
   when:
@@ -119,7 +133,7 @@
     wait_timeout: 600 # 10 minutes
   loop: "{{ app_cr_lookup.resources }}"
 
-# 8. Delete Application Operator Subscription
+# 9. Delete Application Operator Subscription
 # -----------------------------------------------------------------------------
 - name: "Delete the {{ mas_app_id }} Operator Subscription"
   when:
@@ -134,7 +148,7 @@
     wait: true
     wait_timeout: 600 # 10 minutes
 
-# 9. Delete Application Namespace
+# 10. Delete Application Namespace
 # -----------------------------------------------------------------------------
 - name: "Delete {{ mas_app_id }} namespace"
   kubernetes.core.k8s:
@@ -145,7 +159,7 @@
     wait: true
     wait_timeout: 600 # 10 minutes
 
-# 10. Run Application Specific Post-Uninstall Tasks if there are any
+# 11. Run Application Specific Post-Uninstall Tasks if there are any
 # -----------------------------------------------------------------------------
 - name: Run application specific post-uninstall tasks
   vars:
