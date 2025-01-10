@@ -8,32 +8,28 @@
     masbr_storage_job_folder: >-
       {{ masbr_storage_local_folder }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_job_name }}
 
-# Local storage job folder
-- name: "Set fact: Define temp directory folder"
-  when:
-    - item.src_folder is defined and item.src_folder | length > 0
-    - item.dest_folder is defined and item.dest_folder | length > 0
-  set_fact:
-    temp_dest_folder: >-
-      {{ [item.dest_folder, masbr_job_version] | path_join }}
-
-- name: "Debug: local storage job folder"
+- name: "Debug: All PV variables"
   debug:
-    msg: "Local storage job folder .......... {{ masbr_storage_job_folder }}"
+    msg:
+      - "Local storage job folder ......... {{ masbr_storage_job_folder }}"
+      - "Folder setup  .................... {{ masbr_cf_paths }}"
+      - "Source Folder .................... {{ [masbr_storage_job_folder, item.src_folder] | path_join }}"
+      - "Destination Folder ............... {{ item.dest_folder }}"
+  loop: "{{ masbr_cf_paths }}"
 
 # Condition 1. src_folder -> dest_folder: copy src_folder/* to dest_folder/*
 #
 # - exec into masbr_cf_pod_name/masbr_cf_container_name, create temp folder
 # - cp from src_folder to temp folder inside masbr_cf_pod_name/masbr_cf_container_name
-# - exec into masbr_cf_pod_name/masbr_cf_container_name, move temp_dest_folder to dest_folder and delete temp_dest_folder
+# - exec into masbr_cf_pod_name/masbr_cf_container_name, move item.temp_dest_folder to dest_folder and delete temp_dest_folder
 - name: "Copy files from local storage folder to pod folder"
   when:
     - item.src_folder is defined and item.src_folder | length > 0
     - item.dest_folder is defined and item.dest_folder | length > 0
   shell: >-
-    oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mkdir -p {{ temp_dest_folder }}' \
-    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_folder] | path_join }} {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ temp_dest_folder }} \
-    && oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mv -f {{ temp_dest_folder }}/* {{ item.dest_folder }} && rm -rf {{ temp_dest_folder }}'
+    oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mkdir -p {{ [item.dest_folder, masbr_job_version] | path_join }}' \
+    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_folder] | path_join }} {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ [item.dest_folder, masbr_job_version] | path_join }} \
+    && oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mv -f {{ [item.dest_folder, masbr_job_version] | path_join }}/* {{ item.dest_folder }} && rm -rf {{ [item.dest_folder, masbr_job_version] | path_join }}'
   loop: "{{ masbr_cf_paths }}"
 
 # Condition 2. src_file -> dest_folder: copy src_file to dest_folder/src_file
@@ -43,18 +39,18 @@
     - item.dest_folder is defined and item.dest_folder | length > 0
   shell: >-
     oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mkdir -p {{ item.dest_folder }}' \
-    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_file] | path_join }} {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.dest_folder }}
+    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_folder, item.src_file] | path_join }} {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.dest_folder }}
   loop: "{{ masbr_cf_paths }}"
 
 # Condition 3. src_file -> dest_file
 # - exec into masbr_cf_pod_name/masbr_cf_container_name, create temp folder
 # - cp from src_folder to temp folder inside masbr_cf_pod_name/masbr_cf_container_name
-# - exec into masbr_cf_pod_name/masbr_cf_container_name, move temp_dest_folder to dest_folder and delete temp_dest_folder
+# - exec into masbr_cf_pod_name/masbr_cf_container_name, move temp_dest_folder to item.dest_folder and delete temp_dest_folder
 - name: "Copy file from local storage folder to pod file"
   when:
     - item.src_file is defined and item.src_file | length > 0
-    - item.dest_file is defined and item.dest_file | length > 0
+    - item.dest_folder is defined and item.dest_folder | length > 0
   shell: >-
-    oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mkdir -p {{ temp_dest_folder }}' \
-    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_file] | path_join }} {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ temp_dest_folder }} \
-    && oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mv -f {{ temp_dest_folder }}/{{ item.src_file|basename }} {{ item.dest_file }} && rm -rf {{ temp_dest_folder }}'
+    oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mkdir -p {{ [item.dest_folder, masbr_job_version] | path_join }}' \
+    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [temp_src_folder, item.src_file] | path_join }} {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ [item.dest_folder, masbr_job_version] | path_join }} \
+    && oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mv -f {{ [item.dest_folder, masbr_job_version] | path_join }}/{{ item.src_file|basename }} {{ item.dest_folder }} && rm -rf {{ [item.dest_folder, masbr_job_version] | path_join }}'
