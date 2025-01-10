@@ -6,9 +6,15 @@
     masbr_storage_job_folder: >-
       {{ masbr_storage_local_folder }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_job_name }}
 
-- name: "Debug: local storage job folder"
+- name: "Debug: All PV variables"
   debug:
-    msg: "Local storage job folder ......... {{ masbr_storage_job_folder }}"
+    msg:
+      - "Pod Name ................... {{ masbr_cf_pod_name }}"
+      - "Local storage job folder ......... {{ masbr_storage_job_folder }}"
+      - "Folder setup  .................... {{ masbr_cf_paths }}"
+      - "Source Folder .................... {{ item.src_folder }}"
+      - "Destination Folder ............... {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}"
+  loop: "{{ masbr_cf_paths }}"
 
 # Condition 1. src_folder -> dest_folder: copy src_folder/* to dest_folder/*
 - name: "Copy files from pod folder to local storage folder"
@@ -30,7 +36,7 @@
   shell: >-
     mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
     oc cp --retries=50 -c {{ masbr_cf_container_name }}
-    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_file }}
+    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ [item.src_folder, item.src_file] | path_join }}
     {{ [masbr_storage_job_folder, item.dest_folder, item.src_file|basename] | path_join }}
   loop: "{{ masbr_cf_paths }}"
 
@@ -42,6 +48,6 @@
   shell: >-
     mkdir -p {{ [masbr_storage_job_folder, item.dest_file|dirname] | path_join }} &&
     oc cp --retries=50 -c {{ masbr_cf_container_name }}
-    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_file }}
+    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ [item.src_folder, item.src_file] | path_join }}
     {{ [masbr_storage_job_folder, item.dest_file] | path_join }}
   loop: "{{ masbr_cf_paths }}"
