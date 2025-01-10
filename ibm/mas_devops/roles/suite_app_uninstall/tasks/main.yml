@@ -93,6 +93,23 @@
   retries: 120 # 20 minutes
   delay: 10
 
+# 6.1. Check and wait for ManageDeployment deletion
+# This is a temporary workaround for now since the ManageWorkspace finalizer doesn't wait for ManageDeployment deletion to complete
+# -----------------------------------------------------------------------------
+- name: Wait for ManageDeployment to be deleted
+  when:
+    - mas_app_id == "manage"
+    - mas_app_ws_apiversion is defined
+    - mas_app_ws_kind is defined
+  kubernetes.core.k8s_info:
+    kind: "ManageDeployment"
+    api_version: "apps.mas.ibm.com/v1"
+    namespace: "{{ mas_app_namespace }}"
+  register: deployment_destroy
+  until: deployment_destroy.resources == []
+  retries: 50 # 30 minutes
+  delay: 30
+
 # 7. Delete Application Custom Resource
 # -----------------------------------------------------------------------------
 - name: "Get the {{ mas_app_id }} Custom Resource"
