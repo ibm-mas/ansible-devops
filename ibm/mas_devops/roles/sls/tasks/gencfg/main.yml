@@ -29,13 +29,22 @@
 
 # 1. Set sls_tls_crt
 # -----------------------------------------------------------------------------
-- name: "Set sls_tls_crt fact for SlsCfg when using existing SLS"
+- name: "Set sls_tls_crt fact for SlsCfg when using external SLS"
   ansible.builtin.set_fact:
-    sls_tls_crt: "{{ lookup('file', sls_tls_crt_local_file_path) }}"
+    sls_tls_crt: "{{ lookup('file', sls_tls_crt_local_file_path)}}"
   no_log: true
   when:
     - sls_tls_crt is not defined or sls_tls_crt == ""
     - sls_tls_crt_local_file_path is defined and sls_tls_crt_local_file_path != ""
+
+- name: "Set sls_tls_crt fact for SlsCfg when using external SLS - base64"
+  ansible.builtin.set_fact:
+    sls_tls_crt: "{{ lookup('file', sls_tls_crt_local_file_base64_path) | base64 -d }}"
+  no_log: true
+  when:
+    - sls_tls_crt is not defined or sls_tls_crt == ""
+    - sls_tls_crt_local_file_path is not defined and sls_tls_crt_local_file_path == ""
+    - sls_tls_crt_local_file_base64_path is defined and sls_tls_crt_local_file_base64_path != ""
 
 ###############################################################################
 #                             SLS CFG Generation                              #
