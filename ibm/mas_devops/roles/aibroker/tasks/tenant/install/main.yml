@@ -190,3 +190,43 @@
 - name: Debug tenant entitlement #TODO: remove on final commit
   debug:
     msg: "{{ add_tenant_entitlements_to_db2 }}"
+
+- name: Create tenant {{ tenantNamespace }} and add to db2 for pcc - using uri
+  uri:
+    url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
+    validate_certs: no
+    method: POST
+    headers:
+      apikey: "{{ provision_tenant_api_key }}"
+      accept: "*/*"
+      Content-Type: "application/json"
+      tenantid: "provision-tenant"
+    body_format: "json"
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"pcc\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
+    status_code: [201]
+    timeout: 30
+  register: add_tenant_entitlements_to_db2_pcc
+
+- name: Debug tenant entitlement #TODO: remove on final commit
+  debug:
+    msg: "{{ add_tenant_entitlements_to_db2_pcc }}"
+
+- name: Create tenant {{ tenantNamespace }} and add to db2 for mcc - using uri
+  uri:
+    url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
+    validate_certs: no
+    method: POST
+    headers:
+      apikey: "{{ provision_tenant_api_key }}"
+      accept: "*/*"
+      Content-Type: "application/json"
+      tenantid: "provision-tenant"
+    body_format: "json"
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"mcc\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
+    status_code: [201]
+    timeout: 30
+  register: add_tenant_entitlements_to_db2_mcc
+
+- name: Debug tenant entitlement #TODO: remove on final commit
+  debug:
+    msg: "{{ add_tenant_entitlements_to_db2_mcc }}"
