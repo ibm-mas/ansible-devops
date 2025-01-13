@@ -207,6 +207,7 @@ ansible-playbook playbooks/oneclick_add_aibroker.yml
 
 - `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
 - `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
+- in `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`, `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`, `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
 
 
 ## NOTICE: playbook oneclick_add_aibroker.yml will run three roles: 
@@ -338,3 +339,39 @@ export MAS_AIBROKER_WATSONX_ACTION="remove"
 export ROLE_NAME="aibroker"
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
+```
+
+# create tanant SAAS
+
+```bash
+export MAS_AIBROKER_TENANT_NAME="tenant1"
+export TENANT_ACTION="install"
+export MAS_INSTANCE_ID="aibdev"
+export MAS_AIBROKER_DOMAIN="apps.aibrokerdev.cp.fyre.ibm.com"
+export MAS_AIBROKER_SLS_URL="https://sls.ibm-sls.ibm-sls."${MAS_AIBROKER_DOMAIN}
+export MAS_AIBROKER_DRO_URL="https://ibm-data-reporter-redhat-marketplace."${MAS_AIBROKER_DOMAIN}
+export MAS_AIBROKER_SLS_REGISTRATION_KEY=""
+export MAS_AIBROKER_DRO_TOKEN=""
+export MAS_AIBROKER_SAAS="true"
+export MAS_AIBROKER_STORAGE_ACCESSKEY="<storage provider access key>"
+export MAS_AIBROKER_STORAGE_SECRETKEY="<storage provider secret key>"
+export MAS_AIBROKER_STORAGE_HOST="<storage provider host>"
+export MAS_AIBROKER_STORAGE_SSL="true or false"
+export MAS_AIBROKER_STORAGE_REGION="<storage provider region - only for aws>"
+export MAS_AIBROKER_STORAGE_PROVIDER="<storage provider name>"
+export MAS_AIBROKER_STORAGE_PORT="<storage provider port - only for minio>"
+export MAS_AIBROKER_STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
+export MAS_AIBROKER_STORAGE_TENANTS_BUCKET="<tenants bucket name>"
+export MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET="<templates bucket name>"
+export MAS_AIBROKER_WATSONXAI_APIKEY="<watsonx AI api key>"
+export MAS_AIBROKER_WATSONXAI_URL="<watsonx AI url>"
+export MAS_AIBROKER_WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
+export ROLE_NAME="aibroker"
+ansible-playbook playbooks/run_role.yml
+```
+
+- `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
+- `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
+
+
+**NOTE:** for create addidional tenants we don't need to specify buckets
