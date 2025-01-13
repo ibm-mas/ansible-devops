@@ -8,7 +8,6 @@
       - seq: "{{ masbr_job_data_seq }}"
         phase: "InProgress"
 
-
 - name: "Restore db2 database"
   block:
     # Prepare db2 database restore folder
@@ -35,7 +34,6 @@
       debug:
         msg: "Db2 database restore folder ....... {{ db2_restore_folder }}"
 
-
     # Copy backup file from specified storage location to pod
     # -------------------------------------------------------------------------
     - name: "Copy backup file from specified storage location to pod"
@@ -46,7 +44,6 @@
     - name: "Set fact: Db2 backup file timestamp"
       set_fact:
         masbr_restore_from_timestamp: "{{ db2_backup_timestamp }}"
-
 
     # This is an incremental backup, we also need to copy the based on full backup file
     # -------------------------------------------------------------------------
@@ -61,7 +58,6 @@
         - name: "Set fact: Db2 backup file timestamp"
           set_fact:
             masbr_restore_basedon_timestamp: "{{ db2_backup_timestamp }}"
-
 
     # Add Db2 keystore master key
     # https://www.ibm.com/docs/en/db2/11.5?topic=edr-restoring-encrypted-backup-image-different-system-local-keystore
@@ -95,7 +91,6 @@
         - _add_master_key_output.rc != 0
         - ('CTGSK3005W' not in _add_master_key_output.stdout)
 
-
     # Deactivate Db2 in preparation for restore
     # https://www.ibm.com/docs/en/db2/11.5?topic=r-restoring-db2-from-online-backup-using-commands
     # -------------------------------------------------------------------------
@@ -127,7 +122,6 @@
       debug:
         msg: "{{ _pre_restore_output.stdout_lines }}"
 
-
     - name: "Run Db2 restore commands"
       block:
         # Run Db2 full restore command
@@ -155,7 +149,6 @@
           when: not masbr_restore_from_incr
           debug:
             msg: "{{ _run_full_restore_output.stdout_lines }}"
-
 
         # Run Db2 incremental restore command
         # https://www.ibm.com/docs/en/db2/11.5?topic=commands-restore-database
@@ -230,7 +223,6 @@
           debug:
             msg: "{{ _run_rollforward_output.stdout_lines }}"
 
-
         # Active Db2 after successful rollforward
         # https://www.ibm.com/docs/en/db2/11.5?topic=r-restoring-db2-from-online-backup-using-commands
         # -------------------------------------------------------------------------
@@ -258,7 +250,6 @@
         - name: "Debug: active Db2 after successfull rollforward"
           debug:
             msg: "{{ _post_restore_output.stdout_lines }}"
-
 
     # Update database restore status: Completed
     # -------------------------------------------------------------------------
