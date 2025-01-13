@@ -17,7 +17,6 @@
     and couchdbStatefulSet.resources[0].status.updatedReplicas is defined
     and couchdbStatefulSet.resources[0].status.replicas == couchdbStatefulSet.resources[0].status.updatedReplicas ))
 
-
 # 2. Wait for couchdb replica pods to become ready
 # -----------------------------------------------------------------------------
 - name: "wait-couchdb: Wait for CouchDB pods to be become ready"
@@ -38,8 +37,7 @@
 # -----------------------------------------------------------------------------
 - set_fact:
     is_couchdb_ready: true
-  when:
-    couchdbStatefulSet.resources[0].status.readyReplicas is defined
+  when: couchdbStatefulSet.resources[0].status.readyReplicas is defined
     and couchdbStatefulSet.resources[0].status.replicas == couchdbStatefulSet.resources[0].status.readyReplicas
 
 - name: "wait-couchdb: Detecting and restarting pending CouchDB Pods"
@@ -102,7 +100,6 @@
             msg:
               - "CouchDB pods are not ready {{ couchdbStatefulSet.resources[0].status }}"
               - "Pending CouchDB Pods: {{ pending_pod_lookup.resources | map(attribute='metadata.name') }}"
-      when:
-        couchdbStatefulSet.resources[0].status.replicas != couchdbStatefulSet.resources[0].status.readyReplicas
+      when: couchdbStatefulSet.resources[0].status.replicas != couchdbStatefulSet.resources[0].status.readyReplicas
 
   when: is_couchdb_ready is not defined
