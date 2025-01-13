@@ -58,7 +58,6 @@
     target_mongodb_readinessprobe_image: "{{ mongodb_readinessprobe_image_registry }}/{{ mongodb_readinessprobe_image_name }}@{{ mongodb_readinessprobe_image_digest }}"
     target_mongodb_image: "{{ mongodb_image_registry }}/{{ mongodb_image_name }}@{{ mongodb_image_digest }}"
 
-
 # 2. Debug Properties
 # -----------------------------------------------------------------------------
 - name: "community : install : Debug properties"
@@ -100,7 +99,6 @@
     - existing_mongo_operator.resources[0] is defined
     - existing_mongo_operator.resources[0].spec.containers[0].image != target_mongodb_operator_image
 
-
 # 3. Install the CRD
 # -----------------------------------------------------------------------------
 - name: "community : install : Install MongoDBCommunity CRD"
@@ -108,14 +106,12 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/crd.yml.j2') }}"
 
-
 # 4. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
 - name: "community : install : Create namespace & install RBAC"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/rbac.yml.j2') }}"
-
 
 # 5. Configure anyuid permissions in the MongoDb namespace
 # -----------------------------------------------------------------------------
@@ -129,7 +125,6 @@
   shell: |
     oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mongodb_namespace }}:mongodb-database
 
-
 # 6. Install the operator
 # -----------------------------------------------------------------------------
 - name: "community : install : Install the MongoDb Operator"
@@ -140,7 +135,6 @@
     wait_condition:
       status: "True"
       type: Available
-
 
 # 7. Configure TLS using cert manager
 # -----------------------------------------------------------------------------
@@ -210,7 +204,6 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/community/tls.yml') }}"
 
-
 # 8. Create MongoDb admin user credentials secret
 # -----------------------------------------------------------------------------
 - name: "community : install : Check for existing user password secret"
@@ -228,7 +221,6 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/admin-password.yml') }}"
-
 
 # 9. Create MongoDb metrics endpoint secret
 # -----------------------------------------------------------------------------
@@ -250,7 +242,6 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/metrics-endpoint-secret.yml.j2') }}"
-
 
 # 10. Deploy the cluster
 # -----------------------------------------------------------------------------
@@ -296,7 +287,6 @@
   when:
     - not controlled_upgrade
     - mongodb_ce_version is version('0.7.0', '==')
-
 
 # 11. Wait for the cluster to be ready
 # status.version on the mongo cr is not available with older mongo operators
@@ -388,7 +378,6 @@
     - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version is defined) or mongodb_ce_version is version('0.7.0', '==')
     - (mongodb_ce_version is version('0.7.8', '>=') and mongodb_cr.resources[0].status.version == expected_mongodb_version) or mongodb_ce_version is version('0.7.0', '==')
 
-
 # 12. Create MongoDb service monitor
 # -----------------------------------------------------------------------------
 - name: "community : install : Check for existing service monitor"
@@ -409,7 +398,6 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/servicemonitor.yml.j2') }}"
-
 
 # 13. Create MongoDb Grafana dashboard
 # -----------------------------------------------------------------------------
@@ -476,7 +464,6 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/community/dashboards/mongodb-overview-v5.yml.j2') }}"
-
 
 # 14. Create MAS MongoCfg
 # -----------------------------------------------------------------------------
