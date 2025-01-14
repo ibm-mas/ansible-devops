@@ -17,11 +17,33 @@
         namespace: "{{ sls_namespace }}"
       register: _sls_suite_registration
 
+    - name: "Assert that SLS registrationKey has been provided"
+      ansible.builtin.assert:
+        that:
+          - _sls_suite_registration.resources[0].data['registrationKey'] is defined
+          - _sls_suite_registration.resources[0].data['registrationKey'] != ""
+        fail_msg: "registrationKey is not defined in sls-suite-registration configmap"
+
+    - name: "Assert that SLS url has been provided"
+      ansible.builtin.assert:
+        that:
+          - _sls_suite_registration.resources[0].data['url'] is defined
+          - _sls_suite_registration.resources[0].data['url'] != ""
+        fail_msg: "url is not defined in sls-suite-registration configmap"
+
+    - name: "Assert that SLS CA certificate has been provided"
+      ansible.builtin.assert:
+        that:
+          - _sls_suite_registration.resources[0].data['ca'] is defined
+          - _sls_suite_registration.resources[0].data['ca'] != ""
+        fail_msg: "ca certificate is not defined in sls-suite-registration configmap"
+
     - name: Set facts for SLSCfg
       ansible.builtin.set_fact:
-        sls_registration_key: "{{ _sls_suite_registration.data['registrationKey'] }}"
-        sls_url: "{{ _sls_suite_registration.data['url'] }}"
-        sls_tls_crt: "{{ _sls_suite_registration.data['ca'] }}"
+        sls_registration_key: "{{ _sls_suite_registration.resources[0].data['registrationKey'] }}"
+        sls_url: "{{ _sls_suite_registration.resources[0].data['url'] }}"
+        sls_tls_crt: "{{ _sls_suite_registration.resources[0].data['ca'] }}"
+
 
 ###############################################################################
 #                              External SLS                                   #
