@@ -59,10 +59,11 @@
     - name: "Creating dictionary while looping over page content"
       ignore_errors: true
       vars:
+        url_line: 'td class="description"><a href="https://github.com/strimzi/strimzi-kafka-operator/releases/tag/{{ kafka_csv_version }}'
         key: "{{file_lines[my_idx+3] | replace('<td class=\"version\">','') | replace('</td>','') | regex_replace('<td class.*','') | regex_replace('^\\s*','') | regex_replace(' ', '') | split(',') }}"
       set_fact:
         kafka_supported_versions: "{{ result | default([]) + key }}"
-      when: '''td class="description"><a href="https://github.com/strimzi/strimzi-kafka-operator/releases/tag/{{ kafka_csv_version }}'' in line_item'
+      when: url_line in line_item
       loop: "{{ file_lines }}"
       loop_control:
         loop_var: line_item

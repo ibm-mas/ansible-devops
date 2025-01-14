@@ -1,10 +1,8 @@
 ---
-
 # 1. Check for MAS ImageContentSourcePolicy
 # -----------------------------------------------------------------------------
 - name: "Determine whether this is an airgap environment"
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
-
 
 # 2. Display DRO deployment details
 # -----------------------------------------------------------------------------
@@ -19,7 +17,6 @@
       - "DRO Contact Last Name .............. {{ dro_contact.last_name | default('<undefined>', True) }}"
       - "DRO Contact e-mail ................. {{ dro_contact.email | default('<undefined>', True) }}"
 
-
 # 3. Check "{{ dro_namespace }}" operator exists
 # ----------------------------------------------------------------------------
 - name: Check if operator group is present in "{{ dro_namespace }}" already
@@ -31,7 +28,6 @@
 - name: "Create OperatorGroup in {{ dro_namespace }} namespace if not exist"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/operatorgroup.yml.j2') }}"
-
 
 # 4. Create a PVC using the Chosen Storage Class
 # ----------------------------------------------------------------------------
@@ -48,7 +44,6 @@
 - name: Create DRO PVC
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/dro-pvc.yml.j2') }}"
-
 
 # 5. Create Marketplace Pull Secret
 # ----------------------------------------------------------------------------
@@ -115,14 +110,12 @@
     fail_msg: "Provide IBM Entitlement Key, Access https://myibm.ibm.com/products-services/containerlibrary using your IBMId to access your entitlement key"
   when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
-
 # 6. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
 - name: "Load podTemplates configuration"
   include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
   vars:
     config_files: ["ibm-mas-bascfg.yml"]
-
 
 # 7. Install ibm-metrics-operator
 # -----------------------------------------------------------------------------
@@ -166,7 +159,6 @@
     wait_timeout: 60
   when: (imo_subscription.resources is defined) and (imo_subscription.resources | length == 0)
 
-
 # 8. Install ibm-data-reporter-operator
 # -----------------------------------------------------------------------------
 - name: Get ibm-data-operator Subscription
@@ -206,7 +198,6 @@
     wait_timeout: 60
   when: (dro_subscription.resources is defined) and (dro_subscription.resources | length == 0)
 
-
 # 9. Wait until the marketplaceconfigs CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the marketplaceconfigs CRD is available"
@@ -214,13 +205,11 @@
   vars:
     crd_name: marketplaceconfigs.marketplace.redhat.com
 
-
 # 10. Apply MarketplaceConfig CR
 # -----------------------------------------------------------------------------
 - name: Create MarketplaceConfig CR
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/MarketplaceConfig-cr.yml.j2') }}"
-
 
 # 11. Create DRO Pull Secret
 # -----------------------------------------------------------------------------

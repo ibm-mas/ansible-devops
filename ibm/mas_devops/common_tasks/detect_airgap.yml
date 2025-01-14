@@ -1,21 +1,32 @@
 ---
-
-# 1. Look for the airgap config
-
+# 1. Look for the legacy ICSP
+# -----------------------------------------------------------------------------
 - name: "detect-airgap : Look for the MAS ImageContentSourcePolicy"
   kubernetes.core.k8s_info:
     api_version: operator.openshift.io/v1alpha1
     kind: ImageContentSourcePolicy
     name: ibm-mas-and-dependencies
-  register: content_source_policy_lookup
+  register: icsp_lookup
 
-- debug:
-    var: content_source_policy_lookup
+# 2. Look for the new IDMS
+# -----------------------------------------------------------------------------
+- name: "detect-airgap : Look for the MAS ImageDigestMirrorSet"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: ImageDigestMirrorSet
+    label_selectors:
+      - mas.ibm.com/idmsContent=ibm
+  register: idms_lookup
 
+# 3. Set the airgap boolena and print debug
+# -----------------------------------------------------------------------------
 - name: "detect-airgap : Set airgap_install property"
   set_fact:
-    airgap_install: "{{ content_source_policy_lookup.resources | length == 1 | bool }}"
+    airgap_install: "{{ idms_lookup.resources | length == 1 | bool }}"
 
 - name: "detect-airgap : Debug Airgap detection"
   debug:
-    msg: "Airgap environment .................... {{ airgap_install }}"
+    msg:
+      - "Legacy ICSP resources .................. {{ icsp_lookup.resources | length }}"
+      - "Current IDMS resources ................. {{ idms_lookup.resources | length }}"
+      - "Airgap environment ..................... {{ airgap_install }}"

@@ -9,12 +9,11 @@
     entitledAuthStr: "{{ registry_user }}:{{ ibm_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
-      - "{\"auths\":{\"{{ registry }}/cp/cpd\":{\"username\":\"{{ registry_user }}\",\"password\":\"{{ ibm_entitlement_key }}\",\"email\":\"{{ registry_user }}\",\"auth\":\"{{ entitledAuth }}\"}"
+      - '{"auths":{"{{ registry }}/cp/cpd":{"username":"{{ registry_user }}","password":"{{ ibm_entitlement_key }}","email":"{{ registry_user }}","auth":"{{ entitledAuth }}"}'
       - "}"
       - "}"
   set_fact:
     new_secret: "{{ content | join('') }}"
-
 
 # 2. Generate 'ibm-registry' secret
 # -----------------------------------------------------------------------------
@@ -31,13 +30,11 @@
         .dockerconfigjson: "{{ new_secret | to_json | b64encode }}"
   register: secretUpdateResult
 
-
 # 3. Create DaemonSet
 # -----------------------------------------------------------------------------
 - name: Create 'norootsquash' DaemonSet
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/norootsquash_daemonset.yml.j2') }}"
-
 
 # 4. Wait for 'norootsquash' DaemonSet to be running
 # -----------------------------------------------------------------------------
