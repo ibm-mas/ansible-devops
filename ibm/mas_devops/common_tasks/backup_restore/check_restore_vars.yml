@@ -11,7 +11,6 @@
 #   masbr_restore_to_diff_domain: true|false
 #   masbr_restore_to_diff_instance: true|false
 
-
 # Restore environment variables
 # -----------------------------------------------------------------------------
 - name: "Set fact: restore environment variables"
@@ -32,7 +31,6 @@
     that: masbr_restore_from_version is defined and masbr_restore_from_version != ""
     fail_msg: "masbr_restore_from_version is required for running restore job"
 
-
 # Check 'masbr_job_component'
 # -----------------------------------------------------------------------------
 - name: "Fail if masbr_job_component is not provided"
@@ -44,7 +42,6 @@
     fail_msg:
       - "masbr_job_component.name is required"
       - "masbr_job_component.namespace is required"
-
 
 # Check 'masbr_job_data_list'
 # -----------------------------------------------------------------------------
@@ -86,14 +83,13 @@
       set_fact:
         masbr_job_data_list: "{{ masbr_job_data_init }}"
 
-
 # Find restore-from job name
 # -----------------------------------------------------------------------------
 - name: "Find the restore-from job name"
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
   vars:
-    - masbr_ls_job_type: "backup"
-    - masbr_ls_filter: "| grep '^{{ masbr_job_component.name }}-.*-{{ masbr_restore_from_version }}$'"
+    masbr_ls_job_type: "backup"
+    masbr_ls_filter: "| grep '^{{ masbr_job_component.name }}-.*-{{ masbr_restore_from_version }}$'"
 
 - name: "Fail if not found the restore-from job name"
   assert:
@@ -103,7 +99,6 @@
 - name: "Set fact: restore-from job name"
   set_fact:
     masbr_restore_from: "{{ masbr_ls_results[0] }}"
-
 
 # Set restore job variables
 # -----------------------------------------------------------------------------
@@ -121,12 +116,10 @@
     # At this point, set it as the same value of masbr_job_name
     masbr_job_name_final: "{{ masbr_job_name }}"
 
-
 # Create local job folder
 # -----------------------------------------------------------------------------
 - name: "Create local job folder"
   include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_local_job_folder.yml"
-
 
 # Get restore-from job information
 # -----------------------------------------------------------------------------
@@ -167,7 +160,6 @@
       {{ true if (masbr_job_component.instance is defined and masbr_job_component.instance | length > 0 and
       masbr_restore_from_yaml.source.instance != masbr_job_component.instance) else false }}
 
-
 # Trying to restore from an incremental backup, also need to check the existance of the based on full backup
 # -----------------------------------------------------------------------------
 - name: "Check the existence of the based on full backup job"
@@ -185,8 +177,8 @@
     - name: "Check the existence of the based on full backup job"
       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/list_storage_job_folders.yml"
       vars:
-        - masbr_ls_job_type: "backup"
-        - masbr_ls_filter: "| grep {{ masbr_restore_basedon }}"
+        masbr_ls_job_type: "backup"
+        masbr_ls_filter: "| grep {{ masbr_restore_basedon }}"
 
     - name: "Fail if not found the based on full backup job"
       assert:
@@ -194,7 +186,6 @@
         fail_msg: >-
           Not found the based on full backup job folder:
           {{ masbr_storage_job_type_folder }}/{{ masbr_restore_basedon }}
-
 
 # Show restore job information
 # -----------------------------------------------------------------------------

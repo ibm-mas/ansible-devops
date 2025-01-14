@@ -8,7 +8,7 @@
 
 - name: "1st attempt : Lookup for {{ ocp_ingress_tls_secret_name }} secret"
   no_log: true
-  k8s_info:
+  kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ ocp_ingress_tls_secret_name }}"
@@ -47,7 +47,7 @@
         - cluster_subdomain.resources is defined
         - cluster_subdomain.resources | length > 0
       no_log: true
-      k8s_info:
+      kubernetes.core.k8s_info:
         api_version: v1
         kind: Secret
         name: "{{ cluster_subdomain.resources[0].spec.domain | regex_search('[^.]*') }}"
@@ -91,7 +91,7 @@
 
         - name: Lookup default secret name containing cluster's ingress certificate based on IngressController default
           when: cluster_ingress_secret_name is defined and cluster_ingress_secret_name | length > 0
-          k8s_info:
+          kubernetes.core.k8s_info:
             api_version: v1
             kind: Secret
             name: "{{ cluster_ingress_secret_name }}"
@@ -118,7 +118,7 @@
       cluster_ingress_tls_crt is not defined
   block:
     - name: Get all TLS secrets
-      k8s_info:
+      kubernetes.core.k8s_info:
         api_version: v1
         kind: Secret
         namespace: openshift-ingress

@@ -8,14 +8,12 @@
       - seq: "{{ masbr_job_data_seq }}"
         phase: "InProgress"
 
-
 - name: "Backup mongodb databases"
   block:
     # Create mongodb role and user for backing up databases
     # -------------------------------------------------------------------------
     - name: "Create mongodb role and user for backing up databases"
       include_tasks: "tasks/providers/{{ mongodb_provider }}/backup-restore/create-role-user.yml"
-
 
     # Prepare mongodb database backup folder
     # -------------------------------------------------------------------------
@@ -36,7 +34,6 @@
         {{ exec_in_pod_begin }}
         mkdir -p {{ mongodb_backup_folder }}
         {{ exec_in_pod_end }}
-
 
     # Set database name filter
     # -------------------------------------------------------------------------
@@ -59,7 +56,8 @@
 
         - name: "Set fact: always backup databases for core"
           set_fact:
-            mongodb_db_app_filters: ["mas_{{ mas_instance_id }}_(core|catalog|adoptionusage)"]
+            mongodb_db_app_filters:
+              ["mas_{{ mas_instance_id }}_(core|catalog|adoptionusage)"]
 
         - name: "Set fact: append database name filters for ({{ mas_app_id }})"
           set_fact:
@@ -74,7 +72,6 @@
     - name: "Debug: database name filter"
       debug:
         msg: "{{ mongodb_db_filter }}"
-
 
     # Take a full backup of mongodb databases
     # -------------------------------------------------------------------------
@@ -139,7 +136,6 @@
           debug:
             msg: "{{ _mongodump_output | json_query('results[*].stdout_lines') }}"
 
-
     # Take an incremental backup of mongodb databases
     # -------------------------------------------------------------------------
     - name: "Take an incremental backup of mongodb databases"
@@ -199,7 +195,6 @@
           debug:
             msg: "{{ _mongodump_output.stdout_lines }}"
 
-
     # Create tar.gz archives of database backup files
     # -------------------------------------------------------------------------
     - name: "Create tar.gz archives of database backup files"
@@ -215,7 +210,6 @@
     - name: "Debug: size of backup files"
       debug:
         msg: "{{ _du_files_output.stdout_lines }}"
-
 
     # Copy backup files to specified storage location
     # -------------------------------------------------------------------------
@@ -248,7 +242,6 @@
               - src_file: "{{ masbr_job_data_type }}/{{ masbr_job_name }}.tar.gz"
                 dest_folder: "{{ masbr_job_data_type }}"
 
-
     # Create query file used by the subsequent incremental backups
     # -------------------------------------------------------------------------
     - name: "Create query file used by the subsequent incremental backups"
@@ -277,7 +270,6 @@
         masbr_cf_paths:
           - src_file: "{{ masbr_job_data_type }}/query.json"
             dest_folder: "{{ masbr_job_data_type }}"
-
 
     # Update database backup status: Completed
     # -------------------------------------------------------------------------

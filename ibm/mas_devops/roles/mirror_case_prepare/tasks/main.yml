@@ -1,5 +1,4 @@
 ---
-
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Fail if required properties are not provided"
@@ -8,7 +7,7 @@
       - case_name is defined and case_name != ""
       - case_version is defined and case_version != ""
       - mirror_working_dir is defined and mirror_working_dir != ""
-      - registry_public_url is defined and registry_public_url != ":"
+      - registry_public_url_with_path is defined and registry_public_url_with_path != ":"
     fail_msg: "One or more required properties are missing"
 
 # 2. Check for required software
@@ -99,7 +98,7 @@
 # 7. Generate mirror-manifest direct
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
-  shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url }} --version {{ build_version }} {% if image_group_filter is defined %} --filter {{ image_group_filter }} {% endif %}"
+  shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url_with_path }} --version {{ build_version }} {% if image_group_filter is defined %} --filter {{ image_group_filter }} {% endif %}"
   register: ibmpak_gen1_result
 
 - name: "{{ case_name }} : Copy images-mapping"
@@ -110,7 +109,7 @@
 # 8. Generate mirror-manifest indirect
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
-  shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ build_version }} --final-registry {{ registry_public_url }} {% if image_group_filter is defined %} --filter {{ image_group_filter }} {% endif %}"
+  shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ build_version }} --final-registry {{ registry_public_url_with_path }} {% if image_group_filter is defined %} --filter {{ image_group_filter }} {% endif %}"
   register: ibmpak_gen2_result
 
 - name: "{{ case_name }} : Copy images-mapping-to-filesystem"
@@ -122,7 +121,6 @@
   ansible.builtin.copy:
     src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping-from-filesystem.txt
     dest: "{{ mirror_working_dir }}/manifests/from-filesystem/{{ case_name }}_{{ _manifest_version }}.txt"
-
 
 # 9. IBM SLS 3.5.0 Bad Digest Hack
 # -----------------------------------------------------------------------------
