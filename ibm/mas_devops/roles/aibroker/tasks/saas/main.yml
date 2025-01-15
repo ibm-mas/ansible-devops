@@ -1,87 +1,25 @@
 ---
-# TODO: create route
-
-# Adding inference server runtimes
-# - name: 'create controller route'
-#   kubernetes.core.k8s:
-#     apply: yes
-#     definition: "{{ lookup('template', 'templates/saas/create-controller-route.yml.j2') }}"
-
-# - name: Apply Kmodel api
-#   shell: |
-#     curl -k -X POST "https://controller-mas-{{ mas_instance_id }}-aibroker.{{ mas_aibroker_domain }}/api/v1/tenant?id=provision-tenant" \
-#     --header 'accept: */*' \
-#     --header 'Content-Type: application/json' \
-#     --data '{"name": "string","public": true,"max_models": 10}'
-#   register: kmodel_api_output
-
-# - name: Apply Kmodel api - using uri
-#   uri:
-#     url: https://controller-mas-{{ mas_instance_id }}-aibroker.{{ mas_aibroker_domain }}/api/v1/tenant?id=provision-tenant
-#     validate_certs: no
-#     method: POST
-#     headers:
-#       accept: "*/*"
-#       Content-Type: application/json
-#     body_format: "json"
-#     body: "{\"name\": \"string\",\"public\": true,\"max_models\": 10}"
-#     status_code: [200,409]
-#     timeout: 30
-#   register: kmodel_api_output
-# - name: Kmodel debug #TODO: remove before commit
-#   debug:
-#     msg: "POST output ...... {{ kmodel_api_output }}"
-- name: "Check if API key secret exists in namespace: provision-tenant"
+- name: "Check if API key secret exists in namespace: {{ mas_aibroker_provision_tenant }}"
   k8s_info:
     api_version: v1
     kind: Secret
-    name: "provision-tenant----apikey-secret"
+    name: "{{ mas_aibroker_provision_tenant }}----apikey-secret"
     namespace: "{{ aibroker_namespace }}"
   register: apikey_secret_info
 
 - name: Create API Key
-  script: "{{ role_path }}/files/create_apikey.sh provision-tenant {{ aibroker_namespace }}"
+  script: "{{ role_path }}/files/create_apikey.sh {{ mas_aibroker_provision_tenant }} {{ aibroker_namespace }}"
   when:
     - apikey_secret_info.resources | length == 0
 
-- name: "Lookup tenant provision-tenant api key"
-  shell: oc get secret provision-tenant----apikey-secret -n {{ aibroker_namespace }} -o json | jq -r '.data.AIBROKER_APIKEY' | base64 -d
+- name: "Lookup tenant {{ mas_aibroker_provision_tenant }} api key"
+  shell: oc get secret {{ mas_aibroker_provision_tenant }}----apikey-secret -n {{ aibroker_namespace }} -o json | jq -r '.data.AIBROKER_APIKEY' | base64 -d
   register: provision_tenant_api_key_output
 
 - name: "Set aibroker api key variable"
   set_fact:
     provision_tenant_api_key: "{{ provision_tenant_api_key_output.stdout }}"
 
-- name: Debug provision-tenant api key #TODO: remove on finall commit
+- name: Debug {{ mas_aibroker_provision_tenant }} api key #TODO: remove on final commit
   debug:
     msg: "Provision tenant api key: {{ provision_tenant_api_key }}"
-
-# - name: "Create tenant {{ tenantNamespace }} and add to db2 for saas"
-#   shell: |
-#     curl -k -X POST "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenant" \
-#     --header 'apikey: {{ provision_tenant_api_key }}' \
-#     --header 'accept: */*' \
-#     --header 'Content-Type: application/json' \
-#     --header 'tenantid: provision-tenant' \
-#     --data ' {"tenant_name": "{{ tenantNamespace }}", "sls_url": "{{ mas_aibroker_sls_url }}", "dro_url": "{{ mas_aibroker_dro_url }}"}'
-#   register: add_tenant_to_db2
-
-# # - name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
-# #   uri:
-# #     url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenant"
-# #     validate_certs: no
-# #     method: POST
-# #     headers:
-# #       apikey: "{{ provision_tenant_api_key }}"
-# #       accept: "*/*"
-# #       Content-Type: "application/json"
-# #       tenantid: "provision-tenant"
-# #     body_format: "json"
-# #     body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"sls_url\": \"{{ mas_aibroker_sls_url }}\", \"dro_url\": \"{{ mas_aibroker_dro_url }}\"}"
-# #     status_code: [200]
-# #     timeout: 30
-# #   register: add_tenant_to_db2
-
-# - name: Debug tenant #TODO: remove on finall commit
-#   debug:
-#     msg: "{{ add_tenant_to_db2 }}"
