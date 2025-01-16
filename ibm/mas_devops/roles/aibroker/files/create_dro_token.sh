@@ -29,8 +29,8 @@ echo $NAMESPACE
 echo $token
 
 if [ -z ${TENANT} ]; then
-  echo "using default tenant name=aibroker-user"
-  TENANT='aibroker-user'
+  echo "using default tenant name=provision-tenant"
+  TENANT='provision-tenant'
   #echo "Usage ./create_apikey.sh tenant_name_in_lower_case"
   #exit 1
 fi

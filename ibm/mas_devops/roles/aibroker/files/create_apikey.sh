@@ -13,8 +13,8 @@ AIBROKER=$2
 echo "TENANT = ${TENANT}"
 
 if [ -z ${TENANT} ]; then
-    echo "using default tenant name=aibrokeruser"
-    TENANT='aibrokeruser'
+    echo "using default tenant name=provision-tenant"
+    TENANT='provision-tenant'
     #echo "Usage ./create_apikey.sh tenant_name_in_lower_case"
     #exit 1
 fi
