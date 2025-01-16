@@ -5,7 +5,7 @@
   debug:
     msg:
       - "Namespace ...................... {{ aibroker_namespace }}"
-      - "Channel ........................ {{ aibroker_channel }}"
+      - "Channel ........................ {{ mas_app_channel }}"
       - "MAS Instance Id ................ {{ mas_instance_id }}"
 
 # Create IBM Maximo IBM Maximo AI Broker
@@ -28,13 +28,18 @@
     artifactory_username: "{{ artifactory_username }}"
     artifactory_password: "{{ artifactory_token }}"
 
-- name: "Create ibm-mas-aibroker Subscription"
-  ibm.mas_devops.apply_subscription:
-    namespace: "{{ aibroker_namespace }}"
-    package_name: ibm-mas-aibroker
-    package_channel: "{{ aibroker_channel }}"
-    catalog_source: "{{ mas_catalog_source }}"
-  register: subscription
+# - name: "Create ibm-mas-aibroker Subscription"
+#   ibm.mas_devops.apply_subscription:
+#     namespace: "{{ aibroker_namespace }}"
+#     package_name: ibm-mas-aibroker
+#     package_channel: "{{ aibroker_channel }}"
+#     catalog_source: "{{ mas_catalog_source }}"
+#   register: subscription
+
+- name: "Install Openshift odh Operator specific version"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/aibroker/subscription.yml.j2') }}"
 
 
 # Wait until the IBM Maximo AI Broker CRD is available
