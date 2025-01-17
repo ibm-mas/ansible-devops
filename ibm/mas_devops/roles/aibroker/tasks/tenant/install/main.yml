@@ -91,6 +91,15 @@
   debug:
     msg: "{{ dro_token_output }}"
 
+- name: "Wait for {{ pod_keywords }} pod to be reconsiled (10s delay)"
+  shell: >
+    oc get pods -n {{ aibroker_namespace }} --no-headers=true | grep "{{ pod_keywords }}" | awk '{print $1}'
+    | xargs oc logs -c {{ pod_keywords }} -n {{ aibroker_namespace }} | grep "ok=" | wc -l
+  register: _is_reconsiled
+  until: _is_reconsiled.stdout|int == 1
+  retries: 60
+  delay: 10
+
 - name: Wait for service /service/rest/api/v1/tenant #need more accurate way to check if service working
   pause:
     minutes: 6
