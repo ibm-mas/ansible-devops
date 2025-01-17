@@ -91,17 +91,17 @@
   debug:
     msg: "{{ dro_token_output }}"
 
-- name: "Wait for {{ pod_keywords }} pod to be reconsiled (10s delay)"
+- name: "Wait for aibroker-api pod to be ready (10s delay)"
   shell: >
-    oc logs -c {{ pod_keywords }} -n  {{ aibroker_namespace }} $(oc get pods -n {{ aibroker_namespace }} --no-headers=true | grep "{{ pod_keywords }}" | awk '{print $1}') | grep "Running"
-  register: _is_reconsiled
-  until: _is_reconsiled.stdout|int == 1
-  retries: 10
+    oc get pod -l app=aibroker-api -n {{ aibroker_namespace }} --no-headers=true | grep -Evi "1/1|2/2|3/3|4/4|5/5|6/6|7/7|8/8|9/9|complete" | wc -l
+  register: _is_not_ready
+  until: _is_not_ready.stdout|int == 0
+  retries: 60
   delay: 10
 
 - name: Wait for service /service/rest/api/v1/tenant #need more accurate way to check if service working
   pause:
-    minutes: 6
+    minutes: 8
     prompt: "Waiting for for service /service/rest/api/v1/tenant"
 
 - name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
