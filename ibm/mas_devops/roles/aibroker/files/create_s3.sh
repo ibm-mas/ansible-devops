@@ -27,8 +27,8 @@ echo $STORAGE_PORT
 echo $STORAGE_REGION
 
 if [ -z ${TENANT} ]; then
-  echo "using default tenant name=provision-tenant"
-  TENANT='provision-tenant'
+  echo "using default tenant name=aibrokeruser"
+  TENANT='aibrokeruser'
   #echo "Usage ./create_s3.sh tenant_name_in_lower_case"
   #exit 1
 fi
