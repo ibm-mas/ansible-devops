@@ -78,8 +78,12 @@
 
 - name: "Wait for aibroker-api pod to be ready (10s delay)"
   shell: >
-    oc get pod -l app=aibroker-api -n mas-apmdevops-aibroker --no-headers=true | grep -Evi "1/1|2/2|3/3|4/4|5/5|6/6|7/7|8/8|9/9|complete" | wc -l
+    oc get pod -l app=aibroker-api -n {{ aibroker_namespace }} --no-headers=true | grep -Evi "1/1|2/2|3/3|4/4|5/5|6/6|7/7|8/8|9/9|complete" | wc -l
   register: _is_not_ready
   until: _is_not_ready.stdout|int == 0
   retries: 60
   delay: 10
+
+- name: Display pod status 
+  debug:
+    msg: " Status ..... {{ _is_not_ready }}"
