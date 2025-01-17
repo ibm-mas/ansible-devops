@@ -90,6 +90,15 @@
 - name: Debug Create DRO token
   debug:
     msg: "{{ dro_token_output }}"
+    
+- name: "Debug logs for {{ _pod_keywords }} pod"
+  shell: >
+    oc get pods -n {{ _pod_namespace }} --no-headers=true | grep "{{ _pod_keywords }}" | awk '{print $1}'
+    | xargs -I {} oc logs -c {{ _container_name }} -n {{ _pod_namespace }}
+  register: pod_logs
+
+- debug:
+    var: pod_logs.stdout_lines
 
 - name: "Wait for {{ pod_keywords }} pod to be reconsiled (10s delay)"
   shell: >
