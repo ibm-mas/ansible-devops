@@ -729,34 +729,20 @@
 <pre><code class="language-bash">docker run -ti --rm --pull always quay.io/ibmmas/cli
 </code></pre>
 <h2 id="local-install">Local Install<a class="headerlink" href="#local-install" title="Permanent link">¤</a></h2>
-<h3 id="install-python-ansible">Install Python &amp; Ansible<a class="headerlink" href="#install-python-ansible" title="Permanent link">¤</a></h3>
-<p><a href="https://www.python.org/downloads/">Python 3.9</a> is recommended as it is the most widely used version of Python within our development team, but any in-support 3.x version of Python should work fine.</p>
-<pre><code class="language-bash">python3 --version
-python3 -m pip install ansible junit_xml pymongo xmljson jmespath kubernetes==12.0.1 openshift==0.12.1
-ansible --version
-ansible-playbook --version
-</code></pre>
-<p>We recommend using the latest version of ansible-core at all times (at time of writing this was v2.12.3) and the collection has a minimum supported version of ansible-core v2.10.3 which is enforced by the <code>ibm.mas_devops.ansible_version_check</code> role.</p>
-<h3 id="install-openshift-cli">Install OpenShift CLI<a class="headerlink" href="#install-openshift-cli" title="Permanent link">¤</a></h3>
-<p>If you do not already have the <code>oc</code> command line tool, you can download it as below:</p>
-<pre><code>wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.7/openshift-client-linux-4.14.7.tar.gz
-tar -zxf openshift-client-linux.tar.gz
-mv oc kubectl /usr/local/bin/
-rm -rf openshift-client-linux.tar.gz
-oc version
-</code></pre>
-<h3 id="install-ibm-cloud-cli">Install IBM Cloud CLI<a class="headerlink" href="#install-ibm-cloud-cli" title="Permanent link">¤</a></h3>
-<p>If you are using this collection to manage an OpenShift cluster in IBM Cloud RedHat OpenShift Kubernetes Service (ROKS), then you must also install the IBM Cloud CLI:</p>
-<pre><code class="language-bash">curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/master/linux-installer/idt-installer | bash
-ibmcloud version`
-</code></pre>
-<h3 id="install-the-ansible-collection">Install the Ansible Collection<a class="headerlink" href="#install-the-ansible-collection" title="Permanent link">¤</a></h3>
-<p>Install the collection direct from <a href="https://galaxy.ansible.com/ibm/mas_devops">Ansible Galaxy</a></p>
+<p>Install the collection direct from <a href="https://galaxy.ansible.com/ibm/mas_devops">Ansible Galaxy</a>, you must also install the <a href="https://pypi.org/project/mas-devops">mas-devops</a> Python package.  <a href="https://www.python.org/downloads/">Python 3.11</a> is recommended as it is the most widely used version of Python within our development team, but any in-support version of Python should work.</p>
 <pre><code>ansible-galaxy collection install ibm.mas_devops
+python3 -m pip install mas-devops
 </code></pre>
 <p>Optionally, you can also pin the version of the collection that you install, allowing you to control exactly what version of the collection is in use in your automation:</p>
 <pre><code>ansible-galaxy collection install ibm.mas_devops:18.10.4
+python3 -m pip install mas-devops
 </code></pre>
+<p>The ansible collection makes use of many dependencies, you can find install scripts showing how we install these dependencies in our own container image in the <a href="https://github.com/ibm-mas/cli-base/tree/stable/image/cli-base/install">ibm-mas/cli-base</a> repository, the dependencies you need will be determined by the roles that you intend to use, refer to the roles documentation for dependency infomation.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Many systems contain more than one installation of Python, when you install the <strong>mas-devops</strong> package you must install it to the Python that Ansible is configured to use.  You can check the version being used by Ansible by reviewing the output of <code>ansible --version</code>.</p>
+<p>If you see the error message <code>ERROR! Unexpected Exception, this is probably a bug: No module named 'mas'</code> it almost certainly means that you have not installed the mas-devops package, or have added it to the wrong instance of Python.</p>
+</div>
 <h2 id="ansible-automation-platform">Ansible Automation Platform<a class="headerlink" href="#ansible-automation-platform" title="Permanent link">¤</a></h2>
 <p>If you wish to use <a href="https://www.redhat.com/en/technologies/management/ansible">Red Hat Ansible Automation Platform</a> then a Automation Execution Environment image is available at <a href="https://quay.io/repository/ibmmas/ansible-devops-ee?tab=tags&amp;tag=latest">quay.io/ibmmas/ansible-devops-ee</a> that contains the <code>ibm.mas_devops</code> collection at the same release level, plus required client packages and access to the automation content collections supported by Red Hat.</p>
 <p>More details on how to use the ansible-devops execution environment can be found <a href="execution-environment/">here</a></p>
@@ -765,7 +751,7 @@ ibmcloud version`
       
     </div>
     <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v1.6.1 (2025-01-13 16:26:20.934175+00:00)
+      Built with mkdocs v1.6.1 (2025-01-18 13:42:55.001466+00:00)
     </div> -->
   <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": false, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
 </script></body>
