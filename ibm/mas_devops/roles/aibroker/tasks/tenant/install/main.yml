@@ -1,87 +1,63 @@
 ---
-- name: 'Check if tenant namespace: {{ tenantNamespace }} exists'
+- name: "Check if tenant namespace: {{ tenantNamespace }} exists"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Namespace
-    name: '{{ tenantNamespace }}'
+    name: "{{ tenantNamespace }}"
   register: namespace_info
 
 # Create tenant namespace
-- name: 'Create a tenant namespace: {{ tenantNamespace }}'
+- name: "Create a tenant namespace: {{ tenantNamespace }}"
   kubernetes.core.k8s:
-    name: '{{ tenantNamespace }}'
+    name: "{{ tenantNamespace }}"
     api_version: v1
     kind: Namespace
   when:
     - namespace_info.resources | length == 0
 
 # Copy secrets to tenant namespace
-- name: 'Copy secrets to namespace: {{ tenantNamespace }}'
+- name: "Copy secrets to namespace: {{ tenantNamespace }}"
   shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply --force -f -'
   with_items:
     - km-s3-secret
-    - '{{ pullSecretName }}'
+    - "{{ pullSecretName }}"
 
 # Adding inference server runtimes
-- name: 'Create config map for connector config'
+- name: "Create config map for connector config"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/tenant/connector-configmap.yml.j2') }}"
 
-- name: 'Create SA for server runtimes'
+- name: "Create SA for server runtimes"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/tenant/km-s3-sa.yml.j2') }}"
 
-# - name: 'Create huggingfaceserver server runtime'
-#   kubernetes.core.k8s:
-#     apply: yes
-#     definition: "{{ lookup('template', 'templates/tenant/kserve-huggingfaceserver.yml.j2') }}"
+- name: "Create huggingfaceserver server runtime"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/kserve-huggingfaceserver.yml.j2') }}"
 
-# - name: 'Create lgbserver server runtime'
-#   kubernetes.core.k8s:
-#     apply: yes
-#     definition: "{{ lookup('template', 'templates/tenant/kserve-lgbserver.yml.j2') }}"
+- name: "Create lgbserver server runtime"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/kserve-lgbserver.yml.j2') }}"
 
-# - name: 'Create sklearnserver server runtime'
-#   kubernetes.core.k8s:
-#     apply: yes
-#     definition: "{{ lookup('template', 'templates/tenant/kserve-sklearnserver.yml.j2') }}"
+- name: "Create sklearnserver server runtime"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/kserve-sklearnserver.yml.j2') }}"
 
-# - name: 'Create xgbserver server runtime'
-#   kubernetes.core.k8s:
-#     apply: yes
-#     definition: "{{ lookup('template', 'templates/tenant/kserve-xgbserver.yml.j2') }}"
+- name: "Create xgbserver server runtime"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/kserve-xgbserver.yml.j2') }}"
 
 # Applay RBAC roles
-- name: 'Apply RBAC for tenant'
+- name: "Apply RBAC for tenant"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/tenant/rbac.yml.j2') }}"
-
-# - name: "debug domain"
-#   debug:
-#     msg: "Domain name ......... {{ domain }}"
-
-# - name: "Remove prefix from domain"
-#   set_fact:
-#     hostname: "{{ domain | regex_replace('^[^.]+\\.', '') }}"
-
-# - name: Apply Kmodel api
-#   shell: |
-#     curl -k -X POST "https://controller-mas-{{ mas_instance_id }}-aibroker.{{ mas_aibroker_domain }}/api/v1/tenant?id={{ tenantNamespace }}" \
-#     --header 'accept: */*' \
-#     --header 'Content-Type: application/json' \
-#     --data '{"name": "string","public": true,"max_models": 10}'
-
-# - name: Create sls secret sample for AI Broker
-#   command: python3 {{ role_path }}/files/alm_sample_sls_use.py {{ mas_aibroker_sls_url }} {{ mas_aibroker_sls_registration_key }}
-#   register: create_sls_secret_output
-#   ignore_errors: yes
-
-# - name: Debug Create sls secret for AI Broker
-#   debug:
-#     msg: "{{ create_sls_secret_output }}"
 
 - name: "Check if SLS key secret exists in namespace: {{ aibroker_namespace }}"
   k8s_info:
@@ -115,21 +91,30 @@
   debug:
     msg: "{{ dro_token_output }}"
 
+# - name: Wait for service /service/rest/api/v1/tenant #need more accurate way to check if service working
+#   pause:
+#     minutes: 8
+#     prompt: "Waiting for for service /service/rest/api/v1/tenant"
 
-# - name: "Create tenant {{ tenantNamespace }} and add to db2 for saas"
-#   shell: |
-#     curl -k -X POST "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenant" \
-#     --header 'apikey: {{ provision_tenant_api_key }}' \
-#     --header 'accept: */*' \
-#     --header 'Content-Type: application/json' \
-#     --header 'tenantid: provision-tenant' \
-#     --data ' {"tenant_name": "{{ tenantNamespace }}", "sls_url": "{{ mas_aibroker_sls_url }}", "dro_url": "{{ mas_aibroker_dro_url }}"}'
-#   register: add_tenant_to_db2
-
-- name: Wait for service /service/rest/api/v1/tenant
+- name: Await to aibroker-api pod created
   pause:
-    minutes: 2
-    prompt: "Waiting for for service /service/rest/api/v1/tenant"
+    minutes: 3
+    prompt: "Waiting for aibroker-api pod"
+
+- name: "Wait for aibroker-api pod"
+  shell: oc  wait --for=condition=ready pod -l app=aibroker-api -n {{ aibroker_namespace }}
+  register: _is_not_exists
+  until: _is_not_exists.stdout|int == 0
+  retries: 60
+  delay: 10
+
+- name: "Wait for aibroker-api pod to be ready (10s delay)"
+  shell: >
+    oc get pod -l app=aibroker-api -n {{ aibroker_namespace }} --no-headers=true | grep -Evi "1/1|2/2|3/3|4/4|5/5|6/6|7/7|8/8|9/9|complete" | wc -l
+  register: _is_not_ready
+  until: _is_not_ready.stdout|int == 0
+  retries: 60
+  delay: 10
 
 - name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
   uri:
@@ -140,7 +125,7 @@
       apikey: "{{ provision_tenant_api_key }}"
       accept: "*/*"
       Content-Type: "application/json"
-      tenantid: "provision-tenant"
+      tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
     body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"sls_url\": \"{{ mas_aibroker_sls_url }}\", \"dro_url\": \"{{ mas_aibroker_dro_url }}\"}"
     status_code: [201]
@@ -151,26 +136,6 @@
   debug:
     msg: "{{ add_tenant_to_db2 }}"
 
-
-# - name: Create tenant entitlement
-#   command: python3 {{ role_path }}/files/create_tenant_entitlement.py {{ tenantNamespace }} standard pcc 2024-01-01 2027-01-01
-#   register: create_tenant_entitlement
-#   ignore_errors: yes
-
-# - name: Debug Create tenant entitlement
-#   debug:
-#     msg: "{{ create_tenant_entitlement }}"
-
-# - name: "Create tenantEntitlements {{ tenantNamespace }} and add to db2 for saas"
-#   shell: |
-#     curl -k -X POST "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements" \
-#     --header 'apikey: {{ provision_tenant_api_key }}' \
-#     --header 'accept: */*' \
-#     --header 'Content-Type: application/json' \
-#     --header 'tenantid: provision-tenant' \
-#     --data '{"tenant_name": "{{ tenantNamespace }}", "entitlement_type": "standard", "model_type": "similarity", "entitlement_start_date": "2024-01-01", "entitlement_end_date": "2025-01-01"}'
-#   register: add_tenant_entitlements_to_db2
-
 - name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
   uri:
     url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
@@ -180,7 +145,7 @@
       apikey: "{{ provision_tenant_api_key }}"
       accept: "*/*"
       Content-Type: "application/json"
-      tenantid: "provision-tenant"
+      tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
     body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"similarity\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
     status_code: [201]
@@ -200,7 +165,7 @@
       apikey: "{{ provision_tenant_api_key }}"
       accept: "*/*"
       Content-Type: "application/json"
-      tenantid: "provision-tenant"
+      tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
     body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"pcc\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
     status_code: [201]
@@ -220,7 +185,7 @@
       apikey: "{{ provision_tenant_api_key }}"
       accept: "*/*"
       Content-Type: "application/json"
-      tenantid: "provision-tenant"
+      tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
     body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"mcc\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
     status_code: [201]

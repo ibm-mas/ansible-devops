@@ -16,7 +16,6 @@
       - "CP4D WSL Project Name .......... {{ cpd_wsl_project_name }}"
       - "MAS config directory ........... {{ mas_config_dir }}"
 
-
 # 2. Get CP4D Beaker token to enable Watson API authentication
 # -----------------------------------------------------------------------------
 - name: "gencfg-wsl : Authorize the CP4D (get Bearer token)"
@@ -27,7 +26,7 @@
     headers:
       cache-control: "no-cache"
     body_format: "json"
-    body: "{\"username\":\"{{ cpd_admin_username }}\",\"password\":\"{{ cpd_admin_password }}\"}"
+    body: '{"username":"{{ cpd_admin_username }}","password":"{{ cpd_admin_password }}"}'
     status_code: 200
     timeout: 30
   register: cpd_authorization
@@ -36,7 +35,6 @@
   no_log: true
   set_fact:
     cpd_bearer_token: "{{ cpd_authorization.json.token }}"
-
 
 # 3. Look for a project with informed name and retrieve its id
 # -----------------------------------------------------------------------------
@@ -57,7 +55,6 @@
   set_fact:
     wsl_project_id: "{{ lookup_wsl_project_list.json.resources | ibm.mas_devops.getWSLProjectId(cpd_wsl_project_name) }}"
 
-
 # 4. Communication to User regarding project search
 # -----------------------------------------------------------------------------
 - name: "gencfg-wsl : Debug wsl_project_id"
@@ -70,7 +67,6 @@
     - wsl_project_id is defined and wsl_project_id != ""
   debug:
     msg: "Project named {{ cpd_wsl_project_name }} has been found: {{ wsl_project_id }}"
-
 
 # 5. Create new analytics project if necessary
 # -----------------------------------------------------------------------------
@@ -96,7 +92,7 @@
       cache-control: "no-cache"
       Content-Type: "application/json"
     body_format: "json"
-    body: "{\"role_name\":\"Administrator\",\"description\":\"Administrator role\",\"permissions\":[\"administrator\",\"can_provision\",\"manage_catalog\",\"create_space\",\"create_project\"]}"
+    body: '{"role_name":"Administrator","description":"Administrator role","permissions":["administrator","can_provision","manage_catalog","create_space","create_project"]}'
     status_code: 200
     timeout: 30
 
@@ -119,13 +115,12 @@
 
 - name: "gencfg-wsl : Extract wsl_project_id when it's created via rest api"
   vars:
-    regex: '[^/]*$'
+    regex: "[^/]*$"
   when:
     - create_wsl_project_output.status is defined
     - create_wsl_project_output.status == 201
   set_fact:
     wsl_project_id: "{{ create_wsl_project_output.json.location | regex_search(regex) }}"
-
 
 # 6. Write out the config to the local filesystem
 # -----------------------------------------------------------------------------
@@ -143,11 +138,11 @@
   ansible.builtin.template:
     src: wsl/watsonstudiocfg.yml.j2
     dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-watsonstudio-system.yml"
-    mode: '664'
+    mode: "664"
 
 - name: "gencfg-wsl : Write our wsl_project_id into MAS Configuration Directory"
   copy:
     dest: "{{ mas_config_dir }}/{{ cpd_wsl_project_name }}.id"
     content: |
       {{ wsl_project_id }}
-    mode: '664'
+    mode: "664"
