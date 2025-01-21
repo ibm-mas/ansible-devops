@@ -1,0 +1,20 @@
+---
+- name: "Read dro config file"
+  ansible.builtin.set_fact:
+    drocfg: "{{ lookup('file', '{{ mas_config_dir }}/dro.yml') | from_yaml_all }}"
+
+- name: "Set dro mandatory vars"
+  ansible.builtin.set_fact:
+    drocfg:
+      dro_secret_name: "{{ drocfg[0].metadata.name }}"
+      dro_api_key: "{{ drocfg[0].stringData.api_key }}"
+      dro_url: "{{ drocfg[1].spec.config.url }}"
+      dro_cert_ca: "{{ drocfg[1].spec.certificates }}"
+
+- name: "Debug: dro information" #TODO: remove before PR
+  debug:
+    msg:
+      - "dro secret name ......... {{ drocfg.dro_secret_name }}"
+      - "dro api key ............. {{ drocfg.dro_api_key }}"
+      - "dro url ................. {{ drocfg.dro_url }}"
+      - "dro cert ca ............. {{ drocfg.dro_cert_ca }}"
