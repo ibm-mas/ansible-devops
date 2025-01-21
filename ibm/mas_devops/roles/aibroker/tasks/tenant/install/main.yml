@@ -33,25 +33,25 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/tenant/km-s3-sa.yml.j2') }}"
 
-- name: "Create huggingfaceserver server runtime"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/tenant/kserve-huggingfaceserver.yml.j2') }}"
+# - name: "Create huggingfaceserver server runtime"
+#   kubernetes.core.k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/tenant/kserve-huggingfaceserver.yml.j2') }}"
 
-- name: "Create lgbserver server runtime"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/tenant/kserve-lgbserver.yml.j2') }}"
+# - name: "Create lgbserver server runtime"
+#   kubernetes.core.k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/tenant/kserve-lgbserver.yml.j2') }}"
 
-- name: "Create sklearnserver server runtime"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/tenant/kserve-sklearnserver.yml.j2') }}"
+# - name: "Create sklearnserver server runtime"
+#   kubernetes.core.k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/tenant/kserve-sklearnserver.yml.j2') }}"
 
-- name: "Create xgbserver server runtime"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/tenant/kserve-xgbserver.yml.j2') }}"
+# - name: "Create xgbserver server runtime"
+#   kubernetes.core.k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/tenant/kserve-xgbserver.yml.j2') }}"
 
 # Applay RBAC roles
 - name: "Apply RBAC for tenant"
@@ -66,35 +66,26 @@
     name: "{{ tenantNamespace }}----sls-secret"
     namespace: "{{ aibroker_namespace }}"
   register: sls_secret_info
+  when: mas_aibroker_saas == true
 
 - name: Create SLS secret
   script: "{{ role_path }}/files/create_sls_secret.sh {{ tenantNamespace }} {{ mas_instance_id }} {{ mas_aibroker_sls_url }} {{ mas_aibroker_sls_registration_key }} {{ mas_aibroker_path_ca_crt }}"
   when:
     - sls_secret_info.resources | length == 0
   register: sls_secret_output
-
-- name: Debug Create sls secret for AI Broker
-  debug:
-    msg: "{{ sls_secret_output }}"
+  when: mas_aibroker_saas == true
 
 - name: Delete DRO secret
   command: oc delete secret "{{ tenantNamespace }}----dro-secret" -n {{ aibroker_namespace }}
   register: delete_result
   ignore_errors: yes
   failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
+  when: mas_aibroker_saas == true
 
 - name: Create DRO token
   script: "{{ role_path }}/files/create_dro_token.sh {{ tenantNamespace }} {{ mas_instance_id }} {{ mas_aibroker_dro_token }}"
   register: dro_token_output
-
-- name: Debug Create DRO token
-  debug:
-    msg: "{{ dro_token_output }}"
-
-# - name: Wait for service /service/rest/api/v1/tenant #need more accurate way to check if service working
-#   pause:
-#     minutes: 8
-#     prompt: "Waiting for for service /service/rest/api/v1/tenant"
+  when: mas_aibroker_saas == true
 
 - name: Await to aibroker-api pod created
   pause:
@@ -131,10 +122,7 @@
     status_code: [201]
     timeout: 30
   register: add_tenant_to_db2
-
-- name: Debug tenant #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_to_db2 }}"
+  when: mas_aibroker_saas == true
 
 - name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
   uri:
@@ -151,10 +139,7 @@
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2
-
-- name: Debug tenant entitlement #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_entitlements_to_db2 }}"
+  when: mas_aibroker_saas == true
 
 - name: Create tenant {{ tenantNamespace }} and add to db2 for pcc - using uri
   uri:
@@ -171,10 +156,7 @@
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2_pcc
-
-- name: Debug tenant entitlement #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_entitlements_to_db2_pcc }}"
+  when: mas_aibroker_saas == true
 
 - name: Create tenant {{ tenantNamespace }} and add to db2 for mcc - using uri
   uri:
@@ -191,7 +173,4 @@
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2_mcc
-
-- name: Debug tenant entitlement #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_entitlements_to_db2_mcc }}"
+  when: mas_aibroker_saas == true
