@@ -1,0 +1,22 @@
+---
+- name: "Read jdbc config file"
+  ansible.builtin.set_fact:
+    jdbccfg: "{{ lookup('file', '{{ mas_config_dir }}/jdbc-{{ mas_app_id }}-db2u.yml') | from_yaml_all }}"
+
+- name: "Set dro mandatory vars"
+  ansible.builtin.set_fact:
+    jdbccfg:
+      # username: "{{ jdbccfg[0].data.username | b64decode}}"
+      # password: "{{ jdbccfg[0].data.password | b64decode}}"
+      username: "{{ jdbccfg[0].data.username }}"
+      password: "{{ jdbccfg[0].data.password }}"
+      url: "{{ jdbccfg[1].spec.config.url }}"
+      ca: "{{ jdbccfg[1].spec.certificates }}"
+
+- name: "Debug: jdbc information" #TODO: remove before PR
+  debug:
+    msg:
+      - "JDBC username ............. {{ jdbccfg.username }}"
+      - "JDBC password ............. {{ jdbccfg.password }}"
+      - "JDBC url .................. {{ jdbccfg.url }}"
+      - "JDBC cert ca .............. {{ jdbccfg.ca }}"
