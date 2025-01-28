@@ -70,17 +70,23 @@
   register: sls_secret_info
   when: mas_aibroker_saas == true
 
-- name: "get secret SLS secret"
-  shell: "echo '{{ mas_aibroker_sls_cacert }}' | base64 -d"
-  register: decoded_secret_value
+- name: "Get SLS cert ca secret"
+  shell: "echo '{{ mas_aibroker_sls_cacert }}' "
+  register: secret_value
 
-- name: "get sls secret content"
-  debug: 
-    msg: "SLS secert ....... {{ decoded_secret_value }}"
+- name: "Set SLS cert ca"
+  ansible.builtin.set_fact:
+    slsCaContent: "{{ decoded_secret_value.stdout_lines | join(',') | replace(',','\n') }}"
+
+# - name: "get sls secret content"
+#   debug:
+#     msg: "SLS secert ....... {{ slsCaContent }}"
+
+- name: "Insert SLS cert ca to file"
+  shell: "echo '{{ slsCaContent }}' > '{{ mas_aibroker_path_ca_crt }}/sls_ca.crt' "
 
 - name: Create SLS secret
   script: "{{ role_path }}/files/create_sls_secret.sh {{ tenantNamespace }} {{ mas_instance_id }} {{ mas_aibroker_sls_url }} {{ mas_aibroker_sls_registration_key }} {{ mas_aibroker_path_ca_crt }}/sls_ca.crt"
-  # script: "{{ role_path }}/files/create_sls_secret.sh {{ tenantNamespace }} {{ mas_instance_id }} {{ mas_aibroker_sls_url }} {{ mas_aibroker_sls_registration_key }} {{ mas_aibroker_sls_cacert }}"
   when:
     - sls_secret_info.resources | length == 0
     - mas_aibroker_saas == true
