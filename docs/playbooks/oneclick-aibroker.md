@@ -68,6 +68,11 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `MAS_AIBROKER_SLS_REGISTRATION_KEY` specify sls registration key, mandatory when `MAS_AIBROKER_SAAS=true`, to get value: look in `ibm-sls` namespace, pod `sls-api-licensing-xxx` and in `Environment` tab check `REGISTRATION_KEY` value
 * `MAS_AIBROKER_DRO_URL` specify DRO url, mandatory when `MAS_AIBROKER_SAAS=true`
 * `MAS_AIBROKER_DRO_TOKEN` specify DRO token, mandatory when `MAS_AIBROKER_SAAS=true` to get value: go to `mas-{{ instance_id }}-core` and look in secret `dro-apikey`
+* `MAS_AIBROKER_SUBSCRIPTION_ID` specify SLS subscription ID
+* `MAS_AIBROKER_DRO_TENANT_ID` specify DRO tenant ID
+* `MAS_AIBROKER_SLS_CACERT` provide SLS cert ca
+* `MAS_AIBROKER_DRO_CACERT` provide DRO cert ca
+export MAS_AIBROKER_DRO_TENANT_ID="1234"
 * `DB2_INSTANCE_NAME` specify DB2 instance name (default value is: aibroker), mandatory when `MAS_AIBROKER_SAAS=true`
 * `IBM_ENTITLEMENT_KEY` specify IBM Entitlement key, mandatory when `MAS_AIBROKER_SAAS=true`
 
@@ -180,6 +185,10 @@ export MAS_AIBROKER_SLS_URL="https://sls.ibm-sls.ibm-sls."${MAS_AIBROKER_DOMAIN}
 export MAS_AIBROKER_SLS_REGISTRATION_KEY="xxxxxxx" 
 export MAS_AIBROKER_DRO_URL="https://ibm-data-reporter-redhat-marketplace."${MAS_AIBROKER_DOMAIN}
 export MAS_AIBROKER_DRO_TOKEN="xxx"
+export MAS_AIBROKER_SUBSCRIPTION_ID="integer"
+export MAS_AIBROKER_DRO_TENANT_ID="integer"
+export MAS_AIBROKER_SLS_CACERT="SLS cert content"
+export MAS_AIBROKER_DRO_CACERT="DRO cert content"
 export DB2_INSTANCE_NAME="aibroker"
 export MAS_AIBROKER_STORAGE_ACCESSKEY="<storage provider access key>"
 export MAS_AIBROKER_STORAGE_SECRETKEY="<storage provider secret key>"
@@ -205,10 +214,11 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
 
-- `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
-- `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
-- in `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`, `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`, `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
-
+* `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
+* `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
+* in `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`,  `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`,  `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
+* `MAS_AIBROKER_SLS_CACERT` - go to `ibm-sls` namespace , get secret `sls-cert-ca`, look in [Data.ca.crt]
+* `MAS_AIBROKER_DRO_CACERT` - go to `redhat-marketplace` namespace, get secret `ibm-data-reporter-operator-api-token` , look in [Data.ca.crt]
 
 ## NOTICE: playbook oneclick_add_aibroker.yml will run three roles: 
 
@@ -370,8 +380,7 @@ export ROLE_NAME="aibroker"
 ansible-playbook playbooks/run_role.yml
 ```
 
-- `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
-- `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
-
+* `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
+* `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
 
 **NOTE:** for create addidional tenants we don't need to specify buckets
