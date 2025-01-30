@@ -29,16 +29,14 @@
     name: "spark-hb-control-plane"
     namespace: "{{ cpd_instance_namespace }}"
   register: control_plane_lookup
-  retries: 2
-  # retries: 20
+  retries: 20 # Up to 10 minutes
   delay: 30
   failed_when: false
-  until: 
+  until:
     - ( control_plane_lookup.resources[0].status.readyReplicas is defined and control_plane_lookup.resources[0].status.replicas == control_plane_lookup.resources[0].status.readyReplicas ) or (control_plane_lookup.resources[0].status.conditions | selectattr('type','equalto','Progressing') | map(attribute='status'))[0] == "False"
 
-- name: Increase deployment CPU
+- name: Increase deployment CPU if the deployment isn't ready
   when: control_plane_lookup.resources[0].status.readyReplicas is not defined or control_plane_lookup.resources[0].status.replicas != control_plane_lookup.resources[0].status.readyReplicas
-#  when: (control_plane_lookup.resources[0].status.conditions | selectattr('type','equalto','Progressing') | map(attribute='status'))[0] == "False"
   kubernetes.core.k8s:
     kind: "Deployment"
     name: "spark-hb-control-plane"
@@ -65,6 +63,6 @@
   register: control_plane_lookup
   retries: 90
   delay: 30
-  until: 
-    - control_plane_lookup.resources[0].status.readyReplicas is defined 
-    - control_plane_lookup.resources[0].status.replicas == control_plane_lookup.resources[0].status.readyReplicas 
+  until:
+    - control_plane_lookup.resources[0].status.readyReplicas is defined
+    - control_plane_lookup.resources[0].status.replicas == control_plane_lookup.resources[0].status.readyReplicas
