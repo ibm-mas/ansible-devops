@@ -3,6 +3,10 @@
 # 1. Wait for the spark control plane to be ready
 # -----------------------------------------------------------------------------
 # Allocate more resource if necessary
+#
+# NOTE - There is a nasty race condition here, if the control plane has already been installed
+# and the operator pod is restarted we can patch the control plane only for it to be reverted
+# by the operator reconcile loop.
 
 - name: "wait-spark-control-plane : Wait for spark-hb-control-plane to be created (2m interval)"
   kubernetes.core.k8s_info:
@@ -14,7 +18,7 @@
     - control_plane_lookup.resources is defined
     - control_plane_lookup.resources | length == 1
     - control_plane_lookup.resources[0].status is defined
-  retries: 20 # Up to 40 minutes
+  retries: 40 # Up to 80 minutes
   delay: 120 # Every 2 minutes
 
 - debug:
