@@ -13,7 +13,7 @@
     msg:
       - "Local storage job folder ......... {{ masbr_storage_job_folder }}"
       - "Folder setup  .................... {{ masbr_cf_paths }}"
-      - "Source Folder .................... {{ [masbr_storage_job_folder, item.src_folder] | path_join }}"
+      - "Source Folder .................... {{ [masbr_storage_job_folder, item.src_folder | default(item.src_file, true)] | path_join }}"
       - "Destination Folder ............... {{ item.dest_folder }}"
   loop: "{{ masbr_cf_paths }}"
 
@@ -39,7 +39,7 @@
     - item.dest_folder is defined and item.dest_folder | length > 0
   shell: >-
     oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mkdir -p {{ item.dest_folder }}' \
-    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_folder, item.src_file] | path_join }} {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.dest_folder }}
+    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_file] | path_join }} {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.dest_folder }}
   loop: "{{ masbr_cf_paths }}"
 
 # Condition 3. src_file -> dest_file
