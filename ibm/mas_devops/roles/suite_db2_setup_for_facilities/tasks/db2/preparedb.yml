@@ -61,24 +61,7 @@
     oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "db2 -tvf /tmp/prepare_db_files/create-schema.sql "
   register: shell_status
 
-# - name: Executing Db2 best practice
-#   kubernetes.core.k8s_exec:
-#     namespace: "{{ db2_namespace }}"
-#     pod: "{{ db2_pod_name }}"
-#     container: db2u
-#     impersonate_user: db2inst1
-#     command: "sh /tmp/prepare_db_files/db2_best_practices.sh {{ db_name }} {{ db_schema }} {{ deployment_size }}"
-#   register: command_status
-
 - name: Enable HA after maintenance
   ansible.builtin.shell: |
     oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo wvcli system enable -m "Enable HA after Db2 maintenance"
   register: shell_status
-
-# - name: Run scripts
-#   ansible.builtin.shell: |
-#     oc project {{ db2_namespace }}
-#     oc exec -ti {{ db2_pod_name }} -- sudo wvcli system disable -m "Disable HA before Db2 maintenance"
-#     oc exec -ti {{ db2_pod_name }} -- su - db2inst1 -c "sh /tmp/prepare_db_files/db2configdb.sh {{ db_name }} db2inst1 US /mnt/blumeta0/home/db2inst1/sqllib {{ db_username }} {{ db_schema }} > /tmp/db2configdb.out 2>$1"
-#     # oc exec -ti {{ db2_pod_name }} -- su - db2inst1 -c "sh /tmp/db2_best_practices.sh {{ db_name }} {{ db_schema }} {{ deployment_size }}"
-#     oc exec -ti {{ db2_pod_name }} -- sudo wvcli system enable -m "Enable HA after Db2 maintenance"
