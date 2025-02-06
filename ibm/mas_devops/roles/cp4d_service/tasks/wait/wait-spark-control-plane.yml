@@ -1,0 +1,72 @@
+---
+
+# 1. Wait for the spark control plane to be ready
+# -----------------------------------------------------------------------------
+# Allocate more resource if necessary
+#
+# NOTE - There is a nasty race condition here, if the control plane has already been installed
+# and the operator pod is restarted we can patch the control plane only for it to be reverted
+# by the operator reconcile loop.
+
+- name: "wait-spark-control-plane : Wait for spark-hb-control-plane to be created (2m interval)"
+  kubernetes.core.k8s_info:
+    kind: "Deployment"
+    name: "spark-hb-control-plane"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: control_plane_lookup
+  until:
+    - control_plane_lookup.resources is defined
+    - control_plane_lookup.resources | length == 1
+    - control_plane_lookup.resources[0].status is defined
+  retries: 40 # Up to 80 minutes
+  delay: 120 # Every 2 minutes
+
+- debug:
+    msg:
+      - " replicas: {{ control_plane_lookup.resources[0].status.replicas | default('None')}}"
+      - " readyreplicas: {{control_plane_lookup.resources[0].status.readyReplicas | default('None')}}"
+      - " Progressing Status: {{control_plane_lookup.resources[0].status.conditions | selectattr('type','equalto','Progressing') | map(attribute='status') }}"
+
+- name: Wait until the spark-hb-control-plane control plane deployment is ready or to fail
+  k8s_info:
+    kind: "Deployment"
+    name: "spark-hb-control-plane"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: control_plane_lookup
+  retries: 20 # Up to 10 minutes
+  delay: 30
+  failed_when: false
+  until:
+    - ( control_plane_lookup.resources[0].status.readyReplicas is defined and control_plane_lookup.resources[0].status.replicas == control_plane_lookup.resources[0].status.readyReplicas ) or (control_plane_lookup.resources[0].status.conditions | selectattr('type','equalto','Progressing') | map(attribute='status'))[0] == "False"
+
+- name: Increase deployment CPU if the deployment isn't ready
+  when: control_plane_lookup.resources[0].status.readyReplicas is not defined or control_plane_lookup.resources[0].status.replicas != control_plane_lookup.resources[0].status.readyReplicas
+  kubernetes.core.k8s:
+    kind: "Deployment"
+    name: "spark-hb-control-plane"
+    namespace: "{{ cpd_instance_namespace }}"
+    definition:
+      spec:
+        template:
+          spec:
+            containers:
+              - name: spark-hb-control-plane
+                resources:
+                  limits:
+                    cpu: '2'
+    apply: true
+    server_side_apply:
+      field_manager: ansible
+      force_conflicts: true
+
+- name: Wait until the spark-hb-control-plane control plane deployment is ready or to fail
+  k8s_info:
+    kind: "Deployment"
+    name: "spark-hb-control-plane"
+    namespace: "{{ cpd_instance_namespace }}"
+  register: control_plane_lookup
+  retries: 90
+  delay: 30
+  until:
+    - control_plane_lookup.resources[0].status.readyReplicas is defined
+    - control_plane_lookup.resources[0].status.replicas == control_plane_lookup.resources[0].status.readyReplicas
