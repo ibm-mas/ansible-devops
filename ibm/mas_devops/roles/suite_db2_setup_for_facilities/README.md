@@ -40,7 +40,7 @@ The name of the Manage schema where the hack should be targeted in.
 
 - Optional
 - Environment Variable: None
-- Default Value: `maximo`
+- Default Value: `tridata`
 
 ### db2_tablespace_data_size
 The size of the tablespace data in the database.
