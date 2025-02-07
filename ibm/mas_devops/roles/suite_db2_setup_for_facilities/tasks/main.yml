@@ -17,6 +17,7 @@
       - "Db2 namespace .......................... {{ db2_namespace }}"
       - "Db2 instance name ...................... {{ db2_instance_name }}"
       - "Db2 database name ...................... {{ db2_dbname }}"
+      - "Db2 Schema name ........................ {{ db2_schema }}"
 
 
 # 2. Determine which pod to run in
@@ -40,7 +41,7 @@
 - name: Configure facts
   set_fact:
     db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
-    db_name: "{{ db2_dbname }}"
+    db2_name: "{{ db2_dbname }}"
     db2_schema: "{{ db2_schema }}"
 
 - name: "Debug information - part 2"
@@ -54,11 +55,12 @@
     pod: "{{ db2_pod_name }}"
     container: db2u
     command: su - db2inst1 -c "db2 connect to {{ db_name }} >/dev/null && db2 'select schemaname from syscat.schemata' | grep 'TRIDATA' | tr -d ' ' " > /tmp/ts_numd.txt
-    # command: su - db2inst1 -c "db2 connect to {{ db_name }} >/dev/null && db2 list tablespaces | grep -i name | awk '{print $3}' " > /tmp/ts_numd.txt
   register: db2_output
 
-#- debug:
-#    var: db2_output.stdout_lines
+# 4. Execute DB2 config enforcement
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/apply-db2_dbconfig.yml
+  when: ( db2_output.stdout_lines | length ) == 0
 
 - name: run prepare DB scripts
   include_tasks: db2/preparedb.yml

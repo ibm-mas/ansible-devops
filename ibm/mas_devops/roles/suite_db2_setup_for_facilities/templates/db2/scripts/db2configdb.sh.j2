@@ -6,38 +6,15 @@
 # 
 # (C) COPYRIGHT IBM CORP. 2014.  All Rights Reserved.
 # 
-# create DB2 database for use by TRIRIGA
-# set database level performance and other settings
+# Grant permissions and set performance settings
 # 
-# requirements -
-# database name must not be used on the server
-# instance must be valid and started
-# territory must be valid with UTF-8 code set
-# must be run as DB2 instance user
-# tririga user must be a valid user on the system
-
-# db2createdb name instance territory installDir tririgaUser
-
-# echo "Validating request..." 
-# if [ "$#" -ne "6" ]; then 
-#    echo "Invalid usage - db2createdb name instance territory installDir tririgaUser"
-#	echo "name - database to be created"
-#	echo "instance - instance to create the database for"
-#	echo "territory - territory, must be consistent with UTF-8"
-#	echo "installDir - DB2 installation directory"
-#	echo "tririgaUser - tririga user name - user must exist"
-#	echo "schema - tririga database schema"
-#	exit 1
-# fi
 
 # set parameters used in the script
 
-DB2_DBNAME={{ db_name }}
+DB2_DBNAME={{ db2_name }}
 DB2_INSTNAME='db2inst1'
-DB2_TERRITORY='US'
 DB2_HOME='/mnt/blumeta0/home/db2inst1/sqllib'
-DB2_USER={{ db_username }}
-DB2_SCHEMA={{ db_schema }}
+DB2_USER={{ db2_username }}
 
 # validate running as instance user
 
@@ -62,20 +39,6 @@ echo "Return code for starting instance $DB2_INSTNAME is $rc"
 
 ok=0
 
-# Create the database - pagesize of 32 K required, UTF-8 required if any MBCS data will be used
-
-echo "Processing batch command file has started please wait..."
-#echo "$DB2_HOME/bin/db2 create db $DB2_DBNAME ALIAS $DB2_DBNAME using codeset UTF-8 territory $DB2_TERRITORY pagesize 32 K"
-#$DB2_HOME/bin/db2 create db $DB2_DBNAME ALIAS $DB2_DBNAME using codeset UTF-8 territory $DB2_TERRITORY pagesize 32 K
-#rc=$?
-#if [ $rc -ne "0" ]; then
-#	echo "Unable to create database for some reason = $rc"
-#	echo "Possible errors include invalid parameters passed into the script, database name in use, or not running as the $DB2_INSTNAME user"
-#	exit $rc
-#else
-#	echo "Return code for creating the database is $rc"
-#fi
-
 # connect to the newly created database - required 
 
 echo "$DB2_HOME/bin/db2 connect to $DB2_DBNAME"
@@ -86,26 +49,6 @@ if [ $rc -ne "0" ]; then
 	exit $rc
 fi
 echo "Return code from CONNECT is $rc"
-
-# set DDL_CONSTRAINT_DEF - required if want anything to work. This enforces integrity of data: pk, fk, unique constraints
-
-echo "$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using DDL_CONSTRAINT_DEF Yes"
-$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using DDL_CONSTRAINT_DEF Yes
-rc=$?
-if [ $rc -ne "0" ]; then
-        ok=$rc
-fi
-echo "Return code from db cfg for DDL_CONSTRAINT_DEF is $rc"
-
-# set CODEUNITS32 - required if want to store any MBCS data
-
-echo "$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using string_units CODEUNITS32"
-$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using string_units CODEUNITS32
-rc=$?
-if [ $rc -ne "0" ]; then
-	ok=$rc
-fi
-echo "Return code from db cfg for CODEUNITS32 is $rc"
 
 # grant access to the tririga user - all permissions required
 
@@ -151,80 +94,6 @@ if [ $rc -ne "0" ]; then
 fi
 echo "Return code from bind is $rc"
 
-echo "$DB2_HOME/bin/db2 update dbm cfg using RQRIOBLK 65535"
-$DB2_HOME/bin/db2 update dbm cfg using RQRIOBLK 65535
-rc=$?
-if [ $rc -ne "2" ]; then
-	ok=$rc
-fi
-echo "Return code from update dbm cfg RQRIOBLK is $rc"
-
-echo "$DB2_HOME/bin/db2 update dbm cfg using AGENT_STACK_SZ 1024"
-$DB2_HOME/bin/db2 update dbm cfg using AGENT_STACK_SZ 1024
-rc=$?
-if [ $rc -ne "2" ]; then
-	ok=$rc
-fi
-echo "Return code from update dbm cfg AGENT_STACK_SZ is $rc"
-
-echo "$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using STMT_CONC OFF"
-$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using STMT_CONC OFF
-rc=$?
-if [ $rc -ne "0" ]; then
-	ok=$rc
-fi
-echo "Return code from update db cfg STMT_CONC is $rc"
-
-# database transaction and catalog cache settings - all suggested, but not required
-
-echo "$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using LOGPRIMARY 23"
-$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using LOGPRIMARY 23
-rc=$?
-if [ $rc -ne "2" ]; then
-	ok=$rc
-fi
-echo "Return code from update db cfg LOGPRIMARY is $rc"
-
-echo "$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using LOGFILSIZ 32768"
-$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using LOGFILSIZ 32768
-rc=$?
-if [ $rc -ne "2" ]; then
-	ok=$rc
-fi
-echo "Return code from update db cfg LOGFILSIZ is $rc"
-
-echo "$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using LOGSECOND 12"
-$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using LOGSECOND 12
-rc=$?
-if [ $rc -ne "0" ]; then
-	ok=$rc
-fi
-echo "Return code from update db cfg LOGSECOND is $rc"
-
-echo "$DB2_HOME/bin/db2" update db cfg for $DB2_DBNAME using LOGBUFSZ 8192"
-$DB2_HOME/bin/db2" update db cfg for $DB2_DBNAME using LOGBUFSZ 8192
-rc=$?
-if [ $rc -ne "2" ]; then
-	ok=$rc
-fi
-echo "Return code from update db cfg LOGBUFSZ is $rc"
-
-echo "$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using LOCKTIMEOUT 30"
-$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using LOCKTIMEOUT 30
-rc=$?
-if [ $rc -ne "2" ]; then
-	ok=$rc
-fi
-echo "Return code from update db cfg LOCKTIMEOUT is $rc"
-
-echo "$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using catalogcache_sz 2048"
-$DB2_HOME/bin/db2 update db cfg for $DB2_DBNAME using catalogcache_sz 2048
-rc=$?
-if [ $rc -ne "0" ]; then
-	ok=$rc
-fi
-echo "Return code from update db cfg catalogcache_sz is $rc"
-
 # cleanup/restart
 
 echo "$DB2_HOME/bin/db2 connect reset"
@@ -250,14 +119,6 @@ if [ $rc -ne "0" ]; then
 	ok=$rc
 fi
 echo "Return code from db2start is $rc"
-
-# echo "$DB2_HOME/bin/db2 -tvf /tmp/prepare_db_files/create-tablespaces.sql"
-# $DB2_HOME/bin/db2 -tvf /tmp/prepare_db_files/create-tablespaces.sql
-# rc=$?
-# if [ $rc -ne "0" ]; then
-# 	ok=$rc
-# fi
-# echo "Return code from db2 -tvf /tmp/prepare_db_files/create-tablespaces.sql is $rc"
 
 if [ $ok -ne "0" ]; then
 	echo "Database $DB2_DBNAME is NOT configured correctly on $DB2_INSTNAME, check return codes to determine failed configuration setting and fix before continuing with TRIRIGA installation."
