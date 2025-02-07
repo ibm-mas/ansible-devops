@@ -18,8 +18,10 @@ MAS Devops Collection includes playbooks for backing up and restoring of the fol
 
 Creation of both **full** and **incremental** backups are supported.  The backup and restore Ansible roles can also be used individually, allowing you to build your own customized backup and restore playbook covering exactly what you need. For example, you can only [backup/restore Manage attachments](../roles/suite_app_backup_restore.md).
 
-For more information about backup and restore for Maximo Application Suite, please refer to [Backing up and restoring Maximo Application Suite](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=administering-backing-up-restoring-maximo-application-suite) in the product documentation.
+!!! important
+    The backup and restore playbooks in this collection are still work in progress, they are not suitable for production use at this time.  You may track development progress using the [Backup & Restore](https://github.com/ibm-mas/ansible-devops/issues?q=label%3A%22Backup+%26+Restore%22+) label in the Github repository.
 
+    Production-ready backup and restore options are detailed in the [Backup and restore](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=administering-backing-up-restoring-maximo-application-suite) topic in the product documentation.
 
 Configuration - Storage
 -------------------------------------------------------------------------------
