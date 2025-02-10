@@ -6,7 +6,8 @@ instance_id=$2
 if [ -z ${TENANT} ]; then
   #echo "❌ Missing tenant name"
   #exit 1
-  echo "Usage ./create_sls_secret.sh tenant-name aibroker-instance-id-from-CustomResourceDefinitions sls-url-from-sls-routes slsRegistrationKey-from-sls-api-pod-Environment path_to_the_ca_crt"
+  # echo "Usage ./create_sls_secret.sh tenant-name aibroker-instance-id-from-CustomResourceDefinitions sls-url-from-sls-routes slsRegistrationKey-from-sls-api-pod-Environment path_to_the_ca_crt"
+  echo "Usage ./create_sls_secret.sh tenant-name aibroker-instance-id-from-CustomResourceDefinitions sls-url-from-sls-routes slsRegistrationKey-from-sls-api-pod-Environment sls_ca_crt"
   echo "for example"
   echo "./create_sls_secret.sh aibroker-user aibdev https://sls.ibm-sls.xxx.ibm.com xxxx-xxxx-xxxx-xxx"
   exit 1

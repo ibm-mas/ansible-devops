@@ -70,6 +70,11 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `MAS_AIBROKER_SLS_REGISTRATION_KEY` specify sls registration key, mandatory when `MAS_AIBROKER_SAAS=true`, to get value: look in `ibm-sls` namespace, pod `sls-api-licensing-xxx` and in `Environment` tab check `REGISTRATION_KEY` value
 * `MAS_AIBROKER_DRO_URL` specify DRO url, mandatory when `MAS_AIBROKER_SAAS=true`
 * `MAS_AIBROKER_DRO_TOKEN` specify DRO token, mandatory when `MAS_AIBROKER_SAAS=true` to get value: go to `mas-{{ instance_id }}-core` and look in secret `dro-apikey`
+* `MAS_AIBROKER_SUBSCRIPTION_ID` specify SLS subscription ID
+* `MAS_AIBROKER_DRO_TENANT_ID` specify DRO tenant ID
+* `MAS_AIBROKER_SLS_CACERT` provide SLS cert ca
+* `MAS_AIBROKER_DRO_CACERT` provide DRO cert ca
+export MAS_AIBROKER_DRO_TENANT_ID="1234"
 * `DB2_INSTANCE_NAME` specify DB2 instance name (default value is: aibroker), mandatory when `MAS_AIBROKER_SAAS=true`
 * `IBM_ENTITLEMENT_KEY` specify IBM Entitlement key, mandatory when `MAS_AIBROKER_SAAS=true`
 
@@ -114,33 +119,36 @@ export IBM_ENTITLEMENT_KEY=${MAS_ENTITLEMENT_KEY}
 export MAS_INSTANCE_ID="<instanceId>"
 export MAS_APP_CHANNEL="9.1.x"
 export MAS_CONFIG_DIR="config_path_location"
-export IBM_ENTITLEMENT_KEY=${MAS_ENTITLEMENT_KEY}
-# export MAS_AIBROKER_SAAS="true"
-# export MAS_AIBROKER_DOMAIN="apps.domain"
-# export MAS_AIBROKER_SLS_URL="https://sls.ibm-sls.ibm-sls."${MAS_AIBROKER_DOMAIN}
-# export MAS_AIBROKER_SLS_REGISTRATION_KEY="xxxxxxx" 
-# export MAS_AIBROKER_DRO_URL="https://ibm-data-reporter-redhat-marketplace."${MAS_AIBROKER_DOMAIN}
-# export MAS_AIBROKER_DRO_TOKEN="xxx"
-# export DB2_INSTANCE_NAME="aibroker"
-# export MAS_AIBROKER_STORAGE_ACCESSKEY="<storage provider access key>"
-# export MAS_AIBROKER_STORAGE_SECRETKEY="<storage provider secret key>"
-# export MAS_AIBROKER_STORAGE_HOST="<storage provider host>"
-# export MAS_AIBROKER_STORAGE_SSL="true or false"
-# export MAS_AIBROKER_STORAGE_REGION="<storage provider region - only for aws>"
-# export MAS_AIBROKER_STORAGE_PROVIDER="<storage provider name>"
-# export MAS_AIBROKER_STORAGE_PORT="<storage provider port - only for minio>"
-# export MAS_AIBROKER_STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
-# export MAS_AIBROKER_STORAGE_TENANTS_BUCKET="<tenants bucket name>"
-# export MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET="<templates bucket name>"
-# export MAS_AIBROKER_WATSONXAI_APIKEY="<watsonx AI api key>"
-# export MAS_AIBROKER_WATSONXAI_URL="<watsonx AI url>"
-# export MAS_AIBROKER_WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
-# export MAS_AIBROKER_DB_HOST="<database instance host>"
-# export MAS_AIBROKER_DB_PORT="<database instance port>"
-# export MAS_AIBROKER_DB_USER="<database instance user>"
-# export MAS_AIBROKER_DB_DATABASE="<database instance datbase name>"
-# export MAS_AIBROKER_DB_SECRET_NAME="<database instance secret name>"
-# export MAS_AIBROKER_DB_SECRET_VALUE="<database instance password>"
+export MAS_AIBROKER_SAAS="true"
+export MAS_AIBROKER_DOMAIN="apps.domain"
+export MAS_AIBROKER_SLS_URL="https://sls.ibm-sls.ibm-sls."${MAS_AIBROKER_DOMAIN}
+export MAS_AIBROKER_SLS_REGISTRATION_KEY="xxxxxxx" 
+export MAS_AIBROKER_DRO_URL="https://ibm-data-reporter-redhat-marketplace."${MAS_AIBROKER_DOMAIN}
+export MAS_AIBROKER_DRO_TOKEN="xxx"
+export MAS_AIBROKER_SUBSCRIPTION_ID="integer"
+export MAS_AIBROKER_DRO_TENANT_ID="integer"
+export MAS_AIBROKER_SLS_CACERT="SLS cert content"
+export MAS_AIBROKER_DRO_CACERT="DRO cert content"
+export DB2_INSTANCE_NAME="aibroker"
+export MAS_AIBROKER_STORAGE_ACCESSKEY="<storage provider access key>"
+export MAS_AIBROKER_STORAGE_SECRETKEY="<storage provider secret key>"
+export MAS_AIBROKER_STORAGE_HOST="<storage provider host>"
+export MAS_AIBROKER_STORAGE_SSL="true or false"
+export MAS_AIBROKER_STORAGE_REGION="<storage provider region - only for aws>"
+export MAS_AIBROKER_STORAGE_PROVIDER="<storage provider name>"
+export MAS_AIBROKER_STORAGE_PORT="<storage provider port - only for minio>"
+export MAS_AIBROKER_STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
+export MAS_AIBROKER_STORAGE_TENANTS_BUCKET="<tenants bucket name>"
+export MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET="<templates bucket name>"
+export MAS_AIBROKER_WATSONXAI_APIKEY="<watsonx AI api key>"
+export MAS_AIBROKER_WATSONXAI_URL="<watsonx AI url>"
+export MAS_AIBROKER_WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
+export MAS_AIBROKER_DB_HOST="<database instance host>"
+export MAS_AIBROKER_DB_PORT="<database instance port>"
+export MAS_AIBROKER_DB_USER="<database instance user>"
+export MAS_AIBROKER_DB_DATABASE="<database instance datbase name>"
+export MAS_AIBROKER_DB_SECRET_NAME="<database instance secret name>"
+export MAS_AIBROKER_DB_SECRET_VALUE="<database instance password>"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
@@ -149,6 +157,8 @@ ansible-playbook playbooks/oneclick_add_aibroker.yml
 * `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
 * `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
 * in `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`,  `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`,  `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
+* `MAS_AIBROKER_SLS_CACERT` - go to `ibm-sls` namespace , get secret `sls-cert-ca`, look in [Data.ca.crt]
+* `MAS_AIBROKER_DRO_CACERT` - go to `redhat-marketplace` namespace, get secret `ibm-data-reporter-operator-api-token` , look in [Data.ca.crt]
 
 ## NOTICE: playbook oneclick_add_aibroker.yml will run three roles: 
 

@@ -33,25 +33,25 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/tenant/km-s3-sa.yml.j2') }}"
 
-- name: "Create huggingfaceserver server runtime"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/tenant/kserve-huggingfaceserver.yml.j2') }}"
+# - name: "Create huggingfaceserver server runtime"
+#   kubernetes.core.k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/tenant/kserve-huggingfaceserver.yml.j2') }}"
 
-- name: "Create lgbserver server runtime"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/tenant/kserve-lgbserver.yml.j2') }}"
+# - name: "Create lgbserver server runtime"
+#   kubernetes.core.k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/tenant/kserve-lgbserver.yml.j2') }}"
 
-- name: "Create sklearnserver server runtime"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/tenant/kserve-sklearnserver.yml.j2') }}"
+# - name: "Create sklearnserver server runtime"
+#   kubernetes.core.k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/tenant/kserve-sklearnserver.yml.j2') }}"
 
-- name: "Create xgbserver server runtime"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/tenant/kserve-xgbserver.yml.j2') }}"
+# - name: "Create xgbserver server runtime"
+#   kubernetes.core.k8s:
+#     apply: yes
+#     definition: "{{ lookup('template', 'templates/tenant/kserve-xgbserver.yml.j2') }}"
 
 # Applay RBAC roles
 - name: "Apply RBAC for tenant"
@@ -66,26 +66,40 @@
     name: "{{ tenantNamespace }}----sls-secret"
     namespace: "{{ aibroker_namespace }}"
   register: sls_secret_info
+  when: mas_aibroker_saas == true
+
+- name: "Get SLS cert ca secret"
+  shell: "echo '{{ mas_aibroker_sls_cacert }}' "
+  register: decoded_secret_value
+
+- name: "Set SLS cert ca"
+  ansible.builtin.set_fact:
+    slsCaContent: "{{ decoded_secret_value.stdout_lines | join(',') | replace(',','\n') }}"
+
+- name: "Create cert location {{ mas_aibroker_path_ca_crt }}"
+  shell: mkdir -p '{{ mas_aibroker_path_ca_crt }}'
+
+- name: "Insert SLS cert ca to file located {{ mas_aibroker_path_ca_crt }}"
+  shell: "echo '{{ slsCaContent }}' > '{{ mas_aibroker_path_ca_crt }}/sls_ca.crt' "
 
 - name: Create SLS secret
-  script: "{{ role_path }}/files/create_sls_secret.sh {{ tenantNamespace }} {{ mas_instance_id }} {{ mas_aibroker_sls_url }} {{ mas_aibroker_sls_registration_key }} {{ mas_aibroker_path_ca_crt }}"
+  script: "{{ role_path }}/files/create_sls_secret.sh {{ tenantNamespace }} {{ mas_instance_id }} {{ mas_aibroker_sls_url }} {{ mas_aibroker_sls_registration_key }} {{ mas_aibroker_path_ca_crt }}/sls_ca.crt"
   when:
     - sls_secret_info.resources | length == 0
+    - mas_aibroker_saas == true
   register: sls_secret_output
-
-- name: Debug Create sls secret for AI Broker
-  debug:
-    msg: "{{ sls_secret_output }}"
 
 - name: Delete DRO secret
   command: oc delete secret "{{ tenantNamespace }}----dro-secret" -n {{ aibroker_namespace }}
   register: delete_result
   ignore_errors: yes
   failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
+  when: mas_aibroker_saas == true
 
 - name: Create DRO token
   script: "{{ role_path }}/files/create_dro_token.sh {{ tenantNamespace }} {{ mas_instance_id }} {{ mas_aibroker_dro_token }}"
   register: dro_token_output
+  when: mas_aibroker_saas == true
 
 - name: Debug Create DRO token
   debug:
@@ -114,7 +128,19 @@
   register: _is_not_ready
   until: _is_not_ready.stdout|int == 0
   retries: 60
-  delay: 30
+  delay: 10
+
+- name: Set aibroker domain if no custom domain
+  when:
+    - mas_aibroker_custom_domain ==""
+  set_fact:
+    mas_aibroker_domain: "{{ mas_aibroker_domain }}"
+
+- name: Set aibroker domain if custom domain exists
+  when:
+    - mas_aibroker_custom_domain != ""
+  set_fact:
+    mas_aibroker_domain: "{{ mas_aibroker_custom_domain }}"
 
 - name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
   uri:
@@ -127,7 +153,7 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"sls_url\": \"{{ mas_aibroker_sls_url }}\", \"dro_url\": \"{{ mas_aibroker_dro_url }}\"}"
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"sls_url\": \"{{ mas_aibroker_sls_url }}\", \"dro_url\": \"{{ mas_aibroker_dro_url }}\", \"subscription_id\": \"{{ mas_aibroker_subscription_id }}\", \"dro_tenant_id\": \"{{ mas_aibroker_dro_tenant_id }}\"}"
     status_code: [201]
     timeout: 30
   register: add_tenant_to_db2
@@ -151,10 +177,7 @@
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2
-
-- name: Debug tenant entitlement #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_entitlements_to_db2 }}"
+  when: mas_aibroker_saas == true
 
 - name: Create tenant {{ tenantNamespace }} and add to db2 for pcc - using uri
   uri:
@@ -171,10 +194,7 @@
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2_pcc
-
-- name: Debug tenant entitlement #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_entitlements_to_db2_pcc }}"
+  when: mas_aibroker_saas == true
 
 - name: Create tenant {{ tenantNamespace }} and add to db2 for mcc - using uri
   uri:
@@ -191,7 +211,4 @@
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2_mcc
-
-- name: Debug tenant entitlement #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_entitlements_to_db2_mcc }}"
+  when: mas_aibroker_saas == true
