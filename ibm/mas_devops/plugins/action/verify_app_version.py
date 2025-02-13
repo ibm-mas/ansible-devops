@@ -14,7 +14,10 @@ class ActionModule(ActionBase):
         display = Display()
 
         # Initialize DynamicClient and grab the task args
-        dynaClient = get_api_client()
+        host = self._task.args.get('host', None)
+        api_key = self._task.args.get('api_key', None)
+
+        dynClient = get_api_client(api_key=api_key, host=host)
         mas_instance = self._task.args['mas_instance_id']
         mas_app_id = self._task.args['mas_app_id']
         mas_app_version = self._task.args['mas_app_version']

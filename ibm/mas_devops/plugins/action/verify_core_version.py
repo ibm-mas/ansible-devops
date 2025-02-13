@@ -14,7 +14,10 @@ class ActionModule(ActionBase):
         display = Display()
 
         # Initialize DynamicClient and grab the task args
-        dynaClient = get_api_client()
+        host = self._task.args.get('host', None)
+        api_key = self._task.args.get('api_key', None)
+
+        dynClient = get_api_client(api_key=api_key, host=host)
         mas_instance = self._task.args['mas_instance_id']
         core_version = self._task.args['core_version']
         retries = self._task.args['retries']
