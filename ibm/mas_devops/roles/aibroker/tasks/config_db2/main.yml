@@ -1,28 +1,26 @@
 ---
-- name: "Read jdbc config file"
+- name: "Read DB2 config file"
   ansible.builtin.set_fact:
-    jdbccfg: "{{ lookup('file', '{{ mas_config_dir }}/jdbc-{{ mas_app_id }}-db2u.yml') | from_yaml_all }}"
+    db2cfg: "{{ lookup('file', '{{ mas_config_dir }}/jdbc-{{ mas_app_id }}-db2.yml') | from_yaml_all }}"
 
-- name: "Set dro mandatory vars"
+- name: "Set DB2 mandatory vars"
   ansible.builtin.set_fact:
-    jdbccfg:
-      # username: "{{ jdbccfg[0].data.username | b64decode}}"
-      # password: "{{ jdbccfg[0].data.password | b64decode}}"
-      username: "{{ jdbccfg[0].data.username }}"
-      password: "{{ jdbccfg[0].data.password }}"
-      url: "{{ jdbccfg[1].spec.config.url }}"
-      # ca: "{{ jdbccfg[1].spec.certificates | map(attribute='crt') }}"
-      ca: "{{ jdbccfg[1].spec.certificates | map(attribute='crt') | join(',') | replace(',','\n') }}"
+    db2cfg:
+      username: "{{ db2cfg[0].data.username }}"
+      password: "{{ db2cfg[0].data.password }}"
+      url: "{{ db2cfg[1].spec.config.url }}"
+      ca: "{{ db2cfg[1].spec.certificates | map(attribute='crt') | join(',') | replace(',', '\n') }}"
 
-- name: "Debug: jdbc information" #TODO: remove before PR
+- name: "Debug: DB2 information" #TODO: remove before PR
   debug:
     msg:
-      - "JDBC username ............. {{ jdbccfg.username }}"
-      - "JDBC password ............. {{ jdbccfg.password }}"
-      - "JDBC url .................. {{ jdbccfg.url }}"
-      - "JDBC cert ca .............. {{ jdbccfg.ca }}"
+      - "DB2 username ............. {{ db2cfg.username }}"
+      - "DB2 password ............. {{ db2cfg.password }}"
+      - "DB2 url .................. {{ db2cfg.url }}"
+      - "DB2 cert ca .............. {{ db2cfg.ca }}"
 
-- name: "Create secret for JDBC admin credentials"
+- name: "Create secret for DB2 admin credentials"
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/jdbc/jdbc-admin-credentials.yml.j2"
+    template: "templates/db2/db2-admin-credentials.yml.j2"
+

@@ -1,4 +1,27 @@
 ---
+- name: "Create secret for DB2 admin credentials"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/db2/db2-admin-credentials.yml.j2"
+
+- name: "Wait for DB2 admin secret to be available"
+  pause:
+    seconds: 30  # Give Kubernetes time to process the secret
+
+- name: "Verify DB2 admin secret creation"
+  shell: |
+    oc get secret {{ mas_aibroker_db2_secret }} -n {{ db2_namespace }}
+  register: secret_status
+  failed_when: secret_status.rc != 0
+
+- name: "Proceed with DB2 configuration once secret is verified"
+  debug:
+    msg: "DB2 admin credentials secret has been successfully created and verified."
+
+# -----------------------------------------------
+# Lookup DB2 Pod
+# -----------------------------------------------
+
 - name: "Lookup db2 Pod"
   kubernetes.core.k8s_info:
     kind: Pod
@@ -23,20 +46,24 @@
     msg:
       - "Pod name ............................... {{ db2_pod_name }}"
 
-- name: "wait : Wait for configmap get copied over to local persistent location"
+- name: "wait : Wait for configmap to be copied over to local persistent location"
   pause:
     minutes: 1
+
+# -----------------------------------------------
+# Apply DB2 Configuration Settings
+# -----------------------------------------------
 
 - name: Run script to make changes take effect
   shell: oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/db2u/scripts/apply-db2cfg-settings.sh --setting all | tee /tmp/apply-db2cfg-settings.log' db2inst1
   register: prepare_cmds_status
 
-- fail: msg="Failed to execute the script /db2u/scripts/apply-db2cfg-settings.sh on DB2 instance"
-  when:
-    - prepare_cmds_status.rc != 0
+- fail: 
+    msg: "Failed to execute the script /db2u/scripts/apply-db2cfg-settings.sh on DB2 instance"
+  when: prepare_cmds_status.rc != 0
 
 # Run script twice for DB2 standalone
-- name: Check DB2 cfg is take effect
+- name: Check if DB2 config has taken effect
   shell: |
     oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/db2u/scripts/apply-db2cfg-settings.sh --setting all | tee /tmp/apply-db2cfg-settings.log' db2inst1
     oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2 get db cfg for {{ db2_dbname }} | grep "(CHNGPGS_THRESH) = 40"' db2inst1
