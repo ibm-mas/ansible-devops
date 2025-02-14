@@ -28,7 +28,7 @@ class ActionModule(ActionBase):
 
         masAppInstances = None
         if mas_app_id == "manage":
-          masAppInstances = dynaClient.resources.get(api_version="apps.mas.ibm.com/v1", kind='ManageApp')
+          masAppInstances = dynClient.resources.get(api_version="apps.mas.ibm.com/v1", kind='ManageApp')
 
         if masAppInstances is not None:
           versionMatching = False

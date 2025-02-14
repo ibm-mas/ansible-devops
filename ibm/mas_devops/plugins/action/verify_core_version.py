@@ -25,7 +25,7 @@ class ActionModule(ActionBase):
 
         display.v(f"Checking core version is matching ({retries} retries with a {delay} second delay)")
 
-        masSuites = dynaClient.resources.get(api_version="core.mas.ibm.com/v1", kind='Suite')
+        masSuites = dynClient.resources.get(api_version="core.mas.ibm.com/v1", kind='Suite')
         versionMatching = False
         version = ""
         attempts = 0

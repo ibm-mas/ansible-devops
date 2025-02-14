@@ -20,8 +20,8 @@ class ActionModule(ActionBase):
         retries = self._task.args['retries']
         delay = self._task.args['delay']
 
-        deployments = dynaClient.resources.get(api_version="v1", kind='Deployment')
-        sts = dynaClient.resources.get(api_version="v1", kind='StatefulSet')
+        deployments = dynClient.resources.get(api_version="v1", kind='Deployment')
+        sts = dynClient.resources.get(api_version="v1", kind='StatefulSet')
 
         depResult = self._checkResources(deployments, "Deployments", retries, delay)
         stsResult = self._checkResources(sts, "StatefulSets", retries, delay)

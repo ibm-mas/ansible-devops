@@ -22,7 +22,7 @@ class ActionModule(ActionBase):
         delay = self._task.args['delay']
 
         display.v(f"Checking CatalogSources are ready ({retries} retries with a {delay} second delay)")
-        catalogSources = dynaClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind='CatalogSource')
+        catalogSources = dynClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind='CatalogSource')
 
         allReady = False
         attempts = 0

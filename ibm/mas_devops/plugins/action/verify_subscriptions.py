@@ -22,7 +22,7 @@ class ActionModule(ActionBase):
         delay = self._task.args['delay']
 
         display.v(f"Checking Subscriptions are up to date ({retries} retries with a {delay} second delay)")
-        subscriptions = dynaClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind='Subscription')
+        subscriptions = dynClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind='Subscription')
 
         allSubscriptionsAtLatest = False
         attempts = 0
