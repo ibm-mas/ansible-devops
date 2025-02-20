@@ -87,7 +87,9 @@ export MAS_AIBROKER_DRO_TENANT_ID="1234"
 * `MAS_AIBROKER_APIKEY_ACTION` Whether to install or remove or update apikey (default value is: install)
 * `MAS_AIBROKER_WATSONX_ACTION` Whether to install or remove watsonx secret (default value is: install)
 * `MAS_AIBROKER_S3_ACTION` Whether to install or remove s3 (default value is: install)
-  
+* `MAS_AIBROKER_RETENTION_DAY` Whether to update retention day value
+* `MAS_AIBROKER_MAX_MODELS` Whether to update maximum models value
+* `INSTALL_DB2` specify if installation db2 required
 
 ## Usage
 
