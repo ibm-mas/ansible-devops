@@ -90,6 +90,8 @@ export MAS_AIBROKER_DRO_TENANT_ID="1234"
 * `MAS_AIBROKER_RETENTION_DAY` Whether to update retention day value
 * `MAS_AIBROKER_MAX_MODELS` Whether to update maximum models value
 * `INSTALL_DB2` specify if installation db2 required
+* `INSTALL_MINIO` specify if installation minio required
+* `INSTALL_MARIADB` specify if installation minio required
 
 ## Usage
 
@@ -183,6 +185,8 @@ export MAS_APP_CHANNEL="9.1.x"
 export MAS_CONFIG_DIR="config_path_location"
 export MAS_AIBROKER_SAAS="true"
 export INSTALL_DB2="true"
+export INSTALL_MINIO="true"
+export INSTALL_MARIADB="true"
 export MAS_AIBROKER_DOMAIN="apps.domain"
 export MAS_AIBROKER_SLS_URL="https://sls.ibm-sls.ibm-sls."${MAS_AIBROKER_DOMAIN}
 export MAS_AIBROKER_SLS_REGISTRATION_KEY="xxxxxxx" 
