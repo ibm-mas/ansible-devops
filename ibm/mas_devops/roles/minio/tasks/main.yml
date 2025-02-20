@@ -12,6 +12,27 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/minio/minio-ns.yml.j2') }}"
 
+# create ibm-entitlement for minio
+# -----------------------------------------------------------------------------
+- name: "Create ibm-entitlement-key secret in minio namespace"
+  vars:
+    entitledAuthStr: "{{ mas_entitlement_username }}:{{ mas_entitlement_key }}"
+    entitledAuth: "{{ entitledAuthStr | b64encode }}"
+    content:
+      - '{"auths":{"{{ minio_registry }}":{"username":"{{ mas_entitlement_username }}","password":"{{ mas_entitlement_key }}","auth":"{{entitledAuth}}"}'
+      - "}"
+      - "}"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/dockerconfigjson
+      metadata:
+        name: ibm-entitlement-key
+        namespace: minio
+      stringData:
+        .dockerconfigjson: "{{ content | join('') | string }}"
+
 # create minio PVC
 - name: 'Create minio pvc'
   kubernetes.core.k8s:
