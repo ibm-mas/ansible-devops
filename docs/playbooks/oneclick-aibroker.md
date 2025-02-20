@@ -182,6 +182,7 @@ export MAS_INSTANCE_ID="<instanceId>"
 export MAS_APP_CHANNEL="9.1.x"
 export MAS_CONFIG_DIR="config_path_location"
 export MAS_AIBROKER_SAAS="true"
+export INSTALL_DB2="true"
 export MAS_AIBROKER_DOMAIN="apps.domain"
 export MAS_AIBROKER_SLS_URL="https://sls.ibm-sls.ibm-sls."${MAS_AIBROKER_DOMAIN}
 export MAS_AIBROKER_SLS_REGISTRATION_KEY="xxxxxxx" 
