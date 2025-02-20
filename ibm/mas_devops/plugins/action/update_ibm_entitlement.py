@@ -40,7 +40,10 @@ class ActionModule(ActionBase):
             raise AnsibleError(f"Error: namespace argument was not provided")
 
         # Initialize DynamicClient, ensure the namespace exists, and create/update the entitlement secret
-        dynClient = get_api_client()
+        host = self._task.args.get('host', None)
+        api_key = self._task.args.get('api_key', None)
+
+        dynClient = get_api_client(api_key=api_key, host=host)
         createNamespace(dynClient, namespace)
         secret = updateIBMEntitlementKey(dynClient, namespace, icrUsername, icrPassword, artifactoryUsername, artifactoryPassword, secretName)
 

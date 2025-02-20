@@ -24,7 +24,10 @@ class ActionModule(ActionBase):
         super(ActionModule, self).run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
-        dynClient = get_api_client()
+        host = self._task.args.get('host', None)
+        api_key = self._task.args.get('api_key', None)
+
+        dynClient = get_api_client(api_key=api_key, host=host)
         storageClasses = getDefaultStorageClasses(dynClient)
 
         # We don't want to fail if we can't find any default storage classes, doing so will
