@@ -80,6 +80,17 @@
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
 
+# IBM Maximo AI Broker workspace
+# -----------------------------------------------------------------------------
+- name: Create AI Broker workspace CR
+  vars:
+    annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ aibroker_namespace }}"
+    template: templates/aibroker/aibrokerworkspace.yml.j2
+  register: aibrokerWorkspaceResult
+
 - name: Await to aibroker-api pod created
   pause:
     minutes: 3
