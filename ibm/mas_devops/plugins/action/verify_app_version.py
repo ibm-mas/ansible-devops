@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from ansible_collections.kubernetes.core.plugins.module_utils.common import get_api_client
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 
 from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
@@ -14,7 +14,10 @@ class ActionModule(ActionBase):
         display = Display()
 
         # Initialize DynamicClient and grab the task args
-        dynaClient = get_api_client()
+        host = self._task.args.get('host', None)
+        api_key = self._task.args.get('api_key', None)
+
+        dynClient = get_api_client(api_key=api_key, host=host)
         mas_instance = self._task.args['mas_instance_id']
         mas_app_id = self._task.args['mas_app_id']
         mas_app_version = self._task.args['mas_app_version']
@@ -25,7 +28,7 @@ class ActionModule(ActionBase):
 
         masAppInstances = None
         if mas_app_id == "manage":
-          masAppInstances = dynaClient.resources.get(api_version="apps.mas.ibm.com/v1", kind='ManageApp')
+          masAppInstances = dynClient.resources.get(api_version="apps.mas.ibm.com/v1", kind='ManageApp')
 
         if masAppInstances is not None:
           versionMatching = False

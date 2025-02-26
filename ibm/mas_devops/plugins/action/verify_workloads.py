@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from ansible_collections.kubernetes.core.plugins.module_utils.common import get_api_client
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 
 from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
@@ -13,12 +13,15 @@ class ActionModule(ActionBase):
         super(ActionModule, self).run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
-        dynaClient = get_api_client()
+        host = self._task.args.get('host', None)
+        api_key = self._task.args.get('api_key', None)
+
+        dynClient = get_api_client(api_key=api_key, host=host)
         retries = self._task.args['retries']
         delay = self._task.args['delay']
 
-        deployments = dynaClient.resources.get(api_version="v1", kind='Deployment')
-        sts = dynaClient.resources.get(api_version="v1", kind='StatefulSet')
+        deployments = dynClient.resources.get(api_version="v1", kind='Deployment')
+        sts = dynClient.resources.get(api_version="v1", kind='StatefulSet')
 
         depResult = self._checkResources(deployments, "Deployments", retries, delay)
         stsResult = self._checkResources(sts, "StatefulSets", retries, delay)
@@ -100,6 +103,6 @@ class ActionModule(ActionBase):
           )
         else:
           display.v(f"Failure: allResourcesHealthy={allResourcesHealthy}")
-          
+
           notReadyMsg = ', '.join(notReadyResources)
           raise AnsibleError(f"Error: These {resourceName} are not healthy: {notReadyMsg}")
