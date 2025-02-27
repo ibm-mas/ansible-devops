@@ -55,7 +55,7 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/odh/default-dsci.yml.j2') }}"
 
-- name: "Wait for the DSCInitialization instance to be ready"
+- name: "Wait for the DSCInitialization instance to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: dscinitialization.opendatahub.io/v1
     name: default-dsci
@@ -67,8 +67,8 @@
     - dsci_lookup.resources[0].status is defined
     - dsci_lookup.resources[0].status.phase is defined
     - dsci_lookup.resources[0].status.phase == 'Ready'
-  retries: 20
-  delay: 30
+  retries: 10 # Up to 10 minutes
+  delay: 60 # Every 1 minute
 
 # Create Data Science Cluster
 - name: "Create Data Science Cluster"
@@ -76,7 +76,7 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/odh/data-science-cluster.yml.j2') }}"
 
-- name: "Wait for the DSC to be ready"
+- name: "Wait for the DSC to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: datasciencecluster.opendatahub.io/v1
     name: default-dsc
@@ -87,8 +87,8 @@
     - dsc_lookup.resources[0].status is defined
     - dsc_lookup.resources[0].status.phase is defined
     - dsc_lookup.resources[0].status.phase == 'Ready'
-  retries: 20
-  delay: 30
+  retries: 10 # Up to 10 minutes
+  delay: 60 # Every 1 minute
 
 # Create Data Science Pipelines Applications
 - name: "Create Data Science Pipelines Applications CR"
@@ -96,7 +96,7 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/odh/dspa-{{ mas_aibroker_storage_provider }}.yml.j2') }}"
 
-- name: "Wait for the DSPA to be ready"
+- name: "Wait for the DSPA to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: datasciencepipelinesapplications.opendatahub.io/v1alpha1
     name: instance
@@ -107,8 +107,8 @@
     - dspa_lookup.resources is defined
     - dspa_lookup.resources | length > 0
     - dspa_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
-  retries: 20
-  delay: 30
+  retries: 10 # Up to 10 minutes
+  delay: 60 # Every 1 minute
 
 # Wait until the pipeline-runner-instance service account is available
 # -----------------------------------------------------------------------------
