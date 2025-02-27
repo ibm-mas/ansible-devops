@@ -125,16 +125,16 @@ The MAS Superuser account username and password can be customized during the ins
 Role Variables - Developer Mode
 -------------------------------------------------------------------------------
 ### artifactory_username
-Required when using this role with development builds on Artifactory
+Required when using this role with development builds
 
 ### artifactory_token
-Required when using this role with development builds on Artifactory
+Required when using this role with development builds
 
 ### mas_icr_cp
-Defines the entitled registry from the images should be pulled from. Set this to `cp.icr.io/cp` when installing release version of MAS, `docker-na-public.artifactory.swg-devops.com/wiotp-docker-local` for dev, unless when on FYRE in which case use `docker-na-proxy-svl.artifactory.swg-devops.com/wiotp-docker-local` or `docker-na-proxy-rtp.artifactory.swg-devops.com/wiotp-docker-local` as appropriate.
+Defines the entitled registry from the images should be pulled from. Set this to `cp.icr.io/cp` when installing release version of MAS, `icr.io/masdev/cp` for dev.
 
 ### mas_icr_cpopen
-Defines the registry for non-entitled images, such as operators. Set this to `icr.io/cpopen` when installing release version of MAS or `docker-na-public.artifactory.swg-devops.com/wiotp-docker-local/cpopen` for dev (or corresponding FYRE proxies as appropriate).
+Defines the registry for non-entitled images, such as operators. Set this to `icr.io/cpopen` when installing release version of MAS or `icr.io/masdev/cpopen` for development builds.
 
 ### mas_entitlement_username
 Username for the IBM entitled registry. This username will be used to create the image pull secret. Set to `cp` when installing release or use your `w3Id` when using Artifactory.

@@ -94,36 +94,6 @@ ansible-playbook ibm.mas_devops.oneclick_core
 !!! tip
     If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`
 
-
-### Pre-release build
-To deploy a pre-release build of IBM Maximo Application Suite (core only) with dependencies a number of additional parameters are required, note that pre-release builds are only available to IBM employees:
-
-```bash
-export IBM_ENTITLEMENT_KEY=xxx
-
-export ARTIFACTORY_USERNAME=$W3_USERNAME_LOWERCASE
-export ARTIFACTORY_TOKEN=xxx
-export MAS_ICR_CP=docker-na-public.artifactory.swg-devops.com/wiotp-docker-local
-export MAS_ICR_CPOPEN=docker-na-public.artifactory.swg-devops.com/wiotp-docker-local
-export MAS_ENTITLEMENT_USERNAME=$W3_USERNAME_LOWERCASE
-export MAS_ENTITLEMENT_KEY=$ARTIFACTORY_TOKEN
-
-export MAS_INSTANCE_ID=inst1
-export MAS_CONFIG_DIR=~/masconfig
-export MAS_CATALOG_SOURCE=ibm-operator-catalog
-export MAS_CHANNEL=rp1dev88
-
-export SLS_LICENSE_ID=xxx
-export SLS_LICENSE_FILE=/path/to/entitlement.lic
-
-export UDS_CONTACT_EMAIL=xxx@xxx.com
-export UDS_CONTACT_FIRSTNAME=xxx
-export UDS_CONTACT_LASTNAME=xxx
-
-oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_core
-```
-
 !!! tip
     If you do not want to set up all the dependencies on your local system, you can run the install inside our docker image as well: `docker run -ti --pull always quay.io/ibmmas/cli`
 

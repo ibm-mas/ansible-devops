@@ -64,8 +64,6 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `MAS_ICR_CP` Provide custom registry for AI Broker applications
 * `MAS_ICR_CPOPEN` Provide custom registry for AI Broker operator
 * `MAS_CATALOG_VERSION` Your custom AI broker catalog version
-* `ARTIFACTORY_USERNAME` Your artifactory user name to access - this is needed if user deploy from custom registry for example `docker-na-public.artifactory.swg-devops.com`
-* `ARTIFACTORY_TOKEN` Your artifactory token for user to access - this is needed if user deploy from custom registry for example `docker-na-public.artifactory.swg-devops.com`
 * `MAS_AIBROKER_TENANT_ACTION` Whether to install or remove tenant (default value is: install)
 * `MAS_AIBROKER_APIKEY_ACTION` Whether to install or remove or update apikey (default value is: install)
 * `MAS_AIBROKER_WATSONX_ACTION` Whether to install or remove watsonx secret (default value is: install)
@@ -85,39 +83,7 @@ source /tmp/venv/bin/activate
 python3 -m pip install boto3
 ```
 
-#### Run playbooks for deploy AI Broker from internal registry ex. `docker-na-public.artifactory.swg-devops.com`
-
-```bash
-export ARTIFACTORY_USERNAME="<artifactory user>"
-export ARTIFACTORY_TOKEN="<artifactory token>"
-export MAS_ICR_CP="<internal redistry for aibroker applications>"
-export MAS_ICR_CPOPEN="<internal redistry for aibroker operator>"
-export MAS_INSTANCE_ID="<instanceId>"
-export MAS_AIBROKER_STORAGE_ACCESSKEY="<storage provider access key>"
-export MAS_AIBROKER_STORAGE_SECRETKEY="<storage provider secret key>"
-export MAS_AIBROKER_STORAGE_HOST="<storage provider host>"
-export MAS_AIBROKER_STORAGE_SSL="true or false"
-export MAS_AIBROKER_STORAGE_REGION="<storage provider region - only for aws>"
-export MAS_AIBROKER_STORAGE_PROVIDER="<storage provider name>"
-export MAS_AIBROKER_STORAGE_PORT="<storage provider port - only for minio>"
-export MAS_AIBROKER_STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
-export MAS_AIBROKER_STORAGE_TENANTS_BUCKET="<tenants bucket name>"
-export MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET="<templates bucket name>"
-export MAS_AIBROKER_WATSONXAI_APIKEY="<watsonx AI api key>"
-export MAS_AIBROKER_WATSONXAI_URL="<watsonx AI learning url>"
-export MAS_AIBROKER_WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
-export MAS_AIBROKER_DB_HOST="<database instance host>"
-export MAS_AIBROKER_DB_PORT="<database instance port>"
-export MAS_AIBROKER_DB_USER="<database instance user>"
-export MAS_AIBROKER_DB_DATABASE="<database instance datbase name>"
-export MAS_AIBROKER_DB_SECRET_NAME="<database instance secret name>"
-export MAS_AIBROKER_DB_SECRET_VALUE="<database instance password>"
-
-oc login --token=xxxx --server=https://myocpserver
-ansible-playbook playbooks/oneclick_add_aibroker.yml
-```
-
-#### Run playbooks for deploy AI Broker from public registry ex. `icr.io`
+#### Run playbooks for deploy AI Broker
 
 ```bash
 export MAS_ENTITLEMENT_USERNAME="<user>"
@@ -147,9 +113,9 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
 
-### 
+###
 
-## NOTICE: playbook oneclick_add_aibroker.yml will run three roles: 
+## NOTICE: playbook oneclick_add_aibroker.yml will run three roles:
 
 ### Role: odh
 
