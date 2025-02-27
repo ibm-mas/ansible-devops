@@ -81,23 +81,23 @@
 #
 # If the application is not in ready state we can fail fast rather than waiting
 # for the workspace to be Ready -- because it never will!
-- name: "Lookup application information"
-  kubernetes.core.k8s_info:
-    api_version: "{{ mas_app_api_version }}"
-    name: "{{ mas_instance_id }}"
-    namespace: "{{ mas_app_namespace }}"
-    kind: "{{ mas_app_kind }}"
-  register: app_cr_result
-
 - name: "Wait for application to be Ready before configuring workspace"
-  retries: 15  # Adjust retries as needed
+  retries: 15  # Number of retries before failing
   delay: 20    # Wait 20 seconds between retries
-  until:
-    - app_cr_result.resources is defined
-    - app_cr_result.resources | length > 0
-    - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select('match', 'True') | list | length == 1
   register: app_ready
+  until:
+    - app_ready.resources is defined
+    - app_ready.resources | length > 0
+    - app_ready.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select('match', 'True') | list | length == 1
   failed_when: app_ready is failed
+  block:
+    - name: "Lookup application information (fetch latest status)"
+      kubernetes.core.k8s_info:
+        api_version: "{{ mas_app_api_version }}"
+        name: "{{ mas_instance_id }}"
+        namespace: "{{ mas_app_namespace }}"
+        kind: "{{ mas_app_kind }}"
+      register: app_ready
 
 - name: "Check that the application is ready to configure a workspace"
   assert:
