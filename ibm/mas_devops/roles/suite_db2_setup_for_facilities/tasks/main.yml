@@ -41,8 +41,6 @@
 - name: Configure facts
   set_fact:
     db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
-    db2_name: "{{ db2_dbname }}"
-    db2_schema: "{{ db2_schema }}"
 
 - name: "Debug information - part 2"
   debug:
@@ -54,8 +52,11 @@
     namespace: "{{ db2_namespace }}"
     pod: "{{ db2_pod_name }}"
     container: db2u
-    command: su - db2inst1 -c "db2 connect to {{ db_name }} >/dev/null && db2 'select schemaname from syscat.schemata' | grep 'TRIDATA' | tr -d ' ' " > /tmp/ts_numd.txt
+    command: su - db2inst1 -c "db2 connect to {{ db2_dbname }} >/dev/null && db2 'select schemaname from syscat.schemata' | grep 'TRIDATA' | tr -d ' ' " > /tmp/ts_numd.txt
   register: db2_output
+  retries: 10
+  delay: 60
+
 
 # 4. Execute DB2 config enforcement
 # -----------------------------------------------------------------------------
