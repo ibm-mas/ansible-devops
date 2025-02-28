@@ -25,7 +25,7 @@
 
 - name: "wait : Wait for configmap get copied over to local persistent location"
   pause:
-    minutes: 1
+    minutes: 3
 
 - name: Run script to make changes take effect
   shell: oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/db2u/scripts/apply-db2cfg-settings.sh --setting all | tee /tmp/apply-db2cfg-settings.log' db2inst1
@@ -38,7 +38,6 @@
 # Run script twice for DB2 standalone
 - name: Check DB2 cfg is take effect
   shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc '/db2u/scripts/apply-db2cfg-settings.sh --setting all | tee /tmp/apply-db2cfg-settings.log' db2inst1
     oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2 get db cfg for {{ db2_dbname }} | grep "(STRING_UNITS) = CODEUNITS32"' db2inst1
   register: check_cmds_status
   until: check_cmds_status.rc == 0
