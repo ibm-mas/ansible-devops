@@ -44,8 +44,18 @@
 - include_tasks: tasks/saas/main.yml
   when: mas_aibroker_saas == true
 
-# # create AI Broker tenant
+# create AI Broker tenant
 # - include_tasks: tasks/tenant/main.yml
+
+# TODO: this is workaround for create tenant role - remove this once create AI Broker tenant task done 
+# Create tenant namespace
+- name: "Create a tenant namespace: {{ tenantNamespace }}"
+  kubernetes.core.k8s:
+    name: "{{ tenantNamespace }}"
+    api_version: v1
+    kind: Namespace
+  when:
+    - namespace_info.resources | length == 0
 
 # create AI Broker api key
 - include_tasks: tasks/apikey/main.yml
