@@ -134,6 +134,16 @@
   set_fact:
     mas_aibroker_domain: "apps.{{cluster_domain }}"
 
+
+- name: debug 
+  debug: 
+    msg: 
+      - "tenantNamespace ..... {{ tenantNamespace }} "
+      - "droUrl ..... {{ drocfg.url }} "
+      - "mas_aibroker_sls_url ..... {{ slscfg.url }} "
+      - "subscriptionId ..... {{ mas_aibroker_subscription_id }} "
+      - "droTenantId ..... {{ mas_aibroker_dro_tenant_id }} "
+
 - name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
   uri:
     url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenant"
@@ -145,10 +155,11 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenantName\": \"{{ tenantNamespace }}\", \"slsUrl\": \"{{ mas_aibroker_sls_url }}\", \"droUrl\": \"{{ mas_aibroker_dro_url }}\", \"subscriptionId\": \"{{ mas_aibroker_subscription_id }}\", \"droTenantId\": \"{{ mas_aibroker_dro_tenant_id }}\"}"
-    status_code: [201]
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"sls_url\": \"{{ slscfg.url }}\", \"dro_url\": \"{{ drocfg.url }}\", \"subscription_id\": \"{{ mas_aibroker_subscription_id }}\", \"dro_tenant_id\": \"{{ mas_aibroker_dro_tenant_id }}\"}"
+    status_code: [204]
     timeout: 30
   register: add_tenant_to_db2
+
 
 - name: Debug tenant #TODO: remove on final commit
   debug:
@@ -165,7 +176,7 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenantName\": \"{{ tenantNamespace }}\", \"entitlementType\": \"standard\", \"modelType\": \"similarity\", \"entitlementStartDate\": \"2025-01-01\", \"entitlementEndDate\": \"2026-01-01\"}"
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"similarity\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2
@@ -182,7 +193,7 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenantName\": \"{{ tenantNamespace }}\", \"entitlementType\": \"standard\", \"modelType\": \"pcc\", \"entitlementStartDate\": \"2025-01-01\", \"entitlementEndDate\": \"2026-01-01\"}"
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"pcc\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2_pcc
@@ -199,7 +210,7 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenantName\": \"{{ tenantNamespace }}\", \"entitlementType\": \"standard\", \"modelType\": \"mcc\", \"entitlementStartDate\": \"2025-01-01\", \"entitlementEndDate\": \"2026-01-01\"}"
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"mcc\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2_mcc
