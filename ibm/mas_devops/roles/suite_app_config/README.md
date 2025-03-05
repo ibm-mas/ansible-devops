@@ -488,6 +488,105 @@ Example Playbook
     - ibm.mas_devops.suite_app_config
 ```
 
+Role Variables - Facilities Workspace
+-------------------------------------------------------------------------------
+### mas_ws_facilities_size
+Sets the size of deployment.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_SIZE`
+- Default: `small`
+
+### mas_ws_facilities_pull_policy
+Sets the `imagePullPolicy` strategy for all deployments. The default it's set to `IfNotPresent` to reduce the pulling operations in the cluster.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_PULL_POLICY`
+- Default: `IfNotPresent`
+
+### mas_ws_facilities_liberty_extension_XML
+Allows the user to add tags into the Liberty Server XML to configure the application according with the user specific needs. 
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_LIBERTY_EXTENSION_XML`
+- Default: `{}`
+
+### mas_ws_facilities_wfagents
+Allows the user to add dedicated workflow agents (DWFA) to MREF. To specify a DWFA it's required to specify a JSON with a unique `name` and `members`. Each member has a unique `name` and `class` that can be classified as `user` or `group`. Below an example of the structure of the JSON. 
+```
+export MAS_FACILITIES_WFAGENTS='[{"name":"dwfa1","members":[{"name": "u1", "class": "user"}]}, {"name":"dwfa2","members":[{"name": "u2", "class": "user"},{"name":"g1", "class":"group"}]}]'
+``` 
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_WFAGENTS`
+- Default: `[]`
+### Facilities - Database setting variables
+---
+### mas_ws_facilities_db.maxconnpoolsize
+Sets the maximum connection pool size for database.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_DB_MAX_POOLSIZE`
+- Default: `200`
+
+### mas_ws_facilities_db.sid
+Sets the system identifier of the database.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_DB_SID`
+- Default: `default`
+### Facilities - Routes setting variables
+---
+### mas_ws_facilities_routes.contextpath
+Adds a context path for MAS Real Estate and Facilities in the domain 
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_ROUTES_CONTEXT_PATH`
+- Default: `''`
+
+### mas_ws_facilities_db.sid
+Sets the timeout of the application. It is a string with the structure `<timeout_value><time_unit>`, where `timeout_value` is any non zero unsigned integer number and the supported `time_unit` are microseconds (us), milliseconds (ms), seconds (s), minutes (m), hours (h), or days (d)
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_ROUTES_TIMEOUT`
+- Default: `600s`
+### Facilities - Storage setting variables
+---
+### mas_ws_facilities_storage.class
+Sets the class for the Persistent Volume Claim used for MREF agents.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_CLASS`
+- Default: `ibmc-file-gold-gid`
+
+### mas_ws_facilities_storage.log.mode
+Sets the attach mode of the Log PVC.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_LOG_MODE`
+- Default: `ReadWriteMany`
+
+### mas_ws_facilities_storage.log.size
+Sets the size of the Log PVC.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_LOG_SIZE`
+- Default: `30`
+
+### mas_ws_facilities_storage.userfiles.mode
+Sets the attach mode of the Userfiles PVC.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_MODE`
+- Default: `ReadWriteMany`
+
+### mas_ws_facilities_storage.userfiles.size
+Sets the size of the Log PVC.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_SIZE`
+- Default: `50`
+
 License
 -------------------------------------------------------------------------------
 
