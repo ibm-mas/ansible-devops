@@ -5,6 +5,29 @@ This role shouldn't need to exist, it should be part of the Facilities operator,
 
 The role will copy scripts into the Db2 pod and execute it inside the container, this script will perform a number of configuration changes to the database as well as configuring the tablespaces for Maximo Real estate and facilities because the operator is not yet able to do this itself.
 
+Pre-Requisites
+--------------
+The Db2 database needs to be created with set a of properties in the startup and can be invoked as follows: 
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: restore
+    db2_instance_name: db2u-db01
+    masbr_restore_from_version: 20240621021316
+    masbr_storage_local_folder: /tmp/masbr
+    db2_instance_registry:
+      DB2_COMPATIBILITY_VECTOR: ORA
+      DB2AUTH: 'OSAUTHDB,ALLOW_LOCAL_FALLBACK,PLUGIN_AUTO_RELOAD'
+      DB2_4K_DEVICE_SUPPORT: 'ON'
+      DB2_FMP_RUN_AS_CONNECTED_USER: 'NO'
+      DB2_WORKLOAD: 'PUREDATA_OLAP'
+  roles:
+    - ibm.mas_devops.db2
+```
+If the database is not created with these properties, Maximo Real Estate and Facilities will not be succesfully installed. In case of a deployment without these properties, a new instance will be required with the correct properties. Refer to `oneclick_add_facilities.yml` for an example of a complete installation.
+
 Role Variables
 --------------
 ### db2_instance_name

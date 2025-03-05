@@ -2,6 +2,24 @@
 # Should be part of the facilities operator, but is not so we have to do it
 # as a separate step in the install flow for now :(
 
+# 0. Verify DB2 installation
+# -----------------------------------------------------------------------------
+- include_vars: vars/main.yml
+
+- name: Check DB2 Properties
+  shell: |
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2set"' db2inst1
+  register: check_cmds_status
+
+- name: Verifying properties
+  assert:
+    that:
+      -  props.key+'='+props.value in check_cmds_status.stdout
+    fail_msg: "{{props.key}}={{props.value}} is a required property in the database"
+  loop: "{{ pre_check | dict2items }}"
+  loop_control: 
+    loop_var: props
+
 # 1. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Check required properties are set"
@@ -56,7 +74,6 @@
   register: db2_output
   retries: 10
   delay: 60
-
 
 # 4. Execute DB2 config enforcement
 # -----------------------------------------------------------------------------
