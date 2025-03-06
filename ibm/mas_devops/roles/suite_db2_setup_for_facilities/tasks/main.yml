@@ -2,10 +2,14 @@
 # Should be part of the facilities operator, but is not so we have to do it
 # as a separate step in the install flow for now :(
 
-# 0. Verify DB2 installation
+# 1. Verify DB2 installation
 # -----------------------------------------------------------------------------
 - include_vars: vars/main.yml
 
+- name: ibm.mas_devops.db2
+
+# 2. Verify DB2 installation
+# -----------------------------------------------------------------------------
 - name: Check DB2 Properties
   shell: |
     oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2set"' db2inst1
@@ -16,11 +20,11 @@
     that:
       -  props.key+'='+props.value in check_cmds_status.stdout
     fail_msg: "{{props.key}}={{props.value}} is a required property in the database"
-  loop: "{{ pre_check | dict2items }}"
-  loop_control: 
+  loop: "{{ db2_instance_registry | dict2items }}"
+  loop_control:
     loop_var: props
 
-# 1. Provide debug information to the user
+# 3. Provide debug information to the user
 # -----------------------------------------------------------------------------
 - name: "Check required properties are set"
   assert:
@@ -38,7 +42,7 @@
       - "Db2 Schema name ........................ {{ db2_schema }}"
 
 
-# 2. Determine which pod to run in
+# 4. Determine which pod to run in
 # -----------------------------------------------------------------------------
 
 - name: "Lookup db2 Pod"
@@ -75,7 +79,7 @@
   retries: 10
   delay: 60
 
-# 4. Execute DB2 config enforcement
+# 5. Execute DB2 config enforcement
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/apply-db2-dbconfig.yml
   when: ( db2_output.stdout_lines | length ) == 0
