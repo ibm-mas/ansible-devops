@@ -1,18 +1,6 @@
 ---
-# 1. Install Operator & create entitlement openshift-serverless
-# -----------------------------------------------------------------------------
+# enable following role temporary until find a way to use openshift-serverless and switch to apply_subscription role
 - name: "Install Openshift Serverless Operator"
-  ibm.mas_devops.apply_subscription:
-    namespace: "{{ serverless_namespace }}"
-    package_name: "serverless-operator"
-    package_channel: "{{ serverless_channel }}"
-    catalog_source: "{{ serverless_catalog_source }}"
-  register: subscription
-
-
-# 2. Wait until the Serverless CRD is available
-# -----------------------------------------------------------------------------
-- name: "Wait until the Serverless CRD is available"
-  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
-  vars:
-    crd_name: knativeservings.operator.knative.dev
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/serverless/subscription.yml.j2') }}"
