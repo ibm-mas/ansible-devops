@@ -1,0 +1,56 @@
+---
+- name: "Lookup db2 Pod"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - type=engine
+      - app={{ db2_instance_name }}
+    wait: yes
+    wait_sleep: 30
+    wait_timeout: 300 # 5 mins until we give up waiting for the pod to get into the expected state
+    wait_condition:
+      type: Ready
+      status: "True"
+  register: db2_pod
+
+- name: Configure facts
+  set_fact:
+    db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
+
+- name: "Debug information - part 2"
+  debug:
+    msg:
+      - "Pod name ............................... {{ db2_pod_name }}"
+
+- name: Lookup db2ucluster instance
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Db2uCluster
+    name: "{{db2_instance_name | lower}}"
+    namespace: "{{db2_namespace}}"
+  register: _db2_instance_engn_svc
+  until:
+    - _db2_instance_engn_svc.resources[0] is defined
+  retries: 15 # approx 5 minutes before we give up
+  delay: 20 # seconds
+
+- name: Update DB2 configmaps
+  kubernetes.core.k8s:
+    merge_type: merge
+    definition:
+      apiVersion: v1
+      kind: Db2uCluster
+      metadata:
+        name: "{{db2_instance_name | lower}}"
+        namespace: "{{ db2_namespace }}"
+      spec: "{{ spec | from_yaml }}"
+  vars:
+    spec: |
+      {{db2_configs[db2_config_version]}}
+
+- name: Create k8s configmaps for DB2 config version
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ db2_namespace }}"
+    definition: "{{ lookup('template', 'templates/db2_enforce_config.yaml.j2') | from_yaml }}"
