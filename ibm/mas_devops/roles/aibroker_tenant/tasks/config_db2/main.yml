@@ -11,7 +11,8 @@
       username: "{{ jdbccfg[0].data.username }}"
       password: "{{ jdbccfg[0].data.password }}"
       url: "{{ jdbccfg[1].spec.config.url }}"
-      ca: "{{ jdbccfg[1].spec.certificates }}"
+      # ca: "{{ jdbccfg[1].spec.certificates | map(attribute='crt') }}"
+      ca: "{{ jdbccfg[1].spec.certificates | map(attribute='crt') | join(',') | replace(',','\n') }}"
 
 - name: "Debug: jdbc information" #TODO: remove before PR
   debug:
@@ -20,3 +21,8 @@
       - "JDBC password ............. {{ jdbccfg.password }}"
       - "JDBC url .................. {{ jdbccfg.url }}"
       - "JDBC cert ca .............. {{ jdbccfg.ca }}"
+
+- name: "Create secret for JDBC admin credentials"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/jdbc/jdbc-admin-credentials.yml.j2"
