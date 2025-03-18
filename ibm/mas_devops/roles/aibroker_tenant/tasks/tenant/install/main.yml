@@ -15,6 +15,15 @@
   when:
     - namespace_info.resources | length == 0
 
+- name: "Create tenant CR"
+  vars:
+    annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ tenantNamespace }}"
+    template: templates/aibroker/aibrokerworkspace.yml.j2
+  register: aibrokerWorkspaceResult
+
 # Copy secrets to tenant namespace
 - name: "Copy secrets to namespace: {{ tenantNamespace }}"
   shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply --force -f -'
