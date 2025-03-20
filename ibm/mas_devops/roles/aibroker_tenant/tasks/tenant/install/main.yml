@@ -6,8 +6,7 @@
     name: "{{ tenantNamespace }}"
   register: namespace_info
 
-# Create tenant namespace
-- name: "Create a tenant namespace: {{ tenantNamespace }}"
+- name: "Create tenant namespace: {{ tenantNamespace }}"
   kubernetes.core.k8s:
     name: "{{ tenantNamespace }}"
     api_version: v1
@@ -20,11 +19,23 @@
     annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
   kubernetes.core.k8s:
     state: present
-    namespace: "{{ tenantNamespace }}"
+    namespace: "{{ aibroker_namespace }}"
     template: templates/aibroker/aibrokerworkspace.yml.j2
-  register: aibrokerWorkspaceResult
 
-# Copy secrets to tenant namespace
+- name: "Wait for tenant CR to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ tenantNamespace }}"
+    namespace: "{{ aibroker_namespace }}"
+    kind: AiBrokerWorkspace
+  register: aibrokerworkspace_cr_result
+  until:
+    - aibrokerworkspace_cr_result.resources is defined and aibrokerworkspace_cr_result.resources | length == 1
+    - aibrokerworkspace_cr_result.resources[0].status is defined
+    - aibrokerworkspace_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
+  retries: 45 # approx 45 minutes before we give up
+  delay: 60 # 1 minute
+
 - name: "Copy secrets to namespace: {{ tenantNamespace }}"
   shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply --force -f -'
   with_items:
@@ -62,7 +73,6 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/tenant/kserve-xgbserver.yml.j2') }}"
 
-# Applay RBAC roles
 - name: "Apply RBAC for tenant"
   kubernetes.core.k8s:
     apply: yes
@@ -105,27 +115,7 @@
 #     minutes: 8
 #     prompt: "Waiting for for service /service/rest/api/v1/tenant"
 
-- name: Await to aibroker-api pod created
-  pause:
-    minutes: 3
-    prompt: "Waiting for aibroker-api pod"
-
-- name: "Wait for aibroker-api pod"
-  shell: oc  wait --for=condition=ready pod -l app=aibroker-api -n {{ aibroker_namespace }}
-  register: _is_not_exists
-  until: _is_not_exists.stdout|int == 0
-  retries: 60
-  delay: 30
-
-- name: "Wait for aibroker-api pod to be ready (30s delay)"
-  shell: >
-    oc get pod -l app=aibroker-api -n {{ aibroker_namespace }} --no-headers=true | grep -Evi "1/1|2/2|3/3|4/4|5/5|6/6|7/7|8/8|9/9|complete" | wc -l
-  register: _is_not_ready
-  until: _is_not_ready.stdout|int == 0
-  retries: 60
-  delay: 30
-
-- name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
+- name: Register tenant SLS and DRO
   uri:
     url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenant"
     validate_certs: no
@@ -145,7 +135,7 @@
   debug:
     msg: "{{ add_tenant_to_db2 }}"
 
-- name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
+- name: Register tenant entitlement for Similarity model
   uri:
     url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
@@ -165,7 +155,7 @@
   debug:
     msg: "{{ add_tenant_entitlements_to_db2 }}"
 
-- name: Create tenant {{ tenantNamespace }} and add to db2 for pcc - using uri
+- name: Register tenant entitlement for PCC model
   uri:
     url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
@@ -185,7 +175,7 @@
   debug:
     msg: "{{ add_tenant_entitlements_to_db2_pcc }}"
 
-- name: Create tenant {{ tenantNamespace }} and add to db2 for mcc - using uri
+- name: Register tenant entitlement for MCC model
   uri:
     url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
