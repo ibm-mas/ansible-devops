@@ -30,8 +30,29 @@
 
 # 3. Get Security Group of the cluster
 # -----------------------------------------------------------------------------
+- name: "Look up cluster ocp version"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    name: "version"
+    kind: ClusterVersion
+  register: ocp_version_lookup
+
+- name: "Set ocp version number"
+  when: ocp_version_lookup.resources[0] is defined
+  set_fact:
+    ocp_version_num: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
+
+- name: "Debug information"
+  debug:
+    msg: "OCP Release Version ................ {{ ocp_version_num }}"
+
 - name: "efs-setup : Get Security Group of the EC2 Instance"
-  shell: aws ec2 describe-security-groups --filters Name=vpc-id,Values={{ vpcid }} Name=tag:Name,Values='*worker*' --query "SecurityGroups[*].{ID:GroupId}[0]"
+  shell: >
+    {% if ocp_version_num is version('4.17', '<') %}
+    aws ec2 describe-security-groups --filters Name=vpc-id,Values={{ vpcid }} Name=tag:Name,Values='*worker*' --query "SecurityGroups[*].{ID:GroupId}[0]"
+    {% else %}
+    aws ec2 describe-security-groups --filters Name=vpc-id,Values={{ vpcid }} Name=tag:Name,Values='*node*' --query "SecurityGroups[*].{ID:GroupId}[0]"
+    {% endif %}
   register: security_group
 
 - name: "efs-setup : Get Security Group Id from Output"
