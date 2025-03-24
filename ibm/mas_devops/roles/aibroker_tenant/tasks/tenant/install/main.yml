@@ -134,6 +134,20 @@
   retries: 60
   delay: 30
 
+- name: Lookup the aibroker route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ aibroker.name }}"
+    namespace: "{{ appNamespace }}"
+    wait: yes
+    wait_timeout: 30
+  register: aibrokerRoute
+
+- name: Debug aibrokerRoute
+  debug:
+    msg: "{{ aibrokerRoute }}"
+
 - name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
   uri:
     url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenant"
