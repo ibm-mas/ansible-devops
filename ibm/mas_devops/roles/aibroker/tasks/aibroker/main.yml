@@ -79,23 +79,3 @@
     - aibrokerapp_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
-
-- name: Await to aibroker-api pod created
-  pause:
-    minutes: 3
-    prompt: "Waiting for aibroker-api pod"
-
-- name: "Wait for aibroker-api pod"
-  shell: oc  wait --for=condition=ready pod -l app=aibroker-api -n {{ aibroker_namespace }}
-  register: _is_not_exists
-  until: _is_not_exists.stdout|int == 0
-  retries: 60
-  delay: 30
-
-- name: "Wait for aibroker-api pod to be ready (30s delay)"
-  shell: >
-    oc get pod -l app=aibroker-api -n {{ aibroker_namespace }} --no-headers=true | grep -Evi "1/1|2/2|3/3|4/4|5/5|6/6|7/7|8/8|9/9|complete" | wc -l
-  register: _is_not_ready
-  until: _is_not_ready.stdout|int == 0
-  retries: 60
-  delay: 30
