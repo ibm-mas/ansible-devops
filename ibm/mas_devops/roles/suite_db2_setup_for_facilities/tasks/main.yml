@@ -12,41 +12,6 @@
 
 # 2. Verify DB2 installation
 # -----------------------------------------------------------------------------
-- name: Check DB2 Properties
-  shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2set"' db2inst1
-  register: check_cmds_status
-
-- name: Verifying properties
-  assert:
-    that:
-      -  props.key+'='+props.value in check_cmds_status.stdout
-    fail_msg: "{{props.key}}={{props.value}} is a required property in the database"
-  loop: "{{ db2_instance_registry | dict2items }}"
-  loop_control:
-    loop_var: props
-
-# 3. Provide debug information to the user
-# -----------------------------------------------------------------------------
-- name: "Check required properties are set"
-  assert:
-    that:
-      - db2_namespace is defined and db2_namespace != ""
-      - db2_instance_name is defined and db2_instance_name != ""
-    fail_msg: "db2_namespace and db2_instance_name are both required properties"
-
-- name: "Debug information - part 1"
-  debug:
-    msg:
-      - "Db2 namespace .......................... {{ db2_namespace }}"
-      - "Db2 instance name ...................... {{ db2_instance_name }}"
-      - "Db2 database name ...................... {{ db2_dbname }}"
-      - "Db2 Schema name ........................ {{ db2_schema }}"
-
-
-# 4. Determine which pod to run in
-# -----------------------------------------------------------------------------
-
 - name: "Lookup db2 Pod"
   kubernetes.core.k8s_info:
     kind: Pod
@@ -71,6 +36,43 @@
     msg:
       - "Pod name ............................... {{ db2_pod_name }}"
 
+- name: Check DB2 Properties
+  shell: |
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2set' db2inst1
+  register: check_props_status
+  until: check_props_status.rc == 0
+  retries: 5
+  delay: 30
+
+- name: Verifying properties
+  assert:
+    that:
+      -  props.key+'='+props.value in check_props_status.stdout
+    fail_msg: "{{props.key}}={{props.value}} is a required property in the database"
+  loop: "{{ db2_instance_registry | dict2items }}"
+  loop_control:
+    loop_var: props
+
+# 3. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Check required properties are set"
+  assert:
+    that:
+      - db2_namespace is defined and db2_namespace != ""
+      - db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: "db2_namespace and db2_instance_name are both required properties"
+
+- name: "Debug information - part 1"
+  debug:
+    msg:
+      - "Db2 namespace .......................... {{ db2_namespace }}"
+      - "Db2 instance name ...................... {{ db2_instance_name }}"
+      - "Db2 database name ...................... {{ db2_dbname }}"
+      - "Db2 Schema name ........................ {{ db2_schema }}"
+
+
+# 4. Determine if the schema has been created
+# -----------------------------------------------------------------------------
 - name: Checking if schema is already created
   kubernetes.core.k8s_exec:
     namespace: "{{ db2_namespace }}"
