@@ -185,15 +185,18 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"sls_url\": \"{{ mas_aibroker_sls_url }}\", \"dro_url\": \"{{ mas_aibroker_dro_url }}\",
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\",
+      \"sls_url\": \"{{ aibrokerworkspace_cr_result.resources[0].spec.settings.sls.url }}\",
+       \"dro_url\": \"{{ aibrokerworkspace_cr_result.resources[0].spec.settings.dro.url }}\",
       \"subscription_id\": \"{{ mas_aibroker_sls_subscription_id }}\", \"dro_tenant_id\": \"{{ mas_aibroker_dro_tenant_id }}\"}"
-    status_code: [201]
+    status_code: [204, 409]
     timeout: 30
-  register: add_tenant_to_db2
+  register: register_tenant
 
-- name: Debug tenant #TODO: remove on final commit
+- name: Warn if tenant exists
+  when: register_tenant.status == 409
   debug:
-    msg: "{{ add_tenant_to_db2 }}"
+    msg: Warning - tenant {{ tenantNamespace }} is already registered with AI Broker
 
 - name: Register entitlement to Similarity model for tenant "{{ tenantNamespace }}"
   uri:
@@ -211,10 +214,6 @@
     timeout: 30
   register: add_tenant_entitlements_to_db2
 
-- name: Debug tenant entitlement #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_entitlements_to_db2 }}"
-
 - name: Register entitlement to PCC model for tenant "{{ tenantNamespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
@@ -230,10 +229,6 @@
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2_pcc
-
-- name: Debug tenant entitlement #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_entitlements_to_db2_pcc }}"
 
 - name: Register entitlement to MCC model for tenant "{{ tenantNamespace }}"
   uri:
