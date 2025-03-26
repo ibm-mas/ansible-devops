@@ -136,10 +136,10 @@
 #     minutes: 8
 #     prompt: "Waiting for for service /service/rest/api/v1/tenant"
 
-- name: Await to aibroker-api pod created
-  pause:
-    minutes: 3
-    prompt: "Waiting for aibroker-api pod"
+# - name: Await to aibroker-api pod created
+#   pause:
+#     minutes: 3
+#     prompt: "Waiting for aibroker-api pod"
 
 - name: "Wait for aibroker-api pod"
   shell: oc  wait --for=condition=ready pod -l app=aibroker-api -n {{ aibroker_namespace }}
@@ -174,7 +174,7 @@
   debug:
     msg: "{{ aibrokerHostName }}"
 
-- name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
+- name: Register DRO and SLS with AI Broker for tenant "{{ tenantNamespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenant"
     validate_certs: no
@@ -185,7 +185,8 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"sls_url\": \"{{ mas_aibroker_sls_url }}\", \"dro_url\": \"{{ mas_aibroker_dro_url }}\"}"
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"sls_url\": \"{{ mas_aibroker_sls_url }}\", \"dro_url\": \"{{ mas_aibroker_dro_url }}\",
+      \"subscription_id\": \"{{ mas_aibroker_sls_subscription_id }}\", \"dro_tenant_id\": \"{{ mas_aibroker_dro_tenant_id }}\"}"
     status_code: [201]
     timeout: 30
   register: add_tenant_to_db2
@@ -194,7 +195,7 @@
   debug:
     msg: "{{ add_tenant_to_db2 }}"
 
-- name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
+- name: Register entitlement to Similarity model for tenant "{{ tenantNamespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
@@ -214,7 +215,7 @@
   debug:
     msg: "{{ add_tenant_entitlements_to_db2 }}"
 
-- name: Create tenant {{ tenantNamespace }} and add to db2 for pcc - using uri
+- name: Register entitlement to PCC model for tenant "{{ tenantNamespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
@@ -234,7 +235,7 @@
   debug:
     msg: "{{ add_tenant_entitlements_to_db2_pcc }}"
 
-- name: Create tenant {{ tenantNamespace }} and add to db2 for mcc - using uri
+- name: Register entitlement to MCC model for tenant "{{ tenantNamespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 TENANT=$1
 instance_id=$2
 
