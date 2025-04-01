@@ -236,10 +236,6 @@ def main():
                 if(response.status_code == 200):
                     changed = True
                     # DNS record created successfully
-
-            response = requests.request("PATCH", url, headers=headers, data=payload)
-            if(response.status_code == 200):
-                changed = True
         
         if delete_wildcards:
             for entry in existingDNSEntries:
