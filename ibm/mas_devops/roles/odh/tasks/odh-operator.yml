@@ -44,26 +44,26 @@
   when: odh_operator_version in item.spec.clusterServiceVersionNames
   no_log: true
 
-- name: Display relevant Install Plans
-  debug:
-    msg: "Install Plans with '{{ odh_operator_version }}' clusterServiceVersionNames: {{ relevant_install_plans }}"
+# - name: Display relevant Install Plans
+#   debug:
+#     msg: "Install Plans with '{{ odh_operator_version }}' clusterServiceVersionNames: {{ relevant_install_plans }}"
 
-- name: Approve install plan for Opendatahub operator
-  block:
-    - name: Approve install plan to approve
-      shell: oc patch installplan {{ relevant_install_plans | first }} -n openshift-operators --type merge --patch '{"spec":{"approved":true}}'
+# - name: Approve install plan for Opendatahub operator
+#   block:
+#     - name: Approve install plan to approve
+#       shell: oc patch installplan {{ relevant_install_plans | first }} -n openshift-operators --type merge --patch '{"spec":{"approved":true}}'
 
-- name: "Wait for Opendata Hub instance to be ready in {{ openshift_namespace }}"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    name: "{{ odh_operator_version }}"
-    namespace: "{{ openshift_namespace }}"
-    kind: ClusterServiceVersion
-  register: odh_operators_output
-  until:
-    - odh_operators_output.resources is defined
-    - odh_operators_output.resources | length > 0
-    - odh_operators_output.resources[0].status.phase is defined
-    - odh_operators_output.resources[0].status.phase == "Succeeded"
-  retries: 60 # approx 30 minutes before we give up
-  delay: 30 # seconds
+# - name: "Wait for Opendata Hub instance to be ready in {{ openshift_namespace }}"
+#   kubernetes.core.k8s_info:
+#     api_version: operators.coreos.com/v1alpha1
+#     name: "{{ odh_operator_version }}"
+#     namespace: "{{ openshift_namespace }}"
+#     kind: ClusterServiceVersion
+#   register: odh_operators_output
+#   until:
+#     - odh_operators_output.resources is defined
+#     - odh_operators_output.resources | length > 0
+#     - odh_operators_output.resources[0].status.phase is defined
+#     - odh_operators_output.resources[0].status.phase == "Succeeded"
+#   retries: 60 # approx 30 minutes before we give up
+#   delay: 30 # seconds
