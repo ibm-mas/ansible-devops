@@ -1,0 +1,35 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ minio_instance_name }}"
+  namespace: "{{ minio_namespace }}"
+spec:
+  selector:
+    matchLabels:
+      app: "{{ minio_instance_name }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ minio_instance_name }}"
+    spec:
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: minio-pvc
+      containers:
+        - name: "{{ minio_instance_name }}"
+          image: "{{ minio_version }}"
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - minio server /data --console-address :9090
+          env:
+            - name: MINIO_ROOT_USER
+              value: "{{ minio_root_user }}"
+            - name: MINIO_ROOT_PASSWORD
+              value: "{{ minio_root_password }}"
+          volumeMounts:
+            - mountPath: /data
+              name: storage
