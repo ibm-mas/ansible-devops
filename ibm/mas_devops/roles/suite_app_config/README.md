@@ -412,6 +412,30 @@ Provide a custom archive file name to be associated with the archive/file path p
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
 - Default: `manage-custom-archive`
 
+
+### suite_app_config_custom_list
+Provide a list of custom archive file name, url, user/password to be included as part of Manage deployment.
+
+- Optional
+- Default: None
+
+Example
+-------------------------------------------------------------------------------
+
+```yaml
+suite_app_config_custom_list:
+  - archive_name: "archive_name01"
+    archive_url: "https://download.archive.com/"
+    archive_username: "user"
+    archive_password: "password"
+  - archive_name: "archive_name02"
+    archive_url: "https://download.archive.com/"
+    archive_username: "user"
+    archive_password: "password"
+```
+
+`mas_app_settings_customization_archive_username`, `mas_app_settings_customization_archive_password`, `mas_app_settings_customization_archive_url` will be added to the list.
+
 ### Manage - Database encryption settings variables
 ---
 
