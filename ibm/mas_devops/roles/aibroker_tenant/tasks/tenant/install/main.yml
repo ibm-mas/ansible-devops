@@ -1,15 +1,15 @@
 ---
-- name: "Check if tenant namespace: {{ tenantNamespace }} exists"
+- name: "Check if tenant namespace: {{ tenant_namespace }} exists"
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Namespace
-    name: "{{ tenantNamespace }}"
+    name: "{{ tenant_namespace }}"
   register: namespace_info
 
 # Create tenant namespace
-- name: "Create a tenant namespace: {{ tenantNamespace }}"
+- name: "Create a tenant namespace: {{ tenant_namespace }}"
   kubernetes.core.k8s:
-    name: "{{ tenantNamespace }}"
+    name: "{{ tenant_namespace }}"
     api_version: v1
     kind: Namespace
   when:
@@ -26,7 +26,7 @@
 - name: "Wait for tenant CR to be ready"
   kubernetes.core.k8s_info:
     api_version: apps.mas.ibm.com/v1
-    name: "{{ tenantNamespace }}"
+    name: "{{ tenant_namespace }}"
     namespace: "{{ aibroker_namespace }}"
     kind: AiBrokerWorkspace
   register: aibrokerworkspace_cr_result
@@ -38,11 +38,11 @@
   delay: 60 # 1 minute
 
 # Copy secrets to tenant namespace
-- name: "Copy secrets to namespace: {{ tenantNamespace }}"
-  shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply --force -f -'
+- name: "Copy secrets to namespace: {{ tenant_namespace }}"
+  shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenant_namespace }}/" | oc apply --force -f -'
   with_items:
     - km-s3-secret
-    - "{{ pullSecretName }}"
+    - "{{ aibroker_pull_secret_name }}"
 
 # Adding inference server runtimes
 - name: "Create config map for connector config"
@@ -85,7 +85,7 @@
   k8s_info:
     api_version: v1
     kind: Secret
-    name: "{{ tenantNamespace }}----sls-secret"
+    name: "{{ tenant_namespace }}----sls-secret"
     namespace: "{{ aibroker_namespace }}"
   register: sls_secret_info
 
@@ -103,14 +103,14 @@
     - name: debug #TODO: remove before final commit
       debug:
         msg:
-          - "tenantNamespace ..... {{ tenantNamespace }} "
+          - "tenant_namespace ..... {{ tenant_namespace }} "
           - "mas_instance_id ..... {{ mas_instance_id }} "
           - "mas_aibroker_sls_url ..... {{ slscfg.url }} "
           - "mas_aibroker_sls_registration_key ..... {{ slscfg.registration_key }} "
           - "mas_aibroker_path_ca_crt ..... {{ mas_aibroker_path_ca_crt }} "
 
     - name: Create SLS secret
-      script: "{{ role_path }}/files/create_sls_secret.sh {{ role_path }} {{ tenantNamespace }} {{ mas_instance_id }} {{ slscfg.url }} {{ slscfg.registration_key }} {{ mas_aibroker_path_ca_crt }}/sls_ca.crt"
+      script: "{{ role_path }}/files/create_sls_secret.sh {{ role_path }} {{ tenant_namespace }} {{ mas_instance_id }} {{ slscfg.url }} {{ slscfg.registration_key }} {{ mas_aibroker_path_ca_crt }}/sls_ca.crt"
       register: sls_secret_output
 
     - name: Debug Create sls secret for AI Broker
@@ -118,13 +118,13 @@
         msg: "{{ sls_secret_output }}"
 
 - name: Delete DRO secret
-  command: oc delete secret "{{ tenantNamespace }}----dro-secret" -n {{ aibroker_namespace }}
+  command: oc delete secret "{{ tenant_namespace }}----dro-secret" -n {{ aibroker_namespace }}
   register: delete_result
   ignore_errors: yes
   failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
 
 - name: Create DRO token
-  script: "{{ role_path }}/files/create_dro_token.sh {{ tenantNamespace }} {{ mas_instance_id }} {{ drocfg.registration_key }}"
+  script: "{{ role_path }}/files/create_dro_token.sh {{ tenant_namespace }} {{ mas_instance_id }} {{ drocfg.registration_key }}"
   register: dro_token_output
 
 - name: Debug Create DRO token
@@ -160,7 +160,7 @@
   kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
     kind: Route
-    name: "{{ aibroker.name }}"
+    name: "{{ aibroker_name }}"
     namespace: "{{ aibroker_namespace }}"
     wait: yes
     wait_timeout: 30
@@ -174,7 +174,7 @@
   debug:
     msg: "{{ aibrokerHostName }}"
 
-- name: Register DRO and SLS with AI Broker for tenant "{{ tenantNamespace }}"
+- name: Register DRO and SLS with AI Broker for tenant "{{ tenant_namespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenant"
     validate_certs: no
@@ -185,7 +185,7 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenant_name\": \"{{ tenantNamespace }}\",
+    body: "{\"tenant_name\": \"{{ tenant_namespace }}\",
       \"sls_url\": \"{{ aibrokerworkspace_cr_result.resources[0].spec.settings.sls.url }}\",
        \"dro_url\": \"{{ aibrokerworkspace_cr_result.resources[0].spec.settings.dro.url }}\",
       \"subscription_id\": \"{{ mas_aibroker_sls_subscription_id }}\", \"dro_tenant_id\": \"{{ mas_aibroker_dro_tenant_id }}\"}"
@@ -196,9 +196,9 @@
 - name: Warn if tenant exists
   when: register_tenant.status == 409
   debug:
-    msg: Warning - tenant {{ tenantNamespace }} is already registered with AI Broker
+    msg: Warning - tenant {{ tenant_namespace }} is already registered with AI Broker
 
-- name: Register entitlement to Similarity model for tenant "{{ tenantNamespace }}"
+- name: Register entitlement to Similarity model for tenant "{{ tenant_namespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
@@ -209,12 +209,12 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"similarity\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
+    body: "{\"tenant_name\": \"{{ tenant_namespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"similarity\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2
 
-- name: Register entitlement to PCC model for tenant "{{ tenantNamespace }}"
+- name: Register entitlement to PCC model for tenant "{{ tenant_namespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
@@ -225,12 +225,12 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"pcc\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
+    body: "{\"tenant_name\": \"{{ tenant_namespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"pcc\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2_pcc
 
-- name: Register entitlement to MCC model for tenant "{{ tenantNamespace }}"
+- name: Register entitlement to MCC model for tenant "{{ tenant_namespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
@@ -241,7 +241,7 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"mcc\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
+    body: "{\"tenant_name\": \"{{ tenant_namespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"mcc\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
     status_code: [201]
     timeout: 30
   register: add_tenant_entitlements_to_db2_mcc
