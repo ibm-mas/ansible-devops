@@ -15,6 +15,28 @@
   when:
     - namespace_info.resources | length == 0
 
+- name: "Create tenant CR"
+  vars:
+    annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ aibroker_namespace }}"
+    template: templates/aibroker/aibrokerworkspace.yml.j2
+
+- name: "Wait for tenant CR to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ tenantNamespace }}"
+    namespace: "{{ aibroker_namespace }}"
+    kind: AiBrokerWorkspace
+  register: aibrokerworkspace_cr_result
+  until:
+    - aibrokerworkspace_cr_result.resources is defined and aibrokerworkspace_cr_result.resources | length == 1
+    - aibrokerworkspace_cr_result.resources[0].status is defined
+    - aibrokerworkspace_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
+  retries: 45 # approx 45 minutes before we give up
+  delay: 60 # 1 minute
+
 # Copy secrets to tenant namespace
 - name: "Copy secrets to namespace: {{ tenantNamespace }}"
   shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply --force -f -'
@@ -88,7 +110,7 @@
           - "mas_aibroker_path_ca_crt ..... {{ mas_aibroker_path_ca_crt }} "
 
     - name: Create SLS secret
-      script: "{{ role_path }}/files/create_sls_secret.sh {{ tenantNamespace }} {{ mas_instance_id }} {{ slscfg.url }} {{ slscfg.registration_key }} {{ mas_aibroker_path_ca_crt }}/sls_ca.crt"
+      script: "{{ role_path }}/files/create_sls_secret.sh {{ role_path }} {{ tenantNamespace }} {{ mas_instance_id }} {{ slscfg.url }} {{ slscfg.registration_key }} {{ mas_aibroker_path_ca_crt }}/sls_ca.crt"
       register: sls_secret_output
 
     - name: Debug Create sls secret for AI Broker
@@ -152,7 +174,7 @@
   debug:
     msg: "{{ aibrokerHostName }}"
 
-- name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
+- name: Register DRO and SLS with AI Broker for tenant "{{ tenantNamespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenant"
     validate_certs: no
@@ -163,16 +185,20 @@
       Content-Type: "application/json"
       tenantid: "{{ mas_aibroker_provision_tenant }}"
     body_format: "json"
-    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"sls_url\": \"{{ mas_aibroker_sls_url }}\", \"dro_url\": \"{{ mas_aibroker_dro_url }}\"}"
-    status_code: [201]
+    body: "{\"tenant_name\": \"{{ tenantNamespace }}\",
+      \"sls_url\": \"{{ aibrokerworkspace_cr_result.resources[0].spec.settings.sls.url }}\",
+       \"dro_url\": \"{{ aibrokerworkspace_cr_result.resources[0].spec.settings.dro.url }}\",
+      \"subscription_id\": \"{{ mas_aibroker_sls_subscription_id }}\", \"dro_tenant_id\": \"{{ mas_aibroker_dro_tenant_id }}\"}"
+    status_code: [204, 409]
     timeout: 30
-  register: add_tenant_to_db2
+  register: register_tenant
 
-- name: Debug tenant #TODO: remove on final commit
+- name: Warn if tenant exists
+  when: register_tenant.status == 409
   debug:
-    msg: "{{ add_tenant_to_db2 }}"
+    msg: Warning - tenant {{ tenantNamespace }} is already registered with AI Broker
 
-- name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
+- name: Register entitlement to Similarity model for tenant "{{ tenantNamespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
@@ -188,11 +214,7 @@
     timeout: 30
   register: add_tenant_entitlements_to_db2
 
-- name: Debug tenant entitlement #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_entitlements_to_db2 }}"
-
-- name: Create tenant {{ tenantNamespace }} and add to db2 for pcc - using uri
+- name: Register entitlement to PCC model for tenant "{{ tenantNamespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
@@ -208,11 +230,7 @@
     timeout: 30
   register: add_tenant_entitlements_to_db2_pcc
 
-- name: Debug tenant entitlement #TODO: remove on final commit
-  debug:
-    msg: "{{ add_tenant_entitlements_to_db2_pcc }}"
-
-- name: Create tenant {{ tenantNamespace }} and add to db2 for mcc - using uri
+- name: Register entitlement to MCC model for tenant "{{ tenantNamespace }}"
   uri:
     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no

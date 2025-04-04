@@ -2,27 +2,6 @@
 - name: Load variables (main)
   include_vars: "vars/main.yml"
 
-# Get cluster domain
-# -----------------------------------------------------------------------------
-- name: "Get cluster domain"
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    kind: DNS
-    name: cluster
-  register: _cluster_dns
-
-- name: "Set fact: cluster domain"
-  set_fact:
-    cluster_domain: "{{ _cluster_dns.resources[0].spec.baseDomain }}"
-
-- name: "Debug: cluster domain"
-  debug:
-    msg: "Cluster domain ........................ {{ cluster_domain }}"
-
-- name: "Set fact: cluster domain"
-  set_fact:
-    in_saas_env: "{{ lookup('env', 'INSAASENV') | default('false', true) | bool }}"
-
 # Create IBM Maximo IBM Maximo AI Broker
 # -----------------------------------------------------------------------------
 - name: "Create IBM Maximo AI Broker namespace"
@@ -56,9 +35,6 @@
 # # run api calls for aibroker saas
 # - include_tasks: tasks/saas/main.yml
 #   when: mas_aibroker_saas == true
-
-# # create AI Broker tenant
-# - include_tasks: tasks/tenant/main.yml
 
 # # create AI Broker api key
 # - include_tasks: tasks/apikey/main.yml

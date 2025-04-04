@@ -1,7 +1,10 @@
 #!/bin/bash
 
-TENANT=$1
-instance_id=$2
+set -e
+
+ROLE_PATH="${1}"
+TENANT=$2
+instance_id=$3
 
 if [ -z ${TENANT} ]; then
   #echo "❌ Missing tenant name"
@@ -19,10 +22,10 @@ mkdir -p certs
 
 echo "creating SLS registration, please wait....."
 # instanceIdentifier=`python3 {{ role_path }}/files/alm_sample_sls_use.py $3 $4`
-instanceIdentifier=$(python3 ../roles/aibroker/files/alm_sample_sls_use.py $3 $4 $5)
+instanceIdentifier=$(python3 "${ROLE_PATH}/files/alm_sample_sls_use.py" $4 $5 $6)
 # echo "SLS registration is created successfully."
 
-registrationKey=$4
+registrationKey=$5
 
 # echo "----------"
 # echo $instanceIdentifier

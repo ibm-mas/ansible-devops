@@ -24,6 +24,25 @@
     db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') | default('aibroker', true) }}"
 
   pre_tasks:
+    - name: "Get cluster domain"
+      kubernetes.core.k8s_info:
+        api_version: config.openshift.io/v1
+        kind: DNS
+        name: cluster
+      register: _cluster_dns
+
+    - name: "Set fact: cluster domain"
+      set_fact:
+        cluster_domain: "{{ _cluster_dns.resources[0].spec.baseDomain }}"
+
+    - name: "Debug: cluster domain"
+      debug:
+        msg: "Cluster domain ........................ {{ cluster_domain }}"
+
+    - name: "Check if SaaS environment"
+      set_fact:
+        in_saas_env: "{{ lookup('env', 'INSAASENV') | default('false', true) | bool }}"
+
     # For the full set of supported environment variables refer to the playbook documentation
     - name: Check for required common environment variables
       assert:
