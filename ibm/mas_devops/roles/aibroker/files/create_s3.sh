@@ -7,6 +7,7 @@ STORAGE_ACCESSKEY=$4
 STORAGE_SECRETKEY=$5
 STORAGE_PROVIDER=$6
 
+
 if [[ "$STORAGE_PROVIDER" == "minio" ]]; then
   STORAGE_PORT=$7
   STORAGE_REGION=$8
@@ -16,6 +17,9 @@ if [[ "$STORAGE_PROVIDER" == "aws" ]]; then
   STORAGE_PORT=$8
   STORAGE_REGION=$7
 fi
+
+MODEL_ID_PREFIX=$9
+
 
 echo $TENANT
 echo $AIBROKER
@@ -82,7 +86,7 @@ fi
 bucketpostfix='-training-bucket'
 if [[ $STORAGE_HOST == *"amazonaws"* ]]; then
   echo 'it is Amazon AWS'
-  bucketname=$(python3 ../roles/aibroker/files/create_bucket.py ${TENANT} ${STORAGE_ACCESSKEY} ${STORAGE_SECRETKEY} ${STORAGE_REGION})
+  bucketname=$(python3 ../roles/aibroker/files/create_bucket.py ${TENANT} ${STORAGE_ACCESSKEY} ${STORAGE_SECRETKEY} ${STORAGE_REGION} ${MODEL_ID_PREFIX})
 else
   echo 'it is Non Amazon AWS'
   bucketname="${TENANT}${bucketpostfix}"

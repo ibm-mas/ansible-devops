@@ -21,15 +21,15 @@ import sys
 import uuid
 
 
-if len(sys.argv) != 5:
+if len(sys.argv) != 6:
     print(
         "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
     )
     exit()
 
 
-if len(sys.argv) == 5 and sys.argv[1] is not None and sys.argv[2] is not None:
-    YOUR_BUCKET_NAME = sys.argv[1] + "----" + str(uuid.uuid4())
+if len(sys.argv) == 6 and sys.argv[1] is not None and sys.argv[2] is not None:
+    YOUR_BUCKET_NAME = sys.argv[6] + sys.argv[1] + "----" + str(uuid.uuid4())
     # print(YOUR_BUCKET_NAME)
 
     access_key = sys.argv[2]
