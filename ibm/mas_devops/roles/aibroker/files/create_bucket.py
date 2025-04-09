@@ -7,13 +7,13 @@
 
 
 # create a new file, ~/.aws/credentials:
-# [default]
-# aws_access_key_id = YOUR_ACCESS_KEY_ID
-# aws_secret_access_key = YOUR_SECRET_ACCESS_KEY
+#[default]
+#aws_access_key_id = YOUR_ACCESS_KEY_ID
+#aws_secret_access_key = YOUR_SECRET_ACCESS_KEY
 
-# Create a new file, ~/.aws/config:
-# [default]
-# region = YOUR_PREFERRED_REGION
+#Create a new file, ~/.aws/config:
+#[default]
+#region = YOUR_PREFERRED_REGION
 
 
 import boto3
@@ -21,16 +21,17 @@ import sys
 import uuid
 
 
+
+
 if len(sys.argv) != 6:
-    print(
-        "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
-    )
+    print("Usage: python create_bucket.py your-tenant-name access-key secret-key your-region model_id_prefix")
     exit()
 
 
+
 if len(sys.argv) == 6 and sys.argv[1] is not None and sys.argv[2] is not None:
-    YOUR_BUCKET_NAME = sys.argv[6] + sys.argv[1] + "----" + str(uuid.uuid4())
-    # print(YOUR_BUCKET_NAME)
+    YOUR_BUCKET_NAME= sys.argv[5]+sys.argv[1]
+    #print(YOUR_BUCKET_NAME)
 
     access_key = sys.argv[2]
     secret_key = sys.argv[3]
@@ -38,45 +39,46 @@ if len(sys.argv) == 6 and sys.argv[1] is not None and sys.argv[2] is not None:
 else:
     exit()
 
-# if YOUR_BUCKET_NAME is None:
-#     print(
-#         "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
-#     )
-#     exit()
+if YOUR_BUCKET_NAME is None:
+    print("Usage: python create_bucket.py your-tenant-name access-key secret-key your-region")
+    exit()
 
-# if region is None:
-#     print(
-#         "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
-#     )
-#     exit()
+if region is None:
+    print("Usage: python create_bucket.py your-tenant-name access-key secret-key your-region")
+    exit()
 
-# if access_key is None:
-#     print(
-#         "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
-#     )
-#     exit()
+if access_key is None:
+    print("Usage: python create_bucket.py your-tenant-name access-key secret-key your-region")
+    exit()
 
-# if secret_key is None:
-#     print(
-#         "Usage: python create_bucket.py your-tenant-name access-key secret-key your-region"
-#     )
-#     exit()
+if secret_key is None:
+    print("Usage: python create_bucket.py your-tenant-name access-key secret-key your-region")
+    exit()
 
 
-credentials = {"aws_access_key_id": access_key, "aws_secret_access_key": secret_key}
+
+credentials = {
+    "aws_access_key_id": access_key,
+    "aws_secret_access_key": secret_key
+}
 
 try:
-    s3_resource = boto3.resource("s3", region_name=region, **credentials)
+    s3_resource = boto3.resource('s3',region_name= region,**credentials)
 
     # Need to add try/catch
+    if region == "us-east-1":
+        bucket_response=s3_resource.create_bucket(Bucket=YOUR_BUCKET_NAME)
+    else:
+    
+        bucket_response=s3_resource.create_bucket(Bucket=YOUR_BUCKET_NAME,
+                          CreateBucketConfiguration={
+                              'LocationConstraint': region})
+    
 
-    bucket_response = s3_resource.create_bucket(
-        Bucket=YOUR_BUCKET_NAME,
-        CreateBucketConfiguration={"LocationConstraint": region},
-    )
-
+    
+    
     print(YOUR_BUCKET_NAME)
 except Exception as e:
     print("Error:", e)
 
-# print(bucket_response)
+#print(bucket_response)
