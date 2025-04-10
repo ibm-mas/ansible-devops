@@ -6,12 +6,12 @@ You will need a RedHat OpenShift v4.14 or above.
 
 ### Dependencies:
 
-* IBM Suite License Service installed on OCP cluster or external instance
-* IBM Data Reporter Operator installed on OCP cluster or external instance
+* IBM Suite License Service installed on OCP cluster or external instance or details from external instance
+* IBM Data Reporter Operator installed on OCP cluster or external instance or details from external instance
 * Object Storage
-  + Minio (installed on the same cluster what aibroker)
-  + AWS S3 (if customer use AWS S3 bucket bucket) buckets needs to have unique names
-* MariaDB database (installed in cluster where aibroker instance) or in AWS
+  + Minio (installed on the same cluster what aibroker) or external instance or details from external instance
+  + AWS S3 (if customer use AWS S3 bucket bucket) buckets needs to have unique names 
+* MariaDB database (installed in cluster where aibroker instance) or external instance or details from external instance
 
 ## Overview
 
@@ -25,8 +25,8 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
   + Install MariaDB (~5 minutes) **optional**
   + Install Minio (~5 minutes) **optional**
 * Install AI broker application (using playbook):
-  + Install application (~10 Minutes)
-  + Configure AI Broker (kmodels, tenant, etc) (~5 Minutes)
+  + Install application (~20 Minutes)
+  + Configure AI Broker (kmodels, tenant, etc) (~20 Minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing application, just customize the application install and configure stages at the end of the playbook.
 
@@ -100,48 +100,53 @@ source /tmp/venv/bin/activate
 python3 -m pip install boto3
 ```
 
-#### Run playbooks for deploy AI Broker on SAAS
+#### Run playbooks for deploy AI Broker
 
 ```bash
+git checkout aib2op
+git pull
+
 export ARTIFACTORY_USERNAME=""
 export ARTIFACTORY_TOKEN=""
-export MAS_ICR_CP="docker-na-public.artifactory.swg-devops.com/wiotp-docker-local"
-export MAS_ICR_CPOPEN="docker-na-public.artifactory.swg-devops.com/wiotp-docker-local/cpopen"
-export MAS_CATALOG_VERSION="v9-xxx-amd64"
-export MAS_ENTITLEMENT_USERNAME="<user>"
-export MAS_ENTITLEMENT_KEY="<token>"
+export MAS_ENTITLEMENT_USERNAME=""
+export MAS_ENTITLEMENT_KEY=""
+export MAS_INSTANCE_ID=""
+export MAS_APP_CHANNEL=""
+export MAS_CATALOG_VERSION=""
 export IBM_ENTITLEMENT_KEY=${MAS_ENTITLEMENT_KEY}
-export MAS_INSTANCE_ID="<instanceId>"
-export MAS_APP_CHANNEL="9.1.x"
-export MAS_CONFIG_DIR="config_path_location"
-export IBM_ENTITLEMENT_KEY=${MAS_ENTITLEMENT_KEY}
-# export MAS_AIBROKER_SAAS="true"
-# export MAS_AIBROKER_DOMAIN="apps.domain"
-# export MAS_AIBROKER_SLS_URL="https://sls.ibm-sls.ibm-sls."${MAS_AIBROKER_DOMAIN}
-# export MAS_AIBROKER_SLS_REGISTRATION_KEY="xxxxxxx" 
-# export MAS_AIBROKER_DRO_URL="https://ibm-data-reporter-redhat-marketplace."${MAS_AIBROKER_DOMAIN}
-# export MAS_AIBROKER_DRO_TOKEN="xxx"
-# export DB2_INSTANCE_NAME="aibroker"
-# export MAS_AIBROKER_STORAGE_ACCESSKEY="<storage provider access key>"
-# export MAS_AIBROKER_STORAGE_SECRETKEY="<storage provider secret key>"
-# export MAS_AIBROKER_STORAGE_HOST="<storage provider host>"
-# export MAS_AIBROKER_STORAGE_SSL="true or false"
-# export MAS_AIBROKER_STORAGE_REGION="<storage provider region - only for aws>"
-# export MAS_AIBROKER_STORAGE_PROVIDER="<storage provider name>"
-# export MAS_AIBROKER_STORAGE_PORT="<storage provider port - only for minio>"
-# export MAS_AIBROKER_STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
-# export MAS_AIBROKER_STORAGE_TENANTS_BUCKET="<tenants bucket name>"
-# export MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET="<templates bucket name>"
-# export MAS_AIBROKER_WATSONXAI_APIKEY="<watsonx AI api key>"
-# export MAS_AIBROKER_WATSONXAI_URL="<watsonx AI url>"
-# export MAS_AIBROKER_WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
-# export MAS_AIBROKER_DB_HOST="<database instance host>"
-# export MAS_AIBROKER_DB_PORT="<database instance port>"
-# export MAS_AIBROKER_DB_USER="<database instance user>"
-# export MAS_AIBROKER_DB_DATABASE="<database instance datbase name>"
-# export MAS_AIBROKER_DB_SECRET_NAME="<database instance secret name>"
-# export MAS_AIBROKER_DB_SECRET_VALUE="<database instance password>"
-
+export MAS_CONFIG_DIR="/home/user/"
+export DRO_CONTACT_EMAIL="xxx@ibm.com"
+export DRO_CONTACT_FIRSTNAME="xxx"
+export DRO_CONTACT_LASTNAME="xxx"
+export SLS_MONGODB_CFG_FILE=${MAS_CONFIG_DIR}/mongo-mongoce.yml
+export MINIO_ROOT_PASSWORD=""
+export MAS_AIBROKER_STORAGE_ACCESSKEY=""
+export MAS_AIBROKER_STORAGE_SECRETKEY=""
+export MAS_AIBROKER_STORAGE_HOST=""
+export MAS_AIBROKER_STORAGE_SSL=""
+export MAS_AIBROKER_STORAGE_PROVIDER=""
+export MAS_AIBROKER_STORAGE_PORT=""
+export MAS_AIBROKER_STORAGE_REGION=""
+export MAS_AIBROKER_STORAGE_PIPELINES_BUCKET=""
+export MAS_AIBROKER_STORAGE_TENANTS_BUCKET=""
+export MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET=""
+export MARIADB_PASSWORD=""
+export MAS_AIBROKER_DB_HOST=""
+export MAS_AIBROKER_DB_PORT=""
+export MAS_AIBROKER_DB_USER=""
+export MAS_AIBROKER_DB_DATABASE=""
+export MAS_AIBROKER_DB_SECRET_NAME=""
+export MAS_AIBROKER_DB_SECRET_VALUE=""
+export MAS_AIBROKER_WATSONXAI_APIKEY=""
+export MAS_AIBROKER_WATSONXAI_URL=""
+export MAS_AIBROKER_WATSONXAI_PROJECT_ID=""
+export MAS_AIBROKER_SAAS="true"
+export INSAASENV="True"
+export MAS_AIBROKER_SUBSCRIPTION_ID=""
+export MAS_AIBROKER_DRO_TENANT_ID=""
+oc create namespace openshift-serverless
+oc create namespace cert-manager-operator
+oc create namespace ibm-sls
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
@@ -150,7 +155,17 @@ ansible-playbook playbooks/oneclick_add_aibroker.yml
 * `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
 * in `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`,  `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`,  `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
 
-## NOTICE: playbook oneclick_add_aibroker.yml will run three roles: 
+## NOTICE: playbook oneclick_add_aibroker.yml will run roles: 
+
+### Roles: * optional
+    - ibm.mas_devops.ibm_catalogs
+    - ibm.mas_devops.cert_manager
+    - ibm.mas_devops.mongodb
+    - ibm.mas_devops.sls
+    - ibm.mas_devops.dro
+    - ibm.mas_devops.db2
+    - ibm.mas_devops.minio
+    - ibm.mas_devops.mariadb
 
 ### Role: odh
 
@@ -172,6 +187,9 @@ ansible-playbook playbooks/oneclick_add_aibroker.yml
 ### Role: aibroker
 
 * Install AI Broker api application
+
+### Role: aibroker
+
 * Create AI Broker tenant
 * Create, delete AI Broker API Key
 * Create, delete AWS S3 API Key
@@ -284,29 +302,22 @@ ansible-playbook playbooks/run_role.yml
 # create tanant SAAS
 
 ```bash
-export MAS_AIBROKER_TENANT_NAME="tenant1"
+export MAS_AIBROKER_TENANT_NAME="user7"
+export MAS_AIBROKER_SLS_SUBSCRIPTION_ID="007"
 export TENANT_ACTION="install"
-export MAS_INSTANCE_ID="aibdev"
-export MAS_AIBROKER_DOMAIN="apps.aibrokerdev.cp.fyre.ibm.com"
-export MAS_AIBROKER_SLS_URL="https://sls.ibm-sls.ibm-sls."${MAS_AIBROKER_DOMAIN}
-export MAS_AIBROKER_DRO_URL="https://ibm-data-reporter-redhat-marketplace."${MAS_AIBROKER_DOMAIN}
-export MAS_AIBROKER_SLS_REGISTRATION_KEY=""
-export MAS_AIBROKER_DRO_TOKEN=""
+export ROLE_NAME="aibroker_tenant"
 export MAS_AIBROKER_SAAS="true"
-export MAS_AIBROKER_STORAGE_ACCESSKEY="<storage provider access key>"
-export MAS_AIBROKER_STORAGE_SECRETKEY="<storage provider secret key>"
-export MAS_AIBROKER_STORAGE_HOST="<storage provider host>"
-export MAS_AIBROKER_STORAGE_SSL="true or false"
-export MAS_AIBROKER_STORAGE_REGION="<storage provider region - only for aws>"
-export MAS_AIBROKER_STORAGE_PROVIDER="<storage provider name>"
-export MAS_AIBROKER_STORAGE_PORT="<storage provider port - only for minio>"
-export MAS_AIBROKER_STORAGE_PIPELINES_BUCKET="<pipelines bucket name>"
-export MAS_AIBROKER_STORAGE_TENANTS_BUCKET="<tenants bucket name>"
-export MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET="<templates bucket name>"
-export MAS_AIBROKER_WATSONXAI_APIKEY="<watsonx AI api key>"
-export MAS_AIBROKER_WATSONXAI_URL="<watsonx AI url>"
-export MAS_AIBROKER_WATSONXAI_PROJECT_ID="<watsonx AI project ID>"
-export ROLE_NAME="aibroker"
+export MAS_AIBROKER_DOMAIN=""
+export MAS_AIBROKER_SLS_URL="https://sls.ibm-sls.ibm-sls."${MAS_AIBROKER_DOMAIN}
+export MAS_AIBROKER_SLS_REGISTRATION_KEY=""
+export MAS_AIBROKER_DRO_URL="https://ibm-data-reporter-redhat-marketplace."${MAS_AIBROKER_DOMAIN}
+export MAS_AIBROKER_DRO_TOKEN=""
+export MAS_AIBROKER_SLS_CACERT=""
+export MAS_AIBROKER_DRO_CACERT=""
+export MAS_AIBROKER_WATSONXAI_APIKEY=""
+export MAS_AIBROKER_WATSONXAI_URL=""
+export MAS_AIBROKER_WATSONXAI_PROJECT_ID=""
+oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
 
