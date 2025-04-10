@@ -136,43 +136,43 @@
 #     minutes: 8
 #     prompt: "Waiting for for service /service/rest/api/v1/tenant"
 
-- name: Await to aibroker-api pod created
-  pause:
-    minutes: 3
-    prompt: "Waiting for aibroker-api pod"
+# - name: Await to aibroker-api pod created
+#   pause:
+#     minutes: 3
+#     prompt: "Waiting for aibroker-api pod"
 
-- name: "Wait for aibroker-api pod"
-  shell: oc  wait --for=condition=ready pod -l app=aibroker-api -n {{ aibroker_namespace }}
-  register: _is_not_exists
-  until: _is_not_exists.stdout|int == 0
-  retries: 60
-  delay: 30
+# - name: "Wait for aibroker-api pod"
+#   shell: oc  wait --for=condition=ready pod -l app=aibroker-api -n {{ aibroker_namespace }}
+#   register: _is_not_exists
+#   until: _is_not_exists.stdout|int == 0
+#   retries: 60
+#   delay: 30
 
-- name: "Wait for aibroker-api pod to be ready (30s delay)"
-  shell: >
-    oc get pod -l app=aibroker-api -n {{ aibroker_namespace }} --no-headers=true | grep -Evi "1/1|2/2|3/3|4/4|5/5|6/6|7/7|8/8|9/9|complete" | wc -l
-  register: _is_not_ready
-  until: _is_not_ready.stdout|int == 0
-  retries: 60
-  delay: 30
+# - name: "Wait for aibroker-api pod to be ready (30s delay)"
+#   shell: >
+#     oc get pod -l app=aibroker-api -n {{ aibroker_namespace }} --no-headers=true | grep -Evi "1/1|2/2|3/3|4/4|5/5|6/6|7/7|8/8|9/9|complete" | wc -l
+#   register: _is_not_ready
+#   until: _is_not_ready.stdout|int == 0
+#   retries: 60
+#   delay: 30
 
-- name: Lookup the aibroker route
-  kubernetes.core.k8s_info:
-    api_version: route.openshift.io/v1
-    kind: Route
-    name: "{{ aibroker_name }}"
-    namespace: "{{ aibroker_namespace }}"
-    wait: yes
-    wait_timeout: 30
-  register: aibrokerRoute
+# - name: Lookup the aibroker route
+#   kubernetes.core.k8s_info:
+#     api_version: route.openshift.io/v1
+#     kind: Route
+#     name: "{{ aibroker_name }}"
+#     namespace: "{{ aibroker_namespace }}"
+#     wait: yes
+#     wait_timeout: 30
+#   register: aibrokerRoute
 
-- name: Set aibroker route host
-  ansible.builtin.set_fact:
-    aibrokerHostName: "{{ aibrokerRoute.resources[0].spec.host }}"
+# - name: Set aibroker route host
+#   ansible.builtin.set_fact:
+#     aibrokerHostName: "{{ aibrokerRoute.resources[0].spec.host }}"
 
-- name: Debug aibrokerRoute
-  debug:
-    msg: "{{ aibrokerHostName }}"
+# - name: Debug aibrokerRoute
+#   debug:
+#     msg: "{{ aibrokerHostName }}"
 
 - name: Register DRO and SLS with AI Broker for tenant "{{ tenantNamespace }}"
   uri:
