@@ -1,4 +1,3 @@
----
 apiVersion: serving.kserve.io/v1alpha1
 kind: ServingRuntime
 metadata:
@@ -6,28 +5,42 @@ metadata:
   namespace: "{{ tenantNamespace }}"
 spec:
   annotations:
-    prometheus.kserve.io/port: "8080"
-    prometheus.kserve.io/path: "/metrics"
-  supportedModelFormats:
-    - name: huggingface
-      version: "1"
-      autoSelect: true
-      priority: 1
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: '8080'
+  containers:
+    - args:
+        - '--model_name={{.Name}}'
+      env:
+        - name: VLLM_CONFIG_ROOT
+          value: /tmp/.config
+      image: kserve/huggingfaceserver
+      name: kserve-container
+      resources:
+        limits:
+          cpu: '1'
+          memory: 2Gi
+        requests:
+          cpu: '1'
+          memory: 2Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        privileged: false
+        runAsNonRoot: true
+      volumeMounts:
+        - mountPath: /dev/shm
+          name: devshm
   protocolVersions:
     - v2
     - v1
-  containers:
-    - name: kserve-container
-      image: kserve/huggingfaceserver:latest
-      args:
-        - '--model_name={{".Name"}}'
-      env:
-        - name: HUGGINGFACE_HUB_CACHE
-          value: /tmp/huggingface/hub
-      resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi 
+  supportedModelFormats:
+    - autoSelect: true
+      name: huggingface
+      priority: 1
+      version: '1'
+  volumes:
+    - emptyDir:
+        medium: Memory
+      name: devshm
