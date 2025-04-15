@@ -30,7 +30,19 @@
 - name: "cis : Define DNS Entries"
   set_fact:
     dns_entries: "{{ lookup('ansible.builtin.template', 'dnsentries.yml.j2') | from_yaml }}"
+
+
+- name: "cis : Read Edge Certificate Routes"
+  set_fact:
     list_edge_cert_routes: "{{ lookup('ansible.builtin.template', 'edge_certificate_routes.yml.j2') | from_yaml }}"
+  when:
+    - not saas_mode
+
+- name: "cis : Read Edge Certificate Routes (SaaS)"
+  set_fact:
+    list_edge_cert_routes: "{{ lookup('ansible.builtin.template', 'saas_edge_certificate_routes.yml.j2') | from_yaml }}"
+  when:
+    - saas_mode
 
 - name: "cis : Define Edge Certificate Routes"
   set_fact:
