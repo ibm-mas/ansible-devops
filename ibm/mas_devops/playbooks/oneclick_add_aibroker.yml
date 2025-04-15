@@ -23,6 +23,15 @@
     # -----------------------------------------------------------------------------
     db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') | default('aibroker', true) }}"
 
+    # Control dependencies
+    # -----------------------------------------------------------------------------
+    install_db2: "{{ lookup('env', 'INSTALL_DB2') | default('False', true) | bool }}"
+    install_minio: "{{ lookup('env', 'INSTALL_MINIO') | default('False', true) | bool }}"
+    install_mariadb: "{{ lookup('env', 'INSTALL_MARIADB') | default('False', true) | bool }}"
+    install_mongo: "{{ lookup('env', 'INSTALL_MONGO') | default('False', true) | bool }}"
+    install_sls: "{{ lookup('env', 'INSTALL_SLS') | default('False', true) | bool }}"
+    install_dro: "{{ lookup('env', 'INSTALL_DRO') | default('False', true) | bool }}"
+
   pre_tasks:
     - name: "Get cluster domain"
       kubernetes.core.k8s_info:
@@ -79,15 +88,31 @@
     #     fail_msg: "One or more required environment variables are not defined"
     #   when: mas_aibroker_saas == true
 
+    - include_role:
+        name: ibm.mas_devops.mongodb
+      when: install_mongo == true
+    - include_role:
+        name: ibm.mas_devops.sls
+      when: install_sls == true
+    - include_role:
+        name: ibm.mas_devops.dro
+      when: install_dro == true
+    - include_role:
+        name: ibm.mas_devops.db2
+      when: install_db2 == true
+    - include_role:
+        name: ibm.mas_devops.suite_config
+      when: install_db2 == true
+    - include_role:
+        name: ibm.mas_devops.minio
+      when: install_minio == true
+    - include_role:
+        name: ibm.mas_devops.mariadb
+      when: install_mariadb == true
+
   roles:
     - ibm.mas_devops.ibm_catalogs
     - ibm.mas_devops.cert_manager
-    - ibm.mas_devops.mongodb
-    - ibm.mas_devops.sls
-    - ibm.mas_devops.dro
-    - ibm.mas_devops.db2
-    - ibm.mas_devops.minio
-    - ibm.mas_devops.mariadb
     - ibm.mas_devops.odh
     - ibm.mas_devops.kmodels
     - ibm.mas_devops.aibroker
