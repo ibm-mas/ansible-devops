@@ -21,17 +21,6 @@ fi
 MODEL_ID_PREFIX=$9
 
 
-echo $TENANT
-echo $AIBROKER
-echo $STORAGE_HOST
-echo $STORAGE_ACCESSKEY
-echo $STORAGE_SECRETKEY
-echo $STORAGE_PROVIDER
-echo $STORAGE_PORT
-echo $STORAGE_REGION
-echo $MODEL_ID_PREFIX
-
-
 if [ -z ${TENANT} ]; then
   echo "using default tenant name=aibrokeruser"
   TENANT='aibrokeruser'
