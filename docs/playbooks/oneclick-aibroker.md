@@ -84,7 +84,12 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `MAS_AIBROKER_APIKEY_ACTION` Whether to install or remove or update apikey (default value is: install)
 * `MAS_AIBROKER_WATSONX_ACTION` Whether to install or remove watsonx secret (default value is: install)
 * `MAS_AIBROKER_S3_ACTION` Whether to install or remove s3 (default value is: install)
-  
+* `INSTALL_DB2` Whether to install DB2 (default value is: false)
+* `INSTALL_MINIO` Whether to install minio (default value is: false)
+* `INSTALL_MARIADB` Whether to install mariadb (default value is: false)
+* `INSTALL_SLS` Whether to install IBM Suite License Service (default value is: false)
+* `INSTALL_DRO` Whether to install IBM Data Reporter Operator (default value is: false)
+ 
 
 ## Usage
 
@@ -144,6 +149,12 @@ export MAS_AIBROKER_SAAS="true"
 export INSAASENV="True"
 export MAS_AIBROKER_SUBSCRIPTION_ID=""
 export MAS_AIBROKER_DRO_TENANT_ID=""
+export INSTALL_DB2=""
+export INSTALL_MINIO=""
+export INSTALL_MARIADB=""
+export INSTALL_MONGO=""
+export INSTALL_SLS=""
+export INSTALL_DRO=""
 oc create namespace openshift-serverless
 oc create namespace cert-manager-operator
 oc create namespace ibm-sls
@@ -153,11 +164,12 @@ ansible-playbook playbooks/oneclick_add_aibroker.yml
 
 * `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
 * `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
-* in `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`,  `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`,  `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
+* in `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`,   `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`,  `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
 
 ## NOTICE: playbook oneclick_add_aibroker.yml will run roles: 
 
 ### Roles: * optional
+
     - ibm.mas_devops.ibm_catalogs
     - ibm.mas_devops.cert_manager
     - ibm.mas_devops.mongodb
