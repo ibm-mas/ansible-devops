@@ -14,8 +14,8 @@ if [[ "$STORAGE_PROVIDER" == "minio" ]]; then
 fi
 
 if [[ "$STORAGE_PROVIDER" == "aws" ]]; then
-  STORAGE_PORT=$8
-  STORAGE_REGION=$7
+  STORAGE_PORT=$7
+  STORAGE_REGION=$8
 fi
 
 MODEL_ID_PREFIX=$9
@@ -29,6 +29,8 @@ echo $STORAGE_SECRETKEY
 echo $STORAGE_PROVIDER
 echo $STORAGE_PORT
 echo $STORAGE_REGION
+echo $MODEL_ID_PREFIX
+
 
 if [ -z ${TENANT} ]; then
   echo "using default tenant name=aibrokeruser"
