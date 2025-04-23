@@ -129,9 +129,27 @@
   set_fact:
     mas_aibroker_domain: "{{ mas_aibroker_custom_domain }}"
 
+- name: Lookup the aibroker route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "aibroker"
+    namespace: "{{ aibroker_namespace }}"
+    wait: yes
+    wait_timeout: 30
+  register: aibrokerRoute
+
+- name: Set aibroker route host
+  ansible.builtin.set_fact:
+    aibrokerHostName: "{{ aibrokerRoute.resources[0].spec.host }}"
+
+- name: Debug aibrokerRoute
+  debug:
+    msg: "{{ aibrokerHostName }}"
+
 - name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
   uri:
-    url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenant"
+    url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenant"
     validate_certs: no
     method: POST
     headers:
@@ -146,26 +164,26 @@
   register: add_tenant_to_db2
   when: mas_aibroker_saas == true
 
-- name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
-  uri:
-    url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
-    validate_certs: no
-    method: POST
-    headers:
-      apikey: "{{ provision_tenant_api_key }}"
-      accept: "*/*"
-      Content-Type: "application/json"
-      tenantid: "{{ mas_aibroker_provision_tenant }}"
-    body_format: "json"
-    body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"similarity\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
-    status_code: [201]
-    timeout: 30
-  register: add_tenant_entitlements_to_db2
-  when: mas_aibroker_saas == true
+# - name: Create tenant {{ tenantNamespace }} and add to db2 for saas - using uri
+#   uri:
+#     url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
+#     validate_certs: no
+#     method: POST
+#     headers:
+#       apikey: "{{ provision_tenant_api_key }}"
+#       accept: "*/*"
+#       Content-Type: "application/json"
+#       tenantid: "{{ mas_aibroker_provision_tenant }}"
+#     body_format: "json"
+#     body: "{\"tenant_name\": \"{{ tenantNamespace }}\", \"entitlement_type\": \"standard\", \"model_type\": \"similarity\", \"entitlement_start_date\": \"2025-01-01\", \"entitlement_end_date\": \"2026-01-01\"}"
+#     status_code: [201]
+#     timeout: 30
+#   register: add_tenant_entitlements_to_db2
+#   when: mas_aibroker_saas == true
 
 - name: Create tenant {{ tenantNamespace }} and add to db2 for pcc - using uri
   uri:
-    url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
+    url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
     method: POST
     headers:
@@ -182,7 +200,7 @@
 
 - name: Create tenant {{ tenantNamespace }} and add to db2 for mcc - using uri
   uri:
-    url: "https://aibroker.{{ mas_instance_id }}.{{ mas_aibroker_domain }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
+    url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenantEntitlements"
     validate_certs: no
     method: POST
     headers:
