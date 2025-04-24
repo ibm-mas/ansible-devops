@@ -379,10 +379,10 @@ DocumentDB Admin Credentials Secret Name
 - Value: `{{ docdb_cluster_name }}-admin-credentials`
 
 ### docdb_engine_version
-DocumentDB Engine version
+DocumentDB Engine version. Only version 5.0.0 is supported by Maximo Application Suite.
 
 - Environment variable: `DOCDB_ENGINE_VERSION`
-- Default Value: `4.0.0`
+- Default Value: `5.0.0`
 
 ### docdb_master_username
 DocumentDB master username

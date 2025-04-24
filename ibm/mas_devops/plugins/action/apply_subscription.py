@@ -2,7 +2,7 @@
 
 import logging
 import urllib3
-from ansible_collections.kubernetes.core.plugins.module_utils.common import get_api_client
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from ansible.errors import AnsibleError
 from ansible.plugins.action import ActionBase
 
@@ -44,7 +44,10 @@ class ActionModule(ActionBase):
             raise AnsibleError(f"Error: packageName argument is not a string")
 
         # Initialize DynamicClient and apply the Subscription
-        dynClient = get_api_client()
+        host = self._task.args.get('host', None)
+        api_key = self._task.args.get('api_key', None)
+
+        dynClient = get_api_client(api_key=api_key, host=host)
         try:
             subscription = applySubscription(dynClient, namespace, packageName, packageChannel, catalogSource, catalogSourceNamespace, config)
         except OLMException as e:

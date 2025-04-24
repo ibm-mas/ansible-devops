@@ -12,10 +12,30 @@
   debug:
     msg:
       - "Local storage job folder ......... {{ masbr_storage_job_folder }}"
+      - "Overwrite existing data .......... {{ masbr_restore_overwrite }}"
       - "Folder setup  .................... {{ masbr_cf_paths }}"
-      - "Source Folder .................... {{ [masbr_storage_job_folder, item.src_folder] | path_join }}"
+      - "Source Folder .................... {{ [masbr_storage_job_folder, item.src_folder | default(item.src_file, true)] | path_join }}"
       - "Destination Folder ............... {{ item.dest_folder }}"
   loop: "{{ masbr_cf_paths }}"
+
+- name: "Erase all existing data found in destination folders"
+  when:
+    - item.src_folder is defined and item.src_folder | length > 0
+    - item.dest_folder is defined and item.dest_folder | length > 0
+    - masbr_restore_overwrite is defined and masbr_restore_overwrite
+  shell: >-
+    oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'rm -rf {{ item.dest_folder }}/*'
+  loop: "{{ masbr_cf_paths }}"
+
+- name: "Detect if there is any data in destination folders"
+  when:
+    - item.src_folder is defined and item.src_folder | length > 0
+    - item.dest_folder is defined and item.dest_folder | length > 0
+    - masbr_restore_overwrite is defined and masbr_restore_overwrite == False
+  shell: >-
+    oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c '[ "$(ls -A {{ item.dest_folder }})" ] && { echo "{{ item.dest_folder }} is not empty!" && exit 1; } || echo "{{ item.dest_folder }} is empty!";'
+  loop: "{{ masbr_cf_paths }}"
+
 
 # Condition 1. src_folder -> dest_folder: copy src_folder/* to dest_folder/*
 #
@@ -28,7 +48,7 @@
     - item.dest_folder is defined and item.dest_folder | length > 0
   shell: >-
     oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mkdir -p {{ [item.dest_folder, masbr_job_version] | path_join }}' \
-    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_folder] | path_join }}/* {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ [item.dest_folder, masbr_job_version] | path_join }} \
+    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_folder] | path_join }}/. {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ [item.dest_folder, masbr_job_version] | path_join }} \
     && oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mv -f {{ [item.dest_folder, masbr_job_version] | path_join }}/* {{ item.dest_folder }} && rm -rf {{ [item.dest_folder, masbr_job_version] | path_join }}'
   loop: "{{ masbr_cf_paths }}"
 
@@ -39,7 +59,7 @@
     - item.dest_folder is defined and item.dest_folder | length > 0
   shell: >-
     oc exec {{ masbr_cf_pod_name }} -c {{ masbr_cf_container_name }} -n {{ masbr_cf_namespace }} -- bash -c 'mkdir -p {{ item.dest_folder }}' \
-    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_folder, item.src_file] | path_join }} {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.dest_folder }}
+    && oc cp --retries=50 -c {{ masbr_cf_container_name }} {{ [masbr_storage_job_folder, item.src_file] | path_join }} {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.dest_folder }}
   loop: "{{ masbr_cf_paths }}"
 
 # Condition 3. src_file -> dest_file
