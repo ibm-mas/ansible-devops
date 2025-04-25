@@ -8,43 +8,43 @@ This role provides support to install and configure MariaDB
 Role Variables
 --------------
 
-### MAS core instance
-Action to be performed by mariadb role. Valid values are `string`.
+### mas_instance_id
+The instance ID of Maximo Application Suite.
 
 * **Required**
 * Environment Variable: `MAS_INSTANCE_ID`
 * Default Value: ""
 
 ### mariadb_namespace
-Action to be performed by mariadb role. Valid values are `string`.
+Define the namespace where mariadb will be installed.
 
 * Optional
 * Environment Variable: `MARIADB_NAMESPACE`
 * Default Value: `mariadb`
 
 ### mariadb_instance_name
-Action to be performed by mariadb role. Valid values are `string`.
+Define name of mariadb instance.
 
 * Optional
 * Environment Variable: `MARIADB_INSTANCE_NAME`
 * Default Value: `mariadb-instance`
 
 ### mariadb_user
-Action to be performed by mariadb role. Valid values are `string`.
+username for mariadb.
 
 * Optional
 * Environment Variable: `MARIADB_USER`
 * Default Value: `mariadb`
 
 ### mariadb_password
-Action to be performed by mariadb role. Valid values are `string`.
+password for mariadb user.
 
 * **Required**
 * Environment Variable: `MARIADB_PASSWORD`
 * Default Value: ``
 
 ### mariadb_database
-Action to be performed by mariadb role. Valid values are `string`.
+Define name of mariadb database.
 
 * Optional  
 * Environment Variable: `MARIADB_DATABASE`
