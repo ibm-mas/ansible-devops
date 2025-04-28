@@ -15,6 +15,29 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/minio/minio-pvc.yml.j2') }}"
 
+# create secret for minio credentials
+- name: 'Create minio secrets'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/minio-secrets.yml.j2') }}"
+
+- name: Lookup minio root user and password
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "minio-{{ minio_instance_name | lower }}-credentials"
+    namespace: "{{minio_namespace}}"
+  register: _minio_instance_credentials
+
+- name: Get minio root user and password
+  no_log: true
+  set_fact:
+    minio_root_user: "{{ _minio_instance_credentials.resources[0].data.minio_root_user | b64decode }}"
+    minio_root_password: "{{ _minio_instance_credentials.resources[0].data.minio_root_password | b64decode }}"
+  when:
+    - _minio_instance_credentials.resources is defined
+    - _minio_instance_credentials.resources | length > 0
+
 # create minio deployment
 - name: 'Create minio deployment'
   kubernetes.core.k8s:
