@@ -46,37 +46,29 @@
     ibmcloud cis certificates {{ _cis_domain_id }} -i {{ cis_service_name }} -o json
   register: _cis_certificates
 
-- name: "cis : Verify if is there a dedicated certificate already"
+- name: "cis : exclude certs not for {{ mas_instance_id }}"
   set_fact:
-    hasDedicated: "{{ _cis_certificates.stdout | from_json | selectattr('hosts', 'search', mas_instance_id) | map(attribute='id') | list | length > 0 }}"
-  when:
-    - not saas_mode
-
-- name: "cis : Lookup the dedicated certificate id"
-  set_fact:
-    dedicatedId: "{{ _cis_certificates.stdout | from_json | selectattr('hosts', 'search', mas_instance_id) | map(attribute='id') | first }}"
-  when:
-    - hasDedicated
-    - not saas_mode
-
+    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search',mas_instance_id) }}"
 
 # In SaaS, the default edge cert created by CIS already includes mas_instance_id in its hostname,
 # so we add an additional check to ensure this default cert is excluded from our search for the dedicated cert.
 # Specifically, we look for type: "advanced" (certs ordered by this role will always have this - the default cert has type: "universal").
 # This specialised check is gated behind the saas_mode flag to protect against unintentionally impacting other existing users of this role
-- name: "cis : Verify if is there a dedicated certificate already (SaaS)"
+- name: "cis : exclude universal certs (SaaS)"
   set_fact:
-    hasDedicated: "{{ _cis_certificates.stdout | from_json | selectattr('hosts', 'search', mas_instance_id) | selectattr('type', 'equalto', 'advanced') | map(attribute='id') | list | length > 0}}"
+    dedicated_list: "{{ dedicated_list | selectattr('type', 'equalto', 'advanced') }}"
   when:
     - saas_mode
 
-- name: "cis : Lookup the dedicated certificate id (SaaS)"
+- name: "cis : Verify if is there a dedicated certificate already"
   set_fact:
-    dedicatedId: "{{ _cis_certificates.stdout | from_json | selectattr('hosts', 'search', mas_instance_id) | selectattr('type', 'equalto', 'advanced') | map(attribute='id') | first }}"
+    hasDedicated: "{{ dedicated_list | length > 0 }}"
+
+- name: "cis : Lookup the dedicated certificate id"
+  set_fact:
+    dedicatedId: "{{ dedicated_list[0].id }}"
   when:
     - hasDedicated
-    - saas_mode
-
 
 - name: Debug dedicated certificates
   debug:
