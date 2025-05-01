@@ -121,21 +121,102 @@
 # -----------------------------------------------------------------------------
 # Note: We can't fail early when we see Failed status, as the operator will
 # report failed multiple times during initial reconcile.
-- name: "wait-ccs : Wait for ccsStatus 'Completed' (5m interval)"
-  kubernetes.core.k8s_info:
-    api_version: "ccs.cpd.ibm.com/v1beta1"
-    kind: CCS
-    name: "ccs-cr"
-    namespace: "{{ cpd_instance_namespace }}"
-  register: ccs_cr_lookup
-  until:
-    - ccs_cr_lookup.resources is defined
-    - ccs_cr_lookup.resources | length == 1
-    - ccs_cr_lookup.resources[0].status is defined
-    - ccs_cr_lookup.resources[0].status.ccsStatus is defined
-    - ccs_cr_lookup.resources[0].status.ccsStatus == "Completed" #  or ccs_cr_lookup.resources[0].status.wmlStatus == "Failed"
-  retries: 50 # Just over 4 hours
-  delay: 300 # Every 5 minutes
+# We give it an hour to have made it past upgrading elasticsearch if still
+# failing check to see if elasticsearch needs rescuing by deleting and
+# recreating.
+# regardless of if the elasticsearch rescue is performed we wait another 4 hours
+# to let the process complete (in the always section)
+- block:
+  - name: "wait-ccs : Wait for ccsStatus 'Completed' (5m interval)"
+    kubernetes.core.k8s_info:
+      api_version: "ccs.cpd.ibm.com/v1beta1"
+      kind: CCS
+      name: "ccs-cr"
+      namespace: "{{ cpd_instance_namespace }}"
+    register: ccs_cr_lookup
+    until:
+      - ccs_cr_lookup.resources is defined
+      - ccs_cr_lookup.resources | length == 1
+      - ccs_cr_lookup.resources[0].status is defined
+      - ccs_cr_lookup.resources[0].status.ccsStatus is defined
+      - ccs_cr_lookup.resources[0].status.ccsStatus == "Completed"
+    retries: 12 # 1 hour
+    delay: 300 # Every 5 minutes
+
+  rescue:
+  - name: "get the elasticsearch statefulset"
+    kubernetes.core.k8s_info:
+      api_version: apps/v1
+      namespace: "{{ cpd_instance_namespace }}"
+      kind: StatefulSet
+      label_selectors: ["ibm-es-master=True"]
+    register: statefulset_output
+
+  - name: "check if elasticsearch rescue is appropriate"
+    set_fact:
+       recover_elasticsearch: true
+    when:
+      - statefulset_output.resources is defined
+      - statefulset_output.resources | length == 1
+      - statefulset_output.resources[0].status is defined
+      - statefulset_output.resources[0].status.availableReplicas is defined
+      - statefulset_output.resources[0].status.availableReplicas == 0
+
+  - name: "Pause for 5 minutes before removing elasticsearchcluster and associated persistent volumes"
+    pause:
+      minutes: 5
+
+  - name: "reset rescue decision"
+    set_fact:
+       recover_elasticsearch: false
+
+  - name: "confirm elasticsearch rescue is still appropriate"
+    set_fact:
+       recover_elasticsearch: true
+    when:
+      - statefulset_output.resources is defined
+      - statefulset_output.resources | length == 1
+      - statefulset_output.resources[0].status is defined
+      - statefulset_output.resources[0].status.availableReplicas is defined
+      - statefulset_output.resources[0].status.availableReplicas == 0
+
+  - name: "delete the elasticsearch cluster"
+    k8s:
+      api_version: elasticsearch.opencontent.ibm.com/v1
+      kind: ElasticsearchCluster
+      state: absent
+      namespace: "{{ cpd_instance_namespace }}"
+      name: "{{ statefulset_output.resources[0].metadata.ownerReferences[0].name }}"
+    when:
+      - recover_elasticsearch == true
+
+  - name: "Delete the elasticsearch PVCs"
+    k8s:
+      api_version:  v1
+      kind: PersistentVolumeClaim
+      namespace: "{{ cpd_instance_namespace }}"
+      label_selectors: ["app.kubernetes.io/component={{ statefulset_output.resources[0].metadata.name}}"]
+      state: absent
+    when:
+      - recover_elasticsearch == true
+
+  always:
+
+  - name: "wait-ccs : Wait for ccsStatus 'Completed' (5m interval)"
+    kubernetes.core.k8s_info:
+      api_version: "ccs.cpd.ibm.com/v1beta1"
+      kind: CCS
+      name: "ccs-cr"
+      namespace: "{{ cpd_instance_namespace }}"
+    register: ccs_cr_lookup
+    until:
+      - ccs_cr_lookup.resources is defined
+      - ccs_cr_lookup.resources | length == 1
+      - ccs_cr_lookup.resources[0].status is defined
+      - ccs_cr_lookup.resources[0].status.ccsStatus is defined
+      - ccs_cr_lookup.resources[0].status.ccsStatus == "Completed"
+    retries: 50 # Just over 4 hours
+    delay: 300 # Every 5 minutes
 
 - name: "wait-ccs : Check that the CCS ccsStatus is 'Completed'"
   assert:
