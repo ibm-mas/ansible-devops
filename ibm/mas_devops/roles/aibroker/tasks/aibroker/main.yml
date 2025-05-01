@@ -40,11 +40,22 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/aibroker/operator-group.yml.j2') }}"
+  when: mas_app_channel in ['9.1.x']
 
 - name: "Install AI Broker Operator"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/aibroker/subscription.yml.j2') }}"
+  when: mas_app_channel in ['9.1.x']
+
+- name: "Create ibm-mas-aibroker Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ aibroker_namespace }}"
+    package_name: ibm-mas-aibroker
+    package_channel: "{{ aibroker_channel }}"
+    catalog_source: "{{ mas_catalog_source }}"
+  register: subscription
+  when: mas_app_channel in ['9.0.x']
 
 # Wait until the IBM Maximo AI Broker CRD is available
 # -----------------------------------------------------------------------------
