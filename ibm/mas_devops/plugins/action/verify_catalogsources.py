@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from ansible_collections.kubernetes.core.plugins.module_utils.common import get_api_client
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 
 from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
@@ -14,12 +14,15 @@ class ActionModule(ActionBase):
         display = Display()
 
         # Initialize DynamicClient and grab the task args
-        dynaClient = get_api_client()
+        host = self._task.args.get('host', None)
+        api_key = self._task.args.get('api_key', None)
+
+        dynClient = get_api_client(api_key=api_key, host=host)
         retries = self._task.args['retries']
         delay = self._task.args['delay']
 
         display.v(f"Checking CatalogSources are ready ({retries} retries with a {delay} second delay)")
-        catalogSources = dynaClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind='CatalogSource')
+        catalogSources = dynClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind='CatalogSource')
 
         allReady = False
         attempts = 0

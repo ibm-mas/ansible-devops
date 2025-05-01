@@ -13,8 +13,8 @@ cat $GITHUB_WORKSPACE/ibm/mas_devops/galaxy.yml
 
 
 # Update this when we have new catalog
-MAS_PREVIOUS_CATALOG='v9-241205-amd64'
-MAS_LATEST_CATALOG='v9-250109-amd64'
+MAS_PREVIOUS_CATALOG='v9-250306-amd64'
+MAS_LATEST_CATALOG='v9-250403-amd64'
 
 
 # Update all the placeholders in the playbooks

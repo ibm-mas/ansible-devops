@@ -1,15 +1,69 @@
 ---
+###############################################################################
+#                             New / Existing SLS                              #
+###############################################################################
+
+- name: Get SLS facts
+  when:
+    - sls_url is not defined or sls_url == ""
+    - sls_registration_key is not defined or sls_registration_key == ""
+    - sls_tls_crt is not defined or sls_tls_crt == ""
+  block:
+    - name: Obtain sls-suite-registration ConfigMap
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: "sls-suite-registration"
+        namespace: "{{ sls_namespace }}"
+      register: _sls_suite_registration
+
+    - name: "Assert that SLS registrationKey has been provided"
+      ansible.builtin.assert:
+        that:
+          - _sls_suite_registration.resources[0].data['registrationKey'] is defined
+          - _sls_suite_registration.resources[0].data['registrationKey'] != ""
+        fail_msg: "registrationKey is not defined in sls-suite-registration configmap"
+
+    - name: "Assert that SLS url has been provided"
+      ansible.builtin.assert:
+        that:
+          - _sls_suite_registration.resources[0].data['url'] is defined
+          - _sls_suite_registration.resources[0].data['url'] != ""
+        fail_msg: "url is not defined in sls-suite-registration configmap"
+
+    - name: "Assert that SLS CA certificate has been provided"
+      ansible.builtin.assert:
+        that:
+          - _sls_suite_registration.resources[0].data['ca'] is defined
+          - _sls_suite_registration.resources[0].data['ca'] != ""
+        fail_msg: "ca certificate is not defined in sls-suite-registration configmap"
+
+    - name: Set facts for SLSCfg
+      ansible.builtin.set_fact:
+        sls_registration_key: "{{ _sls_suite_registration.resources[0].data['registrationKey'] }}"
+        sls_url: "{{ _sls_suite_registration.resources[0].data['url'] }}"
+        sls_tls_crt: "{{ _sls_suite_registration.resources[0].data['ca'] }}"
+
+
+###############################################################################
+#                              External SLS                                   #
+###############################################################################
+
 # 1. Set sls_tls_crt
 # -----------------------------------------------------------------------------
-- name: "Set sls_tls_crt fact for SlsCfg when using existing SLS"
+- name: "Set sls_tls_crt fact for SlsCfg when using external SLS"
   ansible.builtin.set_fact:
-    sls_tls_crt: "{{ lookup('file', sls_tls_crt_local_file_path) }}"
+    sls_tls_crt: "{{ lookup('file', sls_tls_crt_local_file_path)}}"
   no_log: true
   when:
     - sls_tls_crt is not defined or sls_tls_crt == ""
     - sls_tls_crt_local_file_path is defined and sls_tls_crt_local_file_path != ""
 
-# 2. Check for missing properties that do not have defaults
+###############################################################################
+#                             SLS CFG Generation                              #
+###############################################################################
+
+# 1. Check for missing properties that do not have defaults
 # -----------------------------------------------------------------------------
 - name: "Assert that sls_url has been provided"
   ansible.builtin.assert:
@@ -26,7 +80,7 @@
     that: sls_tls_crt is defined and sls_tls_crt != ""
     fail_msg: "sls_tls_crt property has not been set"
 
-# 3. Provide Debug for no-op mode
+# 2. Provide Debug for no-op mode
 # -----------------------------------------------------------------------------
 # Important: mas_instance_id and mas_config_dir are not required, calling this role
 # without them defined is effectively saying "do nothing", it allows the role to
@@ -37,14 +91,14 @@
     msg: "mas_instance_id and/or mas_config_dir are not set, so the SLSCfg will not be generated"
   when: (mas_instance_id is not defined or mas_instance_id == "") or (mas_config_dir is not defined or mas_config_dir == "")
 
-# 4. Load PodTemplates configuration
+# 3. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
 - name: "Load podTemplates configuration"
   include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
   vars:
     config_files: ["ibm-mas-slscfg.yml"]
 
-# 5. Generate SLSCfg for MAS
+# 4. Generate SLSCfg for MAS
 # -----------------------------------------------------------------------------
 - name: Copy SLSCfg to filesytem
   ansible.builtin.template:

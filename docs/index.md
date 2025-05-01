@@ -65,6 +65,32 @@ If you wish to use [Red Hat Ansible Automation Platform](https://www.redhat.com/
 More details on how to use the ansible-devops execution environment can be found [here](execution-environment.md)
 
 
+Action Groups
+-------------------------------------------------------------------------------
+The collection provide a new action group `ibm.mas_devops.k8s` which can be used to set the default Kubernetes target cluster as an alternative to authenticating with the cluster prior to running our ansible playbooks/roles/actions, see the example below which would return the default storage classes that would be used in this collection for the specified cluster:
+
+```yaml
+---
+- hosts: localhost
+  any_errors_fatal: true
+  collections:
+    - ibm.mas_devops
+
+  module_defaults:
+    group/ibm.mas_devops.k8s:
+      host: "<your host url>"
+      api_key: "<your api key>"
+
+  tasks:
+    - name: "Lookup default storage classes"
+      ibm.mas_devops.get_default_storage_classes:
+      register: classes
+
+    - debug:
+        msg: "{{classes}}"
+```
+
+
 Support
 -------------------------------------------------------------------------------
 This Ansible collection is developed by the IBM Maximo Application Suite development team, customers may raise support tickets via the same routes they would an issue with the product itself, or [raise an issue directly in the GitHub repository](https://github.com/ibm-mas/ansible-devops/issues).

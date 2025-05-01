@@ -12,7 +12,7 @@
       - "Pod Name ................... {{ masbr_cf_pod_name }}"
       - "Local storage job folder ......... {{ masbr_storage_job_folder }}"
       - "Folder setup  .................... {{ masbr_cf_paths }}"
-      - "Source Folder .................... {{ item.src_folder }}"
+      - "Source Folder .................... {{ item.src_folder | default('null', true) }}"
       - "Destination Folder ............... {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}"
   loop: "{{ masbr_cf_paths }}"
 
@@ -36,7 +36,7 @@
   shell: >-
     mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
     oc cp --retries=50 -c {{ masbr_cf_container_name }}
-    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ [item.src_folder, item.src_file] | path_join }}
+    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_file }}
     {{ [masbr_storage_job_folder, item.dest_folder, item.src_file|basename] | path_join }}
   loop: "{{ masbr_cf_paths }}"
 

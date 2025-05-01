@@ -209,6 +209,15 @@ Location to output the edge-routes-{mas_instance_id}.txt
 - Environment Variable: `OUTPUT_DIR`
 - Default: `.` (which will set the directory file in ibm/mas_devops)
 
+### saas_mode
+If true:
+ - saas_edge_certificate_routes.yml.j2 template will be used instead of edge_certificate_routes.yml.j2
+   This template omits routes that will not be present in SaaS envs to reduce the hostname count to under 50 so only a single edge route certificate is required
+ - Ensures that the default edge certificates configured by CIS are excluded from checks, even when the CIS domain includes the MAS instance ID.
+
+- Optional
+- Environment Variable: `SAAS_MODE`
+- Default: false
 
 Role Variables - AWS Route 53
 ------------------------------------------------------------
