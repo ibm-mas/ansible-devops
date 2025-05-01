@@ -11,6 +11,7 @@ Currently supported Cloud Pak for Data release versions supported are:
   - 4.6.6
   - 4.8.0
   - 5.0.0
+  - 5.1.0
 
 The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.
 
@@ -36,7 +37,11 @@ These services can be deployed and configured using this role:
 
 Upgrade
 ------------------
+<<<<<<< HEAD
 This role also supports seamlessly CPD services minor version upgrades (CPD 4.6.x > CPD 4.8.0 or CPD 4.8.0 > CPD 5.0.0), as well as patch version upgrades (e.g. CPD 4.6.0 -> CPD 4.6.6), with the exception of [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=u-upgrading-from-version-46-2).
+=======
+This role also supports seamlessly CPD services minor version upgrades (CPD 4.6.x > CPD 4.8.0, CPD 4.8.0 > CPD 5.0.0 or CPD 5.0.0 > 5.1.0), as well as patch version upgrades (e.g. CPD 4.6.0 -> CPD 4.6.6), with the exception of [Watson Discovery](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=u-upgrading-from-version-46-2).
+>>>>>>> master
 
 All you need to do is to define `cpd_product_version` variable to the version you target to upgrade and run this role for a particular CPD service.
 It's important that before you upgrade CPD services, the CPD Control Plane/Zen is also upgraded to the same release version.
@@ -376,7 +381,7 @@ The CP4D Admin username to authenticate with CP4D APIs. If you didn't change the
 - Environment Variable: `CPD_ADMIN_USERNAME`
 - Default Value:
   - `admin` (CPD 4.6)
-  - `cpadmin` (CPD 4.8 and 5.0)
+  - `cpadmin` (CPD 4.8 and newer)
 
 ### cpd_admin_password
 The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` or `cpdamin` will be used.
@@ -385,7 +390,7 @@ The CP4D Admin User password to call CP4D API to provision Discovery Instance. I
 - Environment Variable: `CPD_ADMIN_PASSWORD`
 - Default Value:
     - CPD 4.6: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
-    - CPD 4.8 and 5.0: Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
+    - CPD 4.8 and newer: Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
 
 ### cpd_service_scale_config
 Adjust and scale the resources for your Cloud Pak for Data services to increase processing capacity.
