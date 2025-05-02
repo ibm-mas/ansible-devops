@@ -152,6 +152,23 @@
       label_selectors: ["ibm-es-master=True"]
     register: statefulset_output
 
+  # We are aiming to catch this exception caused by a change in how ElasticSearch is managed by Cloud Pak for Data
+  # whereby in CPD 5.1 it starts to explicitly control the version of ElasticSearch, and sets it to an older version
+  # that the version it naturally would have been set to already, resulting in an unsupported downgrade.
+  #
+  # [2025-05-02T10:00:35,693][ERROR][o.o.b.OpenSearchUncaughtExceptionHandler] [elasticsea-0ac3-ib-6fb9-es-server-esnodes-0] uncaught exception in thread [main]
+  # org.opensearch.bootstrap.StartupException: java.lang.IllegalArgumentException: Could not load codec 'Lucene912'. Did you forget to add lucene-backward-codecs.jar?
+  #         at org.opensearch.bootstrap.OpenSearch.init(OpenSearch.java:185) ~[opensearch-2.17.0.jar:2.17.0]
+  #         at org.opensearch.bootstrap.OpenSearch.execute(OpenSearch.java:172) ~[opensearch-2.17.0.jar:2.17.0]
+  #         at org.opensearch.cli.EnvironmentAwareCommand.execute(EnvironmentAwareCommand.java:104) ~[opensearch-2.17.0.jar:2.17.0]
+  #         at org.opensearch.cli.Command.mainWithoutErrorHandling(Command.java:138) ~[opensearch-cli-2.17.0.jar:2.17.0]
+  #         at org.opensearch.cli.Command.main(Command.java:101) ~[opensearch-cli-2.17.0.jar:2.17.0]
+  #         at org.opensearch.bootstrap.OpenSearch.main(OpenSearch.java:138) ~[opensearch-2.17.0.jar:2.17.0]
+  #         at org.opensearch.bootstrap.OpenSearch.main(OpenSearch.java:104) ~[opensearch-2.17.0.jar:2.17.0]
+  # Caused by: java.lang.IllegalArgumentException: Could not load codec 'Lucene912'. Did you forget to add lucene-backward-codecs.jar?
+  #
+  # When this happens, the only solution we are aware of is to delete the ElasticSearch instance and allow it to be recreated fresh, 
+  # the alternative is to not upgrade Cloud Pak for Data until after it catches up with the version of ElasticSearch already in use.
   - name: "check if elasticsearch rescue is appropriate"
     set_fact:
        recover_elasticsearch: true
