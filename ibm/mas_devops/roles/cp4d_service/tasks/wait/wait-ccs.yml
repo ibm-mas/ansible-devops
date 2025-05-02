@@ -168,11 +168,11 @@
     #         at org.opensearch.bootstrap.OpenSearch.main(OpenSearch.java:104) ~[opensearch-2.17.0.jar:2.17.0]
     # Caused by: java.lang.IllegalArgumentException: Could not load codec 'Lucene912'. Did you forget to add lucene-backward-codecs.jar?
     #
-    # When this happens, the only solution we are aware of is to delete the ElasticSearch instance and allow it to be recreated fresh, 
+    # When this happens, the only solution we are aware of is to delete the ElasticSearch instance and allow it to be recreated fresh,
     # the alternative is to not upgrade Cloud Pak for Data until after it catches up with the version of ElasticSearch already in use.
     - name: "check if elasticsearch rescue is appropriate"
       set_fact:
-         recover_elasticsearch: true
+        recover_elasticsearch: true
       when:
         - statefulset_output.resources is defined
         - statefulset_output.resources | length == 1
@@ -183,14 +183,14 @@
     - name: "Pause for 5 minutes before removing elasticsearchcluster and associated persistent volumes"
       pause:
         minutes: 5
-  
+
     - name: "reset rescue decision"
       set_fact:
-         recover_elasticsearch: false
-  
+        recover_elasticsearch: false
+
     - name: "confirm elasticsearch rescue is still appropriate"
       set_fact:
-         recover_elasticsearch: true
+        recover_elasticsearch: true
       when:
         - statefulset_output.resources is defined
         - statefulset_output.resources | length == 1
@@ -207,10 +207,10 @@
         name: "{{ statefulset_output.resources[0].metadata.ownerReferences[0].name }}"
       when:
         - recover_elasticsearch == true
-  
+
     - name: "Delete the elasticsearch PVCs"
       k8s:
-        api_version:  v1
+        api_version: v1
         kind: PersistentVolumeClaim
         namespace: "{{ cpd_instance_namespace }}"
         label_selectors: ["app.kubernetes.io/component={{ statefulset_output.resources[0].metadata.name}}"]
