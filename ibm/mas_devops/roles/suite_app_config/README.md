@@ -52,7 +52,7 @@ Set the binding scope for the application workspace's JDBC binding (`system`, `a
 - Default: `system`
 
 ### is_full_manage
-If set to `true`, Manage Foundation will be installed instead of Full Manage (available on MAS 9.1 and later).
+If set to `false`, Manage Foundation will be installed instead of Full Manage (available on MAS 9.1 and later).
 
 - Optional
 - Environment Variable: `IS_FULL_MANAGE`
