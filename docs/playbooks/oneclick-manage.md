@@ -32,14 +32,14 @@ Required environment variables
 
    `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
 
-   To disable Asset Investment Optimizer, optional feature of health, set `MAS_APP_SETTINGS_AIO_FLAG` to `false`. By default this flag is set to `true` . This feature is only avalaible on Manage with health as a addon or on Health as a Standalone install. This feature is disabled on 9.1 and later.
+   To disable Asset Investment Optimizer, optional feature of health, set `MAS_APP_SETTINGS_AIO_FLAG` to `false`. By default this flag is set to `true` . This feature is only avalaible on Manage with health as a addon or on Health as a Standalone install. This feature is disabled on MAS Core 9.1 and later.
 
    `export MAS_APP_SETTINGS_AIO_FLAG=false`
 
 
    **Note**:
 
-   To install Manage Foundation only (available on 9.1 or later), this environment variable needs to be exported:
+   To install Manage Foundation only (available on MAS Core 9.1 or later), this environment variable needs to be exported:
    
    `export IS_FULL_MANAGE=false`
    
