@@ -139,7 +139,53 @@
         that: ocimagemirror_result.rc == 0
         fail_msg: "Image mirroring failed (see debug information above)."
 
-# 4C. Execute the mirror (direct)
+# 4C. Create AWS ECR Repositories if required
+# -----------------------------------------------------------------------------
+- name: "Obtain AWS ECR Repository names"
+  when:
+    - mirror_mode == "direct"
+    - mirror_target_is_ecr == True
+  block:
+    - name: "{{ manifest_name }} : Run mirror command"
+      shell: |
+        oc image mirror \
+          -a {{ auth_file }} \
+          -f {{ mirror_working_dir }}/manifests/direct/{{ manifest_name }}_{{ manifest_version }}.txt \
+          --filter-by-os '.*'  \
+          --insecure  \
+          --skip-multiple-scopes \
+          --max-per-registry=1 \
+          --dry-run=true
+      register: ocimagemirror_dryrun_result
+      ignore_errors: true
+
+    - name: "{{ manifest_name }} : Debug mirror command dry mode"
+      debug:
+        msg:
+          - "Source: {{ mirror_working_dir }}/manifests/direct/{{ manifest_name }}_{{ manifest_version }}.txt"
+          - "Auth: {{ auth_file }}"
+          - "{{ ocimagemirror_dryrun_result.stderr_lines }} "
+
+    - name: "{{ manifest_name }} : Fail if mirror is not successful"
+      assert:
+        that: ocimagemirror_dryrun_result.rc == 0
+        fail_msg: "mirror command in dry mode failed."
+
+    - name: Filter out repository names that must be created in ECR
+      set_fact:
+        repos_to_add: "{{ ocimagemirror_dryrun_result.stderr_lines | ibm.mas_devops.get_ecr_repositories }}"
+
+    - name: Repositories that will be created in ECR
+      debug:
+        msg: "{{ repos_to_add }}"
+
+    - name: Create ECR Repositories
+      ansible.builtin.shell: "aws ecr create-repository --repository-name {{ item }} --image-tag-mutability IMMUTABLE --region {{ aws_ecr_region }}"
+      loop: "{{ repos_to_add }}"
+
+
+
+# 4D. Execute the mirror (direct)
 # -----------------------------------------------------------------------------
 - name: "Mirror Images directly"
   when: mirror_mode == "direct"
