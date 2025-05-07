@@ -141,10 +141,10 @@
 
 # 4C. Create AWS ECR Repositories if required
 # -----------------------------------------------------------------------------
-- name: "Obtain AWS ECR Repository names"
+- name: "Create AWS ECR Repositories"
   when:
-    - mirror_mode == "direct"
-    - mirror_target_is_ecr == True
+    - mirror_mode == "direct" or mirror_mode == "from-filesystem"
+    - registry_is_ecr == true
   block:
     - name: "{{ manifest_name }} : Run mirror command"
       shell: |
@@ -158,6 +158,7 @@
           --dry-run=true
       register: ocimagemirror_dryrun_result
       ignore_errors: true
+      when: mirror_mode == "direct"
 
     - name: "{{ manifest_name }} : Debug mirror command dry mode"
       debug:
@@ -180,7 +181,7 @@
         msg: "{{ repos_to_add }}"
 
     - name: Create ECR Repositories
-      ansible.builtin.shell: "aws ecr create-repository --repository-name {{ item }} --image-tag-mutability IMMUTABLE --region {{ aws_ecr_region }}"
+      ansible.builtin.shell: "aws ecr create-repository --repository-name {{ item }} --image-tag-mutability IMMUTABLE --region {{ registry_ecr_aws_region }}"
       loop: "{{ repos_to_add }}"
 
 
