@@ -42,38 +42,6 @@
     - km-s3-secret
     - "{{ aibroker_pull_secret_name }}"
 
-- name: "Check if SLS key secret exists in namespace: {{ aibroker_namespace }}"
-  k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ tenantNamespace }}----sls-secret"
-    namespace: "{{ aibroker_namespace }}"
-  register: sls_secret_info
-
-# If sls secret does not exist then create one.
-- when:
-    - sls_secret_info.resources | length == 0
-    - mas_aibroker_saas == true
-  block:
-    - name: "Create cert location {{ mas_aibroker_path_ca_crt }}"
-      shell: mkdir -p '{{ mas_aibroker_path_ca_crt }}'
-
-    - name: "Insert SLS cert ca to file located {{ mas_aibroker_path_ca_crt }}"
-      shell: "echo '{{ slscfg.ca }}' > '{{ mas_aibroker_path_ca_crt }}/sls_ca.crt' "
-
-    - name: debug #TODO: remove before final commit
-      debug:
-        msg:
-          - "tenantNamespace ..... {{ tenantNamespace }} "
-          - "mas_instance_id ..... {{ mas_instance_id }} "
-          - "mas_aibroker_sls_url ..... {{ slscfg.url }} "
-          - "mas_aibroker_sls_registration_key ..... {{ slscfg.registration_key }} "
-          - "mas_aibroker_path_ca_crt ..... {{ mas_aibroker_path_ca_crt }} "
-
-    - name: Create SLS secret
-      script: "{{ role_path }}/files/create_sls_secret.sh {{ role_path }} {{ tenantNamespace }} {{ mas_instance_id }} {{ slscfg.url }} {{ slscfg.registration_key }} {{ mas_aibroker_path_ca_crt }}/sls_ca.crt"
-      register: sls_secret_output
-
 - name: "Create network policy for predictor"
   kubernetes.core.k8s:
     apply: yes
