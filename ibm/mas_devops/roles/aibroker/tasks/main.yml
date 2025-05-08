@@ -2,6 +2,23 @@
 - name: Load variables (main)
   include_vars: "vars/main.yml"
 
+# Get cluster domain
+# -----------------------------------------------------------------------------
+- name: "Get cluster domain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: DNS
+    name: cluster
+  register: _cluster_dns
+
+- name: "Set fact: cluster domain"
+  set_fact:
+    cluster_domain: "{{ _cluster_dns.resources[0].spec.baseDomain }}"
+
+- name: "Debug: cluster domain"
+  debug:
+    msg: "Cluster domain ........................ {{ cluster_domain }}"
+    
 # Create IBM Maximo IBM Maximo AI Broker
 # -----------------------------------------------------------------------------
 - name: "Create IBM Maximo AI Broker namespace"
