@@ -5,23 +5,28 @@ mas_appws_spec:
   bindings:
     jdbc: "{{ mas_appws_bindings_jdbc | default( 'workspace-application' , true) }}"
   settings:
-    size: "{{ mas_ws_facilities_size }}"
+    deployment:
+      size: "{{ mas_ws_facilities_size }}"
     routes:
-      contextpath: "{{ mas_ws_facilities_routes.contextpath }}"
-      timeout: "{{ mas_ws_facilities_routes.timeout }}"
-    libertyExtensionXML: {{ mas_ws_facilities_liberty_extension_XML }}
+      timeout: "{{ mas_ws_facilities_routes_timeout }}"
+{% if mas_ws_facilities_liberty_extension_XML is defined and mas_ws_facilities_liberty_extension_XML != "" %}
+    libertyExtensionXML: 
+      secretName: "{{ mas_ws_facilities_liberty_extension_XML }}"
+{% endif %}
+{% if mas_ws_facilities_vault_secret is defined and mas_ws_facilities_vault_secret != "" %}
+    vaultSecret: 
+      secretName: "{{ mas_ws_facilities_vault_secret }}"
+{% endif %}
     imagePullPolicy: "{{ mas_ws_facilities_pull_policy }}"
     storage:
       log:
-        class: "{{ mas_ws_facilities_storage.class }}"
-        mode: "{{ mas_ws_facilities_storage.log.mode }}"
-        size: {{ mas_ws_facilities_storage.log.size }}
+        class: "{{ mas_ws_facilities_storage_log_class }}"
+        mode: "{{ mas_ws_facilities_storage_log_mode }}"
+        size: {{ mas_ws_facilities_storage_log_size }}
       userfiles:
-        class: "{{ mas_ws_facilities_storage.class }}"
-        mode: "{{ mas_ws_facilities_storage.userfiles.mode }}"
-        size: {{ mas_ws_facilities_storage.userfiles.size }}
-    vault_secret: na
-    wfagents: {{ mas_ws_facilities_wfagents }}
+        class: "{{ mas_ws_facilities_storage_userfiles_class }}"
+        mode: "{{ mas_ws_facilities_storage_userfiles_mode }}"
+        size: {{ mas_ws_facilities_storage_userfiles_size }}
+    dwfagents: {{ mas_ws_facilities_dwfagents }}
     db:
-      maxconnpoolsize: {{ mas_ws_facilities_db.maxconnpoolsize }}
-      sid: "{{ mas_ws_facilities_db.sid }}"
+      maxconnpoolsize: {{ mas_ws_facilities_db_maxconnpoolsize }}
