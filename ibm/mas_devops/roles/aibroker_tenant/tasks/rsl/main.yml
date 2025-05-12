@@ -1,0 +1,49 @@
+- name: Read rsl config from environment
+  ansible.builtin.set_fact:
+    rslcfg:
+      authorization : "{{ lookup('env', 'RSL_AUTHORIZATION') }}"
+      url: "{{ lookup('env', 'RSL_URL') }}"
+      rsl_token: "{{ lookup('env', 'RSL_TOKEN') }}"
+      org_id : "{{ lookup('env', 'RSL_ORG_ID') }}"
+      secret_name: "{{ lookup('env', 'RSL_SECRET_NAME }}"
+
+
+- name: "Debug: rsl information" #TODO: remove before PR
+  debug:
+    msg:
+      - "rsl secret name ......... {{ rslcfg.secret_name }}"
+      - "rsl authorization key ............. {{ rslcfg.authorization }}"
+      - "rsl url ................. {{ rslcfg.url }}"
+      - "rsl token  ............. {{ rslcfg.rsl_token }}"
+      - "rsl org id .............. {{ rslcfg.org_id }}"
+
+- name: "Validate rsl configuration"
+  when: rslcfg.secret_name | length == 0
+  fail:
+    msg: "rslcfg.secret_name must not empty"
+
+- name: "Validate rsl configuration"
+  when: rslcfg.authorization | length == 0
+  fail:
+    msg: "rslcfg.authorization must not empty"
+
+- name: "Validate rsl configuration"
+  when: rslcfg.url | length == 0
+  fail:
+    msg: "rslcfg.url must not empty"
+
+- name: "Validate rsl configuration"
+  when: rslcfg.rsl_token | length == 0
+  fail:
+    msg: "rslcfg.rsl_token must not empty"
+
+- name: "Validate rsl configuration"
+  when: rslcfg.org_id | length == 0
+  fail:
+    msg: "rslcfg.org_id must not empty"
+
+- name: Create rsl secret
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ aibroker_namespace }}"
+    template: "templates/rsl/rsl-secret.yml.j2"
