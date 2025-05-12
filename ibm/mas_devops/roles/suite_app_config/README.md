@@ -573,11 +573,11 @@ Sets the timeout of the application. It is a string with the structure `<timeout
 - Default: `600s`
 ### Facilities - Storage setting variables
 ---
-### mas_ws_facilities_storage_class
-Sets the class for the Persistent Volume Claim used for MREF agents.
+### mas_ws_facilities_storage_log_class
+Sets the class for the Log Persistent Volume Claim used for MREF agents.
 
 - Optional
-- Environment Variable: `MAS_FACILITIES_STORAGE_CLASS`
+- Environment Variable: `MAS_FACILITIES_STORAGE_LOG_CLASS`
 - Default: `ibmc-file-gold-gid`
 
 ### mas_ws_facilities_storage_log_mode
@@ -593,6 +593,13 @@ Sets the size of the Log PVC.
 - Optional
 - Environment Variable: `MAS_FACILITIES_STORAGE_LOG_SIZE`
 - Default: `30`
+
+### mas_ws_facilities_storage_userfiles_class
+Sets the class for the Userfiles PVC used for MREF agents.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_CLASS`
+- Default: `ibmc-file-gold-gid`
 
 ### mas_ws_facilities_storage_userfiles_mode
 Sets the attach mode of the Userfiles PVC.
