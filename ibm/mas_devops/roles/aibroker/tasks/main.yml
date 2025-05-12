@@ -2,6 +2,23 @@
 - name: Load variables (main)
   include_vars: "vars/main.yml"
 
+# Get cluster domain
+# -----------------------------------------------------------------------------
+- name: "Get cluster domain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: DNS
+    name: cluster
+  register: _cluster_dns
+
+- name: "Set fact: cluster domain"
+  set_fact:
+    cluster_domain: "{{ _cluster_dns.resources[0].spec.baseDomain }}"
+
+- name: "Debug: cluster domain"
+  debug:
+    msg: "Cluster domain ........................ {{ cluster_domain }}"
+    
 # Create IBM Maximo IBM Maximo AI Broker
 # -----------------------------------------------------------------------------
 - name: "Create IBM Maximo AI Broker namespace"
@@ -19,28 +36,40 @@
 
 # Create secret for watsonX Ai
 - include_tasks: tasks/watsonxai/main.yml
+  when: mas_app_channel in [ 'workspace' ]
 
 # Create config for SLS
 - include_tasks: tasks/config_sls/main.yml
+  when: mas_app_channel in [ 'workspace' ]
 
 # Create config for DRO
 - include_tasks: tasks/config_dro/main.yml
+  when: mas_app_channel in [ 'workspace']
 
 # Create config for DB2
 - include_tasks: tasks/config_db2/main.yml
+  when: mas_app_channel in [ 'workspace' ]
 
 # install AI Broker api
 - include_tasks: tasks/aibroker/main.yml
+  when: mas_app_channel in [ 'workspace' ]
 
 # # run api calls for aibroker saas
 # - include_tasks: tasks/saas/main.yml
 #   when: mas_aibroker_saas == true
 
-# # create AI Broker api key
-# - include_tasks: tasks/apikey/main.yml
+# create AI Broker tenant
+- include_tasks: tasks/tenant/main.yml
+  when: mas_app_channel in [ '9.0.x']
 
-# # create s3 api key
-# - include_tasks: tasks/s3/main.yml
+# create AI Broker api key
+- include_tasks: tasks/apikey/main.yml
+  when: mas_app_channel in [ '9.0.x' ]
 
-# # create wx api
-# - include_tasks: tasks/watsonx/main.yml
+# create s3 api key
+- include_tasks: tasks/s3/main.yml
+  when: mas_app_channel in [ '9.0.x' ]
+
+# create wx api
+- include_tasks: tasks/watsonx/main.yml
+  when: mas_app_channel in [ '9.0.x' ]

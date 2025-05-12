@@ -1,21 +1,7 @@
 ---
-# Install and configure the Node Feature Discovery Operator
+# 1. Install and configure the Node Feature Discovery Operator
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/nfd_setup.yml
-
-# 1. Look up OCP version in Cluster
-# -----------------------------------------------------------------------------
-- name: "Look up cluster ocp version"
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    name: "version"
-    kind: ClusterVersion
-  register: ocp_version_lookup
-
-- name: "Set ocp version number"
-  when: ocp_version_lookup.resources[0] is defined
-  set_fact:
-    ocp_version_num: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
 
 # 2. Lookup the packagemanifest for gpu-operator-certified
 # -----------------------------------------------------------------------------
@@ -46,7 +32,6 @@
 - name: "Debug information"
   debug:
     msg:
-      - "OCP Release Version ................ {{ ocp_version_num }}"
       - "GPU Namespace ...................... {{ gpu_namespace }}"
       - "GPU Channel   ...................... {{ gpu_channel }}"
 
@@ -102,13 +87,13 @@
     # 4.3 Create GPU Cluster Policy
     # -----------------------------------------------------------------------------
     - name: "Create Cluster Policy instance using latest driver"
-      when: gpu_driver_version is not defined
+      when: gpu_driver_version is not defined or not gpu_driver_version
       kubernetes.core.k8s:
         apply: yes
         definition: "{{ lookup('template', 'templates/clusterpolicy-v2.yml.j2') }}"
 
     - name: "Create Cluster Policy instance using custom driver"
-      when: gpu_driver_version is defined
+      when: gpu_driver_version is defined and gpu_driver_version
       kubernetes.core.k8s:
         apply: yes
         definition: "{{ lookup('template', 'templates/clusterpolicy-customversion.yml.j2') }}"

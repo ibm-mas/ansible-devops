@@ -88,6 +88,12 @@
     namespace: "{{ mas_app_namespace }}"
     kind: "{{ mas_app_kind }}"
   register: app_cr_result
+  retries: 15  # Number of retries before failing
+  delay: 20    # Wait 20 seconds between retries
+  until:
+    - app_cr_result.resources is defined
+    - app_cr_result.resources | length > 0
+    - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select('match', 'True') | list | length == 1
 - name: "Check that the application is ready to configure a workspace"
   assert:
     that:

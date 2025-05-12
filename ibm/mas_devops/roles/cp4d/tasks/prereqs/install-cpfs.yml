@@ -12,7 +12,7 @@
 # If CPD 4.8 or higher, we'll get the latest channel available in packagemanifest, else, we'll get the default channel
 - name: Set ibm-common-service-operator channel
   set_fact:
-    cpfs_available_channel: "{{ common_service_manifest_info.resources[0].status.channels | map(attribute='name') | last }}"
+    cpfs_available_channel: "{{ common_service_manifest_info.resources[0].status.defaultChannel }}"
 
 - debug:
     msg:
@@ -121,6 +121,10 @@
     definition:
       spec:
         size: "{{ cpfs_size }}"
+  register: result
+  retries: 5 # This can fail transiently if the common service webhook is not yet ready
+  delay: 12
+  until: not result.failed
 
 - name: "Wait for CommonService instance to be ready in {{ cpd_operators_namespace }}"
   kubernetes.core.k8s_info:
