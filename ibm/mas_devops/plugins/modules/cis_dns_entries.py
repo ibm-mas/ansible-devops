@@ -236,10 +236,6 @@ def main():
                 if(response.status_code == 200):
                     changed = True
                     # DNS record created successfully
-
-            response = requests.request("PATCH", url, headers=headers, data=payload)
-            if(response.status_code == 200):
-                changed = True
         
         if delete_wildcards:
             for entry in existingDNSEntries:
@@ -250,20 +246,12 @@ def main():
                     if(response.status_code == 200):
                         changed = True
         if cis_waf:
-
             url = f"https://api.cis.cloud.ibm.com/v1/{crn}/zones/{zoneId}/settings/waf"	
             payload="{\n \"value\": \"on\" \n}"
             response = requests.request("PATCH", url, headers=headers, data=payload)
             if(response.status_code == 200):
                 changed = True
         
-        if (edgeCertRoutes) and len(edgeCertRoutes) > 0:
-            url = f"https://api.cis.cloud.ibm.com/v2/{crn}/zones/{zoneId}/ssl/certificate_packs/order"
-            payload = "{\n \"certificate_authority\": \"digicert\",\n \"validation_method\": \"txt\",\n \"validity_days\": 365,\n \"type\": \"advanced\",\n  \"hosts\": ["+ ",".join(["'"+str(i)+"'" for i in edgeCertRoutes]) +"],:}" 
-            response = requests.request("POST", url, headers=headers, data=payload)
-            if(response.status_code == 200):
-                
-                changed = True
     except requests.exceptions.RequestException as e:  # This is the correct syntax
         module.fail_json(msg = f"Error calling : {url}")
 

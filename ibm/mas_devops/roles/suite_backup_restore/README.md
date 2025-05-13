@@ -57,7 +57,7 @@ Set local path to save the backup files.
 Role Variables - Backup
 -------------------------------------------------------------------------------
 ### masbr_backup_schedule
-Set [Cron expression](ttps://en.wikipedia.org/wiki/Cron) to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.
+Set [Cron expression](https://en.wikipedia.org/wiki/Cron) to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.
 
 - Optional
 - Environment Variable: `MASBR_BACKUP_SCHEDULE`

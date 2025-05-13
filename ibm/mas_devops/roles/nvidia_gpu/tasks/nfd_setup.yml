@@ -1,4 +1,18 @@
 ---
+# 0. Look up OCP version in Cluster
+# -----------------------------------------------------------------------------
+- name: "Look up cluster ocp version"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    name: "version"
+    kind: ClusterVersion
+  register: ocp_version_lookup
+
+- name: "Set ocp version number"
+  when: ocp_version_lookup.resources[0] is defined
+  set_fact:
+    ocp_version_num: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
+
 # 1. Lookup the packagemanifest for gpu-operator-certified
 # -----------------------------------------------------------------------------
 - name: Get nfd package manifest
@@ -28,6 +42,7 @@
 - name: "Debug information"
   debug:
     msg:
+      - "OCP Release Version ................ {{ ocp_version_num }}"
       - "NFD Namespace ...................... {{ nfd_namespace }}"
       - "NFD Channel   ...................... {{ nfd_channel }}"
 
@@ -87,6 +102,8 @@
       kubernetes.core.k8s:
         apply: yes
         definition: "{{ lookup('template', 'templates/nfd-instance.yml.j2') }}"
+      vars:
+        ocp_version: "{{ ocp_version_num }}"
 
     # 4.4. Make sure NFD daemonsets have been created and all pods are ready
     # -----------------------------------------------------------------------------
