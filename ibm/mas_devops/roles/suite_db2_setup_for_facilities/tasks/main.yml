@@ -38,7 +38,7 @@
 
 - name: Check DB2 Properties
   shell: |
-    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2set' {{db2_username}}
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2set' db2inst1
   register: check_props_status
   until: check_props_status.rc == 0
   retries: 5
@@ -77,7 +77,7 @@
     namespace: "{{ db2_namespace }}"
     pod: "{{ db2_pod_name }}"
     container: db2u
-    command: su - {{db2_username}} -c "db2 connect to {{ db2_dbname }} >/dev/null && db2 'select schemaname from syscat.schemata' | grep '{{ db2_schema }}' | tr -d ' ' " > /tmp/ts_numd.txt
+    command: su - db2inst1 -c "db2 connect to {{ db2_dbname }} >/dev/null && db2 'select schemaname from syscat.schemata' | grep '{{ db2_schema }}' | tr -d ' ' " > /tmp/ts_numd.txt
   register: db2_output
   retries: 10
   delay: 60
