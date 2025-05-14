@@ -533,7 +533,7 @@ EOF
 ```
 
 ### mas_ws_facilities_vault_secret_name
-Provide the secret name of the secret which contains a personal AES Encryption password. By default, an AES Encryption password will be generated automatically.
+Provide the name of the secret which contains a password to the vault with AES Encryption key. By default, this secret will be generated automatically.
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_VAULT_SECRET_NAME`
