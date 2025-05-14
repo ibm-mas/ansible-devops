@@ -717,6 +717,8 @@
     
       <cds-select-item value="#example-playbook">Example Playbook</cds-select-item>
     
+      <cds-select-item value="#role-variables-facilities-workspace">Role Variables - Facilities Workspace</cds-select-item>
+    
       <cds-select-item value="#license">License</cds-select-item>
     
   </cds-select>
@@ -766,7 +768,8 @@
 <li>Default: defaults are specified in <code>vars/defaultspecs/{mas_app_id}.yml</code></li>
 </ul>
 <h3 id="mas_appws_bindings_jdbc">mas_appws_bindings_jdbc<a class="headerlink" href="#mas_appws_bindings_jdbc" title="Permanent link">¤</a></h3>
-<p>Set the binding scope for the application workspace's JDBC binding (<code>system</code>, <code>application</code>, <code>workspace</code>, or <code>workspace-application</code>)</p>
+<p>Set the binding scope for the application workspace's JDBC binding (<code>system</code>, <code>application</code>, <code>workspace</code>, or <code>workspace-application</code>)
+Note: For Maximo Real estate and facilities, we recommend to use workspace-application. </p>
 <ul>
 <li>Optional</li>
 <li>Environment Variable: <code>MAS_APPWS_BINDINGS_JDBC</code></li>
@@ -1188,12 +1191,138 @@ For more details, refer to <a href="https://www.ibm.com/docs/en/mas-cd/continuou
   roles:
     - ibm.mas_devops.suite_app_config
 </code></pre>
+<h2 id="role-variables-facilities-workspace">Role Variables - Facilities Workspace<a class="headerlink" href="#role-variables-facilities-workspace" title="Permanent link">¤</a></h2>
+<h3 id="mas_ws_facilities_size">mas_ws_facilities_size<a class="headerlink" href="#mas_ws_facilities_size" title="Permanent link">¤</a></h3>
+<p>Sets the size of deployment.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_SIZE</code></li>
+<li>Default: <code>small</code> Available options are <code>small</code>, <code>medium</code> and <code>large</code></li>
+</ul>
+<h3 id="mas_ws_facilities_pull_policy">mas_ws_facilities_pull_policy<a class="headerlink" href="#mas_ws_facilities_pull_policy" title="Permanent link">¤</a></h3>
+<p>Sets the <code>imagePullPolicy</code> strategy for all deployments. The default it's set to <code>IfNotPresent</code> to reduce the pulling operations in the cluster.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_PULL_POLICY</code></li>
+<li>Default: <code>IfNotPresent</code></li>
+</ul>
+<h3 id="mas_ws_facilities_liberty_extension_xml_secret_name">mas_ws_facilities_liberty_extension_xml_secret_name<a class="headerlink" href="#mas_ws_facilities_liberty_extension_xml_secret_name" title="Permanent link">¤</a></h3>
+<p>Provide the secret name of the secret which contains additional XML tags that needs to be added into the existing Liberty Server XML to configure the application accordingly. </p>
+<h4 id="note-the-secret-name-must-be-workspaceid-facilities-lexml-sn">NOTE: The Secret name MUST be <code>&lt;workspaceId&gt;-facilities-lexml--sn</code><a class="headerlink" href="#note-the-secret-name-must-be-workspaceid-facilities-lexml-sn" title="Permanent link">¤</a></h4>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_LIBERTY_EXTENSION_XML_SECRET_NAME</code></li>
+<li>Default: None</li>
+<li>Sample Secret Template</li>
+</ul>
+<pre><code class="language-sh">cat &lt;&lt;EOF | oc create -f -
+kind: Secret
+apiVersion: v1
+metadata:
+  name: &lt;MAS_FACILITIES_LIBERTY_EXTENSION_XML_SECRET_NAME&gt;
+  namespace: mas-&lt;instanceId&gt;-facilities
+data:
+  extensions.xml: &lt;!-- Custom XML tags --&gt;
+type: Opaque
+EOF
+</code></pre>
+<h3 id="mas_ws_facilities_vault_secret_name">mas_ws_facilities_vault_secret_name<a class="headerlink" href="#mas_ws_facilities_vault_secret_name" title="Permanent link">¤</a></h3>
+<p>Provide the name of the secret which contains a password to the vault with AES Encryption key. By default, this secret will be generated automatically.</p>
+<h4 id="note-the-secret-name-must-be-workspaceid-facilities-vs-sn">NOTE: The Secret name MUST be <code>&lt;workspaceId&gt;-facilities-vs--sn</code><a class="headerlink" href="#note-the-secret-name-must-be-workspaceid-facilities-vs-sn" title="Permanent link">¤</a></h4>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_VAULT_SECRET_NAME</code></li>
+<li>Default: None</li>
+<li>Sample Secret Template</li>
+</ul>
+<pre><code class="language-sh">cat &lt;&lt;EOF | oc create -f -
+kind: Secret
+apiVersion: v1
+metadata:
+  name: &lt;MAS_FACILITIES_VAULT_SECRET_NAME&gt;
+  namespace: mas-&lt;instanceId&gt;-facilities
+data:
+  pwd: &lt;your password&gt;
+type: Opaque
+EOF
+</code></pre>
+<h3 id="mas_ws_facilities_dwfagents">mas_ws_facilities_dwfagents<a class="headerlink" href="#mas_ws_facilities_dwfagents" title="Permanent link">¤</a></h3>
+<p>Allows the user to add dedicated workflow agents (DWFA) to MREF. To specify a DWFA it's required to specify a JSON with a unique <code>name</code> and <code>members</code>. Each member has a unique <code>name</code> and <code>class</code> that can be classified as <code>user</code> or <code>group</code>. Below an example of the structure of the JSON. </p>
+<pre><code>export MAS_FACILITIES_DWFAGENTS='[{&quot;name&quot;:&quot;dwfa1&quot;,&quot;members&quot;:[{&quot;name&quot;: &quot;u1&quot;, &quot;class&quot;: &quot;user&quot;}]}, {&quot;name&quot;:&quot;dwfa2&quot;,&quot;members&quot;:[{&quot;name&quot;: &quot;u2&quot;, &quot;class&quot;: &quot;user&quot;},{&quot;name&quot;:&quot;g1&quot;, &quot;class&quot;:&quot;group&quot;}]}]'
+</code></pre>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_DWFAGENTS</code></li>
+<li>Default: <code>[]</code></li>
+</ul>
+<h3 id="facilities-database-setting-variables">Facilities - Database setting variables<a class="headerlink" href="#facilities-database-setting-variables" title="Permanent link">¤</a></h3>
+<hr />
+<h3 id="mas_ws_facilities_db_maxconnpoolsize">mas_ws_facilities_db_maxconnpoolsize<a class="headerlink" href="#mas_ws_facilities_db_maxconnpoolsize" title="Permanent link">¤</a></h3>
+<p>Sets the maximum connection pool size for database.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_DB_MAX_POOLSIZE</code></li>
+<li>Default: <code>200</code></li>
+</ul>
+<h3 id="facilities-routes-setting-variables">Facilities - Routes setting variables<a class="headerlink" href="#facilities-routes-setting-variables" title="Permanent link">¤</a></h3>
+<hr />
+<h3 id="mas_ws_facilities_db_timout">mas_ws_facilities_db_timout<a class="headerlink" href="#mas_ws_facilities_db_timout" title="Permanent link">¤</a></h3>
+<p>Sets the timeout of the application. It is a string with the structure <code>&lt;timeout_value&gt;&lt;time_unit&gt;</code>, where <code>timeout_value</code> is any non zero unsigned integer number and the supported <code>time_unit</code> are microseconds (us), milliseconds (ms), seconds (s), minutes (m), hours (h), or days (d)</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_ROUTES_TIMEOUT</code></li>
+<li>Default: <code>600s</code></li>
+</ul>
+<h3 id="facilities-storage-setting-variables">Facilities - Storage setting variables<a class="headerlink" href="#facilities-storage-setting-variables" title="Permanent link">¤</a></h3>
+<hr />
+<h3 id="mas_ws_facilities_storage_log_class">mas_ws_facilities_storage_log_class<a class="headerlink" href="#mas_ws_facilities_storage_log_class" title="Permanent link">¤</a></h3>
+<p>Sets the class for the Log Persistent Volume Claim used for MREF agents.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_STORAGE_LOG_CLASS</code></li>
+<li>Default: <code>ibmc-file-gold-gid</code></li>
+</ul>
+<h3 id="mas_ws_facilities_storage_log_mode">mas_ws_facilities_storage_log_mode<a class="headerlink" href="#mas_ws_facilities_storage_log_mode" title="Permanent link">¤</a></h3>
+<p>Sets the attach mode of the Log PVC.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_STORAGE_LOG_MODE</code></li>
+<li>Default: <code>ReadWriteMany</code></li>
+</ul>
+<h3 id="mas_ws_facilities_storage_log_size">mas_ws_facilities_storage_log_size<a class="headerlink" href="#mas_ws_facilities_storage_log_size" title="Permanent link">¤</a></h3>
+<p>Sets the size of the Log PVC.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_STORAGE_LOG_SIZE</code></li>
+<li>Default: <code>30</code></li>
+</ul>
+<h3 id="mas_ws_facilities_storage_userfiles_class">mas_ws_facilities_storage_userfiles_class<a class="headerlink" href="#mas_ws_facilities_storage_userfiles_class" title="Permanent link">¤</a></h3>
+<p>Sets the class for the Userfiles PVC used for MREF agents.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_STORAGE_USERFILES_CLASS</code></li>
+<li>Default: <code>ibmc-file-gold-gid</code></li>
+</ul>
+<h3 id="mas_ws_facilities_storage_userfiles_mode">mas_ws_facilities_storage_userfiles_mode<a class="headerlink" href="#mas_ws_facilities_storage_userfiles_mode" title="Permanent link">¤</a></h3>
+<p>Sets the attach mode of the Userfiles PVC.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_STORAGE_USERFILES_MODE</code></li>
+<li>Default: <code>ReadWriteMany</code></li>
+</ul>
+<h3 id="mas_ws_facilities_storage_userfiles_size">mas_ws_facilities_storage_userfiles_size<a class="headerlink" href="#mas_ws_facilities_storage_userfiles_size" title="Permanent link">¤</a></h3>
+<p>Sets the size of the Log PVC.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>MAS_FACILITIES_STORAGE_USERFILES_SIZE</code></li>
+<li>Default: <code>50</code></li>
+</ul>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
 <p>EPL-2.0</p>
       
     </div>
     <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v1.6.1 (2025-05-12 07:10:24.332609+00:00)
+      Built with mkdocs v1.6.1 (2025-05-14 15:51:54.639164+00:00)
     </div> -->
   <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": false, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
 </script></body>

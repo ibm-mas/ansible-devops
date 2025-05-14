@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>suite_manage_logging_config - MAS DevOps Ansible Collection</title>
+    <title>suite_db2_setup_for_facilities - MAS DevOps Ansible Collection</title>
 
     <!-- Pure CSS (https://pure-css.github.io/) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css" integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">
@@ -75,7 +75,7 @@
 
       
         <cds-header-nav>
-          <cds-header-nav-item href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/suite_manage_logging_config.md">Edit on GitHub</cds-header-nav-item>
+          <cds-header-nav-item href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/suite_db2_setup_for_facilities.md">Edit on GitHub</cds-header-nav-item>
         </cds-header-nav>
       
 
@@ -487,7 +487,7 @@
 
         
           
-  <cds-side-nav-menu title="Roles: Suite Mgmt" active expanded>
+  <cds-side-nav-menu title="Roles: Suite Mgmt" >
     
       
   <cds-side-nav-menu-item href="../suite_app_config/" >
@@ -598,7 +598,7 @@
 
     
       
-  <cds-side-nav-menu-item href="./" active expanded>
+  <cds-side-nav-menu-item href="../suite_manage_logging_config/" >
     suite_manage_logging_config
   </cds-side-nav-menu-item>
 
@@ -691,10 +691,9 @@
   <cds-breadcrumb-item>
     <cds-breadcrumb-link href="../..">Home</cds-breadcrumb-link>
   </cds-breadcrumb-item>
-      <cds-breadcrumb-item>Roles: Suite Mgmt</cds-breadcrumb-item>
 
   <cds-breadcrumb-item aria-current="page">
-    <cds-breadcrumb-link href="#suite_manage_logging_config">suite_manage_logging_config</cds-breadcrumb-link>
+    <cds-breadcrumb-link href="#suite_db2_setup_for_facilities">suite_db2_setup_for_facilities</cds-breadcrumb-link>
   </cds-breadcrumb-item>
 
   <cds-breadcrumb-item>
@@ -714,107 +713,92 @@
 
     <div id="main-content" class="rst-content">
       
-      <h1 id="suite_manage_logging_config">suite_manage_logging_config<a class="headerlink" href="#suite_manage_logging_config" title="Permanent link">¤</a></h1>
-<p>This role extends support for configuring IBM Cloud Object Storage to storage <strong>Manage</strong> application server logs.
-<strong>Note:</strong> This role should be executed <strong>after</strong> Manage application is deployed and activated as it needs Manage up and running prior configuring logging features.</p>
-<p>The default for Manage logging configuration is to use IBM Cloud Object Storage as persistent storage for Manage logging. You can run <code>cos</code> role to provision an IBM Cloud Object Storage or you can provide existing IBM Cloud Object Storage information to use it as storage for Manage application logs.</p>
-<p>In addition, you can also define a AWS S3 bucket as storage system for Manage logs.</p>
+      <h1 id="suite_db2_setup_for_facilities">suite_db2_setup_for_facilities<a class="headerlink" href="#suite_db2_setup_for_facilities" title="Permanent link">¤</a></h1>
+<p>This role shouldn't need to exist, it should be part of the Facilities operator, but is not so we have to do it as a separate step in the install flow for now.  The role will install DB2 with the required properties and perform some initial setup on the Db2 instance that is needed to prepare it for use with the Real estate and Facilities application.</p>
+<p>The role will copy scripts into the Db2 pod and execute it inside the container, this script will perform a number of configuration changes to the database as well as configuring the tablespaces for Maximo Real estate and facilities because the operator is not yet able to do this itself.</p>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
-<h3 id="cos_type">cos_type<a class="headerlink" href="#cos_type" title="Permanent link">¤</a></h3>
-<p>Required. Defines the storage provider type to be used to store Manage application's logs.
-Available options are:</p>
-<ul>
-<li><code>ibm</code>: Configures IBM Cloud Object Storage as storage system for Manage logging.</li>
-<li><code>aws</code>: Configures AWS S3 buckets as storage system for Manage logging.</li>
-</ul>
-<p>When running this role, the <a href="../cos_bucket/"><code>cos_bucket</code></a> role will be executed underneath the covers to setup a new or existing targeted IBM Cloud object or AWS S3 storage bucket to be used to store Manage logs, therefore make sure you set the expected variables to customize your Object Storage bucket accordingly to the desired provider.</p>
-<ul>
-<li>Environment Variable: <code>COS_TYPE</code></li>
-<li>Default Value: None.</li>
-</ul>
-<h3 id="mas_instance_id">mas_instance_id<a class="headerlink" href="#mas_instance_id" title="Permanent link">¤</a></h3>
-<p>Required. The instance ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
-<ul>
-<li>Environment Variable: <code>MAS_INSTANCE_ID</code></li>
-<li>Default Value: None</li>
-</ul>
-<h3 id="mas_workspace_id">mas_workspace_id<a class="headerlink" href="#mas_workspace_id" title="Permanent link">¤</a></h3>
-<p>Required. The workspace ID of Maximo Application Suite. This will be used to lookup for Manage application resources.</p>
-<ul>
-<li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
-<li>Default Value: None</li>
-</ul>
 <h3 id="db2_instance_name">db2_instance_name<a class="headerlink" href="#db2_instance_name" title="Permanent link">¤</a></h3>
-<p>Required. The DB2 Warehouse instance name that stores your Manage application tables and data. This will be used to lookup for Manage application database and update it with the IBM Object Storage configuration.</p>
+<p>The name of the db2 instance to execute the setup in.</p>
 <ul>
-<li>Environment Variable: <code>DB2_INSTANCE_NAME</code> # e.g. db2u-iot or db2wh-1658148844550964</li>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>DB2_INSTANCE_NAME</code></li>
 <li>Default Value: None</li>
 </ul>
 <h3 id="db2_namespace">db2_namespace<a class="headerlink" href="#db2_namespace" title="Permanent link">¤</a></h3>
-<p>Optional. The namespace in your cluster that hosts the DB2 Warehouse instance name. This will be used to lookup for Manage application database and update it with the IBM Object Storage configuration. If you do not provide it, the role will try to find the Db2 Warehouse in <code>db2u</code> namespace.</p>
-<ul>
-<li>Environment Variable: <code>DB2_NAMESPACE</code> # e.g. db2u</li>
-<li>Default Value: <code>db2u</code></li>
-</ul>
-<h3 id="db2_dbname">db2_dbname<a class="headerlink" href="#db2_dbname" title="Permanent link">¤</a></h3>
-<p>Name of the database within the instance.</p>
+<p>The namespace where the Db2 instance is running.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>DB2_DBNAME</code></li>
-<li>Default: <code>BLUDB</code></li>
+<li>Environment Variable: <code>DB2_NAMESPACE</code></li>
+<li>Default Value: <code>db2u</code></li>
+</ul>
+<h3 id="db2_username">db2_username<a class="headerlink" href="#db2_username" title="Permanent link">¤</a></h3>
+<p>The username that will be used to connect to the database specified by <code>db2_dbname</code>.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: None</li>
+<li>Default Value: <code>db2inst1</code></li>
+</ul>
+<h3 id="db2_dbname">db2_dbname<a class="headerlink" href="#db2_dbname" title="Permanent link">¤</a></h3>
+<p>The name of the database in the instance to connect to when executing the setup script.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: None</li>
+<li>Default Value: <code>BLUDB</code></li>
+</ul>
+<h3 id="db2_schema">db2_schema<a class="headerlink" href="#db2_schema" title="Permanent link">¤</a></h3>
+<p>The name of the Manage schema where the hack should be targeted in.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: None</li>
+<li>Default Value: <code>tridata</code></li>
+</ul>
+<h3 id="db2_tablespace_data_size">db2_tablespace_data_size<a class="headerlink" href="#db2_tablespace_data_size" title="Permanent link">¤</a></h3>
+<p>The size of the tablespace data in the database.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: DB2_TABLESPACE_DATA_SIZE</li>
+<li>Default Value: <code>5000 M</code></li>
+</ul>
+<h3 id="db2_tablespace_index_size">db2_tablespace_index_size<a class="headerlink" href="#db2_tablespace_index_size" title="Permanent link">¤</a></h3>
+<p>The size of the tablespace indexes in the database.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: DB2_TABLESPACE_INDEX_SIZE</li>
+<li>Default Value: <code>5000 M</code></li>
+</ul>
+<h3 id="db2_config_version">db2_config_version<a class="headerlink" href="#db2_config_version" title="Permanent link">¤</a></h3>
+<p>Version of the enhanced DB2 parameters, currently support <code>1.0.0</code></p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>DB2_CONFIG_VERSION</code></li>
+<li>Default: <code>1.0.0</code></li>
+</ul>
+<h3 id="enforce_db2_config">enforce_db2_config<a class="headerlink" href="#enforce_db2_config" title="Permanent link">¤</a></h3>
+<p>Flag to indicate restart the DB2 instance or not, the enhanced DB2 parameters required restart DB2 instance, this will cause downtime, should execute during customer maintenance window or newly created DB2 instance if set to <code>True</code></p>
+<ul>
+<li><strong>Required</strong></li>
+<li>Environment Variable: <code>ENFORCE_DB2_CONFIG</code></li>
+<li>Default: <code>True</code></li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
-<p>The following sample can be used to configure COS for an existing Manage application instance.</p>
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
-    mas_instance_id: masinst1
-    mas_workspace_id: masdev
-    cos_type: ibm
-    db2_instance_name: db2w-manage
-    cos_instance_name: cos-masinst1
-    cos_bucket_name: manage-logs-bucket
-    ibmcloud_apikey: xxxx
+
+    # Configuration for the Db2 cluster
+    db2_namespace: db2u
+    db2_instance_name: db2u-db01
+    db2_dbname: BLUDB
+
   roles:
-    - ibm.mas_devops.suite_manage_logging_config
-</code></pre>
-<p>The following sample can be used to configure AWS S3 for an existing Manage application instance.</p>
-<pre><code class="language-yaml">- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mas_instance_id: masinst1
-    mas_workspace_id: masdev
-    cos_type: aws
-    cos_bucket_action: create
-    aws_bucket_name: manage-logs-bucket
-    aws_region: us-east-2
-    aws_bucket_versioning_flag: True
-    aws_bucket_encryption: '{&quot;Rules&quot;: [{&quot;ApplyServerSideEncryptionByDefault&quot;: {&quot;SSEAlgorithm&quot;: &quot;AES256&quot;}}]}'
-    db2_instance_name: db2w-manage
-  roles:
-    - ibm.mas_devops.suite_manage_logging_config
-</code></pre>
-<p>The following sample playbook can be used to provision COS in IBM Cloud and configure COS for an existing Manage application instance.</p>
-<pre><code class="language-yaml">- hosts: localhost
-  any_errors_fatal: true
-  vars:
-    mas_instance_id: masinst1
-    mas_workspace_id: masdev
-    db2_instance_name: db2w-manage
-    cos_type: ibm
-    cos_instance_name: cos-masinst1
-    cos_bucket_name: manage-logs-bucket
-    ibmcloud_apikey: xxxx
-  roles:
-    - ibm.mas_devops.cos
-    - ibm.mas_devops.suite_manage_logging_config
+    - ibm.mas_devops.suite_db2_setup_for_facilities
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
 <p>EPL-2.0</p>
       
     </div>
     <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v1.6.1 (2025-05-14 15:51:54.705676+00:00)
+      Built with mkdocs v1.6.1 (2025-05-14 15:51:54.671925+00:00)
     </div> -->
   <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": false, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
 </script></body>
