@@ -1,6 +1,11 @@
 ---
-- name: Delete WatsonX.AI secret
-  command: oc delete secret "{{ tenantNamespace }}----wx-secret" -n {{ aibroker_namespace }}
-  register: delete_result
-  ignore_errors: yes
-  failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
+- name: Delete WatsonX secret
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Secret
+    name: "{{ mas_aibroker_watsonxai_secret }}"
+    state: absent
+    namespace: "{{ item }}"
+  loop:
+    - "{{ aibroker_namespace }}"
+    - "{{ tenantNamespace }}"
