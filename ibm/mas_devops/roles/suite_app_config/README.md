@@ -513,7 +513,9 @@ Sets the `imagePullPolicy` strategy for all deployments. The default it's set to
 - Default: `IfNotPresent`
 
 ### mas_ws_facilities_liberty_extension_xml_secret_name
-Provide the secret name of the secret which contains additional XML tags that needs to be added into the existing Liberty Server XML to configure the application accordingly.
+Provide the secret name of the secret which contains additional XML tags that needs to be added into the existing Liberty Server XML to configure the application accordingly. 
+
+#### NOTE: The Secret name MUST be `<workspaceId>-facilities-lexml--sn`
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_LIBERTY_EXTENSION_XML_SECRET_NAME`
@@ -534,6 +536,8 @@ EOF
 
 ### mas_ws_facilities_vault_secret_name
 Provide the name of the secret which contains a password to the vault with AES Encryption key. By default, this secret will be generated automatically.
+
+#### NOTE: The Secret name MUST be `<workspaceId>-facilities-vs--sn`
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_VAULT_SECRET_NAME`
