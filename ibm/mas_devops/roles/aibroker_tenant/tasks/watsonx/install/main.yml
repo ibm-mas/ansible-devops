@@ -1,19 +1,9 @@
 ---
-- name: "Check if WatsonX AI API key secret exists in namespace: {{ aibroker_namespace }}"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ tenantNamespace }}----wx-secret"
-    namespace: "{{ aibroker_namespace }}"
-  register: wx_apikey_secret_info
-
-- name: Create WatsonX AI API Key
-  script: "{{ role_path }}/files/create_wx.sh {{ tenantNamespace }} {{ aibroker_namespace }} {{ mas_aibroker_watsonxai_apikey }} {{ mas_aibroker_watsonxai_url }} {{ mas_aibroker_watsonxai_project_id }}"
-  when:
-    - wx_apikey_secret_info.resources | length == 0
-
-# Copy secrets to tenant namespace
-- name: 'Copy secret {{ tenantNamespace }}----wx-secret to namespace: {{ tenantNamespace }}'
-  shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply --force -f -'
-  with_items:
-    - '{{ tenantNamespace }}----wx-secret'
+- name: Create WatsonX secret
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ item }}"
+    template: "templates/watsonx/secret.yml.j2"
+  loop:
+    - "{{ aibroker_namespace }}"
+    - "{{ tenantNamespace }}"
