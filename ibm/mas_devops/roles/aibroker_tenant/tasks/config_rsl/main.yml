@@ -2,33 +2,28 @@
 - name: Read RSL config from environment
   ansible.builtin.set_fact:
     rslcfg:
-      url: "{{ lookup('env', 'RSL_URL') }}"
-      org_id: "{{ lookup('env', 'RSL_ORG_ID') }}"
-      token: "{{ lookup('env', 'RSL_TOKEN') }}"
+      url: "{{ lookup('env', 'RSL_URL') | default('', true) }}"
+      org_id: "{{ lookup('env', 'RSL_ORG_ID') | default('', true) }}"
+      token: "{{ lookup('env', 'RSL_TOKEN') | default('', true) }}"
 
-- name: "Debug: RSL information" #TODO: remove before PR
-  debug:
+- name: "Debug: RSL information" # TODO: remove before PR
+  ansible.builtin.debug:
     msg:
       - "rsl url ......... {{ rslcfg.url }}"
       - "rsl org_id ...... {{ rslcfg.org_id }}"
 
-- name: "Validate RSL configuration"
-  when: rslcfg.url | length == 0
-  fail:
-    msg: "rslcfg.url must not empty"
+- name: "Check if all RSL config values are present"
+  ansible.builtin.set_fact:
+    rsl_config_valid: "{{ rslcfg.url | length > 0 and rslcfg.org_id | length > 0 and rslcfg.token | length > 0 }}"
 
-- name: "Validate RSL configuration"
-  when: rslcfg.org_id | length == 0
-  fail:
-    msg: "rslcfg.org_id must not empty"
-
-- name: "Validate RSL configuration"
-  when: rslcfg.token | length == 0
-  fail:
-    msg: "rslcfg.token must not empty"
+- name: "Fail if RSL config is incomplete"
+  ansible.builtin.fail:
+    msg: "RSL config incomplete: url, org_id, and token must all be provided"
+  when: not rsl_config_valid
 
 - name: Create RSL secret
   kubernetes.core.k8s:
     state: present
     namespace: "{{ aibroker_namespace }}"
     template: "templates/rsl/rsl-secret.yml.j2"
+  when: rsl_config_valid
