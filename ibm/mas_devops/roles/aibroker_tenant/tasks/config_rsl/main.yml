@@ -1,20 +1,18 @@
 ---
-- name: Read RSL config from environment
-  ansible.builtin.set_fact:
-    rslcfg:
-      url: "{{ lookup('env', 'RSL_URL') | default('', true) }}"
-      org_id: "{{ lookup('env', 'RSL_ORG_ID') | default('', true) }}"
-      token: "{{ lookup('env', 'RSL_TOKEN') | default('', true) }}"
-
 - name: "Debug: RSL information" # TODO: remove before PR
   ansible.builtin.debug:
     msg:
-      - "rsl url ......... {{ rslcfg.url }}"
-      - "rsl org_id ...... {{ rslcfg.org_id }}"
+      - "rsl url ......... {{ rsl_url }}"
+      - "rsl org_id ...... {{ rsl_org_id }}"
 
 - name: "Check if all RSL config values are present"
   ansible.builtin.set_fact:
-    rsl_config_valid: "{{ rslcfg.url | length > 0 and rslcfg.org_id | length > 0 and rslcfg.token | length > 0 }}"
+    rsl_config_valid: "{{ rsl_url | length > 0 and rsl_org_id | length > 0 and rsl_token | length > 0 }}"
+
+- name: "Set RSL Secret name"
+  ansible.builtin.set_fact:
+    mas_aibroker_rsl_secret: ""
+  when: not rsl_config_valid
 
 - name: "warning about RSL config being incomplete"
   ansible.builtin.debug:
