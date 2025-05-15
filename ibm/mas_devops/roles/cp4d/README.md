@@ -5,25 +5,18 @@ This role installs or upgrades [IBM Cloud Pak for Data](https://www.ibm.com/uk-e
 
 Currently supported Cloud Pak for Data release versions are:
 
-  - 4.6.0
-  - 4.6.3
-  - 4.6.4
-  - 4.6.6
   - 4.8.0
   - 5.0.0
-  - 5.1.0
+  - 5.1.3
 
 The role will automatically install or upgrade (if targeted to an existing CPD deployment) the corresponding Zen version associated to the chosen Cloud Pak for Data release, for example:
 
-- Cloud Pak for Data release version `4.6.0` installs Zen/Control Plane version [`4.8.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.0.yml#L65).
-- Cloud Pak for Data release version `4.6.3` installs Zen/Control Plane version [`4.8.1`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.3.yml#L65).
-- Cloud Pak for Data release version `4.6.4` installs Zen/Control Plane version [`4.8.2`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.4.yml#L65).
-- Cloud Pak for Data release version `4.6.6` installs Zen/Control Plane version [`4.8.2`](https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.4.yml#L65).
 - Cloud Pak for Data release version `4.8.0` installs Zen/Control Plane version [`5.1.0`](https://github.ibm.com/PrivateCloud/olm-utils/blob/4.8.x/ansible-play/config-vars/release-4.8.0.yml)
 - Cloud Pak for Data release version `5.0.0` installs Zen/Control Plane version `6.0.1`
-- Cloud Pak for Data release version `5.1.0` installs Zen/Control Plane version `6.1.0`
+- Cloud Pak for Data release version `5.1.3` installs Zen/Control Plane version `6.1.1`
 
-For more information about CPD versioning, see [IBM Cloud Pak for Data Operator and operand versions 4.9.x](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=planning-operator-operand-versions) or [IBM Cloud Pak for Data Operator and operand versions 5.0.x](https://www.ibm.com/docs/en/cloud-paks/cp-data/5.0.x?topic=planning-operator-operand-versions)
+For more information about CPD versioning, see [IBM Cloud Pak for Data Operator and operand versions 4.8.x](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=planning-operator-operand-versions) or [IBM Cloud Pak for Data Operator and operand versions 5.0.x](https://www.ibm.com/docs/en/cloud-paks/cp-data/5.0.x?topic=planning-operator-operand-versions) or [IBM Cloud Pak for data Operator and operand versions 5.1.x](https://www.ibm.com/docs/en/software-hub/5.1.x?topic=planning-operator-operand-versions)
+
 
 !!! info
     - Install CP4D ControlPlane (~1 hour)
@@ -61,7 +54,7 @@ Cloud Pak for Data will be configured as a [specialized installation](https://ww
 Cloud Pak for Data deployment details
 ------------------
 
-### 5.0.x version:
+### 5.0 version and onwards:
 
 Cloud Pak for Data 5.0.x leverages Cloud Pak Foundational Services v4, which runs its deployments in isolated/dedicated scope model, that means that its dependencies will be grouped and installed within the Cloud Pak for Data related projects/namespaces. There are only two namespaces that will be used: CPD instance namespace (e.g `ibm-cpd`) and CPD operators namespace (e.g `ibm-cpd-operators`).
 
@@ -179,68 +172,6 @@ persistentvolumeclaim/zen-metastore-edb-2                                Bound  
 !!! tip
     You can retrieve the Cloud Pak for Data password from the **ibm-iam-bindinfo-platform-auth-idp-credentials** secret: `oc -n ibm-cpd get secret ibm-iam-bindinfo-platform-auth-idp-credentials -o jsonpath="{.data.admin_password}" | base64 -d`
 
-### 4.6.x version:
-
-Cloud Pak for Data 4.6.x is made up of many moving parts across multiple namespaces.
-
-In the **ibm-common-services** namespace:
-```bash
-oc -n ibm-common-services get deployments
-NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
-cert-manager-cainjector                1/1     1            1           85m
-cert-manager-controller                1/1     1            1           85m
-cert-manager-webhook                   1/1     1            1           85m
-configmap-watcher                      1/1     1            1           85m
-ibm-cert-manager-operator              1/1     1            1           87m
-ibm-common-service-operator            1/1     1            1           92m
-ibm-common-service-webhook             1/1     1            1           91m
-ibm-namespace-scope-operator           1/1     1            1           91m
-ibm-zen-operator                       1/1     1            1           87m
-meta-api-deploy                        1/1     1            1           86m
-operand-deployment-lifecycle-manager   1/1     1            1           90m
-secretshare                            1/1     1            1           91m
-```
-
-In the **ibm-cpd-operators** namespace:
-```bash
-oc -n ibm-cpd-operators get deployments
-NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
-cpd-platform-operator-manager   1/1     1            1           87m
-ibm-common-service-operator     1/1     1            1           87m
-ibm-namespace-scope-operator    1/1     1            1           87m
-```
-
-In the **ibm-cpd** namespace:
-```
-oc -n ibm-cpd get zenservice,ibmcpd,deployments,sts
-NAME                                 AGE
-zenservice.zen.cpd.ibm.com/lite-cr   81m
-
-NAME                        AGE
-ibmcpd.cpd.ibm.com/ibmcpd   85m
-
-NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/ibm-nginx           3/3     3            3           62m
-deployment.apps/usermgmt            3/3     3            3           64m
-deployment.apps/zen-audit           1/1     1            1           56m
-deployment.apps/zen-core            3/3     3            3           55m
-deployment.apps/zen-core-api        3/3     3            3           55m
-deployment.apps/zen-data-sorcerer   2/2     2            2           48m
-deployment.apps/zen-watchdog        1/1     1            1           48m
-deployment.apps/zen-watcher         1/1     1            1           55m
-
-NAME                               READY   AGE
-statefulset.apps/dsx-influxdb      1/1     51m
-statefulset.apps/zen-metastoredb   3/3     68m
-```
-
-!!! tip
-    You can retrieve the Cloud Pak for Data password from the **admin-user-details** secret: `oc -n ibm-cpd get secret admin-user-details -o jsonpath="{.data.initial_admin_password}" | base64 -d`
-
-
-
-Role Variables
---------------
 ### cpd_product_version
 Defines the IBM Cloud Pak for Data release version to be installed.
 
@@ -307,8 +238,7 @@ The CP4D Admin username to authenticate with CP4D APIs. If you didn't change the
 - Optional
 - Environment Variable: `CPD_ADMIN_USERNAME`
 - Default Value:
-  - `admin` (CPD 4.6)
-  - `cpadmin` (CPD 4.8)
+  - `cpadmin`
 
 ### cpd_admin_password
 The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for `admin` or `cpdamin` will be used.
@@ -316,8 +246,7 @@ The CP4D Admin User password to call CP4D API to provision Discovery Instance. I
 - Optional
 - Environment Variable: `CPD_ADMIN_PASSWORD`
 - Default Value:
-    - CPD 4.6: Looked up from the `admin-user-details` secret in the `cpd_instance_namespace` namespace
-    - CPD 4.8: Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
+    - Looked up from the `ibm-iam-bindinfo-platform-auth-idp-credentials` secret in the `cpd_instance_namespace` namespace
 
 Example Playbook
 ----------------
@@ -326,7 +255,7 @@ Example Playbook
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cpd_product_version: 5.1.0
+    cpd_product_version: 5.1.3
     cpd_primary_storage_class: ibmc-file-gold-gid
     cpd_metadata_storage_class: ibmc-block-gold
   roles:
