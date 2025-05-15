@@ -1,0 +1,27 @@
+---
+- name: "Debug: RSL information" # TODO: remove before PR
+  ansible.builtin.debug:
+    msg:
+      - "rsl url ......... {{ rsl_url }}"
+      - "rsl org_id ...... {{ rsl_org_id }}"
+
+- name: "Check if all RSL config values are present"
+  ansible.builtin.set_fact:
+    rsl_config_valid: "{{ rsl_url | length > 0 and rsl_org_id | length > 0 and rsl_token | length > 0 }}"
+
+- name: "Set RSL Secret name"
+  ansible.builtin.set_fact:
+    mas_aibroker_rsl_secret: ""
+  when: not rsl_config_valid
+
+- name: "warning about RSL config being incomplete"
+  ansible.builtin.debug:
+    msg: "WARNING: RSL config is incomplete. Skipping RSL secret creation."
+  when: not rsl_config_valid
+
+- name: Create RSL secret
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ aibroker_namespace }}"
+    template: "templates/rsl/rsl-secret.yml.j2"
+  when: rsl_config_valid
