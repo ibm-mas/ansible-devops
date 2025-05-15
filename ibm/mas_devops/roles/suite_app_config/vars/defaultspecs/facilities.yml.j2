@@ -1,0 +1,32 @@
+---
+# Default application spec for Facilities
+mas_appws_spec:
+  podTemplates: {{ ((ibm_mas_facilities_facilitiesworkspace_pod_templates is defined) and (ibm_mas_facilities_facilitiesworkspace_pod_templates | length != 0)) | ternary(ibm_mas_facilities_facilitiesworkspace_pod_templates, []) }}
+  bindings:
+    jdbc: "{{ mas_appws_bindings_jdbc | default( 'workspace-application' , true) }}"
+  settings:
+    deployment:
+      size: "{{ mas_ws_facilities_size }}"
+    routes:
+      timeout: "{{ mas_ws_facilities_routes_timeout }}"
+{% if mas_ws_facilities_liberty_extension_XML is defined and mas_ws_facilities_liberty_extension_XML != "" %}
+    libertyExtensionXML: 
+      secretName: "{{ mas_ws_facilities_liberty_extension_XML }}"
+{% endif %}
+{% if mas_ws_facilities_vault_secret is defined and mas_ws_facilities_vault_secret != "" %}
+    vaultSecret: 
+      secretName: "{{ mas_ws_facilities_vault_secret }}"
+{% endif %}
+    imagePullPolicy: "{{ mas_ws_facilities_pull_policy }}"
+    storage:
+      log:
+        class: "{{ mas_ws_facilities_storage_log_class }}"
+        mode: "{{ mas_ws_facilities_storage_log_mode }}"
+        size: {{ mas_ws_facilities_storage_log_size }}
+      userfiles:
+        class: "{{ mas_ws_facilities_storage_userfiles_class }}"
+        mode: "{{ mas_ws_facilities_storage_userfiles_mode }}"
+        size: {{ mas_ws_facilities_storage_userfiles_size }}
+    dwfagents: {{ mas_ws_facilities_dwfagents }}
+    db:
+      maxconnpoolsize: {{ mas_ws_facilities_db_maxconnpoolsize }}
