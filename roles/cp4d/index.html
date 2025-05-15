@@ -712,25 +712,17 @@
 <p>This role installs or upgrades <a href="https://www.ibm.com/uk-en/products/cloud-pak-for-data">IBM Cloud Pak for Data</a> Operator in the target cluster.</p>
 <p>Currently supported Cloud Pak for Data release versions are:</p>
 <ul>
-<li>4.6.0</li>
-<li>4.6.3</li>
-<li>4.6.4</li>
-<li>4.6.6</li>
 <li>4.8.0</li>
 <li>5.0.0</li>
-<li>5.1.0</li>
+<li>5.1.3</li>
 </ul>
 <p>The role will automatically install or upgrade (if targeted to an existing CPD deployment) the corresponding Zen version associated to the chosen Cloud Pak for Data release, for example:</p>
 <ul>
-<li>Cloud Pak for Data release version <code>4.6.0</code> installs Zen/Control Plane version <a href="https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.0.yml#L65"><code>4.8.0</code></a>.</li>
-<li>Cloud Pak for Data release version <code>4.6.3</code> installs Zen/Control Plane version <a href="https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.3.yml#L65"><code>4.8.1</code></a>.</li>
-<li>Cloud Pak for Data release version <code>4.6.4</code> installs Zen/Control Plane version <a href="https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.4.yml#L65"><code>4.8.2</code></a>.</li>
-<li>Cloud Pak for Data release version <code>4.6.6</code> installs Zen/Control Plane version <a href="https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.6.4.yml#L65"><code>4.8.2</code></a>.</li>
 <li>Cloud Pak for Data release version <code>4.8.0</code> installs Zen/Control Plane version <a href="https://github.ibm.com/PrivateCloud/olm-utils/blob/4.8.x/ansible-play/config-vars/release-4.8.0.yml"><code>5.1.0</code></a></li>
 <li>Cloud Pak for Data release version <code>5.0.0</code> installs Zen/Control Plane version <code>6.0.1</code></li>
-<li>Cloud Pak for Data release version <code>5.1.0</code> installs Zen/Control Plane version <code>6.1.0</code></li>
+<li>Cloud Pak for Data release version <code>5.1.3</code> installs Zen/Control Plane version <code>6.1.1</code></li>
 </ul>
-<p>For more information about CPD versioning, see <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=planning-operator-operand-versions">IBM Cloud Pak for Data Operator and operand versions 4.9.x</a> or <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/5.0.x?topic=planning-operator-operand-versions">IBM Cloud Pak for Data Operator and operand versions 5.0.x</a></p>
+<p>For more information about CPD versioning, see <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=planning-operator-operand-versions">IBM Cloud Pak for Data Operator and operand versions 4.8.x</a> or <a href="https://www.ibm.com/docs/en/cloud-paks/cp-data/5.0.x?topic=planning-operator-operand-versions">IBM Cloud Pak for Data Operator and operand versions 5.0.x</a> or <a href="https://www.ibm.com/docs/en/software-hub/5.1.x?topic=planning-operator-operand-versions">IBM Cloud Pak for data Operator and operand versions 5.1.x</a></p>
 <div class="admonition info">
 <p class="admonition-title">Info</p>
 <ul>
@@ -759,7 +751,7 @@ All you need to do is to define <code>cpd_product_version</code> variable to the
 <p>In this way, you can specify different settings for the IBM Cloud Pak foundational services and for the Cloud Pak for Data operators.</p>
 </div>
 <h2 id="cloud-pak-for-data-deployment-details">Cloud Pak for Data deployment details<a class="headerlink" href="#cloud-pak-for-data-deployment-details" title="Permanent link">¤</a></h2>
-<h3 id="50x-version">5.0.x version:<a class="headerlink" href="#50x-version" title="Permanent link">¤</a></h3>
+<h3 id="50-version-and-onwards">5.0 version and onwards:<a class="headerlink" href="#50-version-and-onwards" title="Permanent link">¤</a></h3>
 <p>Cloud Pak for Data 5.0.x leverages Cloud Pak Foundational Services v4, which runs its deployments in isolated/dedicated scope model, that means that its dependencies will be grouped and installed within the Cloud Pak for Data related projects/namespaces. There are only two namespaces that will be used: CPD instance namespace (e.g <code>ibm-cpd</code>) and CPD operators namespace (e.g <code>ibm-cpd-operators</code>).</p>
 <p>In the <strong>ibm-cpd-operators</strong> namespace:</p>
 <pre><code class="language-bash">oc -n ibm-cpd-operators get deployments
@@ -867,58 +859,6 @@ persistentvolumeclaim/zen-metastore-edb-2                                Bound  
 <p class="admonition-title">Tip</p>
 <p>You can retrieve the Cloud Pak for Data password from the <strong>ibm-iam-bindinfo-platform-auth-idp-credentials</strong> secret: <code>oc -n ibm-cpd get secret ibm-iam-bindinfo-platform-auth-idp-credentials -o jsonpath="{.data.admin_password}" | base64 -d</code></p>
 </div>
-<h3 id="46x-version">4.6.x version:<a class="headerlink" href="#46x-version" title="Permanent link">¤</a></h3>
-<p>Cloud Pak for Data 4.6.x is made up of many moving parts across multiple namespaces.</p>
-<p>In the <strong>ibm-common-services</strong> namespace:</p>
-<pre><code class="language-bash">oc -n ibm-common-services get deployments
-NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
-cert-manager-cainjector                1/1     1            1           85m
-cert-manager-controller                1/1     1            1           85m
-cert-manager-webhook                   1/1     1            1           85m
-configmap-watcher                      1/1     1            1           85m
-ibm-cert-manager-operator              1/1     1            1           87m
-ibm-common-service-operator            1/1     1            1           92m
-ibm-common-service-webhook             1/1     1            1           91m
-ibm-namespace-scope-operator           1/1     1            1           91m
-ibm-zen-operator                       1/1     1            1           87m
-meta-api-deploy                        1/1     1            1           86m
-operand-deployment-lifecycle-manager   1/1     1            1           90m
-secretshare                            1/1     1            1           91m
-</code></pre>
-<p>In the <strong>ibm-cpd-operators</strong> namespace:</p>
-<pre><code class="language-bash">oc -n ibm-cpd-operators get deployments
-NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
-cpd-platform-operator-manager   1/1     1            1           87m
-ibm-common-service-operator     1/1     1            1           87m
-ibm-namespace-scope-operator    1/1     1            1           87m
-</code></pre>
-<p>In the <strong>ibm-cpd</strong> namespace:</p>
-<pre><code>oc -n ibm-cpd get zenservice,ibmcpd,deployments,sts
-NAME                                 AGE
-zenservice.zen.cpd.ibm.com/lite-cr   81m
-
-NAME                        AGE
-ibmcpd.cpd.ibm.com/ibmcpd   85m
-
-NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/ibm-nginx           3/3     3            3           62m
-deployment.apps/usermgmt            3/3     3            3           64m
-deployment.apps/zen-audit           1/1     1            1           56m
-deployment.apps/zen-core            3/3     3            3           55m
-deployment.apps/zen-core-api        3/3     3            3           55m
-deployment.apps/zen-data-sorcerer   2/2     2            2           48m
-deployment.apps/zen-watchdog        1/1     1            1           48m
-deployment.apps/zen-watcher         1/1     1            1           55m
-
-NAME                               READY   AGE
-statefulset.apps/dsx-influxdb      1/1     51m
-statefulset.apps/zen-metastoredb   3/3     68m
-</code></pre>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p>You can retrieve the Cloud Pak for Data password from the <strong>admin-user-details</strong> secret: <code>oc -n ibm-cpd get secret admin-user-details -o jsonpath="{.data.initial_admin_password}" | base64 -d</code></p>
-</div>
-<h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
 <h3 id="cpd_product_version">cpd_product_version<a class="headerlink" href="#cpd_product_version" title="Permanent link">¤</a></h3>
 <p>Defines the IBM Cloud Pak for Data release version to be installed.</p>
 <ul>
@@ -985,8 +925,7 @@ For more information, refer to <a href="https://www.ibm.com/docs/en/cloud-paks/c
 <li>Optional</li>
 <li>Environment Variable: <code>CPD_ADMIN_USERNAME</code></li>
 <li>Default Value:</li>
-<li><code>admin</code> (CPD 4.6)</li>
-<li><code>cpadmin</code> (CPD 4.8)</li>
+<li><code>cpadmin</code></li>
 </ul>
 <h3 id="cpd_admin_password">cpd_admin_password<a class="headerlink" href="#cpd_admin_password" title="Permanent link">¤</a></h3>
 <p>The CP4D Admin User password to call CP4D API to provision Discovery Instance. If you didn't change the initial admin password after CP4D install, you don't need to provide it.  The initial admin user password for <code>admin</code> or <code>cpdamin</code> will be used.</p>
@@ -994,8 +933,7 @@ For more information, refer to <a href="https://www.ibm.com/docs/en/cloud-paks/c
 <li>Optional</li>
 <li>Environment Variable: <code>CPD_ADMIN_PASSWORD</code></li>
 <li>Default Value:<ul>
-<li>CPD 4.6: Looked up from the <code>admin-user-details</code> secret in the <code>cpd_instance_namespace</code> namespace</li>
-<li>CPD 4.8: Looked up from the <code>ibm-iam-bindinfo-platform-auth-idp-credentials</code> secret in the <code>cpd_instance_namespace</code> namespace</li>
+<li>Looked up from the <code>ibm-iam-bindinfo-platform-auth-idp-credentials</code> secret in the <code>cpd_instance_namespace</code> namespace</li>
 </ul>
 </li>
 </ul>
@@ -1003,7 +941,7 @@ For more information, refer to <a href="https://www.ibm.com/docs/en/cloud-paks/c
 <pre><code class="language-yaml">- hosts: localhost
   any_errors_fatal: true
   vars:
-    cpd_product_version: 5.1.0
+    cpd_product_version: 5.1.3
     cpd_primary_storage_class: ibmc-file-gold-gid
     cpd_metadata_storage_class: ibmc-block-gold
   roles:
@@ -1014,7 +952,7 @@ For more information, refer to <a href="https://www.ibm.com/docs/en/cloud-paks/c
       
     </div>
     <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v1.6.1 (2025-05-14 15:51:54.488563+00:00)
+      Built with mkdocs v1.6.1 (2025-05-15 13:16:35.943962+00:00)
     </div> -->
   <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": false, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
 </script></body>
