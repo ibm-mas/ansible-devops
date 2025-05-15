@@ -176,6 +176,11 @@ MAS_CONFIG_DIR
 |     |    |---tls.crt
 |     |    |---tls.key
 |     |    |---ca.crt
+|     |---facilities
+|     |    |
+|     |    |---tls.crt
+|     |    |---tls.key
+|     |    |---ca.crt
 ```
 
 
