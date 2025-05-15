@@ -1,0 +1,36 @@
+- name: Read rsl config from environment
+  ansible.builtin.set_fact:
+    rslcfg:
+      url: "{{ lookup('env', 'RSL_URL') }}"
+      rsl_token: "{{ lookup('env', 'RSL_TOKEN') }}"
+      org_id : "{{ lookup('env', 'RSL_ORG_ID') }}"
+
+
+- name: "Debug: rsl information" #TODO: remove before PR
+  debug:
+    msg:
+      - "rsl url ................. {{ rslcfg.url }}"
+      - "rsl token  ............. {{ rslcfg.rsl_token }}"
+      - "rsl org id .............. {{ rslcfg.org_id }}"
+
+
+- name: "Validate rsl configuration"
+  when: rslcfg.url | length == 0
+  fail:
+    msg: "rslcfg.url must not empty"
+
+- name: "Validate rsl configuration"
+  when: rslcfg.rsl_token | length == 0
+  fail:
+    msg: "rslcfg.rsl_token must not empty"
+
+- name: "Validate rsl configuration"
+  when: rslcfg.org_id | length == 0
+  fail:
+    msg: "rslcfg.org_id must not empty"
+
+- name: Create rsl secret
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ aibroker_namespace }}"
+    template: "templates/rsl/rsl-secret.yml.j2"
