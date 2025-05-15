@@ -2,6 +2,7 @@
 
 # 0. Look up OCP version in Cluster and set expected operator and channel
 # -----------------------------------------------------------------------------
+
 - name: "Look up cluster ocp version"
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
@@ -9,53 +10,73 @@
     kind: ClusterVersion
   register: ocp_version_lookup
 
-- name: "Set ocp version number"
+- name: "Set OCP version number"
   when: ocp_version_lookup.resources[0] is defined
   set_fact:
     ocp_release: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
 
-- name: "Set storage operator and lso channel based on OCP release"
+# NEW: Extract major.minor from OCP release to help select correct channel
+- name: "Extract OCP major.minor version"
   set_fact:
-    # As the default for the ocp_release is post 4.11 then the default operator is odf (rather than ocs)
-    storage_operator: "{{ (ocp_release is version('4.11.0', '>=')) | ternary('odf', 'ocs') }}"
-    storage_operator_channel: "stable-{{ ocp_release | regex_search('^([0-9]+)\\.([0-9]+)') }}" # extract the ocp minor version
+    ocp_minor_version: "{{ ocp_release | regex_search('^([0-9]+\\.[0-9]+)') }}"
 
-    # The lso operator channel subscription can be set to stable for all the versions
+# CHANGED: Determine correct operator (odf or ocs) based on OCP version
+- name: "Determine storage operator (odf or ocs) based on OCP version"
+  set_fact:
+    storage_operator: "{{ (ocp_release is version('4.11.0', '>=')) | ternary('odf', 'ocs') }}"
+
+- name: "Set LSO operator channel (always 'stable')"
+  set_fact:
     local_storage_operator_channel: "stable"
 
-- name: Get storage operator package manifest
+- name: "Get storage operator package manifest"
   kubernetes.core.k8s_info:
     api_version: packages.operators.coreos.com/v1
     kind: PackageManifest
     name: "{{ storage_operator }}-operator"
-    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+    namespace: openshift-marketplace
   register: storage_operator_manifest
 
-- name: Assert that PackageManifest exists
+- name: "Assert that PackageManifest exists"
   ansible.builtin.assert:
     that:
       - storage_operator_manifest is defined
       - storage_operator_manifest.resources is defined
-      - storage_operator_manifest.resources | length == 1
+      - storage_operator_manifest.resources | length > 0
     fail_msg: "PackageManifest not found: {{ storage_operator }}-operator"
 
-- name: Set the subscription information
+# NEW: Extract all available channels from the PackageManifest dynamically
+- name: "Get available channels from PackageManifest"
+  set_fact:
+    available_channels: "{{ storage_operator_manifest.resources[0].status.channels | map(attribute='name') | list }}"
+
+# NEW: Select correct channel based on ocp_minor_version from available ones
+- name: "Select storage operator channel matching current OCP version"
+  set_fact:
+    storage_operator_channel: "{{ available_channels | select('match', '^stable-' ~ ocp_minor_version) | list | first }}"
+
+# CHANGED: Use dynamically selected channel and source values
+- name: "Set storage operator subscription info"
   set_fact:
     storage_operator_source: "{{ storage_operator_manifest.resources[0].status.catalogSource }}"
     storage_operator_source_namespace: "{{ storage_operator_manifest.resources[0].status.catalogSourceNamespace }}"
-    storage_operator_default_channel: "{{ storage_operator_manifest.resources[0].status.defaultChannel }}"
+    storage_operator_default_channel: "{{ storage_operator_channel }}"
 
-# 1. Debug configuration
+# 1. Debug Configuration
 # -----------------------------------------------------------------------------
-- name: "Debug ocs role configuration"
+- name: "Debug ODF/OCS role configuration"
   debug:
     msg:
-      - "OCP Release ............................ {{ ocp_release }}"
-      - "LSO Operator channel ................... {{ local_storage_operator_channel }}"
-      - "Storage Operator ....................... {{ storage_operator }}"
-      - "Storage Operator channel ............... {{ storage_operator_channel }}"
+      - "OCP Release ...................... {{ ocp_release }}"
+      - "Extracted Minor Version ......... {{ ocp_minor_version }}"
+      - "Available Channels .............. {{ available_channels }}"
+      - "Selected Channel ................ {{ storage_operator_channel }}"
+      - "Storage Operator ................ {{ storage_operator }}"
+      - "CatalogSource ................... {{ storage_operator_source }}"
+      - "CatalogSource Namespace ......... {{ storage_operator_source_namespace }}"
+      - "LSO Operator Channel ............ {{ local_storage_operator_channel }}"
 
-# 2. Configure ODF or OCS backed by local-storage
+# 2. Configure ODF or OCS backed by Local Storage
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/localstorage.yml
 - include_tasks: tasks/install/storage.yml
