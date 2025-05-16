@@ -10,7 +10,7 @@
 - name: "Wait for tenant CR to be ready"
   kubernetes.core.k8s_info:
     api_version: apps.mas.ibm.com/v1
-    name: "{{ tenantNamespace }}"
+    name: "{{ mas_aibroker_tenant_namespace }}"
     namespace: "{{ aibroker_namespace }}"
     kind: AiBrokerWorkspace
   register: aibrokerworkspace_cr_result
@@ -21,8 +21,8 @@
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
 
-- name: "Copy secrets to namespace: {{ tenantNamespace }}"
-  shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply --force -f -'
+- name: "Copy secrets to namespace: {{ mas_aibroker_tenant_namespace }}"
+  shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ mas_aibroker_tenant_namespace }}/" | oc apply --force -f -'
   with_items:
     - km-s3-secret
     - "{{ aibroker_pull_secret_name }}"
