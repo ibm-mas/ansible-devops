@@ -48,16 +48,114 @@
       debug:
         msg: "Cluster domain ........................ {{ cluster_domain }}"
 
+    - name: "Check for required environment variables"
+      assert:
+        that:
+          - lookup('env', 'ARTIFACTORY_USERNAME') != ""
+          - lookup('env', 'ARTIFACTORY_TOKEN') != ""
+          - lookup('env', 'MAS_ENTITLEMENT_USERNAME') != ""
+          - lookup('env', 'MAS_ENTITLEMENT_KEY') != ""
+          - lookup('env', 'MAS_ICR_CP') != ""
+          - lookup('env', 'MAS_ICR_CPOPEN') != ""
+          - lookup('env', 'MAS_INSTANCE_ID') != ""
+          - lookup('env', 'MAS_AIBROKER_WATSONXAI_APIKEY') != ""
+          - lookup('env', 'MAS_AIBROKER_WATSONXAI_URL') != ""
+          - lookup('env', 'MAS_AIBROKER_WATSONXAI_PROJECT_ID') != ""
+          - lookup('env', 'MAS_CONFIG_DIR') != ""
+          - lookup('env', 'MAS_CATALOG_VERSION') != ""
+        fail_msg: "One or more required environment variables are not defined"
+      when:
+        - mas_app_channel in ['9.0.x', '9.1.x-dev'] or mas_aibroker_saas == true
+
+    - name: "Check for required environment variables for minio"
+      assert:
+        that:
+          - lookup('env', 'MINIO_ROOT_PASSWORD') != ""
+          - lookup('env', 'MAS_AIBROKER_STORAGE_ACCESSKEY') != ""
+          - lookup('env', 'MAS_AIBROKER_STORAGE_SECRETKEY') != ""
+          - lookup('env', 'MAS_AIBROKER_STORAGE_HOST') != ""
+          - lookup('env', 'MAS_AIBROKER_STORAGE_SSL') != ""
+          - lookup('env', 'MAS_AIBROKER_STORAGE_PROVIDER') != ""
+          - lookup('env', 'MAS_AIBROKER_STORAGE_PIPELINES_BUCKET') != ""
+          - lookup('env', 'MAS_AIBROKER_STORAGE_TENANTS_BUCKET') != ""
+          - lookup('env', 'MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET') != ""
+        fail_msg: "One or more required environment variables are not defined"
+      when:
+        - install_minio == true
+        - mas_app_channel in ['9.0.x', '9.1.x-dev']
+
+    - name: "Check for required environment variables for mariadb"
+      assert:
+        that:
+          - lookup('env', 'MARIADB_PASSWORD') != ""
+          - lookup('env', 'MAS_AIBROKER_DB_HOST') != ""
+          - lookup('env', 'MAS_AIBROKER_DB_PORT') != ""
+          - lookup('env', 'MAS_AIBROKER_DB_USER') != ""
+          - lookup('env', 'MAS_AIBROKER_DB_DATABASE') != ""
+          - lookup('env', 'MAS_AIBROKER_DB_SECRET_NAME') != ""
+          - lookup('env', 'MAS_AIBROKER_DB_SECRET_VALUE') != ""
+        fail_msg: "One or more required environment variables are not defined"
+      when:
+        - install_mariadb == true
+        - mas_app_channel in ['9.0.x', '9.1.x-dev']
+
+    - name: "Check for required environment variables for dro"
+      assert:
+        that:
+          - lookup('env', 'DRO_CONTACT_EMAIL') != ""
+          - lookup('env', 'DRO_CONTACT_FIRSTNAME') != ""
+          - lookup('env', 'DRO_CONTACT_LASTNAME') != ""
+      when:
+        - install_dro == true
+        - mas_app_channel in ['9.1.x-dev']
+
+    - name: "Check for required environment variables for db2"
+      assert:
+        that:
+          - lookup('env', 'DB2_META_STORAGE_SIZE') != ""
+          - lookup('env', 'DB2_DATA_STORAGE_SIZE') != ""
+          - lookup('env', 'DB2_BACKUP_STORAGE_SIZE') != ""
+          - lookup('env', 'DB2_LOGS_STORAGE_SIZE') != ""
+          - lookup('env', 'DB2_TEMP_STORAGE_SIZE') != ""
+          - lookup('env', 'DB2_CPU_REQUESTS') != ""
+          - lookup('env', 'DB2_CPU_LIMITS') != ""
+          - lookup('env', 'DB2_MEMORY_REQUESTS') != ""
+          - lookup('env', 'DB2_MEMORY_LIMITS') != ""
+        fail_msg: "One or more required environment variables are not defined"
+      when:
+        - install_db2 == true
+        - mas_app_channel in ['9.1.x-dev']
+
+    - name: "Check for required environment variables"
+      assert:
+        that:
+          - lookup('env', 'MAS_AIBROKER_SUBSCRIPTION_ID') != ""
+          - lookup('env', 'MAS_AIBROKER_DRO_TENANT_ID') != ""
+          - lookup('env', 'MAS_AIBROKER_TENANT_ENTITLEMENT_START_DATE') != ""
+          - lookup('env', 'MAS_AIBROKER_TENANT_ENTITLEMENT_END_DATE') != ""
+        fail_msg: "One or more required environment variables are not defined"
+      when:
+        - mas_aibroker_saas == true or mas_app_channel in ['9.1.x-dev']
+
+    - name: Check for required saas environment variables
+      assert:
+        that:
+          - lookup('env', 'MAS_AIBROKER_DOMAIN') != ""
+          - lookup('env', 'MAS_AIBROKER_SLS_URL') != ""
+          - lookup('env', 'MAS_AIBROKER_DRO_URL') != ""
+        fail_msg: "One or more required environment variables are not defined"
+      when: mas_aibroker_saas == true
+
     # - name: "Check if SaaS environment"
     #   set_fact:
     #     in_saas_env: "{{ lookup('env', 'INSAASENV') | default('false', true) | bool }}"
 
     # For the full set of supported environment variables refer to the playbook documentation
-    - name: Check for required common environment variables
-      assert:
-        that:
-          - lookup('env', 'MAS_ENTITLEMENT_KEY') != ""
-          - lookup('env', 'MAS_INSTANCE_ID') != ""
+    # - name: Check for required common environment variables
+    #   assert:
+    #     that:
+    #       - lookup('env', 'MAS_ENTITLEMENT_KEY') != ""
+    #       - lookup('env', 'MAS_INSTANCE_ID') != ""
           # - lookup('env', 'MAS_AIBROKER_STORAGE_ACCESSKEY') != ""
           # - lookup('env', 'MAS_AIBROKER_STORAGE_SECRETKEY') != ""
           # - lookup('env', 'MAS_AIBROKER_STORAGE_HOST') != ""
@@ -75,7 +173,7 @@
           # - lookup('env', 'MAS_AIBROKER_DB_DATABASE') != ""
           # - lookup('env', 'MAS_AIBROKER_DB_SECRET_NAME') != ""
           # - lookup('env', 'MAS_AIBROKER_DB_SECRET_VALUE') != ""
-        fail_msg: "One or more required environment variables are not defined"
+        # fail_msg: "One or more required environment variables are not defined"
 
     # - name: Check for required saas environment variables
     #   assert:
