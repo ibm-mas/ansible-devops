@@ -585,42 +585,44 @@ Sets the timeout of the application. It is a string with the structure `<timeout
 ### Facilities - Storage setting variables
 ---
 ### mas_ws_facilities_storage_log_class
-Sets the class for the Log Persistent Volume Claim used for MREF agents.
+Sets the storage class name for the Log Persistent Volume Claim used for MREF agents.
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_STORAGE_LOG_CLASS`
-- Default: `ibmc-file-gold-gid`
+- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
 
 ### mas_ws_facilities_storage_log_mode
 Sets the attach mode of the Log PVC.
+Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_STORAGE_LOG_MODE`
-- Default: `ReadWriteMany`
+- Default: `ReadWriteOnce`
 
 ### mas_ws_facilities_storage_log_size
-Sets the size of the Log PVC.
+Sets the size of the Log PVC. Defaults to 30 Gigabytes
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_STORAGE_LOG_SIZE`
 - Default: `30`
 
 ### mas_ws_facilities_storage_userfiles_class
-Sets the class for the Userfiles PVC used for MREF agents.
+Sets the storage class name for the Userfiles PVC used for MREF agents.
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_CLASS`
-- Default: `ibmc-file-gold-gid`
+- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
 
 ### mas_ws_facilities_storage_userfiles_mode
 Sets the attach mode of the Userfiles PVC.
+Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_MODE`
-- Default: `ReadWriteMany`
+- Default: `ReadWriteOnce` 
 
 ### mas_ws_facilities_storage_userfiles_size
-Sets the size of the Log PVC.
+Sets the size of the Log PVC. Defaults to 50 Gigabytes
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_SIZE`
