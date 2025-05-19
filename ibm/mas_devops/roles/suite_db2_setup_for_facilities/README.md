@@ -26,7 +26,7 @@ The username that will be used to connect to the database specified by `db2_dbna
 
 - Optional
 - Environment Variable: None
-- Default Value: `db2inst1`
+- Default Value: `tridata`
 
 ### db2_dbname
 The name of the database in the instance to connect to when executing the setup script.
@@ -40,7 +40,7 @@ The name of the Manage schema where the hack should be targeted in.
 
 - Optional
 - Environment Variable: None
-- Default Value: `tridata`
+- Default Value: `TRIDATA`
 
 ### db2_tablespace_data_size
 The size of the tablespace data in the database.
