@@ -1,0 +1,92 @@
+---
+# Should be part of the facilities operator, but is not so we have to do it
+# as a separate step in the install flow for now :(
+
+# 1. Verify DB2 installation
+# -----------------------------------------------------------------------------
+- include_vars: vars/main.yml
+
+- name: Install Db2
+  include_role:
+    name: ibm.mas_devops.db2
+
+# 2. Verify DB2 installation
+# -----------------------------------------------------------------------------
+- name: "Lookup db2 Pod"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ db2_namespace }}"
+    label_selectors:
+      - type=engine
+      - app={{ db2_instance_name }}
+    wait: yes
+    wait_sleep: 30
+    wait_timeout: 300 # 5 mins until we give up waiting for the pod to get into the expected state
+    wait_condition:
+      type: Ready
+      status: "True"
+  register: db2_pod
+
+- name: Configure facts
+  set_fact:
+    db2_pod_name: "{{ db2_pod.resources[0].metadata.name }}"
+
+- name: "Debug information - part 2"
+  debug:
+    msg:
+      - "Pod name ............................... {{ db2_pod_name }}"
+
+- name: Check DB2 Properties
+  shell: |
+    oc exec -n {{db2_namespace}} {{db2_pod_name}} -- su -lc 'db2set' db2inst1
+  register: check_props_status
+  until: check_props_status.rc == 0
+  retries: 5
+  delay: 30
+
+- name: Verifying properties
+  assert:
+    that:
+      - props.key+'='+props.value in check_props_status.stdout
+    fail_msg: "{{props.key}}={{props.value}} is a required property in the database"
+  loop: "{{ db2_instance_registry | dict2items }}"
+  loop_control:
+    loop_var: props
+
+# 3. Provide debug information to the user
+# -----------------------------------------------------------------------------
+- name: "Check required properties are set"
+  assert:
+    that:
+      - db2_namespace is defined and db2_namespace != ""
+      - db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: "db2_namespace and db2_instance_name are both required properties"
+
+- name: "Debug information - part 1"
+  debug:
+    msg:
+      - "Db2 namespace .......................... {{ db2_namespace }}"
+      - "Db2 instance name ...................... {{ db2_instance_name }}"
+      - "Db2 database name ...................... {{ db2_dbname }}"
+      - "Db2 Schema name ........................ {{ db2_schema }}"
+
+# 4. Determine if the schema has been created
+# -----------------------------------------------------------------------------
+- name: Checking if schema is already created
+  kubernetes.core.k8s_exec:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ db2_pod_name }}"
+    container: db2u
+    command: su - db2inst1 -c "db2 connect to {{ db2_dbname }} >/dev/null && db2 'select schemaname from syscat.schemata' | grep '{{ db2_schema }}' | tr -d ' ' " > /tmp/ts_numd.txt
+  register: db2_output
+  retries: 10
+  delay: 60
+
+# 5. Execute DB2 config enforcement
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/apply-db2-dbconfig.yml
+  when: ( db2_output.stdout_lines | length ) == 0
+
+- name: run prepare DB scripts
+  include_tasks: db2/preparedb.yml
+  when: ( db2_output.stdout_lines | length ) == 0

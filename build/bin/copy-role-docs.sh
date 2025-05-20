@@ -78,6 +78,7 @@ copyDoc suite_app_verify
 copyDoc suite_backup_restore
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
+copyDoc suite_db2_setup_for_facilities
 copyDoc suite_dns
 copyDoc suite_certs
 copyDoc suite_install

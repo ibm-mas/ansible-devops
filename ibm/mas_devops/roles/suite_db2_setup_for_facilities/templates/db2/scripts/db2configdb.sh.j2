@@ -1,0 +1,129 @@
+#!/bin/sh
+# 
+# Licensed Materials - Property of IBM
+# 
+# Restricted Materials of IBM
+# 
+# (C) COPYRIGHT IBM CORP. 2014.  All Rights Reserved.
+# 
+# Grant permissions and set performance settings
+# 
+
+# set parameters used in the script
+
+DB2_DBNAME={{ db2_dbname }}
+DB2_INSTNAME='db2inst1'
+DB2_HOME='/mnt/blumeta0/home/db2inst1/sqllib'
+DB2_USER={{ db2_username }}
+
+# validate running as instance user
+
+if [[ `whoami` != "$DB2_INSTNAME" ]]; then
+	echo "Error: this script needs to be run as the instance user, $DB2_INSTNAME"
+	exit 1
+fi
+
+# start the instance
+
+echo "Starting the instance, $DB2_INSTNAME if it is not already started..."
+echo "db2start"
+db2start
+rc=$?
+if [ $rc -ne "0" ]; then
+	if [ $rc -ne "1" ]; then
+    	echo "Error unable to start instance $DB2_INSTNAME for some reason = $rc.  Cannot continue and create the database."
+    	exit 1
+	fi
+fi
+echo "Return code for starting instance $DB2_INSTNAME is $rc"
+
+ok=0
+
+# connect to the newly created database - required 
+
+echo "$DB2_HOME/bin/db2 connect to $DB2_DBNAME"
+$DB2_HOME/bin/db2 connect to $DB2_DBNAME
+rc=$?
+if [ $rc -ne "0" ]; then
+	echo "Unable to connect to $DB2_DBNAME for some reason = $rc"
+	exit $rc
+fi
+echo "Return code from CONNECT is $rc"
+
+# grant access to the tririga user - all permissions required
+
+echo "$DB2_HOME/bin/db2 GRANT DBADM ON DATABASE TO USER $DB2_USER"
+$DB2_HOME/bin/db2 GRANT DBADM ON DATABASE TO USER $DB2_USER
+rc=$?
+if [ $rc -ne "0" ]; then
+	ok=$rc
+fi
+echo "Return code from GRANT DBADM is $rc"
+
+echo "$DB2_HOME/bin/db2 GRANT SECADM ON DATABASE TO USER $DB2_USER"
+$DB2_HOME/bin/db2 GRANT SECADM ON DATABASE TO USER $DB2_USER
+rc=$?
+if [ $rc -ne "0" ]; then
+	ok=$rc
+fi
+echo "Return code from GRANT SECADM is $rc"
+
+echo "$DB2_HOME/bin/db2 GRANT ACCESSCTRL ON DATABASE TO USER $DB2_USER"
+$DB2_HOME/bin/db2 GRANT ACCESSCTRL ON DATABASE TO USER $DB2_USER
+rc=$?
+if [ $rc -ne "0" ]; then
+	ok=$rc
+fi
+echo "Return code from GRANT ACCESSCTRL is $rc"
+
+echo "$DB2_HOME/bin/db2 GRANT DATAACCESS ON DATABASE TO USER $DB2_USER"
+$DB2_HOME/bin/db2 GRANT DATAACCESS ON DATABASE TO USER $DB2_USER
+rc=$?
+if [ $rc -ne "0" ]; then
+	ok=$rc
+fi
+echo "Return code from GRANT DATAACCESS is $rc"
+
+# performance settings - all required
+
+echo "$DB2_HOME/bin/db2 bind '$DB2_HOME/bnd/db2clipk.bnd' collection NULLIDR1"
+$DB2_HOME/bin/db2 bind \'$DB2_HOME/bnd/db2clipk.bnd\' collection NULLIDR1
+rc=$?
+if [ $rc -ne "0" ]; then
+	ok=$rc
+fi
+echo "Return code from bind is $rc"
+
+# cleanup/restart
+
+echo "$DB2_HOME/bin/db2 connect reset"
+$DB2_HOME/bin/db2 connect reset
+rc=$?
+if [ $rc -ne "0" ]; then
+	ok=$rc
+fi
+echo "Return code from connect reset is $rc"
+
+echo "db2stop force"
+db2stop force
+rc=$?
+if [ $rc -ne "0" ]; then
+	ok=$rc
+fi
+echo "Return code from db2stop is $rc"
+
+echo "db2start"
+db2start
+rc=$?
+if [ $rc -ne "0" ]; then
+	ok=$rc
+fi
+echo "Return code from db2start is $rc"
+
+if [ $ok -ne "0" ]; then
+	echo "Database $DB2_DBNAME is NOT configured correctly on $DB2_INSTNAME, check return codes to determine failed configuration setting and fix before continuing with TRIRIGA installation."
+	exit $ok
+fi
+
+echo "Database $DB2_DBNAME has been configured successfully on $DB2_INSTNAME."
+exit 0 
