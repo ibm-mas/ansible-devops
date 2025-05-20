@@ -109,37 +109,7 @@
         that: ocimagemirror_result.rc == 0
         fail_msg: "Image mirroring failed (see debug information above)."
 
-# 4B. Execute the mirror (from filesystem)
-# -----------------------------------------------------------------------------
-- name: "{{ manifest_name }} : Mirror Images from local filesystem"
-  when: mirror_mode == "from-filesystem"
-  block:
-    - name: "{{ manifest_name }} : Run mirror command"
-      shell: |
-        oc image mirror \
-          -a {{ auth_file }} \
-          -f {{ mirror_working_dir }}/manifests/from-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt \
-          --filter-by-os '.*'  \
-          --insecure  \
-          --skip-multiple-scopes \
-          --max-per-registry=1 \
-          --dir={{ mirror_working_dir }}
-      register: ocimagemirror_result
-      ignore_errors: true
-
-    - name: "{{ manifest_name }} : Debug mirror command"
-      debug:
-        msg:
-          - "Source: {{ mirror_working_dir }}/manifests/from-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt"
-          - "Auth: {{ auth_file }}"
-          - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
-
-    - name: "{{ manifest_name }} : Fail if mirror is not successful"
-      assert:
-        that: ocimagemirror_result.rc == 0
-        fail_msg: "Image mirroring failed (see debug information above)."
-
-# 4C. Create AWS ECR Repositories if required
+# 4B. Create AWS ECR Repositories if required
 # -----------------------------------------------------------------------------
 - name: "Create AWS ECR Repositories"
   when:
@@ -182,9 +152,38 @@
 
     - name: Create ECR Repositories
       ansible.builtin.shell: "aws ecr create-repository --repository-name {{ item }} --image-tag-mutability IMMUTABLE --region {{ registry_ecr_aws_region }}"
+      ignore_errors: true
       loop: "{{ repos_to_add }}"
 
+# 4C. Execute the mirror (from filesystem)
+# -----------------------------------------------------------------------------
+- name: "{{ manifest_name }} : Mirror Images from local filesystem"
+  when: mirror_mode == "from-filesystem"
+  block:
+    - name: "{{ manifest_name }} : Run mirror command"
+      shell: |
+        oc image mirror \
+          -a {{ auth_file }} \
+          -f {{ mirror_working_dir }}/manifests/from-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt \
+          --filter-by-os '.*'  \
+          --insecure  \
+          --skip-multiple-scopes \
+          --max-per-registry=1 \
+          --dir={{ mirror_working_dir }}
+      register: ocimagemirror_result
+      ignore_errors: true
 
+    - name: "{{ manifest_name }} : Debug mirror command"
+      debug:
+        msg:
+          - "Source: {{ mirror_working_dir }}/manifests/from-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt"
+          - "Auth: {{ auth_file }}"
+          - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
+
+    - name: "{{ manifest_name }} : Fail if mirror is not successful"
+      assert:
+        that: ocimagemirror_result.rc == 0
+        fail_msg: "Image mirroring failed (see debug information above)."
 
 # 4D. Execute the mirror (direct)
 # -----------------------------------------------------------------------------
