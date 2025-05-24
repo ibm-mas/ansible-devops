@@ -44,6 +44,22 @@
     msg: "{{ rosa_whoami_result }}"
 
 
+# 4.1 Create Account Roles
+# -----------------------------------------------------------------------------
+- name: "rosa : Extract major.minor from ocp_version"
+  set_fact:
+    ocp_major_minor: "{{ ocp_version.split('.')[:2] | join('.') }}"
+    rosa_account_role_prefix: "{{ cluster_name }}-ocp{{ ocp_version.split('.')[:2] | join('') }}"
+
+- name: "rosa : Create account roles"
+  shell: >
+    rosa create account-roles
+    --mode auto
+    --yes
+    --prefix {{ rosa_account_role_prefix }}
+    --version {{ ocp_major_minor }}
+
+
 # 5. Check if the cluster is already provisioned
 # -----------------------------------------------------------------------------
 # State: pending -> installing -> ready
