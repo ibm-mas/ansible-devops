@@ -46,37 +46,12 @@
 
 # 4.1 Create Account Roles
 # -----------------------------------------------------------------------------
-- name: "rosa/account-role : Set major.minor version and prefix"
+- name: "rosa : Extract major.minor from ocp_version"
   set_fact:
-    rosa_major_minor_version: "{{ ocp_version.split('.')[:2] | join('.') }}"
-    rosa_account_role_prefix: "ocp{{ ocp_version.split('.')[:2] | join('') }}"
+    ocp_major_minor: "{{ ocp_version.split('.')[:2] | join('.') }}"
+    rosa_account_role_prefix: "{{ cluster_name }}-ocp{{ ocp_version.split('.')[:2] | join('') }}"
 
-- name: "rosa/account-role : Check if account roles already exist"
-  shell: rosa list account-roles -o json
-  register: rosa_account_roles
-  failed_when: false
-
-- name: "rosa/account-role : Determine if roles with prefix exist"
-  set_fact:
-    rosa_account_roles_exist: >-
-      {{
-        (rosa_account_roles.stdout | from_json)
-        | selectattr('Name', 'search', rosa_account_role_prefix)
-        | list
-        | length > 0
-      }}
-
-- name: "rosa/account-role : Debug role creation status"
-  debug:
-    msg: >-
-      {{
-        'Account roles already exist with prefix ' ~ rosa_account_role_prefix
-        if rosa_account_roles_exist
-        else 'Creating account roles with prefix ' ~ rosa_account_role_prefix
-      }}
-
-- name: "rosa/account-role : Create account roles"
-  when: not rosa_account_roles_exist
+- name: "rosa : Create account roles"
   shell: >
     rosa create account-roles
     --mode auto
