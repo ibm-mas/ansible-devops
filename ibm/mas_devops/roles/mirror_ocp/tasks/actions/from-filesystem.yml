@@ -8,6 +8,42 @@
       - mirror_working_dir is defined and mirror_working_dir != ""
     fail_msg: "One or more required properties are missing"
 
+# 4B. Create AWS ECR Repositories if required
+# -----------------------------------------------------------------------------
+- name: "Create AWS ECR Repositories"
+  when:
+    - registry_is_ecr == true
+  block:
+    - name: "{{ manifest_name }} : Run mirror command"
+      shell: >
+        DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --dry-run=true --dest-skip-tls --max-per-registry=1 --from={{ mirror_working_dir }}/mirror_seq1_000000.tar docker://{{ registry_public_url_with_path_redhat }} &> {{ mirror_working_dir }}/logs/mirror-from-filesystem-ocp{{ ocp_release }}.log
+      register: ocimagemirror_dryrun_result
+      ignore_errors: true
+      when: mirror_mode == "direct"
+
+    - name: "{{ manifest_name }} : Debug mirror command dry mode"
+      debug:
+        msg:
+          - "{{ ocimagemirror_dryrun_result.stderr_lines }} "
+
+    - name: "{{ manifest_name }} : Fail if mirror is not successful"
+      assert:
+        that: ocimagemirror_dryrun_result.rc == 0
+        fail_msg: "mirror command in dry mode failed."
+
+    - name: Filter out repository names that must be created in ECR
+      set_fact:
+        repos_to_add: "{{ ocimagemirror_dryrun_result.stderr_lines | ibm.mas_devops.get_ecr_repositories }}"
+
+    - name: Repositories that will be created in ECR
+      debug:
+        msg: "{{ repos_to_add }}"
+
+    - name: Create ECR Repositories
+      ansible.builtin.shell: "aws ecr create-repository --repository-name {{ item }} --image-tag-mutability IMMUTABLE --region {{ registry_ecr_aws_region }}"
+      ignore_errors: true
+      loop: "{{ repos_to_add }}"
+
 # 2. Perform Mirroring
 # -----------------------------------------------------------------------------
 - name: "Debug Information"
