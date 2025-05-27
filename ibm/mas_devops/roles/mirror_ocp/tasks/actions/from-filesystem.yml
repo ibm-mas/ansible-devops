@@ -1,5 +1,5 @@
 ---
-# 1. Check for undefined properties that do not have a default
+# 1a. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if required properties are not provided"
   assert:
@@ -8,25 +8,28 @@
       - mirror_working_dir is defined and mirror_working_dir != ""
     fail_msg: "One or more required properties are missing"
 
-# 4B. Create AWS ECR Repositories if required
+# 1b. Create AWS ECR Repositories if required
 # -----------------------------------------------------------------------------
 - name: "Create AWS ECR Repositories"
   when:
     - registry_is_ecr == true
   block:
-    - name: "{{ manifest_name }} : Run mirror command"
+    - name: Create validation repository required for oc mirror command
+      ansible.builtin.shell: "aws ecr create-repository --repository-name {{ registry_prefix_redhat }}/oc-mirror --image-tag-mutability IMMUTABLE --region {{ registry_ecr_aws_region }}"
+      ignore_errors: true
+
+    - name: "{{ ocp_release }} : dry mode mirror command"
       shell: >
-        DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --dry-run=true --dest-skip-tls --max-per-registry=1 --from={{ mirror_working_dir }}/mirror_seq1_000000.tar docker://{{ registry_public_url_with_path_redhat }} &> {{ mirror_working_dir }}/logs/mirror-from-filesystem-ocp{{ ocp_release }}.log
+        DOCKER_CONFIG={{ mirror_working_dir }} oc mirror --dry-run --dest-skip-tls --max-per-registry=1 --from={{ mirror_working_dir }}/mirror_seq1_000000.tar docker://{{ registry_public_url_with_path_redhat }}
       register: ocimagemirror_dryrun_result
       ignore_errors: true
-      when: mirror_mode == "direct"
 
-    - name: "{{ manifest_name }} : Debug mirror command dry mode"
+    - name: "{{ ocp_release }} : Debug mirror command dry mode"
       debug:
         msg:
           - "{{ ocimagemirror_dryrun_result.stderr_lines }} "
 
-    - name: "{{ manifest_name }} : Fail if mirror is not successful"
+    - name: "{{ ocp_release }} : Fail if dry mode mirror is not successful"
       assert:
         that: ocimagemirror_dryrun_result.rc == 0
         fail_msg: "mirror command in dry mode failed."
