@@ -116,7 +116,7 @@
     - mirror_mode == "direct" or mirror_mode == "from-filesystem"
     - registry_is_ecr == true
   block:
-    - name: "{{ manifest_name }} : Run mirror command"
+    - name: "{{ manifest_name }} : dry mode mirror command - direct"
       shell: |
         oc image mirror \
           -a {{ auth_file }} \
@@ -130,14 +130,26 @@
       ignore_errors: true
       when: mirror_mode == "direct"
 
-    - name: "{{ manifest_name }} : Debug mirror command dry mode"
+    - name: "{{ manifest_name }} : dry mode mirror command - from-filesystem"
+      shell: |
+        oc image mirror \
+          -a {{ auth_file }} \
+          -f {{ mirror_working_dir }}/manifests/from-filesystem/{{ manifest_name }}_{{ manifest_version }}.txt \
+          --filter-by-os '.*'  \
+          --insecure  \
+          --skip-multiple-scopes \
+          --max-per-registry=1 \
+          --dir={{ mirror_working_dir }}
+      register: ocimagemirror_dryrun_result
+      ignore_errors: true
+      when: mirror_mode == "from-filesystem"
+
+    - name: "{{ manifest_name }} : Debug dry mode mirror command"
       debug:
         msg:
-          - "Source: {{ mirror_working_dir }}/manifests/direct/{{ manifest_name }}_{{ manifest_version }}.txt"
-          - "Auth: {{ auth_file }}"
-          - "{{ ocimagemirror_dryrun_result.stderr_lines }} "
+          - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
 
-    - name: "{{ manifest_name }} : Fail if mirror is not successful"
+    - name: "{{ manifest_name }} : Fail if dry mode mirror is not successful"
       assert:
         that: ocimagemirror_dryrun_result.rc == 0
         fail_msg: "mirror command in dry mode failed."
