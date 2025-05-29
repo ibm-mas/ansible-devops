@@ -70,23 +70,11 @@
       - "Db2 database name ...................... {{ db2_dbname }}"
       - "Db2 Schema name ........................ {{ db2_schema }}"
 
-# 4. Determine if the schema has been created
-# -----------------------------------------------------------------------------
-- name: Checking if schema is already created
-  kubernetes.core.k8s_exec:
-    namespace: "{{ db2_namespace }}"
-    pod: "{{ db2_pod_name }}"
-    container: db2u
-    command: su - db2inst1 -c "db2 connect to {{ db2_dbname }} >/dev/null && db2 'select schemaname from syscat.schemata' | grep '{{ db2_schema }}' | tr -d ' ' " > /tmp/ts_numd.txt
-  register: db2_output
-  retries: 10
-  delay: 60
 
-# 5. Execute DB2 config enforcement
+# 4. Execute DB2 config enforcement
 # -----------------------------------------------------------------------------
-- include_tasks: tasks/apply-db2-dbconfig.yml
-  when: ( db2_output.stdout_lines | length ) == 0
+- name: apply Real Estate and Facilities configurations for db2
+  include_tasks: tasks/apply-db2-dbconfig.yml
 
 - name: run prepare DB scripts
   include_tasks: db2/preparedb.yml
-  when: ( db2_output.stdout_lines | length ) == 0
