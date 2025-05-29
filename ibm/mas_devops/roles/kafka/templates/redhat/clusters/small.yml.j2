@@ -1,9 +1,52 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: controller
+  namespace: "{{ kafka_namespace }}"
+  labels:
+    strimzi.io/cluster: "{{ kafka_cluster_name }}"
+spec:
+  replicas: 3
+  roles:
+    - controller
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: 100Gi
+        kraftMetadata: shared
+        deleteClaim: false
+---
+
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: broker
+  namespace: "{{ kafka_namespace }}"
+  labels:
+    strimzi.io/cluster: "{{ kafka_cluster_name }}"
+spec:
+  replicas: 3
+  roles:
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: 100Gi
+        kraftMetadata: shared
+        deleteClaim: false
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: "{{ kafka_cluster_name }}"
   namespace: "{{ kafka_namespace }}"
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
 spec:
   # -------------------------------------------------------
   kafka:
@@ -88,44 +131,6 @@ spec:
                     values:
                     - "{{ kafka_cluster_name }}-kafka"
   # -------------------------------------------------------
-  zookeeper:
-    replicas: 3
-    resources:
-      requests:
-        memory: 1Gi
-        cpu: "0.5"
-      limits:
-        memory: 1Gi
-        cpu: "1"
-    jvmOptions:
-      -Xms: 768m
-      -Xmx: 768m
-    metricsConfig:
-      type: jmxPrometheusExporter
-      valueFrom:
-        configMapKeyRef:
-          name: kafka-metrics-config
-          key: zookeeper-metrics-config.yml
-    storage:
-      type: persistent-claim
-      class: "{{ zookeeper_storage_class }}"
-      size: "{{ zookeeper_storage_size }}"
-      deleteClaim: true
-    template:
-      pod:
-        tmpDirSizeLimit: 100Mi
-        affinity:
-          podAntiAffinity:
-            preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                topologyKey: "kubernetes.io/hostname"
-                labelSelector:
-                  matchExpressions:
-                  - key: strimzi.io/name
-                    operator: In
-                    values:
-                    - "{{ kafka_cluster_name }}-zookeeper"
   # -------------------------------------------------------
   entityOperator:
     template:
