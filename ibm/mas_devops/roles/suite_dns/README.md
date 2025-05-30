@@ -209,15 +209,26 @@ Location to output the edge-routes-{mas_instance_id}.txt
 - Environment Variable: `OUTPUT_DIR`
 - Default: `.` (which will set the directory file in ibm/mas_devops)
 
-### saas_mode
-If true:
- - saas_edge_certificate_routes.yml.j2 template will be used instead of edge_certificate_routes.yml.j2
-   This template omits routes that will not be present in SaaS envs to reduce the hostname count to under 50 so only a single edge route certificate is required
- - Ensures that the default edge certificates configured by CIS are excluded from checks, even when the CIS domain includes the MAS instance ID.
+### cis_entries_to_add
+Comma seperated list of entries to add for edge certificates. These are broken down into functional areas of MAS. The options are:
+
+  - `all` to include all entries (this is the default behaviour)
+  - `core` to include the MAS Core edge certificates
+  - `health` to include the MAS Health App edge certificates
+  - `iot` to include the MAS IoT app edge certificates
+  - `manage` to include the MAS Manage app edge certificates
+  - `monitor` to include the MAS Monitor app edge certificates
+  - `predict` to include the MAS Predict app edge certificates
+  - `visualinspection` to include the MAS VisualInspection app edge certificates
+  - `optimizer` to include the MAS Optimizer app edge certificates
+  - `assist` to include the MAS Assist app edge certificates
+  - `arcgis` to include the MAS Arcgis edge certificates
+  - `reportdb` to include the MAS ReportDB edge certificates
+  - `facilities` to include the MAS Facilities app edge certificates
 
 - Optional
-- Environment Variable: `SAAS_MODE`
-- Default: false
+- Environment Variable: `CIS_ENTRIES_TO_ADD`
+- Default: `all`
 
 Role Variables - AWS Route 53
 ------------------------------------------------------------
