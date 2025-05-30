@@ -43,6 +43,19 @@
 
 # 4. Load default application workspace spec, if user does not provide one
 # -----------------------------------------------------------------------------
+
+# volumes for Facilities  configurations
+- name: Determine Storage Class for {{ mas_app_id }} application
+  when:
+    - mas_app_id in ['facilities']
+  include_tasks: "tasks/determine-storage-classes-facilities.yml"
+
+- name: Load default application workspace spec for facilities
+  when: mas_app_id == "facilities"
+  template:
+    src: "{{ role_path }}/vars/defaultspecs/facilities.yml.j2"
+    dest: "{{ role_path }}/vars/defaultspecs/facilities.yml"
+
 - name: Load default application workspace spec
   when: mas_appws_spec is not defined or mas_appws_spec == ""
   include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"

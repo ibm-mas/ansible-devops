@@ -1,0 +1,39 @@
+---
+# 1. Lookup storage class availability
+# -----------------------------------------------------------------------------
+- name: "determine-storage-classes : Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+# 2. Set default storage classes
+# -----------------------------------------------------------------------------
+- name: "determine-storage-classes : Set default userfiles Storage if not set by user"
+  when:
+    - defaultStorageClasses.success
+    - mas_ws_facilities_storage_userfiles_class is not defined or mas_ws_facilities_storage_userfiles_class == ""
+    - mas_ws_facilities_storage_userfiles_mode is defined and mas_ws_facilities_storage_userfiles_mode != ""
+  set_fact:
+    mas_ws_facilities_storage_userfiles_class: "{{ defaultStorageClasses.rwo if (mas_ws_facilities_storage_userfiles_mode == 'ReadWriteOnce') else defaultStorageClasses.rwx }}"
+
+- name: "determine-storage-classes : Set default logs Storage if not set by user"
+  when:
+    - defaultStorageClasses.success
+    - mas_ws_facilities_storage_log_class is not defined or mas_ws_facilities_storage_log_class == ""
+    - mas_ws_facilities_storage_log_mode is defined and mas_ws_facilities_storage_log_mode != ""
+  set_fact:
+    mas_ws_facilities_storage_log_class: "{{ defaultStorageClasses.rwo if (mas_ws_facilities_storage_log_mode == 'ReadWriteOnce') else defaultStorageClasses.rwx }}"
+
+- name: "determine-storage-classes : Assert that Userfiles storage class has been defined ({{ mas_ws_facilities_storage_userfiles_mode }})"
+  assert:
+    that: mas_ws_facilities_storage_userfiles_class is defined and mas_ws_facilities_storage_userfiles_class != ""
+    fail_msg: "mas_ws_facilities_storage_userfiles_class must be defined"
+
+- name: "determine-storage-classes : Assert that Logs storage class has been defined ({{ mas_ws_facilities_storage_log_mode }})"
+  assert:
+    that: mas_ws_facilities_storage_log_class is defined and mas_ws_facilities_storage_log_class != ""
+    fail_msg: "mas_ws_facilities_storage_log_class must be defined"
+
+- name: "determine-storage-classes : Debug Facilities storage class configuration"
+  debug:
+    msg:
+      - "Userfiles Storage class ({{ mas_ws_facilities_storage_userfiles_mode }}) ............ {{ mas_ws_facilities_storage_userfiles_class }}"
+      - "Logs Storage class ({{ mas_ws_facilities_storage_log_mode }})            ............ {{ mas_ws_facilities_storage_log_class }}"
