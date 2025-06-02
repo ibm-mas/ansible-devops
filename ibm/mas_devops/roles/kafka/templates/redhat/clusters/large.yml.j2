@@ -1,20 +1,43 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: controller
+  namespace: "{{ kafka_namespace }}"
+  labels:
+    strimzi.io/cluster: "{{ kafka_cluster_name }}"
+spec:
+  replicas: 3
+  roles:
+    - broker
+    - controller
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        class: "{{ kafka_storage_class }}"
+        size: "{{ kafka_storage_size }}"
+        kraftMetadata: shared
+        deleteClaim: true
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: "{{ kafka_cluster_name }}"
   namespace: "{{ kafka_namespace }}"
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
 spec:
   # -------------------------------------------------------
   kafka:
     version: "{{ kafka_version }}"
-    replicas: 3
     resources:
       requests:
         memory: 8Gi
         cpu: "2"
       limits:
-        memory: 8Gi
+        memory: 4Gi
         cpu: "4"
     jvmOptions:
       -Xms: 6156m
@@ -37,7 +60,6 @@ spec:
       offsets.topic.replication.factor: 3
       transaction.state.log.replication.factor: 3
       transaction.state.log.min.isr: 2
-      log.message.format.version: "{{ kafka_version }}"
       log.retention.hours: 24
       log.retention.bytes: 1073741824
       log.segment.bytes: 268435456
@@ -45,14 +67,6 @@ spec:
       log.cleanup.policy: delete
       auto.create.topics.enable: false
       unclean.leader.election.enable: true
-    storage:
-      type: jbod
-      volumes:
-        - id: 0
-          type: persistent-claim
-          class: "{{ kafka_storage_class }}"
-          size: "{{ kafka_storage_size }}"
-          deleteClaim: true
     authorization:
         type: simple
         superUsers:
@@ -88,57 +102,10 @@ spec:
                     values:
                     - "{{ kafka_cluster_name }}-kafka"
   # -------------------------------------------------------
-  zookeeper:
-    replicas: 3
-    resources:
-      requests:
-        memory: 2Gi
-        cpu: "1"
-      limits:
-        memory: 2Gi
-        cpu: "1"
-    jvmOptions:
-      -Xms: 1024m
-      -Xmx: 1024m
-    metricsConfig:
-      type: jmxPrometheusExporter
-      valueFrom:
-        configMapKeyRef:
-          name: kafka-metrics-config
-          key: zookeeper-metrics-config.yml
-    storage:
-      type: persistent-claim
-      class: "{{ zookeeper_storage_class }}"
-      size: "{{ zookeeper_storage_size }}"
-      deleteClaim: true
-    template:
-      pod:
-        tmpDirSizeLimit: 100Mi
-        affinity:
-          podAntiAffinity:
-            preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                topologyKey: "kubernetes.io/hostname"
-                labelSelector:
-                  matchExpressions:
-                  - key: strimzi.io/name
-                    operator: In
-                    values:
-                    - "{{ kafka_cluster_name }}-zookeeper"
-  # -------------------------------------------------------
   entityOperator:
     template:
       pod:
         tmpDirSizeLimit: 1024Mi
-    tlsSidecar:
-      resources:
-        requests:
-          cpu: 200m
-          memory: 64Mi
-        limits:
-          cpu: 500m
-          memory: 128Mi
     userOperator:
       logging:
         type: inline
@@ -152,7 +119,6 @@ spec:
           memory: 512Mi
           cpu: 500m
     topicOperator:
-      zookeeperSessionTimeoutSeconds: 30
       logging:
         type: inline
         loggers:
