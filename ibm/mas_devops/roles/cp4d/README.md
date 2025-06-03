@@ -24,12 +24,6 @@ For more information about CPD versioning, see [IBM Cloud Pak for Data Operator 
 
     All timings are estimates.
 
-!!! info
-    - Install CP4D ControlPlane (~1 hour)
-    - Install CP4D Services (~30 Minutes - 1 hour for each service)
-
-    All timings are estimates.
-
 Cloud Pak for Data version mapping to MAS Catalog
 ====
 
@@ -178,68 +172,6 @@ persistentvolumeclaim/zen-metastore-edb-2                                Bound  
 !!! tip
     You can retrieve the Cloud Pak for Data password from the **ibm-iam-bindinfo-platform-auth-idp-credentials** secret: `oc -n ibm-cpd get secret ibm-iam-bindinfo-platform-auth-idp-credentials -o jsonpath="{.data.admin_password}" | base64 -d`
 
-### 4.6.x version:
-
-Cloud Pak for Data 4.6.x is made up of many moving parts across multiple namespaces.
-
-In the **ibm-common-services** namespace:
-```bash
-oc -n ibm-common-services get deployments
-NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
-cert-manager-cainjector                1/1     1            1           85m
-cert-manager-controller                1/1     1            1           85m
-cert-manager-webhook                   1/1     1            1           85m
-configmap-watcher                      1/1     1            1           85m
-ibm-cert-manager-operator              1/1     1            1           87m
-ibm-common-service-operator            1/1     1            1           92m
-ibm-common-service-webhook             1/1     1            1           91m
-ibm-namespace-scope-operator           1/1     1            1           91m
-ibm-zen-operator                       1/1     1            1           87m
-meta-api-deploy                        1/1     1            1           86m
-operand-deployment-lifecycle-manager   1/1     1            1           90m
-secretshare                            1/1     1            1           91m
-```
-
-In the **ibm-cpd-operators** namespace:
-```bash
-oc -n ibm-cpd-operators get deployments
-NAME                            READY   UP-TO-DATE   AVAILABLE   AGE
-cpd-platform-operator-manager   1/1     1            1           87m
-ibm-common-service-operator     1/1     1            1           87m
-ibm-namespace-scope-operator    1/1     1            1           87m
-```
-
-In the **ibm-cpd** namespace:
-```
-oc -n ibm-cpd get zenservice,ibmcpd,deployments,sts
-NAME                                 AGE
-zenservice.zen.cpd.ibm.com/lite-cr   81m
-
-NAME                        AGE
-ibmcpd.cpd.ibm.com/ibmcpd   85m
-
-NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/ibm-nginx           3/3     3            3           62m
-deployment.apps/usermgmt            3/3     3            3           64m
-deployment.apps/zen-audit           1/1     1            1           56m
-deployment.apps/zen-core            3/3     3            3           55m
-deployment.apps/zen-core-api        3/3     3            3           55m
-deployment.apps/zen-data-sorcerer   2/2     2            2           48m
-deployment.apps/zen-watchdog        1/1     1            1           48m
-deployment.apps/zen-watcher         1/1     1            1           55m
-
-NAME                               READY   AGE
-statefulset.apps/dsx-influxdb      1/1     51m
-statefulset.apps/zen-metastoredb   3/3     68m
-```
-
-!!! tip
-    You can retrieve the Cloud Pak for Data password from the **admin-user-details** secret: `oc -n ibm-cpd get secret admin-user-details -o jsonpath="{.data.initial_admin_password}" | base64 -d`
-
-
-
-Role Variables
---------------
 ### cpd_product_version
 Defines the IBM Cloud Pak for Data release version to be installed.
 
