@@ -399,6 +399,42 @@ def get_db2_instance_name(binding_scope, mas_instance_id, mas_workspace_id, mas_
   }
   return jdbc_instance_names[binding_scope]
 
+def get_ecr_repositories(image_mirror_output):
+  """
+    filter: get_ecr_repositories
+    author: Terence Quinn <quinnt@us.ibm.com>
+    version_added: 0.1
+    short_description: Get the names of ECR repositories relevant to a mirror command
+    description:
+        - Parse the output of oc image mirror --dry-run=true command for repository names. The
+          list of repository names will be used to create all the required repositories in ECR
+          before actually performing the mirror. This is needed for AWS ECR only.
+    options:
+      image_mirror_output:
+        description: Output of the oc image mirror --dry-run=true command
+        required: True
+    notes:
+      - limited error handling, will not handle unexpected data currently
+  """
+  # marker to indicate summary of images from oc image mirror command
+  phase_found = False
+  repositories = []
+  for line in image_mirror_output:
+    line = line.strip()
+    # once we find a line starting with phase - start parsing repositories names
+    if line.startswith('phase '):
+      phase_found = True
+      continue
+    if line.startswith('info:'):
+      continue
+    if phase_found:
+      # parse out the repository name
+      if len(line.split()) > 1:
+        repo_to_add = line.split()[1]
+        # aws_command = f"aws ecr create-repository --repository-name {repo_to_add} --image-tag-mutability IMMUTABLE --region us-gov-east-1"
+        repositories.append(repo_to_add)
+  return repositories
+
 
 class FilterModule(object):
   def filters(self):
@@ -420,5 +456,6 @@ class FilterModule(object):
       'format_pre_version_with_plus': format_pre_version_with_plus,
       'format_pre_version_without_buildid': format_pre_version_without_buildid,
       'format_pre_version_with_buildid': format_pre_version_with_buildid,
-      'get_db2_instance_name': get_db2_instance_name
+      'get_db2_instance_name': get_db2_instance_name,
+      'get_ecr_repositories': get_ecr_repositories
     }
