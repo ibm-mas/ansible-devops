@@ -108,6 +108,8 @@ python3 -m pip install boto3
 #### Run playbooks for deploy AI Broker
 
 ```bash
+git clone https://github.com/ibm-mas/ansible-devops.git
+cd ansible-devops
 git checkout aib2op
 git pull
 
@@ -171,6 +173,7 @@ export MAS_AIBROKER_DRO_TENANT_ID=""
 export MAS_AIBROKER_TENANT_ENTITLEMENT_START_DATE="YYYY-MM-DD"
 export MAS_AIBROKER_TENANT_ENTITLEMENT_END_DATE="YYYY-MM-DD"
 oc login --token=xxxx --server=https://myocpserver
+cd ibm/mas_devops
 ansible-playbook playbooks/oneclick_add_aibroker.yml
 ```
 
