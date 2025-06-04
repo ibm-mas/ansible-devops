@@ -50,15 +50,9 @@
   set_fact:
     dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search',mas_instance_id) }}"
 
-# In SaaS, the default edge cert created by CIS already includes mas_instance_id in its hostname,
-# so we add an additional check to ensure this default cert is excluded from our search for the dedicated cert.
-# Specifically, we look for type: "advanced" (certs ordered by this role will always have this - the default cert has type: "universal").
-# This specialised check is gated behind the saas_mode flag to protect against unintentionally impacting other existing users of this role
-- name: "cis : exclude universal certs (SaaS)"
+- name: "cis : exclude certs non advanced certificates"
   set_fact:
     dedicated_list: "{{ dedicated_list | selectattr('type', 'equalto', 'advanced') }}"
-  when:
-    - saas_mode
 
 - name: "cis : Verify if is there a dedicated certificate already"
   set_fact:
@@ -80,17 +74,32 @@
   pause:
     minutes: 2
 
-- name: "cis : Delete Existent Advanced Edge Certificate"
+- name: "cis : Check if we need to re-order certificates due to install change"
+  when: not override_edge_certs and hasDedicated
+  block:
+  - name: "cis : run cis_edge_cert_entries module to determine if we need to reorder due to entries not present"
+    ibm.mas_devops.cis_edge_cert_entries:
+      cis_crn: "{{ cis_crn }}"
+      ibmcloud_apikey: "{{ cis_apikey }}"
+      edge_cert_entries: "{{ edge_cert_routes }}"
+      mas_instance_id: "{{ mas_instance_id }}"
+    register: edge_cert_output
+
+  - name: "cis : dump output"
+    debug:
+      msg: '{{ edge_cert_output }}'
+
+- name: "cis : Delete Existent Advanced Edge Certificate, if set to override or we need to reorder"
   ansible.builtin.shell: |
     ibmcloud cis certificate-delete {{ _cis_domain_id }}  {{ dedicatedId }} -i {{ cis_service_name }} -f
-  when: hasDedicated and override_edge_certs
+  when: hasDedicated and (override_edge_certs or (edge_cert_output is defined and edge_cert_output["reorder"]))
   register: _deleted_certificate
 
 - name: "Pause for 2 minutes before continuing..."
   pause:
     minutes: 2
 
-- name: "cis : Order certificate if there no dedicated yet"
+- name: "cis : Order certificate if there no dedicated yet or we just deleted them"
   ansible.builtin.shell: |
     ibmcloud cis certificate-order {{ _cis_domain_id }} --hostnames {{ item|join(',') }} -i {{ cis_service_name }}
   loop: "{{ edge_cert_routes | batch(50) | list }}"
