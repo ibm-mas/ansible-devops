@@ -447,7 +447,7 @@ For more details, refer to [Manage database encryption](https://www.ibm.com/docs
 - Environment Variable: `MAS_APP_SETTINGS_OLD_CRYPTO_KEY`
 - Default: None
 
-### mas_app_settings_cryptox_key
+### mas_app_settings_old_cryptox_key
 This defines the `MXE_SECURITY_OLD_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
