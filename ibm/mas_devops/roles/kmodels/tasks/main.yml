@@ -5,13 +5,22 @@
 
 # Load variables from odh role
 - name: Load variables from odh role (main)
-  include_vars: "{{ role_path }}/../odh/vars/main.yml"
+  include_vars: "{{ role_path }}/../odh/defaults/main.yml"
 
 # Create Aibroker Namespace
 # -----------------------------------------------------------------------------
 - name: "Create Aibroker Namespace"
   kubernetes.core.k8s:
     template: "templates/namespace.yml.j2"
+
+- name: "Delete km-s3-secret secret if it exists"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    name: km-s3-secret
+    namespace: mas-{{ mas_instance_id }}-aibroker
+  ignore_errors: true
 
 - name: "Create km-s3-secret secret"
   kubernetes.core.k8s:
