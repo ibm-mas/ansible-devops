@@ -40,7 +40,7 @@
     oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo chmod 777 /tmp/prepare_db_files/create-tablespaces.sql /tmp/prepare_db_files/create-schema.sql /tmp/prepare_db_files/db2configdb.sh
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
 
 - name: Disable HA for maintanance
@@ -48,7 +48,7 @@
     oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo wvcli system disable -m "Disable HA before Db2 maintenance"
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
 
 - name: Executing db2configdb.sh
@@ -56,7 +56,7 @@
     oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "sh /tmp/prepare_db_files/db2configdb.sh "
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
 
 - name: Executing create-tablespaces.sql
@@ -64,7 +64,7 @@
     oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "db2 -tvf /tmp/prepare_db_files/create-tablespaces.sql "
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
 
 - name: Executing create-schema.sql
@@ -73,7 +73,7 @@
     oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "db2 -tvf /tmp/prepare_db_files/create-schema.sql "
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
 
 - name: Enable HA after maintenance
@@ -81,5 +81,5 @@
     oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo wvcli system enable -m "Enable HA after Db2 maintenance"
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
