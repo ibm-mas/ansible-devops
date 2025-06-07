@@ -1,0 +1,37 @@
+---
+- name: Load variables (main)
+  include_vars: "vars/main.yml"
+
+# Load default storage class (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
+
+# create minio namespace
+- name: 'Create minio namespace'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/minio-ns.yml.j2') }}"
+
+# create minio PVC
+- name: 'Create minio pvc'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/minio-pvc.yml.j2') }}"
+
+# create minio deployment
+- name: 'Create minio deployment'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/minio-deployment.yml.j2') }}"
+
+# create minio service
+- name: 'Create minio service'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/minio-service.yml.j2') }}"
+
+# create minio route
+- name: 'Create minio route'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/minio-route.yml.j2') }}"
