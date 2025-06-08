@@ -1,0 +1,38 @@
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "{{ mariadb_instance_name }}"
+  namespace: "{{ mariadb_namespace }}"
+spec:
+  podSelector:
+    matchLabels:
+      app: "{{ mariadb_instance_name }}"
+      component: data-science-pipelines
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 3306
+      from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: data-science-pipelines-operator
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: opendatahub
+        - podSelector:
+            matchLabels:
+              app: ds-pipeline-instance
+              component: data-science-pipelines
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "mas-{{ mas_instance_id }}-aibroker"
+        - podSelector:
+            matchLabels:
+              app: ds-pipeline-metadata-grpc-instance
+              component: data-science-pipelines
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: "mas-{{ mas_instance_id }}-aibroker"
+  policyTypes:
+    - Ingress
