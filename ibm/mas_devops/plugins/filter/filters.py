@@ -425,13 +425,14 @@ def get_ecr_repositories(image_mirror_output):
     if line.startswith('phase '):
       phase_found = True
       continue
-    if line.startswith('info:'):
+    if line == "":
+      phase_found = False
       continue
     if phase_found:
       # parse out the repository name
       if len(line.split()) > 1:
         repo_to_add = line.split()[1]
-        # aws_command = f"aws ecr create-repository --repository-name {repo_to_add} --image-tag-mutability IMMUTABLE --region us-gov-east-1"
+        # aws_command = f"aws ecr create-repository --repository-name {repo_to_add} --region us-gov-east-1"
         repositories.append(repo_to_add)
   return repositories
 
