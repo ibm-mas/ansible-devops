@@ -139,15 +139,15 @@
           --insecure  \
           --skip-multiple-scopes \
           --max-per-registry=1 \
-          --dir={{ mirror_working_dir }}
+          --dir={{ mirror_working_dir }} \
+          --dry-run=true
       register: ocimagemirror_dryrun_result
       ignore_errors: true
       when: mirror_mode == "from-filesystem"
 
     - name: "{{ manifest_name }} : Debug dry mode mirror command"
       debug:
-        msg:
-          - "{{ (ocimagemirror_result.rc == 0) | ternary(ocimagemirror_result.stdout_lines, ocimagemirror_result.stderr_lines) }}"
+        msg: "{{ (ocimagemirror_dryrun_result.rc == 0) | ternary(ocimagemirror_dryrun_result.stdout_lines, ocimagemirror_dryrun_result.stderr_lines) }}"
 
     - name: "{{ manifest_name }} : Fail if dry mode mirror is not successful"
       assert:
