@@ -1,0 +1,79 @@
+#!/bin/bash
+# 
+# Licensed Materials - Property of IBM
+# 
+# Restricted Materials of IBM
+# 
+# (C) COPYRIGHT IBM CORP. 2014.  All Rights Reserved.
+# 
+# Create schema and assign authorization do the db user
+# 
+
+# set parameters used in the script
+
+DB2_DBNAME={{ db2_dbname }}
+DB2_INSTANCE_USERNAME='db2inst1'
+DB2_HOME='/mnt/blumeta0/home/db2inst1/sqllib'
+DB2_SCHEMA={{ db2_schema | upper }}
+DB2_USERNAME={{ db2_username }}
+
+# validate running as instance user
+
+if [[ `whoami` != "$DB2_INSTANCE_USERNAME" ]]; then
+	echo "Error: this script needs to be run as the instance user, $DB2_INSTANCE_USERNAME"
+	exit 1
+fi
+
+# start the instance
+
+echo "Starting the instance, $DB2_INSTANCE_USERNAME if it is not already started..."
+echo "db2start"
+db2start
+rc=$?
+if [ $rc -ne "0" ]; then
+	if [ $rc -ne "1" ]; then
+    	echo "Error unable to start instance $DB2_INSTANCE_USERNAME for some reason = $rc.  Cannot continue and create the database."
+    	exit 1
+	fi
+fi
+echo "Return code for starting instance $DB2_INSTANCE_USERNAME is $rc"
+
+# connect to the database - required 
+
+echo "db2 connect to $DB2_DBNAME"
+db2 connect to $DB2_DBNAME
+rc=$?
+if [ $rc -ne "0" ]; then
+	echo "Unable to connect to $DB2_DBNAME for some reason = $rc"
+	exit $rc
+fi
+echo "Return code from CONNECT is $rc"
+
+SCHEMATA=$(db2 'SELECT SCHEMANAME FROM SYSCAT.SCHEMATA')
+rc=$?
+if [ $rc -ne "0" ]; then
+	echo "Unable to list exixting SCHEMATA for some reason = $rc"
+	exit $rc
+fi
+
+echo "${SCHEMATA}"
+
+if [[ ${SCHEMATA} != *"${DB2_SCHEMA} "* ]]; then
+    echo "Creating SCHEMA ${DB2_SCHEMA}"  
+    db2 "CREATE SCHEMA ${DB2_SCHEMA} AUTHORIZATION ${DB2_USERNAME};"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create SCHEMA ${DB2_SCHEMA} for some reason = $rc"
+		exit $rc
+	else
+		echo "SCHEMA ${DB2_SCHEMA} created"	  	
+	fi
+else 
+  echo "SCHEMA ${DB2_SCHEMA} already exists"  	   
+fi 
+
+db2 "SELECT * FROM SYSCAT.SCHEMATA WHERE SCHEMANAME = '${DB2_SCHEMA}'"
+
+db2 disconnect $DB2_DBNAME
+
+exit 0 
