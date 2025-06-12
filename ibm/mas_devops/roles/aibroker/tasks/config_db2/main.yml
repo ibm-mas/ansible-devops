@@ -11,9 +11,9 @@
     jdbccfg:
       username: "{{ jdbc_file_cfg[0].data.username }}"
       password: "{{ jdbc_file_cfg[0].data.password }}"
-      url: "{{ jdbc_file_cfg[1].spec.config.url | b64encode }}"
-      sslenabled: "{{ jdbc_file_cfg[1].spec.config.sslEnabled | b64encode }}"
-      ca: "{{ jdbc_file_cfg[1].spec.certificates | map(attribute='crt') | join(',') | replace(',','\n') | b64encode }}"
+      url: "{{ jdbc_file_cfg[1].spec.config.url }}"
+      sslenabled: "{{ jdbc_file_cfg[1].spec.config.sslEnabled | default('True', true) | bool }}"
+      ca: "{{ jdbc_file_cfg[1].spec.certificates | map(attribute='crt') | join(',') | replace(',','\n') }}"
   when: jdbc_config_file_result.stat.exists
 
 - name: Read JDBC config from environment
@@ -40,11 +40,6 @@
   when: jdbccfg.url | length == 0
   ansible.builtin.fail:
     msg: "jdbccfg.url must not be empty"
-
-- name: "Validate JDBC configuration"
-  when: jdbccfg.sslenabled | length == 0
-  ansible.builtin.fail:
-    msg: "jdbccfg.sslenabled must not be empty"
 
 - name: "Validate JDBC configuration"
   when: jdbccfg.ca | length == 0
