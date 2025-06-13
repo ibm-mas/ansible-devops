@@ -4,9 +4,41 @@ kind: AiBrokerApp
 metadata:
     name: "{{ mas_instance_id }}"
     namespace: "{{ aibroker_namespace }}"
+    annotations:
+        ansible.sdk.operatorframework.io/verbosity: "{{ mas_aibroker_operator_log_level }}"
     labels:
         mas.ibm.com/applicationId: aibroker
         mas.ibm.com/instanceId: "{{ mas_instance_id }}"
-spec: 
-    bindings: {}
-        # jdbc: system
+        app.kubernetes.io/instance: "{{ mas_instance_id }}"
+spec:
+    settings:
+        icr:
+            cp: "{{ mas_icr_cp }}"
+            cpopen: "{{ mas_icr_cpopen }}"
+        dro:
+            url: "{{ drocfg.url }}"
+            dro_token_secret: "{{ mas_aibroker_dro_token_secret }}"
+            ca: "{{ drocfg.ca | b64encode  }}"
+        jdbc:
+            url: "{{ jdbccfg.url | b64decode }}"
+            credentials_secret: "{{ mas_aibroker_jdbc_secret }}"
+            ca: |
+              {{ jdbccfg.ca | indent(8) }}
+        cluster_domain: "{{ cluster_domain }}"
+        in_saas_env: "{{ mas_aibroker_saas }}"
+        minio: 
+            host: "{{ mas_aibroker_storage_host }}"
+            port: "{{ mas_aibroker_storage_port }}"
+            credentials_secret: "{{ mas_aibroker_minio_secret }}"
+        mariadb:
+            host: "{{ mas_aibroker_db_host }}"
+            port: "{{ mas_aibroker_db_port }}"
+            credentials_secret: "{{ mas_aibroker_mariadb_secret }}"
+            database_name: "{{ mas_aibroker_db_secret_name }}"
+        
+        # Optional shared S3 config. Tenant-level config takes precedence over this.
+        s3:
+            bucketPrefix: "{{ mas_aibroker_s3_bucket_prefix }}"
+            region: "{{ mas_aibroker_s3_region }}"
+            endpointUrl: "{{ mas_aibroker_s3_endpoint_url }}"
+        environment_type: "{{ environment_type }}"

@@ -1,0 +1,33 @@
+---
+- name: "Create tenant CR"
+  vars:
+    annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ aibroker_namespace }}"
+    template: templates/aibroker/aibrokerworkspace.yml.j2
+
+- name: "Wait for tenant CR to be ready"
+  kubernetes.core.k8s_info:
+    api_version: apps.mas.ibm.com/v1
+    name: "{{ tenantNamespace }}"
+    namespace: "{{ aibroker_namespace }}"
+    kind: AiBrokerWorkspace
+  register: aibrokerworkspace_cr_result
+  until:
+    - aibrokerworkspace_cr_result.resources is defined and aibrokerworkspace_cr_result.resources | length == 1
+    - aibrokerworkspace_cr_result.resources[0].status is defined
+    - aibrokerworkspace_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
+  retries: 45 # approx 45 minutes before we give up
+  delay: 60 # 1 minute
+
+- name: "Copy secrets to namespace: {{ tenantNamespace }}"
+  shell: 'oc get secret {{ item }} -n mas-{{ mas_instance_id }}-aibroker -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply --force -f -'
+  with_items:
+    - km-s3-secret
+    - "{{ aibroker_pull_secret_name }}"
+
+- name: "Create network policy for predictor"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/ingress-allow-isvc.yml.j2') }}"

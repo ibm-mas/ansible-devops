@@ -32,22 +32,6 @@
     dns_entries: "{{ lookup('ansible.builtin.template', 'dnsentries.yml.j2') | from_yaml }}"
 
 
-- name: "cis : Read Edge Certificate Routes"
-  set_fact:
-    list_edge_cert_routes: "{{ lookup('ansible.builtin.template', 'edge_certificate_routes.yml.j2') | from_yaml }}"
-  when:
-    - not saas_mode
-
-- name: "cis : Read Edge Certificate Routes (SaaS)"
-  set_fact:
-    list_edge_cert_routes: "{{ lookup('ansible.builtin.template', 'saas_edge_certificate_routes.yml.j2') | from_yaml }}"
-  when:
-    - saas_mode
-
-- name: "cis : Define Edge Certificate Routes"
-  set_fact:
-    edge_cert_routes: "{{ list_edge_cert_routes['edge_cert_routes'] }}"
-
 - name: "cis : Debug information"
   debug:
     msg:
@@ -73,13 +57,55 @@
     delete_wildcards: "{{ delete_wildcards }}"
     dns_entries: "{{ dns_entries['nowildcard'] }}"
     cis_waf: "{{ cis_waf }}"
-    edge_certificate_routes: "{{ edge_cert_routes }}"
     cis_proxy: "{{ cis_proxy }}"
   register: dnsoutput
 
 - name: "cis : dump output"
   debug:
     msg: '{{ dnsoutput }}'
+
+- name: "cis : Set edge_certs variables"
+  set_fact:
+    edge_certs_all: "{{ (cis_entries_to_add|split(',')) | select('search', 'all') | length > 0 }}"
+    edge_certs_core: "{{ (cis_entries_to_add|split(',')) | select('search', 'core') | length > 0 }}"
+    edge_certs_health: "{{ (cis_entries_to_add|split(',')) | select('search', 'health') | length > 0 }}"
+    edge_certs_iot: "{{ (cis_entries_to_add|split(',')) | select('search', 'ioy') | length > 0 }}"
+    edge_certs_manage: "{{ (cis_entries_to_add|split(',')) | select('search', 'manage') | length > 0 }}"
+    edge_certs_monitor: "{{ (cis_entries_to_add|split(',')) | select('search', 'monitor') | length > 0 }}"
+    edge_certs_predict: "{{ (cis_entries_to_add|split(',')) | select('search', 'predict') | length > 0 }}"
+    edge_certs_visualinspection: "{{ (cis_entries_to_add|split(',')) | select('search', 'visualinspection') | length > 0 }}"
+    edge_certs_optimizer: "{{ (cis_entries_to_add|split(',')) | select('search', 'optimizer') | length > 0 }}"
+    edge_certs_assist: "{{ (cis_entries_to_add|split(',')) | select('search', 'assist') | length > 0 }}"
+    edge_certs_arcgis: "{{ (cis_entries_to_add|split(',')) | select('search', 'arcgis') | length > 0 }}"
+    edge_certs_reportdb: "{{ (cis_entries_to_add|split(',')) | select('search', 'reportdb') | length > 0 }}"
+    edge_certs_facilities: "{{ (cis_entries_to_add|split(',')) | select('search', 'facilities') | length > 0 }}"
+    edge_certs_aibroker: "{{ (cis_entries_to_add|split(',')) | select('search', 'aibroker') | length > 0 }}"
+
+- name: "cis : Debug edge_certs variables"
+  debug:
+    msg:
+      - "edge_certs_all is {{ edge_certs_all }}"
+      - "edge_certs_core is {{ edge_certs_core }}"
+      - "edge_certs_health is {{ edge_certs_health }}"
+      - "edge_certs_iot is {{ edge_certs_iot }}"
+      - "edge_certs_manage is {{ edge_certs_manage }}"
+      - "edge_certs_monitor is {{ edge_certs_monitor }}"
+      - "edge_certs_predict is {{ edge_certs_predict }}"
+      - "edge_certs_visualinspection is {{ edge_certs_visualinspection }}"
+      - "edge_certs_optimizer is {{ edge_certs_optimizer }}"
+      - "edge_certs_assist is {{ edge_certs_assist }}"
+      - "edge_certs_arcgis is {{ edge_certs_arcgis }}"
+      - "edge_certs_reportdb is {{ edge_certs_reportdb }}"
+      - "edge_certs_facilities is {{ edge_certs_facilities }}"
+      - "edge_certs_aibroker is {{ edge_certs_aibroker }}"
+
+- name: "cis : Read Edge Certificate Routes"
+  set_fact:
+    list_edge_cert_routes: "{{ lookup('ansible.builtin.template', 'edge_certificate_routes.yml.j2') | from_yaml }}"
+
+- name: "cis : Define Edge Certificate Routes"
+  set_fact:
+    edge_cert_routes: "{{ list_edge_cert_routes['edge_cert_routes'] }}"
 
 - name: "cis : Show Edge Routes to create the Certificate"
   debug:
