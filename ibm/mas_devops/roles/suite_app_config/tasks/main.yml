@@ -53,8 +53,12 @@
     name: "{{ mas_ws_facilities_config_map_name }}"
   register: facilitiesConfigResult
 
-- name: Setting new vars
-  when: facilitiesConfigResult.resources | length == 1
+- name: Setting new vars for Facilities
+  when:
+    - mas_app_id in ['facilities']
+    - facilitiesConfigResult is defined
+    - facilitiesConfigResult.resources is defined
+    - facilitiesConfigResult.resources | length > 0
   set_fact:
     mas_ws_facilities_storage_log_size: "{{ facilitiesConfigResult.resources[0].data.mas_ws_facilities_storage_log_size | int }}"
     mas_ws_facilities_storage_userfiles_size: "{{ facilitiesConfigResult.resources[0].data.mas_ws_facilities_storage_userfiles_size  | int }}"
