@@ -18,21 +18,7 @@
         that: mas_catalog_metadata.failed == false
 
   roles:
-    # 1. IBM Maximo IoT
-    # -------------------------------------------------------------------------
-    - role: ibm.mas_devops.mirror_case_prepare
-      when: mirror_mode != "from-filesystem"
-      vars:
-        case_name: ibm-mas-iot
-        case_version: "{{ lookup('env', 'MAS_IOT_VERSION') | default (mas_catalog_metadata.mas_iot_version[mas_channel], True)  | replace('_', '.') }}"
-        exclude_images: []
-
-    - role: ibm.mas_devops.mirror_images
-      vars:
-        manifest_name: ibm-mas-iot
-        manifest_version: "{{ lookup('env', 'MAS_IOT_VERSION') | default (mas_catalog_metadata.mas_iot_version[mas_channel], True)  | replace('_', '.') }}"
-
-    # 2. Eclipse Amlen
+    # 1. Eclipse Amlen is a prereq for IoT so mirror it first
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_extras_prepare
       when:
@@ -47,3 +33,18 @@
       vars:
         manifest_name: extras_amlen
         manifest_version: "{{ mas_catalog_metadata.amlen_extras_version }}"
+
+    # 2. IBM Maximo IoT
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when: mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-mas-iot
+        case_version: "{{ lookup('env', 'MAS_IOT_VERSION') | default (mas_catalog_metadata.mas_iot_version[mas_channel], True)  | replace('_', '.') }}"
+        exclude_images: []
+
+    - role: ibm.mas_devops.mirror_images
+      vars:
+        manifest_name: ibm-mas-iot
+        manifest_version: "{{ lookup('env', 'MAS_IOT_VERSION') | default (mas_catalog_metadata.mas_iot_version[mas_channel], True)  | replace('_', '.') }}"
+
