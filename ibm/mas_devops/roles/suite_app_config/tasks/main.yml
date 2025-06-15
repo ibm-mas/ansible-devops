@@ -43,6 +43,27 @@
 
 # 4. Load default application workspace spec, if user does not provide one
 # -----------------------------------------------------------------------------
+# Only applicable for pipeline CLI - deploy CM in pipeline namespace
+- name: Lookup config map
+  when: mas_app_id in ['facilities'] and mas_ws_facilities_config_map_name != ''
+  k8s_info:
+    kind: ConfigMap
+    api_version: v1
+    namespace: "mas-{{ mas_instance_id }}-pipelines"
+    name: "{{ mas_ws_facilities_config_map_name }}"
+  register: facilitiesConfigResult
+
+- name: Setting new vars for Facilities
+  when:
+    - mas_app_id in ['facilities']
+    - facilitiesConfigResult is defined
+    - facilitiesConfigResult.resources is defined
+    - facilitiesConfigResult.resources | length > 0
+  set_fact:
+    mas_ws_facilities_storage_log_size: "{{ facilitiesConfigResult.resources[0].data.mas_ws_facilities_storage_log_size | int }}"
+    mas_ws_facilities_storage_userfiles_size: "{{ facilitiesConfigResult.resources[0].data.mas_ws_facilities_storage_userfiles_size  | int }}"
+    mas_ws_facilities_db_maxconnpoolsize: "{{ facilitiesConfigResult.resources[0].data.mas_ws_facilities_db_maxconnpoolsize | int }}"
+    mas_ws_facilities_dwfagents: "{{ facilitiesConfigResult.resources[0].data.mas_ws_facilities_dwfagents | from_yaml }}"
 
 # volumes for Facilities  configurations
 - name: Determine Storage Class for {{ mas_app_id }} application

@@ -6,7 +6,7 @@
   vars:
     # Application Installation
     mas_app_id: aibroker
-    mas_app_channel: "{{ lookup('env', 'MAS_APP_CHANNEL') | default('9.0.x', true) }}"
+    mas_app_channel: "{{ lookup('env', 'MAS_APP_CHANNEL') | default('9.1.x', true) }}"
     mas_icr_cp: "{{ lookup('env', 'MAS_ICR_CP') | default('cp.icr.io/cp', true) }}"
     mas_icr_cpopen: "{{ lookup('env', 'MAS_ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
 
@@ -16,41 +16,79 @@
     ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
     mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
 
+    # Control if saas release
+    mas_aibroker_saas: "{{ lookup('env', 'MAS_AIBROKER_SAAS') | default('false', true) | bool }}"
+
     # DB2
     # -----------------------------------------------------------------------------
-    # db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') | default('aibroker', true) }}"
+    db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') | default('aibroker', true) }}"
+
+    # Control dependencies
+    # -----------------------------------------------------------------------------
+    install_db2: "{{ lookup('env', 'INSTALL_DB2') | default('False', true) | bool }}"
+    install_minio: "{{ lookup('env', 'INSTALL_MINIO') | default('False', true) | bool }}"
+    install_mariadb: "{{ lookup('env', 'INSTALL_MARIADB') | default('False', true) | bool }}"
+    install_mongo: "{{ lookup('env', 'INSTALL_MONGO') | default('False', true) | bool }}"
+    install_sls: "{{ lookup('env', 'INSTALL_SLS') | default('False', true) | bool }}"
+    install_dro: "{{ lookup('env', 'INSTALL_DRO') | default('False', true) | bool }}"
 
   pre_tasks:
+    - name: 'Get cluster domain'
+      kubernetes.core.k8s_info:
+        api_version: config.openshift.io/v1
+        kind: DNS
+        name: cluster
+      register: _cluster_dns
+
+    - name: 'Set fact: cluster domain'
+      set_fact:
+        cluster_domain: '{{ _cluster_dns.resources[0].spec.baseDomain }}'
+
+    - name: 'Debug: cluster domain'
+      debug:
+        msg: 'Cluster domain ........................ {{ cluster_domain }}'
+
     # For the full set of supported environment variables refer to the playbook documentation
-    - name: Check for required environment variables
+    - name: Check for required common environment variables
       assert:
         that:
           - lookup('env', 'MAS_ENTITLEMENT_KEY') != ""
           - lookup('env', 'MAS_INSTANCE_ID') != ""
-          - lookup('env', 'MAS_AIBROKER_STORAGE_ACCESSKEY') != ""
-          - lookup('env', 'MAS_AIBROKER_STORAGE_SECRETKEY') != ""
-          - lookup('env', 'MAS_AIBROKER_STORAGE_HOST') != ""
-          - lookup('env', 'MAS_AIBROKER_STORAGE_SSL') != ""
-          - lookup('env', 'MAS_AIBROKER_STORAGE_PROVIDER') != ""
-          - lookup('env', 'MAS_AIBROKER_STORAGE_PIPELINES_BUCKET') != ""
-          - lookup('env', 'MAS_AIBROKER_STORAGE_TENANTS_BUCKET') != ""
-          - lookup('env', 'MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET') != ""
-          - lookup('env', 'MAS_AIBROKER_WATSONXAI_APIKEY') != ""
-          - lookup('env', 'MAS_AIBROKER_WATSONXAI_URL') != ""
-          - lookup('env', 'MAS_AIBROKER_WATSONXAI_PROJECT_ID') != ""
-          - lookup('env', 'MAS_AIBROKER_DB_HOST') != ""
-          - lookup('env', 'MAS_AIBROKER_DB_PORT') != ""
-          - lookup('env', 'MAS_AIBROKER_DB_USER') != ""
-          - lookup('env', 'MAS_AIBROKER_DB_DATABASE') != ""
-          - lookup('env', 'MAS_AIBROKER_DB_SECRET_NAME') != ""
-          - lookup('env', 'MAS_AIBROKER_DB_SECRET_VALUE') != ""
-          # - lookup('env', 'MAS_CONFIG_DIR') != ""
-        fail_msg: "One or more required environment variables are not defined"
+        fail_msg: 'One or more required environment variables are not defined'
 
   roles:
-    # - ibm.mas_devops.db2
-    # - ibm.mas_devops.suite_config
-    - ibm.mas_devops.odh
-    - ibm.mas_devops.kmodels
-    - ibm.mas_devops.suite_app_install
-    - ibm.mas_devops.aibroker
+    - role: ibm.mas_devops.ibm_catalogs
+      when: mas_app_channel in ['9.1.x']
+    - role: ibm.mas_devops.cert_manager
+      when: mas_app_channel in ['9.1.x']
+    - role: ibm.mas_devops.mongodb
+      when:
+        - install_mongo == true
+        - mas_app_channel in ['9.1.x']
+    - role: ibm.mas_devops.sls
+      when:
+        - install_sls == true
+        - mas_app_channel in ['9.1.x']
+    - role: ibm.mas_devops.dro
+      when:
+        - install_dro == true
+        - mas_app_channel in ['9.1.x']
+    - role: ibm.mas_devops.db2
+      when:
+        - install_db2 == true
+        - mas_app_channel in ['9.1.x']
+    - role: ibm.mas_devops.minio
+      when:
+        - install_minio == true
+        - mas_app_channel in ['9.0.x', '9.1.x']
+    - role: ibm.mas_devops.mariadb
+      when:
+        - install_mariadb == true
+        - mas_app_channel in ['9.0.x', '9.1.x']
+    - role: ibm.mas_devops.odh
+    - role: ibm.mas_devops.suite_app_install
+      when: mas_app_channel == "9.0.x"
+    - role: ibm.mas_devops.kmodels
+    - role: ibm.mas_devops.aibroker
+    - role: ibm.mas_devops.aibroker_tenant
+      when: mas_app_channel in ['9.1.x']

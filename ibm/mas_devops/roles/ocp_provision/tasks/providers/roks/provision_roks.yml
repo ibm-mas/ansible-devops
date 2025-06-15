@@ -86,7 +86,9 @@
   register: ibmcloud_zone_vlans
 
 - name: "roks : Configure Private and Public Vlans"
-  when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
+  when:
+    - cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
+    - ibmcloud_zone_vlans.stdout | from_json | length > 0
   set_fact:
     public: "{{ ibmcloud_zone_vlans.stdout | from_json | ibm.mas_devops.public_vlan }}"
     private: "{{ ibmcloud_zone_vlans.stdout | from_json | ibm.mas_devops.private_vlan }}"
