@@ -1,0 +1,47 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ds-pipeline-s3-instance
+  namespace: mas-{{ mas_instance_id }}-aibroker
+  labels:
+    opendatahub.io/dashboard: 'false'
+    opendatahub.io/managed: 'true'
+  annotations:
+    opendatahub.io/connection-type: s3
+    openshift.io/display-name: AWS S3 Connection
+stringData:
+  accesskey: "{{ mas_aibroker_storage_accesskey }}"
+  secretkey: "{{ mas_aibroker_storage_secretkey }}"
+  host: "{{ mas_aibroker_storage_host }}"
+  region: "{{ mas_aibroker_storage_region }}"
+  ssl: "{{ mas_aibroker_storage_ssl }}"
+---
+apiVersion: datasciencepipelinesapplications.opendatahub.io/v1alpha1
+kind: DataSciencePipelinesApplication
+metadata:
+  name: instance
+  namespace: mas-{{ mas_instance_id }}-aibroker
+spec:
+  dspVersion: v1
+  database:
+    disableHealthCheck: true
+    customExtraParams: '{"tls":"false"}'
+    externalDB:
+      host: "{{ mas_aibroker_db_host }}"
+      port: "{{ mas_aibroker_db_port }}"
+      username: "{{ mas_aibroker_db_user }}"
+      pipelineDBName: "{{ mas_aibroker_db_database }}"
+      passwordSecret:
+        name: "{{ mas_aibroker_db_secret_name }}"
+        key: password
+  objectStorage:
+    disableHealthCheck: true
+    externalStorage:
+      host: "{{ mas_aibroker_storage_host }}"
+      bucket: "{{ mas_aibroker_storage_pipelines_bucket }}"
+      s3CredentialsSecret:
+        accessKey: accesskey
+        secretKey: secretkey
+        secretName: ds-pipeline-s3-instance
+      scheme: https

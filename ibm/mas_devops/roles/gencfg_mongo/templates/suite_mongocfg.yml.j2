@@ -12,9 +12,9 @@ metadata:
     "{{ key }}": "{{ value }}"
 {% endfor %}
 {% endif %}
-stringData:
-  username: "{{ mongodb_admin_username }}"
-  password: "{{ mongodb_admin_password }}"
+data:
+  username: "{{ mongodb_admin_username | b64encode }}"
+  password: "{{ mongodb_admin_password | b64encode }}"
 ---
 # Mongo configuration for MAS
 apiVersion: config.mas.ibm.com/v1
@@ -34,14 +34,14 @@ spec:
   displayName: "External MongoDB in 'mas-{{mas_instance_id}}-core' namespace"
   type: external
   config:
-    configDb: admin
+    configDb: {{mongodb_authentication_database}}
     retryWrites: {{mongodb_retry_writes}}
-    authMechanism: DEFAULT
+    authMechanism: {{mongodb_authentication_mechanism}}
     credentials:
       secretName: mongodb-{{mas_instance_id|lower}}-admin
     hosts:
       {{ mongodb_hosts | indent(6) }}
 {%- if mongo_certs is defined and mongo_certs | length > 0 %}
-    certificates:
-      {{ mongo_certs | indent(width=6, first=False) }}
+  certificates:
+    {{ mongo_certs | indent(width=4, first=False) }}
 {%- endif %}

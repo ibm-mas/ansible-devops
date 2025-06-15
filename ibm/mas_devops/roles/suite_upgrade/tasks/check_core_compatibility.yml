@@ -4,9 +4,10 @@
 - name: "core : Get subscription for ibm-mas"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
-    name: "ibm-mas-operator"
-    namespace: "{{ mas_namespace }}"
     kind: Subscription
+    namespace: "{{ mas_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-mas.{{ mas_namespace }}"
   register: suite_sub_info
 
 - name: "core : Debug existing Subscription"
@@ -32,11 +33,13 @@
     - not ( skip_compatibility_check is defined and skip_compatibility_check )
     - suite_sub_info.resources[0].spec.channel != mas_channel
   assert:
-    that: suite_sub_info.resources[0].spec.channel == upgrade_requirement[mas_channel]
+    that: suite_sub_info.resources[0].spec.channel == upgrade_requirement['core'][mas_channel]
     fail_msg: "Unable to upgrade from {{ suite_sub_info.resources[0].spec.channel }} to {{ mas_channel }}"
 
 - name: "core : Check that install plan approvals are set to 'Automatic'"
-  when: suite_sub_info.resources[0].spec.channel != mas_channel
+  when:
+    - suite_sub_info.resources[0].spec.channel != mas_channel
+    - suite_sub_info.resources[0].spec.installPlanApproval is defined
   assert:
     that: suite_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
     fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"

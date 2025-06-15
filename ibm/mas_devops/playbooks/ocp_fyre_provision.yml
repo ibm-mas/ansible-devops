@@ -2,19 +2,18 @@
 - hosts: localhost
   vars:
     cluster_type: fyre
-    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.14', True) }}"
+    ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.16', True) }}"
 
     # We update the cipher support on all installs, even though it's only technically
     # requires for FIPS clusters
     ocp_update_ciphers_for_semeru: True
-
-    fyre_config_storage: "{{ lookup('env', 'FYRE_CONFIG_STORAGE') | default('true', True) | bool }}"
 
   pre_tasks:
     # For the full set of supported environment variables refer to the playbook documentation
     - name: Check for required environment variables
       assert:
         that:
+          - lookup('env', 'FYRE_SITE') != ""
           - lookup('env', 'FYRE_USERNAME') != ""
           - lookup('env', 'FYRE_APIKEY') != ""
           - lookup('env', 'FYRE_PRODUCT_ID') != ""
@@ -31,7 +30,3 @@
 
     # 3. Update the APIServer to custom for FIPS compatibility
     - name: ibm.mas_devops.ocp_config
-
-    # 4. Install OpenShift Container Storage
-    - name: ibm.mas_devops.ocs
-      when: fyre_config_storage

@@ -1,0 +1,39 @@
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: mas-grafana
+  namespace: "{{ grafana_v5_namespace }}"
+  labels:
+    dashboards: "grafanav5"
+spec:
+  config:
+    auth:
+      disable_login_form: "false"
+      disable_signout_menu: "true"
+    log:
+      level: warn
+      mode: console
+  persistentVolumeClaim:
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: "{{ grafana_instance_storage_size }}"
+      storageClassName: "{{ grafana_instance_storage_class }}"
+  deployment:
+    spec:
+      template:
+        spec:
+          volumes:
+            - name: grafana-data
+              persistentVolumeClaim:
+                claimName: mas-grafana-pvc
+      strategy:
+        type: Recreate
+  # An empty route spec will cause the creation of a default
+  # route by the operator. This can also be used to override defaults
+  # in the route spec.
+  route:
+    spec: {}

@@ -1,3 +1,4 @@
+---
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -6,8 +7,77 @@ metadata:
 spec:
   name: "{{ cpd_service_package_name }}"
   channel: "{{ cpd_service_channel_name }}"
-
   source: ibm-operator-catalog
   sourceNamespace: openshift-marketplace
-
   installPlanApproval: "{{ cpd_service_installplan_approval }}"
+# The following subscriptions will be installed if CPD 4.8+ whenever a service
+# that depends the corresponding sub-dependencies are installed
+# -----------------------------------------------------------------------------
+{% if cpd_48_or_higher %}
+{% if cpd_service_name is in cpd_services_requiring_ccs %}
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: ibm-cpd-ccs-operator
+  namespace: "{{ cpd_operators_namespace }}"
+spec:
+  channel: "{{ cpd_components_meta.ccs.sub_channel }}"
+  installPlanApproval: Automatic
+  name: ibm-cpd-ccs
+  source: ibm-operator-catalog # ibm-cpd-ccs-operator-catalog
+  sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: ibm-cpd-datarefinery-operator
+  namespace: "{{ cpd_operators_namespace }}"
+spec:
+  channel: "{{ cpd_components_meta.datarefinery.sub_channel }}"
+  installPlanApproval: Automatic
+  name: ibm-cpd-datarefinery
+  source: ibm-operator-catalog # ibm-cpd-datarefinery-operator-catalog
+  sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: ibm-cpd-ws-runtimes-operator
+  namespace: "{{ cpd_operators_namespace }}"
+spec:
+  channel: "{{ cpd_components_meta.ws_runtimes.sub_channel }}"
+  installPlanApproval: Automatic
+  name: ibm-cpd-ws-runtimes
+  source: ibm-operator-catalog # ibm-cpd-datarefinery-operator-catalog
+  sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
+{% endif %}
+{% if cpd_service_name is in ['wsl','wml','spss','ca','wd'] %}
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: ibm-elasticsearch-operator-v1.1-ibm-operator-catalog-openshift-marketplace
+  namespace: "{{ cpd_operators_namespace }}"
+spec:
+  channel: "{{ cpd_components_meta.opencontent_elasticsearch.sub_channel }}"
+  installPlanApproval: Automatic
+  name: ibm-elasticsearch-operator
+  source: ibm-operator-catalog # ibm-elasticsearch-catalog
+  sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
+{% endif %}
+{% if cpd_service_name is in ['spss'] %}
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: ibm-cpd-canvasbase-operator-catalog-subscription # needed only by spss
+  namespace: "{{ cpd_operators_namespace }}"
+spec:
+  channel: "{{ cpd_components_meta.canvasbase.sub_channel }}"
+  installPlanApproval: Automatic
+  name: ibm-cpd-canvasbase
+  source: ibm-operator-catalog # ibm-canvasbase-catalog
+  sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
+{% endif %}
+{% endif %}

@@ -1,99 +1,146 @@
 ---
-# The following playbook is an attempt to automate the CP4D 4.0 / 4.5 steps documented here:
+# The following playbook is an attempt to automate the Cloud Pak for Data steps documented here:
 # https://www.ibm.com/support/producthub/icpdata/docs/content/SSQNUZ_latest/cpd/install/preinstall-overview.html
 
 # Validate properties are provided
 # -----------------------------------------------------------------------------
-- name: "Check that CPD release version has been provided"
+# Lookup default Cloud Pak for Data version based on MAS catalog
+- include_tasks: "tasks/determine-ibmcatalog-tag.yml"
+
+- debug:
+    msg:
+      - "Catalog Version ............................ {{ (catalog_tag is defined and catalog_tag != '') | ternary(catalog_tag, 'Undefined') }}"
+      - "Cloud Pak for Data version ................. {{ cpd_product_version | default('Undefined') }}"
+
+# Validate properties are provided
+# -----------------------------------------------------------------------------
+- name: "Check that Cloud Pak for Data release version has been provided"
   assert:
     that:
       - cpd_product_version is defined and cpd_product_version != ""
-    fail_msg: "CPD version (cpd_product_version) is a required parameter to run this role"
+    fail_msg: "Cloud Pak for Data version (cpd_product_version) is a required parameter to run this role"
 
-- name: "Check that provided CPD version is supported"
+- name: "Load supported Cloud Pak for Data information"
+  include_vars: "{{ role_path }}/../../common_vars/cp4d_supported_versions.yml"
+
+- name: "Check that provided Cloud Pak for Data version is supported for MAS"
   assert:
     that:
       - cpd_product_version in cpd_supported_versions
-    fail_msg: "CPD version ({{ cpd_product_version }}) is not a supported CPD version. Supported CPD versions are: {{ cpd_supported_versions }}."
+    fail_msg: "Cloud Pak for Data version ({{ cpd_product_version }}) is not a supported version for MAS. Supported Cloud Pak for Data versions for MAS are: {{ cpd_supported_versions }}"
+
+# Load Cloud Pak for Data casebundle definitions
+# for additional catalog sources: cpd-platform & opencloud-operators
+# -----------------------------------------------------------------------------
+- name: "Load Cloud Pak for Data extra catalog source specs for version {{ cpd_product_version }}"
+  include_tasks: "tasks/load-catalog-source-definitions.yml"
+  when: cpd_48_or_higher
 
 - name: Check that an entitlement key has been provided
+  when: not skip_entitlement_key_flag
   assert:
     that: cpd_entitlement_key is defined and cpd_entitlement_key != ""
     fail_msg: "ibm_entitlement_key or cpd_entitlement_key override must be provided"
 
-- name: "Run pre-req check"
-  include_tasks: "tasks/prereq-check.yml"
+# Create required namespaces
+# -----------------------------------------------------------------------------
+- name: "Create Cloud Pak for Data Namespaces"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/cpd_platform/namespaces.yml.j2"
 
+# Install ibm-entitlement-key in the required namespaces
+# -----------------------------------------------------------------------------
+# Nothing in the cp4d base platform requires entitlement, but the services that we want to enable in CP4D do.
+- name: "Install IBM Entitlement Key"
+  when: not skip_entitlement_key_flag
+  include_tasks: "tasks/entitlement.yml"
+
+# With CP4D 5.0, we need to provide entitlement key for the wcs service accounts.
+- include_tasks: "tasks/create-cpd-core-service-accounts.yml"
+  when:
+    - cpd_50_or_higher
+
+# Install olm-utils config map
+# -----------------------------------------------------------------------------
+- name: "Create olm-utils config map"
+  include_tasks: "tasks/create-olm-utils.yml"
+
+# Run pre-checks
+# -----------------------------------------------------------------------------
+# - Assert ibm-operator-catalog is installed
+# - Assert IBM Foundational Services is installed and that the version is compatible (only when CPD 4.6)
+# - Assert Red Hat Certificate Manager is installed
+- name: "Check Cloud Pak for Data pre-requisites"
+  include_tasks: "tasks/prereq-check/main.yml"
+
+# Check CPFS v3 is installed, if so disable it to allow installing CPD 4.8+ (and CPFS v4)
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/prereqs/disable-cpfs-v3.yml"
+  when:
+    - cpd_48_or_higher
+    - cpfs_installed_version is defined
+    - cpfs_installed_version is version(cpd_cpfs_minimum_csv_version, '<=') # this is true if CPFS v3 is installed
+
+# Auto determine Cloud Pak for Data file and block storage classes
+# -----------------------------------------------------------------------------
 - name: "Determine storage classes"
   include_tasks: "tasks/determine-storage-classes.yml"
 
-- name: "Create CP4D Operator Subscriptions"
-  include_tasks: "tasks/create-subscriptions.yml"
+# CPD 4.8 and above only: Authorizing a user to act as an IBM Cloud Pak for Data instance administrator
+# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-authorizing-instance-administrator
+# -----------------------------------------------------------------------------
+- name: "Grant permissions to {{ cpd_admin_login_sa }} service account in Cloud Pak For Data namespaces"
+  include_tasks: "tasks/authorize-user-cpd-admin.yml"
+  when: cpd_48_or_higher
 
-# Install ibm-entitlement-key in ibm-cpd namespace
-# Nothing in the cp4d base platform requires entitlement, but the services that we want to enable in CP4D do.
-- name: "Install IBM Entitlement Key"
-  include_tasks: "tasks/entitlement.yml"
+# CPD 4.8 and above only: Install specific catalog sources
+# -----------------------------------------------------------------------------
+# TODO : For now, we will need to install specific catalog sources
+# for Cloud Pak for Data (cpd-platform), Foundational Services and NamespaceScope (opencloud-operators)
+- include_tasks: "tasks/create-catalog-sources.yml"
+  when: cpd_48_or_higher
+
+# Install NamespaceScope
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/prereqs/install-ibm-namespace-scope.yml"
+
+# CPD 4.8 and above only: Install IBM Licensing
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/prereqs/install-ibm-licensing.yml"
+  when: cpd_48_or_higher
+
+# CPD 4.8 and above only: Install Cloud Pak Foundational Services
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/prereqs/install-cpfs.yml"
+  when:
+    - cpd_48_or_higher
+    - cpfs_installed_version is not defined or cpfs_installed_version != cpfs_version
+
+# Install Cloud Pak for Data subscription/operator
+# -----------------------------------------------------------------------------
+- name: "Create Cloud Pak for Data Subscription"
+  include_tasks: "tasks/create-subscriptions.yml"
 
 # At this stage:
 # - The two namespaces (ibm-cpd and ibm-cpd-operators) will be created
 # - OperatorGroup will have been created in the ibm-cpd-operators namespace
-# - Cloud Pak for Data Platform Operator (cpd-platform-operator-manager) v2.0 will be installed in ibm-cpd-operators namespace
-# - IBM Cloud Pak Foundational Services (ibm-common-service-operator) v3 will be installed in ibm-cpd-operators namespace
-# - IBM NamespaceScope Operator (ibm-namespace-scope-operator) v3 will be installed in ibm-cpd-operators namespace
+# - Cloud Pak for Data Platform Operator (cpd-platform-operator-manager) will be installed in ibm-cpd-operators namespace
+# - IBM Cloud Pak Foundational Services (ibm-common-service-operator) will be installed in ibm-cpd-operators namespace
+# - IBM NamespaceScope Operator (ibm-namespace-scope-operator) will be installed in ibm-cpd-operators namespace
 # - A NamespaceScope will have been created in the ibm-cpd-operators namespace
 # - Nothing will exist in the ibm-cpd namespace yet except the entitlement key we just created
 
-- name: "Install CP4D"
+# Install Cloud Pak for Data instance
+# -----------------------------------------------------------------------------
+- name: "Install Cloud Pak For Data"
   include_tasks: "tasks/install-cp4d.yml"
 
-# At this stage:
-# - IBM Zen Operator will be installed into the ibm-common-services namespace
-# - IBM Cert Manager Operator will be installed into the ibm-common-services namespace
-# - Multiple deployments will be put into the ibm-cp4d namespace:
-#     - ibm-nginx
-#     - usermgmt
-#     - zen-audit
-#     - zen-core
-#     - zen-core-api
-#     - zen-data-sorcerer
-#     - zen-watchdog
-#     - zen-watcher
-
-# Wait for ZenService service accounts to be created
-- name: "Wait for the zen service accounts to appear"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: ServiceAccount
-    name: "{{ item }}"
-    namespace: "{{ cpd_instance_namespace }}"
-  register: zen_sa_lookup
-  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
-  delay: 5 # seconds
-  until:
-    - zen_sa_lookup.resources is defined
-    - zen_sa_lookup.resources | length > 0
-  with_items:
-    - zen-admin-sa
-    - zen-editor-sa
-    - zen-norbac-sa
-    - zen-runtime-sa
-    - zen-viewer-sa
-
-# Patch the zen service accounts in ibm-cpd namespace to add ibm-entitlement-key
-- name: "Patch the zen service accounts"
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: ServiceAccount
-    name: "{{ item }}"
-    namespace: "{{ cpd_instance_namespace }}"
-    apply: true
-    definition:
-      imagePullSecrets:
-        - name: ibm-entitlement-key
-  with_items:
-    - zen-admin-sa
-    - zen-editor-sa
-    - zen-norbac-sa
-    - zen-runtime-sa
-    - zen-viewer-sa
+# Debug Cloud Pak for Data installation details
+# -----------------------------------------------------------------------------
+- name: "Debug : Cloud Pak for Data {{ cpd_product_version }} details"
+  debug:
+    msg:
+      - "CP4D Dashboard ......................... {{ cpd_admin_url }}"
+      - "CP4D Admin Username .................... {{ cpd_admin_username }}"
+      - "CP4D Admin Password .................... {{ cpd_admin_password_text }}"

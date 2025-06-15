@@ -17,13 +17,13 @@ Here's how you could get started developing within a new working branch:
 
 ```
 git clone git@github.com:ibm-mas/ansible-devops.git
-git checkout -b name-your-branch 
-git checkout name-your-branch 
+git checkout -b name-your-branch
+git checkout name-your-branch
 ```
 
 ## Pull Requests
 
-This repository uses a common build system to enable proper versioning. 
+This repository uses a common build system to enable proper versioning.
 This build system is triggered when including specific tags at the beginning of your [commits](https://github.com/ibm-mas/ansible-devops/commits/master) and [pull requests](https://github.com/ibm-mas/ansible-devops/pulls) titles.
 
 `[major]` - This tag triggers a major pre-release version build out of your branch. Only use this tag when there are breaking or potential disruptive changes being introduced i.e existing ansible roles being removed.
@@ -77,7 +77,7 @@ It is possible to develop the Ansible roles without needing to build the collect
   vars:
     cluster_type: rosa
     cluster_name: fvtrosa
-    ocp_version: "4.14.12"
+    ocp_version: "4.15.17"
 
   roles:
     - ocp_provision
@@ -186,7 +186,7 @@ All tasks must be named.  For tasks that are not in main.yaml of the role, they 
 - name: "community : Create MongoDb cluster"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/cr.yml') }}"
+    template: "templates/community/cr.yml"
 ```
 
 This will lead to logs like the following when the role is executed:
@@ -233,7 +233,7 @@ Once the Ansible collection pre-release master build passes [the tests along wit
   - For new `[minor]` release, if current release = `1.0.0`, then new release tag = `1.1.0`.
   - For new `[patch]` release, if current release = `1.0.0`, then new release tag = `1.0.1`.
 3. On `Release title` field, type the new release tag generated above.
-4. **Create the release notes:** Add a `What's Changed` section as description including a list of all the pull requests merged into master branch that will be included as part of the new release. You can easily [compare](https://github.com/ibm-mas/ansible-devops/compare/) the delta PRs and commits that have been added in the new release tag using the current released tag version as base. 
+4. **Create the release notes:** Add a `What's Changed` section as description including a list of all the pull requests merged into master branch that will be included as part of the new release. You can easily [compare](https://github.com/ibm-mas/ansible-devops/compare/) the delta PRs and commits that have been added in the new release tag using the current released tag version as base.
 
 Use the following as template for the description:
 
@@ -253,3 +253,19 @@ Use the following as template for the description:
 
 ## Maintain links between MAS documentation and github documentation
 When creating a new ansible role or renaming an existing ansible role, please use the Review Manager button at the top of [internal MAS Knowledge Center](https://ibmdocs-test.mybluemix.net/docs/en/MAS-review_test?topic=installing-ansible-collection) and add a comment to the `Ansible Collection` topic describing the required change.  The idea is to maintain the links between the public MAS documentation and the github docs here.
+
+## Building the execution environment
+The execution environment is a container image that is built using RedHats `ansible-automation-platform-24/ee-supported-rhel9:latest` image, to be used in a RedHat Ansible Automation Platform instance. More details of this can be found in the documentation [here](https://ibm-mas.github.io/ansible-devops/execution-environment.md)
+
+To build the image locally ensure the following:
+- You have [podman](https://podman.io/) installed and running
+- You have access to registry.redhat.io to be able to pull the `ansible-automation-platform-24/ee-supported-rhel9` image:
+  - `podman login --username "{{ REDHAT_USERNAME }}" --password "{{ REDHAT_PASSWORD }}" registry.redhat.io`
+
+
+To build the image:
+```bash
+pip install ansible-builder
+podman login --username "{{ REDHAT_USERNAME }}" --password "{{ REDHAT_PASSWORD }}" registry.redhat.io
+make build-ee
+```

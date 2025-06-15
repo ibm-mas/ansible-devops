@@ -1,0 +1,96 @@
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: km-controller-role
+  namespace: {{ tenantNamespace }}
+rules:
+  - verbs:
+      - list
+    apiGroups:
+      - ''
+    resources:
+      - pods
+      - configmaps
+      - secrets
+  - verbs:
+      - list
+    apiGroups:
+      - metrics.k8s.io
+    resources:
+      - nodes
+      - pods
+  - verbs:
+      - list
+    apiGroups:
+      - apps
+    resources:
+      - deployments
+  - verbs:
+      - list
+      - create
+    apiGroups:
+      - batch
+    resources:
+      - jobs
+      - cronjobs
+  - verbs:
+      - create
+      - list
+      - delete
+      - get
+    apiGroups:
+      - serving.kserve.io
+    resources:
+      - inferenceservices
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: km-controller-binding
+  namespace: {{ tenantNamespace }}
+subjects:
+  - kind: ServiceAccount
+    name: km-controller
+    namespace: mas-{{ mas_instance_id }}-aibroker
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: km-controller-role
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: km-watcher-role
+  namespace: {{ tenantNamespace }}
+rules:
+  - verbs:
+      - list
+      - watch
+    apiGroups:
+      - ''
+    resources:
+      - events
+      - pods
+  - verbs:
+      - list
+      - watch
+    apiGroups:
+      - batch
+    resources:
+      - cronjobs
+      - jobs
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: km-watcher-binding
+  namespace: {{ tenantNamespace }}
+subjects:
+  - kind: ServiceAccount
+    name: km-watcher
+    namespace: mas-{{ mas_instance_id }}-aibroker
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: km-watcher-role

@@ -12,22 +12,21 @@
     msg:
       - "CP4D Username .................. {{ cpd_admin_username }}"
       - "CP4D Password .................. When not informed, found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
-      - "CP4D URL ....................... {{ cpd_url }}"
+      - "CP4D URL ....................... {{ cpd_admin_url }}"
       - "CP4D WSL Project Name .......... {{ cpd_wsl_project_name }}"
       - "MAS config directory ........... {{ mas_config_dir }}"
-
 
 # 2. Get CP4D Beaker token to enable Watson API authentication
 # -----------------------------------------------------------------------------
 - name: "gencfg-wsl : Authorize the CP4D (get Bearer token)"
   uri:
-    url: "{{ cpd_url }}/icp4d-api/v1/authorize"
+    url: "{{ cpd_admin_url }}/icp4d-api/v1/authorize"
     validate_certs: no
     method: POST
     headers:
       cache-control: "no-cache"
     body_format: "json"
-    body: "{\"username\":\"{{ cpd_admin_username }}\",\"password\":\"{{ cpd_admin_password }}\"}"
+    body: '{"username":"{{ cpd_admin_username }}","password":"{{ cpd_admin_password }}"}'
     status_code: 200
     timeout: 30
   register: cpd_authorization
@@ -37,12 +36,11 @@
   set_fact:
     cpd_bearer_token: "{{ cpd_authorization.json.token }}"
 
-
 # 3. Look for a project with informed name and retrieve its id
 # -----------------------------------------------------------------------------
 - name: "gencfg-wsl : Look for a project with name {{ cpd_wsl_project_name }} (cpd_wsl_project_name)"
   uri:
-    url: "{{ cpd_url }}/v2/projects"
+    url: "{{ cpd_admin_url }}/v2/projects"
     validate_certs: no
     method: GET
     headers:
@@ -57,7 +55,6 @@
   set_fact:
     wsl_project_id: "{{ lookup_wsl_project_list.json.resources | ibm.mas_devops.getWSLProjectId(cpd_wsl_project_name) }}"
 
-
 # 4. Communication to User regarding project search
 # -----------------------------------------------------------------------------
 - name: "gencfg-wsl : Debug wsl_project_id"
@@ -70,7 +67,6 @@
     - wsl_project_id is defined and wsl_project_id != ""
   debug:
     msg: "Project named {{ cpd_wsl_project_name }} has been found: {{ wsl_project_id }}"
-
 
 # 5. Create new analytics project if necessary
 # -----------------------------------------------------------------------------
@@ -88,7 +84,7 @@
   when:
     - wsl_project_id is not defined or wsl_project_id == ""
   uri:
-    url: "{{ cpd_url }}/usermgmt/v1/role/zen_administrator_role"
+    url: "{{ cpd_admin_url }}/usermgmt/v1/role/zen_administrator_role"
     validate_certs: no
     method: PUT
     headers:
@@ -96,7 +92,7 @@
       cache-control: "no-cache"
       Content-Type: "application/json"
     body_format: "json"
-    body: "{\"role_name\":\"Administrator\",\"description\":\"Administrator role\",\"permissions\":[\"administrator\",\"can_provision\",\"manage_catalog\",\"create_space\",\"create_project\"]}"
+    body: '{"role_name":"Administrator","description":"Administrator role","permissions":["administrator","can_provision","manage_catalog","create_space","create_project"]}'
     status_code: 200
     timeout: 30
 
@@ -104,7 +100,7 @@
   when:
     - wsl_project_id is not defined or wsl_project_id == ""
   uri:
-    url: "{{ cpd_url }}/transactional/v2/projects"
+    url: "{{ cpd_admin_url }}/transactional/v2/projects"
     validate_certs: no
     method: POST
     headers:
@@ -119,13 +115,12 @@
 
 - name: "gencfg-wsl : Extract wsl_project_id when it's created via rest api"
   vars:
-    regex: '[^/]*$'
+    regex: "[^/]*$"
   when:
     - create_wsl_project_output.status is defined
     - create_wsl_project_output.status == 201
   set_fact:
     wsl_project_id: "{{ create_wsl_project_output.json.location | regex_search(regex) }}"
-
 
 # 6. Write out the config to the local filesystem
 # -----------------------------------------------------------------------------
@@ -143,11 +138,11 @@
   ansible.builtin.template:
     src: wsl/watsonstudiocfg.yml.j2
     dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-watsonstudio-system.yml"
-    mode: '664'
+    mode: "664"
 
 - name: "gencfg-wsl : Write our wsl_project_id into MAS Configuration Directory"
   copy:
     dest: "{{ mas_config_dir }}/{{ cpd_wsl_project_name }}.id"
     content: |
       {{ wsl_project_id }}
-    mode: '664'
+    mode: "664"

@@ -1,6 +1,11 @@
 ---
+# 1. Wait for the spark control plane to be ready, allocate more resource if
+#    necessary
+# -----------------------------------------------------------------------------
+- include_tasks: "tasks/wait/wait-spark-control-plane.yml"
 
-# 1. Wait for CP4D service CR to be ready
+# 2. Wait for CP4D service CR to be ready
+
 # -----------------------------------------------------------------------------
 # We can't stop waiting on Failed status, as it will report failed multiple
 # times during initial reconcile ... we just need to keep waiting.
@@ -20,7 +25,7 @@
   retries: 30 # Up to 2 hours
   delay: 240 # Every 4 minutes
 
-- name: "wait-spark : Check that the WML analyticsengineStatus is 'Completed'"
+- name: "wait-spark : Check that the analyticsengineStatus is 'Completed'"
   assert:
     that: cpd_cr_lookup.resources[0].status.analyticsengineStatus == "Completed"
     fail_msg: "Analytics Engine (Apache Spark) install failed (analyticsengineStatus)"

@@ -1,33 +1,7 @@
 ---
-# Install and configure the Node Feature Discovery Operator
+# 1. Install and configure the Node Feature Discovery Operator
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/nfd_setup.yml
-
-
-# 1. Look up OCP version in Cluster
-# -----------------------------------------------------------------------------
-- name: "Look up cluster ocp version"
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    name: "version"
-    kind: ClusterVersion
-  register: ocp_version_lookup
-
-- name: "Set ocp version number"
-  when: ocp_version_lookup.resources[0] is defined
-  set_fact:
-    ocp_version_num: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
-
-- name: "Set gpu driver version default for ocp 4.10+"
-  when: ocp_version_num is version('4.10.0', '>')
-  set_fact:
-    gpu_driver_version: "{{ (_gpu_driver_version is defined and _gpu_driver_version != '') | ternary(_gpu_driver_version, rhel8_driver_version) }}"
-
-- name: "Set gpu driver version for other ocp versions"
-  when: ocp_version_num is version('4.10.0', '<')
-  set_fact:
-    gpu_driver_version: "{{ (_gpu_driver_version is defined and _gpu_driver_version != '') | ternary(_gpu_driver_version, rhel7_driver_version) }}"
-
 
 # 2. Lookup the packagemanifest for gpu-operator-certified
 # -----------------------------------------------------------------------------
@@ -36,7 +10,7 @@
     api_version: packages.operators.coreos.com/v1
     kind: PackageManifest
     name: gpu-operator-certified
-    namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
+    namespace: openshift-marketplace # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
   register: gpu_manifest
 
 - name: Assert that PackageManifest exists
@@ -53,79 +27,92 @@
     gpu_source_namespace: "{{ gpu_manifest.resources[0].status.catalogSourceNamespace }}"
     gpu_default_channel: "{{ gpu_manifest.resources[0].status.defaultChannel }}"
 
-
 # 3. Provide Debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
     msg:
-      - "OCP Release Version ................ {{ ocp_version_num }}"
       - "GPU Namespace ...................... {{ gpu_namespace }}"
       - "GPU Channel   ...................... {{ gpu_channel }}"
-      - "GPU Driver Version ................. {{ gpu_driver_version }}"
-      - "GPU Driver Repo Path ............... {{ gpu_driver_repository_path }}"
 
-
-# 4. Create NVIDIA GPU project
+# 3. Check if GPU operator is already installed
 # -----------------------------------------------------------------------------
-- name: "Create gpu namespace"
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: Namespace
-    name: '{{ gpu_namespace }}'
-
-
-# 5. Create NVIDIA GPU operator group and subscription
-# -----------------------------------------------------------------------------
-- name: "Create gpu operator group"
-  kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/gpu-operatorgroup.yml.j2') }}"
-    wait: yes
-    wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
-
-- name: "Create gpu subscription"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/gpu-subscription.yml.j2') }}"
-    wait: yes
-    wait_timeout: 300
-    wait_condition:
-      type: 'CatalogSourcesUnhealthy'
-      status: "False"
-
-- name: "Wait until ClusterPolicy CRD is available"
-  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
-  vars:
-    crd_name: clusterpolicies.nvidia.com
-
-
-# 6. Create GPU Cluster Policy
-# -----------------------------------------------------------------------------
-- name: "Create Cluster Policy instance for ocp 4.10+"
-  when: ocp_version_num is version('4.10', '>')
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/clusterpolicy-v2.yml.j2') }}"
-
-- name: "Create Cluster Policy instance for other ocp versions"
-  when: ocp_version_num is version('4.10', '<')
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/clusterpolicy.yml.j2') }}"
-
-
-# 7. Wait for Cluster Policy to be ready
-# -----------------------------------------------------------------------------
-- name: "Wait for Cluster Policy instance to be ready (60s delay)"
+- name: Check if GPU operator is already installed
   kubernetes.core.k8s_info:
     api_version: nvidia.com/v1
     name: "gpu-cluster-policy"
     kind: ClusterPolicy
-  register: gpu_cr_result
-  until:
-    - gpu_cr_result.resources is defined and gpu_cr_result.resources | length == 1
-    - gpu_cr_result.resources[0].status is defined
-    - gpu_cr_result.resources[0].status.state is defined
-    - gpu_cr_result.resources[0].status.state == 'ready'
-  retries: 30 # approx 30 minutes before we give up
-  delay: 60 # 1 minute
+  register: gpu_clusterpolicy_result
+
+- name: "Debug information"
+  debug:
+    msg:
+      - "gpu_clusterpolicy_result ...................... {{ gpu_clusterpolicy_result }}"
+
+# 4. Install GPU operator if not already installed
+# -----------------------------------------------------------------------------
+- name: Install GPU operator if not already installed
+  block:
+    # 4.1 Create NVIDIA GPU project
+    # -----------------------------------------------------------------------------
+    - name: "Create gpu namespace"
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: "{{ gpu_namespace }}"
+
+    # 4.2 Create NVIDIA GPU operator group and subscription
+    # -----------------------------------------------------------------------------
+    - name: "Create gpu operator group"
+      kubernetes.core.k8s:
+        definition: "{{ lookup('template', 'templates/gpu-operatorgroup.yml.j2') }}"
+        wait: yes
+        wait_timeout: 60 #subsequent tasks will fail if the CRD isn't fully created
+
+    - name: "Create gpu subscription"
+      kubernetes.core.k8s:
+        apply: yes
+        definition: "{{ lookup('template', 'templates/gpu-subscription.yml.j2') }}"
+        wait: yes
+        wait_timeout: 300
+        wait_condition:
+          type: "CatalogSourcesUnhealthy"
+          status: "False"
+
+    - name: "Wait until ClusterPolicy CRD is available"
+      include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+      vars:
+        crd_name: clusterpolicies.nvidia.com
+
+    # 4.3 Create GPU Cluster Policy
+    # -----------------------------------------------------------------------------
+    - name: "Create Cluster Policy instance using latest driver"
+      when: gpu_driver_version is not defined or not gpu_driver_version
+      kubernetes.core.k8s:
+        apply: yes
+        definition: "{{ lookup('template', 'templates/clusterpolicy-v2.yml.j2') }}"
+
+    - name: "Create Cluster Policy instance using custom driver"
+      when: gpu_driver_version is defined and gpu_driver_version
+      kubernetes.core.k8s:
+        apply: yes
+        definition: "{{ lookup('template', 'templates/clusterpolicy-customversion.yml.j2') }}"
+
+    # 4.4. Wait for Cluster Policy to be ready
+    # -----------------------------------------------------------------------------
+    - name: "Wait for Cluster Policy instance to be ready (60s delay)"
+      kubernetes.core.k8s_info:
+        api_version: nvidia.com/v1
+        name: "gpu-cluster-policy"
+        kind: ClusterPolicy
+      register: gpu_cr_result
+      until:
+        - gpu_cr_result.resources is defined and gpu_cr_result.resources | length == 1
+        - gpu_cr_result.resources[0].status is defined
+        - gpu_cr_result.resources[0].status.state is defined
+        - gpu_cr_result.resources[0].status.state == 'ready'
+      retries: 30 # approx 30 minutes before we give up
+      delay: 60 # 1 minute
+  when:
+    - gpu_clusterpolicy_result.resources | length == 0
+    - gpu_clusterpolicy_result.resources[0].status is not defined

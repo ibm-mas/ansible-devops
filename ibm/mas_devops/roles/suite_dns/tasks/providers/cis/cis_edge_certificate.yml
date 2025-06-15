@@ -21,6 +21,10 @@
   debug:
     msg: "CIS Service Name ......... {{ cis_service_name }}"
 
+- name: "Pause for 2 minutes before continuing..."
+  pause:
+    minutes: 2
+
 - name: "cis : Lookup for CIS Service Domains"
   ansible.builtin.shell: |
     ibmcloud cis domains -i {{ cis_service_name }} -o json
@@ -33,19 +37,38 @@
   debug:
     var: _cis_domain_id
 
+- name: "Pause for 2 minutes before continuing..."
+  pause:
+    minutes: 2
+
 - name: "cis : Lookup for cis certificates"
   ansible.builtin.shell: |
     ibmcloud cis certificates {{ _cis_domain_id }} -i {{ cis_service_name }} -o json
   register: _cis_certificates
 
+- name: "cis : exclude certs not for {{ mas_instance_id }}"
+  set_fact:
+    dedicated_list: "{{ _cis_certificates.stdout | from_json | selectattr('hosts','search',mas_instance_id) }}"
+
+# In SaaS, the default edge cert created by CIS already includes mas_instance_id in its hostname,
+# so we add an additional check to ensure this default cert is excluded from our search for the dedicated cert.
+# Specifically, we look for type: "advanced" (certs ordered by this role will always have this - the default cert has type: "universal").
+# This specialised check is gated behind the saas_mode flag to protect against unintentionally impacting other existing users of this role
+- name: "cis : exclude universal certs (SaaS)"
+  set_fact:
+    dedicated_list: "{{ dedicated_list | selectattr('type', 'equalto', 'advanced') }}"
+  when:
+    - saas_mode
+
 - name: "cis : Verify if is there a dedicated certificate already"
   set_fact:
-    hasDedicated: "{{ _cis_certificates.stdout | from_json | selectattr('hosts', 'search', mas_instance_id) | map(attribute='id') | list | length > 0 }}"
+    hasDedicated: "{{ dedicated_list | length > 0 }}"
 
 - name: "cis : Lookup the dedicated certificate id"
-  when: hasDedicated
   set_fact:
-    dedicatedId: "{{ _cis_certificates.stdout | from_json | selectattr('hosts', 'search', mas_instance_id) | map(attribute='id') | first }}"
+    dedicatedId: "{{ dedicated_list[0].id }}"
+  when:
+    - hasDedicated
 
 - name: Debug dedicated certificates
   debug:
@@ -53,14 +76,23 @@
       - "hasDedicated: {{ hasDedicated }}"
       - "dedicatedId: {{ dedicatedId | default('N/A', True )}}"
 
+- name: "Pause for 2 minutes before continuing..."
+  pause:
+    minutes: 2
+
 - name: "cis : Delete Existent Advanced Edge Certificate"
   ansible.builtin.shell: |
     ibmcloud cis certificate-delete {{ _cis_domain_id }}  {{ dedicatedId }} -i {{ cis_service_name }} -f
   when: hasDedicated and override_edge_certs
   register: _deleted_certificate
 
+- name: "Pause for 2 minutes before continuing..."
+  pause:
+    minutes: 2
+
 - name: "cis : Order certificate if there no dedicated yet"
   ansible.builtin.shell: |
-    ibmcloud cis certificate-order {{ _cis_domain_id }} --hostnames {{ edge_cert_routes|join(',') }} -i {{ cis_service_name }}
+    ibmcloud cis certificate-order {{ _cis_domain_id }} --hostnames {{ item|join(',') }} -i {{ cis_service_name }}
+  loop: "{{ edge_cert_routes | batch(50) | list }}"
   when:
-    - not hasDedicated or _deleted_certificate is defined
+    - not hasDedicated or _deleted_certificate["changed"]

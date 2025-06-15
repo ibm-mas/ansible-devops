@@ -1,0 +1,56 @@
+---
+# This task checks if Cloud Pak Foundational Services is installed
+# and for cases where CPD 4.6 is installed, it also prevents from continuing if CPFS is not found.
+# In addition, if CPFS instance is found, it sets the installed version in a property 'cpfs_installed_version'
+
+# 2. Check whether IBM Common Services are already installed
+# -----------------------------------------------------------------------------
+- name: "prereq-check : Check if ibm-common-service-operator is installed in {{ search_cpfs_namespace }} namespace"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ search_cpfs_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-common-service-operator.{{ search_cpfs_namespace }}"
+  register: common_services_sub_info
+
+- name: "prereq-check : Check if ODLM is installed in {{ search_cpfs_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: operand-deployment-lifecycle-manager
+    namespace: "{{ search_cpfs_namespace }}"
+    kind: Deployment
+  register: odlm_lookup
+
+- name: "prereq-check : Assert that IBM Cloud Pak Foundational Services is installed"
+  when: cpd_46_or_lower
+  assert:
+    that:
+      - common_services_sub_info.resources is defined
+      - common_services_sub_info.resources | length > 0
+      - common_services_sub_info.resources[0].status is defined
+      - common_services_sub_info.resources[0].status.installedCSV is defined
+    fail_msg: "Failed! IBM Cloud Pak Foundation Services must be installed before installing CloudPak for Data v{{ cpd_product_version }}. Run 'common_services' role to install it."
+
+- name: "prereq-check : Assert that ODLM is installed"
+  when: cpd_46_or_lower
+  assert:
+    that:
+      - odlm_lookup.resources is defined
+      - odlm_lookup.resources | length >= 0
+      - odlm_lookup.resources[0].status.availableReplicas is defined
+    fail_msg: "Failed! Operand Deployment Lifecycle Manager must be installed before installing CloudPak for Data vv{{ cpd_product_version }}. Run 'common_services' role to install it."
+
+- set_fact:
+    cpfs_installed_version: "{{ common_services_sub_info.resources[0].status.installedCSV | regex_search(regex) }}"
+  vars:
+    regex: "(?<=ibm-common-service-operator.v)(.*)"
+  when:
+    - common_services_sub_info.resources is defined
+    - common_services_sub_info.resources | length > 0
+    - common_services_sub_info.resources[0].status is defined
+    - common_services_sub_info.resources[0].status.installedCSV is defined
+
+- debug:
+    msg:
+      - "IBM Cloud Pak Foundational Services installed version ................... {{ cpfs_installed_version | default('Not installed') }}"

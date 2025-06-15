@@ -1,0 +1,165 @@
+---
+# 1. Failure conditions
+# -----------------------------------------------------------------------------
+- name: "roks : Fail if rosa_token is not provided"
+  assert:
+    that: rosa_token is defined and rosa_token != ""
+    fail_msg: "rosa_token property is required"
+
+
+# 2. Debug Info
+# -----------------------------------------------------------------------------
+- name: "roks : Debug information"
+  debug:
+    msg:
+      - "Cluster name ................. {{ cluster_name }}"
+      - "OCP version .................. {{ ocp_version }}"
+      - "ROSA compute nodes ........... {{ rosa_compute_nodes }}"
+      - "ROSA token ................... ********************"
+
+# 3. Check for required software
+# -----------------------------------------------------------------------------
+- name: "Test if rosa is installed"
+  shell: rosa version
+  register: rosa_version
+  ignore_errors: true
+
+- name: "Fail if rosa is not installed"
+  assert:
+    that: ( rosa_version.rc == 0 )
+    fail_msg: "rosa CLI must be installed (https://console.redhat.com/openshift/create/rosa/welcome)"
+
+
+# 4. Login
+# -----------------------------------------------------------------------------
+- name: "rosa : Login"
+  shell: rosa login --token {{ rosa_token }}
+
+- name: "rosa : Validate login"
+  shell: rosa whoami
+  register: rosa_whoami_result
+
+- name: "rosa : Debug login"
+  debug:
+    msg: "{{ rosa_whoami_result }}"
+
+
+# 4.1 Create Account Roles
+# -----------------------------------------------------------------------------
+- name: "rosa : Extract major.minor from ocp_version"
+  set_fact:
+    ocp_major_minor: "{{ ocp_version.split('.')[:2] | join('.') }}"
+    rosa_account_role_prefix: "{{ cluster_name }}-ocp{{ ocp_version.split('.')[:2] | join('') }}"
+
+- name: "rosa : Create account roles"
+  shell: >
+    rosa create account-roles
+    --mode auto
+    --yes
+    --prefix {{ rosa_account_role_prefix }}
+    --version {{ ocp_major_minor }}
+
+
+# 5. Check if the cluster is already provisioned
+# -----------------------------------------------------------------------------
+# State: pending -> installing -> ready
+- name: "rosa : Lookup Cluster"
+  shell: rosa describe cluster -c {{ cluster_name }} -o json
+  register: rosa_cluster_lookup_result
+  failed_when: "rosa_cluster_lookup_result.rc > 1"
+
+- name: "rosa : Debug status"
+  when: rosa_cluster_lookup_result.rc == 0
+  debug:
+    msg: "Cluster state ......................... {{ (rosa_cluster_lookup_result.stdout | from_json).state }}"
+
+
+# 6. Create cluster
+# -----------------------------------------------------------------------------
+- name: "rosa/provision : Create ROSA cluster"
+  when: rosa_cluster_lookup_result.rc == 1
+  shell: >
+    rosa create cluster \
+      --cluster-name {{ cluster_name }} \
+      --version {{ ocp_version }} \
+      --replicas {{ rosa_compute_nodes }} \
+      --compute-machine-type={{ rosa_compute_machine_type }} \
+      --sts \
+      --mode auto \
+      --yes
+
+
+# 7. Watch cluster provisioning progress
+# -----------------------------------------------------------------------------
+- name: "rosa/provision : Wait until the ROSA cluster is deployed"
+  shell: rosa describe cluster -c {{ cluster_name }} -o json
+  register: rosa_cluster_completion
+  until:
+    - rosa_cluster_completion.rc == 0
+    - (rosa_cluster_completion.stdout | from_json).state == 'ready'
+    - (rosa_cluster_completion.stdout | from_json).api is defined
+    - (rosa_cluster_completion.stdout | from_json).api.url is defined
+    - (rosa_cluster_completion.stdout | from_json).api.url != ""
+  retries: 60
+  delay: 60 # 1 minute
+
+- name: "rosa: Debug final cluster state"
+  debug:
+    msg: "{{ rosa_cluster_completion.stdout | from_json }}"
+
+# 8. Set up cluster-admin user
+# -----------------------------------------------------------------------------
+# Generate rosa cluster admin password
+- name: Generate rosa cluster admin password
+  no_log: true
+  set_fact:
+    rosa_cluster_admin_password: "{{ lookup('password', '/dev/null length=20 chars=ascii_lowercase,ascii_uppercase,digits') }}"
+  when: rosa_cluster_admin_password is undefined or rosa_cluster_admin_password == ""
+
+- name: "rosa/provision : Check for existing cluster-admin user"
+  shell: rosa describe admin --cluster {{ cluster_name }}
+  register: rosa_admin_check
+  failed_when: "rosa_admin_check.rc > 1"
+
+- name: "rosa/provision : Debug cluster-admin lookup"
+  debug:
+    msg: "{{ rosa_admin_check }}"
+
+- name: "rosa/provision : Create cluster-admin user"
+  when:
+    - rosa_admin_check.stderr_lines | length > 0
+    - rosa_admin_check.stderr_lines[0] == "WARN: There is no admin on cluster '" ~ cluster_name ~ "'. To create it run the following command:"
+  shell: rosa create admin --cluster {{ cluster_name }} --password {{ rosa_cluster_admin_password }} --output json
+  register: rosa_admin_create
+
+- name: "rosa/provision : Debug cluster admin creation"
+  when:
+    - rosa_admin_check.stderr_lines | length > 0
+    - rosa_admin_check.stderr_lines[0] == "WARN: There is no admin on cluster '" ~ cluster_name ~ "'. To create it run the following command:"
+    - rosa_admin_create.stdout_lines is defined
+    - rosa_admin_create.stdout_lines | length > 0
+  debug:
+    msg: "{{ rosa_admin_create.stdout_lines }}"
+
+# 9. Wait for cluster and admin to be ready
+# -----------------------------------------------------------------------------
+# We want to try to ensure the account is ready to use by the time the
+# script completes, so we will delay for 5 minutes if the return code
+# indicates that the account was created when we ran the previous command.
+# There doesn't appear to be a way to check other than to wait
+- name: "rosa : Pause for 10 minutes while the cluster-admin account is created"
+  when:
+    - rosa_admin_create.rc is defined
+    - rosa_admin_create.rc == 0
+  pause:
+    minutes: 10
+
+- name: "rosa : Build rosa-details.yaml"
+  when:
+    - rosa_config_dir is defined and rosa_config_dir != ''
+    - rosa_admin_create.rc is defined
+    - rosa_admin_create.rc == 0
+  ansible.builtin.template:
+    src: rosa/rosa-details.yml.j2
+    dest: "{{ rosa_config_dir }}/rosa-{{cluster_name}}-details.yaml"
+    mode: '644'

@@ -1,0 +1,45 @@
+---
+# Get Suite version and status
+# -----------------------------------------------------------------------------
+- name: "Get Suite"
+  kubernetes.core.k8s_info:
+    api_version: core.mas.ibm.com/v1
+    kind: Suite
+    name: "{{ mas_instance_id }}"
+    namespace: "{{ mas_core_namespace }}"
+  register: _suite_output
+
+- name: "Set fact: Suite version"
+  set_fact:
+    mas_core_version: "{{ _suite_output.resources[0].status.versions.reconciled }}"
+  when:
+    - _suite_output is defined
+    - (_suite_output.resources | length > 0)
+    - _suite_output.resources[0].status.versions.reconciled is defined
+
+- name: "Fail if Suite does not exists"
+  assert:
+    that: mas_core_version is defined
+    fail_msg: "Suite does not exists!"
+
+- name: "Set fact: Suite status"
+  set_fact:
+    mas_core_ready: true
+  when:
+    - _suite_output.resources is defined
+    - (_suite_output.resources | length > 0)
+    - _suite_output.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
+
+- name: "Fail if Suite is not ready"
+  assert:
+    that: mas_core_ready is defined and mas_core_ready
+    fail_msg: "Suite is not ready!"
+
+
+# Output Suite information
+# -----------------------------------------------------------------------------
+- name: "Debug: Suite information"
+  debug:
+    msg:
+      - "Suite version .......................... {{ mas_core_version }}"
+      - "Suite is ready ......................... {{ mas_core_ready }}"

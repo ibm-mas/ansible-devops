@@ -1,0 +1,34 @@
+---
+- name: "Load podTemplates configuration"
+  include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
+  vars:
+    config_files:
+      - "ibm-mas-manage-manageworkspace.yml"
+      - "ibm-mas-manage-imagestitching.yml"
+      - "ibm-mas-manage-slackproxy.yml"
+      - "ibm-mas-manage-healthextworkspace.yml"
+
+# This will filter out and get selected serverbundle podTemplates from all available serverbundle podTemplates list
+# Final list of podTemplates added to manageworkspace CR under spec section
+# ====================================================================
+- name: Set manage workspace components and server bundle object
+  set_fact:
+    manageWorkspaceComponents: "{{ mas_appws_components | to_json | from_json }}"
+    manageServerBundleData: "{{ mas_app_settings_server_bundles[mas_app_settings_server_bundles_size]['serverBundles'] }}"
+
+- name: Get available server bundle name
+  set_fact:
+    manageAvailableServerBundle: "{{ manageServerBundleData | json_query(serverBundleQuery) }}"
+  vars:
+    serverBundleQuery: "[*].name"
+
+- name: Merge manage workspace podTemplates containers
+  set_fact:
+    manageWSAvailablePodTemplatesContainers: "{{ manageAvailableServerBundle + manage_workspace_default_podTemplates_containers}}"
+
+- name: Filter podTemplates from manage workspace available podTemplates containers
+  set_fact:
+    ibm_mas_manage_manageworkspace_pod_templates: "{{ ibm_mas_manage_manageworkspace_pod_templates | selectattr('name' , 'in' , manageWSAvailablePodTemplatesContainers) | list }}"
+  when:
+    - ibm_mas_manage_manageworkspace_pod_templates is defined
+    - manageWSAvailablePodTemplatesContainers is defined

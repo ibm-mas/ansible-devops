@@ -14,14 +14,20 @@ Required.The instance ID of Maximo Application Suite required for creating docdb
 - Environment Variable: `MAS_INSTANCE_ID`
 
 ### docdb_host
-Required. AWS DocumentDB Instance Host Address
+AWS DocumentDB Instance Host Address, Required if docdb_hosts is not set
 
 - Environment Variable: `DOCDB_HOST`
 
 ### docdb_port
-Required. AWS DocumentDB Port Address
+AWS DocumentDB Port Address, Required if docdb_hosts is not set
 
 - Environment Variable: `DOCDB_PORT`
+
+### docdb_hosts
+AWS DocumentDB Instance Host Address & Port Address, Required if both docdb_host & docdb_port are not set.
+docdb_hosts takes precedence if both docdb_hosts and (docdb_host & docdb_port) are set
+
+- Environment Variable: `DOCDB_HOSTS`
 
 ### docdb_master_username
 Required. AWS DocumentDB Master Username
@@ -42,6 +48,19 @@ Required. AWS DocumentDB Master Password
     docdb_master_password: test-pass-***
     docdb_host: test1.aws-01....
     docdb_port: 27017
+
+  roles:
+    - ibm.mas_devops.aws_documentdb_user
+```
+
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    mas_instance_id: masinst1
+    docdb_master_username: test-user
+    docdb_master_password: test-pass-***
+    docdb_hosts: test1.aws-01:27017,test1.aws-02:27017,test1.aws-03:27017
 
   roles:
     - ibm.mas_devops.aws_documentdb_user

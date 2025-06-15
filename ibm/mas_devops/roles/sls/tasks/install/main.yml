@@ -183,16 +183,22 @@
 
 # 7. Install Operator & create entitlement
 # -----------------------------------------------------------------------------
-- name: "Install SLS Operator"
-  ansible.builtin.include_role:
-    name: ibm.mas_devops.install_operator
-  vars:
+- name: "Create IBM Entitlement Key"
+  when: before_sls_380 or (artifactory_username is defined and artifactory_username != "")
+  ibm.mas_devops.update_ibm_entitlement:
     namespace: "{{ sls_namespace }}"
-    icr_username: "{{ before_sls_380 | ternary(sls_entitlement_username, '') }}"
-    icr_password: "{{ before_sls_380 | ternary(sls_entitlement_key, '') }}"
+    icr_username: "{{ sls_entitlement_username }}"
+    icr_password: "{{ sls_entitlement_key }}"
+    artifactory_username: "{{ artifactory_username }}"
+    artifactory_password: "{{ artifactory_token }}"
+
+- name: "Create ibm-mas Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ sls_namespace }}"
+    package_name: "ibm-sls"
+    package_channel: "{{ sls_channel }}"
     catalog_source: "{{ sls_catalog_source }}"
-    operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
-    subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
+  register: subscription
 
 
 # 8. Wait until the LicenseService CRD is available
@@ -298,19 +304,7 @@
     - entitlement_file != ""
 
 
-# 11. Integrated Airgap support
-# -----------------------------------------------------------------------------
-# Before we create the CR we will set up the Airgap Image Map
-# We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
-- name: "Determine whether this is an airgap environment"
-  ansible.builtin.include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
-
-- name: "Enable use of image digests"
-  ansible.builtin.include_tasks: "tasks/install/install_digest_cm.yml"
-  when: airgap_install
-
-
-# 12. Create the license service CR
+# 11. Create the license service CR
 # -----------------------------------------------------------------------------
 - name: Create the sls.ibm.com/v1.LicenseService
   kubernetes.core.k8s:
@@ -320,53 +314,7 @@
   register: sls_cr_result
 
 
-# 13. Wait for it to hit Ready
+# 12. Wait for it to hit Ready
 # -----------------------------------------------------------------------------
 - name: Verify LicenseService CR
   ansible.builtin.include_tasks: "tasks/install/sls-verify.yml"
-
-
-# 14. Generate SLSCfg
-# -----------------------------------------------------------------------------
-# The SLSCfg resource is not generated as part of this role anymore, a dedicated
-# role exists to generate the configuration file (gencfg_sls), this role will set
-# up all the properties required by that role before calling it
-# - sls_registration_key
-# - sls_url
-# - sls_tls_crt
-- name: Lookup sls.ibm.com/v1.LicenseService
-  kubernetes.core.k8s_info:
-    api_version: sls.ibm.com/v1
-    kind: LicenseService
-    name: "{{ sls_instance_name }}"
-    namespace: "{{ sls_namespace }}"
-  register: sls_cr_result
-  when:
-    - mas_instance_id is defined
-    - mas_instance_id != ""
-    - mas_config_dir is defined
-    - mas_config_dir != ""
-
-- name: Obtain License Service Certificate
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Secret
-    name: "{{ sls_cr_result.resources[0].status.ca.secretName }}"
-    namespace: "{{ sls_namespace }}"
-  register: _sls_ca
-  when:
-    - mas_instance_id is defined
-    - mas_instance_id != ""
-    - mas_config_dir is defined
-    - mas_config_dir != ""
-
-- name: Set facts for SLSCfg
-  ansible.builtin.set_fact:
-    sls_registration_key: "{{ sls_cr_result.resources[0].status.registrationKey }}"
-    sls_url: "{{ sls_cr_result.resources[0].status.url }}"
-    sls_tls_crt: "{{ _sls_ca.resources[0].data['ca.crt'] | b64decode }}"
-  when:
-    - mas_instance_id is defined
-    - mas_instance_id != ""
-    - mas_config_dir is defined
-    - mas_config_dir != ""

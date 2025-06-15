@@ -23,6 +23,25 @@
     that: ocp_version is defined and ocp_version != ""
     fail_msg: "ocp_version is required"
 
+- name: "Select ocp version based on day of the week"
+  when: ocp_version == "rotate"
+  set_fact:
+    ocp_version: "{{ rotate_ocp_version[ansible_date_time['weekday']] ~ ('_openshift' if cluster_type == 'roks' else '') }}"
+  vars:
+    rotate_ocp_version:
+      Monday: 4.18
+      Tuesday: 4.17
+      Wednesday: 4.16
+      Thursday: 4.15
+      Friday: 4.14
+      Saturday: 4.18
+      Sunday: 4.16
+
+- name: "Set default OCP version"
+  when: ocp_version == "default"
+  set_fact:
+    ocp_version: "{{ default_ocp_version ~ ('_openshift' if cluster_type == 'roks' else '') }}"
+
 # 2. Run the provision
 # -----------------------------------------------------------------------------
-- include_tasks: "tasks/providers/{{ cluster_type }}.yml"
+- include_tasks: "tasks/providers/{{ cluster_type }}/provision_{{ cluster_type }}.yml"

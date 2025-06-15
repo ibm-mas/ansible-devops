@@ -6,12 +6,14 @@ supported_dns_providers:
   - cis
   - cloudflare
   - route53
-mas_manual_cert_mgmt: "{{ lookup('env', 'MAS_MANUAL_CERT_MGMT')| default(False, true) }}"
+mas_manual_cert_mgmt: "{{ lookup('env', 'MAS_MANUAL_CERT_MGMT')| default('false', true) | bool }}"
 
 # Certificate Manager
 # -----------------------------------------------------------------------------
 # If IBM Certificate Manager is installed then 'cert_manager_service_account' must be 'ibm-cert-manager-controller'
 # If Red Hat Certificate Manager is installed then 'cert_manager_service_account' must be 'cert-manager'
+cert_manager_namespace: "{{ lookup('env', 'CERT_MANAGER_NAMESPACE') }}"
+
 cert_manager_service_account: "{{ 'ibm-cert-manager-controller' if (cert_manager_namespace == 'ibm-common-services') else 'cert-manager' }}"
 
 # MAS Domain
@@ -48,7 +50,7 @@ cis_email: "{{ lookup('env', 'CIS_EMAIL') }}"
 cis_apikey: "{{ lookup('env', 'CIS_APIKEY') }}"
 cis_crn: "{{ lookup('env', 'CIS_CRN') }}"
 cis_subdomain: "{{ lookup('env', 'CIS_SUBDOMAIN') }}"
-cis_enhanced_security: "{{ lookup('env', 'CIS_ENHANCED_SECURITY') | default(false, false) }}"
+cis_enhanced_security: "{{ lookup('env', 'CIS_ENHANCED_SECURITY') | default('false', false) | bool }}"
 
 # Enhanced IBM CIS DNS Integration Security
 # -----------------------------------------------------------------------------
@@ -57,11 +59,17 @@ cis_proxy: "{{ lookup('env', 'CIS_PROXY') | default(false, true) }}"
 cis_service_name: "{{ lookup('env', 'CIS_SERVICE_NAME')}}"
 
 # Update DNS entry if it already exists
-update_dns: "{{ lookup('env', 'UPDATE_DNS_ENTRIES') | default(true, true) }}"
+update_dns: "{{ lookup('env', 'UPDATE_DNS_ENTRIES') | default('true', true) | bool }}"
 # Force deletion of wildcard dns entries in cis
-delete_wildcards: "{{ lookup('env', 'DELETE_WILDCARDS') | default(false, true)}}"
+delete_wildcards: "{{ lookup('env', 'DELETE_WILDCARDS') | default('false', true)| bool }}"
 # Override and delete any existing edge certificates in cis instance
-override_edge_certs: "{{ lookup('env', 'OVERRIDE_EDGE_CERTS') | default(true, true)}}"
+override_edge_certs: "{{ lookup('env', 'OVERRIDE_EDGE_CERTS') | default('true', true) | bool }}"
+
+# If true:
+#  - saas_edge_certificate_routes.yml.j2 template will be used instead of edge_certificate_routes.yml.j2
+#    This template omits routes that will not be present in SaaS envs to reduce the hostname count to under 50 so only a single edge route certificate is required
+#  - Ensures that the default edge certificates configured by CIS are excluded from checks, even when the CIS domain includes the MAS instance ID.
+saas_mode: "{{ lookup('env', 'SAAS_MODE') | default('false', true) | bool }}"
 
 cis_apiservice:
   group_name: acme.cis.ibm.com

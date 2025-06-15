@@ -1,8 +1,13 @@
 ---
-# Add Manage 8.3.x application to an existing MAS Core 8.8.x installation
+# Add Manage 9.0.x application to an existing MAS Core 8.8.x installation
 #
 # Dependencies:
 # - ansible-playbook ibm.mas_devops.oneclick_core
+#
+# To install Manage Foundation only that is available on MAS Core 9.1 or later, export the following environment variable:
+# `export IS_FULL_MANAGE=false`
+# Also, the `MAS_APPWS_COMPONENTS` environment variable must be empty:
+# `export MAS_APPWS_COMPONENTS=""`
 #
 - hosts: localhost
   any_errors_fatal: true
@@ -14,7 +19,7 @@
     # Application Installation
     # mas_app_id can be set to "health" to install manage in the "Health standalone" mode from this same playbook.
     mas_app_id: "{{ lookup('env', 'MAS_APP_ID') | default('manage', true) }}"
-    mas_app_channel: "{{ lookup('env', 'MAS_APP_CHANNEL') | default('8.7.x', true) }}"
+    mas_app_channel: "{{ lookup('env', 'MAS_APP_CHANNEL') | default('9.0.x', true) }}"
 
     # Application Configuration
     mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') | default('masdev', true) }}"
@@ -30,7 +35,7 @@
     ssl_enabled: "{{ lookup('env', 'SSL_ENABLED') | default('True', true) | bool }}"
 
     # these vars will be set by cp4d playbook, if it did not run (eg install_cp4d_platform=false), it will be set by the environment vars.
-    cpd_url: "{{ lookup('env', 'CPD_URL') }}"
+    cpd_admin_url: "{{ lookup('env', 'CPD_ADMIN_URL') }}"
     cpd_admin_username: "{{ lookup('env', 'CPD_ADMIN_USERNAME') }}"
     cpd_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
 
@@ -42,7 +47,6 @@
     # Control which Manage configurations to apply by the default (Attachments & Building Information Models)
     configure_manage_attachments: "{{ lookup('env', 'CONFIGURE_MANAGE_ATTACHMENTS') | default('False', true) | bool }}"
     configure_manage_bim: "{{ lookup('env', 'CONFIGURE_MANAGE_BIM') | default('False', true) | bool }}"
-
 
     # Cloud Pak for Data Configuration
     # -------------------------------------------------------------------------
@@ -66,7 +70,7 @@
           - lookup('env', 'MAS_JDBC_USER') != ""
           - lookup('env', 'MAS_JDBC_PASSWORD') != ""
           - lookup('env', 'MAS_JDBC_URL') != ""
-          - lookup('env', 'MAS_APP_SETTINGS_DB2_SCHEMA') != ""
+          - lookup('env', 'MAS_APP_SETTINGS_DB_SCHEMA') != "" or lookup('env', 'MAS_APP_SETTINGS_DB2_SCHEMA') != ""
           - lookup('env', 'MAS_APP_SETTINGS_TABLESPACE') != ""
           - lookup('env', 'MAS_APP_SETTINGS_INDEXSPACE') != ""
         fail_msg: "One or more JDBC configuration environment variables are not defined for external database"
@@ -93,7 +97,6 @@
         msg:
           - "Attachments ............................. {{ configure_manage_attachments }}"
           - "Building Information Models ............. {{ configure_manage_bim }}"
-
 
   roles:
     # Optional Cloud Pak for Data Install
@@ -124,7 +127,7 @@
     - ibm.mas_devops.suite_app_config
 
     # Configure Manage
-    - name: ibm.mas_devops.suite_manage_doclinks_config
+    - name: ibm.mas_devops.suite_manage_attachments_config
       when: configure_manage_attachments
     - name: ibm.mas_devops.suite_manage_bim_config
       when: configure_manage_bim

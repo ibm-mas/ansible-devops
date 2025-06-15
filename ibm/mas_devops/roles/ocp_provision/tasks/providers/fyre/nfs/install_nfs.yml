@@ -1,0 +1,49 @@
+---
+# 1. Login to the cluster and check if NFS storage class is available
+# -----------------------------------------------------------------------------
+- name: "Login to target OCP cluster"
+  include_role:
+    name: ibm.mas_devops.ocp_login
+
+- name: "Check whether the NSF storage class is already available"
+  kubernetes.core.k8s_info:
+    api_version: storage.k8s.io/v1
+    kind: StorageClass
+    name: "{{ fyre_nfs_sc_name }}"
+  register: nfs_storage_class_lookup
+
+
+# 2. Obtain Private IP, if not provided, but Fyre credentials are
+# -----------------------------------------------------------------------------
+- name: "Obtain private IP address"
+  include_tasks: tasks/providers/fyre/nfs/get_private_ip.yml
+  when:
+    - nfs_storage_class_lookup.resources is defined
+    - nfs_storage_class_lookup.resources | length == 0
+
+
+# 3. Delete Image Registry
+# -----------------------------------------------------------------------------
+- name: "Delete image registry"
+  include_tasks: tasks/providers/fyre/nfs/delete_image_registry.yml
+  when:
+    - nfs_storage_class_lookup.resources is defined
+    - nfs_storage_class_lookup.resources | length == 0
+
+
+# 4. Configure NFS
+# -----------------------------------------------------------------------------
+- name: "Configure NFS"
+  include_tasks: tasks/providers/fyre/nfs/configure_nfs.yml
+  when:
+    - nfs_storage_class_lookup.resources is defined
+    - nfs_storage_class_lookup.resources | length == 0
+
+
+# 5. Recreate Image Registry using NFS
+# -----------------------------------------------------------------------------
+- name: "Recreate image registry using NFS"
+  include_tasks: tasks/providers/fyre/nfs/create_image_registry.yml
+  when:
+    - nfs_storage_class_lookup.resources is defined
+    - nfs_storage_class_lookup.resources | length == 0

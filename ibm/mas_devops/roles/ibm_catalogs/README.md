@@ -10,7 +10,7 @@ Version of the IBM Maximo Operator Catalog to install.
 
 - Optional
 - Environment Variable: `MAS_CATALOG_VERSION`
-- Default Value: `v8-amd64`
+- Default Value: `@@MAS_LATEST_CATALOG@@`
 
 ### artifactory_username
 Use to enable the install of development catalog sources for pre-release installation.

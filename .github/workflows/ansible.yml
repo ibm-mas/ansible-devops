@@ -7,8 +7,15 @@ on:
       - '**'
 jobs:
   ansible-build:
+    name: Build Ansible Collection
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.head_commit.message, '[doc]') }}
     steps:
+      - name: Install Python v3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Checkout
         uses: actions/checkout@v2.3.1
         # Without this option, we don't get the tag information
@@ -33,7 +40,7 @@ jobs:
           $GITHUB_WORKSPACE/build/bin/build-collection.sh
 
       - name: Upload Ansible Collection to Github Actions
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: ibm-mas_devops-${{ env.VERSION }}.tar.gz
           path: ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz
@@ -48,6 +55,23 @@ jobs:
           cp $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops.tar.gz
           $GITHUB_WORKSPACE/build/bin/artifactory-release.sh $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops.tar.gz
 
+      # Execution environment
+      - name: Build the Ansible execution environment
+        if: env.VERSION != ''
+        run: |
+          podman login --username "${{ secrets.REDHAT_USERNAME }}" --password "${{ secrets.REDHAT_PASSWORD }}" registry.redhat.io
+          $GITHUB_WORKSPACE/build/bin/build-execution-environment.sh
+
+      - name: Push the Ansible execution environment container image
+        id: docker-push
+        if: env.DOCKER_TAG != ''
+        run: |
+          podman images
+          podman tag ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }} quay.io/ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }}
+          podman images
+          podman login --username "${{ secrets.QUAYIO_USERNAME }}" --password "${{ secrets.QUAYIO_PASSWORD }}" quay.io
+          podman push quay.io/ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }}
+
       - name: Trigger ibm-mas/cli rebuild on Ansible Collection master build
         if: github.ref == 'refs/heads/master'
         run: |
@@ -55,7 +79,7 @@ jobs:
           -H "Accept: application/vnd.github.everest-preview+json" -H "Content-Type: application/json" \
           -u ${{ secrets.ACTIONS_KEY }} \
           --data '{"ref": "master"}'
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Perform dependency check
         uses: dependency-check/Dependency-Check_Action@main
@@ -69,7 +93,7 @@ jobs:
             --enableRetired
 
       - name: Upload dependency check results
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
            name: OWASP dependency check report
            path: ${{github.workspace}}/reports

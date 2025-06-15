@@ -1,0 +1,42 @@
+---
+# 1. Create namespace we will deploy to
+# -----------------------------------------------------------------------------
+- name: "Create namespace"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ fyre_nfs_namespace }}"
+
+# 2. Configure rbac
+# -----------------------------------------------------------------------------
+- name: "Configure rbac"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/fyre/nfs/rbac.yml.j2') }}"
+
+# 3. Configure service account
+# -----------------------------------------------------------------------------
+- name: "Configure service account"
+  shell: |
+    oc adm policy add-scc-to-user hostmount-anyuid system:serviceaccount:{{ fyre_nfs_namespace }}:nfs-client-provisioner
+
+# 4. Configure class
+# -----------------------------------------------------------------------------
+- name: "Configure class"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/fyre/nfs/class.yml.j2') }}"
+
+# 5. Configure deployment
+# -----------------------------------------------------------------------------
+- name: "Configure deployment"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/fyre/nfs/deployment.yml.j2') }}"
+
+# 6. Set NFS as the default storage class
+# ----------------------------------------------------------------------------
+- name: "Set NFS as the default storage class"
+  shell: |
+    oc patch storageclass {{ fyre_nfs_sc_name }} -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+    sleep 5

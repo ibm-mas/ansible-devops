@@ -1,6 +1,6 @@
 OneClick Upgrade
 ===============================================================================
-This playbook will **upgrade** the channel subscriptions for IBM Maximo Application Suite on your OpenShift cluster.  Upgrades can only be performed to releases available in the  version of the IBM Maximo Pperator Catalog that is installed in your cluster.  To **update** to a newer version of the operator catalog refer to the [oneclick-update.md](oneclick-update) playbook documentation.
+This playbook will **upgrade** the channel subscriptions for IBM Maximo Application Suite on your OpenShift cluster.  Upgrades can only be performed to releases available in the  version of the IBM Maximo Pperator Catalog that is installed in your cluster.  To **update** to a newer version of the operator catalog refer to the [oneclick-update](oneclick-update.md) playbook documentation.
 
 The playbook will attempt to upgrade MAS Core and all installed applications.
 

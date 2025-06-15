@@ -1,5 +1,4 @@
 ---
-
 # 1. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Fail if required properties are not provided"
@@ -8,16 +7,136 @@
       - case_name is defined and case_name != ""
       - case_version is defined and case_version != ""
       - mirror_working_dir is defined and mirror_working_dir != ""
-      - registry_public_url is defined and registry_public_url != ":"
+      - registry_public_url_with_path is defined and registry_public_url_with_path != ":"
     fail_msg: "One or more required properties are missing"
 
-# 2. Determine if dev or released Builds
+# 2. Check for required software
 # -----------------------------------------------------------------------------
-- name: "{{ case_name }} : Prepare for dev/pre-release build versions"
-  when: '"-pre." is in case_version'
-  include_tasks: "tasks/prepare-dev.yml"
+- name: "{{ case_name }} : Test if ibm-pak is installed"
+  shell: oc ibm-pak --version
+  register: ibmpak_version_result
+  ignore_errors: true
 
-- name: "{{ case_name }} : Prepare for release build versions"
+- name: "{{ case_name }} : Fail if ibm-pak is not installed"
+  assert:
+    that: ( ibmpak_version_result['rc'] == 0 )
+    fail_msg: "ibm-pak tool must be installed."
+
+# 3. Debug
+# -----------------------------------------------------------------------------
+
+- name: "{{ case_name }} : Configure ibm-pak options"
+  set_fact:
+    ibmpak_flag_insecure: "{{ ibmpak_insecure | ternary('--insecure', '') }}"
+    ibmpak_flag_skip_verify: "{{ ibmpak_skip_verify | ternary('--skip-verify', '') }}"
+    ibmpak_flag_skip_dependencies: "{{ ibmpak_skip_dependencies | ternary('--skip-dependencies', '') }}"
+
+- name: "{{ case_name }} : Airgap setup configuration"
+  debug:
+    msg:
+      - "Case Name .............................. {{ case_name }}"
+      - "Case Version ........................... {{ case_version }}"
+      - "Registry Public Host ................... {{ registry_public_host }}"
+      - "Registry Public Port ................... {{ registry_public_port }}"
+      - "Registry Prefix ........................ {{ registry_prefix}}"
+      - "Insecure ............................... {{ ibmpak_insecure }}"
+      - "Skip Verify ............................ {{ ibmpak_skip_verify }}"
+      - "Skip Dependencies ...................... {{ ibmpak_skip_dependencies }}"
+      - "IBM Pak Flags .......................... {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}"
+
+# 4. Get the CASE bundle
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Get the CASE bundle"
+  shell: oc ibm-pak get {{ case_name }} --version {{ case_version }} {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}
+  register: ibmpak_get_result
+
+- name: "{{ case_name }} : Get Build from output"
+  set_fact:
+    build_version: "{{ ibmpak_get_result.stdout | regex_search(regex,'\\1') | first }}"
+  vars:
+    regex: 'version: ([a-zA-Z0-9\+\.\-]*) is complete'
+
+- name: "{{ case_name }} : Debug build version"
+  debug:
+    var: build_version
+
+# 5. Remove excluded images
+# -----------------------------------------------------------------------------
+# Some CASE bundles define images that we don't want to mirror, so delete the excluded image files.
+- name: Delete excluded images
   when:
-    - '"-pre." is not in case_version'
-  include_tasks: "tasks/prepare-released.yml"
+    - exclude_images is defined
+    - exclude_images | length > 0
+  shell: rm ~/.ibm-pak/data/cases/{{ case_name }}/{{ build_version }}/{{ item }}-*-images.csv
+  # We ignore errors, because if we can't delete something that isn't there it
+  # doesn't really matter, e.g. removing ibm-mas-safety which isn't present since MAS v8.8
+  ignore_errors: true
+  register: excludeImagesResult
+  loop: "{{ exclude_images }}"
+
+# 6. Prepare for mirror-manifest
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Create target directories (direct)"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/direct"
+    state: directory
+
+- name: "{{ case_name }} : Create target directories (to)"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/to-filesystem"
+    state: directory
+
+- name: "{{ case_name }} : Create target directories (from)"
+  file:
+    path: "{{ mirror_working_dir }}/manifests/from-filesystem"
+    state: directory
+
+- name: "Set manifest version"
+  set_fact:
+    _manifest_version: "{{ case_version }}"
+
+# 7. Generate mirror-manifest direct
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (direct)"
+  shell: "oc ibm-pak generate mirror-manifests {{ case_name }} {{ registry_public_url_with_path }} --version {{ build_version }} {% if image_group_filter != '' %} --filter {{ image_group_filter }} {% endif %}"
+  register: ibmpak_gen1_result
+
+- name: "{{ case_name }} : Copy images-mapping"
+  ansible.builtin.copy:
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping.txt
+    dest: "{{ mirror_working_dir }}/manifests/direct/{{ case_name }}_{{ _manifest_version }}.txt"
+
+# 8. Generate mirror-manifest indirect
+# -----------------------------------------------------------------------------
+- name: "{{ case_name }} : Generate the mirror manifest from the CASE bundle (indirect)"
+  shell: "oc ibm-pak generate mirror-manifests {{ case_name }} file:// --version {{ build_version }} --final-registry {{ registry_public_url_with_path }} {% if image_group_filter != '' %} --filter {{ image_group_filter }} {% endif %}"
+  register: ibmpak_gen2_result
+
+- name: "{{ case_name }} : Copy images-mapping-to-filesystem"
+  ansible.builtin.copy:
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping-to-filesystem.txt
+    dest: "{{ mirror_working_dir }}/manifests/to-filesystem/{{ case_name }}_{{ _manifest_version }}.txt"
+
+- name: "{{ case_name }} : Copy images-mapping-from-filesystem"
+  ansible.builtin.copy:
+    src: ~/.ibm-pak/data/mirror/{{ case_name }}/{{ build_version }}/images-mapping-from-filesystem.txt
+    dest: "{{ mirror_working_dir }}/manifests/from-filesystem/{{ case_name }}_{{ _manifest_version }}.txt"
+
+# 9. IBM SLS 3.5.0 Bad Digest Hack
+# -----------------------------------------------------------------------------
+# The SLS CASE bundle for 3.5.0 has the wrong image digest in it ... not really sure why TBH
+- name: "IBM SLS 3.5.0 workaround"
+  when: case_name == "ibm-sls" and case_version == "3.5.0"
+  include_tasks: "tasks/sls-350-fix.yml"
+
+# 11. IBM Maximo IoT Hacks
+# -----------------------------------------------------------------------------
+# The IoT CASE bundle for 8.6.0 has an incorrect image digest in it
+- name: "IBM IoT 8.6.0 workaround"
+  when: case_name == "ibm-mas-iot" and case_version == "8.6.0"
+  include_tasks: "tasks/iot-860-fix.yml"
+
+# The IoT CASE bundle for 8.6.7 has an incorrect image digest in it
+- name: "IBM IoT 8.6.7 workaround"
+  when: case_name == "ibm-mas-iot" and case_version == "8.6.7"
+  include_tasks: "tasks/iot-867-fix.yml"

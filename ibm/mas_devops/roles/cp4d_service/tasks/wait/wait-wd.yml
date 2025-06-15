@@ -1,70 +1,8 @@
 ---
-# The wd-discovery-cn-postgres-1-initdb will fail to pull as it has no link to
-# the ibm-entitlement-secret, we need to watch for this to be created, patch the
-# service account, and then ensure we delete any pods stuck in ImagePulLbackOff.
-#
-# It's really messy, but it's the only way to get this service deployed without
-# injecting the IBM entitlement as a default cluster image pull secret.
-#
-# Ref: https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3481#issuecomment-44648280
-
-
-# 1. Wait for Discovery CN postgres service accounts to be created
-# -----------------------------------------------------------------------------
-# 1.1. Wait for Discovery CN postgress service accounts to be created
-# https://github.ibm.com/PrivateCloud-analytics/CPD-Quality/issues/3481#issuecomment-44648280
-- name: "wait-wd : Wait for the wd-discovery-cn-postgres service account to appear"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: ServiceAccount
-    name: wd-discovery-cn-postgres
-    namespace: "{{ cpd_instance_namespace }}"
-  register: discovery_sa_lookup
-  retries: 60 # Up to 2 hours
-  delay: 120 # Every 2 minutes
-  until:
-    - discovery_sa_lookup.resources is defined
-    - discovery_sa_lookup.resources | length > 0
-
-# 1.2. Wait for Discovery etcd service accounts to be created
-# -----------------------------------------------------------------------------
-- name: "wait-wd : Wait for the wd-discovery-etcd-serviceaccount service account to appear"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: ServiceAccount
-    name: wd-discovery-etcd-serviceaccount
-    namespace: "{{ cpd_instance_namespace }}"
-  register: discovery_etcd_sa_lookup
-  retries: 60 # Up to 2 hours
-  delay: 120 # Every 2 minutes
-  until:
-    - discovery_etcd_sa_lookup.resources is defined
-    - discovery_etcd_sa_lookup.resources | length > 0
-
-
-# 2. Patch the Discovery CN postgres service accounts in ibm-cpd namespace to add ibm-entitlement-key
-# -----------------------------------------------------------------------------
-- name: "wait-wd : Patch the wd-discovery-cn-postgres service account"
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: ServiceAccount
-    name: wd-discovery-cn-postgres
-    namespace: "{{ cpd_instance_namespace }}"
-    definition:
-      imagePullSecrets:
-        - name: ibm-entitlement-key
-
-# 2.1. Patch the Discovery etcd service accounts in ibm-cpd namespace to add ibm-entitlement-key
-# -----------------------------------------------------------------------------
-- name: "wait-wd : Patch the wd-discovery-etcd-serviceaccount service account"
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: ServiceAccount
-    name: wd-discovery-etcd-serviceaccount
-    namespace: "{{ cpd_instance_namespace }}"
-    definition:
-      imagePullSecrets:
-        - name: ibm-entitlement-key
+- include_tasks: "tasks/wait/wait-wd-etcd.yml"
+  when:
+    - cpd_48_or_higher # elastic search operator was just introduced with cpd 4.8
+    - not skip_ibm_entitlement_injection
 
 # 3. Spend 30 minutes looking for pods stuck in ImagePullBackoff state
 # -----------------------------------------------------------------------------
@@ -118,19 +56,6 @@
     - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
     - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
   include_tasks: wait-wd-detectimagepullbackoff.yml
-
-# Adding this in an attempt to have WD installs completing successfully in a consistent way
-# in few occasions wd-discovery-ranker-rest pod fails to start up due some other WD pods not running properly
-# thus this forces all wd pods to be rebooted with the hopes that it does the trick to have them all up and running
-- name: "wait-wd : Restart all wd pods to prevent intermitent failures with wd-discovery-ranker-rest"
-  when:
-    - cpd_cr_wait_lookup.resources is defined
-    - cpd_cr_wait_lookup.resources | length == 1
-    - cpd_cr_wait_lookup.resources[0].status is defined
-    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus is defined
-    - cpd_cr_wait_lookup.resources[0].status.watsonDiscoveryStatus != "Completed"
-  shell: "oc get pods -n {{ cpd_instance_namespace }} | awk '{print $1}'| grep wd- | xargs oc delete pod -n {{ cpd_instance_namespace }}"
-  ignore_errors: true # don't care if the pods are not found, just force the restart really
 
 # 4. Wait for CP4D service CR to be ready
 # -----------------------------------------------------------------------------

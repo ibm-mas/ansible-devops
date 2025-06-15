@@ -256,7 +256,7 @@ The TLS CA certificate of the LicenseService to be used when the Maximo Applicat
 The path on the local system to a file containing the TLS CA certificate of the LicenseService to be used when the Maximo Application Suite is registered with SLS.  This variable is only used if `sls_tls_crt` has not been set.
 
 - Optional, used to instruct the role to set up MAS for an existing SLS instance.
-- Environment Variable: `SLS_TLS_CERT_LOCAL_FILE`
+- Environment Variable: `SLS_TLS_CERT_LOCAL_FILE_PATH`
 - Default Value: None
 
 ### sls_registration_key

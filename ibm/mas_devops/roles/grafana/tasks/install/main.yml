@@ -1,0 +1,170 @@
+---
+# 1. Load default storage classes (if not provided by the user)
+# -----------------------------------------------------------------------------
+- name: "install : Determine storage classes"
+  include_tasks: tasks/install/determine-storage-classes.yml
+
+# 2. Ensure User Workload Monitoring is Enabled
+# -----------------------------------------------------------------------------
+- name: "install : Get User Workload Monitoring Token"
+  kubernetes.core.k8s_info:
+    api: v1
+    kind: Secret
+    name: prometheus-user-workload-token
+    namespace: openshift-user-workload-monitoring
+  register: uwm_secret_lookup
+  no_log: true
+
+- name: "install : Check for existing user workload monitoring configmap"
+  kubernetes.core.k8s_info:
+    api: v1
+    kind: ConfigMap
+    name: cluster-monitoring-config
+    namespace: openshift-monitoring
+  register: cluster_monitoring_configmap
+
+# If the monitoring config doesn't exist we just create a new configmap with just the enableUserWorkload added
+- name: "install : Creating a new configmap for user workload monitoring"
+  when: cluster_monitoring_configmap.resources | length == 0
+  set_fact:
+    cluster_monitoring_data: "{{ {'enableUserWorkload': True} }}"
+
+# If the monitoring config does exist, we can just grap the existing yaml and override the enableUserWorkload value
+- name: "update : extracting existing data from configmap"
+  when: cluster_monitoring_configmap.resources | length > 0
+  set_fact:
+    cluster_monitoring_data: "{{ cluster_monitoring_configmap.resources[0].data['config.yaml'] | from_yaml | combine({'enableUserWorkload': True}) }}"
+
+- name: "install : Configure User Workload Monitoring"
+  kubernetes.core.k8s:
+    template: templates/cluster-monitoring-config.yml.j2
+
+- name: "Debug version"
+  debug:
+    var: grafana_major_version
+
+# 3. Version dependant variables
+# -----------------------------------------------------------------------------
+- name: "set facts"
+  set_fact:
+    grafana_namespace: "{{grafana_v5_namespace}}"
+  when: grafana_major_version == "5"
+
+- name: "set facts"
+  set_fact:
+    grafana_namespace: "{{grafana_v4_namespace}}"
+  when: grafana_major_version == "4"
+
+# 4. Create Grafana Subscription
+# -----------------------------------------------------------------------------
+- name: "install : Create Grafana v{{grafana_major_version}} Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ grafana_namespace }}"
+    package_name: grafana-operator
+    package_channel: "v{{grafana_major_version}}"
+    config:
+      env:
+        - name: "WATCH_NAMESPACE"
+          value: ""
+        - name: "DASHBOARD_NAMESPACES_ALL"
+          value: "true"
+  register: subscription
+
+# 5. Configure Grafana Operator so it can scan all namespaces for dashboards
+# -------------------------------------------------------------------------------------
+# See https://github.com/grafana-operator/grafana-operator/blob/master/documentation/multi_namespace_support.md
+- name: "install : Apply Cluster Role and Role Binding"
+  kubernetes.core.k8s:
+    template: "templates/grafana/v{{grafana_major_version}}/grafana-rbac.yml.j2"
+    wait: yes
+    wait_timeout: 120
+
+# 6. Configure Grafana Instance
+# -------------------------------------------------------------------------------------
+- name: "install : Create Grafana Instance"
+  kubernetes.core.k8s:
+    template: "templates/grafana/v{{grafana_major_version}}/grafana.yml.j2"
+    wait: yes
+    wait_timeout: 300
+
+# 7. Install service account and role to use promethesus
+# -------------------------------------------------------------------------------------
+- name: "install : Create Prometheus Service Account and Role"
+  kubernetes.core.k8s:
+    template: "templates/grafana/v{{grafana_major_version}}/grafana-prometheus-serviceaccount.yml.j2"
+    wait: yes
+    wait_timeout: 300
+
+# 8. Configure Grafana Datasource
+# -------------------------------------------------------------------------------------
+# As per https://docs.openshift.com/container-platform/4.8/monitoring/enabling-monitoring-for-user-defined-projects.html#enabling-monitoring-for-user-defined-projects
+# use the external thanos url
+
+- name: Get prometheus secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: prometheus-serviceaccount-token
+    namespace: "{{ grafana_v5_namespace }}"
+  register: prometheus_secret
+
+- name: Decode and retrieve prometheus token from secret
+  set_fact:
+    prometheus_token: "{{ prometheus_secret.resources[0].data.token |  b64decode }}"
+
+- name: "install : Get Thanos Querier route in openshift-monitoring namespace"
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: thanos-querier
+    namespace: openshift-monitoring
+  register: thanos_route
+
+- name: "install : Fail if we didn't get the Thanos route"
+  fail:
+    msg: "The Thanos route `thanos-querier` or host within route not found in openshift-monitoring"
+  when: thanos_route is not defined or
+    thanos_route.resources[0].spec is not defined or
+    thanos_route.resources[0].spec.host is not defined
+
+- name: "install : Get Thanos Querier host from route"
+  set_fact:
+    thanos_host: "{{ thanos_route.resources[0].spec.host }}"
+
+- name: "install : Create Grafana Datasource"
+  kubernetes.core.k8s:
+    template: "templates/grafana/v{{grafana_major_version}}/grafana-datasource.yml.j2"
+    wait: yes
+    wait_timeout: 120
+
+# 9. Wait for Grafana to be ready
+# -------------------------------------------------------------------------------------
+- name: "install : Wait for grafana v5 to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: grafana.integreatly.org/v1beta1
+    name: mas-grafana
+    namespace: "{{grafana_namespace}}"
+    kind: Grafana
+  register: grafana_cr_result
+  until:
+    - grafana_cr_result.resources[0].status.stage is defined
+    - grafana_cr_result.resources[0].status.stageStatus is defined
+    - grafana_cr_result.resources[0].status.stage == "complete"
+    - grafana_cr_result.resources[0].status.stageStatus == "success"
+  retries: 10 # approx 50 minutes before we give up
+  delay: 60 # 1 minute
+  when: grafana_major_version == "5"
+
+- name: "install : Wait for grafana v4 to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: integreatly.org/v1alpha1
+    name: mas-grafana
+    namespace: "{{grafana_namespace}}"
+    kind: Grafana
+  register: grafana_cr_result
+  until:
+    - grafana_cr_result.resources[0].status.message is defined
+    - grafana_cr_result.resources[0].status.message == "success"
+  retries: 10 # approx 50 minutes before we give up
+  delay: 60 # 1 minute
+  when: grafana_major_version == "4"

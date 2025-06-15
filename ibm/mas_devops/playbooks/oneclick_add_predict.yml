@@ -16,7 +16,7 @@
     # Application Installation
     # -------------------------------------------------------------------------
     mas_app_id: predict
-    mas_app_channel: "{{ lookup('env', 'MAS_APP_CHANNEL') | default('8.9.x', true) }}"
+    mas_app_channel: "{{ lookup('env', 'MAS_APP_CHANNEL') | default('9.0.x', true) }}"
 
     # Application Configuration
     # -------------------------------------------------------------------------
@@ -24,10 +24,10 @@
 
     # Cloud Pak for Data Configuration
     # -------------------------------------------------------------------------
-    cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('4.6.6', true) }}"
+    cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('4.8.0', true) }}"
 
     # these vars will be set by cp4d playbook, if it did not run (eg install_cp4d_platform=false), it will be set by the environment vars.
-    cpd_url: "{{ lookup('env', 'CPD_URL') }}"
+    cpd_admin_url: "{{ lookup('env', 'CPD_ADMIN_URL') }}"
     cpd_admin_username: "{{ lookup('env', 'CPD_ADMIN_USERNAME') }}"
     cpd_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
 
@@ -42,29 +42,29 @@
 
   pre_tasks:
     - include_role:
-      # Cloud Pak for Data Platform (~1 1/2 hours)
+        # Cloud Pak for Data Platform (~1 1/2 hours)
         name: ibm.mas_devops.cp4d
       when: install_cp4d_platform == true
     - include_role:
-      # Watson Studio (~3 hours)
+        # Watson Studio (~3 hours)
         name: ibm.mas_devops.cp4d_service
       when: install_watson_studio == true
       vars:
         cpd_service_name: wsl
     - include_role:
-      # Watson Machine Learning (~2 1/2 hours)
+        # Watson Machine Learning (~2 1/2 hours)
         name: ibm.mas_devops.cp4d_service
       when: install_watson_machine_learning == true
       vars:
         cpd_service_name: wml
     - include_role:
-      # Analytics Engine Powered by Apache Spark (~30 minutes)
+        # Analytics Engine Powered by Apache Spark (~30 minutes)
         name: ibm.mas_devops.cp4d_service
       when: install_analytics_engine == true
       vars:
         cpd_service_name: spark
     - include_role:
-      # Watson OpenScale (~1 hour)
+        # Watson OpenScale (~1 hour)
         name: ibm.mas_devops.cp4d_service
       when: install_watson_openscale == true
       vars:
@@ -82,7 +82,7 @@
         that:
           - lookup('env', 'MAS_INSTANCE_ID') != ""
           - lookup('env', 'IBM_ENTITLEMENT_KEY') != ""
-          - cpd_url != ""
+          - cpd_admin_url != ""
           - cpd_admin_username != ""
           - cpd_admin_password != ""
         fail_msg: "One or more required environment variables are not defined"

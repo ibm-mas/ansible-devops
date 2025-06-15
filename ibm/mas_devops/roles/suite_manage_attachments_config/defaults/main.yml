@@ -1,0 +1,45 @@
+---
+# The following MAS information is needed to lookup the right Manage app instance
+# ---------------------------------------------------------------------------------------------------------------------
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') }}"
+mas_app_id: "{{ lookup('env', 'MAS_APP_ID') | default('manage', true) }}" # App Id is prepared for Health stand alone, but manage will be used by vast majority of cases
+
+# Manage attachments provider
+# ---------------------------------------------------------------------------------------------------------------------
+mas_manage_attachments_provider: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENTS_PROVIDER') | default('filestorage', true) }}" # supported options: "ibm", "aws" or "filestorage"
+mas_manage_attachments_provider_supported:
+  - "ibm"
+  - "aws"
+  - "filestorage"
+mas_manage_attachment_configuration_mode: "{{ lookup('env', 'MAS_MANAGE_ATTACHMENT_CONFIGURATION_MODE') | default('db', true) }}" # supported options: "cr", "db"
+mas_manage_attachment_configuration_mode_supported:
+  - "cr"
+  - "db"
+
+# Certificates Prefix
+# ---------------------------------------------------------------------------------------------------------------------
+# prefix to be used to name the cloud object storage certificates
+cos_cert_alias_prefix: "{{ mas_manage_attachments_provider }}coscertpart"
+
+# ManageWorkspace CR name where attachments properties will be entered in "cr" configuration mode
+# ---------------------------------------------------------------------------------------------------------------------
+manage_workspace_cr_name: "{{ lookup('env', 'MANAGE_WORKSPACE_CR_NAME') | default(mas_instance_id + '-' + mas_workspace_id, true) }}"
+
+# SQL Scripts to update database in "db" configuration mode
+# ---------------------------------------------------------------------------------------------------------------------
+# maximo properties for attachments config using persistent volume file storage changes a bit compared to using ibm or s3 buckets config
+# so depending on the provider, we will use one config script or another
+mas_manage_attachments_provider_template_file_config:
+  filestorage:
+    'filestorage.sh.j2'
+  aws:
+    'cos.sh.j2'
+  ibm:
+    'cos.sh.j2'
+
+# Manage app DB2 instance where attachments will be configured via SQL
+# ---------------------------------------------------------------------------------------------------------------------
+db2_namespace: "{{ lookup('env', 'DB2_NAMESPACE') | default('db2u', true) }}"
+db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') }}" # e.g. db2u-iot or db2u-manage
+db2_dbname: "{{ lookup('env', 'DB2_DBNAME') | default('BLUDB', true) }}"

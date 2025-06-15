@@ -59,6 +59,7 @@ Optional. Mouth path of the Persistent Volume in the Manage server container.
 
 ### mas_app_settings_custom_persistent_volume_sc_name
 Optional. Persistent Volume Claim Storage Class. If not set, it will be automatically defined accordingly to your cluster's available storage classes.
+          Both ReadWriteMany(RWX) and ReadWriteOnce(RWO) are supported.
 
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOM_PV_STORAGE_CLASS`
 - Default Value: None.

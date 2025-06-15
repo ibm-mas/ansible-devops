@@ -9,13 +9,26 @@
 # from the IBM operator catalog at present, much more work is needed in this collection to support the operating
 # model of the Cloud Pak for Data team :/
 cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
-cpd_supported_versions: ['4.5.0', '4.5.3', '4.6.0', '4.6.3', '4.6.4', '4.6.6']
-cpd_minor_version: "{{ cpd_product_version | regex_search('(?<=)(.*)(?=..)') }}" # extract the cpd minor version as depending on the version some extra steps are needed i.e 4.0 or 4.5
 
 # CP4D Admin User credential used to call CP4D APIs, if not specified, the script will look these up
 cpd_admin_username: "{{ lookup('env', 'CPD_ADMIN_USERNAME') }}"
 cpd_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
+ibm_entitlement_key_secret: ibm-entitlement-key
+skip_ibm_entitlement_injection: "{{ lookup('env', 'SKIP_IBM_ENTITLEMENT_INJECTION') | default('false', true) | bool }}"
 
+# following list of service accounts needs ibm-entitlement-key in imagePullSecret
+cpd_sa_patch_list_zen:
+  - default
+  - zen-admin-sa
+  - zen-editor-sa
+  - zen-norbac-sa
+  - zen-runtime-sa
+  - zen-viewer-sa
+  - runtime-assemblies-operator # owned by ccs-cr
+  - runtime-manager-api # owned by ccs-cr
+  - cognos-analytics-sp-sa # owned by ca-addon-cr (cognos analytics)
+  - wd-discovery-etcd-serviceaccount # owned by wd (watson discovery)
+  - wd-discovery-cn-postgres # owned by wd (watson discovery)
 
 # ------ CPD namespaces -----------------------------------------------------------------------------------------------
 
@@ -40,18 +53,29 @@ cpd_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
 # for the Cloud Pak for Data operators.
 cpd_operators_namespace: "{{ lookup('env', 'CPD_OPERATORS_NAMESPACE') | default('ibm-cpd-operators', true) }}"
 cpd_instance_namespace: "{{ lookup('env', 'CPD_INSTANCE_NAMESPACE') | default('ibm-cpd', true) }}"
-
+cpd_platform_cr_name: "{{ lookup('env', 'CPD_PLATFORM_CR_NAME') | default('ibmcpd-cr', true) }}"
+zen_cr_name: "lite-cr"
 cpd_service_name: "{{ lookup('env', 'CPD_SERVICE_NAME') }}"
 
 # The storage class to use for this CP4D service
 cpd_service_storage_class: "{{ lookup('env', 'CPD_SERVICE_STORAGE_CLASS') }}"
 cpd_service_block_storage_class: "{{ lookup('env', 'CPD_SERVICE_BLOCK_STORAGE_CLASS') }}"
-cpd_services_supporting_block_storage_class: ["wd", "ca", "wsl", "wml", "aiopenscale"] # these services can leverage both file and block storages
+# cpd_services_supporting_block_storage_class: # these services can leverage both file and block storages; this list will use default file and block storages, if not listed, then only file storage will be assigned
+#   - "wd"
+#   - "ca"
+#   - "wsl"
+#   - "wml"
+#   - "aiopenscale"
+#   - "spark"
 
+cpd_services_requiring_ccs:
+  - "wsl"
+  - "wml"
+  - "spss"
+  - "ca"
 
 cpd_service_installplan_approval: Automatic
 cpd_service_scale_config: "{{ lookup('env', 'CPD_SERVICE_SCALE_CONFIG') | default('small', true) }}"
-
 
 # MAS Configuration
 # ---------------------------------------------------------------------------------------------------------------------
@@ -71,9 +95,9 @@ cpd_wsl_project_storage_guid: "{{ 1000 | random | to_uuid | lower }}"
 cpd_default_wd_instance_name: "wd-mas-{{ mas_instance_id }}-assist"
 cpd_wd_instance_name: "{{ lookup('env', 'CPD_WD_INSTANCE_NAME') | default(cpd_default_wd_instance_name, true) }}"
 cpd_wd_deployment_type: "{{ lookup('env', 'CPD_WD_DEPLOYMENT_TYPE') | default('Starter', true) }}" # Default is "Starter" which creates 1 replica of each pod, "Production" creates at least 2 replicas of each pod, this cannot be changed in the future, and if you upgrade wd, you should use same type.
+cpd_wd_backing_storage_size: "50Gi" # This will be used by Multicloud Gateway standalone installation (Watson Discovery 4.8+ dependency)
 
 # CPD Service Information
-# Reference: https://github.ibm.com/PrivateCloud/olm-utils/blob/master/ansible-play/config-vars/release-4.5.0yml
 # ---------------------------------------------------------------------------------------------------------------------
 cpd_service_info:
   # Watson Machine Learning
@@ -127,11 +151,6 @@ cpd_service_info:
     crd_kind: WatsonDiscovery
     crd_name: watsondiscoveries.discovery.watson.ibm.com
     cr_name: wd
-    sub_channel: "v4.0" # this info does not exist in olm-utils-cm for 4.0.9 release therefore adding here
-    rabbitmq:
-      channel_name: "v1.0" # this info does not exist in olm-utils-cm therefore adding here
-    elasticsearch:
-      channel_name: "v1.1" # this info does not exist in olm-utils-cm therefore adding here
 
   # Watson OpenScale
   # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=services-watson-openscale
@@ -154,9 +173,7 @@ cpd_service_info:
     operator_name: ibm-cpd-spss-operator
     package_name: "ibm-cpd-spss"
     cr_comment: "SPSS Modeler"
-    cr_name: "spssmodeler"
-    cr_api: "spssmodeler.cpd.ibm.com"
-    cr_api_version: "v1"
+    cr_name: "spss-sample"
     crd_kind: "Spss"
     crd_name: "spss.spssmodeler.cpd.ibm.com"
     csv_name: ibm-cpd-spss
@@ -176,17 +193,12 @@ cpd_service_info:
     package_name: "ibm-ca-operator"
     cr_name: "ca-addon-cr"
     cr_api: "ca.cpd.ibm.com"
-    cr_api_version: "v1"
     crd_kind: "CAService"
     crd_name: "caservices.ca.cpd.ibm.com"
     csv_name: "ibm-ca-operator"
     api_version: ca.cpd.ibm.com/v1
     component_dependencies:
       - ccs
-    rabbitmq:
-      channel_name: "v1.0" # this info does not exist in olm-utils-cm therefore adding here
-    elasticsearch:
-      channel_name: "v1.1" # this info does not exist in olm-utils-cm therefore adding here
 
 cluster_type:
   - aws:

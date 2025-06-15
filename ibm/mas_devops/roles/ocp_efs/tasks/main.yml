@@ -14,6 +14,9 @@
     name: aws-efs-csi-driver-operator
     namespace: openshift-marketplace  # Note: A namespace must be provided when calling packages.operators.coreos.com/v1
   register: aws_efs_manifest
+  until: aws_efs_manifest.resources[0] is defined
+  retries: 30 # Approximately 15 minutes before we give up
+  delay: 30 # 30 seconds
 
 - name: Assert that PackageManifest exists
   ansible.builtin.assert:
@@ -21,7 +24,7 @@
       - aws_efs_manifest is defined
       - aws_efs_manifest.resources is defined
       - aws_efs_manifest.resources | length == 1
-    fail_msg: "PackageManifest not found: nfd"
+    fail_msg: "PackageManifest not found: aws-efs-csi-driver-operator"
 
 - name: Set the subscription information
   set_fact:
@@ -62,3 +65,4 @@
   kubernetes.core.k8s:
     apply: yes
     template: "templates/efs-csi-storage-class.yml.j2"
+  when: create_storage_class

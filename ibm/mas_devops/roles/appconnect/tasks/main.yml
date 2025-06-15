@@ -1,5 +1,4 @@
 ---
-
 # 1. Check for required facts
 # -----------------------------------------------------------------------------
 - name: "Fail if AppConnect entitlement username has not been provided"
@@ -66,15 +65,13 @@
       - "MAS Instance Id ........................... {{ mas_instance_id }}"
       - "MAS Config Dir ............................ {{ mas_config_dir }}"
 
-
 # 4. Create AppConnect project
 # -----------------------------------------------------------------------------
 - name: "Create AppConnect namespace"
   kubernetes.core.k8s:
     api_version: v1
     kind: Namespace
-    name: '{{ appconnect_namespace }}'
-
+    name: "{{ appconnect_namespace }}"
 
 # 5. Create ibm-entitlement for AppConnect
 # -----------------------------------------------------------------------------
@@ -83,7 +80,7 @@
     entitledAuthStr: "{{appconnect_entitlement_username}}:{{appconnect_entitlement_key}}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
-      - "{\"auths\":{\"{{ appconnect_registry }}\":{\"username\":\"{{ appconnect_entitlement_username }}\",\"password\":\"{{ appconnect_entitlement_key }}\",\"auth\":\"{{entitledAuth}}\"}"
+      - '{"auths":{"{{ appconnect_registry }}":{"username":"{{ appconnect_entitlement_username }}","password":"{{ appconnect_entitlement_key }}","auth":"{{entitledAuth}}"}'
       - "}"
       - "}"
   kubernetes.core.k8s:
@@ -96,7 +93,6 @@
         namespace: "{{ appconnect_namespace }}"
       stringData:
         .dockerconfigjson: "{{ content | join('') | string }}"
-
 
 # 6. Deploy AppConnect subscription and Operator Group
 # -----------------------------------------------------------------------------
@@ -112,14 +108,13 @@
     wait: yes
     wait_timeout: 300
     wait_condition:
-      type: 'CatalogSourcesUnhealthy'
+      type: "CatalogSourcesUnhealthy"
       status: "False"
 
 - name: "Wait until the AppConnect CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: "dashboards.appconnect.ibm.com"
-
 
 # 7. Wait until AppConnect Operator is ready
 # -----------------------------------------------------------------------------
@@ -140,13 +135,11 @@
   retries: 30 # Approximately 1/2 hour before we give up
   delay: 60 # 1 minute
 
-
 # 8. Create AppConnect Dashboard
 # -----------------------------------------------------------------------------
 - name: "Create AppConnect Dashboard"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/dashboard.yml.j2') }}"
-
 
 # 9. Wait AppConnect Dashboard to be complete
 # -----------------------------------------------------------------------------
@@ -164,7 +157,6 @@
     - appconnect_cr_result.resources[0].status.phase == 'Ready'
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
-
 
 # 10. Retrieve AppConnect dashboard route
 # -----------------------------------------------------------------------------
@@ -197,7 +189,6 @@
     - mas_config_dir != ""
     - appconnect_url is defined
     - appconnect_url != ""
-
 
 # 12. AppConnect deployment details
 # -----------------------------------------------------------------------------

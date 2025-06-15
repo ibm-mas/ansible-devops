@@ -18,7 +18,7 @@
 # 2.1  Run Application Specific Tasks
 - name: Run application specific tasks
   when:
-    - mas_app_id is in ['iot', 'visualinspection']  # applications which have something to process before installing the operator
+    - mas_app_id is in ['iot', 'visualinspection', 'manage']  # applications which have something to process before installing the operator
   include_tasks: "tasks/{{ mas_app_id }}.yml"
 
 # 2.2 Load default application spec, if none is provided by user
@@ -41,7 +41,6 @@
       - "MAS app namespace .......... {{ mas_app_namespace }}"
       - "App catalog source ......... {{ mas_app_catalog_source }}"
       - "App channel ................ {{ mas_app_channel }}"
-      - "App Subscription Upgrade ... {{ mas_app_upgrade_strategy }}"
 
 
 # 4. Apply initial security context constraints
@@ -58,46 +57,23 @@
     oc adm policy add-scc-to-user anyuid system:serviceaccount:{{ mas_app_namespace }}:ibm-mas-visualinspection-operator
 
 
-# 5. Install the operator
+# 5. Create entitlement secret and install the operator
 # -----------------------------------------------------------------------------
-- name: "Install Operator"
-  include_role:
-    name: ibm.mas_devops.install_operator
-  vars:
+- name: "Create IBM Entitlement Key"
+  ibm.mas_devops.update_ibm_entitlement:
     namespace: "{{ mas_app_namespace }}"
     icr_username: "{{ mas_entitlement_username }}"
     icr_password: "{{ mas_entitlement_key }}"
+    artifactory_username: "{{ artifactory_username }}"
+    artifactory_password: "{{ artifactory_token }}"
+
+- name: "Create ibm-mas Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ mas_app_namespace }}"
+    package_name: "ibm-mas-{{ 'manage' if (mas_app_id == 'health') else mas_app_id }}"
+    package_channel: "{{ mas_app_channel }}"
     catalog_source: "{{ mas_app_catalog_source }}"
-    operator_group: "{{ lookup('template', 'templates/operator-group.yml.j2') }}"
-    subscription: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
-
-- name: Lookup and Approve MAS Subscription
-  block:
-    - name: Lookup and Approve Operator install plan
-      kubernetes.core.k8s_info:
-        api_version: operators.coreos.com/v1alpha1
-        kind: InstallPlan
-        namespace: "{{ mas_app_namespace }}"
-        label_selectors:
-          - operators.coreos.com/ibm-mas-{{mas_app_id}}.{{mas_app_namespace}}
-      register: mas_app_installplan_info
-      retries: 20
-      delay: 60 # Retry for approx 20 minutes (60s * 20 attempts) before giving up
-      until: mas_app_installplan_info.resources | length > 0
-
-    - name: Approve the install plan for MAS Application
-      when:
-        - mas_app_installplan_info.resources[0].status.phase != "Complete"
-      kubernetes.core.k8s:
-        definition:
-          apiVersion: operators.coreos.com/v1alpha1
-          kind: InstallPlan
-          metadata:
-            name: "{{ mas_app_installplan_info.resources[0].metadata.name }}"
-            namespace: "{{ mas_app_namespace }}"
-          spec:
-            approved: true
-  when: mas_app_upgrade_strategy == 'Manual'
+  register: subscription
 
 
 # 6. Wait until the Application's CRD is available
@@ -108,19 +84,7 @@
     crd_name: "{{ mas_app_fqn }}"
 
 
-# 7. Integrated Airgap support
-# -----------------------------------------------------------------------------
-# Before we create the CR we will set up the Airgap Image Map
-# We need to install the digest imagemap for ibm-sls and ibm-truststore-mgr
-- name: "Determine whether this is an airgap environment"
-  include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
-
-- name: "Enable use of image digests"
-  when: airgap_install
-  include_tasks: "tasks/install_digest_cm.yml"
-
-
-# 8. App installation
+# 7. App installation
 # -----------------------------------------------------------------------------
 - name: Install application
   kubernetes.core.k8s:
@@ -129,7 +93,7 @@
     definition: "{{ lookup('template', 'templates/application.yml.j2') }}"
 
 
-# 9. Wait for application to be ready
+# 8. Wait for application to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for application to be ready ({{ mas_app_install_delay }}s delay)"
   kubernetes.core.k8s_info:
@@ -152,7 +116,7 @@
     - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
 
 
-# 10. Apply final security context constraints
+# 9. Apply final security context constraints
 # -----------------------------------------------------------------------------
 - name: "Apply final security context constraints"
   when: mas_app_id == "visualinspection"

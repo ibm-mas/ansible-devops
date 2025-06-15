@@ -29,7 +29,7 @@ Namespace where IBM Common Services is installed.
 - Default Value: `ibm-common-services`
 
 ### db2_action
-Inform the role whether to perform an install or upgrade of DB2 Database. This can be set to `install` or `upgrade`. When `DB2_ACTION` is set to upgrade, then all instances in the `DB2_NAMESPACE` will be upgraded to the `DB2_VERSION`.
+Inform the role whether to perform an install, upgrade, backup or restore of DB2 Database. This can be set to `install`, `upgrade`, `backup` or `restore`. When `DB2_ACTION` is set to upgrade, then all instances in the `DB2_NAMESPACE` will be upgraded to the `DB2_VERSION`.
 
 - Optional
 - Environment Variable: `DB2_ACTION`
@@ -77,6 +77,20 @@ Version of the DB2 engine to be used while creating/upgrading the DB2 instances.
 - Environment Variable: `DB2_VERSION`
 - Default: The default db2 engine version will be automatically defined to the latest version supported by the installed DB2 operator if this is not set. The DB2 engine versions supported by the installed DB2 operator are stored in `db2u-release` configmap under `ibm-common-services` namespace.
 
+### db2_type
+Type of the DB2 instance. Available options are `db2wh` and `db2oltp`.
+
+- Optional
+- Environment Variable: `DB2_TYPE`
+- Default: `db2wh`
+
+### db2_timezone
+Server timezone code of the DB2 instance. If you want to align the same timezone with Manage's DB2 database, you also need to must also set `MAS_APP_SETTINGS_SERVER_TIMEZONE` variable to the same value.
+
+- Optional
+- Environment Variable: `DB2_TIMEZONE`
+- Default: `GMT`
+
 ### db2_4k_device_support
 Whether 4K device support is turned on or not.
 
@@ -122,8 +136,10 @@ Determines if the role should rotate the LDAP password for current LDAP user con
 
 Role Variables - Storage
 -------------------------------------------------------------------------------
+We recommend reviewing the Db2 documentation about the certified storage options for Db2 on Red Hat OpenShift. Please ensure your storage class meets the specified deployment requirements for Db2. [https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options](https://www.ibm.com/docs/en/db2/11.5?topic=storage-certified-options)
+
 ### db2_meta_storage_class
-Storage class used for metadata. This must support ReadWriteMany
+Storage class used for metadata. This must support ReadWriteMany(RWX) access mode.
 
 - **Required**
 - Environment Variable: `DB2_META_STORAGE_CLASS`
@@ -144,7 +160,7 @@ The access mode for the storage.
 - Default: `ReadWriteMany`
 
 ### db2_data_storage_class
-Storage class used for user data. This must support ReadWriteOnce
+Storage class used for user data. This must support ReadWriteMany(RWX) access mode.
 
 - **Required**
 - Environment Variable: `DB2_DATA_STORAGE_CLASS`
@@ -165,11 +181,11 @@ The access mode for the storage.
 - Default: `ReadWriteOnce`
 
 ### db2_backup_storage_class
-Storage class used for backup. This must support ReadWriteMany
+Storage class used for backup. This must support ReadWriteMany(RWX) access mode.
 
 - Optional
 - Environment Variable: `DB2_BACKUP_STORAGE_CLASS`
-- Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster.
+- Default: Defaults to `ibmc-file-gold` if the storage class is available in the cluster. Set to `None` will drop the backup storage on DB2ucluster CR.
 
 ### db2_backup_storage_size
 Size of backup persistent volume.
@@ -186,11 +202,11 @@ The access mode for the storage.
 - Default: `ReadWriteMany`
 
 ### db2_logs_storage_class
-Storage class used for transaction logs. This must support ReadWriteOnce
+Storage class used for transaction logs. This must support ReadWriteMany(RWX) access mode.
 
 - Optional
 - Environment Variable: `DB2_LOGS_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the logs storage on DB2ucluster CR.
 
 ### db2_logs_storage_size
 Size of transaction logs persistent volume.
@@ -207,11 +223,11 @@ The access mode for the storage.
 - Default: `ReadWriteOnce`
 
 ### db2_temp_storage_class
-Storage class used for temporary data. This must support ReadWriteOnce
+Storage class used for temporary data. This must support ReadWriteMany(RWX) access mode.
 
 - Optional
 - Environment Variable: `DB2_TEMP_STORAGE_CLASS`
-- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster.
+- Default: Defaults to `ibmc-block-gold` if the storage class is available in the cluster. Set to `None` will drop the tempts storage on DB2ucluster CR.
 
 ### db2_temp_storage_size
 Size of temporary persistent volume.
@@ -221,7 +237,7 @@ Size of temporary persistent volume.
 - Default: `100Gi`
 
 ### db2_temp_storage_accessmode
-The access mode for the storage.
+The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
 
 - Optional
 - Environment Variable: `DB2_TEMP_STORAGE_ACCESSMODE`
@@ -233,9 +249,9 @@ Role Variables - Resource Requests
 These variables allow you to customize the resources available to the Db2 pod in your cluster.  In most circumstances you will want to set these properties because it's impossible for us to provide a default value that will be appropriate for all users.  We have set defaults that are suitable for deploying Db2 onto a dedicated worker node with 4cpu and 16gb memory.
 
 !!! tip
-    Note that you must take into account the system overhead on any given node when setting these parameters, if you set the requests equal to the number of CPU or amount of memory on yournode then the scheduler will not be able to schedule the Db2 pod because not 100% of the worker nodes' resource will be available to pod on that node, even if there's only a single pod on it.
+    Note that you must take into account the system overhead on any given node when setting these parameters, if you set the requests equal to the number of CPU or amount of memory on your node then the scheduler will not be able to schedule the Db2 pod because not 100% of the worker nodes' resource will be available to pod on that node, even if there's only a single pod on it.
 
-    Db2 is sensitive to both CPU and memory issues, particularly memory, we recommennd setting requests and limits to the same values, ensuring the scheduler always reserves the resources that Db2 expects to be available to it.
+    Db2 is sensitive to both CPU and memory issues, particularly memory, we recommend setting requests and limits to the same values, ensuring the scheduler always reserves the resources that Db2 expects to be available to it.
 
 ### db2_cpu_requests
 Define the Kubernetes CPU request for the Db2 pod.
@@ -403,9 +419,69 @@ This is only used when both `mas_config_dir` and `mas_instance_id` are set, and 
 - Default: None
 
 
+Role Variables - Backup and Restore
+-----------------------------------------------------------------------------------------------------------------
+### masbr_confirm_cluster
+Set `true` or `false` to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.
+
+- Optional
+- Environment Variable: `MASBR_CONFIRM_CLUSTER`
+- Default: `false`
+
+### masbr_copy_timeout_sec
+Set the transfer files timeout in seconds.
+
+- Optional
+- Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
+- Default: `43200` (12 hours)
+
+### masbr_job_timezone
+Set the [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.
+
+- Optional
+- Environment Variable: `MASBR_JOB_TIMEZONE`
+- Default: None
+
+### masbr_storage_local_folder
+Set local path to save the backup files.
+
+- **Required**
+- Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
+- Default: None
+
+### masbr_backup_type
+Set `full` or `incr` to indicate the role to create a full backup or incremental backup.
+
+- Optional
+- Environment Variable: `MASBR_BACKUP_TYPE`
+- Default: `full`
+
+### masbr_backup_from_version
+Set the full backup version to use in the incremental backup, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`). This variable is only valid when `MASBR_BACKUP_TYPE=incr`. If not set a value for this variable, this role will try to find the latest full backup version from the specified storage location.
+
+- Optional
+- Environment Variable: `MASBR_BACKUP_FROM_VERSION`
+- Default: None
+
+### masbr_backup_schedule
+Set [Cron expression](ttps://en.wikipedia.org/wiki/Cron) to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.
+
+- Optional
+- Environment Variable: `MASBR_BACKUP_SCHEDULE`
+- Default: None
+
+### masbr_restore_from_version
+Set the backup version to use in the restore, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`)
+
+- **Required** only when `DB2_ACTION=restore`
+- Environment Variable: `MASBR_RESTORE_FROM_VERSION`
+- Default: None
+
+
 Example Playbook
 -----------------------------------------------------------------------------------------------
 
+### Install Db2
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
@@ -424,6 +500,31 @@ Example Playbook
     # Create the MAS JdbcCfg & Secret resource definitions
     mas_instance_id: inst1
     mas_config_dir: /home/david/masconfig
+  roles:
+    - ibm.mas_devops.db2
+```
+
+### Backup Db2
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: backup
+    db2_instance_name: db2u-db01
+    masbr_storage_local_folder: /tmp/masbr
+  roles:
+    - ibm.mas_devops.db2
+```
+
+### Restore Db2
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    db2_action: restore
+    db2_instance_name: db2u-db01
+    masbr_restore_from_version: 20240621021316
+    masbr_storage_local_folder: /tmp/masbr
   roles:
     - ibm.mas_devops.db2
 ```

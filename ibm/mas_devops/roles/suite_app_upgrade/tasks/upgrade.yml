@@ -2,20 +2,6 @@
 
 # 1. Upgrade Subscription
 # -----------------------------------------------------------------------------
-- name: "Lookup subscription"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    name: "{{ mas_app_fqn }}"
-    namespace: "{{ mas_app_namespace }}"
-    kind: Subscription
-  register: suite_app_sub
-
-- name: "Assert subscription exists"
-  assert:
-    that:
-      - suite_app_sub.resources is defined
-      - suite_app_sub.resources | length == 1
-
 - name: "Update subscription"
   kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
@@ -25,6 +11,9 @@
     definition:
       spec:
         channel: "{{ mas_app_upgrade_target_channel }}"
+        name: "{{ app_sub_info.resources[0].spec.name }}"
+        source: "{{ app_sub_info.resources[0].spec.source }}"
+        sourceNamespace: "{{ app_sub_info.resources[0].spec.sourceNamespace }}"
     apply: true
 
 - name: "Pause for 5 minutes before checking upgrade status..."
@@ -58,9 +47,9 @@
 # -----------------------------------------------------------------------------
 # OperatorCondition names are in the format {packageName}.{packageVersion}
 # We want to strip off the "v" prefix from the version while we do this
-- name: "upgrade : Lookup operator version for ibm-mas"
+- name: "upgrade : Lookup operator version for {{ mas_app_fqn }}"
   set_fact:
-    updated_opcon_version: "{{ updated_opcon.resources[0].metadata.name.split('.v')[1] }}"
+    updated_opcon_version: "{{ updated_opcon.resources[0].metadata.name.split('.v')[1] | ibm.mas_devops.format_pre_version_with_buildid }}"
 
 - name: "upgrade : Debug Operator Version"
   debug:
@@ -106,7 +95,6 @@
   delay: 120 # 2 minutes
   until:
     - app_ws_cr_lookup.resources is defined
-    - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == app_ws_cr_lookup.resources | length
     - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
   register: app_ws_cr_lookup
 

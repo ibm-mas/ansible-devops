@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-You will need a RedHat OpenShift v4.12 cluster with IBM Maximo Application Suite Core v8.11 already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
+You will need a RedHat OpenShift cluster with IBM Maximo Application Suite Core v8.11 already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
 
 ## Overview
 
@@ -42,7 +42,7 @@ As of MAS 8.10, predict 8.8.0 will start to support SPSS Modeler, to install SPS
 
 - `CPD_ADMIN_USERNAME` CP4D Username
 - `CPD_ADMIN_PASSWORD` CP4D Password
-- `CPD_URL` CP4D Base URL
+- `CPD_ADMIN_URL` CP4D Base URL
 
 !!! warning
     When not using this playbook to install Cloud Pak for Data it is important to ensure that your existing instance already has all the required services enabled.
@@ -79,7 +79,7 @@ export CPD_WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
 export WML_VERSION="4.6"
 export CPD_ADMIN_USERNAME="admin"
 export CPD_ADMIN_PASSWORD="xxx"
-export CPD_URL="https://mycp4durl"
+export CPD_ADMIN_URL="https://mycp4durl"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_predict
@@ -108,7 +108,7 @@ export CPD_WML_URL="https://internal-nginx-svc.ibm-cpd.svc:12443"
 export WML_VERSION="4.6"
 export CPD_ADMIN_USERNAME="admin"
 export CPD_ADMIN_PASSWORD="xxx"
-export CPD_URL="https://mycp4durl"
+export CPD_ADMIN_URL="https://mycp4durl"
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.oneclick_add_predict

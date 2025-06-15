@@ -1,26 +1,57 @@
 ---
+# Validate properties are provided
+# -----------------------------------------------------------------------------
+# Lookup default Cloud Pak for Data version based on MAS catalog
+- include_tasks: "{{ role_path }}/../cp4d/tasks/determine-ibmcatalog-tag.yml"
+
+- debug:
+    msg:
+      - "Catalog Version ............................ {{ (catalog_tag is defined and catalog_tag != '') | ternary(catalog_tag, 'Undefined') }}"
+      - "Cloud Pak for Data version ................. {{ cpd_product_version | default('Undefined') }}"
+
 # 1. Debug
 # -----------------------------------------------------------------------------
-- name: "Check that CPD Service name and product version has been provided"
+# 1. Lookup storage class availabiity
+# -----------------------------------------------------------------------------
+- name: "Load supported Cloud Pak for Data information"
+  include_vars: "{{ role_path }}/../../common_vars/cp4d_supported_versions.yml"
+
+- name: "Check that Cloud Pak for Data service name and product version has been provided"
   assert:
     that:
       - cpd_service_name is defined and cpd_service_name != ""
       - cpd_product_version is defined and cpd_product_version != ""
-    fail_msg: "CPD service name (cpd_service_name) and version (cpd_product_version) are required parameter to run this role"
+    fail_msg: "Cloud Pak for Data service name (cpd_service_name) and version (cpd_product_version) are required parameter to run this role"
 
-- name: "Check that provided CPD product version is supported"
+- name: "Check that provided Cloud Pak for Data version is supported for MAS"
   assert:
     that:
-      - cpd_product_version in cpd_supported_versions # Ensure only CPD 4.0.x and 4.5.x are supported
-    fail_msg: "CPD product version ({{ cpd_product_version }}) is not a supported CPD product/service version. Supported CPD product versions are: {{ cpd_supported_versions }}."
+      - cpd_product_version in cpd_supported_versions
+    fail_msg: "Cloud Pak for Data version ({{ cpd_product_version }}) is not a supported version for MAS. Supported Cloud Pak for Data versions for MAS are: {{ cpd_supported_versions }}"
 
 # 2. Check Cloud Pak for Data is installed and ready
 # -----------------------------------------------------------------------------
-- name: "Lookup Cloud Pak for Data"
-  k8s_info:
+# If IbmCpd platform custom resource is still named 'ibmcpd', use that as 'cpd_platform_cr_name'
+# otherwise stick with new default name 'ibmcpd-cr'
+- name: "Check if there's an existing CloudPak for Data CR named 'ibmcpd'"
+  kubernetes.core.k8s_info:
+    api_version: cpd.ibm.com/v1
+    name: ibmcpd
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: Ibmcpd
+  register: existing_ibmcpd_lookup
+
+- when:
+    - existing_ibmcpd_lookup.resources is defined
+    - existing_ibmcpd_lookup.resources | length > 0
+  set_fact:
+    cpd_platform_cr_name: "ibmcpd"
+
+- name: "Lookup Cloud Pak for Data CR named '{{ cpd_platform_cr_name }}'"
+  kubernetes.core.k8s_info:
     api_version: cpd.ibm.com/v1
     kind: Ibmcpd
-    name: ibmcpd
+    name: "{{ cpd_platform_cr_name }}"
     namespace: "{{ cpd_instance_namespace }}"
   register: ibmcpd_info
 

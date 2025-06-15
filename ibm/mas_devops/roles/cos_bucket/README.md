@@ -18,40 +18,40 @@ Required.  Which action you want to run for the COS bucket. You can either `crea
 
 Role Variables - IBM Cloud Object Storage buckets
 --------------
-### ibmcos_bucket_name
+### cos_bucket_name
 Optional name for your IBM Cloud Object Storage bucket.
 
 - Environment Variable: `COS_BUCKET_NAME`
 - Default Value: `$MAS_INSTANCE_ID-$MAS_WORKSPACE_ID-bucket`
 
-### ibmcos_bucket_storage_class
+### cos_bucket_storage_class
 Optional. IBM Cloud Object Storage bucket storage class. Supported options are `smart`, `vault`, `cold` and `flex`.
 For more details, see [IBM Cloud Object Storage documentation](https://cloud.ibm.com/docs/cloud-object-storage/iam?topic=cloud-object-storage-classes#classes-locationconstraint)
 
 - Environment Variable: `COS_BUCKET_STORAGE_CLASS`
 - Default Value: `smart`
 
-### ibmcos_instance_name
+### cos_instance_name
 Provide the Object Storage instance name, will be used to find the targeted COS instance to create/deprovision the buckets. This is only used when cos_type is set to `ibm` for IBM Cloud Object Storage.
 
 - Environment Variable: `COS_INSTANCE_NAME`
 - Default Value: None
 
-### ibmcos_location_info
+### cos_location_info
 Required. The location where the COS instance is available
 
   - Environment Variable: `COS_LOCATION`
   - Default Value: `global`
 
-### ibmcos_bucket_region_location_type
+### cos_bucket_region_location_type
 Required. This defines the resiliency of your COS bucket. Supported options are `cross_region_location` (Highest availability) or `region_location` (Best performance).
 For more details, see [IBM Cloud Object Storage documentation](https://cloud.ibm.com/docs/cloud-object-storage/basics?topic=cloud-object-storage-endpoints)
 
   - Environment Variable: `COS_BUCKET_REGION_LOCATION_TYPE`
   - Default Value: `cross_region_location`
 
-ibmcos_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default(bucket_cross_reg_loc, true) }}"
-### ibmcos_bucket_region_location
+cos_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default(bucket_cross_reg_loc, true) }}"
+### cos_bucket_region_location
 Required. This defines the specific region of your COS bucket.
 
 For `cross_region_location` type, the supported regions are `us`, `ap` and `eu`.
@@ -64,12 +64,12 @@ Optional. For cross region location type buckets, the IBM Cloud region can be us
   - Environment Variable: `IBMCLOUD_REGION`
   - Default Value: `us-east`
 
-### ibmcos_url
+### cos_url
 Required (For bucket creation). The COS region location url endpoint. Needed to specify the COS bucket region location.
   - Environment Variable: `COS_REGION_LOCATION_URL`
   - Default Value: `https://s3.us.cloud-object-storage.appdomain.cloud`
 
-### ibmcos_plan_type
+### cos_plan_type
 Required (For Provisioning). The plan type of the service
   - Environment Variable: `COS_PLAN`
   - Default Value: `standard`
@@ -141,8 +141,8 @@ Create the IBM Cloud Object storage bucket.
   vars:
     cos_type: ibm
     cos_bucket_action: create
-    ibmcos_bucket_name: my-ibm-bucket
-    ibmcos_instance_name: my-ibmcos-instance-name
+    cos_bucket_name: my-ibm-bucket
+    cos_instance_name: my-ibmcos-instance-name
     ibmcloud_apikey: my-ibm-cloud-apikey
   roles:
     - ibm.mas_devops.cos_bucket

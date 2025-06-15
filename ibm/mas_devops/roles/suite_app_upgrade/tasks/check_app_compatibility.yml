@@ -11,12 +11,13 @@
       - "Application Kind ....................... {{ app_info[mas_app_id].kind }}"
       - "Application CR Identifier .............. {{ mas_instance_id }}/{{ app_info[mas_app_id].kind }}.{{ app_info[mas_app_id].api_version }}"
 
-- name: "{{ mas_app_id }} : Get subscription for ibm-mas"
+- name: "{{ mas_app_id }} : Get subscription for {{ mas_app_fqn }}"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
-    name: "{{ mas_app_fqn }}"
-    namespace: "{{ mas_app_namespace }}"
     kind: Subscription
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/{{ mas_app_fqn }}.{{ mas_app_namespace }}"
   register: app_sub_info
 
 - name: "{{ mas_app_id }} : Debug existing Subscription"
@@ -42,11 +43,13 @@
     - not ( skip_compatibility_check is defined and skip_compatibility_check )
     - app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
   assert:
-    that: app_sub_info.resources[0].spec.channel == upgrade_requirement[mas_app_upgrade_target_channel]
+    that: app_sub_info.resources[0].spec.channel == upgrade_requirement[mas_app_id][mas_app_upgrade_target_channel]
     fail_msg: "Unable to upgrade from {{ app_sub_info.resources[0].spec.channel }} to {{ mas_app_upgrade_target_channel }}"
 
 - name: "{{ mas_app_id }} : Check that install plan approvals are set to 'Automatic'"
-  when: app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
+  when:
+    - app_sub_info.resources[0].spec.channel != mas_app_upgrade_target_channel
+    - app_sub_info.resources[0].spec.installPlanApproval is defined
   assert:
     that: app_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
     fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"
@@ -158,9 +161,17 @@
   debug:
     var: app_ws_cr_lookup
 
-- name: "{{ mas_app_id }} : Check that the Application Workspace CRs are in a healthy state"
-  assert:
-    that:
-      - app_ws_cr_lookup.resources is defined
-      - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Failure`][].status') | select ('match','False') | list | length == app_ws_cr_lookup.resources | length
-      - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
+- name: '{{ mas_app_id }} : Check that the Application Workspace CRs are in a healthy state'
+  kubernetes.core.k8s_info:
+    api_version: "{{ app_info[mas_app_id].api_version }}"
+    kind: "{{ app_info[mas_app_id].ws_kind }}"
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - mas.ibm.com/instanceId={{ mas_instance_id }}
+      - mas.ibm.com/applicationId={{ mas_app_id }}
+  retries: 20 # about 40 minutes
+  delay: 120 # 2 minutes
+  until:
+    - app_ws_cr_lookup.resources is defined
+    - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
+  register: app_ws_cr_lookup

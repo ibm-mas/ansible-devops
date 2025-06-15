@@ -5,14 +5,33 @@ metadata:
   name: gpu-cluster-policy
 spec:
   driver:
-    repository: "{{ gpu_driver_repository_path }}"
-    image: driver
-    imagePullSecrets: []
-    licensingConfig:
-      configMapName: ''
-      nlsEnabled: false
-    version: "{{ gpu_driver_version }}"
     enabled: true
+    upgradePolicy:
+      autoUpgrade: true
+      drain:
+        deleteEmptyDir: false
+        enable: false
+        force: false
+        timeoutSeconds: 300
+      maxParallelUpgrades: 1
+      maxUnavailable: 25%
+      podDeletion:
+        deleteEmptyDir: false
+        force: false
+        timeoutSeconds: 300
+      waitForCompletion:
+        timeoutSeconds: 0
+    repoConfig:
+      configMapName: ''
+    certConfig:
+      name: ''
+    licensingConfig:
+      nlsEnabled: false
+      configMapName: ''
+    virtualTopology:
+      config: ''
+    kernelModuleConfig:
+      name: ''
   vgpuDeviceManager:
     enabled: true
   migManager:
@@ -20,7 +39,6 @@ spec:
   operator:
     defaultRuntime: crio
     initContainer: {}
-    runtimeClass: nvidia
     use_ocp_driver_toolkit: true
   dcgm:
     enabled: true
@@ -63,4 +81,3 @@ spec:
     enabled: true
   toolkit:
     enabled: true
-    installDir: /usr/local/nvidia

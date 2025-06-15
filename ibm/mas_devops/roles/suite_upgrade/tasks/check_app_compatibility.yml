@@ -8,9 +8,10 @@
 - name: "{{ check_app.id }} : Get subscription for ibm-mas-{{ check_app.id }}"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
-    name: "ibm-mas-{{ check_app.id }}"
-    namespace: "{{ check_app_namespace }}"
     kind: Subscription
+    namespace: "{{ check_app_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-mas-{{ check_app.id }}.{{ check_app_namespace }}"
   register: checkapp_sub_info
 
 - name: "{{ check_app.id }} : Debug existing Subscription"
@@ -34,7 +35,9 @@
     fail_msg: "Unable to upgrade to {{ mas_channel }} because ibm-mas-{{ check_app.id }} is subscribed to a channel that is not compatible with this release ({{ checkapp_sub_info.resources[0].spec.channel }}).  Supported channels are: {{ compatibility_matrix[mas_channel][check_app.id] }}"
 
 - name: "{{ check_app.id }} : Check that install plan approvals are set to 'Automatic'"
-  when: checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+  when:
+    - checkapp_sub_info.resources is defined and checkapp_sub_info.resources | length == 1
+    - checkapp_sub_info.resources[0].spec.installPlanApproval is defined
   assert:
     that: checkapp_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
     fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"

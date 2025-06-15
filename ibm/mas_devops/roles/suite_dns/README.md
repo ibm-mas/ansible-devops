@@ -67,6 +67,13 @@ Role Variables - General
 - Environment Variable: `OCP_INGRESS`
 - Default: None
 
+### cert_manager_namespace
+Namespace where Certificate Manager is installed.
+
+- Optional
+- Environment Variable: `CERT_MANAGER_NAMESPACE`
+- Default: None
+
 ### custom_labels
 List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
@@ -115,7 +122,7 @@ Role Variables - IBM Cloud Internet Services DNS Integration
 
 ### cis_email
 
-- **Required** if `dns_provider` is set to `cis`
+- **Required** if `dns_provider` is set to `cis`. This is the e-mail that will be used in the Cluster Issuer resource, created by this role, to connect with the certificate manager (i.e. Let's Encrypt).
 - Environment Variable: `CIS_EMAIL`
 - Default: None
 
@@ -202,6 +209,15 @@ Location to output the edge-routes-{mas_instance_id}.txt
 - Environment Variable: `OUTPUT_DIR`
 - Default: `.` (which will set the directory file in ibm/mas_devops)
 
+### saas_mode
+If true:
+ - saas_edge_certificate_routes.yml.j2 template will be used instead of edge_certificate_routes.yml.j2
+   This template omits routes that will not be present in SaaS envs to reduce the hostname count to under 50 so only a single edge route certificate is required
+ - Ensures that the default edge certificates configured by CIS are excluded from checks, even when the CIS domain includes the MAS instance ID.
+
+- Optional
+- Environment Variable: `SAAS_MODE`
+- Default: false
 
 Role Variables - AWS Route 53
 ------------------------------------------------------------

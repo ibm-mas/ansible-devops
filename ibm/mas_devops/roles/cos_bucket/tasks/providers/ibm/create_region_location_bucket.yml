@@ -1,11 +1,11 @@
 ---
-- name: "Lookup IBM COS bucket named '{{ ibmcos_bucket_name }}' in COS instance '{{ ibmcos_instance_name }}'"
+- name: "Lookup IBM COS bucket named '{{ cos_bucket_name }}' in COS instance '{{ cos_instance_name }}'"
   ibm.cloudcollection.ibm_cos_bucket_info:
-    resource_instance_id: "{{ ibmcos_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
-    bucket_name: "{{ ibmcos_bucket_name }}"
+    resource_instance_id: "{{ cos_resource_id }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
+    bucket_name: "{{ cos_bucket_name }}"
     bucket_type: "region_location"
-    bucket_region: "{{ ibmcos_bucket_region_location }}"
+    bucket_region: "{{ cos_bucket_region_location }}"
   register: cos_bucket_lookup
   ignore_errors: true # for some reason if bucket does not exist, 'ibm_cos_bucket_info' module fails, might be a bug.
 
@@ -15,29 +15,28 @@
 
 - name: Validate if cos bucket needs to be created
   when:
-  - cos_bucket_lookup.resource is defined
-  - cos_bucket_lookup.resource.bucket_name is not defined # If it fails to find existing bucket, we try to create it anyway.
+    - cos_bucket_lookup.resource is defined
+    - cos_bucket_lookup.resource.bucket_name is not defined # If it fails to find existing bucket, we try to create it anyway.
 
   block:
+    - name: "Create cos bucket if it does not exist"
+      ibm.cloudcollection.ibm_cos_bucket:
+        resource_instance_id: "{{ cos_resource_id }}"
+        ibmcloud_api_key: "{{ cos_apikey  }}"
+        bucket_name: "{{ cos_bucket_name }}"
+        storage_class: "{{ cos_bucket_storage_class }}"
+        region_location: "{{ cos_bucket_region_location }}"
+        force_delete: True
+        object_versioning:
+          - enable: "{{ cos_bucket_versioning_flag }}"
+        expire_rule:
+          - rule_id: "{{ cos_bucket_expire_rule_id }}"
+            enable: "{{ cos_bucket_expire_rule_enable_flag }}"
+            days: "{{ cos_bucket_expire_rule_days }}"
+      register: cos_bucket_create_output
 
-  - name: "Create cos bucket if it does not exist"
-    ibm.cloudcollection.ibm_cos_bucket:
-      resource_instance_id: "{{ ibmcos_resource_id }}"
-      ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
-      bucket_name: "{{ ibmcos_bucket_name }}"
-      storage_class: "{{ ibmcos_bucket_storage_class }}"
-      region_location: "{{ ibmcos_bucket_region_location }}"
-      force_delete: True
-      object_versioning:
-      - enable: '{{ ibmcos_bucket_versioning_flag }}'
-      expire_rule:
-      - rule_id: "{{ ibmcos_bucket_expire_rule_id }}"
-        enable: '{{ ibmcos_bucket_expire_rule_enable_flag }}'
-        days: '{{ ibmcos_bucket_expire_rule_days }}'
-    register: cos_bucket_create_output
-
-  - name: "Assert cos bucket '{{ ibmcos_bucket_name }}' was created"
-    assert:
-      that:
-      - cos_bucket_create_output.rc == 0
-      - "{{ cos_bucket_create_output.stdout_lines|select('equalto', 'Apply complete! Resources: 1 added, 0 changed, 0 destroyed.')| list | length }}"
+    - name: "Assert cos bucket '{{ cos_bucket_name }}' was created"
+      assert:
+        that:
+          - cos_bucket_create_output.rc == 0
+          - 'cos_bucket_create_output.stdout_lines | select("equalto", "Apply complete! Resources: 1 added, 0 changed, 0 destroyed.") | list | length'

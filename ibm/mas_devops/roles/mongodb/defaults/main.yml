@@ -7,22 +7,26 @@ mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
 mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 mongodb_action: "{{ lookup('env', 'MONGODB_ACTION') | default('install', true) }}"
 
+# Backup mongodb databases for specified MAS application. Backup all mongodb databases if not specify this value.
+mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}"
+
 # mongodb community vars
 # -----------------------------------------------------------------------------
 
 # Where to install the operator and create the mongo instance
 mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
 
+# Decide if you want to keep your current spec for Mongo or overwrite it
+mongodb_override_spec: "{{ lookup('env','MONGODB_OVERRIDE_SPEC') | default (false, true) | bool }}"
+
 # Storage configuration
 mongodb_storage_class: "{{ lookup('env', 'MONGODB_STORAGE_CLASS') }}"
 mongodb_storage_capacity_data: "{{ lookup('env', 'MONGODB_STORAGE_CAPACITY_DATA') | default('20Gi', True) }}"
 mongodb_storage_capacity_logs: "{{ lookup('env', 'MONGODB_STORAGE_CAPACITY_LOGS') | default('20Gi', True) }}"
 
-# CPU and memory limits configuration on the mongodb container
+# CPU and memory requests/limits configuration on the mongodb container
 mongodb_cpu_limits: "{{ lookup('env', 'MONGODB_CPU_LIMITS') | default('1', true) }}"
 mongodb_mem_limits: "{{ lookup('env', 'MONGODB_MEM_LIMITS') | default('1Gi', true) }}"
-
-# CPU and memory request configuration on the mongodb container
 mongodb_cpu_requests: "{{ lookup('env', 'MONGODB_CPU_REQUESTS') | default('500m', true) }}"
 mongodb_mem_requests: "{{ lookup('env', 'MONGODB_MEM_REQUESTS') | default('1Gi', true) }}"
 
@@ -32,11 +36,15 @@ mongodb_replicas: "{{ lookup('env', 'MONGODB_REPLICAS') | default(3, True) }}"
 # Indicates if this is controlled upgrade of both the mongo operator and mongo instance
 controlled_upgrade: false
 
-# Indicates if cluster_monitoring role has been run
+# Indicates if grafana role has been run
 supports_grafanav4: false
 
 # Version of Mongo installed when the IBM Catalog does is not installed or the corresponding CaseBundle does not exist
 mongo_extras_version: "{{ lookup('env', 'MONGODB_VERSION') }}"
+
+# It appears that between v5 and v6 the shell changed from "mongo" to "mongosh"
+# This broke lots of actions supported by this role.  We are defaulting to "mongosh", but this can be overridden if needed
+mongodb_shell: "mongosh"
 
 # aws documentdb vars
 # -----------------------------------------------------------------------------
@@ -56,7 +64,7 @@ docdb_instance_identifier_prefix: "{{ lookup('env', 'DOCDB_INSTANCE_IDENTIFIER_P
 docdb_instance_number: "{{ lookup('env', 'DOCDB_INSTANCE_NUMBER') | default(3, True) }}"
 docdb_instance_class: "{{ lookup('env', 'DOCDB_INSTANCE_CLASS') | default('db.t3.medium', True) }}"
 docdb_master_username: "{{ lookup('env', 'DOCDB_MASTER_USERNAME') | default('docdbadmin', True) }}" # refere other dbs admin usernames <mas-instance-id>-admin
-docdb_engine_version: "{{ lookup('env', 'DOCDB_ENGINE_VERSION') | default('4.0.0', True) }}"
+docdb_engine_version: "{{ lookup('env', 'DOCDB_ENGINE_VERSION') | default('5.0.0', True) }}"
 
 # cidr for subnets in 3 different availabilty zones
 docdb_cidr_az1: "{{ lookup('env', 'DOCDB_CIDR_AZ1') }}"
@@ -114,6 +122,7 @@ custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string
 # the following flags must be set to confirm the upgrades otherwise the role will fail and not proceed with the upgrade.
 mongodb_v5_upgrade: "{{ lookup('env', 'MONGODB_V5_UPGRADE') | default(false, true) | bool }}"
 mongodb_v6_upgrade: "{{ lookup('env', 'MONGODB_V6_UPGRADE') | default(false, true) | bool }}"
+mongodb_v7_upgrade: "{{ lookup('env', 'MONGODB_V7_UPGRADE') | default(false, true) | bool }}"
 
 # This matrix will define and validate the mongodb upgrade compatibility mapping version.
 # Therefore this must be updated whenever a new mongodb version is supported.
@@ -138,5 +147,16 @@ mongo_compatible_target_version:
     - "6.0.12"
   "6.0.10":
     - "6.0.12"
+    - "7.0.12"
   "6.0.12":
     - "6.0.12"
+    - "7.0.12"
+  "7.0.12":
+    - "7.0.12"
+
+# destroy-data vars
+# -----------------------------------------------------------------------------
+config: "{{ lookup('env', 'CONFIG') }}"
+certificates: "{{ lookup('env', 'CERTIFICATES') }}"
+mongo_username: "{{ lookup('env', 'MONGO_USERNAME') }}"
+mongo_password: "{{ lookup('env', 'MONGO_PASSWORD') }}"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from ansible_collections.kubernetes.core.plugins.module_utils.common import get_api_client
+from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 
 from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
@@ -13,12 +13,15 @@ class ActionModule(ActionBase):
         super(ActionModule, self).run(tmp, task_vars)
 
         # Initialize DynamicClient and grab the task args
-        dynaClient = get_api_client()
+        host = self._task.args.get('host', None)
+        api_key = self._task.args.get('api_key', None)
+
+        dynClient = get_api_client(api_key=api_key, host=host)
         retries = self._task.args['retries']
         delay = self._task.args['delay']
 
-        deployments = dynaClient.resources.get(api_version="v1", kind='Deployment')
-        sts = dynaClient.resources.get(api_version="v1", kind='StatefulSet')
+        deployments = dynClient.resources.get(api_version="v1", kind='Deployment')
+        sts = dynClient.resources.get(api_version="v1", kind='StatefulSet')
 
         depResult = self._checkResources(deployments, "Deployments", retries, delay)
         stsResult = self._checkResources(sts, "StatefulSets", retries, delay)
@@ -38,9 +41,10 @@ class ActionModule(ActionBase):
         # Consider carefully the impact of adding anything here - only add things that are utterly broken
         # AND out of our control to fix!
         ignoredResources = [
-          # Watson Discovery is an unreliable product in general, particularly this deployment, which will often be found in this state indefinitely:
           # [NOTREADY] ibm-cpd/wd-discovery-ranker-rest = 1 replicas/None ready/1 updated/None available
-          "wd-discovery-ranker-rest"
+          # [NOTREADY] ibm-cpd/ax-wdp-notebooks-api-deploy = 1 replicas/None ready/1 updated/None available
+          "wd-discovery-ranker-rest",
+          "ax-wdp-notebooks-api-deploy"
         ]
 
         allResourcesHealthy = False
@@ -51,6 +55,7 @@ class ActionModule(ActionBase):
           allResourcesHealthyThisLoop = True
           ready = []
           notReady = []
+          notReadyResources = []
           disabled = []
           ignored = []
           display.v(f"Checking {resourceName} are healthy ({attempts}/{retries} retries with a {delay} second delay)")
@@ -69,6 +74,7 @@ class ActionModule(ActionBase):
               if resource.status.replicas != resource.status.readyReplicas or resource.status.replicas != resource.status.updatedReplicas or resource.status.replicas != resource.status.availableReplicas:
                 display.v(f"[NOTREADY] {msg}")
                 notReady.append(msg)
+                notReadyResources.append(f"{resource.metadata.namespace}/{resource.metadata.name}")
                 allResourcesHealthyThisLoop = False
               else:
                 display.vvv(f"[READY]   {msg}")
@@ -97,4 +103,6 @@ class ActionModule(ActionBase):
           )
         else:
           display.v(f"Failure: allResourcesHealthy={allResourcesHealthy}")
-          raise AnsibleError(f"Error: One or more {resourceName} are not healthy")
+
+          notReadyMsg = ', '.join(notReadyResources)
+          raise AnsibleError(f"Error: These {resourceName} are not healthy: {notReadyMsg}")

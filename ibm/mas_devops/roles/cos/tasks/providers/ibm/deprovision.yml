@@ -1,8 +1,8 @@
 ---
-- name: "Fail if ibmcloud_apikey is not provided"
+- name: "Fail if cos_apikey is not provided"
   assert:
-    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
-    fail_msg: "ibmcloud_apikey property is required"
+    that: cos_apikey is defined and cos_apikey != ""
+    fail_msg: "cos_apikey property is required"
 
 # 1. Determine the instance name
 # ---------------------------------------------------------------------------------------------------------------------
@@ -10,25 +10,25 @@
   when:
     - mas_instance_id is defined
     - mas_instance_id != ""
-    - ibmcos_instance_name is not defined or ibmcos_instance_name == ""
+    - cos_instance_name is not defined or cos_instance_name == ""
   set_fact:
-    ibmcos_instance_name: "Object Storage for MAS - {{ mas_instance_id }}"
+    cos_instance_name: "Object Storage for MAS - {{ mas_instance_id }}"
 
 - name: Fallback to default IBM COS Instance Name
   when:
-    - ibmcos_instance_name is not defined or ibmcos_instance_name == ""
+    - cos_instance_name is not defined or cos_instance_name == ""
   set_fact:
-    ibmcos_instance_name: "Object Storage for MAS"
+    cos_instance_name: "Object Storage for MAS"
 
 - name: "ibm : Debug information"
   debug:
     msg:
-      - "IBM COS Resource Group ............. {{ ibmcos_resourcegroup }}"
-      - "IBM COS url ........................ {{ ibmcos_url }}"
-      - "IBM COS username/accesskey ......... {{ ibmcos_username }}"
-      - "IBM COS instance name .............. {{ ibmcos_instance_name }}"
-      - "IBM COS location info .............. {{ ibmcos_location_info }}"
-      - "IBM COS plan type .................. {{ ibmcos_plan_type }}"
+      - "IBM COS Resource Group ............. {{ cos_resourcegroup }}"
+      - "IBM COS url ........................ {{ cos_url }}"
+      - "IBM COS username/accesskey ......... {{ cos_username }}"
+      - "IBM COS instance name .............. {{ cos_instance_name }}"
+      - "IBM COS location info .............. {{ cos_location_info }}"
+      - "IBM COS plan type .................. {{ cos_plan_type }}"
 
 # 2. Lookup IBM Cloud Resource Group GUID
 # ---------------------------------------------------------------------------------------------------------------------
@@ -38,17 +38,17 @@
 
 - name: Fetch IBM Cloud Resource Group Id
   ibm.cloudcollection.ibm_resource_group_info:
-    name: "{{ ibmcos_resourcegroup }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    name: "{{ cos_resourcegroup }}"
+    ibmcloud_api_key: "{{ cos_apikey }}"
   register: rg_info
 
 - name: Fetch IBM COS Information
   ibm.cloudcollection.ibm_resource_instance_info:
-    name: "{{ ibmcos_instance_name }}"
+    name: "{{ cos_instance_name }}"
     resource_group_id: "{{ rg_info.resource.id }}"
     service: "{{ cos_service }}"
-    location: "{{ ibmcos_location_info }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    location: "{{ cos_location_info }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
   register: cos_info
   failed_when: cos_info.rc != 0 and "No resource instance found" not in cos_info.stderr
 
@@ -67,17 +67,17 @@
 - block:
     - name: "ibm: Set Resource Instance Id for deletion"
       set_fact:
-        ibmcos_resource_id: "{{ cos_info.resource.id }}"
+        cos_resource_id: "{{ cos_info.resource.id }}"
 
     - name: "ibm : Deprovision IBM COS instance"
       ibm.cloudcollection.ibm_resource_instance:
-        name: "{{ ibmcos_instance_name }}"
-        id: "{{ ibmcos_resource_id }}"
+        name: "{{ cos_instance_name }}"
+        id: "{{ cos_resource_id }}"
         resource_group_id: "{{ rg_info.resource.id }}"
         service: "cloud-object-storage"
-        plan: "{{ ibmcos_plan_type }}"
-        location: "{{ ibmcos_location_info }}"
-        ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+        plan: "{{ cos_plan_type }}"
+        location: "{{ cos_location_info }}"
+        ibmcloud_api_key: "{{ cos_apikey  }}"
         state: absent
       register: cos_deprovision_output
 

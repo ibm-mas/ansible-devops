@@ -1,0 +1,40 @@
+---
+# Get Registry facts from environment variables if they have not been passed to the role
+registry_private_host: "{{ lookup('env', 'REGISTRY_PRIVATE_HOST') }}"
+registry_private_port: "{{ lookup('env', 'REGISTRY_PRIVATE_PORT') }}"
+registry_private_url: "{{ registry_private_host }}{% if registry_private_port != '' %}:{{ registry_private_port }}{% endif %}"
+
+registry_private_ca_file: "{{ lookup('env', 'REGISTRY_PRIVATE_CA_FILE') }}"
+
+registry_username: "{{ lookup('env', 'REGISTRY_USERNAME') }}"
+registry_password: "{{ lookup('env', 'REGISTRY_PASSWORD') }}"
+registry_auth: "{{ registry_username }}:{{ registry_password }}"
+
+setup_redhat_catalogs: "{{ lookup('env', 'SETUP_REDHAT_CATALOGS') | default('False', true) | bool }}"
+setup_redhat_release: "{{ lookup('env', 'SETUP_REDHAT_RELEASE') | default('False', true) | bool }}"
+
+# Only used in development to add an extra entry to the pull secret enabling pulls
+# from a second mirror registry
+fvt_image_registry: "{{ lookup('env', 'FVT_IMAGE_REGISTRY') }}"
+artifactory_username: "{{ lookup('env', 'ARTIFACTORY_USERNAME') }}"
+artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
+artifactory_auth: "{{ artifactory_username }}:{{ artifactory_token }}"
+
+
+# Optional Registry Prefix - IBM Content
+# -----------------------------------------------------------------------------
+registry_prefix: "{{ lookup('env', 'REGISTRY_PREFIX') | default('', true) }}"
+registry_private_url_with_path: "{{ registry_private_url }}{% if registry_prefix | length > 0 %}/{{ registry_prefix }}{% endif %}"
+idms_suffix: "{% if registry_prefix | length > 0 %}-{{ registry_prefix }}{% endif %}"
+
+
+# Optional Registry Prefix - Red Hat Content
+# -----------------------------------------------------------------------------
+registry_prefix_redhat: "{{ lookup('env', 'REGISTRY_PREFIX_REDHAT') | default('', true) }}"
+registry_private_url_with_path_redhat: "{{ registry_private_url }}{% if registry_prefix_redhat | length > 0 %}/{{ registry_prefix_redhat }}{% endif %}"
+idms_suffix_redhat: "{% if registry_prefix_redhat | length > 0 %}-{{ registry_prefix_redhat }}{% endif %}"
+
+
+# Optional Red Hat CatalogSource Name Prefix
+# -----------------------------------------------------------------------------
+redhat_catalogs_prefix: "{{ lookup('env', 'REDHAT_CATALOGS_PREFIX') | default('', true) }}"

@@ -2,6 +2,9 @@ Turbonomic
 ===============================================================================
 Installs [kubeturbo](https://github.com/turbonomic/kubeturbo) from any available CatalogSource, and automatically configures it to connect to a defined Turbonomic server.
 
+!!! note
+    The **Turbonomic Kubernetes Operator** does not support disconnected installation.  The **kubeturbo** deployment will be created using a tag rather than a digest, which prevents the use of an ImageContentSourcePolicy to configure a mirror registry for this image.
+
 
 Role Variables - KubeTurbo Configuration
 -------------------------------------------------------------------------------

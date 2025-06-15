@@ -1,10 +1,8 @@
 ---
-
 # 1. Check for MAS ImageContentSourcePolicy & load CASE bundle info
 # -----------------------------------------------------------------------------
 - name: "Determine whether this is an airgap environment"
   include_tasks: "{{ role_path }}/../../common_tasks/detect_airgap.yml"
-
 
 # 2. Install IBM catalog
 # -----------------------------------------------------------------------------
@@ -26,20 +24,13 @@
     - artifactory_token is not defined or artifactory_token == ""
     - airgap_install
   block:
-    - name: "Load CASE bundle versions for the offline catalog"
-      include_vars:
-        file: "{{ role_path }}/../../common_vars/casebundles/{{ mas_catalog_version }}.yml"
-
-    # If we are updating the catalog in an airgap environment, we first have to
-    # update the image digest configmaps, otherwise when the operators update
-    # they will not be able to use digests for the new images.
-    - name: "Update digest maps ahead of catalog update"
-      include_tasks: tasks/install/update-digest-maps.yml
-
+    - name: "Load Catalog Metadata"
+      ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ mas_catalog_version }}"
+      register: mas_catalog_metadata
     - name: "Create IBM offline catalog"
       kubernetes.core.k8s:
         template: templates/offline-catalog.yml.j2
-
 
 # 3. Install development (pre-release) catalog
 # -----------------------------------------------------------------------------

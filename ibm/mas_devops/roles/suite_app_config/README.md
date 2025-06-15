@@ -46,10 +46,18 @@ The application workspace deployment spec used to configure various aspects of t
 
 ### mas_appws_bindings_jdbc
 Set the binding scope for the application workspace's JDBC binding (`system`, `application`, `workspace`, or `workspace-application`)
+Note: For Maximo Real estate and facilities, we recommend to use workspace-application. 
 
 - Optional
 - Environment Variable: `MAS_APPWS_BINDINGS_JDBC`
 - Default: `system`
+
+### is_full_manage
+If set to `false`, Manage Foundation will be installed instead of Full Manage (available on MAS Core 9.1 and later).
+
+- Optional
+- Environment Variable: `IS_FULL_MANAGE`
+- Default: `true`
 
 ### mas_appws_components
 Defines the app components and versions to configure in the application workspace. Takes the form of key=value pairs seperated by a comma i.e. To install health within Manage set `base=latest,health=latest`
@@ -57,6 +65,19 @@ Defines the app components and versions to configure in the application workspac
 - Optional
 - Environment Variable: `MAS_APPWS_COMPONENTS`
 - Default: Application specific
+
+### mas_pod_templates_dir
+This role will look for a configuration files named:
+
+- `ibm-mas-manage-manageworkspace.yml`
+- `ibm-mas-manage-imagestitching.yml`
+- `ibm-mas-manage-slackproxy.yml`
+- `ibm-mas-manage-healthextworkspace.yml`
+
+The content of the configuration file should be the yaml block that you wish to be inserted into the ManageWorkspace CR. `ibm-mas-manage-manageworkspace.yml` will be inserted into the ManageWorkspace CR `spec -> podTemplates` whereas the component ones e.g, `ibm-mas-manage-imagestitching.yml` will be under `spec -> components -> civil -> podTemplates`. The ibm-mas-manage-ws operator will then pass this on to the corresponding component CR when available.
+
+This is an example of one of the components (civil) - refer to the [BestEfforts reference configuration in the MAS CLI](https://github.com/ibm-mas/cli/blob/master/image/cli/mascli/templates/pod-templates/best-effort/ibm-mas-manage-imagestitching.yml).
+For full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
 
 
 Role Variables - Predict Configuration
@@ -134,20 +155,23 @@ Role Variables - Manage Workspace
 ---
 
 ### mas_appws_bindings_health_wsl_flag
-Optional. Boolean value indicating if Watson Studio must be bound to Manage. It is expected a system level WatsonStudioCfg applied in the cluster.
+Boolean value indicating if Watson Studio must be bound to Manage. It is expected a system level WatsonStudioCfg applied in the cluster.
 
+- Optional
 - Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG`
 - Default: `false`
 
 ### mas_appws_bindings_health_wsl
-Optional. Set as `system` to indicate Watson Studio must be installed and bound to Health
+Set as `system` to indicate Watson Studio must be installed and bound to Health
 
+- Optional
 - Environment Variable: `MAS_APPWS_BINDINGS_HEALTH_WSL`
 - Default: None
 
 ### mas_app_settings_aio_flag
-Optional. Flag indicating if Asset Investment Optimization (AIO) resource must be loaded or not. It can be loaded only when Optimizer application is installed.
+Flag indicating if Asset Investment Optimization (AIO) resource must be loaded or not. It can be loaded only when Optimizer application is installed.
 
+- Optional
 - Only supported when Optimizer application is installed.
 - Environment Variable: `MAS_APP_SETTINGS_AIO_FLAG`
 - Default: `true`
@@ -155,27 +179,36 @@ Optional. Flag indicating if Asset Investment Optimization (AIO) resource must b
 ### Manage - DB2 settings variables
 ---
 
-### mas_app_settings_db2_schema
-Optional. Name of the schema where Manage database lives in.
+### mas_app_settings_db_schema
+Name of the schema where Manage database lives in. Code also supports deprecated `mas_app_settings_db2_schema` variable name.
 
-- Environment Variable: MAS_APP_SETTINGS_DB2_SCHEMA') |
+- Optional
+- Environment Variable: `MAS_APP_SETTINGS_DB_SCHEMA`
 - Default: `maximo`
 
 ### mas_app_settings_demodata
-Optional. Flag indicating if manage demodata should be loaded or not.
+Flag indicating if manage demodata should be loaded or not.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_DEMODATA`
 - Default: `false` (do not load demodata)
 
-### mas_app_settings_tablespace
-Optional. Name of the Manage database tablespace
+### mas_app_settings_db2vargraphic
+Optional. Flag indicating if VARGRAPHIC (if true) or VARCHAR (if false) is used. Details: https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=deploy-language-support
 
+- Default: `true`
+
+### mas_app_settings_tablespace
+Name of the Manage database tablespace
+
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_TABLESPACE`
 - Default: `MAXDATA`
 
 ### mas_app_settings_indexspace
-Optional. Name of the Manage database indexspace
+Name of the Manage database indexspace
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_INDEXSPACE`
 - Default: `MAXINDEX`
 
@@ -183,56 +216,64 @@ Optional. Name of the Manage database indexspace
 ---
 
 ### mas_app_settings_persistent_volumes_flag
-Optional. Flag indicating if persistent volumes should be configured by default during Manage Workspace activation.
+Flag indicating if persistent volumes should be configured by default during Manage Workspace activation.
 There are two defaulted File Storage Persistent Volumes Claim resources that will be created out of the box for Manage if this flag is set to `true`:
 
 - `/DOCLINKS`: Persistent volume used to store doclinks/attachments.
 - `/bim`: Persistent volume used to store Building Information Models related artifacts (models, docs and import).
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG`
 - Default: `false`
+
 ### JMS queues
 
 The following properties can be defined to customize the persistent volumes for the JMS queues setup for Manage.
 
 ### mas_app_settings_jms_queue_pvc_storage_class
-Optional. Provide the persistent volume storage class to be used for JMS queue configuration.
+Provide the persistent volume storage class to be used for JMS queue configuration. Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) access modes are supported.
 **Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_STORAGE_CLASS`
 - Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
 
 ### mas_app_settings_jms_queue_pvc_name
-Optional. Provide the persistent volume claim name to be used for JMS queue configuration.
+Provide the persistent volume claim name to be used for JMS queue configuration.
 **Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_NAME`
 - Default: `manage-jms`
 
 ### mas_app_settings_jms_queue_pvc_size
-Optional. Provide the persistent volume claim size to be used for JMS queue configuration.
+Provide the persistent volume claim size to be used for JMS queue configuration.
 **Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_SIZE`
 - Default: `20Gi`
 
 ### mas_app_settings_jms_queue_mount_path
-Optional. Provide the persistent volume storage mount path to be used for JMS queue configuration.
+Provide the persistent volume storage mount path to be used for JMS queue configuration.
 **Note:** JMS configuration will only be done if `mas_app_settings_server_bundles_size` property is set to `jms`.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_MOUNT_PATH`
 - Default: `/jms`
 
 ### mas_app_settings_jms_queue_pvc_accessmode
-Optional. Provide the persistent volume storage access-mode to be used for JMS queue configuration.
+Provide the persistent volume storage access-mode to be used for JMS queue configuration.
 Typically you would either choose between `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class).
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_JMS_QUEUE_PVC_ACCESSMODE`
 - Default: `ReadWriteMany`
 
 ### mas_app_settings_default_jms
-Optional. Set this to `true` if you want to have JMS continuous queues configured
+Set this to `true` if you want to have JMS continuous queues configured
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_DEFAULT_JMS`
 - Default: `false`
 
@@ -242,33 +283,39 @@ Optional. Set this to `true` if you want to have JMS continuous queues configure
 The following properties can be defined to customize the persistent volumes for the Doclinks/Attachments setup for Manage.
 
 ### mas_app_settings_doclinks_pvc_storage_class
-Optional. Provide the persistent volume storage class to be used for doclinks/attachments configuration.
+Provide the persistent volume storage class to be used for doclinks/attachments configuration.
+Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_STORAGE_CLASS`
 - Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
 
 ### mas_app_settings_doclinks_pvc_name
-Optional. Provide the persistent volume claim name to be used for doclinks/attachments configuration.
+Provide the persistent volume claim name to be used for doclinks/attachments configuration.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_NAME`
 - Default: `manage-doclinks`
 
 ### mas_app_settings_doclinks_pvc_size
-Optional. Provide the persistent volume claim size to be used for doclinks/attachments configuration.
+Provide the persistent volume claim size to be used for doclinks/attachments configuration.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_SIZE`
 - Default: `20Gi`
 
 ### mas_app_settings_doclinks_mount_path
-Optional. Provide the persistent volume storage mount path to be used for doclinks/attachments configuration.
+Provide the persistent volume storage mount path to be used for doclinks/attachments configuration.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_MOUNT_PATH`
 - Default: `/DOCLINKS`
 
 ### mas_app_settings_doclinks_pvc_accessmode
-Optional. Provide the persistent volume storage access-mode to be used for doclinks/attachments configuration.
+Provide the persistent volume storage access-mode to be used for doclinks/attachments configuration.
 Typically you would either choose between `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class).
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_DOCLINKS_PVC_ACCESSMODE`
 - Default: `ReadWriteMany`
 
@@ -277,53 +324,60 @@ Typically you would either choose between `ReadWriteOnce` (if using a block stor
 The following properties can be defined to customize the persistent volumes for the Building Information Models setup for Manage.
 
 ### mas_app_settings_bim_pvc_storage_class
-Optional. Provide the persistent volume storage class to be used for Building Information Models configuration.
-
+Provide the persistent volume storage class to be used for Building Information Models configuration.
+Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_STORAGE_CLASS`
 - Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
 
 ### mas_app_settings_bim_pvc_name
-Optional. Provide the persistent volume claim name to be used for Building Information Models configuration.
+Provide the persistent volume claim name to be used for Building Information Models configuration.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_NAME`
 - Default: `manage-bim`
 
 ### mas_app_settings_bim_pvc_size
-Optional. Provide the persistent volume claim size to be used for Building Information Models configuration.
+Provide the persistent volume claim size to be used for Building Information Models configuration.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_SIZE`
 - Default: `20Gi`
 
 ### mas_app_settings_bim_mount_path
-Optional. Provide the persistent volume storage mount path to be used for Building Information Models configuration.
+Provide the persistent volume storage mount path to be used for Building Information Models configuration.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_BIM_MOUNT_PATH`
 - Default: `/bim`
 
 ### mas_app_settings_bim_pvc_accessmode
-Optional. Provide the persistent volume storage access-mode to be used for Building Information Models configuration.
+Provide the persistent volume storage access-mode to be used for Building Information Models configuration.
 Typically you would either choose between `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class).
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_BIM_PVC_ACCESSMODE`
 - Default: `ReadWriteMany`
 
 ### Manage - Supported languages variables
 ---
-### mas_app_settings_base_language
-Optional. Provide the base language for Manage application.
+### mas_app_settings_base_lang
+Provide the base language for Manage application.
 For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_BASE_LANG`
 - Default: `EN` (English)
 
-### mas_app_settings_secondary_languages
-Optional. Provide a list of additional secondary languages for Manage application.
+### mas_app_settings_secondary_langs
+Provide a list of additional secondary languages for Manage application.
 
 Note: The more languages you add, the longer Manage will take to install and activate.
 
 Export the `MAS_APP_SETTINGS_SECONDARY_LANGS` variable with the language codes as comma-separated values.
 For a full list of supported languages for Manage application and its corresponding language codes, please refer to [Language Support](https://www.ibm.com/docs/en/maximo-manage/continuous-delivery?topic=deploy-language-support) documentation.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_SECONDARY_LANGS`
 - Default: None
 
@@ -344,6 +398,8 @@ Currently supported server bundle sizes are:
   - i.e 4 bundle pods, each one handling workload for each main capabilities: `mea`, `cron`, `report` and `ui`
 - `jms` - Can be used for Manage 8.4 and above. Same server bundle configuration as `small` and includes `jms` bundle pod.
   - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path.
+- `snojms` - Can be used for Manage 8.4 and above. Includes `all` and `jms` bundle pods.
+  - Enabling JMS pod workload will also configure Manage to use default JMS messaging queues to be stored in `/{{ mas_app_settings_jms_queue_mount_path }}/jmsstore` persistent volume mount path.
 
 - Environment Variable: `MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE`
 - Default: `dev`
@@ -351,14 +407,16 @@ Currently supported server bundle sizes are:
 ### Manage - Customization Archive settings variables
 ---
 ### mas_app_settings_customization_archive_url
-Optional. Provide a custom archive/file path to be included as part of Manage deployment.
+Provide a custom archive/file path to be included as part of Manage deployment.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_URL`
 - Default: None
 
 ### mas_app_settings_customization_archive_name
-Optional. Provide a custom archive file name to be associated with the archive/file path provided. Only used when `mas_app_settings_customization_archive_url` is defined. 
+Provide a custom archive file name to be associated with the archive/file path provided. Only used when `mas_app_settings_customization_archive_url` is defined.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
 - Default: `manage-custom-archive`
 
@@ -366,38 +424,53 @@ Optional. Provide a custom archive file name to be associated with the archive/f
 ---
 
 ### mas_app_settings_crypto_key
-Optional. This defines the `MXE_SECURITY_CRYPTO_KEY` value if you want to customize your Manage database encryption keys.
+This defines the `MXE_SECURITY_CRYPTO_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_CRYPTO_KEY`
 - Default: Auto-generated
 
 ### mas_app_settings_cryptox_key
-Required if `mas_app_settings_crypto_key` is set. This defines the `MXE_SECURITY_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
+This defines the `MXE_SECURITY_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
+- **Required** if `mas_app_settings_crypto_key`is set.
 - Environment Variable: `MAS_APP_SETTINGS_CRYPTOX_KEY`
 - Default: Auto-generated
 
 ### mas_app_settings_old_crypto_key
-Optional. This defines the `MXE_SECURITY_OLD_CRYPTO_KEY` value if you want to customize your Manage database encryption keys.
+This defines the `MXE_SECURITY_OLD_CRYPTO_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_OLD_CRYPTO_KEY`
 - Default: None
 
 ### mas_app_settings_cryptox_key
-Required if `mas_app_settings_old_crypto_key` is set. This defines the `MXE_SECURITY_OLD_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
+This defines the `MXE_SECURITY_OLD_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
+- **Required** if `mas_app_settings_old_crypto_key`is set.
 - Environment Variable: `MAS_APP_SETTINGS_OLD_CRYPTOX_KEY`
 - Default: None
 
 ### mas_app_settings_override_encryption_secrets_flag
-Optional. Set this to `true` if you want to override existing Manage database encryption keys i.e Manage database reencryption scenario. A backup of the secret holding the original encryption keys will be taken prior overriding it with the new defined keys. If set to `false`, then the database encryption keys will only be created with the defined keys if no existing database encryption keys are found under the target Manage instance i.e new Manage installations.
+Set this to `true` if you want to override existing Manage database encryption keys i.e Manage database reencryption scenario. A backup of the secret holding the original encryption keys will be taken prior overriding it with the new defined keys. If set to `false`, then the database encryption keys will only be created with the defined keys if no existing database encryption keys are found under the target Manage instance i.e new Manage installations.
 
+- Optional
 - Environment Variable: `MAS_APP_SETTINGS_OVERRIDE_ENCRYPTION_SECRETS_FLAG`
 - Default: `False`
+
+### Manage - Server Timezone setting variable
+---
+
+### mas_app_settings_server_timezone
+Sets the Manage server timezone. If you also want to have the Manage's DB2 database aligned with the same timezone, you must set `DB2_TIMEZONE` while provisioning the corresponding DB2 instance using `db2` role.
+
+- Optional
+- Environment Variable: `MAS_APP_SETTINGS_SERVER_TIMEZONE`
+- Default: `GMT`
 
 Example Playbook
 -------------------------------------------------------------------------------
@@ -422,6 +495,138 @@ Example Playbook
   roles:
     - ibm.mas_devops.suite_app_config
 ```
+
+Role Variables - Facilities Workspace
+-------------------------------------------------------------------------------
+### mas_ws_facilities_size
+Sets the size of deployment.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_SIZE`
+- Default: `small` Available options are `small`, `medium` and `large`
+
+### mas_ws_facilities_pull_policy
+Sets the `imagePullPolicy` strategy for all deployments. The default it's set to `IfNotPresent` to reduce the pulling operations in the cluster.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_PULL_POLICY`
+- Default: `IfNotPresent`
+
+### mas_ws_facilities_liberty_extension_xml_secret_name
+Provide the secret name of the secret which contains additional XML tags that needs to be added into the existing Liberty Server XML to configure the application accordingly. 
+
+#### NOTE: The Secret name MUST be `<workspaceId>-facilities-lexml--sn`
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_LIBERTY_EXTENSION_XML_SECRET_NAME`
+- Default: None
+- Sample Secret Template
+```sh
+cat <<EOF | oc create -f -
+kind: Secret
+apiVersion: v1
+metadata:
+  name: <MAS_FACILITIES_LIBERTY_EXTENSION_XML_SECRET_NAME>
+  namespace: mas-<instanceId>-facilities
+data:
+  extensions.xml: <!-- Custom XML tags -->
+type: Opaque
+EOF
+```
+
+### mas_ws_facilities_vault_secret_name
+Provide the name of the secret which contains a password to the vault with AES Encryption key. By default, this secret will be generated automatically.
+
+#### NOTE: The Secret name MUST be `<workspaceId>-facilities-vs--sn`
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_VAULT_SECRET_NAME`
+- Default: None
+- Sample Secret Template
+```sh
+cat <<EOF | oc create -f -
+kind: Secret
+apiVersion: v1
+metadata:
+  name: <MAS_FACILITIES_VAULT_SECRET_NAME>
+  namespace: mas-<instanceId>-facilities
+data:
+  pwd: <your password>
+type: Opaque
+EOF
+```
+
+### mas_ws_facilities_dwfagents
+Allows the user to add dedicated workflow agents (DWFA) to MREF. To specify a DWFA it's required to specify a JSON with a unique `name` and `members`. Each member has a unique `name` and `class` that can be classified as `user` or `group`. Below an example of the structure of the JSON. 
+```
+export MAS_FACILITIES_DWFAGENTS='[{"name":"dwfa1","members":[{"name": "u1", "class": "user"}]}, {"name":"dwfa2","members":[{"name": "u2", "class": "user"},{"name":"g1", "class":"group"}]}]'
+``` 
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_DWFAGENTS`
+- Default: `[]`
+### Facilities - Database setting variables
+---
+### mas_ws_facilities_db_maxconnpoolsize
+Sets the maximum connection pool size for database.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_DB_MAX_POOLSIZE`
+- Default: `200`
+
+### Facilities - Routes setting variables
+---
+### mas_ws_facilities_db_timout
+Sets the timeout of the application. It is a string with the structure `<timeout_value><time_unit>`, where `timeout_value` is any non zero unsigned integer number and the supported `time_unit` are microseconds (us), milliseconds (ms), seconds (s), minutes (m), hours (h), or days (d)
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_ROUTES_TIMEOUT`
+- Default: `600s`
+### Facilities - Storage setting variables
+---
+### mas_ws_facilities_storage_log_class
+Sets the storage class name for the Log Persistent Volume Claim used for MREF agents.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_LOG_CLASS`
+- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
+
+### mas_ws_facilities_storage_log_mode
+Sets the attach mode of the Log PVC.
+Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_LOG_MODE`
+- Default: `ReadWriteOnce`
+
+### mas_ws_facilities_storage_log_size
+Sets the size of the Log PVC. Defaults to 30 Gigabytes
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_LOG_SIZE`
+- Default: `30`
+
+### mas_ws_facilities_storage_userfiles_class
+Sets the storage class name for the Userfiles PVC used for MREF agents.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_CLASS`
+- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
+
+### mas_ws_facilities_storage_userfiles_mode
+Sets the attach mode of the Userfiles PVC.
+Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_MODE`
+- Default: `ReadWriteOnce` 
+
+### mas_ws_facilities_storage_userfiles_size
+Sets the size of the Log PVC. Defaults to 50 Gigabytes
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_SIZE`
+- Default: `50`
 
 License
 -------------------------------------------------------------------------------

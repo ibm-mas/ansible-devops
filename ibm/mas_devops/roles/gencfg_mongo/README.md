@@ -25,6 +25,18 @@ Required. MongoDB admin password
 - Environment Variable: `MONGODB_ADMIN_PASSWORD`
 - Default: None
 
+### mongodb_authentication_mechanism
+Required. MongoDB authentication mechanism. Specify DEFAULT for SCRAM-SHA-256 or SCRAM-SHA-1. For LDAP authentication use PLAIN
+
+- Environment Variable: `MONGODB_AUTHENTICATION_MECHANISM`
+- Default: DEFAULT
+
+### mongodb_authentication_database
+Required. MongoDB authentication database. This value must be $external if PLAIN has been specified for mongodb_authentication_mechanism
+
+- Environment Variable: `MONGODB_AUTHENTICATION_DATABASE`
+- Default: admin
+
 ### mongodb_hosts
 Required. In case if there are multiple instances, the host address should be seperated by a ,. Example: docdb-1.abc.ca-central-1.docdb.amazonaws.com:27017,docdb-2.def.ca-central-1.docdb.amazonaws.com:27017
 

@@ -20,7 +20,7 @@ Required only for ROSA cluster. This variable is required to extract the UDS cer
 - Default Value: None
 
 ### uds_storage_class
-Required.  Storage class where UDS will be installed.  On IBM Cloud RedHat Openshift Kubernetes Service (ROKS) `ibmc-block-bronze` is the recommended value.
+Required.  Storage class where UDS will be installed.  On IBM Cloud RedHat Openshift Kubernetes Service (ROKS) `ibmc-block-bronze` is the recommended value. The storage class must support ReadWriteOnce(RWO) access mode.
 
 - Environment Variable: `UDS_STORAGE_CLASS`
 - Default Value: None

@@ -31,8 +31,16 @@
   set_fact:
     kubeturbo_namespace_fsgroup: "{{ kubeturbo_namespace_output.resources[0].metadata.annotations['openshift.io/sa.scc.uid-range'] | regex_search(regex) }}"
 
+# 3. Create Turbonomic secret
+# -----------------------------------------------------------------------------
+- name: Create the Turbonomic Secret for Kubeturbo
+  no_log: true
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ kubeturbo_namespace }}"
+    template: templates/turbonomic-secret.yml.j2
 
-# 3. Lookup Kubeturbo package information
+# 4. Lookup Kubeturbo package information
 # -----------------------------------------------------------------------------
 - name: Get Kubeturbo package manifest
   kubernetes.core.k8s_info:
@@ -69,7 +77,7 @@
       - "Turbonomic Target Name.................... {{ turbonomic_target_name }}"
 
 
-# 4. Create subscription and Operator Group
+# 5. Create subscription and Operator Group
 # -----------------------------------------------------------------------------
 - name: "Create Kubeturbo operator group"
   kubernetes.core.k8s:
@@ -87,7 +95,7 @@
       status: "False"
 
 
-# 5. Deploy Kubeturbo CRD
+# 6. Deploy Kubeturbo CRD
 # -----------------------------------------------------------------------------
 - name: "Wait until the Kubeturbo CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
@@ -95,7 +103,7 @@
     crd_name: kubeturbos.charts.helm.k8s.io
 
 
-# 6. Wait until Kubeturbo Operator is ready
+# 7. Wait until Kubeturbo Operator is ready
 # -----------------------------------------------------------------------------
 - name: "Wait for {{ kubeturbo_sub_name }} to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -115,21 +123,13 @@
   delay: 60 # 1 minute
 
 
-# 7. Create Kubeturbo Custom Resource & Secret
+# 8. Create Kubeturbo Custom Resource & Secret
 # -----------------------------------------------------------------------------
 - name: "Create Kubeturbo Custom Resource"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/kubeturbo-cr.yml.j2') }}"
 
-- name: Create the Turbonomic Secret for Kubeturbo
-  no_log: true
-  kubernetes.core.k8s:
-    state: present
-    namespace: "{{ kubeturbo_namespace }}"
-    template: templates/turbonomic-secret.yml.j2
-
-
-# 8. Wait Kubeturbo Custom Resource to be complete.
+# 9. Wait Kubeturbo Custom Resource to be complete.
 # -----------------------------------------------------------------------------
 - name: "Wait for Kubeturbo Custom Resource to be ready (60s delay)"
   kubernetes.core.k8s_info:

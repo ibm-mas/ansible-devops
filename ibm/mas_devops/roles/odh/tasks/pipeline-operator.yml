@@ -1,0 +1,41 @@
+---
+- name: Check for pipeline subscriptions if exists
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ openshift_namespace }}"
+  register: subscriptions
+
+- name: Print list of subscriptions
+  debug:
+    var: subscriptions.resources
+
+- name: Check if any subscriptions contain the specified string
+  set_fact:
+    has_subscription: "{{ True if subscriptions.resources | selectattr('metadata.name', 'search', 'openshift-pipelines-operator') | list else False }}"
+
+- name: Print result
+  debug:
+    msg: "Subscriptions containing the specified string found"
+  when: has_subscription
+
+# Install Operator Openshift-pipelines
+# -----------------------------------------------------------------------------
+- name: "Install Openshift pipelines"
+  when: not has_subscription
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ openshift_namespace }}"
+    package_name: "openshift-pipelines-operator-rh"
+    package_channel: "{{ pipeline_channel }}"
+    catalog_source: "{{ pipeline_catalog_source }}"
+  register: subscription
+
+
+# Wait until the Openshift-pipelines CRD is available
+# -----------------------------------------------------------------------------
+- name: "Wait until the Pipelines CRD is available"
+  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
+  vars:
+    crd_name: pipelines.tekton.dev
+  when:
+    - not has_subscription

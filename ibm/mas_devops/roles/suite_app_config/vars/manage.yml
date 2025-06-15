@@ -4,12 +4,14 @@ mas_app_ws_apiversion: apps.mas.ibm.com/v1
 mas_app_ws_kind: ManageWorkspace
 
 # Depending on the number of components being used the time to configure Manage can grow significantly
-mas_app_cfg_delay: "{{ lookup('env', 'MAS_APP_CFG_DELAY') | default(480, true)}}" # ~8 minutes
-mas_app_cfg_retries: "{{ lookup('env', 'MAS_APP_CFG_RETRIES') | default(60, true)}}" # ~8 hours
+mas_app_cfg_delay: "{{ lookup('env', 'MAS_APP_CFG_DELAY') | default(360, true)}}" # ~6 minutes
+mas_app_cfg_retries: "{{ lookup('env', 'MAS_APP_CFG_RETRIES') | default(60, true)}}" # ~6 hours
 
 mas_app_settings_aio_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_AIO_FLAG') | default('true', true) | bool }}"
 mas_app_settings_db2_schema: "{{ lookup('env', 'MAS_APP_SETTINGS_DB2_SCHEMA') | default('maximo', true)}}"
+mas_app_settings_db_schema: "{{ lookup('env', 'MAS_APP_SETTINGS_DB_SCHEMA') | default(mas_app_settings_db2_schema, true)}}"
 mas_app_settings_demodata: "{{ lookup('env', 'MAS_APP_SETTINGS_DEMODATA') | default('false', true) | bool }}"
+mas_app_settings_db2vargraphic: "{{ lookup('env', 'MAS_APP_SETTINGS_DB2VARGRAPHIC') | default('true', true) | bool }}"
 
 mas_app_settings_tablespace: "{{ lookup('env', 'MAS_APP_SETTINGS_TABLESPACE') | default('MAXDATA', true)}}"
 mas_app_settings_indexspace: "{{ lookup('env', 'MAS_APP_SETTINGS_INDEXSPACE') | default('MAXINDEX', true)}}"
@@ -18,11 +20,6 @@ mas_app_settings_indexspace: "{{ lookup('env', 'MAS_APP_SETTINGS_INDEXSPACE') | 
 # otherwise no persistent storage will be configured at all
 mas_app_settings_persistent_volumes_flag: "{{ lookup('env', 'MAS_APP_SETTINGS_PERSISTENT_VOLUMES_FLAG') | default(False, true) | bool }}"
 mas_app_settings_persistent_volumes_default_accessmode: "ReadWriteMany"
-mas_app_settings_default_manage_supported_storage_classes:
-  - ibmc-file-gold-gid
-  - ocs-storagecluster-cephfs
-  - azurefiles-premium
-  - efs
 
 # properties to configure persistent volumes for doclinks i.e attachments
 mas_app_settings_doclinks_pvc_storage_class: "{{ lookup('env', 'MAS_APP_SETTINGS_DOCLINKS_PVC_STORAGE_CLASS') }}" # if not defined by user, it will be automatically defined while setting persistent storage
@@ -65,9 +62,12 @@ mas_app_settings_persistent_volumes_default:
 
 mas_app_settings_persistent_volumes: "{{ mas_app_settings_persistent_volumes_default if (mas_app_settings_persistent_volumes_flag) else [] }}"
 
+# property to configure server timezone
+mas_app_settings_server_timezone: "{{ lookup('env', 'MAS_APP_SETTINGS_SERVER_TIMEZONE') | default('GMT', true) }}"
+
 # properties to configure supported languages
-mas_app_settings_base_language: "{{ lookup('env', 'MAS_APP_SETTINGS_BASE_LANG') | default( 'EN', true) }}"
-mas_app_settings_secondary_languages: "{{ lookup('env', 'MAS_APP_SETTINGS_SECONDARY_LANGS') | default([], true) }}"
+mas_app_settings_base_lang: "{{ lookup('env', 'MAS_APP_SETTINGS_BASE_LANG') | default('EN', true) }}"
+mas_app_settings_secondary_langs: "{{ lookup('env', 'MAS_APP_SETTINGS_SECONDARY_LANGS') | default([], true) }}"
 
 # property to confifure jms queues
 mas_app_settings_default_jms: "{{ lookup('env', 'MAS_APP_SETTINGS_DEFAULT_JMS') | default('false', true) | bool }}"
@@ -86,6 +86,10 @@ server_bundles_jms_add_server_config_content: "{{ lookup('file', '{{ role_path }
 
 # these settings will define the bundle servers spec
 mas_app_settings_server_bundles_size: "{{ lookup('env', 'MAS_APP_SETTINGS_SERVER_BUNDLES_SIZE') | default('dev', true)  }}"
+# This is to specify if manage installation is full or foundation
+is_full_manage: "{{ (lookup('env', 'IS_FULL_MANAGE', default='true') | lower) in ['true', '1', 'yes'] }}"
+# If this is not full manage (foundation), there is no default base component
+default_component: "{{ is_full_manage | ternary({'base':{'version':'latest'}}, {})  }}"
 mas_app_settings_server_bundles:
   dev:
     serverBundleEarFilename: maximo-all
@@ -237,4 +241,6 @@ mas_app_bindings_jdbc_wsl:
 
 mas_app_bindings: "{{ mas_app_bindings_jdbc_wsl if mas_appws_bindings_health_wsl_flag else mas_app_bindings_jdbc }}"
 
+
+manage_workspace_default_podTemplates_containers: ['monitoragent', 'manage-maxinst']
 # -------------------

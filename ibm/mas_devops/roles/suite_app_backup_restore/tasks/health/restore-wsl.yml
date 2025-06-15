@@ -1,0 +1,127 @@
+---
+# Update watson studio project restore status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update watson studio project restore status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "{{ masbr_job_data_seq }}"
+        phase: "InProgress"
+
+
+- name: "Restore watson studio project"
+  block:
+    # Prepare watson studio project restore folder
+    # -------------------------------------------------------------------------
+    - name: "Set fact: watson studio project restore name"
+      set_fact:
+        masbr_wsl_restore_from_name: "{{ masbr_restore_from }}-{{ masbr_job_data_type }}"
+        masbr_wsl_restore_name: "{{ masbr_job_name }}-{{ masbr_job_data_type }}"
+
+    - name: "Set fact: watson studio project restore folder"
+      set_fact:
+        masbr_wsl_restore_log: "{{ masbr_local_job_folder }}/{{ masbr_wsl_restore_name }}.log"
+
+    - name: "Create watson studio project restore log"
+      changed_when: true
+      shell: >
+        touch {{ masbr_wsl_restore_log }}
+
+
+    # Copy backup file from specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Copy backup file from specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_storage_files_to_local.yml"
+      vars:
+        masbr_cf_job_type: "backup"
+        masbr_cf_job_name: "{{ masbr_restore_from }}"
+        masbr_cf_paths:
+          - src_file: "{{ masbr_job_data_type }}/{{ masbr_wsl_restore_from_name }}.tgz"
+            dest_folder: "./"
+          - src_file: "{{ masbr_job_data_type }}/wsl-project-name.txt"
+            dest_folder: "./"
+
+
+    # Get watson studio information
+    # -----------------------------------------------------------------------------
+    - name: "Get watson studio information"
+      include_tasks: "tasks/health/get-wsl-info.yml"
+      vars:
+        _wsl_log: "{{ masbr_wsl_restore_log }}"
+
+
+    # Import watson studio project asset
+    # -----------------------------------------------------------------------------
+    - name: "Import watson studio project asset"
+      changed_when: true
+      shell: >-
+        {{ cpd_cli_cmd }} config users set cpd-user --username={{ cpd_username }} --apikey={{ cpd_apikey }};
+        {{ cpd_cli_cmd }} config profiles set cpd-profile --user=cpd-user --url={{ cpd_endpoint }};
+        echo "List projects" >> {{ masbr_wsl_restore_log }};
+        {{ cpd_cli_cmd }} project list --profile=cpd-profile >> {{ masbr_wsl_restore_log }};
+        WSL_PROJECT_NAME={{ mas_instance_id }}-{{ mas_workspace_id }}-healthext-{{ masbr_job_version }};
+        echo "Create project ${WSL_PROJECT_NAME}" >> {{ masbr_wsl_restore_log }};
+        CREATE_PROJECT_JSON=$({{ cpd_cli_cmd }} project create --profile=cpd-profile --name=${WSL_PROJECT_NAME} --output=json);
+        echo "${CREATE_PROJECT_JSON}" >> {{ masbr_wsl_restore_log }};
+        WSL_PROJECT_LOC=$(echo "${CREATE_PROJECT_JSON}" | jq -r '.location');
+        WSL_PROJECT_ID=$(echo "${WSL_PROJECT_LOC##*/}");
+        echo "Import project asset" >> {{ masbr_wsl_restore_log }};
+        {{ cpd_cli_cmd }} asset import start --profile=cpd-profile --project-id=${WSL_PROJECT_ID}
+        --import-file={{ masbr_local_job_folder }}/{{ masbr_wsl_restore_from_name }}.tgz >> {{ masbr_wsl_restore_log }};
+        echo "${WSL_PROJECT_ID}"
+      register: _import_asset_output
+
+    - name: "Set fact: new watson studio project id"
+      set_fact:
+        new_project_id: "{{ _import_asset_output.stdout }}"
+
+    - name: "Debug: new watson studio project id"
+      debug:
+        msg: "New WS project id ................. {{ new_project_id }}"
+
+
+    # Update watson studio secret
+    # -----------------------------------------------------------------------------
+    - name: "Update secret {{ wsl_secret_name }}"
+      changed_when: true
+      shell: >-
+        oc patch secret/{{ wsl_secret_name }} -n {{ mas_app_namespace }}
+        -p "{\"data\": {\"projectid\": \"{{ new_project_id | b64encode }}\"}}"
+
+
+    # Update watson studio project restore status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update watson studio project restore status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Completed"
+
+  rescue:
+    # Update watson studio project restore status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update watson studio project restore status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "{{ masbr_job_data_seq }}"
+            phase: "Failed"
+
+  always:
+    # Copy watson studio project restore log file to specified storage location
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of watson studio project restore log"
+      changed_when: true
+      shell: >
+        tar -czf {{ masbr_local_job_folder }}/{{ masbr_wsl_restore_name }}-log.tar.gz
+        -C {{ masbr_local_job_folder }} {{ masbr_wsl_restore_name }}.log
+
+    - name: "Copy watson studio project restore log file to specified storage location"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/copy_local_files_to_storage.yml"
+      vars:
+        masbr_cf_job_type: "restore"
+        masbr_cf_job_name: "{{ masbr_job_name_final }}"
+        masbr_cf_paths:
+          - src_file: "{{ masbr_local_job_folder }}/{{ masbr_wsl_restore_name }}-log.tar.gz"
+            dest_folder: "log"

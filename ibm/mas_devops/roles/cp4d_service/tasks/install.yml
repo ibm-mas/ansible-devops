@@ -4,12 +4,12 @@
 # This will be used by the CPD operators to automatically set the target versions
 # to be installed/upgraded
 # -----------------------------------------------------------------------------
-- name: "Create olm-utils-cm config map for cpd release {{ cpd_product_version }}"
+- name: "Create olm-utils-cm config map for Cloud Pak for Data release {{ cpd_product_version }}"
   kubernetes.core.k8s:
     apply: yes
-    template: '{{ role_path }}/../cp4d/templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2'
+    definition: "{{ lookup('template', '{{ role_path }}/../cp4d/templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2') }}"
 
-- name: "Lookup olm-utils-cm config map to know which CPD service version to install/upgrade for release {{ cpd_product_version }}"
+- name: "Lookup olm-utils-cm config map to map versioning matrix for Cloud Pak for Data services release {{ cpd_product_version }}"
   kubernetes.core.k8s_info:
     api_version: v1
     name: "olm-utils-cm"
@@ -20,6 +20,11 @@
 - set_fact:
     cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
     cpd_assembly_name: "{{ cpd_service_info[cpd_service_name].assembly_name }}"
+    cpd_service_package_name: "{{ cpd_service_info[cpd_service_name].package_name }}"
+    cpd_service_csv_name: "{{ cpd_service_info[cpd_service_name].csv_name }}"
+    cpd_service_kind: "{{ cpd_service_info[cpd_service_name].crd_kind }}"
+    cpd_service_cr_name: "{{ cpd_service_info[cpd_service_name].cr_name }}"
+    cpd_service_api_version: "{{ cpd_service_info[cpd_service_name].api_version }}"
 
 - name: "Set {{ cpd_service_name }} versions for cr, csv and sub_channel"
   set_fact:
@@ -27,36 +32,63 @@
     cpd_service_csv_version: "{{ cpd_components_meta[cpd_assembly_name].csv_version }}"
     cpd_service_channel: "{{ cpd_components_meta[cpd_assembly_name].sub_channel | default(cpd_service_info[cpd_service_name].sub_channel, true) }}" # search sub_channel in olm-utils-cm, if does not exist then use the default
 
+## Debug upgrade or new install
+- name: "Lookup existing {{ cpd_service_kind }} CR named '{{ cpd_service_cr_name }}'"
+  kubernetes.core.k8s_info:
+    api_version: "{{ cpd_service_api_version }}"
+    name: "{{ cpd_service_cr_name }}"
+    namespace: "{{ cpd_instance_namespace }}"
+    kind: "{{ cpd_service_kind }}"
+  register: existing_cpd_service_lookup
+
+- debug:
+    var: existing_cpd_service_lookup
+
+# This is needed to understand existing and target versions for the upgrade
+- name: Set existing '{{ cpd_service_cr_name }}' version if needed
+  when:
+    - existing_cpd_service_lookup.resources is defined
+    - existing_cpd_service_lookup.resources | length > 0
+    - existing_cpd_service_lookup.resources[0].spec.version is defined
+    - existing_cpd_service_lookup.resources[0].spec.version != ""
+  set_fact:
+    existing_cpd_service_cr_version: "{{ existing_cpd_service_lookup.resources[0].spec.version }}"
+    existing_cpd_service_minor_version: "{{ existing_cpd_service_lookup.resources[0].spec.version | regex_search('(?<=)(.*)(?=..)') }}"
+
+- name: "Debug existing {{ cpd_service_name }} installed version"
+  when: existing_cpd_service_cr_version is defined
+  debug:
+    var: existing_cpd_service_cr_version
+
+- name: Check if this is a new install or upgrade
+  set_fact:
+    is_cpd_service_upgrade: "{{ (existing_cpd_service_cr_version is defined and existing_cpd_service_cr_version is version(cpd_service_cr_version, '<')) | ternary(true, false) | bool }}"
+
 # 1. Load default storage classes and debug
 # -----------------------------------------------------------------------------
 - name: "Determine storage classes"
   include_tasks: "determine-storage-classes.yml"
 
-- name: "Debug information"
+- name: "Debug: Cloud Pak for Data service '{{ cpd_service_name }}' - version {{ cpd_product_version }} : Debug information"
   debug:
     msg:
-      - "CPD Operator namespace ................. {{ cpd_operators_namespace }}"
-      - "CPD Instance namespace ................. {{ cpd_instance_namespace }}"
-      - "CPD Service name ....................... {{ cpd_service_name }}"
-      - "CPD Service storage class .............. {{ cpd_service_storage_class }}"
-      - "CPD Service version .................... {{ cpd_service_cr_version }}"
-      - "CPD Service subscription channel ....... {{ cpd_service_channel }}"
-      - "CPD Service csv ........................ {{ cpd_service_csv_version }}"
-
-# 2. Determine CP4D admin login credentials
-# -----------------------------------------------------------------------------
-- name: "Lookup admin credentials if they haven't been provided already"
-  when:
-    - cpd_admin_username is not defined or cpd_admin_username == ""
-    - cpd_admin_password is not defined or cpd_admin_password == ""
-  include_tasks: "lookup-admin-credentials.yml"
+      - "CPD Operator Namespace ................. {{ cpd_operators_namespace }}"
+      - "CPD Instance Namespace ................. {{ cpd_instance_namespace }}"
+      - "CPD Service Name ....................... {{ cpd_service_name }}"
+      - "CPD Service File storage class ......... {{ cpd_service_storage_class }}"
+      - "CPD Service Block storage class ........ {{ cpd_service_block_storage_class | default('N/A', true) }}"
+      - "CPD Service Action ..................... {{ (is_cpd_service_upgrade) | ternary('Upgrading from version '+existing_cpd_service_cr_version | default('N/A', true), 'New Install') }}"
+      - "CPD Service Version .................... {{ cpd_service_cr_version }}"
+      - "CPD Service Subscription channel ....... {{ cpd_service_channel }}"
+      - "CPD Service CSV name ................... {{ cpd_service_csv_name }}"
+      - "CPD Service CSV version ................ {{ cpd_service_csv_version }}"
 
 # 3. Run Pre-req task
 # -----------------------------------------------------------------------------
-# Only Watson Discovery and Cognos Analytics has special pre-reqs currently
+# Only Watson Discovery has special pre-reqs currently (EDB Postgress in CPD 4.5 and 4.6)
 - name: Run Install Prereqs
   when:
-    - cpd_service_name is in ['wd', 'wsl', 'wml', 'spss', 'ca']
+    - cpd_service_name is in ['wd', 'spss']
   include_tasks: "prereqs/prereqs-{{ cpd_service_name }}.yml"
 
 # 3.1 Install Operand Configs and Operand Registries
@@ -65,43 +97,62 @@
 # If it's CPD 4.5, only Watson Studio and Watson Discovery requires these operand configs to be applied via this automation.
 # If it's CPD 4.0.x, no need to apply operand configs at all, as these will be automatically be set while installing services requiring it.
 - name: Install Operand Configs and Operand Registries
-  vars:
-    cpd_wd_components: "{{ cpd_service_info.wd }}"
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/operand_config/{{ cpd_service_name }}.yml"
-  when:
-    - cpd_service_name is in ['wd', 'wsl', 'ca']
-    - cpd_minor_version in ['4.5','4.6']
+    template: "templates/operand_config/cpd_dependencies.yml.j2"
+  when: cpd_service_name is in ['wd', 'wsl', 'ca', 'spss']
+
+# Pre-create Cloud Pak for Data service accounts including ibm-entitlement-key in imagePullSecrets
+# -----------------------------------------------------------------------------
+- name: Pre-create Cloud Pak for Data service accounts including ibm-entitlement-key in imagePullSecrets
+  include_tasks: "tasks/create-cpd-service-accounts.yml"
+  when: not skip_ibm_entitlement_injection
+
+# TODO: Add code to check if existing sub cvs is different from the olm-utils, if so then delete sub otherwise skip sub deletion
+# Clean up old ibm-common-service operator
+- name: "Clean up existing CP4D Service 'cpd-{{ cpd_service_name }}-operator' csv from {{ cpd_operators_namespace }}"
+  vars:
+    operator_name: "{{ cpd_service_package_name }}"
+    operator_namespace: "{{ cpd_operators_namespace }}"
+    operator_expected_csv: "{{ cpd_service_package_name }}.v{{ cpd_service_csv_version }}"
+  include_tasks: "{{ role_path }}/../cp4d/tasks/prereqs/uninstall-operator.yml"
 
 # 4. Install CP4D Service Subscriptions
 # -----------------------------------------------------------------------------
 - name: "Install CP4D Service Subscription"
   vars:
     cpd_service_subscription_name: "cpd-{{ cpd_service_name }}-operator"
-    cpd_service_package_name: "{{ cpd_service_info[cpd_service_name].package_name }}"
+    cpd_service_package_name: "{{ cpd_service_package_name }}"
     cpd_service_channel_name: "{{ cpd_service_channel }}"
     cpd_service_catalog_source: "{{ cpd_service_info[cpd_service_name].catalog_source }}"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/subscription.yml.j2"
+    server_side_apply:
+      field_manager: ansible
+      force_conflicts: true
 
 # 5. Wait until the Service CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the {{ cpd_service_info[cpd_service_name].crd_name }} CRD is available"
-  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
-  vars:
-    crd_name: "{{ cpd_service_info[cpd_service_name].crd_name }}"
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: "{{ cpd_service_info[cpd_service_name].crd_name }}"
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: service_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - service_crd_info.resources is defined
+    - service_crd_info.resources | length > 0
 
-
-# 6.  Pause for 3 minutes for Watson Discovery to come up
-# -----------------------------------------------------------------------------
-- name: "Pause for 3 minutes for Watson Discovery CRDs to come up"
-  when: cpd_service_name == 'wd'
-  pause:
-    minutes: 3
-
-# 7. Install CP4D Service CRs
+# 6. Install CP4D Service CRs
 # -----------------------------------------------------------------------------
 - name: "Install Service CR"
   kubernetes.core.k8s:
@@ -136,39 +187,37 @@
   pause:
     minutes: 5
 
-# 8. Wait for CP4D Service to be ready
+# 7. Wait for CP4D Service to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for the service to be ready"
   include_tasks: "wait/wait-{{ cpd_service_name }}.yml"
 
+# 8. Run post-install task
+# -----------------------------------------------------------------------------
+# Only Watson Discovery 4.8+ has special post install workaround needed
+- name: Run Post Install task for "{{ cpd_service_name }}"
+  when:
+    - cpd_service_name is in ['wd']
+    - cpd_48_or_higher
+    - cpd_platform_cr_name != 'ibmcpd-cr'
+  include_tasks: "postinstall/postinstall-wd-gateway-workaround.yml"
+
 # 9. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------
-- name: "Obtain CP4D dashboard URL"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Route
-    label_selectors: component=ibm-nginx
-  register: cpd_route_lookup
-  until:
-    - cpd_route_lookup.resources is defined
-    - cpd_route_lookup.resources | length > 0
-  retries: 10 # Approximately 10 minutes before we give up
-  delay: 60 # 1 minute
+- name: "Lookup admin credentials if they haven't been provided already"
+  include_tasks: "{{ role_path }}/../cp4d/tasks/lookup-admin-credentials.yml"
 
-- name: "Set CP4D URL"
-  set_fact:
-    cpd_url: https://{{ cpd_route_lookup.resources[0].spec.host }}
-
-- name: "CP4D Installation Summary:"
+# 10. Debug Cloud Pak for Data installation details
+# -----------------------------------------------------------------------------
+- name: "Debug : Cloud Pak for Data {{ cpd_product_version }} details"
   debug:
     msg:
-      - "CP4D Dashboard ................. {{ cpd_url }}"
-      - "CP4D Username .................. admin"
-      - "CP4D Password .................. Found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
-      - "CP4D Service Installed ......... {{ cpd_service_name }}"
+      - "CP4D Dashboard ......................... {{ cpd_admin_url }}"
+      - "CP4D Admin Username .................... {{ cpd_admin_username }}"
+      - "CP4D Admin Password .................... {{ cpd_admin_password_text }}"
+      - "CP4D Service Installed ................. {{ cpd_service_name }}"
 
-
-# 10. Generate MAS Config
+# 11. Generate MAS Config
 # -----------------------------------------------------------------------------
 # Only Watson Studio and Watson Discovery generate a configuration in config
 # folder for later usage

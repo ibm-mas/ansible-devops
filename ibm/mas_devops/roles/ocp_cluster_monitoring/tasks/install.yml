@@ -1,0 +1,32 @@
+---
+
+# 1. Load default storage classes (if not provided by the user)
+# -----------------------------------------------------------------------------
+- name: "install : Determine storage classes"
+  include_tasks: tasks/determine-storage-classes.yml
+
+
+# 2. Debug settings
+# -----------------------------------------------------------------------------
+- name: "Cluster Monitoring: Debug properties"
+  debug:
+    msg:
+      - "Prometheus retention period ...................... {{ prometheus_retention_period }}"
+      - "Prometheus storage class ......................... {{ prometheus_storage_class }}"
+      - "Prometheus storage size .......................... {{ prometheus_storage_size }}"
+      - "Prometheus alert storage class ................... {{ prometheus_alertmgr_storage_class }}"
+      - "Prometheus alert storage size .................... {{ prometheus_alertmgr_storage_size }}"
+      - "Prometheus user workload retention period ........ {{ prometheus_userworkload_retention_period }}"
+      - "Prometheus user workload storage class ........... {{ prometheus_userworkload_storage_class }}"
+      - "Prometheus user workload storage size ............ {{ prometheus_userworkload_storage_size }}"
+
+
+# 3. Update openshift monitoring configuration
+# -------------------------------------------------------------------------------------
+# All other settings have defaults, but the user must set prometheus_storage_class and
+# prometheus_alertmgr_storage_class for us to be able to apply this configuration
+- name: "install : Set storage class and retention period for Prometheus logs and turn on user workload monitoring"
+  kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/cluster-monitoring.yml.j2') }}"
+    wait: yes
+    wait_timeout: 120

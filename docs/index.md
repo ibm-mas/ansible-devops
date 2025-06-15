@@ -1,26 +1,18 @@
-MAS Devops Ansible Collection
+MAS DevOps Ansible Collection
 ===============================================================================
-
-MAS Compatability
--------------------------------------------------------------------------------
-The collection supports IBM Maximo Application Suite version 8.10 and above.
-
-
-Releases
--------------------------------------------------------------------------------
-[https://github.com/ibm-mas/ansible-devops/releases](https://github.com/ibm-mas/ansible-devops/releases)
+The **ibm.mas_devops** Ansible Collection is published on [Ansible Galaxy](https://galaxy.ansible.com/ui/repo/published/ibm/mas_devops/) and works with all supported releases of IBM Maximo Application Suite.  Release information for the collection can be found in [GitHub](https://github.com/ibm-mas/ansible-devops/releases).
 
 
 Usage
 -------------------------------------------------------------------------------
-### Run a playbook
+### Run a Playbook
 The collection includes a number of playbooks that string together multiple roles, you can directly invoke them after installing the collection:
 
 ```bash
 ansible-playbook ibm.mas_devops.lite_core_roks
 ```
 
-### Run a role
+### Run a Role
 If you only want to perform a single action, you can directly invoke one of our roles from the command line without the need to build a playbook:
 
 ```bash
@@ -44,59 +36,61 @@ docker run -ti --rm --pull always quay.io/ibmmas/cli
 
 Local Install
 -------------------------------------------------------------------------------
-### Install Python & Ansible
-[Python 3.9](https://www.python.org/downloads/) is recommended as it is the most widely used version of Python within our development team, but any in-support 3.x version of Python should work fine.
-
-```bash
-python3 --version
-python3 -m pip install ansible junit_xml pymongo xmljson jmespath kubernetes==12.0.1 openshift==0.12.1
-ansible --version
-ansible-playbook --version
-```
-
-We recommend using the latest version of ansible-core at all times (at time of writing this was v2.12.3) and the collection has a minimum supported version of ansible-core v2.10.3 which is enforced by the `ibm.mas_devops.ansible_version_check` role.
-
-### Install OpenShift CLI
-If you do not already have the `oc` command line tool, you can download it as below:
-
-```
-wget -q https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.14.7/openshift-install-linux.tar.gz
-tar -zxf openshift-client-linux.tar.gz
-mv oc kubectl /usr/local/bin/
-rm -rf openshift-client-linux.tar.gz
-oc version
-```
-
-### Install IBM Cloud CLI
-If you are using this collection to manage an OpenShift cluster in IBM Cloud RedHat OpenShift Kubernetes Service (ROKS), then you must also install the IBM Cloud CLI:
-
-```bash
-curl -sL https://raw.githubusercontent.com/IBM-Cloud/ibm-cloud-developer-tools/master/linux-installer/idt-installer | bash
-ibmcloud version`
-```
-
-
-### Install the Ansible Collection
-Install the collection direct from [Ansible Galaxy](https://galaxy.ansible.com/ibm/mas_devops)
+Install the collection direct from [Ansible Galaxy](https://galaxy.ansible.com/ibm/mas_devops), you must also install the [mas-devops](https://pypi.org/project/mas-devops) Python package.  [Python 3.11](https://www.python.org/downloads/) is recommended as it is the most widely used version of Python within our development team, but any in-support version of Python should work.
 
 ```
 ansible-galaxy collection install ibm.mas_devops
+python3 -m pip install mas-devops
 ```
 
 Optionally, you can also pin the version of the collection that you install, allowing you to control exactly what version of the collection is in use in your automation:
+
 ```
 ansible-galaxy collection install ibm.mas_devops:18.10.4
+python3 -m pip install mas-devops
+```
+
+The ansible collection makes use of many dependencies, you can find install scripts showing how we install these dependencies in our own container image in the [ibm-mas/cli-base](https://github.com/ibm-mas/cli-base/tree/stable/image/cli-base/install) repository, the dependencies you need will be determined by the roles that you intend to use, refer to the roles documentation for dependency infomation.
+
+!!! tip
+    Many systems contain more than one installation of Python, when you install the **mas-devops** package you must install it to the Python that Ansible is configured to use.  You can check the version being used by Ansible by reviewing the output of `ansible --version`.
+
+    If you see the error message `ERROR! Unexpected Exception, this is probably a bug: No module named 'mas'` it almost certainly means that you have not installed the mas-devops package, or have added it to the wrong instance of Python.
+
+
+Ansible Automation Platform
+-------------------------------------------------------------------------------
+If you wish to use [Red Hat Ansible Automation Platform](https://www.redhat.com/en/technologies/management/ansible) then a Automation Execution Environment image is available at [quay.io/ibmmas/ansible-devops-ee](https://quay.io/repository/ibmmas/ansible-devops-ee?tab=tags&tag=latest) that contains the `ibm.mas_devops` collection at the same release level, plus required client packages and access to the automation content collections supported by Red Hat.
+
+More details on how to use the ansible-devops execution environment can be found [here](execution-environment.md)
+
+
+Action Groups
+-------------------------------------------------------------------------------
+The collection provide a new action group `ibm.mas_devops.k8s` which can be used to set the default Kubernetes target cluster as an alternative to authenticating with the cluster prior to running our ansible playbooks/roles/actions, see the example below which would return the default storage classes that would be used in this collection for the specified cluster:
+
+```yaml
+---
+- hosts: localhost
+  any_errors_fatal: true
+  collections:
+    - ibm.mas_devops
+
+  module_defaults:
+    group/ibm.mas_devops.k8s:
+      host: "<your host url>"
+      api_key: "<your api key>"
+
+  tasks:
+    - name: "Lookup default storage classes"
+      ibm.mas_devops.get_default_storage_classes:
+      register: classes
+
+    - debug:
+        msg: "{{classes}}"
 ```
 
 
 Support
 -------------------------------------------------------------------------------
 This Ansible collection is developed by the IBM Maximo Application Suite development team, customers may raise support tickets via the same routes they would an issue with the product itself, or [raise an issue directly in the GitHub repository](https://github.com/ibm-mas/ansible-devops/issues).
-
-
-<!--
-## Install via Automation Operator
-You can now install the Maximo Application Suite via a single operator. The operator will run all the MAS ansible in the background for you.  This is a good approach if you do not have extensive MAS experience or do not want to install via other methods.  The operator provides defaults for a straightforward installation.
-
-To leverage this approach, install the custom catalog into your cluster and simply install and use the operator as any other operator.  More detailed instructions and installation notes can be found [here](https://github.com/cloud-native-toolkit/operator-masauto)
--->

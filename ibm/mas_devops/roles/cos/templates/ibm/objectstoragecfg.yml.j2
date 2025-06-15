@@ -11,9 +11,13 @@ metadata:
     "{{ key }}": "{{ value }}"
 {% endfor %}
 {% endif %}
-stringData:
-  username: "ibmcloud-iam-apikey"
-  password: "{{ ibmcos_password }}"
+data:
+  username: "{{ 'ibmcloud-iam-apikey' | b64encode }}"
+  password: "{{ cos_password | b64encode }}"
+{% if cos_hmac_access_key is defined and cos_hmac_secret_key is defined %}
+  accesskey: "{{ cos_hmac_access_key | b64encode }}"
+  secretkey: "{{ cos_hmac_secret_key | b64encode }}"
+{% endif %}
 ---
 apiVersion: config.mas.ibm.com/v1
 kind: ObjectStorageCfg
@@ -32,7 +36,7 @@ spec:
   displayName: IBM Cloud ObjectStorage
   type: "{{ cos_type }}"
   config:
-    url:  "{{ ibmcos_url }}"
+    url:  "{{ cos_url }}"
     credentials:
       secretName: ibmcos-credentials-system
   certificates:

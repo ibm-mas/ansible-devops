@@ -10,8 +10,8 @@ Available Extras
 | catalog      | N/A          | Special extra package for mirroring the IBM Maximo Operator Catalog                            |
 | db2u         | 1.0.0, 1.0.1 | Extra container images missing from the ibm-db2operator CASE bundle                            |
 | mongoce      | 4.2.6, 4.2.23, 4.4.21 | Package containing all images required to use MongoCE Operator in the disconnected environment |
-| uds          | 1.0.0, 1.1.0, 1.2.0, 1.3.0 | Extra container images missing from the ibm-uds CASE bundle                                    |
 | wd           | 5.3.1        | Extra container images missing from the ibm-watson-discovery CASE bundle                       |
+| odf          | 4.15         | Extra images needed for ODF 4.15                                                               |
 
 
 Role Variables
@@ -44,6 +44,12 @@ The public port for the target registry.  The images will not be mirrored to the
 - Environment Variable: `REGISTRY_PUBLIC_PORT`
 - Default: None
 
+### registry_prefix
+The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: {host}:{port}/{prefix}/{reponame}
+
+- Environment Variable: `REGISTRY_PREFIX`
+- Default: None
+
 
 Example Playbook
 -------------------------------------------------------------------------------
@@ -56,6 +62,7 @@ Example Playbook
 
     registry_public_host: myocp-5f1320191125833da1cac8216c06779e-0000.us-south.containers.appdomain.cloud
     registry_public_port: 32500
+    registry_prefix: projectName
 
   roles:
     - ibm.mas_devops.mirror_extras_prepare

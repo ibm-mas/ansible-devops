@@ -1,0 +1,85 @@
+---
+- name: Check that /tmp/prepare_db_files directory exists
+  stat:
+    path: /tmp/prepare_db_files
+  register: tmpPrepareDbFilesDirExists
+
+- name: Create /tmp/prepare_db_files directory
+  file:
+    path: /tmp/prepare_db_files
+    state: directory
+    mode: '0755'
+  when: not tmpPrepareDbFilesDirExists.stat.exists
+
+- name: template create-tablespaces.sql
+  template:
+    src: "{{ role_path }}/templates/db2/scripts/create-tablespaces.sql.j2"
+    dest: /tmp/prepare_db_files/create-tablespaces.sql
+
+- name: template create-schema.sql
+  template:
+    src: "{{ role_path }}/templates/db2/scripts/create-schema.sql.j2"
+    dest: /tmp/prepare_db_files/create-schema.sql
+
+- name: template db2configdb.sh
+  template:
+    src: "{{ role_path }}/templates/db2/scripts/db2configdb.sh.j2"
+    dest: /tmp/prepare_db_files/db2configdb.sh
+
+#1 Copy db scripts to db2u pod
+- name: Copy db scripts to /tmp in a remote pod
+  kubernetes.core.k8s_cp:
+    namespace: "{{ db2_namespace }}"
+    pod: "{{ db2_pod_name }}"
+    container: db2u
+    remote_path: /tmp
+    local_path: /tmp/prepare_db_files
+
+- name: Setting permission for DB Scripts
+  ansible.builtin.shell: |
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo chmod 777 /tmp/prepare_db_files/create-tablespaces.sql /tmp/prepare_db_files/create-schema.sql /tmp/prepare_db_files/db2configdb.sh
+  register: shell_status
+  until: shell_status.rc == 0
+  retries: 5
+  delay: 60 # seconds
+
+- name: Disable HA for maintanance
+  ansible.builtin.shell: |
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo wvcli system disable -m "Disable HA before Db2 maintenance"
+  register: shell_status
+  until: shell_status.rc == 0
+  retries: 5
+  delay: 60 # seconds
+
+- name: Executing db2configdb.sh
+  ansible.builtin.shell: |
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "sh /tmp/prepare_db_files/db2configdb.sh "
+  register: shell_status
+  until: shell_status.rc == 0
+  retries: 5
+  delay: 60 # seconds
+
+- name: Executing create-tablespaces.sql
+  ansible.builtin.shell: |
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "db2 -tvf /tmp/prepare_db_files/create-tablespaces.sql "
+  register: shell_status
+  until: shell_status.rc == 0
+  retries: 5
+  delay: 60 # seconds
+
+- name: Executing create-schema.sql
+  when: db2_schema is defined
+  ansible.builtin.shell: |
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "db2 -tvf /tmp/prepare_db_files/create-schema.sql "
+  register: shell_status
+  until: shell_status.rc == 0
+  retries: 5
+  delay: 60 # seconds
+
+- name: Enable HA after maintenance
+  ansible.builtin.shell: |
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo wvcli system enable -m "Enable HA after Db2 maintenance"
+  register: shell_status
+  until: shell_status.rc == 0
+  retries: 5
+  delay: 60 # seconds

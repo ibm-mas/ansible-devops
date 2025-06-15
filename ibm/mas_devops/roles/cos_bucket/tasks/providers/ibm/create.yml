@@ -1,59 +1,59 @@
 ---
-# ibmcloud_apikey is required in order to be able to lookup cos resources
-- name: "Fail if ibmcloud_apikey is not provided"
+# cos_apikey is required in order to be able to lookup cos resources
+- name: "Fail if cos_apikey is not provided"
   assert:
-    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
-    fail_msg: "ibmcloud_apikey property is required"
+    that: cos_apikey is defined and cos_apikey != ""
+    fail_msg: "cos_apikey property is required"
 
-# ibmcos_instance_name is required in order to be able to create cos resources i.e credentials and buckets
-- name: "Fail if ibmcos_instance_name is not provided"
+# cos_instance_name is required in order to be able to create cos resources i.e credentials and buckets
+- name: "Fail if cos_instance_name is not provided"
   assert:
-    that: ibmcos_instance_name is defined and ibmcos_instance_name != ""
-    fail_msg: "ibmcos_instance_name property is required"
+    that: cos_instance_name is defined and cos_instance_name != ""
+    fail_msg: "cos_instance_name property is required"
 
-- name: "Fail if ibmcos_bucket_region_location_type is not supported"
+- name: "Fail if cos_bucket_region_location_type is not supported"
   assert:
-    that: ibmcos_bucket_region_location_type is defined and ibmcos_bucket_region_location_type in ["region_location","cross_region_location"]
-    fail_msg: "ibmcos_bucket_region_location_type property must be set of one of these values: ['region_location','cross_region_location']"
+    that: cos_bucket_region_location_type is defined and cos_bucket_region_location_type in ["region_location","cross_region_location"]
+    fail_msg: "cos_bucket_region_location_type property must be set of one of these values: ['region_location','cross_region_location']"
 
 - name: "Fail if cross_region_location is not supported"
-  when: ibmcos_bucket_region_location_type == 'cross_region_location'
+  when: cos_bucket_region_location_type == 'cross_region_location'
   assert:
-    that: ibmcos_bucket_region_location is defined and ibmcos_bucket_region_location in supported_cross_region_location
-    fail_msg: "ibmcos_bucket_region_location property was set to '{{ ibmcos_bucket_region_location }}' but must be set of one of the supported 'cross_region_location' values: {{ supported_cross_region_location }}"
+    that: cos_bucket_region_location is defined and cos_bucket_region_location in supported_cross_region_location
+    fail_msg: "cos_bucket_region_location property was set to '{{ cos_bucket_region_location }}' but must be set of one of the supported 'cross_region_location' values: {{ supported_cross_region_location }}"
 
 - name: "Fail if region_location is not supported"
-  when: ibmcos_bucket_region_location_type == 'region_location'
+  when: cos_bucket_region_location_type == 'region_location'
   assert:
-    that: ibmcos_bucket_region_location is defined and ibmcos_bucket_region_location in supported_region_location
-    fail_msg: "ibmcos_bucket_region_location property was set to '{{ ibmcos_bucket_region_location }}' but must be set of one of the supported 'region_location' values: {{ supported_region_location }}"
+    that: cos_bucket_region_location is defined and cos_bucket_region_location in supported_region_location
+    fail_msg: "cos_bucket_region_location property was set to '{{ cos_bucket_region_location }}' but must be set of one of the supported 'region_location' values: {{ supported_region_location }}"
 
 # 1. Determine the instance name
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "Create IBM COS Bucket: Debug general info"
   debug:
     msg:
-      - "IBM Cloud Resource Group ........... {{ ibmcloud_resourcegroup }}"
-      - "IBM COS url ........................ {{ ibmcos_url }}"
-      - "IBM COS instance name .............. {{ ibmcos_instance_name }}"
-      - "IBM COS location info .............. {{ ibmcos_location_info }}"
-      - "IBM COS bucket name ................ {{ ibmcos_bucket_name }}"
-      - "IBM COS bucket storage class........ {{ ibmcos_bucket_storage_class }}"
-      - "IBM COS region location type ....... {{ ibmcos_bucket_region_location_type }}"
-      - "IBM COS bucket location ............ {{ ibmcos_bucket_region_location }}"
-      - "IBM COS service credentials name ... {{ ibmcos_service_credentials_name }}"
-      - "IBM COS service credentials role ... {{ ibmcos_resource_key_iam_role }}"
-      - "Expire Rule Enabled? ............... {{ ibmcos_bucket_expire_rule_enable_flag }}"
-      - "Expire Rule Id ..................... {{ ibmcos_bucket_expire_rule_id }}"
-      - "Expire Rule in Days ................ {{ ibmcos_bucket_expire_rule_days }}"
-      - "Enable object versioning ........... {{ ibmcos_bucket_versioning_flag }}"
+      - "IBM Cloud Resource Group ........... {{ cos_resourcegroup }}"
+      - "IBM COS url ........................ {{ cos_url }}"
+      - "IBM COS instance name .............. {{ cos_instance_name }}"
+      - "IBM COS location info .............. {{ cos_location_info }}"
+      - "IBM COS bucket name ................ {{ cos_bucket_name }}"
+      - "IBM COS bucket storage class........ {{ cos_bucket_storage_class }}"
+      - "IBM COS region location type ....... {{ cos_bucket_region_location_type }}"
+      - "IBM COS bucket location ............ {{ cos_bucket_region_location }}"
+      - "IBM COS service credentials name ... {{ cos_service_credentials_name }}"
+      - "IBM COS service credentials role ... {{ cos_resource_key_iam_role }}"
+      - "Expire Rule Enabled? ............... {{ cos_bucket_expire_rule_enable_flag }}"
+      - "Expire Rule Id ..................... {{ cos_bucket_expire_rule_id }}"
+      - "Expire Rule in Days ................ {{ cos_bucket_expire_rule_days }}"
+      - "Enable object versioning ........... {{ cos_bucket_versioning_flag }}"
 
 # 2. Lookup IBM Cloud Resource Group GUID
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "ibm : Retrieve resource group guid"
   ibm.cloudcollection.ibm_resource_group_info:
-    name: "{{ ibmcloud_resourcegroup }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    name: "{{ cos_resourcegroup }}"
+    ibmcloud_api_key: "{{ cos_apikey }}"
   register: rg_info
 
 - name: "ibm : Debug group GUID"
@@ -71,11 +71,11 @@
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "Retrieve IBM COS instance ID"
   ibm.cloudcollection.ibm_resource_instance_info:
-    name: "{{ ibmcos_instance_name }}"
+    name: "{{ cos_instance_name }}"
     resource_group_id: "{{ resourceGID }}"
-    service: "{{ ibmcos_service }}"
-    location: "{{ ibmcos_location_info }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    service: "{{ cos_service }}"
+    location: "{{ cos_location_info }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
   register: cos_info
 
 - name: "Debug IBM COS resource ID"
@@ -85,7 +85,7 @@
 - name: "Set resource instance id variable"
   when: cos_info.resource.id is defined
   set_fact:
-    ibmcos_resource_id: "{{ cos_info.resource.id }}"
+    cos_resource_id: "{{ cos_info.resource.id }}"
 
 # 4. Create authentication credentials for the instance
 # ---------------------------------------------------------------------------------------------------------------------
@@ -93,4 +93,4 @@
 
 # # 5. Create COS bucket
 # ---------------------------------------------------------------------------------------------------------------------
-- include_tasks: tasks/providers/ibm/create_{{ ibmcos_bucket_region_location_type }}_bucket.yml
+- include_tasks: tasks/providers/ibm/create_{{ cos_bucket_region_location_type }}_bucket.yml

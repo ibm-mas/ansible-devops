@@ -44,6 +44,14 @@ Path to the mas config directory.
 - **Required**
 - Environment Variable: `MAS_CONFIG_DIR`
 
+### gitops
+Boolean flag to indicate whether to run role in gitops mode. True means that no openshift resources
+are created on the cluster. 
+
+- **Optional**
+- Environment Variable: `GITOPS`
+- Default Value: `False`
+
 Role Variables - CIS as DNS Provider (Optional)
 --------------
 
@@ -164,6 +172,11 @@ MAS_CONFIG_DIR
 |     |    |---tls.key
 |     |    |---ca.crt
 |     |---visualinspection
+|     |    |
+|     |    |---tls.crt
+|     |    |---tls.key
+|     |    |---ca.crt
+|     |---facilities
 |     |    |
 |     |    |---tls.crt
 |     |    |---tls.key

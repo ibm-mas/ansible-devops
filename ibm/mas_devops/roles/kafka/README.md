@@ -37,7 +37,7 @@ The version of Kafka to deploy by the operator. Before changing the kafka_versio
 by the [amq-streams operator version](https://access.redhat.com/documentation/en-us/red_hat_amq_streams) or [strimzi operator version](https://strimzi.io/downloads/).
 
 - Environment Variable: `KAFKA_VERSION`
-- Default Value: `3.5.0` for AMQ Streams and `3.5.1` for Strimzi.
+- Default Value: `3.8.0` for AMQ Streams and `3.9.0` for Strimzi.
 
 ### kafka_namespace
 The namespace where the operator and Kafka cluster will be deployed.
@@ -58,7 +58,7 @@ The configuration to apply, there are two configurations available: small and la
 - Default Value: `small`
 
 ### kafka_storage_class
-The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Kafka cluster.
+The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Kafka cluster. Storage class must support ReadWriteOnce(RWO) access mode.
 
 - Environment Variable: `KAFKA_STORAGE_CLASS`
 - Default Value: lookup supported storage classes in the cluster
@@ -70,7 +70,7 @@ The size of the storage to configure the AMQStreams operator to use for persiste
 - Default Value: `100Gi`
 
 ### zookeeper_storage_class
-The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Zookeeper cluster.
+The name of the storage class to configure the AMQStreams operator to use for persistent storage in the Zookeeper cluster. Storage class must support ReadWriteOnce(RWO) access mode.
 
 - Environment Variable: `ZOOKEEPER_STORAGE_CLASS`
 - Default Value: lookup supported storage classes in the cluster

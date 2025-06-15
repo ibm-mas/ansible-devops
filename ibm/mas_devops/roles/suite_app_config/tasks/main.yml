@@ -30,10 +30,10 @@
     - mas_app_settings_persistent_volumes_flag or mas_app_settings_server_bundles_size in ['jms','snojms']
   include_tasks: "tasks/determine-storage-classes.yml"
 
-# Build the incredibly complex Manage spec.settings from a set of env vars
+# Pre-config specific application settings before workspace CR be deployed
 - name: "Run Manage specific pre-configuration"
-  when: mas_app_id == 'manage'
-  include_tasks: "tasks/manage/main.yml"
+  when: mas_app_id is in ['manage'] # applications which have something to process before configuration
+  include_tasks: "tasks/{{ mas_app_id }}/pre-config/main.yml"
 
 # Resolve the WSL project ID that will be used by Predict and HP Utilities
 - name: Lookup Watson Studio Project ID
@@ -43,6 +43,19 @@
 
 # 4. Load default application workspace spec, if user does not provide one
 # -----------------------------------------------------------------------------
+
+# volumes for Facilities  configurations
+- name: Determine Storage Class for {{ mas_app_id }} application
+  when:
+    - mas_app_id in ['facilities']
+  include_tasks: "tasks/determine-storage-classes-facilities.yml"
+
+- name: Load default application workspace spec for facilities
+  when: mas_app_id == "facilities"
+  template:
+    src: "{{ role_path }}/vars/defaultspecs/facilities.yml.j2"
+    dest: "{{ role_path }}/vars/defaultspecs/facilities.yml"
+
 - name: Load default application workspace spec
   when: mas_appws_spec is not defined or mas_appws_spec == ""
   include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
@@ -88,7 +101,12 @@
     namespace: "{{ mas_app_namespace }}"
     kind: "{{ mas_app_kind }}"
   register: app_cr_result
-
+  retries: 15  # Number of retries before failing
+  delay: 20    # Wait 20 seconds between retries
+  until:
+    - app_cr_result.resources is defined
+    - app_cr_result.resources | length > 0
+    - app_cr_result.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select('match', 'True') | list | length == 1
 - name: "Check that the application is ready to configure a workspace"
   assert:
     that:
@@ -101,4 +119,17 @@
 # 8. Wait for application workspace to be ready
 # -----------------------------------------------------------------------------
 - ansible.builtin.include_role:
-    name: suite_app_verify
+    name: ibm.mas_devops.suite_app_verify
+
+
+# 9. Run Application Specific Post-configuration
+# -----------------------------------------------------------------------------
+
+# Post-config specific application settings after workspace CR be successfully deployed
+- name: "Run Manage specific post-configuration"
+  when: mas_app_id is in ['manage'] # applications which have something to process after configuration
+  include_tasks: "tasks/{{ mas_app_id }}/post-config/main.yml"
+
+- ansible.builtin.include_role:
+    name: ibm.mas_devops.suite_app_verify
+  when: mas_app_id is in ['manage'] # applications which have something to process after configuration

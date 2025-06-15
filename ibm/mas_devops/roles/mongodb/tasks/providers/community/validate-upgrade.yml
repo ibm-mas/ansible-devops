@@ -24,6 +24,15 @@
     that: "existing_mongo_version is version_compare(target_mongodb_version, '<=')"
     fail_msg: "Mongo downgrade is not allowed! Current mongo version: {{ existing_mongo_version }}, target mongo version {{ target_mongodb_version }}"
 
+# For users installed or upgraded to mongo v4.4 using old CLI didn't have featureCompatibilityVersion set correctly.
+- name: Assert featureCompatibilityVersion is present and equal to existing version.
+  assert:
+    that:
+      - existing_mongodb.resources[0].spec.featureCompatibilityVersion is defined and existing_mongodb.resources[0].spec.featureCompatibilityVersion != ""
+      - existing_mongodb.resources[0].spec.featureCompatibilityVersion == existing_mongo_minor_version
+    fail_msg: "Mongo upgrade is not allowed due to either missing featureCompatibilityVersion field or wrong version in featureCompatibilityVersion field in MongoDBCommunity CR"
+  when: mongodb_v5_upgrade or mongodb_v6_upgrade or mongodb_v7_upgrade
+
 # Only allow Mongo upgrades to be next compatible minor version
 - name: "Assert Mongo upgrade compatibility: {{ target_mongodb_version }} must be in {{ mongo_compatible_target_version[existing_mongo_version] }}"
   when: existing_mongo_minor_version != '4.2' # will skip this assertion if mongo v4.2 as we'll assist in the auto upgrade to v4.4 and v5 in a single run
@@ -50,3 +59,12 @@
   assert:
     that: mongodb_v6_upgrade
     fail_msg: "Your current mongo version is {{ existing_mongo_version }}, in order to upgrade to version {{ target_mongodb_version }}, you must set 'mongodb_v6_upgrade': true"
+
+# This would validate that we only upgrade to v7.0 if 'target_mongodb_version' matches v7.0 minor version and 'mongodb_v7_upgrade: true'
+- name: "Assert that the Mongo v7 upgrade has been triggered"
+  when:
+    - existing_mongo_minor_version is version_compare('7.0', '<')
+    - target_mongodb_version | regex_search('(?<=)(.*)(?=...)') == '7.0'
+  assert:
+    that: mongodb_v7_upgrade
+    fail_msg: "Your current mongo version is {{ existing_mongo_version }}, in order to upgrade to version {{ target_mongodb_version }}, you must set 'mongodb_v7_upgrade': true"

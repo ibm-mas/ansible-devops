@@ -52,7 +52,7 @@
     - app_pre_uninstall_tasks_absolute_file is file
   include_tasks: "{{ app_pre_uninstall_tasks_relative_file }}"
 
-# 4. Delete Application Workspaces
+# 5. Delete Application Workspaces
 # -----------------------------------------------------------------------------
 - name: "Get all {{ mas_app_id }} Workspaces"
   when:
@@ -78,7 +78,39 @@
     wait_timeout: 600 # 10 minutes
   loop: "{{ app_workspace_lookup.resources }}"
 
-# 4. Delete Application Custom Resource
+# 6. Check and wait for Workspace deletion
+# -----------------------------------------------------------------------------
+- name: Wait for {{ mas_app_id }} workspaces to be deleted
+  when:
+    - mas_app_ws_apiversion is defined
+    - mas_app_ws_kind is defined
+  kubernetes.core.k8s_info:
+    kind: "{{ mas_app_ws_kind }}"
+    api_version: "{{ mas_app_ws_apiversion }}"
+    namespace: "{{ mas_app_namespace }}"
+  register: workspace_status
+  until: workspace_status.resources == []
+  retries: 120 # 20 minutes
+  delay: 10
+
+# 6.1. Check and wait for ManageDeployment deletion
+# This is a temporary workaround for now since the ManageWorkspace finalizer doesn't wait for ManageDeployment deletion to complete
+# -----------------------------------------------------------------------------
+- name: Wait for ManageDeployment to be deleted
+  when:
+    - mas_app_id == "manage"
+    - mas_app_ws_apiversion is defined
+    - mas_app_ws_kind is defined
+  kubernetes.core.k8s_info:
+    kind: "ManageDeployment"
+    api_version: "apps.mas.ibm.com/v1"
+    namespace: "{{ mas_app_namespace }}"
+  register: deployment_destroy
+  until: deployment_destroy.resources == []
+  retries: 45 # 90 minutes total
+  delay: 120 # 2 minutes interval
+
+# 7. Delete Application Custom Resource
 # -----------------------------------------------------------------------------
 - name: "Get the {{ mas_app_id }} Custom Resource"
   when:
@@ -105,7 +137,7 @@
     wait_timeout: 600 # 10 minutes
   loop: "{{ app_cr_lookup.resources }}"
 
-# 4. Delete Application Operator Subscription
+# 8. Delete Application Operator Subscription
 # -----------------------------------------------------------------------------
 - name: "Delete the {{ mas_app_id }} Operator Subscription"
   when:
@@ -120,7 +152,7 @@
     wait: true
     wait_timeout: 600 # 10 minutes
 
-# 4. Delete Application Namespace
+# 9. Delete Application Namespace
 # -----------------------------------------------------------------------------
 - name: "Delete {{ mas_app_id }} namespace"
   kubernetes.core.k8s:
@@ -129,9 +161,9 @@
     kind: Namespace
     name: "{{ mas_app_namespace }}"
     wait: true
-    wait_timeout: 300 # 5 minutes
+    wait_timeout: 600 # 10 minutes
 
-# 4. Run Application Specific Post-Uninstall Tasks if there are any
+# 10. Run Application Specific Post-Uninstall Tasks if there are any
 # -----------------------------------------------------------------------------
 - name: Run application specific post-uninstall tasks
   vars:

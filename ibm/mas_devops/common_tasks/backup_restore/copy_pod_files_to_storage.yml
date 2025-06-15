@@ -1,0 +1,53 @@
+---
+# Copy files from pod to local storage
+# -----------------------------------------------------------------------------
+- name: "Set fact: local storage job folder"
+  set_fact:
+    masbr_storage_job_folder: >-
+      {{ masbr_storage_local_folder }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_job_name }}
+
+- name: "Debug: All PV variables"
+  debug:
+    msg:
+      - "Pod Name ................... {{ masbr_cf_pod_name }}"
+      - "Local storage job folder ......... {{ masbr_storage_job_folder }}"
+      - "Folder setup  .................... {{ masbr_cf_paths }}"
+      - "Source Folder .................... {{ item.src_folder | default('null', true) }}"
+      - "Destination Folder ............... {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}"
+  loop: "{{ masbr_cf_paths }}"
+
+# Condition 1. src_folder -> dest_folder: copy src_folder/* to dest_folder/*
+- name: "Copy files from pod folder to local storage folder"
+  when:
+    - item.src_folder is defined and item.src_folder | length > 0
+    - item.dest_folder is defined and item.dest_folder | length > 0
+  shell: >-
+    mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
+    oc cp --retries=50 -c {{ masbr_cf_container_name }}
+    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_folder }}
+    {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
+  loop: "{{ masbr_cf_paths }}"
+
+# Condition 2. src_file -> dest_folder: copy src_file to dest_folder/src_file
+- name: "Copy file from pod to local storage folder"
+  when:
+    - item.src_file is defined and item.src_file | length > 0
+    - item.dest_folder is defined and item.dest_folder | length > 0
+  shell: >-
+    mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
+    oc cp --retries=50 -c {{ masbr_cf_container_name }}
+    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ item.src_file }}
+    {{ [masbr_storage_job_folder, item.dest_folder, item.src_file|basename] | path_join }}
+  loop: "{{ masbr_cf_paths }}"
+
+# Condition 3. src_file -> dest_file
+- name: "Copy file from pod to local storage file"
+  when:
+    - item.src_file is defined and item.src_file | length > 0
+    - item.dest_file is defined and item.dest_file | length > 0
+  shell: >-
+    mkdir -p {{ [masbr_storage_job_folder, item.dest_file|dirname] | path_join }} &&
+    oc cp --retries=50 -c {{ masbr_cf_container_name }}
+    {{ masbr_cf_namespace }}/{{ masbr_cf_pod_name }}:{{ [item.src_folder, item.src_file] | path_join }}
+    {{ [masbr_storage_job_folder, item.dest_file] | path_join }}
+  loop: "{{ masbr_cf_paths }}"

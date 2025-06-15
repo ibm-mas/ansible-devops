@@ -3,7 +3,10 @@
 # -----------------------------------------------------------------------------
 registry_public_host: "{{ lookup('env', 'REGISTRY_PUBLIC_HOST') }}"
 registry_public_port: "{{ lookup('env', 'REGISTRY_PUBLIC_PORT') }}"
-registry_public_url: "{{ registry_public_host }}:{{ registry_public_port }}"
+registry_public_url: "{{ registry_public_host }}{% if registry_public_port != '' %}:{{ registry_public_port }}{% endif %}"
+
+registry_prefix: "{{ lookup('env', 'REGISTRY_PREFIX') | default('', true) }}"
+registry_public_url_with_path: "{{ registry_public_url }}{% if registry_prefix | length > 0 %}/{{ registry_prefix }}{% endif %}"
 
 # Development config
 # -----------------------------------------------------------------------------
@@ -15,7 +18,7 @@ artifactory_image_repo: "{{ lookup('env', 'ARTIFACTORY_IMAGE_REPO') | default('d
 # Case config
 # -----------------------------------------------------------------------------
 case_name: "{{ lookup('env', 'CASE_NAME') }}"
-case_version: "{{ lookup('env', 'CASE_VERSION') }}"
+case_version: "{{ lookup('env', 'CASE_VERSION') | replace('_', '.') }}"
 
 # Overrides the settings for direct mirroring if defined
 mirror_working_dir: "{{ lookup('env', 'MIRROR_WORKING_DIR') }}"
@@ -27,3 +30,5 @@ mirror_working_dir: "{{ lookup('env', 'MIRROR_WORKING_DIR') }}"
 ibmpak_skip_dependencies: "{{ lookup('env', 'IBMPAK_SKIP_DEPENDENCIES') | default('False', True) | bool  }}"
 ibmpak_skip_verify: "{{ lookup('env', 'IBMPAK_SKIP_VERIFY') | default('False', True) | bool  }}"
 ibmpak_insecure: "{{ lookup('env', 'IBMPAK_INSECURE') | default('False', True) | bool }}"
+
+image_group_filter: "{{ lookup('env', 'IMAGE_GROUP_FILTER') }}"

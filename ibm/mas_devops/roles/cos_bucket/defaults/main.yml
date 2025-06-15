@@ -12,36 +12,49 @@ cos_bucket_action: "{{ lookup('env', 'COS_BUCKET_ACTION') | default('create', tr
 # ---------------------------------------------------------------------------------------------------------------------
 ibmcloud_apikey: "{{ lookup('env', 'IBMCLOUD_APIKEY') }}"
 ibmcloud_resourcegroup: "{{ lookup('env', 'IBMCLOUD_RESOURCEGROUP') | default('Default', true) }}"
-ibmcos_service: cloud-object-storage
-ibmcos_instance_name: "{{ lookup('env', 'COS_INSTANCE_NAME') }}"
-ibmcos_location_info: global
+cos_resourcegroup: "{{ lookup('env', 'COS_RESOURCEGROUP') | default(ibmcloud_resourcegroup, true) }}"
+cos_apikey: "{{ lookup('env', 'COS_APIKEY') | default(ibmcloud_apikey, true) }}"
+cos_service: cloud-object-storage
+cos_instance_name: "{{ lookup('env', 'COS_INSTANCE_NAME') }}"
+cos_location_info: global
 
 # IBM Cloud Object Storage bucket details
 # ---------------------------------------------------------------------------------------------------------------------
-ibmcos_bucket_storage_class: "{{ lookup('env', 'COS_BUCKET_STORAGE_CLASS') | default('smart', true) }}" # supported: vault, cold, flex or smart - https://cloud.ibm.com/docs/cloud-object-storage/iam?topic=cloud-object-storage-classes#classes-locationconstraint
-ibmcos_bucket_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-bucket"
-ibmcos_bucket_name: "{{ lookup('env', 'COS_BUCKET_NAME') | default(ibmcos_bucket_name_default, true) }}"
+cos_bucket_storage_class: "{{ lookup('env', 'COS_BUCKET_STORAGE_CLASS') | default('smart', true) }}" # supported: vault, cold, flex or smart - https://cloud.ibm.com/docs/cloud-object-storage/iam?topic=cloud-object-storage-classes#classes-locationconstraint
+cos_bucket_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-bucket"
+cos_bucket_name: "{{ lookup('env', 'COS_BUCKET_NAME') | default(cos_bucket_name_default, true) }}"
 
 ibmcloud_region: "{{ lookup('env', 'IBMCLOUD_REGION') | default('us-east', True) }}" # var used by SRE team
 bucket_cross_reg_loc: "{% if ibmcloud_region.split('-')[0]=='jp' %}ap{% elif ibmcloud_region.split('-')[0]=='eu'%}eu{% else %}us{% endif %}" # var used by SRE team
-supported_cross_region_location: ['us', 'ap', 'eu']
-supported_region_location: ['au-syd', 'eu-de', 'eu-gb', 'jp-tok', 'us-east', 'us-south', 'ca-tor', 'jp-osa', 'br-sao']
-ibmcos_bucket_region_location_type: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION_TYPE') | default('cross_region_location', true) }}" # supported: region_location, cross_region_location and single_site_location
-ibmcos_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default(bucket_cross_reg_loc, true) }}"
-ibmcos_url_default: "https://s3.{{ ibmcos_bucket_region_location }}.cloud-object-storage.appdomain.cloud"
-ibmcos_url: "{{ lookup('env', 'COS_REGION_LOCATION_URL') | default(ibmcos_url_default, true) }}"
+supported_cross_region_location: ["us", "ap", "eu"]
+supported_region_location:
+  [
+    "au-syd",
+    "eu-de",
+    "eu-gb",
+    "jp-tok",
+    "us-east",
+    "us-south",
+    "ca-tor",
+    "jp-osa",
+    "br-sao",
+  ]
+cos_bucket_region_location_type: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION_TYPE') | default('cross_region_location', true) }}" # supported: region_location, cross_region_location and single_site_location
+cos_bucket_region_location: "{{ lookup('env', 'COS_BUCKET_REGION_LOCATION') | default(bucket_cross_reg_loc, true) }}"
+cos_url_default: "https://s3.{{ cos_bucket_region_location }}.cloud-object-storage.appdomain.cloud"
+cos_url: "{{ lookup('env', 'COS_REGION_LOCATION_URL') | default(cos_url_default, true) }}"
 
-ibmcos_resource_key_iam_role: "{{ lookup('env', 'COS_RESOURCE_KEY_IAM_ROLE') | default('Manager', True) }}"
-ibmcos_service_credentials_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ ibmcos_resource_key_iam_role | lower }}-key"
-ibmcos_service_credentials_name: "{{ lookup('env', 'COS_SERVICE_CREDENTIALS_NAME') | default(ibmcos_service_credentials_name_default, True) }}"
+cos_resource_key_iam_role: "{{ lookup('env', 'COS_RESOURCE_KEY_IAM_ROLE') | default('Manager', True) }}"
+cos_service_credentials_name_default: "{{ mas_instance_id }}-{{ mas_workspace_id }}-{{ cos_resource_key_iam_role | lower }}-key"
+cos_service_credentials_name: "{{ lookup('env', 'COS_SERVICE_CREDENTIALS_NAME') | default(cos_service_credentials_name_default, True) }}"
 
 # Create a rule to expire the current version of objects in your bucket after a specified number of days
 # https://cloud.ibm.com/docs/cloud-object-storage?topic=cloud-object-storage-expiry
-ibmcos_bucket_expire_rule_id: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE_ID') | default('delete_files', True) }}"
-ibmcos_bucket_expire_rule_enable_flag: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE_ENABLE_FLAG') | default(True, True) }}"
-ibmcos_bucket_expire_rule_days: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE_DAYS') | default(60, True) }}"
+cos_bucket_expire_rule_id: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE_ID') | default('delete_files', True) }}"
+cos_bucket_expire_rule_enable_flag: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE_ENABLE_FLAG') | default(True, True) }}"
+cos_bucket_expire_rule_days: "{{ lookup('env', 'COS_BUCKET_EXPIRE_RULE_DAYS') | default(60, True) }}"
 
-ibmcos_bucket_versioning_flag: "{{ lookup('env', 'COS_BUCKET_VERSIONING_FLAG') | default(True, True) }}"
+cos_bucket_versioning_flag: "{{ lookup('env', 'COS_BUCKET_VERSIONING_FLAG') | default(True, True) }}"
 
 # S3 Storage (aws)
 # ---------------------------------------------------------------------------------------------------------------------

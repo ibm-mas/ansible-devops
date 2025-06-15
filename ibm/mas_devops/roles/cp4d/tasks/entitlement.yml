@@ -1,14 +1,28 @@
 ---
 # The image pull secret is needed in the main CPD instance namespace as well as the ibm-common-services namespace
 # The "create-postgres-license-config" job will fail if the secret does not exist in ibm-common-services
-- name: "entitlement : Create ibm-entitlement-key secret in {{ cpd_instance_namespace }} namespace"
+# Skip creating entitlement-key in ibm-common-services namespace when CPD 4.8+ as it might not exist and won't be needed
+- name: Check if ibm-common-services namespace exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "ibm-common-services"
+  register: common_services_namespace_lookup
+
+- name: Set a list of Namespaces in which to set entitlement
+  ansible.builtin.set_fact:
+    namespaces_for_entitlement: "{{ [ cpd_operators_namespace, cpd_instance_namespace ] + extra_ns_list }}"
+  vars:
+    extra_ns_list: "{{ ( ( common_services_namespace_lookup.resources | length == 1 ) and not cpd_48_or_higher ) | ternary(['ibm-common-services'], []) }}"
+
+- name: "entitlement : Create ibm-entitlement-key secret in CPD namespaces"
   vars:
     entitledAuthStr: "{{ cpd_entitlement_username }}:{{ cpd_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
       - '{"auths":{"cp.icr.io/cp": {"username":"{{ cpd_entitlement_username }}","password":"{{ cpd_entitlement_key }}","auth":"{{ entitledAuth }}"}'
-      - '}'
-      - '}'
+      - "}"
+      - "}"
   kubernetes.core.k8s:
     definition:
       apiVersion: v1
@@ -20,10 +34,7 @@
       stringData:
         # Only way I could get three consecutive "}" into a string :)
         .dockerconfigjson: "{{ content | join('') | string }}"
-  with_items:
-    - "ibm-common-services"
-    - "{{ cpd_instance_namespace }}"
-
+  with_items: "{{ namespaces_for_entitlement }}"
 
 # Watson Discovery - for some unkown reason - creates ONE POD that references an ImagePullSecret named "prod-cred".  Unless this secret is created
 # that pod will not be able to start up reliably, Kubernetes will sometimes ignore the image pull secrets assigned the service account that owns the pod.
@@ -34,8 +45,8 @@
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
     content:
       - '{"auths":{"cp.icr.io/cp": {"username":"{{ cpd_entitlement_username }}","password":"{{ cpd_entitlement_key }}","auth":"{{ entitledAuth }}"}'
-      - '}'
-      - '}'
+      - "}"
+      - "}"
   kubernetes.core.k8s:
     definition:
       apiVersion: v1

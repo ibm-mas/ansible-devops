@@ -1,5 +1,6 @@
 ---
 # 1. Wait for ccs-cr to be created
+# -----------------------------------------------------------------------------
 - name: "wait-ccs : Wait for ccs-cr to be created"
   kubernetes.core.k8s_info:
     api_version: ccs.cpd.ibm.com/v1beta1
@@ -13,52 +14,21 @@
   retries: 60 # approx 30 minutes before we give up
   delay: 30 # seconds
 
-# 2. Apply the patch per recommendation from CP4D team
-# https://github.ibm.com/NGP-TWC/ml-planning/issues/32683
-# https://medium.com/@dany.drouin/scaling-watson-knowledge-catalog-on-cloud-pak-for-data-11623f41f7df
-
-# wdp-couchdb pods default resources:
-
-# containers:
-#   - resources:
-#       limits:
-#         cpu: '8'
-#         ephemeral-storage: 1Gi
-#         memory: 6Gi
-#       requests:
-#         cpu: 750m
-#         ephemeral-storage: 10Mi
-#         memory: 256Mi
-
-# wdp-couchdb pod resources after patch to increase resources:
-# containers:
-#     - resources:
-#         limits:
-#           cpu: '16'
-#           memory: 16Gi
-#         requests:
-#           cpu: '3'
-#           memory: 256Mi
-#     - resources:
-#       limits:
-#         cpu: '4'
-#         memory: 6Gi
-#       requests:
-#         cpu: 250m
-#         memory: 256Mi
-
 # check if ccs cr is already patched
 - set_fact:
-    is_ccs_already_patched: "{{ ccscr_output.resources[0].spec.couchdb_resources is defined and ccscr_output.resources[0].spec.blockStorageClass is defined }}"
+    is_ccs_already_patched: "{{ ccscr_output.resources[0].spec.couchdb_resources is defined and ccscr_output.resources[0].spec.blockStorageClass is defined and ccscr_output.resources[0].spec.imagePullSecret is defined }}"
 
 - debug:
     msg:
       - "CCS CR already patched? .............. {{ is_ccs_already_patched }}"
       - "CCS Block Storage Class .............. {{ ccscr_output.resources[0].spec.blockStorageClass | default('<undefined>', true) }}"
 
+# 2. Apply the patch per recommendation from CP4D team
+# https://github.ibm.com/NGP-TWC/ml-planning/issues/32683
+# https://medium.com/@dany.drouin/scaling-watson-knowledge-catalog-on-cloud-pak-for-data-11623f41f7df
+# -----------------------------------------------------------------------------
 # only run following block if is_ccs_already_patched == False
 - block:
-
     - name: "wait-ccs : Patch ccs-cr to increase resource limits"
       kubernetes.core.k8s:
         api_version: ccs.cpd.ibm.com/v1beta1
@@ -67,6 +37,7 @@
         kind: CCS
         definition:
           spec:
+            imagePullSecret: "{{ ibm_entitlement_key_secret }}"
             blockStorageClass: "{{ cpd_service_block_storage_class }}"
             fileStorageClass: "{{ cpd_service_storage_class }}"
             couchdb_resources:
@@ -84,8 +55,12 @@
                 cpu: 250m
                 memory: 256Mi
         apply: true
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
 
     # 3. Delete ccs-operator pod to force the reconcile from the beginning after ccs-cr is patched.
+    # -----------------------------------------------------------------------------
     - name: "wait-ccs : Scale down ccs-operator"
       kubernetes.core.k8s:
         api_version: apps/v1
@@ -96,6 +71,9 @@
           spec:
             replicas: 0
         apply: true
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
 
     - name: "wait-ccs : Scale up ccs-operator"
       kubernetes.core.k8s:
@@ -107,8 +85,12 @@
           spec:
             replicas: 1
         apply: true
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
 
     # 4. Wait for ccs operator ...
+    # -----------------------------------------------------------------------------
     - name: "wait-ccs : Wait for ccs-operator to be ready again (60s delay)"
       kubernetes.core.k8s_info:
         api_version: apps/v1
@@ -122,7 +104,20 @@
 
   when: not is_ccs_already_patched
 
-# 5. Wait for CCS CR to be ready
+- include_tasks: "tasks/wait/wait-elasticsearch.yml"
+  when:
+    - cpd_48_or_higher # elastic search operator was just introduced with cpd 4.8
+    - not skip_ibm_entitlement_injection # eventually we hope to be able to skip patching the elastic search cr with image pull secret, but not for now
+
+# 5. Wait for CouchDB Stateful Set to be ready
+# -----------------------------------------------------------------------------
+# There have been issues with CouchDB not starting due to Persistent Storage,
+# This task restarts any failing pods
+- include_tasks: "tasks/wait/wait-couchdb.yml"
+  when:
+    - cpd_48
+
+# 6. Wait for CCS CR to be ready
 # -----------------------------------------------------------------------------
 # Note: We can't fail early when we see Failed status, as the operator will
 # report failed multiple times during initial reconcile.

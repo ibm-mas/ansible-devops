@@ -1,115 +1,36 @@
 ---
-
-# 1. Create Namespaces & OperatorGroup
-# -----------------------------------------------------------------------------
-- name: "create-subscriptions : Create Namespaces for CP4D"
-  kubernetes.core.k8s:
-    apply: yes
-    template: 'templates/namespaces.yml.j2'
-
-- name: "create-subscriptions : Create OperatorGroup for CP4D"
-  kubernetes.core.k8s:
-    apply: yes
-    template: 'templates/operatorGroup.yml.j2'
-
-
 # 2. Create Operator Subscriptions
 # -----------------------------------------------------------------------------
-# https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=si-creating-olm-objects
-
-# 2.1 Create olm-utils-cm config maps which contains the versions
-# for all CPD related services and dependencies.
-# This will be used by the CPD operators to automatically set the target versions
-# to be installed/upgraded
-# -----------------------------------------------------------------------------
-- name: "install-cp4d : Create olm-utils-cm config map for cpd release {{ cpd_product_version }}"
-  kubernetes.core.k8s:
-    apply: yes
-    template: 'templates/config_maps/olm-utils-cm-{{ cpd_product_version }}.yml.j2'
-
-- name: "install-cp4d : Lookup olm-utils-cm config map to know which zen version to install/upgrade for release {{ cpd_product_version }}"
-  kubernetes.core.k8s_info:
-    api_version: v1
-    name: "olm-utils-cm"
-    kind: ConfigMap
-    namespace: "{{ cpd_instance_namespace }}"
-  register: cpd_cm_info
-
-- set_fact:
-    cpd_components_meta: "{{ cpd_cm_info.resources[0].data.release_components_meta | from_yaml }}"
-
-- name: "install-cp4d : Set CPD properties"
-  set_fact:
-    cpd_channel: "{{ cpd_components_meta.cpd_platform.sub_channel }}"
-    zen_cr_version: "{{ cpd_components_meta.zen.cr_version }}"
-    cpd_csv_version: "{{ cpd_components_meta.cpd_platform.csv_version }}"
-    foundational_services_expected_csv_version: "{{ cpd_components_meta.cpfs.csv_version }}"
-
-- debug:
-    msg:
-      - "CPD operators namespace ................... {{ cpd_operators_namespace }}"
-      - "CPD instance namespace .................... {{ cpd_instance_namespace }}"
-      - "CPD release version ....................... {{ cpd_product_version }}"
-      - "CPD subscription channel .................. {{ cpd_channel }}"
-      - "CPD csv version ........................... {{ cpd_csv_version }}"
-      - "Zen/control plane version ................. {{ zen_cr_version }}"
-
-# 2.2 Install the IBM Cloud Pak for Data platform operator
+# Install the IBM Cloud Pak for Data platform operator
 #
 # This will result in two operators being installed into the cpd operator namespace:
 # - cpd-platform-operator-manager
 # - ibm-common-service-operator
 # - ibm-namespace-scope-operator
 
-# Look up the default channel for the ibm-common-service-operator package manifest
-# The way ODLM works (which we have to use) means that when an istance of MAS Core
-# is installed in the cluster, the ODLM framework will automatically upgdate the installed
-# version of the IBM common service operator to whatever is set as the default channel.
-#
-# This can cause the subsequent installation of the Licensing Operator to fail in
-# horrible ways, setting the subscription channel correctly here will hopefully avoid
-# this problem.
-- name: Set ibm-common-services-operator channel if needed
-  when: common_services_channel is not defined or common_services_channel == ""
-  block:
-
-    - name: Lookup ibm-common-service-operator packagemanifest
-      k8s_info:
-        api_version: packages.operators.coreos.com/v1
-        kind: PackageManifest
-        name: ibm-common-service-operator
-        namespace: ibm-common-services
-      register: common_services_manifest_info
-
-    - name: Set ibm-common-services-operator channel
-      set_fact:
-        common_services_channel: "{{ common_services_manifest_info.resources[0].status.defaultChannel }}"
-
 - debug:
     msg:
+      - "Cloud Pak For Data channel ................ {{ cpd_channel }}"
+      - "Catalog source name ....................... {{ cpd_catalog_source_name }}"
+      - "Catalog source namespace .................. {{ cpd_catalog_source_namespace }}"
 
-- name: "Assert that IBM Cloud Pak Foundational Services is compatible with Cloud Pak for Data version {{ cpd_product_version }}"
-  assert:
-    that: foundational_services_installed_csv_version is version_compare(foundational_services_expected_csv_version, '>=')
-    fail_msg: "Failed! You have incompatible IBM Foundation Services version v{{ foundational_services_installed_csv_version }} installed. You must have version v{{ foundational_services_expected_csv_version }} or above."
+# Clean up old cpd-platform operator
+- name: "Clean up any {{ cpd_platform_operator_name }} subscription from {{ cpd_operators_namespace }}"
+  vars:
+    operator_name: "{{ cpd_platform_operator_name }}"
+    operator_namespace: "{{ cpd_operators_namespace }}"
+    operator_expected_csv: "{{ cpd_platform_operator_name }}.v{{ cpd_csv_version }}"
+  include_tasks: "tasks/prereqs/uninstall-operator.yml"
 
-- name: Debug IBM Cloud Pak Foundational Services Install
-  debug:
-    msg:
-      - "Subscription Channel defined ............................................................. {{ common_services_channel }}"
-      - "Catalog Source ........................................................................... ibm-operator-catalog"
-      - "Current installed version ................................................................ v{{ foundational_services_installed_csv_version }}"
-      - "Expected compatible version with CloudPak for Data {{ cpd_product_version }} ................................. v{{ foundational_services_expected_csv_version }}+"
-
-- name: "create-subscriptions : Create CP4D Platform & Namespace Scope Operator subscriptions using channel: {{ cpd_channel }}"
+- name: "create-subscriptions : Create Cloud Pak for Data platform subscription using channel: {{ cpd_channel }}"
   kubernetes.core.k8s:
     apply: yes
-    template: 'templates/subscriptions.yml.j2'
+    template: "templates/cpd_platform/subscription.yml.j2"
 
-- name: "create-subscriptions : Wait for cpd-platform-operator-manager to be ready (60s delay)"
+- name: "create-subscriptions : Wait for {{ cpd_platform_operator_name }}-manager to be ready (60s delay)"
   kubernetes.core.k8s_info:
     api_version: apps/v1
-    name: cpd-platform-operator-manager
+    name: "{{ cpd_platform_operator_name }}-manager"
     namespace: "{{ cpd_operators_namespace }}"
     kind: Deployment
   register: cpd_subscription
@@ -123,7 +44,7 @@
 # With this, we ensure the new cpd service csv version operator is up and running with the new cr version before we check the cpd cr status
 - name: "Wait CP4D subscription installedCSV version at {{ expected_installed_csv }}"
   vars:
-    expected_installed_csv: "cpd-platform-operator.v{{ cpd_csv_version }}"
+    expected_installed_csv: "{{ cpd_platform_operator_name }}.v{{ cpd_csv_version }}"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
@@ -138,9 +59,3 @@
     - cpd_sub_info.resources[0].status is defined
     - cpd_sub_info.resources[0].status.installedCSV is defined
     - cpd_sub_info.resources[0].status.installedCSV == expected_installed_csv
-
-# 2.3 Enabling services to use namespace scoping with third-party operators
-- name: "create-subscriptions : Create NamespaceScope for CP4D Operators"
-  kubernetes.core.k8s:
-    apply: yes
-    template: 'templates/namespaceScope.yml.j2'

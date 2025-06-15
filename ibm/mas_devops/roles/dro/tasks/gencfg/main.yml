@@ -12,15 +12,14 @@
       - dro_contact.last_name is defined and dro_contact.last_name != ""
     fail_msg: "One or more required environment variables are not defined [DRO_CONTACT_EMAIL, DRO_CONTACT_FIRSTNAME, DRO_CONTACT_LASTNAME]"
 
-
 # 1. Lookup the endpoint route
 # -----------------------------------------------------------------------------
 - name: "drocfg : Get ibm-data-reporter route"
-  k8s_info:
+  kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
     kind: Route
     name: ibm-data-reporter
-    namespace: redhat-marketplace
+    namespace: "{{ dro_namespace }}"
   register: dro_route
 
 - name: "drocfg : Assert that ibm-data-reporter route exists"
@@ -45,7 +44,7 @@
       kind: Secret
       metadata:
         name: ibm-data-reporter-operator-api-token
-        namespace: redhat-marketplace
+        namespace: "{{ dro_namespace }}"
         labels:
           secret-owner: ibm-data-reporter-operator-api
         annotations:
@@ -53,10 +52,10 @@
       type: kubernetes.io/service-account-token
 
 - name: "drocfg : Get ibm-data-reporter-operator-api secret"
-  k8s_info:
+  kubernetes.core.k8s_info:
     kind: Secret
     name: ibm-data-reporter-operator-api-token
-    namespace: redhat-marketplace
+    namespace: "{{ dro_namespace }}"
     label_selectors:
       - secret-owner = ibm-data-reporter-operator-api
   register: token_secret_info
@@ -115,7 +114,7 @@
 # 6. DRO Migration: Clean BASCfg of UDS
 # -----------------------------------------------------------------------------
 - name: "gencfg: get existing UDS BASCfg"
-  k8s_info:
+  kubernetes.core.k8s_info:
     api_version: config.mas.ibm.com/v1
     kind: BasCfg
   register: udscfgs

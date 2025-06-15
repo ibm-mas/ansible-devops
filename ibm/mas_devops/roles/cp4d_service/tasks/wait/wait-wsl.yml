@@ -1,47 +1,39 @@
 ---
-
 # 1. Wait for CCS
 # -----------------------------------------------------------------------------
 - name: "Wait for CCS"
   include_tasks: "wait-ccs.yml"
 
-
-# 2. Wait for DataRefinery CR to be ready
-# -----------------------------------------------------------------------------
-# We can't stop waiting on Failed status, as it will report failed multiple
-# times during initial reconcile ... we just need to keep waiting.
-- name: "wait-wsl : Wait for datarefineryStatus 'Completed' (5m interval)"
-  kubernetes.core.k8s_info:
-    api_version: "datarefinery.cpd.ibm.com/v1beta1"
-    kind: DataRefinery
-    name: "datarefinery-sample"
-    namespace: "{{ cpd_instance_namespace }}"
-  register: dr_cr_lookup
-  until:
-    - dr_cr_lookup.resources is defined
-    - dr_cr_lookup.resources | length == 1
-    - dr_cr_lookup.resources[0].status is defined
-    - dr_cr_lookup.resources[0].status.datarefineryStatus is defined
-    - dr_cr_lookup.resources[0].status.datarefineryStatus == "Completed" #  or dr_cr_lookup.resources[0].status.wmlStatus == "Failed"
-  retries: 30 # Up to 2.5 hours
-  delay: 300 # Every 5 minutes
-
-- name: "wait-wsl : Check that the DataRefinery datarefineryStatus is 'Completed'"
-  assert:
-    that: dr_cr_lookup.resources[0].status.datarefineryStatus == "Completed"
-    fail_msg: "Watson Studio install failed (datarefineryStatus)"
-
 # 3. Wait until the NotebookRuntime CRD is available and apply Python 3.9 runtime CR - needed for CPD 4.6
 # -----------------------------------------------------------------------------
 - name: "wait-wsl : Wait until the notebookruntimes.ws.cpd.ibm.com CRD is available"
-  include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
-  vars:
-    crd_name: notebookruntimes.ws.cpd.ibm.com
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    name: notebookruntimes.ws.cpd.ibm.com
+    kind: CustomResourceDefinition
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 300 # 5 mins until we give up waiting for the CRD to get into the expected state
+    wait_condition:
+      type: NamesAccepted
+      status: "True"
+  register: wsr_crd_info
+  retries: 120 # ~approx 5 minutes before we give up waiting for the CRD to be created
+  delay: 5 # seconds
+  until:
+    - wsr_crd_info.resources is defined
+    - wsr_crd_info.resources | length > 0
 
 - name: "wait-wsl : Apply NotebookRuntime Python 3.9"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/wsl/runtimes-py39.yml.j2"
+
+- name: "wait-wsl : Apply NotebookRuntime Python 3.10"
+  when: cpd_50
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/wsl/runtimes-py310.yml.j2"
 
 # 4. Wait for WSL service CR to be ready
 # -----------------------------------------------------------------------------
@@ -67,8 +59,6 @@
   assert:
     that: cpd_cr_lookup.resources[0].status.wsStatus == "Completed"
     fail_msg: "Watson Studio install failed (wsStatus)"
-
-
 # At this stage the following will be added to the CP4D installation:
 #
 # These operators will be installed in ibm-cpd-operators namespace:

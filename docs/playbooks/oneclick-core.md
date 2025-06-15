@@ -6,15 +6,14 @@ This playbook will install and configure IBM Maximo Application Suite Core along
 1. [Install IBM Operator Catalogs](../roles/ibm_catalogs.md) (1 minute)
 2. [Install IBM Common Services](../roles/common_services.md) (3 minutes)
 3. [Install Certificate Manager Operator](../roles/cert_manager.md) (3 minutes)
-4. [Configure Cluster Monitoring](../roles/cluster_monitoring.md) (1 minute)
-5. [Install Mongodb Operator and Create a Cluster](../roles/mongodb.md) (10 minutes)
-6. [Install and bootstrap IBM Suite License Service](../roles/sls.md) (10 minutes)
-7. [Install IBM User Data Services](../roles/uds.md) (30 minutes)
-8. [Generate a MAS Workspace Configuration](../roles/gencfg_workspace.md) (1 minute)
-9. [Configure Cloud Internet Services Integration for Maximo Application Suite](../roles/suite_dns.md) (Optional, 1 minute)
-10. [Install Maximo Application Suite Core Services](../roles/suite_install.md) (1 minute)
-11. [Configure Maximo Application Suite](../roles/suite_config.md) (1 minute)
-12. [Verify the Install and Configuration of Maximo Application Suite](../roles/suite_verify.md) (25 minutes)
+4. [Install Mongodb Operator and Create a Cluster](../roles/mongodb.md) (10 minutes)
+5. [Install and bootstrap IBM Suite License Service](../roles/sls.md) (10 minutes)
+6. [Install IBM User Data Services](../roles/uds.md) (30 minutes)
+7. [Generate a MAS Workspace Configuration](../roles/gencfg_workspace.md) (1 minute)
+8. [Configure Cloud Internet Services Integration for Maximo Application Suite](../roles/suite_dns.md) (Optional, 1 minute)
+9. [Install Maximo Application Suite Core Services](../roles/suite_install.md) (1 minute)
+10. [Configure Maximo Application Suite](../roles/suite_config.md) (1 minute)
+11. [Verify the Install and Configuration of Maximo Application Suite](../roles/suite_verify.md) (25 minutes)
 
 All timings are estimates, see the individual pages for each of these roles for more information and full details of all configuration options available in this playbook.
 
@@ -25,7 +24,7 @@ All timings are estimates, see the individual pages for each of these roles for 
 Access [Container Software Library](https://myibm.ibm.com/products-services/containerlibrary) using your IBMId to access your entitlement key
 
 ### 2. MAS License File
-Access [IBM License Key Center](https://licensing.subscribenet.com/control/ibmr/login), on the **Get Keys** menu select **IBM AppPoint Suites**.  Select `IBM MAXIMO APPLICATION SUITE AppPOINT LIC` and on the next page fill in the information as below:
+Access [IBM License Key Center](https://licensing.flexnetoperations.com/), on the **Get Keys** menu select **IBM AppPoint Suites**.  Select `IBM MAXIMO APPLICATION SUITE AppPOINT LIC` and on the next page fill in the information as below:
 
 | Field            | Content                                           |
 | ---------------- | ------------------------------------------------- |
@@ -48,25 +47,21 @@ The other values can be left at their defaults.  Finally, click **Generate** and
 - `MAS_CONFIG_DIR` Directory where generated config files will be saved (you may also provide pre-generated config files here)
 - `SLS_LICENSE_ID` The license ID must match the license file available in `SLS_LICENSE_FILE`
 - `SLS_LICENSE_FILE` The path to the location of the license file.
-- `BAS_PROVIDER` Defines UDS or DRO operator to install. Default: UDS [Values: DRO, UDS]
-- `UDS_CONTACT_EMAIL` Defines the email for person to contact for UDS [Required if BAS_PROVIDER is UDS]
-- `UDS_CONTACT_FIRSTNAME` Defines the first name of the person to contact for UDS [Required if BAS_PROVIDER is UDS]
-- `UDS_CONTACT_LASTNAME` Defines the last name of the person to contact for UDS [Required if BAS_PROVIDER is UDS]
-- `DRO_CONTACT_EMAIL` Defines the email for person to contact for DRO [Required if BAS_PROVIDER is DRO]
-- `DRO_CONTACT_FIRSTNAME` Defines the first name of the person to contact for DRO [Required if BAS_PROVIDER is DRO]
-- `DRO_CONTACT_LASTNAME` Defines the last name of the person to contact for DRO [Required if BAS_PROVIDER is DRO]
+- `DRO_CONTACT_EMAIL` Primary contact e-mail address
+- `DRO_CONTACT_FIRSTNAME` Primary contact first name
+- `DRO_CONTACT_LASTNAME` Primary contact last name
 
 
 ### Storage Class Configuraton
 Storage class configuration is built into the collection and the playbook will auto-select the appropriate storage classes when it detects the presence of certain storage classes in your cluster (IBM Cloud Storage or OpenShift Container Storage).  If you are running the install on a cluster that does not have these storage classes then you will also must configure the following environment variables:
 
 #### ReadWriteMany Access Mode
-Usually fulfilled by block storage classes:
+Usually fulfilled by file storage classes:
 
 - `PROMETHEUS_ALERTMGR_STORAGE_CLASS`
 
 #### ReadWriteOnce Access Mode
-Usually fulfilled by file storage classes:
+Usually fulfilled by block storage classes:
 
 - `PROMETHEUS_STORAGE_CLASS`
 - `PROMETHEUS_USERWORKLOAD_STORAGE_CLASS`

@@ -1,7 +1,7 @@
 ---
 # 1. Failure conditions
 # -----------------------------------------------------------------------------
-- name: "roks : Fail if rosa_token is not provided"
+- name: "rosa : Fail if rosa_token is not provided"
   assert:
     that: rosa_token is defined and rosa_token != ""
     fail_msg: "rosa_token property is required"
@@ -9,7 +9,7 @@
 
 # 2. Debug Info
 # -----------------------------------------------------------------------------
-- name: "roks : Debug information"
+- name: "rosa : Debug information"
   debug:
     msg:
       - "Cluster name ................. {{ cluster_name }}"
@@ -18,12 +18,12 @@
 
 # 3. Check for required software
 # -----------------------------------------------------------------------------
-- name: "Test if rosa is installed"
+- name: "rosa : Test if rosa is installed"
   shell: rosa version
   register: rosa_version
   ignore_errors: true
 
-- name: "Fail if rosa is not installed"
+- name: "rosa : Fail if rosa is not installed"
   assert:
     that: ( rosa_version.rc == 0 )
     fail_msg: "rosa CLI must be installed (https://console.redhat.com/openshift/create/rosa/welcome)"
@@ -33,6 +33,7 @@
 # -----------------------------------------------------------------------------
 - name: "rosa : Login"
   shell: rosa login --token {{ rosa_token }}
+  no_log: true
 
 - name: "rosa : Validate login"
   shell: rosa whoami
@@ -51,6 +52,10 @@
   register: rosa_cluster_lookup_result
   failed_when: "rosa_cluster_lookup_result.rc > 1"
 
+- name: "rosa : Debug status"
+  when: rosa_cluster_lookup_result.rc == 0
+  debug:
+    msg: "Cluster state ......................... {{ (rosa_cluster_lookup_result.stdout | from_json).state }}"
 
 # 6. Delete cluster
 # -----------------------------------------------------------------------------
@@ -68,8 +73,8 @@
   shell: rosa describe cluster -c {{ cluster_name }} -o json
   register: cluster_lookup
   failed_when: "cluster_lookup.rc > 1"
-  retries: 60
-  delay: 60 # 60s * 60 retries = 1 hour
+  retries: 90
+  delay: 60 # 60s * 90 retries = 1.5 hours
   until: cluster_lookup.rc == 1
 
 
@@ -77,13 +82,15 @@
 # -----------------------------------------------------------------------------
 - name: "rosa : Clean up operator roles"
   shell: "rosa delete operator-roles -c {{ (rosa_cluster_lookup_result.stdout | from_json).id }} -m auto --yes"
+  when: rosa_cluster_lookup_result.rc != 1
 
 - name: "rosa : Clean up OIDC provider"
   shell: "rosa delete oidc-provider -c {{ (rosa_cluster_lookup_result.stdout | from_json).id }} -m auto --yes"
+  when: rosa_cluster_lookup_result.rc != 1
 
 # 9. AWS Login To Remove File Storage
 # -----------------------------------------------------------------------------
-- name: "efs-setup : Login"
+- name: "rosa : efs-setup : Login"
   shell: |
     aws configure set aws_access_key_id {{ aws_access_key_id }};
     aws configure set aws_secret_access_key {{ aws_secret_access_key }};
@@ -92,7 +99,7 @@
 
 # 10. Get EFS Id to Delete
 # -----------------------------------------------------------------------------
-- name: "Get-efsid : efsid"
+- name: "rosa : Get-efsid : efsid"
   shell: aws efs describe-file-systems --query "FileSystems[?Tags[?Value == '{{ cluster_name }}-efs']]".FileSystemId
   register: efs_id_op
 
@@ -100,24 +107,27 @@
   set_fact:
     efs_id: "{{ efs_id_op.stdout|from_json|json_query(\"[0]\") }}"
 
-# 11. Get Mount Id and Delete the associated Mount Target
+# 11. Get Mount Id and Delete the associated Mount Target when we have an EFS ID
 # -----------------------------------------------------------------------------
-- name: "Get-mountId : MountId"
-  shell: aws efs describe-mount-targets --file-system-id {{ efs_id  }} --query "MountTargets[*].MountTargetId"
-  register: mount_id_op
+- name: Cleanup EFS if we have an EFS Id
+  when: efs_id != ""
+  block:
+    - name: "rosa : Get-mountId : MountId"
+      shell: aws efs describe-mount-targets --file-system-id {{ efs_id  }} --query "MountTargets[*].MountTargetId"
+      register: mount_id_op
 
-- name: "Filter-mountId : MountId"
-  set_fact:
-    mount_id: "{{ mount_id_op.stdout|from_json|json_query(\"[0]\") }}"
+    - name: "rosa : Filter-mountId : MountId"
+      set_fact:
+        mount_id: "{{ mount_id_op.stdout|from_json|json_query(\"[0]\") }}"
 
-- name: "Delete-MountId : Mount Id"
-  shell: aws efs delete-mount-target --mount-target-id {{ mount_id }}
+    - name: "rosa : Delete-MountId : Mount Id"
+      shell: aws efs delete-mount-target --mount-target-id {{ mount_id }}
 
-- name: "Wait For Delete"
-  ansible.builtin.pause:
-    seconds: 30
+    - name: "rosa : Wait For Delete"
+      ansible.builtin.pause:
+        seconds: 30
 
-# 12. Delete EFS
-# -----------------------------------------------------------------------------
-- name: "Delete-EFS : Delete EFS"
-  shell: aws efs delete-file-system --file-system-id {{ efs_id }}
+    # 12. Delete EFS
+    # -----------------------------------------------------------------------------
+    - name: "rosa : Delete-EFS : Delete EFS"
+      shell: aws efs delete-file-system --file-system-id {{ efs_id }}

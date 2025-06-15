@@ -1,0 +1,24 @@
+---
+# Copy local job files to local storage
+# -----------------------------------------------------------------------------
+- name: "Set fact: local storage job folder"
+  set_fact:
+    masbr_storage_job_folder: >-
+      {{ masbr_storage_local_folder }}/{{ masbr_cf_job_type }}s/{{ masbr_cf_job_name }}
+
+- name: "Debug: local storage job folder"
+  debug:
+    msg: "Local storage job folder .......... {{ masbr_storage_job_folder }}"
+
+- name: "Copy local job files to local storage job folder"
+  shell: >-
+    mkdir -p {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
+    cp -rf {{ [masbr_local_job_folder, item.src_file] | path_join }}
+    {{ [masbr_storage_job_folder, item.dest_folder] | path_join }} &&
+    ls -lA {{ [masbr_storage_job_folder, item.dest_folder] | path_join }}
+  loop: "{{ masbr_cf_paths }}"
+  register: _local_copy_output
+
+- name: "Debug: copy local job files to local storage job folder"
+  debug:
+    msg: "{{ _local_copy_output | json_query('results[*].stdout_lines') }}"

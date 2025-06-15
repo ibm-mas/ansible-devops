@@ -1,0 +1,28 @@
+---
+# Configure COS bucket for Manage attachments
+# -----------------------------------------------------------------------------
+- name: "Configure {{ mas_manage_attachments_provider }} cos bucket for Manage attachments"
+  include_role:
+    name: ibm.mas_devops.cos_bucket
+  vars:
+    cos_type: "{{ mas_manage_attachments_provider }}"
+
+- name: "Setup AWS S3 bucket policies, users and access points"
+  vars:
+    aws_bucket_name: "{{ cos_bucket_name }}"
+    aws_bucket_region: "{{ cos_bucket_region }}"
+  include_tasks: "tasks/common/aws-setup-bucket-permissions.yml"
+  when: mas_manage_attachments_provider == 'aws'
+
+- name: "Retrieve {{ mas_manage_attachments_provider }} cos certificates"
+  vars:
+    cos_type: "{{ mas_manage_attachments_provider }}"
+  include_tasks: "tasks/common/retrieve-cos-certs.yml"
+
+- name: "Add the {{ cos_type | upper }} COS certificates in ManageWorkspace CR"
+  import_role:
+    name: ibm.mas_devops.suite_manage_import_certs_config
+  vars:
+    manage_certificates: "{{ cos_tls_crt }}"
+    manage_certificates_alias_prefix: "{{ cos_cert_alias_prefix }}"
+  when: mas_manage_attachments_provider != 'filestorage'

@@ -1,27 +1,36 @@
 ocp_provision
 ===============================================================================
+Provision OCP cluster on IBM Cloud ROKS, ROSA, or DevIT Fyre.
 
-Provision OCP cluster on DevIT Fyre or IBM Cloud ROKS.
+Fyre clusters will be automatically reconfigured to enable NFS storage.  By default this is made available via the `nfs-client` storage class and supports both `ReadWriteOnce` and `ReadWriteMany` access modes.  The `image-registry-storage` PVC used by the OpenShift image registry component will also be reconfigured to use this storage class.
+
 
 Role Variables
 -------------------------------------------------------------------------------
 ### cluster_type
-Required.  Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `ipi`.
+Specify the cluster type, supported values are `fyre`, `roks`, `rosa`, and `ipi`.
 
+- **Required**
 - Environment Variable: `CLUSTER_TYPE`
 - Default Value: None
 
 ### cluster_name
-Required.  Specify the name of the cluster
+Specify the name of the cluster
 
+- **Required**
 - Environment Variable: `CLUSTER_NAME`
 - Default Value: None
 
 ### ocp_version
-Required.  Specify the version of OCP to install.  The exact format of this will vary depending on `cluster_type`.  For ROKS clusters the format is `4.6_openshift`, `4.8_openshift`, for Fyre it is `4.6.16`.
+The version of OCP to use.  A specific version can be set, minor and patch level versions can be used, e.g. `4.15`, or `4.15.16`.  Additionally, two version aliases are available; `default` will auto-select the newest version of OCP currently supported by IBM Maximo Application Suite, `rotate` will auto-select a predetermined version of OCP currently supported by IBM Maximo Application Suite based on the day of the week.  This latter option is primarily useful for testing purposes.
 
+- **Required**
 - Environment Variable: `OCP_VERSION`
 - Default Value: None
+
+!!! note
+    When using the IBMCloud Red Hat OpenShift Service (ROKS) the version must be followed by `_openshift`, e.g. **4.15_openshift** or **4.15.16_openshift**
+
 
 Role Variables - GPU Node Support
 -------------------------------------------------------------------------------
@@ -34,24 +43,28 @@ Flag that determines if GPU worker nodes should be added during cluster creation
 ### gpu_workerpool_name
 The name of the gpu worker pool to added to or modify in the cluster. If already existing, use the existing name to avoid recreating another gpu worker pool unless that is the goal.
 
+- Optional
 - Environment Variable: `GPU_WORKERPOOL_NAME`
 - Default Value: `gpu`
 
 ### gpu_workers
 The number of GPU worker nodes that will be deploy in the cluster. The node created will have mg4c.32x384.2xp100-GPU flavor. This variable depends on `ocp_provision_gpu` and is currently supported on ROKS clusters only.
 
+- Optional
 - Environment Variable: `GPU_WORKERS`
 - Default Value: `1`
 
 ### compute_node_count
 The number of compute nodes (i.e. worker nodes) allocate to the OCP cluster.
 
+- Optional
 - Environment Variable: `COMPUTE_NODE_COUNT`
 - Default Value: `3`
 
 ### controlplane_node_count
 The number of control plane nodes (i.e. master nodes) allocate to the OCP cluster.
 
+- Optional
 - Environment Variable: `CONTROLPLANE_NODE_COUNT`
 - Default Value: `3`
 
@@ -67,8 +80,9 @@ Role Variables - ROKS
 The following variables are only used when `cluster_type = roks`.
 
 ### ibmcloud_apikey
-Required if `cluster_type = roks`.  The APIKey to be used by ibmcloud login comand.
+The APIKey to be used by ibmcloud login comand.
 
+- **Required** if `cluster_type = roks`
 - Environment Variable: `IBMCLOUD_APIKEY`
 - Default Value: None
 
@@ -127,9 +141,9 @@ Token to authenticate to the ROSA service.  To obtain your API token login to th
 - Default Value: None
 
 ### rosa_cluster_admin_password
-Password to set up for the `cluster-admin` user account on the OCP instance.  You will need this to log onto the cluster after it is provisioned.
+Password to set up for the `cluster-admin` user account on the OCP instance.  You will need this to log onto the cluster after it is provisioned. If this is not set then a password is auto-generated.
 
-- **Required** if `cluster_type = rosa`.
+- **Optional** if `cluster_type = rosa`.
 - Environment Variable: `ROSA_CLUSTER_ADMIN_PASSWORD`
 - Default Value: None
 
@@ -139,6 +153,20 @@ Number of compute nodes to deploy in the cluster.
 - Optional
 - Environment Variable: `ROSA_COMPUTE_NODES`
 - Default Value: `3`
+
+### rosa_compute_machine_type
+Worker nodes machine
+
+- Optional
+- Environment Variable: `ROSA_COMPUTE_MACHINE_TYPE`
+- Default Value: `m5.4xlarge`
+
+### rosa_config_dir
+Config directory to hold the rosa-{{cluster_name}}-details.yaml file that contains the api endpoint and cluster-admin details
+
+- Optional
+- Environment Variable: `ROSA_CONFIG_DIR`
+- Default Value: None
 
 
 Role Variables - FYRE
@@ -199,28 +227,49 @@ The name of one of Fyre's pre-defined cluster sizes to use for the new cluster.
 
 - **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
 - Environment Variable: `FYRE_CLUSTER_SIZE`
-- Default Value: `large`
+- Default Value: `medium`
 
 ### fyre_worker_count
 The number of worker nodes to provision in the cluster.
 
-- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = product_group`.
 - Environment Variable: `FYRE_WORKER_COUNT`
-- Default Value: `3`
+- Default Value: `2`
 
 ### fyre_worker_cpu
 The amount of CPU to assign to each worker node (maximum value supported by FYRE 16).
 
-- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = product_group`.
 - Environment Variable: `FYRE_WORKER_CPU`
-- Default Value: `16`
+- Default Value: `8`
 
 ### fyre_worker_memory
 The amount of memory to assign to each worker node (maximum value supported by FYRE 64).
 
-- **Required** when `cluster_type = fyre` and `fyre_quota_type = quick_burn`.
+- **Required** when `cluster_type = fyre` and `fyre_quota_type = product_group`.
 - Environment Variable: `FYRE_WORKER_MEMORY`
-- Default Value: `64`
+- Default Value: `32`
+
+### fyre_worker_additional_disks
+The size of additional disks in Gb added to each worker node, defined in a comma-seperated list, e.g. `400,400` will add two 400gb disks to each worker node. By default no additional disks will be attached.
+
+- Optional
+- Environment Variable: `FYRE_WORKER_ADDITIONAL_DISKS`
+- Default Value: `None`
+
+### fyre_nfs_setup
+Enables the use of NFS storage classes in the Fyre cluster. When enabled, the existing image registry PVC will be deleted and recreated configured to use the newly available NFS storage class.
+
+- Optional
+- Environment Variable: `FYRE_NFS_SETUP`
+- Default Value: `true`
+
+### fyre_nfs_image_registry_size
+Defines the image registry storage size when configured to use NFS. The size allocated cannot be superior of storage available in the Fyre Infrastructure node.
+
+- Optional
+- Environment Variable: `FYRE_NFS_IMAGE_REGISTRY_SIZE`
+- Default: `100Gi`
 
 ### enable_ipv6
 Enable IPv6. This is for Fyre at RTP site only.
@@ -307,7 +356,7 @@ The number of worker nodes to provsision in the cluster, providing your compute 
 - Default Value: `3`
 
 ### ipi_rootvolume_size
-The size of root volume in GiB. 
+The size of root volume in GiB.
 
 - Optional when `cluster_type = ipi`
 - Environment variable: `IPI_ROOTVOLUME_SIZE`
@@ -347,6 +396,7 @@ GCP project id in which the cluster will be deployed.
 - **Required** when `cluster_type = ipi` and `ipi_platform = gcp`
 - Environment Variable: `GOOGLE_PROJECTID`
 - Default Value: None
+
 
 Example Playbook
 -------------------------------------------------------------------------------

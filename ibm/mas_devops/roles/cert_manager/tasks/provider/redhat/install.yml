@@ -25,7 +25,6 @@
 - debug:
     msg: "IBM Certificate Manager installed .................... {{ cpfs_cm_installed | default(false, true) | bool }}"
 
-
 # 2. Disable IBM Cert Manager OperandRequest
 # -----------------------------------------------------------------------------
 # Check if Operand Deployment Lifecycle Manager is installed
@@ -53,7 +52,6 @@
     wait: yes
     wait_timeout: 120 # 2 minutes
 
-
 # 3. If IBM Certificate Manager is installed, run pre-requisite steps to migrate to Red Hat Certificate Manager
 # -----------------------------------------------------------------------------
 # - Set 'cert_manager_cluster_resource_namespace: ibm-common-services' in CertManager CR
@@ -66,16 +64,14 @@
     - cpfs_cm_installed is defined
     - cpfs_cm_installed is true
 
-
 # 4. Create RHCM Subscription
 # -----------------------------------------------------------------------------
 - name: "install : Create Red Hat Certificate Manager Subscription"
-  include_tasks: "{{ role_path }}/../../common_tasks/create_subscription.yml"
-  vars:
-    subscription_namespace: "{{ cert_manager_operator_namespace }}"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ cert_manager_operator_namespace }}"
     package_name: openshift-cert-manager-operator
-    channel_name: stable-v1
-
+    package_channel: stable-v1
+  register: subscription
 
 # 5. Wait for Subscription to be processed
 # -----------------------------------------------------------------------------
@@ -95,7 +91,6 @@
     - certmanager_deployment.resources[0].status.readyReplicas == certmanager_deployment.resources[0].status.replicas
   retries: 30 # Approximately 1/2 hour before we give up
   delay: 60 # 1 minute
-
 
 # 6. Create the CertManager instance
 # -----------------------------------------------------------------------------
@@ -168,7 +163,6 @@
     - certmanager_webhook_deployment.resources[0].status.readyReplicas == certmanager_webhook_deployment.resources[0].status.replicas
   retries: 60 # Approximately 1/2 hour before we give up
   delay: 60 # 1 minute
-
 
 # 5. Update IBM CIS Webhook Cluster Role Binding to point to Red Hat Certificate Manager
 # -----------------------------------------------------------------------------

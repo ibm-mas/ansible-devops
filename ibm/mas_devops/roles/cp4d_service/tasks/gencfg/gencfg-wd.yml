@@ -6,22 +6,21 @@
     msg:
       - "CP4D Username .................. {{ cpd_admin_username }}"
       - "CP4D Password .................. When not informed, found in 'admin-user-details' secret under '{{ cpd_instance_namespace }}' namespace"
-      - "CP4D URL ....................... {{ cpd_url }}"
+      - "CP4D URL ....................... {{ cpd_admin_url }}"
       - "Discovery Instance name ........ {{ cpd_wd_instance_name }}"
       - "MAS config directory ........... {{ mas_config_dir }}"
-
 
 # 2. Get CP4D Beaker token to enable Watson API authentication
 # -----------------------------------------------------------------------------
 - name: "gencfg-wd : Authorize the CP4D (get Bearer token)"
   uri:
-    url: "{{ cpd_url }}/icp4d-api/v1/authorize"
+    url: "{{ cpd_admin_url }}/icp4d-api/v1/authorize"
     validate_certs: no
     method: POST
     headers:
       cache-control: "no-cache"
     body_format: "json"
-    body: "{\"username\":\"{{ cpd_admin_username }}\",\"password\":\"{{ cpd_admin_password }}\"}"
+    body: '{"username":"{{ cpd_admin_username }}","password":"{{ cpd_admin_password }}"}'
     status_code: 200
     timeout: 30
   register: cpd_authorization
@@ -31,13 +30,12 @@
   set_fact:
     cpd_bearer_token: "{{ cpd_authorization.json.token }}"
 
-
 # 3. Check if there is already a discovery service instance previously created
 # -----------------------------------------------------------------------------
 - name: "gencfg-wd : Get all discovery service instances (query_instance_output)"
   when: cpd_bearer_token is defined
   uri:
-    url: "{{ cpd_url }}/zen-data/v3/service_instances?fetch_all_instances=false&limit=9223372036854775807&offset=0"
+    url: "{{ cpd_admin_url }}/zen-data/v3/service_instances?fetch_all_instances=false&limit=9223372036854775807&offset=0"
     validate_certs: no
     method: GET
     headers:
@@ -64,15 +62,15 @@
 - name: "gencfg-wd : Debug wd_instance_id"
   debug:
     msg:
-      - "Discovery Instance Id: ............. {{ 'Not Found' if wd_instance_id is not defined else wd_instance_id }}"
-
+      - "Discovery Instance Id: ............. {{ (wd_instance_id is defined) | ternary(wd_instance_id,'Not Found') }}"
 
 # 4. Create a Discovery Service instance if none is found
 # -----------------------------------------------------------------------------
 - name: "gencfg-wd : Create a Discovery Service instance if none is found"
   when: wd_instance_id is not defined or wd_instance_id == ""
   uri:
-    url: "{{ cpd_url }}/watson/common/discovery/api/ibmcloud/resource-controller/resource_instances"
+    # url: "{{ cpd_admin_url }}/watson/common/discovery/api/ibmcloud/resource-controller/resource_instances"
+    url: "{{ cpd_admin_url }}/zen-data/v3/service_instances"
     validate_certs: no
     method: POST
     headers:
@@ -96,14 +94,12 @@
       - "Discovery Instance Id: ............. {{ wd_instance_id }}"
   when: wd_instance_id is not defined or wd_instance_id == ""
 
-
 # 5. Define Watson Discovery API URL
 # -----------------------------------------------------------------------------
 - name: "gencfg-wd : Define Watson Discovery API URL"
   when: wd_instance_id is defined and wd_instance_id != ""
   set_fact:
-    wd_url: "{{ cpd_url }}/discovery/{{ cpd_instance_namespace }}-wd/instances/{{ wd_instance_id }}/api"
-
+    wd_url: "{{ cpd_admin_url }}/discovery/{{ cpd_instance_namespace }}-wd/instances/{{ wd_instance_id }}/api"
 
 # 6. Write out the config to the local filesystem
 # -----------------------------------------------------------------------------
@@ -123,4 +119,4 @@
   ansible.builtin.template:
     src: wd/wdscfg.yml.j2
     dest: "{{ mas_config_dir }}/{{ mas_instance_id }}-wd-config.yml" # WD does not use a WD CR to bind the service
-    mode: '664'
+    mode: "664"

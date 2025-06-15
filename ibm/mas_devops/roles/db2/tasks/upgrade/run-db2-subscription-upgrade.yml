@@ -20,24 +20,13 @@
     kind: OperatorGroup
   register: db2_og_info
 
-# - name: "Update db2 subscription to the new channel"
-#   kubernetes.core.k8s:
-#     api_version: operators.coreos.com/v1alpha1
-#     name: ibm-db2u-operator
-#     namespace: "{{ db2_operator_namespace }}"
-#     kind: Subscription
-#     definition:
-#       spec:
-#         channel: "{{ db2_channel }}"
-#     apply: true
-
 # Leverage that we're upgrading DB2 and check if need to migrate db2 operator from ibm-common-services namespace
-- name: "Update db2 subscription to the new channel in {{ db2_namespace }} namespace"
-  kubernetes.core.k8s:
-    template: templates/db2u_subscription.yml.j2
-    wait: yes
-    wait_timeout: 120
-    apply: true
+- name: "Update Db2 Universal Operator Subscription in {{ db2_namespace }} namespace"
+  ibm.mas_devops.apply_subscription:
+    namespace: "{{ db2_namespace }}"
+    package_name: db2u-operator
+    package_channel: "{{ db2_channel }}"
+  register: subscription
 
 - name: "Pause for a minute before checking subscription status..."
   pause:
@@ -46,9 +35,10 @@
 - name: "Wait db2 subscription to update installedCSV"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
-    name: ibm-db2u-operator
     namespace: "{{ db2_namespace }}"
     kind: Subscription
+    label_selectors:
+      - "operators.coreos.com/db2u-operator.{{ db2_namespace }}"
   register: db2_updated_sub_info
   retries: 20
   delay: 30 # Retry for approx 20 minutes (30s * 20 attempts) before giving up

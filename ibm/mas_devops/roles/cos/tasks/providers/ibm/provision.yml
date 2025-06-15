@@ -1,8 +1,8 @@
 ---
-- name: "Fail if ibmcloud_apikey is not provided"
+- name: "Fail if cos_apikey is not provided"
   assert:
-    that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
-    fail_msg: "ibmcloud_apikey property is required"
+    that: cos_apikey is defined and cos_apikey != ""
+    fail_msg: "cos_apikey property is required"
 
 # 1. Determine the instance name
 # ---------------------------------------------------------------------------------------------------------------------
@@ -12,32 +12,32 @@
     - mas_instance_id != ""
     - mas_config_dir is defined
     - mas_config_dir != ""
-    - ibmcos_instance_name is not defined or ibmcos_instance_name == ""
+    - cos_instance_name is not defined or cos_instance_name == ""
   set_fact:
-    ibmcos_instance_name: "Object Storage for MAS - {{ mas_instance_id }}"
+    cos_instance_name: "Object Storage for MAS - {{ mas_instance_id }}"
 
 - name: Fallback to default CoS Instance Name
   when:
-    - ibmcos_instance_name is not defined or ibmcos_instance_name == ""
+    - cos_instance_name is not defined or cos_instance_name == ""
   set_fact:
-    ibmcos_instance_name: "Object Storage for MAS"
+    cos_instance_name: "Object Storage for MAS"
 
 - name: "ibm : Debug general info"
   debug:
     msg:
-      - "IBM COS Resource Group ............. {{ ibmcos_resourcegroup }}"
-      - "IBM COS url ........................ {{ ibmcos_url }}"
-      - "IBM COS username/accesskey ......... {{ ibmcos_username }}"
-      - "IBM COS instance name .............. {{ ibmcos_instance_name }}"
-      - "IBM COS location info .............. {{ ibmcos_location_info }}"
-      - "IBM COS plan type .................. {{ ibmcos_plan_type }}"
+      - "IBM COS Resource Group ............. {{ cos_resourcegroup }}"
+      - "IBM COS url ........................ {{ cos_url }}"
+      - "IBM COS username/accesskey ......... {{ cos_username }}"
+      - "IBM COS instance name .............. {{ cos_instance_name }}"
+      - "IBM COS location info .............. {{ cos_location_info }}"
+      - "IBM COS plan type .................. {{ cos_plan_type }}"
 
 # 2. Lookup IBM Cloud Resource Group GUID
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "ibm : Retrieve resource group guid"
   ibm.cloudcollection.ibm_resource_group_info:
-    name: "{{ ibmcos_resourcegroup }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey }}"
+    name: "{{ cos_resourcegroup }}"
+    ibmcloud_api_key: "{{ cos_apikey }}"
   register: rg_info
 
 - name: "ibm : Debug group GUID"
@@ -51,20 +51,19 @@
   set_fact:
     resourceGID: "{{ rg_info.resource.id }}"
 
-
 # 3. Create a new COS instance
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "ibm : Create a cos instance"
   ibm.cloudcollection.ibm_resource_instance:
-    name: "{{ ibmcos_instance_name }}"
+    name: "{{ cos_instance_name }}"
     resource_group_id: "{{ resourceGID }}"
     service: "{{ cos_service }}"
-    plan: "{{ ibmcos_plan_type }}"
-    location: "{{ ibmcos_location_info }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    plan: "{{ cos_plan_type }}"
+    location: "{{ cos_location_info }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
   register: cos_output
 
-- name: "Fail if IBMCOS resource ID not found"
+- name: "Fail if COS resource ID not found"
   assert:
     that:
       - not cos_output.failed
@@ -72,37 +71,38 @@
 
 - name: "ibm : Retrieve cos instance ID"
   ibm.cloudcollection.ibm_resource_instance_info:
-    name: "{{ ibmcos_instance_name }}"
+    name: "{{ cos_instance_name }}"
     resource_group_id: "{{ resourceGID }}"
     service: "{{ cos_service }}"
-    location: "{{ ibmcos_location_info }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    location: "{{ cos_location_info }}"
+    ibmcloud_api_key: "{{ cos_apikey  }}"
   register: cos_info
 
-- name: "ibm : Debug IBMCOS resource ID"
+- name: "ibm : Debug COS resource ID"
   debug:
     msg: "COS Instance resource ID ... {{ cos_info.resource.id }}"
 
-- name: "ibmcos: Set resource instance id variable"
+- name: "cos: Set resource instance id variable"
   when: cos_info.resource.id is defined
   set_fact:
-    ibmcos_resource_id: "{{ cos_info.resource.id }}"
-
+    cos_resource_id: "{{ cos_info.resource.id }}"
 
 # 4. Create authentication credentials for the instance
 # ---------------------------------------------------------------------------------------------------------------------
 - name: "ibm : Create a cos service credential for this MAS instance"
   ibm.cloudcollection.ibm_resource_key:
     name: "{{ mas_instance_id }}-key"
-    role: "{{ ibmcos_resource_key_iam_role }}"
-    resource_instance_id: "{{ ibmcos_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    role: "{{ cos_resource_key_iam_role }}"
+    resource_instance_id: "{{ cos_resource_id }}"
+    ibmcloud_api_key: "{{ cos_apikey }}"
+    parameters:
+      HMAC: "{{ cos_use_hmac }}"
 
 - name: "ibm : Retrieve cos service credential for this MAS instance"
   ibm.cloudcollection.ibm_resource_key_info:
     name: "{{ mas_instance_id }}-key"
-    resource_instance_id: "{{ ibmcos_resource_id }}"
-    ibmcloud_api_key: "{{ ibmcloud_apikey  }}"
+    resource_instance_id: "{{ cos_resource_id }}"
+    ibmcloud_api_key: "{{ cos_apikey }}"
   register: cos_key_info
 
 - name: "ibm : Debug COS Key Resource"
@@ -110,15 +110,25 @@
     msg:
       - "COS Key resource ... {{ cos_key_info.resource }}"
 
-- name: "ibm : Set ibmcos_password variable"
+- name: "ibm : Set cos_password variable"
   when: cos_key_info.resource.credentials is defined
   set_fact:
-    ibmcos_password: "{{ cos_key_info.resource.credentials.apikey }};{{ cos_key_info.resource.credentials.resource_instance_id }}"
+    cos_password: "{{ cos_key_info.resource.credentials.apikey }};{{ cos_key_info.resource.credentials.resource_instance_id }}"
 
+- name: "ibm : Set cos_hmac_access_key and cos_hmac_secret_key variable"
+  when:
+    - cos_key_info.resource.credentials is defined
+    - cos_key_info.resource.credentials['cos_hmac_keys.access_key_id'] is defined
+    - cos_key_info.resource.credentials['cos_hmac_keys.secret_access_key'] is defined
+    - cos_use_hmac is defined
+    - cos_use_hmac
+  set_fact:
+    cos_hmac_access_key: "{{ cos_key_info.resource.credentials['cos_hmac_keys.access_key_id'] }}"
+    cos_hmac_secret_key: "{{ cos_key_info.resource.credentials['cos_hmac_keys.secret_access_key'] }}"
 
 # 5. Save the ObjectStorageCfg to local disk
 # ---------------------------------------------------------------------------------------------------------------------
-- name: Copy objectstorageCfg to filesytem
+- name: Copy objectstorageCfg to filesystem
   when:
     - mas_instance_id is defined
     - mas_instance_id != ""
@@ -127,4 +137,4 @@
   ansible.builtin.template:
     src: ibm/objectstoragecfg.yml.j2
     dest: "{{ mas_config_dir }}/cos-ibm-system.yml"
-    mode: '664'
+    mode: "664"

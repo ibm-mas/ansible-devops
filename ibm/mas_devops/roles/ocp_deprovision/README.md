@@ -74,6 +74,12 @@ The directory that is used to store the `openshift-install` executable, its conf
 - Environment Variable: `IPI_DIR`
 - Default Value: `~/openshift-install`
 
+### ipi_platform
+Platform the cluster was created on, any platform supported by `openshift-install`. Values allowed: `aws` and `gcp`.
+
+- Required.
+- Environment Variable: `IPI_PLATFORM`
+- Default Value: None
 
 Role Variables - AWS
 -------------------------------------------------------------------------------

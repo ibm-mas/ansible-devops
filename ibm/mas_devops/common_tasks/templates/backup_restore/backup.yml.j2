@@ -1,0 +1,45 @@
+---
+kind: Backup
+name: "{{ masbr_job_name }}"
+version: "{{ masbr_job_version }}"
+type: "{{ masbr_backup_type }}"
+{% if masbr_backup_from is defined and masbr_backup_from | length > 0 %}
+from: "{{ masbr_backup_from }}"
+{% endif %}
+source:
+  domain: "{{ masbr_cluster_domain }}"
+  suite: "{{ mas_core_version | default('', true) }}"
+  instance: "{{ mas_instance_id | default('', true) }}"
+  workspace: "{{ mas_workspace_id | default('', true) }}"
+{% if masbr_job_component is defined and masbr_job_component.items() %}
+component:
+{% for key, value in masbr_job_component.items() %}
+  {{ key }}: "{{ value }}"
+{% endfor %}
+{% endif %}
+{% if masbr_job_data_list is defined and masbr_job_data_list | length > 0 %}
+data:
+{% for job_data in masbr_job_data_list %}
+  - seq: "{{ job_data.seq }}"
+    type: "{{ job_data.type }}"
+    phase: "{{ job_data.phase | default('New', true) }}"
+{% endfor %}
+{% endif %}
+{% if masbr_backup_schedule is defined and masbr_backup_schedule | length > 0 %}
+schedule: "{{ masbr_backup_schedule }}"
+{% endif %}
+status:
+  phase: "{{ masbr_job_status.phase | default('New', true) }}"
+  startTimestamp: "{{ masbr_job_status.startTimestamp | default('', true) }}"
+  completionTimestamp: "{{ masbr_job_status.completionTimestamp | default('', true) }}"
+{% if masbr_job_status is defined 
+  and masbr_job_status.sentNotifications is defined 
+  and masbr_job_status.sentNotifications | length > 0 %}
+  sentNotifications:
+{% for notification in masbr_job_status.sentNotifications %}
+    - type: "{{ notification.type }}"
+      channel: "{{ notification.channel }}"
+      timestamp: "{{ notification.timestamp }}"
+      phase: "{{ notification.phase }}"
+{% endfor %}
+{% endif %}

@@ -15,7 +15,7 @@ Playbook Content
 7. [Configure MAS to use BYO database](../roles/gencfg_jdbc.md) (optional, set `CONFIGURE_EXTERNAL_DB`)
 8. [Install Maximo Manage Application](../roles/suite_app_install.md)
 9. [Configure Maximo Manage Workspace](../roles/suite_app_config.md)
-10. [Configure Manage Attachments](../roles/suite_manage_doclinks_config.md) (optional, set `CONFIGURE_MANAGE_ATTACHMENTS`)
+10. [Configure Manage Attachments](../roles/suite_manage_attachments_config.md) (optional, set `CONFIGURE_MANAGE_ATTACHMENTS`)
 11. [Configure Manage Building Information Models](../roles/suite_manage_bim_config.md) (optional, set `CONFIGURE_MANAGE_BIM`)
 
 See the individual pages for each of these roles for more information and full details of all configuration options available in this playbook.
@@ -32,12 +32,20 @@ Required environment variables
 
    `export MAS_APPWS_COMPONENTS="base=latest,health=latest"`
 
-   To enable Asset Investment Optimizer, optional feature of health. Set `MANAGE_AIO_FLAG` to `true`. By default this flag is set to `false` . This featue is only avalaible on Manage with health as a addon or on Health as a Standalone install.
+   To disable Asset Investment Optimizer, optional feature of health, set `MAS_APP_SETTINGS_AIO_FLAG` to `false`. By default this flag is set to `true` . This feature is only avalaible on Manage with health as a addon or on Health as a Standalone install. This feature is disabled on MAS Core 9.1 and later.
 
-   `export MANAGE_AIO_FLAG=true`
+   `export MAS_APP_SETTINGS_AIO_FLAG=false`
 
 
+   **Note**:
 
+   To install Manage Foundation only that is available on MAS Core 9.1 or later, export the following environment variable:
+
+   `export IS_FULL_MANAGE=false`
+
+   Also, the `MAS_APPWS_COMPONENTS` environment variable must be empty:
+
+   `export MAS_APPWS_COMPONENTS=""`
 
 Optional Cloud Pak for Data Installation
 -------------------------------------------------------------------------------
@@ -84,7 +92,7 @@ export MAS_JDBC_USER=maximo
 export MAS_JDBC_PASSWORD=xxx
 export MAS_JDBC_URL=xxx
 
-export MAS_APP_SETTINGS_DB2_SCHEMA=maximo
+export MAS_APP_SETTINGS_DB_SCHEMA=maximo
 export MAS_APP_SETTINGS_TABLESPACE=maxdata
 export MAS_APP_SETTINGS_INDEXSPACE=maxindex
 

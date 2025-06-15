@@ -14,7 +14,10 @@ spec:
     privileged: true
     imagePullSecrets:
       - ibm-registry
-
+{% if db2_timezone is defined and db2_timezone != "" %}
+  advOpts:
+    timezone: "{{ db2_timezone }}"
+{% endif %}
   addOns:
     graph:
       enabled: false
@@ -44,7 +47,7 @@ spec:
 {% endif %}
 
   environment:
-    dbType: db2wh
+    dbType: "{{ db2_type }}" # db2wh or db2oltp
     database:
       name: "{{ db2_dbname }}"
 {% if db2_database_db_config is defined and db2_database_db_config != "" %}
@@ -54,7 +57,7 @@ spec:
       settings:
         dftTableOrg: "{{db2_table_org }}"
       ssl:
-        secretName: "db2u-certificate"
+        secretName: "db2u-certificate-{{db2_instance_name}}"
         certLabel: "CN=db2u"
     instance:
 {% if db2_instance_registry is defined and db2_instance_registry != "" %}
@@ -102,7 +105,7 @@ spec:
         resources:
           requests:
             storage: "{{ db2_data_storage_size }}"
-{% if db2_backup_storage_class is defined and db2_backup_storage_class != "" %}
+{% if db2_backup_storage_class is defined and db2_backup_storage_class != "None" %}
     - name: backup
       type: create
       spec:
@@ -114,7 +117,7 @@ spec:
         storageClassName: "{{ db2_backup_storage_class }}"
       type: create
 {% endif %}
-{% if db2_logs_storage_class is defined and db2_logs_storage_class != "" %}
+{% if db2_logs_storage_class is defined and db2_logs_storage_class != "None" %}
     - name: activelogs
       spec:
         accessModes:
@@ -125,7 +128,7 @@ spec:
         storageClassName: "{{ db2_logs_storage_class }}"
       type: template
 {% endif %}
-{% if db2_temp_storage_class is defined and db2_temp_storage_class != "" %}
+{% if db2_temp_storage_class is defined and db2_temp_storage_class != "None" %}
     - name: tempts
       spec:
         accessModes:

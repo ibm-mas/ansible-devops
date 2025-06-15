@@ -11,15 +11,14 @@ Four actions are supported:
 Three **Catalogs** are mirrored, containing the following content:
 
 ### certified-operator-index
-1. crunchy-postgres-operator (required by ibm.mas_devops.uds role)
-2. gpu-operator-certified (required by ibm.mas_devops.nvidia_gpu role)
-3. kubeturbo-certified (required by ibm.mas_devops.kubeturbo role)
-4. ibm-metrics-operator (required by ibm.mas_devops.dro role)
-5. ibm-data-reporter-operator (required by ibm.mas_devops.dro role)
+1. gpu-operator-certified (required by ibm.mas_devops.nvidia_gpu role)
+2. kubeturbo-certified (required by ibm.mas_devops.kubeturbo role)
+3. ibm-metrics-operator (required by ibm.mas_devops.dro role)
+4. ibm-data-reporter-operator (required by ibm.mas_devops.dro role)
 
 ### community-operator-index
-1. grafana-operator (required by ibm.mas_devops.cluster_monitoring role)
-2. opentelemetry-operator (required by ibm.mas_devops.cluster_monitoring role)
+1. grafana-operator (required by ibm.mas_devops.grafana role)
+2. opentelemetry-operator (required by ibm.mas_devops.opentelemetry role)
 3. strimzi-kafka-operator (required by ibm.mas_devops.kafka role)
 
 ### redhat-operator-index
@@ -30,6 +29,7 @@ Three **Catalogs** are mirrored, containing the following content:
 5. local-storage-operator (required by ibm.mas_devops.ocs role)
 6. odf-operator (required by ibm.mas_devops.ocs role)
 7. openshift-cert-manager-operator (required by ibm.mas_devops.cert_manager role)
+8. lvms-operator (not directly used, but often used in SNO environments)
 
 Requirements
 -------------------------------------------------------------------------------
@@ -81,21 +81,21 @@ Path to your Red Hat pull secret, available from: [https://console.redhat.com/op
 Role Variables - OpenShift Version
 -------------------------------------------------------------------------------
 ### ocp_release
-The Red Hat release you are mirroring content for, e.g. `4.12`.
+The Red Hat release you are mirroring content for, e.g. `4.16`.
 
 - **Required**
 - Environment Variable: `OCP_RELEASE`
 - Default: None
 
 ### ocp_min_version
-The minimum version of the Red Hat release to mirror platform content for, e.g. `4.12.0`.
+The minimum version of the Red Hat release to mirror platform content for, e.g. `4.16.11`.
 
 - **Optional**
 - Environment Variable: `OCP_MIN_VERSION`
 - Default: None
 
 ### ocp_max_version
-The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.12.18`.
+The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.16.20`.
 
 - **Optional**
 - Environment Variable: `OCP_MAX_VERSION`
@@ -116,6 +116,13 @@ The public port number for the target registry
 
 - **Required**
 - Environment Variable: `REGISTRY_PUBLIC_PORT`
+- Default: None
+
+### registry_prefix_redhat
+The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: `{host}[:{port}]/{prefix}/{reponame}`
+
+- Optional
+- Environment Variable: `REGISTRY_PREFIX_REDHAT`
 - Default: None
 
 ### registry_username
@@ -141,6 +148,7 @@ Example Playbook
   vars:
     registry_public_host: myregistry.mycompany.com
     registry_public_port: 5000
+    registry_prefix_redhat: "ocp416"
     registry_username: user1
     registry_password: 8934jk77s862!  # Not a real password, don't worry security folks
 
@@ -149,7 +157,7 @@ Example Playbook
     mirror_redhat_platform: false
     mirror_redhat_operators: true
 
-    ocp_release: 4.14
+    ocp_release: 4.16
     redhat_pullsecret: ~/pull-secret.json
 
   roles:

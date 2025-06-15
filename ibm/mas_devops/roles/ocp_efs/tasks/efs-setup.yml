@@ -19,7 +19,7 @@
 
 - name: "efs-setup : Query to Filter the Cluster VPC Id from the list of VPCs"
   vars:
-    query: "Vpcs[?(Tags[?contains(Value,'{{ cluster_name }}' )])].VpcId"
+    query: "Vpcs[?(Tags[?contains(Value,'{{ cluster_name }}-' )])].VpcId"
   set_fact:
     vpcid: "{{ vpc_ids.stdout|from_json|json_query(query) }}"
 
@@ -30,13 +30,45 @@
 
 # 3. Get Security Group of the cluster
 # -----------------------------------------------------------------------------
-- name: "efs-setup : Get Security Group of the EC2 Istance"
-  shell: aws ec2 describe-security-groups --filters Name=vpc-id,Values={{ vpcid }} Name=tag:Name,Values='*worker*' --query "SecurityGroups[*].{ID:GroupId}[0]"
+- name: "Look up cluster ocp version"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    name: "version"
+    kind: ClusterVersion
+  register: ocp_version_lookup
+
+- name: "Set ocp version number"
+  when: ocp_version_lookup.resources[0] is defined
+  set_fact:
+    ocp_version_num: "{{ ocp_version_lookup.resources[0].status.desired.version }}"
+
+- name: "Debug information"
+  debug:
+    msg: "OCP Release Version ................ {{ ocp_version_num }}"
+
+- name: "efs-setup : Get Security Group of the EC2 Instance"
+  shell: >
+    {% if ocp_version_num is version('4.17', '<') %}
+    aws ec2 describe-security-groups --filters Name=vpc-id,Values={{ vpcid }} Name=tag:Name,Values='*worker*' --query "SecurityGroups[*].{ID:GroupId}[0]"
+    {% else %}
+    aws ec2 describe-security-groups --filters Name=vpc-id,Values={{ vpcid }} Name=tag:Name,Values='*node*' --query "SecurityGroups[*].{ID:GroupId}[0]"
+    {% endif %}
   register: security_group
 
 - name: "efs-setup : Get Security Group Id from Output"
   set_fact:
     security_group_id: "{{ security_group.stdout | from_json | json_query(\"ID\") }}"
+
+- when:
+  - not security_group_id
+  block:
+  - name: "efs-setup : 2nd Attempt : Get Security Group of the EC2 Instance"
+    shell: aws ec2 describe-security-groups --filters Name=vpc-id,Values={{ vpcid }} Name=tag:api.openshift.com/id,Values='*' --query "SecurityGroups[*].{ID:GroupId}[0]"
+    register: security_group
+
+  - name: "efs-setup : 2nd Attempt: Get Security Group Id from Output"
+    set_fact:
+      security_group_id: "{{ security_group.stdout | from_json | json_query(\"ID\") }}"
 
 - name: "efs-setup : Debug Security Group Id"
   debug:
@@ -56,7 +88,7 @@
 # -----------------------------------------------------------------------------
 # rc 0 indicates success, 254 indicated duplicate (already exists)
 - name: "efs-setup : Create EFS (Elastic File System)"
-  shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value={{ efs_unique_id }}-efs --creation-token mas_devops.{{ efs_unique_id }}
+  shell: aws efs create-file-system --performance-mode generalPurpose --throughput-mode bursting --encrypted --tags Key=Name,Value={{ efs_unique_id }}-efs --creation-token {{ creation_token_prefix }}{{ efs_unique_id }}
   register: efs_creds
   failed_when: efs_creds.rc not in [0, 254]
 
@@ -67,11 +99,11 @@
 
 - name: "efs-setup : Lookup EFS (Elastic File System)"
   when: efs_creds.rc == 254
-  shell: aws efs describe-file-systems --creation-token mas_devops.{{ efs_unique_id }}
+  shell: aws efs describe-file-systems --creation-token {{ creation_token_prefix }}{{ efs_unique_id }}
   register: efs_lookup
   failed_when:
-    - efs_lookup.rc != 0
-    - efs_lookup.stdout | from_json | json_query("FileSystems") | length != 1
+  - efs_lookup.rc != 0
+  - efs_lookup.stdout | from_json | json_query("FileSystems") | length != 1
 
 - name: "efs-setup : Store EFS ID from lookup"
   when: efs_creds.rc == 254
@@ -81,8 +113,8 @@
 - name: "efs-setup : Debug EFS Info"
   debug:
     msg:
-      - "EFS Creation Token ..................... mas_devops.{{ efs_unique_id }}"
-      - "EFS ID ................................. {{ efs_id }}"
+    - "EFS Creation Token ..................... {{ creation_token_prefix }}{{ efs_unique_id }}"
+    - "EFS ID ................................. {{ efs_id }}"
 
 - name: "efs-availability : Check the EFS availability"
   shell: aws efs describe-file-systems --file-system-id {{ efs_id }}
@@ -129,7 +161,7 @@
 # - aws efs delete-access-point
 
 - name: "efs-setup : Add Client Access, Permissions to Owner and Posix User"
-  shell: aws efs create-access-point --file-system-id {{ efs_id }} --client-token mas_devops.{{ efs_unique_id }} --posix-user Uid=10022,Gid=20000 --root-directory Path='/rosa-{{ efs_unique_id }},CreationInfo={OwnerUid=10011,OwnerGid=10000,Permissions=0755}'
+  shell: aws efs create-access-point --file-system-id {{ efs_id }} --client-token {{ creation_token_prefix }}{{ efs_unique_id }} --posix-user Uid=10022,Gid=20000 --root-directory Path='/rosa-{{ efs_unique_id }},CreationInfo={OwnerUid=10011,OwnerGid=10000,Permissions=0755}'
   register: client_access_info
   failed_when: client_access_info.rc not in [0, 254]
 
