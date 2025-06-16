@@ -52,13 +52,6 @@ Note: For Maximo Real estate and facilities, we recommend to use workspace-appli
 - Environment Variable: `MAS_APPWS_BINDINGS_JDBC`
 - Default: `system`
 
-### is_full_manage
-If set to `false`, Manage Foundation will be installed instead of Full Manage (available on MAS Core 9.1 and later).
-
-- Optional
-- Environment Variable: `IS_FULL_MANAGE`
-- Default: `true`
-
 ### mas_appws_components
 Defines the app components and versions to configure in the application workspace. Takes the form of key=value pairs seperated by a comma i.e. To install health within Manage set `base=latest,health=latest`
 
