@@ -29,8 +29,73 @@
     - mas_channel is not defined or mas_channel == ""
     - core_sub_info.resources[0].spec.channel in upgrade_path
   set_fact:
-    mas_channel: "{{ upgrade_path[core_sub_info.resources[0].spec.channel] }}"
+    target_mas_channel: "{{ upgrade_path[core_sub_info.resources[0].spec.channel] }}"
 
+- name: "Lookup PackageManifest: ibm-mas"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: PackageManifest
+    name: "ibm-mas"
+    namespace: openshift-marketplace
+  register: mas_channel_lookup
+  no_log: true # This generates a huge amount of (useless) logging  
+
+- name: Assert that PackageManifest exists
+  ansible.builtin.assert:
+    that:
+      - mas_channel_lookup is defined
+      - mas_channel_lookup.resources is defined
+      - mas_channel_lookup.resources | length == 1
+    fail_msg: "PackageManifest not found: ibm-mas"
+
+- name: Get channels list from PackageManifest
+  ansible.builtin.set_fact:
+    op_channels_in_pm: "{{ mas_channel_lookup.resources[0].status.channels | default([], true) }}"
+
+- name: Find app channel index in channels list
+  ansible.builtin.set_fact:
+    op_channel_idx_in_pm: >-
+      {{ lookup('ansible.utils.index_of',
+                data=op_channels_in_pm,
+                test='eq',
+                value=target_mas_channel,
+                key='name') }}
+
+- name: Set mas_channel to the found channel name
+  ansible.builtin.set_fact:
+    mas_channel: "{{ op_channels_in_pm[op_channel_idx_in_pm | int].name }}"
+  when:
+    - op_channel_idx_in_pm is defined
+    - (op_channel_idx_in_pm | type_debug) != 'list'
+    - (op_channel_idx_in_pm | int(default=-1)) >= 0
+
+- name: Set fallback target channel
+  ansible.builtin.set_fact:
+    fallback_target_channel: "{{ target_mas_channel }}-feature"
+
+- name: Find channel with -feature if not found
+  ansible.builtin.set_fact: 
+    op_channel_idx_in_pm_with_feature: >-
+      {{ lookup('ansible.utils.index_of',
+                data=op_channels_in_pm,
+                test='eq',
+                value=fallback_target_channel,
+                key='name') }}
+            
+- name: Set mas_channel to the found channel name
+  ansible.builtin.set_fact:
+    mas_channel: "{{ op_channels_in_pm[op_channel_idx_in_pm_with_feature | int].name }}"
+  when:
+    - mas_channel is not defined
+    - op_channel_idx_in_pm_with_feature is defined
+    - (op_channel_idx_in_pm_with_feature | type_debug) != 'list'
+    - (op_channel_idx_in_pm_with_feature | int(default=-1)) >= 0
+
+- name: Raise error if channel not found
+  ansible.builtin.fail:
+    msg: "Upgrade not possible. Channel {{ mas_channel }} not found in PackageManifest."
+  when:
+    - mas_channel is not defined
 
 # 2. Provide debug information
 # -----------------------------------------------------------------------------
