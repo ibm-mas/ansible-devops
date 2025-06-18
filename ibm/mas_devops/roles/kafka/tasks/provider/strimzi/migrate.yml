@@ -38,3 +38,30 @@
               strimzi.io/kraft: disabled
               strimzi.io/node-pools: enabled
 
+# 10. Trigger the ZooKeeper migration
+# -----------------------------------------------------------------------------
+- name: "Get the kafka instance"
+  kubernetes.core.k8s:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    merge_type: merge
+    definition:
+          metadata:
+            annotations:
+              strimzi.io/kraft: migration
+
+# 10. Finalize the migration
+# -----------------------------------------------------------------------------
+#- name: "Get the kafka instance"
+#  kubernetes.core.k8s:
+#    api_version: kafka.strimzi.io/v1beta2
+#    kind: Kafka
+#    namespace: "{{ kafka_namespace }}"
+#    name: "{{ kafka_cluster_name }}"
+#    merge_type: merge
+#    definition:
+#          metadata:
+#           annotations:
+#              strimzi.io/kraft: enabled
