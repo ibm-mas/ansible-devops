@@ -13,3 +13,28 @@
     apply: yes
     template: "templates/redhat/nodepools/broker.yml.j2"
 
+# 10. Deploy the controller as NodePool
+# -----------------------------------------------------------------------------
+- name: "Get the kafka instance"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cluster
+
+# 10. Patch Kafka instance to add KRaft and NodePool annotations
+# -----------------------------------------------------------------------------
+- name: "Get the kafka instance"
+  kubernetes.core.k8s:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    merge_type: merge
+    definition:
+          metadata:
+            annotations:
+              strimzi.io/kraft: disabled
+              strimzi.io/node-pools: enabled
+
