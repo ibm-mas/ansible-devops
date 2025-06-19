@@ -54,14 +54,56 @@
 
 # 10. Finalize the migration
 # -----------------------------------------------------------------------------
-#- name: "Get the kafka instance"
-#  kubernetes.core.k8s:
-#    api_version: kafka.strimzi.io/v1beta2
-#    kind: Kafka
-#    namespace: "{{ kafka_namespace }}"
-#    name: "{{ kafka_cluster_name }}"
-#    merge_type: merge
-#    definition:
-#          metadata:
-#           annotations:
-#              strimzi.io/kraft: enabled
+- name: "Wait for the migration to finish"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cluster_cr
+  retires: 10
+  delay: 30
+  until: 
+    - kafka_cluster_cr.resources[0].status.kafkaMetadataState is defined
+    - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "KRaftPostMigration"
+
+# 10. Trigger the ZooKeeper migration
+# -----------------------------------------------------------------------------
+- name: "Enable KRaft annotation on the Kafka CRD"
+  kubernetes.core.k8s:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    merge_type: merge
+    definition:
+          metadata:
+            annotations:
+              strimzi.io/kraft: enabled
+
+# 10. Finalize the migration
+# -----------------------------------------------------------------------------
+- name: "Wait for the migration to finish"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cluster_cr
+  retires: 10
+  delay: 30
+  until: 
+    - kafka_cluster_cr.resources[0].status.kafkaMetadataState is defined
+    - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "KRaft"
+
+# 10. Finalize the migration
+# -----------------------------------------------------------------------------
+- name: "Deelete the ZooKeeper section from the Kafka CRD"
+  kubernetes.core.k8s_json_patch:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+    patch:
+      - op: remove
+        path: /spec/zookeeper
