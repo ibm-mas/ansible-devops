@@ -1,5 +1,5 @@
 ---
-# 10. Deploy the controller as NodePool
+# 1. Verify that the Kafka instance is in ZooKeeper mode
 # -----------------------------------------------------------------------------
 - name: "Get the Kafka CR instance"
   kubernetes.core.k8s_info:
@@ -13,7 +13,23 @@
   assert:
     that:
       - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "ZooKeeper"
-    fail_msg: "Kafka cluster is not in ZooKeeper mode. Aborting migration."
+    fail_msg: "Kafka cluster is not in ZooKeeper mode. Aborting..."
+
+
+# 10. Deploy the controller as NodePool
+# -----------------------------------------------------------------------------
+- name: "Take a backup of the existing Kafka CR"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  rgister: kafka_cr_backup
+
+- name: "Save Kafka CR to local YAML file"
+  copy:
+    content: "{{ kafka_cr_backup.resources[0] | to_nice_yaml }}"
+    dest: "{{ kafka_cluster_name }}-backup.yml"
 
 
 # 10. Deploy the controller as NodePool
