@@ -6,12 +6,14 @@
     apply: yes
     template: "templates/redhat/nodepools/controller.yml.j2"
 
+
 # 10. Deploy the controller as NodePool
 # -----------------------------------------------------------------------------
 - name: "Create the Broker"
   kubernetes.core.k8s:
     apply: yes
     template: "templates/redhat/nodepools/broker.yml.j2"
+
 
 # 10. Deploy the controller as NodePool
 # -----------------------------------------------------------------------------
@@ -22,6 +24,7 @@
     namespace: "{{ kafka_namespace }}"
     name: "{{ kafka_cluster_name }}"
   register: kafka_cluster
+
 
 # 10. Patch Kafka instance to add KRaft and NodePool annotations
 # -----------------------------------------------------------------------------
@@ -38,6 +41,7 @@
               strimzi.io/kraft: disabled
               strimzi.io/node-pools: enabled
 
+
 # 10. Trigger the ZooKeeper migration
 # -----------------------------------------------------------------------------
 - name: "Get the kafka instance"
@@ -51,6 +55,7 @@
           metadata:
             annotations:
               strimzi.io/kraft: migration
+
 
 # 10. Finalize the migration
 # -----------------------------------------------------------------------------
@@ -67,6 +72,7 @@
     - kafka_cluster_cr.resources[0].status.kafkaMetadataState is defined
     - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "KRaftPostMigration"
 
+
 # 10. Trigger the ZooKeeper migration
 # -----------------------------------------------------------------------------
 - name: "Enable KRaft annotation on the Kafka CRD"
@@ -80,6 +86,7 @@
           metadata:
             annotations:
               strimzi.io/kraft: enabled
+
 
 # 10. Finalize the migration
 # -----------------------------------------------------------------------------
@@ -96,9 +103,10 @@
     - kafka_cluster_cr.resources[0].status.kafkaMetadataState is defined
     - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "KRaft"
 
+
 # 10. Finalize the migration
 # -----------------------------------------------------------------------------
-- name: "Deelete the ZooKeeper section from the Kafka CRD"
+- name: "Delete the ZooKeeper section from the Kafka CRD"
   kubernetes.core.k8s_json_patch:
     api_version: kafka.strimzi.io/v1beta2
     kind: Kafka
@@ -107,3 +115,20 @@
     patch:
       - op: remove
         path: /spec/zookeeper
+
+
+# 10. Deploy the controller as NodePool
+# -----------------------------------------------------------------------------
+- name: "Get the Kafka CR instance"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ kafka_cluster_name }}"
+  register: kafka_cluster_cr
+
+- name: "Assert that the CR is switched to KRaft"
+  assert:
+        that:
+          - kafka_cr_status.resources[0].status.kafkaMetadataState == "KRaft"
+        fail_msg: "Kafka CR is not in KRaft mode, try restarting the migration."
