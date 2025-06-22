@@ -1,0 +1,316 @@
+#!/bin/bash
+# 
+# Licensed Materials - Property of IBM
+# 
+# Restricted Materials of IBM
+# 
+# (C) COPYRIGHT IBM CORP. 2014.  All Rights Reserved.
+# 
+# Create BUFFERPOOLS (TRIBUFPOOL, TRIBUFPOOLINDEX, TRITEMPBP, DEDICATEDBPDATA, DEDICATEDBPINDX, DEDICATEDBPLOB) 
+# and TABLESPACES (TRIDATA_DATA, TRIDATA_INDX, TRITEMP, DEDICATED_DATA, DEDICATED_INDEX, DEDICATED_LOBS)
+# Each TABLESPACE is created in the corresponding BUFFERPOOL 
+# 
+
+# set parameters used in the script
+
+DB2_DBNAME={{ db2_dbname }}
+DB2_INSTANCE_USERNAME='db2inst1'
+DB2_HOME='/mnt/blumeta0/home/db2inst1/sqllib'
+
+# validate running as instance user
+
+if [[ `whoami` != "$DB2_INSTANCE_USERNAME" ]]; then
+	echo "Error: this script needs to be run as the instance user, $DB2_INSTANCE_USERNAME"
+	exit 1
+fi
+
+# start the instance
+
+echo "Starting the instance, $DB2_INSTANCE_USERNAME if it is not already started..."
+echo "db2start"
+db2start
+rc=$?
+if [ $rc -ne "0" ]; then
+	if [ $rc -ne "1" ]; then
+    	echo "Error unable to start instance $DB2_INSTANCE_USERNAME for some reason = $rc.  Cannot continue and create the database."
+    	exit 1
+	fi
+fi
+echo "Return code for starting instance $DB2_INSTANCE_USERNAME is $rc"
+
+# connect to the database - required 
+
+echo "db2 connect to $DB2_DBNAME"
+db2 connect to $DB2_DBNAME
+rc=$?
+if [ $rc -ne "0" ]; then
+	echo "Unable to connect to $DB2_DBNAME for some reason = $rc"
+	exit $rc
+fi
+echo "Return code from CONNECT is $rc"
+
+BUFFERPOOLS=$(db2 "SELECT BPNAME FROM SYSCAT.BUFFERPOOLS")
+rc=$?
+if [ $rc -ne "0" ]; then
+	echo "Unable to list exixting BUFFERPOOLS for some reason = $rc"
+	exit $rc
+fi
+
+echo "${BUFFERPOOLS}"
+
+if [[ ${BUFFERPOOLS} != *"TRIBUFPOOL "* ]]; then
+    echo "Creating BUFFERPOOL TRIBUFPOOL"  
+    db2 "CREATE BUFFERPOOL TRIBUFPOOL SIZE AUTOMATIC PAGESIZE 32768"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create BUFFERPOOL TRIBUFPOOL for some reason = $rc"
+		exit $rc
+	else
+		echo "BUFFERPOOL TRIBUFPOOL created"	  	
+	fi
+else 
+  echo "BUFFERPOOL TRIBUFPOOL already exists"  	   
+fi
+
+db2 "SELECT * from SYSCAT.BUFFERPOOLS WHERE BPNAME = 'TRIBUFPOOL'"
+
+if [[ ${BUFFERPOOLS} != *"TRIBUFPOOLINDEX "* ]]; then 
+    echo "Creating BUFFERPOOL TRIBUFPOOLINDEX"   
+    db2 "CREATE BUFFERPOOL TRIBUFPOOLINDEX SIZE AUTOMATIC PAGESIZE 32768"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create BUFFERPOOL TRIBUFPOOLINDEX for some reason = $rc"
+		exit $rc
+	else
+		echo "BUFFERPOOL TRIBUFPOOLINDEX created"			
+	fi
+else 
+  echo "BUFFERPOOL TRIBUFPOOLINDEX already exists" 	   
+fi
+
+db2 "SELECT * from SYSCAT.BUFFERPOOLS WHERE BPNAME = 'TRIBUFPOOLINDEX'"
+
+if [[ ${BUFFERPOOLS} != *"TRITEMPBP "* ]]; then
+    echo "Creating BUFFERPOOL TRITEMPBP"    
+    db2 "CREATE BUFFERPOOL TRITEMPBP SIZE AUTOMATIC PAGESIZE 32768"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create BUFFERPOOL TRITEMPBP for some reason = $rc"
+		exit $rc
+	else
+		echo "BUFFERPOOL TRITEMPBP created"			
+	fi   
+else 
+  echo "BUFFERPOOL TRITEMPBP already exists" 
+fi
+
+db2 "SELECT * from SYSCAT.BUFFERPOOLS WHERE BPNAME = 'TRITEMPBP'"
+
+if [[ ${BUFFERPOOLS} != *"DEDICATEDBPDATA "* ]]; then 
+    echo "Creating BUFFERPOOL DEDICATEDBPDATA"   
+    db2 "CREATE BUFFERPOOL DEDICATEDBPDATA SIZE AUTOMATIC PAGESIZE 32768"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create BUFFERPOOL DEDICATEDBPDATA for some reason = $rc"
+		exit $rc
+	else
+		echo "BUFFERPOOL DEDICATEDBPDATA created"			
+	fi
+else 
+  echo "BUFFERPOOL DEDICATEDBPDATA already exists" 	   
+fi
+
+db2 "SELECT * from SYSCAT.BUFFERPOOLS WHERE BPNAME = 'DEDICATEDBPDATA'"
+
+if [[ ${BUFFERPOOLS} != *"DEDICATEDBPINDX "* ]]; then  
+    echo "Creating BUFFERPOOL DEDICATEDBPINDX"  
+    db2 "CREATE BUFFERPOOL DEDICATEDBPINDX SIZE AUTOMATIC PAGESIZE 32768"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create BUFFERPOOL DEDICATEDBPINDX for some reason = $rc"
+		exit $rc
+	else
+		echo "BUFFERPOOL DEDICATEDBPINDX created"			
+	fi
+else 
+  echo "BUFFERPOOL DEDICATEDBPINDX already exists" 	   
+fi 
+
+db2 "SELECT * from SYSCAT.BUFFERPOOLS WHERE BPNAME = 'DEDICATEDBPINDX'"
+
+if [[ ${BUFFERPOOLS} != *"DEDICATEDBPLOB "* ]]; then 
+    echo "Creating BUFFERPOOL DEDICATEDBPLOB"   
+    db2 "CREATE BUFFERPOOL DEDICATEDBPLOB SIZE AUTOMATIC PAGESIZE 32768"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create BUFFERPOOL DEDICATEDBPLOB for some reason = $rc"
+		exit $rc
+	else
+		echo "BUFFERPOOL DEDICATEDBPLOB created"			
+	fi
+else 
+  echo "BUFFERPOOL DEDICATEDBPLOB already exists" 	   
+fi
+
+db2 "SELECT * from SYSCAT.BUFFERPOOLS WHERE BPNAME = 'DEDICATEDBPLOB'"
+
+TABLESPACES=$(db2 "SELECT TBSPACE FROM SYSCAT.TABLESPACES")
+rc=$?
+if [ $rc -ne "0" ]; then
+	echo "Unable to list exixting TABLESPACES for some reason = $rc"
+	exit $rc	
+fi
+
+echo "${TABLESPACES}"
+
+if [[ ${TABLESPACES} != *"TRIDATA_DATA "* ]]; then
+    echo "Creating TABLESPACE TRIDATA_DATA"    
+    db2 "CREATE LARGE TABLESPACE TRIDATA_DATA IN DATABASE PARTITION GROUP IBMDEFAULTGROUP
+		PAGESIZE 32768 MANAGED BY AUTOMATIC STORAGE
+		AUTORESIZE YES
+		INITIALSIZE 5000 M
+		INCREASESIZE 1 G
+		MAXSIZE NONE
+		EXTENTSIZE 32
+		PREFETCHSIZE AUTOMATIC
+		BUFFERPOOL TRIBUFPOOL
+		DATA TAG INHERIT
+		OVERHEAD INHERIT
+		TRANSFERRATE INHERIT
+		DROPPED TABLE RECOVERY ON;"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create TABLESPACE TRIDATA_DATA for some reason = $rc"
+		exit $rc
+	fi
+else 
+  echo "TABLESPACE TRIDATA_DATA already exists" 	   
+fi
+
+db2 "SELECT * FROM SYSCAT.TABLESPACES WHERE TBSPACE = 'TRIDATA_DATA'"
+
+if [[ ${TABLESPACES} != *"TRIDATA_INDX "* ]]; then 
+    echo "Creating TABLESPACE TRIDATA_INDX"   
+    db2 "CREATE LARGE TABLESPACE TRIDATA_INDX IN DATABASE PARTITION GROUP IBMDEFAULTGROUP
+		PAGESIZE 32768 MANAGED BY AUTOMATIC STORAGE
+		AUTORESIZE YES
+		INITIALSIZE 5000 M
+		MAXSIZE NONE
+		EXTENTSIZE 32
+		PREFETCHSIZE AUTOMATIC
+		BUFFERPOOL TRIBUFPOOLINDEX
+		DATA TAG INHERIT
+		OVERHEAD INHERIT
+		TRANSFERRATE INHERIT
+		DROPPED TABLE RECOVERY ON;"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create TABLESPACE TRIDATA_INDX for some reason = $rc"
+		exit $rc
+	fi
+else 
+  echo "TABLESPACE TRIDATA_INDX already exists" 	   
+fi 			
+
+db2 "SELECT * FROM SYSCAT.TABLESPACES WHERE TBSPACE = 'TRIDATA_INDX'"
+
+if [[ ${TABLESPACES} != *"TRITEMP "* ]]; then
+    echo "Creating TABLESPACE TRITEMP"    
+    db2 "CREATE TEMPORARY TABLESPACE TRITEMP IN DATABASE PARTITION GROUP IBMTEMPGROUP
+		PAGESIZE 32768 MANAGED BY AUTOMATIC STORAGE
+		EXTENTSIZE 32
+		PREFETCHSIZE AUTOMATIC
+		BUFFERPOOL TRITEMPBP
+		OVERHEAD INHERIT
+		TRANSFERRATE INHERIT
+		FILE SYSTEM CACHING
+		DROPPED TABLE RECOVERY OFF;"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create TABLESPACE TRITEMP for some reason = $rc"
+		exit $rc
+	fi
+else 
+  echo "TABLESPACE TRITEMP already exists" 	   
+fi
+
+db2 "SELECT * FROM SYSCAT.TABLESPACES WHERE TBSPACE = 'TRITEMP'"
+
+if [[ ${TABLESPACES} != *"DEDICATED_DATA "* ]]; then
+    echo "Creating TABLESPACE DEDICATED_DATA"    
+    db2 "CREATE LARGE TABLESPACE DEDICATED_DATA IN DATABASE PARTITION GROUP IBMDEFAULTGROUP
+		PAGESIZE 32768 MANAGED BY AUTOMATIC STORAGE
+		AUTORESIZE YES
+		INITIALSIZE 5000 M
+		MAXSIZE NONE
+		EXTENTSIZE 32
+		PREFETCHSIZE AUTOMATIC
+		BUFFERPOOL DEDICATEDBPDATA
+		DATA TAG INHERIT
+		OVERHEAD INHERIT
+		TRANSFERRATE INHERIT
+		DROPPED TABLE RECOVERY ON;"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create TABLESPACE DEDICATED_DATA for some reason = $rc"
+		exit $rc
+	fi
+else 
+  echo "TABLESPACE DEDICATED_DATA already exists" 	   
+fi
+
+db2 "SELECT * FROM SYSCAT.TABLESPACES WHERE TBSPACE = 'DEDICATED_DATA'"
+
+if [[ ${TABLESPACES} != *"DEDICATED_INDEX "* ]]; then 
+    echo "Creating TABLESPACE DEDICATED_INDEX"   
+    db2 "CREATE LARGE TABLESPACE DEDICATED_INDEX IN DATABASE PARTITION GROUP IBMDEFAULTGROUP
+		PAGESIZE 32768 MANAGED BY AUTOMATIC STORAGE
+		AUTORESIZE YES
+		INITIALSIZE 5000 M
+		MAXSIZE NONE
+		EXTENTSIZE 32
+		PREFETCHSIZE AUTOMATIC
+		BUFFERPOOL DEDICATEDBPINDX
+		DATA TAG INHERIT
+		OVERHEAD INHERIT
+		TRANSFERRATE INHERIT
+		DROPPED TABLE RECOVERY ON;"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create TABLESPACE DEDICATED_INDEX for some reason = $rc"
+		exit $rc
+	fi
+else 
+  echo "TABLESPACE DEDICATED_INDEX already exists" 	   
+fi
+
+db2 "SELECT * FROM SYSCAT.TABLESPACES WHERE TBSPACE = 'DEDICATED_INDEX'"
+
+if [[ ${TABLESPACES} != *"DEDICATED_LOBS "* ]]; then
+    echo "Creating TABLESPACE DEDICATED_LOBS"    
+    db2 "CREATE LARGE TABLESPACE DEDICATED_LOBS IN DATABASE PARTITION GROUP IBMDEFAULTGROUP
+		PAGESIZE 32768 MANAGED BY AUTOMATIC STORAGE
+		AUTORESIZE YES
+		INITIALSIZE 5000 M
+		MAXSIZE NONE
+		EXTENTSIZE 32
+		PREFETCHSIZE AUTOMATIC
+		BUFFERPOOL DEDICATEDBPLOB
+		DATA TAG INHERIT
+		OVERHEAD INHERIT
+		TRANSFERRATE INHERIT
+		DROPPED TABLE RECOVERY ON;"
+	rc=$?
+	if [ $rc -ne "0" ]; then
+		echo "Unable to create TABLESPACE DEDICATED_LOBS for some reason = $rc"
+		exit $rc
+	fi
+else 
+  echo "TABLESPACE DEDICATED_LOBS already exists" 	   
+fi
+
+db2 "SELECT * FROM SYSCAT.TABLESPACES WHERE TBSPACE = 'DEDICATED_LOBS'"
+
+db2 disconnect $DB2_DBNAME
+
+exit 0 
