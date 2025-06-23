@@ -25,7 +25,7 @@
       password: "{{ lookup('env', 'MAS_AIBROKER_DB2_PASSWORD') }}"
       url: "{{ lookup('env', 'MAS_AIBROKER_DB2_JDBC_URL') }}"
       sslenabled: "{{ lookup('env', 'MAS_AIBROKER_DB2_SSL_ENABLED') | default('True', true) | bool }}"
-      ca: "{{ lookup('env', 'MAS_AIBROKER_DB2_CA_CERT') }}"
+      ca: "{{ lookup('env', 'MAS_AIBROKER_DB2_CA_CERT') | regex_replace('BEGIN CERTIFICATE', 'BEGIN_CERTIFICATE') | regex_replace('END CERTIFICATE', 'END_CERTIFICATE') | regex_replace('\\s+', '\n') | replace('BEGIN_CERTIFICATE', 'BEGIN CERTIFICATE')| replace('END_CERTIFICATE', 'END CERTIFICATE') }}"
   when: not jdbc_config_file_result.stat.exists
 
 - name: "Validate JDBC configuration"
