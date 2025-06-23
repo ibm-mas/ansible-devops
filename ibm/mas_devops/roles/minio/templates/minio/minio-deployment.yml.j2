@@ -13,10 +13,6 @@ spec:
       labels:
         app: "{{ minio_instance_name }}"
     spec:
-      volumes:
-        - name: storage
-          persistentVolumeClaim:
-            claimName: minio-pvc
       containers:
         - name: "{{ minio_instance_name }}"
           image: "{{ minio_version }}"
@@ -24,12 +20,25 @@ spec:
             - /bin/bash
             - -c
           args:
-            - minio server /data --console-address :9090
+            - minio server /data --console-address :9090 --address :443
           env:
             - name: MINIO_ROOT_USER
               value: "{{ minio_root_user }}"
             - name: MINIO_ROOT_PASSWORD
               value: "{{ minio_root_password }}"
+            - name: MINIO_SERVER_URL
+              value: "https://minio-route-{{ minio_namespace }}.apps.{{ cluster_domain }}"
           volumeMounts:
-            - mountPath: /data
-              name: storage
+            - name: storage
+              mountPath: /data
+            - name: minio-tls
+              mountPath: /root/.minio/certs
+              readOnly: true
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: minio-pvc
+        - name: minio-tls
+          secret:
+            secretName: minio-tls-cert
+
