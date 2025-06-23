@@ -83,23 +83,6 @@
 
 # 5. Check that the Application Workspaces meet the required state
 # -----------------------------------------------------------------------------
-- name: 'Check that all workspace CRs are healthy'
-  kubernetes.core.k8s_info:
-    api_version: "{{ app_info[mas_app_id].api_version }}"
-    kind: "{{ app_info[mas_app_id].ws_kind }}"
-    namespace: "{{ mas_app_namespace }}"
-    label_selectors:
-      - mas.ibm.com/instanceId={{ mas_instance_id }}
-      - mas.ibm.com/applicationId={{ mas_app_id }}
-  retries: 20 # about 40 minutes
-  delay: 120 # 2 minutes
-  until:
-    - app_ws_cr_lookup.resources is defined
-    - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
-  when:
-    - mas_app_id != "manage"
-  register: app_ws_cr_lookup
-
 - name: 'Store ManageWorkspace for upgradeType check (Manage only)'
   kubernetes.core.k8s_info:
     api_version: "{{ app_info[mas_app_id].api_version }}"
@@ -117,11 +100,7 @@
     manage_upgrade_type: "{{ manage_ws.resources | json_query('[*].spec.settings.db.upgrade.upgradeType') }}"
   when: mas_app_id == "manage"
 
-- name: "Debug upgradeType (Manage only)"
-  debug:
-    msg: "Upgrade Type: {{ manage_upgrade_type }}"
-
-- name: 'Check that all workspace CRs are healthy (regular upgrade check) (Manage only)'
+- name: 'Check that all workspace CRs are healthy'
   kubernetes.core.k8s_info:
     api_version: "{{ app_info[mas_app_id].api_version }}"
     kind: "{{ app_info[mas_app_id].ws_kind }}"
@@ -129,14 +108,13 @@
     label_selectors:
       - mas.ibm.com/instanceId={{ mas_instance_id }}
       - mas.ibm.com/applicationId={{ mas_app_id }}
-  retries: 20 # about 40 minutes
+  retries: 45 # about 90 minutes
   delay: 120 # 2 minutes
   until:
     - app_ws_cr_lookup.resources is defined
     - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
   when:
-    - mas_app_id == "manage"
-    - '"onlineUpgrade" not in manage_upgrade_type'
+    - 'manage_upgrade_type is not defined or "onlineUpgrade" not in manage_upgrade_type'
   register: app_ws_cr_lookup
 
 - name: 'Check that all workspace CRs are healthy (online upgrade check) (Manage only)'
@@ -147,7 +125,7 @@
     label_selectors:
       - mas.ibm.com/instanceId={{ mas_instance_id }}
       - mas.ibm.com/applicationId={{ mas_app_id }}
-  retries: 20 # about 40 minutes
+  retries: 45 # about 90 minutes
   delay: 120 # 2 minutes
   until:
     - app_ws_cr_lookup.resources is defined
