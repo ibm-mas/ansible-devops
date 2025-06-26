@@ -41,9 +41,7 @@ Required environment variables
 
    To install Manage Foundation only that is available on MAS Core 9.1 or later, export the following environment variable:
 
-   `export IS_FULL_MANAGE=false`
-
-   Also, the `MAS_APPWS_COMPONENTS` environment variable must be empty:
+   `MAS_APPWS_COMPONENTS` environment variable must be empty:
 
    `export MAS_APPWS_COMPONENTS=""`
 
