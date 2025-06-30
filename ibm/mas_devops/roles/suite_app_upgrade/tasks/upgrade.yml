@@ -83,6 +83,23 @@
 
 # 5. Check that the Application Workspaces meet the required state
 # -----------------------------------------------------------------------------
+- name: 'Check if workspace CR reconciled version is updated to target version (manage only)'
+  kubernetes.core.k8s_info:
+    api_version: "{{ app_info[mas_app_id].api_version }}"
+    kind: "{{ app_info[mas_app_id].ws_kind }}"
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - mas.ibm.com/instanceId={{ mas_instance_id }}
+      - mas.ibm.com/applicationId={{ mas_app_id }}
+  retries: 45 # about 90 minutes
+  delay: 120 # 2 minutes
+  until:
+    - app_ws_cr_version.resources is defined
+    - app_ws_cr_version.resources[0].status.versions.reconciled == updated_opcon_version
+  when:
+    - mas_app_id == "manage"
+  register: app_ws_cr_version
+
 - name: 'Check that all workspace CRs are healthy'
   kubernetes.core.k8s_info:
     api_version: "{{ app_info[mas_app_id].api_version }}"
