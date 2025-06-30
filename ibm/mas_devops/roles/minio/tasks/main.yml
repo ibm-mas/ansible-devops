@@ -2,6 +2,23 @@
 - name: Load variables (main)
   include_vars: "vars/main.yml"
 
+# Get cluster domain
+# -----------------------------------------------------------------------------
+- name: "Get cluster subdomain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Set fact: cluster subdomain"
+  set_fact:
+    cluster_domain: "{{ _cluster_subdomain.resources[0].spec.domain }}"
+
+- name: "Debug: cluster domain"
+  debug:
+    msg: "Cluster domain ........................ {{ cluster_domain }}"
+    
 # Load default storage class (if not provided by the user)
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
@@ -35,3 +52,14 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/minio/minio-route.yml.j2') }}"
+
+- name: "Create and wait for CA certificate"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/certs/tls.yml.j2') }}"
+    wait: yes
+    wait_timeout: 600 #10 minutes
+    wait_condition:
+      type: Ready
+      status: True
+  register: createCaCert

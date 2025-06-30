@@ -1,4 +1,3 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,6 +12,20 @@ spec:
       labels:
         app: "{{ minio_instance_name }}"
     spec:
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: minio-pvc
+        - name: minio-certs
+          secret:
+            secretName: minio-server-secret
+            items:
+              - key: public.crt
+                path: public.crt
+              - key: private.key
+                path: private.key
+              - key: public.crt
+                path: CAs/public.crt
       containers:
         - name: "{{ minio_instance_name }}"
           image: "{{ minio_version }}"
@@ -20,25 +33,21 @@ spec:
             - /bin/bash
             - -c
           args:
-            - minio server /data --console-address :9090 --address :443
+            - minio server /data --console-address :9443
           env:
             - name: MINIO_ROOT_USER
               value: "{{ minio_root_user }}"
             - name: MINIO_ROOT_PASSWORD
               value: "{{ minio_root_password }}"
-            - name: MINIO_SERVER_URL
-              value: "https://minio-route-{{ minio_namespace }}.apps.{{ cluster_domain }}"
+          ports:
+            - name: https
+              containerPort: 443
+              protocol: TCP
+            - name: console
+              containerPort: 9443
+              protocol: TCP
           volumeMounts:
-            - name: storage
-              mountPath: /data
-            - name: minio-tls
-              mountPath: /root/.minio/certs
-              readOnly: true
-      volumes:
-        - name: storage
-          persistentVolumeClaim:
-            claimName: minio-pvc
-        - name: minio-tls
-          secret:
-            secretName: minio-tls-cert
-
+            - mountPath: /data
+              name: storage
+            - mountPath: /root/.minio/certs
+              name: minio-certs
