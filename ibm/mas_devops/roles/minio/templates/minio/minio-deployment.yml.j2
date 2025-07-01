@@ -12,20 +12,6 @@ spec:
       labels:
         app: "{{ minio_instance_name }}"
     spec:
-      volumes:
-        - name: storage
-          persistentVolumeClaim:
-            claimName: minio-pvc
-        - name: minio-certs
-          secret:
-            secretName: minio-server-secret
-            items:
-              - key: public.crt
-                path: public.crt
-              - key: private.key
-                path: private.key
-              - key: public.crt
-                path: CAs/public.crt
       containers:
         - name: "{{ minio_instance_name }}"
           image: "{{ minio_version }}"
@@ -33,7 +19,10 @@ spec:
             - /bin/bash
             - -c
           args:
-            - minio server /data --console-address :9443
+            - server
+            - /data
+            - --console-address
+            - ":9443"
           env:
             - name: MINIO_ROOT_USER
               value: "{{ minio_root_user }}"
@@ -41,13 +30,25 @@ spec:
               value: "{{ minio_root_password }}"
           ports:
             - name: https
-              containerPort: 443
+              containerPort: 9000
               protocol: TCP
             - name: console
               containerPort: 9443
               protocol: TCP
           volumeMounts:
-            - mountPath: /data
-              name: storage
-            - mountPath: /root/.minio/certs
-              name: minio-certs
+            - name: storage
+              mountPath: /data
+            - name: minio-certs
+              mountPath: /root/.minio/certs
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: minio-pvc
+        - name: minio-certs
+          secret:
+            secretName: minio-tls-secret
+            items:
+              - key: tls.crt
+                path: public.crt
+              - key: tls.key
+                path: private.key
