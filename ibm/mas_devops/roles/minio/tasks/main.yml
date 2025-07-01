@@ -23,6 +23,12 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
+# create minio namespace
+- name: 'Create minio namespace'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/minio-ns.yml.j2') }}"
+
 # create minio certs for TLS
 - name: "Create internal CA certificate issuer"
   kubernetes.core.k8s:
@@ -52,13 +58,7 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/minio/certs/certificate.yml.j2') }}"
   register: createCertificate
-
-# create minio namespace
-- name: 'Create minio namespace'
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/minio/minio-ns.yml.j2') }}"
-
+  
 # create minio PVC
 - name: 'Create minio pvc'
   kubernetes.core.k8s:
