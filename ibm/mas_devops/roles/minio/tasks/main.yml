@@ -23,6 +23,35 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
+- name: "Create internal CA certificate issuer"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/ca_issuer.yml.j2') }}"
+  register: createCaIssuer
+
+- name: "Create and wait for CA certificate"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/ca_certificate.yml.j2') }}"
+    wait: yes
+    wait_timeout: 600
+    wait_condition:
+      type: Ready
+      status: True
+  register: createCaCert
+
+- name: 'Create certificate issuer'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/issuer.yml.j2') }}"
+  register: createIssuer
+
+- name: 'Create minio certificate'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/minio/certificate.yml.j2') }}"
+  register: createCertificate
+
 # create minio namespace
 - name: 'Create minio namespace'
   kubernetes.core.k8s:
@@ -53,13 +82,5 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/minio/minio-route.yml.j2') }}"
 
-- name: "Create and wait for CA certificate"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/minio/tls.yml.j2') }}"
-    wait: yes
-    wait_timeout: 600 #10 minutes
-    wait_condition:
-      type: Ready
-      status: True
-  register: createCaCert
+
+
