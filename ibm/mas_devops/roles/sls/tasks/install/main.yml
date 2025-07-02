@@ -155,7 +155,7 @@
       - "SLS Bootstrap license id ............... {{ bootstrap.license_id | default('<undefined>', True) }}"
       - "SLS Bootstrap registrationKey .......... {{ bootstrap.registration_key | default('<undefined>', True) }}"
       - "SLS entitlement file ................... {{ entitlement_file | default('<undefined>', True) }}"
-      - "SLS Mongo Retry Writes ................. {{ sls_mongo_retrywrites }}"
+      - "SLS Mongo Retry Writes default value ... {{ sls_mongo_retrywrites }}"
 
 
 # 5. Load PodTemplates configuration
@@ -246,6 +246,16 @@
       certificates: "{{ lookup('template', 'templates/mongo-certificates.yml.j2') }}"
   no_log: true
   when: mongocfg is defined and mongocfg[0] is defined and mongocfg[0].data is defined
+
+- name: Set sls_mongo_retrywrites to mongocfg[1].spec.config.retryWrites if it exists
+  ansible.builtin.set_fact:
+    sls_mongo_retrywrites: "{{ mongocfg[1].spec.config.retryWrites }}"
+  when: mongocfg is defined and mongocfg | length > 1 and mongocfg[1].spec.config.retryWrites is defined
+
+- name: "Debug Retry Writes setting"
+  ansible.builtin.debug:
+    msg:
+      - "SLS Mongo Retry Writes set to .......... {{ sls_mongo_retrywrites }}"
 
 - name: Create the Mongo Secret for SLS
   kubernetes.core.k8s:

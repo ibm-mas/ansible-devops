@@ -33,21 +33,6 @@
     install_dro: "{{ lookup('env', 'INSTALL_DRO') | default('False', true) | bool }}"
 
   pre_tasks:
-    - name: 'Get cluster domain'
-      kubernetes.core.k8s_info:
-        api_version: config.openshift.io/v1
-        kind: DNS
-        name: cluster
-      register: _cluster_dns
-
-    - name: 'Set fact: cluster domain'
-      set_fact:
-        cluster_domain: '{{ _cluster_dns.resources[0].spec.baseDomain }}'
-
-    - name: 'Debug: cluster domain'
-      debug:
-        msg: 'Cluster domain ........................ {{ cluster_domain }}'
-
     # For the full set of supported environment variables refer to the playbook documentation
     - name: Check for required common environment variables
       assert:
@@ -58,37 +43,35 @@
 
   roles:
     - role: ibm.mas_devops.ibm_catalogs
-      when: mas_app_channel in ['9.1.x']
+      when: mas_app_channel not in ['9.0.x']
     - role: ibm.mas_devops.cert_manager
-      when: mas_app_channel in ['9.1.x']
+      when: mas_app_channel not in ['9.0.x']
     - role: ibm.mas_devops.mongodb
       when:
         - install_mongo == true
-        - mas_app_channel in ['9.1.x']
+        - mas_app_channel not in ['9.0.x']
     - role: ibm.mas_devops.sls
       when:
         - install_sls == true
-        - mas_app_channel in ['9.1.x']
+        - mas_app_channel not in ['9.0.x']
     - role: ibm.mas_devops.dro
       when:
         - install_dro == true
-        - mas_app_channel in ['9.1.x']
+        - mas_app_channel not in ['9.0.x']
     - role: ibm.mas_devops.db2
       when:
         - install_db2 == true
-        - mas_app_channel in ['9.1.x']
+        - mas_app_channel not in ['9.0.x']
     - role: ibm.mas_devops.minio
       when:
         - install_minio == true
-        - mas_app_channel in ['9.0.x', '9.1.x']
     - role: ibm.mas_devops.mariadb
       when:
         - install_mariadb == true
-        - mas_app_channel in ['9.0.x', '9.1.x']
     - role: ibm.mas_devops.odh
     - role: ibm.mas_devops.suite_app_install
       when: mas_app_channel == "9.0.x"
     - role: ibm.mas_devops.kmodels
     - role: ibm.mas_devops.aibroker
     - role: ibm.mas_devops.aibroker_tenant
-      when: mas_app_channel in ['9.1.x']
+      when: mas_app_channel not in ['9.0.x']
