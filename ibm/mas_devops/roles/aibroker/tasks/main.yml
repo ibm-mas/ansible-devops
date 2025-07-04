@@ -11,9 +11,17 @@
     name: cluster
   register: _cluster_subdomain
 
-- name: "Set fact: cluster subdomain"
+- name: "Set custom cluster subdomain"
+  set_fact:
+    cluster_domain: "{{ mas_aibroker_cluster_domain }}"
+  when:
+    - mas_aibroker_cluster_domain | length > 0
+
+- name: "Set default cluster subdomain from ingress"
   set_fact:
     cluster_domain: "{{ _cluster_subdomain.resources[0].spec.domain }}"
+  when:
+    - mas_aibroker_cluster_domain | length == 0
 
 - name: "Debug: cluster domain"
   debug:
