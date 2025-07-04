@@ -71,10 +71,6 @@ def main():
         delete_wildcards = dict(
             type = 'bool'
         ),
-        edge_certificate_routes = dict(
-            type = 'list',
-            required = False
-        ),
         cis_proxy = dict(
             type = 'bool',
             required = False
@@ -98,7 +94,6 @@ def main():
     updateDNS = module.params['update_dns']
     delete_wildcards = module.params['delete_wildcards']
     cis_waf = module.params['cis_waf']
-    edgeCertRoutes = module.params['edge_certificate_routes']
     cisProxy = module.params['cis_proxy']
 
 

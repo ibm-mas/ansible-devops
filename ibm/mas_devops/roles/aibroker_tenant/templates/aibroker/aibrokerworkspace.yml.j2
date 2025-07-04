@@ -1,0 +1,61 @@
+---
+apiVersion: apps.mas.ibm.com/v1
+kind: AiBrokerWorkspace
+metadata:
+    name: "{{ tenantNamespace }}"
+    namespace: "{{ aibroker_namespace }}"
+    annotations:
+        ansible.sdk.operatorframework.io/verbosity: "{{ mas_aibroker_operator_log_level }}"
+    labels:
+        mas.ibm.com/applicationId: aibroker
+        mas.ibm.com/instanceId: "{{ mas_instance_id }}"
+        app.kubernetes.io/instance: "{{ mas_instance_id }}"
+{% if custom_labels is defined and custom_labels.items() %}
+{% for key, value in custom_labels.items() %}
+        "{{ key }}": "{{ value }}"
+{% endfor %}
+{% endif %}
+spec:
+    settings:
+        icr:
+            cp: "{{ mas_icr_cp }}"
+            cpopen: "{{ mas_icr_cpopen }}"
+        dro:
+            url: "{{ drocfg.url }}"
+            secretName: "{{ mas_aibroker_dro_token_secret }}"
+# TODO: remove this condition before patch release - as it is temporary fix.
+{% if mas_app_channel == '9.1.x' %} 
+            ca: "{{ drocfg.ca }}"
+{% else %}
+            ca: "{{ drocfg.ca | b64encode  }}"
+{% endif %}
+        sls:
+            url: "{{ slscfg.url }}"
+            secretName: "{{ mas_aibroker_sls_secret }}"
+# TODO: remove this condition before patch release - as it is temporary fix.
+{% if mas_app_channel == '9.1.x' %} 
+            ca: "{{ slscfg.ca }}"
+{% else %}
+            ca: "{{ slscfg.ca | b64encode  }}"
+{% endif %}
+        rsl:
+            url: {{ rsl_url }}
+            orgId: {{ rsl_org_id }}
+            secretName: {{ mas_aibroker_rsl_secret }}
+        watsonxai:
+            url: "{{ mas_aibroker_watsonxai_url }}"
+            secretName: "{{ mas_aibroker_watsonxai_secret }}"
+            project_id: "{{ mas_aibroker_watsonxai_project_id }}"
+        tenant: 
+            tenant_id: "{{ mas_aibroker_tenant_name }}"
+            subscription_id: "{{ mas_aibroker_sls_subscription_id }}"
+            instance_id: "{{ mas_instance_id }}"
+            entitlement:
+                type: {{ tenant_entitlement_type }}
+                startDate: {{ tenant_entitlement_start_date }}
+                endDate: {{ tenant_entitlement_end_date }}
+        s3:
+            region: {{ mas_aibroker_s3_region }}
+            bucketPrefix: {{ mas_aibroker_s3_bucket_prefix }}
+            endpointUrl: {{ mas_aibroker_s3_endpoint_url }}
+            secretName: "{{ mas_aibroker_s3_secret }}"

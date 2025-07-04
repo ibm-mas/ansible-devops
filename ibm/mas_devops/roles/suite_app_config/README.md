@@ -46,6 +46,7 @@ The application workspace deployment spec used to configure various aspects of t
 
 ### mas_appws_bindings_jdbc
 Set the binding scope for the application workspace's JDBC binding (`system`, `application`, `workspace`, or `workspace-application`)
+Note: For Maximo Real estate and facilities, we recommend to use workspace-application. 
 
 - Optional
 - Environment Variable: `MAS_APPWS_BINDINGS_JDBC`
@@ -446,7 +447,7 @@ For more details, refer to [Manage database encryption](https://www.ibm.com/docs
 - Environment Variable: `MAS_APP_SETTINGS_OLD_CRYPTO_KEY`
 - Default: None
 
-### mas_app_settings_cryptox_key
+### mas_app_settings_old_cryptox_key
 This defines the `MXE_SECURITY_OLD_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
@@ -494,6 +495,138 @@ Example Playbook
   roles:
     - ibm.mas_devops.suite_app_config
 ```
+
+Role Variables - Facilities Workspace
+-------------------------------------------------------------------------------
+### mas_ws_facilities_size
+Sets the size of deployment.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_SIZE`
+- Default: `small` Available options are `small`, `medium` and `large`
+
+### mas_ws_facilities_pull_policy
+Sets the `imagePullPolicy` strategy for all deployments. The default it's set to `IfNotPresent` to reduce the pulling operations in the cluster.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_PULL_POLICY`
+- Default: `IfNotPresent`
+
+### mas_ws_facilities_liberty_extension_xml_secret_name
+Provide the secret name of the secret which contains additional XML tags that needs to be added into the existing Liberty Server XML to configure the application accordingly. 
+
+#### NOTE: The Secret name MUST be `<workspaceId>-facilities-lexml--sn`
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_LIBERTY_EXTENSION_XML_SECRET_NAME`
+- Default: None
+- Sample Secret Template
+```sh
+cat <<EOF | oc create -f -
+kind: Secret
+apiVersion: v1
+metadata:
+  name: <MAS_FACILITIES_LIBERTY_EXTENSION_XML_SECRET_NAME>
+  namespace: mas-<instanceId>-facilities
+data:
+  extensions.xml: <!-- Custom XML tags -->
+type: Opaque
+EOF
+```
+
+### mas_ws_facilities_vault_secret_name
+Provide the name of the secret which contains a password to the vault with AES Encryption key. By default, this secret will be generated automatically.
+
+#### NOTE: The Secret name MUST be `<workspaceId>-facilities-vs--sn`
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_VAULT_SECRET_NAME`
+- Default: None
+- Sample Secret Template
+```sh
+cat <<EOF | oc create -f -
+kind: Secret
+apiVersion: v1
+metadata:
+  name: <MAS_FACILITIES_VAULT_SECRET_NAME>
+  namespace: mas-<instanceId>-facilities
+data:
+  pwd: <your password>
+type: Opaque
+EOF
+```
+
+### mas_ws_facilities_dwfagents
+Allows the user to add dedicated workflow agents (DWFA) to MREF. To specify a DWFA it's required to specify a JSON with a unique `name` and `members`. Each member has a unique `name` and `class` that can be classified as `user` or `group`. Below an example of the structure of the JSON. 
+```
+export MAS_FACILITIES_DWFAGENTS='[{"name":"dwfa1","members":[{"name": "u1", "class": "user"}]}, {"name":"dwfa2","members":[{"name": "u2", "class": "user"},{"name":"g1", "class":"group"}]}]'
+``` 
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_DWFAGENTS`
+- Default: `[]`
+### Facilities - Database setting variables
+---
+### mas_ws_facilities_db_maxconnpoolsize
+Sets the maximum connection pool size for database.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_DB_MAX_POOLSIZE`
+- Default: `200`
+
+### Facilities - Routes setting variables
+---
+### mas_ws_facilities_db_timout
+Sets the timeout of the application. It is a string with the structure `<timeout_value><time_unit>`, where `timeout_value` is any non zero unsigned integer number and the supported `time_unit` are microseconds (us), milliseconds (ms), seconds (s), minutes (m), hours (h), or days (d)
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_ROUTES_TIMEOUT`
+- Default: `600s`
+### Facilities - Storage setting variables
+---
+### mas_ws_facilities_storage_log_class
+Sets the storage class name for the Log Persistent Volume Claim used for MREF agents.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_LOG_CLASS`
+- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
+
+### mas_ws_facilities_storage_log_mode
+Sets the attach mode of the Log PVC.
+Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_LOG_MODE`
+- Default: `ReadWriteOnce`
+
+### mas_ws_facilities_storage_log_size
+Sets the size of the Log PVC. Defaults to 30 Gigabytes
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_LOG_SIZE`
+- Default: `30`
+
+### mas_ws_facilities_storage_userfiles_class
+Sets the storage class name for the Userfiles PVC used for MREF agents.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_CLASS`
+- Default: None - If not set, a default storage class will be auto defined accordingly to your cluster's available storage classes.
+
+### mas_ws_facilities_storage_userfiles_mode
+Sets the attach mode of the Userfiles PVC.
+Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if using file storage class) are supported.
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_MODE`
+- Default: `ReadWriteOnce` 
+
+### mas_ws_facilities_storage_userfiles_size
+Sets the size of the Log PVC. Defaults to 50 Gigabytes
+
+- Optional
+- Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_SIZE`
+- Default: `50`
 
 License
 -------------------------------------------------------------------------------
