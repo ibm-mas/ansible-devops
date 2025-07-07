@@ -1,5 +1,28 @@
 ---
-# 1. Wait for node pools to start updating
+# 1. Set maxUnavailable
+# A typical airgap test environment will consist of 3 master nodes and 11 worker nodes
+# the test will require the machine config pool to be updated twice (once as part of the
+# airgpa set and a second time to simulate an airgap environment)
+# by setting MACHINE_CONFIG_MULTIUPDATE we change the worker pool to update 3 nodes at
+# a time significantly reducing the setup time. This does not modify the master machine
+# config pool as with only 3 master nodes trying to update multiple master nodes can
+# cause deadlocks due to trying to drain 2 in parallel and the third not being able to
+# contain all the pods
+# -----------------------------------------------------------------------------
+- name: Set worker maxUnavailable
+  kubernetes.core.k8s_json_patch:
+    api_version: machineconfiguration.openshift.io/v1
+    kind: MachineConfigPool
+    name: worker
+    patch:
+      - op: add
+        path: /spec/maxUnavailable
+        value: 3
+  when:
+    - machine_config_multiupdate is defined
+    - machine_config_multiupdate
+
+# 2. Wait for node pools to start updating
 # -----------------------------------------------------------------------------
 - name: Wait for node pools to start updating
   kubernetes.core.k8s_info:
@@ -18,7 +41,7 @@
     - "worker"
     - "master"
 
-# 2. Wait for node pools to finish updating
+# 3. Wait for node pools to finish updating
 # -----------------------------------------------------------------------------
 - name: Wait for node pools to finish updating
   kubernetes.core.k8s_info:
