@@ -111,11 +111,13 @@
   retries: 60 # about 120 minutes
   delay: 120 # 2 minutes
   until:
-    - app_ws_cr_lookup.resources is defined
-    - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
-    - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('in', ['Successful']) | list | length == app_ws_cr_lookup.resources | length
-    - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`DeploymentCR`][].reason') | select ('in', ['Successful']) | list | length == app_ws_cr_lookup.resources | length
-  register: app_ws_cr_lookup
+    - manage_ws_cr_lookup.resources is defined
+    - manage_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
+    - manage_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('in', ['Successful']) | list | length == app_ws_cr_lookup.resources | length
+    - manage_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`DeploymentCR`][].reason') | select ('in', ['Successful']) | list | length == app_ws_cr_lookup.resources | length
+  when:
+    - mas_app_id == "manage"
+  register: manage_ws_cr_lookup
 
 - name: 'Check that all workspace CRs are healthy'
   kubernetes.core.k8s_info:
