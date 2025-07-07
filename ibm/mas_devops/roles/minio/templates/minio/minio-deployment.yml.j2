@@ -39,18 +39,32 @@ spec:
           volumeMounts:
             - name: storage
               mountPath: /data
-            - name: minio-certs
-              mountPath: /root/.minio/certs
+            - name: minio-cert-minio
+              mountPath: /root/.minio/cert
+            - name: minio-ca
+              mountPath: /root/.minio/cacert
               readOnly: true
       volumes:
         - name: storage
           persistentVolumeClaim:
             claimName: minio-pvc
-        - name: minio-certs
+        - name: minio-cert-minio
           secret:
             secretName: "minio-certificate-{{ minio_instance_name }}"
             items:
               - key: tls.crt
-                path: public.crt
+                path: tls.crt
               - key: tls.key
-                path: private.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
+        - name: minio-ca
+          secret:
+            secretName: "minio-ca"
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+              - key: ca.crt
+                path: ca.crt
