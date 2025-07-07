@@ -39,8 +39,10 @@
   ansible.builtin.set_fact:
     sls_registration_key: "{{ _sls_suite_registration.resources[0].data['registrationKey'] }}"
 
-# When installing SLS to an existing one there is a delay when switching from
-# service url to route hence we need to take the url from the sls_domain var
+# When sls_url is provided, and you run this task over an existing SLS instance that
+# has no Route (no domain field in CR), then there is a delay until the operator reconciles
+# and updates the url field in the configmap. Hence, we should not take the value from
+# the configmap as it may still hold the old value (service url instead of domain).
 - name: Set sls_url when sls_domain is defined
   when: sls_domain is defined and sls_domain != ""
   ansible.builtin.set_fact:
