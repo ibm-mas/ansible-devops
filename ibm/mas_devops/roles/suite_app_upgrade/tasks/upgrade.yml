@@ -100,7 +100,7 @@
     - mas_app_id == "manage"
   register: app_ws_cr_version
 
-- name: 'Check that all workspace CRs are healthy'
+- name: 'Check that all workspace CRs are healthy (manage only)'
   kubernetes.core.k8s_info:
     api_version: "{{ app_info[mas_app_id].api_version }}"
     kind: "{{ app_info[mas_app_id].ws_kind }}"
@@ -115,6 +115,21 @@
     - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
     - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('in', ['Successful']) | list | length == app_ws_cr_lookup.resources | length
     - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`DeploymentCR`][].reason') | select ('in', ['Successful']) | list | length == app_ws_cr_lookup.resources | length
+  register: app_ws_cr_lookup
+
+- name: 'Check that all workspace CRs are healthy'
+  kubernetes.core.k8s_info:
+    api_version: "{{ app_info[mas_app_id].api_version }}"
+    kind: "{{ app_info[mas_app_id].ws_kind }}"
+    namespace: "{{ mas_app_namespace }}"
+    label_selectors:
+      - mas.ibm.com/instanceId={{ mas_instance_id }}
+      - mas.ibm.com/applicationId={{ mas_app_id }}
+  retries: 20 # about 40 minutes
+  delay: 120 # 2 minutes
+  until:
+    - app_ws_cr_lookup.resources is defined
+    - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
   register: app_ws_cr_lookup
 
 - name: "{{ mas_app_id }} : Debug Workspaces"
