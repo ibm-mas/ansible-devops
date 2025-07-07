@@ -89,6 +89,11 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `INSTALL_MARIADB` Whether to install mariadb (default value is: false)
 * `INSTALL_SLS` Whether to install IBM Suite License Service (default value is: false)
 * `INSTALL_DRO` Whether to install IBM Data Reporter Operator (default value is: false)
+* `MAS_AIBROKER_DB2_USERNAME` The username to use for authentication with the database
+* `MAS_AIBROKER_DB2_PASSWORD` The password to use for authentication with the database
+* `MAS_AIBROKER_DB2_JDBC_URL` The JDBC URL specifying the host and port of the database, typically in the format jdbc:db2://host:port/
+* `MAS_AIBROKER_DB2_SSL_ENABLED` A flag indicating whether to enable SSL encryption for the database connection (default value is: true)
+* `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
  
 
 ## Usage
