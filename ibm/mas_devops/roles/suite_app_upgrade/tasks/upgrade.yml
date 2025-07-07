@@ -112,7 +112,7 @@
   delay: 120 # 2 minutes
   until:
     - manage_ws_cr_lookup.resources is defined
-    - manage_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
+    - manage_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready']) | list | length == app_ws_cr_lookup.resources | length
     - manage_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Running`][].reason') | select ('in', ['Successful']) | list | length == app_ws_cr_lookup.resources | length
     - manage_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`DeploymentCR`][].reason') | select ('in', ['Successful']) | list | length == app_ws_cr_lookup.resources | length
   when:
@@ -132,6 +132,8 @@
   until:
     - app_ws_cr_lookup.resources is defined
     - app_ws_cr_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('in', ['Ready', 'WorkspaceReady']) | list | length == app_ws_cr_lookup.resources | length
+  when:
+    - mas_app_id != "manage"
   register: app_ws_cr_lookup
 
 - name: "{{ mas_app_id }} : Debug Workspaces"
