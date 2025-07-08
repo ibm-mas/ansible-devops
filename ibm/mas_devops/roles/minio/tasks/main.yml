@@ -71,6 +71,42 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/minio/minio-deployment.yml.j2') }}"
 
+ # 1. Extract CA Certificate Secret Name (from CA Certificate)
+- name: "Get CA certificate secret name"
+  set_fact:
+    CaCertSecret: "{{ createCaCert.result.spec.secretName }}"
+
+- name: "Debug createCaCert output"
+  debug:
+    var: CaCertSecret
+
+# 2. Read the CA certificate secret
+- name: "Read CA certificate secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ CaCertSecret }}"
+    namespace: "{{ minio_namespace }}"
+  register: caSecret
+
+# 4. Extract MinIO TLS Certificate Secret Name (from Certificate)
+- name: "Get MinIO certificate secret name"
+  set_fact:
+    createSecret: "{{ createCertificate.result.spec.secretName }}"
+
+- name: "Debug createCaCert output"
+  debug:
+    var: createSecret
+
+# 5. Read the MinIO TLS certificate secret
+- name: "Read MinIO certificate secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ createSecret }}"
+    namespace: "{{ minio_namespace }}"
+  register: certSecret
+
 # create minio service
 - name: 'Create minio service'
   kubernetes.core.k8s:
