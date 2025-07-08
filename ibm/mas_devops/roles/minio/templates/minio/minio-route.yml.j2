@@ -5,17 +5,19 @@ metadata:
   name: minio-route
   namespace: "{{ minio_namespace }}"
 spec:
-  to:
-    kind: Service
-    name: minio-service
+  host: "minio-route-minio.{{ cluster_domain }}"
+  path: /
   port:
     targetPort: https
+  tls:
     termination: reencrypt
     insecureEdgeTerminationPolicy: Redirect
-  tls:
     certificate: |
       {{ externalCertificate | indent(6, False) }}
     key: |
       {{ externalKey | indent(6, False) }}
     caCertificate: |
-      {{ internalCertificateAuthorityCertificate | indent(6, False) }}
+      {{ externalCACertificate | indent(6, False) }}
+  to:
+    kind: Service
+    name: minio-service
