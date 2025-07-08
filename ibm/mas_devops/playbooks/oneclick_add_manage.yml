@@ -14,13 +14,23 @@
 
   vars:
     # By default we always install Manage base
-    vars:
+    # mas_appws_components logic:
+    #
+    # This setup distinguishes between unset and empty environment variables.
+    #
+    # ┌────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────────────┐
+    # │ MAS_APPWS_COMPONENTS (env var)                             │ Result after parsing with ibm.mas_devops.appws_components │
+    # ├────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────┤
+    # │ (not set)                                                  │ { base: { version: latest } }                              │
+    # │ "" (empty string)                                          │ Manage Foundation                                                       │
+    # │ "base=latest"                                              │ { base: { version: latest } }                              │
+    # │ "base=latest,health=latest"                                │ { base: ..., health: ... }                                 │
+    # └────────────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────┘
     mas_appws_components: >-
       {{
         (
-          'base=latest'
-          if 'MAS_APPWS_COMPONENTS' not in lookup('env', '__ENV')
-          else lookup('env', 'MAS_APPWS_COMPONENTS')
+          (lookup('env', 'MAS_APPWS_COMPONENTS', default='__unset__') != '__unset__')
+          | ternary(lookup('env', 'MAS_APPWS_COMPONENTS'), 'base=latest')
         )
         | ibm.mas_devops.appws_components
       }}
@@ -65,6 +75,10 @@
     cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('4.6.3', true) }}"
 
   pre_tasks:
+    - name: Show raw env var
+      debug:
+        msg: "{{ lookup('env', 'MAS_APPWS_COMPONENTS') }}"
+
     - name: Show Components to be installed
       debug:
         var: mas_appws_components
