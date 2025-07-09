@@ -81,6 +81,7 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/odh/dspa-{{ mas_aibroker_storage_provider }}.yml.j2') }}"
+  when: ds_pipelines
 
 - name: "Wait for the DSPA to be ready"
   kubernetes.core.k8s_info:
@@ -95,6 +96,7 @@
     - dspa_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
   retries: 10
   delay: 60
+  when: ds_pipelines
 
 # Wait until the pipeline-runner-instance service account is available
 # -----------------------------------------------------------------------------
@@ -110,6 +112,7 @@
   until:
     - pipelinerunner_sa_lookup.resources is defined
     - pipelinerunner_sa_lookup.resources | length > 0
+  when: ds_pipelines
 
 - name: "Patch the pipeline-runner-instance service account to include right imagePullPolicy"
   kubernetes.core.k8s:
@@ -122,6 +125,7 @@
         namespace: "{{ aibroker_namespace }}"
       imagePullSecrets:
         - name: "{{ pullSecretName }}"
+  when: ds_pipelines
 
 - name: Patch config-features in knative-serving
   shell: kubectl patch --namespace knative-serving configmap/config-features --type merge --patch '{"data":{"kubernetes.podspec-persistent-volume-claim":"enabled", "kubernetes.podspec-persistent-volume-write":"enabled"}}'
