@@ -432,7 +432,6 @@ def get_ecr_repositories(image_mirror_output):
       # parse out the repository name
       if len(line.split()) > 1:
         repo_to_add = line.split()[1]
-        # aws_command = f"aws ecr create-repository --repository-name {repo_to_add} --region us-gov-east-1"
         repositories.append(repo_to_add)
   return repositories
 
