@@ -118,6 +118,20 @@ The public port number for the target registry
 - Environment Variable: `REGISTRY_PUBLIC_PORT`
 - Default: None
 
+### registry_is_ecr
+Specifies if the target registry is an AWS Elastic Container Registry instance
+
+- Optional
+- Environment Variable: `REGISTRY_IS_ECR`
+- Default: false
+
+### registry_ecr_aws_region
+The AWS region of the AWS Elastic Container Registry. Only required if the target registry is an AWS Elastic Container Registry instance.
+
+- Optional
+- Environment Variable: `REGISTRY_ECR_AWS_REGION`
+- Default: None
+
 ### registry_prefix_redhat
 The prefix used for the target registry.  The images will not be mirrored to the registry at this time but will define the final destination in the form: `{host}[:{port}]/{prefix}/{reponame}`
 
