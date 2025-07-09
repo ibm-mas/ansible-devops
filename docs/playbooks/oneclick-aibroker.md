@@ -94,6 +94,7 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `MAS_AIBROKER_DB2_JDBC_URL` The JDBC URL specifying the host and port of the database, typically in the format jdbc:db2://host:port/
 * `MAS_AIBROKER_DB2_SSL_ENABLED` A flag indicating whether to enable SSL encryption for the database connection (default value is: true)
 * `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
+* `DS_PIPELINES` from Opendata hub version 2.30.0 user can skip and not install data science pipelines (default value is: false)
  
 
 ## Usage
@@ -178,7 +179,7 @@ ansible-playbook playbooks/oneclick_add_aibroker.yml
 
 * `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
 * `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
-* in `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`,   `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`,  `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
+* in `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`,    `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`,  `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
 
 ## NOTICE: playbook oneclick_add_aibroker.yml will run roles: 
 
@@ -325,7 +326,7 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
 
-# create tanant SAAS
+# create tanant
 
 ```bash
 export MAS_AIBROKER_TENANT_NAME="user7"
