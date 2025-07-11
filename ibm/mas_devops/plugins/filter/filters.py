@@ -399,6 +399,14 @@ def get_db2_instance_name(binding_scope, mas_instance_id, mas_workspace_id, mas_
   }
   return jdbc_instance_names[binding_scope]
 
+def combine_prop(bundleprops, newpropsdict):
+    prop = ''
+    for item in newpropsdict:
+        if '\n' in str(newpropsdict[item]):
+            prop += item + '=' + str(newpropsdict[item])
+        else:
+            prop += item + '=' + str(newpropsdict[item]) + '\n'
+    return bundleprops + '\n' + prop
 
 class FilterModule(object):
   def filters(self):
@@ -420,5 +428,6 @@ class FilterModule(object):
       'format_pre_version_with_plus': format_pre_version_with_plus,
       'format_pre_version_without_buildid': format_pre_version_without_buildid,
       'format_pre_version_with_buildid': format_pre_version_with_buildid,
-      'get_db2_instance_name': get_db2_instance_name
+      'get_db2_instance_name': get_db2_instance_name,
+      'combine_prop': combine_prop
     }

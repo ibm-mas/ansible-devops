@@ -35,7 +35,7 @@ class ActionModule(ActionBase):
 
           for subscription in subs.items:
             display.v(f"* {subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
-            if subscription.status.state != "AtLatestKnown":
+            if subscription.status.state != "AtLatestKnown" and subscription.metadata.name != "opendatahub-operator":
               allSubscriptionsAtLatestThisLoop = False
               notAtLatest.append(f"{subscription.metadata.namespace}/{subscription.metadata.name} = {subscription.status.state}")
             else:

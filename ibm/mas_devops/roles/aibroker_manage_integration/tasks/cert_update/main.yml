@@ -1,0 +1,25 @@
+# Retrieve the aibroker cert from Secret
+- name: Lookup secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ mas_instance_id }}-public-aibroker-tls"
+    namespace: "{{ aibroker_namespace }}"
+  register: secret_lookup_results
+
+# Update Secret content to include aiborker properties
+- name: Get the ca certs
+  set_fact:
+    aibroker_ca_cert: "{{ [secret_lookup_results.resources[0].data['ca.crt'] | b64decode] }}"
+
+- name: Debug Secrets
+  debug:
+    msg: "aibroker_ca_cert: {{ aibroker_ca_cert }}"
+
+# Update the ManageWorkspace CR with aibroker cert
+- name: "Add the aibroker certificates in ManageWorkspace CR"
+  import_role:
+    name: ibm.mas_devops.suite_manage_import_certs_config
+  vars:
+    manage_certificates: "{{ aibroker_ca_cert }}"
+    manage_certificates_alias_prefix: "aibroker"

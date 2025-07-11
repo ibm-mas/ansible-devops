@@ -1,0 +1,42 @@
+# Lookup for bundleproperty Secret
+- name: Lookup secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ workspace_id }}-{{ bundle_name }}-bundleproperty"
+    namespace: "{{ manage_namespace }}"
+  register: secret_lookup_results
+
+# Update Secret content to include aiborker properties
+- name: Update secret content
+  set_fact:
+    updated_bundleprops: "{{ secret_lookup_results.resources[0].data['bundle.properties'] | b64decode | ibm.mas_devops.combine_prop(newpropsdict) }}"
+
+- name: Debug Secrets
+  debug:
+    msg: "updated_bundleprops: {{ updated_bundleprops }}"
+
+# Patch bundleproperty Secret
+- name: Patch secret
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: Secret
+    name: "{{ workspace_id }}-{{ bundle_name }}-bundleproperty"
+    namespace: "{{ manage_namespace }}"
+    patch:
+      - op: replace
+        path: /data/bundle.properties
+        value: "{{ updated_bundleprops | b64encode }}"
+
+# Verify updated Secret
+- name: Verify secret update
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ workspace_id }}-{{ bundle_name }}-bundleproperty"
+    namespace: "{{ manage_namespace }}"
+  register: updated_secret_lookup_results
+
+- name: Debug Secrets
+  debug:
+    msg: "Updated secret content: {{ updated_secret_lookup_results.resources[0].data['bundle.properties'] | b64decode }}"

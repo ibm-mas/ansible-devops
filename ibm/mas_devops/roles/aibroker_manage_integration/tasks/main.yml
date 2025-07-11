@@ -1,0 +1,26 @@
+---
+- name: Load variables (main)
+  include_vars: "vars/main.yml"
+
+# Get cluster domain
+# -----------------------------------------------------------------------------
+- name: "Get cluster subdomain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Set fact: cluster subdomain"
+  set_fact:
+    cluster_domain: "{{ _cluster_subdomain.resources[0].spec.domain }}"
+
+- name: "Debug: cluster domain"
+  debug:
+    msg: "Cluster domain ........................ {{ cluster_domain }}"
+
+- name: Patch bundleproperty Secret in Manage namespace
+  include_tasks: tasks/patch_manage_secret/main.yml
+
+- name: Patch ManageWorkspace CR for insert aibroker cert
+  include_tasks: tasks/cert_update/main.yml
