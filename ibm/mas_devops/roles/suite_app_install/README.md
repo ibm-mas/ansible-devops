@@ -215,6 +215,8 @@ Provide the upgrade type to be used by Manage Workspace. The value of the enviro
 - Environment Variable: `MAS_APPWS_UPGRADE_TYPE`
 - Default: `regularUpgrade`
 
+For full documentation of the upgrade types refer to the [Manage Upgrade information](https://www.ibm.com/docs/en/masv-and-l/cd?topic=database-reducing-system-downtime) in the product documentation.
+
 Role Variables - Monitor Configuration
 -------------------------------------------------------------------------------
 ### mas_app_settings_monitor_deployment_size
