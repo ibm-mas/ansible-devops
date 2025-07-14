@@ -213,7 +213,7 @@ Provide the upgrade type to be used by Manage Workspace. The value of the enviro
 
 - Optional
 - Environment Variable: `MAS_APPWS_UPGRADE_TYPE`
-- Default: `regularUpgrade
+- Default: `regularUpgrade`
 
 Role Variables - Monitor Configuration
 -------------------------------------------------------------------------------
