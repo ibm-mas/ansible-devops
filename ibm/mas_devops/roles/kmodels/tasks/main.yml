@@ -85,6 +85,45 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
+- name: Retrieve image settings for km components 
+  set_fact:
+    mas_aibroker_controller_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/controller$') | map(attribute='registry') | first }}"
+    mas_aibroker_controller_tag: "{{ extra_images | selectattr('name', 'match', '.*/controller$') | map(attribute='tag') | first }}"
+    mas_aibroker_controller_digit: "{{ extra_images | selectattr('name', 'match', '.*/controller$') | map(attribute='digest') | first }}"
+    mas_aibroker_store_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/store$') | map(attribute='registry') | first }}"
+    mas_aibroker_store_tag: "{{ extra_images | selectattr('name', 'match', '.*/store$') | map(attribute='tag') | first }}"
+    mas_aibroker_store_digit: "{{ extra_images | selectattr('name', 'match', '.*/store$') | map(attribute='digest') | first }}"
+    mas_aibroker_watcher_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/watcher$') | map(attribute='registry') | first }}"
+    mas_aibroker_watcher_tag: "{{ extra_images | selectattr('name', 'match', '.*/watcher$') | map(attribute='tag') | first }}"
+    mas_aibroker_watcher_digit: "{{ extra_images | selectattr('name', 'match', '.*/watcher$') | map(attribute='digest') | first }}"
+
+- name: "Debug km components info - just for DEV - remove on PR"
+  debug:
+    msg: 
+      - "mas_aibroker_controller_image_registry ..... {{ mas_aibroker_controller_image_registry }}"
+      - "mas_aibroker_controller_tag  ............... {{ mas_aibroker_controller_tag }}"
+      - "mas_aibroker_controller_digit .............. {{ mas_aibroker_controller_digit }}"
+      - "mas_aibroker_store_image_registry .......... {{ mas_aibroker_store_image_registry }}"
+      - "mas_aibroker_store_tag ..................... {{ mas_aibroker_store_tag }}"
+      - "mas_aibroker_store_digit ................... {{ mas_aibroker_store_digit }}"
+      - "mas_aibroker_watcher_image_registry ........ {{ mas_aibroker_watcher_image_registry }}"
+      - "mas_aibroker_watcher_tag ................... {{ mas_aibroker_watcher_tag }}"
+      - "mas_aibroker_watcher_digit ................. {{ mas_aibroker_watcher_digit }}"
+
+- name: Set image with tags for km components 
+  set_fact:
+    controller: "aibroker/controller:{{ mas_aibroker_controller_tag }}"
+    store: "aibroker/store:{{ mas_aibroker_store_tag }}"
+    watcher: "aibroker/watcher:{{ mas_aibroker_watcher_tag }}"
+  when: not mas_aibroker_use_digits
+
+- name: Set image with digits for km components 
+  set_fact:
+    controller: "aibroker/controller:{{ mas_aibroker_controller_tag }}"
+    store: "aibroker/store:{{ mas_aibroker_store_tag }}"
+    watcher: "aibroker/watcher:{{ mas_aibroker_watcher_tag }}"
+  when: mas_aibroker_use_digits
+
 # Deploy Kmodels
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/istio.yml
