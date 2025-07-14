@@ -1,4 +1,5 @@
 # AI Broker
+
 =====
 
 This role provides support to install and configure AI Broker:
@@ -95,6 +96,30 @@ The watsonxai project id for AI Broker role.
 
 * Environment Variable: `MAS_AIBROKER_WATSONXAI_PROJECT_ID`
 * Default Value: ``
+
+### mas_aibroker_tenant_action
+
+Whether to install or remove tenant 
+* Environment Variable: `MAS_AIBROKER_TENANT_ACTION`
+* Default Value: `install`
+
+### mas_aibroker_apikey_action
+
+Whether to install or remove or update apikey
+* Environment Variable: `MAS_AIBROKER_APIKEY_ACTION`
+* Default Value: `install`
+
+### mas_aibroker_cluster_domain
+
+Provide custom domain (default value is: empty)
+* Environment Variable: `MAS_AIBROKER_CLUSTER_DOMAIN`
+* Default Value: ``
+
+### mas_aibroker_is_external_route
+
+A flag indicating to enable external route
+* Environment Variable: `MAS_AIBROKER_IS_EXTERNAL_ROUTE`
+* Default Value: `false`
 
 License
 -------

@@ -208,6 +208,14 @@ The content of the configuration file should be the yaml block that you wish to 
 
 For full documentation of the supported options refer to the [Customizing Pod Templates](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=configuring-customizing-workloads) in the product documentation.
 
+### mas_appws_upgrade_type
+Provide the upgrade type to be used by Manage Workspace. The value of the environment variable should be either `regularUpgrade` or `onlineUpgrade`.
+
+- Optional
+- Environment Variable: `MAS_APPWS_UPGRADE_TYPE`
+- Default: `regularUpgrade`
+
+For full documentation of the upgrade types refer to the [Manage Upgrade information](https://www.ibm.com/docs/en/masv-and-l/cd?topic=database-reducing-system-downtime) in the product documentation.
 
 Role Variables - Monitor Configuration
 -------------------------------------------------------------------------------
