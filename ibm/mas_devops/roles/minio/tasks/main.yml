@@ -35,3 +35,16 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/minio/minio-route.yml.j2') }}"
+
+- name: Verify minio pods are ready
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ minio_namespace }}"
+    label_selectors:
+      - app="{{ minio_instance_name }}"
+    wait: yes
+    wait_condition:
+      type: ContainersReady
+      status: "True"
+    wait_sleep: 60
+    wait_timeout: "{{ minio_wait_timeout_sec | int }}"
