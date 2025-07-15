@@ -85,11 +85,11 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
-- name: Load km components defaults
+- name: Load kmodels defaults
   include_vars:
-    file: "{{ role_path }}/../mirror_extras_prepare/vars/km_components_1.0.11.yml"
+    file: "{{ role_path }}/../mirror_extras_prepare/vars/km_components_{{ kmodels_extras_version }}.yml"
 
-- name: Retrieve image settings for km components
+- name: Retrieve image settings for kmodels
   set_fact:
     mas_aibroker_controller_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/controller$') | map(attribute='registry') | first }}"
     mas_aibroker_controller_tag: "{{ extra_images | selectattr('name', 'match', '.*/controller$') | map(attribute='tag') | first }}"
@@ -101,7 +101,7 @@
     mas_aibroker_watcher_tag: "{{ extra_images | selectattr('name', 'match', '.*/watcher$') | map(attribute='tag') | first }}"
     mas_aibroker_watcher_digest: "{{ extra_images | selectattr('name', 'match', '.*/watcher$') | map(attribute='digest') | first }}"
 
-- name: "Debug km components info - just for DEV - remove on PR"
+- name: "Debug kmodels info - just for DEV - remove on PR"
   debug:
     msg:
       - "mas_aibroker_controller_image_registry ..... {{ mas_aibroker_controller_image_registry }}"
@@ -114,18 +114,18 @@
       - "mas_aibroker_watcher_tag ................... {{ mas_aibroker_watcher_tag }}"
       - "mas_aibroker_watcher_digest ................. {{ mas_aibroker_watcher_digest }}"
 
-- name: Set image with tags for km components
+- name: Set image with tags for kmodels
   set_fact:
     controller: "aibroker/controller:{{ mas_aibroker_controller_tag }}"
     store: "aibroker/store:{{ mas_aibroker_store_tag }}"
     watcher: "aibroker/watcher:{{ mas_aibroker_watcher_tag }}"
   when: not mas_aibroker_use_digest
 
-- name: Set image with digits for km components
+- name: Set image with digest for kmodels
   set_fact:
-    controller: "aibroker/controller:{{ mas_aibroker_controller_tag }}"
-    store: "aibroker/store:{{ mas_aibroker_store_tag }}"
-    watcher: "aibroker/watcher:{{ mas_aibroker_watcher_tag }}"
+    controller: "aibroker/controller:{{ mas_aibroker_controller_digest }}"
+    store: "aibroker/store:{{ mas_aibroker_store_digest }}"
+    watcher: "aibroker/watcher:{{ mas_aibroker_watcher_digest }}"
   when: mas_aibroker_use_digest
 
 # Deploy Kmodels
