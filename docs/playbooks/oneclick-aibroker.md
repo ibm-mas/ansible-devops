@@ -15,7 +15,7 @@ You will need a RedHat OpenShift v4.14 or above.
 
 ## Overview
 
-This playbook will add **AI Broker v9.1.x** to OCP cluster.
+This playbook will add **AI Broker v9.1.1-pre.dev-alif** to OCP cluster.
 
 This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 

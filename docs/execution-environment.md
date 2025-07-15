@@ -109,7 +109,7 @@ An example of this is taking the `oneclick_core.yml` playbook:
     sls_mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
     # Core Services Configuration
-    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('9.1.x', true) }}"
+    mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('9.1.1-pre.dev-alif', true) }}"
 
     # Workspace Configuration
     mas_workspace_name: "{{ lookup('env', 'MAS_WORKSPACE_NAME') | default('MAS Development', true) }}"
@@ -175,7 +175,7 @@ and changing it to look like the following:
     sls_mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
 
     # Core Services Configuration
-    mas_channel: "9.1.x"
+    mas_channel: "9.1.1-pre.dev-alif"
 
     mas_instance_id: "aap1"
 
