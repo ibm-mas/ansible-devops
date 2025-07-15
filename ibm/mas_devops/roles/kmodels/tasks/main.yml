@@ -85,6 +85,29 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
+- name: "Determine Version of Maximo Operator Catalog"
+  include_tasks: tasks/determine-ibmcatalog-tag.yml
+
+- name: Load Catalog Metadata
+  when:
+    - kmodels_extras_version is not defined or kmodels_extras_version == ""
+    - catalog_tag is defined and catalog_tag != ""
+  block:
+    - ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: _mas_catalog
+    - debug:
+        var: _mas_catalog
+    - name: "Set mongo version to default value if not explicitly set"
+      set_fact:
+        kmodels_extras_version: "{{ _mas_catalog.kmodels_extras_version_default }}"
+
+- name: "Kmodels Version"
+  debug:
+    msg:
+      - "Maximo Operator Catalog .................. {{ catalog_tag }}"
+      - "Kmodels Version ............................ {{ kmodels_extras_version }}"
+
 - name: Load kmodels defaults
   include_vars:
     file: "{{ role_path }}/../mirror_extras_prepare/vars/kmodels_{{ kmodels_extras_version }}.yml"
