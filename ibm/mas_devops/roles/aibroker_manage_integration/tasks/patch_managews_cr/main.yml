@@ -1,0 +1,21 @@
+- name: Set manage_workspace_cr_name
+  when: manage_workspace_cr_name is not defined or manage_workspace_cr_name == ''
+  set_fact:
+    manage_workspace_cr_name: "{{ mas_instance_id }}-{{ mas_workspace_id }}"
+
+- name: "Add the bundleproperty in ManageWorkspace CR"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: apps.mas.ibm.com/v1
+      kind: ManageWorkspace
+      metadata:
+        name: "{{ manage_workspace_cr_name }}"
+        namespace: "mas-{{ mas_instance_id }}-manage"
+      spec:
+        settings:
+          deployment:
+            serverBundles:
+              - bundleLevelProperties: |-
+                  mxe.int.aibrokerapikey=ICKEZOJgy60athJap86z4xro54igYipL
+                  mxe.int.aibrokerapiurl=https://aibroker.apps.o1-913776.cp.fyre.ibm.com/ibm/aibroker/service/rest/api/v1
+                  mxe.int.aibrokertenantid=aibroker-user
