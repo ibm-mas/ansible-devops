@@ -166,22 +166,7 @@
     config_files: ["ibm-sls-licenseservice.yml"]
 
 
-# 6. Set up the domain name for SLS
-# -----------------------------------------------------------------------------
-- name: "Get cluster subdomain"
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    kind: Ingress
-    name: cluster
-  register: _cluster_subdomain
-
-- name: "Configure default domain if not set"
-  ansible.builtin.set_fact:
-    sls_domain: "{{ sls_namespace }}.{{ _cluster_subdomain.resources[0].spec.domain }}"
-  when: not sls_domain
-
-
-# 7. Install Operator & create entitlement
+# 6. Install Operator & create entitlement
 # -----------------------------------------------------------------------------
 - name: "Create IBM Entitlement Key"
   when: before_sls_380 or (artifactory_username is defined and artifactory_username != "")
@@ -192,7 +177,7 @@
     artifactory_username: "{{ artifactory_username }}"
     artifactory_password: "{{ artifactory_token }}"
 
-- name: "Create ibm-mas Subscription"
+- name: "Create ibm-sls Subscription"
   ibm.mas_devops.apply_subscription:
     namespace: "{{ sls_namespace }}"
     package_name: "ibm-sls"
@@ -201,7 +186,7 @@
   register: subscription
 
 
-# 8. Wait until the LicenseService CRD is available
+# 7. Wait until the LicenseService CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the LicenseService CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
@@ -209,7 +194,7 @@
     crd_name: licenseservices.sls.ibm.com
 
 
-# 9. Create Mongo Secret
+# 8. Create Mongo Secret
 # -----------------------------------------------------------------------------
 - name: Read MongoDb config file
   ansible.builtin.set_fact:
@@ -264,7 +249,7 @@
     template: templates/mongo-secret.yml.j2
 
 
-# 10. Bootstrap the license service
+# 9. Bootstrap the license service
 # -----------------------------------------------------------------------------
 - name: Initialize Bootstrap
   when: bootstrap_mode
@@ -314,7 +299,7 @@
     - entitlement_file != ""
 
 
-# 11. Create the license service CR
+# 10. Create the license service CR
 # -----------------------------------------------------------------------------
 - name: Create the sls.ibm.com/v1.LicenseService
   kubernetes.core.k8s:
@@ -324,7 +309,7 @@
   register: sls_cr_result
 
 
-# 12. Wait for it to hit Ready
+# 11. Wait for it to hit Ready
 # -----------------------------------------------------------------------------
 - name: Verify LicenseService CR
   ansible.builtin.include_tasks: "tasks/install/sls-verify.yml"
