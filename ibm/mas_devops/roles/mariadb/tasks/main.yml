@@ -6,6 +6,17 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
+- name: Load mariadb defaults
+  include_vars:
+    file: "{{ role_path }}/../mirror_extras_prepare/vars/mariadb-103_{{ minio_version }}.yml"
+
+- name: Retrieve image setting parts
+  set_fact:
+    mariadb_image_name: "{{ extra_images | selectattr('name', 'match', '.*/mariadb$') | map(attribute='name') | first }}"
+    mariadb_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/mariadb$') | map(attribute='registry') | first }}"
+    mariadb_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/mariadb$') | map(attribute='digest') | first }}"
+    mariadb_image_tag: "{{ extra_images | selectattr('name', 'match', '.*/mariadb$') | map(attribute='tag') | first }}"
+
 # create mariadb namespace
 - name: 'Create mariadb namespace'
   kubernetes.core.k8s:
