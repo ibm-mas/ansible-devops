@@ -132,6 +132,14 @@ An optional prefix to apply to the catalog sources names for the 3 Red Hat catal
 - Environment Variable: `REDHAT_CATALOGS_PREFIX`
 - Default: None
 
+### machine_config_multiupdate
+An optional value that if present will set the max unavailable nodes for the worker Machine Config Pool. 
+This is only recommended to be set during setup of an environment where nodes will be lightly loaded and
+draining multiple worker nodes in parallel is possible
+
+- Optional
+- Environment Variable: `MACHINE_CONFIG_MULTIUPDATE`
+- Default: false
 
 Example Playbook
 -------------------------------------------------------------------------------
