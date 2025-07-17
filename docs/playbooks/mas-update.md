@@ -34,7 +34,7 @@ Only one parameter is required, the new tag of the IBM Maximo Operator Catalog t
 ```bash
 export MAS_CATALOG_VERSION=@@MAS_LATEST_CATALOG@@
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_update
+ansible-playbook ibm.mas_devops.mas_update
 ```
 
 !!! tip

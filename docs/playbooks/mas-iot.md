@@ -1,5 +1,12 @@
 # Install IoT Application
 
+!!! important
+    These playbooks are samples to demonstrate how to use the roles in this collection.
+
+    They are **note intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
+
+    The recommended way to install MAS is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
+
 ## Prerequisites
 You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.7 already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
 
@@ -47,7 +54,7 @@ export MAS_CONFIG_DIR=/home/david/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_iot
+ansible-playbook ibm.mas_devops.mas_add_iot
 ```
 
 !!! tip

@@ -72,7 +72,7 @@ export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_manage
+ansible-playbook ibm.mas_devops.mas_add_manage
 ```
 
 
@@ -95,7 +95,7 @@ export MAS_APP_SETTINGS_TABLESPACE=maxdata
 export MAS_APP_SETTINGS_INDEXSPACE=maxindex
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_manage
+ansible-playbook ibm.mas_devops.mas_add_manage
 ```
 
 For full details of configuration options available refer to the [gencfg_jdbc](../roles/gencfg_jdbc.md) role documentation.
@@ -115,7 +115,7 @@ export CPD_INSTALL_WSL="true"
 export CPD_PRODUCT_VERSION="4.6.6"
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_manage
+ansible-playbook ibm.mas_devops.mas_add_manage
 ```
 
 For full details of configuration options available refer to the [cp4d](../roles/cp4d.md) & [cp4d_service](../roles/cp4d_service.md) role documentation.
@@ -133,7 +133,7 @@ export MAS_APP_ID=health
 export MAS_APPWS_COMPONENTS="health=latest"
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_manage
+ansible-playbook ibm.mas_devops.mas_add_manage
 ```
 
 !!! warning

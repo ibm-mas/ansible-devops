@@ -82,7 +82,7 @@ export CPD_ADMIN_PASSWORD="xxx"
 export CPD_ADMIN_URL="https://mycp4durl"
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_predict
+ansible-playbook ibm.mas_devops.mas_add_predict
 ```
 
 ### Cloud Pak for Data is not installed
@@ -111,5 +111,5 @@ export CPD_ADMIN_PASSWORD="xxx"
 export CPD_ADMIN_URL="https://mycp4durl"
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_predict
+ansible-playbook ibm.mas_devops.mas_add_predict
 ```

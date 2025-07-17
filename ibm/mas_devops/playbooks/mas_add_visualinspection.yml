@@ -1,0 +1,93 @@
+---
+# Add (MVI) Maximo Visual Inspection application to an existing MAS Core installation
+#
+# Dependencies:
+#  - ansible-playbook ibm.mas_devops.mas_install_core
+#  - ansible-playbook ibm.mas_devops.mas_add_manage (MAS Core 9.1 or later)
+
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    # Application Installation
+    mas_app_id: visualinspection
+    mas_app_channel: "{{ lookup('env', 'MAS_APP_CHANNEL') | default('9.1.x', true) }}"
+
+    # Application Configuration
+    mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') | default('masdev', true) }}"
+
+    # Additional Condfiguration - Object Storage
+    configure_cos: "{{ lookup('env', 'CONFIGURE_COS') | default('false', true) | bool }}"
+    configure_cos_bucket: "{{ lookup('env', 'CONFIGURE_COS_BUCKET') | default('false', true) | bool }}"
+    cos_type: "{{ lookup('env', 'COS_TYPE') }}"
+    mas_app_settings_visualinspection_object_storage_enabled: "{{ lookup('env', 'MAS_APP_SETTINGS_VISUALINSPECTION_OBJECT_STORAGE_ENABLED') | default('false', true) | bool }}"
+    mas_app_settings_visualinspection_object_storage_bucket_default: "mvi-bucket-{{ mas_instance_id }}-{{ mas_workspace_id }}"
+    mas_app_settings_visualinspection_object_storage_workspace: "{{ lookup('env', 'MAS_APP_SETTINGS_VISUALINSPECTION_OBJECT_STORAGE_WORKSPACE') | default(mas_app_settings_visualinspection_object_storage_bucket_default, true) }}"
+
+  pre_tasks:
+    - name: Important Notice
+      debug:
+        msg: |
+          *********************************************************************
+          ************************* IMPORTANT NOTICE **************************
+          *********************************************************************
+          *                                                                   *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
+          *                                                                   *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
+          *                                                                   *
+          *  The recommended way to install MAS is to use the MAS CLI, which  *
+          *  uses this Ansible Collection to deliver a complete managed       *
+          *  lifecycle for your MAS instance.                                 *
+          *                                                                   *
+          *  https://ibm-mas.github.io/cli/                                   *
+          *                                                                   *
+          *********************************************************************
+
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'MAS_INSTANCE_ID') != ""
+          - lookup('env', 'MAS_CONFIG_DIR') != ""
+          - lookup('env', 'IBM_ENTITLEMENT_KEY') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+  roles:
+    # Configure Object Storage (15 min)
+    # With this we are allowing options for users to also provision Object Storage instance if they don't have one setup yet
+    # While using cos role, users will be able to configure either OCS/ODF or IBM Cloud Object Storage instances to be used
+    # This will also generate the ObjectStorageCfg file that will be used to configure the target Object Storage instance
+    # into the target MAS instance.
+    - role: ibm.mas_devops.cos
+      when:
+        - mas_app_settings_visualinspection_object_storage_enabled
+        - configure_cos
+        - cos_type in ['ibm','ocs']
+
+    # Configure COS bucket in IBM Cloud Object Storage or AWS (10 min)
+    # While using the cos_bucket role, users will be able to create a bucket within the IBM cloud object storage instance
+    # or in AWS users can allocate an S3 bucket (no need of a instance created, s3 buckets are directly created in the AWS account)
+    - role: ibm.mas_devops.cos_bucket
+      when:
+        - mas_app_settings_visualinspection_object_storage_enabled
+        - mas_app_settings_visualinspection_object_storage_workspace
+        - configure_cos_bucket
+        - cos_type in ['ibm','aws']
+      vars:
+        cos_bucket_name: "{{ mas_app_settings_visualinspection_object_storage_workspace }}"
+        aws_bucket_name: "{{ mas_app_settings_visualinspection_object_storage_workspace }}"
+
+    # Install Nvidia Operator (~15 Minutes)
+    - ibm.mas_devops.nvidia_gpu
+
+    # Apply MAS configurations related to Object Storage (~5 Minutes)
+    - ibm.mas_devops.suite_config
+
+    # Deploy Visual Inspection (~15 Minutes)
+    - ibm.mas_devops.suite_app_install
+
+    # Activate Visual Inspection in workspace (~15 Minutes)
+    - ibm.mas_devops.suite_app_config

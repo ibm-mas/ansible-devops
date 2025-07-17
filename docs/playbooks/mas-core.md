@@ -1,8 +1,20 @@
-# OneClick Install for MAS Core
+OneClick Install for MAS Core
+===============================================================================
 
+!!! important
+    These playbooks are samples to demonstrate how to use the roles in this collection.
+
+    They are **note intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
+
+    The recommended way to install MAS is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
+
+Overview
+-------------------------------------------------------------------------------
 This playbook will install and configure IBM Maximo Application Suite Core along with all necessary dependencies.  This can be ran against any OCP cluster regardless of its type, whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.  It will take approximately 90 minutes to set up MAS core services and all of its dependencies, at the end of the process you will be able to login to the MAS admin dashboard to install any applications that you wish to use, or you can use our other playbooks to automate the installation of those applications (including any additional dependencies)
 
-## Playbook Content
+Playbook Content
+-------------------------------------------------------------------------------
+
 1. [Install IBM Operator Catalogs](../roles/ibm_catalogs.md) (1 minute)
 2. [Install IBM Common Services](../roles/common_services.md) (3 minutes)
 3. [Install Certificate Manager Operator](../roles/cert_manager.md) (3 minutes)
@@ -18,7 +30,8 @@ This playbook will install and configure IBM Maximo Application Suite Core along
 All timings are estimates, see the individual pages for each of these roles for more information and full details of all configuration options available in this playbook.
 
 
-## Preparation
+Preparation
+-------------------------------------------------------------------------------
 
 ### 1. IBM Entitlement key
 Access [Container Software Library](https://myibm.ibm.com/products-services/containerlibrary) using your IBMId to access your entitlement key
@@ -38,8 +51,8 @@ Access [IBM License Key Center](https://licensing.flexnetoperations.com/), on th
 The other values can be left at their defaults.  Finally, click **Generate** and download the license file to your home directory as `entitlement.lic`, set `SLS_LICENSE_FILE` to point to this location.
 
 
-## Usage
-
+Usage
+-------------------------------------------------------------------------------
 ### Required environment variables
 
 - `IBM_ENTITLEMENT_KEY` Lookup your entitlement key from the [IBM Container Library](https://myibm.ibm.com/products-services/containerlibrary)
@@ -70,8 +83,8 @@ Usually fulfilled by block storage classes:
 - `UDS_STORAGE_CLASS`
 
 
-## Examples
-
+Examples
+-------------------------------------------------------------------------------
 ### Release build
 The simplest configuration to deploy a release build of IBM Maximo Application Suite (core only) with dependencies is:
 ```bash
@@ -88,7 +101,7 @@ export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_core
+ansible-playbook ibm.mas_devops.mas_install_core
 ```
 
 !!! tip
@@ -121,7 +134,7 @@ export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_core
+ansible-playbook ibm.mas_devops.mas_install_core
 ```
 
 !!! tip

@@ -2,7 +2,7 @@
 # Add Manage 9.0.x application to an existing MAS Core 8.8.x installation
 #
 # Dependencies:
-# - ansible-playbook ibm.mas_devops.oneclick_core
+# - ansible-playbook ibm.mas_devops.mas_install_core
 #
 # To install Manage Foundation only that is available on MAS Core 9.1 or later
 # Make sure the `MAS_APPWS_COMPONENTS` environment variable is empty:
@@ -75,6 +75,28 @@
     cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('4.6.3', true) }}"
 
   pre_tasks:
+    - name: Important Notice
+      debug:
+        msg: |
+          *********************************************************************
+          ************************* IMPORTANT NOTICE **************************
+          *********************************************************************
+          *                                                                   *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
+          *                                                                   *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
+          *                                                                   *
+          *  The recommended way to install MAS is to use the MAS CLI, which  *
+          *  uses this Ansible Collection to deliver a complete managed       *
+          *  lifecycle for your MAS instance.                                 *
+          *                                                                   *
+          *  https://ibm-mas.github.io/cli/                                   *
+          *                                                                   *
+          *********************************************************************
+
     - name: Show raw env var
       debug:
         msg: "{{ lookup('env', 'MAS_APPWS_COMPONENTS') }}"
@@ -130,25 +152,28 @@
 
   roles:
     # Optional Cloud Pak for Data Install
-    - name: ibm.mas_devops.cp4d
+    - role: ibm.mas_devops.cp4d
       when: install_cp4d_platform == true
-    - name: ibm.mas_devops.cp4d_service
+
+    - role: ibm.mas_devops.cp4d_service
       when: install_cp4d_cognos_analytics == true
       vars:
         cpd_service_name: ca
-    - name: ibm.mas_devops.cp4d_service
+
+    - role: ibm.mas_devops.cp4d_service
       when: install_cp4d_wsl == true
       vars:
         cpd_service_name: wsl
 
     # Db2 Install
-    - name: ibm.mas_devops.db2
+    - role: ibm.mas_devops.db2
       when: configure_external_db == false
-    - name: ibm.mas_devops.suite_db2_setup_for_manage
+
+    - role: ibm.mas_devops.suite_db2_setup_for_manage
       when: configure_external_db == false
 
     # Bring Your Own Database
-    - name: ibm.mas_devops.gencfg_jdbc
+    - role: ibm.mas_devops.gencfg_jdbc
       when: configure_external_db == true
 
     # Install Manage
@@ -157,7 +182,8 @@
     - ibm.mas_devops.suite_app_config
 
     # Configure Manage
-    - name: ibm.mas_devops.suite_manage_attachments_config
+    - role: ibm.mas_devops.suite_manage_attachments_config
       when: configure_manage_attachments
-    - name: ibm.mas_devops.suite_manage_bim_config
+
+    - role: ibm.mas_devops.suite_manage_bim_config
       when: configure_manage_bim

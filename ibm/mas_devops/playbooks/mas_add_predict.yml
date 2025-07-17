@@ -2,10 +2,10 @@
 # Add PRedict 8.6.x application to an existing MAS Core 8.8.x + IoT 8.4.x installation
 #
 # Dependencies:
-# - ansible-playbook ibm.mas_devops.oneclick_core
-# - ansible-playbook ibm.mas_devops.oneclick_manage
-# - ansible-playbook ibm.mas_devops.oneclick_iot
-# - ansible-playbook ibm.mas_devops.oneclick_monitor
+# - ansible-playbook ibm.mas_devops.mas_install_core
+# - ansible-playbook ibm.mas_devops.mas_manage
+# - ansible-playbook ibm.mas_devops.mas_iot
+# - ansible-playbook ibm.mas_devops.mas_monitor
 #
 # Predict will be configured to use the same db2 instance that IoT is using
 #
@@ -41,42 +41,28 @@
     install_spss_modeler: "{{ lookup('env', 'CPD_INSTALL_SPSS') | default('False', true) | bool }}"
 
   pre_tasks:
-    - include_role:
-        # Cloud Pak for Data Platform (~1 1/2 hours)
-        name: ibm.mas_devops.cp4d
-      when: install_cp4d_platform == true
-    - include_role:
-        # Watson Studio (~3 hours)
-        name: ibm.mas_devops.cp4d_service
-      when: install_watson_studio == true
-      vars:
-        cpd_service_name: wsl
-    - include_role:
-        # Watson Machine Learning (~2 1/2 hours)
-        name: ibm.mas_devops.cp4d_service
-      when: install_watson_machine_learning == true
-      vars:
-        cpd_service_name: wml
-    - include_role:
-        # Analytics Engine Powered by Apache Spark (~30 minutes)
-        name: ibm.mas_devops.cp4d_service
-      when: install_analytics_engine == true
-      vars:
-        cpd_service_name: spark
-    - include_role:
-        # Watson OpenScale (~1 hour)
-        name: ibm.mas_devops.cp4d_service
-      when: install_watson_openscale == true
-      vars:
-        cpd_service_name: aiopenscale
-      # SPSS MODELER
-    - include_role:
-        name: ibm.mas_devops.cp4d_service
-      when: install_spss_modeler == true
-      vars:
-        cpd_service_name: spss
+    - name: Important Notice
+      debug:
+        msg: |
+          *********************************************************************
+          ************************* IMPORTANT NOTICE **************************
+          *********************************************************************
+          *                                                                   *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
+          *                                                                   *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
+          *                                                                   *
+          *  The recommended way to install MAS is to use the MAS CLI, which  *
+          *  uses this Ansible Collection to deliver a complete managed       *
+          *  lifecycle for your MAS instance.                                 *
+          *                                                                   *
+          *  https://ibm-mas.github.io/cli/                                   *
+          *                                                                   *
+          *********************************************************************
 
-    # For the full set of supported environment variables refer to the playbook documentation
     - name: Check for required environment variables
       assert:
         that:
@@ -88,12 +74,49 @@
         fail_msg: "One or more required environment variables are not defined"
 
   roles:
+    # Cloud Pak for Data Platform (~1 1/2 hours)
+    - role: ibm.mas_devops.cp4d
+      when: install_cp4d_platform == true
+
+    # Watson Studio (~3 hours)
+    - role: ibm.mas_devops.cp4d_service
+      when: install_watson_studio == true
+      vars:
+        cpd_service_name: wsl
+
+    # Watson Machine Learning (~2 1/2 hours)
+    - role: ibm.mas_devops.cp4d_service
+      when: install_watson_machine_learning == true
+      vars:
+        cpd_service_name: wml
+
+    # Analytics Engine Powered by Apache Spark (~30 minutes)
+    - role: ibm.mas_devops.cp4d_service
+      when: install_analytics_engine == true
+      vars:
+        cpd_service_name: spark
+
+    # Watson OpenScale (~1 hour)
+    - role: ibm.mas_devops.cp4d_service
+      when: install_watson_openscale == true
+      vars:
+        cpd_service_name: aiopenscale
+
+    # SPSS Modeller
+    - role: ibm.mas_devops.cp4d_service
+      when: install_spss_modeler == true
+      vars:
+        cpd_service_name: spss
+
     # Generate Watson Studio CFG File (~5 Minutes)
-    - name: ibm.mas_devops.gencfg_watsonstudio
+    - role: ibm.mas_devops.gencfg_watsonstudio
       when: install_watson_studio == false
+
     # Apply MAS configurations related to CPD (~5 Minutes)
-    - name: ibm.mas_devops.suite_config
+    - role: ibm.mas_devops.suite_config
+
     # Deploy Predict (~15 Minutes)
-    - name: ibm.mas_devops.suite_app_install
+    - role: ibm.mas_devops.suite_app_install
+
     # Activate Predict in workspace (~30 Minutes)
-    - name: ibm.mas_devops.suite_app_config
+    - role: ibm.mas_devops.suite_app_config

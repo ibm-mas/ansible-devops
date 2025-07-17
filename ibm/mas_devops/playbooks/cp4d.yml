@@ -12,23 +12,24 @@
     install_watson_discovery: "{{ lookup('env', 'CPD_INSTALL_DISCOVERY') | default('False', true) | bool }}"
     install_spss_modeler: "{{ lookup('env', 'CPD_INSTALL_SPSS') | default('False', true) | bool }}"
     install_cognos_analytics: "{{ lookup('env', 'CPD_INSTALL_COGNOS') | default('False', true) | bool }}"
-    cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('4.6.3', true) }}"
+    cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('5.1.3', true) }}"
 
   roles:
     # Cloud Pak for Data Platform (~1 1/2 hours)
-    - name: ibm.mas_devops.ibm_catalogs
+    - role: ibm.mas_devops.ibm_catalogs
       when: install_cp4d_platform == true
-    # only install shared common_services if installing/upgrading 4.6.x
+
+    # Only install shared common_services if installing/upgrading 4.6.x
     # if installing/upgrading 4.8.x, then cp4d role will install dedicated common services
-    - name: ibm.mas_devops.common_services
+    - role: ibm.mas_devops.common_services
       when:
         - install_cp4d_platform == true
         - cpd_product_version is version('4.7.0','<')
-    - name: ibm.mas_devops.cp4d
+    - role: ibm.mas_devops.cp4d
       when: install_cp4d_platform == true
 
     # Watson Studio (~3 hours)
-    - name: ibm.mas_devops.cp4d_service
+    - role: ibm.mas_devops.cp4d_service
       when: install_watson_studio == true
       vars:
         cpd_service_name: wsl
@@ -49,7 +50,7 @@
     # ibm.mas_devops.cp4d : create-subscriptions : Wait for cpd-platform-operator-manager to be ready (60s delay) -------------------------------------- 61.97s
     # ibm.mas_devops.cp4d_service : wait-ccs : Wait for the runtimes operator deployment to be ready --------------------------------------------------- 61.56s
     # ibm.mas_devops.cp4d_service : Wait until the wmlbases.wml.cpd.ibm.com CRD is available ----------------------------------------------------------- 21.64s
-    - name: ibm.mas_devops.cp4d_service
+    - role: ibm.mas_devops.cp4d_service
       when: install_watson_machine_learning == true
       vars:
         cpd_service_name: wml
@@ -70,7 +71,7 @@
     # ibm.mas_devops.common_services : Check if operator group is present in ibm-common-services already ------------------------------------------------ 9.29s
     # ibm.mas_devops.cp4d_service : Obtain CP4D dashboard URL ------------------------------------------------------------------------------------------- 9.14s
     # ibm.mas_devops.cp4d : Patch the zen service accounts ---------------------------------------------------------------------------------------------- 5.76s
-    - name: ibm.mas_devops.cp4d_service
+    - role: ibm.mas_devops.cp4d_service
       when: install_analytics_engine == true
       vars:
         cpd_service_name: spark
@@ -91,25 +92,25 @@
     # ibm.mas_devops.common_services : Check if operator group is present in ibm-common-services already ----------------------------------------------- 12.58s
     # ibm.mas_devops.cp4d_service : Obtain CP4D dashboard URL ------------------------------------------------------------------------------------------ 10.80s
     # ibm.mas_devops.cp4d : Patch the zen service accounts ---------------------------------------------------------------------------------------------- 6.59s
-    - name: ibm.mas_devops.cp4d_service
+    - role: ibm.mas_devops.cp4d_service
       when: install_watson_openscale == true
       vars:
         cpd_service_name: aiopenscale
 
     # Watson Discovery (~1 hour)
-    - name: ibm.mas_devops.cp4d_service
+    - role: ibm.mas_devops.cp4d_service
       when: install_watson_discovery == true
       vars:
         cpd_service_name: wd
 
     # SPSS MODELER
-    - name: ibm.mas_devops.cp4d_service
+    - role: ibm.mas_devops.cp4d_service
       when: install_spss_modeler == true
       vars:
         cpd_service_name: spss
 
     # COGNOS ANALYTICS
-    - name: ibm.mas_devops.cp4d_service
+    - role: ibm.mas_devops.cp4d_service
       when: install_cognos_analytics == true
       vars:
         cpd_service_name: ca

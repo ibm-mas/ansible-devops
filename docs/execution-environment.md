@@ -92,8 +92,8 @@ If you are using the [playbooks](https://github.com/ibm-mas/ansible-devops/tree/
 - Remove any pre_tasks related to environment variables
 - Remove any lookups of environment variables from the playbook
 
-### oneclick_core.yml
-An example of this is taking the `oneclick_core.yml` playbook:
+### mas_install_core.yml
+An example of this is taking the `mas_install_core.yml` playbook:
 
 ```yaml
 ---

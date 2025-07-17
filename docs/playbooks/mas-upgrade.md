@@ -52,7 +52,7 @@ The simplest way to upgrade MAS is to provide only the instance ID that you wish
 ```bash
 export MAS_INSTANCE_ID=instance1
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_upgrade
+ansible-playbook ibm.mas_devops.mas_upgrade
 ```
 
 You can also explicitly specify the target upgrade:
@@ -62,7 +62,7 @@ export MAS_INSTANCE_ID=instance1
 export MAS_CHANNEL=8.8.x
 export MAS_APP_CHANNEL_IOT=8.5.x
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_upgrade
+ansible-playbook ibm.mas_devops.mas_upgrade
 ```
 
 !!! tip

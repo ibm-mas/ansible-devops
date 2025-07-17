@@ -1,8 +1,19 @@
 Install Real Estate and Facilities Application
 ===============================================================================
 
-This playbook will add Maximo Real Estate and Facilities to an existing IBM Maximo Application Suite Instance.  Refer to the [oneclick-core](oneclick-core.md) playbook to set up the MAS Core Platform before running this playbook.  
+!!! important
+    These playbooks are samples to demonstrate how to use the roles in this collection.
+
+    They are **note intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
+
+    The recommended way to install MAS is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
+
+
+Overview
+-------------------------------------------------------------------------------
+This playbook will add Maximo Real Estate and Facilities to an existing IBM Maximo Application Suite Instance.  Refer to the [oneclick-core](oneclick-core.md) playbook to set up the MAS Core Platform before running this playbook.
 This playbook will create an in-cluster Db2 instance using the IBM Db2 Universal Operator, which will be automatically set up as the workspace-application level JDBC configuration in MAS.
+
 
 Playbook Content
 -------------------------------------------------------------------------------
@@ -30,7 +41,7 @@ export MAS_CONFIG_DIR=~/masconfig
 export IBM_ENTITLEMENT_KEY=xxx
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_facilities
+ansible-playbook ibm.mas_devops.mas_add_facilities
 ```
 
 
@@ -49,7 +60,7 @@ export MAS_JDBC_PASSWORD=xxx
 export MAS_JDBC_URL=xxx
 
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook ibm.mas_devops.oneclick_add_facilities
+ansible-playbook ibm.mas_devops.mas_add_facilities
 ```
 
 For full details of configuration options available refer to the [gencfg_jdbc](../roles/gencfg_jdbc.md) role documentation.

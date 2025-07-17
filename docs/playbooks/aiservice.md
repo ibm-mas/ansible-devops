@@ -1,47 +1,66 @@
-# Install AI Broker Application
+Install AI Service
+===============================================================================
 
-## Prerequisites
+!!! important
+    These playbooks are samples to demonstrate how to use the roles in this collection.
 
-You will need a RedHat OpenShift v4.14 or above.
+    They are **note intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
 
-### Dependencies:
+    The recommended way to install MAS is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
+
+
+Dependencies
+-------------------------------------------------------------------------------
 
 * IBM Suite License Service installed on OCP cluster or external instance or details from external instance
 * IBM Data Reporter Operator installed on OCP cluster or external instance or details from external instance
 * Object Storage
-  + Minio (installed on the same cluster what aibroker) or external instance or details from external instance
-  + AWS S3 (if customer use AWS S3 bucket bucket) buckets needs to have unique names 
-* MariaDB database (installed in cluster where aibroker instance) or external instance or details from external instance
+  + Minio (installed on the same cluster what aiservice) or external instance or details from external instance
+  + AWS S3 (if customer use AWS S3 bucket bucket) buckets needs to have unique names
+* MariaDB database (installed in cluster where aiservice instance) or external instance or details from external instance
 
-## Overview
-
-This playbook will add **AI Broker v9.1.x** to OCP cluster.
+Overview
+-------------------------------------------------------------------------------
+This playbook will add **AI Service v9.1.x** to OCP cluster.
 
 This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
-* Install dependencies:
-  + IBM Suite License Service (~10 Minutes) **optional**
-  + IBM Data Reporter Operator (~10 Minutes) **optional**
-  + Install MariaDB (~5 minutes) **optional**
-  + Install Minio (~5 minutes) **optional**
-* Install AI broker application (using playbook):
-  + Install application (~20 Minutes)
-  + Configure AI Broker (kmodels, tenant, etc) (~20 Minutes)
+- Install dependencies:
+    - IBM Maximo Operator Catalog **optional**
+    - RedHat Certificate Manager **optional**
+    - MongoDb **optional**
+    - IBM Suite License Service (~10 Minutes) **optional**
+    - IBM Data Reporter Operator (~10 Minutes) **optional**
+    - IBM Db2 **optional**
+    - MariaDB (~5 minutes) **optional**
+    - Minio (~5 minutes) **optional**
+- Install ODH:
+    - Install Red Hat OpenShift Serverless Operator
+    - Install Red Hat OpenShift Service Mesh Operator
+    - Install Authorino Operator
+    - Install Open Data Hub Operator
+    - Create DSCInitialization instance
+    - Create Data Science Cluster
+    - Create Create Data Science Pipelines Application
+- Install Kmodels:
+    - Install Kmodel controller
+    - Install istio
+    - Install Kmodel store
+    - Install Kmodel watcher
+- Install AI Service (using playbook):
+    - Install application (~20 Minutes)
+    - Configure AI Service (kmodels, tenant, etc) (~20 Minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing application, just customize the application install and configure stages at the end of the playbook.
 
-## Storage providers
 
-**Notice !!!**
+Required environment variables
+-------------------------------------------------------------------------------
 
-AI Broker supports **AWS** and **Minio** storage providers.
-
-## Required environment variables
-
-* `MAS_INSTANCE_ID` Declare the instance ID for the AI Broker install
+* `MAS_INSTANCE_ID` Declare the instance ID for the AI service install
 * `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 * `MAS_ENTITLEMENT_USERNAME` Your IBM Entitlement user to access the IBM Container Registry
-* `MAS_APP_CHANNEL` Aibroker application channel
+* `MAS_APP_CHANNEL` Aiservice application channel
 * `MAS_AIBROKER_STORAGE_ACCESSKEY` Your strage provider access key
 * `MAS_AIBROKER_STORAGE_SECRETKEY` Your storage provider secret key
 * `MAS_AIBROKER_STORAGE_HOST` Your storage provider host
@@ -61,23 +80,30 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `MAS_AIBROKER_DB_SECRET_NAME` Your database instance secret name
 * `MAS_AIBROKER_DB_SECRET_VALUE` Your database instance password
 
-## Required environment variables when AI Broker deployed on SAAS
+!!! tip
+    AI service supports **AWS** and **Minio** storage providers.
 
-* `MAS_AIBROKER_SAAS` specify if saas deployment (default value is: false) 
+
+Required environment variables (SaaS)
+-------------------------------------------------------------------------------
+
+* `MAS_AIBROKER_SAAS` specify if saas deployment (default value is: false)
 * `MAS_CONFIG_DIR` specify config location, mandatory when `MAS_AIBROKER_SAAS=true`
 * `MAS_AIBROKER_DOMAIN` specify cluster domain, mandatory when `MAS_AIBROKER_SAAS=true`
 * `MAS_AIBROKER_SLS_URL` specify SLS url, mandatory when `MAS_AIBROKER_SAAS=true`
 * `MAS_AIBROKER_SLS_REGISTRATION_KEY` specify sls registration key, mandatory when `MAS_AIBROKER_SAAS=true`, to get value: look in `ibm-sls` namespace, pod `sls-api-licensing-xxx` and in `Environment` tab check `REGISTRATION_KEY` value
 * `MAS_AIBROKER_DRO_URL` specify DRO url, mandatory when `MAS_AIBROKER_SAAS=true`
 * `MAS_AIBROKER_DRO_TOKEN` specify DRO token, mandatory when `MAS_AIBROKER_SAAS=true` to get value: go to `mas-{{ instance_id }}-core` and look in secret `dro-apikey`
-* `DB2_INSTANCE_NAME` specify DB2 instance name (default value is: aibroker), mandatory when `MAS_AIBROKER_SAAS=true`
+* `DB2_INSTANCE_NAME` specify DB2 instance name (default value is: aiservice), mandatory when `MAS_AIBROKER_SAAS=true`
 * `IBM_ENTITLEMENT_KEY` specify IBM Entitlement key, mandatory when `MAS_AIBROKER_SAAS=true`
 
-## Optional environment variables
 
-* `MAS_ICR_CP` Provide custom registry for AI Broker applications
-* `MAS_ICR_CPOPEN` Provide custom registry for AI Broker operator
-* `MAS_CATALOG_VERSION` Your custom AI broker catalog version
+Optional environment variables
+-------------------------------------------------------------------------------
+
+* `MAS_ICR_CP` Provide custom registry for AI service applications
+* `MAS_ICR_CPOPEN` Provide custom registry for AI service operator
+* `MAS_CATALOG_VERSION` Your custom AI service catalog version
 * `ARTIFACTORY_USERNAME` Your artifactory user name to access - this is needed if user deploy from custom registry for example `docker-na-public.artifactory.swg-devops.com`
 * `ARTIFACTORY_TOKEN` Your artifactory token for user to access - this is needed if user deploy from custom registry for example `docker-na-public.artifactory.swg-devops.com`
 * `MAS_AIBROKER_TENANT_ACTION` Whether to install or remove tenant (default value is: install)
@@ -96,23 +122,29 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
 * `MAS_AIBROKER_CLUSTER_DOMAIN` Provide custom domain (default value is: empty)
 * `MAS_AIBROKER_IS_EXTERNAL_ROUTE` A flag indicating to enable external route (default value is: false)
- 
 
-## Usage
 
-### AI broker deployment steps
+Usage
+-------------------------------------------------------------------------------
+### AI service deployment steps
 
-#### Notice: For S3 manage please make sure you have deployed dependencies
+!!! tip
+    For S3 manage please make sure you have deployed dependencies
 
-##### install boto3 python module (use python environment)
+Install boto3 python module (use python environment):
 
-```
+```bash
 python3 -m venv /tmp/venv
 source /tmp/venv/bin/activate
 python3 -m pip install boto3
 ```
 
-#### Run playbooks for deploy AI Broker
+Run playbooks for deploy AI service:
+
+- `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
+- `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
+- In `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`, `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`, `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
+
 
 ```bash
 export ARTIFACTORY_USERNAME=""
@@ -175,61 +207,12 @@ export MAS_AIBROKER_DRO_TENANT_ID=""
 export MAS_AIBROKER_TENANT_ENTITLEMENT_START_DATE="YYYY-MM-DD"
 export MAS_AIBROKER_TENANT_ENTITLEMENT_END_DATE="YYYY-MM-DD"
 oc login --token=xxxx --server=https://myocpserver
-ansible-playbook playbooks/oneclick_add_aibroker.yml
+ansible-playbook playbooks/aiservice.yml
 ```
 
-* `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
-* `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
-* in `AWS` for `MAS_AIBROKER_STORAGE_PIPELINES_BUCKET`,   `MAS_AIBROKER_STORAGE_TENANTS_BUCKET`,  `MAS_AIBROKER_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
 
-## NOTICE: playbook oneclick_add_aibroker.yml will run roles: 
-
-### Roles: * optional
-
-    - ibm.mas_devops.ibm_catalogs
-    - ibm.mas_devops.cert_manager
-    - ibm.mas_devops.mongodb
-    - ibm.mas_devops.sls
-    - ibm.mas_devops.dro
-    - ibm.mas_devops.db2
-    - ibm.mas_devops.minio
-    - ibm.mas_devops.mariadb
-
-### Role: odh
-
-* Install Red Hat OpenShift Serverless Operator
-* Install Red Hat OpenShift Service Mesh Operator
-* Install Authorino Operator
-* Install Open Data Hub Operator
-* Create DSCInitialization instance
-* Create Data Science Cluster
-* Create Create Data Science Pipelines Application
-
-### Role: kmodels
-
-* Install Kmodel controller
-* Install istio
-* Install Kmodel store
-* Install Kmodel watcher
-
-### Role: aibroker
-
-* Install AI Broker api application
-
-### Role: aibroker
-
-* Create AI Broker tenant
-* Create, delete AI Broker API Key
-* Create, delete AWS S3 API Key
-* Create, delete WatsonX AI API Key
-
-## How to create S3
-
-### Prerequisites
-
-* IBM AI Broker Application
-
-#### Run playbooks
+Create S3
+-------------------------------------------------------------------------------
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
@@ -243,13 +226,9 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
 
-## How to delete S3
 
-### Prerequisites
-
-* S3 created in a cluster
-
-#### Run playbooks
+Delete S3
+-------------------------------------------------------------------------------
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
@@ -263,13 +242,9 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
 
-## How to create API Key
 
-### Prerequisites
-
-* IBM AI Broker Application
-
-#### Run playbooks
+Create API Key
+-------------------------------------------------------------------------------
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
@@ -279,13 +254,8 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
 
-## How to delete API Key
-
-### Prerequisites
-
-* API Key created in a cluster
-
-#### Run playbooks
+Delete API Key
+-------------------------------------------------------------------------------
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
@@ -295,13 +265,8 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
 
-## How to create WatsonX API Key
-
-### Prerequisites
-
-* IBM AI Broker Application
-
-#### Run playbooks
+Create WatsonX API Key
+-------------------------------------------------------------------------------
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
@@ -311,13 +276,8 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
 
-## How to WatsonX API Key
-
-### Prerequisites
-
-* WatsonX API Key created in a cluster
-
-#### Run playbooks
+Delete WatsonX API Key
+-------------------------------------------------------------------------------
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
@@ -327,7 +287,9 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
 
-# create tanant SAAS
+Create Tenant
+-------------------------------------------------------------------------------
+The `MAS_AIBROKER_SLS_REGISTRATION_KEY` value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`.  To obtain the `MAS_AIBROKER_DRO_TOKEN` go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
 
 ```bash
 export MAS_AIBROKER_TENANT_NAME="user7"
@@ -359,7 +321,5 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
 
-* `MAS_AIBROKER_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
-* `MAS_AIBROKER_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
-
-**NOTE:** for create addidional tenants we don't need to specify buckets
+!!! tip
+    To create addidional tenants we don't need to specify buckets
