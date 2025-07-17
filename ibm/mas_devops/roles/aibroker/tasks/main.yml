@@ -11,9 +11,17 @@
     name: cluster
   register: _cluster_subdomain
 
-- name: "Set fact: cluster subdomain"
+- name: "Set custom cluster subdomain"
+  set_fact:
+    cluster_domain: "{{ mas_aibroker_cluster_domain }}"
+  when:
+    - mas_aibroker_cluster_domain | length > 0
+
+- name: "Set default cluster subdomain from ingress"
   set_fact:
     cluster_domain: "{{ _cluster_subdomain.resources[0].spec.domain }}"
+  when:
+    - mas_aibroker_cluster_domain | length == 0
 
 - name: "Debug: cluster domain"
   debug:
@@ -36,19 +44,19 @@
 
 # Create config for SLS
 - include_tasks: tasks/config_sls/main.yml
-  when: mas_app_channel in [ '9.1.x' ]
+  when: mas_app_channel not in ['9.0.x']
 
 # Create config for DRO
 - include_tasks: tasks/config_dro/main.yml
-  when: mas_app_channel in [ '9.1.x']
+  when: mas_app_channel not in ['9.0.x']
 
 # Create config for DB2
 - include_tasks: tasks/config_db2/main.yml
-  when: mas_app_channel in [ '9.1.x' ]
+  when: mas_app_channel not in ['9.0.x']
 
 # install AI Broker api
 - include_tasks: tasks/aibroker/main.yml
-  when: mas_app_channel in [ '9.1.x' ]
+  when: mas_app_channel not in ['9.0.x']
 
 # create AI Broker tenant
 - include_tasks: tasks/tenant/main.yml

@@ -9,11 +9,13 @@
     jdbc_file_cfg: "{{ lookup('file', '{{ mas_config_dir }}/jdbc-{{ mas_app_id }}-db2u.yml') | from_yaml_all }}"
   ansible.builtin.set_fact:
     jdbccfg:
-      username: "{{ jdbc_file_cfg[0].data.username }}"
-      password: "{{ jdbc_file_cfg[0].data.password }}"
-      url: "{{ jdbc_file_cfg[1].spec.config.url | b64encode }}"
-      sslenabled: "{{ jdbc_file_cfg[1].spec.config.sslEnabled | b64encode }}"
-      ca: "{{ jdbc_file_cfg[1].spec.certificates | map(attribute='crt') | join(',') | replace(',','\n') | b64encode }}"
+      # read from Secret
+      username: "{{ jdbc_file_cfg[0].data.username | b64decode }}"
+      password: "{{ jdbc_file_cfg[0].data.password | b64decode  }}"
+      # read from JdbcCfg
+      url: "{{ jdbc_file_cfg[1].spec.config.url }}"
+      sslenabled: "{{ jdbc_file_cfg[1].spec.config.sslEnabled | default('True', true) | bool }}"
+      ca: "{{ jdbc_file_cfg[1].spec.certificates | map(attribute='crt') | join(',') | replace(',','\n') }}"
   when: jdbc_config_file_result.stat.exists
 
 - name: Read JDBC config from environment
@@ -23,7 +25,7 @@
       password: "{{ lookup('env', 'MAS_AIBROKER_DB2_PASSWORD') }}"
       url: "{{ lookup('env', 'MAS_AIBROKER_DB2_JDBC_URL') }}"
       sslenabled: "{{ lookup('env', 'MAS_AIBROKER_DB2_SSL_ENABLED') | default('True', true) | bool }}"
-      ca: "{{ lookup('env', 'MAS_AIBROKER_DB2_CA_CERT') }}"
+      ca: "{{ lookup('env', 'MAS_AIBROKER_DB2_CA_CERT') | regex_replace('BEGIN CERTIFICATE', 'BEGIN_CERTIFICATE') | regex_replace('END CERTIFICATE', 'END_CERTIFICATE') | regex_replace('\\s+', '\n') | replace('BEGIN_CERTIFICATE', 'BEGIN CERTIFICATE')| replace('END_CERTIFICATE', 'END CERTIFICATE') }}"
   when: not jdbc_config_file_result.stat.exists
 
 - name: "Validate JDBC configuration"
@@ -40,11 +42,6 @@
   when: jdbccfg.url | length == 0
   ansible.builtin.fail:
     msg: "jdbccfg.url must not be empty"
-
-- name: "Validate JDBC configuration"
-  when: jdbccfg.sslenabled | length == 0
-  ansible.builtin.fail:
-    msg: "jdbccfg.sslenabled must not be empty"
 
 - name: "Validate JDBC configuration"
   when: jdbccfg.ca | length == 0

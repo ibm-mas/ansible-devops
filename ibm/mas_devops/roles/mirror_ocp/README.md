@@ -81,21 +81,21 @@ Path to your Red Hat pull secret, available from: [https://console.redhat.com/op
 Role Variables - OpenShift Version
 -------------------------------------------------------------------------------
 ### ocp_release
-The Red Hat release you are mirroring content for, e.g. `4.16`.
+The Red Hat release you are mirroring content for, e.g. `4.18`.
 
 - **Required**
 - Environment Variable: `OCP_RELEASE`
 - Default: None
 
 ### ocp_min_version
-The minimum version of the Red Hat release to mirror platform content for, e.g. `4.16.11`.
+The minimum version of the Red Hat release to mirror platform content for, e.g. `4.18.8`.
 
 - **Optional**
 - Environment Variable: `OCP_MIN_VERSION`
 - Default: None
 
 ### ocp_max_version
-The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.16.20`.
+The maximimum version of the Red Hat release to mirror platform content for, e.g. `4.18.8`.
 
 - **Optional**
 - Environment Variable: `OCP_MAX_VERSION`
@@ -116,6 +116,20 @@ The public port number for the target registry
 
 - **Required**
 - Environment Variable: `REGISTRY_PUBLIC_PORT`
+- Default: None
+
+### registry_is_ecr
+Specifies if the target registry is an AWS Elastic Container Registry instance
+
+- Optional
+- Environment Variable: `REGISTRY_IS_ECR`
+- Default: false
+
+### registry_ecr_aws_region
+The AWS region of the AWS Elastic Container Registry. Only required if the target registry is an AWS Elastic Container Registry instance.
+
+- Optional
+- Environment Variable: `REGISTRY_ECR_AWS_REGION`
 - Default: None
 
 ### registry_prefix_redhat
@@ -157,7 +171,7 @@ Example Playbook
     mirror_redhat_platform: false
     mirror_redhat_operators: true
 
-    ocp_release: 4.16
+    ocp_release: 4.18
     redhat_pullsecret: ~/pull-secret.json
 
   roles:
