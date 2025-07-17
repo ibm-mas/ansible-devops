@@ -1,0 +1,30 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: km-controller
+  namespace: mas-{{ mas_instance_id }}-aibroker
+  labels:
+    app: km-controller
+data:
+  # Note that the namespace used in ICR uses the old "aibroker" name, it's too
+  # late to change this now, so we are stuck with it.
+  CONTAINER_REGISTRY: {{ mas_icr_cp }}/aibroker
+  PIPELINES_BUCKET: "{{ aiservice_storage_pipelines_bucket }}"
+  TENANTS_BUCKET: "{{ aiservice_storage_tenants_bucket }}"
+  DOCKER_SECRETS_NAME: "ibm-entitlement"
+  CONNECTOR_IMAGE_PREFIX: ''
+  PIPELINE_STEP_IMAGE_PREFIX: ''
+  PIPELINE_DEFAULT_STEP_TAG: {{ aiservice_pipeline_steps_tag }}
+{% if mas_app_channel != '9.0.x' %}
+  DEFAULT_TENANTS:  {{ aiservice_provision_tenant }}
+{% else %}
+  DEFAULT_TENANTS: {{ tenantNamespace }}
+{% endif %}
+  PLATFORM: openshift
+  PVC_STORAGE_CLASS_NAME: "{{ primary_storage_class }}"
+  LOG_FORMAT: "json"
+  MODEL_ID_UNIQUE_LENGTH: "{{ model_id_unique_length }}"
+  MODEL_ID_PREFIX: "{{ model_id_prefix }}"
+  AFFINITY_ENABLED: "false"
+  CONNECTOR_TTL: "10"
