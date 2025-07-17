@@ -1,7 +1,7 @@
 # Install Monitor Application
 
 ## Prerequisites
-You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.7 and Maximo IoT v8.4 already be installed, the [mas-install-core](mas-install-core.md) and [mas-iot](mas-iot.md)playbooks can be used to set this up.
+You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.7 and Maximo IoT v8.4 already be installed, the [mas_install_core](mas-core.md) and [mas-iot](mas-iot.md)playbooks can be used to set this up.
 
 ## Overview
 This playbook will add **Maximo Monitor v8.7** to an existing IBM Maximo Application Suite Core installation.  Monitor will be configured to accept automatic security updates and bug fixes, but not new feature releases.

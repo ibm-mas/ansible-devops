@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-You will need a RedHat OpenShift cluster with IBM Maximo Application Suite Core v8.11 already be installed, the [mas-install-core](mas-install-core.md) playbook can be used to set this up.
+You will need a RedHat OpenShift cluster with IBM Maximo Application Suite Core v8.11 already be installed, the [mas_install_core](mas-core.md) playbook can be used to set this up.
 
 ## Overview
 

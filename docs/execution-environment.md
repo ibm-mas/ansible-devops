@@ -166,7 +166,7 @@ and changing it to look like the following:
 
 ```yaml
 ---
-- name: "mas-install-core"
+- name: "mas-core"
   hosts: localhost
   any_errors_fatal: true
   vars:

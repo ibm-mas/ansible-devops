@@ -1,7 +1,7 @@
 Install Manage Application
 ===============================================================================
 
-This playbook will add Maximo Manage to an existing IBM Maximo Application Suite Instance.  Refer to the [mas-install-core](mas-install-core.md) playbook to set up the MAS Core Platform before running this playbook.  The playbook will also create an in-cluster Db2 instance using the IBM Db2 Universal Operator, which will be automatically set up as the system-level JDBC configuration in MAS.
+This playbook will add Maximo Manage to an existing IBM Maximo Application Suite Instance.  Refer to the [mas_install_core](mas-core.md) playbook to set up the MAS Core Platform before running this playbook.  The playbook will also create an in-cluster Db2 instance using the IBM Db2 Universal Operator, which will be automatically set up as the system-level JDBC configuration in MAS.
 
 Playbook Content
 -------------------------------------------------------------------------------
