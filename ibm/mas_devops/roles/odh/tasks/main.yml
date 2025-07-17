@@ -56,6 +56,38 @@
   retries: 10
   delay: 60
 
+- name: Read the minio certificate secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "minio-certificate-{{ minio_instance_name }}"
+    namespace: "{{ minio_namespace }}"
+  register: minio_cert_secret
+
+- name: Decode the certificate from the secret
+  set_fact:
+    minio_ca_cert: "{{ minio_cert_secret.resources[0].data['ca.crt'] | b64decode }}"
+  when:
+    - minio_cert_secret is defined
+    - minio_cert_secret.resources is defined
+    - minio_cert_secret.resources | length > 0
+    - "'ca.crt' in minio_cert_secret.resources[0].data"
+
+- name: Patch DSCInitialization to include custom CA bundle
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: dscinitialization.opendatahub.io/v1
+      kind: DSCInitialization
+      metadata:
+        name: default-dsci
+      spec:
+        trustedCABundle:
+          customCABundle: "{{ minio_ca_cert }}"
+  when:
+    - minio_ca_cert is defined
+    - minio_ca_cert | length > 0
+
 # Create Data Science Cluster
 - name: "Create Data Science Cluster"
   kubernetes.core.k8s:
