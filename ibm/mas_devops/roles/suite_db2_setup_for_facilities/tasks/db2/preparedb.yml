@@ -1,46 +1,45 @@
 ---
-- name: Check that /tmp/prepare_db_files directory exists
+- name: Check that /tmp/mref_preparedb_files directory exists
   stat:
-    path: /tmp/prepare_db_files
+    path: /tmp/mref_preparedb_files
   register: tmpPrepareDbFilesDirExists
 
-- name: Create /tmp/prepare_db_files directory
+- name: Create /tmp/mref_preparedb_files directory
   file:
-    path: /tmp/prepare_db_files
+    path: /tmp/mref_preparedb_files
     state: directory
-    mode: '0755'
+    mode: "0755"
   when: not tmpPrepareDbFilesDirExists.stat.exists
 
-- name: template create-tablespaces.sql
+- name: Create create-tablespaces.sh file from template create-tablespaces.sh.j2
   template:
-    src: "{{ role_path }}/templates/db2/scripts/create-tablespaces.sql.j2"
-    dest: /tmp/prepare_db_files/create-tablespaces.sql
+    src: "{{ role_path }}/templates/db2/scripts/create-tablespaces.sh.j2"
+    dest: /tmp/mref_preparedb_files/create-tablespaces.sh
 
-- name: template create-schema.sql
+- name: Create create-schema.sh file from template create-schema.sh.j2
   template:
-    src: "{{ role_path }}/templates/db2/scripts/create-schema.sql.j2"
-    dest: /tmp/prepare_db_files/create-schema.sql
+    src: "{{ role_path }}/templates/db2/scripts/create-schema.sh.j2"
+    dest: /tmp/mref_preparedb_files/create-schema.sh
 
-- name: template db2configdb.sh
+- name: Create db2configdb.sh file from template db2configdb.sh.j2
   template:
     src: "{{ role_path }}/templates/db2/scripts/db2configdb.sh.j2"
-    dest: /tmp/prepare_db_files/db2configdb.sh
+    dest: /tmp/mref_preparedb_files/db2configdb.sh
 
-#1 Copy db scripts to db2u pod
-- name: Copy db scripts to /tmp in a remote pod
+- name: Copy /tmp/mref_preparedb_files folder and its content to /tmp in the container db2u of the db2 pod
   kubernetes.core.k8s_cp:
     namespace: "{{ db2_namespace }}"
     pod: "{{ db2_pod_name }}"
     container: db2u
     remote_path: /tmp
-    local_path: /tmp/prepare_db_files
+    local_path: /tmp/mref_preparedb_files
 
-- name: Setting permission for DB Scripts
+- name: Set permissions for the scripts in the remote folder /tmp/mref_preparedb_files
   ansible.builtin.shell: |
-    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo chmod 777 /tmp/prepare_db_files/create-tablespaces.sql /tmp/prepare_db_files/create-schema.sql /tmp/prepare_db_files/db2configdb.sh
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo chmod 777 /tmp/mref_preparedb_files/create-tablespaces.sh /tmp/mref_preparedb_files/create-schema.sh /tmp/mref_preparedb_files/db2configdb.sh
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
 
 - name: Disable HA for maintanance
@@ -48,38 +47,45 @@
     oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo wvcli system disable -m "Disable HA before Db2 maintenance"
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
 
-- name: Executing db2configdb.sh
+- name: Execute db2configdb.sh
   ansible.builtin.shell: |
-    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "sh /tmp/prepare_db_files/db2configdb.sh "
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "sh /tmp/mref_preparedb_files/db2configdb.sh "
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
 
-- name: Executing create-tablespaces.sql
+- name: Execute create-tablespaces.sh
   ansible.builtin.shell: |
-    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "db2 -tvf /tmp/prepare_db_files/create-tablespaces.sql "
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "bash /tmp/mref_preparedb_files/create-tablespaces.sh "
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
 
-- name: Executing create-schema.sql
-  when: db2_schema is defined
+- name: Execute create-schema.sh
   ansible.builtin.shell: |
-    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "db2 -tvf /tmp/prepare_db_files/create-schema.sql "
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- su - db2inst1 -c "bash /tmp/mref_preparedb_files/create-schema.sh "
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds
+
+- name: Delete /tmp/mref_preparedb_files folder and its content from the container db2u of the db2 pod
+  ansible.builtin.shell: |
+    oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo rm -rf /tmp/mref_preparedb_files
+  register: shell_status
+  until: shell_status.rc == 0
+  retries: 1
+  delay: 1 # seconds
 
 - name: Enable HA after maintenance
   ansible.builtin.shell: |
     oc exec -n {{ db2_namespace }} -ti {{ db2_pod_name }} -- sudo wvcli system enable -m "Enable HA after Db2 maintenance"
   register: shell_status
   until: shell_status.rc == 0
-  retries: 5
+  retries: 10
   delay: 60 # seconds

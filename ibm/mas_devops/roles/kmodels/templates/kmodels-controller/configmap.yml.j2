@@ -7,13 +7,23 @@ metadata:
   labels:
     app: km-controller
 data:
-  DOCKER_SERVER: {{ mas_icr_cp }}/aibroker
+  CONTAINER_REGISTRY: {{ mas_icr_cp }}/aibroker
+  # DOCKER_SERVER: {{ mas_icr_cp }}/aibroker
   PIPELINES_BUCKET: "{{ mas_aibroker_storage_pipelines_bucket }}"
   TENANTS_BUCKET: "{{ mas_aibroker_storage_tenants_bucket }}"
   DOCKER_SECRETS_NAME: "ibm-entitlement"
   CONNECTOR_IMAGE_PREFIX: ''
   PIPELINE_STEP_IMAGE_PREFIX: '' 
   PIPELINE_DEFAULT_STEP_TAG: {{ mas_aibroker_pipeline_steps_tag }}
-  CONNECTOR_DEFAULT_TAG: {{ mas_aibroker_connector_tag }}
+{% if mas_app_channel != '9.0.x' %}
+  DEFAULT_TENANTS:  {{ mas_aibroker_provision_tenant }}
+{% else %}
   DEFAULT_TENANTS: {{ tenantNamespace }}
+{% endif %}
   PLATFORM: openshift
+  PVC_STORAGE_CLASS_NAME: "{{ primary_storage_class }}"
+  LOG_FORMAT: "json"
+  MODEL_ID_UNIQUE_LENGTH: "{{ model_id_unique_length }}"
+  MODEL_ID_PREFIX: "{{ model_id_prefix }}"
+  AFFINITY_ENABLED: "false"
+  CONNECTOR_TTL: "10"

@@ -149,7 +149,7 @@ Subscription channel for IBM Maximo Location Services for Esri.
 
 - Optional
 - Environment Variable: `MAS_ARCGIS_CHANNEL`
-- Default Value: `9.0.x`
+- Default Value: `9.1.x`
 
 Role Variables - MAS Configuration
 -------------------------------------------------------------------------------

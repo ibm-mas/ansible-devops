@@ -52,13 +52,6 @@ Note: For Maximo Real estate and facilities, we recommend to use workspace-appli
 - Environment Variable: `MAS_APPWS_BINDINGS_JDBC`
 - Default: `system`
 
-### is_full_manage
-If set to `false`, Manage Foundation will be installed instead of Full Manage (available on MAS Core 9.1 and later).
-
-- Optional
-- Environment Variable: `IS_FULL_MANAGE`
-- Default: `true`
-
 ### mas_appws_components
 Defines the app components and versions to configure in the application workspace. Takes the form of key=value pairs seperated by a comma i.e. To install health within Manage set `base=latest,health=latest`
 
@@ -447,7 +440,7 @@ For more details, refer to [Manage database encryption](https://www.ibm.com/docs
 - Environment Variable: `MAS_APP_SETTINGS_OLD_CRYPTO_KEY`
 - Default: None
 
-### mas_app_settings_cryptox_key
+### mas_app_settings_old_cryptox_key
 This defines the `MXE_SECURITY_OLD_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
