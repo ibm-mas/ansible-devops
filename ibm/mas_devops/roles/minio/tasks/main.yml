@@ -107,6 +107,12 @@
     namespace: "{{ minio_namespace }}"
   register: certSecret
 
+- name: "Set external TLS certificate facts from Secret"
+  set_fact:
+    externalCACertificate: "{{ certSecret.resources[0]['data']['ca.crt'] | b64decode }}"
+    externalCertificate: "{{ certSecret.resources[0]['data']['tls.crt'] | b64decode }}"
+    externalKey: "{{ certSecret.resources[0]['data']['tls.key'] | b64decode }}"
+
 # create minio service
 - name: 'Create minio service'
   kubernetes.core.k8s:
