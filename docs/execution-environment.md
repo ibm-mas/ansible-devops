@@ -166,7 +166,7 @@ and changing it to look like the following:
 
 ```yaml
 ---
-- name: "oneclick-core"
+- name: "mas-install-core"
   hosts: localhost
   any_errors_fatal: true
   vars:

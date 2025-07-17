@@ -1,7 +1,7 @@
 # Install Optimizer Application
 
 ## Prerequisites
-You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.9. The [oneclick-core] (oneclick-core.md) playbook can be used to set this up.
+You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.9. The [mas-install-core] (mas-install-core.md) playbook can be used to set this up.
 
 ## Overview
 This playbook will add **Maximo Optimizer v8.3** to an existing IBM Maximo Application Suite Core installation.  Optimizer will be configured to accept automatic security updates and bug fixes, but not new feature releases.

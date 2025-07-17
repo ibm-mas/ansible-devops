@@ -1,7 +1,7 @@
 # Install Cloud Pak for Data
 
 ## Prerequisites
-You will need a RedHat OpenShift v4.10 cluster with IBM Maximo Application Suite Core v8.10 already installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
+You will need a RedHat OpenShift v4.10 cluster with IBM Maximo Application Suite Core v8.10 already installed, the [mas-install-core](mas-install-core.md) playbook can be used to set this up.
 
 ## Overview
 This playbook will add **Cloud Pak for Data 4.x** to an existing cluster installation. It could also install additional CP4D services.

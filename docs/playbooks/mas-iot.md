@@ -8,7 +8,7 @@
     The recommended way to install MAS is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
 
 ## Prerequisites
-You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.7 already be installed, the [oneclick-core](oneclick-core.md) playbook can be used to set this up.
+You will need a RedHat OpenShift v4.8 cluster with IBM Maximo Application Suite Core v8.7 already be installed, the [mas-install-core](mas-install-core.md) playbook can be used to set this up.
 
 ## Overview
 This playbook will add **Maximo IoT v8.4** to an existing IBM Maximo Application Suite Core installation.  It will also creatie an in-cluster Db2 instance and Kafka cluster, both of which will be automatically set up as system-level configurations in MAS.  IoT will be configured to accept automatic security updates and bug fixes, but not new feature releases.

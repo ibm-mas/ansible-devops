@@ -11,7 +11,7 @@ Install Real Estate and Facilities Application
 
 Overview
 -------------------------------------------------------------------------------
-This playbook will add Maximo Real Estate and Facilities to an existing IBM Maximo Application Suite Instance.  Refer to the [oneclick-core](oneclick-core.md) playbook to set up the MAS Core Platform before running this playbook.
+This playbook will add Maximo Real Estate and Facilities to an existing IBM Maximo Application Suite Instance.  Refer to the [mas-install-core](mas-install-core.md) playbook to set up the MAS Core Platform before running this playbook.
 This playbook will create an in-cluster Db2 instance using the IBM Db2 Universal Operator, which will be automatically set up as the workspace-application level JDBC configuration in MAS.
 
 
