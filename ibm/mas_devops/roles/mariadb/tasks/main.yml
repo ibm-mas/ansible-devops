@@ -12,6 +12,105 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/mariadb/mariadb-ns.yml.j2') }}"
 
+# Get cluster domain
+# -----------------------------------------------------------------------------
+- name: "Get cluster subdomain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Set fact: cluster subdomain"
+  set_fact:
+    cluster_domain: "{{ _cluster_subdomain.resources[0].spec.domain }}"
+
+- name: "Debug: cluster domain"
+  debug:
+    msg: "Cluster domain ........................ {{ cluster_domain }}"
+
+# Load default storage class (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
+
+# create mariadb namespace
+- name: 'Create mariadb namespace'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/mariadb/mariadb-ns.yml.j2') }}"
+
+# create mariadb certs for TLS
+- name: "Create internal CA certificate issuer"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/certs/ca-issuer.yml.j2') }}"
+  register: caCertIssuer
+
+- name: "Create and wait for CA certificate"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/certs/ca-certificate.yml.j2') }}"
+    wait: yes
+    wait_timeout: 600
+    wait_condition:
+      type: Ready
+      status: True
+  register: caCertInfo
+
+- name: 'Create certificate issuer'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/certs/issuer.yml.j2') }}"
+  register: certIssuer
+
+- name: 'Create mariadb certificate'
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/certs/certificate.yml.j2') }}"
+  register: certInfo
+
+ # 1. Extract CA Certificate Secret Name (from CA Certificate)
+- name: "Get CA certificate secret name"
+  set_fact:
+    caCertSecretName: "{{ caCertInfo.result.spec.secretName }}"
+
+- name: "Debug createCaCert output"
+  debug:
+    var: caCertSecretName
+
+# 2. Read the CA certificate secret
+- name: "Read CA certificate secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ caCertSecretName }}"
+    namespace: "{{ mariadb_namespace }}"
+  register: caCertSecret
+
+# 4. Extract mariadb TLS Certificate Secret Name (from Certificate)
+- name: "Get mariadb certificate secret name"
+  set_fact:
+    certSecretName: "{{ certInfo.result.spec.secretName }}"
+
+- name: "Debug createCaCert output"
+  debug:
+    var: certSecretName
+
+# 5. Read the mariadb TLS certificate secret
+- name: "Read mariadb certificate secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ certSecretName }}"
+    namespace: "{{ mariadb_namespace }}"
+  register: certSecret
+
+- name: "Set external TLS certificate facts from Secret"
+  set_fact:
+    externalCACertificate: "{{ certSecret.resources[0]['data']['ca.crt'] | b64decode }}"
+    externalCertificate: "{{ certSecret.resources[0]['data']['tls.crt'] | b64decode }}"
+    externalKey: "{{ certSecret.resources[0]['data']['tls.key'] | b64decode }}"
+
 # create mariadb PVC
 - name: 'Create mariadb pvc'
   kubernetes.core.k8s:
