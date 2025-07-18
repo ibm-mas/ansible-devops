@@ -4,15 +4,37 @@
 # Dependencies:
 # - ansible-playbook ibm.mas_devops.oneclick_core
 #
-# To install Manage Foundation only that is available on MAS Core 9.1 or later, export the following environment variable:
-# `export IS_FULL_MANAGE=false`
-# Also, the `MAS_APPWS_COMPONENTS` environment variable must be empty:
+# To install Manage Foundation only that is available on MAS Core 9.1 or later
+# Make sure the `MAS_APPWS_COMPONENTS` environment variable is empty:
 # `export MAS_APPWS_COMPONENTS=""`
+# Not setting the env var will install Full Manage with base component
 #
 - hosts: localhost
   any_errors_fatal: true
 
   vars:
+    # By default we always install Manage base
+    # mas_appws_components logic:
+    #
+    # This setup distinguishes between unset and empty environment variables.
+    #
+    # ┌────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────────────┐
+    # │ MAS_APPWS_COMPONENTS (env var)                             │ Result after parsing with ibm.mas_devops.appws_components │
+    # ├────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────┤
+    # │ (not set)                                                  │ { base: { version: latest } }                              │
+    # │ "" (empty string)                                          │ Manage Foundation                                                       │
+    # │ "base=latest"                                              │ { base: { version: latest } }                              │
+    # │ "base=latest,health=latest"                                │ { base: ..., health: ... }                                 │
+    # └────────────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────┘
+    mas_appws_components: >-
+      {{
+        (
+          (lookup('env', 'MAS_APPWS_COMPONENTS', default='__unset__') != '__unset__')
+          | ternary(lookup('env', 'MAS_APPWS_COMPONENTS'), 'base=latest')
+        )
+        | ibm.mas_devops.appws_components
+      }}
+
     # Application Dependencies
     db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') | default('db2w-shared', true) }}"
 
@@ -53,6 +75,14 @@
     cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('4.6.3', true) }}"
 
   pre_tasks:
+    - name: Show raw env var
+      debug:
+        msg: "{{ lookup('env', 'MAS_APPWS_COMPONENTS') }}"
+
+    - name: Show Components to be installed
+      debug:
+        var: mas_appws_components
+
     # For the full set of supported environment variables refer to the playbook documentation
     - name: Check for required environment variables
       assert:
