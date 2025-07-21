@@ -62,9 +62,13 @@
     # -------------------------------------------------------------------------
     mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('False', True) | bool }}"
 
-    # 14. ODF
+    # 13. ODF
     # -------------------------------------------------------------------------
     mirror_odf: "{{ lookup('env', 'MIRROR_ODF') | default ('False', True) | bool }}"
+
+    # 14. kmodels
+    # -------------------------------------------------------------------------
+    mirror_kmodels: "{{ lookup('env', 'MIRROR_KMODELS') | default ('True', True) | bool }}"
 
   pre_tasks:
     - name: "Load Catalog Metadata"
@@ -603,3 +607,19 @@
       vars:
         extras_name: odf
         extras_version: 4.15
+
+    # 14. Kmodels
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_kmodels
+        - mirror_kmodels != "from-filesystem"
+      vars:
+        extras_name: kmodels
+        extras_version: "{{ mas_catalog_metadata.kmodels_extras_version_default }}"
+
+    - role: ibm.mas_devops.mirror_images
+      when: mirror_kmodels
+      vars:
+        manifest_name: extras_kmodels
+        manifest_version: "{{ mas_catalog_metadata.kmodels_extras_version_default }}"
