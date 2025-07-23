@@ -1,7 +1,7 @@
 ---
 # - name: "install : Create OpenDataHub Subscription"
 #   ibm.mas_devops.apply_subscription:
-#     namespace: openshift-operators
+#     namespace: "{{ odh_namespace }}"
 #     package_name: opendatahub-operator
 #     package_channel: "{{ odh_channel }}"
 #   register: odh_subscription
@@ -20,7 +20,7 @@
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: InstallPlan
-    namespace: "{{ openshift_namespace }}"
+    namespace: "{{ odh_namespace }}"
   register: install_plan_facts
   retries: 20
   delay: 30
@@ -40,13 +40,13 @@
 - name: Approve install plan for Opendatahub operator
   block:
     - name: Approve install plan to approve
-      shell: oc patch installplan {{ relevant_install_plans | first }} -n openshift-operators --type merge --patch '{"spec":{"approved":true}}'
+      shell: oc patch installplan {{ relevant_install_plans | first }} -n {{ odh_namespace }} --type merge --patch '{"spec":{"approved":true}}'
 
-- name: "Wait for Opendata Hub instance to be ready in {{ openshift_namespace }}"
+- name: "Wait for Opendata Hub instance to be ready in {{ odh_namespace }}"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     name: "{{ odh_operator_version }}"
-    namespace: "{{ openshift_namespace }}"
+    namespace: "{{ odh_namespace }}"
     kind: ClusterServiceVersion
   register: odh_operators_output
   until:
