@@ -2,9 +2,11 @@
 - name: Load variables (main)
   include_vars: "vars/main.yml"
 
+
 # Load default storage class (if not provided by the user)
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
+
 
 # Deploy OpenShift Serverless operators
 # -----------------------------------------------------------------------------
@@ -14,11 +16,13 @@
 - include_tasks: tasks/authorino-operator.yml
 - include_tasks: tasks/odh-operator.yml
 
+
 # Create Aibroker namespace
 # -----------------------------------------------------------------------------
 - name: "Create Namespace"
   kubernetes.core.k8s:
     template: "templates/aiservice/namespace.yml.j2"
+
 
 # Create external database secret
 # -----------------------------------------------------------------------------
@@ -33,6 +37,7 @@
         namespace: mas-{{ mas_instance_id }}-aibroker
       data:
         password: "{{ aiservice_db_secret_value | b64encode }}"
+
 
 # Create DSCInitialization instance
 # -----------------------------------------------------------------------------
@@ -95,6 +100,7 @@
     - dspa_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select ('match','True') | list | length == 1
   retries: 10
   delay: 60
+
 
 # Wait until the pipeline-runner-instance service account is available
 # -----------------------------------------------------------------------------

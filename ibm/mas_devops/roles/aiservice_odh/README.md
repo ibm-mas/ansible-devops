@@ -69,13 +69,6 @@ The odh catalog source for odh role.
 * Environment Variable: `ODH_CATALOG_SOURCE`
 * Default Value: `community-operators`
 
-### odh_operator_version
-
-The odh operator version for odh role.
-
-* Environment Variable: `ODH_OPERATOR_VERSION`
-* Default Value: `opendatahub-operator.v2.11.1`
-
 ## License
 
 EPL-2.0

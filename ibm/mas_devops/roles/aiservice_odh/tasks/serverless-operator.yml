@@ -1,13 +1,9 @@
 ---
-- name: "Create namespace openshift-serverless"
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: Namespace
-    name: openshift-serverless
-    state: present
-
-# enable following role temporary until find a way to use openshift-serverless and switch to apply_subscription role
-- name: "Install Openshift Serverless Operator"
-  kubernetes.core.k8s:
-    apply: yes
-    definition: "{{ lookup('template', 'templates/serverless/subscription.yml.j2') }}"
+- name: "install : Create Serverless Subscription"
+  ibm.mas_devops.apply_subscription:
+    namespace: openshift-serverless
+    package_name: serverless-operator
+    package_channel: stable
+    catalog_source: redhat-operators
+    catalog_source_namespace: openshift-marketplace
+  register: serverless_subscription
