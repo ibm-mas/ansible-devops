@@ -1,0 +1,66 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ds-pipeline-s3-instance
+  namespace: mas-{{ mas_instance_id }}-aibroker
+  labels:
+    opendatahub.io/dashboard: 'false'
+    opendatahub.io/managed: 'true'
+  annotations:
+    opendatahub.io/connection-type: s3
+    openshift.io/display-name: Minio Data Connection
+stringData:
+  accesskey: "{{ aiservice_storage_accesskey }}"
+  secretkey: "{{ aiservice_storage_secretkey }}"
+  host: "{{ aiservice_storage_host }}"
+  port: "{{ aiservice_storage_port }}"
+  ssl: "{{ aiservice_storage_ssl }}"
+---
+apiVersion: datasciencepipelinesapplications.opendatahub.io/v1alpha1
+kind: DataSciencePipelinesApplication
+metadata:
+  name: instance
+  namespace: mas-{{ mas_instance_id }}-aibroker
+spec:
+  dspVersion: v1
+  database:
+    disableHealthCheck: true
+    customExtraParams: '{"tls":"false"}'
+    externalDB:
+      host: "{{ aiservice_db_host }}"
+      port: "{{ aiservice_db_port }}"
+      username: "{{ aiservice_db_user }}"
+      pipelineDBName: "{{ aiservice_db_database }}"
+      passwordSecret:
+        name: "{{ aiservice_db_secret_name }}"
+        key: password
+    # mariaDB:
+    #   deploy: true
+    #   image: registry.redhat.io/rhel8/mariadb-103:1-188
+    #   username: mlpipeline
+    #   pipelineDBName: randomDBName
+    #   pvcSize: 20Gi
+    #   storageClassName: "{{ primary_storage_class }}"
+    #   resources:
+    #     requests:
+    #       cpu: 300m
+    #       memory: 800Mi
+    #     limits:
+    #       cpu: "1"
+    #       memory: 1Gi
+    #   passwordSecret:
+    #     name: ds-pipeline-s3-instance
+    #     key: secretkey
+  objectStorage:
+    disableHealthCheck: true
+    externalStorage:
+      host: "{{ aiservice_storage_host }}"
+      port: "{{ aiservice_storage_port }}"
+      bucket: "{{ aiservice_storage_pipelines_bucket }}"
+      storageClassName: "{{ primary_storage_class }}"
+      s3CredentialsSecret:
+        accessKey: accesskey
+        secretKey: secretkey
+        secretName: ds-pipeline-s3-instance
+      scheme: http
