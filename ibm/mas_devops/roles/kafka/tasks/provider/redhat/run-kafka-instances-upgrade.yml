@@ -29,20 +29,22 @@
 # Loop through the list of clusters and migrate the ones that use ZooKeper and are at a compatible version for the migration
 - name: "Process clusters list"
   vars:
-      kafka_clusters: "{{ kafka_cluster_list.resources }}"
+    kafka_clusters: "{{ kafka_cluster_list.resources }}"
   loop: "{{ kafka_clusters }}"
+  loop_control:
+    loop_var: kafka_cluster
   when: kafka_cluster_list.resources is defined
   block:
 
     - name: Check if the instance is in ZooKeeper mode
       set_fact:
         is_zookeeper_mode: "{{ kafka_cluster.status.kafkaMetadataState == 'ZooKeeper' }}"
-    
+
     - name: Ensure that Kafka version is at least 2.8.0 to support the migration
       set_fact:
         is_version_supported: "{{ kafka_cluster.spec.kafka.version is version('2.8.0', '>=') }}"
-     
-    - name: "Run migration  for the cluster"
+
+    - name: "Run the migration of the instance"
       include_tasks: ../strimzi/migrate.yml
       vars:
         kafka_namespace: "{{ kafka_namespace }}"
