@@ -237,24 +237,16 @@
       set_fact:
         db2_releases_content: "{{ db2_release_info.resources[0].data.json }}"
 
-    - name: Parse db2u-release JSON content
-      no_log: true
-      set_fact:
-        db2_releases_parsed: "{{ db2_releases_content | from_json }}"
 
     - name: Filter out s12* versions and pick latest s11*
       set_fact:
         db2_version: >-
           {{
-            (db2_releases_parsed.databases.db2u.keys()
+            (db2_releases_content.databases.db2u.keys()
             | select('match', '^s11')
             | sort)
             | last
           }}
-
-    - name: Set db2 version
-      ansible.builtin.set_fact:
-        db2_version: "{{ db2_releases_content.databases.db2u | last }}"
 
   when: db2_version is not defined or db2_version == ""
 
