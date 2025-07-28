@@ -5,7 +5,7 @@
   debug:
     msg:
       - "Namespace ...................... {{ aiservice_namespace }}"
-      - "Channel ........................ {{ mas_app_channel }}"
+      - "Channel ........................ {{ aiservice_channel }}"
       - "MAS Instance Id ................ {{ mas_instance_id }}"
 
 # Install the operator & create entitlement secret
@@ -22,13 +22,11 @@
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/aiservice/operator-group.yml.j2') }}"
-  when: mas_app_channel not in ['9.0.x']
 
 - name: "Install AI Broker Operator"
   kubernetes.core.k8s:
     apply: yes
     definition: "{{ lookup('template', 'templates/aiservice/subscription.yml.j2') }}"
-  when: mas_app_channel not in ['9.0.x']
 
 - name: "Create ibm-mas-aibroker Subscription"
   ibm.mas_devops.apply_subscription:
@@ -37,25 +35,23 @@
     package_channel: "{{ aiservice_channel }}"
     catalog_source: "{{ mas_catalog_source }}"
   register: subscription
-  when: mas_app_channel in ['9.0.x']
 
-# Wait until the IBM Maximo AI Service CRD is available
+# Wait until the IBM Maximo AI Broker CRD is available
 # -----------------------------------------------------------------------------
-- name: "Wait until the IBM Maximo AI Service Operator CRD is available"
+- name: "Wait until the IBM Maximo AI Broker Operator CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
-    crd_name: aiserviceapps.apps.mas.ibm.com
+    crd_name: aibrokerapps.apps.mas.ibm.com
 
-# IBM Maximo AI Service installation
+# IBM Maximo AI Broker installation
 # -----------------------------------------------------------------------------
-- name: Create AI Service CR
+- name: Create AI Broker CR
   vars:
     annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
   kubernetes.core.k8s:
     state: present
     namespace: "{{ aiservice_namespace }}"
-    template: templates/aiservice/aiserviceapp.yml.j2
-  register: aiserviceAppResult
+    template: templates/aiservice/aibrokerapp.yml.j2
 
 # Wait IBM Maximo AI Service custom resource to be complete
 # -----------------------------------------------------------------------------
@@ -65,10 +61,10 @@
     name: "{{ mas_instance_id }}"
     namespace: "{{ aiservice_namespace }}"
     kind: AiBrokerApp
-  register: aiserviceapp_cr_result
+  register: aibrokerapp_cr_result
   until:
-    - aiserviceapp_cr_result.resources is defined and aiserviceapp_cr_result.resources | length == 1
-    - aiserviceapp_cr_result.resources[0].status is defined
-    - aiserviceapp_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
+    - aibrokerapp_cr_result.resources is defined and aibrokerapp_cr_result.resources | length == 1
+    - aibrokerapp_cr_result.resources[0].status is defined
+    - aibrokerapp_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
