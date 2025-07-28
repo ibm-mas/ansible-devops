@@ -17,7 +17,6 @@ Dependencies
 * Object Storage
   + Minio (installed on the same cluster what aiservice) or external instance or details from external instance
   + AWS S3 (if customer use AWS S3 bucket bucket) buckets needs to have unique names
-* MariaDB database (installed in cluster where aiservice instance) or external instance or details from external instance
 
 Overview
 -------------------------------------------------------------------------------
@@ -32,7 +31,6 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
     - IBM Suite License Service (~10 Minutes) **optional**
     - IBM Data Reporter Operator (~10 Minutes) **optional**
     - IBM Db2 **optional**
-    - MariaDB (~5 minutes) **optional**
     - Minio (~5 minutes) **optional**
 - Install ODH:
     - Install Red Hat OpenShift Serverless Operator
@@ -73,12 +71,6 @@ Required environment variables
 * `AISERVICE_WATSONXAI_APIKEY` You WatsonX AI api key
 * `AISERVICE_WATSONXAI_URL` You WatsonX AI url
 * `AISERVICE_WATSONXAI_PROJECT_ID` You WatsonX projedt Id
-* `AISERVICE_DB_HOST` Your database instance host
-* `AISERVICE_DB_PORT` Your database instance port
-* `AISERVICE_DB_USER` Your database instance user
-* `AISERVICE_DB_DATABASE` Your database instance datbase name
-* `AISERVICE_DB_SECRET_NAME` Your database instance secret name
-* `AISERVICE_DB_SECRET_VALUE` Your database instance password
 
 !!! tip
     AI service supports **AWS** and **Minio** storage providers.
@@ -112,7 +104,6 @@ Optional environment variables
 * `AISERVICE_S3_ACTION` Whether to install or remove s3 (default value is: install)
 * `INSTALL_DB2` Whether to install DB2 (default value is: false)
 * `INSTALL_MINIO` Whether to install minio (default value is: false)
-* `INSTALL_MARIADB` Whether to install mariadb (default value is: false)
 * `INSTALL_SLS` Whether to install IBM Suite License Service (default value is: false)
 * `INSTALL_DRO` Whether to install IBM Data Reporter Operator (default value is: false)
 * `AISERVICE_DB2_USERNAME` The username to use for authentication with the database
@@ -166,7 +157,6 @@ export SLS_LICENSE_ID=""
 export SLS_LICENSE_FILE=""
 export INSTALL_DB2=""
 export INSTALL_MINIO=""
-export INSTALL_MARIADB=""
 export INSTALL_MONGO=""
 export INSTALL_SLS=""
 export INSTALL_DRO=""
@@ -192,13 +182,6 @@ export AISERVICE_STORAGE_REGION=""
 export AISERVICE_STORAGE_PIPELINES_BUCKET=""
 export AISERVICE_STORAGE_TENANTS_BUCKET=""
 export AISERVICE_STORAGE_TEMPLATES_BUCKET=""
-export MARIADB_PASSWORD=""
-export AISERVICE_DB_HOST=""
-export AISERVICE_DB_PORT=""
-export AISERVICE_DB_USER=""
-export AISERVICE_DB_DATABASE=""
-export AISERVICE_DB_SECRET_NAME=""
-export AISERVICE_DB_SECRET_VALUE=${MARIADB_PASSWORD}
 export AISERVICE_WATSONXAI_APIKEY=""
 export AISERVICE_WATSONXAI_URL=""
 export AISERVICE_WATSONXAI_PROJECT_ID=""
