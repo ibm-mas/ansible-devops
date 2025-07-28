@@ -1,12 +1,14 @@
 ---
+# 1. Load the configuration from file (if exists)
+# -----------------------------------------------------------------------------
 - name: Check if JDBC config file exists
   ansible.builtin.stat:
-    path: "{{ mas_config_dir }}/jdbc-{{ mas_app_id }}-db2u.yml"
+    path: "{{ mas_config_dir }}/jdbc-aiservice-{{ mas_instance_id }}-db2u.yml"
   register: jdbc_config_file_result
 
 - name: Read JDBC config from file
   vars:
-    jdbc_file_cfg: "{{ lookup('file', '{{ mas_config_dir }}/jdbc-{{ mas_app_id }}-db2u.yml') | from_yaml_all }}"
+    jdbc_file_cfg: "{{ lookup('file', '{{ mas_config_dir }}/jdbc-aiservice-{{ mas_instance_id }}-db2u.yml') | from_yaml_all }}"
   ansible.builtin.set_fact:
     jdbccfg:
       # read from Secret
@@ -18,6 +20,9 @@
       ca: "{{ jdbc_file_cfg[1].spec.certificates | map(attribute='crt') | join(',') | replace(',','\n') }}"
   when: jdbc_config_file_result.stat.exists
 
+
+# 2. Load the configuration from environment variables
+# -----------------------------------------------------------------------------
 - name: Read JDBC config from environment
   ansible.builtin.set_fact:
     jdbccfg:
@@ -28,26 +33,32 @@
       ca: "{{ lookup('env', 'AISERVICE_DB2_CA_CERT') | regex_replace('BEGIN CERTIFICATE', 'BEGIN_CERTIFICATE') | regex_replace('END CERTIFICATE', 'END_CERTIFICATE') | regex_replace('\\s+', '\n') | replace('BEGIN_CERTIFICATE', 'BEGIN CERTIFICATE')| replace('END_CERTIFICATE', 'END CERTIFICATE') }}"
   when: not jdbc_config_file_result.stat.exists
 
-- name: "Validate JDBC configuration"
-  when: jdbccfg.username | length == 0
-  ansible.builtin.fail:
-    msg: "jdbccfg.username must not be empty"
 
-- name: "Validate JDBC configuration"
-  when: jdbccfg.password | length == 0
-  ansible.builtin.fail:
-    msg: "jdbccfg.password must not be empty"
+# 3. Validate the configuration
+# -----------------------------------------------------------------------------
+- name: "Validate JDBC configuration: username"
+  assert:
+    that: jdbccfg.username | length != 0
+    fail_msg: "jdbccfg.username must not be empty"
 
-- name: "Validate JDBC configuration"
-  when: jdbccfg.url | length == 0
-  ansible.builtin.fail:
-    msg: "jdbccfg.url must not be empty"
+- name: "Validate JDBC configuration: password"
+  assert:
+    that: jdbccfg.password | length != 0
+    fail_msg: "jdbccfg.password must not be empty"
 
-- name: "Validate JDBC configuration"
-  when: jdbccfg.ca | length == 0
-  ansible.builtin.fail:
-    msg: "jdbccfg.ca must not be empty"
+- name: "Validate JDBC configuration: url"
+  assert:
+    that: jdbccfg.url | length != 0
+    fail_msg: "jdbccfg.url must not be empty"
 
+- name: "Validate JDBC configuration: ca"
+  assert:
+    that: jdbccfg.ca | length != 0
+    fail_msg: "jdbccfg.ca must not be empty"
+
+
+# 4. Create the secret
+# -----------------------------------------------------------------------------
 - name: "Create secret for JDBC admin credentials"
   kubernetes.core.k8s:
     apply: yes
