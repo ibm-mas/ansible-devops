@@ -54,6 +54,10 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `MAS_AIBROKER_WATSONXAI_APIKEY` You WatsonX AI api key
 * `MAS_AIBROKER_WATSONXAI_URL` You WatsonX AI url
 * `MAS_AIBROKER_WATSONXAI_PROJECT_ID` You WatsonX projedt Id
+* `WX_FULL` Indicates on-premises Watsonx installation (set true if you have on-prem installation)
+* `MAS_AIBROKER_WATSONX_INSTANCE_ID` Your Watsonx Instance Id
+* `MAS_AIBROKER_WATSONX_VERSION` Your Watsonx Version
+* `MAS_AIBROKER_WATSONX_USERNAME` Your Watsonx Username
 * `MAS_AIBROKER_DB_HOST` Your database instance host
 * `MAS_AIBROKER_DB_PORT` Your database instance port
 * `MAS_AIBROKER_DB_USER` Your database instance user
