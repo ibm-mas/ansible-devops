@@ -135,6 +135,22 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/mariadb/mariadb-secret.yml.j2') }}"
 
+- name: "Create mariadb configmap"
+  kubernetes.core.k8s:
+    apply: yes
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: mariadb-config
+        namespace: "{{ mariadb_namespace }}"
+      data:
+        my-custom.cnf: |
+          [mysqld]
+          ssl-ca=/etc/mysql/certs/ca.crt
+          ssl-cert=/etc/mysql/certs/tls.crt
+          ssl-key=/etc/mysql/certs/tls.key
+
 # create mariadb deployment
 - name: 'Create mariadb deployment'
   kubernetes.core.k8s:
