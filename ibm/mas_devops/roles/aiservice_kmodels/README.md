@@ -10,13 +10,6 @@ This role provides support to deploy Kmodels components for AI Broker Applicatio
 Role Variables
 -------------------------------------------------------------------------------
 
-### tenantName
-
-The tenant name for Kmodels role.
-
-* Environment Variable: `AISERVICE_TENANT_NAME`
-* Default Value: `user`
-
 ### storage_piplines_bucket
 
 The storage piplines bucket for Kmodels role.
