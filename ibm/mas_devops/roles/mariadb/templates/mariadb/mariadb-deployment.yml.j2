@@ -74,17 +74,24 @@ spec:
             - name: mariadb-persistent-storage
               mountPath: /var/lib/mysql
             - name: mariadb-tls
-              mountPath: /etc/mysql/certs
+              mountPath: /etc/pki/tls/private/
             - name: mariadb-config
-              mountPath: /etc/mysql/conf.d/my-custom.cnf
+              mountPath: /etc/my.cnf.d/mariadb-server-tls.cnf
               subPath: my-custom.cnf
       volumes:
         - name: mariadb-persistent-storage
           persistentVolumeClaim:
             claimName: mariadb-pvc
-        - name: mariadb-tls
+        - name: mariadb-tls        
           secret:
             secretName: mariadb-certificate-{{ mariadb_instance_name }}
+            items:
+              - key: ca.crt
+                path: ca.crt.pem
+              - key: tls.crt
+                path: tls.crt.pem
+              - key: tls.key
+                path: tls.key.pem
         - name: mariadb-config
           configMap:
             name: mariadb-config
