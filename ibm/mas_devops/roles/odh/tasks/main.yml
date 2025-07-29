@@ -20,6 +20,40 @@
   kubernetes.core.k8s:
     template: "templates/aibroker/namespace.yml.j2"
 
+# Retrieve self-signed ca cert from mariadb namespace
+# -----------------------------------------------------------------------------
+- name: Read the MariaDB CA certificate secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "mariadb-ca"
+    namespace: "{{ mariadb_namespace }}"
+  register: mariadb_cert_secret
+
+- name: Decode the CA certificate from the secret
+  set_fact:
+    mariadb_ca_cert: "{{ mariadb_cert_secret.resources[0].data['ca.crt'] | b64decode }}"
+  when:
+    - mariadb_cert_secret is defined
+    - mariadb_cert_secret.resources is defined
+    - mariadb_cert_secret.resources | length > 0
+    - "'ca.crt' in mariadb_cert_secret.resources[0].data"
+
+# Create Configmap for ca.crt - enable tls connection between DSPA api-server and mariadb
+# -----------------------------------------------------------------------------
+- name: Create ConfigMap with MariaDB CA certificate
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: mariadb-ca
+        namespace: mas-apmdevops-aibroker
+      data:
+        ca.crt: "{{ mariadb_ca_cert }}"
+  when: mariadb_ca_cert is defined
+
 # Create external database secret
 # -----------------------------------------------------------------------------
 - name: "Create external DB secret"
