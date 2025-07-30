@@ -1,0 +1,94 @@
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: km-controller
+  namespace: mas-{{ aiservice_instance_id }}-aibroker
+  labels:
+    app: km-controller
+    component: controller
+spec:
+  replicas: 1
+  revisionHistoryLimit: 1
+  selector:
+    matchLabels:
+      app: km-controller
+  template:
+    metadata:
+      labels:
+        app: km-controller
+        component: controller
+    spec:
+      serviceAccountName: km-controller
+      volumes:
+        - name: workspace-volume
+          emptyDir: {}
+        - name: ssh-key
+          secret:
+            # Note that the secret name generated still carries the old "aibroker" name
+            secretName: {{ aiservice_instance_id }}-internal-aibroker-tls
+      imagePullSecrets:
+        - name: {{ pullSecretName }}
+      containers:
+        - name: controller
+{% if mas_aibroker_use_digest %}
+          image: {{ mas_aibroker_controller_image_registry }}/{{ controller}}
+{% else %}
+          image: {{ mas_icr_cp }}/{{ controller}}
+{% endif %}
+          imagePullPolicy: {{ mas_img_pull_policy }}
+          securityContext:
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+            privileged: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: https
+              containerPort: 8443
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+              ephemeral-storage: "1Gi"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+              ephemeral-storage: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /api/v1/version
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 15
+            periodSeconds: 500
+          readinessProbe:
+            httpGet:
+              path: /api/v1/version
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 500
+          env:
+            - name: KMODELS_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KMODELS_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          envFrom:
+            - configMapRef:
+                name: km-controller
+            - secretRef:
+                name: km-s3-secret
+          volumeMounts:
+            - name: workspace-volume
+              mountPath: /workspace
+            - name: ssh-key
+              mountPath: "/etc/ssl/certs"
+              readOnly: true
