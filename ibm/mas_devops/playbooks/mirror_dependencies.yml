@@ -70,6 +70,10 @@
     # -------------------------------------------------------------------------
     mirror_kmodels: "{{ lookup('env', 'MIRROR_KMODELS') | default ('False', True) | bool }}"
 
+    # 15. Minio and MariaDB (for AI Service)
+    mirror_minio: "{{ lookup('env', 'MIRROR_MINIO') | default ('False', True) | bool }}"
+    mirror_mariadb: "{{ lookup('env', 'MIRROR_MARIADB') | default ('False', True) | bool }}"
+
   pre_tasks:
     - name: "Load Catalog Metadata"
       ibm.mas_devops.get_catalog_info:
@@ -623,3 +627,21 @@
       vars:
         manifest_name: extras_kmodels
         manifest_version: "{{ mas_catalog_metadata.kmodels_extras_version_default }}"
+
+    # 15. Minio and MariaDB - needed by AI Service
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_minio
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: minio
+        extras_version: "{{mas_catalog_metadata.minio_version }}"
+
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_mariadb
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: mariadb-103
+        extras_version: "{{mas_catalog_metadata.mariadb_version }}"
