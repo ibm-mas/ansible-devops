@@ -1,0 +1,75 @@
+---
+# The Kmodels version is based on the chosen ibm-operator-catalog.  However the
+# ibm-operator-catalog does not explicitly include information about the kmodels version.
+#
+# To determine which catalog metadata to use, this role
+# extracts the catalog_tag from the ibm-operator-catalog's displayName.
+#
+# For example:
+#   displayName: IBM Maximo Operators (v9-240625-amd64)
+#
+# catalog_tag is v9-240625-amd64
+# MongoDB version will be determined from the catalog metadata (get_catalog_info.py)
+#
+# And FINALLY...
+#   If the Kmodels version cannot be determined from the above logic,
+#   the Kmodels version will be determined by the most recent catalog data
+#   available (get_newest_catalog_tag.py)
+#
+#   And if still it cannot be determined because perhaps its not specified in the
+#   configuration file, a default value will be used.
+
+- name: "Lookup the latest version of the Maximo Operator Catalog"
+  when: last_catalog_tag is not defined or last_catalog_tag == ""
+  block:
+    - name: "Get newest operator catalog tag"
+      ibm.mas_devops.get_newest_catalog_tag:
+        arch: amd64
+      register: _newest_catalog
+    - name: "Store tag in last_catalog_tag"
+      set_fact:
+        last_catalog_tag: "{{ _newest_catalog.result }}"
+
+- name: "Display the Last Catalog Version"
+  debug:
+    msg: "Last Catalog Version ................... {{ last_catalog_tag | default('<unknown>') }}"
+
+# 1. Get the IBM Catalog if available
+# -----------------------------------------------------------------------------
+- name: "Lookup ibm-operator-catalog"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    name: ibm-operator-catalog
+    namespace: openshift-marketplace
+    kind: CatalogSource
+  register: catalog_lookup
+
+- name: "Determine catalog version from catalog displayName"
+  when:
+    - catalog_lookup is defined
+    - catalog_lookup.resources is defined
+    - catalog_lookup.resources | length > 0
+    - catalog_lookup.resources[0].spec is defined
+    - catalog_lookup.resources[0].spec.displayName is defined
+    - '"(" in catalog_lookup.resources[0].spec.displayName'
+  set_fact:
+    catalog_tag: "{{ catalog_lookup.resources[0].spec.displayName.split('(')[1].split(')')[0].split(' ')[0] }}"
+
+- name: "Lookup catalog metadata"
+  when: catalog_tag is defined and catalog_tag != ""
+  ibm.mas_devops.get_catalog_info:
+    mas_catalog_version: "{{ catalog_tag }}"
+  register: catalog_metadata
+
+# 2. Fallback to the most recent catalog tag
+# -----------------------------------------------------------------------------
+- name: "Default to the newest catalog metadata"
+  when:
+    - catalog_tag is not defined or catalog_tag == "" or not catalog_metadata.success
+    - last_catalog_tag is defined and last_catalog_tag != ""
+  set_fact:
+    catalog_tag: "{{ last_catalog_tag }}"
+
+- name: "Catalog Version (Final)"
+  debug:
+    msg: "Catalog Version ........................ {{ catalog_tag | default('<unknown>')}}"

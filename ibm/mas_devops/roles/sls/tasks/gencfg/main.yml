@@ -2,47 +2,64 @@
 ###############################################################################
 #                             New / Existing SLS                              #
 ###############################################################################
+- name: Obtain sls-suite-registration ConfigMap
+  when: (sls_tls_crt is not defined or sls_tls_crt == "") or
+        (sls_registration_key is not defined or sls_registration_key == "") or
+        (sls_domain is not defined or sls_domain == "")
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ sls_instance_name }}-suite-registration"
+    namespace: "{{ sls_namespace }}"
+  register: _sls_suite_registration
 
-- name: Get SLS facts
-  when:
-    - sls_url is not defined or sls_url == ""
-    - sls_registration_key is not defined or sls_registration_key == ""
-    - sls_tls_crt is not defined or sls_tls_crt == ""
-  block:
-    - name: Obtain sls-suite-registration ConfigMap
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: ConfigMap
-        name: "sls-suite-registration"
-        namespace: "{{ sls_namespace }}"
-      register: _sls_suite_registration
+- name: "Assert that SLS CA certificate has been provided"
+  when: sls_tls_crt is not defined or sls_tls_crt == ""
+  ansible.builtin.assert:
+    that:
+      - _sls_suite_registration.resources[0].data['ca'] is defined
+      - _sls_suite_registration.resources[0].data['ca'] != ""
+    fail_msg: "ca certificate is not defined in sls-suite-registration configmap"
 
-    - name: "Assert that SLS registrationKey has been provided"
-      ansible.builtin.assert:
-        that:
-          - _sls_suite_registration.resources[0].data['registrationKey'] is defined
-          - _sls_suite_registration.resources[0].data['registrationKey'] != ""
-        fail_msg: "registrationKey is not defined in sls-suite-registration configmap"
+- name: Set sls_tls_crt from sls-suite-registration ConfigMap
+  when: sls_tls_crt is not defined or sls_tls_crt == ""
+  ansible.builtin.set_fact:
+    sls_tls_crt: "{{ _sls_suite_registration.resources[0].data['ca'] }}"
 
-    - name: "Assert that SLS url has been provided"
-      ansible.builtin.assert:
-        that:
-          - _sls_suite_registration.resources[0].data['url'] is defined
-          - _sls_suite_registration.resources[0].data['url'] != ""
-        fail_msg: "url is not defined in sls-suite-registration configmap"
+- name: "Assert that SLS registrationKey has been provided"
+  when: sls_registration_key is not defined or sls_registration_key == ""
+  ansible.builtin.assert:
+    that:
+      - _sls_suite_registration.resources[0].data['registrationKey'] is defined
+      - _sls_suite_registration.resources[0].data['registrationKey'] != ""
+    fail_msg: "registrationKey is not defined in sls-suite-registration configmap"
 
-    - name: "Assert that SLS CA certificate has been provided"
-      ansible.builtin.assert:
-        that:
-          - _sls_suite_registration.resources[0].data['ca'] is defined
-          - _sls_suite_registration.resources[0].data['ca'] != ""
-        fail_msg: "ca certificate is not defined in sls-suite-registration configmap"
+- name: Set sls_registration_key from sls-suite-registration ConfigMap
+  when: sls_registration_key is not defined or sls_registration_key == ""
+  ansible.builtin.set_fact:
+    sls_registration_key: "{{ _sls_suite_registration.resources[0].data['registrationKey'] }}"
 
-    - name: Set facts for SLSCfg
-      ansible.builtin.set_fact:
-        sls_registration_key: "{{ _sls_suite_registration.resources[0].data['registrationKey'] }}"
-        sls_url: "{{ _sls_suite_registration.resources[0].data['url'] }}"
-        sls_tls_crt: "{{ _sls_suite_registration.resources[0].data['ca'] }}"
+# When sls_url is provided, and you run this task over an existing SLS instance that
+# has no Route (no domain field in CR), then there is a delay until the operator reconciles
+# and updates the url field in the configmap. Hence, we should not take the value from
+# the configmap as it may still hold the old value (service url instead of domain).
+- name: Set sls_url when sls_domain is defined
+  when: sls_domain is defined and sls_domain != ""
+  ansible.builtin.set_fact:
+    sls_url: "https://{{sls_instance_name}}.{{sls_namespace}}.{{sls_domain}}"
+
+- name: "Assert that SLS url has been provided"
+  when: sls_domain is not defined or sls_domain == ""
+  ansible.builtin.assert:
+    that:
+      - _sls_suite_registration.resources[0].data['url'] is defined
+      - _sls_suite_registration.resources[0].data['url'] != ""
+    fail_msg: "url is not defined in sls-suite-registration configmap"
+
+- name: Set sls_url from sls-suite-registration ConfigMap
+  when: sls_domain is not defined or sls_domain == ""
+  ansible.builtin.set_fact:
+    sls_url: "{{ _sls_suite_registration.resources[0].data['url'] }}"
 
 
 ###############################################################################
@@ -100,7 +117,7 @@
 
 # 4. Generate SLSCfg for MAS
 # -----------------------------------------------------------------------------
-- name: Copy SLSCfg to filesytem
+- name: Copy SLSCfg to filesystem
   ansible.builtin.template:
     src: slscfg.yml.j2
     dest: "{{ mas_config_dir }}/sls.yml"

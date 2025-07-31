@@ -54,6 +54,10 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `MAS_AIBROKER_WATSONXAI_APIKEY` You WatsonX AI api key
 * `MAS_AIBROKER_WATSONXAI_URL` You WatsonX AI url
 * `MAS_AIBROKER_WATSONXAI_PROJECT_ID` You WatsonX projedt Id
+* `WX_FULL` Indicates on-premises Watsonx installation (set true if you have on-prem installation)
+* `MAS_AIBROKER_WATSONX_INSTANCE_ID` Your Watsonx Instance Id
+* `MAS_AIBROKER_WATSONX_VERSION` Your Watsonx Version
+* `MAS_AIBROKER_WATSONX_USERNAME` Your Watsonx Username
 * `MAS_AIBROKER_DB_HOST` Your database instance host
 * `MAS_AIBROKER_DB_PORT` Your database instance port
 * `MAS_AIBROKER_DB_USER` Your database instance user
@@ -95,6 +99,8 @@ AI Broker supports **AWS** and **Minio** storage providers.
 * `MAS_AIBROKER_DB2_SSL_ENABLED` A flag indicating whether to enable SSL encryption for the database connection (default value is: true)
 * `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
 * `DS_PIPELINES_ENABLED` from Opendata hub version 2.30.0 user can skip and not install data science pipelines (default value is: false)
+* `MAS_AIBROKER_CLUSTER_DOMAIN` Provide custom domain (default value is: empty)
+* `MAS_AIBROKER_IS_EXTERNAL_ROUTE` A flag indicating to enable external route (default value is: false)
  
 
 ## Usage
