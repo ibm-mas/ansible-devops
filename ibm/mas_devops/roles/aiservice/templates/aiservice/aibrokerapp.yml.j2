@@ -1,0 +1,41 @@
+---
+apiVersion: apps.mas.ibm.com/v1
+kind: AiBrokerApp
+metadata:
+    name: "{{ aiservice_instance_id }}"
+    namespace: "{{ aiservice_namespace }}"
+    annotations:
+        ansible.sdk.operatorframework.io/verbosity: "{{ aiservice_operator_log_level }}"
+    labels:
+        # TODO: Change these labels (align with changes in the operator)
+        mas.ibm.com/applicationId: aiservice
+        mas.ibm.com/instanceId: "{{ aiservice_instance_id }}"
+        app.kubernetes.io/instance: "{{ aiservice_instance_id }}"
+spec:
+    settings:
+        icr:
+            cp: "{{ mas_icr_cp }}"
+            cpopen: "{{ mas_icr_cpopen }}"
+        dro:
+            url: "{{ drocfg.url }}"
+            dro_token_secret: "{{ aiservice_dro_token_secret }}"
+            ca: "{{ drocfg.ca | b64encode }}"
+        jdbc:
+            url: "{{ jdbccfg.url }}"
+            credentials_secret: "{{ aiservice_jdbc_secret }}"
+            ca: "{{ jdbccfg.ca | indent(8) | b64encode }}"
+            use_aws_db2: "{{ use_aws_db2 }}"
+        cluster_domain: "{{ cluster_domain }}"
+        in_saas_env: "{{ aiservice_saas }}"
+        ds_pipelines_enabled: False  # No longer required post ODH 2.30
+        is_external_route: {{ aiservice_is_external_route }}
+        minio:
+            host: "{{ aiservice_storage_host }}"
+            port: "{{ aiservice_storage_port }}"
+            credentials_secret: "{{ aiservice_minio_secret }}"
+        # Optional shared S3 config. Tenant-level config takes precedence over this.
+        s3:
+            bucketPrefix: "{{ aiservice_s3_bucket_prefix }}"
+            region: "{{ aiservice_s3_region }}"
+            endpointUrl: "{{ aiservice_s3_endpoint_url }}"
+        environment_type: "{{ environment_type }}"

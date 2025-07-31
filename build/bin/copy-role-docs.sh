@@ -10,7 +10,10 @@ function copyDoc() {
   cp $SRC_DIR/$ROLE/README.md $TO_DIR/$ROLE.md
 }
 
-copyDoc aibroker
+copyDoc aiservice
+copyDoc aiservice_kmodels
+copyDoc aiservice_odh
+copyDoc aiservice_tenant
 copyDoc ansible_version_check
 copyDoc appconnect
 copyDoc arcgis
@@ -42,7 +45,6 @@ copyDoc ibm_catalogs
 copyDoc ibmcloud_resource_key
 copyDoc kafka
 copyDoc key_rotation
-copyDoc kmodels
 copyDoc mirror_case_prepare
 copyDoc mirror_extras_prepare
 copyDoc mirror_ocp
@@ -63,7 +65,6 @@ copyDoc ocp_simulate_disconnected_network
 copyDoc ocp_upgrade
 copyDoc ocp_verify
 copyDoc ocs
-copyDoc odh
 copyDoc opentelemetry
 copyDoc registry
 copyDoc sls

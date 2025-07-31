@@ -1,0 +1,69 @@
+---
+- name: Load variables (main)
+  include_vars: "vars/main.yml"
+
+
+# 1. Load default storage class (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
+
+
+# 2. Deploy OpenShift Serverless operators
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/pipeline-operator.yml
+- include_tasks: tasks/serverless-operator.yml
+- include_tasks: tasks/servicemesh-operator.yml
+- include_tasks: tasks/authorino-operator.yml
+- include_tasks: tasks/odh-operator.yml
+
+
+# 3. Create Aibroker namespace
+# -----------------------------------------------------------------------------
+- name: "Create Namespace"
+  kubernetes.core.k8s:
+    template: "templates/aiservice/namespace.yml.j2"
+
+
+# 4. Create DSCInitialization instance
+# -----------------------------------------------------------------------------
+- name: "Create DSCInitialization instance"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/odh/default-dsci.yml.j2') }}"
+
+- name: "Wait for the DSCInitialization instance to be ready"
+  kubernetes.core.k8s_info:
+    api_version: dscinitialization.opendatahub.io/v1
+    name: default-dsci
+    namespace: opendatahub
+    kind: DSCInitialization
+  register: dsci_lookup
+  until:
+    - dsci_lookup.resources is defined and dsci_lookup.resources | length == 1
+    - dsci_lookup.resources[0].status is defined
+    - dsci_lookup.resources[0].status.phase is defined
+    - dsci_lookup.resources[0].status.phase == 'Ready'
+  retries: 10
+  delay: 60
+
+
+# 5. Create Data Science Cluster
+# -----------------------------------------------------------------------------
+- name: "Create Data Science Cluster"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/odh/data-science-cluster.yml.j2') }}"
+
+- name: "Wait for the DSC to be ready"
+  kubernetes.core.k8s_info:
+    api_version: datasciencecluster.opendatahub.io/v1
+    name: default-dsc
+    kind: DataScienceCluster
+  register: dsc_lookup
+  until:
+    - dsc_lookup.resources is defined and dsc_lookup.resources | length == 1
+    - dsc_lookup.resources[0].status is defined
+    - dsc_lookup.resources[0].status.phase is defined
+    - dsc_lookup.resources[0].status.phase == 'Ready'
+  retries: 10
+  delay: 60
