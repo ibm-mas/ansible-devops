@@ -1,0 +1,70 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: km-watcher
+  namespace: mas-{{ aiservice_instance_id }}-aibroker
+  labels:
+    app: km-watcher
+    component: watcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: km-watcher
+  template:
+    metadata:
+      labels:
+        app: km-watcher
+        component: watcher
+    spec:
+      serviceAccountName: km-watcher
+      imagePullSecrets:
+        - name: {{ pullSecretName }}
+      containers:
+        - name: watcher
+{% if mas_aibroker_use_digest %}
+          image: {{ mas_aibroker_watcher_image_registry }}/{{ watcher }}
+{% else %}
+          image: {{ mas_icr_cp }}/{{ watcher }}
+{% endif %}
+          imagePullPolicy: {{ mas_img_pull_policy }}
+          securityContext:
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+            privileged: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 3000
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+              ephemeral-storage: "1Gi"
+            limits:
+              memory: "256Mi"
+              cpu: "100m"
+              ephemeral-storage: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /version
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 500
+          readinessProbe:
+            httpGet:
+              path: /version
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 500
+          envFrom:
+            - configMapRef:
+                name: km-watcher
+            - secretRef:
+                name: km-s3-secret
