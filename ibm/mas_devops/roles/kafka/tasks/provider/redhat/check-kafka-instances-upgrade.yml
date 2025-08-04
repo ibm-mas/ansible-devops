@@ -1,33 +1,12 @@
 ---
 - name: Print the list of ZooKeeper-based Kafka instances
   debug:
-    var:  "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
-
-- name: Initialize lists for ZooKeeper instances
-  set_fact:
-    zookeeper_instances: []
-
-- name: Check which clusters are in ZooKeeper mode
-  kubernetes.core.k8s_info:
-    api_version: core.strimzi.io/v1beta2
-    kind: Kafka
-    namespace: "{{ kafka_namespace }}"
-    name: "{{ item.0 }}"
-  register: kafka_cluster_cr
-  set_fact:
-    zookeeper_instances: "{{ zookeeper_instances + [ item.0 | zip(item.1) ] }}"
-  when:
-    - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "ZooKeeper"
-  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
-
-- name: Print the list of ZooKeeper-based Kafka instances
-  debug:
-    var: zookeeper_instances
+    var:  "{{ kafkaCluster_names | zip(kafkaCluster_versions) | zip(kafkaCluster_modes) | list }}"
 
 - name: "Wait for zookeeper podset to be updated (30s delay)"
   when:
     - item.1 != kafka_version
-    - item.status.kafkaMetadataState == 'ZooKeeper'
+    - item.2 == 'ZooKeeper'
   kubernetes.core.k8s_info:
     api_version: core.strimzi.io/v1beta2
     kind: StrimziPodSet
@@ -45,7 +24,7 @@
     - zookeeper_podset.resources[0].status.readyPods == zookeeper_podset.resources[0].status.pods
   retries: 30 # Approximately 15 minutes before we give up
   delay: 30 # seconds
-  loop: "{{ zookeeper_instances }}"
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | zip(kafkaCluster_modes) | list }}"
 
 - name: "Wait for kafka podset to be updated (30s delay)"
   when:
