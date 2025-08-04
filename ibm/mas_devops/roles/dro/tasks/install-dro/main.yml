@@ -37,6 +37,12 @@
       - "User Provided DRO Storage Class Name ..................... {{ dro_storage_class }}"
   when: dro_storage_class is defined and (dro_storage_class | length > 0)
 
+- name: Lookup previous DRO PVC
+  kubernetes.core.k8s_info:
+    namespace: "{{ dro_namespace }}"
+    kind: PersistentVolumeClaim
+  register: dro_installed_pvc
+
 - name: Determine Storage Class
   include_tasks: tasks/install-dro/determine-storage-classes.yml
   when: dro_storage_class is not defined or dro_storage_class == ""
@@ -44,6 +50,7 @@
 - name: Create DRO PVC
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/dro-pvc.yml.j2') }}"
+  when: dro_installed_pvc.resources is defined and dro_installed_pvc.resources | length == 0
 
 # 5. Create Marketplace Pull Secret
 # ----------------------------------------------------------------------------
