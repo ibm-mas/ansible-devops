@@ -6,8 +6,13 @@
     that: ibmcloud_apikey is defined and ibmcloud_apikey != ""
     fail_msg: "ibmcloud_apikey property is required"
 
+# 2. Sanitize ocp_version input
+# -----------------------------------------------------------------------------
+- name: "roks : Sanitize ocp_version input"
+  set_fact:
+    ocp_version: "{{ ocp_version ~ '_openshift' if '_openshift' not in ocp_version else ocp_version }}"
 
-# 2. Debug Info
+# 3. Debug Info
 # -----------------------------------------------------------------------------
 - name: "roks : Debug information"
   debug:
@@ -23,14 +28,14 @@
       - "ROKS flags ................... {{ roks_flags }}"
 
 
-# 3. Login
+# 4. Login
 # -----------------------------------------------------------------------------
 - name: "roks : Login to IBM Cloud"
   shell: |
     ibmcloud login -a "{{ ibmcloud_endpoint }}" --apikey "{{ ibmcloud_apikey }}" -q --no-region
 
 
-# 4. Optionally, switch to a specified resource group (creating it if necessary)
+# 5. Optionally, switch to a specified resource group (creating it if necessary)
 # -----------------------------------------------------------------------------
 - name: "roks : Check resource group exists"
   when: ibmcloud_resourcegroup is defined
@@ -63,7 +68,7 @@
   failed_when: "rg_target.rc > 1"
 
 
-# 5. Check if cluster already exists
+# 6. Check if cluster already exists
 # -----------------------------------------------------------------------------
 - name: "roks : Check if cluster already exists"
   shell: |
@@ -77,7 +82,7 @@
     msg: "{{ cluster_name }} already exists, skipping cluster creation"
 
 
-# 6. Setup vlans
+# 7. Setup vlans
 # -----------------------------------------------------------------------------
 - name: "roks : Lookup VLANs automatically (ibmcloud ks vlan ls --zone {{ roks_zone }} --output json)"
   when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
@@ -94,7 +99,7 @@
     private: "{{ ibmcloud_zone_vlans.stdout | from_json | ibm.mas_devops.private_vlan }}"
 
 
-# 7. Create cluster
+# 8. Create cluster
 # -----------------------------------------------------------------------------
 - name: "roks : Create IBM Cloud ROKS cluster"
   when: cluster_lookup.rc == 1
@@ -112,7 +117,7 @@
       {{ roks_flags }}
 
 
-# 8. Add a GPU worker node if ocp_provision_gpu is true
+# 9. Add a GPU worker node if ocp_provision_gpu is true
 # -----------------------------------------------------------------------------
 - name: "roks : Debug Information for GPU worker"
   when:
@@ -184,7 +189,7 @@
     msg: "GPU worker node(s) will continue to provision and can take at least 4 hours to be fully deployed"
 
 
-# 9. Watch cluster provisioning progress
+# 10. Watch cluster provisioning progress
 # -----------------------------------------------------------------------------
 - name: "roks : Wait until the Roks cluster is deployed"
   shell: |
@@ -194,7 +199,7 @@
     - roks_cluster_completion.rc == 0
     - (roks_cluster_completion.stdout | from_json).state == 'normal'
   retries: 30
-  delay: 120 # 2 minutes
+  delay: 120  # 2 minutes
 
 - name: "roks: Debug final cluster state"
   debug:
