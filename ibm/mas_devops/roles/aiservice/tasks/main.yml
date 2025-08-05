@@ -1,0 +1,61 @@
+---
+- name: Load variables (main)
+  include_vars: "vars/main.yml"
+
+# Get cluster domain
+# -----------------------------------------------------------------------------
+- name: "Get cluster subdomain"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: _cluster_subdomain
+
+- name: "Set custom cluster subdomain"
+  set_fact:
+    cluster_domain: "{{ aiservice_cluster_domain }}"
+  when:
+    - aiservice_cluster_domain | length > 0
+
+- name: "Set default cluster subdomain from ingress"
+  set_fact:
+    cluster_domain: "{{ _cluster_subdomain.resources[0].spec.domain }}"
+  when:
+    - aiservice_cluster_domain | length == 0
+
+- name: "Debug: cluster domain"
+  debug:
+    msg: "Cluster domain ........................ {{ cluster_domain }}"
+
+# Create IBM Maximo IBM Maximo AI Service
+# -----------------------------------------------------------------------------
+- name: "Create IBM Maximo AI Service namespace"
+  kubernetes.core.k8s:
+    state: present
+    api_version: v1
+    kind: Namespace
+    name: "{{ aiservice_namespace }}"
+
+# Create secret for minio
+- include_tasks: tasks/minio/main.yml
+
+# Create config for SLS
+- include_tasks: tasks/config_sls/main.yml
+
+# Create config for DRO
+- include_tasks: tasks/config_dro/main.yml
+
+# Create config for DB2
+- include_tasks: tasks/config_db2/main.yml
+
+# install AI Broker api
+- include_tasks: tasks/aiservice/main.yml
+
+# create AI Broker tenant
+- include_tasks: tasks/tenant/main.yml
+
+# create AI Broker api key
+- include_tasks: tasks/apikey/main.yml
+
+# create wx api
+- include_tasks: tasks/watsonx/main.yml

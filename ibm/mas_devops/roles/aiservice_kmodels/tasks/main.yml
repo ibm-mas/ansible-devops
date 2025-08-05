@@ -1,0 +1,148 @@
+---
+# Load variables
+- name: Load variables (main)
+  include_vars: "vars/main.yml"
+
+# Load variables from odh role
+# TODO: Fix this, it's bad role design to use defaults from another role this way, each role should be self-contained
+- name: Load variables from odh role (main)
+  include_vars: "{{ role_path }}/../aiservice_odh/defaults/main.yml"
+
+# Create Aibroker Namespace
+# -----------------------------------------------------------------------------
+- name: "Create Aibroker Namespace"
+  kubernetes.core.k8s:
+    template: "templates/namespace.yml.j2"
+
+- name: "Delete km-s3-secret secret if it exists"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    name: km-s3-secret
+    namespace: aiservice-{{ aiservice_instance_id }}
+  ignore_errors: true
+
+- name: "Create km-s3-secret secret"
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      type: Opaque
+      metadata:
+        name: km-s3-secret
+        namespace: aiservice-{{ aiservice_instance_id }}
+      data:
+        AWS_ACCESS_KEY_ID: "{{ aiservice_storage_accesskey | b64encode }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aiservice_storage_secretkey | b64encode }}"
+        S3_ACCESS_KEY: "{{ aiservice_storage_accesskey | b64encode }}"
+        S3_SECRET_KEY: "{{ aiservice_storage_secretkey | b64encode }}"
+        S3_HOST: "{{ aiservice_storage_host | b64encode }}"
+        S3_PORT: "{{ aiservice_storage_port | b64encode }}" # add only for minio
+        S3_REGION: "{{ aiservice_storage_region | b64encode }}"
+        S3_SSL: "{{ aiservice_storage_ssl | b64encode }}"
+
+- name: "Check if km-s3-secret secret exists "
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: km-s3-secret
+    namespace: aiservice-{{ aiservice_instance_id }}
+  register: kms3_secret_info
+
+# (https://kserve.github.io/website/0.11/modelserving/storage/s3/s3/#create-service-account)
+- name: "Update secret with annotation"
+  shell: oc annotate secret -n aiservice-{{ aiservice_instance_id }} km-s3-secret serving.kserve.io/s3-endpoint="{{ aiservice_storage_host }}"
+  when:
+    - aiservice_storage_provider == "aws"
+    - kms3_secret_info.resources[0].metadata.annotations is not defined
+
+- name: "Update secret with annotation"
+  shell: oc annotate secret -n aiservice-{{ aiservice_instance_id }} km-s3-secret serving.kserve.io/s3-endpoint="{{ aiservice_storage_host }}:{{ aiservice_storage_port }}"
+  when:
+    - aiservice_storage_provider == "minio"
+    - kms3_secret_info.resources[0].metadata.annotations is not defined
+
+- name: "Update secret with annotation if SSL is false"
+  shell: oc annotate secret -n aiservice-{{ aiservice_instance_id }} km-s3-secret serving.kserve.io/s3-usehttps="0"
+  when:
+    - aiservice_storage_ssl == 'false'
+    - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-usehttps'] | default('')) != "0"
+
+- name: "Update secret with annotation if SSL is true"
+  shell: oc annotate secret -n aiservice-{{ aiservice_instance_id }} km-s3-secret serving.kserve.io/s3-usehttps="1"
+  when:
+    - aiservice_storage_ssl == 'true'
+    - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-usehttps'] | default('')) != "1"
+
+- name: "Update secret with annotation if region is null"
+  shell: oc annotate secret -n aiservice-{{ aiservice_instance_id }} km-s3-secret serving.kserve.io/s3-region={{ aiservice_storage_region }}
+  when:
+    - aiservice_storage_provider == "minio"
+    - (kms3_secret_info.resources[0].metadata.annotations['serving.kserve.io/s3-region'] | default('')) == ""
+  ignore_errors: true
+
+# Load default storage class (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
+
+- name: "Determine Version of Maximo Operator Catalog"
+  include_tasks: tasks/determine-ibmcatalog-tag.yml
+
+- name: Load Catalog Metadata
+  when:
+    - kmodels_extras_version is not defined or kmodels_extras_version == ""
+    - catalog_tag is defined and catalog_tag != ""
+  block:
+    - ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: _mas_catalog
+    - debug:
+        var: _mas_catalog
+    - name: "Set mongo version to default value if not explicitly set"
+      set_fact:
+        kmodels_extras_version: "{{ _mas_catalog.kmodels_extras_version_default }}"
+
+- name: "Kmodels Version"
+  debug:
+    msg:
+      - "Maximo Operator Catalog .................. {{ catalog_tag }}"
+      - "Kmodels Version ............................ {{ kmodels_extras_version }}"
+
+- name: Load kmodels defaults
+  include_vars:
+    file: "{{ role_path }}/../mirror_extras_prepare/vars/kmodels_{{ kmodels_extras_version }}.yml"
+
+- name: Retrieve image settings for kmodels
+  set_fact:
+    mas_aibroker_controller_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/controller$') | map(attribute='registry') | first }}"
+    mas_aibroker_controller_tag: "{{ extra_images | selectattr('name', 'match', '.*/controller$') | map(attribute='tag') | first }}"
+    mas_aibroker_controller_digest: "{{ extra_images | selectattr('name', 'match', '.*/controller$') | map(attribute='digest') | first }}"
+    mas_aibroker_store_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/store$') | map(attribute='registry') | first }}"
+    mas_aibroker_store_tag: "{{ extra_images | selectattr('name', 'match', '.*/store$') | map(attribute='tag') | first }}"
+    mas_aibroker_store_digest: "{{ extra_images | selectattr('name', 'match', '.*/store$') | map(attribute='digest') | first }}"
+    mas_aibroker_watcher_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/watcher$') | map(attribute='registry') | first }}"
+    mas_aibroker_watcher_tag: "{{ extra_images | selectattr('name', 'match', '.*/watcher$') | map(attribute='tag') | first }}"
+    mas_aibroker_watcher_digest: "{{ extra_images | selectattr('name', 'match', '.*/watcher$') | map(attribute='digest') | first }}"
+
+- name: Set image with tags for kmodels
+  set_fact:
+    controller: "aibroker/controller:{{ mas_aibroker_controller_tag }}"
+    store: "aibroker/store:{{ mas_aibroker_store_tag }}"
+    watcher: "aibroker/watcher:{{ mas_aibroker_watcher_tag }}"
+  when: not mas_aibroker_use_digest
+
+- name: Set image with digest for kmodels
+  set_fact:
+    controller: "aibroker/controller@{{ mas_aibroker_controller_digest }}"
+    store: "aibroker/store@{{ mas_aibroker_store_digest }}"
+    watcher: "aibroker/watcher@{{ mas_aibroker_watcher_digest }}"
+  when: mas_aibroker_use_digest
+
+# Deploy Kmodels
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/istio.yml
+- include_tasks: tasks/networkpolicies.yml
+- include_tasks: tasks/store.yml
+- include_tasks: tasks/watcher.yml
+- include_tasks: tasks/controller.yml
