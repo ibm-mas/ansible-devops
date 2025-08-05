@@ -1,4 +1,20 @@
 ---
+# 1. Get the list of all KafkaCluster instances post migration
+# -----------------------------------------------------------------------------
+- name: "Get kafka instance list"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+  register: kafka_cluster_list
+
+- name: "Get and set variables to store the lists"
+  set_fact:
+    kafkaCluster_names: "{{ kafka_cluster_list.resources | map(attribute='metadata.name') }}"
+    kafkaCluster_versions: "{{ kafka_cluster_list.resources | map(attribute='spec.kafka.version') }}"
+    kafkaCluster_modes: "{{ kafka_cluster_list.resources | map(attribute='status.kafkaMetadataState') }}"
+  when: kafka_cluster_list.resources is defined
+
 - name: Print the list of ZooKeeper-based Kafka instances
   debug:
     var:  "{{ kafkaCluster_names | zip(kafkaCluster_versions, kafkaCluster_modes) | list }}"
