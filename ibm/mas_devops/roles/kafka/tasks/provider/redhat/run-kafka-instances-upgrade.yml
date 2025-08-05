@@ -17,15 +17,31 @@
       - "Kafka Cluster Names ...................... {{ kafka_cluster_list.resources | map(attribute='metadata.name') }}"
       - "Kafka Cluster Namespace .................. {{ kafka_namespace }}"
       - "Kafka Cluster Versions ................... {{ kafka_cluster_list.resources | map(attribute='spec.kafka.version') }}"
+      - "Kafka Cluster Modes ...................... {{ kafka_cluster_list.resources | map(attribute='status.kafkaMetadataState') }}"
   when: kafka_cluster_list.resources is defined
 
 - name: "Get and set variables to store the lists"
   set_fact:
     kafkaCluster_names: "{{ kafka_cluster_list.resources | map(attribute='metadata.name') }}"
     kafkaCluster_versions: "{{ kafka_cluster_list.resources | map(attribute='spec.kafka.version') }}"
+    kafkaCluster_modes: "{{ kafka_cluster_list.resources | map(attribute='status.kafkaMetadataState') }}"
   when: kafka_cluster_list.resources is defined
 
-# 3. Determine if upgrade is needed and perform it
+# 3. Run migration on the instances that are on ZooKeeper and run a version compatible with KRaft
+- name: "Process clusters list"
+  include_tasks: tasks/provider/redhat/migrate.yml
+  loop: "{{ kafka_cluster_list.resources }}"
+  loop_control:
+    loop_var: kafka_cluster
+  vars:
+    kafka_namespace: "{{ kafka_cluster.metadata.namespace }}"
+    kafka_cluster_name: "{{ kafka_cluster.metadata.name }}"
+  when:
+    - kafka_cluster_list.resources is defined
+    - kafka_cluster.status.kafkaMetadataState == 'ZooKeeper'
+    - kafka_cluster.spec.kafka.version is version('2.8.0', '>=')
+
+# 4. Determine if upgrade is needed and perform it
 # -----------------------------------------------------------------------------
 
 - name: "Check if Kafka instance is at version {{ kafka_version }}"
