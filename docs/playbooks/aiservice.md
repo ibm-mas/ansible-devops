@@ -31,7 +31,7 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
     - IBM Suite License Service (~10 Minutes) **optional**
     - IBM Data Reporter Operator (~10 Minutes) **optional**
     - IBM Db2 **optional**
-    - Minio (~5 minutes) **optional**
+    - Minio (~5 minutes) **optional** please see this [warning](#warning)
 - Install ODH:
     - Install Red Hat OpenShift Serverless Operator
     - Install Red Hat OpenShift Service Mesh Operator
@@ -113,6 +113,10 @@ Optional environment variables
 * `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
 * `AISERVICE_CLUSTER_DOMAIN` Provide custom domain (default value is: empty)
 * `AISERVICE_IS_EXTERNAL_ROUTE` A flag indicating to enable external route (default value is: false)
+
+# warning
+
+**Please notice that minio deployment role is just for testing purpose. User should use own minio (secure) deployment or use AWS S3.**
 
 
 Usage
