@@ -12,12 +12,16 @@
 
 # 2. Create AWS bucket
 # ---------------------------------------------------------------------------------------------------------------------
+# Note: per https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucketConfiguration.html
+# us-east-1 is not a valid region for a LocationConstraint. This parameter should be left blank.
 - name: "Create AWS bucket: {{ aws_bucket_name }}"
   command: >
     aws s3api create-bucket \
       --bucket {{ aws_bucket_name }} \
       --region {{ aws_bucket_region_location }} \
+      {% if aws_bucket_region_location != "us-east-1" %}
       --create-bucket-configuration LocationConstraint={{ aws_bucket_region_location }}
+      {% endif %}
   register: aws_bucket_creation_output
   failed_when: aws_bucket_creation_output.rc > 0 and ('BucketAlreadyOwnedByYou' not in aws_bucket_creation_output.stderr)
 

@@ -21,7 +21,7 @@ if [[ -z ${instance_id} ]]; then
   NAMESPACE='aiservice'
 
 else
-  NAMESPACE=mas-${instance_id}-aibroker
+  NAMESPACE=aiservice-${instance_id}
 fi
 
 echo $NAMESPACE
