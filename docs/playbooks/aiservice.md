@@ -114,7 +114,6 @@ Optional environment variables
 * `AISERVICE_CLUSTER_DOMAIN` Provide custom domain (default value is: empty)
 * `AISERVICE_IS_EXTERNAL_ROUTE` A flag indicating to enable external route (default value is: false)
 
-
 Usage
 -------------------------------------------------------------------------------
 ### AI service deployment steps
