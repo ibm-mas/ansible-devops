@@ -90,6 +90,37 @@
     ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
   register: ibmcloud_zone_vlans
 
+- name: "roks : Parse VLAN list"
+  set_fact:
+    vlan_list: "{{ ibmcloud_zone_vlans.stdout | from_json }}"
+
+# If no VLANs at all, create both public and private VLANs
+- name: "roks : Create public VLAN if none found"
+  when: vlan_list | selectattr('type', 'equalto', 'public') | list | length == 0
+  shell: >
+    ibmcloud sl vlan create \
+      -t public \
+      -d {{ roks_zone }} \
+      -n auto-public-vlan-{{ ansible_date_time.epoch }}
+  register: created_public_vlan
+
+- name: "roks : Create private VLAN if none found"
+  when: vlan_list | selectattr('type', 'equalto', 'private') | list | length == 0
+  shell: >
+    ibmcloud sl vlan create \
+      -t private \
+      -d {{ roks_zone }} \
+      -n auto-private-vlan-{{ ansible_date_time.epoch }}
+  register: created_private_vlan
+
+# If VLANs were created, we need to refetch once
+- name: "roks : Re-fetch VLANs after creation"
+  when: vlan_list | length == 0
+  shell: |
+    ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
+  register: ibmcloud_zone_vlans
+
+# If VLANs exist, set public and private VLANs
 - name: "roks : Configure Private and Public Vlans"
   when:
     - cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
