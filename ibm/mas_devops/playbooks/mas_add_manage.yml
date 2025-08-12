@@ -1,0 +1,189 @@
+---
+# Add Manage 9.0.x application to an existing MAS Core 8.8.x installation
+#
+# Dependencies:
+# - ansible-playbook ibm.mas_devops.mas_install_core
+#
+# To install Manage Foundation only that is available on MAS Core 9.1 or later
+# Make sure the `MAS_APPWS_COMPONENTS` environment variable is empty:
+# `export MAS_APPWS_COMPONENTS=""`
+# Not setting the env var will install Full Manage with base component
+#
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    # By default we always install Manage base
+    # mas_appws_components logic:
+    #
+    # This setup distinguishes between unset and empty environment variables.
+    #
+    # ┌────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────────────┐
+    # │ MAS_APPWS_COMPONENTS (env var)                             │ Result after parsing with ibm.mas_devops.appws_components │
+    # ├────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────┤
+    # │ (not set)                                                  │ { base: { version: latest } }                              │
+    # │ "" (empty string)                                          │ Manage Foundation                                                       │
+    # │ "base=latest"                                              │ { base: { version: latest } }                              │
+    # │ "base=latest,health=latest"                                │ { base: ..., health: ... }                                 │
+    # └────────────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────┘
+    mas_appws_components: >-
+      {{
+        (
+          (lookup('env', 'MAS_APPWS_COMPONENTS', default='__unset__') != '__unset__')
+          | ternary(lookup('env', 'MAS_APPWS_COMPONENTS'), 'base=latest')
+        )
+        | ibm.mas_devops.appws_components
+      }}
+
+    # Application Dependencies
+    db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') | default('db2w-shared', true) }}"
+
+    # Application Installation
+    # mas_app_id can be set to "health" to install manage in the "Health standalone" mode from this same playbook.
+    mas_app_id: "{{ lookup('env', 'MAS_APP_ID') | default('manage', true) }}"
+    mas_app_channel: "{{ lookup('env', 'MAS_APP_CHANNEL') | default('9.1.x', true) }}"
+
+    # Application Configuration
+    mas_workspace_id: "{{ lookup('env', 'MAS_WORKSPACE_ID') | default('masdev', true) }}"
+
+    # Check if external database is provided instead of the default DB2
+    configure_external_db: "{{ lookup('env', 'CONFIGURE_EXTERNAL_DB') | default('False', true) | bool }}"
+
+    # Manage components and server bundle configurations
+    mas_config_scope: "{{ lookup('env', 'MAS_CONFIG_SCOPE') | default('system', true) }}" # Supported values are "system", "ws", "app", or "wsapp"
+    mas_appws_bindings_jdbc: "{{ lookup('env', 'MAS_APPWS_BINDINGS_JDBC') | default('system', true) }}"
+
+    # Check if SSL is enabled
+    ssl_enabled: "{{ lookup('env', 'SSL_ENABLED') | default('True', true) | bool }}"
+
+    # these vars will be set by cp4d playbook, if it did not run (eg install_cp4d_platform=false), it will be set by the environment vars.
+    cpd_admin_url: "{{ lookup('env', 'CPD_ADMIN_URL') }}"
+    cpd_admin_username: "{{ lookup('env', 'CPD_ADMIN_USERNAME') }}"
+    cpd_admin_password: "{{ lookup('env', 'CPD_ADMIN_PASSWORD') }}"
+
+    # Control what elements of CPD are installed
+    install_cp4d_platform: "{{ lookup('env', 'CPD_INSTALL_PLATFORM') | default('False', true) | bool }}"
+    install_cp4d_cognos_analytics: "{{ lookup('env', 'CPD_INSTALL_COGNOS') | default('False', true) | bool }}"
+    install_cp4d_wsl: "{{ lookup('env', 'CPD_INSTALL_WSL') | default('False', true) | bool }}"
+
+    # Control which Manage configurations to apply by the default (Attachments & Building Information Models)
+    configure_manage_attachments: "{{ lookup('env', 'CONFIGURE_MANAGE_ATTACHMENTS') | default('False', true) | bool }}"
+    configure_manage_bim: "{{ lookup('env', 'CONFIGURE_MANAGE_BIM') | default('False', true) | bool }}"
+
+    # Cloud Pak for Data Configuration
+    # -------------------------------------------------------------------------
+    cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('4.6.3', true) }}"
+
+  pre_tasks:
+    - name: Important Notice
+      debug:
+        msg: |
+          *********************************************************************
+          ************************* IMPORTANT NOTICE **************************
+          *********************************************************************
+          *                                                                   *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
+          *                                                                   *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
+          *                                                                   *
+          *  The recommended way to install MAS is to use the MAS CLI, which  *
+          *  uses this Ansible Collection to deliver a complete managed       *
+          *  lifecycle for your MAS instance.                                 *
+          *                                                                   *
+          *  https://ibm-mas.github.io/cli/                                   *
+          *                                                                   *
+          *********************************************************************
+
+    - name: Show raw env var
+      debug:
+        msg: "{{ lookup('env', 'MAS_APPWS_COMPONENTS') }}"
+
+    - name: Show Components to be installed
+      debug:
+        var: mas_appws_components
+
+    # For the full set of supported environment variables refer to the playbook documentation
+    - name: Check for required environment variables
+      assert:
+        that:
+          - lookup('env', 'IBM_ENTITLEMENT_KEY') != ""
+          - lookup('env', 'MAS_INSTANCE_ID') != ""
+          - lookup('env', 'MAS_CONFIG_DIR') != ""
+        fail_msg: "One or more required environment variables are not defined"
+
+    - name: Check for JDBC configuration environment variables for external database
+      when: configure_external_db == "true"
+      assert:
+        that:
+          - lookup('env', 'DB_INSTANCE_ID') != ""
+          - lookup('env', 'MAS_JDBC_USER') != ""
+          - lookup('env', 'MAS_JDBC_PASSWORD') != ""
+          - lookup('env', 'MAS_JDBC_URL') != ""
+          - lookup('env', 'MAS_APP_SETTINGS_DB_SCHEMA') != "" or lookup('env', 'MAS_APP_SETTINGS_DB2_SCHEMA') != ""
+          - lookup('env', 'MAS_APP_SETTINGS_TABLESPACE') != ""
+          - lookup('env', 'MAS_APP_SETTINGS_INDEXSPACE') != ""
+        fail_msg: "One or more JDBC configuration environment variables are not defined for external database"
+
+    # JDBC Configuration environment variables check
+    - name: Check for JDBC SSL certificate environment variable for ssl enabled database
+      when:
+        - configure_external_db == "true"
+        - ssl_enabled == "true"
+      assert:
+        that:
+          - lookup('env', 'MAS_JDBC_CERT_LOCAL_FILE') != ""
+        fail_msg: "JDBC SSL certificate file name is not defined for external database"
+
+    # Check if Manage Attachments or Building Information Models configurations are enabled, if so, enable also default PVCs to be used
+    # If you want to customize Manage PVCs settings, review `suite_app_config` readme
+    - name: Check if Manage Attachments or BIM configurations should be enabled
+      when: configure_manage_attachments or configure_manage_bim
+      set_fact:
+        mas_app_settings_persistent_volumes_flag: true
+
+    - name: "Debug Manage post-install configurations to be enabled"
+      debug:
+        msg:
+          - "Attachments ............................. {{ configure_manage_attachments }}"
+          - "Building Information Models ............. {{ configure_manage_bim }}"
+
+  roles:
+    # Optional Cloud Pak for Data Install
+    - role: ibm.mas_devops.cp4d
+      when: install_cp4d_platform == true
+
+    - role: ibm.mas_devops.cp4d_service
+      when: install_cp4d_cognos_analytics == true
+      vars:
+        cpd_service_name: ca
+
+    - role: ibm.mas_devops.cp4d_service
+      when: install_cp4d_wsl == true
+      vars:
+        cpd_service_name: wsl
+
+    # Db2 Install
+    - role: ibm.mas_devops.db2
+      when: configure_external_db == false
+
+    - role: ibm.mas_devops.suite_db2_setup_for_manage
+      when: configure_external_db == false
+
+    # Bring Your Own Database
+    - role: ibm.mas_devops.gencfg_jdbc
+      when: configure_external_db == true
+
+    # Install Manage
+    - ibm.mas_devops.suite_config
+    - ibm.mas_devops.suite_app_install
+    - ibm.mas_devops.suite_app_config
+
+    # Configure Manage
+    - role: ibm.mas_devops.suite_manage_attachments_config
+      when: configure_manage_attachments
+
+    - role: ibm.mas_devops.suite_manage_bim_config
+      when: configure_manage_bim

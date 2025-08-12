@@ -1,0 +1,60 @@
+---
+- name: "Check if tenant namespace: {{ tenantNamespace }} exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ tenantNamespace }}"
+  register: namespace_info
+
+# Create tenant namespace
+- name: "Create a tenant namespace: {{ tenantNamespace }}"
+  kubernetes.core.k8s:
+    name: "{{ tenantNamespace }}"
+    api_version: v1
+    kind: Namespace
+  when:
+    - namespace_info.resources | length == 0
+
+# Copy secrets to tenant namespace
+- name: "Copy secrets to namespace: {{ tenantNamespace }}"
+  shell: 'oc get secret {{ item }} -n aiservice-{{ aiservice_instance_id }} -o yaml | sed "s/namespace: .*/namespace: {{ tenantNamespace }}/" | oc apply --force -f -'
+  with_items:
+    - km-s3-secret
+    - "{{ pullSecretName }}"
+
+# Adding inference server runtimes
+- name: "Create config map for connector config"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/connector-configmap.yml.j2') }}"
+
+- name: "Create SA for server runtimes"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/km-s3-sa.yml.j2') }}"
+
+- name: "Create huggingfaceserver server runtime"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/kserve-huggingfaceserver.yml.j2') }}"
+
+- name: "Create lgbserver server runtime"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/kserve-lgbserver.yml.j2') }}"
+
+- name: "Create sklearnserver server runtime"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/kserve-sklearnserver.yml.j2') }}"
+
+- name: "Create xgbserver server runtime"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/kserve-xgbserver.yml.j2') }}"
+
+# Applay RBAC roles
+- name: "Apply RBAC for tenant"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/tenant/rbac.yml.j2') }}"

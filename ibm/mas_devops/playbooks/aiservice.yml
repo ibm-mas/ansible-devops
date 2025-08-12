@@ -1,0 +1,101 @@
+---
+# Install AI Service (Standalone)
+- hosts: localhost
+  any_errors_fatal: true
+
+  vars:
+    # Application Installation
+    # TODO: Are these needed for AI Service, or are they just here for the defunct 9.0 AI Broker application?
+    # If the latter, these need to be removed
+    # If the former, app id needs to be renamed to "aiservice" and remove this comment
+    aiservice_instance_id: "{{ lookup('env', 'AISERVICE_INSTANCE_ID') }}"
+    mas_app_id: aibroker
+    mas_app_channel: "{{ lookup('env', 'MAS_APP_CHANNEL') | default('9.1.x', true) }}"
+    mas_icr_cp: "{{ lookup('env', 'MAS_ICR_CP') | default('cp.icr.io/cp', true) }}"
+    mas_icr_cpopen: "{{ lookup('env', 'MAS_ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
+
+    # MAS Entitlement
+    # -----------------------------------------------------------------------------
+    mas_entitlement_username: "{{ lookup('env', 'MAS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
+    ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
+    mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
+
+    # Control if saas release
+    # TODO: Needs to be mas_aiservice_saas ... env var and the ansible var needs updating
+    aiservice_saas: "{{ lookup('env', 'AISERVICE_SAAS') | default('false', true) | bool }}"
+
+    # DB2
+    # -----------------------------------------------------------------------------
+    db2_instance_name: "aiservice-{{ aiservice_instance_id }}"
+
+    # Control dependencies
+    # -----------------------------------------------------------------------------
+    install_db2: "{{ lookup('env', 'INSTALL_DB2') | default('False', true) | bool }}"
+    install_minio: "{{ lookup('env', 'INSTALL_MINIO') | default('False', true) | bool }}"
+    install_mongo: "{{ lookup('env', 'INSTALL_MONGO') | default('False', true) | bool }}"
+    install_sls: "{{ lookup('env', 'INSTALL_SLS') | default('False', true) | bool }}"
+    install_dro: "{{ lookup('env', 'INSTALL_DRO') | default('False', true) | bool }}"
+
+
+  pre_tasks:
+    - name: Important Notice
+      debug:
+        msg: |
+          *********************************************************************
+          ************************* IMPORTANT NOTICE **************************
+          *********************************************************************
+          *                                                                   *
+          *  These playbooks are samples to demonstrate how to use the roles  *
+          *  in this collection.                                              *
+          *                                                                   *
+          *  They are NOT INTENDED FOR PRODUCTION USE as-is, they are a       *
+          *  starting point for power users to aid in the development of      *
+          *  their own Ansible playbooks using the roles in this collection   *
+          *                                                                   *
+          *  The recommended way to install MAS is to use the MAS CLI, which  *
+          *  uses this Ansible Collection to deliver a complete managed       *
+          *  lifecycle for your MAS instance.                                 *
+          *                                                                   *
+          *  https://ibm-mas.github.io/cli/                                   *
+          *                                                                   *
+          *********************************************************************
+
+    - name: Check for required common environment variables
+      assert:
+        that:
+          - lookup('env', 'MAS_ENTITLEMENT_KEY') != ""
+          - lookup('env', 'MAS_INSTANCE_ID') != ""
+        fail_msg: 'One or more required environment variables are not defined'
+
+  roles:
+    # 1. AI Service Dependencies
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.ibm_catalogs
+
+    - role: ibm.mas_devops.cert_manager
+
+    - role: ibm.mas_devops.mongodb
+      when: install_mongo == true
+
+    - role: ibm.mas_devops.sls
+      when: install_sls == true
+
+    - role: ibm.mas_devops.dro
+      when: install_dro == true
+
+    - role: ibm.mas_devops.db2
+      when: install_db2 == true
+
+    - role: ibm.mas_devops.minio
+      when: install_minio == true
+
+    - role: ibm.mas_devops.aiservice_odh
+
+    - role: ibm.mas_devops.aiservice_kmodels
+    # 2. AI Service
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.aiservice
+
+    # 3. AI Service Tenant
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.aiservice_tenant
