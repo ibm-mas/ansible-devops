@@ -1,14 +1,14 @@
 apiVersion: config.openshift.io/v1
 kind: ImageDigestMirrorSet
 metadata:
-  name: mas-ibm-catalog{{ idms_suffix }}
+  name: aiservice-ibm-catalog{{ idms_suffix }}
   labels:
-    mas.ibm.com/idmsContent: ibm
+    aiservice.ibm.com/idmsContent: ibm
   annotations:
-    mas.ibm.com/idmsRegistry: "{{ registry_private_url_with_path }}"
-    mas.ibm.com/idmsRegistryHost: "{{ registry_private_host }}"
-    mas.ibm.com/idmsRegistryPort: "{{ registry_private_port }}"
-    mas.ibm.com/idmsRegistryPrefix: "{{ registry_prefix }}"
+    aiservice.ibm.com/idmsRegistry: "{{ registry_private_url_with_path }}"
+    aiservice.ibm.com/idmsRegistryHost: "{{ registry_private_host }}"
+    aiservice.ibm.com/idmsRegistryPort: "{{ registry_private_port }}"
+    aiservice.ibm.com/idmsRegistryPrefix: "{{ registry_prefix }}"
 spec:
   imageDigestMirrors:
     # 1. IBM Container Registry
@@ -28,6 +28,11 @@ spec:
       mirrors:
         - {{ registry_private_url_with_path }}/ibm-sls
       mirrorSourcePolicy: NeverContactSource
+    # IBM UDS content live in ibm-uds namespace
+    - source: icr.io/ibm-uds
+      mirrors:
+        - {{ registry_private_url_with_path }}/ibm-uds
+      mirrorSourcePolicy: NeverContactSource
     # IBM Db2 Universal operator content live in db2u namespace
     - source: icr.io/db2u
       mirrors:
@@ -45,19 +50,14 @@ spec:
     # 3. Red Hat Quay.io Container Registry
     # -------------------------------------------------------------------------
     # IBM common services live here
-    - source: quay.io/opencloudio
-      mirrors:
-        - {{ registry_private_url_with_path }}/opencloudio
-      mirrorSourcePolicy: NeverContactSource
     # MongoDb Community Edition Operator & associated container images
     - source: quay.io/mongodb
       mirrors:
         - {{ registry_private_url_with_path }}/mongodb
       mirrorSourcePolicy: NeverContactSource
-    # Eclipse Amlen - Message Broker for IoT/Mobile/Web. Mainly uses MQTT v3.x and v5.
-    - source: quay.io/amlen
+    - source: quay.io/minio
       mirrors:
-        - {{ registry_private_url_with_path }}/amlen
+        - {{ registry_private_url_with_path }}/minio
       mirrorSourcePolicy: NeverContactSource
     # Non-product IBM Maximo Application Suite images (e.g CLI & mirror of dockerhub mongodb image)
     - source: quay.io/ibmmas
