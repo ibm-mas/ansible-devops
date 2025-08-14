@@ -94,41 +94,61 @@
   set_fact:
     vlan_list: "{{ ibmcloud_zone_vlans.stdout | from_json }}"
 
-# If no VLANs at all, create both public and private VLANs
-- name: "roks : Create public VLAN if none found"
-  when: vlan_list | selectattr('type', 'equalto', 'public') | list | length == 0
-  shell: >
-    ibmcloud sl vlan create \
-      -t public \
-      -d {{ roks_zone }} \
-      -n auto-public-vlan-{{ ansible_date_time.epoch }}
-  register: created_public_vlan
+# If private exists but public missing → create public VLAN in same router
+- name: Create public VLAN if missing
+  when:
+    - vlan_list | selectattr('type', 'equalto', 'private') | list | length > 0
+    - vlan_list | selectattr('type', 'equalto', 'public') | list | length == 0
+  block:
 
-- name: "roks : Create private VLAN if none found"
-  when: vlan_list | selectattr('type', 'equalto', 'private') | list | length == 0
-  shell: >
-    ibmcloud sl vlan create \
-      -t private \
-      -d {{ roks_zone }} \
-      -n auto-private-vlan-{{ ansible_date_time.epoch }}
-  register: created_private_vlan
+    - name: Set public VLAN name
+      set_fact:
+        public_vlan_name: "{{ cluster_name }}-pub-{{ 99999 | random }}"
 
-# If VLANs were created, we need to refetch once
-- name: "roks : Re-fetch VLANs after creation"
-  when: vlan_list | length == 0
-  shell: |
-    ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
-  register: ibmcloud_zone_vlans
+    - name: Create public VLAN in same router
+      command: >
+        ibmcloud sl vlan create
+        -n {{ public_vlan_name }}
+        -d {{ roks_zone }}
+        -t public
+        --output json
+        --force
+      register: public_vlan_create
+
+    - name: Wait for newly created public VLAN to appear
+      command: ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
+      register: vlan_list_check
+      retries: 20
+      delay: 15
+      until: >
+        (vlan_list_check.stdout | from_json
+          | selectattr('type', 'equalto', 'public')
+          | selectattr('properties.name', 'equalto', public_vlan_name)
+          | list | length) > 0
+
+- name: Refresh VLAN list after creating public VLAN
+  shell: ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
+  register: vlan_list_refreshed
+
+- name: Set vlan_list fact from refreshed list
+  set_fact:
+    vlan_list: "{{ vlan_list_refreshed.stdout | from_json }}"
 
 # If VLANs exist, set public and private VLANs
 - name: "roks : Configure Private and Public Vlans"
   when:
     - cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
-    - ibmcloud_zone_vlans.stdout | from_json | length > 0
+    - vlan_list | selectattr('type', 'equalto', 'public') | list | length > 0
+    - vlan_list | selectattr('type', 'equalto', 'private') | list | length > 0
   set_fact:
-    public: "{{ ibmcloud_zone_vlans.stdout | from_json | ibm.mas_devops.public_vlan }}"
-    private: "{{ ibmcloud_zone_vlans.stdout | from_json | ibm.mas_devops.private_vlan }}"
+    public: "{{ vlan_list | ibm.mas_devops.public_vlan }}"
+    private: "{{ vlan_list | ibm.mas_devops.private_vlan }}"
 
+- name: Print VLAN values
+  debug:
+    msg:
+      - "Public VLAN: {{ public | default('NOT SET') }}"
+      - "Private VLAN: {{ private | default('NOT SET') }}"
 
 # 8. Create cluster
 # -----------------------------------------------------------------------------
