@@ -43,22 +43,25 @@
 
 # 4. Lookup the OCP ingress for DNS entries
 # -----------------------------------------------------------------------------
-- name: "cloudflare : Get cluster subdomain"
-  kubernetes.core.k8s_info:
-    api_version: config.openshift.io/v1
-    kind: Ingress
-    name: cluster
-  register: cluster_ingress_lookup
+- name: Lookup the OCP Hostname
+  when: ocp_ingress is not defined or ocp_ingress == ''
+  block:
+    - name: "cloudflare : Get cluster subdomain"
+      kubernetes.core.k8s_info:
+        api_version: config.openshift.io/v1
+        kind: Ingress
+        name: cluster
+      register: cluster_ingress_lookup
 
-- name: "cloudflare : Check that we found the cluster ingress"
-  assert:
-    that:
-      - cluster_ingress_lookup.resources is defined
-      - cluster_ingress_lookup.resources | length == 1
+    - name: "cloudflare : Check that we found the cluster ingress"
+      assert:
+        that:
+          - cluster_ingress_lookup.resources is defined
+          - cluster_ingress_lookup.resources | length == 1
 
-- name: "cloudflare : Set ocp_hostname"
-  set_fact:
-    ocp_hostname: "{{ cluster_ingress_lookup.resources[0].spec.domain }}"
+    - name: "cloudflare : Set ocp_ingress"
+      set_fact:
+        ocp_ingress: "{{ cluster_ingress_lookup.resources[0].spec.domain }}"
 
 
 # 5. Setup MAS Domain Name Entries
@@ -101,6 +104,6 @@
     zone: "{{ cloudflare_zone }}"
     record: "{{ record_name }}"
     type: CNAME
-    value: "{{ ocp_hostname }}"
+    value: "{{ ocp_ingress }}"
     api_token: "{{ cloudflare_apitoken }}"
   with_items: "{{ dns_entries }}"
