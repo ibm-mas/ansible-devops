@@ -3,13 +3,25 @@ MAS DevOps Ansible Collection
 The **ibm.mas_devops** Ansible Collection is published on [Ansible Galaxy](https://galaxy.ansible.com/ui/repo/published/ibm/mas_devops/) and works with all supported releases of IBM Maximo Application Suite.  Release information for the collection can be found in [GitHub](https://github.com/ibm-mas/ansible-devops/releases).
 
 
+Overview
+-------------------------------------------------------------------------------
+Many users ask what is the difference between the [MAS Ansible collection](https://github.com/ibm-mas/ansible-devops) and the [MAS CLI](https://github.com/ibm-mas/cli), the best way we have come up with so far to explain the difference is as below:
+
+- The ansible collection is a **toolbox**
+- The cli is a **solution** built using that toolbox
+
+Both are viable ways to install, but anyone using the ansible collection needs to understand what they are using; it is a means to create a solution, it's not a solution in it's own right.  **The MAS CLI is the reference solution that we (IBM) offer, based on the tools provided in the ansible collection.**
+
+Using the CLI is the right answer for 95% of users; if you are unsure what is right for you, [start here](https://ibm-mas.github.io/cli/guides/install/).
+
+
 Usage
 -------------------------------------------------------------------------------
 ### Run a Playbook
 The collection includes a number of playbooks that string together multiple roles, you can directly invoke them after installing the collection:
 
 ```bash
-ansible-playbook ibm.mas_devops.lite_core_roks
+ansible-playbook ibm.mas_devops.mas_install_core
 ```
 
 ### Run a Role
@@ -25,12 +37,16 @@ You can also use the **run_role** playbook:
 ROLE_NAME=cert_manager ansible-playbook ibm.mas_devops.run_role
 ```
 
-Running in Docker
+Running in a Container Image
 -------------------------------------------------------------------------------
 The easiest way to use this collection is to take advantage of the [ibmmas/cli](https://quay.io/repository/ibmmas/cli) container image, this negates the need to install anything on your local machine (other than docker - or podman if you prefer).
 
 ```bash
+# Run with docker
 docker run -ti --rm --pull always quay.io/ibmmas/cli
+
+# Run with podman
+podman run -ti --rm --pull always quay.io/ibmmas/cli
 ```
 
 
@@ -43,7 +59,7 @@ ansible-galaxy collection install ibm.mas_devops
 python3 -m pip install mas-devops
 ```
 
-Optionally, you can also pin the version of the collection that you install, allowing you to control exactly what version of the collection is in use in your automation:
+Optionally, you can also pin the version of the collection that you install, allowing you to control exactly what version of the collection is in use in your solution:
 
 ```
 ansible-galaxy collection install ibm.mas_devops:18.10.4
