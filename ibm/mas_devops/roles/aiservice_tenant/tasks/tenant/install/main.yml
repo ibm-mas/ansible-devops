@@ -9,15 +9,15 @@
 
 - name: "Wait for tenant CR to be ready"
   kubernetes.core.k8s_info:
-    api_version: apps.mas.ibm.com/v1
+    api_version: aiservice.ibm.com/v1
     name: "{{ tenantNamespace }}"
     namespace: "{{ aiservice_namespace }}"
-    kind: AiBrokerWorkspace
-  register: aiserviceworkspace_cr_result
+    kind: AIServiceTenant
+  register: aiservicetenant_cr_result
   until:
-    - aiserviceworkspace_cr_result.resources is defined and aiserviceworkspace_cr_result.resources | length == 1
-    - aiserviceworkspace_cr_result.resources[0].status is defined
-    - aiserviceworkspace_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
+    - aiservicetenant_cr_result.resources is defined and aiservicetenant_cr_result.resources | length == 1
+    - aiservicetenant_cr_result.resources[0].status is defined
+    - aiservicetenant_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
 

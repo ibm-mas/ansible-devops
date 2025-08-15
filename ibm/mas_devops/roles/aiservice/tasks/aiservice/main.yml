@@ -26,35 +26,35 @@
     catalog_source: "{{ mas_catalog_source }}"
   register: subscription
 
-# Wait until the IBM Maximo AI Broker CRD is available
+# Wait until the IBM Maximo AI Service CRD is available
 # -----------------------------------------------------------------------------
-- name: "Wait until the IBM Maximo AI Broker Operator CRD is available"
+- name: "Wait until the IBM Maximo AI Service Operator CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
-    crd_name: aibrokerapps.apps.mas.ibm.com
+    crd_name: aiserviceapps.aiservice.ibm.com
 
 # IBM Maximo AI Broker installation
 # -----------------------------------------------------------------------------
-- name: Create AI Broker CR
+- name: Create AI Service CR
   vars:
     annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
   kubernetes.core.k8s:
     state: present
     namespace: "{{ aiservice_namespace }}"
-    template: templates/aiservice/aibrokerapp.yml.j2
+    template: templates/aiservice/aiserviceapp.yml.j2
 
 # Wait IBM Maximo AI Service custom resource to be complete
 # -----------------------------------------------------------------------------
-- name: "Wait for AiBrokerApp custom resource to be ready (60s delay)"
+- name: "Wait for AIServiceApp custom resource to be ready (60s delay)"
   kubernetes.core.k8s_info:
-    api_version: apps.mas.ibm.com/v1
+    api_version: aiservice.ibm.com/v1
     name: "{{ aiservice_instance_id }}"
     namespace: "{{ aiservice_namespace }}"
-    kind: AiBrokerApp
-  register: aibrokerapp_cr_result
+    kind: AIServiceApp
+  register: aiserviceapp_cr_result
   until:
-    - aibrokerapp_cr_result.resources is defined and aibrokerapp_cr_result.resources | length == 1
-    - aibrokerapp_cr_result.resources[0].status is defined
-    - aibrokerapp_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
+    - aiserviceapp_cr_result.resources is defined and aiserviceapp_cr_result.resources | length == 1
+    - aiserviceapp_cr_result.resources[0].status is defined
+    - aiserviceapp_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
   retries: 45 # approx 45 minutes before we give up
   delay: 60 # 1 minute
