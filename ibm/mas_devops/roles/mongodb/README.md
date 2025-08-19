@@ -73,7 +73,7 @@ Defines the specific mongo version to be used. Best practice would be to use the
 
 - Optional
 - Environment Variable: `MONGODB_VERSION`
-- Default Value: Automatically defined by the mongo version specified in the [latest MAS case bundle available](https://github.com/ibm-mas/ansible-devops/tree/master/ibm/mas_devops/common_vars/casebundles).
+- Default Value: Automatically defined by the mongo version specified in the [latest MAS case bundle available](https://github.com/ibm-mas/python-devops/tree/stable/src/mas/devops/data/catalogs).
 
 ### mongodb_override_spec
 This forces the deploy to use the environment variables instead of maintaining spec settings for the existing installed MongoDB. By default this is False and if you upgrade or reinstall Mongo your existing settings will be preserved.
