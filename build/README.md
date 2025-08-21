@@ -19,3 +19,4 @@ When a build contains multiple commits the most significant commit "wins".
 
 Commits in **Unmanaged Branches** will still result in a new build, but any artifacts published will overwrite the previous release. Effectively there is only a latest version for these branches.
 
+
