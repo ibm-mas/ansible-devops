@@ -33,13 +33,6 @@ The application domain for AI Broker role. Valid values is domain string `apps.d
 * Environment Variable: `APP_DOMAIN`
 * Default Value: ``
 
-### aiservice_s3_action
-
-Action to be performed by AI Broker role. Valid values are `install` or `remove`
-
-* Environment Variable: `AISERVICE_S3_ACTION`
-* Default Value: `install`
-
 ### aiservice_storage_host
 
 The storge host for AI Broker role.
@@ -116,44 +109,6 @@ Set the tenant's entitlement start date in format `YYYY-MM-DD`.
 Set the tenant's entitlement end date in format `YYYY-MM-DD`.
 
 * Environment Variable: `AISERVICE_TENANT_ENTITLEMENT_END_DATE`
-
-## S3
-The following variables configure S3-compatible storage (e.g. AWS, Minio). Similar variables
-can also be defined in the `aiservice` role for setting shared configuration
-across all tenants. Configuration defined here at the tenant-level will take precedence.
-
-### aiservice_s3_region
-
-Set the S3 region.
-
-* Environment Variable: `AISERVICE_TENANT_S3_REGION`
-* Default Value: ``
-
-### aiservice_s3_endpoint_url
-
-Set the S3 endpoint URL.
-
-* Environment Variable: `AISERVICE_TENANT_S3_ENDPOINT_URL`
-* Default Value: ``
-
-### aiservice_s3_bucket_prefix
-
-Set the S3 bucket prefix.
-
-* Environment Variable: `AISERVICE_TENANT_S3_BUCKET_PREFIX`
-* Default Value: ``
-
-### aiservice_s3_access_key
-
-Set the S3 access key ID.
-
-* Environment Variable: `AISERVICE_TENANT_S3_ACCESS_KEY`
-
-### aiservice_s3_secret_key
-
-Set the S3 secret access key.
-
-* Environment Variable: `AISERVICE_TENANT_S3_SECRET_KEY`
 
 
 License
