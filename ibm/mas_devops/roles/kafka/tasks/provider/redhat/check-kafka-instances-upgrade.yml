@@ -1,7 +1,22 @@
 ---
+- name: "Get kafka instance list"
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    namespace: "{{ kafka_namespace }}"
+  register: kafka_cluster_list
+
+- name: "Get and set variables to store the lists"
+  set_fact:
+    kafkaCluster_names: "{{ kafka_cluster_list.resources | map(attribute='metadata.name') }}"
+    kafkaCluster_versions: "{{ kafka_cluster_list.resources | map(attribute='spec.kafka.version') }}"
+    kafkaCluster_modes: "{{ kafka_cluster_list.resources | map(attribute='status.kafkaMetadataState') }}"
+  when: kafka_cluster_list.resources is defined
+
 - name: "Wait for zookeeper podset to be updated (30s delay)"
   when:
     - item.1 != kafka_version
+    - item.2 == 'ZooKeeper'
   kubernetes.core.k8s_info:
     api_version: core.strimzi.io/v1beta2
     kind: StrimziPodSet
@@ -19,7 +34,7 @@
     - zookeeper_podset.resources[0].status.readyPods == zookeeper_podset.resources[0].status.pods
   retries: 30 # Approximately 15 minutes before we give up
   delay: 30 # seconds
-  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions, kafkaCluster_modes) | list }}"
 
 - name: "Wait for kafka podset to be updated (30s delay)"
   when:
