@@ -11,7 +11,6 @@ function copyDoc() {
 }
 
 copyDoc aiservice
-copyDoc aiservice_kmodels
 copyDoc aiservice_odh
 copyDoc aiservice_tenant
 copyDoc ansible_version_check
