@@ -40,32 +40,32 @@ Action to be performed by AI Broker role. Valid values are `install` or `remove`
 * Environment Variable: `AISERVICE_S3_ACTION`
 * Default Value: `install`
 
-### aiservice_storage_host
+### aiservice_s3_host
 
 The storge host for AI Broker role.
 
-* Environment Variable: `AISERVICE_STORAGE_HOST`
+* Environment Variable: `AISERVICE_S3_HOST`
 * Default Value: ``
 
-### aiservice_storage_accesskey
+### aiservice_s3_accesskey
 
 The storage accesskey for AI Broker role.
 
-* Environment Variable: `AISERVICE_STORAGE_ACCESSKEY`
+* Environment Variable: `AISERVICE_S3_ACCESSKEY`
 * Default Value: ``
 
-### aiservice_storage_secretkey
+### aiservice_s3_secretkey
 
 The storage secretkey for AI Broker role.
 
-* Environment Variable: `AISERVICE_STORAGE_SECRETKEY`
+* Environment Variable: `AISERVICE_S3_SECRETKEY`
 * Default Value: ``
 
-### aiservice_storage_region
+### aiservice_s3_region
 
 The storage region for AI Broker role.
 
-* Environment Variable: `AISERVICE_STORAGE_REGION`
+* Environment Variable: `AISERVICE_S3_REGION`
 * Default Value: ``
 
 ### aiservice_watsonx_action
