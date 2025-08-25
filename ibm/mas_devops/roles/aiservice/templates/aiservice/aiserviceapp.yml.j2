@@ -12,12 +12,12 @@ metadata:
 spec:
   kmodels:
     s3:
-      pipelinesBucket: {{ aiservice_s3_pipelines_bucket }}
-      templatesBucket: {{ aiservice_s3_templates_bucket }}
-      tenantsBucket: {{ aiservice_s3_tenants_bucket }}
+      pipelinesBucket: {{ aiservice_s3_bucket_prefix ~ aiservice_s3_pipelines_bucket }}
+      templatesBucket: {{ aiservice_s3_bucket_prefix ~ aiservice_s3_templates_bucket }}
+      tenantsBucket: {{ aiservice_s3_bucket_prefix ~ aiservice_s3_tenants_bucket }}
     modelId:
       uniqueLength: "15"
-      prefix: "m"
+      prefix: {{ aiservice_s3_bucket_prefix }}
 
   settings:
     # Dependencies
@@ -30,14 +30,11 @@ spec:
       credentials_secret: "{{ aiservice_jdbc_secret }}"
       ca: "{{ jdbccfg.ca | b64encode }}"
       use_aws_db2: "{{ use_aws_db2 }}"
-    minio:
-      host: "{{ aiservice_s3_host }}"
-      port: "{{ aiservice_s3_port }}"
-      credentials_secret: "{{ aiservice_minio_secret }}"
-    s3:  # Optional shared S3 config. Tenant-level config takes precedence over this
+    s3:
+      url: "{{ aiservice_s3_url }}"
       bucketPrefix: "{{ aiservice_s3_bucket_prefix }}"
       region: "{{ aiservice_s3_region }}"
-      endpointUrl: "{{ aiservice_s3_endpoint_url }}"
+      credentials_secret: "{{ aiservice_s3_secret }}"
 
     # AI Service
     cluster_domain: "{{ cluster_domain }}"

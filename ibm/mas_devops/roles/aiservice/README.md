@@ -34,13 +34,6 @@ The application domain for AI Service role. Valid values is domain string `apps.
 * Environment Variable: `APP_DOMAIN`
 * Default Value: ``
 
-### aiservice_s3_action
-
-Action to be performed by AI Service role. Valid values are `install` or `remove`
-
-* Environment Variable: `AISERVICE_S3_ACTION`
-* Default Value: `install`
-
 ### aiservice_s3_host
 
 The storge host for AI Service role.
@@ -96,18 +89,6 @@ The watsonxai project id for AI Service role.
 
 * Environment Variable: `AISERVICE_WATSONXAI_PROJECT_ID`
 * Default Value: ``
-
-### aiservice_tenant_action
-
-Whether to install or remove tenant
-* Environment Variable: `AISERVICE_TENANT_ACTION`
-* Default Value: `install`
-
-### aiservice_apikey_action
-
-Whether to install or remove or update apikey
-* Environment Variable: `AISERVICE_APIKEY_ACTION`
-* Default Value: `install`
 
 ### aiservice_cluster_domain
 
