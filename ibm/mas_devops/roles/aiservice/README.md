@@ -90,18 +90,6 @@ The watsonxai project id for AI Service role.
 * Environment Variable: `AISERVICE_WATSONXAI_PROJECT_ID`
 * Default Value: ``
 
-### aiservice_tenant_action
-
-Whether to install or remove tenant
-* Environment Variable: `AISERVICE_TENANT_ACTION`
-* Default Value: `install`
-
-### aiservice_apikey_action
-
-Whether to install or remove or update apikey
-* Environment Variable: `AISERVICE_APIKEY_ACTION`
-* Default Value: `install`
-
 ### aiservice_cluster_domain
 
 Provide custom domain (default value is: empty)
