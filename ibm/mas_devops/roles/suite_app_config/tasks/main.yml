@@ -41,7 +41,15 @@
   include_tasks: "tasks/determine-watson-studio-id.yml"
 
 
-# 4. Load default application workspace spec, if user does not provide one
+# 4. Check if WatsonStudioCfg exists when Watson Studio binding is requested
+# -----------------------------------------------------------------------------
+- name: "Check if WatsonStudioCfg exists when Watson Studio binding is requested"
+  when:
+    - mas_app_id in ['manage', 'health']
+    - mas_appws_bindings_health_wsl_flag
+  include_tasks: "tasks/check-watsonstudio-cfg.yml"
+
+# 5. Load default application workspace spec, if user does not provide one
 # -----------------------------------------------------------------------------
 # Only applicable for pipeline CLI - deploy CM in pipeline namespace
 - name: Lookup config map
@@ -82,7 +90,7 @@
   include_vars: "vars/defaultspecs/{{ mas_app_id }}.yml"
 
 
-# 5. Provide debug information
+# 6. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Configure namespace"
   set_fact:
@@ -100,7 +108,7 @@
       - "Templated workspace CR ................. {{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
-# 6. Workspace configuration
+# 7. Workspace configuration
 # -----------------------------------------------------------------------------
 - name: Configure application in workspace
   kubernetes.core.k8s:
@@ -109,7 +117,7 @@
     definition: "{{ lookup('template', 'templates/workspace.yml.j2') }}"
 
 
-# 7. Check if the application is ready
+# 8. Check if the application is ready
 # -----------------------------------------------------------------------------
 # Workspaces can only be configured when an application is in Ready state.
 #
@@ -137,13 +145,13 @@
     fail_msg: "Workspace {{ mas_workspace_id }} created but application {{ mas_app_id }} is not ready"
 
 
-# 8. Wait for application workspace to be ready
+# 9. Wait for application workspace to be ready
 # -----------------------------------------------------------------------------
 - ansible.builtin.include_role:
     name: ibm.mas_devops.suite_app_verify
 
 
-# 9. Run Application Specific Post-configuration
+# 10. Run Application Specific Post-configuration
 # -----------------------------------------------------------------------------
 
 # Post-config specific application settings after workspace CR be successfully deployed

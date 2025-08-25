@@ -1,0 +1,65 @@
+---
+# Check if WatsonStudioCfg resource exists in the cluster
+# This is required for Watson Studio binding to work properly
+
+- name: "Check if WatsonStudioCfg resource exists"
+  kubernetes.core.k8s_info:
+    api_version: config.mas.ibm.com/v1
+    kind: WatsonStudioCfg
+    name: "{{ mas_instance_id }}-watsonstudio-system"
+    namespace: "mas-{{ mas_instance_id }}-core"
+  register: watsonstudio_cfg_result
+  ignore_errors: true
+
+- name: "Set watsonstudio_cfg_exists flag"
+  set_fact:
+    watsonstudio_cfg_exists: "{{ (watsonstudio_cfg_result.resources is defined) and (watsonstudio_cfg_result.resources | length > 0) }}"
+
+- name: "Debug WatsonStudioCfg status"
+  debug:
+    msg: 
+      - "WatsonStudioCfg resource exists: {{ watsonstudio_cfg_exists }}"
+      - "If this is false and you're trying to use Watson Studio binding, you need to install Watson Studio via cp4d_service role first."
+
+- name: "Check if CP4D credentials are provided"
+  when:
+    - not watsonstudio_cfg_exists
+    - mas_appws_bindings_health_wsl_flag
+  set_fact:
+    cpd_credentials_provided: "{{ (cpd_admin_username is defined and cpd_admin_username != '') and
+                                  (cpd_admin_password is defined and cpd_admin_password != '') and
+                                  (cpd_admin_url is defined and cpd_admin_url != '') }}"
+
+- name: "Ask if user wants to create WatsonStudioCfg resource manually"
+  when:
+    - not watsonstudio_cfg_exists
+    - mas_appws_bindings_health_wsl_flag
+    - cpd_credentials_provided | default(false)
+  include_tasks: "tasks/create-watsonstudio-cfg.yml"
+
+- name: "Fail if WatsonStudioCfg resource doesn't exist and can't be created"
+  when:
+    - not watsonstudio_cfg_exists
+    - mas_appws_bindings_health_wsl_flag
+    - not cpd_credentials_provided | default(false)
+  fail:
+    msg: |
+      ERROR: WatsonStudioCfg resource doesn't exist but Watson Studio binding is requested.
+      
+      You have two options to fix this issue:
+      
+      Option 1: Install Watson Studio via cp4d_service role:
+      1. ansible-playbook ibm.mas_devops.cp4d_service -e cpd_service_name=wsl -e mas_instance_id=<your-instance-id>
+      
+      Option 2: Create WatsonStudioCfg manually with your existing CP4D credentials:
+      1. Set the following environment variables:
+         export CPD_ADMIN_USERNAME=<your-cp4d-admin-username>
+         export CPD_ADMIN_PASSWORD=<your-cp4d-admin-password>
+         export CPD_ADMIN_URL=<your-cp4d-url>
+      
+      2. Then set both environment variables:
+         export MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG=true
+         export MAS_APPWS_BINDINGS_HEALTH_WSL=system
+      
+      3. Run the suite_app_config role again
+

@@ -228,16 +228,21 @@ mas_app_settings_encryption_default_secret_name: "{{ mas_workspace_id }}-{{ mas_
 # Manage/Health Bindings
 # -------------------
 
+# Flag to determine if Watson Studio binding should be included
 mas_appws_bindings_health_wsl_flag: "{{ lookup('env', 'MAS_APPWS_BINDINGS_HEALTH_WSL_FLAG') | default('false', true) | bool }}"
 
-# Bindins will be like this
+# Basic JDBC binding configuration
 mas_app_bindings_jdbc:
   jdbc: "{{ mas_appws_bindings_jdbc | default( 'system' , true) }}"
-# ... or this, depending on
+
+# JDBC + Watson Studio binding configuration
 mas_app_bindings_jdbc_wsl:
   jdbc: "{{ mas_appws_bindings_jdbc | default( 'system' , true) }}"
-  watsonstudio: system # cp4d_service role creates WatsonStudioCfg as system, no other option today
+  watsonstudio: "{{ mas_appws_bindings_health_wsl | default('system', true) }}" # cp4d_service role creates WatsonStudioCfg as system, no other option today
 
+# Select which binding configuration to use based on the flag
+# This will only work if the WatsonStudioCfg resource exists in the cluster
+# The check-watsonstudio-cfg.yml task will verify this before applying the binding
 mas_app_bindings: "{{ mas_app_bindings_jdbc_wsl if mas_appws_bindings_health_wsl_flag else mas_app_bindings_jdbc }}"
 
 
