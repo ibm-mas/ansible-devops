@@ -160,7 +160,7 @@ The access mode for the storage.
 - Default: `ReadWriteMany`
 
 ### db2_data_storage_class
-Storage class used for user data. This must support ReadWriteMany(RWX) access mode.
+Storage class used for user data. This must support ReadWriteOnce(RWO) access mode.
 
 - **Required**
 - Environment Variable: `DB2_DATA_STORAGE_CLASS`
@@ -202,7 +202,7 @@ The access mode for the storage.
 - Default: `ReadWriteMany`
 
 ### db2_logs_storage_class
-Storage class used for transaction logs. This must support ReadWriteMany(RWX) access mode.
+Storage class used for transaction logs. This must support ReadWriteOnce(RWO) access mode.
 
 - Optional
 - Environment Variable: `DB2_LOGS_STORAGE_CLASS`

@@ -90,7 +90,7 @@ Role Variables - Cloudflare DNS Integration
 - Default: None
 
 ### cloudflare_apitoken
-To generate an API token follow the [Cloudflare documentation](https://developers.cloudflare.com/api/tokens/create/).
+To generate an API token follow the [Cloudflare documentation](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/).
 
 - **Required** if `dns_provider` is set to `cloudflare`
 - Environment Variable: `CLOUDFLARE_APITOKEN`

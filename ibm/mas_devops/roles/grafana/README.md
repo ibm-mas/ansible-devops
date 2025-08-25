@@ -43,6 +43,7 @@ Sets the namespace to install the grafana operator V5 and grafana instance
 Declare the storage class for Grafana Instance user data persistent volume.
 
 - **Required** if one of the known supported storage classes is not installed in the cluster. Storage classes must support ReadWriteOnce (RWO) access mode.
+- Note: RWX storage classes (such as `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium`) also work, but RWO is sufficient.
 - Environment Variable: `GRAFANA_INSTANCE_STORAGE_CLASS`
 - Default Value: `ibmc-file-gold-gid`, `ocs-storagecluster-cephfs`, `azurefiles-premium` (if available)
 
