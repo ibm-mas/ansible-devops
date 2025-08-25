@@ -1,14 +1,23 @@
 ---
-# Provide Debug information
+# 1. Provide Debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information - IBM Maximo AI Service"
   debug:
     msg:
-      - "Namespace ...................... {{ aiservice_namespace }}"
-      - "Channel ........................ {{ aiservice_channel }}"
-      - "MAS Instance Id ................ {{ aiservice_instance_id }}"
+      - "Namespace ......................... {{ aiservice_namespace }}"
+      - "Channel ........................... {{ aiservice_channel }}"
+      - "MAS Instance Id ................... {{ aiservice_instance_id }}"
+      - "Channel ........................... {{ aiservice_channel }}"
+      - ""
+      - "aiservice_s3_region ............... {{ aiservice_s3_region }}"
+      - "aiservice_s3_host ................. {{ aiservice_s3_host }}"
+      - "aiservice_s3_port ................. {{ aiservice_s3_port }}"
+      - "aiservice_s3_host_with_port ....... {{ aiservice_s3_host_with_port }}"
+      - "aiservice_s3_bucket_prefix ........ {{ aiservice_s3_bucket_prefix }}"
 
-# Install the operator & create entitlement secret
+
+
+# 2. Install the operator & create entitlement secret
 # -----------------------------------------------------------------------------
 - name: "Create IBM Entitlement Key"
   ibm.mas_devops.update_ibm_entitlement:
@@ -26,24 +35,33 @@
     catalog_source: "{{ mas_catalog_source }}"
   register: subscription
 
-# Wait until the IBM Maximo AI Service CRD is available
+
+# 3. Wait until the IBM Maximo AI Service CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the IBM Maximo AI Service Operator CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: aiserviceapps.aiservice.ibm.com
 
-# IBM Maximo AI Broker installation
+
+# 4. Create/Update km-s3-secret
+# -----------------------------------------------------------------------------
+- name: "Create km-s3-secret"
+  kubernetes.core.k8s:
+    state: present
+    template: templates/aiservice/s3-secret.yml.j2
+
+
+# 5. IBM Maximo AI Broker installation
 # -----------------------------------------------------------------------------
 - name: Create AI Service CR
   vars:
     annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
   kubernetes.core.k8s:
     state: present
-    namespace: "{{ aiservice_namespace }}"
     template: templates/aiservice/aiserviceapp.yml.j2
 
-# Wait IBM Maximo AI Service custom resource to be complete
+# 6. Wait IBM Maximo AI Service custom resource to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for AIServiceApp custom resource to be ready (60s delay)"
   kubernetes.core.k8s_info:
