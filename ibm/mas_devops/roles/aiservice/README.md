@@ -34,13 +34,6 @@ The application domain for AI Service role. Valid values is domain string `apps.
 * Environment Variable: `APP_DOMAIN`
 * Default Value: ``
 
-### aiservice_s3_action
-
-Action to be performed by AI Service role. Valid values are `install` or `remove`
-
-* Environment Variable: `AISERVICE_S3_ACTION`
-* Default Value: `install`
-
 ### aiservice_s3_host
 
 The storge host for AI Service role.
