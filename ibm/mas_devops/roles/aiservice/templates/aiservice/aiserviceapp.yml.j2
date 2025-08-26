@@ -10,37 +10,33 @@ metadata:
     aiservice.ibm.com/instanceId: {{ aiservice_instance_id }}
     app.kubernetes.io/instance: {{ aiservice_instance_id }}
 spec:
-  kmodels:
-    s3:
-      pipelinesBucket: {{ aiservice_s3_bucket_prefix ~ aiservice_s3_pipelines_bucket }}
-      templatesBucket: {{ aiservice_s3_bucket_prefix ~ aiservice_s3_templates_bucket }}
-      tenantsBucket: {{ aiservice_s3_bucket_prefix ~ aiservice_s3_tenants_bucket }}
-    modelId:
-      uniqueLength: "15"
-      prefix: {{ aiservice_s3_bucket_prefix }}
-
   settings:
     # Dependencies
     dro:
       url: "{{ drocfg.url }}"
-      dro_token_secret: "{{ aiservice_dro_token_secret }}"
+      secretName: "dro-token"
       ca: "{{ drocfg.ca | b64encode }}"
     jdbc:
       url: "{{ jdbccfg.url }}"
-      credentials_secret: "{{ aiservice_jdbc_secret }}"
+      secretName: "{{ aiservice_jdbc_secret }}"
       ca: "{{ jdbccfg.ca | b64encode }}"
-      use_aws_db2: "{{ use_aws_db2 }}"
+      useAwsDb2: "{{ use_aws_db2 }}"
     s3:
       url: "{{ aiservice_s3_url }}"
-      bucketPrefix: "{{ aiservice_s3_bucket_prefix }}"
       region: "{{ aiservice_s3_region }}"
-      credentials_secret: "{{ aiservice_s3_secret }}"
+      bucketPrefix: "{{ aiservice_s3_bucket_prefix }}"
+      templatesBucket: {{ aiservice_s3_bucket_prefix ~ aiservice_s3_templates_bucket }}
+      tenantsBucket: {{ aiservice_s3_bucket_prefix ~ aiservice_s3_tenants_bucket }}
+      secretName: "{{ aiservice_s3_secret }}"
 
     # AI Service
-    cluster_domain: "{{ cluster_domain }}"
-    in_saas_env: "{{ aiservice_saas }}"
-    is_external_route: {{ aiservice_is_external_route }}
-    environment_type: "{{ environment_type }}"
+    domain: "{{ aiservice_domain }}"
+    modelId:
+      uniqueLength: "15"
+      prefix: {{ aiservice_s3_bucket_prefix }}
+    environmentType: "{{ environment_type }}"
+
+    inSaasEnv: "{{ aiservice_saas }}"
 
     # IBM Container Registry
     icr:
