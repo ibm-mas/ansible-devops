@@ -3,12 +3,20 @@
   include_vars: "vars/main.yml"
 
 
-# 1. Load default storage class (if not provided by the user)
+# 1. Validate odh model deployment type
+# -----------------------------------------------------------------------------
+- name: Validate odh model deployment type
+  ansible.builtin.assert:
+    that:
+      - aiservice_odh_model_deployment_type in ['raw', 'serverless']
+    fail_msg: "AISERVICE_ODH_MODEL_DEPLOYMENT_TYPE must be one of: raw, serverless"
+
+# 2. Load default storage class (if not provided by the user)
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
 
-# 2. Deploy OpenShift Serverless operators
+# 3. Deploy OpenShift Serverless operators
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/pipeline-operator.yml
 - include_tasks: tasks/serverless-operator.yml
@@ -17,7 +25,7 @@
 - include_tasks: tasks/odh-operator.yml
 
 
-# 3. Create DSCInitialization instance
+# 4. Create DSCInitialization instance
 # -----------------------------------------------------------------------------
 - name: "Create DSCInitialization instance"
   kubernetes.core.k8s:
@@ -40,7 +48,7 @@
   delay: 120
 
 
-# 4. Create Data Science Cluster
+# 5. Create Data Science Cluster
 # -----------------------------------------------------------------------------
 - name: "Create Data Science Cluster"
   kubernetes.core.k8s:
@@ -62,7 +70,7 @@
   delay: 120
 
 
-# 5. Create Istio Auth Rules
+# 6. Create Istio Auth Rules
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/istio-auth.yml
 
