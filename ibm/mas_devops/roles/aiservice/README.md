@@ -90,17 +90,12 @@ The watsonxai project id for AI Service role.
 * Environment Variable: `AISERVICE_WATSONXAI_PROJECT_ID`
 * Default Value: ``
 
-### aiservice_cluster_domain
+### aiservice_domain
 
 Provide custom domain (default value is: empty)
-* Environment Variable: `AISERVICE_CLUSTER_DOMAIN`
+* Environment Variable: `AISERVICE_DOMAIN`
 * Default Value: ``
 
-### aiservice_is_external_route
-
-A flag indicating to enable external route
-* Environment Variable: `AISERVICE_IS_EXTERNAL_ROUTE`
-* Default Value: `false`
 
 License
 -------
