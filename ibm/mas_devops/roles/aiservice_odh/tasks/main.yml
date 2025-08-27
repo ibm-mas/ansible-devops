@@ -24,6 +24,22 @@
 - include_tasks: tasks/authorino-operator.yml
 - include_tasks: tasks/odh-operator.yml
 
+- name: "Wait for opendatahub-operator-controller-manager to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: opendatahub-operator-controller-manager
+    namespace: "{{ odh_namespace }}"
+    kind: Deployment
+  register: opendatahub_deployment
+  until:
+    - opendatahub_deployment.resources is defined
+    - opendatahub_deployment.resources | length > 0
+    - opendatahub_deployment.resources[0].status is defined
+    - opendatahub_deployment.resources[0].status.replicas is defined
+    - opendatahub_deployment.resources[0].status.readyReplicas is defined
+    - opendatahub_deployment.resources[0].status.readyReplicas == opendatahub_deployment.resources[0].status.replicas
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
 
 # 4. Create DSCInitialization instance
 # -----------------------------------------------------------------------------
