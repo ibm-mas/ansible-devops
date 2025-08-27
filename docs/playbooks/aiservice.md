@@ -59,7 +59,6 @@ Required environment variables
 * `AISERVICE_S3_HOST` Your storage provider host
 * `AISERVICE_S3_REGION` Your storage provider region - only when use AWS S3 instance
 * `AISERVICE_S3_SSL` Your storage ssl (true/false)
-* `AISERVICE_S3_PIPELINES_BUCKET` Your piplines bucket
 * `AISERVICE_S3_TENANTS_BUCKET` Your tenants bucket
 * `AISERVICE_S3_TEMPLATES_BUCKET` Your templates bucket
 * `AISERVICE_WATSONXAI_APIKEY` You WatsonX AI api key
@@ -105,8 +104,7 @@ Optional environment variables
 * `AISERVICE_DB2_JDBC_URL` The JDBC URL specifying the host and port of the database, typically in the format jdbc:db2://host:port/
 * `AISERVICE_DB2_SSL_ENABLED` A flag indicating whether to enable SSL encryption for the database connection (default value is: true)
 * `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
-* `AISERVICE_CLUSTER_DOMAIN` Provide custom domain (default value is: empty)
-* `AISERVICE_IS_EXTERNAL_ROUTE` A flag indicating to enable external route (default value is: false)
+* `AISERVICE_DOMAIN` Provide custom domain (default value is: empty)
 
 Usage
 -------------------------------------------------------------------------------
@@ -127,7 +125,7 @@ Run playbooks for deploy AI service:
 
 - `AISERVICE_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
 - `AISERVICE_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
-- In `AWS` for `AISERVICE_S3_PIPELINES_BUCKET`, `AISERVICE_S3_TENANTS_BUCKET`, `AISERVICE_S3_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
+- In `AWS` for `AISERVICE_S3_TENANTS_BUCKET`, `AISERVICE_S3_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
 
 
 ```bash
@@ -172,7 +170,6 @@ export AISERVICE_S3_SSL=""
 export AISERVICE_S3_PROVIDER=""
 export AISERVICE_S3_PORT=""
 export AISERVICE_S3_REGION=""
-export AISERVICE_S3_PIPELINES_BUCKET=""
 export AISERVICE_S3_TENANTS_BUCKET=""
 export AISERVICE_S3_TEMPLATES_BUCKET=""
 export AISERVICE_WATSONXAI_APIKEY=""
@@ -290,7 +287,6 @@ export AISERVICE_S3_SSL=""
 export AISERVICE_S3_PROVIDER=""
 export AISERVICE_S3_PORT=""
 export AISERVICE_S3_REGION=""
-export AISERVICE_S3_PIPELINES_BUCKET=""
 export AISERVICE_S3_TENANTS_BUCKET=""
 export AISERVICE_S3_TEMPLATES_BUCKET=""
 oc login --token=xxxx --server=https://myocpserver

@@ -16,7 +16,6 @@
       - "aiservice_s3_bucket_prefix ........ {{ aiservice_s3_bucket_prefix }}"
 
 
-
 # 2. Install the operator & create entitlement secret
 # -----------------------------------------------------------------------------
 - name: "Create IBM Entitlement Key"
@@ -44,7 +43,30 @@
     crd_name: aiserviceapps.aiservice.ibm.com
 
 
-# 4. Create/Update km-s3-secret
+# 4. Lookup storage class availability
+# -----------------------------------------------------------------------------
+- name: "Load default storage class information"
+  include_tasks: "{{ role_path }}/../../common_tasks/default_storage_classes.yml"
+
+
+# 5. Set AI Service Storage (Required)
+# -----------------------------------------------------------------------------
+- name: "Default AI Service Storage if not set by user"
+  when: aiservice_storage_class is not defined or aiservice_storage_class == ""
+  set_fact:
+    aiservice_storage_class: "{{ defaultStorageClasses.rwx }}"
+
+- name: "Assert that primary storage class has been defined"
+  assert:
+    that: aiservice_storage_class is defined and aiservice_storage_class != ""
+    fail_msg: "aiservice_storage_class must be defined"
+
+- name: "Debug"
+  debug:
+    msg: "AI Service storage class ................. {{ aiservice_storage_class }}"
+
+
+# 6. Create/Update km-s3-secret
 # -----------------------------------------------------------------------------
 - name: "Create km-s3-secret"
   kubernetes.core.k8s:
@@ -52,7 +74,7 @@
     template: templates/aiservice/s3-secret.yml.j2
 
 
-# 5. IBM Maximo AI Broker installation
+# 7. IBM Maximo AI Broker installation
 # -----------------------------------------------------------------------------
 - name: Create AI Service CR
   vars:
@@ -61,7 +83,8 @@
     state: present
     template: templates/aiservice/aiserviceapp.yml.j2
 
-# 6. Wait IBM Maximo AI Service custom resource to be complete
+
+# 8. Wait IBM Maximo AI Service custom resource to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for AIServiceApp custom resource to be ready (60s delay)"
   kubernetes.core.k8s_info:
