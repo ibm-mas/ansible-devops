@@ -4,6 +4,7 @@ aiservice_namespace: "aiservice-{{ aiservice_instance_id }}"
 aiservice_channel: "{{ lookup('env', 'AISERVICE_CHANNEL') }}"
 mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
 
+
 # Custom Labels
 # -----------------------------------------------------------------------------
 custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string | ibm.mas_devops.string2dict() }}"
@@ -11,15 +12,16 @@ custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string
 # Operator logging: 0 for errors, 1 for warnings, 2 for info, 3 to 7 for debug.
 aiservice_operator_log_level: "{{ lookup('env', 'AISERVICE_OPERATOR_LOG_LEVEL') | default('0', true) }}"
 
+
 # Source container registry
 # -----------------------------------------------------------------------------
-# mas_icr_cp: "{{ lookup('env', 'MAS_ICR_CP') | default('cp.icr.io/cp', true) }}"
-# mas_icr_cpopen: "{{ lookup('env', 'MAS_ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
 icr_cp: "{{ lookup('env', 'MAS_ICR_CP') | default('cp.icr.io/cp', true) }}"
 icr_cpopen: "{{ lookup('env', 'MAS_ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
 
-# MAS Entitlement
+
+# IBM Entitlement
 # -----------------------------------------------------------------------------
+ibm_entitlement_username: "{{ lookup('env','IBM_ENTITLEMENT_USERNAME') }}"
 mas_entitlement_username: "{{ lookup('env', 'MAS_ENTITLEMENT_USERNAME') | default('cp', true) }}"
 ibm_entitlement_key: "{{ lookup('env', 'IBM_ENTITLEMENT_KEY') }}"
 mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') | default(ibm_entitlement_key, true) }}"
@@ -27,6 +29,7 @@ mas_entitlement_key: "{{ lookup('env', 'MAS_ENTITLEMENT_KEY') | default(ibm_enti
 # Development Registry Entitlement
 artifactory_username: "{{ lookup('env', 'ARTIFACTORY_USERNAME') | lower }}"
 artifactory_token: "{{ lookup('env', 'ARTIFACTORY_TOKEN') }}"
+
 
 # MAS Annotation block
 # -----------------------------------------------------------------------------
@@ -36,69 +39,57 @@ mas_annotations: "{{ lookup('env', 'MAS_ANNOTATIONS') | default(None, true) }}"
 mas_catalog_source: "{{ lookup('env', 'MAS_CATALOG_SOURCE') | default('ibm-operator-catalog', true) }}"
 pullSecretName: 'ibm-entitlement'
 
-# Whether to perform an install or remove tenant
-tenant_action: "{{ lookup('env', 'TENANT_ACTION') | default('install', true) }}"
 
-# Create Api Key vars
-aiservice_tenant_name: "{{ lookup('env', 'AISERVICE_TENANT_NAME') | default('user', true) }}"
-tenantNamespace: 'aiservice-{{ aiservice_tenant_name }}'
-aiservice_apikey_action: "{{ lookup('env', 'AISERVICE_APIKEY_ACTION') | default('install', true) }}"
-
-# Main variables
-ibm_entitlement_username: "{{ lookup('env','IBM_ENTITLEMENT_USERNAME') }}"
-
-# Source container registry
+# General
 # -----------------------------------------------------------------------------
+aiservice_storage_class: "{{ lookup('env', 'AISERVICE_STORAGE_CLASS') }}"
+environment_type: "{{ lookup('env', 'ENVIRONMENT_TYPE') | default('non-production', true) }}"
 mas_icr_cp: "{{ lookup('env', 'MAS_ICR_CP') | default('cp.icr.io/cp', true) }}"
 mas_icr_cpopen: "{{ lookup('env', 'MAS_ICR_CPOPEN') | default('icr.io/cpopen', true) }}"
 
-# WatsonX
-aiservice_watsonxai_apikey: "{{ lookup('env', 'AISERVICE_WATSONXAI_APIKEY') }}"
-aiservice_watsonxai_url: "{{ lookup('env', 'AISERVICE_WATSONXAI_URL') }}"
-aiservice_watsonxai_project_id: "{{ lookup('env', 'AISERVICE_WATSONXAI_PROJECT_ID') }}"
-aiservice_watsonx_action: "{{ lookup('env', 'AISERVICE_WATSONX_ACTION') | default('install', true) }}"
-aiservice_watsonx_secret: "aiservice-watsonxcfg"
 
-# S3 - Optional shared S3 config. Tenant-level config takes precedence over this.
-aiservice_s3_bucket_prefix: "{{ lookup('env', 'AISERVICE_S3_BUCKET_PREFIX') | default('', true) }}"
-aiservice_s3_region: "{{ lookup('env', 'AISERVICE_S3_REGION') | default('', true) }}"
-aiservice_s3_endpoint_url: "{{ lookup('env', 'AISERVICE_S3_ENDPOINT_URL') | default('', true) }}"
+# S3
+# -----------------------------------------------------------------------------
+aiservice_s3_bucket_prefix: "{{ lookup('env', 'AISERVICE_S3_BUCKET_PREFIX') }}"
+aiservice_s3_region: "{{ lookup('env', 'AISERVICE_S3_REGION') | default('none', True) }}"
 
-aiservice_storage_host: "{{ lookup('env', 'AISERVICE_STORAGE_HOST') }}"
-aiservice_storage_accesskey: "{{ lookup('env', 'AISERVICE_STORAGE_ACCESSKEY') }}"
-aiservice_storage_secretkey: "{{ lookup('env', 'AISERVICE_STORAGE_SECRETKEY') }}"
-aiservice_storage_region: "{{ lookup('env', 'AISERVICE_STORAGE_REGION') }}"
-aiservice_s3_action: "{{ lookup('env', 'AISERVICE_S3_ACTION') | default('install', true) }}"
-aiservice_storage_provider: "{{ lookup('env', 'AISERVICE_STORAGE_PROVIDER') | default('aws', true) }}"
-aiservice_storage_port: "{{ lookup('env', 'AISERVICE_STORAGE_PORT') }}"
+aiservice_s3_host: "{{ lookup('env', 'AISERVICE_S3_HOST') }}"
+aiservice_s3_port: "{{ lookup('env', 'AISERVICE_S3_PORT') }}"
+aiservice_s3_host_with_port: "{{ aiservice_s3_host }}{{ (aiservice_s3_port == '') | ternary('', ':' ~ aiservice_s3_port) }}"
+aiservice_s3_ssl: "{{ lookup('env', 'AISERVICE_S3_SSL') | bool }}"
+aiservice_s3_url: "{{ aiservice_s3_ssl | ternary('https://' ~ aiservice_s3_host_with_port, 'http://' ~ aiservice_s3_host_with_port) }}"
+
+aiservice_s3_accesskey: "{{ lookup('env', 'AISERVICE_S3_ACCESSKEY') }}"
+aiservice_s3_secretkey: "{{ lookup('env', 'AISERVICE_S3_SECRETKEY') }}"
+aiservice_s3_secret: "aiservice-s3cfg"
+
+aiservice_s3_templates_bucket: "{{ lookup('env', 'AISERVICE_S3_TEMPLATES_BUCKET') | default('km-templates', True) }}"
+aiservice_s3_tenants_bucket: "{{ lookup('env', 'AISERVICE_S3_TENANTS_BUCKET') | default('km-tenants', True) }}"
+
 
 # SAAS
+# -----------------------------------------------------------------------------
 aiservice_domain: "{{ lookup('env', 'AISERVICE_DOMAIN') }}"
-aiservice_sls_url: "{{ lookup('env', 'AISERVICE_SLS_URL') | default('', true) }}"
-aiservice_dro_url: "{{ lookup('env', 'AISERVICE_DRO_URL') | default('', true) }}"
+aiservice_sls_url: "{{ lookup('env', 'AISERVICE_SLS_URL') }}"
+aiservice_dro_url: "{{ lookup('env', 'AISERVICE_DRO_URL') }}"
 aiservice_saas: "{{ lookup('env', 'AISERVICE_SAAS') | default('false', true) | bool }}"
-aiservice_sls_registration_key: "{{ lookup('env', 'AISERVICE_SLS_REGISTRATION_KEY') | default('', false) }}"
-aiservice_dro_token: "{{ lookup('env', 'AISERVICE_DRO_TOKEN') | default('', false) }}"
+aiservice_sls_registration_key: "{{ lookup('env', 'AISERVICE_SLS_REGISTRATION_KEY') }}"
+aiservice_dro_token: "{{ lookup('env', 'AISERVICE_DRO_TOKEN') }}"
 aiservice_path_ca_crt: './certs'
-aiservice_provision_tenant: "{{ lookup('env', 'AISERVICE_PROVISION_TENANT') | default('provision-tenant', true) }}"
+
 
 #  DRO
+# -----------------------------------------------------------------------------
 aiservice_dro_token_secret: "dro-token"
 aiservice_dro_cacert_secret: "dro-certificates"
 
+
 # JDBC
+# -----------------------------------------------------------------------------
 aiservice_jdbc_secret: "aiservice-jdbccfg"
-use_aws_db2: "{{ lookup('env', 'USE_AWS_DB2') | default('false', true) }}"
+use_aws_db2: "{{ lookup('env', 'USE_AWS_DB2') | default('false', true) | bool }}"
+
+
 # SLS
+# -----------------------------------------------------------------------------
 aiservice_sls_registration_key_secret: "sls-registration-key"
-aiservice_sls_subscription_id: "{{ lookup('env', 'AISERVICE_SLS_SUBSCRIPTION_ID') | default('001', true) }}"
-
-# Minio
-aiservice_minio_secret: "aiservice-miniocfg"
-
-# aiservice Api
-environment_type: "{{ lookup('env', 'ENVIRONMENT_TYPE') | default('non-production', true) }}"
-
-# cluster settings
-aiservice_cluster_domain: "{{ lookup('env', 'AISERVICE_CLUSTER_DOMAIN') | default('', true) }}"
-aiservice_is_external_route: "{{ lookup('env', 'AISERVICE_IS_EXTERNAL_ROUTE') | default('false', true) | bool }}"
