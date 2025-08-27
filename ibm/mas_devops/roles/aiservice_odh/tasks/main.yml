@@ -65,3 +65,15 @@
 # 5. Create Istio Auth Rules
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/istio-auth.yml
+
+
+# 6. Install Network policy
+# -----------------------------------------------------------------------------
+# This network policy is added as a temporary workaround to resolve an issue (specifically on the ROKS cluster)
+# where requests from the Kubernetes API to the odh-model-controller-webhook were being blocked.
+# This was causing errors while creating a inference service.
+
+- name: "Install network policy: allow-odh-model-controller"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/odh/allow-odh-model-controller-netpol.yml.j2') }}"
