@@ -21,6 +21,7 @@ class ActionModule(ActionBase):
           namespace: test-namespace
           package_name: ibm-sls
           package_channel: 3.x
+          install_mode: AllNamespaces (default is OwnNamespace)
         register: subscription
     """
     def run(self, tmp=None, task_vars=None):
@@ -38,6 +39,9 @@ class ActionModule(ActionBase):
         catalogSource = self._task.args.get('catalog_source', None)
         catalogSourceNamespace = self._task.args.get('catalog_source_namespace', None)
 
+        # Which install mode?
+        installMode = self._task.args.get('install_mode', 'OwnNamespace')
+
         if namespace is None:
             raise AnsibleError(f"Error: namespace argument was not provided")
         if not isinstance(packageName, str):
@@ -49,20 +53,20 @@ class ActionModule(ActionBase):
 
         dynClient = get_api_client(api_key=api_key, host=host)
         try:
-            subscription = applySubscription(dynClient, namespace, packageName, packageChannel, catalogSource, catalogSourceNamespace, config)
+            subscription = applySubscription(dynClient, namespace, packageName, packageChannel, catalogSource, catalogSourceNamespace, config, installMode)
         except OLMException as e:
             raise AnsibleError(f"Error applying subscription: {e}")
 
         if subscription is None:
             return dict(
-                message=f"Failed to apply subscription for {packageName} in {namespace}",
+                message=f"Failed to apply subscription for {packageName} in {namespace} ({installMode})",
                 success=False,
                 failed=True,
                 changed=False
             )
 
         return dict(
-            message=f"Successfully applied subscription for {packageName} in {namespace}: {subscription.metadata.name}",
+            message=f"Successfully applied subscription for {packageName} in {namespace}: {subscription.metadata.name} ({installMode})",
             success=True,
             failed=False,
             changed=False,
