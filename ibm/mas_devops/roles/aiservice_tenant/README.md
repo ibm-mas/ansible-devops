@@ -19,11 +19,11 @@ Action to be performed by AI Broker role. Valid values are `install` or `remove`
 * Environment Variable: `TENANT_ACTION`
 * Default Value: `install`
 
-### tenantName
+### tenantID
 
-The tenant name for AI Broker role.
+The tenant ID for AI Broker role.
 
-* Environment Variable: `AISERVICE_TENANT_NAME`
+* Environment Variable: `AISERVICE_TENANT_ID`
 * Default Value: `user`
 
 ### app_domain
