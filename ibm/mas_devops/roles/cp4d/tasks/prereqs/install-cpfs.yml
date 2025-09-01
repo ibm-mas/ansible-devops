@@ -142,3 +142,16 @@
     - commonservices_operators_output.resources[0].status.phase == "Succeeded"
   retries: 60 # approx 30 minutes before we give up
   delay: 30 # seconds
+  ignore_errors: true
+
+- name: "Display warning if CommonService is not ready"
+  when: commonservices_operators_output.failed | default(false)
+  debug:
+    msg: 
+      - "WARNING: CommonService instance is not ready after waiting for 30 minutes."
+      - "The installation will continue, but some features might not work correctly."
+      - "You can check the status later using: oc get CommonService common-service -n {{ cpd_operators_namespace }} -o yaml"
+
+- name: "Set fact for CommonService readiness"
+  set_fact:
+    cpfs_ready: "{{ not (commonservices_operators_output.failed | default(false)) }}"
