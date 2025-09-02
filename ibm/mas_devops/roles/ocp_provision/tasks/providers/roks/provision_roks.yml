@@ -91,12 +91,14 @@
   register: ibmcloud_zone_vlans
 
 - name: "roks : Parse VLAN list"
+  when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
   set_fact:
     vlan_list: "{{ ibmcloud_zone_vlans.stdout | from_json }}"
 
 # If private exists but public missing → create public VLAN in same router
 - name: Create public VLAN if missing
   when:
+    - cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
     - vlan_list | selectattr('type', 'equalto', 'private') | list | length > 0
     - vlan_list | selectattr('type', 'equalto', 'public') | list | length == 0
   block:
@@ -127,10 +129,12 @@
           | list | length) > 0
 
 - name: Refresh VLAN list after creating public VLAN
+  when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
   shell: ibmcloud ks vlan ls --zone {{ roks_zone }} --output json
   register: vlan_list_refreshed
 
 - name: Set vlan_list fact from refreshed list
+  when: cluster_lookup.rc == 1 or ocp_provision_gpu|bool == true
   set_fact:
     vlan_list: "{{ vlan_list_refreshed.stdout | from_json }}"
 
