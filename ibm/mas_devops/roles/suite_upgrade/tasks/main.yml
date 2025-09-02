@@ -13,6 +13,9 @@
 - name: "Load application compatibility matrix"
   include_vars: "{{ role_path }}/../../common_vars/compatibility_matrix.yml"
 
+
+# 3. Determine upgrade target
+# -----------------------------------------------------------------------------
 # Default mas_channel based on the current version of the
 # installed MAS core if not provided by the user specifically
 - name: "Get subscription for ibm-mas"
@@ -31,6 +34,21 @@
   set_fact:
     target_mas_channel: "{{ upgrade_path[core_sub_info.resources[0].spec.channel] }}"
 
+- name: "Set upgrade target explicitly"
+  when:
+    - mas_channel is defined and mas_channel != ""
+    - mas_channel in upgrade_path
+  set_fact:
+    target_mas_channel: "{{ upgrade_path[mas_channel] }}"
+
+- name: "Assert upgrade target is defined"
+  assert:
+    that: target_mas_channel is defined
+    fail_msg: "Unable to determine upgrade target: mas_channel={{ mas_channel | default('<undefined>') }}"
+
+
+# 4. Validate target upgrade channel exists in the package manifest
+# -----------------------------------------------------------------------------
 - name: "Lookup PackageManifest: ibm-mas"
   kubernetes.core.k8s_info:
     api_version: v1
@@ -97,7 +115,8 @@
   when:
     - mas_channel is not defined
 
-# 2. Provide debug information
+
+# 5. Provide debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information"
   debug:
@@ -108,7 +127,7 @@
       - "Dry Run? ............................... {{ mas_upgrade_dryrun }}"
 
 
-# 3. Check the existing installation
+# 6. Check the existing installation
 # -----------------------------------------------------------------------------
 - name: "Check existing MAS installation"
   when:
@@ -116,9 +135,9 @@
   include_tasks: tasks/check_core_compatibility.yml
 
 
-# 4. Check installed applications are compatible
+# 7. Check installed applications are compatible
 # -----------------------------------------------------------------------------
-# 4.1. Assist
+# 7.1. Assist
 - name: "Check application compatibility for Assist"
   when:
     - mas_channel is defined and mas_channel != ""
@@ -130,19 +149,7 @@
       kind: AssistApp
       api_version: apps.mas.ibm.com/v1
 
-# 4.2. HPUtils
-- name: "Check application compatibility for HPUtils"
-  when:
-    - mas_channel is defined and mas_channel != ""
-    - suite_sub_info is defined and suite_sub_info.resources[0].spec.channel != mas_channel
-  include_tasks: tasks/check_app_compatibility.yml
-  vars:
-    check_app:
-      id: hputilities
-      kind: HPUtilitiesApp
-      api_version: apps.mas.ibm.com/v1
-
-# 4.3. IoT
+# 7.2. IoT
 - name: "Check application compatibility for IoT"
   when:
     - mas_channel is defined and mas_channel != ""
@@ -154,7 +161,7 @@
       kind: IoT
       api_version: iot.ibm.com/v1
 
-# 4.4 Manage
+# 7.3 Manage
 - name: "Check application compatibility for Manage"
   when:
     - mas_channel is defined and mas_channel != ""
@@ -166,7 +173,7 @@
       kind: ManageApp
       api_version: apps.mas.ibm.com/v1
 
-# 4.5. Monitor
+# 7.4. Monitor
 - name: "Check application compatibility for Monitor"
   when:
     - mas_channel is defined and mas_channel != ""
@@ -178,7 +185,7 @@
       kind: MonitorApp
       api_version: apps.mas.ibm.com/v1
 
-# 4.6. Predict
+# 7.5. Predict
 - name: "Check application compatibility for Predict"
   when:
     - mas_channel is defined and mas_channel != ""
@@ -190,19 +197,7 @@
       kind: PredictApp
       api_version: apps.mas.ibm.com/v1
 
-# 4.7. Safety
-- name: "Check application compatibility for Safety"
-  when:
-    - mas_channel is defined and mas_channel != ""
-    - suite_sub_info is defined and suite_sub_info.resources[0].spec.channel != mas_channel
-  include_tasks: tasks/check_app_compatibility.yml
-  vars:
-    check_app:
-      id: safety
-      kind: Safety
-      api_version: apps.mas.ibm.com/v1
-
-# 4.8. Visual Inspection
+# 7.6. Visual Inspection
 - name: "Check application compatibility for Visual Inspection"
   when:
     - mas_channel is defined and mas_channel != ""
@@ -214,7 +209,7 @@
       kind: VisualInspectionApp
       api_version: apps.mas.ibm.com/v1
 
-# 4.9. Optimizer
+# 7.7. Optimizer
 - name: "Check application compatibility for Optimizer"
   when:
     - mas_channel is defined and mas_channel != ""
@@ -227,7 +222,7 @@
       api_version: apps.mas.ibm.com/v1
 
 
-# 5. Upgrade
+# 8. Upgrade
 # -----------------------------------------------------------------------------
 - name: "Execute Channel Upgrade"
   when:
