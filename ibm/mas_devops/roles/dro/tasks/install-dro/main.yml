@@ -29,7 +29,20 @@
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/operatorgroup.yml.j2') }}"
 
-# 4. Create a PVC using the Chosen Storage Class
+# 4. Patch the namespace with the ibm.com/kyverno: audit label
+# ----------------------------------------------------------------------------
+- name: "Patch {{ dro_namespace }} namespace with ibm.com/kyverno: audit label"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ dro_namespace }}"
+        labels:
+          "ibm.com/kyverno": audit
+
+# 5. Create a PVC using the Chosen Storage Class
 # ----------------------------------------------------------------------------
 - name: "Debug User Provided DRO Storage Class"
   debug:
@@ -52,7 +65,7 @@
     definition: "{{ lookup('template', 'templates/dro-pvc.yml.j2') }}"
   when: dro_installed_pvc.resources is defined and dro_installed_pvc.resources | length == 0
 
-# 5. Create Marketplace Pull Secret
+# 6. Create Marketplace Pull Secret
 # ----------------------------------------------------------------------------
 - name: Get marketplace secret
   kubernetes.core.k8s_info:
@@ -117,14 +130,14 @@
     fail_msg: "Provide IBM Entitlement Key, Access https://myibm.ibm.com/products-services/containerlibrary using your IBMId to access your entitlement key"
   when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
-# 6. Load PodTemplates configuration
+# 7. Load PodTemplates configuration
 # -----------------------------------------------------------------------------
 - name: "Load podTemplates configuration"
   include_tasks: "{{ role_path }}/../../common_tasks/pod_templates/main.yml"
   vars:
     config_files: ["ibm-mas-bascfg.yml"]
 
-# 7. Install ibm-metrics-operator
+# 8. Install ibm-metrics-operator
 # -----------------------------------------------------------------------------
 - name: Get ibm-metrics-operator Subscription
   kubernetes.core.k8s_info:
@@ -166,7 +179,7 @@
     wait_timeout: 60
   when: (imo_subscription.resources is defined) and (imo_subscription.resources | length == 0)
 
-# 8. Install ibm-data-reporter-operator
+# 9. Install ibm-data-reporter-operator
 # -----------------------------------------------------------------------------
 - name: Get ibm-data-operator Subscription
   kubernetes.core.k8s_info:
@@ -205,32 +218,32 @@
     wait_timeout: 60
   when: (dro_subscription.resources is defined) and (dro_subscription.resources | length == 0)
 
-# 9. Wait until the marketplaceconfigs CRD is available
+# 10. Wait until the marketplaceconfigs CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the marketplaceconfigs CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: marketplaceconfigs.marketplace.redhat.com
 
-# 10. Apply MarketplaceConfig CR
+# 11. Apply MarketplaceConfig CR
 # -----------------------------------------------------------------------------
 - name: Create MarketplaceConfig CR
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/MarketplaceConfig-cr.yml.j2') }}"
 
-# 11. Create DRO Pull Secret
+# 12. Create DRO Pull Secret
 # -----------------------------------------------------------------------------
 - name: "Create Secret redhat-marketplace-pull-secret"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/rhm-pull-secret.yml.j2') }}"
   when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
-# 12. Apply required RBACs
+# 13. Apply required RBACs
 - name: "Create ClusterRoleBindings for metric-state"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/role_binding.yml.j2') }}"
 
-# 13. Check deployment status
+# 14. Check deployment status
 # -----------------------------------------------------------------------------
 - name: "Wait for the rhm-data-service to be ready"
   kubernetes.core.k8s_info:
