@@ -115,37 +115,27 @@
           set_fact:
             mongodb_backup_ts: "{{ _ts_output.stdout }}"
         
-        - name: "Construct mongodump shell command"
-          set_fact:
-            mongodump_shell: >
-              mongodump --host={{ mongodb_primary_host }}
-              --username={{ mongodb_user }} --password={{ mongodb_password }}
-              --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
-              --out={{ mongodb_backup_folder }}/mongodump
-              --db={{ item.name }}
-              |& tee -a {{ mongodb_backup_log }}
-        
         # Excluding sessions collection for Monitor database since it is not cleaned up automatically
         # leading to very large backup sizes and long backup times. This is acceptable as
         # sessions are transient and can be recreated.
         # Refer DT425304 - MASCORE-5808
-        - name: "Excluding sessions collection for Monitor database."
-          when: item.name == "mas_{{ mas_instance_id }}_monitor"
+        - name: "Set fact for Monitor database"
           set_fact:
-            mongodump_shell: >
-              mongodump --host={{ mongodb_primary_host }}
-              --username={{ mongodb_user }} --password={{ mongodb_password }}
-              --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
-              --out={{ mongodb_backup_folder }}/mongodump
-              --db={{ item.name }} --excludeCollection=sessions
-              |& tee -a {{ mongodb_backup_log }}
+            monitor_db_name: "mas_{{ mas_instance_id }}_monitor"
+            exclude_monitor_session_collection: "--excludeCollection=sessions"
 
         # mongodump
         - name: "Take full backup of mongodb databases"
           changed_when: true
           shell: >
             {{ exec_in_pod_begin }}
-            {{ mongodump_shell }}
+            mongodump --host={{ mongodb_primary_host }}
+            --username={{ mongodb_user }} --password={{ mongodb_password }}
+            --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
+            --out={{ mongodb_backup_folder }}/mongodump
+            --db={{ item.name }}
+            {{ exclude_monitor_session_collection if (item.name == monitor_db_name) else '' }}
+            |& tee -a {{ mongodb_backup_log }}
             {{ exec_in_pod_end }}
           loop: "{{ mongodb_db_names }}"
           register: _mongodump_output
