@@ -40,11 +40,6 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
     - Create DSCInitialization instance
     - Create Data Science Cluster
     - Create Create Data Science Pipelines Application
-- Install Kmodels:
-    - Install Kmodel controller
-    - Install istio
-    - Install Kmodel store
-    - Install Kmodel watcher
 - Install AI Service (using playbook):
     - Install application (~20 Minutes)
     - Configure AI Service (kmodels, tenant, etc) (~20 Minutes)
@@ -59,15 +54,13 @@ Required environment variables
 * `MAS_ENTITLEMENT_KEY` Your IBM Entitlement key to access the IBM Container Registry
 * `MAS_ENTITLEMENT_USERNAME` Your IBM Entitlement user to access the IBM Container Registry
 * `MAS_APP_CHANNEL` Aiservice application channel
-* `AISERVICE_STORAGE_ACCESSKEY` Your strage provider access key
-* `AISERVICE_STORAGE_SECRETKEY` Your storage provider secret key
-* `AISERVICE_STORAGE_HOST` Your storage provider host
-* `AISERVICE_STORAGE_REGION` Your storage provider region - only when use AWS S3 instance
-* `AISERVICE_STORAGE_PROVIDER` Your storage provider name
-* `AISERVICE_STORAGE_SSL` Your storage ssl (true/false)
-* `AISERVICE_STORAGE_PIPELINES_BUCKET` Your piplines bucket
-* `AISERVICE_STORAGE_TENANTS_BUCKET` Your tenants bucket
-* `AISERVICE_STORAGE_TEMPLATES_BUCKET` Your templates bucket
+* `AISERVICE_S3_ACCESSKEY` Your strage provider access key
+* `AISERVICE_S3_SECRETKEY` Your storage provider secret key
+* `AISERVICE_S3_HOST` Your storage provider host
+* `AISERVICE_S3_REGION` Your storage provider region - only when use AWS S3 instance
+* `AISERVICE_S3_SSL` Your storage ssl (true/false)
+* `AISERVICE_S3_TENANTS_BUCKET` Your tenants bucket
+* `AISERVICE_S3_TEMPLATES_BUCKET` Your templates bucket
 * `AISERVICE_WATSONXAI_APIKEY` You WatsonX AI api key
 * `AISERVICE_WATSONXAI_URL` You WatsonX AI url
 * `AISERVICE_WATSONXAI_PROJECT_ID` You WatsonX projedt Id
@@ -111,8 +104,7 @@ Optional environment variables
 * `AISERVICE_DB2_JDBC_URL` The JDBC URL specifying the host and port of the database, typically in the format jdbc:db2://host:port/
 * `AISERVICE_DB2_SSL_ENABLED` A flag indicating whether to enable SSL encryption for the database connection (default value is: true)
 * `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
-* `AISERVICE_CLUSTER_DOMAIN` Provide custom domain (default value is: empty)
-* `AISERVICE_IS_EXTERNAL_ROUTE` A flag indicating to enable external route (default value is: false)
+* `AISERVICE_DOMAIN` Provide custom domain (default value is: empty)
 
 Usage
 -------------------------------------------------------------------------------
@@ -133,7 +125,7 @@ Run playbooks for deploy AI service:
 
 - `AISERVICE_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
 - `AISERVICE_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
-- In `AWS` for `AISERVICE_STORAGE_PIPELINES_BUCKET`, `AISERVICE_STORAGE_TENANTS_BUCKET`, `AISERVICE_STORAGE_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
+- In `AWS` for `AISERVICE_S3_TENANTS_BUCKET`, `AISERVICE_S3_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
 
 
 ```bash
@@ -171,16 +163,15 @@ export RSL_URL=""
 export RSL_ORG_ID=""
 export RSL_TOKEN=""
 export MINIO_ROOT_PASSWORD=""
-export AISERVICE_STORAGE_ACCESSKEY=""
-export AISERVICE_STORAGE_SECRETKEY=${MINIO_ROOT_PASSWORD}
-export AISERVICE_STORAGE_HOST=""
-export AISERVICE_STORAGE_SSL=""
-export AISERVICE_STORAGE_PROVIDER=""
-export AISERVICE_STORAGE_PORT=""
-export AISERVICE_STORAGE_REGION=""
-export AISERVICE_STORAGE_PIPELINES_BUCKET=""
-export AISERVICE_STORAGE_TENANTS_BUCKET=""
-export AISERVICE_STORAGE_TEMPLATES_BUCKET=""
+export AISERVICE_S3_ACCESSKEY=""
+export AISERVICE_S3_SECRETKEY=${MINIO_ROOT_PASSWORD}
+export AISERVICE_S3_HOST=""
+export AISERVICE_S3_SSL=""
+export AISERVICE_S3_PROVIDER=""
+export AISERVICE_S3_PORT=""
+export AISERVICE_S3_REGION=""
+export AISERVICE_S3_TENANTS_BUCKET=""
+export AISERVICE_S3_TEMPLATES_BUCKET=""
 export AISERVICE_WATSONXAI_APIKEY=""
 export AISERVICE_WATSONXAI_URL=""
 export AISERVICE_WATSONXAI_PROJECT_ID=""
@@ -198,10 +189,10 @@ Create S3
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
-export AISERVICE_STORAGE_ACCESSKEY="<storage provider access key>"
-export AISERVICE_STORAGE_SECRETKEY="<storage provider secret key>"
-export AISERVICE_STORAGE_HOST="<storage provider host>"
-export AISERVICE_STORAGE_REGION="<storage provider region>"
+export AISERVICE_S3_ACCESSKEY="<storage provider access key>"
+export AISERVICE_S3_SECRETKEY="<storage provider secret key>"
+export AISERVICE_S3_HOST="<storage provider host>"
+export AISERVICE_S3_REGION="<storage provider region>"
 export AISERVICE_S3_ACTION="install"
 export ROLE_NAME="aiservice"
 oc login --token=xxxx --server=https://myocpserver
@@ -214,10 +205,10 @@ Delete S3
 
 ```bash
 export MAS_INSTANCE_ID="<instanceId>"
-export AISERVICE_STORAGE_ACCESSKEY="<storage provider access key>"
-export AISERVICE_STORAGE_SECRETKEY="<storage provider secret key>"
-export AISERVICE_STORAGE_HOST="<storage provider host>"
-export AISERVICE_STORAGE_REGION="<storage provider region>"
+export AISERVICE_S3_ACCESSKEY="<storage provider access key>"
+export AISERVICE_S3_SECRETKEY="<storage provider secret key>"
+export AISERVICE_S3_HOST="<storage provider host>"
+export AISERVICE_S3_REGION="<storage provider region>"
 export AISERVICE_S3_ACTION="remove"
 export ROLE_NAME="aiservice"
 oc login --token=xxxx --server=https://myocpserver
@@ -289,16 +280,15 @@ export AISERVICE_DRO_CACERT=""
 export AISERVICE_WATSONXAI_APIKEY=""
 export AISERVICE_WATSONXAI_URL=""
 export AISERVICE_WATSONXAI_PROJECT_ID=""
-export AISERVICE_STORAGE_ACCESSKEY=""
-export AISERVICE_STORAGE_SECRETKEY=""
-export AISERVICE_STORAGE_HOST=""
-export AISERVICE_STORAGE_SSL=""
-export AISERVICE_STORAGE_PROVIDER=""
-export AISERVICE_STORAGE_PORT=""
-export AISERVICE_STORAGE_REGION=""
-export AISERVICE_STORAGE_PIPELINES_BUCKET=""
-export AISERVICE_STORAGE_TENANTS_BUCKET=""
-export AISERVICE_STORAGE_TEMPLATES_BUCKET=""
+export AISERVICE_S3_ACCESSKEY=""
+export AISERVICE_S3_SECRETKEY=""
+export AISERVICE_S3_HOST=""
+export AISERVICE_S3_SSL=""
+export AISERVICE_S3_PROVIDER=""
+export AISERVICE_S3_PORT=""
+export AISERVICE_S3_REGION=""
+export AISERVICE_S3_TENANTS_BUCKET=""
+export AISERVICE_S3_TEMPLATES_BUCKET=""
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```

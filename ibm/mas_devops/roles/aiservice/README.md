@@ -34,39 +34,32 @@ The application domain for AI Service role. Valid values is domain string `apps.
 * Environment Variable: `APP_DOMAIN`
 * Default Value: ``
 
-### aiservice_s3_action
-
-Action to be performed by AI Service role. Valid values are `install` or `remove`
-
-* Environment Variable: `AISERVICE_S3_ACTION`
-* Default Value: `install`
-
-### aiservice_storage_host
+### aiservice_s3_host
 
 The storge host for AI Service role.
 
-* Environment Variable: `AISERVICE_STORAGE_HOST`
+* Environment Variable: `AISERVICE_S3_HOST`
 * Default Value: ``
 
-### aiservice_storage_accesskey
+### aiservice_s3_accesskey
 
 The storage accesskey for AI Service role.
 
-* Environment Variable: `AISERVICE_STORAGE_ACCESSKEY`
+* Environment Variable: `AISERVICE_S3_ACCESSKEY`
 * Default Value: ``
 
-### aiservice_storage_secretkey
+### aiservice_s3_secretkey
 
 The storage secretkey for AI Service role.
 
-* Environment Variable: `AISERVICE_STORAGE_SECRETKEY`
+* Environment Variable: `AISERVICE_S3_SECRETKEY`
 * Default Value: ``
 
-### aiservice_storage_region
+### aiservice_s3_region
 
 The storage region for AI Service role.
 
-* Environment Variable: `AISERVICE_STORAGE_REGION`
+* Environment Variable: `AISERVICE_S3_REGION`
 * Default Value: ``
 
 ### aiservice_watsonx_action
@@ -97,29 +90,12 @@ The watsonxai project id for AI Service role.
 * Environment Variable: `AISERVICE_WATSONXAI_PROJECT_ID`
 * Default Value: ``
 
-### aiservice_tenant_action
-
-Whether to install or remove tenant
-* Environment Variable: `AISERVICE_TENANT_ACTION`
-* Default Value: `install`
-
-### aiservice_apikey_action
-
-Whether to install or remove or update apikey
-* Environment Variable: `AISERVICE_APIKEY_ACTION`
-* Default Value: `install`
-
-### aiservice_cluster_domain
+### aiservice_domain
 
 Provide custom domain (default value is: empty)
-* Environment Variable: `AISERVICE_CLUSTER_DOMAIN`
+* Environment Variable: `AISERVICE_DOMAIN`
 * Default Value: ``
 
-### aiservice_is_external_route
-
-A flag indicating to enable external route
-* Environment Variable: `AISERVICE_IS_EXTERNAL_ROUTE`
-* Default Value: `false`
 
 License
 -------

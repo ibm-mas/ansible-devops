@@ -115,6 +115,15 @@
           set_fact:
             mongodb_backup_ts: "{{ _ts_output.stdout }}"
 
+        # Excluding sessions collection for Monitor database since it is not cleaned up automatically
+        # leading to very large backup sizes and long backup times. This is acceptable as
+        # sessions are transient and can be recreated.
+        # Refer DT425304 - MASCORE-5808
+        - name: "Set fact for Monitor database"
+          set_fact:
+            monitor_db_name: "mas_{{ mas_instance_id }}_monitor"
+            exclude_monitor_session_collection: "--excludeCollection=sessions"
+
         # mongodump
         - name: "Take full backup of mongodb databases"
           changed_when: true
@@ -125,6 +134,7 @@
             --authenticationDatabase=admin --ssl --sslCAFile={{ mongodb_ca_file }}
             --out={{ mongodb_backup_folder }}/mongodump
             --db={{ item.name }}
+            {{ exclude_monitor_session_collection if (item.name == monitor_db_name) else '' }}
             |& tee -a {{ mongodb_backup_log }}
             {{ exec_in_pod_end }}
           loop: "{{ mongodb_db_names }}"
