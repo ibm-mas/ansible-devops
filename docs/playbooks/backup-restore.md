@@ -117,21 +117,27 @@ ansible-playbook ibm.mas_devops.br_mongodb
 
 Backup/Restore for Db2
 -------------------------------------------------------------------------------
-This playbook `ibm.mas_devops.br_db2` will invoke the role [db2](../roles/db2.md) to backup/restore Db2 instance.
+This playbook `ibm.mas_devops.br_db2` will invoke the role [db2](../roles/db2.md) to backup/restore a single Db2 instance.
 
 ### Environment Variables
 
-- `DB2_INSTANCE_NAME`: **Required**. This playbook only supports backing up specific Db2 instance at a time. If you want to backup all Db2 instances in the Db2 cluster, you need to run this playbook multiple times with different value of this environment variable.
+- `DB2_INSTANCE_NAME`: **Required** This playbook only supports backing up specific Db2 instance at a time. If you want to backup all Db2 instances in the Db2 cluster, you need to run this playbook multiple times with different value of this environment variable.
+- `MAS_INSTANCE_ID`: **Required** Set the instance ID for the MAS install.
+- `MASBR_ACTION`: **Required** Set the action to be performed, `backup` or `restore`.
+- `MASBR_STORAGE_LOCAL_FOLDER`: **Required** Set the local path to the directory to be used for backup and restore.
+- `DB2_NAMESPACE`: **Optional** Set the DB2 namespace, defaults to `db2u`
 
 ### Examples
 ```bash
 # Full backup for the db2w-shared Db2 instance
+export MAS_INSTANCE_ID=dev
 export MASBR_ACTION=backup
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_db2
 
 # Incremental backup for the db2w-shared Db2 instance
+export MAS_INSTANCE_ID=dev
 export MASBR_ACTION=backup
 export MASBR_BACKUP_TYPE=incr
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
@@ -139,6 +145,7 @@ export DB2_INSTANCE_NAME=db2w-shared
 ansible-playbook ibm.mas_devops.br_db2
 
 # Restore for the db2w-shared Db2 instance
+export MAS_INSTANCE_ID=dev
 export MASBR_ACTION=restore
 export MASBR_STORAGE_LOCAL_FOLDER=/tmp/backup
 export MASBR_RESTORE_FROM_VERSION=20240630132439
@@ -201,6 +208,7 @@ This playbook `ibm.mas_devops.br_manage` will backup the following components th
 - `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `DB2_INSTANCE_NAME` **Optional**. When defined, this playbook will backup the Db2 instance used by Manage. DB2 role is skipped when environment variable is not defined..
+- `DB2_NAMESPACE`: **Optional** Set the DB2 namespace, defaults to `db2u`
 
 ### Examples
 
@@ -249,6 +257,7 @@ This playbook `ibm.mas_devops.br_iot` will backup the following components that 
 - `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `DB2_INSTANCE_NAME` **Required**. This playbook will backup the the Db2 instance used by IoT, you need to set the correct Db2 instance name for this environment variable.
+- `DB2_NAMESPACE`: **Optional** Set the DB2 namespace, defaults to `db2u`
 
 ### Examples
 
@@ -300,6 +309,7 @@ This playbook `ibm.mas_devops.br_monitor` will backup the following components t
 - `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `DB2_INSTANCE_NAME` **Required**. This playbook will backup the the Db2 instance used by IoT and Monitor, you need to set the correct Db2 instance name for this environment variable.
+- `DB2_NAMESPACE`: **Optional** Set the DB2 namespace, defaults to `db2u`
 
 ### Examples
 
@@ -398,6 +408,7 @@ This playbook `ibm.mas_devops.br_optimizer` will backup the following components
 - `MAS_INSTANCE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS instance at a time. If you have multiple MAS instances in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `MAS_WORKSPACE_ID` **Required**. This playbook only supports backing up components belong to a specific MAS workspace at a time. If you have multiple MAS workspaces in the cluster to be backed up, you need to run this playbook multiple times with different value of this environment variable.
 - `DB2_INSTANCE_NAME` **Required**. This playbook will backup the the Db2 instance used by Manage, you need to set the correct Db2 instance name for this environment variable.
+- `DB2_NAMESPACE`: **Optional** Set the DB2 namespace, defaults to `db2u`
 
 ### Examples
 
