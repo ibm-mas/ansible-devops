@@ -6,6 +6,17 @@
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/determine-storage-classes.yml
 
+- name: Load minio defaults
+  include_vars:
+    file: "{{ role_path }}/../mirror_extras_prepare/vars/minio_{{ minio_version }}.yml"
+
+- name: Retrieve image setting parts
+  set_fact:
+    minio_image_name: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='name') | first }}"
+    minio_image_registry: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='registry') | first }}"
+    minio_image_digest: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='digest') | first }}"
+    minio_image_tag: "{{ extra_images | selectattr('name', 'match', '.*/minio$') | map(attribute='tag') | first }}"
+
 # create minio namespace
 - name: 'Create minio namespace'
   kubernetes.core.k8s:
