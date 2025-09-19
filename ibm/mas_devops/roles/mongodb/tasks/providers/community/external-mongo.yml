@@ -1,0 +1,19 @@
+---
+# Load the external MongoDb configuration file (if exists)
+# -----------------------------------------------------------------------------
+- name: Check if external MongoDb config file exists
+  ansible.builtin.stat:
+    path: "{{ external_mongo_cfg_file }}"
+  register: ext_mongo_file_result
+
+
+- name: Read external MongoDb config from file
+  ansible.builtin.set_fact:
+    mongo_external_cfg: "{{ lookup('file', external_mongo_cfg_file) | from_yaml_all }}"
+  when: ext_mongo_file_result.stat.exists
+
+- name: Apply external MongoDb Secret + MongoCfg
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ external_mongo_cfg_file }}"
+  when: ext_mongo_file_result.stat.exists

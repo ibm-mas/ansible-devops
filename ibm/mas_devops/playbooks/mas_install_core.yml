@@ -9,6 +9,7 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     sls_mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+    external_mongo_cfg_file: "{{ lookup('env','EXTERNAL_MONGO_CFG_FILE') | default('', true) }}"
 
     # Core Services Configuration
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('9.1.x', true) }}"
@@ -57,16 +58,6 @@
           - lookup('env', 'DRO_CONTACT_LASTNAME') != ""
         fail_msg: "One or more required environment variables are not defined"
 
-      # If the file is present, we will skip MongoDB provisioning
-    - name: Check for external Mongo config file in mas_config_dir
-      stat:
-        path: "{{ sls_mongodb_cfg_file }}"
-      register: mongo_cfg_exists
-
-    - name: Decide whether to use external Mongo (yaml file present -> skip provisioning)
-      set_fact:
-        use_external_mongo: "{{ (mongo_cfg_exists.stat.exists) | default(false) }}"
-
   roles:
     # 1. Install cluster-scoped dependencies (e.g. Cert-Manager, Operator Catalogs) & Grafana
     - ibm.mas_devops.ibm_catalogs
@@ -74,8 +65,7 @@
     - ibm.mas_devops.grafana
 
     # 2. Install MongoDb
-    - role: ibm.mas_devops.mongodb
-      when: use_external_mongo == false
+    - ibm.mas_devops.mongodb
 
     # 3. Install SLS
     # Set sls_url, sls_tls_crt_local_file_path, sls_registration_key variables to skip install and set up SLSCfg for

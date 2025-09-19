@@ -1,12 +1,22 @@
 ---
-# 1. Check for undefined properties that do not have a default
+# 1. Check if external_mongo_cfg_file is defined and the file exists
+#    Only valid for community edition
+# -----------------------------------------------------------------------------
+- name: "Create MongoCfg CRD from external config file if provided"
+  when:
+    - mongodb_provider == "community"
+    - external_mongo_cfg_file is defined
+    - external_mongo_cfg_file != ""
+  include_tasks: "tasks/providers/community/external_mongo.yml"
+
+# 2. Check for undefined properties that do not have a default
 # -----------------------------------------------------------------------------
 - name: "Fail if mongodb_provider is not provided"
   assert:
     that: mongodb_provider is defined and mongodb_provider != ""
     fail_msg: "mongodb_provider property is required"
 
-# 2. Run the install / uninstall for specified provider
+# 3. Run the install / uninstall for specified provider
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/providers/{{ mongodb_provider }}/{{ mongodb_action }}.yml"
   when:
