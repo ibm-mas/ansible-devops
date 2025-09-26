@@ -41,7 +41,6 @@
 
     - debug:
         msg: "IBM Operator Catalog ConfigMap found: {{ operator_catalog_cm.resources is defined and operator_catalog_cm.resources | length > 0 }}"
-        
     # Check if the CCS operator deployment has the correct environment variables
     - name: "wait/ccs : Check CCS operator deployment"
       kubernetes.core.k8s_info:
@@ -51,7 +50,6 @@
         namespace: "{{ cpd_operators_namespace }}"
       register: ccs_operator_deployment
       ignore_errors: true
-      
     - debug:
         msg:
           - "CCS operator deployment found: {{ ccs_operator_deployment.resources is defined and ccs_operator_deployment.resources | length > 0 }}"
@@ -166,11 +164,10 @@
           data:
             release_components_meta: |
               opencontent_opensearch:
-                case_version: 1.1.2494
+                case_version: 1.1.4002
                 csv_version: 2.19.2
                 cr_version: 2.19.2
                 sub_channel: "v1.1"
-              
               opencontent_elasticsearch:
                 case_version: 1.1.2667
                 csv_version: 2.19.2
@@ -188,7 +185,6 @@
         name: elasticsearch-master
         namespace: "{{ cpd_instance_namespace }}"
       ignore_errors: true
-
     # Restart the CCS operator to pick up the changes
     - name: "wait/ccs : Restart the CCS operator"
       kubernetes.core.k8s:
@@ -204,7 +200,6 @@
                   kubectl.kubernetes.io/restartedAt: "{{ ansible_date_time.iso8601 }}"
         apply: yes
       ignore_errors: true
-
     # Wait for the CCS operator to be ready again
     - name: "wait/ccs : Wait for the CCS operator to be ready again (60s delay)"
       kubernetes.core.k8s_info:
@@ -213,7 +208,7 @@
         namespace: "{{ cpd_operators_namespace }}"
         kind: Deployment
       register: ccs_operator_lookup
-      until: 
+      until:
         - ccs_operator_lookup.resources is defined
         - ccs_operator_lookup.resources | length > 0
         - ccs_operator_lookup.resources[0].status is defined
@@ -222,7 +217,6 @@
       retries: 10
       delay: 60
       ignore_errors: true
-
     # Get the current olm-utils ConfigMap
     - name: "wait/ccs : Get the current olm-utils ConfigMap"
       kubernetes.core.k8s_info:
@@ -232,7 +226,6 @@
         namespace: "{{ cpd_instance_namespace }}"
       register: olm_utils_cm
       ignore_errors: true
-
     # Extract and preserve the existing content
     - set_fact:
         olm_utils_data: "{{ olm_utils_cm.resources[0].data | default({}) }}"
@@ -250,7 +243,6 @@
         apply: yes
       when: olm_utils_cm.resources is defined and olm_utils_cm.resources | length > 0
       ignore_errors: true
-
     # Create ConfigMap with correct version info in the CCS operator namespace
     - name: "wait/ccs : Create ConfigMap with correct version info in the CCS operator namespace"
       kubernetes.core.k8s:
@@ -276,7 +268,6 @@
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-security-2.19.2.0@sha256:e2fed505b82a03924e39bb254e6d422d2b6d8e21605ee8606bf1f3c3c8a6dfc7
                   - name: opensearch_knn
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-knn-2.19.2.0@sha256:b665f4e1eeaccb5d73a37205fdb4773801e3450b9498354380614e6052147e25
-                  
     # Create ConfigMap with correct version info in the instance namespace
     - name: "wait/ccs : Create ConfigMap with correct version info in the instance namespace"
       kubernetes.core.k8s:
@@ -302,7 +293,6 @@
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-security-2.19.2.0@sha256:e2fed505b82a03924e39bb254e6d422d2b6d8e21605ee8606bf1f3c3c8a6dfc7
                   - name: opensearch_knn
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-knn-2.19.2.0@sha256:b665f4e1eeaccb5d73a37205fdb4773801e3450b9498354380614e6052147e25
-                    
     # Create a ConfigMap that maps OpenSearch versions to images
     - name: "wait/ccs : Create ConfigMap for OpenSearch image mapping"
       kubernetes.core.k8s:
@@ -336,7 +326,6 @@
         namespace: "{{ cpd_instance_namespace }}"
       register: current_opensearch_cr
       ignore_errors: true
-      
     # Patch the OpenSearch CR with the correct version
     - name: "wait/ccs : Patch the OpenSearch CR with correct version"
       kubernetes.core.k8s:
@@ -380,7 +369,6 @@
       retries: 30
       delay: 60
       ignore_errors: true
-
     # Check if the recreated CR has the correct version
     - debug:
         msg:
@@ -393,7 +381,6 @@
         - new_opensearch_cr is defined
         - new_opensearch_cr.resources is defined
         - new_opensearch_cr.resources | length > 0
-        
     # Verify the version is now correct
     - name: "wait/ccs : Verify OpenSearch version is now correct"
       set_fact:
@@ -402,14 +389,12 @@
         - new_opensearch_cr is defined
         - new_opensearch_cr.resources is defined
         - new_opensearch_cr.resources | length > 0
-        
     - debug:
         msg: "OpenSearch version fixed: ..................... {{ is_opensearch_version_fixed | default(false) }}"
       when:
         - new_opensearch_cr is defined
         - new_opensearch_cr.resources is defined
         - new_opensearch_cr.resources | length > 0
-        
     # Wait for OpenSearch to be in a healthy state
     - name: "wait/ccs : Wait for OpenSearch to be in a healthy state (60s delay)"
       kubernetes.core.k8s_info:
@@ -436,5 +421,5 @@
         - opensearch_health_check is defined
         - opensearch_health_check.resources is defined
         - opensearch_health_check.resources | length > 0
-
   when: not is_opensearch_version_correct
+
