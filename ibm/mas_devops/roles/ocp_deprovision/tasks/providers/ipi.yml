@@ -7,6 +7,24 @@
       - cluster_name is defined and cluster_name != ""
     fail_msg: "cluster_name is required"
 
+- name: "Download the artifactory package installer to proceed for deprovision"
+  get_url:
+    url: "https://na.artifactory.swg-devops.com/artifactory/wiotp-generic-release/maximoappsuite/fvt-dev/fvtsno/snofvtcluster-fvtsno.tar.gz"
+    dest: "{{ ipi_config_dir }}"
+    mode: '755'
+    headers:
+      Authorization: "Bearer {{ artifactory_token }}"
+  assert:
+    that:
+      - artifactory_token is defined and artifactory_token != ""
+    fail_msg: "Unable to retrieve Install package from artifactory"
+
+- name: Extract artifact to target location
+  unarchive:
+    src: "{{ ipi_config_dir }}/{{ archive_file_name }}"
+    dest: "{{ ipi_config_dir }}"
+    remote_src: yes
+
 # Note that environment variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
 # are required by the AWS IPI openshift installer, they must be provided as
 # environment variables, rather than just as parameters to Ansible
