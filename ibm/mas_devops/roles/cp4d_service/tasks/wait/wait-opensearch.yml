@@ -162,7 +162,7 @@
         namespace: "{{ cpd_instance_namespace }}"
       register: olm_utils_cm
       ignore_errors: true
-      
+
     # Extract and preserve the existing content
     - set_fact:
         olm_utils_data: "{{ olm_utils_cm.resources[0].data | default({}) }}"
@@ -190,7 +190,7 @@
         name: elasticsearch-master
         namespace: "{{ cpd_instance_namespace }}"
       ignore_errors: true
-      
+
     # Restart the CCS operator to pick up the changes
     - name: "wait/ccs : Restart the CCS operator"
       kubernetes.core.k8s:
@@ -206,7 +206,7 @@
                   kubectl.kubernetes.io/restartedAt: "{{ ansible_date_time.iso8601 }}"
         apply: yes
       ignore_errors: true
-      
+
     # Wait for the CCS operator to be ready again
     - name: "wait/ccs : Wait for the CCS operator to be ready again (60s delay)"
       kubernetes.core.k8s_info:
@@ -224,7 +224,7 @@
       retries: 10
       delay: 60
       ignore_errors: true
-      
+
     # Create ConfigMap with correct version info in the CCS operator namespace
     - name: "wait/ccs : Create ConfigMap with correct version info in the CCS operator namespace"
       kubernetes.core.k8s:
@@ -250,7 +250,7 @@
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-security-2.19.2.0@sha256:e2fed505b82a03924e39bb254e6d422d2b6d8e21605ee8606bf1f3c3c8a6dfc7
                   - name: opensearch_knn
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-knn-2.19.2.0@sha256:b665f4e1eeaccb5d73a37205fdb4773801e3450b9498354380614e6052147e25
-                    
+
     # Create ConfigMap with correct version info in the instance namespace
     - name: "wait/ccs : Create ConfigMap with correct version info in the instance namespace"
       kubernetes.core.k8s:
@@ -276,7 +276,7 @@
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-security-2.19.2.0@sha256:e2fed505b82a03924e39bb254e6d422d2b6d8e21605ee8606bf1f3c3c8a6dfc7
                   - name: opensearch_knn
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-knn-2.19.2.0@sha256:b665f4e1eeaccb5d73a37205fdb4773801e3450b9498354380614e6052147e25
-                    
+
     # Create a ConfigMap that maps OpenSearch versions to images
     - name: "wait/ccs : Create ConfigMap for OpenSearch image mapping"
       kubernetes.core.k8s:
@@ -315,7 +315,7 @@
       retries: 30
       delay: 60
       ignore_errors: true
-      
+
     # Patch the OpenSearch CR with the correct version immediately after it's created
     - name: "wait/ccs : Patch the OpenSearch CR with correct version"
       kubernetes.core.k8s:
@@ -360,7 +360,7 @@
       retries: 30
       delay: 60
       ignore_errors: true
-      
+
     # Check if the recreated CR has the correct version
     - debug:
         msg:
@@ -373,7 +373,7 @@
         - new_opensearch_cr is defined
         - new_opensearch_cr.resources is defined
         - new_opensearch_cr.resources | length > 0
-        
+
     # Verify the version is now correct
     - name: "wait/ccs : Verify OpenSearch version is now correct"
       set_fact:
@@ -382,14 +382,14 @@
         - new_opensearch_cr is defined
         - new_opensearch_cr.resources is defined
         - new_opensearch_cr.resources | length > 0
-        
+
     - debug:
         msg: "OpenSearch version fixed: ..................... {{ is_opensearch_version_fixed | default(false) }}"
       when:
         - new_opensearch_cr is defined
         - new_opensearch_cr.resources is defined
         - new_opensearch_cr.resources | length > 0
-        
+
     # Wait for OpenSearch to be in a healthy state
     - name: "wait/ccs : Wait for OpenSearch to be in a healthy state (60s delay)"
       kubernetes.core.k8s_info:
@@ -419,3 +419,4 @@
         - opensearch_health_check.resources | length > 0
   when: not is_opensearch_version_correct
 
+# Made with Bob
