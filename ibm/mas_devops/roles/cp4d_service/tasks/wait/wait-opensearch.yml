@@ -153,27 +153,32 @@
             OPENSEARCH_KNN_VERSION: "2.19.2.0"
             OPENSEARCH_PLUGINS_VERSION: "2.19.2"
 
-    # Patch the olm-utils ConfigMap to use the correct OpenSearch version
-    - name: "wait/ccs : Patch the olm-utils ConfigMap"
+    # Get the current olm-utils ConfigMap
+    - name: "wait/ccs : Get the current olm-utils ConfigMap"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: ConfigMap
+        name: olm-utils-cm
+        namespace: "{{ cpd_instance_namespace }}"
+      register: olm_utils_cm
+      ignore_errors: true
+      
+    # Extract and preserve the existing content
+    - set_fact:
+        olm_utils_data: "{{ olm_utils_cm.resources[0].data | default({}) }}"
+      when: olm_utils_cm.resources is defined and olm_utils_cm.resources | length > 0
+
+    # Update olm-utils ConfigMap with correct OpenSearch version but preserve all other data
+    - name: "wait/ccs : Update olm-utils ConfigMap with correct OpenSearch version"
       kubernetes.core.k8s:
         api_version: v1
         kind: ConfigMap
         name: olm-utils-cm
         namespace: "{{ cpd_instance_namespace }}"
         definition:
-          data:
-            release_components_meta: |
-              opencontent_opensearch:
-                case_version: 1.1.4002
-                csv_version: 2.19.2
-                cr_version: 2.19.2
-                sub_channel: "v1.1"
-              opencontent_elasticsearch:
-                case_version: 1.1.2667
-                csv_version: 2.19.2
-                cr_version: 2.19.2
-                sub_channel: "v1.1"
+          data: "{{ olm_utils_data | combine({'release_components_meta': olm_utils_data.release_components_meta | regex_replace('(opencontent_opensearch:[\\s\\S]*?case_version:) [^\\n]*', '\\1 1.1.2494') | regex_replace('(opencontent_opensearch:[\\s\\S]*?csv_version:) [^\\n]*', '\\1 2.19.2') | regex_replace('(opencontent_opensearch:[\\s\\S]*?cr_version:) [^\\n]*', '\\1 2.19.2') | regex_replace('(opencontent_elasticsearch:[\\s\\S]*?case_version:) [^\\n]*', '\\1 1.1.2667') | regex_replace('(opencontent_elasticsearch:[\\s\\S]*?csv_version:) [^\\n]*', '\\1 2.19.2') | regex_replace('(opencontent_elasticsearch:[\\s\\S]*?cr_version:) [^\\n]*', '\\1 2.19.2')}) }}"
         apply: yes
+      when: olm_utils_cm.resources is defined and olm_utils_cm.resources | length > 0
       ignore_errors: true
 
     # Delete the OpenSearch Cluster CR to force recreation with the correct version
@@ -185,6 +190,7 @@
         name: elasticsearch-master
         namespace: "{{ cpd_instance_namespace }}"
       ignore_errors: true
+      
     # Restart the CCS operator to pick up the changes
     - name: "wait/ccs : Restart the CCS operator"
       kubernetes.core.k8s:
@@ -200,6 +206,7 @@
                   kubectl.kubernetes.io/restartedAt: "{{ ansible_date_time.iso8601 }}"
         apply: yes
       ignore_errors: true
+      
     # Wait for the CCS operator to be ready again
     - name: "wait/ccs : Wait for the CCS operator to be ready again (60s delay)"
       kubernetes.core.k8s_info:
@@ -217,32 +224,7 @@
       retries: 10
       delay: 60
       ignore_errors: true
-    # Get the current olm-utils ConfigMap
-    - name: "wait/ccs : Get the current olm-utils ConfigMap"
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: ConfigMap
-        name: olm-utils-cm
-        namespace: "{{ cpd_instance_namespace }}"
-      register: olm_utils_cm
-      ignore_errors: true
-    # Extract and preserve the existing content
-    - set_fact:
-        olm_utils_data: "{{ olm_utils_cm.resources[0].data | default({}) }}"
-      when: olm_utils_cm.resources is defined and olm_utils_cm.resources | length > 0
-
-    # Update olm-utils ConfigMap with correct OpenSearch version
-    - name: "wait/ccs : Update olm-utils ConfigMap with correct OpenSearch version"
-      kubernetes.core.k8s:
-        api_version: v1
-        kind: ConfigMap
-        name: olm-utils-cm
-        namespace: "{{ cpd_instance_namespace }}"
-        definition:
-          data: "{{ olm_utils_data | combine({'release_components_meta': olm_utils_data.release_components_meta | regex_replace('opencontent_opensearch:[\\s\\S]*?sub_channel: \"v1.1\"', 'opencontent_opensearch:\n  case_version: 1.1.2494\n  csv_version: 2.19.2\n  cr_version: 2.19.2\n  sub_channel: \"v1.1\"') | regex_replace('opencontent_elasticsearch:[\\s\\S]*?sub_channel: \"v1.1\"', 'opencontent_elasticsearch:\n  case_version: 1.1.2667\n  csv_version: 2.19.2\n  cr_version: 2.19.2\n  sub_channel: \"v1.1\"')}) }}"
-        apply: yes
-      when: olm_utils_cm.resources is defined and olm_utils_cm.resources | length > 0
-      ignore_errors: true
+      
     # Create ConfigMap with correct version info in the CCS operator namespace
     - name: "wait/ccs : Create ConfigMap with correct version info in the CCS operator namespace"
       kubernetes.core.k8s:
@@ -268,6 +250,7 @@
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-security-2.19.2.0@sha256:e2fed505b82a03924e39bb254e6d422d2b6d8e21605ee8606bf1f3c3c8a6dfc7
                   - name: opensearch_knn
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-knn-2.19.2.0@sha256:b665f4e1eeaccb5d73a37205fdb4773801e3450b9498354380614e6052147e25
+                    
     # Create ConfigMap with correct version info in the instance namespace
     - name: "wait/ccs : Create ConfigMap with correct version info in the instance namespace"
       kubernetes.core.k8s:
@@ -293,6 +276,7 @@
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-security-2.19.2.0@sha256:e2fed505b82a03924e39bb254e6d422d2b6d8e21605ee8606bf1f3c3c8a6dfc7
                   - name: opensearch_knn
                     image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-knn-2.19.2.0@sha256:b665f4e1eeaccb5d73a37205fdb4773801e3450b9498354380614e6052147e25
+                    
     # Create a ConfigMap that maps OpenSearch versions to images
     - name: "wait/ccs : Create ConfigMap for OpenSearch image mapping"
       kubernetes.core.k8s:
@@ -317,16 +301,22 @@
                 }
               }
 
-    # Get the current OpenSearch CR before patching
-    - name: "wait/ccs : Get the current OpenSearch CR configuration"
+    # Wait for the OpenSearch CR to be created by the CCS operator
+    - name: "wait/ccs : Wait for the OpenSearch CR to be created by the CCS operator (60s delay)"
       kubernetes.core.k8s_info:
         api_version: opensearch.cloudpackopen.ibm.com/v1
         kind: Cluster
         name: elasticsearch-master
         namespace: "{{ cpd_instance_namespace }}"
-      register: current_opensearch_cr
+      register: opensearch_cr_created
+      until:
+        - opensearch_cr_created.resources is defined
+        - opensearch_cr_created.resources | length > 0
+      retries: 30
+      delay: 60
       ignore_errors: true
-    # Patch the OpenSearch CR with the correct version
+      
+    # Patch the OpenSearch CR with the correct version immediately after it's created
     - name: "wait/ccs : Patch the OpenSearch CR with correct version"
       kubernetes.core.k8s:
         state: present
@@ -351,12 +341,11 @@
           force_conflicts: true
       ignore_errors: true
       when:
-        - current_opensearch_cr is defined
-        - current_opensearch_cr.resources is defined
-        - current_opensearch_cr.resources | length > 0
+        - opensearch_cr_created.resources is defined
+        - opensearch_cr_created.resources | length > 0
 
-    # Wait for the OpenSearch Cluster CR to be available
-    - name: "wait/ccs : Wait for the OpenSearch Cluster CR to be available (60s delay)"
+    # Wait for the OpenSearch Cluster CR to be updated with the correct version
+    - name: "wait/ccs : Wait for the OpenSearch Cluster CR to be updated with the correct version (60s delay)"
       kubernetes.core.k8s_info:
         api_version: opensearch.cloudpackopen.ibm.com/v1
         kind: Cluster
@@ -366,9 +355,12 @@
       until:
         - new_opensearch_cr.resources is defined
         - new_opensearch_cr.resources | length > 0
+        - new_opensearch_cr.resources[0].spec.version is defined
+        - new_opensearch_cr.resources[0].spec.version == "2.19.2"
       retries: 30
       delay: 60
       ignore_errors: true
+      
     # Check if the recreated CR has the correct version
     - debug:
         msg:
@@ -381,6 +373,7 @@
         - new_opensearch_cr is defined
         - new_opensearch_cr.resources is defined
         - new_opensearch_cr.resources | length > 0
+        
     # Verify the version is now correct
     - name: "wait/ccs : Verify OpenSearch version is now correct"
       set_fact:
@@ -389,12 +382,14 @@
         - new_opensearch_cr is defined
         - new_opensearch_cr.resources is defined
         - new_opensearch_cr.resources | length > 0
+        
     - debug:
         msg: "OpenSearch version fixed: ..................... {{ is_opensearch_version_fixed | default(false) }}"
       when:
         - new_opensearch_cr is defined
         - new_opensearch_cr.resources is defined
         - new_opensearch_cr.resources | length > 0
+        
     # Wait for OpenSearch to be in a healthy state
     - name: "wait/ccs : Wait for OpenSearch to be in a healthy state (60s delay)"
       kubernetes.core.k8s_info:
@@ -408,7 +403,8 @@
         - opensearch_health_check.resources | length > 0
         - opensearch_health_check.resources[0].status is defined
         - opensearch_health_check.resources[0].status.phase is defined
-        - opensearch_health_check.resources[0].status.phase == "Running"
+        - opensearch_health_check.resources[0].status.phase in ["Running", "Available"]
+        - opensearch_health_check.resources[0].spec.version == "2.19.2"
       retries: 30
       delay: 60
       ignore_errors: true
