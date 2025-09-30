@@ -9,7 +9,7 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     sls_mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
-    external_mongo_cfg_file: "{{ lookup('env','EXTERNAL_MONGO_CFG_FILE') | default('', true) }}"
+    external_mongo_cfg_file: "{{ lookup('env', 'EXTERNAL_MONGO_CFG_FILE') | default('false', True) | bool }}"
 
     # Core Services Configuration
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('9.1.x', true) }}"
@@ -66,7 +66,7 @@
 
     # 2. Install MongoDb
     - role: ibm.mas_devops.mongodb
-      when:  (external_mongo_cfg_file | default('', true) | length) == 0
+      when: external_mongo_cfg_file is not defined or not external_mongo_cfg_file
 
     # 3. Install SLS
     # Set sls_url, sls_tls_crt_local_file_path, sls_registration_key variables to skip install and set up SLSCfg for
