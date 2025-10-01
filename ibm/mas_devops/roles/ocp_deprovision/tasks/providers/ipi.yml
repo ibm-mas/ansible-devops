@@ -7,6 +7,36 @@
       - cluster_name is defined and cluster_name != ""
     fail_msg: "cluster_name is required"
 
+- name: "ipi: Create IPI Config space if not exist "
+  changed_when: true
+  shell: >
+    mkdir -p {{ ipi_dir }}/config
+  register: _extract_output
+
+- name: "Download the artifactory package installer to proceed for deprovision"
+  get_url:
+    url: "https://na.artifactory.swg-devops.com/artifactory/wiotp-generic-release/maximoappsuite/fvt-dev/fvtsno/snofvtcluster-fvtsno.tar.gz"
+    dest: "{{ ipi_dir }}/config"
+    mode: '755'
+    headers:
+      Authorization: "Bearer {{ fvt_artifactory_token }}"
+
+- name: Extract artifact to target location
+  changed_when: true
+  shell: >
+    mkdir -p {{ ipi_config_dir }} &&
+    cd {{ ipi_config_dir }} &&
+    tar -xzf {{ ipi_dir }}/config/{{ archive_file_name }}
+    -C / &&
+    ls -lA {{ ipi_config_dir }}
+  register: _extract_output
+
+- name: "Debug: list extracted files"
+  debug:
+    msg:
+      - "Extract output folder .............. {{ ipi_config_dir }}"
+      - "{{ _extract_output.stdout_lines }}"
+
 # Note that environment variables AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
 # are required by the AWS IPI openshift installer, they must be provided as
 # environment variables, rather than just as parameters to Ansible
