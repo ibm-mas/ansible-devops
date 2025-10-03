@@ -9,6 +9,7 @@
     mas_config_dir: "{{ lookup('env', 'MAS_CONFIG_DIR') }}"
     mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', True) }}"
     sls_mongodb_cfg_file: "{{ mas_config_dir }}/mongo-{{ mongodb_namespace }}.yml"
+    skip_mongo: "{{ lookup('env', 'SKIP_MONGO') | default('false', True) | bool }}"
 
     # Core Services Configuration
     mas_channel: "{{ lookup('env', 'MAS_CHANNEL') | default('9.1.x', true) }}"
@@ -64,7 +65,8 @@
     - ibm.mas_devops.grafana
 
     # 2. Install MongoDb
-    - ibm.mas_devops.mongodb
+    - role: ibm.mas_devops.mongodb
+      when: skip_mongo is not defined or not skip_mongo
 
     # 3. Install SLS
     # Set sls_url, sls_tls_crt_local_file_path, sls_registration_key variables to skip install and set up SLSCfg for
