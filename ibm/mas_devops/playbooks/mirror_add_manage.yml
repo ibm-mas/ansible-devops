@@ -19,7 +19,24 @@
         that: mas_catalog_metadata.failed == false
 
   roles:
-    # 1. IBM Maximo Manage
+    # 1. Tmp added 9.1.3 mirror
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mas_catalog_metadata.manage_extras_913 is defined
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: manage
+        extras_version: "{{ mas_catalog_metadata.manage_extras_913 }}"
+
+    - role: ibm.mas_devops.mirror_images
+      when: mas_catalog_metadata.manage_extras_913 is defined
+      vars:
+        manifest_name: extras_manage
+        manifest_version: "{{ mas_catalog_metadata.manage_extras_913 }}"
+
+
+    # 2. IBM Maximo Manage
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
       when: mirror_mode != "from-filesystem"
