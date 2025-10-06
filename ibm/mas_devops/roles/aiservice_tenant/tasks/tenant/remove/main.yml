@@ -9,136 +9,111 @@
     msg: "Please remove all models before deleting kmodels"
   when: result.rc == 0 and result.stdout != ''
 
-# - name: Delete monitor-config ConfigMap
-#   shell: oc delete cm monitor-config -n {{ tenantNamespace }}
-#   ignore_errors: true
-#   register: delete_result
-#   failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
-
-# - name: Delete connector-config ConfigMap
-#   shell: oc delete cm connector-config -n {{ tenantNamespace }}
-#   ignore_errors: true
-#   register: delete_result
-#   failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
-
-# - name: Delete km-s3-sa ServiceAccount
-#   shell: oc delete sa km-s3-sa -n {{ tenantNamespace }}
-#   ignore_errors: true
-#   register: delete_result
-#   failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
-
-# - name: Delete km-s3-secret Secret
-#   shell: oc delete secret km-s3-secret -n {{ tenantNamespace }}
-#   ignore_errors: true
-#   register: delete_result
-#   failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
-
-# - name: Delete regcred Secret
-#   shell: oc delete secret regcred -n {{ tenantNamespace }}
-#   ignore_errors: true
-#   register: delete_result
-#   failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
-
-# - name: Delete tenant namespace
-#   shell: oc delete ns {{ tenantNamespace }}
-#   ignore_errors: true
-#   register: delete_result
-#   failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
-
-
-# # Delete owned resources in tenant namespace
-# - name: Register DRO and SLS with AI Broker for tenant "{{ tenant_name }}"
-#   uri:
-#     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenant"
-#     validate_certs: no
-#     method: DELETE
-#     headers:
-#       apikey: "{{ broker_api_key }}"
-#       accept: "*/*"
-#       Content-Type: "application/json"
-#       tenantid: "{{ provisioning_tenant_name }}"
-#     body_format: "json"
-#     body: "{\"tenant_name\": \"{{ tenant_name }}\"}"
-#     status_code: [204]
-#     timeout: 30
-
-- name: Lookup self
+- name: Lookup AIServiceTenant CR
   kubernetes.core.k8s_info:
     api_version: aiservice.ibm.com/v1
     kind: AIServiceTenant
     name: "{{ aiservice_tenant_name }}"
-    namespace: "{{ aiservice_namespace }}"
+    namespace: "{{ tenantNamespace }}"
   register: lookup_result
 
-- name: Set facts
-  ansible.builtin.set_fact:
-    aiservice_instance_id: "{{ lookup_result.resources[0].metadata.labels['app.kubernetes.io/instance'] }}"
-    aiservice_tenant_name: "{{ lookup_result.resources[0].spec.settings.tenant.tenantId }}"
+- name: Debug lookup_result.resources
+  debug:
+    var: lookup_result.resources
 
-- name: List facts
-  ansible.builtin.debug:
+
+- name: Set facts from AIServiceTenant
+  ansible.builtin.set_fact:
+    aiservice_instance_id: "{{ lookup_result.resources[0].metadata.labels['app.kubernetes.io/instance'] | default('') }}"
+    aiservice_tenant_id: "{{ lookup_result.resources[0].spec.settings.tenant.tenantId | default('') }}"
+    aiservice_tenant_name: "{{ lookup_result.resources[0].metadata.name }}"
+  when: lookup_result.resources | length > 0
+
+- name: Debug facts set from AIServiceTenant
+  debug:
     msg:
-      - "aiservice_instance_id .... {{ aiservice_instance_id }}"
-      - "aiservice_tenant_name .... {{ aiservice_tenant_name }}"
+      - "aiservice_instance_id: {{ aiservice_instance_id }}"
+      - "aiservice_tenant_id: {{ aiservice_tenant_id }}"
+      - "aiservice_tenant_name: {{ aiservice_tenant_name }}"
 
-- name: "Find owned resources in namespace: {{ aiservice_tenant_name }}"
+- name: Define resource kinds to delete
+  set_fact:
+    resource_kinds:
+      - ConfigMap
+      - Secret
+      - Route
+      - DeploymentConfig
+      - VolumeSnapshot
+      - Deployment
+      - Pod
+      - PersistentVolumeClaim
+      - StatefulSet
+      - Service
+
+- name: Define API version map for resource kinds
+  set_fact:
+    api_version_map:
+      ConfigMap: v1
+      Secret: v1
+      Route: route.openshift.io/v1
+      DeploymentConfig: apps.openshift.io/v1
+      VolumeSnapshot: snapshot.storage.k8s.io/v1beta1
+      Deployment: apps/v1
+      Pod: v1
+      PersistentVolumeClaim: v1
+      StatefulSet: apps/v1
+      Service: v1
+
+- name: Gather all resources by kind in namespace
+  loop: "{{ resource_kinds }}"
+  loop_control:
+    loop_var: resource_kind
   kubernetes.core.k8s_info:
-    api_version: "{{ item.api_version }}"
-    kind: "{{ item.kind }}"
-    namespace: "{{ aiservice_tenant_name }}"
-    label_selectors:
-      - "app.kubernetes.io/managed-by = {{ operator_name }}"
-      - "app.kubernetes.io/instance = {{ aiservice_instance_id }}"
-  register: search_result
-  loop:
-    - kind: Role
-      api_version: rbac.authorization.k8s.io/v1
-    - kind: RoleBinding
-      api_version: rbac.authorization.k8s.io/v1
-    - kind: Secret
-      api_version: v1
-    - kind: Pod
-      api_version: v1
-    - kind: Deployment
-      api_version: apps/v1
-    - kind: DeploymentConfig
-      api_version: apps.openshift.io/v1
-    - kind: StatefulSet
-      api_version: apps/v1
-    - kind: PersistentVolumeClaim
-      api_version: v1
-    - kind: Service
-      api_version: v1
-    - kind: Route
-      api_version: route.openshift.io/v1
-    - kind: ConfigMap
-      api_version: v1
-    - kind: VolumeSnapshot
-      api_version: snapshot.storage.k8s.io/v1
-    - kind: ServiceAccount
-      api_version: v1
+    api_version: "{{ api_version_map[resource_kind] }}"
+    kind: "{{ resource_kind }}"
+    namespace: "{{ tenantNamespace }}"
+  register: resource_list
+  ignore_errors: yes
 
-- name: Set target resources
-  ansible.builtin.set_fact:
-    target_resources: "{{ search_result.results | map(attribute='resources') | list | flatten }}"
+- name: Combine all gathered resources into one list
+  set_fact:
+    items_to_delete: >-
+      {{
+        resource_list.results
+        | map(attribute='resources')
+        | list
+        | flatten
+      }}
 
-- name: List target resources
-  ansible.builtin.debug:
-    msg: "namespace: {{ item.metadata.namespace }}, kind: {{ item.kind }}, name: {{ item.metadata.name }}"
-  loop: "{{ target_resources }}"
-  when: target_resources | length > 0
+- name: Debug gathered resources to delete
+  debug:
+    msg: "Found {{ items_to_delete | length }} resources to delete in namespace '{{ tenantNamespace }}'"
 
-- name: "Delete owned resources in namespace: {{ aiservice_tenant_name }}"
+- name: Delete all gathered resources
   kubernetes.core.k8s:
-    state: absent
-    api_version: "{{ item.apiVersion }}"
+    api_version: "{{ item.apiVersion | default(item.api_version | default('v1')) }}"
     kind: "{{ item.kind }}"
     name: "{{ item.metadata.name }}"
-    namespace: "{{ item.metadata.namespace }}"
+    namespace: "{{ tenantNamespace }}"
+    state: absent
+  loop: "{{ items_to_delete }}"
+  ignore_errors: yes
+  no_log: true
+
+
+- name: Delete tenant namespace
+  kubernetes.core.k8s:
+    state: absent
+    kind: Namespace
+    name: "{{ aiservice_tenant_name }}"
     wait: true
     wait_timeout: "{{ wait_timeout | default(60) }}"
-  loop: "{{ target_resources }}"
-  when: target_resources | length > 0
+  ignore_errors: true
+
+- name: Tenant cleanup complete
+  debug:
+    msg: "All resources in namespace '{{ aiservice_tenant_name }}' have been deleted."
+
 
 - name: Delete Tenant CR
   kubernetes.core.k8s:
