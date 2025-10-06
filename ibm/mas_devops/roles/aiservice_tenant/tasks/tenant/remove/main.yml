@@ -45,6 +45,101 @@
 #   register: delete_result
 #   failed_when: delete_result.rc != 0 and "NotFound" not in delete_result.stderr
 
+
+# # Delete owned resources in tenant namespace
+# - name: Register DRO and SLS with AI Broker for tenant "{{ tenant_name }}"
+#   uri:
+#     url: "https://{{ aibrokerHostName }}/ibm/aibroker/service/rest/api/v1/tenant"
+#     validate_certs: no
+#     method: DELETE
+#     headers:
+#       apikey: "{{ broker_api_key }}"
+#       accept: "*/*"
+#       Content-Type: "application/json"
+#       tenantid: "{{ provisioning_tenant_name }}"
+#     body_format: "json"
+#     body: "{\"tenant_name\": \"{{ tenant_name }}\"}"
+#     status_code: [204]
+#     timeout: 30
+
+- name: Lookup self
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1
+    kind: AIServiceTenant
+    name: "{{ aiservice_tenant_name }}"
+    namespace: "{{ aiservice_namespace }}"
+  register: lookup_result
+
+- name: Set facts
+  ansible.builtin.set_fact:
+    aiservice_instance_id: "{{ lookup_result.resources[0].metadata.labels['app.kubernetes.io/instance'] }}"
+    aiservice_tenant_name: "{{ lookup_result.resources[0].spec.settings.tenant.tenantId }}"
+
+- name: List facts
+  ansible.builtin.debug:
+    msg:
+      - "aiservice_instance_id .... {{ aiservice_instance_id }}"
+      - "aiservice_tenant_name .... {{ aiservice_tenant_name }}"
+
+- name: "Find owned resources in namespace: {{ aiservice_tenant_name }}"
+  kubernetes.core.k8s_info:
+    api_version: "{{ item.api_version }}"
+    kind: "{{ item.kind }}"
+    namespace: "{{ aiservice_tenant_name }}"
+    label_selectors:
+      - "app.kubernetes.io/managed-by = {{ operator_name }}"
+      - "app.kubernetes.io/instance = {{ aiservice_instance_id }}"
+  register: search_result
+  loop:
+    - kind: Role
+      api_version: rbac.authorization.k8s.io/v1
+    - kind: RoleBinding
+      api_version: rbac.authorization.k8s.io/v1
+    - kind: Secret
+      api_version: v1
+    - kind: Pod
+      api_version: v1
+    - kind: Deployment
+      api_version: apps/v1
+    - kind: DeploymentConfig
+      api_version: apps.openshift.io/v1
+    - kind: StatefulSet
+      api_version: apps/v1
+    - kind: PersistentVolumeClaim
+      api_version: v1
+    - kind: Service
+      api_version: v1
+    - kind: Route
+      api_version: route.openshift.io/v1
+    - kind: ConfigMap
+      api_version: v1
+    - kind: VolumeSnapshot
+      api_version: snapshot.storage.k8s.io/v1
+    - kind: ServiceAccount
+      api_version: v1
+
+- name: Set target resources
+  ansible.builtin.set_fact:
+    target_resources: "{{ search_result.results | map(attribute='resources') | list | flatten }}"
+
+- name: List target resources
+  ansible.builtin.debug:
+    msg: "namespace: {{ item.metadata.namespace }}, kind: {{ item.kind }}, name: {{ item.metadata.name }}"
+  loop: "{{ target_resources }}"
+  when: target_resources | length > 0
+
+- name: "Delete owned resources in namespace: {{ aiservice_tenant_name }}"
+  kubernetes.core.k8s:
+    state: absent
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ item.metadata.namespace }}"
+    wait: true
+    wait_timeout: "{{ wait_timeout | default(60) }}"
+  loop: "{{ target_resources }}"
+  when: target_resources | length > 0
+
 - name: Delete Tenant CR
   kubernetes.core.k8s:
     state: absent
