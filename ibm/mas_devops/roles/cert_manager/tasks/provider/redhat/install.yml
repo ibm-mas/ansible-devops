@@ -15,6 +15,9 @@
     name: common-service
     namespace: "ibm-common-services"
     kind: OperandRequest
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   register: cs_operand_lookup
 
 - set_fact:
@@ -36,6 +39,9 @@
     name: operand-deployment-lifecycle-manager
     namespace: "ibm-common-services"
     kind: Deployment
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   register: odlm_lookup
 
 # This step will configure ibm-cert-manager-operator to make use of a
@@ -51,6 +57,9 @@
     template: "templates/{{ cert_manager_provider }}/ibm-cpp-configmap.yml.j2"
     wait: yes
     wait_timeout: 120 # 2 minutes
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
 
 # 3. If IBM Certificate Manager is installed, run pre-requisite steps to migrate to Red Hat Certificate Manager
 # -----------------------------------------------------------------------------
@@ -71,6 +80,8 @@
     namespace: "{{ cert_manager_operator_namespace }}"
     package_name: openshift-cert-manager-operator
     package_channel: stable-v1
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
   register: subscription
 
 # 5. Wait for Subscription to be processed
@@ -81,6 +92,9 @@
     name: cert-manager-operator-controller-manager
     namespace: "{{ cert_manager_operator_namespace }}"
     kind: Deployment
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   register: certmanager_deployment
   until:
     - certmanager_deployment.resources is defined
@@ -99,6 +113,9 @@
     api_version: operator.openshift.io/v1alpha1
     name: cluster
     kind: CertManager
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   register: certmanager_cluster_cr
   until:
     - certmanager_cluster_cr.resources is defined
@@ -112,6 +129,9 @@
     name: mas-rh-cert-manager-config
     namespace: ibm-common-services
     kind: ConfigMap
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   register: configmap_output
 
 - name: "install: Set Certificate Manager Cluster Resource Namespace from ibm-ccp-config configmap data"
@@ -129,6 +149,9 @@
   kubernetes.core.k8s:
     merge_type: merge
     definition: "{{ lookup('template', 'templates/redhat/cert-manager-cluster.yml.j2') }}"
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
 
 - name: "install: Wait for Red Hat cert-manager-operator to be up again (60s delay)"
   kubernetes.core.k8s_info:
@@ -136,6 +159,9 @@
     name: cert-manager
     namespace: "{{ cert_manager_namespace }}"
     kind: Deployment
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   register: certmanager_deployment
   until:
     - certmanager_deployment.resources is defined
@@ -153,6 +179,9 @@
     name: cert-manager-webhook
     namespace: "{{ cert_manager_namespace }}"
     kind: Deployment
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   register: certmanager_webhook_deployment
   until:
     - certmanager_webhook_deployment.resources is defined
@@ -185,4 +214,7 @@
   kubernetes.core.k8s:
     merge_type: merge
     definition: "{{ lookup('template', 'templates/redhat/cert-manager-webhook-ibm-cis-crb.yml.j2') }}"
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   when: cert_manager_webhook_cis_lookup.stdout_lines | length > 0

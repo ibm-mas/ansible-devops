@@ -12,6 +12,9 @@
   kubernetes.core.k8s_info:
     namespace: ibm-common-services
     kind: OperatorGroup
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   register: og_info
 
 # Look up the default channel for the ibm-common-service-operator package manifest
@@ -28,6 +31,9 @@
     kind: PackageManifest
     name: ibm-common-service-operator
     namespace: ibm-common-services
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   register: common_services_manifest_info
   until: common_services_manifest_info.resources[0].status.defaultChannel is defined
   retries: 60 # Approximately 30 minutes before we give up
@@ -50,12 +56,18 @@
     definition: "{{ lookup('template', 'templates/namespace.yml.j2') }}"
     wait: yes
     wait_timeout: 120 # 2 minutes
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
 
 - name: "Install Foundational Services"
   kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/subscription.yml.j2') }}"
     wait: yes
     wait_timeout: 120 # 2 minutes
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
 
 - name: "Wait for Foundational Services resources to be ready (60s delay)"
   kubernetes.core.k8s_info:
@@ -63,6 +75,9 @@
     name: operand-deployment-lifecycle-manager
     namespace: ibm-common-services
     kind: Deployment
+    host: "{{ ocp_auth_host | default(omit) }}"
+    api_key: "{{ ocp_auth_api_key | default(omit) }}"
+    validate_certs: "{{ ocp_auth_validate_certs | default(omit) }}"
   register: _operand_deployment
   until: _operand_deployment.resources[0].status.availableReplicas is defined
   retries: 90 # Approximately 10 minutes before we give up
