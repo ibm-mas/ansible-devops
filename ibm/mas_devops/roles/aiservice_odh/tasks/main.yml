@@ -11,12 +11,7 @@
       - aiservice_odh_model_deployment_type in ['raw', 'serverless']
     fail_msg: "AISERVICE_ODH_MODEL_DEPLOYMENT_TYPE must be one of: raw, serverless"
 
-# 2. Load default storage class (if not provided by the user)
-# -----------------------------------------------------------------------------
-- include_tasks: tasks/determine-storage-classes.yml
-
-
-# 3. Deploy OpenShift Serverless operators
+# 2. Deploy OpenShift Serverless operators
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/serverless-operator.yml
   when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
@@ -44,7 +39,7 @@
   retries: 10 # Approximately 10 minutes before we give up
   delay: 60 # 1 minute
 
-# 4. Create DSCInitialization instance
+# 3. Create DSCInitialization instance
 # -----------------------------------------------------------------------------
 - name: "Create DSCInitialization instance"
   kubernetes.core.k8s:
@@ -67,7 +62,7 @@
   delay: 120
 
 
-# 5. Create Data Science Cluster
+# 4. Create Data Science Cluster
 # -----------------------------------------------------------------------------
 - name: "Create Data Science Cluster"
   kubernetes.core.k8s:
@@ -89,7 +84,7 @@
   delay: 120
 
 
-# 6. Create Istio Auth Rules
+# 5. Create Istio Auth Rules
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/istio-auth.yml
   when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
