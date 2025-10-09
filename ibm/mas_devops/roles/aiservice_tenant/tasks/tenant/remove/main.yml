@@ -49,6 +49,7 @@
       - PersistentVolumeClaim
       - StatefulSet
       - Service
+      - NetworkPolicy
 
 - name: Define API version map for resource kinds
   set_fact:
@@ -63,6 +64,7 @@
       PersistentVolumeClaim: v1
       StatefulSet: apps/v1
       Service: v1
+      NetworkPolicy: networking.k8s.io/v1
 
 - name: Gather all resources by kind in namespace
   loop: "{{ resource_kinds }}"
@@ -100,6 +102,9 @@
   ignore_errors: yes
   no_log: true
 
+- name: Tenant cleanup complete
+  debug:
+    msg: "All resources in namespace '{{ aiservice_tenant_name }}' have been deleted."
 
 - name: Delete tenant namespace
   kubernetes.core.k8s:
@@ -110,11 +115,6 @@
     wait_timeout: "{{ wait_timeout | default(60) }}"
   ignore_errors: true
   register: delete_result
-
-- name: Tenant cleanup complete
-  debug:
-    msg: "All resources in namespace '{{ aiservice_tenant_name }}' have been deleted."
-
 
 - name: Delete Tenant CR
   kubernetes.core.k8s:
@@ -129,5 +129,10 @@
 - name: Tenant status
   debug:
     msg: "Tenant was deleted"
+
+
+
+
+
 
 
