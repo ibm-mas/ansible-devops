@@ -25,7 +25,7 @@ The name of the AISERVICE subscription channel that you want to upgrade to, if n
 - Default: None
 
 ### aiservice_upgrade_dryrun
-When set to `true` will ensure that the role only preforms upgrade validation checks and does not make any changes to the target installation.
+When set to `true` will ensure that the role only performs upgrade validation checks and does not make any changes to the target installation.
 
 - Optional
 - Environment Variable: `AISERVICE_UPGRADE_DRYRUN`
