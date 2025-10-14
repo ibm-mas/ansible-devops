@@ -1,0 +1,28 @@
+---
+# Generic finalizer removal helper for problematic CR kinds using oc (safer on broken CRs)
+# Use this when k8s module can't remove finalizers reliably.
+
+- name: Remove finalizers from listed CR kinds (retry)
+  vars:
+    cr_kinds:
+      - operandrequest
+      - operandconfig
+      - operandregistry
+      - operandbindinfo
+      - operandbindinfos
+  block:
+    - name: Loop through cr kinds and patch finalizers remove
+      shell: |
+        for k in {{ cr_kinds | to_json }}; do
+          kind=$k
+          for obj in $(oc get $kind -n ibm-cpd-operators -o name 2>/dev/null || true); do
+            oc patch $obj -n ibm-cpd-operators --type=json -p='[{"op":"remove","path":"/metadata/finalizers"}]' || true
+          done
+        done
+      register: patch_finalizers
+      failed_when: false
+      changed_when: patch_finalizers.rc == 0
+
+    - name: Debug finalizer patch output
+      debug:
+        msg: "Finalizer patch stdout: {{ patch_finalizers.stdout_lines }}"

@@ -1,0 +1,44 @@
+---
+# Remove OLM objects (Subscription, ClusterServiceVersion, InstallPlan) in ibm-cpd-operators
+- name: List Subscriptions
+  k8s_info:
+    api_version: operators.coreos.com/v1
+    kind: Subscription
+    namespace: ibm-cpd-operators
+  register: subs_info
+  failed_when: false
+
+- name: Delete Subscriptions (if any)
+  when: subs_info.resources | length > 0
+  loop: "{{ subs_info.resources | map(attribute='metadata.name') | list }}"
+  loop_control:
+    loop_var: subname
+  k8s:
+    state: absent
+    api_version: operators.coreos.com/v1
+    kind: Subscription
+    namespace: ibm-cpd-operators
+    name: "{{ subname }}"
+  failed_when: false
+  register: subs_delete
+
+- debug:
+    msg: "Subscriptions deleted: {{ subs_delete.results | map(attribute='msg') | list | default(subs_delete) }}"
+
+- name: Delete all ClusterServiceVersions in ibm-cpd-operators
+  shell: oc delete clusterserviceversion --all -n ibm-cpd-operators --ignore-not-found || true
+  register: csv_delete
+  changed_when: false
+  failed_when: csv_delete.rc != 0 and csv_delete.rc != 1
+
+- debug:
+    msg: "CSV delete output: {{ csv_delete.stdout_lines }}"
+
+- name: Delete InstallPlans (if any) via oc (safe fallback)
+  shell: oc delete installplan --all -n ibm-cpd-operators --ignore-not-found || true
+  register: ip_delete
+  changed_when: false
+  failed_when: ip_delete.rc != 0 and ip_delete.rc != 1
+
+- debug:
+    msg: "InstallPlan delete output: {{ ip_delete.stdout_lines }}"

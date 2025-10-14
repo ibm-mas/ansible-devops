@@ -1,0 +1,61 @@
+# 0. Remove finalizers from CP4D operator CRs (optional early)
+- name: Remove finalizers from CP4D operator CRs
+  include_tasks: remove_operator_cr_finalizers.yml
+  register: remove_operator_crs_result
+
+- debug:
+    msg: "Remove finalizers from operator CRs result: {{ remove_operator_crs_result }}"
+
+# 1. Delete CP4D and Zen CatalogSources first (prevent pods from respawning)
+- name: Delete CP4D and Zen CatalogSources
+  include_tasks: delete_catalogsources.yml
+  register: delete_catalogsources_result
+
+- debug:
+    msg: "CatalogSources deletion result: {{ delete_catalogsources_result }}"
+
+# 2. Scale down operator deployments, delete pods, catalogs and operand requests
+- name: Scale down operator workloads and delete CP4D catalogs/instances
+  include_tasks: scale_and_remove_catalogs_instances.yml
+  register: scale_and_remove_result
+
+- debug:
+    msg: "Scale and remove operator workloads result: {{ scale_and_remove_result }}"
+
+# 3. Ensure stuck finalizers in ibm-cpd-operators are removed (OperandRequests, OperandConfigs)
+- name: Ensure stuck finalizers in ibm-cpd-operators are removed
+  include_tasks: remove_ns_stuck_finalizers.yml
+  register: stuck_finalizers_result
+
+- debug:
+    msg: "Stuck finalizers removal result: {{ stuck_finalizers_result }}"
+
+# 4. Ensure CP4D CRDs are cleaned up
+- name: Ensure CP4D CRDs are cleaned up
+  include_tasks: remove_finalizers.yml
+  loop: "{{ cpd_crds }}"
+  loop_control:
+    loop_var: crd_name
+  register: remove_crd_finalizers_result
+
+- debug:
+    msg: "Remove CRD finalizers result: {{ remove_crd_finalizers_result }}"
+
+# 5. Delete CP4D CRDs
+- name: Delete CP4D CRDs
+  include_tasks: delete_crds.yml
+  loop: "{{ cpd_crds }}"
+  loop_control:
+    loop_var: crd_name
+  register: delete_crds_result
+
+- debug:
+    msg: "Delete CRDs result: {{ delete_crds_result }}"
+
+# 6. Delete CP4D namespaces (ibm-cpd, ibm-cpd-operators)
+- name: Delete CP4D namespaces
+  include_tasks: delete_ns.yml
+  register: delete_ns_result
+
+- debug:
+    msg: "Namespaces deletion result: {{ delete_ns_result }}"

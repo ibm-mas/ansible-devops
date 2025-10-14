@@ -1,0 +1,50 @@
+---
+# Delete Deployments/StatefulSets/Jobs in CP4D namespaces
+
+- name: Get Deployments in CP4D namespaces
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    namespace: "{{ item }}"
+  loop: "{{ cp4d_namespaces }}"
+  loop_control:
+    label: "{{ item }}"
+  register: cp4d_deployments
+
+- name: Delete Deployments
+  kubernetes.core.k8s:
+    state: absent
+    definition: "{{ item }}"
+  loop: "{{ cp4d_deployments.results | map(attribute='resources') | list | flatten }}"
+  when: item.metadata.name is defined
+
+- name: Get StatefulSets in CP4D namespaces
+  kubernetes.core.k8s_info:
+    kind: StatefulSet
+    namespace: "{{ item }}"
+  loop: "{{ cp4d_namespaces }}"
+  loop_control:
+    label: "{{ item }}"
+  register: cp4d_statefulsets
+
+- name: Delete StatefulSets
+  kubernetes.core.k8s:
+    state: absent
+    definition: "{{ item }}"
+  loop: "{{ cp4d_statefulsets.results | map(attribute='resources') | list | flatten }}"
+  when: item.metadata.name is defined
+
+- name: Get Jobs in CP4D namespaces
+  kubernetes.core.k8s_info:
+    kind: Job
+    namespace: "{{ item }}"
+  loop: "{{ cp4d_namespaces }}"
+  loop_control:
+    label: "{{ item }}"
+  register: cp4d_jobs
+
+- name: Delete Jobs
+  kubernetes.core.k8s:
+    state: absent
+    definition: "{{ item }}"
+  loop: "{{ cp4d_jobs.results | map(attribute='resources') | list | flatten }}"
+  when: item.metadata.name is defined

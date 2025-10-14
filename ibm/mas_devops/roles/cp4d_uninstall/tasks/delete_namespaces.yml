@@ -1,0 +1,43 @@
+---
+# Remove finalizers on namespaces and delete them
+- name: Ensure namespaces exist then clear finalizers and delete
+  vars:
+    target_namespaces:
+      - ibm-cpd
+      - ibm-cpd-operators
+  block:
+    - name: Get namespace info
+      k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: "{{ item }}"
+      loop: "{{ target_namespaces }}"
+      loop_control:
+        loop_var: item
+      register: ns_info
+      failed_when: false
+
+    - name: Remove namespace finalizers with oc if present
+      shell: |
+        for ns in {{ target_namespaces | to_json }}; do
+          if oc get ns $ns &>/dev/null; then
+            oc get ns $ns -o json | jq 'del(.spec.finalizers)' | oc replace --raw "/api/v1/namespaces/$ns/finalize" -f - || true
+          fi
+        done
+      register: ns_finalize
+      failed_when: false
+
+    - name: Delete namespaces
+      k8s:
+        api_version: v1
+        kind: Namespace
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ target_namespaces }}"
+      loop_control:
+        loop_var: item
+      register: ns_delete_results
+      failed_when: false
+
+    - debug:
+        msg: "Namespace delete results: {{ ns_delete_results.results | map(attribute='msg') | list | default(ns_delete_results) }}"

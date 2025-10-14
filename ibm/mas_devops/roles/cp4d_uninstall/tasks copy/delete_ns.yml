@@ -1,0 +1,44 @@
+---
+- name: Force remove namespace finalizers before deletion (if present)
+  shell: |
+    for ns in ibm-cpd ibm-cpd-operators; do
+      if oc get ns $ns &>/dev/null; then
+        oc get ns $ns -o json | jq 'del(.spec.finalizers)' > /tmp/${ns}.json || true
+        oc replace --raw "/api/v1/namespaces/$ns/finalize" -f /tmp/${ns}.json || true
+        echo "$ns finalizers removed or replace attempted"
+      else
+        echo "$ns not present"
+      fi
+    done
+  register: ns_finalizer_replace
+  failed_when: false
+
+- debug:
+    msg: "Namespace finalizer replace output: {{ ns_finalizer_replace.stdout_lines }}"
+
+- name: Attempt to delete namespaces (with wait loops)
+  shell: |
+    for ns in ibm-cpd ibm-cpd-operators; do
+      echo "Attempting delete for $ns"
+      oc delete ns $ns --ignore-not-found --force --grace-period=0 || true
+
+      # wait for deletion up to 6 minutes
+      for i in $(seq 1 36); do
+        if ! oc get ns $ns &>/dev/null; then
+          echo "$ns deleted"
+          break
+        fi
+        sleep 10
+      done
+
+      if oc get ns $ns &>/dev/null; then
+        echo "$ns still exists after retries"
+      else
+        echo "$ns successfully removed"
+      fi
+    done
+  register: ns_deletion_attempt
+  failed_when: false
+
+- debug:
+    msg: "Namespaces deletion attempt output: {{ ns_deletion_attempt.stdout_lines }}"

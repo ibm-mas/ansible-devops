@@ -1,0 +1,44 @@
+---
+- name: "Fetch all CP4D CRDs"
+  k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+  register: crds
+
+- name: "Get all CRs for each CP4D CRD"
+  k8s_info:
+    api_version: "{{ item.spec.group }}/{{ item.spec.versions[0].name }}"
+    kind: "{{ item.spec.names.kind }}"
+    namespace: ibm-cpd
+  loop: "{{ crds.resources | selectattr('metadata.name', 'search', 'ibm') | list }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  register: crs_per_crd
+  ignore_errors: true
+
+- name: "Delete all CRs per CRD"
+  k8s:
+    api_version: "{{ item.apiVersion }}"
+    kind: "{{ item.kind }}"
+    name: "{{ item.metadata.name }}"
+    namespace: ibm-cpd
+    state: absent
+    wait: yes
+    force: yes
+  loop: "{{ crs_per_crd.results | map(attribute='resources') | flatten | default([]) }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  ignore_errors: true
+
+- name: "Delete CP4D CRDs"
+  k8s:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item.metadata.name }}"
+    state: absent
+    wait: yes
+    force: yes
+  loop: "{{ crds.resources | selectattr('metadata.name', 'search', 'ibm') | list }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  ignore_errors: true

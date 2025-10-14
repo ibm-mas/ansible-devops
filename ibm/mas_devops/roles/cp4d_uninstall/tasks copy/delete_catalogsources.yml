@@ -1,0 +1,54 @@
+---
+- name: Find CP4D-related CatalogSources (all namespaces)
+  shell: |
+    oc get catalogsource -A -o name | grep -E 'ibm-zen|cpd-platform|opencloud-operators' || true
+  register: catalog_sources_found
+  changed_when: false
+
+- debug:
+    msg: "CatalogSources found: {{ catalog_sources_found.stdout_lines }}"
+
+- name: Attempt to delete CatalogSources (retry loop)
+  vars:
+    retries: 5
+    wait_sec: 15
+  block:
+    - name: Delete each CatalogSource (one pass)
+      shell: |
+        set -e
+        deleted=()
+        for src in $(oc get catalogsource -A -o name | grep -E 'ibm-zen|cpd-platform|opencloud-operators' || true); do
+          # src format is catalogsource.operators.coreos.com/<name>
+          echo "Deleting $src"
+          oc delete $src --force --grace-period=0 --ignore-not-found || true
+          deleted+=("$src")
+        done
+        # print deleted list for registration
+        printf "%s\n" "${deleted[@]}" || true
+      register: catalog_delete_pass
+      failed_when: false
+      changed_when: catalog_delete_pass.rc == 0 and catalog_delete_pass.stdout != ""
+    - debug:
+        msg: "Catalog delete pass output: {{ catalog_delete_pass.stdout_lines }}"
+
+    - name: Re-check catalogsources remaining
+      shell: oc get catalogsource -A | grep -E 'ibm-zen|cpd-platform|opencloud-operators' || true
+      register: catalog_after_pass
+      changed_when: false
+
+    - debug:
+        msg: "Remaining after pass: {{ catalog_after_pass.stdout_lines }}"
+
+  rescue:
+    - debug:
+        msg: "CatalogSource delete pass failed but continuing (rescue)."
+
+  always:
+    - name: Wait and retry if some CatalogSources still present
+      pause:
+        seconds: "{{ wait_sec }}"
+      when: catalog_after_pass.stdout != ""
+      register: pause_after_catalog_pass
+      until: >
+        (catalog_after_pass.stdout == "") or (ansible_loop.index is defined and ansible_loop.index >= retries)
+      failed_when: false

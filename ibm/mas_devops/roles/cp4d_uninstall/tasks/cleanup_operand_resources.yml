@@ -1,0 +1,20 @@
+---
+# After finalizers removed, delete all operand-related CRs in ibm-cpd-operators
+- name: List operand-related CR kinds we will clean
+  set_fact:
+    operand_cr_kinds:
+      - operandrequest
+      - operandconfig
+      - operandregistry
+      - operandbindinfo
+
+- name: Delete each operand CR kind via oc (force)
+  shell: |
+    for kind in {{ operand_cr_kinds | to_json }}; do
+      oc delete $kind -n ibm-cpd-operators --all --ignore-not-found --force --grace-period=0 || true
+    done
+  register: delete_operands
+  failed_when: false
+
+- debug:
+    msg: "Deleted operand CRs: {{ delete_operands.stdout_lines }}"
