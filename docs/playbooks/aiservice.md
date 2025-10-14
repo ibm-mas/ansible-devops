@@ -106,6 +106,12 @@ Optional environment variables
 * `USE_AWS_DB2` A flag indicating whether to use an AWS-hosted DB2 instance (default value is: false)
 * `AISERVICE_DOMAIN` Provide custom domain (default value is: empty)
 * `AISERVICE_WATSONXAI_CA_CRT` provide WatsonX AI CA certificate
+* `AISERVICE_WATSONXAI_FULL` optional on prem define if WatsonX AI engine is full or light (true/false)
+`AISERVICE_WATSONXAI_DEPLOYMENT_ID` optional on prem define depoyment Id
+`AISERVICE_WATSONXAI_SPACE_ID` optional on prem define space Id
+`AISERVICE_WATSONXAI_INSTANCE_ID` optional on prem define instance id (default: openshift)
+`AISERVICE_WATSONXAI_USERNAME` optional on prem define user name
+`AISERVICE_WATSONXAI_VERSION` optional on prem define version of CPD
 
 Usage
 -------------------------------------------------------------------------------
