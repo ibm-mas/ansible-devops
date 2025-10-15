@@ -66,11 +66,7 @@
     # -------------------------------------------------------------------------
     mirror_odf: "{{ lookup('env', 'MIRROR_ODF') | default ('False', True) | bool }}"
 
-    # 14. kmodels
-    # -------------------------------------------------------------------------
-    mirror_kmodels: "{{ lookup('env', 'MIRROR_KMODELS') | default ('False', True) | bool }}"
-
-    # 15. Minio and MariaDB (for AI Service)
+    # 14. Minio and opendatahub (for AI Service)
     mirror_minio: "{{ lookup('env', 'MIRROR_MINIO') | default ('False', True) | bool }}"
     mirror_opendatahub: "{{ lookup('env', 'MIRROR_OPENDATAHUB') | default ('False', True) | bool }}"
 
@@ -612,23 +608,7 @@
         extras_name: odf
         extras_version: 4.15
 
-    # 14. Kmodels
-    # -------------------------------------------------------------------------
-    - role: ibm.mas_devops.mirror_extras_prepare
-      when:
-        - mirror_kmodels
-        - mirror_kmodels != "from-filesystem"
-      vars:
-        extras_name: kmodels
-        extras_version: "{{ mas_catalog_metadata.kmodels_extras_version_default }}"
-
-    - role: ibm.mas_devops.mirror_images
-      when: mirror_kmodels
-      vars:
-        manifest_name: extras_kmodels
-        manifest_version: "{{ mas_catalog_metadata.kmodels_extras_version_default }}"
-
-    # 15. Minio and opendatahub - needed by AI Service
+    # 14. Minio and opendatahub - needed by AI Service
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_extras_prepare
       when:
