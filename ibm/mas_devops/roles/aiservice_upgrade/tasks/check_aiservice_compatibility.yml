@@ -1,0 +1,131 @@
+---
+# 1. Check that the subscription meets the required state
+# -----------------------------------------------------------------------------
+- name: "Get subscription for ibm-aiservice"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    namespace: "{{ aiservice_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-aiservice.{{ aiservice_namespace }}"
+  register: aiservice_sub_info
+
+- name: "AI Service : Debug existing Subscription"
+  debug:
+    var: aiservice_sub_info
+
+- name: "AI Service : Check that the subscription exists"
+  assert:
+    that:
+      - aiservice_sub_info.resources is defined
+      - aiservice_sub_info.resources | length == 1
+      - aiservice_sub_info.resources[0].spec is defined
+      - aiservice_sub_info.resources[0].spec.channel is defined
+    fail_msg: "Unable to find AI Service subscription in namespace {{ aiservice_namespace }}"
+
+- name: "AI Service : Debug when we are already on the desired channel"
+  when: aiservice_sub_info.resources[0].spec.channel == aiservice_channel
+  debug:
+    msg: "No action required, subscription is already on the {{ aiservice_sub_info.resources[0].spec.channel }} channel"
+
+- name: "AI Service : Check that install plan approvals are set to 'Automatic'"
+  when:
+    - aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+    - aiservice_sub_info.resources[0].spec.installPlanApproval is defined
+  assert:
+    that: aiservice_sub_info.resources[0].spec.installPlanApproval == 'Automatic'
+    fail_msg: "Automatic install plan approvals must be enabled to upgrade via this role"
+
+
+# 2. Lookup the OperatorCondition
+# -----------------------------------------------------------------------------
+- name: "AI Service : Lookup OperatorCondition for ibm-aiservice"
+  when: aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ aiservice_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-aiservice.{{ aiservice_namespace }}"
+  register: opcon
+  retries: 10
+  delay: 60 # 1 minute
+  until:
+    - opcon.resources is defined
+    - opcon.resources | length == 1
+    - opcon.resources[0].metadata.name is defined
+
+- name: "AI Service : Debug OperatorCondition"
+  when: aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+  debug:
+    var: opcon
+
+
+# 3. Set the operator version
+# -----------------------------------------------------------------------------
+# OperatorCondition names are in the format {packageName}.{packageVersion}
+# We want to strip off the "v" prefix from the version while we do this
+- name: "AI Service : Lookup operator version for ibm-aiservice"
+  when: aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+  set_fact:
+    opcon_version: "{{ opcon.resources[0].metadata.name.split('.v')[1] }}"
+
+- name: "AI Service : Debug Operator Version"
+  when: aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+  debug:
+    msg:
+      - "Operator condition ......... {{ opcon.resources[0].metadata.name }}"
+      - "Operator version ........... {{ opcon_version }}"
+
+
+# 4. Check that the AIServiceApp CR meets the required state
+# -----------------------------------------------------------------------------
+- name: "AI Service : Get AIServiceApp CR for ibm-aiservice"
+  when: aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1
+    name: "{{ aiservice_instance_id }}"
+    namespace: "{{ aiservice_namespace }}"
+    kind: AIServiceApp
+  register: aiservice_info
+
+- name: "AI Service : Debug AIServiceApp CR"
+  when: aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+  debug:
+    var: aiservice_info
+
+- name: "AI Service : Check that the AIServiceApp CR exists"
+  when: aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+  assert:
+    that:
+      - aiservice_info.resources is defined
+      - aiservice_info.resources | length == 1
+    fail_msg: "AI Service has not been installed in namespace {{ aiservice_namespace }}"
+
+- name: "AI Service : Check that the AIServiceApp CR has been reconciled to the expected version for GA channels (Non feature)"
+  when:
+    - aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+    - "'-feature' not in aiservice_sub_info.resources[0].spec.channel"
+  assert:
+    that:
+      - aiservice_info.resources[0].status.versions.reconciled == opcon_version
+    fail_msg: "Upgrade failed because AI Service version ({{ aiservice_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
+
+# reconciled: 9.1.0-pre.stable+8193 cr version
+# opcon_version: 9.1.0-pre.stable-8193 operator condition
+# above versions having `+` and `-` differences in feature channel (stable build)
+- name: "AI Service : Check that the Suite CR has been reconciled to the expected version for feature channels"
+  when:
+    - aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+    - "'-feature' in aiservice_sub_info.resources[0].spec.channel"
+  assert:
+    that:
+      - "(aiservice_info.resources[0].status.versions.reconciled | replace('+', '-') == opcon_version | replace('+', '-'))"
+    fail_msg: "Upgrade failed because AI Service version ({{ aiservice_info.resources[0].status.versions.reconciled }}) is not at the expected version {{ opcon_version }}"
+
+- name: "AI Service : Check that the Suite CR is in a healthy state"
+  when: aiservice_sub_info.resources[0].spec.channel != aiservice_channel
+  assert:
+    that:
+      - aiservice_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+    fail_msg: "Upgrade failed because AI Service is not healthy"
