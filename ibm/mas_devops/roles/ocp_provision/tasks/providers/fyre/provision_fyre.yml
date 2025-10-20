@@ -47,15 +47,11 @@
 # 3. Determine whether there is already an environment running
 # -----------------------------------------------------------------------------
 - name: "fyre : Check if cluster already exists"
-  uri:
-    url: "https://ocpapi.svl.ibm.com/v1/check_hostname/{{ cluster_name }}?site={{ fyre_site }}"
-    user: "{{ fyre_username }}"
-    password: "{{ fyre_password }}"
-    method: GET
-    force_basic_auth: yes
-    validate_certs: false
-  register: _cluster_exist
-  failed_when: _cluster_exist.status in [403, 401]  # Forbidden, Unauthorized
+  ansible.builtin.command:
+    cmd: "{{ role_path }}/scripts/fyre/check-hostname.py --site {{ fyre_site }} --name {{ cluster_name }}"
+  environment:
+    FYRE_USERNAME: "{{ fyre_username }}"
+    FYRE_APIKEY: "{{ fyre_password }}"
 
 
 # 4. Deploy the OCP+ cluster
@@ -103,20 +99,11 @@
 # 5. Track the progress of the deployment
 # -----------------------------------------------------------------------------
 - name: "fyre : Follow deployment status (2 minute intervals)"
-  uri:
-    url: "https://ocpapi.svl.ibm.com/v1/ocp/{{ cluster_name }}/status?site={{ fyre_site }}"
-    user: "{{ fyre_username }}"
-    password: "{{ fyre_password }}"
-    method: GET
-    force_basic_auth: yes
-    validate_certs: false
-  register: _result
-  until:
-    - _result.json is defined
-    - _result.json.deployed_status is defined
-    - _result.json.deployed_status == 'deployed'
-  retries: 60 # 60 * 2 minutes = 2 hours
-  delay: 120 # Every 2 minutes
+  ansible.builtin.command:
+    cmd: "{{ role_path }}/scripts/fyre/watch-provision.py --site {{ fyre_site }} --name {{ cluster_name }}"
+  environment:
+    FYRE_USERNAME: "{{ fyre_username }}"
+    FYRE_APIKEY: "{{ fyre_password }}"
 
 
 # 6. Reconfigure the cluster for NFS
