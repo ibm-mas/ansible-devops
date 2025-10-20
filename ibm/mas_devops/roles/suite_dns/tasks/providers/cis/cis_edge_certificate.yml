@@ -27,7 +27,7 @@
 
 - name: "cis : Lookup for CIS Service Domains"
   ansible.builtin.shell: |
-    ibmcloud cis domains -i {{ cis_service_name }} -o json
+    ibmcloud cis domains -i "{{ cis_service_name }}" -o json
   register: _cis_domains_result
 
 - set_fact:
@@ -43,7 +43,7 @@
 
 - name: "cis : Lookup for cis certificates"
   ansible.builtin.shell: |
-    ibmcloud cis certificates {{ _cis_domain_id }} -i {{ cis_service_name }} -o json
+    ibmcloud cis certificates {{ _cis_domain_id }} -i "{{ cis_service_name }}" -o json
   register: _cis_certificates
 
 - name: "cis : exclude certs not for {{ mas_instance_id }}"
@@ -91,7 +91,7 @@
 
 - name: "cis : Delete Existent Advanced Edge Certificate, if set to override or we need to reorder"
   ansible.builtin.shell: |
-    ibmcloud cis certificate-delete {{ _cis_domain_id }}  {{ dedicatedId }} -i {{ cis_service_name }} -f
+    ibmcloud cis certificate-delete {{ _cis_domain_id }}  {{ dedicatedId }} -i "{{ cis_service_name }}" -f
   when: hasDedicated and (override_edge_certs or (edge_cert_output is defined and edge_cert_output["reorder"]))
   register: _deleted_certificate
 
@@ -101,7 +101,7 @@
 
 - name: "cis : Order certificate if there no dedicated yet or we just deleted them"
   ansible.builtin.shell: |
-    ibmcloud cis certificate-order {{ _cis_domain_id }} --hostnames {{ item|join(',') }} -i {{ cis_service_name }}
+    ibmcloud cis certificate-order {{ _cis_domain_id }} --hostnames {{ item|join(',') }} -i "{{ cis_service_name }}"
   loop: "{{ edge_cert_routes | batch(50) | list }}"
   when:
     - not hasDedicated or _deleted_certificate["changed"]
