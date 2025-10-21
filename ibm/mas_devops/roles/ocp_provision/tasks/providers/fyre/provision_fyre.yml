@@ -33,8 +33,8 @@
       - "Fyre product ID .............. {{ fyre_product_id }}"
       - "Fyre Quota Type .............. {{ fyre_quota_type }}"
       - "fips enabled ................. {{ ocp_fips_enabled }}"
-      - "IPv6 enabled ..................{{ enable_ipv6 }}"
-      - "Fyre Site......................{{ fyre_site }}"
+      - "IPv6 enabled ................. {{ enable_ipv6 }}"
+      - "Fyre NFS Setup ............... {{ fyre_nfs_setup }}"
       # Quickburn specific
       - "Fyre cluster size ............ {{ fyre_cluster_size | default('<undefined>', true) }}"
       # Product Group specific
@@ -47,23 +47,22 @@
 # 3. Determine whether there is already an environment running
 # -----------------------------------------------------------------------------
 - name: "fyre : Check if cluster already exists"
-  ansible.builtin.command:
-    cmd: "{{ role_path }}/scripts/fyre/check-hostname.py --site {{ fyre_site }} --name {{ cluster_name }}"
-  environment:
-    FYRE_USERNAME: "{{ fyre_username }}"
-    FYRE_APIKEY: "{{ fyre_password }}"
-
+  ibm.mas_devops.fyre_check_hostname:
+    username: "{{ fyre_username }}"
+    apikey: "{{ fyre_password }}"
+    cluster_name: "{{ cluster_name }}"
+    fyre_site: "{{ fyre_site }}"
+  register: _hostname_check
 
 # 4. Deploy the OCP+ cluster
 # -----------------------------------------------------------------------------
 - name: "fyre : Debug cluster provision json body"
-  when:
-    - _cluster_exist.json is defined
-    - _cluster_exist.json.owning_user is not defined # when there's no cluster owner, it means there's no cluster thus we create it
+  when: _hostname_check.available
   vars:
     fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
   debug:
     msg: "{{ lookup('template', fyre_template_name) }}"
+
 
 # Note: FYRE rate limits this API globally - we are competing with all other FYRE users for limited "slots" to
 # provision new OCP+ clusters, when this happens we will see an error like this with a RC of 429:
@@ -73,9 +72,7 @@
 # To mitigate this we have a retry in place, but it will also trigger retries due to any other failure condition
 # We will retry for approximately half an hour before giving up.
 - name: "fyre : Create new OCP+ cluster"
-  when:
-    - _cluster_exist.json is defined
-    - _cluster_exist.json.owning_user is not defined  # When there's no cluster owner, it means there's no cluster thus we create it
+  when: _hostname_check.available
   vars:
     fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
   uri:
@@ -99,11 +96,11 @@
 # 5. Track the progress of the deployment
 # -----------------------------------------------------------------------------
 - name: "fyre : Follow deployment status (2 minute intervals)"
-  ansible.builtin.command:
-    cmd: "{{ role_path }}/scripts/fyre/watch-provision.py --site {{ fyre_site }} --name {{ cluster_name }}"
-  environment:
-    FYRE_USERNAME: "{{ fyre_username }}"
-    FYRE_APIKEY: "{{ fyre_password }}"
+  ibm.mas_devops.fyre_watch_provision:
+    username: "{{ fyre_username }}"
+    apikey: "{{ fyre_password }}"
+    cluster_name: "{{ cluster_name }}"
+    fyre_site: "{{ fyre_site }}"
 
 
 # 6. Reconfigure the cluster for NFS
