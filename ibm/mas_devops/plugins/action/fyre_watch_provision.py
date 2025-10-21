@@ -11,8 +11,16 @@ from ansible.utils.display import Display
 display = Display()
 
 def checkStatus(username: str, password: str, clusterName: str, site: str, retryCount: int=0, errorCount: int=0) -> bool:
-    if retryCount >= 60:
-        display.v(" - Reached retry limit (60)")
+    # Default to 5 minutes delay between retries
+    sleepTime = 300
+
+    # From the 3rd retry onwards reduce the wait time
+    if retryCount > 2:
+        sleepTime = 120
+
+    # After 50 retries, give up
+    if retryCount >= 50:
+        display.v(" - Reached retry limit (50)")
         return False
     elif errorCount >= 5:
         display.v(" - Reached error limit (5)")
@@ -35,8 +43,8 @@ def checkStatus(username: str, password: str, clusterName: str, site: str, retry
         clusterDetails = response.json().get("details", None)
         if "does not exist" in clusterDetails:
             display.v(" - Cluster does not exist")
-            sleep(120)
-            checkStatus(username, password, clusterName, site, errorCount+1, errorCount+1)
+            sleep(sleepTime)
+            return checkStatus(username, password, clusterName, site, errorCount+1, errorCount+1)
         else:
             display.v(f" - Fatal error: {clusterDetails}")
             return False
@@ -50,8 +58,8 @@ def checkStatus(username: str, password: str, clusterName: str, site: str, retry
             return True
         else:
             display.v(f" - Cluster is in status '{clusterStatus}' - waiting 2m before checking again")
-        sleep(120)
-        checkStatus(username, password, clusterName, site, retryCount+1, errorCount)
+        sleep(sleepTime)
+        return checkStatus(username, password, clusterName, site, retryCount+1, errorCount)
     else:
         display.v(f" - Unexpected return code ({response.status_code}): {response.json()}")
         return False
