@@ -2,12 +2,12 @@ Install AI Service
 ===============================================================================
 
 !!! important
+
     These playbooks are samples to demonstrate how to use the roles in this collection.
 
     They are **note intended for production use** as-is, they are a starting point for power users to aid in the development of their own Ansible playbooks using the roles in this collection.
 
     The recommended way to install MAS is to use the [MAS CLI](https://ibm-mas.github.io/cli/), which uses this Ansible Collection to deliver a complete managed lifecycle for your MAS instance.
-
 
 Dependencies
 -------------------------------------------------------------------------------
@@ -24,7 +24,7 @@ This playbook will add **AI Service v9.1.x** to OCP cluster.
 
 This playbook can be ran against any OCP cluster regardless of its type; whether it's running in IBM Cloud, Azure, AWS, or your local datacenter.
 
-- Install dependencies:
+* Install dependencies:
     - IBM Maximo Operator Catalog **optional**
     - RedHat Certificate Manager **optional**
     - MongoDb **optional**
@@ -32,7 +32,7 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
     - IBM Data Reporter Operator (~10 Minutes) **optional**
     - IBM Db2 **optional**
     - Minio (~5 minutes) **optional**
-- Install ODH:
+* Install ODH:
     - Install Red Hat OpenShift Serverless Operator
     - Install Red Hat OpenShift Service Mesh Operator
     - Install Authorino Operator
@@ -40,12 +40,11 @@ This playbook can be ran against any OCP cluster regardless of its type; whether
     - Create DSCInitialization instance
     - Create Data Science Cluster
     - Create Create Data Science Pipelines Application
-- Install AI Service (using playbook):
+* Install AI Service (using playbook):
     - Install application (~20 Minutes)
     - Configure AI Service (kmodels, tenant, etc) (~20 Minutes)
 
 All timings are estimates, see the individual pages for each of these playbooks for more information. Use this sample playbook as a starting point for installing application, just customize the application install and configure stages at the end of the playbook.
-
 
 Required environment variables
 -------------------------------------------------------------------------------
@@ -66,8 +65,8 @@ Required environment variables
 * `AISERVICE_WATSONXAI_PROJECT_ID` You WatsonX projedt Id
 
 !!! tip
-    AI service supports **AWS** and **Minio** storage providers.
 
+    AI service supports **AWS** and **Minio** storage providers.
 
 Required environment variables (SaaS)
 -------------------------------------------------------------------------------
@@ -81,7 +80,6 @@ Required environment variables (SaaS)
 * `AISERVICE_DRO_TOKEN` specify DRO token, mandatory when `AISERVICE_SAAS=true` to get value: go to `mas-{{ instance_id }}-core` and look in secret `dro-apikey`
 * `DB2_INSTANCE_NAME` specify DB2 instance name (default value is: aiservice), mandatory when `AISERVICE_SAAS=true`
 * `IBM_ENTITLEMENT_KEY` specify IBM Entitlement key, mandatory when `AISERVICE_SAAS=true`
-
 
 Optional environment variables
 -------------------------------------------------------------------------------
@@ -115,9 +113,11 @@ Optional environment variables
 
 Usage
 -------------------------------------------------------------------------------
+
 ### AI service deployment steps
 
 !!! tip
+
     For S3 manage please make sure you have deployed dependencies
 
 Install boto3 python module (use python environment):
@@ -130,10 +130,9 @@ python3 -m pip install boto3
 
 Run playbooks for deploy AI service:
 
-- `AISERVICE_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
-- `AISERVICE_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
-- In `AWS` for `AISERVICE_S3_TENANTS_BUCKET`, `AISERVICE_S3_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
-
+* `AISERVICE_SLS_REGISTRATION_KEY` - value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`
+* `AISERVICE_DRO_TOKEN` - go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
+* In `AWS` for `AISERVICE_S3_TENANTS_BUCKET`,  `AISERVICE_S3_TEMPLATES_BUCKET` user need to create S3 buckets with unique name
 
 ```bash
 export ARTIFACTORY_USERNAME=""
@@ -190,7 +189,6 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/aiservice.yml
 ```
 
-
 Create S3
 -------------------------------------------------------------------------------
 
@@ -206,7 +204,6 @@ oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
 
-
 Delete S3
 -------------------------------------------------------------------------------
 
@@ -221,7 +218,6 @@ export ROLE_NAME="aiservice"
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook playbooks/run_role.yml
 ```
-
 
 Create API Key
 -------------------------------------------------------------------------------
@@ -269,7 +265,7 @@ ansible-playbook playbooks/run_role.yml
 
 Create Tenant
 -------------------------------------------------------------------------------
-The `AISERVICE_SLS_REGISTRATION_KEY` value can be found in `ibm-sls` namespace, in pod  `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY`.  To obtain the `AISERVICE_DRO_TOKEN` go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
+The `AISERVICE_SLS_REGISTRATION_KEY` value can be found in `ibm-sls` namespace, in pod `sls-api-licensing-85699fb57-9lmrq` please look in environments tab, then value `REGISTRATION_KEY` .  To obtain the `AISERVICE_DRO_TOKEN` go to `mas-instance_id-core` namespace and in secrets find `dro-apikey`
 
 ```bash
 export AISERVICE_TENANT_NAME="user7"
@@ -301,4 +297,5 @@ ansible-playbook playbooks/run_role.yml
 ```
 
 !!! tip
+
     To create addidional tenants we don't need to specify buckets
