@@ -37,16 +37,6 @@ def checkHostname(username, password, name, site) -> bool:
 
 
 class ActionModule(ActionBase):
-    """
-    Usage Example
-    -------------
-    tasks:
-      - name: "Load catalog metadata"
-        ibm.mas_devops.get_catalog_info:
-          mas_catalog_version: "{{ catalog_tag }}"
-          fail_if_catalog_does_not_exist: true
-        register: mas_catalog_metadata
-    """
     def run(self, tmp=None, task_vars=None):
         super(ActionModule, self).run(tmp, task_vars)
 
