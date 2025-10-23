@@ -89,7 +89,7 @@ class ActionModule(ActionBase):
         namespace = self._task.args.get('namespace', None)
         name = self._task.args.get('name', None)
         conditions = self._task.args.get('conditions', [])
-        retries = self._task.args.get('retries', None)
+        retries = self._task.args.get('retries', 50)
 
         if api_version is None:
             raise AnsibleError(f"Error: api_version argument was not provided")
