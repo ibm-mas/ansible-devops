@@ -4,6 +4,8 @@ Longhorn provides a single solution to fulfil both the `ReadWriteMany` and `Read
 >
 > Longhorn is free, open source software. Originally developed by Rancher Labs, it is now being developed as a incubating project of the Cloud Native Computing Foundation.
 
+The Longhorn UI will be available at `https://longhorn-ui-longhorn-system.{clusterdomain}` (supporting authenciation via OpenShift OAuth).
+
 More information:
 - [What is Longhorn?](https://longhorn.io/docs/latest/what-is-longhorn/)
 - [Longhorn Helm Chart Settings](https://longhorn.io/docs/latest/references/helm-values/)
