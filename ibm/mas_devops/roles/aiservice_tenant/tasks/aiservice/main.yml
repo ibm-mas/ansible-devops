@@ -28,7 +28,7 @@
 - name: "Create ibm-aiservice Subscription"
   ibm.mas_devops.apply_subscription:
     namespace: "{{ aiservice_namespace }}"
-    package_name: ibm-aiservice
+    package_name: ibm-aiservice-tenant
     package_channel: "{{ aiservice_channel }}"
     catalog_source: "{{ mas_catalog_source }}"
   register: subscription
@@ -39,7 +39,7 @@
 - name: "Wait until the IBM Maximo AI Service Operator CRD is available"
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
-    crd_name: aiserviceapps.aiservice.ibm.com
+    crd_name: aiservicetenants.aiservice.ibm.com
 
 
 # 4. Lookup storage class availability
@@ -65,36 +65,3 @@
     msg: "AI Service storage class ................. {{ aiservice_storage_class }}"
 
 
-# 6. Create/Update km-s3-secret
-# -----------------------------------------------------------------------------
-- name: "Create km-s3-secret"
-  kubernetes.core.k8s:
-    state: present
-    template: templates/aiservice/s3-secret.yml.j2
-
-
-# 7. IBM Maximo AI Broker installation
-# -----------------------------------------------------------------------------
-- name: Create AI Service CR
-  vars:
-    annotation_dict: "{{ mas_annotations | string | ibm.mas_devops.getAnnotations() }}"
-  kubernetes.core.k8s:
-    state: present
-    template: templates/aiservice/aiserviceapp.yml.j2
-
-
-# 8. Wait IBM Maximo AI Service custom resource to be complete
-# -----------------------------------------------------------------------------
-- name: "Wait for AIServiceApp custom resource to be ready (60s delay)"
-  kubernetes.core.k8s_info:
-    api_version: aiservice.ibm.com/v1
-    name: "{{ aiservice_instance_id }}"
-    namespace: "{{ aiservice_namespace }}"
-    kind: AIServiceApp
-  register: aiserviceapp_cr_result
-  until:
-    - aiserviceapp_cr_result.resources is defined and aiserviceapp_cr_result.resources | length == 1
-    - aiserviceapp_cr_result.resources[0].status is defined
-    - aiserviceapp_cr_result.resources | json_query('[*].status.conditions[?type==`Successful`][].status') | select ('match','True') | list | length == 1
-  retries: 45 # approx 45 minutes before we give up
-  delay: 60 # 1 minute
