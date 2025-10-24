@@ -108,6 +108,16 @@
 
 # 6. Reconfigure the cluster for NFS
 # -----------------------------------------------------------------------------
+# In previous versions of the role fyre_nfs_setup was used instead of
+# ocp_storage_provider, this step ensures backwards compatibility with
+# existing usage
+- name: "Backwards compatibility"
+  when:
+    - ocp_storage_provider == ""
+    - fyre_nfs_setup == True
+  set_fact:
+    ocp_storage_provider: "nfs"
+
 - name: "Install NFS"
   include_tasks: "tasks/providers/fyre/nfs/install_nfs.yml"
   when: ocp_storage_provider == "nfs"

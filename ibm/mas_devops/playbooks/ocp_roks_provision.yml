@@ -7,6 +7,9 @@
     prometheus_storage_class: ibmc-block-gold
     prometheus_alertmgr_storage_class: ibmc-file-gold-gid
 
+    # Supported providers: longhorn
+    ocp_storage_provider: "{{ lookup('env', 'OCP_STORAGE_PROVIDER') }}"
+
   pre_tasks:
     # For the full set of supported environment variables refer to the playbook documentation
     - name: Check for required environment variables
@@ -18,14 +21,18 @@
 
   roles:
     # 1. Provision the ROKS cluster (if it doesn't already exist)
-    - ibm.mas_devops.ocp_provision
+    - role: ibm.mas_devops.ocp_provision
 
     # 2. Login to the cluster
-    - ibm.mas_devops.ocp_login
+    - role: ibm.mas_devops.ocp_login
 
     # 3. Upgrade the cluster's image registry to 400Gb
-    - name: ibm.mas_devops.ocp_roks_upgrade_registry_storage
+    - role: ibm.mas_devops.ocp_roks_upgrade_registry_storage
       when: lookup('env', 'UPGRADE_IMAGE_REGISTRY_STORAGE') == "true"
 
     # 4. Verify the cluster is ready to use
-    - ibm.mas_devops.ocp_verify
+    - role: ibm.mas_devops.ocp_verify
+
+    # 5. Configure optional storage provider
+    - role: ibm.mas_devops.longhorn
+      when: ocp_storage_provider == "longhorn"
