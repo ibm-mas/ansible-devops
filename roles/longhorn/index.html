@@ -2,7 +2,7 @@
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>aws_vpc - MAS DevOps Ansible Collection</title>
+    <title>longhorn - MAS DevOps Ansible Collection</title>
 
     <!-- Pure CSS (https://pure-css.github.io/) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css" integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">
@@ -74,7 +74,7 @@
 
       
         <cds-header-nav>
-          <cds-header-nav-item href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/aws_vpc.md">Edit on GitHub</cds-header-nav-item>
+          <cds-header-nav-item href="https://github.com/ibm-mas/ansible-devops/blob/master/docs/roles/longhorn.md">Edit on GitHub</cds-header-nav-item>
         </cds-header-nav>
       
 
@@ -303,7 +303,7 @@
 
     
       
-  <cds-side-nav-menu-item href="./" active expanded>
+  <cds-side-nav-menu-item href="../aws_vpc/">
     aws_vpc
   </cds-side-nav-menu-item>
 
@@ -399,7 +399,7 @@
 
     
       
-  <cds-side-nav-menu-item href="../longhorn/">
+  <cds-side-nav-menu-item href="./" active expanded>
     longhorn
   </cds-side-nav-menu-item>
 
@@ -699,12 +699,16 @@
       <cds-breadcrumb-item>Roles: Dependency Mgmt</cds-breadcrumb-item>
 
   <cds-breadcrumb-item aria-current="page">
-    <cds-breadcrumb-link href="#aws_vpc">aws_vpc</cds-breadcrumb-link>
+    <cds-breadcrumb-link href="#role-variables">Role Variables</cds-breadcrumb-link>
   </cds-breadcrumb-item>
 
   <cds-breadcrumb-item>
     <cds-select id="breadcrumbs-toc" class="cds-theme-zone-g10" inline placeholder="..." oninput="changeAnchor(this.value)">
     
+    
+      <cds-select-item value="#longhorn_namespace">longhorn_namespace</cds-select-item>
+    
+      <cds-select-item value="#longhorn_replica_count">longhorn_replica_count</cds-select-item>
     
   </cds-select>
   </cds-breadcrumb-item>
@@ -713,71 +717,49 @@
 
     <div id="main-content" class="rst-content">
       
-      <h2 id="aws_vpc">aws_vpc<a class="headerlink" href="#aws_vpc" title="Permanent link">¤</a></h2>
-<p>This role will create VPC with specified CIDR IP </p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">¤</a></h2>
-<p>To run this role successfully you must have already installed the <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>.
-Also, you need to have AWS user credentials configured via <code>aws configure</code> command or simply export <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables with your corresponding AWS username credentials prior running this role.</p>
+      <p>Longhorn provides a single solution to fulfil both the <code>ReadWriteMany</code> and <code>ReadWriteOnce</code> storage requirements for Maximo Application Suite.</p>
+<blockquote>
+<p>Longhorn is a lightweight, reliable and easy-to-use distributed block storage system for Kubernetes.</p>
+<p>Longhorn is free, open source software. Originally developed by Rancher Labs, it is now being developed as a incubating project of the Cloud Native Computing Foundation.</p>
+</blockquote>
+<p>The Longhorn UI will be available at <code>https://longhorn-ui-longhorn-system.{clusterdomain}</code> (authentication via OpenShift OAuth).</p>
+<p>More information:
+- <a href="https://longhorn.io/docs/latest/what-is-longhorn/">What is Longhorn?</a>
+- <a href="https://longhorn.io/docs/latest/references/helm-values/">Longhorn Helm Chart Settings</a>
+- <a href="https://github.com/longhorn/longhorn/blob/master/chart/ocp-readme.md">Longhorn on OpemShift Readme</a></p>
+<pre><code>oc -n longhorn-system get deployments
+NAME                       READY   UP-TO-DATE   AVAILABLE   AGE
+csi-attacher               3/3     3            3           38m
+csi-provisioner            3/3     3            3           38m
+csi-resizer                3/3     3            3           38m
+csi-snapshotter            3/3     3            3           38m
+longhorn-driver-deployer   1/1     1            1           40m
+longhorn-ui                2/2     2            2           40m
+</code></pre>
+<p>Two storage classes will be set up automatically, Maximo Application Suite uses dynamic provisioning and as such will not use the <code>longhorn-static</code> storage class:</p>
+<pre><code>oc get storageclass | grep longhorn
+longhorn (default)          driver.longhorn.io   Delete          Immediate           true                   40m
+longhorn-static             driver.longhorn.io   Delete          Immediate           true                   40m
+</code></pre>
 <h2 id="role-variables">Role Variables<a class="headerlink" href="#role-variables" title="Permanent link">¤</a></h2>
-<h3 id="mas_config_dir">mas_config_dir<a class="headerlink" href="#mas_config_dir" title="Permanent link">¤</a></h3>
-<p>Generate k8 resources like username and password Secret for created user will be saved in this directory</p>
-<ul>
-<li>Required</li>
-<li>Environment Variable: <code>MAS_CONFIG_DIR</code></li>
-<li>Default Value: None.</li>
-</ul>
-<h3 id="aws_region">aws_region<a class="headerlink" href="#aws_region" title="Permanent link">¤</a></h3>
-<p>Specify AWS Region where vpc will be created</p>
+<h3 id="longhorn_namespace">longhorn_namespace<a class="headerlink" href="#longhorn_namespace" title="Permanent link">¤</a></h3>
+<p>Define the namespace where Longhorn will be installed.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>AWS_REGION</code></li>
-<li>Default Value: <code>us-east-1</code></li>
+<li>Environment Variable: <code>LONGHORN_NAMESPACE</code></li>
+<li>Default Value: <code>longhorn-system</code></li>
 </ul>
-<h3 id="vpc_action">vpc_action<a class="headerlink" href="#vpc_action" title="Permanent link">¤</a></h3>
-<p>Specify action(provision/deprovision) to performed by the role</p>
+<h3 id="longhorn_replica_count">longhorn_replica_count<a class="headerlink" href="#longhorn_replica_count" title="Permanent link">¤</a></h3>
+<p>The replica count in Longhorn determines the number of copies of a volume's data stored across different nodes in a Kubernetes cluster, which directly impacts data availability and resilience. The default replica count of 3 allows the system to tolerate up to two replica failures while maintaining data integrity, but in development system you may prefer to set this to 1 to sacrifice resiliance in favour of reduced storage requirements.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>VPC_ACTION</code></li>
-<li>Default Value: <code>provision</code></li>
+<li>Environment Variable: <code>LONGHORN_REPLICA_COUNT</code></li>
+<li>Default Value: <code>3</code></li>
 </ul>
-<h3 id="vpc_cidr">vpc_cidr<a class="headerlink" href="#vpc_cidr" title="Permanent link">¤</a></h3>
-<p>Specify IP Address CIDR range for VPC</p>
-<ul>
-<li>Required</li>
-<li>Environment Variable: <code>VPC_CIDR</code></li>
-<li>Default Value: None</li>
-</ul>
-<h3 id="vpc_name">vpc_name<a class="headerlink" href="#vpc_name" title="Permanent link">¤</a></h3>
-<p>Specify Name for VPC</p>
-<ul>
-<li>Required</li>
-<li>Environment Variable: <code>VPC_NAME</code></li>
-<li>Default Value: None</li>
-</ul>
-<h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
-<pre><code class="language-yaml">- hosts: localhost
-  vars:
-    mas_config_dir: ~/masconfig
-    vpc_name: test-vpc
-    vpc_cidr: 10.0.0.0/16
-    vpc_action: provision
-  roles:
-    - ibm.mas_devops.aws_vpc
-</code></pre>
-<h2 id="run-role-playbook">Run Role Playbook<a class="headerlink" href="#run-role-playbook" title="Permanent link">¤</a></h2>
-<p>After installing the Ansible Collection you can easily run the role standalone using the <code>run_role</code> playbook provided.</p>
-<pre><code class="language-bash">export VPC_NAME=test-vpc
-export VPC_CIDR='10.0.0.0/16'
-export VPC_ACTION=provision
-export MAS_CONFIG_DIR=/pathtoconfig
-ROLE_NAME=aws_vpc ansible-playbook ibm.mas_devops.run_role
-</code></pre>
-<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
-<p>EPL-2.0</p>
       
     </div>
     <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v1.6.1 (2025-10-24 13:07:50.213834+00:00)
+      Built with mkdocs v1.6.1 (2025-10-24 13:07:50.301394+00:00)
     </div> -->
   
 <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": false, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
