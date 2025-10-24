@@ -4,6 +4,14 @@
     cluster_type: fyre
     ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.18', True) }}"
 
+    # Supported providers: nfs, odf, longhorn
+    ocp_storage_provider: "{{ lookup('env', 'OCP_STORAGE_PROVIDER') }}"
+
+    # When using Longhorn in the context of Fyre, default to a single replica
+    # This is suitable for development environments, reducing the cost of
+    # storage at the cost of reliability/availability
+    longhorn_replica_count: "{{ lookup('env', 'LONGHORN_REPLICA_COUNT') | default('1', True) | int }}"
+
     # We update the cipher support on all installs, even though it's only technically
     # requires for FIPS clusters
     ocp_update_ciphers_for_semeru: True
@@ -22,11 +30,18 @@
 
   roles:
     # 1. Provision the FYRE cluster
-    - name: ibm.mas_devops.ocp_provision
+    - role: ibm.mas_devops.ocp_provision
 
     # 2. Login and verify the cluster is ready
-    - name: ibm.mas_devops.ocp_login
-    - name: ibm.mas_devops.ocp_verify
+    - role: ibm.mas_devops.ocp_login
+    - role: ibm.mas_devops.ocp_verify
 
     # 3. Update the APIServer to custom for FIPS compatibility
-    - name: ibm.mas_devops.ocp_config
+    - role: ibm.mas_devops.ocp_config
+
+    # 4. Configure optional storage provider
+    - role: ibm.mas_devops.longhorn
+      when: ocp_storage_provider == "longhorn"
+
+    - role: ibm.mas_devops.ocs
+      when: ocp_storage_provider == "odf"

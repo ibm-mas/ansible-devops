@@ -28,15 +28,20 @@
       - "Cluster platform ............. {{ cluster_platform }}"
       - "Cluster description .......... {{ fyre_cluster_description }}"
       - "OCP version .................. {{ ocp_version }}"
-      - "Username ..................... {{ fyre_username }}"
+
+      - "OCP storage provider ......... {{ ocp_storage_provider | default('<none>', true) }}"
+      - "Fyre NFS setup (deprecated) .. {{ fyre_nfs_setup }}"
+
+      - "Fyre Username ................ {{ fyre_username }}"
       - "Fyre Site .................... {{ fyre_site }}"
-      - "Fyre product ID .............. {{ fyre_product_id }}"
       - "Fyre Quota Type .............. {{ fyre_quota_type }}"
-      - "fips enabled ................. {{ ocp_fips_enabled }}"
-      - "IPv6 enabled ..................{{ enable_ipv6 }}"
-      - "Fyre Site......................{{ fyre_site }}"
+      - "Fyre product ID .............. {{ fyre_product_id }}"
+      - "FIPS enabled ................. {{ ocp_fips_enabled }}"
+      - "IPv6 enabled ................. {{ enable_ipv6 }}"
+
       # Quickburn specific
       - "Fyre cluster size ............ {{ fyre_cluster_size | default('<undefined>', true) }}"
+
       # Product Group specific
       - "Worker count ................. {{ fyre_worker_count | default('<undefined>', true) }}"
       - "Worker CPU ................... {{ fyre_worker_cpu | default('<undefined>', true) }}"
@@ -47,27 +52,22 @@
 # 3. Determine whether there is already an environment running
 # -----------------------------------------------------------------------------
 - name: "fyre : Check if cluster already exists"
-  uri:
-    url: "https://ocpapi.svl.ibm.com/v1/check_hostname/{{ cluster_name }}?site={{ fyre_site }}"
-    user: "{{ fyre_username }}"
-    password: "{{ fyre_password }}"
-    method: GET
-    force_basic_auth: yes
-    validate_certs: false
-  register: _cluster_exist
-  failed_when: _cluster_exist.status in [403, 401]  # Forbidden, Unauthorized
-
+  ibm.mas_devops.fyre_check_hostname:
+    username: "{{ fyre_username }}"
+    apikey: "{{ fyre_password }}"
+    cluster_name: "{{ cluster_name }}"
+    fyre_site: "{{ fyre_site }}"
+  register: _hostname_check
 
 # 4. Deploy the OCP+ cluster
 # -----------------------------------------------------------------------------
 - name: "fyre : Debug cluster provision json body"
-  when:
-    - _cluster_exist.json is defined
-    - _cluster_exist.json.owning_user is not defined # when there's no cluster owner, it means there's no cluster thus we create it
+  when: _hostname_check.available
   vars:
     fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
   debug:
     msg: "{{ lookup('template', fyre_template_name) }}"
+
 
 # Note: FYRE rate limits this API globally - we are competing with all other FYRE users for limited "slots" to
 # provision new OCP+ clusters, when this happens we will see an error like this with a RC of 429:
@@ -77,9 +77,7 @@
 # To mitigate this we have a retry in place, but it will also trigger retries due to any other failure condition
 # We will retry for approximately half an hour before giving up.
 - name: "fyre : Create new OCP+ cluster"
-  when:
-    - _cluster_exist.json is defined
-    - _cluster_exist.json.owning_user is not defined  # When there's no cluster owner, it means there's no cluster thus we create it
+  when: _hostname_check.available
   vars:
     fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
   uri:
@@ -103,24 +101,25 @@
 # 5. Track the progress of the deployment
 # -----------------------------------------------------------------------------
 - name: "fyre : Follow deployment status (2 minute intervals)"
-  uri:
-    url: "https://ocpapi.svl.ibm.com/v1/ocp/{{ cluster_name }}/status?site={{ fyre_site }}"
-    user: "{{ fyre_username }}"
-    password: "{{ fyre_password }}"
-    method: GET
-    force_basic_auth: yes
-    validate_certs: false
-  register: _result
-  until:
-    - _result.json is defined
-    - _result.json.deployed_status is defined
-    - _result.json.deployed_status == 'deployed'
-  retries: 60 # 60 * 2 minutes = 2 hours
-  delay: 120 # Every 2 minutes
+  ibm.mas_devops.fyre_watch_provision:
+    username: "{{ fyre_username }}"
+    apikey: "{{ fyre_password }}"
+    cluster_name: "{{ cluster_name }}"
+    fyre_site: "{{ fyre_site }}"
 
 
 # 6. Reconfigure the cluster for NFS
 # -----------------------------------------------------------------------------
+# In previous versions of the role fyre_nfs_setup was used instead of
+# ocp_storage_provider, this step ensures backwards compatibility with
+# existing usage
+- name: "Backwards compatibility"
+  when:
+    - ocp_storage_provider == ""
+    - fyre_nfs_setup == True
+  set_fact:
+    ocp_storage_provider: "nfs"
+
 - name: "Install NFS"
   include_tasks: "tasks/providers/fyre/nfs/install_nfs.yml"
-  when: fyre_nfs_setup
+  when: ocp_storage_provider == "nfs"
