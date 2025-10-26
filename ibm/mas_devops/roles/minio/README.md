@@ -1,12 +1,12 @@
-# Minio
-=====
+Minio
+===============================================================================
 
 This role provides support to install and configure Minio Storage
 
 * Install Minio storage
 
 Role Variables
---------------
+-------------------------------------------------------------------------------
 
 ### minio_namespace
 Action to be performed by minio role. Valid values are `string`.
