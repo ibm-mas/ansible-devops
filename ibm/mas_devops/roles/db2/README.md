@@ -150,7 +150,7 @@ Size of the metadata persistent volume, in gigabytes
 
 - Optional
 - Environment Variable: `DB2_META_STORAGE_SIZE`
-- Default: `10Gi`
+- Default: `20Gi`
 
 ### db2_meta_storage_accessmode
 The access mode for the storage.
@@ -171,7 +171,7 @@ Size of data persistent volume.
 
 - Optional
 - Environment Variable: `DB2_DATA_STORAGE_SIZE`
-- Default: `50Gi`
+- Default: `100Gi`
 
 ### db2_data_storage_accessmode
 The access mode for the storage.
@@ -192,7 +192,7 @@ Size of backup persistent volume.
 
 - Optional
 - Environment Variable: `DB2_BACKUP_STORAGE_SIZE`
-- Default: `50Gi`
+- Default: `100Gi`
 
 ### db2_backup_storage_accessmode
 The access mode for the storage.
@@ -213,7 +213,7 @@ Size of transaction logs persistent volume.
 
 - Optional
 - Environment Variable: `DB2_LOGS_STORAGE_SIZE`
-- Default: `10Gi`
+- Default: `100Gi`
 
 ### db2_logs_storage_accessmode
 The access mode for the storage.
@@ -234,7 +234,7 @@ Size of temporary persistent volume.
 
 - Optional
 - Environment Variable: `DB2_TEMP_STORAGE_SIZE`
-- Default: `10Gi`
+- Default: `100Gi`
 
 ### db2_temp_storage_accessmode
 The access mode for the storage. This must support ReadWriteOnce(RWO) access mode.
