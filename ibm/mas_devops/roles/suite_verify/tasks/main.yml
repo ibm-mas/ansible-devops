@@ -20,49 +20,38 @@
 
 # 3. Follow Suite Status
 # -----------------------------------------------------------------------------
-- name: "Wait for Suite Components to be ready (60s delay)"
-  kubernetes.core.k8s_info:
+- name: "Wait for Suite Components to be ready"
+  ibm.mas_devops.wait_for_conditions:
     api_version: v1
     name: "{{mas_instance_id}}"
     namespace: "{{mas_namespace}}"
     kind: Suite
+    conditions:
+      - SystemDatabaseReady
+      - BASIntegrationReady
+      - SLSIntegrationReady
   register: suite_cr_result
-  until:
-    - suite_cr_result.resources[0].status.conditions is defined
-    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SystemDatabaseReady') | map(attribute='status') | list | length > 0
-    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SystemDatabaseReady') | map(attribute='status') | list | first == "True"
-    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'BASIntegrationReady') | map(attribute='status') | list | length > 0
-    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'BASIntegrationReady') | map(attribute='status') | list | first == "True"
-    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SLSIntegrationReady') | map(attribute='status') | list | length > 0
-    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'SLSIntegrationReady') | map(attribute='status') | list | first == "True"
-  retries: 50 # approx 50 minutes before we give up
-  delay: 60 # 1 minute
 
 # Older versions of MAS Core may not have the CoreIDPReady status check so it is seperated here and it only runs if the check is present
-- name: "Wait for CoreIDP to be ready if check is present (60s delay)"
-  when: suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'CoreIDPReady') | map(attribute='status') | list | length > 0
-  kubernetes.core.k8s_info:
+- name: "Wait for CoreIDP to be ready if check is present"
+  when: suite_cr_result.resource.status.conditions | selectattr('type', 'equalto', 'CoreIDPReady') | map(attribute='status') | list | length > 0
+  ibm.mas_devops.wait_for_conditions:
     api_version: v1
     name: "{{mas_instance_id}}"
     namespace: "{{mas_namespace}}"
     kind: Suite
+    conditions:
+      - CoreIDPReady
   register: suite_cr_result
-  until: suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'CoreIDPReady') | map(attribute='status') | list | first == "True"
-  retries: 20 # approx 20 minutes before we give up
-  delay: 60 # 1 minute
 
-- name: "Wait for Suite to be ready overall (60s delay)"
-  kubernetes.core.k8s_info:
+- name: "Wait for Suite to be ready overall"
+  ibm.mas_devops.wait_for_conditions:
     api_version: v1
     name: "{{mas_instance_id}}"
     namespace: "{{mas_namespace}}"
     kind: Suite
-  register: suite_cr_result
-  until:
-    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | length > 0
-    - suite_cr_result.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | list | first == "True"
-  retries: 20 # approx 20 minutes before we give up
-  delay: 60 # 1 minute
+    conditions:
+      - Ready
 
 # 4. Lookup for superuser credentials
 # -----------------------------------------------------------------------------
