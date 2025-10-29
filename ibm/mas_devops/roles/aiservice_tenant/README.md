@@ -19,11 +19,11 @@ Action to be performed by AI Broker role. Valid values are `install` or `remove`
 * Environment Variable: `TENANT_ACTION`
 * Default Value: `install`
 
-### tenantName
+### tenantID
 
-The tenant name for AI Broker role.
+The tenant ID for AI Broker role.
 
-* Environment Variable: `AISERVICE_TENANT_NAME`
+* Environment Variable: `AISERVICE_TENANT_ID`
 * Default Value: `user`
 
 ### app_domain
@@ -31,41 +31,6 @@ The tenant name for AI Broker role.
 The application domain for AI Broker role. Valid values is domain string `apps.domain`
 
 * Environment Variable: `APP_DOMAIN`
-* Default Value: ``
-
-### aiservice_s3_action
-
-Action to be performed by AI Broker role. Valid values are `install` or `remove`
-
-* Environment Variable: `AISERVICE_S3_ACTION`
-* Default Value: `install`
-
-### aiservice_storage_host
-
-The storge host for AI Broker role.
-
-* Environment Variable: `AISERVICE_STORAGE_HOST`
-* Default Value: ``
-
-### aiservice_storage_accesskey
-
-The storage accesskey for AI Broker role.
-
-* Environment Variable: `AISERVICE_STORAGE_ACCESSKEY`
-* Default Value: ``
-
-### aiservice_storage_secretkey
-
-The storage secretkey for AI Broker role.
-
-* Environment Variable: `AISERVICE_STORAGE_SECRETKEY`
-* Default Value: ``
-
-### aiservice_storage_region
-
-The storage region for AI Broker role.
-
-* Environment Variable: `AISERVICE_STORAGE_REGION`
 * Default Value: ``
 
 ### aiservice_watsonx_action
@@ -116,44 +81,6 @@ Set the tenant's entitlement start date in format `YYYY-MM-DD`.
 Set the tenant's entitlement end date in format `YYYY-MM-DD`.
 
 * Environment Variable: `AISERVICE_TENANT_ENTITLEMENT_END_DATE`
-
-## S3
-The following variables configure S3-compatible storage (e.g. AWS, Minio). Similar variables
-can also be defined in the `aiservice` role for setting shared configuration
-across all tenants. Configuration defined here at the tenant-level will take precedence.
-
-### aiservice_s3_region
-
-Set the S3 region.
-
-* Environment Variable: `AISERVICE_TENANT_S3_REGION`
-* Default Value: ``
-
-### aiservice_s3_endpoint_url
-
-Set the S3 endpoint URL.
-
-* Environment Variable: `AISERVICE_TENANT_S3_ENDPOINT_URL`
-* Default Value: ``
-
-### aiservice_s3_bucket_prefix
-
-Set the S3 bucket prefix.
-
-* Environment Variable: `AISERVICE_TENANT_S3_BUCKET_PREFIX`
-* Default Value: ``
-
-### aiservice_s3_access_key
-
-Set the S3 access key ID.
-
-* Environment Variable: `AISERVICE_TENANT_S3_ACCESS_KEY`
-
-### aiservice_s3_secret_key
-
-Set the S3 secret access key.
-
-* Environment Variable: `AISERVICE_TENANT_S3_SECRET_KEY`
 
 
 License

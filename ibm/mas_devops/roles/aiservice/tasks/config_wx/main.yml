@@ -1,0 +1,15 @@
+---
+- name: Delete WatsonX secret if exists
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Secret
+    name: "{{ aiservice_wx_cacert_secret }}"
+    state: absent
+    namespace: aiservice-{{ aiservice_instance_id }}
+  when: aiservice_watsonxai_ca_crt == ""
+
+- name: "Create secret for WX CA Cert"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/wx/wx-tenant-details.yml.j2"
+  when: aiservice_watsonxai_ca_crt | length > 0

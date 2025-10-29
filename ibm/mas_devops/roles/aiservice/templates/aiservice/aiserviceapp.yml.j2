@@ -1,0 +1,41 @@
+---
+apiVersion: aiservice.ibm.com/v1
+kind: AIServiceApp
+metadata:
+  name: {{ aiservice_instance_id }}
+  namespace: {{ aiservice_namespace }}
+  annotations:
+    ansible.sdk.operatorframework.io/verbosity: "{{ aiservice_operator_log_level }}"
+  labels:
+    aiservice.ibm.com/instanceId: {{ aiservice_instance_id }}
+    app.kubernetes.io/instance: {{ aiservice_instance_id }}
+spec:
+  settings:
+    dro:
+      url: "{{ drocfg.url }}"
+      secretName: "dro-token"
+      ca: "{{ drocfg.ca | b64encode }}"
+    jdbc:
+      url: "{{ jdbccfg.url }}"
+      secretName: "{{ aiservice_jdbc_secret }}"
+      ca: "{{ jdbccfg.ca | b64encode }}"
+      useAwsDb2: {{ use_aws_db2 }}
+    s3:
+      url: "{{ aiservice_s3_url }}"
+      region: "{{ aiservice_s3_region }}"
+      bucketPrefix: "{{ aiservice_s3_bucket_prefix }}"
+      templatesBucket: {{ aiservice_s3_templates_bucket }}
+      tenantsBucket: {{ aiservice_s3_tenants_bucket }}
+      secretName: "{{ aiservice_s3_secret }}"
+    domain: "{{ aiservice_domain }}"
+    modelId:
+      uniqueLength: "15"
+      prefix: {{ aiservice_s3_bucket_prefix }}
+    environmentType: "{{ environment_type }}"
+    storageClassName: "{{ aiservice_storage_class }}"
+    inSaasEnv: {{ aiservice_saas }}
+    icr:
+      cp: "{{ mas_icr_cp }}"
+      cpopen: "{{ mas_icr_cpopen }}"
+    watsonxai:
+      ca: "{{ aiservice_watsonxai_ca_crt | b64encode }}"

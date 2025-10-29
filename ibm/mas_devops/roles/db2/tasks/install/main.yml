@@ -371,19 +371,8 @@
     namespace: "{{db2_namespace}}"
     state: absent
 
-# 16. Delete db2 pod on intial setup only, to workaround db2 issue
-# that was causing TLS connection issues when the pod was first started
-# -----------------------------------------------------------------------------
-- name: Delete db2u pod on initial setup
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: Pod
-    name: "c-{{db2_instance_name | lower}}-db2u-0"
-    namespace: "{{db2_namespace}}"
-    state: absent
-  when: initial_db2_cluster_lookup.resources | length == 0
 
-# 17. create an LDAP user if db2_ldap_username specified
+## 16. create an LDAP user if db2_ldap_username specified
 # -----------------------------------------------------------------------------
 - name: Create LDAP user if username and password is provided
   include_tasks: tasks/install/create_ldap_user.yml
@@ -399,7 +388,7 @@
       - "{{db2_ldap_username}}"
       - "{{db2_rotate_password}}"
 
-# 18. Rotate db2 ldap password
+# 17. Rotate db2 ldap password
 # -----------------------------------------------------------------------------
 - name: Rotate Db2 LDAP password if db2_rotate_password is True and username is provided
   include_tasks: tasks/install/rotate_ldap_user_password.yml
@@ -408,7 +397,7 @@
     - db2_ldap_username != ""
     - db2_rotate_password == true
 
-# 19. Wait for the statefulset to be ready
+# 18. Wait for the statefulset to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for Db2 Stateful set to be ready"
   kubernetes.core.k8s_info:
@@ -427,7 +416,7 @@
   retries: 20 # approx 10 minutes before we give up
   delay: 30 # seconds
 
-# 20. Generate a JdbcCfg for MAS configuration
+# 19. Generate a JdbcCfg for MAS configuration
 # -----------------------------------------------------------------------------
 - include_tasks: tasks/install/suite_jdbccfg.yml
   when:

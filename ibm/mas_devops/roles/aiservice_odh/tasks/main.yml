@@ -3,28 +3,43 @@
   include_vars: "vars/main.yml"
 
 
-# 1. Load default storage class (if not provided by the user)
+# 1. Validate odh model deployment type
 # -----------------------------------------------------------------------------
-- include_tasks: tasks/determine-storage-classes.yml
-
+- name: Validate odh model deployment type
+  ansible.builtin.assert:
+    that:
+      - aiservice_odh_model_deployment_type in ['raw', 'serverless']
+    fail_msg: "AISERVICE_ODH_MODEL_DEPLOYMENT_TYPE must be one of: raw, serverless"
 
 # 2. Deploy OpenShift Serverless operators
 # -----------------------------------------------------------------------------
-- include_tasks: tasks/pipeline-operator.yml
 - include_tasks: tasks/serverless-operator.yml
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+
 - include_tasks: tasks/servicemesh-operator.yml
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+
 - include_tasks: tasks/authorino-operator.yml
 - include_tasks: tasks/odh-operator.yml
 
+- name: "Wait for opendatahub-operator-controller-manager to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    name: opendatahub-operator-controller-manager
+    namespace: "{{ odh_namespace }}"
+    kind: Deployment
+  register: opendatahub_deployment
+  until:
+    - opendatahub_deployment.resources is defined
+    - opendatahub_deployment.resources | length > 0
+    - opendatahub_deployment.resources[0].status is defined
+    - opendatahub_deployment.resources[0].status.replicas is defined
+    - opendatahub_deployment.resources[0].status.readyReplicas is defined
+    - opendatahub_deployment.resources[0].status.readyReplicas == opendatahub_deployment.resources[0].status.replicas
+  retries: 10 # Approximately 10 minutes before we give up
+  delay: 60 # 1 minute
 
-# 3. Create Aibroker namespace
-# -----------------------------------------------------------------------------
-- name: "Create Namespace"
-  kubernetes.core.k8s:
-    template: "templates/aiservice/namespace.yml.j2"
-
-
-# 4. Create DSCInitialization instance
+# 3. Create DSCInitialization instance
 # -----------------------------------------------------------------------------
 - name: "Create DSCInitialization instance"
   kubernetes.core.k8s:
@@ -47,7 +62,7 @@
   delay: 120
 
 
-# 5. Create Data Science Cluster
+# 4. Create Data Science Cluster
 # -----------------------------------------------------------------------------
 - name: "Create Data Science Cluster"
   kubernetes.core.k8s:
@@ -67,3 +82,21 @@
     - dsc_lookup.resources[0].status.phase == 'Ready'
   retries: 15
   delay: 120
+
+
+# 5. Create Istio Auth Rules
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/istio-auth.yml
+  when: aiservice_odh_model_deployment_type is defined and aiservice_odh_model_deployment_type == "serverless"
+
+
+# 6. Install Network policy
+# -----------------------------------------------------------------------------
+# This network policy is added as a temporary workaround to resolve an issue (specifically on the ROKS cluster)
+# where requests from the Kubernetes API to the odh-model-controller-webhook were being blocked.
+# This was causing errors while creating a inference service.
+
+- name: "Install network policy: allow-odh-model-controller"
+  kubernetes.core.k8s:
+    apply: yes
+    definition: "{{ lookup('template', 'templates/odh/allow-odh-model-controller-netpol.yml.j2') }}"
