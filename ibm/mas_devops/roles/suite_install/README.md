@@ -105,6 +105,13 @@ Boolean variable that indicates whether to enable guided tour.
 - Environment Variable: `MAS_ENABLE_WALKME`
 - Default: `true`
 
+### mas_report_adoption_metrics
+Boolean variable that indicates whether to enable adoption metrics reporting.
+
+- Optional
+- Environment Variable: `MAS_REPORT_ADOPTION_METRICS`
+- Default: `true`
+
 Role Variables - Superuser Account
 -------------------------------------------------------------------------------
 The MAS Superuser account username and password can be customized during the install by setting **both** of these variable.
