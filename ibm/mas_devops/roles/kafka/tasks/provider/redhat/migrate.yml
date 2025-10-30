@@ -1,5 +1,9 @@
 ---
-# 1. Verify that the Kafka instance is in ZooKeeper mode
+# 1. Load default storage classes (if not provided by the user)
+# -----------------------------------------------------------------------------
+- include_tasks: tasks/determine-storage-classes.yml
+
+# 2. Verify that the Kafka instance is in ZooKeeper mode
 # -----------------------------------------------------------------------------
 - name: "Get the Kafka CR instance"
   kubernetes.core.k8s_info:
@@ -16,7 +20,7 @@
     fail_msg: "Kafka cluster is not in ZooKeeper mode. Aborting..."
 
 
-# 2. Take a backup of the existing Kafka CR
+# 3. Take a backup of the existing Kafka CR
 # -----------------------------------------------------------------------------
 - name: "Take a backup of the existing Kafka CR"
   kubernetes.core.k8s_info:
@@ -32,7 +36,7 @@
     dest: "./{{ kafka_cluster_name }}-backup.yml"
 
 
-# 3. Deploy the controller as NodePool
+# 4. Deploy the controller as NodePool
 # -----------------------------------------------------------------------------
 - name: "Create the Controller"
   kubernetes.core.k8s:
@@ -40,7 +44,7 @@
     template: "templates/redhat/nodepools/controller.yml.j2"
 
 
-# 4. Deploy the Broker as NodePool
+# 5. Deploy the Broker as NodePool
 # -----------------------------------------------------------------------------
 - name: "Create the Broker"
   kubernetes.core.k8s:
@@ -48,7 +52,7 @@
     template: "templates/redhat/nodepools/broker.yml.j2"
 
 
-# 5. Enable NodePool in the Kafka CR
+# 6. Enable NodePool in the Kafka CR
 # -----------------------------------------------------------------------------
 - name: "Enable NodePool in the Kafka CR"
   kubernetes.core.k8s:
@@ -58,13 +62,13 @@
     name: "{{ kafka_cluster_name }}"
     merge_type: merge
     definition:
-          metadata:
-            annotations:
-              strimzi.io/kraft: disabled
-              strimzi.io/node-pools: enabled
+      metadata:
+        annotations:
+          strimzi.io/kraft: disabled
+          strimzi.io/node-pools: enabled
 
 
-# 6. Trigger the ZooKeeper migration to KRaft
+# 7. Trigger the ZooKeeper migration to KRaft
 # -----------------------------------------------------------------------------
 - name: "Trigger the ZooKeeper migration to KRaft"
   kubernetes.core.k8s:
@@ -74,12 +78,12 @@
     name: "{{ kafka_cluster_name }}"
     merge_type: merge
     definition:
-          metadata:
-            annotations:
-              strimzi.io/kraft: migration
+      metadata:
+        annotations:
+          strimzi.io/kraft: migration
 
 
-# 7. Wait for the migration to finish
+# 8. Wait for the migration to finish
 # -----------------------------------------------------------------------------
 - name: "Wait for the migration to finish"
   kubernetes.core.k8s_info:
@@ -95,7 +99,7 @@
     - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "KRaftPostMigration"
 
 
-# 8. Enable KRaft annotation on the Kafka CR
+# 9. Enable KRaft annotation on the Kafka CR
 # -----------------------------------------------------------------------------
 - name: "Enable KRaft annotation on the Kafka CR"
   kubernetes.core.k8s:
@@ -109,8 +113,7 @@
         annotations:
           strimzi.io/kraft: enabled
 
-
-# 9. Wait for the migration to finish
+# 10. Wait for the migration to finish
 # -----------------------------------------------------------------------------
 - name: "Wait for the migration to finish"
   kubernetes.core.k8s_info:
@@ -126,7 +129,7 @@
     - kafka_cluster_cr.resources[0].status.kafkaMetadataState == "KRaft"
 
 
-# 10. Delete the ZooKeeper section from the Kafka CR
+# 11. Delete the ZooKeeper section from the Kafka CR
 # -----------------------------------------------------------------------------
 - name: "Delete the ZooKeeper section from the Kafka CR"
   kubernetes.core.k8s_json_patch:
@@ -139,7 +142,7 @@
         path: /spec/zookeeper
 
 
-# 11. Assert that the Kafka CR is switched to KRaft
+# 12. Assert that the Kafka CR is switched to KRaft
 # -----------------------------------------------------------------------------
 - name: "Get the Kafka CR instance"
   kubernetes.core.k8s_info:
