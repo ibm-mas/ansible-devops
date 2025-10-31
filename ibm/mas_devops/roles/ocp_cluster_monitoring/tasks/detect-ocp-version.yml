@@ -1,0 +1,33 @@
+---
+# Detect OpenShift version to determine which monitoring template to use
+
+- name: "detect-ocp-version : Get OpenShift version"
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+  register: cluster_version_result
+
+- name: "detect-ocp-version : Set OpenShift version fact"
+  set_fact:
+    ocp_version: "{{ cluster_version_result.resources[0].status.desired.version | regex_replace('^(\\d+\\.\\d+).*', '\\1') }}"
+  when: cluster_version_result.resources is defined and cluster_version_result.resources | length > 0
+
+- name: "detect-ocp-version : Set default OpenShift version if detection fails"
+  set_fact:
+    ocp_version: "4.0"
+  when: ocp_version is not defined
+
+- name: "detect-ocp-version : Debug OpenShift version"
+  debug:
+    msg: "Detected OpenShift version: {{ ocp_version }}"
+
+- name: "detect-ocp-version : Validate OpenShift version compatibility"
+  fail:
+    msg: "Unsupported OpenShift version: {{ ocp_version }}. This role supports OpenShift 4.x versions only."
+  when: ocp_version is version('4.0', '<')
+
+- name: "detect-ocp-version : Set monitoring template based on OpenShift version"
+  set_fact:
+    ocp_version_418: true
+  when: ocp_version is version('4.18', '>=')

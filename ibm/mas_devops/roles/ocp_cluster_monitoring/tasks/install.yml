@@ -5,6 +5,11 @@
 - name: "install : Determine storage classes"
   include_tasks: tasks/determine-storage-classes.yml
 
+# 2. Detect OpenShift version to determine which template to use
+# -----------------------------------------------------------------------------
+- name: "install : Detect OpenShift version"
+  include_tasks: tasks/detect-ocp-version.yml
+
 
 # 2. Debug settings
 # -----------------------------------------------------------------------------
@@ -27,6 +32,14 @@
 # prometheus_alertmgr_storage_class for us to be able to apply this configuration
 - name: "install : Set storage class and retention period for Prometheus logs and turn on user workload monitoring"
   kubernetes.core.k8s:
+    definition: "{{ lookup('template', 'templates/cluster-monitoring-418.yml.j2') }}"
+    wait: yes
+    wait_timeout: 120
+  when: ocp_version_418 is defined and ocp_version_418 is true
+
+- name: "install : Set storage class and retention period for Prometheus logs and turn on user workload monitoring"
+  kubernetes.core.k8s:
     definition: "{{ lookup('template', 'templates/cluster-monitoring.yml.j2') }}"
     wait: yes
     wait_timeout: 120
+  when: ocp_version_418 is not defined
