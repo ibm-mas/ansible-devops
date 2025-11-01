@@ -51,9 +51,17 @@
 - name: Create ImageDigestMirrorSet
   kubernetes.core.k8s:
     apply: yes
-    template: 'templates/idms/mas-ibm-catalog.yml.j2'
+    template: 'templates/idms/{{ product_family }}/ibm-catalog.yml.j2'
   register: idms_result
 
+# 4. IBM Maximo Operator Catalog
+# -----------------------------------------------------------------------------
+- name: Create ImageDigestMirrorSet
+  kubernetes.core.k8s:
+    apply: yes
+    template: 'templates/itms/{{ product_family }}/itms.yml.j2'
+  when: product_family == "aiservice"
+  register: itms_result
 
 # 5. Red Hat Operator Catalogs
 # -----------------------------------------------------------------------------
@@ -88,7 +96,7 @@
   when: setup_redhat_catalogs
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/idms/mas-redhat-catalogs.yml.j2"
+    template: "templates/idms/{{product_family}}/redhat-catalogs.yml.j2"
 
 
 # 6. Red Hat Release Catalog
@@ -97,7 +105,7 @@
   when: setup_redhat_release
   kubernetes.core.k8s:
     apply: yes
-    template: "templates/idms/mas-redhat-release.yml.j2"
+    template: "templates/idms/{{product_family}}/redhat-release.yml.j2"
 
 
 # 7. Delete the old ICSPs
@@ -131,5 +139,5 @@
 # 7. Wait until the nodes have applied the updates
 # -----------------------------------------------------------------------------
 - name: Wait for Machine Configs to update
-  when: idms_result.changed
+  when: idms_result.changed or itms_result.changed
   include_tasks: "{{ role_path }}/../../common_tasks/wait-machine-config-update.yml"
