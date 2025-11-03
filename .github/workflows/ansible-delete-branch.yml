@@ -1,0 +1,21 @@
+name: Artifactory clean up
+on:
+  delete:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+jobs:
+  clean-up-artifactory:
+    name: Delete Build Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete
+        env:
+          ARTIFACTORY_GENERIC_RELEASE_URL: ${{ secrets.ARTIFACTORY_GENERIC_RELEASE_URL }}
+          ARTIFACTORY_TOKEN: ${{ secrets.ARTIFACTORY_TOKEN }}
+        run: |
+          FILE_NAME=ibm-mas_devops
+          FILE_EXT=tar.gz
+          BRANCH_TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/${GITHUB_REPOSITORY}/_branches/${FILE_NAME}-${GITHUB_REF_NAME}.${FILE_EXT}"
+          curl -H "Authorization:Bearer $ARTIFACTORY_TOKEN" -X DELETE "${BRANCH_TARGET_URL}"
