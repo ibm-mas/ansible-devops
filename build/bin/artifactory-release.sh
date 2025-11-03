@@ -36,7 +36,7 @@ fi
 if [ "${GITHUB_REF_TYPE}" == "branch" ]; then
   # To make it easier to work with, we simply upload a version per-branch, you no longer need to track the version number
   # as well as the branch
-  BRANCH_TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/${GITHUB_REPOSITORY}/_branches/${FILE_NAME}-${GITHUB_REF_NAME}.${FILE_EXT}"
+  BRANCH_TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/${GITHUB_REPOSITORY}/branches/${FILE_NAME}-${GITHUB_REF_NAME}.${FILE_EXT}"
   artifactory_upload $FILE_PATH $BRANCH_TARGET_URL
 else
   TAG_TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/${GITHUB_REPOSITORY}/${VERSION}/${FILE_NAME}-${VERSION}.${FILE_EXT}"
