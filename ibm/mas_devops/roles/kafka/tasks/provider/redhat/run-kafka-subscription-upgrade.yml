@@ -27,22 +27,7 @@
     kafkaCluster_modes: "{{ kafka_cluster_list.resources | map(attribute='status.kafkaMetadataState') }}"
   when: kafka_cluster_list.resources is defined
 
-# 3. Run migration on the ZooKeeper instances
-# -----------------------------------------------------------------------------
-- name: "Process clusters list"
-  include_tasks: tasks/provider/redhat/migrate.yml
-  loop: "{{ kafka_cluster_list.resources }}"
-  loop_control:
-    loop_var: kafka_cluster
-  vars:
-    kafka_namespace: "{{ kafka_cluster.metadata.namespace }}"
-    kafka_cluster_name: "{{ kafka_cluster.metadata.name }}"
-  when:
-    - kafka_cluster_list.resources is defined
-    - kafka_cluster.status.kafkaMetadataState == 'ZooKeeper'
-    - kafka_cluster.spec.kafka.version is version('2.8.0', '>=')
-
-# 4. Upgrade Subscription
+# 3. Upgrade Subscription
 # -----------------------------------------------------------------------------
 - name: "Get the current subscription channel for kafka"
   kubernetes.core.k8s_info:
@@ -57,7 +42,7 @@
     old_kafka_channel: "{{ kafka_sub_info.resources[0].spec.channel }}"
     old_kafka_csv: "{{ kafka_sub_info.resources[0].status.currentCSV }}"
 
-# Force the upgrade. This seems to be necessary because the install never happens
+# Force the upgrade. This is necessary because the install never happens
 # when we update the channel
 - name: "Delete Kafka Subscription"
   kubernetes.core.k8s:
@@ -75,9 +60,11 @@
     kind: ClusterServiceVersion
     state: absent
 
-- name: "Pause for 30 seconds before reinstall subscription..."
+- name: "Pause for 30 seconds before reinstalling the subscription..."
   pause:
     seconds: 30
 
 # Rerun install to reapply csv, subscription, and update any configs
+# This handles upgrading the version of Kafka as well after we upgrade the
+# sub and do migrations. It can also remove deprecations in the configs.
 - include_tasks: tasks/provider/redhat/install-kafka.yml
