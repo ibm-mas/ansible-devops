@@ -1,46 +1,25 @@
 ---
-# Important: Treat dro_action and uds_action as an alias for the same thing
-# Thus dro_action = "install" doesn't mean "install DRO", it means "install UDS"
-
-# 1. Install DRO
+# 1. Enabled backwards for the older "install-dro" command
 # -----------------------------------------------------------------------------
-# If the user has provided dro_endpoint_url then it means they don't want to install
-# DRO locally, but instead just generate a BASCfg for the instance defined by
-# the input variables
-- name: Assert DRO_ACTION values
+- name: Backwards compatibility mode for "install-dro" action
+  when: dro_action == "install-dro"
+  set_fact:
+    dro_action: "install"
+
+
+# 2. Validate chosen action
+# -----------------------------------------------------------------------------
+- name: Validate DRO_ACTION value
   assert:
-    that: dro_action in ["install", "install-dro", "uninstall", "skip"]
-    fail_msg: "Incorrect value set for DRO_ACTION"
-  when: dro_action is defined and (dro_action | length > 0)
+    that:
+      - dro_action is defined
+      - dro_action | length > 0
+      - dro_action in ["install", "uninstall", "skip"]
+    fail_msg: "Incorrect value set for DRO_ACTION, support actions are install (install-dro), uninstall, and skip"
 
-- name: "Debug dro_migration Flag"
-  debug:
-    msg:
-      - "dro_migration Flag is set to ..................... {{ dro_migration }}"
 
-# Default installation (DRO_ACTION set to install-dro)
-- name: install/uninstall dro
+# 3. Run the defined action
+# -----------------------------------------------------------------------------
+- name: install/uninstall DRO
   include_tasks: "tasks/{{ dro_action }}/main.yml"
-  when:
-    - dro_action in ["install-dro", "uninstall"]
-    - dro_migration == "" or dro_migration | lower == "false"
-
-# Migration from UDS to DRO (DRO_ACTION not set, DRO_MIGRATION set yo true by cli)
-- name: UDS to DRO migration (mas update scenario)
-  include_tasks: "tasks/install-dro/main.yml"
-  when:
-    - dro_migration != "" and dro_migration | lower == "true"
-
-# Generate the DRO configuration for MAS
-- name: gencfg for new installation
-  include_tasks: tasks/gencfg/main.yml
-  when:
-    - dro_action not in ["uninstall", "install", "skip"] or dro_migration | lower == "true"
-    - mas_config_dir is defined and mas_config_dir != ""
-
-# Uninstall UDS when DRO_MIGRATION flag is set to True
-- name: Uninstall UDS after DRO migration (mas update scenario)
-  include_role:
-    name: ibm.mas_devops.uds
-  when:
-    - dro_migration != "" and dro_migration | lower == "true"
+  when: dro_action in ["install", "uninstall"]
