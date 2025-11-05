@@ -37,7 +37,7 @@ All you need to do is to define `cpd_product_version` variable to the version yo
 
 For more information about IBM Cloud Pak for Data upgrade process, refer to the [Cloud Pak for Data official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=upgrading).
 
-The role assumes that you have already installed the IBM Operator Catalog and configured IBM Cloud Pak Foundational services (only a must have if installing CPD 4.6.x) in the target cluster. These actions are performed by the [ibm_catalogs](ibm_catalogs.md) [common_services](common_services.md) roles in this collection.
+The role assumes that you have already installed the IBM Maximo Operator Catalog and configured Certificate Manager in the target cluster. These actions are performed by the [ibm_catalogs](ibm_catalogs.md) [cert_manager](cert_manager.md) roles in this collection.
 
 Cloud Pak for Data will be configured as a [specialized installation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=planning-architecture)
 
