@@ -18,7 +18,7 @@ Playbook Content
 1. [Install IBM Operator Catalogs](../roles/ibm_catalogs.md) (1 minute)
 2. [Install IBM Common Services](../roles/common_services.md) (3 minutes)
 3. [Install Certificate Manager Operator](../roles/cert_manager.md) (3 minutes)
-4. [Install Mongodb Operator and Create a Cluster](../roles/mongodb.md) (10 minutes)
+4. [Install Mongodb Operator and Create a Cluster](../roles/mongodb.md) (10 minutes, skipped if SKIP_MONGO set to TRUE))
 5. [Install and bootstrap IBM Suite License Service](../roles/sls.md) (10 minutes)
 6. [Install IBM User Data Services](../roles/uds.md) (30 minutes)
 7. [Generate a MAS Workspace Configuration](../roles/gencfg_workspace.md) (1 minute)
@@ -64,6 +64,10 @@ Usage
 - `DRO_CONTACT_FIRSTNAME` Primary contact first name
 - `DRO_CONTACT_LASTNAME` Primary contact last name
 
+### Optional environment variables (for this playbook only)
+- `SKIP_MONGO` Controls whether to use an custom MongoDB configuration instead of deploying a new MongoDB cluster.
+  - If set to `"true"`, the playbook will skip the mongo role and expect that MongoDB connection details are provided via a YAML configuration file in the directory specified by `MAS_CONFIG_DIR`.
+  - If set to `"false"` (or left unset), the playbook will deploy MongoDB using the `ibm.mas_devops.mongodb` role.
 
 ### Storage Class Configuraton
 Storage class configuration is built into the collection and the playbook will auto-select the appropriate storage classes when it detects the presence of certain storage classes in your cluster (IBM Cloud Storage or OpenShift Container Storage).  If you are running the install on a cluster that does not have these storage classes then you will also must configure the following environment variables:
@@ -133,6 +137,7 @@ export UDS_CONTACT_EMAIL=xxx@xxx.com
 export UDS_CONTACT_FIRSTNAME=xxx
 export UDS_CONTACT_LASTNAME=xxx
 
+export SKIP_MONGO=TRUE
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.mas_install_core
 ```
