@@ -237,18 +237,37 @@
       set_fact:
         db2_releases_content: "{{ db2_release_info.resources[0].data.json }}"
 
+    - name: Extract major version from channel
+      set_fact:
+        db2_major_version: "{{ db2_channel | regex_replace('^v(\\d{2})(\\d+).*', '\\1') }}"
 
-    - name: Filter out s12* versions and pick latest s11*
+    - name: Debug extracted version
+      ansible.builtin.debug:
+        msg:
+          - "DB2 Channel ........................... {{ db2_channel }}"
+          - "Extracted Major Version ............... {{ db2_major_version }}"
+          - "Filter Pattern ........................ ^s{{ db2_major_version }}"
+
+    - name: Determine DB2 version based on channel
       set_fact:
         db2_version: >-
           {{
             (db2_releases_content.databases.db2u.keys()
-            | select('match', '^s11')
+            | select('match', '^s' + db2_major_version)
             | sort)
             | last
           }}
+      when: 
+        - (db2_releases_content.databases.db2u.keys() | select('match', '^s' + db2_major_version) | list | length) > 0
 
   when: db2_version is not defined or db2_version == ""
+
+- name: Debug DB2 channel and determined version
+  ansible.builtin.debug:
+    msg:
+      - "DB2 Channel ........................... {{ db2_channel }}"
+      - "DB2 Version (determined) .............. {{ db2_version }}"
+      - "Available versions .................... {{ db2_releases_content.databases.db2u.keys() | list }}"
 
 # 11. Fail if required parameters are not set
 # -----------------------------------------------------------------------------
