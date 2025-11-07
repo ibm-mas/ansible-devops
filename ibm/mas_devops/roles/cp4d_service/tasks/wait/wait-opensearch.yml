@@ -1,11 +1,11 @@
 ---
-# 1. Wait for opensearch-cluster custom resource to be created
+# 1. Wait for elasticsearch-master cluster custom resource to be created
 # -----------------------------------------------------------------------------
 - name: "wait/ccs : Wait for the OpenSearch cluster custom resource to appear (60s delay)"
   kubernetes.core.k8s_info:
-    api_version: opensearch.opster.io/v1
-    kind: OpenSearchCluster
-    name: opensearch-cluster
+    api_version: opensearch.cloudpackopen.ibm.com/v1
+    kind: Cluster
+    name: elasticsearch-master
     namespace: "{{ cpd_instance_namespace }}"
   register: opensearch_cr_lookup
   retries: 30 # Up to 30 minutes
@@ -14,23 +14,23 @@
     - opensearch_cr_lookup.resources is defined
     - opensearch_cr_lookup.resources | length > 0
 
-# 2. Check if opensearch cr is already patched
+# 2. Check if opensearch cluster is already patched
 # -----------------------------------------------------------------------------
 - set_fact:
-    is_opensearch_already_patched: "{{ opensearch_cr_lookup.resources[0].spec.general.imagePullSecrets is defined and opensearch_cr_lookup.resources[0].spec.general.imagePullSecrets | length > 0 }}"
+    is_opensearch_already_patched: "{{ opensearch_cr_lookup.resources[0].spec.imagePullSecret is defined and opensearch_cr_lookup.resources[0].spec.imagePullSecret != '' }}"
 
 - debug:
     msg:
       - "OpenSearch Already patched? ..................... {{ is_opensearch_already_patched }}"
 
-# 3. Only patch opensearch cr with ibm-entitlement-key if is_opensearch_already_patched == False
+# 3. Only patch opensearch cluster with ibm-entitlement-key if is_opensearch_already_patched == False
 # -----------------------------------------------------------------------------
 - block:
     # Scale down OpenSearch operator to force reconcile
     - name: "wait/ccs : Scale down opensearch-operator"
       kubernetes.core.k8s:
         api_version: apps/v1
-        name: opensearch-operator-controller-manager
+        name: opencontent-opensearch-operator-controller-manager
         namespace: "{{ cpd_operators_namespace }}"
         kind: Deployment
         definition:
@@ -41,34 +41,31 @@
           field_manager: ansible
           force_conflicts: true
 
-    - name: "wait/ccs : Delete opensearch statefulset so next time it recreates with right imagePullSecrets"
+    - name: "wait/ccs : Delete elasticsearch-master nodepool statefulset so next time it recreates with right imagePullSecret"
       kubernetes.core.k8s:
         state: absent
         api_version: apps/v1
         kind: StatefulSet
+        name: elasticsearch-master-esnodes
         namespace: "{{ cpd_instance_namespace }}"
-        label_selectors:
-          - "opster.io/opensearch-cluster=opensearch-cluster"
       ignore_errors: true # Other roles running at the same time may delete this and then we get a 404 Not Found error - if it doesn't exist that is fine
 
-    - name: "wait/ccs : Patch the opensearch-cluster custom resource to include right imagePullSecrets"
+    - name: "wait/ccs : Patch the elasticsearch-master cluster custom resource to include right imagePullSecret"
       kubernetes.core.k8s:
-        api_version: opensearch.opster.io/v1
-        kind: OpenSearchCluster
-        name: opensearch-cluster
+        api_version: opensearch.cloudpackopen.ibm.com/v1
+        kind: Cluster
+        name: elasticsearch-master
         namespace: "{{ cpd_instance_namespace }}"
         apply: yes
         definition:
           spec:
-            general:
-              imagePullSecrets:
-                - name: ibm-entitlement-key
+            imagePullSecret: ibm-entitlement-key
 
     # Scale up OpenSearch operator again to force reconcile
     - name: "wait/ccs : Scale up opensearch-operator to force reconcile"
       kubernetes.core.k8s:
         api_version: apps/v1
-        name: opensearch-operator-controller-manager
+        name: opencontent-opensearch-operator-controller-manager
         namespace: "{{ cpd_operators_namespace }}"
         kind: Deployment
         definition:
@@ -83,7 +80,7 @@
     - name: "wait/ccs : Wait for opensearch-operator to be ready again (60s delay)"
       kubernetes.core.k8s_info:
         api_version: apps/v1
-        name: opensearch-operator-controller-manager
+        name: opencontent-opensearch-operator-controller-manager
         namespace: "{{ cpd_operators_namespace }}"
         kind: Deployment
       register: opensearch_operator_lookup
@@ -97,9 +94,9 @@
 # -----------------------------------------------------------------------------
 - name: "wait/ccs : Wait for OpenSearch cluster to be ready (60s delay)"
   kubernetes.core.k8s_info:
-    api_version: opensearch.opster.io/v1
-    kind: OpenSearchCluster
-    name: opensearch-cluster
+    api_version: opensearch.cloudpackopen.ibm.com/v1
+    kind: Cluster
+    name: elasticsearch-master
     namespace: "{{ cpd_instance_namespace }}"
   register: opensearch_status_lookup
   retries: 60 # Up to 60 minutes
@@ -109,10 +106,11 @@
     - opensearch_status_lookup.resources | length > 0
     - opensearch_status_lookup.resources[0].status is defined
     - opensearch_status_lookup.resources[0].status.phase is defined
-    - opensearch_status_lookup.resources[0].status.phase == "RUNNING"
+    - opensearch_status_lookup.resources[0].status.phase == "Available"
 
-- name: "wait/ccs : Check that the OpenSearch cluster phase is 'RUNNING'"
+- name: "wait/ccs : Check that the OpenSearch cluster phase is 'Available'"
   assert:
-    that: opensearch_status_lookup.resources[0].status.phase == "RUNNING"
-    fail_msg: "OpenSearch cluster install failed (phase is not RUNNING)"
+    that: opensearch_status_lookup.resources[0].status.phase == "Available"
+    fail_msg: "OpenSearch cluster install failed (phase is not Available)"
 
+# Made with Bob
