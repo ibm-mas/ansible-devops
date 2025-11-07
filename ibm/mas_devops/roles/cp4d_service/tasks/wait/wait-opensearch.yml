@@ -25,70 +25,17 @@
 
 # 3. Only patch opensearch cluster with ibm-entitlement-key if is_opensearch_already_patched == False
 # -----------------------------------------------------------------------------
-- block:
-    # Scale down OpenSearch operator to force reconcile
-    - name: "wait/ccs : Scale down opensearch-operator"
-      kubernetes.core.k8s:
-        api_version: apps/v1
-        name: opencontent-opensearch-operator-controller-manager
-        namespace: "{{ cpd_operators_namespace }}"
-        kind: Deployment
-        definition:
-          spec:
-            replicas: 0
-        apply: true
-        server_side_apply:
-          field_manager: ansible
-          force_conflicts: true
-
-    - name: "wait/ccs : Delete elasticsearch-master nodepool statefulset so next time it recreates with right imagePullSecret"
-      kubernetes.core.k8s:
-        state: absent
-        api_version: apps/v1
-        kind: StatefulSet
-        name: elasticsearch-master-esnodes
-        namespace: "{{ cpd_instance_namespace }}"
-      ignore_errors: true # Other roles running at the same time may delete this and then we get a 404 Not Found error - if it doesn't exist that is fine
-
-    - name: "wait/ccs : Patch the elasticsearch-master cluster custom resource to include right imagePullSecret"
-      kubernetes.core.k8s:
-        api_version: opensearch.cloudpackopen.ibm.com/v1
-        kind: Cluster
-        name: elasticsearch-master
-        namespace: "{{ cpd_instance_namespace }}"
-        apply: yes
-        definition:
-          spec:
-            imagePullSecret: ibm-entitlement-key
-
-    # Scale up OpenSearch operator again to force reconcile
-    - name: "wait/ccs : Scale up opensearch-operator to force reconcile"
-      kubernetes.core.k8s:
-        api_version: apps/v1
-        name: opencontent-opensearch-operator-controller-manager
-        namespace: "{{ cpd_operators_namespace }}"
-        kind: Deployment
-        definition:
-          spec:
-            replicas: 1
-        apply: true
-        server_side_apply:
-          field_manager: ansible
-          force_conflicts: true
-
-    # Wait for OpenSearch operator to be ready
-    - name: "wait/ccs : Wait for opensearch-operator to be ready again (60s delay)"
-      kubernetes.core.k8s_info:
-        api_version: apps/v1
-        name: opencontent-opensearch-operator-controller-manager
-        namespace: "{{ cpd_operators_namespace }}"
-        kind: Deployment
-      register: opensearch_operator_lookup
-      until: opensearch_operator_lookup.resources[0].status.availableReplicas is defined
-      retries: 20 # Approximately 20 minutes before we give up
-      delay: 60 # 1 minute
-
+- name: "wait/ccs : Patch the elasticsearch-master cluster custom resource to include right imagePullSecret"
   when: not is_opensearch_already_patched
+  kubernetes.core.k8s:
+    api_version: opensearch.cloudpackopen.ibm.com/v1
+    kind: Cluster
+    name: elasticsearch-master
+    namespace: "{{ cpd_instance_namespace }}"
+    apply: yes
+    definition:
+      spec:
+        imagePullSecret: ibm-entitlement-key
 
 # 4. Wait for OpenSearch cluster to be ready
 # -----------------------------------------------------------------------------
@@ -113,4 +60,3 @@
     that: opensearch_status_lookup.resources[0].status.phase == "Available"
     fail_msg: "OpenSearch cluster install failed (phase is not Available)"
 
-# Made with Bob
