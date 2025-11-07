@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    prometheusK8s:
+      retention: "{{ prometheus_userworkload_retention_period }}"
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "{{ prometheus_storage_class }}"
+          resources:
+            requests:
+              storage: "{{ prometheus_storage_size }}"
+    alertmanagerMain:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "{{ prometheus_alertmgr_storage_class }}"
+          resources:
+            requests:
+              storage: "{{ prometheus_alertmgr_storage_size }}"
+    enableUserWorkload: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-workload-monitoring-config
+  namespace: openshift-user-workload-monitoring
+data:
+  config.yaml: |
+    prometheus:
+      retention: "{{ prometheus_userworkload_retention_period }}"
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "{{ prometheus_userworkload_storage_class }}"
+          resources:
+            requests:
+              storage: "{{ prometheus_userworkload_storage_size }}"
