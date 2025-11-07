@@ -25,17 +25,35 @@
 
 # 3. Only patch opensearch cluster with ibm-entitlement-key if is_opensearch_already_patched == False
 # -----------------------------------------------------------------------------
-- name: "wait/ccs : Patch the elasticsearch-master cluster custom resource to include right imagePullSecret"
+- block:
+    # Delete the snapshot repo job first as it has immutable fields
+    - name: "wait/ccs : Delete elasticsearch-master-snapshot-repo job so it can be recreated with correct imagePullSecret"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: batch/v1
+        kind: Job
+        name: elasticsearch-master-snapshot-repo
+        namespace: "{{ cpd_instance_namespace }}"
+      ignore_errors: true
+
+    # Patch the cluster CR with imagePullSecret
+    - name: "wait/ccs : Patch the elasticsearch-master cluster custom resource to include right imagePullSecret"
+      kubernetes.core.k8s:
+        api_version: opensearch.cloudpackopen.ibm.com/v1
+        kind: Cluster
+        name: elasticsearch-master
+        namespace: "{{ cpd_instance_namespace }}"
+        apply: yes
+        definition:
+          spec:
+            imagePullSecret: ibm-entitlement-key
+
+    # Wait a bit for the operator to reconcile and recreate the job
+    - name: "wait/ccs : Wait for operator to reconcile (30s)"
+      pause:
+        seconds: 30
+
   when: not is_opensearch_already_patched
-  kubernetes.core.k8s:
-    api_version: opensearch.cloudpackopen.ibm.com/v1
-    kind: Cluster
-    name: elasticsearch-master
-    namespace: "{{ cpd_instance_namespace }}"
-    apply: yes
-    definition:
-      spec:
-        imagePullSecret: ibm-entitlement-key
 
 # 4. Wait for OpenSearch cluster to be ready
 # -----------------------------------------------------------------------------
@@ -60,3 +78,4 @@
     that: opensearch_status_lookup.resources[0].status.phase == "Available"
     fail_msg: "OpenSearch cluster install failed (phase is not Available)"
 
+# Made with Bob
