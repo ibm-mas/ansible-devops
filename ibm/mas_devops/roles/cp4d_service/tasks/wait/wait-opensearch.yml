@@ -1,11 +1,11 @@
 ---
-# Wait for OpenSearch Cluster custom resource to be created
+# 1. Wait for opensearch-cluster custom resource to be created
 # -----------------------------------------------------------------------------
-- name: "wait/ccs : Wait for the OpenSearch Cluster custom resource to appear (60s delay)"
+- name: "wait/ccs : Wait for the OpenSearch cluster custom resource to appear (60s delay)"
   kubernetes.core.k8s_info:
-    api_version: opensearch.cloudpackopen.ibm.com/v1
-    kind: Cluster
-    name: elasticsearch-master
+    api_version: opensearch.opster.io/v1
+    kind: OpenSearchCluster
+    name: opensearch-cluster
     namespace: "{{ cpd_instance_namespace }}"
   register: opensearch_cr_lookup
   retries: 30 # Up to 30 minutes
@@ -14,409 +14,105 @@
     - opensearch_cr_lookup.resources is defined
     - opensearch_cr_lookup.resources | length > 0
 
-# Check if OpenSearch CR version is correct
+# 2. Check if opensearch cr is already patched
+# -----------------------------------------------------------------------------
 - set_fact:
-    is_opensearch_version_correct: "{{ opensearch_cr_lookup.resources[0].spec.version == '2.19.2' }}"
-    available_versions: "{{ opensearch_cr_lookup.resources[0].status.availableVersions | default(['unknown']) }}"
-    current_version: "{{ opensearch_cr_lookup.resources[0].spec.version | default('undefined') }}"
+    is_opensearch_already_patched: "{{ opensearch_cr_lookup.resources[0].spec.general.imagePullSecrets is defined and opensearch_cr_lookup.resources[0].spec.general.imagePullSecrets | length > 0 }}"
 
 - debug:
     msg:
-      - "OpenSearch CR found: ........................... {{ opensearch_cr_lookup.resources | length > 0 }}"
-      - "OpenSearch version correct? .................... {{ is_opensearch_version_correct }}"
-      - "Current OpenSearch version: .................... {{ current_version }}"
-      - "Available versions: ............................ {{ available_versions }}"
+      - "OpenSearch Already patched? ..................... {{ is_opensearch_already_patched }}"
 
-# Only proceed with patching if the version is incorrect
+# 3. Only patch opensearch cr with ibm-entitlement-key if is_opensearch_already_patched == False
+# -----------------------------------------------------------------------------
 - block:
-    # Find the ibm-operator-catalog ConfigMap in the openshift-marketplace namespace
-    - name: "wait/ccs : Find the ibm-operator-catalog ConfigMap"
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: ConfigMap
-        name: ibm-operator-catalog
-        namespace: openshift-marketplace
-      register: operator_catalog_cm
-      ignore_errors: true
-
-    - debug:
-        msg: "IBM Operator Catalog ConfigMap found: {{ operator_catalog_cm.resources is defined and operator_catalog_cm.resources | length > 0 }}"
-    # Check if the CCS operator deployment has the correct environment variables
-    - name: "wait/ccs : Check CCS operator deployment"
-      kubernetes.core.k8s_info:
-        api_version: apps/v1
-        kind: Deployment
-        name: ibm-cpd-ccs-operator
-        namespace: "{{ cpd_operators_namespace }}"
-      register: ccs_operator_deployment
-      ignore_errors: true
-    - debug:
-        msg:
-          - "CCS operator deployment found: {{ ccs_operator_deployment.resources is defined and ccs_operator_deployment.resources | length > 0 }}"
-          - "CCS operator image: {{ ccs_operator_deployment.resources[0].spec.template.spec.containers[0].image | default('unknown') }}"
-      when: ccs_operator_deployment.resources is defined and ccs_operator_deployment.resources | length > 0
-
-    # Create a backup of the ConfigMap
-    - name: "wait/ccs : Create a backup of the ibm-operator-catalog ConfigMap"
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: ConfigMap
-          metadata:
-            name: ibm-operator-catalog-backup
-            namespace: openshift-marketplace
-          data: "{{ operator_catalog_cm.resources[0].data }}"
-      when: operator_catalog_cm.resources is defined and operator_catalog_cm.resources | length > 0
-      ignore_errors: true
-
-    # Patch the ibm-operator-catalog ConfigMap to include the correct OpenSearch version
-    - name: "wait/ccs : Patch the ibm-operator-catalog ConfigMap"
-      kubernetes.core.k8s:
-        api_version: v1
-        kind: ConfigMap
-        name: ibm-operator-catalog
-        namespace: openshift-marketplace
-        definition:
-          data:
-            "opencontent-opensearch-2.19.2.json": |
-              {
-                "schema": "olm.package",
-                "name": "opencontent-opensearch",
-                "defaultChannel": "v2.19",
-                "icon": {
-                  "base64data": "",
-                  "mediatype": "image/png"
-                }
-              }
-            "opencontent-opensearch-2.19.2-v2.19.json": |
-              {
-                "schema": "olm.channel",
-                "name": "v2.19",
-                "package": "opencontent-opensearch",
-                "entries": [
-                  {
-                    "name": "opencontent-opensearch.v2.19.2"
-                  }
-                ]
-              }
-            "opencontent-opensearch.v2.19.2.json": |
-              {
-                "schema": "olm.bundle",
-                "name": "opencontent-opensearch.v2.19.2",
-                "package": "opencontent-opensearch",
-                "image": "cp.icr.io/cp/opencontent-ibm-opensearch-min-2.19.2@sha256:65a63ab56bd5c2b7ab7eb3477891148b7ba942e33b632a1e17d8897205714176",
-                "properties": [
-                  {
-                    "type": "olm.package",
-                    "value": {
-                      "packageName": "opencontent-opensearch",
-                      "version": "2.19.2"
-                    }
-                  }
-                ],
-                "relatedImages": [
-                  {
-                    "name": "opensearch_min",
-                    "image": "cp.icr.io/cp/opencontent-ibm-opensearch-min-2.19.2@sha256:65a63ab56bd5c2b7ab7eb3477891148b7ba942e33b632a1e17d8897205714176"
-                  },
-                  {
-                    "name": "opensearch_security",
-                    "image": "cp.icr.io/cp/opencontent-ibm-opensearch-plugin-security-2.19.2.0@sha256:e2fed505b82a03924e39bb254e6d422d2b6d8e21605ee8606bf1f3c3c8a6dfc7"
-                  },
-                  {
-                    "name": "opensearch_knn",
-                    "image": "cp.icr.io/cp/opencontent-ibm-opensearch-plugin-knn-2.19.2.0@sha256:b665f4e1eeaccb5d73a37205fdb4773801e3450b9498354380614e6052147e25"
-                  }
-                ]
-              }
-        apply: yes
-      when: operator_catalog_cm.resources is defined and operator_catalog_cm.resources | length > 0
-      ignore_errors: true
-
-    # Create a ConfigMap in the CP4D instance namespace to override the OpenSearch version
-    - name: "wait/ccs : Create a ConfigMap to override OpenSearch version"
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: ConfigMap
-          metadata:
-            name: opensearch-version-override
-            namespace: "{{ cpd_instance_namespace }}"
-            labels:
-              app.kubernetes.io/part-of: ibm-cp4d-ccs
-              app.kubernetes.io/managed-by: ansible
-          data:
-            OPENSEARCH_VERSION: "2.19.2"
-            OPENSEARCH_SECURITY_VERSION: "2.19.2.0"
-            OPENSEARCH_KNN_VERSION: "2.19.2.0"
-            OPENSEARCH_PLUGINS_VERSION: "2.19.2"
-
-    # Get the current olm-utils ConfigMap
-    - name: "wait/ccs : Get the current olm-utils ConfigMap"
-      kubernetes.core.k8s_info:
-        api_version: v1
-        kind: ConfigMap
-        name: olm-utils-cm
-        namespace: "{{ cpd_instance_namespace }}"
-      register: olm_utils_cm
-      ignore_errors: true
-
-    # Extract and preserve the existing content
-    - set_fact:
-        olm_utils_data: "{{ olm_utils_cm.resources[0].data | default({}) }}"
-      when: olm_utils_cm.resources is defined and olm_utils_cm.resources | length > 0
-
-    # Update olm-utils ConfigMap with correct OpenSearch version but preserve all other data
-    - name: "wait/ccs : Update olm-utils ConfigMap with correct OpenSearch version"
-      kubernetes.core.k8s:
-        api_version: v1
-        kind: ConfigMap
-        name: olm-utils-cm
-        namespace: "{{ cpd_instance_namespace }}"
-        definition:
-          data: "{{ olm_utils_data | combine({'release_components_meta': olm_utils_data.release_components_meta | regex_replace('(opencontent_opensearch:[\\s\\S]*?case_version:) [^\\n]*', '\\1 1.1.2494') | regex_replace('(opencontent_opensearch:[\\s\\S]*?csv_version:) [^\\n]*', '\\1 2.19.2') | regex_replace('(opencontent_opensearch:[\\s\\S]*?cr_version:) [^\\n]*', '\\1 2.19.2') | regex_replace('(opencontent_elasticsearch:[\\s\\S]*?case_version:) [^\\n]*', '\\1 1.1.2667') | regex_replace('(opencontent_elasticsearch:[\\s\\S]*?csv_version:) [^\\n]*', '\\1 2.19.2') | regex_replace('(opencontent_elasticsearch:[\\s\\S]*?cr_version:) [^\\n]*', '\\1 2.19.2')}) }}"
-        apply: yes
-      when: olm_utils_cm.resources is defined and olm_utils_cm.resources | length > 0
-      ignore_errors: true
-
-    # Delete the OpenSearch Cluster CR to force recreation with the correct version
-    - name: "wait/ccs : Delete the OpenSearch Cluster CR to force recreation"
-      kubernetes.core.k8s:
-        state: absent
-        api_version: opensearch.cloudpackopen.ibm.com/v1
-        kind: Cluster
-        name: elasticsearch-master
-        namespace: "{{ cpd_instance_namespace }}"
-      ignore_errors: true
-
-    # Restart the CCS operator to pick up the changes
-    - name: "wait/ccs : Restart the CCS operator"
+    # Scale down OpenSearch operator to force reconcile
+    - name: "wait/ccs : Scale down opensearch-operator"
       kubernetes.core.k8s:
         api_version: apps/v1
-        kind: Deployment
-        name: ibm-cpd-ccs-operator
+        name: opensearch-operator-controller-manager
         namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
         definition:
           spec:
-            template:
-              metadata:
-                annotations:
-                  kubectl.kubernetes.io/restartedAt: "{{ ansible_date_time.iso8601 }}"
-        apply: yes
-      ignore_errors: true
-
-    # Wait for the CCS operator to be ready again
-    - name: "wait/ccs : Wait for the CCS operator to be ready again (60s delay)"
-      kubernetes.core.k8s_info:
-        api_version: apps/v1
-        name: ibm-cpd-ccs-operator
-        namespace: "{{ cpd_operators_namespace }}"
-        kind: Deployment
-      register: ccs_operator_lookup
-      until:
-        - ccs_operator_lookup.resources is defined
-        - ccs_operator_lookup.resources | length > 0
-        - ccs_operator_lookup.resources[0].status is defined
-        - ccs_operator_lookup.resources[0].status.availableReplicas is defined
-        - ccs_operator_lookup.resources[0].status.availableReplicas > 0
-      retries: 10
-      delay: 60
-      ignore_errors: true
-
-    # Create ConfigMap with correct version info in the CCS operator namespace
-    - name: "wait/ccs : Create ConfigMap with correct version info in the CCS operator namespace"
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: ConfigMap
-          metadata:
-            name: ccs-opensearch-version-fix
-            namespace: "{{ cpd_operators_namespace }}"
-          data:
-            catalog.yml: |
-              opencontent-opensearch-2.19.2:
-                name: opencontent-opensearch
-                case_version: 1.1.2494
-                csv_version: 2.19.2
-                cr_version: 2.19.2
-                sub_channel: "v1.1"
-                images:
-                  - name: opensearch_min
-                    image: cp.icr.io/cp/opencontent-ibm-opensearch-min-2.19.2@sha256:65a63ab56bd5c2b7ab7eb3477891148b7ba942e33b632a1e17d8897205714176
-                  - name: opensearch_security
-                    image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-security-2.19.2.0@sha256:e2fed505b82a03924e39bb254e6d422d2b6d8e21605ee8606bf1f3c3c8a6dfc7
-                  - name: opensearch_knn
-                    image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-knn-2.19.2.0@sha256:b665f4e1eeaccb5d73a37205fdb4773801e3450b9498354380614e6052147e25
-
-    # Create ConfigMap with correct version info in the instance namespace
-    - name: "wait/ccs : Create ConfigMap with correct version info in the instance namespace"
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: ConfigMap
-          metadata:
-            name: ccs-opensearch-version-fix
-            namespace: "{{ cpd_instance_namespace }}"
-          data:
-            catalog.yml: |
-              opencontent-opensearch-2.19.2:
-                name: opencontent-opensearch
-                case_version: 1.1.4002
-                csv_version: 2.19.2
-                cr_version: 2.19.2
-                sub_channel: "v1.1"
-                images:
-                  - name: opensearch_min
-                    image: cp.icr.io/cp/opencontent-ibm-opensearch-min-2.19.2@sha256:65a63ab56bd5c2b7ab7eb3477891148b7ba942e33b632a1e17d8897205714176
-                  - name: opensearch_security
-                    image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-security-2.19.2.0@sha256:e2fed505b82a03924e39bb254e6d422d2b6d8e21605ee8606bf1f3c3c8a6dfc7
-                  - name: opensearch_knn
-                    image: cp.icr.io/cp/opencontent-ibm-opensearch-plugin-knn-2.19.2.0@sha256:b665f4e1eeaccb5d73a37205fdb4773801e3450b9498354380614e6052147e25
-
-    # Create a ConfigMap that maps OpenSearch versions to images
-    - name: "wait/ccs : Create ConfigMap for OpenSearch image mapping"
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: v1
-          kind: ConfigMap
-          metadata:
-            name: opensearch-image-mapping
-            namespace: "{{ cpd_instance_namespace }}"
-            labels:
-              app.kubernetes.io/part-of: ibm-cp4d-ccs
-              app.kubernetes.io/managed-by: ansible
-          data:
-            opensearch-2.19.2.json: |
-              {
-                "version": "2.19.2",
-                "images": {
-                  "opensearch_min": "cp.icr.io/cp/opencontent-ibm-opensearch-min-2.19.2@sha256:65a63ab56bd5c2b7ab7eb3477891148b7ba942e33b632a1e17d8897205714176",
-                  "opensearch_security": "cp.icr.io/cp/opencontent-ibm-opensearch-plugin-security-2.19.2.0@sha256:e2fed505b82a03924e39bb254e6d422d2b6d8e21605ee8606bf1f3c3c8a6dfc7",
-                  "opensearch_knn": "cp.icr.io/cp/opencontent-ibm-opensearch-plugin-knn-2.19.2.0@sha256:b665f4e1eeaccb5d73a37205fdb4773801e3450b9498354380614e6052147e25"
-                }
-              }
-
-    # Wait for the OpenSearch CR to be created by the CCS operator
-    - name: "wait/ccs : Wait for the OpenSearch CR to be created by the CCS operator (60s delay)"
-      kubernetes.core.k8s_info:
-        api_version: opensearch.cloudpackopen.ibm.com/v1
-        kind: Cluster
-        name: elasticsearch-master
-        namespace: "{{ cpd_instance_namespace }}"
-      register: opensearch_cr_created
-      until:
-        - opensearch_cr_created.resources is defined
-        - opensearch_cr_created.resources | length > 0
-      retries: 30
-      delay: 60
-      ignore_errors: true
-
-    # Patch the OpenSearch CR with the correct version immediately after it's created
-    - name: "wait/ccs : Patch the OpenSearch CR with correct version"
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: opensearch.cloudpackopen.ibm.com/v1
-          kind: Cluster
-          metadata:
-            name: elasticsearch-master
-            namespace: "{{ cpd_instance_namespace }}"
-          spec:
-            version: "2.19.2"
-            plugins:
-              security:
-                enabled: true
-                version: "2.19.2.0"
-              knn:
-                enabled: true
-                version: "2.19.2.0"
-        apply: yes
+            replicas: 0
+        apply: true
         server_side_apply:
           field_manager: ansible
           force_conflicts: true
-      ignore_errors: true
-      when:
-        - opensearch_cr_created.resources is defined
-        - opensearch_cr_created.resources | length > 0
 
-    # Wait for the OpenSearch Cluster CR to be updated with the correct version
-    - name: "wait/ccs : Wait for the OpenSearch Cluster CR to be updated with the correct version (60s delay)"
-      kubernetes.core.k8s_info:
-        api_version: opensearch.cloudpackopen.ibm.com/v1
-        kind: Cluster
-        name: elasticsearch-master
+    - name: "wait/ccs : Delete opensearch statefulset so next time it recreates with right imagePullSecrets"
+      kubernetes.core.k8s:
+        state: absent
+        api_version: apps/v1
+        kind: StatefulSet
         namespace: "{{ cpd_instance_namespace }}"
-      register: new_opensearch_cr
-      until:
-        - new_opensearch_cr.resources is defined
-        - new_opensearch_cr.resources | length > 0
-        - new_opensearch_cr.resources[0].spec.version is defined
-        - new_opensearch_cr.resources[0].spec.version == "2.19.2"
-      retries: 30
-      delay: 60
-      ignore_errors: true
+        label_selectors:
+          - "opster.io/opensearch-cluster=opensearch-cluster"
+      ignore_errors: true # Other roles running at the same time may delete this and then we get a 404 Not Found error - if it doesn't exist that is fine
 
-    # Check if the recreated CR has the correct version
-    - debug:
-        msg:
-          - "Recreated OpenSearch CR version: .............. {{ new_opensearch_cr.resources[0].spec.version | default('undefined') }}"
-          - "Recreated security plugin version: ............. {{ new_opensearch_cr.resources[0].spec.plugins.security.version | default('undefined') }}"
-          - "Recreated KNN plugin version: .................. {{ new_opensearch_cr.resources[0].spec.plugins.knn.version | default('undefined') }}"
-          - "OpenSearch CR status: .......................... {{ new_opensearch_cr.resources[0].status.phase | default('unknown') }}"
-          - "OpenSearch CR conditions: ...................... {{ new_opensearch_cr.resources[0].status.conditions | default([]) | map(attribute='message') | list }}"
-      when:
-        - new_opensearch_cr is defined
-        - new_opensearch_cr.resources is defined
-        - new_opensearch_cr.resources | length > 0
-
-    # Verify the version is now correct
-    - name: "wait/ccs : Verify OpenSearch version is now correct"
-      set_fact:
-        is_opensearch_version_fixed: "{{ new_opensearch_cr.resources[0].spec.version == '2.19.2' }}"
-      when:
-        - new_opensearch_cr is defined
-        - new_opensearch_cr.resources is defined
-        - new_opensearch_cr.resources | length > 0
-
-    - debug:
-        msg: "OpenSearch version fixed: ..................... {{ is_opensearch_version_fixed | default(false) }}"
-      when:
-        - new_opensearch_cr is defined
-        - new_opensearch_cr.resources is defined
-        - new_opensearch_cr.resources | length > 0
-
-    # Wait for OpenSearch to be in a healthy state
-    - name: "wait/ccs : Wait for OpenSearch to be in a healthy state (60s delay)"
-      kubernetes.core.k8s_info:
-        api_version: opensearch.cloudpackopen.ibm.com/v1
-        kind: Cluster
-        name: elasticsearch-master
+    - name: "wait/ccs : Patch the opensearch-cluster custom resource to include right imagePullSecrets"
+      kubernetes.core.k8s:
+        api_version: opensearch.opster.io/v1
+        kind: OpenSearchCluster
+        name: opensearch-cluster
         namespace: "{{ cpd_instance_namespace }}"
-      register: opensearch_health_check
-      until:
-        - opensearch_health_check.resources is defined
-        - opensearch_health_check.resources | length > 0
-        - opensearch_health_check.resources[0].status is defined
-        - opensearch_health_check.resources[0].status.phase is defined
-        - opensearch_health_check.resources[0].status.phase in ["Running", "Available"]
-        - opensearch_health_check.resources[0].spec.version == "2.19.2"
-      retries: 30
-      delay: 60
-      ignore_errors: true
+        apply: yes
+        definition:
+          spec:
+            general:
+              imagePullSecrets:
+                - name: ibm-entitlement-key
 
-    - debug:
-        msg:
-          - "OpenSearch health status: ...................... {{ opensearch_health_check.resources[0].status.phase | default('unknown') }}"
-          - "OpenSearch nodes ready: ........................ {{ opensearch_health_check.resources[0].status.nodesReady | default('unknown') }}"
-      when:
-        - opensearch_health_check is defined
-        - opensearch_health_check.resources is defined
-        - opensearch_health_check.resources | length > 0
-  when: not is_opensearch_version_correct
+    # Scale up OpenSearch operator again to force reconcile
+    - name: "wait/ccs : Scale up opensearch-operator to force reconcile"
+      kubernetes.core.k8s:
+        api_version: apps/v1
+        name: opensearch-operator-controller-manager
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+        definition:
+          spec:
+            replicas: 1
+        apply: true
+        server_side_apply:
+          field_manager: ansible
+          force_conflicts: true
 
-# Made with Bob
+    # Wait for OpenSearch operator to be ready
+    - name: "wait/ccs : Wait for opensearch-operator to be ready again (60s delay)"
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        name: opensearch-operator-controller-manager
+        namespace: "{{ cpd_operators_namespace }}"
+        kind: Deployment
+      register: opensearch_operator_lookup
+      until: opensearch_operator_lookup.resources[0].status.availableReplicas is defined
+      retries: 20 # Approximately 20 minutes before we give up
+      delay: 60 # 1 minute
+
+  when: not is_opensearch_already_patched
+
+# 4. Wait for OpenSearch cluster to be ready
+# -----------------------------------------------------------------------------
+- name: "wait/ccs : Wait for OpenSearch cluster to be ready (60s delay)"
+  kubernetes.core.k8s_info:
+    api_version: opensearch.opster.io/v1
+    kind: OpenSearchCluster
+    name: opensearch-cluster
+    namespace: "{{ cpd_instance_namespace }}"
+  register: opensearch_status_lookup
+  retries: 60 # Up to 60 minutes
+  delay: 60 # Every 1 minute
+  until:
+    - opensearch_status_lookup.resources is defined
+    - opensearch_status_lookup.resources | length > 0
+    - opensearch_status_lookup.resources[0].status is defined
+    - opensearch_status_lookup.resources[0].status.phase is defined
+    - opensearch_status_lookup.resources[0].status.phase == "RUNNING"
+
+- name: "wait/ccs : Check that the OpenSearch cluster phase is 'RUNNING'"
+  assert:
+    that: opensearch_status_lookup.resources[0].status.phase == "RUNNING"
+    fail_msg: "OpenSearch cluster install failed (phase is not RUNNING)"
+
