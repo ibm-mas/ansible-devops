@@ -1,0 +1,20 @@
+name: Artifactory Clean Up
+on:
+  delete:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+jobs:
+  clean-up-artifactory:
+    name: Delete Build Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete
+        env:
+          ARTIFACTORY_GENERIC_RELEASE_URL: ${{ secrets.ARTIFACTORY_GENERIC_RELEASE_URL }}
+          ARTIFACTORY_TOKEN: ${{ secrets.ARTIFACTORY_TOKEN }}
+        run: |
+          echo "Clean up for branch ${{ github.event.ref }}"
+          BRANCH_TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/ibm-mas/ansible-devops/branches/ibm-mas_devops-${{ github.event.ref }}.tar.gz"
+          curl -H "Authorization:Bearer $ARTIFACTORY_TOKEN" -X DELETE "${BRANCH_TARGET_URL}"
