@@ -82,7 +82,7 @@ Kafka version to deploy (Strimzi and Red Hat AMQ Streams only).
 
 - **Optional**
 - Environment Variable: `KAFKA_VERSION`
-- Default Value: `3.8.0` for AMQ Streams, `3.9.0` for Strimzi
+- Default Value: `4.0.0` for AMQ Streams and `4.1.0` for Strimzi.
 
 **Purpose**: Specifies which Apache Kafka version to deploy when using Strimzi or Red Hat AMQ Streams providers. The version must be supported by the installed operator.
 
