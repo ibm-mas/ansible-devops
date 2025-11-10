@@ -31,6 +31,14 @@ The version of OCP to use.  A specific version can be set, minor and patch level
 !!! note
     When using the IBMCloud Red Hat OpenShift Service (ROKS) the version must be followed by `_openshift`, e.g. **4.15_openshift** or **4.15.16_openshift**
 
+### ocp_storage_provider
+Setting this to `nfs` when `cluster_type` is set to `fyre` will create an `nfs-client` storage class connected to the infrastucture node. When enabled, the existing image registry PVC will also be deleted and recreated configured to use the newly available NFS storage class.
+
+Currently, this setting has no effect when `cluster_type` is set to `roks`, `rosa`, or `ipi`.
+- Optional
+- Environment Variable: `OCP_STORAGE_PROVIDER`
+- Default Value: ``
+
 
 Role Variables - GPU Node Support
 -------------------------------------------------------------------------------
@@ -256,13 +264,6 @@ The size of additional disks in Gb added to each worker node, defined in a comma
 - Optional
 - Environment Variable: `FYRE_WORKER_ADDITIONAL_DISKS`
 - Default Value: `None`
-
-### fyre_nfs_setup
-Enables the use of NFS storage classes in the Fyre cluster. When enabled, the existing image registry PVC will be deleted and recreated configured to use the newly available NFS storage class.
-
-- Optional
-- Environment Variable: `FYRE_NFS_SETUP`
-- Default Value: `true`
 
 ### fyre_nfs_image_registry_size
 Defines the image registry storage size when configured to use NFS. The size allocated cannot be superior of storage available in the Fyre Infrastructure node.

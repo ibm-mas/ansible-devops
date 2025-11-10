@@ -44,6 +44,7 @@ copyDoc ibm_catalogs
 copyDoc ibmcloud_resource_key
 copyDoc kafka
 copyDoc key_rotation
+copyDoc longhorn
 copyDoc mirror_case_prepare
 copyDoc mirror_extras_prepare
 copyDoc mirror_ocp

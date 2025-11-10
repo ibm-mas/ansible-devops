@@ -61,6 +61,13 @@ Boolean variable that, when set to True, enable manual certificate management.
 - Environment Variable: `MAS_MANUAL_CERT_MGMT`
 - Default: False
 
+### mas_routing_mode
+String variable either `path` or `subdomain` that defines the routing mode used for the suite.
+
+- Optional
+- Environment Variable: `MAS_ROUTING_MODE`
+- Default: path
+
 ### mas_trust_default_cas
 Boolean variable that defines whether default Certificate Authorities are included in MAS trust stores. This only has an effect with IBM Maximo Application Suite version 8.11 and above
 

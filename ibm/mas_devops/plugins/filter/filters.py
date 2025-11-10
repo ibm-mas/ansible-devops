@@ -17,6 +17,8 @@ def private_vlan(vlans):
     short_description: Provides private vlan id
     description:
         - This lookup returns a private vlan id to be used to create roks cluster
+        - It matches both datacenters and pods, e.g., defining your private/public vlans as 
+          bcr01a.dal10 and fcr01a.dal10 since it's matching on 01a.
     options:
       _terms:
         description: list of Vlans

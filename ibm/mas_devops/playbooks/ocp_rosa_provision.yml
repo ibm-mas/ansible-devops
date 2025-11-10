@@ -4,6 +4,9 @@
     cluster_type: rosa
     ocp_version: "{{ lookup('env', 'OCP_VERSION') | default('4.15.17', True) }}"
 
+    # We use "turbonomic_target_name" as a key to indicate that we want to run the turbonomic role
+    turbonomic_target_name: "{{ lookup('env', 'TURBONOMIC_TARGET_NAME') }}"
+
   pre_tasks:
     # For the full set of supported environment variables refer to the playbook documentation
     - name: Check for required environment variables
@@ -27,3 +30,7 @@
 
     # 3. Set up storage classes
     - ibm.mas_devops.ocp_efs
+
+    # 4. Configure optional turbonomic integration
+    - role: ibm.mas_devops.turbonomic
+      when: turbonomic_target_name != ""
