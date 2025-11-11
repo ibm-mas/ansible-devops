@@ -47,7 +47,12 @@
 # 4. Get the CASE bundle
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Get the CASE bundle"
-  shell: oc ibm-pak get {{ case_name }} --version {{ case_version }} {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}
+  shell: >-
+    {% if case_name in ['ibm-ccs', 'ibm-cognos-analytics-prod'] %}
+      CASECTL_RESOLVE_CHARTS=false oc ibm-pak get {{ case_name }} --version {{ case_version }} {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}
+    {% else %}
+      oc ibm-pak get {{ case_name }} --version {{ case_version }} {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}
+    {% endif %}
   register: ibmpak_get_result
 
 - name: "{{ case_name }} : Get Build from output"
