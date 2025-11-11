@@ -171,6 +171,13 @@ Set this to `true` to confirm you want to upgrade your existing Mongo instance f
 - Environment Variable: `MONGODB_V7_UPGRADE`
 - Default Value: `false`
 
+### mongodb_v8_upgrade
+Set this to `true` to confirm you want to upgrade your existing Mongo instance from version 7 to version 8.
+
+- Optional
+- Environment Variable: `MONGODB_V8_UPGRADE`
+- Default Value: `false`
+
 ### masbr_confirm_cluster
 Set `true` or `false` to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.
 
