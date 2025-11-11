@@ -32,8 +32,17 @@ if [ ! -e $FILE_PATH ]; then
   exit 1
 fi
 
-TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/${GITHUB_REPOSITORY}/${VERSION}/${FILE_NAME}-${VERSION}.${FILE_EXT}"
-artifactory_upload $FILE_PATH $TARGET_URL
+
+if [ "${GITHUB_REF_TYPE}" == "branch" ]; then
+  # To make it easier to work with, we simply upload a version per-branch, you no longer need to track the version number
+  # as well as the branch
+  BRANCH_TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/${GITHUB_REPOSITORY}/branches/${FILE_NAME}-${GITHUB_REF_NAME}.${FILE_EXT}"
+  artifactory_upload $FILE_PATH $BRANCH_TARGET_URL
+else
+  TAG_TARGET_URL="${ARTIFACTORY_GENERIC_RELEASE_URL}/${GITHUB_REPOSITORY}/${VERSION}/${FILE_NAME}-${VERSION}.${FILE_EXT}"
+  artifactory_upload $FILE_PATH $TAG_TARGET_URL
+fi
+
 
 # Update latest when we publish release, and when we update master branch .. latest build is used internally in development
 if [ "${GITHUB_REF_NAME}" == "master" ] || [ "${GITHUB_REF_TYPE}" == "tag" ]; then
