@@ -58,15 +58,23 @@
     # -------------------------------------------------------------------------
     mirror_cognos: "{{ lookup('env', 'MIRROR_COGNOS') | default ('False', True) | bool }}"
 
-    # 12. App Connect
+    # 12. SPSS
+    # -------------------------------------------------------------------------
+    mirror_spss: "{{ lookup('env', 'MIRROR_SPSS') | default ('False', True) | bool }}"
+
+    # 13. AI OpenScale
+    # -------------------------------------------------------------------------
+    mirror_aiopenscale: "{{ lookup('env', 'MIRROR_AIOPENSCALE') | default ('False', True) | bool }}"
+
+    # 14. App Connect
     # -------------------------------------------------------------------------
     mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('False', True) | bool }}"
 
-    # 13. ODF
+    # 15. ODF
     # -------------------------------------------------------------------------
     mirror_odf: "{{ lookup('env', 'MIRROR_ODF') | default ('False', True) | bool }}"
 
-    # 14. kmodels
+    # 16. kmodels
     # -------------------------------------------------------------------------
     mirror_kmodels: "{{ lookup('env', 'MIRROR_KMODELS') | default ('False', True) | bool }}"
 
@@ -598,7 +606,43 @@
         manifest_name: ibm-cognos-analytics-prod
         manifest_version: "{{ mas_catalog_metadata.cognos_version }}"
 
-    # 12. App Connect
+    # 12. SPSS
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_spss
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-spss
+        case_version: "{{ mas_catalog_metadata.spss_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - role: ibm.mas_devops.mirror_images
+      when: mirror_spss
+      vars:
+        manifest_name: ibm-spss
+        manifest_version: "{{ mas_catalog_metadata.spss_version }}"
+
+    # 13. AI OpenScale
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_aiopenscale
+        - mirror_mode != "from-filesystem"
+      vars:
+        case_name: ibm-wos
+        case_version: "{{ mas_catalog_metadata.aiopenscale_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: false
+
+    - role: ibm.mas_devops.mirror_images
+      when: mirror_aiopenscale
+      vars:
+        manifest_name: ibm-wos
+        manifest_version: "{{ mas_catalog_metadata.aiopenscale_version }}"
+
+    # 14. App Connect
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
       when:
