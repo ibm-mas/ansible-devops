@@ -9,7 +9,7 @@ The role assumes that you have already installed the Certificate Manager in the 
 Role Variables
 -------------------------------------------------------------------------------
 ### sls_action
-Inform the role whether to perform an install or uninstall of the Suite License Service.
+Inform the role whether to perform an install, uninstall or gencfg of the Suite License Service.
 
 - Optional
 - Environment Variable: `SLS_ACTION`
@@ -339,6 +339,7 @@ Example Playbook
     mas_instance_id: inst1
     mas_config_dir: /home/me/masconfig
 
+    sls_action: gencfg
     sls_tls_crt_local_file_path: "/home/me/sls.crt"
     slscfg_url: "https://xxx"
     slscfg_registration_key: "xxx"
