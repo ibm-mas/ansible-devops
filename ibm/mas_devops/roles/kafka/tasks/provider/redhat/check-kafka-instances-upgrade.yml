@@ -1,0 +1,98 @@
+---
+- name: "Wait for zookeeper podset to be updated (30s delay)"
+  when:
+    - item.1 != kafka_version
+  kubernetes.core.k8s_info:
+    api_version: core.strimzi.io/v1beta2
+    kind: StrimziPodSet
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ item.0 }}-zookeeper"
+  register: zookeeper_podset
+  until:
+    - zookeeper_podset.resources is defined
+    - zookeeper_podset.resources | length > 0
+    - zookeeper_podset.resources[0].status is defined
+    - zookeeper_podset.resources[0].status.pods is defined
+    - zookeeper_podset.resources[0].status.currentPods is defined
+    - zookeeper_podset.resources[0].status.currentPods == zookeeper_podset.resources[0].status.pods
+    - zookeeper_podset.resources[0].status.readyPods is defined
+    - zookeeper_podset.resources[0].status.readyPods == zookeeper_podset.resources[0].status.pods
+  retries: 30 # Approximately 15 minutes before we give up
+  delay: 30 # seconds
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
+
+- name: "Wait for kafka podset to be updated (30s delay)"
+  when:
+    - item.1 != kafka_version
+  kubernetes.core.k8s_info:
+    api_version: core.strimzi.io/v1beta2
+    kind: StrimziPodSet
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ item.0 }}-kafka"
+  register: kafka_podset
+  until:
+    - kafka_podset.resources is defined
+    - kafka_podset.resources | length > 0
+    - kafka_podset.resources[0].metadata.annotations['strimzi.io/kafka-version'] is defined
+    - kafka_podset.resources[0].metadata.annotations['strimzi.io/kafka-version'] == kafka_version
+    - kafka_podset.resources[0].spec.pods is defined
+    - kafka_podset.resources[0].spec.pods | length > 0
+    - kafka_podset.resources[0].spec.pods[0].metadata.annotations['strimzi.io/kafka-version'] is defined
+    - kafka_podset.resources[0].spec.pods[0].metadata.annotations['strimzi.io/kafka-version'] == kafka_version
+    - kafka_podset.resources[0].status is defined
+    - kafka_podset.resources[0].status.pods is defined
+    - kafka_podset.resources[0].status.currentPods is defined
+    - kafka_podset.resources[0].status.currentPods == kafka_podset.resources[0].status.pods
+    - kafka_podset.resources[0].status.readyPods is defined
+    - kafka_podset.resources[0].status.readyPods == kafka_podset.resources[0].status.pods
+  retries: 30 # Approximately 15 minutes before we give up
+  delay: 30 # seconds
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
+
+- name: "Wait for kafka entity operator to be updated (30s delay)"
+  when:
+    - item.1 != kafka_version
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ item.0 }}-entity-operator"
+  register: kafka_entity_operator_deployment
+  until:
+    - kafka_entity_operator_deployment.resources is defined
+    - kafka_entity_operator_deployment.resources | length > 0
+    - kafka_entity_operator_deployment.resources[0].status is defined
+    - kafka_entity_operator_deployment.resources[0].status.replicas is defined
+    - kafka_entity_operator_deployment.resources[0].status.readyReplicas is defined
+    - kafka_entity_operator_deployment.resources[0].status.readyReplicas == kafka_entity_operator_deployment.resources[0].status.replicas
+    - kafka_entity_operator_deployment.resources[0].status.updatedReplicas is defined
+    - kafka_entity_operator_deployment.resources[0].status.updatedReplicas == kafka_entity_operator_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 15 minutes before we give up
+  delay: 30 # seconds
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
+
+- name: "Wait for kafka exporter to be updated (30s delay)"
+  when:
+    - item.1 != kafka_version
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ kafka_namespace }}"
+    name: "{{ item.0 }}-kafka-exporter"
+  register: kafka_exporter_deployment
+  until:
+    - kafka_exporter_deployment.resources is defined
+    - kafka_exporter_deployment.resources | length > 0
+    - kafka_exporter_deployment.resources[0].status is defined
+    - kafka_exporter_deployment.resources[0].status.replicas is defined
+    - kafka_exporter_deployment.resources[0].status.readyReplicas is defined
+    - kafka_exporter_deployment.resources[0].status.readyReplicas == kafka_exporter_deployment.resources[0].status.replicas
+    - kafka_exporter_deployment.resources[0].status.updatedReplicas is defined
+    - kafka_exporter_deployment.resources[0].status.updatedReplicas == kafka_exporter_deployment.resources[0].status.replicas
+  retries: 30 # Approximately 15 minutes before we give up
+  delay: 30 # seconds
+  loop: "{{ kafkaCluster_names | zip(kafkaCluster_versions) | list }}"
+
+- name: "Pause for 10 seconds..."
+  pause:
+    seconds: 10
