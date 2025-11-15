@@ -11,28 +11,17 @@ Installs [Data Reporter Operator](https://github.com/redhat-marketplace/redhat-m
 Role Variables - Installation
 -------------------------------------------------------------------------------
 ### dro_action
-Inform the role whether to perform an install or uninstall of Data Reporter Operator. Supported values are `install-dro` and `uninstall`.
+Inform the role whether to perform an install or uninstall of Data Reporter Operator. Supported values are `install` and `uninstall`.
 
 - Optional
 - Environment Variable: `DRO_ACTION`
-- Default: `install-dro`
-
-!!! note
-    The install verb for `dro_action` is chosen to avoid conflict with the existing `uds_action` variable from the `uds` role (`install`) to ease migration from UDS to DRO, this allows the value of `uds_action` and `dro_action` to be set once and provide clarity around which dependency should be installed.
-
-    The `uninstall` action works across both `uds` and `dro` roles.
+- Default: `install`
 
 ### dro_namespace
 DRO can be installed on a different namespace, on certain type of OCP clusters where redhat* namespaces have restricted access, User can configure and install DRO on a custom namespace of their choosing by supplying a name using `DRO_NAMESPACE`
 
 - Environment Variable: `DRO_NAMESPACE`
 - Default Value: redhat-marketplace
-
-### dro_migration
-To migrate from `IBM User Data Services` to `ibm-data-reporter`, set `DRO_MIGRATION` variable to `True`.
-
-- Environment Variable: `DRO_MIGRATION`
-- Default Value: False
 
 ### ibm_entitlement_key
 Provide your [IBM entitlement key](https://myibm.ibm.com/products-services/containerlibrary).
@@ -141,7 +130,7 @@ export IBM_ENTITLEMENT_KEY=<valid ibm entitlement key>
 export DRO_CONTACT_EMAIL=xxx@xxx.com
 export DRO_CONTACT_FIRSTNAME=xxx
 export DRO_CONTACT_LASTNAME=xxx
-export DRO_ACTION=install-dro
+export DRO_ACTION=install
 export MAS_CONFIG_DIR=<valid local path to the config folder>
 export MAS_INSTANCE_ID=<valid mas instance id>
 export DRO_STORAGE_CLASS=<valid storage class name>
@@ -164,7 +153,7 @@ export DRO_CONTACT_LASTNAME=xxx
 export MAS_CONFIG_DIR=<valid local path to the config folder>
 export MAS_INSTANCE_ID=<valid mas instance id>
 
-export DRO_ACTION=install-dro
+export DRO_ACTION=install
 export ROLE_NAME='dro'
 ansible-playbook playbooks/run_role.yml
 ```

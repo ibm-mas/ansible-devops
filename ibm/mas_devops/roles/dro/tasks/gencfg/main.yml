@@ -4,7 +4,6 @@
 
 # Check dro contact info
 - name: "drocfg : Fail if DRO contact information has not been provided"
-  when: dro_migration | lower != "true"
   assert:
     that:
       - dro_contact.email is defined and dro_contact.email != ""
@@ -71,12 +70,12 @@
   include_tasks: "{{ role_path }}/../../common_tasks/get_ingress_cert.yml"
 
 # Break up the certificate into an array
-- name: "udscfg : Set UDS cert variable"
+- name: "drocfg : Set DRO cert variable"
   set_fact:
     dro_tls_crt: "{{ cluster_ingress_tls_crt }}"
   no_log: true
 
-# Load uds_certs template to dynamically set as many uds certificates as identified
+# Load dro_certs template to dynamically set as many DRO certificates as identified
 - set_fact:
     dro_certs: "{{ lookup('ansible.builtin.template', 'templates/dro-certs.yml.j2') }}"
   when:
@@ -90,7 +89,7 @@
 
 # 4.Provide Debug information
 # -----------------------------------------------------------------------------
-- name: "udscfg : Debug generated config"
+- name: "drocfg : Debug generated config"
   debug:
     msg:
       - "DRO URL ............................ {{ dro_endpoint_url }}"
@@ -109,20 +108,3 @@
     mode: "664"
   when:
     - mas_instance_id is defined
-    - dro_migration | lower != "true"
-
-# 6. DRO Migration: Clean BASCfg of UDS
-# -----------------------------------------------------------------------------
-- name: "gencfg: get existing UDS BASCfg"
-  kubernetes.core.k8s_info:
-    api_version: config.mas.ibm.com/v1
-    kind: BasCfg
-  register: udscfgs
-  when:
-    - dro_migration != "" and dro_migration | lower == "true"
-
-- name: CleanUp UDS BASCfgs and Create DRO BASCfgs
-  include_tasks: "tasks/gencfg/migrate.yml"
-  loop: "{{ udscfgs.resources }}"
-  when:
-    - dro_migration != "" and dro_migration | lower == "true"
