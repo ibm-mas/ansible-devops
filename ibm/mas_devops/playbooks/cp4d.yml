@@ -9,7 +9,6 @@
     install_watson_machine_learning: "{{ lookup('env', 'CPD_INSTALL_WML') | default('False', true) | bool }}"
     install_analytics_engine: "{{ lookup('env', 'CPD_INSTALL_SPARK') | default('False', true) | bool }}"
     install_watson_openscale: "{{ lookup('env', 'CPD_INSTALL_OPENSCALE') | default('False', true) | bool }}"
-    install_watson_discovery: "{{ lookup('env', 'CPD_INSTALL_DISCOVERY') | default('False', true) | bool }}"
     install_spss_modeler: "{{ lookup('env', 'CPD_INSTALL_SPSS') | default('False', true) | bool }}"
     install_cognos_analytics: "{{ lookup('env', 'CPD_INSTALL_COGNOS') | default('False', true) | bool }}"
     cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') | default('5.1.3', true) }}"
@@ -19,15 +18,6 @@
     - role: ibm.mas_devops.ibm_catalogs
       when: install_cp4d_platform == true
 
-    # Only install shared common_services if installing/upgrading 4.6.x
-    # if installing/upgrading 4.8.x, then cp4d role will install dedicated common services
-    - role: ibm.mas_devops.common_services
-      when:
-        - install_cp4d_platform == true
-        - cpd_product_version is version('4.7.0','<')
-    - role: ibm.mas_devops.cp4d
-      when: install_cp4d_platform == true
-
     # Watson Studio (~3 hours)
     - role: ibm.mas_devops.cp4d_service
       when: install_watson_studio == true
@@ -35,73 +25,22 @@
         cpd_service_name: wsl
 
     # Watson Machine Learning (~2 1/2 hours)
-    # PLAY RECAP ***********************************************************************************************************************************************
-    # localhost                  : ok=71   changed=14   unreachable=0    failed=0    skipped=16   rescued=0    ignored=0
-
-    # Sunday 05 June 2022  16:03:52 +0100 (0:00:00.038)       4:01:34.056 ***********
-    # ===============================================================================
-    # ibm.mas_devops.cp4d_service : wait-ccs : Wait for the Runtime service accounts to appear ------------------------------------------------------- 4820.74s
-    # ibm.mas_devops.cp4d : install-cp4d : Wait for controlPlaneStatus to be 'Completed' (2m delay) -------------------------------------------------- 4729.03s
-    # ibm.mas_devops.cp4d_service : wait-wml : Wait for wmlStatus 'Completed' or 'Failed' ------------------------------------------------------------ 3314.82s
-    # ibm.mas_devops.cp4d_service : wait-ccs : Wait for ccsStatus 'Completed' ------------------------------------------------------------------------- 904.85s
-    # ibm.mas_devops.common_services : Wait for Foundation Services resources to be ready (60s delay) ------------------------------------------------- 185.43s
-    # ibm.mas_devops.cp4d : install-cp4d : Wait for ibm-zen-operator to be ready (60s delay) ---------------------------------------------------------- 185.13s
-    # ibm.mas_devops.cp4d : install-cp4d : Wait for ZenService lite-cr to be created ------------------------------------------------------------------ 124.16s
-    # ibm.mas_devops.cp4d : create-subscriptions : Wait for cpd-platform-operator-manager to be ready (60s delay) -------------------------------------- 61.97s
-    # ibm.mas_devops.cp4d_service : wait-ccs : Wait for the runtimes operator deployment to be ready --------------------------------------------------- 61.56s
-    # ibm.mas_devops.cp4d_service : Wait until the wmlbases.wml.cpd.ibm.com CRD is available ----------------------------------------------------------- 21.64s
     - role: ibm.mas_devops.cp4d_service
       when: install_watson_machine_learning == true
       vars:
         cpd_service_name: wml
 
     # Analytics Engine Powered by Apache Spark (~30 minutes)
-    # PLAY RECAP ***********************************************************************************************************************************************
-    # localhost                  : ok=63   changed=12   unreachable=0    failed=0    skipped=16   rescued=0    ignored=0
-
-    # Sunday 05 June 2022  18:52:17 +0100 (0:00:00.037)       1:32:18.513 ***********
-    # ===============================================================================
-    # ibm.mas_devops.cp4d : install-cp4d : Wait for controlPlaneStatus to be 'Completed' (2m delay) -------------------------------------------------- 3510.30s
-    # ibm.mas_devops.cp4d_service : wait-spark : Wait for analyticsengineStatus 'Completed' or 'Failed' ---------------------------------------------- 1447.22s
-    # ibm.mas_devops.common_services : Wait for Foundation Services resources to be ready (60s delay) ------------------------------------------------- 245.25s
-    # ibm.mas_devops.cp4d : install-cp4d : Wait for ibm-zen-operator to be ready (60s delay) ---------------------------------------------------------- 123.12s
-    # ibm.mas_devops.cp4d : install-cp4d : Wait for ZenService lite-cr to be created ------------------------------------------------------------------- 62.38s
-    # ibm.mas_devops.cp4d : create-subscriptions : Wait for cpd-platform-operator-manager to be ready (60s delay) -------------------------------------- 62.02s
-    # ibm.mas_devops.cp4d_service : Wait until the analyticsengines.ae.cpd.ibm.com CRD is available ---------------------------------------------------- 31.72s
-    # ibm.mas_devops.common_services : Check if operator group is present in ibm-common-services already ------------------------------------------------ 9.29s
-    # ibm.mas_devops.cp4d_service : Obtain CP4D dashboard URL ------------------------------------------------------------------------------------------- 9.14s
-    # ibm.mas_devops.cp4d : Patch the zen service accounts ---------------------------------------------------------------------------------------------- 5.76s
     - role: ibm.mas_devops.cp4d_service
       when: install_analytics_engine == true
       vars:
         cpd_service_name: spark
 
     # Watson OpenScale (~1 hour)
-    # PLAY RECAP ***********************************************************************************************************************************************
-    # localhost                  : ok=63   changed=12   unreachable=0    failed=0    skipped=16   rescued=0    ignored=0
-
-    # Sunday 05 June 2022  23:12:09 +0100 (0:00:00.041)       1:58:08.774 ***********
-    # ===============================================================================
-    # ibm.mas_devops.cp4d : install-cp4d : Wait for controlPlaneStatus to be 'Completed' (2m delay) -------------------------------------------------- 3753.23s
-    # ibm.mas_devops.cp4d_service : wait-aiopenscale : Wait for wosStatus 'Completed' or 'Failed' ---------------------------------------------------- 2665.32s
-    # ibm.mas_devops.common_services : Wait for Foundation Services resources to be ready (60s delay) ------------------------------------------------- 246.82s
-    # ibm.mas_devops.cp4d : install-cp4d : Wait for ibm-zen-operator to be ready (60s delay) ---------------------------------------------------------- 185.08s
-    # ibm.mas_devops.cp4d : install-cp4d : Wait for ZenService lite-cr to be created ------------------------------------------------------------------- 62.64s
-    # ibm.mas_devops.cp4d : create-subscriptions : Wait for cpd-platform-operator-manager to be ready (60s delay) -------------------------------------- 62.11s
-    # ibm.mas_devops.cp4d_service : Wait until the woservices.wos.cpd.ibm.com CRD is available --------------------------------------------------------- 42.13s
-    # ibm.mas_devops.common_services : Check if operator group is present in ibm-common-services already ----------------------------------------------- 12.58s
-    # ibm.mas_devops.cp4d_service : Obtain CP4D dashboard URL ------------------------------------------------------------------------------------------ 10.80s
-    # ibm.mas_devops.cp4d : Patch the zen service accounts ---------------------------------------------------------------------------------------------- 6.59s
     - role: ibm.mas_devops.cp4d_service
       when: install_watson_openscale == true
       vars:
         cpd_service_name: aiopenscale
-
-    # Watson Discovery (~1 hour)
-    - role: ibm.mas_devops.cp4d_service
-      when: install_watson_discovery == true
-      vars:
-        cpd_service_name: wd
 
     # SPSS MODELER
     - role: ibm.mas_devops.cp4d_service
