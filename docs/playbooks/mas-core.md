@@ -83,7 +83,7 @@ Usually fulfilled by block storage classes:
 - `PROMETHEUS_USERWORKLOAD_STORAGE_CLASS`
 - `GRAFANA_INSTANCE_STORAGE_CLASS`
 - `MONGODB_STORAGE_CLASS`
-- `UDS_STORAGE_CLASS`
+- `DRO_STORAGE_CLASS`
 
 
 Examples
@@ -99,9 +99,9 @@ export MAS_CONFIG_DIR=~/masconfig
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 
-export UDS_CONTACT_EMAIL=xxx@xxx.com
-export UDS_CONTACT_FIRSTNAME=xxx
-export UDS_CONTACT_LASTNAME=xxx
+export DRO_CONTACT_EMAIL=xxx@xxx.com
+export DRO_CONTACT_FIRSTNAME=xxx
+export DRO_CONTACT_LASTNAME=xxx
 
 oc login --token=xxxx --server=https://myocpserver
 ansible-playbook ibm.mas_devops.mas_install_core
@@ -132,9 +132,9 @@ export MAS_CHANNEL=rp1dev88
 export SLS_LICENSE_ID=xxx
 export SLS_LICENSE_FILE=/path/to/entitlement.lic
 
-export UDS_CONTACT_EMAIL=xxx@xxx.com
-export UDS_CONTACT_FIRSTNAME=xxx
-export UDS_CONTACT_LASTNAME=xxx
+export DRO_CONTACT_EMAIL=xxx@xxx.com
+export DRO_CONTACT_FIRSTNAME=xxx
+export DRO_CONTACT_LASTNAME=xxx
 
 export SKIP_MONGO=TRUE
 oc login --token=xxxx --server=https://myocpserver

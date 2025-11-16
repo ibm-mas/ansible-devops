@@ -96,4 +96,3 @@ copyDoc suite_rollback
 copyDoc suite_uninstall
 copyDoc suite_verify
 copyDoc turbonomic
-copyDoc uds
