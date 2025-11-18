@@ -13,7 +13,6 @@ All content used in the MAS install is sourced from three registries: **icr.io**
 - **icr.io/cpopen** All IBM operators
 - **icr.io/ibm-truststore-mgr** IBM truststore manager worker image
 - **icr.io/ibm-sls** IBM SLS content
-- **icr.io/ibm-uds** IBM UDS content
 - **icr.io/db2u** IBM Db2 Universal operator content
 - **cp.icr.io/cp** All IBM entitled container images
 - **quay.io/opencloudio** IBM common services
@@ -133,7 +132,7 @@ An optional prefix to apply to the catalog sources names for the 3 Red Hat catal
 - Default: None
 
 ### machine_config_multiupdate
-An optional value that if present will set the max unavailable nodes for the worker Machine Config Pool. 
+An optional value that if present will set the max unavailable nodes for the worker Machine Config Pool.
 This is only recommended to be set during setup of an environment where nodes will be lightly loaded and
 draining multiple worker nodes in parallel is possible
 

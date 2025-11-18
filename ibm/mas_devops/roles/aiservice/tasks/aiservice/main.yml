@@ -72,8 +72,13 @@
     state: present
     template: templates/aiservice/s3-secret.yml.j2
 
+# 7. Check if aiservice_watsonxai_ca_crt exist and if do - update aiservice_watsonxai_verify to true
+- name: "Check if aiservice_watsonxai_verify needs to be updated"
+  set_fact:
+    aiservice_watsonxai_verify: true
+  when: aiservice_watsonxai_ca_crt | length > 0
 
-# 7. IBM Maximo AI Broker installation
+# 8. IBM Maximo AI Broker installation
 # -----------------------------------------------------------------------------
 - name: Create AI Service CR
   vars:
@@ -83,7 +88,7 @@
     template: templates/aiservice/aiserviceapp.yml.j2
 
 
-# 8. Wait IBM Maximo AI Service custom resource to be complete
+# 9. Wait IBM Maximo AI Service custom resource to be complete
 # -----------------------------------------------------------------------------
 - name: "Wait for AIServiceApp custom resource to be ready (60s delay)"
   kubernetes.core.k8s_info:
