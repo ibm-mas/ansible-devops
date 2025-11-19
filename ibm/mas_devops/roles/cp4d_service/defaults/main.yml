@@ -60,18 +60,10 @@ cpd_service_name: "{{ lookup('env', 'CPD_SERVICE_NAME') }}"
 # The storage class to use for this CP4D service
 cpd_service_storage_class: "{{ lookup('env', 'CPD_SERVICE_STORAGE_CLASS') }}"
 cpd_service_block_storage_class: "{{ lookup('env', 'CPD_SERVICE_BLOCK_STORAGE_CLASS') }}"
-# cpd_services_supporting_block_storage_class: # these services can leverage both file and block storages; this list will use default file and block storages, if not listed, then only file storage will be assigned
-#   - "wd"
-#   - "ca"
-#   - "wsl"
-#   - "wml"
-#   - "aiopenscale"
-#   - "spark"
 
 cpd_services_requiring_ccs:
   - "wsl"
   - "wml"
-  - "spss"
   - "ca"
 
 cpd_service_installplan_approval: Automatic
@@ -88,14 +80,6 @@ cpd_wsl_project_name: "{{ lookup('env', 'CPD_WSL_PROJECT_NAME') | default('wsl-m
 cpd_wsl_project_description: "{{ lookup('env', 'CPD_WSL_PROJECT_DESCRIPTION') | default('Watson Studio Project for Maximo Application Suite', true) }}"
 cpd_wsl_project_storage_guid: "{{ 1000 | random | to_uuid | lower }}"
 
-# CPD Watson Discovery default properties
-# ---------------------------------------------------------------------------------------------------------------------
-# A Watson Discovery instance will be set up for Assist per MAS instance
-# Note: This is only used when mas_instance_id and mas_config_dir are not empty string
-cpd_default_wd_instance_name: "wd-mas-{{ mas_instance_id }}-assist"
-cpd_wd_instance_name: "{{ lookup('env', 'CPD_WD_INSTANCE_NAME') | default(cpd_default_wd_instance_name, true) }}"
-cpd_wd_deployment_type: "{{ lookup('env', 'CPD_WD_DEPLOYMENT_TYPE') | default('Starter', true) }}" # Default is "Starter" which creates 1 replica of each pod, "Production" creates at least 2 replicas of each pod, this cannot be changed in the future, and if you upgrade wd, you should use same type.
-cpd_wd_backing_storage_size: "50Gi" # This will be used by Multicloud Gateway standalone installation (Watson Discovery 4.8+ dependency)
 
 # CPD Service Information
 # ---------------------------------------------------------------------------------------------------------------------
@@ -139,51 +123,6 @@ cpd_service_info:
     crd_name: ws.ws.cpd.ibm.com
     cr_name: ws-cr
 
-  # Watson Discovery
-  # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=discovery-installing
-  wd:
-    assembly_name: watson_discovery
-    catalog_source: ibm-operator-catalog
-    operator_name: wd-discovery-operator
-    package_name: ibm-watson-discovery-operator
-    csv_name: ibm-watson-discovery-operator
-    api_version: discovery.watson.ibm.com/v1
-    crd_kind: WatsonDiscovery
-    crd_name: watsondiscoveries.discovery.watson.ibm.com
-    cr_name: wd
-
-  # Watson OpenScale
-  # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.5.x?topic=services-watson-openscale
-  aiopenscale:
-    assembly_name: openscale
-    catalog_source: ibm-operator-catalog
-    operator_name: ibm-cpd-wos-operator
-    package_name: ibm-cpd-wos
-    csv_name: ibm-cpd-wos
-    api_version: wos.cpd.ibm.com/v1
-    crd_kind: WOService
-    crd_name: woservices.wos.cpd.ibm.com
-    cr_name: openscale-defaultinstance
-
-  # SPSS Modeler
-  spss:
-    assembly_name: spss
-    catalog_source: ibm-operator-catalog
-    description: "SPSS Modeler"
-    operator_name: ibm-cpd-spss-operator
-    package_name: "ibm-cpd-spss"
-    cr_comment: "SPSS Modeler"
-    cr_name: "spss-sample"
-    crd_kind: "Spss"
-    crd_name: "spss.spssmodeler.cpd.ibm.com"
-    csv_name: ibm-cpd-spss
-    api_version: spssmodeler.cpd.ibm.com/v1
-    component_dependencies:
-      - ccs
-      - datarefinery
-      - ws_runtimes
-      - ws
-
   # Cognos Analytics
   ca:
     assembly_name: cognos_analytics
@@ -199,6 +138,3 @@ cpd_service_info:
     api_version: ca.cpd.ibm.com/v1
     component_dependencies:
       - ccs
-
-cluster_type:
-  - aws:
