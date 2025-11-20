@@ -14,6 +14,7 @@
       - "COS Instance Name ...................... {{ cos_instance_name }}"
       - "COS Bucket Name ........................ {{ cos_bucket_name }}"
       - "IBM Cloud Resource Group ............... {{ ibmcloud_resourcegroup }}"
+      - "AI Service Instance ID ................. {{ aiservice_instance_id | default('Not configured', true) }}"
 
 # Manage post-configuration: Image stitching
 - name: "Run Manage post-configuration: Set up image stitching"
@@ -42,3 +43,12 @@
   when:
     - mas_manage_attachment_configuration_mode in ["db", "cr"]
     - mas_manage_attachments_provider in ["filestorage", "ibm", "aws"]
+
+# Manage post-configuration: AI Service
+- name: "Run Manage post-configuration: Set up AI Service integration"
+  include_role:
+    name: ibm.mas_devops.suite_manage_aiservice_config
+  when:
+    - mas_manage_attachment_configuration_mode == "aiservice"
+    - aiservice_instance_id is defined
+    - aiservice_instance_id != ""

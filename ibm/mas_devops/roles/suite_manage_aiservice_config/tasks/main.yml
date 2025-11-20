@@ -1,0 +1,76 @@
+---
+# Assertions: preliminary validations
+# -----------------------------------------------------------------------------
+
+# Assertion: mas_instance_id is required
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+# Assertion: mas_workspace_id is required
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property is required"
+
+# Assertion: aiservice_instance_id is required
+- name: "Fail if aiservice_instance_id is not provided"
+  assert:
+    that: aiservice_instance_id is defined and aiservice_instance_id != ""
+    fail_msg: "aiservice_instance_id property is required"
+
+# Assertion: mas_app_id must be 'manage'
+- name: "Fail if mas_app_id is not 'manage'"
+  assert:
+    that:
+      - mas_app_id is defined and mas_app_id != ""
+      - mas_app_id == 'manage'
+    fail_msg: "mas_app_id property is required and must be set to 'manage'"
+
+# Check CM: if AI Service is already configured via internal config map
+# -----------------------------------------------------------------------------
+- name: "Check CM: if AI Service is already configured via internal config map"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: "{{ mas_instance_id }}-{{ mas_workspace_id }}-manage-aiservice-configmap"
+    namespace: "{{ manage_namespace }}"
+  register: manage_aiservice_cm_output
+
+- set_fact:
+    mas_manage_aiservice_configured: "{{ manage_aiservice_cm_output.resources | length > 0 }}"
+    mas_manage_aiservice_version: "{{ manage_aiservice_cm_output.resources[0].data.aiservice_instance_id | default('', true) if manage_aiservice_cm_output.resources | length > 0 else '' }}"
+
+- name: Debug
+  debug:
+    msg:
+      - "mas_instance_id ................................... {{ mas_instance_id }}"
+      - "mas_workspace_id .................................. {{ mas_workspace_id }}"
+      - "mas_app_id ........................................ {{ mas_app_id }}"
+      - ""
+      - "aiservice_instance_id ............................. {{ aiservice_instance_id }}"
+      - "aiservice_namespace ............................... {{ aiservice_namespace }}"
+      - ""
+      - "manage_namespace .................................. {{ manage_namespace }}"
+      - "manage_encryption_secret_name ..................... {{ manage_encryption_secret_name }}"
+      - ""
+      - "mas_manage_aiservice_configured ................... {{ mas_manage_aiservice_configured }}"
+      - "mas_manage_aiservice_version (existing) ........... {{ mas_manage_aiservice_version }}"
+      - ""
+      - "{{ (mas_manage_aiservice_version == aiservice_instance_id) | ternary('AI Service is already configured for this instance, skipping configuration','AI Service is not configured or instance has changed, proceeding with configuration...') }}"
+
+# Configure AI Service properties
+# -----------------------------------------------------------------------------
+- name: "Configure AI Service properties in Manage"
+  include_tasks: "configure.yml"
+  when: mas_manage_aiservice_version != aiservice_instance_id # only configure when AI Service is not setup yet or instance changed
+
+# Set CM: config map to track AI Service configuration (keep idempotency of ansible role)
+# -----------------------------------------------------------------------------
+- name: "Set CM: config map to track AI Service configuration"
+  kubernetes.core.k8s:
+    apply: yes
+    template: "templates/configmap.yml.j2"
+  when: mas_manage_aiservice_version != aiservice_instance_id # only configure when AI Service is not setup yet or instance changed
+
