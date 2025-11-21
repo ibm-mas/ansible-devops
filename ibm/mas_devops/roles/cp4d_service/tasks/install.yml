@@ -1,9 +1,9 @@
 ---
-# Create olm-utils-cm config maps which contains the versions
-# for all CPD related services and dependencies.
+# 1. Create olm-utils-cm config maps
+# -----------------------------------------------------------------------------
+# These contains the version info for all CPD related services and dependencies
 # This will be used by the CPD operators to automatically set the target versions
 # to be installed/upgraded
-# -----------------------------------------------------------------------------
 - name: "Create olm-utils-cm config map for Cloud Pak for Data release {{ cpd_product_version }}"
   kubernetes.core.k8s:
     apply: yes
@@ -32,7 +32,7 @@
     cpd_service_csv_version: "{{ cpd_components_meta[cpd_assembly_name].csv_version }}"
     cpd_service_channel: "{{ cpd_components_meta[cpd_assembly_name].sub_channel | default(cpd_service_info[cpd_service_name].sub_channel, true) }}" # search sub_channel in olm-utils-cm, if does not exist then use the default
 
-## Debug upgrade or new install
+# Debug upgrade or new install
 - name: "Lookup existing {{ cpd_service_kind }} CR named '{{ cpd_service_cr_name }}'"
   kubernetes.core.k8s_info:
     api_version: "{{ cpd_service_api_version }}"
@@ -64,7 +64,8 @@
   set_fact:
     is_cpd_service_upgrade: "{{ (existing_cpd_service_cr_version is defined and existing_cpd_service_cr_version is version(cpd_service_cr_version, '<')) | ternary(true, false) | bool }}"
 
-# 1. Load default storage classes and debug
+
+# 2. Load default storage classes and debug
 # -----------------------------------------------------------------------------
 - name: "Determine storage classes"
   include_tasks: "determine-storage-classes.yml"
@@ -83,6 +84,7 @@
       - "CPD Service CSV name ................... {{ cpd_service_csv_name }}"
       - "CPD Service CSV version ................ {{ cpd_service_csv_version }}"
 
+
 # 3. Run Pre-req task
 # -----------------------------------------------------------------------------
 # Only Watson Discovery has special pre-reqs currently (EDB Postgress in CPD 4.5 and 4.6)
@@ -91,7 +93,8 @@
     - cpd_service_name is in ['wd', 'spss']
   include_tasks: "prereqs/prereqs-{{ cpd_service_name }}.yml"
 
-# 3.1 Install Operand Configs and Operand Registries
+
+# 4. Install Operand Configs and Operand Registries
 # -----------------------------------------------------------------------------
 # If it's CPD 4.6, only Watson Studio, Watson Discovery and Cognos Analytics requires these operand configs to be applied via this automation.
 # If it's CPD 4.5, only Watson Studio and Watson Discovery requires these operand configs to be applied via this automation.
@@ -117,7 +120,8 @@
     operator_expected_csv: "{{ cpd_service_package_name }}.v{{ cpd_service_csv_version }}"
   include_tasks: "{{ role_path }}/../cp4d/tasks/prereqs/uninstall-operator.yml"
 
-# 4. Install CP4D Service Subscriptions
+
+# 5. Install CP4D Service Subscriptions
 # -----------------------------------------------------------------------------
 - name: "Install CP4D Service Subscription"
   vars:
@@ -132,7 +136,8 @@
       field_manager: ansible
       force_conflicts: true
 
-# 5. Wait until the Service CRD is available
+
+# 6. Wait until the Service CRD is available
 # -----------------------------------------------------------------------------
 - name: "Wait until the {{ cpd_service_info[cpd_service_name].crd_name }} CRD is available"
   kubernetes.core.k8s_info:
@@ -152,7 +157,8 @@
     - service_crd_info.resources is defined
     - service_crd_info.resources | length > 0
 
-# 6. Install CP4D Service CRs
+
+# 7. Install CP4D Service CRs
 # -----------------------------------------------------------------------------
 - name: "Install Service CR"
   kubernetes.core.k8s:
@@ -187,25 +193,17 @@
   pause:
     minutes: 5
 
-# 7. Wait for CP4D Service to be ready
+# 8. Wait for CP4D Service to be ready
 # -----------------------------------------------------------------------------
 - name: "Wait for the service to be ready"
   include_tasks: "wait/wait-{{ cpd_service_name }}.yml"
 
-# 8. Run post-install task
-# -----------------------------------------------------------------------------
-# Only Watson Discovery 4.8+ has special post install workaround needed
-- name: Run Post Install task for "{{ cpd_service_name }}"
-  when:
-    - cpd_service_name is in ['wd']
-    - cpd_48_or_higher
-    - cpd_platform_cr_name != 'ibmcpd-cr'
-  include_tasks: "postinstall/postinstall-wd-gateway-workaround.yml"
 
 # 9. Provide CP4D dashboard URL
 # -----------------------------------------------------------------------------
 - name: "Lookup admin credentials if they haven't been provided already"
   include_tasks: "{{ role_path }}/../cp4d/tasks/lookup-admin-credentials.yml"
+
 
 # 10. Debug Cloud Pak for Data installation details
 # -----------------------------------------------------------------------------
@@ -216,6 +214,7 @@
       - "CP4D Admin Username .................... {{ cpd_admin_username }}"
       - "CP4D Admin Password .................... {{ cpd_admin_password_text }}"
       - "CP4D Service Installed ................. {{ cpd_service_name }}"
+
 
 # 11. Generate MAS Config
 # -----------------------------------------------------------------------------
