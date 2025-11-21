@@ -10,10 +10,10 @@ spec:
   source: ibm-operator-catalog
   sourceNamespace: openshift-marketplace
   installPlanApproval: "{{ cpd_service_installplan_approval }}"
-# The following subscriptions will be installed if CPD 4.8+ whenever a service
+
+# The following subscriptions will be installed whenever a service
 # that depends the corresponding sub-dependencies are installed
 # -----------------------------------------------------------------------------
-{% if cpd_48_or_higher %}
 {% if cpd_service_name is in cpd_services_requiring_ccs %}
 ---
 apiVersion: operators.coreos.com/v1alpha1
@@ -52,7 +52,7 @@ spec:
   source: ibm-operator-catalog # ibm-cpd-datarefinery-operator-catalog
   sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
 {% endif %}
-{% if cpd_service_name is in ['wsl','wml','spss','ca','wd'] %}
+{% if cpd_service_name is in ['wsl','wml','ca'] %}
 ---
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -65,19 +65,4 @@ spec:
   name: ibm-elasticsearch-operator
   source: ibm-operator-catalog # ibm-elasticsearch-catalog
   sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
-{% endif %}
-{% if cpd_service_name is in ['spss'] %}
----
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: ibm-cpd-canvasbase-operator-catalog-subscription # needed only by spss
-  namespace: "{{ cpd_operators_namespace }}"
-spec:
-  channel: "{{ cpd_components_meta.canvasbase.sub_channel }}"
-  installPlanApproval: Automatic
-  name: ibm-cpd-canvasbase
-  source: ibm-operator-catalog # ibm-canvasbase-catalog
-  sourceNamespace: openshift-marketplace # "{{ cpd_operators_namespace }}"
-{% endif %}
 {% endif %}
