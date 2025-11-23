@@ -7,9 +7,9 @@
     definition: "{{ lookup('template', 'templates/wd/storage/namespace.yaml') }}"
   register: localNamespace
 
+
 # 2. Install the Operator
 # -----------------------------------------------------------------------------
-
 - name: Check if operator group is present in openshift-storage already
   kubernetes.core.k8s_info:
     namespace: "openshift-storage"
@@ -21,6 +21,7 @@
     apply: yes
     definition: "{{ lookup('template', 'templates/wd/storage/subscription.yml.j2') }}"
   register: ocsSubscription
+
 
 # 3. Wait until the StorageCluster CRD is available
 # -----------------------------------------------------------------------------
@@ -38,6 +39,7 @@
   include_tasks: "{{ role_path }}/../../common_tasks/wait_for_crd.yml"
   vars:
     crd_name: backingstores.noobaa.io
+
 
 # 4. Create the storage cluster
 # -----------------------------------------------------------------------------
@@ -119,6 +121,7 @@
     - default_backingstore_pod.resources | length > 0
     - default_backingstore_pod.resources[0].status is defined
     - default_backingstore_pod.resources[0].status.phase == "Running"
+
 
 # 5. Provide debug information
 # -----------------------------------------------------------------------------

@@ -24,7 +24,6 @@ copyDoc aws_user_creation
 copyDoc aws_vpc
 copyDoc cert_manager
 copyDoc cis
-copyDoc common_services
 copyDoc configure_manage_eventstreams
 copyDoc cos
 copyDoc cos_bucket
@@ -97,4 +96,3 @@ copyDoc suite_rollback
 copyDoc suite_uninstall
 copyDoc suite_verify
 copyDoc turbonomic
-copyDoc uds
