@@ -42,5 +42,5 @@ cat $TARGET/ee/execution-environment.yml
 
 echo_h2 "Building execution environment:"
 ansible-builder --version
-dnf info ansible-builder
+apt show ansible-builder
 ansible-builder build --file $TARGET/ee/execution-environment.yml -v3
