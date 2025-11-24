@@ -1,12 +1,110 @@
 ---
 # Check mongodb backup variables
 # -----------------------------------------------------------------------------
-- name: "Fail if mas_instance_id is not provided"
+- name: "Fail if MAS_INSTANCE_ID is not provided"
   assert:
     that: mas_instance_id is defined and mas_instance_id != ""
-    fail_msg: "mas_instance_id is required"
+    fail_msg: "MAS_INSTANCE_ID is required"
+
+- name: "Fail if MAS_BACKUP_DIR is not provided"
+  assert:
+    that: mas_backup_dir is defined and mas_backup_dir != ""
+    fail_msg: "MAS_BACKUP_DIR is required"
+
+- name: "Check if MONGODB_BACKUP_VERSION is provided, if not set to default 'YYMMDDHHMMSS' format"
+  set_fact:
+    mongodb_backup_version: "{{ lookup('pipe', 'date +%y%m%d%H%M%S') }}"
+  when: mongodb_backup_version is not defined or mongodb_backup_version == ""
+
+- name: "Set fact: Create Mongodb backup base direcrtory path"
+  set_fact:
+    mongodb_backup_path: "{{ mas_backup_dir }}/{{ mongodb_action }}-{{ mongodb_backup_version }}-mongoce"
+
+- name: "Set fact: Create Resources and Data backup paths"
+  set_fact:
+    mongodb_backup_resources_path: "{{ mongodb_backup_path }}/resources"
+    mongodb_backup_secrets_path: "{{ mongodb_backup_path }}/resources/secrets"
+    mongodb_backup_configmaps_path: "{{ mongodb_backup_path }}/resources/configmaps"
+    mongodb_backup_data_path: "{{ mongodb_backup_path }}/data"
+
+- name: "Create mongodb backup directories"
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ mongodb_backup_path }}"
+    - "{{ mongodb_backup_resources_path }}"
+    - "{{ mongodb_backup_data_path }}"
+    - "{{ mongodb_backup_configmaps_path }}"
+    - "{{ mongodb_backup_secrets_path }}"
 
 # Get mongodb information
 # -------------------------------------------------------------------------
 - name: "Get mongodb information"
   include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/get-mongo-info.yml"
+
+# Backup Mongodb Kubernetes Resources
+# -------------------------------------------------------------------------
+
+# 1. Backup MongoDBCommunity CR
+- name: "Backup MongoDBCommunity Kubernetes resources"
+  block:
+    - name: Filter spec (remove specified fields)
+      set_fact:
+        spec_filtered: >-
+          {{
+            (mongodbcommunity_output.resources[0].spec | default({})) 
+            | dict2items 
+            | rejectattr('key', 'in', ['replicaSetHorizons']) 
+            | items2dict
+          }}
+      when:
+        - mongodbcommunity_output is defined
+        - mongodbcommunity_output.resources[0] is defined
+        - mongodbcommunity_output.resources[0].spec is defined
+
+    - name: Construct new CR yaml with minimal metadata and spec
+      set_fact:
+        mongodb_filtered:
+          apiVersion: "{{ mongodbcommunity_output.resources[0].apiVersion }}"
+          kind: "{{ mongodbcommunity_output.resources[0].kind }}"
+          metadata:
+            name: "{{ mongodbcommunity_output.resources[0].metadata.name }}"
+            namespace: "{{ mongodbcommunity_output.resources[0].metadata.namespace }}"
+          spec: "{{ spec_filtered }}"
+      when:
+        - mongodbcommunity_output is defined
+        - mongodbcommunity_output.resources[0] is defined
+
+    - name: "Save MongoDBCommunity resource to file"
+      copy:
+        content: "{{ mongodb_filtered | to_nice_yaml }}"
+        dest: "{{ mongodb_backup_resources_path }}/cr.yaml"
+      when:
+        - mongodbcommunity_output is defined
+        - mongodbcommunity_output.resources[0] is defined
+        - mongodb_filtered is defined
+      
+  when:
+    - mongodb_running is defined and mongodb_running
+
+# 2. Backup MongoDBCommunity Secrets
+- name: "Backup MongoDBCommunity Kubernetes Secrets"
+  block:
+    # Process Secrets
+    - name: Collect all password secrets
+      set_fact:
+        all_secrets: >-
+          {{
+            mongodbcommunity_output.resources[0].spec.users | map(attribute='passwordSecretRef') | list +
+            [mongodbcommunity_output.resources[0].spec.prometheus.passwordSecretRef]
+          }}
+
+    - name: "Debug: All Secrets to backup"
+      debug:
+        msg: "All Secrets to backup: {{ all_secrets }}"
+
+    - name: "Set fact: MongoDBCommunity Users Secrets"
+      include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-secrets.yml"
+      loop: "{{ all_secrets }}"
