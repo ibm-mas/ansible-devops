@@ -93,7 +93,7 @@
 - name: "Backup MongoDBCommunity Kubernetes Secrets"
   block:
     # Process Secrets
-    - name: Collect all password secrets
+    - name: Collect all secrets from MongoDBCommunity spec
       set_fact:
         all_secrets: >-
           {{
@@ -105,6 +105,34 @@
       debug:
         msg: "All Secrets to backup: {{ all_secrets }}"
 
-    - name: "Set fact: MongoDBCommunity Users Secrets"
+    - name: "Set fact: Backup All Secrets from MongoDBCommunity CR spec"
       include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-secrets.yml"
       loop: "{{ all_secrets }}"
+
+# 3. Backup MongoDBCommunity Configmaps
+# This is not used in "install MAS from backup" flow, but included for completeness.
+# -------------------------------------------------------------------------
+- name: "Backup MongoDBCommunity Kubernetes TLS Configmaps from CR spec"
+  block:
+    # Process configmaps
+    - name: Collect TLS configmaps from MongoDBCommunity spec
+      set_fact:
+        tls_names: >-
+          {{
+            mongodbcommunity_output.resources[0].spec.security.tls
+            | dict2items
+            | selectattr('value', 'is mapping')
+            | map(attribute='value')
+            | map(attribute='name')
+            | list
+          }}
+
+    - name: "Debug: TLS configmaps to backup"
+      debug:
+        msg: "TLS configmaps to backup: {{ tls_names }}"
+
+    - name: "Set fact: Backup TLS configmaps"
+      include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-configmaps.yml"
+      loop: "{{ tls_names }}"
+
+
