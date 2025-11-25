@@ -437,6 +437,85 @@ def get_ecr_repositories(image_mirror_output):
         repositories.append(repo_to_add)
   return repositories
 
+def get_usersecrets_from_mongoce(mongoDBCommunityCR):
+  """
+    filter: get_usersecrets_from_mongoce
+    author: Sanjay Prabhakar
+    version_added: 0.1
+    short_description: Get the list of user secrets from MongoDBCommunity CR
+    description:
+        - This filter returns the list of user secrets from MongoDBCommunity CR
+    options:
+      mongoDBCommunityCR:
+        description: MongoDBCommunity CR definition
+        required: True
+  """
+  user_secrets = []
+  for user in mongoDBCommunityCR['spec'].get('users', []):
+    if 'passwordSecretRef' in user:
+      user_secrets.append(user['passwordSecretRef']['name'])
+    if 'scramCredentialsSecretName' in user:
+      user_secrets.append(user['scramCredentialsSecretName'])
+  return user_secrets
+
+def get_prometheus_secretname_from_mongoce(mongoDBCommunityCR):
+  """
+    filter: get_prometheus_secretname_from_mongoce
+    author: Sanjay Prabhakar
+    version_added: 0.1
+    short_description: Get the name of prometheus secret from MongoDBCommunity CR
+    description:
+        - This filter returns the name of prometheus secret from MongoDBCommunity CR
+    options:
+      mongoDBCommunityCR:
+        description: MongoDBCommunity CR definition
+        required: True
+  """
+  if 'prometheus' in mongoDBCommunityCR['spec']:
+    if 'passwordSecretRef' in mongoDBCommunityCR['spec']['prometheus']:
+      return mongoDBCommunityCR['spec']['prometheus']['passwordSecretRef']['name']
+    else:
+      return None
+
+def get_tlscertkey_secretname_from_mongoce(mongoDBCommunityCR):
+  """
+    filter: get_tlscertkey_secretname_from_mongoce
+    author: Sanjay Prabhakar
+    version_added: 0.1
+    short_description: Get the name of TLS Cert server secret from MongoDBCommunity CR
+    description:
+        - This filter returns the name of TLS Cert server secret from MongoDBCommunity CR
+    options:
+      mongoDBCommunityCR:
+        description: MongoDBCommunity CR definition
+        required: True
+  """
+  if 'security' in mongoDBCommunityCR['spec']:
+    if 'tls' in mongoDBCommunityCR['spec']['security']:
+      if 'certificateKeySecretRef' in mongoDBCommunityCR['spec']['security']['tls']:
+        return mongoDBCommunityCR['spec']['security']['tls']['certificateKeySecretRef']['name']
+    else:
+      return None
+
+def get_tlscert_configmapname_from_mongoce(mongoDBCommunityCR):
+  """
+    filter: get_tlscert_configmapname_from_mongoce
+    author: Sanjay Prabhakar
+    version_added: 0.1
+    short_description: Get the name of TLS Cert configmap from MongoDBCommunity CR
+    description:
+        - This filter returns the name of TLS Cert configmap from MongoDBCommunity CR
+    options:
+      mongoDBCommunityCR:
+        description: MongoDBCommunity CR definition
+        required: True
+  """
+  if 'security' in mongoDBCommunityCR['spec']:
+    if 'tls' in mongoDBCommunityCR['spec']['security']:
+      if 'caConfigMapRef' in mongoDBCommunityCR['spec']['security']['tls']:
+        return mongoDBCommunityCR['spec']['security']['tls']['caConfigMapRef']['name']
+    else:
+      return None
 
 class FilterModule(object):
   def filters(self):
@@ -459,5 +538,9 @@ class FilterModule(object):
       'format_pre_version_without_buildid': format_pre_version_without_buildid,
       'format_pre_version_with_buildid': format_pre_version_with_buildid,
       'get_db2_instance_name': get_db2_instance_name,
-      'get_ecr_repositories': get_ecr_repositories
+      'get_ecr_repositories': get_ecr_repositories,
+      'get_usersecrets_from_mongoce': get_usersecrets_from_mongoce,
+      'get_prometheus_secretname_from_mongoce': get_prometheus_secretname_from_mongoce,
+      'get_tlscertkey_secretname_from_mongoce': get_tlscertkey_secretname_from_mongoce,
+      'get_tlscert_configmapname_from_mongoce': get_tlscert_configmapname_from_mongoce
     }

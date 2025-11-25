@@ -16,7 +16,7 @@
     mongodb_backup_version: "{{ lookup('pipe', 'date +%y%m%d%H%M%S') }}"
   when: mongodb_backup_version is not defined or mongodb_backup_version == ""
 
-- name: "Set fact: Create Mongodb backup base direcrtory path"
+- name: "Set fact: Create Mongodb backup base directory path"
   set_fact:
     mongodb_backup_path: "{{ mas_backup_dir }}/{{ mongodb_action }}-{{ mongodb_backup_version }}-mongoce"
 
@@ -85,20 +85,37 @@
         - mongodbcommunity_output is defined
         - mongodbcommunity_output.resources[0] is defined
         - mongodb_filtered is defined
-      
-  when:
-    - mongodb_running is defined and mongodb_running
 
 # 2. Backup MongoDBCommunity Secrets
 - name: "Backup MongoDBCommunity Kubernetes Secrets"
   block:
     # Process Secrets
-    - name: Collect all secrets from MongoDBCommunity spec
+    - name: Collect User secrets from MongoDBCommunity spec
+      set_fact:
+        users_secrets: >-
+          {{
+            mongodbcommunity_output.resources[0]
+            | ibm.mas_devops.get_usersecrets_from_mongoce
+          }}
+
+    - name: Collect Prometheus secret name from MongoDBCommunity spec
       set_fact:
         all_secrets: >-
           {{
-            mongodbcommunity_output.resources[0].spec.users | map(attribute='passwordSecretRef') | list +
-            [mongodbcommunity_output.resources[0].spec.prometheus.passwordSecretRef]
+            users_secrets + [ mongodbcommunity_output.resources[0]
+            | ibm.mas_devops.get_prometheus_secretname_from_mongoce ]
+            | reject('equalto', None)
+            | list
+          }}
+    
+    - name: Collect TLS server key secret name from MongoDBCommunity spec
+      set_fact:
+        all_secrets: >-
+          {{
+            all_secrets + [ mongodbcommunity_output.resources[0]
+            | ibm.mas_devops.get_tlscertkey_secretname_from_mongoce ]
+            | reject('equalto', None)
+            | list
           }}
 
     - name: "Debug: All Secrets to backup"
@@ -117,22 +134,17 @@
     # Process configmaps
     - name: Collect TLS configmaps from MongoDBCommunity spec
       set_fact:
-        tls_names: >-
+        tls_name: >-
           {{
-            mongodbcommunity_output.resources[0].spec.security.tls
-            | dict2items
-            | selectattr('value', 'is mapping')
-            | map(attribute='value')
-            | map(attribute='name')
-            | list
+            mongodbcommunity_output.resources[0]
+            | ibm.mas_devops.get_tlscert_configmapname_from_mongoce
           }}
 
-    - name: "Debug: TLS configmaps to backup"
+    - name: "Debug: TLS configmap to backup"
       debug:
-        msg: "TLS configmaps to backup: {{ tls_names }}"
+        msg: "TLS configmap to backup: {{ tls_name }}"
 
     - name: "Set fact: Backup TLS configmaps"
       include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-configmaps.yml"
-      loop: "{{ tls_names }}"
-
+      loop: "['{{ tls_name }}']"
 
