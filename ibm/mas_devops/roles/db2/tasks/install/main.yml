@@ -125,7 +125,7 @@
 - name: "Create db2u Namespace"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/db2u_namespace.yaml') }}"
+    template: "templates/db2u_namespace.yaml"
   register: _db2_namespace_result
 
 - name: Set 'ibm-registry' secret content
@@ -151,7 +151,7 @@
         name: ibm-registry
         namespace: "{{ db2_namespace }}"
       data:
-        .dockerconfigjson: "{{ new_secret | to_json | b64encode }}"
+        .dockerconfigjson: "{{ new_secret | b64encode }}"
   register: secretUpdateResult
 
 - name: "Delete old db2 subscription, operand request and csv from {{ ibm_common_services_namespace }}"
@@ -178,13 +178,13 @@
 - name: "Create internal CA certificate issuer"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/certs/ca_issuer.yml.j2') }}"
+    template: "templates/certs/ca_issuer.yml.j2"
   register: createCaIssuer
 
 - name: "Create and wait for CA certificate"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/certs/ca_certificate.yml.j2') }}"
+    template: "templates/certs/ca_certificate.yml.j2"
     wait: yes
     wait_timeout: 600 #10 minutes
     wait_condition:
@@ -195,13 +195,13 @@
 - name: "Create certificate issuer"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/certs/issuer.yml.j2') }}"
+    template: "templates/certs/issuer.yml.j2"
   register: createIssuer
 
 - name: "Create db2u certificate"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/certs/certificate.yml.j2') }}"
+    template: "templates/certs/certificate.yml.j2"
   register: createCertificate
 
 # 9. Wait until the Db2uCluster CRD is available
@@ -235,7 +235,7 @@
     - name: Set db2u-release configmap content
       no_log: true
       set_fact:
-        db2_releases_content: "{{ db2_release_info.resources[0].data.json }}"
+        db2_releases_content: "{{ db2_release_info.resources[0].data.json | from_json }}"
 
     - name: Extract major version from channel
       set_fact:
@@ -299,7 +299,7 @@
 - name: "Create db2 instance"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/db2ucluster.yml.j2') }}"
+    template: "templates/db2ucluster.yml.j2"
 
 - name: "Set db2 instance timezone"
   include_tasks: "tasks/install/setup_timezone.yml"
@@ -365,7 +365,7 @@
 - name: "Create dedicated route: db2u-{{ db2_instance_name }}-tls-route"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/tlsroute.yml.j2') }}"
+    template: "templates/tlsroute.yml.j2"
 
 - name: Lookup existing db2u-tls-route
   kubernetes.core.k8s_info:
