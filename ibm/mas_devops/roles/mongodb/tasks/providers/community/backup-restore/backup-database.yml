@@ -1,0 +1,82 @@
+---
+# Backup Mongodb database Data using mondodump
+# -----------------------------------------------------------------------------
+
+- name: "Lookup mongoce Pod"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ mongodb_namespace }}"
+    label_selectors:
+      - apps.kubernetes.io/pod-index: '0'
+    wait: yes
+    wait_sleep: 30
+    wait_timeout: 300 # 5 mins until we give up waiting for the pod to get into the expected state
+    wait_condition:
+      type: Ready
+      status: "True"
+  register: mongoce_pod
+
+- name: Configure facts
+  set_fact:
+    mongoce_pod_name: "{{ mongoce_pod.resources[0].metadata.name }}"
+
+- name: "Debug information - Mongodb database Data backup - Pod name"
+  debug:
+    msg:
+      - "Pod name ............................... {{ mongoce_pod_name }}"
+
+# Get mongodb admin password
+# -----------------------------------------------------------------------------
+
+- name: "Get mongodb admin secret name"
+  set_fact:
+    mongodb_admin_secret_name: "{{ mongodbcommunity_output.resources[0] | ibm.mas_devops.get_mongoce_admin_secretname }}"
+
+- name: "Get mongodb admin password"
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: "{{ mongodb_admin_secret_name }}"
+    namespace: "{{ mongodb_namespace }}"
+  register: _mongodb_password_output
+  no_log: true
+
+- name: "Set fact: mongodb admin password"
+  set_fact:
+    mongodb_admin_user: "admin"
+    mongodb_admin_password: "{{ _mongodb_password_output.resources[0].data.password | b64decode }}"
+  when:
+    - _mongodb_password_output is defined
+    - _mongodb_password_output.resources[0] is defined
+    - _mongodb_password_output.resources[0].data.password is defined
+  no_log: true
+
+- name: "Get mongodb service name"
+  set_fact:
+    mongodb_service_name: "{{ mongodbcommunity_output.resources[0].spec.statefulSet.spec.serviceName }}"
+
+# Prepare 
+# -----------------------------------------------------------------------------
+- name: Create create-role-user.sh script in local /tmp
+  ansible.builtin.template:
+    src: create-role-user.sh.j2
+    dest: /tmp/create-role-user.sh
+    mode: '777'
+
+- name: Copy the create-role-user.sh script into the mongodb pod
+  shell: "oc cp /tmp/create-role-user.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/create-role-user.sh -c mongod"
+  register: copy_result
+  retries: 10
+  delay: 30 # seconds
+  until: copy_result.rc == 0
+
+# The log file will also be available inside the pod /tmp/create-role-user.log
+- name: Run create-role-user.sh to setup backup role and user in Mongodb.
+  shell: |
+    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- su -lc '/tmp/setupdb.sh | tee /tmp/setupdb.log'
+  register: prepare_cmds_status
+  ignore_errors: true
+  retries: 10
+  delay: 30 # seconds
+  until:
+    - prepare_cmds_status.rc == 0  ## Always going to be zero in this case, but let's check anyway.
+    - prepare_cmds_status.stdout | regex_search('creation process completed', multiline=True)

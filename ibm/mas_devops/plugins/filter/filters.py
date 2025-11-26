@@ -458,6 +458,25 @@ def get_usersecrets_from_mongoce(mongoDBCommunityCR):
       user_secrets.append(user['scramCredentialsSecretName'])
   return user_secrets
 
+def get_mongoce_admin_secretname(mongoDBCommunityCR):
+  """
+    filter: get_mongoce_admin_secretname
+    author: Sanjay Prabhakar
+    version_added: 0.1
+    short_description: Get admin secret name from MongoDBCommunity CR
+    description:
+        - This filter returns admin secret name from MongoDBCommunity CR
+    options:
+      mongoDBCommunityCR:
+        description: MongoDBCommunity CR definition
+        required: True
+  """
+  for user in mongoDBCommunityCR['spec']['users']:
+    if 'db' in user:
+      if user['db'] == 'admin' and 'passwordSecretRef' in user:
+          return user['passwordSecretRef']['name']
+  return None
+
 def get_prometheus_secretname_from_mongoce(mongoDBCommunityCR):
   """
     filter: get_prometheus_secretname_from_mongoce
@@ -540,6 +559,7 @@ class FilterModule(object):
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
       'get_usersecrets_from_mongoce': get_usersecrets_from_mongoce,
+      'get_mongoce_admin_secretname': get_mongoce_admin_secretname,
       'get_prometheus_secretname_from_mongoce': get_prometheus_secretname_from_mongoce,
       'get_tlscertkey_secretname_from_mongoce': get_tlscertkey_secretname_from_mongoce,
       'get_tlscert_configmapname_from_mongoce': get_tlscert_configmapname_from_mongoce
