@@ -27,7 +27,7 @@
 
 - name: "Create OperatorGroup in {{ dro_namespace }} namespace if not exist"
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/operatorgroup.yml.j2') }}"
+    template: "templates/operatorgroup.yml.j2"
 
 # 4. Patch the namespace with the ibm.com/kyverno: audit label
 # ----------------------------------------------------------------------------
@@ -62,7 +62,7 @@
 
 - name: Create DRO PVC
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/dro-pvc.yml.j2') }}"
+    template: "templates/dro-pvc.yml.j2"
   when: dro_installed_pvc.resources is defined and dro_installed_pvc.resources | length == 0
 
 # 6. Create Marketplace Pull Secret
@@ -127,7 +127,7 @@
 
 - name: Create Subscription ibm_metrics_operator
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/subscription/imo_subscription.yml') }}"
+    template: "templates/subscription/imo_subscription.yml"
     wait: yes
     wait_timeout: 60
   when: (imo_subscription.resources is defined) and (imo_subscription.resources | length == 0)
@@ -166,7 +166,7 @@
 
 - name: "Create Subscription ibm-data-reporter-operator"
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/subscription/dro_subscription.yml') }}"
+    template: "templates/subscription/dro_subscription.yml"
     wait: yes
     wait_timeout: 60
   when: (dro_subscription.resources is defined) and (dro_subscription.resources | length == 0)
@@ -182,19 +182,19 @@
 # -----------------------------------------------------------------------------
 - name: Create MarketplaceConfig CR
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/MarketplaceConfig-cr.yml.j2') }}"
+    template: "templates/MarketplaceConfig-cr.yml.j2"
 
 # 12. Create DRO Pull Secret
 # -----------------------------------------------------------------------------
 - name: "Create Secret redhat-marketplace-pull-secret"
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/rhm-pull-secret.yml.j2') }}"
+    template: "templates/rhm-pull-secret.yml.j2"
   when: (rm_sec.resources is defined) and (rm_sec.resources | length == 0)
 
 # 13. Apply required RBACs
 - name: "Create ClusterRoleBindings for metric-state"
   kubernetes.core.k8s:
-    definition: "{{ lookup('template', 'templates/role_binding.yml.j2') }}"
+    template: "templates/role_binding.yml.j2"
 
 # 14. Check deployment status
 # -----------------------------------------------------------------------------

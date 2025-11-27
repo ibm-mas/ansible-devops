@@ -41,4 +41,5 @@ echo_h2 "execution-environment.yml:"
 cat $TARGET/ee/execution-environment.yml
 
 echo_h2 "Building execution environment:"
-ansible-builder build --file $TARGET/ee/execution-environment.yml
+ansible-builder --version
+ansible-builder build --file $TARGET/ee/execution-environment.yml -v3
