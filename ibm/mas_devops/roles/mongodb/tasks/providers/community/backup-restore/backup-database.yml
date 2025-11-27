@@ -7,7 +7,7 @@
     kind: Pod
     namespace: "{{ mongodb_namespace }}"
     label_selectors:
-      - apps.kubernetes.io/pod-index: '0'
+      - apps.kubernetes.io/pod-index=0
     wait: yes
     wait_sleep: 30
     wait_timeout: 300 # 5 mins until we give up waiting for the pod to get into the expected state
@@ -54,29 +54,39 @@
   set_fact:
     mongodb_service_name: "{{ mongodbcommunity_output.resources[0].spec.statefulSet.spec.serviceName }}"
 
+- name: "Set mongodb host"
+  set_fact:
+    mongodb_host: "{{ mongoce_pod_name }}.{{ mongodb_service_name }}.{{ mongodb_namespace }}.svc.cluster.local:27017"
+
+
 # Prepare 
 # -----------------------------------------------------------------------------
-- name: Create create-role-user.sh script in local /tmp
-  ansible.builtin.template:
-    src: create-role-user.sh.j2
-    dest: /tmp/create-role-user.sh
-    mode: '777'
+- block:
+  - name: Create create-role-user.sh script in local /tmp
+    ansible.builtin.template:
+      src: create-role-user.sh.j2
+      dest: /tmp/create-role-user.sh
+      mode: '777'
 
-- name: Copy the create-role-user.sh script into the mongodb pod
-  shell: "oc cp /tmp/create-role-user.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/create-role-user.sh -c mongod"
-  register: copy_result
-  retries: 10
-  delay: 30 # seconds
-  until: copy_result.rc == 0
+  - name: Copy the create-role-user.sh script into the mongodb pod
+    shell: "oc cp /tmp/create-role-user.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/create-role-user.sh -c mongod"
+    register: copy_result
+    retries: 10
+    delay: 30 # seconds
+    until: copy_result.rc == 0
 
 # The log file will also be available inside the pod /tmp/create-role-user.log
-- name: Run create-role-user.sh to setup backup role and user in Mongodb.
-  shell: |
-    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- su -lc '/tmp/setupdb.sh | tee /tmp/setupdb.log'
-  register: prepare_cmds_status
-  ignore_errors: true
-  retries: 10
-  delay: 30 # seconds
-  until:
-    - prepare_cmds_status.rc == 0  ## Always going to be zero in this case, but let's check anyway.
-    - prepare_cmds_status.stdout | regex_search('creation process completed', multiline=True)
+  - name: Exec into mongo pod and run create-role-user.sh to setup backup role and user in Mongodb.
+    shell: |
+      oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -- bash /tmp/create-role-user.sh
+    register: create_roleuser_output
+    ignore_errors: true
+    retries: 10
+    delay: 30 # seconds
+    until:
+      - create_roleuser_output.rc == 0
+      - create_roleuser_output.stdout | regex_search('ROLEUSERstatus-SUCCESS', multiline=True)
+
+  - name: "Debug create-role-user logs"
+    debug:
+      msg: "{{ create_roleuser_output.stdout_lines }}"

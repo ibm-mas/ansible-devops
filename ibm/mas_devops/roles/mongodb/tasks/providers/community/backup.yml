@@ -85,6 +85,7 @@
         - mongodbcommunity_output is defined
         - mongodbcommunity_output.resources[0] is defined
         - mongodb_filtered is defined
+  when: mongodb_k8_backup
 
 # 2. Backup MongoDBCommunity Secrets
 - name: "Backup MongoDBCommunity Kubernetes Secrets"
@@ -125,6 +126,7 @@
     - name: "Set fact: Backup All Secrets from MongoDBCommunity CR spec"
       include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-secrets.yml"
       loop: "{{ all_secrets }}"
+  when: mongodb_k8_backup
 
 # 3. Backup MongoDBCommunity Configmaps
 # This is not used in "install MAS from backup" flow, but included for completeness.
@@ -146,6 +148,7 @@
     - name: "Set fact: Backup TLS configmaps"
       include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-configmaps.yml"
       loop: "['{{ tls_name }}']"
+  when: mongodb_k8_backup
 
 # Backup Mongodb database Data using mondodump
 # -------------------------------------------------------------------------
@@ -157,3 +160,5 @@
       - "MongoCE instance name ...................... {{ mongodb_instance_name }}"
       - "MongoCE version ............................ {{ mongodb_version }}"
 
+- name: "Start Database backup process."
+  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-database.yml"

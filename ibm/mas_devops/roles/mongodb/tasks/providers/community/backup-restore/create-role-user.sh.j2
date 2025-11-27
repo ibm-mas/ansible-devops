@@ -6,10 +6,10 @@ MONGODB_BACKUP_USER="bradmin"
 
 # Check if mongo is primary
 tlsCAFile=$(ls /var/lib/tls/ca/*.pem)
+echo "Using TLS CA file: $tlsCAFile"
 primary_host=""
 
-is_primary=$(mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin
-    --tls --eval 'db.isMaster().ismaster')
+is_primary=$(mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --host {{ mongodb_host }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --eval 'db.isMaster().ismaster')
 cmdrc=$?
 if [ $cmdrc -ne 0 ]; then
     echo "Error checking if node is primary. Exiting."
@@ -18,8 +18,7 @@ fi
 
 if [ "$is_primary" != "true" ]; then
     echo "This node is not primary. Get Primary from server status."
-    primary_host=$(mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin
-        --tls --eval 'rs.isMaster().primary')
+    primary_host=$(mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --host {{ mongodb_host }} --authenticationDatabase=admin --tls --eval 'rs.isMaster().primary')
     cmdrc=$?
     if [ $cmdrc -ne 0 ]; then
         echo "Error getting primary node. Exiting."
@@ -33,7 +32,7 @@ if [ -n "$primary_host" ]; then
     mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host $primary_host"
 else
     echo "Creating user on current primary node."
-    mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls"
+    mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host {{ mongodb_host }}"
 fi
 
 # Check if role already exists
@@ -43,13 +42,7 @@ if [ -n "$role_exists" ]; then
 else
     echo "Creating role $MONGODB_BACKUP_ROLE."
     # Create role user
-    $mongo_cmd --eval "db.getSiblingDB('admin').createRole({
-        role: '$MONGODB_BACKUP_ROLE',
-        privileges: [
-            { resource: { anyResource: true }, actions: [ anyAction' ] }
-        ],
-        roles: []
-    });"
+    $mongo_cmd --eval "db.getSiblingDB('admin').createRole({role: '$MONGODB_BACKUP_ROLE', privileges: [{ resource: { anyResource: true }, actions: [ anyAction' ] }],roles: []});"
     cmdrc=$?
     if [ $cmdrc -ne 0 ]; then
         echo "Error creating backup role. Exiting."
@@ -63,11 +56,7 @@ if [ -n "$user_exists" ]; then
     echo "User $MONGODB_BACKUP_USER already exists. Skipping user creation."
 else
     echo "Creating user $MONGODB_BACKUP_USER with role $MONGODB_BACKUP_ROLE."
-    $mongo_cmd --eval "db.getSiblingDB('admin').createUser({
-        user: '$MONGODB_BACKUP_USER',
-        pwd: '{{ mongodb_backup_user_password }}',
-        roles: [ { role: '$MONGODB_BACKUP_ROLE', db: 'admin' } ]
-    });"
+    $mongo_cmd --eval "db.getSiblingDB('admin').createUser({ user: '$MONGODB_BACKUP_USER', pwd: '{{ mongodb_admin_password }}', roles: [ { role: '$MONGODB_BACKUP_ROLE', db: 'admin' } ]});"
     cmdrc=$?
     if [ $cmdrc -ne 0 ]; then
         echo "Error creating backup admin user. Exiting."
@@ -75,5 +64,6 @@ else
     fi
 fi
 
-echo "Role and user creation process completed."
+echo "Role and user creation process completed." 
+echo "ROLEUSERstatus-SUCCESS"
 
