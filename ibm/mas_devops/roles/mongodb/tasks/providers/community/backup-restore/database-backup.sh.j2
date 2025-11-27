@@ -1,10 +1,9 @@
 #!/bin/bash
 
-
-MONGODB_BACKUP_ROLE="bradmin"
 MONGODB_BACKUP_USER="bradmin"
 
-# Check if mongo is primary
+ALL_DATABASES_FILTER="^(mas|iot)(_|-){{ mas_instance_id }}(_|-)(?!.*monitor$)"
+
 tlsCAFile=$(ls /var/lib/tls/ca/*.pem)
 echo "Using TLS CA file: $tlsCAFile"
 primary_host=""
@@ -35,35 +34,18 @@ else
     mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host {{ mongodb_host }}"
 fi
 
-# Check if role already exists
-role_exists=$($mongo_cmd --eval "db.getSiblingDB('admin').getRole('$MONGODB_BACKUP_ROLE');")
-if [ -n "$role_exists" -a "$role_exists" != "null" ]; then
-    echo "Role $MONGODB_BACKUP_ROLE already exists. Skipping role creation."
-else
-    echo "Creating role $MONGODB_BACKUP_ROLE."
-    # Create role user
-    $mongo_cmd --eval "db.getSiblingDB('admin').createRole({role: '$MONGODB_BACKUP_ROLE', privileges: [{ resource: { anyResource: true }, actions: [ 'anyAction' ] }],roles: []});"
-    cmdrc=$?
-    if [ $cmdrc -ne 0 ]; then
-        echo "Error creating backup role. Exiting."
-        exit 1
-    fi
+# Create temporary directory for backup
+
+tmp_backup_dir="/tmp/masbr"
+mkdir -p $tmp_backup_dir
+if [ $? -ne 0 ]; then
+    echo "Error creating temporary backup directory $tmp_backup_dir. Exiting."
+    exit 1
 fi
 
-# Create backup user with the created role
-user_exists=$($mongo_cmd --eval "db.getSiblingDB('admin').getUser('$MONGODB_BACKUP_USER');")
-if [ -n "$user_exists" -a "$user_exists" != "null" ]; then
-    echo "User $MONGODB_BACKUP_USER already exists. Skipping user creation."
-else
-    echo "Creating user $MONGODB_BACKUP_USER with role $MONGODB_BACKUP_ROLE."
-    $mongo_cmd --eval "db.getSiblingDB('admin').createUser({ user: '$MONGODB_BACKUP_USER', pwd: '{{ mongodb_admin_password }}', roles: [ { role: '$MONGODB_BACKUP_ROLE', db: 'admin' } ]});"
-    cmdrc=$?
-    if [ $cmdrc -ne 0 ]; then
-        echo "Error creating backup admin user. Exiting."
-        exit 1
-    fi
-fi
+# Take a full backup of mongodb databases"
 
-echo "Role and user creation process completed." 
-echo "ROLEUSERstatus-SUCCESS"
+echo "Taking full backup of MongoDB databases to $tmp_backup_dir"
+mongodb_db_names=$($mongo_cmd --quiet --eval "db.adminCommand( { listDatabases: 1, nameOnly: true, filter: { name: /{{ mongodb_db_filter }}/ }} );")
+
 
