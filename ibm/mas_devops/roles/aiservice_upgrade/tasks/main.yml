@@ -31,6 +31,11 @@
   set_fact:
     current_aiservice_channel: "{{ aiservice_sub_info.resources[0].spec.channel }}"
 
+- name: Show current subscription info
+  ansible.builtin.debug:
+    msg:
+      - "Currently installed AI Service channel ............. {{ current_aiservice_channel }}"
+
 - name: "Set default upgrade target based on installed version of AI Service"
   when:
     - aiservice_channel is not defined or aiservice_channel == ""
@@ -41,9 +46,9 @@
 - name: "Set upgrade target explicitly"
   when:
     - aiservice_channel is defined and aiservice_channel != ""
-    - aiservice_channel in aiservice_upgrade_path
+    - current_aiservice_channel | ibm.mas_devops.is_channel_upgrade_path_valid(aiservice_channel, aiservice_upgrade_path)
   set_fact:
-    target_aiservice_channel: "{{ aiservice_upgrade_path[aiservice_channel] }}"
+    target_aiservice_channel: "{{ aiservice_channel }}"
 
 - name: "Assert upgrade target is defined"
   assert:
@@ -145,7 +150,7 @@
     - not aiservice_upgrade_dryrun
   include_tasks: "{{ item  }}"
   loop:
-    - tasks/upgrade_aiservice.yml
+    #- tasks/upgrade_aiservice.yml
     - tasks/upgrade_aiservice_tenant.yml
 
 - name: "Debug when we are already on the desired channel"
