@@ -15,8 +15,22 @@
   set_fact:
     new_secret: "{{ content | join('') }}"
 
+
 # 2. Generate 'ibm-registry' secret
 # -----------------------------------------------------------------------------
+# Note: We use "new_secret | to_json " because older versions of Ansible create
+# invalid json representations containing single quotes
+# However, in newer versions of Ansible to_json returns an object, which can't be passed to b64encode
+- name: "Generate docker secret (old Ansible versions)"
+  when: ansible_version.full is version_compare(2.20, '<')
+  set_fact:
+    dockerconfigjsonB64: "{{ new_secret | to_json | b64encode }}"
+
+- name: "Generate docker secret (new Ansible versions)"
+  when: ansible_version.full is version_compare(2.20, '>=')
+  set_fact:
+    dockerconfigjsonB64: "{{ new_secret | b64encode }}"
+
 - name: "Generate 'ibm-registry' secret"
   kubernetes.core.k8s:
     definition:
@@ -27,14 +41,16 @@
         name: ibm-registry
         namespace: kube-system
       data:
-        .dockerconfigjson: "{{ new_secret | to_json | b64encode }}"
+        .dockerconfigjson: "{{ dockerconfigjsonB64 }}"
   register: secretUpdateResult
+
 
 # 3. Create DaemonSet
 # -----------------------------------------------------------------------------
 - name: Create 'norootsquash' DaemonSet
   kubernetes.core.k8s:
     template: "templates/norootsquash_daemonset.yml.j2"
+
 
 # 4. Wait for 'norootsquash' DaemonSet to be running
 # -----------------------------------------------------------------------------
