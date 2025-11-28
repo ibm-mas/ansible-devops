@@ -14,7 +14,7 @@ Defines the MAS instance id from which an appplication will be uninstalled
 - Default: None
 
 ### mas_app_id
-Defines the kind of application that will be uninstalled such as `assist`, `health`, `hputilities`, `iot`, `manage`, `monitor`, `mso`, `optimizer`, `predict`, `safety`, `visualinspection` or `facilities`
+Defines the kind of application that will be uninstalled such as `assist`, `iot`, `manage`, `monitor`, `optimizer`, `predict`, `visualinspection` or `facilities`
 
 - **Required**
 - Environment Variable: `MAS_APP_ID`

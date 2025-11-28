@@ -14,7 +14,7 @@ Defines the instance id that was used for the MAS installation
 - Default: None
 
 ### mas_app_id
-Defines the kind of application that is intended for installation such as `assist`, `health`, `iot`, `manage`, `monitor`, `mso`, `predict`, or `safety`
+Defines the kind of application that is intended for installation such as `assist`, `iot`, `facilities`, `manage`, `monitor`, `predict`, or `visualinspection`
 
 - Optional
 - Environment Variable: `MAS_APP_ID`
