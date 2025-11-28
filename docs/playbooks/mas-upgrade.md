@@ -11,16 +11,14 @@ The playbook will attempt to upgrade MAS Core and all installed applications.
 Playbook Content
 -------------------------------------------------------------------------------
 1. [Upgrade MAS Core](../roles/suite_upgrade.md)
-1. [Verify MAS Core](../roles/suite_verify.md)
-2. [Upgrade MAS Application (Assist)](../roles/suite_app_upgrade.md)
-3. [Upgrade MAS Application (HP Utilities)](../roles/suite_app_upgrade.md)
+2. [Verify MAS Core](../roles/suite_verify.md)
+3. [Upgrade MAS Application (Assist)](../roles/suite_app_upgrade.md)
 4. [Upgrade MAS Application (IoT)](../roles/suite_app_upgrade.md)
 5. [Upgrade MAS Application (Manage)](../roles/suite_app_upgrade.md)
 6. [Upgrade MAS Application (Monitor)](../roles/suite_app_upgrade.md)
 7. [Upgrade MAS Application (Optimizer)](../roles/suite_app_upgrade.md)
 8. [Upgrade MAS Application (Predict)](../roles/suite_app_upgrade.md)
-9. [Upgrade MAS Application (Safety)](../roles/suite_app_upgrade.md)
-10. [Upgrade MAS Application (Visual Inspection)](../roles/suite_app_upgrade.md)
+9. [Upgrade MAS Application (Visual Inspection)](../roles/suite_app_upgrade.md)
 
 
 Preparation
@@ -38,12 +36,10 @@ If you provide no values for MAS Core or the individual applications, the roles 
 
 - `MAS_CHANNEL` Set the target subscription channel for MAS Core
 - `MAS_APP_CHANNEL_ASSIST` Set the target subscription channel for Assist
-- `MAS_APP_CHANNEL_HPUTILITIES` Set the target subscription channel for Health & Predict Utilities
 - `MAS_APP_CHANNEL_IOT` Set the target subscription channel for IoT
 - `MAS_APP_CHANNEL_MONITOR` Set the target subscription channel for Monitor
 - `MAS_APP_CHANNEL_OPTIMIZER` Set the target subscription channel for Optimizer
 - `MAS_APP_CHANNEL_PREDICT` Set the target subscription channel for Predict
-- `MAS_APP_CHANNEL_SAFETY` Set the target subscription channel for Safety
 - `MAS_APP_CHANNEL_VISUALINSPECTION` Set the target subscription channel for Visual Inspection
 
 ### Example
