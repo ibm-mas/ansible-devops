@@ -1,0 +1,90 @@
+---
+
+# Note: same channel is used for AI Service and AI Service Tenant operators
+- name: "Upgrade ibm-aiservice-tenant subscription in namespace {{ tenant_subscription.metadata.namespace }}"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ tenant_subscription.metadata.name }}"
+    namespace: "{{ tenant_subscription.metadata.namespace }}"
+    definition:
+      spec:
+        channel: "{{ aiservice_channel }}"
+        name: "{{ tenant_subscription.spec.name }}"
+        source: "{{ tenant_subscription.spec.source }}"
+        sourceNamespace: "{{ tenant_subscription.spec.sourceNamespace }}"
+    apply: true
+
+- name: "Get upgraded subscription for ibm-aiservice-tenant in namespace {{ tenant_subscription.metadata.namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ tenant_subscription.metadata.name }}"
+    namespace: "{{ tenant_subscription.metadata.namespace }}"
+  register: updated_aiservice_sub_info
+  retries: 20 # about 10 minutes
+  delay: 30 # seconds
+  until:
+    - updated_aiservice_sub_info.resources[0].status.installPlanGeneration > aiservice_sub_info.resources[0].status.installPlanGeneration
+    - updated_aiservice_sub_info.resources[0].status.state == "AtLatestKnown"
+
+- name: "upgrade : Debug Subscription"
+  debug:
+    var: updated_aiservice_sub_info
+
+# # No easy way to determine the end of the installPlanGeneration as it depends on if we have a patch versions of the
+# # new version in the catalog. No patch versions means just one installPlanGeneration increase. Catalog has patches means
+# # two installPlanGenerateion increase. Wait for 5 minutes like we do for apps
+- name: "Pause for 5 minutes before checking upgrade status..."
+  pause:
+    minutes: 5
+
+- name: "Lookup OperatorCondition for ibm-aiservice-tenant"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v2
+    kind: OperatorCondition
+    namespace: "{{ tenant_subscription.metadata.namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ibm-aiservice-tenant.{{ tenant_subscription.metadata.namespace }}"
+  register: updated_opcon
+  retries: 10
+  delay: 60 # 1 minute
+  until:
+    - updated_opcon.resources is defined
+    - updated_opcon.resources | length == 1
+    - updated_opcon.resources[0].metadata.name is defined
+
+- name: "Updated OperatorCondition info"
+  debug:
+    var: updated_opcon
+
+# OperatorCondition names are in the format {packageName}.{packageVersion}
+# We want to strip off the "v" prefix from the version while we do this
+- name: "upgrade : Lookup operator version for ibm-aiservice-tenant"
+  set_fact:
+    updated_opcon_version: "{{ updated_opcon.resources[0].metadata.name.split('.v')[1] | ibm.mas_devops.format_pre_version_with_plus }}"
+
+- name: "Operator upgrade info"
+  debug:
+    msg:
+      - "Operator condition ..................... {{ updated_opcon.resources[0].metadata.name }}"
+      - "Operator version (before) .............. {{ opcon_version }}"
+      - "Operator version (after) ............... {{ updated_opcon_version }}"
+
+- name: "Confirm AIServiceTenant CR is ready"
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1
+    name: "{{ tenant_subscription.metadata.name }}"
+    namespace: "{{ tenant_subscription.metadata.namespace }}"
+    kind: AIServiceTenant
+  retries: 20 # about 40 minutes
+  delay: 120 # 2 minutes
+  until:
+    - updated_aiservice_info.resources[0].status.versions.reconciled == updated_opcon_version
+    - updated_aiservice_info.resources | json_query('[*].status.conditions[?type==`Ready`][].reason') | select ('match','Ready') | list | length == 1
+  register: updated_aiservice_info
+
+- name: "Updated AIServiceTenant CR info"
+  debug:
+    var: updated_aiservice_info
+
