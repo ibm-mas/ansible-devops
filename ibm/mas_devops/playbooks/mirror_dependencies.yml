@@ -72,9 +72,9 @@
     # -------------------------------------------------------------------------
     mirror_odf: "{{ lookup('env', 'MIRROR_ODF') | default ('False', True) | bool }}"
 
-    # 16. kmodels
-    # -------------------------------------------------------------------------
-    mirror_kmodels: "{{ lookup('env', 'MIRROR_KMODELS') | default ('False', True) | bool }}"
+    # 14. Minio and opendatahub (for AI Service)
+    mirror_minio: "{{ lookup('env', 'MIRROR_MINIO') | default ('False', True) | bool }}"
+    mirror_opendatahub: "{{ lookup('env', 'MIRROR_OPENDATAHUB') | default ('False', True) | bool }}"
 
   pre_tasks:
     - name: "Load Catalog Metadata"
@@ -615,18 +615,32 @@
         extras_name: odf
         extras_version: 4.15
 
-    # 14. Kmodels
+    # 14. Minio and opendatahub - needed by AI Service
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_extras_prepare
       when:
-        - mirror_kmodels
-        - mirror_kmodels != "from-filesystem"
+        - mirror_minio
+        - mirror_mode != "from-filesystem"
       vars:
-        extras_name: kmodels
-        extras_version: "{{ mas_catalog_metadata.kmodels_extras_version_default }}"
+        extras_name: minio
+        extras_version: "{{mas_catalog_metadata.minio_version }}"
 
     - role: ibm.mas_devops.mirror_images
-      when: mirror_kmodels
+      when: mirror_minio
       vars:
-        manifest_name: extras_kmodels
-        manifest_version: "{{ mas_catalog_metadata.kmodels_extras_version_default }}"
+        manifest_name: extras_minio
+        manifest_version: "{{mas_catalog_metadata.minio_version }}"
+
+    - role: ibm.mas_devops.mirror_extras_prepare
+      when:
+        - mirror_opendatahub
+        - mirror_mode != "from-filesystem"
+      vars:
+        extras_name: "opendatahub"
+        extras_version: "2.32"
+
+    - role: ibm.mas_devops.mirror_images
+      when: mirror_opendatahub
+      vars:
+        manifest_name: extras_opendatahub
+        manifest_version: "2.32"
