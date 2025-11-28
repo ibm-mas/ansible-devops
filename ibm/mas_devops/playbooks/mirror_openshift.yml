@@ -2,7 +2,14 @@
 - hosts: localhost
   any_errors_fatal: true
 
+  vars:
+    catalog_tag: "{{ lookup('env', 'MAS_CATALOG_VERSION') | default ('@@MAS_LATEST_CATALOG@@', True) }}"
+
   pre_tasks:
+    - name: "Load Catalog Metadata"
+      ibm.mas_devops.get_catalog_info:
+        mas_catalog_version: "{{ catalog_tag }}"
+      register: mas_catalog_metadata
     - name: Check for required environment variables
       assert:
         that:

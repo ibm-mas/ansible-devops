@@ -140,7 +140,6 @@
   set_fact:
     new_secret: "{{ content | join('') }}"
 
-# Note: We use "new_secret | to_json | string" to avoid older versions of Ansible creating invalid json representation containing single quotes
 - name: "Generate 'ibm-registry' secret"
   no_log: true
   kubernetes.core.k8s:
@@ -152,7 +151,7 @@
         name: ibm-registry
         namespace: "{{ db2_namespace }}"
       data:
-        .dockerconfigjson: "{{ new_secret | to_json | string | b64encode }}"
+        .dockerconfigjson: "{{ new_secret | to_json | b64encode }}"
   register: secretUpdateResult
 
 - name: "Delete old db2 subscription, operand request and csv from {{ ibm_common_services_namespace }}"
