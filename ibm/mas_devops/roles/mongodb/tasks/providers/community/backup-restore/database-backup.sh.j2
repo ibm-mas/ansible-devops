@@ -2,6 +2,8 @@
 
 MONGODB_BACKUP_USER="bradmin"
 
+TMP_BACKUP_DIR="/tmp/masbr/{{ mongodb_backup_version }}"
+
 ALL_DATABASES_FILTER="^(mas|iot)(_|-){{ mas_instance_id }}(_|-)(?!.*monitor$)"
 
 tlsCAFile=$(ls /var/lib/tls/ca/*.pem)
@@ -27,25 +29,53 @@ if [ "$is_primary" != "true" ]; then
 fi
 
 if [ -n "$primary_host" ]; then
-    echo "Connecting to primary host: $primary_host to create user."
+    echo "Connecting to primary host: $primary_host"
     mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host $primary_host"
+    mongodump_cmd="mongodump -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --sslCAFile $tlsCAFile --authenticationDatabase=admin --ssl --host $primary_host"
 else
-    echo "Creating user on current primary node."
+    echo "Continuing on current primary node."
     mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host {{ mongodb_host }}"
+    mongodump_cmd="mongodump -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --sslCAFile $tlsCAFile --authenticationDatabase=admin --ssl --host {{ mongodb_host }}"
 fi
 
 # Create temporary directory for backup
 
-tmp_backup_dir="/tmp/masbr"
-mkdir -p $tmp_backup_dir
+mkdir -p $TMP_BACKUP_DIR
 if [ $? -ne 0 ]; then
-    echo "Error creating temporary backup directory $tmp_backup_dir. Exiting."
+    echo "Error creating temporary backup directory $TMP_BACKUP_DIR. Exiting."
     exit 1
 fi
 
-# Take a full backup of mongodb databases"
+# Get database names matching the filter
+databases=$($mongo_cmd --eval "db.adminCommand('listDatabases').databases.map(db => db.name).filter(name => name.match(/$ALL_DATABASES_FILTER/)).join(',')")
+cmdrc=$?
+if [ $cmdrc -ne 0 ]; then
+    echo "Error retrieving database names. Exiting."
+    exit 1
+fi
+echo "Databases to back up: $databases"
+IFS=',' read -r -a db_array <<< "$databases"
 
-echo "Taking full backup of MongoDB databases to $tmp_backup_dir"
-mongodb_db_names=$($mongo_cmd --quiet --eval "db.adminCommand( { listDatabases: 1, nameOnly: true, filter: { name: /{{ mongodb_db_filter }}/ }} );")
+# Perform backup for each database
+for db_name in "${db_array[@]}"; do
+    echo "Backing up database: $db_name"
+    $mongodump_cmd --db=$db_name --out=$TMP_BACKUP_DIR
+    cmdrc=$?
+    if [ $cmdrc -ne 0 ]; then
+        echo "Error backing up database $db_name. Exiting."
+        exit 1
+    fi
+done
+echo "Backup completed successfully. Backup files are located in $TMP_BACKUP_DIR."
 
+# Create tar.gz archives of database backup files
+tar -czf $TMP_BACKUP_DIR/{{ mongodb_backup_data_filename }} -C $TMP_BACKUP_DIR .
+if [ $? -ne 0 ]; then
+    echo "Error creating tar.gz archive of backup files. Exiting."
+    exit 1
+fi
+
+echo "Created archive: $TMP_BACKUP_DIR/{{ mongodb_backup_data_filename }}"
+
+echo "DATABASEBACKUPstatus-SUCCESS"
 
