@@ -1,0 +1,42 @@
+---
+# Backup kubernetes Certificate resource
+# -----------------------------------------------------------------------------
+
+- name: "Get Kubernetes {{ item }} Certificate"
+  kubernetes.core.k8s_info:
+    api_version: cert-manager.io/v1
+    kind: Certificate
+    name: "{{ item }}"
+    namespace: "{{ namespace }}"
+  register: certificate_data
+
+- name: Construct new Certificate yaml with minimal metadata and spec
+  set_fact:
+    certificate_filtered:
+      apiVersion: "{{ certificate_data.resources[0].apiVersion }}"
+      kind: "{{ certificate_data.resources[0].kind }}"
+      metadata:
+        name: "{{ certificate_data.resources[0].metadata.name }}"
+        namespace: "{{ certificate_data.resources[0].metadata.namespace }}"
+      spec: "{{ certificate_data.resources[0].spec }}"
+      when:
+        - certificate_data is defined
+        - certificate_data.resources[0] is defined
+
+- name: "Save Issuer resource to file"
+  copy:
+    content: "{{ certificate_filtered | to_nice_yaml }}"
+    dest: "{{ backup_certificates_path }}/{{ item }}.yaml"
+  when:
+    - backup_certificates_path is defined
+    - certificate_filtered is defined
+
+- name: "Save secret associated with Certificate to file"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_secrets.yml"
+  with_items:
+    - "{{ certificate_data.resources[0].spec.secretName }}"
+  when:
+    - backup_secrets_path is defined
+    - certificate_data is defined
+    - certificate_data.resources[0] is defined
+    - certificate_data.resources[0].spec.secretName is defined

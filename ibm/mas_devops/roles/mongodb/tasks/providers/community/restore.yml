@@ -10,7 +10,41 @@
     that: mas_instance_id is defined and mas_instance_id != ""
     fail_msg: "mas_instance_id is required"
 
-# Get mongodb information
-# -------------------------------------------------------------------------
-- name: "Get mongodb information"
-  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/get-mongo-info.yml"
+- name: "Fail if MAS_BACKUP_DIR is not provided"
+  assert:
+    that: mas_backup_dir is defined and mas_backup_dir != ""
+    fail_msg: "MAS_BACKUP_DIR is required"
+
+- name: "Fail if MONGODB_BACKUP_VERSION is not provided"
+  assert:
+    that: mongodb_backup_version is defined and mongodb_backup_version != ""
+    fail_msg: "MONGODB_BACKUP_VERSION is required"
+
+- name: Check if mongo backup directory exists
+  stat:
+    path: "{{ mas_backup_dir }}/backup-{{ MONGODB_BACKUP_VERSION }}-mongoce"
+  register: dir_info
+
+- name: Assert directory exists
+  assert:
+    that:
+      - dir_info.stat.isdir | default(False)
+    fail_msg: "Directory {{ mas_backup_dir }}/backup-{{ MONGODB_BACKUP_VERSION }}-mongoce does NOT exist!"
+
+- name: Check backup CR file exists
+  stat:
+    path: "{{ mas_backup_dir }}/backup-{{ MONGODB_BACKUP_VERSION }}-mongoce/resources/cr.yaml"
+  register: file_check
+
+# Prepare for restore
+# -----------------------------------------------------------------------------
+
+- name: "Set fact : cr.yml"
+  vars:
+    mongodb_cr: "{{ lookup('file', '{{ MAS_BACKUP_DIR }}/backupcr.yaml') | from_yaml_all }}"
+
+- name: "Validate backup CR is supported MongoDBCommunity instance"
+  assert:
+    that:
+      - mongodb_cr.metadata.name == mongodb_instance_name
+    fail_msg: "The backup CR mongodb name {{ mongodb_cr.metadata.name }} does not match the expected mongodb instance name {{ mongodb_instance_name }}"

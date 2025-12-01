@@ -21,23 +21,9 @@
     mongodb_backup_path: "{{ mas_backup_dir }}/{{ mongodb_action }}-{{ mongodb_backup_version }}-mongoce"
 
 - name: "Set fact: Create Resources and Data backup paths"
-  set_fact:
-    mongodb_backup_resources_path: "{{ mongodb_backup_path }}/resources"
-    mongodb_backup_secrets_path: "{{ mongodb_backup_path }}/resources/secrets"
-    mongodb_backup_configmaps_path: "{{ mongodb_backup_path }}/resources/configmaps"
-    mongodb_backup_data_path: "{{ mongodb_backup_path }}/data"
-
-- name: "Create mongodb backup directories"
-  file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0755"
-  loop:
-    - "{{ mongodb_backup_path }}"
-    - "{{ mongodb_backup_resources_path }}"
-    - "{{ mongodb_backup_data_path }}"
-    - "{{ mongodb_backup_configmaps_path }}"
-    - "{{ mongodb_backup_secrets_path }}"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_backup_dirs.yml"
+  vars:
+    backup_base_path: "{{ mongodb_backup_path }}"
 
 # Get mongodb information
 # -------------------------------------------------------------------------
@@ -48,6 +34,7 @@
 # -------------------------------------------------------------------------
 
 # 1. Backup MongoDBCommunity CR
+# CR is always backed up even if skip_k8_backup_restore is true
 - name: "Backup MongoDBCommunity Kubernetes resources"
   block:
     - name: Filter spec (remove specified fields)
@@ -80,14 +67,13 @@
     - name: "Save MongoDBCommunity resource to file"
       copy:
         content: "{{ mongodb_filtered | to_nice_yaml }}"
-        dest: "{{ mongodb_backup_resources_path }}/cr.yaml"
+        dest: "{{ backup_resources_path }}/cr.yaml"
       when:
         - mongodbcommunity_output is defined
         - mongodbcommunity_output.resources[0] is defined
         - mongodb_filtered is defined
-  when: mongodb_k8_backup
 
-# 2. Backup MongoDBCommunity Secrets
+# 2. Backup MongoDBCommunity Secrets from CR spec
 - name: "Backup MongoDBCommunity Kubernetes Secrets"
   block:
     # Process Secrets
@@ -124,9 +110,11 @@
         msg: "All Secrets to backup: {{ all_secrets }}"
 
     - name: "Set fact: Backup All Secrets from MongoDBCommunity CR spec"
-      include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-secrets.yml"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_secrets.yml"
       loop: "{{ all_secrets }}"
-  when: mongodb_k8_backup
+      vars:
+        namespace: "{{ mongodb_namespace}}"
+  when: not skip_k8_backup_restore
 
 # 3. Backup MongoDBCommunity Configmaps
 # This is not used in "install MAS from backup" flow, but included for completeness.
@@ -146,9 +134,69 @@
         msg: "TLS configmap to backup: {{ tls_name }}"
 
     - name: "Set fact: Backup TLS configmaps"
-      include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-configmaps.yml"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_configmaps.yml"
       loop: "['{{ tls_name }}']"
-  when: mongodb_k8_backup
+      vars:
+        namespace: "{{ mongodb_namespace}}"
+  when: not skip_k8_backup_restore
+
+# 4. Backup Issuers
+- name: "Backup MongoDb Issuers"
+  block:
+    - name: "Get list of Issuers names in {{ mongodb_namespace }} namespace"
+      kubernetes.core.k8s_info:
+        api_version: cert-manager.io/v1
+        kind: Issuer
+        namespace: "{{ mongodb_namespace}}"
+      register: issuer_list
+
+    - name: Debug issuers list
+      debug:
+        var: issuer_list
+
+    - name: "Set fact: List of Issuers"
+      set_fact:
+        issuers: "{{ issuer_list.resources | map(attribute='metadata.name') | list }}"
+
+    - name: Debug issuers found
+      debug:
+        var: issuers
+
+    - name: "backup Issuers"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_issuers.yml"
+      vars:
+        namespace: "{{ mongodb_namespace}}"
+      loop: "{{ issuers }}"
+  when: not skip_k8_backup_restore
+
+# 4. Backup Issuers
+- name: "Backup MongoDb Certificates"
+  block:
+    - name: "Get list of certificates in {{ mongodb_namespace }} namespace"
+      kubernetes.core.k8s_info:
+        api_version: cert-manager.io/v1
+        kind: Certificate
+        namespace: "{{ mongodb_namespace}}"
+      register: cert_list
+
+    - name: Debug cert_list list
+      debug:
+        var: cert_list
+
+    - name: "Set fact: List of Certificates"
+      set_fact:
+        certificates: "{{ cert_list.resources | map(attribute='metadata.name') | list }}"
+    
+    - name: Debug Certificates found
+      debug:
+        var: certificates
+
+    - name: "Backup Certificates"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_certificates.yml"
+      loop: "{{ certificates }}"
+      vars:
+        namespace: "{{ mongodb_namespace}}"
+  when: not skip_k8_backup_restore
 
 # Backup Mongodb database Data using mondodump
 # -------------------------------------------------------------------------
