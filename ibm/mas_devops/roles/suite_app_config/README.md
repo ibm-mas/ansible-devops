@@ -14,7 +14,7 @@ Defines the instance id that was used for the MAS installation
 - Default: None
 
 ### mas_app_id
-Defines the application that is will be configured, valid settings are: `assist`, `hputilities`, `iot`, `manage`, `monitor`, `optimizer`, `predict`, and `visualinspection`.
+Defines the application that is will be configured, valid settings are: `assist`, `iot`, `facilities`, `manage`, `monitor`, `optimizer`, `predict`, and `visualinspection`.
 
 - **Required**
 - Environment Variable: `MAS_APP_ID`
@@ -46,7 +46,7 @@ The application workspace deployment spec used to configure various aspects of t
 
 ### mas_appws_bindings_jdbc
 Set the binding scope for the application workspace's JDBC binding (`system`, `application`, `workspace`, or `workspace-application`)
-Note: For Maximo Real estate and facilities, we recommend to use workspace-application. 
+Note: For Maximo Real estate and facilities, we recommend to use workspace-application.
 
 - Optional
 - Environment Variable: `MAS_APPWS_BINDINGS_JDBC`
@@ -506,7 +506,7 @@ Sets the `imagePullPolicy` strategy for all deployments. The default it's set to
 - Default: `IfNotPresent`
 
 ### mas_ws_facilities_liberty_extension_xml_secret_name
-Provide the secret name of the secret which contains additional XML tags that needs to be added into the existing Liberty Server XML to configure the application accordingly. 
+Provide the secret name of the secret which contains additional XML tags that needs to be added into the existing Liberty Server XML to configure the application accordingly.
 
 #### NOTE: The Secret name MUST be `<workspaceId>-facilities-lexml--sn`
 
@@ -550,10 +550,10 @@ EOF
 ```
 
 ### mas_ws_facilities_dwfagents
-Allows the user to add dedicated workflow agents (DWFA) to MREF. To specify a DWFA it's required to specify a JSON with a unique `name` and `members`. Each member has a unique `name` and `class` that can be classified as `user` or `group`. Below an example of the structure of the JSON. 
+Allows the user to add dedicated workflow agents (DWFA) to MREF. To specify a DWFA it's required to specify a JSON with a unique `name` and `members`. Each member has a unique `name` and `class` that can be classified as `user` or `group`. Below an example of the structure of the JSON.
 ```
 export MAS_FACILITIES_DWFAGENTS='[{"name":"dwfa1","members":[{"name": "u1", "class": "user"}]}, {"name":"dwfa2","members":[{"name": "u2", "class": "user"},{"name":"g1", "class":"group"}]}]'
-``` 
+```
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_DWFAGENTS`
@@ -612,7 +612,7 @@ Both `ReadWriteOnce` (if using a block storage class) or `ReadWriteMany` (if usi
 
 - Optional
 - Environment Variable: `MAS_FACILITIES_STORAGE_USERFILES_MODE`
-- Default: `ReadWriteOnce` 
+- Default: `ReadWriteOnce`
 
 ### mas_ws_facilities_storage_userfiles_size
 Sets the size of the Log PVC. Defaults to 50 Gigabytes

@@ -140,7 +140,19 @@
   set_fact:
     new_secret: "{{ content | join('') }}"
 
-# Note: We use "new_secret | to_json | string" to avoid older versions of Ansible creating invalid json representation containing single quotes
+# Note: We use "new_secret | to_json " because older versions of Ansible create
+# invalid json representations containing single quotes
+# However, in newer versions of Ansible to_json returns an object, which can't be passed to b64encode
+- name: "Generate docker secret (old Ansible versions)"
+  when: ansible_version.full is version_compare(2.20, '<')
+  set_fact:
+    dockerconfigjsonB64: "{{ new_secret | to_json | b64encode }}"
+
+- name: "Generate docker secret (new Ansible versions)"
+  when: ansible_version.full is version_compare(2.20, '>=')
+  set_fact:
+    dockerconfigjsonB64: "{{ new_secret | b64encode }}"
+
 - name: "Generate 'ibm-registry' secret"
   no_log: true
   kubernetes.core.k8s:
@@ -152,7 +164,7 @@
         name: ibm-registry
         namespace: "{{ db2_namespace }}"
       data:
-        .dockerconfigjson: "{{ new_secret | to_json | string | b64encode }}"
+        .dockerconfigjson: "{{ dockerconfigjsonB64 }}"
   register: secretUpdateResult
 
 - name: "Delete old db2 subscription, operand request and csv from {{ ibm_common_services_namespace }}"
