@@ -77,7 +77,7 @@ It is possible to develop the Ansible roles without needing to build the collect
   vars:
     cluster_type: rosa
     cluster_name: fvtrosa
-    ocp_version: "4.15.17"
+    ocp_version: "4.19.14"
 
   roles:
     - ocp_provision
@@ -149,7 +149,7 @@ To make the tasks easier to read use section headers as below:
 - name: "Install MongoDBCommunity CRD"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/crd.yml') }}"
+    template: "templates/community/crd.yml"
 
 
 # 2. Create namespace & install RBAC
@@ -157,7 +157,7 @@ To make the tasks easier to read use section headers as below:
 - name: "Create namespace & install RBAC"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/rbac.yml') }}"
+    template: "templates/community/rbac.yml"
 ```
 
 ### Align debug messages

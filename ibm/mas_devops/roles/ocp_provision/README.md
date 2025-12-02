@@ -22,14 +22,14 @@ Specify the name of the cluster
 - Default Value: None
 
 ### ocp_version
-The version of OCP to use.  A specific version can be set, minor and patch level versions can be used, e.g. `4.15`, or `4.15.16`.  Additionally, two version aliases are available; `default` will auto-select the newest version of OCP currently supported by IBM Maximo Application Suite, `rotate` will auto-select a predetermined version of OCP currently supported by IBM Maximo Application Suite based on the day of the week.  This latter option is primarily useful for testing purposes.
+The version of OCP to use.  A specific version can be set, minor and patch level versions can be used, e.g. `4.19`, or `4.19.14`.  Additionally, two version aliases are available; `default` will auto-select the newest version of OCP currently supported by IBM Maximo Application Suite, `rotate` will auto-select a predetermined version of OCP currently supported by IBM Maximo Application Suite based on the day of the week.  This latter option is primarily useful for testing purposes.
 
 - **Required**
 - Environment Variable: `OCP_VERSION`
 - Default Value: None
 
 !!! note
-    When using the IBMCloud Red Hat OpenShift Service (ROKS) the version must be followed by `_openshift`, e.g. **4.15_openshift** or **4.15.16_openshift**
+    When using the IBMCloud Red Hat OpenShift Service (ROKS) the version must be followed by `_openshift`, e.g. **4.19_openshift** or **4.19.14_openshift**
 
 ### ocp_storage_provider
 Setting this to `nfs` when `cluster_type` is set to `fyre` will create an `nfs-client` storage class connected to the infrastucture node. When enabled, the existing image registry PVC will also be deleted and recreated configured to use the newly available NFS storage class.
