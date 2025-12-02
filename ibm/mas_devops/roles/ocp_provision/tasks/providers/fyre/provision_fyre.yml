@@ -61,30 +61,10 @@
 
 # 4. Deploy the OCP+ cluster
 # -----------------------------------------------------------------------------
-- name: "fyre : Debug cluster provision json body"
+- name: "fyre : Generate cluster provision json body"
   when: _hostname_check.available
-  vars:
-    fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
-  block:
-    - name: "fyre : Render fyre template to variable"
-      set_fact:
-        fyre_payload_raw: "{{ lookup('template', fyre_template_name) }}"
-
-    - name: "fyre : Show payload preview and type"
-      debug:
-        msg:
-          - "payload_length: {{ fyre_payload_raw | length }}"
-          - "payload_head: {{ (fyre_payload_raw[:400] if fyre_payload_raw|length > 400 else fyre_payload_raw) }}"
-          - "payload_type: {{ fyre_payload_raw | type_debug }}"
-
-    - name: "fyre : Parse payload as JSON (strict)"
-      set_fact:
-        fyre_payload_parsed: "{{ fyre_payload_raw | from_json }}"
-
-    - name: "fyre : Show parsed payload type"
-      debug:
-        msg: "parsed_type: {{ (fyre_payload_parsed | type_debug) if (fyre_payload_parsed is defined) else 'not parsed' }}"
-
+  set_fact:
+    fyre_payload: "{{ lookup('template', 'templates/fyre/' ~ fyre_quota_type ~ '.json.j2') }}"
 
 # Note: FYRE rate limits this API globally - we are competing with all other FYRE users for limited "slots" to
 # provision new OCP+ clusters, when this happens we will see an error like this with a RC of 429:
@@ -95,15 +75,12 @@
 # We will retry for approximately half an hour before giving up.
 - name: "fyre : Create new OCP+ cluster"
   when: _hostname_check.available
-  vars:
-    fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
   uri:
     url: https://ocpapi.svl.ibm.com/v1/ocp/
     user: "{{ fyre_username }}"
     password: "{{ fyre_password }}"
     method: POST
-    # Prefer the parsed payload (dict/list). Fall back to raw string if parsing failed.
-    body: "{{ (fyre_payload_parsed if (fyre_payload_parsed is defined) else fyre_payload_raw) }}"
+    body: "{{ fyre_payload }}"
     force_basic_auth: yes
     body_format: json
     validate_certs: false
