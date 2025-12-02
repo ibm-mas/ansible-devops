@@ -1,0 +1,43 @@
+---
+# Configure AI Service Properties in Manage
+# This role configures Maximo Manage to connect to Maximo AI Service by:
+# 1. Retrieving AI Service CA certificate (if available)
+# 2. Importing the certificate into Manage workspace (if found)
+# 3. Patching AI Service connection properties into the Manage encryption secret
+
+# Validate required variables
+# -----------------------------------------------------------------------------
+- name: "Fail if mas_instance_id is not provided"
+  assert:
+    that: mas_instance_id is defined and mas_instance_id != ""
+    fail_msg: "mas_instance_id property is required"
+
+- name: "Fail if aiservice_instance_id is not provided"
+  assert:
+    that: aiservice_instance_id is defined and aiservice_instance_id != ""
+    fail_msg: "aiservice_instance_id property is required"
+
+- name: "Fail if mas_workspace_id is not provided"
+  assert:
+    that: mas_workspace_id is defined and mas_workspace_id != ""
+    fail_msg: "mas_workspace_id property is required"
+
+# Step 1: Retrieve AI Service CA Certificate
+- name: "Retrieve AI Service CA certificate"
+  include_tasks: tasks/retrieve_aiservice_cert/main.yml
+
+# Step 2: Import AI Service CA Certificate into Manage Workspace (if found)
+- name: "Import AI Service CA certificate into Manage workspace"
+  when: aiservice_cert_found | default(false) | bool
+  include_role:
+    name: suite_manage_import_certs_configt
+
+- name: "Skip certificate import"
+  when: not (aiservice_cert_found | default(false) | bool)
+  debug:
+    msg: "Skipping certificate import as AI Service TLS certificate was not found"
+
+# Step 3: Patch Manage Secret with AI Service Configuration
+# -----------------------------------------------------------------------------
+- name: "Patch Manage encryption secret with AI Service properties"
+  include_tasks: tasks/manage_secret_patch/main.yml

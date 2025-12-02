@@ -1,0 +1,207 @@
+---
+# Set namespace variables
+# -----------------------------------------------------------------------------
+- name: "Set AI Service and Manage namespace variables"
+  set_fact:
+    aiservice_namespace: "aiservice-{{ aiservice_instance_id }}"
+    manage_namespace: "mas-{{ mas_instance_id }}-manage"
+    apikey_secret_name: "aiservice-{{ aiservice_instance_id }}-user----apikey-secret"
+    encryption_secret_name: "{{ mas_workspace_id }}-manage-encryptionsecret"
+
+- name: "Debug: Configuration details"
+  debug:
+    msg:
+      - "AI Service Namespace: {{ aiservice_namespace }}"
+      - "Manage Namespace: {{ manage_namespace }}"
+      - "API Key Secret: {{ apikey_secret_name }}"
+      - "Encryption Secret: {{ encryption_secret_name }}"
+
+# Step 1: Retrieve AI Service API Key
+# -----------------------------------------------------------------------------
+- name: "Step 1: Check if AI Service API key secret exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ apikey_secret_name }}"
+    namespace: "{{ aiservice_namespace }}"
+  register: apikey_secret_info
+
+- name: "Fail if AI Service API key secret not found"
+  when: apikey_secret_info.resources | length == 0
+  fail:
+    msg: "Could not find AI Service API key secret: {{ apikey_secret_name }} in namespace {{ aiservice_namespace }}"
+
+- name: "Retrieve AI Service API key from secret"
+  set_fact:
+    aiservice_api_key: "{{ apikey_secret_info.resources[0].data.AIBROKER_APIKEY | b64decode }}"
+  no_log: true
+
+- name: "Verify API key was retrieved"
+  assert:
+    that: aiservice_api_key is defined and aiservice_api_key != ""
+    fail_msg: "Could not retrieve AI Service API key from secret {{ apikey_secret_name }}"
+
+- name: "Debug: AI Service API key retrieved successfully"
+  debug:
+    msg: "Retrieved AI Service API Key (length: {{ aiservice_api_key | length }} characters)"
+
+# Step 2: Retrieve AI Service URL from aibroker route
+# -----------------------------------------------------------------------------
+- name: "Step 2: Get aibroker route"
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: aibroker
+    namespace: "{{ aiservice_namespace }}"
+  register: aibroker_route_info
+
+- name: "Fail if aibroker route not found"
+  when: aibroker_route_info.resources | length == 0
+  fail:
+    msg: "Could not find aibroker route in namespace {{ aiservice_namespace }}"
+
+- name: "Construct AI Service URL"
+  set_fact:
+    aiservice_url: "https://{{ aibroker_route_info.resources[0].spec.host }}/ibm/aibroker/service/rest/api/v1"
+
+- name: "Debug: AI Service URL"
+  debug:
+    msg: "Retrieved AI Service URL: {{ aiservice_url }}"
+
+# Step 3: Retrieve AI Service Tenant ID
+# -----------------------------------------------------------------------------
+- name: "Step 3: Get AIServiceTenant custom resource"
+  kubernetes.core.k8s_info:
+    api_version: aiservice.ibm.com/v1alpha1
+    kind: AIServiceTenant
+    namespace: "{{ aiservice_namespace }}"
+  register: aiservice_tenant_info
+
+- name: "Fail if AIServiceTenant not found"
+  when: aiservice_tenant_info.resources | length == 0
+  fail:
+    msg: "Could not retrieve AI Service tenant ID from AIServiceTenant custom resource in namespace {{ aiservice_namespace }}"
+
+- name: "Extract AI Service Tenant ID"
+  set_fact:
+    aiservice_tenant_id: "{{ aiservice_tenant_info.resources[0].metadata.name }}"
+
+- name: "Debug: AI Service Tenant ID"
+  debug:
+    msg: "Retrieved AI Service Tenant ID: {{ aiservice_tenant_id }}"
+
+# Step 4: Patch AI Service properties into Manage encryption secret
+# -----------------------------------------------------------------------------
+- name: "Step 4: Check if Manage encryption secret exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ encryption_secret_name }}"
+    namespace: "{{ manage_namespace }}"
+  register: encryption_secret_info
+
+- name: "Fail if Manage encryption secret not found"
+  when: encryption_secret_info.resources | length == 0
+  fail:
+    msg: "Could not find secret {{ encryption_secret_name }} in namespace {{ manage_namespace }}"
+
+- name: "Debug: Found Manage encryption secret"
+  debug:
+    msg: "Found encryption secret: {{ encryption_secret_name }}"
+
+# Remove existing AI Service properties if they exist (ignore errors)
+- name: "Remove existing AI Service properties from secret (if any)"
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: Secret
+    name: "{{ encryption_secret_name }}"
+    namespace: "{{ manage_namespace }}"
+    patch:
+      - op: remove
+        path: "/data/mxe.int.aibrokerapikey"
+  ignore_errors: true
+
+- name: "Remove existing AI Service URL from secret (if any)"
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: Secret
+    name: "{{ encryption_secret_name }}"
+    namespace: "{{ manage_namespace }}"
+    patch:
+      - op: remove
+        path: "/data/mxe.int.aibrokerapiurl"
+  ignore_errors: true
+
+- name: "Remove existing AI Service Tenant ID from secret (if any)"
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: Secret
+    name: "{{ encryption_secret_name }}"
+    namespace: "{{ manage_namespace }}"
+    patch:
+      - op: remove
+        path: "/data/mxe.int.aibrokertenantid"
+  ignore_errors: true
+
+# Add the AI Service properties
+- name: "Add AI Service properties to Manage encryption secret"
+  kubernetes.core.k8s_json_patch:
+    api_version: v1
+    kind: Secret
+    name: "{{ encryption_secret_name }}"
+    namespace: "{{ manage_namespace }}"
+    patch:
+      - op: add
+        path: "/data/mxe.int.aibrokerapikey"
+        value: "{{ aiservice_api_key | b64encode }}"
+      - op: add
+        path: "/data/mxe.int.aibrokerapiurl"
+        value: "{{ aiservice_url | b64encode }}"
+      - op: add
+        path: "/data/mxe.int.aibrokertenantid"
+        value: "{{ aiservice_tenant_id | b64encode }}"
+  no_log: true
+
+- name: "Debug: Successfully patched AI Service properties"
+  debug:
+    msg: "Successfully patched AI Service properties into secret {{ encryption_secret_name }}"
+
+# Verify the secret was updated
+- name: "Verify AI Service properties were added to secret"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ encryption_secret_name }}"
+    namespace: "{{ manage_namespace }}"
+  register: updated_secret_info
+
+- name: "Verify mxe.int.aibrokerapikey is present"
+  assert:
+    that: "'mxe.int.aibrokerapikey' in updated_secret_info.resources[0].data"
+    success_msg: "Verified: mxe.int.aibrokerapikey is present in secret"
+    fail_msg: "Failed to add mxe.int.aibrokerapikey to secret"
+
+- name: "Verify mxe.int.aibrokerapiurl is present"
+  assert:
+    that: "'mxe.int.aibrokerapiurl' in updated_secret_info.resources[0].data"
+    success_msg: "Verified: mxe.int.aibrokerapiurl is present in secret"
+    fail_msg: "Failed to add mxe.int.aibrokerapiurl to secret"
+
+- name: "Verify mxe.int.aibrokertenantid is present"
+  assert:
+    that: "'mxe.int.aibrokertenantid' in updated_secret_info.resources[0].data"
+    success_msg: "Verified: mxe.int.aibrokertenantid is present in secret"
+    fail_msg: "Failed to add mxe.int.aibrokertenantid to secret"
+
+- name: "Configuration complete"
+  debug:
+    msg:
+      - "=========================================="
+      - "AI Service properties configured successfully!"
+      - "=========================================="
+      - "Note: ManageWorkSpace will automatically reconcile to apply these changes."
+      - ""
+      - "Configured properties:"
+      - "  - mxe.int.aibrokerapikey"
+      - "  - mxe.int.aibrokerapiurl: {{ aiservice_url }}"
+      - "  - mxe.int.aibrokertenantid: {{ aiservice_tenant_id }}"

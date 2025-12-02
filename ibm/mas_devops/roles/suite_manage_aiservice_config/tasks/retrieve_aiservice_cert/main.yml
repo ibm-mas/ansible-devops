@@ -1,0 +1,70 @@
+---
+# Retrieve AI Service CA Certificate
+# This task retrieves the ca.crt from the AI Service TLS secret
+# If the certificate is not found, it will skip the import step
+
+- name: "Set AI Service namespace"
+  set_fact:
+    aiservice_namespace: "aiservice-{{ aiservice_instance_id }}"
+    aiservice_tls_secret_name: "{{ mas_instance_id }}-public-aibroker-tls"
+    aiservice_cert_found: false
+
+- name: "Debug: AI Service certificate details"
+  debug:
+    msg:
+      - "AI Service Namespace: {{ aiservice_namespace }}"
+      - "TLS Secret Name: {{ aiservice_tls_secret_name }}"
+
+- name: "Check if AI Service TLS secret exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ aiservice_tls_secret_name }}"
+    namespace: "{{ aiservice_namespace }}"
+  register: aiservice_tls_secret_info
+
+- name: "Handle certificate not found"
+  when: aiservice_tls_secret_info.resources | length == 0
+  block:
+    - name: "Warning: AI Service TLS secret not found"
+      debug:
+        msg: |
+          WARNING: Could not find AI Service TLS secret: {{ aiservice_tls_secret_name }} in namespace {{ aiservice_namespace }}
+          
+          This certificate is optional. Some systems do not require importing the certificate.
+          If Maximo AI Service is already accessible from Manage, you can skip this step.
+          
+          Continuing without certificate import...
+
+    - name: "Set certificate not found flag"
+      set_fact:
+        aiservice_cert_found: false
+
+- name: "Process certificate if found"
+  when: aiservice_tls_secret_info.resources | length > 0
+  block:
+    - name: "Extract ca.crt from AI Service TLS secret"
+      set_fact:
+        aiservice_ca_cert: "{{ aiservice_tls_secret_info.resources[0].data['ca.crt'] | b64decode }}"
+      no_log: true
+
+    - name: "Verify CA certificate was retrieved"
+      assert:
+        that: aiservice_ca_cert is defined and aiservice_ca_cert != ""
+        fail_msg: "Could not retrieve ca.crt from secret {{ aiservice_tls_secret_name }}"
+
+    - name: "Debug: AI Service CA certificate retrieved"
+      debug:
+        msg: "Successfully retrieved AI Service CA certificate (length: {{ aiservice_ca_cert | length }} characters)"
+
+    - name: "Set certificate variable for import"
+      set_fact:
+        manage_certificates: ["{{ aiservice_ca_cert }}"]
+        manage_certificates_alias_prefix: "aiservice-ca"
+        aiservice_cert_found: true
+
+    - name: "Debug: Certificate prepared for import"
+      debug:
+        msg:
+          - "Certificate alias prefix: {{ manage_certificates_alias_prefix }}"
+          - "Number of certificates to import: {{ manage_certificates | length }}"
