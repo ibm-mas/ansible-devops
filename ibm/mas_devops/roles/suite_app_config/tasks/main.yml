@@ -11,6 +11,15 @@
     fail_msg: "Missing one or more required properties"
 
 
+- name: "Debug information"
+  debug:
+    msg:
+      - "Instance ID ............................ {{ mas_instance_id }}"
+      - "Application ID ......................... {{ mas_app_id }}"
+      - "Workspace ID ........................... {{ mas_workspace_id }}"
+      - "Application namespace .................. {{ mas_app_namespace }}"
+      - "JDBC Binding ........................... {{ mas_appws_bindings_jdbc | default('<undefined>', true) }}"
+      - "Templated workspace CR ................. {{ lookup('template', 'templates/workspace.yml.j2') }}"
 # 2. Load var files
 # -----------------------------------------------------------------------------
 - name: Load mas_appws variables
@@ -89,15 +98,17 @@
     mas_namespace: "mas-{{ mas_instance_id }}-core"
     mas_app_namespace: "mas-{{ mas_instance_id }}-{{ mas_app_id }}"
 
-- name: "Debug information"
-  debug:
+
+- name: Debug information
+  ansible.builtin.debug:
     msg:
       - "Instance ID ............................ {{ mas_instance_id }}"
       - "Application ID ......................... {{ mas_app_id }}"
       - "Workspace ID ........................... {{ mas_workspace_id }}"
       - "Application namespace .................. {{ mas_app_namespace }}"
       - "JDBC Binding ........................... {{ mas_appws_bindings_jdbc | default('<undefined>', true) }}"
-      - "Templated workspace CR ................. {{ lookup('template', 'templates/workspace.yml.j2') }}"
+      - "Templated workspace CR ................. {{ lookup('ansible.builtin.template', 'templates/workspace.yml.j2') | default('templates/workspace.yml.j2', true) }}"
+
 
 
 # 6. Workspace configuration
