@@ -119,7 +119,23 @@
     name: "{{ mongodb_namespace }}"
     state: present
 
-# 4. Restore Issuers from backup
+# 4. Restore Secrets from backup
+# -----------------------------------------------------------------------------
+
+# Apply Secrets yaml from backup
+- name: "Restore multiple MongoDb secrets yamls from backup"
+  block:
+    - name: "Restore secrets from {{ mongodb_backup_path }}/resources/secrets/"
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ secret }}"
+      loop: "{{ lookup('fileglob', '{{ mongodb_backup_path }}/resources/secrets/*.yaml', wantlist=True) }}"
+      loop_control:
+        label: "{{ secret }}"
+        loop_var: secret
+  when: not skip_k8_backup_restore
+
+# 5. Restore Issuers from backup
 # -----------------------------------------------------------------------------
 
 # Apply issuers yaml from backup
@@ -128,17 +144,18 @@
     - name: "Restore Issuers from {{ mongodb_backup_path }}/resources/issuers/"
       kubernetes.core.k8s:
         state: present
-        src: "{{ item }}"
+        src: "{{ issuer }}"
         wait: yes
         wait_condition:
           status: "True"
           type: Ready
       loop: "{{ lookup('fileglob', '{{ mongodb_backup_path }}/resources/issuers/*.yaml', wantlist=True) }}"
       loop_control:
-        label: "{{ item }}"
+        label: "{{ issuer }}"
+        loop_var: issuer
   when: not skip_k8_backup_restore
 
-# 5. Restore Issuers from backup
+# 6. Restore Issuers from backup
 # -----------------------------------------------------------------------------
 
 # Apply Certificates yaml from backup
@@ -147,32 +164,18 @@
     - name: "Restore Certificates from {{ mongodb_backup_path }}/resources/certificates/"
       kubernetes.core.k8s:
         state: present
-        src: "{{ item }}"
+        src: "{{ certificate }}"
         wait: yes
         wait_condition:
           status: "True"
           type: Ready
       loop: "{{ lookup('fileglob', '{{ mongodb_backup_path }}/resources/certificates/*.yaml', wantlist=True) }}"
       loop_control:
-        label: "{{ item }}"
+        label: "{{ certificate }}"
+        loop_var: certificate
   when: not skip_k8_backup_restore
 
-# 6. Restore Secrets from backup
-# -----------------------------------------------------------------------------
-
-# Apply Secrets yaml from backup
-- name: "Restore multiple MongoDb secrets yamls from backup"
-  block:
-    - name: "Restore Certificates from {{ mongodb_backup_path }}/resources/secrets/"
-      kubernetes.core.k8s:
-        state: present
-        src: "{{ item }}"
-      loop: "{{ lookup('fileglob', '{{ mongodb_backup_path }}/resources/secrets/*.yaml', wantlist=True) }}"
-      loop_control:
-        label: "{{ item }}"
-  when: not skip_k8_backup_restore
-
-# 5. Install the selected MongoDb version
+# 7. Install the selected MongoDb version
 # -----------------------------------------------------------------------------
 - name: "community : Setup mongo version {{ target_mongodb_version }} for restore"
   include_tasks: tasks/providers/community/install-mongo.yml

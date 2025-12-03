@@ -455,7 +455,7 @@ def get_usersecrets_from_mongoce(mongoDBCommunityCR):
     if 'passwordSecretRef' in user:
       user_secrets.append(user['passwordSecretRef']['name'])
     if 'scramCredentialsSecretName' in user:
-      user_secrets.append(user['scramCredentialsSecretName'])
+      user_secrets.append(f"{user['scramCredentialsSecretName']}-scram-credentials")
   return user_secrets
 
 def get_mongoce_admin_secretname(mongoDBCommunityCR):
