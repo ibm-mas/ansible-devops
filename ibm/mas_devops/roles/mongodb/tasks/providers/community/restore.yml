@@ -102,8 +102,16 @@
   set_fact:
     mongodb_storage_class: "{{ backup_mongodb_storage_class }}"
   when:
+    - existing_mongo_storage_class is not defined
     - verify_storage_class_result is defined
+    - verify_storage_class_result.success is defined
     - verify_storage_class_result.success
+
+# Set storage class to existing mongo install storage class (if exists)
+- name: "Set fact: mongodb_storage_class from existing mongo install"
+  set_fact:
+    mongodb_storage_class: "{{ existing_mongo_storage_class }}"
+  when: existing_mongo_storage_class is defined and existing_mongo_storage_class != ""
 
 - name: "Determine default storage classes when storage class from backup does not exist and no existing mongo install"
   include_tasks: tasks/providers/community/determine-storage-classes.yml
