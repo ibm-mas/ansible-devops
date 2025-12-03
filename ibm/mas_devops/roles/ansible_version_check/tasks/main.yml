@@ -1,4 +1,36 @@
-- name: Verify minimum Ansible version is {{ required_ansible_version }}
+---
+# 1. Check minimum Ansible version
+# -----------------------------------------------------------------------------
+- name: "Verify minimum Ansible version is {{ required_ansible_version }}"
   assert:
     that: "ansible_version.full is version_compare(required_ansible_version, '>=')"
     fail_msg: "This collection is only supported on Ansible version {{ required_ansible_version }} or greater, your current Ansible version is {{ ansible_version.full }}"
+
+
+# 2. Check minimum mas-devop python package version
+# -----------------------------------------------------------------------------
+- name: "Check if mas-devops package is installed and meets minimum version"
+  command: pip show mas-devops
+  register: mas_devops_package_info
+  changed_when: false
+  failed_when: false
+
+- name: "Get installed version of mas-devops"
+  when: mas_devops_package_info.stdout != ""
+  set_fact:
+    mas_devops_version: "{{ mas_devops_package_info.stdout | regex_search('Version: (.+)', '\\1', multiline=True) }}"
+
+- name: "Verify minimum mas-devops is installed"
+  assert:
+    that:
+      - mas_devops_version is defined
+      - mas_devops_version != ""
+    fail_msg: "The mas-devops python package is not installed."
+
+- name: "Verify minimum mas-devops version is {{ required_mas_devops_python_version }}"
+  assert:
+    that:
+      - mas_devops_version is defined
+      - mas_devops_version | length > 0
+      - mas_devops_version[0] is version_compare(required_mas_devops_python_version, '>=')
+    fail_msg: "The version of mas-devops python package installed is too old (minimum version is {{ required_mas_devops_python_version }})."
