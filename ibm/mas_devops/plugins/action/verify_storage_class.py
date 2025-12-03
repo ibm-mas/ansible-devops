@@ -39,7 +39,7 @@ class ActionModule(ActionBase):
             return dict(
                 message=f"Failed to find {storageClass} storage class in cluster",
                 success=False,
-                failed=False,
+                failed=True,
                 name=storageClass
             )
 
