@@ -37,14 +37,14 @@ class ActionModule(ActionBase):
         # failed.
         if sc is None:
             return dict(
-                message=f"Failed to find {{ storageClass }} storage class in cluster",
+                message=f"Failed to find {storageClass} storage class in cluster",
                 success=False,
                 failed=False,
                 name=storageClass
             )
 
         return dict(
-            message=f"Successfully found {{ storageClass }} storage class in cluster",
+            message=f"Successfully found {storageClass} storage class in cluster",
             success=True,
             failed=False,
             name=storageClass
