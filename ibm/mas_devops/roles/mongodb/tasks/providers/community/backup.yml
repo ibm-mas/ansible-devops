@@ -95,15 +95,15 @@
             | list
           }}
 
-    - name: Collect TLS server key secret name from MongoDBCommunity spec
-      set_fact:
-        all_secrets: >-
-          {{
-            all_secrets + [ mongodbcommunity_output.resources[0]
-            | ibm.mas_devops.get_tlscertkey_secretname_from_mongoce ]
-            | reject('equalto', None)
-            | list
-          }}
+    # - name: Collect TLS server key secret name from MongoDBCommunity spec
+    #   set_fact:
+    #     all_secrets: >-
+    #       {{
+    #         all_secrets + [ mongodbcommunity_output.resources[0]
+    #         | ibm.mas_devops.get_tlscertkey_secretname_from_mongoce ]
+    #         | reject('equalto', None)
+    #         | list
+    #       }}
 
     - name: "Debug: All Secrets to backup"
       debug:
@@ -118,27 +118,27 @@
 
 # 3. Backup MongoDBCommunity Configmaps
 # This is not used in "install MAS from backup" flow, but included for completeness.
-- name: "Backup MongoDBCommunity Kubernetes TLS Configmaps from CR spec"
-  block:
-    # Process configmaps
-    - name: Collect TLS configmaps from MongoDBCommunity spec
-      set_fact:
-        tls_name: >-
-          {{
-            mongodbcommunity_output.resources[0]
-            | ibm.mas_devops.get_tlscert_configmapname_from_mongoce
-          }}
+# - name: "Backup MongoDBCommunity Kubernetes TLS Configmaps from CR spec"
+#   block:
+#     # Process configmaps
+#     - name: Collect TLS configmaps from MongoDBCommunity spec
+#       set_fact:
+#         tls_name: >-
+#           {{
+#             mongodbcommunity_output.resources[0]
+#             | ibm.mas_devops.get_tlscert_configmapname_from_mongoce
+#           }}
 
-    - name: "Debug: TLS configmap to backup"
-      debug:
-        msg: "TLS configmap to backup: {{ tls_name }}"
+#     - name: "Debug: TLS configmap to backup"
+#       debug:
+#         msg: "TLS configmap to backup: {{ tls_name }}"
 
-    - name: "Set fact: Backup TLS configmaps"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_configmaps.yml"
-      loop: "['{{ tls_name }}']"
-      vars:
-        namespace: "{{ mongodb_namespace}}"
-  when: not skip_k8_backup_restore
+#     - name: "Set fact: Backup TLS configmaps"
+#       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_configmaps.yml"
+#       loop: "['{{ tls_name }}']"
+#       vars:
+#         namespace: "{{ mongodb_namespace}}"
+#   when: not skip_k8_backup_restore
 
 # 4. Backup Issuers
 - name: "Backup MongoDb Issuers"
@@ -198,30 +198,6 @@
         namespace: "{{ mongodb_namespace}}"
   when: not skip_k8_backup_restore
 
-# 4. Backup Deployments
-# - name: "Backup MongoDb deployments"
-#   block:
-#     - name: "Get list of deployments in {{ mongodb_namespace }} namespace"
-#       kubernetes.core.k8s_info:
-#         api_version: apps/v1
-#         kind: Deployment
-#         namespace: "{{ mongodb_namespace}}"
-#       register: deployment_list
-
-#     - name: "Set fact: List of Deployments"
-#       set_fact:
-#         deployments: "{{ cert_list.resources | map(attribute='metadata.name') | list }}"
-
-#     - name: Debug Deployments found
-#       debug:
-#         var: deployments
-
-#     - name: "Backup Deployments"
-#       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_certificates.yml"
-#       loop: "{{ deployments }}"
-#       vars:
-#         namespace: "{{ mongodb_namespace}}"
-#   when: not skip_k8_backup_restore
 
 # Backup Mongodb database Data using mondodump
 # -------------------------------------------------------------------------
