@@ -169,7 +169,7 @@
       loop: "{{ issuers }}"
   when: not skip_k8_backup_restore
 
-# 4. Backup Issuers
+# 4. Backup Certificates
 - name: "Backup MongoDb Certificates"
   block:
     - name: "Get list of certificates in {{ mongodb_namespace }} namespace"
@@ -197,6 +197,31 @@
       vars:
         namespace: "{{ mongodb_namespace}}"
   when: not skip_k8_backup_restore
+
+# 4. Backup Deployments
+# - name: "Backup MongoDb deployments"
+#   block:
+#     - name: "Get list of deployments in {{ mongodb_namespace }} namespace"
+#       kubernetes.core.k8s_info:
+#         api_version: apps/v1
+#         kind: Deployment
+#         namespace: "{{ mongodb_namespace}}"
+#       register: deployment_list
+
+#     - name: "Set fact: List of Deployments"
+#       set_fact:
+#         deployments: "{{ cert_list.resources | map(attribute='metadata.name') | list }}"
+    
+#     - name: Debug Deployments found
+#       debug:
+#         var: deployments
+
+#     - name: "Backup Deployments"
+#       include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_certificates.yml"
+#       loop: "{{ deployments }}"
+#       vars:
+#         namespace: "{{ mongodb_namespace}}"
+#   when: not skip_k8_backup_restore
 
 # Backup Mongodb database Data using mondodump
 # -------------------------------------------------------------------------
