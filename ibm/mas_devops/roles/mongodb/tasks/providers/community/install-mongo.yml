@@ -2,7 +2,7 @@
 # 1. Load default settings
 # -----------------------------------------------------------------------------
 - name: "Determine Version of Maximo Operator Catalog"
-  include_tasks: tasks/determine-ibmcatalog-tag.yml
+  include_tasks: "{{ role_path }}/../../common_tasks/determine-ibmcatalog-tag.yml"
 
 - name: Load Catalog Metadata
   when:
@@ -104,14 +104,14 @@
 - name: "community : install : Install MongoDBCommunity CRD"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/crd.yml.j2') }}"
+    template: "templates/community/{{ mongodb_ce_version }}/crd.yml.j2"
 
 # 4. Create namespace & install RBAC
 # -----------------------------------------------------------------------------
 - name: "community : install : Create namespace & install RBAC"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/rbac.yml.j2') }}"
+    template: "templates/community/{{ mongodb_ce_version }}/rbac.yml.j2"
 
 # 5. Configure anyuid permissions in the MongoDb namespace
 # -----------------------------------------------------------------------------
@@ -130,7 +130,7 @@
 - name: "community : install : Install the MongoDb Operator"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/manager.yml.j2') }}"
+    template: "templates/community/{{ mongodb_ce_version }}/manager.yml.j2"
     wait: yes
     wait_condition:
       status: "True"
@@ -141,7 +141,7 @@
 - name: "Create a issuer in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/issuer.yml') }}"
+    template: "templates/community/issuer.yml"
     wait: yes
     wait_condition:
       status: "True"
@@ -150,7 +150,7 @@
 - name: "Create a ca certificate in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/ca-cert.yml') }}"
+    template: "templates/community/ca-cert.yml"
     wait: yes
     wait_condition:
       status: "True"
@@ -159,7 +159,7 @@
 - name: "Create a Issuer for server certificate in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/server-cert-issuer.yml') }}"
+    template: "templates/community/server-cert-issuer.yml"
     wait: yes
     wait_condition:
       status: "True"
@@ -168,7 +168,7 @@
 - name: "Create a server certificate in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/server-cert.yml') }}"
+    template: "templates/community/server-cert.yml"
     wait: yes
     wait_condition:
       status: "True"
@@ -202,7 +202,7 @@
     mongodb_ca_crt: "{{ mongodb_ca_lookup.resources[0].data['ca.crt'] | b64decode }}"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/tls.yml') }}"
+    template: "templates/community/tls.yml"
 
 # 8. Create MongoDb admin user credentials secret
 # -----------------------------------------------------------------------------
@@ -220,7 +220,7 @@
     - admin_password_info.resources | length == 0
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/admin-password.yml') }}"
+    template: "templates/community/admin-password.yml"
 
 # 9. Create MongoDb metrics endpoint secret
 # -----------------------------------------------------------------------------
@@ -241,14 +241,14 @@
     - mongodb_ce_version is version('0.7.8', '>=')
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/metrics-endpoint-secret.yml.j2') }}"
+    template: "templates/community/metrics-endpoint-secret.yml.j2"
 
 # 10. Deploy the cluster
 # -----------------------------------------------------------------------------
 - name: "community : install : Install new MongoDB cluster CR"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml.j2') }}"
+    template: "templates/community/{{ mongodb_ce_version }}/cr.yml.j2"
   when:
     - mongodb_override_spec or existing_mongodb.resources[0].status.version is not defined
 
@@ -264,7 +264,7 @@
     mongodb_replicas: "{{ existing_mongodb.resources[0].spec.members }}"
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/{{ mongodb_ce_version }}/cr.yml.j2') }}"
+    template: "templates/community/{{ mongodb_ce_version }}/cr.yml.j2"
   when:
     - existing_mongodb.resources[0].status.version is defined
     - not mongodb_override_spec
@@ -397,7 +397,7 @@
     - mongodb_ce_version is version('0.7.8', '>=')
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/servicemonitor.yml.j2') }}"
+    template: "templates/community/servicemonitor.yml.j2"
 
 # 13. Create MongoDb Grafana dashboard
 # -----------------------------------------------------------------------------
@@ -442,7 +442,7 @@
     - mongodb_ce_version is version('0.7.8', '>=')
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/dashboards/mongodb-overview.yml.j2') }}"
+    template: "templates/community/dashboards/mongodb-overview.yml.j2"
 
 - name: "community : install : Check for existing Grafana v5 dashboard"
   kubernetes.core.k8s_info:
@@ -463,7 +463,7 @@
     - mongodb_ce_version is version('0.7.8', '>=')
   kubernetes.core.k8s:
     apply: yes
-    definition: "{{ lookup('template', 'templates/community/dashboards/mongodb-overview-v5.yml.j2') }}"
+    template: "templates/community/dashboards/mongodb-overview-v5.yml.j2"
 
 # 14. Create MAS MongoCfg
 # -----------------------------------------------------------------------------

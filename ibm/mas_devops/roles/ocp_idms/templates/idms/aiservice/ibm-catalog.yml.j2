@@ -1,0 +1,80 @@
+apiVersion: config.openshift.io/v1
+kind: ImageDigestMirrorSet
+metadata:
+  name: aiservice-ibm-catalog{{ idms_suffix }}
+  labels:
+    aiservice.ibm.com/idmsContent: ibm
+  annotations:
+    aiservice.ibm.com/idmsRegistry: "{{ registry_private_url_with_path }}"
+    aiservice.ibm.com/idmsRegistryHost: "{{ registry_private_host }}"
+    aiservice.ibm.com/idmsRegistryPort: "{{ registry_private_port }}"
+    aiservice.ibm.com/idmsRegistryPrefix: "{{ registry_prefix }}"
+spec:
+  imageDigestMirrors:
+    # 1. IBM Container Registry
+    # -------------------------------------------------------------------------
+    # All IBM operators live in the cpopen namespace
+    - source: icr.io/cpopen
+      mirrors:
+        - {{ registry_private_url_with_path }}/cpopen
+      mirrorSourcePolicy: NeverContactSource
+    # IBM truststoremanager worker image lives in ibm-truststore-mgr namespace
+    - source: icr.io/ibm-truststore-mgr
+      mirrors:
+        - {{ registry_private_url_with_path }}/ibm-truststore-mgr
+      mirrorSourcePolicy: NeverContactSource
+    # IBM SLS content live in ibm-sls namespace
+    - source: icr.io/ibm-sls
+      mirrors:
+        - {{ registry_private_url_with_path }}/ibm-sls
+      mirrorSourcePolicy: NeverContactSource
+    # IBM UDS content live in ibm-uds namespace
+    - source: icr.io/ibm-uds
+      mirrors:
+        - {{ registry_private_url_with_path }}/ibm-uds
+      mirrorSourcePolicy: NeverContactSource
+    # IBM Db2 Universal operator content live in db2u namespace
+    - source: icr.io/db2u
+      mirrors:
+        - {{ registry_private_url_with_path }}/db2u
+      mirrorSourcePolicy: NeverContactSource
+
+    # 2. IBM Entitled Container Registry
+    # -------------------------------------------------------------------------
+    # All IBM entitled container images live under cp namespace
+    - source: cp.icr.io/cp
+      mirrors:
+        - {{ registry_private_url_with_path }}/cp
+      mirrorSourcePolicy: NeverContactSource
+
+    # 3. Red Hat Quay.io Container Registry
+    # -------------------------------------------------------------------------
+    # IBM common services live here
+    # MongoDb Community Edition Operator & associated container images
+    - source: quay.io/mongodb
+      mirrors:
+        - {{ registry_private_url_with_path }}/mongodb
+      mirrorSourcePolicy: NeverContactSource
+    - source: quay.io/minio
+      mirrors:
+        - {{ registry_private_url_with_path }}/minio
+      mirrorSourcePolicy: NeverContactSource
+
+    # Non-product IBM Maximo Application Suite images (e.g CLI & mirror of dockerhub mongodb image)
+    - source: quay.io/ibmmas
+      mirrors:
+        - {{ registry_private_url_with_path }}/ibmmas
+      mirrorSourcePolicy: NeverContactSource
+    - source: cp.icr.io/cp/aibroker
+      mirrors:
+        - {{ registry_private_url_with_path }}/cp/aibroker
+      mirrorSourcePolicy: NeverContactSource
+
+{% if artifactory_username != "" %}
+    # 4. Artifactory
+    # -------------------------------------------------------------------------
+    - source: docker-na-public.artifactory.swg-devops.com/wiotp-docker-local
+      mirrors:
+        - docker-us-south-edge-public.artifactory.swg-devops.com/wiotp-docker-local
+      mirrorSourcePolicy: NeverContactSource
+{% endif %}

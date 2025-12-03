@@ -21,6 +21,7 @@
     msg:
       - "IbmCpd custom resource name: {{ cpd_platform_cr_name }}"
 
+
 # 1. Create CloudPak for Data CR
 # -----------------------------------------------------------------------------
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.0?topic=installing-cloud-pak-data
@@ -33,7 +34,6 @@
 - name: "Delete existing zen-watchdog deployment if exists"
   when:
     - is_cpd_upgrade
-    - cpd_48_or_higher
   kubernetes.core.k8s:
     state: absent
     api_version: apps/v1
@@ -41,6 +41,7 @@
     namespace: "{{ cpd_instance_namespace }}"
     name: "zen-watchdog"
   register: zen_watchdog_delete
+
 
 # 2. Patch ZenService lite-cr to set the zen version and increase resource limits
 # ----------------------------------------------------------------------------------------------
@@ -160,14 +161,14 @@
       retries: 20 # Approximately 20 minutes before we give up
       delay: 60 # 1 minute
 
+
 # 3-pre. Wait for Zen Metastore Cluster  to be ready
 # -----------------------------------------------------------------------------
 # There have been issues with Zen Metastore Cluster not starting due to Persistent Storage,
 # This task restarts any failing pods
 - name: "install-cp4d : Wait for zen-metadata to be ready again (60s delay)"
   include_tasks: "tasks/wait/wait-zenmetastore-edb.yml"
-  when:
-    - cpd_48_or_higher
+
 
 # 3. Wait for zenStatus
 # -----------------------------------------------------------------------------
@@ -192,43 +193,6 @@
     that: zenservice_lookup.resources[0].status.zenStatus == "Completed"
     fail_msg: "IBM CloudPak for Data install failed (zenStatus)"
 
-# # TODO: have a better way to determine it's an upgrade happening...
-# # sometimes during the cpd upgrade, zen-watchdog pod crashes and requires deployment to be deleted and recreated...
-# - when: cpd_48_or_higher
-#   block:
-#     - name: "Delete existing zen-watchdog deployment if exists"
-#       kubernetes.core.k8s:
-#         state: absent
-#         api_version: apps/v1
-#         kind: Deployment
-#         namespace: "{{ cpd_instance_namespace }}"
-#         name: "zen-watchdog"
-#       register: zen_watchdog_delete
-
-#     - name: "Pause for 2 minutes before waiting for zenStatus again..."
-#       pause:
-#         seconds: 120
-
-#     # oc get ZenService lite-cr -o jsonpath="{.status.zenStatus}{'\n'}"
-#     - name: "install-cp4d : Wait for zenStatus to be ready to be 'Completed' (2m delay)"
-#       kubernetes.core.k8s_info:
-#         api_version: zen.cpd.ibm.com/v1
-#         name: "{{ zen_cr_name }}"
-#         namespace: "{{ cpd_instance_namespace }}"
-#         kind: ZenService
-#       register: zenservice_lookup
-#       until:
-#         - zenservice_lookup.resources[0].status.zenStatus is defined
-#         - zenservice_lookup.resources[0].status.zenStatus == "Completed"
-#         - zenservice_lookup.resources[0].status.currentVersion is defined
-#         - zenservice_lookup.resources[0].spec.version == zenservice_lookup.resources[0].status.currentVersion
-#       retries: 60 # Approximately 2 hours before we give up
-#       delay: 120 # 2 minutes
-
-#     - name: "install-cp4d : Check that the zenStatus is 'Completed'"
-#       assert:
-#         that: zenservice_lookup.resources[0].status.zenStatus == "Completed"
-#         fail_msg: "IBM CloudPak for Data install failed (zenStatus)"
 
 # 4. Wait for controlPlaneStatus
 # -----------------------------------------------------------------------------
@@ -245,6 +209,7 @@
     - ibmcpd_lookup.resources[0].status.controlPlaneStatus == "Completed"
   retries: 60 # Approximately 2 hours before we give up
   delay: 120 # 2 minutes
+
 
 # 5. Lookup CPD credentials
 # -----------------------------------------------------------------------------

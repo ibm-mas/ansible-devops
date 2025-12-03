@@ -14,7 +14,6 @@ copyDoc aiservice
 copyDoc aiservice_odh
 copyDoc aiservice_tenant
 copyDoc ansible_version_check
-copyDoc appconnect
 copyDoc arcgis
 copyDoc aws_bucket_access_point
 copyDoc aws_documentdb_user
@@ -24,7 +23,6 @@ copyDoc aws_user_creation
 copyDoc aws_vpc
 copyDoc cert_manager
 copyDoc cis
-copyDoc common_services
 copyDoc configure_manage_eventstreams
 copyDoc cos
 copyDoc cos_bucket

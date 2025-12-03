@@ -34,7 +34,6 @@
 # -----------------------------------------------------------------------------
 - name: "Load Cloud Pak for Data extra catalog source specs for version {{ cpd_product_version }}"
   include_tasks: "tasks/load-catalog-source-definitions.yml"
-  when: cpd_48_or_higher
 
 - name: Check that an entitlement key has been provided
   when: not skip_entitlement_key_flag
@@ -56,10 +55,9 @@
   when: not skip_entitlement_key_flag
   include_tasks: "tasks/entitlement.yml"
 
-# With CP4D 5.0, we need to provide entitlement key for the wcs service accounts.
+# We need to provide entitlement key for the wcs service accounts.
 - include_tasks: "tasks/create-cpd-core-service-accounts.yml"
-  when:
-    - cpd_50_or_higher
+
 
 # Install olm-utils config map
 # -----------------------------------------------------------------------------
@@ -69,7 +67,6 @@
 # Run pre-checks
 # -----------------------------------------------------------------------------
 # - Assert ibm-operator-catalog is installed
-# - Assert IBM Foundational Services is installed and that the version is compatible (only when CPD 4.6)
 # - Assert Red Hat Certificate Manager is installed
 - name: "Check Cloud Pak for Data pre-requisites"
   include_tasks: "tasks/prereq-check/main.yml"
@@ -78,7 +75,6 @@
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/prereqs/disable-cpfs-v3.yml"
   when:
-    - cpd_48_or_higher
     - cpfs_installed_version is defined
     - cpfs_installed_version is version(cpd_cpfs_minimum_csv_version, '<=') # this is true if CPFS v3 is installed
 
@@ -87,34 +83,30 @@
 - name: "Determine storage classes"
   include_tasks: "tasks/determine-storage-classes.yml"
 
-# CPD 4.8 and above only: Authorizing a user to act as an IBM Cloud Pak for Data instance administrator
+# Authorizing a user to act as an IBM Cloud Pak for Data instance administrator
 # https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=data-authorizing-instance-administrator
 # -----------------------------------------------------------------------------
 - name: "Grant permissions to {{ cpd_admin_login_sa }} service account in Cloud Pak For Data namespaces"
   include_tasks: "tasks/authorize-user-cpd-admin.yml"
-  when: cpd_48_or_higher
 
 # CPD 4.8 and above only: Install specific catalog sources
 # -----------------------------------------------------------------------------
-# TODO : For now, we will need to install specific catalog sources
+# We need to install specific catalog sources
 # for Cloud Pak for Data (cpd-platform), Foundational Services and NamespaceScope (opencloud-operators)
 - include_tasks: "tasks/create-catalog-sources.yml"
-  when: cpd_48_or_higher
 
 # Install NamespaceScope
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/prereqs/install-ibm-namespace-scope.yml"
 
-# CPD 4.8 and above only: Install IBM Licensing
+# Install IBM Licensing
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/prereqs/install-ibm-licensing.yml"
-  when: cpd_48_or_higher
 
-# CPD 4.8 and above only: Install Cloud Pak Foundational Services
+# Install Cloud Pak Foundational Services
 # -----------------------------------------------------------------------------
 - include_tasks: "tasks/prereqs/install-cpfs.yml"
   when:
-    - cpd_48_or_higher
     - cpfs_installed_version is not defined or cpfs_installed_version != cpfs_version
 
 # Install Cloud Pak for Data subscription/operator
