@@ -29,8 +29,20 @@ spec:
     username: metrics-endpoint-user
     passwordSecretRef:
       name: "{{ mongodb_instance_name }}-metrics-endpoint-secret"
-{% if mongodb_action == "restore" %}
-  users: "{{ mongodb_users | to_yaml | indent(4)}}"
+{% if mongodb_users is defined %}
+  users:
+{% for user in mongodb_users %}
+    - name: {{ user.name }}
+      db: {{ user.db }}
+      passwordSecretRef:
+        name: {{ user.passwordSecretRef.name }}
+      roles:
+{% for role in user.roles %}
+        - name: {{ role.name }}
+          db: {{ role.db }}
+{% endfor %}
+      scramCredentialsSecretName: "{{ user.scramCredentialsSecretName }}"
+{% endfor %}
 {% else %}
   users:
     - name: admin
