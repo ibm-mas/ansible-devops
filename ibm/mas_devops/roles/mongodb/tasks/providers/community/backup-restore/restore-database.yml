@@ -7,7 +7,14 @@
 
 - name: "Check if backup data file exists"
   stat:
-  
+    file: "{{ mongodb_backup_path }}/{{ mongodb_backup_data_filename }}"
+  register: backup_data_file_check
+
+- name: Assert backup data file exists
+  assert:
+    that:
+      - backup_data_file_check.stat.exists | default(False)
+    fail_msg: "Backup data file {{ mongodb_backup_path }}/{{ mongodb_backup_data_filename }} does NOT exist!"
 
 - name: "Lookup mongoce Pod"
   kubernetes.core.k8s_info:
