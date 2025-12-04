@@ -1,0 +1,73 @@
+#!/bin/bash
+
+MONGODB_BACKUP_USER="bradmin"
+
+BACKUP_DATA_FILENAME="{{ mongodb_backup_data_filename }}"
+TMP_RESTORE_DIR="{{ mongodb_tmp_restore_dir }}"
+
+
+# Extract backup data tar.gz file
+echo "Extracting backup data file: $BACKUP_DATA_FILENAME"
+tar -xzf $TMP_RESTORE_DIR/$BACKUP_DATA_FILENAME -C $TMP_RESTORE_DIR
+cmdrc=$?
+if [ $cmdrc -ne 0 ]; then
+    echo "Error extracting backup data file. Exiting."
+    exit 1
+fi
+
+# Remove the tar.gz file after extraction
+rm -f $TMP_RESTORE_DIR/$BACKUP_DATA_FILENAME
+
+# Determine if current node is primary
+tlsCAFile=$(ls /var/lib/tls/ca/*.pem)
+echo "Using TLS CA file: $tlsCAFile"
+primary_host=""
+
+is_primary=$(mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --host {{ mongodb_host }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --eval 'db.isMaster().ismaster')
+cmdrc=$?
+if [ $cmdrc -ne 0 ]; then
+    echo "Error checking if node is primary. Exiting."
+    exit 1
+fi
+
+if [ "$is_primary" != "true" ]; then
+    echo "This node is not primary. Get Primary from server status."
+    primary_host=$(mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --host {{ mongodb_host }} --authenticationDatabase=admin --tls --eval 'rs.isMaster().primary')
+    cmdrc=$?
+    if [ $cmdrc -ne 0 ]; then
+        echo "Error getting primary node. Exiting."
+        exit 1
+    fi
+    echo "Primary host is: $primary_host"
+fi
+
+# Exclude these collections because they should be populated by MAS installation
+mongodb_ns_exclude_args=" --nsExclude=mas_{{ mongodb_ns_instance }}_adoptionusage.* \
+    --nsExclude=mas_{{ mongodb_ns_instance }}_catalog.* \
+    --nsExclude=mas_{{ mongodb_ns_instance }}_core.OauthClient \
+    --nsExclude=mas_{{ mongodb_ns_instance }}_core.OauthToken \
+    --nsExclude=mas_{{ mongodb_ns_instance }}_core.bindings \
+    --nsExclude=mas_{{ mongodb_ns_instance }}_core.graphiteconfigtool.* \
+    --nsExclude=mas_{{ mongodb_ns_instance }}_core.workspaces"
+
+if [ -n "$primary_host" ]; then
+    echo "Connecting to primary host: $primary_host"
+    mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host $primary_host"
+    mongorestore_cmd="mongorestore -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --sslCAFile $tlsCAFile --authenticationDatabase=admin --ssl --drop --dir={{ TMP_RESTORE_DIR }} $mongodb_ns_exclude_args --host $primary_host"
+else
+    echo "Continuing on current primary node."
+    mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host {{ mongodb_host }}"
+    mongorestore_cmd="mongorestore -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --sslCAFile $tlsCAFile --authenticationDatabase=admin --ssl --drop --dir={{ TMP_RESTORE_DIR }} $mongodb_ns_exclude_args --host {{ mongodb_host }}"
+fi
+
+# Perform restore
+echo "Restoring databases from $TMP_RESTORE_DIR"
+$mongorestore_cmd
+cmdrc=$?
+if [ $cmdrc -ne 0 ]; then
+    echo "Error restoring databases. Exiting."
+    exit 1
+fi
+
+echo "DATABASERESTOREstatus-SUCCESS"
+

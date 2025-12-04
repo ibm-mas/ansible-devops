@@ -27,9 +27,14 @@
       - dir_info.stat.isdir | default(False)
     fail_msg: "Directory {{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce does NOT exist!"
 
-- name: "Set fact: mongodb backup base path"
+- name: "Set fact: mongodb backup paths"
   set_fact:
     mongodb_backup_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce"
+
+- name: "Set fact: all backup paths"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/set_backup_dirs.yml"
+  vars:
+    backup_base_path: "{{ mongodb_backup_path }}"
 
 - name: Check backup CR file exists
   stat:
@@ -192,3 +197,15 @@
 # -------------------------------------------------------------------------
 - name: "Check mongodb is running before restoring database data"
   include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/get-mongo-info.yml"
+
+# 8. Restore the database data from backup
+# -----------------------------------------------------------------------------
+- name: "Debug information - Mongodb database Data restore"
+  debug:
+    msg:
+      - "MongoCE namespace .......................... {{ mongodb_namespace }}"
+      - "MongoCE instance name ...................... {{ mongodb_instance_name }}"
+      - "MongoCE version ............................ {{ mongodb_version }}"
+
+- name: "Start Database restore process."
+  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/restore-database.yml"

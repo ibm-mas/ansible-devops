@@ -1,0 +1,145 @@
+---
+
+- name: "Set fact: mongodb backup paths"
+  set_fact:
+    mongodb_backup_data_filename: "mongodump-{{ mongodb_backup_version }}.tar.gz"
+    mongodb_tmp_restore_dir: "/tmp/masbr/{{ mongodb_backup_version }}"
+
+- name: "Check if backup data file exists"
+  stat:
+  
+
+- name: "Lookup mongoce Pod"
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: "{{ mongodb_namespace }}"
+    label_selectors:
+      - apps.kubernetes.io/pod-index=0
+    wait: yes
+    wait_sleep: 30
+    wait_timeout: 300 # 5 mins until we give up waiting for the pod to get into the expected state
+    wait_condition:
+      type: Ready
+      status: "True"
+  register: mongoce_pod
+
+- name: Configure facts
+  set_fact:
+    mongoce_pod_name: "{{ mongoce_pod.resources[0].metadata.name }}"
+
+- name: "Debug information - Mongodb database Data backup - Pod name"
+  debug:
+    msg:
+      - "Pod name ............................... {{ mongoce_pod_name }}"
+
+# Get mongodb admin password
+# -----------------------------------------------------------------------------
+
+- name: "Get mongodb admin secret name"
+  set_fact:
+    mongodb_admin_secret_name: "{{ mongodbcommunity_output.resources[0] | ibm.mas_devops.get_mongoce_admin_secretname }}"
+
+- name: "Get mongodb admin password"
+  kubernetes.core.k8s_info:
+    kind: Secret
+    name: "{{ mongodb_admin_secret_name }}"
+    namespace: "{{ mongodb_namespace }}"
+  register: _mongodb_password_output
+  no_log: true
+
+- name: "Set fact: mongodb admin password"
+  set_fact:
+    mongodb_admin_user: "admin"
+    mongodb_admin_password: "{{ _mongodb_password_output.resources[0].data.password | b64decode }}"
+  when:
+    - _mongodb_password_output is defined
+    - _mongodb_password_output.resources[0] is defined
+    - _mongodb_password_output.resources[0].data.password is defined
+  no_log: true
+
+- name: "Get mongodb service name"
+  set_fact:
+    mongodb_service_name: "{{ mongodbcommunity_output.resources[0].spec.statefulSet.spec.serviceName }}"
+
+- name: "Set mongodb host"
+  set_fact:
+    mongodb_host: "{{ mongoce_pod_name }}.{{ mongodb_service_name }}.{{ mongodb_namespace }}.svc.cluster.local:27017"
+
+# Prepare
+# -----------------------------------------------------------------------------
+- block:
+  - name: Create create-role-user.sh script in local /tmp
+    ansible.builtin.template:
+      src: create-role-user.sh.j2
+      dest: /tmp/create-role-user.sh
+      mode: '777'
+
+  - name: Create database-backup.sh script in local /tmp
+    ansible.builtin.template:
+      src: database-restore.sh.j2
+      dest: /tmp/database-restore.sh
+      mode: '777'
+
+  - name: Copy the create-role-user.sh script into the mongodb pod
+    shell: "oc cp /tmp/create-role-user.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/create-role-user.sh -c mongod"
+    register: copy_result
+    retries: 2
+    delay: 15 # seconds
+    until: copy_result.rc == 0
+
+  - name: Copy the database-backup.sh script into the mongodb pod
+    shell: "oc cp /tmp/database-restore {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/database-restore.sh -c mongod"
+    register: copy_result
+    retries: 2
+    delay: 15 # seconds
+    until: copy_result.rc == 0
+
+# The log file will also be available inside the pod /tmp/create-role-user.log
+- name: Exec into mongo pod and run create-role-user.sh to setup backup role and user in Mongodb.
+  shell: |
+    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -- bash /tmp/create-role-user.sh
+  register: create_roleuser_output
+  ignore_errors: true
+  retries: 1
+  delay: 10 # seconds
+  until:
+    - create_roleuser_output.rc == 0
+    - create_roleuser_output.stdout | regex_search('ROLEUSERstatus-SUCCESS', multiline=True)
+
+- name: "Debug create-role-user logs"
+  debug:
+    msg: "{{ create_roleuser_output.stdout_lines }}"
+
+# Create temporary restore directory
+- name: "Create temporary restore directory in mongodb pod and clean up any existing files"
+  shell: >
+    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- bash -c '
+    mkdir -p {{ mongodb_tmp_restore_dir }} &&
+    rm -rf {{ mongodb_tmp_restore_dir }}/*
+  register: create_tmpdir_output
+  retries: 2
+  delay: 15 # seconds
+  until: create_tmpdir_output.rc == 0
+
+- name: "Copy backup data file into mongodb pod"
+  shell: >
+    oc cp {{ mongodb_backup_path }}/{{ mongodb_backup_data_filename }} {{ mongodb_namespace }}/{{ mongoce_pod_name }}:{{ mongodb_tmp_restore_dir }}/{{ mongodb_backup_data_filename }} -c mongod
+  register: copy_backupdata_output
+  retries: 2
+  delay: 15 # seconds
+  until: copy_backupdata_output.rc == 0
+
+- name: "Exec into mongo pod and run database-restore.sh to restore the database from backup."
+  shell: |
+    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -- bash /tmp/database-restore.sh
+  register: database_restore_output
+  ignore_errors: true
+  retries: 1
+  delay: 10 # seconds
+  until:
+    - database_restore_output.rc == 0
+    - database_restore_output.stdout | regex_search('DATABASERESTOREstatus-SUCCESS', multiline=True)
+
+- name: "Debug database-restore logs"
+  debug:
+    msg: "{{ database_restore_output.stdout_lines }}"
