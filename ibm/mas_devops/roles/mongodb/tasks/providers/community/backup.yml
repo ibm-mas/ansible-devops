@@ -11,9 +11,9 @@
     that: mas_backup_dir is defined and mas_backup_dir != ""
     fail_msg: "MAS_BACKUP_DIR is required"
 
-- name: "Check if MONGODB_BACKUP_VERSION is provided, if not set to default 'YYMMDDHHMMSS' format"
+- name: "Check if MONGODB_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
   set_fact:
-    mongodb_backup_version: "{{ lookup('pipe', 'date +%y%m%d%H%M%S') }}"
+    mongodb_backup_version: "{{ ibm.mas_devops.generate_backup_version }}"
   when: mongodb_backup_version is not defined or mongodb_backup_version == ""
 
 - name: "Set fact: Create Mongodb backup base directory path"
@@ -25,154 +25,25 @@
   vars:
     backup_base_path: "{{ mongodb_backup_path }}"
 
-# Get mongodb information
-# -------------------------------------------------------------------------
-- name: "Get mongodb information"
-  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/get-mongo-info.yml"
 
 # Backup Mongodb Kubernetes Resources
 # -------------------------------------------------------------------------
 
-# 1. Backup MongoDBCommunity CR
-# CR is always backed up even if skip_k8_backup_restore is true
-- name: "Backup MongoDBCommunity Kubernetes resources"
-  block:
-    - name: Filter spec (remove specified fields)
-      set_fact:
-        spec_filtered: >-
-          {{
-            (mongodbcommunity_output.resources[0].spec | default({}))
-            | dict2items
-            | rejectattr('key', 'in', ['replicaSetHorizons'])
-            | items2dict
-          }}
-      when:
-        - mongodbcommunity_output is defined
-        - mongodbcommunity_output.resources[0] is defined
-        - mongodbcommunity_output.resources[0].spec is defined
+- name: "Debug information - Mongodb Cluster Instance backup"
+  debug:
+    msg:
+      - "MongoCE namespace .......................... {{ mongodb_namespace }}"
+      - "MongoCE instance name ...................... {{ mongodb_instance_name }}"
+      - "MongoCE version ............................ {{ mongodb_version }}"
 
-    - name: Construct new CR yaml with minimal metadata and spec
-      set_fact:
-        mongodb_filtered:
-          apiVersion: "{{ mongodbcommunity_output.resources[0].apiVersion }}"
-          kind: "{{ mongodbcommunity_output.resources[0].kind }}"
-          metadata:
-            name: "{{ mongodbcommunity_output.resources[0].metadata.name }}"
-            namespace: "{{ mongodbcommunity_output.resources[0].metadata.namespace }}"
-          spec: "{{ spec_filtered }}"
-      when:
-        - mongodbcommunity_output is defined
-        - mongodbcommunity_output.resources[0] is defined
-
-    - name: "Save MongoDBCommunity resource to file"
-      copy:
-        content: "{{ mongodb_filtered | to_nice_yaml }}"
-        dest: "{{ backup_resources_path }}/cr.yaml"
-      when:
-        - mongodbcommunity_output is defined
-        - mongodbcommunity_output.resources[0] is defined
-        - mongodb_filtered is defined
-
-# 2. Backup MongoDBCommunity Secrets from CR spec
-- name: "Backup MongoDBCommunity Kubernetes Secrets"
-  block:
-    # Process Secrets
-    - name: Collect User secrets from MongoDBCommunity spec
-      set_fact:
-        users_secrets: >-
-          {{
-            mongodbcommunity_output.resources[0]
-            | ibm.mas_devops.get_usersecrets_from_mongoce
-          }}
-
-    - name: Collect Prometheus secret name from MongoDBCommunity spec
-      set_fact:
-        all_secrets: >-
-          {{
-            users_secrets + [ mongodbcommunity_output.resources[0]
-            | ibm.mas_devops.get_prometheus_secretname_from_mongoce ]
-            | reject('equalto', None)
-            | list
-          }}
-
-    - name: Collect TLS server key secret name from MongoDBCommunity spec
-      set_fact:
-        all_secrets: >-
-          {{
-            all_secrets + [ mongodbcommunity_output.resources[0]
-            | ibm.mas_devops.get_tlscertkey_secretname_from_mongoce ]
-            | reject('equalto', None)
-            | list
-          }}
-
-    - name: "Debug: All Secrets to backup"
-      debug:
-        msg: "All Secrets to backup: {{ all_secrets }}"
-
-    - name: "Set fact: Backup All Secrets from MongoDBCommunity CR spec"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_secrets.yml"
-      loop: "{{ all_secrets }}"
-      vars:
-        namespace: "{{ mongodb_namespace}}"
-  when: not skip_k8_backup_restore
-
-# 3. Backup Issuers
-- name: "Backup MongoDb Issuers"
-  block:
-    - name: "Get list of Issuers names in {{ mongodb_namespace }} namespace"
-      kubernetes.core.k8s_info:
-        api_version: cert-manager.io/v1
-        kind: Issuer
-        namespace: "{{ mongodb_namespace}}"
-      register: issuer_list
-
-    - name: Debug issuers list
-      debug:
-        var: issuer_list
-
-    - name: "Set fact: List of Issuers"
-      set_fact:
-        issuers: "{{ issuer_list.resources | map(attribute='metadata.name') | list }}"
-
-    - name: Debug issuers found
-      debug:
-        var: issuers
-
-    - name: "backup Issuers"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_issuers.yml"
-      vars:
-        namespace: "{{ mongodb_namespace}}"
-      loop: "{{ issuers }}"
-  when: not skip_k8_backup_restore
-
-# 4. Backup Certificates
-- name: "Backup MongoDb Certificates"
-  block:
-    - name: "Get list of certificates in {{ mongodb_namespace }} namespace"
-      kubernetes.core.k8s_info:
-        api_version: cert-manager.io/v1
-        kind: Certificate
-        namespace: "{{ mongodb_namespace}}"
-      register: cert_list
-
-    - name: Debug cert_list list
-      debug:
-        var: cert_list
-
-    - name: "Set fact: List of Certificates"
-      set_fact:
-        certificates: "{{ cert_list.resources | map(attribute='metadata.name') | list }}"
-
-    - name: Debug Certificates found
-      debug:
-        var: certificates
-
-    - name: "Backup Certificates"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/backup_certificates.yml"
-      loop: "{{ certificates }}"
-      vars:
-        namespace: "{{ mongodb_namespace}}"
-  when: not skip_k8_backup_restore
+- name: "Start Mongo Instance backup process."
+  include_role:
+    name: ibm.mas_devops.backup_mongo_instance_resources
+  vars:
+    mongodb_backup_resource_path: "{{ backup_resources_path }}"
+    mongodb_namespace: "{{ mongodb_namespace }}"
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    mongodb_provider: "{{ mongodb_provider }}"
 
 
 # Backup Mongodb database Data using mondodump
@@ -185,5 +56,5 @@
       - "MongoCE instance name ...................... {{ mongodb_instance_name }}"
       - "MongoCE version ............................ {{ mongodb_version }}"
 
-- name: "Start Database backup process."
-  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-database.yml"
+# - name: "Start Database backup process."
+#   include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-database.yml"

@@ -7,7 +7,7 @@
 # -----------------------------------------------------------
 import yaml
 import re
-
+import datetime
 
 def private_vlan(vlans):
   """
@@ -536,6 +536,13 @@ def get_tlscert_configmapname_from_mongoce(mongoDBCommunityCR):
     else:
       return None
 
+def generate_backup_version():
+  """
+    filter: generateBackupVersion
+    returns a timestamp string in the format YYYYMM-DDHHMMSS to be used as backup version
+  """
+  return datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+
 class FilterModule(object):
   def filters(self):
     return {
@@ -562,5 +569,6 @@ class FilterModule(object):
       'get_mongoce_admin_secretname': get_mongoce_admin_secretname,
       'get_prometheus_secretname_from_mongoce': get_prometheus_secretname_from_mongoce,
       'get_tlscertkey_secretname_from_mongoce': get_tlscertkey_secretname_from_mongoce,
-      'get_tlscert_configmapname_from_mongoce': get_tlscert_configmapname_from_mongoce
+      'get_tlscert_configmapname_from_mongoce': get_tlscert_configmapname_from_mongoce,
+      'generate_backup_version': generate_backup_version
     }
