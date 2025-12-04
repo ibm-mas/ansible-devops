@@ -9,7 +9,6 @@ from ansible.errors import AnsibleError
 from ansible.utils.display import Display
 from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.exceptions import NotFoundError
-from ansible.plugins.filter import get_usersecrets_from_mongoce, get_prometheus_secretname_from_mongoce, get_tlscertkey_secretname_from_mongoce
 
 import yaml
 
@@ -17,6 +16,30 @@ urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWar
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 display = Display()
+
+def get_tlscertkey_secretname_from_mongoce(mongoDBCommunityCR : dict) -> str:
+  if 'security' in mongoDBCommunityCR['spec']:
+    if 'tls' in mongoDBCommunityCR['spec']['security']:
+      if 'certificateKeySecretRef' in mongoDBCommunityCR['spec']['security']['tls']:
+        return mongoDBCommunityCR['spec']['security']['tls']['certificateKeySecretRef']['name']
+    else:
+      return None
+
+def get_usersecrets_from_mongoce(mongoDBCommunityCR : dict) -> list:
+  user_secrets = []
+  for user in mongoDBCommunityCR['spec'].get('users', []):
+    if 'passwordSecretRef' in user:
+      user_secrets.append(user['passwordSecretRef']['name'])
+    if 'scramCredentialsSecretName' in user:
+      user_secrets.append(f"{user['scramCredentialsSecretName']}-scram-credentials")
+  return user_secrets
+
+def get_prometheus_secretname_from_mongoce(mongoDBCommunityCR : dict) -> str:
+  if 'prometheus' in mongoDBCommunityCR['spec']:
+    if 'passwordSecretRef' in mongoDBCommunityCR['spec']['prometheus']:
+      return mongoDBCommunityCR['spec']['prometheus']['passwordSecretRef']['name']
+    else:
+      return None
 
 def getMongoVersionFromCR(mongoCR: dict) -> str:
     """

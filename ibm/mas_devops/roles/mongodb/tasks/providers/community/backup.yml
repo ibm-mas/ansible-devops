@@ -13,7 +13,7 @@
 
 - name: "Check if MONGODB_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
   set_fact:
-    mongodb_backup_version: "{{ ibm.mas_devops.generate_backup_version }}"
+    mongodb_backup_version: "{{ lookup('pipe', 'date +%y%m%d%H%M%S') }}"
   when: mongodb_backup_version is not defined or mongodb_backup_version == ""
 
 - name: "Set fact: Create Mongodb backup base directory path"
@@ -28,13 +28,6 @@
 
 # Backup Mongodb Kubernetes Resources
 # -------------------------------------------------------------------------
-
-- name: "Debug information - Mongodb Cluster Instance backup"
-  debug:
-    msg:
-      - "MongoCE namespace .......................... {{ mongodb_namespace }}"
-      - "MongoCE instance name ...................... {{ mongodb_instance_name }}"
-      - "MongoCE version ............................ {{ mongodb_version }}"
 
 - name: "Start Mongo Instance backup process."
   ibm.mas_devops.backup_mongo_instance_resources:
