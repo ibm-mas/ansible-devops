@@ -438,6 +438,7 @@ def get_ecr_repositories(image_mirror_output):
         repositories.append(repo_to_add)
   return repositories
 
+<<<<<<< Updated upstream
 def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) -> bool:
   """
     Checks if a given current channel version can be upgraded to a target channel version.
@@ -465,6 +466,8 @@ def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) 
           print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
   return valid
 
+=======
+>>>>>>> Stashed changes
 def remove_dict_keys(data: dict, keys: list[str], deep_copy: bool = True) -> dict:
   """
     Deletes keys from a dictionary. This has an advantage over Ansible's ansible.utils.remove_keys filter
@@ -486,6 +489,33 @@ def remove_dict_keys(data: dict, keys: list[str], deep_copy: bool = True) -> dic
     except KeyError as ex:
       print(f'Could not delete key from dictionary: {ex}')
   return data
+<<<<<<< Updated upstream
+=======
+
+def is_operator_upgraded_by_version(cr_reconciled_version: str, opcon_version: str, sub_installed_version: str) -> bool:
+  """
+    Checks if an operator was upgraded successfully by comparing versions. Typically we just compare the version reported as
+    reconciled in the operator's custom resource with the OperatorCondition, however, this poses a problem for certain images
+    that are not tagged with a build number but the build number is used in other places within its bundle. For example, an
+    upgraded operator might have the CR reconciled version as "9.2.0-pre.1450" (derived from its image tag) but the version
+    from the OperatorCondition resource is "9.2.0-pre.1450-5075" which includes the build number. In this case where they
+    don't match we do our best effort by also checking the version reported as installed in the Subscription.
+    :cr_reconciled_version: Version number from the "versions.reconciled" field in the CR.
+    :opcon_version: Version derived from the operator's OperatorCondition.
+    :sub_installed_version: Version derived from the Subscription's "status.installedCSV" field.
+    :return: True if the operator was successfully upgraded (at least by checking various versions)
+  """
+  print(f'{cr_reconciled_version} --- {opcon_version} --- {sub_installed_version}')
+  upgraded = False
+  opcon_version = opcon_version.replace('+', '-')
+  prefix = f'{cr_reconciled_version}-'
+  if cr_reconciled_version == opcon_version:
+    upgraded = True
+  elif opcon_version.startswith(prefix) and sub_installed_version.startswith(prefix) and (opcon_version == sub_installed_version):
+      upgraded = True
+  return upgraded
+
+>>>>>>> Stashed changes
 
 class FilterModule(object):
   def filters(self):
@@ -510,5 +540,10 @@ class FilterModule(object):
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
+<<<<<<< Updated upstream
       'remove_dict_keys': remove_dict_keys
+=======
+      'remove_dict_keys': remove_dict_keys,
+      'is_operator_upgraded_by_version': is_operator_upgraded_by_version,
+>>>>>>> Stashed changes
     }
