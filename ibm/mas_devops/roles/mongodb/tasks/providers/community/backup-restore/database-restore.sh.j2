@@ -42,22 +42,22 @@ if [ "$is_primary" != "true" ]; then
 fi
 
 # Exclude these collections because they should be populated by MAS installation
-mongodb_ns_exclude_args=" --nsExclude=mas_{{ mongodb_ns_instance }}_adoptionusage.* \
-    --nsExclude=mas_{{ mongodb_ns_instance }}_catalog.* \
-    --nsExclude=mas_{{ mongodb_ns_instance }}_core.OauthClient \
-    --nsExclude=mas_{{ mongodb_ns_instance }}_core.OauthToken \
-    --nsExclude=mas_{{ mongodb_ns_instance }}_core.bindings \
-    --nsExclude=mas_{{ mongodb_ns_instance }}_core.graphiteconfigtool.* \
-    --nsExclude=mas_{{ mongodb_ns_instance }}_core.workspaces"
+mongodb_ns_exclude_args=" --nsExclude=mas_{{ mas_instance_id }}_adoptionusage.* \
+    --nsExclude=mas_{{ mas_instance_id }}_catalog.* \
+    --nsExclude=mas_{{ mas_instance_id }}_core.OauthClient \
+    --nsExclude=mas_{{ mas_instance_id }}_core.OauthToken \
+    --nsExclude=mas_{{ mas_instance_id }}_core.bindings \
+    --nsExclude=mas_{{ mas_instance_id }}_core.graphiteconfigtool.* \
+    --nsExclude=mas_{{ mas_instance_id }}_core.workspaces"
 
 if [ -n "$primary_host" ]; then
     echo "Connecting to primary host: $primary_host"
     mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host $primary_host"
-    mongorestore_cmd="mongorestore -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --sslCAFile $tlsCAFile --authenticationDatabase=admin --ssl --drop --dir={{ TMP_RESTORE_DIR }} $mongodb_ns_exclude_args --host $primary_host"
+    mongorestore_cmd="mongorestore -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --sslCAFile $tlsCAFile --authenticationDatabase=admin --ssl --drop --dir=$TMP_RESTORE_DIR $mongodb_ns_exclude_args --host $primary_host"
 else
     echo "Continuing on current primary node."
     mongo_cmd="mongosh --quiet -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --tlsCAFile $tlsCAFile --authenticationDatabase=admin --tls --host {{ mongodb_host }}"
-    mongorestore_cmd="mongorestore -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --sslCAFile $tlsCAFile --authenticationDatabase=admin --ssl --drop --dir={{ TMP_RESTORE_DIR }} $mongodb_ns_exclude_args --host {{ mongodb_host }}"
+    mongorestore_cmd="mongorestore -u {{ mongodb_admin_user }} -p {{ mongodb_admin_password }} --sslCAFile $tlsCAFile --authenticationDatabase=admin --ssl --drop --dir=$TMP_RESTORE_DIR $mongodb_ns_exclude_args --host {{ mongodb_host }}"
 fi
 
 # Perform restore

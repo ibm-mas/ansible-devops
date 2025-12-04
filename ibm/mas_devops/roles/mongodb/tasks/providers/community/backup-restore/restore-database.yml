@@ -1,20 +1,20 @@
 ---
 
-- name: "Set fact: mongodb backup paths"
+- name: "Set fact: mongodb restore paths"
   set_fact:
     mongodb_backup_data_filename: "mongodump-{{ mongodb_backup_version }}.tar.gz"
     mongodb_tmp_restore_dir: "/tmp/masbr/{{ mongodb_backup_version }}"
 
 - name: "Check if backup data file exists"
   stat:
-    file: "{{ mongodb_backup_path }}/{{ mongodb_backup_data_filename }}"
+    path: "{{ backup_data_path }}/{{ mongodb_backup_data_filename }}"
   register: backup_data_file_check
 
 - name: Assert backup data file exists
   assert:
     that:
       - backup_data_file_check.stat.exists | default(False)
-    fail_msg: "Backup data file {{ mongodb_backup_path }}/{{ mongodb_backup_data_filename }} does NOT exist!"
+    fail_msg: "Backup data file {{ backup_data_path }}/{{ mongodb_backup_data_filename }} does NOT exist!"
 
 - name: "Lookup mongoce Pod"
   kubernetes.core.k8s_info:
@@ -95,7 +95,7 @@
     until: copy_result.rc == 0
 
   - name: Copy the database-backup.sh script into the mongodb pod
-    shell: "oc cp /tmp/database-restore {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/database-restore.sh -c mongod"
+    shell: "oc cp /tmp/database-restore.sh {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/database-restore.sh -c mongod"
     register: copy_result
     retries: 2
     delay: 15 # seconds
@@ -119,18 +119,16 @@
 
 # Create temporary restore directory
 - name: "Create temporary restore directory in mongodb pod and clean up any existing files"
-  shell: >
-    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- bash -c '
-    mkdir -p {{ mongodb_tmp_restore_dir }} &&
-    rm -rf {{ mongodb_tmp_restore_dir }}/*
+  shell: |
+    oc exec -n {{mongodb_namespace}} {{mongoce_pod_name}} -c mongod -- mkdir -p {{ mongodb_tmp_restore_dir }} && rm -rf {{ mongodb_tmp_restore_dir }}/*
   register: create_tmpdir_output
   retries: 2
   delay: 15 # seconds
   until: create_tmpdir_output.rc == 0
 
 - name: "Copy backup data file into mongodb pod"
-  shell: >
-    oc cp {{ mongodb_backup_path }}/{{ mongodb_backup_data_filename }} {{ mongodb_namespace }}/{{ mongoce_pod_name }}:{{ mongodb_tmp_restore_dir }}/{{ mongodb_backup_data_filename }} -c mongod
+  shell: |
+    oc cp {{ backup_data_path }}/{{ mongodb_backup_data_filename }} {{ mongodb_namespace }}/{{ mongoce_pod_name }}:{{ mongodb_tmp_restore_dir }}/{{ mongodb_backup_data_filename }} -c mongod
   register: copy_backupdata_output
   retries: 2
   delay: 15 # seconds
