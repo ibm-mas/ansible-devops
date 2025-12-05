@@ -438,7 +438,6 @@ def get_ecr_repositories(image_mirror_output):
         repositories.append(repo_to_add)
   return repositories
 
-<<<<<<< Updated upstream
 def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) -> bool:
   """
     Checks if a given current channel version can be upgraded to a target channel version.
@@ -466,8 +465,6 @@ def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) 
           print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
   return valid
 
-=======
->>>>>>> Stashed changes
 def remove_dict_keys(data: dict, keys: list[str], deep_copy: bool = True) -> dict:
   """
     Deletes keys from a dictionary. This has an advantage over Ansible's ansible.utils.remove_keys filter
@@ -489,8 +486,6 @@ def remove_dict_keys(data: dict, keys: list[str], deep_copy: bool = True) -> dic
     except KeyError as ex:
       print(f'Could not delete key from dictionary: {ex}')
   return data
-<<<<<<< Updated upstream
-=======
 
 def is_operator_upgraded_by_version(cr_reconciled_version: str, opcon_version: str, sub_installed_version: str) -> bool:
   """
@@ -515,8 +510,6 @@ def is_operator_upgraded_by_version(cr_reconciled_version: str, opcon_version: s
       upgraded = True
   return upgraded
 
->>>>>>> Stashed changes
-
 class FilterModule(object):
   def filters(self):
     return {
@@ -540,10 +533,6 @@ class FilterModule(object):
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
-<<<<<<< Updated upstream
-      'remove_dict_keys': remove_dict_keys
-=======
       'remove_dict_keys': remove_dict_keys,
       'is_operator_upgraded_by_version': is_operator_upgraded_by_version,
->>>>>>> Stashed changes
     }
