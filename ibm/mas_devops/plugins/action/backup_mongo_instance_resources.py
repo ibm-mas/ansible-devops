@@ -17,6 +17,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(leveln
 
 display = Display()
 
+def display_information(mongoDBCommunityCR : dict):
+    display.v(f"MongoCE instance name .......................... {mongoDBCommunityCR['metadata']['name']}")
+    display.v(f"MongoCE namespace .............................. {mongoDBCommunityCR['metadata']['namespace']}")
+    display.v(f"MongoDB Version ................................ {mongoDBCommunityCR['spec']['version']}")
+
 def get_tlscertkey_secretname_from_mongoce(mongoDBCommunityCR : dict) -> str:
   if 'security' in mongoDBCommunityCR['spec']:
     if 'tls' in mongoDBCommunityCR['spec']['security']:
@@ -126,6 +131,9 @@ def filterResourceData(data: dict) -> dict:
         for field in metadata_fields_to_remove:
             if field in filteredCopy['metadata']:
                 del filteredCopy['metadata'][field]
+
+    if 'status' in filteredCopy:
+        del filteredCopy['status']
     
     return filteredCopy
 
@@ -165,10 +173,13 @@ def isMongoRunning(mongoCR: dict) -> bool:
     Check if MongoDB Community instance is running
     return True if running, else False
     """
+    display.v(f"Checking if MongoDB Community instance is in 'Running' state")
     if 'status' in mongoCR:
         if 'phase' in mongoCR['status']:
             if mongoCR['status']['phase'] == 'Running':
+                display.v(f"MongoDB Community instance is in 'Running' state")
                 return True
+    display.v(f"MongoDB Community instance is not in 'Running' state")
     return False
 
 def isMongoExist(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_namespace: str) -> dict:
@@ -176,6 +187,7 @@ def isMongoExist(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_n
     Check if MongoDB Community instance exists
     return cr if exists, else return empty dict
     """
+    display.v(f"Checking if MongoDB Community instance '{mongodb_instance_name}' exists in namespace '{mongodb_namespace}'")
     mongodbCR = getCR(
         dynClient=dynClient,
         crd_api_version="mongodbcommunity.mongodb.com/v1",
@@ -184,7 +196,7 @@ def isMongoExist(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_n
         namespace=mongodb_namespace
     )
     if mongodbCR:
-        return mongodbCR
+        return mongodbCR.to_dict()
     else:
         return {}
 
@@ -192,6 +204,7 @@ def backupIssuersInNamespace(dynClient: DynamicClient, namespace: str, backup_pa
     """
     Backup all Issuers in a namespace
     """
+    display.v(f"Backing up Issuers in namespace '{namespace}' to '{backup_path}'")
     issuerAPI = dynClient.resources.get(api_version="cert-manager.io/v1", kind="Issuer")
     try:
         issuers = issuerAPI.get(namespace=namespace)
@@ -216,6 +229,7 @@ def backupCertificatesInNamespace(dynClient: DynamicClient, namespace: str, back
     """
     Backup all Certificates in a namespace
     """
+    display.v(f"Backing up Certificates in namespace '{namespace}' to '{backup_path}'")
     certificateAPI = dynClient.resources.get(api_version="cert-manager.io/v1", kind="Certificate")
     try:
         certificates = certificateAPI.get(namespace=namespace)
@@ -240,6 +254,7 @@ def backupMongoCRContents(dynClient: DynamicClient, cr_data: dict, backup_path: 
     """
     Backup MongoDB Community CR contents to a YAML file
     """
+    display.v(f"Backing up MongoDB Community CR contents to '{backup_path}/cr.yaml'")
     cr_file_path = f"{backup_path}/cr.yaml"
     filtered_cr = filterMongoCR(cr_data)
     if copyContentsToYamlFile(cr_file_path, filtered_cr):
@@ -248,6 +263,15 @@ def backupMongoCRContents(dynClient: DynamicClient, cr_data: dict, backup_path: 
     else:
         display.v(f"Failed to back up MongoDB Community CR to '{cr_file_path}'")
         return False
+
+def getMongoVersion(mongoCR: dict) -> str:
+    """
+    Get MongoDB version from MongoDB Community CR
+    """
+    if 'spec' in mongoCR:
+        if 'version' in mongoCR['spec']:
+            return mongoCR['spec']['version']
+    return ""
 
 class ActionModule(ActionBase):
     """
@@ -277,23 +301,23 @@ class ActionModule(ActionBase):
         
         display.v(f"Backing up MongoDB Community instance '{mongodb_instance_name}' in namespace '{mongodb_namespace}'")
 
-        # Backup MongoDB Community CR
+        # 1. Backup MongoDB Community CR
         mongodb_cr = isMongoExist(dynClient, mongodb_instance_name, mongodb_namespace)
         if not mongodb_cr:
             raise AnsibleError(f"Error: MongoDB Community instance '{mongodb_instance_name}' does not exist in namespace '{mongodb_namespace}'")
-        
+        else:
+            display.v(f"MongoDB Community instance '{mongodb_instance_name}' exists in namespace '{mongodb_namespace}'")
+
         if not isMongoRunning(mongodb_cr):
             raise AnsibleError(f"Error: MongoDB Community instance '{mongodb_instance_name}' is not in 'Running' state")
         
-        display.v(f"About to back up MongoDB Community CR for instance '{mongodb_instance_name}' and version '{getMongoVersionFromCR(mongodb_cr)}'")
-        
-        is_cr_backup = backupMongoCRContents(dynClient, mongodb_cr.to_dict(), mongodb_backup_resource_path)
+        is_cr_backup = backupMongoCRContents(dynClient, mongodb_cr, mongodb_backup_resource_path)
         if not is_cr_backup:
             raise AnsibleError(f"Error: Failed to back up MongoDB Community CR for instance '{mongodb_instance_name}'")
         
         display.v(f"Successfully backed up MongoDB Community CR to '{mongodb_backup_resource_path}/cr.yaml'")
 
-        # Backup MongoDB namepsace Secrets
+        # 2. Backup MongoDB namespace Secrets defined in the MongoDB CR
 
         # Get all relevant User Secret names from the MongoDB CR
         user_secret_names = get_usersecrets_from_mongoce(mongodb_cr)
@@ -302,7 +326,7 @@ class ActionModule(ActionBase):
         prometheus_secret_names = get_prometheus_secretname_from_mongoce(mongodb_cr)
         tls_secret_names = get_tlscertkey_secretname_from_mongoce(mongodb_cr)
         
-        secret_names = user_secret_names + prometheus_secret_names + tls_secret_names
+        secret_names = user_secret_names + [prometheus_secret_names] + [tls_secret_names]
 
         display.v(f"All Secrets to backup:  '{secret_names}'")
 
@@ -314,7 +338,7 @@ class ActionModule(ActionBase):
         display.v(f"Successfully backed up all Secrets in namespace '{mongodb_namespace}' to '{mongodb_backup_resource_path}/secrets'")
 
 
-        # Backup Issuers in the MongoDB namespace
+        # 3. Backup Issuers in the MongoDB namespace
         is_issuers_backup = backupIssuersInNamespace(dynClient, mongodb_namespace, f"{mongodb_backup_resource_path}/issuers")
         if not is_issuers_backup:
             raise AnsibleError(f"Error: Failed to back up Issuers in namespace '{mongodb_namespace}'")
@@ -326,5 +350,14 @@ class ActionModule(ActionBase):
             raise AnsibleError(f"Error: Failed to back up Certificates in namespace '{mongodb_namespace}'")
         display.v(f"Successfully backed up Certificates in namespace '{mongodb_namespace}' to '{mongodb_backup_resource_path}/certificates'")
 
+        return dict(
+            message=f"Successfully backed up MongoDB Community instance '{mongodb_instance_name}' resources",
+            failed=False,
+            changed=False,
+            success=True,
+            ansible_facts={
+                "mongodb_version": getMongoVersion(mongodb_cr) # this fact can be used in subsequent tasks
+            }
+        )
 
 
