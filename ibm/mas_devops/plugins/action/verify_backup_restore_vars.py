@@ -33,5 +33,11 @@ class ActionModule(ActionBase):
         
         if len(missing_args) > 0:
             raise AnsibleError(f"Missing required arguments for component '{component}' action '{action}': {missing_args}")
+        else:
+            return dict(
+                changed=False,
+                failed=False,
+                msg=f"All required arguments for component '{component}' action '{action}' are provided."
+                )
 
         

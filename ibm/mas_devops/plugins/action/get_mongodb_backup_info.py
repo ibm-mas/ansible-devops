@@ -283,10 +283,10 @@ def getMongoDBServiceName(mongoCR: dict) -> str:
     Get MongoDB Service name from MongoDB Community CR
     """
     if 'spec' in mongoCR:
-        if 'statefulSet' in mongoCR['status']:
-            if 'spec' in mongoCR['status']['statefulSet']:
-                if 'serviceName' in mongoCR['status']['statefulSet']['spec']:
-                    return mongoCR['status']['statefulSet']['spec']['serviceName']
+        if 'statefulSet' in mongoCR['spec']:
+            if 'spec' in mongoCR['spec']['statefulSet']:
+                if 'serviceName' in mongoCR['spec']['statefulSet']['spec']:
+                    return mongoCR['spec']['statefulSet']['spec']['serviceName']
     return ""
 
 def getPodNameFromLabels(dynClient: DynamicClient, namespace: str, label_selector: str) -> str:
