@@ -16,63 +16,27 @@
       - backup_data_file_check.stat.exists | default(False)
     fail_msg: "Backup data file {{ backup_data_path }}/{{ mongodb_backup_data_filename }} does NOT exist!"
 
-- name: "Lookup mongoce Pod"
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: "{{ mongodb_namespace }}"
-    label_selectors:
-      - apps.kubernetes.io/pod-index=0
-    wait: yes
-    wait_sleep: 30
-    wait_timeout: 300 # 5 mins until we give up waiting for the pod to get into the expected state
-    wait_condition:
-      type: Ready
-      status: "True"
-  register: mongoce_pod
+- name: "Set facts: from mongodb cr and resources"
+  ibm.mas_devops.get_mongoce_info:
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    mongodb_namespace: "{{ mongodb_namespace }}"
+  register: mongodb_info_result
 
-- name: Configure facts
-  set_fact:
-    mongoce_pod_name: "{{ mongoce_pod.resources[0].metadata.name }}"
+- name: "Assert mongodb_info_result"
+  assert:
+    that:
+      - mongodb_info_result.success
 
-- name: "Debug information - Mongodb database Data backup - Pod name"
+- name: "debug facts"
   debug:
     msg:
-      - "Pod name ............................... {{ mongoce_pod_name }}"
+      - "mongoce_pod_name .................................. {{ mongoce_pod_name }}"
+      - "mongodb_version ................................... {{ mongodb_version }}"
+      - "mongodb_service_name .............................. {{ mongodb_service_name }}"
+      - "mongodb_host ...................................... {{ mongodb_host }}"
+      - "mongodb_backup_version ............................ {{ mongodb_backup_version }}"
 
-# Get mongodb admin password
-# -----------------------------------------------------------------------------
-
-- name: "Get mongodb admin secret name"
-  set_fact:
-    mongodb_admin_secret_name: "{{ mongodbcommunity_output.resources[0] | ibm.mas_devops.get_mongoce_admin_secretname }}"
-
-- name: "Get mongodb admin password"
-  kubernetes.core.k8s_info:
-    kind: Secret
-    name: "{{ mongodb_admin_secret_name }}"
-    namespace: "{{ mongodb_namespace }}"
-  register: _mongodb_password_output
-  no_log: true
-
-- name: "Set fact: mongodb admin password"
-  set_fact:
-    mongodb_admin_user: "admin"
-    mongodb_admin_password: "{{ _mongodb_password_output.resources[0].data.password | b64decode }}"
-  when:
-    - _mongodb_password_output is defined
-    - _mongodb_password_output.resources[0] is defined
-    - _mongodb_password_output.resources[0].data.password is defined
-  no_log: true
-
-- name: "Get mongodb service name"
-  set_fact:
-    mongodb_service_name: "{{ mongodbcommunity_output.resources[0].spec.statefulSet.spec.serviceName }}"
-
-- name: "Set mongodb host"
-  set_fact:
-    mongodb_host: "{{ mongoce_pod_name }}.{{ mongodb_service_name }}.{{ mongodb_namespace }}.svc.cluster.local:27017"
-
-# Prepare
+# Prepare shell scripts for restore and transfer scripts to mongo pod
 # -----------------------------------------------------------------------------
 - block:
   - name: Create create-role-user.sh script in local /tmp

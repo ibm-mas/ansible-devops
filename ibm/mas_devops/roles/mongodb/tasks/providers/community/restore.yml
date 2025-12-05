@@ -9,54 +9,35 @@
     action: "{{ mongodb_action }}"
     component: "mongodb"
 
-- name: Check if mongo backup directory exists
-  stat:
-    path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce"
-  register: dir_info
-
-- name: Assert directory exists
-  assert:
-    that:
-      - dir_info.stat.isdir | default(False)
-    fail_msg: "Directory {{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce does NOT exist!"
-
-- name: "Set fact: mongodb backup paths"
-  set_fact:
-    mongodb_backup_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce"
-
-- name: "Set fact: all backup paths"
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/set_backup_dirs.yml"
-  vars:
-    backup_base_path: "{{ mongodb_backup_path }}"
-
-- name: Check backup CR file exists
-  stat:
-    path: "{{ mongodb_backup_path }}/resources/cr.yaml"
-  register: file_check
+- name: "Check and get mongodb backup cr.yml"
+  ibm.mas_devops.get_mongodb_cr_to_restore:
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mongodb_backup_version: "{{ mongodb_backup_version }}"
+  register: mongodb_backup_cr
 
 # Prepare for restore
 # -----------------------------------------------------------------------------
 
 - name: "Set fact : cr.yml"
   set_fact:
-    mongodb_cr: "{{ lookup('file', '{{ mongodb_backup_path }}/resources/cr.yaml') | from_yaml_all }}"
+    mongodb_cr: "{{ mongodb_backup_cr.mongodb_cr }}"
 
 - name: "Set fact: Retrieve information from backup CR"
   set_fact:
-    mongodb_namespace: "{{ mongodb_cr[0].metadata.namespace }}"
-    mongodb_instance_name: "{{ mongodb_cr[0].metadata.name }}"
-    mongo_extras_version: "{{ mongodb_cr[0].spec.version }}"
-    target_mongodb_version: "{{ mongodb_cr[0].spec.version }}"
-    mongodb_security: "{{ mongodb_cr[0].spec.security }}"
-    mongodb_users: "{{ mongodb_cr[0].spec.users | default([]) }}"
-    mongodb_replicas: "{{ mongodb_cr[0].spec.members }}"
-    mongodb_cpu_limits: "{{ mongodb_cr[0].spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('500m') }}"
-    mongodb_memory_limits: "{{ mongodb_cr[0].spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('1Gi') }}"
-    mongodb_cpu_requests: "{{ mongodb_cr[0].spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('250m') }}"
-    mongodb_memory_requests: "{{ mongodb_cr[0].spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('512Mi') }}"
-    backup_mongodb_storage_class: "{{ mongodb_cr[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName }}"
-    mongodb_storage_capacity_data: "{{ mongodb_cr[0].spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage }}"
-    mongodb_storage_capacity_logs: "{{ mongodb_cr[0].spec.statefulSet.spec.volumeClaimTemplates[1].spec.resources.requests.storage }}"
+    mongodb_namespace: "{{ mongodb_cr.metadata.namespace }}"
+    mongodb_instance_name: "{{ mongodb_cr.metadata.name }}"
+    mongo_extras_version: "{{ mongodb_cr.spec.version }}"
+    target_mongodb_version: "{{ mongodb_cr.spec.version }}"
+    mongodb_security: "{{ mongodb_cr.spec.security }}"
+    mongodb_users: "{{ mongodb_cr.spec.users | default([]) }}"
+    mongodb_replicas: "{{ mongodb_cr.spec.members }}"
+    mongodb_cpu_limits: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('500m') }}"
+    mongodb_memory_limits: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('1Gi') }}"
+    mongodb_cpu_requests: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('250m') }}"
+    mongodb_memory_requests: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('512Mi') }}"
+    backup_mongodb_storage_class: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName }}"
+    mongodb_storage_capacity_data: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage }}"
+    mongodb_storage_capacity_logs: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[1].spec.resources.requests.storage }}"
 
 - name: "Debug: Mongodb restore variables"
   debug:
@@ -68,118 +49,61 @@
       - "mongodb_security: {{ mongodb_security }}"
       - "mongodb_users: {{ mongodb_users }}"
       - "mongodb_replicas: {{ mongodb_replicas }}"
+      - "mongodb_cpu_limits: {{ mongodb_cpu_limits }}"
+      - "mongodb_memory_limits: {{ mongodb_memory_limits }}"
+      - "mongodb_cpu_requests: {{ mongodb_cpu_requests }}"
+      - "mongodb_memory_requests: {{ mongodb_memory_requests }}"
       - "backup_mongodb_storage_class: {{ backup_mongodb_storage_class }}"
       - "mongodb_storage_capacity_data: {{ mongodb_storage_capacity_data }}"
       - "mongodb_storage_capacity_logs: {{ mongodb_storage_capacity_logs }}"
 
 # 1. Check for existing MongoDb install
 # -----------------------------------------------------------------------------
-- name: "community : install : Lookup existing mongo install"
-  include_tasks: tasks/providers/community/check-mongo-exists.yml
-
-- name: "Fail if existing mongodb instance is found and version is different from backup version"
-  assert:
-    that:
-      - existing_mongo_version == target_mongodb_version
-    fail_msg: >
-      Existing Mongodb instance found with version {{ existing_mongo_version }} which is different from backup version {{ target_mongodb_version }}.
-      Please uninstall existing Mongodb instance before restoring from backup.
-  when: existing_mongo_version is defined
+- name: "Check for existing MongoDB installation in namespace {{ mongodb_namespace }}"
+  ibm.mas_devops.verify_mongoce_version:
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    mongodb_namespace: "{{ mongodb_namespace }}"
+    backup_mongodb_storage_class: "{{ backup_mongodb_storage_class }}"
+  register: existing_mongo_info
 
 # 2. Prepare storage class
 # -----------------------------------------------------------------------------
-# Check if storage class from backup exists in cluster (if no existing mongo install)
-- name: "Verify if backup storage class exists in cluster"
-  ibm.mas_devops.verify_storage_class:
-    storage_class: "{{ backup_mongodb_storage_class }}"
-  register: verify_storage_class_result
-  when: existing_mongo_storage_class is not defined
-
-# Use storage class from backup (if no existing mongo install)
-- name: "Set fact: mongodb_storage_class from backup"
+# Set storage class name to use for mongodb restore.
+# If existing mongo instance found, use its storage class.
+# Else use storage class from backup CR.
+# If that does not exist, use default storage class.
+- name: "Set fact: mongodb_storage_class to use for restore"
   set_fact:
-    mongodb_storage_class: "{{ backup_mongodb_storage_class }}"
-  when:
-    - existing_mongo_storage_class is not defined
-    - verify_storage_class_result is defined
-    - verify_storage_class_result.success is defined
-    - verify_storage_class_result.success
-
-# Set storage class to existing mongo install storage class (if exists)
-- name: "Set fact: mongodb_storage_class from existing mongo install"
-  set_fact:
-    mongodb_storage_class: "{{ existing_mongo_storage_class }}"
-  when: existing_mongo_storage_class is defined and existing_mongo_storage_class != ""
-
-- name: "Determine default storage classes when storage class from backup does not exist and no existing mongo install"
-  include_tasks: tasks/providers/community/determine-storage-classes.yml
-  when: existing_mongo_storage_class is not defined and mongodb_storage_class is not defined
+    mongodb_storage_class: existing_mongo_info.storage_class
+  when: 
+    - existing_mongo_info is defined
+    - existing_mongo_info.storage_class is defined
 
 
-# 3. Create Mongodb namespace if not exists
-# -----------------------------------------------------------------------------
-- name: "Create MongoDB namespace {{ mongodb_namespace }} if not exists"
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: Namespace
-    name: "{{ mongodb_namespace }}"
-    state: present
 
-# 4. Restore Secrets from backup
+# 3. Restore MongoDb instance's resources from backup
+# We will restore the following resources from backup:
+#   - User, TLS Secrets defined in the MongoDb CR
+#   - Issuers in the MongoDb namespace
+#   - Certificates in the MongoDb namespace
+# All the other resources will be created afresh during MongoDb installation
 # -----------------------------------------------------------------------------
 
-# Apply Secrets yaml from backup
-- name: "Restore multiple MongoDb secrets yamls from backup"
-  block:
-    - name: "Restore secrets from {{ mongodb_backup_path }}/resources/secrets/"
-      kubernetes.core.k8s:
-        state: present
-        src: "{{ secret }}"
-      loop: "{{ lookup('fileglob', '{{ mongodb_backup_path }}/resources/secrets/*.yaml', wantlist=True) }}"
-      loop_control:
-        label: "{{ secret }}"
-        loop_var: secret
-  when: not skip_k8_backup_restore
+- name: "Restore MongoDB instance resources from backup"
+  ibm.mas_devops.restore_mongoce_resources:
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mongodb_backup_version: "{{ mongodb_backup_version }}"
+    mongodb_namespace: "{{ mongodb_namespace }}"
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+  register: restore_mongoce_resources_result
 
-# 5. Restore Issuers from backup
-# -----------------------------------------------------------------------------
-
-# Apply issuers yaml from backup
-- name: "Restore multiple MongoDb Issuers yamls from backup"
-  block:
-    - name: "Restore Issuers from {{ mongodb_backup_path }}/resources/issuers/"
-      kubernetes.core.k8s:
-        state: present
-        src: "{{ issuer }}"
-        wait: yes
-        wait_condition:
-          status: "True"
-          type: Ready
-      loop: "{{ lookup('fileglob', '{{ mongodb_backup_path }}/resources/issuers/*.yaml', wantlist=True) }}"
-      loop_control:
-        label: "{{ issuer }}"
-        loop_var: issuer
-  when: not skip_k8_backup_restore
-
-# 6. Restore Issuers from backup
-# -----------------------------------------------------------------------------
-
-# Apply Certificates yaml from backup
-- name: "Restore multiple MongoDb certificates yamls from backup"
-  block:
-    - name: "Restore Certificates from {{ mongodb_backup_path }}/resources/certificates/"
-      kubernetes.core.k8s:
-        state: present
-        src: "{{ certificate }}"
-        wait: yes
-        wait_condition:
-          status: "True"
-          type: Ready
-      loop: "{{ lookup('fileglob', '{{ mongodb_backup_path }}/resources/certificates/*.yaml', wantlist=True) }}"
-      loop_control:
-        label: "{{ certificate }}"
-        loop_var: certificate
-  when: not skip_k8_backup_restore
+- name: "Assert: MongoDB resources restored successfully"
+  assert:
+    that:
+      - restore_mongoce_resources_result is defined
+      - restore_mongoce_resources_result.restored is defined
+      - restore_mongoce_resources_result.restored == True
+    fail_msg: "Failed to restore MongoDB instance resources from backup."
 
 # 7. Install the selected MongoDb version
 # -----------------------------------------------------------------------------

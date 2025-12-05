@@ -301,7 +301,9 @@ class ActionModule(ActionBase):
         
         display.v(f"Backing up MongoDB Community instance '{mongodb_instance_name}' in namespace '{mongodb_namespace}'")
 
+        # =======================================================
         # 1. Backup MongoDB Community CR
+        # =======================================================
         mongodb_cr = isMongoExist(dynClient, mongodb_instance_name, mongodb_namespace)
         if not mongodb_cr:
             raise AnsibleError(f"Error: MongoDB Community instance '{mongodb_instance_name}' does not exist in namespace '{mongodb_namespace}'")
@@ -317,8 +319,10 @@ class ActionModule(ActionBase):
         
         display.v(f"Successfully backed up MongoDB Community CR to '{mongodb_backup_resource_path}/cr.yaml'")
 
+        # ===============================================================
         # 2. Backup MongoDB namespace Secrets defined in the MongoDB CR
-
+        # ===============================================================
+        display.v(f"Backing up MongoDB Secrets defined in the MongoDB CR from namespace '{mongodb_namespace}'")
         # Get all relevant User Secret names from the MongoDB CR
         user_secret_names = get_usersecrets_from_mongoce(mongodb_cr)
 
@@ -337,14 +341,17 @@ class ActionModule(ActionBase):
         
         display.v(f"Successfully backed up all Secrets in namespace '{mongodb_namespace}' to '{mongodb_backup_resource_path}/secrets'")
 
-
+        # =======================================================
         # 3. Backup Issuers in the MongoDB namespace
+        # =======================================================
         is_issuers_backup = backupIssuersInNamespace(dynClient, mongodb_namespace, f"{mongodb_backup_resource_path}/issuers")
         if not is_issuers_backup:
             raise AnsibleError(f"Error: Failed to back up Issuers in namespace '{mongodb_namespace}'")
         display.v(f"Successfully backed up Issuers in namespace '{mongodb_namespace}' to '{mongodb_backup_resource_path}/issuers'")
 
+        # =======================================================
         # Backup Certificates in the MongoDB namespace
+        # =======================================================
         is_certificates_backup = backupCertificatesInNamespace(dynClient, mongodb_namespace, f"{mongodb_backup_resource_path}/certificates")
         if not is_certificates_backup:
             raise AnsibleError(f"Error: Failed to back up Certificates in namespace '{mongodb_namespace}'")

@@ -313,7 +313,7 @@ class ActionModule(ActionBase):
     -------------
     tasks:
       - name: "Retrieve and Set facts from MongoDB instance CR and resources"
-        ibm.mas_devops.get_mongodb_backup_info:
+        ibm.mas_devops.get_mongoce_info:
     """
     def run(self, tmp=None, task_vars=None):
         super(ActionModule, self).run(tmp, task_vars)
