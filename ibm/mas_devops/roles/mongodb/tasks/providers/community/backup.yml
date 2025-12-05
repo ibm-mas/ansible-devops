@@ -1,15 +1,15 @@
 ---
 # Check mongodb backup variables
 # -----------------------------------------------------------------------------
-- name: "Fail if MAS_INSTANCE_ID is not provided"
-  assert:
-    that: mas_instance_id is defined and mas_instance_id != ""
-    fail_msg: "MAS_INSTANCE_ID is required"
 
-- name: "Fail if MAS_BACKUP_DIR is not provided"
-  assert:
-    that: mas_backup_dir is defined and mas_backup_dir != ""
-    fail_msg: "MAS_BACKUP_DIR is required"
+- name: "Fail if require variables for Mongodb backup are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    action: "{{ mongodb_action }}"
+    component: "mongodb"
+
 
 - name: "Check if MONGODB_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
   set_fact:
@@ -30,11 +30,10 @@
 # -------------------------------------------------------------------------
 
 - name: "Start Mongo Instance backup process."
-  ibm.mas_devops.backup_mongo_instance_resources:
+  ibm.mas_devops.backup_mongo_instance:
     mongodb_backup_resource_path: "{{ backup_resources_path }}"
     mongodb_namespace: "{{ mongodb_namespace }}"
     mongodb_instance_name: "{{ mongodb_instance_name }}"
-    mongodb_provider: "{{ mongodb_provider }}"
   register: mongo_instance_backup_result
 
 - name: "Assert Mongo Instance backup success"
@@ -56,5 +55,5 @@
       - "MongoCE instance name ...................... {{ mongodb_instance_name }}"
       - "{{ 'MongoCE version ............................ ' ~ mongodb_version if mongodb_version is defined else omit }}"
 
-# - name: "Start Database backup process."
-#   include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-database.yml"
+- name: "Start Database backup process."
+  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-database.yml"

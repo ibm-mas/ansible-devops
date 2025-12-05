@@ -437,25 +437,6 @@ def get_ecr_repositories(image_mirror_output):
         repositories.append(repo_to_add)
   return repositories
 
-def get_mongoce_admin_secretname(mongoDBCommunityCR):
-  """
-    filter: get_mongoce_admin_secretname
-    author: Sanjay Prabhakar
-    version_added: 0.1
-    short_description: Get admin secret name from MongoDBCommunity CR
-    description:
-        - This filter returns admin secret name from MongoDBCommunity CR
-    options:
-      mongoDBCommunityCR:
-        description: MongoDBCommunity CR definition
-        required: True
-  """
-  for user in mongoDBCommunityCR['spec']['users']:
-    if 'db' in user:
-      if user['db'] == 'admin' and 'passwordSecretRef' in user:
-          return user['passwordSecretRef']['name']
-  return None
-
 def get_tlscert_configmapname_from_mongoce(mongoDBCommunityCR):
   """
     filter: get_tlscert_configmapname_from_mongoce
@@ -498,6 +479,5 @@ class FilterModule(object):
       'format_pre_version_with_buildid': format_pre_version_with_buildid,
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
-      'get_mongoce_admin_secretname': get_mongoce_admin_secretname,
       'get_tlscert_configmapname_from_mongoce': get_tlscert_configmapname_from_mongoce
     }
