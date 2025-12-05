@@ -2,7 +2,7 @@
 apiVersion: mongodbcommunity.mongodb.com/v1
 kind: MongoDBCommunity
 metadata:
-  name: mas-mongo-ce
+  name: "{{ mongodb_instance_name }}"
   namespace: "{{ mongodb_namespace }}"
 spec:
   members: {{ mongodb_replicas }}
@@ -19,7 +19,7 @@ spec:
       certificateKeySecretRef:
         name: mongo-server-cert
       caConfigMapRef:
-        name: mas-mongo-ce-cert-map
+        name: "{{ mongodb_instance_name }}-cert-map"
     authentication:
       modes:
         # Note: MAS 8.5 and earlier only support SCRAM-SHA-1
@@ -28,12 +28,27 @@ spec:
   prometheus:
     username: metrics-endpoint-user
     passwordSecretRef:
-      name: mas-mongo-ce-metrics-endpoint-secret
+      name: "{{ mongodb_instance_name }}-metrics-endpoint-secret"
+{% if mongodb_users is defined %}
+  users:
+{% for user in mongodb_users %}
+    - name: {{ user.name }}
+      db: {{ user.db }}
+      passwordSecretRef:
+        name: {{ user.passwordSecretRef.name }}
+      roles:
+{% for role in user.roles %}
+        - name: {{ role.name }}
+          db: {{ role.db }}
+{% endfor %}
+      scramCredentialsSecretName: "{{ user.scramCredentialsSecretName }}"
+{% endfor %}
+{% else %}
   users:
     - name: admin
       db: admin
       passwordSecretRef:
-        name: mas-mongo-ce-admin-password
+        name: "{{ mongodb_instance_name }}-admin-password"
       roles:
         - name: clusterAdmin
           db: admin
@@ -45,14 +60,15 @@ spec:
           db: admin
         - name: dbAdminAnyDatabase
           db: admin
-      scramCredentialsSecretName: mas-mongo-ce-scram
+      scramCredentialsSecretName: ""{{ mongodb_instance_name }}-scram"
+{% endif %}
   additionalMongodConfig:
     storage.wiredTiger.engineConfig.journalCompressor: snappy
     net.tls.allowInvalidCertificates: true
     net.tls.allowInvalidHostnames: true
   statefulSet:
     spec:
-      serviceName: mas-mongo-ce-svc
+      serviceName: "{{ mongodb_instance_name }}-svc"
       selector: {}
       template:
         spec:

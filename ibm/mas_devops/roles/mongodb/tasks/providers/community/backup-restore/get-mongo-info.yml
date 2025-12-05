@@ -5,17 +5,17 @@
   kubernetes.core.k8s_info:
     api_version: mongodbcommunity.mongodb.com/v1
     kind: MongoDBCommunity
-    name: mas-mongo-ce
+    name: "{{ mongodb_instance_name }}"
     namespace: "{{ mongodb_namespace }}"
-  register: _mongodbcommunity_output
+  register: mongodbcommunity_output
 
 - name: "Set fact: mongodb version"
   set_fact:
-    mongodb_version: "{{ _mongodbcommunity_output.resources[0].spec.version }}"
+    mongodb_version: "{{ mongodbcommunity_output.resources[0].spec.version }}"
   when:
-    - _mongodbcommunity_output is defined
-    - _mongodbcommunity_output.resources[0] is defined
-    - _mongodbcommunity_output.resources[0].spec.version is defined
+    - mongodbcommunity_output is defined
+    - mongodbcommunity_output.resources[0] is defined
+    - mongodbcommunity_output.resources[0].spec.version is defined
 
 - name: "Fail if mongodb does not exists"
   assert:
@@ -26,13 +26,20 @@
   set_fact:
     mongodb_running: true
   when:
-    - _mongodbcommunity_output is defined
-    - _mongodbcommunity_output.resources[0] is defined
-    - _mongodbcommunity_output.resources[0].status is defined
-    - _mongodbcommunity_output.resources[0].status.phase is defined
-    - _mongodbcommunity_output.resources[0].status.phase == "Running"
+    - mongodbcommunity_output is defined
+    - mongodbcommunity_output.resources[0] is defined
+    - mongodbcommunity_output.resources[0].status is defined
+    - mongodbcommunity_output.resources[0].status.phase is defined
+    - mongodbcommunity_output.resources[0].status.phase == "Running"
 
 - name: "Fail if mongodb is not running"
   assert:
     that: mongodb_running is defined and mongodb_running
     fail_msg: "Mongodb is not running!"
+
+- name: "Set MongoDBCommunity Backup output"
+  set_fact:
+    mongodbcommunity_backup_output: "{{ mongodbcommunity_output.resources[0] }}"
+
+
+
