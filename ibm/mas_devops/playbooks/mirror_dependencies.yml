@@ -56,19 +56,7 @@
     # -------------------------------------------------------------------------
     mirror_cognos: "{{ lookup('env', 'MIRROR_COGNOS') | default ('False', True) | bool }}"
 
-    # 12. SPSS
-    # -------------------------------------------------------------------------
-    mirror_spss: "{{ lookup('env', 'MIRROR_SPSS') | default ('False', True) | bool }}"
-
-    # 13. AI OpenScale
-    # -------------------------------------------------------------------------
-    mirror_aiopenscale: "{{ lookup('env', 'MIRROR_AIOPENSCALE') | default ('False', True) | bool }}"
-
-    # 14. App Connect
-    # -------------------------------------------------------------------------
-    mirror_appconnect: "{{ lookup('env', 'MIRROR_APPCONNECT') | default ('False', True) | bool }}"
-
-    # 15. ODF
+    # 12. ODF
     # -------------------------------------------------------------------------
     mirror_odf: "{{ lookup('env', 'MIRROR_ODF') | default ('False', True) | bool }}"
 
@@ -372,26 +360,6 @@
         manifest_name: ibm-licensing
         manifest_version: "{{ mas_catalog_metadata.ibm_licensing_version }}"
 
-    # 6.2.1 CP4D Platform - PostgreSQL dependency
-    # -------------------------------------------------------------------------
-    - role: ibm.mas_devops.mirror_case_prepare
-      when:
-        - mirror_cp4d
-        - mirror_mode != "from-filesystem"
-      vars:
-        case_name: ibm-cloud-native-postgresql
-        case_version: "{{ mas_catalog_metadata.postgress_version }}"
-        exclude_images: []
-        ibmpak_skip_dependencies: true
-
-    - role: ibm.mas_devops.mirror_images
-      when:
-        - mirror_cp4d
-        - mirror_mode != "from-filesystem"
-      vars:
-        manifest_name: ibm-cloud-native-postgresql
-        manifest_version: "{{ mas_catalog_metadata.postgress_version }}"
-
     # 6.3 IBM Watson Studio and Watson Machine Learning dependency - ibm-ccs
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
@@ -400,7 +368,7 @@
         - mirror_mode != "from-filesystem"
       vars:
         case_name: ibm-ccs
-        case_version: "{{ mas_catalog_metadata.ccs_build }}"
+        case_version: "{{ mas_catalog_metadata.wsl_version }}"
         exclude_images: []
         ibmpak_skip_dependencies: false
 
@@ -408,7 +376,7 @@
       when: mirror_wsl or mirror_wml
       vars:
         manifest_name: ibm-ccs
-        manifest_version: "{{ mas_catalog_metadata.ccs_build }}"
+        manifest_version: "{{ mas_catalog_metadata.wsl_version }}"
 
     # 7.1 IBM Watson Studio dependency - ibm-datarefinery
     # -------------------------------------------------------------------------
@@ -464,25 +432,7 @@
         manifest_name: ibm-elasticsearch-operator
         manifest_version: "{{ mas_catalog_metadata.elasticsearch_version }}"
 
-    # 7.4 IBM Watson Studio dependency - ibm-opensearch-operator
-    # -------------------------------------------------------------------------
-    - role: ibm.mas_devops.mirror_case_prepare
-      when:
-        - mirror_wsl
-        - mirror_mode != "from-filesystem"
-      vars:
-        case_name: ibm-opensearch-operator
-        case_version: "{{ mas_catalog_metadata.opensearch_version }}"
-        exclude_images: []
-        ibmpak_skip_dependencies: false
-
-    - role: ibm.mas_devops.mirror_images
-      when: mirror_wsl
-      vars:
-        manifest_name: ibm-opensearch-operator
-        manifest_version: "{{ mas_catalog_metadata.opensearch_version }}"
-
-    # 7.5 IBM Watson Studio
+    # 7.4 IBM Watson Studio
     # -------------------------------------------------------------------------
     - role: ibm.mas_devops.mirror_case_prepare
       when:
