@@ -3,6 +3,8 @@
 from ansible_collections.kubernetes.core.plugins.module_utils.k8s.client import get_api_client
 from ansible.plugins.action import ActionBase
 from ansible.errors import AnsibleError
+from ansible.utils.display import Display
+
 import urllib3
 import logging
 
@@ -14,6 +16,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(leveln
 class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
         super(ActionModule, self).run(tmp, task_vars)
+
+        display = Display()
 
         # Initialize DynamicClient and grab the task args
         host = self._task.args.get('host', None)
@@ -37,27 +41,26 @@ class ActionModule(ActionBase):
         if workspaceId is not None:
             resourceName = f"{instanceId}/{applicationId}-{workspaceId}"
 
-
-        isReady = waitForAppReady(dynClient, "fvtcpd", "iot")(
+        isReady = waitForAppReady(
           dynClient=dynClient,
           instanceId=instanceId,
           applicationId=applicationId,
           workspaceId=workspaceId,
           retries=retries,
-          delay=delay
+          delay=delay,
+          debugLogFunction=display.vv,
+          infoLogFunction=display.v
         )
 
         if isReady:
             return dict(
                 message=f"Application {resourceName} is ready",
                 success=True,
-                failed=False,
                 changed=False
             )
         else:
             return dict(
                 message=f"Application {resourceName} is not ready",
                 success=False,
-                failed=True,
                 changed=False
             )
