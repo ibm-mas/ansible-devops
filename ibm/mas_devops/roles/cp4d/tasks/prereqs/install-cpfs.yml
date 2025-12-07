@@ -80,52 +80,6 @@
   loop_control:
     loop_var: cpd_subs_item
 
-# Update zen-operator subscription channel if it exists (for upgrades)
-# -----------------------------------------------------------------------------
-- name: "Check if ibm-zen-operator subscription exists"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: ibm-zen-operator
-    namespace: "{{ cpd_operators_namespace }}"
-  register: zen_subscription_lookup
-
-- name: "Update ibm-zen-operator subscription channel during upgrade"
-  when:
-    - zen_subscription_lookup.resources is defined
-    - zen_subscription_lookup.resources | length > 0
-    - is_cpd_upgrade
-  kubernetes.core.k8s:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: ibm-zen-operator
-    namespace: "{{ cpd_operators_namespace }}"
-    definition:
-      spec:
-        channel: "{{ cpd_components_meta.zen.sub_channel }}"
-        source: "{{ zen_catalog_name }}"
-        sourceNamespace: "{{ cpd_operators_namespace }}"
-    apply: true
-    server_side_apply:
-      field_manager: ansible
-      force_conflicts: true
-
-- name: "Wait for zen-operator subscription to update (30s delay)"
-  when:
-    - zen_subscription_lookup.resources is defined
-    - zen_subscription_lookup.resources | length > 0
-    - is_cpd_upgrade
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: ibm-zen-operator
-    namespace: "{{ cpd_operators_namespace }}"
-  register: zen_sub_updated
-  until:
-    - zen_sub_updated.resources[0].spec.channel == cpd_components_meta.zen.sub_channel
-  retries: 10
-  delay: 30
-
 - name: "Install IBM Foundational Services Subscription"
   kubernetes.core.k8s:
     apply: yes
