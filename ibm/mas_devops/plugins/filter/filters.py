@@ -437,6 +437,32 @@ def get_ecr_repositories(image_mirror_output):
         repositories.append(repo_to_add)
   return repositories
 
+def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) -> bool:
+  """
+    Checks if a given current channel version can be upgraded to a target channel version.
+    :current: The current channel version.
+    :target: The target channel version to upgrade to.
+    :valid_paths: A dictionary of supported upgrade paths. See ibm/mas_devops/common_vars/compatibility_matrix.yml.
+    :return: True if the upgrade path is supported, False otherwise.
+  """
+  valid = False
+  if current not in valid_paths.keys():
+      print(f'Current channel {current} is not supported for upgrade')
+  else:
+      allowed_targets = valid_paths[current]
+      if isinstance(allowed_targets, str):
+          if target != allowed_targets:
+              print(f'Upgrading from channel {current} to {target} is not supported')
+          else:
+              valid = True
+      elif isinstance(allowed_targets, list):
+          if target not in allowed_targets:
+              print(f'Upgrading from channel {current} to {target} is not supported')
+          else:
+              valid = True
+      else:
+          print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
+  return valid
 
 class FilterModule(object):
   def filters(self):
@@ -459,5 +485,6 @@ class FilterModule(object):
       'format_pre_version_without_buildid': format_pre_version_without_buildid,
       'format_pre_version_with_buildid': format_pre_version_with_buildid,
       'get_db2_instance_name': get_db2_instance_name,
-      'get_ecr_repositories': get_ecr_repositories
+      'get_ecr_repositories': get_ecr_repositories,
+      'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
     }
