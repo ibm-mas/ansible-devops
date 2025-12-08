@@ -36,25 +36,23 @@ class ActionModule(ActionBase):
     def run(self, tmp=None, task_vars=None):
         super(ActionModule, self).run(tmp, task_vars)
 
-        mas_backup_dir = self._task.args.get('mas_backup_dir')
+        mongodb_resource_path = self._task.args.get('mongodb_resource_path')
         mongodb_backup_version = self._task.args.get('mongodb_backup_version')
 
-        if mas_backup_dir is None or mas_backup_dir == "":
+        if mongodb_resource_path is None or mongodb_resource_path == "":
             raise AnsibleError(f"Error: mongodb_instance_name argument was not provided")
         
         if mongodb_backup_version is None or mongodb_backup_version == "":
             raise AnsibleError(f"Error: mongodb_backup_version argument was not provided")
 
-        mongodb_backup_path = f"{mas_backup_dir}/backup-{mongodb_backup_version}-mongoce"
-
         # check if backup directory exists
-        display.v(f"Checking if MongoDB backup directory exists at path: {mongodb_backup_path}")
-        if not os.path.isdir(mongodb_backup_path):
-            raise AnsibleError(f"Directory {mongodb_backup_path} does NOT exist!")
-        display.v(f"MongoDB backup directory exists at path: {mongodb_backup_path}")
+        display.v(f"Checking if MongoDB backup directory exists at path: {mongodb_resource_path}")
+        if not os.path.isdir(mongodb_resource_path):
+            raise AnsibleError(f"Directory {mongodb_resource_path} does NOT exist!")
+        display.v(f"MongoDB backup directory exists at path: {mongodb_resource_path}")
 
-        # check if cr.yaml exsits
-        mongodb_cr_file = f"{mongodb_backup_path}/cr.yaml"
+        # check if cr.yaml exists
+        mongodb_cr_file = f"{mongodb_resource_path}/cr.yaml"
         display.v(f"Checking if MongoDB backup CR file exists at path: {mongodb_cr_file}")
         if not os.path.isfile(mongodb_cr_file):
             raise AnsibleError(f"MongoDB backup CR file does NOT exist at path: {mongodb_cr_file}")
@@ -67,7 +65,7 @@ class ActionModule(ActionBase):
 
 
         return dict(
-            message=f"Successfully set mongodb CR as facts from backup at '{mongodb_backup_path}'",
+            message=f"Successfully set mongodb CR as facts from backup at '{mongodb_resource_path}'",
             failed=False,
             changed=False,
             success=True,

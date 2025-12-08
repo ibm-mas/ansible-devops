@@ -105,9 +105,8 @@ def getCR(dynClient: DynamicClient, crd_api_version: str, crd_kind: str, cr_name
     """
     Get a Custom Resource
     """
-    crdAPI = dynClient.resources.get(api_version=crd_api_version, kind=crd_kind)
-
     try:
+        crdAPI = dynClient.resources.get(api_version=crd_api_version, kind=crd_kind)
         if namespace:
             cr = crdAPI.get(name=cr_name, namespace=namespace)
         else:
@@ -146,8 +145,8 @@ def getSecret(dynClient: DynamicClient, namespace: str, secret_name: str) -> dic
     """
     Get a Secret
     """
-    secretAPI = dynClient.resources.get(api_version="v1", kind="Secret")
     try:
+        secretAPI = dynClient.resources.get(api_version="v1", kind="Secret")
         secret = secretAPI.get(name=secret_name, namespace=namespace)
         display.v(f"Secret {secret_name} exists in namespace {namespace}")
         return secret.to_dict()
@@ -210,8 +209,8 @@ def backupIssuersInNamespace(dynClient: DynamicClient, namespace: str, backup_pa
     Backup all Issuers in a namespace
     """
     display.v(f"Backing up Issuers in namespace '{namespace}' to '{backup_path}'")
-    issuerAPI = dynClient.resources.get(api_version="cert-manager.io/v1", kind="Issuer")
     try:
+        issuerAPI = dynClient.resources.get(api_version="cert-manager.io/v1", kind="Issuer")
         issuers = issuerAPI.get(namespace=namespace)
         
         for issuer in issuers.items:
@@ -235,8 +234,8 @@ def backupCertificatesInNamespace(dynClient: DynamicClient, namespace: str, back
     Backup all Certificates in a namespace
     """
     display.v(f"Backing up Certificates in namespace '{namespace}' to '{backup_path}'")
-    certificateAPI = dynClient.resources.get(api_version="cert-manager.io/v1", kind="Certificate")
     try:
+        certificateAPI = dynClient.resources.get(api_version="cert-manager.io/v1", kind="Certificate")
         certificates = certificateAPI.get(namespace=namespace)
         
         for certificate in certificates.items:
@@ -294,8 +293,8 @@ def getPodNameFromLabels(dynClient: DynamicClient, namespace: str, label_selecto
     Get Pod name from labels
     """
     display.v(f"Looking up Mongo Pod in namespace '{namespace}' with labels '{label_selector}'")
-    podAPI = dynClient.resources.get(api_version="v1", kind="Pod")
     try:
+        podAPI = dynClient.resources.get(api_version="v1", kind="Pod")
         pods = podAPI.get(namespace=namespace, label_selector=label_selector)
         if pods.items:
             pod_name = pods.items[0]["metadata"]["name"]

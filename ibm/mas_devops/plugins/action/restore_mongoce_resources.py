@@ -36,9 +36,8 @@ def apply_resource(dynClient: DynamicClient, resource_yaml: str, namespace: str)
     metadata = resource_dict['metadata']
     name = metadata['name']
 
-    resource = dynClient.resources.get(api_version=api_version, kind=kind)
-
     try:
+        resource = dynClient.resources.get(api_version=api_version, kind=kind)
         # Try to get the existing resource
         existing_resource = resource.get(name=name, namespace=namespace)
         # If found, update it

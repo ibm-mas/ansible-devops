@@ -1,20 +1,20 @@
 ---
 
-- name: "Set fact: mongodb restore paths"
+- name: "Set fact: mongodb restore paths and filename"
   set_fact:
     mongodb_backup_data_filename: "mongodump-{{ mongodb_backup_version }}.tar.gz"
     mongodb_tmp_restore_dir: "/tmp/masbr/{{ mongodb_backup_version }}"
 
 - name: "Check if backup data file exists"
   stat:
-    path: "{{ backup_data_path }}/{{ mongodb_backup_data_filename }}"
+    path: "{{ mongodb_data_path }}/{{ mongodb_backup_data_filename }}"
   register: backup_data_file_check
 
 - name: Assert backup data file exists
   assert:
     that:
       - backup_data_file_check.stat.exists | default(False)
-    fail_msg: "Backup data file {{ backup_data_path }}/{{ mongodb_backup_data_filename }} does NOT exist!"
+    fail_msg: "Backup data file {{ mongodb_data_path }}/{{ mongodb_backup_data_filename }} does NOT exist!"
 
 - name: "Set facts: from mongodb cr and resources"
   ibm.mas_devops.get_mongoce_info:
@@ -92,7 +92,7 @@
 
 - name: "Copy backup data file into mongodb pod"
   shell: |
-    oc cp {{ backup_data_path }}/{{ mongodb_backup_data_filename }} {{ mongodb_namespace }}/{{ mongoce_pod_name }}:{{ mongodb_tmp_restore_dir }}/{{ mongodb_backup_data_filename }} -c mongod
+    oc cp {{ mongodb_data_path }}/{{ mongodb_backup_data_filename }} {{ mongodb_namespace }}/{{ mongoce_pod_name }}:{{ mongodb_tmp_restore_dir }}/{{ mongodb_backup_data_filename }} -c mongod
   register: copy_backupdata_output
   retries: 2
   delay: 15 # seconds

@@ -6,25 +6,44 @@
     mas_instance_id: "{{ mas_instance_id }}"
     mas_backup_dir: "{{ mas_backup_dir }}"
     mongodb_backup_version: "{{ mongodb_backup_version }}"
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
     action: "{{ mongodb_action }}"
     component: "mongodb"
 
+- name: "Set fact: backup dir paths"
+  set_fact:
+    mongodb_backup_dir: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce"
+    mongodb_resource_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce/resources"
+    mongodb_data_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce/data"
+
+# Check for existing MongoDb install
+# -----------------------------------------------------------------------------
+- name: "Check for existing MongoDB installation in namespace {{ mongodb_namespace }}"
+  ibm.mas_devops.verify_mongoce_version:
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    mongodb_namespace: "{{ mongodb_namespace }}"
+  register: existing_mongo_info
 
 # Prepare for restore
 # -----------------------------------------------------------------------------
 - name: "Prepare for MongoCE instance restore"
   when:
     - not skip_instance_backup_restore
+    - existing_mongo_info is defined
+    - not existing_mongo_info.running
   block:
+
+    # Get mongodb backup CR information
+    # -----------------------------------------------------------------------------
     - name: "Check and get mongodb backup cr.yml"
       ibm.mas_devops.get_mongodb_cr_to_restore:
         mas_backup_dir: "{{ mas_backup_dir }}"
         mongodb_backup_version: "{{ mongodb_backup_version }}"
-      register: mongodb_backup_cr
+      register: mongodb_backup_cr_result
 
     - name: "Set fact : cr.yml"
       set_fact:
-        mongodb_cr: "{{ mongodb_backup_cr.mongodb_cr }}"
+        mongodb_cr: "{{ mongodb_backup_cr_result.mongodb_cr }}"
 
     - name: "Set fact: Retrieve information from backup CR"
       set_fact:
@@ -61,29 +80,27 @@
           - "mongodb_storage_capacity_data: {{ mongodb_storage_capacity_data }}"
           - "mongodb_storage_capacity_logs: {{ mongodb_storage_capacity_logs }}"
 
-    # 1. Check for existing MongoDb install
-    # -----------------------------------------------------------------------------
-    - name: "Check for existing MongoDB installation in namespace {{ mongodb_namespace }}"
-      ibm.mas_devops.verify_mongoce_version:
-        mongodb_instance_name: "{{ mongodb_instance_name }}"
-        mongodb_namespace: "{{ mongodb_namespace }}"
-        backup_mongodb_storage_class: "{{ backup_mongodb_storage_class }}"
-      register: existing_mongo_info
-
-    # 2. Prepare storage class
+    # Prepare storage class
     # -----------------------------------------------------------------------------
     # Set storage class name to use for mongodb restore.
     # If existing mongo instance found, use its storage class.
     # Else use storage class from backup CR.
     # If that does not exist, use default storage class.
+    - name: "Determine storage class to use for MongoDB restore"
+      ibm.mas_devops.verify_mongoce_version:
+        mongodb_instance_name: "{{ mongodb_instance_name }}"
+        mongodb_namespace: "{{ mongodb_namespace }}"
+        backup_mongodb_storage_class: "{{ backup_mongodb_storage_class }}"
+      register: storage_class_check_result
+    
     - name: "Set fact: mongodb_storage_class to use for restore"
       set_fact:
-        mongodb_storage_class: existing_mongo_info.storage_class
+        mongodb_storage_class: "{{ storage_class_check_result.storage_class }}"
       when:
-        - existing_mongo_info is defined
-        - existing_mongo_info.storage_class is defined
+        - storage_class_check_result is defined
+        - storage_class_check_result.storage_class is defined
 
-    # 3. Restore MongoDb instance's resources from backup
+    # Restore MongoDb instance's resources from backup
     # We will restore the following resources from backup:
     #   - User, TLS Secrets defined in the MongoDb CR
     #   - Issuers in the MongoDb namespace
@@ -93,10 +110,10 @@
 
     - name: "Restore MongoDB instance resources from backup"
       ibm.mas_devops.restore_mongoce_resources:
-        mas_backup_dir: "{{ mas_backup_dir }}"
-        mongodb_backup_version: "{{ mongodb_backup_version }}"
         mongodb_namespace: "{{ mongodb_namespace }}"
-        mongodb_instance_name: "{{ mongodb_instance_name }}"
+        backup_secrets_path: "{{ mongodb_resource_path }}/secrets"
+        backup_issuers_path: "{{ mongodb_resource_path }}/issuers"
+        backup_certificates_path: "{{ mongodb_resource_path }}/certificates"
       register: restore_mongoce_resources_result
 
     - name: "Assert: MongoDB resources restored successfully"
@@ -107,7 +124,7 @@
           - restore_mongoce_resources_result.restored == True
         fail_msg: "Failed to restore MongoDB instance resources from backup."
 
-    # 7. Install the selected MongoDb version
+    # Install the selected MongoDb version for restore
     # -----------------------------------------------------------------------------
     - name: "community : Setup mongo version {{ target_mongodb_version }} for restore"
       include_tasks: tasks/providers/community/install-mongo.yml
@@ -115,15 +132,7 @@
         - existing_mongo_info is defined
         - not existing_mongo_info.running
 
-# Get mongodb information
-# -------------------------------------------------------------------------
-- name: "Check for existing MongoDB installation in namespace {{ mongodb_namespace }}"
-  ibm.mas_devops.verify_mongoce_version:
-    mongodb_instance_name: "{{ mongodb_instance_name }}"
-    mongodb_namespace: "{{ mongodb_namespace }}"
-  register: existing_mongo_info
-
-# 8. Restore the database data from backup
+# Restore the database data from backup
 # -----------------------------------------------------------------------------
 - name: "Start Database restore process."
   include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/restore-database.yml"

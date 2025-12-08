@@ -21,7 +21,7 @@ def getStorageClassFromCR(mongoCR: dict) -> str:
     Get Storage Class from MongoDB Community CR
     spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName
     """
-    if 'spec' in mongoCR:
+    if mongoCR and 'spec' in mongoCR:
         if 'statefulSet' in mongoCR['spec']:
             if 'spec' in mongoCR['spec']['statefulSet']:
                 if 'volumeClaimTemplates' in mongoCR['spec']['statefulSet']['spec']:
@@ -35,9 +35,8 @@ def getCR(dynClient: DynamicClient, crd_api_version: str, crd_kind: str, cr_name
     """
     Get a Custom Resource
     """
-    crdAPI = dynClient.resources.get(api_version=crd_api_version, kind=crd_kind)
-
     try:
+        crdAPI = dynClient.resources.get(api_version=crd_api_version, kind=crd_kind)
         if namespace:
             cr = crdAPI.get(name=cr_name, namespace=namespace)
         else:
@@ -45,6 +44,8 @@ def getCR(dynClient: DynamicClient, crd_api_version: str, crd_kind: str, cr_name
         return cr
     except NotFoundError:
         display.v(f"CR {cr_name} of kind {crd_kind} does not exist in namespace {namespace}")
+    except Exception as e:
+        display.v(f"Error getting CR {cr_name} of kind {crd_kind} in namespace {namespace}: {e}")
 
     return {}
 
@@ -80,6 +81,45 @@ def isMongoExist(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_n
     else:
         return {}
 
+def determineBestStorageClass(dynClient: DynamicClient, existing_storageclass: str, backup_storageclass: str) -> str:
+    """
+    Determine best storage class,
+    1. Picks existing storage class if exists, if not
+    2. Picks storage class from backup if exists, if not
+    3. Picks default rwo storage class.
+    """
+
+    best_sc = ""
+    # 1) Try existing storage class if provided
+    if existing_storageclass != "":
+        display.v(f"Checking existing storage class '{existing_storageclass}'")
+        sc = getStorageClass(dynClient, existing_storageclass)
+        if sc is not None:
+            best_sc = existing_storageclass
+        else:
+            display.v(f"Existing storage class '{existing_storageclass}' does not exist")
+
+    # 2) Try backup storage class if existing not usable
+    if best_sc == "" and backup_storageclass != "":
+        display.v(f"Checking backup storage class '{backup_storageclass}'")
+        backup_sc = getStorageClass(dynClient, backup_storageclass)
+        if backup_sc is not None:
+            best_sc = backup_storageclass
+        else:
+            display.v(f"Backup storage class '{backup_storageclass}' does not exist")
+
+    # 3) Fallback to default RWO storage class
+    if best_sc == "":
+        display.v("Falling back to default RWO storage class")
+        default_sc = getDefaultStorageClasses(dynClient)
+        if default_sc.provider is None:
+            raise AnsibleError("Error: Could not find default RWO storage class to use for MongoDB Community instance")
+        best_sc = default_sc.rwo
+
+    display.v(f"Using storage class '{best_sc}' for MongoDB Community instance")
+    return best_sc
+
+
 class ActionModule(ActionBase):
     """
     Usage Example
@@ -113,39 +153,39 @@ class ActionModule(ActionBase):
             mongodb_namespace=mongodb_namespace
         )
 
+        # Determine best storage class to use
+        # skip storage class check if backup storage class is not provided
+        best_sc = ""
+        if backup_mongodb_storage_class is not None:
+            best_sc = determineBestStorageClass(
+                dynClient=dynClient,
+                existing_storageclass=getStorageClassFromCR(mongodbCR) if mongodbCR else "",
+                backup_storageclass=backup_mongodb_storage_class
+            )
+
         if not mongodbCR:
+            display.v(f"MongoDB Community instance '{mongodb_instance_name}' does NOT exist in namespace '{mongodb_namespace}'")
             return dict(
                 message=f"MongoDB Community instance '{mongodb_instance_name}' does NOT exist in namespace '{mongodb_namespace}'",
                 success=True,
                 failed=False,
-                exist=False
+                exist=False,
+                running=False,
+                storage_class=best_sc
             )
-        
-        best_sc = ""
-        if backup_mongodb_storage_class != None:
-            # Check if storage class from existing CR exists
-            # Storage class name from existing CR
-            sc_name_from_cr=getStorageClassFromCR(mongodbCR)
-            sc = getStorageClass(dynClient, sc_name_from_cr)
-            if sc is None:
-                # check if storage class from backup CR exists
-                backup_sc = getStorageClass(dynClient, backup_mongodb_storage_class)
-                if backup_sc is None:
-                    # both storage classes do not exist, go for default storage class
-                    default_sc = getDefaultStorageClasses(dynClient)
-                    if default_sc.provider is None:
-                        raise AnsibleError(f"Error: Could not find default storage class to use for existing MongoDB Community instance '{mongodb_instance_name}' in namespace '{mongodb_namespace}'")
-                    else:
-                        best_sc = default_sc.rwo
-                else:
-                    best_sc = backup_mongodb_storage_class
-            else:
-                best_sc = sc_name_from_cr
-
-        mongoce_version = mongodbCR['spec']['version']
-
-        # check if mongo is running
-        if not isMongoRunning(mongodbCR):
+        elif isMongoRunning(mongodbCR):
+            display.v(f"MongoDB Community instance '{mongodb_instance_name}' is running version '{mongodbCR['spec']['version']}' in namespace '{mongodb_namespace}'")
+            return dict(
+                message=f"MongoDB Community instance '{mongodb_instance_name}' is running version '{mongodbCR['spec']['version']}' in namespace '{mongodb_namespace}'",
+                success=True,
+                failed=False,
+                exist=True,
+                running=True,
+                mongoce_version=mongodbCR['spec']['version'],
+                storage_class=getStorageClassFromCR(mongodbCR)
+            ) 
+        else:
+            display.v(f"MongoDB Community instance '{mongodb_instance_name}' is NOT in 'Running' state in namespace '{mongodb_namespace}'")
             return dict(
                 message=f"MongoDB Community instance '{mongodb_instance_name}' is NOT in 'Running' state in namespace '{mongodb_namespace}'",
                 success=True,
@@ -153,17 +193,5 @@ class ActionModule(ActionBase):
                 exist=True,
                 running=False,
                 storage_class=best_sc,
-                mongoce_version=mongoce_version
+                mongoce_version=mongodbCR['spec']['version']
             )
-
-
-        return dict(
-            message=f"MongoDB Community instance '{mongodb_instance_name}' is running version '{mongoce_version}' in namespace '{mongodb_namespace}'",
-            success=True,
-            failed=False,
-            exist=True,
-            running=True,
-            mongoce_version=mongoce_version,
-            storage_class=best_sc
-        )
-
