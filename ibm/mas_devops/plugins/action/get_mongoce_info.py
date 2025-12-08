@@ -311,7 +311,7 @@ class ActionModule(ActionBase):
     Usage Example
     -------------
     tasks:
-      - name: "Retrieve and Set facts from MongoDB instance CR and resources"
+      - name: "Retrieve info from MongoDB instance CR and resources"
         ibm.mas_devops.get_mongoce_info:
     """
     def run(self, tmp=None, task_vars=None):
@@ -373,19 +373,21 @@ class ActionModule(ActionBase):
         # 6. Construct mongodb_host
         mongodb_host = f"{mongoce_pod_name}.{mongodb_service_name}.{mongodb_namespace}.svc.cluster.local:27017"
 
+        mongo_info = dict(
+            mongoce_pod_name=mongoce_pod_name,
+            mongodb_admin_user="admin",
+            mongodb_admin_password = base64.b64decode(mongodb_admin_secret['data']['password']),
+            mongodb_service_name=mongodb_service_name,
+            mongodb_host=mongodb_host,
+            mongodb_version=getMongoVersion(mongodb_cr)
+        )
+
         return dict(
             message=f"Successfully set facts from MongoDB Community instance '{mongodb_instance_name}' resources",
             failed=False,
             changed=False,
             success=True,
-            ansible_facts={
-                "mongoce_pod_name": mongoce_pod_name, # this fact can be used in subsequent tasks
-                "mongodb_admin_user": "admin",
-                "mongodb_admin_password" : base64.b64decode(mongodb_admin_secret['data']['password']),
-                "mongodb_service_name": mongodb_service_name,
-                "mongodb_host": mongodb_host,
-                "mongodb_version": getMongoVersion(mongodb_cr)
-            }
+            **mongo_info
         )
 
 
