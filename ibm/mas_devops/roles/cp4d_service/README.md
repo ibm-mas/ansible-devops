@@ -1,6 +1,6 @@
 cp4d_service
 ===============================================================================
-Install or upgrade a chosen CloudPak for Data service.  Currently supported Cloud Pak for Data supoorted versions are:
+Install or upgrade a chosen CloudPak for Data service.  Currently supported Cloud Pak for Data release versions supported are:
 
   - 5.1.3
   - 5.2.0
