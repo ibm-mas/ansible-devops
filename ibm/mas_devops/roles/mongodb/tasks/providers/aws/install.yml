@@ -85,7 +85,7 @@
     ('DBSubnetGroupNotFoundFault' not in subnet_group_exists_info.stderr )
 
 - name: Set Fact, subnet group exists or not
-  when: subnet_group_exists_info is defined and subnet_group_exists_info != '' and subnet_group_exists_info.stdout != ''
+  when: subnet_group_exists_info is defined and subnet_group_exists_info != None and subnet_group_exists_info != '' and subnet_group_exists_info.stdout != ''
   set_fact:
     subnet_group_exists: "{{ subnet_group_exists_info.stdout | from_json | json_query('DBSubnetGroups[0].DBSubnetGroupName') != '' }}"
 
@@ -120,7 +120,7 @@
   register: security_group_info
 
 - name: Set Fact , Security Group Id
-  when: security_group_info is defined and security_group_info != ''
+  when: security_group_info is defined and security_group_info != None and security_group_info != ''
   set_fact:
     sg_id: "{{security_group_info.stdout | from_json | json_query('SecurityGroups[0].GroupId')}}"
 
@@ -137,7 +137,7 @@
   when: not sg_id
   assert:
     that:
-      - sg_info is defined and sg_info != ''
+      - sg_info is defined and sg_info != None and sg_info != ''
       - sg_info.stdout
       - sg_info.stdout | from_json | json_query('GroupId')
 
@@ -217,7 +217,7 @@
   when: not docdb_cluster_exists
   assert:
     that:
-      - docdb_cluster_create_info is defined and docdb_cluster_create_info != ''
+      - docdb_cluster_create_info is defined and docdb_cluster_create_info != None and docdb_cluster_create_info != ''
       - docdb_cluster_create_info.stdout
       - docdb_cluster_create_info.stdout | from_json | json_query('DBCluster.DBClusterIdentifier') == docdb_cluster_name
 
