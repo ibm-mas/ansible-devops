@@ -1,8 +1,9 @@
 cp4d_service
 ===============================================================================
-Install or upgrade a chosen CloudPak for Data service.  Currently supported Cloud Pak for Data release versions supported are:
+Install or upgrade a chosen CloudPak for Data service.  Currently supported Cloud Pak for Data supoorted versions are:
 
   - 5.1.3
+  - 5.2.0
 
 The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.
 
@@ -41,10 +42,15 @@ Subscriptions related to Watson Studio:
 - **ibm-cpd-datarefinery**
 - **ibm-cpd-ws-runtimes**
 
+!!! note "Search Engine Dependency"
+    - **CPD 5.1.3**: Uses **Elasticsearch** operator (`ibm-elasticsearch-operator`)
+    - **CPD 5.2.0**: Uses **OpenSearch** operator (`ibm-opensearch-operator`)
+
 Watson Studio is made up of many moving parts across multiple namespaces.
 
 In the **ibm-cpd-operators** namespace:
 
+**For CPD 5.1.3:**
 ```bash
 oc -n ibm-cpd-operators get deployments
 NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
@@ -53,6 +59,17 @@ ibm-cpd-datarefinery-operator                          1/1     1            1   
 ibm-cpd-ws-operator                                    1/1     1            1           83m
 ibm-cpd-ws-runtimes-operator                           1/1     1            1           83m
 ibm-elasticsearch-operator-ibm-es-controller-manager   1/1     1            1           83m
+```
+
+**For CPD 5.2.0:**
+```bash
+oc -n ibm-cpd-operators get deployments
+NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
+ibm-cpd-ccs-operator                                   1/1     1            1           83m
+ibm-cpd-datarefinery-operator                          1/1     1            1           83m
+ibm-cpd-ws-operator                                    1/1     1            1           83m
+ibm-cpd-ws-runtimes-operator                           1/1     1            1           83m
+ibm-opensearch-operator-controller-manager             1/1     1            1           83m
 ```
 
 In the **ibm-cpd** namespace:
@@ -122,10 +139,15 @@ Subscriptions related to Watson Machine Learning:
 - **ibm-cpd-wml**
 - **ibm-cpd-ccs**
 
+!!! note "Search Engine Dependency"
+    - **CPD 5.1.3**: Uses **Elasticsearch** operator (`ibm-elasticsearch-operator`)
+    - **CPD 5.2.0**: Uses **OpenSearch** operator (`ibm-opensearch-operator`)
+
 Watson Machine Learning is made up of many moving parts across multiple namespaces.
 
 In the **ibm-cpd-operators** namespace:
 
+**For CPD 5.1.3:**
 ```bash
 oc -n ibm-cpd-operators get deployments
 NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
@@ -133,6 +155,16 @@ ibm-cpd-ccs-operator                                   1/1     1            1   
 ibm-cpd-datarefinery-operator                          1/1     1            1           134m
 ibm-cpd-wml-operator                                   1/1     1            1           49m
 ibm-elasticsearch-operator-ibm-es-controller-manager   1/1     1            1           134m
+```
+
+**For CPD 5.2.0:**
+```bash
+oc -n ibm-cpd-operators get deployments
+NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
+ibm-cpd-ccs-operator                                   1/1     1            1           134m
+ibm-cpd-datarefinery-operator                          1/1     1            1           134m
+ibm-cpd-wml-operator                                   1/1     1            1           49m
+ibm-opensearch-operator-controller-manager             1/1     1            1           134m
 ```
 
 In the **ibm-cpd** namespace:
@@ -330,17 +362,30 @@ Local directory to save the generated resource definition.  This can be used to 
 Example Playbook
 ----------------
 
+### Install Watson Studio on CPD 5.1.3
 ```yaml
 ---
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cpd_product_version: 5.0.0
+    cpd_product_version: 5.1.3
     cpd_service_storage_class: ibmc-file-gold-gid
     cpd_service_name: wsl
   roles:
     - ibm.mas_devops.cp4d_service
+```
 
+### Install Watson Studio on CPD 5.2.0
+```yaml
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cpd_product_version: 5.2.0
+    cpd_service_storage_class: ibmc-file-gold-gid
+    cpd_service_name: wsl
+  roles:
+    - ibm.mas_devops.cp4d_service
 ```
 
 License
