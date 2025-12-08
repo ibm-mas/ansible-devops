@@ -39,9 +39,9 @@
 - name: "Set default upgrade target based on installed version of AI Service"
   when:
     - aiservice_channel is not defined or aiservice_channel == ""
-    - aiservice_sub_info.resources[0].spec.channel in aiservice_upgrade_path
+    - aiservice_sub_info.resources[0].spec.channel | ibm.mas_devops.is_channel_upgrade_path_valid(aiservice_channel, aiservice_upgrade_path)
   set_fact:
-    target_aiservice_channel: "{{ aiservice_upgrade_path[aiservice_sub_info.resources[0].spec.channel] }}"
+    target_aiservice_channel: "{{ current_aiservice_channel | get_default_upgrade_channel(aiservice_upgrade_path) }}"
 
 - name: "Set upgrade target explicitly"
   when:

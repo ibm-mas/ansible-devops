@@ -464,6 +464,23 @@ def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) 
           print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
   return valid
 
+def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
+  """
+    Gets the default target upgrade channel if the user has not supplied one. 
+    :current: The current channel version.
+    :valid_paths: A dictionary of supported upgrade paths. See ibm/mas_devops/common_vars/compatibility_matrix.yml.
+    :return: The default target upgrade channel.
+  """
+  default = None
+  allowed_targets = valid_paths[current]
+  if isinstance(allowed_targets, str):
+      default = allowed_targets
+  elif isinstance(allowed_targets, list):
+      default = allowed_targets[0]
+  else:
+      print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
+  return default
+
 class FilterModule(object):
   def filters(self):
     return {
@@ -487,4 +504,5 @@ class FilterModule(object):
       'get_db2_instance_name': get_db2_instance_name,
       'get_ecr_repositories': get_ecr_repositories,
       'is_channel_upgrade_path_valid': is_channel_upgrade_path_valid,
+      'get_default_upgrade_channel': get_default_upgrade_channel
     }
