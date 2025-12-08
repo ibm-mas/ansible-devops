@@ -713,6 +713,7 @@
 <p>Install or upgrade a chosen CloudPak for Data service.  Currently supported Cloud Pak for Data release versions supported are:</p>
 <ul>
 <li>5.1.3</li>
+<li>5.2.0</li>
 </ul>
 <p>The role will automatically install the corresponding CPD service operator channel and custom resource version associated to the chosen Cloud Pak for Data release version.</p>
 <p>For more information about the specific CPD services channels and versions associated to a particular Cloud Pak for Data release can be found <a href="https://github.ibm.com/PrivateCloud/olm-utils/tree/master/ansible-play/config-vars">here</a>.</p>
@@ -744,8 +745,16 @@
 <li><strong>ibm-cpd-datarefinery</strong></li>
 <li><strong>ibm-cpd-ws-runtimes</strong></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Search Engine Dependency</p>
+<ul>
+<li><strong>CPD 5.1.3</strong>: Uses <strong>Elasticsearch</strong> operator (<code>ibm-elasticsearch-operator</code>)</li>
+<li><strong>CPD 5.2.0</strong>: Uses <strong>OpenSearch</strong> operator (<code>ibm-opensearch-operator</code>)</li>
+</ul>
+</div>
 <p>Watson Studio is made up of many moving parts across multiple namespaces.</p>
 <p>In the <strong>ibm-cpd-operators</strong> namespace:</p>
+<p><strong>For CPD 5.1.3:</strong></p>
 <pre><code class="language-bash">oc -n ibm-cpd-operators get deployments
 NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
 ibm-cpd-ccs-operator                                   1/1     1            1           83m
@@ -753,6 +762,15 @@ ibm-cpd-datarefinery-operator                          1/1     1            1   
 ibm-cpd-ws-operator                                    1/1     1            1           83m
 ibm-cpd-ws-runtimes-operator                           1/1     1            1           83m
 ibm-elasticsearch-operator-ibm-es-controller-manager   1/1     1            1           83m
+</code></pre>
+<p><strong>For CPD 5.2.0:</strong></p>
+<pre><code class="language-bash">oc -n ibm-cpd-operators get deployments
+NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
+ibm-cpd-ccs-operator                                   1/1     1            1           83m
+ibm-cpd-datarefinery-operator                          1/1     1            1           83m
+ibm-cpd-ws-operator                                    1/1     1            1           83m
+ibm-cpd-ws-runtimes-operator                           1/1     1            1           83m
+ibm-opensearch-operator-controller-manager             1/1     1            1           83m
 </code></pre>
 <p>In the <strong>ibm-cpd</strong> namespace:</p>
 <pre><code class="language-bash">oc -n ibm-cpd get ccs,ws,datarefinery,notebookruntimes,deployments,sts
@@ -818,14 +836,30 @@ statefulset.apps/wdp-couchdb                                 3/3     79m
 <li><strong>ibm-cpd-wml</strong></li>
 <li><strong>ibm-cpd-ccs</strong></li>
 </ul>
+<div class="admonition note">
+<p class="admonition-title">Search Engine Dependency</p>
+<ul>
+<li><strong>CPD 5.1.3</strong>: Uses <strong>Elasticsearch</strong> operator (<code>ibm-elasticsearch-operator</code>)</li>
+<li><strong>CPD 5.2.0</strong>: Uses <strong>OpenSearch</strong> operator (<code>ibm-opensearch-operator</code>)</li>
+</ul>
+</div>
 <p>Watson Machine Learning is made up of many moving parts across multiple namespaces.</p>
 <p>In the <strong>ibm-cpd-operators</strong> namespace:</p>
+<p><strong>For CPD 5.1.3:</strong></p>
 <pre><code class="language-bash">oc -n ibm-cpd-operators get deployments
 NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
 ibm-cpd-ccs-operator                                   1/1     1            1           134m
 ibm-cpd-datarefinery-operator                          1/1     1            1           134m
 ibm-cpd-wml-operator                                   1/1     1            1           49m
 ibm-elasticsearch-operator-ibm-es-controller-manager   1/1     1            1           134m
+</code></pre>
+<p><strong>For CPD 5.2.0:</strong></p>
+<pre><code class="language-bash">oc -n ibm-cpd-operators get deployments
+NAME                                                   READY   UP-TO-DATE   AVAILABLE   AGE
+ibm-cpd-ccs-operator                                   1/1     1            1           134m
+ibm-cpd-datarefinery-operator                          1/1     1            1           134m
+ibm-cpd-wml-operator                                   1/1     1            1           49m
+ibm-opensearch-operator-controller-manager             1/1     1            1           134m
 </code></pre>
 <p>In the <strong>ibm-cpd</strong> namespace:</p>
 <pre><code class="language-bash">oc -n ibm-cpd get ccs,wmlbase,deployments,sts
@@ -997,23 +1031,34 @@ For more information, refer to <a href="https://www.ibm.com/docs/en/cloud-paks/c
 <li>Default Value: None</li>
 </ul>
 <h2 id="example-playbook">Example Playbook<a class="headerlink" href="#example-playbook" title="Permanent link">¤</a></h2>
+<h3 id="install-watson-studio-on-cpd-513">Install Watson Studio on CPD 5.1.3<a class="headerlink" href="#install-watson-studio-on-cpd-513" title="Permanent link">¤</a></h3>
 <pre><code class="language-yaml">---
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    cpd_product_version: 5.0.0
+    cpd_product_version: 5.1.3
     cpd_service_storage_class: ibmc-file-gold-gid
     cpd_service_name: wsl
   roles:
     - ibm.mas_devops.cp4d_service
-
+</code></pre>
+<h3 id="install-watson-studio-on-cpd-520">Install Watson Studio on CPD 5.2.0<a class="headerlink" href="#install-watson-studio-on-cpd-520" title="Permanent link">¤</a></h3>
+<pre><code class="language-yaml">---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cpd_product_version: 5.2.0
+    cpd_service_storage_class: ibmc-file-gold-gid
+    cpd_service_name: wsl
+  roles:
+    - ibm.mas_devops.cp4d_service
 </code></pre>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¤</a></h2>
 <p>EPL-2.0</p>
       
     </div>
     <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v1.6.1 (2025-12-08 08:03:24.852402+00:00)
+      Built with mkdocs v1.6.1 (2025-12-08 11:07:57.618499+00:00)
     </div> -->
   
 <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": false, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
