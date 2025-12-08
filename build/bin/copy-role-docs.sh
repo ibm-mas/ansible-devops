@@ -14,7 +14,6 @@ copyDoc aiservice
 copyDoc aiservice_odh
 copyDoc aiservice_tenant
 copyDoc ansible_version_check
-copyDoc appconnect
 copyDoc arcgis
 copyDoc aws_bucket_access_point
 copyDoc aws_documentdb_user
@@ -74,7 +73,6 @@ copyDoc suite_app_install
 copyDoc suite_app_uninstall
 copyDoc suite_app_upgrade
 copyDoc suite_app_rollback
-copyDoc suite_app_verify
 copyDoc suite_backup_restore
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage
