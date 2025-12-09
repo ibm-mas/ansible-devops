@@ -13,6 +13,8 @@ from kubernetes.dynamic.exceptions import NotFoundError
 import yaml
 import base64
 
+from mas.devops.ocp import getCR, getSecret
+
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -50,128 +52,6 @@ def get_usersecrets_from_mongoce(mongoDBCommunityCR : dict) -> list:
       user_secrets.append(f"{user['scramCredentialsSecretName']}-scram-credentials")
   return user_secrets
 
-
-def getMongoVersionFromCR(mongoCR: dict) -> str:
-    """
-    Get MongoDB version from MongoDB Community CR
-    """
-    if 'spec' in mongoCR:
-        if 'version' in mongoCR['spec']:
-            return mongoCR['spec']['version']
-    return ""
-
-def copyContentsToYamlFile(file_path: str, content: dict) -> bool:
-    """
-    Write dictionary content to a YAML file
-    """
-    try:
-        with open(file_path, 'w') as yaml_file:
-            yaml.dump(content, yaml_file, default_flow_style=False)
-        return True
-    except Exception as e:
-        display.v(f"Error writing to YAML file {file_path}: {e}")
-        return False
-
-def filterMongoCR(crData: dict) -> dict:
-    """
-    Filter out unnecessary fields from a Custom Resource
-    """
-    metadata_fields_to_remove = [
-        'annotations',
-        'creationTimestamp',
-        'generation',
-        'resourceVersion',
-        'selfLink',
-        'uid',
-        'managedFields'
-    ]
-    filteredCR = crData.copy()
-    if 'metadata' in filteredCR:
-        for field in metadata_fields_to_remove:
-            if field in filteredCR['metadata']:
-                del filteredCR['metadata'][field]
-    # remove status field
-    if 'status' in filteredCR:
-        del filteredCR['status']
-    
-    # remove replicaSetHorizons field from spec if exists
-    if 'spec' in filteredCR:
-        if 'replicaSetHorizons' in filteredCR['spec']:
-            del filteredCR['spec']['replicaSetHorizons']
-
-    return filteredCR
-
-def getCR(dynClient: DynamicClient, crd_api_version: str, crd_kind: str, cr_name: str, namespace: str = None) -> dict:
-    """
-    Get a Custom Resource
-    """
-    try:
-        crdAPI = dynClient.resources.get(api_version=crd_api_version, kind=crd_kind)
-        if namespace:
-            cr = crdAPI.get(name=cr_name, namespace=namespace)
-        else:
-            cr = crdAPI.get(name=cr_name)
-        return cr
-    except NotFoundError:
-        display.v(f"CR {cr_name} of kind {crd_kind} does not exist in namespace {namespace}")
-
-    return {}
-
-def filterResourceData(data: dict) -> dict:
-    """
-    filter metadata from Resource data and create minimal dict
-    """
-    metadata_fields_to_remove = [
-        'annotations',
-        'creationTimestamp',
-        'generation',
-        'resourceVersion',
-        'selfLink',
-        'uid',
-        'managedFields'
-    ]
-    filteredCopy = data.copy()
-    if 'metadata' in filteredCopy:
-        for field in metadata_fields_to_remove:
-            if field in filteredCopy['metadata']:
-                del filteredCopy['metadata'][field]
-
-    if 'status' in filteredCopy:
-        del filteredCopy['status']
-    
-    return filteredCopy
-
-def getSecret(dynClient: DynamicClient, namespace: str, secret_name: str) -> dict:
-    """
-    Get a Secret
-    """
-    try:
-        secretAPI = dynClient.resources.get(api_version="v1", kind="Secret")
-        secret = secretAPI.get(name=secret_name, namespace=namespace)
-        display.v(f"Secret {secret_name} exists in namespace {namespace}")
-        return secret.to_dict()
-    except NotFoundError:
-        display.v(f"Secret {secret_name} does not exist in namespace {namespace}")
-    return {}
-
-def backupSecret(dynClient: DynamicClient, namespace: str, secret_name: str, backup_path: str) -> bool:
-    """
-    Backup a Secret to a YAML file
-    """
-    secret = getSecret(dynClient, namespace, secret_name)
-    if secret:
-        secret_file_path = f"{backup_path}/{secret_name}.yaml"
-        filtered_secret = filterResourceData(secret)
-        if copyContentsToYamlFile(secret_file_path, filtered_secret):
-            display.v(f"Successfully backed up Secret '{secret_name}' to '{secret_file_path}'")
-            return True
-        else:
-            display.v(f"Failed to back up Secret '{secret_name}' to '{secret_file_path}'")
-            return False
-    else:
-        display.v(f"Secret '{secret_name}' not found in namespace '{namespace}', skipping backup")
-        return False
-
 def isMongoRunning(mongoCR: dict) -> bool:
     """
     Check if MongoDB Community instance is running
@@ -194,8 +74,8 @@ def getMongoceCR(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_n
     display.v(f"Checking if MongoDB Community instance '{mongodb_instance_name}' exists in namespace '{mongodb_namespace}'")
     mongodbCR = getCR(
         dynClient=dynClient,
-        crd_api_version="mongodbcommunity.mongodb.com/v1",
-        crd_kind="MongoDBCommunity",
+        cr_api_version="mongodbcommunity.mongodb.com/v1",
+        cr_kind="MongoDBCommunity",
         cr_name=mongodb_instance_name,
         namespace=mongodb_namespace
     )
@@ -203,70 +83,6 @@ def getMongoceCR(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_n
         return mongodbCR.to_dict()
     else:
         return {}
-
-def backupIssuersInNamespace(dynClient: DynamicClient, namespace: str, backup_path: str) -> bool:
-    """
-    Backup all Issuers in a namespace
-    """
-    display.v(f"Backing up Issuers in namespace '{namespace}' to '{backup_path}'")
-    try:
-        issuerAPI = dynClient.resources.get(api_version="cert-manager.io/v1", kind="Issuer")
-        issuers = issuerAPI.get(namespace=namespace)
-        
-        for issuer in issuers.items:
-            issuer_name = issuer["metadata"]["name"]
-            issuer_file_path = f"{backup_path}/{issuer_name}.yaml"
-            filtered_issuer = filterResourceData(issuer.to_dict())
-            if copyContentsToYamlFile(issuer_file_path, filtered_issuer):
-                display.v(f"Successfully backed up Issuer '{issuer_name}' to '{issuer_file_path}'")
-            else:
-                display.v(f"Failed to back up Issuer '{issuer_name}' to '{issuer_file_path}'")
-                return False
-        return True
-
-    except NotFoundError:
-        display.v(f"No Issuers found in namespace {namespace}")
-
-    return False
-
-def backupCertificatesInNamespace(dynClient: DynamicClient, namespace: str, backup_path: str) -> bool:
-    """
-    Backup all Certificates in a namespace
-    """
-    display.v(f"Backing up Certificates in namespace '{namespace}' to '{backup_path}'")
-    try:
-        certificateAPI = dynClient.resources.get(api_version="cert-manager.io/v1", kind="Certificate")
-        certificates = certificateAPI.get(namespace=namespace)
-        
-        for certificate in certificates.items:
-            certificate_name = certificate["metadata"]["name"]
-            certificate_file_path = f"{backup_path}/{certificate_name}.yaml"
-            filtered_certificate = filterResourceData(certificate.to_dict())
-            if copyContentsToYamlFile(certificate_file_path, filtered_certificate):
-                display.v(f"Successfully backed up Certificate '{certificate_name}' to '{certificate_file_path}'")
-            else:
-                display.v(f"Failed to back up Certificate '{certificate_name}' to '{certificate_file_path}'")
-                return False
-        return True
-
-    except NotFoundError:
-        display.v(f"No Certificates found in namespace {namespace}")
-
-    return False
-
-def backupMongoCRContents(dynClient: DynamicClient, cr_data: dict, backup_path: str) -> bool:
-    """
-    Backup MongoDB Community CR contents to a YAML file
-    """
-    display.v(f"Backing up MongoDB Community CR contents to '{backup_path}/cr.yaml'")
-    cr_file_path = f"{backup_path}/cr.yaml"
-    filtered_cr = filterMongoCR(cr_data)
-    if copyContentsToYamlFile(cr_file_path, filtered_cr):
-        display.v(f"Successfully backed up MongoDB Community CR to '{cr_file_path}'")
-        return True
-    else:
-        display.v(f"Failed to back up MongoDB Community CR to '{cr_file_path}'")
-        return False
 
 def getMongoVersion(mongoCR: dict) -> str:
     """

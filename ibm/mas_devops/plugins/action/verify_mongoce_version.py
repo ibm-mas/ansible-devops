@@ -8,7 +8,7 @@ from ansible.utils.display import Display
 from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.exceptions import NotFoundError
 
-from mas.devops.ocp import getStorageClass
+from mas.devops.ocp import getStorageClass, getCR
 from mas.devops.mas import getDefaultStorageClasses
 
 
@@ -30,24 +30,6 @@ def getStorageClassFromCR(mongoCR: dict) -> str:
                             if 'storageClassName' in mongoCR['spec']['statefulSet']['spec']['volumeClaimTemplates'][0]['spec']:
                                 return mongoCR['spec']['statefulSet']['spec']['volumeClaimTemplates'][0]['spec']['storageClassName']
     return ""
-
-def getCR(dynClient: DynamicClient, crd_api_version: str, crd_kind: str, cr_name: str, namespace: str = None) -> dict:
-    """
-    Get a Custom Resource
-    """
-    try:
-        crdAPI = dynClient.resources.get(api_version=crd_api_version, kind=crd_kind)
-        if namespace:
-            cr = crdAPI.get(name=cr_name, namespace=namespace)
-        else:
-            cr = crdAPI.get(name=cr_name)
-        return cr
-    except NotFoundError:
-        display.v(f"CR {cr_name} of kind {crd_kind} does not exist in namespace {namespace}")
-    except Exception as e:
-        display.v(f"Error getting CR {cr_name} of kind {crd_kind} in namespace {namespace}: {e}")
-
-    return {}
 
 def isMongoRunning(mongoCR: dict) -> bool:
     """
@@ -71,8 +53,8 @@ def getMongoceCR(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_n
     display.v(f"Checking if MongoDB Community instance '{mongodb_instance_name}' exists in namespace '{mongodb_namespace}'")
     mongodbCR = getCR(
         dynClient=dynClient,
-        crd_api_version="mongodbcommunity.mongodb.com/v1",
-        crd_kind="MongoDBCommunity",
+        cr_api_version="mongodbcommunity.mongodb.com/v1",
+        cr_kind="MongoDBCommunity",
         cr_name=mongodb_instance_name,
         namespace=mongodb_namespace
     )

@@ -12,7 +12,7 @@ from kubernetes.dynamic.exceptions import NotFoundError
 
 import yaml
 import os
-from mas.devops.ocp import createNamespace
+from mas.devops.ocp import createNamespace, apply_resource
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -23,30 +23,6 @@ def display_information(mongoDBCommunityCR : dict):
     display.v(f"MongoCE instance name .......................... {mongoDBCommunityCR['metadata']['name']}")
     display.v(f"MongoCE namespace .............................. {mongoDBCommunityCR['metadata']['namespace']}")
     display.v(f"MongoDB Version ................................ {mongoDBCommunityCR['spec']['version']}")
-
-def apply_resource(dynClient: DynamicClient, resource_yaml: str, namespace: str):
-    """
-    Apply a Kubernetes resource from its YAML definition.
-    If the resource already exists, it will be updated.
-    If it does not exist, it will be created.
-    """
-    resource_dict = yaml.safe_load(resource_yaml)
-    kind = resource_dict['kind']
-    api_version = resource_dict['apiVersion']
-    metadata = resource_dict['metadata']
-    name = metadata['name']
-
-    try:
-        resource = dynClient.resources.get(api_version=api_version, kind=kind)
-        # Try to get the existing resource
-        existing_resource = resource.get(name=name, namespace=namespace)
-        # If found, update it
-        display.v(f"Updating existing {kind} '{name}' in namespace '{namespace}'")
-        resource.patch(body=resource_dict, namespace=namespace, name=name)
-    except NotFoundError:
-        # If not found, create it
-        display.v(f"Creating new {kind} '{name}' in namespace '{namespace}'")
-        resource.create(body=resource_dict, namespace=namespace)
 
 class ActionModule(ActionBase):
     """

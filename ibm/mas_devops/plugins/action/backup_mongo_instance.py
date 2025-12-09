@@ -13,6 +13,8 @@ from kubernetes.dynamic.exceptions import NotFoundError
 import yaml
 import os
 
+from mas.devops.ocp import getCR, getSecret
+
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -97,23 +99,6 @@ def filterMongoCR(crData: dict) -> dict:
 
     return filteredCR
 
-def getCR(dynClient: DynamicClient, crd_api_version: str, crd_kind: str, cr_name: str, namespace: str = None) -> dict:
-    """
-    Get a Custom Resource
-    """
-
-    try:
-        crdAPI = dynClient.resources.get(api_version=crd_api_version, kind=crd_kind)
-        if namespace:
-            cr = crdAPI.get(name=cr_name, namespace=namespace)
-        else:
-            cr = crdAPI.get(name=cr_name)
-        return cr
-    except NotFoundError:
-        display.v(f"CR {cr_name} of kind {crd_kind} does not exist in namespace {namespace}")
-
-    return {}
-
 def filterResourceData(data: dict) -> dict:
     """
     filter metadata from Resource data and create minimal dict
@@ -137,19 +122,6 @@ def filterResourceData(data: dict) -> dict:
         del filteredCopy['status']
     
     return filteredCopy
-
-def getSecret(dynClient: DynamicClient, namespace: str, secret_name: str) -> dict:
-    """
-    Get a Secret
-    """
-    try:
-        secretAPI = dynClient.resources.get(api_version="v1", kind="Secret")
-        secret = secretAPI.get(name=secret_name, namespace=namespace)
-        display.v(f"Secret {secret_name} exists in namespace {namespace}")
-        return secret.to_dict()
-    except NotFoundError:
-        display.v(f"Secret {secret_name} does not exist in namespace {namespace}")
-    return {}
 
 def backupSecret(dynClient: DynamicClient, namespace: str, secret_name: str, backup_path: str) -> bool:
     """
@@ -191,8 +163,8 @@ def getMongoceCR(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_n
     display.v(f"Checking if MongoDB Community instance '{mongodb_instance_name}' exists in namespace '{mongodb_namespace}'")
     mongodbCR = getCR(
         dynClient=dynClient,
-        crd_api_version="mongodbcommunity.mongodb.com/v1",
-        crd_kind="MongoDBCommunity",
+        cr_api_version="mongodbcommunity.mongodb.com/v1",
+        cr_kind="MongoDBCommunity",
         cr_name=mongodb_instance_name,
         namespace=mongodb_namespace
     )
