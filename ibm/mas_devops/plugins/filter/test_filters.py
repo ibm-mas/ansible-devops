@@ -15,7 +15,7 @@ import pytest
 
 def test_is_channel_upgrade_path_valid_for_blank_target_channel():
     paths = {'a': ['b', 'c']}
-    assert is_channel_upgrade_path_valid('a', None, paths)
+    assert is_channel_upgrade_path_valid('a', '', paths)
 
 
 def test_is_channel_upgrade_path_valid_for_invalid_target_channel():
