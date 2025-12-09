@@ -63,7 +63,7 @@ def isMongoRunning(mongoCR: dict) -> bool:
     display.v(f"MongoDB Community instance is not in 'Running' state")
     return False
 
-def isMongoExist(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_namespace: str) -> dict:
+def getMongoceCR(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_namespace: str) -> dict:
     """
     Check if MongoDB Community instance exists
     return cr if exists, else return empty dict
@@ -147,7 +147,7 @@ class ActionModule(ActionBase):
             raise AnsibleError(f"Error: mongodb_namespace argument was not provided")
 
         # Check for existing MongoDb install
-        mongodbCR = isMongoExist(
+        mongodbCR = getMongoceCR(
             dynClient=dynClient,
             mongodb_instance_name=mongodb_instance_name,
             mongodb_namespace=mongodb_namespace

@@ -10,7 +10,6 @@
     action: "{{ mongodb_action }}"
     component: "mongodb"
 
-
 - name: "Check if MONGODB_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
   set_fact:
     mongodb_backup_version: "{{ lookup('pipe', 'date +%y%m%d-%H%M%S') }}"
@@ -20,18 +19,17 @@
   set_fact:
     mongodb_backup_path: "{{ mas_backup_dir }}/{{ mongodb_action }}-{{ mongodb_backup_version }}-mongoce"
 
-- name: "Set fact: Create Resources and Data backup paths"
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/create_backup_dirs.yml"
-  vars:
-    backup_base_path: "{{ mongodb_backup_path }}"
-
+- name: "Create {{ mongodb_backup_path }} directory for Mongodb backup"
+  file:
+    path: "{{ mongodb_backup_path }}"
+    state: directory
+    mode: "0755"
 
 # Backup Mongodb Kubernetes Resources
 # -------------------------------------------------------------------------
-
 - name: "Start Mongo Instance backup process."
   ibm.mas_devops.backup_mongo_instance:
-    mongodb_backup_resource_path: "{{ backup_resources_path }}"
+    mongodb_backup_path: "{{ mongodb_backup_path }}"
     mongodb_namespace: "{{ mongodb_namespace }}"
     mongodb_instance_name: "{{ mongodb_instance_name }}"
   register: mongo_instance_backup_result

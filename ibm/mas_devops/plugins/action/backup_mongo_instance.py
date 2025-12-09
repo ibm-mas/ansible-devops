@@ -11,6 +11,7 @@ from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.exceptions import NotFoundError
 
 import yaml
+import os
 
 urllib3.disable_warnings()  # Disabling warnings will prevent InsecureRequestWarnings from dynClient
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)-20s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -182,7 +183,7 @@ def isMongoRunning(mongoCR: dict) -> bool:
     display.v(f"MongoDB Community instance is not in 'Running' state")
     return False
 
-def isMongoExist(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_namespace: str) -> dict:
+def getMongoceCR(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_namespace: str) -> dict:
     """
     Check if MongoDB Community instance exists
     return cr if exists, else return empty dict
@@ -273,6 +274,18 @@ def getMongoVersion(mongoCR: dict) -> str:
             return mongoCR['spec']['version']
     return ""
 
+def createBackupDirectories(paths: list) -> bool:
+    """
+    Create backup directories if they do not exist
+    """
+    try:
+        for path in paths:
+            os.makedirs(path, exist_ok=True)
+            display.v(f"Created backup directory: {path}")
+        return True
+    except Exception as e:
+        display.v(f"Error creating backup directories: {e}")
+        return False
 class ActionModule(ActionBase):
     """
     Usage Example
@@ -292,19 +305,29 @@ class ActionModule(ActionBase):
 
         mongodb_instance_name = self._task.args.get('mongodb_instance_name')
         mongodb_namespace = self._task.args.get('mongodb_namespace')
-        mongodb_backup_resource_path = self._task.args.get('mongodb_backup_resource_path')
+        mongodb_backup_path = self._task.args.get('mongodb_backup_path')
 
-        if mongodb_instance_name is None:
+        if mongodb_instance_name is None or mongodb_instance_name == "":
             raise AnsibleError(f"Error: mongodb_instance_name argument was not provided")
-        if mongodb_namespace is None:
+        if mongodb_namespace is None or mongodb_namespace == "":
             raise AnsibleError(f"Error: mongodb_namespace argument was not provided")
+        if mongodb_backup_path is None or mongodb_backup_path == "":
+            raise AnsibleError(f"Error: mongodb_backup_path argument was not provided")
         
         display.v(f"Backing up MongoDB Community instance '{mongodb_instance_name}' in namespace '{mongodb_namespace}'")
+
+        # Prepare backup resource path
+        mongodb_backup_resource_path = f"{mongodb_backup_path}/resources"
+        mongodb_backup_secrets_path = f"{mongodb_backup_resource_path}/secrets"
+        mongodb_backup_issuers_path = f"{mongodb_backup_resource_path}/issuers"
+        mongodb_backup_certificates_path = f"{mongodb_backup_resource_path}/certificates"
+        # Create backup directories
+        createBackupDirectories([mongodb_backup_resource_path, mongodb_backup_secrets_path, mongodb_backup_issuers_path, mongodb_backup_certificates_path]);
 
         # =======================================================
         # 1. Backup MongoDB Community CR
         # =======================================================
-        mongodb_cr = isMongoExist(dynClient, mongodb_instance_name, mongodb_namespace)
+        mongodb_cr = getMongoceCR(dynClient, mongodb_instance_name, mongodb_namespace)
         if not mongodb_cr:
             raise AnsibleError(f"Error: MongoDB Community instance '{mongodb_instance_name}' does not exist in namespace '{mongodb_namespace}'")
         else:
@@ -336,26 +359,26 @@ class ActionModule(ActionBase):
 
         # Backup each Secret
         for secret_name in secret_names:
-            if not backupSecret(dynClient, mongodb_namespace, secret_name, f"{mongodb_backup_resource_path}/secrets"):
+            if not backupSecret(dynClient, mongodb_namespace, secret_name, f"{mongodb_backup_secrets_path}"):
                 raise AnsibleError(f"Error: Failed to back up Secret '{secret_name}'")
         
-        display.v(f"Successfully backed up all Secrets in namespace '{mongodb_namespace}' to '{mongodb_backup_resource_path}/secrets'")
+        display.v(f"Successfully backed up all Secrets in namespace '{mongodb_namespace}' to '{mongodb_backup_secrets_path}'")
 
         # =======================================================
         # 3. Backup Issuers in the MongoDB namespace
         # =======================================================
-        is_issuers_backup = backupIssuersInNamespace(dynClient, mongodb_namespace, f"{mongodb_backup_resource_path}/issuers")
+        is_issuers_backup = backupIssuersInNamespace(dynClient, mongodb_namespace, f"{mongodb_backup_issuers_path}")
         if not is_issuers_backup:
             raise AnsibleError(f"Error: Failed to back up Issuers in namespace '{mongodb_namespace}'")
-        display.v(f"Successfully backed up Issuers in namespace '{mongodb_namespace}' to '{mongodb_backup_resource_path}/issuers'")
+        display.v(f"Successfully backed up Issuers in namespace '{mongodb_namespace}' to '{mongodb_backup_issuers_path}'")
 
         # =======================================================
         # Backup Certificates in the MongoDB namespace
         # =======================================================
-        is_certificates_backup = backupCertificatesInNamespace(dynClient, mongodb_namespace, f"{mongodb_backup_resource_path}/certificates")
+        is_certificates_backup = backupCertificatesInNamespace(dynClient, mongodb_namespace, f"{mongodb_backup_certificates_path}")
         if not is_certificates_backup:
             raise AnsibleError(f"Error: Failed to back up Certificates in namespace '{mongodb_namespace}'")
-        display.v(f"Successfully backed up Certificates in namespace '{mongodb_namespace}' to '{mongodb_backup_resource_path}/certificates'")
+        display.v(f"Successfully backed up Certificates in namespace '{mongodb_namespace}' to '{mongodb_backup_certificates_path}'")
 
         return dict(
             message=f"Successfully backed up MongoDB Community instance '{mongodb_instance_name}' resources",

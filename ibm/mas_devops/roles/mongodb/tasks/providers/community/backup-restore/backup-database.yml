@@ -10,6 +10,7 @@
 
 - name: "Set fact: mongodb info"
   set_fact:
+    mongodb_backup_data_path: "{{ mongodb_backup_path }}/data"
     mongodb_backup_data_filename: "mongodump-{{ mongodb_backup_version }}.tar.gz"
     mongoce_pod_name: "{{ mongodb_info_result.mongoce_pod_name }}"
     mongodb_version: "{{ mongodb_info_result.mongodb_version }}"
@@ -17,6 +18,12 @@
     mongodb_host: "{{ mongodb_info_result.mongodb_host }}"
     mongodb_admin_user: "{{ mongodb_info_result.mongodb_admin_user }}"
     mongodb_admin_password: "{{ mongodb_info_result.mongodb_admin_password }}"
+
+- name: "Create {{ mongodb_backup_data_path }} directory for Mongodb database backup"
+  file:
+    path: "{{ mongodb_backup_data_path }}"
+    state: directory
+    mode: "0755"
 
 - name: "debug facts"
   debug:
@@ -89,7 +96,7 @@
     msg: "{{ database_backup_output.stdout_lines }}"
 
 - name: "copy backup files from mongo pod to local backup directory"
-  shell: "oc cp --retries=50 -c mongod {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/masbr/{{ mongodb_backup_version }}/{{ mongodb_backup_data_filename }} {{ backup_data_path }}/{{ mongodb_backup_data_filename }}"
+  shell: "oc cp --retries=50 -c mongod {{ mongodb_namespace }}/{{ mongoce_pod_name }}:/tmp/masbr/{{ mongodb_backup_version }}/{{ mongodb_backup_data_filename }} {{ mongodb_backup_data_path }}/{{ mongodb_backup_data_filename }}"
   register: copy_result
   retries: 2
   delay: 10 # seconds

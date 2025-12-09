@@ -186,7 +186,7 @@ def isMongoRunning(mongoCR: dict) -> bool:
     display.v(f"MongoDB Community instance is not in 'Running' state")
     return False
 
-def isMongoExist(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_namespace: str) -> dict:
+def getMongoceCR(dynClient: DynamicClient, mongodb_instance_name: str, mongodb_namespace: str) -> dict:
     """
     Check if MongoDB Community instance exists
     return cr if exists, else return empty dict
@@ -334,7 +334,7 @@ class ActionModule(ActionBase):
         display.v(f"Retrieving MongoDB Community instance '{mongodb_instance_name}' in namespace '{mongodb_namespace}'")
 
         # 1. Check if MongoDB Community instance exists
-        mongodb_cr = isMongoExist(dynClient, mongodb_instance_name, mongodb_namespace)
+        mongodb_cr = getMongoceCR(dynClient, mongodb_instance_name, mongodb_namespace)
         if not mongodb_cr:
             raise AnsibleError(f"Error: MongoDB Community instance '{mongodb_instance_name}' does not exist in namespace '{mongodb_namespace}'")
         else:
