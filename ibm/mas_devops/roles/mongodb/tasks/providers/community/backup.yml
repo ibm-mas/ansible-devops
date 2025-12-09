@@ -28,21 +28,21 @@
 # Backup Mongodb Kubernetes Resources
 # -------------------------------------------------------------------------
 - name: "Start Mongo Instance backup process."
-  ibm.mas_devops.backup_mongo_instance:
-    mongodb_backup_path: "{{ mongodb_backup_path }}"
-    mongodb_namespace: "{{ mongodb_namespace }}"
-    mongodb_instance_name: "{{ mongodb_instance_name }}"
-  register: mongo_instance_backup_result
+  block:
+    - name: "Backup MongoDB Instance Kubernetes resources"
+      ibm.mas_devops.backup_mongo_instance:
+        mongodb_backup_path: "{{ mongodb_backup_path }}"
+        mongodb_namespace: "{{ mongodb_namespace }}"
+        mongodb_instance_name: "{{ mongodb_instance_name }}"
+      register: mongo_instance_backup_result
+
+    - name: "Assert Mongo Instance backup success"
+      assert:
+        that:
+          - mongo_instance_backup_result is defined
+          - mongo_instance_backup_result.success == true
+        fail_msg: "MongoDB Instance resources backup failed."
   when: not skip_instance_backup_restore
-
-- name: "Assert Mongo Instance backup success"
-  assert:
-    that:
-      - mongo_instance_backup_result is defined
-      - mongo_instance_backup_result.success == true
-    fail_msg: "MongoDB Instance resources backup failed."
-  when: mongo_instance_backup_result is defined
-
 
 # Backup Mongodb database Data using mondodump
 # -------------------------------------------------------------------------
