@@ -445,23 +445,23 @@ def is_channel_upgrade_path_valid(current: str, target: str, valid_paths: dict) 
     :valid_paths: A dictionary of supported upgrade paths. See ibm/mas_devops/common_vars/compatibility_matrix.yml.
     :return: True if the upgrade path is supported, False otherwise.
   """
-  valid = False
+  valid = True
   if current not in valid_paths.keys():
       print(f'Current channel {current} is not supported for upgrade')
-  else:
+      valid = False
+  elif target:
       allowed_targets = valid_paths[current]
       if isinstance(allowed_targets, str):
           if target != allowed_targets:
               print(f'Upgrading from channel {current} to {target} is not supported')
-          else:
-              valid = True
+              valid = False
       elif isinstance(allowed_targets, list):
           if target not in allowed_targets:
               print(f'Upgrading from channel {current} to {target} is not supported')
-          else:
-              valid = True
+              valid = False
       else:
           print(f'Error: channel upgrade compatibility matrix is incorrectly defined')
+          valid = False
   return valid
 
 def get_default_upgrade_channel(current: str, valid_paths: dict) -> str:
