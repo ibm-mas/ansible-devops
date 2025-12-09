@@ -71,7 +71,7 @@
 - name: "Delete AWS MSK Kafka cluster"
   shell: aws kafka delete-cluster --cluster-arn {{ kafka_arn }} --region {{ aws_region }}
   changed_when: false
-  when: kafka_arn != "" and kafka_state != 'Deleting'
+  when: kafka_arn != None and kafka_arn != "" and kafka_state != 'Deleting'
 
 - name: "Wait until AWS MSK Kafka cluster deleted"
   shell: aws kafka list-clusters --cluster-name-filter {{ kafka_cluster_name }} --region {{ aws_region }}
@@ -144,6 +144,6 @@
     sg_group_id: "{{sg_info.stdout | from_json | json_query('SecurityGroups[0].GroupId')}}"
 
 - name: Delete Security Group for AWS MSK Instance
-  when: sg_group_id is defined and sg_group_id != ''
+  when: sg_group_id is defined and sg_group_id != None and sg_group_id != ''
   shell: aws ec2 delete-security-group --group-id '{{ sg_group_id }}'
   register: sg_delete_info
