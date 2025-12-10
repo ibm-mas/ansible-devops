@@ -228,10 +228,80 @@
             path: /spec/settings/deployment/importedCerts
             value: "{{ aiservice_cert_entry }}"
 
+# Step 7: Verify AI Service health
+# -----------------------------------------------------------------------------
+- name: "Step 7: Verify AI Service is running and healthy"
+  block:
+    - name: "Get aibroker route host"
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: aibroker
+        namespace: "{{ aiservice_namespace }}"
+      register: aibroker_route_output
+
+    - name: "Fail if aibroker route not found"
+      fail:
+        msg: "Could not find aibroker route in namespace {{ aiservice_namespace }}"
+      when: aibroker_route_output.resources | length == 0
+
+    - name: "Extract aibroker host"
+      set_fact:
+        aibroker_host: "{{ aibroker_route_output.resources[0].spec.host }}"
+
+    - name: "Set AI Service health URL"
+      set_fact:
+        aiservice_health_url: "https://{{ aibroker_host }}/ibm/aibroker/service/rest/api/v1/health"
+
+    - name: "Check AI Service health endpoint"
+      uri:
+        url: "{{ aiservice_health_url }}"
+        method: GET
+        validate_certs: false
+        return_content: true
+        status_code: [200, 503]
+      register: aiservice_health_response
+      retries: 5
+      delay: 10
+      until:
+        - aiservice_health_response.status == 200
+        - aiservice_health_response.json is defined
+      failed_when: false
+      
+    - name: "Fail if health endpoint never returned 200"
+      fail:
+        msg: "AI Service health endpoint failed to return HTTP 200 after 5 attempts. Last status: {{ aiservice_health_response.status }}"
+      when: aiservice_health_response.status != 200
+
+    - name: "Parse AI Service health response"
+      set_fact:
+        aiservice_kmodel_status: "{{ aiservice_health_response.json.kmodel | default('unknown') }}"
+        aiservice_healthy_status: "{{ aiservice_health_response.json.healthy | default(false) }}"
+
+    - name: "Display AI Service health status"
+      debug:
+        msg:
+          - "AI Service Health Check:"
+          - "  URL: {{ aiservice_health_url }}"
+          - "  kmodel: {{ aiservice_kmodel_status }}"
+          - "  healthy: {{ aiservice_healthy_status }}"
+
+    - name: "Verify AI Service is fully healthy"
+      assert:
+        that:
+          - aiservice_kmodel_status == 'running'
+          - aiservice_healthy_status == true
+        success_msg: "AI Service is running and healthy"
+        fail_msg: |
+            AI Service is not fully healthy:
+            - kmodel: {{ aiservice_kmodel_status }} (expected: running)
+            - healthy: {{ aiservice_healthy_status }} (expected: true)
+
 - name: "AI Service configuration completed successfully"
   debug:
     msg:
       - "AI Service properties configured in Manage encryption secret successfully"
       - "AI Service TLS certificate imported into Manage truststore"
+      - "AI Service health verified - service is running and healthy"
       - "Note: Manage will automatically restart to apply these changes"
 

@@ -5,7 +5,7 @@ This role configures AI Service integration for Maximo Manage by:
 1. Retrieving AI Service connection details (API key, URL, tenant ID)
 2. Patching these properties into the Manage encryption secret
 3. Importing AI Service TLS certificate into Manage truststore
-4. Triggering Manage restart to apply the configuration
+4. Verifying AI Service health and connectivity
 
 Role Variables
 -------------------------------------------------------------------------------
