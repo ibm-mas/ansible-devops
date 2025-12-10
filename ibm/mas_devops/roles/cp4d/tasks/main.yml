@@ -128,6 +128,25 @@
 - name: "Install Cloud Pak For Data"
   include_tasks: "tasks/install-cp4d.yml"
 
+# Validating common-service readiness
+# -----------------------------------------------------------------------------
+- name: "Wait for CommonService instance to be ready in {{ cpd_operators_namespace }}"
+  kubernetes.core.k8s_info:
+    api_version: operator.ibm.com/v3
+    name: common-service
+    namespace: "{{ cpd_operators_namespace }}"
+    kind: CommonService
+  register: commonservices_operators_output
+  until:
+    - commonservices_operators_output.resources is defined
+    - commonservices_operators_output.resources | length > 0
+    - commonservices_operators_output.resources[0].status.overallStatus is defined
+    - commonservices_operators_output.resources[0].status.overallStatus == "Succeeded"
+    - commonservices_operators_output.resources[0].status.phase is defined
+    - commonservices_operators_output.resources[0].status.phase == "Succeeded"
+  retries: 60 # approx 30 minutes before we give up
+  delay: 30 # seconds
+
 # Debug Cloud Pak for Data installation details
 # -----------------------------------------------------------------------------
 - name: "Debug : Cloud Pak for Data {{ cpd_product_version }} details"
