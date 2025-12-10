@@ -146,6 +146,7 @@
     wait_condition:
       status: "True"
       type: Ready
+  when: mongodb_action == "install" # restore action uses these tasks but should not recreate these resources
 
 - name: "Create a ca certificate in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
@@ -155,6 +156,7 @@
     wait_condition:
       status: "True"
       type: Ready
+  when: mongodb_action == "install" # restore action uses these tasks but should not recreate these resources
 
 - name: "Create a Issuer for server certificate in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
@@ -164,6 +166,7 @@
     wait_condition:
       status: "True"
       type: Ready
+  when: mongodb_action == "install" # restore action uses these tasks but should not recreate these resources
 
 - name: "Create a server certificate in '{{ mongodb_namespace }}' namespace"
   kubernetes.core.k8s:
@@ -173,6 +176,7 @@
     wait_condition:
       status: "True"
       type: Ready
+  when: mongodb_action == "install" # restore action uses these tasks but should not recreate these resources
 
 # Taking ca.crt value in a variable
 # Mongo needs a configmap having ca.crt value
@@ -189,7 +193,7 @@
   kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
-    name: mas-mongo-ce-cert-map
+    name: "{{ mongodb_instance_name }}-cert-map"
     namespace: "{{ mongodb_namespace }}"
   register: ca_cfgmap_info
 
@@ -210,7 +214,7 @@
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
-    name: mas-mongo-ce-admin-password
+    name: "{{ mongodb_instance_name }}-admin-password"
     namespace: "{{ mongodb_namespace }}"
   register: admin_password_info
 
@@ -228,7 +232,7 @@
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
-    name: mas-mongo-ce-metrics-endpoint-secret
+    name: "{{ mongodb_instance_name }}-metrics-endpoint-secret"
     namespace: "{{ mongodb_namespace }}"
   register: metrics_endpoint_secret_info
   when:
@@ -311,15 +315,15 @@
     - debug:
         var: scale_down_mongo_deployment_output.stdout
 
-    - name: "community : install : Delete mas-mongo-ce statefulset so next time it recreates with right image"
-      shell: oc delete statefulset mas-mongo-ce -n {{ mongodb_namespace }}
+    - name: "community : install : Delete {{ mongodb_instance_name }} statefulset so next time it recreates with right image"
+      shell: oc delete statefulset {{ mongodb_instance_name }} -n {{ mongodb_namespace }}
       register: delete_mongo_ss_output
 
     - debug:
         var: delete_mongo_ss_output.stdout
 
-    - name: "community : install : Delete mas-mongo-ce-arb statefulset so next time it recreates with right image"
-      shell: oc delete statefulset mas-mongo-ce-arb -n {{ mongodb_namespace }}
+    - name: "community : install : Delete {{ mongodb_instance_name }}-arb statefulset so next time it recreates with right image"
+      shell: oc delete statefulset {{ mongodb_instance_name }}-arb -n {{ mongodb_namespace }}
       register: delete_mongo_ss_arb_output
 
     - debug:
@@ -332,11 +336,11 @@
     - debug:
         var: scale_up_mongo_deployment_output.stdout
 
-- name: "community : install : Wait for mas-mongo-ce stateful set to be ready"
+- name: "community : install : Wait for {{ mongodb_instance_name }} stateful set to be ready"
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet
-    name: mas-mongo-ce
+    name: "{{ mongodb_instance_name }}"
     namespace: "{{ mongodb_namespace }}"
   vars:
     mongodb_replicas_check: "{{ existing_mongodb.resources[0].spec.members | default(mongodb_replicas|int) }}"
@@ -349,12 +353,12 @@
     - mongodb_statefulset.resources[0].status.readyReplicas is defined
     - mongodb_statefulset.resources[0].status.readyReplicas ==  (mongodb_replicas_check|int)
 
-- name: "community : install : Wait for mas-mongo-ce-arb stateful set to be ready"
+- name: "community : install : Wait for {{ mongodb_instance_name }}-arb stateful set to be ready"
   when: target_mongodb_version is version('4.4.0','>=') # this statefulset will only exist in Mongo v4.4+
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: StatefulSet
-    name: mas-mongo-ce-arb
+    name: "{{ mongodb_instance_name }}-arb"
     namespace: "{{ mongodb_namespace }}"
   register: mongodb_arb_statefulset
   retries: 45 # Approx 90 minutes
@@ -369,7 +373,7 @@
   kubernetes.core.k8s_info:
     api_version: mongodbcommunity.mongodb.com/v1
     kind: MongoDBCommunity
-    name: mas-mongo-ce
+    name: "{{ mongodb_instance_name }}"
     namespace: "{{ mongodb_namespace }}"
   register: mongodb_cr
   retries: 45 # Approx 45 minutes
@@ -384,7 +388,7 @@
   kubernetes.core.k8s_info:
     api_version: monitoring.coreos.com/v1
     kind: ServiceMonitor
-    name: mas-mongo-ce-service-monitor
+    name: "{{ mongodb_instance_name }}-service-monitor"
     namespace: "{{ mongodb_namespace }}"
   register: mongoce_servicemonitor_info
   when:
@@ -477,7 +481,7 @@
         kind: Pod
         namespace: "{{ mongodb_namespace }}"
         label_selectors:
-          - app=mas-mongo-ce-svc
+          - "app={{ mongodb_instance_name }}-svc"
       register: mongo_pods_output
 
     # List all mongo replicas
@@ -498,7 +502,7 @@
       kubernetes.core.k8s_info:
         api_version: v1
         kind: Secret
-        name: mas-mongo-ce-admin-admin
+        name: "{{ mongodb_instance_name }}-admin-admin"
         namespace: "{{ mongodb_namespace }}"
       register: admin_password_lookup
       retries: 30 # 30 * 30 seconds = 30 minutes
@@ -512,7 +516,7 @@
       kubernetes.core.k8s_info:
         api_version: v1
         kind: ConfigMap
-        name: mas-mongo-ce-cert-map
+        name: "{{ mongodb_instance_name }}-cert-map"
         namespace: "{{ mongodb_namespace }}"
       register: mongodb_ca_lookup
 

@@ -1,75 +1,58 @@
 ---
 # Check mongodb backup variables
 # -----------------------------------------------------------------------------
-- name: "Fail if mas_instance_id is not provided"
-  assert:
-    that: mas_instance_id is defined and mas_instance_id != ""
-    fail_msg: "mas_instance_id is required"
 
-# Get mongodb information
-# -------------------------------------------------------------------------
-- name: "Get mongodb information"
-  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/get-mongo-info.yml"
+- name: "Fail if require variables for Mongodb backup are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    action: "{{ mongodb_action }}"
+    component: "mongodb"
 
-# Set common backup job variables
-# -----------------------------------------------------------------------------
-- name: "Set fact: common backup job variables"
+- name: "Check if MONGODB_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
   set_fact:
-    masbr_job_component:
-      name: "mongodb"
-      instance: "{{ mas_instance_id }}"
-      app: "{{ mas_app_id }}"
-      namespace: "{{ mongodb_namespace }}"
-      provider: "{{ mongodb_provider }}"
-      version: "{{ mongodb_version }}"
-    masbr_job_data_list:
-      - seq: "1"
-        type: "database"
+    mongodb_backup_version: "{{ lookup('pipe', 'date +%y%m%d-%H%M%S') }}"
+  when: mongodb_backup_version is not defined or mongodb_backup_version == ""
 
-# Before run tasks
+- name: "Set fact: Create Mongodb backup base directory path"
+  set_fact:
+    mongodb_backup_path: "{{ mas_backup_dir }}/{{ mongodb_action }}-{{ mongodb_backup_version }}-mongoce"
+
+- name: "Create {{ mongodb_backup_path }} directory for Mongodb backup"
+  file:
+    path: "{{ mongodb_backup_path }}"
+    state: directory
+    mode: "0755"
+
+# Backup Mongodb Kubernetes Resources
 # -------------------------------------------------------------------------
-- name: "Before run tasks"
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
-  vars:
-    _ignore_masbr_backup_data: true
-    _job_type: "backup"
-    _component_before_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/before-backup-restore.yml"
-
-- name: "Perform backup"
+- name: "Start Mongo Instance backup process."
   block:
-    # Update backup job status: New
-    # -------------------------------------------------------------------------
-    - name: "Update backup job status: New"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
-      vars:
-        _job_data_list:
-          - seq: "1"
-            phase: "New"
+    - name: "Backup MongoDB Instance Kubernetes resources"
+      ibm.mas_devops.backup_mongo_instance:
+        mongodb_backup_path: "{{ mongodb_backup_path }}"
+        mongodb_namespace: "{{ mongodb_namespace }}"
+        mongodb_instance_name: "{{ mongodb_instance_name }}"
+      register: mongo_instance_backup_result
 
-    # Run backup tasks for each data type
-    # -------------------------------------------------------------------------
-    - name: "Run backup tasks for each data type"
-      include_tasks: "tasks/providers/{{ mongodb_provider }}/backup-restore/backup-{{ job_data_item.type }}.yml"
-      vars:
-        masbr_job_data_seq: "{{ job_data_item.seq }}"
-        masbr_job_data_type: "{{ job_data_item.type }}"
-      loop: "{{ masbr_job_data_list }}"
-      loop_control:
-        loop_var: job_data_item
+    - name: "Assert Mongo Instance backup success"
+      assert:
+        that:
+          - mongo_instance_backup_result is defined
+          - mongo_instance_backup_result.success == true
+        fail_msg: "MongoDB Instance resources backup failed."
+  when: not skip_instance_backup_restore
 
-  rescue:
-    # Update backup status: Failed
-    # -------------------------------------------------------------------------
-    - name: "Update database backup status: Failed"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
-      vars:
-        _job_status:
-          phase: "Failed"
+# Backup Mongodb database Data using mondodump
+# -------------------------------------------------------------------------
 
-  always:
-    # After run tasks
-    # -------------------------------------------------------------------------
-    - name: "After run tasks"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/after_run_tasks.yml"
-      vars:
-        _component_after_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/after-backup-restore.yml"
+- name: "Debug information - Mongodb database Data backup"
+  debug:
+    msg:
+      - "MongoCE namespace .......................... {{ mongodb_namespace }}"
+      - "MongoCE instance name ...................... {{ mongodb_instance_name }}"
+      - "{{ 'MongoCE version ............................ ' ~ mongodb_version if mongodb_version is defined else omit }}"
+
+- name: "Start Database backup process."
+  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-database.yml"

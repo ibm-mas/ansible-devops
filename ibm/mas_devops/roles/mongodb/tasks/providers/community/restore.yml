@@ -1,77 +1,141 @@
 ---
 # Check mongodb restore required variables
 # -----------------------------------------------------------------------------
-- name: "Set fact: "
+- name: "Fail if require variables for Mongodb {{ mongodb_action }} are not provided"
+  ibm.mas_devops.verify_backup_restore_vars:
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mongodb_backup_version: "{{ mongodb_backup_version }}"
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    action: "{{ mongodb_action }}"
+    component: "mongodb"
+
+- name: "Set fact: backup dir paths"
   set_fact:
-    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mongodb_backup_dir: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce"
+    mongodb_resource_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce/resources"
+    mongodb_data_path: "{{ mas_backup_dir }}/backup-{{ mongodb_backup_version }}-mongoce/data"
 
-- name: "Fail if mas_instance_id is not provided"
-  assert:
-    that: mas_instance_id is defined and mas_instance_id != ""
-    fail_msg: "mas_instance_id is required"
-
-# Get mongodb information
-# -------------------------------------------------------------------------
-- name: "Get mongodb information"
-  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/get-mongo-info.yml"
-
-# Set common restore job variables
+# Check for existing MongoDb install
 # -----------------------------------------------------------------------------
-- name: "Set fact: common restore job variables"
-  set_fact:
-    masbr_job_component:
-      name: "mongodb"
-      instance: "{{ mas_instance_id }}"
-      namespace: "{{ mongodb_namespace }}"
-      provider: "{{ mongodb_provider }}"
-      version: "{{ mongodb_version }}"
-    masbr_job_data_list:
-      - seq: "1"
-        type: "database"
+- name: "Check for existing MongoDB installation in namespace {{ mongodb_namespace }}"
+  ibm.mas_devops.verify_mongoce_version:
+    mongodb_instance_name: "{{ mongodb_instance_name }}"
+    mongodb_namespace: "{{ mongodb_namespace }}"
+  register: existing_mongo_info
 
-# Before run tasks
-# -------------------------------------------------------------------------
-- name: "Before run tasks"
-  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
-  vars:
-    _job_type: "restore"
-    _component_before_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/before-backup-restore.yml"
-
-- name: "Perform restore"
+# Prepare for restore
+# -----------------------------------------------------------------------------
+- name: "Prepare for MongoCE instance restore"
+  when:
+    - not skip_instance_backup_restore
+    - existing_mongo_info is defined
+    - not existing_mongo_info.running
   block:
-    # Update restore job status: New
-    # -------------------------------------------------------------------------
-    - name: "Update restore job status: New"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
-      vars:
-        _job_data_list:
-          - seq: "1"
-            phase: "New"
 
-    # Run restore tasks for each data type
-    # -------------------------------------------------------------------------
-    - name: "Run restore tasks for each data type"
-      include_tasks: "tasks/providers/{{ mongodb_provider }}/backup-restore/restore-{{ job_data_item.type }}.yml"
-      vars:
-        masbr_job_data_seq: "{{ job_data_item.seq }}"
-        masbr_job_data_type: "{{ job_data_item.type }}"
-      loop: "{{ masbr_job_data_list }}"
-      loop_control:
-        loop_var: job_data_item
+    # Get mongodb backup CR information
+    # -----------------------------------------------------------------------------
+    - name: "Check and get mongodb backup cr.yml"
+      ibm.mas_devops.get_mongodb_cr_to_restore:
+        mas_backup_dir: "{{ mas_backup_dir }}"
+        mongodb_backup_version: "{{ mongodb_backup_version }}"
+      register: mongodb_backup_cr_result
 
-  rescue:
-    # Update restore status: Failed
-    # -------------------------------------------------------------------------
-    - name: "Update database restore status: Failed"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
-      vars:
-        _job_status:
-          phase: "Failed"
+    - name: "Set fact : cr.yml"
+      set_fact:
+        mongodb_cr: "{{ mongodb_backup_cr_result.mongodb_cr }}"
 
-  always:
-    # After run tasks
-    # -------------------------------------------------------------------------
-    - name: "After run tasks"
-      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/after_run_tasks.yml"
-      vars:
-        _component_after_task_path: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/after-backup-restore.yml"
+    - name: "Set fact: Retrieve information from backup CR"
+      set_fact:
+        mongodb_namespace: "{{ mongodb_cr.metadata.namespace }}"
+        mongodb_instance_name: "{{ mongodb_cr.metadata.name }}"
+        mongo_extras_version: "{{ mongodb_cr.spec.version }}"
+        target_mongodb_version: "{{ mongodb_cr.spec.version }}"
+        mongodb_security: "{{ mongodb_cr.spec.security }}"
+        mongodb_users: "{{ mongodb_cr.spec.users | default([]) }}"
+        mongodb_replicas: "{{ mongodb_cr.spec.members }}"
+        mongodb_cpu_limits: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('500m') }}"
+        mongodb_memory_limits: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.limits.cpu | default('1Gi') }}"
+        mongodb_cpu_requests: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('250m') }}"
+        mongodb_memory_requests: "{{ mongodb_cr.spec.statefulSet.spec.template.spec.containers[0].resources.requests.cpu | default('512Mi') }}"
+        backup_mongodb_storage_class: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[0].spec.storageClassName }}"
+        mongodb_storage_capacity_data: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage }}"
+        mongodb_storage_capacity_logs: "{{ mongodb_cr.spec.statefulSet.spec.volumeClaimTemplates[1].spec.resources.requests.storage }}"
+
+    - name: "Debug: Mongodb restore variables"
+      debug:
+        msg:
+          - "mongodb_namespace: {{ mongodb_namespace }}"
+          - "mongodb_instance_name: {{ mongodb_instance_name }}"
+          - "mongo_extras_version: {{ mongo_extras_version }}"
+          - "target_mongodb_version: {{ target_mongodb_version }}"
+          - "mongodb_security: {{ mongodb_security }}"
+          - "mongodb_users: {{ mongodb_users }}"
+          - "mongodb_replicas: {{ mongodb_replicas }}"
+          - "mongodb_cpu_limits: {{ mongodb_cpu_limits }}"
+          - "mongodb_memory_limits: {{ mongodb_memory_limits }}"
+          - "mongodb_cpu_requests: {{ mongodb_cpu_requests }}"
+          - "mongodb_memory_requests: {{ mongodb_memory_requests }}"
+          - "backup_mongodb_storage_class: {{ backup_mongodb_storage_class }}"
+          - "mongodb_storage_capacity_data: {{ mongodb_storage_capacity_data }}"
+          - "mongodb_storage_capacity_logs: {{ mongodb_storage_capacity_logs }}"
+
+    # Prepare storage class
+    # -----------------------------------------------------------------------------
+    # Set storage class name to use for mongodb restore.
+    # If existing mongo instance found, use its storage class.
+    # Else use storage class from backup CR.
+    # If that does not exist, use default storage class.
+    - name: "Determine storage class to use for MongoDB restore"
+      ibm.mas_devops.verify_mongoce_version:
+        mongodb_instance_name: "{{ mongodb_instance_name }}"
+        mongodb_namespace: "{{ mongodb_namespace }}"
+        backup_mongodb_storage_class: "{{ backup_mongodb_storage_class }}"
+      register: storage_class_check_result
+
+    - name: "Set fact: mongodb_storage_class to use for restore"
+      set_fact:
+        mongodb_storage_class: "{{ storage_class_check_result.storage_class }}"
+      when:
+        - storage_class_check_result is defined
+        - storage_class_check_result.storage_class is defined
+
+    # Restore MongoDb instance's resources from backup
+    # We will restore the following resources from backup:
+    #   - User, TLS Secrets defined in the MongoDb CR
+    #   - Issuers in the MongoDb namespace
+    #   - Certificates in the MongoDb namespace
+    # All the other resources will be created afresh during MongoDb installation
+    # -----------------------------------------------------------------------------
+
+    - name: "Restore MongoDB instance resources from backup"
+      ibm.mas_devops.restore_mongoce_resources:
+        mongodb_namespace: "{{ mongodb_namespace }}"
+        backup_secrets_path: "{{ mongodb_resource_path }}/secrets"
+        backup_issuers_path: "{{ mongodb_resource_path }}/issuers"
+        backup_certificates_path: "{{ mongodb_resource_path }}/certificates"
+      register: restore_mongoce_resources_result
+
+    - name: "Assert: MongoDB resources restored successfully"
+      assert:
+        that:
+          - restore_mongoce_resources_result is defined
+          - restore_mongoce_resources_result.restored is defined
+          - restore_mongoce_resources_result.restored == True
+        fail_msg: "Failed to restore MongoDB instance resources from backup."
+
+    # Install the selected MongoDb version for restore
+    # -----------------------------------------------------------------------------
+    - name: "community : Setup mongo version {{ target_mongodb_version }} for restore"
+      include_tasks: tasks/providers/community/install-mongo.yml
+      when:
+        - existing_mongo_info is defined
+        - not existing_mongo_info.running
+
+# Restore the database data from backup
+# -----------------------------------------------------------------------------
+- name: "Start Database restore process."
+  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/restore-database.yml"
+  when:
+    - existing_mongo_info is defined
+    - existing_mongo_info.running
