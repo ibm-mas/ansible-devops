@@ -63,7 +63,6 @@ copyDoc ocp_simulate_disconnected_network
 copyDoc ocp_upgrade
 copyDoc ocp_verify
 copyDoc ocs
-copyDoc opentelemetry
 copyDoc registry
 copyDoc sls
 copyDoc smtp
