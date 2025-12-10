@@ -56,7 +56,7 @@
 # 4. Lookup for superuser credentials
 # -----------------------------------------------------------------------------
 - name: "Lookup MAS superuser credentials"
-  when: not mas_hide_superuser_credentials
+  when: not (mas_hide_superuser_credentials | bool)
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
@@ -65,13 +65,13 @@
   register: superuser_credentials
 
 - name: "Show the username/password"
-  when: not mas_hide_superuser_credentials
+  when: not (mas_hide_superuser_credentials | bool)
   set_fact:
     superuser_username: "{{ superuser_credentials.resources[0].data.username | b64decode }}"
     superuser_password: "{{ superuser_credentials.resources[0].data.password | b64decode }}"
 
 - name: "Hide actual username/password"
-  when: mas_hide_superuser_credentials
+  when: mas_hide_superuser_credentials | bool
   set_fact:
     superuser_username: "Available in Secret/{{ mas_instance_id }}-credentials-superuser"
     superuser_password: "Available in Secret/{{ mas_instance_id }}-credentials-superuser"
