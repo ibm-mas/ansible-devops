@@ -68,6 +68,13 @@
     arcgis_mref_detected: "{{ mref_lookup.resources is defined and mref_lookup.resources | length > 0 }}"
     arcgis_mref_ready: "{{ mref_lookup.resources is defined and mref_lookup.resources | length > 0 and mref_lookup.resources | json_query('[*].status.conditions[?type==`Ready`][].status') | select('match', 'True') | list | length == 1 }}"
 
+- name: "Assert that ArcGIS is installed with Manage or MREF"
+  assert:
+    that:
+      - (arcgis_manage_detected and arcgis_manage_ready) or (arcgis_mref_detected and arcgis_mref_ready)
+    fail_msg: "ArcGIS must be installed bundled with at least one application: Manage (with Spatial) or MREF (Facilities). Valid combinations: ArcGIS+MREF, ArcGIS+Manage, or ArcGIS+MREF+Manage. Found: Manage Detected={{ arcgis_manage_detected }}, Manage Ready={{ arcgis_manage_ready }}, MREF Detected={{ arcgis_mref_detected }}, MREF Ready={{ arcgis_mref_ready }}"
+
+
 # 3. Provide Debug information
 # -----------------------------------------------------------------------------
 - name: "Debug information - IBM Maximo Location Services for Esri "
