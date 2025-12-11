@@ -1,0 +1,37 @@
+---
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    # Define the target for backup/restore
+    mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+    mas_backup_dir: "{{ lookup('env', 'MAS_BACKUP_DIR') }}" # eg: /tmp/mas_backups
+    mongodb_instance_name: "{{ lookup('env', 'MONGODB_INSTANCE_NAME') | default('mas-mongo-ce', true) }}"
+    mongodb_namespace: "{{ lookup('env', 'MONGODB_NAMESPACE') | default('mongoce', true) }}"
+    mongodb_action: "{{ lookup('env', 'MONGODB_ACTION') | default('backup', true) }}" # backup or restore
+    mongodb_provider: "community" # only community is supported currently
+    mas_app_id: "{{ lookup('env', 'MAS_APP_ID') }}" # Optional
+    mongodb_backup_version: "{{ lookup('env', 'MONGODB_BACKUP_VERSION') | default('None', true)}}" # Required for restore action
+    br_skip_instance: "{{ lookup('env', 'BR_SKIP_INSTANCE') | default(false, true) }}" # set to True to skip mongodb instance backup/restore
+  
+
+  pre_tasks:
+    - name: "Fail if require variables for Mongodb backup/restore are not provided"
+      ibm.mas_devops.verify_backup_restore_vars:
+        mas_instance_id: "{{ mas_instance_id }}"
+        mas_backup_dir: "{{ mas_backup_dir }}"
+        mongodb_instance_name: "{{ mongodb_instance_name }}"
+        mongodb_backup_version: "{{ mongodb_backup_version }}"
+        action: "{{ mongodb_action }}"
+        component: "mongodb"
+
+  roles:
+    - role: ibm.mas_devops.mongodb
+      vars:
+        mongodb_action: "{{ mongodb_action }}"
+        mongodb_provider: "{{ mongodb_provider }}"
+        mas_instance_id: "{{ mas_instance_id }}"
+        mas_backup_dir: "{{ mas_backup_dir }}"
+        mongodb_instance_name: "{{ mongodb_instance_name }}"
+        mongodb_namespace: "{{ mongodb_namespace }}"
+        mas_app_id: "{{ mas_app_id }}"
+        mongodb_backup_version: "{{ mongodb_backup_version }}"
