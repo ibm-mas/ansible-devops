@@ -164,7 +164,7 @@
         name: ibm-registry
         namespace: "{{ db2_namespace }}"
       data:
-        .dockerconfigjson: "{{ dockerconfigjsonB64 }}"
+        .dockerconfigjson: "{{ new_secret | to_json | string | b64encode }}"
   register: secretUpdateResult
 
 - name: "Delete old db2 subscription, operand request and csv from {{ ibm_common_services_namespace }}"
@@ -249,6 +249,28 @@
       no_log: true
       set_fact:
         db2_releases_content: "{{ db2_release_info.resources[0].data.json | from_json }}"
+
+    # Test: Adding new concept to rotate db2_channel
+    # Rotate DB2 channel by day of the week
+    - name: "Rotate DB2 channel based on day of the week"
+      when: db2_channel | default("") == "rotate"
+      set_fact:
+        db2_channel: "{{ rotate_db2_channel[ansible_date_time['weekday']] }}"
+      vars:
+        rotate_db2_channel:
+          Monday:    "v110509.0"
+          Tuesday:   "v120101.0"
+          Wednesday: "v120102.0"
+          Thursday:  "v110509.0"
+          Friday:    "v120101.0"
+          Saturday:  "v120102.0"
+          Sunday:    "v120100.0"
+
+    # Set default DB2 channel if not provided
+    - name: "Set default DB2 channel"
+      when: db2_channel == "default" or db2_channel is not defined or db2_channel == ""
+      set_fact:
+        db2_channel: "v110509.0"   # Default db2Channel if not provided
 
     - name: Extract major version from channel
       set_fact:
