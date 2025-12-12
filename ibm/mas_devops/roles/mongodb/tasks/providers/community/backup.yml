@@ -25,24 +25,12 @@
     state: directory
     mode: "0755"
 
-# Backup Mongodb Kubernetes Resources
+# Backup Mongodb Cluster Instance Kubernetes Resources
 # -------------------------------------------------------------------------
-- name: "Start Mongo Instance backup process."
-  block:
-    - name: "Backup MongoDB Instance Kubernetes resources"
-      ibm.mas_devops.backup_mongo_instance:
-        mongodb_backup_path: "{{ mongodb_backup_path }}"
-        mongodb_namespace: "{{ mongodb_namespace }}"
-        mongodb_instance_name: "{{ mongodb_instance_name }}"
-      register: mongo_instance_backup_result
 
-    - name: "Assert Mongo Instance backup success"
-      assert:
-        that:
-          - mongo_instance_backup_result is defined
-          - mongo_instance_backup_result.success == true
-        fail_msg: "MongoDB Instance resources backup failed."
-  when: not br_skip_instance
+- name: "Start MongoCE Instance backup process."
+  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-cluster.yml"
+  when: not br_skip_instance | bool
 
 # Backup Mongodb database Data using mondodump
 # -------------------------------------------------------------------------
