@@ -128,17 +128,32 @@
     template: "templates/db2u_namespace.yaml"
   register: _db2_namespace_result
 
+# - name: Set 'ibm-registry' secret content
+#   no_log: true
+#   vars:
+#     entitledAuthStr: "{{ registry_user }}:{{ ibm_entitlement_key }}"
+#     entitledAuth: "{{ entitledAuthStr | b64encode }}"
+#     content:
+#       - '{"auths":{"{{ registry }}/cp/cpd":{"username":"{{ registry_user }}","password":"{{ ibm_entitlement_key }}","email":"{{ registry_user }}","auth":"{{ entitledAuth }}"}'
+#       - "}"
+#       - "}"
+#   set_fact:
+#     new_secret: "{{ content | join('') }}"
+
 - name: Set 'ibm-registry' secret content
   no_log: true
   vars:
     entitledAuthStr: "{{ registry_user }}:{{ ibm_entitlement_key }}"
     entitledAuth: "{{ entitledAuthStr | b64encode }}"
-    content:
-      - '{"auths":{"{{ registry }}/cp/cpd":{"username":"{{ registry_user }}","password":"{{ ibm_entitlement_key }}","email":"{{ registry_user }}","auth":"{{ entitledAuth }}"}'
-      - "}"
-      - "}"
+    dockerconfig:
+      auths:
+        "{{ registry }}/cp/cpd":
+          username: "{{ registry_user }}"
+          password: "{{ ibm_entitlement_key }}"
+          email: "{{ registry_user }}"
+          auth: "{{ entitledAuth }}"
   set_fact:
-    new_secret: "{{ content | join('') }}"
+    new_secret: "{{ dockerconfig | to_json | b64encode }}"
 
 # Note: We use "new_secret | to_json " because older versions of Ansible create
 # invalid json representations containing single quotes
