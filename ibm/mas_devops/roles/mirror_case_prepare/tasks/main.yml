@@ -31,6 +31,10 @@
     ibmpak_flag_skip_verify: "{{ ibmpak_skip_verify | ternary('--skip-verify', '') }}"
     ibmpak_flag_skip_dependencies: "{{ ibmpak_skip_dependencies | ternary('--skip-dependencies', '') }}"
 
+- name: "{{ case_name }} : Determine if CASECTL_RESOLVE_CHARTS should be disabled"
+  set_fact:
+    casectl_resolve_charts_disabled: "{{ casectl_resolve_charts | ternary('', 'CASECTL_RESOLVE_CHARTS=false') }}"
+
 - name: "{{ case_name }} : Airgap setup configuration"
   debug:
     msg:
@@ -43,11 +47,12 @@
       - "Skip Verify ............................ {{ ibmpak_skip_verify }}"
       - "Skip Dependencies ...................... {{ ibmpak_skip_dependencies }}"
       - "IBM Pak Flags .......................... {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}"
+      - "CASECTL_RESOLVE_CHARTS ................. {{ casectl_resolve_charts_disabled }}"
 
 # 4. Get the CASE bundle
 # -----------------------------------------------------------------------------
 - name: "{{ case_name }} : Get the CASE bundle"
-  shell: oc ibm-pak get {{ case_name }} --version {{ case_version }} {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}
+  shell: "{{ casectl_resolve_charts_disabled }} oc ibm-pak get {{ case_name }} --version {{ case_version }} {{ ibmpak_flag_insecure }} {{ ibmpak_flag_skip_verify }} {{ ibmpak_flag_skip_dependencies }}"
   register: ibmpak_get_result
 
 - name: "{{ case_name }} : Get Build from output"
