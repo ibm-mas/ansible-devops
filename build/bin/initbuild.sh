@@ -79,11 +79,11 @@ else
     echo "1.0.0" > $VERSION_FILE
     echo "Configuring semver for initial release of $(cat $VERSION_FILE)"
   elif [[ "${SEMVER_RELEASE_LEVEL}" =~ ^(major|minor|patch)$ ]]; then
-    semver bump ${SEMVER_RELEASE_LEVEL} ${SEMVER_LAST_TAG} > $VERSION_FILE
+    semver bump ${SEMVER_RELEASE_LEVEL} ${SEMVER_LAST_TAG} > $VERSION_FILE || exit 1
     echo "Configuring semver for ${SEMVER_RELEASE_LEVEL} bump from ${SEMVER_LAST_TAG} to $(cat $VERSION_FILE)"
   else
     # Default to a patch revision
-    semver bump patch ${SEMVER_LAST_TAG} > $VERSION_FILE
+    semver bump patch ${SEMVER_LAST_TAG} > $VERSION_FILE || exit 1
     echo "Configuring semver for rebuild of ${SEMVER_LAST_TAG}: $(cat $VERSION_FILE)"
   fi
 fi
@@ -92,7 +92,20 @@ fi
 # 2. Tweak version string for pre-release builds
 # -----------------------------------------------------------------------------
 if [[ "${GITHUB_REF_TYPE}" == "branch" ]]; then
-    semver bump prerel pre.$GITHUB_REF_NAME $(cat $VERSION_FILE) > $VERSION_FILE
+    SEMVER_NAME=$GITHUB_REF_NAME
+
+    # GitHub Merge queue branch names will result in an invalid tag, this converts:
+    #
+    # gh-readonly-queue/master/pr-2027-92045ebd659c36f778d00b23ac8870ebbb3353f6
+    #
+    # to:
+    #
+    # pr-2027
+    if [[ "$GITHUB_REF_NAME" =~ ^gh-readonly-queue/master/(pr-.+)- ]]; then
+      SEMVER_NAME="${BASH_REMATCH[1]}"
+    fi
+
+    semver bump prerel pre.$SEMVER_NAME $(cat $VERSION_FILE) > $VERSION_FILE || exit 1
     echo "Pre-release build: $(cat $VERSION_FILE)"
 fi
 
