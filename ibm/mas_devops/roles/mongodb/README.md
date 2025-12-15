@@ -178,61 +178,27 @@ Set this to `true` to confirm you want to upgrade your existing Mongo instance f
 - Environment Variable: `MONGODB_V8_UPGRADE`
 - Default Value: `false`
 
-### masbr_confirm_cluster
-Set `true` or `false` to indicate the role whether to confirm the currently connected cluster before running the backup or restore job.
+### mas_backup_dir
+Parent directory to store backups. Each component will create its own directory in this parent directory.
 
-- Optional
-- Environment Variable: `MASBR_CONFIRM_CLUSTER`
-- Default: `false`
-
-### masbr_copy_timeout_sec
-Set the transfer files timeout in seconds.
-
-- Optional
-- Environment Variable: `MASBR_COPY_TIMEOUT_SEC`
-- Default: `43200` (12 hours)
-
-### masbr_job_timezone
-Set the [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for creating scheduled backup job. If not set a value for this variable, this role will use UTC time zone when creating a CronJob for running scheduled backup job.
-
-- Optional
-- Environment Variable: `MASBR_JOB_TIMEZONE`
+- **Required** only when `MONGODB_ACTION=backup or restore`
+- Environment Variable: `MAS_BACKUP_DIR`
 - Default: None
 
-### masbr_storage_local_folder
-Set local path to save the backup files.
+### mongodb_backup_version
+When `MONGODB_ACTION=backup`, Set version to override the default `YYMMDD-HHMMSS` timestamp version.
+When `MONGODB_ACTION=restore`, Set version to use in the restore. Backup with this version will be used to restore.
 
-- **Required**
-- Environment Variable: `MASBR_STORAGE_LOCAL_FOLDER`
-- Default: None
+- **Required** when `MONGODB_ACTION=restore`, default: None
+- **Optional when `MONGODB_ACTION=backup`, default: `YYMMDD-HHMMSS` timestamp.
+- Environment Variable: `MONGODB_BACKUP_VERSION`
 
-### masbr_backup_type
-Set `full` or `incr` to indicate the role to create a full backup or incremental backup.
-
-- Optional
-- Environment Variable: `MASBR_BACKUP_TYPE`
-- Default: `full`
-
-### masbr_backup_from_version
-Set the full backup version to use in the incremental backup, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`). This variable is only valid when `MASBR_BACKUP_TYPE=incr`. If not set a value for this variable, this role will try to find the latest full backup version from the specified storage location.
+### br_skip_instance
+Set this to `true` to skip the instance level or kubernetes resources backup/restore i.e., skips instance/kubernetes resources and processes only database backup/restore.
 
 - Optional
-- Environment Variable: `MASBR_BACKUP_FROM_VERSION`
-- Default: None
-
-### masbr_backup_schedule
-Set [Cron expression](ttps://en.wikipedia.org/wiki/Cron) to create a scheduled backup. If not set a value for this varialbe, this role will create an on-demand backup.
-
-- Optional
-- Environment Variable: `MASBR_BACKUP_SCHEDULE`
-- Default: None
-
-### masbr_restore_from_version
-Set the backup version to use in the restore, this will be in the format of a `YYYMMDDHHMMSS` timestamp (e.g. `20240621021316`)
-
-- **Required** only when `MONGODB_ACTION=restore`
-- Environment Variable: `MASBR_RESTORE_FROM_VERSION`
-- Default: None
+- Environment Variable: `BR_SKIP_INSTANCE`
+- Default Value: `false`
 
 
 Role Variables - IBM Cloud
@@ -538,9 +504,9 @@ Example Playbooks
 - hosts: localhost
   any_errors_fatal: true
   vars:
-    mongodb_action: backup
     mas_instance_id: masinst1
-    masbr_storage_local_folder: /tmp/masbr
+    mas_backup_dir: /tmp/masbr
+    mongodb_action: backup
   roles:
     - ibm.mas_devops.mongodb
 ```
@@ -552,8 +518,8 @@ Example Playbooks
   vars:
     mongodb_action: restore
     mas_instance_id: masinst1
-    masbr_restore_from_version: 20240621021316
-    masbr_storage_local_folder: /tmp/masbr
+    mongodb_backup_version: 251212-021316
+    mas_backup_dir: /tmp/masbr
   roles:
     - ibm.mas_devops.mongodb
 ```

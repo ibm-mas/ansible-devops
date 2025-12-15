@@ -13,7 +13,7 @@
 - name: "Check if MONGODB_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
   set_fact:
     mongodb_backup_version: "{{ lookup('pipe', 'date +%y%m%d-%H%M%S') }}"
-  when: mongodb_backup_version is not defined or mongodb_backup_version == ""
+  when: mongodb_backup_version is not defined or mongodb_backup_version == "" or mongodb_backup_version == "None"
 
 - name: "Set fact: Create Mongodb backup base directory path"
   set_fact:
@@ -25,24 +25,12 @@
     state: directory
     mode: "0755"
 
-# Backup Mongodb Kubernetes Resources
+# Backup Mongodb Cluster Instance Kubernetes Resources
 # -------------------------------------------------------------------------
-- name: "Start Mongo Instance backup process."
-  block:
-    - name: "Backup MongoDB Instance Kubernetes resources"
-      ibm.mas_devops.backup_mongo_instance:
-        mongodb_backup_path: "{{ mongodb_backup_path }}"
-        mongodb_namespace: "{{ mongodb_namespace }}"
-        mongodb_instance_name: "{{ mongodb_instance_name }}"
-      register: mongo_instance_backup_result
 
-    - name: "Assert Mongo Instance backup success"
-      assert:
-        that:
-          - mongo_instance_backup_result is defined
-          - mongo_instance_backup_result.success == true
-        fail_msg: "MongoDB Instance resources backup failed."
-  when: not skip_instance_backup_restore
+- name: "Start MongoCE Instance backup process."
+  include_tasks: "{{ role_path }}/tasks/providers/{{ mongodb_provider }}/backup-restore/backup-cluster.yml"
+  when: not br_skip_instance | bool
 
 # Backup Mongodb database Data using mondodump
 # -------------------------------------------------------------------------

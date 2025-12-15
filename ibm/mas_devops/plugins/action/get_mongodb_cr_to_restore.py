@@ -40,7 +40,7 @@ class ActionModule(ActionBase):
         mongodb_backup_version = self._task.args.get('mongodb_backup_version')
 
         if mongodb_resource_path is None or mongodb_resource_path == "":
-            raise AnsibleError(f"Error: mongodb_instance_name argument was not provided")
+            raise AnsibleError(f"Error: mongodb_resource_path argument was not provided")
         
         if mongodb_backup_version is None or mongodb_backup_version == "":
             raise AnsibleError(f"Error: mongodb_backup_version argument was not provided")
