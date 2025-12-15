@@ -10,28 +10,6 @@ MAS Devops Collection includes playbooks for backing up and restoring of the fol
 - [MAS Core](#backuprestore-for-mas-core)
 - [Manage](#backuprestore-for-manage)
 
-
-Configuration - Backup
--------------------------------------------------------------------------------
-
-| Envrionment variable                 | Required (Default Value) | Description |
-| ------------------------------------ | ------------------------ | ----------- |
-| MASBR_ACTION                         | **Yes**                  | Whether to run the playbook to perform a `backup` or a `restore` |
-| MASBR_BACKUP_VERSION            | No                       | By default, this will be in the format of a `YYMMDD-HHMMSS` timestamp (e.g. `251212-021316`). |
-
-The playbooks are switched to backup mode by setting `MASBR_ACTION` to `backup`.
-
-Configuration - Restore
--------------------------------------------------------------------------------
-
-| Envrionment variable                 | Required (Default Value) | Description |
-| ------------------------------------ | ------------------------ | ----------- |
-| MASBR_ACTION                         | **Yes**                  | Whether to run the playbook to perform a `backup` or a `restore` |
-| MASBR_BACKUP_VERSION            | **Yes**                  | Set the backup version to use in the restore, this will be in the format of a `YYMMDD-HHMMSS` timestamp (e.g. `251212-021316`) |
-
-The playbooks are switched to restore mode by setting `MASBR_ACTION` to `restore`. You **must** specify the `MASBR_BACKUP_VERSION` environment variable to indicate which version of the backup files to use.
-
-
 # MongoDB Community Edition Backup and Restore Playbook
 -------------------------------------------------------------------------------
 This playbook `ibm.mas_devops.br_mongodb` will invoke the role [mongodb](../roles/mongodb.md) to backup/restore the MongoDB cluster instance and databases.
@@ -109,13 +87,15 @@ The restore operation also consists of two phases, with behavior determined by t
 - Verify namespace access and required permissions for Kubernetes resources and secrets
 - Instance restore is idempotent and safely skipped when not applicable
 
+| Variable Name           | Required | Default         | Description                                                                                                                                                                                                            |
+| ----------------------- | -------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MASBR_ACTION`          | Yes      | N/A             | Specifies whether the playbook should perform a `backup` or a `restore`.                                                                                                                                               |
+| `MASBR_BACKUP_VERSION`  | Conditional | `YYMMDD-HHMMSS` | Identifies the backup version. For **backup**, this value is optional and defaults to a timestamp in the format YYMMDD-HHMMSS if not provided. For **restore**, this value is mandatory and must match an existing backup version.                                                                                                                          |
+| `MAS_INSTANCE_ID`       | Yes      | N/A             | Identifies the MAS instance whose MongoDB databases should be backed up or restored. To back up multiple MAS instances that share the same MongoDB CE instance, run the playbook multiple times with different values. |
+| `MONGODB_NAMESPACE`     | No       | `mongoce`       | Namespace where MongoDB Community Edition is installed. Set this if MongoDB CE is deployed in a custom namespace.                                                                                                      |
+| `MONGODB_INSTANCE_NAME` | No       | `mas-mongo-ce`  | Name of the MongoDB Community Edition instance. For backup, this value is used to locate the instance. For restore, the value is taken from the backup data.                                                           |
+| `BR_SKIP_INSTANCE`      | No       | `false`         | Skips MongoDB instance backup or restore. Set to `true` to back up or restore **databases only**.                                                                                                                      |
 
-
-### Environment Variables
-- `MAS_INSTANCE_ID`: **Required**. This playbook supports backup/restore MongoDB databases that belong to a specific MAS instance, call the playbook multiple times with different values for `MAS_INSTANCE_ID` if you wish to back up multiple MAS instances that use the same MongoDB CE instance.
-- `MONGODB_NAMESPACE`: By default the backup and restore processes will use a namespace of `mongoce`, if you have customized the install of MongoDb CE you must set this environment variable to the appropriate namespace you wish to backup from/restore to.
-- `MONGODB_INSTANCE_NAME`: By default, the backup process will use `mas-mongo-ce`,  if you have customized the install of MongoDb CE you must set this environment variable to the appropriate namespace you wish to backup from. For restore, this will be picked from the backup data.
-- `BR_SKIP_INSTANCE`: By default, this is set to `false`, This flag is used to skip the Mongo instance backup/restore. Set this flag to `true` if you wish to backup/restore only the databases.
 
 ### Examples
 ```bash
