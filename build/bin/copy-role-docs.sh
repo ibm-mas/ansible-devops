@@ -82,7 +82,6 @@ copyDoc suite_install
 copyDoc suite_manage_bim_config
 copyDoc suite_manage_birt_report_config
 copyDoc suite_manage_customer_files_config
-copyDoc suite_manage_aiservice_config
 copyDoc suite_manage_attachments_config
 copyDoc suite_manage_imagestitching_config
 copyDoc suite_manage_import_certs_config
