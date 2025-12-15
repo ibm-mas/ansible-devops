@@ -8,31 +8,17 @@
 - set_fact:
     aiservice_namespace: "aiservice-{{ aiservice_instance_id }}"
 
-# Step 1: Retrieve AI Service tenant ID from AIServiceTenant custom resource
+# Step 1: Construct fully qualified tenant name
 # ------------------------------------------------------------------------
-- name: "Step 1: Retrieve AI Service tenant ID from AIServiceTenant CR if not explicitly provided"
-  when: aiservice_tenant_id is not defined or aiservice_tenant_id == ""
-  block:
-    - name: "List all AIServiceTenant CRs in AI Service namespace"
-      kubernetes.core.k8s_info:
-        api_version: aiservice.ibm.com/v1
-        kind: AIServiceTenant
-        namespace: "{{ aiservice_namespace }}"
-      register: aiservice_tenants_list
+- name: "Construct fully qualified AI Service tenant name"
+  set_fact:
+    aiservice_tenant_fqn: "aiservice-{{ aiservice_instance_id }}-{{ aiservice_tenant_id }}"
 
-    - name: "Fail if no AIServiceTenant CRs found"
-      fail:
-        msg: "No AIServiceTenant CRs found in namespace '{{ aiservice_namespace }}'. Please ensure AI Service is properly installed."
-      when:
-        - aiservice_tenants_list.resources is not defined or aiservice_tenants_list.resources | length == 0
-
-    - name: "Extract first tenant name"
-      set_fact:
-        aiservice_tenant_id: "{{ aiservice_tenants_list.resources[0].metadata.name }}"
-
-    - name: "Debug: AI Servicetenant ID"
-      debug:
-        msg: "AI Service tenant ID: {{ aiservice_tenant_id }}"
+- name: "Debug: AI Service tenant information"
+  debug:
+    msg:
+      - "AI Service tenant ID ............................... {{ aiservice_tenant_id }}"
+      - "AI Service tenant FQN .............................. {{ aiservice_tenant_fqn }}"
 
 # Step 2: Retrieve AI Service API key (tenant-specific)
 # ------------------------------------------------------------------------
@@ -40,13 +26,13 @@
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
-    name: "{{ aiservice_tenant_id }}----apikey-secret"
+    name: "{{ aiservice_tenant_fqn }}----apikey-secret"
     namespace: "{{ aiservice_namespace }}"
   register: aiservice_apikey_secret
 
 - name: "Fail if AI Service tenant API key secret not found"
   fail:
-    msg: "AI Service tenant API key secret '{{ aiservice_tenant_id }}----apikey-secret' not found in namespace '{{ aiservice_namespace }}'"
+    msg: "AI Service tenant API key secret '{{ aiservice_tenant_fqn }}----apikey-secret' not found in namespace '{{ aiservice_namespace }}'"
   when:
     - aiservice_apikey_secret.resources is not defined or aiservice_apikey_secret.resources | length == 0
 
@@ -165,8 +151,9 @@
 - name: "Debug AI Service configuration"
   debug:
     msg:
-      - "AI Service instance ID ............................ {{ aiservice_instance_id }}"
-      - "AI Service tenant ID .............................. {{ aiservice_tenant_id }}"
+      - "AI Service instance ID ............................. {{ aiservice_instance_id }}"
+      - "AI Service tenant ID ............................... {{ aiservice_tenant_id }}"
+      - "AI Service tenant FQN .............................. {{ aiservice_tenant_fqn }}"
       - "AI Service namespace ............................... {{ aiservice_namespace }}"
       - "AI Service URL ..................................... {{ aiservice_url }}"
       - "AI Service certificate alias ....................... {{ aiservice_cert_alias }}"
