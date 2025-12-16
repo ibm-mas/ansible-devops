@@ -90,7 +90,7 @@
 
 - name: "Extract AI Service TLS certificate"
   set_fact:
-    aiservice_tls_cert: "{{ aiservice_tls_secret.resources[0].data['ca.crt'] | b64decode | replace('\\\\n', '\n') | replace('\\n', '\n') }}"
+    aiservice_tls_cert: "{{ aiservice_tls_secret.resources[0].data['ca.crt'] | b64decode }}"
 
 - name: "Debug: Verify certificate format"
   debug:
@@ -106,7 +106,8 @@
     aiservice_cert_alias: "aiservice-{{ aiservice_instance_id }}-tls1"
     aiservice_cert_import:
       - alias: "aiservice-{{ aiservice_instance_id }}-tls1"
-        crt: "{{ aiservice_tls_cert }}"
+        crt: |
+          {{ aiservice_tls_cert | indent(10) }}
 
 - name: "Debug: Verify certificate import structure"
   debug:
