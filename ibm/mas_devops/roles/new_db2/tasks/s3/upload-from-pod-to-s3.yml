@@ -1,0 +1,93 @@
+---
+# Upload backup files directly from pod to S3
+# This task uploads the backup archive from pod to S3 bucket without local storage
+
+- name: "Validate S3 configuration"
+  assert:
+    that:
+      - masbr_storage_s3_bucket is defined and masbr_storage_s3_bucket != ""
+      - masbr_storage_s3_access_key is defined and masbr_storage_s3_access_key != ""
+      - masbr_storage_s3_secret_key is defined and masbr_storage_s3_secret_key != ""
+    fail_msg: "S3 bucket, access key, and secret key are required for S3 storage"
+
+- name: "Set fact: S3 configuration"
+  set_fact:
+    s3_bucket: "{{ masbr_storage_s3_bucket }}"
+    s3_region: "{{ masbr_storage_s3_region | default('us-east-1', true) }}"
+    s3_endpoint: "{{ masbr_storage_s3_endpoint | default('', true) }}"
+
+- name: "Set fact: S3 object key"
+  set_fact:
+    s3_object_key: "{{ masbr_job_component.name }}/{{ masbr_job_component.instance }}/{{ _s3_dest_folder }}/{{ _s3_file_name }}"
+
+- name: "Debug: S3 upload information"
+  debug:
+    msg:
+      - "S3 Bucket .......................... {{ s3_bucket }}"
+      - "S3 Region .......................... {{ s3_region }}"
+      - "S3 Object Key ...................... {{ s3_object_key }}"
+      - "Pod File ........................... {{ _s3_pod_file }}"
+
+# Install AWS CLI in the pod if not present
+- name: "Check if AWS CLI is installed in pod"
+  shell: >
+    {{ exec_in_pod_begin }}
+    which aws || echo "not_found"
+    {{ exec_in_pod_end }}
+  register: _aws_cli_check_pod
+  changed_when: false
+
+- name: "Install AWS CLI in pod"
+  when: "'not_found' in _aws_cli_check_pod.stdout"
+  shell: >
+    {{ exec_in_pod_begin }}
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip" &&
+    cd /tmp && unzip -q awscliv2.zip &&
+    ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli
+    {{ exec_in_pod_end }}
+  register: _install_aws_cli
+  changed_when: _install_aws_cli.rc == 0
+
+# Upload file directly from pod to S3
+- name: "Upload file directly from pod to S3"
+  shell: >
+    {{ exec_in_pod_begin }}
+    export AWS_ACCESS_KEY_ID="{{ masbr_storage_s3_access_key }}" &&
+    export AWS_SECRET_ACCESS_KEY="{{ masbr_storage_s3_secret_key }}" &&
+    export AWS_DEFAULT_REGION="{{ s3_region }}" &&
+    {% if s3_endpoint != '' %}
+    aws s3 cp "{{ _s3_pod_file }}" "s3://{{ s3_bucket }}/{{ s3_object_key }}" --endpoint-url "{{ s3_endpoint }}"
+    {% else %}
+    aws s3 cp "{{ _s3_pod_file }}" "s3://{{ s3_bucket }}/{{ s3_object_key }}"
+    {% endif %}
+    {{ exec_in_pod_end }}
+  no_log: true
+  register: _s3_upload_output
+  changed_when: _s3_upload_output.rc == 0
+
+- name: "Debug: S3 upload result"
+  debug:
+    msg: "File uploaded successfully to S3: s3://{{ s3_bucket }}/{{ s3_object_key }}"
+
+# Verify upload from pod
+- name: "Verify S3 upload from pod"
+  shell: >
+    {{ exec_in_pod_begin }}
+    export AWS_ACCESS_KEY_ID="{{ masbr_storage_s3_access_key }}" &&
+    export AWS_SECRET_ACCESS_KEY="{{ masbr_storage_s3_secret_key }}" &&
+    export AWS_DEFAULT_REGION="{{ s3_region }}" &&
+    {% if s3_endpoint != '' %}
+    aws s3 ls "s3://{{ s3_bucket }}/{{ s3_object_key }}" --endpoint-url "{{ s3_endpoint }}"
+    {% else %}
+    aws s3 ls "s3://{{ s3_bucket }}/{{ s3_object_key }}"
+    {% endif %}
+    {{ exec_in_pod_end }}
+  no_log: true
+  register: _s3_verify_output
+  changed_when: false
+
+- name: "Debug: S3 file verification"
+  debug:
+    msg: "{{ _s3_verify_output.stdout_lines }}"
+
+# Made with Bob

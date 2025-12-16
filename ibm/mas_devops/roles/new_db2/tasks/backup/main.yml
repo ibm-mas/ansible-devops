@@ -1,0 +1,78 @@
+---
+# Main backup task file for new_db2 role
+# Supports both in-cluster DB2 and RDS DB2
+
+# Check required backup variables
+# -----------------------------------------------------------------------------
+- name: "Fail if db2_instance_name is not provided"
+  assert:
+    that: db2_instance_name is defined and db2_instance_name != ""
+    fail_msg: "db2_instance_name is required"
+
+- name: "Fail if masbr_storage_local_folder is not provided for local storage"
+  when: masbr_storage_type == 'local'
+  assert:
+    that: masbr_storage_local_folder is defined and masbr_storage_local_folder != ""
+    fail_msg: "masbr_storage_local_folder is required for local storage type"
+
+# Set common backup job variables
+# -----------------------------------------------------------------------------
+- name: "Set fact: common backup job variables"
+  set_fact:
+    masbr_job_component:
+      name: "new_db2"
+      instance: "{{ db2_instance_name }}"
+      namespace: "{{ db2_namespace }}"
+      type: "{{ db2_type }}"
+    masbr_job_data_list:
+      - seq: "1"
+        type: "database"
+
+# Before run tasks
+# -------------------------------------------------------------------------
+- name: "Before run tasks"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/before_run_tasks.yml"
+  vars:
+    _ignore_masbr_backup_data: true
+    _job_type: "backup"
+    _component_before_task_path: "{{ role_path }}/tasks/before-backup-restore.yml"
+
+- name: "Run backup tasks"
+  block:
+    # Update backup job status: New
+    # -------------------------------------------------------------------------
+    - name: "Update backup job status: New"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "1"
+            phase: "New"
+
+    # Route to appropriate backup implementation based on db2_type
+    # -------------------------------------------------------------------------
+    - name: "Run backup for in-cluster DB2"
+      include_tasks: "{{ role_path }}/tasks/backup/backup-incluster.yml"
+      when: db2_type == 'incluster'
+
+    - name: "Run backup for RDS DB2"
+      include_tasks: "{{ role_path }}/tasks/backup/backup-rds.yml"
+      when: db2_type == 'rds'
+
+  rescue:
+    # Update backup status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database backup status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_status:
+          phase: "Failed"
+
+  always:
+    # After run tasks
+    # -------------------------------------------------------------------------
+    - name: "After run tasks"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/after_run_tasks.yml"
+      vars:
+        _component_after_task_path: "{{ role_path }}/tasks/after-backup-restore.yml"
+
+# Made with Bob

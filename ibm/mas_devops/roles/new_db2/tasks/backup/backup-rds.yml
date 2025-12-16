@@ -1,0 +1,184 @@
+---
+# Backup task for RDS DB2
+# Uses db2 client commands to connect to RDS and perform backup
+
+# Update db2 database backup status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update db2 database backup status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "1"
+        phase: "InProgress"
+
+- name: "Backup RDS DB2 database"
+  block:
+    # Validate RDS specific variables
+    # -------------------------------------------------------------------------
+    - name: "Validate RDS DB2 configuration"
+      assert:
+        that:
+          - db2_rds_host is defined and db2_rds_host != ""
+          - db2_rds_username is defined and db2_rds_username != ""
+          - db2_rds_password is defined and db2_rds_password != ""
+        fail_msg: "RDS DB2 configuration (host, username, password) is required"
+
+    # Prepare local backup folder
+    # -------------------------------------------------------------------------
+    - name: "Set fact: RDS db2 database backup folder"
+      set_fact:
+        db2_backup_folder: "{{ masbr_storage_local_folder }}/{{ masbr_job_name }}/database"
+        db2_backup_log: "{{ masbr_storage_local_folder }}/{{ masbr_job_name }}/db2-backup.log"
+
+    - name: "Create RDS db2 database backup folder"
+      file:
+        path: "{{ db2_backup_folder }}/db2backup"
+        state: directory
+        mode: '0755'
+
+    - name: "Debug: RDS db2 database backup folder"
+      debug:
+        msg: "RDS Db2 database backup folder ... {{ db2_backup_folder }}"
+
+    # Catalog RDS DB2 database
+    # -------------------------------------------------------------------------
+    - name: "Catalog RDS DB2 node"
+      shell: |
+        db2 catalog tcpip node {{ db2_instance_name }}_node remote {{ db2_rds_host }} server {{ db2_rds_port }} {{ 'security ssl' if db2_rds_ssl_enabled | bool }}
+      register: _catalog_node_output
+      failed_when:
+        - _catalog_node_output.rc != 0
+        - "'SQL1027N' not in _catalog_node_output.stderr"  # Already exists error
+      changed_when: _catalog_node_output.rc == 0
+
+    - name: "Catalog RDS DB2 database"
+      shell: |
+        db2 catalog database {{ db2_dbname }} as {{ db2_dbname }}_rds at node {{ db2_instance_name }}_node
+      register: _catalog_db_output
+      failed_when:
+        - _catalog_db_output.rc != 0
+        - "'SQL1013N' not in _catalog_db_output.stderr"  # Already exists error
+      changed_when: _catalog_db_output.rc == 0
+
+    # Take a backup of RDS db2 database
+    # https://www.ibm.com/docs/en/db2/11.5?topic=commands-backup-database
+    # -------------------------------------------------------------------------
+    - name: "Take {{ 'Full' if masbr_backup_type == 'full' else 'Incremental' }} backup of RDS DB2 database"
+      shell: |
+        db2 connect to {{ db2_dbname }}_rds user {{ db2_rds_username }} using {{ db2_rds_password }} | tee -a {{ db2_backup_log }}
+        db2 backup db {{ db2_dbname }}_rds online {{ "incremental" if masbr_backup_type == "incr" }} to {{ db2_backup_folder }}/db2backup compress UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a {{ db2_backup_log }}
+        db2 connect reset
+      register: _db2backup_output
+      no_log: true  # Don't log password
+
+    - name: "Debug: RDS db2 backup output (sanitized)"
+      debug:
+        msg: "Backup completed successfully"
+
+    # Download SSL certificate if enabled
+    # -------------------------------------------------------------------------
+    - name: "Copy RDS SSL certificate to backup folder"
+      when: 
+        - db2_rds_ssl_enabled | bool
+        - db2_rds_cert_path is defined
+        - db2_rds_cert_path != ""
+      copy:
+        src: "{{ db2_rds_cert_path }}"
+        dest: "{{ db2_backup_folder }}/db2backup/rds_ssl_cert.pem"
+        mode: '0644'
+
+    # Create metadata file for RDS backup
+    # -------------------------------------------------------------------------
+    - name: "Create RDS backup metadata file"
+      copy:
+        content: |
+          db2_type: rds
+          db2_rds_host: {{ db2_rds_host }}
+          db2_rds_port: {{ db2_rds_port }}
+          db2_dbname: {{ db2_dbname }}
+          db2_rds_ssl_enabled: {{ db2_rds_ssl_enabled }}
+          backup_type: {{ masbr_backup_type }}
+          backup_timestamp: {{ ansible_date_time.iso8601 }}
+        dest: "{{ db2_backup_folder }}/db2backup/rds_metadata.yml"
+        mode: '0644'
+
+    # Create tar.gz archives of database backup files
+    # -------------------------------------------------------------------------
+    - name: "Create tar.gz archives of database backup files"
+      archive:
+        path: "{{ db2_backup_folder }}/db2backup"
+        dest: "{{ db2_backup_folder }}/{{ masbr_job_name }}.tar.gz"
+        format: gz
+      register: _archive_output
+
+    - name: "Get size of backup files"
+      stat:
+        path: "{{ db2_backup_folder }}/{{ masbr_job_name }}.tar.gz"
+      register: _backup_file_stat
+
+    - name: "Debug: size of backup files"
+      debug:
+        msg: "Backup file size: {{ (_backup_file_stat.stat.size / 1024 / 1024) | round(2) }} MB"
+
+    # Upload to S3 or keep in local storage based on storage type
+    # -------------------------------------------------------------------------
+    - name: "Upload backup to S3"
+      when: masbr_storage_type == 's3'
+      include_tasks: "{{ role_path }}/tasks/s3/upload-to-s3.yml"
+      vars:
+        _s3_local_file: "{{ db2_backup_folder }}/{{ masbr_job_name }}.tar.gz"
+        _s3_dest_folder: "database"
+        _s3_file_name: "{{ masbr_job_name }}.tar.gz"
+
+    - name: "Clean up local backup file after S3 upload"
+      when: masbr_storage_type == 's3'
+      file:
+        path: "{{ db2_backup_folder }}"
+        state: absent
+
+    # Update database backup status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update database backup status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "1"
+            phase: "Completed"
+
+  rescue:
+    # Update database backup status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database backup status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "1"
+            phase: "Failed"
+
+  always:
+    # Uncatalog RDS DB2 database
+    # -------------------------------------------------------------------------
+    - name: "Uncatalog RDS DB2 database"
+      shell: |
+        db2 uncatalog database {{ db2_dbname }}_rds
+      register: _uncatalog_db_output
+      failed_when: false
+      changed_when: _uncatalog_db_output.rc == 0
+
+    - name: "Uncatalog RDS DB2 node"
+      shell: |
+        db2 uncatalog node {{ db2_instance_name }}_node
+      register: _uncatalog_node_output
+      failed_when: false
+      changed_when: _uncatalog_node_output.rc == 0
+
+    # Create backup log archive
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of db2 backup log"
+      archive:
+        path: "{{ db2_backup_log }}"
+        dest: "{{ masbr_storage_local_folder }}/{{ masbr_job_name }}/db2-backup-log.tar.gz"
+        format: gz
+      when: db2_backup_log is defined
+
+# Made with Bob

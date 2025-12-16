@@ -1,0 +1,209 @@
+---
+# Restore task for RDS DB2
+# Uses db2 client commands to connect to RDS and perform restore
+
+# Update db2 database restore status: InProgress
+# -----------------------------------------------------------------------------
+- name: "Update db2 database restore status: InProgress"
+  include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+  vars:
+    _job_data_list:
+      - seq: "1"
+        phase: "InProgress"
+
+- name: "Restore RDS DB2 database"
+  block:
+    # Validate RDS specific variables
+    # -------------------------------------------------------------------------
+    - name: "Validate RDS DB2 configuration"
+      assert:
+        that:
+          - db2_rds_host is defined and db2_rds_host != ""
+          - db2_rds_username is defined and db2_rds_username != ""
+          - db2_rds_password is defined and db2_rds_password != ""
+        fail_msg: "RDS DB2 configuration (host, username, password) is required"
+
+    # Prepare local restore folder
+    # -------------------------------------------------------------------------
+    - name: "Set fact: RDS db2 database restore folder"
+      set_fact:
+        db2_restore_folder: "{{ masbr_storage_local_folder }}/{{ masbr_restore_from_version }}/database"
+        db2_restore_log: "{{ masbr_storage_local_folder }}/restore-{{ ansible_date_time.epoch }}/db2-restore.log"
+
+    - name: "Create RDS db2 database restore log folder"
+      file:
+        path: "{{ db2_restore_log | dirname }}"
+        state: directory
+        mode: '0755'
+
+    - name: "Debug: RDS db2 database restore folder"
+      debug:
+        msg: "RDS Db2 database restore folder ... {{ db2_restore_folder }}"
+
+    # Download from S3 if storage type is s3
+    # -------------------------------------------------------------------------
+    - name: "Download backup from S3"
+      when: masbr_storage_type == 's3'
+      include_tasks: "{{ role_path }}/tasks/s3/download-from-s3.yml"
+      vars:
+        _s3_src_folder: "database"
+        _s3_file_name: "{{ masbr_restore_from_version }}.tar.gz"
+        _s3_local_dest: "{{ db2_restore_folder }}/{{ masbr_restore_from_version }}.tar.gz"
+
+    # Extract backup file
+    # -------------------------------------------------------------------------
+    - name: "Check if backup file exists"
+      stat:
+        path: "{{ db2_restore_folder }}/{{ masbr_restore_from_version }}.tar.gz"
+      register: _backup_file_stat
+      failed_when: not _backup_file_stat.stat.exists
+
+    - name: "Extract backup file"
+      unarchive:
+        src: "{{ db2_restore_folder }}/{{ masbr_restore_from_version }}.tar.gz"
+        dest: "{{ db2_restore_folder }}"
+        remote_src: yes
+      register: _extract_output
+
+    - name: "List extracted files"
+      find:
+        paths: "{{ db2_restore_folder }}"
+        recurse: no
+      register: _extracted_files
+
+    - name: "Debug: extracted files"
+      debug:
+        msg: "{{ _extracted_files.files | map(attribute='path') | list }}"
+
+    # Read backup metadata
+    # -------------------------------------------------------------------------
+    - name: "Read RDS backup metadata"
+      slurp:
+        src: "{{ db2_restore_folder }}/rds_metadata.yml"
+      register: _metadata_content
+
+    - name: "Parse metadata"
+      set_fact:
+        backup_metadata: "{{ _metadata_content.content | b64decode | from_yaml }}"
+
+    - name: "Debug: backup metadata"
+      debug:
+        msg: "{{ backup_metadata }}"
+
+    # Catalog RDS DB2 database
+    # -------------------------------------------------------------------------
+    - name: "Catalog RDS DB2 node"
+      shell: |
+        db2 catalog tcpip node {{ db2_instance_name }}_node remote {{ db2_rds_host }} server {{ db2_rds_port }} {{ 'security ssl' if db2_rds_ssl_enabled | bool }}
+      register: _catalog_node_output
+      failed_when:
+        - _catalog_node_output.rc != 0
+        - "'SQL1027N' not in _catalog_node_output.stderr"  # Already exists error
+      changed_when: _catalog_node_output.rc == 0
+
+    - name: "Catalog RDS DB2 database"
+      shell: |
+        db2 catalog database {{ db2_dbname }} as {{ db2_dbname }}_rds at node {{ db2_instance_name }}_node
+      register: _catalog_db_output
+      failed_when:
+        - _catalog_db_output.rc != 0
+        - "'SQL1013N' not in _catalog_db_output.stderr"  # Already exists error
+      changed_when: _catalog_db_output.rc == 0
+
+    # Configure SSL certificate if enabled
+    # -------------------------------------------------------------------------
+    - name: "Configure SSL certificate for RDS connection"
+      when: 
+        - db2_rds_ssl_enabled | bool
+        - backup_metadata.db2_rds_ssl_enabled | default(false) | bool
+      block:
+        - name: "Check if SSL certificate exists in backup"
+          stat:
+            path: "{{ db2_restore_folder }}/rds_ssl_cert.pem"
+          register: _ssl_cert_stat
+
+        - name: "Copy SSL certificate to DB2 SSL directory"
+          when: _ssl_cert_stat.stat.exists
+          copy:
+            src: "{{ db2_restore_folder }}/rds_ssl_cert.pem"
+            dest: "/tmp/rds_ssl_cert.pem"
+            mode: '0644'
+            remote_src: yes
+
+    # Restore RDS DB2 database
+    # https://www.ibm.com/docs/en/db2/11.5?topic=commands-restore-database
+    # -------------------------------------------------------------------------
+    - name: "Restore RDS DB2 database"
+      shell: |
+        db2 connect to {{ db2_dbname }}_rds user {{ db2_rds_username }} using {{ db2_rds_password }} | tee -a {{ db2_restore_log }}
+        db2 "call sysproc.admin_cmd('quiesce database immediate force connections')" | tee -a {{ db2_restore_log }}
+        db2 restore db {{ db2_dbname }}_rds from {{ db2_restore_folder }} taken at {{ backup_metadata.backup_timestamp | default('') }} into {{ db2_dbname }}_rds replace existing without prompting | tee -a {{ db2_restore_log }}
+        db2 "call sysproc.admin_cmd('unquiesce database')" | tee -a {{ db2_restore_log }}
+        db2 connect reset
+      register: _db2restore_output
+      no_log: true  # Don't log password
+
+    - name: "Debug: RDS db2 restore output (sanitized)"
+      debug:
+        msg: "Restore completed successfully"
+
+    # Verify database connectivity
+    # -------------------------------------------------------------------------
+    - name: "Verify RDS DB2 database connectivity"
+      shell: |
+        db2 connect to {{ db2_dbname }}_rds user {{ db2_rds_username }} using {{ db2_rds_password }}
+        db2 "select count(*) from syscat.tables"
+        db2 connect reset
+      register: _verify_output
+      no_log: true
+
+    - name: "Debug: database verification"
+      debug:
+        msg: "Database connectivity verified successfully"
+
+    # Update database restore status: Completed
+    # -------------------------------------------------------------------------
+    - name: "Update database restore status: Completed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "1"
+            phase: "Completed"
+
+  rescue:
+    # Update database restore status: Failed
+    # -------------------------------------------------------------------------
+    - name: "Update database restore status: Failed"
+      include_tasks: "{{ role_path }}/../../common_tasks/backup_restore/update_job_status.yml"
+      vars:
+        _job_data_list:
+          - seq: "1"
+            phase: "Failed"
+
+  always:
+    # Uncatalog RDS DB2 database
+    # -------------------------------------------------------------------------
+    - name: "Uncatalog RDS DB2 database"
+      shell: |
+        db2 uncatalog database {{ db2_dbname }}_rds
+      register: _uncatalog_db_output
+      failed_when: false
+      changed_when: _uncatalog_db_output.rc == 0
+
+    - name: "Uncatalog RDS DB2 node"
+      shell: |
+        db2 uncatalog node {{ db2_instance_name }}_node
+      register: _uncatalog_node_output
+      failed_when: false
+      changed_when: _uncatalog_node_output.rc == 0
+
+    # Create restore log archive
+    # -------------------------------------------------------------------------
+    - name: "Create a tar.gz archive of db2 restore log"
+      archive:
+        path: "{{ db2_restore_log }}"
+        dest: "{{ db2_restore_log | dirname }}/db2-restore-log.tar.gz"
+        format: gz
+      when: db2_restore_log is defined
+
+# Made with Bob

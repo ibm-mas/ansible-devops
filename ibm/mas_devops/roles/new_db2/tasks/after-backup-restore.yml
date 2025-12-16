@@ -1,0 +1,42 @@
+---
+# After backup/restore tasks for new_db2 role
+# Handles cleanup for both in-cluster DB2 and RDS DB2
+
+# Clean up for in-cluster DB2
+# -------------------------------------------------------------------------
+- name: "Clean up for in-cluster DB2"
+  when: db2_type == 'incluster'
+  block:
+    - name: "Delete temporary folders in pod"
+      changed_when: true
+      shell: >
+        {{ exec_in_pod_begin }}
+        rm -f {{ masbr_pod_lock_file }};
+        rm -rf {{ db2_pod_temp_folder }};
+        rm -rf {{ db2_pvc_temp_folder }}
+        {{ exec_in_pod_end }}
+
+    - name: "Debug: in-cluster DB2 cleanup completed"
+      debug:
+        msg: "Temporary folders and lock file removed from pod"
+
+# Clean up for RDS DB2
+# -------------------------------------------------------------------------
+- name: "Clean up for RDS DB2"
+  when: db2_type == 'rds'
+  block:
+    - name: "Debug: RDS DB2 cleanup"
+      debug:
+        msg: "RDS DB2 cleanup completed - no pod cleanup required"
+
+# Common cleanup
+# -------------------------------------------------------------------------
+- name: "Debug: backup/restore operation completed"
+  debug:
+    msg:
+      - "DB2 Type: {{ db2_type }}"
+      - "Action: {{ db2_action }}"
+      - "Instance: {{ db2_instance_name }}"
+      - "Operation completed successfully"
+
+# Made with Bob

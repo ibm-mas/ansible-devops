@@ -1,0 +1,75 @@
+---
+# DB2 action
+# ---------------------------------------------------------------------------
+db2_action: "{{ lookup('env', 'DB2_ACTION') | default('backup', true) }}"
+
+# DB2 deployment type: incluster or rds
+# ---------------------------------------------------------------------------
+db2_type: "{{ lookup('env', 'DB2_TYPE') | default('incluster', true) }}"  # incluster or rds
+
+# Common DB2 configuration
+# ---------------------------------------------------------------------------
+db2_namespace: "{{ lookup('env', 'DB2_NAMESPACE') | default('db2u', True) }}"
+db2_instance_name: "{{ lookup('env', 'DB2_INSTANCE_NAME') }}"
+db2_dbname: "{{ lookup('env', 'DB2_DBNAME') | default('BLUDB', true) }}"
+db2_jdbc_username: "{{ lookup('env', 'DB2_JDBC_USERNAME') | default('db2inst1', true) }}"
+
+# In-cluster DB2 specific configuration
+# ---------------------------------------------------------------------------
+# These variables are used when db2_type is 'incluster'
+db2_incluster_pod_label_selector: "{{ lookup('env', 'DB2_INCLUSTER_POD_LABEL_SELECTOR') | default('type=engine', true) }}"
+db2_incluster_container_name: "{{ lookup('env', 'DB2_INCLUSTER_CONTAINER_NAME') | default('db2u', true) }}"
+db2_incluster_keystore_folder: "{{ lookup('env', 'DB2_INCLUSTER_KEYSTORE_FOLDER') | default('/mnt/blumeta0/db2/keystore', true) }}"
+db2_incluster_pvc_name: "{{ lookup('env', 'DB2_INCLUSTER_PVC_NAME') }}"
+db2_incluster_pvc_mount_path: "{{ lookup('env', 'DB2_INCLUSTER_PVC_MOUNT_PATH') | default('/mnt/backup', true) }}"
+
+# RDS DB2 specific configuration
+# ---------------------------------------------------------------------------
+# These variables are used when db2_type is 'rds'
+db2_rds_host: "{{ lookup('env', 'DB2_RDS_HOST') }}"
+db2_rds_port: "{{ lookup('env', 'DB2_RDS_PORT') | default('50000', true) }}"
+db2_rds_username: "{{ lookup('env', 'DB2_RDS_USERNAME') }}"
+db2_rds_password: "{{ lookup('env', 'DB2_RDS_PASSWORD') }}"
+db2_rds_ssl_enabled: "{{ lookup('env', 'DB2_RDS_SSL_ENABLED') | default('true', true) }}"
+db2_rds_cert_path: "{{ lookup('env', 'DB2_RDS_CERT_PATH') }}"
+
+# Backup and Restore common configuration
+# ---------------------------------------------------------------------------
+mas_instance_id: "{{ lookup('env', 'MAS_INSTANCE_ID') }}"
+
+# Backup type: full or incr (incremental)
+masbr_backup_type: "{{ lookup('env', 'MASBR_BACKUP_TYPE') | default('full', true) }}"
+
+# For incremental backups, specify the full backup version to base on
+masbr_backup_from_version: "{{ lookup('env', 'MASBR_BACKUP_FROM_VERSION') }}"
+
+# Storage location for backup files
+masbr_storage_type: "{{ lookup('env', 'MASBR_STORAGE_TYPE') | default('local', true) }}"  # local or s3
+masbr_storage_local_folder: "{{ lookup('env', 'MASBR_STORAGE_LOCAL_FOLDER') | default('/tmp/db2-backups', true) }}"  # Optional for S3, required for local
+masbr_storage_s3_bucket: "{{ lookup('env', 'MASBR_STORAGE_S3_BUCKET') }}"
+masbr_storage_s3_access_key: "{{ lookup('env', 'MASBR_STORAGE_S3_ACCESS_KEY') }}"
+masbr_storage_s3_secret_key: "{{ lookup('env', 'MASBR_STORAGE_S3_SECRET_KEY') }}"
+masbr_storage_s3_region: "{{ lookup('env', 'MASBR_STORAGE_S3_REGION') | default('us-east-1', true) }}"
+masbr_storage_s3_endpoint: "{{ lookup('env', 'MASBR_STORAGE_S3_ENDPOINT') }}"  # Optional: for S3-compatible storage
+
+# Restore configuration
+# ---------------------------------------------------------------------------
+masbr_restore_from_version: "{{ lookup('env', 'MASBR_RESTORE_FROM_VERSION') }}"
+
+# Job configuration
+# ---------------------------------------------------------------------------
+masbr_confirm_cluster: "{{ lookup('env', 'MASBR_CONFIRM_CLUSTER') | default('false', true) }}"
+masbr_copy_timeout_sec: "{{ lookup('env', 'MASBR_COPY_TIMEOUT_SEC') | default('43200', true) }}"  # 12 hours
+masbr_job_timezone: "{{ lookup('env', 'MASBR_JOB_TIMEZONE') }}"
+masbr_backup_schedule: "{{ lookup('env', 'MASBR_BACKUP_SCHEDULE') }}"
+
+# Advanced configuration
+# ---------------------------------------------------------------------------
+masbr_allow_multi_jobs: "{{ lookup('env', 'MASBR_ALLOW_MULTI_JOBS') | default('false', true) }}"
+masbr_pod_temp_folder: "{{ lookup('env', 'MASBR_POD_TEMP_FOLDER') | default('/tmp/masbr', true) }}"
+
+# Custom Labels
+# ---------------------------------------------------------------------------
+custom_labels: "{{ lookup('env', 'CUSTOM_LABELS') | default(None, true) | string | ibm.mas_devops.string2dict() }}"
+
+# Made with Bob

@@ -1,0 +1,38 @@
+---
+# Main entry point for new_db2 role
+# This role supports backup and restore for both in-cluster DB2 and RDS DB2
+
+- name: "Validate db2_action"
+  assert:
+    that:
+      - db2_action is defined
+      - db2_action in ['backup', 'restore']
+    fail_msg: "db2_action must be set to 'backup' or 'restore'"
+
+- name: "Validate db2_type"
+  assert:
+    that:
+      - db2_type is defined
+      - db2_type in ['incluster', 'rds']
+    fail_msg: "db2_type must be set to 'incluster' or 'rds'"
+
+- name: "Validate required variables"
+  assert:
+    that:
+      - db2_instance_name is defined and db2_instance_name != ""
+      - db2_dbname is defined and db2_dbname != ""
+    fail_msg: "db2_instance_name and db2_dbname are required"
+
+- name: "Display configuration"
+  debug:
+    msg:
+      - "DB2 Action ......................... {{ db2_action }}"
+      - "DB2 Type ........................... {{ db2_type }}"
+      - "DB2 Instance Name .................. {{ db2_instance_name }}"
+      - "DB2 Database Name .................. {{ db2_dbname }}"
+      - "DB2 Namespace ...................... {{ db2_namespace }}"
+
+- name: "Run the selected action"
+  include_tasks: "tasks/{{ db2_action }}/main.yml"
+
+# Made with Bob
