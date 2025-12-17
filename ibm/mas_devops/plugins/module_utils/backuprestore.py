@@ -4,6 +4,7 @@ import os
 import yaml
 from mas.devops.ocp import getSecret
 from kubernetes.dynamic import DynamicClient
+from kubernetes.dynamic.exceptions import NotFoundError
 
 
 def createBackupDirectories(paths: list) -> bool:
@@ -66,3 +67,16 @@ def backupSecret(dynClient: DynamicClient, namespace: str, secret_name: str, bac
             return False
     else:
         return False
+
+def getSubscription(dynClient: DynamicClient, namespace: str, package_name: str):
+    """
+    Retrieve Subscription resource by package name in the specified namespace
+    """
+    try:
+        subscription_resource = dynClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind="Subscription")
+        subscription = subscription_resource.get(namespace=namespace, name=package_name)
+        return subscription.to_dict()
+    except NotFoundError:
+        return None
+    except Exception as e:
+        return None

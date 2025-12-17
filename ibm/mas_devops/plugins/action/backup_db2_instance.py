@@ -9,7 +9,7 @@ from ansible.utils.display import Display
 from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.exceptions import NotFoundError
 
-from ibm.mas_devops.plugins.module_utils.backuprestore import createBackupDirectories, backupSecret
+from ansible_collections.ibm.mas_devops.plugins.module_utils.backuprestore import createBackupDirectories, backupSecret, getSubscription
 
 import yaml
 import os
@@ -101,20 +101,6 @@ def getImagePullSecretFromCR(db2uCR: dict) -> list:
         display.v(f"Error extracting image pull secret from CR: {e}")
         return None
 
-def getSubscription(dynClient: DynamicClient, namespace: str, package_name: str):
-    """
-    Retrieve Subscription resource by package name in the specified namespace
-    """
-    try:
-        subscription_resource = dynClient.resources.get(api_version="operators.coreos.com/v1alpha1", kind="Subscription")
-        subscription = subscription_resource.get(namespace=namespace, name=package_name)
-        return subscription
-    except NotFoundError:
-        return None
-    except Exception as e:
-        display.v(f"Error retrieving Subscription: {e}")
-        return None
-
 def getDb2VersionFromCR(db2uCR: dict) -> str:
     """
     Extract Db2 version from Db2uCluster/Db2uInstance CR
@@ -136,13 +122,10 @@ def processUserCredentialsSecret(dynClient: DynamicClient, mas_instance_id: str,
     """
     jdbc_core_secret_name = f"jdbc-{db2_instance_name}-credentials".lower()
     jdbc_core_secret = getSecret(dynClient, namespace=f"mas-{mas_instance_id}-core".lower(), secret_name=jdbc_core_secret_name)
-
     if jdbc_core_secret:
-        jdbc_core_secret_dict = jdbc_core_secret.to_dict()
-        if 'data' in jdbc_core_secret_dict and 'username' in jdbc_core_secret_dict['data']:
-            username_encoded = jdbc_core_secret_dict['data']['username']
+        if 'data' in jdbc_core_secret and 'username' in jdbc_core_secret['data']:
+            username_encoded = jdbc_core_secret['data']['username']
             username = base64.b64decode(username_encoded).decode('utf-8')
-                
             if username.lower() != 'db2inst1':
                 # Backup the jdbc credentials secret
                 backup_status = backupSecret(dynClient=dynClient, namespace=f"mas-{mas_instance_id}-core".lower(), secret_name=jdbc_core_secret_name, backup_path=backup_path)
@@ -197,7 +180,7 @@ class ActionModule(ActionBase):
         #db2_backup_issuers_path = f"{db2_backup_resource_path}/issuers"
 
         # Create backup directory if it does not exist
-        createBackupDirectories([db2_backup_path, db2_backup_resource_path, db2_backup_secrets_path, db2_backup_issuers_path])
+        createBackupDirectories([db2_backup_path, db2_backup_resource_path, db2_backup_secrets_path])
 
         # Get Db2uCluster or Db2uInstance CR
         db2u_cr = getDb2uInstance(DynamicClient=dynClient, db2_instance_name=db2_instance_name, db2_namespace=db2_namespace)
@@ -209,7 +192,7 @@ class ActionModule(ActionBase):
             raise AnsibleError(f"Db2u instance '{db2_instance_name}' is not in a ready state. Cannot proceed with backup.")
         
         # Backup Db2uCluster/Db2uInstance CR
-        backup_cr_status = backupDB2uCR(db2uCR=db2u_cr, backupPath=db2_backup_resource_path)
+        backup_cr_status = backupDB2uCR(db2u_cr=db2u_cr, backup_path=db2_backup_resource_path)
         if not backup_cr_status:
             raise AnsibleError(f"Failed to backup Db2u CR for instance '{db2_instance_name}'")
         
@@ -221,12 +204,16 @@ class ActionModule(ActionBase):
                 backupSecretStatus = backupSecret(dynClient=dynClient, namespace=db2_namespace, secret_name=secret, backup_path=db2_backup_secrets_path)
                 if not backupSecretStatus:
                     display.v(f"Warning: Failed to backup image pull secret '{secret}' for Db2u instance '{db2_instance_name}'")
+                else:
+                    display.v(f"Backed up image pull secret '{secret}' for Db2u instance '{db2_instance_name}'")
         
         # Backup Db2u instance secret
         db2_instance_secret_name = f"c-{db2_instance_name}-instancepassword"
         backupSecretStatus = backupSecret(dynClient=dynClient, namespace=db2_namespace, secret_name=db2_instance_secret_name, backup_path=db2_backup_secrets_path)
         if not backupSecretStatus:
-            display.v(f"Warning: Failed to backup Db2u instance secret '{db2_instance_secret_name}' for Db2u instance '{db2_instance_name}'") 
+            display.v(f"Warning: Failed to backup Db2u instance secret '{db2_instance_secret_name}' for Db2u instance '{db2_instance_name}'")
+        else:
+            display.v(f"Backed up Db2u instance secret '{db2_instance_secret_name}' for Db2u instance '{db2_instance_name}'")
 
         # Check user credentials from jdbc credentials secret in Core namespace
         # If the user is not the default admin user, backup the jdbc credentials secret as well
@@ -247,11 +234,13 @@ class ActionModule(ActionBase):
             raise AnsibleError(f"Failed to retrieve Subscription for Db2u operator in namespace '{db2_namespace}'")
 
         # write db2-info.yaml file
+        # using str() to ensure no yaml serialization issues with non-string types
+        # Ansible wraps variables with metadata
         db2_info = {
-            'db2_instance_name': db2_instance_name,
-            'db2_namespace': db2_namespace,
-            'db2_dbname': db2_dbname,
-            'mas_instance_id': mas_instance_id,
+            'db2_instance_name': str(db2_instance_name),
+            'db2_namespace': str(db2_namespace),
+            'db2_dbname': str(db2_dbname),
+            'mas_instance_id': str(mas_instance_id),
             'db2_version': getDb2VersionFromCR(db2uCR=db2u_cr),
             'db2_channel': channel_name
         }
