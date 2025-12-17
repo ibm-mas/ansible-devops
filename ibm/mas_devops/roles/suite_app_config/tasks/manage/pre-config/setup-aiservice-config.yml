@@ -88,29 +88,19 @@
   when:
     - aiservice_tls_secret.resources is not defined or aiservice_tls_secret.resources | length == 0
 
-- name: "Extract AI Service TLS certificate (without trim)"
+- name: "Extract AI Service TLS certificate"
   set_fact:
-    aiservice_tls_cert_without_trim: "{{ aiservice_tls_secret.resources[0].data['ca.crt'] | b64decode }}"
-    aiservice_cert_alias: "aiservice-{{ aiservice_instance_id }}-tls1"
+    aiservice_tls_crt:
+      - "{{ aiservice_tls_secret.resources[0].data['ca.crt'] | b64decode | trim }}"
 
-# Step 5: Set certificate import configuration
+# Step 5: Import AI Service certificate into ManageWorkspace CR
 # ------------------------------------------------------------------------
-- name: "Step 5: Set AI Service certificate import configuration"
-  set_fact:
-    aiservice_cert_import:
-      - alias: "{{ aiservice_cert_alias }}"
-        crt: "{{ aiservice_tls_cert_without_trim | trim }}"
-
-- name: "Debug: Verify certificate import structure"
-  debug:
-    msg:
-      - "Certificate import is a list: {{ aiservice_cert_import | type_debug }}"
-      - "Certificate count: {{ aiservice_cert_import | length }}"
-      - "Certificate alias: {{ aiservice_cert_import[0].alias }}"
-      - "Certificate first 100 chars: {{ aiservice_cert_import[0].crt[:100] }}"
-      - "Alias: {{ aiservice_certificates_aliases[0] }}"
-      - "Rendered YAML type: {{ aiservice_cert_import_yaml | type_debug }}"
-      - "Rendered YAML structure: {{ aiservice_cert_import_yaml }}"
+- name: "Add the AI Service certificates in ManageWorkspace CR"
+  import_role:
+    name: ibm.mas_devops.suite_manage_import_certs_config
+  vars:
+    manage_certificates: "{{ aiservice_tls_crt }}"
+    manage_certificates_alias_prefix: "aiservice-{{ aiservice_instance_id }}-tls"
 
 # Step 6: Verify AI Service is running and healthy
 # ------------------------------------------------------------------------
