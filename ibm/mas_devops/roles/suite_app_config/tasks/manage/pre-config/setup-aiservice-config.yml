@@ -88,39 +88,39 @@
   when:
     - aiservice_tls_secret.resources is not defined or aiservice_tls_secret.resources | length == 0
 
-- name: "Extract AI Service TLS certificate"
+- name: "Extract AI Service TLS certificate (without trim)"
   set_fact:
-    aiservice_tls_cert: “{{ aiservice_tls_secret.resources[0].data['ca.crt'] | b64decode | replace('\r\n', '\n') | replace('\r', '\n') }}”
+    aiservice_tls_cert_without_trim: "{{ aiservice_tls_secret.resources[0].data['ca.crt'] | b64decode }}"
+    aiservice_cert_alias: "aiservice-{{ aiservice_instance_id }}-tls1"
 
-- name: "Debug: Verify certificate format"
-  debug:
-    msg:
-      - "Certificate first 100 chars: {{ aiservice_tls_cert[:100] }}"
-      - "Certificate contains actual newlines: {{ '\n' in aiservice_tls_cert }}"
-      - "Certificate line count: {{ aiservice_tls_cert.split('\n') | length }}"
-
-# Step 5: Set certificate import configuration (following PR #1387 pattern)
+# Step 5: Set certificate import configuration
 # ------------------------------------------------------------------------
-- name: "Step 5: Set AI Service certificate variables"
+# Trimming the certificate results (matching reference role pattern)
+- name: "Step 5: Trim AI Service certificate"
   set_fact:
-    aiservice_certificates: "{{ [aiservice_tls_cert] }}"
-    aiservice_certificates_aliases:
-      - "aiservice-{{ aiservice_instance_id }}-tls1"
+    aiservice_certificates: "{{ aiservice_certificates | default([]) + [item | trim] }}"
+  with_items:
+    - "{{ aiservice_tls_cert_without_trim }}"
 
-- name: "Get certificate from template"
+- name: "Set AI Service certificate aliases"
   set_fact:
-    importedCertVal: "{{ lookup('template', 'templates/manage/aiservice-cert.yml.j2') | indent(8) }}"
-  when: aiservice_certificates is defined
+    aiservice_certificates_aliases:
+      - "{{ aiservice_cert_alias }}"
+
+- name: "Render certificate import template to YAML"
+  set_fact:
+    aiservice_cert_import_yaml: "{{ lookup('template', 'manage/aiservice-cert.yml.j2') | from_yaml }}"
 
 - name: "Debug: Verify certificate import structure"
   debug:
     msg:
       - "Certificate count: {{ aiservice_certificates | length }}"
-      - "Certificate alias: {{ aiservice_certificates_aliases[0] }}"
-      - "importedCertVal defined: {{ importedCertVal is defined }}"
-      - "importedCertVal type: {{ importedCertVal | type_debug if (importedCertVal is defined) else 'undefined' }}"
-      - "importedCertVal first 200 chars: {{ importedCertVal[:200] if (importedCertVal is defined) else 'N/A' }}"
-  when: aiservice_certificates is defined
+      - "Certificate type: {{ aiservice_certificates | type_debug }}"
+      - "Certificate first 100 chars: {{ aiservice_certificates[0][:100] }}"
+      - "Certificate last 100 chars: {{ aiservice_certificates[0][-100:] }}"
+      - "Alias: {{ aiservice_certificates_aliases[0] }}"
+      - "Rendered YAML type: {{ aiservice_cert_import_yaml | type_debug }}"
+      - "Rendered YAML structure: {{ aiservice_cert_import_yaml }}"
 
 # Step 6: Verify AI Service is running and healthy
 # ------------------------------------------------------------------------
