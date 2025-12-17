@@ -128,44 +128,57 @@
     template: "templates/db2u_namespace.yaml"
   register: _db2_namespace_result
 
-- name: Set 'ibm-registry' secret content
-  no_log: true
-  vars:
-    entitledAuthStr: "{{ registry_user }}:{{ ibm_entitlement_key }}"
-    entitledAuth: "{{ entitledAuthStr | b64encode }}"
-    content:
-      - '{"auths":{"{{ registry }}/cp/cpd":{"username":"{{ registry_user }}","password":"{{ ibm_entitlement_key }}","email":"{{ registry_user }}","auth":"{{ entitledAuth }}"}'
-      - "}"
-      - "}"
-  set_fact:
-    new_secret: "{{ content | join('') }}"
+- name: Check if ibm-registry secret exists
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: ibm-registry
+    namespace: "{{ db2_namespace }}"
+  register: ibm_registry_secret_info
 
-# Note: We use "new_secret | to_json " because older versions of Ansible create
-# invalid json representations containing single quotes
-# However, in newer versions of Ansible to_json returns an object, which can't be passed to b64encode
-- name: "Generate docker secret (old Ansible versions)"
-  when: ansible_version.full is version_compare(2.20, '<')
-  set_fact:
-    dockerconfigjsonB64: "{{ new_secret | to_json | b64encode }}"
+- name: "Create ibm-registry secret if not present"
+  when:
+    - ibm-registry_secret_info.resources is defined 
+    - ibm_registry_secret_info.resources | length == 0
+  block:
+    - name: Set 'ibm-registry' secret content
+      no_log: true
+      vars:
+        entitledAuthStr: "{{ registry_user }}:{{ ibm_entitlement_key }}"
+        entitledAuth: "{{ entitledAuthStr | b64encode }}"
+        content:
+          - '{"auths":{"{{ registry }}/cp/cpd":{"username":"{{ registry_user }}","password":"{{ ibm_entitlement_key }}","email":"{{ registry_user }}","auth":"{{ entitledAuth }}"}'
+          - "}"
+          - "}"
+      set_fact:
+        new_secret: "{{ content | join('') }}"
 
-- name: "Generate docker secret (new Ansible versions)"
-  when: ansible_version.full is version_compare(2.20, '>=')
-  set_fact:
-    dockerconfigjsonB64: "{{ new_secret | b64encode }}"
+    # Note: We use "new_secret | to_json " because older versions of Ansible create
+    # invalid json representations containing single quotes
+    # However, in newer versions of Ansible to_json returns an object, which can't be passed to b64encode
+    - name: "Generate docker secret (old Ansible versions)"
+      when: ansible_version.full is version_compare(2.20, '<')
+      set_fact:
+        dockerconfigjsonB64: "{{ new_secret | to_json | b64encode }}"
 
-- name: "Generate 'ibm-registry' secret"
-  no_log: true
-  kubernetes.core.k8s:
-    definition:
-      apiVersion: v1
-      kind: Secret
-      type: kubernetes.io/dockerconfigjson
-      metadata:
-        name: ibm-registry
-        namespace: "{{ db2_namespace }}"
-      data:
-        .dockerconfigjson: "{{ dockerconfigjsonB64 }}"
-  register: secretUpdateResult
+    - name: "Generate docker secret (new Ansible versions)"
+      when: ansible_version.full is version_compare(2.20, '>=')
+      set_fact:
+        dockerconfigjsonB64: "{{ new_secret | b64encode }}"
+
+    - name: "Generate 'ibm-registry' secret"
+      no_log: true
+      kubernetes.core.k8s:
+        definition:
+          apiVersion: v1
+          kind: Secret
+          type: kubernetes.io/dockerconfigjson
+          metadata:
+            name: ibm-registry
+            namespace: "{{ db2_namespace }}"
+          data:
+            .dockerconfigjson: "{{ dockerconfigjsonB64 }}"
+      register: secretUpdateResult
 
 - name: "Delete old db2 subscription, operand request and csv from {{ ibm_common_services_namespace }}"
   include_tasks: "tasks/delete_db2_operand_request.yml"
@@ -227,7 +240,7 @@
 # 10. Get information from the db2u-release ConfigMap
 # -----------------------------------------------------------------------------
 # if db2_version is not set, then we define it based on the latest version supported by the db2u-license-keys secret
-# Starting with s11.5.8.0-cn3, the 's' prefix is removed in db2u-license-keys, we are recommeded to use db2u-release configmap.
+# Starting with s11.5.8.0-cn3, the 's' prefix is removed in db2u-license-keys, it is recommended to use db2u-release configmap.
 - block:
     - name: "Wait until the db2u-release configmap is available"
       no_log: true

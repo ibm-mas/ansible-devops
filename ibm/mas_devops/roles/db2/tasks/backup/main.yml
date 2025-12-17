@@ -1,8 +1,39 @@
 ---
 # Check db2 backup required variables
 # -----------------------------------------------------------------------------
-- name: "Fail if db2_instance_name is not provided"
-  assert:
-    that: db2_instance_name is defined and db2_instance_name != ""
-    fail_msg: "db2_instance_name is required"
+- name: Verify DB2 backup variables
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: "db2"
+    action: "{{ db2_action }}"
+    db2_instance_name: "{{ db2_instance_name }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    mas_instance_id: "{{ mas_instance_id }}"
+    mas_app_id: "{{ mas_app_id }}"
 
+# Set DB2 backup version if not provided
+# -----------------------------------------------------------------------------
+- name: "Check if DB2_BACKUP_VERSION is provided, if not set to default 'YYMMDD-HHMMSS' format"
+  set_fact:
+    db2_backup_version: "{{ lookup('pipe', 'date +%y%m%d-%H%M%S') }}"
+  when: db2_backup_version is not defined or db2_backup_version == "" or db2_backup_version == "None"
+
+- name: "Set fact: DB2 backup base directory path"
+  set_fact:
+    db2_backup_path: "{{ mas_backup_dir }}/{{ db2_action }}-{{ db2_backup_version }}-db2u"
+
+- name: "Create {{ db2_backup_path }} directory for Db2 backup"
+  file:
+    path: "{{ db2_backup_path }}"
+    state: directory
+    mode: "0755"
+
+# Backup Db2 Universal operator Instance Kubernetes Resources
+# -------------------------------------------------------------------------
+- name: "Start Db2 Universal operator Instance backup process."
+  include_tasks: "{{ role_path }}/tasks/backup/backup-instance.yml"
+  when: not br_skip_instance | bool
+
+# Backup Db2 database Data using Db2Backup CR
+# -------------------------------------------------------------------------
+- name: "Start Database backup process."
+  include_tasks: "{{ role_path }}/tasks/backup/backup-database.yml"

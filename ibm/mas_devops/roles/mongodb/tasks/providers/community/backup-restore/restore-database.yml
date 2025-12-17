@@ -5,16 +5,25 @@
     mongodb_backup_data_filename: "mongodump-{{ mongodb_backup_version }}.tar.gz"
     mongodb_tmp_restore_dir: "/tmp/masbr/{{ mongodb_backup_version }}"
 
-- name: "Check if backup data file exists"
+- name: "Check if backup data files exists"
   stat:
-    path: "{{ mongodb_data_path }}/{{ mongodb_backup_data_filename }}"
-  register: backup_data_file_check
+    path: "{{ item }}"
+  register: backup_data_files
+  loop:
+    - "{{ mongodb_data_path }}/{{ mongodb_backup_data_filename }}"
+    - "{{ mongodb_data_path }}/mongodb-info.yaml"
 
-- name: Assert backup data file exists
+- name: "Assert backup data files exist"
   assert:
     that:
-      - backup_data_file_check.stat.exists | default(False)
-    fail_msg: "Backup data file {{ mongodb_data_path }}/{{ mongodb_backup_data_filename }} does NOT exist!"
+      - backup_data_files.results[0].stat.exists
+      - backup_data_files.results[1].stat.exists
+    fail_msg: "Required backup data files are missing in {{ mongodb_data_path }}. Ensure that the backup process completed successfully."
+
+- name: include vars from mongodb-info.yaml
+  include_vars:
+    file: "{{ mongodb_data_path }}/mongodb-info.yaml"
+    name: mongodb_backup_info
 
 - name: "Set facts: from mongodb cr and resources"
   ibm.mas_devops.get_mongoce_info:
@@ -35,6 +44,12 @@
     mongodb_host: "{{ mongodb_info_result.mongodb_host }}"
     mongodb_admin_user: "{{ mongodb_info_result.mongodb_admin_user }}"
     mongodb_admin_password: "{{ mongodb_info_result.mongodb_admin_password }}"
+
+- name: "Assert if target mongoce version match backup mongoce version"
+  assert:
+    that:
+      - mongodb_version == mongodb_backup_version
+    fail_msg: "Target MongoCE version {{ mongodb_version }} does NOT match backup MongoCE version {{ mongodb_backup_info.source_mongodb_version }}. Restore cannot proceed."
 
 - name: "debug facts"
   debug:

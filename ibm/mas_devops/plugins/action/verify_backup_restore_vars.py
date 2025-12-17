@@ -10,6 +10,10 @@ class ActionModule(ActionBase):
         "mongodb": {
             "backup":  ["mongodb_instance_name", "mas_backup_dir", "mas_instance_id"], # mongodb_instance_name has a default value
             "restore": ["mongodb_instance_name", "mas_backup_dir", "mongodb_backup_version"]
+        },
+        "db2": {
+            "backup":  ["db2_instance_name", "mas_backup_dir", "mas_instance_id", "mas_app_id"],
+            "restore": ["db2_instance_name", "mas_backup_dir", "db2_backup_version", "mas_app_id"]
         }
     }
 
