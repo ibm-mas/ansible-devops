@@ -88,13 +88,18 @@
   when:
     - aiservice_tls_secret.resources is not defined or aiservice_tls_secret.resources | length == 0
 
-- name: "Extract AI Service TLS certificate for post-config"
+- name: "Extract AI Service TLS certificate"
   set_fact:
-    aiservice_tls_cert: "{{ aiservice_tls_secret.resources[0].data['ca.crt'] | b64decode }}"
+    aiservice_tls_crt:
+      - "{{ aiservice_tls_secret.resources[0].data['ca.crt'] | b64decode | trim }}"
 
-- name: "Set AI Service certificate import variables for post-config"
-  set_fact:
-    manage_certificates: "{{ [aiservice_tls_cert] }}"
+# Step 5: Import AI Service certificate into ManageWorkspace CR
+# ------------------------------------------------------------------------
+- name: "Add the AI Service certificates in ManageWorkspace CR"
+  import_role:
+    name: ibm.mas_devops.suite_manage_import_certs_config
+  vars:
+    manage_certificates: "{{ aiservice_tls_crt }}"
     manage_certificates_alias_prefix: "aiservice-{{ aiservice_instance_id }}-tls"
 
 # Step 6: Verify AI Service is running and healthy
