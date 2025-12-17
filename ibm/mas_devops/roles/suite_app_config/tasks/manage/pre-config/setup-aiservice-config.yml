@@ -95,29 +95,19 @@
 
 # Step 5: Set certificate import configuration
 # ------------------------------------------------------------------------
-# Trimming the certificate results (matching reference role pattern)
-- name: "Step 5: Trim AI Service certificate"
+- name: "Step 5: Set AI Service certificate import configuration"
   set_fact:
-    aiservice_certificates: "{{ aiservice_certificates | default([]) + [item | trim] }}"
-  with_items:
-    - "{{ aiservice_tls_cert_without_trim }}"
-
-- name: "Set AI Service certificate aliases"
-  set_fact:
-    aiservice_certificates_aliases:
-      - "{{ aiservice_cert_alias }}"
-
-- name: "Render certificate import template to YAML"
-  set_fact:
-    aiservice_cert_import_yaml: "{{ lookup('template', 'manage/aiservice-cert.yml.j2') | from_yaml }}"
+    aiservice_cert_import:
+      - alias: "{{ aiservice_cert_alias }}"
+        crt: "{{ aiservice_tls_cert_without_trim | trim }}"
 
 - name: "Debug: Verify certificate import structure"
   debug:
     msg:
-      - "Certificate count: {{ aiservice_certificates | length }}"
-      - "Certificate type: {{ aiservice_certificates | type_debug }}"
-      - "Certificate first 100 chars: {{ aiservice_certificates[0][:100] }}"
-      - "Certificate last 100 chars: {{ aiservice_certificates[0][-100:] }}"
+      - "Certificate import is a list: {{ aiservice_cert_import | type_debug }}"
+      - "Certificate count: {{ aiservice_cert_import | length }}"
+      - "Certificate alias: {{ aiservice_cert_import[0].alias }}"
+      - "Certificate first 100 chars: {{ aiservice_cert_import[0].crt[:100] }}"
       - "Alias: {{ aiservice_certificates_aliases[0] }}"
       - "Rendered YAML type: {{ aiservice_cert_import_yaml | type_debug }}"
       - "Rendered YAML structure: {{ aiservice_cert_import_yaml }}"
