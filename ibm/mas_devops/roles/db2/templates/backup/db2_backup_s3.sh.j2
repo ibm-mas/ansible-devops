@@ -1,0 +1,78 @@
+#!/bin/bash
+
+DATABASE={{ db2_dbname }}
+BACKUP_TYPE={{ backup_type }}
+###  for S3, BACKUP_PATH=DB2REMOTE://{{ s3_name }}/{{ s3_bucket_name }}/backups-db2/{{ backup_version }}
+BACKUP_PATH={{ db2_backup_path }}
+
+# Finding the db2 Instance owner
+INSTOWNER=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | awk -F ',' '{print $4}' `
+
+instance=`whoami`
+BACKUP_BASE=/mnt/backup
+
+# Find the home directory
+instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "${instance}" | awk -F ',' '{print $5}'| cut -d/ -f 1,2,3,4,5`
+BACK_LOG=$instance_home/bin/{{ backup_version }}_BackupLOG.out
+
+if [ ! -f "$instance_home/sqllib/db2profile" ]
+then
+	echo "ERROR - $instance_home/sqllib/db2profile not found"
+	EXIT_STATUS=1
+else
+	. $instance_home/sqllib/db2profile
+fi
+
+###   Check for the existance of /home/ctginst1/sqllib/db2dump/libdb2compr.so...if it exists, delete it
+COMPRESS_LOC=$instance_home/sqllib/db2dump/libdb2compr.so
+if [[ -f ${COMPRESS_LOC} ]]
+then
+	rm ${COMPRESS_LOC}
+fi
+
+###   Check to see if the database is  Running
+ps -ef | grep db2sys | grep -v grep  > /dev/null 2>&1
+if [ $? -eq 1 ]; then
+	echo "Database is not active "      
+	echo "Database Not Active,BACKUP Not Run" > $instance_home/bin/LASTbkupRUN
+
+	###  Send error alert	
+	SLACK_NOTIFY
+	exit
+fi
+DATETIME=`date +%Y-%m-%d_%H%M%S`;
+echo "BACKUP Start time : ${DATETIME}"  
+echo " "                               
+echo " "                            
+
+db2 -v archive log for db $DATABASE | tee -a $BACK_LOG
+sleep 30
+
+
+if [ ${BACKUP_TYPE} = 'full' ] ; then
+	db2 -v backup db $DATABASE online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
+else 
+	db2 -v backup db $DATABASE online INCREMENTAL DELTA to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
+fi   
+grep -Fq "Backup successful." $BACK_LOG
+if [ $? = 0 ]; then
+	Backup_timestamp=`grep timestamp $BACK_LOG | cut -d: -f2`
+else
+	echo " "                               
+	echo "********** BACKUP FAILED ************"  
+	echo " "                               
+	exit
+fi
+
+######## Copy keystore to COS
+set -x       
+SOURCE1=/mnt/blumeta0/db2/keystore/keystore.p12
+SOURCE2=/mnt/blumeta0/db2/keystore/keystore.sth
+TARGET1=KEYSTORE/keystore.p12
+TARGET2=KEYSTORE/keystore.sth
+
+db2RemStgManager ALIAS PUT source=${SOURCE1} target=${BACKUP_PATH}/${TARGET1}
+db2RemStgManager ALIAS PUT source=${SOURCE2} target=${BACKUP_PATH}/${TARGET2}
+
+DATETIME=`date +%Y-%m-%d_%H%M%S`;
+echo "BACKUP End time : ${DATETIME}" >> $BACK_LOG
