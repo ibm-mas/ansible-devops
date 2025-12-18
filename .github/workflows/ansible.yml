@@ -1,12 +1,19 @@
 name: Build Ansible Collection
+
 on:
   push:
-    branches:
-      - '**'
-    tags-ignore:
-      - '**'
+    branches: [ "**" ]
+    tags-ignore: [ "**" ]
+  release:
+    types: [ published ]
+
+# Ensure only one build at a time for any branch, cancelling any in-progress builds
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  ansible-build:
+  build-ansible:
     name: Build Ansible Collection
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.head_commit.message, '[doc]') }}
@@ -39,7 +46,7 @@ jobs:
         run: |
           $GITHUB_WORKSPACE/build/bin/build-collection.sh
 
-      - name: Upload Ansible Collection to Github Actions
+      - name: Upload Ansible Collection to Github Actions Build Output
         uses: actions/upload-artifact@v4
         with:
           name: ibm-mas_devops-${{ env.VERSION }}.tar.gz
@@ -51,9 +58,26 @@ jobs:
           ARTIFACTORY_GENERIC_RELEASE_URL: ${{ secrets.ARTIFACTORY_GENERIC_RELEASE_URL }}
           ARTIFACTORY_TOKEN: ${{ secrets.ARTIFACTORY_TOKEN }}
         run: |
-          echo "Copying $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz to $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops.tar.gz..."
+          echo "Copying $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz to $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops.tar.gz ..."
           cp $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops.tar.gz
           $GITHUB_WORKSPACE/build/bin/artifactory-release.sh $GITHUB_WORKSPACE/ibm/mas_devops/ibm-mas_devops.tar.gz
+
+      - name: Publish Collection
+        if: ${{ github.event_name == 'release' }}
+        run: |
+          ansible-galaxy collection publish ${{ github.workspace }}/ibm/mas_devops/ibm-mas_devops-${{ env.VERSION }}.tar.gz --token=${{ secrets.ANSIBLE_GALAXY_TOKEN }}
+
+
+  build-ee:
+    name: Build Ansible Execution Environment
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.head_commit.message, '[doc]') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.3.1
+        # Without this option, we don't get the tag information
+        with:
+          fetch-depth: 0
 
       # Execution environment
       - name: Build the Ansible execution environment
@@ -72,11 +96,16 @@ jobs:
           podman login --username "${{ secrets.QUAYIO_USERNAME }}" --password "${{ secrets.QUAYIO_PASSWORD }}" quay.io
           podman push quay.io/ibmmas/ansible-devops-ee:${{ env.DOCKER_TAG }}
 
+  rebuild-cli:
+    name: Rebuild ibmmas/cli:master
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    needs: build-ansible
+    steps:
       - name: Trigger ibm-mas/cli rebuild on Ansible Collection master build
-        if: github.ref == 'refs/heads/master'
+        if: ${{ !contains(github.event.head_commit.message, '[doc]') }}
         run: |
           curl -XPOST https://api.github.com/repos/ibm-mas/cli/actions/workflows/build-cli.yml/dispatches \
           -H "Accept: application/vnd.github.everest-preview+json" -H "Content-Type: application/json" \
           -u ${{ secrets.ACTIONS_KEY }} \
           --data '{"ref": "master"}'
-      - uses: actions/checkout@v4
