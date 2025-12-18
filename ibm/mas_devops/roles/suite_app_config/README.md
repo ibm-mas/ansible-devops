@@ -27,6 +27,20 @@ MAS application workspace to use to configure app components
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
+### aiservice_instance_id
+AI Service instance ID to integrate with Manage application. When set, the role will automatically configure AI Service integration including API key retrieval, URL configuration, and TLS certificate import.
+
+- Optional
+- Environment Variable: `AISERVICE_INSTANCE_ID`
+- Default: None
+
+### aiservice_tenant_id
+AI Service tenant ID to use for the integration. Required when `aiservice_instance_id` is set.
+
+- Optional
+- Environment Variable: `AISERVICE_TENANT_ID`
+- Default: None
+
 ### custom_labels
 List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
@@ -143,6 +157,35 @@ URL to access WML service (same as Cloud Pak for Data URL).
 
 Role Variables - Manage Workspace
 -------------------------------------------------------------------------------
+
+### Manage - AI Service Integration variables
+---
+
+### aiservice_instance_id
+AI Service instance ID to integrate with Manage application. When configured, the role will:
+- Retrieve AI Service API key from the tenant-specific secret
+- Extract AI Service URL from the aibroker route
+- Import AI Service TLS certificate into Manage
+- Configure AI Service connection properties in Manage encryption secret
+- Verify AI Service health status before proceeding
+
+- Optional
+- Environment Variable: `AISERVICE_INSTANCE_ID`
+- Default: None
+
+### aiservice_tenant_id
+AI Service tenant ID to use for the integration. This is combined with the instance ID to form the fully qualified tenant name.
+
+- **Required** when `aiservice_instance_id` is set
+- Environment Variable: `AISERVICE_TENANT_ID`
+- Default: None
+
+**Note:** The AI Service integration automatically retrieves the following from the cluster:
+- API key from secret: `aiservice-{instance_id}-{tenant_id}----apikey-secret`
+- Service URL from route: `aibroker` in namespace `aiservice-{instance_id}`
+- TLS certificate from secret: `{instance_id}-public-aibroker-tls`
+
+The integration also performs a health check to verify AI Service is running before completing the configuration.
 
 ### Manage - Health Integration variables
 ---
@@ -413,8 +456,10 @@ Provide a custom archive file name to be associated with the archive/file path p
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
 - Default: `manage-custom-archive`
 
-### Manage - Database encryption settings variables
+### Manage - Database encryption and AI Service secrets settings variables
 ---
+
+**Note:** The encryption secret now also stores AI Service integration properties when `aiservice_instance_id` is configured. The secret will contain both database encryption keys and AI Service connection details (`mxe.int.aibrokerapikey`, `mxe.int.aibrokerapiurl`, `mxe.int.aibrokertenantid`).
 
 ### mas_app_settings_crypto_key
 This defines the `MXE_SECURITY_CRYPTO_KEY` value if you want to customize your Manage database encryption keys.
