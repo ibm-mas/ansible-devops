@@ -12,13 +12,13 @@
 # ------------------------------------------------------------------------
 - name: "Construct fully qualified AI Service tenant name"
   set_fact:
-    aiservice_tenant_fqn: "aiservice-{{ aiservice_instance_id }}-{{ aiservice_tenant_id }}"
+    mas_manage_encryptionsecret_aiservice_fqn: "aiservice-{{ aiservice_instance_id }}-{{ aiservice_tenant_id }}"
 
 - name: "Debug: AI Service tenant information"
   debug:
     msg:
       - "AI Service tenant ID ............................... {{ aiservice_tenant_id }}"
-      - "AI Service tenant FQN .............................. {{ aiservice_tenant_fqn }}"
+      - "AI Service tenant FQN .............................. {{ mas_manage_encryptionsecret_aiservice_fqn }}"
 
 # Step 2: Retrieve AI Service API key (tenant-specific)
 # ------------------------------------------------------------------------
@@ -26,24 +26,24 @@
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
-    name: "{{ aiservice_tenant_fqn }}----apikey-secret"
+    name: "{{ mas_manage_encryptionsecret_aiservice_fqn }}----apikey-secret"
     namespace: "{{ aiservice_namespace }}"
   register: aiservice_apikey_secret
 
 - name: "Fail if AI Service tenant API key secret not found"
   fail:
-    msg: "AI Service tenant API key secret '{{ aiservice_tenant_fqn }}----apikey-secret' not found in namespace '{{ aiservice_namespace }}'"
+    msg: "AI Service tenant API key secret '{{ mas_manage_encryptionsecret_aiservice_fqn }}----apikey-secret' not found in namespace '{{ aiservice_namespace }}'"
   when:
     - aiservice_apikey_secret.resources is not defined or aiservice_apikey_secret.resources | length == 0
 
 - name: "Extract AI Service API key"
   set_fact:
-    aiservice_api_key: "{{ aiservice_apikey_secret.resources[0].data.AIBROKER_APIKEY | b64decode }}"
+    mas_manage_encryptionsecret_aiservice_apikey: "{{ aiservice_apikey_secret.resources[0].data.AIBROKER_APIKEY | b64decode }}"
 
 - name: "Verify AI Service API key was retrieved"
   fail:
     msg: "Could not retrieve AI Service API key from secret"
-  when: aiservice_api_key is not defined or aiservice_api_key == ""
+  when: mas_manage_encryptionsecret_aiservice_apikey is not defined or mas_manage_encryptionsecret_aiservice_apikey == ""
 
 # Step 3: Retrieve AI Service URL from aibroker route
 # ------------------------------------------------------------------------
@@ -63,7 +63,7 @@
 
 - name: "Extract AI Service URL"
   set_fact:
-    aiservice_url: "https://{{ aiservice_route.resources[0].spec.host }}/ibm/aibroker/service/rest/api/v1"
+    mas_manage_encryptionsecret_aiservice_url: "https://{{ aiservice_route.resources[0].spec.host }}/ibm/aibroker/service/rest/api/v1"
 
 # Step 4: Retrieve AI Service TLS certificate for import
 # ------------------------------------------------------------------------
@@ -145,9 +145,9 @@
     msg:
       - "AI Service instance ID ............................. {{ aiservice_instance_id }}"
       - "AI Service tenant ID ............................... {{ aiservice_tenant_id }}"
-      - "AI Service tenant FQN .............................. {{ aiservice_tenant_fqn }}"
+      - "AI Service tenant FQN .............................. {{ mas_manage_encryptionsecret_aiservice_fqn }}"
       - "AI Service namespace ............................... {{ aiservice_namespace }}"
-      - "AI Service URL ..................................... {{ aiservice_url }}"
+      - "AI Service URL ..................................... {{ mas_manage_encryptionsecret_aiservice_url }}"
       - "AI Service API key retrieved ....................... Yes"
       - "AI Service TLS certificate retrieved ............... Yes"
       - "AI Service health status ........................... {{ aiservice_kmodel_status }} / {{ aiservice_healthy_status }}"
