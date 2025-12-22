@@ -1,0 +1,115 @@
+#!/bin/bash
+
+DATABASE={{ db2_dbname }}
+BACKUP_TYPE={{ backup_type }}
+VENDOR={{ backup_vendor }}
+###  for S3, BACKUP_PATH=DB2REMOTE://{{ backup_s3_name }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}
+BACKUP_PATH={{ full_backup_path }}
+
+# Finding the db2 Instance owner
+INSTOWNER=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | awk -F ',' '{print $4}' `
+
+instance=`whoami`
+BACKUP_BASE=/mnt/backup
+
+# Find the home directory
+instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "${instance}" | awk -F ',' '{print $5}'| cut -d/ -f 1,2,3,4,5`
+BACK_LOG=$instance_home/bin/{{ db2_backup_version }}_BackupLOG.out
+
+if [ ! -f "$instance_home/sqllib/db2profile" ]
+then
+	echo "ERROR - $instance_home/sqllib/db2profile not found"
+	EXIT_STATUS=1
+else
+	. $instance_home/sqllib/db2profile
+fi
+
+###   Check for the existance of /home/ctginst1/sqllib/db2dump/libdb2compr.so...if it exists, delete it
+COMPRESS_LOC=$instance_home/sqllib/db2dump/libdb2compr.so
+if [[ -f ${COMPRESS_LOC} ]]
+then
+	rm ${COMPRESS_LOC}
+fi
+
+###   Check to see if the database is  Running
+ps -ef | grep db2sys | grep -v grep  > /dev/null 2>&1
+if [ $? -eq 1 ]; then
+	echo "Database is not active "      
+	echo "Database Not Active,BACKUP Not Run" > $instance_home/bin/LASTbkupRUN
+	exit
+fi
+
+### Create Backup Directory if it does not exist when vendor is disk
+if [ ${VENDOR} = 'disk' ] ; then
+	if [ ! -d "${BACKUP_PATH}" ] ; then
+		mkdir -p ${BACKUP_PATH}
+		if [ $? -ne 0 ] ; then
+			echo "ERROR: Could not create backup directory ${BACKUP_PATH}"
+			exit 1
+		fi
+	fi
+fi
+
+DATETIME=`date +%Y-%m-%d_%H%M%S`;
+echo "BACKUP Start time : ${DATETIME}"  
+echo " "                               
+echo " "                            
+
+db2 -v archive log for db $DATABASE | tee -a $BACK_LOG
+sleep 30
+
+
+if [ ${BACKUP_TYPE} = 'full' ] ; then
+	db2 -v backup db $DATABASE online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
+else 
+	db2 -v backup db $DATABASE online INCREMENTAL DELTA to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
+fi   
+grep -Fq "Backup successful." $BACK_LOG
+if [ $? = 0 ]; then
+	backup_timestamp=`grep timestamp $BACK_LOG | cut -d: -f2`
+else
+	echo " "                               
+	echo "********** BACKUP FAILED ************"  
+	echo " "                               
+	exit 1
+fi
+
+######## Copy keystore to COS or Disk location based on VENDOR #########
+if [ ${VENDOR} = 's3' ] ; then
+	echo "Copying Keystore to COS location"
+	set -x       
+	SOURCE1=/mnt/blumeta0/db2/keystore/keystore.p12
+	SOURCE2=/mnt/blumeta0/db2/keystore/keystore.sth
+	TARGET1=KEYSTORE/keystore.p12
+	TARGET2=KEYSTORE/keystore.sth
+
+	db2RemStgManager ALIAS PUT source=${SOURCE1} target=${BACKUP_PATH}/${TARGET1}
+	db2RemStgManager ALIAS PUT source=${SOURCE2} target=${BACKUP_PATH}/${TARGET2}
+	echo "Copying Keystore to COS location - Completed"
+else
+	echo "Copying Keystore to local disk location"
+	cp /mnt/blumeta0/db2/keystore/keystore.p12 ${BACKUP_PATH}/keystore.p12
+	cp /mnt/blumeta0/db2/keystore/keystore.sth ${BACKUP_PATH}/keystore.sth
+	echo "Copying Keystore to local disk location - Completed"
+fi
+
+DATETIME=`date +%Y-%m-%d_%H%M%S`;
+echo "BACKUP End time : ${DATETIME}" >> $BACK_LOG
+echo "BACKUP End time : ${DATETIME}"
+echo " "
+
+
+###### If vendor is disk, tar the backup files
+if [ ${VENDOR} = 'disk' ] ; then
+	echo "Starting to tar the backup files..."
+	tar -czf ${BACKUP_PATH}/db2_${DATABASE}_backup_{{ db2_backup_version }}.tar.gz -C ${BACKUP_PATH} .
+	echo "Tar backup files completed. Showing disk usage:"
+	df -h ${BACKUP_PATH}/*
+else
+	echo "Backup vendor is not disk. Skipping tar of backup files."
+fi
+
+
+echo "BACKUP_FILE_TIMESTAMP=${backup_timestamp}"
+echo " "
+echo "********** BACKUP COMPLETED SUCCESSFULLY ************"

@@ -264,7 +264,7 @@ class ActionModule(ActionBase):
     -------------
     tasks:
       - name: "Backup MongoDB instance resources (CR, secrets, configmaps, issuers, certificates)"
-        ibm.mas_devops.backup_mongo_cr:
+        ibm.mas_devops.backup_mongo_instance:
     """
     def run(self, tmp=None, task_vars=None):
         super(ActionModule, self).run(tmp, task_vars)
@@ -357,9 +357,6 @@ class ActionModule(ActionBase):
             failed=False,
             changed=False,
             success=True,
-            ansible_facts={
-                "mongodb_version": getMongoVersion(mongodb_cr) # this fact can be used in subsequent tasks
-            }
         )
 
 
