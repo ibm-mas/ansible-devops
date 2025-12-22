@@ -126,7 +126,7 @@
 
 - name: Get INSTHOME from prepare_backup_scripts.log
   ansible.builtin.set_fact:
-    db2_insthome: "{{ prepare_scripts_result.stdout | regex_search('INSTHOME=(.*)', multiline=True) | first | regex_replace('INSTHOME=', '') }}"
+    db2_insthome: "{{ (prepare_scripts_result.stdout | regex_search('INSTHOME=(.*)', '\\1'))[0] }}"
   when:
     - prepare_scripts_result is defined
     - prepare_scripts_result.rc == 0
@@ -135,7 +135,7 @@
 # Execute setup_cos_storage_access.sh in DB2 pod if backup vendor is s3
 # -----------------------------------------------------------------------------
 - name: "Execute setup_cos_storage_access.sh in DB2 pod"
-  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/setup_cos_storage_access.sh | tee /tmp/setup_cos_storage_access.log' db2inst1"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/bin/setup_cos_storage_access.sh | tee /tmp/setup_cos_storage_access.log' db2inst1"
   register: setup_s3_result
   retries: 2
   delay: 15 # seconds
@@ -150,7 +150,7 @@
 # Execute db2_backup.sh in DB2 pod
 # -----------------------------------------------------------------------------
 - name: "Execute db2_backup.sh in DB2 pod"
-  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '/tmp/db2-scripts/db2_backup.sh {{ db2_backup_path }} | tee /tmp/db2_backup.log' db2inst1"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/bin/db2_backup.sh {{ db2_backup_path }} | tee /tmp/db2_backup.log' db2inst1"
   register: db2_backup_result
   retries: 2
   delay: 15 # seconds
@@ -160,7 +160,7 @@
 
 - name: Get backup file timestamp from db2_backup.log
   ansible.builtin.set_fact:
-    db2_backup_timestamp: "{{ db2_backup_result.stdout | regex_search('BACKUP_FILE_TIMESTAMP=(.*)', multiline=True) | first | regex_replace('BACKUP_FILE_TIMESTAMP=', '') }}"
+    db2_backup_timestamp: "{{ (db2_backup_result.stdout | regex_search('BACKUP_FILE_TIMESTAMP=(.*)', '\\1'))[0] }}"
   when:
     - db2_backup_result is defined
     - db2_backup_result.rc == 0

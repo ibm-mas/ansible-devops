@@ -2,7 +2,7 @@
 
 DATABASE={{ db2_dbname }}
 BACKUP_TYPE={{ backup_type }}
-###  for S3, BACKUP_PATH=DB2REMOTE://{{ backup_s3_name }}/{{ backup_s3_bucket }}/backups-db2/{{ backup_version }}
+###  for S3, BACKUP_PATH=DB2REMOTE://{{ backup_s3_name }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}
 BACKUP_PATH={{ full_backup_path }}
 
 # Finding the db2 Instance owner
@@ -13,7 +13,7 @@ BACKUP_BASE=/mnt/backup
 
 # Find the home directory
 instance_home=`/usr/local/bin/db2greg -dump | grep -ae "I," | grep -v "/das," | grep "${instance}" | awk -F ',' '{print $5}'| cut -d/ -f 1,2,3,4,5`
-BACK_LOG=$instance_home/bin/{{ backup_version }}_BackupLOG.out
+BACK_LOG=$instance_home/bin/{{ db2_backup_version }}_BackupLOG.out
 
 if [ ! -f "$instance_home/sqllib/db2profile" ]
 then
@@ -77,5 +77,6 @@ db2RemStgManager ALIAS PUT source=${SOURCE2} target=${BACKUP_PATH}/${TARGET2}
 DATETIME=`date +%Y-%m-%d_%H%M%S`;
 echo "BACKUP End time : ${DATETIME}" >> $BACK_LOG
 echo " "
-echo "BACKUP_FILE_TIMESTAMP=${Backup_timestamp}" >> $BACK_LOG
+echo "BACKUP_FILE_TIMESTAMP=${Backup_timestamp}"
+echo " "
 echo "********** BACKUP COMPLETED SUCCESSFULLY ************"
