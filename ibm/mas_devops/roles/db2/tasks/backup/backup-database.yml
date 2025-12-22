@@ -13,14 +13,24 @@
     backup_s3_secret_key: "{{ backup_s3_secret_key }}"
   when: backup_vendor == "s3"
 
-- name: "Set fact db2_backup_path for the backup script when backup vendor is s3"
+- name: Set fact db2_backup_data_path
   set_fact:
-    db2_backup_path: "DB2REMOTE://{{ backup_s3_name }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}"
+    db2_backup_data_path: "{{ db2_backup_path }}/data"
+
+- name: "Create {{ db2_backup_path }}/data directory"
+  file:
+    path: "{{ db2_backup_data_path }}"
+    state: directory
+    mode: "0755"
+
+- name: "Set fact backup_path for the backup script when backup vendor is s3"
+  set_fact:
+    full_backup_path: "DB2REMOTE://{{ backup_s3_name }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}"
   when: backup_vendor == "s3"
 
-- name: "Set fact db2_backup_path for the backup script when backup vendor is disk"
+- name: "Set fact backup_path for the backup script when backup vendor is disk"
   set_fact:
-    db2_backup_path: "/mnt/backup/{{ db2_backup_version }}"
+   full_backup_path: "/mnt/backup/{{ db2_backup_version }}"
   when: backup_vendor == "disk"
 
 # Check if db2 instance is running and get the pod name
@@ -148,5 +158,24 @@
     - db2_backup_result.rc == 0
     - db2_backup_result.stdout | regex_search('BACKUP COMPLETED SUCCESSFULLY', multiline=True)
 
+- name: Get backup file timestamp from db2_backup.log
+  ansible.builtin.set_fact:
+    db2_backup_timestamp: "{{ db2_backup_result.stdout | regex_search('BACKUP_FILE_TIMESTAMP=(.*)', multiline=True) | first | regex_replace('BACKUP_FILE_TIMESTAMP=', '') }}"
+  when:
+    - db2_backup_result is defined
+    - db2_backup_result.rc == 0
+    - db2_backup_result.stdout is defined
 
+
+# Create yaml file with db2 backup details
+- name: "Create yaml file with db2 backup details"
+  copy:
+    dest: "{{ db2_backup_data_path }}/db2-backup-info.yml"
+    content: |
+      source_db2_backup_version: "{{ db2_backup_version }}"
+      source_db2_backup_timestamp: "{{ db2_backup_timestamp }}"
+      source_db2_instance_name: "{{ db2_instance_name }}"
+      source_db2_instance_version: "{{ db2_pod_name_result.db2version }}"
+      backup_vendor: "{{ backup_vendor }}"
+      backup_path: "{{ db2_backup_path }}"
 

@@ -56,10 +56,16 @@ class ActionModule(ActionBase):
             if pods.items:
                 pod_name = pods.items[0]["metadata"]["name"]
                 display.v(f"Found Pod '{pod_name}' in namespace '{db2_namespace}' with labels '{label_selector}'")
-                return dict(failed=False, success=True, pod_name=pod_name, msg="Db2u Pod found")
+                return dict(
+                    failed=False,
+                    success=True,
+                    pod_name=pod_name,
+                    db2version=getDb2VersionFromCR(db2u_cr),
+                    msg="Db2u Pod found"
+                )
             else:
                 display.v(f"No Pods found in namespace '{db2_namespace}' with labels '{label_selector}'")
         except NotFoundError:
             display.v(f"No Pods found in namespace '{db2_namespace}' with labels '{label_selector}'")
-        return dict(failed=True, success=False, pod_name="", msg="Db2u Pod not found")
+        return dict(failed=True, success=False, pod_name="", db2version="", msg="Db2u Pod not found")
 
