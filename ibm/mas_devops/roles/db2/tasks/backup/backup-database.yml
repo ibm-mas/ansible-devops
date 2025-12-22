@@ -35,7 +35,7 @@
 
 # Check if db2 instance is running and get the pod name
 # -----------------------------------------------------------------------------
-- name: "Get DB2 pod name"
+- name: "Check DB2 is running and get DB2 pod name"
   ibm.mas_devops.get_db2u_pod_name:
     db2_instance_name: "{{ db2_instance_name }}"
     db2_namespace: "{{ db2_namespace }}"
@@ -166,8 +166,24 @@
     - db2_backup_result.rc == 0
     - db2_backup_result.stdout is defined
 
+# If vendor is disk, tar the backup files and rsync to backup_data_path
+# -----------------------------------------------------------------------------
+- name: "Move backup files to {{ db2_backup_data_path }} when backup vendor is disk"
+  shell: "oc rsync -n {{ db2_namespace }} {{ db2_pod_name }}:{{ full_backup_path }}/db2_{{ db2_dbname }}_backup_{{ db2_backup_version }}.tar.gz {{ db2_backup_data_path }}/"
+  register: rsync_result
+  retries: 2
+  delay: 15 # seconds
+  until: rsync_result.rc == 0
+  when: backup_vendor == "disk"
 
-# Create yaml file with db2 backup details
+- name: "Debug rsync output"
+  ansible.builtin.debug:
+    msg: "{{ rsync_result.stdout_lines }}"
+  when: backup_vendor == "disk"
+
+
+# Create yaml file with db2 backup details, add local_backup_path if vendor is disk
+# -----------------------------------------------------------------------------
 - name: "Create yaml file with db2 backup details"
   copy:
     dest: "{{ db2_backup_data_path }}/db2-backup-info.yml"
@@ -178,4 +194,7 @@
       source_db2_instance_version: "{{ db2_pod_name_result.db2version }}"
       backup_vendor: "{{ backup_vendor }}"
       vendor_backup_path: "{{ full_backup_path }}"
+      {% if backup_vendor == 'disk' %}
+      local_backup_path: "{{ db2_backup_data_path }}/db2_{{ db2_dbname }}_backup_{{ db2_backup_version }}.tar.gz"
+      {% endif %}
 

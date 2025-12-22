@@ -2,6 +2,7 @@
 
 DATABASE={{ db2_dbname }}
 BACKUP_TYPE={{ backup_type }}
+VENDOR={{ backup_vendor }}
 ###  for S3, BACKUP_PATH=DB2REMOTE://{{ backup_s3_name }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}
 BACKUP_PATH={{ full_backup_path }}
 
@@ -35,11 +36,20 @@ ps -ef | grep db2sys | grep -v grep  > /dev/null 2>&1
 if [ $? -eq 1 ]; then
 	echo "Database is not active "      
 	echo "Database Not Active,BACKUP Not Run" > $instance_home/bin/LASTbkupRUN
-
-	###  Send error alert	
-	SLACK_NOTIFY
 	exit
 fi
+
+### Create Backup Directory if it does not exist when vendor is disk
+if [ ${VENDOR} = 'disk' ] ; then
+	if [ ! -d "${BACKUP_PATH}" ] ; then
+		mkdir -p ${BACKUP_PATH}
+		if [ $? -ne 0 ] ; then
+			echo "ERROR: Could not create backup directory ${BACKUP_PATH}"
+			exit 1
+		fi
+	fi
+fi
+
 DATETIME=`date +%Y-%m-%d_%H%M%S`;
 echo "BACKUP Start time : ${DATETIME}"  
 echo " "                               
@@ -56,7 +66,7 @@ else
 fi   
 grep -Fq "Backup successful." $BACK_LOG
 if [ $? = 0 ]; then
-	Backup_timestamp=`grep timestamp $BACK_LOG | cut -d: -f2`
+	backup_timestamp=`grep timestamp $BACK_LOG | cut -d: -f2`
 else
 	echo " "                               
 	echo "********** BACKUP FAILED ************"  
@@ -64,19 +74,42 @@ else
 	exit 1
 fi
 
-######## Copy keystore to COS
-set -x       
-SOURCE1=/mnt/blumeta0/db2/keystore/keystore.p12
-SOURCE2=/mnt/blumeta0/db2/keystore/keystore.sth
-TARGET1=KEYSTORE/keystore.p12
-TARGET2=KEYSTORE/keystore.sth
+######## Copy keystore to COS or Disk location based on VENDOR #########
+if [ ${VENDOR} = 's3' ] ; then
+	echo "Copying Keystore to COS location"
+	set -x       
+	SOURCE1=/mnt/blumeta0/db2/keystore/keystore.p12
+	SOURCE2=/mnt/blumeta0/db2/keystore/keystore.sth
+	TARGET1=KEYSTORE/keystore.p12
+	TARGET2=KEYSTORE/keystore.sth
 
-db2RemStgManager ALIAS PUT source=${SOURCE1} target=${BACKUP_PATH}/${TARGET1}
-db2RemStgManager ALIAS PUT source=${SOURCE2} target=${BACKUP_PATH}/${TARGET2}
+	db2RemStgManager ALIAS PUT source=${SOURCE1} target=${BACKUP_PATH}/${TARGET1}
+	db2RemStgManager ALIAS PUT source=${SOURCE2} target=${BACKUP_PATH}/${TARGET2}
+	echo "Copying Keystore to COS location - Completed"
+else
+	echo "Copying Keystore to local disk location"
+	cp /mnt/blumeta0/db2/keystore/keystore.p12 ${BACKUP_PATH}/keystore.p12
+	cp /mnt/blumeta0/db2/keystore/keystore.sth ${BACKUP_PATH}/keystore.sth
+	echo "Copying Keystore to local disk location - Completed"
+fi
 
 DATETIME=`date +%Y-%m-%d_%H%M%S`;
 echo "BACKUP End time : ${DATETIME}" >> $BACK_LOG
+echo "BACKUP End time : ${DATETIME}"
 echo " "
-echo "BACKUP_FILE_TIMESTAMP=${Backup_timestamp}"
+
+
+###### If vendor is disk, tar the backup files
+if [ ${VENDOR} = 'disk' ] ; then
+	echo "Starting to tar the backup files..."
+	tar -czf ${BACKUP_PATH}/db2_${DATABASE}_backup_${db2_backup_version}.tar.gz -C ${BACKUP_PATH} .
+	echo "Tar backup files completed. Showing disk usage:"
+	df -h ${BACKUP_PATH}/*
+else
+	echo "Backup vendor is not disk. Skipping tar of backup files."
+fi
+
+
+echo "BACKUP_FILE_TIMESTAMP=${backup_timestamp}"
 echo " "
 echo "********** BACKUP COMPLETED SUCCESSFULLY ************"
