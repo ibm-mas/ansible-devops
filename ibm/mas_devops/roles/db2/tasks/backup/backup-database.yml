@@ -1,1 +1,152 @@
 ---
+# Check if backup vendor is s3, then check s3 related variables
+# -----------------------------------------------------------------------------
+- name: "Verify DB2 S3 backup variables"
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: "db2"
+    action: "s3_setup"
+    backup_vendor: "{{ backup_vendor }}"
+    backup_s3_name: "{{ backup_s3_name }}"
+    backup_s3_endpoint: "{{ backup_s3_endpoint }}"
+    backup_s3_bucket: "{{ backup_s3_bucket }}"
+    backup_s3_access_key: "{{ backup_s3_access_key }}"
+    backup_s3_secret_key: "{{ backup_s3_secret_key }}"
+  when: backup_vendor == "s3"
+
+- name: "Set fact db2_backup_path for the backup script when backup vendor is s3"
+  set_fact:
+    db2_backup_path: "DB2REMOTE://{{ backup_s3_name }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}"
+  when: backup_vendor == "s3"
+
+- name: "Set fact db2_backup_path for the backup script when backup vendor is disk"
+  set_fact:
+    db2_backup_path: "/mnt/backup/{{ db2_backup_version }}"
+  when: backup_vendor == "disk"
+
+# Check if db2 instance is running and get the pod name
+# -----------------------------------------------------------------------------
+- name: "Get DB2 pod name"
+  ibm.mas_devops.get_db2u_pod_name:
+    db2_instance_name: "{{ db2_instance_name }}"
+    db2_namespace: "{{ db2_namespace }}"
+  register: db2_pod_name_result
+
+- name: Assert DB2 pod name is found
+  assert:
+    that:
+      - db2_pod_name_result is defined
+      - db2_pod_name_result.success
+      - db2_pod_name_result.pod_name != ""
+    fail_msg: "DB2 pod name could not be found. Ensure the DB2 instance is running."
+
+- name: "Set fact db2_pod_name"
+  set_fact:
+    db2_pod_name: "{{ db2_pod_name_result.pod_name }}"
+
+- name: "Create /tmp/db2-scripts directory on localhost"
+  ansible.builtin.file:
+    path: "/tmp/db2-scripts"
+    state: directory
+    mode: "0755"
+
+- name: "Copy prepare_backup_scripts.sh to /tmp"
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/backup/prepare_backup_scripts.sh"
+    dest: "/tmp/db2-scripts/prepare_backup_scripts.sh"
+    mode: "0755"
+
+- name: "Template the DB2 S3 storage access setup script"
+  ansible.builtin.template:
+    src: "backup/setup_cos_storage_access.sh.j2"
+    dest: "/tmp/db2-scripts/setup_cos_storage_access.sh"
+    mode: "0755"
+  when: backup_vendor == "s3"
+
+- name: "Template the DB2 backup script"
+  ansible.builtin.template:
+    src: "backup/db2_backup.sh.j2"
+    dest: "/tmp/db2-scripts/db2_backup.sh"
+    mode: "0755"
+
+- name: Zip the DB2 backup scripts
+  ansible.builtin.archive:
+    path: /tmp/db2-scripts
+    dest: /tmp/db2-scripts.zip
+    format: zip
+    mode: "0755"    
+
+# Create /tmp/db2-scripts directory in DB2 pod and copy scripts into the pod
+# -----------------------------------------------------------------------------
+- name: create /tmp/db2-scripts directory in DB2 pod
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'mkdir -p /tmp/db2-scripts/' db2inst1"
+  register: create_dir_result
+  retries: 2
+  delay: 15 # seconds
+  until: create_dir_result.rc == 0
+
+- name: Copy /tmp/db2-scripts.zip to DB2 pod /tmp/db2-scripts.zip
+  shell: "oc cp /tmp/db2-scripts.zip {{ db2_namespace }}/{{ db2_pod_name }}:/tmp/db2-scripts.zip -c db2u"
+  register: copy_scripts_result
+  retries: 2
+  delay: 15 # seconds
+  until: copy_scripts_result.rc == 0
+
+- name: Unzip DB2 backup scripts in DB2 pod
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc 'cd /tmp; unzip -o db2-scripts.zip; chmod -R +x /tmp/db2-scripts' db2inst1"
+  register: unzip_result
+  retries: 2
+  delay: 15 # seconds
+  until: unzip_result.rc == 0
+
+# Execute prepare_backup_scripts.sh in DB2 pod
+# this script will unzip the backup scripts, and sets the right permissions to the scripts.
+# -----------------------------------------------------------------------------
+- name: "Execute prepare_backup_scripts.sh in DB2 pod"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '/tmp/db2-scripts/prepare_backup_scripts.sh | tee /tmp/prepare_backup_scripts.log' db2inst1"
+  register: prepare_scripts_result
+  retries: 2
+  delay: 15 # seconds
+  until: 
+    - prepare_scripts_result.rc == 0
+    - prepare_scripts_result.stdout | regex_search('PrepareSuccess', multiline=True)
+
+- name: "Debug prepare_backup_scripts.sh output"
+  ansible.builtin.debug:
+    msg: "{{ prepare_scripts_result.stdout_lines }}"
+
+- name: Get INSTHOME from prepare_backup_scripts.log
+  ansible.builtin.set_fact:
+    db2_insthome: "{{ prepare_scripts_result.stdout | regex_search('INSTHOME=(.*)', multiline=True) | first | regex_replace('INSTHOME=', '') }}"
+  when: 
+    - prepare_scripts_result is defined
+    - prepare_scripts_result.rc == 0
+    - prepare_scripts_result.stdout is defined
+
+# Execute setup_cos_storage_access.sh in DB2 pod if backup vendor is s3
+# -----------------------------------------------------------------------------
+- name: "Execute setup_cos_storage_access.sh in DB2 pod"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '{{ db2_insthome }}/setup_cos_storage_access.sh | tee /tmp/setup_cos_storage_access.log' db2inst1"
+  register: setup_s3_result
+  retries: 2
+  delay: 15 # seconds
+  until: setup_s3_result.rc == 0
+  when: backup_vendor == "s3"
+
+- name: "Debug setup_cos_storage_access.sh output"
+  ansible.builtin.debug:
+    msg: "{{ setup_s3_result.stdout_lines }}"
+  when: backup_vendor == "s3"
+
+# Execute db2_backup.sh in DB2 pod
+# -----------------------------------------------------------------------------
+- name: "Execute db2_backup.sh in DB2 pod"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name }} -c db2u -- su -lc '/tmp/db2-scripts/db2_backup.sh {{ db2_backup_path }} | tee /tmp/db2_backup.log' db2inst1"
+  register: db2_backup_result
+  retries: 2
+  delay: 15 # seconds
+  until: 
+    - db2_backup_result.rc == 0
+    - db2_backup_result.stdout | regex_search('BACKUP COMPLETED SUCCESSFULLY', multiline=True)
+
+
+

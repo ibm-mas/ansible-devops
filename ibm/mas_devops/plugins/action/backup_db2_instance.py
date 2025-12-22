@@ -9,7 +9,7 @@ from ansible.utils.display import Display
 from kubernetes.dynamic import DynamicClient
 from kubernetes.dynamic.exceptions import NotFoundError
 
-from ansible_collections.ibm.mas_devops.plugins.module_utils.backuprestore import createBackupDirectories, backupSecret, getSubscription
+from ansible_collections.ibm.mas_devops.plugins.module_utils.backuprestore import createBackupDirectories, backupSecret, getSubscription, getDb2uInstance, getDb2VersionFromCR, isDb2uReady
 
 import yaml
 import os
@@ -47,31 +47,6 @@ def filterDb2CR(crData: dict) -> dict:
     
     return filteredCR
 
-def isDb2uReady(db2uCR: dict) -> bool:
-    """
-    Check if Db2uCluster/Db2uInstance is in ready state
-    """
-    if 'status' in db2uCR:
-        status = db2uCR['status']
-        if 'state' in status and status['state'] == 'Ready':
-            return True
-    return False
-
-def getDb2uInstance(DynamicClient, db2_instance_name: str, db2_namespace: str):
-    """
-    Retrieve Db2uCluster CR instance
-    """
-    
-    db2uCR = getCR(DynamicClient, cr_api_version="db2u.databases.ibm.com/v1", cr_kind="Db2uCluster", cr_name=db2_instance_name, namespace=db2_namespace)
-    if db2uCR:
-        return db2uCR.to_dict()
-    else:
-        # Db2uCluster CR not found, try Db2uInstance
-        db2uCR = getCR(DynamicClient, cr_api_version="db2u.databases.ibm.com/v1", cr_kind="Db2uInstance", cr_name=db2_instance_name, namespace=db2_namespace)
-        if db2uCR:
-            return db2uCR.to_dict()
-    return None
-
 def backupDB2uCR(db2u_cr: dict, backup_path: str) -> bool:
     """
     Backup Db2uCluster/Db2uInstance CR to specified backup path
@@ -99,18 +74,6 @@ def getImagePullSecretFromCR(db2uCR: dict) -> list:
         return None
     except Exception as e:
         display.v(f"Error extracting image pull secret from CR: {e}")
-        return None
-
-def getDb2VersionFromCR(db2uCR: dict) -> str:
-    """
-    Extract Db2 version from Db2uCluster/Db2uInstance CR
-    """
-    try:
-        if 'spec' in db2uCR and 'version' in db2uCR['spec']:
-            return db2uCR['spec']['version']
-        return None
-    except Exception as e:
-        display.v(f"Error extracting Db2 version from CR: {e}")
         return None
 
 def processUserCredentialsSecret(dynClient: DynamicClient, mas_instance_id: str, db2_instance_name: str, backup_path: str) -> bool:
