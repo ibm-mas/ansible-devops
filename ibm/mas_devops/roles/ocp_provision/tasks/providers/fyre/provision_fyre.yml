@@ -71,29 +71,59 @@
 #
 # > overall (across all product groups and users) rate limit (3 in 5 minutes) exceeded
 #
-# To mitigate this we have a retry in place, but it will also trigger retries due to any other failure condition
-# We will retry for approximately half an hour before giving up.
-- name: "fyre : Create new OCP+ cluster"
+# To mitigate this we first try once without retries to get immediate debug information if it fails.
+# If the first attempt fails, we then retry multiple times (approximately half an hour before giving up).
+- name: "fyre : Create new OCP+ cluster with retry on failure"
   when: _hostname_check.available
-  uri:
-    url: https://ocpapi.svl.ibm.com/v1/ocp/
-    user: "{{ fyre_username }}"
-    password: "{{ fyre_password }}"
-    method: POST
-    body: "{{ fyre_payload }}"
-    force_basic_auth: yes
-    body_format: json
-    validate_certs: false
-    timeout: 300
-    use_proxy: no
-  register: _cluster_create
-  delay: 120  # Every 2 minutes
-  retries: 10
+  block:
+    - name: "fyre : Create new OCP+ cluster (initial attempt)"
+      vars:
+        fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
+      uri:
+        url: https://ocpapi.svl.ibm.com/v1/ocp/
+        user: "{{ fyre_username }}"
+        password: "{{ fyre_password }}"
+        method: POST
+        body: "{{ fyre_payload }}"
+        force_basic_auth: yes
+        body_format: json
+        validate_certs: false
+        timeout: 300
+        use_proxy: no
+      register: _cluster_create
 
-- name: "fyre : Debug cluster provision"
-  debug:
-    var: _cluster_create
+    - name: "fyre : Debug successful cluster provision"
+      debug:
+        var: _cluster_create
 
+  rescue:
+    - name: "fyre : Debug initial cluster provision failure"
+      debug:
+        msg:
+          - "Initial cluster creation attempt failed. Starting retry loop..."
+          - "Error details: {{ _cluster_create }}"
+
+    - name: "fyre : Retry cluster creation (30 attempts, 1 minute delay)"
+      vars:
+        fyre_template_name: "templates/fyre/{{ fyre_quota_type }}.json.j2"
+      uri:
+        url: https://ocpapi.svl.ibm.com/v1/ocp/
+        user: "{{ fyre_username }}"
+        password: "{{ fyre_password }}"
+        method: POST
+        body: "{{ fyre_payload }}"
+        force_basic_auth: yes
+        body_format: json
+        validate_certs: false
+        timeout: 300
+        use_proxy: no
+      register: _cluster_create
+      delay: 60  # Every 1 minute
+      retries: 30
+
+    - name: "fyre : Debug cluster provision after retry"
+      debug:
+        var: _cluster_create
 
 # 5. Track the progress of the deployment
 # -----------------------------------------------------------------------------
