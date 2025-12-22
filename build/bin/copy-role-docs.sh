@@ -63,7 +63,6 @@ copyDoc ocp_simulate_disconnected_network
 copyDoc ocp_upgrade
 copyDoc ocp_verify
 copyDoc ocs
-copyDoc opentelemetry
 copyDoc registry
 copyDoc sls
 copyDoc smtp
@@ -73,7 +72,6 @@ copyDoc suite_app_install
 copyDoc suite_app_uninstall
 copyDoc suite_app_upgrade
 copyDoc suite_app_rollback
-copyDoc suite_app_verify
 copyDoc suite_backup_restore
 copyDoc suite_config
 copyDoc suite_db2_setup_for_manage

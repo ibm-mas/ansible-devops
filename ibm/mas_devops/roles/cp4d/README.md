@@ -18,6 +18,7 @@ Cloud Pak for Data will be configured as a [specialized installation](https://ww
 Currently supported Cloud Pak for Data release versions are:
 
   - 5.1.3
+  - 5.2.0
 
 !!! tip
     For more information about CPD versioning, see [IBM Cloud Pak for data Operator and operand versions 5.1.x](https://www.ibm.com/docs/en/software-hub/5.1.x?topic=planning-operator-operand-versions)
@@ -33,6 +34,7 @@ Upgrade
 The role will automatically install or upgrade (if targeted to an existing CPD deployment) the corresponding Zen version associated to the chosen Cloud Pak for Data release, for example:
 
 - Cloud Pak for Data release version `5.1.3` installs Zen/Control Plane version `6.1.1`
+- Cloud Pak for Data release version `5.2.0` installs Zen/Control Plane version `6.2.0`
 
 !!! tip
     For more information about IBM Cloud Pak for Data upgrade process, refer to the [Cloud Pak for Data official documentation](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=upgrading).
@@ -176,11 +178,24 @@ The CP4D Admin User password to call CP4D API to provision Discovery Instance. I
 Example Playbook
 -------------------------------------------------------------------------------
 
+### Install Cloud Pak for Data 5.1.3
 ```yaml
 - hosts: localhost
   any_errors_fatal: true
   vars:
     cpd_product_version: 5.1.3
+    cpd_primary_storage_class: ibmc-file-gold-gid
+    cpd_metadata_storage_class: ibmc-block-gold
+  roles:
+    - ibm.mas_devops.cp4d
+```
+
+### Install Cloud Pak for Data 5.2.0
+```yaml
+- hosts: localhost
+  any_errors_fatal: true
+  vars:
+    cpd_product_version: 5.2.0
     cpd_primary_storage_class: ibmc-file-gold-gid
     cpd_metadata_storage_class: ibmc-block-gold
   roles:

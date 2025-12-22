@@ -18,8 +18,7 @@ Three **Catalogs** are mirrored, containing the following content:
 
 ### community-operator-index
 1. grafana-operator (required by ibm.mas_devops.grafana role)
-2. opentelemetry-operator (required by ibm.mas_devops.opentelemetry role)
-3. strimzi-kafka-operator (required by ibm.mas_devops.kafka role)
+2. strimzi-kafka-operator (required by ibm.mas_devops.kafka role)
 
 ### redhat-operator-index
 1. amq-streams (required by ibm.mas_devops.kafka role)

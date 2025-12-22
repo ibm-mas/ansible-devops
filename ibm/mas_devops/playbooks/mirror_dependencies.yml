@@ -35,6 +35,8 @@
     # -------------------------------------------------------------------------
     cpd_product_version: "{{ lookup('env', 'CPD_PRODUCT_VERSION') }}"
     mirror_cp4d: "{{ lookup('env', 'MIRROR_CP4D') | default ('False', True) | bool }}"
+    cpd_52_or_higher: "{{ cpd_product_version is defined and cpd_product_version is version('5.2.0','>=') | bool }}"
+    cpd_51: "{{ cpd_product_version is defined and cpd_product_version is version('5.1.3','==') | bool }}"
 
     # 7. Watson Studio Local
     # -------------------------------------------------------------------------
@@ -409,6 +411,28 @@
       vars:
         manifest_name: ibm-ccs
         manifest_version: "{{ mas_catalog_metadata.ccs_build }}"
+
+    # 6.4 CP4D Platform - PostgreSQL dependency (only for CPD 5.2+)
+    # -------------------------------------------------------------------------
+    - role: ibm.mas_devops.mirror_case_prepare
+      when:
+        - mirror_cp4d
+        - mirror_mode != "from-filesystem"
+        - cpd_52_or_higher
+      vars:
+        case_name: ibm-cloud-native-postgresql
+        case_version: "{{ mas_catalog_metadata.postgress_version }}"
+        exclude_images: []
+        ibmpak_skip_dependencies: true
+
+    - role: ibm.mas_devops.mirror_images
+      when:
+        - mirror_cp4d
+        - mirror_mode != "from-filesystem"
+        - cpd_52_or_higher
+      vars:
+        manifest_name: ibm-cloud-native-postgresql
+        manifest_version: "{{ mas_catalog_metadata.postgress_version }}"
 
     # 7.1 IBM Watson Studio dependency - ibm-datarefinery
     # -------------------------------------------------------------------------
