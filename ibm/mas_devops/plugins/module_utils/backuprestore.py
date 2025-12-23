@@ -94,17 +94,17 @@ def getDb2VersionFromCR(db2uCR: dict) -> str:
     except Exception as e:
         return None
 
-def getDb2uInstance(DynamicClient, db2_instance_name: str, db2_namespace: str):
+def getDb2uInstance(dynClient: DynamicClient, db2_instance_name: str, db2_namespace: str):
     """
     Retrieve Db2uCluster CR instance
     """
     
-    db2uCR = getCR(DynamicClient, cr_api_version="db2u.databases.ibm.com/v1", cr_kind="Db2uCluster", cr_name=db2_instance_name, namespace=db2_namespace)
+    db2uCR = getCR(dynClient, cr_api_version="db2u.databases.ibm.com/v1", cr_kind="Db2uCluster", cr_name=db2_instance_name, namespace=db2_namespace)
     if db2uCR:
         return db2uCR.to_dict()
     else:
         # Db2uCluster CR not found, try Db2uInstance
-        db2uCR = getCR(DynamicClient, cr_api_version="db2u.databases.ibm.com/v1", cr_kind="Db2uInstance", cr_name=db2_instance_name, namespace=db2_namespace)
+        db2uCR = getCR(dynClient, cr_api_version="db2u.databases.ibm.com/v1", cr_kind="Db2uInstance", cr_name=db2_instance_name, namespace=db2_namespace)
         if db2uCR:
             return db2uCR.to_dict()
     return None

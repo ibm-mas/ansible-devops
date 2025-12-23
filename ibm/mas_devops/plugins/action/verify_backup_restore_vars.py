@@ -13,7 +13,7 @@ class ActionModule(ActionBase):
         },
         "db2": {
             "backup":  ["db2_instance_name", "db2_namespace", "mas_backup_dir", "mas_instance_id"],
-            "restore": ["db2_namespace","mas_backup_dir", "db2_backup_version"],
+            "restore": ["mas_backup_dir", "db2_backup_version"],
             "s3_setup": ["backup_vendor","backup_s3_alias", "backup_s3_endpoint", "backup_s3_bucket", "backup_s3_access_key", "backup_s3_secret_key"]
         }
     }

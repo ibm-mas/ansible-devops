@@ -61,16 +61,16 @@ class ActionModule(ActionBase):
 
         dynClient = get_api_client(api_key=api_key, host=host)
 
-        mas_backup_path = self._task.args.get('mas_backup_path', None)
+        mas_backup_dir = self._task.args.get('mas_backup_dir', None)
         db2_backup_version = self._task.args.get('db2_backup_version', None)
 
-        if not mas_backup_path or mas_backup_path == '':
-            raise AnsibleError("mas_backup_path is a required parameter and cannot be empty")
+        if not mas_backup_dir or mas_backup_dir == '':
+            raise AnsibleError("mas_backup_dir is a required parameter and cannot be empty")
         if not db2_backup_version or db2_backup_version == '':
             raise AnsibleError("db2_backup_version is a required parameter and cannot be empty")
 
         # Check if backup directory exists
-        db2_backup_path = os.path.join(mas_backup_path, f"backup-{db2_backup_version}-db2u")
+        db2_backup_path = os.path.join(mas_backup_dir, f"backup-{db2_backup_version}-db2u")
         checkBackupDirectoryExists(db2_backup_path, db2_backup_version)
         display.v(f"Db2 backup path {db2_backup_path} exists. Proceeding with restore...")
 
@@ -87,19 +87,19 @@ class ActionModule(ActionBase):
         db2_namespace = backup_db2u_cr['metadata']['namespace']
 
         # Check if Db2u instance is already present
-        db2u_instance_cr = getDb2uInstance(dynClient, db2_namespace, db2_instance_name)
+        db2u_instance_cr = getDb2uInstance(dynClient, db2_instance_name, db2_namespace)
         if db2u_instance_cr is not None:
             display.v(f"Db2u instance {db2_instance_name} already exists in namespace {db2_namespace}. Checking if it is ready...")
             if isDb2uReady(db2u_instance_cr):
                 display.v(f"Db2u instance {db2_instance_name} is already in Ready state. Checking version...")
                 if getDb2VersionFromCR(db2u_instance_cr) == getDb2VersionFromCR(backup_db2u_cr):
-                    display.v(f"Db2u instance {db2_instance_name} version matches the backup version. Skipping restore...")
+                    display.v(f"Db2u instance {db2_instance_name} version matches the backup version. Skipping DB2 instance restore...")
                     return dict(
                         changed=False,
                         failed=False,
                         proceed=False,
                         success=True,
-                        msg=f"Db2u instance {db2_instance_name} is already in Ready state. Skipping restore."
+                        msg=f"Db2u instance {db2_instance_name} is already in Ready state. Skipping DB2 instance restore..."
                     )
                 else:
                     display.v(f"Db2u instance {db2_instance_name} version does not match the backup version. Abandoning restore... Check the instance manually.")
@@ -120,7 +120,7 @@ class ActionModule(ActionBase):
                     msg=f"Db2u instance {db2_instance_name} is not in Ready state. Abandoning restore... Check the instance status manually."
                 )
         else:
-            display.v(f"Db2u instance {db2_instance_name} does not exist in namespace {db2_namespace}. Proceeding with restore...")
+            display.v(f"Db2u instance {db2_instance_name} does not exist in namespace {db2_namespace}. Proceeding with B2 instance restore...")
 
         # =======================================================
         # 1. Create DB2 namespace if not exists
@@ -135,6 +135,7 @@ class ActionModule(ActionBase):
         db2_secrets_path = os.path.join(db2_backup_resource_path, "secrets")
         secret_files = os.listdir(db2_secrets_path)
         for secret_file in secret_files:
+            # Some info files will be kept in secrets folder with NOT_SECRET in the filename
             if "NOT_SECRET" in secret_file:
                 continue
             display.v(f"Restoring Db2 Secret resource from backup file '{secret_file}'")
@@ -149,6 +150,24 @@ class ActionModule(ActionBase):
         db2_info = {}
         db2_info['db2_instance_name'] = db2_instance_name
         db2_info['db2_namespace'] = db2_namespace
+        db2_info['db2_type'] = backup_db2u_cr['spec'].get('environment', {}).get('dbType', 'db2wh')
+        # Get DB name from backup CR
+        db2_info['db2_database_name'] = backup_db2u_cr['spec'].get('environment', {}).get('database', {}).get('name', 'BLUDB')
+
+        # Get Db2 configs from backup CR
+        db2_info['db2_database_db_config'] = backup_db2u_cr['spec'].get('environment', {}).get('database', {}).get('dbConfig', {})
+        db2_info['db2_instance_dbm_config'] = backup_db2u_cr['spec'].get('environment', {}).get('instance', {}).get('dbmConfig', {})
+        db2_info['db2_instance_registry'] = backup_db2u_cr['spec'].get('environment', {}).get('instance', {}).get('registry', {})
+
+        # Get dftTableOrg
+        db2_info['db2_table_org'] = backup_db2u_cr['spec'].get('environment', {}).get('database', {}).get('settings', {}).get('dftTableOrg', 'ROW')
+
+        # Get Pod config
+        db2_pod_config = backup_db2u_cr['spec'].get('podConfig', {}).get('db2u', {}).get('resource', {}).get('db2u', {})
+        db2_info['db2_cpu_requests'] = db2_pod_config.get('requests', {}).get('cpu', None)
+        db2_info['db2_memory_requests'] = db2_pod_config.get('requests', {}).get('memory', None)
+        db2_info['db2_cpu_limits'] = db2_pod_config.get('limits', {}).get('cpu', None)
+        db2_info['db2_memory_limits'] = db2_pod_config.get('limits', {}).get('memory', None)
 
         # Get LDAP user info if present
         ldap_info_file_path = os.path.join(db2_backup_resource_path, "ldapuser-NOT_SECRET.yaml")
@@ -174,11 +193,6 @@ class ActionModule(ActionBase):
             else:
                 display.v("Warning: Could not find Db2 backup info file. Using default channel for the version from CR.")
         
-        # Get Db2 configs from backup CR
-        db2_info['db2_database_db_configs'] = backup_db2u_cr['spec'].get('database', {}).get('dbConfigs', {})
-        db2_info['db2_instance_dbm_config'] = backup_db2u_cr['spec'].get('instance', {}).get('dbmConfig', {})
-        db2_info['db2_instance_registry'] = backup_db2u_cr['spec'].get('instance', {}).get('registry', {})
-
         return dict(
             message=f"Successfully restored Db2 instance's Secrets from backup paths.",
             failed=False,
