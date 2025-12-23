@@ -739,6 +739,20 @@
 <li>Environment Variable: <code>MAS_WORKSPACE_ID</code></li>
 <li>Default: None</li>
 </ul>
+<h3 id="aiservice_instance_id">aiservice_instance_id<a class="headerlink" href="#aiservice_instance_id" title="Permanent link">¤</a></h3>
+<p>AI Service instance ID to integrate with Manage application. When set, the role will automatically configure AI Service integration including API key retrieval, URL configuration, and TLS certificate import.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>AISERVICE_INSTANCE_ID</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="aiservice_tenant_id">aiservice_tenant_id<a class="headerlink" href="#aiservice_tenant_id" title="Permanent link">¤</a></h3>
+<p>AI Service tenant ID to use for the integration. Required when <code>aiservice_instance_id</code> is set.</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>AISERVICE_TENANT_ID</code></li>
+<li>Default: None</li>
+</ul>
 <h3 id="custom_labels">custom_labels<a class="headerlink" href="#custom_labels" title="Permanent link">¤</a></h3>
 <p>List of comma separated key=value pairs for setting custom labels on instance specific resources.</p>
 <ul>
@@ -841,6 +855,32 @@ For full documentation of the supported options refer to the <a href="https://ww
 <li>Default: <code>https://internal-nginx-svc.ibm-cpd.svc:12443</code> (assumes CPD WML is installed the <code>ibm-cpd</code> namespace)</li>
 </ul>
 <h2 id="role-variables-manage-workspace">Role Variables - Manage Workspace<a class="headerlink" href="#role-variables-manage-workspace" title="Permanent link">¤</a></h2>
+<h3 id="manage-ai-service-integration-variables">Manage - AI Service Integration variables<a class="headerlink" href="#manage-ai-service-integration-variables" title="Permanent link">¤</a></h3>
+<hr>
+<h3 id="aiservice_instance_id_1">aiservice_instance_id<a class="headerlink" href="#aiservice_instance_id_1" title="Permanent link">¤</a></h3>
+<p>AI Service instance ID to integrate with Manage application. When configured, the role will:
+- Retrieve AI Service API key from the tenant-specific secret
+- Extract AI Service URL from the aibroker route
+- Import AI Service TLS certificate into Manage
+- Configure AI Service connection properties in Manage encryption secret
+- Verify AI Service health status before proceeding</p>
+<ul>
+<li>Optional</li>
+<li>Environment Variable: <code>AISERVICE_INSTANCE_ID</code></li>
+<li>Default: None</li>
+</ul>
+<h3 id="aiservice_tenant_id_1">aiservice_tenant_id<a class="headerlink" href="#aiservice_tenant_id_1" title="Permanent link">¤</a></h3>
+<p>AI Service tenant ID to use for the integration. This is combined with the instance ID to form the fully qualified tenant name.</p>
+<ul>
+<li><strong>Required</strong> when <code>aiservice_instance_id</code> is set</li>
+<li>Environment Variable: <code>AISERVICE_TENANT_ID</code></li>
+<li>Default: None</li>
+</ul>
+<p><strong>Note:</strong> The AI Service integration automatically retrieves the following from the cluster:
+- API key from secret: <code>aiservice-{instance_id}-{tenant_id}----apikey-secret</code>
+- Service URL from route: <code>aibroker</code> in namespace <code>aiservice-{instance_id}</code>
+- TLS certificate from secret: <code>{instance_id}-public-aibroker-tls</code></p>
+<p>The integration also performs a health check to verify AI Service is running before completing the configuration.</p>
 <h3 id="manage-health-integration-variables">Manage - Health Integration variables<a class="headerlink" href="#manage-health-integration-variables" title="Permanent link">¤</a></h3>
 <hr>
 <h3 id="mas_appws_bindings_health_wsl_flag">mas_appws_bindings_health_wsl_flag<a class="headerlink" href="#mas_appws_bindings_health_wsl_flag" title="Permanent link">¤</a></h3>
@@ -1101,46 +1141,63 @@ For more details about Manage application server bundle configuration, refer to 
 <li>Environment Variable: <code>MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME</code></li>
 <li>Default: <code>manage-custom-archive</code></li>
 </ul>
-<h3 id="manage-database-encryption-settings-variables">Manage - Database encryption settings variables<a class="headerlink" href="#manage-database-encryption-settings-variables" title="Permanent link">¤</a></h3>
+<h3 id="manage-database-encryption-and-ai-service-secrets-settings-variables">Manage - Database encryption and AI Service secrets settings variables<a class="headerlink" href="#manage-database-encryption-and-ai-service-secrets-settings-variables" title="Permanent link">¤</a></h3>
 <hr>
-<h3 id="mas_app_settings_crypto_key">mas_app_settings_crypto_key<a class="headerlink" href="#mas_app_settings_crypto_key" title="Permanent link">¤</a></h3>
+<p><strong>Note:</strong> The encryption secret stores both database encryption keys and AI Service integration properties when <code>aiservice_instance_id</code> is configured. The secret will contain:
+- Database encryption keys: <code>MXE_SECURITY_CRYPTO_KEY</code>, <code>MXE_SECURITY_CRYPTOX_KEY</code>, <code>MXE_SECURITY_OLD_CRYPTO_KEY</code>, <code>MXE_SECURITY_OLD_CRYPTOX_KEY</code>
+- AI Service connection details: <code>mxe.int.aibrokerapikey</code>, <code>mxe.int.aibrokerapiurl</code>, <code>mxe.int.aibrokertenantid</code></p>
+<h3 id="mas_manage_encryptionsecret_crypto_key">mas_manage_encryptionsecret_crypto_key<a class="headerlink" href="#mas_manage_encryptionsecret_crypto_key" title="Permanent link">¤</a></h3>
 <p>This defines the <code>MXE_SECURITY_CRYPTO_KEY</code> value if you want to customize your Manage database encryption keys.
 For more details, refer to <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios">Manage database encryption</a> documentation.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>MAS_APP_SETTINGS_CRYPTO_KEY</code></li>
+<li>Environment Variable: <code>MAS_MANAGE_ENCRYPTIONSECRET_CRYPTO_KEY</code></li>
 <li>Default: Auto-generated</li>
 </ul>
-<h3 id="mas_app_settings_cryptox_key">mas_app_settings_cryptox_key<a class="headerlink" href="#mas_app_settings_cryptox_key" title="Permanent link">¤</a></h3>
+<h3 id="mas_manage_encryptionsecret_cryptox_key">mas_manage_encryptionsecret_cryptox_key<a class="headerlink" href="#mas_manage_encryptionsecret_cryptox_key" title="Permanent link">¤</a></h3>
 <p>This defines the <code>MXE_SECURITY_CRYPTOX_KEY</code> value if you want to customize your Manage database encryption keys.
 For more details, refer to <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios">Manage database encryption</a> documentation.</p>
 <ul>
-<li><strong>Required</strong> if <code>mas_app_settings_crypto_key</code>is set.</li>
-<li>Environment Variable: <code>MAS_APP_SETTINGS_CRYPTOX_KEY</code></li>
+<li><strong>Required</strong> if <code>mas_manage_encryptionsecret_crypto_key</code> is set</li>
+<li>Environment Variable: <code>MAS_MANAGE_ENCRYPTIONSECRET_CRYPTOX_KEY</code></li>
 <li>Default: Auto-generated</li>
 </ul>
-<h3 id="mas_app_settings_old_crypto_key">mas_app_settings_old_crypto_key<a class="headerlink" href="#mas_app_settings_old_crypto_key" title="Permanent link">¤</a></h3>
+<h3 id="mas_manage_encryptionsecret_old_crypto_key">mas_manage_encryptionsecret_old_crypto_key<a class="headerlink" href="#mas_manage_encryptionsecret_old_crypto_key" title="Permanent link">¤</a></h3>
 <p>This defines the <code>MXE_SECURITY_OLD_CRYPTO_KEY</code> value if you want to customize your Manage database encryption keys.
 For more details, refer to <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios">Manage database encryption</a> documentation.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>MAS_APP_SETTINGS_OLD_CRYPTO_KEY</code></li>
+<li>Environment Variable: <code>MAS_MANAGE_ENCRYPTIONSECRET_OLD_CRYPTO_KEY</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="mas_app_settings_old_cryptox_key">mas_app_settings_old_cryptox_key<a class="headerlink" href="#mas_app_settings_old_cryptox_key" title="Permanent link">¤</a></h3>
+<h3 id="mas_manage_encryptionsecret_old_cryptox_key">mas_manage_encryptionsecret_old_cryptox_key<a class="headerlink" href="#mas_manage_encryptionsecret_old_cryptox_key" title="Permanent link">¤</a></h3>
 <p>This defines the <code>MXE_SECURITY_OLD_CRYPTOX_KEY</code> value if you want to customize your Manage database encryption keys.
 For more details, refer to <a href="https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios">Manage database encryption</a> documentation.</p>
 <ul>
-<li><strong>Required</strong> if <code>mas_app_settings_old_crypto_key</code>is set.</li>
-<li>Environment Variable: <code>MAS_APP_SETTINGS_OLD_CRYPTOX_KEY</code></li>
+<li><strong>Required</strong> if <code>mas_manage_encryptionsecret_old_crypto_key</code> is set</li>
+<li>Environment Variable: <code>MAS_MANAGE_ENCRYPTIONSECRET_OLD_CRYPTOX_KEY</code></li>
 <li>Default: None</li>
 </ul>
-<h3 id="mas_app_settings_override_encryption_secrets_flag">mas_app_settings_override_encryption_secrets_flag<a class="headerlink" href="#mas_app_settings_override_encryption_secrets_flag" title="Permanent link">¤</a></h3>
-<p>Set this to <code>true</code> if you want to override existing Manage database encryption keys i.e Manage database reencryption scenario. A backup of the secret holding the original encryption keys will be taken prior overriding it with the new defined keys. If set to <code>false</code>, then the database encryption keys will only be created with the defined keys if no existing database encryption keys are found under the target Manage instance i.e new Manage installations.</p>
+<h3 id="mas_manage_encryptionsecret_aiservice_apikey">mas_manage_encryptionsecret_aiservice_apikey<a class="headerlink" href="#mas_manage_encryptionsecret_aiservice_apikey" title="Permanent link">¤</a></h3>
+<p>The AI Service API key to configure in the encryption secret. When set along with the URL and FQN, the role will add these properties to the encryption secret.</p>
 <ul>
 <li>Optional</li>
-<li>Environment Variable: <code>MAS_APP_SETTINGS_OVERRIDE_ENCRYPTION_SECRETS_FLAG</code></li>
-<li>Default: <code>False</code></li>
+<li>Environment Variable: <code>MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_APIKEY</code></li>
+<li>Default: Auto-retrieved from AI Service tenant secret when <code>aiservice_instance_id</code> is configured</li>
+</ul>
+<h3 id="mas_manage_encryptionsecret_aiservice_url">mas_manage_encryptionsecret_aiservice_url<a class="headerlink" href="#mas_manage_encryptionsecret_aiservice_url" title="Permanent link">¤</a></h3>
+<p>The AI Service broker URL to configure in the encryption secret.</p>
+<ul>
+<li><strong>Required</strong> if <code>mas_manage_encryptionsecret_aiservice_apikey</code> is set</li>
+<li>Environment Variable: <code>MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_URL</code></li>
+<li>Default: Auto-retrieved from AI Service route when <code>aiservice_instance_id</code> is configured</li>
+</ul>
+<h3 id="mas_manage_encryptionsecret_aiservice_fqn">mas_manage_encryptionsecret_aiservice_fqn<a class="headerlink" href="#mas_manage_encryptionsecret_aiservice_fqn" title="Permanent link">¤</a></h3>
+<p>The fully qualified AI Service tenant name (format: <code>{instance_id}.{tenant_id}</code>) to configure in the encryption secret.</p>
+<ul>
+<li><strong>Required</strong> if <code>mas_manage_encryptionsecret_aiservice_apikey</code> is set</li>
+<li>Environment Variable: <code>MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_FQN</code></li>
+<li>Default: Auto-generated from <code>aiservice_instance_id</code> and <code>aiservice_tenant_id</code> when configured</li>
 </ul>
 <h3 id="manage-server-timezone-setting-variable">Manage - Server Timezone setting variable<a class="headerlink" href="#manage-server-timezone-setting-variable" title="Permanent link">¤</a></h3>
 <hr>
@@ -1304,7 +1361,7 @@ Both <code>ReadWriteOnce</code> (if using a block storage class) or <code>ReadWr
       
     </div>
     <!-- <div id="footer" class="rst-content">
-      Built with mkdocs v1.6.1 (2025-12-23 10:43:40.200976+00:00)
+      Built with mkdocs v1.6.1 (2025-12-23 15:37:59.258852+00:00)
     </div> -->
   
 <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": false, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
