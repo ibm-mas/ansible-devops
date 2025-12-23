@@ -12,9 +12,9 @@ class ActionModule(ActionBase):
             "restore": ["mongodb_instance_name", "mas_backup_dir", "mongodb_backup_version"]
         },
         "db2": {
-            "backup":  ["db2_instance_name", "mas_backup_dir", "mas_instance_id", "mas_app_id"],
-            "restore": ["db2_instance_name", "mas_backup_dir", "db2_backup_version", "mas_app_id"],
-            "s3_setup": ["backup_vendor","backup_s3_name", "backup_s3_endpoint", "backup_s3_bucket", "backup_s3_access_key", "backup_s3_secret_key"]
+            "backup":  ["db2_instance_name", "db2_namespace", "mas_backup_dir", "mas_instance_id"],
+            "restore": ["db2_namespace","mas_backup_dir", "db2_backup_version"],
+            "s3_setup": ["backup_vendor","backup_s3_alias", "backup_s3_endpoint", "backup_s3_bucket", "backup_s3_access_key", "backup_s3_secret_key"]
         }
     }
 
