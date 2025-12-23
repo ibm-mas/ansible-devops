@@ -27,6 +27,20 @@ MAS application workspace to use to configure app components
 - Environment Variable: `MAS_WORKSPACE_ID`
 - Default: None
 
+### aiservice_instance_id
+AI Service instance ID to integrate with Manage application. When set, the role will automatically configure AI Service integration including API key retrieval, URL configuration, and TLS certificate import.
+
+- Optional
+- Environment Variable: `AISERVICE_INSTANCE_ID`
+- Default: None
+
+### aiservice_tenant_id
+AI Service tenant ID to use for the integration. Required when `aiservice_instance_id` is set.
+
+- Optional
+- Environment Variable: `AISERVICE_TENANT_ID`
+- Default: None
+
 ### custom_labels
 List of comma separated key=value pairs for setting custom labels on instance specific resources.
 
@@ -143,6 +157,35 @@ URL to access WML service (same as Cloud Pak for Data URL).
 
 Role Variables - Manage Workspace
 -------------------------------------------------------------------------------
+
+### Manage - AI Service Integration variables
+---
+
+### aiservice_instance_id
+AI Service instance ID to integrate with Manage application. When configured, the role will:
+- Retrieve AI Service API key from the tenant-specific secret
+- Extract AI Service URL from the aibroker route
+- Import AI Service TLS certificate into Manage
+- Configure AI Service connection properties in Manage encryption secret
+- Verify AI Service health status before proceeding
+
+- Optional
+- Environment Variable: `AISERVICE_INSTANCE_ID`
+- Default: None
+
+### aiservice_tenant_id
+AI Service tenant ID to use for the integration. This is combined with the instance ID to form the fully qualified tenant name.
+
+- **Required** when `aiservice_instance_id` is set
+- Environment Variable: `AISERVICE_TENANT_ID`
+- Default: None
+
+**Note:** The AI Service integration automatically retrieves the following from the cluster:
+- API key from secret: `aiservice-{instance_id}-{tenant_id}----apikey-secret`
+- Service URL from route: `aibroker` in namespace `aiservice-{instance_id}`
+- TLS certificate from secret: `{instance_id}-public-aibroker-tls`
+
+The integration also performs a health check to verify AI Service is running before completing the configuration.
 
 ### Manage - Health Integration variables
 ---
@@ -413,47 +456,65 @@ Provide a custom archive file name to be associated with the archive/file path p
 - Environment Variable: `MAS_APP_SETTINGS_CUSTOMIZATION_ARCHIVE_NAME`
 - Default: `manage-custom-archive`
 
-### Manage - Database encryption settings variables
+### Manage - Database encryption and AI Service secrets settings variables
 ---
 
-### mas_app_settings_crypto_key
+**Note:** The encryption secret stores both database encryption keys and AI Service integration properties when `aiservice_instance_id` is configured. The secret will contain:
+- Database encryption keys: `MXE_SECURITY_CRYPTO_KEY`, `MXE_SECURITY_CRYPTOX_KEY`, `MXE_SECURITY_OLD_CRYPTO_KEY`, `MXE_SECURITY_OLD_CRYPTOX_KEY`
+- AI Service connection details: `mxe.int.aibrokerapikey`, `mxe.int.aibrokerapiurl`, `mxe.int.aibrokertenantid`
+
+### mas_manage_encryptionsecret_crypto_key
 This defines the `MXE_SECURITY_CRYPTO_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
 - Optional
-- Environment Variable: `MAS_APP_SETTINGS_CRYPTO_KEY`
+- Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_CRYPTO_KEY`
 - Default: Auto-generated
 
-### mas_app_settings_cryptox_key
+### mas_manage_encryptionsecret_cryptox_key
 This defines the `MXE_SECURITY_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
-- **Required** if `mas_app_settings_crypto_key`is set.
-- Environment Variable: `MAS_APP_SETTINGS_CRYPTOX_KEY`
+- **Required** if `mas_manage_encryptionsecret_crypto_key` is set
+- Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_CRYPTOX_KEY`
 - Default: Auto-generated
 
-### mas_app_settings_old_crypto_key
+### mas_manage_encryptionsecret_old_crypto_key
 This defines the `MXE_SECURITY_OLD_CRYPTO_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
 - Optional
-- Environment Variable: `MAS_APP_SETTINGS_OLD_CRYPTO_KEY`
+- Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_OLD_CRYPTO_KEY`
 - Default: None
 
-### mas_app_settings_old_cryptox_key
+### mas_manage_encryptionsecret_old_cryptox_key
 This defines the `MXE_SECURITY_OLD_CRYPTOX_KEY` value if you want to customize your Manage database encryption keys.
 For more details, refer to [Manage database encryption](https://www.ibm.com/docs/en/mas-cd/continuous-delivery?topic=encryption-database-scenarios) documentation.
 
-- **Required** if `mas_app_settings_old_crypto_key`is set.
-- Environment Variable: `MAS_APP_SETTINGS_OLD_CRYPTOX_KEY`
+- **Required** if `mas_manage_encryptionsecret_old_crypto_key` is set
+- Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_OLD_CRYPTOX_KEY`
 - Default: None
 
-### mas_app_settings_override_encryption_secrets_flag
-Set this to `true` if you want to override existing Manage database encryption keys i.e Manage database reencryption scenario. A backup of the secret holding the original encryption keys will be taken prior overriding it with the new defined keys. If set to `false`, then the database encryption keys will only be created with the defined keys if no existing database encryption keys are found under the target Manage instance i.e new Manage installations.
+### mas_manage_encryptionsecret_aiservice_apikey
+The AI Service API key to configure in the encryption secret. When set along with the URL and FQN, the role will add these properties to the encryption secret.
 
 - Optional
-- Environment Variable: `MAS_APP_SETTINGS_OVERRIDE_ENCRYPTION_SECRETS_FLAG`
-- Default: `False`
+- Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_APIKEY`
+- Default: Auto-retrieved from AI Service tenant secret when `aiservice_instance_id` is configured
+
+### mas_manage_encryptionsecret_aiservice_url
+The AI Service broker URL to configure in the encryption secret.
+
+- **Required** if `mas_manage_encryptionsecret_aiservice_apikey` is set
+- Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_URL`
+- Default: Auto-retrieved from AI Service route when `aiservice_instance_id` is configured
+
+### mas_manage_encryptionsecret_aiservice_fqn
+The fully qualified AI Service tenant name (format: `{instance_id}.{tenant_id}`) to configure in the encryption secret.
+
+- **Required** if `mas_manage_encryptionsecret_aiservice_apikey` is set
+- Environment Variable: `MAS_MANAGE_ENCRYPTIONSECRET_AISERVICE_FQN`
+- Default: Auto-generated from `aiservice_instance_id` and `aiservice_tenant_id` when configured
 
 ### Manage - Server Timezone setting variable
 ---
