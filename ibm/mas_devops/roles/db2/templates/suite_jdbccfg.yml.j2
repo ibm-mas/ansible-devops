@@ -4,7 +4,11 @@ kind: Secret
 type: Opaque
 metadata:
   name: "jdbc-{{ db2_instance_name | lower }}-credentials"
+{% if db2_instance_name.startswith('aiservice') %}
+  namespace: "aiservice-{{ mas_instance_id }}"
+{% else %}
   namespace: "mas-{{ mas_instance_id }}-core"
+{% endif %}
 {% if custom_labels is defined and custom_labels.items() %}
   labels:
 {% for key, value in custom_labels.items() %}
@@ -19,7 +23,11 @@ apiVersion: config.mas.ibm.com/v1
 kind: JdbcCfg
 metadata:
   name: "{{ suite_jdbccfg_name }}"
+{% if db2_instance_name.startswith('aiservice') %}
+  namespace: "aiservice-{{ mas_instance_id }}"
+{% else %}
   namespace: "mas-{{ mas_instance_id }}-core"
+{% endif %}
   labels: {{ suite_jdbccfg_labels }}
 spec:
   displayName: "{{ suite_jdbccfg_name }}"
