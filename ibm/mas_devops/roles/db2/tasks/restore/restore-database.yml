@@ -1,0 +1,31 @@
+---
+# Check db2 Restore required variables
+# -----------------------------------------------------------------------------
+- name: Verify DB2 restore variables
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: "db2"
+    action: "{{ db2_action }}_database"
+    db2_backup_version: "{{ db2_backup_version }}"
+    mas_backup_dir: "{{ mas_backup_dir }}"
+    db2_instance_name: "{{ db2_instance_name }}"
+    backup_vendor: "{{ backup_vendor }}"
+
+# Check s3 variables when backup vendor is s3
+# -----------------------------------------------------------------------------
+- name: "Verify DB2 S3 variables"
+  ibm.mas_devops.verify_backup_restore_vars:
+    component: "db2"
+    action: "s3_setup"
+    backup_vendor: "{{ backup_vendor }}"
+    backup_s3_alias: "{{ backup_s3_alias }}"
+    backup_s3_endpoint: "{{ backup_s3_endpoint }}"
+    backup_s3_bucket: "{{ backup_s3_bucket }}"
+    backup_s3_access_key: "{{ backup_s3_access_key }}"
+    backup_s3_secret_key: "{{ backup_s3_secret_key }}"
+  when: backup_vendor == "s3"
+
+- name: "Set fact backup_path for the backup script when backup vendor is s3"
+  set_fact:
+    full_backup_path: "DB2REMOTE://{{ backup_s3_alias }}/{{ backup_s3_bucket }}/backups-db2/{{ db2_backup_version }}"
+  when: backup_vendor == "s3"
+

@@ -206,7 +206,8 @@ class ActionModule(ActionBase):
             'db2_dbname': str(db2_dbname),
             'mas_instance_id': str(mas_instance_id),
             'db2_version': getDb2VersionFromCR(db2uCR=db2u_cr),
-            'db2_channel': channel_name
+            'db2_channel': channel_name,
+            'status': 'SUCCESS'
         }
 
         db2_info_file_path = os.path.join(db2_backup_resource_path, "db2-backup-info.yaml")

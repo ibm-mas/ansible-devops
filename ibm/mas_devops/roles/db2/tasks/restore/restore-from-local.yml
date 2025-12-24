@@ -1,0 +1,83 @@
+
+- name: "Set fact backup_path for the backup script when backup vendor is disk"
+  set_fact:
+   remote_full_backup_path: "/mnt/backup/{{ db2_backup_version }}"
+   local_full_backup_path: "{{ mas_backup_dir }}/backup-{{ db2_backup_version }}-db2u/data"
+
+# Check backup files in local backup directory if vendor is disk
+# -----------------------------------------------------------------------------
+# check db2-backup-info.yaml file exists in local backup directory
+- name: "Check db2-backup-info.yaml file exists in local backup directory"
+  stat:
+    path: "{{ local_full_backup_path }}/db2-backup-info.yaml"
+  register: db2_backup_info_file_stat
+
+- name: "Assert db2-backup-info.yaml file exists"
+  assert:
+    that:
+      - db2_backup_info_file_stat.stat.exists == true
+    fail_msg: "db2-backup-info.yaml file does not exist in {{ mas_backup_dir }}/data. Cannot proceed with restore."
+
+- name: include vars from db2-backup-info.yaml
+  include_vars:
+    file: "{{ local_full_backup_path }}/db2-backup-info.yaml"
+    name: db2_backup_info
+
+# check tar.gz file exists in local backup directory
+- name: Check for tar.gz file in backup directory
+  stat:
+    path: "{{ local_full_backup_path }}/db2_{{ db2_backup_info.database }}_backup_{{ db2_backup_info.source_db2_backup_version }}.tar.gz"
+  register: db2_backup_tar_stat
+
+- name: "Fail if db2_{{ db2_backup_info.database }}_backup_{{ db2_backup_info.source_db2_backup_version }}.tar.gz file not found"
+  assert:
+    that:
+      - db2_backup_tar_stat.stat.exists == true
+    fail_msg: "No db2_{{ db2_backup_info.database }}_backup_{{ db2_backup_info.source_db2_backup_version }}.tar.gz file found in {{ local_full_backup_path }}. Cannot proceed with restore."
+
+- name: "Set fact backup_archive"
+  set_fact:
+    backup_archive_filename: "db2_{{ db2_backup_info.database }}_backup_{{ db2_backup_info.source_db2_backup_version }}.tar.gz"
+
+# Check if Db2 instance is running and version match with backup version
+# -----------------------------------------------------------------------------
+- name: "Check DB2 is running and get DB2 pod name"
+  ibm.mas_devops.get_db2u_pod_name:
+    db2_instance_name: "{{ db2_instance_name }}"
+    db2_namespace: "{{ db2_namespace }}"
+  register: db2_pod_name_result
+
+- name: Assert DB2 is running and pod name is found
+  assert:
+    that:
+      - db2_pod_name_result is defined
+      - db2_pod_name_result.success
+      - db2_pod_name_result.pod_name != ""
+      - db2_pod_name_result.db2_version != ""
+    fail_msg: "DB2 Instance {{ db2_instance_name }} is not running in namespace {{ db2_namespace }}. Ensure the DB2 instance is running."
+
+- name: "Assert DB2 version matches backup version"
+  assert:
+    that:
+      - db2_pod_name_result.db2_version == db2_backup_info.db2_version
+    fail_msg: "DB2 version {{ db2_pod_name_result.db2_version }} does not match backup version {{ db2_backup_info.db2_version }}. Cannot proceed with restore."
+
+# Copy tar.gz to db2 pod
+# -----------------------------------------------------------------------------
+
+- name: "Create {{ remote_full_backup_path }} directory in DB2 pod"
+  shell: "oc exec -n {{ db2_namespace }} {{ db2_pod_name_result.pod_name }} -c db2u -- su -lc 'mkdir -p {{ remote_full_backup_path }}' db2inst1"
+  register: create_dir_result
+  failed_when: create_dir_result.rc != 0
+
+- name: "Copy backup archive to DB2 pod"
+  shell: "oc rsync -n {{ db2_namespace }} {{ local_full_backup_path }}/{{ backup_archive_filename }} {{ db2_pod_name_result.pod_name }}:{{ remote_full_backup_path }}/{{ backup_archive_filename }}"
+  register: copy_backup_result
+  failed_when: copy_backup_result.rc != 0
+
+- name: "Copying backup archive to DB2 pod result"
+  debug:
+    msg:
+      - "------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"
+      - "Backup archive {{ backup_archive_filename }} copied to DB2 pod {{ db2_pod_name_result.pod_name }} in path {{ remote_full_backup_path }}/{{ backup_archive_filename }}"
+      - "------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------"

@@ -25,13 +25,12 @@ def display_information(mongoDBCommunityCR : dict):
     display.v(f"MongoCE namespace .............................. {mongoDBCommunityCR['metadata']['namespace']}")
     display.v(f"MongoDB Version ................................ {mongoDBCommunityCR['spec']['version']}")
 
-def get_tlscertkey_secretname_from_mongoce(mongoDBCommunityCR : dict) -> str:
+def get_tlscertkey_secretname_from_mongoce(mongoDBCommunityCR : dict) -> str | None:
   if 'security' in mongoDBCommunityCR['spec']:
     if 'tls' in mongoDBCommunityCR['spec']['security']:
       if 'certificateKeySecretRef' in mongoDBCommunityCR['spec']['security']['tls']:
         return mongoDBCommunityCR['spec']['security']['tls']['certificateKeySecretRef']['name']
-    else:
-      return None
+  return None
 
 def get_usersecrets_from_mongoce(mongoDBCommunityCR : dict) -> list:
   user_secrets = []
@@ -42,12 +41,11 @@ def get_usersecrets_from_mongoce(mongoDBCommunityCR : dict) -> list:
       user_secrets.append(f"{user['scramCredentialsSecretName']}-scram-credentials")
   return user_secrets
 
-def get_prometheus_secretname_from_mongoce(mongoDBCommunityCR : dict) -> str:
+def get_prometheus_secretname_from_mongoce(mongoDBCommunityCR : dict) -> str | None:
   if 'prometheus' in mongoDBCommunityCR['spec']:
     if 'passwordSecretRef' in mongoDBCommunityCR['spec']['prometheus']:
       return mongoDBCommunityCR['spec']['prometheus']['passwordSecretRef']['name']
-    else:
-      return None
+  return None
 
 def getMongoVersionFromCR(mongoCR: dict) -> str:
     """
@@ -325,7 +323,12 @@ class ActionModule(ActionBase):
         prometheus_secret_names = get_prometheus_secretname_from_mongoce(mongodb_cr)
         tls_secret_names = get_tlscertkey_secretname_from_mongoce(mongodb_cr)
         
-        secret_names = user_secret_names + [prometheus_secret_names] + [tls_secret_names]
+        # Build secret_names list, filtering out None values
+        secret_names = user_secret_names.copy()
+        if prometheus_secret_names is not None:
+            secret_names.append(prometheus_secret_names)
+        if tls_secret_names is not None:
+            secret_names.append(tls_secret_names)
 
         display.v(f"All Secrets to backup:  '{secret_names}'")
 

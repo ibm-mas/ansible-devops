@@ -60,7 +60,7 @@ sleep 30
 
 
 if [ ${BACKUP_TYPE} = 'full' ] ; then
-	db2 -v backup db $DATABASE online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
+	db2 -v backup db $DATABASE on all dbpartitionnums online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
 else 
 	db2 -v backup db $DATABASE online INCREMENTAL DELTA to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting | tee -a $BACK_LOG
 fi   
@@ -68,28 +68,32 @@ grep -Fq "Backup successful." $BACK_LOG
 if [ $? = 0 ]; then
 	backup_timestamp=`grep timestamp $BACK_LOG | cut -d: -f2`
 else
-	echo " "                               
-	echo "********** BACKUP FAILED ************"  
-	echo " "                               
+	echo "" >&2
+	echo "********** BACKUP FAILED ************" >&2
+	echo "ERROR: Backup operation did not complete successfully" >&2
+	echo "ERROR: Timestamp: $(date '+%Y-%m-%d %H:%M:%S')" >&2
+	echo "ERROR: Check log file: ${BACK_LOG}" >&2
+	echo "" >&2
 	exit 1
 fi
 
+
 ######## Copy keystore to COS or Disk location based on VENDOR #########
+KEY_SOURCE1=/mnt/blumeta0/db2/keystore/keystore.p12
+KEY_SOURCE2=/mnt/blumeta0/db2/keystore/keystore.sth
 if [ ${VENDOR} = 's3' ] ; then
 	echo "Copying Keystore to COS location"
-	set -x       
-	SOURCE1=/mnt/blumeta0/db2/keystore/keystore.p12
-	SOURCE2=/mnt/blumeta0/db2/keystore/keystore.sth
-	TARGET1=KEYSTORE/keystore.p12
-	TARGET2=KEYSTORE/keystore.sth
+	set -x
+	TARGET1=keystore.p12
+	TARGET2=keystore.sth
 
-	db2RemStgManager ALIAS PUT source=${SOURCE1} target=${BACKUP_PATH}/${TARGET1}
-	db2RemStgManager ALIAS PUT source=${SOURCE2} target=${BACKUP_PATH}/${TARGET2}
+	db2RemStgManager ALIAS PUT source=${KEY_SOURCE1} target=${BACKUP_PATH}/${TARGET1}
+	db2RemStgManager ALIAS PUT source=${KEY_SOURCE2} target=${BACKUP_PATH}/${TARGET2}
 	echo "Copying Keystore to COS location - Completed"
 else
 	echo "Copying Keystore to local disk location"
-	cp /mnt/blumeta0/db2/keystore/keystore.p12 ${BACKUP_PATH}/keystore.p12
-	cp /mnt/blumeta0/db2/keystore/keystore.sth ${BACKUP_PATH}/keystore.sth
+	cp ${KEY_SOURCE1} ${BACKUP_PATH}/keystore.p12
+	cp ${KEY_SOURCE2} ${BACKUP_PATH}/keystore.sth
 	echo "Copying Keystore to local disk location - Completed"
 fi
 
@@ -98,6 +102,26 @@ echo "BACKUP End time : ${DATETIME}" >> $BACK_LOG
 echo "BACKUP End time : ${DATETIME}"
 echo " "
 
+if [ ${VENDOR} = 's3' ] ; then
+	echo " "
+	echo "Writing db2-backup-info.yaml file in /tmp directory..."
+	YAML_FILE=/tmp/db2-backup-info.yaml
+	cat <<EOT >> ${YAML_FILE}
+	source_db2_backup_version: {{ db2_backup_version }}
+	database: ${DATABASE}
+	backup_type: ${BACKUP_TYPE}
+	backup_vendor: ${VENDOR}
+	vendor_backup_path: ${BACKUP_PATH}
+	backup_timestamp: ${backup_timestamp}
+	source_db2_instance_name: {{ db2_instance_name }}
+	source_db2_instance_version: {{ db2_version }}
+	source_db2_instance_channel: {{ db2_channel }}
+	status: SUCCESS
+	EOT
+	echo "db2-backup-info.yaml file created at ${YAML_FILE}"
+	echo "Uploading db2-backup-info.yaml file to COS location..."
+	db2RemStgManager ALIAS PUT source=${YAML_FILE} target=${BACKUP_PATH}/db2-backup-info.yaml
+fi
 
 ###### If vendor is disk, tar the backup files
 if [ ${VENDOR} = 'disk' ] ; then

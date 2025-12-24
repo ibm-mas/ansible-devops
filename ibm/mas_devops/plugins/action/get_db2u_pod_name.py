@@ -60,7 +60,7 @@ class ActionModule(ActionBase):
                     failed=False,
                     success=True,
                     pod_name=pod_name,
-                    db2version=getDb2VersionFromCR(db2u_cr),
+                    db2_version=getDb2VersionFromCR(db2u_cr),
                     msg="Db2u Pod found"
                 )
             else:
