@@ -85,7 +85,32 @@
     apply: yes
     template: "templates/cpfs/subscription.yml.j2"
 
-# 2. Patch ZenService lite-cr to set the zen version and increase resource limits
+# During upgrades, patch existing zen-operator subscription to use new channel from updated catalog
+# This forces OLM to upgrade the operator to the new version automatically
+# The zen channel is derived from zen_cr_version variable (e.g., 6.2.0 -> v6.2)
+# ----------------------------------------------------------------------------------------------
+- name: "Patch zen-operator subscription to new channel during upgrade"
+  when: is_cpd_upgrade | default(false)
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: ibm-zen-operator
+    namespace: "{{ cpd_operators_namespace }}"
+    definition:
+      spec:
+        channel: "v{{ zen_cr_version.split('.')[0] }}.{{ zen_cr_version.split('.')[1] }}"
+        source: ibm-zen-operator-catalog
+        sourceNamespace: "{{ cpd_operators_namespace }}"
+    apply: yes
+  ignore_errors: yes
+
+# Wait for OLM to process the channel update and upgrade the operator
+- name: "Wait for OLM to upgrade zen-operator to new version"
+  when: is_cpd_upgrade | default(false)
+  pause:
+    seconds: 60
+
+# 2. Wait for operators to be ready
 # ----------------------------------------------------------------------------------------------
 - name: "Wait for ibm-common-service-operator to be ready (60s delay)"
   kubernetes.core.k8s_info:
