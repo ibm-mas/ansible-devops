@@ -57,6 +57,8 @@ sleep 30
 
 
 if [ ${BACKUP_TYPE} = 'full' ] ; then
+	echo "Performing FULL Online backup of database $DATABASE ..."
+	echo "db2 -v backup db $DATABASE on all dbpartitionnums online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting"
 	BACKUP_CMD=$(db2 -v backup db $DATABASE on all dbpartitionnums online to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting)
 else 
 	BACKUP_CMD=$(db2 -v backup db $DATABASE online INCREMENTAL DELTA to $BACKUP_PATH compress  UTIL_IMPACT_PRIORITY 50 include logs without prompting)
@@ -64,7 +66,7 @@ fi
 
 if echo "$BACKUP_CMD" | grep -q "Backup successful."; then
 	echo "$BACKUP_CMD"
-  	backup_timestamp=`grep timestamp $BACKUP_CMD | cut -d: -f2`
+  	backup_timestamp=`echo "$output" | grep timestamp | cut -d: -f2`
 else
 	echo "********** BACKUP FAILED ************" >&2
 	echo "ERROR: Backup operation did not complete successfully" >&2
@@ -95,29 +97,30 @@ DATETIME=`date +%Y-%m-%d_%H%M%S`;
 echo "BACKUP End time : ${DATETIME}"
 echo " "
 
+echo "Writing db2-backup-info.yaml file in /tmp directory..."
+YAML_FILE=/tmp/db2-backup-info.yaml
+cat <<EOT >> ${YAML_FILE}
+source_db2_backup_version: {{ db2_backup_version }}
+database: ${DATABASE}
+backup_type: ${BACKUP_TYPE}
+backup_vendor: ${VENDOR}
+vendor_backup_path: ${BACKUP_PATH}
+backup_timestamp: ${backup_timestamp}
+source_db2_instance_name: {{ db2_instance_name }}
+source_db2_instance_version: {{ db2_version }}
+source_db2_instance_channel: {{ db2_channel }}
+status: SUCCESS
+EOT
+echo "db2-backup-info.yaml file created at ${YAML_FILE}"
+
 if [ ${VENDOR} = 's3' ] ; then
-	echo " "
-	echo "Writing db2-backup-info.yaml file in /tmp directory..."
-	YAML_FILE=/tmp/db2-backup-info.yaml
-	cat <<EOT >> ${YAML_FILE}
-	source_db2_backup_version: {{ db2_backup_version }}
-	database: ${DATABASE}
-	backup_type: ${BACKUP_TYPE}
-	backup_vendor: ${VENDOR}
-	vendor_backup_path: ${BACKUP_PATH}
-	backup_timestamp: ${backup_timestamp}
-	source_db2_instance_name: {{ db2_instance_name }}
-	source_db2_instance_version: {{ db2_version }}
-	source_db2_instance_channel: {{ db2_channel }}
-	status: SUCCESS
-	EOT
-	echo "db2-backup-info.yaml file created at ${YAML_FILE}"
-	echo "Uploading db2-backup-info.yaml file to COS location..."
+	echo "Uploading /tmp/db2-backup-info.yaml file to COS location..."
 	db2RemStgManager ALIAS PUT source=${YAML_FILE} target=${BACKUP_PATH}/db2-backup-info.yaml
 fi
 
 ###### If vendor is disk, tar the backup files
 if [ ${VENDOR} = 'disk' ] ; then
+	cp ${YAML_FILE} ${BACKUP_PATH}/db2-backup-info.yaml
 	echo "Starting to tar the backup files..."
 	tar -czf ${BACKUP_PATH}/db2_${DATABASE}_backup_{{ db2_backup_version }}.tar.gz -C ${BACKUP_PATH} .
 	echo "Tar backup files completed. Showing disk usage:"
